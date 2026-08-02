@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Terminus TMS — Smoke Test</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { font-family: system-ui, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.5; color: #1a1a1a; }
+    h1 { font-size: 1.4rem; margin-bottom: 0.25rem; }
+    h2 { font-size: 1.1rem; margin: 1.5rem 0 0.5rem; border-bottom: 1px solid #e5e5e5; padding-bottom: 0.25rem; }
+    .section { margin-bottom: 2rem; }
+    label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.25rem; }
+    input, select, textarea { width: 100%; padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.9rem; }
+    button { padding: 7px 16px; border: none; border-radius: 4px; background: #1a56db; color: #fff; font-size: 0.9rem; cursor: pointer; margin-top: 8px; }
+    button:hover { background: #1e429f; }
+    button.secondary { background: #6b7280; }
+    button.secondary:hover { background: #374151; }
+    button.danger { background: #dc2626; }
+    button.danger:hover { background: #b91c1c; }
+    #auth-section { text-align: center; margin-top: 80px; }
+    #auth-section h1 { font-size: 1.8rem; }
+    #auth-section p { color: #555; }
+    #user-bar { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: #f3f4f6; border-radius: 6px; margin-bottom: 1.5rem; font-size: 0.85rem; }
+    #records-list { margin-top: 0.5rem; }
+    .record-card { border: 1px solid #e5e5e5; border-radius: 6px; padding: 12px; margin-bottom: 10px; }
+    .record-card h3 { margin: 0 0 4px; font-size: 0.95rem; font-family: monospace; }
+    .record-card .meta { font-size: 0.8rem; color: #666; margin-bottom: 8px; }
+    .record-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .record-actions button { margin-top: 0; font-size: 0.8rem; padding: 4px 10px; }
+    pre { background: #f8f8f8; border: 1px solid #e5e5e5; border-radius: 4px; padding: 12px; font-size: 0.8rem; overflow-x: auto; white-space: pre-wrap; margin-top: 0.5rem; }
+    .hidden { display: none; }
+    .status-badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 600; background: #dbeafe; color: #1e40af; }
+    .status-badge.active { background: #dcfce7; color: #166534; }
+    .status-badge.archived { background: #f3f4f6; color: #374151; }
+  </style>
+</head>
+<body>
+
+<div id="auth-section">
+  <h1>Terminus TMS</h1>
+  <p>Sign in to continue.</p>
+  <button id="btn-google-login" style="font-size:1rem;padding:12px 28px;">Sign in with Google</button>
+  <div id="auth-error" style="color:#dc2626;margin-top:12px;"></div>
+</div>
+
+<div id="app-section" class="hidden">
+  <div id="user-bar">
+    <span id="user-email"></span>
+    <button class="secondary" id="btn-logout" style="margin-top:0">Sign out</button>
+  </div>
+
+  <h1>Terminus TMS — Smoke Test</h1>
+  <p style="color:#555;font-size:0.9rem;">
+    This page exercises the generic engine: create a <code>smoke_test</code> record,
+    approve it, then transition it from <code>draft → active</code>.
+  </p>
+
+  <div class="section">
+    <h2>Create a smoke_test record</h2>
+    <label for="record-name">Name (stored in payload)</label>
+    <input id="record-name" type="text" placeholder="e.g. My first smoke test" />
+    <button id="btn-create-record">Create record</button>
+  </div>
+
+  <div class="section">
+    <h2>Your records</h2>
+    <button class="secondary" id="btn-refresh-records">Refresh</button>
+    <div id="records-list"><em style="font-size:0.85rem;color:#666;">No records yet.</em></div>
+  </div>
+
+  <div class="section">
+    <h2>API response</h2>
+    <pre id="output">—</pre>
+  </div>
+</div>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>
