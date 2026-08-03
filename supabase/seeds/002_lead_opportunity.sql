@@ -1,0 +1,7 @@
+-- No Opportunity gate rules seeded here.
+-- Section 5 of DESIGN_PRINCIPLES.md defines Qualified → Proposal as requiring
+-- Commercial and Technical track approvals, but those require routing_rules and
+-- per-opportunity role assignments that aren't built yet. Gate rules will be
+-- inserted once the approval routing engine is complete (Milestone 3+).
+-- The original seed that inserted an 'Internal' track requirement here was removed:
+-- 'Internal' is a smoke_test track, not part of the Opportunity approval model.

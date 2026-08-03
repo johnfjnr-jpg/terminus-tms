@@ -6,6 +6,10 @@ import { requireAuth } from './middleware/auth.js'
 import recordsRoutes from './routes/records.js'
 import transitionsRoutes from './routes/transitions.js'
 import approvalsRoutes from './routes/approvals.js'
+import leadsRoutes from './routes/leads.js'
+import opportunitiesRoutes from './routes/opportunities.js'
+import testBedsRoutes from './routes/test-beds.js'
+import stageDefinitionsRoutes from './routes/stage-definitions.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -40,6 +44,10 @@ await fastify.register(async function authenticatedRoutes(app) {
   app.register(recordsRoutes, { prefix: '/api' })
   app.register(transitionsRoutes, { prefix: '/api' })
   app.register(approvalsRoutes, { prefix: '/api' })
+  app.register(leadsRoutes, { prefix: '/api' })
+  app.register(opportunitiesRoutes, { prefix: '/api' })
+  app.register(testBedsRoutes, { prefix: '/api' })
+  app.register(stageDefinitionsRoutes, { prefix: '/api' })
 })
 
 const port = parseInt(process.env.PORT ?? '3000', 10)

@@ -1,80 +1,302 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Terminus TMS — Smoke Test</title>
-  <style>
-    *, *::before, *::after { box-sizing: border-box; }
-    body { font-family: system-ui, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.5; color: #1a1a1a; }
-    h1 { font-size: 1.4rem; margin-bottom: 0.25rem; }
-    h2 { font-size: 1.1rem; margin: 1.5rem 0 0.5rem; border-bottom: 1px solid #e5e5e5; padding-bottom: 0.25rem; }
-    .section { margin-bottom: 2rem; }
-    label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.25rem; }
-    input, select, textarea { width: 100%; padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.9rem; }
-    button { padding: 7px 16px; border: none; border-radius: 4px; background: #1a56db; color: #fff; font-size: 0.9rem; cursor: pointer; margin-top: 8px; }
-    button:hover { background: #1e429f; }
-    button.secondary { background: #6b7280; }
-    button.secondary:hover { background: #374151; }
-    button.danger { background: #dc2626; }
-    button.danger:hover { background: #b91c1c; }
-    #auth-section { text-align: center; margin-top: 80px; }
-    #auth-section h1 { font-size: 1.8rem; }
-    #auth-section p { color: #555; }
-    #user-bar { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: #f3f4f6; border-radius: 6px; margin-bottom: 1.5rem; font-size: 0.85rem; }
-    #records-list { margin-top: 0.5rem; }
-    .record-card { border: 1px solid #e5e5e5; border-radius: 6px; padding: 12px; margin-bottom: 10px; }
-    .record-card h3 { margin: 0 0 4px; font-size: 0.95rem; font-family: monospace; }
-    .record-card .meta { font-size: 0.8rem; color: #666; margin-bottom: 8px; }
-    .record-actions { display: flex; gap: 8px; flex-wrap: wrap; }
-    .record-actions button { margin-top: 0; font-size: 0.8rem; padding: 4px 10px; }
-    pre { background: #f8f8f8; border: 1px solid #e5e5e5; border-radius: 4px; padding: 12px; font-size: 0.8rem; overflow-x: auto; white-space: pre-wrap; margin-top: 0.5rem; }
-    .hidden { display: none; }
-    .status-badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 600; background: #dbeafe; color: #1e40af; }
-    .status-badge.active { background: #dcfce7; color: #166534; }
-    .status-badge.archived { background: #f3f4f6; color: #374151; }
-  </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Terminus TMS</title>
+
+  <!-- Fonts: JetBrains Mono from Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+
+  <!-- Fonts: General Sans + Satoshi from Fontshare -->
+  <link href="https://api.fontshare.com/v2/css?f[]=general-sans@400,500,600&f[]=satoshi@300,400,500&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="/style.css">
 </head>
 <body>
 
-<div id="auth-section">
-  <h1>Terminus TMS</h1>
-  <p>Sign in to continue.</p>
-  <button id="btn-google-login" style="font-size:1rem;padding:12px 28px;">Sign in with Google</button>
-  <div id="auth-error" style="color:#dc2626;margin-top:12px;"></div>
-</div>
-
-<div id="app-section" class="hidden">
-  <div id="user-bar">
-    <span id="user-email"></span>
-    <button class="secondary" id="btn-logout" style="margin-top:0">Sign out</button>
-  </div>
-
-  <h1>Terminus TMS — Smoke Test</h1>
-  <p style="color:#555;font-size:0.9rem;">
-    This page exercises the generic engine: create a <code>smoke_test</code> record,
-    approve it, then transition it from <code>draft → active</code>.
-  </p>
-
-  <div class="section">
-    <h2>Create a smoke_test record</h2>
-    <label for="record-name">Name (stored in payload)</label>
-    <input id="record-name" type="text" placeholder="e.g. My first smoke test" />
-    <button id="btn-create-record">Create record</button>
-  </div>
-
-  <div class="section">
-    <h2>Your records</h2>
-    <button class="secondary" id="btn-refresh-records">Refresh</button>
-    <div id="records-list"><em style="font-size:0.85rem;color:#666;">No records yet.</em></div>
-  </div>
-
-  <div class="section">
-    <h2>API response</h2>
-    <pre id="output">—</pre>
+<!-- ── Auth screen ──────────────────────────────────────────────────────── -->
+<div id="view-auth" class="view-auth hidden">
+  <div class="auth-card">
+    <p class="eyebrow">Terminus</p>
+    <h1>Sign in</h1>
+    <button id="btn-google-login" class="btn-primary">Continue with Google</button>
+    <p class="auth-error" id="auth-error"></p>
   </div>
 </div>
 
-<script type="module" src="app.js"></script>
+<!-- ── Authenticated app shell ─────────────────────────────────────────── -->
+<div id="app-shell" class="hidden">
+
+  <nav class="nav">
+    <span class="nav-brand">TERMINUS <span>· TMS</span></span>
+    <div class="nav-links">
+      <button class="nav-link" data-view="leads">Leads</button>
+      <button class="nav-link" data-view="test-beds">Test Beds</button>
+      <button class="nav-link" data-view="opportunities">Opportunities</button>
+    </div>
+    <div class="nav-user">
+      <span class="nav-user-email" id="nav-email"></span>
+      <button class="btn-text" id="btn-signout">Sign out</button>
+    </div>
+  </nav>
+
+  <!-- ── Leads ────────────────────────────────────────────────────────── -->
+  <div id="view-leads" class="wrap hidden">
+    <div class="page-head">
+      <div>
+        <p class="eyebrow">Pipeline</p>
+        <h1>Leads</h1>
+        <p class="sub">Inbound companies not yet qualified.</p>
+      </div>
+      <button class="btn-primary" id="btn-new-lead">New lead</button>
+    </div>
+
+    <div id="new-lead-form" class="inline-form hidden">
+      <h2>New lead</h2>
+      <div class="form-grid">
+        <div class="form-group">
+          <label for="lead-company">Company</label>
+          <input type="text" id="lead-company" placeholder="Acme Corp">
+        </div>
+        <div class="form-group">
+          <label for="lead-contact">Contact</label>
+          <input type="text" id="lead-contact" placeholder="Jane Smith">
+        </div>
+        <div class="form-group">
+          <label for="lead-source">Source</label>
+          <select id="lead-source">
+            <option value="">Select source</option>
+            <option value="Inbound">Inbound</option>
+            <option value="Referral">Referral</option>
+            <option value="Outbound">Outbound</option>
+            <option value="Conference">Conference</option>
+            <option value="Partner">Partner</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="lead-notes">Notes</label>
+          <input type="text" id="lead-notes" placeholder="Optional">
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="btn-primary" id="btn-save-lead">Save lead</button>
+        <button class="btn-ghost" id="btn-cancel-lead">Cancel</button>
+        <span class="msg-error hidden" id="lead-form-error"></span>
+      </div>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Company</th>
+          <th>Contact</th>
+          <th>Source</th>
+          <th>Status</th>
+          <th>Age</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="leads-tbody">
+        <tr><td colspan="6" class="empty-state">Loading...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ── Test Beds ─────────────────────────────────────────────────────── -->
+  <div id="view-test-beds" class="wrap hidden">
+    <div class="page-head">
+      <div>
+        <p class="eyebrow">R&amp;D</p>
+        <h1>Test Beds</h1>
+        <p class="sub">Client R&amp;D engagements. Cost to the business, no billing.</p>
+      </div>
+      <button class="btn-primary" id="btn-new-testbed">New test bed</button>
+    </div>
+
+    <div id="new-testbed-form" class="inline-form hidden">
+      <h2>New test bed</h2>
+      <div class="form-grid">
+        <div class="form-group">
+          <label for="tb-name">Name</label>
+          <input type="text" id="tb-name" placeholder="e.g. Acme Site Alpha">
+        </div>
+        <div class="form-group">
+          <label for="tb-client">Client organisation</label>
+          <input type="text" id="tb-client" placeholder="Acme Corp">
+        </div>
+        <div class="form-group">
+          <label for="tb-cost">Accumulated cost (GBP)</label>
+          <input type="text" id="tb-cost" placeholder="0">
+        </div>
+        <div class="form-group">
+          <label for="tb-notes">Notes</label>
+          <input type="text" id="tb-notes" placeholder="Optional">
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="btn-primary" id="btn-save-testbed">Save test bed</button>
+        <button class="btn-ghost" id="btn-cancel-testbed">Cancel</button>
+        <span class="msg-error hidden" id="testbed-form-error"></span>
+      </div>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Client</th>
+          <th>Stage</th>
+          <th>Cost</th>
+          <th>Age</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="testbeds-tbody">
+        <tr><td colspan="6" class="empty-state">Loading...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ── Test Bed detail ───────────────────────────────────────────────── -->
+  <div id="view-test-bed-detail" class="wrap hidden">
+    <div class="detail-head">
+      <div>
+        <button class="btn-text" id="btn-back-testbeds">Back to test beds</button>
+        <p class="eyebrow" style="margin-top:16px">Test Bed</p>
+        <h1 id="tb-detail-name"></h1>
+        <p class="sub" id="tb-detail-client"></p>
+      </div>
+      <span class="tag">R&amp;D</span>
+    </div>
+
+    <div class="tracker" id="tb-stage-tracker"></div>
+    <div id="tb-planning-sub-section" class="tracker-sub-section">
+      <p class="sub-tracker-label">Planning sub-stages</p>
+      <div class="tracker tracker-sub" id="tb-sub-tracker"></div>
+    </div>
+
+    <div class="stats-grid">
+      <div>
+        <span class="label">Stage</span>
+        <div class="stat-value" id="tb-detail-stage">--</div>
+      </div>
+      <div>
+        <span class="label">Accumulated cost</span>
+        <div class="stat-value" id="tb-detail-cost">--</div>
+      </div>
+      <div>
+        <span class="label">Age</span>
+        <div class="stat-value" id="tb-detail-age">--</div>
+      </div>
+      <div>
+        <span class="label">Notes</span>
+        <div class="stat-value" id="tb-detail-notes" style="font-size:13px">--</div>
+      </div>
+    </div>
+
+    <div>
+      <p class="section-title">Stage transition</p>
+      <div id="tb-transition-section"></div>
+    </div>
+
+    <div style="margin-top:32px">
+      <p class="section-title">Documents</p>
+      <div id="tb-documents-section"></div>
+    </div>
+
+    <div style="margin-top:32px">
+      <p class="section-title">Approvals</p>
+      <div id="tb-approvals-section"></div>
+    </div>
+
+    <div style="margin-top:32px">
+      <p class="section-title">Convert to Opportunity</p>
+      <div id="tb-convert-section"></div>
+    </div>
+  </div>
+
+  <!-- ── Opportunities ─────────────────────────────────────────────────── -->
+  <div id="view-opportunities" class="wrap hidden">
+    <div class="page-head">
+      <div>
+        <p class="eyebrow">Pipeline</p>
+        <h1>Opportunities</h1>
+        <p class="sub">Active deals across all stages.</p>
+      </div>
+    </div>
+
+    <div class="toolbar">
+      <div class="view-toggle">
+        <button id="opp-btn-list" class="active">List</button>
+        <button id="opp-btn-grid">Grid</button>
+      </div>
+    </div>
+
+    <div id="opp-list">
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Company</th>
+            <th>Stage</th>
+            <th>Probability</th>
+            <th>Age</th>
+          </tr>
+        </thead>
+        <tbody id="opps-tbody">
+          <tr><td colspan="5" class="empty-state">Loading...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div id="opp-grid" class="cards hidden"></div>
+  </div>
+
+  <!-- ── Opportunity detail ─────────────────────────────────────────────── -->
+  <div id="view-opportunity-detail" class="wrap hidden">
+    <div class="detail-head">
+      <div>
+        <button class="btn-text" id="btn-back-opps">Back to opportunities</button>
+        <p class="eyebrow" style="margin-top:16px">Opportunity</p>
+        <h1 id="detail-name"></h1>
+        <p class="sub" id="detail-company"></p>
+      </div>
+      <div id="detail-origin-tag"></div>
+    </div>
+
+    <div class="tracker" id="stage-tracker"></div>
+
+    <div class="stats-grid">
+      <div>
+        <span class="label">Probability</span>
+        <div class="stat-value" id="detail-probability">--</div>
+      </div>
+      <div>
+        <span class="label">Forecast close</span>
+        <div class="stat-value" id="detail-close-date">--</div>
+      </div>
+      <div>
+        <span class="label">Test bed cost</span>
+        <div class="stat-value" id="detail-testbed-cost">--</div>
+      </div>
+      <div>
+        <span class="label">Age</span>
+        <div class="stat-value" id="detail-age">--</div>
+      </div>
+    </div>
+
+    <div>
+      <p class="section-title">Stage transition</p>
+      <div id="transition-section"></div>
+    </div>
+  </div>
+
+</div><!-- /app-shell -->
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="/app.js"></script>
 </body>
 </html>
