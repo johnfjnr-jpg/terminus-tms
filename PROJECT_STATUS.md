@@ -17,17 +17,28 @@ Stack: PostgreSQL via Supabase, Node.js/Fastify backend, plain HTML/JS frontend 
 - **Generic engine** (Milestone 1): `records`, `record_revisions`, `approvals`, `audit_log`, `roles`, RLS from the first migration, stage-gate enforcement proven end to end on a trivial smoke-test record type.
 - **Lead and Opportunity** (Milestone 2): create, convert, move through Discovery to Closing, gate-checked.
 - **Test Bed split out as its own record type**, not a variant of Opportunity, found necessary through testing, not planned upfront. Own stage lifecycle (Planning through Closed), own reference code, own contacts/documents.
-- **Two real bugs found and fixed through testing**, not caught by inspection: a `google.script.run` Date-serialization issue in an earlier prototype phase, and an ambiguous foreign-key relationship (`opportunity_details` to `records`) once `converted_from_test_bed_id` was added, which broke Opportunity listing until an explicit relationship name was specified in the query.
+- **Planning restructured to four sub-stages**: NDA, Site Assessment, Partnership and Test Bed Agreement, and Compliance and Data Protection (CaDP), which bundles APD and DPIA as two documents required together, no order between them, both needed before advancing. Confirmed working: tried advancing with only one of the two done, correctly blocked, unblocked once both complete.
+- **"Review" renamed to "Close out Review"**, the final customer meeting reviewing success criteria and deciding next actions, confirmed in place.
+- **Two-level stage tracker UI (first version)**: Planning shows as one step in the main tracker with its sub-stages in a secondary track beneath it, confirmed visually working as briefed.
+- **Three real bugs found and fixed through testing**, not caught by inspection:
+  1. A `google.script.run` Date-serialization issue in an earlier prototype phase.
+  2. An ambiguous foreign-key relationship (`opportunity_details` to `records`) once `converted_from_test_bed_id` was added, which broke Opportunity listing until an explicit relationship name was specified in the query.
+  3. (Not a bug, but worth recording as a testing false alarm) A blocked Discovery-to-Qualified transition that turned out to be the correct gate working, the actual issue was a missing approved "Site Assessment" document, not broken logic.
 
-## Just briefed, not yet tested
+## Just designed, not yet briefed to Claude Code
 
-Sent to Claude Code, results not yet confirmed:
+The Test Bed stage screen is getting a second UI pass, the first version (card-based vertical list) has been superseded by a clearer direction, agreed but not yet built:
 
-1. Planning restructured from five sub-stages to four (NDA, Site Assessment, Partnership and Test Bed Agreement, and Compliance and Data Protection/CaDP, which bundles APD and DPIA as two documents required together, not sequential steps)
-2. "Review" renamed to "Close out Review"
-3. Frontend: Planning should show as one step in the main stage tracker, with its sub-stages in a secondary track beneath it, not flattened into the main line
+- **Chevron-style horizontal overview strip** at the top (current stage highlighted), replacing the dot tracker
+- **Table below it**, listing the current stage's documents: Document name, Status (Not Started / Started), a link to the document's actual location in Google Drive, a "Send for Approval" action, and an Approved result once approved
+- **CaDP shown as a spanning group-header row** in the table, with APD and DPIA listed underneath, and the "no order required, both must complete" rule stated directly in the row
+- This confirms a real requirement, not just a principle: documents link out to Google Drive rather than being stored or rendered by the system itself (already the stated design principle in Section 1, now concretely proven needed)
 
-**Next action: test this once built**, same discipline as every milestone so far, create a Test Bed, move through the sub-stages, confirm CaDP genuinely requires both documents, confirm the tracker UI actually shows the two-level structure, don't commit until confirmed.
+**Next action: brief Claude Code to rebuild the Test Bed stage screen this way**, replacing the card-based version from the previous session. Test the same way as always before committing.
+
+## Queued, explicitly not urgent
+
+- **Admin configuration screen** for `stage_gate_rules`, letting someone with a global `admin` role (a `roles` row with `record_type = null`, applies everywhere, not one record type) add or remove required documents/approval tracks per stage, without editing the database directly. Real module, not a quick addition. Until it's built, keep editing `stage_gate_rules` directly via Supabase's own editor, that's fine for now.
 
 ## Known placeholders, real values still needed
 
@@ -50,7 +61,7 @@ Stage probability defaults ARE real (Discovery 10%, Qualified 20%, Proposal 50%,
 
 ## Build order from here
 
-Per `DESIGN_PRINCIPLES.md` Section 9, roughly in this order: Deal Sheet module, extract/confirm the workflow engine is genuinely record-type agnostic before building further, Opportunity value estimation, product capability catalog, then Risk Register/Pilot/Deployment/Asset Management and the rest.
+Per `DESIGN_PRINCIPLES.md` Section 9: Deal Sheet module next, extract/confirm the workflow engine is genuinely record-type agnostic before building further, Opportunity value estimation, product capability catalog, the admin configuration screen, then Risk Register/Pilot/Deployment/Asset Management and the rest.
 
 ## Working habits that have paid off, worth keeping
 
@@ -58,3 +69,4 @@ Per `DESIGN_PRINCIPLES.md` Section 9, roughly in this order: Deal Sheet module, 
 - Report bugs with the actual error text/log output, not a description of the symptom, this has consistently led to fast, correct fixes rather than guesswork
 - When Claude Code proposes a fix, get the actual before/after confirmed working, not just that it ran without erroring
 - Update `DESIGN_PRINCIPLES.md` before briefing a structural change, not after, so the doc stays the source of truth rather than drifting from what's actually built
+- When a blocked transition looks like a bug, check the actual requirement named in the error before assuming it's broken, one "bug" this session turned out to be the gate working correctly
