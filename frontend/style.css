@@ -263,6 +263,132 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
 .card-row { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; }
 .card-meta { font-family: var(--mono); font-size: 12px; color: var(--muted); }
 
+/* ── Record card list ──────────────────────────────────────────
+   Standard list-row pattern for every record list in the app (Leads,
+   Opportunities, and any list added later): a bordered card per row,
+   primary label + status on line one, secondary context pushed to a
+   dimmed second line rather than a separate column, stats anchored
+   right. Use .record-list for header-less card stacks (Leads); use
+   .record-grid-head/.record-grid-row together when a column header is
+   warranted (Opportunities) — header and rows share one grid template
+   so right-hand tracks line up as fixed widths, never bare 1fr. */
+.record-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.record-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  border: 1px solid var(--hairline-strong);
+  padding: 16px 20px;
+}
+.record-card.is-clickable { cursor: pointer; }
+.record-card.is-clickable:hover { border-color: var(--white); }
+
+.record-card-main { min-width: 0; flex: 1; }
+
+.record-card-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.record-card-title {
+  font-family: var(--body);
+  font-weight: 500;
+  font-size: 16px;
+  color: var(--white);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.record-card-meta {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.record-card-side {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  flex-shrink: 0;
+}
+
+.record-card-stat {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--muted);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.record-grid-head,
+.record-grid-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 110px 190px;
+  gap: 16px;
+  align-items: center;
+}
+
+.record-grid-head {
+  padding: 0 20px 10px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  border-bottom: 1px solid var(--hairline-strong);
+  margin-bottom: 4px;
+}
+.record-grid-head span:not(:first-child) { text-align: right; }
+
+.record-grid-row {
+  border: 1px solid var(--hairline-strong);
+  padding: 14px 20px;
+  cursor: pointer;
+}
+.record-grid-row:hover { border-color: var(--white); }
+
+.rg-name { min-width: 0; }
+.rg-title {
+  font-family: var(--body);
+  font-weight: 500;
+  font-size: 16px;
+  color: var(--white);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rg-meta {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rg-stage { justify-self: end; }
+.rg-combined {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--muted);
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* ── Stage tracker ──────────────────────────────────────────── */
 .tracker {
   display: flex;
@@ -322,24 +448,138 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
   margin-top: 5px;
 }
 
-/* ── Planning sub-tracker ───────────────────────────────────── */
-.tracker-sub-section {
-  margin-top: -28px;
-  margin-bottom: 44px;
+/* ── Chevron strip (Test Bed stage overview) ────────────────── */
+.chevron-strip {
+  display: flex;
+  height: 36px;
+  margin: 32px 0 44px;
+  overflow: hidden;
 }
 
-.sub-tracker-label {
+.chevron-item {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-family: var(--mono);
-  font-size: 10px;
-  letter-spacing: 0.14em;
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--muted-2);
-  margin: 0 0 8px;
+  background: var(--black);
+  clip-path: polygon(0% 0%, calc(100% - 11px) 0%, 100% 50%, calc(100% - 11px) 100%, 0% 100%, 11px 50%);
+  margin-right: -11px;
+  padding: 0 18px;
+  position: relative;
+  text-align: center;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.chevron-item:first-child {
+  clip-path: polygon(0% 0%, calc(100% - 11px) 0%, 100% 50%, calc(100% - 11px) 100%, 0% 100%);
+}
+.chevron-item:last-child {
+  clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%, 11px 50%);
+  margin-right: 0;
+}
+.chevron-item.done {
+  background: rgba(242,242,240,0.08);
+  color: var(--muted);
+}
+.chevron-item.current {
+  background: var(--green);
+  color: var(--dark);
 }
 
-.tracker-sub {
-  margin: 0;
+/* ── Document requirements table ────────────────────────────── */
+.doc-table {
+  width: 100%;
+  border-collapse: collapse;
 }
+.doc-table thead th {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted-2);
+  text-align: left;
+  font-weight: 400;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--hairline-strong);
+}
+.doc-table tbody td {
+  padding: 13px 12px;
+  border-bottom: 1px solid var(--hairline);
+  font-size: 14px;
+  vertical-align: middle;
+}
+.doc-table tbody tr { cursor: default; }
+.doc-table tbody tr:hover td { background: none; }
+
+.doc-group-header-row td {
+  background: rgba(102,204,153,0.06);
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--hairline-strong);
+}
+.doc-group-name {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--green);
+  display: block;
+  opacity: 0.8;
+}
+.doc-group-note {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--muted-2);
+  display: block;
+  margin-top: 3px;
+}
+
+.doc-status {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.doc-status--notstarted { color: var(--muted-2); }
+.doc-status--started    { color: var(--muted); }
+.doc-status--approved   { color: var(--green); }
+
+.doc-link {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  text-decoration: underline;
+  text-decoration-color: var(--hairline-strong);
+}
+.doc-link:hover { color: var(--white); }
+
+.btn-sm {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: none;
+  border: 1px solid var(--hairline-strong);
+  color: var(--muted);
+  padding: 6px 14px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.btn-sm:hover { color: var(--white); border-color: var(--white); }
+.btn-sm.btn-primary { border-color: var(--green); color: var(--green); }
+.btn-sm.btn-primary:hover { background: rgba(102,204,153,0.08); }
+
+.doc-inline-form {
+  padding: 14px 12px;
+  background: rgba(242,242,240,0.03);
+}
+.doc-form-row td { padding: 0; }
 
 /* ── Opportunity detail stats ───────────────────────────────── */
 .stats-grid {
@@ -403,6 +643,7 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
 }
 
 input[type="text"],
+input[type="number"],
 input[type="date"],
 select,
 textarea {
@@ -417,11 +658,17 @@ textarea {
 }
 
 input[type="text"]:focus,
+input[type="number"]:focus,
 input[type="date"]:focus,
 select:focus,
 textarea:focus {
   outline: none;
   border-bottom-color: var(--white);
+}
+
+input[readonly] {
+  color: var(--muted);
+  cursor: default;
 }
 
 select { cursor: pointer; }

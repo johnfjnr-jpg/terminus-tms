@@ -1,67 +1,95 @@
 -- Test Bed stage gate rules.
--- Planning sub-stage document gates (document_status, not yet enforced by the engine on older
--- installs, but NOW enforced -- see transitions.js). Each WHERE NOT EXISTS guard uses
--- requirement_detail::text since JSONB equality with ON CONFLICT requires exact key ordering.
+-- Single gate within Planning (NDA must be signed before Site Assessment).
+-- All other Planning documents can be worked on freely from Site Assessment.
+-- Hard gate: ALL five planning documents must be approved before leaving Planning
+-- (CaDP → Installation and Commissioning).
 
--- NDA → Site Assessment
+-- NDA → Site Assessment: NDA must be approved
 INSERT INTO public.stage_gate_rules
   (record_type, variant, from_stage, to_stage, requirement_type, requirement_detail)
-SELECT 'test_bed', NULL, 'NDA', 'Site Assessment', 'document_status', '{"document": "NDA", "status": "signed"}'
+SELECT 'test_bed', NULL, 'NDA', 'Site Assessment', 'document_status',
+       '{"document": "NDA", "status": "approved"}'
 WHERE NOT EXISTS (
   SELECT 1 FROM public.stage_gate_rules
   WHERE record_type = 'test_bed' AND variant IS NULL
     AND from_stage = 'NDA' AND to_stage = 'Site Assessment'
     AND requirement_type = 'document_status'
-    AND requirement_detail::text = '{"document": "NDA", "status": "signed"}'
+    AND requirement_detail::text = '{"document": "NDA", "status": "approved"}'
 );
 
--- Site Assessment → Partnership and Test Bed Agreement
+-- CaDP → Installation and Commissioning: all five planning documents required.
+-- No order between them; all must be approved before this transition.
+
 INSERT INTO public.stage_gate_rules
   (record_type, variant, from_stage, to_stage, requirement_type, requirement_detail)
-SELECT 'test_bed', NULL, 'Site Assessment', 'Partnership and Test Bed Agreement', 'document_status', '{"document": "Site Assessment", "status": "complete"}'
+SELECT 'test_bed', NULL,
+       'Compliance and Data Protection', 'Installation and Commissioning',
+       'document_status', '{"document": "NDA", "status": "approved"}'
 WHERE NOT EXISTS (
   SELECT 1 FROM public.stage_gate_rules
   WHERE record_type = 'test_bed' AND variant IS NULL
-    AND from_stage = 'Site Assessment' AND to_stage = 'Partnership and Test Bed Agreement'
+    AND from_stage = 'Compliance and Data Protection'
+    AND to_stage = 'Installation and Commissioning'
     AND requirement_type = 'document_status'
-    AND requirement_detail::text = '{"document": "Site Assessment", "status": "complete"}'
+    AND requirement_detail::text = '{"document": "NDA", "status": "approved"}'
 );
 
--- Partnership and Test Bed Agreement → Compliance and Data Protection
 INSERT INTO public.stage_gate_rules
   (record_type, variant, from_stage, to_stage, requirement_type, requirement_detail)
-SELECT 'test_bed', NULL, 'Partnership and Test Bed Agreement', 'Compliance and Data Protection', 'document_status', '{"document": "Partnership and Test Bed Agreement", "status": "signed"}'
+SELECT 'test_bed', NULL,
+       'Compliance and Data Protection', 'Installation and Commissioning',
+       'document_status', '{"document": "Site Assessment", "status": "approved"}'
 WHERE NOT EXISTS (
   SELECT 1 FROM public.stage_gate_rules
   WHERE record_type = 'test_bed' AND variant IS NULL
-    AND from_stage = 'Partnership and Test Bed Agreement' AND to_stage = 'Compliance and Data Protection'
+    AND from_stage = 'Compliance and Data Protection'
+    AND to_stage = 'Installation and Commissioning'
     AND requirement_type = 'document_status'
-    AND requirement_detail::text = '{"document": "Partnership and Test Bed Agreement", "status": "signed"}'
+    AND requirement_detail::text = '{"document": "Site Assessment", "status": "approved"}'
 );
 
--- Compliance and Data Protection → Deployment: DPIA (both this row and the APD row below
--- must be satisfied simultaneously before the transition is allowed)
 INSERT INTO public.stage_gate_rules
   (record_type, variant, from_stage, to_stage, requirement_type, requirement_detail)
-SELECT 'test_bed', NULL, 'Compliance and Data Protection', 'Deployment', 'document_status', '{"document": "DPIA", "status": "complete"}'
+SELECT 'test_bed', NULL,
+       'Compliance and Data Protection', 'Installation and Commissioning',
+       'document_status',
+       '{"document": "Partnership and Test Bed Agreement", "status": "approved"}'
 WHERE NOT EXISTS (
   SELECT 1 FROM public.stage_gate_rules
   WHERE record_type = 'test_bed' AND variant IS NULL
-    AND from_stage = 'Compliance and Data Protection' AND to_stage = 'Deployment'
+    AND from_stage = 'Compliance and Data Protection'
+    AND to_stage = 'Installation and Commissioning'
     AND requirement_type = 'document_status'
-    AND requirement_detail::text = '{"document": "DPIA", "status": "complete"}'
+    AND requirement_detail::text =
+        '{"document": "Partnership and Test Bed Agreement", "status": "approved"}'
 );
 
--- Compliance and Data Protection → Deployment: APD
 INSERT INTO public.stage_gate_rules
   (record_type, variant, from_stage, to_stage, requirement_type, requirement_detail)
-SELECT 'test_bed', NULL, 'Compliance and Data Protection', 'Deployment', 'document_status', '{"document": "APD", "status": "complete"}'
+SELECT 'test_bed', NULL,
+       'Compliance and Data Protection', 'Installation and Commissioning',
+       'document_status', '{"document": "DPIA", "status": "approved"}'
 WHERE NOT EXISTS (
   SELECT 1 FROM public.stage_gate_rules
   WHERE record_type = 'test_bed' AND variant IS NULL
-    AND from_stage = 'Compliance and Data Protection' AND to_stage = 'Deployment'
+    AND from_stage = 'Compliance and Data Protection'
+    AND to_stage = 'Installation and Commissioning'
     AND requirement_type = 'document_status'
-    AND requirement_detail::text = '{"document": "APD", "status": "complete"}'
+    AND requirement_detail::text = '{"document": "DPIA", "status": "approved"}'
+);
+
+INSERT INTO public.stage_gate_rules
+  (record_type, variant, from_stage, to_stage, requirement_type, requirement_detail)
+SELECT 'test_bed', NULL,
+       'Compliance and Data Protection', 'Installation and Commissioning',
+       'document_status', '{"document": "APD", "status": "approved"}'
+WHERE NOT EXISTS (
+  SELECT 1 FROM public.stage_gate_rules
+  WHERE record_type = 'test_bed' AND variant IS NULL
+    AND from_stage = 'Compliance and Data Protection'
+    AND to_stage = 'Installation and Commissioning'
+    AND requirement_type = 'document_status'
+    AND requirement_detail::text = '{"document": "APD", "status": "approved"}'
 );
 
 -- Decommissioning → Closed: gated more heavily than the rest of the lifecycle.
@@ -69,7 +97,8 @@ WHERE NOT EXISTS (
 -- Senior-tier approval required (ACTIVE GATE)
 INSERT INTO public.stage_gate_rules
   (record_type, variant, from_stage, to_stage, requirement_type, requirement_detail)
-SELECT 'test_bed', NULL, 'Decommissioning', 'Closed', 'approval_obtained', '{"track": "Senior"}'
+SELECT 'test_bed', NULL, 'Decommissioning', 'Closed', 'approval_obtained',
+       '{"track": "Senior"}'
 WHERE NOT EXISTS (
   SELECT 1 FROM public.stage_gate_rules
   WHERE record_type = 'test_bed' AND variant IS NULL
@@ -78,10 +107,11 @@ WHERE NOT EXISTS (
     AND requirement_detail::text = '{"track": "Senior"}'
 );
 
--- NDA reviewed (placeholder, not yet enforced -- child_record_status not implemented)
+-- NDA reviewed (placeholder, child_record_status not yet enforced)
 INSERT INTO public.stage_gate_rules
   (record_type, variant, from_stage, to_stage, requirement_type, requirement_detail)
-SELECT 'test_bed', NULL, 'Decommissioning', 'Closed', 'child_record_status', '{"record_type": "nda", "status": "approved"}'
+SELECT 'test_bed', NULL, 'Decommissioning', 'Closed', 'child_record_status',
+       '{"record_type": "nda", "status": "approved"}'
 WHERE NOT EXISTS (
   SELECT 1 FROM public.stage_gate_rules
   WHERE record_type = 'test_bed' AND variant IS NULL
@@ -93,7 +123,8 @@ WHERE NOT EXISTS (
 -- PDPA assessment reviewed (placeholder)
 INSERT INTO public.stage_gate_rules
   (record_type, variant, from_stage, to_stage, requirement_type, requirement_detail)
-SELECT 'test_bed', NULL, 'Decommissioning', 'Closed', 'child_record_status', '{"record_type": "pdpa_assessment", "status": "approved"}'
+SELECT 'test_bed', NULL, 'Decommissioning', 'Closed', 'child_record_status',
+       '{"record_type": "pdpa_assessment", "status": "approved"}'
 WHERE NOT EXISTS (
   SELECT 1 FROM public.stage_gate_rules
   WHERE record_type = 'test_bed' AND variant IS NULL
@@ -105,7 +136,8 @@ WHERE NOT EXISTS (
 -- Data Protection Impact Assessment reviewed (placeholder)
 INSERT INTO public.stage_gate_rules
   (record_type, variant, from_stage, to_stage, requirement_type, requirement_detail)
-SELECT 'test_bed', NULL, 'Decommissioning', 'Closed', 'child_record_status', '{"record_type": "dpia", "status": "approved"}'
+SELECT 'test_bed', NULL, 'Decommissioning', 'Closed', 'child_record_status',
+       '{"record_type": "dpia", "status": "approved"}'
 WHERE NOT EXISTS (
   SELECT 1 FROM public.stage_gate_rules
   WHERE record_type = 'test_bed' AND variant IS NULL

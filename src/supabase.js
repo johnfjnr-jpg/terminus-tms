@@ -23,6 +23,11 @@ export function createUserClient(jwt) {
 // Legitimate out-of-band uses (not API routes):
 //   supabase/migrations/ and supabase/seeds/ — applied via CLI or dashboard
 //   as the database superuser; supabaseAdmin is not involved.
+//   scripts/create-test-user.js — creates confirmed test users via the
+//   Auth admin API, which requires the service role key.
+//   scripts/seed-test-opportunity.js — seeds a test Opportunity record
+//   owned by a given test user; bypasses RLS so it doesn't need that
+//   user's JWT to create data on their behalf.
 //
 // ─────────────────────────────────────────────────────────────────────────────
 export const supabaseAdmin = createClient(

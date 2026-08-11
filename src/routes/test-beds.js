@@ -113,8 +113,10 @@ export default async function testBedsRoutes(app) {
   })
 
   // GET /api/test-beds/:id/document-requirements
-  // Returns the document_status gate requirements for the current → next stage transition,
-  // merged with completion status from existing child document records.
+  // Returns document_status gate requirements relevant to the current stage.
+  // For stages with no direct gate rules but a phase set, falls back to the
+  // phase-exit gate (last Planning stage → Installation and Commissioning) so
+  // that all planning documents are visible from Site Assessment onwards.
   app.get('/test-beds/:id/document-requirements', async (request, reply) => {
     const db = createUserClient(request.jwt)
 
@@ -129,17 +131,18 @@ export default async function testBedsRoutes(app) {
 
     const { data: stages } = await db
       .from('stage_definitions')
-      .select('stage_name, sort_order')
+      .select('stage_name, sort_order, phase')
       .eq('record_type', 'test_bed')
       .is('variant', null)
       .order('sort_order', { ascending: true })
 
-    const currentIdx = (stages ?? []).findIndex(s => s.stage_name === bed.status)
-    const nextStage = stages?.[currentIdx + 1]?.stage_name
+    const stageList = stages ?? []
+    const currentIdx = stageList.findIndex(s => s.stage_name === bed.status)
+    const nextStage = stageList[currentIdx + 1]?.stage_name
 
     if (!nextStage) return []
 
-    const { data: rules } = await db
+    let { data: rules } = await db
       .from('stage_gate_rules')
       .select('requirement_detail')
       .eq('record_type', 'test_bed')
@@ -148,34 +151,76 @@ export default async function testBedsRoutes(app) {
       .eq('to_stage', nextStage)
       .eq('requirement_type', 'document_status')
 
+    // Fallback: when there are no direct gate rules but the stage belongs to a
+    // phase (e.g. Site Assessment, PaTBA), show the phase-exit gate documents so
+    // all planning documents are visible and workable from Site Assessment onwards.
+    if (!rules?.length) {
+      const currentPhase = stageList[currentIdx]?.phase
+      if (currentPhase) {
+        const phaseStages = stageList.filter(s => s.phase === currentPhase)
+        const lastPhaseStage = phaseStages[phaseStages.length - 1]
+        const lastPhaseIdx = stageList.findIndex(s => s.stage_name === lastPhaseStage?.stage_name)
+        const afterPhaseStage = stageList[lastPhaseIdx + 1]?.stage_name
+
+        if (lastPhaseStage && afterPhaseStage) {
+          const { data: phaseExitRules } = await db
+            .from('stage_gate_rules')
+            .select('requirement_detail')
+            .eq('record_type', 'test_bed')
+            .is('variant', null)
+            .eq('from_stage', lastPhaseStage.stage_name)
+            .eq('to_stage', afterPhaseStage)
+            .eq('requirement_type', 'document_status')
+          rules = phaseExitRules
+        }
+      }
+    }
+
     if (!rules?.length) return []
 
     const { data: docs } = await db
       .from('records')
-      .select('variant, status')
+      .select('id, variant, status')
       .eq('parent_record_id', bed.id)
       .eq('record_type', 'document')
 
-    const docStatusMap = {}
+    const docMap = {}
     for (const d of docs ?? []) {
-      docStatusMap[d.variant] = d.status
+      docMap[d.variant] = { id: d.id, status: d.status }
     }
 
-    return rules.map(r => ({
-      document: r.requirement_detail.document,
-      required_status: r.requirement_detail.status,
-      current_status: docStatusMap[r.requirement_detail.document] ?? null
-    }))
+    const docIds = Object.values(docMap).map(d => d.id).filter(Boolean)
+    const locationMap = {}
+    if (docIds.length) {
+      const { data: details } = await db
+        .from('document_details')
+        .select('record_id, document_location')
+        .in('record_id', docIds)
+      for (const det of details ?? []) {
+        locationMap[det.record_id] = det.document_location
+      }
+    }
+
+    return rules.map(r => {
+      const doc = docMap[r.requirement_detail.document]
+      return {
+        document: r.requirement_detail.document,
+        required_status: r.requirement_detail.status,
+        current_status: doc?.status ?? null,
+        document_record_id: doc?.id ?? null,
+        document_location: doc?.id ? (locationMap[doc.id] ?? null) : null
+      }
+    })
   })
 
   // POST /api/test-beds/:id/complete-document
-  // Creates or updates a document completion record for this test bed.
-  // Document type is stored in records.variant; completion status in records.status.
+  // Marks a planning document as approved (status always set to "approved").
+  // Optionally stores a Google Drive URL in document_details.
   app.post('/test-beds/:id/complete-document', async (request, reply) => {
-    const { document_type, status } = request.body ?? {}
+    const { document_type, document_location } = request.body ?? {}
+    const status = 'approved'
 
     if (!document_type?.trim()) return reply.code(400).send({ error: 'document_type is required' })
-    if (!status?.trim()) return reply.code(400).send({ error: 'status is required' })
 
     const db = createUserClient(request.jwt)
 
@@ -196,37 +241,46 @@ export default async function testBedsRoutes(app) {
       .eq('variant', document_type)
       .maybeSingle()
 
+    let docId
     if (existing) {
       await db.from('records').update({ status }).eq('id', existing.id)
-      return { id: existing.id, document_type, status }
+      docId = existing.id
+    } else {
+      const { data: docRecord, error } = await db
+        .from('records')
+        .insert({
+          record_type: 'document',
+          parent_record_id: bed.id,
+          status,
+          variant: document_type,
+          owner_id: request.user.id
+        })
+        .select()
+        .single()
+
+      if (error) {
+        request.log.error({ err: error }, 'failed to create document record')
+        return reply.code(500).send({ error: error.message })
+      }
+      docId = docRecord.id
     }
 
-    const { data: docRecord, error } = await db
-      .from('records')
-      .insert({
-        record_type: 'document',
-        parent_record_id: bed.id,
-        status,
-        variant: document_type,
-        owner_id: request.user.id
-      })
-      .select()
-      .single()
-
-    if (error) {
-      request.log.error({ err: error }, 'failed to create document record')
-      return reply.code(500).send({ error: error.message })
+    if (document_location !== undefined) {
+      await db.from('document_details').upsert(
+        { record_id: docId, document_location: document_location || null },
+        { onConflict: 'record_id' }
+      )
     }
 
     await db.from('audit_log').insert({
       record_id: bed.id,
       record_type: 'test_bed',
-      action: 'document_completed',
+      action: 'document_approved',
       actor_id: request.user.id,
       detail: { document_type, status }
     })
 
-    return reply.code(201).send(docRecord)
+    return reply.code(existing ? 200 : 201).send({ id: docId, document_type, status })
   })
 
   // POST /api/test-beds/:id/convert

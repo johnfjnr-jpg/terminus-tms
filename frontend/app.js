@@ -100,6 +100,11 @@ function daysAgo(dateStr) {
   return `${days} days`
 }
 
+function formatDate(dateStr) {
+  if (!dateStr) return '--'
+  return new Date(dateStr).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' })
+}
+
 function formatCost(val) {
   if (val == null || val === '') return '--'
   return `GBP ${Number(val).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -117,81 +122,53 @@ async function fetchStages(record_type) {
   return stageCache[record_type] ?? []
 }
 
+// Dot-based linear tracker — used for Opportunities.
 function renderStageTracker(elementId, currentStage, stages) {
   const tracker = document.getElementById(elementId)
-  if (!stages.length) { tracker.innerHTML = ''; return }
+  if (!tracker || !stages.length) { if (tracker) tracker.innerHTML = ''; return }
 
-  const hasPhases = stages.some(s => s.phase)
-
-  if (!hasPhases) {
-    // Simple linear tracker (opportunities have no phases).
-    const currentIdx = stages.findIndex(s => s.stage_name === currentStage)
-    tracker.innerHTML = stages.map((stage, i) => {
-      const cls = i < currentIdx ? 'done' : i === currentIdx ? 'current' : ''
-      return `
-      <div class="tstage ${cls}">
-        <div class="tline"></div>
-        <div class="tdot"></div>
-        <div class="tlabel">${escHtml(stage.stage_name)}</div>
-      </div>`
-    }).join('')
-    return
-  }
-
-  // Grouped tracker: phase groups collapse to a single node; individual non-phased
-  // stages each become their own node.
-  const currentStageObj = stages.find(s => s.stage_name === currentStage)
-  const currentIsPlanning = currentStageObj?.phase === 'Planning'
-
-  const mainItems = []
-  const seenPhases = new Set()
-  for (const stage of stages) {
-    if (stage.phase) {
-      if (!seenPhases.has(stage.phase)) {
-        seenPhases.add(stage.phase)
-        mainItems.push({ label: stage.phase, isPhase: true })
-      }
-    } else {
-      mainItems.push({ label: stage.stage_name, isPhase: false })
-    }
-  }
-
-  const currentMainIdx = currentIsPlanning
-    ? mainItems.findIndex(m => m.isPhase && m.label === currentStageObj.phase)
-    : mainItems.findIndex(m => !m.isPhase && m.label === currentStage)
-
-  tracker.innerHTML = mainItems.map((item, i) => {
-    const cls = i < currentMainIdx ? 'done' : i === currentMainIdx ? 'current' : ''
-    return `
-    <div class="tstage ${cls}">
-      <div class="tline"></div>
-      <div class="tdot"></div>
-      <div class="tlabel">${escHtml(item.label)}</div>
-    </div>`
-  }).join('')
-}
-
-function renderSubTracker(elementId, currentStage, stages) {
-  const tracker = document.getElementById(elementId)
-  if (!tracker) return
-
-  const planningStages = stages.filter(s => s.phase === 'Planning')
-  if (!planningStages.length) { tracker.innerHTML = ''; return }
-
-  const currentIsPlanning = stages.find(s => s.stage_name === currentStage)?.phase === 'Planning'
-  // If we are past Planning, all sub-stages render as done.
-  const currentPlanningIdx = currentIsPlanning
-    ? planningStages.findIndex(s => s.stage_name === currentStage)
-    : planningStages.length
-
-  tracker.innerHTML = planningStages.map((stage, i) => {
-    const cls = i < currentPlanningIdx ? 'done' : i === currentPlanningIdx ? 'current' : ''
+  const currentIdx = stages.findIndex(s => s.stage_name === currentStage)
+  tracker.innerHTML = stages.map((stage, i) => {
+    const cls = i < currentIdx ? 'done' : i === currentIdx ? 'current' : ''
     return `
     <div class="tstage ${cls}">
       <div class="tline"></div>
       <div class="tdot"></div>
       <div class="tlabel">${escHtml(stage.stage_name)}</div>
     </div>`
+  }).join('')
+}
+
+// Chevron-style strip — used for Test Beds.
+// Phase groups (e.g. all Planning sub-stages) collapse to a single chevron.
+function renderChevronStrip(elementId, currentStage, stages) {
+  const el = document.getElementById(elementId)
+  if (!el) return
+
+  const hasPhases = stages.some(s => s.phase)
+  let mainItems
+  if (hasPhases) {
+    const seen = new Set()
+    mainItems = []
+    for (const s of stages) {
+      if (s.phase) {
+        if (!seen.has(s.phase)) { seen.add(s.phase); mainItems.push({ label: s.phase }) }
+      } else {
+        mainItems.push({ label: s.stage_name })
+      }
+    }
+  } else {
+    mainItems = stages.map(s => ({ label: s.stage_name }))
+  }
+
+  const currentStageObj = stages.find(s => s.stage_name === currentStage)
+  const currentMainLabel = currentStageObj?.phase ?? currentStage
+  const currentMainIdx = mainItems.findIndex(m => m.label === currentMainLabel)
+
+  el.innerHTML = mainItems.map((item, i) => {
+    const cls = i < currentMainIdx ? 'done' : i === currentMainIdx ? 'current' : ''
+    const zIndex = mainItems.length - i
+    return `<div class="chevron-item ${cls}" style="z-index:${zIndex}">${escHtml(item.label)}</div>`
   }).join('')
 }
 
@@ -246,52 +223,53 @@ window.attemptTransition = async (id, toStage, feedbackId, sectionId, currentSta
 async function loadLeads() {
   const result = await api('GET', '/api/leads')
   if (!result.ok) {
-    document.getElementById('leads-tbody').innerHTML =
-      `<tr><td colspan="6" class="empty-state">Failed to load leads.</td></tr>`
+    document.getElementById('leads-rows').innerHTML =
+      '<p class="empty-state">Failed to load leads.</p>'
     return
   }
-  renderLeadsTable(result.data)
+  renderLeadsList(result.data)
 }
 
-function renderLeadsTable(leads) {
-  const tbody = document.getElementById('leads-tbody')
+function renderLeadsList(leads) {
+  const container = document.getElementById('leads-rows')
   if (!leads.length) {
-    tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No leads yet.</td></tr>'
+    container.innerHTML = '<p class="empty-state">No leads yet.</p>'
     return
   }
 
-  tbody.innerHTML = leads.map(l => {
+  container.innerHTML = leads.map(l => {
     const p = l.payload ?? {}
     const isConverted = l.status === 'converted'
     return `
-    <tr>
-      <td class="col-name">${escHtml(p.company_name ?? '--')}</td>
-      <td>${escHtml(p.contact_name ?? '--')}</td>
-      <td class="col-mono">${escHtml(p.source ?? '--')}</td>
-      <td><span class="tag">${escHtml(l.status)}</span></td>
-      <td class="col-mono">${daysAgo(l.created_at)}</td>
-      <td>
+    <div class="record-card">
+      <div class="record-card-main">
+        <div class="record-card-title-row">
+          <span class="record-card-title">${escHtml(p.contact_name ?? '--')}</span>
+          <span class="tag">${escHtml(l.status)}</span>
+        </div>
+        <div class="record-card-meta">${escHtml(p.company_name ?? '--')} · ${escHtml(p.source ?? '--')}</div>
+      </div>
+      <div class="record-card-side">
+        <span class="record-card-stat">${daysAgo(l.created_at)} ago</span>
         ${isConverted
-          ? '<span class="muted" style="font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:0.08em">Converted</span>'
+          ? '<span class="record-card-stat">Converted</span>'
           : `<button class="btn-text" onclick="showLeadConvertForm('${l.id}')">Convert</button>`
         }
-      </td>
-    </tr>
+      </div>
+    </div>
     ${isConverted ? '' : `
-    <tr id="lead-convert-row-${l.id}" class="hidden">
-      <td colspan="6">
-        <div class="convert-form">
-          <div class="form-group">
-            <label>Name</label>
-            <input type="text" id="lead-convert-name-${l.id}" placeholder="e.g. Acme Phase 1">
-          </div>
-          <button class="btn-primary" onclick="convertLeadToOpportunity('${l.id}')">To Opportunity</button>
-          <button class="btn-ghost" onclick="convertLeadToTestBed('${l.id}')">To Test Bed</button>
-          <button class="btn-ghost" onclick="hideLeadConvertForm('${l.id}')">Cancel</button>
+    <div id="lead-convert-row-${l.id}" class="hidden">
+      <div class="convert-form">
+        <div class="form-group">
+          <label>Name</label>
+          <input type="text" id="lead-convert-name-${l.id}" placeholder="e.g. Acme Phase 1">
         </div>
-        <span class="msg-error hidden" id="lead-convert-error-${l.id}"></span>
-      </td>
-    </tr>`}
+        <button class="btn-primary" onclick="convertLeadToOpportunity('${l.id}')">To Opportunity</button>
+        <button class="btn-ghost" onclick="convertLeadToTestBed('${l.id}')">To Test Bed</button>
+        <button class="btn-ghost" onclick="hideLeadConvertForm('${l.id}')">Cancel</button>
+      </div>
+      <span class="msg-error hidden" id="lead-convert-error-${l.id}"></span>
+    </div>`}
   `}).join('')
 }
 
@@ -498,16 +476,15 @@ async function renderTestBedDetail(bed) {
   document.getElementById('tb-detail-notes').textContent = p.notes ?? '--'
 
   const stages = await fetchStages('test_bed')
-  renderStageTracker('tb-stage-tracker', bed.status, stages)
+  renderChevronStrip('tb-chevron-strip', bed.status, stages)
 
-  // Sub-tracker: always visible since Planning is always the starting phase.
-  renderSubTracker('tb-sub-tracker', bed.status, stages)
-
-  renderTransitionSection('tb-transition-section', 'tb-transition-feedback', bed.id, bed.status, stages)
   await renderTestBedDocuments(bed)
+  renderTransitionSection('tb-transition-section', 'tb-transition-feedback', bed.id, bed.status, stages)
   renderTestBedApprovals(bed)
   renderTestBedConvertSection(bed)
 }
+
+let openDocForm = null
 
 async function renderTestBedDocuments(bed) {
   const section = document.getElementById('tb-documents-section')
@@ -521,33 +498,128 @@ async function renderTestBedDocuments(bed) {
   }
 
   if (!result.data.length) {
-    section.innerHTML = '<p class="muted" style="font-size:14px">No document requirements for this stage transition.</p>'
+    section.innerHTML = '<p class="muted" style="font-size:14px">No document requirements for this stage.</p>'
     return
   }
 
-  section.innerHTML = result.data.map(req => {
-    const isDone = req.current_status === req.required_status
+  const docs = result.data
+  // DPIA and APD together trigger the CaDP group header row.
+  const hasCaDP = docs.some(d => d.document === 'DPIA') && docs.some(d => d.document === 'APD')
+  const cadpSet = new Set(['DPIA', 'APD'])
+  const normalDocs = hasCaDP ? docs.filter(d => !cadpSet.has(d.document)) : docs
+  const cadpDocs  = hasCaDP ? docs.filter(d =>  cadpSet.has(d.document)) : []
+
+  function docKey(name) { return name.replace(/\s+/g, '-').replace(/[^A-Za-z0-9-]/g, '') }
+
+  function docRow(req, indented) {
+    const key = docKey(req.document)
+    const isApproved = req.current_status === 'approved'
+    const statusLabel = isApproved ? 'Approved' : (req.current_status ? 'Started' : 'Not started')
+    const statusClass = isApproved ? 'doc-status--approved' : (req.current_status ? 'doc-status--started' : 'doc-status--notstarted')
+    const locationHtml = req.document_location
+      ? `<a class="doc-link" href="${escHtml(req.document_location)}" target="_blank" rel="noopener">Open in Drive</a>`
+      : '<span style="color:var(--muted-2);font-size:13px">--</span>'
+    const actionHtml = isApproved
+      ? ''
+      : `<button class="btn-sm" onclick="openDocumentForm('${escHtml(bed.id)}','${escHtml(req.document)}')">Send for Approval</button>`
+    const resultHtml = isApproved ? '<span class="status-ok">Approved</span>' : ''
+    const indentStyle = indented ? ' style="padding-left:24px"' : ''
+
     return `
-    <div class="data-row">
-      <div>
-        <span style="font-size:14px">${escHtml(req.document)}</span>
-        <span class="data-row-label">Required: ${escHtml(req.required_status)}</span>
-      </div>
-      ${isDone
-        ? '<span class="status-ok">Done</span>'
-        : `<button class="btn-ghost" onclick="completeDocument('${escHtml(bed.id)}', '${escHtml(req.document)}', '${escHtml(req.required_status)}')">Mark as ${escHtml(req.required_status)}</button>`
-      }
-    </div>`
-  }).join('')
+    <tr id="doc-row-${key}">
+      <td${indentStyle}>${escHtml(req.document)}</td>
+      <td><span class="doc-status ${statusClass}">${statusLabel}</span></td>
+      <td>${locationHtml}</td>
+      <td>${actionHtml}</td>
+      <td>${resultHtml}</td>
+    </tr>
+    <tr class="doc-form-row hidden" id="doc-form-${key}">
+      <td colspan="5">
+        <div class="doc-inline-form">
+          <div class="form-group">
+            <label>Google Drive link (optional)</label>
+            <input type="text" id="doc-loc-${key}" placeholder="https://drive.google.com/…">
+          </div>
+          <div style="display:flex;gap:8px;margin-top:10px">
+            <button class="btn-sm btn-primary" onclick="submitDocumentForm('${escHtml(bed.id)}','${escHtml(req.document)}')">Confirm</button>
+            <button class="btn-sm btn-ghost" onclick="cancelDocumentForm('${escHtml(req.document)}')">Cancel</button>
+          </div>
+        </div>
+      </td>
+    </tr>`
+  }
+
+  let rows = normalDocs.map(d => docRow(d, false)).join('')
+
+  if (hasCaDP) {
+    rows += `
+    <tr class="doc-group-header-row">
+      <td colspan="5">
+        <span class="doc-group-name">Compliance and Data Protection</span>
+        <span class="doc-group-note">Both APD and DPIA required before leaving Planning — no order between them.</span>
+      </td>
+    </tr>`
+    rows += cadpDocs.map(d => docRow(d, true)).join('')
+  }
+
+  section.innerHTML = `
+  <table class="doc-table">
+    <thead>
+      <tr>
+        <th>Document</th>
+        <th>Status</th>
+        <th>Location</th>
+        <th>Action</th>
+        <th>Result</th>
+      </tr>
+    </thead>
+    <tbody>${rows}</tbody>
+  </table>`
 }
 
-window.completeDocument = async (bedId, documentType, status) => {
+window.openDocumentForm = (bedId, documentType) => {
+  const key = documentType.replace(/\s+/g, '-').replace(/[^A-Za-z0-9-]/g, '')
+  if (openDocForm && openDocForm !== key) {
+    document.getElementById(`doc-form-${openDocForm}`)?.classList.add('hidden')
+    document.getElementById(`doc-row-${openDocForm}`)?.classList.remove('hidden')
+  }
+  openDocForm = key
+  document.getElementById(`doc-row-${key}`)?.classList.add('hidden')
+  document.getElementById(`doc-form-${key}`)?.classList.remove('hidden')
+  document.getElementById(`doc-loc-${key}`)?.focus()
+}
+
+window.cancelDocumentForm = (documentType) => {
+  const key = documentType.replace(/\s+/g, '-').replace(/[^A-Za-z0-9-]/g, '')
+  document.getElementById(`doc-form-${key}`)?.classList.add('hidden')
+  document.getElementById(`doc-row-${key}`)?.classList.remove('hidden')
+  openDocForm = null
+}
+
+window.submitDocumentForm = async (bedId, documentType) => {
+  const key = documentType.replace(/\s+/g, '-').replace(/[^A-Za-z0-9-]/g, '')
+  const document_location = document.getElementById(`doc-loc-${key}`)?.value.trim() || null
+
   const result = await api('POST', `/api/test-beds/${bedId}/complete-document`, {
     document_type: documentType,
-    status
+    document_location
   })
+
   if (result.ok) {
+    openDocForm = null
     await loadTestBedDetail(bedId)
+    return
+  }
+
+  // Surface error inline below the form
+  const formRow = document.getElementById(`doc-form-${key}`)
+  if (formRow) {
+    const existing = formRow.querySelector('.doc-form-error')
+    if (existing) existing.remove()
+    const err = document.createElement('p')
+    err.className = 'msg-error doc-form-error'
+    err.textContent = result.data?.error ?? 'Failed to mark document.'
+    formRow.querySelector('.doc-inline-form')?.appendChild(err)
   }
 }
 
@@ -649,33 +721,35 @@ window.convertTestBed = async (id) => {
 async function loadOpportunities() {
   const result = await api('GET', '/api/opportunities')
   if (!result.ok) {
-    document.getElementById('opps-tbody').innerHTML =
-      `<tr><td colspan="5" class="empty-state">Failed to load opportunities.</td></tr>`
+    document.getElementById('opps-rows').innerHTML =
+      '<p class="empty-state">Failed to load opportunities.</p>'
     return
   }
-  renderOppTable(result.data)
+  renderOppList(result.data)
   renderOppCards(result.data)
 }
 
-function renderOppTable(opps) {
-  const tbody = document.getElementById('opps-tbody')
+function renderOppList(opps) {
+  const container = document.getElementById('opps-rows')
   if (!opps.length) {
-    tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No opportunities yet.</td></tr>'
+    container.innerHTML = '<p class="empty-state">No opportunities yet.</p>'
     return
   }
 
-  tbody.innerHTML = opps.map(o => {
+  container.innerHTML = opps.map(o => {
     const p = o.payload ?? {}
     const det = o.opportunity_details ?? {}
     const prob = det.probability_pct != null ? `${det.probability_pct}%` : '--'
+    const close = det.forecast_close_date ? formatDate(det.forecast_close_date) : '--'
     return `
-    <tr onclick="navigate('opportunity-detail', '${o.id}')">
-      <td class="col-name">${escHtml(p.name ?? '--')}</td>
-      <td>${escHtml(p.company_name ?? '--')}</td>
-      <td class="col-stage">${escHtml(o.status)}</td>
-      <td class="col-mono">${prob}</td>
-      <td class="col-mono">${daysAgo(o.created_at)}</td>
-    </tr>`
+    <div class="record-grid-row" onclick="navigate('opportunity-detail', '${o.id}')">
+      <div class="rg-name">
+        <div class="rg-title">${escHtml(p.name ?? '--')}</div>
+        <div class="rg-meta">${escHtml(p.company_name ?? '--')}</div>
+      </div>
+      <span class="tag rg-stage">${escHtml(o.status)}</span>
+      <span class="rg-combined">${prob} · ${daysAgo(o.created_at)} · ${close}</span>
+    </div>`
   }).join('')
 }
 
@@ -751,6 +825,10 @@ async function renderOppDetail(opp) {
   const stages = await fetchStages('opportunity')
   renderStageTracker('stage-tracker', opp.status, stages)
   renderTransitionSection('transition-section', 'transition-feedback', opp.id, opp.status, stages)
+
+  // opportunity-deal.js (ES module, loaded after this script) owns the
+  // Commercials tab — deal-calculator.js live preview + save/submit.
+  window.initOpportunityDealPanel?.(opp)
 }
 
 // Expose navigate globally for inline onclick handlers

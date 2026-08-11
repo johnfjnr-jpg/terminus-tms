@@ -8,6 +8,7 @@ import transitionsRoutes from './routes/transitions.js'
 import approvalsRoutes from './routes/approvals.js'
 import leadsRoutes from './routes/leads.js'
 import opportunitiesRoutes from './routes/opportunities.js'
+import dealsRoutes from './routes/deals.js'
 import testBedsRoutes from './routes/test-beds.js'
 import stageDefinitionsRoutes from './routes/stage-definitions.js'
 
@@ -20,6 +21,17 @@ const fastify = Fastify({ logger: { level: process.env.LOG_LEVEL ?? 'info' } })
 await fastify.register(FastifyStatic, {
   root: join(__dirname, '..', 'frontend'),
   prefix: '/'
+})
+
+// Serve src/lib at /lib so the browser can import the exact same
+// deal-calculator.js the server uses for live client-side preview
+// (src/routes/deals.js imports the same file from disk) — never a
+// copy, so the two can't drift apart. decorateReply: false because
+// @fastify/static was already decorated by the registration above.
+await fastify.register(FastifyStatic, {
+  root: join(__dirname, 'lib'),
+  prefix: '/lib/',
+  decorateReply: false
 })
 
 // ── Public routes (no auth) ───────────────────────────────────────────────────
@@ -46,6 +58,7 @@ await fastify.register(async function authenticatedRoutes(app) {
   app.register(approvalsRoutes, { prefix: '/api' })
   app.register(leadsRoutes, { prefix: '/api' })
   app.register(opportunitiesRoutes, { prefix: '/api' })
+  app.register(dealsRoutes, { prefix: '/api/deals' })
   app.register(testBedsRoutes, { prefix: '/api' })
   app.register(stageDefinitionsRoutes, { prefix: '/api' })
 })

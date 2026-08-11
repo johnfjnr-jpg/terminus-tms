@@ -88,21 +88,9 @@
       </div>
     </div>
 
-    <table>
-      <thead>
-        <tr>
-          <th>Company</th>
-          <th>Contact</th>
-          <th>Source</th>
-          <th>Status</th>
-          <th>Age</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody id="leads-tbody">
-        <tr><td colspan="6" class="empty-state">Loading...</td></tr>
-      </tbody>
-    </table>
+    <div class="record-list" id="leads-rows">
+      <p class="empty-state">Loading...</p>
+    </div>
   </div>
 
   <!-- ── Test Beds ─────────────────────────────────────────────────────── -->
@@ -172,11 +160,7 @@
       <span class="tag">R&amp;D</span>
     </div>
 
-    <div class="tracker" id="tb-stage-tracker"></div>
-    <div id="tb-planning-sub-section" class="tracker-sub-section">
-      <p class="sub-tracker-label">Planning sub-stages</p>
-      <div class="tracker tracker-sub" id="tb-sub-tracker"></div>
-    </div>
+    <div id="tb-chevron-strip" class="chevron-strip"></div>
 
     <div class="stats-grid">
       <div>
@@ -198,13 +182,13 @@
     </div>
 
     <div>
-      <p class="section-title">Stage transition</p>
-      <div id="tb-transition-section"></div>
-    </div>
-
-    <div style="margin-top:32px">
       <p class="section-title">Documents</p>
       <div id="tb-documents-section"></div>
+    </div>
+
+    <div style="margin-top:40px">
+      <p class="section-title">Stage transition</p>
+      <div id="tb-transition-section"></div>
     </div>
 
     <div style="margin-top:32px">
@@ -236,20 +220,14 @@
     </div>
 
     <div id="opp-list">
-      <table>
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Company</th>
-            <th>Stage</th>
-            <th>Probability</th>
-            <th>Age</th>
-          </tr>
-        </thead>
-        <tbody id="opps-tbody">
-          <tr><td colspan="5" class="empty-state">Loading...</td></tr>
-        </tbody>
-      </table>
+      <div class="record-grid-head">
+        <span>Opportunity</span>
+        <span>Stage</span>
+        <span>Probability · Age · Close</span>
+      </div>
+      <div class="record-list" id="opps-rows">
+        <p class="empty-state">Loading...</p>
+      </div>
     </div>
 
     <div id="opp-grid" class="cards hidden"></div>
@@ -288,7 +266,175 @@
       </div>
     </div>
 
-    <div>
+    <div style="margin-top:8px">
+      <p class="section-title">Commercials</p>
+
+      <div class="stats-grid" style="margin-bottom:28px">
+        <div>
+          <span class="label">Contract net</span>
+          <div class="stat-value" id="deal-contract-net">--</div>
+        </div>
+        <div>
+          <span class="label">Achieved margin</span>
+          <div class="stat-value" id="deal-achieved-margin">--</div>
+        </div>
+        <div>
+          <span class="label">Total deal cost</span>
+          <div class="stat-value" id="deal-total-cost">--</div>
+        </div>
+        <div>
+          <span class="label">Finance cost</span>
+          <div class="stat-value" id="deal-finance-cost">--</div>
+        </div>
+      </div>
+
+      <table class="doc-table" style="margin-bottom:12px">
+        <thead>
+          <tr><th>Line</th><th>Cost (USD)</th><th>Price (USD)</th><th>Margin</th></tr>
+        </thead>
+        <tbody id="deal-breakdown-tbody"></tbody>
+      </table>
+
+      <p class="msg-success hidden" id="deal-cashflow-ok">Cash position stays positive throughout the term.</p>
+      <p class="msg-error hidden" id="deal-cashflow-warn"></p>
+      <p class="msg-error hidden" id="deal-milestone-warn"></p>
+
+      <div class="view-toggle" id="deal-tab-toggle" style="margin:24px 0 20px">
+        <button data-deal-tab="hw" class="active">Hw / Hosting Setup</button>
+        <button data-deal-tab="install">Installation</button>
+        <button data-deal-tab="terms">Structural Terms</button>
+        <button data-deal-tab="payment">Payment Terms</button>
+      </div>
+
+      <!-- Hw / Hosting Setup -->
+      <div class="deal-tab-panel" id="deal-tab-hw">
+        <div class="form-grid">
+          <div class="form-group"><label>SafeSight, existing infra (units)</label><input type="number" id="deal-ssExisting" min="0"></div>
+          <div class="form-group"><label>SafeSight, new infra (units)</label><input type="number" id="deal-ssNew" min="0"></div>
+          <div class="form-group"><label>AQ Sensor (units)</label><input type="number" id="deal-aqm" min="0"></div>
+          <div class="form-group"><label>HEMIR (units)</label><input type="number" id="deal-hemir" min="0"></div>
+        </div>
+
+        <table class="doc-table">
+          <thead><tr><th>Unit cost and warranty</th><th>Unit cost (USD, fixed at creation)</th><th>Margin % (blank = target)</th></tr></thead>
+          <tbody>
+            <tr><td>SafeSight</td><td><input type="number" id="deal-ssUnitCost" readonly></td><td><input type="number" id="deal-margin-hwSs" placeholder="target"></td></tr>
+            <tr><td>AQ Sensor</td><td><input type="number" id="deal-aqUnitCost" readonly></td><td><input type="number" id="deal-margin-hwAqm" placeholder="target"></td></tr>
+            <tr><td>HEMIR</td><td><input type="number" id="deal-hemirUnitCost" readonly></td><td><input type="number" id="deal-margin-hwHemir" placeholder="target"></td></tr>
+            <tr><td>Warranty provision</td><td class="col-mono" id="deal-warranty-computed">--</td><td><input type="number" id="deal-margin-hwWarranty" placeholder="target"></td></tr>
+          </tbody>
+        </table>
+        <p class="data-row-label" style="margin:-8px 0 16px">Unit costs are set when the Opportunity is created and can't be edited here.</p>
+
+        <table class="doc-table" style="margin-top:16px">
+          <thead><tr><th>Hosting (per unit / month)</th><th>Rate (USD, fixed at creation)</th><th>Margin % (blank = target)</th></tr></thead>
+          <tbody>
+            <tr><td>SafeSight</td><td><input type="number" id="deal-hoSafesight" readonly></td><td><input type="number" id="deal-margin-hoSs" placeholder="target"></td></tr>
+            <tr><td>AQ Sensor</td><td><input type="number" id="deal-hoAqm" readonly></td><td><input type="number" id="deal-margin-hoAqm" placeholder="target"></td></tr>
+            <tr><td>HEMIR</td><td><input type="number" id="deal-hoHemir" readonly></td><td><input type="number" id="deal-margin-hoHemir" placeholder="target"></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Installation -->
+      <div class="deal-tab-panel hidden" id="deal-tab-install">
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Installation responsibility</label>
+            <select id="deal-installResp">
+              <option value="Client Own Installation Team">Client Own Installation Team</option>
+              <option value="Terminus Installation Team">Terminus Installation Team</option>
+              <option value="Lump Sum">Lump Sum</option>
+            </select>
+          </div>
+          <div class="form-group hidden" id="deal-lumpCost-group">
+            <label>Lump sum contractor price (USD)</label>
+            <input type="number" id="deal-lumpCost">
+          </div>
+        </div>
+
+        <table class="doc-table hidden" id="deal-install-table">
+          <thead><tr><th>Installation (per unit)</th><th>Rate (USD, fixed at creation)</th><th>Margin % (blank = target)</th></tr></thead>
+          <tbody>
+            <tr><td>SafeSight, existing infra</td><td><input type="number" id="deal-inSsExisting" readonly></td><td><input type="number" id="deal-margin-inSsEx" placeholder="target"></td></tr>
+            <tr><td>SafeSight, new infra</td><td><input type="number" id="deal-inSsNew" readonly></td><td><input type="number" id="deal-margin-inSsNew" placeholder="target"></td></tr>
+            <tr><td>AQ Sensor</td><td><input type="number" id="deal-inAqm" readonly></td><td><input type="number" id="deal-margin-inAqm" placeholder="target"></td></tr>
+            <tr><td>HEMIR</td><td><input type="number" id="deal-inHemir" readonly></td><td><input type="number" id="deal-margin-inHemir" placeholder="target"></td></tr>
+          </tbody>
+        </table>
+        <p class="data-row-label" style="margin-top:8px">Installation rates are set when the Opportunity is created and can't be edited here.</p>
+      </div>
+
+      <!-- Structural Terms -->
+      <div class="deal-tab-panel hidden" id="deal-tab-terms">
+        <div class="form-grid">
+          <div class="form-group"><label>Target margin %</label><input type="number" id="deal-targetMargin"></div>
+          <div class="form-group"><label>Warranty %</label><input type="number" id="deal-warrantyPct"></div>
+          <div class="form-group"><label>Withholding tax %</label><input type="number" id="deal-whtPct"></div>
+          <div class="form-group"><label>GST %</label><input type="number" id="deal-gstPct"></div>
+        </div>
+        <button class="btn-ghost" id="deal-grossUp-toggle" type="button">Gross up: Off</button>
+      </div>
+
+      <!-- Payment Terms -->
+      <div class="deal-tab-panel hidden" id="deal-tab-payment">
+        <div class="form-grid">
+          <div class="form-group"><label>Contract duration (months)</label><input type="number" id="deal-duration" min="0"></div>
+        </div>
+
+        <div class="form-group" style="margin-bottom:16px">
+          <label>Payment structure</label>
+          <div class="view-toggle" id="deal-structure-toggle">
+            <button data-structure="single">Single phase</button>
+            <button data-structure="twoPhase" class="active">Two-phase</button>
+            <button data-structure="hybrid">Hybrid</button>
+          </div>
+        </div>
+
+        <div class="form-grid" id="deal-recovery-group">
+          <div class="form-group"><label>Recovery period (months)</label><input type="number" id="deal-recoveryMonths" min="0"></div>
+        </div>
+
+        <div class="form-group" style="margin-bottom:20px">
+          <label>Invoicing frequency</label>
+          <div class="view-toggle" id="deal-invoicing-toggle">
+            <button data-invoicing="annual" class="active">Annual in advance</button>
+            <button data-invoicing="monthly">Monthly</button>
+          </div>
+        </div>
+
+        <div id="deal-milestones-group" class="hidden">
+          <table class="doc-table">
+            <thead><tr><th>Month</th><th>Milestone</th><th>USD</th><th>% of hardware</th></tr></thead>
+            <tbody id="deal-milestones-tbody"></tbody>
+          </table>
+        </div>
+
+        <div style="margin-top:24px">
+          <label class="label" style="margin-bottom:10px;display:block">PO factoring</label>
+          <button class="btn-ghost" id="deal-factoring-toggle" type="button">Factoring: Off</button>
+          <div class="form-grid hidden" id="deal-factoring-fields" style="margin-top:16px">
+            <div class="form-group"><label>Rate % (monthly)</label><input type="number" id="deal-factoring-ratePct"></div>
+            <div class="form-group"><label>Term (months)</label><input type="number" id="deal-factoring-termMonths"></div>
+            <div class="form-group">
+              <label>Repayment method</label>
+              <div class="view-toggle" id="deal-factoring-method-toggle">
+                <button data-method="straight" class="active">Straight-line</button>
+                <button data-method="declining">Declining balance</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-actions" style="margin-top:28px">
+        <button class="btn-ghost" id="btn-save-deal">Save changes</button>
+        <button class="btn-primary" id="btn-submit-deal">Submit deal</button>
+        <span id="deal-feedback"></span>
+      </div>
+    </div>
+
+    <div style="margin-top:40px">
       <p class="section-title">Stage transition</p>
       <div id="transition-section"></div>
     </div>
@@ -298,5 +444,6 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="/app.js"></script>
+<script type="module" src="/opportunity-deal.js"></script>
 </body>
 </html>
