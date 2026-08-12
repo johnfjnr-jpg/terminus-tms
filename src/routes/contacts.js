@@ -36,16 +36,21 @@ export default async function contactsRoutes(app) {
   })
 
   // POST /api/contacts
-  // Mandatory at creation (DESIGN_PRINCIPLES Section 2): Name, Company (an
-  // Account link — either account_id for an existing Account, or
-  // new_account_name for inline "+ New Account" creation, name only at
-  // that point), Email, Mobile, industry_id, Source, Summary. This
-  // guarantees a complete starting record; the Unqualified -> Qualified
-  // payload_field_required gate is a separate safety net for the case
-  // where one of these gets cleared by a later edit, not the primary
-  // enforcement point.
+  // Mandatory at creation, per the prototype's real leadMandatoryFields
+  // (Terminus Ops.dc.html:7529): Name, Company (an Account link — either
+  // account_id for an existing Account, or new_account_name for inline
+  // "+ New Account" creation, name only at that point), Industry, Email,
+  // Mobile. Narrower than an earlier approximation of this endpoint,
+  // which also required Source and Summary at creation - those two, plus
+  // Job Role/Address/City/Postcode/Country/Region/LinkedIn, are only
+  // mandatory at qualification (leadQualifyRequired, :5844), enforced by
+  // the Unqualified -> Qualified payload_field_required gate, not here.
+  // All of them are still accepted here as optional fields if provided.
   app.post('/contacts', async (request, reply) => {
-    const { name, account_id, new_account_name, email, mobile, industry_id, source, summary } = request.body ?? {}
+    const {
+      name, account_id, new_account_name, email, mobile, industry_id,
+      source, summary, jobRole, linkedin, address, address2, city, postcode, country, region,
+    } = request.body ?? {}
 
     const missing = []
     if (!name?.trim()) missing.push('name')
@@ -53,12 +58,10 @@ export default async function contactsRoutes(app) {
     if (!email?.trim()) missing.push('email')
     if (!mobile?.trim()) missing.push('mobile')
     if (!industry_id) missing.push('industry_id')
-    if (!source) missing.push('source')
-    if (!summary?.trim()) missing.push('summary')
     if (missing.length) {
       return reply.code(400).send({ error: 'missing required fields', missing })
     }
-    if (!VALID_SOURCES.includes(source)) {
+    if (source && !VALID_SOURCES.includes(source)) {
       return reply.code(400).send({ error: `source must be one of: ${VALID_SOURCES.join(', ')}` })
     }
 
@@ -112,7 +115,11 @@ export default async function contactsRoutes(app) {
       return reply.code(500).send({ error: recordErr.message })
     }
 
-    const payload = { name: name.trim(), email: email.trim(), mobile: mobile.trim(), source, summary: summary.trim() }
+    const payload = { name: name.trim(), email: email.trim(), mobile: mobile.trim() }
+    const optionalStringFields = { source, summary, jobRole, linkedin, address, address2, city, postcode, country, region }
+    for (const [key, value] of Object.entries(optionalStringFields)) {
+      if (typeof value === 'string' && value.trim()) payload[key] = value.trim()
+    }
 
     const { error: revErr } = await db
       .from('record_revisions')
@@ -165,7 +172,10 @@ export default async function contactsRoutes(app) {
   // through the generic POST /api/records/:id/transition, including
   // Parked, which is gated on followUpDate already being saved here first
   // (see transitions.js's payload_field_required check).
-  const CONTACT_WRITABLE_KEYS = new Set(['name', 'email', 'mobile', 'source', 'summary', 'address', 'legalEntity', 'followUpDate'])
+  const CONTACT_WRITABLE_KEYS = new Set([
+    'name', 'email', 'mobile', 'source', 'summary', 'address', 'legalEntity', 'followUpDate',
+    'jobRole', 'linkedin', 'address2', 'city', 'postcode', 'country', 'region',
+  ])
 
   app.patch('/contacts/:id', async (request, reply) => {
     const { payload, industry_id, account_id } = request.body ?? {}

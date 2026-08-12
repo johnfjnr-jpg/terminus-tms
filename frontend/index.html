@@ -76,13 +76,17 @@
 
     <div id="new-contact-form" class="inline-form hidden">
       <h2>Add contact</h2>
+      <!-- * = mandatory at creation (leadMandatoryFields, Terminus Ops.dc.html:7529).
+           Everything else here is optional at creation, mandatory only at
+           qualification (leadQualifyRequired, :5844), enforced by the
+           Unqualified -> Qualified transition gate, not this form. -->
       <div class="form-grid">
         <div class="form-group">
-          <label for="contact-name">Name</label>
+          <label for="contact-name">Name *</label>
           <input type="text" id="contact-name" placeholder="Jane Smith">
         </div>
         <div class="form-group">
-          <label for="contact-account">Account</label>
+          <label for="contact-account">Account *</label>
           <select id="contact-account">
             <option value="">Select account</option>
             <option value="__new__">+ New account</option>
@@ -93,18 +97,57 @@
           <input type="text" id="contact-new-account-name" placeholder="Acme Corp">
         </div>
         <div class="form-group">
-          <label for="contact-industry">Industry</label>
+          <label for="contact-industry">Industry *</label>
           <select id="contact-industry">
             <option value="">Select industry</option>
           </select>
         </div>
         <div class="form-group">
-          <label for="contact-email">Email</label>
+          <label for="contact-email">Email *</label>
           <input type="email" id="contact-email" placeholder="jane@acme.com">
         </div>
         <div class="form-group">
-          <label for="contact-mobile">Mobile</label>
+          <label for="contact-mobile">Mobile *</label>
           <input type="text" id="contact-mobile" placeholder="+44 7700 900000">
+        </div>
+        <div class="form-group">
+          <label for="contact-jobrole">Job Role</label>
+          <input type="text" id="contact-jobrole" placeholder="Head of Operations">
+        </div>
+        <div class="form-group">
+          <label for="contact-linkedin">LinkedIn</label>
+          <input type="text" id="contact-linkedin" placeholder="linkedin.com/in/janesmith">
+        </div>
+        <div class="form-group">
+          <label for="contact-address">Address Line 1</label>
+          <input type="text" id="contact-address" placeholder="1 Example Street">
+        </div>
+        <div class="form-group">
+          <label for="contact-address2">Address Line 2</label>
+          <input type="text" id="contact-address2" placeholder="Optional">
+        </div>
+        <div class="form-group">
+          <label for="contact-city">City</label>
+          <input type="text" id="contact-city" placeholder="London">
+        </div>
+        <div class="form-group">
+          <label for="contact-postcode">Postcode / Zip</label>
+          <input type="text" id="contact-postcode" placeholder="EC1A 1AA">
+        </div>
+        <div class="form-group">
+          <label for="contact-country">Country</label>
+          <input type="text" id="contact-country" placeholder="United Kingdom">
+        </div>
+        <div class="form-group">
+          <label for="contact-region">Region</label>
+          <select id="contact-region">
+            <option value="">Select region</option>
+            <option value="Americas">Americas</option>
+            <option value="Europe &amp; UK">Europe &amp; UK</option>
+            <option value="Middle East">Middle East</option>
+            <option value="APAC">APAC</option>
+            <option value="Africa">Africa</option>
+          </select>
         </div>
         <div class="form-group">
           <label for="contact-source">Source</label>

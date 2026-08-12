@@ -405,7 +405,7 @@ function renderContactsList() {
       </div>
       <span>${escHtml(accountName)}</span>
       <span>${escHtml(industry?.name ?? '--')}</span>
-      <span>--</span>
+      <span>${escHtml(p.jobRole ?? '--')}</span>
       <span>${escHtml(p.email ?? '--')}</span>
       <span>${escHtml(p.source ?? '--')}</span>
       <span style="text-align:right"><button class="btn-text" onclick="toggleContactManage('${c.id}')">${isExpanded ? 'Close' : 'Manage'}</button></span>
@@ -584,12 +584,34 @@ async function saveContact() {
   const industry_id = document.getElementById('contact-industry').value
   const email = document.getElementById('contact-email').value.trim()
   const mobile = document.getElementById('contact-mobile').value.trim()
+  const jobRole = document.getElementById('contact-jobrole').value.trim()
+  const linkedin = document.getElementById('contact-linkedin').value.trim()
+  const address = document.getElementById('contact-address').value.trim()
+  const address2 = document.getElementById('contact-address2').value.trim()
+  const city = document.getElementById('contact-city').value.trim()
+  const postcode = document.getElementById('contact-postcode').value.trim()
+  const country = document.getElementById('contact-country').value.trim()
+  const region = document.getElementById('contact-region').value
   const source = document.getElementById('contact-source').value
   const summary = document.getElementById('contact-summary').value.trim()
 
-  const body = { name, email, mobile, industry_id, source, summary }
+  // Only name/account/industry/email/mobile are mandatory here
+  // (leadMandatoryFields) - everything else below is sent only if filled
+  // in, since it's optional at creation and only mandatory at
+  // qualification (leadQualifyRequired).
+  const body = { name, email, mobile, industry_id }
   if (accountValue === '__new__') body.new_account_name = newAccountName
   else if (accountValue) body.account_id = accountValue
+  if (jobRole) body.jobRole = jobRole
+  if (linkedin) body.linkedin = linkedin
+  if (address) body.address = address
+  if (address2) body.address2 = address2
+  if (city) body.city = city
+  if (postcode) body.postcode = postcode
+  if (country) body.country = country
+  if (region) body.region = region
+  if (source) body.source = source
+  if (summary) body.summary = summary
 
   const result = await api('POST', '/api/contacts', body)
   if (!result.ok) {
@@ -605,8 +627,11 @@ async function saveContact() {
 }
 
 function clearContactForm() {
-  ;['contact-name', 'contact-new-account-name', 'contact-email', 'contact-mobile', 'contact-summary'].forEach(id => (document.getElementById(id).value = ''))
-  ;['contact-account', 'contact-industry', 'contact-source'].forEach(id => (document.getElementById(id).value = ''))
+  ;[
+    'contact-name', 'contact-new-account-name', 'contact-email', 'contact-mobile', 'contact-summary',
+    'contact-jobrole', 'contact-linkedin', 'contact-address', 'contact-address2', 'contact-city', 'contact-postcode', 'contact-country',
+  ].forEach(id => (document.getElementById(id).value = ''))
+  ;['contact-account', 'contact-industry', 'contact-source', 'contact-region'].forEach(id => (document.getElementById(id).value = ''))
   document.getElementById('contact-new-account-group').classList.add('hidden')
   const errEl = document.getElementById('contact-form-error')
   errEl.textContent = ''
