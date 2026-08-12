@@ -288,12 +288,8 @@
         </div>
       </div>
 
-      <table class="doc-table" style="margin-bottom:12px">
-        <thead>
-          <tr><th>Line</th><th>Cost (USD)</th><th>Price (USD)</th><th>Margin</th></tr>
-        </thead>
-        <tbody id="deal-breakdown-tbody"></tbody>
-      </table>
+      <p class="label" style="margin-bottom:10px">Deal Summary (USD)</p>
+      <div class="deal-matrix" id="deal-matrix"></div>
 
       <p class="msg-success hidden" id="deal-cashflow-ok">Cash position stays positive throughout the term.</p>
       <p class="msg-error hidden" id="deal-cashflow-warn"></p>
@@ -308,32 +304,108 @@
 
       <!-- Hw / Hosting Setup -->
       <div class="deal-tab-panel" id="deal-tab-hw">
-        <div class="form-grid">
-          <div class="form-group"><label>SafeSight, existing infra (units)</label><input type="number" id="deal-ssExisting" min="0"></div>
-          <div class="form-group"><label>SafeSight, new infra (units)</label><input type="number" id="deal-ssNew" min="0"></div>
-          <div class="form-group"><label>AQ Sensor (units)</label><input type="number" id="deal-aqm" min="0"></div>
-          <div class="form-group"><label>HEMIR (units)</label><input type="number" id="deal-hemir" min="0"></div>
+        <p class="label" style="margin-bottom:10px">Units Required</p>
+        <div class="unit-cards">
+          <div class="unit-card">
+            <label for="deal-ssExisting">SafeSight, existing infra</label>
+            <input type="number" id="deal-ssExisting" min="0" placeholder="0">
+          </div>
+          <div class="unit-card">
+            <label for="deal-ssNew">SafeSight, new infra</label>
+            <input type="number" id="deal-ssNew" min="0" placeholder="0">
+          </div>
+          <div class="unit-card">
+            <label for="deal-aqm">AQ Sensor</label>
+            <input type="number" id="deal-aqm" min="0" placeholder="0">
+          </div>
+          <div class="unit-card">
+            <label for="deal-hemir">HEMIR</label>
+            <input type="number" id="deal-hemir" min="0" placeholder="0">
+          </div>
         </div>
 
-        <table class="doc-table">
-          <thead><tr><th>Unit cost and warranty</th><th>Unit cost (USD, fixed at creation)</th><th>Margin % (blank = target)</th></tr></thead>
-          <tbody>
-            <tr><td>SafeSight</td><td><input type="number" id="deal-ssUnitCost" readonly></td><td><input type="number" id="deal-margin-hwSs" placeholder="target"></td></tr>
-            <tr><td>AQ Sensor</td><td><input type="number" id="deal-aqUnitCost" readonly></td><td><input type="number" id="deal-margin-hwAqm" placeholder="target"></td></tr>
-            <tr><td>HEMIR</td><td><input type="number" id="deal-hemirUnitCost" readonly></td><td><input type="number" id="deal-margin-hwHemir" placeholder="target"></td></tr>
-            <tr><td>Warranty provision</td><td class="col-mono" id="deal-warranty-computed">--</td><td><input type="number" id="deal-margin-hwWarranty" placeholder="target"></td></tr>
-          </tbody>
-        </table>
-        <p class="data-row-label" style="margin:-8px 0 16px">Unit costs are set when the Opportunity is created and can't be edited here.</p>
+        <!-- Rates are fixed at Opportunity creation, never edited here - held
+             only so readPayload()/populateForm() have somewhere to read/write
+             them. Their value is surfaced instead in each row's note below
+             ("N units x $rate"), not as its own column, matching the
+             prototype's card shape (Item/Cost/Margin%/Price only). -->
+        <input type="number" id="deal-ssUnitCost" class="hidden" readonly>
+        <input type="number" id="deal-aqUnitCost" class="hidden" readonly>
+        <input type="number" id="deal-hemirUnitCost" class="hidden" readonly>
+        <input type="number" id="deal-hoSafesight" class="hidden" readonly>
+        <input type="number" id="deal-hoAqm" class="hidden" readonly>
+        <input type="number" id="deal-hoHemir" class="hidden" readonly>
 
-        <table class="doc-table" style="margin-top:16px">
-          <thead><tr><th>Hosting (per unit / month)</th><th>Rate (USD, fixed at creation)</th><th>Margin % (blank = target)</th></tr></thead>
-          <tbody>
-            <tr><td>SafeSight</td><td><input type="number" id="deal-hoSafesight" readonly></td><td><input type="number" id="deal-margin-hoSs" placeholder="target"></td></tr>
-            <tr><td>AQ Sensor</td><td><input type="number" id="deal-hoAqm" readonly></td><td><input type="number" id="deal-margin-hoAqm" placeholder="target"></td></tr>
-            <tr><td>HEMIR</td><td><input type="number" id="deal-hoHemir" readonly></td><td><input type="number" id="deal-margin-hoHemir" placeholder="target"></td></tr>
-          </tbody>
-        </table>
+        <p class="label" style="margin:24px 0 10px">Computed pricing (USD) &middot; costs mirrored from Base Cost Data</p>
+        <div class="pg-cards">
+          <div class="pg-card">
+            <p class="pg-card-title">Unit cost and warranty</p>
+            <div class="pg-head"><span>Item</span><span>Cost (USD)</span><span>Margin %</span><span>Price (USD)</span></div>
+
+            <div class="pg-row">
+              <div><div class="pg-item-name">SafeSight</div><div class="pg-item-note" id="pg-note-hwSs">--</div></div>
+              <div class="pg-cost" id="pg-cost-hwSs">--</div>
+              <input type="number" class="pg-margin-input" id="deal-margin-hwSs" placeholder="target">
+              <div class="pg-price" id="pg-price-hwSs">--</div>
+            </div>
+            <div class="pg-row">
+              <div><div class="pg-item-name">AQ Sensor</div><div class="pg-item-note" id="pg-note-hwAqm">--</div></div>
+              <div class="pg-cost" id="pg-cost-hwAqm">--</div>
+              <input type="number" class="pg-margin-input" id="deal-margin-hwAqm" placeholder="target">
+              <div class="pg-price" id="pg-price-hwAqm">--</div>
+            </div>
+            <div class="pg-row">
+              <div><div class="pg-item-name">HEMIR</div><div class="pg-item-note" id="pg-note-hwHemir">--</div></div>
+              <div class="pg-cost" id="pg-cost-hwHemir">--</div>
+              <input type="number" class="pg-margin-input" id="deal-margin-hwHemir" placeholder="target">
+              <div class="pg-price" id="pg-price-hwHemir">--</div>
+            </div>
+            <div class="pg-row">
+              <div><div class="pg-item-name">Warranty provision</div><div class="pg-item-note" id="pg-note-hwWarranty">--</div></div>
+              <div class="pg-cost" id="pg-cost-hwWarranty">--</div>
+              <input type="number" class="pg-margin-input" id="deal-margin-hwWarranty" placeholder="target">
+              <div class="pg-price" id="pg-price-hwWarranty">--</div>
+            </div>
+
+            <div class="pg-row pg-total">
+              <div class="pg-item-name">Total</div>
+              <div class="pg-cost" id="pg-total-cost-hw">--</div>
+              <div></div>
+              <div class="pg-price" id="pg-total-price-hw">--</div>
+            </div>
+          </div>
+
+          <div class="pg-card">
+            <p class="pg-card-title">Hosting (per month)</p>
+            <div class="pg-head"><span>Item</span><span>Cost (USD)</span><span>Margin %</span><span>Price (USD)</span></div>
+
+            <div class="pg-row">
+              <div><div class="pg-item-name">SafeSight</div><div class="pg-item-note" id="pg-note-hoSs">--</div></div>
+              <div class="pg-cost" id="pg-cost-hoSs">--</div>
+              <input type="number" class="pg-margin-input" id="deal-margin-hoSs" placeholder="target">
+              <div class="pg-price" id="pg-price-hoSs">--</div>
+            </div>
+            <div class="pg-row">
+              <div><div class="pg-item-name">AQ Sensor</div><div class="pg-item-note" id="pg-note-hoAqm">--</div></div>
+              <div class="pg-cost" id="pg-cost-hoAqm">--</div>
+              <input type="number" class="pg-margin-input" id="deal-margin-hoAqm" placeholder="target">
+              <div class="pg-price" id="pg-price-hoAqm">--</div>
+            </div>
+            <div class="pg-row">
+              <div><div class="pg-item-name">HEMIR</div><div class="pg-item-note" id="pg-note-hoHemir">--</div></div>
+              <div class="pg-cost" id="pg-cost-hoHemir">--</div>
+              <input type="number" class="pg-margin-input" id="deal-margin-hoHemir" placeholder="target">
+              <div class="pg-price" id="pg-price-hoHemir">--</div>
+            </div>
+
+            <div class="pg-row pg-total">
+              <div class="pg-item-name">Total</div>
+              <div class="pg-cost" id="pg-total-cost-ho">--</div>
+              <div></div>
+              <div class="pg-price" id="pg-total-price-ho">--</div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- Installation -->
@@ -350,19 +422,49 @@
           <div class="form-group hidden" id="deal-lumpCost-group">
             <label>Lump sum contractor price (USD)</label>
             <input type="number" id="deal-lumpCost">
+            <p class="data-row-label" id="deal-lump-summary" style="margin-top:8px">--</p>
+          </div>
+          <div class="form-group hidden" id="deal-install-seetable">
+            <label>Contractor pricing</label>
+            <p class="data-row-label" style="padding-top:8px">See table below.</p>
+          </div>
+          <div class="form-group hidden" id="deal-install-notapplicable">
+            <label>Contractor Price</label>
+            <p class="data-row-label" style="padding-top:8px">Not applicable.</p>
           </div>
         </div>
 
         <table class="doc-table hidden" id="deal-install-table">
-          <thead><tr><th>Installation (per unit)</th><th>Rate (USD, fixed at creation)</th><th>Margin % (blank = target)</th></tr></thead>
+          <thead><tr><th>Installation (per unit)</th><th>Units</th><th>Rate (USD, fixed at creation)</th><th>Margin % (blank = target)</th></tr></thead>
           <tbody>
-            <tr><td>SafeSight, existing infra</td><td><input type="number" id="deal-inSsExisting" readonly></td><td><input type="number" id="deal-margin-inSsEx" placeholder="target"></td></tr>
-            <tr><td>SafeSight, new infra</td><td><input type="number" id="deal-inSsNew" readonly></td><td><input type="number" id="deal-margin-inSsNew" placeholder="target"></td></tr>
-            <tr><td>AQ Sensor</td><td><input type="number" id="deal-inAqm" readonly></td><td><input type="number" id="deal-margin-inAqm" placeholder="target"></td></tr>
-            <tr><td>HEMIR</td><td><input type="number" id="deal-inHemir" readonly></td><td><input type="number" id="deal-margin-inHemir" placeholder="target"></td></tr>
+            <tr><td>SafeSight, existing infra</td><td class="col-mono" id="deal-install-units-inSsEx">0</td><td><input type="number" id="deal-inSsExisting" readonly></td><td><input type="number" id="deal-margin-inSsEx" placeholder="target"></td></tr>
+            <tr><td>SafeSight, new infra</td><td class="col-mono" id="deal-install-units-inSsNew">0</td><td><input type="number" id="deal-inSsNew" readonly></td><td><input type="number" id="deal-margin-inSsNew" placeholder="target"></td></tr>
+            <tr><td>AQ Sensor</td><td class="col-mono" id="deal-install-units-inAqm">0</td><td><input type="number" id="deal-inAqm" readonly></td><td><input type="number" id="deal-margin-inAqm" placeholder="target"></td></tr>
+            <tr><td>HEMIR</td><td class="col-mono" id="deal-install-units-inHemir">0</td><td><input type="number" id="deal-inHemir" readonly></td><td><input type="number" id="deal-margin-inHemir" placeholder="target"></td></tr>
           </tbody>
         </table>
-        <p class="data-row-label" style="margin-top:8px">Installation rates are set when the Opportunity is created and can't be edited here.</p>
+
+        <!-- What Terminus pays the CONTRACTOR for a Lump Sum job. Kept
+             visually and structurally separate from the customer-facing
+             hardware milestones on Payment Terms (what the CUSTOMER pays
+             Terminus) - opposite party, opposite direction of money. -->
+        <div id="deal-contractor-group" class="hidden" style="margin-top:24px">
+          <p class="label" style="margin-bottom:4px">Contractor payment milestones</p>
+          <p class="data-row-label" style="margin-bottom:10px">What Terminus pays the contractor, and when. Max 5 milestones.</p>
+          <table class="doc-table">
+            <thead><tr><th>Month</th><th>Contractor milestone</th><th>USD</th><th>% of lump sum</th></tr></thead>
+            <tbody id="deal-contractor-tbody"></tbody>
+            <tbody>
+              <tr>
+                <td></td>
+                <td class="data-row-label" id="deal-contractor-base">Lump sum contractor price, $0</td>
+                <td class="col-mono" id="deal-contractor-total-usd">$0</td>
+                <td class="col-mono" id="deal-contractor-total-pct">0%</td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="msg-error hidden" id="deal-contractor-warn"></p>
+        </div>
       </div>
 
       <!-- Structural Terms -->
@@ -374,6 +476,9 @@
           <div class="form-group"><label>GST %</label><input type="number" id="deal-gstPct"></div>
         </div>
         <button class="btn-ghost" id="deal-grossUp-toggle" type="button">Gross up: Off</button>
+
+        <p class="label" style="margin:24px 0 10px">Deal sheet (USD) &middot; <span id="deal-sheet-units">0</span> units</p>
+        <div class="deal-sheet" id="deal-sheet"></div>
       </div>
 
       <!-- Payment Terms -->
@@ -382,32 +487,68 @@
           <div class="form-group"><label>Contract duration (months)</label><input type="number" id="deal-duration" min="0"></div>
         </div>
 
-        <div class="form-group" style="margin-bottom:16px">
-          <label>Payment structure</label>
-          <div class="view-toggle" id="deal-structure-toggle">
-            <button data-structure="single">Single phase</button>
-            <button data-structure="twoPhase" class="active">Two-phase</button>
-            <button data-structure="hybrid">Hybrid</button>
+        <div class="payment-card">
+          <div class="ring-radio-group" id="deal-structure-toggle">
+            <div class="ring-radio" data-structure="single">
+              <span class="ring-radio-ring"><span class="ring-radio-dot"></span></span>
+              <span class="ring-radio-label">Single phase (recovery over full term)</span>
+            </div>
+            <div class="ring-radio" data-structure="twoPhase">
+              <span class="ring-radio-ring"><span class="ring-radio-dot"></span></span>
+              <span class="ring-radio-label">Two-phase (hardware recovery then hosting)</span>
+            </div>
+            <div class="ring-radio" data-structure="hybrid">
+              <span class="ring-radio-ring"><span class="ring-radio-dot"></span></span>
+              <span class="ring-radio-label">Hybrid (milestone + hosting)</span>
+            </div>
+          </div>
+
+          <div class="ring-radio-group" id="deal-invoicing-toggle" style="margin-top:16px;padding-top:16px;border-top:1px solid var(--hairline)">
+            <span class="label">Invoicing</span>
+            <div class="ring-radio" data-invoicing="annual">
+              <span class="ring-radio-ring"><span class="ring-radio-dot"></span></span>
+              <span class="ring-radio-label">Annual in advance</span>
+            </div>
+            <div class="ring-radio" data-invoicing="monthly">
+              <span class="ring-radio-ring"><span class="ring-radio-dot"></span></span>
+              <span class="ring-radio-label">Monthly</span>
+            </div>
+          </div>
+
+          <div id="deal-top-schedule-row" style="display:flex;gap:24px;align-items:flex-end;margin-top:18px;flex-wrap:wrap">
+            <div class="form-group" id="deal-recovery-group" style="width:150px;flex:0 0 150px">
+              <label>Recovery period (months)</label>
+              <input type="number" id="deal-recoveryMonths" min="0">
+            </div>
+            <div id="deal-recovery-readonly" class="hidden" style="width:150px;flex:0 0 150px">
+              <span class="label" style="display:block;margin-bottom:6px">Recovery period</span>
+              <div id="deal-recovery-readonly-value" style="font-family:var(--mono);font-size:13px;color:var(--muted);padding:7px 0">--</div>
+            </div>
+            <div style="flex:1 1 0;min-width:0" id="deal-year-schedule"></div>
           </div>
         </div>
 
-        <div class="form-grid" id="deal-recovery-group">
-          <div class="form-group"><label>Recovery period (months)</label><input type="number" id="deal-recoveryMonths" min="0"></div>
-        </div>
-
-        <div class="form-group" style="margin-bottom:20px">
-          <label>Invoicing frequency</label>
-          <div class="view-toggle" id="deal-invoicing-toggle">
-            <button data-invoicing="annual" class="active">Annual in advance</button>
-            <button data-invoicing="monthly">Monthly</button>
+        <div id="deal-hybrid-group" class="hidden" style="display:grid;grid-template-columns:minmax(365px,1fr) minmax(0,280px);gap:20px;margin-top:22px;align-items:start">
+          <div style="min-width:0;overflow-x:auto">
+            <table class="doc-table">
+              <thead><tr><th>Month</th><th>Milestone</th><th>USD</th><th>% of hardware</th></tr></thead>
+              <tbody id="deal-milestones-tbody"></tbody>
+            </table>
           </div>
-        </div>
-
-        <div id="deal-milestones-group" class="hidden">
-          <table class="doc-table">
-            <thead><tr><th>Month</th><th>Milestone</th><th>USD</th><th>% of hardware</th></tr></thead>
-            <tbody id="deal-milestones-tbody"></tbody>
-          </table>
+          <div>
+            <div class="ring-radio-group" id="deal-hybrid-invoicing-toggle" style="margin-bottom:18px;border:1px solid var(--hairline-strong);padding:12px 14px">
+              <span class="label">Invoicing</span>
+              <div class="ring-radio" data-invoicing="annual">
+                <span class="ring-radio-ring"><span class="ring-radio-dot"></span></span>
+                <span class="ring-radio-label">Annual in advance</span>
+              </div>
+              <div class="ring-radio" data-invoicing="monthly">
+                <span class="ring-radio-ring"><span class="ring-radio-dot"></span></span>
+                <span class="ring-radio-label">Monthly</span>
+              </div>
+            </div>
+            <div id="deal-hybrid-schedule"></div>
+          </div>
         </div>
 
         <div style="margin-top:24px">
@@ -423,6 +564,16 @@
                 <button data-method="declining">Declining balance</button>
               </div>
             </div>
+          </div>
+        </div>
+
+        <div style="margin-top:28px">
+          <p class="section-title">Cash flow (USD)</p>
+          <div class="cashflow-scroll" id="deal-cashflow-grid"></div>
+          <p class="empty-state hidden" id="deal-cashflow-empty" style="text-align:left;padding:16px 0">Set the Contract Duration to model the monthly cash flow.</p>
+          <div style="display:flex;justify-content:space-between;gap:12px;padding-top:14px">
+            <span class="label">Closing position over contract</span>
+            <span class="stat-value" id="deal-cashflow-closing" style="color:var(--green)">--</span>
           </div>
         </div>
       </div>

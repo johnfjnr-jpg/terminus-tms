@@ -240,7 +240,11 @@ export function buildCashFlowModel({
 
   const rows = [];
   let cum = 0;
-  let minCash = 0;
+  // Tracks the true minimum cumulative cash position across every month, not
+  // just how far negative it goes. Starting at null (rather than 0) matters:
+  // a deal whose cash flow stays positive throughout still has a real trough
+  // (e.g. $5k in month 3) that a salesperson needs to see, it isn't $0.
+  let minCash = null;
   let minCashMonth = 0;
 
   for (let m = 1; m <= months; m++) {
@@ -261,7 +265,7 @@ export function buildCashFlowModel({
     const cashOut = plCost + facP;
     const cashNet = cashIn - cashOut;
     cum += cashNet;
-    if (Math.round(cum) < minCash) {
+    if (minCash === null || Math.round(cum) < minCash) {
       minCash = Math.round(cum);
       minCashMonth = m;
     }
@@ -279,7 +283,7 @@ export function buildCashFlowModel({
   return {
     structure, recov, rows, totRev, totCost, totNet: totRev - totCost, annualInvoicing,
     marginAchieved: totRev ? ((totRev - totCost) / totRev) * 100 : 0,
-    minCash, minCashMonth, factoringEnabled, facTerm, factoringMethod, principal, contractorStaged,
+    minCash: minCash ?? 0, minCashMonth, factoringEnabled, facTerm, factoringMethod, principal, contractorStaged,
     facInterest, msPctTotal,
   };
 }

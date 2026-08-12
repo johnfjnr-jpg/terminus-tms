@@ -86,7 +86,22 @@ async function loadDealInputsFromOpportunity(db, opportunityId) {
   const aqmUnits = payload.aqm ?? 0;
   const hemirUnits = payload.hemir ?? 0;
 
-  const installLineItems = payload.isPerUnit ? [
+  // The prototype derives this from the free-text install-responsibility
+  // field containing 'Lump Sum' (Terminus Ops.dc.html:6497). Flagging
+  // since a free-text substring match is fragile as a persisted field -
+  // worth confirming installResp stays a fixed set of values.
+  const lumpSumDeal = (payload.installResp ?? '').includes('Lump Sum');
+
+  // Lump Sum must be its own branch, not folded into the isPerUnit check -
+  // isPerUnit is only true for 'Terminus Installation Team', so Lump Sum
+  // was previously falling through to the zero-cost 'inNone' line, meaning
+  // installGroup (and everything downstream) silently priced Lump Sum
+  // installation at $0 server-side too. Kept identical to the client-side
+  // buildDealInputs() in frontend/opportunity-deal.js - the submit-recompute
+  // architecture depends on both branching the same way for the same input.
+  const installLineItems = lumpSumDeal ? [
+    { key: 'inLump', cost: payload.lumpSumCost ?? 0, marginPct: marginFor('inLump') },
+  ] : payload.isPerUnit ? [
     { key: 'inSsEx', cost: (payload.inSsExisting ?? 0) * ssExisting, marginPct: marginFor('inSsEx') },
     { key: 'inSsNew', cost: (payload.inSsNew ?? 0) * ssNew, marginPct: marginFor('inSsNew') },
     { key: 'inAqm', cost: (payload.inAqm ?? 0) * aqmUnits, marginPct: marginFor('inAqm') },
@@ -102,12 +117,6 @@ async function loadDealInputsFromOpportunity(db, opportunityId) {
   ];
 
   const factoring = payload.factoring ?? {};
-
-  // The prototype derives this from the free-text install-responsibility
-  // field containing 'Lump Sum' (Terminus Ops.dc.html:6497). Flagging
-  // since a free-text substring match is fragile as a persisted field -
-  // worth confirming installResp stays a fixed set of values.
-  const lumpSumDeal = (payload.installResp ?? '').includes('Lump Sum');
 
   const dealInputs = {
     ssUnitCost: payload.ssUnitCost ?? 0,
