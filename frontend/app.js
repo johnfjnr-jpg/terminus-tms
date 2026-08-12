@@ -251,6 +251,9 @@ window.attemptTransition = async (id, toStage, feedbackId, sectionId, currentSta
 // (2026-08-12) - see src/routes/leads.js. This view only ever lists the 9
 // pre-existing record_type='lead' rows; nothing here creates or converts
 // anything anymore. New intake and conversion both live in Contacts below.
+let leadsCache = []
+let expandedLeadId = null
+
 async function loadLeads() {
   const result = await api('GET', '/api/leads')
   if (!result.ok) {
@@ -258,18 +261,24 @@ async function loadLeads() {
       '<p class="empty-state">Failed to load leads.</p>'
     return
   }
-  renderLeadsList(result.data)
+  leadsCache = result.data
+  renderLeadsList()
 }
 
-function renderLeadsList(leads) {
+// Read-only history view - Leads is frozen, nothing here writes anywhere.
+// Fields shown are exactly what's in these 9 records' payloads (checked
+// against the real data: contact_name, company_name, source, notes -
+// nothing else was ever stored on a Lead), not a guessed-at field set.
+function renderLeadsList() {
   const container = document.getElementById('leads-rows')
-  if (!leads.length) {
+  if (!leadsCache.length) {
     container.innerHTML = '<p class="empty-state">No leads.</p>'
     return
   }
 
-  container.innerHTML = leads.map(l => {
+  container.innerHTML = leadsCache.map(l => {
     const p = l.payload ?? {}
+    const isExpanded = expandedLeadId === l.id
     return `
     <div class="record-card">
       <div class="record-card-main">
@@ -281,9 +290,35 @@ function renderLeadsList(leads) {
       </div>
       <div class="record-card-side">
         <span class="record-card-stat">${daysAgo(l.created_at)} ago</span>
+        <button class="btn-text" onclick="toggleLeadExpand('${l.id}')">${isExpanded ? 'Close' : 'View'}</button>
       </div>
-    </div>`
+    </div>
+    ${isExpanded ? renderLeadHistoryPanel(l) : ''}
+    `
   }).join('')
+}
+
+function renderLeadHistoryPanel(l) {
+  const p = l.payload ?? {}
+  return `
+  <div class="contact-manage-panel">
+    <div class="lead-history-grid">
+      <span class="cm-label">Contact</span><span>${escHtml(p.contact_name ?? '--')}</span>
+      <span class="cm-label">Company</span><span>${escHtml(p.company_name ?? '--')}</span>
+      <span class="cm-label">Source</span><span>${escHtml(p.source ?? '--')}</span>
+      <span class="cm-label">Status</span><span>${escHtml(l.status)}</span>
+      <span class="cm-label">Created</span><span>${formatDate(l.created_at)}</span>
+    </div>
+    <div>
+      <span class="cm-label">Notes</span>
+      <div class="lead-history-notes">${escHtml(p.notes) || '--'}</div>
+    </div>
+  </div>`
+}
+
+window.toggleLeadExpand = (id) => {
+  expandedLeadId = expandedLeadId === id ? null : id
+  renderLeadsList()
 }
 
 // ── Contacts ──────────────────────────────────────────────────────────────────

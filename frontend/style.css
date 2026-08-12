@@ -478,6 +478,24 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
 
 .contact-manage-delete { border-top: 1px solid var(--hairline-strong); padding-top: 12px; }
 
+/* ── Lead history panel (read-only, reuses .contact-manage-panel for the
+   same expand-below-the-row idiom - no writes happen here at all) ──── */
+.lead-history-grid {
+  display: grid;
+  grid-template-columns: 90px 1fr;
+  gap: 8px 12px;
+  font-family: var(--body);
+  font-size: 13px;
+  color: var(--white);
+}
+.lead-history-notes {
+  font-family: var(--body);
+  font-size: 13px;
+  color: var(--white);
+  margin-top: 6px;
+  white-space: pre-wrap;
+}
+
 /* ── Stage tracker ──────────────────────────────────────────── */
 .tracker {
   display: flex;
