@@ -15,7 +15,7 @@ export default async function transitionsRoutes(app) {
 
     const { data: record, error: recordErr } = await db
       .from('records')
-      .select('id, record_type, status, variant')
+      .select('id, record_type, status, variant, parent_record_id, industry_id')
       .eq('id', request.params.id)
       .maybeSingle()
 
@@ -30,7 +30,13 @@ export default async function transitionsRoutes(app) {
     }
 
     // Validate to_stage against stage_definitions for this record type/variant.
-    // Records with no definitions (e.g. smoke_test) skip this check.
+    // No stage list for this record type means nothing is a valid
+    // destination, not "anything goes" - this used to skip the check
+    // entirely when stageDefs came back empty, which meant any record type
+    // with no stage_definitions rows (found via Lead, which has none - its
+    // own /convert endpoints never call this endpoint, so this was a live
+    // but unexercised hole) could have its status set to an arbitrary
+    // string with zero validation.
     let stageQuery = db
       .from('stage_definitions')
       .select('stage_name')
@@ -42,19 +48,18 @@ export default async function transitionsRoutes(app) {
 
     const { data: stageDefs } = await stageQuery
 
-    if (stageDefs?.length) {
-      const validStages = stageDefs.map(s => s.stage_name)
-      if (!validStages.includes(to_stage)) {
-        return reply.code(400).send({
-          error: `${to_stage} is not a valid stage for this record type`
-        })
-      }
+    const validStages = (stageDefs ?? []).map(s => s.stage_name)
+    if (!validStages.includes(to_stage)) {
+      return reply.code(400).send({
+        error: `${to_stage} is not a valid stage for this record type`
+      })
     }
 
-    // Get the current revision number to check approvals against
+    // Get the current revision (and its payload, for payload_field_required
+    // checks below) to check approvals against
     const { data: revRow } = await db
       .from('record_revisions')
-      .select('revision_number')
+      .select('revision_number, payload')
       .eq('record_id', record.id)
       .order('revision_number', { ascending: false })
       .limit(1)
@@ -131,6 +136,30 @@ export default async function transitionsRoutes(app) {
             document: docName,
             required_status: reqStatus,
             message: `Requires ${docName} to be ${reqStatus}`
+          })
+        }
+      }
+
+      // payload_field_required: requirement_detail = {field}. Checks the
+      // record's current payload for that key - except two fields that are
+      // real columns on records rather than payload keys (parent_record_id,
+      // the Account link described as "Company" in the UI, and
+      // industry_id), which are read straight off the record row instead.
+      // Reads only what's already durably saved - this endpoint's request
+      // body is still just {to_stage}, nothing here accepts inline data to
+      // patch in as part of the transition itself.
+      if (rule.requirement_type === 'payload_field_required') {
+        const field = rule.requirement_detail?.field
+        if (!field) continue
+
+        const RECORD_COLUMN_FIELDS = new Set(['parent_record_id', 'industry_id'])
+        const value = RECORD_COLUMN_FIELDS.has(field) ? record[field] : revRow?.payload?.[field]
+
+        if (value === undefined || value === null || value === '') {
+          blocking.push({
+            requirement_type: 'payload_field_required',
+            field,
+            message: `Requires ${field} to be set`
           })
         }
       }

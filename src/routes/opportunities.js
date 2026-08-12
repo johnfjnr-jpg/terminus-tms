@@ -88,7 +88,7 @@ export default async function opportunitiesRoutes(app) {
   // Out of scope for v1, tracked for later.
   const SALESPERSON_WRITABLE_KEYS = new Set([
     'ssExisting', 'ssNew', 'aqm', 'hemir',
-    'isPerUnit', 'installResp', 'lumpSumCost',
+    'installResp', 'lumpSumCost',
     'targetMargin', 'marginOverrides',
     'warrantyPct', 'whtPct', 'gstPct', 'grossUp',
     'duration', 'structure', 'recoveryMonths', 'invoicing', 'milestones',

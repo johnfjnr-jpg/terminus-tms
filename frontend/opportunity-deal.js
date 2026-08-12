@@ -74,7 +74,6 @@ function readPayload() {
     aqUnitCost: num('deal-aqUnitCost'),
     hemirUnitCost: num('deal-hemirUnitCost'),
 
-    isPerUnit: uiState.installResp === 'Terminus Installation Team',
     installResp: uiState.installResp,
     lumpSumCost: num('deal-lumpCost'),
     inSsExisting: num('deal-inSsExisting'),
@@ -153,15 +152,26 @@ function buildDealInputs(payload) {
 
   const lumpSumDeal = (payload.installResp ?? '').includes('Lump Sum')
 
+  // isPerUnit used to be a separately-stored boolean, computed once via
+  // uiState.installResp === 'Terminus Installation Team' - an invented
+  // string that never matched the real 4-option picklist (Terminus
+  // Ops.dc.html:5569-5570/5703: Client Own Installation Team / Terminus
+  // Contractor - Per Unit / Terminus Contractor - Lump Sum / Terminus -
+  // Reseller Installation), so it was always false and Reseller
+  // Installation had no option at all. Derived fresh from installResp
+  // here instead, same substring-match mechanism as lumpSumDeal above,
+  // so there's no separate flag left to drift out of sync with the
+  // string it's meant to describe.
+  const isPerUnit = (payload.installResp ?? '').includes('Per Unit')
+
   // Lump Sum must be its own branch, not folded into the isPerUnit check -
-  // isPerUnit is only true for 'Terminus Installation Team', so Lump Sum
-  // was previously falling through to the zero-cost 'inNone' line, meaning
-  // installGroup (and everything downstream: the Deal Summary matrix's
-  // Installation column, the Deal sheet's installation cost line) silently
-  // priced Lump Sum installation at $0.
+  // it was previously falling through to the zero-cost 'inNone' line,
+  // meaning installGroup (and everything downstream: the Deal Summary
+  // matrix's Installation column, the Deal sheet's installation cost
+  // line) silently priced Lump Sum installation at $0.
   const installLineItems = lumpSumDeal ? [
     { key: 'inLump', cost: payload.lumpSumCost ?? 0, marginPct: marginFor('inLump') },
-  ] : payload.isPerUnit ? [
+  ] : isPerUnit ? [
     { key: 'inSsEx', cost: (payload.inSsExisting ?? 0) * ssExisting, marginPct: marginFor('inSsEx') },
     { key: 'inSsNew', cost: (payload.inSsNew ?? 0) * ssNew, marginPct: marginFor('inSsNew') },
     { key: 'inAqm', cost: (payload.inAqm ?? 0) * aqmUnits, marginPct: marginFor('inAqm') },
@@ -750,8 +760,8 @@ function populateForm(payload) {
 // anything else (not applicable) - matches the prototype's
 // installPriceEditable / installPerUnitNote / installPriceReadOnly.
 function updateInstallVisibility() {
-  const isPerUnit = uiState.installResp === 'Terminus Installation Team'
-  const isLumpSum = uiState.installResp === 'Lump Sum'
+  const isPerUnit = uiState.installResp.includes('Per Unit')
+  const isLumpSum = uiState.installResp.includes('Lump Sum')
   document.getElementById('deal-install-table').classList.toggle('hidden', !isPerUnit)
   document.getElementById('deal-install-seetable').classList.toggle('hidden', !isPerUnit)
   document.getElementById('deal-lumpCost-group').classList.toggle('hidden', !isLumpSum)

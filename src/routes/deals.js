@@ -86,22 +86,30 @@ async function loadDealInputsFromOpportunity(db, opportunityId) {
   const aqmUnits = payload.aqm ?? 0;
   const hemirUnits = payload.hemir ?? 0;
 
-  // The prototype derives this from the free-text install-responsibility
-  // field containing 'Lump Sum' (Terminus Ops.dc.html:6497). Flagging
-  // since a free-text substring match is fragile as a persisted field -
-  // worth confirming installResp stays a fixed set of values.
+  // installResp is a fixed 4-option picklist (Terminus Ops.dc.html:5569-
+  // 5570/5703): Client Own Installation Team / Terminus Contractor - Per
+  // Unit / Terminus Contractor - Lump Sum / Terminus - Reseller
+  // Installation. Confirmed via the Rule-8 audit: an earlier version of
+  // this picklist used 3 invented labels missing Reseller Installation
+  // entirely, with isPerUnit stored as a separate boolean computed via
+  // exact-equality against one of those wrong labels - always false, so
+  // Per Unit deals were silently priced with zero installation cost.
+  // Both branches below now derive straight from installResp via the same
+  // substring match, so there's no separate flag left to drift out of
+  // sync with the string it's meant to describe.
   const lumpSumDeal = (payload.installResp ?? '').includes('Lump Sum');
+  const isPerUnit = (payload.installResp ?? '').includes('Per Unit');
 
   // Lump Sum must be its own branch, not folded into the isPerUnit check -
-  // isPerUnit is only true for 'Terminus Installation Team', so Lump Sum
-  // was previously falling through to the zero-cost 'inNone' line, meaning
-  // installGroup (and everything downstream) silently priced Lump Sum
-  // installation at $0 server-side too. Kept identical to the client-side
-  // buildDealInputs() in frontend/opportunity-deal.js - the submit-recompute
-  // architecture depends on both branching the same way for the same input.
+  // it was previously falling through to the zero-cost 'inNone' line,
+  // meaning installGroup (and everything downstream) silently priced Lump
+  // Sum installation at $0 server-side too. Kept identical to the
+  // client-side buildDealInputs() in frontend/opportunity-deal.js - the
+  // submit-recompute architecture depends on both branching the same way
+  // for the same input.
   const installLineItems = lumpSumDeal ? [
     { key: 'inLump', cost: payload.lumpSumCost ?? 0, marginPct: marginFor('inLump') },
-  ] : payload.isPerUnit ? [
+  ] : isPerUnit ? [
     { key: 'inSsEx', cost: (payload.inSsExisting ?? 0) * ssExisting, marginPct: marginFor('inSsEx') },
     { key: 'inSsNew', cost: (payload.inSsNew ?? 0) * ssNew, marginPct: marginFor('inSsNew') },
     { key: 'inAqm', cost: (payload.inAqm ?? 0) * aqmUnits, marginPct: marginFor('inAqm') },

@@ -11,6 +11,9 @@ import opportunitiesRoutes from './routes/opportunities.js'
 import dealsRoutes from './routes/deals.js'
 import testBedsRoutes from './routes/test-beds.js'
 import stageDefinitionsRoutes from './routes/stage-definitions.js'
+import industriesRoutes from './routes/industries.js'
+import accountsRoutes from './routes/accounts.js'
+import contactsRoutes from './routes/contacts.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -61,6 +64,9 @@ await fastify.register(async function authenticatedRoutes(app) {
   app.register(dealsRoutes, { prefix: '/api/deals' })
   app.register(testBedsRoutes, { prefix: '/api' })
   app.register(stageDefinitionsRoutes, { prefix: '/api' })
+  app.register(industriesRoutes, { prefix: '/api' })
+  app.register(accountsRoutes, { prefix: '/api' })
+  app.register(contactsRoutes, { prefix: '/api' })
 })
 
 const port = parseInt(process.env.PORT ?? '3000', 10)
