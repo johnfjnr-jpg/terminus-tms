@@ -72,6 +72,19 @@ document.querySelectorAll('.nav-link').forEach(el => {
 document.getElementById('btn-back-opps').addEventListener('click', () => navigate('opportunities'))
 document.getElementById('btn-back-testbeds').addEventListener('click', () => navigate('test-beds'))
 
+// Opportunity detail tabs (Commercials / Documents / Stage & Approvals) -
+// wired once, the tab bar is static HTML present for the life of the page,
+// not regenerated per opportunity, so this must not run again per-opportunity
+// or listeners would stack.
+document.querySelectorAll('#opp-detail-tabs .detail-tab').forEach(btn => {
+  btn.addEventListener('click', () => switchOppTab(btn.dataset.oppTab))
+})
+function switchOppTab(tab) {
+  document.querySelectorAll('#opp-detail-tabs .detail-tab').forEach(b => b.classList.toggle('active', b.dataset.oppTab === tab))
+  document.querySelectorAll('.detail-tab-panel').forEach(p => p.classList.add('hidden'))
+  document.getElementById(`opp-tab-${tab}`).classList.remove('hidden')
+}
+
 // ── API ───────────────────────────────────────────────────────────────────────
 async function api(method, path, body) {
   if (!currentSession) return { ok: false, data: { error: 'not authenticated' } }
@@ -829,6 +842,97 @@ async function renderOppDetail(opp) {
   // opportunity-deal.js (ES module, loaded after this script) owns the
   // Commercials tab — deal-calculator.js live preview + save/submit.
   window.initOpportunityDealPanel?.(opp)
+
+  // opportunity-reference.js owns the Reference tab — click-to-edit fields,
+  // Executive Summary, Notes.
+  window.initOpportunityReferencePanel?.(opp)
+
+  // Always land back on Reference when opening/switching opportunities,
+  // same convention as other modules resetting their sub-view on entry.
+  switchOppTab('reference')
+  renderOppDocumentsList()
+  await loadStageApprovals(opp.id)
+}
+
+// ── Documents tab: deliberately just a caption + flat template-link list,
+// no status tracking. There is no document-template data source anywhere
+// in this app yet (Test Bed's document mechanism is stage_gate_rules +
+// document_details, a different, per-stage-requirement thing, not a
+// static template library) - so this renders an honest empty state
+// rather than fabricated entries.
+function renderOppDocumentsList() {
+  document.getElementById('opp-documents-list').innerHTML =
+    '<p class="empty-state">No document templates configured yet.</p>'
+}
+
+// ── Stage & Approvals tab ───────────────────────────────────────────────────
+async function loadStageApprovals(id) {
+  const container = document.getElementById('opp-stage-approvals-rows')
+  container.innerHTML = '<p class="empty-state">Loading...</p>'
+  const result = await api('GET', `/api/records/${id}/stage-approvals`)
+  if (!result.ok) {
+    container.innerHTML = '<p class="empty-state">Failed to load stage approvals.</p>'
+    return
+  }
+  renderStageApprovalsRows(id, result.data)
+}
+
+// Every stage shown, not just the current one. Ring radios are real
+// (stage_gate_rules requirements + approvals decisions), but there is no
+// approval-role check anywhere in this app to gate WHO specifically may
+// click one - restricted to the current stage only, a UX judgment call on
+// real data (record.status), not a fabricated permission system.
+function renderStageApprovalsRows(recordId, stages) {
+  const container = document.getElementById('opp-stage-approvals-rows')
+  if (!stages.length) {
+    container.innerHTML = '<p class="empty-state">No stages configured for this record type.</p>'
+    return
+  }
+
+  container.innerHTML = stages.map(st => {
+    const dotColor = st.state === 'current' ? 'var(--green)' : st.state === 'completed' ? 'var(--muted)' : 'var(--muted-2)'
+    const rowOpacity = st.state === 'upcoming' ? '0.55' : '1'
+
+    const criteriaHtml = st.criteria.length
+      ? st.criteria.map(c => `<div>- ${escHtml(c)}</div>`).join('')
+      : '<span class="sa-empty">--</span>'
+
+    const approversHtml = st.tracks.length
+      ? st.tracks.map(t => {
+          const clickable = st.state === 'current' && !t.approved
+          const rowClass = `sa-approval-row${t.approved ? ' approved' : ''}${clickable ? ' clickable' : ''}`
+          const onclick = clickable ? `onclick="submitStageApproval('${recordId}','${escHtml(t.track)}')"` : ''
+          const meta = t.approved
+            ? `Approved ${formatDate(t.decided_at)}`
+            : (st.state === 'current' ? 'Click to approve' : '')
+          return `
+          <div class="${rowClass}" ${onclick}>
+            <span class="ring-radio-ring"><span class="ring-radio-dot"></span></span>
+            <div>
+              <div class="sa-approval-role">${escHtml(t.track)}</div>
+              <div class="sa-approval-meta">${meta}</div>
+            </div>
+          </div>`
+        }).join('')
+      : '<span class="sa-empty">No approvals required</span>'
+
+    return `
+    <div class="sa-row" style="opacity:${rowOpacity}">
+      <div class="sa-stage">
+        <span class="sa-dot" style="background:${dotColor}"></span>
+        <span class="sa-stage-name">${escHtml(st.stage_name)}</span>
+      </div>
+      <div class="sa-criteria">${criteriaHtml}</div>
+      <div class="sa-approvers">${approversHtml}</div>
+    </div>`
+  }).join('')
+}
+
+window.submitStageApproval = async (recordId, track) => {
+  const result = await api('POST', `/api/records/${recordId}/approvals`, { track, decision: 'approved' })
+  if (result.ok) {
+    await loadStageApprovals(recordId)
+  }
 }
 
 // Expose navigate globally for inline onclick handlers

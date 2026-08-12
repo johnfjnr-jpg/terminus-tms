@@ -1164,6 +1164,95 @@ textarea::placeholder { color: var(--muted-2); }
 
 .convert-form .form-group label { margin-bottom: 4px; }
 
+/* ── Reference tab (click-to-edit fields) ───────────────────────
+   Three peer cards, narrower than the Commercials pricing cards
+   (auto-fit, minmax(280px,1fr) vs 420px), reusing .pg-card/.pg-card-title
+   for the shared bordered-card-with-underlined-header look. Each field
+   row renders once with both display and edit modes always present,
+   toggled by class - never regenerated mid-edit, so opening/typing in
+   one field never disturbs any other open field elsewhere on the tab. */
+.ref-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+  margin-bottom: 28px;
+  align-items: start;
+}
+
+.ref-field {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--hairline);
+}
+.ref-field-label {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted-2);
+  margin-bottom: 4px;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.ref-field-display {
+  font-family: var(--body);
+  font-size: 13px;
+  color: var(--white);
+  cursor: text;
+  padding: 2px 4px;
+  margin: 0 -4px;
+  border-radius: 2px;
+}
+.ref-field-display:hover { background: rgba(242, 242, 240, 0.04); }
+.ref-field-display.readonly { cursor: default; color: var(--muted); }
+.ref-field-display.readonly:hover { background: none; }
+
+.ref-field-edit {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.ref-field-edit input, .ref-field-edit textarea { flex: 1; }
+.ref-field-edit.dirty input, .ref-field-edit.dirty textarea { border-bottom-color: var(--green); }
+.ref-field-discard {
+  cursor: pointer;
+  color: var(--muted-2);
+  font-size: 14px;
+  line-height: 1.4;
+  flex-shrink: 0;
+}
+.ref-field-discard:hover { color: var(--white); }
+
+.ref-edit-bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 14px;
+  border: 1px solid var(--hairline-strong);
+  background: rgba(242, 242, 240, 0.03);
+  margin-bottom: 20px;
+}
+
+.ref-notes-row {
+  display: flex;
+  gap: 14px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--hairline);
+}
+.ref-notes-when {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted-2);
+  flex-shrink: 0;
+  width: 110px;
+}
+.ref-notes-when span { display: block; color: var(--white); margin-top: 2px; }
+.ref-notes-text {
+  font-family: var(--body);
+  font-size: 13px;
+  color: var(--white);
+}
+
 /* ── Detail header ──────────────────────────────────────────── */
 .detail-head {
   display: flex;
@@ -1171,3 +1260,66 @@ textarea::placeholder { color: var(--muted-2); }
   align-items: flex-start;
   margin-bottom: 36px;
 }
+
+/* ── Opportunity detail tabs (Commercials / Documents / Stage & Approvals) ──
+   Underline style, matching this app's own top-level .nav-link treatment
+   (and the prototype's oppDetailTabs) - not the boxed .view-toggle buttons,
+   which are reserved for nested control groups like Commercials' own
+   sub-tabs. */
+.detail-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--hairline-strong);
+  margin-bottom: 24px;
+}
+.detail-tab {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: none;
+  border: none;
+  padding: 9px 4px;
+  margin-right: 20px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+.detail-tab:hover { color: var(--white); }
+.detail-tab.active { color: var(--white); border-bottom-color: var(--green); }
+
+/* ── Stage & Approvals table ─────────────────────────────────────
+   3-column, every stage shown (not just current), dot states + 0.55
+   opacity for upcoming rows (Terminus Ops.dc.html lines 1780-1816).
+   Ring radios are real (stage_gate_rules + approvals) but only
+   clickable for the current stage - no approval-role check exists
+   anywhere in this app to gate who specifically may click one. */
+.sa-row {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr) 240px;
+  gap: 24px;
+  padding: 14px 4px;
+  border-bottom: 1px solid var(--hairline);
+  align-items: start;
+}
+.sa-head {
+  padding: 0 4px 10px;
+  border-bottom: 1px solid var(--hairline-strong);
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted-2);
+}
+.sa-stage { display: flex; align-items: center; gap: 8px; }
+.sa-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.sa-stage-name { font-family: var(--body); font-size: 13px; color: var(--white); }
+.sa-criteria { font-family: var(--body); font-size: 13px; color: var(--white); }
+.sa-criteria div { padding: 3px 0; }
+.sa-empty { color: var(--muted-2); font-family: var(--mono); font-size: 12px; }
+.sa-approvers { display: flex; flex-direction: column; gap: 8px; }
+.sa-approval-row { display: flex; align-items: center; gap: 8px; }
+.sa-approval-row.clickable { cursor: pointer; }
+.sa-approval-row.approved .ring-radio-dot { background: var(--green); }
+.sa-approval-role { font-family: var(--body); font-size: 12px; color: var(--white); }
+.sa-approval-meta { font-family: var(--mono); font-size: 9px; color: var(--muted-2); }

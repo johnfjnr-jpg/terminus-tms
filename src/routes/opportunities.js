@@ -94,6 +94,14 @@ export default async function opportunitiesRoutes(app) {
     'duration', 'structure', 'recoveryMonths', 'invoicing', 'milestones',
     'contractorMilestones',
     'factoring',
+    // Reference tab (B1) - person/account fields are free text, there is no
+    // Contacts feature in this app to back a dropdown against (confirmed
+    // before building, see project_reference_fields_free_text memory).
+    'lead', 'commercial', 'technical', 'legal',
+    'account', 'customerLead', 'techBuyer', 'commBuyer', 'legalBuyer', 'itBuyer', 'commAddress',
+    'summary', 'oppType',
+    'actualClose', 'estGoLive', 'actualGoLive',
+    'notes',
   ])
 
   app.patch('/opportunities/:id', async (request, reply) => {
@@ -147,5 +155,83 @@ export default async function opportunitiesRoutes(app) {
     }
 
     return reply.send({ record_id: record.id, revision_number: newRevision.revision_number, payload: newRevision.payload })
+  })
+
+  // POST /api/opportunities/:id/close-date-move
+  // Est. Close Date is a real, indexed column on opportunity_details (used by
+  // pipeline forecast reporting), not a payload key - so moving it needs its
+  // own endpoint rather than the generic PATCH above, which only ever touches
+  // record_revisions.payload. A reason is mandatory: this is the one Reference
+  // field the extraction spec calls out as needing its own dedicated form
+  // (date + reason), not the generic click-to-edit flow.
+  app.post('/opportunities/:id/close-date-move', async (request, reply) => {
+    const { date, reason } = request.body ?? {}
+
+    if (!date || typeof date !== 'string' || !date.trim()) {
+      return reply.code(400).send({ error: 'date is required' })
+    }
+    if (!reason || typeof reason !== 'string' || !reason.trim()) {
+      return reply.code(400).send({ error: 'reason is required' })
+    }
+
+    const db = createUserClient(request.jwt)
+
+    const [oppDetailsResult, revRowResult] = await Promise.all([
+      db.from('opportunity_details').select('forecast_close_date').eq('record_id', request.params.id).maybeSingle(),
+      db.from('record_revisions')
+        .select('revision_number, payload')
+        .eq('record_id', request.params.id)
+        .order('revision_number', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    ])
+
+    if (!revRowResult.data) {
+      return reply.code(404).send({ error: 'not found' })
+    }
+
+    const oldDate = oppDetailsResult.data?.forecast_close_date ?? 'not set'
+    if (oldDate === date.trim()) {
+      return reply.code(400).send({ error: 'date is unchanged' })
+    }
+
+    const payload = revRowResult.data.payload ?? {}
+    const closeMoves = (payload.closeMoves ?? 0) + 1
+    const note = {
+      text: `Est. Close Date moved from ${oldDate} to ${date.trim()}. ${reason.trim()}`,
+      at: new Date().toISOString(),
+      by: request.user.email,
+    }
+    const mergedPayload = { ...payload, closeMoves, notes: [note, ...(payload.notes ?? [])] }
+    const nextRevision = revRowResult.data.revision_number + 1
+
+    const { error: revErr } = await db
+      .from('record_revisions')
+      .insert({ record_id: request.params.id, revision_number: nextRevision, payload: mergedPayload, created_by: request.user.id })
+
+    if (revErr) {
+      request.log.error({ err: revErr }, 'failed to save close-date-move revision')
+      return reply.code(500).send({ error: revErr.message })
+    }
+
+    const { error: updateErr } = await db
+      .from('opportunity_details')
+      .update({ forecast_close_date: date.trim() })
+      .eq('record_id', request.params.id)
+
+    if (updateErr) {
+      request.log.error({ err: updateErr }, 'failed to update forecast_close_date')
+      return reply.code(500).send({ error: updateErr.message })
+    }
+
+    await db.from('audit_log').insert({
+      record_id: request.params.id,
+      record_type: 'opportunity',
+      action: 'close_date_moved',
+      actor_id: request.user.id,
+      detail: { from: oldDate, to: date.trim(), reason: reason.trim() },
+    })
+
+    return reply.send({ revision_number: nextRevision, payload: mergedPayload, forecast_close_date: date.trim() })
   })
 }

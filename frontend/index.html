@@ -247,28 +247,101 @@
 
     <div class="tracker" id="stage-tracker"></div>
 
-    <div class="stats-grid">
-      <div>
-        <span class="label">Probability</span>
-        <div class="stat-value" id="detail-probability">--</div>
+    <div class="detail-tabs" id="opp-detail-tabs">
+      <button class="detail-tab active" data-opp-tab="reference">Reference</button>
+      <button class="detail-tab" data-opp-tab="commercial">Commercials</button>
+      <button class="detail-tab" data-opp-tab="documents">Documents</button>
+      <button class="detail-tab" data-opp-tab="approvals">Stage &amp; Approvals</button>
+    </div>
+
+    <!-- Reference: reference number strip, three cards (Terminus Details /
+         Customer Details / Key Dates), Executive Summary + Notes. Click to
+         edit in place, several fields can be open at once across all three
+         cards (per-field state in refEdits, opportunity-reference.js), a
+         header bar appears only while something is open, each open field
+         carries its own discard control. Est. Close Date is the one field
+         with its own dedicated form (date + mandatory reason) instead of
+         the generic click-to-edit, since moving it is a business event, not
+         a plain value change. -->
+    <div class="detail-tab-panel" id="opp-tab-reference">
+      <div class="stats-grid" style="margin-bottom:28px">
+        <div>
+          <span class="label">Probability</span>
+          <div class="stat-value" id="detail-probability">--</div>
+        </div>
+        <div>
+          <span class="label">Forecast close</span>
+          <div class="stat-value" id="detail-close-date">--</div>
+        </div>
+        <div>
+          <span class="label">Test bed cost</span>
+          <div class="stat-value" id="detail-testbed-cost">--</div>
+        </div>
+        <div>
+          <span class="label">Age</span>
+          <div class="stat-value" id="detail-age">--</div>
+        </div>
       </div>
-      <div>
-        <span class="label">Forecast close</span>
-        <div class="stat-value" id="detail-close-date">--</div>
+
+      <div style="display:flex;align-items:baseline;gap:14px;padding-bottom:14px;border-bottom:1px solid var(--hairline-strong);margin-bottom:20px">
+        <span class="label">Opportunity Reference</span>
+        <span class="stat-value" id="ref-reference-code">Not yet generated</span>
       </div>
-      <div>
-        <span class="label">Test bed cost</span>
-        <div class="stat-value" id="detail-testbed-cost">--</div>
+
+      <div class="ref-edit-bar hidden" id="ref-edit-bar">
+        <span class="data-row-label" id="ref-edit-count" style="margin:0"></span>
+        <button class="btn-ghost" id="ref-cancel-all">Cancel</button>
+        <button class="btn-primary hidden" id="ref-save-all">Save</button>
+        <span id="ref-save-feedback"></span>
       </div>
-      <div>
-        <span class="label">Age</span>
-        <div class="stat-value" id="detail-age">--</div>
+
+      <div class="ref-cards">
+        <div class="pg-card">
+          <p class="pg-card-title">Terminus Details</p>
+          <div id="ref-terminus-rows"></div>
+        </div>
+        <div class="pg-card">
+          <p class="pg-card-title">Customer Details</p>
+          <div id="ref-customer-rows"></div>
+        </div>
+        <div class="pg-card">
+          <p class="pg-card-title">Key Dates</p>
+          <div id="ref-dates-rows"></div>
+          <div id="ref-closedate-form" class="hidden" style="margin-top:8px;background:var(--black);border:1px solid var(--hairline-strong);padding:12px">
+            <div class="form-group">
+              <label>New est. close date</label>
+              <input type="date" id="ref-closedate-date">
+            </div>
+            <div class="form-group" style="margin-top:10px">
+              <label>Reason for moving (required)</label>
+              <textarea id="ref-closedate-reason" rows="2"></textarea>
+            </div>
+            <p class="msg-error hidden" id="ref-closedate-error"></p>
+            <div class="form-actions" style="margin-top:10px">
+              <button class="btn-ghost" onclick="cancelCloseDateEdit()">Cancel</button>
+              <button class="btn-primary" onclick="saveCloseDateMove()">Save move</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:28px">
+        <p class="label" style="margin-bottom:10px">Executive Summary &middot; <span id="ref-opptype-value">--</span></p>
+        <div id="ref-opptype-row"></div>
+        <div class="ref-field" id="ref-field-summary-wrap" data-key="summary" style="border:none">
+          <div class="ref-field-display" id="ref-display-summary" onclick="openRefField('summary')" style="font-size:14px">--</div>
+          <div class="ref-field-edit hidden" id="ref-edit-summary">
+            <textarea id="ref-input-summary" rows="3" style="flex:1"></textarea>
+            <span class="ref-field-discard" onclick="discardRefField('summary')">&times;</span>
+          </div>
+        </div>
+
+        <p class="label" style="margin:24px 0 10px">Notes &middot; latest first</p>
+        <div id="ref-notes-list"></div>
       </div>
     </div>
 
-    <div style="margin-top:8px">
-      <p class="section-title">Commercials</p>
-
+    <div class="detail-tab-panel hidden" id="opp-tab-commercial">
       <div class="stats-grid" style="margin-bottom:28px">
         <div>
           <span class="label">Contract net</span>
@@ -585,9 +658,33 @@
       </div>
     </div>
 
-    <div style="margin-top:40px">
-      <p class="section-title">Stage transition</p>
-      <div id="transition-section"></div>
+    <!-- Documents: deliberately just a caption + flat template-link list, no
+         status tracking - that pattern is Test Bed's separate
+         document-requirements mechanism (stage_gate_rules + document_details),
+         not this tab. There is no document-template data source anywhere in
+         this app yet, so this renders an honest empty state rather than
+         fabricated entries. -->
+    <div class="detail-tab-panel hidden" id="opp-tab-documents">
+      <p class="data-row-label" style="margin-bottom:14px">Template URLs are maintained centrally in Admin, and completed copies are saved into this opportunity's folder.</p>
+      <div id="opp-documents-list"></div>
+    </div>
+
+    <!-- Stage & Approvals: every stage in the lifecycle, not just the
+         current one. Ring radios are real (backed by stage_gate_rules +
+         approvals), but there is no approval-role check anywhere in this
+         app to gate who may click one - restricted to the current stage
+         only, a UX judgment call on real data (record.status), not a
+         fabricated permission system. -->
+    <div class="detail-tab-panel hidden" id="opp-tab-approvals">
+      <div class="sa-row sa-head">
+        <span>Stage</span><span>Exit criteria</span><span>Approvers</span>
+      </div>
+      <div id="opp-stage-approvals-rows"></div>
+
+      <div style="margin-top:40px">
+        <p class="section-title">Stage transition</p>
+        <div id="transition-section"></div>
+      </div>
     </div>
   </div>
 
@@ -595,6 +692,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="/app.js"></script>
+<script src="/opportunity-reference.js"></script>
 <script type="module" src="/opportunity-deal.js"></script>
 </body>
 </html>

@@ -82,4 +82,103 @@ export default async function recordsRoutes(app) {
 
     return { record: recordResult.data, latest_revision: revResult.data }
   })
+
+  // GET /api/records/:id/stage-approvals
+  // Read-only view for the Stage & Approvals tab: every stage in the
+  // record's lifecycle (not just the current one), with its dot state,
+  // a plain-language exit-criteria list derived from stage_gate_rules
+  // (both approval_obtained and document_status requirement rows), and
+  // which approval_obtained tracks are already decided on the current
+  // revision. This does not decide who may approve - it only shows what's
+  // required and what's already true. The actual transition gate (does an
+  // approval exist before allowing the stage to advance) already lives in
+  // transitions.js; this endpoint is purely for display.
+  app.get('/records/:id/stage-approvals', async (request, reply) => {
+    const db = createUserClient(request.jwt)
+
+    const { data: record, error: recordErr } = await db
+      .from('records')
+      .select('id, record_type, status, variant')
+      .eq('id', request.params.id)
+      .maybeSingle()
+
+    if (recordErr || !record) {
+      return reply.code(404).send({ error: 'not found' })
+    }
+
+    let stageQuery = db
+      .from('stage_definitions')
+      .select('stage_name, sort_order, phase')
+      .eq('record_type', record.record_type)
+      .order('sort_order', { ascending: true })
+    stageQuery = record.variant ? stageQuery.eq('variant', record.variant) : stageQuery.is('variant', null)
+
+    let rulesQuery = db
+      .from('stage_gate_rules')
+      .select('from_stage, requirement_type, requirement_detail')
+      .eq('record_type', record.record_type)
+    rulesQuery = record.variant
+      ? rulesQuery.or(`variant.is.null,variant.eq.${record.variant}`)
+      : rulesQuery.is('variant', null)
+
+    const { data: revRow } = await db
+      .from('record_revisions')
+      .select('revision_number')
+      .eq('record_id', record.id)
+      .order('revision_number', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    const currentRevision = revRow?.revision_number ?? 1
+
+    const [stagesResult, rulesResult, approvalsResult] = await Promise.all([
+      stageQuery,
+      rulesQuery,
+      db.from('approvals')
+        .select('track, decision, approver_id, decided_at')
+        .eq('record_id', record.id)
+        .eq('revision_number', currentRevision)
+    ])
+
+    if (stagesResult.error) return reply.code(500).send({ error: stagesResult.error.message })
+    if (rulesResult.error) return reply.code(500).send({ error: rulesResult.error.message })
+    if (approvalsResult.error) return reply.code(500).send({ error: approvalsResult.error.message })
+
+    const stages = stagesResult.data ?? []
+    const rules = rulesResult.data ?? []
+    const approvals = approvalsResult.data ?? []
+    const currentIdx = stages.findIndex(s => s.stage_name === record.status)
+
+    const result = stages.map((stage, idx) => {
+      const state = currentIdx < 0 ? 'upcoming' : (idx < currentIdx ? 'completed' : idx === currentIdx ? 'current' : 'upcoming')
+      const stageRules = rules.filter(r => r.from_stage === stage.stage_name)
+
+      const criteria = stageRules.map(r => {
+        if (r.requirement_type === 'approval_obtained') {
+          return `Requires an approved ${r.requirement_detail?.track} decision`
+        }
+        if (r.requirement_type === 'document_status') {
+          return `Requires ${r.requirement_detail?.document} to be ${r.requirement_detail?.status}`
+        }
+        return null
+      }).filter(Boolean)
+
+      const tracks = stageRules
+        .filter(r => r.requirement_type === 'approval_obtained' && r.requirement_detail?.track)
+        .map(r => r.requirement_detail.track)
+        .filter((t, i, arr) => arr.indexOf(t) === i)
+        .map(track => {
+          const decision = approvals.find(a => a.track === track && a.decision === 'approved')
+          return {
+            track,
+            approved: !!decision,
+            approver_id: decision?.approver_id ?? null,
+            decided_at: decision?.decided_at ?? null,
+          }
+        })
+
+      return { stage_name: stage.stage_name, sort_order: stage.sort_order, phase: stage.phase, state, criteria, tracks }
+    })
+
+    return result
+  })
 }
