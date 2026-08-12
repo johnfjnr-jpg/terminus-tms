@@ -38,7 +38,7 @@ document.getElementById('btn-signout').addEventListener('click', async () => {
 })
 
 // ── Navigation ────────────────────────────────────────────────────────────────
-const ALL_VIEWS = ['leads', 'test-beds', 'test-bed-detail', 'opportunities', 'opportunity-detail']
+const ALL_VIEWS = ['leads', 'contacts', 'test-beds', 'test-bed-detail', 'opportunities', 'opportunity-detail']
 
 function showAuth() {
   document.getElementById('view-auth').classList.remove('hidden')
@@ -60,6 +60,7 @@ function navigate(view, id) {
   document.querySelector(`.nav-link[data-view="${view}"]`)?.classList.add('active')
 
   if (view === 'leads') loadLeads()
+  else if (view === 'contacts') loadContacts()
   else if (view === 'test-beds') loadTestBeds()
   else if (view === 'opportunities') loadOpportunities()
   else if (view === 'test-bed-detail' && id) loadTestBedDetail(id)
@@ -232,7 +233,11 @@ window.attemptTransition = async (id, toStage, feedbackId, sectionId, currentSta
   feedback.innerHTML = `<p class="msg-error">${escHtml(result.data.error ?? 'Transition failed.')}</p>`
 }
 
-// ── Leads ─────────────────────────────────────────────────────────────────────
+// ── Leads (legacy, read-only) ───────────────────────────────────────────────
+// POST /leads and both /leads/:id/convert* endpoints are retired
+// (2026-08-12) - see src/routes/leads.js. This view only ever lists the 9
+// pre-existing record_type='lead' rows; nothing here creates or converts
+// anything anymore. New intake and conversion both live in Contacts below.
 async function loadLeads() {
   const result = await api('GET', '/api/leads')
   if (!result.ok) {
@@ -246,13 +251,12 @@ async function loadLeads() {
 function renderLeadsList(leads) {
   const container = document.getElementById('leads-rows')
   if (!leads.length) {
-    container.innerHTML = '<p class="empty-state">No leads yet.</p>'
+    container.innerHTML = '<p class="empty-state">No leads.</p>'
     return
   }
 
   container.innerHTML = leads.map(l => {
     const p = l.payload ?? {}
-    const isConverted = l.status === 'converted'
     return `
     <div class="record-card">
       <div class="record-card-main">
@@ -264,121 +268,293 @@ function renderLeadsList(leads) {
       </div>
       <div class="record-card-side">
         <span class="record-card-stat">${daysAgo(l.created_at)} ago</span>
-        ${isConverted
-          ? '<span class="record-card-stat">Converted</span>'
-          : `<button class="btn-text" onclick="showLeadConvertForm('${l.id}')">Convert</button>`
-        }
       </div>
-    </div>
-    ${isConverted ? '' : `
-    <div id="lead-convert-row-${l.id}" class="hidden">
-      <div class="convert-form">
-        <div class="form-group">
-          <label>Name</label>
-          <input type="text" id="lead-convert-name-${l.id}" placeholder="e.g. Acme Phase 1">
-        </div>
-        <button class="btn-primary" onclick="convertLeadToOpportunity('${l.id}')">To Opportunity</button>
-        <button class="btn-ghost" onclick="convertLeadToTestBed('${l.id}')">To Test Bed</button>
-        <button class="btn-ghost" onclick="hideLeadConvertForm('${l.id}')">Cancel</button>
-      </div>
-      <span class="msg-error hidden" id="lead-convert-error-${l.id}"></span>
-    </div>`}
-  `}).join('')
+    </div>`
+  }).join('')
 }
 
-document.getElementById('btn-new-lead').addEventListener('click', () => {
-  document.getElementById('new-lead-form').classList.remove('hidden')
-  document.getElementById('btn-new-lead').classList.add('hidden')
-  document.getElementById('lead-company').focus()
-})
-document.getElementById('btn-cancel-lead').addEventListener('click', () => {
-  document.getElementById('new-lead-form').classList.add('hidden')
-  document.getElementById('btn-new-lead').classList.remove('hidden')
-  clearLeadForm()
-})
-document.getElementById('btn-save-lead').addEventListener('click', saveLead)
+// ── Contacts ──────────────────────────────────────────────────────────────────
+// The replacement for Lead's old convert flow: one record, a stage chip
+// (Unqualified/Qualified/Parked) driven by the generic transition engine,
+// and a "+ Create" action that only appears once Qualified. Status-chip
+// selector and "+ Create" both live inline on the list row this pass -
+// the full detail overlay (Terminus Ops.dc.html :320+) is queued
+// separately, so there is no page to put them on yet.
+const CONTACT_STAGES = ['Unqualified', 'Qualified', 'Parked']
+let contactsCache = []
+let accountsCache = []
+let industriesCache = []
+let expandedContactId = null
 
-async function saveLead() {
-  const company_name = document.getElementById('lead-company').value.trim()
-  const errEl = document.getElementById('lead-form-error')
-  errEl.classList.add('hidden')
+// Accounts/industries are re-fetched on every load, not cached across
+// calls - a Contact saved via "+ New account" needs the new account to
+// show up in the very next render, and this list is small enough in this
+// dev-stage app that the extra round trip isn't worth a staleness bug.
+//
+// contactsLoadToken guards against a real race found during jsdom
+// verification: submitContactTransition() reloads after every stage
+// change, so a slow initial load and a fast transition-triggered reload
+// can be in flight together, and without this guard whichever resolves
+// last wins - a slower, older response can silently overwrite newer data
+// on screen. Each call captures its own token; only the most recently
+// started call is allowed to apply its result.
+let contactsLoadToken = 0
 
-  if (!company_name) {
-    errEl.textContent = 'Company name is required.'
-    errEl.classList.remove('hidden')
-    return
-  }
+async function loadContacts() {
+  const myToken = ++contactsLoadToken
+  const [result, accResult, indResult] = await Promise.all([
+    api('GET', '/api/contacts'),
+    api('GET', '/api/accounts'),
+    api('GET', '/api/industries'),
+  ])
+  if (myToken !== contactsLoadToken) return // a newer load has since started; drop this stale one
 
-  const result = await api('POST', '/api/leads', {
-    company_name,
-    contact_name: document.getElementById('lead-contact').value.trim(),
-    source: document.getElementById('lead-source').value,
-    notes: document.getElementById('lead-notes').value.trim()
-  })
+  if (accResult.ok) accountsCache = accResult.data
+  if (indResult.ok) industriesCache = indResult.data
 
   if (!result.ok) {
-    errEl.textContent = result.data.error ?? 'Failed to save lead.'
+    document.getElementById('contacts-rows').innerHTML =
+      '<p class="empty-state">Failed to load contacts.</p>'
+    return
+  }
+  contactsCache = result.data
+  renderContactsList()
+}
+
+// Discrepancy from the prototype's Contacts spec, flagged: Job Role has no
+// backing field anywhere in the Contact schema built this session -
+// rendered as -- rather than inventing one this pass. Company/Account is
+// rendered as a single line, not the prototype's two-line company+account
+// cell: the prototype assumed two distinct data sources (a free-text
+// company plus a linked account), but this Contact model only ever has
+// one - the Account, via parent_record_id.
+function renderContactsList() {
+  const container = document.getElementById('contacts-rows')
+  if (!contactsCache.length) {
+    container.innerHTML = '<p class="empty-state">No contacts yet.</p>'
+    return
+  }
+
+  container.innerHTML = contactsCache.map(c => {
+    const p = c.payload ?? {}
+    const account = accountsCache.find(a => a.id === c.parent_record_id)
+    const accountName = account?.payload?.name ?? '--'
+    const industry = industriesCache.find(i => i.id === c.industry_id)
+    const isExpanded = expandedContactId === c.id
+    return `
+    <div class="contact-grid-row">
+      <div class="rg-name">
+        <div class="rg-title">${escHtml(p.name ?? '--')}</div>
+        <span class="tag">${escHtml(c.status)}</span>
+      </div>
+      <span>${escHtml(accountName)}</span>
+      <span>${escHtml(industry?.name ?? '--')}</span>
+      <span>--</span>
+      <span>${escHtml(p.email ?? '--')}</span>
+      <span>${escHtml(p.source ?? '--')}</span>
+      <span style="text-align:right"><button class="btn-text" onclick="toggleContactManage('${c.id}')">${isExpanded ? 'Close' : 'Manage'}</button></span>
+    </div>
+    ${isExpanded ? renderContactManagePanel(c) : ''}
+    `
+  }).join('')
+}
+
+function renderContactManagePanel(c) {
+  const p = c.payload ?? {}
+  const isQualified = c.status === 'Qualified'
+  const parkOpen = c.status !== 'Parked' && p._parkDraftOpen
+
+  return `
+  <div class="contact-manage-panel" id="contact-manage-${c.id}">
+    <div class="contact-manage-stage">
+      <span class="cm-label">Stage</span>
+      ${CONTACT_STAGES.map(s => `
+        <button class="btn-sm ${s === c.status ? 'btn-primary' : ''}" onclick="attemptContactStage('${c.id}', '${s}')">${s}</button>
+      `).join('')}
+    </div>
+    ${parkOpen ? `
+    <div class="contact-manage-park">
+      <label>Follow-up date</label>
+      <input type="date" id="contact-park-date-${c.id}">
+      <button class="btn-sm btn-primary" onclick="saveContactParkDate('${c.id}')">Save &amp; park</button>
+      <button class="btn-sm" onclick="cancelContactPark('${c.id}')">Cancel</button>
+    </div>` : ''}
+    <div id="contact-stage-feedback-${c.id}"></div>
+    ${isQualified ? `
+    <div class="contact-manage-create">
+      <span class="cm-label">+ Create</span>
+      <button class="btn-sm btn-primary" onclick="createFromContact('${c.id}', 'test-bed')">Test Bed</button>
+      <button class="btn-sm btn-primary" onclick="createFromContact('${c.id}', 'opportunity')">Opportunity</button>
+    </div>
+    <div id="contact-create-feedback-${c.id}"></div>` : ''}
+    <div class="contact-manage-delete">
+      <button class="btn-text" onclick="deleteContact('${c.id}')">✕ Delete</button>
+    </div>
+  </div>`
+}
+
+window.toggleContactManage = (id) => {
+  expandedContactId = expandedContactId === id ? null : id
+  renderContactsList()
+}
+
+// Parked requires followUpDate saved first - the Unqualified -> Parked
+// payload_field_required gate (contact_account.sql) rejects the
+// transition otherwise. Clicking "Parked" opens the date field instead of
+// attempting the transition immediately; other stage clicks go straight
+// through the generic transition endpoint, same as Opportunity/Test Bed.
+window.attemptContactStage = async (id, toStage) => {
+  const c = contactsCache.find(x => x.id === id)
+  if (!c || toStage === c.status) return
+
+  if (toStage === 'Parked' && c.status !== 'Parked') {
+    c.payload._parkDraftOpen = true
+    renderContactsList()
+    return
+  }
+
+  await submitContactTransition(id, toStage)
+}
+
+window.cancelContactPark = (id) => {
+  const c = contactsCache.find(x => x.id === id)
+  if (c) c.payload._parkDraftOpen = false
+  renderContactsList()
+}
+
+window.saveContactParkDate = async (id) => {
+  const date = document.getElementById(`contact-park-date-${id}`).value
+  const feedback = document.getElementById(`contact-stage-feedback-${id}`)
+  if (!date) {
+    feedback.innerHTML = '<p class="msg-error">Follow-up date is required.</p>'
+    return
+  }
+
+  const patchResult = await api('PATCH', `/api/contacts/${id}`, { payload: { followUpDate: date } })
+  if (!patchResult.ok) {
+    feedback.innerHTML = `<p class="msg-error">${escHtml(patchResult.data.error ?? 'Failed to save follow-up date.')}</p>`
+    return
+  }
+
+  await submitContactTransition(id, 'Parked')
+}
+
+async function submitContactTransition(id, toStage) {
+  const feedback = document.getElementById(`contact-stage-feedback-${id}`)
+  if (feedback) feedback.innerHTML = ''
+
+  const result = await api('POST', `/api/records/${id}/transition`, { to_stage: toStage })
+
+  if (!result.ok) {
+    if (!feedback) return
+    if (result.status === 422 && result.data.blocking?.length) {
+      const items = result.data.blocking.map(b => `<li>${escHtml(b.message)}</li>`).join('')
+      feedback.innerHTML = `<p class="msg-error">Blocked.</p><ul class="blocking-list">${items}</ul>`
+    } else {
+      feedback.innerHTML = `<p class="msg-error">${escHtml(result.data.error ?? 'Transition failed.')}</p>`
+    }
+    return
+  }
+
+  await loadContacts()
+}
+
+window.createFromContact = async (id, type) => {
+  const feedback = document.getElementById(`contact-create-feedback-${id}`)
+  feedback.innerHTML = ''
+
+  const path = type === 'opportunity' ? `/api/contacts/${id}/create-opportunity` : `/api/contacts/${id}/create-test-bed`
+  const result = await api('POST', path)
+
+  if (!result.ok) {
+    feedback.innerHTML = `<p class="msg-error">${escHtml(result.data.error ?? 'Failed to create record.')}</p>`
+    return
+  }
+
+  const view = type === 'opportunity' ? 'opportunity-detail' : 'test-bed-detail'
+  feedback.innerHTML = `<p class="msg-success">Created. <button class="btn-text" style="color:var(--green)" onclick="navigate('${view}', '${result.data.id}')">View it</button></p>`
+}
+
+window.deleteContact = async (id) => {
+  const result = await api('DELETE', `/api/contacts/${id}`)
+  if (!result.ok) return
+  expandedContactId = null
+  await loadContacts()
+}
+
+// ── Add contact form ────────────────────────────────────────────────────────
+document.getElementById('btn-new-contact').addEventListener('click', async () => {
+  document.getElementById('new-contact-form').classList.remove('hidden')
+  document.getElementById('btn-new-contact').classList.add('hidden')
+  await populateContactFormPickers()
+  document.getElementById('contact-name').focus()
+})
+document.getElementById('btn-cancel-contact').addEventListener('click', () => {
+  document.getElementById('new-contact-form').classList.add('hidden')
+  document.getElementById('btn-new-contact').classList.remove('hidden')
+  clearContactForm()
+})
+document.getElementById('btn-save-contact').addEventListener('click', saveContact)
+document.getElementById('contact-account').addEventListener('change', (e) => {
+  document.getElementById('contact-new-account-group').classList.toggle('hidden', e.target.value !== '__new__')
+})
+
+async function populateContactFormPickers() {
+  if (!accountsCache.length) {
+    const accResult = await api('GET', '/api/accounts')
+    if (accResult.ok) accountsCache = accResult.data
+  }
+  if (!industriesCache.length) {
+    const indResult = await api('GET', '/api/industries')
+    if (indResult.ok) industriesCache = indResult.data
+  }
+
+  const accountSelect = document.getElementById('contact-account')
+  accountSelect.innerHTML = '<option value="">Select account</option>' +
+    accountsCache.map(a => `<option value="${a.id}">${escHtml(a.payload?.name ?? '--')}</option>`).join('') +
+    '<option value="__new__">+ New account</option>'
+
+  document.getElementById('contact-industry').innerHTML = '<option value="">Select industry</option>' +
+    industriesCache.map(i => `<option value="${i.id}">${escHtml(i.name)}</option>`).join('')
+}
+
+async function saveContact() {
+  const errEl = document.getElementById('contact-form-error')
+  errEl.classList.add('hidden')
+
+  const name = document.getElementById('contact-name').value.trim()
+  const accountValue = document.getElementById('contact-account').value
+  const newAccountName = document.getElementById('contact-new-account-name').value.trim()
+  const industry_id = document.getElementById('contact-industry').value
+  const email = document.getElementById('contact-email').value.trim()
+  const mobile = document.getElementById('contact-mobile').value.trim()
+  const source = document.getElementById('contact-source').value
+  const summary = document.getElementById('contact-summary').value.trim()
+
+  const body = { name, email, mobile, industry_id, source, summary }
+  if (accountValue === '__new__') body.new_account_name = newAccountName
+  else if (accountValue) body.account_id = accountValue
+
+  const result = await api('POST', '/api/contacts', body)
+  if (!result.ok) {
+    errEl.textContent = result.data.error ? `Missing or invalid: ${(result.data.missing ?? []).join(', ') || result.data.error}` : 'Failed to save contact.'
     errEl.classList.remove('hidden')
     return
   }
 
-  document.getElementById('new-lead-form').classList.add('hidden')
-  document.getElementById('btn-new-lead').classList.remove('hidden')
-  clearLeadForm()
-  loadLeads()
+  document.getElementById('new-contact-form').classList.add('hidden')
+  document.getElementById('btn-new-contact').classList.remove('hidden')
+  clearContactForm()
+  loadContacts()
 }
 
-function clearLeadForm() {
-  ;['lead-company', 'lead-contact', 'lead-notes'].forEach(id => (document.getElementById(id).value = ''))
-  document.getElementById('lead-source').value = ''
-  const errEl = document.getElementById('lead-form-error')
+function clearContactForm() {
+  ;['contact-name', 'contact-new-account-name', 'contact-email', 'contact-mobile', 'contact-summary'].forEach(id => (document.getElementById(id).value = ''))
+  ;['contact-account', 'contact-industry', 'contact-source'].forEach(id => (document.getElementById(id).value = ''))
+  document.getElementById('contact-new-account-group').classList.add('hidden')
+  const errEl = document.getElementById('contact-form-error')
   errEl.textContent = ''
   errEl.classList.add('hidden')
-}
-
-window.showLeadConvertForm = id => document.getElementById(`lead-convert-row-${id}`).classList.remove('hidden')
-window.hideLeadConvertForm = id => document.getElementById(`lead-convert-row-${id}`).classList.add('hidden')
-
-window.convertLeadToOpportunity = async (id) => {
-  const name = document.getElementById(`lead-convert-name-${id}`).value.trim()
-  const errEl = document.getElementById(`lead-convert-error-${id}`)
-  errEl.classList.add('hidden')
-
-  if (!name) {
-    errEl.textContent = 'Name is required.'
-    errEl.classList.remove('hidden')
-    return
-  }
-
-  const result = await api('POST', `/api/leads/${id}/convert`, { name })
-  if (!result.ok) {
-    errEl.textContent = result.data.error ?? 'Conversion failed.'
-    errEl.classList.remove('hidden')
-    return
-  }
-
-  loadLeads()
-}
-
-window.convertLeadToTestBed = async (id) => {
-  const name = document.getElementById(`lead-convert-name-${id}`).value.trim()
-  const errEl = document.getElementById(`lead-convert-error-${id}`)
-  errEl.classList.add('hidden')
-
-  if (!name) {
-    errEl.textContent = 'Name is required.'
-    errEl.classList.remove('hidden')
-    return
-  }
-
-  const result = await api('POST', `/api/leads/${id}/convert-to-test-bed`, { name })
-  if (!result.ok) {
-    errEl.textContent = result.data.error ?? 'Conversion failed.'
-    errEl.classList.remove('hidden')
-    return
-  }
-
-  loadLeads()
 }
 
 // ── Test Beds ─────────────────────────────────────────────────────────────────

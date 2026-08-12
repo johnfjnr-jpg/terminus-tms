@@ -265,4 +265,164 @@ export default async function contactsRoutes(app) {
 
     return reply.send({ ok: true })
   })
+
+  // Shared by create-opportunity/create-test-bed below. Both require the
+  // Contact to be Qualified - server-enforced here, not just a UI gate,
+  // since the retired /leads/:id/convert* endpoints had no equivalent
+  // check at all. Both replace the old parent_record_id link with a
+  // record_contacts row instead: a fresh Opportunity/Test Bed created
+  // from a Contact has no parent, Contact attachment is many-to-many
+  // (DESIGN_PRINCIPLES.md Section 2), not exclusive single-parent
+  // ownership.
+  async function loadQualifiedContact(db, id) {
+    const { data: contact, error } = await db
+      .from('records')
+      .select('id, status, parent_record_id')
+      .eq('id', id)
+      .eq('record_type', 'contact')
+      .is('deleted_at', null)
+      .maybeSingle()
+
+    if (error || !contact) return { error: { code: 404, body: { error: 'not found' } } }
+    if (contact.status !== 'Qualified') {
+      return {
+        error: {
+          code: 422,
+          body: { error: `Contact must be Qualified before creating an Opportunity or Test Bed (current stage: ${contact.status})` }
+        }
+      }
+    }
+
+    // Account name seeds the new record's name/company field - there is
+    // no per-creation form here (the prototype's "+ Create" is a single
+    // click, :305-312), and Account is the only company-name source left
+    // now that Contact has no free-text company field of its own.
+    let accountName = null
+    if (contact.parent_record_id) {
+      const { data: acctRev } = await db
+        .from('record_revisions')
+        .select('payload')
+        .eq('record_id', contact.parent_record_id)
+        .order('revision_number', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      accountName = acctRev?.payload?.name ?? null
+    }
+
+    return { contact, accountName }
+  }
+
+  // Default role 'commercial buyer' for every Contact linked this way -
+  // same default used for the record_contacts backfill of the 8
+  // historically-converted Leads (2026-08-12). A one-click "+ Create"
+  // action has no role picker; this is a starting default, not a
+  // verified fact, correctable per-record later without touching
+  // existing rows.
+  async function linkContact(db, recordId, contactId, actorId) {
+    const { error } = await db
+      .from('record_contacts')
+      .insert({ record_id: recordId, contact_id: contactId, role: 'commercial buyer', created_by: actorId })
+    if (error) throw new Error(`failed to link contact: ${error.message}`)
+  }
+
+  // POST /contacts/:id/create-opportunity
+  app.post('/contacts/:id/create-opportunity', async (request, reply) => {
+    const db = createUserClient(request.jwt)
+    const { contact, accountName, error } = await loadQualifiedContact(db, request.params.id)
+    if (error) return reply.code(error.code).send(error.body)
+
+    const name = accountName ?? 'New Opportunity'
+
+    const { data: probDefault } = await db
+      .from('stage_probability_defaults')
+      .select('default_probability_pct')
+      .eq('record_type', 'opportunity')
+      .is('variant', null)
+      .eq('stage', 'Discovery')
+      .maybeSingle()
+
+    const { data: opp, error: oppErr } = await db
+      .from('records')
+      .insert({ record_type: 'opportunity', status: 'Discovery', owner_id: request.user.id })
+      .select()
+      .single()
+
+    if (oppErr) {
+      request.log.error({ err: oppErr }, 'failed to create opportunity from contact')
+      return reply.code(500).send({ error: oppErr.message })
+    }
+
+    const { error: revErr } = await db
+      .from('record_revisions')
+      .insert({
+        record_id: opp.id,
+        revision_number: 1,
+        payload: { name, company_name: accountName ?? '' },
+        created_by: request.user.id
+      })
+    if (revErr) return reply.code(500).send({ error: revErr.message })
+
+    const { error: detErr } = await db
+      .from('opportunity_details')
+      .insert({ record_id: opp.id, probability_pct: probDefault?.default_probability_pct ?? null })
+    if (detErr) return reply.code(500).send({ error: detErr.message })
+
+    try {
+      await linkContact(db, opp.id, contact.id, request.user.id)
+    } catch (err) {
+      request.log.error({ err }, 'failed to link contact to new opportunity')
+      return reply.code(500).send({ error: err.message })
+    }
+
+    await db.from('audit_log').insert([
+      { record_id: contact.id, record_type: 'contact', action: 'created_opportunity', actor_id: request.user.id, detail: { opportunity_id: opp.id } },
+      { record_id: opp.id, record_type: 'opportunity', action: 'created_from_contact', actor_id: request.user.id, detail: { contact_id: contact.id, initial_stage: 'Discovery' } }
+    ])
+
+    return reply.code(201).send(opp)
+  })
+
+  // POST /contacts/:id/create-test-bed
+  app.post('/contacts/:id/create-test-bed', async (request, reply) => {
+    const db = createUserClient(request.jwt)
+    const { contact, accountName, error } = await loadQualifiedContact(db, request.params.id)
+    if (error) return reply.code(error.code).send(error.body)
+
+    const name = accountName ?? 'New Test Bed'
+
+    const { data: record, error: recordErr } = await db
+      .from('records')
+      .insert({ record_type: 'test_bed', status: 'NDA', owner_id: request.user.id })
+      .select()
+      .single()
+
+    if (recordErr) {
+      request.log.error({ err: recordErr }, 'failed to create test bed from contact')
+      return reply.code(500).send({ error: recordErr.message })
+    }
+
+    const { error: revErr } = await db
+      .from('record_revisions')
+      .insert({
+        record_id: record.id,
+        revision_number: 1,
+        payload: { name, client_organisation: accountName ?? '', notes: null, accumulated_cost: 0 },
+        created_by: request.user.id
+      })
+    if (revErr) return reply.code(500).send({ error: revErr.message })
+
+    try {
+      await linkContact(db, record.id, contact.id, request.user.id)
+    } catch (err) {
+      request.log.error({ err }, 'failed to link contact to new test bed')
+      return reply.code(500).send({ error: err.message })
+    }
+
+    await db.from('audit_log').insert([
+      { record_id: contact.id, record_type: 'contact', action: 'created_test_bed', actor_id: request.user.id, detail: { test_bed_id: record.id } },
+      { record_id: record.id, record_type: 'test_bed', action: 'created_from_contact', actor_id: request.user.id, detail: { contact_id: contact.id, initial_stage: 'NDA' } }
+    ])
+
+    return reply.code(201).send(record)
+  })
 }

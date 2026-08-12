@@ -389,6 +389,95 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
   text-overflow: ellipsis;
 }
 
+/* ── Contacts grid ──────────────────────────────────────────────
+   Own grid template, not shared with .record-grid-* (Opportunities'
+   3-column shape doesn't fit Contacts' 7 columns). Name is the one
+   flexible track; every other track is a fixed px width sized to real
+   content, per the fixed-width-table convention used everywhere else. */
+.contact-grid-head,
+.contact-grid-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 150px 110px 100px 190px 130px 80px;
+  gap: 16px;
+  align-items: center;
+}
+
+.contact-grid-head {
+  padding: 0 20px 10px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  border-bottom: 1px solid var(--hairline-strong);
+  margin-bottom: 4px;
+}
+
+.contact-grid-row {
+  border: 1px solid var(--hairline-strong);
+  padding: 14px 20px;
+  font-family: var(--body);
+  font-size: 13px;
+  color: var(--muted);
+}
+.contact-grid-row + .contact-grid-row,
+.contact-manage-panel + .contact-grid-row { margin-top: 8px; }
+
+/* Contacts list rows and their expandable manage panels are siblings in
+   the DOM (not nested), so the row keeps .contact-grid-row's grid layout
+   and the panel below it is full width. */
+.contact-manage-panel {
+  background: var(--black);
+  border: 1px solid var(--hairline-strong);
+  border-top: none;
+  padding: 16px 20px;
+  margin-top: -8px;
+  margin-bottom: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.contact-manage-stage,
+.contact-manage-create {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.contact-manage-park {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.contact-manage-park label {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.contact-manage-park input[type="date"] {
+  background: var(--black);
+  border: 1px solid var(--hairline-strong);
+  color: var(--white);
+  font-family: var(--mono);
+  font-size: 12px;
+  padding: 6px 8px;
+}
+
+.cm-label {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-right: 4px;
+}
+
+.contact-manage-delete { border-top: 1px solid var(--hairline-strong); padding-top: 12px; }
+
 /* ── Stage tracker ──────────────────────────────────────────── */
 .tracker {
   display: flex;

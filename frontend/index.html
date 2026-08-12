@@ -34,6 +34,7 @@
     <span class="nav-brand">TERMINUS <span>· TMS</span></span>
     <div class="nav-links">
       <button class="nav-link" data-view="leads">Leads</button>
+      <button class="nav-link" data-view="contacts">Contacts</button>
       <button class="nav-link" data-view="test-beds">Test Beds</button>
       <button class="nav-link" data-view="opportunities">Opportunities</button>
     </div>
@@ -43,52 +44,91 @@
     </div>
   </nav>
 
-  <!-- ── Leads ────────────────────────────────────────────────────────── -->
+  <!-- ── Leads (legacy, read-only) ────────────────────────────────────── -->
   <div id="view-leads" class="wrap hidden">
     <div class="page-head">
       <div>
-        <p class="eyebrow">Pipeline</p>
+        <p class="eyebrow">Pipeline · legacy</p>
         <h1>Leads</h1>
-        <p class="sub">Inbound companies not yet qualified.</p>
-      </div>
-      <button class="btn-primary" id="btn-new-lead">New lead</button>
-    </div>
-
-    <div id="new-lead-form" class="inline-form hidden">
-      <h2>New lead</h2>
-      <div class="form-grid">
-        <div class="form-group">
-          <label for="lead-company">Company</label>
-          <input type="text" id="lead-company" placeholder="Acme Corp">
-        </div>
-        <div class="form-group">
-          <label for="lead-contact">Contact</label>
-          <input type="text" id="lead-contact" placeholder="Jane Smith">
-        </div>
-        <div class="form-group">
-          <label for="lead-source">Source</label>
-          <select id="lead-source">
-            <option value="">Select source</option>
-            <option value="Inbound">Inbound</option>
-            <option value="Referral">Referral</option>
-            <option value="Outbound">Outbound</option>
-            <option value="Conference">Conference</option>
-            <option value="Partner">Partner</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label for="lead-notes">Notes</label>
-          <input type="text" id="lead-notes" placeholder="Optional">
-        </div>
-      </div>
-      <div class="form-actions">
-        <button class="btn-primary" id="btn-save-lead">Save lead</button>
-        <button class="btn-ghost" id="btn-cancel-lead">Cancel</button>
-        <span class="msg-error hidden" id="lead-form-error"></span>
+        <p class="sub">Historical record only. New intake happens through Contacts - nothing new is created here.</p>
       </div>
     </div>
 
     <div class="record-list" id="leads-rows">
+      <p class="empty-state">Loading...</p>
+    </div>
+  </div>
+
+  <!-- ── Contacts ─────────────────────────────────────────────────────── -->
+  <div id="view-contacts" class="wrap hidden">
+    <div class="page-head">
+      <div>
+        <p class="eyebrow">Pipeline</p>
+        <h1>Contacts</h1>
+        <p class="sub">Unqualified through Parked - one record, one stage chip, no separate Lead conversion.</p>
+      </div>
+      <button class="btn-primary" id="btn-new-contact">Add contact</button>
+    </div>
+
+    <div id="new-contact-form" class="inline-form hidden">
+      <h2>Add contact</h2>
+      <div class="form-grid">
+        <div class="form-group">
+          <label for="contact-name">Name</label>
+          <input type="text" id="contact-name" placeholder="Jane Smith">
+        </div>
+        <div class="form-group">
+          <label for="contact-account">Account</label>
+          <select id="contact-account">
+            <option value="">Select account</option>
+            <option value="__new__">+ New account</option>
+          </select>
+        </div>
+        <div class="form-group hidden" id="contact-new-account-group">
+          <label for="contact-new-account-name">New account name</label>
+          <input type="text" id="contact-new-account-name" placeholder="Acme Corp">
+        </div>
+        <div class="form-group">
+          <label for="contact-industry">Industry</label>
+          <select id="contact-industry">
+            <option value="">Select industry</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="contact-email">Email</label>
+          <input type="email" id="contact-email" placeholder="jane@acme.com">
+        </div>
+        <div class="form-group">
+          <label for="contact-mobile">Mobile</label>
+          <input type="text" id="contact-mobile" placeholder="+44 7700 900000">
+        </div>
+        <div class="form-group">
+          <label for="contact-source">Source</label>
+          <select id="contact-source">
+            <option value="">Select source</option>
+            <option value="Web">Web</option>
+            <option value="Email Inquiry">Email Inquiry</option>
+            <option value="Referral">Referral</option>
+            <option value="Direct Outreach">Direct Outreach</option>
+            <option value="Marketing Campaign">Marketing Campaign</option>
+          </select>
+        </div>
+        <div class="form-group full">
+          <label for="contact-summary">Summary</label>
+          <input type="text" id="contact-summary" placeholder="What they need, briefly">
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="btn-primary" id="btn-save-contact">Save contact</button>
+        <button class="btn-ghost" id="btn-cancel-contact">Cancel</button>
+        <span class="msg-error hidden" id="contact-form-error"></span>
+      </div>
+    </div>
+
+    <div class="contact-grid-head">
+      <span>Name</span><span>Company / Account</span><span>Industry</span><span>Job Role</span><span>Email</span><span>Source</span><span></span>
+    </div>
+    <div id="contacts-rows">
       <p class="empty-state">Loading...</p>
     </div>
   </div>
