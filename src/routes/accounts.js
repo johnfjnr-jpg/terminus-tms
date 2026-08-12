@@ -174,8 +174,23 @@ export default async function accountsRoutes(app) {
     }
 
     if (industry_id !== undefined) {
-      const { error: updateErr } = await db.from('records').update({ industry_id }).eq('id', record.id)
+      // The existence check above only confirms the row is readable, not
+      // writable - records_select is team-wide, records_update is still
+      // owner-only. A non-owner's update() is filtered by RLS to zero
+      // rows rather than erroring (Postgres/PostgREST silently no-ops
+      // rather than raising), so absence of updateErr does not mean the
+      // write happened - .select() and checking the returned rows is the
+      // only way to know. Fix this at the write result itself, not by
+      // adding a separate owner-checking SELECT beforehand, which would
+      // just recreate the same "SELECT says yes, UPDATE says nothing"
+      // gap in reverse.
+      const { data: updated, error: updateErr } = await db
+        .from('records')
+        .update({ industry_id })
+        .eq('id', record.id)
+        .select('id')
       if (updateErr) return reply.code(500).send({ error: updateErr.message })
+      if (!updated?.length) return reply.code(403).send({ error: 'not permitted' })
     }
 
     if (payload) {

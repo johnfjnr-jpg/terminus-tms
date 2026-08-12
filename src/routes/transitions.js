@@ -174,14 +174,25 @@ export default async function transitionsRoutes(app) {
       })
     }
 
-    const { error: updateErr } = await db
+    // records_select is team-wide, records_update is still owner-only - a
+    // non-owner's update() is filtered by RLS to zero affected rows
+    // rather than erroring, so updateErr alone can't distinguish a real
+    // transition from a silent no-op. Checking the write result itself
+    // (not an extra owner-checking SELECT earlier in this handler) is
+    // what stops a false success response and a fabricated audit_log
+    // entry for a transition that never happened.
+    const { data: updated, error: updateErr } = await db
       .from('records')
       .update({ status: to_stage })
       .eq('id', record.id)
+      .select('id')
 
     if (updateErr) {
       request.log.error({ err: updateErr }, 'failed to update record status')
       return reply.code(500).send({ error: updateErr.message })
+    }
+    if (!updated?.length) {
+      return reply.code(403).send({ error: 'not permitted' })
     }
 
     await db.from('audit_log').insert({
@@ -209,10 +220,25 @@ export default async function transitionsRoutes(app) {
       const { data: probDefault } = await probQuery
 
       if (probDefault) {
-        await db
+        // Reached only after the owner-gated update above genuinely
+        // succeeded, so a zero-row result here isn't an authorization
+        // failure (the caller IS the owner) - it would mean the
+        // opportunity_details row is missing, a data-integrity issue,
+        // not a permissions one. The primary transition already
+        // succeeded, so this stays a logged warning, not a 403 on an
+        // otherwise-successful response - but it's still checked rather
+        // than assumed, same discipline as the other five fixes.
+        const { data: probUpdated, error: probErr } = await db
           .from('opportunity_details')
           .update({ probability_pct: probDefault.default_probability_pct })
           .eq('record_id', record.id)
+          .select('record_id')
+
+        if (probErr) {
+          request.log.error({ err: probErr }, 'failed to reset probability_pct after transition')
+        } else if (!probUpdated?.length) {
+          request.log.warn({ record_id: record.id }, 'probability_pct reset affected no rows - missing opportunity_details row?')
+        }
       }
     }
 

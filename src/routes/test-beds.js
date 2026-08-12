@@ -243,7 +243,17 @@ export default async function testBedsRoutes(app) {
 
     let docId
     if (existing) {
-      await db.from('records').update({ status }).eq('id', existing.id)
+      // records_select is team-wide, records_update is still owner-only -
+      // a non-owner's update() is filtered by RLS to zero affected rows
+      // rather than erroring, so it can't be told apart from success
+      // without checking the returned rows directly.
+      const { data: updated, error: updateErr } = await db
+        .from('records')
+        .update({ status })
+        .eq('id', existing.id)
+        .select('id')
+      if (updateErr) return reply.code(500).send({ error: updateErr.message })
+      if (!updated?.length) return reply.code(403).send({ error: 'not permitted' })
       docId = existing.id
     } else {
       const { data: docRecord, error } = await db

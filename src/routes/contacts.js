@@ -198,8 +198,17 @@ export default async function contactsRoutes(app) {
     if (industry_id !== undefined) columnUpdate.industry_id = industry_id
     if (account_id !== undefined) columnUpdate.parent_record_id = account_id
     if (Object.keys(columnUpdate).length) {
-      const { error: updateErr } = await db.from('records').update(columnUpdate).eq('id', record.id)
+      // records_select is team-wide, records_update is still owner-only -
+      // a non-owner's update() is filtered by RLS to zero affected rows
+      // rather than erroring, so updateErr alone can't tell success from
+      // a silent no-op. Check the write result itself.
+      const { data: updated, error: updateErr } = await db
+        .from('records')
+        .update(columnUpdate)
+        .eq('id', record.id)
+        .select('id')
       if (updateErr) return reply.code(500).send({ error: updateErr.message })
+      if (!updated?.length) return reply.code(403).send({ error: 'not permitted' })
     }
 
     if (payload) {
@@ -245,14 +254,25 @@ export default async function contactsRoutes(app) {
       return reply.code(404).send({ error: 'not found' })
     }
 
-    const { error: updateErr } = await db
+    // records_select is team-wide, records_update is still owner-only - a
+    // non-owner's update() is filtered by RLS to zero affected rows
+    // rather than erroring, so updateErr alone can't tell a genuine
+    // soft-delete from a silent no-op. Checking the write result itself
+    // (not an extra owner-checking SELECT beforehand) is what stops a
+    // false "ok:true" and a fabricated audit_log entry for a delete that
+    // never happened.
+    const { data: updated, error: updateErr } = await db
       .from('records')
       .update({ deleted_at: new Date().toISOString() })
       .eq('id', record.id)
+      .select('id')
 
     if (updateErr) {
       request.log.error({ err: updateErr }, 'failed to soft-delete contact')
       return reply.code(500).send({ error: updateErr.message })
+    }
+    if (!updated?.length) {
+      return reply.code(403).send({ error: 'not permitted' })
     }
 
     await db.from('audit_log').insert({

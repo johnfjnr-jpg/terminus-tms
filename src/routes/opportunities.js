@@ -210,18 +210,42 @@ export default async function opportunitiesRoutes(app) {
       .insert({ record_id: request.params.id, revision_number: nextRevision, payload: mergedPayload, created_by: request.user.id })
 
     if (revErr) {
+      // record_revisions_select is team-wide, so the earlier existence
+      // check above no longer 404s a non-owner - this insert's own RLS
+      // check (record_revisions_insert requires auth.uid() = the
+      // record's owner_id) is what actually stops them, and unlike a
+      // silent zero-row UPDATE, a rejected INSERT raises a real Postgres
+      // error (42501, insufficient_privilege) rather than returning
+      // quietly. Surfacing that as 403 rather than 500 keeps this route
+      // consistent with the other five - it's still the write's own
+      // result driving the response, not an added owner-checking SELECT.
+      if (revErr.code === '42501') {
+        return reply.code(403).send({ error: 'not permitted' })
+      }
       request.log.error({ err: revErr }, 'failed to save close-date-move revision')
       return reply.code(500).send({ error: revErr.message })
     }
 
-    const { error: updateErr } = await db
+    // records_select/record_revisions_select are team-wide, but
+    // opportunity_details_update is still owner-only - a non-owner's
+    // update() is filtered by RLS to zero affected rows rather than
+    // erroring. In practice the record_revisions insert above already
+    // fails loudly first for a non-owner (its RLS check requires
+    // auth.uid() = owner_id too), but checking this write's own result
+    // rather than relying on that ordering is the same fix as the other
+    // five routes, and doesn't depend on nothing upstream ever changing.
+    const { data: updatedDetails, error: updateErr } = await db
       .from('opportunity_details')
       .update({ forecast_close_date: date.trim() })
       .eq('record_id', request.params.id)
+      .select('record_id')
 
     if (updateErr) {
       request.log.error({ err: updateErr }, 'failed to update forecast_close_date')
       return reply.code(500).send({ error: updateErr.message })
+    }
+    if (!updatedDetails?.length) {
+      return reply.code(403).send({ error: 'not permitted' })
     }
 
     await db.from('audit_log').insert({

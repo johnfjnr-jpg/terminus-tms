@@ -101,6 +101,19 @@ async function api(method, path, body) {
   return { ok: res.ok, status: res.status, data }
 }
 
+// ── "Mine" toggle ─────────────────────────────────────────────────────────────
+// Read access is team-wide (records_select etc. broadened 2026-08-12);
+// this is a client-side filter on top of that, not a security boundary -
+// the boundary is still entirely in RLS. Default off (show everything).
+// Filters against records.owner_id (present on every list row already),
+// not anything in payload, so it works identically across every screen
+// that uses it.
+function filterMine(records, mineOnly) {
+  if (!mineOnly) return records
+  const myId = currentSession?.user?.id
+  return records.filter(r => r.owner_id === myId)
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function escHtml(str) {
   return String(str ?? '')
@@ -285,6 +298,13 @@ let contactsCache = []
 let accountsCache = []
 let industriesCache = []
 let expandedContactId = null
+let contactsMineOnly = false
+
+document.getElementById('contacts-mine-toggle').addEventListener('click', () => {
+  contactsMineOnly = !contactsMineOnly
+  document.getElementById('contacts-mine-toggle').textContent = `Mine: ${contactsMineOnly ? 'On' : 'Off'}`
+  renderContactsList()
+})
 
 // Accounts/industries are re-fetched on every load, not cached across
 // calls - a Contact saved via "+ New account" needs the new account to
@@ -330,12 +350,13 @@ async function loadContacts() {
 // one - the Account, via parent_record_id.
 function renderContactsList() {
   const container = document.getElementById('contacts-rows')
-  if (!contactsCache.length) {
-    container.innerHTML = '<p class="empty-state">No contacts yet.</p>'
+  const rows = filterMine(contactsCache, contactsMineOnly)
+  if (!rows.length) {
+    container.innerHTML = `<p class="empty-state">${contactsMineOnly ? 'No contacts owned by you.' : 'No contacts yet.'}</p>`
     return
   }
 
-  container.innerHTML = contactsCache.map(c => {
+  container.innerHTML = rows.map(c => {
     const p = c.payload ?? {}
     const account = accountsCache.find(a => a.id === c.parent_record_id)
     const accountName = account?.payload?.name ?? '--'
@@ -558,6 +579,9 @@ function clearContactForm() {
 }
 
 // ── Test Beds ─────────────────────────────────────────────────────────────────
+let testBedsCache = []
+let testBedsMineOnly = false
+
 async function loadTestBeds() {
   const result = await api('GET', '/api/test-beds')
   if (!result.ok) {
@@ -565,13 +589,20 @@ async function loadTestBeds() {
       `<tr><td colspan="6" class="empty-state">Failed to load test beds.</td></tr>`
     return
   }
-  renderTestBedsTable(result.data)
+  testBedsCache = result.data
+  renderTestBedsTable(filterMine(testBedsCache, testBedsMineOnly))
 }
+
+document.getElementById('testbeds-mine-toggle').addEventListener('click', () => {
+  testBedsMineOnly = !testBedsMineOnly
+  document.getElementById('testbeds-mine-toggle').textContent = `Mine: ${testBedsMineOnly ? 'On' : 'Off'}`
+  renderTestBedsTable(filterMine(testBedsCache, testBedsMineOnly))
+})
 
 function renderTestBedsTable(beds) {
   const tbody = document.getElementById('testbeds-tbody')
   if (!beds.length) {
-    tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No test beds yet.</td></tr>'
+    tbody.innerHTML = `<tr><td colspan="6" class="empty-state">${testBedsMineOnly ? 'No test beds owned by you.' : 'No test beds yet.'}</td></tr>`
     return
   }
 
@@ -907,6 +938,9 @@ window.convertTestBed = async (id) => {
 }
 
 // ── Opportunities ──────────────────────────────────────────────────────────────
+let oppsCache = []
+let oppsMineOnly = false
+
 async function loadOpportunities() {
   const result = await api('GET', '/api/opportunities')
   if (!result.ok) {
@@ -914,14 +948,26 @@ async function loadOpportunities() {
       '<p class="empty-state">Failed to load opportunities.</p>'
     return
   }
-  renderOppList(result.data)
-  renderOppCards(result.data)
+  oppsCache = result.data
+  renderOpps()
 }
+
+function renderOpps() {
+  const opps = filterMine(oppsCache, oppsMineOnly)
+  renderOppList(opps)
+  renderOppCards(opps)
+}
+
+document.getElementById('opps-mine-toggle').addEventListener('click', () => {
+  oppsMineOnly = !oppsMineOnly
+  document.getElementById('opps-mine-toggle').textContent = `Mine: ${oppsMineOnly ? 'On' : 'Off'}`
+  renderOpps()
+})
 
 function renderOppList(opps) {
   const container = document.getElementById('opps-rows')
   if (!opps.length) {
-    container.innerHTML = '<p class="empty-state">No opportunities yet.</p>'
+    container.innerHTML = `<p class="empty-state">${oppsMineOnly ? 'No opportunities owned by you.' : 'No opportunities yet.'}</p>`
     return
   }
 
@@ -945,7 +991,7 @@ function renderOppList(opps) {
 function renderOppCards(opps) {
   const grid = document.getElementById('opp-grid')
   if (!opps.length) {
-    grid.innerHTML = '<p class="empty-state">No opportunities yet.</p>'
+    grid.innerHTML = `<p class="empty-state">${oppsMineOnly ? 'No opportunities owned by you.' : 'No opportunities yet.'}</p>`
     return
   }
 
