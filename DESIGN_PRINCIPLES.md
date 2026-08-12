@@ -32,16 +32,39 @@ When a future module needs a document, it stores a Google Drive file ID and link
 
 Every business object in this system, a lead, an opportunity, a deal sheet, a nonconformity report, a corrective action, a controlled document, anything added later, is a **record**. Records do not get their own bespoke tables. They get a `record_type` and a JSON payload.
 
+### Lead, Contact, and Account, before the sales journey proper begins
+
+**Contact (`record_type = 'contact'`) is a single record type for a person, from first, incomplete capture through full qualification and beyond. There is no separate `lead` record type, and no conversion between "Lead" and "Contact."** "Lead" is a stage, `Unqualified`, on the same Contact record, not a different kind of thing. This is deliberate, not an oversight: the earlier model, described below in the Opportunity section, tried a mutable `type` field to let one record represent two different kinds of thing and was found to be wrong. A Contact that starts sparse and fills in over time is one kind of thing throughout, just at different points of completeness, so there's nothing to correct here, ordinary stage progression is the right mechanism, the same one Opportunity's own stages already use.
+
+**Account (`record_type = 'account'`) is its own record type, the company a Contact belongs to.** Multiple Contacts can belong to one Account, and the system must support viewing all Contacts that belong to a given Account, a roll-up view, not just per-Contact records with no way to see the group. Country, for the reference-code generator (Section 9), lives on the Account, not duplicated onto every Contact.
+
+**Account holds a primary address, typically the head office, but individual Contacts can carry their own address and legal entity name, separate from the Account's.** Confirmed real cases this needs to handle: procurement documents needing a different site address than the head office, and contacts at the same Account genuinely belonging to different legal entities, e.g. MegaCorp Singapore Pte Ltd versus MegaCorp US Inc, both still rolling up under one MegaCorp Account. Address and legal entity are per-Contact fields, optional overrides of the Account's own, not a separate Site or Legal Entity record type, that would be more structure than this actually needs, a Contact-level override is enough to represent it.
+
+**Contact stages:** `Unqualified` (created with a deliberately minimal, mandatory field set, see below) → `Qualified` (gated, see below) → **`Parked`**, a side branch, not a dead end: if sales judges a Contact not viable right now, it moves to Parked with a mandatory follow-up date, rather than being discarded. A Parked Contact can return to `Unqualified` or move straight to `Qualified` once follow-up happens.
+
+**Mandatory fields at creation (`Unqualified`):** Name, Company, Email, Mobile, Industry, Source (Web, Email Inquiry, Referral, Direct Outreach, Marketing Campaign), and a free-text Summary of what the business believes this person's interest in Terminus is, with respect to solution and use case. This is a deliberately small set, capturing what's realistically known at first contact, not the full Contact record.
+
+**Qualification gate, `Unqualified` → `Qualified`:** enforced by `stage_gate_rules` requiring every mandatory field above to be complete before the transition is allowed, since a "qualified" Contact with gaps in its basic details isn't meaningfully qualified. **Budget, timescale, and intent are explicitly not system-checked**, that's a sales judgement call, not a data-completeness check, and this system has no opinion on it.
+
+**Contacts can be deleted**, not just Parked, for entries that are genuinely time-wasting or outside Terminus's space entirely, distinct from Parked, which is for real interest that isn't viable yet. **Contacts sitting in `Unqualified` for over a year should be flagged for review**, an automated nudge, not a hard block, surfaced the same way any other "needs attention" view works in this system, not a new mechanism.
+
+**A Contact can be linked to more than one Opportunity or Test Bed over time**, the same person becoming a buyer again a year later, or being a buyer on a Test Bed and a separate Opportunity simultaneously, is expected, not an edge case. This means Contact attachment is **not** a `parent_record_id` relationship, that field means exclusive single-parent ownership (a Deal Sheet has exactly one Opportunity), and a reusable Contact doesn't fit that shape. Contact-to-Opportunity/Test Bed is a genuine many-to-many link, a join table (`record_id`, `contact_id`, `role`, e.g. commercial buyer, technical buyer, end user, IT/Security, procurement), not the generic parent-child pattern used elsewhere. **This corrects what this section previously said about Contacts**, "linked via `parent_record_id`" assumed exclusive ownership that doesn't hold once Contacts are reusable.
+
+**A Contact becoming a buyer on a new Opportunity or Test Bed seeds that new record's reference data**, name, Account, industry, address, and legal entity, from the Contact and its Account, rather than that data being retyped as free text. Where the Contact carries its own address or legal entity override, that takes precedence over the Account's own, the whole point of allowing the override is that it's the more specific, more correct value for this particular relationship. (The Reference tab, built before this model was written down, currently uses free text for person fields for exactly this reason, no Contact existed to link to yet, tracked as a known, deliberate gap until this is built.)
+
 ### Sales journey, the first concrete flow through this model
 
 ```
-Lead (record_type = 'lead')
-  Top of funnel: website, conference, prospecting.
-  → converts on defined criteria (e.g. webinar attended, demo
-    requested), criteria are data-driven (see conversion_criteria
-    below), not hardcoded, to either:
+Contact (record_type = 'contact', see above for its own stages,
+  mandatory fields, and qualification gate)
+  → once Qualified, used to create either:
       Opportunity, the standard commercial sales path, or
       Test Bed, an R&D engagement with a client
+    This is a genuine cross-record-type action, the Contact isn't
+    consumed or converted, it stays a Contact and can be reused, the
+    new Opportunity or Test Bed is a new record, seeded from the
+    Contact and Account's data, and linked back via the many-to-many
+    Contact link above.
 
 Opportunity (record_type = 'opportunity', the anchor object)
   Always commercial. There is no R&D variant of Opportunity, and no
@@ -50,20 +73,20 @@ Opportunity (record_type = 'opportunity', the anchor object)
   states, that model has been deliberately replaced. Test Bed and
   Opportunity are two different kinds of thing, not one thing with
   two labels, see below.
-  owner_id: the sales person. Owns the Opportunity (and the Lead it
-    came from) end to end, responsible for progressing it through the
-    stage gates, collating required documents, and requesting
-    approvals. This is the existing `owner_id` field on `records`, not
-    a new mechanism.
+  owner_id: the sales person. Owns the Opportunity end to end,
+    responsible for progressing it through the stage gates, collating
+    required documents, and requesting approvals. This is the
+    existing `owner_id` field on `records`, not a new mechanism.
   stage (= this record type's status field, defined in
     `stage_definitions`): Discovery → Qualified → Proposal →
     Evaluation → Negotiation → Closing (Quotation renamed to Proposal,
     Evaluation added, see Section 5 for what happens at each stage and
     what gates each transition)
-  → Contacts attach here, added incrementally as the relationship
-    deepens, not all upfront: commercial buyer, end user, technical
-    buyer, IT/Security, procurement, and others, each record_type =
-    'contact' with a `role` field, linked via parent_record_id
+  → Contacts link here via the many-to-many mechanism above, added
+    incrementally as the relationship deepens, not all upfront:
+    commercial buyer, end user, technical buyer, IT/Security,
+    procurement, and others, one Contact can hold more than one role
+    across different records
   → Documents attach here as the buying journey progresses, extensible,
     not a fixed list:
       - Deal Sheet (record_type = 'deal'), actively developed and
@@ -75,6 +98,7 @@ Opportunity (record_type = 'opportunity', the anchor object)
         during Discovery, a child record of the Opportunity, not a
         separate top-level concept
   → closes (Won) →
+
 
 Deployment (record_type = 'deployment', child of Opportunity)
   Possibly phased. Own stage progression: Planned → In Progress →
@@ -102,7 +126,7 @@ Test Bed (record_type = 'test_bed', its own top-level anchor, NOT a
     detail and the heavier gate on the final transition in Section 8.
   → can convert to Opportunity, at any point in its lifecycle, not
     only at Decommissioning. This is a genuine cross-record-type
-    conversion, exactly the same mechanism as Lead → Opportunity, a
+conversion, exactly the same mechanism as Contact → Opportunity, a
     `conversion_criteria` row with from_record_type = 'test_bed',
     to_record_type = 'opportunity'. A brand new Opportunity record is
     created, referencing the Test Bed it came from
@@ -131,7 +155,8 @@ Nothing here is a special case. Neither Opportunity nor Test Bed is more fundame
 | `routing_rules` | `record_type`, `track`, `condition` (e.g. discount % band), `required_tier`, computes *which tier within a track* is needed, only relevant for tracks with escalation logic (Commercial today). Tracks without escalation (Legal, Technical) just use a direct `roles` nomination, no tier needed. |
 | `stage_definitions` | `record_type` (`opportunity`, `test_bed`, extensible), `variant` (nullable, most record types don't need one), `stage_name`, `sort_order`, `phase` (nullable, groups several fine-grained stages under one recognisable higher-level name for reporting and UI, e.g. Test Bed's four Planning sub-stages all carry `phase = 'Planning'`, while stages that aren't part of a broader grouping leave this null). Defines the valid, ordered stage list for that record type. **This exists because a real bug was found in testing**: Opportunity and Test Bed were originally modelled as one record type with a mutable `type` field and a shared stage list, both assumptions were wrong, they're genuinely separate record types (Section 2) with genuinely separate stage lists, Opportunity's Discovery through Closing, Test Bed's Planning through Closed (Section 8). This table is what makes each record type's stage list data-driven rather than hardcoded. |
 | `stage_gate_rules` | `record_type`, `variant` (nullable, most record types don't need one, kept generic in case a future record type does), `from_stage`, `to_stage`, `requirement_type` (`document_status`, `approval_obtained`, `child_record_status`), `requirement_detail` (JSON, e.g. `{track: 'Legal'}` for an approval requirement). A gate can have any number of `approval_obtained` rows, one per required track, admin-configurable, not fixed at two. **All** required tracks must reach `decision = approved` before the transition is allowed, and there is no required order between them, they can be requested and completed in parallel. `from_stage`/`to_stage` values must be valid entries in `stage_definitions` for that record's `record_type` (and `variant`, if it has one). |
-| `conversion_criteria` | `from_record_type` (`lead`), `to_record_type` (`opportunity` or `test_bed`, a Lead can convert to either), `condition` (e.g. webinar attended, demo requested), same data-driven pattern as `stage_gate_rules`, kept separate since converting *between* record types is a different action than progressing *within* one |
+| `conversion_criteria` | `from_record_type` (`contact`, `test_bed`), `to_record_type` (`opportunity` or `test_bed`, a Contact can convert to either), `condition`, same data-driven pattern as `stage_gate_rules`, kept separate since converting *between* record types is a different action than progressing *within* one. **Not** used for Lead-to-Contact, that's a stage transition on one record, not a conversion, see Section 2's Lead/Contact/Account subsection. |
+| `record_contacts` | `record_id` (the Opportunity or Test Bed), `contact_id`, `role` (commercial buyer, end user, technical buyer, IT/Security, procurement, and others). Many-to-many, not `parent_record_id`, since one Contact can hold roles across more than one Opportunity or Test Bed over time, see Section 2. |
 | `stage_probability_defaults` | `record_type` (`opportunity`), `stage`, `default_probability_pct`. Admin-editable, same data-driven pattern as the rest. Sales leadership can retune what "normal" looks like per stage without a code change. Opportunity-only, Test Bed has no probability concept, it isn't a sales pipeline. |
 | `product_defaults` | `product_type` (`SafeSight`, `AQ Sensor`, `HEMIR`, extensible), `unit_cost`, `mount_cost_new`, `mount_cost_existing` (nullable, null means this product has no existing/new distinction, `mount_cost_new` is used as its single flat rate, this is how AQ Sensor works today), `hosting_cost_default` (flat monthly hosting cost per unit, the current placeholder model, see Section 6 for its known limitation). Row-based, not hardcoded columns, so a future product is a new row, not a schema change. HEMIR gets a row now, even before HEMIR itself is a built module, so its defaults exist when it's needed. |
 | `system_defaults` | `key`, `value`. Singleton admin-configurable values, first entry `target_profitability_pct`. Generic key/value shape so future one-off settings don't each need their own table. |
@@ -154,7 +179,7 @@ These apply to every module, present and future. If a new feature can't be built
 
 1. **Server-side recomputation.** Any calculated figure a decision gets made on (a Deal Sheet's margin, a corrective action's due date) is recomputed and verified server-side at submission time. Never trust client-submitted numbers for something an approval rests on.
 2. **Immutable approved snapshots.** Once a record is approved, that revision is frozen. Further edits create a new revision, never an overwrite. History is permanent.
-3. **Data-driven process rules, not hardcoded.** Chart of authority thresholds (`routing_rules`), stage-gate requirements (`stage_gate_rules`), and Lead-to-Opportunity conversion criteria (`conversion_criteria`) all live in the database, not in application code. Changing who approves what, what's required to progress a stage, or when a Lead qualifies, is a data edit, not a deploy. This is not a one-time setup, it stays open: a new required document, a new approval track, or an additional criterion for an existing gate is always just a new row in `stage_gate_rules`, added whenever the business needs it, months or years from now, not a schema change or a redeploy.
+3. **Data-driven process rules, not hardcoded.** Chart of authority thresholds (`routing_rules`), stage-gate requirements (`stage_gate_rules`), and Contact-to-Opportunity conversion criteria (`conversion_criteria`) all live in the database, not in application code. Changing who approves what, what's required to progress a stage, or when a Contact qualifies, is a data edit, not a deploy. This is not a one-time setup, it stays open: a new required document, a new approval track, or an additional criterion for an existing gate is always just a new row in `stage_gate_rules`, added whenever the business needs it, months or years from now, not a schema change or a redeploy.
 4. **One audit trail, one shape.** Every record type logs to the same `audit_log` table in the same format. A future compliance or audit view queries one table, not one per module.
 5. **New modules extend, they don't fork.** Adding a new record type means adding a payload shape and, if needed, new routing rules, not duplicating the workflow, approval, or audit machinery.
 6. **Forecasted revenue and cash flow are computed, not stored.** Pipeline forecasts (weighted and unweighted), cash flow projections, anything derived from current inputs, are calculated server-side at the moment they're requested, from whatever `product_defaults`, probability, and Deal Sheet figures are true right now. They are never written to a persistent field that could quietly drift out of sync with the inputs it was calculated from. The one deliberate exception is the audit snapshot: outputs are frozen and stored specifically at submission and at approval, per rule 2, so there is proof of what a decision-maker actually saw at that moment. That is a point-in-time record for audit purposes, not a live cache, and it should never be read back as if it were the current forecast.
@@ -303,7 +328,7 @@ Each Planning sub-stage is gated the same way any other transition is, `stage_ga
 
 **The final transition, Decommissioning to Closed, is gated more heavily than the rest of the lifecycle**, since closing out an R&D engagement is a bigger decision than moving between working stages. It requires, via the same `stage_gate_rules` engine used everywhere else, nothing new: every stage-gate document from the lifecycle actually reviewed (`child_record_status` requirements, same mechanism already used elsewhere), and a senior-tier sign-off (`approval_obtained` with a higher tier than earlier approvals in the lifecycle, via `routing_rules`, exact tier and who holds it is a real chart-of-authority decision, not something to invent here).
 
-**Test Bed can convert to Opportunity at any point in its lifecycle, not only at Decommissioning.** This is a genuine cross-record-type conversion, the same mechanism as Lead to Opportunity, a `conversion_criteria` row with `from_record_type = 'test_bed'`, `to_record_type = 'opportunity'`. A new Opportunity record is created, referencing the Test Bed it came from (`converted_from_test_bed_id`), the Test Bed record itself is not mutated in place, it remains the historical record of the R&D work. The Test Bed's accumulated cost carries across and attaches to the new Opportunity's eventual Deal Sheet as a cost line, the same treatment Pilot cost already gets, a real cost of winning this deal, not something to lose on conversion.
+**Test Bed can convert to Opportunity at any point in its lifecycle, not only at Decommissioning.** This is a genuine cross-record-type conversion, the same mechanism as Contact to Opportunity, a `conversion_criteria` row with `from_record_type = 'test_bed'`, `to_record_type = 'opportunity'`. A new Opportunity record is created, referencing the Test Bed it came from (`converted_from_test_bed_id`), the Test Bed record itself is not mutated in place, it remains the historical record of the R&D work. The Test Bed's accumulated cost carries across and attaches to the new Opportunity's eventual Deal Sheet as a cost line, the same treatment Pilot cost already gets, a real cost of winning this deal, not something to lose on conversion.
 
 A Test Bed or Pilot record carries its own unit counts (SafeSight, AQ Sensor, and later HEMIR) and its own duration in months, independent of whatever the eventual full deployment's numbers turn out to be, proving the technology with 5 units for 2 months is a different, smaller thing than the 200-unit rollout it might lead to. Cost is computed the same way as the Opportunity-level estimate in Section 6, against these smaller numbers, see the test bed and pilot costing subsection there for how a Pilot's cost feeds into the Deal Sheet's profitability specifically.
 
@@ -317,19 +342,34 @@ Each asset also needs: latitude/longitude at deployment, date of manufacture, an
 
 ### Stage gates (supersedes the earlier "document-gates-deployment" idea)
 
-A camera cannot go live until prerequisite documents reach the right status, an NDA signed before any unit is placed on site, and for test beds, a PDPA assessment and Data Protection Impact Assessment completed. An Opportunity can't move from Negotiation to Closing without its Deal Sheet approved. A Lead doesn't become an Opportunity without meeting defined criteria. These are all the same underlying need, expressed generically as `stage_gate_rules` and `conversion_criteria` in the schema above, one configurable engine, not a hand-built check per rule, and not something rebuilt narrowly for cameras and then rebuilt again for the next thing that needs a gate.
+A camera cannot go live until prerequisite documents reach the right status, an NDA signed before any unit is placed on site, and for test beds, a PDPA assessment and Data Protection Impact Assessment completed. An Opportunity can't move from Negotiation to Closing without its Deal Sheet approved. A Contact doesn't convert to an Opportunity without meeting defined criteria. These are all the same underlying need, expressed generically as `stage_gate_rules` and `conversion_criteria` in the schema above, one configurable engine, not a hand-built check per rule, and not something rebuilt narrowly for cameras and then rebuilt again for the next thing that needs a gate.
 
 ### Reference code
 
 Format: `CCC-Type-Application-NNN` (e.g. country code, R&D/COM, application vertical such as Educational/Smart City/Manufacturing/Security, sequential number). This is the human-readable business key for an Opportunity or R&D Test Bed, generated and stored as a real column, distinct from the internal record ID. The sequence must increment per Country+Type+Application combination specifically, via a proper counter (a dedicated sequence or counters table with correct locking), not "count existing rows", to avoid two people generating the same reference simultaneously.
 
-## 9. Build order
+## 9. Reference codes
 
-1. **Lead and Opportunity** (minimal): just enough to create an Opportunity (with `stage`, no `type` field, Opportunity is always commercial) and attach records to it, this is the anchor everything else needs, build it before the Deal Sheet needs somewhere to attach. **Rework needed on what's already built**: the first Opportunity milestone was built against an earlier model where `type` mutated between R&D and Commercial on the same record. That model is superseded, Opportunity drops `type` entirely, and Test Bed becomes its own record type (below), not a variant. The stage transition and gate-checking logic itself doesn't need to change, only the type field and the conversion endpoint do.
-2. **Test Bed** (minimal): its own top-level record type, own `stage_definitions` (Planning through Closed), own Contacts and Documents, same pattern as Opportunity, not a child of it. Build alongside Opportunity, since Lead can convert to either.
+Every Opportunity and Test Bed gets exactly one, once-only, internal reference code, assigned automatically at creation, never reassigned, never edited by a user.
+
+**Format:** `TT-CCC-INDUST-XXX`
+
+- `TT`: fixed prefix.
+- `CCC`: country code, derived automatically from the customer's country field on the record, not a separate manual selection.
+- `INDUST`: 6-character industry short code, matching the Industry picklist (Taxonomy, Section 7), admin-configurable there, not hardcoded here.
+- `XXX`: incremental counter within each country-industry group, starting at 3 digits (`001`), never resets, grows past 999 by adding digits (`0999` → `1000`) rather than wrapping or resetting.
+
+**The counter is shared across Opportunities and Test Beds within the same country-industry group, but more importantly, the code itself is a single, persistent identity, not just a shared numbering pool.** Test Bed can convert to Opportunity (Section 8's Close out Review decision) and Opportunity can have an associated Test Bed or pilot. When that conversion happens, **the reference code carries over unchanged**, it is not redrawn. The same real-world engagement keeps the same reference for its whole lifecycle, across a type change, exactly the way `stage_gate_rules` already carries the Test Bed to Opportunity conversion as one mechanism, not two (Section 10, Build order, item 5).
+
+**Not yet built.** No reference-number generation exists anywhere in the current codebase, this was discovered as a gap during the Reference tab (B1) build, where the strip correctly shows "Not yet generated" rather than a fabricated code, matching Rule 8's discipline, don't invent data that doesn't exist. Building this needs its own small migration, a counter table keyed by `(country_code, industry_code)`, incremented atomically on creation to avoid a race condition producing duplicate codes under concurrent creation, not a client-side or naive read-then-write counter.
+
+## 10. Build order
+
+1. **Contact, Account, and Opportunity** (minimal): just enough to create a Contact and Account, an Opportunity (with `stage`, no `type` field, Opportunity is always commercial), and attach records to it, this is the anchor everything else needs, build it before the Deal Sheet needs somewhere to attach. **Rework needed on what's already built**: the first Opportunity milestone was built against an earlier model where `type` mutated between R&D and Commercial on the same record, and Contacts were assumed to attach via exclusive `parent_record_id` ownership. Both are superseded, Opportunity drops `type` entirely, Test Bed becomes its own record type (below), not a variant, and Contact attachment becomes the many-to-many `record_contacts` join table (Section 2), not `parent_record_id`. The stage transition and gate-checking logic itself doesn't need to change, only the type field, the conversion endpoint, and the Contact-attachment mechanism do.
+2. **Test Bed** (minimal): its own top-level record type, own `stage_definitions` (Planning through Closed), own Contacts and Documents, same pattern as Opportunity, not a child of it. Build alongside Opportunity, since a Contact can convert to either.
 3. **Deal sheet**: `record_type = 'deal'`, `parent_record_id` = the Opportunity it belongs to. Full workflow, chart-of-authority routing, cash flow and P&L calculation, as already built.
 4. Once stable: extract the workflow/approval/audit engine to confirm it's genuinely record-type agnostic, before building the next document type (Risk Register, Pilot, Contacts). If extracting it is hard, the generic model wasn't generic enough, fix that before adding more record types on top of it.
-5. **Stage gate rules engine** (`stage_gate_rules`, `conversion_criteria`): build this once, generically, as soon as a second real gating need shows up (NDA-before-deployment is the first concrete case), rather than hand-coding that one check and generalising later. This now also carries the Test Bed to Opportunity conversion, the same mechanism as Lead to Opportunity, not a new one.
+5. **Stage gate rules engine** (`stage_gate_rules`, `conversion_criteria`): build this once, generically, as soon as a second real gating need shows up (NDA-before-deployment is the first concrete case), rather than hand-coding that one check and generalising later. This now also carries the Test Bed to Opportunity conversion, the same mechanism as Contact to Opportunity, not a new one.
 6. **Opportunity value estimation** (`product_defaults`, `system_defaults`, `stage_probability_defaults`): build once the Opportunity exists and before the Deal Sheet needs to inherit from it, per Section 6.
 7. **Product capability catalog** (`capability`, `use_case`, `success_criterion`, `record_use_cases`, per Section 7): build once Opportunity exists, sales needs to select use cases fairly early in the cycle, before the auto-generated scope document and performance tracking pieces that depend on it.
 8. **Admin configuration screen** for `stage_gate_rules` (which documents and approval tracks a stage requires): a real module, not a quick addition, since it needs a proper UI for adding/removing requirements per record type and stage, not just direct table edits. Deliberately not urgent, editing `stage_gate_rules` directly (via Supabase's own editor) is fine until this reaches the front of the queue. Requires a global `admin` role, a `roles` row with `record_type = null` (applies to every record type, not one), distinct from the per-record roles like Technical Approver.
