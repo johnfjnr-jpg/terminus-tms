@@ -103,12 +103,15 @@ function switchOppTab(tab) {
 // ── API ───────────────────────────────────────────────────────────────────────
 async function api(method, path, body) {
   if (!currentSession) return { ok: false, data: { error: 'not authenticated' } }
+  // Content-Type: application/json only set when there's a real body -
+  // Fastify's JSON body parser rejects an empty body under that header
+  // (FST_ERR_CTP_EMPTY_JSON_BODY), which silently broke every bodyless
+  // POST (createFromContact's + Create was the one real call site).
+  const headers = { Authorization: `Bearer ${currentSession.access_token}` }
+  if (body) headers['Content-Type'] = 'application/json'
   const res = await fetch(path, {
     method,
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${currentSession.access_token}`
-    },
+    headers,
     body: body ? JSON.stringify(body) : undefined
   })
   const data = await res.json()
@@ -473,7 +476,7 @@ function renderContactGrid(containerId, statusPredicate, mineOnly, emptyLabel) {
     <div class="contact-grid-row">
       <div class="contact-row-name">
         <div class="rg-title" style="cursor:pointer" onclick="navigate('contact-detail', '${c.id}')">${escHtml(p.name ?? '--')}</div>
-        <span class="tag">${escHtml(c.status)}</span>
+        ${c.status === 'Qualified' ? '' : `<span class="tag">${escHtml(c.status)}</span>`}
       </div>
       <span>${escHtml(companyDisplay)}</span>
       <span>${escHtml(industry?.name ?? '--')}</span>

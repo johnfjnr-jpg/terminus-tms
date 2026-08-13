@@ -29,6 +29,11 @@ let cdCurrentBlocking = [] // the real blocking[] from the last Qualify attempt,
 const CD_COLUMN_FIELDS = [
   { key: 'industry', label: 'Industry' },
 ]
+// Name through LinkedIn first, Industry and Source after (2026-08-13,
+// confirmed order) - Industry renders separately via CD_COLUMN_FIELDS
+// (a real records column, not a payload key), Source stays part of
+// this array but rendered last, after Industry - see the render call
+// in renderContactDetail below.
 const CD_CONTACT_FIELDS = [
   { key: 'name', label: 'Name' },
   { key: 'company', label: 'Company' },
@@ -36,8 +41,8 @@ const CD_CONTACT_FIELDS = [
   { key: 'email', label: 'Email' },
   { key: 'mobile', label: 'Mobile' },
   { key: 'linkedin', label: 'LinkedIn' },
-  { key: 'source', label: 'Source', options: ['Web', 'Email Inquiry', 'Referral', 'Direct Outreach', 'Marketing Campaign'] },
 ]
+const CD_SOURCE_FIELD = { key: 'source', label: 'Source', options: ['Web', 'Email Inquiry', 'Referral', 'Direct Outreach', 'Marketing Campaign'] }
 const CD_ADDRESS_FIELDS = [
   { key: 'address', label: 'Address Line 1' },
   { key: 'address2', label: 'Address Line 2' },
@@ -47,18 +52,14 @@ const CD_ADDRESS_FIELDS = [
   { key: 'region', label: 'Region', options: ['Americas', 'Europe & UK', 'Middle East', 'APAC', 'Africa'] },
 ]
 const CD_SUMMARY_FIELD = { key: 'summary', label: 'Summary' }
-const CD_ALL_FIELDS = [...CD_COLUMN_FIELDS, ...CD_CONTACT_FIELDS, ...CD_ADDRESS_FIELDS, CD_SUMMARY_FIELD]
+const CD_ALL_FIELDS = [...CD_CONTACT_FIELDS, ...CD_COLUMN_FIELDS, CD_SOURCE_FIELD, ...CD_ADDRESS_FIELDS, CD_SUMMARY_FIELD]
 
 function cdFieldLabel(key) {
   return CD_ALL_FIELDS.find(f => f.key === key)?.label ?? key
 }
 
-function cdNoteFor(key, fromValue, toValue) {
-  return {
-    text: `${cdFieldLabel(key)} changed from ${fromValue || '--'} to ${toValue || '--'}.`,
-    at: new Date().toISOString(),
-    by: currentSession?.user?.email ?? '',
-  }
+function cdChangeSentence(key, fromValue, toValue) {
+  return `${cdFieldLabel(key)} changed from ${fromValue || '--'} to ${toValue || '--'}.`
 }
 
 function cdAccountName(id) {
@@ -221,13 +222,18 @@ function renderContactDetail(contact) {
   document.getElementById('cd-eyebrow').textContent = contact.status === 'Qualified' ? 'Contact' : 'Lead'
   document.getElementById('cd-name').textContent = cdPayload.name ?? '--'
   document.getElementById('cd-company').textContent = account?.payload?.name ?? cdPayload.company ?? '--'
-  document.getElementById('cd-status').textContent = contact.status
+  // Redundant once Qualified - the eyebrow already reads "Contact" and
+  // the whole screen's context implies it. Still shown for
+  // Unqualified/Parked, where it's real information, not implied.
+  document.getElementById('cd-status').textContent = contact.status === 'Qualified' ? '' : contact.status
+  document.getElementById('cd-status').classList.toggle('hidden', contact.status === 'Qualified')
 
   renderCdAccountCard()
 
   document.getElementById('cd-contact-rows').innerHTML =
+    CD_CONTACT_FIELDS.map(f => cdFieldRow(f.key, f.label, cdPayload[f.key], f)).join('') +
     CD_COLUMN_FIELDS.map(f => cdColumnFieldRow(f, cdCurrentValue(f.key))).join('') +
-    CD_CONTACT_FIELDS.map(f => cdFieldRow(f.key, f.label, cdPayload[f.key], f)).join('')
+    cdFieldRow(CD_SOURCE_FIELD.key, CD_SOURCE_FIELD.label, cdPayload[CD_SOURCE_FIELD.key], CD_SOURCE_FIELD)
   document.getElementById('cd-address-rows').innerHTML =
     CD_ADDRESS_FIELDS.map(f => cdFieldRow(f.key, f.label, cdPayload[f.key], f)).join('')
 
@@ -300,6 +306,7 @@ window.discardCdField = function (key) {
   const editEl = document.getElementById(`cd-edit-${key}`)
   editEl.classList.add('hidden')
   editEl.classList.remove('dirty')
+  document.querySelector(`.ref-field[data-key="${key}"]`)?.classList.remove('field-editing')
   document.getElementById(`cd-display-${key}`).classList.remove('hidden')
   const input = document.getElementById(`cd-input-${key}`)
   if (input) input.value = cdCurrentValue(key)
@@ -310,7 +317,11 @@ function onCdFieldInput(key) {
   const edit = cdEdits[key]
   if (!edit) return
   edit.draft = document.getElementById(`cd-input-${key}`).value
-  document.getElementById(`cd-edit-${key}`).classList.toggle('dirty', edit.draft !== edit.orig)
+  const isDirty = edit.draft !== edit.orig
+  document.getElementById(`cd-edit-${key}`).classList.toggle('dirty', isDirty)
+  // Amber = edited, not yet saved - distinct from .field-blocked (red,
+  // invalid/missing). Toggled on the same .ref-field wrapper.
+  document.querySelector(`.ref-field[data-key="${key}"]`)?.classList.toggle('field-editing', isDirty)
   updateCdEditBar()
 }
 
@@ -338,15 +349,23 @@ async function saveCdFields() {
 
   const body = {}
   const payloadUpdate = {}
-  const newNotes = dirtyEntries.map(([key, e]) => {
+  // One note per save session, not one per changed field (2026-08-13,
+  // confirmed) - every dirty field's own change sentence joined into a
+  // single Notes History entry, same wording as before, just combined.
+  const sentences = dirtyEntries.map(([key, e]) => {
     if (key === 'industry') {
       body.industry_id = e.draft || null
-      return cdNoteFor(key, cdIndustryName(e.orig), cdIndustryName(e.draft))
+      return cdChangeSentence(key, cdIndustryName(e.orig), cdIndustryName(e.draft))
     }
     payloadUpdate[key] = e.draft
-    return cdNoteFor(key, e.orig, e.draft)
+    return cdChangeSentence(key, e.orig, e.draft)
   })
-  payloadUpdate.notes = [...newNotes, ...(cdPayload.notes ?? [])]
+  const combinedNote = {
+    text: sentences.join(' '),
+    at: new Date().toISOString(),
+    by: currentSession?.user?.email ?? '',
+  }
+  payloadUpdate.notes = [combinedNote, ...(cdPayload.notes ?? [])]
   body.payload = payloadUpdate
 
   const result = await api('PATCH', `/api/contacts/${cdContactId}`, body)

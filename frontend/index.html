@@ -221,13 +221,17 @@
   <div id="view-contacts" class="wrap hidden">
     <div class="page-head">
       <div>
-        <p class="eyebrow">Pipeline</p>
+        <!-- "Commercial", not "Pipeline" - the prototype's real
+             SectionLabel for this screen (Terminus Ops.dc.html:277),
+             confirmed by extraction, not copied from Leads' current
+             text. Leads itself also says "Pipeline" today where the
+             prototype's own SectionLabel there is "Commercial" too
+             (line 418) - flagged, not silently changed here, out of
+             this item's scope. -->
+        <p class="eyebrow">Commercial</p>
         <h1>Contacts</h1>
         <p class="sub">Qualified contacts - the graduated roster.</p>
       </div>
-    </div>
-
-    <div class="toolbar">
       <button class="btn-sm" id="contacts-mine-toggle" type="button">Mine: Off</button>
     </div>
 
@@ -264,6 +268,11 @@
       <button class="btn-ghost" id="cd-btn-unqualify">Move to Unqualified</button>
       <span id="cd-action-feedback"></span>
     </div>
+
+    <!-- + Create (Test Bed/Opportunity) moved up here from below Notes
+         History (2026-08-13) - a Qualified contact's next real action,
+         not an afterthought at the bottom of the page. -->
+    <div id="cd-create-section"></div>
 
     <!-- Popup overlay, not inline (2026-08-13) - same date+reason fields
          and saveCdParkForm logic as before, only the container changed.
@@ -329,7 +338,11 @@
 
     <div style="margin-top:28px">
       <p class="label" style="margin-bottom:10px">Summary</p>
-      <div class="ref-field" id="cd-field-summary-wrap" data-key="summary" style="border:none">
+      <!-- No inline border:none - it silently defeated .field-blocked's
+           red border by specificity (2026-08-13, real bug found: Summary
+           was correctly detected as blocking and correctly matched by
+           data-key, but the box never actually rendered). -->
+      <div class="ref-field ref-field-noborder" id="cd-field-summary-wrap" data-key="summary">
         <div class="ref-field-display" id="cd-display-summary" onclick="openCdField('summary')" style="font-size:14px">--</div>
         <div class="ref-field-edit hidden" id="cd-edit-summary">
           <textarea id="cd-input-summary" rows="3" style="flex:1"></textarea>
@@ -341,7 +354,6 @@
       <div id="cd-notes-list"></div>
     </div>
 
-    <div style="margin-top:32px" id="cd-create-section"></div>
     <div style="margin-top:20px" id="cd-delete-section"></div>
   </div>
 
