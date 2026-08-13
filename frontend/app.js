@@ -587,7 +587,26 @@ window.deleteContact = async (id) => {
 // way, so a handler left attached from a previous open doesn't stack.
 let newLeadKeydownHandler = null
 
+// Backdrop-click-to-close must not silently discard unsaved data
+// (2026-08-13) - a real, contained instance of INTERACTION_STANDARDS.md
+// Section 5's deferred unsaved-changes spec, same discipline as Park's
+// focus trap being a small slice of Section 4 rather than the whole
+// system-wide version. Tracked via one delegated input/change listener
+// on the panel (catches every text input, textarea, and select via
+// bubbling), not per-field. Scoped to backdrop-click only - Cancel, the
+// close X, and Escape all still discard immediately, unchanged, since
+// those are explicit "leave" actions, not an accidental click.
+let newLeadDirty = false
+document.querySelector('#new-contact-form .modal-panel').addEventListener('input', () => { newLeadDirty = true })
+document.querySelector('#new-contact-form .modal-panel').addEventListener('change', () => { newLeadDirty = true })
+
+function clearNewLeadUnsavedWarning() {
+  document.getElementById('btn-save-contact').classList.remove('btn-attention')
+  document.getElementById('contact-form-unsaved-warning').classList.add('hidden')
+}
+
 async function openNewLeadModal() {
+  newLeadDirty = false
   document.getElementById('new-contact-form').classList.remove('hidden')
   await populateContactFormPickers()
   document.getElementById('contact-name').focus()
@@ -631,7 +650,13 @@ document.getElementById('contact-country').addEventListener('input', (e) => {
 document.getElementById('btn-cancel-contact').addEventListener('click', closeNewLeadModal)
 document.getElementById('btn-close-new-contact').addEventListener('click', closeNewLeadModal)
 document.getElementById('new-contact-form').addEventListener('click', (e) => {
-  if (e.target.id === 'new-contact-form') closeNewLeadModal()
+  if (e.target.id !== 'new-contact-form') return
+  if (newLeadDirty) {
+    document.getElementById('btn-save-contact').classList.add('btn-attention')
+    document.getElementById('contact-form-unsaved-warning').classList.remove('hidden')
+    return
+  }
+  closeNewLeadModal()
 })
 document.getElementById('btn-save-contact').addEventListener('click', saveContact)
 
@@ -650,6 +675,10 @@ async function populateContactFormPickers() {
 async function saveContact() {
   const errEl = document.getElementById('contact-form-error')
   errEl.classList.add('hidden')
+  // Clicking Save is acting on the unsaved-changes warning, whether the
+  // save itself goes on to succeed or fail - if it fails, the red
+  // validation error above is the relevant message now, not this one.
+  clearNewLeadUnsavedWarning()
 
   const name = document.getElementById('contact-name').value.trim()
   const company = document.getElementById('contact-company').value.trim()
@@ -707,6 +736,8 @@ function clearContactForm() {
   const errEl = document.getElementById('contact-form-error')
   errEl.textContent = ''
   errEl.classList.add('hidden')
+  newLeadDirty = false
+  clearNewLeadUnsavedWarning()
 }
 
 // ── Test Beds ─────────────────────────────────────────────────────────────────

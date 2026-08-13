@@ -217,6 +217,13 @@
           <button class="btn-ghost" id="btn-cancel-contact">Cancel</button>
           <button class="btn-primary" id="btn-save-contact">Save lead</button>
           <span class="msg-error hidden" id="contact-form-error"></span>
+          <!-- Backdrop-click-to-close is blocked while the form has
+               unsaved changes (2026-08-13) - a real, contained instance
+               of INTERACTION_STANDARDS.md's deferred unsaved-changes
+               spec (Section 5), same discipline as Park's focus trap
+               being a small slice of Section 4 rather than the whole
+               system-wide version. -->
+          <span class="msg-warning hidden" id="contact-form-unsaved-warning">You have unsaved changes, save or cancel.</span>
         </div>
       </div>
     </div>

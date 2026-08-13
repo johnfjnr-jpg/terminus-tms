@@ -67,7 +67,23 @@ body {
   padding: 24px;
   width: 90%;
   max-width: 420px;
+  /* Persistent, visibly-styled scrollbar (2026-08-13), not the OS
+     default - macOS's overlay-scrollbar setting hides an unstyled one
+     until actively scrolled, leaving no affordance that a modal has
+     more content below the fold. On the base class, not just
+     .modal-panel-wide, so any future scrollable modal gets this for
+     free without needing to remember why. Firefox + WebKit/Blink both
+     covered, no JS involved. */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(242,242,240,0.28) transparent;
 }
+.modal-panel::-webkit-scrollbar { width: 8px; }
+.modal-panel::-webkit-scrollbar-track { background: transparent; }
+.modal-panel::-webkit-scrollbar-thumb {
+  background: rgba(242,242,240,0.28);
+  border-radius: 4px;
+}
+.modal-panel::-webkit-scrollbar-thumb:hover { background: rgba(242,242,240,0.4); }
 /* New Lead's real prototype width (Terminus Ops.dc.html:4856), wider
    and independently scrollable - Park's 420px doesn't fit this form's
    field count. */
@@ -1290,6 +1306,16 @@ textarea::placeholder { color: var(--muted-2); }
 }
 .btn-primary:hover { background: rgba(102,204,153,0.08); }
 
+/* Unsaved-changes guard on New Lead's backdrop-click (2026-08-13) -
+   amber reused from .field-editing's own convention (edited, not yet
+   saved), not a new ad-hoc color. */
+.btn-attention {
+  border-color: rgba(224,130,74,0.9);
+  color: rgba(224,130,74,0.9);
+  box-shadow: 0 0 0 1px rgba(224,130,74,0.4);
+}
+.btn-attention:hover { background: rgba(224,130,74,0.08); }
+
 .btn-ghost {
   font-family: var(--mono);
   font-size: 11px;
@@ -1363,6 +1389,18 @@ textarea::placeholder { color: var(--muted-2); }
   font-size: 12px;
   letter-spacing: 0.06em;
   color: rgba(242,100,100,0.9);
+  margin-top: 12px;
+}
+
+/* Unsaved-changes guard on New Lead's backdrop-click (2026-08-13),
+   same amber as .field-editing/.btn-attention, not the red .msg-error
+   uses - this isn't a validation failure, it's a warning against an
+   accidental discard. */
+.msg-warning {
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  color: rgba(224,130,74,0.9);
   margin-top: 12px;
 }
 
