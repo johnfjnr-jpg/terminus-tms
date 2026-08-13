@@ -393,11 +393,19 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
    Own grid template, not shared with .record-grid-* (Opportunities'
    3-column shape doesn't fit Contacts' 7 columns). Name is the one
    flexible track; every other track is a fixed px width sized to real
-   content, per the fixed-width-table convention used everywhere else. */
+   content, per the fixed-width-table convention used everywhere else.
+   Name has a real 180px floor, not minmax(0, ...): with 6 fixed columns
+   already totalling 900px, an unfloored Name track only gets ~60-80px
+   inside .wrap's capped width, and the status tag next to it (flex:0 0
+   auto, never shrinks) wins that sliver entirely - the name text
+   collapses to literal zero width and vanishes, not just truncates.
+   Actions drops from 220px to 160px to make room; it already has a
+   flex-wrap fallback (below) for when its buttons don't all fit on
+   one line, so it's the column best able to give up space. */
 .contact-grid-head,
 .contact-grid-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 150px 110px 100px 190px 130px 220px;
+  grid-template-columns: minmax(180px, 1fr) 150px 110px 100px 190px 130px 160px;
   gap: 16px;
   align-items: center;
 }
@@ -435,8 +443,23 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
   min-width: 0;
   overflow: hidden;
 }
-.contact-row-name .rg-title { min-width: 0; flex: 1 1 auto; }
-.contact-row-name .tag { flex: 0 0 auto; white-space: nowrap; }
+/* min-width:50px, not 0: the name is the primary content of this row,
+   the status tag is secondary - the tag must never be able to squeeze
+   the name to literal zero width, even if the track above hits its own
+   180px floor under extreme compression. The tag gets a max-width cap
+   for the same reason in reverse: within that 180px track, an
+   unqualified-length "UNQUALIFIED" badge would otherwise claim most of
+   the space at the name's expense - which view you're in (Leads vs
+   Contacts) already implies status, so a truncated badge costs less
+   than a truncated name. */
+.contact-row-name .rg-title { min-width: 50px; flex: 1 1 auto; }
+.contact-row-name .tag {
+  flex: 0 0 auto;
+  max-width: 65px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 .contact-row-actions {
   display: flex;
