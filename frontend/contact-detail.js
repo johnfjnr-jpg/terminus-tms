@@ -507,11 +507,28 @@ window.attemptContactUnqualifyFromDetail = async function () {
 // on every open otherwise.
 let cdParkKeydownHandler = null
 
+// Backdrop-click-to-close must not silently discard unsaved data
+// (2026-08-13, retrofitted from New Lead's identical implementation,
+// not a second pattern): a delegated input/change listener on the
+// panel tracks whether the date or reason field has changed since
+// opening. Cancel and Escape both still discard immediately,
+// unaffected - only the accidental backdrop-click path is guarded.
+let cdParkDirty = false
+document.querySelector('#cd-park-form .modal-panel').addEventListener('input', () => { cdParkDirty = true })
+document.querySelector('#cd-park-form .modal-panel').addEventListener('change', () => { cdParkDirty = true })
+
+function clearCdParkUnsavedWarning() {
+  document.getElementById('cd-park-save').classList.remove('btn-attention')
+  document.getElementById('cd-park-unsaved-warning').classList.add('hidden')
+}
+
 function openCdParkForm() {
+  cdParkDirty = false
   document.getElementById('cd-park-form').classList.remove('hidden')
   document.getElementById('cd-park-date').value = cdPayload.followUpDate ?? ''
   document.getElementById('cd-park-reason').value = ''
   document.getElementById('cd-park-error').classList.add('hidden')
+  clearCdParkUnsavedWarning()
   document.getElementById('cd-park-date').focus()
 
   cdParkKeydownHandler = (e) => {
@@ -546,6 +563,8 @@ function closeCdParkForm() {
     document.removeEventListener('keydown', cdParkKeydownHandler)
     cdParkKeydownHandler = null
   }
+  cdParkDirty = false
+  clearCdParkUnsavedWarning()
   document.getElementById('cd-btn-park')?.focus()
 }
 
@@ -560,6 +579,10 @@ async function saveCdParkForm() {
   const reason = document.getElementById('cd-park-reason').value.trim()
   const errEl = document.getElementById('cd-park-error')
   errEl.classList.add('hidden')
+  // Clicking Save & park is acting on the unsaved-changes warning,
+  // whether the save itself goes on to succeed or fail - if it fails,
+  // the red validation error above is the relevant message now.
+  clearCdParkUnsavedWarning()
 
   if (!date) {
     errEl.textContent = 'Follow-up date is required.'
@@ -638,6 +661,15 @@ function wireCdOnce() {
   document.getElementById('cd-btn-unqualify').addEventListener('click', window.attemptContactUnqualifyFromDetail)
   document.getElementById('cd-park-cancel').addEventListener('click', closeCdParkForm)
   document.getElementById('cd-park-save').addEventListener('click', saveCdParkForm)
+  document.getElementById('cd-park-form').addEventListener('click', (e) => {
+    if (e.target.id !== 'cd-park-form') return
+    if (cdParkDirty) {
+      document.getElementById('cd-park-save').classList.add('btn-attention')
+      document.getElementById('cd-park-unsaved-warning').classList.remove('hidden')
+      return
+    }
+    closeCdParkForm()
+  })
   document.getElementById('cd-btn-link-account').addEventListener('click', window.openCdLinkAccountPanel)
   document.getElementById('cd-link-cancel').addEventListener('click', () => document.getElementById('cd-link-account-panel').classList.add('hidden'))
   document.getElementById('cd-link-search').addEventListener('input', (e) => renderCdLinkResults(e.target.value))
