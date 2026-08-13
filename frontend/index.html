@@ -44,38 +44,28 @@
     </div>
   </nav>
 
-  <!-- ── Leads (legacy, read-only) ────────────────────────────────────── -->
+  <!-- ── Leads (live: Contact records where status is Unqualified or
+       Parked - a filtered view over the same data as Contacts below, not
+       a separate record type) ───────────────────────────────────────── -->
   <div id="view-leads" class="wrap hidden">
     <div class="page-head">
       <div>
-        <p class="eyebrow">Pipeline · legacy</p>
-        <h1>Leads</h1>
-        <p class="sub">Historical record only. New intake happens through Contacts - nothing new is created here.</p>
-      </div>
-    </div>
-
-    <div class="record-list" id="leads-rows">
-      <p class="empty-state">Loading...</p>
-    </div>
-  </div>
-
-  <!-- ── Contacts ─────────────────────────────────────────────────────── -->
-  <div id="view-contacts" class="wrap hidden">
-    <div class="page-head">
-      <div>
         <p class="eyebrow">Pipeline</p>
-        <h1>Contacts</h1>
+        <h1>Leads</h1>
         <p class="sub">Unqualified through Parked - one record, one stage chip, no separate Lead conversion.</p>
       </div>
-      <button class="btn-primary" id="btn-new-contact">Add contact</button>
+      <div style="display:flex;align-items:center;gap:20px">
+        <button class="btn-text" onclick="navigate('leads-legacy')">Legacy leads &rarr;</button>
+        <button class="btn-primary" id="btn-new-contact">New lead</button>
+      </div>
     </div>
 
     <div class="toolbar">
-      <button class="btn-sm" id="contacts-mine-toggle" type="button">Mine: Off</button>
+      <button class="btn-sm" id="live-leads-mine-toggle" type="button">Mine: Off</button>
     </div>
 
     <div id="new-contact-form" class="inline-form hidden">
-      <h2>Add contact</h2>
+      <h2>New lead</h2>
       <!-- * = mandatory at creation (leadMandatoryFields, Terminus Ops.dc.html:7529).
            Everything else here is optional at creation, mandatory only at
            qualification (leadQualifyRequired, :5844), enforced by the
@@ -170,6 +160,49 @@
         <button class="btn-ghost" id="btn-cancel-contact">Cancel</button>
         <span class="msg-error hidden" id="contact-form-error"></span>
       </div>
+    </div>
+
+    <div class="contact-grid-head">
+      <span>Name</span><span>Company / Account</span><span>Industry</span><span>Job Role</span><span>Email</span><span>Source</span><span></span>
+    </div>
+    <div id="live-leads-rows">
+      <p class="empty-state">Loading...</p>
+    </div>
+  </div>
+
+  <!-- ── Leads (legacy, read-only) - the 9 pre-existing record_type='lead'
+       rows, frozen, unrelated to the live view above. Reached only via
+       the "Legacy leads" link, not a nav item - a historical record, not
+       an ongoing workflow. ────────────────────────────────────────────── -->
+  <div id="view-leads-legacy" class="wrap hidden">
+    <div class="page-head">
+      <div>
+        <button class="btn-text" onclick="navigate('leads')">&larr; Back to Leads</button>
+        <p class="eyebrow" style="margin-top:16px">Pipeline · legacy</p>
+        <h1>Legacy leads</h1>
+        <p class="sub">Historical record only. Frozen - nothing here is created, edited, or converted.</p>
+      </div>
+    </div>
+
+    <div class="record-list" id="legacy-leads-rows">
+      <p class="empty-state">Loading...</p>
+    </div>
+  </div>
+
+  <!-- ── Contacts (live: Contact records where status = Qualified - the
+       graduated roster. New intake happens via Leads, nothing is ever
+       created directly as Qualified) ──────────────────────────────── -->
+  <div id="view-contacts" class="wrap hidden">
+    <div class="page-head">
+      <div>
+        <p class="eyebrow">Pipeline</p>
+        <h1>Contacts</h1>
+        <p class="sub">Qualified contacts - the graduated roster.</p>
+      </div>
+    </div>
+
+    <div class="toolbar">
+      <button class="btn-sm" id="contacts-mine-toggle" type="button">Mine: Off</button>
     </div>
 
     <div class="contact-grid-head">

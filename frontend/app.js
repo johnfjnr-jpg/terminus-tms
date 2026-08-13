@@ -38,7 +38,7 @@ document.getElementById('btn-signout').addEventListener('click', async () => {
 })
 
 // ── Navigation ────────────────────────────────────────────────────────────────
-const ALL_VIEWS = ['leads', 'contacts', 'test-beds', 'test-bed-detail', 'opportunities', 'opportunity-detail']
+const ALL_VIEWS = ['leads', 'leads-legacy', 'contacts', 'test-beds', 'test-bed-detail', 'opportunities', 'opportunity-detail']
 
 function showAuth() {
   document.getElementById('view-auth').classList.remove('hidden')
@@ -59,8 +59,9 @@ function navigate(view, id) {
   document.getElementById(`view-${view}`)?.classList.remove('hidden')
   document.querySelector(`.nav-link[data-view="${view}"]`)?.classList.add('active')
 
-  if (view === 'leads') loadLeads()
-  else if (view === 'contacts') loadContacts()
+  if (view === 'leads') loadContactsData()
+  else if (view === 'leads-legacy') loadLegacyLeads()
+  else if (view === 'contacts') loadContactsData()
   else if (view === 'test-beds') loadTestBeds()
   else if (view === 'opportunities') loadOpportunities()
   else if (view === 'test-bed-detail' && id) loadTestBedDetail(id)
@@ -247,38 +248,39 @@ window.attemptTransition = async (id, toStage, feedbackId, sectionId, currentSta
 }
 
 // ── Leads (legacy, read-only) ───────────────────────────────────────────────
-// POST /leads and both /leads/:id/convert* endpoints are retired
-// (2026-08-12) - see src/routes/leads.js. This view only ever lists the 9
-// pre-existing record_type='lead' rows; nothing here creates or converts
-// anything anymore. New intake and conversion both live in Contacts below.
-let leadsCache = []
-let expandedLeadId = null
+// The 9 pre-existing record_type='lead' rows, frozen since 2026-08-12 -
+// POST /leads and both /leads/:id/convert* endpoints are retired (see
+// src/routes/leads.js). Unrelated to the live Leads/Contacts views below,
+// which are Contact records - this is a different record_type entirely,
+// reached only via the "Legacy leads" link.
+let legacyLeadsCache = []
+let expandedLegacyLeadId = null
 
-async function loadLeads() {
+async function loadLegacyLeads() {
   const result = await api('GET', '/api/leads')
   if (!result.ok) {
-    document.getElementById('leads-rows').innerHTML =
+    document.getElementById('legacy-leads-rows').innerHTML =
       '<p class="empty-state">Failed to load leads.</p>'
     return
   }
-  leadsCache = result.data
-  renderLeadsList()
+  legacyLeadsCache = result.data
+  renderLegacyLeadsList()
 }
 
-// Read-only history view - Leads is frozen, nothing here writes anywhere.
-// Fields shown are exactly what's in these 9 records' payloads (checked
-// against the real data: contact_name, company_name, source, notes -
-// nothing else was ever stored on a Lead), not a guessed-at field set.
-function renderLeadsList() {
-  const container = document.getElementById('leads-rows')
-  if (!leadsCache.length) {
+// Read-only history view - frozen, nothing here writes anywhere. Fields
+// shown are exactly what's in these 9 records' payloads (checked against
+// the real data: contact_name, company_name, source, notes - nothing
+// else was ever stored on a Lead), not a guessed-at field set.
+function renderLegacyLeadsList() {
+  const container = document.getElementById('legacy-leads-rows')
+  if (!legacyLeadsCache.length) {
     container.innerHTML = '<p class="empty-state">No leads.</p>'
     return
   }
 
-  container.innerHTML = leadsCache.map(l => {
+  container.innerHTML = legacyLeadsCache.map(l => {
     const p = l.payload ?? {}
-    const isExpanded = expandedLeadId === l.id
+    const isExpanded = expandedLegacyLeadId === l.id
     return `
     <div class="record-card">
       <div class="record-card-main">
@@ -290,15 +292,15 @@ function renderLeadsList() {
       </div>
       <div class="record-card-side">
         <span class="record-card-stat">${daysAgo(l.created_at)} ago</span>
-        <button class="btn-text" onclick="toggleLeadExpand('${l.id}')">${isExpanded ? 'Close' : 'View'}</button>
+        <button class="btn-text" onclick="toggleLegacyLeadExpand('${l.id}')">${isExpanded ? 'Close' : 'View'}</button>
       </div>
     </div>
-    ${isExpanded ? renderLeadHistoryPanel(l) : ''}
+    ${isExpanded ? renderLegacyLeadHistoryPanel(l) : ''}
     `
   }).join('')
 }
 
-function renderLeadHistoryPanel(l) {
+function renderLegacyLeadHistoryPanel(l) {
   const p = l.payload ?? {}
   return `
   <div class="contact-manage-panel">
@@ -316,29 +318,42 @@ function renderLeadHistoryPanel(l) {
   </div>`
 }
 
-window.toggleLeadExpand = (id) => {
-  expandedLeadId = expandedLeadId === id ? null : id
-  renderLeadsList()
+window.toggleLegacyLeadExpand = (id) => {
+  expandedLegacyLeadId = expandedLegacyLeadId === id ? null : id
+  renderLegacyLeadsList()
 }
 
-// ── Contacts ──────────────────────────────────────────────────────────────────
-// The replacement for Lead's old convert flow: one record, a stage chip
-// (Unqualified/Qualified/Parked) driven by the generic transition engine,
-// and a "+ Create" action that only appears once Qualified. Status-chip
-// selector and "+ Create" both live inline on the list row this pass -
-// the full detail overlay (Terminus Ops.dc.html :320+) is queued
-// separately, so there is no page to put them on yet.
+// ── Leads (live) / Contacts ─────────────────────────────────────────────────
+// Two filtered views over the same Contact record type, not two separate
+// things (2026-08-13 restructure). Leads = status Unqualified or Parked;
+// Contacts = status Qualified, the graduated roster. One shared fetch
+// (loadContactsData), one shared cache (contactsCache), one generic row
+// renderer (renderContactGrid) called once per view with a different
+// status predicate - a status change (Qualify/Park/Unqualify) moves a
+// record from one grid to the other on the very next render, since both
+// come from the same underlying data. renderContactManagePanel is
+// unchanged from its single-view version: it already only shows
+// "+ Create" once Qualified, so in the Contacts view that's always true,
+// no special-casing needed. The full detail overlay (Terminus Ops.dc.html
+// :320+) is still queued separately - status-chip selector and
+// "+ Create" both live inline on the row for both views, same as before.
 const CONTACT_STAGES = ['Unqualified', 'Qualified', 'Parked']
 let contactsCache = []
 let accountsCache = []
 let industriesCache = []
 let expandedContactId = null
+let leadsMineOnly = false
 let contactsMineOnly = false
 
+document.getElementById('live-leads-mine-toggle').addEventListener('click', () => {
+  leadsMineOnly = !leadsMineOnly
+  document.getElementById('live-leads-mine-toggle').textContent = `Mine: ${leadsMineOnly ? 'On' : 'Off'}`
+  renderBothContactGrids()
+})
 document.getElementById('contacts-mine-toggle').addEventListener('click', () => {
   contactsMineOnly = !contactsMineOnly
   document.getElementById('contacts-mine-toggle').textContent = `Mine: ${contactsMineOnly ? 'On' : 'Off'}`
-  renderContactsList()
+  renderBothContactGrids()
 })
 
 // Accounts/industries are re-fetched on every load, not cached across
@@ -355,7 +370,7 @@ document.getElementById('contacts-mine-toggle').addEventListener('click', () => 
 // started call is allowed to apply its result.
 let contactsLoadToken = 0
 
-async function loadContacts() {
+async function loadContactsData() {
   const myToken = ++contactsLoadToken
   const [result, accResult, indResult] = await Promise.all([
     api('GET', '/api/contacts'),
@@ -368,12 +383,19 @@ async function loadContacts() {
   if (indResult.ok) industriesCache = indResult.data
 
   if (!result.ok) {
+    document.getElementById('live-leads-rows').innerHTML =
+      '<p class="empty-state">Failed to load leads.</p>'
     document.getElementById('contacts-rows').innerHTML =
       '<p class="empty-state">Failed to load contacts.</p>'
     return
   }
   contactsCache = result.data
-  renderContactsList()
+  renderBothContactGrids()
+}
+
+function renderBothContactGrids() {
+  renderContactGrid('live-leads-rows', c => c.status !== 'Qualified', leadsMineOnly, 'No leads.')
+  renderContactGrid('contacts-rows', c => c.status === 'Qualified', contactsMineOnly, 'No contacts yet.')
 }
 
 // Discrepancy from the prototype's Contacts spec, flagged: Job Role has no
@@ -383,11 +405,11 @@ async function loadContacts() {
 // cell: the prototype assumed two distinct data sources (a free-text
 // company plus a linked account), but this Contact model only ever has
 // one - the Account, via parent_record_id.
-function renderContactsList() {
-  const container = document.getElementById('contacts-rows')
-  const rows = filterMine(contactsCache, contactsMineOnly)
+function renderContactGrid(containerId, statusPredicate, mineOnly, emptyLabel) {
+  const container = document.getElementById(containerId)
+  const rows = filterMine(contactsCache.filter(statusPredicate), mineOnly)
   if (!rows.length) {
-    container.innerHTML = `<p class="empty-state">${contactsMineOnly ? 'No contacts owned by you.' : 'No contacts yet.'}</p>`
+    container.innerHTML = `<p class="empty-state">${mineOnly ? 'None owned by you.' : emptyLabel}</p>`
     return
   }
 
@@ -451,7 +473,7 @@ function renderContactManagePanel(c) {
 
 window.toggleContactManage = (id) => {
   expandedContactId = expandedContactId === id ? null : id
-  renderContactsList()
+  renderBothContactGrids()
 }
 
 // Parked requires followUpDate saved first - the Unqualified -> Parked
@@ -465,7 +487,7 @@ window.attemptContactStage = async (id, toStage) => {
 
   if (toStage === 'Parked' && c.status !== 'Parked') {
     c.payload._parkDraftOpen = true
-    renderContactsList()
+    renderBothContactGrids()
     return
   }
 
@@ -475,7 +497,7 @@ window.attemptContactStage = async (id, toStage) => {
 window.cancelContactPark = (id) => {
   const c = contactsCache.find(x => x.id === id)
   if (c) c.payload._parkDraftOpen = false
-  renderContactsList()
+  renderBothContactGrids()
 }
 
 window.saveContactParkDate = async (id) => {
@@ -512,7 +534,7 @@ async function submitContactTransition(id, toStage) {
     return
   }
 
-  await loadContacts()
+  await loadContactsData()
 }
 
 window.createFromContact = async (id, type) => {
@@ -535,7 +557,7 @@ window.deleteContact = async (id) => {
   const result = await api('DELETE', `/api/contacts/${id}`)
   if (!result.ok) return
   expandedContactId = null
-  await loadContacts()
+  await loadContactsData()
 }
 
 // ── Add contact form ────────────────────────────────────────────────────────
@@ -623,7 +645,7 @@ async function saveContact() {
   document.getElementById('new-contact-form').classList.add('hidden')
   document.getElementById('btn-new-contact').classList.remove('hidden')
   clearContactForm()
-  loadContacts()
+  loadContactsData()
 }
 
 function clearContactForm() {
