@@ -397,9 +397,17 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
 .contact-grid-head,
 .contact-grid-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 150px 110px 100px 190px 130px 80px;
+  grid-template-columns: minmax(0, 1fr) 150px 110px 100px 190px 130px 220px;
   gap: 16px;
   align-items: center;
+}
+
+.contact-row-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .contact-grid-head {
@@ -438,33 +446,11 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
   gap: 12px;
 }
 
-.contact-manage-stage,
 .contact-manage-create {
   display: flex;
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
-}
-
-.contact-manage-park {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.contact-manage-park label {
-  font-family: var(--mono);
-  font-size: 10.5px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-.contact-manage-park input[type="date"] {
-  background: var(--black);
-  border: 1px solid var(--hairline-strong);
-  color: var(--white);
-  font-family: var(--mono);
-  font-size: 12px;
-  padding: 6px 8px;
 }
 
 .cm-label {

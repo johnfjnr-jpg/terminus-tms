@@ -49,7 +49,7 @@ export default async function recordsRoutes(app) {
     const { record_type, status } = request.query ?? {}
     const db = createUserClient(request.jwt)
 
-    let query = db.from('records').select('*').order('created_at', { ascending: false })
+    let query = db.from('records').select('*').is('deleted_at', null).order('created_at', { ascending: false })
     if (record_type) query = query.eq('record_type', record_type)
     if (status) query = query.eq('status', status)
 
@@ -67,7 +67,7 @@ export default async function recordsRoutes(app) {
     const db = createUserClient(request.jwt)
 
     const [recordResult, revResult] = await Promise.all([
-      db.from('records').select('*').eq('id', request.params.id).maybeSingle(),
+      db.from('records').select('*').eq('id', request.params.id).is('deleted_at', null).maybeSingle(),
       db.from('record_revisions')
         .select('*')
         .eq('record_id', request.params.id)
@@ -100,6 +100,7 @@ export default async function recordsRoutes(app) {
       .from('records')
       .select('id, record_type, status, variant')
       .eq('id', request.params.id)
+      .is('deleted_at', null)
       .maybeSingle()
 
     if (recordErr || !record) {

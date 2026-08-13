@@ -9,6 +9,7 @@ export default async function testBedsRoutes(app) {
       .from('records')
       .select('*')
       .eq('record_type', 'test_bed')
+      .is('deleted_at', null)
       .order('created_at', { ascending: false })
 
     if (error) {
@@ -92,6 +93,7 @@ export default async function testBedsRoutes(app) {
         .select('*')
         .eq('id', request.params.id)
         .eq('record_type', 'test_bed')
+        .is('deleted_at', null)
         .maybeSingle(),
       db.from('record_revisions')
         .select('revision_number, payload, created_at')
@@ -125,6 +127,7 @@ export default async function testBedsRoutes(app) {
       .select('id, status')
       .eq('id', request.params.id)
       .eq('record_type', 'test_bed')
+      .is('deleted_at', null)
       .maybeSingle()
 
     if (!bed) return reply.code(404).send({ error: 'not found' })
@@ -183,6 +186,7 @@ export default async function testBedsRoutes(app) {
       .select('id, variant, status')
       .eq('parent_record_id', bed.id)
       .eq('record_type', 'document')
+      .is('deleted_at', null)
 
     const docMap = {}
     for (const d of docs ?? []) {

@@ -9,6 +9,7 @@ export default async function opportunitiesRoutes(app) {
       .from('records')
       .select('*, opportunity_details!opportunity_details_record_id_fkey(*)')
       .eq('record_type', 'opportunity')
+      .is('deleted_at', null)
       .order('created_at', { ascending: false })
 
     if (oppsErr) {
@@ -46,6 +47,7 @@ export default async function opportunitiesRoutes(app) {
         .select('*, opportunity_details!opportunity_details_record_id_fkey(*)')
         .eq('id', request.params.id)
         .eq('record_type', 'opportunity')
+        .is('deleted_at', null)
         .maybeSingle(),
       db.from('record_revisions')
         .select('revision_number, payload, created_at')

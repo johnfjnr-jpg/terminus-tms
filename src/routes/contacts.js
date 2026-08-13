@@ -175,6 +175,7 @@ export default async function contactsRoutes(app) {
   const CONTACT_WRITABLE_KEYS = new Set([
     'name', 'email', 'mobile', 'source', 'summary', 'address', 'legalEntity', 'followUpDate',
     'jobRole', 'linkedin', 'address2', 'city', 'postcode', 'country', 'region',
+    'notes', // append-only Notes History, same shape/convention as Opportunity's
   ])
 
   app.patch('/contacts/:id', async (request, reply) => {

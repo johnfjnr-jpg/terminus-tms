@@ -38,7 +38,15 @@ document.getElementById('btn-signout').addEventListener('click', async () => {
 })
 
 // ── Navigation ────────────────────────────────────────────────────────────────
-const ALL_VIEWS = ['leads', 'leads-legacy', 'contacts', 'test-beds', 'test-bed-detail', 'opportunities', 'opportunity-detail']
+const ALL_VIEWS = ['leads', 'leads-legacy', 'contacts', 'contact-detail', 'test-beds', 'test-bed-detail', 'opportunities', 'opportunity-detail']
+
+// Set by attemptContactQualify() when a row-level Qualify attempt comes
+// back blocked, read once by contact-detail.js's loadContactDetail() so
+// the banner shows immediately on arrival instead of re-attempting the
+// same transition a second time for the same answer. Also used to carry
+// the "open the Park form on arrival" flag from a row's Park button.
+let cdPendingQualifyBlocking = null
+let cdPendingOpenPark = false
 
 function showAuth() {
   document.getElementById('view-auth').classList.remove('hidden')
@@ -52,7 +60,7 @@ function showApp(session) {
   navigate('leads')
 }
 
-function navigate(view, id) {
+function navigate(view, id, options) {
   ALL_VIEWS.forEach(v => document.getElementById(`view-${v}`)?.classList.add('hidden'))
   document.querySelectorAll('.nav-link').forEach(el => el.classList.remove('active'))
 
@@ -62,6 +70,10 @@ function navigate(view, id) {
   if (view === 'leads') loadContactsData()
   else if (view === 'leads-legacy') loadLegacyLeads()
   else if (view === 'contacts') loadContactsData()
+  else if (view === 'contact-detail' && id) {
+    cdPendingOpenPark = !!options?.openPark
+    loadContactDetail(id)
+  }
   else if (view === 'test-beds') loadTestBeds()
   else if (view === 'opportunities') loadOpportunities()
   else if (view === 'test-bed-detail' && id) loadTestBedDetail(id)
@@ -73,6 +85,7 @@ document.querySelectorAll('.nav-link').forEach(el => {
 })
 document.getElementById('btn-back-opps').addEventListener('click', () => navigate('opportunities'))
 document.getElementById('btn-back-testbeds').addEventListener('click', () => navigate('test-beds'))
+document.getElementById('btn-back-contact-detail').addEventListener('click', () => navigate(cdReturnView))
 
 // Opportunity detail tabs (Commercials / Documents / Stage & Approvals) -
 // wired once, the tab bar is static HTML present for the life of the page,
@@ -331,13 +344,14 @@ window.toggleLegacyLeadExpand = (id) => {
 // renderer (renderContactGrid) called once per view with a different
 // status predicate - a status change (Qualify/Park/Unqualify) moves a
 // record from one grid to the other on the very next render, since both
-// come from the same underlying data. renderContactManagePanel is
-// unchanged from its single-view version: it already only shows
-// "+ Create" once Qualified, so in the Contacts view that's always true,
-// no special-casing needed. The full detail overlay (Terminus Ops.dc.html
-// :320+) is still queued separately - status-chip selector and
-// "+ Create" both live inline on the row for both views, same as before.
-const CONTACT_STAGES = ['Unqualified', 'Qualified', 'Parked']
+// come from the same underlying data.
+//
+// Qualify/Park/Unqualified are direct row actions (renderContactRowActions
+// below), not the old 3-chip Manage picker - that picker is gone. Qualify
+// attempts the transition immediately; Park always routes to the Contact
+// detail page (contact-detail.js), since it now needs a mandatory reason,
+// too much for an inline row form. "Manage" survives only for + Create
+// (Qualified only) and Delete.
 let contactsCache = []
 let accountsCache = []
 let industriesCache = []
@@ -362,10 +376,10 @@ document.getElementById('contacts-mine-toggle').addEventListener('click', () => 
 // dev-stage app that the extra round trip isn't worth a staleness bug.
 //
 // contactsLoadToken guards against a real race found during jsdom
-// verification: submitContactTransition() reloads after every stage
-// change, so a slow initial load and a fast transition-triggered reload
-// can be in flight together, and without this guard whichever resolves
-// last wins - a slower, older response can silently overwrite newer data
+// verification: every stage change reloads afterward, so a slow initial
+// load and a fast transition-triggered reload can be in flight together,
+// and without this guard whichever resolves last wins - a slower, older
+// response can silently overwrite newer data
 // on screen. Each call captures its own token; only the most recently
 // started call is allowed to apply its result.
 let contactsLoadToken = 0
@@ -422,7 +436,7 @@ function renderContactGrid(containerId, statusPredicate, mineOnly, emptyLabel) {
     return `
     <div class="contact-grid-row">
       <div class="rg-name">
-        <div class="rg-title">${escHtml(p.name ?? '--')}</div>
+        <div class="rg-title" style="cursor:pointer" onclick="navigate('contact-detail', '${c.id}')">${escHtml(p.name ?? '--')}</div>
         <span class="tag">${escHtml(c.status)}</span>
       </div>
       <span>${escHtml(accountName)}</span>
@@ -430,34 +444,31 @@ function renderContactGrid(containerId, statusPredicate, mineOnly, emptyLabel) {
       <span>${escHtml(p.jobRole ?? '--')}</span>
       <span>${escHtml(p.email ?? '--')}</span>
       <span>${escHtml(p.source ?? '--')}</span>
-      <span style="text-align:right"><button class="btn-text" onclick="toggleContactManage('${c.id}')">${isExpanded ? 'Close' : 'Manage'}</button></span>
+      <div class="contact-row-actions">${renderContactRowActions(c)}</div>
     </div>
     ${isExpanded ? renderContactManagePanel(c) : ''}
     `
   }).join('')
 }
 
+// Qualify/Park/Unqualified are direct actions on the row, replacing the
+// old 3-chip Manage picker. "Manage" survives only for + Create
+// (Qualified only) and Delete - unchanged from before.
+function renderContactRowActions(c) {
+  const isExpanded = expandedContactId === c.id
+  const buttons = []
+  if (c.status !== 'Qualified') buttons.push(`<button class="btn-sm btn-primary" onclick="attemptContactQualify('${c.id}')">Qualify</button>`)
+  if (c.status !== 'Parked') buttons.push(`<button class="btn-sm" onclick="navigate('contact-detail', '${c.id}', { openPark: true })">Park</button>`)
+  if (c.status !== 'Unqualified') buttons.push(`<button class="btn-sm" onclick="attemptContactUnqualify('${c.id}')">Unqualified</button>`)
+  buttons.push(`<button class="btn-text" onclick="toggleContactManage('${c.id}')">${isExpanded ? 'Close' : 'Manage'}</button>`)
+  return buttons.join('')
+}
+
 function renderContactManagePanel(c) {
-  const p = c.payload ?? {}
   const isQualified = c.status === 'Qualified'
-  const parkOpen = c.status !== 'Parked' && p._parkDraftOpen
 
   return `
   <div class="contact-manage-panel" id="contact-manage-${c.id}">
-    <div class="contact-manage-stage">
-      <span class="cm-label">Stage</span>
-      ${CONTACT_STAGES.map(s => `
-        <button class="btn-sm ${s === c.status ? 'btn-primary' : ''}" onclick="attemptContactStage('${c.id}', '${s}')">${s}</button>
-      `).join('')}
-    </div>
-    ${parkOpen ? `
-    <div class="contact-manage-park">
-      <label>Follow-up date</label>
-      <input type="date" id="contact-park-date-${c.id}">
-      <button class="btn-sm btn-primary" onclick="saveContactParkDate('${c.id}')">Save &amp; park</button>
-      <button class="btn-sm" onclick="cancelContactPark('${c.id}')">Cancel</button>
-    </div>` : ''}
-    <div id="contact-stage-feedback-${c.id}"></div>
     ${isQualified ? `
     <div class="contact-manage-create">
       <span class="cm-label">+ Create</span>
@@ -476,64 +487,29 @@ window.toggleContactManage = (id) => {
   renderBothContactGrids()
 }
 
-// Parked requires followUpDate saved first - the Unqualified -> Parked
-// payload_field_required gate (contact_account.sql) rejects the
-// transition otherwise. Clicking "Parked" opens the date field instead of
-// attempting the transition immediately; other stage clicks go straight
-// through the generic transition endpoint, same as Opportunity/Test Bed.
-window.attemptContactStage = async (id, toStage) => {
-  const c = contactsCache.find(x => x.id === id)
-  if (!c || toStage === c.status) return
-
-  if (toStage === 'Parked' && c.status !== 'Parked') {
-    c.payload._parkDraftOpen = true
-    renderBothContactGrids()
+// Direct Qualify from the row: succeeds -> reload in place, no navigation.
+// Blocked -> hand the real blocking list forward (cdPendingQualifyBlocking,
+// read once by the detail page on load) and navigate there, rather than
+// re-attempting the same transition a second time just to get the same
+// answer again.
+window.attemptContactQualify = async (id) => {
+  const result = await api('POST', `/api/records/${id}/transition`, { to_stage: 'Qualified' })
+  if (result.ok) {
+    await loadContactsData()
     return
   }
-
-  await submitContactTransition(id, toStage)
+  if (result.status === 422 && result.data.blocking?.length) {
+    cdPendingQualifyBlocking = result.data.blocking
+    navigate('contact-detail', id)
+    return
+  }
+  navigate('contact-detail', id)
 }
 
-window.cancelContactPark = (id) => {
-  const c = contactsCache.find(x => x.id === id)
-  if (c) c.payload._parkDraftOpen = false
-  renderBothContactGrids()
-}
-
-window.saveContactParkDate = async (id) => {
-  const date = document.getElementById(`contact-park-date-${id}`).value
-  const feedback = document.getElementById(`contact-stage-feedback-${id}`)
-  if (!date) {
-    feedback.innerHTML = '<p class="msg-error">Follow-up date is required.</p>'
-    return
-  }
-
-  const patchResult = await api('PATCH', `/api/contacts/${id}`, { payload: { followUpDate: date } })
-  if (!patchResult.ok) {
-    feedback.innerHTML = `<p class="msg-error">${escHtml(patchResult.data.error ?? 'Failed to save follow-up date.')}</p>`
-    return
-  }
-
-  await submitContactTransition(id, 'Parked')
-}
-
-async function submitContactTransition(id, toStage) {
-  const feedback = document.getElementById(`contact-stage-feedback-${id}`)
-  if (feedback) feedback.innerHTML = ''
-
-  const result = await api('POST', `/api/records/${id}/transition`, { to_stage: toStage })
-
-  if (!result.ok) {
-    if (!feedback) return
-    if (result.status === 422 && result.data.blocking?.length) {
-      const items = result.data.blocking.map(b => `<li>${escHtml(b.message)}</li>`).join('')
-      feedback.innerHTML = `<p class="msg-error">Blocked.</p><ul class="blocking-list">${items}</ul>`
-    } else {
-      feedback.innerHTML = `<p class="msg-error">${escHtml(result.data.error ?? 'Transition failed.')}</p>`
-    }
-    return
-  }
-
+// Never blocked (no gate rule exists for *->Unqualified), so this is a
+// plain direct call, no form, no banner.
+window.attemptContactUnqualify = async (id) => {
+  await api('POST', `/api/records/${id}/transition`, { to_stage: 'Unqualified' })
   await loadContactsData()
 }
 

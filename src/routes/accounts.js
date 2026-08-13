@@ -2,8 +2,12 @@ import { createUserClient } from '../supabase.js'
 
 export default async function accountsRoutes(app) {
   // GET /api/accounts — list, used by Contact's "+ New Account" picker and
-  // general account browsing. Account has no soft-delete concept in this
-  // build (only Contact does), so nothing is excluded here.
+  // general account browsing. There is still no user-facing delete-Account
+  // action in the app, but deleted_at is a generic column on records (not
+  // Contact-specific) and this endpoint must respect it regardless of how
+  // a row got soft-deleted - real test/debug Account rows were polluting
+  // this exact picker (2026-08-13) precisely because this filter was
+  // missing here.
   app.get('/accounts', async (request, reply) => {
     const db = createUserClient(request.jwt)
 
@@ -11,6 +15,7 @@ export default async function accountsRoutes(app) {
       .from('records')
       .select('id, created_at, industry_id')
       .eq('record_type', 'account')
+      .is('deleted_at', null)
       .order('created_at', { ascending: false })
 
     if (error) {
