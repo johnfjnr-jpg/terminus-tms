@@ -666,6 +666,9 @@ function wireCdOnce() {
     if (cdParkDirty) {
       document.getElementById('cd-park-save').classList.add('btn-attention')
       document.getElementById('cd-park-unsaved-warning').classList.remove('hidden')
+      // Same as New Lead's identical guard - guarantees Save & park and
+      // the warning are actually visible, not just "shown" off-screen.
+      document.querySelector('#cd-park-form .form-actions').scrollIntoView({ behavior: 'smooth', block: 'nearest' })
       return
     }
     closeCdParkForm()

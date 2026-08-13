@@ -654,6 +654,10 @@ document.getElementById('new-contact-form').addEventListener('click', (e) => {
   if (newLeadDirty) {
     document.getElementById('btn-save-contact').classList.add('btn-attention')
     document.getElementById('contact-form-unsaved-warning').classList.remove('hidden')
+    // Guarantees Save + the warning are actually visible, not just
+    // "shown" somewhere off-screen if the user was scrolled elsewhere
+    // in the panel when they clicked outside.
+    document.querySelector('#new-contact-form .form-actions').scrollIntoView({ behavior: 'smooth', block: 'nearest' })
     return
   }
   closeNewLeadModal()
