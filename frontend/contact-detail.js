@@ -30,6 +30,7 @@ const CD_COLUMN_FIELDS = [
   { key: 'industry', label: 'Industry' },
 ]
 const CD_CONTACT_FIELDS = [
+  { key: 'name', label: 'Name' },
   { key: 'company', label: 'Company' },
   { key: 'jobRole', label: 'Job Role' },
   { key: 'email', label: 'Email' },
@@ -217,6 +218,7 @@ function renderContactDetail(contact) {
   // display everywhere - the free-text company is the fallback until
   // then, never the other way round (confirmed, not assumed).
   const account = accountsCache.find(a => a.id === contact.parent_record_id)
+  document.getElementById('cd-eyebrow').textContent = contact.status === 'Qualified' ? 'Contact' : 'Lead'
   document.getElementById('cd-name').textContent = cdPayload.name ?? '--'
   document.getElementById('cd-company').textContent = account?.payload?.name ?? cdPayload.company ?? '--'
   document.getElementById('cd-status').textContent = contact.status
@@ -444,7 +446,7 @@ window.attemptContactQualifyFromDetail = async function () {
   }
   cdCurrentBlocking = []
   await loadContactsData()
-  await loadContactDetail(cdContactId)
+  navigate('contacts')
 }
 
 window.attemptContactUnqualifyFromDetail = async function () {
@@ -453,11 +455,56 @@ window.attemptContactUnqualifyFromDetail = async function () {
   await loadContactDetail(cdContactId)
 }
 
+// Park as a popup overlay: focus-trapped per INTERACTION_STANDARDS.md
+// Section 4 (Park is that document's own worked example). Focus moves
+// to the first field on open; Tab/Shift+Tab cycle within the popup's
+// own four focusable elements only; Escape closes it the same as
+// Cancel. cdParkKeydownHandler is tracked so it can be removed on
+// close - the popup's DOM node persists across page reloads (wired
+// once via cdWired), so a handler left attached would stack a new one
+// on every open otherwise.
+let cdParkKeydownHandler = null
+
 function openCdParkForm() {
   document.getElementById('cd-park-form').classList.remove('hidden')
   document.getElementById('cd-park-date').value = cdPayload.followUpDate ?? ''
   document.getElementById('cd-park-reason').value = ''
   document.getElementById('cd-park-error').classList.add('hidden')
+  document.getElementById('cd-park-date').focus()
+
+  cdParkKeydownHandler = (e) => {
+    if (e.key === 'Escape') {
+      e.preventDefault()
+      closeCdParkForm()
+      return
+    }
+    if (e.key !== 'Tab') return
+    const focusable = [
+      document.getElementById('cd-park-date'),
+      document.getElementById('cd-park-reason'),
+      document.getElementById('cd-park-cancel'),
+      document.getElementById('cd-park-save'),
+    ]
+    const first = focusable[0]
+    const last = focusable[focusable.length - 1]
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault()
+      last.focus()
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault()
+      first.focus()
+    }
+  }
+  document.addEventListener('keydown', cdParkKeydownHandler)
+}
+
+function closeCdParkForm() {
+  document.getElementById('cd-park-form').classList.add('hidden')
+  if (cdParkKeydownHandler) {
+    document.removeEventListener('keydown', cdParkKeydownHandler)
+    cdParkKeydownHandler = null
+  }
+  document.getElementById('cd-btn-park')?.focus()
 }
 
 // Park's mandatory reason appends to the same real Notes History as
@@ -504,7 +551,7 @@ async function saveCdParkForm() {
     return
   }
 
-  document.getElementById('cd-park-form').classList.add('hidden')
+  closeCdParkForm()
   await loadContactsData()
   await loadContactDetail(cdContactId)
 }
@@ -547,7 +594,7 @@ function wireCdOnce() {
   document.getElementById('cd-btn-qualify').addEventListener('click', window.attemptContactQualifyFromDetail)
   document.getElementById('cd-btn-park').addEventListener('click', openCdParkForm)
   document.getElementById('cd-btn-unqualify').addEventListener('click', window.attemptContactUnqualifyFromDetail)
-  document.getElementById('cd-park-cancel').addEventListener('click', () => document.getElementById('cd-park-form').classList.add('hidden'))
+  document.getElementById('cd-park-cancel').addEventListener('click', closeCdParkForm)
   document.getElementById('cd-park-save').addEventListener('click', saveCdParkForm)
   document.getElementById('cd-btn-link-account').addEventListener('click', window.openCdLinkAccountPanel)
   document.getElementById('cd-link-cancel').addEventListener('click', () => document.getElementById('cd-link-account-panel').classList.add('hidden'))

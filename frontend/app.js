@@ -488,14 +488,17 @@ function renderContactGrid(containerId, statusPredicate, mineOnly, emptyLabel) {
 }
 
 // Qualify/Park/Unqualified are direct actions on the row, replacing the
-// old 3-chip Manage picker. "Manage" survives only for + Create
-// (Qualified only) and Delete - unchanged from before.
+// old 3-chip Manage picker. Once Qualified, neither step-back action
+// shows here at all (2026-08-13 reversal, confirmed) - Qualified stays
+// Qualified from the list, edits happen via the detail page only.
+// "Manage" survives only for + Create (Qualified only) and Delete -
+// unchanged from before.
 function renderContactRowActions(c) {
   const isExpanded = expandedContactId === c.id
   const buttons = []
   if (c.status !== 'Qualified') buttons.push(`<button class="btn-sm btn-primary" onclick="attemptContactQualify('${c.id}')">Qualify</button>`)
-  if (c.status !== 'Parked') buttons.push(`<button class="btn-sm" onclick="navigate('contact-detail', '${c.id}', { openPark: true })">Park</button>`)
-  if (c.status !== 'Unqualified') buttons.push(`<button class="btn-sm" onclick="attemptContactUnqualify('${c.id}')">Unqualified</button>`)
+  if (c.status === 'Unqualified') buttons.push(`<button class="btn-sm" onclick="navigate('contact-detail', '${c.id}', { openPark: true })">Park</button>`)
+  if (c.status === 'Parked') buttons.push(`<button class="btn-sm" onclick="attemptContactUnqualify('${c.id}')">Unqualified</button>`)
   buttons.push(`<button class="btn-text" onclick="toggleContactManage('${c.id}')">${isExpanded ? 'Close' : 'Manage'}</button>`)
   return buttons.join('')
 }

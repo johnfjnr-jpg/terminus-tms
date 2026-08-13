@@ -28,21 +28,54 @@
 </div>
 
 <!-- ── Authenticated app shell ─────────────────────────────────────────── -->
-<div id="app-shell" class="hidden">
+<div id="app-shell" class="hidden app-shell-flex">
 
-  <nav class="nav">
-    <span class="nav-brand">TERMINUS <span>· TMS</span></span>
-    <div class="nav-links">
+  <!-- Left-hand sidebar (2026-08-13), replacing the old top nav bar.
+       Structure and 216px width extracted from the real prototype
+       (Prototype-110826/Terminus Ops.dc.html lines 28-56, and its own
+       CLAUDE.md "App shell" section), not guessed: Dashboard, Leads,
+       Contacts, Test Beds, Opportunities, Product Management, Asset
+       Management, Contractor Management, Support, HR as one list, then
+       Admin as its own bottom-anchored item behind a divider - the
+       prototype's real structure, confirmed to include Admin even
+       though this app has nothing built for it yet. Only the four
+       already-built views (Leads, Contacts, Test Beds, Opportunities)
+       are real nav-links; everything else is a disabled placeholder,
+       nothing to click, since it isn't built. .wrap's existing
+       max-width/padding on every view below is deliberately untouched -
+       the sidebar sits beside it, not a full prototype-fidelity content
+       rebuild (that's a separate, larger decision, not bundled here).
+       The prototype's decorative circular logo has no equivalent asset
+       in this app and is skipped; this app's existing text wordmark
+       covers the same slot. User email + Sign out move here from the
+       old top nav's right-hand corner, into the same bottom-of-sidebar
+       slot the prototype uses for its (fake, no-auth) user info. -->
+  <nav class="sidebar">
+    <div class="sidebar-brand">
+      <span class="nav-brand">TERMINUS <span>· TMS</span></span>
+    </div>
+    <div class="sidebar-nav">
+      <button class="nav-link-disabled" disabled>Dashboard</button>
       <button class="nav-link" data-view="leads">Leads</button>
       <button class="nav-link" data-view="contacts">Contacts</button>
       <button class="nav-link" data-view="test-beds">Test Beds</button>
       <button class="nav-link" data-view="opportunities">Opportunities</button>
+      <button class="nav-link-disabled" disabled>Product Management</button>
+      <button class="nav-link-disabled" disabled>Asset Management</button>
+      <button class="nav-link-disabled" disabled>Contractor Management</button>
+      <button class="nav-link-disabled" disabled>Support</button>
+      <button class="nav-link-disabled" disabled>HR</button>
     </div>
-    <div class="nav-user">
+    <div class="sidebar-admin">
+      <button class="nav-link-disabled" disabled>Admin</button>
+    </div>
+    <div class="sidebar-footer">
       <span class="nav-user-email" id="nav-email"></span>
       <button class="btn-text" id="btn-signout">Sign out</button>
     </div>
   </nav>
+
+  <div class="app-content-scroll">
 
   <!-- ── Leads (live: Contact records where status is Unqualified or
        Parked - a filtered view over the same data as Contacts below, not
@@ -211,7 +244,7 @@
     <div class="detail-head">
       <div>
         <button class="btn-text" id="btn-back-contact-detail">Back</button>
-        <p class="eyebrow" style="margin-top:16px">Contact</p>
+        <p class="eyebrow" style="margin-top:16px" id="cd-eyebrow">Contact</p>
         <h1 id="cd-name"></h1>
         <p class="sub" id="cd-company"></p>
       </div>
@@ -232,19 +265,26 @@
       <span id="cd-action-feedback"></span>
     </div>
 
-    <div id="cd-park-form" class="hidden" style="background:var(--black);border:1px solid var(--hairline-strong);padding:14px;margin-bottom:20px">
-      <div class="form-group">
-        <label for="cd-park-date">Follow-up date</label>
-        <input type="date" id="cd-park-date">
-      </div>
-      <div class="form-group" style="margin-top:10px">
-        <label for="cd-park-reason">Reason for parking (required)</label>
-        <textarea id="cd-park-reason" rows="2"></textarea>
-      </div>
-      <p class="msg-error hidden" id="cd-park-error"></p>
-      <div class="form-actions" style="margin-top:10px">
-        <button class="btn-ghost" id="cd-park-cancel">Cancel</button>
-        <button class="btn-primary" id="cd-park-save">Save &amp; park</button>
+    <!-- Popup overlay, not inline (2026-08-13) - same date+reason fields
+         and saveCdParkForm logic as before, only the container changed.
+         Focus-trapped per INTERACTION_STANDARDS.md Section 4, Park is
+         that document's own worked dialog example. -->
+    <div id="cd-park-form" class="hidden modal-backdrop">
+      <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="cd-park-heading">
+        <p class="eyebrow" id="cd-park-heading">Park contact</p>
+        <div class="form-group">
+          <label for="cd-park-date">Follow-up date</label>
+          <input type="date" id="cd-park-date">
+        </div>
+        <div class="form-group" style="margin-top:10px">
+          <label for="cd-park-reason">Reason for parking (required)</label>
+          <textarea id="cd-park-reason" rows="2"></textarea>
+        </div>
+        <p class="msg-error hidden" id="cd-park-error"></p>
+        <div class="form-actions" style="margin-top:10px">
+          <button class="btn-ghost" id="cd-park-cancel">Cancel</button>
+          <button class="btn-primary" id="cd-park-save">Save &amp; park</button>
+        </div>
       </div>
     </div>
 
@@ -906,6 +946,8 @@
       </div>
     </div>
   </div>
+
+  </div><!-- /app-content-scroll -->
 
 </div><!-- /app-shell -->
 
