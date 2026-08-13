@@ -250,7 +250,19 @@
       <div>
         <button class="btn-text" id="btn-back-contact-detail">Back</button>
         <p class="eyebrow" style="margin-top:16px" id="cd-eyebrow">Contact</p>
-        <h1 id="cd-name"></h1>
+        <!-- Name is click-to-edit directly here now (2026-08-13,
+             confirmed), not repeated as its own row in Contact
+             Details below - same header/panel value, no divergence,
+             pure duplication removed. Company stays in the panel: this
+             page's own Company subtitle below shows the resolved
+             Account name once linked, not the raw editable field. -->
+        <div data-key="name">
+          <h1 id="cd-display-name" class="cd-name-display" onclick="openCdField('name')"></h1>
+          <div class="ref-field-edit hidden" id="cd-edit-name">
+            <input type="text" id="cd-input-name" class="cd-name-input">
+            <span class="ref-field-discard" onclick="discardCdField('name')">&times;</span>
+          </div>
+        </div>
         <p class="sub" id="cd-company"></p>
       </div>
       <span class="tag" id="cd-status"></span>

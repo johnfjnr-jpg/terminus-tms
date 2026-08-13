@@ -1469,6 +1469,28 @@ textarea::placeholder { color: var(--muted-2); }
 .ref-field-display.readonly { cursor: default; color: var(--muted); }
 .ref-field-display.readonly:hover { background: none; }
 
+/* Contact detail's page-title Name, click-to-edit like every other
+   field (2026-08-13) but sized to match h1, not the 13px body text
+   .ref-field-display uses elsewhere. */
+.cd-name-display {
+  cursor: text;
+  border-radius: 2px;
+  padding: 2px 4px;
+  margin: 0 0 4px -4px;
+}
+.cd-name-display:hover { background: rgba(242, 242, 240, 0.04); }
+.cd-name-input {
+  font-family: var(--heading);
+  font-weight: 500;
+  font-size: 30px;
+  letter-spacing: -0.01em;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--hairline-strong);
+  color: var(--white);
+  padding: 0;
+}
+
 .ref-field-edit {
   display: flex;
   align-items: flex-start;

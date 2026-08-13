@@ -29,13 +29,22 @@ let cdCurrentBlocking = [] // the real blocking[] from the last Qualify attempt,
 const CD_COLUMN_FIELDS = [
   { key: 'industry', label: 'Industry' },
 ]
-// Name through LinkedIn first, Industry and Source after (2026-08-13,
+// Name lives in the page header now (cd-display-name/cd-edit-name),
+// click-to-edit the same as every other field, not repeated here
+// (2026-08-13, confirmed): the header's Name and this panel's Name row
+// were always the exact same value with no divergence, pure
+// duplication, unlike Company below (kept in the panel - the header's
+// own Company subtitle shows the resolved Account name once linked,
+// cdPayload.company only as a fallback, so making the header itself
+// the editable Company field would silently edit the wrong thing once
+// an Account exists).
+const CD_NAME_FIELD = { key: 'name', label: 'Name' }
+// Company through LinkedIn, Industry and Source after (2026-08-13,
 // confirmed order) - Industry renders separately via CD_COLUMN_FIELDS
 // (a real records column, not a payload key), Source stays part of
 // this array but rendered last, after Industry - see the render call
 // in renderContactDetail below.
 const CD_CONTACT_FIELDS = [
-  { key: 'name', label: 'Name' },
   { key: 'company', label: 'Company' },
   { key: 'jobRole', label: 'Job Role' },
   { key: 'email', label: 'Email' },
@@ -52,7 +61,7 @@ const CD_ADDRESS_FIELDS = [
   { key: 'region', label: 'Region', options: ['Americas', 'Europe & UK', 'Middle East', 'APAC', 'Africa'] },
 ]
 const CD_SUMMARY_FIELD = { key: 'summary', label: 'Summary' }
-const CD_ALL_FIELDS = [...CD_CONTACT_FIELDS, ...CD_COLUMN_FIELDS, CD_SOURCE_FIELD, ...CD_ADDRESS_FIELDS, CD_SUMMARY_FIELD]
+const CD_ALL_FIELDS = [CD_NAME_FIELD, ...CD_CONTACT_FIELDS, ...CD_COLUMN_FIELDS, CD_SOURCE_FIELD, ...CD_ADDRESS_FIELDS, CD_SUMMARY_FIELD]
 
 function cdFieldLabel(key) {
   return CD_ALL_FIELDS.find(f => f.key === key)?.label ?? key
@@ -220,7 +229,19 @@ function renderContactDetail(contact) {
   // then, never the other way round (confirmed, not assumed).
   const account = accountsCache.find(a => a.id === contact.parent_record_id)
   document.getElementById('cd-eyebrow').textContent = contact.status === 'Qualified' ? 'Contact' : 'Lead'
-  document.getElementById('cd-name').textContent = cdPayload.name ?? '--'
+  document.getElementById('cd-display-name').textContent = cdPayload.name || '--'
+  // Unlike the panel's other fields (cd-contact-rows' innerHTML is
+  // fully regenerated every render, so a fresh cdFieldRow() always
+  // bakes in the current value and starts display-visible/edit-hidden
+  // with no leftover classes), the header's Name markup is static -
+  // it survives across renders, so its input value and editing-UI
+  // state must be reset explicitly here, or a stale draft/open editor/
+  // amber highlight from a previous edit session would persist.
+  document.getElementById('cd-input-name').value = cdPayload.name ?? ''
+  document.getElementById('cd-edit-name').classList.add('hidden')
+  document.getElementById('cd-edit-name').classList.remove('dirty')
+  document.getElementById('cd-display-name').classList.remove('hidden')
+  document.querySelector('[data-key="name"]').classList.remove('field-editing')
   document.getElementById('cd-company').textContent = account?.payload?.name ?? cdPayload.company ?? '--'
   // Redundant once Qualified - the eyebrow already reads "Contact" and
   // the whole screen's context implies it. Still shown for
@@ -306,7 +327,7 @@ window.discardCdField = function (key) {
   const editEl = document.getElementById(`cd-edit-${key}`)
   editEl.classList.add('hidden')
   editEl.classList.remove('dirty')
-  document.querySelector(`.ref-field[data-key="${key}"]`)?.classList.remove('field-editing')
+  document.querySelector(`[data-key="${key}"]`)?.classList.remove('field-editing')
   document.getElementById(`cd-display-${key}`).classList.remove('hidden')
   const input = document.getElementById(`cd-input-${key}`)
   if (input) input.value = cdCurrentValue(key)
@@ -321,7 +342,7 @@ function onCdFieldInput(key) {
   document.getElementById(`cd-edit-${key}`).classList.toggle('dirty', isDirty)
   // Amber = edited, not yet saved - distinct from .field-blocked (red,
   // invalid/missing). Toggled on the same .ref-field wrapper.
-  document.querySelector(`.ref-field[data-key="${key}"]`)?.classList.toggle('field-editing', isDirty)
+  document.querySelector(`[data-key="${key}"]`)?.classList.toggle('field-editing', isDirty)
   updateCdEditBar()
 }
 
@@ -432,20 +453,22 @@ function refreshCdBlockedFields() {
 // Replaces the old single banner+list entirely (2026-08-13, confirmed
 // full replacement, Contact-detail-scoped only - Opportunity/Test Bed's
 // own transition-blocking banner is untouched): a red box directly on
-// each real blocked field (.ref-field[data-key], matched against the
-// real blocking[].field from the transition endpoint), clearing the
-// moment it's resolved. parent_record_id isn't a .ref-field - it's the
-// separate Account card, boxed the same way.
+// each real blocked field ([data-key], matched against the real
+// blocking[].field from the transition endpoint - not scoped to
+// .ref-field specifically, so it also covers the header's Name field,
+// which isn't a .ref-field row), clearing the moment it's resolved.
+// parent_record_id isn't a field row at all - it's the separate
+// Account card, boxed the same way.
 function renderCdBlockedFields(blocking) {
   document.getElementById('cd-account-card').classList.remove('field-blocked')
-  document.querySelectorAll('.ref-field.field-blocked').forEach(el => el.classList.remove('field-blocked'))
+  document.querySelectorAll('[data-key].field-blocked').forEach(el => el.classList.remove('field-blocked'))
 
   for (const b of blocking) {
     if (b.field === 'parent_record_id') {
       document.getElementById('cd-account-card').classList.add('field-blocked')
       continue
     }
-    document.querySelector(`.ref-field[data-key="${b.field}"]`)?.classList.add('field-blocked')
+    document.querySelector(`[data-key="${b.field}"]`)?.classList.add('field-blocked')
   }
 }
 
