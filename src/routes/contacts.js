@@ -37,24 +37,29 @@ export default async function contactsRoutes(app) {
 
   // POST /api/contacts
   // Mandatory at creation, per the prototype's real leadMandatoryFields
-  // (Terminus Ops.dc.html:7529): Name, Company (an Account link — either
-  // account_id for an existing Account, or new_account_name for inline
-  // "+ New Account" creation, name only at that point), Industry, Email,
-  // Mobile. Narrower than an earlier approximation of this endpoint,
-  // which also required Source and Summary at creation - those two, plus
-  // Job Role/Address/City/Postcode/Country/Region/LinkedIn, are only
-  // mandatory at qualification (leadQualifyRequired, :5844), enforced by
-  // the Unqualified -> Qualified payload_field_required gate, not here.
-  // All of them are still accepted here as optional fields if provided.
+  // (Terminus Ops.dc.html:7529): Name, Company, Industry, Email, Mobile.
+  // Company is plain free text here (2026-08-13 correction) - matching
+  // how Name/Email work, not an Account link. The real Account link
+  // (parent_record_id) is deliberately left unset at creation and becomes
+  // a genuine qualification requirement instead, resolved via
+  // POST /contacts/:id/link-account sometime before Unqualified ->
+  // Qualified succeeds, not before - fast lead entry shouldn't be gated
+  // on reconciling company names against the Account list. Narrower than
+  // an earlier approximation of this endpoint, which also required
+  // Source and Summary at creation - those two, plus Job Role/Address/
+  // City/Postcode/Country/Region/LinkedIn, are only mandatory at
+  // qualification (leadQualifyRequired, :5844), enforced by the
+  // Unqualified -> Qualified payload_field_required gate, not here. All
+  // of them are still accepted here as optional fields if provided.
   app.post('/contacts', async (request, reply) => {
     const {
-      name, account_id, new_account_name, email, mobile, industry_id,
+      name, company, email, mobile, industry_id,
       source, summary, jobRole, linkedin, address, address2, city, postcode, country, region,
     } = request.body ?? {}
 
     const missing = []
     if (!name?.trim()) missing.push('name')
-    if (!account_id && !new_account_name?.trim()) missing.push('account_id or new_account_name')
+    if (!company?.trim()) missing.push('company')
     if (!email?.trim()) missing.push('email')
     if (!mobile?.trim()) missing.push('mobile')
     if (!industry_id) missing.push('industry_id')
@@ -67,44 +72,13 @@ export default async function contactsRoutes(app) {
 
     const db = createUserClient(request.jwt)
 
-    let resolvedAccountId = account_id ?? null
-
-    if (!resolvedAccountId) {
-      const { data: newAccount, error: accountErr } = await db
-        .from('records')
-        .insert({ record_type: 'account', status: 'active', owner_id: request.user.id })
-        .select()
-        .single()
-
-      if (accountErr) {
-        request.log.error({ err: accountErr }, 'failed to create inline account')
-        return reply.code(500).send({ error: accountErr.message })
-      }
-
-      const { error: acctRevErr } = await db
-        .from('record_revisions')
-        .insert({
-          record_id: newAccount.id,
-          revision_number: 1,
-          payload: { name: new_account_name.trim() },
-          created_by: request.user.id
-        })
-
-      if (acctRevErr) {
-        request.log.error({ err: acctRevErr }, 'failed to insert inline account revision')
-        return reply.code(500).send({ error: acctRevErr.message })
-      }
-
-      resolvedAccountId = newAccount.id
-    }
-
     const { data: record, error: recordErr } = await db
       .from('records')
       .insert({
         record_type: 'contact',
         status: 'Unqualified',
         owner_id: request.user.id,
-        parent_record_id: resolvedAccountId,
+        parent_record_id: null,
         industry_id
       })
       .select()
@@ -115,7 +89,7 @@ export default async function contactsRoutes(app) {
       return reply.code(500).send({ error: recordErr.message })
     }
 
-    const payload = { name: name.trim(), email: email.trim(), mobile: mobile.trim() }
+    const payload = { name: name.trim(), company: company.trim(), email: email.trim(), mobile: mobile.trim() }
     const optionalStringFields = { source, summary, jobRole, linkedin, address, address2, city, postcode, country, region }
     for (const [key, value] of Object.entries(optionalStringFields)) {
       if (typeof value === 'string' && value.trim()) payload[key] = value.trim()
@@ -135,7 +109,7 @@ export default async function contactsRoutes(app) {
       record_type: 'contact',
       action: 'created',
       actor_id: request.user.id,
-      detail: { name: name.trim(), account_id: resolvedAccountId }
+      detail: { name: name.trim(), company: company.trim() }
     })
 
     return reply.code(201).send({ ...record, payload })
@@ -173,13 +147,18 @@ export default async function contactsRoutes(app) {
   // Parked, which is gated on followUpDate already being saved here first
   // (see transitions.js's payload_field_required check).
   const CONTACT_WRITABLE_KEYS = new Set([
-    'name', 'email', 'mobile', 'source', 'summary', 'address', 'legalEntity', 'followUpDate',
+    'name', 'company', 'email', 'mobile', 'source', 'summary', 'address', 'legalEntity', 'followUpDate',
     'jobRole', 'linkedin', 'address2', 'city', 'postcode', 'country', 'region',
     'notes', // append-only Notes History, same shape/convention as Opportunity's
   ])
 
+  // account_id is deliberately NOT accepted here (2026-08-13) - linking
+  // the real Account is its own business event (may create a new Account
+  // record, always writes a Notes History entry), not a plain field edit.
+  // See POST /contacts/:id/link-account below, the only way to set
+  // parent_record_id post-creation now.
   app.patch('/contacts/:id', async (request, reply) => {
-    const { payload, industry_id, account_id } = request.body ?? {}
+    const { payload, industry_id } = request.body ?? {}
 
     if (payload) {
       const disallowed = Object.keys(payload).filter(k => !CONTACT_WRITABLE_KEYS.has(k))
@@ -207,7 +186,6 @@ export default async function contactsRoutes(app) {
 
     const columnUpdate = {}
     if (industry_id !== undefined) columnUpdate.industry_id = industry_id
-    if (account_id !== undefined) columnUpdate.parent_record_id = account_id
     if (Object.keys(columnUpdate).length) {
       // records_select is team-wide, records_update is still owner-only -
       // a non-owner's update() is filtered by RLS to zero affected rows
@@ -242,6 +220,125 @@ export default async function contactsRoutes(app) {
     }
 
     return reply.send({ ok: true })
+  })
+
+  // POST /api/contacts/:id/link-account
+  // Resolves the real Account link (parent_record_id) - the
+  // reconciliation step "Link to Account" on the detail page performs,
+  // distinct from and never touching the free-text company field. Accepts
+  // either account_id (link to an existing Account, found by the
+  // detail page's own search) or new_account_name (create one, then
+  // link) - the same two shapes POST /contacts used to accept inline
+  // before company became plain text (2026-08-13). Always writes a Notes
+  // History entry, same as every other write on this record.
+  app.post('/contacts/:id/link-account', async (request, reply) => {
+    const { account_id, new_account_name } = request.body ?? {}
+
+    if (!account_id && !new_account_name?.trim()) {
+      return reply.code(400).send({ error: 'account_id or new_account_name is required' })
+    }
+
+    const db = createUserClient(request.jwt)
+
+    const { data: contact, error: contactErr } = await db
+      .from('records')
+      .select('id')
+      .eq('id', request.params.id)
+      .eq('record_type', 'contact')
+      .is('deleted_at', null)
+      .maybeSingle()
+
+    if (contactErr || !contact) {
+      return reply.code(404).send({ error: 'not found' })
+    }
+
+    let resolvedAccountId = account_id ?? null
+    let accountName = null
+
+    if (resolvedAccountId) {
+      const { data: existingRev } = await db
+        .from('record_revisions')
+        .select('payload')
+        .eq('record_id', resolvedAccountId)
+        .order('revision_number', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      accountName = existingRev?.payload?.name ?? null
+    } else {
+      const { data: newAccount, error: accountErr } = await db
+        .from('records')
+        .insert({ record_type: 'account', status: 'active', owner_id: request.user.id })
+        .select()
+        .single()
+
+      if (accountErr) {
+        request.log.error({ err: accountErr }, 'failed to create account for link-account')
+        return reply.code(500).send({ error: accountErr.message })
+      }
+
+      accountName = new_account_name.trim()
+      const { error: acctRevErr } = await db
+        .from('record_revisions')
+        .insert({
+          record_id: newAccount.id,
+          revision_number: 1,
+          payload: { name: accountName },
+          created_by: request.user.id
+        })
+
+      if (acctRevErr) {
+        request.log.error({ err: acctRevErr }, 'failed to insert account revision for link-account')
+        return reply.code(500).send({ error: acctRevErr.message })
+      }
+
+      resolvedAccountId = newAccount.id
+    }
+
+    // Same write-result-checking discipline as every other write path
+    // fixed earlier this session - records_select is team-wide,
+    // records_update is still owner-only, so a non-owner's update is
+    // verified by its returned rows, not assumed successful just because
+    // no error was thrown.
+    const { data: updated, error: updateErr } = await db
+      .from('records')
+      .update({ parent_record_id: resolvedAccountId })
+      .eq('id', contact.id)
+      .select('id')
+
+    if (updateErr) return reply.code(500).send({ error: updateErr.message })
+    if (!updated?.length) return reply.code(403).send({ error: 'not permitted' })
+
+    const { data: revRow } = await db
+      .from('record_revisions')
+      .select('revision_number, payload')
+      .eq('record_id', contact.id)
+      .order('revision_number', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    const note = {
+      text: `Linked to Account: ${accountName ?? 'Unknown'}.`,
+      at: new Date().toISOString(),
+      by: request.user.email,
+    }
+    const mergedPayload = { ...(revRow?.payload ?? {}), notes: [note, ...(revRow?.payload?.notes ?? [])] }
+    const nextRevision = (revRow?.revision_number ?? 0) + 1
+
+    const { error: revErr } = await db
+      .from('record_revisions')
+      .insert({ record_id: contact.id, revision_number: nextRevision, payload: mergedPayload, created_by: request.user.id })
+
+    if (revErr) return reply.code(500).send({ error: revErr.message })
+
+    await db.from('audit_log').insert({
+      record_id: contact.id,
+      record_type: 'contact',
+      action: 'linked_account',
+      actor_id: request.user.id,
+      detail: { account_id: resolvedAccountId, account_name: accountName }
+    })
+
+    return reply.send({ ok: true, account_id: resolvedAccountId, account_name: accountName })
   })
 
   // DELETE /api/contacts/:id — soft delete only. record_revisions and

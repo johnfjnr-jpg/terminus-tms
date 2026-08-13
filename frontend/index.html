@@ -76,15 +76,8 @@
           <input type="text" id="contact-name" placeholder="Jane Smith">
         </div>
         <div class="form-group">
-          <label for="contact-account">Company *</label>
-          <select id="contact-account">
-            <option value="">Select company</option>
-            <option value="__new__">+ New company</option>
-          </select>
-        </div>
-        <div class="form-group hidden" id="contact-new-account-group">
-          <label for="contact-new-account-name">New company name</label>
-          <input type="text" id="contact-new-account-name" placeholder="Acme Corp">
+          <label for="contact-company">Company *</label>
+          <input type="text" id="contact-company" placeholder="Acme Corp">
         </div>
         <div class="form-group">
           <label for="contact-industry">Industry *</label>
@@ -273,6 +266,27 @@
       <div class="pg-card">
         <p class="pg-card-title">Address</p>
         <div id="cd-address-rows"></div>
+      </div>
+      <!-- The real Account link (parent_record_id) - deliberately separate
+           from the free-text Company field above, which stays exactly as
+           typed at fast lead entry even after linking. Resolved here, on
+           the detail page, not at creation. -->
+      <div class="pg-card">
+        <p class="pg-card-title">Account</p>
+        <div id="cd-account-status" style="font-family:var(--body);font-size:13px;color:var(--white);margin-bottom:10px"></div>
+        <button class="btn-sm" id="cd-btn-link-account">Link to Account</button>
+
+        <div id="cd-link-account-panel" class="hidden" style="margin-top:14px">
+          <div class="form-group">
+            <label for="cd-link-search">Search existing Accounts by name</label>
+            <input type="text" id="cd-link-search" placeholder="Start typing...">
+          </div>
+          <div id="cd-link-results" style="margin-top:10px;display:flex;flex-direction:column;gap:6px"></div>
+          <p class="msg-error hidden" id="cd-link-error" style="margin-top:8px"></p>
+          <div class="form-actions" style="margin-top:10px">
+            <button class="btn-ghost" id="cd-link-cancel">Cancel</button>
+          </div>
+        </div>
       </div>
     </div>
 

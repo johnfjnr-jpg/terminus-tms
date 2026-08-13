@@ -14,17 +14,22 @@ let cdReturnView = 'leads'
 let cdEdits = {} // same shape as opportunity-reference.js's refEdits
 let cdWired = false
 
-// company/industry are real records columns (parent_record_id/
-// industry_id), not payload keys - same RECORD_COLUMN_FIELDS distinction
-// transitions.js already makes. They still go through the same
-// click-to-edit-in-place UI and the same PATCH call, just as top-level
-// account_id/industry_id rather than inside payload, and their note text
-// uses the looked-up name, not the raw id.
+// industry is a real records column (industry_id), not a payload key -
+// same RECORD_COLUMN_FIELDS distinction transitions.js already makes. It
+// still goes through the same click-to-edit-in-place UI and the same
+// PATCH call, just as top-level industry_id rather than inside payload,
+// and its note text uses the looked-up name, not the raw id.
+//
+// company is plain free text (2026-08-13 correction) - a normal payload
+// field like Job Role, edited the same way as everything else in
+// CD_CONTACT_FIELDS. It is NOT the real Account link - that's
+// parent_record_id, resolved separately via the Account card's "Link to
+// Account" action below, and never overwrites this field.
 const CD_COLUMN_FIELDS = [
-  { key: 'company', label: 'Company' },
   { key: 'industry', label: 'Industry' },
 ]
 const CD_CONTACT_FIELDS = [
+  { key: 'company', label: 'Company' },
   { key: 'jobRole', label: 'Job Role' },
   { key: 'email', label: 'Email' },
   { key: 'mobile', label: 'Mobile' },
@@ -61,14 +66,78 @@ function cdIndustryName(id) {
   return industriesCache.find(i => i.id === id)?.name ?? ''
 }
 
+// ── Account card: the real Account link (parent_record_id), resolved
+// here via "Link to Account" - deliberately separate from the free-text
+// Company field above, which this never touches. ───────────────────────
+function renderCdAccountCard() {
+  const name = cdAccountName(cdContact.parent_record_id)
+  document.getElementById('cd-account-status').textContent = name ? `Linked to: ${name}` : 'Not linked yet.'
+  document.getElementById('cd-link-account-panel').classList.add('hidden')
+  document.getElementById('cd-link-error').classList.add('hidden')
+}
+
+window.openCdLinkAccountPanel = function () {
+  document.getElementById('cd-link-account-panel').classList.remove('hidden')
+  document.getElementById('cd-link-error').classList.add('hidden')
+  const searchInput = document.getElementById('cd-link-search')
+  // Pre-filled with the contact's own as-typed company text - the
+  // natural starting query for reconciling it against real Accounts.
+  searchInput.value = cdPayload.company ?? ''
+  renderCdLinkResults(searchInput.value)
+  searchInput.focus()
+}
+
+// Case-insensitive substring match against every real Account's name,
+// live as the user types - client-side over the already-fetched
+// accountsCache, no new search endpoint, same pattern as the Mine
+// toggle. Deliberately not fuzzy/typo-tolerant: the "+ Create new
+// Account" option is always shown alongside whatever matches, so
+// reconciling a genuine typo or naming variation is a human judgment
+// call made by scanning a short real candidate list, not something this
+// tries to guess algorithmically.
+function renderCdLinkResults(query) {
+  const q = query.trim().toLowerCase()
+  const matches = q ? accountsCache.filter(a => (a.payload?.name ?? '').toLowerCase().includes(q)) : accountsCache
+
+  const matchRows = matches.slice(0, 20).map(a => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border:1px solid var(--hairline-strong)">
+      <span>${escHtml(a.payload?.name ?? '--')}</span>
+      <button class="btn-sm btn-primary" onclick="linkCdAccount('${a.id}')">Link</button>
+    </div>`).join('')
+
+  const trimmed = query.trim()
+  const createRow = trimmed ? `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border:1px dashed var(--hairline-strong)">
+      <span>+ Create new Account "${escHtml(trimmed)}"</span>
+      <button class="btn-sm" onclick='linkCdAccount(null, ${JSON.stringify(trimmed)})'>Create &amp; link</button>
+    </div>` : ''
+
+  document.getElementById('cd-link-results').innerHTML = (matchRows + createRow) || '<p class="empty-state">Type to search.</p>'
+}
+
+window.linkCdAccount = async function (accountId, newAccountName) {
+  const errEl = document.getElementById('cd-link-error')
+  errEl.classList.add('hidden')
+
+  const body = accountId ? { account_id: accountId } : { new_account_name: newAccountName }
+  const result = await api('POST', `/api/contacts/${cdContactId}/link-account`, body)
+  if (!result.ok) {
+    errEl.textContent = result.data?.error ?? 'Failed to link account.'
+    errEl.classList.remove('hidden')
+    return
+  }
+
+  await loadContactsData()
+  await loadContactDetail(cdContactId)
+}
+
+// Only Industry uses this now that Company/Account is its own card below.
 function cdColumnFieldRow(field, currentId) {
-  const cache = field.key === 'company' ? accountsCache : industriesCache
-  const nameOf = field.key === 'company' ? cdAccountName : cdIndustryName
-  const options = cache.map(row => ({ id: row.id, name: field.key === 'company' ? row.payload?.name : row.name }))
+  const options = industriesCache.map(row => ({ id: row.id, name: row.name }))
   return `
   <div class="ref-field" data-key="${field.key}">
     <div class="ref-field-label"><span>${field.label}</span></div>
-    <div class="ref-field-display" id="cd-display-${field.key}" onclick="openCdField('${field.key}')">${escHtml(nameOf(currentId)) || '--'}</div>
+    <div class="ref-field-display" id="cd-display-${field.key}" onclick="openCdField('${field.key}')">${escHtml(cdIndustryName(currentId)) || '--'}</div>
     <div class="ref-field-edit hidden" id="cd-edit-${field.key}">
       <select id="cd-input-${field.key}">
         <option value="">Select ${field.label.toLowerCase()}</option>
@@ -120,10 +189,15 @@ function renderContactDetail(contact) {
   cdReturnView = contact.status === 'Qualified' ? 'contacts' : 'leads'
   cdEdits = {}
 
+  // Once linked, the real Account's name is authoritative and takes over
+  // display everywhere - the free-text company is the fallback until
+  // then, never the other way round (confirmed, not assumed).
   const account = accountsCache.find(a => a.id === contact.parent_record_id)
   document.getElementById('cd-name').textContent = cdPayload.name ?? '--'
-  document.getElementById('cd-company').textContent = account?.payload?.name ?? '--'
+  document.getElementById('cd-company').textContent = account?.payload?.name ?? cdPayload.company ?? '--'
   document.getElementById('cd-status').textContent = contact.status
+
+  renderCdAccountCard()
 
   document.getElementById('cd-contact-rows').innerHTML =
     CD_COLUMN_FIELDS.map(f => cdColumnFieldRow(f, cdCurrentValue(f.key))).join('') +
@@ -168,11 +242,10 @@ function wireCdFieldInputs() {
   })
 }
 
-// company/industry live on the record itself (parent_record_id/
-// industry_id), everything else is a payload key - same distinction
-// RECORD_COLUMN_FIELDS makes server-side in transitions.js.
+// industry lives on the record itself (industry_id), everything else
+// (including company, plain free text) is a payload key - same
+// distinction RECORD_COLUMN_FIELDS makes server-side in transitions.js.
 function cdCurrentValue(key) {
-  if (key === 'company') return cdContact.parent_record_id ?? ''
   if (key === 'industry') return cdContact.industry_id ?? ''
   return cdPayload[key] ?? ''
 }
@@ -231,10 +304,6 @@ async function saveCdFields() {
   const body = {}
   const payloadUpdate = {}
   const newNotes = dirtyEntries.map(([key, e]) => {
-    if (key === 'company') {
-      body.account_id = e.draft || null
-      return cdNoteFor(key, cdAccountName(e.orig), cdAccountName(e.draft))
-    }
     if (key === 'industry') {
       body.industry_id = e.draft || null
       return cdNoteFor(key, cdIndustryName(e.orig), cdIndustryName(e.draft))
@@ -280,10 +349,20 @@ function renderCdActions() {
   document.getElementById('cd-btn-unqualify').classList.toggle('hidden', cdContact.status === 'Unqualified')
 }
 
+// The backend's blocking message is a generic "Requires X to be set"
+// built from the raw field name - fine for most fields, but
+// parent_record_id is a real records column, not something a user
+// recognises. Display-only remap, the backend message itself is
+// untouched.
+const CD_BLOCKING_FIELD_LABELS = { parent_record_id: 'an Account to be linked' }
+
 function showCdQualifyBanner(blocking) {
   document.getElementById('cd-qualify-banner').classList.remove('hidden')
-  document.getElementById('cd-qualify-missing').innerHTML =
-    blocking.map(b => `<li>${escHtml(b.message)}</li>`).join('')
+  document.getElementById('cd-qualify-missing').innerHTML = blocking.map(b => {
+    const friendly = CD_BLOCKING_FIELD_LABELS[b.field]
+    const text = friendly ? `Requires ${friendly}.` : b.message
+    return `<li>${escHtml(text)}</li>`
+  }).join('')
 }
 
 window.attemptContactQualifyFromDetail = async function () {
@@ -406,6 +485,9 @@ function wireCdOnce() {
   document.getElementById('cd-btn-unqualify').addEventListener('click', window.attemptContactUnqualifyFromDetail)
   document.getElementById('cd-park-cancel').addEventListener('click', () => document.getElementById('cd-park-form').classList.add('hidden'))
   document.getElementById('cd-park-save').addEventListener('click', saveCdParkForm)
+  document.getElementById('cd-btn-link-account').addEventListener('click', window.openCdLinkAccountPanel)
+  document.getElementById('cd-link-cancel').addEventListener('click', () => document.getElementById('cd-link-account-panel').classList.add('hidden'))
+  document.getElementById('cd-link-search').addEventListener('input', (e) => renderCdLinkResults(e.target.value))
 }
 
 wireCdOnce()

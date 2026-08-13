@@ -429,8 +429,11 @@ function renderContactGrid(containerId, statusPredicate, mineOnly, emptyLabel) {
 
   container.innerHTML = rows.map(c => {
     const p = c.payload ?? {}
+    // Once linked, the real Account's name is authoritative and takes
+    // over display everywhere - the free-text company (as typed at fast
+    // lead entry) is the fallback until then, never the other way round.
     const account = accountsCache.find(a => a.id === c.parent_record_id)
-    const accountName = account?.payload?.name ?? '--'
+    const companyDisplay = account?.payload?.name ?? p.company ?? '--'
     const industry = industriesCache.find(i => i.id === c.industry_id)
     const isExpanded = expandedContactId === c.id
     return `
@@ -439,7 +442,7 @@ function renderContactGrid(containerId, statusPredicate, mineOnly, emptyLabel) {
         <div class="rg-title" style="cursor:pointer" onclick="navigate('contact-detail', '${c.id}')">${escHtml(p.name ?? '--')}</div>
         <span class="tag">${escHtml(c.status)}</span>
       </div>
-      <span>${escHtml(accountName)}</span>
+      <span>${escHtml(companyDisplay)}</span>
       <span>${escHtml(industry?.name ?? '--')}</span>
       <span>${escHtml(p.jobRole ?? '--')}</span>
       <span>${escHtml(p.email ?? '--')}</span>
@@ -549,24 +552,14 @@ document.getElementById('btn-cancel-contact').addEventListener('click', () => {
   clearContactForm()
 })
 document.getElementById('btn-save-contact').addEventListener('click', saveContact)
-document.getElementById('contact-account').addEventListener('change', (e) => {
-  document.getElementById('contact-new-account-group').classList.toggle('hidden', e.target.value !== '__new__')
-})
 
+// Company is plain free text here (2026-08-13 correction) - no Account
+// picker at fast lead entry. Only Industry still needs a real picklist.
 async function populateContactFormPickers() {
-  if (!accountsCache.length) {
-    const accResult = await api('GET', '/api/accounts')
-    if (accResult.ok) accountsCache = accResult.data
-  }
   if (!industriesCache.length) {
     const indResult = await api('GET', '/api/industries')
     if (indResult.ok) industriesCache = indResult.data
   }
-
-  const accountSelect = document.getElementById('contact-account')
-  accountSelect.innerHTML = '<option value="">Select account</option>' +
-    accountsCache.map(a => `<option value="${a.id}">${escHtml(a.payload?.name ?? '--')}</option>`).join('') +
-    '<option value="__new__">+ New account</option>'
 
   document.getElementById('contact-industry').innerHTML = '<option value="">Select industry</option>' +
     industriesCache.map(i => `<option value="${i.id}">${escHtml(i.name)}</option>`).join('')
@@ -577,8 +570,7 @@ async function saveContact() {
   errEl.classList.add('hidden')
 
   const name = document.getElementById('contact-name').value.trim()
-  const accountValue = document.getElementById('contact-account').value
-  const newAccountName = document.getElementById('contact-new-account-name').value.trim()
+  const company = document.getElementById('contact-company').value.trim()
   const industry_id = document.getElementById('contact-industry').value
   const email = document.getElementById('contact-email').value.trim()
   const mobile = document.getElementById('contact-mobile').value.trim()
@@ -593,13 +585,13 @@ async function saveContact() {
   const source = document.getElementById('contact-source').value
   const summary = document.getElementById('contact-summary').value.trim()
 
-  // Only name/account/industry/email/mobile are mandatory here
+  // Only name/company/industry/email/mobile are mandatory here
   // (leadMandatoryFields) - everything else below is sent only if filled
   // in, since it's optional at creation and only mandatory at
-  // qualification (leadQualifyRequired).
-  const body = { name, email, mobile, industry_id }
-  if (accountValue === '__new__') body.new_account_name = newAccountName
-  else if (accountValue) body.account_id = accountValue
+  // qualification (leadQualifyRequired). The real Account link
+  // (parent_record_id) isn't part of this form at all - that's resolved
+  // later via "Link to Account" on the detail page.
+  const body = { name, company, email, mobile, industry_id }
   if (jobRole) body.jobRole = jobRole
   if (linkedin) body.linkedin = linkedin
   if (address) body.address = address
@@ -626,11 +618,10 @@ async function saveContact() {
 
 function clearContactForm() {
   ;[
-    'contact-name', 'contact-new-account-name', 'contact-email', 'contact-mobile', 'contact-summary',
+    'contact-name', 'contact-company', 'contact-email', 'contact-mobile', 'contact-summary',
     'contact-jobrole', 'contact-linkedin', 'contact-address', 'contact-address2', 'contact-city', 'contact-postcode', 'contact-country',
   ].forEach(id => (document.getElementById(id).value = ''))
-  ;['contact-account', 'contact-industry', 'contact-source', 'contact-region'].forEach(id => (document.getElementById(id).value = ''))
-  document.getElementById('contact-new-account-group').classList.add('hidden')
+  ;['contact-industry', 'contact-source', 'contact-region'].forEach(id => (document.getElementById(id).value = ''))
   const errEl = document.getElementById('contact-form-error')
   errEl.textContent = ''
   errEl.classList.add('hidden')
