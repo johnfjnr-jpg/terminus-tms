@@ -83,18 +83,19 @@
   <div id="view-leads" class="wrap hidden">
     <div class="page-head">
       <div>
-        <p class="eyebrow">Pipeline</p>
+        <!-- "Commercial", not "Pipeline" - the prototype's real
+             SectionLabel for this screen too (Terminus Ops.dc.html:418),
+             matching the same correction already made on Contacts
+             (2026-08-13), not left as an unaddressed follow-up. -->
+        <p class="eyebrow">Commercial</p>
         <h1>Leads</h1>
         <p class="sub">Unqualified through Parked - one record, one stage chip, no separate Lead conversion.</p>
       </div>
       <div style="display:flex;align-items:center;gap:20px">
+        <button class="btn-sm" id="live-leads-mine-toggle" type="button">Mine: Off</button>
         <button class="btn-text" onclick="navigate('leads-legacy')">Legacy leads &rarr;</button>
         <button class="btn-primary" id="btn-new-contact">New lead</button>
       </div>
-    </div>
-
-    <div class="toolbar">
-      <button class="btn-sm" id="live-leads-mine-toggle" type="button">Mine: Off</button>
     </div>
 
     <div id="new-contact-form" class="inline-form hidden">
