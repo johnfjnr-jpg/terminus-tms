@@ -133,7 +133,7 @@
           </select>
         </div>
         <div class="form-group">
-          <label for="contact-source">Source</label>
+          <label for="contact-source">Source *</label>
           <select id="contact-source">
             <option value="">Select source</option>
             <option value="Web">Web</option>
@@ -220,14 +220,11 @@
 
     <!-- Qualify/Park/Unqualified are direct actions here and on the list
          row, replacing the old 3-chip Manage picker. Qualify attempts the
-         transition immediately; if blocked, this page is where you land,
-         with the banner below naming exactly what's missing - the
-         click-to-edit fields underneath are how you fix it. -->
-    <div id="cd-qualify-banner" class="hidden" style="border:1px solid #e0824a;border-radius:4px;padding:12px 14px;margin:20px 0;background:rgba(224,130,74,0.08)">
-      <p style="font-family:var(--body);font-size:13px;color:#e0824a;margin-bottom:6px">Cannot qualify yet - missing:</p>
-      <ul class="blocking-list" id="cd-qualify-missing"></ul>
-    </div>
-
+         transition immediately; if blocked, this page is where you land -
+         no banner or list (2026-08-13, replaced entirely, Contact-detail
+         only): each missing field gets a red box directly on itself
+         (.field-blocked, see renderCdBlockedFields in contact-detail.js),
+         clearing the moment it's genuinely resolved. -->
     <div style="display:flex;gap:10px;align-items:center;margin:20px 0;flex-wrap:wrap">
       <button class="btn-primary" id="cd-btn-qualify">Qualify</button>
       <button class="btn-ghost" id="cd-btn-park">Park</button>
@@ -271,7 +268,7 @@
            from the free-text Company field above, which stays exactly as
            typed at fast lead entry even after linking. Resolved here, on
            the detail page, not at creation. -->
-      <div class="pg-card">
+      <div class="pg-card" id="cd-account-card">
         <p class="pg-card-title">Account</p>
         <div id="cd-account-status" style="font-family:var(--body);font-size:13px;color:var(--white);margin-bottom:10px"></div>
         <button class="btn-sm" id="cd-btn-link-account">Link to Account</button>

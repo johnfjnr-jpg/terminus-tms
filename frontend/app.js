@@ -146,6 +146,39 @@ function formatDate(dateStr) {
   return new Date(dateStr).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' })
 }
 
+// Date + time, for records where "when exactly" matters (Notes History)
+// - distinct from formatDate(), which every date-only field (Est. Close
+// Date, Key Dates, Opportunity's own Notes panel) keeps using unchanged.
+function formatDateTime(dateStr) {
+  if (!dateStr) return '--'
+  const d = new Date(dateStr)
+  const datePart = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' })
+  const timePart = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+  return `${datePart}, ${timePart}`
+}
+
+// Exact copy of the prototype's regionForCountry() (Terminus Ops.dc.html
+// :7510-7523) - only auto-fills when a match is found, never clears an
+// existing region for an unrecognised country. Scoped to the New Lead
+// creation form only, per the ask - the detail page's click-to-edit
+// fields edit Country and Region completely independently of each other
+// (cdEdits has no cross-field reactivity), and wiring that up is a
+// separate, larger change to a working mechanism, not attempted here.
+function regionForCountry(country) {
+  const c = String(country || '').trim().toLowerCase()
+  if (!c) return ''
+  const map = {
+    'united kingdom': 'Europe & UK', 'uk': 'Europe & UK', 'great britain': 'Europe & UK', 'england': 'Europe & UK', 'scotland': 'Europe & UK', 'wales': 'Europe & UK', 'northern ireland': 'Europe & UK',
+    'ireland': 'Europe & UK', 'france': 'Europe & UK', 'germany': 'Europe & UK', 'spain': 'Europe & UK', 'portugal': 'Europe & UK', 'italy': 'Europe & UK', 'netherlands': 'Europe & UK', 'belgium': 'Europe & UK',
+    'denmark': 'Europe & UK', 'sweden': 'Europe & UK', 'norway': 'Europe & UK', 'finland': 'Europe & UK', 'poland': 'Europe & UK', 'austria': 'Europe & UK', 'switzerland': 'Europe & UK', 'czech republic': 'Europe & UK', 'greece': 'Europe & UK',
+    'united states': 'Americas', 'usa': 'Americas', 'us': 'Americas', 'united states of america': 'Americas', 'canada': 'Americas', 'mexico': 'Americas', 'brazil': 'Americas', 'argentina': 'Americas', 'chile': 'Americas', 'colombia': 'Americas', 'peru': 'Americas',
+    'united arab emirates': 'Middle East', 'uae': 'Middle East', 'saudi arabia': 'Middle East', 'qatar': 'Middle East', 'kuwait': 'Middle East', 'oman': 'Middle East', 'bahrain': 'Middle East', 'israel': 'Middle East', 'jordan': 'Middle East', 'turkey': 'Middle East', 'egypt': 'Middle East',
+    'south africa': 'Africa', 'nigeria': 'Africa', 'kenya': 'Africa', 'ghana': 'Africa', 'morocco': 'Africa', 'ethiopia': 'Africa', 'tanzania': 'Africa', 'rwanda': 'Africa', 'senegal': 'Africa', 'ivory coast': 'Africa', 'uganda': 'Africa', 'zambia': 'Africa',
+    'australia': 'APAC', 'new zealand': 'APAC', 'singapore': 'APAC', 'japan': 'APAC', 'south korea': 'APAC', 'korea': 'APAC', 'china': 'APAC', 'hong kong': 'APAC', 'taiwan': 'APAC', 'india': 'APAC', 'malaysia': 'APAC', 'indonesia': 'APAC', 'thailand': 'APAC', 'vietnam': 'APAC', 'philippines': 'APAC',
+  }
+  return map[c] || ''
+}
+
 function formatCost(val) {
   if (val == null || val === '') return '--'
   return `GBP ${Number(val).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -438,7 +471,7 @@ function renderContactGrid(containerId, statusPredicate, mineOnly, emptyLabel) {
     const isExpanded = expandedContactId === c.id
     return `
     <div class="contact-grid-row">
-      <div class="rg-name">
+      <div class="contact-row-name">
         <div class="rg-title" style="cursor:pointer" onclick="navigate('contact-detail', '${c.id}')">${escHtml(p.name ?? '--')}</div>
         <span class="tag">${escHtml(c.status)}</span>
       </div>
@@ -546,6 +579,10 @@ document.getElementById('btn-new-contact').addEventListener('click', async () =>
   await populateContactFormPickers()
   document.getElementById('contact-name').focus()
 })
+document.getElementById('contact-country').addEventListener('input', (e) => {
+  const region = regionForCountry(e.target.value)
+  if (region) document.getElementById('contact-region').value = region
+})
 document.getElementById('btn-cancel-contact').addEventListener('click', () => {
   document.getElementById('new-contact-form').classList.add('hidden')
   document.getElementById('btn-new-contact').classList.remove('hidden')
@@ -585,13 +622,14 @@ async function saveContact() {
   const source = document.getElementById('contact-source').value
   const summary = document.getElementById('contact-summary').value.trim()
 
-  // Only name/company/industry/email/mobile are mandatory here
-  // (leadMandatoryFields) - everything else below is sent only if filled
-  // in, since it's optional at creation and only mandatory at
-  // qualification (leadQualifyRequired). The real Account link
-  // (parent_record_id) isn't part of this form at all - that's resolved
-  // later via "Link to Account" on the detail page.
-  const body = { name, company, email, mobile, industry_id }
+  // name/company/industry/email/mobile/source are mandatory here. The
+  // first five are leadMandatoryFields; Source is a confirmed deliberate
+  // departure from that list (2026-08-13 business decision), not a drift.
+  // Everything else below is sent only if filled in, since it's optional
+  // at creation and only mandatory at qualification (leadQualifyRequired).
+  // The real Account link (parent_record_id) isn't part of this form at
+  // all - that's resolved later via "Link to Account" on the detail page.
+  const body = { name, company, email, mobile, industry_id, source }
   if (jobRole) body.jobRole = jobRole
   if (linkedin) body.linkedin = linkedin
   if (address) body.address = address
@@ -600,7 +638,6 @@ async function saveContact() {
   if (postcode) body.postcode = postcode
   if (country) body.country = country
   if (region) body.region = region
-  if (source) body.source = source
   if (summary) body.summary = summary
 
   const result = await api('POST', '/api/contacts', body)

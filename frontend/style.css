@@ -402,6 +402,42 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
   align-items: center;
 }
 
+/* Grid items default to min-width:auto, not 0 - without this, a cell
+   whose content has no natural break point (an email address, a long
+   company name) refuses to shrink below its own content width and
+   overflows past its track into the next column instead of truncating.
+   Only .rg-name had min-width:0 before; every other cell (including the
+   header's own text) was exposed to this. Real bug, not cosmetic - a
+   badge or heading overflowing on top of a neighbouring cell can also
+   sit on top of that cell's click target. min-width:0 alone is always
+   safe to apply everywhere; the nowrap/ellipsis truncation is scoped to
+   the plain text cells only - .contact-row-name and .contact-row-actions
+   manage their own layout (flex + wrap) below and must not get it.  */
+.contact-grid-head > *,
+.contact-grid-row > * {
+  min-width: 0;
+}
+.contact-grid-head > span,
+.contact-grid-row > span:not(.tag) {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* Name + status badge on one line, not two stacked block elements (which
+   .rg-name/.rg-title alone would produce, fine for Opportunities' own
+   title+meta stack but wrong for a title+badge pair) - a dedicated class
+   so Opportunities' .rg-name usage is untouched. */
+.contact-row-name {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  overflow: hidden;
+}
+.contact-row-name .rg-title { min-width: 0; flex: 1 1 auto; }
+.contact-row-name .tag { flex: 0 0 auto; white-space: nowrap; }
+
 .contact-row-actions {
   display: flex;
   align-items: center;
@@ -667,6 +703,13 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
 .btn-sm:hover { color: var(--white); border-color: var(--white); }
 .btn-sm.btn-primary { border-color: var(--green); color: var(--green); }
 .btn-sm.btn-primary:hover { background: rgba(102,204,153,0.08); }
+.btn-sm:disabled, .btn-sm:disabled:hover {
+  opacity: 0.5;
+  cursor: default;
+  background: none;
+  color: var(--muted);
+  border-color: var(--hairline-strong);
+}
 
 .doc-inline-form {
   padding: 14px 12px;
@@ -1275,6 +1318,17 @@ textarea::placeholder { color: var(--muted-2); }
 .ref-field {
   padding: 8px 0;
   border-bottom: 1px solid var(--hairline);
+}
+
+/* Contact detail's Qualify-blocked feedback (2026-08-13): a red box on
+   each specific missing field, replacing the old single banner+list
+   entirely - Contact-detail-scoped only, Opportunity/Test Bed's own
+   transition-blocking banner is untouched. */
+.field-blocked {
+  border: 1px solid rgba(242,100,100,0.9);
+  border-radius: 3px;
+  padding: 8px;
+  margin: 0 -8px;
 }
 .ref-field-label {
   font-family: var(--mono);

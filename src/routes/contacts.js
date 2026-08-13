@@ -36,25 +36,25 @@ export default async function contactsRoutes(app) {
   })
 
   // POST /api/contacts
-  // Mandatory at creation, per the prototype's real leadMandatoryFields
-  // (Terminus Ops.dc.html:7529): Name, Company, Industry, Email, Mobile.
-  // Company is plain free text here (2026-08-13 correction) - matching
-  // how Name/Email work, not an Account link. The real Account link
-  // (parent_record_id) is deliberately left unset at creation and becomes
-  // a genuine qualification requirement instead, resolved via
-  // POST /contacts/:id/link-account sometime before Unqualified ->
-  // Qualified succeeds, not before - fast lead entry shouldn't be gated
-  // on reconciling company names against the Account list. Narrower than
-  // an earlier approximation of this endpoint, which also required
-  // Source and Summary at creation - those two, plus Job Role/Address/
-  // City/Postcode/Country/Region/LinkedIn, are only mandatory at
-  // qualification (leadQualifyRequired, :5844), enforced by the
-  // Unqualified -> Qualified payload_field_required gate, not here. All
-  // of them are still accepted here as optional fields if provided.
+  // Mandatory at creation: Name, Company, Industry, Email, Mobile, Source.
+  // The first five are the prototype's real leadMandatoryFields (Terminus
+  // Ops.dc.html:7529); Source is a confirmed deliberate departure from
+  // that list (2026-08-13 business decision), not a drift - noted here so
+  // it isn't mistaken for a future re-extraction bug. Company is plain
+  // free text - matching how Name/Email work, not an Account link. The
+  // real Account link (parent_record_id) is deliberately left unset at
+  // creation and becomes a genuine qualification requirement instead,
+  // resolved via POST /contacts/:id/link-account sometime before
+  // Unqualified -> Qualified succeeds, not before - fast lead entry
+  // shouldn't be gated on reconciling company names against the Account
+  // list. Job Role/Address/City/Postcode/Country/Region/LinkedIn/Summary
+  // are still only mandatory at qualification (leadQualifyRequired,
+  // :5844), enforced by the Unqualified -> Qualified payload_field_required
+  // gate, not here - all accepted as optional fields if provided.
   app.post('/contacts', async (request, reply) => {
     const {
-      name, company, email, mobile, industry_id,
-      source, summary, jobRole, linkedin, address, address2, city, postcode, country, region,
+      name, company, email, mobile, industry_id, source,
+      summary, jobRole, linkedin, address, address2, city, postcode, country, region,
     } = request.body ?? {}
 
     const missing = []
@@ -63,10 +63,11 @@ export default async function contactsRoutes(app) {
     if (!email?.trim()) missing.push('email')
     if (!mobile?.trim()) missing.push('mobile')
     if (!industry_id) missing.push('industry_id')
+    if (!source) missing.push('source')
     if (missing.length) {
       return reply.code(400).send({ error: 'missing required fields', missing })
     }
-    if (source && !VALID_SOURCES.includes(source)) {
+    if (!VALID_SOURCES.includes(source)) {
       return reply.code(400).send({ error: `source must be one of: ${VALID_SOURCES.join(', ')}` })
     }
 

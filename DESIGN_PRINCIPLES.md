@@ -380,3 +380,13 @@ Every Opportunity and Test Bed gets exactly one, once-only, internal reference c
 7. **Product capability catalog** (`capability`, `use_case`, `success_criterion`, `record_use_cases`, per Section 7): build once Opportunity exists, sales needs to select use cases fairly early in the cycle, before the auto-generated scope document and performance tracking pieces that depend on it.
 8. **Admin configuration screen** for `stage_gate_rules` (which documents and approval tracks a stage requires): a real module, not a quick addition, since it needs a proper UI for adding/removing requirements per record type and stage, not just direct table edits. Deliberately not urgent, editing `stage_gate_rules` directly (via Supabase's own editor) is fine until this reaches the front of the queue. Requires a global `admin` role, a `roles` row with `record_type = null` (applies to every record type, not one), distinct from the per-record roles like Technical Approver.
 9. Subsequent modules (Risk Register, Pilot, Deployment, then Asset Management and component tracking, then the rest of the build-not-buy list) plug into the existing engine rather than rebuilding it.
+
+## Deferred scope
+
+Explicitly deferred, not forgotten, not a section number of its own since this is a running list, not a build phase. Add to it as new deferrals come up rather than letting them live only in conversation.
+
+- **Base Cost Data**: a real admin-maintained rate catalog (hardware/installation/hosting cost lines). Currently a stopgap: the ten cost lines are freely-editable payload fields on the Opportunity itself, gated only by a route-level `SALESPERSON_WRITABLE_KEYS` allowlist, not a real permission model or a maintained master table.
+- **Contractor Management**: the full module (ISO 9001:2015 Clause 8.4 profile, evaluation & selection, requirements, performance, lifecycle & approvals) is prototype-only, nothing built.
+- **Full seven-tab Admin**: only Data Objects/Picklists/Workflows exist in minimal form. General, Taxonomy, Users, Base Costs (see above) are all unbuilt.
+- **Documents module**: a richer, template-tracked version (shared template library, per-record completion status, document location tracking). The current Opportunity Documents tab is a deliberate, honest empty state, not a stand-in for this.
+- **Tab/Enter field navigation and unsaved-changes-on-navigate warnings**: system-wide, not screen-specific. Sized comparable to the Contact detail view itself, not a quick add-on - no `<form>` elements exist anywhere in the app today (Enter currently does nothing in any input), and unsaved-changes detection needs a generic dirty-state registry wired into every editable screen and into `navigate()` centrally. Not built.

@@ -13,6 +13,7 @@ let cdPayload = {}
 let cdReturnView = 'leads'
 let cdEdits = {} // same shape as opportunity-reference.js's refEdits
 let cdWired = false
+let cdCurrentBlocking = [] // the real blocking[] from the last Qualify attempt, [] once resolved
 
 // industry is a real records column (industry_id), not a payload key -
 // same RECORD_COLUMN_FIELDS distinction transitions.js already makes. It
@@ -102,28 +103,47 @@ function renderCdLinkResults(query) {
   const matchRows = matches.slice(0, 20).map(a => `
     <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border:1px solid var(--hairline-strong)">
       <span>${escHtml(a.payload?.name ?? '--')}</span>
-      <button class="btn-sm btn-primary" onclick="linkCdAccount('${a.id}')">Link</button>
+      <button class="btn-sm btn-primary" onclick="linkCdAccount(this, '${a.id}')">Link</button>
     </div>`).join('')
 
   const trimmed = query.trim()
   const createRow = trimmed ? `
     <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border:1px dashed var(--hairline-strong)">
       <span>+ Create new Account "${escHtml(trimmed)}"</span>
-      <button class="btn-sm" onclick='linkCdAccount(null, ${JSON.stringify(trimmed)})'>Create &amp; link</button>
+      <button class="btn-sm" onclick='linkCdAccount(this, null, ${JSON.stringify(trimmed)})'>Create &amp; link</button>
     </div>` : ''
 
   document.getElementById('cd-link-results').innerHTML = (matchRows + createRow) || '<p class="empty-state">Type to search.</p>'
 }
 
-window.linkCdAccount = async function (accountId, newAccountName) {
+// Guards against duplicate submissions from a slow response or repeated
+// clicks: cdLinkInFlight blocks a second real request from ever firing,
+// and every button in the results list is disabled the moment one is
+// clicked (not just the clicked one - clicking a different result while
+// the first is still in flight would be just as much a duplicate).
+let cdLinkInFlight = false
+
+window.linkCdAccount = async function (btn, accountId, newAccountName) {
+  if (cdLinkInFlight) return
+  cdLinkInFlight = true
+
+  const allButtons = document.querySelectorAll('#cd-link-results button')
+  allButtons.forEach(b => { b.disabled = true })
+  const originalText = btn.textContent
+  btn.textContent = accountId ? 'Linking...' : 'Creating...'
+
   const errEl = document.getElementById('cd-link-error')
   errEl.classList.add('hidden')
 
   const body = accountId ? { account_id: accountId } : { new_account_name: newAccountName }
   const result = await api('POST', `/api/contacts/${cdContactId}/link-account`, body)
+  cdLinkInFlight = false
+
   if (!result.ok) {
     errEl.textContent = result.data?.error ?? 'Failed to link account.'
     errEl.classList.remove('hidden')
+    allButtons.forEach(b => { b.disabled = false })
+    btn.textContent = originalText
     return
   }
 
@@ -183,6 +203,10 @@ async function loadContactDetail(id) {
 }
 
 function renderContactDetail(contact) {
+  // A genuinely different contact than whatever was last shown here -
+  // any blocking state belongs to that other record, not this one.
+  if (cdContactId !== contact.id) cdCurrentBlocking = []
+
   cdContactId = contact.id
   cdContact = contact
   cdPayload = contact.payload ?? {}
@@ -220,12 +244,21 @@ function renderContactDetail(contact) {
   document.getElementById('cd-park-form').classList.add('hidden')
   document.getElementById('cd-action-feedback').textContent = ''
 
+  // A row-level Qualify attempt (app.js) hands its real blocking[] forward
+  // via cdPendingQualifyBlocking rather than re-attempting the same
+  // transition a second time. Fields are freshly rendered above on every
+  // call, so highlighting is (re-)applied after, from whichever blocking
+  // list is current - the pending one if we just arrived from a blocked
+  // row attempt, otherwise whatever was already known, filtered against
+  // the fresh cdPayload/cdContact just set above so a field that's now
+  // filled in stops being highlighted without needing another real
+  // Qualify click.
   if (cdPendingQualifyBlocking) {
-    showCdQualifyBanner(cdPendingQualifyBlocking)
+    cdCurrentBlocking = cdPendingQualifyBlocking
     cdPendingQualifyBlocking = null
-  } else {
-    document.getElementById('cd-qualify-banner').classList.add('hidden')
   }
+  refreshCdBlockedFields()
+  renderCdBlockedFields(cdCurrentBlocking)
 
   if (cdPendingOpenPark) {
     cdPendingOpenPark = false
@@ -336,7 +369,7 @@ function renderCdNotes(notes) {
   }
   container.innerHTML = notes.map(n => `
     <div class="ref-notes-row">
-      <div class="ref-notes-when">${formatDate(n.at)}<span>${escHtml(n.by ?? '')}</span></div>
+      <div class="ref-notes-when">${formatDateTime(n.at)}<span>${escHtml(n.by ?? '--')}</span></div>
       <div class="ref-notes-text">${escHtml(n.text)}</div>
     </div>`).join('')
 }
@@ -349,20 +382,50 @@ function renderCdActions() {
   document.getElementById('cd-btn-unqualify').classList.toggle('hidden', cdContact.status === 'Unqualified')
 }
 
-// The backend's blocking message is a generic "Requires X to be set"
-// built from the raw field name - fine for most fields, but
-// parent_record_id is a real records column, not something a user
-// recognises. Display-only remap, the backend message itself is
-// untouched.
-const CD_BLOCKING_FIELD_LABELS = { parent_record_id: 'an Account to be linked' }
+// Same field lookup transitions.js's RECORD_COLUMN_FIELDS makes -
+// parent_record_id/industry_id read off the record row, everything else
+// off the payload.
+function cdBlockingFieldValue(field) {
+  if (field === 'parent_record_id') return cdContact.parent_record_id
+  if (field === 'industry_id') return cdContact.industry_id
+  return cdPayload[field]
+}
 
-function showCdQualifyBanner(blocking) {
-  document.getElementById('cd-qualify-banner').classList.remove('hidden')
-  document.getElementById('cd-qualify-missing').innerHTML = blocking.map(b => {
-    const friendly = CD_BLOCKING_FIELD_LABELS[b.field]
-    const text = friendly ? `Requires ${friendly}.` : b.message
-    return `<li>${escHtml(text)}</li>`
-  }).join('')
+// Drops any entry from cdCurrentBlocking whose field is now genuinely
+// filled in, using the exact same "undefined | null | ''" rule
+// transitions.js's payload_field_required check uses - client-side,
+// against the freshly-reloaded cdPayload/cdContact, not by re-attempting
+// the real transition. Re-attempting would silently qualify the contact
+// the instant every field happens to be filled in, as a side effect of
+// saving a field rather than an explicit Qualify click - not something
+// asked for, and not something to introduce as a side effect of "clear
+// the box when it's fixed."
+function refreshCdBlockedFields() {
+  if (!cdCurrentBlocking.length) return
+  cdCurrentBlocking = cdCurrentBlocking.filter(b => {
+    const value = cdBlockingFieldValue(b.field)
+    return value === undefined || value === null || value === ''
+  })
+}
+
+// Replaces the old single banner+list entirely (2026-08-13, confirmed
+// full replacement, Contact-detail-scoped only - Opportunity/Test Bed's
+// own transition-blocking banner is untouched): a red box directly on
+// each real blocked field (.ref-field[data-key], matched against the
+// real blocking[].field from the transition endpoint), clearing the
+// moment it's resolved. parent_record_id isn't a .ref-field - it's the
+// separate Account card, boxed the same way.
+function renderCdBlockedFields(blocking) {
+  document.getElementById('cd-account-card').classList.remove('field-blocked')
+  document.querySelectorAll('.ref-field.field-blocked').forEach(el => el.classList.remove('field-blocked'))
+
+  for (const b of blocking) {
+    if (b.field === 'parent_record_id') {
+      document.getElementById('cd-account-card').classList.add('field-blocked')
+      continue
+    }
+    document.querySelector(`.ref-field[data-key="${b.field}"]`)?.classList.add('field-blocked')
+  }
 }
 
 window.attemptContactQualifyFromDetail = async function () {
@@ -371,14 +434,15 @@ window.attemptContactQualifyFromDetail = async function () {
   const result = await api('POST', `/api/records/${cdContactId}/transition`, { to_stage: 'Qualified' })
   if (!result.ok) {
     if (result.status === 422 && result.data.blocking?.length) {
-      showCdQualifyBanner(result.data.blocking)
+      cdCurrentBlocking = result.data.blocking
+      renderCdBlockedFields(cdCurrentBlocking)
     } else {
       feedback.textContent = result.data?.error ?? 'Failed to qualify.'
       feedback.className = 'msg-error'
     }
     return
   }
-  document.getElementById('cd-qualify-banner').classList.add('hidden')
+  cdCurrentBlocking = []
   await loadContactsData()
   await loadContactDetail(cdContactId)
 }
