@@ -68,6 +68,21 @@ body {
   width: 90%;
   max-width: 420px;
 }
+/* New Lead's real prototype width (Terminus Ops.dc.html:4856), wider
+   and independently scrollable - Park's 420px doesn't fit this form's
+   field count. */
+.modal-panel-wide {
+  max-width: 520px;
+  max-height: 86vh;
+  overflow-y: auto;
+}
+.modal-close {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 16px;
+  padding: 4px;
+}
+.modal-close:hover { color: var(--white); }
 
 /* ── App shell: left-hand sidebar + scrollable content ─────────
    Structure and 216px width extracted from the real prototype

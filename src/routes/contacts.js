@@ -50,11 +50,13 @@ export default async function contactsRoutes(app) {
   // list. Job Role/Address/City/Postcode/Country/Region/LinkedIn/Summary
   // are still only mandatory at qualification (leadQualifyRequired,
   // :5844), enforced by the Unqualified -> Qualified payload_field_required
-  // gate, not here - all accepted as optional fields if provided.
+  // gate, not here - all accepted as optional fields if provided. Notes,
+  // if filled, seeds the real Notes History array's first entry rather
+  // than being its own field - see below.
   app.post('/contacts', async (request, reply) => {
     const {
       name, company, email, mobile, industry_id, source,
-      summary, jobRole, linkedin, address, address2, city, postcode, country, region,
+      summary, jobRole, linkedin, address, address2, city, postcode, country, region, notes,
     } = request.body ?? {}
 
     const missing = []
@@ -94,6 +96,16 @@ export default async function contactsRoutes(app) {
     const optionalStringFields = { source, summary, jobRole, linkedin, address, address2, city, postcode, country, region }
     for (const [key, value] of Object.entries(optionalStringFields)) {
       if (typeof value === 'string' && value.trim()) payload[key] = value.trim()
+    }
+    // Notes (New Lead modal, Terminus Ops.dc.html:4945) seeds the real
+    // Notes History array's first entry when filled, same {text, at, by}
+    // shape every later entry uses - not a separate static field, the
+    // prototype's own Lead-editing convention already treats "a note on
+    // what changed" as part of this one running history, not its own
+    // thing (2026-08-13, confirmed). Left blank, nothing is seeded, no
+    // placeholder entry.
+    if (typeof notes === 'string' && notes.trim()) {
+      payload.notes = [{ text: notes.trim(), at: new Date().toISOString(), by: request.user.email }]
     }
 
     const { error: revErr } = await db

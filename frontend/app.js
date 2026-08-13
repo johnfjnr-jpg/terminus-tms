@@ -578,21 +578,60 @@ window.deleteContact = async (id) => {
   await loadContactsData()
 }
 
-// ── Add contact form ────────────────────────────────────────────────────────
-document.getElementById('btn-new-contact').addEventListener('click', async () => {
+// ── New Lead modal ───────────────────────────────────────────────────────
+// Same focus-trap pattern as Park's popup (contact-detail.js:
+// cdParkKeydownHandler), plus click-outside-to-close, matching the real
+// prototype's backdrop onClick (Terminus Ops.dc.html:4855) - Park
+// doesn't have this, confirmed not to retrofit it there in this same
+// pass, a separate follow-up. newLeadKeydownHandler is tracked the same
+// way, so a handler left attached from a previous open doesn't stack.
+let newLeadKeydownHandler = null
+
+async function openNewLeadModal() {
   document.getElementById('new-contact-form').classList.remove('hidden')
-  document.getElementById('btn-new-contact').classList.add('hidden')
   await populateContactFormPickers()
   document.getElementById('contact-name').focus()
-})
+
+  newLeadKeydownHandler = (e) => {
+    if (e.key === 'Escape') {
+      e.preventDefault()
+      closeNewLeadModal()
+      return
+    }
+    if (e.key !== 'Tab') return
+    const focusable = [...document.querySelectorAll('#new-contact-form .modal-panel input, #new-contact-form .modal-panel select, #new-contact-form .modal-panel textarea, #new-contact-form .modal-panel button')]
+    const first = focusable[0]
+    const last = focusable[focusable.length - 1]
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault()
+      last.focus()
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault()
+      first.focus()
+    }
+  }
+  document.addEventListener('keydown', newLeadKeydownHandler)
+}
+
+function closeNewLeadModal() {
+  document.getElementById('new-contact-form').classList.add('hidden')
+  if (newLeadKeydownHandler) {
+    document.removeEventListener('keydown', newLeadKeydownHandler)
+    newLeadKeydownHandler = null
+  }
+  clearContactForm()
+  document.getElementById('btn-new-contact').focus()
+}
+
+document.getElementById('btn-new-contact').addEventListener('click', openNewLeadModal)
 document.getElementById('contact-country').addEventListener('input', (e) => {
   const region = regionForCountry(e.target.value)
   if (region) document.getElementById('contact-region').value = region
 })
-document.getElementById('btn-cancel-contact').addEventListener('click', () => {
-  document.getElementById('new-contact-form').classList.add('hidden')
-  document.getElementById('btn-new-contact').classList.remove('hidden')
-  clearContactForm()
+document.getElementById('btn-cancel-contact').addEventListener('click', closeNewLeadModal)
+document.getElementById('btn-close-new-contact').addEventListener('click', closeNewLeadModal)
+document.getElementById('new-contact-form').addEventListener('click', (e) => {
+  if (e.target.id === 'new-contact-form') closeNewLeadModal()
 })
 document.getElementById('btn-save-contact').addEventListener('click', saveContact)
 
@@ -627,6 +666,7 @@ async function saveContact() {
   const region = document.getElementById('contact-region').value
   const source = document.getElementById('contact-source').value
   const summary = document.getElementById('contact-summary').value.trim()
+  const notes = document.getElementById('contact-notes').value.trim()
 
   // name/company/industry/email/mobile/source are mandatory here. The
   // first five are leadMandatoryFields; Source is a confirmed deliberate
@@ -645,6 +685,7 @@ async function saveContact() {
   if (country) body.country = country
   if (region) body.region = region
   if (summary) body.summary = summary
+  if (notes) body.notes = notes
 
   const result = await api('POST', '/api/contacts', body)
   if (!result.ok) {
@@ -653,15 +694,13 @@ async function saveContact() {
     return
   }
 
-  document.getElementById('new-contact-form').classList.add('hidden')
-  document.getElementById('btn-new-contact').classList.remove('hidden')
-  clearContactForm()
+  closeNewLeadModal()
   loadContactsData()
 }
 
 function clearContactForm() {
   ;[
-    'contact-name', 'contact-company', 'contact-email', 'contact-mobile', 'contact-summary',
+    'contact-name', 'contact-company', 'contact-email', 'contact-mobile', 'contact-summary', 'contact-notes',
     'contact-jobrole', 'contact-linkedin', 'contact-address', 'contact-address2', 'contact-city', 'contact-postcode', 'contact-country',
   ].forEach(id => (document.getElementById(id).value = ''))
   ;['contact-industry', 'contact-source', 'contact-region'].forEach(id => (document.getElementById(id).value = ''))

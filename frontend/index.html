@@ -98,94 +98,126 @@
       </div>
     </div>
 
-    <div id="new-contact-form" class="inline-form hidden">
-      <h2>New lead</h2>
-      <!-- * = mandatory at creation (leadMandatoryFields, Terminus Ops.dc.html:7529).
-           Everything else here is optional at creation, mandatory only at
-           qualification (leadQualifyRequired, :5844), enforced by the
-           Unqualified -> Qualified transition gate, not this form. -->
-      <div class="form-grid">
-        <div class="form-group">
-          <label for="contact-name">Name *</label>
-          <input type="text" id="contact-name" placeholder="Jane Smith">
+    <!-- New Lead: a popup modal (2026-08-13), rebuilt to match the real
+         prototype exactly (Terminus Ops.dc.html:4854-4956), not the
+         inline form it replaces. Field order/pairing, subtitle text,
+         and modal structure (backdrop, centered card, close X,
+         click-outside-to-close) all match that source directly.
+         Deviations, confirmed, not silent: Summary and Notes are
+         textareas here (the prototype uses single-line inputs), for
+         consistency with Summary's own already-built multi-line
+         treatment on the Contact detail page. The error box keeps this
+         app's existing red .msg-error convention rather than the
+         prototype's one-off amber box, for consistency with every
+         other error message already built. Click-outside-to-close is
+         new here only - Park (built earlier) doesn't have it, and
+         isn't being retrofitted in this same pass, a separate,
+         confirmed follow-up.
+         Mandatory set (Name/Company/Industry/Email/Mobile/Source, all
+         six marked *) is this app's own confirmed 6-field set, not the
+         prototype's literal 5 (it doesn't mark Source) - a deliberate,
+         already-confirmed business decision, not something this
+         layout-matching pass revisits. -->
+    <div id="new-contact-form" class="hidden modal-backdrop">
+      <div class="modal-panel modal-panel-wide">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div>
+            <h2 style="margin:0">New lead</h2>
+            <p class="sub" style="margin-top:4px">Raw, unverified interest. Qualify it, then convert to a Contact plus a Test Bed or Opportunity.</p>
+          </div>
+          <span class="modal-close" id="btn-close-new-contact">&times;</span>
         </div>
-        <div class="form-group">
-          <label for="contact-company">Company *</label>
-          <input type="text" id="contact-company" placeholder="Acme Corp">
+        <div class="form-grid" style="margin-top:20px">
+          <div class="form-group">
+            <label for="contact-name">Name *</label>
+            <input type="text" id="contact-name" placeholder="Jane Smith">
+          </div>
+          <div class="form-group">
+            <label for="contact-company">Company *</label>
+            <input type="text" id="contact-company" placeholder="Acme Corp">
+          </div>
+          <div class="form-group">
+            <label for="contact-industry">Industry *</label>
+            <select id="contact-industry">
+              <option value="">Select industry</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="contact-jobrole">Job Role</label>
+            <input type="text" id="contact-jobrole" placeholder="Head of Operations">
+          </div>
+          <div class="form-group">
+            <label for="contact-email">Email *</label>
+            <input type="email" id="contact-email" placeholder="jane@acme.com">
+          </div>
+          <div class="form-group">
+            <label for="contact-mobile">Mobile *</label>
+            <input type="text" id="contact-mobile" placeholder="+44 7700 900000">
+          </div>
+          <div class="form-group full">
+            <label for="contact-address">Address Line 1</label>
+            <input type="text" id="contact-address" placeholder="1 Example Street">
+          </div>
+          <div class="form-group full">
+            <label for="contact-address2">Address Line 2</label>
+            <input type="text" id="contact-address2" placeholder="Optional">
+          </div>
+          <div class="form-group">
+            <label for="contact-city">City</label>
+            <input type="text" id="contact-city" placeholder="London">
+          </div>
+          <div class="form-group">
+            <label for="contact-postcode">Postcode / Zip</label>
+            <input type="text" id="contact-postcode" placeholder="EC1A 1AA">
+          </div>
+          <div class="form-group">
+            <label for="contact-country">Country</label>
+            <input type="text" id="contact-country" placeholder="United Kingdom">
+          </div>
+          <div class="form-group">
+            <label for="contact-region">Region</label>
+            <select id="contact-region">
+              <option value="">Select region</option>
+              <option value="Americas">Americas</option>
+              <option value="Europe &amp; UK">Europe &amp; UK</option>
+              <option value="Middle East">Middle East</option>
+              <option value="APAC">APAC</option>
+              <option value="Africa">Africa</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="contact-linkedin">LinkedIn</label>
+            <input type="text" id="contact-linkedin" placeholder="linkedin.com/in/janesmith">
+          </div>
+          <div class="form-group">
+            <label for="contact-source">Source *</label>
+            <select id="contact-source">
+              <option value="">Select source</option>
+              <option value="Web">Web</option>
+              <option value="Email Inquiry">Email Inquiry</option>
+              <option value="Referral">Referral</option>
+              <option value="Direct Outreach">Direct Outreach</option>
+              <option value="Marketing Campaign">Marketing Campaign</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Status</label>
+            <span style="padding:8px 0;color:var(--muted)">Unqualified</span>
+          </div>
+          <div class="form-group full">
+            <label for="contact-summary">Summary</label>
+            <textarea id="contact-summary" rows="3" placeholder="What they need, briefly"></textarea>
+          </div>
+          <div class="form-group full">
+            <label for="contact-notes">Notes</label>
+            <textarea id="contact-notes" rows="2" placeholder="Optional - seeds the first Notes History entry"></textarea>
+          </div>
         </div>
-        <div class="form-group">
-          <label for="contact-industry">Industry *</label>
-          <select id="contact-industry">
-            <option value="">Select industry</option>
-          </select>
+        <div class="form-actions" style="margin-top:20px">
+          <button class="btn-ghost" id="btn-cancel-contact">Cancel</button>
+          <button class="btn-primary" id="btn-save-contact">Save lead</button>
+          <span class="msg-error hidden" id="contact-form-error"></span>
         </div>
-        <div class="form-group">
-          <label for="contact-email">Email *</label>
-          <input type="email" id="contact-email" placeholder="jane@acme.com">
-        </div>
-        <div class="form-group">
-          <label for="contact-mobile">Mobile *</label>
-          <input type="text" id="contact-mobile" placeholder="+44 7700 900000">
-        </div>
-        <div class="form-group">
-          <label for="contact-jobrole">Job Role</label>
-          <input type="text" id="contact-jobrole" placeholder="Head of Operations">
-        </div>
-        <div class="form-group">
-          <label for="contact-linkedin">LinkedIn</label>
-          <input type="text" id="contact-linkedin" placeholder="linkedin.com/in/janesmith">
-        </div>
-        <div class="form-group">
-          <label for="contact-address">Address Line 1</label>
-          <input type="text" id="contact-address" placeholder="1 Example Street">
-        </div>
-        <div class="form-group">
-          <label for="contact-address2">Address Line 2</label>
-          <input type="text" id="contact-address2" placeholder="Optional">
-        </div>
-        <div class="form-group">
-          <label for="contact-city">City</label>
-          <input type="text" id="contact-city" placeholder="London">
-        </div>
-        <div class="form-group">
-          <label for="contact-postcode">Postcode / Zip</label>
-          <input type="text" id="contact-postcode" placeholder="EC1A 1AA">
-        </div>
-        <div class="form-group">
-          <label for="contact-country">Country</label>
-          <input type="text" id="contact-country" placeholder="United Kingdom">
-        </div>
-        <div class="form-group">
-          <label for="contact-region">Region</label>
-          <select id="contact-region">
-            <option value="">Select region</option>
-            <option value="Americas">Americas</option>
-            <option value="Europe &amp; UK">Europe &amp; UK</option>
-            <option value="Middle East">Middle East</option>
-            <option value="APAC">APAC</option>
-            <option value="Africa">Africa</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label for="contact-source">Source *</label>
-          <select id="contact-source">
-            <option value="">Select source</option>
-            <option value="Web">Web</option>
-            <option value="Email Inquiry">Email Inquiry</option>
-            <option value="Referral">Referral</option>
-            <option value="Direct Outreach">Direct Outreach</option>
-            <option value="Marketing Campaign">Marketing Campaign</option>
-          </select>
-        </div>
-        <div class="form-group full">
-          <label for="contact-summary">Summary</label>
-          <input type="text" id="contact-summary" placeholder="What they need, briefly">
-        </div>
-      </div>
-      <div class="form-actions">
-        <button class="btn-primary" id="btn-save-contact">Save contact</button>
-        <button class="btn-ghost" id="btn-cancel-contact">Cancel</button>
-        <span class="msg-error hidden" id="contact-form-error"></span>
       </div>
     </div>
 
