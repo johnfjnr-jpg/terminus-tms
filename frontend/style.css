@@ -67,23 +67,28 @@ body {
   padding: 24px;
   width: 90%;
   max-width: 420px;
-  /* Persistent, visibly-styled scrollbar (2026-08-13), not the OS
-     default - macOS's overlay-scrollbar setting hides an unstyled one
-     until actively scrolled, leaving no affordance that a modal has
-     more content below the fold. On the base class, not just
-     .modal-panel-wide, so any future scrollable modal gets this for
-     free without needing to remember why. Firefox + WebKit/Blink both
-     covered, no JS involved. */
-  scrollbar-width: thin;
-  scrollbar-color: rgba(242,242,240,0.28) transparent;
 }
-.modal-panel::-webkit-scrollbar { width: 8px; }
-.modal-panel::-webkit-scrollbar-track { background: transparent; }
+/* Persistent, always-visible scrollbar (2026-08-13, corrected), matching
+   the prototype's own global rule exactly (Terminus Ops.dc.html:23-24),
+   scoped to .modal-panel rather than made global since this app only
+   needs it on modals. Real root cause found, not a guess: an explicit
+   pixel width/height on ::-webkit-scrollbar forces Chromium's classic,
+   always-visible scrollbar rendering, overriding macOS's overlay
+   auto-hide behavior entirely - this is genuinely a Chrome/Edge
+   behavior, not Safari-specific. The previous version additionally set
+   scrollbar-width/scrollbar-color (the standard properties), which per
+   MDN's documented cascade behavior take priority when both are
+   present, silently pulling rendering back into the modern,
+   overlay-subject path and undoing the classic-forcing effect of the
+   pixel width - correctly styled whenever shown, but not actually
+   persistent. Removed entirely, not just adjusted - only the
+   webkit-prefixed pair, no standard properties, matching the cited
+   lines exactly, including their literal color/radius values. */
+.modal-panel::-webkit-scrollbar { width: 8px; height: 8px; }
 .modal-panel::-webkit-scrollbar-thumb {
-  background: rgba(242,242,240,0.28);
+  background: rgba(242,242,240,0.14);
   border-radius: 4px;
 }
-.modal-panel::-webkit-scrollbar-thumb:hover { background: rgba(242,242,240,0.4); }
 /* New Lead's real prototype width (Terminus Ops.dc.html:4856), wider
    and independently scrollable - Park's 420px doesn't fit this form's
    field count. */
