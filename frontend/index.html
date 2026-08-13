@@ -1023,6 +1023,27 @@
 
 </div><!-- /app-shell -->
 
+<!-- Shared discard-confirmation dialog (2026-08-13) - one dialog, used
+     by both New Lead and Park, not two copies, the strongest guarantee
+     they can't drift apart. Distinct from backdrop-click's own
+     refuse-and-nudge guard (INTERACTION_STANDARDS.md Section 5):
+     backdrop-click is an accidental dismissal, refused outright; Cancel/
+     the close X/Escape are intentional leave actions, so they get a
+     real choice instead - Discard (data lost, now informed) or Keep
+     editing (nothing lost). Higher z-index than the parent modal's own
+     backdrop (100), so it stacks correctly on top. Escape and clicking
+     this dialog's own backdrop both map to Keep editing, never Discard -
+     no destructive action ever happens from an ambiguous input. -->
+<div id="discard-confirm-modal" class="hidden modal-backdrop" style="z-index:200">
+  <div class="modal-panel" role="alertdialog" aria-modal="true" aria-labelledby="discard-confirm-heading">
+    <p class="eyebrow" id="discard-confirm-heading">Discard unsaved changes?</p>
+    <div class="form-actions" style="margin-top:20px">
+      <button class="btn-primary" id="discard-confirm-keep">Keep editing</button>
+      <button class="btn-ghost" id="discard-confirm-discard">Discard</button>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="/app.js"></script>
 <script src="/opportunity-reference.js"></script>

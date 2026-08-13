@@ -578,6 +578,69 @@ window.deleteContact = async (id) => {
   await loadContactsData()
 }
 
+// ── Shared discard-confirmation dialog ──────────────────────────────────
+// One dialog (2026-08-13), used by both New Lead (below) and Park
+// (contact-detail.js, loaded after this file, same global scope) for
+// Cancel/the close X/Escape while dirty - distinct from backdrop-click's
+// own refuse-and-nudge guard (INTERACTION_STANDARDS.md Section 5):
+// backdrop-click is accidental, refused outright; these three are
+// intentional leave actions, so they get a real choice instead. Defined
+// here, not duplicated in contact-detail.js, the strongest guarantee
+// both modals can't drift apart on this.
+let discardConfirmCallback = null
+let discardConfirmKeydownHandler = null
+
+function openDiscardConfirm(onDiscard) {
+  discardConfirmCallback = onDiscard
+  document.getElementById('discard-confirm-modal').classList.remove('hidden')
+  document.getElementById('discard-confirm-keep').focus()
+
+  discardConfirmKeydownHandler = (e) => {
+    if (e.key === 'Escape') {
+      e.preventDefault()
+      closeDiscardConfirm()
+      return
+    }
+    if (e.key !== 'Tab') return
+    const focusable = [document.getElementById('discard-confirm-keep'), document.getElementById('discard-confirm-discard')]
+    const first = focusable[0]
+    const last = focusable[focusable.length - 1]
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault()
+      last.focus()
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault()
+      first.focus()
+    }
+  }
+  document.addEventListener('keydown', discardConfirmKeydownHandler)
+}
+
+function closeDiscardConfirm() {
+  document.getElementById('discard-confirm-modal').classList.add('hidden')
+  if (discardConfirmKeydownHandler) {
+    document.removeEventListener('keydown', discardConfirmKeydownHandler)
+    discardConfirmKeydownHandler = null
+  }
+  discardConfirmCallback = null
+}
+
+document.getElementById('discard-confirm-keep').addEventListener('click', closeDiscardConfirm)
+document.getElementById('discard-confirm-discard').addEventListener('click', () => {
+  const callback = discardConfirmCallback
+  closeDiscardConfirm()
+  if (callback) callback()
+})
+// Clicking this dialog's own backdrop maps to Keep editing, same as
+// Escape - never a dead click, never Discard from an ambiguous input.
+document.getElementById('discard-confirm-modal').addEventListener('click', (e) => {
+  if (e.target.id === 'discard-confirm-modal') closeDiscardConfirm()
+})
+
+function discardConfirmIsOpen() {
+  return !document.getElementById('discard-confirm-modal').classList.contains('hidden')
+}
+
 // ── New Lead modal ───────────────────────────────────────────────────────
 // Same focus-trap pattern as Park's popup (contact-detail.js:
 // cdParkKeydownHandler), plus click-outside-to-close, matching the real
@@ -587,15 +650,19 @@ window.deleteContact = async (id) => {
 // way, so a handler left attached from a previous open doesn't stack.
 let newLeadKeydownHandler = null
 
-// Backdrop-click-to-close must not silently discard unsaved data
-// (2026-08-13) - a real, contained instance of INTERACTION_STANDARDS.md
-// Section 5's deferred unsaved-changes spec, same discipline as Park's
-// focus trap being a small slice of Section 4 rather than the whole
-// system-wide version. Tracked via one delegated input/change listener
-// on the panel (catches every text input, textarea, and select via
-// bubbling), not per-field. Scoped to backdrop-click only - Cancel, the
-// close X, and Escape all still discard immediately, unchanged, since
-// those are explicit "leave" actions, not an accidental click.
+// Neither backdrop-click nor Cancel/the close X/Escape may silently
+// discard unsaved data (2026-08-13) - a real, contained instance of
+// INTERACTION_STANDARDS.md Section 5's deferred unsaved-changes spec,
+// same discipline as Park's focus trap being a small slice of Section 4
+// rather than the whole system-wide version. Tracked via one delegated
+// input/change listener on the panel (catches every text input,
+// textarea, and select via bubbling), not per-field. The two guards are
+// deliberately different, not the same mechanism reused: backdrop-click
+// is an accidental dismissal, refused outright (highlight + warning,
+// stays open). Cancel/X/Escape are intentional leave actions, so they
+// get a real choice instead, via the shared discard-confirmation dialog
+// above - Discard (closes for real) or Keep editing (returns here,
+// nothing lost).
 let newLeadDirty = false
 document.querySelector('#new-contact-form .modal-panel').addEventListener('input', () => { newLeadDirty = true })
 document.querySelector('#new-contact-form .modal-panel').addEventListener('change', () => { newLeadDirty = true })
@@ -612,9 +679,13 @@ async function openNewLeadModal() {
   document.getElementById('contact-name').focus()
 
   newLeadKeydownHandler = (e) => {
+    // Inert while the discard-confirmation dialog is stacked on top -
+    // its own keydown handler owns Tab/Escape until it closes, or a
+    // single Escape press could fire both handlers in the same tick.
+    if (discardConfirmIsOpen()) return
     if (e.key === 'Escape') {
       e.preventDefault()
-      closeNewLeadModal()
+      requestCloseNewLeadModal()
       return
     }
     if (e.key !== 'Tab') return
@@ -632,6 +703,17 @@ async function openNewLeadModal() {
   document.addEventListener('keydown', newLeadKeydownHandler)
 }
 
+// Cancel/the close X/Escape all route through here: a real choice when
+// dirty (the shared discard-confirmation dialog), immediate close when
+// clean, unchanged from before.
+function requestCloseNewLeadModal() {
+  if (newLeadDirty) {
+    openDiscardConfirm(closeNewLeadModal)
+    return
+  }
+  closeNewLeadModal()
+}
+
 function closeNewLeadModal() {
   document.getElementById('new-contact-form').classList.add('hidden')
   if (newLeadKeydownHandler) {
@@ -647,8 +729,8 @@ document.getElementById('contact-country').addEventListener('input', (e) => {
   const region = regionForCountry(e.target.value)
   if (region) document.getElementById('contact-region').value = region
 })
-document.getElementById('btn-cancel-contact').addEventListener('click', closeNewLeadModal)
-document.getElementById('btn-close-new-contact').addEventListener('click', closeNewLeadModal)
+document.getElementById('btn-cancel-contact').addEventListener('click', requestCloseNewLeadModal)
+document.getElementById('btn-close-new-contact').addEventListener('click', requestCloseNewLeadModal)
 document.getElementById('new-contact-form').addEventListener('click', (e) => {
   if (e.target.id !== 'new-contact-form') return
   if (newLeadDirty) {

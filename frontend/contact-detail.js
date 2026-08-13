@@ -507,12 +507,17 @@ window.attemptContactUnqualifyFromDetail = async function () {
 // on every open otherwise.
 let cdParkKeydownHandler = null
 
-// Backdrop-click-to-close must not silently discard unsaved data
-// (2026-08-13, retrofitted from New Lead's identical implementation,
-// not a second pattern): a delegated input/change listener on the
-// panel tracks whether the date or reason field has changed since
-// opening. Cancel and Escape both still discard immediately,
-// unaffected - only the accidental backdrop-click path is guarded.
+// Neither backdrop-click nor Cancel/Escape may silently discard unsaved
+// data (2026-08-13, retrofitted from New Lead's identical
+// implementation, not a second pattern): a delegated input/change
+// listener on the panel tracks whether the date or reason field has
+// changed since opening. The two guards are deliberately different:
+// backdrop-click is an accidental dismissal, refused outright
+// (highlight + warning, stays open). Cancel/Escape are intentional
+// leave actions, so they get a real choice instead, via the shared
+// discard-confirmation dialog (app.js, loaded before this file, same
+// global scope) - Discard (closes for real) or Keep editing (returns
+// here, nothing lost).
 let cdParkDirty = false
 document.querySelector('#cd-park-form .modal-panel').addEventListener('input', () => { cdParkDirty = true })
 document.querySelector('#cd-park-form .modal-panel').addEventListener('change', () => { cdParkDirty = true })
@@ -532,9 +537,13 @@ function openCdParkForm() {
   document.getElementById('cd-park-date').focus()
 
   cdParkKeydownHandler = (e) => {
+    // Inert while the discard-confirmation dialog is stacked on top -
+    // its own keydown handler owns Tab/Escape until it closes, or a
+    // single Escape press could fire both handlers in the same tick.
+    if (discardConfirmIsOpen()) return
     if (e.key === 'Escape') {
       e.preventDefault()
-      closeCdParkForm()
+      requestCloseCdParkForm()
       return
     }
     if (e.key !== 'Tab') return
@@ -555,6 +564,17 @@ function openCdParkForm() {
     }
   }
   document.addEventListener('keydown', cdParkKeydownHandler)
+}
+
+// Cancel/Escape both route through here: a real choice when dirty (the
+// shared discard-confirmation dialog), immediate close when clean,
+// unchanged from before.
+function requestCloseCdParkForm() {
+  if (cdParkDirty) {
+    openDiscardConfirm(closeCdParkForm)
+    return
+  }
+  closeCdParkForm()
 }
 
 function closeCdParkForm() {
@@ -659,7 +679,7 @@ function wireCdOnce() {
   document.getElementById('cd-btn-qualify').addEventListener('click', window.attemptContactQualifyFromDetail)
   document.getElementById('cd-btn-park').addEventListener('click', openCdParkForm)
   document.getElementById('cd-btn-unqualify').addEventListener('click', window.attemptContactUnqualifyFromDetail)
-  document.getElementById('cd-park-cancel').addEventListener('click', closeCdParkForm)
+  document.getElementById('cd-park-cancel').addEventListener('click', requestCloseCdParkForm)
   document.getElementById('cd-park-save').addEventListener('click', saveCdParkForm)
   document.getElementById('cd-park-form').addEventListener('click', (e) => {
     if (e.target.id !== 'cd-park-form') return
