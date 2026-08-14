@@ -223,8 +223,7 @@ function renderRefNotes(notes) {
   }
   container.innerHTML = shown.map(n => `
     <div class="ref-notes-row">
-      <div class="ref-notes-when">${formatDate(n.at)}<span>${escHtml(n.by ?? '')}</span></div>
-      <div class="ref-notes-text">${escHtml(n.text)}</div>
+      <span class="ref-notes-when">${formatDate(n.at)}</span><span class="ref-notes-author">${escHtml(n.by ?? '')}</span><span class="ref-notes-text">${escHtml(n.text)}</span>
     </div>`).join('')
 }
 
