@@ -475,6 +475,21 @@ async function addContactNote(contactId, text, existingNotes) {
 // path (saveCdFields, onCdAddNoteClick, Park) unshifts the newest note
 // to the front, so payload.notes is already newest-first - same
 // assumption renderCdNotes already makes on the detail page.
+//
+// Add Note is the same click-to-edit-in-place mechanism as the detail
+// page (2026-08-14, reversed the earlier decision to keep this list's
+// mechanism separate - confirmed deliberate now, not an oversight),
+// positioned above the two rendered notes rather than beside a "Notes
+// History" label this card doesn't have: idle/open-empty-disabled/
+// open-dirty-green, same three states, same .ref-field-edit/.dirty
+// green underline, same .ref-field-discard. No global open-state
+// variable like the detail page's cdNoteOpen - this list renders many
+// cards at once, so state is read directly off each card's own DOM
+// (wrap.classList.contains('hidden')) rather than tracked separately
+// per card. No explicit reset-on-render function needed either
+// (unlike the detail page's resetCdNoteInput): renderLeadsCards()
+// already rebuilds every card's HTML from scratch on every call, so
+// idle is just what a fresh render produces.
 function renderLeadsCards() {
   const container = document.getElementById('live-leads-rows')
   const rows = filterMine(contactsCache.filter(c => c.status !== 'Qualified'), leadsMineOnly)
@@ -504,24 +519,34 @@ function renderLeadsCards() {
         <div class="ref-notes-text" style="margin-top:10px">${escHtml(p.summary) || 'No summary captured yet.'}</div>
 
         <div class="record-card-divider" onclick="event.stopPropagation()">
+          <button class="btn-sm lead-add-note-btn" onclick="onLeadAddNoteClick(this, '${c.id}')">Add Note</button>
+          <div class="ref-field-edit hidden lead-note-input-wrap" style="margin-top:10px">
+            <input type="text" class="lead-note-input" placeholder="Record an interaction or update">
+            <span class="ref-field-discard" onclick="discardLeadNote(this)">&times;</span>
+          </div>
           ${notes.length ? notes.map(n => `
-            <div class="ref-notes-row">
+            <div class="ref-notes-row" style="margin-top:10px">
               <div class="ref-notes-when">${formatDateTime(n.at)}<span>${escHtml(n.by ?? '--')}</span></div>
               <div class="ref-notes-text">${escHtml(n.text)}</div>
-            </div>`).join('') : '<p class="empty-state">No notes yet.</p>'}
-          <div style="display:flex;gap:8px;align-items:center;margin-top:16px">
-            <input type="text" class="lead-note-input" placeholder="Record an interaction or update" style="flex:1">
-            <button class="btn-sm" onclick="addLeadNoteFromList(this, '${c.id}')">Add Note</button>
-          </div>
+            </div>`).join('') : '<p class="empty-state" style="margin-top:10px">No notes yet.</p>'}
         </div>
       </div>
     </div>`
   }).join('')
 }
 
-window.addLeadNoteFromList = async function (btn, contactId) {
+window.onLeadAddNoteClick = async function (btn, contactId) {
   const card = btn.closest('.record-card')
+  const wrap = card.querySelector('.lead-note-input-wrap')
   const input = card.querySelector('.lead-note-input')
+
+  if (wrap.classList.contains('hidden')) {
+    wrap.classList.remove('hidden')
+    input.focus()
+    btn.disabled = true
+    return
+  }
+
   const text = input.value.trim()
   if (!text) return
 
@@ -529,9 +554,36 @@ window.addLeadNoteFromList = async function (btn, contactId) {
   const result = await addContactNote(contactId, text, contact?.payload?.notes)
   if (!result.ok) return
 
-  input.value = ''
   await loadContactsData()
 }
+
+window.discardLeadNote = function (discardEl) {
+  const card = discardEl.closest('.record-card')
+  const wrap = card.querySelector('.lead-note-input-wrap')
+  const input = card.querySelector('.lead-note-input')
+  const btn = card.querySelector('.lead-add-note-btn')
+  input.value = ''
+  wrap.classList.add('hidden')
+  wrap.classList.remove('dirty')
+  btn.disabled = false
+  btn.classList.remove('btn-primary')
+}
+
+// Delegated, not a per-card addEventListener: renderLeadsCards() fully
+// regenerates every card's HTML on each render, so any listener
+// attached directly to a .lead-note-input would be gone the next time
+// that card re-renders. One listener on the static container catches
+// every current and future card's input events via bubbling.
+document.getElementById('live-leads-rows').addEventListener('input', (e) => {
+  if (!e.target.matches('.lead-note-input')) return
+  const card = e.target.closest('.record-card')
+  const wrap = card.querySelector('.lead-note-input-wrap')
+  const btn = card.querySelector('.lead-add-note-btn')
+  const text = e.target.value.trim()
+  btn.disabled = !text
+  btn.classList.toggle('btn-primary', !!text)
+  wrap.classList.toggle('dirty', !!text)
+})
 
 // Discrepancy from the prototype's Contacts spec, flagged: Job Role has no
 // backing field anywhere in the Contact schema built this session -

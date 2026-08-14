@@ -428,32 +428,31 @@
            field on this page, not a second flow (2026-08-14, redesigned -
            the previous always-visible input+button below the list was
            real wasted space and read as two separate controls). Button
-           sits on the same line as the label, right-aligned (2026-08-14):
-           idle ("Add Note", enabled) opens the input on click, focused;
-           open+empty disables it (nothing to save yet, reusing
-           .btn-sm:disabled - no new CSS); open+dirty switches to
-           .btn-primary, matching this app's own green-means-ready-to-
-           commit convention - label stays "Add Note" throughout (2026-08-14,
-           corrected - relabeling to "Save" read as a second Save button
-           next to the real one on the Qualify row). The input itself
-           picks up the same green dirty-underline Summary already has by
-           reusing .ref-field-edit/.dirty exactly, not a new rule.
-           Discard (×) reuses .ref-field-discard, moved inside the input
-           wrap next to its input - matching where every other field's
-           discard control sits, not off after a separate button. The
-           write itself is still the shared addContactNote() core (also
-           used by the Leads list card's own separate, unchanged
-           always-visible mechanism), and now also rides along in the
-           page-level Save's own write when both are dirty at once (see
-           saveCdFields in contact-detail.js) - only this page's
-           presentation changed, not the mechanism. -->
+           sits immediately next to the label, close together on the left
+           (2026-08-14, corrected - right-aligning it across the row read
+           as detached from the label it belongs to). When opened, the
+           input drops to its own row below the label+button line
+           (2026-08-14, corrected - squeezed inline it fought the label
+           and button for space on one line): idle ("Add Note", enabled)
+           opens the input on click, focused; open+empty disables it
+           (nothing to save yet, reusing .btn-sm:disabled - no new CSS);
+           open+dirty switches to .btn-primary, matching this app's own
+           green-means-ready-to-commit convention - label stays "Add Note"
+           throughout. The input itself picks up the same green dirty-
+           underline Summary already has by reusing .ref-field-edit/.dirty
+           exactly, not a new rule. Discard (×) reuses .ref-field-discard.
+           The write itself is still the shared addContactNote() core
+           (also used by the Leads list card's own matching mechanism,
+           2026-08-14), and rides along in the page-level Save's own
+           write when both are dirty at once (see saveCdFields in
+           contact-detail.js). -->
       <div style="display:flex;align-items:center;gap:10px;margin:24px 0 10px">
-        <p class="label" style="margin:0;flex-shrink:0;color:var(--green)">Notes History &middot; latest first</p>
-        <div class="ref-field-edit hidden" id="cd-note-input-wrap" style="flex:1">
-          <input type="text" id="cd-new-note-input" placeholder="Record an interaction or update">
-          <span class="ref-field-discard" id="cd-note-discard" onclick="discardCdNote()">&times;</span>
-        </div>
-        <button class="btn-sm" id="cd-add-note-btn" onclick="onCdAddNoteClick()" style="flex-shrink:0;margin-left:auto">Add Note</button>
+        <p class="label" style="margin:0;color:var(--green)">Notes History &middot; latest first</p>
+        <button class="btn-sm" id="cd-add-note-btn" onclick="onCdAddNoteClick()">Add Note</button>
+      </div>
+      <div class="ref-field-edit hidden" id="cd-note-input-wrap" style="margin-bottom:14px">
+        <input type="text" id="cd-new-note-input" placeholder="Record an interaction or update">
+        <span class="ref-field-discard" id="cd-note-discard" onclick="discardCdNote()">&times;</span>
       </div>
       <div id="cd-notes-list"></div>
     </div>
