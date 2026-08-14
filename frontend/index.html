@@ -425,15 +425,25 @@
       </div>
 
       <p class="label" style="margin:24px 0 10px;color:var(--green)">Notes History &middot; latest first</p>
-      <div id="cd-notes-list"></div>
-      <!-- Add Note: manual entries into the same real Notes History as
-           field-edit/Park notes, available at every stage (2026-08-14) -
-           extracted from the prototype's identical Contact/Lead detail
-           mechanism (Terminus Ops.dc.html:404-407, 581-583), not guessed. -->
-      <div style="display:flex;gap:8px;align-items:center;margin-top:16px">
-        <input type="text" id="cd-new-note-input" placeholder="Record an interaction or update" style="flex:1">
-        <button class="btn-sm" id="cd-add-note">Add Note</button>
+      <!-- Add Note: click-to-edit-in-place, same convention as every other
+           field on this page, not a second flow (2026-08-14, redesigned -
+           the previous always-visible input+button below the list was
+           real wasted space and read as two separate controls). One
+           button, three states: idle ("Add Note", enabled) opens the
+           input on click, focused; open+empty disables it (nothing to
+           save yet, reusing .btn-sm:disabled - no new CSS); open+dirty
+           relabels it to "Save" and switches to .btn-primary, matching
+           this app's own green-means-ready-to-commit convention. Discard
+           (×) reuses .ref-field-discard exactly. The write itself is
+           still the shared addContactNote() core (also used by the
+           Leads list card's own separate, unchanged always-visible
+           mechanism) - only this page's presentation of it changed. -->
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:14px">
+        <input type="text" id="cd-new-note-input" class="hidden" placeholder="Record an interaction or update" style="flex:1">
+        <button class="btn-sm" id="cd-add-note-btn" onclick="onCdAddNoteClick()">Add Note</button>
+        <span class="ref-field-discard hidden" id="cd-note-discard" onclick="discardCdNote()">&times;</span>
       </div>
+      <div id="cd-notes-list"></div>
     </div>
 
     <div style="margin-top:20px" id="cd-delete-section"></div>

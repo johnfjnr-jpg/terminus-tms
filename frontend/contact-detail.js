@@ -264,6 +264,7 @@ function renderContactDetail(contact) {
   document.getElementById('cd-display-summary').classList.remove('hidden')
 
   renderCdNotes(cdPayload.notes ?? [])
+  resetCdNoteInput()
   updateCdEditBar()
   wireCdFieldInputs()
 
@@ -414,19 +415,66 @@ function renderCdNotes(notes) {
 // available at every stage (Unqualified/Parked/Qualified alike), unlike
 // the field-edit notes which only fire on Save. The actual write is the
 // shared addContactNote() core (app.js, 2026-08-14) - also used by the
-// Leads list card's own inline Add Note - this wrapper just owns this
-// page's own singleton input id and full-page reload.
-window.saveCdManualNote = async function () {
+// Leads list card's own separate, unchanged always-visible mechanism -
+// this page's own presentation is click-to-edit-in-place instead
+// (2026-08-14, redesigned), matching every other field: cd-new-note-input
+// starts hidden, cdNoteOpen tracks whether it's currently open. One
+// button does double duty rather than two elements - onCdAddNoteClick
+// opens it when idle, submits when it's dirty (disabled buttons never
+// fire clicks, so the empty-open state can't reach the submit branch).
+let cdNoteOpen = false
+
+window.onCdAddNoteClick = async function () {
   const input = document.getElementById('cd-new-note-input')
+  if (!cdNoteOpen) {
+    cdNoteOpen = true
+    input.classList.remove('hidden')
+    document.getElementById('cd-note-discard').classList.remove('hidden')
+    input.focus()
+    const btn = document.getElementById('cd-add-note-btn')
+    btn.disabled = true
+    return
+  }
+
   const text = input.value.trim()
   if (!text) return
 
   const result = await addContactNote(cdContactId, text, cdPayload.notes)
   if (!result.ok) return
 
-  input.value = ''
+  resetCdNoteInput()
   await loadContactDetail(cdContactId)
 }
+
+window.discardCdNote = function () {
+  resetCdNoteInput()
+}
+
+// Reused both to close an open input (discard, or after a successful
+// save) and to reset the static markup on every fresh render - this
+// input lives outside cd-notes-list's regenerated innerHTML, so like
+// the header's Name field it survives across renders and must have its
+// open/dirty state cleared explicitly, or a stale open input would
+// persist onto whatever contact loads next.
+function resetCdNoteInput() {
+  cdNoteOpen = false
+  const input = document.getElementById('cd-new-note-input')
+  input.value = ''
+  input.classList.add('hidden')
+  document.getElementById('cd-note-discard').classList.add('hidden')
+  const btn = document.getElementById('cd-add-note-btn')
+  btn.textContent = 'Add Note'
+  btn.disabled = false
+  btn.classList.remove('btn-primary')
+}
+
+document.getElementById('cd-new-note-input').addEventListener('input', () => {
+  const text = document.getElementById('cd-new-note-input').value.trim()
+  const btn = document.getElementById('cd-add-note-btn')
+  btn.textContent = text ? 'Save' : 'Add Note'
+  btn.disabled = !text
+  btn.classList.toggle('btn-primary', !!text)
+})
 
 // ── Qualify / Park / Unqualified: direct actions, replacing the old
 // 3-chip Manage picker. ─────────────────────────────────────────────────
@@ -705,7 +753,6 @@ function wireCdOnce() {
     }
     closeCdParkForm()
   })
-  document.getElementById('cd-add-note').addEventListener('click', window.saveCdManualNote)
   document.getElementById('cd-btn-link-account').addEventListener('click', window.openCdLinkAccountPanel)
   document.getElementById('cd-link-cancel').addEventListener('click', () => document.getElementById('cd-link-account-panel').classList.add('hidden'))
   document.getElementById('cd-link-search').addEventListener('input', (e) => renderCdLinkResults(e.target.value))

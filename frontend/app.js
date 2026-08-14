@@ -442,7 +442,7 @@ function renderBothContactGrids() {
 // uses (field-edit saves, Park, and now this). Deliberately not the
 // whole mechanism end to end - the list card (many rows, needs to find
 // its own input via the clicked button, refreshes via loadContactsData)
-// and the detail page's saveCdManualNote (one singleton input by id,
+// and the detail page's onCdAddNoteClick (one singleton input by id,
 // refreshes via loadContactDetail) run in genuinely different DOM
 // contexts and need different refresh targets, so each keeps its own
 // thin wrapper around this one real write.
@@ -472,7 +472,7 @@ async function addContactNote(contactId, text, existingNotes) {
 // Note sequence, then a separate click elsewhere on the same card.
 //
 // notes.slice(0, 2) is correct without a reverse: every note-writing
-// path (saveCdFields, saveCdManualNote, Park) unshifts the newest note
+// path (saveCdFields, onCdAddNoteClick, Park) unshifts the newest note
 // to the front, so payload.notes is already newest-first - same
 // assumption renderCdNotes already makes on the detail page.
 function renderLeadsCards() {
