@@ -273,26 +273,13 @@ function renderContactDetail(contact) {
   document.getElementById('cd-park-form').classList.add('hidden')
   document.getElementById('cd-action-feedback').textContent = ''
 
-  // A row-level Qualify attempt (app.js) hands its real blocking[] forward
-  // via cdPendingQualifyBlocking rather than re-attempting the same
-  // transition a second time. Fields are freshly rendered above on every
-  // call, so highlighting is (re-)applied after, from whichever blocking
-  // list is current - the pending one if we just arrived from a blocked
-  // row attempt, otherwise whatever was already known, filtered against
-  // the fresh cdPayload/cdContact just set above so a field that's now
-  // filled in stops being highlighted without needing another real
-  // Qualify click.
-  if (cdPendingQualifyBlocking) {
-    cdCurrentBlocking = cdPendingQualifyBlocking
-    cdPendingQualifyBlocking = null
-  }
+  // Fields are freshly rendered above on every call, so highlighting is
+  // (re-)applied after, from whatever blocking list is already known,
+  // filtered against the fresh cdPayload/cdContact just set above so a
+  // field that's now filled in stops being highlighted without needing
+  // another real Qualify click.
   refreshCdBlockedFields()
   renderCdBlockedFields(cdCurrentBlocking)
-
-  if (cdPendingOpenPark) {
-    cdPendingOpenPark = false
-    openCdParkForm()
-  }
 }
 
 function wireCdFieldInputs() {

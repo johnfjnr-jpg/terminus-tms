@@ -40,14 +40,6 @@ document.getElementById('btn-signout').addEventListener('click', async () => {
 // ── Navigation ────────────────────────────────────────────────────────────────
 const ALL_VIEWS = ['leads', 'leads-legacy', 'contacts', 'contact-detail', 'test-beds', 'test-bed-detail', 'opportunities', 'opportunity-detail']
 
-// Set by attemptContactQualify() when a row-level Qualify attempt comes
-// back blocked, read once by contact-detail.js's loadContactDetail() so
-// the banner shows immediately on arrival instead of re-attempting the
-// same transition a second time for the same answer. Also used to carry
-// the "open the Park form on arrival" flag from a row's Park button.
-let cdPendingQualifyBlocking = null
-let cdPendingOpenPark = false
-
 function showAuth() {
   document.getElementById('view-auth').classList.remove('hidden')
   document.getElementById('app-shell').classList.add('hidden')
@@ -60,7 +52,7 @@ function showApp(session) {
   navigate('leads')
 }
 
-function navigate(view, id, options) {
+function navigate(view, id) {
   ALL_VIEWS.forEach(v => document.getElementById(`view-${v}`)?.classList.add('hidden'))
   document.querySelectorAll('.nav-link').forEach(el => el.classList.remove('active'))
 
@@ -70,10 +62,7 @@ function navigate(view, id, options) {
   if (view === 'leads') loadContactsData()
   else if (view === 'leads-legacy') loadLegacyLeads()
   else if (view === 'contacts') loadContactsData()
-  else if (view === 'contact-detail' && id) {
-    cdPendingOpenPark = !!options?.openPark
-    loadContactDetail(id)
-  }
+  else if (view === 'contact-detail' && id) loadContactDetail(id)
   else if (view === 'test-beds') loadTestBeds()
   else if (view === 'opportunities') loadOpportunities()
   else if (view === 'test-bed-detail' && id) loadTestBedDetail(id)
@@ -586,20 +575,14 @@ function renderContactGrid(containerId, statusPredicate, mineOnly, emptyLabel) {
   }).join('')
 }
 
-// Qualify/Park/Unqualified are direct actions on the row, replacing the
-// old 3-chip Manage picker. Once Qualified, neither step-back action
-// shows here at all (2026-08-13 reversal, confirmed) - Qualified stays
-// Qualified from the list, edits happen via the detail page only.
-// "Manage" survives only for + Create (Qualified only) and Delete -
-// unchanged from before.
+// Qualify/Park/Unqualified moved to the detail page only (2026-08-14) -
+// this list is for tracking and note-taking now, not stage actions.
+// renderContactRowActions is Contacts-only (Leads has its own
+// renderLeadsCards above), so c.status is always 'Qualified' here -
+// "Manage" survives only for + Create (Qualified only) and Delete.
 function renderContactRowActions(c) {
   const isExpanded = expandedContactId === c.id
-  const buttons = []
-  if (c.status !== 'Qualified') buttons.push(`<button class="btn-sm btn-primary" onclick="attemptContactQualify('${c.id}')">Qualify</button>`)
-  if (c.status === 'Unqualified') buttons.push(`<button class="btn-sm" onclick="navigate('contact-detail', '${c.id}', { openPark: true })">Park</button>`)
-  if (c.status === 'Parked') buttons.push(`<button class="btn-sm" onclick="attemptContactUnqualify('${c.id}')">Unqualified</button>`)
-  buttons.push(`<button class="btn-text" onclick="toggleContactManage('${c.id}')">${isExpanded ? 'Close' : 'Manage'}</button>`)
-  return buttons.join('')
+  return `<button class="btn-text" onclick="toggleContactManage('${c.id}')">${isExpanded ? 'Close' : 'Manage'}</button>`
 }
 
 function renderContactManagePanel(c) {
@@ -623,32 +606,6 @@ function renderContactManagePanel(c) {
 window.toggleContactManage = (id) => {
   expandedContactId = expandedContactId === id ? null : id
   renderBothContactGrids()
-}
-
-// Direct Qualify from the row: succeeds -> reload in place, no navigation.
-// Blocked -> hand the real blocking list forward (cdPendingQualifyBlocking,
-// read once by the detail page on load) and navigate there, rather than
-// re-attempting the same transition a second time just to get the same
-// answer again.
-window.attemptContactQualify = async (id) => {
-  const result = await api('POST', `/api/records/${id}/transition`, { to_stage: 'Qualified' })
-  if (result.ok) {
-    await loadContactsData()
-    return
-  }
-  if (result.status === 422 && result.data.blocking?.length) {
-    cdPendingQualifyBlocking = result.data.blocking
-    navigate('contact-detail', id)
-    return
-  }
-  navigate('contact-detail', id)
-}
-
-// Never blocked (no gate rule exists for *->Unqualified), so this is a
-// plain direct call, no form, no banner.
-window.attemptContactUnqualify = async (id) => {
-  await api('POST', `/api/records/${id}/transition`, { to_stage: 'Unqualified' })
-  await loadContactsData()
 }
 
 window.createFromContact = async (id, type) => {
