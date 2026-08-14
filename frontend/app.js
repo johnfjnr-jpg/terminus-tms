@@ -561,7 +561,6 @@ function renderContactGrid(containerId, statusPredicate, mineOnly, emptyLabel) {
     <div class="contact-grid-row">
       <div class="contact-row-name">
         <div class="rg-title" style="cursor:pointer" onclick="navigate('contact-detail', '${c.id}')">${escHtml(p.name ?? '--')}</div>
-        ${c.status === 'Qualified' ? '' : `<span class="tag">${escHtml(c.status)}</span>`}
       </div>
       <span>${escHtml(companyDisplay)}</span>
       <span>${escHtml(industry?.name ?? '--')}</span>

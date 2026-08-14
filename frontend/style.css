@@ -564,10 +564,17 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
   text-overflow: ellipsis;
 }
 
-/* Name + status badge on one line, not two stacked block elements (which
-   .rg-name/.rg-title alone would produce, fine for Opportunities' own
-   title+meta stack but wrong for a title+badge pair) - a dedicated class
-   so Opportunities' .rg-name usage is untouched. */
+/* Originally a title+badge pair (not two stacked block elements, which
+   .rg-name/.rg-title alone would produce - fine for Opportunities' own
+   title+meta stack but wrong here), a dedicated class so Opportunities'
+   .rg-name usage stays untouched. The badge itself (.contact-row-name
+   .tag) is gone (2026-08-14, pruned alongside the JS ternary that
+   rendered it): this row only ever renders Qualified contacts now
+   (Leads has its own renderLeadsCards card, not this grid row), so the
+   status tag was unreachable dead markup - confirmed via full-repo
+   search, .contact-row-name has exactly one caller. Kept as a flex
+   wrapper regardless, harmless with a single child, not worth
+   restructuring beyond removing what's actually unreachable. */
 .contact-row-name {
   display: flex;
   align-items: center;
@@ -575,23 +582,7 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
   min-width: 0;
   overflow: hidden;
 }
-/* min-width:50px, not 0: the name is the primary content of this row,
-   the status tag is secondary - the tag must never be able to squeeze
-   the name to literal zero width, even if the track above hits its own
-   180px floor under extreme compression. The tag gets a max-width cap
-   for the same reason in reverse: within that 180px track, an
-   unqualified-length "UNQUALIFIED" badge would otherwise claim most of
-   the space at the name's expense - which view you're in (Leads vs
-   Contacts) already implies status, so a truncated badge costs less
-   than a truncated name. */
 .contact-row-name .rg-title { min-width: 50px; flex: 1 1 auto; }
-.contact-row-name .tag {
-  flex: 0 0 auto;
-  max-width: 65px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 
 .contact-row-actions {
   display: flex;
