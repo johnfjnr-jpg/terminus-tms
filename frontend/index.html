@@ -228,10 +228,13 @@
       </div>
     </div>
 
-    <div class="contact-grid-head">
-      <span>Name</span><span>Company / Account</span><span>Industry</span><span>Job Role</span><span>Email</span><span>Source</span><span></span>
-    </div>
-    <div id="live-leads-rows">
+    <!-- Header-less card stack (2026-08-14, replaces the old shared
+         .contact-grid-head/.contact-grid-row layout for Leads only -
+         Contacts below is untouched): .record-list/.record-card is
+         already this app's own documented pattern for exactly this
+         ("Use .record-list for header-less card stacks (Leads)",
+         style.css), just not wired up here until now. -->
+    <div class="record-list" id="live-leads-rows">
       <p class="empty-state">Loading...</p>
     </div>
   </div>

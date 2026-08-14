@@ -444,8 +444,104 @@ async function loadContactsData() {
 }
 
 function renderBothContactGrids() {
-  renderContactGrid('live-leads-rows', c => c.status !== 'Qualified', leadsMineOnly, 'No leads.')
+  renderLeadsCards()
   renderContactGrid('contacts-rows', c => c.status === 'Qualified', contactsMineOnly, 'No contacts yet.')
+}
+
+// Shared core of the Add Note mechanism (2026-08-14): just the write,
+// into the same real notes array every note-producing action already
+// uses (field-edit saves, Park, and now this). Deliberately not the
+// whole mechanism end to end - the list card (many rows, needs to find
+// its own input via the clicked button, refreshes via loadContactsData)
+// and the detail page's saveCdManualNote (one singleton input by id,
+// refreshes via loadContactDetail) run in genuinely different DOM
+// contexts and need different refresh targets, so each keeps its own
+// thin wrapper around this one real write.
+async function addContactNote(contactId, text, existingNotes) {
+  const note = {
+    text,
+    at: new Date().toISOString(),
+    by: currentSession?.user?.email ?? '',
+  }
+  return api('PATCH', `/api/contacts/${contactId}`, {
+    payload: { notes: [note, ...(existingNotes ?? [])] }
+  })
+}
+
+// Leads: the prototype's real card layout (Terminus_Ops_dc.html:414-472,
+// the meta line built the same way at its leadRows mapping, line 10664:
+// [jobRole, industry, country].filter(Boolean).join(' · ')), split out
+// of renderContactGrid (2026-08-14) so Contacts' own grid layout and
+// actions below stay completely unchanged - this is Leads-only.
+//
+// No Qualify/Park/Manage cluster here anymore (2026-08-14, confirmed):
+// those are detail-page-only actions now, this list is for tracking and
+// note-taking. The whole card navigates to the detail page on click;
+// the notes block (.record-card-divider) stops that click from bubbling
+// via its own stopPropagation, so typing a note or clicking Add Note
+// never navigates away - tested explicitly via a real click+type+Add
+// Note sequence, then a separate click elsewhere on the same card.
+//
+// notes.slice(0, 2) is correct without a reverse: every note-writing
+// path (saveCdFields, saveCdManualNote, Park) unshifts the newest note
+// to the front, so payload.notes is already newest-first - same
+// assumption renderCdNotes already makes on the detail page.
+function renderLeadsCards() {
+  const container = document.getElementById('live-leads-rows')
+  const rows = filterMine(contactsCache.filter(c => c.status !== 'Qualified'), leadsMineOnly)
+  if (!rows.length) {
+    container.innerHTML = `<p class="empty-state">${leadsMineOnly ? 'None owned by you.' : 'No leads.'}</p>`
+    return
+  }
+
+  container.innerHTML = rows.map(c => {
+    const p = c.payload ?? {}
+    const account = accountsCache.find(a => a.id === c.parent_record_id)
+    const companyDisplay = account?.payload?.name ?? p.company ?? '--'
+    const industry = industriesCache.find(i => i.id === c.industry_id)
+    const line2 = [companyDisplay, ...[p.jobRole, industry?.name, p.country].filter(Boolean)].join(' · ')
+    const line3 = `${p.email ?? '--'} · source ${p.source ?? '--'} · created ${formatDate(c.created_at)}`
+    const notes = (p.notes ?? []).slice(0, 2)
+
+    return `
+    <div class="record-card record-card-tall is-clickable" onclick="navigate('contact-detail', '${c.id}')">
+      <div class="record-card-main">
+        <div class="record-card-title-row">
+          <span class="record-card-title">${escHtml(p.name ?? '--')}</span>
+          <span class="tag">${escHtml(c.status)}</span>
+        </div>
+        <div class="record-card-meta">${escHtml(line2)}</div>
+        <div class="record-card-meta-faint">${escHtml(line3)}</div>
+        <div class="ref-notes-text" style="margin-top:10px">${escHtml(p.summary) || 'No summary captured yet.'}</div>
+
+        <div class="record-card-divider" onclick="event.stopPropagation()">
+          ${notes.length ? notes.map(n => `
+            <div class="ref-notes-row">
+              <div class="ref-notes-when">${formatDateTime(n.at)}<span>${escHtml(n.by ?? '--')}</span></div>
+              <div class="ref-notes-text">${escHtml(n.text)}</div>
+            </div>`).join('') : '<p class="empty-state">No notes yet.</p>'}
+          <div style="display:flex;gap:8px;align-items:center;margin-top:16px">
+            <input type="text" class="lead-note-input" placeholder="Record an interaction or update" style="flex:1">
+            <button class="btn-sm" onclick="addLeadNoteFromList(this, '${c.id}')">Add Note</button>
+          </div>
+        </div>
+      </div>
+    </div>`
+  }).join('')
+}
+
+window.addLeadNoteFromList = async function (btn, contactId) {
+  const card = btn.closest('.record-card')
+  const input = card.querySelector('.lead-note-input')
+  const text = input.value.trim()
+  if (!text) return
+
+  const contact = contactsCache.find(c => c.id === contactId)
+  const result = await addContactNote(contactId, text, contact?.payload?.notes)
+  if (!result.ok) return
+
+  input.value = ''
+  await loadContactsData()
 }
 
 // Discrepancy from the prototype's Contacts spec, flagged: Job Role has no

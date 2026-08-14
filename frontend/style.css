@@ -395,6 +395,12 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
 .record-card.is-clickable { cursor: pointer; }
 .record-card.is-clickable:hover { border-color: var(--white); }
 
+/* Leads list card (2026-08-14): taller, multi-line content than
+   .record-card's default single-line row (Legacy Leads' own existing
+   usage still relies on align-items:center staying exactly as it is,
+   so this is a modifier, not a change to the shared base rule). */
+.record-card-tall { align-items: flex-start; }
+
 .record-card-main { min-width: 0; flex: 1; }
 
 .record-card-title-row {
@@ -421,6 +427,26 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* Leads card's third line (email · source · created) - smaller/dimmer
+   still than .record-card-meta above, same faint-mono treatment
+   .ref-notes-when already uses for its own secondary line. */
+.record-card-meta-faint {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Divider before the Leads card's notes block - same hairline-strong
+   border-top every card-style divider in this app already uses. */
+.record-card-divider {
+  border-top: 1px solid var(--hairline-strong);
+  margin-top: 14px;
+  padding-top: 14px;
 }
 
 .record-card-side {

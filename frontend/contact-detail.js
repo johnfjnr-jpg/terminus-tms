@@ -425,21 +425,16 @@ function renderCdNotes(notes) {
 
 // Manual entry into the same real Notes History as field-edit/Park notes -
 // available at every stage (Unqualified/Parked/Qualified alike), unlike
-// the field-edit notes which only fire on Save. Same PATCH pattern as
-// saveCdFields/saveCdParkForm: prepend, write, reload.
+// the field-edit notes which only fire on Save. The actual write is the
+// shared addContactNote() core (app.js, 2026-08-14) - also used by the
+// Leads list card's own inline Add Note - this wrapper just owns this
+// page's own singleton input id and full-page reload.
 window.saveCdManualNote = async function () {
   const input = document.getElementById('cd-new-note-input')
   const text = input.value.trim()
   if (!text) return
 
-  const note = {
-    text,
-    at: new Date().toISOString(),
-    by: currentSession?.user?.email ?? '',
-  }
-  const result = await api('PATCH', `/api/contacts/${cdContactId}`, {
-    payload: { notes: [note, ...(cdPayload.notes ?? [])] }
-  })
+  const result = await addContactNote(cdContactId, text, cdPayload.notes)
   if (!result.ok) return
 
   input.value = ''
