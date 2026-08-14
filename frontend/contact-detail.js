@@ -355,33 +355,59 @@ function updateCdEditBar() {
   document.getElementById('cd-btn-qualify').disabled = dirtyCount > 0
 }
 
+// Genuinely comprehensive (2026-08-14): if the Add Note input is open
+// and dirty when this fires, its text rides along in this same write,
+// not a second PATCH. The server does a shallow merge of payload onto
+// the latest revision (src/routes/contacts.js) - whatever notes array
+// the client sends wins outright, it doesn't append server-side. Two
+// sequential calls would be a real bug, not just inelegant: the second
+// call's existingNotes snapshot would predate the first call's write,
+// so sending it would silently overwrite payload.notes back to a
+// version missing whatever the first call just added. One combined
+// write, built from the one cdPayload.notes snapshot this whole
+// function already has, is the only safe way to do this.
 async function saveCdFields() {
   const feedback = document.getElementById('cd-save-feedback')
   feedback.textContent = ''
   feedback.className = ''
 
   const dirtyEntries = Object.entries(cdEdits).filter(([, e]) => e.draft !== e.orig)
-  if (!dirtyEntries.length) return
+  const noteInput = document.getElementById('cd-new-note-input')
+  const manualNoteText = cdNoteOpen ? noteInput.value.trim() : ''
+  if (!dirtyEntries.length && !manualNoteText) return
 
   const body = {}
   const payloadUpdate = {}
-  // One note per save session, not one per changed field (2026-08-13,
-  // confirmed) - every dirty field's own change sentence joined into a
-  // single Notes History entry, same wording as before, just combined.
-  const sentences = dirtyEntries.map(([key, e]) => {
-    if (key === 'industry') {
-      body.industry_id = e.draft || null
-      return cdChangeSentence(key, cdIndustryName(e.orig), cdIndustryName(e.draft))
-    }
-    payloadUpdate[key] = e.draft
-    return cdChangeSentence(key, e.orig, e.draft)
-  })
-  const combinedNote = {
-    text: sentences.join(' '),
-    at: new Date().toISOString(),
-    by: currentSession?.user?.email ?? '',
+  const newNotes = []
+
+  if (manualNoteText) {
+    newNotes.push({
+      text: manualNoteText,
+      at: new Date().toISOString(),
+      by: currentSession?.user?.email ?? '',
+    })
   }
-  payloadUpdate.notes = [combinedNote, ...(cdPayload.notes ?? [])]
+
+  if (dirtyEntries.length) {
+    // One note per save session, not one per changed field (2026-08-13,
+    // confirmed) - every dirty field's own change sentence joined into a
+    // single Notes History entry, same wording as before, just combined.
+    const sentences = dirtyEntries.map(([key, e]) => {
+      if (key === 'industry') {
+        body.industry_id = e.draft || null
+        return cdChangeSentence(key, cdIndustryName(e.orig), cdIndustryName(e.draft))
+      }
+      payloadUpdate[key] = e.draft
+      return cdChangeSentence(key, e.orig, e.draft)
+    })
+    newNotes.push({
+      text: sentences.join(' '),
+      at: new Date().toISOString(),
+      by: currentSession?.user?.email ?? '',
+    })
+  }
+
+  payloadUpdate.notes = [...newNotes, ...(cdPayload.notes ?? [])]
   body.payload = payloadUpdate
 
   const result = await api('PATCH', `/api/contacts/${cdContactId}`, body)
@@ -391,6 +417,7 @@ async function saveCdFields() {
     return
   }
   cdEdits = {}
+  resetCdNoteInput()
   await loadContactDetail(cdContactId)
   await loadContactsData()
 }
@@ -428,8 +455,7 @@ window.onCdAddNoteClick = async function () {
   const input = document.getElementById('cd-new-note-input')
   if (!cdNoteOpen) {
     cdNoteOpen = true
-    input.classList.remove('hidden')
-    document.getElementById('cd-note-discard').classList.remove('hidden')
+    document.getElementById('cd-note-input-wrap').classList.remove('hidden')
     input.focus()
     const btn = document.getElementById('cd-add-note-btn')
     btn.disabled = true
@@ -460,20 +486,29 @@ function resetCdNoteInput() {
   cdNoteOpen = false
   const input = document.getElementById('cd-new-note-input')
   input.value = ''
-  input.classList.add('hidden')
-  document.getElementById('cd-note-discard').classList.add('hidden')
+  const wrap = document.getElementById('cd-note-input-wrap')
+  wrap.classList.add('hidden')
+  wrap.classList.remove('dirty')
   const btn = document.getElementById('cd-add-note-btn')
-  btn.textContent = 'Add Note'
   btn.disabled = false
   btn.classList.remove('btn-primary')
 }
 
+// Label stays "Add Note" in every state (2026-08-14, corrected - it
+// previously relabeled to "Save", confusable with the page-level Save
+// button next to it, especially now that a real click there can also
+// commit this same note). Only the color changes, same green =
+// ready-to-commit convention as everywhere else - clicking it still
+// commits just this note immediately, unchanged. The .dirty toggle on
+// cd-note-input-wrap reuses .ref-field-edit.dirty's existing green
+// underline (style.css) - the same visual Summary's own input already
+// gets, not a new rule.
 document.getElementById('cd-new-note-input').addEventListener('input', () => {
   const text = document.getElementById('cd-new-note-input').value.trim()
   const btn = document.getElementById('cd-add-note-btn')
-  btn.textContent = text ? 'Save' : 'Add Note'
   btn.disabled = !text
   btn.classList.toggle('btn-primary', !!text)
+  document.getElementById('cd-note-input-wrap').classList.toggle('dirty', !!text)
 })
 
 // ── Qualify / Park / Unqualified: direct actions, replacing the old

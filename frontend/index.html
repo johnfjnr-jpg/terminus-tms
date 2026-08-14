@@ -305,7 +305,7 @@
             <span class="ref-field-discard" onclick="discardCdField('name')">&times;</span>
           </div>
         </div>
-        <p class="sub" id="cd-company"></p>
+        <p class="sub" id="cd-company" style="margin-bottom:8px"></p>
       </div>
       <span class="tag" id="cd-status"></span>
     </div>
@@ -317,7 +317,7 @@
          only): each missing field gets a subtle tint directly on itself
          (.field-blocked, see renderCdBlockedFields in contact-detail.js),
          clearing the moment it's genuinely resolved. -->
-    <div style="display:flex;gap:10px;align-items:center;margin:20px 0;flex-wrap:wrap">
+    <div style="display:flex;gap:10px;align-items:center;margin:8px 0 20px;flex-wrap:wrap">
       <button class="btn-primary" id="cd-btn-qualify">Qualify</button>
       <button class="btn-ghost" id="cd-btn-park">Park</button>
       <button class="btn-ghost" id="cd-btn-unqualify">Move to Unqualified</button>
@@ -424,24 +424,36 @@
         </div>
       </div>
 
-      <p class="label" style="margin:24px 0 10px;color:var(--green)">Notes History &middot; latest first</p>
       <!-- Add Note: click-to-edit-in-place, same convention as every other
            field on this page, not a second flow (2026-08-14, redesigned -
            the previous always-visible input+button below the list was
-           real wasted space and read as two separate controls). One
-           button, three states: idle ("Add Note", enabled) opens the
-           input on click, focused; open+empty disables it (nothing to
-           save yet, reusing .btn-sm:disabled - no new CSS); open+dirty
-           relabels it to "Save" and switches to .btn-primary, matching
-           this app's own green-means-ready-to-commit convention. Discard
-           (×) reuses .ref-field-discard exactly. The write itself is
-           still the shared addContactNote() core (also used by the
-           Leads list card's own separate, unchanged always-visible
-           mechanism) - only this page's presentation of it changed. -->
-      <div style="display:flex;gap:8px;align-items:center;margin-bottom:14px">
-        <input type="text" id="cd-new-note-input" class="hidden" placeholder="Record an interaction or update" style="flex:1">
-        <button class="btn-sm" id="cd-add-note-btn" onclick="onCdAddNoteClick()">Add Note</button>
-        <span class="ref-field-discard hidden" id="cd-note-discard" onclick="discardCdNote()">&times;</span>
+           real wasted space and read as two separate controls). Button
+           sits on the same line as the label, right-aligned (2026-08-14):
+           idle ("Add Note", enabled) opens the input on click, focused;
+           open+empty disables it (nothing to save yet, reusing
+           .btn-sm:disabled - no new CSS); open+dirty switches to
+           .btn-primary, matching this app's own green-means-ready-to-
+           commit convention - label stays "Add Note" throughout (2026-08-14,
+           corrected - relabeling to "Save" read as a second Save button
+           next to the real one on the Qualify row). The input itself
+           picks up the same green dirty-underline Summary already has by
+           reusing .ref-field-edit/.dirty exactly, not a new rule.
+           Discard (×) reuses .ref-field-discard, moved inside the input
+           wrap next to its input - matching where every other field's
+           discard control sits, not off after a separate button. The
+           write itself is still the shared addContactNote() core (also
+           used by the Leads list card's own separate, unchanged
+           always-visible mechanism), and now also rides along in the
+           page-level Save's own write when both are dirty at once (see
+           saveCdFields in contact-detail.js) - only this page's
+           presentation changed, not the mechanism. -->
+      <div style="display:flex;align-items:center;gap:10px;margin:24px 0 10px">
+        <p class="label" style="margin:0;flex-shrink:0;color:var(--green)">Notes History &middot; latest first</p>
+        <div class="ref-field-edit hidden" id="cd-note-input-wrap" style="flex:1">
+          <input type="text" id="cd-new-note-input" placeholder="Record an interaction or update">
+          <span class="ref-field-discard" id="cd-note-discard" onclick="discardCdNote()">&times;</span>
+        </div>
+        <button class="btn-sm" id="cd-add-note-btn" onclick="onCdAddNoteClick()" style="flex-shrink:0;margin-left:auto">Add Note</button>
       </div>
       <div id="cd-notes-list"></div>
     </div>
