@@ -1294,6 +1294,17 @@ textarea:focus {
   border-bottom-color: var(--white);
 }
 
+/* Chrome/Edge's default calendar-picker icon is dark grey, drawn for a
+   light background - nearly invisible against this app's own near-black
+   input background (var(--black)). Base-element selector, not scoped to
+   any one date input, so it applies to every input[type="date"] in the
+   app today (Park's follow-up date, Est. Close Date move) and any added
+   later, automatically. */
+input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+  cursor: pointer;
+}
+
 input[readonly] {
   color: var(--muted);
   cursor: default;
