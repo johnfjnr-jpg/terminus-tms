@@ -375,25 +375,33 @@
         <p class="pg-card-title">Address</p>
         <div id="cd-address-rows"></div>
       </div>
-      <!-- The real Account link (parent_record_id) - deliberately separate
-           from the free-text Company field above, which stays exactly as
-           typed at fast lead entry even after linking. Resolved here, on
-           the detail page, not at creation. -->
-      <div class="pg-card" id="cd-account-card">
-        <p class="pg-card-title">Account</p>
-        <div id="cd-account-status" style="font-family:var(--body);font-size:13px;color:var(--white);margin-bottom:10px"></div>
-        <button class="btn-sm" id="cd-btn-link-account">Link to Account</button>
+    </div>
 
-        <div id="cd-link-account-panel" class="hidden" style="margin-top:14px">
-          <div class="form-group">
-            <label for="cd-link-search">Search existing Accounts by name</label>
-            <input type="text" id="cd-link-search" placeholder="Start typing...">
-          </div>
-          <div id="cd-link-results" style="margin-top:10px;display:flex;flex-direction:column;gap:6px"></div>
-          <p class="msg-error hidden" id="cd-link-error" style="margin-top:8px"></p>
-          <div class="form-actions" style="margin-top:10px">
-            <button class="btn-ghost" id="cd-link-cancel">Cancel</button>
-          </div>
+    <!-- The real Account link (parent_record_id) - deliberately separate
+         from the free-text Company field above, which stays exactly as
+         typed at fast lead entry even after linking. Resolved here, on
+         the detail page, not at creation.
+         Pulled out of the .ref-cards grid above and into its own row
+         (2026-08-14): sharing a grid row with Contact Details/Address
+         forced this much shorter card's row height up to match theirs,
+         leaving a large empty gap beneath it. As its own row, it sizes
+         to its own content only - .ref-cards itself (shared with
+         Opportunity's Reference tab) is untouched, this is markup
+         restructuring on this page only, not a CSS change. -->
+    <div class="pg-card" id="cd-account-card" style="margin-bottom:28px">
+      <p class="pg-card-title">Account</p>
+      <div id="cd-account-status" style="font-family:var(--body);font-size:13px;color:var(--white);margin-bottom:10px"></div>
+      <button class="btn-sm" id="cd-btn-link-account">Link to Account</button>
+
+      <div id="cd-link-account-panel" class="hidden" style="margin-top:14px">
+        <div class="form-group">
+          <label for="cd-link-search">Search existing Accounts by name</label>
+          <input type="text" id="cd-link-search" placeholder="Start typing...">
+        </div>
+        <div id="cd-link-results" style="margin-top:10px;display:flex;flex-direction:column;gap:6px"></div>
+        <p class="msg-error hidden" id="cd-link-error" style="margin-top:8px"></p>
+        <div class="form-actions" style="margin-top:10px">
+          <button class="btn-ghost" id="cd-link-cancel">Cancel</button>
         </div>
       </div>
     </div>

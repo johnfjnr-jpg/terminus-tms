@@ -351,11 +351,20 @@ function onCdFieldInput(key) {
 // redundant once each changed field carries its own highlight (see
 // .field-editing in style.css). Cancel shows the moment a field opens;
 // Save only once something has actually changed.
+//
+// Qualify is disabled for the same dirtyCount, not just visually
+// (2026-08-14): the transition endpoint evaluates the record's saved
+// payload, with no visibility into cdEdits' local drafts, so an active
+// Qualify while a field is dirty would invite acting on data that isn't
+// what's on screen. Re-enabled the moment Save (or Cancel/discard)
+// clears dirtyCount back to 0 - Save is deliberately the only green,
+// active button while dirty.
 function updateCdEditBar() {
   const keys = Object.keys(cdEdits)
   const dirtyCount = keys.filter(k => cdEdits[k].draft !== cdEdits[k].orig).length
   document.getElementById('cd-cancel-all').classList.toggle('hidden', keys.length === 0)
   document.getElementById('cd-save-all').classList.toggle('hidden', dirtyCount === 0)
+  document.getElementById('cd-btn-qualify').disabled = dirtyCount > 0
 }
 
 async function saveCdFields() {
