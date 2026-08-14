@@ -13,6 +13,10 @@ here.
 🟡 Partially extracted, core facts known, detail work still needed before
 building. ⬜ Not yet extracted, do not build against, extract first.
 
+**Open items carried into the Section 6 (Test Bed) build, not yet closed:**
+Site Ownership picklist mismatch against sample data (decision needed at
+build time, extend picklist or confirm free text).
+
 ---
 
 ## 1. Contact / Account / Lead ✅
@@ -67,6 +71,91 @@ Fully extracted and built across A1–A5 (deal-calculator.js, opportunity-deal.j
   `deal-calculator.js`, verified against the live prototype class executed
   directly in Node (not just read).
 
+## 2b. Reference Number Generation ✅ — shared, cross-cutting mechanism
+
+Never previously given its own citation, only mentioned in passing in
+Section 1 ("the 6 character code feeds both Test Bed and Opportunity
+reference numbers"). Extracted properly this session, lines 7725-7796.
+Flagged as needing a build decision because the prototype's approach is
+correct for a single-user demo and unsafe for a real multi-user backend.
+
+### What the prototype does
+
+- Format: `TT-{country code}-{industry code}-{number}`, e.g.
+  `TT-GBR-SMARTC-001`. Country code via `countryToCode()` (line 7725),
+  industry code via `industryToCode()` (line 7731), sourced from the
+  Industry picklist's 6-character codes (Section 1).
+- **One shared sequence per country+industry combination, used by both
+  Test Bed and Opportunity records.** A UK Smart City Test Bed and a UK
+  Smart City Opportunity draw numbers from the same line.
+- Numbers are never reused, even after a record is deleted. This is an
+  explicit, deliberate rule in the source comment, not an accident.
+- Mechanism: `nextRecordRef()` (line 7741) **scans every existing Test Bed
+  and Opportunity record** on every call to find the current highest
+  number for that prefix, then returns max + 1.
+
+### Why the scanning approach cannot be carried into the live build as-is
+
+| In the prototype | In the live Supabase/Fastify backend |
+|---|---|
+| Single browser tab, one user, in-memory array | Multiple users, concurrent writes, real database |
+| Scan-and-recompute on every call is safe, nothing else can write concurrently | Two people creating a UK Smart City record at the same moment could both scan, both see the same current max, both get issued the same reference number |
+| No race condition possible | Real race condition, a classic double-booking bug |
+
+**Build requirement, not optional:** this must become a real, atomic
+counter, most likely a Postgres sequence or a `ref_highwater` table with
+an atomic increment, scoped by country+industry prefix. The "never reused,
+even after deletion" rule specifically requires a durable, monotonic
+counter rather than a value derived by scanning existing records, since a
+derived value can never enforce that guarantee once records are deleted.
+
+**Confirmed this session: Test Bed to Opportunity conversion (Section 6)
+must not draw a new number from this counter.** When a Test Bed converts,
+the new Opportunity record inherits the Test Bed's existing reference
+unchanged. The atomic increment only fires on genuinely new record
+creation, never on a conversion-created record. Get this wrong and a
+converted engagement ends up with two different reference numbers across
+its lifecycle, which defeats the entire point of the shared sequence.
+
+### Asset Management does not feed off this reference system, confirmed as a genuine gap
+
+Checked component batches, build batches, and device serials against the
+`TT-` scheme. None of them use it:
+
+| System | Format | Example |
+|---|---|---|
+| Test Bed / Opportunity | `TT-{country}-{industry}-{number}` | `TT-GBR-SMARTC-001` |
+| Component batches | Contractor-prefixed | `VO-OPT-26041`, `KS-LID-8820` |
+| Build batches | Product-line-prefixed | `SSB-2025-01`, `AQB-2026-01`, `HMB-2025-01` |
+| Device serials | Device-type prefix + counter, `nextDeviceSerial()` line 9105 | e.g. `SS-00001` |
+
+**Business decision, confirmed this session:** batch and device numbering
+stays as its own separate manufacturing-domain scheme, **not** folded into
+the `TT-` prefix system. Reason: a single manufacturing batch can and does
+supply devices to multiple sites across multiple countries, so a
+batch-level or device-level identifier tied to one country+industry prefix
+would be actively wrong, not just redundant, the moment a batch ships
+internationally. Traceability from a Device back to the Test Bed it is
+installed at is handled instead through the linking mechanism below, not
+through shared numbering.
+
+### Device already has a working link to Test Bed, correction to a prior note
+
+The prototype already implements `applyDeviceLink()` (line 9141) and
+`linkTargetOptions()` (line 9135), linking a Device to a Test Bed or
+Opportunity by `linkKind`/`linkId`, with a full history of linked/unlinked
+dates, the same discipline as the Component assign/unassign engine covered
+under the Asset Management dependency note below. This mechanism is built,
+it is simply never surfaced in Test Bed's own Site Details tab today, which
+still shows only typed-in counts. This corrects the "not designed yet"
+framing used when this was first raised.
+
+**Confirmed naming inconsistency in the prototype, needs a decision at
+build time.** Two different link-target "kind" string conventions exist for
+the same concept: Use Case linking uses `'testbed'` / `'opportunity'`
+(line 8136), Device linking uses `'tb'` / `'op'` (line 9137). The live
+build should standardise on one, not carry the inconsistency forward.
+
 ## 3. Opportunity — Reference tab ✅
 
 - Template: lines 1130-1330. Reference number strip, Terminus Details /
@@ -82,6 +171,10 @@ Fully extracted and built across A1–A5 (deal-calculator.js, opportunity-deal.j
   contact". Built as free text at the time (`opportunity-reference.js`
   lines 8-9, self-disclosed gap) since Contact didn't exist yet. **Now a
   closable gap** — Contact/Account exists, this swap has not yet been done.
+  **Business decision, this session:** close this alongside the Test Bed
+  build, same underlying pattern, Contact dropdown with inline create,
+  linked via `record_contacts`, just applied to a second record type.
+  Cheaper to do both together than build the same mechanism twice.
 
 ## 4. Opportunity — Documents tab ✅ (deliberately minimal)
 
@@ -99,36 +192,264 @@ Fully extracted and built across A1–A5 (deal-calculator.js, opportunity-deal.j
   `GET /records/:id/stage-approvals` endpoint combining `stage_definitions` +
   `stage_gate_rules` + `approvals`.
 
-## 6. Test Bed 🟡 — real gap, extract before building/auditing further
+## 6. Test Bed ✅
 
-Never received a full citation-based extraction this session. What's known:
+Extracted lines 591-926 (list + detail template), 5297-5326 (stage/sub-stage
+workflow), 5455-5615 (document templates, picklists), 5793-5807 (sample
+data), 7347-7416 (stage view logic), 7796-7923 (creation + detail field
+computation), 9270 (unassign reasons, resolved as out of scope). Two factual
+errors in the original 🟡 note are corrected below.
 
-- List view: lines 591-660+, a dashboard with two matrix breakdowns
-  ("by status, by region", "by industry, by region"), hover tooltips showing
-  drill-down items, a live/degraded/in-progress count badge. Not yet fully
-  read past line 660.
-- Detail view entry/exit: line 721 (`closeTestbed`, "← Back to Test Beds")
-- Sub-stage / document model: `testbedStage`, line 5297, 5 sub-stages
-  (through "Monitoring and Analysis" at ss4, "Review and Completion" at ss5),
-  each with its own docs/criteria/approvals list — this is a genuinely
-  different, richer per-substage document-gate model than Opportunity's flat
-  Stage & Approvals table, confirmed already diverges in the live build
-  (flagged during the B3 audit, never reconciled)
-- Full field/mandatory-field list: `testbeds` picklist entry, line 5736,
-  extensive — Terminus Lead, Test Bed Duration (defaults to 3 months per the
-  Partnership Agreement), Test Bed Tech Team, Initial Lead, Commercial/
-  Technical/Legal Contact, Test Bed Documents, more not yet transcribed
-- Document templates specific to Test Bed: lines 5459, 5461
-  ("Partnership and Test Bed Agreement", "Test Bed Review Document")
-- Region, Site Ownership, Installation Environment, Installer picklists:
-  lines 5547, 5600, 5606, 5611, all "Used by Test Beds →"
-- Unassign reasons: line 9270 (Warranty Swap, Reallocated to Demo/Test Bed,
-  Failed/Faulty, Decommissioned) — asset-management-adjacent, may belong to
-  Section 8's deferred Asset Management work instead
+### List view
 
-**Next step, not done here:** a dedicated extraction pass on lines 591-1130
-(list + detail template) and 5736-5780 (full field list), same discipline as
-the Commercials A1-A5 passes, before any further Test Bed work.
+- Two matrix breakdowns, "by status, by region" and "by industry, by
+  region", each with hover tooltips showing drill-down items: lines 603-691.
+- Flat sortable table below, columns Region / Test Bed / Location / Status /
+  Open tickets / Issue: lines 693-716.
+- Live/degraded/in-progress count badge: line 598.
+
+### Detail view: only 4 tabs, not 9
+
+Template's `hint-placeholder-count="9"` (line 735) is a design-tool render
+hint, not a real count. The actual tab list, confirmed at line 11226, is
+**Reference, Site Details, Documents, Approvals**. Building 9 tabs would
+have been a wrong build from a misleading placeholder.
+
+### Stage model — corrected, and flattened per business decision
+
+Original prototype note said 5 sub-stages ending at "Review and
+Completion." This was wrong. The real prototype model, `testbedStage` at
+line 5297, is 6 stages, 7 sub-stages, and it includes a Decommissioning
+stage the original note omitted entirely.
+
+**Business decision, this session:** the two-level stage/sub-stage
+structure is not carried into the live build. Checked against actual usage
+(`computeAllStagesView`, line 7347): the Test Bed record's `subStageKey`
+always points at the sub-stage directly, never at the stage. Every stage
+in the prototype has exactly one sub-stage except Planning, which has two,
+and the template hides the sub-stage name wherever it equals the stage name
+(`showSubStageName: ss.name !== item.stageName`, line 7377). The two-level
+split does nothing structurally except group two rows under one label in
+the Approvals tab display. Docs, criteria, and approvals attach at the
+sub-stage level regardless, so flattening loses nothing.
+
+The two-level model had been built with an eye to future flexibility, more
+granular staging inside a phase later. That flexibility is being traded
+away deliberately here in favour of one flat list, consistent with every
+other record type in the system (Opportunity already uses a single flat
+stage list, Section 3). If finer staging inside a phase is genuinely needed
+later, it can be added as new flat stages at that point, same as any other
+stage addition, rather than reintroducing a second structural layer for a
+distinction the rest of the system doesn't use.
+
+**Live build stage list — 8 flat stages, confirmed against DESIGN_PRINCIPLES.md.**
+The prototype itself only goes as far as Decommissioning, it has no
+terminal "Closed" state, and DESIGN_PRINCIPLES.md's own Test Bed section
+(now corrected to match this flat model) confirmed a genuine Closed stage
+is wanted, added this session, not something the prototype extraction
+found on its own:
+
+| Stage | Docs (informational) | Approvers |
+|---|---|---|
+| Qualification | none | Commercial, Technical |
+| Pre-Site Assessment | NDA | Legal, Commercial |
+| Site Assessment | Site Assessment Report, Compliance and Data Protection, Partnership and Test Bed Agreement | Legal, Commercial, Technical |
+| Installation and Commissioning | Site Installation Document | Technical |
+| Monitoring and Analysis | Test Bed Review Document | Commercial, Technical, Legal |
+| Review and Completion | Test Bed Review Document | Commercial, Technical, Legal |
+| Decommissioning | Site Installation Document | Commercial, Technical, Legal |
+| Closed | none | senior-tier sign-off, heavier gate than the rest of the lifecycle, per DESIGN_PRINCIPLES.md Section 8 |
+
+**Closed here is not the same concept as Opportunity's Closed/Closing.**
+For Opportunity, Closed marks a signed contract, the start of deployment
+and site activity. For Test Bed, Closed marks the end of all site
+activity, decommissioning finished, nothing further happens on site. Same
+word, opposite direction. Do not conflate the two when building gate logic
+or reporting against either record type.
+
+**Test Bed to Opportunity conversion — confirmed in scope for this build.**
+Not something the prototype has, `Terminus_Ops_dc.html` contains no
+conversion UI at all, this is new design, not extraction, and it must be
+built consistently with the mechanism already specified in
+DESIGN_PRINCIPLES.md Section 8-9, not invented separately here:
+
+- Can happen at any point in the Test Bed's lifecycle, not only at
+  Decommissioning or Closed.
+- A `conversion_criteria` row, `from_record_type = 'test_bed'`,
+  `to_record_type = 'opportunity'`, same mechanism as Contact to
+  Opportunity conversion, not a new one.
+- A new Opportunity record is created, referencing the Test Bed via
+  `converted_from_test_bed_id`. The Test Bed record itself is not mutated,
+  it remains the historical record of the R&D work.
+- The Test Bed's accumulated cost carries across and attaches to the new
+  Opportunity's eventual Deal Sheet as a cost line, the same treatment
+  Pilot cost already gets.
+- The reference code carries over unchanged on conversion, it is not
+  redrawn. This is why Test Bed and Opportunity share one reference
+  sequence per country+industry, see Section 2b, not a coincidence.
+
+
+**`computeAllStagesView` (line 7347), which drives the live Approvals tab,
+hardcodes `canApprove = true`, the same testing stub already correctly not
+ported for Opportunity in Section 5. Do not port it here either** — gate
+real clickability off actual stage/role logic, same pattern as Opportunity's
+`GET /records/:id/stage-approvals`.
+
+`computeSubStageView` (line 7384) has real approval gating (checks
+`this.state.currentUserName === approverName`) but its output is never
+referenced anywhere in the template. **Confirmed dead code**, same category
+as `rollup.rows` in Section 2. Not to be built.
+
+### Detail field set (line 7847, `computeDetailView`)
+
+| Section | Fields |
+|---|---|
+| Reference | Terminus Reference, Terminus Lead, Commercial Authority, Technical Authority, Industry, Region, Country, Stage |
+| Summary | Free text, click to edit |
+| Site Details | Site Ownership, Installation Environment, Site Address, No. of SafeSight Cameras, No. of Air Quality Sensors, No. of HEMIR Sensors, Estimated Cost per Unit, Indicative Cost, generated Sensors list (name, status, lat/long, photo) |
+| Key Dates | Date Created, Estimated Installation Date, Est Go Live, Test Bed Duration |
+| Installation | Installer, Test Bed Tech Team, Install Notes log |
+| Contacts | Initial Lead, Commercial Contact, Technical Contact, Legal Contact |
+| Use Cases | Flat list of strings |
+
+**"Contacts" section is mislabelled and must not be ported as-is.** Sample
+data (line 5793-5807) shows Commercial/Technical/Legal Contact populated
+with Terminus staff names (Tom Reyes, Priya Shah, Dana Whitfield), duplicate
+of the Reference tab's Commercial/Technical Authority fields. Confirmed with
+the business as placeholder test data, not a real design intent. **Live
+build decision:** rename existing fields to Terminus Commercial/Technical/
+Legal Owner, and add three new fields for the client side — Client
+Commercial Buyer, Client Technical Buyer, Client Legal Buyer — linked via
+the existing `record_contacts` join table, tagged by role. Initial Lead
+stays separate: it is the client-side person who originated the engagement,
+not necessarily any of the three sign-off buyers, per business decision.
+
+### Picklist discrepancies, confirmed, decision needed before build
+
+- **Site Ownership** (line 5600) offers Government / Local Council /
+  Private / Other. Sample data uses "Local Authority", "Port Authority",
+  "National Highways", none of which are in the picklist. Not resolved this
+  session — flag for Claude Code build pass, either extend the picklist or
+  confirm it should be free text.
+- **The "region" picklist is not Test Bed's own Region field.** Picklist at
+  line 5547 (Americas / Europe & UK / Middle East / APAC / Africa) is
+  actually consumed by the Contact/Lead form's Region field (line 10723),
+  confirmed by usage. Test Bed's own `region` field (Yorkshire, North West,
+  Ireland) has no picklist backing in the prototype, it is free text.
+  **Do not assume these are the same picklist when building.**
+
+### Account link — new, not in the prototype
+
+Test Bed has no Account link in the prototype at all; it carries `industry`,
+`country`, `region` as flat fields only. Confirmed as a real gap, not an
+extraction miss, since the concept doesn't exist in `Terminus_Ops_dc.html`.
+**Business decision:** a linked `account_id` on Test Bed is a **hard
+precondition at creation**, not a Qualification exit-gate field. Buyer-role
+validation is meaningless without it, and Qualification is the stage where
+the client relationship is meant to be established. If the source Contact
+(when creating Test Bed from Contact) has no Account link yet, that must be
+resolved first before the Test Bed can be created.
+
+### Creation — no prototype precedent, new business decision
+
+Prototype's only Test Bed creation path is `createTestbedFromContact()`
+(line 7796), triggered from the Contacts list `+ Create` hover-menu (Section
+1). It applies **zero field validation** — every field stamped with a dash
+placeholder, dumped straight into the Reference tab. Unlike Lead's
+`leadMandatoryFields`, there is no prototype-defined mandatory set for Test
+Bed creation to extract.
+
+**Business decision, confirmed this session:** when a Contact converts to a
+Test Bed, the Contact's fields populate the Test Bed's reference fields
+directly (name, industry, country, region, linked Account). No fields are
+mandatory purely to *create* the record — mandatory fields instead gate
+*stage progression*, via `stage_gate_rules`, same mechanism already built
+for Opportunity.
+
+### Qualification exit-gate — configured now, other 6 stages deferred
+
+Only Qualification's exit criteria are being defined now, since it's the
+only one specified with real business input. The remaining six stages are
+left open until Test Beds have actually run through them and real
+requirements are known, consistent with "build the business while building
+the software."
+
+**To exit Qualification (move to Pre-Site Assessment):**
+
+| Rule type | Mechanism | Fields |
+|---|---|---|
+| Mandatory payload fields | Extend existing `stage_gate_rules` | Test Bed Duration, Estimated Installation Date, Est Go Live Date |
+| Mandatory contact-role links | New rule type, not yet built | Client Commercial Buyer, Client Technical Buyer, Client Legal Buyer, each validated as linked to the Test Bed's own `account_id` via `record_contacts` |
+
+Mandatory field sets per stage must be **configurable**, stored in the
+same admin-editable table as Opportunity's stage gate rules, scoped by
+record type and stage key, not hardcoded.
+
+### Known dependency: device linkage to Asset Management, already built, not yet connected
+
+Flagged during this session. Test Bed's Site Details tab currently carries
+`No of SafeSight Cameras`, `No of Air Quality Sensors`, `No of HEMIR
+Sensors` as plain typed numbers, with no link to any real Device record.
+
+**Correction to the initial framing of this note.** This was first raised
+as "not designed yet." That was wrong. The prototype already implements a
+working Device-to-Test-Bed link mechanism, `applyDeviceLink()` (line 9141)
+and `linkTargetOptions()` (line 9135), which links a Device to a Test Bed
+or Opportunity by `linkKind`/`linkId` with a full history of linked/
+unlinked dates, separate from and in addition to the Component
+assign/unassign engine (`assignComponentTo`, `confirmUnassign`, reason
+codes) noted earlier. **The mechanism is built. It is simply never
+surfaced in Test Bed's own Site Details tab**, which still shows only
+typed-in counts disconnected from any real Device record. See Section 2b
+for the full citation and the related reference-numbering decision, batch
+and device numbering stays separate from the `TT-` scheme, traceability
+runs through this link mechanism instead.
+
+**Business decision, direction only:** Test Bed should consume this
+existing Device link mechanism rather than build its own serial tracking
+or its own linking logic. New modules extend, never fork, the generic
+engine. This gives two currently informational stage gates real,
+data-backed teeth without new mechanics:
+
+| Stage | Current gate | With the linkage, once connected |
+|---|---|---|
+| Installation and Commissioning | Doc only, informational | Could require N devices actually linked to this Test Bed, matching declared camera/AQ/HEMIR counts |
+| Decommissioning | Doc only, informational | Could require zero devices still linked, i.e. all unlinked with a reason logged |
+
+**Not built here, deliberately.** Connecting Test Bed's Site Details tab to
+the real Device link mechanism is a dependency of Asset Management's
+Stage 4-5 operational tracking work, already listed as deferred, and
+belongs there when that module is actually built, not retrofitted into
+Test Bed ahead of it. The mechanism existing already makes this cheaper
+when the time comes, it is a wiring task, not new design.
+
+### Documents and exit criteria — informational only, not gating
+
+**Confirmed business decision:** the per-stage docs and criteria lists
+(the `docs` and `criteria` arrays in the workflow definition above) are
+**read-only reference information**, telling the user what to go and get.
+They do **not** block stage transition. This is consistent with Section 4's
+existing decision that the Documents tab is deliberately minimal with no
+real document tracking behind it. Document approval workflows are a
+**backlog item**, explicitly deferred, not designed further here.
+
+Document templates specific to Test Bed, confirmed at lines 5459, 5461:
+"Partnership and Test Bed Agreement", "Test Bed Review Document".
+
+### Unassign reasons — resolved, does not belong here
+
+Line 9270, `unassignReasons` (Warranty Swap, Reallocated to Demo/Test Bed,
+Failed/Faulty, Decommissioned), is confirmed to be Component-to-Device
+assignment logic within Asset Management, not a Test Bed field. "Reallocated
+to Demo/Test Bed" is one of four reason labels on a Device unassign action.
+Belongs to Section 8's deferred Asset Management scope, not Section 6.
+
+### Sample data coverage note
+
+Only 3 of 13 sample Test Bed records (tb1, tb7, tb9) have full detail data
+in `testbedDetailData` (line 5474). The other 10 fall through to an explicit
+"not yet configured" empty state (line 7850). Not a bug, but relevant when
+testing against the live build — most sample rows will render the fallback.
 
 ## 7. Admin ⬜ — out of v1 scope, not extracted
 

@@ -114,18 +114,23 @@ Support (ongoing)
 Test Bed (record_type = 'test_bed', its own top-level anchor, NOT a
   child of Opportunity, NOT a variant of it)
   R&D engagement with a client, cost to the business, no client
-  billing. Has its own owner_id, its own Contacts, its own Documents
-  (NDA, Site Assessment, Partnership and Test Bed Agreement, and
-  Compliance and Data Protection, CaDP, which itself bundles APD and
-  DPIA, these four are also its Planning sub-stages, see Section 8,
-  same records serve both as documents and as gated stage steps),
-  and its own reference code (Section 8), because it genuinely is
+  billing. Has its own owner_id, its own Contacts, its own Documents,
+  and its own reference code (Section 9), because it genuinely is
   its own thing, not because the schema forces it to look that way.
   stage (defined in `stage_definitions` for record_type = 'test_bed',
-    no variant needed, there is only one Test Bed lifecycle): Planning
-    (four sequential sub-stages) → Deployment → Monitoring and
-    Analysis → Close out Review → Decommissioning → Closed, full
-    detail and the heavier gate on the final transition in Section 8.
+    no variant needed, there is only one Test Bed lifecycle), **flat,
+    no sub-stage layer, corrected this session, see below**:
+    Qualification → Pre-Site Assessment → Site Assessment →
+    Installation and Commissioning → Monitoring and Analysis →
+    Review and Completion → Decommissioning → Closed, full
+    detail in Section 8.
+  **Closed here does not mean the same thing Closed/Closing means for
+  Opportunity.** For Opportunity, Closed/Closing is a signed commercial
+  contract, the *start* of deployment and site activity, work begins.
+  For Test Bed, Closed is the *end* of all site activity for that
+  engagement, decommissioning has finished, nothing further happens on
+  site. Same word, opposite direction, do not conflate them when
+  building gate logic or reporting against either.
   → can convert to Opportunity, at any point in its lifecycle, not
     only at Decommissioning. This is a genuine cross-record-type
 conversion, exactly the same mechanism as Contact → Opportunity, a
@@ -158,7 +163,7 @@ Nothing here is a special case. Neither Opportunity nor Test Bed is more fundame
 | `roles` | `user_id`, `record_id` (nullable, set for instance-specific assignments like "Technical approver on *this* Opportunity"; null for type-wide defaults), `record_type` (nullable, `null` means the role applies globally, across every record type, e.g. `admin`, rather than one specific type), `track` (which `approval_tracks` entry this person can approve for), `role` (`owner` / `reviewer` / `approver` / `viewer` / `admin`) |
 | `system_roles` | `user_id`, `role` (`admin`, extensible for future system-wide roles). Deliberately separate from `roles`, `roles` grants permission over a specific record or record type, `system_roles` grants permission over the system's own configuration, who can edit `stage_gate_rules`, `stage_definitions`, `product_defaults`, and similar, not any one record. Confirmed: `admin` is a single general permission, no finer-grained tiers needed yet. |
 | `routing_rules` | `record_type`, `track`, `condition` (e.g. discount % band), `required_tier`, computes *which tier within a track* is needed, only relevant for tracks with escalation logic (Commercial today). Tracks without escalation (Legal, Technical) just use a direct `roles` nomination, no tier needed. |
-| `stage_definitions` | `record_type` (`opportunity`, `test_bed`, extensible), `variant` (nullable, most record types don't need one), `stage_name`, `sort_order`, `phase` (nullable, groups several fine-grained stages under one recognisable higher-level name for reporting and UI, e.g. Test Bed's four Planning sub-stages all carry `phase = 'Planning'`, while stages that aren't part of a broader grouping leave this null). Defines the valid, ordered stage list for that record type. **This exists because a real bug was found in testing**: Opportunity and Test Bed were originally modelled as one record type with a mutable `type` field and a shared stage list, both assumptions were wrong, they're genuinely separate record types (Section 2) with genuinely separate stage lists, Opportunity's Discovery through Closing, Test Bed's Planning through Closed (Section 8). This table is what makes each record type's stage list data-driven rather than hardcoded. |
+| `stage_definitions` | `record_type` (`opportunity`, `test_bed`, extensible), `variant` (nullable, most record types don't need one), `stage_name`, `sort_order`, `phase` (nullable, groups several fine-grained stages under one recognisable higher-level name for reporting and UI, where a record type actually needs that, most don't and should leave this null). Defines the valid, ordered stage list for that record type. **This exists because a real bug was found in testing**: Opportunity and Test Bed were originally modelled as one record type with a mutable `type` field and a shared stage list, both assumptions were wrong, they're genuinely separate record types (Section 2) with genuinely separate stage lists, Opportunity's Discovery through Closing, Test Bed's own flat 8-stage list, Qualification through Closed (Section 8, corrected this session, see below, a two-level stage/sub-stage structure was considered and deliberately not carried forward, `phase` grouping remains available on the table for any future record type that genuinely needs it). This table is what makes each record type's stage list data-driven rather than hardcoded. |
 | `stage_gate_rules` | `record_type`, `variant` (nullable, most record types don't need one, kept generic in case a future record type does), `from_stage`, `to_stage`, `requirement_type` (`document_status`, `approval_obtained`, `child_record_status`, `payload_field_required`), `requirement_detail` (JSON, e.g. `{track: 'Legal'}` for an approval requirement, `{field: 'followUpDate'}` for a field-completeness requirement). A gate can have any number of `approval_obtained` rows, one per required track, admin-configurable, not fixed at two. **All** required tracks must reach `decision = approved` before the transition is allowed, and there is no required order between them, they can be requested and completed in parallel. `from_stage`/`to_stage` values must be valid entries in `stage_definitions` for that record's `record_type` (and `variant`, if it has one). **`payload_field_required` checks a named field is present and non-empty**, read from the current revision's payload for most fields, but from the `records` row directly for the two fields that are real columns rather than payload keys (`parent_record_id`, `industry_id`), the transition endpoint knows which is which. Used for Contact's Parked follow-up date and its Qualification gate (Section 2).
 | **Invariant, found and closed the hard way**: `POST /api/records/:id/transition` **must reject every `to_stage` when a record type has zero `stage_definitions` rows**, not treat an empty list as "anything goes." A record type with no seeded stage list previously let its status be set to literally anything, unvalidated, this was found when a Lead's real status was accidentally corrupted while regression-testing the Contact migration, corrected immediately and the incident logged to `audit_log` rather than erased. **Any new record type must have real `stage_definitions` rows before its transitions will work at all**, this is now a hard requirement, not a nice-to-have, worth remembering when Build Order's later items (Risk Register, Pilot, Deployment, and beyond) get built. |
 | `conversion_criteria` | `from_record_type` (`contact`, `test_bed`), `to_record_type` (`opportunity` or `test_bed`, a Contact can convert to either), `condition`, same data-driven pattern as `stage_gate_rules`, kept separate since converting *between* record types is a different action than progressing *within* one. **Not** used for Lead-to-Contact, that's a stage transition on one record, not a conversion, see Section 2's Lead/Contact/Account subsection. |
@@ -320,25 +325,26 @@ Camera (SafeSight(TM)) and sensor (AQ Sensor) deployments trace back to three sc
 | Pilot | Tied to a commercial Opportunity | Child of Opportunity | Typically occurs during Discovery stage, short-term, precursor to a wider sale |
 | Commercial Deployment | Revenue-generating, post-close | Child of Opportunity | Created when Opportunity reaches Closed/Won, rollout may be phased |
 
-**Test Bed has its own stage lifecycle**, defined in `stage_definitions` for `record_type = 'test_bed'` (no variant needed, there is only one Test Bed lifecycle). Planning is not one stage, it's four genuine sequential sub-stages, found in testing, not a single checklist item:
+**Test Bed has its own stage lifecycle**, defined in `stage_definitions` for `record_type = 'test_bed'` (no variant needed, there is only one Test Bed lifecycle). **Flat, 8 stages, no sub-stage layer, corrected this session:**
 
-1. NDA (`phase = 'Planning'`)
-2. Site Assessment (`phase = 'Planning'`)
-3. Partnership and Test Bed Agreement (`phase = 'Planning'`)
-4. Compliance and Data Protection, CaDP (`phase = 'Planning'`), gated by two document requirements together, not sequentially, APD (Appropriate Policy Document) and DPIA (Data Protection Impact Assessment) both complete before moving on
-5. Deployment
-6. Monitoring and Analysis
-7. Close out Review (renamed from Review), the final customer meeting, going through the success criteria and driving next actions, including the decision on whether this converts to an Opportunity
-8. Decommissioning (only reached if it doesn't convert)
-9. Closed
+1. Qualification
+2. Pre-Site Assessment, gated by NDA reviewed
+3. Site Assessment, gated by Site Assessment Report, Compliance and Data Protection, and Partnership and Test Bed Agreement, reviewed together, not sequentially
+4. Installation and Commissioning, gated by Site Installation Document
+5. Monitoring and Analysis, gated by Test Bed Review Document
+6. Review and Completion, gated by Test Bed Review Document, the final customer meeting, going through the success criteria and driving next actions, including the decision on whether this converts to an Opportunity
+7. Decommissioning
+8. Closed
 
-Each Planning sub-stage is gated the same way any other transition is, `stage_gate_rules` requiring the named document(s) reviewed before moving to the next, no new mechanism, just rows in the same table. **Document requirements per phase or sub-stage are already configurable, this needs no new mechanism**: `stage_gate_rules` is admin-editable data, not hardcoded logic, so a Test Bed in a jurisdiction that needs an extra document beyond CaDP's two is a new row, or a different `variant` value if the whole set needs to vary by location, the same table either way. Grouping sub-stages under `phase = 'Planning'` means a report or the stage tracker UI can still show "Planning" as one recognisable block when that's more useful than four granular steps, without losing the individual gating underneath. **The frontend should show Planning as a single step in the main stage tracker, with its sub-stages displayed as a secondary track beneath it, found in testing to be clearer than flattening everything into one long line.** **The order above is assumed to be the required sequence, since it was described as the record moving through them in order, flag it if that's wrong, it's a one-line change to `sort_order`, not a redesign.**
+**Correction, replacing what this section previously said.** The prior version of this document described Planning as four sequential sub-stages (NDA, Site Assessment, Partnership and Test Bed Agreement, Compliance and Data Protection) under one grouped stage, with explicit UI guidance to show them as a secondary track beneath a single "Planning" step in the tracker, and called this "found in testing." That characterisation was checked against the actual sequence of work on this project: Opportunity was built first, specifically to develop the commercial calculations, and Test Bed had not yet been built or tested at the time this section was written. The four-sub-stage structure was intent recorded at documentation time, not a finding from testing a working Test Bed. It has been superseded by direct, line-cited extraction from the Claude Design prototype (`PROTOTYPE_SPECIFICATION.md` Section 6), confirmed against the real stage/sub-stage data structure, which showed the two-level split does nothing structurally the flat list doesn't already do equally well, docs, criteria, and approvals attach at the same level either way, and Opportunity already uses a single flat stage list with no equivalent second layer. The two-level structure had been built with an eye to future flexibility; that flexibility is being deliberately traded away here in favour of consistency with the rest of the system. If genuinely finer staging inside a phase is needed later, it can be added as new flat stages at that point, the same as any other stage addition.
+
+Each stage above is gated the same way any other transition is, `stage_gate_rules` requiring the named document(s) reviewed before moving to the next, no new mechanism, just rows in the same table. **Document requirements per stage are already configurable, this needs no new mechanism**: `stage_gate_rules` is admin-editable data, not hardcoded logic, so a Test Bed in a jurisdiction that needs an extra document is a new row, or a different `variant` value if the whole set needs to vary by location, the same table either way. **Documents and exit criteria per stage are informational only, they do not gate stage transition.** Only two things gate a Test Bed's stage transitions: configurable mandatory payload fields (e.g. Qualification's exit requires Duration, Estimated Installation Date, and Est Go Live Date) and configurable mandatory contact-role relationships (e.g. Qualification's exit also requires Client Commercial, Technical, and Legal Buyer each linked via `record_contacts` and validated against the Test Bed's own linked Account). A future backlog item may add real document-approval workflow tracking, not built now, since the Documents tab today is a deliberately honest empty state with no real document data source behind it, tracking approval status against nothing would not be trustworthy.
 
 **Noted for later, not designed yet**: regular check-in meetings with the client during Monitoring and Analysis, weekly cadence suggested, the goal being to stay close to the customer, ideally with some automation around scheduling or reminders. How this actually gets organised in the UX is a separate conversation, deliberately deferred, not something to build speculatively now.
 
-**The final transition, Decommissioning to Closed, is gated more heavily than the rest of the lifecycle**, since closing out an R&D engagement is a bigger decision than moving between working stages. It requires, via the same `stage_gate_rules` engine used everywhere else, nothing new: every stage-gate document from the lifecycle actually reviewed (`child_record_status` requirements, same mechanism already used elsewhere), and a senior-tier sign-off (`approval_obtained` with a higher tier than earlier approvals in the lifecycle, via `routing_rules`, exact tier and who holds it is a real chart-of-authority decision, not something to invent here).
+**The final transition, Decommissioning to Closed, is gated more heavily than the rest of the lifecycle**, since closing out an R&D engagement is a bigger decision than moving between working stages. It requires, via the same `stage_gate_rules` engine used everywhere else, nothing new: every stage-gate document from the lifecycle actually reviewed (`child_record_status` requirements, same mechanism already used elsewhere), and a senior-tier sign-off (`approval_obtained` with a higher tier than earlier approvals in the lifecycle, via `routing_rules`, exact tier and who holds it is a real chart-of-authority decision, not something to invent here). **Closed here means the end of all site activity for this Test Bed, decommissioning complete, nothing further happens on site.** This is the opposite direction to what Closed/Closing means for Opportunity, where it marks a signed contract and the start of deployment and site activity. Same word, deliberately different meaning per record type, do not conflate the two when building gate logic or reporting.
 
-**Test Bed can convert to Opportunity at any point in its lifecycle, not only at Decommissioning.** This is a genuine cross-record-type conversion, the same mechanism as Contact to Opportunity, a `conversion_criteria` row with `from_record_type = 'test_bed'`, `to_record_type = 'opportunity'`. A new Opportunity record is created, referencing the Test Bed it came from (`converted_from_test_bed_id`), the Test Bed record itself is not mutated in place, it remains the historical record of the R&D work. The Test Bed's accumulated cost carries across and attaches to the new Opportunity's eventual Deal Sheet as a cost line, the same treatment Pilot cost already gets, a real cost of winning this deal, not something to lose on conversion.
+**Test Bed can convert to Opportunity at any point in its lifecycle, not only at Decommissioning. Confirmed in scope for this build.** This is a genuine cross-record-type conversion, the same mechanism as Contact to Opportunity, a `conversion_criteria` row with `from_record_type = 'test_bed'`, `to_record_type = 'opportunity'`. A new Opportunity record is created, referencing the Test Bed it came from (`converted_from_test_bed_id`), the Test Bed record itself is not mutated in place, it remains the historical record of the R&D work. The Test Bed's accumulated cost carries across and attaches to the new Opportunity's eventual Deal Sheet as a cost line, the same treatment Pilot cost already gets, a real cost of winning this deal, not something to lose on conversion. The reference code carries over unchanged on conversion, not redrawn, see Section 9.
 
 A Test Bed or Pilot record carries its own unit counts (SafeSight, AQ Sensor, and later HEMIR) and its own duration in months, independent of whatever the eventual full deployment's numbers turn out to be, proving the technology with 5 units for 2 months is a different, smaller thing than the 200-unit rollout it might lead to. Cost is computed the same way as the Opportunity-level estimate in Section 6, against these smaller numbers, see the test bed and pilot costing subsection there for how a Pilot's cost feeds into the Deal Sheet's profitability specifically.
 
@@ -356,7 +362,7 @@ A camera cannot go live until prerequisite documents reach the right status, an 
 
 ### Reference code
 
-Format: `CCC-Type-Application-NNN` (e.g. country code, R&D/COM, application vertical such as Educational/Smart City/Manufacturing/Security, sequential number). This is the human-readable business key for an Opportunity or R&D Test Bed, generated and stored as a real column, distinct from the internal record ID. The sequence must increment per Country+Type+Application combination specifically, via a proper counter (a dedicated sequence or counters table with correct locking), not "count existing rows", to avoid two people generating the same reference simultaneously.
+**Superseded by Section 9 below.** This paragraph described an earlier format, `CCC-Type-Application-NNN`, left over from an earlier draft and never reconciled with Section 9's `TT-CCC-INDUST-XXX`, which is the format actually confirmed against the live prototype and current build. Section 9 is authoritative, this paragraph is kept only so the correction is visible rather than silently deleted.
 
 ## 9. Reference codes
 
@@ -371,12 +377,47 @@ Every Opportunity and Test Bed gets exactly one, once-only, internal reference c
 
 **The counter is shared across Opportunities and Test Beds within the same country-industry group, but more importantly, the code itself is a single, persistent identity, not just a shared numbering pool.** Test Bed can convert to Opportunity (Section 8's Close out Review decision) and Opportunity can have an associated Test Bed or pilot. When that conversion happens, **the reference code carries over unchanged**, it is not redrawn. The same real-world engagement keeps the same reference for its whole lifecycle, across a type change, exactly the way `stage_gate_rules` already carries the Test Bed to Opportunity conversion as one mechanism, not two (Section 10, Build order, item 5).
 
-**Not yet built.** No reference-number generation exists anywhere in the current codebase, this was discovered as a gap during the Reference tab (B1) build, where the strip correctly shows "Not yet generated" rather than a fabricated code, matching Rule 8's discipline, don't invent data that doesn't exist. Building this needs its own small migration, a counter table keyed by `(country_code, industry_code)`, incremented atomically on creation to avoid a race condition producing duplicate codes under concurrent creation, not a client-side or naive read-then-write counter.
+**Built and verified.** Was flagged not yet built during the Reference tab
+(B1) build, where the strip correctly showed "Not yet generated" rather
+than a fabricated code, matching Rule 8's discipline. Now built as
+`reference_number_counters`, a counter table keyed by `(country_code,
+industry_code)`, incremented atomically via `INSERT ... ON CONFLICT ... DO
+UPDATE ... RETURNING` inside a `SECURITY DEFINER` function
+(`issue_reference_number()`), not a client-side or naive read-then-write
+counter. Confirmed atomic under real concurrency (25 genuinely concurrent
+calls through a real signed-in user's client, zero duplicates, contiguous
+sequence).
+
+**Real bug found and fixed during boundary testing, not by the initial
+build.** The first version silently truncated every reference from 1000
+upward: Postgres's `lpad(string, length, fill)` doesn't only pad short
+strings, it also truncates strings already longer than the target length,
+so `lpad('1000', 3, '0')` returned `'100'`, not `'1000'`, directly
+violating this section's own "grows past 999 by adding digits rather than
+wrapping or resetting" rule. Not caught by the original 1-25 concurrency
+test, only surfaced when the 999→1000 boundary was tested explicitly.
+Fixed in a follow-up migration, confirmed 999→1000→1001 correct, and
+confirmed the fix didn't affect the atomic increment itself, a separate
+re-test of the transactional core after the formatting fix, not assumed
+safe because the fix "only touched formatting". Same discipline as the
+`stage_definitions` invariant elsewhere in this document, real bugs get
+recorded here, not silently fixed and forgotten.
+
+**Known, unresolved, added to Deferred scope below**: a rare, unreproduced
+"JWT issued in the future" rejection was observed once from Supabase's own
+auth/API layer during testing, not from anything in this project's code.
+Investigated (ruled out local clock skew, ruled out project code, 200
+further attempts across 8 rounds produced zero recurrence). Cause
+unconfirmed, cannot be ruled out as something a real production user could
+also hit, since the validation layer involved is the same one any real
+caller's JWT passes through. Not fixed, since it isn't reliably
+reproducible, a defensive retry is the likely eventual fix if it's ever
+seen in production.
 
 ## 10. Build order
 
 1. **Contact, Account, and Opportunity** (minimal): just enough to create a Contact and Account, an Opportunity (with `stage`, no `type` field, Opportunity is always commercial), and attach records to it, this is the anchor everything else needs, build it before the Deal Sheet needs somewhere to attach. **Rework needed on what's already built**: the first Opportunity milestone was built against an earlier model where `type` mutated between R&D and Commercial on the same record, and Contacts were assumed to attach via exclusive `parent_record_id` ownership. Both are superseded, Opportunity drops `type` entirely, Test Bed becomes its own record type (below), not a variant, and Contact attachment becomes the many-to-many `record_contacts` join table (Section 2), not `parent_record_id`. The stage transition and gate-checking logic itself doesn't need to change, only the type field, the conversion endpoint, and the Contact-attachment mechanism do.
-2. **Test Bed** (minimal): its own top-level record type, own `stage_definitions` (Planning through Closed), own Contacts and Documents, same pattern as Opportunity, not a child of it. Build alongside Opportunity, since a Contact can convert to either.
+2. **Test Bed** (minimal): its own top-level record type, own `stage_definitions`, flat 8-stage list, Qualification through Closed, own Contacts and Documents, same pattern as Opportunity, not a child of it. Build alongside Opportunity, since a Contact can convert to either. Confirmed in scope for this build: Test Bed to Opportunity conversion via `conversion_criteria`, at any point in the lifecycle, not only at Decommissioning.
 3. **Deal sheet**: `record_type = 'deal'`, `parent_record_id` = the Opportunity it belongs to. Full workflow, chart-of-authority routing, cash flow and P&L calculation, as already built.
 4. Once stable: extract the workflow/approval/audit engine to confirm it's genuinely record-type agnostic, before building the next document type (Risk Register, Pilot, Contacts). If extracting it is hard, the generic model wasn't generic enough, fix that before adding more record types on top of it.
 5. **Stage gate rules engine** (`stage_gate_rules`, `conversion_criteria`): build this once, generically, as soon as a second real gating need shows up (NDA-before-deployment is the first concrete case), rather than hand-coding that one check and generalising later. This now also carries the Test Bed to Opportunity conversion, the same mechanism as Contact to Opportunity, not a new one.
@@ -388,6 +429,8 @@ Every Opportunity and Test Bed gets exactly one, once-only, internal reference c
 ## Deferred scope
 
 Explicitly deferred, not forgotten, not a section number of its own since this is a running list, not a build phase. Add to it as new deferrals come up rather than letting them live only in conversation.
+
+- **JWT "issued in the future" rejection, rare and unreproduced.** Observed once during Milestone 1 reference-number testing (2026-08-14), from Supabase's own auth/API layer, not from project code. Investigated, local clock skew ruled out, project code ruled out, 200 further attempts across 8 rounds produced zero recurrence. Cause unconfirmed. Cannot rule out a real production user hitting the same rejection, since the validation layer involved is the one any real caller's JWT passes through. Not fixed, not reliably reproducible. A defensive retry on this specific error is the likely fix if it's ever seen in production traffic.
 
 - **Base Cost Data**: a real admin-maintained rate catalog (hardware/installation/hosting cost lines). Currently a stopgap: the ten cost lines are freely-editable payload fields on the Opportunity itself, gated only by a route-level `SALESPERSON_WRITABLE_KEYS` allowlist, not a real permission model or a maintained master table.
 - **Contractor Management**: the full module (ISO 9001:2015 Clause 8.4 profile, evaluation & selection, requirements, performance, lifecycle & approvals) is prototype-only, nothing built.
