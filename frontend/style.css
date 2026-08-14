@@ -1485,22 +1485,35 @@ textarea::placeholder { color: var(--muted-2); }
    separate specificity bug against .field-blocked's old border. */
 .ref-field-noborder { border-bottom: none; }
 
-/* Contact detail's field-attention highlight (2026-08-14, simplified):
-   blocked (missing/invalid, .field-blocked) and edited-but-unsaved
-   (.field-editing) no longer need to read as visually distinct - both
-   get the same subtle background tint, no border, replacing the old
-   red/amber bordered box. Contact-detail-scoped only, Opportunity/Test
-   Bed's own transition-blocking banner is untouched. 6% white sits
-   between the app's existing hover tint (.ref-field-display:hover, 4%)
-   and its active-nav tint (.nav-link.active, var(--hairline) = 12%) -
-   visible as a persistent state without being heavy. */
-.field-blocked,
-.field-editing {
+/* Contact detail's blocked-field highlight (2026-08-14, split back apart
+   from .field-editing - merging them was the wrong call). A subtle
+   background tint, no border, replacing the old red bordered box: this
+   is the ONLY signal for "missing/invalid, not yet touched" - an
+   untouched field has no .ref-field-edit.dirty green underline to lean
+   on. 6% white sits between the app's existing hover tint
+   (.ref-field-display:hover, 4%) and its active-nav tint
+   (.nav-link.active, var(--hairline) = 12%) - visible as a persistent
+   state without being heavy. Contact-detail-scoped only, Opportunity/
+   Test Bed's own transition-blocking banner is untouched.
+   Deliberately NOT paired with .field-editing below: a field that's
+   both blocked and currently being edited still needs this tint, since
+   typing into it doesn't resolve the block - only a genuine save does
+   (refreshCdBlockedFields re-checks the saved payload, not the local
+   draft) - so this class alone, not .field-editing, has to govern the
+   tint for that to keep working. */
+.field-blocked {
   background: rgba(242, 242, 240, 0.06);
   border-radius: 3px;
   padding: 8px;
   margin: 0 -8px;
 }
+
+/* .field-editing itself carries no styling (2026-08-14, reverted from
+   sharing .field-blocked's tint above): .ref-field-edit.dirty's green
+   underline already conveys "edited, not yet saved" on its own once
+   the field's own input renders, so the tint here was pure duplication
+   of a signal that already existed. Class is still toggled in JS
+   (contact-detail.js) as a semantic marker even though unstyled. */
 .ref-field-label {
   font-family: var(--mono);
   font-size: 9px;
