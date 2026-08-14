@@ -236,7 +236,7 @@ function renderContactDetail(contact) {
   // with no leftover classes), the header's Name markup is static -
   // it survives across renders, so its input value and editing-UI
   // state must be reset explicitly here, or a stale draft/open editor/
-  // amber highlight from a previous edit session would persist.
+  // field-editing highlight from a previous edit session would persist.
   document.getElementById('cd-input-name').value = cdPayload.name ?? ''
   document.getElementById('cd-edit-name').classList.add('hidden')
   document.getElementById('cd-edit-name').classList.remove('dirty')
@@ -346,17 +346,15 @@ function onCdFieldInput(key) {
   updateCdEditBar()
 }
 
+// Cancel/Save live on the Qualify/Park/Unqualify row now (2026-08-14),
+// not a separate "N fields open, M changed" banner - that messaging is
+// redundant once each changed field carries its own highlight (see
+// .field-editing in style.css). Cancel shows the moment a field opens;
+// Save only once something has actually changed.
 function updateCdEditBar() {
-  const bar = document.getElementById('cd-edit-bar')
   const keys = Object.keys(cdEdits)
-  if (!keys.length) {
-    bar.classList.add('hidden')
-    return
-  }
-  bar.classList.remove('hidden')
   const dirtyCount = keys.filter(k => cdEdits[k].draft !== cdEdits[k].orig).length
-  document.getElementById('cd-edit-count').textContent =
-    `${keys.length} field${keys.length === 1 ? '' : 's'} open${dirtyCount ? `, ${dirtyCount} changed` : ''}`
+  document.getElementById('cd-cancel-all').classList.toggle('hidden', keys.length === 0)
   document.getElementById('cd-save-all').classList.toggle('hidden', dirtyCount === 0)
 }
 
@@ -416,6 +414,29 @@ function renderCdNotes(notes) {
     </div>`).join('')
 }
 
+// Manual entry into the same real Notes History as field-edit/Park notes -
+// available at every stage (Unqualified/Parked/Qualified alike), unlike
+// the field-edit notes which only fire on Save. Same PATCH pattern as
+// saveCdFields/saveCdParkForm: prepend, write, reload.
+window.saveCdManualNote = async function () {
+  const input = document.getElementById('cd-new-note-input')
+  const text = input.value.trim()
+  if (!text) return
+
+  const note = {
+    text,
+    at: new Date().toISOString(),
+    by: currentSession?.user?.email ?? '',
+  }
+  const result = await api('PATCH', `/api/contacts/${cdContactId}`, {
+    payload: { notes: [note, ...(cdPayload.notes ?? [])] }
+  })
+  if (!result.ok) return
+
+  input.value = ''
+  await loadContactDetail(cdContactId)
+}
+
 // ── Qualify / Park / Unqualified: direct actions, replacing the old
 // 3-chip Manage picker. ─────────────────────────────────────────────────
 function renderCdActions() {
@@ -452,13 +473,13 @@ function refreshCdBlockedFields() {
 
 // Replaces the old single banner+list entirely (2026-08-13, confirmed
 // full replacement, Contact-detail-scoped only - Opportunity/Test Bed's
-// own transition-blocking banner is untouched): a red box directly on
+// own transition-blocking banner is untouched): a subtle tint directly on
 // each real blocked field ([data-key], matched against the real
 // blocking[].field from the transition endpoint - not scoped to
 // .ref-field specifically, so it also covers the header's Name field,
 // which isn't a .ref-field row), clearing the moment it's resolved.
 // parent_record_id isn't a field row at all - it's the separate
-// Account card, boxed the same way.
+// Account card, tinted the same way.
 function renderCdBlockedFields(blocking) {
   document.getElementById('cd-account-card').classList.remove('field-blocked')
   document.querySelectorAll('[data-key].field-blocked').forEach(el => el.classList.remove('field-blocked'))
@@ -693,6 +714,7 @@ function wireCdOnce() {
     }
     closeCdParkForm()
   })
+  document.getElementById('cd-add-note').addEventListener('click', window.saveCdManualNote)
   document.getElementById('cd-btn-link-account').addEventListener('click', window.openCdLinkAccountPanel)
   document.getElementById('cd-link-cancel').addEventListener('click', () => document.getElementById('cd-link-account-panel').classList.add('hidden'))
   document.getElementById('cd-link-search').addEventListener('input', (e) => renderCdLinkResults(e.target.value))

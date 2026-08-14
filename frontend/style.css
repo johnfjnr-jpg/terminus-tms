@@ -1472,33 +1472,24 @@ textarea::placeholder { color: var(--muted-2); }
 }
 
 /* Standalone full-width fields (Summary) don't want the stacked-row
-   hairline separator - a class, not an inline style, so .field-blocked
-   below (declared after this, same specificity) can still win when
-   both apply. An inline style previously did this and silently
-   defeated .field-blocked's border by specificity. */
+   hairline separator - a class, not an inline style, kept that way even
+   after .field-blocked below moved from a border to a background tint
+   (2026-08-14), since an inline style previously here caused a real,
+   separate specificity bug against .field-blocked's old border. */
 .ref-field-noborder { border-bottom: none; }
 
-/* Contact detail's Qualify-blocked feedback (2026-08-13): a red box on
-   each specific missing field, replacing the old single banner+list
-   entirely - Contact-detail-scoped only, Opportunity/Test Bed's own
-   transition-blocking banner is untouched. */
-.field-blocked {
-  border: 1px solid rgba(242,100,100,0.9);
-  border-radius: 3px;
-  padding: 8px;
-  margin: 0 -8px;
-}
-
-/* Edited but not yet saved - distinct from .field-blocked (red,
-   invalid/missing), same box treatment so the two read as a clear pair
-   at a glance, not a subtler in-place tint. #e0824a is the source
-   design system's own established amber (Prototype-110826/CLAUDE.md:
-   "amber = degraded/pending/warning"), reused for consistency rather
-   than inventing a new one. Applied while cdEdits[key].draft differs
-   from .orig; cleared on discard or on save (the page fully re-renders
-   from a fresh payload either way). */
+/* Contact detail's field-attention highlight (2026-08-14, simplified):
+   blocked (missing/invalid, .field-blocked) and edited-but-unsaved
+   (.field-editing) no longer need to read as visually distinct - both
+   get the same subtle background tint, no border, replacing the old
+   red/amber bordered box. Contact-detail-scoped only, Opportunity/Test
+   Bed's own transition-blocking banner is untouched. 6% white sits
+   between the app's existing hover tint (.ref-field-display:hover, 4%)
+   and its active-nav tint (.nav-link.active, var(--hairline) = 12%) -
+   visible as a persistent state without being heavy. */
+.field-blocked,
 .field-editing {
-  border: 1px solid rgba(224,130,74,0.9);
+  background: rgba(242, 242, 240, 0.06);
   border-radius: 3px;
   padding: 8px;
   margin: 0 -8px;

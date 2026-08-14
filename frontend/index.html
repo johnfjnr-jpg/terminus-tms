@@ -311,7 +311,7 @@
          row, replacing the old 3-chip Manage picker. Qualify attempts the
          transition immediately; if blocked, this page is where you land -
          no banner or list (2026-08-13, replaced entirely, Contact-detail
-         only): each missing field gets a red box directly on itself
+         only): each missing field gets a subtle tint directly on itself
          (.field-blocked, see renderCdBlockedFields in contact-detail.js),
          clearing the moment it's genuinely resolved. -->
     <div style="display:flex;gap:10px;align-items:center;margin:20px 0;flex-wrap:wrap">
@@ -319,6 +319,15 @@
       <button class="btn-ghost" id="cd-btn-park">Park</button>
       <button class="btn-ghost" id="cd-btn-unqualify">Move to Unqualified</button>
       <span id="cd-action-feedback"></span>
+      <!-- Cancel/Save for open field edits, right-aligned onto this same
+           row (2026-08-14) - replaces the old "N fields open, M changed"
+           banner entirely, redundant now that each changed field carries
+           its own highlight. Hidden while no field is open/dirty, same
+           as the banner was. -->
+      <span style="flex:1"></span>
+      <button class="btn-ghost hidden" id="cd-cancel-all">Cancel</button>
+      <button class="btn-primary hidden" id="cd-save-all">Save</button>
+      <span id="cd-save-feedback"></span>
     </div>
 
     <!-- + Create (Test Bed/Opportunity) moved up here from below Notes
@@ -357,13 +366,6 @@
       </div>
     </div>
 
-    <div class="ref-edit-bar hidden" id="cd-edit-bar">
-      <span class="data-row-label" id="cd-edit-count" style="margin:0"></span>
-      <button class="btn-ghost" id="cd-cancel-all">Cancel</button>
-      <button class="btn-primary hidden" id="cd-save-all">Save</button>
-      <span id="cd-save-feedback"></span>
-    </div>
-
     <div class="ref-cards">
       <div class="pg-card">
         <p class="pg-card-title">Contact Details</p>
@@ -397,11 +399,12 @@
     </div>
 
     <div style="margin-top:28px">
-      <p class="label" style="margin-bottom:10px">Summary</p>
-      <!-- No inline border:none - it silently defeated .field-blocked's
-           red border by specificity (2026-08-13, real bug found: Summary
-           was correctly detected as blocking and correctly matched by
-           data-key, but the box never actually rendered). -->
+      <p class="label" style="margin-bottom:10px;color:var(--green)">Summary</p>
+      <!-- ref-field-noborder drops the stacked-row hairline separator for
+           this standalone full-width field - no longer a specificity
+           trap against .field-blocked now that it's a background tint,
+           not a border (2026-08-14), but kept as a real class rather
+           than an inline style regardless. -->
       <div class="ref-field ref-field-noborder" id="cd-field-summary-wrap" data-key="summary">
         <div class="ref-field-display" id="cd-display-summary" onclick="openCdField('summary')" style="font-size:14px">--</div>
         <div class="ref-field-edit hidden" id="cd-edit-summary">
@@ -410,8 +413,16 @@
         </div>
       </div>
 
-      <p class="label" style="margin:24px 0 10px">Notes History &middot; latest first</p>
+      <p class="label" style="margin:24px 0 10px;color:var(--green)">Notes History &middot; latest first</p>
       <div id="cd-notes-list"></div>
+      <!-- Add Note: manual entries into the same real Notes History as
+           field-edit/Park notes, available at every stage (2026-08-14) -
+           extracted from the prototype's identical Contact/Lead detail
+           mechanism (Terminus Ops.dc.html:404-407, 581-583), not guessed. -->
+      <div style="display:flex;gap:8px;align-items:center;margin-top:16px">
+        <input type="text" id="cd-new-note-input" placeholder="Record an interaction or update" style="flex:1">
+        <button class="btn-sm" id="cd-add-note">Add Note</button>
+      </div>
     </div>
 
     <div style="margin-top:20px" id="cd-delete-section"></div>
