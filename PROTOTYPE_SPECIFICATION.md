@@ -572,20 +572,30 @@ directly. No fields are mandatory purely to *create* the record —
 mandatory fields instead gate *stage progression*, via `stage_gate_rules`,
 same mechanism already built for Opportunity.
 
-**Correction made during build: region is not carried over.** The original
-plan listed "name, industry, country, region, linked Account" as fields
+**Correction made during build, Milestone 4: region was not carried over.
+Superseded, first real-use testing pass, 2026-08-15.** The original plan
+listed "name, industry, country, region, linked Account" as fields
 populated from the Contact. Once actually built, this was caught and
 corrected, Contact's `region` field is a continent-scale picklist
 (Americas, Europe & UK, Middle East, APAC, Africa), while Test Bed's own
-`region` field is UK-sub-national free text (Yorkshire, North West,
-Ireland), a distinction Section 6's picklist-discrepancy note already
-flagged but which hadn't been traced through to this specific consequence
-until the creation flow was actually built. Carrying the value over would
-have populated Test Bed's region field with something like "Europe & UK"
-instead of a real region name, actively misleading, not just imprecise.
-**Live build: name, industry, country, and account carry over. Region is
-left blank on creation from a Contact**, confirmed by direct query,
-genuinely absent from the payload, not an empty string.
+`region` field was UK-sub-national free text (Yorkshire, North West,
+Ireland). Carrying the value over would have populated Test Bed's region
+field with something like "Europe & UK" instead of a real region name,
+actively misleading, not just imprecise. Milestone 4's live build left
+region blank on creation instead.
+
+**Superseded after real, first-hand use of the built application.**
+Feedback from actually working through the Test Bed screens (not test
+scripts) confirmed the two fields being different scales was itself the
+problem worth fixing, not something to route around. **Business decision:
+Test Bed's own `region` field is no longer free text. It now reuses
+Contact's exact picklist** (Americas, Europe & UK, Middle East, APAC,
+Africa), one shared definition, not two lists that could drift apart.
+**With both fields now the same scale, region correctly carries over from
+Contact on Test Bed creation again**, reversing Milestone 4's blank-on-
+creation behaviour, which was the right call only while the scale
+mismatch existed. Built and confirmed, region carries over correctly and
+renders as the picklist value, not free text.
 
 Country resolution to the 3-letter ISO code `reference_code` generation
 needs is handled by `src/lib/country-code.js`, ported from the prototype's

@@ -14,13 +14,22 @@ let tbPayload = {}
 let tbBed = {}
 let tbEdits = {} // key -> { draft, orig }, same "only present entries are open" convention as opportunity-reference.js
 
+// Matches contact-detail.js's own region select exactly (2026-08-15 fix)
+// - Region changed from free text to this fixed picklist, reusing
+// Contact's existing definition rather than maintaining a second, since
+// the two fields are now genuinely the same scale (they weren't at
+// Milestone 4, which is why region was deliberately left uncarried at
+// creation then - see contacts.js's create-test-bed for the reversal).
+const REGION_OPTIONS = ['Americas', 'Europe & UK', 'Middle East', 'APAC', 'Africa']
+
 const TB_REFERENCE_FIELDS = [
   { key: 'terminusLead', label: 'Terminus Lead' },
   { key: 'commercialAuthority', label: 'Commercial Authority' },
   { key: 'technicalAuthority', label: 'Technical Authority' },
-  { key: 'region', label: 'Region' },
+  { key: 'region', label: 'Region', options: REGION_OPTIONS },
   { key: 'country', label: 'Country' },
 ]
+const TB_SUMMARY_FIELD = { key: 'summary', label: 'Summary' }
 // Matches VALID_SITE_OWNERSHIP in src/routes/test-beds.js exactly (no
 // frontend-reachable picklist-admin endpoint exists for this yet, same
 // gap already noted there - hardcoded here the same way, not a second,
@@ -52,7 +61,7 @@ const TB_OWNER_FIELDS = [
   { key: 'terminusLegalOwner', label: 'Terminus Legal Owner' },
   { key: 'initialLead', label: 'Initial Lead' },
 ]
-const TB_ALL_EDITABLE_FIELDS = [...TB_REFERENCE_FIELDS, ...TB_SITE_FIELDS, ...TB_DATE_FIELDS, ...TB_INSTALL_FIELDS, ...TB_OWNER_FIELDS]
+const TB_ALL_EDITABLE_FIELDS = [...TB_REFERENCE_FIELDS, ...TB_SITE_FIELDS, ...TB_DATE_FIELDS, ...TB_INSTALL_FIELDS, ...TB_OWNER_FIELDS, TB_SUMMARY_FIELD]
 
 const CLIENT_BUYER_ROLES = ['Client Commercial Buyer', 'Client Technical Buyer', 'Client Legal Buyer']
 
@@ -74,13 +83,22 @@ function tbFieldRow(key, label, value, opts = {}) {
     inputTag = `<input type="text" id="tb-input-${key}" value="${escHtml(v)}">`
   }
   const display = opts.number && v !== '' ? (opts.cost ? formatCost(v) : String(v)) : (escHtml(v) || '--')
+  // tabindex + keydown (2026-08-15 fix): confirmed nowhere in this app
+  // uses tabindex at all - .ref-field-display was never in the tab
+  // order, only its own <input>/<select> was, once opened. With every
+  // OTHER closed field also unreachable by keyboard, Tab from one open
+  // field skipped straight past the rest of this tab to whatever
+  // visible, natively-focusable element came next in the DOM (a bare
+  // <div onclick> isn't natively tabbable) - confirmed as the actual
+  // cause of "Tab from Terminus Lead jumps to Convert to Opportunity".
+  // Same fix applied to the discard control for full keyboard parity.
   return `
   <div class="ref-field" data-key="${key}">
     <div class="ref-field-label"><span>${label}</span></div>
-    <div class="ref-field-display" id="tb-display-${key}" onclick="openTbField('${key}')">${display}</div>
+    <div class="ref-field-display" id="tb-display-${key}" tabindex="0" onclick="openTbField('${key}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openTbField('${key}')}">${display}</div>
     <div class="ref-field-edit hidden" id="tb-edit-${key}">
       ${inputTag}
-      <span class="ref-field-discard" onclick="discardTbField('${key}')">&times;</span>
+      <span class="ref-field-discard" tabindex="0" onclick="discardTbField('${key}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();discardTbField('${key}')}">&times;</span>
     </div>
   </div>`
 }
@@ -94,10 +112,56 @@ function tbReadonlyRow(label, value) {
 }
 
 function renderTbReference() {
+  // Terminus Reference listed first, matching the prototype's own
+  // referenceRows order exactly (Terminus Ops.dc.html:744) - the same
+  // value already shown in the page-level stat card above, repeated
+  // here because the prototype's own field list includes it as one of
+  // the 8 main-content rows, not just a header stat.
   document.getElementById('tb-reference-rows').innerHTML =
-    TB_REFERENCE_FIELDS.map(f => tbFieldRow(f.key, f.label, tbPayload[f.key])).join('')
+    tbReadonlyRow('Terminus Reference', tbBed.reference_code)
+    + TB_REFERENCE_FIELDS.map(f => tbFieldRow(f.key, f.label, tbPayload[f.key], { options: f.options })).join('')
     + tbReadonlyRow('Industry', tbBed.industry?.name)
     + tbReadonlyRow('Stage', tbBed.status)
+
+  document.getElementById('tb-display-summary').textContent = tbPayload.summary || 'No summary captured yet.'
+  document.getElementById('tb-input-summary').value = tbPayload.summary ?? ''
+  document.getElementById('tb-edit-summary').classList.add('hidden')
+  document.getElementById('tb-display-summary').classList.remove('hidden')
+
+  renderTbNotes()
+
+  // Key Dates: relocated here from Site Details (2026-08-15 fix) - it's
+  // the Reference tab's own right-hand panel now, rendering into the
+  // same #tb-dates-rows id, just moved in the DOM, not duplicated.
+  document.getElementById('tb-dates-rows').innerHTML =
+    tbReadonlyRow('Date Created', formatDate(tbBed.created_at))
+    + TB_DATE_FIELDS.map(f => tbFieldRow(f.key, f.label, tbPayload[f.key])).join('')
+}
+
+function renderTbNotes() {
+  const notes = Array.isArray(tbPayload.notes) ? tbPayload.notes : []
+  const el = document.getElementById('tb-notes-list')
+  if (!notes.length) {
+    el.innerHTML = '<p class="empty-state">No notes yet.</p>'
+    return
+  }
+  el.innerHTML = notes.map(n => `
+    <div class="ref-notes-row">
+      <span class="ref-notes-when">${formatDate(n.at)}</span><span class="ref-notes-author">${escHtml(n.by ?? '')}</span><span class="ref-notes-text">${escHtml(n.text)}</span>
+    </div>`).join('')
+}
+
+window.addTbNote = async function () {
+  const input = document.getElementById('tb-note-input')
+  const text = input.value.trim()
+  if (!text) return
+  const existing = Array.isArray(tbPayload.notes) ? tbPayload.notes : []
+  const notes = [{ text, at: new Date().toISOString(), by: currentSession?.user?.email ?? '' }, ...existing]
+  const result = await api('PATCH', `/api/test-beds/${tbDetailId}`, { payload: { notes } })
+  if (result.ok) {
+    input.value = ''
+    await loadTestBedDetail(tbDetailId)
+  }
 }
 
 function renderTbSiteDetails() {
@@ -113,10 +177,6 @@ function renderTbSiteDetails() {
     + tbFieldRow('indicativeCost', 'Indicative Cost', tbPayload.indicativeCost, { number: true, cost: true })
 
   renderTbSensors()
-
-  document.getElementById('tb-dates-rows').innerHTML =
-    tbReadonlyRow('Date Created', formatDate(tbBed.created_at))
-    + TB_DATE_FIELDS.map(f => tbFieldRow(f.key, f.label, tbPayload[f.key])).join('')
 
   document.getElementById('tb-install-rows').innerHTML =
     TB_INSTALL_FIELDS.map(f => tbFieldRow(f.key, f.label, tbPayload[f.key])).join('')
@@ -361,6 +421,7 @@ function wireTbOnce() {
   document.getElementById('tb-save-all').addEventListener('click', saveTbFields)
   document.getElementById('tb-usecase-add').addEventListener('click', () => window.addTbUseCase())
   document.getElementById('tb-install-note-add').addEventListener('click', () => window.addTbInstallNote())
+  document.getElementById('tb-note-add').addEventListener('click', () => window.addTbNote())
 }
 
 // ── Entry point, called by app.js's renderTestBedDetail() ─────────────────

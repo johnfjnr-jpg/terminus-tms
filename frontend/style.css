@@ -598,6 +598,32 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
   justify-content: flex-end;
   gap: 8px;
   flex-wrap: wrap;
+  position: relative;
+}
+
+/* Row action popup (2026-08-15 fix, replaces the old inline-expanding
+   .contact-manage-panel for this row only - that class stays as-is for
+   the Leads list's read-only history panel, a separate caller that
+   shares the name but not this behaviour, not touched here). Anchored
+   to .contact-row-actions (position:relative above) rather than
+   computed via JS/getBoundingClientRect - it floats over the row(s)
+   below via position:absolute, out of normal flow, so opening it never
+   pushes other rows down. Closed via a document-level click-outside
+   listener and Escape (app.js), since every interactive element inside
+   it and its own trigger button stop propagation. */
+.contact-row-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 20;
+  background: var(--black);
+  border: 1px solid var(--hairline-strong);
+  padding: 16px;
+  min-width: 260px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
 }
 
 .contact-grid-head {
@@ -621,9 +647,12 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
 .contact-grid-row + .contact-grid-row,
 .contact-manage-panel + .contact-grid-row { margin-top: 8px; }
 
-/* Contacts list rows and their expandable manage panels are siblings in
-   the DOM (not nested), so the row keeps .contact-grid-row's grid layout
-   and the panel below it is full width. */
+/* Now only the Leads list's read-only history panel (renderLegacyLeadHistoryPanel,
+   app.js) - the Contacts row's own Manage panel moved to .contact-row-menu
+   above (2026-08-15 fix, popup instead of inline-expand) and no longer
+   shares this class. Row and panel here are still siblings in the DOM
+   (not nested), so the row keeps .contact-grid-row's grid layout and the
+   panel below it is full width. */
 .contact-manage-panel {
   background: var(--black);
   border: 1px solid var(--hairline-strong);
@@ -784,8 +813,17 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
 .chevron-strip.many {
   height: 52px;
 }
+/* Sizing/contrast matched exactly to Opportunity's own stage tracker
+   (2026-08-15 fix) - checked .tlabel's actual values first rather than
+   guessing new ones: font-size 10.5px, done/upcoming colors already
+   identical (var(--muted)/var(--muted-2), unchanged here). Current-state
+   contrast is deliberately NOT copied from .tlabel (white text, no
+   background change) - chevron's current state fills the whole shape
+   with var(--green), so var(--dark) text is what's actually readable
+   there, matching .tlabel's own white-on-transparent contrast logic
+   applied to a filled shape instead of a bare dot. */
 .chevron-strip.many .chevron-item {
-  font-size: 8px;
+  font-size: 10.5px;
   padding: 0 10px;
   white-space: normal;
   line-height: 1.3;
@@ -1525,6 +1563,23 @@ textarea::placeholder { color: var(--muted-2); }
   gap: 16px;
   margin-bottom: 28px;
   align-items: start;
+}
+
+/* Test Bed Reference tab (Milestone 4 fix, 2026-08-15): main content
+   left, Key Dates as a genuine right-hand panel - exact column values
+   from the prototype's own template (Terminus Ops.dc.html:742),
+   checked directly rather than guessed. Collapses to one column below
+   the point a 300px side panel stops being usable next to real content. */
+.tb-ref-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 32px;
+  align-items: start;
+}
+@media (max-width: 760px) {
+  .tb-ref-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .ref-field {

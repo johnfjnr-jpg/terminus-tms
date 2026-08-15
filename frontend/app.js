@@ -623,11 +623,10 @@ function renderContactGrid(containerId, statusPredicate, mineOnly, emptyLabel) {
     const account = accountsCache.find(a => a.id === c.parent_record_id)
     const companyDisplay = account?.payload?.name ?? p.company ?? '--'
     const industry = industriesCache.find(i => i.id === c.industry_id)
-    const isExpanded = expandedContactId === c.id
     return `
-    <div class="contact-grid-row">
+    <div class="contact-grid-row" style="cursor:pointer" onclick="navigate('contact-detail', '${c.id}')">
       <div class="contact-row-name">
-        <div class="rg-title" style="cursor:pointer" onclick="navigate('contact-detail', '${c.id}')">${escHtml(p.name ?? '--')}</div>
+        <div class="rg-title">${escHtml(p.name ?? '--')}</div>
       </div>
       <span>${escHtml(companyDisplay)}</span>
       <span>${escHtml(industry?.name ?? '--')}</span>
@@ -636,7 +635,6 @@ function renderContactGrid(containerId, statusPredicate, mineOnly, emptyLabel) {
       <span>${escHtml(p.source ?? '--')}</span>
       <div class="contact-row-actions">${renderContactRowActions(c)}</div>
     </div>
-    ${isExpanded ? renderContactManagePanel(c) : ''}
     `
   }).join('')
 }
@@ -646,16 +644,28 @@ function renderContactGrid(containerId, statusPredicate, mineOnly, emptyLabel) {
 // renderContactRowActions is Contacts-only (Leads has its own
 // renderLeadsCards above), so c.status is always 'Qualified' here -
 // "Manage" survives only for + Create (Qualified only) and Delete.
+//
+// Real popup menu (2026-08-15 fix), not the old inline-expanding panel
+// that pushed rows below it down the page - see .contact-row-menu in
+// style.css for the positioning mechanism. The trigger stops
+// propagation so opening/closing it never also fires the row's own
+// onclick (whole-row-navigates, added in the same fix below).
 function renderContactRowActions(c) {
   const isExpanded = expandedContactId === c.id
-  return `<button class="btn-text" onclick="toggleContactManage('${c.id}')">${isExpanded ? 'Close' : 'Manage'}</button>`
+  return `
+  <button class="btn-text" onclick="event.stopPropagation();toggleContactRowMenu('${c.id}')">${isExpanded ? 'Close' : 'Manage'}</button>
+  ${isExpanded ? renderContactRowMenu(c) : ''}
+  `
 }
 
-function renderContactManagePanel(c) {
+function renderContactRowMenu(c) {
   const isQualified = c.status === 'Qualified'
 
+  // Stops propagation once, on the wrapper, rather than on every button
+  // inside it - anything clicked in here (Create, Delete, the feedback
+  // link) is caught before it can bubble to the row's own navigate.
   return `
-  <div class="contact-manage-panel" id="contact-manage-${c.id}">
+  <div class="contact-row-menu" id="contact-manage-${c.id}" onclick="event.stopPropagation()">
     ${isQualified ? `
     <div class="contact-manage-create">
       <span class="cm-label">+ Create</span>
@@ -669,10 +679,26 @@ function renderContactManagePanel(c) {
   </div>`
 }
 
-window.toggleContactManage = (id) => {
+window.toggleContactRowMenu = (id) => {
   expandedContactId = expandedContactId === id ? null : id
   renderBothContactGrids()
 }
+
+// Click-outside-to-close: every interactive element inside the open
+// menu (and its own trigger) stops propagation, so any click that
+// reaches document is by definition outside both - no closest()
+// checks needed. Escape mirrors this app's other overlays.
+document.addEventListener('click', () => {
+  if (!expandedContactId) return
+  expandedContactId = null
+  renderBothContactGrids()
+})
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && expandedContactId) {
+    expandedContactId = null
+    renderBothContactGrids()
+  }
+})
 
 window.createFromContact = async (id, type) => {
   const feedback = document.getElementById(`contact-create-feedback-${id}`)
@@ -690,12 +716,74 @@ window.createFromContact = async (id, type) => {
   feedback.innerHTML = `<p class="msg-success">Created. <button class="btn-text" style="color:var(--green)" onclick="navigate('${view}', '${result.data.id}')">View it</button></p>`
 }
 
-window.deleteContact = async (id) => {
-  const result = await api('DELETE', `/api/contacts/${id}`)
-  if (!result.ok) return
-  expandedContactId = null
-  await loadContactsData()
+// Not routed through openDiscardConfirm (2026-08-15 check): that dialog's
+// heading/button text ("Discard unsaved changes?" / "Keep editing" /
+// "Discard") is hardcoded in index.html for the unsaved-edits case it
+// was built for (Park, New Lead, contact-detail's guarded actions) and
+// has no way to interpolate a record name - reusing it here would either
+// misword the prompt or require changing it everywhere else it's used.
+// Built as its own dialog instead, same mechanics (focus trap, Escape,
+// backdrop-click cancels) as openDiscardConfirm, not duplicated logic
+// bolted onto it.
+window.deleteContact = (id) => {
+  const c = contactsCache.find(cc => cc.id === id)
+  const name = c?.payload?.name ?? 'this contact'
+  openConfirmDelete(name, async () => {
+    expandedContactId = null
+    const result = await api('DELETE', `/api/contacts/${id}`)
+    if (!result.ok) return
+    await loadContactsData()
+  })
 }
+
+let confirmDeleteCallback = null
+let confirmDeleteKeydownHandler = null
+
+function openConfirmDelete(name, onConfirm) {
+  confirmDeleteCallback = onConfirm
+  document.getElementById('confirm-delete-name').textContent = name
+  document.getElementById('confirm-delete-modal').classList.remove('hidden')
+  document.getElementById('confirm-delete-cancel').focus()
+
+  confirmDeleteKeydownHandler = (e) => {
+    if (e.key === 'Escape') {
+      e.preventDefault()
+      closeConfirmDelete()
+      return
+    }
+    if (e.key !== 'Tab') return
+    const focusable = [document.getElementById('confirm-delete-cancel'), document.getElementById('confirm-delete-confirm')]
+    const first = focusable[0]
+    const last = focusable[focusable.length - 1]
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault()
+      last.focus()
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault()
+      first.focus()
+    }
+  }
+  document.addEventListener('keydown', confirmDeleteKeydownHandler)
+}
+
+function closeConfirmDelete() {
+  document.getElementById('confirm-delete-modal').classList.add('hidden')
+  if (confirmDeleteKeydownHandler) {
+    document.removeEventListener('keydown', confirmDeleteKeydownHandler)
+    confirmDeleteKeydownHandler = null
+  }
+  confirmDeleteCallback = null
+}
+
+document.getElementById('confirm-delete-cancel').addEventListener('click', closeConfirmDelete)
+document.getElementById('confirm-delete-confirm').addEventListener('click', () => {
+  const callback = confirmDeleteCallback
+  closeConfirmDelete()
+  if (callback) callback()
+})
+document.getElementById('confirm-delete-modal').addEventListener('click', (e) => {
+  if (e.target.id === 'confirm-delete-modal') closeConfirmDelete()
+})
 
 // ── Shared discard-confirmation dialog ──────────────────────────────────
 // One dialog (2026-08-13), used by both New Lead (below) and Park
@@ -1065,7 +1153,8 @@ async function renderTestBedDetail(bed) {
   await renderTestBedDocuments(bed)
   renderTransitionSection('tb-transition-section', 'tb-transition-feedback', bed.id, bed.status, stages)
   await loadTbStageApprovals(bed.id)
-  renderTestBedConvertSection(bed)
+  wireTestBedConvertOnce()
+  resetTestBedConvertForm()
 }
 
 let openDocForm = null
@@ -1228,35 +1317,26 @@ window.submitDocumentForm = async (bedId, documentType) => {
 // none of the generic display mechanism. Replaced by loadTbStageApprovals()
 // above, the same real pattern Opportunity's Approvals tab already uses.
 
-function renderTestBedConvertSection(bed) {
-  const section = document.getElementById('tb-convert-section')
-  section.innerHTML = `
-    <div class="data-row">
-      <div>
-        <span style="font-size:14px">Create Opportunity from this Test Bed</span>
-        <span class="data-row-label">A new Opportunity is created. This Test Bed continues its own lifecycle unchanged.</span>
-      </div>
-      <button class="btn-ghost" onclick="showTestBedConvertForm('${bed.id}')">Convert to Opportunity</button>
-    </div>
-    <div id="tb-convert-form-wrap" class="hidden" style="margin-top:12px">
-      <div class="convert-form">
-        <div class="form-group">
-          <label>Opportunity name</label>
-          <input type="text" id="tb-opp-name" placeholder="e.g. Acme Commercial Rollout">
-        </div>
-        <button class="btn-primary" onclick="convertTestBed('${bed.id}')">Create Opportunity</button>
-        <button class="btn-ghost" onclick="hideTestBedConvertForm()">Cancel</button>
-      </div>
-      <div id="tb-convert-feedback"></div>
-    </div>
-  `
+// Convert to Opportunity: relocated to the detail-head, top-right
+// (2026-08-15 fix, see index.html) - the trigger/submit/cancel buttons
+// are now static markup (not regenerated per Test Bed), wired once like
+// every other static control in this file, using currentTestBed.id at
+// click time instead of baking the id into inline onclick handlers.
+function resetTestBedConvertForm() {
+  document.getElementById('tb-convert-form-wrap').classList.add('hidden')
+  document.getElementById('tb-convert-feedback').innerHTML = ''
+  document.getElementById('tb-opp-name').value = ''
 }
 
-window.showTestBedConvertForm = () => {
-  document.getElementById('tb-convert-form-wrap').classList.remove('hidden')
-}
-window.hideTestBedConvertForm = () => {
-  document.getElementById('tb-convert-form-wrap').classList.add('hidden')
+let testBedConvertWired = false
+function wireTestBedConvertOnce() {
+  if (testBedConvertWired) return
+  testBedConvertWired = true
+  document.getElementById('tb-convert-trigger').addEventListener('click', () => {
+    document.getElementById('tb-convert-form-wrap').classList.remove('hidden')
+  })
+  document.getElementById('tb-convert-cancel').addEventListener('click', resetTestBedConvertForm)
+  document.getElementById('tb-convert-submit').addEventListener('click', () => window.convertTestBed(currentTestBed.id))
 }
 
 window.convertTestBed = async (id) => {

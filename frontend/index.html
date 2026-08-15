@@ -512,7 +512,31 @@
         <h1 id="tb-detail-name"></h1>
         <p class="sub" id="tb-detail-client"></p>
       </div>
-      <span class="tag">R&amp;D</span>
+      <!-- Convert to Opportunity: moved here from the page bottom
+           (2026-08-15) - checked first for an existing top-right
+           secondary-action convention, none exists anywhere in this app
+           (the .tag badge in this same spot is passive, never a
+           clickable action). btn-ghost is the established lower-emphasis
+           button style already used for Cancel/Back/Delete elsewhere;
+           this reuses it rather than inventing a new "secondary action"
+           style, positioned top-right by best judgment given no real
+           precedent to match. -->
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:10px">
+        <span class="tag">R&amp;D</span>
+        <button class="btn-ghost btn-sm" id="tb-convert-trigger">Convert to Opportunity</button>
+      </div>
+    </div>
+
+    <div id="tb-convert-form-wrap" class="hidden" style="margin-bottom:20px">
+      <div class="convert-form">
+        <div class="form-group">
+          <label>Opportunity name</label>
+          <input type="text" id="tb-opp-name" placeholder="e.g. Acme Commercial Rollout">
+        </div>
+        <button class="btn-primary" id="tb-convert-submit">Create Opportunity</button>
+        <button class="btn-ghost" id="tb-convert-cancel">Cancel</button>
+      </div>
+      <div id="tb-convert-feedback"></div>
     </div>
 
     <div id="tb-chevron-strip" class="chevron-strip"></div>
@@ -543,11 +567,54 @@
       <button class="detail-tab" data-tb-tab="approvals">Approvals</button>
     </div>
 
+    <!-- Page-level save bar (2026-08-15 fix), not nested inside either
+         tab panel - the real bug found in the pre-build check: tbEdits
+         is shared across Reference AND Site Details fields, but the
+         only Save action used to live physically inside the Site
+         Details panel, so editing a Reference field (Terminus Lead,
+         Region, ...) gave no visible way to commit it without switching
+         tabs first. One bar, visible from both tabs, top-right per the
+         confirmed fix. -->
+    <div id="tb-save-bar" class="ref-edit-bar hidden" style="justify-content:flex-end">
+      <span id="tb-save-count"></span>
+      <button class="btn-ghost btn-sm" id="tb-cancel-all">Cancel</button>
+      <button class="btn-primary btn-sm" id="tb-save-all">Save changes</button>
+      <span id="tb-save-feedback"></span>
+    </div>
+
     <!-- ── Reference tab ──────────────────────────────────────────────── -->
+    <!-- Two-column layout matching the prototype's actual Test Bed
+         Reference tab template exactly (Terminus Ops.dc.html:742,
+         grid-template-columns:minmax(0,1fr) 300px), not just the field
+         list - Milestone 4 never extracted this, only the field names.
+         Key Dates is a genuine right-hand panel, not another stacked
+         card. Summary/Notes sit below, full width, per the same
+         template (:785-811). -->
     <div class="detail-tab-panel" id="tb-tab-reference">
-      <div class="pg-card">
-        <p class="pg-card-title">Reference</p>
+      <div class="tb-ref-layout">
         <div id="tb-reference-rows"></div>
+        <div class="pg-card">
+          <p class="pg-card-title">Key Dates</p>
+          <div id="tb-dates-rows"></div>
+        </div>
+      </div>
+      <div style="margin-top:28px">
+        <p class="pg-card-title">Summary</p>
+        <div class="ref-field" id="tb-field-summary-wrap" data-key="summary" style="border:none">
+          <div class="ref-field-display" id="tb-display-summary" tabindex="0" onclick="openTbField('summary')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openTbField('summary')}" style="font-size:14px">--</div>
+          <div class="ref-field-edit hidden" id="tb-edit-summary">
+            <textarea id="tb-input-summary" rows="3" style="flex:1"></textarea>
+            <span class="ref-field-discard" tabindex="0" onclick="discardTbField('summary')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();discardTbField('summary')}">&times;</span>
+          </div>
+        </div>
+      </div>
+      <div style="margin-top:24px">
+        <p class="pg-card-title">Notes</p>
+        <div id="tb-notes-list"></div>
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <input type="text" id="tb-note-input" placeholder="Add a note">
+          <button class="btn-sm" id="tb-note-add">Add</button>
+        </div>
       </div>
     </div>
 
@@ -560,10 +627,6 @@
       <div class="pg-card" style="margin-top:20px">
         <p class="pg-card-title">Sensors</p>
         <div id="tb-sensors-list"></div>
-      </div>
-      <div class="pg-card" style="margin-top:20px">
-        <p class="pg-card-title">Key Dates</p>
-        <div id="tb-dates-rows"></div>
       </div>
       <div class="pg-card" style="margin-top:20px">
         <p class="pg-card-title">Installation</p>
@@ -592,12 +655,6 @@
           <input type="text" id="tb-usecase-input" placeholder="Add a use case">
           <button class="btn-sm" id="tb-usecase-add">Add</button>
         </div>
-      </div>
-      <div id="tb-save-bar" class="ref-edit-bar hidden">
-        <span id="tb-save-count"></span>
-        <button class="btn-ghost btn-sm" id="tb-cancel-all">Cancel</button>
-        <button class="btn-primary btn-sm" id="tb-save-all">Save changes</button>
-        <span id="tb-save-feedback"></span>
       </div>
     </div>
 
@@ -636,11 +693,6 @@
         <p class="section-title">Stage transition</p>
         <div id="tb-transition-section"></div>
       </div>
-    </div>
-
-    <div style="margin-top:32px">
-      <p class="section-title">Convert to Opportunity</p>
-      <div id="tb-convert-section"></div>
     </div>
   </div>
 
@@ -794,10 +846,10 @@
         <p class="label" style="margin-bottom:10px">Executive Summary &middot; <span id="ref-opptype-value">--</span></p>
         <div id="ref-opptype-row"></div>
         <div class="ref-field" id="ref-field-summary-wrap" data-key="summary" style="border:none">
-          <div class="ref-field-display" id="ref-display-summary" onclick="openRefField('summary')" style="font-size:14px">--</div>
+          <div class="ref-field-display" id="ref-display-summary" tabindex="0" onclick="openRefField('summary')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openRefField('summary')}" style="font-size:14px">--</div>
           <div class="ref-field-edit hidden" id="ref-edit-summary">
             <textarea id="ref-input-summary" rows="3" style="flex:1"></textarea>
-            <span class="ref-field-discard" onclick="discardRefField('summary')">&times;</span>
+            <span class="ref-field-discard" tabindex="0" onclick="discardRefField('summary')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();discardRefField('summary')}">&times;</span>
           </div>
         </div>
 
@@ -1175,6 +1227,25 @@
     <div class="form-actions" style="margin-top:20px">
       <button class="btn-primary" id="discard-confirm-keep">Keep editing</button>
       <button class="btn-ghost" id="discard-confirm-discard">Discard</button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete confirmation (2026-08-15, Contacts row menu) - a separate
+     dialog from discard-confirm above, not a reuse: that one's text is
+     hardcoded to the unsaved-edits case and can't carry a record name.
+     Same mechanics (focus trap, Escape/backdrop-click both cancel,
+     destructive action never fires from an ambiguous input), and the
+     same "safe action gets the emphasised style" convention (Cancel is
+     btn-primary, Delete is btn-ghost) - the destructive option is never
+     the visually loudest one. -->
+<div id="confirm-delete-modal" class="hidden modal-backdrop" style="z-index:200">
+  <div class="modal-panel" role="alertdialog" aria-modal="true" aria-labelledby="confirm-delete-heading">
+    <p class="eyebrow" id="confirm-delete-heading">Delete this contact?</p>
+    <p id="confirm-delete-name" style="margin-top:10px;color:var(--white);font-size:15px"></p>
+    <div class="form-actions" style="margin-top:20px">
+      <button class="btn-primary" id="confirm-delete-cancel">Cancel</button>
+      <button class="btn-ghost" id="confirm-delete-confirm">Delete</button>
     </div>
   </div>
 </div>

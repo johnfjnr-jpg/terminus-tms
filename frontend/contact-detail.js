@@ -136,6 +136,20 @@ let cdLinkInFlight = false
 
 window.linkCdAccount = async function (btn, accountId, newAccountName) {
   if (cdLinkInFlight) return
+  // Same shared discard-confirmation dialog as Park's Cancel/close
+  // (2026-08-15 fix) - "Keep editing" just closes the dialog, returning
+  // control so the user can click the already-visible Save button
+  // themselves before retrying; "Discard" proceeds with the link,
+  // accepting the loss the same way Park's own Discard accepts losing
+  // its form.
+  if (cdHasDirtyEdits()) {
+    openDiscardConfirm(() => performLinkCdAccount(btn, accountId, newAccountName))
+    return
+  }
+  await performLinkCdAccount(btn, accountId, newAccountName)
+}
+
+async function performLinkCdAccount(btn, accountId, newAccountName) {
   cdLinkInFlight = true
 
   const allButtons = document.querySelectorAll('#cd-link-results button')
@@ -355,6 +369,20 @@ function updateCdEditBar() {
   document.getElementById('cd-btn-qualify').disabled = dirtyCount > 0
 }
 
+// Same dirtyCount definition as updateCdEditBar above - a field merely
+// open-for-edit but untouched (draft === orig) isn't actually at risk,
+// only a real, unsaved change is. Found live (2026-08-15): linkCdAccount
+// and attemptContactUnqualifyFromDetail both end in an unconditional
+// loadContactDetail(), which resets cdEdits = {} on every fresh render -
+// any field genuinely dirty at that moment is silently discarded, no
+// warning. Reproduced for real (LinkedIn typed but not saved, then Link
+// to Account clicked) and confirmed via direct database query: the
+// field was never persisted anywhere, backend behaved correctly given
+// what it received, this was purely a client-side gap.
+function cdHasDirtyEdits() {
+  return Object.keys(cdEdits).some(k => cdEdits[k].draft !== cdEdits[k].orig)
+}
+
 // Genuinely comprehensive (2026-08-14): if the Add Note input is open
 // and dirty when this fires, its text rides along in this same write,
 // not a second PATCH. The server does a shallow merge of payload onto
@@ -464,6 +492,19 @@ window.onCdAddNoteClick = async function () {
   const text = input.value.trim()
   if (!text) return
 
+  // Same fix and same shared modal as linkCdAccount/
+  // attemptContactUnqualifyFromDetail (2026-08-15) - this is a separate
+  // input from cdEdits, but its own submit still ends in an unconditional
+  // loadContactDetail(), which would silently discard any OTHER field
+  // left open and dirty elsewhere on the page.
+  if (cdHasDirtyEdits()) {
+    openDiscardConfirm(() => performCdAddNote(text))
+    return
+  }
+  await performCdAddNote(text)
+}
+
+async function performCdAddNote(text) {
   const result = await addContactNote(cdContactId, text, cdPayload.notes)
   if (!result.ok) return
 
@@ -586,6 +627,15 @@ window.attemptContactQualifyFromDetail = async function () {
 }
 
 window.attemptContactUnqualifyFromDetail = async function () {
+  // Same fix and same shared modal as linkCdAccount above (2026-08-15).
+  if (cdHasDirtyEdits()) {
+    openDiscardConfirm(performContactUnqualify)
+    return
+  }
+  await performContactUnqualify()
+}
+
+async function performContactUnqualify() {
   await api('POST', `/api/records/${cdContactId}/transition`, { to_stage: 'Unqualified' })
   await loadContactsData()
   await loadContactDetail(cdContactId)
@@ -708,6 +758,40 @@ async function saveCdParkForm() {
     errEl.classList.remove('hidden')
     return
   }
+
+  // Same fix and same shared modal as the other 3 sites (2026-08-15).
+  // Checked only after Park's own validation passes - showing the
+  // unrelated-field warning before the user even has a valid date/reason
+  // would be confusing ordering; cd-btn-park has no dirty-disable guard
+  // the way Qualify does, so this is the only point that actually blocks
+  // the loadContactDetail() at the end from silently discarding some
+  // other field left open elsewhere on the page.
+  //
+  // Real bug found testing this (2026-08-15): the Park form is a
+  // position:fixed full-screen popup. Leaving it open while showing the
+  // discard-confirm modal on top of it (confirmed via elementFromPoint:
+  // the popup intercepts the click) meant choosing "Keep editing" left
+  // the user stuck - unable to reach the main Save button to actually
+  // save the field they'd supposedly gone back to save, since the popup
+  // still covered it. Closing the Park form first, before the confirm
+  // modal opens, is what actually makes "Keep editing" reachable in
+  // both branches - Discard already closes it anyway as part of a
+  // successful park (performSaveCdParkForm's own closeCdParkForm() call
+  // at the end), so this doesn't change that path, only makes Keep
+  // editing symmetrical with it. The date/reason just typed is lost
+  // either way, same as Park's own existing Cancel-while-dirty behaviour
+  // (its own discard-confirm usage), not new data loss - nothing here
+  // was ever submitted.
+  if (cdHasDirtyEdits()) {
+    closeCdParkForm()
+    openDiscardConfirm(() => performSaveCdParkForm(date, reason))
+    return
+  }
+  await performSaveCdParkForm(date, reason)
+}
+
+async function performSaveCdParkForm(date, reason) {
+  const errEl = document.getElementById('cd-park-error')
 
   const note = {
     text: `Contact parked. Follow up on ${formatDate(date)}. ${reason}`,

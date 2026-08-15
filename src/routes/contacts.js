@@ -629,14 +629,16 @@ export default async function contactsRoutes(app) {
   // theoretical case where issueReferenceNumber's own country_code
   // validation still rejects an unmapped/empty value.
   //
-  // region is deliberately NOT carried over here (2026-08-15, confirmed
-  // business decision) - Contact's region field is a continent-scale
-  // picklist (Americas/Europe & UK/...), Test Bed's own Region field is
-  // UK-sub-national free text (Yorkshire, North West/...), PROTOTYPE_
-  // SPECIFICATION.md Section 6 already flags these as different-scale
-  // concepts. Populating one from the other would be actively misleading,
-  // not just imprecise - left blank on creation instead, filled in later
-  // via PATCH /test-beds/:id once someone knows the real answer.
+  // region IS now carried over (2026-08-15, reverses the Milestone 4
+  // decision above it used to sit next to). That decision was correct at
+  // the time: Contact's region was a continent-scale picklist, Test
+  // Bed's own Region was UK-sub-national free text, genuinely different
+  // scales, carrying one into the other would have been misleading. Test
+  // Bed's Region is now the identical fixed picklist as Contact's
+  // (Americas/Europe & UK/Middle East/APAC/Africa, see REGION_OPTIONS in
+  // test-bed-detail.js) - same scale, same values, so carrying it over
+  // is now the honest, correct default, not the mistake it would have
+  // been before.
   app.post('/contacts/:id/create-test-bed', async (request, reply) => {
     const db = createUserClient(request.jwt)
     const { contact, accountName, contactPayload, error } = await loadQualifiedContact(db, request.params.id)
@@ -694,7 +696,8 @@ export default async function contactsRoutes(app) {
         revision_number: 1,
         payload: {
           name, client_organisation: accountName ?? '', notes: null, accumulated_cost: 0,
-          country: contactPayload.country ?? null
+          country: contactPayload.country ?? null,
+          region: contactPayload.region ?? null
         },
         created_by: request.user.id
       })

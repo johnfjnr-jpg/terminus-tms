@@ -73,13 +73,22 @@ function refFieldRow(key, label, value, opts = {}) {
   } else {
     inputTag = `<input type="text" id="ref-input-${key}" value="${escHtml(v)}">`
   }
+  // tabindex + keydown (2026-08-15 fix, same mechanism as Test Bed's
+  // Reference tab): .ref-field-display was never in the tab order, only
+  // its own <input>/<select> was once opened - with every OTHER closed
+  // field also unreachable by keyboard, Tab from one open field skipped
+  // straight past the rest of this tab to whatever visible, natively-
+  // focusable element came next in the DOM (a bare <div onclick> isn't
+  // natively tabbable), confirmed live as Tab from Terminus Lead jumping
+  // to the Account card's "Link to Account" button. Same fix applied to
+  // the discard control for full keyboard parity.
   return `
   <div class="ref-field" data-key="${key}">
     <div class="ref-field-label"><span>${label}</span></div>
-    <div class="ref-field-display" id="ref-display-${key}" onclick="openRefField('${key}')">${escHtml(v) || '--'}</div>
+    <div class="ref-field-display" id="ref-display-${key}" tabindex="0" onclick="openRefField('${key}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openRefField('${key}')}">${escHtml(v) || '--'}</div>
     <div class="ref-field-edit hidden" id="ref-edit-${key}">
       ${inputTag}
-      <span class="ref-field-discard" onclick="discardRefField('${key}')">&times;</span>
+      <span class="ref-field-discard" tabindex="0" onclick="discardRefField('${key}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();discardRefField('${key}')}">&times;</span>
     </div>
   </div>`
 }
