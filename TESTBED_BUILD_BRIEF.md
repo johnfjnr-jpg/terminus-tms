@@ -18,7 +18,7 @@ Do not silently reframe or guess.
 
 ---
 
-## Milestone 1: Reference number generator, atomic counter
+## Milestone 1: Reference number generator, atomic counter ✅ COMPLETE
 
 Fix the concurrency risk in the current reference generation approach.
 
@@ -46,7 +46,7 @@ non-duplicate reference numbers.
 
 ---
 
-## Milestone 2: Test Bed core record type
+## Milestone 2: Test Bed core record type ✅ COMPLETE
 
 - Register Test Bed as a record type on the generic engine. Extend, do not
   fork.
@@ -81,7 +81,7 @@ are all present.
 
 ---
 
-## Milestone 3: Account precondition and buyer contact relationships
+## Milestone 3: Account precondition and buyer contact relationships ✅ COMPLETE
 
 - A linked `account_id` is a hard precondition at Test Bed creation, not a
   Qualification exit field. If the source Contact (when creating via
@@ -102,6 +102,35 @@ are all present.
 **Test before moving on:** attempt to set a Client Buyer field to a Contact
 not linked to the Test Bed's Account, confirm it's rejected. Confirm
 Qualification cannot be exited until all three buyer roles are linked.
+
+**What actually happened, signed off:**
+
+- `account_id` built as a dedicated column, not `parent_record_id`,
+  confirmed 2 live records already used `parent_record_id` for a legacy,
+  superseded Lead pointer, reusing it would have silently corrupted those.
+- Enforced at two layers: application validation in both creation
+  endpoints, plus a `record_type`-conditioned `CHECK` constraint at the
+  database level, proven with real rejected and accepted inserts, not
+  just endpoint tests.
+- **Retroactive correction to Milestone 2:** a second real creation path,
+  `POST /contacts/:id/create-test-bed`, had the same stale `status: 'NDA'`
+  bug Milestone 2's fix never reached. Both paths are fixed now.
+- **The entire live `test_bed` dataset (8 records) was confirmed test or
+  placeholder data, not real clients**, investigated individually before
+  any backfill decision, then soft-deleted rather than backfilled with a
+  fabricated Account. Production starts Milestone 4 with zero real Test
+  Bed records.
+- `NOT VALID` on the `CHECK` constraint didn't exempt those 8 records from
+  future writes, including soft-delete itself, discovered live. Fixed by
+  adding a `deleted_at IS NOT NULL` escape to the constraint, re-tested,
+  all original cases still hold.
+- `contact_role_linked` requirement type built generically in
+  `transitions.js`'s existing gate loop, not special-cased, tested with a
+  real escalating gate check, payload fields alone, then buyer roles
+  linked one at a time, confirming each blocks independently.
+- Owner-field rename confirmed as a naming decision only, no live data
+  contains the old field names, nothing to migrate, carried into
+  Milestone 4 below.
 
 ---
 

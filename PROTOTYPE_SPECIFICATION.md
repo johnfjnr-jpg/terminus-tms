@@ -344,6 +344,24 @@ the existing `record_contacts` join table, tagged by role. Initial Lead
 stays separate: it is the client-side person who originated the engagement,
 not necessarily any of the three sign-off buyers, per business decision.
 
+**Buyer-role linking built, Milestone 3.** New `stage_gate_rules`
+requirement type, `contact_role_linked`, a generic branch added to
+`transitions.js`'s existing gate loop, checked the same data-driven way
+as every other requirement type, not special-cased per record type. The
+3 roles use deliberate title case, Client Commercial Buyer, Client
+Technical Buyer, Client Legal Buyer, distinct from the existing lowercase
+`'commercial buyer'` default already used elsewhere in `record_contacts`,
+so the two are never confused. Save-time validation confirmed real,
+tested live: rejects linking a Contact whose own `parent_record_id`
+doesn't match the Test Bed's `account_id`.
+
+**Owner-field rename, no data migration needed.** Confirmed by direct
+query of all live Test Bed payloads before Milestone 4 builds the
+screens: no live record contains `commercial_contact`, `technical_contact`,
+`legal_contact`, `initial_lead`, or any variant. These fields only ever
+existed in the prototype's own sample data, never in a live payload. This
+is a naming decision for Milestone 4's build to follow, not a migration.
+
 ### Picklist discrepancies
 
 - **Site Ownership** (line 5600) offered Government / Local Council /
@@ -407,7 +425,7 @@ incorrect, implementation before this build started. Check the actual
 live codebase, not just this document or the prototype, before assuming
 something needs building from scratch.
 
-### Account link — new, not in the prototype
+### Account link — new, not in the prototype. Built, Milestone 3.
 
 Test Bed has no Account link in the prototype at all; it carries `industry`,
 `country`, `region` as flat fields only. Confirmed as a real gap, not an
@@ -418,6 +436,43 @@ validation is meaningless without it, and Qualification is the stage where
 the client relationship is meant to be established. If the source Contact
 (when creating Test Bed from Contact) has no Account link yet, that must be
 resolved first before the Test Bed can be created.
+
+**Built as a dedicated `account_id` column, not `parent_record_id`.**
+Confirmed during Milestone 3 that reusing `parent_record_id` would have
+been actively wrong, not just inelegant: 2 of the then-live Test Bed
+records already had `parent_record_id` set, pointing to legacy
+pre-`record_contacts` Lead-conversion pointers, superseded infrastructure
+`contacts.js` itself documents as replaced. Reusing that column would
+have silently misread a legacy Lead pointer as an Account link.
+
+**Enforced at two layers, not just the application code.** A
+`record_type`-conditioned `CHECK` constraint on `records` backs the
+endpoint validation: `record_type != 'test_bed' OR account_id IS NOT NULL
+OR deleted_at IS NOT NULL`. The `deleted_at` clause was added after the
+first version of the constraint locked 8 legacy Test Bed records out of
+being edited at all, including soft-deleted, discovered live during
+backfill, not anticipated in the original design, see below.
+
+**A second, real Test Bed creation path existed that the original
+Milestone 2 fix never touched.** `POST /test-beds` (fixed in Milestone 2)
+is not the only creation path, `POST /contacts/:id/create-test-bed` in
+`contacts.js`, the actual Contact-conversion flow the business decision
+above describes, still hardcoded `status: 'NDA'`, a stage that no longer
+exists in the corrected list. **Retroactive correction to Milestone 2's
+sign-off**: that milestone's "initial creation status fixed" claim was
+incomplete, only one of two paths was fixed. Both are fixed now, as of
+Milestone 3.
+
+**The entire live `test_bed` dataset at the time of this build was test
+or placeholder data, not real client records.** All 8 non-deleted Test
+Bed records that existed before Milestone 3's constraint were
+investigated individually, name fields, linked contacts, industry,
+reference codes, before any backfill decision was made. None resolved
+to a real, identifiable client. Confirmed and soft-deleted rather than
+backfilled with a fabricated Account link. **Practical implication**:
+production effectively starts from zero real Test Bed records going
+into Milestone 4's screens work, not from an existing dataset that
+needs migrating.
 
 ### Creation — no prototype precedent, new business decision
 
