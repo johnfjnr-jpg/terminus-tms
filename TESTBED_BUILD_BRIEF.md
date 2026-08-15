@@ -107,6 +107,26 @@ Qualification cannot be exited until all three buyer roles are linked.
 
 ## Milestone 4: Test Bed screens
 
+**Two things confirmed during Milestone 2, must be handled here, not
+rediscovered:**
+
+- **No country-name-to-ISO-code mapping exists anywhere in the
+  codebase.** `reference_code` generation (built in Milestone 2) requires
+  a 3-letter ISO code, but nothing resolves a Contact's stored country
+  name into one. When this milestone builds "Contact's fields populate
+  Test Bed's reference fields directly," it must include this resolution,
+  otherwise every Test Bed created from a Contact gets `reference_code:
+  null` indefinitely, exactly the honest-but-incomplete state confirmed
+  during Milestone 2 testing. Confirm whether a mapping already exists
+  elsewhere in the system (e.g. on Contact/Account) before building a new
+  one, don't duplicate.
+- **The stage-tracker chevron strip will break visually once `phase` is
+  null across all 8 Test Bed stages**, confirmed live during Milestone 2:
+  labels overlap and become unreadable once `renderChevronStrip` stops
+  grouping stages and renders 8 individual full-length chevrons instead
+  of the ~6 it was built to fit. This needs a CSS/layout fix as part of
+  building this screen, not a bug to discover fresh here.
+
 - List view: two matrix breakdowns (by status/region, by industry/region)
   with hover drill-down, plus a sortable flat table (Region, Test Bed,
   Location, Status, Open tickets, Issue). Live/degraded/in-progress count
@@ -144,33 +164,64 @@ each stage without blocking anything.
 
 ## Milestone 5: Test Bed to Opportunity conversion
 
-Not in the prototype, this is new design, built to the mechanism specified
-in DESIGN_PRINCIPLES.md Section 8-9 and PROTOTYPE_SPECIFICATION.md Section
-6, do not invent a different mechanism.
+**This is not new-build, it's a fix.** `POST /test-beds/:id/convert`
+already exists and is live, confirmed working end to end for the parts it
+gets right, but audited during Milestone 2 and found to diverge from spec
+in three confirmed, specific ways. Fix these, do not rebuild the endpoint
+from scratch.
+
+Confirmed by direct code and data inspection during Milestone 2:
+
+1. **No `conversion_criteria` check, conversion is unconditional.**
+   `conversion_criteria` exists as a table but is never queried anywhere
+   in the codebase. Real data shows one Test Bed converted six separate
+   times. **Business decision, confirmed:** a Test Bed converts only
+   once. Add the `conversion_criteria` check and block a second
+   conversion attempt on a Test Bed that's already converted, real
+   rejection, not just a UI hint.
+2. **`reference_code` carryover is now buildable, it wasn't when this
+   section was first written.** Milestone 2 added the `reference_code`
+   column and the generator, neither existed before. Confirm the new
+   Opportunity created on conversion inherits the source Test Bed's
+   `reference_code` unchanged, and does not call `issueReferenceNumber`,
+   see Milestone 1's build requirement, the increment must stay a
+   distinct, explicit call so this path can skip it.
+3. **`test_bed_cost` is stored but never consumed.** It's correctly
+   written to `opportunity_details` on conversion today, but nothing in
+   `deal-calculator.js`, `deals.js`, or `opportunity-deal.js` reads it,
+   confirmed by direct grep. Wire it into the Deal Sheet as a real cost
+   line, same treatment Pilot cost already gets, not just stored data
+   nobody sees.
+
+Everything else the endpoint already does correctly, confirmed during
+audit, leave untouched:
 
 - Conversion action available at any point in the Test Bed's lifecycle,
   not restricted to Decommissioning or Closed.
-- `conversion_criteria` row, `from_record_type = 'test_bed'`,
-  `to_record_type = 'opportunity'`, same mechanism as Contact to
-  Opportunity conversion, reuse it, do not build a second one.
 - Creates a new Opportunity record referencing the source Test Bed via
-  `converted_from_test_bed_id`. The Test Bed record itself is not
-  mutated, it remains the historical record.
-- The Test Bed's accumulated cost carries across and attaches to the new
-  Opportunity's eventual Deal Sheet as a cost line, same treatment Pilot
-  cost already gets.
-- The reference code carries over unchanged, see Milestone 1, this must
-  not draw a new number.
+  `converted_from_test_bed_id`, confirmed correct in real data.
+- Test Bed record itself is not mutated, confirmed, the endpoint only
+  reads it.
 
-**Test before moving on:** convert a Test Bed mid-lifecycle (not just from
-Decommissioning), confirm the new Opportunity carries the same reference
-code, confirm the source Test Bed record is untouched and still shows its
-full history, confirm the carried-over cost appears as a line item on the
-new Opportunity's Deal Sheet.
+**Test before moving on:** attempt to convert an already-converted Test
+Bed, confirm it's rejected. Convert a fresh Test Bed mid-lifecycle,
+confirm the new Opportunity carries the identical `reference_code`,
+confirm the carried-over cost appears as a real line item on the new
+Opportunity's Deal Sheet, not just as a stored, unused field.
 
 ---
 
 ## Milestone 6: Opportunity Person fields, bundled
+
+**Confirmed during Milestone 2, add to this milestone's scope:**
+Opportunity has the identical gap Test Bed had before Milestone 2, its
+creation path never calls `issueReferenceNumber` either, confirmed by
+direct inspection. `reference_code` now exists as a real column
+(Milestone 2), the generator is built and tested (Milestone 1), Opportunity
+just isn't wired to either yet. Wire Opportunity creation the same way
+Test Bed's was, resolve country and industry to their codes, call the
+generator, store the result, same honest-null-if-unresolved behaviour
+Test Bed uses.
 
 - Swap Opportunity Reference tab's free-text Terminus Lead, Commercial/
   Technical/Legal Authority, and Account fields for real Contact dropdowns

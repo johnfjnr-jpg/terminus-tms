@@ -1,4 +1,21 @@
 import { createUserClient } from '../supabase.js'
+import { issueReferenceNumber } from '../lib/reference-number.js'
+
+// Confirmed picklist values (2026-08-15, Milestone 2) - not the prototype's
+// literal Government/Local Council/Private/Other, extended to match the
+// prototype's own real sample data (Local Authority, Port Authority,
+// National Highways), plus Central Government and a kept Other/Private.
+// Same validation-array pattern as CONTACT_WRITABLE_KEYS/VALID_SOURCES in
+// contacts.js, not a new picklist-admin table - none exists yet for any
+// field. Not yet wired into any write path: there is no PATCH endpoint
+// for Test Bed reference fields yet (Milestone 4, screens), so this is
+// the confirmed value set, ready for that endpoint when it's built, the
+// same way Milestone 1's reference generator exists before anything
+// calls it.
+export const VALID_SITE_OWNERSHIP = [
+  'Local Authority', 'Port Authority', 'National Highways',
+  'Central Government', 'Private', 'Other',
+]
 
 export default async function testBedsRoutes(app) {
   // GET /api/test-beds
@@ -34,8 +51,31 @@ export default async function testBedsRoutes(app) {
   })
 
   // POST /api/test-beds
+  //
+  // reference_code (2026-08-15, new, small and scoped): if industry_id and
+  // country_code are both provided, issues a real TT-{country}-{industry}-
+  // {number} code via the Milestone 1 counter and stores it. If either is
+  // missing, reference_code stays null - "not yet generated", the same
+  // honest-empty-state Opportunity's own Reference tab already uses, not
+  // a fabricated placeholder. Neither field is required to create the
+  // record at all (PROTOTYPE_SPECIFICATION.md Section 6's "no fields are
+  // mandatory purely to create the record" decision stands - this only
+  // adds what happens when they ARE provided).
+  //
+  // country_code is accepted pre-resolved (a 3-letter code, e.g. "GBR"),
+  // not derived from a free-text country name here. No country-name-to-
+  // code mapping exists anywhere in this codebase yet (checked before
+  // building this - the prototype's own countryToCode() was never
+  // ported), and inventing one now risks getting real countries wrong
+  // silently. industry_id is the real records column, resolved to its
+  // 6-character industries.short_code the same way the reference format
+  // has always needed.
+  //
+  // Opportunity has the identical gap - its own creation path doesn't
+  // call issueReferenceNumber() either - deliberately not fixed here,
+  // out of this milestone's scope, logged in the report instead.
   app.post('/test-beds', async (request, reply) => {
-    const { name, client_organisation, notes, accumulated_cost } = request.body ?? {}
+    const { name, client_organisation, notes, accumulated_cost, industry_id, country_code } = request.body ?? {}
 
     if (!name?.trim()) {
       return reply.code(400).send({ error: 'name is required' })
@@ -43,9 +83,37 @@ export default async function testBedsRoutes(app) {
 
     const db = createUserClient(request.jwt)
 
+    let referenceCode = null
+    if (industry_id && country_code) {
+      const { data: industry, error: industryErr } = await db
+        .from('industries')
+        .select('short_code')
+        .eq('id', industry_id)
+        .maybeSingle()
+
+      if (industryErr || !industry) {
+        return reply.code(400).send({ error: 'industry_id does not match a known industry' })
+      }
+
+      try {
+        referenceCode = await issueReferenceNumber(db, country_code, industry.short_code)
+      } catch (refErr) {
+        request.log.error({ err: refErr }, 'failed to issue reference number')
+        return reply.code(500).send({ error: refErr.message })
+      }
+    }
+
+    // 'Qualification' (2026-08-15, corrected from the old model's 'NDA')
+    // - the flat 8-stage list starts here, matching stage_definitions.
     const { data: record, error: recordErr } = await db
       .from('records')
-      .insert({ record_type: 'test_bed', status: 'NDA', owner_id: request.user.id })
+      .insert({
+        record_type: 'test_bed',
+        status: 'Qualification',
+        owner_id: request.user.id,
+        industry_id: industry_id ?? null,
+        reference_code: referenceCode
+      })
       .select()
       .single()
 
