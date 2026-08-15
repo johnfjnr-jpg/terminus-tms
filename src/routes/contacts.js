@@ -216,13 +216,23 @@ export default async function contactsRoutes(app) {
     }
 
     if (payload) {
-      const { data: revRow } = await db
+      // Real bug found and fixed (2026-08-15): unchecked error here made
+      // a failed fetch indistinguishable from "no prior revision" -
+      // mergedPayload would silently drop every existing field down to
+      // just this PATCH's own keys. Checking revRowErr explicitly, same
+      // fix as the identical pattern in test-beds.js's PATCH.
+      const { data: revRow, error: revRowErr } = await db
         .from('record_revisions')
         .select('revision_number, payload')
         .eq('record_id', record.id)
         .order('revision_number', { ascending: false })
         .limit(1)
         .maybeSingle()
+
+      if (revRowErr) {
+        request.log.error({ err: revRowErr }, 'failed to load current revision before PATCH merge')
+        return reply.code(500).send({ error: revRowErr.message })
+      }
 
       const nextRevision = (revRow?.revision_number ?? 0) + 1
       const mergedPayload = { ...(revRow?.payload ?? {}), ...payload }
@@ -323,13 +333,23 @@ export default async function contactsRoutes(app) {
     if (updateErr) return reply.code(500).send({ error: updateErr.message })
     if (!updated?.length) return reply.code(403).send({ error: 'not permitted' })
 
-    const { data: revRow } = await db
+    // Real bug found and fixed (2026-08-15): same unchecked-error shape
+    // as the two PATCH endpoints - a failed fetch here would have made
+    // mergedPayload below wipe the Contact down to just the new note,
+    // silently, on the very save that's supposed to be recording an
+    // Account link.
+    const { data: revRow, error: revRowErr } = await db
       .from('record_revisions')
       .select('revision_number, payload')
       .eq('record_id', contact.id)
       .order('revision_number', { ascending: false })
       .limit(1)
       .maybeSingle()
+
+    if (revRowErr) {
+      request.log.error({ err: revRowErr }, 'failed to load current revision before link-account merge')
+      return reply.code(500).send({ error: revRowErr.message })
+    }
 
     const note = {
       text: `Linked to Account: ${accountName ?? 'Unknown'}.`,

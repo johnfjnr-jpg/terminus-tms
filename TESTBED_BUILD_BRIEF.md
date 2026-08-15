@@ -233,7 +233,7 @@ each stage without blocking anything.
 
 ---
 
-## Milestone 5: Test Bed to Opportunity conversion
+## Milestone 5: Test Bed to Opportunity conversion ✅ COMPLETE
 
 **This is not new-build, it's a fix.** `POST /test-beds/:id/convert`
 already exists and is live, confirmed working end to end for the parts it
@@ -280,9 +280,49 @@ confirm the new Opportunity carries the identical `reference_code`,
 confirm the carried-over cost appears as a real line item on the new
 Opportunity's Deal Sheet, not just as a stored, unused field.
 
+**What actually happened, signed off:**
+
+- All 3 confirmed fixes built and tested exactly as specified. "Pilot
+  cost already gets" turned out to reference a mechanism that was never
+  built anywhere in the codebase, confirmed by exhaustive search, built
+  against `DESIGN_PRINCIPLES.md`'s description of the intended design
+  directly instead.
+- **Addition beyond the original 3 fixes**: `account_id` was found
+  silently dropped on conversion too, not part of the original audit.
+  Now carries across as a direct copy. Buyer-contact links deliberately
+  not carried, left for Milestone 6's Person-field design.
+- **Real bug found and fixed while building, not by inspection**: the
+  duplicate-conversion check was silently broken by an ambiguous
+  foreign-key embed, a genuine second conversion succeeded before this
+  was caught by testing. Fixed by naming the FK explicitly and checking
+  the query error, which it hadn't been.
+- **That bug led to a bounded scan of `test-beds.js`, `contacts.js`, and
+  `deals.js` for the same unchecked-error pattern.** ~20 call sites
+  found, most degrading harmlessly, but 5 confirmed dangerous, two of
+  them (`PATCH /test-beds/:id`, `PATCH /contacts/:id`) capable of
+  silently wiping every field on a real record down to just one save's
+  submitted keys. All 5 fixed and each proven against a real, forced
+  failure, not just by inspection. **A dedicated pass beyond these 3
+  files is recommended, not yet scheduled**, see `DESIGN_PRINCIPLES.md`
+  Deferred scope.
+- **The `reference_code` `UNIQUE` constraint had to be corrected, not
+  just relaxed.** A plain per-record constraint made the deliberate
+  carryover structurally impossible. Replaced with a compound
+  `UNIQUE (reference_code, record_type)`, confirmed both permitting the
+  deliberate shared case and rejecting accidental same-type collisions.
+
 ---
 
 ## Milestone 6: Opportunity Person fields, bundled
+
+**Carried in from Milestone 5, must be considered here:** a dedicated
+scan for unchecked Supabase query errors beyond `test-beds.js`,
+`contacts.js`, and `deals.js` has not been done. If this milestone's
+Person-field edit path shares the same fetch-merge-save shape found
+broken elsewhere, check its query error handling explicitly as part of
+building it, don't assume it's clean just because it wasn't in the
+original 3-file scan.
+
 
 **Confirmed during Milestone 2, add to this milestone's scope:**
 Opportunity has the identical gap Test Bed had before Milestone 2, its

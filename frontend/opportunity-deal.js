@@ -14,6 +14,13 @@ import { calculateDeal } from '/lib/deal-calculator.js'
 
 let opportunityId = null
 let wired = false
+// Milestone 5: opportunity_details.test_bed_cost, not part of
+// record_revisions.payload - set once at conversion, read-only here,
+// carried into buildDealInputs() so live preview matches the server's
+// own loadDealInputsFromOpportunity() in deals.js exactly (same file
+// import already guarantees the calculation itself can't drift; this is
+// the one input source deals.js reads that payload alone doesn't cover).
+let testBedCost = 0
 
 // UI-only state not captured by a plain input/select element.
 const uiState = {
@@ -219,6 +226,7 @@ function buildDealInputs(payload) {
     whtPct: payload.whtPct ?? 0,
     gstPct: payload.gstPct ?? 0,
     grossUp: payload.grossUp ?? false,
+    testBedCost,
   }
 }
 
@@ -284,6 +292,15 @@ function computeDealMatrixCols(result, payload) {
     { cost: installGroup.rawTotalCost, price: installGroup.rawTotalPrice },
   ]
   cols[0].cost += result.financeCost
+  // Milestone 5: same treatment as financeCost immediately above - folded
+  // into Hardware rather than given its own column, so the matrix's own
+  // Total/Margin cells stay the exact figure achievedMargin is a
+  // percentage of (this function's own top comment). Without this, the
+  // matrix's independently-computed total would silently disagree with
+  // achievedMargin/the Deal Sheet's "Gross margin" row the moment
+  // testBedCost is nonzero - found while wiring testBedCost in, not a
+  // pre-existing bug.
+  cols[0].cost += result.testBedCost || 0
 
   const whtBorne = result.tax.whtBorne
   const priceSum = cols.reduce((s, c) => s + c.price, 0)
@@ -372,6 +389,12 @@ function renderDealSheet(result, payload) {
       label: grossUp ? 'Withholding tax, grossed up and recovered from the customer' : 'Withholding tax absorbed by Terminus',
       value: whtBorne ? `- $${money(whtBorne)}` : '-', color: 'var(--muted)',
     },
+    // Milestone 5: carried from the source Test Bed's accumulated_cost on
+    // conversion (opportunity_details.test_bed_cost). A pure cost, not
+    // priced to the customer - added straight to totalDealCostAll in
+    // deal-calculator.js, so it reduces margin here without ever
+    // touching contractNet (revenue, above, is unaffected).
+    { label: 'Test Bed cost, carried from conversion', value: result.testBedCost ? `- $${money(result.testBedCost)}` : '-', color: 'var(--muted)' },
     { label: 'Total cost', value: `- $${money(totalDealCostAll)}`, color: 'var(--white)' },
     { label: 'Gross margin', value: `$${money(contractNet - totalDealCostAll)}`, color: 'var(--green)' },
     { label: 'Invoice reconciliation, from revenue', value: `$${money(contractNet)}`, color: 'var(--muted-2)' },
@@ -939,6 +962,7 @@ async function submitDeal() {
 // ── Entry point, called by app.js's renderOppDetail() ─────────────────────
 window.initOpportunityDealPanel = function (opp) {
   opportunityId = opp.id
+  testBedCost = opp.opportunity_details?.test_bed_cost ?? 0
   wireOnce()
   populateForm(opp.payload)
   recompute()

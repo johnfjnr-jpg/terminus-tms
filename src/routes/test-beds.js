@@ -348,13 +348,28 @@ export default async function testBedsRoutes(app) {
     }
 
     if (payload) {
-      const { data: revRow } = await db
+      // Real bug found and fixed (2026-08-15): this fetch's error was
+      // never checked. A failed fetch made revRow undefined, which
+      // mergedPayload below then silently treated as "no existing
+      // payload" - a save would have wiped every other field on the
+      // record down to just whatever this one PATCH submitted, with no
+      // error surfaced. Checking revRowErr explicitly and rejecting the
+      // save is the only way this endpoint can tell "genuinely no prior
+      // revision" (revRow is null, no error) apart from "couldn't find
+      // out" (revRowErr is set) - only the first is safe to treat as an
+      // empty base to merge into.
+      const { data: revRow, error: revRowErr } = await db
         .from('record_revisions')
         .select('revision_number, payload')
         .eq('record_id', record.id)
         .order('revision_number', { ascending: false })
         .limit(1)
         .maybeSingle()
+
+      if (revRowErr) {
+        request.log.error({ err: revRowErr }, 'failed to load current revision before PATCH merge')
+        return reply.code(500).send({ error: revRowErr.message })
+      }
 
       const nextRevision = (revRow?.revision_number ?? 0) + 1
       const mergedPayload = { ...(revRow?.payload ?? {}), ...payload }
@@ -465,12 +480,23 @@ export default async function testBedsRoutes(app) {
 
     if (!rules?.length) return { reference_docs, completable_documents: [] }
 
-    const { data: docs } = await db
+    // Lower severity than the PATCH/link-account fixes above, but the
+    // same unchecked-error shape: a failed fetch here made docs
+    // undefined, so docMap stayed empty and every completable_documents
+    // row would show "Not started" even for a document that's actually
+    // been approved - the query result was never trusted enough to error
+    // on, but it also wasn't distrusted enough to check.
+    const { data: docs, error: docsErr } = await db
       .from('records')
       .select('id, variant, status')
       .eq('parent_record_id', bed.id)
       .eq('record_type', 'document')
       .is('deleted_at', null)
+
+    if (docsErr) {
+      request.log.error({ err: docsErr }, 'failed to load document records for document-requirements')
+      return reply.code(500).send({ error: docsErr.message })
+    }
 
     const docMap = {}
     for (const d of docs ?? []) {
@@ -523,13 +549,23 @@ export default async function testBedsRoutes(app) {
 
     if (!bed) return reply.code(404).send({ error: 'test bed not found' })
 
-    const { data: existing } = await db
+    // Lower severity than the PATCH/link-account fixes above, but the
+    // same unchecked-error shape: a failed fetch here made `existing`
+    // look falsy, so the code below would fall into the create-new-
+    // document branch and insert a duplicate record_type='document' row
+    // instead of updating the one that's actually there.
+    const { data: existing, error: existingErr } = await db
       .from('records')
       .select('id')
       .eq('parent_record_id', bed.id)
       .eq('record_type', 'document')
       .eq('variant', document_type)
       .maybeSingle()
+
+    if (existingErr) {
+      request.log.error({ err: existingErr }, 'failed to check for existing document record')
+      return reply.code(500).send({ error: existingErr.message })
+    }
 
     let docId
     if (existing) {
@@ -584,10 +620,30 @@ export default async function testBedsRoutes(app) {
   })
 
   // POST /api/test-beds/:id/convert
-  // Creates a new Opportunity from this Test Bed.
-  // The Test Bed record is NOT mutated -- it continues its own lifecycle.
-  // The new Opportunity records converted_from_test_bed_id and carries the
-  // Test Bed's accumulated_cost as test_bed_cost for the eventual Deal Sheet.
+  //
+  // Milestone 5 fixes (2026-08-15), re-verified against today's code
+  // before building, not against the Milestone 2 audit as written -
+  // account_id/reference_code/buyer-contact linking all changed since:
+  //
+  // 1. conversion_criteria: was never queried anywhere in this codebase
+  //    (checked directly - not by this endpoint, not by Contact's own
+  //    create-opportunity/create-test-bed either). Real data showed one
+  //    Test Bed converted six times. max_conversions lives in the row's
+  //    condition (data-driven, DESIGN_PRINCIPLES.md rule 3), not
+  //    hardcoded here - and a missing row for this from/to pair rejects
+  //    the conversion outright, same invariant as stage_definitions
+  //    (empty list = nothing allowed, not "anything goes").
+  // 2. reference_code: the bed select never even fetched this column.
+  //    Now carried over unchanged - issueReferenceNumber is deliberately
+  //    NOT called on this path (Milestone 1's own build requirement: the
+  //    increment must stay a distinct, explicit call so this path can
+  //    skip it).
+  // 3. account_id: direct copy onto the new Opportunity, no new
+  //    mechanism - confirmed (2026-08-15 audit) this endpoint never read
+  //    bed.account_id at all before now. Buyer-contact links are
+  //    deliberately NOT carried - that's Milestone 6's decision to make
+  //    properly (Opportunity's own Person fields are still free text
+  //    until then), not something to half-build here.
   app.post('/test-beds/:id/convert', async (request, reply) => {
     const { opportunity_name } = request.body ?? {}
 
@@ -599,12 +655,55 @@ export default async function testBedsRoutes(app) {
 
     const { data: bed, error: bedErr } = await db
       .from('records')
-      .select('id, record_type, status')
+      .select('id, record_type, status, account_id, reference_code')
       .eq('id', request.params.id)
       .eq('record_type', 'test_bed')
       .maybeSingle()
 
     if (bedErr || !bed) return reply.code(404).send({ error: 'test bed not found' })
+
+    const { data: criteria } = await db
+      .from('conversion_criteria')
+      .select('condition')
+      .eq('from_record_type', 'test_bed')
+      .eq('to_record_type', 'opportunity')
+      .maybeSingle()
+
+    if (!criteria) {
+      return reply.code(422).send({ error: 'test_bed -> opportunity is not a defined conversion' })
+    }
+
+    const maxConversions = criteria.condition?.max_conversions
+    if (maxConversions != null) {
+      // records!opportunity_details_record_id_fkey, not the bare
+      // "records!inner(...)" this originally shipped with - opportunity_
+      // details has TWO foreign keys to records (record_id AND
+      // converted_from_test_bed_id), so the ambiguous embed failed with
+      // PGRST201 every time. Found live: the unchecked error meant that
+      // failure was silently treated as "0 prior conversions" and a
+      // second conversion went through unblocked - confirmed by actually
+      // attempting one, not assumed from reading the code. Checking
+      // priorErr explicitly now, same discipline as everywhere else in
+      // this codebase that doesn't trust a query result without
+      // checking its error first.
+      const { data: priorConversions, error: priorErr } = await db
+        .from('opportunity_details')
+        .select('record_id, records!opportunity_details_record_id_fkey(deleted_at)')
+        .eq('converted_from_test_bed_id', bed.id)
+
+      if (priorErr) {
+        request.log.error({ err: priorErr }, 'failed to check prior Test Bed conversions')
+        return reply.code(500).send({ error: priorErr.message })
+      }
+
+      const liveConversions = (priorConversions ?? []).filter(c => !c.records?.deleted_at)
+
+      if (liveConversions.length >= maxConversions) {
+        return reply.code(422).send({
+          error: 'This Test Bed has already been converted to an Opportunity'
+        })
+      }
+    }
 
     const { data: bedRev } = await db
       .from('record_revisions')
@@ -629,7 +728,9 @@ export default async function testBedsRoutes(app) {
       .insert({
         record_type: 'opportunity',
         status: 'Discovery',
-        owner_id: request.user.id
+        owner_id: request.user.id,
+        account_id: bed.account_id ?? null,
+        reference_code: bed.reference_code ?? null
       })
       .select()
       .single()
@@ -679,7 +780,9 @@ export default async function testBedsRoutes(app) {
         actor_id: request.user.id,
         detail: {
           from_test_bed_id: bed.id,
-          test_bed_cost: bedPayload.accumulated_cost ?? null
+          test_bed_cost: bedPayload.accumulated_cost ?? null,
+          account_id: bed.account_id ?? null,
+          reference_code: bed.reference_code ?? null
         }
       }
     ])

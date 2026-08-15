@@ -71,6 +71,18 @@ async function loadDealInputsFromOpportunity(db, opportunityId) {
     .limit(1)
     .maybeSingle();
 
+  // Milestone 5: this loader never queried opportunity_details at all
+  // before now (confirmed by direct inspection - test_bed_cost was
+  // written on conversion but nothing downstream ever read it). Missing
+  // row or null value both mean "not converted from a Test Bed", 0 cost,
+  // not an error - most Opportunities have no opportunity_details.test_bed_cost.
+  const { data: details } = await db
+    .from('opportunity_details')
+    .select('test_bed_cost')
+    .eq('record_id', opportunityId)
+    .maybeSingle();
+  const testBedCost = details?.test_bed_cost ?? 0;
+
   if (revErr || !revision) {
     throw new Error(`Opportunity ${opportunityId} has no revisions`);
   }
@@ -157,6 +169,7 @@ async function loadDealInputsFromOpportunity(db, opportunityId) {
     whtPct: payload.whtPct ?? 0,
     gstPct: payload.gstPct ?? 0,
     grossUp: payload.grossUp ?? false,
+    testBedCost,
   };
 
   return { dealInputs, revisionNumber: revision.revision_number, payload };
@@ -207,6 +220,7 @@ const dealInputSchema = {
     whtPct: { type: 'number' },
     gstPct: { type: 'number' },
     grossUp: { type: 'boolean' },
+    testBedCost: { type: 'number' },
   },
 };
 

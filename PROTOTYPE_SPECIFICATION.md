@@ -304,27 +304,53 @@ activity, decommissioning finished, nothing further happens on site. Same
 word, opposite direction. Do not conflate the two when building gate logic
 or reporting against either record type.
 
-**Test Bed to Opportunity conversion — confirmed in scope for this build.**
+**Test Bed to Opportunity conversion — confirmed in scope. Built, Milestone 5.**
 Not something the prototype has, `Terminus_Ops_dc.html` contains no
-conversion UI at all, this is new design, not extraction, and it must be
-built consistently with the mechanism already specified in
-DESIGN_PRINCIPLES.md Section 8-9, not invented separately here:
+conversion UI at all, this was new design, not extraction. Built as a
+**fix**, not new-build, `POST /test-beds/:id/convert` already existed,
+built in a prior, unrelated session, discovered during Milestone 2's
+audit, and diverged from spec in three confirmed ways, all now fixed:
 
 - Can happen at any point in the Test Bed's lifecycle, not only at
-  Decommissioning or Closed.
-- A `conversion_criteria` row, `from_record_type = 'test_bed'`,
-  `to_record_type = 'opportunity'`, same mechanism as Contact to
-  Opportunity conversion, not a new one.
+  Decommissioning or Closed. Confirmed correct, unchanged.
+- **Conversion is now limited to once per Test Bed**, a
+  `conversion_criteria` row (`{"max_conversions": 1}`) is checked and
+  enforced, correcting the original endpoint, which had no check at all,
+  real data showed one Test Bed converted six separate times before this
+  was fixed.
 - A new Opportunity record is created, referencing the Test Bed via
   `converted_from_test_bed_id`. The Test Bed record itself is not mutated,
-  it remains the historical record of the R&D work.
-- The Test Bed's accumulated cost carries across and attaches to the new
-  Opportunity's eventual Deal Sheet as a cost line, the same treatment
-  Pilot cost already gets.
-- The reference code carries over unchanged on conversion, it is not
-  redrawn. This is why Test Bed and Opportunity share one reference
-  sequence per country+industry, see Section 2b, not a coincidence.
-
+  it remains the historical record of the R&D work. Confirmed correct,
+  unchanged.
+- **The reference code now genuinely carries over unchanged**, this
+  wasn't buildable when originally specified, `reference_code` didn't
+  exist as a column until Milestone 2. Confirmed by real test, and
+  confirmed `issueReferenceNumber` is never called on this path, the
+  generator stayed a distinct, explicit call precisely so this path could
+  skip it, per Milestone 1's original build requirement.
+- **`account_id` now carries across on conversion**, added during
+  Milestone 5 after the original audit found it silently dropped, a real
+  gap, not part of the original three findings. **Buyer-contact links are
+  deliberately not carried**, that requires deciding how Test Bed's
+  Client Buyer roles map onto Opportunity's own Person-field roles, which
+  aren't obviously the same set, correctly left for Milestone 6 rather
+  than decided as a side effect of this fix.
+- **Test Bed cost now attaches to the Deal Sheet as a real line item**,
+  added directly to total deal cost, not priced or marked up to the
+  customer, reducing margin without touching contract value, matching
+  DESIGN_PRINCIPLES.md's description of the intended Pilot-cost treatment.
+  Worth noting plainly: Pilot itself was never built anywhere in this
+  codebase, confirmed by exhaustive search, so this was built against
+  DESIGN_PRINCIPLES.md's description of the intended design directly, not
+  against an actual working precedent that doesn't exist.
+- **The `reference_code` uniqueness constraint had to be corrected**,
+  not just the application logic. A plain per-record `UNIQUE` constraint
+  made the deliberate carryover structurally impossible, a Test Bed and
+  its converted Opportunity sharing one code is the entire point.
+  Replaced with a compound `UNIQUE (reference_code, record_type)`
+  constraint, which permits the one deliberate shared-code case while
+  still rejecting any accidental collision between two records of the
+  same type, confirmed both ways with real inserts.
 
 **`computeAllStagesView` (line 7347), which drives the live Approvals tab,
 hardcodes `canApprove = true`, the same testing stub already correctly not

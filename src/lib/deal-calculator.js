@@ -308,6 +308,16 @@ export function calculateDeal(input) {
     lumpSumDeal, lumpCost, contractorMilestones,
     factoringEnabled, factoringRatePct, factoringTermMonths, factoringMethod,
     whtPct = 0, gstPct = 0, grossUp = false,
+    testBedCost = 0, // Milestone 5: carried unchanged from opportunity_details.test_bed_cost
+    // when this Opportunity was converted from a Test Bed. Deliberately
+    // NOT part of installLineItems/hostingLineItems - those groups price
+    // every line to the customer (cost x margin -> price), and this is a
+    // sunk R&D cost already incurred before the Opportunity existed, not
+    // something billed to this client. Added straight to total cost
+    // instead, so it reduces achievedMargin without touching contractNet -
+    // DESIGN_PRINCIPLES.md Section 6's description of the (never built)
+    // Pilot cost treatment: "reducing net profit and margin for that
+    // deal", not a priced line item.
   } = input;
 
   const hw = calculateHardwareAndWarranty({
@@ -339,7 +349,8 @@ export function calculateDeal(input) {
   });
 
   const financeCost = Math.round(cashFlow.facInterest || 0);
-  const totalDealCostAll = totals.totalDealCost + financeCost + tax.whtBorne;
+  const testBedCostAmount = testBedCost || 0;
+  const totalDealCostAll = totals.totalDealCost + financeCost + tax.whtBorne + testBedCostAmount;
   const achievedMargin = totals.contractNet
     ? ((totals.contractNet - totalDealCostAll) / totals.contractNet) * 100
     : 0;
@@ -351,6 +362,7 @@ export function calculateDeal(input) {
     tax,
     cashFlow,
     financeCost,
+    testBedCost: testBedCostAmount,
     totalDealCostAll,
     achievedMargin,
   };
