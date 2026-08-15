@@ -524,16 +524,38 @@ export default async function contactsRoutes(app) {
   })
 
   // POST /contacts/:id/create-test-bed
+  //
+  // account_id (2026-08-15, Milestone 3): a linked Account is a hard
+  // precondition at Test Bed creation (PROTOTYPE_SPECIFICATION.md
+  // Section 6, "Account link"). When creating via Contact conversion,
+  // the source Contact's own Account link (parent_record_id) must
+  // already be resolved - reject here, don't create the Test Bed in a
+  // half-linked state. loadQualifiedContact already selects
+  // parent_record_id, so this reuses that, no extra query.
+  //
+  // status (2026-08-15, Milestone 3): this was still hardcoded to 'NDA',
+  // a stage name that no longer exists anywhere in test_bed's corrected
+  // 8-stage stage_definitions (20260815000000) - a real bug, found while
+  // adding the account_id check to this exact function, not touched by
+  // the earlier POST /test-beds fix since that's a separate creation
+  // path. Fixed to 'Qualification' here for the same reason it was fixed
+  // there.
   app.post('/contacts/:id/create-test-bed', async (request, reply) => {
     const db = createUserClient(request.jwt)
     const { contact, accountName, error } = await loadQualifiedContact(db, request.params.id)
     if (error) return reply.code(error.code).send(error.body)
 
+    if (!contact.parent_record_id) {
+      return reply.code(422).send({
+        error: 'Contact must be linked to an Account before creating a Test Bed'
+      })
+    }
+
     const name = accountName ?? 'New Test Bed'
 
     const { data: record, error: recordErr } = await db
       .from('records')
-      .insert({ record_type: 'test_bed', status: 'NDA', owner_id: request.user.id })
+      .insert({ record_type: 'test_bed', status: 'Qualification', owner_id: request.user.id, account_id: contact.parent_record_id })
       .select()
       .single()
 
@@ -561,7 +583,7 @@ export default async function contactsRoutes(app) {
 
     await db.from('audit_log').insert([
       { record_id: contact.id, record_type: 'contact', action: 'created_test_bed', actor_id: request.user.id, detail: { test_bed_id: record.id } },
-      { record_id: record.id, record_type: 'test_bed', action: 'created_from_contact', actor_id: request.user.id, detail: { contact_id: contact.id, initial_stage: 'NDA' } }
+      { record_id: record.id, record_type: 'test_bed', action: 'created_from_contact', actor_id: request.user.id, detail: { contact_id: contact.id, initial_stage: 'Qualification', account_id: contact.parent_record_id } }
     ])
 
     return reply.code(201).send(record)

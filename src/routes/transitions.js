@@ -164,6 +164,35 @@ export default async function transitionsRoutes(app) {
         }
       }
 
+      // contact_role_linked: requirement_detail = {role}. Checks that a
+      // record_contacts row exists for this record + role - a
+      // relationship check, distinct from payload_field_required's
+      // presence-of-a-value check. The account-vs-Contact match itself
+      // (is this Contact actually linked to the right Account) is
+      // enforced once, at save time, by whatever endpoint writes the
+      // record_contacts row (POST /test-beds/:id/buyer-contacts) - this
+      // gate only checks that a validated link already exists, it does
+      // not re-derive or re-validate the Account match itself.
+      if (rule.requirement_type === 'contact_role_linked') {
+        const role = rule.requirement_detail?.role
+        if (!role) continue
+
+        const { data: link } = await db
+          .from('record_contacts')
+          .select('id')
+          .eq('record_id', record.id)
+          .eq('role', role)
+          .maybeSingle()
+
+        if (!link) {
+          blocking.push({
+            requirement_type: 'contact_role_linked',
+            role,
+            message: `Requires a Contact linked as ${role}`
+          })
+        }
+      }
+
       // child_record_status handled in a future milestone
     }
 

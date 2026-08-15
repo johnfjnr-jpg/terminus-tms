@@ -74,14 +74,37 @@ export default async function testBedsRoutes(app) {
   // Opportunity has the identical gap - its own creation path doesn't
   // call issueReferenceNumber() either - deliberately not fixed here,
   // out of this milestone's scope, logged in the report instead.
+  // account_id (2026-08-15, Milestone 3): a hard precondition at creation,
+  // not a Qualification exit-gate field (PROTOTYPE_SPECIFICATION.md
+  // Section 6, "Account link"). Enforced twice, deliberately: here at the
+  // application layer (a clear 400 before anything is written), and
+  // again by the database's own records_test_bed_requires_account_id
+  // CHECK constraint (20260815000002/3) as the real backstop - the
+  // constraint is what actually protects data integrity, this check is
+  // what gives the caller a clean error instead of a raw 23514.
   app.post('/test-beds', async (request, reply) => {
-    const { name, client_organisation, notes, accumulated_cost, industry_id, country_code } = request.body ?? {}
+    const { name, client_organisation, notes, accumulated_cost, industry_id, country_code, account_id } = request.body ?? {}
 
     if (!name?.trim()) {
       return reply.code(400).send({ error: 'name is required' })
     }
+    if (!account_id) {
+      return reply.code(400).send({ error: 'account_id is required' })
+    }
 
     const db = createUserClient(request.jwt)
+
+    const { data: account, error: accountErr } = await db
+      .from('records')
+      .select('id')
+      .eq('id', account_id)
+      .eq('record_type', 'account')
+      .is('deleted_at', null)
+      .maybeSingle()
+
+    if (accountErr || !account) {
+      return reply.code(400).send({ error: 'account_id does not match a known Account' })
+    }
 
     let referenceCode = null
     if (industry_id && country_code) {
@@ -112,7 +135,8 @@ export default async function testBedsRoutes(app) {
         status: 'Qualification',
         owner_id: request.user.id,
         industry_id: industry_id ?? null,
-        reference_code: referenceCode
+        reference_code: referenceCode,
+        account_id
       })
       .select()
       .single()
@@ -471,5 +495,84 @@ export default async function testBedsRoutes(app) {
       converted_from_test_bed_id: bed.id,
       test_bed_cost: bedPayload.accumulated_cost ?? null
     })
+  })
+
+  // POST /api/test-beds/:id/buyer-contacts
+  //
+  // Milestone 3: the save-time validation point 3 of the brief asks for -
+  // "Validate this at save time, real rejection if the Contact isn't
+  // linked to the right Account, not a soft warning." Real rejection
+  // (422), not the gate check itself (contact_role_linked in
+  // transitions.js only checks a validated link already exists, it does
+  // not re-derive the Account match).
+  //
+  // Restricted to the three Client Buyer roles - this endpoint is not a
+  // general-purpose "link any contact with any role" action, that's a
+  // larger, un-asked-for piece of surface area. The existing internal
+  // linkContact() helper in contacts.js (role='commercial buyer' at
+  // creation) is untouched and unrelated to this.
+  const VALID_CLIENT_BUYER_ROLES = ['Client Commercial Buyer', 'Client Technical Buyer', 'Client Legal Buyer']
+
+  app.post('/test-beds/:id/buyer-contacts', async (request, reply) => {
+    const { role, contact_id } = request.body ?? {}
+
+    if (!VALID_CLIENT_BUYER_ROLES.includes(role)) {
+      return reply.code(400).send({ error: `role must be one of: ${VALID_CLIENT_BUYER_ROLES.join(', ')}` })
+    }
+    if (!contact_id) {
+      return reply.code(400).send({ error: 'contact_id is required' })
+    }
+
+    const db = createUserClient(request.jwt)
+
+    const { data: bed } = await db
+      .from('records')
+      .select('id, account_id')
+      .eq('id', request.params.id)
+      .eq('record_type', 'test_bed')
+      .is('deleted_at', null)
+      .maybeSingle()
+
+    if (!bed) return reply.code(404).send({ error: 'test bed not found' })
+
+    const { data: contact } = await db
+      .from('records')
+      .select('id, parent_record_id')
+      .eq('id', contact_id)
+      .eq('record_type', 'contact')
+      .is('deleted_at', null)
+      .maybeSingle()
+
+    if (!contact) return reply.code(404).send({ error: 'contact not found' })
+
+    // Real rejection, not a soft warning - the Contact must be linked to
+    // the exact same Account as this Test Bed. bed.account_id is
+    // guaranteed non-null by the database's own CHECK constraint (every
+    // live, non-deleted test_bed row has one), so a missing match here
+    // means the Contact's own Account link, not the Test Bed's.
+    if (!contact.parent_record_id || contact.parent_record_id !== bed.account_id) {
+      return reply.code(422).send({
+        error: 'Contact is not linked to this Test Bed\'s Account'
+      })
+    }
+
+    const { error: insertErr } = await db
+      .from('record_contacts')
+      .insert({ record_id: bed.id, contact_id, role, created_by: request.user.id })
+
+    if (insertErr) {
+      request.log.error({ err: insertErr }, 'failed to link buyer contact')
+      return reply.code(500).send({ error: insertErr.message })
+    }
+
+    await db.from('audit_log').insert({
+      record_id: bed.id,
+      record_type: 'test_bed',
+      action: 'buyer_contact_linked',
+      actor_id: request.user.id,
+      detail: { role, contact_id }
+    })
+
+    return reply.code(201).send({ ok: true, role, contact_id })
   })
 }
