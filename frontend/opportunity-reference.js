@@ -48,10 +48,10 @@ const CUSTOMER_FIELDS = [
   { key: 'commAddress', label: 'Commercial Address for Proposal' },
 ]
 const DATE_FIELDS = [
-  { key: 'actualClose', label: 'Actual Close Date' },
-  { key: 'estGoLive', label: 'Est. Go Live' },
-  { key: 'actualGoLive', label: 'Actual Go Live' },
-  { key: 'duration', label: 'Contract Duration (months)' },
+  { key: 'actualClose', label: 'Actual Close Date', date: true },
+  { key: 'estGoLive', label: 'Est. Go Live', date: true },
+  { key: 'actualGoLive', label: 'Actual Go Live', date: true },
+  { key: 'duration', label: 'Contract Duration (months)', number: true, suffix: 'months' },
 ]
 const OPPTYPE_FIELD = { key: 'oppType', label: 'Opportunity Type', options: ['Terminus Led', 'Tender'] }
 const SUMMARY_FIELD = { key: 'summary', label: 'Executive Summary' }
@@ -70,6 +70,16 @@ function refFieldRow(key, label, value, opts = {}) {
       `</select>`
   } else if (opts.multiline) {
     inputTag = `<textarea id="ref-input-${key}" rows="2">${escHtml(v)}</textarea>`
+  } else if (opts.date) {
+    // Native <input type="date"> (2026-08-15 fix, same as Test Bed's
+    // Reference tab) - forces a genuinely valid date at the browser
+    // level. Pre-existing free-text dates (e.g. "01/01/27") won't
+    // populate the picker until re-saved through it - the raw string is
+    // untouched until then, not silently lost.
+    inputTag = `<input type="date" id="ref-input-${key}" value="${escHtml(v)}">`
+  } else if (opts.number) {
+    inputTag = `<input type="number" id="ref-input-${key}" value="${escHtml(v)}">` +
+      (opts.suffix ? `<span class="field-suffix">${escHtml(opts.suffix)}</span>` : '')
   } else {
     inputTag = `<input type="text" id="ref-input-${key}" value="${escHtml(v)}">`
   }
@@ -85,7 +95,7 @@ function refFieldRow(key, label, value, opts = {}) {
   return `
   <div class="ref-field" data-key="${key}">
     <div class="ref-field-label"><span>${label}</span></div>
-    <div class="ref-field-display" id="ref-display-${key}" tabindex="0" onclick="openRefField('${key}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openRefField('${key}')}">${escHtml(v) || '--'}</div>
+    <div class="ref-field-display" id="ref-display-${key}" tabindex="0" onclick="openRefField('${key}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openRefField('${key}')}">${v !== '' ? escHtml(v) + (opts.number && opts.suffix ? ` ${opts.suffix}` : '') : '--'}</div>
     <div class="ref-field-edit hidden" id="ref-edit-${key}">
       ${inputTag}
       <span class="ref-field-discard" tabindex="0" onclick="discardRefField('${key}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();discardRefField('${key}')}">&times;</span>
@@ -219,7 +229,7 @@ function renderReferenceTab(opp) {
          <div class="ref-field-display readonly">${escHtml(refOppDetails.forecast_close_date) || '--'}</div>
        </div>`
     + refReadonlyRow('Est. Close Date Moves', String(refPayload.closeMoves ?? 0))
-    + DATE_FIELDS.map(f => refFieldRow(f.key, f.label, refPayload[f.key])).join('')
+    + DATE_FIELDS.map(f => refFieldRow(f.key, f.label, refPayload[f.key], { date: f.date, number: f.number, suffix: f.suffix })).join('')
   document.getElementById('ref-closedate-form').classList.add('hidden')
 
   // Opportunity Type sits with Executive Summary in the prototype; kept as

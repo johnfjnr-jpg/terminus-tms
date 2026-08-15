@@ -8,6 +8,7 @@ async function init() {
 
   supabaseClient.auth.onAuthStateChange((_event, session) => {
     currentSession = session
+    window.currentSession = session
     if (session) showApp(session)
     else showAuth()
   })
@@ -15,6 +16,7 @@ async function init() {
   const { data: { session: existing } } = await supabaseClient.auth.getSession()
   if (existing) {
     currentSession = existing
+    window.currentSession = existing
     showApp(existing)
   } else {
     showAuth()
@@ -182,9 +184,20 @@ function regionForCountry(country) {
   return map[c] || ''
 }
 
+// Currency label is hardcoded (2026-08-15 fix), not a real backing field
+// - no currency picklist/payload key exists anywhere for Test Bed or
+// Opportunity cost values, confirmed by checking every formatCost() call
+// site (Test Bed's Accumulated Cost, Indicative Cost, per-unit costs;
+// Opportunity's Test Bed Cost stat - all 4 share this one function, all
+// were showing GBP). Corrected to USD, the currency documented for this
+// same cost data elsewhere (Prototype-110826/CLAUDE.md: "Hardware Costs
+// (USD/Unit)... mirrored from the Base Cost Data object", and
+// PROTOTYPE_SPECIFICATION.md's own Deal sheet (USD) citation). A real per-record currency
+// field is a separate, undesigned feature (new field, UI, migration
+// decision) - not built here, this is a label correction only.
 function formatCost(val) {
   if (val == null || val === '') return '--'
-  return `GBP ${Number(val).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  return `USD ${Number(val).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
 // ── Stage definitions cache ───────────────────────────────────────────────────

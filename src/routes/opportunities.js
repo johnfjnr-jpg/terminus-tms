@@ -1,4 +1,5 @@
 import { createUserClient } from '../supabase.js'
+import { isValidIsoDate, isValidNumber } from '../lib/field-validation.js'
 
 export default async function opportunitiesRoutes(app) {
   // GET /api/opportunities
@@ -129,6 +130,19 @@ export default async function opportunitiesRoutes(app) {
         error: 'payload contains fields that cannot be set from this endpoint',
         disallowed: disallowedKeys
       })
+    }
+    // Real bug found and fixed (2026-08-15), same shape and same scan as
+    // PATCH /test-beds/:id: these fields had a writable key but zero
+    // value validation. Client-side now uses <input type="date">/
+    // type="number">, but per this session's own rule against trusting
+    // client-only validation, the same rejection is enforced here too.
+    for (const key of ['actualClose', 'estGoLive', 'actualGoLive']) {
+      if (key in payload && !isValidIsoDate(payload[key])) {
+        return reply.code(400).send({ error: `${key} must be a valid date (YYYY-MM-DD)` })
+      }
+    }
+    if ('duration' in payload && !isValidNumber(payload.duration)) {
+      return reply.code(400).send({ error: 'duration must be a number' })
     }
 
     const db = createUserClient(request.jwt)

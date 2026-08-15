@@ -47,9 +47,9 @@ const TB_SITE_FIELDS = [
   { key: 'indicativeCost', label: 'Indicative Cost' },
 ]
 const TB_DATE_FIELDS = [
-  { key: 'estimatedInstallationDate', label: 'Estimated Installation Date' },
-  { key: 'estGoLiveDate', label: 'Est. Go Live' },
-  { key: 'testBedDuration', label: 'Test Bed Duration' },
+  { key: 'estimatedInstallationDate', label: 'Estimated Installation Date', date: true },
+  { key: 'estGoLiveDate', label: 'Est. Go Live', date: true },
+  { key: 'testBedDuration', label: 'Test Bed Duration', number: true, suffix: 'months' },
 ]
 const TB_INSTALL_FIELDS = [
   { key: 'installer', label: 'Installer' },
@@ -77,12 +77,24 @@ function tbFieldRow(key, label, value, opts = {}) {
       `<option value="">--</option>` +
       opts.options.map(o => `<option value="${escHtml(o)}"${o === v ? ' selected' : ''}>${escHtml(o)}</option>`).join('') +
       `</select>`
+  } else if (opts.date) {
+    // Native <input type="date"> (2026-08-15 fix): forces a genuinely
+    // valid date at the browser level, the same discipline as opts.number
+    // below already gave the numeric fields. Only ever renders correctly
+    // pre-filled when the stored value is already ISO YYYY-MM-DD - older
+    // free-text-entered dates (e.g. "12/11/26") won't populate the picker
+    // until re-saved through it, a known, disclosed consequence of this
+    // fix, not silent data loss, the raw string is untouched until then.
+    inputTag = `<input type="date" id="tb-input-${key}" value="${escHtml(v)}">`
   } else if (opts.number) {
-    inputTag = `<input type="number" id="tb-input-${key}" value="${escHtml(v)}">`
+    inputTag = `<input type="number" id="tb-input-${key}" value="${escHtml(v)}">` +
+      (opts.suffix ? `<span class="field-suffix">${escHtml(opts.suffix)}</span>` : '')
   } else {
     inputTag = `<input type="text" id="tb-input-${key}" value="${escHtml(v)}">`
   }
-  const display = opts.number && v !== '' ? (opts.cost ? formatCost(v) : String(v)) : (escHtml(v) || '--')
+  const display = opts.number && v !== ''
+    ? (opts.cost ? formatCost(v) : String(v) + (opts.suffix ? ` ${opts.suffix}` : ''))
+    : (escHtml(v) || '--')
   // tabindex + keydown (2026-08-15 fix): confirmed nowhere in this app
   // uses tabindex at all - .ref-field-display was never in the tab
   // order, only its own <input>/<select> was, once opened. With every
@@ -135,7 +147,7 @@ function renderTbReference() {
   // same #tb-dates-rows id, just moved in the DOM, not duplicated.
   document.getElementById('tb-dates-rows').innerHTML =
     tbReadonlyRow('Date Created', formatDate(tbBed.created_at))
-    + TB_DATE_FIELDS.map(f => tbFieldRow(f.key, f.label, tbPayload[f.key])).join('')
+    + TB_DATE_FIELDS.map(f => tbFieldRow(f.key, f.label, tbPayload[f.key], { date: f.date, number: f.number, suffix: f.suffix })).join('')
 }
 
 function renderTbNotes() {
@@ -355,7 +367,20 @@ window.openTbField = function (key) {
   document.getElementById(`tb-edit-${key}`).classList.remove('hidden')
   const input = document.getElementById(`tb-input-${key}`)
   input.focus()
+  // Clear a stale error from an earlier, unrelated failed save (2026-08-15
+  // fix) - tb-save-feedback previously only got reset at the top of
+  // saveTbFields(), so a real failure (e.g. Summary rejected by the
+  // writable-keys check) stayed on screen indefinitely, reappearing the
+  // instant any other field was opened next, since opening a field makes
+  // the save bar visible again without ever touching this text.
+  clearTbSaveFeedback()
   updateTbSaveBar()
+}
+
+function clearTbSaveFeedback() {
+  const feedback = document.getElementById('tb-save-feedback')
+  feedback.textContent = ''
+  feedback.className = ''
 }
 
 window.discardTbField = function (key) {
@@ -391,9 +416,8 @@ function updateTbSaveBar() {
 }
 
 async function saveTbFields() {
+  clearTbSaveFeedback()
   const feedback = document.getElementById('tb-save-feedback')
-  feedback.textContent = ''
-  feedback.className = ''
 
   const dirtyEntries = Object.entries(tbEdits).filter(([, e]) => e.draft !== e.orig)
   if (!dirtyEntries.length) return
@@ -417,6 +441,7 @@ function wireTbOnce() {
   tbWired = true
   document.getElementById('tb-cancel-all').addEventListener('click', () => {
     Object.keys(tbEdits).forEach(key => window.discardTbField(key))
+    clearTbSaveFeedback()
   })
   document.getElementById('tb-save-all').addEventListener('click', saveTbFields)
   document.getElementById('tb-usecase-add').addEventListener('click', () => window.addTbUseCase())

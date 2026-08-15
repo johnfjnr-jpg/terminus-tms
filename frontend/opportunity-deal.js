@@ -14,6 +14,19 @@ import { calculateDeal } from '/lib/deal-calculator.js'
 
 let opportunityId = null
 let wired = false
+// 'duration' bug fix (2026-08-15): payload.duration is the same field as
+// the Reference tab's own "Contract Duration (months)" (Key Dates card),
+// two independent edit surfaces for one value - see
+// DESIGN_PRINCIPLES.md's Deferred scope. This tab's save has always sent
+// the WHOLE form as one snapshot (readPayload()), including whatever
+// #deal-duration currently shows, even when the user never touched it -
+// silently reverting a more recent Reference-tab edit made in another
+// tab without a reload. dealDurationDirty/dealDurationOrig let saveDeal()
+// omit the field entirely unless this tab's own input was genuinely
+// edited, and verify nothing changed it elsewhere since load before
+// overwriting when it was.
+let dealDurationDirty = false
+let dealDurationOrig = 0
 // Milestone 5: opportunity_details.test_bed_cost, not part of
 // record_revisions.payload - set once at conversion, read-only here,
 // carried into buildDealInputs() so live preview matches the server's
@@ -759,6 +772,8 @@ function populateForm(payload) {
   updateGrossUpButton()
 
   setVal('deal-duration', p.duration ?? 0)
+  dealDurationOrig = p.duration ?? 0
+  dealDurationDirty = false
   uiState.structure = p.structure || 'twoPhase'
   updateStructureButtons()
   setVal('deal-recoveryMonths', p.recoveryMonths ?? '')
@@ -850,6 +865,12 @@ function wireOnce() {
     '#deal-duration, #deal-recoveryMonths, #deal-factoring-ratePct, #deal-factoring-termMonths'
   ).forEach(el => el.addEventListener('input', recompute))
 
+  // Separate from the recompute listener above - tracks a genuine edit to
+  // this one field specifically, so saveDeal() can tell "user changed
+  // Duration on this tab" apart from "this tab just still has whatever
+  // value it loaded with".
+  document.getElementById('deal-duration').addEventListener('input', () => { dealDurationDirty = true })
+
   document.getElementById('deal-installResp').addEventListener('change', (e) => {
     uiState.installResp = e.target.value
     updateInstallVisibility()
@@ -919,6 +940,48 @@ async function saveDeal() {
   feedback.className = ''
 
   const payload = pickSalespersonWritable(readPayload())
+
+  if (!dealDurationDirty) {
+    // Never touched on this tab this session - never resend it. Omitting
+    // the key entirely (rather than sending whatever #deal-duration
+    // still shows) means the server's merge leaves the current value
+    // exactly as it is, however it got there, since this endpoint only
+    // ever overwrites keys actually present in the payload.
+    delete payload.duration
+  } else {
+    // Genuine edit on this tab: confirm nothing changed the field
+    // elsewhere since this tab loaded before overwriting it, and log the
+    // same kind of Notes History entry the Reference tab's own edit path
+    // already writes for this field - one consistent audit trail
+    // regardless of which screen made the change.
+    const fresh = await window.api('GET', `/api/opportunities/${opportunityId}`)
+    if (!fresh.ok) {
+      feedback.textContent = 'Could not verify the current Duration value before saving.'
+      feedback.className = 'msg-error'
+      return false
+    }
+    const serverDuration = fresh.data.payload?.duration ?? 0
+    if (String(serverDuration) !== String(dealDurationOrig)) {
+      feedback.textContent = 'Duration was changed elsewhere since this tab was loaded. Reload the page before saving.'
+      feedback.className = 'msg-error'
+      return false
+    }
+    // Label text duplicated from opportunity-reference.js's own
+    // DATE_FIELDS entry for 'duration' ("Contract Duration (months)"),
+    // not imported - this file is a <script type="module">, its own
+    // scope, opportunity-reference.js's classic-script globals aren't
+    // reachable from here. Keep this string in sync with that label if
+    // it ever changes.
+    payload.notes = [
+      {
+        text: `Contract Duration (months) changed from ${dealDurationOrig || '--'} to ${payload.duration || '--'}.`,
+        at: new Date().toISOString(),
+        by: window.currentSession?.user?.email ?? '',
+      },
+      ...(fresh.data.payload?.notes ?? []),
+    ]
+  }
+
   const result = await window.api('PATCH', `/api/opportunities/${opportunityId}`, { payload })
 
   if (!result.ok) {
@@ -926,6 +989,9 @@ async function saveDeal() {
     feedback.className = 'msg-error'
     return false
   }
+
+  dealDurationDirty = false
+  dealDurationOrig = payload.duration ?? dealDurationOrig
 
   feedback.textContent = `Saved (revision ${result.data.revision_number}).`
   feedback.className = 'msg-success'

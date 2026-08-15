@@ -1,5 +1,6 @@
 import { createUserClient } from '../supabase.js'
 import { issueReferenceNumber } from '../lib/reference-number.js'
+import { isValidIsoDate, isValidNumber } from '../lib/field-validation.js'
 
 // Confirmed picklist values (2026-08-15, Milestone 2) - not the prototype's
 // literal Government/Local Council/Private/Other, extended to match the
@@ -297,7 +298,7 @@ export default async function testBedsRoutes(app) {
   // edit; there is no endpoint to change it post-creation, matching how
   // there is no unlink-Account action anywhere in this app.
   const TEST_BED_WRITABLE_KEYS = new Set([
-    'name', 'client_organisation', 'notes', 'accumulated_cost',
+    'name', 'client_organisation', 'notes', 'accumulated_cost', 'summary',
     'terminusLead', 'commercialAuthority', 'technicalAuthority', 'region', 'country',
     'siteOwnership', 'installationEnvironment', 'siteAddress',
     'safesightCameras', 'airQualitySensors', 'hemirSensors', 'estCostPerUnit', 'indicativeCost',
@@ -320,6 +321,21 @@ export default async function testBedsRoutes(app) {
       }
       if ('siteOwnership' in payload && payload.siteOwnership && !VALID_SITE_OWNERSHIP.includes(payload.siteOwnership)) {
         return reply.code(400).send({ error: `siteOwnership must be one of: ${VALID_SITE_OWNERSHIP.join(', ')}` })
+      }
+      // Real bug found and fixed (2026-08-15): these fields had a writable
+      // key but zero value validation, a plain text input accepted (and
+      // this endpoint happily persisted) a garbled date string and a
+      // non-numeric duration on a real live record. Client-side now uses
+      // <input type="date">/type="number">, but per this session's own
+      // rule against trusting client-only validation, the same rejection
+      // is enforced here independently.
+      for (const key of ['estimatedInstallationDate', 'estGoLiveDate']) {
+        if (key in payload && !isValidIsoDate(payload[key])) {
+          return reply.code(400).send({ error: `${key} must be a valid date (YYYY-MM-DD)` })
+        }
+      }
+      if ('testBedDuration' in payload && !isValidNumber(payload.testBedDuration)) {
+        return reply.code(400).send({ error: 'testBedDuration must be a number' })
       }
     }
 
