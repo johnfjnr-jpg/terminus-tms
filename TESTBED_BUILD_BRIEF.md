@@ -134,7 +134,7 @@ Qualification cannot be exited until all three buyer roles are linked.
 
 ---
 
-## Milestone 4: Test Bed screens
+## Milestone 4: Test Bed screens ✅ COMPLETE
 
 **Two things confirmed during Milestone 2, must be handled here, not
 rediscovered:**
@@ -188,6 +188,48 @@ rediscovered:**
 Qualification's mandatory fields and buyer links, progress to Pre-Site
 Assessment, confirm Documents tab shows the right reference material for
 each stage without blocking anything.
+
+**What actually happened, signed off:**
+
+- A working but incomplete Test Bed frontend already existed, audited the
+  same way as Milestone 2's backend discovery. Chevron strip, Documents
+  section, transition button kept as generic and correct. Standalone
+  "New Test Bed" form removed, permanently broken by Milestone 3's
+  `account_id` requirement and not the confirmed creation flow anyway.
+  List view and Approvals section replaced, wrong columns and a
+  hardcoded stage-name check that never used the generic mechanism.
+- **List view built without the two matrix breakdowns.** The underlying
+  data, open tickets, issue status, live/degraded state, doesn't exist
+  anywhere in the system, an operational monitoring concept for
+  Asset Management's deferred work, not this build. Building empty
+  matrices would have been confusing UI, not a genuine placeholder.
+  Sortable flat table only, real columns: Test Bed name, linked Account,
+  Region, Industry, Stage, Indicative Cost, created date.
+- **Region is not carried over from Contact to Test Bed on creation**,
+  corrected during build. Contact's region is continent-scale, Test Bed's
+  is UK-sub-national free text, carrying the value over would have been
+  actively misleading, not just imprecise. Confirmed via direct query,
+  region genuinely absent from the payload, not blank string.
+- Country-code resolution built as `src/lib/country-code.js`, ported from
+  the prototype's own `countryToCode()` per Rule 8, its non-authoritative
+  fallback for unmapped countries inherited as-is, not fixed.
+- Approvals tab rebuilt to genuinely match Opportunity's real, current
+  pattern, stage-gated only, no role-permission system exists anywhere
+  in the app, confirmed by reading Opportunity's actual code rather than
+  the brief's paraphrase of it.
+- **Real bug found and fixed: Documents tab returned empty for every
+  stage of every Test Bed**, not a deliberate empty state. The original
+  brief conflated "same pattern as Opportunity's empty Documents tab"
+  with "read-only reference information," and the only mechanism that
+  existed to show per-stage document content was `stage_gate_rules`
+  itself, which had no rows for 6 of 7 transitions by Milestone 2's own
+  design. Fixed with a new, deliberately separate `stage_reference_docs`
+  table, zero gating semantics, confirmed by direct diff that nothing in
+  `transitions.js` reads it.
+- Logged, not fixed: a reference-code counter collision caused by test
+  cleanup deleting a counter row while a soft-deleted record still held
+  a code from it. Real fix needs a design decision about counter/deletion
+  interaction, deferred, recorded in `DESIGN_PRINCIPLES.md`.
 
 ---
 

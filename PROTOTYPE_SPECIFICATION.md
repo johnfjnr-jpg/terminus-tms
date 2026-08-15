@@ -220,13 +220,30 @@ data), 7347-7416 (stage view logic), 7796-7923 (creation + detail field
 computation), 9270 (unassign reasons, resolved as out of scope). Two factual
 errors in the original 🟡 note are corrected below.
 
-### List view
+### List view — corrected during build, Milestone 4
 
-- Two matrix breakdowns, "by status, by region" and "by industry, by
-  region", each with hover tooltips showing drill-down items: lines 603-691.
-- Flat sortable table below, columns Region / Test Bed / Location / Status /
-  Open tickets / Issue: lines 693-716.
-- Live/degraded/in-progress count badge: line 598.
+The prototype's citation for this screen (lines 603-716) describes two
+matrix breakdowns ("by status, by region", "by industry, by region") with
+hover drill-down, plus a table with Region, Test Bed, Location, Status,
+Open tickets, Issue columns, and a live/degraded/in-progress count badge.
+
+**Confirmed during build: the underlying data for most of this does not
+exist anywhere in the system**, and was never going to by this milestone.
+`Open tickets`, `Issue`, and a live/degraded/in-progress status are an
+operational monitoring concept, the kind of thing Asset Management's
+deferred monitoring work would eventually produce, not something this
+build has any source for. There is no ticketing or issue-tracking concept
+anywhere in this codebase.
+
+**Business decision: don't build the matrices or fabricate the missing
+columns.** A layout with permanently empty cards and blank columns is
+worse than not building it, confusing UI with no visible explanation,
+not a genuine "ready the day the data exists" placeholder. **Live build:
+sortable flat table only, no matrix breakdowns**, real columns only, Test
+Bed name, linked Account, Region, Industry, Stage, Indicative Cost,
+created date. The matrices and monitoring-status columns can be added
+later, when Asset Management's monitoring work actually produces
+something to show, not before.
 
 ### Detail view: only 4 tabs, not 9
 
@@ -474,7 +491,7 @@ production effectively starts from zero real Test Bed records going
 into Milestone 4's screens work, not from an existing dataset that
 needs migrating.
 
-### Creation — no prototype precedent, new business decision
+### Creation — no prototype precedent, new business decision. Built, Milestone 4.
 
 Prototype's only Test Bed creation path is `createTestbedFromContact()`
 (line 7796), triggered from the Contacts list `+ Create` hover-menu (Section
@@ -485,10 +502,44 @@ Bed creation to extract.
 
 **Business decision, confirmed this session:** when a Contact converts to a
 Test Bed, the Contact's fields populate the Test Bed's reference fields
-directly (name, industry, country, region, linked Account). No fields are
-mandatory purely to *create* the record — mandatory fields instead gate
-*stage progression*, via `stage_gate_rules`, same mechanism already built
-for Opportunity.
+directly. No fields are mandatory purely to *create* the record —
+mandatory fields instead gate *stage progression*, via `stage_gate_rules`,
+same mechanism already built for Opportunity.
+
+**Correction made during build: region is not carried over.** The original
+plan listed "name, industry, country, region, linked Account" as fields
+populated from the Contact. Once actually built, this was caught and
+corrected, Contact's `region` field is a continent-scale picklist
+(Americas, Europe & UK, Middle East, APAC, Africa), while Test Bed's own
+`region` field is UK-sub-national free text (Yorkshire, North West,
+Ireland), a distinction Section 6's picklist-discrepancy note already
+flagged but which hadn't been traced through to this specific consequence
+until the creation flow was actually built. Carrying the value over would
+have populated Test Bed's region field with something like "Europe & UK"
+instead of a real region name, actively misleading, not just imprecise.
+**Live build: name, industry, country, and account carry over. Region is
+left blank on creation from a Contact**, confirmed by direct query,
+genuinely absent from the payload, not an empty string.
+
+Country resolution to the 3-letter ISO code `reference_code` generation
+needs is handled by `src/lib/country-code.js`, ported from the prototype's
+own `countryToCode()` (line 7725) per Rule 8, rather than invented fresh.
+**Inherited as-is, not fixed**: the prototype's own fallback for
+unmapped countries (first 3 letters, uppercased, padded) is not real
+ISO 3166 data, this was true in the prototype and remains true in the
+live build, a known limitation, not a regression.
+
+**A working but incomplete Test Bed frontend already existed before
+Milestone 4 started**, discovered and audited the same way the pre-existing
+backend was found in Milestone 2. Disposition: the chevron strip,
+Documents section, and stage-transition button were generic and correct,
+kept unchanged. The standalone "New Test Bed" creation form, permanently
+broken by Milestone 3's `account_id` requirement and not part of the
+confirmed creation flow anyway, was removed rather than patched. The list
+view and Approvals section were built against wrong assumptions, wrong
+columns entirely on the list, a hardcoded `'Decommissioning'` stage-name
+check on Approvals that never reused the generic `stage-approvals`
+mechanism, and were replaced.
 
 ### Qualification exit-gate — configured now, other 6 stages deferred
 
@@ -547,15 +598,43 @@ belongs there when that module is actually built, not retrofitted into
 Test Bed ahead of it. The mechanism existing already makes this cheaper
 when the time comes, it is a wiring task, not new design.
 
-### Documents and exit criteria — informational only, not gating
+### Documents and exit criteria — informational only, not gating. Built, Milestone 4.
 
 **Confirmed business decision:** the per-stage docs and criteria lists
 (the `docs` and `criteria` arrays in the workflow definition above) are
 **read-only reference information**, telling the user what to go and get.
-They do **not** block stage transition. This is consistent with Section 4's
-existing decision that the Documents tab is deliberately minimal with no
-real document tracking behind it. Document approval workflows are a
+They do **not** block stage transition. Document approval workflows are a
 **backlog item**, explicitly deferred, not designed further here.
+
+**Correction to how this was originally framed for the build.** The
+Milestone 4 brief described this as "same pattern as Opportunity" and
+"read-only reference information" in the same instruction, as if they were
+one thing. They aren't. Opportunity's Documents tab (Section 4) is
+deliberately minimal because there's genuinely nothing to show, an honest
+empty state. Test Bed's per-stage list is fully specified, known content,
+NDA for Pre-Site Assessment, Site Assessment Report/Compliance and Data
+Protection/Partnership and Test Bed Agreement for Site Assessment, and so
+on. Conflating the two in the original instruction led to a real, found
+bug: `document-requirements` had only ever been built against
+`stage_gate_rules`, the gating table, with no separate source for
+informational content at all. Once Milestone 2 flattened `phase` to null
+across all 8 stages, the endpoint silently returned `[]` for every stage
+of every Test Bed, and this went unnoticed through the rest of Milestone
+4's build until explicitly re-traced rather than accepted on report.
+
+**Built as a genuinely separate, non-gating table**, `stage_reference_docs`
+(`record_type`, `stage_name`, `document_name`), deliberately decoupled
+from `stage_gate_rules`, nothing in `transitions.js` reads it, confirmed
+by direct diff, not just design intent. `GET
+/test-beds/:id/document-requirements` returns `{ reference_docs,
+completable_documents }`, the first unconditional and stage-keyed, the
+second the original document-completion mechanism, untouched, just
+properly separated so the frontend can never conflate the two. This is
+the correct general pattern going forward: **informational, non-gating
+content belongs in its own table, never layered onto `stage_gate_rules`
+"for display purposes," since that table's rows carry real gating
+semantics elsewhere in the system and reusing it for display risks
+silently gating something that was never meant to block anything.**
 
 Document templates specific to Test Bed, confirmed at lines 5459, 5461:
 "Partnership and Test Bed Agreement", "Test Bed Review Document".

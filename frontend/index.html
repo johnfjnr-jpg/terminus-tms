@@ -461,40 +461,15 @@
   </div>
 
   <!-- ── Test Beds ─────────────────────────────────────────────────────── -->
+  <!-- No standalone creation form - Test Beds are created from a Qualified
+       Contact only (createFromContact() in app.js), account_id is a hard
+       precondition (Milestone 3) with no picker here to supply one. -->
   <div id="view-test-beds" class="wrap hidden">
     <div class="page-head">
       <div>
         <p class="eyebrow">R&amp;D</p>
         <h1>Test Beds</h1>
         <p class="sub">Client R&amp;D engagements. Cost to the business, no billing.</p>
-      </div>
-      <button class="btn-primary" id="btn-new-testbed">New test bed</button>
-    </div>
-
-    <div id="new-testbed-form" class="inline-form hidden">
-      <h2>New test bed</h2>
-      <div class="form-grid">
-        <div class="form-group">
-          <label for="tb-name">Name</label>
-          <input type="text" id="tb-name" placeholder="e.g. Acme Site Alpha">
-        </div>
-        <div class="form-group">
-          <label for="tb-client">Client organisation</label>
-          <input type="text" id="tb-client" placeholder="Acme Corp">
-        </div>
-        <div class="form-group">
-          <label for="tb-cost">Accumulated cost (GBP)</label>
-          <input type="text" id="tb-cost" placeholder="0">
-        </div>
-        <div class="form-group">
-          <label for="tb-notes">Notes</label>
-          <input type="text" id="tb-notes" placeholder="Optional">
-        </div>
-      </div>
-      <div class="form-actions">
-        <button class="btn-primary" id="btn-save-testbed">Save test bed</button>
-        <button class="btn-ghost" id="btn-cancel-testbed">Cancel</button>
-        <span class="msg-error hidden" id="testbed-form-error"></span>
       </div>
     </div>
 
@@ -506,21 +481,29 @@
     <table>
       <thead>
         <tr>
-          <th>Name</th>
-          <th>Client</th>
-          <th>Stage</th>
-          <th>Cost</th>
-          <th>Age</th>
-          <th></th>
+          <th class="sortable-col" data-tb-sort="name">Test Bed</th>
+          <th class="sortable-col" data-tb-sort="account_name">Account</th>
+          <th class="sortable-col" data-tb-sort="region">Region</th>
+          <th class="sortable-col" data-tb-sort="industry_name">Industry</th>
+          <th class="sortable-col" data-tb-sort="status">Stage</th>
+          <th class="sortable-col" data-tb-sort="indicative_cost">Indicative Cost</th>
+          <th class="sortable-col" data-tb-sort="created_at">Created</th>
         </tr>
       </thead>
       <tbody id="testbeds-tbody">
-        <tr><td colspan="6" class="empty-state">Loading...</td></tr>
+        <tr><td colspan="7" class="empty-state">Loading...</td></tr>
       </tbody>
     </table>
   </div>
 
   <!-- ── Test Bed detail ───────────────────────────────────────────────── -->
+  <!-- 4 tabs only (Reference / Site Details / Documents / Approvals) -
+       the prototype's hint-placeholder-count="9" is a design-tool
+       artefact, not a real spec (PROTOTYPE_SPECIFICATION.md Section 6).
+       Chevron strip, Accumulated cost/Age stats, and Convert-to-
+       Opportunity stay page-level, above the tabs - none of them belong
+       to any one of the 4 tabs. Tab-switching JS mirrors Opportunity's
+       #opp-detail-tabs pattern exactly (app.js). -->
   <div id="view-test-bed-detail" class="wrap hidden">
     <div class="detail-head">
       <div>
@@ -534,7 +517,7 @@
 
     <div id="tb-chevron-strip" class="chevron-strip"></div>
 
-    <div class="stats-grid">
+    <div class="stats-grid" style="margin-bottom:28px">
       <div>
         <span class="label">Stage</span>
         <div class="stat-value" id="tb-detail-stage">--</div>
@@ -548,24 +531,111 @@
         <div class="stat-value" id="tb-detail-age">--</div>
       </div>
       <div>
-        <span class="label">Notes</span>
-        <div class="stat-value" id="tb-detail-notes" style="font-size:13px">--</div>
+        <span class="label">Terminus Reference</span>
+        <div class="stat-value" id="tb-detail-refcode" style="font-size:15px">--</div>
       </div>
     </div>
 
-    <div>
-      <p class="section-title">Documents</p>
-      <div id="tb-documents-section"></div>
+    <div class="detail-tabs" id="tb-detail-tabs">
+      <button class="detail-tab active" data-tb-tab="reference">Reference</button>
+      <button class="detail-tab" data-tb-tab="site-details">Site Details</button>
+      <button class="detail-tab" data-tb-tab="documents">Documents</button>
+      <button class="detail-tab" data-tb-tab="approvals">Approvals</button>
     </div>
 
-    <div style="margin-top:40px">
-      <p class="section-title">Stage transition</p>
-      <div id="tb-transition-section"></div>
+    <!-- ── Reference tab ──────────────────────────────────────────────── -->
+    <div class="detail-tab-panel" id="tb-tab-reference">
+      <div class="pg-card">
+        <p class="pg-card-title">Reference</p>
+        <div id="tb-reference-rows"></div>
+      </div>
     </div>
 
-    <div style="margin-top:32px">
-      <p class="section-title">Approvals</p>
-      <div id="tb-approvals-section"></div>
+    <!-- ── Site Details tab ───────────────────────────────────────────── -->
+    <div class="detail-tab-panel hidden" id="tb-tab-site-details">
+      <div class="pg-card">
+        <p class="pg-card-title">Site Details</p>
+        <div id="tb-site-rows"></div>
+      </div>
+      <div class="pg-card" style="margin-top:20px">
+        <p class="pg-card-title">Sensors</p>
+        <div id="tb-sensors-list"></div>
+      </div>
+      <div class="pg-card" style="margin-top:20px">
+        <p class="pg-card-title">Key Dates</p>
+        <div id="tb-dates-rows"></div>
+      </div>
+      <div class="pg-card" style="margin-top:20px">
+        <p class="pg-card-title">Installation</p>
+        <div id="tb-install-rows"></div>
+        <div style="margin-top:16px">
+          <p class="label" style="margin-bottom:8px">Install Notes</p>
+          <div id="tb-install-notes-list"></div>
+          <div style="display:flex;gap:8px;margin-top:10px">
+            <input type="text" id="tb-install-note-input" placeholder="Add a note">
+            <button class="btn-sm" id="tb-install-note-add">Add</button>
+          </div>
+        </div>
+      </div>
+      <div class="pg-card" style="margin-top:20px">
+        <p class="pg-card-title">Contacts</p>
+        <div id="tb-owner-rows"></div>
+        <div style="margin-top:16px">
+          <p class="label" style="margin-bottom:8px">Client Buyers</p>
+          <div id="tb-buyer-rows"></div>
+        </div>
+      </div>
+      <div class="pg-card" style="margin-top:20px">
+        <p class="pg-card-title">Use Cases</p>
+        <div id="tb-usecases-list"></div>
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <input type="text" id="tb-usecase-input" placeholder="Add a use case">
+          <button class="btn-sm" id="tb-usecase-add">Add</button>
+        </div>
+      </div>
+      <div id="tb-save-bar" class="ref-edit-bar hidden">
+        <span id="tb-save-count"></span>
+        <button class="btn-ghost btn-sm" id="tb-cancel-all">Cancel</button>
+        <button class="btn-primary btn-sm" id="tb-save-all">Save changes</button>
+        <span id="tb-save-feedback"></span>
+      </div>
+    </div>
+
+    <!-- ── Documents tab ──────────────────────────────────────────────── -->
+    <!-- Two deliberately separate sections, matching the API response
+         shape (reference_docs / completable_documents) - reference
+         material is always visible for the current stage regardless of
+         gating, the completable-document table below it is the existing,
+         unchanged stage_gate_rules-driven mechanism. -->
+    <div class="detail-tab-panel hidden" id="tb-tab-documents">
+      <div class="pg-card">
+        <p class="pg-card-title">Reference Material</p>
+        <div id="tb-reference-docs-section"></div>
+      </div>
+      <div style="margin-top:24px">
+        <p class="section-title">Documents</p>
+        <div id="tb-documents-section"></div>
+      </div>
+    </div>
+
+    <!-- ── Approvals tab ──────────────────────────────────────────────── -->
+    <!-- Same real pattern as Opportunity's Stage & Approvals tab: every
+         stage shown via GET /records/:id/stage-approvals, ring radios
+         clickable only on the current stage's undecided tracks. No
+         approval-role check, same as Opportunity - none exists anywhere
+         in this app (see app.js's own comment on renderStageApprovalsRows).
+         Does NOT reuse the old hardcoded "only show at Decommissioning"
+         static button. -->
+    <div class="detail-tab-panel hidden" id="tb-tab-approvals">
+      <div class="sa-row sa-head">
+        <span>Stage</span><span>Exit criteria</span><span>Approvers</span>
+      </div>
+      <div id="tb-stage-approvals-rows"></div>
+
+      <div style="margin-top:40px">
+        <p class="section-title">Stage transition</p>
+        <div id="tb-transition-section"></div>
+      </div>
     </div>
 
     <div style="margin-top:32px">
@@ -1090,6 +1160,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="/app.js"></script>
 <script src="/opportunity-reference.js"></script>
+<script src="/test-bed-detail.js"></script>
 <script src="/contact-detail.js"></script>
 <script type="module" src="/opportunity-deal.js"></script>
 </body>

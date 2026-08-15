@@ -89,6 +89,17 @@ function switchOppTab(tab) {
   document.getElementById(`opp-tab-${tab}`).classList.remove('hidden')
 }
 
+// Test Bed detail tabs (Reference / Site Details / Documents / Approvals) -
+// same static-tab-bar-wired-once pattern as Opportunity's above.
+document.querySelectorAll('#tb-detail-tabs .detail-tab').forEach(btn => {
+  btn.addEventListener('click', () => switchTbTab(btn.dataset.tbTab))
+})
+function switchTbTab(tab) {
+  document.querySelectorAll('#tb-detail-tabs .detail-tab').forEach(b => b.classList.toggle('active', b.dataset.tbTab === tab))
+  document.querySelectorAll('#view-test-bed-detail .detail-tab-panel').forEach(p => p.classList.add('hidden'))
+  document.getElementById(`tb-tab-${tab}`).classList.remove('hidden')
+}
+
 // ── API ───────────────────────────────────────────────────────────────────────
 async function api(method, path, body) {
   if (!currentSession) return { ok: false, data: { error: 'not authenticated' } }
@@ -230,6 +241,11 @@ function renderChevronStrip(elementId, currentStage, stages) {
   const currentStageObj = stages.find(s => s.stage_name === currentStage)
   const currentMainLabel = currentStageObj?.phase ?? currentStage
   const currentMainIdx = mainItems.findIndex(m => m.label === currentMainLabel)
+
+  // Test Bed's flat 8-stage list has no phase grouping to collapse down
+  // to the ~6 items this component was originally sized for - see the
+  // .chevron-strip.many CSS rule.
+  el.classList.toggle('many', mainItems.length > 6)
 
   el.innerHTML = mainItems.map((item, i) => {
     const cls = i < currentMainIdx ? 'done' : i === currentMainIdx ? 'current' : ''
@@ -930,14 +946,19 @@ function clearContactForm() {
 }
 
 // ── Test Beds ─────────────────────────────────────────────────────────────────
+// No standalone creation form (removed Milestone 4) - account_id is a hard
+// precondition (Milestone 3) with no Account picker built here; creation
+// only happens from a Qualified Contact via createFromContact().
 let testBedsCache = []
 let testBedsMineOnly = false
+let tbSortKey = 'created_at'
+let tbSortDir = 'desc'
 
 async function loadTestBeds() {
   const result = await api('GET', '/api/test-beds')
   if (!result.ok) {
     document.getElementById('testbeds-tbody').innerHTML =
-      `<tr><td colspan="6" class="empty-state">Failed to load test beds.</td></tr>`
+      `<tr><td colspan="7" class="empty-state">Failed to load test beds.</td></tr>`
     return
   }
   testBedsCache = result.data
@@ -950,77 +971,66 @@ document.getElementById('testbeds-mine-toggle').addEventListener('click', () => 
   renderTestBedsTable(filterMine(testBedsCache, testBedsMineOnly))
 })
 
+document.querySelectorAll('#view-test-beds th[data-tb-sort]').forEach(th => {
+  th.addEventListener('click', () => {
+    const key = th.dataset.tbSort
+    if (tbSortKey === key) {
+      tbSortDir = tbSortDir === 'asc' ? 'desc' : 'asc'
+    } else {
+      tbSortKey = key
+      tbSortDir = 'asc'
+    }
+    renderTestBedsTable(filterMine(testBedsCache, testBedsMineOnly))
+  })
+})
+
+function tbSortValue(b, key) {
+  const p = b.payload ?? {}
+  switch (key) {
+    case 'name': return (p.name ?? '').toLowerCase()
+    case 'account_name': return (b.account_name ?? '').toLowerCase()
+    case 'region': return (p.region ?? '').toLowerCase()
+    case 'industry_name': return (b.industry_name ?? '').toLowerCase()
+    case 'status': return (b.status ?? '').toLowerCase()
+    case 'indicative_cost': return Number(p.indicativeCost ?? 0)
+    case 'created_at': return b.created_at
+    default: return ''
+  }
+}
+
 function renderTestBedsTable(beds) {
+  document.querySelectorAll('#view-test-beds th[data-tb-sort]').forEach(th => {
+    th.classList.toggle('sort-active', th.dataset.tbSort === tbSortKey)
+    const base = th.textContent.replace(/ [▲▼]$/, '')
+    th.textContent = th.dataset.tbSort === tbSortKey ? `${base} ${tbSortDir === 'asc' ? '▲' : '▼'}` : base
+  })
+
   const tbody = document.getElementById('testbeds-tbody')
   if (!beds.length) {
-    tbody.innerHTML = `<tr><td colspan="6" class="empty-state">${testBedsMineOnly ? 'No test beds owned by you.' : 'No test beds yet.'}</td></tr>`
+    tbody.innerHTML = `<tr><td colspan="7" class="empty-state">${testBedsMineOnly ? 'No test beds owned by you.' : 'No test beds yet.'}</td></tr>`
     return
   }
 
-  tbody.innerHTML = beds.map(b => {
+  const sorted = [...beds].sort((a, b) => {
+    const av = tbSortValue(a, tbSortKey)
+    const bv = tbSortValue(b, tbSortKey)
+    const cmp = av < bv ? -1 : av > bv ? 1 : 0
+    return tbSortDir === 'asc' ? cmp : -cmp
+  })
+
+  tbody.innerHTML = sorted.map(b => {
     const p = b.payload ?? {}
     return `
     <tr onclick="navigate('test-bed-detail', '${b.id}')">
       <td class="col-name">${escHtml(p.name ?? '--')}</td>
-      <td>${escHtml(p.client_organisation ?? '--')}</td>
+      <td>${escHtml(b.account_name ?? '--')}</td>
+      <td>${escHtml(p.region ?? '--')}</td>
+      <td>${escHtml(b.industry_name ?? '--')}</td>
       <td class="col-stage">${escHtml(b.status)}</td>
-      <td class="col-mono">${formatCost(p.accumulated_cost)}</td>
-      <td class="col-mono">${daysAgo(b.created_at)}</td>
-      <td></td>
+      <td class="col-mono">${formatCost(p.indicativeCost)}</td>
+      <td class="col-mono">${formatDate(b.created_at)}</td>
     </tr>`
   }).join('')
-}
-
-document.getElementById('btn-new-testbed').addEventListener('click', () => {
-  document.getElementById('new-testbed-form').classList.remove('hidden')
-  document.getElementById('btn-new-testbed').classList.add('hidden')
-  document.getElementById('tb-name').focus()
-})
-document.getElementById('btn-cancel-testbed').addEventListener('click', () => {
-  document.getElementById('new-testbed-form').classList.add('hidden')
-  document.getElementById('btn-new-testbed').classList.remove('hidden')
-  clearTestBedForm()
-})
-document.getElementById('btn-save-testbed').addEventListener('click', saveTestBed)
-
-async function saveTestBed() {
-  const name = document.getElementById('tb-name').value.trim()
-  const errEl = document.getElementById('testbed-form-error')
-  errEl.classList.add('hidden')
-
-  if (!name) {
-    errEl.textContent = 'Name is required.'
-    errEl.classList.remove('hidden')
-    return
-  }
-
-  const costRaw = document.getElementById('tb-cost').value.trim()
-  const accumulated_cost = costRaw ? Number(costRaw) : 0
-
-  const result = await api('POST', '/api/test-beds', {
-    name,
-    client_organisation: document.getElementById('tb-client').value.trim(),
-    notes: document.getElementById('tb-notes').value.trim(),
-    accumulated_cost
-  })
-
-  if (!result.ok) {
-    errEl.textContent = result.data.error ?? 'Failed to save test bed.'
-    errEl.classList.remove('hidden')
-    return
-  }
-
-  document.getElementById('new-testbed-form').classList.add('hidden')
-  document.getElementById('btn-new-testbed').classList.remove('hidden')
-  clearTestBedForm()
-  loadTestBeds()
-}
-
-function clearTestBedForm() {
-  ;['tb-name', 'tb-client', 'tb-cost', 'tb-notes'].forEach(id => (document.getElementById(id).value = ''))
-  const errEl = document.getElementById('testbed-form-error')
-  errEl.textContent = ''
-  errEl.classList.add('hidden')
 }
 
 // ── Test Bed detail ───────────────────────────────────────────────────────────
@@ -1044,14 +1054,17 @@ async function renderTestBedDetail(bed) {
   document.getElementById('tb-detail-stage').textContent = bed.status
   document.getElementById('tb-detail-cost').textContent = formatCost(p.accumulated_cost)
   document.getElementById('tb-detail-age').textContent = daysAgo(bed.created_at)
-  document.getElementById('tb-detail-notes').textContent = p.notes ?? '--'
+  document.getElementById('tb-detail-refcode').textContent = bed.reference_code ?? 'Not yet generated'
 
   const stages = await fetchStages('test_bed')
   renderChevronStrip('tb-chevron-strip', bed.status, stages)
 
+  switchTbTab('reference')
+  window.initTestBedDetailPanel(bed)
+
   await renderTestBedDocuments(bed)
   renderTransitionSection('tb-transition-section', 'tb-transition-feedback', bed.id, bed.status, stages)
-  renderTestBedApprovals(bed)
+  await loadTbStageApprovals(bed.id)
   renderTestBedConvertSection(bed)
 }
 
@@ -1063,17 +1076,31 @@ async function renderTestBedDocuments(bed) {
 
   const result = await api('GET', `/api/test-beds/${bed.id}/document-requirements`)
 
+  const referenceSection = document.getElementById('tb-reference-docs-section')
+
   if (!result.ok) {
-    section.innerHTML = '<p class="muted" style="font-size:14px">Could not load document requirements.</p>'
+    section.innerHTML = '<p class="empty-state">Could not load document requirements.</p>'
+    if (referenceSection) referenceSection.innerHTML = '<p class="empty-state">Could not load reference material.</p>'
     return
   }
 
-  if (!result.data.length) {
-    section.innerHTML = '<p class="muted" style="font-size:14px">No document requirements for this stage.</p>'
-    return
+  // reference_docs: unconditional, informational, never gates anything -
+  // rendered regardless of whether completable_documents has anything.
+  // Milestone 4 close-out fix, see test-beds.js's own comment on this
+  // endpoint for why this is a separate array, not merged into the table
+  // below.
+  if (referenceSection) {
+    const refDocs = result.data.reference_docs ?? []
+    referenceSection.innerHTML = refDocs.length
+      ? refDocs.map(d => `<div class="data-row"><span style="font-size:13px">${escHtml(d.document_name)}</span></div>`).join('')
+      : '<p class="empty-state">No reference material listed for this stage.</p>'
   }
 
-  const docs = result.data
+  const docs = result.data.completable_documents ?? []
+  if (!docs.length) {
+    section.innerHTML = '<p class="empty-state">No documents created for this stage yet.</p>'
+    return
+  }
   // DPIA and APD together trigger the CaDP group header row.
   const hasCaDP = docs.some(d => d.document === 'DPIA') && docs.some(d => d.document === 'APD')
   const cadpSet = new Set(['DPIA', 'APD'])
@@ -1194,47 +1221,12 @@ window.submitDocumentForm = async (bedId, documentType) => {
   }
 }
 
-function renderTestBedApprovals(bed) {
-  const section = document.getElementById('tb-approvals-section')
-
-  // Only show Senior approval control when at Decommissioning (the gated final transition)
-  if (bed.status !== 'Decommissioning') {
-    section.innerHTML = '<p class="muted" style="font-size:14px">Approvals are required for the final Decommissioning to Closed transition.</p>'
-    return
-  }
-
-  section.innerHTML = `
-    <div class="data-row">
-      <div>
-        <span style="font-size:14px">Senior sign-off</span>
-        <span class="data-row-label">Required before Decommissioning to Closed transition.</span>
-      </div>
-      <button class="btn-primary" onclick="grantSeniorApproval('${bed.id}')">
-        Grant Senior approval
-      </button>
-    </div>
-    <div id="approval-feedback"></div>
-  `
-}
-
-window.grantSeniorApproval = async (id) => {
-  const feedback = document.getElementById('approval-feedback')
-  feedback.innerHTML = ''
-
-  const result = await api('POST', `/api/records/${id}/approvals`, {
-    track: 'Senior',
-    decision: 'approved',
-    comment: 'Senior sign-off for Test Bed closure'
-  })
-
-  if (result.ok) {
-    feedback.innerHTML = '<p class="msg-success">Senior approval granted.</p>'
-    await loadTestBedDetail(id)
-    return
-  }
-
-  feedback.innerHTML = `<p class="msg-error">${escHtml(result.data.error ?? 'Failed to grant approval.')}</p>`
-}
+// Old renderTestBedApprovals()/grantSeniorApproval() (Milestone 4,
+// removed 2026-08-15): hardcoded to the 'Decommissioning' stage name,
+// never checked whether an approval was already granted, and never
+// reused GET /records/:id/stage-approvals at all - real stage check, but
+// none of the generic display mechanism. Replaced by loadTbStageApprovals()
+// above, the same real pattern Opportunity's Approvals tab already uses.
 
 function renderTestBedConvertSection(bed) {
   const section = document.getElementById('tb-convert-section')
@@ -1439,15 +1431,28 @@ function renderOppDocumentsList() {
 }
 
 // ── Stage & Approvals tab ───────────────────────────────────────────────────
-async function loadStageApprovals(id) {
-  const container = document.getElementById('opp-stage-approvals-rows')
+// containerId (2026-08-15, Milestone 4): generalized from Opportunity's
+// original hardcoded 'opp-stage-approvals-rows' so Test Bed's Approvals
+// tab can reuse this instead of forking its own copy (DESIGN_PRINCIPLES.md
+// rule 5, "new modules extend, they don't fork") - this is the same real
+// mechanism the brief asks Test Bed's Approvals tab to use, not a
+// second, parallel implementation of it.
+const stageApprovalsContainerByRecord = {}
+
+async function loadStageApprovals(id, containerId = 'opp-stage-approvals-rows') {
+  stageApprovalsContainerByRecord[id] = containerId
+  const container = document.getElementById(containerId)
   container.innerHTML = '<p class="empty-state">Loading...</p>'
   const result = await api('GET', `/api/records/${id}/stage-approvals`)
   if (!result.ok) {
     container.innerHTML = '<p class="empty-state">Failed to load stage approvals.</p>'
     return
   }
-  renderStageApprovalsRows(id, result.data)
+  renderStageApprovalsRows(id, result.data, containerId)
+}
+
+function loadTbStageApprovals(id) {
+  return loadStageApprovals(id, 'tb-stage-approvals-rows')
 }
 
 // Every stage shown, not just the current one. Ring radios are real
@@ -1455,8 +1460,8 @@ async function loadStageApprovals(id) {
 // approval-role check anywhere in this app to gate WHO specifically may
 // click one - restricted to the current stage only, a UX judgment call on
 // real data (record.status), not a fabricated permission system.
-function renderStageApprovalsRows(recordId, stages) {
-  const container = document.getElementById('opp-stage-approvals-rows')
+function renderStageApprovalsRows(recordId, stages, containerId = 'opp-stage-approvals-rows') {
+  const container = document.getElementById(containerId)
   if (!stages.length) {
     container.innerHTML = '<p class="empty-state">No stages configured for this record type.</p>'
     return
@@ -1504,7 +1509,7 @@ function renderStageApprovalsRows(recordId, stages) {
 window.submitStageApproval = async (recordId, track) => {
   const result = await api('POST', `/api/records/${recordId}/approvals`, { track, decision: 'approved' })
   if (result.ok) {
-    await loadStageApprovals(recordId)
+    await loadStageApprovals(recordId, stageApprovalsContainerByRecord[recordId])
   }
 }
 

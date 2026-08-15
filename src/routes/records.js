@@ -153,12 +153,25 @@ export default async function recordsRoutes(app) {
       const state = currentIdx < 0 ? 'upcoming' : (idx < currentIdx ? 'completed' : idx === currentIdx ? 'current' : 'upcoming')
       const stageRules = rules.filter(r => r.from_stage === stage.stage_name)
 
+      // payload_field_required/contact_role_linked (2026-08-15, Milestone
+      // 4): added so Test Bed's Qualification gate (3 payload fields + 3
+      // buyer-role links, no approval_obtained rows at all) shows real
+      // criteria text here instead of "--" - without this, this display
+      // endpoint would be nearly empty for the one stage Test Bed
+      // actually has gate rules on today. Benefits Opportunity too, for
+      // free, if it ever gains a payload_field_required-gated stage.
       const criteria = stageRules.map(r => {
         if (r.requirement_type === 'approval_obtained') {
           return `Requires an approved ${r.requirement_detail?.track} decision`
         }
         if (r.requirement_type === 'document_status') {
           return `Requires ${r.requirement_detail?.document} to be ${r.requirement_detail?.status}`
+        }
+        if (r.requirement_type === 'payload_field_required') {
+          return `Requires ${r.requirement_detail?.field} to be set`
+        }
+        if (r.requirement_type === 'contact_role_linked') {
+          return `Requires a Contact linked as ${r.requirement_detail?.role}`
         }
         return null
       }).filter(Boolean)

@@ -19,6 +19,11 @@ export const VALID_SITE_OWNERSHIP = [
 
 export default async function testBedsRoutes(app) {
   // GET /api/test-beds
+  //
+  // Milestone 4: also resolves linked Account name and industry name for
+  // the list view's columns (Test Bed name, linked Account, Region,
+  // Industry, Stage, Indicative Cost, created date) - bulk-resolved here,
+  // not per-row, same reasoning as the detail endpoint's join.
   app.get('/test-beds', async (request, reply) => {
     const db = createUserClient(request.jwt)
 
@@ -47,7 +52,30 @@ export default async function testBedsRoutes(app) {
       if (!latestPayload[rev.record_id]) latestPayload[rev.record_id] = rev.payload
     }
 
-    return beds.map(b => ({ ...b, payload: latestPayload[b.id] ?? {} }))
+    const accountIds = [...new Set(beds.map(b => b.account_id).filter(Boolean))]
+    const industryIds = [...new Set(beds.map(b => b.industry_id).filter(Boolean))]
+
+    const [accountRevsResult, industriesResult] = await Promise.all([
+      accountIds.length
+        ? db.from('record_revisions').select('record_id, payload').in('record_id', accountIds).order('revision_number', { ascending: false })
+        : Promise.resolve({ data: [] }),
+      industryIds.length
+        ? db.from('industries').select('id, name').in('id', industryIds)
+        : Promise.resolve({ data: [] })
+    ])
+
+    const accountNames = {}
+    for (const rev of accountRevsResult.data ?? []) {
+      if (!(rev.record_id in accountNames)) accountNames[rev.record_id] = rev.payload?.name ?? null
+    }
+    const industryNames = Object.fromEntries((industriesResult.data ?? []).map(i => [i.id, i.name]))
+
+    return beds.map(b => ({
+      ...b,
+      payload: latestPayload[b.id] ?? {},
+      account_name: b.account_id ? (accountNames[b.account_id] ?? null) : null,
+      industry_name: b.industry_id ? (industryNames[b.industry_id] ?? null) : null
+    }))
   })
 
   // POST /api/test-beds
@@ -177,6 +205,12 @@ export default async function testBedsRoutes(app) {
   })
 
   // GET /api/test-beds/:id
+  //
+  // Milestone 4: also resolves industry name, linked Account name, and
+  // the buyer/owner record_contacts links (role + contact name) - the
+  // detail page's Reference/Site Details tabs need all of this to
+  // render, and re-deriving it client-side would mean N extra round
+  // trips per field. Read-only resolution, no writes.
   app.get('/test-beds/:id', async (request, reply) => {
     const db = createUserClient(request.jwt)
 
@@ -199,18 +233,168 @@ export default async function testBedsRoutes(app) {
       return reply.code(404).send({ error: 'not found' })
     }
 
+    const bed = bedResult.data
+
+    const [industryResult, accountResult, contactsResult] = await Promise.all([
+      bed.industry_id
+        ? db.from('industries').select('id, name, short_code').eq('id', bed.industry_id).maybeSingle()
+        : Promise.resolve({ data: null }),
+      bed.account_id
+        ? db.from('records').select('id, deleted_at').eq('id', bed.account_id).maybeSingle()
+        : Promise.resolve({ data: null }),
+      db.from('record_contacts').select('id, contact_id, role, created_at').eq('record_id', bed.id)
+    ])
+
+    let account = null
+    if (accountResult.data) {
+      const { data: acctRev } = await db
+        .from('record_revisions')
+        .select('payload')
+        .eq('record_id', accountResult.data.id)
+        .order('revision_number', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      account = { id: accountResult.data.id, name: acctRev?.payload?.name ?? null }
+    }
+
+    const links = contactsResult.data ?? []
+    const contactIds = [...new Set(links.map(l => l.contact_id))]
+    let contactNames = {}
+    if (contactIds.length) {
+      const { data: contactRevs } = await db
+        .from('record_revisions')
+        .select('record_id, payload')
+        .in('record_id', contactIds)
+        .order('revision_number', { ascending: false })
+      for (const r of contactRevs ?? []) {
+        if (!(r.record_id in contactNames)) contactNames[r.record_id] = r.payload?.name ?? r.payload?.contact_name ?? null
+      }
+    }
+
+    const buyer_contacts = links.map(l => ({
+      role: l.role,
+      contact_id: l.contact_id,
+      name: contactNames[l.contact_id] ?? null
+    }))
+
     return {
-      ...bedResult.data,
+      ...bed,
       payload: revResult.data?.payload ?? {},
-      latest_revision_number: revResult.data?.revision_number ?? 1
+      latest_revision_number: revResult.data?.revision_number ?? 1,
+      industry: industryResult.data ? { id: industryResult.data.id, name: industryResult.data.name } : null,
+      account,
+      buyer_contacts
     }
   })
 
+  // PATCH /api/test-beds/:id
+  //
+  // Ordinary field edits, same pattern as PATCH /contacts/:id and
+  // PATCH /opportunities/:id - payload merge, no new revision fields
+  // beyond what's already writable. account_id is deliberately NOT
+  // accepted here (same reasoning as contacts.js's PATCH excluding it) -
+  // it's a creation-time precondition (Milestone 3), not a plain field
+  // edit; there is no endpoint to change it post-creation, matching how
+  // there is no unlink-Account action anywhere in this app.
+  const TEST_BED_WRITABLE_KEYS = new Set([
+    'name', 'client_organisation', 'notes', 'accumulated_cost',
+    'terminusLead', 'commercialAuthority', 'technicalAuthority', 'region', 'country',
+    'siteOwnership', 'installationEnvironment', 'siteAddress',
+    'safesightCameras', 'airQualitySensors', 'hemirSensors', 'estCostPerUnit', 'indicativeCost',
+    'testBedDuration', 'estimatedInstallationDate', 'estGoLiveDate',
+    'installer', 'techTeam', 'installNotes',
+    'terminusCommercialOwner', 'terminusTechnicalOwner', 'terminusLegalOwner', 'initialLead',
+    'useCases',
+  ])
+
+  app.patch('/test-beds/:id', async (request, reply) => {
+    const { payload, industry_id } = request.body ?? {}
+
+    if (payload) {
+      const disallowed = Object.keys(payload).filter(k => !TEST_BED_WRITABLE_KEYS.has(k))
+      if (disallowed.length) {
+        return reply.code(400).send({
+          error: 'payload contains fields that cannot be set from this endpoint',
+          disallowed
+        })
+      }
+      if ('siteOwnership' in payload && payload.siteOwnership && !VALID_SITE_OWNERSHIP.includes(payload.siteOwnership)) {
+        return reply.code(400).send({ error: `siteOwnership must be one of: ${VALID_SITE_OWNERSHIP.join(', ')}` })
+      }
+    }
+
+    const db = createUserClient(request.jwt)
+
+    const { data: record, error: recordErr } = await db
+      .from('records')
+      .select('id')
+      .eq('id', request.params.id)
+      .eq('record_type', 'test_bed')
+      .is('deleted_at', null)
+      .maybeSingle()
+
+    if (recordErr || !record) {
+      return reply.code(404).send({ error: 'not found' })
+    }
+
+    if (industry_id !== undefined) {
+      const { data: updated, error: updateErr } = await db
+        .from('records')
+        .update({ industry_id })
+        .eq('id', record.id)
+        .select('id')
+      if (updateErr) return reply.code(500).send({ error: updateErr.message })
+      if (!updated?.length) return reply.code(403).send({ error: 'not permitted' })
+    }
+
+    if (payload) {
+      const { data: revRow } = await db
+        .from('record_revisions')
+        .select('revision_number, payload')
+        .eq('record_id', record.id)
+        .order('revision_number', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      const nextRevision = (revRow?.revision_number ?? 0) + 1
+      const mergedPayload = { ...(revRow?.payload ?? {}), ...payload }
+
+      const { error: revErr } = await db
+        .from('record_revisions')
+        .insert({ record_id: record.id, revision_number: nextRevision, payload: mergedPayload, created_by: request.user.id })
+
+      if (revErr) return reply.code(500).send({ error: revErr.message })
+    }
+
+    return reply.send({ ok: true })
+  })
+
   // GET /api/test-beds/:id/document-requirements
-  // Returns document_status gate requirements relevant to the current stage.
-  // For stages with no direct gate rules but a phase set, falls back to the
-  // phase-exit gate (last Planning stage → Installation and Commissioning) so
-  // that all planning documents are visible from Site Assessment onwards.
+  //
+  // Milestone 4 close-out (2026-08-15): confirmed by tracing the code
+  // directly (not inferred) that this endpoint's only data source was
+  // stage_gate_rules document_status rows, plus a phase-grouping
+  // fallback that's permanently dead (phase is null on every test_bed
+  // stage since Milestone 2's flattening). Net effect: this returned []
+  // for every stage of every Test Bed, not the deliberate "informational,
+  // correctly empty" case it looked like - PROTOTYPE_SPECIFICATION.md
+  // Section 6's own per-stage docs list (e.g. "Pre-Site Assessment: NDA")
+  // was never actually surfaced, because informational display and
+  // gating had been conflated into one mechanism.
+  //
+  // Response is now { reference_docs, completable_documents } - two
+  // deliberately separate arrays, not merged, so the frontend can't
+  // conflate "go get this" with "this blocks your transition":
+  //   - reference_docs: unconditional, from the new stage_reference_docs
+  //     table, keyed by the CURRENT stage (not from_stage/to_stage - this
+  //     has nothing to do with gating a transition, it's "while you're
+  //     in this stage, here's what to go get"). No stage_gate_rules
+  //     involved at all.
+  //   - completable_documents: exactly the prior logic, unchanged -
+  //     document_status gate rules (+ the same phase-fallback, still
+  //     dead today but left as-is, not removed, since it's not what this
+  //     fix is about) matched against real record_type='document' child
+  //     records.
   app.get('/test-beds/:id/document-requirements', async (request, reply) => {
     const db = createUserClient(request.jwt)
 
@@ -224,6 +408,14 @@ export default async function testBedsRoutes(app) {
 
     if (!bed) return reply.code(404).send({ error: 'not found' })
 
+    const { data: referenceDocs } = await db
+      .from('stage_reference_docs')
+      .select('document_name')
+      .eq('record_type', 'test_bed')
+      .eq('stage_name', bed.status)
+
+    const reference_docs = (referenceDocs ?? []).map(d => ({ document_name: d.document_name }))
+
     const { data: stages } = await db
       .from('stage_definitions')
       .select('stage_name, sort_order, phase')
@@ -235,7 +427,7 @@ export default async function testBedsRoutes(app) {
     const currentIdx = stageList.findIndex(s => s.stage_name === bed.status)
     const nextStage = stageList[currentIdx + 1]?.stage_name
 
-    if (!nextStage) return []
+    if (!nextStage) return { reference_docs, completable_documents: [] }
 
     let { data: rules } = await db
       .from('stage_gate_rules')
@@ -271,7 +463,7 @@ export default async function testBedsRoutes(app) {
       }
     }
 
-    if (!rules?.length) return []
+    if (!rules?.length) return { reference_docs, completable_documents: [] }
 
     const { data: docs } = await db
       .from('records')
@@ -297,7 +489,7 @@ export default async function testBedsRoutes(app) {
       }
     }
 
-    return rules.map(r => {
+    const completable_documents = rules.map(r => {
       const doc = docMap[r.requirement_detail.document]
       return {
         document: r.requirement_detail.document,
@@ -307,6 +499,8 @@ export default async function testBedsRoutes(app) {
         document_location: doc?.id ? (locationMap[doc.id] ?? null) : null
       }
     })
+
+    return { reference_docs, completable_documents }
   })
 
   // POST /api/test-beds/:id/complete-document

@@ -337,6 +337,14 @@ thead th {
   border-bottom: 1px solid var(--hairline-strong);
 }
 
+thead th.sortable-col {
+  cursor: pointer;
+  user-select: none;
+}
+thead th.sortable-col.sort-active {
+  color: var(--green);
+}
+
 tbody td {
   padding: 16px 12px;
   border-bottom: 1px solid var(--hairline);
@@ -764,6 +772,24 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
 .chevron-item.current {
   background: var(--green);
   color: var(--dark);
+}
+
+/* Many-item case (Test Bed's flat 8-stage list, no phase grouping to
+   collapse it down to ~6 - confirmed broken live during Milestone 2:
+   8 full-length labels at the ~6-item sizing below overlapped and
+   became unreadable). Smaller font, less padding, wrapping instead of
+   a single clipped line, and a taller strip to fit two lines. Scoped to
+   .many so the ~4-6 item Opportunity-style case, if this component is
+   ever reused there, keeps its original single-line sizing. */
+.chevron-strip.many {
+  height: 52px;
+}
+.chevron-strip.many .chevron-item {
+  font-size: 8px;
+  padding: 0 10px;
+  white-space: normal;
+  line-height: 1.3;
+  text-align: center;
 }
 
 /* ── Document requirements table ────────────────────────────── */

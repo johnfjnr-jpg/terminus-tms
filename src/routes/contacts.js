@@ -1,4 +1,6 @@
 import { createUserClient } from '../supabase.js'
+import { issueReferenceNumber } from '../lib/reference-number.js'
+import { countryToCode } from '../lib/country-code.js'
 
 const VALID_SOURCES = ['Web', 'Email Inquiry', 'Referral', 'Direct Outreach', 'Marketing Campaign']
 
@@ -418,7 +420,7 @@ export default async function contactsRoutes(app) {
   async function loadQualifiedContact(db, id) {
     const { data: contact, error } = await db
       .from('records')
-      .select('id, status, parent_record_id')
+      .select('id, status, parent_record_id, industry_id')
       .eq('id', id)
       .eq('record_type', 'contact')
       .is('deleted_at', null)
@@ -450,7 +452,19 @@ export default async function contactsRoutes(app) {
       accountName = acctRev?.payload?.name ?? null
     }
 
-    return { contact, accountName }
+    // contactPayload (2026-08-15, Milestone 4): create-test-bed needs the
+    // Contact's own stored country to resolve a reference_code - Country
+    // is a real Qualification-gate field (20260812000005), so every
+    // Qualified Contact is guaranteed to have one.
+    const { data: contactRev } = await db
+      .from('record_revisions')
+      .select('payload')
+      .eq('record_id', contact.id)
+      .order('revision_number', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    return { contact, accountName, contactPayload: contactRev?.payload ?? {} }
   }
 
   // Default role 'commercial buyer' for every Contact linked this way -
@@ -540,9 +554,29 @@ export default async function contactsRoutes(app) {
   // the earlier POST /test-beds fix since that's a separate creation
   // path. Fixed to 'Qualification' here for the same reason it was fixed
   // there.
+  // reference_code / country (2026-08-15, Milestone 4): this path never
+  // called issueReferenceNumber at all - only the direct-creation
+  // POST /test-beds did (Milestone 3's smaller, scoped addition). Every
+  // Contact-conversion Test Bed got reference_code: null indefinitely,
+  // exactly the gap TESTBED_BUILD_BRIEF.md's Milestone 4 section calls
+  // out. Country is resolved via countryToCode() (src/lib/country-code.js,
+  // ported from the prototype, no mapping existed anywhere before this).
+  // Country is a real Qualification-gate field, so every Qualified
+  // Contact has one - the null-safe handling below covers only the
+  // theoretical case where issueReferenceNumber's own country_code
+  // validation still rejects an unmapped/empty value.
+  //
+  // region is deliberately NOT carried over here (2026-08-15, confirmed
+  // business decision) - Contact's region field is a continent-scale
+  // picklist (Americas/Europe & UK/...), Test Bed's own Region field is
+  // UK-sub-national free text (Yorkshire, North West/...), PROTOTYPE_
+  // SPECIFICATION.md Section 6 already flags these as different-scale
+  // concepts. Populating one from the other would be actively misleading,
+  // not just imprecise - left blank on creation instead, filled in later
+  // via PATCH /test-beds/:id once someone knows the real answer.
   app.post('/contacts/:id/create-test-bed', async (request, reply) => {
     const db = createUserClient(request.jwt)
-    const { contact, accountName, error } = await loadQualifiedContact(db, request.params.id)
+    const { contact, accountName, contactPayload, error } = await loadQualifiedContact(db, request.params.id)
     if (error) return reply.code(error.code).send(error.body)
 
     if (!contact.parent_record_id) {
@@ -553,9 +587,35 @@ export default async function contactsRoutes(app) {
 
     const name = accountName ?? 'New Test Bed'
 
+    let referenceCode = null
+    if (contact.industry_id) {
+      const { data: industry } = await db
+        .from('industries')
+        .select('short_code')
+        .eq('id', contact.industry_id)
+        .maybeSingle()
+
+      const countryCode = countryToCode(contactPayload.country)
+
+      if (industry && countryCode) {
+        try {
+          referenceCode = await issueReferenceNumber(db, countryCode, industry.short_code)
+        } catch (refErr) {
+          request.log.error({ err: refErr }, 'failed to issue reference number for test bed created from contact')
+        }
+      }
+    }
+
     const { data: record, error: recordErr } = await db
       .from('records')
-      .insert({ record_type: 'test_bed', status: 'Qualification', owner_id: request.user.id, account_id: contact.parent_record_id })
+      .insert({
+        record_type: 'test_bed',
+        status: 'Qualification',
+        owner_id: request.user.id,
+        account_id: contact.parent_record_id,
+        industry_id: contact.industry_id ?? null,
+        reference_code: referenceCode
+      })
       .select()
       .single()
 
@@ -569,7 +629,10 @@ export default async function contactsRoutes(app) {
       .insert({
         record_id: record.id,
         revision_number: 1,
-        payload: { name, client_organisation: accountName ?? '', notes: null, accumulated_cost: 0 },
+        payload: {
+          name, client_organisation: accountName ?? '', notes: null, accumulated_cost: 0,
+          country: contactPayload.country ?? null
+        },
         created_by: request.user.id
       })
     if (revErr) return reply.code(500).send({ error: revErr.message })
