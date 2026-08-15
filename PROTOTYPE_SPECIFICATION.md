@@ -13,15 +13,20 @@ here.
 🟡 Partially extracted, core facts known, detail work still needed before
 building. ⬜ Not yet extracted, do not build against, extract first.
 
-**Build status.** Milestones 1 and 2 of the Test Bed build
-(`TESTBED_BUILD_BRIEF.md`) are complete and signed off: the reference
-number generator and Test Bed's core record type. Milestone 2 surfaced a
-pre-existing, partially-built Test Bed implementation this document
-didn't know about, see the note in Section 6. Live findings and open
-implementation gaps are tracked in the build brief, not duplicated in
-full here, check both documents, they're kept in sync but serve different
-purposes, this one is the extracted spec, the brief is the execution
-sequence.
+**Build status.** The Test Bed build (`TESTBED_BUILD_BRIEF.md`) is
+**complete, all 6 milestones signed off**: reference number generator,
+Test Bed's core record type, Account precondition and buyer contacts,
+Test Bed screens, Test Bed to Opportunity conversion, and Opportunity's
+own reference-code wiring and Account picker. Every milestone surfaced
+at least one real thing this document didn't know about going in, most
+significantly a pre-existing, partially-built Test Bed implementation
+found during Milestone 2, see the note in Section 6. Full findings are
+tracked in the build brief, not duplicated in full here, check both
+documents, they're kept in sync but serve different purposes, this one
+is the extracted spec, the brief is the execution sequence. One item
+remains genuinely open, not part of this build: a dedicated scan for
+unchecked Supabase query errors beyond the 3 files checked during
+Milestones 5-6, see `DESIGN_PRINCIPLES.md` Deferred scope.
 
 ---
 
@@ -187,14 +192,49 @@ build should standardise on one, not carry the inconsistency forward.
   (`POST /opportunities/:id/close-date-move`), separate from the generic
   PATCH since `forecast_close_date` lives on a real column, not payload.
 - Person fields (Terminus Lead, Commercial/Technical/Legal Authority,
-  Account): prototype expects Contact dropdowns with inline "create new
-  contact". Built as free text at the time (`opportunity-reference.js`
-  lines 8-9, self-disclosed gap) since Contact didn't exist yet. **Now a
-  closable gap** — Contact/Account exists, this swap has not yet been done.
-  **Business decision, this session:** close this alongside the Test Bed
-  build, same underlying pattern, Contact dropdown with inline create,
-  linked via `record_contacts`, just applied to a second record type.
-  Cheaper to do both together than build the same mechanism twice.
+  Account): originally assumed to need the same treatment as one group.
+  **Resolved and built, Milestone 6, and the original assumption was
+  wrong.** Checked against the prototype's own field definitions directly
+  (Terminus Ops.dc.html:5675-5687), not the paraphrase above, before
+  building anything: Account (line 5687) is a genuine Account picker,
+  "accounts already on file, or '+ New account' to type a new one," a
+  distinct `'account'` kind in the prototype's own template, separate
+  from the `'person'` kind used for real Contact fields. The four
+  Authority fields (lines 5675-5678) are explicitly documented as
+  "Terminus staff, from Contacts," a population this live system has no
+  equivalent of. Contact here is exclusively client people, gated by
+  qualification, Account links, and buyer roles, per `DESIGN_PRINCIPLES.md`'s
+  Lead/Contact/Account model. There is no staff directory record type
+  anywhere in this system. Same finding, same reasoning, as Test Bed's
+  own Owner-field decision in Milestone 3, caught before build this time
+  rather than after.
+
+  **Built accordingly**: Account is a real picker, `records.account_id`,
+  search-existing-or-create-new, reusing the exact mechanism already
+  built for Contact-to-Account linking, not a new one. **Terminus Lead,
+  Commercial Authority, Technical Authority, and Legal Authority stay
+  free text**, unchanged from their original field names, no
+  Contact-dropdown swap, since these were never mislabeled as client
+  contacts in the first place, unlike Test Bed's fields, which needed
+  renaming as well as re-scoping.
+
+  Zero live or soft-deleted Opportunity records had any value in any of
+  these 5 fields at the time of the swap, confirmed by direct query of
+  all 29 records, genuinely greenfield, nothing to migrate.
+
+  A real, pre-existing frontend bug found and fixed in the same pass:
+  the reference-code display on this tab was hardcoded to always show
+  "Not yet generated," regardless of whether a real code existed. Now
+  displays the genuine `reference_code`.
+
+  `POST /contacts/:id/create-opportunity` is now wired to
+  `issueReferenceNumber`, the identical gap Test Bed had before its own
+  Milestone 2 fix. Also now carries `account_id` from the source
+  Contact's own linked Account, same direct-copy pattern as
+  `create-test-bed`, no precondition, absent rather than blocked if the
+  Contact has none. `POST /test-beds/:id/convert` was deliberately left
+  untouched, wiring it to the generator would have broken Milestone 5's
+  carryover rule.
 
 ## 4. Opportunity — Documents tab ✅ (deliberately minimal)
 

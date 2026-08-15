@@ -501,9 +501,27 @@ export default async function contactsRoutes(app) {
   }
 
   // POST /contacts/:id/create-opportunity
+  // reference_code (2026-08-15, Milestone 6): confirmed by direct
+  // inspection this path never called issueReferenceNumber - the
+  // identical gap Test Bed had before Milestone 2. POST /test-beds/:id/
+  // convert (the other Opportunity creation path) is deliberately left
+  // untouched - it already carries a Test Bed's reference_code unchanged
+  // (Milestone 5) and must never call the generator itself. Same
+  // country/industry resolution as create-test-bed: countryToCode() on
+  // the Contact's own stored country (a real Qualification-gate field,
+  // so always present), industries.short_code from contact.industry_id.
+  //
+  // account_id (2026-08-15, Milestone 6 close-out): direct copy from the
+  // Contact's own Account link (contact.parent_record_id), same as
+  // create-test-bed. Deliberately NOT a hard precondition here the way
+  // it is for Test Bed (Milestone 3) - that requirement is specific to
+  // Test Bed's own confirmed creation rules, never stated for
+  // Opportunity. If the Contact has no Account link, the Opportunity is
+  // created with account_id absent - the same honest-absence convention
+  // this build uses everywhere else, not a forced block.
   app.post('/contacts/:id/create-opportunity', async (request, reply) => {
     const db = createUserClient(request.jwt)
-    const { contact, accountName, error } = await loadQualifiedContact(db, request.params.id)
+    const { contact, accountName, contactPayload, error } = await loadQualifiedContact(db, request.params.id)
     if (error) return reply.code(error.code).send(error.body)
 
     const name = accountName ?? 'New Opportunity'
@@ -516,9 +534,34 @@ export default async function contactsRoutes(app) {
       .eq('stage', 'Discovery')
       .maybeSingle()
 
+    let referenceCode = null
+    if (contact.industry_id) {
+      const { data: industry } = await db
+        .from('industries')
+        .select('short_code')
+        .eq('id', contact.industry_id)
+        .maybeSingle()
+
+      const countryCode = countryToCode(contactPayload.country)
+
+      if (industry && countryCode) {
+        try {
+          referenceCode = await issueReferenceNumber(db, countryCode, industry.short_code)
+        } catch (refErr) {
+          request.log.error({ err: refErr }, 'failed to issue reference number for opportunity created from contact')
+        }
+      }
+    }
+
     const { data: opp, error: oppErr } = await db
       .from('records')
-      .insert({ record_type: 'opportunity', status: 'Discovery', owner_id: request.user.id })
+      .insert({
+        record_type: 'opportunity',
+        status: 'Discovery',
+        owner_id: request.user.id,
+        reference_code: referenceCode,
+        account_id: contact.parent_record_id ?? null
+      })
       .select()
       .single()
 

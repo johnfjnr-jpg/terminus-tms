@@ -96,11 +96,21 @@ export default async function opportunitiesRoutes(app) {
     'duration', 'structure', 'recoveryMonths', 'invoicing', 'milestones',
     'contractorMilestones',
     'factoring',
-    // Reference tab (B1) - person/account fields are free text, there is no
-    // Contacts feature in this app to back a dropdown against (confirmed
-    // before building, see project_reference_fields_free_text memory).
+    // Reference tab (B1/Milestone 6) - Terminus Lead/Commercial/Technical/
+    // Legal Authority stay free text deliberately: the prototype documents
+    // these as "Terminus staff, from Contacts", but this app's Contact
+    // record type represents client people exclusively, there is no staff/
+    // user directory to back a dropdown against - same reasoning Test Bed's
+    // own Terminus Owner fields were kept free text in Milestone 3.
+    // customerLead/techBuyer/commBuyer/legalBuyer/itBuyer/commAddress are
+    // also still free text, out of Milestone 6's scope.
+    // 'account' is deliberately NOT in this list (2026-08-15) - it's now a
+    // real records.account_id link, same reasoning contacts.js's PATCH
+    // excludes account_id: linking is its own business event (search
+    // existing/create new), not a plain field edit. See
+    // POST /opportunities/:id/link-account.
     'lead', 'commercial', 'technical', 'legal',
-    'account', 'customerLead', 'techBuyer', 'commBuyer', 'legalBuyer', 'itBuyer', 'commAddress',
+    'customerLead', 'techBuyer', 'commBuyer', 'legalBuyer', 'itBuyer', 'commAddress',
     'summary', 'oppType',
     'actualClose', 'estGoLive', 'actualGoLive',
     'notes',
@@ -134,13 +144,26 @@ export default async function opportunitiesRoutes(app) {
       return reply.code(404).send({ error: 'not found' })
     }
 
-    const { data: revRow } = await db
+    // Real bug found and fixed (Milestone 5, 2026-08-15): this fetch's
+    // error was never checked. A failed fetch made revRow undefined,
+    // which mergedPayload below then silently treated as "no existing
+    // payload" - a save would have wiped every other field on the
+    // Opportunity down to just whatever this one PATCH submitted, with
+    // no error surfaced. Same fix as PATCH /test-beds/:id and
+    // PATCH /contacts/:id, checked here too (Milestone 6) since this
+    // route shares the identical shape and wasn't in the original scan.
+    const { data: revRow, error: revRowErr } = await db
       .from('record_revisions')
       .select('revision_number, payload')
       .eq('record_id', record.id)
       .order('revision_number', { ascending: false })
       .limit(1)
       .maybeSingle()
+
+    if (revRowErr) {
+      request.log.error({ err: revRowErr }, 'failed to load current revision before PATCH merge')
+      return reply.code(500).send({ error: revRowErr.message })
+    }
 
     const nextRevision = (revRow?.revision_number ?? 0) + 1
     const mergedPayload = { ...(revRow?.payload ?? {}), ...payload }
@@ -157,6 +180,137 @@ export default async function opportunitiesRoutes(app) {
     }
 
     return reply.send({ record_id: record.id, revision_number: newRevision.revision_number, payload: newRevision.payload })
+  })
+
+  // POST /api/opportunities/:id/link-account
+  //
+  // Milestone 6: the real Account link for Opportunity, records.account_id
+  // (the generic column Milestone 3 added), not record_contacts - checked
+  // directly against the prototype before building (Terminus Ops.dc.html:
+  // 5687): "The customer account the opportunity belongs to... Editing
+  // offers the accounts already on file, or '+ New account' to type a
+  // new one" - a real Account picker, not a Contact-dropdown field, same
+  // mechanism and same shape as POST /contacts/:id/link-account, just
+  // writing account_id instead of parent_record_id (Opportunity has no
+  // single-parent relationship with Account the way Contact does).
+  app.post('/opportunities/:id/link-account', async (request, reply) => {
+    const { account_id, new_account_name } = request.body ?? {}
+
+    if (!account_id && !new_account_name?.trim()) {
+      return reply.code(400).send({ error: 'account_id or new_account_name is required' })
+    }
+
+    const db = createUserClient(request.jwt)
+
+    const { data: opp, error: oppErr } = await db
+      .from('records')
+      .select('id')
+      .eq('id', request.params.id)
+      .eq('record_type', 'opportunity')
+      .is('deleted_at', null)
+      .maybeSingle()
+
+    if (oppErr || !opp) {
+      return reply.code(404).send({ error: 'not found' })
+    }
+
+    let resolvedAccountId = account_id ?? null
+    let accountName = null
+
+    if (resolvedAccountId) {
+      const { data: existingRev, error: existingRevErr } = await db
+        .from('record_revisions')
+        .select('payload')
+        .eq('record_id', resolvedAccountId)
+        .order('revision_number', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (existingRevErr) {
+        request.log.error({ err: existingRevErr }, 'failed to load existing account name for link-account')
+        return reply.code(500).send({ error: existingRevErr.message })
+      }
+      accountName = existingRev?.payload?.name ?? null
+    } else {
+      const { data: newAccount, error: accountErr } = await db
+        .from('records')
+        .insert({ record_type: 'account', status: 'active', owner_id: request.user.id })
+        .select()
+        .single()
+
+      if (accountErr) {
+        request.log.error({ err: accountErr }, 'failed to create account for link-account')
+        return reply.code(500).send({ error: accountErr.message })
+      }
+
+      accountName = new_account_name.trim()
+      const { error: acctRevErr } = await db
+        .from('record_revisions')
+        .insert({
+          record_id: newAccount.id,
+          revision_number: 1,
+          payload: { name: accountName },
+          created_by: request.user.id
+        })
+
+      if (acctRevErr) {
+        request.log.error({ err: acctRevErr }, 'failed to insert account revision for link-account')
+        return reply.code(500).send({ error: acctRevErr.message })
+      }
+
+      resolvedAccountId = newAccount.id
+    }
+
+    // records_select is team-wide, records_update is still owner-only -
+    // a non-owner's update() is filtered by RLS to zero affected rows
+    // rather than erroring, so it can't be told apart from success
+    // without checking the returned rows directly, same discipline as
+    // every other write path in this codebase.
+    const { data: updated, error: updateErr } = await db
+      .from('records')
+      .update({ account_id: resolvedAccountId })
+      .eq('id', opp.id)
+      .select('id')
+
+    if (updateErr) return reply.code(500).send({ error: updateErr.message })
+    if (!updated?.length) return reply.code(403).send({ error: 'not permitted' })
+
+    const { data: revRow, error: revRowErr } = await db
+      .from('record_revisions')
+      .select('revision_number, payload')
+      .eq('record_id', opp.id)
+      .order('revision_number', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (revRowErr) {
+      request.log.error({ err: revRowErr }, 'failed to load current revision before link-account note')
+      return reply.code(500).send({ error: revRowErr.message })
+    }
+
+    const note = {
+      text: `Linked to Account: ${accountName ?? 'Unknown'}.`,
+      at: new Date().toISOString(),
+      by: request.user.email,
+    }
+    const mergedPayload = { ...(revRow?.payload ?? {}), notes: [note, ...(revRow?.payload?.notes ?? [])] }
+    const nextRevision = (revRow?.revision_number ?? 0) + 1
+
+    const { error: revErr } = await db
+      .from('record_revisions')
+      .insert({ record_id: opp.id, revision_number: nextRevision, payload: mergedPayload, created_by: request.user.id })
+
+    if (revErr) return reply.code(500).send({ error: revErr.message })
+
+    await db.from('audit_log').insert({
+      record_id: opp.id,
+      record_type: 'opportunity',
+      action: 'linked_account',
+      actor_id: request.user.id,
+      detail: { account_id: resolvedAccountId, account_name: accountName }
+    })
+
+    return reply.send({ ok: true, account_id: resolvedAccountId, account_name: accountName })
   })
 
   // POST /api/opportunities/:id/close-date-move

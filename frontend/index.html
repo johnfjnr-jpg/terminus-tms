@@ -743,6 +743,28 @@
           <p class="pg-card-title">Terminus Details</p>
           <div id="ref-terminus-rows"></div>
         </div>
+        <!-- Account: the real records.account_id link (Milestone 6),
+             same search-existing-or-create-new mechanism as Contact's
+             own "Link to Account" (contact-detail.js), not a free-text
+             field and not a Contact dropdown - checked against the
+             prototype (Terminus Ops.dc.html:5687) before building. -->
+        <div class="pg-card" id="ref-account-card">
+          <p class="pg-card-title">Account</p>
+          <div id="ref-account-status" style="font-family:var(--body);font-size:13px;color:var(--white);margin-bottom:10px"></div>
+          <button class="btn-sm" id="ref-btn-link-account">Link to Account</button>
+
+          <div id="ref-link-account-panel" class="hidden" style="margin-top:14px">
+            <div class="form-group">
+              <label for="ref-link-search">Search existing Accounts by name</label>
+              <input type="text" id="ref-link-search" placeholder="Start typing...">
+            </div>
+            <div id="ref-link-results" style="margin-top:10px;display:flex;flex-direction:column;gap:6px"></div>
+            <p class="msg-error hidden" id="ref-link-error" style="margin-top:8px"></p>
+            <div class="form-actions" style="margin-top:10px">
+              <button class="btn-ghost" id="ref-link-cancel">Cancel</button>
+            </div>
+          </div>
+        </div>
         <div class="pg-card">
           <p class="pg-card-title">Customer Details</p>
           <div id="ref-customer-rows"></div>

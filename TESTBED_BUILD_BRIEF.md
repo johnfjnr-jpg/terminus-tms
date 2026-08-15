@@ -313,42 +313,110 @@ Opportunity's Deal Sheet, not just as a stored, unused field.
 
 ---
 
-## Milestone 6: Opportunity Person fields, bundled
+## Milestone 6: Opportunity Person fields, bundled ✅ COMPLETE
 
-**Carried in from Milestone 5, must be considered here:** a dedicated
-scan for unchecked Supabase query errors beyond `test-beds.js`,
-`contacts.js`, and `deals.js` has not been done. If this milestone's
-Person-field edit path shares the same fetch-merge-save shape found
-broken elsewhere, check its query error handling explicitly as part of
-building it, don't assume it's clean just because it wasn't in the
-original 3-file scan.
+**Carried in from Milestone 5, checked as instructed:** `PATCH
+/opportunities/:id` did share the exact unchecked-error, silent-data-loss
+shape found in Milestone 5. Fixed and proven the same way, forced
+failure, not just inspection. `close-date-move`'s own unchecked fetch
+was checked too and found not to share the dangerous shape, an early
+`404` guard means an error can never reach a merge line there, only
+misclassifies an error as a 404. Left untouched, correctly.
 
+**Confirmed during Milestone 2, added to this milestone's scope:**
+Opportunity had the identical gap Test Bed had before Milestone 2, its
+creation path never called `issueReferenceNumber`. Now wired, same
+honest-null-if-unresolved behaviour Test Bed uses.
 
-**Confirmed during Milestone 2, add to this milestone's scope:**
-Opportunity has the identical gap Test Bed had before Milestone 2, its
-creation path never calls `issueReferenceNumber` either, confirmed by
-direct inspection. `reference_code` now exists as a real column
-(Milestone 2), the generator is built and tested (Milestone 1), Opportunity
-just isn't wired to either yet. Wire Opportunity creation the same way
-Test Bed's was, resolve country and industry to their codes, call the
-generator, store the result, same honest-null-if-unresolved behaviour
-Test Bed uses.
+**What was originally planned here turned out to be wrong, caught before
+build, not after.** The original instruction described all 5 Person
+fields as needing the same Contact-dropdown treatment. Checked against
+the prototype's own source directly before building: Account is a real
+Account picker in the prototype, a distinct field kind from the other
+four. Terminus Lead, Commercial/Technical/Legal Authority are explicitly
+documented in the prototype as Terminus staff fields, a population this
+system has no Contact-equivalent for, same reasoning as Test Bed's own
+Owner-field decision in Milestone 3. **Built accordingly: Account became
+a real picker (`records.account_id`, reusing the existing Contact-to-
+Account mechanism). The four Authority fields stayed free text**, no
+swap, since they were never mislabeled as client contacts to begin with.
 
-- Swap Opportunity Reference tab's free-text Terminus Lead, Commercial/
-  Technical/Legal Authority, and Account fields for real Contact dropdowns
-  with inline "create new contact", same pattern as Test Bed's buyer
-  fields, linked via `record_contacts`.
-- This is a change to an already-live screen. Test carefully for
-  regressions against existing Opportunity records that currently hold
-  free-text values in these fields, decide and confirm a migration or
-  fallback approach for existing data before this ships.
+Zero live or soft-deleted Opportunity records held any value in any of
+these 5 fields, confirmed by direct query of all 29 records. Genuinely
+greenfield, no migration needed.
 
-**Test before moving on:** confirm existing Opportunity records still
-display correctly, and new/edited records use the Contact dropdown.
+**Extra fix found and closed in the same pass, not part of the original
+scope:** `create-opportunity` didn't carry `account_id` from the source
+Contact's own linked Account, the identical gap `create-test-bed` had
+before its own fix. Closed with the same direct-copy pattern, no
+precondition, absent rather than blocked if the Contact has no Account.
+
+A pre-existing frontend bug found and fixed: the reference-code display
+on the Reference tab was hardcoded to always show "Not yet generated,"
+regardless of whether a real code existed.
+
+**Test evidence:** existing Opportunity records confirmed to still
+display correctly, no regression. New Opportunity gets a genuine
+`reference_code`. Account picker proven end to end, search-existing and
+create-new both. Milestone 5's carryover rule re-proven fresh, end to
+end, after this milestone's changes, not assumed still true.
+`account_id` carryover proven both with and without a linked Account on
+the source Contact.
+
+---
+
+## Build complete
+
+All 6 milestones of the Test Bed build are signed off, code and
+documentation both live on `origin/main`. Summary of what each one
+actually delivered, beyond what the original brief specified:
+
+| Milestone | Delivered | Beyond the original brief |
+|---|---|---|
+| 1. Reference generator | Atomic counter, tested under real concurrency | A genuine truncation bug at the 999→1000 boundary, found by explicit boundary testing, not the initial build |
+| 2. Test Bed core record type | Flat 8-stage list, Qualification exit gate | A pre-existing, partially-built Test Bed backend this document didn't know about, audited and reconciled |
+| 3. Account precondition, buyer contacts | `account_id`, `contact_role_linked`, DB-enforced | A second, unknown creation path with the same stale-status bug; an entire live dataset confirmed as test data and properly cleaned up rather than fabricated around |
+| 4. Test Bed screens | 4-tab detail view, list view, chevron fix | A real display-vs-gating bug, Documents tab silently empty for every stage, caused by an earlier instruction conflating two different concepts |
+| 5. Conversion fix | `conversion_criteria`, reference carryover, cost wired to Deal Sheet | A silently-broken duplicate-conversion check, and a bounded scan that found 5 dangerous unchecked-error sites across the codebase |
+| 6. Opportunity reference/Account | `issueReferenceNumber` wiring, real Account picker | The Person-fields plan itself corrected before build, and `create-opportunity`'s own `account_id` gap closed in the same pass |
+
+**Genuinely open items, not part of this build, tracked in
+`DESIGN_PRINCIPLES.md` Deferred scope:**
+
+- A dedicated scan for unchecked Supabase query errors beyond the 3
+  files checked during Milestones 5-6.
+- The JWT clock-skew rejection observed once, unreproduced, cause
+  unconfirmed.
+- Test Bed's Site Details tab is not yet connected to the real Device
+  link mechanism already built in the prototype, belongs to Asset
+  Management's deferred work.
+- The `'tb'`/`'op'` vs `'testbed'`/`'opportunity'` link-kind naming
+  inconsistency, needs a decision when the Device linkage above is
+  actually connected.
+- Document approval workflows, explicit backlog item.
 
 ---
 
 ## Outstanding, deliberately not in scope for this build
+
+- Connecting Test Bed's Site Details tab to the real Device link mechanism
+  (`applyDeviceLink`, already built in the prototype but unconnected).
+  Belongs to Asset Management's Stage 4-5 operational tracking work.
+- The `'tb'`/`'op'` vs `'testbed'`/`'opportunity'` link-kind naming
+  inconsistency in the prototype. Needs a single convention decided when
+  the Device linkage above is actually connected, not before.
+- Document approval workflows. Backlog item.
+
+---
+
+## Documentation discipline
+
+Update `PROTOTYPE_SPECIFICATION.md`, `DESIGN_PRINCIPLES.md`, and
+`INTERACTION_STANDARDS.md` the moment any decision in this brief changes
+during the build, same discipline as every prior milestone. An unwritten
+decision is, for practical purposes, a decision the next session doesn't
+have.
+
 
 - Connecting Test Bed's Site Details tab to the real Device link mechanism
   (`applyDeviceLink`, already built in the prototype but unconnected).

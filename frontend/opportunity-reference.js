@@ -14,6 +14,7 @@ let refOpportunityId = null
 let refPayload = {}
 let refOppDetails = {}
 let refStatus = ''
+let refAccountId = null
 let refWired = false
 
 // refEdits[key] = { draft, orig } — only present entries are "open".
@@ -31,8 +32,14 @@ const TERMINUS_FIELDS = [
   { key: 'technical', label: 'Technical Authority' },
   { key: 'legal', label: 'Legal Authority' },
 ]
+// 'account' deliberately removed (Milestone 6) - it's now a real
+// records.account_id link (see renderRefAccountCard below), not a
+// free-text payload field. Checked against the prototype before
+// building (Terminus Ops.dc.html:5687): "The customer account the
+// opportunity belongs to... Editing offers the accounts already on
+// file, or '+ New account'" - a real Account picker, not a Contact
+// dropdown, same mechanism as Contact's own Account link.
 const CUSTOMER_FIELDS = [
-  { key: 'account', label: 'Account' },
   { key: 'customerLead', label: 'Customer Lead' },
   { key: 'techBuyer', label: 'Technical Buyer' },
   { key: 'commBuyer', label: 'Commercial Buyer' },
@@ -85,18 +92,110 @@ function refReadonlyRow(label, value) {
   </div>`
 }
 
+// ── Account card: the real Account link (records.account_id) - same
+// mechanism and interaction pattern as Contact's own "Link to Account"
+// (contact-detail.js), reused deliberately rather than a second
+// implementation of the same search/create-new flow. accountsCache is
+// the shared global declared in app.js - refreshed on open rather than
+// trusted stale, since a user can land on an Opportunity without ever
+// visiting Contacts/Leads first, unlike Contact's own panel, which is
+// only ever opened from a page that already population the cache. ──────
+function refAccountName(id) {
+  return accountsCache.find(a => a.id === id)?.payload?.name ?? ''
+}
+
+function renderRefAccountCard() {
+  const name = refAccountName(refAccountId)
+  document.getElementById('ref-account-status').textContent = name ? `Linked to: ${name}` : 'Not linked yet.'
+  document.getElementById('ref-link-account-panel').classList.add('hidden')
+  document.getElementById('ref-link-error').classList.add('hidden')
+}
+
+window.openRefLinkAccountPanel = async function () {
+  document.getElementById('ref-link-account-panel').classList.remove('hidden')
+  document.getElementById('ref-link-error').classList.add('hidden')
+  const searchInput = document.getElementById('ref-link-search')
+  searchInput.value = ''
+  document.getElementById('ref-link-results').innerHTML = '<p class="empty-state">Loading...</p>'
+
+  const result = await api('GET', '/api/accounts')
+  if (result.ok) accountsCache = result.data
+
+  renderRefLinkResults('')
+  searchInput.focus()
+}
+
+// Same client-side substring match as Contact's own panel, not fuzzy -
+// the "+ Create new Account" option is always offered alongside real
+// matches, reconciling a typo/naming variation is a human judgment call.
+function renderRefLinkResults(query) {
+  const q = query.trim().toLowerCase()
+  const matches = q ? accountsCache.filter(a => (a.payload?.name ?? '').toLowerCase().includes(q)) : accountsCache
+
+  const matchRows = matches.slice(0, 20).map(a => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border:1px solid var(--hairline-strong)">
+      <span>${escHtml(a.payload?.name ?? '--')}</span>
+      <button class="btn-sm btn-primary" onclick="linkRefAccount(this, '${a.id}')">Link</button>
+    </div>`).join('')
+
+  const trimmed = query.trim()
+  const createRow = trimmed ? `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border:1px dashed var(--hairline-strong)">
+      <span>+ Create new Account "${escHtml(trimmed)}"</span>
+      <button class="btn-sm" onclick='linkRefAccount(this, null, ${JSON.stringify(trimmed)})'>Create &amp; link</button>
+    </div>` : ''
+
+  document.getElementById('ref-link-results').innerHTML = (matchRows + createRow) || '<p class="empty-state">Type to search.</p>'
+}
+
+let refLinkInFlight = false
+
+window.linkRefAccount = async function (btn, accountId, newAccountName) {
+  if (refLinkInFlight) return
+  refLinkInFlight = true
+
+  const allButtons = document.querySelectorAll('#ref-link-results button')
+  allButtons.forEach(b => { b.disabled = true })
+  const originalText = btn.textContent
+  btn.textContent = accountId ? 'Linking...' : 'Creating...'
+
+  const errEl = document.getElementById('ref-link-error')
+  errEl.classList.add('hidden')
+
+  const body = accountId ? { account_id: accountId } : { new_account_name: newAccountName }
+  const result = await api('POST', `/api/opportunities/${refOpportunityId}/link-account`, body)
+  refLinkInFlight = false
+
+  if (!result.ok) {
+    errEl.textContent = result.data?.error ?? 'Failed to link account.'
+    errEl.classList.remove('hidden')
+    allButtons.forEach(b => { b.disabled = false })
+    btn.textContent = originalText
+    return
+  }
+
+  await loadOpportunityDetail(refOpportunityId)
+}
+
 function renderReferenceTab(opp) {
   refOpportunityId = opp.id
   refPayload = opp.payload ?? {}
   refOppDetails = opp.opportunity_details ?? {}
   refStatus = opp.status ?? ''
+  refAccountId = opp.account_id ?? null
   refEdits = {}
 
-  document.getElementById('ref-reference-code').textContent = 'Not yet generated'
+  // Milestone 6: this was hardcoded to always show "Not yet generated"
+  // regardless of the record's real reference_code - found while wiring
+  // create-opportunity to issueReferenceNumber, since a generated code
+  // would otherwise have had nowhere real to display.
+  document.getElementById('ref-reference-code').textContent = opp.reference_code || 'Not yet generated'
 
   document.getElementById('ref-terminus-rows').innerHTML =
     TERMINUS_FIELDS.map(f => refFieldRow(f.key, f.label, refPayload[f.key])).join('')
     + refReadonlyRow('Status', refStatus)
+
+  renderRefAccountCard()
 
   document.getElementById('ref-customer-rows').innerHTML =
     CUSTOMER_FIELDS.map(f => refFieldRow(f.key, f.label, refPayload[f.key])).join('')
@@ -276,6 +375,9 @@ function wireRefOnce() {
     Object.keys(refEdits).forEach(key => window.discardRefField(key))
   })
   document.getElementById('ref-save-all').addEventListener('click', saveRefFields)
+  document.getElementById('ref-btn-link-account').addEventListener('click', window.openRefLinkAccountPanel)
+  document.getElementById('ref-link-cancel').addEventListener('click', () => document.getElementById('ref-link-account-panel').classList.add('hidden'))
+  document.getElementById('ref-link-search').addEventListener('input', (e) => renderRefLinkResults(e.target.value))
 }
 
 // ── Entry point, called by app.js's renderOppDetail() ─────────────────────
