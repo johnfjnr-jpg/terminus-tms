@@ -13,9 +13,15 @@ here.
 🟡 Partially extracted, core facts known, detail work still needed before
 building. ⬜ Not yet extracted, do not build against, extract first.
 
-**Open items carried into the Section 6 (Test Bed) build, not yet closed:**
-Site Ownership picklist mismatch against sample data (decision needed at
-build time, extend picklist or confirm free text).
+**Build status.** Milestones 1 and 2 of the Test Bed build
+(`TESTBED_BUILD_BRIEF.md`) are complete and signed off: the reference
+number generator and Test Bed's core record type. Milestone 2 surfaced a
+pre-existing, partially-built Test Bed implementation this document
+didn't know about, see the note in Section 6. Live findings and open
+implementation gaps are tracked in the build brief, not duplicated in
+full here, check both documents, they're kept in sync but serve different
+purposes, this one is the extracted spec, the brief is the execution
+sequence.
 
 ---
 
@@ -78,6 +84,20 @@ Section 1 ("the 6 character code feeds both Test Bed and Opportunity
 reference numbers"). Extracted properly this session, lines 7725-7796.
 Flagged as needing a build decision because the prototype's approach is
 correct for a single-user demo and unsafe for a real multi-user backend.
+
+**Built and verified, Milestones 1 and 2.** The generator itself
+(`issue_reference_number()`, an atomic counter table, `reference-number.js`
+wrapper) is built and confirmed correct under real concurrency, including
+a genuine truncation bug found by explicit boundary testing and fixed, see
+`DESIGN_PRINCIPLES.md` Section 9 for the full record of that. A real
+`reference_code` column now exists on `records`, and Test Bed's creation
+path is wired to it, confirmed with real sequential records. **Opportunity
+is not wired yet**, confirmed by direct inspection, its creation path has
+the identical gap Test Bed had before Milestone 2. Scheduled for
+Milestone 6. **No country-name-to-ISO-code mapping exists anywhere in the
+codebase**, confirmed during the same audit, Test Bed currently accepts a
+pre-resolved country code rather than deriving one from a name, this
+resolution still needs building, scheduled for Milestone 4.
 
 ### What the prototype does
 
@@ -324,19 +344,68 @@ the existing `record_contacts` join table, tagged by role. Initial Lead
 stays separate: it is the client-side person who originated the engagement,
 not necessarily any of the three sign-off buyers, per business decision.
 
-### Picklist discrepancies, confirmed, decision needed before build
+### Picklist discrepancies
 
-- **Site Ownership** (line 5600) offers Government / Local Council /
-  Private / Other. Sample data uses "Local Authority", "Port Authority",
-  "National Highways", none of which are in the picklist. Not resolved this
-  session — flag for Claude Code build pass, either extend the picklist or
-  confirm it should be free text.
+- **Site Ownership** (line 5600) offered Government / Local Council /
+  Private / Other. Sample data used "Local Authority", "Port Authority",
+  "National Highways", none of which were in the picklist. **Resolved and
+  built, Milestone 2:** extended to Local Authority, Port Authority,
+  National Highways, Central Government, Private, Other, replacing "Local
+  Council" with "Local Authority" to match the real sample data. Confirmed
+  built as `VALID_SITE_OWNERSHIP` in `src/routes/test-beds.js` (a
+  hardcoded validation array, matching the existing convention in
+  `contacts.js`'s `VALID_SOURCES`, no picklist-admin table exists for any
+  field yet, so this correctly didn't invent new infrastructure for it).
 - **The "region" picklist is not Test Bed's own Region field.** Picklist at
   line 5547 (Americas / Europe & UK / Middle East / APAC / Africa) is
   actually consumed by the Contact/Lead form's Region field (line 10723),
   confirmed by usage. Test Bed's own `region` field (Yorkshire, North West,
   Ireland) has no picklist backing in the prototype, it is free text.
   **Do not assume these are the same picklist when building.**
+
+### A pre-existing, partial Test Bed implementation was found during Milestone 2, not accounted for anywhere above
+
+This section was written assuming nothing existed yet in the live
+codebase beyond the prototype. That assumption was wrong. Discovered
+during Milestone 2's build, confirmed by direct code and data inspection,
+not by the prototype or by this document:
+
+- `src/routes/test-beds.js` already existed, already registered, already
+  consumed by a Test Beds screen built in an earlier, unrelated session.
+- A prior migration had already seeded `stage_definitions` for
+  `test_bed` with **9 rows**, a stale model matching neither the old
+  migration file's own 6-stage list nor this document's corrected flat
+  8-stage list: NDA, Site Assessment, Partnership and Test Bed Agreement,
+  Compliance and Data Protection, Installation and Commissioning,
+  Monitoring and Analysis, Close out Review, Decommissioning, Closed.
+- A working document-gate mechanism already existed,
+  `GET /test-beds/:id/document-requirements` and
+  `POST /test-beds/:id/complete-document`, creating and approving real
+  `record_type = 'document'` child records, with a fallback that groups
+  documents by `stage_definitions.phase`, the two-level Planning/sub-stage
+  model this document explicitly rejected earlier in this section.
+- **A working `POST /test-beds/:id/convert` endpoint already existed**,
+  this is Milestone 5's deliverable, already built in a prior session.
+  Audited against spec during Milestone 2, found to diverge in three
+  confirmed ways, no `conversion_criteria` check (real data showed one
+  Test Bed converted six separate times), no `reference_code` carryover
+  (the field didn't exist at all until Milestone 2 added it), and
+  `test_bed_cost` stored but never read by the Deal Sheet calculation.
+  Full findings and the fix plan are in `TESTBED_BUILD_BRIEF.md`
+  Milestone 5, not repeated here to avoid the two documents drifting out
+  of sync on the same facts.
+- 14 live `test_bed` records existed at the time of discovery, checked
+  against the corrected 8-stage list before anything was changed, the
+  only non-deleted ones sat at Closed or Installation and Commissioning,
+  both of which survive the correction, so no live record was orphaned.
+
+**Practical implication for anyone reading this document going forward:**
+"not in the prototype" and "not yet built" are not the same claim. Several
+things this document once treated as pure new-design work, most
+significantly the conversion mechanism, already had a real, if partially
+incorrect, implementation before this build started. Check the actual
+live codebase, not just this document or the prototype, before assuming
+something needs building from scratch.
 
 ### Account link — new, not in the prototype
 
