@@ -369,6 +369,19 @@
       </div>
     </div>
 
+    <!-- Wide-layout prototype (2026-08-15): Account/Summary/Notes History
+         moved IN as further .ref-cards grid items, from being pulled out
+         into their own full-width rows below (2026-08-14 - back when
+         .wrap capped this page at the same 1240px as every other view,
+         a short card sharing a row with Contact Details/Address left an
+         ugly empty gap under it). .ref-cards already sets
+         align-items:start, so a short card no longer stretches to match
+         a tall neighbour's row height - the original reason for pulling
+         Account out doesn't apply once that's true, confirmed live
+         before restructuring this way. .ref-cards' own CSS rule
+         (shared with Opportunity's Reference tab) is untouched, only
+         this page's markup changed: more children simply flow through
+         the same existing auto-fit/minmax grid. -->
     <div class="ref-cards">
       <div class="pg-card">
         <p class="pg-card-title">Contact Details</p>
@@ -378,49 +391,42 @@
         <p class="pg-card-title">Address</p>
         <div id="cd-address-rows"></div>
       </div>
-    </div>
 
-    <!-- The real Account link (parent_record_id) - deliberately separate
-         from the free-text Company field above, which stays exactly as
-         typed at fast lead entry even after linking. Resolved here, on
-         the detail page, not at creation.
-         Pulled out of the .ref-cards grid above and into its own row
-         (2026-08-14): sharing a grid row with Contact Details/Address
-         forced this much shorter card's row height up to match theirs,
-         leaving a large empty gap beneath it. As its own row, it sizes
-         to its own content only - .ref-cards itself (shared with
-         Opportunity's Reference tab) is untouched, this is markup
-         restructuring on this page only, not a CSS change. -->
-    <div class="pg-card" id="cd-account-card" style="margin-bottom:28px">
-      <p class="pg-card-title">Account</p>
-      <div id="cd-account-status" style="font-family:var(--body);font-size:13px;color:var(--white);margin-bottom:10px"></div>
-      <button class="btn-sm" id="cd-btn-link-account">Link to Account</button>
+      <!-- The real Account link (parent_record_id) - deliberately separate
+           from the free-text Company field above, which stays exactly as
+           typed at fast lead entry even after linking. Resolved here, on
+           the detail page, not at creation. -->
+      <div class="pg-card" id="cd-account-card">
+        <p class="pg-card-title">Account</p>
+        <div id="cd-account-status" style="font-family:var(--body);font-size:13px;color:var(--white);margin-bottom:10px"></div>
+        <button class="btn-sm" id="cd-btn-link-account">Link to Account</button>
 
-      <div id="cd-link-account-panel" class="hidden" style="margin-top:14px">
-        <div class="form-group">
-          <label for="cd-link-search">Search existing Accounts by name</label>
-          <input type="text" id="cd-link-search" placeholder="Start typing...">
-        </div>
-        <div id="cd-link-results" style="margin-top:10px;display:flex;flex-direction:column;gap:6px"></div>
-        <p class="msg-error hidden" id="cd-link-error" style="margin-top:8px"></p>
-        <div class="form-actions" style="margin-top:10px">
-          <button class="btn-ghost" id="cd-link-cancel">Cancel</button>
+        <div id="cd-link-account-panel" class="hidden" style="margin-top:14px">
+          <div class="form-group">
+            <label for="cd-link-search">Search existing Accounts by name</label>
+            <input type="text" id="cd-link-search" placeholder="Start typing...">
+          </div>
+          <div id="cd-link-results" style="margin-top:10px;display:flex;flex-direction:column;gap:6px"></div>
+          <p class="msg-error hidden" id="cd-link-error" style="margin-top:8px"></p>
+          <div class="form-actions" style="margin-top:10px">
+            <button class="btn-ghost" id="cd-link-cancel">Cancel</button>
+          </div>
         </div>
       </div>
-    </div>
 
-    <div style="margin-top:28px">
-      <p class="label" style="margin-bottom:10px;color:var(--green)">Summary</p>
-      <!-- ref-field-noborder drops the stacked-row hairline separator for
-           this standalone full-width field - no longer a specificity
-           trap against .field-blocked now that it's a background tint,
-           not a border (2026-08-14), but kept as a real class rather
-           than an inline style regardless. -->
-      <div class="ref-field ref-field-noborder" id="cd-field-summary-wrap" data-key="summary">
-        <div class="ref-field-display" id="cd-display-summary" onclick="openCdField('summary')" style="font-size:14px">--</div>
-        <div class="ref-field-edit hidden" id="cd-edit-summary">
-          <textarea id="cd-input-summary" rows="3" style="flex:1"></textarea>
-          <span class="ref-field-discard" onclick="discardCdField('summary')">&times;</span>
+      <div class="pg-card">
+        <p class="pg-card-title">Summary</p>
+        <!-- ref-field-noborder drops the stacked-row hairline separator for
+             this standalone field - no longer a specificity trap against
+             .field-blocked now that it's a background tint, not a border
+             (2026-08-14), but kept as a real class rather than an inline
+             style regardless. -->
+        <div class="ref-field ref-field-noborder" id="cd-field-summary-wrap" data-key="summary">
+          <div class="ref-field-display" id="cd-display-summary" onclick="openCdField('summary')" style="font-size:14px">--</div>
+          <div class="ref-field-edit hidden" id="cd-edit-summary">
+            <textarea id="cd-input-summary" rows="3" style="flex:1"></textarea>
+            <span class="ref-field-discard" onclick="discardCdField('summary')">&times;</span>
+          </div>
         </div>
       </div>
 
@@ -446,15 +452,17 @@
            2026-08-14), and rides along in the page-level Save's own
            write when both are dirty at once (see saveCdFields in
            contact-detail.js). -->
-      <div style="display:flex;align-items:center;gap:10px;margin:24px 0 10px">
-        <p class="label" style="margin:0;color:var(--green)">Notes History &middot; latest first</p>
-        <button class="btn-sm" id="cd-add-note-btn" onclick="onCdAddNoteClick()">Add Note</button>
+      <div class="pg-card">
+        <div style="display:flex;align-items:center;gap:10px;padding-bottom:10px;border-bottom:1px solid var(--hairline-strong);margin-bottom:4px">
+          <p class="pg-card-title" style="margin:0;padding:0;border:none">Notes History &middot; latest first</p>
+          <button class="btn-sm" id="cd-add-note-btn" onclick="onCdAddNoteClick()">Add Note</button>
+        </div>
+        <div class="ref-field-edit hidden" id="cd-note-input-wrap" style="margin-bottom:14px">
+          <input type="text" id="cd-new-note-input" placeholder="Record an interaction or update">
+          <span class="ref-field-discard" id="cd-note-discard" onclick="discardCdNote()">&times;</span>
+        </div>
+        <div id="cd-notes-list"></div>
       </div>
-      <div class="ref-field-edit hidden" id="cd-note-input-wrap" style="margin-bottom:14px">
-        <input type="text" id="cd-new-note-input" placeholder="Record an interaction or update">
-        <span class="ref-field-discard" id="cd-note-discard" onclick="discardCdNote()">&times;</span>
-      </div>
-      <div id="cd-notes-list"></div>
     </div>
 
     <div style="margin-top:20px" id="cd-delete-section"></div>

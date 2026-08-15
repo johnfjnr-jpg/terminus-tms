@@ -41,10 +41,64 @@ body {
 }
 
 /* ── Layout ─────────────────────────────────────────────────── */
+/* Left-anchored positioning + fixed padding-left (2026-08-15) - rolled
+   out here, the shared base rule, after proving both fixes in isolation
+   on Opportunities list first (see git history / DESIGN_PRINCIPLES.md
+   for that prototype pass). Two real bugs this replaces:
+   1. margin:0 auto centered the box in whatever space was left after
+      the sidebar, floating content in the middle of the screen at wide
+      viewports instead of starting immediately after the sidebar,
+      matching the reference screenshots (Opportunities/Test Beds list
+      and detail). Fixed left margin (24px) instead.
+   2. padding-left was a PERCENTAGE, which resolves against the
+      containing block's width (.app-content-scroll), not this box's
+      own max-width-capped width - it grew with viewport even though
+      the box itself didn't (measured: 51px at 1240px up to 161px at
+      3440px, compounding with the old centering margin on top). Fixed
+      62px instead (≈5% of the original 1240px cap, preserving the
+      original design intent, just no longer computed against the
+      wrong box). padding-right is untouched, still the same percentage
+      - only content-START distance was in scope for this pass. */
 .wrap {
   max-width: 1240px;
-  margin: 0 auto;
+  margin: 0 0 0 24px;
   padding: 48px 5%;
+  padding-left: 62px;
+}
+
+/* Wide-layout prototype, Contact detail only (2026-08-15, updated after
+   the padding-left/margin fix moved into .wrap itself). Only max-width
+   and padding-right still need overriding here - margin-left and
+   padding-left now come from .wrap's own shared rule above, same fixed
+   62px/24px every other view gets, no longer redeclared. Real side
+   effect worth recording: before .wrap's own margin was fixed,
+   #view-contact-detail's margin-left was effectively 0px (the old
+   margin:0 auto's "auto" had nothing to distribute once max-width:none
+   let this box fill 100% of its container) - this page's content-start
+   distance was a flat 62px (padding only), not 86px like every other
+   view. Now that .wrap provides a real 24px margin-left, this page
+   picks it up like everything else and lands at the same 86px, closing
+   that inconsistency rather than leaving Contact detail as a special
+   case. Confirmed live, not assumed. */
+#view-contact-detail {
+  max-width: none;
+  padding-right: 62px;
+}
+
+/* Card-width cap (2026-08-15), scoped the same way as the block above -
+   .ref-cards' own rule (shared with Opportunity's Reference tab) is
+   untouched. Found at 3440px: repeat(auto-fit, minmax(280px, 1fr)) only
+   sets a FLOOR, not a ceiling - with a fixed count of 5 cards and no
+   upper bound, 1fr divided the entire available width evenly regardless
+   of whether a card's content needed it, stretching Account/Summary/
+   Notes History to ~607px each, mostly empty space around short,
+   left-aligned content. Capping the upper bound (420px) instead of 1fr,
+   plus justify-content:start so the grid itself doesn't stretch to fill
+   the row, means leftover space at extreme widths stays genuinely
+   empty rather than distributed into individual cards. */
+#view-contact-detail .ref-cards {
+  grid-template-columns: repeat(auto-fit, minmax(280px, 420px));
+  justify-content: start;
 }
 
 .hidden { display: none !important; }
@@ -1675,6 +1729,13 @@ textarea::placeholder { color: var(--muted-2); }
   gap: 8px;
 }
 .ref-field-edit input, .ref-field-edit textarea { flex: 1; }
+.field-suffix {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+  align-self: center;
+  flex-shrink: 0;
+}
 .ref-field-edit.dirty input, .ref-field-edit.dirty textarea { border-bottom-color: var(--green); }
 .ref-field-discard {
   cursor: pointer;
