@@ -646,10 +646,47 @@ function renderContactGrid(containerId, statusPredicate, mineOnly, emptyLabel) {
       <span>${escHtml(p.jobRole ?? '--')}</span>
       <span>${escHtml(p.email ?? '--')}</span>
       <span>${escHtml(p.source ?? '--')}</span>
+      ${renderContactCountCell(c)}
       <div class="contact-row-actions">${renderContactRowActions(c)}</div>
     </div>
     `
   }).join('')
+}
+
+// Test Bed/Opportunity counts (2026-08-15) - real record_contacts links
+// (contact.linked_test_beds/linked_opportunities, populated by GET
+// /api/contacts, matched on (record_id, contact_id) regardless of role),
+// not derived client-side. Zero counts render as plain, non-clickable
+// text - nothing to show. Non-zero counts open the shared named-record
+// list modal (also used by the pre-create warning, showLinkedRecordsModal
+// below) rather than navigating anywhere, since more than one linked
+// record makes a single destination ambiguous and this app has no
+// filtered-list-by-contact view to send a count > 1 to.
+function renderContactCountCell(c) {
+  const tb = c.linked_test_beds ?? []
+  const opp = c.linked_opportunities ?? []
+  const tbLabel = `${tb.length} Test Bed${tb.length === 1 ? '' : 's'}`
+  const oppLabel = `${opp.length} Opportunit${opp.length === 1 ? 'y' : 'ies'}`
+  const tbSpan = tb.length
+    ? `<span class="count-link" onclick="event.stopPropagation();showContactLinkedRecords('${c.id}', 'test_bed')">${tbLabel}</span>`
+    : `<span class="count-zero">${tbLabel}</span>`
+  const oppSpan = opp.length
+    ? `<span class="count-link" onclick="event.stopPropagation();showContactLinkedRecords('${c.id}', 'opportunity')">${oppLabel}</span>`
+    : `<span class="count-zero">${oppLabel}</span>`
+  return `<div class="contact-count-cell">${tbSpan}${oppSpan}</div>`
+}
+
+window.showContactLinkedRecords = function (contactId, type) {
+  const c = contactsCache.find(cc => cc.id === contactId)
+  if (!c) return
+  const records = type === 'test_bed' ? (c.linked_test_beds ?? []) : (c.linked_opportunities ?? [])
+  const label = type === 'test_bed' ? 'Test Beds' : 'Opportunities'
+  const name = c.payload?.name || 'This contact'
+  openLinkedRecordsModal({
+    heading: `${label} linked to ${name}`,
+    records,
+    type,
+  })
 }
 
 // Qualify/Park/Unqualified moved to the detail page only (2026-08-14) -
@@ -713,7 +750,38 @@ document.addEventListener('keydown', (e) => {
   }
 })
 
-window.createFromContact = async (id, type) => {
+// Pre-create warning (2026-08-15) - checks the same cached
+// linked_test_beds/linked_opportunities the count column already shows
+// (from GET /api/contacts, no extra fetch here), not a hard block: real
+// business reasons exist to create a second Test Bed/Opportunity for the
+// same contact, this just makes sure it's not accidental. type here is
+// this function's own existing convention ('test-bed'/'opportunity',
+// hyphenated, matching both call sites - the Contacts list menu and
+// Contact detail's own + Create section), distinct from the backend's
+// record_type value ('test_bed', underscored) used by linked_test_beds -
+// translated explicitly below, not assumed to match.
+window.createFromContact = (id, type) => {
+  const c = contactsCache.find(cc => cc.id === id)
+  const recordType = type === 'opportunity' ? 'opportunity' : 'test_bed'
+  const existing = recordType === 'opportunity' ? (c?.linked_opportunities ?? []) : (c?.linked_test_beds ?? [])
+
+  if (existing.length) {
+    const label = recordType === 'opportunity' ? 'an Opportunity' : 'a Test Bed'
+    const name = c?.payload?.name || 'This contact'
+    openLinkedRecordsModal({
+      heading: `${name} already has ${label}`,
+      records: existing,
+      type: recordType,
+      proceedLabel: recordType === 'opportunity' ? 'Create Opportunity anyway' : 'Create Test Bed anyway',
+      onProceed: () => performCreateFromContact(id, type),
+    })
+    return
+  }
+
+  performCreateFromContact(id, type)
+}
+
+async function performCreateFromContact(id, type) {
   const feedback = document.getElementById(`contact-create-feedback-${id}`)
   feedback.innerHTML = ''
 
@@ -796,6 +864,92 @@ document.getElementById('confirm-delete-confirm').addEventListener('click', () =
 })
 document.getElementById('confirm-delete-modal').addEventListener('click', (e) => {
   if (e.target.id === 'confirm-delete-modal') closeConfirmDelete()
+})
+
+// ── Linked-records modal (2026-08-15) ────────────────────────────────────
+// Shared by the Contacts list's count-click (view mode, just a Close
+// button) and the pre-create warning (proceed mode, Cancel/proceed-label
+// buttons) - same list-rendering, same focus-trap/Escape/backdrop
+// mechanics as confirm-delete/discard-confirm, but its own dialog rather
+// than repurposing either, same reasoning as why confirm-delete didn't
+// reuse discard-confirm: the wording and button set genuinely differ.
+function renderLinkedRecordsList(records, type) {
+  if (!records.length) return '<p class="empty-state">None yet.</p>'
+  const view = type === 'test_bed' ? 'test-bed-detail' : 'opportunity-detail'
+  return records.map(r => `
+    <div class="linked-record-row" onclick="closeLinkedRecordsModal();navigate('${view}', '${r.id}')">
+      <span>${escHtml(r.name || 'Untitled')}</span>
+    </div>`).join('')
+}
+
+let linkedRecordsCallback = null
+let linkedRecordsKeydownHandler = null
+
+// opts: { heading, records, type, proceedLabel, onProceed }. onProceed
+// present -> warning mode (Cancel + proceed button); absent -> view mode
+// (just Close).
+function openLinkedRecordsModal(opts) {
+  linkedRecordsCallback = opts.onProceed ?? null
+  document.getElementById('linked-records-heading').textContent = opts.heading
+  document.getElementById('linked-records-list').innerHTML = renderLinkedRecordsList(opts.records, opts.type)
+
+  const cancelBtn = document.getElementById('linked-records-cancel')
+  const proceedBtn = document.getElementById('linked-records-proceed')
+  const closeBtn = document.getElementById('linked-records-close')
+
+  if (opts.onProceed) {
+    cancelBtn.classList.remove('hidden')
+    proceedBtn.classList.remove('hidden')
+    proceedBtn.textContent = opts.proceedLabel ?? 'Proceed anyway'
+    closeBtn.classList.add('hidden')
+  } else {
+    cancelBtn.classList.add('hidden')
+    proceedBtn.classList.add('hidden')
+    closeBtn.classList.remove('hidden')
+  }
+
+  document.getElementById('linked-records-modal').classList.remove('hidden')
+  ;(opts.onProceed ? cancelBtn : closeBtn).focus()
+
+  linkedRecordsKeydownHandler = (e) => {
+    if (e.key === 'Escape') {
+      e.preventDefault()
+      closeLinkedRecordsModal()
+      return
+    }
+    if (e.key !== 'Tab') return
+    const focusable = [cancelBtn, proceedBtn, closeBtn].filter(el => !el.classList.contains('hidden'))
+    const first = focusable[0]
+    const last = focusable[focusable.length - 1]
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault()
+      last.focus()
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault()
+      first.focus()
+    }
+  }
+  document.addEventListener('keydown', linkedRecordsKeydownHandler)
+}
+
+function closeLinkedRecordsModal() {
+  document.getElementById('linked-records-modal').classList.add('hidden')
+  if (linkedRecordsKeydownHandler) {
+    document.removeEventListener('keydown', linkedRecordsKeydownHandler)
+    linkedRecordsKeydownHandler = null
+  }
+  linkedRecordsCallback = null
+}
+
+document.getElementById('linked-records-cancel').addEventListener('click', closeLinkedRecordsModal)
+document.getElementById('linked-records-close').addEventListener('click', closeLinkedRecordsModal)
+document.getElementById('linked-records-proceed').addEventListener('click', () => {
+  const callback = linkedRecordsCallback
+  closeLinkedRecordsModal()
+  if (callback) callback()
+})
+document.getElementById('linked-records-modal').addEventListener('click', (e) => {
+  if (e.target.id === 'linked-records-modal') closeLinkedRecordsModal()
 })
 
 // ── Shared discard-confirmation dialog ──────────────────────────────────

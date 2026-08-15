@@ -279,7 +279,7 @@
     </div>
 
     <div class="contact-grid-head">
-      <span>Name</span><span>Company / Account</span><span>Industry</span><span>Job Role</span><span>Email</span><span>Source</span><span></span>
+      <span>Name</span><span>Company / Account</span><span>Industry</span><span>Job Role</span><span>Email</span><span>Source</span><span>Records</span><span></span>
     </div>
     <div id="contacts-rows">
       <p class="empty-state">Loading...</p>
@@ -298,8 +298,16 @@
              pure duplication removed. Company stays in the panel: this
              page's own Company subtitle below shows the resolved
              Account name once linked, not the raw editable field. -->
-        <div data-key="name">
+        <!-- Status badge moved inline with the name (2026-08-15), not
+             isolated top-right via .detail-head's own justify-content:
+             space-between - it read as detached from the record it
+             describes, floating alone at the far edge of the whole
+             header instead of sitting with the thing it's the status
+             OF. Still the same #cd-status element/logic, only its DOM
+             position and immediate layout changed. -->
+        <div data-key="name" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
           <h1 id="cd-display-name" class="cd-name-display" onclick="openCdField('name')"></h1>
+          <span class="tag" id="cd-status"></span>
           <div class="ref-field-edit hidden" id="cd-edit-name">
             <input type="text" id="cd-input-name" class="cd-name-input">
             <span class="ref-field-discard" onclick="discardCdField('name')">&times;</span>
@@ -307,7 +315,6 @@
         </div>
         <p class="sub" id="cd-company" style="margin-bottom:8px"></p>
       </div>
-      <span class="tag" id="cd-status"></span>
     </div>
 
     <!-- Qualify/Park/Unqualified are direct actions here and on the list
@@ -453,7 +460,14 @@
            write when both are dirty at once (see saveCdFields in
            contact-detail.js). -->
       <div class="pg-card">
-        <div style="display:flex;align-items:center;gap:10px;padding-bottom:10px;border-bottom:1px solid var(--hairline-strong);margin-bottom:4px">
+        <!-- Add Note moves to the right side of this row once active
+             (2026-08-15) - .cd-notes-header-row.active switches
+             justify-content to space-between; idle state stays
+             flex-start (button sits right next to the label), matching
+             the existing convention elsewhere that a control only
+             claims extra visual weight/position once it's doing
+             something, not before. -->
+        <div class="cd-notes-header-row" id="cd-notes-header-row">
           <p class="pg-card-title" style="margin:0;padding:0;border:none">Notes History &middot; latest first</p>
           <button class="btn-sm" id="cd-add-note-btn" onclick="onCdAddNoteClick()">Add Note</button>
         </div>
@@ -1254,6 +1268,30 @@
     <div class="form-actions" style="margin-top:20px">
       <button class="btn-primary" id="confirm-delete-cancel">Cancel</button>
       <button class="btn-ghost" id="confirm-delete-confirm">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- Linked-records modal (2026-08-15) - a third small dialog, not a
+     reuse of discard-confirm or confirm-delete, same reasoning as why
+     confirm-delete was built separately from discard-confirm: neither
+     existing dialog's wording or button set fits "show a named list of
+     records, then either just close or offer to proceed with something
+     else". Same mechanics regardless (focus trap, Escape/backdrop-click
+     both cancel/close). Two modes, one dialog:
+     - View mode (Contacts list count click): only the Close button
+       shows, list rows navigate straight to their own detail page.
+     - Warning mode (pre-create check): Cancel/proceed-label buttons
+       show instead, proceeding runs whatever creation the caller
+       supplied, list rows still navigate away same as view mode. -->
+<div id="linked-records-modal" class="hidden modal-backdrop" style="z-index:200">
+  <div class="modal-panel" role="alertdialog" aria-modal="true" aria-labelledby="linked-records-heading">
+    <p class="eyebrow" id="linked-records-heading"></p>
+    <div id="linked-records-list" style="margin-top:14px;display:flex;flex-direction:column;gap:6px;max-height:320px;overflow-y:auto"></div>
+    <div class="form-actions" style="margin-top:20px">
+      <button class="btn-primary hidden" id="linked-records-cancel">Cancel</button>
+      <button class="btn-ghost hidden" id="linked-records-proceed"></button>
+      <button class="btn-primary" id="linked-records-close">Close</button>
     </div>
   </div>
 </div>

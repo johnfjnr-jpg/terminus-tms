@@ -483,6 +483,7 @@ window.onCdAddNoteClick = async function () {
   if (!cdNoteOpen) {
     cdNoteOpen = true
     document.getElementById('cd-note-input-wrap').classList.remove('hidden')
+    document.getElementById('cd-notes-header-row').classList.add('active')
     input.focus()
     const btn = document.getElementById('cd-add-note-btn')
     btn.disabled = true
@@ -529,6 +530,7 @@ function resetCdNoteInput() {
   const wrap = document.getElementById('cd-note-input-wrap')
   wrap.classList.add('hidden')
   wrap.classList.remove('dirty')
+  document.getElementById('cd-notes-header-row').classList.remove('active')
   const btn = document.getElementById('cd-add-note-btn')
   btn.disabled = false
   btn.classList.remove('btn-primary')

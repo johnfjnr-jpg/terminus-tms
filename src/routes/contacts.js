@@ -34,7 +34,74 @@ export default async function contactsRoutes(app) {
       if (!latestPayload[rev.record_id]) latestPayload[rev.record_id] = rev.payload
     }
 
-    return contacts.map(c => ({ ...c, payload: latestPayload[c.id] ?? {} }))
+    // Linked Test Beds/Opportunities (2026-08-15, Contacts list count
+    // feature). Matched on (record_id, contact_id) only, any role - a
+    // Contact gets linked at creation with role 'commercial buyer'
+    // (lowercase, linkContact() above), separately from the later buyer-
+    // assignment UI's capitalized VALID_CLIENT_BUYER_ROLES
+    // ('Client Commercial Buyer' etc., src/routes/test-beds.js) - filtering
+    // by role string would silently miss whichever set wasn't checked.
+    // records!record_contacts_record_id_fkey is explicit, not inferred:
+    // record_contacts has two FKs to records (record_id AND contact_id),
+    // an unqualified embed is genuinely ambiguous to PostgREST, the same
+    // shape as the real bug found and fixed on opportunity_details in
+    // Milestone 5 - confirmed this exact constraint name resolves
+    // correctly before relying on it.
+    const { data: links, error: linksErr } = await db
+      .from('record_contacts')
+      .select('contact_id, records!record_contacts_record_id_fkey(id, record_type, reference_code, deleted_at)')
+      .in('contact_id', ids)
+
+    if (linksErr) {
+      request.log.error({ err: linksErr }, 'failed to load linked test beds/opportunities for contacts list')
+      return reply.code(500).send({ error: linksErr.message })
+    }
+
+    const relevantLinks = (links ?? []).filter(l =>
+      l.records && !l.records.deleted_at && ['test_bed', 'opportunity'].includes(l.records.record_type)
+    )
+    const linkedRecordIds = [...new Set(relevantLinks.map(l => l.records.id))]
+
+    let linkedName = {}
+    if (linkedRecordIds.length) {
+      const { data: linkedRevs, error: linkedRevsErr } = await db
+        .from('record_revisions')
+        .select('record_id, payload')
+        .in('record_id', linkedRecordIds)
+        .order('revision_number', { ascending: false })
+
+      if (linkedRevsErr) {
+        request.log.error({ err: linkedRevsErr }, 'failed to load names for linked test beds/opportunities')
+        return reply.code(500).send({ error: linkedRevsErr.message })
+      }
+      for (const rev of linkedRevs ?? []) {
+        if (!(rev.record_id in linkedName)) linkedName[rev.record_id] = rev.payload?.name ?? null
+      }
+    }
+
+    // Map keyed by record id per contact (not an array push) so a Contact
+    // holding two roles on the same record (both the creation-time role
+    // and a later buyer-assignment role) still counts that record once,
+    // not twice - the unique constraint on record_contacts is
+    // (record_id, contact_id, role), so duplicate (record_id, contact_id)
+    // pairs with different roles are a real, expected case, not an edge
+    // case to ignore.
+    const byContact = {}
+    for (const l of relevantLinks) {
+      if (!byContact[l.contact_id]) byContact[l.contact_id] = { test_bed: new Map(), opportunity: new Map() }
+      const bucket = byContact[l.contact_id][l.records.record_type]
+      bucket.set(l.records.id, {
+        id: l.records.id,
+        name: linkedName[l.records.id] || l.records.reference_code || 'Untitled',
+      })
+    }
+
+    return contacts.map(c => ({
+      ...c,
+      payload: latestPayload[c.id] ?? {},
+      linked_test_beds: byContact[c.id] ? [...byContact[c.id].test_bed.values()] : [],
+      linked_opportunities: byContact[c.id] ? [...byContact[c.id].opportunity.values()] : [],
+    }))
   })
 
   // POST /api/contacts

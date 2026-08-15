@@ -599,7 +599,7 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
 .contact-grid-head,
 .contact-grid-row {
   display: grid;
-  grid-template-columns: minmax(180px, 1fr) 150px 110px 100px 190px 130px 160px;
+  grid-template-columns: minmax(180px, 1fr) 150px 110px 100px 190px 130px 150px 160px;
   gap: 16px;
   align-items: center;
 }
@@ -654,6 +654,32 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
   flex-wrap: wrap;
   position: relative;
 }
+
+/* Contacts list count cell (2026-08-15) - two stacked lines, Test Beds
+   then Opportunities, matching the row's own line-height rather than a
+   second grid column each. */
+.contact-count-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-family: var(--mono);
+  font-size: 11px;
+}
+.count-link {
+  color: var(--green);
+  cursor: pointer;
+}
+.count-link:hover { text-decoration: underline; }
+.count-zero { color: var(--muted-2); }
+
+.linked-record-row {
+  padding: 8px 10px;
+  border: 1px solid var(--hairline-strong);
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--white);
+}
+.linked-record-row:hover { background: rgba(242,242,240,0.04); }
 
 /* Row action popup (2026-08-15 fix, replaces the old inline-expanding
    .contact-manage-panel for this row only - that class stays as-is for
@@ -1080,6 +1106,20 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
   border-bottom: 1px solid var(--hairline-strong);
   margin: 0 0 4px;
 }
+
+/* Contact/Lead detail's Notes History header row (2026-08-15) - idle
+   state keeps Add Note right next to the label; .active (toggled in
+   contact-detail.js when the note input opens) pushes it to the right
+   side of the card instead. */
+.cd-notes-header-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--hairline-strong);
+  margin-bottom: 4px;
+}
+.cd-notes-header-row.active { justify-content: space-between; }
 .pg-head, .pg-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 72px 56px 76px;
@@ -1756,25 +1796,39 @@ textarea::placeholder { color: var(--muted-2); }
   margin-bottom: 20px;
 }
 
-/* Timestamp, author and note text as one inline flow (2026-08-14,
-   corrected from a two-column flex row that forced timestamp+note onto
-   one line and pushed author to its own line below it, a fixed layout,
-   not text wrapping). No display:flex here deliberately - flex items
-   each wrap independently within their own box, they don't merge into
-   a single flowing line the way inline elements do. Standard inline
-   wrap: short notes stay fully on one line, long note text wraps
-   naturally without breaking the timestamp/author grouping at the
-   start of the line. */
+/* Timestamp, author and note text (2026-08-15, revised again - the
+   2026-08-14 plain-inline version above kept timestamp/author grouped
+   at the start of the line correctly, but never actually addressed
+   wrap alignment: a long note's second line fell back to the row's
+   own left edge, not aligned under where its own first line's text
+   started, confirmed never built when investigated directly.
+   display:flex here (not the same thing as the 2026-08-14 comment's
+   rejected two-column version - that one merged author+text into one
+   column, pushing author onto its own line; this keeps when/author/
+   text as three independent flex siblings, when/author flex-shrink:0
+   so they never wrap or shrink, text alone as flex:1 with its own box
+   - CSS wraps a block's own lines back to THAT block's own left edge,
+   so text's second line lines up under its first line, immediately
+   after when+author, not the row's padding-box edge. flex-wrap:wrap on
+   the row is the fallback for a genuinely too-narrow container: the
+   whole text portion drops to its own line rather than overflowing,
+   same "stays together, no fixed layout" spirit as the original fix,
+   not a regression of it. */
 .ref-notes-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
   padding: 8px 0;
   border-bottom: 1px solid var(--hairline);
 }
 .ref-notes-when {
+  flex-shrink: 0;
   font-family: var(--mono);
   font-size: 11px;
   color: var(--muted-2);
 }
 .ref-notes-author {
+  flex-shrink: 0;
   font-family: var(--mono);
   font-size: 11px;
   color: var(--white);
@@ -1787,9 +1841,13 @@ textarea::placeholder { color: var(--muted-2); }
 }
 /* Scoped, not on .ref-notes-text itself - that class is also reused
    standalone for the Leads card's Summary line (app.js), which must
-   not pick up a margin meant only to space the note text away from
-   the author right before it inside a note row. */
-.ref-notes-row .ref-notes-text { margin-left: 10px; }
+   not pick up a margin or flex sizing meant only for a note-row's own
+   third column. */
+.ref-notes-row .ref-notes-text {
+  flex: 1 1 160px;
+  min-width: 160px;
+  margin-left: 10px;
+}
 
 /* ── Detail header ──────────────────────────────────────────── */
 .detail-head {
