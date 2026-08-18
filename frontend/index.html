@@ -58,6 +58,7 @@
       <button class="nav-link-disabled" disabled>Dashboard</button>
       <button class="nav-link" data-view="leads">Leads</button>
       <button class="nav-link" data-view="contacts">Contacts</button>
+      <button class="nav-link" data-view="accounts">Accounts</button>
       <button class="nav-link" data-view="test-beds">Test Beds</button>
       <button class="nav-link" data-view="opportunities">Opportunities</button>
       <button class="nav-link-disabled" disabled>Product Management</button>
@@ -120,7 +121,7 @@
          layout-matching pass revisits. -->
     <div id="new-contact-form" class="hidden modal-backdrop">
       <div class="modal-panel modal-panel-wide">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div class="modal-header-sticky" style="display:flex;justify-content:space-between;align-items:flex-start">
           <div>
             <h2 style="margin:0">New lead</h2>
             <p class="sub" style="margin-top:4px">Raw, unverified interest. Qualify it, then convert to a Contact plus a Test Bed or Opportunity.</p>
@@ -134,7 +135,18 @@
           </div>
           <div class="form-group">
             <label for="contact-company">Company *</label>
-            <input type="text" id="contact-company" placeholder="Acme Corp">
+            <!-- Round 4 Phase 5 (2026-08-17): lightweight autocomplete only
+                 - a native <datalist>, not a custom dropdown like the
+                 Account Details panel's Parent Account search. Deliberately
+                 chosen for this field specifically: a datalist suggests
+                 without ever resolving anything (selecting an option just
+                 fills the text value, no id, no onchange side effect),
+                 which is exactly "stays genuinely free text underneath,
+                 nothing is resolved, linked, or created" - the brief's own
+                 words - for free, rather than something a custom dropdown
+                 would have to be deliberately built not to do. -->
+            <input type="text" id="contact-company" list="contact-company-list" placeholder="Acme Corp">
+            <datalist id="contact-company-list"></datalist>
           </div>
           <div class="form-group">
             <label for="contact-industry">Industry *</label>
@@ -279,10 +291,124 @@
     </div>
 
     <div class="contact-grid-head">
-      <span>Name</span><span>Company / Account</span><span>Industry</span><span>Job Role</span><span>Email</span><span>Source</span><span>Records</span><span></span>
+      <span>Name</span><span>Records</span><span>Company / Account</span><span>Industry</span><span>Job Role</span><span>Email</span><span>Source</span><span></span>
     </div>
     <div id="contacts-rows">
       <p class="empty-state">Loading...</p>
+    </div>
+  </div>
+
+  <!-- ── Accounts (Round 5 Phase 10, 2026-08-17) ──────────────────────────
+       Genuinely new module - Round 4 confirmed no Account list/detail
+       screen existed anywhere, only reachable through pickers. List uses
+       the shared .record-grid-head/.record-grid-row pattern (rule 7,
+       DESIGN_PRINCIPLES.md - card/grid structure from the first pass,
+       not a table-plus-colour stopgap), same shape and same generic 3-
+       column grid template Opportunities already uses, not a new CSS
+       rule. -->
+  <div id="view-accounts" class="wrap hidden">
+    <div class="page-head">
+      <div>
+        <p class="eyebrow">Commercial</p>
+        <h1>Accounts</h1>
+        <p class="sub">Every real company on file.</p>
+      </div>
+      <button class="btn-primary" id="btn-new-account">+ New Account</button>
+    </div>
+
+    <div class="record-grid-head">
+      <span>Account</span>
+      <span>Parent Account</span>
+      <span>Created</span>
+    </div>
+    <div class="record-list" id="accounts-rows">
+      <p class="empty-state">Loading...</p>
+    </div>
+  </div>
+
+  <!-- Lightweight create prompt (Round 5 Phase 10) - only Account Name is
+       required to create the record (Round 4's own confirmed rule,
+       unchanged), so this stays a minimal, single-field prompt rather
+       than duplicating the Round 4 Account Details modal's full field
+       set a second time - everything else (Terminus Lead, Billing/
+       Shipping, Website, Parent Account) is filled in via click-to-edit
+       on the new Account's own detail page immediately afterward, the
+       same "create minimal, flesh out on the detail page" pattern Test
+       Bed and Opportunity already use. -->
+  <div id="new-account-modal" class="hidden modal-backdrop">
+    <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="new-account-heading">
+      <p class="eyebrow" id="new-account-heading">New Account</p>
+      <div class="form-group" style="margin-top:14px">
+        <label for="new-account-name">Account Name</label>
+        <input type="text" id="new-account-name" placeholder="Acme Corp">
+      </div>
+      <p class="msg-error hidden" id="new-account-error" style="margin-top:8px"></p>
+      <div class="form-actions" style="margin-top:20px">
+        <button class="btn-ghost" id="new-account-cancel">Cancel</button>
+        <button class="btn-primary" id="new-account-save">Create</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Account detail (Round 5 Phase 10) ─────────────────────────────
+       No workflow stage, no chevron, no tabs - Account has none of
+       those concepts, unlike Test Bed/Opportunity. One .ref-cards row
+       (the same shared grid every other detail page uses) plus a
+       read-only linked-Contacts roll-up below, matching the review
+       capability the brief asks for. account-detail.js drives the real
+       click-to-edit logic, same generic mechanism as every other detail
+       page in this app (tbFieldRow/refFieldRow's own pattern), not a
+       new one. -->
+  <div id="view-account-detail" class="wrap hidden">
+    <div class="detail-head">
+      <div>
+        <button class="btn-text" id="btn-back-account-detail">Back</button>
+        <p class="eyebrow" style="margin-top:14px">Account</p>
+        <!-- Name is click-to-edit directly in the header, same pattern as
+             Contact's cd-display-name/cd-edit-name (contact-detail.js). -->
+        <div data-key="name" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+          <h1 id="acct-detail-name" class="cd-name-display" onclick="openAcctField('name')">--</h1>
+          <div class="ref-field-edit hidden" id="acct-edit-name">
+            <input type="text" id="acct-input-name" class="cd-name-input">
+            <span class="ref-field-discard" onclick="discardAcctField('name')">&times;</span>
+          </div>
+        </div>
+        <p class="sub" id="acct-detail-number">--</p>
+      </div>
+    </div>
+
+    <div class="ref-cards">
+      <div class="pg-card">
+        <p class="pg-card-title">Account Details</p>
+        <div id="acct-detail-rows"></div>
+        <!-- Parent Account: search-and-link, not a plain typed field -
+             rendered by its own function (renderAcctParentRow, mirroring
+             test-bed-detail.js's renderTbBuyerRows), saves immediately on
+             Link rather than joining the batched field Save bar below. -->
+        <div id="acct-parent-row"></div>
+      </div>
+      <div class="pg-card">
+        <p class="pg-card-title">Billing Address</p>
+        <div id="acct-billing-rows"></div>
+      </div>
+      <div class="pg-card">
+        <p class="pg-card-title">Shipping Address</p>
+        <div id="acct-shipping-rows"></div>
+      </div>
+    </div>
+
+    <!-- Batched Save bar for plain click-to-edit fields (Name, Terminus
+         Lead, Website URL, Billing/Shipping) - same ref-edit-bar pattern
+         and same hidden-until-dirty behaviour as Test Bed's tb-save-bar. -->
+    <div id="acct-save-bar" class="ref-edit-bar hidden" style="justify-content:flex-end">
+      <button class="btn-ghost btn-sm" id="acct-cancel-all">Cancel</button>
+      <button class="btn-primary btn-sm" id="acct-save-all">Save changes</button>
+      <span id="acct-save-feedback"></span>
+    </div>
+
+    <div style="margin-top:28px">
+      <p class="pg-card-title">Linked Contacts</p>
+      <div id="acct-contacts-list"></div>
     </div>
   </div>
 
@@ -376,19 +502,10 @@
       </div>
     </div>
 
-    <!-- Wide-layout prototype (2026-08-15): Account/Summary/Notes History
-         moved IN as further .ref-cards grid items, from being pulled out
-         into their own full-width rows below (2026-08-14 - back when
-         .wrap capped this page at the same 1240px as every other view,
-         a short card sharing a row with Contact Details/Address left an
-         ugly empty gap under it). .ref-cards already sets
-         align-items:start, so a short card no longer stretches to match
-         a tall neighbour's row height - the original reason for pulling
-         Account out doesn't apply once that's true, confirmed live
-         before restructuring this way. .ref-cards' own CSS rule
-         (shared with Opportunity's Reference tab) is untouched, only
-         this page's markup changed: more children simply flow through
-         the same existing auto-fit/minmax grid. -->
+    <!-- Card-row: Contact Details/Address/Account only (2026-08-16 -
+         Summary/Notes History relocated out below, see cd-below-grid).
+         .ref-cards' own CSS rule (shared with Opportunity's Reference
+         tab) is untouched, only this page's markup changed. -->
     <div class="ref-cards">
       <div class="pg-card">
         <p class="pg-card-title">Contact Details</p>
@@ -402,11 +519,18 @@
       <!-- The real Account link (parent_record_id) - deliberately separate
            from the free-text Company field above, which stays exactly as
            typed at fast lead entry even after linking. Resolved here, on
-           the detail page, not at creation. -->
+           the detail page, not at creation. This is also the row's
+           reference card for cd-below-grid's own right-edge match
+           (contact-detail.js's syncCdBelowGridWidth) - it's the last
+           card here, so its own right edge is always the row's. -->
       <div class="pg-card" id="cd-account-card">
         <p class="pg-card-title">Account</p>
         <div id="cd-account-status" style="font-family:var(--body);font-size:13px;color:var(--white);margin-bottom:10px"></div>
         <button class="btn-sm" id="cd-btn-link-account">Link to Account</button>
+        <!-- Round 5 Phase 3 (2026-08-17): view-only, distinct from the
+             change action above - only meaningful once something is
+             actually linked, hidden otherwise. -->
+        <button class="btn-sm hidden" id="cd-btn-show-account-details" style="margin-left:8px">Show Account Details</button>
 
         <div id="cd-link-account-panel" class="hidden" style="margin-top:14px">
           <div class="form-group">
@@ -420,8 +544,23 @@
           </div>
         </div>
       </div>
+    </div>
 
-      <div class="pg-card">
+    <!-- Summary/Notes History: relocated out of the card row (2026-08-16),
+         same full-width-below-the-grid pattern Phase 7 built for Test
+         Bed's Reference tab (tb-tab-reference: no .pg-card border, plain
+         margin-top spacing, pg-card-title labels). Not simply 100% of
+         the page though: #view-contact-detail has max-width:none (wide-
+         layout prototype), so a naive full-width block here would run
+         the full browser width at 1920/3440px, way past where the grid
+         row above actually ends. Width is set in JS
+         (syncCdBelowGridWidth, contact-detail.js) to exactly match
+         #cd-account-card's own right edge - that card is always last in
+         the row above, so its right edge is the row's, whether or not
+         the row itself reaches the container's outer edge at the
+         current viewport. Recomputed on render and on window resize. -->
+    <div id="cd-below-grid">
+      <div style="margin-top:28px">
         <p class="pg-card-title">Summary</p>
         <!-- ref-field-noborder drops the stacked-row hairline separator for
              this standalone field - no longer a specificity trap against
@@ -459,14 +598,15 @@
            2026-08-14), and rides along in the page-level Save's own
            write when both are dirty at once (see saveCdFields in
            contact-detail.js). -->
-      <div class="pg-card">
-        <!-- Add Note moves to the right side of this row once active
-             (2026-08-15) - .cd-notes-header-row.active switches
-             justify-content to space-between; idle state stays
-             flex-start (button sits right next to the label), matching
-             the existing convention elsewhere that a control only
-             claims extra visual weight/position once it's doing
-             something, not before. -->
+      <div style="margin-top:24px">
+        <!-- Add Note button (2026-08-16, Round 2 Phase 2) - idle here,
+             next to the label. When active, contact-detail.js physically
+             relocates it into cd-note-input-wrap below, beside the ×
+             discard icon, rather than right-aligning within this same
+             row (the earlier fix's behaviour, confirmed by precise
+             re-check to be the actual reported complaint: the button
+             never left this row under that version). Same single
+             element, moved via insertBefore/appendChild, not duplicated. -->
         <div class="cd-notes-header-row" id="cd-notes-header-row">
           <p class="pg-card-title" style="margin:0;padding:0;border:none">Notes History &middot; latest first</p>
           <button class="btn-sm" id="cd-add-note-btn" onclick="onCdAddNoteClick()">Add Note</button>
@@ -495,6 +635,17 @@
       </div>
     </div>
 
+    <!-- Two summary matrices (Phase 6, 2026-08-16), matching the
+         prototype's own Test Beds list panels (Terminus Ops.dc.html
+         :603-269 area) - populated by renderTestBedMatrices() in
+         app.js. -->
+    <div id="tb-matrices" class="tb-matrices-grid"></div>
+
+    <!-- Matrix click-to-filter bar (2026-08-16, same day, added after the
+         first Phase 6 pass) - hidden by default, filled in by
+         renderTestBedsTable() only when tbFilter is active. -->
+    <div id="tb-filter-bar" class="tb-filter-bar hidden"></div>
+
     <div class="toolbar">
       <span></span>
       <button class="btn-sm" id="testbeds-mine-toggle" type="button">Mine: Off</button>
@@ -503,17 +654,20 @@
     <table>
       <thead>
         <tr>
-          <th class="sortable-col" data-tb-sort="name">Test Bed</th>
-          <th class="sortable-col" data-tb-sort="account_name">Account</th>
+          <th class="sortable-col" data-tb-sort="reference_code">Reference</th>
+          <th class="sortable-col" data-tb-sort="name">Test Bed Name</th>
+          <th class="sortable-col" data-tb-sort="account_name">Company</th>
+          <th class="sortable-col" data-tb-sort="city">City</th>
           <th class="sortable-col" data-tb-sort="region">Region</th>
-          <th class="sortable-col" data-tb-sort="industry_name">Industry</th>
           <th class="sortable-col" data-tb-sort="status">Stage</th>
-          <th class="sortable-col" data-tb-sort="indicative_cost">Indicative Cost</th>
+          <th class="sortable-col" data-tb-sort="terminus_lead">Terminus Lead</th>
+          <th class="sortable-col" data-tb-sort="client_lead">Client Lead</th>
+          <th class="sortable-col" data-tb-sort="indicative_cost">Estimated Cost</th>
           <th class="sortable-col" data-tb-sort="created_at">Created</th>
         </tr>
       </thead>
       <tbody id="testbeds-tbody">
-        <tr><td colspan="7" class="empty-state">Loading...</td></tr>
+        <tr><td colspan="10" class="empty-state">Loading...</td></tr>
       </tbody>
     </table>
   </div>
@@ -561,6 +715,28 @@
       <div id="tb-convert-feedback"></div>
     </div>
 
+    <!-- Round 5 Phase 8 (2026-08-17): a genuinely new, more discoverable
+         entry point to the SAME transition mechanism the "Stage
+         transition" section below already provides - not a second,
+         parallel one. Investigated first, per the brief: the chevron
+         strip has no click handler anywhere in this app's real history
+         (confirmed via git log/blame, not assumed), so this was never a
+         restoration of lost behaviour, it's new. Reuses
+         window.attemptTransition unchanged (wireTbNextStageButton,
+         app.js) with the exact same sectionId ('tb-transition-section',
+         required for its own success-path branch to reload correctly as
+         a Test Bed, not an Opportunity) but its own feedbackId
+         (tb-next-stage-feedback) - a blocking rejection clicked from up
+         here is shown right here, not only in the section below, which
+         could be scrolled out of view at the moment this button is
+         clicked. -->
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <p class="section-title" style="margin:0">Workflow stage</p>
+      <div style="display:flex;align-items:center;gap:12px">
+        <div id="tb-next-stage-feedback"></div>
+        <button class="btn-sm btn-primary" id="tb-next-stage-btn">Next Stage</button>
+      </div>
+    </div>
     <div id="tb-chevron-strip" class="chevron-strip"></div>
 
     <div class="stats-grid" style="margin-bottom:28px">
@@ -582,11 +758,52 @@
       </div>
     </div>
 
+    <!-- Round 5 Phase 7 (2026-08-17): relocated here, always visible,
+         not nested inside any tab panel - same "page-level, not tab-
+         scoped" pattern the save bar above already established. This
+         used to live on the old Approvals tab, the only real place a
+         stage transition could actually be triggered from; removing
+         that tab (below) without giving this a new home would have
+         silently removed the only working transition UI. Deliberately
+         left as-is otherwise, not redesigned then - Phase 8 has since
+         built the more discoverable "Next Stage" button above the
+         chevron, confirmed as a genuinely new entry point to this exact
+         same section's own mechanism, not a replacement for it (this
+         section's fuller context - the real next stage's name, and its
+         own feedback area - stays exactly as it was). -->
+    <div style="margin-bottom:28px">
+      <p class="section-title">Stage transition</p>
+      <div id="tb-transition-section"></div>
+    </div>
+
+    <!-- Round 5 Phase 7 (2026-08-17): the old Documents/Stage & Approvals
+         tabs replaced with one tab per real workflow stage, confirmed,
+         the single largest architectural change this round. Each of the
+         8 buttons below shares one physical panel (#tb-tab-stage-detail),
+         switchTbTab (app.js) special-cases any tab id starting with
+         "stage-" to reveal that shared panel and load the specific named
+         stage's own Documents+Approvals into it - not 8 separate
+         pre-built panels, which would mean 8x the DOM and 8x the eager
+         network calls for content only ever one of which is visible at a
+         time. Hardcoded, matching every other tab button in this app
+         (none are data-driven from stage_definitions) - the brief names
+         these 8 stages as fixed, canonical labels, not something to
+         infer generically. Final tab bar, confirmed intentional despite
+         the real visual density: Reference, Commercials, then these 8,
+         10 tabs total - the chevron strip above stays exactly as it is,
+         a separate, unchanged status indicator, both exist
+         simultaneously. -->
     <div class="detail-tabs" id="tb-detail-tabs">
       <button class="detail-tab active" data-tb-tab="reference">Reference</button>
-      <button class="detail-tab" data-tb-tab="site-details">Site Details</button>
-      <button class="detail-tab" data-tb-tab="documents">Documents</button>
-      <button class="detail-tab" data-tb-tab="approvals">Approvals</button>
+      <button class="detail-tab" data-tb-tab="commercials">Commercials</button>
+      <button class="detail-tab" data-tb-tab="stage-Qualification">Qualification</button>
+      <button class="detail-tab" data-tb-tab="stage-Pre-Site Assessment">Pre-Site Assessment</button>
+      <button class="detail-tab" data-tb-tab="stage-Site Assessment">Site Assessment</button>
+      <button class="detail-tab" data-tb-tab="stage-Installation and Commissioning">Installation and Commissioning</button>
+      <button class="detail-tab" data-tb-tab="stage-Monitoring and Analysis">Monitoring and Analysis</button>
+      <button class="detail-tab" data-tb-tab="stage-Review and Completion">Review and Completion</button>
+      <button class="detail-tab" data-tb-tab="stage-Decommissioning">Decommissioning</button>
+      <button class="detail-tab" data-tb-tab="stage-Closed">Closed</button>
     </div>
 
     <!-- Page-level save bar (2026-08-15 fix), not nested inside either
@@ -597,27 +814,99 @@
          Region, ...) gave no visible way to commit it without switching
          tabs first. One bar, visible from both tabs, top-right per the
          confirmed fix. -->
+    <!-- tb-save-count removed (Round 5 Phase 5, 2026-08-17): the "N fields
+         open, M changed" text banner is gone from this consolidated page,
+         per the brief - the bar itself now only appears once something
+         has genuinely changed (updateTbSaveBar, test-bed-detail.js), not
+         merely on opening a field, so there's no longer a state where a
+         count of "open" fields would be worth displaying at all. -->
     <div id="tb-save-bar" class="ref-edit-bar hidden" style="justify-content:flex-end">
-      <span id="tb-save-count"></span>
       <button class="btn-ghost btn-sm" id="tb-cancel-all">Cancel</button>
       <button class="btn-primary btn-sm" id="tb-save-all">Save changes</button>
       <span id="tb-save-feedback"></span>
     </div>
 
     <!-- ── Reference tab ──────────────────────────────────────────────── -->
-    <!-- Two-column layout matching the prototype's actual Test Bed
-         Reference tab template exactly (Terminus Ops.dc.html:742,
-         grid-template-columns:minmax(0,1fr) 300px), not just the field
-         list - Milestone 4 never extracted this, only the field names.
-         Key Dates is a genuine right-hand panel, not another stacked
-         card. Summary/Notes sit below, full width, per the same
-         template (:785-811). -->
+    <!-- Consolidated (Round 5 Phase 5, 2026-08-17): Site Details' entire
+         former tab folded in here, per that phase's own mockup
+         (round5_reference_layout_mockup.png - a rough panel-grouping
+         reference, not literal positions) and its explicit brief text
+         ("Key Dates panel moves to sit to the right of Customer
+         Details" - already true, unchanged, this just confirms it stays
+         that way as more cards join the row). All 6 cards share one
+         .ref-cards grid rather than a fixed 2-row layout - reuses the
+         exact existing auto-fit reflow already proven on this and every
+         other Reference-style page (Contact detail, Opportunity), so
+         "extend available screen width if needed" (the brief's own
+         words) comes for free at 1920/3440px, and the row wraps
+         naturally at 1240px, with no new CSS. Site Ownership through
+         HEMIR (the brief's own 5 fields) plus Site Address, City,
+         Installer, Test Bed Tech Team, Install Notes, and the generated
+         Sensors list all stay together in the one Site Details card,
+         confirmed explicitly, nothing dropped - only
+         estCostPerUnit/indicativeCost move out, to Phase 6's Commercials
+         tab, since Phase 6 replaces them with real, itemized calculated
+         totals rather than plain typed numbers, not carried forward as
+         dead weight here. Exit Criteria is genuinely new (GET
+         /records/:id/exit-criteria, test-bed-detail.js's
+         renderTbExitCriteria - the same computeBlocking() a real
+         transition attempt uses, never a second, separately-derived
+         criteria list, and never itself performs the transition).
+
+         Superseded, Round 6 Phase 3 (2026-08-17): Site Ownership/
+         Installation Environment/Site Address/City are now the whole of
+         Site Details - the 3 sensor count fields moved to the
+         Commercials tab, Installer/Test Bed Tech Team/Install Notes
+         moved to the Installation and Commissioning stage tab
+         specifically (#tb-stage-install-section), and Exit Criteria
+         moved off this tab entirely onto each of the 8 stage tabs (now
+         renderTbStageExitCriteria(stageName), generalized to a named
+         stage rather than always the record's real current one). Kept
+         here as the historical record of Phase 5's own decisions, not
+         deleted - this tab's .ref-cards grid is genuinely down from 6
+         cards to 4 (Terminus Details, Customer Details, Key Dates, Site
+         Details), Use Cases repositioned below the grid with Summary,
+         Exit Criteria relocated off this tab entirely. -->
     <div class="detail-tab-panel" id="tb-tab-reference">
-      <div class="tb-ref-layout">
-        <div id="tb-reference-rows"></div>
+      <div class="ref-cards">
+        <div class="pg-card">
+          <p class="pg-card-title">Terminus Details</p>
+          <div id="tb-terminus-rows"></div>
+        </div>
+        <!-- Round 6 Phase 2 (2026-08-17): widened - the buyer-role
+             dropdown plus its "+ New" button were being truncated
+             ("Select a contact..." cut off) inside this grid's normal
+             280-420px card width, confirmed live via screenshot. Spans
+             2 columns of the shared .ref-cards grid rather than a
+             one-off fixed width, so it still reflows correctly with
+             the other 5 cards at every tested viewport instead of
+             becoming a second, independently-sized layout system. -->
+        <div class="pg-card pg-card-wide">
+          <p class="pg-card-title">Customer Details</p>
+          <div id="tb-customer-rows"></div>
+          <div style="margin-top:16px">
+            <p class="label" style="margin-bottom:8px">Client Buyers</p>
+            <div id="tb-buyer-rows"></div>
+          </div>
+        </div>
         <div class="pg-card">
           <p class="pg-card-title">Key Dates</p>
           <div id="tb-dates-rows"></div>
+        </div>
+        <!-- Round 6 Phase 3 (2026-08-17): trimmed - sensor count fields
+             moved to the Commercials tab (alongside the cost engine that
+             consumes them), Installation/Install Notes moved to the
+             Installation and Commissioning stage tab specifically. The
+             generated Sensors list stays here - it's a read-only display
+             of the counts, not the counts themselves, "anything not
+             otherwise relocated" per the brief. -->
+        <div class="pg-card">
+          <p class="pg-card-title">Site Details</p>
+          <div id="tb-site-rows"></div>
+          <div style="margin-top:16px">
+            <p class="label" style="margin-bottom:8px">Sensors</p>
+            <div id="tb-sensors-list"></div>
+          </div>
         </div>
       </div>
       <div style="margin-top:28px">
@@ -630,6 +919,18 @@
           </div>
         </div>
       </div>
+      <!-- Round 6 Phase 3 (2026-08-17): Use Cases repositioned to sit
+           with Summary, no longer its own separate .ref-cards grid
+           panel - same pg-card-title + content shape as Summary/Notes
+           immediately around it, not a bordered grid card. -->
+      <div style="margin-top:24px">
+        <p class="pg-card-title">Use Cases</p>
+        <div id="tb-usecases-list"></div>
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <input type="text" id="tb-usecase-input" placeholder="Add a use case">
+          <button class="btn-sm" id="tb-usecase-add">Add</button>
+        </div>
+      </div>
       <div style="margin-top:24px">
         <p class="pg-card-title">Notes</p>
         <div id="tb-notes-list"></div>
@@ -640,18 +941,107 @@
       </div>
     </div>
 
-    <!-- ── Site Details tab ───────────────────────────────────────────── -->
-    <div class="detail-tab-panel hidden" id="tb-tab-site-details">
+    <!-- ── Commercials tab (Round 5 Phase 6, 2026-08-17) ────────────────
+         Cost-only, confirmed scope: Test Bed is "cost to the business,
+         no client billing" (DESIGN_PRINCIPLES.md Section 8), so unlike
+         Opportunity's own Commercials tab there is no price or margin
+         concept anywhere here, only cost - the itemized breakdown below
+         reads exclusively from src/lib/deal-calculator.js's
+         calculateTestBedCost() *Cost fields (rawCost/rawTotalCost/
+         totalCost), never the *Price fields that function still computes
+         internally as an unavoidable side effect of reusing
+         buildCostGroup() unchanged from the priced Opportunity path -
+         confirmed by test that no price/margin figure is rendered
+         anywhere on this tab. Rate inputs (Base Cost Data stopgap, same
+         convention as Opportunity's own ssUnitCost etc.) use the exact
+         same click-to-edit-batch-save mechanism as the Reference tab -
+         tbFieldRow/openTbField/tbEdits, TB_COST_FIELDS folded into
+         TB_ALL_EDITABLE_FIELDS (test-bed-detail.js) - not a second
+         interaction pattern. -->
+    <div class="detail-tab-panel hidden" id="tb-tab-commercials">
+      <div class="ref-cards">
+        <!-- Round 6 Phase 3 (2026-08-17): sensor counts moved here from
+             Site Details, alongside the cost engine that already
+             consumes them as inputs (renderTbCostBreakdown reads these
+             same tbPayload keys) - the generated Sensors list itself
+             stays on the Reference tab's Site Details panel, only the
+             editable count fields relocate. -->
+        <div class="pg-card">
+          <p class="pg-card-title">Unit Counts</p>
+          <div id="tb-sensor-count-rows"></div>
+        </div>
+        <div class="pg-card">
+          <p class="pg-card-title">Hardware Cost Rates ($ / unit)</p>
+          <div id="tb-cost-hardware-rows"></div>
+        </div>
+        <div class="pg-card">
+          <p class="pg-card-title">Installation Cost Rates ($ / unit)</p>
+          <div id="tb-cost-install-rows"></div>
+        </div>
+        <div class="pg-card">
+          <p class="pg-card-title">Hosting Cost Rates ($ / unit / month)</p>
+          <div id="tb-cost-hosting-rows"></div>
+        </div>
+        <div class="pg-card">
+          <p class="pg-card-title">Warranty</p>
+          <div id="tb-cost-warranty-rows"></div>
+        </div>
+      </div>
+      <div style="margin-top:28px">
+        <p class="pg-card-title">Itemized Cost</p>
+        <p class="sub" style="margin-bottom:14px">What this Test Bed will cost to build - cost only, no price or margin, supporting a go/no-go decision.</p>
+        <div id="tb-cost-breakdown"></div>
+      </div>
+    </div>
+
+    <!-- ── Stage detail tab (Round 5 Phase 7, 2026-08-17) ───────────────
+         One shared panel for all 8 stage buttons - switchTbTab (app.js)
+         reveals this same panel regardless of which stage-* tab was
+         clicked and calls loadTbStageDetailTab(stageName) to repopulate
+         it. Reference Material/Documents reuse the existing
+         document-requirements mechanism (now stage-parameterized,
+         test-beds.js), same two-deliberately-separate-arrays shape as
+         before (reference_docs always informational, completable_documents
+         the real stage_gate_rules-driven table). Approvals reuses
+         GET /records/:id/stage-approvals (already returns every stage in
+         one call) and buildStageApprovalRowHtml (app.js), rendering just
+         the one row matching the currently-open stage tab, not the whole
+         list Opportunity's own Stage & Approvals tab still shows. -->
+    <div class="detail-tab-panel hidden" id="tb-tab-stage-detail">
+      <p class="pg-card-title" id="tb-stage-detail-heading">Stage</p>
       <div class="pg-card">
-        <p class="pg-card-title">Site Details</p>
-        <div id="tb-site-rows"></div>
+        <p class="pg-card-title">Reference Material</p>
+        <div id="tb-stage-reference-docs-section"></div>
       </div>
-      <div class="pg-card" style="margin-top:20px">
-        <p class="pg-card-title">Sensors</p>
-        <div id="tb-sensors-list"></div>
+      <div style="margin-top:24px">
+        <p class="section-title">Documents</p>
+        <div id="tb-stage-documents-section"></div>
       </div>
-      <div class="pg-card" style="margin-top:20px">
-        <p class="pg-card-title">Installation</p>
+      <div style="margin-top:24px">
+        <p class="section-title">Approvals</p>
+        <div class="sa-row sa-head">
+          <span>Stage</span><span>Exit criteria</span><span>Approvers</span>
+        </div>
+        <div id="tb-stage-approval-row"></div>
+      </div>
+      <!-- Round 6 Phase 3 (2026-08-17): Exit Criteria relocated here from
+           the Reference tab - each of the 8 stage tabs now shows its own
+           outstanding requirements for THAT stage specifically (what's
+           needed to move past it), not just the record's real current
+           stage, via GET /records/:id/exit-criteria?stage=<this tab's
+           stage>, the same stage= generalization document-requirements
+           already uses above. -->
+      <div style="margin-top:24px">
+        <p class="section-title">Exit Criteria</p>
+        <div id="tb-stage-exit-criteria-list"></div>
+      </div>
+      <!-- Round 6 Phase 3 (2026-08-17): Installer/Test Bed Tech Team/
+           Install Notes moved here from Site Details - only ever
+           populated when this shared panel is showing the Installation
+           and Commissioning stage specifically, empty otherwise
+           (loadTbStageDetailTab, app.js). -->
+      <div id="tb-stage-install-section" class="hidden" style="margin-top:24px">
+        <p class="section-title">Installation</p>
         <div id="tb-install-rows"></div>
         <div style="margin-top:16px">
           <p class="label" style="margin-bottom:8px">Install Notes</p>
@@ -661,59 +1051,6 @@
             <button class="btn-sm" id="tb-install-note-add">Add</button>
           </div>
         </div>
-      </div>
-      <div class="pg-card" style="margin-top:20px">
-        <p class="pg-card-title">Contacts</p>
-        <div id="tb-owner-rows"></div>
-        <div style="margin-top:16px">
-          <p class="label" style="margin-bottom:8px">Client Buyers</p>
-          <div id="tb-buyer-rows"></div>
-        </div>
-      </div>
-      <div class="pg-card" style="margin-top:20px">
-        <p class="pg-card-title">Use Cases</p>
-        <div id="tb-usecases-list"></div>
-        <div style="display:flex;gap:8px;margin-top:10px">
-          <input type="text" id="tb-usecase-input" placeholder="Add a use case">
-          <button class="btn-sm" id="tb-usecase-add">Add</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- ── Documents tab ──────────────────────────────────────────────── -->
-    <!-- Two deliberately separate sections, matching the API response
-         shape (reference_docs / completable_documents) - reference
-         material is always visible for the current stage regardless of
-         gating, the completable-document table below it is the existing,
-         unchanged stage_gate_rules-driven mechanism. -->
-    <div class="detail-tab-panel hidden" id="tb-tab-documents">
-      <div class="pg-card">
-        <p class="pg-card-title">Reference Material</p>
-        <div id="tb-reference-docs-section"></div>
-      </div>
-      <div style="margin-top:24px">
-        <p class="section-title">Documents</p>
-        <div id="tb-documents-section"></div>
-      </div>
-    </div>
-
-    <!-- ── Approvals tab ──────────────────────────────────────────────── -->
-    <!-- Same real pattern as Opportunity's Stage & Approvals tab: every
-         stage shown via GET /records/:id/stage-approvals, ring radios
-         clickable only on the current stage's undecided tracks. No
-         approval-role check, same as Opportunity - none exists anywhere
-         in this app (see app.js's own comment on renderStageApprovalsRows).
-         Does NOT reuse the old hardcoded "only show at Decommissioning"
-         static button. -->
-    <div class="detail-tab-panel hidden" id="tb-tab-approvals">
-      <div class="sa-row sa-head">
-        <span>Stage</span><span>Exit criteria</span><span>Approvers</span>
-      </div>
-      <div id="tb-stage-approvals-rows"></div>
-
-      <div style="margin-top:40px">
-        <p class="section-title">Stage transition</p>
-        <div id="tb-transition-section"></div>
       </div>
     </div>
   </div>
@@ -756,13 +1093,34 @@
       <div>
         <button class="btn-text" id="btn-back-opps">Back to opportunities</button>
         <p class="eyebrow" style="margin-top:16px">Opportunity</p>
-        <h1 id="detail-name"></h1>
+        <!-- Opportunity Name, click-to-edit (Round 3 Phase 3, 2026-08-17) -
+             same header pattern and same ref-display-*/ref-edit-*/
+             ref-input-* ID trio openRefField/discardRefField already use
+             generically for every card-row field, and the same
+             cd-name-display/cd-name-input classes Contact detail's own
+             header Name uses (style.css), for the same hover affordance.
+             Was static text with no save path at all before this. -->
+        <div data-key="name" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+          <h1 id="ref-display-name" class="cd-name-display" tabindex="0" onclick="openRefField('name')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openRefField('name')}"></h1>
+          <div class="ref-field-edit hidden" id="ref-edit-name">
+            <input type="text" id="ref-input-name" class="cd-name-input">
+            <span class="ref-field-discard" tabindex="0" onclick="discardRefField('name')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();discardRefField('name')}">&times;</span>
+          </div>
+        </div>
         <p class="sub" id="detail-company"></p>
       </div>
       <div id="detail-origin-tag"></div>
     </div>
 
-    <div class="tracker" id="stage-tracker"></div>
+    <!-- Chevron strip (2026-08-16), replacing the old dot-and-line
+         .tracker - same component Test Bed uses (renderChevronStrip,
+         app.js), driven by the same real fetchStages('opportunity')
+         data already fetched here. Opportunity's 6-stage flat list (no
+         phase grouping) stays under the .many threshold (>6), so it
+         renders at the component's default single-line sizing, already
+         calibrated to match this page's old .tlabel sizing exactly -
+         see the .chevron-strip.many comment in style.css. -->
+    <div id="opp-chevron-strip" class="chevron-strip"></div>
 
     <div class="detail-tabs" id="opp-detail-tabs">
       <button class="detail-tab active" data-opp-tab="reference">Reference</button>
@@ -817,49 +1175,73 @@
           <p class="pg-card-title">Terminus Details</p>
           <div id="ref-terminus-rows"></div>
         </div>
-        <!-- Account: the real records.account_id link (Milestone 6),
-             same search-existing-or-create-new mechanism as Contact's
-             own "Link to Account" (contact-detail.js), not a free-text
-             field and not a Contact dropdown - checked against the
-             prototype (Terminus Ops.dc.html:5687) before building. -->
-        <div class="pg-card" id="ref-account-card">
-          <p class="pg-card-title">Account</p>
-          <div id="ref-account-status" style="font-family:var(--body);font-size:13px;color:var(--white);margin-bottom:10px"></div>
-          <button class="btn-sm" id="ref-btn-link-account">Link to Account</button>
-
-          <div id="ref-link-account-panel" class="hidden" style="margin-top:14px">
-            <div class="form-group">
-              <label for="ref-link-search">Search existing Accounts by name</label>
-              <input type="text" id="ref-link-search" placeholder="Start typing...">
-            </div>
-            <div id="ref-link-results" style="margin-top:10px;display:flex;flex-direction:column;gap:6px"></div>
-            <p class="msg-error hidden" id="ref-link-error" style="margin-top:8px"></p>
-            <div class="form-actions" style="margin-top:10px">
-              <button class="btn-ghost" id="ref-link-cancel">Cancel</button>
-            </div>
-          </div>
-        </div>
         <div class="pg-card">
           <p class="pg-card-title">Customer Details</p>
+          <!-- Account is read-only and inherited (2026-08-16), matching
+               Test Bed's own Account field exactly - no manual re-link,
+               a pure reflection of whatever account_id was auto-
+               populated from the source Contact at creation. Rendered
+               as this panel's own first row by renderReferenceTab
+               (opportunity-reference.js), inside ref-customer-rows
+               itself now, same as every other field here - no separate
+               static markup needed, unlike the interactive
+               search-existing/create-new panel this used to be, which
+               had its own persistent open/closed state that couldn't
+               survive living inside a container regenerated on every
+               render. That panel and its backing functions
+               (renderRefAccountCard/openRefLinkAccountPanel/
+               renderRefLinkResults/linkRefAccount) are removed
+               entirely, not hidden - confirmed via grep before removing
+               that nothing else in the app referenced any of their IDs
+               or function names. -->
           <div id="ref-customer-rows"></div>
+          <!-- Buyer Roles (Round 3 Phase 3, 2026-08-17): Technical/
+               Commercial/Legal/IT-Security Buyer, real record_contacts
+               links now, filtered to Contacts already linked to this
+               Opportunity's own Account - direct port of Test Bed's
+               existing Client Buyers section (tb-buyer-rows), same
+               "Buyer Roles" label position relative to the card's other
+               rows. Removed from CUSTOMER_FIELDS' plain free-text rows
+               above, rendered here instead by renderRefBuyerRows
+               (opportunity-reference.js). -->
+          <div style="margin-top:16px">
+            <p class="label" style="margin-bottom:8px">Buyer Roles</p>
+            <div id="ref-buyer-rows"></div>
+          </div>
         </div>
         <div class="pg-card">
           <p class="pg-card-title">Key Dates</p>
           <div id="ref-dates-rows"></div>
-          <div id="ref-closedate-form" class="hidden" style="margin-top:8px;background:var(--black);border:1px solid var(--hairline-strong);padding:12px">
-            <div class="form-group">
-              <label>New est. close date</label>
-              <input type="date" id="ref-closedate-date">
-            </div>
-            <div class="form-group" style="margin-top:10px">
-              <label>Reason for moving (required)</label>
-              <textarea id="ref-closedate-reason" rows="2"></textarea>
-            </div>
-            <p class="msg-error hidden" id="ref-closedate-error"></p>
-            <div class="form-actions" style="margin-top:10px">
-              <button class="btn-ghost" onclick="cancelCloseDateEdit()">Cancel</button>
-              <button class="btn-primary" onclick="saveCloseDateMove()">Save move</button>
-            </div>
+        </div>
+      </div>
+
+      <!-- Est. Close Date move: mandatory-reason dialogue (Round 3 Phase 3,
+           2026-08-17), triggered automatically by saveRefFields
+           (opportunity-reference.js) the moment Est. Close Date is among
+           the dirty fields at Save, not from a separate "Edit" link -
+           Est. Close Date itself is now a plain field in ref-dates-rows
+           above, same shape as every other Key Dates row. The date is
+           shown read-only here (already chosen via that field's own
+           edit), only the reason is entered in this dialogue. Modal-
+           backdrop, same shape as Park/New Lead - backdrop-click and
+           Escape both cancel (opportunity-reference.js's wireRefOnce),
+           see that file's own comment for why this doesn't also build
+           Park's full focus-trap. -->
+      <div id="ref-closedate-form" class="hidden modal-backdrop">
+        <div class="modal-panel" role="alertdialog" aria-modal="true" aria-labelledby="ref-closedate-heading">
+          <p class="eyebrow" id="ref-closedate-heading">Move Est. Close Date</p>
+          <div class="form-group">
+            <label>New Est. Close Date</label>
+            <p class="sub" id="ref-closedate-date-display" style="margin-top:4px"></p>
+          </div>
+          <div class="form-group" style="margin-top:10px">
+            <label for="ref-closedate-reason">Reason for moving (required)</label>
+            <textarea id="ref-closedate-reason" rows="2"></textarea>
+          </div>
+          <p class="msg-error hidden" id="ref-closedate-error"></p>
+          <div class="form-actions" style="margin-top:10px">
+            <button class="btn-ghost" id="ref-closedate-cancel" onclick="cancelCloseDateMove()">Cancel</button>
+            <button class="btn-primary" id="ref-closedate-confirm" onclick="confirmCloseDateMove()">Save move</button>
           </div>
         </div>
       </div>
@@ -1047,13 +1429,34 @@
           </div>
         </div>
 
+        <!-- Cost/Price columns added (Round 3 Phase 5, 2026-08-17), matching
+             the prototype's real Installation pricing table exactly
+             (Terminus Ops.dc.html:1441-1470, confirmed against the actual
+             template before building, not the brief's own citation - that
+             pointed near, not at, this table). The data was already
+             computed (result.groups.installGroup, same buildCostGroup()
+             engine already driving the Hw/Hosting cards) and already used
+             for its totals elsewhere on this tab; only the per-row
+             rendering was ever missing. Total row matches the prototype's
+             own Total line and the Hw/Hosting cards' existing pg-total
+             convention. -->
         <table class="doc-table hidden" id="deal-install-table">
-          <thead><tr><th>Installation (per unit)</th><th>Units</th><th>Rate (USD, fixed at creation)</th><th>Margin % (blank = target)</th></tr></thead>
+          <thead><tr><th>Installation (per unit)</th><th>Units</th><th>Rate (USD, fixed at creation)</th><th>Cost (USD)</th><th>Margin % (blank = target)</th><th>Price (USD)</th></tr></thead>
           <tbody>
-            <tr><td>SafeSight, existing infra</td><td class="col-mono" id="deal-install-units-inSsEx">0</td><td><input type="number" id="deal-inSsExisting" readonly></td><td><input type="number" id="deal-margin-inSsEx" placeholder="target"></td></tr>
-            <tr><td>SafeSight, new infra</td><td class="col-mono" id="deal-install-units-inSsNew">0</td><td><input type="number" id="deal-inSsNew" readonly></td><td><input type="number" id="deal-margin-inSsNew" placeholder="target"></td></tr>
-            <tr><td>AQ Sensor</td><td class="col-mono" id="deal-install-units-inAqm">0</td><td><input type="number" id="deal-inAqm" readonly></td><td><input type="number" id="deal-margin-inAqm" placeholder="target"></td></tr>
-            <tr><td>HEMIR</td><td class="col-mono" id="deal-install-units-inHemir">0</td><td><input type="number" id="deal-inHemir" readonly></td><td><input type="number" id="deal-margin-inHemir" placeholder="target"></td></tr>
+            <tr><td>SafeSight, existing infra</td><td class="col-mono" id="deal-install-units-inSsEx">0</td><td><input type="number" id="deal-inSsExisting" readonly></td><td class="col-mono" id="deal-install-cost-inSsEx">$0</td><td><input type="number" id="deal-margin-inSsEx" placeholder="target"></td><td class="col-mono" id="deal-install-price-inSsEx">$0</td></tr>
+            <tr><td>SafeSight, new infra</td><td class="col-mono" id="deal-install-units-inSsNew">0</td><td><input type="number" id="deal-inSsNew" readonly></td><td class="col-mono" id="deal-install-cost-inSsNew">$0</td><td><input type="number" id="deal-margin-inSsNew" placeholder="target"></td><td class="col-mono" id="deal-install-price-inSsNew">$0</td></tr>
+            <tr><td>AQ Sensor</td><td class="col-mono" id="deal-install-units-inAqm">0</td><td><input type="number" id="deal-inAqm" readonly></td><td class="col-mono" id="deal-install-cost-inAqm">$0</td><td><input type="number" id="deal-margin-inAqm" placeholder="target"></td><td class="col-mono" id="deal-install-price-inAqm">$0</td></tr>
+            <tr><td>HEMIR</td><td class="col-mono" id="deal-install-units-inHemir">0</td><td><input type="number" id="deal-inHemir" readonly></td><td class="col-mono" id="deal-install-cost-inHemir">$0</td><td><input type="number" id="deal-margin-inHemir" placeholder="target"></td><td class="col-mono" id="deal-install-price-inHemir">$0</td></tr>
+          </tbody>
+          <tbody>
+            <tr>
+              <td>Total</td>
+              <td></td>
+              <td></td>
+              <td class="col-mono" id="deal-install-total-cost">$0</td>
+              <td></td>
+              <td class="col-mono" id="deal-install-total-price">$0</td>
+            </tr>
           </tbody>
         </table>
 
@@ -1081,14 +1484,101 @@
       </div>
 
       <!-- Structural Terms -->
+      <!-- 3-card split (Round 3 Phase 6, 2026-08-17): Margin and Warranty /
+           Currency / Tax Adjustments, matching the prototype's real layout
+           exactly (Terminus Ops.dc.html:1477-1521, confirmed with real
+           line citations before building, not approximated). All 4
+           pre-existing IDs (deal-targetMargin/deal-warrantyPct/
+           deal-whtPct/deal-gstPct/deal-grossUp-toggle) are unchanged, just
+           relocated into cards - readPayload/populateForm/saveDeal in
+           opportunity-deal.js need no changes for these four, only for
+           the three genuinely new fields below. -->
       <div class="deal-tab-panel hidden" id="deal-tab-terms">
-        <div class="form-grid">
-          <div class="form-group"><label>Target margin %</label><input type="number" id="deal-targetMargin"></div>
-          <div class="form-group"><label>Warranty %</label><input type="number" id="deal-warrantyPct"></div>
-          <div class="form-group"><label>Withholding tax %</label><input type="number" id="deal-whtPct"></div>
-          <div class="form-group"><label>GST %</label><input type="number" id="deal-gstPct"></div>
+        <div class="terms-cards">
+          <div class="pg-card">
+            <p class="pg-card-title">Margin and Warranty</p>
+            <div class="terms-field-row">
+              <div>
+                <div class="pg-item-name">Target margin %</div>
+                <div class="pg-item-note">Seeds the margin on every pricing line. Margin on price, not markup on cost.</div>
+              </div>
+              <input type="number" id="deal-targetMargin">
+            </div>
+            <div class="terms-field-row">
+              <div>
+                <div class="pg-item-name">Warranty %</div>
+                <div class="pg-item-note">Replacement unit provision, applied across total units.</div>
+              </div>
+              <input type="number" id="deal-warrantyPct">
+            </div>
+          </div>
+
+          <div class="pg-card">
+            <p class="pg-card-title">Currency</p>
+            <div class="terms-field-row">
+              <div>
+                <div class="pg-item-name">Bid Currency</div>
+                <div class="pg-item-note">The currency our costs are held in. Defaults to USD, the currency of the Base Cost Data.</div>
+              </div>
+              <select id="deal-bidCurrency">
+                <option value="USD">USD</option>
+                <option value="GBP">GBP</option>
+                <option value="EUR">EUR</option>
+                <option value="AED">AED</option>
+                <option value="SAR">SAR</option>
+                <option value="SGD">SGD</option>
+                <option value="AUD">AUD</option>
+                <option value="CAD">CAD</option>
+                <option value="JPY">JPY</option>
+                <option value="INR">INR</option>
+              </select>
+            </div>
+            <div class="terms-field-row">
+              <div>
+                <div class="pg-item-name">Proposal Currency</div>
+                <div class="pg-item-note">The currency the customer is quoted and invoiced in.</div>
+              </div>
+              <select id="deal-proposalCurrency">
+                <option value="USD">USD</option>
+                <option value="GBP">GBP</option>
+                <option value="EUR">EUR</option>
+                <option value="AED">AED</option>
+                <option value="SAR">SAR</option>
+                <option value="SGD">SGD</option>
+                <option value="AUD">AUD</option>
+                <option value="CAD">CAD</option>
+                <option value="JPY">JPY</option>
+                <option value="INR">INR</option>
+              </select>
+            </div>
+            <div class="terms-field-row">
+              <div>
+                <div class="pg-item-name">% Currency Contingency</div>
+                <div class="pg-item-note">Uplift on the converted price to absorb exchange rate movement between proposal and contract. Zero when both currencies match.</div>
+              </div>
+              <input type="number" id="deal-fxContingency" placeholder="0">
+            </div>
+          </div>
+
+          <div class="pg-card">
+            <p class="pg-card-title">Tax Adjustments</p>
+            <div class="terms-field-row">
+              <div>
+                <div class="pg-item-name">Withholding Tax %</div>
+                <div class="pg-item-note">Deducted by the customer from the invoice.</div>
+                <button class="btn-ghost" id="deal-grossUp-toggle" type="button" style="margin-top:8px">Gross up: Off</button>
+              </div>
+              <input type="number" id="deal-whtPct">
+            </div>
+            <div class="terms-field-row">
+              <div>
+                <div class="pg-item-name">GST %</div>
+                <div class="pg-item-note">Added to the invoice, passed through to the tax authority.</div>
+              </div>
+              <input type="number" id="deal-gstPct">
+            </div>
+          </div>
         </div>
-        <button class="btn-ghost" id="deal-grossUp-toggle" type="button">Gross up: Off</button>
 
         <p class="label" style="margin:24px 0 10px">Deal sheet (USD) &middot; <span id="deal-sheet-units">0</span> units</p>
         <div class="deal-sheet" id="deal-sheet"></div>
@@ -1191,9 +1681,13 @@
         </div>
       </div>
 
+      <!-- Submit Deal removed (Round 3 Phase 4, 2026-08-17) - confirmed
+           safe first (opportunity-deal.js's own header comment has the
+           full dependency-check writeup). Save Changes now starts
+           disabled, activated by markDealFormDirty() the moment any
+           field on this tab genuinely changes (opportunity-deal.js). -->
       <div class="form-actions" style="margin-top:28px">
-        <button class="btn-ghost" id="btn-save-deal">Save changes</button>
-        <button class="btn-primary" id="btn-submit-deal">Submit deal</button>
+        <button class="btn-ghost" id="btn-save-deal" disabled>Save changes</button>
         <span id="deal-feedback"></span>
       </div>
     </div>
@@ -1231,6 +1725,249 @@
   </div><!-- /app-content-scroll -->
 
 </div><!-- /app-shell -->
+
+<!-- Account Details panel (Round 4 Phase 3, 2026-08-17) - the full
+     creation form for a new Account, replacing the old single-text-input
+     "Create & link" row for the "no match" path. Account Number/Created
+     Date are shown read-only (Not yet generated / -- until real values
+     exist, honest placeholders, never fabricated). Billing/Shipping
+     Address are two fully independent 6-field sets, same shape as
+     Contact's own Address panel - pre-filled from the same values at
+     open time (contact-detail.js's openAccountDetailsModal), never kept
+     in sync afterward, editing one never touches the other. Full focus
+     trap matching Park (INTERACTION_STANDARDS.md Section 4): Tab/Shift+
+     Tab cycle only through this panel's own focusable elements,
+     collected generically at open time rather than hardcoded by id
+     (this form has far more fields than Park ever did), Escape and
+     backdrop-click both cancel, focus returns to whatever opened it. -->
+<div id="account-details-modal" class="hidden modal-backdrop">
+  <div class="modal-panel modal-panel-wide" role="dialog" aria-modal="true" aria-labelledby="account-details-heading">
+    <div class="modal-header-sticky" style="display:flex;justify-content:space-between;align-items:flex-start">
+      <div>
+        <h2 style="margin:0" id="account-details-heading">New Account</h2>
+        <p class="sub" style="margin-top:4px" id="account-details-subtitle">Only Account Name is required - everything else can be filled in later.</p>
+      </div>
+      <span class="modal-close" id="account-details-close">&times;</span>
+    </div>
+
+    <div class="form-grid" style="margin-top:20px">
+      <div class="form-group">
+        <label>Account Number</label>
+        <span style="padding:8px 0;color:var(--muted)" id="account-details-number">Not yet generated</span>
+      </div>
+      <div class="form-group">
+        <label>Created Date</label>
+        <span style="padding:8px 0;color:var(--muted)" id="account-details-created">--</span>
+      </div>
+      <div class="form-group full">
+        <label for="account-details-name">Account Name *</label>
+        <input type="text" id="account-details-name">
+      </div>
+      <div class="form-group">
+        <label for="account-details-terminus-lead">Terminus Lead</label>
+        <select id="account-details-terminus-lead">
+          <option value="">--</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="account-details-website">Website URL</label>
+        <input type="text" id="account-details-website" placeholder="https://">
+      </div>
+      <div class="form-group full" style="position:relative">
+        <label for="account-details-parent-search">Parent Account</label>
+        <input type="text" id="account-details-parent-search" placeholder="Search existing Accounts, optional" autocomplete="off">
+        <div id="account-details-parent-results" class="hidden" style="position:absolute;top:100%;left:0;right:0;z-index:5;background:var(--black);border:1px solid var(--hairline-strong);max-height:180px;overflow-y:auto"></div>
+        <p class="data-row-label hidden" id="account-details-parent-selected" style="margin-top:6px"></p>
+      </div>
+    </div>
+
+    <p class="label" style="margin:20px 0 10px">Billing Address</p>
+    <div class="form-grid">
+      <div class="form-group full">
+        <label for="account-details-billing-address">Address Line 1</label>
+        <input type="text" id="account-details-billing-address">
+      </div>
+      <div class="form-group full">
+        <label for="account-details-billing-address2">Address Line 2</label>
+        <input type="text" id="account-details-billing-address2">
+      </div>
+      <div class="form-group">
+        <label for="account-details-billing-city">City</label>
+        <input type="text" id="account-details-billing-city">
+      </div>
+      <div class="form-group">
+        <label for="account-details-billing-postcode">Postcode / Zip</label>
+        <input type="text" id="account-details-billing-postcode">
+      </div>
+      <div class="form-group">
+        <label for="account-details-billing-country">Country</label>
+        <input type="text" id="account-details-billing-country">
+      </div>
+      <div class="form-group">
+        <label for="account-details-billing-region">Region</label>
+        <select id="account-details-billing-region">
+          <option value="">Select region</option>
+          <option value="Americas">Americas</option>
+          <option value="Europe &amp; UK">Europe &amp; UK</option>
+          <option value="Middle East">Middle East</option>
+          <option value="APAC">APAC</option>
+          <option value="Africa">Africa</option>
+        </select>
+      </div>
+    </div>
+
+    <p class="label" style="margin:20px 0 10px">Shipping Address</p>
+    <div class="form-grid">
+      <div class="form-group full">
+        <label for="account-details-shipping-address">Address Line 1</label>
+        <input type="text" id="account-details-shipping-address">
+      </div>
+      <div class="form-group full">
+        <label for="account-details-shipping-address2">Address Line 2</label>
+        <input type="text" id="account-details-shipping-address2">
+      </div>
+      <div class="form-group">
+        <label for="account-details-shipping-city">City</label>
+        <input type="text" id="account-details-shipping-city">
+      </div>
+      <div class="form-group">
+        <label for="account-details-shipping-postcode">Postcode / Zip</label>
+        <input type="text" id="account-details-shipping-postcode">
+      </div>
+      <div class="form-group">
+        <label for="account-details-shipping-country">Country</label>
+        <input type="text" id="account-details-shipping-country">
+      </div>
+      <div class="form-group">
+        <label for="account-details-shipping-region">Region</label>
+        <select id="account-details-shipping-region">
+          <option value="">Select region</option>
+          <option value="Americas">Americas</option>
+          <option value="Europe &amp; UK">Europe &amp; UK</option>
+          <option value="Middle East">Middle East</option>
+          <option value="APAC">APAC</option>
+          <option value="Africa">Africa</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-actions" style="margin-top:20px">
+      <button class="btn-ghost" id="account-details-cancel">Cancel</button>
+      <button class="btn-primary" id="account-details-save">Create Account</button>
+      <span class="msg-error hidden" id="account-details-error"></span>
+    </div>
+  </div>
+</div>
+
+<!-- Inline qualified Contact creation (Round 5 Phase 9, 2026-08-17):
+     shared by both Test Bed and Opportunity's Buyer Role dropdowns
+     (test-bed-detail.js/opportunity-reference.js call
+     window.openInlineBuyerContactModal), one implementation, not two -
+     matches the brief's own "confirmed scope, both Test Bed and
+     Opportunity." Field set mirrors the New Lead modal's own 14-field
+     qualification set exactly (leadQualifyRequired,
+     PROTOTYPE_SPECIFICATION.md Section 1), minus Company - deliberately
+     omitted, not forgotten: the qualification gate's own "Company"
+     requirement means the real Account link (parent_record_id), which
+     this flow sets automatically from the record's own known
+     account_id, not a free-text field the user has to redundantly
+     retype for an Account already established by context. Every other
+     field marked * here genuinely is required for this flow
+     specifically, since a real Qualified-stage transition (the same
+     real gate, not a shortcut) is attempted as part of saving - see
+     saveInlineBuyerContact's own comment in app.js. Sticky header
+     (Round 5 Phase 1's own fix, reused here) - a form this long needs
+     it. -->
+<div id="inline-buyer-contact-modal" class="hidden modal-backdrop">
+  <div class="modal-panel modal-panel-wide" role="dialog" aria-modal="true" aria-labelledby="inline-buyer-contact-heading">
+    <div class="modal-header-sticky" style="display:flex;justify-content:space-between;align-items:flex-start">
+      <div>
+        <h2 style="margin:0" id="inline-buyer-contact-heading">New Contact</h2>
+        <p class="sub" style="margin-top:4px" id="inline-buyer-contact-subtitle">Being selected as a buyer means this Contact is qualified now - every field below is required.</p>
+      </div>
+      <span class="modal-close" id="inline-buyer-contact-close">&times;</span>
+    </div>
+    <div class="form-grid" style="margin-top:20px">
+      <div class="form-group">
+        <label for="ibc-name">Name *</label>
+        <input type="text" id="ibc-name" placeholder="Jane Smith">
+      </div>
+      <div class="form-group">
+        <label for="ibc-industry">Industry *</label>
+        <select id="ibc-industry">
+          <option value="">Select industry</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="ibc-jobrole">Job Role *</label>
+        <input type="text" id="ibc-jobrole" placeholder="Head of Operations">
+      </div>
+      <div class="form-group">
+        <label for="ibc-email">Email *</label>
+        <input type="email" id="ibc-email" placeholder="jane@acme.com">
+      </div>
+      <div class="form-group">
+        <label for="ibc-mobile">Mobile *</label>
+        <input type="text" id="ibc-mobile" placeholder="+44 7700 900000">
+      </div>
+      <div class="form-group full">
+        <label for="ibc-address">Address Line 1 *</label>
+        <input type="text" id="ibc-address" placeholder="1 Example Street">
+      </div>
+      <div class="form-group full">
+        <label for="ibc-address2">Address Line 2</label>
+        <input type="text" id="ibc-address2" placeholder="Optional">
+      </div>
+      <div class="form-group">
+        <label for="ibc-city">City *</label>
+        <input type="text" id="ibc-city" placeholder="London">
+      </div>
+      <div class="form-group">
+        <label for="ibc-postcode">Postcode / Zip *</label>
+        <input type="text" id="ibc-postcode" placeholder="EC1A 1AA">
+      </div>
+      <div class="form-group">
+        <label for="ibc-country">Country *</label>
+        <input type="text" id="ibc-country" placeholder="United Kingdom">
+      </div>
+      <div class="form-group">
+        <label for="ibc-region">Region *</label>
+        <select id="ibc-region">
+          <option value="">Select region</option>
+          <option value="Americas">Americas</option>
+          <option value="Europe &amp; UK">Europe &amp; UK</option>
+          <option value="Middle East">Middle East</option>
+          <option value="APAC">APAC</option>
+          <option value="Africa">Africa</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="ibc-linkedin">LinkedIn *</label>
+        <input type="text" id="ibc-linkedin" placeholder="linkedin.com/in/janesmith">
+      </div>
+      <div class="form-group">
+        <label for="ibc-source">Source *</label>
+        <select id="ibc-source">
+          <option value="">Select source</option>
+          <option value="Web">Web</option>
+          <option value="Email Inquiry">Email Inquiry</option>
+          <option value="Referral">Referral</option>
+          <option value="Direct Outreach">Direct Outreach</option>
+          <option value="Marketing Campaign">Marketing Campaign</option>
+        </select>
+      </div>
+      <div class="form-group full">
+        <label for="ibc-summary">Summary *</label>
+        <textarea id="ibc-summary" rows="3" placeholder="What they need, briefly"></textarea>
+      </div>
+    </div>
+    <div class="form-actions" style="margin-top:20px">
+      <button class="btn-ghost" id="inline-buyer-contact-cancel">Cancel</button>
+      <button class="btn-primary" id="inline-buyer-contact-save">Save</button>
+      <span class="msg-error hidden" id="inline-buyer-contact-error"></span>
+    </div>
+  </div>
+</div>
 
 <!-- Shared discard-confirmation dialog (2026-08-13) - one dialog, used
      by both New Lead and Park, not two copies, the strongest guarantee
@@ -1301,6 +2038,7 @@
 <script src="/opportunity-reference.js"></script>
 <script src="/test-bed-detail.js"></script>
 <script src="/contact-detail.js"></script>
+<script src="/account-detail.js"></script>
 <script type="module" src="/opportunity-deal.js"></script>
 </body>
 </html>

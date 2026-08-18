@@ -1,15 +1,22 @@
-// Opportunity Commercials tab: live client-side deal preview + save/submit.
+// Opportunity Commercials tab: live client-side deal preview + save.
 //
 // Imports the exact same deal-calculator.js the server uses (served at
 // /lib/deal-calculator.js from src/lib/deal-calculator.js via the static
 // mount in server.js) so preview math can never drift from the server's
 // authoritative recompute — same file on disk, not a copy.
 //
-// This module only ever previews. POST /api/deals/submit is the sole
-// source of truth for an approved snapshot: it recomputes entirely
-// server-side from record_revisions.payload, ignoring whatever this
-// module displays. Submitting here always saves first (PATCH), so the
-// server recompute is against the figures actually on screen.
+// This module only ever previews and saves the working payload (PATCH).
+// Submit Deal (POST /api/deals/submit, the authoritative recompute-and-
+// snapshot step) was removed from this tab (Round 3 Phase 4, 2026-08-17)
+// - confirmed safe first: nothing else in the app reads its audit_log
+// action ('deal_submitted'), no stage_gate_rules row references
+// record_type='deal', and the button's own click handler did nothing
+// beyond calling this endpoint, no stage transition, no approval routing.
+// The backend endpoint itself (src/routes/deals.js) is untouched, "for
+// now" per the brief - unreachable from the UI, not deleted, since it
+// already implements the real recompute-integrity principle
+// DESIGN_PRINCIPLES.md Section 5 describes as needed once a genuine
+// submit/approval workflow for the Deal Sheet is designed.
 import { calculateDeal } from '/lib/deal-calculator.js'
 
 let opportunityId = null
@@ -27,6 +34,13 @@ let wired = false
 // overwriting when it was.
 let dealDurationDirty = false
 let dealDurationOrig = 0
+// Save Changes activation (Round 3 Phase 4, 2026-08-17) - btn-save-deal
+// was previously always enabled regardless of whether anything on this
+// tab had actually changed, confirmed by direct inspection, not
+// assumed. Tracked separately from dealDurationDirty above, which is
+// scoped to one specific field's own freshness-check needs, not a
+// general "has this tab changed" signal.
+let dealFormDirty = false
 // Milestone 5: opportunity_details.test_bed_cost, not part of
 // record_revisions.payload - set once at conversion, read-only here,
 // carried into buildDealInputs() so live preview matches the server's
@@ -112,6 +126,13 @@ function readPayload() {
     whtPct: num('deal-whtPct'),
     gstPct: num('deal-gstPct'),
     grossUp: uiState.grossUp,
+
+    // Currency (Round 3 Phase 6, 2026-08-17): data entry only, confirmed
+    // scope - captured and saved, never read by buildDealInputs() below
+    // or by calculateDeal(), same as this section's own comment states.
+    bidCurrency: document.getElementById('deal-bidCurrency').value,
+    proposalCurrency: document.getElementById('deal-proposalCurrency').value,
+    fxContingency: num('deal-fxContingency'),
 
     duration: num('deal-duration'),
     structure: uiState.structure,
@@ -732,6 +753,28 @@ function renderInstallationTab(result, payload) {
   document.getElementById('deal-install-units-inAqm').textContent = payload.aqm ?? 0
   document.getElementById('deal-install-units-inHemir').textContent = payload.hemir ?? 0
 
+  // Cost/Price columns (Round 3 Phase 5, 2026-08-17) - reads straight from
+  // result.groups.installGroup.rows, the same buildCostGroup() output
+  // already used for this group's totals elsewhere on this tab (Deal
+  // Summary matrix, Deal Sheet), just never rendered per-row until now.
+  // Only present when the Per Unit table is actually shown (installGroup
+  // has rows inSsEx/inSsNew/inAqm/inHemir only in that branch - see
+  // updateInstallVisibility) - the find() below quietly no-ops via the
+  // optional chaining for the Lump Sum/Client Own branches, where these
+  // cells are hidden anyway.
+  const setInstallRow = (key) => {
+    const row = result.groups.installGroup.rows.find(r => r.key === key)
+    if (!row) return
+    document.getElementById(`deal-install-cost-${key}`).textContent = `$${money(row.rawCost)}`
+    document.getElementById(`deal-install-price-${key}`).textContent = `$${money(row.rawPrice)}`
+  }
+  setInstallRow('inSsEx')
+  setInstallRow('inSsNew')
+  setInstallRow('inAqm')
+  setInstallRow('inHemir')
+  document.getElementById('deal-install-total-cost').textContent = `$${money(result.groups.installGroup.rawTotalCost)}`
+  document.getElementById('deal-install-total-price').textContent = `$${money(result.groups.installGroup.rawTotalPrice)}`
+
   renderContractorMilestoneTotals(payload.lumpSumCost ?? 0)
 }
 
@@ -771,6 +814,14 @@ function populateForm(payload) {
   uiState.grossUp = !!p.grossUp
   updateGrossUpButton()
 
+  // Currency (Round 3 Phase 6, 2026-08-17): data entry only, confirmed
+  // scope - deliberately not read anywhere in buildDealInputs() below,
+  // not wired into the calculation. Defaults match the prototype's own
+  // (Terminus Ops.dc.html:6800-6801, both 'USD').
+  document.getElementById('deal-bidCurrency').value = p.bidCurrency || 'USD'
+  document.getElementById('deal-proposalCurrency').value = p.proposalCurrency || 'USD'
+  setVal('deal-fxContingency', p.fxContingency ?? 0)
+
   setVal('deal-duration', p.duration ?? 0)
   dealDurationOrig = p.duration ?? 0
   dealDurationDirty = false
@@ -787,9 +838,59 @@ function populateForm(payload) {
   const factoring = p.factoring ?? {}
   uiState.factoringEnabled = !!factoring.enabled
   uiState.factoringMethod = factoring.method || 'straight'
-  setVal('deal-factoring-ratePct', factoring.ratePct ?? 1.5)
+  // 2, not 1.5 (Round 3 Phase 4, 2026-08-17): this is what actually
+  // populates the visible <input>, unlike the 1.5 fallback in
+  // buildDealInputs() below and deals.js's own loadDealInputsFromOpportunity
+  // - those are pure calculation defaults, only used when payload.factoring
+  // is genuinely absent, deliberately left unchanged. This one gets read
+  // back by readPayload() and saved verbatim on every Save click whether
+  // or not the user ever touches Factoring, same as every other untouched-
+  // but-populated field on this tab already does (e.g. warrantyPct's own
+  // default of 2) - a real 1.5 default broke every save on this tab
+  // outright once ratePct became integer-only, confirmed live (a save
+  // with nothing else wrong still failed with "factoring.ratePct must be
+  // a non-negative whole number") before this fix. Confirmed safe: no
+  // live Opportunity has ever saved Commercials data at all, so there is
+  // no real 1.5% value anywhere to reconcile.
+  setVal('deal-factoring-ratePct', factoring.ratePct ?? 2)
   setVal('deal-factoring-termMonths', factoring.termMonths ?? '')
   updateFactoringButtons()
+
+  applyCommercialNumberInputAttrs()
+  clearDealFormDirty()
+}
+
+// Round 3 Phase 4 (2026-08-17), corrected twice the same day: min=0 on
+// every numeric entry field on this tab, one blanket pass rather than
+// adding the attribute to each <input> tag individually ("not
+// field-by-field", per the brief) - covers milestone/contractor-
+// milestone rows too, even though those are only (re)created here via
+// renderMilestoneRows/renderContractorMilestoneRows just above, since
+// this runs after both. step is no longer uniformly '1' - margin/rate/
+// percentage AND dollar-amount fields get '0.01' (2 decimal places,
+// matches isValidNonNegativePercent server-side - it's the same
+// non-negative/up-to-2dp rule for currency as for an actual percentage,
+// see that validator's own comment), genuine counts keep '1'.
+// PERCENT_FIELD_IDS names the flat fields explicitly (including
+// deal-lumpCost, moved onto this list in the second correction - a real
+// dollar cost needs cents same as a margin needs fractional percent);
+// the 11 margin-override inputs share one id prefix (deal-margin-*,
+// MARGIN_KEYS in readPayload/populateForm), and the milestone/
+// contractor-milestone usd fields (deal-ms-*-usd/deal-cm-*-usd) share
+// one id suffix - both checked structurally rather than listing every
+// generated id. The actual rejection of a negative, too-precise, or
+// fractional-when-it-shouldn't-be value is server-side
+// (isValidNonNegativeInteger/isValidNonNegativePercent,
+// src/routes/opportunities.js) - these attributes are the same
+// client-side hint every other field in this codebase gets, never
+// trusted alone.
+const PERCENT_FIELD_IDS = new Set(['deal-targetMargin', 'deal-warrantyPct', 'deal-whtPct', 'deal-gstPct', 'deal-factoring-ratePct', 'deal-lumpCost', 'deal-fxContingency'])
+function applyCommercialNumberInputAttrs() {
+  document.querySelectorAll('#opp-tab-commercial input[type="number"]').forEach(el => {
+    const isPercent = PERCENT_FIELD_IDS.has(el.id) || el.id.startsWith('deal-margin-') || el.id.endsWith('-usd')
+    el.min = '0'
+    el.step = isPercent ? '0.01' : '1'
+  })
 }
 
 // ── Toggle-button helpers ──────────────────────────────────────────────
@@ -845,10 +946,35 @@ function updateFactoringButtons() {
   })
 }
 
+// Round 3 Phase 4 (2026-08-17): see the dealFormDirty declaration above
+// for why this is separate from dealDurationDirty.
+function markDealFormDirty() {
+  dealFormDirty = true
+  document.getElementById('btn-save-deal').disabled = false
+}
+
+function clearDealFormDirty() {
+  dealFormDirty = false
+  document.getElementById('btn-save-deal').disabled = true
+}
+
 // ── Wiring (once per page load) ───────────────────────────────────────────
 function wireOnce() {
   if (wired) return
   wired = true
+
+  // Dirty-tracking for Save Changes, delegated at the panel level rather
+  // than attached per-input (2026-08-17) - 'input'/'change' both bubble,
+  // so this catches every text/number/select field on the tab in one
+  // listener, including milestone/contractor-milestone rows created
+  // later by renderMilestoneRows/renderContractorMilestoneRows, with no
+  // need to re-wire after they're regenerated (unlike the recompute
+  // listener below, which attaches directly per-element and does need
+  // that). The ring-radio/toggle-button controls (structure, invoicing,
+  // gross-up, factoring) use click, not input/change, so those mark
+  // dirty explicitly in their own handlers further down.
+  document.getElementById('opp-tab-commercial').addEventListener('input', markDealFormDirty)
+  document.getElementById('opp-tab-commercial').addEventListener('change', markDealFormDirty)
 
   document.querySelectorAll('#deal-tab-toggle button').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -880,6 +1006,7 @@ function wireOnce() {
   document.getElementById('deal-grossUp-toggle').addEventListener('click', () => {
     uiState.grossUp = !uiState.grossUp
     updateGrossUpButton()
+    markDealFormDirty()
     recompute()
   })
 
@@ -888,6 +1015,7 @@ function wireOnce() {
       uiState.structure = el.dataset.structure
       updateStructureButtons()
       updateStructureVisibility()
+      markDealFormDirty()
       recompute()
     })
   })
@@ -896,6 +1024,7 @@ function wireOnce() {
     el.addEventListener('click', () => {
       uiState.invoicing = el.dataset.invoicing
       updateInvoicingButtons()
+      markDealFormDirty()
       recompute()
     })
   })
@@ -903,6 +1032,7 @@ function wireOnce() {
   document.getElementById('deal-factoring-toggle').addEventListener('click', () => {
     uiState.factoringEnabled = !uiState.factoringEnabled
     updateFactoringButtons()
+    markDealFormDirty()
     recompute()
   })
 
@@ -910,12 +1040,12 @@ function wireOnce() {
     btn.addEventListener('click', () => {
       uiState.factoringMethod = btn.dataset.method
       updateFactoringButtons()
+      markDealFormDirty()
       recompute()
     })
   })
 
   document.getElementById('btn-save-deal').addEventListener('click', saveDeal)
-  document.getElementById('btn-submit-deal').addEventListener('click', submitDeal)
 }
 
 // Mirrors SALESPERSON_WRITABLE_KEYS in src/routes/opportunities.js's PATCH
@@ -992,38 +1122,13 @@ async function saveDeal() {
 
   dealDurationDirty = false
   dealDurationOrig = payload.duration ?? dealDurationOrig
+  clearDealFormDirty()
 
   feedback.textContent = `Saved (revision ${result.data.revision_number}).`
   feedback.className = 'msg-success'
   return true
 }
 
-async function submitDeal() {
-  const feedback = document.getElementById('deal-feedback')
-  feedback.textContent = 'Saving...'
-  feedback.className = ''
-
-  const saved = await saveDeal()
-  if (!saved) return
-
-  const result = recompute()
-  const submitResult = await window.api('POST', '/api/deals/submit', {
-    opportunityId,
-    clientReportedTotals: {
-      contractNet: result.totals.contractNet,
-      achievedMargin: result.achievedMargin,
-    },
-  })
-
-  if (!submitResult.ok) {
-    feedback.textContent = submitResult.data?.error ?? submitResult.data?.message ?? 'Submit failed.'
-    feedback.className = 'msg-error'
-    return
-  }
-
-  feedback.textContent = `Submitted (revision ${submitResult.data.revision_number}).`
-  feedback.className = 'msg-success'
-}
 
 // ── Entry point, called by app.js's renderOppDetail() ─────────────────────
 window.initOpportunityDealPanel = function (opp) {

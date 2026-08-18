@@ -38,3 +38,54 @@ export function isValidNumber(value) {
   if (value.trim() === '') return true
   return Number.isFinite(Number(value))
 }
+
+// Contract Duration specifically (Round 3 Phase 3, 2026-08-17): a real
+// duration in months can't be negative or fractional, unlike isValidNumber
+// above, which is deliberately more permissive for fields that genuinely
+// can be. Same empty-string-is-"not yet set" convention as every other
+// optional field. \d+ alone (no leading -, no .) is what actually rejects
+// negative and decimal values - Number.isInteger(Number(value)) would not,
+// since Number('-3') and Number('2.0') both produce integers.
+export function isValidNonNegativeInteger(value) {
+  if (typeof value === 'number') return Number.isInteger(value) && value >= 0
+  if (typeof value !== 'string') return false
+  if (value.trim() === '') return true
+  return /^\d+$/.test(value.trim())
+}
+
+// Margin/rate/percentage fields specifically (Round 3, 2026-08-17
+// follow-up) - these were briefly forced through isValidNonNegativeInteger
+// during Phase 4's blanket numeric-field pass, which broke real percentage
+// precision (12.5%, the factoring rate's own former 1.5% default) for no
+// real reason; whole-number-only was correct for unit counts, never for a
+// margin or rate. Same non-negative discipline as isValidNonNegativeInteger,
+// just up to 2 decimal places instead of zero - normal currency/percentage
+// precision, not the same "whole things only" reasoning that field's own
+// comment describes for counts. \d+(\.\d{1,2})? alone (no leading -, no
+// 3+ decimal places) is what rejects both a negative sign and a
+// too-precise value - the numeric branch checks the same "at most 2dp"
+// property with a rounding comparison, since floating-point numbers have
+// no literal decimal-place count to test against a regex.
+export function isValidNonNegativePercent(value) {
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value) || value < 0) return false
+    return Math.abs(value - Math.round(value * 100) / 100) < 1e-9
+  }
+  if (typeof value !== 'string') return false
+  if (value.trim() === '') return true
+  return /^\d+(\.\d{1,2})?$/.test(value.trim())
+}
+
+// Est. Close Date / Est. Go Live specifically (Round 3 Phase 3): a past
+// "estimate" is nonsensical, unlike Actual Close Date/Actual Go Live,
+// which record things that already happened and must allow the past.
+// Compared as plain ISO strings (YYYY-MM-DD sorts lexically the same as
+// chronologically) against the server's own UTC today, not the client's -
+// same reasoning isValidIsoDate already uses Date.UTC, avoids a client
+// timezone making "today" ambiguous. Assumes the value already passed
+// isValidIsoDate - doesn't re-validate format.
+export function isNotPastIsoDate(value) {
+  if (typeof value !== 'string' || value.trim() === '') return true
+  const today = new Date().toISOString().slice(0, 10)
+  return value.trim() >= today
+}

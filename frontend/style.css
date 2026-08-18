@@ -159,6 +159,26 @@ body {
 }
 .modal-close:hover { color: var(--white); }
 
+/* Sticky modal header (Round 5 Phase 1, 2026-08-17). .modal-panel-wide
+   is itself the scroll container (overflow-y: auto, above), so its
+   first child - the title row - scrolled away with the rest of the
+   form on any long dialogue, New Lead and Account Details both
+   confirmed live via screenshot, no way to tell what's being edited
+   once scrolled. Sticks flush at the container's own padding-box top
+   (no offset math needed: this row already sits right at that edge in
+   its unscrolled position, so `top: 0` locks it there the instant
+   scrolling begins), with an opaque background so scrolled content
+   passes behind it rather than showing through, and a hairline to
+   separate it from that content once something is actually behind it. */
+.modal-header-sticky {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--black);
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--hairline-strong);
+}
+
 /* ── App shell: left-hand sidebar + scrollable content ─────────
    Structure and 216px width extracted from the real prototype
    (Prototype-110826/Terminus Ops.dc.html lines 28-56), not guessed.
@@ -596,10 +616,23 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
    Actions drops from 220px to 160px to make room; it already has a
    flex-wrap fallback (below) for when its buttons don't all fit on
    one line, so it's the column best able to give up space. */
+/* Every fixed-width track converted to minmax(floor, ideal) (2026-08-16) -
+   the flat px widths below (990px fixed + 112px gaps = 1102px) already
+   exceed the .wrap-capped container's available content width (~1100px)
+   before Name's own 180px floor is even added, so the row's own box
+   (block-level, capped by .wrap) rendered narrower than the grid's
+   declared tracks demanded - the last column (Actions) got laid out past
+   the row's own right edge, outside its border, on every normal-width
+   screen, not just narrow ones. Fixed tracks have no floor to shrink to
+   when space is tight; minmax does, same mechanism Name's own
+   minmax(180px,1fr) already relied on. Floors chosen so worst case is
+   more ellipsis truncation (every cell here already has overflow:hidden/
+   text-overflow:ellipsis below), never lost content - confirmed via
+   direct clip-detection testing, not just computed on paper. */
 .contact-grid-head,
 .contact-grid-row {
   display: grid;
-  grid-template-columns: minmax(180px, 1fr) 150px 110px 100px 190px 130px 150px 160px;
+  grid-template-columns: minmax(140px, 1fr) minmax(100px, 150px) minmax(90px, 150px) minmax(70px, 110px) minmax(70px, 100px) minmax(120px, 190px) minmax(80px, 130px) minmax(90px, 160px);
   gap: 16px;
   align-items: center;
 }
@@ -650,7 +683,7 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 8px;
+  gap: 14px;
   flex-wrap: wrap;
   position: relative;
 }
@@ -667,43 +700,107 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
 }
 .count-link {
   color: var(--green);
-  cursor: pointer;
+  cursor: default;
 }
-.count-link:hover { text-decoration: underline; }
 .count-zero { color: var(--muted-2); }
 
+/* Count hover preview (2026-08-16, Phase 5) - replaces the click-to-open
+   modal. The wrapper (not the label) carries the mouseenter/mouseleave
+   pair so moving from the label into the popup below it never closes it,
+   same convention as the prototype's own hover popups
+   (Terminus Ops.dc.html:196-209). */
+.contact-count-hover {
+  position: relative;
+  display: inline-block;
+}
+.contact-count-popup {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 30;
+  min-width: 180px;
+  max-width: 280px;
+  background: var(--black);
+  border: 1px solid var(--hairline-strong);
+  padding: 4px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+}
+
+/* Round 6 Phase 1 (2026-08-17): single-line truncation, ellipsis on
+   overflow - same white-space/overflow/text-overflow triple
+   .record-card-title already uses for the identical problem elsewhere
+   in this app. Never applied here before now, confirmed by direct
+   investigation (git history and a live repro both showed zero
+   truncation styling on this class, in either of its two callers -
+   this popup and .tb-matrix-popup below, which shares this same row
+   class), not a regression, a gap that was never closed the first
+   time either popup was built. The bounded max-width on the popup
+   container above is required too - white-space: nowrap alone only
+   stops wrapping, it doesn't create anything for text-overflow to
+   truncate against without a real width limit on the box itself. */
 .linked-record-row {
   padding: 8px 10px;
   border: 1px solid var(--hairline-strong);
   cursor: pointer;
   font-size: 13px;
   color: var(--white);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .linked-record-row:hover { background: rgba(242,242,240,0.04); }
 
-/* Row action popup (2026-08-15 fix, replaces the old inline-expanding
-   .contact-manage-panel for this row only - that class stays as-is for
-   the Leads list's read-only history panel, a separate caller that
-   shares the name but not this behaviour, not touched here). Anchored
-   to .contact-row-actions (position:relative above) rather than
-   computed via JS/getBoundingClientRect - it floats over the row(s)
-   below via position:absolute, out of normal flow, so opening it never
-   pushes other rows down. Closed via a document-level click-outside
-   listener and Escape (app.js), since every interactive element inside
-   it and its own trigger button stop propagation. */
-.contact-row-menu {
+/* + Create hover dropdown (2026-08-16, Phase 5 - replaces the old
+   click-triggered .contact-row-menu "Manage" popup), matching the
+   prototype's own Contacts row exactly (Terminus Ops.dc.html:303-311):
+   a wrapper carrying mouseenter/mouseleave around both the trigger label
+   and the dropdown, so moving into the dropdown itself never closes it.
+   Anchored to .contact-row-actions (position:relative above), floats
+   via position:absolute so opening it never pushes rows below down. */
+.contact-create-hover {
+  position: relative;
+  display: inline-block;
+}
+.contact-create-trigger {
+  cursor: pointer;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--green);
+}
+.contact-create-dropdown {
   position: absolute;
-  top: calc(100% + 6px);
+  top: 100%;
   right: 0;
-  z-index: 20;
+  z-index: 30;
+  min-width: 150px;
   background: var(--black);
   border: 1px solid var(--hairline-strong);
-  padding: 16px;
-  min-width: 260px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+  padding: 4px;
   box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+}
+.contact-create-item {
+  cursor: pointer;
+  padding: 7px 9px;
+  font-family: var(--body);
+  font-size: 12px;
+  color: var(--white);
+}
+.contact-create-item:hover { background: rgba(242,242,240,0.04); }
+
+/* Create/link feedback row (2026-08-16) - a full-width sibling below the
+   row it belongs to, same DOM shape as .contact-manage-panel below, but
+   for the + Create result rather than an expanding panel. Persists in
+   state (contactCreateFeedback) rather than being written directly into
+   a DOM node inside the now-transient hover dropdown, so it survives
+   past the dropdown closing on mouseleave. */
+.contact-create-feedback-row {
+  border: 1px solid var(--hairline-strong);
+  border-top: none;
+  padding: 10px 20px;
+  margin-top: -8px;
+  margin-bottom: 8px;
+  font-family: var(--body);
+  font-size: 13px;
 }
 
 .contact-grid-head {
@@ -728,11 +825,11 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
 .contact-manage-panel + .contact-grid-row { margin-top: 8px; }
 
 /* Now only the Leads list's read-only history panel (renderLegacyLeadHistoryPanel,
-   app.js) - the Contacts row's own Manage panel moved to .contact-row-menu
-   above (2026-08-15 fix, popup instead of inline-expand) and no longer
-   shares this class. Row and panel here are still siblings in the DOM
-   (not nested), so the row keeps .contact-grid-row's grid layout and the
-   panel below it is full width. */
+   app.js) - the Contacts row's own Manage popup is gone entirely
+   (2026-08-16, Phase 5, replaced by the + Create hover dropdown above)
+   and no longer shares this class. Row and panel here are still siblings
+   in the DOM (not nested), so the row keeps .contact-grid-row's grid
+   layout and the panel below it is full width. */
 .contact-manage-panel {
   background: var(--black);
   border: 1px solid var(--hairline-strong);
@@ -745,13 +842,6 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
   gap: 12px;
 }
 
-.contact-manage-create {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
 .cm-label {
   font-family: var(--mono);
   font-size: 10.5px;
@@ -760,8 +850,6 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
   color: var(--muted);
   margin-right: 4px;
 }
-
-.contact-manage-delete { border-top: 1px solid var(--hairline-strong); padding-top: 12px; }
 
 /* ── Lead history panel (read-only, reuses .contact-manage-panel for the
    same expand-below-the-row idiom - no writes happen here at all) ──── */
@@ -781,54 +869,11 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
   white-space: pre-wrap;
 }
 
-/* ── Stage tracker ──────────────────────────────────────────── */
-.tracker {
-  display: flex;
-  align-items: flex-start;
-  margin: 32px 0 44px;
-}
-
-.tstage {
-  flex: 1;
-  text-align: center;
-  position: relative;
-}
-
-.tline {
-  position: absolute;
-  top: 5px;
-  left: -50%;
-  width: 100%;
-  height: 1px;
-  background: var(--hairline-strong);
-  z-index: 0;
-}
-.tstage:first-child .tline { display: none; }
-
-.tdot {
-  width: 11px;
-  height: 11px;
-  border-radius: 50%;
-  margin: 0 auto 12px;
-  position: relative;
-  z-index: 1;
-  background: var(--dark);
-  border: 1px solid var(--hairline-strong);
-}
-
-.tstage.done .tdot   { background: var(--white); border-color: var(--white); }
-.tstage.current .tdot { background: var(--green); border-color: var(--green); }
-.tstage.done .tline  { background: var(--white); }
-
-.tlabel {
-  font-family: var(--mono);
-  font-size: 10.5px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--muted-2);
-}
-.tstage.done .tlabel    { color: var(--muted); }
-.tstage.current .tlabel { color: var(--white); }
+/* Dot-and-line .tracker/.tstage/.tline/.tdot/.tlabel (Opportunity's old
+   stage tracker) removed entirely (2026-08-16) - replaced by the
+   chevron strip below, not left dead alongside it. Confirmed via
+   full-codebase grep before removal: renderStageTracker had exactly one
+   call site and these classes had no other callers. */
 
 .tphase-label {
   font-family: var(--mono);
@@ -840,7 +885,7 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
   margin-top: 5px;
 }
 
-/* ── Chevron strip (Test Bed stage overview) ────────────────── */
+/* ── Chevron strip (Test Bed and Opportunity stage overview) ─── */
 .chevron-strip {
   display: flex;
   height: 36px;
@@ -888,20 +933,20 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
    8 full-length labels at the ~6-item sizing below overlapped and
    became unreadable). Smaller font, less padding, wrapping instead of
    a single clipped line, and a taller strip to fit two lines. Scoped to
-   .many so the ~4-6 item Opportunity-style case, if this component is
-   ever reused there, keeps its original single-line sizing. */
+   .many so Opportunity's own 6-stage list (reused here 2026-08-16,
+   replacing its old dot-and-line tracker) stays under the >6 threshold
+   and keeps the default single-line sizing below. */
 .chevron-strip.many {
   height: 52px;
 }
-/* Sizing/contrast matched exactly to Opportunity's own stage tracker
-   (2026-08-15 fix) - checked .tlabel's actual values first rather than
-   guessing new ones: font-size 10.5px, done/upcoming colors already
-   identical (var(--muted)/var(--muted-2), unchanged here). Current-state
-   contrast is deliberately NOT copied from .tlabel (white text, no
-   background change) - chevron's current state fills the whole shape
-   with var(--green), so var(--dark) text is what's actually readable
-   there, matching .tlabel's own white-on-transparent contrast logic
-   applied to a filled shape instead of a bare dot. */
+/* Sizing/contrast matched exactly to Opportunity's old dot-and-line
+   stage tracker (2026-08-15 fix, before that component was removed and
+   replaced by this one - 2026-08-16): font-size 10.5px, done/upcoming
+   colors already identical (var(--muted)/var(--muted-2), unchanged
+   here). Current-state contrast was deliberately NOT copied from the
+   old tracker's white-text-no-background look - chevron's current state
+   fills the whole shape with var(--green), so var(--dark) text is what's
+   actually readable there. */
 .chevron-strip.many .chevron-item {
   font-size: 10.5px;
   padding: 0 10px;
@@ -1018,9 +1063,24 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
   margin-bottom: 24px;
 }
 
+/* Value columns widened 92px -> 116px (Round 3 Phase 4, 2026-08-17) - a
+   real, confirmed overflow, not a cosmetic tweak: "Installation (USD)"
+   genuinely overflowed its 92px box (scrollWidth 100 vs clientWidth 92,
+   measured live), spilling into "Total (USD)". This is the exact
+   grid-template-columns the prototype itself specifies (Terminus
+   Ops.dc.html:1318, minmax(150px,1fr) repeat(4,92px)) - the live build's
+   actual font metrics just didn't fit inside what the prototype
+   specified, unrelated to which font-family renders it. The label
+   column's own minmax(150px,1fr) is deliberately NOT capped the way
+   .ref-cards/.pg-cards/.unit-cards were - this is a single label+
+   right-values row, not a multi-card grid, so applying the same
+   cap-and-justify-content:start technique would detach the value block
+   from the box's own right border, leaving it stranded left-of-center
+   in an otherwise-empty box, a worse result than the gap it would
+   "fix". Investigated and rejected, not overlooked. */
 .dm-row {
   display: grid;
-  grid-template-columns: minmax(150px, 1fr) repeat(4, 92px);
+  grid-template-columns: minmax(150px, 1fr) repeat(4, 116px);
   gap: 10px;
   align-items: center;
   padding: 9px 0;
@@ -1061,10 +1121,19 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
 
 /* ── Units Required cards (Hw / Hosting Setup) ──────────────────
    Individually-bordered cards, one per unit type - not a .form-grid
-   (Terminus Ops.dc.html lines 1339-1346). */
+   (Terminus Ops.dc.html lines 1339-1346). Capped max (Round 3 Phase 4,
+   2026-08-17), same width-cap-plus-justify-content:start technique
+   already applied to .ref-cards - this is the prototype's own literal
+   minmax(150px,1fr), the identical unbounded-1fr construct that caused
+   the Reference tab's real dead-space problem at wide viewports, ported
+   here unchanged. Without a cap, 4 cards stretched to fill the full
+   panel width, each one just a bordered box around a single 1-3 digit
+   number - confirmed live at 2400px (each card ~530px wide). 260px is
+   comfortable for the label plus a real value, no stretch. */
 .unit-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(150px, 260px));
+  justify-content: start;
   gap: 12px;
 }
 .unit-card {
@@ -1086,10 +1155,17 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
    columns and its own Total row (Terminus Ops.dc.html lines 1347-1367).
    Only the read-only cells (item note, cost, price, total) are updated
    by JS on recompute - the margin <input> elements are never touched,
-   so typing into one never loses focus/cursor position. */
+   so typing into one never loses focus/cursor position. Capped max
+   (Round 3 Phase 4, 2026-08-17), same reasoning as .unit-cards above -
+   the prototype's own literal minmax(420px,1fr) stretched both cards to
+   fill the full panel width at wide viewports (confirmed live, ~1010px
+   each at 2400px), most of it empty space around a 4-column Item/Cost/
+   Margin/Price row that only needs ~550-600px. 620px keeps that row
+   genuinely full without excess stretch. */
 .pg-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(420px, 620px));
+  justify-content: start;
   gap: 12px;
 }
 .pg-card {
@@ -1107,10 +1183,56 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
   margin: 0 0 4px;
 }
 
-/* Contact/Lead detail's Notes History header row (2026-08-15) - idle
-   state keeps Add Note right next to the label; .active (toggled in
-   contact-detail.js when the note input opens) pushes it to the right
-   side of the card instead. */
+/* ── Structural Terms 3-card split (Round 3 Phase 6, 2026-08-17) ────────
+   Margin and Warranty / Currency / Tax Adjustments, matching the
+   prototype's real layout exactly (Terminus Ops.dc.html:1477-1521,
+   repeat(auto-fit,minmax(340px,1fr))) - reuses .pg-card/.pg-card-title
+   for the shared bordered-card look, same as every other card row this
+   session. Capped max (340px,460px) plus justify-content:start, same
+   width-cap discipline as .ref-cards/.pg-cards/.unit-cards - the
+   prototype's own uncapped 1fr is the identical construct that caused
+   real dead-space/over-stretch problems everywhere else it appeared
+   unchecked this session, not assumed safe here just because it's new. */
+.terms-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 460px));
+  justify-content: start;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+/* One field per row: label + dimmed note on the left (reuses
+   .pg-item-name/.pg-item-note, the same pair already used for the
+   Hw/Hosting pricing cards' own item column), input/select fixed-width
+   on the right - matches the prototype's own
+   grid-template-columns:minmax(0,1fr) 76px row shape (76px widened
+   slightly to 90px here, comfortable for both a 3-letter currency code
+   with its select arrow and a 2-3 digit percentage, not present in the
+   prototype's narrower percentage-only version of this row). */
+.terms-field-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 90px;
+  gap: 12px;
+  align-items: start;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--hairline);
+}
+.terms-field-row:last-child { border-bottom: none; }
+/* Deliberately no custom input/select styling here - the global
+   input[type="number"]/select rule (style.css, underline style) already
+   covers every other field on this tab (targetMargin, warrantyPct, etc.),
+   overriding it just for this card would introduce a second, one-off
+   input chrome the prototype's own bordered-box style doesn't need to
+   be copied verbatim to avoid - layout/behavior is what Rule 8 extraction
+   is about, not literally reproducing the prototype's CSS over this
+   app's own established, already-consistent input convention. */
+
+/* Contact/Lead detail's Notes History header row (2026-08-15, revised
+   2026-08-16 - Round 2 Phase 2). Idle state only now: Add Note sits
+   here, next to the label. The .active right-align-within-this-row
+   variant is gone - superseded by physically relocating the button into
+   the input's own row when active (contact-detail.js, onCdAddNoteClick/
+   resetCdNoteInput), confirmed as the actual intent after a precise
+   re-check found the button never left this row under the old fix. */
 .cd-notes-header-row {
   display: flex;
   align-items: center;
@@ -1119,7 +1241,6 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
   border-bottom: 1px solid var(--hairline-strong);
   margin-bottom: 4px;
 }
-.cd-notes-header-row.active { justify-content: space-between; }
 .pg-head, .pg-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 72px 56px 76px;
@@ -1526,6 +1647,16 @@ textarea::placeholder { color: var(--muted-2); }
   cursor: pointer;
 }
 .btn-ghost:hover { color: var(--white); border-color: var(--white); }
+/* Round 3 Phase 4 (2026-08-17): Commercials' own Save Changes
+   (btn-save-deal) is the first .btn-ghost that needs a real
+   disabled state - every other .btn-ghost so far is always
+   clickable. Same visual treatment as .btn-primary:disabled. */
+.btn-ghost:disabled, .btn-ghost:disabled:hover {
+  opacity: 0.5;
+  cursor: default;
+  color: var(--muted);
+  border-color: var(--hairline-strong);
+}
 
 .btn-text {
   font-family: var(--mono);
@@ -1659,24 +1790,116 @@ textarea::placeholder { color: var(--muted-2); }
   align-items: start;
 }
 
-/* Test Bed Reference tab (Milestone 4 fix, 2026-08-15): main content
-   left, Key Dates as a genuine right-hand panel - exact column values
-   from the prototype's own template (Terminus Ops.dc.html:742),
-   checked directly rather than guessed. Collapses to one column below
-   the point a 300px side panel stops being usable next to real content. */
-.tb-ref-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 300px;
-  gap: 32px;
-  align-items: start;
-}
-@media (max-width: 760px) {
-  .tb-ref-layout {
-    grid-template-columns: minmax(0, 1fr);
-  }
+/* Test Bed Reference tab is now Opportunity's 3-panel .ref-cards layout
+   (2026-08-16, Phase 7 3-panel rebuild) - the old 2-column
+   everything-vs-Key-Dates grid this rule served is gone, replaced by
+   the shared .ref-cards rule below plus this same width-cap override
+   Contact detail already proved (repeat(auto-fit, minmax(280px, 1fr))
+   has no ceiling, stretching panels to fill the row with dead space at
+   wide viewports - see the #view-contact-detail .ref-cards comment). */
+#view-test-bed-detail .ref-cards {
+  grid-template-columns: repeat(auto-fit, minmax(280px, 420px));
+  justify-content: start;
 }
 
+/* Round 6 Phase 2 (2026-08-17): Customer Details spans 2 of this grid's
+   own tracks rather than getting a separate, independently-sized rule -
+   its buyer-role dropdown plus "+ New" button need real room the
+   420px-capped single track above doesn't give them, confirmed live via
+   screenshot ("Select a contact..." cut off, buttons crowded). Scoped
+   to this one card only (not a change to the shared minmax cap, which
+   the other 5 cards on this tab still use unchanged). */
+.pg-card-wide {
+  grid-column: span 2;
+}
+
+/* Round 5 Phase 5 (2026-08-17): a real, confirmed gap found while
+   building the consolidated Reference tab - #view-test-bed-detail never
+   received the wide-layout treatment Contact detail and Opportunity
+   detail both already have (#view-contact-detail/#view-opportunity-detail
+   above), so this page was still capped at .wrap's base 1240px
+   regardless of viewport width. The brief's own "extend available screen
+   width if needed, matching the wide-layout treatment already used on
+   Contact detail and Opportunity's Reference tab" is impossible to
+   satisfy without this - six .ref-cards panels (up from three) would
+   just stack into more rows inside a fixed 1240px box at every viewport,
+   never actually using a wide monitor's extra horizontal space. Same
+   fixed 62px padding-right every other wide-layout view uses, not a new
+   value. */
+#view-test-bed-detail {
+  max-width: none;
+  padding-right: 62px;
+}
+
+/* Opportunity detail gets the same wide-layout treatment Contact detail
+   already has (2026-08-16, replacing the narrow-panel workaround from
+   earlier the same day) - #view-contact-detail's own max-width:none +
+   padding-right:62px, not just max-width:none alone. The padding-right
+   override matters, confirmed the hard way earlier today on this exact
+   page: .wrap's padding-right:5% resolves against the containing
+   block's width (the flex sibling next to the sidebar, which keeps
+   growing with viewport), not against the padded element's own final
+   width, so without a fixed override it keeps eating more of the
+   available width as the viewport grows past 1240px, working against
+   the whole point of removing max-width in the first place. Same fixed
+   62px Contact detail already uses. */
+#view-opportunity-detail {
+  max-width: none;
+  padding-right: 62px;
+}
+
+/* Reverted to Test Bed's own 420px cap (2026-08-16) - the 284px
+   narrow-panel value from earlier today was solving the wrong problem
+   (fitting 3 panels inside a still-1240px-capped page) rather than the
+   real one (the page itself was never given the wide-layout treatment
+   Contact detail already has). Confirmed at 420px, all three required
+   widths: real content (e.g. "Wong Guang Shing") renders on one line,
+   not wrapped. justify-content:start so genuine leftover space at wide
+   viewports stays empty, same as Contact detail and Test Bed. Key
+   Dates wraps to its own row at 1240px specifically with this wider
+   cap (420x3+32=1292 > the ~876px available there) - confirmed live,
+   not assumed; only 1920px and 3440px fit all three in one row. */
+#view-opportunity-detail .ref-cards {
+  grid-template-columns: repeat(auto-fit, minmax(280px, 420px));
+  justify-content: start;
+}
+
+/* Round 6 Phase 4 (2026-08-17): Account detail never received this same
+   width-cap treatment when built (Round 5 Phase 10) - confirmed live as
+   the real root cause behind the Parent Account row's reported spacing
+   bug, the card was free to shrink to the shared .ref-cards floor
+   (280px), leaving too little room in the value column for "Link Parent
+   Account" to render on one line even after stacking it under the
+   value (see renderAcctParentRow, account-detail.js). Same 280-420px
+   cap every other Reference-style page (Contact, Test Bed, Opportunity)
+   already uses, not a new value invented for this page. */
+#view-account-detail .ref-cards {
+  grid-template-columns: repeat(auto-fit, minmax(280px, 420px));
+  justify-content: start;
+}
+
+/* Label/value same line (2026-08-16, Round 2 Phase 3) - was stacked,
+   label above value on its own line (.ref-field-label's own
+   margin-bottom below did that spacing). Shared by Contact/Lead detail,
+   Test Bed's Reference tab, and Opportunity's Reference tab, all three
+   use this exact class set, so one change here applies everywhere at
+   once, not three separate edits - confirmed by checking every call
+   site across contact-detail.js/test-bed-detail.js/opportunity-
+   reference.js before touching this, all identical <div class="ref-
+   field"><div class="ref-field-label">...</div><div class="ref-field-
+   display">...</div></div> shape. 170px chosen for the label column
+   after surveying every real label in use: fits all but the single
+   longest ("Commercial Address for Proposal") on one line without
+   wrapping; that one wraps cleanly to two lines rather than being
+   forced onto one at the cost of clipping or an oversized column
+   wasting space on every short-labelled row. Summary fields
+   (.ref-field-noborder / inline border:none, Contact/Test Bed/
+   Opportunity) never had a .ref-field-label child to begin with,
+   confirmed by reading their markup - unaffected by this change. */
 .ref-field {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
   padding: 8px 0;
   border-bottom: 1px solid var(--hairline);
 }
@@ -1718,15 +1941,28 @@ textarea::placeholder { color: var(--muted-2); }
    of a signal that already existed. Class is still toggled in JS
    (contact-detail.js) as a semantic marker even though unstyled. */
 .ref-field-label {
+  flex: 0 0 170px;
+  padding-top: 3px;
   font-family: var(--mono);
   font-size: 9px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--muted-2);
-  margin-bottom: 4px;
   display: flex;
   justify-content: space-between;
   align-items: baseline;
+}
+/* Est. Close Date's own inline Edit link (2026-08-16, Phase 3 follow-up)
+   - the only .ref-field-label with a second child, sitting right at the
+   170px column's own right edge next to space-between, which put it
+   uncomfortably close to the value column right after it. A small nudge
+   left, scoped to this one link, not a change to the label column
+   itself, since every other row's label is a single span with nothing
+   to space against. */
+.ref-field-label-edit { margin-right: 6px; }
+.ref-field-display, .ref-field-edit {
+  flex: 1;
+  min-width: 0;
 }
 .ref-field-display {
   font-family: var(--body);
@@ -1769,6 +2005,10 @@ textarea::placeholder { color: var(--muted-2); }
   gap: 8px;
 }
 .ref-field-edit input, .ref-field-edit textarea { flex: 1; }
+/* Add Note button, when relocated into this row (2026-08-16) - never
+   shrinks or wraps, same discipline as .ref-field-discard just below,
+   the input alone gives up width if the row gets narrow. */
+.ref-field-edit #cd-add-note-btn { flex-shrink: 0; }
 .field-suffix {
   font-family: var(--mono);
   font-size: 11px;
@@ -1776,6 +2016,36 @@ textarea::placeholder { color: var(--muted-2); }
   align-self: center;
   flex-shrink: 0;
 }
+/* Round 3 Phase 3 (2026-08-17): Contract Duration's up/down spinner
+   arrows removed - min=0/step=1 (opportunity-reference.js) already
+   constrains the value, the arrows themselves added nothing but visual
+   noise for a field that's realistically typed, not incremented one at
+   a time. -webkit-appearance/-moz-appearance are the two vendor hooks
+   that actually control this, no standard property does. */
+.no-spinner::-webkit-inner-spin-button,
+.no-spinner::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.no-spinner { -moz-appearance: textfield; }
+
+/* Round 3 Phase 4 (2026-08-17): every numeric entry field on the
+   Commercials tab, in one blanket selector rather than adding
+   .no-spinner to each input individually ("not field-by-field", per the
+   brief) - covers every current field across all four sub-tabs plus any
+   dynamically-generated one (milestone/contractor-milestone rows,
+   created after initial render) with no extra wiring, since it's a
+   plain CSS attribute selector, not a class that would need adding at
+   creation time. min=0/step=1 (opportunity-deal.js, same "not
+   field-by-field" blanket JS pass) is the client-side hint;
+   isValidNonNegativeInteger server-side (src/routes/opportunities.js)
+   is what actually rejects a negative or fractional value. */
+#opp-tab-commercial input[type="number"]::-webkit-inner-spin-button,
+#opp-tab-commercial input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+#opp-tab-commercial input[type="number"] { -moz-appearance: textfield; }
 .ref-field-edit.dirty input, .ref-field-edit.dirty textarea { border-bottom-color: var(--green); }
 .ref-field-discard {
   cursor: pointer;
@@ -1918,4 +2188,91 @@ textarea::placeholder { color: var(--muted-2); }
 .sa-approval-row.clickable { cursor: pointer; }
 .sa-approval-row.approved .ring-radio-dot { background: var(--green); }
 .sa-approval-role { font-family: var(--body); font-size: 12px; color: var(--white); }
+
+/* ── Test Beds list matrices (2026-08-16, Phase 6) - "by stage, by
+   region" and "by industry, by region", matching the prototype's own
+   Test Beds list panels. 7 grid tracks: row label, 5 regions, total -
+   matches TB_MATRIX_REGIONS in app.js. ─────────────────────────────── */
+.tb-matrices-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.tb-matrix-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) repeat(5, minmax(0, 0.75fr)) minmax(0, 0.7fr);
+  gap: 4px;
+  align-items: center;
+  padding: 6px 4px;
+}
+.tb-matrix-head {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted-2);
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--hairline-strong);
+}
+.tb-matrix-region-head, .tb-matrix-tot-head {
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tb-matrix-row-label {
+  font-family: var(--body);
+  font-size: 12px;
+  color: var(--white);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tb-matrix-row:not(.tb-matrix-head) { border-bottom: 1px solid var(--hairline); }
+.tb-matrix-hover { position: relative; display: block; }
+.tb-matrix-cell, .tb-matrix-tot {
+  display: block;
+  text-align: center;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--muted);
+}
+.tb-matrix-tot { color: var(--white); }
+.tb-matrix-cell-zero { color: var(--muted-2); }
+.tb-matrix-popup {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 30;
+  min-width: 190px;
+  max-width: 280px;
+  background: var(--black);
+  border: 1px solid var(--hairline-strong);
+  padding: 4px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  text-align: left;
+}
+.tb-matrix-popup-right {
+  left: auto;
+  right: 0;
+  transform: none;
+}
+.tb-matrix-region-head, .tb-matrix-row-label { cursor: pointer; }
+.tb-matrix-cell:not(.tb-matrix-cell-zero), .tb-matrix-tot:not(.tb-matrix-cell-zero) { cursor: pointer; }
+
+.tb-filter-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid var(--hairline-strong);
+  background: rgba(102,204,153,0.06);
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  font-family: var(--body);
+  font-size: 13px;
+  color: var(--white);
+}
 .sa-approval-meta { font-family: var(--mono); font-size: 9px; color: var(--muted-2); }

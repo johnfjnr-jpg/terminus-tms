@@ -5,17 +5,31 @@
 // file, and is the exact reason this file must not redeclare any of
 // those names at top level.
 //
-// Person/account fields are plain text, not contact dropdowns — there is
-// no Contacts feature anywhere in this app to back a dropdown against
-// (confirmed before building; deliberate, not deferred, see
-// project_reference_fields_free_text in memory).
+// Person/account fields were originally all plain text - no Contacts
+// feature existed anywhere in this app to back a dropdown against when
+// this was first built (project_reference_fields_free_text in memory).
+// Two exceptions now exist. Terminus Lead/Commercial/Technical/Legal
+// Authority (2026-08-16): a dropdown sourced from terminus_staff (app.js's
+// terminusStaffCache, same table/pattern as industries), not a Contact
+// dropdown - these are internal Terminus people, not client-side
+// contacts. Technical/Commercial/Legal/IT-Security Buyer (Round 3 Phase
+// 3, 2026-08-17, see BUYER_ROLES/renderRefBuyerRows below): a real
+// record_contacts link, filtered to Contacts already linked to this
+// Opportunity's own Account, direct port of Test Bed's existing Client
+// Buyer mechanism. Customer Lead and Commercial Address for Proposal are
+// the only remaining plain-text person/address fields.
 
 let refOpportunityId = null
 let refPayload = {}
 let refOppDetails = {}
 let refStatus = ''
-let refAccountId = null
 let refWired = false
+// Buyer Roles (Round 3 Phase 3): Contacts already linked to this
+// Opportunity's own Account, same tbAccountContacts cache/reset pattern
+// as Test Bed's own buyer mechanism (test-bed-detail.js) - fetched once
+// per opportunity load (reset in initOpportunityReferencePanel below),
+// reused across re-renders within that same view.
+let refAccountContacts = []
 
 // refEdits[key] = { draft, orig } — only present entries are "open".
 // Every field row renders once (in renderReferenceTab); opening, typing,
@@ -27,35 +41,63 @@ let refWired = false
 let refEdits = {}
 
 const TERMINUS_FIELDS = [
-  { key: 'lead', label: 'Terminus Lead' },
-  { key: 'commercial', label: 'Commercial Authority' },
-  { key: 'technical', label: 'Technical Authority' },
-  { key: 'legal', label: 'Legal Authority' },
+  { key: 'lead', label: 'Terminus Lead', staffField: true },
+  { key: 'commercial', label: 'Commercial Authority', staffField: true },
+  { key: 'technical', label: 'Technical Authority', staffField: true },
+  { key: 'legal', label: 'Legal Authority', staffField: true },
 ]
-// 'account' deliberately removed (Milestone 6) - it's now a real
-// records.account_id link (see renderRefAccountCard below), not a
-// free-text payload field. Checked against the prototype before
-// building (Terminus Ops.dc.html:5687): "The customer account the
-// opportunity belongs to... Editing offers the accounts already on
-// file, or '+ New account'" - a real Account picker, not a Contact
-// dropdown, same mechanism as Contact's own Account link.
+// 'account' deliberately absent - it's a real records.account_id link,
+// not a free-text payload field, rendered as its own read-only row in
+// renderReferenceTab below (2026-08-16: read-only and inherited from
+// the source Contact at creation, no manual re-link, matching Test
+// Bed's own Account field exactly - this used to be a real Link-to-
+// Account picker, Milestone 6, removed entirely when that capability
+// was deliberately taken away).
+// techBuyer/commBuyer/legalBuyer/itBuyer removed from here (Round 3 Phase
+// 3, 2026-08-17) - no longer free text, see BUYER_ROLES below and
+// renderRefBuyerRows, a real record_contacts link filtered to Contacts
+// already linked to this Opportunity's Account, direct port of Test
+// Bed's existing Client Buyer mechanism (test-bed-detail.js), not the
+// full mandatory-core/admin-catalog/escape-valve model.
 const CUSTOMER_FIELDS = [
   { key: 'customerLead', label: 'Customer Lead' },
-  { key: 'techBuyer', label: 'Technical Buyer' },
-  { key: 'commBuyer', label: 'Commercial Buyer' },
-  { key: 'legalBuyer', label: 'Legal Buyer' },
-  { key: 'itBuyer', label: 'IT / Security Buyer' },
   { key: 'commAddress', label: 'Commercial Address for Proposal' },
 ]
+// Role strings match this endpoint's own VALID_OPPORTUNITY_BUYER_ROLES
+// (src/routes/opportunities.js) exactly, and the field labels these
+// replaced, so nothing else about the panel's layout changes.
+const BUYER_ROLES = ['Technical Buyer', 'Commercial Buyer', 'Legal Buyer', 'IT / Security Buyer']
+// estClose (Round 3 Phase 3): folded into the generic click-to-edit
+// mechanism and the batched Save flow - no longer its own permanently-
+// present form behind a separate "Edit" link. Its value isn't a payload
+// key though (forecast_close_date is a real opportunity_details column),
+// so refFieldOrigValue() below special-cases it; saveRefFields()
+// special-cases it again at save time to route through the existing
+// close-date-move endpoint (mandatory reason, moves counter) instead of
+// the generic PATCH, rather than treating it as an ordinary field.
+// noPast on both this and estGoLive (Round 3 Phase 3): a past "estimate"
+// is nonsensical, unlike actualClose/actualGoLive, which record things
+// that already happened and must allow it.
 const DATE_FIELDS = [
+  { key: 'estClose', label: 'Est. Close Date', date: true, noPast: true },
   { key: 'actualClose', label: 'Actual Close Date', date: true },
-  { key: 'estGoLive', label: 'Est. Go Live', date: true },
+  { key: 'estGoLive', label: 'Est. Go Live', date: true, noPast: true },
   { key: 'actualGoLive', label: 'Actual Go Live', date: true },
-  { key: 'duration', label: 'Contract Duration (months)', number: true, suffix: 'months' },
+  { key: 'duration', label: 'Contract Duration (months)', number: true, integer: true, suffix: 'months' },
 ]
 const OPPTYPE_FIELD = { key: 'oppType', label: 'Opportunity Type', options: ['Terminus Led', 'Tender'] }
 const SUMMARY_FIELD = { key: 'summary', label: 'Executive Summary' }
-const ALL_EDITABLE_FIELDS = [...TERMINUS_FIELDS, ...CUSTOMER_FIELDS, ...DATE_FIELDS, OPPTYPE_FIELD, SUMMARY_FIELD]
+// name (Round 3 Phase 3): the header's Opportunity Name, previously
+// static text with no save path at all. Rendered with its own header
+// markup (renderReferenceTab below), not via refFieldRow - reuses the
+// exact same generic openRefField/discardRefField/onRefFieldInput
+// mechanism as every card-row field, just a plain h1 instead of a
+// labelled row, same pattern Contact detail's own header Name already
+// uses (ref-display-name/ref-edit-name/ref-input-name IDs match
+// openRefField's generic `ref-display-${key}` lookup with no changes to
+// that function needed).
+const NAME_FIELD = { key: 'name', label: 'Opportunity Name' }
+const ALL_EDITABLE_FIELDS = [NAME_FIELD, ...TERMINUS_FIELDS, ...CUSTOMER_FIELDS, ...DATE_FIELDS, OPPTYPE_FIELD, SUMMARY_FIELD]
 
 function refFieldLabel(key) {
   return ALL_EDITABLE_FIELDS.find(f => f.key === key)?.label ?? key
@@ -65,7 +107,16 @@ function refFieldRow(key, label, value, opts = {}) {
   const v = value ?? ''
   let inputTag
   if (opts.options) {
+    // Leading blank option (2026-08-16, added for the new staffField
+    // dropdowns - Terminus Lead/Commercial/Technical/Legal Authority can
+    // legitimately be unset) - matches tbFieldRow's own options branch
+    // exactly. Without it, an empty v matched no <option>, and the
+    // browser's own default-to-first-option behavior would have silently
+    // pre-selected the alphabetically-first name in edit mode for a
+    // field that's actually unset - a real risk, not cosmetic: clicking
+    // Save without touching it could have assigned that name by accident.
     inputTag = `<select id="ref-input-${key}">` +
+      `<option value="">--</option>` +
       opts.options.map(o => `<option value="${escHtml(o)}"${o === v ? ' selected' : ''}>${escHtml(o)}</option>`).join('') +
       `</select>`
   } else if (opts.multiline) {
@@ -76,9 +127,19 @@ function refFieldRow(key, label, value, opts = {}) {
     // level. Pre-existing free-text dates (e.g. "01/01/27") won't
     // populate the picker until re-saved through it - the raw string is
     // untouched until then, not silently lost.
-    inputTag = `<input type="date" id="ref-input-${key}" value="${escHtml(v)}">`
+    // noPast (Round 3 Phase 3): a native min attribute, same "browser
+    // catches most, server is authoritative" split as isValidIsoDate -
+    // isNotPastIsoDate on the server rejects the same thing independently.
+    const min = opts.noPast ? ` min="${new Date().toISOString().slice(0, 10)}"` : ''
+    inputTag = `<input type="date" id="ref-input-${key}" value="${escHtml(v)}"${min}>`
   } else if (opts.number) {
-    inputTag = `<input type="number" id="ref-input-${key}" value="${escHtml(v)}">` +
+    // integer (Round 3 Phase 3, Contract Duration): min=0/step=1 are the
+    // same native-constraint split as noPast above, and .no-spinner
+    // (style.css) removes the up/down arrows - isValidNonNegativeInteger
+    // on the server is what actually rejects a negative or fractional
+    // value, this is a client-side hint only.
+    const intAttrs = opts.integer ? ' min="0" step="1" class="no-spinner"' : ''
+    inputTag = `<input type="number" id="ref-input-${key}" value="${escHtml(v)}"${intAttrs}>` +
       (opts.suffix ? `<span class="field-suffix">${escHtml(opts.suffix)}</span>` : '')
   } else {
     inputTag = `<input type="text" id="ref-input-${key}" value="${escHtml(v)}">`
@@ -111,88 +172,68 @@ function refReadonlyRow(label, value) {
   </div>`
 }
 
-// ── Account card: the real Account link (records.account_id) - same
-// mechanism and interaction pattern as Contact's own "Link to Account"
-// (contact-detail.js), reused deliberately rather than a second
-// implementation of the same search/create-new flow. accountsCache is
-// the shared global declared in app.js - refreshed on open rather than
-// trusted stale, since a user can land on an Opportunity without ever
-// visiting Contacts/Leads first, unlike Contact's own panel, which is
-// only ever opened from a page that already population the cache. ──────
-function refAccountName(id) {
-  return accountsCache.find(a => a.id === id)?.payload?.name ?? ''
-}
-
-function renderRefAccountCard() {
-  const name = refAccountName(refAccountId)
-  document.getElementById('ref-account-status').textContent = name ? `Linked to: ${name}` : 'Not linked yet.'
-  document.getElementById('ref-link-account-panel').classList.add('hidden')
-  document.getElementById('ref-link-error').classList.add('hidden')
-}
-
-window.openRefLinkAccountPanel = async function () {
-  document.getElementById('ref-link-account-panel').classList.remove('hidden')
-  document.getElementById('ref-link-error').classList.add('hidden')
-  const searchInput = document.getElementById('ref-link-search')
-  searchInput.value = ''
-  document.getElementById('ref-link-results').innerHTML = '<p class="empty-state">Loading...</p>'
-
-  const result = await api('GET', '/api/accounts')
-  if (result.ok) accountsCache = result.data
-
-  renderRefLinkResults('')
-  searchInput.focus()
-}
-
-// Same client-side substring match as Contact's own panel, not fuzzy -
-// the "+ Create new Account" option is always offered alongside real
-// matches, reconciling a typo/naming variation is a human judgment call.
-function renderRefLinkResults(query) {
-  const q = query.trim().toLowerCase()
-  const matches = q ? accountsCache.filter(a => (a.payload?.name ?? '').toLowerCase().includes(q)) : accountsCache
-
-  const matchRows = matches.slice(0, 20).map(a => `
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border:1px solid var(--hairline-strong)">
-      <span>${escHtml(a.payload?.name ?? '--')}</span>
-      <button class="btn-sm btn-primary" onclick="linkRefAccount(this, '${a.id}')">Link</button>
-    </div>`).join('')
-
-  const trimmed = query.trim()
-  const createRow = trimmed ? `
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border:1px dashed var(--hairline-strong)">
-      <span>+ Create new Account "${escHtml(trimmed)}"</span>
-      <button class="btn-sm" onclick='linkRefAccount(this, null, ${JSON.stringify(trimmed)})'>Create &amp; link</button>
-    </div>` : ''
-
-  document.getElementById('ref-link-results').innerHTML = (matchRows + createRow) || '<p class="empty-state">Type to search.</p>'
-}
-
-let refLinkInFlight = false
-
-window.linkRefAccount = async function (btn, accountId, newAccountName) {
-  if (refLinkInFlight) return
-  refLinkInFlight = true
-
-  const allButtons = document.querySelectorAll('#ref-link-results button')
-  allButtons.forEach(b => { b.disabled = true })
-  const originalText = btn.textContent
-  btn.textContent = accountId ? 'Linking...' : 'Creating...'
-
-  const errEl = document.getElementById('ref-link-error')
-  errEl.classList.add('hidden')
-
-  const body = accountId ? { account_id: accountId } : { new_account_name: newAccountName }
-  const result = await api('POST', `/api/opportunities/${refOpportunityId}/link-account`, body)
-  refLinkInFlight = false
-
-  if (!result.ok) {
-    errEl.textContent = result.data?.error ?? 'Failed to link account.'
-    errEl.classList.remove('hidden')
-    allButtons.forEach(b => { b.disabled = false })
-    btn.textContent = originalText
+// Buyer Roles (Round 3 Phase 3): direct port of Test Bed's
+// renderTbBuyerRows/linkTbBuyer (test-bed-detail.js) - a role already
+// linked renders read-only, an unlinked role gets a select (Contacts
+// already linked to this Opportunity's own Account) plus a Link button.
+// The server (POST /opportunities/:id/buyer-contacts) re-validates the
+// Account match regardless of this client-side filtering.
+async function renderRefBuyerRows(opp) {
+  const el = document.getElementById('ref-buyer-rows')
+  if (!el) return
+  if (!opp.account_id) {
+    el.innerHTML = '<p class="empty-state">No linked Account.</p>'
     return
   }
 
+  if (!refAccountContacts.length) {
+    const result = await api('GET', '/api/contacts')
+    if (result.ok) {
+      refAccountContacts = result.data.filter(c => c.parent_record_id === opp.account_id)
+    }
+  }
+
+  const linked = opp.buyer_contacts ?? []
+  el.innerHTML = BUYER_ROLES.map(role => {
+    const current = linked.find(l => l.role === role)
+    if (current) {
+      return `
+      <div class="ref-field" data-key="buyer-${role}">
+        <div class="ref-field-label"><span>${escHtml(role)}</span></div>
+        <div class="ref-field-display readonly">${escHtml(current.name ?? current.contact_id)}</div>
+      </div>`
+    }
+    const options = refAccountContacts.map(c => `<option value="${c.id}">${escHtml(c.payload?.name ?? c.id)}</option>`).join('')
+    return `
+    <div class="ref-field" data-key="buyer-${role}">
+      <div class="ref-field-label"><span>${escHtml(role)}</span></div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <select id="ref-buyer-select-${escHtml(role)}">
+          <option value="">${refAccountContacts.length ? 'Select a contact linked to this Account' : 'No Contacts linked to this Account yet'}</option>
+          ${options}
+        </select>
+        <button class="btn-sm" onclick="linkRefBuyer('${escHtml(role)}')">Link</button>
+        <!-- Round 5 Phase 9 (2026-08-17): direct port of Test Bed's own
+             "+ New" trigger (test-bed-detail.js) - one shared modal
+             (app.js's openInlineBuyerContactModal), not a second
+             implementation. -->
+        <button class="btn-sm btn-ghost" onclick="openInlineBuyerContactModal('opportunity', '${escHtml(refOpportunityId)}', '${escHtml(opp.account_id)}', '${escHtml(role)}')">+ New</button>
+      </div>
+      <div id="ref-buyer-feedback-${escHtml(role)}"></div>
+    </div>`
+  }).join('')
+}
+
+window.linkRefBuyer = async function (role) {
+  const select = document.getElementById(`ref-buyer-select-${role}`)
+  const contact_id = select.value
+  const feedback = document.getElementById(`ref-buyer-feedback-${role}`)
+  if (!contact_id) return
+  const result = await api('POST', `/api/opportunities/${refOpportunityId}/buyer-contacts`, { role, contact_id })
+  if (!result.ok) {
+    feedback.innerHTML = `<p class="msg-error">${escHtml(result.data.error ?? 'Failed to link contact.')}</p>`
+    return
+  }
   await loadOpportunityDetail(refOpportunityId)
 }
 
@@ -201,7 +242,6 @@ function renderReferenceTab(opp) {
   refPayload = opp.payload ?? {}
   refOppDetails = opp.opportunity_details ?? {}
   refStatus = opp.status ?? ''
-  refAccountId = opp.account_id ?? null
   refEdits = {}
 
   // Milestone 6: this was hardcoded to always show "Not yet generated"
@@ -210,27 +250,65 @@ function renderReferenceTab(opp) {
   // would otherwise have had nowhere real to display.
   document.getElementById('ref-reference-code').textContent = opp.reference_code || 'Not yet generated'
 
+  // Opportunity Name (Round 3 Phase 3, 2026-08-17): same generic
+  // openRefField/discardRefField mechanism as every card-row field below,
+  // just rendered as the page's own h1 instead of a labelled row - same
+  // display/edit/input trio of element IDs (ref-display-name/
+  // ref-edit-name/ref-input-name), no changes needed to either function.
+  document.getElementById('ref-display-name').textContent = refPayload.name || '--'
+  document.getElementById('ref-input-name').value = refPayload.name ?? ''
+  document.getElementById('ref-edit-name').classList.add('hidden')
+  document.getElementById('ref-display-name').classList.remove('hidden')
+
   document.getElementById('ref-terminus-rows').innerHTML =
-    TERMINUS_FIELDS.map(f => refFieldRow(f.key, f.label, refPayload[f.key])).join('')
+    TERMINUS_FIELDS.map(f => refFieldRow(f.key, f.label, refPayload[f.key], { options: f.staffField ? terminusStaffCache.map(s => s.name) : f.options })).join('')
     + refReadonlyRow('Status', refStatus)
 
-  renderRefAccountCard()
-
+  // Account: read-only and inherited (2026-08-16), same
+  // tbReadonlyRow('Account', ...) shape Test Bed already uses - no
+  // Link-to-Account UI, no manual re-link or override, a pure
+  // reflection of whatever account_id was auto-populated from the
+  // source Contact at creation. The search-existing/create-new panel
+  // this used to be (refAccountName/renderRefAccountCard/
+  // openRefLinkAccountPanel/renderRefLinkResults/linkRefAccount, plus
+  // today's two fixes to it - the dirty-edit guard and the
+  // row-click-to-commit simplification) is removed entirely, not hidden
+  // - both fixes were protecting/simplifying an action that no longer
+  // exists. opp.account is server-resolved now (GET /opportunities/:id,
+  // matching Test Bed's own GET /test-beds/:id), not looked up from
+  // accountsCache - that cache is only reliably populated after
+  // visiting Contacts/Leads first, which this read-only row can no
+  // longer guarantee once the on-open refresh that used to backstop it
+  // is gone. "Not linked" for the unset case (a legacy Opportunity
+  // created before auto-population existed) - honest placeholder, never
+  // an error.
   document.getElementById('ref-customer-rows').innerHTML =
-    CUSTOMER_FIELDS.map(f => refFieldRow(f.key, f.label, refPayload[f.key])).join('')
+    refReadonlyRow('Account', opp.account?.name || 'Not linked')
+    + CUSTOMER_FIELDS.map(f => refFieldRow(f.key, f.label, refPayload[f.key])).join('')
 
+  // Buyer Roles (Round 3 Phase 3): record_contacts-backed, not part of
+  // the generic refPayload rows above - own render pass, same reasoning
+  // and same async-fetch-then-render shape as Test Bed's
+  // renderTbBuyerRows (test-bed-detail.js).
+  renderRefBuyerRows(opp)
+
+  // estClose now renders through the same refFieldRow mechanism as every
+  // other date field below (Round 3 Phase 3), just pulled out of
+  // DATE_FIELDS' own map so "Est. Close Date Moves" can keep sitting
+  // directly under it, same visual order as before this phase -
+  // refFieldOrigValue() supplies its real value
+  // (opportunity_details.forecast_close_date, not a payload key) to
+  // openRefField/discardRefField, and the value passed to refFieldRow
+  // here does the same for this initial render.
+  const estCloseField = DATE_FIELDS.find(f => f.key === 'estClose')
   document.getElementById('ref-dates-rows').innerHTML =
     refReadonlyRow('Date Created', formatDate(opp.created_at))
-    + `<div class="ref-field" data-key="estClose">
-         <div class="ref-field-label">
-           <span>Est. Close Date</span>
-           <span class="btn-text" style="font-size:9px" onclick="openCloseDateEdit()">Edit</span>
-         </div>
-         <div class="ref-field-display readonly">${escHtml(refOppDetails.forecast_close_date) || '--'}</div>
-       </div>`
+    + refFieldRow(estCloseField.key, estCloseField.label, refOppDetails.forecast_close_date, { date: true, noPast: true })
     + refReadonlyRow('Est. Close Date Moves', String(refPayload.closeMoves ?? 0))
-    + DATE_FIELDS.map(f => refFieldRow(f.key, f.label, refPayload[f.key], { date: f.date, number: f.number, suffix: f.suffix })).join('')
-  document.getElementById('ref-closedate-form').classList.add('hidden')
+    + DATE_FIELDS.filter(f => f.key !== 'estClose').map(f => refFieldRow(
+        f.key, f.label, refPayload[f.key],
+        { date: f.date, number: f.number, integer: f.integer, suffix: f.suffix }
+      )).join('')
 
   // Opportunity Type sits with Executive Summary in the prototype; kept as
   // its own small field row directly above the summary text rather than
@@ -259,9 +337,18 @@ function wireRefFieldInputs() {
   })
 }
 
+// estClose (Round 3 Phase 3): the one field in ALL_EDITABLE_FIELDS whose
+// real value isn't a payload key - forecast_close_date lives on
+// opportunity_details, not refPayload. Every other field is untouched,
+// still a plain refPayload[key] lookup.
+function refFieldOrigValue(key) {
+  if (key === 'estClose') return refOppDetails.forecast_close_date ?? ''
+  return refPayload[key] ?? ''
+}
+
 window.openRefField = function (key) {
   if (refEdits[key]) return
-  const orig = String(refPayload[key] ?? '')
+  const orig = String(refFieldOrigValue(key))
   refEdits[key] = { draft: orig, orig }
   document.getElementById(`ref-display-${key}`).classList.add('hidden')
   document.getElementById(`ref-edit-${key}`).classList.remove('hidden')
@@ -277,7 +364,7 @@ window.discardRefField = function (key) {
   editEl.classList.remove('dirty')
   document.getElementById(`ref-display-${key}`).classList.remove('hidden')
   const input = document.getElementById(`ref-input-${key}`)
-  if (input) input.value = refPayload[key] ?? ''
+  if (input) input.value = refFieldOrigValue(key)
   updateRefEditBar()
 }
 
@@ -301,6 +388,7 @@ function updateRefEditBar() {
   document.getElementById('ref-edit-count').textContent =
     `${keys.length} field${keys.length === 1 ? '' : 's'} open${dirtyCount ? `, ${dirtyCount} changed` : ''}`
   document.getElementById('ref-save-all').classList.toggle('hidden', dirtyCount === 0)
+  syncRefEditBarWidth()
 }
 
 async function saveRefFields() {
@@ -310,6 +398,54 @@ async function saveRefFields() {
 
   const dirtyEntries = Object.entries(refEdits).filter(([, e]) => e.draft !== e.orig)
   if (!dirtyEntries.length) return
+
+  // Est. Close Date (Round 3 Phase 3, 2026-08-17): moving it is a business
+  // event (mandatory reason, writes a note, bumps the moves counter,
+  // updates opportunity_details), not a plain payload edit - detected
+  // here, automatically, the moment Save is clicked with it among the
+  // dirty fields, rather than needing its own separate "Edit" entry
+  // point. Any other dirty fields from the same Save click are held
+  // until the reason is confirmed (confirmCloseDateMove below), then
+  // saved together in one action - a real change to this one field is
+  // what triggers the dialogue, not a change to anything else.
+  const estCloseEntry = dirtyEntries.find(([key]) => key === 'estClose')
+  if (estCloseEntry) {
+    openCloseDateMovePrompt(estCloseEntry[1].draft, dirtyEntries.filter(([key]) => key !== 'estClose'))
+    return
+  }
+
+  await performGenericRefSave(dirtyEntries)
+}
+
+// Split out of saveRefFields (Round 3 Phase 3) so confirmCloseDateMove
+// below can reuse the exact same payload-merge/freshness-check logic for
+// whatever else was dirty in the same Save click, once the reason is
+// confirmed - not a second, drifting copy of this logic.
+async function performGenericRefSave(dirtyEntries) {
+  const feedback = document.getElementById('ref-save-feedback')
+  if (!dirtyEntries.length) return
+
+  // Origin-contact freshness check (Round 2 Phase 1, 2026-08-16) - same
+  // pattern as Test Bed's own initialLead fix (test-bed-detail.js) and
+  // the same mechanism already proven for Duration (opportunity-deal.js).
+  // Untouched is already safe by construction here too, dirtyEntries only
+  // ever includes fields the user actually opened and changed. This only
+  // fires for a genuine edit to customerLead specifically.
+  const customerLeadEntry = dirtyEntries.find(([key]) => key === 'customerLead')
+  if (customerLeadEntry) {
+    const fresh = await api('GET', `/api/opportunities/${refOpportunityId}`)
+    if (!fresh.ok) {
+      feedback.textContent = 'Could not verify the current Customer Lead value before saving.'
+      feedback.className = 'msg-error'
+      return
+    }
+    const serverValue = fresh.data.payload?.customerLead ?? ''
+    if (serverValue !== customerLeadEntry[1].orig) {
+      feedback.textContent = 'Customer Lead was changed elsewhere since this tab was loaded. Reload the page before saving.'
+      feedback.className = 'msg-error'
+      return
+    }
+  }
 
   const payloadUpdate = {}
   const newNotes = dirtyEntries.map(([key, e]) => {
@@ -328,7 +464,9 @@ async function saveRefFields() {
     feedback.className = 'msg-error'
     return
   }
-  refEdits = {}
+  // loadOpportunityDetail below re-renders the whole tab (renderReferenceTab
+  // resets refEdits to {} unconditionally), so no manual clearing needed
+  // here - same as before this function was split out of saveRefFields.
   await loadOpportunityDetail(refOpportunityId)
 }
 
@@ -345,46 +483,127 @@ function renderRefNotes(notes) {
     </div>`).join('')
 }
 
-// ── Est. Close Date: its own dedicated form, not the generic click-to-edit
-// flow above — moving it is a business event (mandatory reason, writes a
-// note, bumps a counter, updates opportunity_details), not a plain value
-// change, matching how the extraction spec singles it out. ─────────────────
-window.openCloseDateEdit = function () {
-  document.getElementById('ref-closedate-form').classList.remove('hidden')
-  document.getElementById('ref-closedate-date').value = refOppDetails.forecast_close_date ?? ''
+// ── Est. Close Date: mandatory-reason dialogue (Round 3 Phase 3,
+// 2026-08-17) ───────────────────────────────────────────────────────────
+// No longer its own permanently-present form behind a separate "Edit"
+// link (the brief's own framing) - Est. Close Date is now a plain field
+// in the generic click-to-edit flow above like every other Key Dates row,
+// and this dialogue is triggered automatically by saveRefFields the
+// moment it's among the dirty fields at Save. Moving it is still a real
+// business event under the hood (mandatory reason, writes a note, bumps
+// the moves counter, updates opportunity_details via the same dedicated
+// close-date-move endpoint), just reached differently now.
+let refPendingCloseDate = null
+let refPendingRemainingEntries = []
+
+// Full focus trap (2026-08-17, follow-up to the first Phase 3 pass),
+// matching INTERACTION_STANDARDS.md Section 4's general rule, not just
+// its data-loss-prevention reasoning - direct port of Park's own
+// cdParkKeydownHandler (contact-detail.js): focus moves to the panel's
+// first focusable element on open; Tab/Shift+Tab cycle only through the
+// panel's own three focusable elements (reason -> Cancel -> Save move ->
+// back to reason); Escape cancels, same as clicking Cancel; the handler
+// is attached on open and removed on close, not left permanently
+// attached, since this DOM node persists across page reloads the same
+// way Park's does. Backdrop-click still cancels too (wired once in
+// wireRefOnce, same as before), the panel's own Tab/Escape ownership
+// doesn't change that.
+let refCloseDateKeydownHandler = null
+
+function openCloseDateMovePrompt(newDate, remainingDirtyEntries) {
+  refPendingCloseDate = newDate
+  refPendingRemainingEntries = remainingDirtyEntries
+  document.getElementById('ref-closedate-date-display').textContent = newDate || '--'
   document.getElementById('ref-closedate-reason').value = ''
   document.getElementById('ref-closedate-error').classList.add('hidden')
+  document.getElementById('ref-closedate-form').classList.remove('hidden')
+  document.getElementById('ref-closedate-reason').focus()
+
+  refCloseDateKeydownHandler = (e) => {
+    if (e.key === 'Escape') {
+      e.preventDefault()
+      window.cancelCloseDateMove()
+      return
+    }
+    if (e.key !== 'Tab') return
+    const focusable = [
+      document.getElementById('ref-closedate-reason'),
+      document.getElementById('ref-closedate-cancel'),
+      document.getElementById('ref-closedate-confirm'),
+    ]
+    const first = focusable[0]
+    const last = focusable[focusable.length - 1]
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault()
+      last.focus()
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault()
+      first.focus()
+    }
+  }
+  document.addEventListener('keydown', refCloseDateKeydownHandler)
 }
 
-window.cancelCloseDateEdit = function () {
+// Single close path for both Cancel/Escape and a successful Confirm
+// (mirroring Park's own closeCdParkForm, called from both
+// requestCloseCdParkForm and saveCdParkForm) - the keydown handler and
+// focus-return only need writing once, not once per caller.
+function closeCloseDateMoveDialog() {
   document.getElementById('ref-closedate-form').classList.add('hidden')
+  refPendingCloseDate = null
+  refPendingRemainingEntries = []
+  if (refCloseDateKeydownHandler) {
+    document.removeEventListener('keydown', refCloseDateKeydownHandler)
+    refCloseDateKeydownHandler = null
+  }
+  // Returns focus to the control that opened it (INTERACTION_STANDARDS.md
+  // Section 4), same as Park returning focus to its own Park button -
+  // this dialogue opens from Save, not a dedicated named button, so Save
+  // is the equivalent control here.
+  document.getElementById('ref-save-all')?.focus()
 }
 
-window.saveCloseDateMove = async function () {
-  const date = document.getElementById('ref-closedate-date').value
+// Cancelling here doesn't discard the estClose edit itself, or any other
+// dirty field - the Reference tab's own edit bar is still showing
+// exactly what it did before Save was clicked, so the user can correct
+// the date, retry Save, or discard that one field individually via its
+// own × control, same as any other open field. Confirmed by real test,
+// not just this reasoning - see the 2026-08-17 follow-up test evidence.
+window.cancelCloseDateMove = function () {
+  closeCloseDateMoveDialog()
+}
+
+window.confirmCloseDateMove = async function () {
   const reason = document.getElementById('ref-closedate-reason').value.trim()
   const errEl = document.getElementById('ref-closedate-error')
   errEl.classList.add('hidden')
 
-  if (!date) {
-    errEl.textContent = 'Date is required.'
-    errEl.classList.remove('hidden')
-    return
-  }
   if (!reason) {
     errEl.textContent = 'A reason for the move is required.'
     errEl.classList.remove('hidden')
     return
   }
 
-  const result = await api('POST', `/api/opportunities/${refOpportunityId}/close-date-move`, { date, reason })
+  const result = await api('POST', `/api/opportunities/${refOpportunityId}/close-date-move`, { date: refPendingCloseDate, reason })
   if (!result.ok) {
     errEl.textContent = result.data?.error ?? 'Failed to save.'
     errEl.classList.remove('hidden')
     return
   }
-  document.getElementById('ref-closedate-form').classList.add('hidden')
-  await loadOpportunityDetail(refOpportunityId)
+
+  const remaining = refPendingRemainingEntries
+  closeCloseDateMoveDialog()
+  delete refEdits.estClose
+
+  // Whatever else was dirty in the same Save click gets saved together
+  // here, in one action, rather than requiring a second, separate Save -
+  // if nothing else was dirty, just reload to pick up the new
+  // forecast_close_date/closeMoves.
+  if (remaining.length) {
+    await performGenericRefSave(remaining)
+  } else {
+    await loadOpportunityDetail(refOpportunityId)
+  }
 }
 
 function wireRefOnce() {
@@ -394,13 +613,43 @@ function wireRefOnce() {
     Object.keys(refEdits).forEach(key => window.discardRefField(key))
   })
   document.getElementById('ref-save-all').addEventListener('click', saveRefFields)
-  document.getElementById('ref-btn-link-account').addEventListener('click', window.openRefLinkAccountPanel)
-  document.getElementById('ref-link-cancel').addEventListener('click', () => document.getElementById('ref-link-account-panel').classList.add('hidden'))
-  document.getElementById('ref-link-search').addEventListener('input', (e) => renderRefLinkResults(e.target.value))
+  // Backdrop-click cancels (wired once, permanent - same pattern as
+  // linked-records-modal/confirm-delete-modal in app.js, only fires when
+  // the backdrop itself, not a child, is the click target). Escape is
+  // NOT wired here (2026-08-17 follow-up) - it's owned by
+  // refCloseDateKeydownHandler instead, attached only while the dialogue
+  // is actually open (openCloseDateMovePrompt above), same as Park's own
+  // cdParkKeydownHandler, so there's exactly one Escape owner, not two
+  // competing handlers.
+  document.getElementById('ref-closedate-form').addEventListener('click', (e) => {
+    if (e.target.id === 'ref-closedate-form') window.cancelCloseDateMove()
+  })
+  // Cancel/Save row width sync (Round 3 Phase 3, item 6) - same
+  // getBoundingClientRect technique as Contact detail's
+  // syncCdBelowGridWidth (contact-detail.js), matching the edit bar's
+  // own right edge to the Key Dates panel's (the rightmost card in
+  // .ref-cards) rather than letting it span the full, uncapped container
+  // width, which on a wide viewport runs well past where the 3-panel row
+  // actually ends (.ref-cards' own minmax(280px,420px) columns cap out
+  // long before the container does).
+  window.addEventListener('resize', syncRefEditBarWidth)
+}
+
+// See wireRefOnce's comment above for why this exists.
+function syncRefEditBarWidth() {
+  const cards = document.querySelectorAll('#opp-tab-reference .ref-cards .pg-card')
+  const lastCard = cards[cards.length - 1]
+  const bar = document.getElementById('ref-edit-bar')
+  if (!lastCard || !bar || bar.classList.contains('hidden')) return
+  const cardRect = lastCard.getBoundingClientRect()
+  const barRect = bar.getBoundingClientRect()
+  const width = cardRect.right - barRect.left
+  if (width > 0) bar.style.width = `${width}px`
 }
 
 // ── Entry point, called by app.js's renderOppDetail() ─────────────────────
 window.initOpportunityReferencePanel = function (opp) {
   wireRefOnce()
+  refAccountContacts = []
   renderReferenceTab(opp)
 }

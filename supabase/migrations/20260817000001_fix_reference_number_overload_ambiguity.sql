@@ -1,0 +1,29 @@
+-- Terminus TMS: fix a real overload-ambiguity bug from the previous migration
+--
+-- Real bug, found by explicit backward-compatibility testing after
+-- 20260817000000, not assumed safe because the CREATE OR REPLACE
+-- succeeded: Postgres's CREATE OR REPLACE FUNCTION only replaces a
+-- function with the *exact same* parameter signature. Adding a third
+-- parameter (p_scheme) did not replace the original two-argument
+-- issue_reference_number(text, text) - it created a second, additional
+-- overload alongside it, leaving both live simultaneously. A genuine
+-- two-argument RPC call (every real caller's actual shape,
+-- src/lib/reference-number.js's issueReferenceNumber) then failed
+-- outright: PostgREST could not choose between the original two-arg
+-- function and the new three-arg one (whose third parameter defaults to
+-- NULL, so it also matches a two-argument call), confirmed live -
+-- "Could not choose the best candidate function between:
+-- issue_reference_number(p_country_code => text, p_industry_code => text),
+-- issue_reference_number(p_country_code => text, p_industry_code => text,
+-- p_scheme => text)". Every existing caller (Test Bed/Opportunity
+-- creation) was broken by this, not just theoretically at risk -
+-- confirmed by direct RPC call returning null with that exact error.
+--
+-- Fix: drop the stale two-argument overload outright, leaving exactly one
+-- issue_reference_number function (the three-argument version from
+-- 20260817000000, p_scheme defaulting to NULL), so a two-argument call
+-- has only one possible match again. The function body itself is
+-- unchanged by this migration - it was already correct, the ambiguity
+-- was a Postgres function-resolution problem, not a logic bug in the
+-- function.
+drop function if exists public.issue_reference_number(text, text);

@@ -40,7 +40,7 @@ document.getElementById('btn-signout').addEventListener('click', async () => {
 })
 
 // ── Navigation ────────────────────────────────────────────────────────────────
-const ALL_VIEWS = ['leads', 'leads-legacy', 'contacts', 'contact-detail', 'test-beds', 'test-bed-detail', 'opportunities', 'opportunity-detail']
+const ALL_VIEWS = ['leads', 'leads-legacy', 'contacts', 'contact-detail', 'accounts', 'account-detail', 'test-beds', 'test-bed-detail', 'opportunities', 'opportunity-detail']
 
 function showAuth() {
   document.getElementById('view-auth').classList.remove('hidden')
@@ -65,6 +65,8 @@ function navigate(view, id) {
   else if (view === 'leads-legacy') loadLegacyLeads()
   else if (view === 'contacts') loadContactsData()
   else if (view === 'contact-detail' && id) loadContactDetail(id)
+  else if (view === 'accounts') loadAccountsList()
+  else if (view === 'account-detail' && id) loadAccountDetail(id)
   else if (view === 'test-beds') loadTestBeds()
   else if (view === 'opportunities') loadOpportunities()
   else if (view === 'test-bed-detail' && id) loadTestBedDetail(id)
@@ -91,15 +93,82 @@ function switchOppTab(tab) {
   document.getElementById(`opp-tab-${tab}`).classList.remove('hidden')
 }
 
-// Test Bed detail tabs (Reference / Site Details / Documents / Approvals) -
-// same static-tab-bar-wired-once pattern as Opportunity's above.
+// Test Bed detail tabs (Reference / Commercials / 8 stage tabs) - same
+// static-tab-bar-wired-once pattern as Opportunity's above.
+//
+// tbUserPickedTab (Round 5 Phase 7, 2026-08-17): a real race found by
+// testing, not assumed safe. renderTestBedDetail's own load sequence
+// does two real, awaited network round-trips (fetchStages,
+// loadTerminusStaffIfNeeded) after the page and its tab bar are already
+// visible and clickable, before its own unconditional switchTbTab
+// ('reference') call runs - a real user clicking a stage tab in that
+// window (the tab buttons are static HTML, clickable the instant the
+// view itself is shown, well before that data has necessarily finished)
+// had their click silently overwritten moments later when the page's
+// own default-to-Reference call finally ran, confirmed live: the
+// stage tab's content loaded correctly in the background, but the
+// panel stayed hidden, Reference stayed shown. Fixed by tracking
+// whether the user has genuinely clicked a tab since the current load
+// began; the auto-switch-to-Reference is skipped if so, deferring to
+// their real choice instead of quietly discarding it. Reset to false at
+// the start of every loadTestBedDetail call, so a genuinely new
+// navigation (a different Test Bed, or the existing save-triggered
+// reload behaviour, both pre-existing and unchanged) still defaults to
+// Reference exactly as before - this only protects a click that
+// happens to race ahead of that same load's own completion.
+let tbUserPickedTab = false
 document.querySelectorAll('#tb-detail-tabs .detail-tab').forEach(btn => {
-  btn.addEventListener('click', () => switchTbTab(btn.dataset.tbTab))
+  btn.addEventListener('click', () => { tbUserPickedTab = true; switchTbTab(btn.dataset.tbTab) })
 })
+// Round 5 Phase 7 (2026-08-17): tab ids starting "stage-" (the 8 new
+// stage buttons, data-tb-tab="stage-<Stage Name>") all share one
+// physical panel, #tb-tab-stage-detail, rather than 8 separate ones -
+// the active-highlighting above still works per-button (each has its
+// own distinct data-tb-tab value), only which panel is revealed and
+// what's loaded into it is special-cased here.
+// Round 5 Phase 7 (2026-08-17): "the current, active stage's tab is
+// visually distinguishable from the others" - distinct from .active
+// above, which just marks whichever tab is currently *open* (any of the
+// 10 can be clicked into at any time, including peeking at a future or
+// past stage). This marks whichever ONE of the 8 stage tabs matches the
+// record's real current stage (bed.status), regardless of which tab is
+// currently selected - same green dot the chevron strip and the
+// Approvals row already use for "current," not a new accent colour
+// invented for this (this app's own rule: the brand accent is reserved
+// for live states, flagging a difference uses a label/marker, not a new
+// colour). Called once per detail-page render, not per tab switch - the
+// record's real stage doesn't change just from clicking through tabs.
+function markTbCurrentStageTab(currentStage) {
+  document.querySelectorAll('#tb-detail-tabs .detail-tab[data-tb-tab^="stage-"]').forEach(btn => {
+    const stageName = btn.dataset.tbTab.slice('stage-'.length)
+    const isReallyCurrent = stageName === currentStage
+    let dot = btn.querySelector('.tb-tab-current-dot')
+    if (isReallyCurrent && !dot) {
+      dot = document.createElement('span')
+      dot.className = 'sa-dot tb-tab-current-dot'
+      // display:inline-block set explicitly here, not just via the
+      // .sa-dot class - .sa-dot's own width/height only take effect
+      // inside a flex container (its one existing usage,
+      // buildStageApprovalRowHtml's .sa-stage row), a plain <button>
+      // like .detail-tab is not one, so width/height on a default
+      // display:inline span would otherwise be silently ignored.
+      dot.style.cssText = 'background:var(--green);margin-right:6px;display:inline-block'
+      btn.prepend(dot)
+    } else if (!isReallyCurrent && dot) {
+      dot.remove()
+    }
+  })
+}
+
 function switchTbTab(tab) {
   document.querySelectorAll('#tb-detail-tabs .detail-tab').forEach(b => b.classList.toggle('active', b.dataset.tbTab === tab))
   document.querySelectorAll('#view-test-bed-detail .detail-tab-panel').forEach(p => p.classList.add('hidden'))
-  document.getElementById(`tb-tab-${tab}`).classList.remove('hidden')
+  if (tab.startsWith('stage-')) {
+    document.getElementById('tb-tab-stage-detail').classList.remove('hidden')
+    loadTbStageDetailTab(tab.slice('stage-'.length))
+  } else {
+    document.getElementById(`tb-tab-${tab}`).classList.remove('hidden')
+  }
 }
 
 // ── API ───────────────────────────────────────────────────────────────────────
@@ -212,24 +281,200 @@ async function fetchStages(record_type) {
   return stageCache[record_type] ?? []
 }
 
-// Dot-based linear tracker — used for Opportunities.
-function renderStageTracker(elementId, currentStage, stages) {
-  const tracker = document.getElementById(elementId)
-  if (!tracker || !stages.length) { if (tracker) tracker.innerHTML = ''; return }
+// ── Terminus staff cache (2026-08-16) ───────────────────────────────────────
+// Sources Terminus Lead / Commercial / Technical / Legal Authority on both
+// Test Bed and Opportunity - fetched once, lazily, same pattern as
+// stageCache above. Called from both renderTestBedDetail and
+// renderOppDetail (app.js) before their own panel's render, since both
+// need the names available synchronously by the time their field rows
+// build their <select> options.
+let terminusStaffCache = []
 
-  const currentIdx = stages.findIndex(s => s.stage_name === currentStage)
-  tracker.innerHTML = stages.map((stage, i) => {
-    const cls = i < currentIdx ? 'done' : i === currentIdx ? 'current' : ''
-    return `
-    <div class="tstage ${cls}">
-      <div class="tline"></div>
-      <div class="tdot"></div>
-      <div class="tlabel">${escHtml(stage.stage_name)}</div>
-    </div>`
-  }).join('')
+async function loadTerminusStaffIfNeeded() {
+  if (terminusStaffCache.length) return
+  const result = await api('GET', '/api/terminus-staff')
+  if (result.ok) terminusStaffCache = result.data
 }
 
-// Chevron-style strip — used for Test Beds.
+// ── Inline qualified Contact creation from Buyer Role dropdowns
+// (Round 5 Phase 9, 2026-08-17) ──────────────────────────────────────
+// Shared by Test Bed and Opportunity - one implementation, matching the
+// brief's own "confirmed scope, both." Orchestrates four already-proven,
+// existing endpoints in sequence rather than a new backend endpoint:
+// POST /contacts, POST /contacts/:id/link-account, POST
+// /records/:id/transition (the exact same real gate check every other
+// Qualified transition in this app goes through - "being selected as a
+// buyer implies qualification" per the brief, not a shortcut that just
+// marks the row qualified), then the record type's own buyer-contacts
+// endpoint. Each already has its own real validation; chaining them is
+// genuinely just orchestration, not a second implementation of
+// anything.
+let ibcContext = null // { recordType: 'test_bed' | 'opportunity', recordId, accountId, role }
+let ibcKeydownHandler = null
+
+window.openInlineBuyerContactModal = async function (recordType, recordId, accountId, role) {
+  ibcContext = { recordType, recordId, accountId, role }
+  // Round 6 Phase 2 (2026-08-17): title stays "New Contact" regardless
+  // of which buyer role triggered this - previously interpolated the
+  // role in ("New Client Commercial Buyer"), dropped deliberately, the
+  // role context still lives in the subtitle text below and in which
+  // field the resulting Contact gets linked back to.
+  document.getElementById('inline-buyer-contact-heading').textContent = 'New Contact'
+  ;['ibc-name', 'ibc-jobrole', 'ibc-email', 'ibc-mobile', 'ibc-address', 'ibc-address2', 'ibc-city', 'ibc-postcode', 'ibc-country', 'ibc-linkedin', 'ibc-summary']
+    .forEach(id => { document.getElementById(id).value = '' })
+  document.getElementById('ibc-region').value = ''
+  document.getElementById('ibc-source').value = ''
+  document.getElementById('inline-buyer-contact-error').classList.add('hidden')
+
+  if (!industriesCache.length) {
+    const result = await api('GET', '/api/industries')
+    if (result.ok) industriesCache = result.data
+  }
+  document.getElementById('ibc-industry').innerHTML = '<option value="">Select industry</option>' +
+    industriesCache.map(i => `<option value="${i.id}">${escHtml(i.name)}</option>`).join('')
+  document.getElementById('ibc-industry').value = ''
+
+  const modal = document.getElementById('inline-buyer-contact-modal')
+  modal.classList.remove('hidden')
+  document.getElementById('ibc-name').focus()
+
+  // Full focus trap (INTERACTION_STANDARDS.md Section 4), same generic
+  // querySelectorAll pattern already used for the Account Details panel
+  // (contact-detail.js) rather than a hardcoded field list - this form
+  // has a similar field count.
+  ibcKeydownHandler = (e) => {
+    if (e.key === 'Escape') { e.preventDefault(); closeInlineBuyerContactModal(); return }
+    if (e.key !== 'Tab') return
+    const focusable = [...modal.querySelectorAll('input, select, button, textarea')].filter(el => el.offsetParent !== null && !el.disabled)
+    if (!focusable.length) return
+    const first = focusable[0]
+    const last = focusable[focusable.length - 1]
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus() }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus() }
+  }
+  document.addEventListener('keydown', ibcKeydownHandler)
+}
+
+window.closeInlineBuyerContactModal = function () {
+  document.getElementById('inline-buyer-contact-modal').classList.add('hidden')
+  if (ibcKeydownHandler) { document.removeEventListener('keydown', ibcKeydownHandler); ibcKeydownHandler = null }
+  ibcContext = null
+}
+
+window.saveInlineBuyerContact = async function () {
+  const errEl = document.getElementById('inline-buyer-contact-error')
+  errEl.classList.add('hidden')
+  if (!ibcContext) return
+
+  const val = (id) => document.getElementById(id).value.trim()
+  const fields = {
+    name: val('ibc-name'), industry_id: document.getElementById('ibc-industry').value,
+    jobRole: val('ibc-jobrole'), email: val('ibc-email'), mobile: val('ibc-mobile'),
+    address: val('ibc-address'), address2: val('ibc-address2'), city: val('ibc-city'),
+    postcode: val('ibc-postcode'), country: val('ibc-country'), region: document.getElementById('ibc-region').value,
+    linkedin: val('ibc-linkedin'), source: document.getElementById('ibc-source').value, summary: val('ibc-summary'),
+  }
+
+  // Client-side check is a hint only - the real, authoritative gate is
+  // the Qualified transition attempted below (step 3), same "never
+  // trust client-only validation for a decision-relevant state change"
+  // rule this app applies everywhere else. address2 deliberately
+  // excluded - it's genuinely optional in leadQualifyRequired.
+  const REQUIRED = ['name', 'industry_id', 'jobRole', 'email', 'mobile', 'address', 'city', 'postcode', 'country', 'region', 'linkedin', 'source', 'summary']
+  const missing = REQUIRED.filter(k => !fields[k])
+  if (missing.length) {
+    errEl.textContent = `Missing: ${missing.join(', ')}`
+    errEl.classList.remove('hidden')
+    return
+  }
+
+  const btn = document.getElementById('inline-buyer-contact-save')
+  btn.disabled = true
+  const originalText = btn.textContent
+  btn.textContent = 'Creating...'
+
+  try {
+    // Step 1: create. Company auto-derived from the record's own real
+    // linked Account (never re-typed by the user) - the free-text field
+    // still gets a real, accurate value, just not one asked for
+    // redundantly when the real Account link (step 2) is what actually
+    // matters for qualification.
+    const accountName = accountsCache.find(a => a.id === ibcContext.accountId)?.payload?.name ?? ''
+    const created = await api('POST', '/api/contacts', {
+      name: fields.name, company: accountName, email: fields.email, mobile: fields.mobile,
+      industry_id: fields.industry_id, source: fields.source, jobRole: fields.jobRole,
+      linkedin: fields.linkedin, address: fields.address, address2: fields.address2 || undefined,
+      city: fields.city, postcode: fields.postcode, country: fields.country, region: fields.region,
+      summary: fields.summary,
+    })
+    if (!created.ok) {
+      errEl.textContent = created.data?.error ?? 'Failed to create Contact.'
+      errEl.classList.remove('hidden')
+      return
+    }
+    const contactId = created.data.id
+
+    // Step 2: the real Account link - satisfies the qualification
+    // gate's own "Company" requirement (parent_record_id, not the
+    // free-text field written in step 1).
+    const linked = await api('POST', `/api/contacts/${contactId}/link-account`, { account_id: ibcContext.accountId })
+    if (!linked.ok) {
+      errEl.innerHTML = `${escHtml(linked.data?.error ?? 'Failed to link Account.')} The Contact was created but is not yet linked or qualified - open it directly (Contacts list) to fix this rather than creating another one.`
+      errEl.classList.remove('hidden')
+      return
+    }
+
+    // Step 3: the real transition - the exact same endpoint and gate
+    // check every other Qualified transition in this app goes through.
+    const qualified = await api('POST', `/api/records/${contactId}/transition`, { to_stage: 'Qualified' })
+    if (!qualified.ok) {
+      const reason = qualified.status === 422 && qualified.data.blocking?.length
+        ? qualified.data.blocking.map(b => b.message).join('; ')
+        : (qualified.data?.error ?? 'Qualification failed.')
+      errEl.innerHTML = `Contact created and linked to the Account, but qualification was genuinely blocked: ${escHtml(reason)}. Open the Contact directly (Contacts list) to fix this.`
+      errEl.classList.remove('hidden')
+      return
+    }
+
+    // Step 4: link as this specific buyer role, the same endpoint the
+    // ordinary (already-qualified-Contact) dropdown flow already uses.
+    const path = ibcContext.recordType === 'test_bed'
+      ? `/api/test-beds/${ibcContext.recordId}/buyer-contacts`
+      : `/api/opportunities/${ibcContext.recordId}/buyer-contacts`
+    const roleLinked = await api('POST', path, { role: ibcContext.role, contact_id: contactId })
+    if (!roleLinked.ok) {
+      errEl.innerHTML = `Contact created, linked to the Account, and qualified, but linking as ${escHtml(ibcContext.role)} failed: ${escHtml(roleLinked.data?.error ?? 'unknown error')}. It can be linked directly from the role dropdown now that it's qualified.`
+      errEl.classList.remove('hidden')
+      return
+    }
+
+    // Full success - return to the original screen, per the brief, with
+    // the new Contact now selectable and correctly linked (the reload
+    // below picks it up via the record's own buyer_contacts, already
+    // written by step 4).
+    const { recordType, recordId } = ibcContext
+    closeInlineBuyerContactModal()
+    if (recordType === 'test_bed') {
+      await loadTestBedDetail(recordId)
+    } else {
+      await loadOpportunityDetail(recordId)
+    }
+  } finally {
+    btn.disabled = false
+    btn.textContent = originalText
+  }
+}
+
+document.getElementById('inline-buyer-contact-close').addEventListener('click', window.closeInlineBuyerContactModal)
+document.getElementById('inline-buyer-contact-cancel').addEventListener('click', window.closeInlineBuyerContactModal)
+document.getElementById('inline-buyer-contact-save').addEventListener('click', window.saveInlineBuyerContact)
+document.getElementById('inline-buyer-contact-modal').addEventListener('click', (e) => {
+  if (e.target.id === 'inline-buyer-contact-modal') window.closeInlineBuyerContactModal()
+})
+
+// Chevron-style strip — used for Test Beds and Opportunities (2026-08-16
+// - the old dot-based renderStageTracker, used only by Opportunity, is
+// removed entirely, not left dead alongside this).
 // Phase groups (e.g. all Planning sub-stages) collapse to a single chevron.
 function renderChevronStrip(elementId, currentStage, stages) {
   const el = document.getElementById(elementId)
@@ -409,7 +654,6 @@ window.toggleLegacyLeadExpand = (id) => {
 let contactsCache = []
 let accountsCache = []
 let industriesCache = []
-let expandedContactId = null
 let leadsMineOnly = false
 let contactsMineOnly = false
 
@@ -465,6 +709,92 @@ function renderBothContactGrids() {
   renderLeadsCards()
   renderContactGrid('contacts-rows', c => c.status === 'Qualified', contactsMineOnly, 'No contacts yet.')
 }
+
+// ── Accounts (Round 5 Phase 10, 2026-08-17) ─────────────────────────────
+// Genuinely new module - no list/detail screen existed before this,
+// Account was only ever reachable through pickers (Round 4's own
+// investigation). List view reuses accountsCache but always refetches
+// fresh on load (same "small enough in this dev-stage app, staleness
+// risk isn't worth caching" reasoning loadContactsData's own comment
+// above already gives for the exact same table).
+async function loadAccountsList() {
+  const result = await api('GET', '/api/accounts')
+  if (!result.ok) {
+    document.getElementById('accounts-rows').innerHTML = '<p class="empty-state">Failed to load accounts.</p>'
+    return
+  }
+  accountsCache = result.data
+  renderAccountsList(accountsCache)
+}
+
+function renderAccountsList(accounts) {
+  const el = document.getElementById('accounts-rows')
+  if (!accounts.length) {
+    el.innerHTML = '<p class="empty-state">No accounts yet.</p>'
+    return
+  }
+  // Parent Account name resolution: a plain client-side lookup against
+  // this same already-fetched list - every Parent Account is itself a
+  // real Account, so it's always present in the same array, no second
+  // fetch needed.
+  const byId = {}
+  for (const a of accounts) byId[a.id] = a
+  const sorted = [...accounts].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+  el.innerHTML = sorted.map(a => {
+    const p = a.payload ?? {}
+    const parentName = a.parent_account_id ? (byId[a.parent_account_id]?.payload?.name ?? '--') : '--'
+    return `
+    <div class="record-grid-row" onclick="navigate('account-detail', '${a.id}')">
+      <div class="rg-name">
+        <div class="rg-title">${escHtml(p.name ?? '--')}</div>
+        <div class="rg-meta">${escHtml(a.reference_code || 'Not yet generated')}</div>
+      </div>
+      <span class="rg-combined">${escHtml(parentName)}</span>
+      <span class="rg-combined">${formatDate(a.created_at)}</span>
+    </div>`
+  }).join('')
+}
+
+// "+ New Account" - a minimal, single-field prompt (see index.html's own
+// comment on #new-account-modal for why this stays lightweight rather
+// than duplicating the full Account Details field set again) - creates
+// via the same real POST /api/accounts Round 4 already built and proved,
+// then navigates straight to the new Account's own detail page to fill
+// in everything else via click-to-edit.
+function openNewAccountModal() {
+  document.getElementById('new-account-name').value = ''
+  document.getElementById('new-account-error').classList.add('hidden')
+  document.getElementById('new-account-modal').classList.remove('hidden')
+  document.getElementById('new-account-name').focus()
+}
+function closeNewAccountModal() {
+  document.getElementById('new-account-modal').classList.add('hidden')
+}
+async function saveNewAccount() {
+  const name = document.getElementById('new-account-name').value.trim()
+  const errEl = document.getElementById('new-account-error')
+  errEl.classList.add('hidden')
+  if (!name) {
+    errEl.textContent = 'Account Name is required.'
+    errEl.classList.remove('hidden')
+    return
+  }
+  const result = await api('POST', '/api/accounts', { name })
+  if (!result.ok) {
+    errEl.textContent = result.data?.error ?? 'Failed to create Account.'
+    errEl.classList.remove('hidden')
+    return
+  }
+  closeNewAccountModal()
+  navigate('account-detail', result.data.id)
+}
+document.getElementById('btn-new-account').addEventListener('click', openNewAccountModal)
+document.getElementById('new-account-cancel').addEventListener('click', closeNewAccountModal)
+document.getElementById('new-account-modal').addEventListener('click', (e) => {
+  if (e.target.id === 'new-account-modal') closeNewAccountModal()
+})
+document.getElementById('new-account-save').addEventListener('click', saveNewAccount)
+document.getElementById('btn-back-account-detail').addEventListener('click', () => navigate('accounts'))
 
 // Shared core of the Add Note mechanism (2026-08-14): just the write,
 // into the same real notes array every note-producing action already
@@ -641,14 +971,15 @@ function renderContactGrid(containerId, statusPredicate, mineOnly, emptyLabel) {
       <div class="contact-row-name">
         <div class="rg-title">${escHtml(p.name ?? '--')}</div>
       </div>
+      ${renderContactCountCell(c)}
       <span>${escHtml(companyDisplay)}</span>
       <span>${escHtml(industry?.name ?? '--')}</span>
       <span>${escHtml(p.jobRole ?? '--')}</span>
       <span>${escHtml(p.email ?? '--')}</span>
       <span>${escHtml(p.source ?? '--')}</span>
-      ${renderContactCountCell(c)}
       <div class="contact-row-actions">${renderContactRowActions(c)}</div>
     </div>
+    ${contactCreateFeedback[c.id] ? `<div class="contact-create-feedback-row" onclick="event.stopPropagation()">${contactCreateFeedback[c.id]}</div>` : ''}
     `
   }).join('')
 }
@@ -657,122 +988,138 @@ function renderContactGrid(containerId, statusPredicate, mineOnly, emptyLabel) {
 // (contact.linked_test_beds/linked_opportunities, populated by GET
 // /api/contacts, matched on (record_id, contact_id) regardless of role),
 // not derived client-side. Zero counts render as plain, non-clickable
-// text - nothing to show. Non-zero counts open the shared named-record
-// list modal (also used by the pre-create warning, showLinkedRecordsModal
-// below) rather than navigating anywhere, since more than one linked
-// record makes a single destination ambiguous and this app has no
-// filtered-list-by-contact view to send a count > 1 to.
+// text - nothing to show. Non-zero counts show an inline hover preview
+// (2026-08-16, Phase 5) rather than opening the shared named-record list
+// modal on click - the modal is still used elsewhere (the pre-create
+// warning, openLinkedRecordsModal) but a full dialog is heavier than this
+// list needs for a quick peek.
+//
+// The popup is always in the DOM (class="hidden" by default) and toggled
+// via plain classList, NOT via a JS state variable + renderBothContactGrids()
+// re-render - tried that first and found a real bug: replacing the
+// hovered element's own DOM node mid-hover (which innerHTML-based
+// re-rendering always does) confuses the browser's mouseenter/mouseleave
+// tracking, since those events are edge-triggered against element
+// identity. Verified via Puppeteer with instrumented handlers: mouseenter
+// fired twice in a loop and mouseleave never fired at all, leaving the
+// popup stuck open. Toggling a class on a stable, never-replaced node
+// avoids the problem entirely. The wrapper (contact-count-hover)
+// contains both the label and the popup, so moving from one into the
+// other never counts as leaving.
 function renderContactCountCell(c) {
   const tb = c.linked_test_beds ?? []
   const opp = c.linked_opportunities ?? []
   const tbLabel = `${tb.length} Test Bed${tb.length === 1 ? '' : 's'}`
   const oppLabel = `${opp.length} Opportunit${opp.length === 1 ? 'y' : 'ies'}`
-  const tbSpan = tb.length
-    ? `<span class="count-link" onclick="event.stopPropagation();showContactLinkedRecords('${c.id}', 'test_bed')">${tbLabel}</span>`
-    : `<span class="count-zero">${tbLabel}</span>`
-  const oppSpan = opp.length
-    ? `<span class="count-link" onclick="event.stopPropagation();showContactLinkedRecords('${c.id}', 'opportunity')">${oppLabel}</span>`
-    : `<span class="count-zero">${oppLabel}</span>`
+  const tbSpan = tb.length ? renderContactCountHover('test_bed', tb, tbLabel) : `<span class="count-zero">${tbLabel}</span>`
+  const oppSpan = opp.length ? renderContactCountHover('opportunity', opp, oppLabel) : `<span class="count-zero">${oppLabel}</span>`
   return `<div class="contact-count-cell">${tbSpan}${oppSpan}</div>`
 }
 
-window.showContactLinkedRecords = function (contactId, type) {
-  const c = contactsCache.find(cc => cc.id === contactId)
-  if (!c) return
-  const records = type === 'test_bed' ? (c.linked_test_beds ?? []) : (c.linked_opportunities ?? [])
-  const label = type === 'test_bed' ? 'Test Beds' : 'Opportunities'
-  const name = c.payload?.name || 'This contact'
-  openLinkedRecordsModal({
-    heading: `${label} linked to ${name}`,
-    records,
-    type,
-  })
+function renderContactCountHover(type, records, label) {
+  return `
+  <span class="contact-count-hover" onmouseenter="event.stopPropagation();this.querySelector('.contact-count-popup').classList.remove('hidden')" onmouseleave="event.stopPropagation();this.querySelector('.contact-count-popup').classList.add('hidden')">
+    <span class="count-link">${label}</span>
+    ${renderContactCountPopup(records, type)}
+  </span>`
+}
+
+function renderContactCountPopup(records, type) {
+  const view = type === 'test_bed' ? 'test-bed-detail' : 'opportunity-detail'
+  const items = records.map(r => `
+    <div class="linked-record-row" onclick="event.stopPropagation();navigate('${view}', '${r.id}')">
+      <span>${escHtml(r.name || 'Untitled')}</span>
+    </div>`).join('')
+  return `<div class="contact-count-popup hidden">${items}</div>`
 }
 
 // Qualify/Park/Unqualified moved to the detail page only (2026-08-14) -
 // this list is for tracking and note-taking now, not stage actions.
 // renderContactRowActions is Contacts-only (Leads has its own
-// renderLeadsCards above), so c.status is always 'Qualified' here -
-// "Manage" survives only for + Create (Qualified only) and Delete.
+// renderLeadsCards above), so c.status is always 'Qualified' here - the
+// old isQualified branch this used to guard + Create with is dead in
+// this caller and was removed (2026-08-16, Phase 5) along with it.
 //
-// Real popup menu (2026-08-15 fix), not the old inline-expanding panel
-// that pushed rows below it down the page - see .contact-row-menu in
-// style.css for the positioning mechanism. The trigger stops
-// propagation so opening/closing it never also fires the row's own
-// onclick (whole-row-navigates, added in the same fix below).
+// + Create is now a hover-triggered dropdown, matching the prototype's
+// own Contacts row exactly (Terminus Ops.dc.html:303-311), not the old
+// click-triggered "Manage" popup. Same always-in-DOM-toggle-a-class
+// approach as the count preview above, for the same reason (see the
+// comment there) - a state variable + full re-render on hover replaces
+// the hovered node itself and breaks mouseleave. The wrapper
+// (contact-create-hover) contains both the trigger label and the
+// dropdown, so moving from one into the other never counts as leaving.
+// Delete stays a plain click, same as the prototype's separate ✕.
+let contactCreateFeedback = {} // contactId -> feedback HTML | null
+
 function renderContactRowActions(c) {
-  const isExpanded = expandedContactId === c.id
   return `
-  <button class="btn-text" onclick="event.stopPropagation();toggleContactRowMenu('${c.id}')">${isExpanded ? 'Close' : 'Manage'}</button>
-  ${isExpanded ? renderContactRowMenu(c) : ''}
+  <span class="contact-create-hover" onmouseenter="event.stopPropagation();this.querySelector('.contact-create-dropdown').classList.remove('hidden')" onmouseleave="event.stopPropagation();this.querySelector('.contact-create-dropdown').classList.add('hidden')">
+    <span class="contact-create-trigger">+ Create</span>
+    <div class="contact-create-dropdown hidden" onclick="event.stopPropagation()">
+      <div class="contact-create-item" onclick="this.closest('.contact-create-dropdown').classList.add('hidden');onContactCreateClick('${c.id}', 'test-bed')">Test Bed</div>
+      <div class="contact-create-item" onclick="this.closest('.contact-create-dropdown').classList.add('hidden');onContactCreateClick('${c.id}', 'opportunity')">Opportunity</div>
+    </div>
+  </span>
+  <button class="btn-text" onclick="event.stopPropagation();deleteContact('${c.id}')">✕</button>
   `
 }
 
-function renderContactRowMenu(c) {
-  const isQualified = c.status === 'Qualified'
-
-  // Stops propagation once, on the wrapper, rather than on every button
-  // inside it - anything clicked in here (Create, Delete, the feedback
-  // link) is caught before it can bubble to the row's own navigate.
-  return `
-  <div class="contact-row-menu" id="contact-manage-${c.id}" onclick="event.stopPropagation()">
-    ${isQualified ? `
-    <div class="contact-manage-create">
-      <span class="cm-label">+ Create</span>
-      <button class="btn-sm btn-primary" onclick="createFromContact('${c.id}', 'test-bed')">Test Bed</button>
-      <button class="btn-sm btn-primary" onclick="createFromContact('${c.id}', 'opportunity')">Opportunity</button>
-    </div>
-    <div id="contact-create-feedback-${c.id}"></div>` : ''}
-    <div class="contact-manage-delete">
-      <button class="btn-text" onclick="deleteContact('${c.id}')">✕ Delete</button>
-    </div>
-  </div>`
+window.onContactCreateClick = (id, type) => {
+  createFromContact(id, type)
 }
 
-window.toggleContactRowMenu = (id) => {
-  expandedContactId = expandedContactId === id ? null : id
-  renderBothContactGrids()
-}
-
-// Click-outside-to-close: every interactive element inside the open
-// menu (and its own trigger) stops propagation, so any click that
-// reaches document is by definition outside both - no closest()
-// checks needed. Escape mirrors this app's other overlays.
-document.addEventListener('click', () => {
-  if (!expandedContactId) return
-  expandedContactId = null
-  renderBothContactGrids()
-})
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && expandedContactId) {
-    expandedContactId = null
-    renderBothContactGrids()
-  }
-})
-
-// Pre-create warning (2026-08-15) - checks the same cached
-// linked_test_beds/linked_opportunities the count column already shows
-// (from GET /api/contacts, no extra fetch here), not a hard block: real
-// business reasons exist to create a second Test Bed/Opportunity for the
-// same contact, this just makes sure it's not accidental. type here is
-// this function's own existing convention ('test-bed'/'opportunity',
-// hyphenated, matching both call sites - the Contacts list menu and
-// Contact detail's own + Create section), distinct from the backend's
-// record_type value ('test_bed', underscored) used by linked_test_beds -
-// translated explicitly below, not assumed to match.
-window.createFromContact = (id, type) => {
+// Pre-create warning - narrowed (2026-08-16, applied symmetrically to
+// both Test Bed and Opportunity per Phase 1's own "applies symmetrically
+// to both initialLead and customerLead" precedent) to genuinely check
+// the origin-contact field, not any record_contacts link regardless of
+// role. The check exists to avoid a duplicate record for the same
+// ORIGINATING contact, which is what Client Lead (initialLead) /
+// customerLead represent - a Contact who merely holds some buyer role on
+// an unrelated record isn't that, and used to trigger this warning
+// anyway (the old c.linked_test_beds/linked_opportunities check, still
+// used unchanged by the Records column's hover preview below - Phase 5,
+// deliberately not touched here, matches on (record_id, contact_id)
+// regardless of role by design, a different job than this warning's).
+//
+// Neither origin-contact field has a record_contacts role of its own to
+// filter by - the row written at creation is always role 'commercial
+// buyer' regardless (contacts.js's linkContact default), so the only
+// reliable signal is a direct match against the record's own
+// initialLead/customerLead string against this contact's current name,
+// same value it was copied from at creation. Always a fresh fetch, not
+// testBedsCache/opportunitiesCache - neither is guaranteed populated
+// here, only once its own list has been visited. Fails open (no
+// warning) on a fetch error - a courtesy check, not a hard block, so a
+// network hiccup shouldn't stop a legitimate create.
+window.createFromContact = async (id, type) => {
   const c = contactsCache.find(cc => cc.id === id)
   const recordType = type === 'opportunity' ? 'opportunity' : 'test_bed'
-  const existing = recordType === 'opportunity' ? (c?.linked_opportunities ?? []) : (c?.linked_test_beds ?? [])
+  const contactName = c?.payload?.name ?? ''
+
+  let existing = []
+  if (contactName) {
+    const path = recordType === 'opportunity' ? '/api/opportunities' : '/api/test-beds'
+    const leadKey = recordType === 'opportunity' ? 'customerLead' : 'initialLead'
+    const result = await api('GET', path)
+    const records = result.ok ? result.data : []
+    existing = records
+      .filter(r => (r.payload?.[leadKey] ?? '') === contactName)
+      .map(r => ({ id: r.id, name: r.payload?.name || r.reference_code || 'Untitled' }))
+  }
 
   if (existing.length) {
-    const label = recordType === 'opportunity' ? 'an Opportunity' : 'a Test Bed'
     const name = c?.payload?.name || 'This contact'
     openLinkedRecordsModal({
-      heading: `${name} already has ${label}`,
+      heading: `${name} already linked to`,
       records: existing,
       type: recordType,
-      proceedLabel: recordType === 'opportunity' ? 'Create Opportunity anyway' : 'Create Test Bed anyway',
+      // Round 3 Phase 2 (2026-08-17): Opportunity only, per that round's
+      // brief scope. Round 5 Phase 2 (2026-08-17): Test Bed's own label
+      // renamed from 'Add Another' to 'Add New', its own brief's explicit
+      // instruction, done alongside the naming-distinguishing fix since
+      // 'Add Another' implied "another one just like it," which is
+      // exactly the behaviour this phase corrects.
+      proceedLabel: recordType === 'opportunity' ? 'Create New Opportunity' : 'Add New',
       onProceed: () => performCreateFromContact(id, type),
     })
     return
@@ -781,20 +1128,41 @@ window.createFromContact = (id, type) => {
   performCreateFromContact(id, type)
 }
 
+// Writes into contactCreateFeedback + a full re-render, not a direct DOM
+// write (2026-08-16, Phase 5) - the old feedback div lived inside the
+// click-toggled Manage popup, which stayed open until dismissed; the new
+// + Create dropdown is hover-only and closes the moment the mouse leaves
+// it (already closed by the time this async call resolves), so the
+// result needs to persist in state and render as its own row under the
+// contact, independent of hover state.
 async function performCreateFromContact(id, type) {
-  const feedback = document.getElementById(`contact-create-feedback-${id}`)
-  feedback.innerHTML = ''
+  contactCreateFeedback[id] = null
+  renderBothContactGrids()
 
   const path = type === 'opportunity' ? `/api/contacts/${id}/create-opportunity` : `/api/contacts/${id}/create-test-bed`
   const result = await api('POST', path)
 
   if (!result.ok) {
-    feedback.innerHTML = `<p class="msg-error">${escHtml(result.data.error ?? 'Failed to create record.')}</p>`
+    contactCreateFeedback[id] = `<p class="msg-error">${escHtml(result.data.error ?? 'Failed to create record.')}</p>`
+    renderBothContactGrids()
     return
   }
 
-  const view = type === 'opportunity' ? 'opportunity-detail' : 'test-bed-detail'
-  feedback.innerHTML = `<p class="msg-success">Created. <button class="btn-text" style="color:var(--green)" onclick="navigate('${view}', '${result.data.id}')">View it</button></p>`
+  // Round 3 Phase 2 (2026-08-17): Opportunity now navigates straight to
+  // the new record's detail page rather than leaving the user on the
+  // Contacts list with a manual "View it" link. Applies to both the path
+  // that goes through the linked-records warning above and the plain
+  // first-Opportunity path (they share this one function) - there's no
+  // reason the same create action should behave differently depending on
+  // whether a warning happened to fire first. Test Bed is untouched, the
+  // brief scoped this to Opportunity only.
+  if (type === 'opportunity') {
+    navigate('opportunity-detail', result.data.id)
+    return
+  }
+
+  contactCreateFeedback[id] = `<p class="msg-success">Created. <button class="btn-text" style="color:var(--green)" onclick="navigate('test-bed-detail', '${result.data.id}')">View it</button></p>`
+  renderBothContactGrids()
 }
 
 // Not routed through openDiscardConfirm (2026-08-15 check): that dialog's
@@ -810,7 +1178,6 @@ window.deleteContact = (id) => {
   const c = contactsCache.find(cc => cc.id === id)
   const name = c?.payload?.name ?? 'this contact'
   openConfirmDelete(name, async () => {
-    expandedContactId = null
     const result = await api('DELETE', `/api/contacts/${id}`)
     if (!result.ok) return
     await loadContactsData()
@@ -1122,6 +1489,14 @@ document.getElementById('btn-save-contact').addEventListener('click', saveContac
 
 // Company is plain free text here (2026-08-13 correction) - no Account
 // picker at fast lead entry. Only Industry still needs a real picklist.
+// Round 4 Phase 5 (2026-08-17): Company also gets a lightweight <datalist>
+// of existing Account names, suggestion only - the field itself is
+// unchanged, still a plain text input, no id is ever attached to what's
+// typed. Reuses accountsCache as-is (already fresh, loadContactsData()
+// refetches it on every Leads page load, same reasoning that cache
+// already documents for why it isn't cached across calls here) - no new
+// fetch, matching the "no new search endpoint" precedent already set by
+// Contact detail's own Account search.
 async function populateContactFormPickers() {
   if (!industriesCache.length) {
     const indResult = await api('GET', '/api/industries')
@@ -1130,6 +1505,9 @@ async function populateContactFormPickers() {
 
   document.getElementById('contact-industry').innerHTML = '<option value="">Select industry</option>' +
     industriesCache.map(i => `<option value="${i.id}">${escHtml(i.name)}</option>`).join('')
+
+  document.getElementById('contact-company-list').innerHTML =
+    accountsCache.map(a => `<option value="${escHtml(a.payload?.name ?? '')}">`).join('')
 }
 
 async function saveContact() {
@@ -1208,23 +1586,165 @@ let testBedsCache = []
 let testBedsMineOnly = false
 let tbSortKey = 'created_at'
 let tbSortDir = 'desc'
+let tbStagesCache = [] // [{stage_name, sort_order, phase}], set once per loadTestBeds()
 
 async function loadTestBeds() {
-  const result = await api('GET', '/api/test-beds')
+  const [result] = await Promise.all([
+    api('GET', '/api/test-beds'),
+    industriesCache.length ? Promise.resolve() : api('GET', '/api/industries').then(r => { if (r.ok) industriesCache = r.data }),
+  ])
+  tbStagesCache = await fetchStages('test_bed')
+
   if (!result.ok) {
     document.getElementById('testbeds-tbody').innerHTML =
-      `<tr><td colspan="7" class="empty-state">Failed to load test beds.</td></tr>`
+      `<tr><td colspan="10" class="empty-state">Failed to load test beds.</td></tr>`
     return
   }
   testBedsCache = result.data
+  renderTestBedMatrices(filterMine(testBedsCache, testBedsMineOnly))
   renderTestBedsTable(filterMine(testBedsCache, testBedsMineOnly))
 }
 
 document.getElementById('testbeds-mine-toggle').addEventListener('click', () => {
   testBedsMineOnly = !testBedsMineOnly
   document.getElementById('testbeds-mine-toggle').textContent = `Mine: ${testBedsMineOnly ? 'On' : 'Off'}`
+  renderTestBedMatrices(filterMine(testBedsCache, testBedsMineOnly))
   renderTestBedsTable(filterMine(testBedsCache, testBedsMineOnly))
 })
+
+// Same 5-region set as test-bed-detail.js's own REGION_OPTIONS
+// (duplicated rather than cross-file referenced, same convention that
+// file already uses for contact-detail.js's region list - see its own
+// comment there).
+const TB_MATRIX_REGIONS = ['Americas', 'Europe & UK', 'Middle East', 'APAC', 'Africa']
+
+// Filter applied to the list below by clicking the matrices (2026-08-16,
+// same day, added after Phase 6's first pass): { status?, industry_name?,
+// region?, label }. A row label click filters by that row's own
+// dimension only; a region header click filters by region only; a cell
+// number click combines both (the row's dimension AND that column's
+// region) - the combined case is the one the required test evidence
+// exercises. Independent of testBedsMineOnly - both apply together in
+// renderTestBedsTable.
+let tbFilter = null
+
+function applyTbFilter(beds) {
+  if (!tbFilter) return beds
+  return beds.filter(b => {
+    if (tbFilter.status != null && (b.status ?? '') !== tbFilter.status) return false
+    if (tbFilter.industry_name != null && (b.industry_name ?? '') !== tbFilter.industry_name) return false
+    if (tbFilter.region != null && (b.payload?.region ?? '') !== tbFilter.region) return false
+    return true
+  })
+}
+
+window.setTbFilter = function (filter) {
+  tbFilter = filter
+  renderTestBedsTable(filterMine(testBedsCache, testBedsMineOnly))
+  document.getElementById('tb-filter-bar')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+}
+window.clearTbFilter = function () {
+  tbFilter = null
+  renderTestBedsTable(filterMine(testBedsCache, testBedsMineOnly))
+}
+
+// Two summary matrices (2026-08-16, Phase 6), matching the prototype's
+// own Test Beds list panels exactly (Terminus Ops.dc.html:603-269 area,
+// "Test beds by status, by region" / "Test beds by industry, by
+// region"). Hover-to-preview on cells (see the Phase 5 count-hover
+// comment for why popup visibility is a classList toggle on an
+// always-in-DOM node, never a JS state variable + re-render - the same
+// mouseenter/mouseleave bug applies here). Click-to-filter on row
+// labels, region headers, and individual cells filters the list below
+// via tbFilter above - added same-day after the first Phase 6 pass, at
+// explicit request, going beyond the prototype's own row/region-only
+// click (which never combines both dimensions) since the required test
+// evidence specifically needs a single cell's exact combination.
+function renderTestBedMatrices(beds) {
+  const container = document.getElementById('tb-matrices')
+  if (!container) return
+
+  const stageRows = tbStagesCache.length
+    ? tbStagesCache.slice().sort((a, b) => a.sort_order - b.sort_order).map(s => ({ key: s.stage_name, label: s.stage_name }))
+    : [...new Set(beds.map(b => b.status).filter(Boolean))].sort().map(s => ({ key: s, label: s }))
+
+  const industryRows = industriesCache.slice()
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map(i => ({ key: i.name, label: i.name }))
+    .filter(row => beds.some(b => (b.industry_name ?? '') === row.key))
+
+  container.innerHTML = `
+    <div class="pg-card">
+      <div class="pg-card-title">Test beds by stage, by region</div>
+      ${renderTbMatrix(beds, stageRows, b => b.status ?? '', 'status')}
+    </div>
+    <div class="pg-card">
+      <div class="pg-card-title">Test beds by industry, by region</div>
+      ${renderTbMatrix(beds, industryRows, b => b.industry_name ?? '', 'industry_name')}
+    </div>
+  `
+}
+
+function renderTbMatrix(beds, rowDefs, rowKeyFn, dimensionKey) {
+  if (!rowDefs.length) return '<p class="empty-state">No test beds yet.</p>'
+
+  // onclick attributes below are single-quote-delimited so a direct
+  // JSON.stringify(...) interpolation (double-quoted JS string values)
+  // never collides with the attribute delimiter - same convention
+  // contact-detail.js's linkCdAccount call already uses. Filter objects
+  // carry the raw, unescaped label text; escaping happens once, only
+  // when the filter bar actually renders it as HTML (renderTestBedsTable
+  // below) - escaping here too would double-escape it there.
+  const header = `
+  <div class="tb-matrix-row tb-matrix-head">
+    <div></div>
+    ${TB_MATRIX_REGIONS.map(r => `
+      <div class="tb-matrix-region-head" title="${escHtml(r)}" onclick='setTbFilter(${JSON.stringify({ region: r, label: `Region: ${r}` })})'>${escHtml(r)}</div>`).join('')}
+    <div class="tb-matrix-tot-head">Tot</div>
+  </div>`
+
+  const rows = rowDefs.map(rowDef => {
+    const rowMatches = beds.filter(b => rowKeyFn(b) === rowDef.key)
+    const rowFilter = { [dimensionKey]: rowDef.key, label: rowDef.label }
+    const cells = TB_MATRIX_REGIONS.map(region => {
+      const matches = rowMatches.filter(b => (b.payload?.region ?? '') === region)
+      const cellFilter = { [dimensionKey]: rowDef.key, region, label: `${rowDef.label} · Region: ${region}` }
+      return renderTbMatrixCell(matches, false, cellFilter)
+    }).join('')
+    return `
+    <div class="tb-matrix-row">
+      <div class="tb-matrix-row-label" title="${escHtml(rowDef.label)}" onclick='setTbFilter(${JSON.stringify(rowFilter)})'>${escHtml(rowDef.label)}</div>
+      ${cells}
+      ${renderTbMatrixCell(rowMatches, true, rowFilter)}
+    </div>`
+  }).join('')
+
+  return `<div class="tb-matrix">${header}${rows}</div>`
+}
+
+function renderTbMatrixCell(matches, isTotal, filter) {
+  const cls = isTotal ? 'tb-matrix-tot' : 'tb-matrix-cell'
+  if (!matches.length) return `<div class="${cls} tb-matrix-cell-zero">0</div>`
+  // Handlers sit on the wrapper (contains both the number and the
+  // popup), not the number span alone - same fix as Phase 5's count
+  // hover, for the same reason: attaching to the inner element only
+  // fires mouseleave the instant the pointer moves down into the popup,
+  // since the popup is a sibling, not a descendant, of the number span.
+  // Total column's popup anchors right instead of centered (same
+  // distinction the prototype itself makes, :211 vs :198) - it's the
+  // rightmost track, so a centered popup would overflow the card.
+  const popupCls = isTotal ? 'tb-matrix-popup tb-matrix-popup-right' : 'tb-matrix-popup'
+  return `
+  <span class="tb-matrix-hover" onmouseenter="event.stopPropagation();this.querySelector('.tb-matrix-popup').classList.remove('hidden')" onmouseleave="event.stopPropagation();this.querySelector('.tb-matrix-popup').classList.add('hidden')">
+    <span class="${cls}" onclick='event.stopPropagation();setTbFilter(${JSON.stringify(filter)})'>${matches.length}</span>
+    <div class="${popupCls} hidden">
+      ${matches.map(b => `
+        <div class="linked-record-row" onclick="event.stopPropagation();navigate('test-bed-detail', '${b.id}')">
+          <span>${escHtml(b.payload?.name || b.reference_code || 'Untitled')}</span>
+        </div>`).join('')}
+    </div>
+  </span>`
+}
 
 document.querySelectorAll('#view-test-beds th[data-tb-sort]').forEach(th => {
   th.addEventListener('click', () => {
@@ -1242,27 +1762,47 @@ document.querySelectorAll('#view-test-beds th[data-tb-sort]').forEach(th => {
 function tbSortValue(b, key) {
   const p = b.payload ?? {}
   switch (key) {
+    case 'reference_code': return (b.reference_code ?? '').toLowerCase()
     case 'name': return (p.name ?? '').toLowerCase()
     case 'account_name': return (b.account_name ?? '').toLowerCase()
+    case 'city': return (p.city ?? '').toLowerCase()
     case 'region': return (p.region ?? '').toLowerCase()
-    case 'industry_name': return (b.industry_name ?? '').toLowerCase()
     case 'status': return (b.status ?? '').toLowerCase()
+    case 'terminus_lead': return (p.terminusLead ?? '').toLowerCase()
+    case 'client_lead': return (p.initialLead ?? '').toLowerCase()
     case 'indicative_cost': return Number(p.indicativeCost ?? 0)
     case 'created_at': return b.created_at
     default: return ''
   }
 }
 
-function renderTestBedsTable(beds) {
+function renderTestBedsTable(unfilteredBeds) {
   document.querySelectorAll('#view-test-beds th[data-tb-sort]').forEach(th => {
     th.classList.toggle('sort-active', th.dataset.tbSort === tbSortKey)
     const base = th.textContent.replace(/ [▲▼]$/, '')
     th.textContent = th.dataset.tbSort === tbSortKey ? `${base} ${tbSortDir === 'asc' ? '▲' : '▼'}` : base
   })
 
+  const filterBar = document.getElementById('tb-filter-bar')
+  if (tbFilter) {
+    const beds = applyTbFilter(unfilteredBeds)
+    filterBar.innerHTML = `
+      <span>Showing ${beds.length} test bed${beds.length === 1 ? '' : 's'} matching <strong>${escHtml(tbFilter.label)}</strong></span>
+      <button class="btn-text" onclick="clearTbFilter()">Clear filter</button>
+    `
+    filterBar.classList.remove('hidden')
+  } else {
+    filterBar.innerHTML = ''
+    filterBar.classList.add('hidden')
+  }
+
+  const beds = applyTbFilter(unfilteredBeds)
   const tbody = document.getElementById('testbeds-tbody')
   if (!beds.length) {
-    tbody.innerHTML = `<tr><td colspan="7" class="empty-state">${testBedsMineOnly ? 'No test beds owned by you.' : 'No test beds yet.'}</td></tr>`
+    const message = tbFilter
+      ? 'No test beds match this filter.'
+      : (testBedsMineOnly ? 'No test beds owned by you.' : 'No test beds yet.')
+    tbody.innerHTML = `<tr><td colspan="10" class="empty-state">${message}</td></tr>`
     return
   }
 
@@ -1273,15 +1813,31 @@ function renderTestBedsTable(beds) {
     return tbSortDir === 'asc' ? cmp : -cmp
   })
 
+  // Field set is Phase 6's (2026-08-16): Reference, Test Bed Name,
+  // Company, City, Region, Stage, Terminus Lead, Client Lead, Estimated
+  // Cost, Created. Company is the linked Account's name (b.account_name,
+  // same source the old "Account" column used, just relabeled). Client
+  // Lead is Test Bed's own initialLead field (the origin-contact field
+  // carried from Phase 1) - the brief's list-column name for it, same
+  // field the detail page still calls "Initial Lead". Estimated Cost is
+  // indicativeCost, same source and format the old "Indicative Cost"
+  // column used. City is a real writable Site Details field (2026-08-16
+  // correction - a derive-from-Site-Address heuristic was tried first and
+  // found unreliable for non-UK address formats, removed entirely rather
+  // than kept as a fallback) - existing Test Beds show an honest blank
+  // until someone fills it in, never guessed.
   tbody.innerHTML = sorted.map(b => {
     const p = b.payload ?? {}
     return `
     <tr onclick="navigate('test-bed-detail', '${b.id}')">
+      <td class="col-mono">${escHtml(b.reference_code ?? '--')}</td>
       <td class="col-name">${escHtml(p.name ?? '--')}</td>
       <td>${escHtml(b.account_name ?? '--')}</td>
+      <td>${escHtml(p.city ?? '--')}</td>
       <td>${escHtml(p.region ?? '--')}</td>
-      <td>${escHtml(b.industry_name ?? '--')}</td>
       <td class="col-stage">${escHtml(b.status)}</td>
+      <td>${escHtml(p.terminusLead ?? '--')}</td>
+      <td>${escHtml(p.initialLead ?? '--')}</td>
       <td class="col-mono">${formatCost(p.indicativeCost)}</td>
       <td class="col-mono">${formatDate(b.created_at)}</td>
     </tr>`
@@ -1292,6 +1848,7 @@ function renderTestBedsTable(beds) {
 let currentTestBed = null
 
 async function loadTestBedDetail(id) {
+  tbUserPickedTab = false // a genuinely fresh load - see the flag's own comment above
   const result = await api('GET', `/api/test-beds/${id}`)
   if (!result.ok) {
     document.getElementById('tb-detail-name').textContent = 'Not found'
@@ -1313,26 +1870,148 @@ async function renderTestBedDetail(bed) {
 
   const stages = await fetchStages('test_bed')
   renderChevronStrip('tb-chevron-strip', bed.status, stages)
+  markTbCurrentStageTab(bed.status)
 
-  switchTbTab('reference')
+  await loadTerminusStaffIfNeeded()
+  // tbUserPickedTab: skip the default-to-Reference switch if the user
+  // has already clicked a real tab since this load began - see the
+  // flag's own declaration comment for the race this guards against.
+  if (!tbUserPickedTab) switchTbTab('reference')
   window.initTestBedDetailPanel(bed)
 
-  await renderTestBedDocuments(bed)
+  // Round 5 Phase 7 (2026-08-17): renderTestBedDocuments/loadTbStageApprovals
+  // (the old, always-eager calls against the fixed Documents/Approvals
+  // tabs) are gone - that content is now per-stage and loaded lazily,
+  // only when a given stage-* tab is actually opened
+  // (loadTbStageDetailTab, switchTbTab below), not for all 8 stages on
+  // every page load. renderTransitionSection stays eager - it's now
+  // page-level, always visible above the tabs, not nested in a tab that
+  // might never be opened.
   renderTransitionSection('tb-transition-section', 'tb-transition-feedback', bed.id, bed.status, stages)
-  await loadTbStageApprovals(bed.id)
+  wireTbNextStageButton(bed, stages)
   wireTestBedConvertOnce()
   resetTestBedConvertForm()
 }
 
+// Round 5 Phase 8 (2026-08-17): "Next Stage" button, positioned at the
+// top of the chevron - a genuinely new, more discoverable trigger for
+// the exact same window.attemptTransition already proven by the Stage
+// transition section below, not a second, parallel implementation of
+// it. Confirmed by investigation first (git log/blame on the chevron
+// component): the chevron itself has never had a click handler
+// anywhere in this app's real history, so this isn't restoring
+// anything, it's the first real click-to-transition entry point built
+// alongside it. sectionId stays 'tb-transition-section' - required for
+// attemptTransition's own success-path branch to reload as a Test Bed,
+// not an Opportunity - but feedbackId is this button's own
+// (tb-next-stage-feedback), so a blocking rejection triggered from up
+// here is shown right here, not only in the section below, which could
+// be scrolled out of view at the moment this button is clicked. Called
+// on every render (not wired once) since the real next stage, and
+// whether one exists at all, changes with the record's own status.
+function wireTbNextStageButton(bed, stages) {
+  const btn = document.getElementById('tb-next-stage-btn')
+  const feedback = document.getElementById('tb-next-stage-feedback')
+  feedback.innerHTML = ''
+  const currentIdx = stages.findIndex(s => s.stage_name === bed.status)
+  const nextStage = stages[currentIdx + 1]?.stage_name
+
+  if (!nextStage) {
+    btn.disabled = true
+    btn.textContent = 'Final stage'
+    btn.onclick = null
+    return
+  }
+  btn.disabled = false
+  btn.textContent = 'Next Stage'
+  btn.onclick = () => attemptTransition(bed.id, nextStage, 'tb-next-stage-feedback', 'tb-transition-section', bed.status)
+}
+
+// Round 5 Phase 7 (2026-08-17): one shared panel, 8 buttons - loads
+// exactly one stage's Documents+Approvals at a time, on demand. Not
+// cached across switches deliberately: the underlying data (document
+// statuses, approval decisions) can change from other actions on the
+// same page (Send for Approval, an approval click) while this tab stays
+// open, so re-fetching on every open is the same "don't show stale
+// decision-relevant data" discipline this build already applies
+// elsewhere, not an oversight.
+//
+// tbStageTabLoadToken: a real race found by testing, not assumed safe -
+// clicking through the 8 tabs quickly left two loads in flight at once,
+// and an older, slower response could resolve after a newer one and
+// silently overwrite the panel with the WRONG stage's data (confirmed
+// live: Site Assessment's tab showing Qualification's approval row,
+// Installation and Commissioning's showing Pre-Site Assessment's - one
+// tab "behind", not corrupted data, exactly the ordering symptom of an
+// unguarded overlapping fetch). Same fix as loadContactsData()'s own
+// contactsLoadToken (app.js) - each call captures its own token, only
+// the most recently started call is allowed to apply its result.
+let currentTbStageTab = null
+let tbStageTabLoadToken = 0
+
+async function loadTbStageDetailTab(stageName) {
+  if (!currentTestBed) return
+  const myToken = ++tbStageTabLoadToken
+  currentTbStageTab = stageName
+  document.getElementById('tb-stage-detail-heading').textContent = stageName
+
+  // Round 6 Phase 3 (2026-08-17): Installer/Test Bed Tech Team/Install
+  // Notes only ever apply to the Installation and Commissioning stage -
+  // a pure visibility toggle, not a re-render, the fields themselves are
+  // rendered once at page load (renderTbInstallSection,
+  // test-bed-detail.js) and stay mounted in the DOM the whole time, so
+  // switching to a different stage tab and back can never silently lose
+  // an in-progress edit here the way tearing down and rebuilding the
+  // fields on every switch would.
+  document.getElementById('tb-stage-install-section').classList.toggle('hidden', stageName !== 'Installation and Commissioning')
+
+  await renderTestBedDocuments(currentTestBed, stageName, 'tb-stage-documents-section', 'tb-stage-reference-docs-section', () => myToken === tbStageTabLoadToken)
+  if (myToken !== tbStageTabLoadToken) return // a newer stage-tab load has since started; drop this stale one
+
+  const approvalsResult = await api('GET', `/api/records/${currentTestBed.id}/stage-approvals`)
+  if (myToken !== tbStageTabLoadToken) return
+  const row = document.getElementById('tb-stage-approval-row')
+  if (!approvalsResult.ok) {
+    row.innerHTML = '<p class="empty-state">Failed to load approvals for this stage.</p>'
+  } else {
+    const stageEntry = approvalsResult.data.find(s => s.stage_name === stageName)
+    row.innerHTML = stageEntry
+      ? buildStageApprovalRowHtml(currentTestBed.id, stageEntry)
+      : '<p class="empty-state">Unknown stage.</p>'
+  }
+
+  // Round 6 Phase 3 (2026-08-17): each stage tab's own Exit Criteria,
+  // relocated from the Reference tab - see renderTbStageExitCriteria's
+  // own comment (test-bed-detail.js) for the ?stage= generalization.
+  if (myToken !== tbStageTabLoadToken) return
+  await renderTbStageExitCriteria(stageName)
+}
+
 let openDocForm = null
 
-async function renderTestBedDocuments(bed) {
-  const section = document.getElementById('tb-documents-section')
+// stageName/docsContainerId/refContainerId (Round 5 Phase 7, 2026-08-17):
+// generalized from a fixed-tab, current-stage-only renderer to one that
+// can show any named stage's own Documents into any container - the one
+// call site is now loadTbStageDetailTab, one shared panel reused per
+// stage-* tab, not 8 static ones. ?stage=stageName threads through to
+// the now-parameterized GET /test-beds/:id/document-requirements
+// (test-beds.js) - defaults to the record's own current stage
+// server-side if omitted, but this caller always passes it explicitly.
+// isStillCurrent (optional): a real race found by testing, not assumed
+// safe - fast tab switches leave two of these calls in flight at once,
+// and without this check the OLDER response can resolve after the newer
+// one and silently overwrite the shared panel with the wrong stage's
+// documents, confirmed live. Checked immediately after the fetch, before
+// any DOM write, not just by the caller afterward - by the time this
+// function would otherwise write, the write itself is already stale.
+async function renderTestBedDocuments(bed, stageName, docsContainerId, refContainerId, isStillCurrent = () => true) {
+  const section = document.getElementById(docsContainerId)
   if (!section) return
 
-  const result = await api('GET', `/api/test-beds/${bed.id}/document-requirements`)
+  const result = await api('GET', `/api/test-beds/${bed.id}/document-requirements?stage=${encodeURIComponent(stageName)}`)
+  if (!isStillCurrent()) return
 
-  const referenceSection = document.getElementById('tb-reference-docs-section')
+  const referenceSection = document.getElementById(refContainerId)
 
   if (!result.ok) {
     section.innerHTML = '<p class="empty-state">Could not load document requirements.</p>'
@@ -1481,8 +2160,14 @@ window.submitDocumentForm = async (bedId, documentType) => {
 // removed 2026-08-15): hardcoded to the 'Decommissioning' stage name,
 // never checked whether an approval was already granted, and never
 // reused GET /records/:id/stage-approvals at all - real stage check, but
-// none of the generic display mechanism. Replaced by loadTbStageApprovals()
-// above, the same real pattern Opportunity's Approvals tab already uses.
+// none of the generic display mechanism. Replaced by loadTbStageApprovals(),
+// the same real pattern Opportunity's Approvals tab already used - and
+// that in turn is now itself superseded (Round 5 Phase 7, 2026-08-17,
+// removed): the fixed Approvals tab it targeted is gone, replaced by
+// loadTbStageDetailTab()'s per-stage single-row rendering, reusing the
+// same GET /records/:id/stage-approvals data and the same
+// buildStageApprovalRowHtml() markup, just one row at a time instead of
+// the whole list.
 
 // Convert to Opportunity: relocated to the detail-head, top-right
 // (2026-08-15 fix, see index.html) - the trigger/submit/cancel buttons
@@ -1621,7 +2306,12 @@ document.getElementById('opp-btn-grid').addEventListener('click', () => {
 async function loadOpportunityDetail(id) {
   const result = await api('GET', `/api/opportunities/${id}`)
   if (!result.ok) {
-    document.getElementById('detail-name').textContent = 'Not found'
+    // ref-display-name (Round 3 Phase 3, 2026-08-17) - renamed from
+    // detail-name when the header's Name became click-to-edit, now owned
+    // by opportunity-reference.js's renderReferenceTab for the real render
+    // path; this not-found path never reaches that, so it's set directly
+    // here, same as before.
+    document.getElementById('ref-display-name').textContent = 'Not found'
     return
   }
   await renderOppDetail(result.data)
@@ -1631,7 +2321,10 @@ async function renderOppDetail(opp) {
   const p = opp.payload ?? {}
   const det = opp.opportunity_details ?? {}
 
-  document.getElementById('detail-name').textContent = p.name ?? '--'
+  // ref-display-name is set below by opportunity-reference.js's
+  // renderReferenceTab (Round 3 Phase 3, 2026-08-17) - it's now the
+  // click-to-edit header field, owned there like every other field, not
+  // set redundantly here too.
   document.getElementById('detail-company').textContent = p.company_name ?? ''
   document.getElementById('detail-probability').textContent =
     det.probability_pct != null ? `${det.probability_pct}%` : '--'
@@ -1648,8 +2341,10 @@ async function renderOppDetail(opp) {
   }
 
   const stages = await fetchStages('opportunity')
-  renderStageTracker('stage-tracker', opp.status, stages)
+  renderChevronStrip('opp-chevron-strip', opp.status, stages)
   renderTransitionSection('transition-section', 'transition-feedback', opp.id, opp.status, stages)
+
+  await loadTerminusStaffIfNeeded()
 
   // opportunity-deal.js (ES module, loaded after this script) owns the
   // Commercials tab — deal-calculator.js live preview + save/submit.
@@ -1698,15 +2393,59 @@ async function loadStageApprovals(id, containerId = 'opp-stage-approvals-rows') 
   renderStageApprovalsRows(id, result.data, containerId)
 }
 
-function loadTbStageApprovals(id) {
-  return loadStageApprovals(id, 'tb-stage-approvals-rows')
+// Round 5 Phase 7 (2026-08-17): the single-stage row markup extracted
+// into its own function, buildStageApprovalRowHtml, so Test Bed's new
+// per-stage tabs (loadTbStageDetailTab below) can render exactly one
+// stage's row without a second, independently-maintained copy of this
+// markup - "reuse the existing Approvals mechanism," not a rebuild of
+// it. renderStageApprovalsRows (the all-stages-at-once view, still used
+// by Opportunity's own Stage & Approvals tab, untouched by this phase)
+// now just maps this same builder over every stage.
+//
+// Every stage shown, not just the current one, when called from the
+// all-stages view. Ring radios are real (stage_gate_rules requirements +
+// approvals decisions), but there is no approval-role check anywhere in
+// this app to gate WHO specifically may click one - restricted to the
+// current stage only, a UX judgment call on real data (record.status),
+// not a fabricated permission system.
+function buildStageApprovalRowHtml(recordId, st) {
+  const dotColor = st.state === 'current' ? 'var(--green)' : st.state === 'completed' ? 'var(--muted)' : 'var(--muted-2)'
+  const rowOpacity = st.state === 'upcoming' ? '0.55' : '1'
+
+  const criteriaHtml = st.criteria.length
+    ? st.criteria.map(c => `<div>- ${escHtml(c)}</div>`).join('')
+    : '<span class="sa-empty">--</span>'
+
+  const approversHtml = st.tracks.length
+    ? st.tracks.map(t => {
+        const clickable = st.state === 'current' && !t.approved
+        const rowClass = `sa-approval-row${t.approved ? ' approved' : ''}${clickable ? ' clickable' : ''}`
+        const onclick = clickable ? `onclick="submitStageApproval('${recordId}','${escHtml(t.track)}')"` : ''
+        const meta = t.approved
+          ? `Approved ${formatDate(t.decided_at)}`
+          : (st.state === 'current' ? 'Click to approve' : '')
+        return `
+        <div class="${rowClass}" ${onclick}>
+          <span class="ring-radio-ring"><span class="ring-radio-dot"></span></span>
+          <div>
+            <div class="sa-approval-role">${escHtml(t.track)}</div>
+            <div class="sa-approval-meta">${meta}</div>
+          </div>
+        </div>`
+      }).join('')
+    : '<span class="sa-empty">No approvals required</span>'
+
+  return `
+  <div class="sa-row" style="opacity:${rowOpacity}">
+    <div class="sa-stage">
+      <span class="sa-dot" style="background:${dotColor}"></span>
+      <span class="sa-stage-name">${escHtml(st.stage_name)}</span>
+    </div>
+    <div class="sa-criteria">${criteriaHtml}</div>
+    <div class="sa-approvers">${approversHtml}</div>
+  </div>`
 }
 
-// Every stage shown, not just the current one. Ring radios are real
-// (stage_gate_rules requirements + approvals decisions), but there is no
-// approval-role check anywhere in this app to gate WHO specifically may
-// click one - restricted to the current stage only, a UX judgment call on
-// real data (record.status), not a fabricated permission system.
 function renderStageApprovalsRows(recordId, stages, containerId = 'opp-stage-approvals-rows') {
   const container = document.getElementById(containerId)
   if (!stages.length) {
@@ -1714,48 +2453,28 @@ function renderStageApprovalsRows(recordId, stages, containerId = 'opp-stage-app
     return
   }
 
-  container.innerHTML = stages.map(st => {
-    const dotColor = st.state === 'current' ? 'var(--green)' : st.state === 'completed' ? 'var(--muted)' : 'var(--muted-2)'
-    const rowOpacity = st.state === 'upcoming' ? '0.55' : '1'
-
-    const criteriaHtml = st.criteria.length
-      ? st.criteria.map(c => `<div>- ${escHtml(c)}</div>`).join('')
-      : '<span class="sa-empty">--</span>'
-
-    const approversHtml = st.tracks.length
-      ? st.tracks.map(t => {
-          const clickable = st.state === 'current' && !t.approved
-          const rowClass = `sa-approval-row${t.approved ? ' approved' : ''}${clickable ? ' clickable' : ''}`
-          const onclick = clickable ? `onclick="submitStageApproval('${recordId}','${escHtml(t.track)}')"` : ''
-          const meta = t.approved
-            ? `Approved ${formatDate(t.decided_at)}`
-            : (st.state === 'current' ? 'Click to approve' : '')
-          return `
-          <div class="${rowClass}" ${onclick}>
-            <span class="ring-radio-ring"><span class="ring-radio-dot"></span></span>
-            <div>
-              <div class="sa-approval-role">${escHtml(t.track)}</div>
-              <div class="sa-approval-meta">${meta}</div>
-            </div>
-          </div>`
-        }).join('')
-      : '<span class="sa-empty">No approvals required</span>'
-
-    return `
-    <div class="sa-row" style="opacity:${rowOpacity}">
-      <div class="sa-stage">
-        <span class="sa-dot" style="background:${dotColor}"></span>
-        <span class="sa-stage-name">${escHtml(st.stage_name)}</span>
-      </div>
-      <div class="sa-criteria">${criteriaHtml}</div>
-      <div class="sa-approvers">${approversHtml}</div>
-    </div>`
-  }).join('')
+  container.innerHTML = stages.map(st => buildStageApprovalRowHtml(recordId, st)).join('')
 }
 
+// Round 5 Phase 7 (2026-08-17): a real bug caught before it shipped, not
+// found live - buildStageApprovalRowHtml's onclick is the one shared
+// markup builder for both Opportunity's all-stages view and Test Bed's
+// new single-stage view (loadTbStageDetailTab), but the refresh-on-
+// success path below only ever knew about the former
+// (stageApprovalsContainerByRecord, populated only by loadStageApprovals,
+// which Test Bed's own path never calls). Approving from inside a Test
+// Bed's stage tab would have looked up an unset containerId, defaulted
+// to 'opp-stage-approvals-rows', and silently written the refreshed row
+// into whatever Opportunity happened to be showing on screen instead -
+// confirmed by tracing the exact default-parameter fallback, not
+// guessed. Fixed by checking which view this recordId actually belongs
+// to before deciding how to refresh.
 window.submitStageApproval = async (recordId, track) => {
   const result = await api('POST', `/api/records/${recordId}/approvals`, { track, decision: 'approved' })
-  if (result.ok) {
+  if (!result.ok) return
+  if (recordId === currentTestBed?.id && currentTbStageTab) {
+    await loadTbStageDetailTab(currentTbStageTab)
+  } else {
     await loadStageApprovals(recordId, stageApprovalsContainerByRecord[recordId])
   }
 }

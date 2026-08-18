@@ -1,4 +1,5 @@
 import { createUserClient } from '../supabase.js'
+import { computeBlocking } from './transitions.js'
 
 export default async function recordsRoutes(app) {
   // POST /api/records — create a record with its initial revision
@@ -194,5 +195,84 @@ export default async function recordsRoutes(app) {
     })
 
     return result
+  })
+
+  // GET /api/records/:id/exit-criteria (Round 5 Phase 5, 2026-08-17)
+  // Read-only, for the Exit Criteria panel: what's still outstanding to
+  // exit a given stage (i.e. the blocking[] a real transition attempt
+  // from that stage would return), computed via the exact same
+  // computeBlocking() transitions.js itself uses - never performs the
+  // transition, this never writes to records.status, purely a read. The
+  // brief's own instruction: reuse the existing gate-check logic, don't
+  // build a second, separate criteria-computation path (unlike
+  // stage-approvals above, which pre-dates this and re-derives its own
+  // plain-language criteria text independently - not touched here,
+  // Round 5 Phase 7 removed its only caller on the Test Bed side).
+  //
+  // ?stage= (Round 6 Phase 3, 2026-08-17): optional override for which
+  // stage to compute exit criteria FROM - each of Test Bed's 8 stage
+  // tabs now shows its own outstanding requirements for that specific
+  // stage, not just the record's real current one. Defaults to
+  // record.status when omitted, reproducing the exact original
+  // behaviour for any caller that doesn't pass it (the same
+  // generalization shape GET /test-beds/:id/document-requirements?stage=
+  // already established in Round 5 Phase 7). The actual field/approval/
+  // document checks inside computeBlocking() still run against the
+  // record's real, current payload and revision regardless of which
+  // stage was requested - only which stage_gate_rules rows get looked up
+  // changes, not what data they're checked against.
+  app.get('/records/:id/exit-criteria', async (request, reply) => {
+    const db = createUserClient(request.jwt)
+
+    const { data: record, error: recordErr } = await db
+      .from('records')
+      .select('id, record_type, status, variant, parent_record_id, industry_id')
+      .eq('id', request.params.id)
+      .is('deleted_at', null)
+      .maybeSingle()
+
+    if (recordErr || !record) {
+      return reply.code(404).send({ error: 'not found' })
+    }
+
+    let stageQuery = db
+      .from('stage_definitions')
+      .select('stage_name, sort_order')
+      .eq('record_type', record.record_type)
+      .order('sort_order', { ascending: true })
+    stageQuery = record.variant ? stageQuery.eq('variant', record.variant) : stageQuery.is('variant', null)
+
+    const { data: stages, error: stagesErr } = await stageQuery
+    if (stagesErr) return reply.code(500).send({ error: stagesErr.message })
+
+    const fromStage = request.query.stage || record.status
+    const currentIdx = (stages ?? []).findIndex(s => s.stage_name === fromStage)
+    const nextStage = currentIdx >= 0 ? stages[currentIdx + 1] : undefined
+
+    if (!nextStage) {
+      // Either the requested stage isn't in this record type's own
+      // stage list at all (data issue, shouldn't happen given the
+      // invariant transitions.js already enforces), or it's genuinely
+      // the final stage already - either way, nothing to exit toward,
+      // an empty, honest list rather than a fabricated one.
+      return { from_stage: fromStage, to_stage: null, blocking: [] }
+    }
+
+    const { data: revRow } = await db
+      .from('record_revisions')
+      .select('revision_number, payload')
+      .eq('record_id', record.id)
+      .order('revision_number', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    const currentRevision = revRow?.revision_number ?? 1
+
+    const { blocking, error: blockingErr } = await computeBlocking(db, record, fromStage, nextStage.stage_name, currentRevision, revRow?.payload)
+    if (blockingErr) {
+      request.log.error({ err: blockingErr }, 'failed to compute exit criteria')
+      return reply.code(500).send({ error: blockingErr.message })
+    }
+
+    return { from_stage: fromStage, to_stage: nextStage.stage_name, blocking }
   })
 }

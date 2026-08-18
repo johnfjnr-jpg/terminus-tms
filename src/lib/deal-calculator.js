@@ -289,6 +289,67 @@ export function buildCashFlowModel({
 }
 
 /**
+ * Round 5 Phase 6 (2026-08-17): Test Bed's own cost-only entry point.
+ * Reuses calculateHardwareAndWarranty() and buildCostGroup() completely
+ * unchanged - the same proven arithmetic Opportunity's calculateDeal()
+ * uses for its own Hardware/Installation/Hosting groups - but stops at
+ * cost, never calls priceFromCost() or anything margin-related. Callers
+ * must only ever read the *Cost fields below (rawTotalCost / totalCost);
+ * buildCostGroup() still computes a .rawTotalPrice internally as an
+ * unavoidable implementation detail of a function shared with the
+ * priced Opportunity path, but nothing here surfaces it, and callers
+ * that don't read it can't leak it.
+ *
+ * installLineItems/hostingLineItems intentionally do not mirror
+ * Opportunity's exact 4-line install split (ssExisting/ssNew separately) -
+ * Test Bed's own unit-count fields (safesightCameras, not a new/existing
+ * pair) don't carry that distinction, so a 3-line group (SafeSight/AQ/
+ * HEMIR) is the correct shape for this record type's real data, not a
+ * simplification of Opportunity's, both are the genuinely correct shape
+ * for what each record type actually tracks.
+ *
+ * @param {object} p
+ * @param {number} p.ssUnitCost @param {number} p.ssUnits
+ * @param {number} p.aqUnitCost @param {number} p.aqUnits
+ * @param {number} p.hemirUnitCost @param {number} p.hemirUnits
+ * @param {number} p.warrantyPct
+ * @param {Array<{key: string, cost: number}>} p.installLineItems
+ * @param {Array<{key: string, cost: number}>} p.hostingLineItems - per month
+ * @param {number} p.months - Test Bed's own duration, not a full rollout's
+ */
+export function calculateTestBedCost({
+  ssUnitCost, ssUnits, aqUnitCost, aqUnits, hemirUnitCost, hemirUnits, warrantyPct,
+  installLineItems, hostingLineItems, months,
+}) {
+  const hardware = calculateHardwareAndWarranty({
+    ssUnitCost, ssUnits, aqUnitCost, aqUnits, hemirUnitCost, hemirUnits, warrantyPct,
+  });
+
+  const hardwareGroup = buildCostGroup([
+    { key: 'hwSs', cost: ssUnitCost * ssUnits, marginPct: 0 },
+    { key: 'hwAqm', cost: aqUnitCost * aqUnits, marginPct: 0 },
+    { key: 'hwHemir', cost: hemirUnitCost * hemirUnits, marginPct: 0 },
+    { key: 'hwWarranty', cost: hardware.warrantyCost, marginPct: 0 },
+  ]);
+
+  const installGroup = buildCostGroup((installLineItems || []).map((li) => ({ ...li, marginPct: 0 })));
+  const hostingGroup = buildCostGroup((hostingLineItems || []).map((li) => ({ ...li, marginPct: 0 })));
+
+  const hostingMonthCost = hostingGroup.rawTotalCost;
+  const hostingTermCost = hostingMonthCost * (months || 0);
+  const totalCost = hardwareGroup.rawTotalCost + installGroup.rawTotalCost + hostingTermCost;
+
+  return {
+    hardware,
+    groups: { hardwareGroup, installGroup, hostingGroup },
+    hostingMonthCost,
+    hostingTermCost,
+    months: months || 0,
+    totalCost,
+  };
+}
+
+/**
  * Top level entry point: given full deal inputs, returns the complete
  * calculated deal, matching the figures buildOppDetail() produced
  * (minus all UI-only fields like row labels and edit handlers).

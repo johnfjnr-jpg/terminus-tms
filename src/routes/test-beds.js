@@ -1,6 +1,35 @@
 import { createUserClient } from '../supabase.js'
 import { issueReferenceNumber } from '../lib/reference-number.js'
-import { isValidIsoDate, isValidNumber } from '../lib/field-validation.js'
+import { isValidIsoDate, isNotPastIsoDate, isValidNonNegativeInteger, isValidNonNegativePercent } from '../lib/field-validation.js'
+import { calculateTestBedCost } from '../lib/deal-calculator.js'
+
+// Round 5 Phase 6 (2026-08-17): builds the itemized cost breakdown from
+// whatever's currently in a Test Bed's payload - the one place this
+// mapping happens, called from both GET (live display) and PATCH
+// (persisting accumulated_cost/indicativeCost so the two existing
+// consumers that read those stored fields directly, the Test Beds list
+// view and Test Bed -> Opportunity conversion, never see a stale number
+// regardless of which tab last saved a relevant field).
+function buildTestBedCostBreakdown(payload) {
+  const num = (v) => Number(v) || 0
+  return calculateTestBedCost({
+    ssUnitCost: num(payload.ssUnitCost), ssUnits: num(payload.safesightCameras),
+    aqUnitCost: num(payload.aqUnitCost), aqUnits: num(payload.airQualitySensors),
+    hemirUnitCost: num(payload.hemirUnitCost), hemirUnits: num(payload.hemirSensors),
+    warrantyPct: payload.warrantyPct !== undefined && payload.warrantyPct !== '' ? num(payload.warrantyPct) : 2,
+    installLineItems: [
+      { key: 'inSs', cost: num(payload.ssInstallCost) * num(payload.safesightCameras) },
+      { key: 'inAqm', cost: num(payload.aqInstallCost) * num(payload.airQualitySensors) },
+      { key: 'inHemir', cost: num(payload.hemirInstallCost) * num(payload.hemirSensors) },
+    ],
+    hostingLineItems: [
+      { key: 'hoSs', cost: num(payload.ssHostingCost) * num(payload.safesightCameras) },
+      { key: 'hoAqm', cost: num(payload.aqHostingCost) * num(payload.airQualitySensors) },
+      { key: 'hoHemir', cost: num(payload.hemirHostingCost) * num(payload.hemirSensors) },
+    ],
+    months: num(payload.testBedDuration),
+  })
+}
 
 // Confirmed picklist values (2026-08-15, Milestone 2) - not the prototype's
 // literal Government/Local Council/Private/Other, extended to match the
@@ -278,13 +307,22 @@ export default async function testBedsRoutes(app) {
       name: contactNames[l.contact_id] ?? null
     }))
 
+    const payload = revResult.data?.payload ?? {}
+
     return {
       ...bed,
-      payload: revResult.data?.payload ?? {},
+      payload,
       latest_revision_number: revResult.data?.revision_number ?? 1,
       industry: industryResult.data ? { id: industryResult.data.id, name: industryResult.data.name } : null,
       account,
-      buyer_contacts
+      buyer_contacts,
+      // Round 5 Phase 6: always live-recomputed from the current payload,
+      // never read back as a stored value itself - the detail page's own
+      // Commercials tab is never more than one PATCH away from stale
+      // otherwise. accumulated_cost/indicativeCost (in payload above) are
+      // the persisted mirror other consumers read directly (see PATCH
+      // below), this is the authoritative, itemized source they mirror.
+      costBreakdown: buildTestBedCostBreakdown(payload),
     }
   })
 
@@ -298,14 +336,48 @@ export default async function testBedsRoutes(app) {
   // edit; there is no endpoint to change it post-creation, matching how
   // there is no unlink-Account action anywhere in this app.
   const TEST_BED_WRITABLE_KEYS = new Set([
-    'name', 'client_organisation', 'notes', 'accumulated_cost', 'summary',
+    'name', 'client_organisation', 'notes', 'summary',
     'terminusLead', 'commercialAuthority', 'technicalAuthority', 'region', 'country',
-    'siteOwnership', 'installationEnvironment', 'siteAddress',
-    'safesightCameras', 'airQualitySensors', 'hemirSensors', 'estCostPerUnit', 'indicativeCost',
+    'siteOwnership', 'installationEnvironment', 'siteAddress', 'city',
+    'safesightCameras', 'airQualitySensors', 'hemirSensors', 'estCostPerUnit',
     'testBedDuration', 'estimatedInstallationDate', 'estGoLiveDate',
     'installer', 'techTeam', 'installNotes',
-    'terminusCommercialOwner', 'terminusTechnicalOwner', 'terminusLegalOwner', 'initialLead',
+    // terminusCommercialOwner/terminusTechnicalOwner removed (2026-08-16,
+    // Phase 7) - they duplicated the real, prototype-accurate
+    // commercialAuthority/technicalAuthority fields above under a
+    // different, unused key (confirmed empty on the only real Test Bed
+    // record before removal, and absent from the prototype's own Test
+    // Bed field spec entirely). terminusLegalOwner stays - it's the only
+    // Legal-flavoured field that ever existed here, now surfaced as
+    // "Legal Authority" in the Reference tab's Terminus Details panel.
+    'terminusLegalOwner', 'initialLead',
     'useCases',
+    // Round 5 Phase 6 (2026-08-17): Commercials tab, Base Cost Data
+    // stopgap - same freely-editable-payload-field convention already
+    // used for Opportunity's own rate fields (ssUnitCost etc.,
+    // opportunities.js), a deliberate, flagged departure from that
+    // route's version specifically: Opportunity's rates are locked
+    // read-only after creation (a stopgap-on-a-stopgap, per that route's
+    // own comment, pending a real admin-maintained rate table), but Test
+    // Bed's Commercials tab is a brand-new build with nothing historical
+    // to protect, so its rates stay freely editable through this same
+    // generic PATCH like any other field, via the same click-to-edit
+    // batch-save mechanism the Reference tab already uses. Test Bed's
+    // own install-cost shape is 3 lines (SafeSight/AQ/HEMIR), not
+    // Opportunity's 4 (which splits SafeSight into existing/new
+    // infrastructure) - Test Bed's own unit-count fields never carried
+    // that split, so there's nothing to mirror there.
+    'ssUnitCost', 'aqUnitCost', 'hemirUnitCost',
+    'ssInstallCost', 'aqInstallCost', 'hemirInstallCost',
+    'ssHostingCost', 'aqHostingCost', 'hemirHostingCost',
+    'warrantyPct',
+    // accumulated_cost/indicativeCost deliberately removed from this
+    // allowlist (2026-08-17) - both are now server-computed, itemized
+    // totals (buildTestBedCostBreakdown, below), never client-writable
+    // inputs, matching the brief's own "not separate, manually-implied
+    // numbers." A client PATCH naming either key is now rejected outright
+    // by the disallowed-keys check below, the same as any other
+    // unrecognised field.
   ])
 
   app.patch('/test-beds/:id', async (request, reply) => {
@@ -334,8 +406,37 @@ export default async function testBedsRoutes(app) {
           return reply.code(400).send({ error: `${key} must be a valid date (YYYY-MM-DD)` })
         }
       }
-      if ('testBedDuration' in payload && !isValidNumber(payload.testBedDuration)) {
-        return reply.code(400).send({ error: 'testBedDuration must be a number' })
+      // Past-date restriction (Round 5 Phase 4, 2026-08-17), mirroring
+      // Round 3 Phase 3's identical fix on Opportunity's estGoLive: both
+      // are estimates, not records of something that already happened, a
+      // past "estimate" is nonsensical. Unlike Opportunity, Test Bed has
+      // no "actual" counterpart date field at all (TB_DATE_FIELDS,
+      // test-bed-detail.js, is just these two estimates plus Duration) -
+      // there's nothing to deliberately exclude the way
+      // actualClose/actualGoLive were.
+      for (const key of ['estimatedInstallationDate', 'estGoLiveDate']) {
+        if (key in payload && !isNotPastIsoDate(payload[key])) {
+          return reply.code(400).send({ error: `${key} cannot be in the past` })
+        }
+      }
+      // testBedDuration (Round 5 Phase 4): upgraded from isValidNumber
+      // (any finite number, including negative/fractional) to
+      // isValidNonNegativeInteger, the same real-months-can't-be-negative-
+      // or-fractional reasoning already applied to Opportunity's own
+      // Contract Duration (Round 3 Phase 3) - a duration in months has the
+      // identical shape on both record types.
+      if ('testBedDuration' in payload && !isValidNonNegativeInteger(payload.testBedDuration)) {
+        return reply.code(400).send({ error: 'testBedDuration must be a non-negative whole number' })
+      }
+      // Round 5 Phase 6: Base Cost Data rate fields and warrantyPct -
+      // isValidNonNegativePercent is misleadingly named for this use (it's
+      // really just "non-negative, up to 2 decimal places"), but that's
+      // exactly the right shape for a dollar rate too, not just a
+      // percentage, and reusing it avoids a near-duplicate validator.
+      for (const key of ['ssUnitCost', 'aqUnitCost', 'hemirUnitCost', 'ssInstallCost', 'aqInstallCost', 'hemirInstallCost', 'ssHostingCost', 'aqHostingCost', 'hemirHostingCost', 'warrantyPct']) {
+        if (key in payload && !isValidNonNegativePercent(payload[key])) {
+          return reply.code(400).send({ error: `${key} must be a non-negative number, up to 2 decimal places` })
+        }
       }
     }
 
@@ -390,6 +491,18 @@ export default async function testBedsRoutes(app) {
       const nextRevision = (revRow?.revision_number ?? 0) + 1
       const mergedPayload = { ...(revRow?.payload ?? {}), ...payload }
 
+      // Round 5 Phase 6: recomputed on every save, not just when a rate
+      // field itself changes - a save from the Reference tab (a unit
+      // count or Duration) affects the real cost exactly as much as a
+      // save from Commercials does, so both must keep accumulated_cost/
+      // indicativeCost genuinely current, not just the tab that happens
+      // to "own" the rate inputs. Both fields always mirror the same
+      // computed total (the brief's own "not separate, manually-implied
+      // numbers") - not two independently-meaningful figures.
+      const costBreakdown = buildTestBedCostBreakdown(mergedPayload)
+      mergedPayload.accumulated_cost = costBreakdown.totalCost
+      mergedPayload.indicativeCost = costBreakdown.totalCost
+
       const { error: revErr } = await db
         .from('record_revisions')
         .insert({ record_id: record.id, revision_number: nextRevision, payload: mergedPayload, created_by: request.user.id })
@@ -426,6 +539,21 @@ export default async function testBedsRoutes(app) {
   //     dead today but left as-is, not removed, since it's not what this
   //     fix is about) matched against real record_type='document' child
   //     records.
+  // Round 5 Phase 7 (2026-08-17): ?stage=<name> - investigated first, per
+  // the brief. This endpoint was hardcoded to bed.status throughout, the
+  // record's own real current stage, correct for the old single
+  // Documents tab (which only ever showed "wherever this Test Bed
+  // actually is right now"), but wrong for the new 8 stage tabs, each of
+  // which must show a specific NAMED stage's own Documents regardless of
+  // where the record actually is. Generalized by threading an explicit
+  // targetStage through every place bed.status was previously read
+  // directly - reference_docs keyed by stage_name=targetStage, and
+  // completable_documents computed for targetStage's own exit gate
+  // (targetStage -> whatever stage follows it in stage_definitions),
+  // same phase-fallback logic, now driven by targetStage's own index/
+  // phase rather than bed.status's. Defaults to bed.status when omitted,
+  // so this is a strict superset of the old behaviour, not a breaking
+  // change to any existing caller.
   app.get('/test-beds/:id/document-requirements', async (request, reply) => {
     const db = createUserClient(request.jwt)
 
@@ -439,11 +567,13 @@ export default async function testBedsRoutes(app) {
 
     if (!bed) return reply.code(404).send({ error: 'not found' })
 
+    const targetStage = request.query?.stage || bed.status
+
     const { data: referenceDocs } = await db
       .from('stage_reference_docs')
       .select('document_name')
       .eq('record_type', 'test_bed')
-      .eq('stage_name', bed.status)
+      .eq('stage_name', targetStage)
 
     const reference_docs = (referenceDocs ?? []).map(d => ({ document_name: d.document_name }))
 
@@ -455,7 +585,7 @@ export default async function testBedsRoutes(app) {
       .order('sort_order', { ascending: true })
 
     const stageList = stages ?? []
-    const currentIdx = stageList.findIndex(s => s.stage_name === bed.status)
+    const currentIdx = stageList.findIndex(s => s.stage_name === targetStage)
     const nextStage = stageList[currentIdx + 1]?.stage_name
 
     if (!nextStage) return { reference_docs, completable_documents: [] }
@@ -465,7 +595,7 @@ export default async function testBedsRoutes(app) {
       .select('requirement_detail')
       .eq('record_type', 'test_bed')
       .is('variant', null)
-      .eq('from_stage', bed.status)
+      .eq('from_stage', targetStage)
       .eq('to_stage', nextStage)
       .eq('requirement_type', 'document_status')
 
@@ -763,7 +893,13 @@ export default async function testBedsRoutes(app) {
         revision_number: 1,
         payload: {
           name: opportunity_name.trim(),
-          company_name: bedPayload.client_organisation ?? ''
+          company_name: bedPayload.client_organisation ?? '',
+          // customerLead (Round 2 Phase 1, 2026-08-16): carries the Test
+          // Bed's initialLead value across unchanged, same treatment as
+          // account_id/reference_code above - a genuine field-name
+          // mapping (Test Bed calls it initialLead, Opportunity calls
+          // the identical concept customerLead), not a copy-by-key.
+          customerLead: bedPayload.initialLead ?? null
         },
         created_by: request.user.id
       })

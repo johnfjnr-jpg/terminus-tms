@@ -53,3 +53,59 @@ export async function issueReferenceNumber(db, countryCode, industryCode) {
   if (error) throw new Error(`issueReferenceNumber failed: ${error.message}`)
   return data
 }
+
+/**
+ * Account Number generator (Round 4 Phase 2, 2026-08-17).
+ *
+ * ROUND4_BUILD_BRIEF.md Phase 2. Format TT-{country code}-{name prefix}-
+ * {number}, e.g. TT-GBR-WILLOWGLEN-001 - structurally the same shape as
+ * the reference code above, deliberately: it reuses the exact same
+ * atomic-counter/boundary-safety core (issue_reference_number, unchanged
+ * by this addition), just keyed by a sanitised company-name prefix
+ * instead of an industry code, and namespaced internally
+ * (20260817000000_reference_number_scheme_namespace.sql's p_scheme
+ * parameter) so this counter can never share or collide with the
+ * industry-code keyspace even if a sanitised name happens to exactly
+ * match a real industry short_code - confirmed a real, not just
+ * theoretical, risk during Phase 1's investigation (a company named
+ * "Smartc Co" sanitises to the same 6 characters as the live SMARTC
+ * industry code).
+ *
+ * Sanitisation rule, confirmed against the brief's own worked examples:
+ * strip everything except letters and digits (spaces, punctuation, all
+ * of it), uppercase, take the first 10 characters of what's left.
+ *   "Willowglen Pte Ltd" -> "WILLOWGLEN"
+ *   "AT&T"                -> "ATT"
+ *   "O'Brien's Ltd"        -> "OBRIENSLTD"
+ */
+export function sanitizeAccountNamePrefix(name) {
+  return (name ?? '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 10)
+}
+
+/**
+ * Atomically issues the next Account Number for a country+name-prefix.
+ * Same atomicity guarantee as issueReferenceNumber above, same
+ * underlying database function, just the 'account' scheme.
+ *
+ * @param {import('@supabase/supabase-js').SupabaseClient} db
+ * @param {string} countryCode - 3-letter country code, e.g. "GBR"
+ * @param {string} accountName - the Account's own name, sanitised here,
+ *   not by the caller - callers pass the real, as-typed name.
+ * @returns {Promise<string>} e.g. "TT-GBR-WILLOWGLEN-001"
+ * @throws if countryCode is missing, the sanitised name prefix is empty
+ *   (e.g. a name with no letters or digits at all), or the RPC call fails
+ */
+export async function issueAccountNumber(db, countryCode, accountName) {
+  if (!countryCode) throw new Error('issueAccountNumber: countryCode is required')
+  const namePrefix = sanitizeAccountNamePrefix(accountName)
+  if (!namePrefix) throw new Error('issueAccountNumber: accountName produced an empty name prefix after sanitisation')
+
+  const { data, error } = await db.rpc('issue_reference_number', {
+    p_country_code: countryCode,
+    p_industry_code: namePrefix,
+    p_scheme: 'account',
+  })
+
+  if (error) throw new Error(`issueAccountNumber failed: ${error.message}`)
+  return data
+}

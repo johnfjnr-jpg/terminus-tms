@@ -12,6 +12,7 @@ import dealsRoutes from './routes/deals.js'
 import testBedsRoutes from './routes/test-beds.js'
 import stageDefinitionsRoutes from './routes/stage-definitions.js'
 import industriesRoutes from './routes/industries.js'
+import terminusStaffRoutes from './routes/terminus-staff.js'
 import accountsRoutes from './routes/accounts.js'
 import contactsRoutes from './routes/contacts.js'
 
@@ -65,6 +66,7 @@ await fastify.register(async function authenticatedRoutes(app) {
   app.register(testBedsRoutes, { prefix: '/api' })
   app.register(stageDefinitionsRoutes, { prefix: '/api' })
   app.register(industriesRoutes, { prefix: '/api' })
+  app.register(terminusStaffRoutes, { prefix: '/api' })
   app.register(accountsRoutes, { prefix: '/api' })
   app.register(contactsRoutes, { prefix: '/api' })
 })

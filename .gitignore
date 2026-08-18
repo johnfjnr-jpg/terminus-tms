@@ -4,3 +4,14 @@ supabase/.temp/
 .DS_Store
 src/.DS_Store
 screenshots/
+session-ref.json
+
+# Editor/agent local settings (machine-specific; also in the global ignore).
+.claude/settings.local.json
+
+# One-shot verification harnesses, repo root only.
+# Precedent: reusable tooling lives in scripts/ and is tracked; these are
+# round-scoped, hardcode absolute paths, and require session-ref.json.
+/verify-*.mjs
+/debug-*.mjs
+/get-session-*.mjs

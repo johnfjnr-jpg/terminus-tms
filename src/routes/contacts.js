@@ -1,5 +1,5 @@
 import { createUserClient } from '../supabase.js'
-import { issueReferenceNumber } from '../lib/reference-number.js'
+import { issueReferenceNumber, issueAccountNumber } from '../lib/reference-number.js'
 import { countryToCode } from '../lib/country-code.js'
 
 const VALID_SOURCES = ['Web', 'Email Inquiry', 'Referral', 'Direct Outreach', 'Marketing Campaign']
@@ -323,8 +323,22 @@ export default async function contactsRoutes(app) {
   // link) - the same two shapes POST /contacts used to accept inline
   // before company became plain text (2026-08-13). Always writes a Notes
   // History entry, same as every other write on this record.
+  //
+  // account_details (Round 4 Phase 3, 2026-08-17, optional): the fuller
+  // Account Details panel's own fields (terminusLead, websiteUrl,
+  // billing/shipping addresses, parentAccountId) - genuinely optional,
+  // an old-style call with just new_account_name still creates a
+  // name-only Account exactly as before, this endpoint's only real
+  // caller (contact-detail.js's performLinkCdAccount) is the one being
+  // upgraded to send it, not a hard requirement of the endpoint itself.
+  // "Pre-fill Billing/Shipping from the Contact's own address" (the
+  // brief's own requirement) is a client-side concern - the panel opens
+  // pre-populated from the Contact's address fields, editable before
+  // submit, so whatever arrives here in account_details.billing/shipping
+  // is already the user-confirmed values, this endpoint doesn't need to
+  // know it came from a Contact's address at all.
   app.post('/contacts/:id/link-account', async (request, reply) => {
-    const { account_id, new_account_name } = request.body ?? {}
+    const { account_id, new_account_name, account_details } = request.body ?? {}
 
     if (!account_id && !new_account_name?.trim()) {
       return reply.code(400).send({ error: 'account_id or new_account_name is required' })
@@ -357,9 +371,34 @@ export default async function contactsRoutes(app) {
         .maybeSingle()
       accountName = existingRev?.payload?.name ?? null
     } else {
+      accountName = new_account_name.trim()
+      const d = account_details ?? {}
+      const b = d.billing ?? {}
+      const s = d.shipping ?? {}
+
+      // Same log-and-continue convention as create-opportunity's own
+      // issueReferenceNumber call - a genuine generation failure doesn't
+      // block the Account from being created, but it's logged, never
+      // silently dropped.
+      let reference_code = null
+      if (b.country) {
+        try {
+          const countryCode = countryToCode(b.country)
+          if (countryCode) reference_code = await issueAccountNumber(db, countryCode, accountName)
+        } catch (err) {
+          request.log.error({ err }, 'failed to issue Account Number for account created via link-account')
+        }
+      }
+
       const { data: newAccount, error: accountErr } = await db
         .from('records')
-        .insert({ record_type: 'account', status: 'active', owner_id: request.user.id })
+        .insert({
+          record_type: 'account',
+          status: 'active',
+          owner_id: request.user.id,
+          parent_account_id: d.parentAccountId ?? null,
+          reference_code,
+        })
         .select()
         .single()
 
@@ -368,13 +407,23 @@ export default async function contactsRoutes(app) {
         return reply.code(500).send({ error: accountErr.message })
       }
 
-      accountName = new_account_name.trim()
+      const acctPayload = {
+        name: accountName,
+        terminusLead: d.terminusLead ?? null,
+        websiteUrl: d.websiteUrl ?? null,
+        billingAddress: b.address ?? null, billingAddress2: b.address2 ?? null,
+        billingCity: b.city ?? null, billingPostcode: b.postcode ?? null,
+        billingCountry: b.country ?? null, billingRegion: b.region ?? null,
+        shippingAddress: s.address ?? null, shippingAddress2: s.address2 ?? null,
+        shippingCity: s.city ?? null, shippingPostcode: s.postcode ?? null,
+        shippingCountry: s.country ?? null, shippingRegion: s.region ?? null,
+      }
       const { error: acctRevErr } = await db
         .from('record_revisions')
         .insert({
           record_id: newAccount.id,
           revision_number: 1,
-          payload: { name: accountName },
+          payload: acctPayload,
           created_by: request.user.id
         })
 
@@ -525,8 +574,17 @@ export default async function contactsRoutes(app) {
 
     // Account name seeds the new record's name/company field - there is
     // no per-creation form here (the prototype's "+ Create" is a single
-    // click, :305-312), and Account is the only company-name source left
-    // now that Contact has no free-text company field of its own.
+    // click, :305-312), so this always reads the real linked Account,
+    // never the free-text company field. Stale comment corrected
+    // 2026-08-17: this used to say "Account is the only company-name
+    // source left now that Contact has no free-text company field of
+    // its own" - true when this function was first written (commit
+    // 66b99be), false since company was reintroduced as a free-text
+    // creation field the same evening (commit fbbeb22) and never
+    // reconciled here. Since Round 3 Phase 1 makes the Account link a
+    // hard, guided part of qualifying, every Qualified Contact reaching
+    // this point has one, so the behaviour itself was always correct -
+    // only the reasoning in this comment was out of date.
     let accountName = null
     if (contact.parent_record_id) {
       const { data: acctRev } = await db
@@ -642,7 +700,12 @@ export default async function contactsRoutes(app) {
       .insert({
         record_id: opp.id,
         revision_number: 1,
-        payload: { name, company_name: accountName ?? '' },
+        // customerLead (Round 2 Phase 1, 2026-08-16): Opportunity's own
+        // origin-contact field, same concept and same fix as Test Bed's
+        // initialLead above - set once, here, at creation, protected from
+        // a later silent overwrite by PATCH /opportunities/:id's own
+        // freshness check (saveRefFields), not by this insert.
+        payload: { name, company_name: accountName ?? '', customerLead: contactPayload.name ?? null },
         created_by: request.user.id
       })
     if (revErr) return reply.code(500).send({ error: revErr.message })
@@ -717,7 +780,48 @@ export default async function contactsRoutes(app) {
       })
     }
 
-    const name = accountName ?? 'New Test Bed'
+    // Round 5 Phase 2 (2026-08-17): distinguish siblings under the same
+    // Account. Previously every Test Bed created from a Contact inherited
+    // the identical, unsuffixed Account name - a known, previously-
+    // flagged gap (DESIGN_PRINCIPLES.md Deferred scope, Round 2) that
+    // surfaced as a real problem once "Add Another" made creating a
+    // second Test Bed under the same Account a real, common action, not
+    // a theoretical one. Investigated before building: Test Bed's own
+    // `name` field has no editable UI anywhere today, unlike
+    // Opportunity's equivalent field (made editable Round 3) - so
+    // "the user can just rename it after" is not a real escape valve
+    // here the way it is for Opportunity, the name has to be
+    // distinguishing at creation time, not fixable later. Chosen:
+    // append a sequence number automatically, consistent with this
+    // build's established "no friction at fast entry" precedent
+    // (Company stays free text, Lead's Company field is autocomplete-
+    // only, and so on) - a name-prompt modal would add a real
+    // interruption to what is today a single click, for a field the UI
+    // gives no way to fix afterward if the prompt were skipped or left
+    // blank. Only genuinely distinguishing siblings get a suffix, the
+    // first Test Bed under an Account keeps the clean, unsuffixed name,
+    // matching how a natural "first, then (2), (3)..." sequence reads.
+    // Count-then-suffix, not the atomic TT- reference-number generator,
+    // deliberately: this is a display-only distinguishing label with no
+    // uniqueness constraint anywhere, unlike reference_code, so a rare
+    // race between two simultaneous creates producing the same suffix is
+    // a cosmetic possibility, not a data-integrity risk, not worth the
+    // extra atomic-counter machinery that field's real uniqueness
+    // guarantee requires.
+    let name = accountName ?? 'New Test Bed'
+    if (accountName) {
+      const { count: siblingCount, error: siblingErr } = await db
+        .from('records')
+        .select('id', { count: 'exact', head: true })
+        .eq('record_type', 'test_bed')
+        .eq('account_id', contact.parent_record_id)
+        .is('deleted_at', null)
+      if (siblingErr) {
+        request.log.error({ err: siblingErr }, 'failed to count sibling test beds for name suffix')
+      } else if (siblingCount) {
+        name = `${accountName} (${siblingCount + 1})`
+      }
+    }
 
     let referenceCode = null
     if (contact.industry_id) {
@@ -764,7 +868,15 @@ export default async function contactsRoutes(app) {
         payload: {
           name, client_organisation: accountName ?? '', notes: null, accumulated_cost: 0,
           country: contactPayload.country ?? null,
-          region: contactPayload.region ?? null
+          region: contactPayload.region ?? null,
+          // Origin-contact field (Round 2 Phase 1, 2026-08-16): the
+          // client-side person who originated this engagement, per
+          // PROTOTYPE_SPECIFICATION.md Section 6 - documented intent,
+          // never actually auto-populated until now. Set once, here, at
+          // creation; PATCH /test-beds/:id's own freshness check (see
+          // saveTbFields) is what protects it from a later silent
+          // overwrite, not this insert.
+          initialLead: contactPayload.name ?? null
         },
         created_by: request.user.id
       })

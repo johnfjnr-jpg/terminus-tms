@@ -1,5 +1,148 @@
 import { createUserClient } from '../supabase.js'
 
+// Round 5 Phase 5 (2026-08-17): extracted from POST /records/:id/transition
+// unchanged, so the new read-only Exit Criteria panel (GET
+// /records/:id/exit-criteria, below) can compute the exact same blocking[]
+// a real transition attempt would, without ever performing the write
+// itself - the brief's own "reuse the existing gate-check logic, don't
+// build a second, separate criteria-computation path" instruction, taken
+// literally. This is genuinely the one and only gate-checking
+// implementation now, not a second path with its own copy of the same
+// logic (unlike GET /records/:id/stage-approvals, built earlier for the
+// now-being-removed Stage & Approvals tab, which re-derives its own
+// plain-language criteria text independently - left untouched here,
+// Phase 7 removes its only caller).
+export async function computeBlocking(db, record, from_stage, to_stage, currentRevision, revPayload) {
+  // Null-variant rules apply to all variants; variant-specific rules apply only to that variant.
+  // Use .is('variant', null) directly when there is no variant -- .or() with a single condition
+  // can be misinterpreted by PostgREST as a top-level OR, bypassing the other .eq() filters.
+  let rulesQuery = db
+    .from('stage_gate_rules')
+    .select('*')
+    .eq('record_type', record.record_type)
+    .eq('from_stage', from_stage)
+    .eq('to_stage', to_stage)
+
+  rulesQuery = record.variant
+    ? rulesQuery.or(`variant.is.null,variant.eq.${record.variant}`)
+    : rulesQuery.is('variant', null)
+
+  const { data: rules, error: rulesErr } = await rulesQuery
+
+  if (rulesErr) {
+    return { error: rulesErr }
+  }
+
+  const blocking = []
+
+  for (const rule of rules) {
+    if (rule.requirement_type === 'approval_obtained') {
+      const track = rule.requirement_detail?.track
+      if (!track) continue
+
+      const { data: approval } = await db
+        .from('approvals')
+        .select('id')
+        .eq('record_id', record.id)
+        .eq('revision_number', currentRevision)
+        .eq('track', track)
+        .eq('decision', 'approved')
+        .maybeSingle()
+
+      if (!approval) {
+        blocking.push({
+          requirement_type: 'approval_obtained',
+          track,
+          message: `Requires an approved ${track} decision on revision ${currentRevision}`
+        })
+      }
+    }
+
+    if (rule.requirement_type === 'document_status') {
+      const docName = rule.requirement_detail?.document
+      const reqStatus = rule.requirement_detail?.status
+      if (!docName || !reqStatus) continue
+
+      // Document records are stored as record_type='document' children of the parent record.
+      // The document type is held in records.variant; completion status in records.status.
+      const { data: docRecord } = await db
+        .from('records')
+        .select('id')
+        .eq('parent_record_id', record.id)
+        .eq('record_type', 'document')
+        .eq('variant', docName)
+        .eq('status', reqStatus)
+        .maybeSingle()
+
+      if (!docRecord) {
+        blocking.push({
+          requirement_type: 'document_status',
+          document: docName,
+          required_status: reqStatus,
+          message: `Requires ${docName} to be ${reqStatus}`
+        })
+      }
+    }
+
+    // payload_field_required: requirement_detail = {field}. Checks the
+    // record's current payload for that key - except two fields that are
+    // real columns on records rather than payload keys (parent_record_id,
+    // the Account link described as "Company" in the UI, and
+    // industry_id), which are read straight off the record row instead.
+    // Reads only what's already durably saved - the transition endpoint's
+    // request body is still just {to_stage}, nothing here accepts inline
+    // data to patch in as part of the transition itself.
+    if (rule.requirement_type === 'payload_field_required') {
+      const field = rule.requirement_detail?.field
+      if (!field) continue
+
+      const RECORD_COLUMN_FIELDS = new Set(['parent_record_id', 'industry_id'])
+      const value = RECORD_COLUMN_FIELDS.has(field) ? record[field] : revPayload?.[field]
+
+      if (value === undefined || value === null || value === '') {
+        blocking.push({
+          requirement_type: 'payload_field_required',
+          field,
+          message: `Requires ${field} to be set`
+        })
+      }
+    }
+
+    // contact_role_linked: requirement_detail = {role}. Checks that a
+    // record_contacts row exists for this record + role - a
+    // relationship check, distinct from payload_field_required's
+    // presence-of-a-value check. The account-vs-Contact match itself
+    // (is this Contact actually linked to the right Account) is
+    // enforced once, at save time, by whatever endpoint writes the
+    // record_contacts row (POST /test-beds/:id/buyer-contacts) - this
+    // gate only checks that a validated link already exists, it does
+    // not re-derive or re-validate the Account match itself.
+    if (rule.requirement_type === 'contact_role_linked') {
+      const role = rule.requirement_detail?.role
+      if (!role) continue
+
+      const { data: link } = await db
+        .from('record_contacts')
+        .select('id')
+        .eq('record_id', record.id)
+        .eq('role', role)
+        .maybeSingle()
+
+      if (!link) {
+        blocking.push({
+          requirement_type: 'contact_role_linked',
+          role,
+          message: `Requires a Contact linked as ${role}`
+        })
+      }
+    }
+
+    // child_record_status handled in a future milestone
+  }
+
+  return { blocking }
+}
+
 export default async function transitionsRoutes(app) {
   // POST /api/records/:id/transition
   // Validates to_stage against stage_definitions, checks all gate rules,
@@ -67,133 +210,10 @@ export default async function transitionsRoutes(app) {
 
     const currentRevision = revRow?.revision_number ?? 1
 
-    // Fetch gate rules for this transition.
-    // Null-variant rules apply to all variants; variant-specific rules apply only to that variant.
-    // Use .is('variant', null) directly when there is no variant -- .or() with a single condition
-    // can be misinterpreted by PostgREST as a top-level OR, bypassing the other .eq() filters.
-    let rulesQuery = db
-      .from('stage_gate_rules')
-      .select('*')
-      .eq('record_type', record.record_type)
-      .eq('from_stage', from_stage)
-      .eq('to_stage', to_stage)
-
-    rulesQuery = record.variant
-      ? rulesQuery.or(`variant.is.null,variant.eq.${record.variant}`)
-      : rulesQuery.is('variant', null)
-
-    const { data: rules, error: rulesErr } = await rulesQuery
-
-    if (rulesErr) {
-      request.log.error({ err: rulesErr }, 'failed to fetch stage_gate_rules')
-      return reply.code(500).send({ error: rulesErr.message })
-    }
-
-    const blocking = []
-
-    for (const rule of rules) {
-      if (rule.requirement_type === 'approval_obtained') {
-        const track = rule.requirement_detail?.track
-        if (!track) continue
-
-        const { data: approval } = await db
-          .from('approvals')
-          .select('id')
-          .eq('record_id', record.id)
-          .eq('revision_number', currentRevision)
-          .eq('track', track)
-          .eq('decision', 'approved')
-          .maybeSingle()
-
-        if (!approval) {
-          blocking.push({
-            requirement_type: 'approval_obtained',
-            track,
-            message: `Requires an approved ${track} decision on revision ${currentRevision}`
-          })
-        }
-      }
-
-      if (rule.requirement_type === 'document_status') {
-        const docName = rule.requirement_detail?.document
-        const reqStatus = rule.requirement_detail?.status
-        if (!docName || !reqStatus) continue
-
-        // Document records are stored as record_type='document' children of the parent record.
-        // The document type is held in records.variant; completion status in records.status.
-        const { data: docRecord } = await db
-          .from('records')
-          .select('id')
-          .eq('parent_record_id', record.id)
-          .eq('record_type', 'document')
-          .eq('variant', docName)
-          .eq('status', reqStatus)
-          .maybeSingle()
-
-        if (!docRecord) {
-          blocking.push({
-            requirement_type: 'document_status',
-            document: docName,
-            required_status: reqStatus,
-            message: `Requires ${docName} to be ${reqStatus}`
-          })
-        }
-      }
-
-      // payload_field_required: requirement_detail = {field}. Checks the
-      // record's current payload for that key - except two fields that are
-      // real columns on records rather than payload keys (parent_record_id,
-      // the Account link described as "Company" in the UI, and
-      // industry_id), which are read straight off the record row instead.
-      // Reads only what's already durably saved - this endpoint's request
-      // body is still just {to_stage}, nothing here accepts inline data to
-      // patch in as part of the transition itself.
-      if (rule.requirement_type === 'payload_field_required') {
-        const field = rule.requirement_detail?.field
-        if (!field) continue
-
-        const RECORD_COLUMN_FIELDS = new Set(['parent_record_id', 'industry_id'])
-        const value = RECORD_COLUMN_FIELDS.has(field) ? record[field] : revRow?.payload?.[field]
-
-        if (value === undefined || value === null || value === '') {
-          blocking.push({
-            requirement_type: 'payload_field_required',
-            field,
-            message: `Requires ${field} to be set`
-          })
-        }
-      }
-
-      // contact_role_linked: requirement_detail = {role}. Checks that a
-      // record_contacts row exists for this record + role - a
-      // relationship check, distinct from payload_field_required's
-      // presence-of-a-value check. The account-vs-Contact match itself
-      // (is this Contact actually linked to the right Account) is
-      // enforced once, at save time, by whatever endpoint writes the
-      // record_contacts row (POST /test-beds/:id/buyer-contacts) - this
-      // gate only checks that a validated link already exists, it does
-      // not re-derive or re-validate the Account match itself.
-      if (rule.requirement_type === 'contact_role_linked') {
-        const role = rule.requirement_detail?.role
-        if (!role) continue
-
-        const { data: link } = await db
-          .from('record_contacts')
-          .select('id')
-          .eq('record_id', record.id)
-          .eq('role', role)
-          .maybeSingle()
-
-        if (!link) {
-          blocking.push({
-            requirement_type: 'contact_role_linked',
-            role,
-            message: `Requires a Contact linked as ${role}`
-          })
-        }
-      }
-
-      // child_record_status handled in a future milestone
+    const { blocking, error: blockingErr } = await computeBlocking(db, record, from_stage, to_stage, currentRevision, revRow?.payload)
+    if (blockingErr) {
+      request.log.error({ err: blockingErr }, 'failed to fetch stage_gate_rules')
+      return reply.code(500).send({ error: blockingErr.message })
     }
 
     if (blocking.length > 0) {

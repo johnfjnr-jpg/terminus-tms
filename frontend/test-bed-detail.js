@@ -22,12 +22,38 @@ let tbEdits = {} // key -> { draft, orig }, same "only present entries are open"
 // creation then - see contacts.js's create-test-bed for the reversal).
 const REGION_OPTIONS = ['Americas', 'Europe & UK', 'Middle East', 'APAC', 'Africa']
 
-const TB_REFERENCE_FIELDS = [
-  { key: 'terminusLead', label: 'Terminus Lead' },
-  { key: 'commercialAuthority', label: 'Commercial Authority' },
-  { key: 'technicalAuthority', label: 'Technical Authority' },
+// Reference tab, Phase 7 3-panel rebuild (2026-08-16): Terminus Details /
+// Customer Details / Key Dates, matching Opportunity's layout exactly.
+// Legal Authority reads from terminusLegalOwner - the only Legal-
+// flavoured field that ever existed for Test Bed (the prototype's own
+// spec has no Legal Authority for Test Bed at all, only Commercial/
+// Technical - this goes beyond it deliberately, same as Opportunity's
+// naming). terminusCommercialOwner/terminusTechnicalOwner were a dead,
+// unused duplicate of commercialAuthority/technicalAuthority (confirmed
+// empty on the only real Test Bed record, and absent from the
+// prototype's field spec) - removed entirely, not renamed.
+// Terminus Lead/Commercial/Technical/Legal Authority are staffField: true
+// (2026-08-16) - a dropdown sourced from terminus_staff (app.js's
+// terminusStaffCache), not free text. Any of the 7 can be selected for
+// any of the 4 roles, no title-based restriction. Resolved to real
+// options at render time (renderTbReference), not here - this array is a
+// static const evaluated before terminusStaffCache is ever populated.
+const TB_TERMINUS_FIELDS = [
+  { key: 'terminusLead', label: 'Terminus Lead', staffField: true },
+  { key: 'commercialAuthority', label: 'Commercial Authority', staffField: true },
+  { key: 'technicalAuthority', label: 'Technical Authority', staffField: true },
+  { key: 'terminusLegalOwner', label: 'Legal Authority', staffField: true },
   { key: 'region', label: 'Region', options: REGION_OPTIONS },
   { key: 'country', label: 'Country' },
+]
+// Client Lead is initialLead (Phase 1's origin-contact field) - labeled
+// "Client Lead" here to match the brief's own Phase 6/7 naming, even
+// though it was called "Initial Lead" in this field's old home (Site
+// Details' now-removed Contacts card). Account is read-only display
+// only (tbBed.account?.name) - Test Bed has no Link-to-Account UI,
+// unlike Contact/Opportunity, and this phase doesn't add one.
+const TB_CUSTOMER_FIELDS = [
+  { key: 'initialLead', label: 'Client Lead' },
 ]
 const TB_SUMMARY_FIELD = { key: 'summary', label: 'Summary' }
 // Matches VALID_SITE_OWNERSHIP in src/routes/test-beds.js exactly (no
@@ -40,28 +66,57 @@ const TB_SITE_FIELDS = [
   { key: 'siteOwnership', label: 'Site Ownership', options: SITE_OWNERSHIP_OPTIONS },
   { key: 'installationEnvironment', label: 'Installation Environment' },
   { key: 'siteAddress', label: 'Site Address' },
-  { key: 'safesightCameras', label: 'No. of SafeSight Cameras' },
-  { key: 'airQualitySensors', label: 'No. of Air Quality Sensors' },
-  { key: 'hemirSensors', label: 'No. of HEMIR Sensors' },
+  { key: 'city', label: 'City' },
   { key: 'estCostPerUnit', label: 'Estimated Cost per Unit' },
   { key: 'indicativeCost', label: 'Indicative Cost' },
 ]
+// Round 6 Phase 3 (2026-08-17): moved out of TB_SITE_FIELDS onto the
+// Commercials tab, alongside the cost engine that already consumes
+// these same tbPayload keys as its own inputs (renderTbCostBreakdown).
+// The generated Sensors list itself (renderTbSensors) stays on Site
+// Details - it's a read-only display of these counts, not the
+// counts themselves.
+const TB_SENSOR_COUNT_FIELDS = [
+  { key: 'safesightCameras', label: 'No. of SafeSight Cameras', number: true },
+  { key: 'airQualitySensors', label: 'No. of Air Quality Sensors', number: true },
+  { key: 'hemirSensors', label: 'No. of HEMIR Sensors', number: true },
+]
+// noPast/integer (Round 5 Phase 4, 2026-08-17): mirrors Opportunity's
+// identical Round 3 Phase 3 fix (opportunity-reference.js's DATE_FIELDS) -
+// both estimatedInstallationDate and estGoLiveDate are estimates, a past
+// "estimate" is nonsensical, and unlike Opportunity's Est. Close/Go Live
+// pair, Test Bed has no "actual" counterpart date field to deliberately
+// leave unrestricted, TB_DATE_FIELDS is only ever these two estimates
+// plus Duration. testBedDuration gets the same integer treatment as
+// Opportunity's Contract Duration - real months can't be negative or
+// fractional.
 const TB_DATE_FIELDS = [
-  { key: 'estimatedInstallationDate', label: 'Estimated Installation Date', date: true },
-  { key: 'estGoLiveDate', label: 'Est. Go Live', date: true },
-  { key: 'testBedDuration', label: 'Test Bed Duration', number: true, suffix: 'months' },
+  { key: 'estimatedInstallationDate', label: 'Estimated Installation Date', date: true, noPast: true },
+  { key: 'estGoLiveDate', label: 'Est. Go Live', date: true, noPast: true },
+  { key: 'testBedDuration', label: 'Test Bed Duration', number: true, integer: true, suffix: 'months' },
+]
+// Commercials tab (Round 5 Phase 6, 2026-08-17): Base Cost Data rate
+// inputs, cost only - no price/margin field exists anywhere in this set,
+// unlike Opportunity's own Commercials tab. integer: false (plain
+// number, 2dp via server-side isValidNonNegativePercent) since these are
+// dollar rates, not counts. warrantyPct genuinely is a percentage.
+const TB_COST_FIELDS = [
+  { key: 'ssUnitCost', label: 'SafeSight Unit Cost', number: true, cost: true },
+  { key: 'aqUnitCost', label: 'Air Quality Unit Cost', number: true, cost: true },
+  { key: 'hemirUnitCost', label: 'HEMIR Unit Cost', number: true, cost: true },
+  { key: 'ssInstallCost', label: 'SafeSight Install Cost', number: true, cost: true },
+  { key: 'aqInstallCost', label: 'Air Quality Install Cost', number: true, cost: true },
+  { key: 'hemirInstallCost', label: 'HEMIR Install Cost', number: true, cost: true },
+  { key: 'ssHostingCost', label: 'SafeSight Hosting Cost', number: true, cost: true },
+  { key: 'aqHostingCost', label: 'Air Quality Hosting Cost', number: true, cost: true },
+  { key: 'hemirHostingCost', label: 'HEMIR Hosting Cost', number: true, cost: true },
+  { key: 'warrantyPct', label: 'Warranty %', number: true, suffix: '%' },
 ]
 const TB_INSTALL_FIELDS = [
   { key: 'installer', label: 'Installer' },
   { key: 'techTeam', label: 'Test Bed Tech Team' },
 ]
-const TB_OWNER_FIELDS = [
-  { key: 'terminusCommercialOwner', label: 'Terminus Commercial Owner' },
-  { key: 'terminusTechnicalOwner', label: 'Terminus Technical Owner' },
-  { key: 'terminusLegalOwner', label: 'Terminus Legal Owner' },
-  { key: 'initialLead', label: 'Initial Lead' },
-]
-const TB_ALL_EDITABLE_FIELDS = [...TB_REFERENCE_FIELDS, ...TB_SITE_FIELDS, ...TB_DATE_FIELDS, ...TB_INSTALL_FIELDS, ...TB_OWNER_FIELDS, TB_SUMMARY_FIELD]
+const TB_ALL_EDITABLE_FIELDS = [...TB_TERMINUS_FIELDS, ...TB_CUSTOMER_FIELDS, ...TB_SITE_FIELDS, ...TB_SENSOR_COUNT_FIELDS, ...TB_DATE_FIELDS, ...TB_INSTALL_FIELDS, ...TB_COST_FIELDS, TB_SUMMARY_FIELD]
 
 const CLIENT_BUYER_ROLES = ['Client Commercial Buyer', 'Client Technical Buyer', 'Client Legal Buyer']
 
@@ -85,9 +140,20 @@ function tbFieldRow(key, label, value, opts = {}) {
     // free-text-entered dates (e.g. "12/11/26") won't populate the picker
     // until re-saved through it, a known, disclosed consequence of this
     // fix, not silent data loss, the raw string is untouched until then.
-    inputTag = `<input type="date" id="tb-input-${key}" value="${escHtml(v)}">`
+    // noPast (Round 5 Phase 4): a native min attribute, same "browser-
+    // level constraint, not just server-side rejection after the fact"
+    // discipline as the date type itself, mirroring opportunity-
+    // reference.js's refFieldRow exactly.
+    const min = opts.noPast ? ` min="${new Date().toISOString().slice(0, 10)}"` : ''
+    inputTag = `<input type="date" id="tb-input-${key}" value="${escHtml(v)}"${min}>`
   } else if (opts.number) {
-    inputTag = `<input type="number" id="tb-input-${key}" value="${escHtml(v)}">` +
+    // integer (Round 5 Phase 4): min=0/step=1 are the native-constraint
+    // half, .no-spinner (style.css, already shared with Opportunity's
+    // Contract Duration) removes the up/down arrows that invite clicking
+    // into a negative value one step at a time - same split as noPast
+    // above, browser-level plus server-side, neither alone is trusted.
+    const intAttrs = opts.integer ? ' min="0" step="1" class="no-spinner"' : ''
+    inputTag = `<input type="number" id="tb-input-${key}" value="${escHtml(v)}"${intAttrs}>` +
       (opts.suffix ? `<span class="field-suffix">${escHtml(opts.suffix)}</span>` : '')
   } else {
     inputTag = `<input type="text" id="tb-input-${key}" value="${escHtml(v)}">`
@@ -123,31 +189,49 @@ function tbReadonlyRow(label, value) {
   </div>`
 }
 
+// 3-panel rebuild (2026-08-16, Phase 7): Terminus Details / Customer
+// Details / Key Dates, matching Opportunity's Reference tab layout
+// exactly (opportunity-reference.js's renderReferenceTab, same
+// tbReadonlyRow/tbFieldRow shared shape as before). Terminus Reference
+// listed first in the Terminus Details panel, matching the prototype's
+// own referenceRows order (Terminus Ops.dc.html:744).
 function renderTbReference() {
-  // Terminus Reference listed first, matching the prototype's own
-  // referenceRows order exactly (Terminus Ops.dc.html:744) - the same
-  // value already shown in the page-level stat card above, repeated
-  // here because the prototype's own field list includes it as one of
-  // the 8 main-content rows, not just a header stat.
-  document.getElementById('tb-reference-rows').innerHTML =
+  document.getElementById('tb-terminus-rows').innerHTML =
     tbReadonlyRow('Terminus Reference', tbBed.reference_code)
-    + TB_REFERENCE_FIELDS.map(f => tbFieldRow(f.key, f.label, tbPayload[f.key], { options: f.options })).join('')
+    + TB_TERMINUS_FIELDS.map(f => tbFieldRow(f.key, f.label, tbPayload[f.key], { options: f.staffField ? terminusStaffCache.map(s => s.name) : f.options })).join('')
     + tbReadonlyRow('Industry', tbBed.industry?.name)
     + tbReadonlyRow('Stage', tbBed.status)
+
+  // Account is read-only display only (tbBed.account?.name) - Test Bed
+  // has no Link-to-Account UI, unlike Contact/Opportunity, and this
+  // phase doesn't add one.
+  document.getElementById('tb-customer-rows').innerHTML =
+    tbReadonlyRow('Account', tbBed.account?.name)
+    + TB_CUSTOMER_FIELDS.map(f => tbFieldRow(f.key, f.label, tbPayload[f.key])).join('')
+
+  // Client Buyers: relocated here from Site Details' now-removed
+  // Contacts card (2026-08-16) - same renderTbBuyerRows() mechanism
+  // (record_contacts-backed, dropdown of the linked Account's real
+  // Contacts), just called from the Reference tab now, not Site Details.
+  renderTbBuyerRows()
 
   document.getElementById('tb-display-summary').textContent = tbPayload.summary || 'No summary captured yet.'
   document.getElementById('tb-input-summary').value = tbPayload.summary ?? ''
   document.getElementById('tb-edit-summary').classList.add('hidden')
   document.getElementById('tb-display-summary').classList.remove('hidden')
 
+  // Round 6 Phase 3 (2026-08-17): repositioned to sit with Summary,
+  // no longer its own separate .ref-cards grid panel - same render
+  // function, unchanged, just called from here now instead of
+  // renderTbSiteDetails.
+  renderTbUseCases()
+
   renderTbNotes()
 
-  // Key Dates: relocated here from Site Details (2026-08-15 fix) - it's
-  // the Reference tab's own right-hand panel now, rendering into the
-  // same #tb-dates-rows id, just moved in the DOM, not duplicated.
+  // Key Dates: unchanged, still the Reference tab's own right-hand panel.
   document.getElementById('tb-dates-rows').innerHTML =
     tbReadonlyRow('Date Created', formatDate(tbBed.created_at))
-    + TB_DATE_FIELDS.map(f => tbFieldRow(f.key, f.label, tbPayload[f.key], { date: f.date, number: f.number, suffix: f.suffix })).join('')
+    + TB_DATE_FIELDS.map(f => tbFieldRow(f.key, f.label, tbPayload[f.key], { date: f.date, noPast: f.noPast, number: f.number, integer: f.integer, suffix: f.suffix })).join('')
 }
 
 function renderTbNotes() {
@@ -176,29 +260,55 @@ window.addTbNote = async function () {
   }
 }
 
+// Round 5 Phase 5 (2026-08-17): folded onto the Reference tab's own
+// .ref-cards row (index.html), no longer a separate Site Details tab -
+// same underlying field/render logic, just relocated, confirmed nothing
+// here needed to change beyond that. estCostPerUnit/indicativeCost
+// deliberately dropped from this panel, per this round's own confirmed
+// plan: Phase 6 replaces them with real, itemized calculated totals from
+// the shared cost engine, not separate, manually-implied numbers - kept
+// as writable payload keys server-side (TEST_BED_WRITABLE_KEYS,
+// test-beds.js) since Phase 6 is the very next phase in this round, not
+// dropped from the schema, just no longer rendered as a plain typed
+// field here ahead of their real replacement landing.
 function renderTbSiteDetails() {
   const siteOwnershipField = TB_SITE_FIELDS.find(f => f.key === 'siteOwnership')
   document.getElementById('tb-site-rows').innerHTML =
     tbFieldRow('siteOwnership', 'Site Ownership', tbPayload.siteOwnership, { options: siteOwnershipField.options })
     + tbFieldRow('installationEnvironment', 'Installation Environment', tbPayload.installationEnvironment)
     + tbFieldRow('siteAddress', 'Site Address', tbPayload.siteAddress)
-    + tbFieldRow('safesightCameras', 'No. of SafeSight Cameras', tbPayload.safesightCameras, { number: true })
-    + tbFieldRow('airQualitySensors', 'No. of Air Quality Sensors', tbPayload.airQualitySensors, { number: true })
-    + tbFieldRow('hemirSensors', 'No. of HEMIR Sensors', tbPayload.hemirSensors, { number: true })
-    + tbFieldRow('estCostPerUnit', 'Estimated Cost per Unit', tbPayload.estCostPerUnit, { number: true, cost: true })
-    + tbFieldRow('indicativeCost', 'Indicative Cost', tbPayload.indicativeCost, { number: true, cost: true })
+    + tbFieldRow('city', 'City', tbPayload.city)
 
+  // Sensor count fields themselves are edited on the Commercials tab now
+  // (renderTbSensorCounts) - this list is still read directly off the
+  // same tbPayload keys regardless of which tab edits them.
   renderTbSensors()
+}
 
+// Round 6 Phase 3 (2026-08-17): Installer/Test Bed Tech Team/Install
+// Notes, relocated from Site Details to the Installation and
+// Commissioning stage tab specifically. Rendered once here, same as
+// every other Reference-adjacent field, into the (initially hidden)
+// #tb-stage-install-section - loadTbStageDetailTab (app.js) only
+// toggles that section's visibility per stage, it never re-renders
+// these fields, so there's no risk of losing an in-progress edit by
+// switching to a different stage tab and back, the same "rendered once,
+// shown/hidden, not torn down and rebuilt" pattern the Reference/
+// Commercials tabs themselves already use.
+function renderTbInstallSection() {
   document.getElementById('tb-install-rows').innerHTML =
     TB_INSTALL_FIELDS.map(f => tbFieldRow(f.key, f.label, tbPayload[f.key])).join('')
   renderTbInstallNotes()
+}
 
-  document.getElementById('tb-owner-rows').innerHTML =
-    TB_OWNER_FIELDS.map(f => tbFieldRow(f.key, f.label, tbPayload[f.key])).join('')
-  renderTbBuyerRows()
-
-  renderTbUseCases()
+// Round 6 Phase 3 (2026-08-17): sensor counts, moved from Site Details.
+// Same tbFieldRow/tbEdits mechanism as every other field on this page,
+// TB_SENSOR_COUNT_FIELDS is already folded into TB_ALL_EDITABLE_FIELDS
+// so wireTbFieldInputs() wires these for free, no separate wiring
+// needed.
+function renderTbSensorCounts() {
+  document.getElementById('tb-sensor-count-rows').innerHTML =
+    TB_SENSOR_COUNT_FIELDS.map(f => tbFieldRow(f.key, f.label, tbPayload[f.key], { number: f.number })).join('')
 }
 
 // Sensors list: "generated" per PROTOTYPE_SPECIFICATION.md Section 6, but
@@ -228,6 +338,84 @@ function renderTbSensors() {
       <span style="font-size:13px">${escHtml(name)}</span>
       <span class="data-row-label">Not yet linked to a real device</span>
     </div>`).join('')
+}
+
+// Commercials tab (Round 5 Phase 6, 2026-08-17). Rate inputs use the
+// same tbFieldRow/click-to-edit mechanism as every other Test Bed field
+// (TB_COST_FIELDS is folded into TB_ALL_EDITABLE_FIELDS, so
+// wireTbFieldInputs() already wires these for free, no separate wiring
+// needed). The itemized breakdown below is read-only, sourced entirely
+// from tbBed.costBreakdown (GET /test-beds/:id, server-computed via
+// calculateTestBedCost - test-beds.js) - reads only *Cost/rawCost/
+// rawTotalCost fields, never rawPrice/rawTotalPrice, which
+// buildCostGroup() still computes internally as an unavoidable side
+// effect of being shared with the priced Opportunity path but this
+// function never touches.
+function renderTbCommercials() {
+  renderTbSensorCounts()
+
+  const fieldRow = (key) => {
+    const f = TB_COST_FIELDS.find(x => x.key === key)
+    return tbFieldRow(key, f.label, tbPayload[key], { number: f.number, cost: f.cost, suffix: f.suffix })
+  }
+
+  document.getElementById('tb-cost-hardware-rows').innerHTML =
+    fieldRow('ssUnitCost') + fieldRow('aqUnitCost') + fieldRow('hemirUnitCost')
+  document.getElementById('tb-cost-install-rows').innerHTML =
+    fieldRow('ssInstallCost') + fieldRow('aqInstallCost') + fieldRow('hemirInstallCost')
+  document.getElementById('tb-cost-hosting-rows').innerHTML =
+    fieldRow('ssHostingCost') + fieldRow('aqHostingCost') + fieldRow('hemirHostingCost')
+  document.getElementById('tb-cost-warranty-rows').innerHTML = fieldRow('warrantyPct')
+
+  renderTbCostBreakdown()
+}
+
+function renderTbCostBreakdown() {
+  const el = document.getElementById('tb-cost-breakdown')
+  const b = tbBed.costBreakdown
+  if (!b) {
+    el.innerHTML = '<p class="empty-state">Unable to load cost breakdown.</p>'
+    return
+  }
+
+  const g = b.groups
+  const rowCost = (group, key) => group.rows.find(r => r.key === key)?.rawCost ?? 0
+  const line = (label, cost) => `
+    <div class="data-row">
+      <span style="font-size:13px">${escHtml(label)}</span>
+      <span class="data-row-label">${formatCost(cost)}</span>
+    </div>`
+  const subtotal = (label, cost) => `
+    <div class="data-row" style="border-top:1px solid var(--hairline)">
+      <span style="font-size:13px;color:var(--white)">${escHtml(label)}</span>
+      <span style="font-size:13px;color:var(--white)">${formatCost(cost)}</span>
+    </div>`
+
+  el.innerHTML = `
+    <p class="label" style="margin-bottom:8px">Hardware</p>
+    ${line(`SafeSight (${tbPayload.safesightCameras || 0} x ${formatCost(tbPayload.ssUnitCost || 0)})`, rowCost(g.hardwareGroup, 'hwSs'))}
+    ${line(`Air Quality (${tbPayload.airQualitySensors || 0} x ${formatCost(tbPayload.aqUnitCost || 0)})`, rowCost(g.hardwareGroup, 'hwAqm'))}
+    ${line(`HEMIR (${tbPayload.hemirSensors || 0} x ${formatCost(tbPayload.hemirUnitCost || 0)})`, rowCost(g.hardwareGroup, 'hwHemir'))}
+    ${line(`Warranty (${b.hardware.warrantyUnits} unit${b.hardware.warrantyUnits === 1 ? '' : 's'})`, rowCost(g.hardwareGroup, 'hwWarranty'))}
+    ${subtotal('Hardware subtotal', g.hardwareGroup.rawTotalCost)}
+
+    <p class="label" style="margin:18px 0 8px">Installation</p>
+    ${line('SafeSight', rowCost(g.installGroup, 'inSs'))}
+    ${line('Air Quality', rowCost(g.installGroup, 'inAqm'))}
+    ${line('HEMIR', rowCost(g.installGroup, 'inHemir'))}
+    ${subtotal('Installation subtotal', g.installGroup.rawTotalCost)}
+
+    <p class="label" style="margin:18px 0 8px">Hosting (per month)</p>
+    ${line('SafeSight', rowCost(g.hostingGroup, 'hoSs'))}
+    ${line('Air Quality', rowCost(g.hostingGroup, 'hoAqm'))}
+    ${line('HEMIR', rowCost(g.hostingGroup, 'hoHemir'))}
+    ${subtotal('Hosting subtotal / month', b.hostingMonthCost)}
+    ${line(`Hosting x ${b.months} month${b.months === 1 ? '' : 's'}`, b.hostingTermCost)}
+
+    <div class="data-row" style="border-top:1px solid var(--hairline-strong);margin-top:10px;padding-top:10px">
+      <span style="font-size:15px;font-weight:500;color:var(--white)">Total Cost</span>
+      <span style="font-size:15px;font-weight:500;color:var(--white)">${formatCost(b.totalCost)}</span>
+    </div>`
 }
 
 function renderTbInstallNotes() {
@@ -323,11 +511,21 @@ async function renderTbBuyerRows() {
     <div class="ref-field" data-key="buyer-${role}">
       <div class="ref-field-label"><span>${escHtml(role)}</span></div>
       <div style="display:flex;gap:8px;align-items:center">
-        <select id="tb-buyer-select-${escHtml(role)}">
+        <!-- Round 6 Phase 2 (2026-08-17): selecting a Contact saves
+             directly, no separate "Link" confirm click - the standalone
+             Link button (still present on Opportunity's own, unchanged,
+             Buyer Role dropdown, out of this phase's scope) is removed
+             here specifically. -->
+        <select id="tb-buyer-select-${escHtml(role)}" onchange="linkTbBuyer('${escHtml(role)}')">
           <option value="">${tbAccountContacts.length ? 'Select a contact linked to this Account' : 'No Contacts linked to this Account yet'}</option>
           ${options}
         </select>
-        <button class="btn-sm" onclick="linkTbBuyer('${escHtml(role)}')">Link</button>
+        <!-- Round 5 Phase 9 (2026-08-17): the desired Contact may not
+             exist yet at all - not just "not linked to this Account
+             yet", genuinely doesn't exist as a Contact anywhere. Opens
+             the shared inline-creation modal (app.js), same mechanism
+             Opportunity's own Buyer Role dropdowns use. -->
+        <button class="btn-sm btn-ghost" onclick="openInlineBuyerContactModal('test_bed', '${escHtml(tbDetailId)}', '${escHtml(tbBed.account_id)}', '${escHtml(role)}')">+ New</button>
       </div>
       <div id="tb-buyer-feedback-${escHtml(role)}"></div>
     </div>`
@@ -345,6 +543,40 @@ window.linkTbBuyer = async function (role) {
     return
   }
   await loadTestBedDetail(tbDetailId)
+}
+
+// Exit Criteria (Round 5 Phase 5, 2026-08-17; generalized to a named
+// stage, Round 6 Phase 3, 2026-08-17): a live list of what's still
+// outstanding to exit a SPECIFIC stage, not necessarily the record's
+// real current one - each of the 8 stage tabs now shows its own,
+// called from loadTbStageDetailTab (app.js) with that tab's own
+// stageName. Calls the read-only GET /records/:id/exit-criteria, now
+// accepting an optional ?stage= override (defaults to the record's own
+// current stage when omitted, reproducing the original behaviour for
+// any caller that doesn't pass it), computed via transitions.js's own
+// computeBlocking() - the exact same blocking[] a real transition
+// attempt from that stage would return, not a second, separately-
+// derived criteria list. Purely a read: never attempts the transition
+// itself, so viewing this tab can never advance the stage as a side
+// effect.
+async function renderTbStageExitCriteria(stageName) {
+  const el = document.getElementById('tb-stage-exit-criteria-list')
+  const result = await api('GET', `/api/records/${tbDetailId}/exit-criteria?stage=${encodeURIComponent(stageName)}`)
+  if (!result.ok) {
+    el.innerHTML = '<p class="empty-state">Unable to load exit criteria.</p>'
+    return
+  }
+  const { to_stage, blocking } = result.data
+  if (!to_stage) {
+    el.innerHTML = '<p class="empty-state">This is the final stage - nothing further to exit toward.</p>'
+    return
+  }
+  if (!blocking.length) {
+    el.innerHTML = `<p class="empty-state">Nothing outstanding - ready to move to ${escHtml(to_stage)}.</p>`
+    return
+  }
+  el.innerHTML = `<p class="sub" style="margin-bottom:10px">Outstanding to move to ${escHtml(to_stage)}:</p>`
+    + blocking.map(b => `<div class="data-row"><span style="font-size:13px">${escHtml(b.message)}</span></div>`).join('')
 }
 
 // ── Click-to-edit mechanics (fields only - Sensors/Use Cases/Install
@@ -402,17 +634,23 @@ function onTbFieldInput(key) {
   updateTbSaveBar()
 }
 
+// Round 5 Phase 5 (2026-08-17): investigated first, per the brief, by
+// reading this function as it stood before touching it - confirmed the
+// bar (a fully clickable Save button included, unlike Opportunity's own
+// equivalent, refFieldRow's updateRefEditBar, which at least hides ITS
+// Save button until dirtyCount > 0) appeared the instant ANY field was
+// opened, gated on keys.length, not on any real change. That's the
+// opposite of "opening a field and leaving it unchanged should have zero
+// visible effect" - confirmed live before this fix, not assumed. Fixed
+// by gating the bar's own visibility on dirtyCount instead, and the "N
+// fields open, M changed" text is gone entirely (the brief's own
+// instruction for this consolidated page specifically, not applied to
+// Opportunity's Reference tab, which keeps its existing, different
+// behaviour unless a future round asks for it there too).
 function updateTbSaveBar() {
   const bar = document.getElementById('tb-save-bar')
-  const keys = Object.keys(tbEdits)
-  if (!keys.length) {
-    bar.classList.add('hidden')
-    return
-  }
-  bar.classList.remove('hidden')
-  const dirtyCount = keys.filter(k => tbEdits[k].draft !== tbEdits[k].orig).length
-  document.getElementById('tb-save-count').textContent =
-    `${keys.length} field${keys.length === 1 ? '' : 's'} open${dirtyCount ? `, ${dirtyCount} changed` : ''}`
+  const dirtyCount = Object.values(tbEdits).filter(e => e.draft !== e.orig).length
+  bar.classList.toggle('hidden', dirtyCount === 0)
 }
 
 async function saveTbFields() {
@@ -421,6 +659,30 @@ async function saveTbFields() {
 
   const dirtyEntries = Object.entries(tbEdits).filter(([, e]) => e.draft !== e.orig)
   if (!dirtyEntries.length) return
+
+  // Origin-contact freshness check (Round 2 Phase 1, 2026-08-16) - same
+  // pattern already proven for Opportunity's Duration field. Untouched is
+  // already safe by construction: dirtyEntries only ever includes fields
+  // actually opened and changed, initialLead is never resent unless the
+  // user edited it themselves, so an unrelated save can't silently
+  // revert it. This check only fires for a genuine edit to initialLead
+  // specifically, confirming the server's current value still matches
+  // what this tab loaded with before committing.
+  const initialLeadEntry = dirtyEntries.find(([key]) => key === 'initialLead')
+  if (initialLeadEntry) {
+    const fresh = await api('GET', `/api/test-beds/${tbDetailId}`)
+    if (!fresh.ok) {
+      feedback.textContent = 'Could not verify the current Initial Lead value before saving.'
+      feedback.className = 'msg-error'
+      return
+    }
+    const serverValue = fresh.data.payload?.initialLead ?? ''
+    if (serverValue !== initialLeadEntry[1].orig) {
+      feedback.textContent = 'Initial Lead was changed elsewhere since this tab was loaded. Reload the page before saving.'
+      feedback.className = 'msg-error'
+      return
+    }
+  }
 
   const payloadUpdate = {}
   for (const [key, e] of dirtyEntries) payloadUpdate[key] = e.draft
@@ -460,6 +722,8 @@ window.initTestBedDetailPanel = function (bed) {
 
   renderTbReference()
   renderTbSiteDetails()
+  renderTbInstallSection()
+  renderTbCommercials()
   updateTbSaveBar()
   wireTbFieldInputs()
 }

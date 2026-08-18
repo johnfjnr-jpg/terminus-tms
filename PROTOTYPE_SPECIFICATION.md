@@ -527,6 +527,14 @@ records already had `parent_record_id` set, pointing to legacy
 pre-`record_contacts` Lead-conversion pointers, superseded infrastructure
 `contacts.js` itself documents as replaced. Reusing that column would
 have silently misread a legacy Lead pointer as an Account link.
+**Historical only, not current state**: the 2026-08-15 full business-data
+reset (Deferred scope, `DESIGN_PRINCIPLES.md`) cleared every live
+business record, those 2 Test Bed rows included. Re-confirmed directly,
+Round 4 Phase 1 (2026-08-17): zero `record_type = 'lead'` rows and zero
+Test Bed rows with `parent_record_id` set exist today. The reasoning
+above remains the correct explanation for why `account_id` is a
+dedicated column, it just no longer describes anything about live data,
+and should not be read as a current caveat to check for.
 
 **Enforced at two layers, not just the application code.** A
 `record_type`-conditioned `CHECK` constraint on `records` backs the
