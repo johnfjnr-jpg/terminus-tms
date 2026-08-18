@@ -152,8 +152,23 @@ database because it reads `stage_gate_rules`.
   `supabase/seeds/003_test_bed.sql` seeds three real
   `child_record_status` rules on the `test_bed` Decommissioning ->
   Closed transition (NDA reviewed, PDPA assessment reviewed, Data
-  Protection Impact Assessment reviewed). All three are silently
-  ignored today, so that transition is currently ungated.
+  Protection Impact Assessment reviewed).
+
+  Stated precisely: **three of the four seeded requirements on that
+  transition are structurally inert.** The transition is not ungated.
+  Its fourth rule is `approval_obtained {"track":"Senior"}`, and that
+  branch does exist, at `src/routes/transitions.js:39`, so it really
+  does block. What is missing is the document-review half of the gate,
+  not the gate itself.
+
+  Note also that the surviving fourth rule is only half-backed:
+  `routing_rules` is empty, and there are **zero `routing_rules` INSERT
+  statements anywhere in the repo**, in any migration or seed. So the
+  senior-tier escalation that `DESIGN_PRINCIPLES.md` Section 8
+  specifies, computing *which* tier within a track is required, has no
+  data behind it either. The `approval_obtained` branch blocks on a
+  Senior approval existing at all; the tier-escalation logic the design
+  describes is unbacked.
 
   Assert the **current no-op behaviour explicitly**: a Test Bed with
   those three rules unmet returns an empty blocking set and the
