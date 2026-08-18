@@ -2276,3 +2276,14 @@ textarea::placeholder { color: var(--muted-2); }
   color: var(--white);
 }
 .sa-approval-meta { font-family: var(--mono); font-size: 9px; color: var(--muted-2); }
+
+/* Round 7 Phase 2.1 (2026-08-18): a numeric field holding a value the
+   server would refuse. Deliberately marks the field rather than
+   rewriting what was typed - see guardNumericEntry() in
+   test-bed-detail.js for why keystroke blocking was withdrawn. Uses the
+   same red as .msg-error, which is what the accompanying message uses,
+   rather than the amber reserved for warnings. */
+input.input-invalid {
+  border-color: rgba(242,100,100,0.9);
+  outline-color: rgba(242,100,100,0.9);
+}

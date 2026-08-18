@@ -242,6 +242,22 @@ export default async function contactsRoutes(app) {
   app.patch('/contacts/:id', async (request, reply) => {
     const { payload, industry_id } = request.body ?? {}
 
+    // Round 7 Phase 2 (2026-08-18): reject a body this endpoint cannot
+    // act on, rather than returning 200 {ok:true} having done nothing.
+    // Previously `if (payload)` simply fell through, so a caller that
+    // misspelled the wrapper - or sent bare fields instead of
+    // {payload:{...}} - got a success response and no write. That cost a
+    // real false result during Round 7 Phase 2's own verification, where
+    // every value appeared to be accepted because none of them ever
+    // reached the validation block. opportunities.js already guarded this
+    // correctly; this brings the rest into line with it.
+    if (payload !== undefined && (payload === null || typeof payload !== 'object' || Array.isArray(payload))) {
+      return reply.code(400).send({ error: 'payload must be an object' })
+    }
+    if (payload === undefined && industry_id === undefined) {
+      return reply.code(400).send({ error: 'request body must contain payload or industry_id' })
+    }
+
     if (payload) {
       const disallowed = Object.keys(payload).filter(k => !CONTACT_WRITABLE_KEYS.has(k))
       if (disallowed.length) {

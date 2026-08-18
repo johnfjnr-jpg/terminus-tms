@@ -383,6 +383,16 @@ export default async function testBedsRoutes(app) {
   app.patch('/test-beds/:id', async (request, reply) => {
     const { payload, industry_id } = request.body ?? {}
 
+    // Round 7 Phase 2 (2026-08-18): see contacts.js for the full note.
+    // A body this endpoint cannot act on is now a 400, not a silent
+    // 200 {ok:true} with no write.
+    if (payload !== undefined && (payload === null || typeof payload !== 'object' || Array.isArray(payload))) {
+      return reply.code(400).send({ error: 'payload must be an object' })
+    }
+    if (payload === undefined && industry_id === undefined) {
+      return reply.code(400).send({ error: 'request body must contain payload or industry_id' })
+    }
+
     if (payload) {
       const disallowed = Object.keys(payload).filter(k => !TEST_BED_WRITABLE_KEYS.has(k))
       if (disallowed.length) {

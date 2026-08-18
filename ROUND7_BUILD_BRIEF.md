@@ -357,6 +357,14 @@ Validate at both layers, non-negative integers for counts, non-negative
 number for `estCostPerUnit`, reusing `field-validation.js` rather than
 writing new checks.
 
+**Browser tooling note.** Puppeteer is deliberately **not** a dependency
+of this project and must not be added to `package.json`. The GitHub
+Action runs the pure suite only and must never be made to install a
+browser toolchain it does not use. Install it per-session instead, which
+reuses the already-cached Chromium:
+
+    npm install --no-save puppeteer
+
 **Test evidence required:** in a real browser, confirm a negative value
 can no longer be typed into Duration or any sensor count, and that
 feedback appears at entry rather than only on save. By direct API call
@@ -372,6 +380,64 @@ the database.
 
 Two mechanism changes that everything after this depends on. Confirmed
 with the business.
+
+### 3.0 Fix the six unchecked query errors in `transitions.js` FIRST
+
+**Do this before touching the rule loop.** Section 3.2 adds a fifth
+branch to that same loop; adding it on top of unchecked errors just
+makes a seventh.
+
+`transitions.js` was never part of the Milestone 5 unchecked-error scan,
+and `DESIGN_PRINCIPLES.md` Deferred scope already records that a wider
+scan is overdue. Six sites destructure `data` without `error`. They do
+**not** behave alike, and the differences decide the fix:
+
+| Line | Query | Behaviour under a transient error |
+|---|---|---|
+| 43 | `approvals` | Fails **closed** - blocks |
+| 68 | `records` (document child) | Fails **closed** - blocks |
+| 124 | `record_contacts` | Fails **closed** - blocks |
+| 192 | `stage_definitions` | Fails **closed**, but misreports |
+| 203 | current `record_revisions` | **Can fail OPEN** - see below |
+| 269 | `probability` default | Skips an optional default |
+
+- **Line 192, checked hardest as instructed.** `stageDefs` is `null` on
+  error, `(stageDefs ?? []).map(...)` yields `[]`, and `to_stage` is
+  therefore not in `validStages`, so the transition is rejected. The
+  invariant that zero `stage_definitions` rows must reject every
+  `to_stage` **still holds under error**, because error and zero-rows
+  collapse to the same empty list. The defect is diagnostic, not
+  behavioural: a database fault is reported to the user as
+  `"<stage> is not a valid stage for this record type"`, a confident,
+  wrong 400 where a 500 is the truth. Fix it so the two cases are
+  distinguishable; do not change the fail-closed outcome.
+
+- **Line 203 is the serious one, and it is the only fail-open.** On
+  error `revRow` is `null`, so `currentRevision` falls back to `1`. The
+  approvals branch then matches on `revision_number = 1`. If a stale
+  approval exists at revision 1 while the record is genuinely at a much
+  later revision, the gate is **satisfied by an approval that does not
+  apply**, and the transition proceeds. `revPayload` is also `undefined`,
+  so `payload_field_required` blocks - meaning the fail-open is only
+  reachable on a transition whose gate is approvals-only.
+
+  **Confirmed latent, not live, 2026-08-18:** the database currently
+  holds zero `decision = 'approved'` rows, so no record can hit this
+  today. That is a fact about today's data, not a property of the code,
+  and Phase 3.1 is about to start writing approvals in earnest.
+
+Fix all six: destructure `error`, and return or propagate it rather than
+letting a null `data` stand in for a real answer. An unchecked error is
+not "no result", it is "we do not know", and these six turn that into a
+gate decision.
+
+**Test evidence required:** force a real failure at each site the way
+Milestone 5 did, with a temporary, reverted permission revoke, and
+confirm the endpoint now surfaces an error instead of silently deciding.
+For line 203 specifically, prove the fail-open closes: seed an approval
+at revision 1, advance the record past revision 1, force the revision
+query to fail, and confirm the transition is refused rather than
+allowed.
 
 ### 3.1 Approval scope becomes a property of the rule
 

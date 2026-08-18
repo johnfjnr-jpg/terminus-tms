@@ -327,6 +327,16 @@ export default async function accountsRoutes(app) {
   app.patch('/accounts/:id', async (request, reply) => {
     const { payload, industry_id, parent_account_id } = request.body ?? {}
 
+    // Round 7 Phase 2 (2026-08-18): see contacts.js for the full note.
+    // parent_account_id is a third legitimate top-level key here, so it
+    // counts as an actionable body too.
+    if (payload !== undefined && (payload === null || typeof payload !== 'object' || Array.isArray(payload))) {
+      return reply.code(400).send({ error: 'payload must be an object' })
+    }
+    if (payload === undefined && industry_id === undefined && parent_account_id === undefined) {
+      return reply.code(400).send({ error: 'request body must contain payload, industry_id or parent_account_id' })
+    }
+
     if (payload) {
       const disallowed = Object.keys(payload).filter(k => !ACCOUNT_WRITABLE_KEYS.has(k))
       if (disallowed.length) {

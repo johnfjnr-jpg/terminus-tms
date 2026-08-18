@@ -589,65 +589,70 @@ async function renderTbStageExitCriteria(stageName) {
 // ── Click-to-edit mechanics (fields only - Sensors/Use Cases/Install
 // Notes/Buyers save immediately via their own actions above, not
 // through this batched edit bar) ────────────────────────────────────
-// Round 7 Phase 2.1 (2026-08-18): stop a negative being ENTERED, which is
-// what was actually reported - not a save-time failure, which already
-// worked.
+// Round 7 Phase 2.1 (2026-08-18, revised): validate on input, mark the
+// field invalid, and block the save. Do NOT block keystrokes.
 //
-// min="0" on <input type="number"> only constrains the spinner and only
-// fails constraint validation when a FORM is validated. This app has zero
-// <form> elements and runs no checkValidity() before its PATCH, so a
-// typed "-3" sat in the field looking accepted until the server rejected
-// the save. The server check is correct and is deliberately unchanged;
-// this adds the missing client half so the feedback arrives at entry.
+// The first attempt blocked '-' and '.' at keydown. That was withdrawn
+// for two reasons. Keystroke blocking is the fragile half - paste,
+// drag-drop, autofill, IME composition and most mobile keyboards all
+// route around keydown entirely - and worse, when it did fire it
+// silently produced a DIFFERENT VALID NUMBER: typing "2.5" into a count
+// swallowed the '.' and left "25", which then saved happily. Refusing a
+// value is safe; quietly rewriting it into another plausible one is not.
 //
-// Both halves are needed: keydown stops the keystroke, and the input
-// handler catches paste, drag-drop and autofill, which never fire
-// keydown. Note <input type="number"> reports value === '' for text it
-// cannot parse at all (e.g. "abc"), so there is nothing to strip in that
-// case - the field simply stays empty, which is already correct.
-function flashTbEntryWarning(label, problem) {
+// So the input event is now the single detection path (it fires for
+// paste, autofill and IME alike), and an invalid value is allowed to sit
+// in the field, visibly marked, with the save blocked until it is fixed.
+// The server check remains the authority either way.
+const tbInvalidFields = new Map()
+
+function tbValidateNumeric(input, f) {
+  const raw = input.value
+  // <input type="number"> reports '' for text it cannot parse at all.
+  // An empty field is "not set", which is a legitimate state here.
+  if (raw.trim() === '') return null
+  const n = Number(raw)
+  if (!Number.isFinite(n)) return 'must be a number'
+  if (n < 0) return 'cannot be negative'
+  if (f.integer && !Number.isInteger(n)) return 'must be a whole number'
+  return null
+}
+
+function tbMarkFieldValidity(key, input, problem, label) {
+  if (problem) {
+    tbInvalidFields.set(key, `${label} ${problem}`)
+    input.classList.add('input-invalid')
+    input.setAttribute('aria-invalid', 'true')
+  } else {
+    tbInvalidFields.delete(key)
+    input.classList.remove('input-invalid')
+    input.removeAttribute('aria-invalid')
+  }
+  renderTbValidationFeedback()
+}
+
+function renderTbValidationFeedback() {
   const feedback = document.getElementById('tb-save-feedback')
   if (!feedback) return
-  feedback.textContent = `${label} ${problem}.`
-  feedback.className = 'msg-error'
+  if (tbInvalidFields.size) {
+    feedback.textContent = [...tbInvalidFields.values()].join('. ') + '.'
+    feedback.className = 'msg-error'
+  } else if (feedback.className === 'msg-error') {
+    // Only clear feedback this function itself put there, so a real
+    // save error from the server is not wiped by an unrelated keystroke.
+    feedback.textContent = ''
+    feedback.className = ''
+  }
 }
 
 function guardNumericEntry(input, f) {
-  input.addEventListener('keydown', (e) => {
-    if (e.ctrlKey || e.metaKey || e.altKey || e.key.length > 1) return
-    if (e.key === '-' || e.key === '+') {
-      e.preventDefault()
-      flashTbEntryWarning(f.label, 'cannot be negative')
-      return
-    }
-    if (e.key === 'e' || e.key === 'E') {
-      e.preventDefault()
-      flashTbEntryWarning(f.label, 'must be a plain number')
-      return
-    }
-    if (f.integer && (e.key === '.' || e.key === ',')) {
-      e.preventDefault()
-      flashTbEntryWarning(f.label, 'must be a whole number')
-    }
-  })
-
   input.addEventListener('input', () => {
-    const raw = input.value
-    if (raw === '') return
-    let clean = raw.replace(/[^0-9.]/g, '')
-    if (f.integer) {
-      clean = clean.replace(/\./g, '')
-    } else {
-      // keep only the first decimal point
-      const first = clean.indexOf('.')
-      if (first !== -1) {
-        clean = clean.slice(0, first + 1) + clean.slice(first + 1).replace(/\./g, '')
-      }
-    }
-    if (clean !== raw) {
-      input.value = clean
-      flashTbEntryWarning(f.label, raw.includes('-') ? 'cannot be negative' : 'must be a whole number')
-    }
+    tbMarkFieldValidity(f.key, input, tbValidateNumeric(input, f), f.label)
+    // Must update the bar here, not rely on onTbFieldInput: that handler
+    // returns early when tbEdits[key] is absent, so the Save button would
+    // keep its stale enabled state on any path that did not open the
+    // field through openTbField().
+    updateTbSaveBar()
   })
 }
 
@@ -723,12 +728,28 @@ function onTbFieldInput(key) {
 function updateTbSaveBar() {
   const bar = document.getElementById('tb-save-bar')
   const dirtyCount = Object.values(tbEdits).filter(e => e.draft !== e.orig).length
-  bar.classList.toggle('hidden', dirtyCount === 0)
+  // Stay visible while a field is invalid even if nothing is dirty -
+  // otherwise the bar hides the very message explaining the block.
+  bar.classList.toggle('hidden', dirtyCount === 0 && tbInvalidFields.size === 0)
+  // Round 7 Phase 2.1: an invalid numeric field disables Save outright,
+  // rather than letting the value travel to the server to be refused.
+  const saveBtn = document.getElementById('tb-save-all')
+  if (saveBtn) saveBtn.disabled = tbInvalidFields.size > 0
 }
 
 async function saveTbFields() {
   clearTbSaveFeedback()
   const feedback = document.getElementById('tb-save-feedback')
+
+  // Second half of the Phase 2.1 guard, and it must come BEFORE the
+  // not-dirty early return below: saveTbFields() is reachable from the
+  // keyboard handler, and clearTbSaveFeedback() above has already wiped
+  // the screen, so returning first would leave an invalid field with no
+  // visible reason why nothing happened.
+  if (tbInvalidFields.size) {
+    renderTbValidationFeedback()
+    return
+  }
 
   const dirtyEntries = Object.entries(tbEdits).filter(([, e]) => e.draft !== e.orig)
   if (!dirtyEntries.length) return
