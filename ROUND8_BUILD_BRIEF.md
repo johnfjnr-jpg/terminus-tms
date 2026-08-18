@@ -93,16 +93,18 @@ status.
    expand and see the full history, confirmed, not a permanent
    truncation, the full record must remain reachable from this view.
 
-**Also an acceptance criterion of this phase, carried forward from Phase
-3:** re-verify Total Cost's visibility on the Commercials tab at
-1920x1080 against a **real monitor viewport (~950px usable after browser
-chrome), not the flat headless 1080 figure**. Phase 3 got it to y=1054,
-still ~21px clipped headless and fully below the fold on a real screen,
-and identified this header block as the single largest consumer of
-vertical space at 336px. If this phase's rework happens to recover
-enough, confirm it explicitly; **if it does not, the gap returns to Phase
-3's own finding rather than being silently dropped.** Do not assume it
-was fixed as an incidental side effect.
+**Carried-forward Total Cost criterion: RESOLVED AS FAILED, and the gap
+returns to Phase 3's finding.** This phase was asked to re-verify Total
+Cost's visibility at 1920 against a real ~950px viewport. Measured after
+the build: the header went from 191px to **346px** and Total Cost moved
+from y=1054 to **y=1210**, so the shortfall grew from 151px to **306px**.
+**The arrangement was not compromised to protect the criterion**, which
+was an addition rather than part of this phase's brief. The header was
+never the lever: it costs 191px side by side and stacking is inherently
+more expensive. Recovering the 306px means the 145px navigation band, the
+96px tab row and the 379px input-rate panels, and is **separate,
+dedicated scope, not owed by this phase or by any phase that happens to
+touch the header next.**
 
 **Test evidence required:** screenshot before/after showing the
 repositioned, widened layout. Confirm exactly 2 notes show by default

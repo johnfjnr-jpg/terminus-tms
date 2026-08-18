@@ -1960,6 +1960,17 @@ async function loadTestBedDetail(id) {
 // Each block is hidden outright when it has nothing to show, rather
 // than rendering an empty container. A record with no notes and a
 // record with one note both have to look deliberate.
+// Round 8 Phase 5: Notes shows the 2 most recent by default, with an
+// expand control revealing the genuine full history. A default view, not
+// a truncation - the full record stays reachable from this header, which
+// was the explicit requirement.
+let tbHeaderNotesExpanded = false
+
+window.toggleTbHeaderNotes = function () {
+  tbHeaderNotesExpanded = !tbHeaderNotesExpanded
+  renderTbHeaderDigest(currentTestBed?.payload ?? {})
+}
+
 function renderTbHeaderDigest(p) {
   const summaryEl = document.getElementById('tb-header-summary')
   const notesEl = document.getElementById('tb-header-notes')
@@ -1972,16 +1983,30 @@ function renderTbHeaderDigest(p) {
   summaryEl.classList.toggle('hidden', !summary)
 
   const notes = Array.isArray(p.notes) ? p.notes : []
-  // slice(-2) then reverse: the last two chronologically, newest first.
-  const latest = notes.slice(-2).reverse()
-  notesEl.innerHTML = latest.length
-    ? `<p class="tb-header-digest-label">Latest notes</p>` + latest.map(n => `
+  // Newest first. slice(-2) then reverse for the default view; the full
+  // history is the same list reversed, nothing filtered out.
+  const shown = tbHeaderNotesExpanded
+    ? [...notes].reverse()
+    : notes.slice(-2).reverse()
+
+  // Rule 10: timestamp, then author, then text, via the shared
+  // .ref-notes-row markup - not a header-only variant.
+  const rows = shown.map(n => `
     <div class="ref-notes-row">
       <span class="ref-notes-when">${formatDate(n.at)}</span><span class="ref-notes-author">${escHtml(n.by ?? '')}</span><span class="ref-notes-text">${escHtml(n.text)}</span>
     </div>`).join('')
+
+  const toggle = notes.length > 2
+    ? `<button class="btn-text tb-header-notes-toggle" onclick="toggleTbHeaderNotes()">${
+        tbHeaderNotesExpanded ? 'Show fewer' : `Show all ${notes.length} notes`}</button>`
     : ''
-  notesEl.classList.toggle('hidden', !latest.length)
+
+  notesEl.innerHTML = shown.length
+    ? `<p class="tb-header-digest-label">${tbHeaderNotesExpanded ? 'Notes' : 'Latest notes'}</p>${rows}${toggle}`
+    : ''
+  notesEl.classList.toggle('hidden', !shown.length)
 }
+
 
 async function renderTestBedDetail(bed) {
   const p = bed.payload ?? {}

@@ -682,25 +682,28 @@
        #opp-detail-tabs pattern exactly (app.js). -->
   <div id="view-test-bed-detail" class="wrap hidden">
     <div class="detail-head">
-      <div>
+      <div class="tb-head-main">
         <button class="btn-text" id="btn-back-testbeds">Back to test beds</button>
         <p class="eyebrow" style="margin-top:16px">Test Bed</p>
         <h1 id="tb-detail-name"></h1>
         <p class="sub" id="tb-detail-client"></p>
-      </div>
-      <!-- Round 7 Phase 5: the space to the right of the name was empty.
-           Filled with the Summary and the last 2 notes, latest first.
-           Notes use the shared markup from DESIGN_PRINCIPLES.md Rule 10
-           (.ref-notes-row / .ref-notes-when / .ref-notes-author /
-           .ref-notes-text) - timestamp, author, text, in that order -
-           rather than a compact header variant with its own ordering,
-           so every note in the app still reads the same way. Both
-           blocks are hidden entirely when empty rather than rendering
-           an empty box: an always-present container that is usually
-           blank reads as broken. -->
-      <div id="tb-header-digest" class="tb-header-digest">
-        <div id="tb-header-summary" class="tb-header-summary hidden"></div>
-        <div id="tb-header-notes" class="tb-header-notes hidden"></div>
+        <!-- Round 8 Phase 5: Summary and Notes moved INTO the left column,
+             directly beneath the name, rather than sitting as a separate
+             middle column beside it. Summary above Notes. Both are now the
+             full width of this column instead of a capped 520px (280px at
+             1240, where they were genuinely cramped). Notes shows the 2
+             most recent by default with an expand control - a default
+             view, not a truncation, the full history stays reachable here.
+
+             This costs vertical space and that was accepted knowingly:
+             side by side the header was max(name 130, digest 191) = 191px;
+             stacked it is name + summary + notes. See DESIGN_PRINCIPLES'
+             page-density entry, which records the real outcome rather than
+             the hoped-for one. -->
+        <div id="tb-header-digest" class="tb-header-digest">
+          <div id="tb-header-summary" class="tb-header-summary hidden"></div>
+          <div id="tb-header-notes" class="tb-header-notes hidden"></div>
+        </div>
       </div>
       <!-- Convert to Opportunity: moved here from the page bottom
            (2026-08-15) - checked first for an existing top-right

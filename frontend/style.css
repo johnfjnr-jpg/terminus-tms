@@ -2325,37 +2325,25 @@ input.input-invalid {
   outline-color: rgba(242,100,100,0.9);
 }
 
-/* ── Test Bed header digest (Round 7 Phase 5) ────────────────────────────
-   Fills the space to the right of the Test Bed name, which was empty, with
-   the Summary and the last 2 notes. .detail-head is already
-   display:flex/justify-content:space-between, so this sits as the middle
-   child between the name block and the tag/Convert column and takes the
-   slack, rather than either of them being repositioned.
+/* ── Test Bed header digest (Round 7 Phase 5, repositioned Round 8 Phase 5)
+   Summary and Notes now sit INSIDE the left column, beneath the name,
+   rather than as a separate middle column beside it. They take the full
+   width of that column instead of the old 520px cap (280px at 1240, where
+   they were genuinely cramped), which is the "widen both fields" half of
+   the phase.
 
-   max-width keeps it from crowding the Convert button on very wide
-   viewports (3440px), and flex:1 with min-width:0 lets it shrink and wrap
-   its text rather than forcing the row wider at 1240px. Hidden entirely
-   when it has nothing to show - see renderTbHeaderDigest. */
+   The left column takes the slack so the pair are as wide as the layout
+   allows, with only the tag/Convert column reserved on the right. */
+.tb-head-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 1180px;
+}
 .tb-header-digest {
-  /* flex-basis 320px with a real min-width, not flex:1 with min-width:0.
-     The first attempt used the latter and at 1240px the name column -
-     which can hold a long generated record name - took the slack and
-     squeezed this to ~155px, wrapping every note to four ragged lines.
-     A digest narrower than ~280px is worse than no digest, so it holds
-     its width and the name column yields instead (see the rule below). */
-  flex: 1 1 320px;
-  min-width: 280px;
-  max-width: 520px;
-  margin: 0 28px;
+  margin-top: 22px;
   display: flex;
   flex-direction: column;
   gap: 14px;
-}
-/* Lets the name column shrink rather than pinning the row to the width of
-   a long record name. Without this, min-width:auto on a flex item keeps
-   it at its content width and everything else is squeezed. */
-.detail-head > div:first-child {
-  min-width: 0;
 }
 .tb-header-digest-label {
   font-family: var(--mono);
@@ -2373,12 +2361,17 @@ input.input-invalid {
 }
 /* The note rows themselves deliberately carry no overrides: they use the
    shared .ref-notes-row treatment unchanged, per Rule 10. */
-
-/* Below this there is genuinely not room for name + digest + the Convert
-   column at a readable width, so the digest goes rather than degrading. */
-@media (max-width: 1180px) {
-  .tb-header-digest { display: none; }
+.tb-header-notes-toggle {
+  margin-top: 8px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
 }
+
+/* No longer hidden at narrow widths. The Round 7 version was dropped below
+   1180px because, as a 280px middle column, it degraded rather than
+   shrank. In the left column it has real width at every tested size, so
+   hiding it would now remove content for no reason. */
 
 /* ── Test Bed tab-row actions (Round 7 Phase 6) ──────────────────────────
    Next Stage, Cancel and Save changes at the right-hand end of the tab
