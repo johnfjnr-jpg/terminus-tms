@@ -836,6 +836,22 @@ element, not on an inline span.
 - **Pricing history view for Deal Sheet revisions.** Confirmed as
   wanted, deferred. The data already exists in `record_revisions`;
   Phase 3's three constraints exist to keep it that way.
+- **The unchecked-Supabase-error sweep. Confirmed as Round 8, promoted
+  out of Deferred scope, 2026-08-18.** Milestone 5 found roughly 20
+  instances in `test-beds.js`, `contacts.js` and `deals.js`, fixed 5 as
+  genuinely dangerous, and recorded that a wider pass was worth
+  scheduling. Round 7 then found **eight more across two files that
+  were never in that scan**: six in `transitions.js` (step 3.0) and two
+  in `approvals.js`. Their behaviour was not uniform, which is the
+  argument for a bounded pass rather than a grep-and-patch: most failed
+  closed, one (`transitions.js:203`) failed **open**, one reported a
+  database fault as a confident wrong 400, and one would have written a
+  wrong `revision_number` into a durable audit row. Two were found only
+  because a test flaked and a documented feature turned out never to
+  have run. **It needs a fixed file list agreed up front and a
+  disposition recorded per site, not an open-ended invitation to keep
+  finding them**, which is what leaving it in Deferred scope has
+  amounted to for two milestones. Do not start it in Round 7.
 - **The full buyer-role catalog design**, unchanged since Round 3.
 - **Deep Parent Account cycles**, unchanged since Round 4.
 

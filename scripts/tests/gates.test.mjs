@@ -205,7 +205,7 @@ test('both call sites agree: transitions.js and records.js produce the same bloc
 // against LIVE data across EVERY record type, not against fixtures. It is
 // what stops the Phase 0 class of fault recurring silently as stages are
 // added or renamed.
-test('INVARIANT: no stage_gate_rules row names a stage absent from stage_definitions', async () => {
+test('INVARIANT: no stage_gate_rules row or approvals.stage names a stage absent from stage_definitions', async () => {
   const { data: stages, error: stageErr } = await db
     .from('stage_definitions').select('record_type, stage_name')
   assert.equal(stageErr, null, `stage_definitions query failed: ${stageErr?.message}`)
@@ -225,6 +225,26 @@ test('INVARIANT: no stage_gate_rules row names a stage absent from stage_definit
 
   assert.deepEqual(orphans, [],
     `orphaned gate rules found - each names a stage that does not exist:\n${JSON.stringify(orphans, null, 2)}`)
+
+  // Round 7 Phase 3.1 created a FOURTH table holding a stage-name string.
+  // An orphaned approvals.stage does not error - it silently stops
+  // matching, so a gate that was satisfied becomes blocked with no
+  // explanation anywhere. NULL is legitimate and excluded: approvals
+  // issued before the column existed carry null by design, and are
+  // deliberately unable to satisfy a stage-scoped rule.
+  const { data: approvals, error: apprErr } = await db
+    .from('approvals')
+    .select('id, stage, record_id, records!inner(record_type)')
+    .not('stage', 'is', null)
+  assert.equal(apprErr, null, `approvals query failed: ${apprErr?.message}`)
+
+  const apprOrphans = (approvals ?? [])
+    .filter(a => a.records?.record_type !== TYPE)
+    .filter(a => !live.has(`${a.records?.record_type}||${a.stage}`))
+    .map(a => ({ id: a.id, record_type: a.records?.record_type, stage: a.stage }))
+
+  assert.deepEqual(apprOrphans, [],
+    `approvals.stage values naming a stage that does not exist:\n${JSON.stringify(apprOrphans, null, 2)}`)
 })
 
 // ---------------------------------------------------------------------
