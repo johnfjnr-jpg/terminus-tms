@@ -1873,6 +1873,25 @@ textarea::placeholder { color: var(--muted-2); }
    value (see renderAcctParentRow, account-detail.js). Same 280-420px
    cap every other Reference-style page (Contact, Test Bed, Opportunity)
    already uses, not a new value invented for this page. */
+/* Round 8 Phase 6 (2026-08-18): the wide-layout treatment Contact, Test Bed
+   and Opportunity detail already had, and Account detail never received.
+
+   Account detail was the ONLY detail view still inheriting .wrap's 1240px
+   max-width. That is why its three panels sat 2+1 at every viewport size
+   including 3440px: the grid was 1017px wide inside a 1240px container, so
+   only two 420px cards could ever fit, regardless of how much screen was
+   actually available. The panels, the .ref-cards grid and the 280-420px cap
+   were all already correct - the container above them was the constraint.
+
+   Same shape as Round 8 Phase 2's spinner rule: a fix applied to the pages
+   that existed at the time and never extended to Accounts, which was built
+   later (Round 5 Phase 10). Identical values to the other three views, not
+   a new figure invented for this page. */
+#view-account-detail {
+  max-width: none;
+  padding-right: 62px;
+}
+
 #view-account-detail .ref-cards {
   grid-template-columns: repeat(auto-fit, minmax(280px, 420px));
   justify-content: start;
