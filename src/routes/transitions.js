@@ -12,6 +12,46 @@ import { createUserClient } from '../supabase.js'
 // now-being-removed Stage & Approvals tab, which re-derives its own
 // plain-language criteria text independently - left untouched here,
 // Phase 7 removes its only caller).
+/**
+ * THE single definition of what satisfies an approval_obtained rule.
+ *
+ * Round 7, added after a real defect: 3.1 taught computeBlocking about
+ * requirement_detail.scope but left the stage-approvals panel in
+ * records.js filtering on revision_number alone. The two then answered the
+ * same question by different rules - with Phase 4's stage-scoped
+ * Qualification approvals, editing any field left the gate satisfied while
+ * the panel showed both tracks un-ticked, which re-enabled the row and let
+ * a duplicate approval be recorded per edit (the unique constraint carries
+ * revision_number, so a moved revision does not block it).
+ *
+ * Both call sites now import this. Do not inline the scope check anywhere
+ * else - a second implementation is exactly how those two drifted apart.
+ *
+ * @param approval a row from `approvals` carrying track, decision, stage,
+ *   revision_number
+ * @param rule a stage_gate_rules row with requirement_type
+ *   'approval_obtained'
+ * @param ctx.from_stage the stage being exited (the gate's own stage)
+ * @param ctx.currentRevision the record's current revision number
+ */
+export function ruleScope(rule) {
+  // Absent scope defaults to 'revision' - the behaviour every rule had
+  // before 3.1, and a continuity requirement, not a style choice. Read it
+  // through here rather than repeating the ?? default, so the default
+  // itself has one home too.
+  return rule?.requirement_detail?.scope ?? 'revision'
+}
+
+export function approvalSatisfiesRule(approval, rule, { from_stage, currentRevision }) {
+  if (!approval || approval.decision !== 'approved') return false
+  const track = rule?.requirement_detail?.track
+  if (!track || approval.track !== track) return false
+
+  return ruleScope(rule) === 'stage'
+    ? approval.stage === from_stage
+    : approval.revision_number === currentRevision
+}
+
 export async function computeBlocking(db, record, from_stage, to_stage, currentRevision, revPayload) {
   // Null-variant rules apply to all variants; variant-specific rules apply only to that variant.
   // Use .is('variant', null) directly when there is no variant -- .or() with a single condition
@@ -40,37 +80,22 @@ export async function computeBlocking(db, record, from_stage, to_stage, currentR
       const track = rule.requirement_detail?.track
       if (!track) continue
 
-      // Round 7 Phase 3.1: scope is a property of the RULE, not a global
-      // policy. Absent scope defaults to 'revision', which is the behaviour
-      // every rule had before this change - a continuity requirement, so an
-      // existing rule and an already-issued approval keep behaving exactly
-      // as they did, with no migration of intent.
-      //
-      // 'revision' voids an approval on any edit, which is correct for a
-      // one-shot artefact like a Deal Sheet frozen at submission (Rule 2).
-      // 'stage' matches the stage the approval was given at, which is
-      // correct for a stage gate on a record that stays under edit for
-      // weeks - previously such an approval was silently voided by any
-      // field edit, with nothing on screen to say why.
-      const scope = rule.requirement_detail?.scope ?? 'revision'
+      // Round 7: candidates are fetched here and judged by the shared
+      // approvalSatisfiesRule above, rather than the scope being encoded
+      // into this query's filters. That is deliberate - it is the only way
+      // this and the stage-approvals panel in records.js can be guaranteed
+      // to agree, and their disagreeing is a real defect that shipped once.
+      const scope = ruleScope(rule)
 
-      let approvalQuery = db
+      const { data: candidates, error: approvalErr } = await db
         .from('approvals')
-        .select('id')
+        .select('track, decision, stage, revision_number')
         .eq('record_id', record.id)
         .eq('track', track)
         .eq('decision', 'approved')
 
-      approvalQuery = scope === 'stage'
-        // from_stage, not record.status: the gate is defined on the
-        // transition out of a specific stage, and that is the stage the
-        // approval must have been given at. A null stage (an approval
-        // issued before this column existed) cannot match, deliberately.
-        ? approvalQuery.eq('stage', from_stage)
-        : approvalQuery.eq('revision_number', currentRevision)
-
-      const { data: approval, error: approvalErr } = await approvalQuery
-        .maybeSingle()
+      const approval = (candidates ?? []).some(
+        a => approvalSatisfiesRule(a, rule, { from_stage, currentRevision }))
 
       // Round 7 step 3.0: an unchecked error here is indistinguishable
       // from "no approval exists", which this branch would read as

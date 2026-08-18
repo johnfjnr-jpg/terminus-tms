@@ -1,5 +1,42 @@
 import { createUserClient } from '../supabase.js'
-import { computeBlocking } from './transitions.js'
+import { computeBlocking, approvalSatisfiesRule } from './transitions.js'
+
+/**
+ * Builds the stage-approvals panel's per-track state for one stage.
+ *
+ * Exported so the agreement test can call the REAL function rather than a
+ * copy of it. A test that mirrors this logic would keep passing if this
+ * drifted, which is exactly how this panel and computeBlocking came apart
+ * in the first place.
+ *
+ * Judged by the shared approvalSatisfiesRule, the same predicate
+ * computeBlocking uses, so the panel and the gate cannot disagree.
+ * Deduplicated by track but evaluated against the RULE, since scope lives
+ * on the rule and not on the track. Note stageName, not record.status:
+ * each row answers "what would it take to exit THIS stage", the same
+ * question the gate asks with from_stage.
+ */
+export function buildStageTracks(stageRules, approvals, stageName, currentRevision) {
+  const seen = new Set()
+  return (stageRules ?? [])
+    .filter(r => r.requirement_type === 'approval_obtained' && r.requirement_detail?.track)
+    .filter(r => {
+      const t = r.requirement_detail.track
+      if (seen.has(t)) return false
+      seen.add(t)
+      return true
+    })
+    .map(rule => {
+      const decision = (approvals ?? []).find(a =>
+        approvalSatisfiesRule(a, rule, { from_stage: stageName, currentRevision }))
+      return {
+        track: rule.requirement_detail.track,
+        approved: !!decision,
+        approver_id: decision?.approver_id ?? null,
+        decided_at: decision?.decided_at ?? null,
+      }
+    })
+}
 
 export default async function recordsRoutes(app) {
   // POST /api/records — create a record with its initial revision
@@ -135,10 +172,17 @@ export default async function recordsRoutes(app) {
     const [stagesResult, rulesResult, approvalsResult] = await Promise.all([
       stageQuery,
       rulesQuery,
+      // Round 7: NOT filtered by revision_number here. This panel covers
+      // every stage at once, and whether a given approval counts depends on
+      // its rule's scope - a stage-scoped rule matches on approvals.stage
+      // and ignores the revision entirely. Filtering here would decide that
+      // question before the rule is known, which is precisely the bug this
+      // replaces: the panel filtered on revision while computeBlocking
+      // honoured scope, so after any edit the gate stayed satisfied while
+      // the panel showed the tracks un-ticked.
       db.from('approvals')
-        .select('track, decision, approver_id, decided_at')
+        .select('track, decision, approver_id, decided_at, stage, revision_number')
         .eq('record_id', record.id)
-        .eq('revision_number', currentRevision)
     ])
 
     if (stagesResult.error) return reply.code(500).send({ error: stagesResult.error.message })
@@ -177,19 +221,7 @@ export default async function recordsRoutes(app) {
         return null
       }).filter(Boolean)
 
-      const tracks = stageRules
-        .filter(r => r.requirement_type === 'approval_obtained' && r.requirement_detail?.track)
-        .map(r => r.requirement_detail.track)
-        .filter((t, i, arr) => arr.indexOf(t) === i)
-        .map(track => {
-          const decision = approvals.find(a => a.track === track && a.decision === 'approved')
-          return {
-            track,
-            approved: !!decision,
-            approver_id: decision?.approver_id ?? null,
-            decided_at: decision?.decided_at ?? null,
-          }
-        })
+      const tracks = buildStageTracks(stageRules, approvals, stage.stage_name, currentRevision)
 
       return { stage_name: stage.stage_name, sort_order: stage.sort_order, phase: stage.phase, state, criteria, tracks }
     })

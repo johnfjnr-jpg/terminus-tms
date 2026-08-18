@@ -13,7 +13,8 @@
 import { test, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { adminClient, newRunTag, resolveOwnerId, Fixtures } from '../verify-harness.mjs'
-import { computeBlocking } from '../../src/routes/transitions.js'
+import { computeBlocking, approvalSatisfiesRule, ruleScope } from '../../src/routes/transitions.js'
+import { buildStageTracks } from '../../src/routes/records.js'
 
 let db, runTag, fx, ownerId, TYPE
 
@@ -521,4 +522,114 @@ test('3.1: a rejected decision never satisfies either scope', async () => {
   })
   assert.equal((await computeBlocking(db, rec, FROM, TO, 1, {})).blocking.length, 1,
     'a rejection must not satisfy a gate')
+})
+
+
+// ---------------------------------------------------------------------
+// Round 7, 3.1 completion. The gate and the stage-approvals panel must
+// answer the same question the same way.
+//
+// They did not. 3.1 taught computeBlocking about requirement_detail.scope
+// and left records.js filtering approvals on revision_number alone. With
+// Phase 4's stage-scoped Qualification rules that produced a live defect:
+// tick a track, edit any field, and the gate stayed satisfied while the
+// panel showed the track un-ticked - which re-enabled the row, invited a
+// re-tick, and recorded a DUPLICATE approval per edit, because the unique
+// constraint carries revision_number and the revision had moved.
+//
+// Both now judge with the same exported predicate. These tests assert the
+// agreement directly, since that is the regression this class produces.
+
+// Calls the REAL function records.js uses to build the panel, not a copy.
+// A mirrored implementation would keep passing if records.js drifted,
+// which is precisely how the panel and the gate came apart before.
+const panelSaysApproved = (approvals, rule, stageName, currentRevision) => {
+  const tracks = buildStageTracks([{ ...rule }], approvals, stageName, currentRevision)
+  return tracks.length === 1 && tracks[0].approved
+}
+
+const fetchApprovals = async (recordId) => {
+  const { data, error } = await db.from('approvals')
+    .select('track, decision, approver_id, decided_at, stage, revision_number')
+    .eq('record_id', recordId)
+  assert.equal(error, null, `approvals fetch failed: ${error?.message}`)
+  return data ?? []
+}
+
+test('gate and approvals panel agree: stage-scoped approval survives an edit', async () => {
+  const [FROM, TO] = stagePair()
+  const rec = await fx.createRecord({ record_type: TYPE, status: FROM, owner_id: ownerId })
+  const detail = { track: 'Technical', scope: 'stage' }
+  await fx.createRule({
+    record_type: TYPE, from_stage: FROM, to_stage: TO,
+    requirement_type: 'approval_obtained', requirement_detail: detail,
+  })
+  const rule = { requirement_type: 'approval_obtained', requirement_detail: detail }
+
+  await fx.createApproval({
+    record_id: rec.id, revision_number: 1, stage: FROM,
+    track: 'Technical', decision: 'approved', approver_id: ownerId,
+  })
+
+  // Revision 1: both must say satisfied.
+  let approvals = await fetchApprovals(rec.id)
+  assert.deepEqual((await computeBlocking(db, rec, FROM, TO, 1, {})).blocking, [])
+  assert.equal(panelSaysApproved(approvals, rule, FROM, 1), true)
+
+  // An unrelated field edit moves the revision. THIS is where they used
+  // to diverge: gate satisfied, panel un-ticked.
+  for (const rev of [2, 9]) {
+    const gateSatisfied = (await computeBlocking(db, rec, FROM, TO, rev, {})).blocking.length === 0
+    const panel = panelSaysApproved(approvals, rule, FROM, rev)
+    assert.equal(gateSatisfied, true, `gate must stay satisfied at revision ${rev}`)
+    assert.equal(panel, gateSatisfied,
+      `panel and gate disagree at revision ${rev}: panel=${panel} gate=${gateSatisfied}`)
+  }
+})
+
+test('gate and approvals panel agree: revision-scoped approval is voided by an edit', async () => {
+  const [FROM, TO] = stagePair()
+  const rec = await fx.createRecord({ record_type: TYPE, status: FROM, owner_id: ownerId })
+  const detail = { track: 'Commercial' } // no scope -> revision
+  await fx.createRule({
+    record_type: TYPE, from_stage: FROM, to_stage: TO,
+    requirement_type: 'approval_obtained', requirement_detail: detail,
+  })
+  const rule = { requirement_type: 'approval_obtained', requirement_detail: detail }
+  assert.equal(ruleScope(rule), 'revision', 'absent scope must default to revision')
+
+  await fx.createApproval({
+    record_id: rec.id, revision_number: 1, stage: FROM,
+    track: 'Commercial', decision: 'approved', approver_id: ownerId,
+  })
+  const approvals = await fetchApprovals(rec.id)
+
+  for (const rev of [1, 2]) {
+    const gateSatisfied = (await computeBlocking(db, rec, FROM, TO, rev, {})).blocking.length === 0
+    const panel = panelSaysApproved(approvals, rule, FROM, rev)
+    assert.equal(panel, gateSatisfied, `panel and gate disagree at revision ${rev}`)
+    assert.equal(gateSatisfied, rev === 1,
+      `a revision-scoped approval must hold at revision 1 and be voided at ${rev}`)
+  }
+})
+
+test('gate and approvals panel agree: an approval from another stage counts for neither', async () => {
+  const [FROM, TO] = stagePair()
+  const [OTHER] = stagePair()
+  const rec = await fx.createRecord({ record_type: TYPE, status: FROM, owner_id: ownerId })
+  const detail = { track: 'Legal', scope: 'stage' }
+  await fx.createRule({
+    record_type: TYPE, from_stage: FROM, to_stage: TO,
+    requirement_type: 'approval_obtained', requirement_detail: detail,
+  })
+  const rule = { requirement_type: 'approval_obtained', requirement_detail: detail }
+
+  await fx.createApproval({
+    record_id: rec.id, revision_number: 1, stage: OTHER,
+    track: 'Legal', decision: 'approved', approver_id: ownerId,
+  })
+  const approvals = await fetchApprovals(rec.id)
+  const gateSatisfied = (await computeBlocking(db, rec, FROM, TO, 1, {})).blocking.length === 0
+  assert.equal(gateSatisfied, false)
+  assert.equal(panelSaysApproved(approvals, rule, FROM, 1), gateSatisfied)
 })
