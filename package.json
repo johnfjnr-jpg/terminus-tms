@@ -8,7 +8,9 @@
     "start": "node src/server.js",
     "dev": "node --env-file=.env --watch src/server.js",
     "db:push": "npx supabase db push",
-    "db:seed": "node scripts/seed.js"
+    "db:seed": "node scripts/seed.js",
+    "test": "node --test scripts/tests/cost.test.mjs",
+    "test:db": "node --test --env-file-if-exists=.env scripts/tests/reference-number.test.mjs scripts/tests/gates.test.mjs"
   },
   "dependencies": {
     "@fastify/static": "^10.1.2",
