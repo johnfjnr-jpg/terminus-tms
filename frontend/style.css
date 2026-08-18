@@ -2401,3 +2401,49 @@ input.input-invalid {
 #tb-tab-stage-detail .ref-cards .sa-head {
   display: none;
 }
+
+/* ── Chevron hover popup (Round 7 Phase 9) ───────────────────────────────
+   The wrapper exists because .chevron-strip has overflow:hidden and every
+   .chevron-item carries a clip-path, so a popup inside either is clipped
+   away. It is also the hover target, so moving the pointer from a chevron
+   into the popup is not a leave.
+
+   Reuses the established hover-popup treatment rather than inventing a
+   fourth variant: same black/hairline/shadow as .contact-count-popup and
+   .tb-matrix-popup, and the rows are .linked-record-row, which already
+   carries the nowrap/overflow/ellipsis truncation added in Round 6
+   Phase 1. left is set inline by positionTbChevronPopup, which clamps it
+   inside the wrapper - that is what keeps the rightmost (Closed) popup off
+   the viewport edge. */
+.chevron-wrap {
+  position: relative;
+}
+.chevron-popup {
+  position: absolute;
+  /* Sits BELOW the strip, not over it. The first attempt used
+     margin-top:-36px and the popup covered the chevron labels it was
+     describing - every numeric assertion still passed (inside the
+     wrapper, inside the viewport, not truncating), which is why the
+     standing rule puts "look at the screenshot" first for layout work.
+     The strip's own 44px bottom margin leaves the gap; -8px closes it to
+     a normal tooltip offset without touching the strip. */
+  top: 100%;
+  margin-top: -8px;
+  z-index: 40;
+  min-width: 220px;
+  max-width: 320px;
+  background: var(--black);
+  border: 1px solid var(--hairline-strong);
+  padding: 4px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  text-align: left;
+  pointer-events: auto;
+}
+.chevron-popup-title {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 4px 6px 6px;
+}

@@ -737,7 +737,17 @@
          button is still the same single trigger calling the same shared
          function - there has never been a second transition mechanism. -->
     <p class="section-title" style="margin:0 0 10px">Workflow stage</p>
-    <div id="tb-chevron-strip" class="chevron-strip"></div>
+    <!-- Round 7 Phase 9: the popup is a SIBLING of the strip, not a child
+         of it or of a chevron. .chevron-strip has overflow:hidden and each
+         .chevron-item carries a clip-path, so a popup rendered inside
+         either would be clipped away entirely. The wrapper is the
+         positioning context and also the hover target, so moving the
+         pointer from a chevron into the popup does not register as
+         leaving - the mistake both existing hover popups had to correct. -->
+    <div id="tb-chevron-wrap" class="chevron-wrap">
+      <div id="tb-chevron-strip" class="chevron-strip"></div>
+      <div id="tb-chevron-popup" class="chevron-popup hidden"></div>
+    </div>
 
     <!-- Round 7 Phase 5: the Stage / Accumulated cost / Age / Terminus
          Reference strip is removed. Each value already has a home and

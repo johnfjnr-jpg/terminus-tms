@@ -511,8 +511,94 @@ function renderChevronStrip(elementId, currentStage, stages) {
   el.innerHTML = mainItems.map((item, i) => {
     const cls = i < currentMainIdx ? 'done' : i === currentMainIdx ? 'current' : ''
     const zIndex = mainItems.length - i
-    return `<div class="chevron-item ${cls}" style="z-index:${zIndex}">${escHtml(item.label)}</div>`
+    // data-stage only when the label is a real stage rather than a phase
+    // grouping - Opportunity's chevron collapses stages into phases, and a
+    // phase has no exit-criteria of its own to show.
+    const isRealStage = stages.some(s => s.stage_name === item.label)
+    const stageAttr = isRealStage ? ` data-stage="${escHtml(item.label)}"` : ''
+    return `<div class="chevron-item ${cls}" style="z-index:${zIndex}"${stageAttr}>${escHtml(item.label)}</div>`
   }).join('')
+}
+
+// Round 7 Phase 9: hovering a chevron shows that stage's outstanding
+// exit criteria.
+//
+// Two things are prevented BY CONSTRUCTION rather than tested for
+// afterwards, because both are transient and nearly unreportable:
+//
+//  1. Debounce. A pointer sweeps eight chevrons in well under a second.
+//     Firing on every mouseover would issue eight requests for one
+//     gesture, so the fetch only starts once the pointer has rested.
+//  2. A load token, the same discipline loadTbStageDetailTab already uses
+//     (tbStageTabLoadToken) after Round 5 Phase 7 found a real race there.
+//     Hovering is faster and less deliberate than clicking, so responses
+//     can and will arrive out of order; a stale one must never paint. The
+//     symptom would be the wrong stage's criteria appearing for a moment
+//     and vanishing - invisible to any test that hovers once and waits.
+let tbChevronHoverTimer = null
+let tbChevronLoadToken = 0
+const TB_CHEVRON_HOVER_DELAY_MS = 180
+
+function hideTbChevronPopup() {
+  clearTimeout(tbChevronHoverTimer)
+  // Bump the token so any in-flight response is stale and cannot paint
+  // after the pointer has already left.
+  tbChevronLoadToken++
+  const popup = document.getElementById('tb-chevron-popup')
+  if (popup) popup.classList.add('hidden')
+}
+
+// Centre on the chevron, then clamp inside the wrapper. This is what
+// stops the leftmost and rightmost popups being clipped at the viewport
+// edge - the strip runs the full page width, so Closed sits hard against
+// it and a centred popup would overflow.
+function positionTbChevronPopup(item, popup, wrap) {
+  const wrapRect = wrap.getBoundingClientRect()
+  const itemRect = item.getBoundingClientRect()
+  popup.classList.remove('hidden')
+  const popupWidth = popup.getBoundingClientRect().width
+  const centred = (itemRect.left - wrapRect.left) + (itemRect.width / 2) - (popupWidth / 2)
+  const maxLeft = wrapRect.width - popupWidth
+  popup.style.left = `${Math.max(0, Math.min(centred, Math.max(0, maxLeft)))}px`
+}
+
+function wireTbChevronHover(recordId) {
+  const wrap = document.getElementById('tb-chevron-wrap')
+  const popup = document.getElementById('tb-chevron-popup')
+  if (!wrap || !popup || wrap.dataset.wired === '1') return
+  wrap.dataset.wired = '1'
+
+  wrap.addEventListener('mouseover', (e) => {
+    const item = e.target.closest('.chevron-item[data-stage]')
+    if (!item) return
+    const stage = item.dataset.stage
+    if (popup.dataset.stage === stage && !popup.classList.contains('hidden')) return
+
+    clearTimeout(tbChevronHoverTimer)
+    tbChevronHoverTimer = setTimeout(async () => {
+      const myToken = ++tbChevronLoadToken
+      const result = await api('GET', `/api/records/${recordId}/exit-criteria?stage=${encodeURIComponent(stage)}`)
+      // A newer hover has started, or the pointer has left. Drop this one.
+      if (myToken !== tbChevronLoadToken) return
+
+      if (!result.ok) {
+        popup.innerHTML = '<div class="linked-record-row">Could not load exit criteria.</div>'
+      } else {
+        const blocking = result.data?.blocking ?? []
+        popup.innerHTML = `<p class="chevron-popup-title">${escHtml(stage)}</p>` + (blocking.length
+          ? blocking.map(b => `<div class="linked-record-row">${escHtml(b.message)}</div>`).join('')
+          : '<div class="linked-record-row">Nothing outstanding.</div>')
+      }
+      popup.dataset.stage = stage
+      positionTbChevronPopup(item, popup, wrap)
+    }, TB_CHEVRON_HOVER_DELAY_MS)
+  })
+
+  // On the WRAPPER, so moving the pointer from a chevron into the popup is
+  // not a leave. The chevron itself stays non-clickable - confirmed by
+  // history in Round 5 Phases 7 and 8 that it has never had a click
+  // handler, and adding hover must not add click.
+  wrap.addEventListener('mouseleave', hideTbChevronPopup)
 }
 
 function renderTransitionSection(elementId, feedbackId, recordId, currentStage, stages) {
@@ -1913,6 +1999,7 @@ async function renderTestBedDetail(bed) {
 
   const stages = await fetchStages('test_bed')
   renderChevronStrip('tb-chevron-strip', bed.status, stages)
+  wireTbChevronHover(bed.id)
   markTbCurrentStageTab(bed.status)
 
   await loadTerminusStaffIfNeeded()
