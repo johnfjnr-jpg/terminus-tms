@@ -729,28 +729,14 @@
       <div id="tb-convert-feedback"></div>
     </div>
 
-    <!-- Round 5 Phase 8 (2026-08-17): a genuinely new, more discoverable
-         entry point to the SAME transition mechanism the "Stage
-         transition" section below already provides - not a second,
-         parallel one. Investigated first, per the brief: the chevron
-         strip has no click handler anywhere in this app's real history
-         (confirmed via git log/blame, not assumed), so this was never a
-         restoration of lost behaviour, it's new. Reuses
-         window.attemptTransition unchanged (wireTbNextStageButton,
-         app.js) with the exact same sectionId ('tb-transition-section',
-         required for its own success-path branch to reload correctly as
-         a Test Bed, not an Opportunity) but its own feedbackId
-         (tb-next-stage-feedback) - a blocking rejection clicked from up
-         here is shown right here, not only in the section below, which
-         could be scrolled out of view at the moment this button is
-         clicked. -->
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-      <p class="section-title" style="margin:0">Workflow stage</p>
-      <div style="display:flex;align-items:center;gap:12px">
-        <div id="tb-next-stage-feedback"></div>
-        <button class="btn-sm btn-primary" id="tb-next-stage-btn">Next Stage</button>
-      </div>
-    </div>
+    <!-- Round 5 Phase 8 built a "Next Stage" button here, above the
+         chevron, as a more discoverable entry point to the same
+         window.attemptTransition the Stage Transition section used.
+         Round 7 Phase 6 moved that button into the tab row and removed
+         the section entirely, so this block is now just the chevron. The
+         button is still the same single trigger calling the same shared
+         function - there has never been a second transition mechanism. -->
+    <p class="section-title" style="margin:0 0 10px">Workflow stage</p>
     <div id="tb-chevron-strip" class="chevron-strip"></div>
 
     <!-- Round 7 Phase 5: the Stage / Accumulated cost / Age / Terminus
@@ -776,8 +762,6 @@
          section's fuller context - the real next stage's name, and its
          own feedback area - stays exactly as it was). -->
     <div style="margin-bottom:28px">
-      <p class="section-title">Stage transition</p>
-      <div id="tb-transition-section"></div>
     </div>
 
     <!-- Round 5 Phase 7 (2026-08-17): the old Documents/Stage & Approvals
@@ -808,27 +792,50 @@
       <button class="detail-tab" data-tb-tab="stage-Review and Completion">Review and Completion</button>
       <button class="detail-tab" data-tb-tab="stage-Decommissioning">Decommissioning</button>
       <button class="detail-tab" data-tb-tab="stage-Closed">Closed</button>
+      <!-- Round 7 Phase 6: Next Stage, Cancel and Save Changes sit at the
+           right-hand end of the tab row, after Closed, replacing both the
+           separate save-bar banner line and the Stage Transition section.
+           .tb-tab-actions uses margin-left:auto so it stays pinned right
+           regardless of how many stage tabs precede it.
+
+           tb-save-feedback moves here rather than being deleted with the
+           banner: clearTbSaveFeedback() and saveTbFields() both read it
+           with no null guard, so removing the element would have thrown
+           on every save. It is a DIFFERENT concern from transition
+           feedback and stays a separate element - one reports "your edit
+           was refused", the other "this transition is blocked", and
+           merging them would make the second overwrite the first.
+
+           tb-next-stage-feedback is now the single home for blocking
+           feedback: the transition section's own tb-transition-feedback
+           was created inside that section's innerHTML, so it is removed
+           with it and orphans no writer. -->
+      <div class="tb-tab-actions">
+        <button class="btn-ghost btn-sm hidden" id="tb-cancel-all">Cancel</button>
+        <button class="btn-primary btn-sm hidden" id="tb-save-all">Save changes</button>
+        <span id="tb-next-stage-hint" class="tb-next-stage-hint hidden"></span>
+        <button class="btn-sm btn-primary" id="tb-next-stage-btn">Next Stage</button>
+      </div>
+    </div>
+    <!-- Both message areas sit directly under the tab row so either is
+         readable from the row without scrolling. They stay SEPARATE
+         elements: one says "your edit was refused", the other "this
+         transition is blocked", and a shared element would let the second
+         overwrite the first. tb-save-feedback was briefly placed inline in
+         the row itself and pushed the buttons off-screen at 1920px - it is
+         long free text, so it belongs on its own line. -->
+    <div class="tb-row-feedback">
+      <span id="tb-save-feedback"></span>
+      <div id="tb-next-stage-feedback" class="tb-next-stage-feedback"></div>
     </div>
 
-    <!-- Page-level save bar (2026-08-15 fix), not nested inside either
-         tab panel - the real bug found in the pre-build check: tbEdits
-         is shared across Reference AND Site Details fields, but the
-         only Save action used to live physically inside the Site
-         Details panel, so editing a Reference field (Terminus Lead,
-         Region, ...) gave no visible way to commit it without switching
-         tabs first. One bar, visible from both tabs, top-right per the
-         confirmed fix. -->
-    <!-- tb-save-count removed (Round 5 Phase 5, 2026-08-17): the "N fields
-         open, M changed" text banner is gone from this consolidated page,
-         per the brief - the bar itself now only appears once something
-         has genuinely changed (updateTbSaveBar, test-bed-detail.js), not
-         merely on opening a field, so there's no longer a state where a
-         count of "open" fields would be worth displaying at all. -->
-    <div id="tb-save-bar" class="ref-edit-bar hidden" style="justify-content:flex-end">
-      <button class="btn-ghost btn-sm" id="tb-cancel-all">Cancel</button>
-      <button class="btn-primary btn-sm" id="tb-save-all">Save changes</button>
-      <span id="tb-save-feedback"></span>
-    </div>
+    <!-- Round 7 Phase 6: the page-level save bar banner is removed. Its
+         Cancel / Save changes buttons and its feedback span now live in
+         the tab row above, keeping their ids so updateTbSaveBar,
+         clearTbSaveFeedback and saveTbFields continue to work unchanged.
+         The dirty-gating built in Round 5 Phase 5 is preserved, not
+         reverted - see updateTbSaveBar in test-bed-detail.js, which now
+         toggles the two buttons rather than a container. -->
 
     <!-- ── Reference tab ──────────────────────────────────────────────── -->
     <!-- Consolidated (Round 5 Phase 5, 2026-08-17): Site Details' entire

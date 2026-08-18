@@ -736,16 +736,31 @@ function onTbFieldInput(key) {
 // instruction for this consolidated page specifically, not applied to
 // Opportunity's Reference tab, which keeps its existing, different
 // behaviour unless a future round asks for it there too).
+// Round 7 Phase 6: the save-bar banner is gone and Cancel / Save changes
+// now live in the tab row, so this toggles the two buttons rather than a
+// container. Both prior behaviours are preserved deliberately, not
+// reverted:
+//
+//  - Dirty-gating (Round 5 Phase 5): visibility keys off dirtyCount, not
+//    off whether any field is OPEN, so opening a field and leaving it
+//    unchanged still has zero visible effect.
+//  - Stay-visible-while-invalid (Round 7 Phase 2.1): an invalid field
+//    keeps the controls on screen even at dirtyCount 0, because
+//    tb-save-feedback sits alongside them and hiding the controls would
+//    hide the message explaining the block.
 function updateTbSaveBar() {
-  const bar = document.getElementById('tb-save-bar')
   const dirtyCount = Object.values(tbEdits).filter(e => e.draft !== e.orig).length
-  // Stay visible while a field is invalid even if nothing is dirty -
-  // otherwise the bar hides the very message explaining the block.
-  bar.classList.toggle('hidden', dirtyCount === 0 && tbInvalidFields.size === 0)
-  // Round 7 Phase 2.1: an invalid numeric field disables Save outright,
-  // rather than letting the value travel to the server to be refused.
+  const show = dirtyCount > 0 || tbInvalidFields.size > 0
+
   const saveBtn = document.getElementById('tb-save-all')
-  if (saveBtn) saveBtn.disabled = tbInvalidFields.size > 0
+  const cancelBtn = document.getElementById('tb-cancel-all')
+  if (cancelBtn) cancelBtn.classList.toggle('hidden', !show)
+  if (saveBtn) {
+    saveBtn.classList.toggle('hidden', !show)
+    // Round 7 Phase 2.1: an invalid numeric field disables Save outright,
+    // rather than letting the value travel to the server to be refused.
+    saveBtn.disabled = tbInvalidFields.size > 0
+  }
 }
 
 async function saveTbFields() {

@@ -2137,6 +2137,14 @@ textarea::placeholder { color: var(--muted-2); }
   border-bottom: 1px solid var(--hairline-strong);
   margin-bottom: 24px;
 }
+/* Round 7 Phase 6: the Test Bed row carries 10 stage tabs plus the action
+   group, which overflowed the viewport at 1920px and cut "Save changes"
+   off entirely. Wrapping lets the action group drop to a second line when
+   there is genuinely no room, instead of disappearing off the edge. */
+#tb-detail-tabs {
+  flex-wrap: wrap;
+  row-gap: 4px;
+}
 .detail-tab {
   font-family: var(--mono);
   font-size: 11px;
@@ -2341,4 +2349,33 @@ input.input-invalid {
    column at a readable width, so the digest goes rather than degrading. */
 @media (max-width: 1180px) {
   .tb-header-digest { display: none; }
+}
+
+/* ── Test Bed tab-row actions (Round 7 Phase 6) ──────────────────────────
+   Next Stage, Cancel and Save changes at the right-hand end of the tab
+   row, after Closed, replacing the separate save-bar banner line and the
+   Stage Transition section. margin-left:auto pins the group right without
+   depending on how many stage tabs precede it. */
+.tb-tab-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-left: 16px;
+  flex-shrink: 0;
+}
+.tb-next-stage-hint {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  opacity: 0.55;
+  white-space: nowrap;
+}
+/* Both message areas sit directly under the tab row, so a rejection or a
+   refused edit is readable from the row without scrolling. */
+.tb-row-feedback:not(:empty) {
+  margin-bottom: 8px;
+}
+.tb-next-stage-feedback:not(:empty) {
+  margin: 12px 0 0;
 }

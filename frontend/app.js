@@ -162,6 +162,9 @@ function markTbCurrentStageTab(currentStage) {
 
 function switchTbTab(tab) {
   document.querySelectorAll('#tb-detail-tabs .detail-tab').forEach(b => b.classList.toggle('active', b.dataset.tbTab === tab))
+  // Round 7 Phase 6: Next Stage is gated on the open tab, and the tab can
+  // change with no re-render, so the button is refreshed here too.
+  refreshTbNextStageButton()
   document.querySelectorAll('#view-test-bed-detail .detail-tab-panel').forEach(p => p.classList.add('hidden'))
   if (tab.startsWith('stage-')) {
     document.getElementById('tb-tab-stage-detail').classList.remove('hidden')
@@ -1927,7 +1930,10 @@ async function renderTestBedDetail(bed) {
   // every page load. renderTransitionSection stays eager - it's now
   // page-level, always visible above the tabs, not nested in a tab that
   // might never be opened.
-  renderTransitionSection('tb-transition-section', 'tb-transition-feedback', bed.id, bed.status, stages)
+  // Round 7 Phase 6: the Test Bed's Stage Transition section is gone; its
+  // trigger is the Next Stage button in the tab row. renderTransitionSection
+  // itself is NOT deleted - the Opportunity detail page still calls it
+  // (loadOpportunityDetail, below) and is untouched by this phase.
   wireTbNextStageButton(bed, stages)
   wireTestBedConvertOnce()
   resetTestBedConvertForm()
@@ -1949,22 +1955,69 @@ async function renderTestBedDetail(bed) {
 // be scrolled out of view at the moment this button is clicked. Called
 // on every render (not wired once) since the real next stage, and
 // whether one exists at all, changes with the record's own status.
+// Round 7 Phase 6. State the button needs is cached here because the
+// button's enabled-ness depends on the OPEN TAB, which changes without a
+// re-render - switchTbTab calls refreshTbNextStageButton() directly.
+let tbNextStageState = null
+
 function wireTbNextStageButton(bed, stages) {
-  const btn = document.getElementById('tb-next-stage-btn')
-  const feedback = document.getElementById('tb-next-stage-feedback')
-  feedback.innerHTML = ''
   const currentIdx = stages.findIndex(s => s.stage_name === bed.status)
-  const nextStage = stages[currentIdx + 1]?.stage_name
+  tbNextStageState = {
+    recordId: bed.id,
+    currentStage: bed.status,
+    nextStage: stages[currentIdx + 1]?.stage_name ?? null,
+  }
+  const feedback = document.getElementById('tb-next-stage-feedback')
+  if (feedback) feedback.innerHTML = ''
+  refreshTbNextStageButton()
+}
+
+// Confirmed business rule: stage progression happens from inside the
+// stage itself, so the user must open the record's real current stage
+// tab, review its criteria and approvals, and progress from there.
+//
+// The two disabled reasons are genuinely different and must not collapse
+// into one greyed button: "final stage" is terminal and nothing the user
+// does will change it, whereas "not the current stage" is a one-click
+// fix. Saying only "disabled" would leave the second looking like the
+// first.
+function refreshTbNextStageButton() {
+  const btn = document.getElementById('tb-next-stage-btn')
+  const hint = document.getElementById('tb-next-stage-hint')
+  if (!btn || !tbNextStageState) return
+  const { recordId, currentStage, nextStage } = tbNextStageState
+
+  const setHint = (text) => {
+    if (!hint) return
+    hint.textContent = text
+    hint.classList.toggle('hidden', !text)
+  }
 
   if (!nextStage) {
     btn.disabled = true
     btn.textContent = 'Final stage'
     btn.onclick = null
+    setHint('')
     return
   }
-  btn.disabled = false
+
+  const activeTab = document.querySelector('#tb-detail-tabs .detail-tab.active')?.dataset.tbTab
+  const onCurrentStageTab = activeTab === `stage-${currentStage}`
+
   btn.textContent = 'Next Stage'
-  btn.onclick = () => attemptTransition(bed.id, nextStage, 'tb-next-stage-feedback', 'tb-transition-section', bed.status)
+  if (!onCurrentStageTab) {
+    btn.disabled = true
+    btn.onclick = null
+    setHint(`Open the ${currentStage} tab to progress`)
+    return
+  }
+
+  btn.disabled = false
+  setHint('')
+  // sectionId stays 'tb-transition-section' - it is a discriminator
+  // inside attemptTransition selecting which detail loader to reload
+  // with, never a DOM lookup, and no element of that id exists now.
+  btn.onclick = () => attemptTransition(recordId, nextStage, 'tb-next-stage-feedback', 'tb-transition-section', currentStage)
 }
 
 // Round 5 Phase 7 (2026-08-17): one shared panel, 8 buttons - loads

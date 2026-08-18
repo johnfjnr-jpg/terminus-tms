@@ -615,10 +615,24 @@ Three changes, all from the annotated screenshots.
    existing read-only precedent used for Account Number and the Parent
    Account display row, not the editable field pattern.
 3. **Remove the Stage Transition section** (`#tb-transition-section`,
-   `renderTransitionSection`). Its function moves to Phase 6. Do not
-   remove it before Phase 6 lands, or the app has no working transition
-   trigger at all, which is precisely what Round 5 Phase 7 avoided when
-   it relocated this section rather than deleting it.
+   `renderTransitionSection`). Its function moves to Phase 6.
+
+   **Correction, 2026-08-18, kept visible rather than deleted because
+   this brief asserted it twice as a hard blocker.** This phase
+   originally said the section must not be removed before Phase 6 or
+   "the app has no working transition trigger at all". That is **not
+   true**, checked directly. `#tb-next-stage-btn` (Round 5 Phase 8) is
+   an independent second trigger: `wireTbNextStageButton(bed, stages)`
+   derives the next stage from `stages` and `bed.status` itself, the
+   button lives in the "Workflow stage" block as a **sibling** of
+   `#tb-transition-section` rather than nested inside it, and the
+   `'tb-transition-section'` string passed to `attemptTransition` is
+   only a discriminator - `if (sectionId === 'tb-transition-section')`
+   selects which detail loader to call on success and never performs a
+   DOM lookup. Removing the section leaves a working trigger.
+
+   **Item 3 is therefore sequencing, not safety, and is folded into
+   Phase 6**, which is where the relocated controls land anyway.
 
 **Notes must follow the existing shared pattern.** `DESIGN_PRINCIPLES.md`
 Rule 10: every note anywhere in the app renders as timestamp, then
