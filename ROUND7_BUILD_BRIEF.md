@@ -904,3 +904,54 @@ document work did.
 Before declaring this round complete, check the phase count against this
 document's own list with `grep -n "^## Phase"`. Rounds 3 and 5 both
 recorded a premature completion claim caught only by doing exactly that.
+
+---
+
+## Round 7 outcome
+
+All 10 phases built (0 to 9, Phase 3 including 3.0 to 3.3). Assembled
+from the entries written at the time, not from memory.
+
+| Phase | Delivered | Beyond the original brief |
+|---|---|---|
+| 0. Seed reconciliation | Six dead `INSERT`s deleted from `003_test_bed.sql` and the live database in one change; `db:seed` proven to hold at 10 rules | The audit found **six** dead rows, not the one the brief named, and the severity was corrected from "live defect" to latent - all four read sites filter on a live stage, so the rows were unreachable. Running the evidence then exposed a **second, unrelated defect**: every guard compared `jsonb` via `::text`, so key-order normalisation meant they never matched and each run duplicated three rows. Found only because the evidence line had been strengthened one commit earlier |
+| 1. Automated test suite | 35 tests on `node:test`, split `npm test` (pure, 22) / `npm run test:db` (database, 13); fixtures, teardown and a GitHub Action | This repo had **zero** automated tests. The `child_record_status` no-op was asserted deliberately as a known gate hole, to be inverted rather than deleted when built - and it was. A real isolation bug in my own first draft (shared stage pairs leaking rules between tests) was caught by a failing run, not by reading |
+| 2. Numeric validation | Client-side entry validation for Duration; sensor counts and `estCostPerUnit` validated at both layers | The brief's regression hypothesis was **disconfirmed** - all three layers were intact. The real fault was entry, not saving. Keystroke blocking was then withdrawn on review because it silently turned `2.5` into `25`. Also found and fixed a silent `200 {ok:true}` no-op PATCH in three of four routes |
+| 3.0 Unchecked errors | All six unchecked query errors in `transitions.js` fixed | Not uniform: four fail closed, `:192` misreported a database fault as a confident wrong 400, and `:203` could fail **OPEN** - a stale revision-1 approval satisfying a gate. Confirmed latent only because zero approvals existed. An eighth instance was found and fixed in `approvals.js`, where it would have written a wrong revision into a durable audit row |
+| 3.1 Approval scope | `requirement_detail.scope`, `approvals.stage`, absent scope defaulting to `revision` | `approvals.stage` deliberately left nullable and un-backfilled: reconstructing a pre-3.1 approval's stage from the record's current status would fabricate history. **Completed later in the round** after Phase 7 surfaced that `records.js` had been left behind, answering the same question by a different rule |
+| 3.2 `child_record_status` | The fifth branch, generic, matching `record_type` always and `variant` when supplied | The three seeded rules were **unsatisfiable under every reading** - they named child record types that cannot exist. Building the branch without removing them would have made Decommissioning to Closed impossible to complete, with the Senior approval sitting visibly correct |
+| 3.3 Approver identity | Recorded as deliberately unenforced | Extended the existing governance entry rather than adding a second. States precisely what **is** enforced: `auth.uid() = approver_id` means attribution is real, entitlement is absent - documented approval, not controlled approval in an ISO 9001 sense |
+| 4. Gate configuration | Transitions 1 and 2 only; 3 to 7 left deliberately empty | `document_status` chosen over `child_record_status` for the NDA because only the former drives `completable_documents`, the list rendering the operator's Confirm button - the other would have blocked correctly and offered no way to satisfy it |
+| 5. Header rework | Summary and last 2 notes fill the header; the stat strip removed, Age relocated to Key Dates read-only | The brief asserted **twice** that removing the Stage Transition section would leave no working transition trigger. Untrue - `#tb-next-stage-btn` is independent. The first CSS squeezed the digest to 155px at 1240px with notes wrapping four lines, caught by the screenshot after every assertion passed |
+| 6. Controls into the tab row | Next Stage, Cancel, Save in the tab row; save-bar banner and Stage Transition section removed | A **third** feedback area existed that the brief did not name - `tb-save-feedback`, with two writers lacking null guards; deleting the banner would have thrown on every save. The tab row then overflowed at 1920px with Save cut off, while `bodyScrollsX` stayed false |
+| 7. Stage tabs | Renames (display-only) and Exit Criteria / Approvals side by side | The new layout rule caught `.sa-row`'s 488px minimum overflowing a 420px panel on first use. It also caught a fault in my own check, which read `innerHTML` and reported the old label present when the hits were comments |
+| 8. Warranty removal | All five homes of `warrantyPct` removed; production backfill | **No live record ever stored a `warrantyPct`** - the brief's premise was wrong. Two independent defaults of 2 exist in different files, so omitting the key would have changed nothing; only the explicit `0` fixes it. The Phase 1 invariant tests passed unchanged, as required |
+| 9. Chevron hover | Popup showing a stage's outstanding criteria, debounced and load-tokened | Both predictions prevented by construction: 8 chevrons swept in 320ms fired **one** request. Two mistakes of mine recorded - a fixed-delay test that reported a working popup as broken, and a popup positioned over the strip it described, caught only by opening the screenshot |
+
+**Cross-cutting, recorded in `DESIGN_PRINCIPLES.md` as it happened:** the
+standing layout-verification rule (container not body, usable not merely
+present, block-level not inline span, and look at the screenshot); the
+stage-rename rule covering four tables and five columns; the orphaned-rule
+invariant now covering `approvals.stage`; that a document gate must use
+`document_status`; and that a document describing a control is not
+evidence the control exists - found twice this round.
+
+## Round 8 candidates, carried forward
+
+1. **Google Drive document architecture** - confirmed as Round 8 with its
+   own investigation phase; has external prerequisites.
+2. **`Closed - Won` / `Closed - Lost` and the Deployment child record** -
+   agreed shape recorded, deliberately not designed. Today weighted
+   pipeline can only increase, because no deal can ever leave it.
+3. **The unchecked-Supabase-error sweep** - promoted out of Deferred
+   scope. Needs a fixed file list and a per-site disposition.
+4. **The full buyer-role catalog design** - unchanged since Round 3.
+5. **Gate configuration for transitions 3 to 7** - awaiting the business
+   review pass.
+6. **Deep Parent Account cycles** - unchanged since Round 4.
+
+Also open, smaller: `probability_pct` governance is entirely unbuilt
+(Section 2 describes four controls, none exist); `document_type` accepts
+any string, an API-only hazard; and `stage_reference_docs` and
+`stage_gate_rules` hold document names independently with nothing
+aligning them.
