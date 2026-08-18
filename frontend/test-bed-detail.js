@@ -117,7 +117,10 @@ const TB_COST_FIELDS = [
   { key: 'ssHostingCost', label: 'SafeSight Hosting Cost', number: true, cost: true },
   { key: 'aqHostingCost', label: 'Air Quality Hosting Cost', number: true, cost: true },
   { key: 'hemirHostingCost', label: 'HEMIR Hosting Cost', number: true, cost: true },
-  { key: 'warrantyPct', label: 'Warranty %', number: true, suffix: '%' },
+  // warrantyPct removed (Round 7 Phase 8): a Test Bed carries no customer
+  // warranty commitment, so the input is not relevant. Removed from
+  // TEST_BED_WRITABLE_KEYS server-side in the same change, so a direct
+  // PATCH naming it is rejected rather than silently accepted with no UI.
 ]
 const TB_INSTALL_FIELDS = [
   { key: 'installer', label: 'Installer' },
@@ -383,7 +386,7 @@ function renderTbCommercials() {
     fieldRow('ssInstallCost') + fieldRow('aqInstallCost') + fieldRow('hemirInstallCost')
   document.getElementById('tb-cost-hosting-rows').innerHTML =
     fieldRow('ssHostingCost') + fieldRow('aqHostingCost') + fieldRow('hemirHostingCost')
-  document.getElementById('tb-cost-warranty-rows').innerHTML = fieldRow('warrantyPct')
+  // Round 7 Phase 8: the Warranty input panel is gone.
 
   renderTbCostBreakdown()
 }
@@ -414,7 +417,15 @@ function renderTbCostBreakdown() {
     ${line(`SafeSight (${tbPayload.safesightCameras || 0} x ${formatCost(tbPayload.ssUnitCost || 0)})`, rowCost(g.hardwareGroup, 'hwSs'))}
     ${line(`Air Quality (${tbPayload.airQualitySensors || 0} x ${formatCost(tbPayload.aqUnitCost || 0)})`, rowCost(g.hardwareGroup, 'hwAqm'))}
     ${line(`HEMIR (${tbPayload.hemirSensors || 0} x ${formatCost(tbPayload.hemirUnitCost || 0)})`, rowCost(g.hardwareGroup, 'hwHemir'))}
-    ${line(`Warranty (${b.hardware.warrantyUnits} unit${b.hardware.warrantyUnits === 1 ? '' : 's'})`, rowCost(g.hardwareGroup, 'hwWarranty'))}
+    ${/* Round 7 Phase 8: omitted while zero rather than rendering a
+          permanent USD 0.00 row. Same reasoning as the documented decision
+          not to build the Test Bed list matrices - permanently empty UI
+          with no visible explanation is worse than absent UI. Kept
+          conditional rather than deleted so the line reappears correctly
+          if a warranty ever applies again. */''}
+    ${b.hardware.warrantyCost > 0
+      ? line(`Warranty (${b.hardware.warrantyUnits} unit${b.hardware.warrantyUnits === 1 ? '' : 's'})`, rowCost(g.hardwareGroup, 'hwWarranty'))
+      : ''}
     ${subtotal('Hardware subtotal', g.hardwareGroup.rawTotalCost)}
 
     <p class="label" style="margin:18px 0 8px">Installation</p>

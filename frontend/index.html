@@ -993,10 +993,12 @@
           <p class="pg-card-title">Hosting Cost Rates ($ / unit / month)</p>
           <div id="tb-cost-hosting-rows"></div>
         </div>
-        <div class="pg-card">
-          <p class="pg-card-title">Warranty</p>
-          <div id="tb-cost-warranty-rows"></div>
-        </div>
+        <!-- Round 7 Phase 8: the Warranty input panel is removed. A Test
+             Bed is Terminus-funded R&D with no customer warranty
+             commitment, so the input is not relevant; warrantyPct is
+             hardcoded to 0 server-side and is no longer a writable key.
+             Hardware, Installation and Hosting now render as three
+             side-by-side panels. -->
       </div>
       <div style="margin-top:28px">
         <p class="pg-card-title">Itemized Cost</p>

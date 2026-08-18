@@ -10,13 +10,30 @@ import { calculateTestBedCost } from '../lib/deal-calculator.js'
 // consumers that read those stored fields directly, the Test Beds list
 // view and Test Bed -> Opportunity conversion, never see a stale number
 // regardless of which tab last saved a relevant field).
-function buildTestBedCostBreakdown(payload) {
+// Exported (Round 7 Phase 8) so the warranty backfill recomputes stored
+// totals through the REAL function rather than a copy of it. A backfill
+// that reimplements the cost mapping can disagree with the route that
+// maintains it, which is the same drift the approvals scope fix removed.
+export function buildTestBedCostBreakdown(payload) {
   const num = (v) => Number(v) || 0
   return calculateTestBedCost({
     ssUnitCost: num(payload.ssUnitCost), ssUnits: num(payload.safesightCameras),
     aqUnitCost: num(payload.aqUnitCost), aqUnits: num(payload.airQualitySensors),
     hemirUnitCost: num(payload.hemirUnitCost), hemirUnits: num(payload.hemirSensors),
-    warrantyPct: payload.warrantyPct !== undefined && payload.warrantyPct !== '' ? num(payload.warrantyPct) : 2,
+    // Round 7 Phase 8: a Test Bed is Terminus-funded R&D with no customer
+    // warranty commitment, so warranty is neutralised BY DATA - 0 passed
+    // explicitly - not by a code path that diverges from Opportunity's.
+    // calculateTestBedCost still calls calculateHardwareAndWarranty exactly
+    // as before, so the two record types keep running through identical
+    // arithmetic and cannot drift apart later.
+    //
+    // The conditional it replaces read `... : 2`, and the default mattered:
+    // no live Test Bed has ever STORED a warrantyPct, so every one of them
+    // was computing with a 2% warranty via that fallback. An explicit 0 is
+    // required - deal-calculator's own parameter default is also 2 and
+    // applies whenever the key is absent, so omitting it would have changed
+    // nothing at all.
+    warrantyPct: 0,
     installLineItems: [
       { key: 'inSs', cost: num(payload.ssInstallCost) * num(payload.safesightCameras) },
       { key: 'inAqm', cost: num(payload.aqInstallCost) * num(payload.airQualitySensors) },
@@ -370,7 +387,12 @@ export default async function testBedsRoutes(app) {
     'ssUnitCost', 'aqUnitCost', 'hemirUnitCost',
     'ssInstallCost', 'aqInstallCost', 'hemirInstallCost',
     'ssHostingCost', 'aqHostingCost', 'hemirHostingCost',
-    'warrantyPct',
+    // warrantyPct removed (Round 7 Phase 8): with no input and a hardcoded
+    // 0, leaving it writable would let a direct PATCH set a non-zero value
+    // that silently changes a Test Bed's cost with nothing on screen to
+    // explain it. Same treatment accumulated_cost/indicativeCost already
+    // received below.  A PATCH naming it is now rejected outright by the
+    // disallowed-keys check, like any other unrecognised field.
     // accumulated_cost/indicativeCost deliberately removed from this
     // allowlist (2026-08-17) - both are now server-computed, itemized
     // totals (buildTestBedCostBreakdown, below), never client-writable
@@ -471,7 +493,9 @@ export default async function testBedsRoutes(app) {
       // really just "non-negative, up to 2 decimal places"), but that's
       // exactly the right shape for a dollar rate too, not just a
       // percentage, and reusing it avoids a near-duplicate validator.
-      for (const key of ['ssUnitCost', 'aqUnitCost', 'hemirUnitCost', 'ssInstallCost', 'aqInstallCost', 'hemirInstallCost', 'ssHostingCost', 'aqHostingCost', 'hemirHostingCost', 'warrantyPct']) {
+      // warrantyPct dropped from this loop (Round 7 Phase 8) - it is no
+      // longer a writable key, so validating it would be unreachable code.
+      for (const key of ['ssUnitCost', 'aqUnitCost', 'hemirUnitCost', 'ssInstallCost', 'aqInstallCost', 'hemirInstallCost', 'ssHostingCost', 'aqHostingCost', 'hemirHostingCost']) {
         if (key in payload && !isValidNonNegativePercent(payload[key])) {
           return reply.code(400).send({ error: `${key} must be a non-negative number, up to 2 decimal places` })
         }
