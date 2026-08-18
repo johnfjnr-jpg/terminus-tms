@@ -10,7 +10,19 @@ wait for sign-off before starting the next.
 ---
 ## Phase 0: Reconcile `supabase/seeds/003_test_bed.sql` with live schema
 
-**Do this first. It is small and it is a live correctness defect.**
+**Do this first. It is small.**
+
+**Severity corrected after Code's Phase 0 audit, 2026-08-18.** This
+phase originally called it "a live correctness defect." It is not. The
+dead rows are **unreachable and cannot change gate behaviour today**:
+all four read sites either filter `.eq('from_stage', ...)` on a live
+stage, or, in `records.js:119`, fetch unfiltered and then match against
+`stage_definitions`, which a dead `from_stage` never satisfies. This is
+environment drift with a **latent** trigger, not a present break.
+
+The trigger is real and is the actual argument for step 3: if a future
+stage is ever named `Compliance and Data Protection`, five document
+gates activate silently and at once.
 
 Migration `20260815000000_test_bed_flat_stages.sql` hard-deletes the
 `('NDA','Site Assessment')` gate rule as orphaned data, since NDA stopped
@@ -26,21 +38,47 @@ pointing at a stage that does not exist, while the current live database
 is clean. That is environment drift, and it surfaces during a restore or
 a new setup, which is the worst time to find it.
 
-1. Audit `supabase/seeds/003_test_bed.sql` **in full** against live
-   `stage_definitions` and `stage_gate_rules`, not just the NDA insert.
-   Report anything else still carrying the superseded 9-stage model
-   before changing anything.
-2. Reconcile the seed so a fresh `npm run db:seed` cannot resurrect
-   deleted rows.
+1. **Audit complete, 2026-08-18. The finding is six rows, not one.**
+   `003_test_bed.sql` contains 10 `INSERT`s. Six name a `from_stage`
+   that no longer exists: one `NDA -> Site Assessment`, and five
+   `Compliance and Data Protection -> Installation and Commissioning`.
+   Migration `20260815000000_test_bed_flat_stages.sql:42-47` deletes
+   **both** pairs; the seed re-inserts both. Only the four
+   `Decommissioning -> Closed` rules are live.
+
+   Live count is 10, of which just 4 come from this seed. The other 6
+   come from migrations, 3 `payload_field_required` from
+   `20260815000000` and 3 `contact_role_linked` from `20260815000004`.
+   So a fresh `npm run db:seed` yields **16** rules, not 10.
+
+   `001_smoke_test.sql` and `002_lead_opportunity.sql` are both clean.
+   The drift is confined to `003`.
+2. **Delete the six dead `INSERT`s outright**, leaving the four live
+   `Decommissioning -> Closed` rules. Confirmed decision, not commented
+   out: git history is the permanent record, the migration's own comment
+   block already documents the removal, and dead SQL left inside a file
+   that gets executed is precisely how this happened.
+
+   Add a short comment block at the top of the seed recording what was
+   removed and pointing at the migration, so the correction stays
+   visible in the file without being executable, matching how
+   `PROTOTYPE_SPECIFICATION.md` keeps superseded decisions with a note
+   rather than deleting them.
 3. Add a standing entry to `DESIGN_PRINCIPLES.md` Deferred scope: any
    migration that deletes or rewrites seeded data must reconcile the
    corresponding seed file in the same change, since seeds re-run and
    win. Cite this NDA case as the found instance.
 
-**Test evidence required:** run `npm run db:seed` against a real
-database and confirm by direct query that no `from_stage = 'NDA'` row
-exists afterwards, and that the 10 legitimate `test_bed` rules are
-unchanged in count and content.
+**Test evidence required, corrected.** The original check here was
+wrong and would have passed while the fault occurred: it asked to
+confirm "the 10 legitimate rules are unchanged," but only 4 of those 10
+come from this seed, so 6 dead rows could be added, taking the total to
+16, without that assertion failing.
+
+Run `npm run db:seed` against a real database and confirm by direct
+query: exactly **10** `test_bed` rules exist afterwards, and **zero**
+rows have a `from_stage` or `to_stage` absent from `stage_definitions`
+for their `record_type`. Assert both, not just the count.
 
 ---
 ## Phase 1: `scripts/verify-harness.mjs`, a real automated test suite
@@ -179,6 +217,16 @@ database because it reads `stage_gate_rules`.
 - One assertion that both call sites agree: the same record and
   transition evaluated through `transitions.js` and through
   `records.js` produce the same blocking set.
+- **Added 2026-08-18, from Phase 0's audit. A standing orphaned-rule
+  invariant, across every record type, not just `test_bed`:** no
+  `stage_gate_rules` row may name a `from_stage` or `to_stage` that is
+  absent from `stage_definitions` for that `record_type`. Phase 0 fixes
+  one instance of this by hand; this assertion is what stops the class
+  recurring silently in any record type as new stages are added or
+  renamed. It is the sibling of the existing documented invariant that
+  a transition must reject every `to_stage` when a record type has zero
+  `stage_definitions` rows, and belongs recorded alongside it in
+  `DESIGN_PRINCIPLES.md`.
 - **A fifth assertion for `child_record_status`, which has no code
   branch at all.** `src/routes/transitions.js:140` is a bare comment,
   "child_record_status handled in a future milestone", so the rule loop
