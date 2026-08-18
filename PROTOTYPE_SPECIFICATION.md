@@ -332,10 +332,38 @@ found on its own:
 | Pre-Site Assessment | NDA | Legal, Commercial |
 | Site Assessment | Site Assessment Report, Compliance and Data Protection, Partnership and Test Bed Agreement | Legal, Commercial, Technical |
 | Installation and Commissioning | Site Installation Document | Technical |
-| Monitoring and Analysis | Test Bed Review Document | Commercial, Technical, Legal |
-| Review and Completion | Test Bed Review Document | Commercial, Technical, Legal |
-| Decommissioning | Site Installation Document | Commercial, Technical, Legal |
+| Monitoring and Analysis | ~~Test Bed Review Document~~ superseded, now **Test Bed Performance**, **Review Meeting Minutes** | Commercial, Technical, Legal |
+| Review and Completion | ~~Test Bed Review Document~~ superseded, now **Test Bed Close Out Report** | Commercial, Technical, Legal |
+| Decommissioning | ~~Site Installation Document~~ superseded, now **Site Decommissioning Report** | Commercial, Technical, Legal |
 | Closed | none | senior-tier sign-off, heavier gate than the rest of the lifecycle, per DESIGN_PRINCIPLES.md Section 8 |
+
+**Docs column superseded in three rows, Round 9 Phase 2, 2026-08-19. The
+prototype extraction above is left visible rather than rewritten, because
+this document records what the prototype does and the prototype really
+did say these things.** What changed is the live configuration, which now
+diverges from the prototype on three of the eight stages:
+
+- **Test Bed Review Document is gone entirely.** It was one living
+  document deliberately shared by Monitoring and Analysis and Review and
+  Completion, with the gate placed on the first of those only. Confirmed
+  with the business, stage 5 now produces two distinct documents and stage
+  6 produces its own, and both stages gate on their own. See
+  `DESIGN_PRINCIPLES.md` for the superseded reasoning.
+- **Decommissioning's document is Site Decommissioning Report**, not Site
+  Installation Document. This is the **third** name given to the same
+  artefact across this project: Decommissioning Report (Round 7 Phase 4),
+  Site Installation Document on Decommissioning (this table), and now
+  Site Decommissioning Report. **The third name is authoritative.**
+- **Site Installation Document is unaffected on Installation and
+  Commissioning**, which is its correct home and which gates transition 4.
+  Only the Decommissioning instance was superseded.
+
+The **Approvers** column is not corrected here. Round 9 Phases 4 and 5
+change it (Installation and Commissioning goes from Technical alone to
+Commercial and Technical, and Closed's senior-tier gate is replaced by the
+same three tracks as the two preceding transitions), and those corrections
+belong to those phases rather than being written ahead of the rows
+existing.
 
 **Closed here is not the same concept as Opportunity's Closed/Closing.**
 For Opportunity, Closed marks a signed contract, the start of deployment
