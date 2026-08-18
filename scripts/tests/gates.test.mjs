@@ -248,45 +248,105 @@ test('INVARIANT: no stage_gate_rules row or approvals.stage names a stage absent
 })
 
 // ---------------------------------------------------------------------
-test('child_record_status is a NO-OP today - this asserted behaviour is WRONG', async () => {
+test('child_record_status BLOCKS when the child is absent (inverted, Phase 3.2)', async () => {
+  // ------------------------------------------------------------------
+  // INVERTED, NOT DELETED, Round 7 Phase 3.2.
+  //
+  // This test previously asserted the opposite: that a child_record_status
+  // rule never blocked, because transitions.js had no branch for it and
+  // the rule loop fell straight through. That assertion was written
+  // deliberately in Phase 1 to document a known gate hole, with a note
+  // saying it must be INVERTED when the branch was built so that building
+  // it would cause a visible, deliberate failure rather than passing
+  // silently. It did exactly that. This is the inverted form.
+  // ------------------------------------------------------------------
   const [FROM, TO] = stagePair()
-  // ------------------------------------------------------------------
-  // READ THIS BEFORE CHANGING THE ASSERTION BELOW.
-  //
-  // This test documents a KNOWN GATE HOLE. It does not endorse it.
-  //
-  // src/routes/transitions.js:140 is a bare comment,
-  // "// child_record_status handled in a future milestone". The rule
-  // loop has no branch for this requirement_type, so it falls straight
-  // through and pushes nothing. A child_record_status rule therefore
-  // never blocks anything.
-  //
-  // This is live, not hypothetical: supabase/seeds/003_test_bed.sql
-  // seeds three real child_record_status rules on the test_bed
-  // Decommissioning -> Closed transition (NDA, PDPA assessment, DPIA).
-  // Three of the four seeded requirements on that transition are
-  // structurally inert. The transition is NOT ungated - its fourth rule
-  // is approval_obtained {"track":"Senior"}, whose branch does exist at
-  // transitions.js:39 and does block. What is missing is the
-  // document-review half of the gate, not the gate itself.
-  //
-  // WHEN THE child_record_status BRANCH IS BUILT (Round 7 Phase 3.2),
-  // THIS ASSERTION MUST BE INVERTED, NOT DELETED. Building the branch
-  // should cause a visible, deliberate failure here. That is the point.
-  // ------------------------------------------------------------------
   const rec = await fx.createRecord({ record_type: TYPE, status: FROM, owner_id: ownerId })
   await fx.createRule({
     record_type: TYPE, from_stage: FROM, to_stage: TO,
     requirement_type: 'child_record_status',
-    requirement_detail: { record_type: 'nda', status: 'approved' },
+    requirement_detail: { record_type: 'document', variant: 'NDA', status: 'approved' },
   })
 
   const r = await computeBlocking(db, rec, FROM, TO, 1, {})
+  assert.equal(r.blocking.length, 1, 'an unmet child_record_status rule must now block')
+  assert.equal(r.blocking[0].requirement_type, 'child_record_status')
+  assert.equal(r.blocking[0].child_record_type, 'document')
+  assert.equal(r.blocking[0].variant, 'NDA')
+  assert.equal(r.blocking[0].required_status, 'approved')
+})
 
-  // No NDA child exists, and the requirement is unmet. It still does not block.
-  assert.deepEqual(r.blocking, [],
-    'CURRENT behaviour: child_record_status never blocks. When the branch ' +
-    'is built this must become an assertion that it DOES block.')
+test('child_record_status clears when a matching child exists', async () => {
+  const [FROM, TO] = stagePair()
+  const rec = await fx.createRecord({ record_type: TYPE, status: FROM, owner_id: ownerId })
+  await fx.createRule({
+    record_type: TYPE, from_stage: FROM, to_stage: TO,
+    requirement_type: 'child_record_status',
+    requirement_detail: { record_type: 'document', variant: 'NDA', status: 'approved' },
+  })
+
+  // Wrong status must NOT satisfy it.
+  const doc = await fx.createRecord({
+    record_type: 'document', variant: 'NDA', status: 'draft',
+    parent_record_id: rec.id, owner_id: ownerId,
+  })
+  assert.equal((await computeBlocking(db, rec, FROM, TO, 1, {})).blocking.length, 1,
+    'a draft child must not satisfy an approved requirement')
+
+  // Wrong variant must NOT satisfy it either - no case folding, and no
+  // matching a different document just because the type lines up.
+  await fx.createRecord({
+    record_type: 'document', variant: 'nda', status: 'approved',
+    parent_record_id: rec.id, owner_id: ownerId,
+  })
+  assert.equal((await computeBlocking(db, rec, FROM, TO, 1, {})).blocking.length, 1,
+    'variant matching is case-sensitive by design: "nda" must not satisfy "NDA"')
+
+  await db.from('records').update({ status: 'approved' }).eq('id', doc.id)
+  assert.deepEqual((await computeBlocking(db, rec, FROM, TO, 1, {})).blocking, [])
+})
+
+test('child_record_status stays generic: a rule with no variant matches on type alone', async () => {
+  // The reason both keys are used rather than document+variant only: a
+  // future rule may need a child 'pilot' at status 'complete' with no
+  // variant at all, and must not be forced into the document model.
+  const [FROM, TO] = stagePair()
+  const rec = await fx.createRecord({ record_type: TYPE, status: FROM, owner_id: ownerId })
+  const CHILD = `${TYPE}_pilot`
+  await fx.createRule({
+    record_type: TYPE, from_stage: FROM, to_stage: TO,
+    requirement_type: 'child_record_status',
+    requirement_detail: { record_type: CHILD, status: 'complete' },
+  })
+
+  const blocked = await computeBlocking(db, rec, FROM, TO, 1, {})
+  assert.equal(blocked.blocking.length, 1)
+  assert.equal(blocked.blocking[0].variant, undefined, 'no variant key when the rule supplies none')
+
+  // A child of the right type at the right status satisfies it even
+  // though it carries a variant the rule never mentioned.
+  await fx.createRecord({
+    record_type: CHILD, variant: 'anything', status: 'complete',
+    parent_record_id: rec.id, owner_id: ownerId,
+  })
+  assert.deepEqual((await computeBlocking(db, rec, FROM, TO, 1, {})).blocking, [])
+})
+
+test('child_record_status ignores a child of another parent', async () => {
+  const [FROM, TO] = stagePair()
+  const rec = await fx.createRecord({ record_type: TYPE, status: FROM, owner_id: ownerId })
+  const other = await fx.createRecord({ record_type: TYPE, status: FROM, owner_id: ownerId })
+  await fx.createRule({
+    record_type: TYPE, from_stage: FROM, to_stage: TO,
+    requirement_type: 'child_record_status',
+    requirement_detail: { record_type: 'document', variant: 'NDA', status: 'approved' },
+  })
+  await fx.createRecord({
+    record_type: 'document', variant: 'NDA', status: 'approved',
+    parent_record_id: other.id, owner_id: ownerId,
+  })
+  assert.equal((await computeBlocking(db, rec, FROM, TO, 1, {})).blocking.length, 1,
+    "another record's approved document must not satisfy this record's gate")
 })
 
 // ---------------------------------------------------------------------

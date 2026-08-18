@@ -76,9 +76,20 @@ come from this seed, so 6 dead rows could be added, taking the total to
 16, without that assertion failing.
 
 Run `npm run db:seed` against a real database and confirm by direct
-query: exactly **10** `test_bed` rules exist afterwards, and **zero**
+query: exactly **7** `test_bed` rules exist afterwards, and **zero**
 rows have a `from_stage` or `to_stage` absent from `stage_definitions`
 for their `record_type`. Assert both, not just the count.
+
+**Count updated from 10 to 7, Phase 3.2, 2026-08-18.** Phase 0 left 10.
+Phase 3.2 then deleted the three `child_record_status` rules on
+Decommissioning -> Closed, from the live database and from
+`003_test_bed.sql` in the same change. They named a child `record_type`
+of `nda`/`pdpa_assessment`/`dpia`, none of which exists or can be
+created, so they were unsatisfiable under every reading and would have
+permanently blocked that transition once Phase 3.2 built the branch.
+This number is expected to move again in Phase 4, which adds gate rows
+for transitions 1 and 2; it is a checkpoint for this phase, not a
+constant.
 
 ---
 ## Phase 1: `scripts/verify-harness.mjs`, a real automated test suite

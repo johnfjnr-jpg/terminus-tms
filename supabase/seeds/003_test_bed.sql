@@ -25,10 +25,34 @@
 -- the removal, and dead SQL left sitting inside a file that gets executed
 -- is exactly how this happened.
 --
--- The four rules below are the only ones this seed still owns. The other
--- six live test_bed rules come from migrations, not from here:
+-- Second removal (2026-08-18, Round 7 Phase 3.2). The three
+-- child_record_status INSERTs that used to follow the rule below have
+-- also been deleted, from this file and from the live database in the
+-- same change, per the standing rule that a change deleting seeded data
+-- must reconcile the seed file with it.
+--
+-- They asked for {"record_type":"nda"|"pdpa_assessment"|"dpia"} as a
+-- CHILD RECORD TYPE. No such record type exists or can be created: this
+-- system stores documents as record_type='document' discriminated by
+-- records.variant, and the canonical vocabulary is
+-- stage_reference_docs.document_name (NDA, Site Assessment Report,
+-- Compliance and Data Protection, Partnership and Test Bed Agreement,
+-- Site Installation Document, Test Bed Review Document) - which contains
+-- no PDPA Assessment or DPIA at all. All three were therefore
+-- unsatisfiable under every reading, and had been inert only because the
+-- gate branch did not exist. Building that branch (Phase 3.2) without
+-- removing them would have turned Decommissioning -> Closed into a
+-- transition no Test Bed could ever complete.
+--
+-- Confirmed with the business: the three requirements are dropped as
+-- redundant, since the earlier gates already prove those documents were
+-- reviewed. Decommissioning -> Closed is now gated by the Senior
+-- approval alone, pending Phase 4 adding a Decommissioning Report.
+--
+-- The one rule below is the only one this seed still owns. The other six
+-- live test_bed rules come from migrations, not from here:
 -- 3x payload_field_required (20260815000000) and 3x contact_role_linked
--- (20260815000004).
+-- (20260815000004). Live total is now 7.
 --
 -- Second defect, found by running this seed as Phase 0's own evidence
 -- (2026-08-18). Every guard here compared `requirement_detail::text` to a
@@ -59,43 +83,4 @@ WHERE NOT EXISTS (
     AND from_stage = 'Decommissioning' AND to_stage = 'Closed'
     AND requirement_type = 'approval_obtained'
     AND requirement_detail = '{"track": "Senior"}'::jsonb
-);
-
--- NDA reviewed (placeholder, child_record_status not yet enforced)
-INSERT INTO public.stage_gate_rules
-  (record_type, variant, from_stage, to_stage, requirement_type, requirement_detail)
-SELECT 'test_bed', NULL, 'Decommissioning', 'Closed', 'child_record_status',
-       '{"record_type": "nda", "status": "approved"}'
-WHERE NOT EXISTS (
-  SELECT 1 FROM public.stage_gate_rules
-  WHERE record_type = 'test_bed' AND variant IS NULL
-    AND from_stage = 'Decommissioning' AND to_stage = 'Closed'
-    AND requirement_type = 'child_record_status'
-    AND requirement_detail = '{"record_type": "nda", "status": "approved"}'::jsonb
-);
-
--- PDPA assessment reviewed (placeholder)
-INSERT INTO public.stage_gate_rules
-  (record_type, variant, from_stage, to_stage, requirement_type, requirement_detail)
-SELECT 'test_bed', NULL, 'Decommissioning', 'Closed', 'child_record_status',
-       '{"record_type": "pdpa_assessment", "status": "approved"}'
-WHERE NOT EXISTS (
-  SELECT 1 FROM public.stage_gate_rules
-  WHERE record_type = 'test_bed' AND variant IS NULL
-    AND from_stage = 'Decommissioning' AND to_stage = 'Closed'
-    AND requirement_type = 'child_record_status'
-    AND requirement_detail = '{"record_type": "pdpa_assessment", "status": "approved"}'::jsonb
-);
-
--- Data Protection Impact Assessment reviewed (placeholder)
-INSERT INTO public.stage_gate_rules
-  (record_type, variant, from_stage, to_stage, requirement_type, requirement_detail)
-SELECT 'test_bed', NULL, 'Decommissioning', 'Closed', 'child_record_status',
-       '{"record_type": "dpia", "status": "approved"}'
-WHERE NOT EXISTS (
-  SELECT 1 FROM public.stage_gate_rules
-  WHERE record_type = 'test_bed' AND variant IS NULL
-    AND from_stage = 'Decommissioning' AND to_stage = 'Closed'
-    AND requirement_type = 'child_record_status'
-    AND requirement_detail = '{"record_type": "dpia", "status": "approved"}'::jsonb
 );

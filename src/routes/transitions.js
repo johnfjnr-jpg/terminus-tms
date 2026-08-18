@@ -177,7 +177,66 @@ export async function computeBlocking(db, record, from_stage, to_stage, currentR
       }
     }
 
-    // child_record_status handled in a future milestone
+    // child_record_status (Round 7 Phase 3.2, 2026-08-18). Until this
+    // branch existed the loop simply fell through here, so a
+    // child_record_status rule was a silent no-op that never blocked
+    // anything - a seeded gate rule that looked configured and did
+    // nothing.
+    //
+    // Matching is on BOTH keys, deliberately, and variant only when the
+    // rule supplies one:
+    //
+    //   {"record_type":"document","variant":"NDA","status":"approved"}
+    //
+    // A literal child record_type of 'nda' would mean a new record type
+    // per document, which breaks the generic model. Matching
+    // document+variant only would silently make this a documents-only
+    // mechanism, when a future rule may legitimately need a child
+    // 'pilot' at status 'complete' with no variant at all. So:
+    // record_type always, variant when present, status always.
+    //
+    // No case folding on variant. The vocabulary is
+    // stage_reference_docs.document_name and rules must use it exactly -
+    // case-insensitive matching would paper over a data-quality problem
+    // rather than surface it.
+    if (rule.requirement_type === 'child_record_status') {
+      const childType = rule.requirement_detail?.record_type
+      const reqStatus = rule.requirement_detail?.status
+      if (!childType || !reqStatus) continue
+
+      const variant = rule.requirement_detail?.variant
+
+      let childQuery = db
+        .from('records')
+        .select('id')
+        .eq('parent_record_id', record.id)
+        .eq('record_type', childType)
+        .eq('status', reqStatus)
+
+      if (variant !== undefined && variant !== null) {
+        childQuery = childQuery.eq('variant', variant)
+      }
+
+      // limit(1) before maybeSingle(): a rule that omits variant can
+      // legitimately match several children (three 'pilot' children, say),
+      // and maybeSingle() on its own treats more than one row as an error.
+      // Existence is the question here, not uniqueness.
+      const { data: child, error: childErr } = await childQuery.limit(1).maybeSingle()
+
+      if (childErr) return { error: childErr }
+
+      if (!child) {
+        blocking.push({
+          requirement_type: 'child_record_status',
+          child_record_type: childType,
+          ...(variant !== undefined && variant !== null ? { variant } : {}),
+          required_status: reqStatus,
+          message: variant
+            ? `Requires ${variant} to be ${reqStatus}`
+            : `Requires a ${childType} child at status ${reqStatus}`
+        })
+      }
+    }
   }
 
   return { blocking }
