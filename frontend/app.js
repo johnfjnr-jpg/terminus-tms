@@ -2108,7 +2108,7 @@ async function renderTestBedDocuments(bed, stageName, docsContainerId, refContai
 
   if (!result.ok) {
     section.innerHTML = '<p class="empty-state">Could not load document requirements.</p>'
-    if (referenceSection) referenceSection.innerHTML = '<p class="empty-state">Could not load reference material.</p>'
+    if (referenceSection) referenceSection.innerHTML = '<p class="empty-state">Could not load customer documents.</p>'
     return
   }
 
@@ -2121,7 +2121,7 @@ async function renderTestBedDocuments(bed, stageName, docsContainerId, refContai
     const refDocs = result.data.reference_docs ?? []
     referenceSection.innerHTML = refDocs.length
       ? refDocs.map(d => `<div class="data-row"><span style="font-size:13px">${escHtml(d.document_name)}</span></div>`).join('')
-      : '<p class="empty-state">No reference material listed for this stage.</p>'
+      : '<p class="empty-state">No customer documents listed for this stage.</p>'
   }
 
   const docs = result.data.completable_documents ?? []

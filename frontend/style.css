@@ -2379,3 +2379,25 @@ input.input-invalid {
 .tb-next-stage-feedback:not(:empty) {
   margin: 12px 0 0;
 }
+
+/* ── Approvals inside the per-stage panel (Round 7 Phase 7) ──────────────
+   .sa-row is a 200px / 1fr / 240px grid with 24px gaps - a 488px minimum
+   before its flexible column gets anything. That is fine as a full-width
+   row, which is what it was built for, but Phase 7 moves Approvals into a
+   .ref-cards panel capped at 420px, so it overflowed its own card. Caught
+   by the container-level overflow check in the standing layout rule
+   (DESIGN_PRINCIPLES), not by a body-level one, which stayed clean.
+
+   Scoped to this panel only: the full-width .sa-row on Opportunity's own
+   Stage & Approvals tab is untouched. The row stacks to one column, and
+   the three-column header is hidden with it - once the columns are gone
+   the header labels columns that no longer exist, which is worse than no
+   header at all. */
+#tb-tab-stage-detail .ref-cards .sa-row {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+  padding: 12px 0;
+}
+#tb-tab-stage-detail .ref-cards .sa-head {
+  display: none;
+}

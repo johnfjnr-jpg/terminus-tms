@@ -1020,31 +1020,48 @@
          list Opportunity's own Stage & Approvals tab still shows. -->
     <div class="detail-tab-panel hidden" id="tb-tab-stage-detail">
       <p class="pg-card-title" id="tb-stage-detail-heading">Stage</p>
+      <!-- Round 7 Phase 7: both renames are DISPLAY ONLY. The underlying
+           stage_reference_docs table, the document-requirements endpoint
+           keys (reference_docs / completable_documents) and every payload
+           field are untouched - a label change must not become a schema
+           change. The element ids below deliberately keep their original
+           names for the same reason.
+
+           Note the label here read "Reference Material", singular, not
+           the "Reference Materials" the brief named. Renamed the string
+           that actually existed. -->
       <div class="pg-card">
-        <p class="pg-card-title">Reference Material</p>
+        <p class="pg-card-title">Customer Documents</p>
         <div id="tb-stage-reference-docs-section"></div>
       </div>
       <div style="margin-top:24px">
-        <p class="section-title">Documents</p>
+        <p class="section-title">Terminus Docs</p>
         <div id="tb-stage-documents-section"></div>
       </div>
-      <div style="margin-top:24px">
-        <p class="section-title">Approvals</p>
-        <div class="sa-row sa-head">
-          <span>Stage</span><span>Exit criteria</span><span>Approvers</span>
+      <!-- Round 7 Phase 7: Exit Criteria and Approvals side by side rather
+           than stacked. Reuses the existing .ref-cards grid, which already
+           carries the proven minmax(280px, 420px) cap under
+           #view-test-bed-detail - no new grid CSS, and the same width
+           behaviour as every other panel pair in the app.
+
+           Exit Criteria moved UP to sit beside Approvals; it was relocated
+           to this tab in Round 6 Phase 3 and is fed by
+           GET /records/:id/exit-criteria?stage=<this tab's stage>, the same
+           stage= generalization document-requirements uses. Both are now
+           .pg-card panels so the pair reads as one row, matching how
+           Account and Contact detail already build .ref-cards children. -->
+      <div class="ref-cards" style="margin-top:24px">
+        <div class="pg-card">
+          <p class="pg-card-title">Exit Criteria</p>
+          <div id="tb-stage-exit-criteria-list"></div>
         </div>
-        <div id="tb-stage-approval-row"></div>
-      </div>
-      <!-- Round 6 Phase 3 (2026-08-17): Exit Criteria relocated here from
-           the Reference tab - each of the 8 stage tabs now shows its own
-           outstanding requirements for THAT stage specifically (what's
-           needed to move past it), not just the record's real current
-           stage, via GET /records/:id/exit-criteria?stage=<this tab's
-           stage>, the same stage= generalization document-requirements
-           already uses above. -->
-      <div style="margin-top:24px">
-        <p class="section-title">Exit Criteria</p>
-        <div id="tb-stage-exit-criteria-list"></div>
+        <div class="pg-card">
+          <p class="pg-card-title">Approvals</p>
+          <div class="sa-row sa-head">
+            <span>Stage</span><span>Exit criteria</span><span>Approvers</span>
+          </div>
+          <div id="tb-stage-approval-row"></div>
+        </div>
       </div>
       <!-- Round 6 Phase 3 (2026-08-17): Installer/Test Bed Tech Team/
            Install Notes moved here from Site Details - only ever
