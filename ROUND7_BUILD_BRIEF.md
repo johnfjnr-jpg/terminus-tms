@@ -229,38 +229,73 @@ database because it reads `stage_gate_rules`.
    passing vacuously.
 
 ---
-## Phase 2: Test Bed Duration accepts a negative number, investigate first
+## Phase 2: Numeric field validation, client and server
 
-**Reported live. Do not patch it blind, establish first whether this is a
-regression or a never-fixed path**, the same discipline Round 6 Phase 1
-used.
+**Superseded by Code's review, 2026-08-18. The original hypothesis in
+this phase was wrong and is corrected here rather than deleted, per this
+project's standing practice.**
 
-Round 5 Phase 4 built and verified exactly this fix: `isValidNonNegativeInteger`
-server-side on `testBedDuration` in `PATCH /test-beds/:id`, plus
-`min="0" step="1" class="no-spinner"` client-side via `tbFieldRow()`.
-That phase also recorded a specific trap it had to fix at the time: the
-render call site constructed its own `opts` object rather than spreading
-the field definition, and would otherwise have silently dropped the
-`integer` flag with everything else correctly built.
+The phase originally suspected Round 6 Phase 3 of reintroducing Round 5
+Phase 4's dropped-`opts` fault. Checked directly and **disconfirmed**.
+All three layers are intact: `test-beds.js:428` still rejects via
+`isValidNonNegativeInteger`, `tbFieldRow` still emits
+`min="0" step="1" class="no-spinner"`, and the call site at line 234,
+which does still hand-build its `opts` object rather than spreading,
+correctly includes `integer: f.integer`. `testBedDuration` remains in
+`TB_DATE_FIELDS` with `integer: true`. There is no regression to find.
 
-Round 6 Phase 3 then reorganised that tab. That is a plausible
-reintroduction of the identical fault.
+### 2.1 Duration: the reported fault is entry, not saving
 
-1. Determine whether the server-side rejection still fires. Send a
-   negative `testBedDuration` by direct API call, bypassing the browser.
-   Report the result before touching any code.
-2. Determine whether the client-side attributes are still rendered.
-3. Only then fix, at whichever layer actually broke, and say which.
+The report was that the field **allows a negative number to be entered**.
+That is precisely accurate and it is a different fault from the one this
+phase went looking for.
 
-While in there, check the same question for the sensor-count and
-cost-rate fields, a gap carried openly since Round 5: they have
-client-side `type="number"` but server-side rejection was never
-confirmed. Report, do not necessarily fix, since that may be its own
-phase.
+`min="0"` on an `<input type="number">` constrains the spinner. It does
+not prevent typing, and it only fails constraint validation when a form
+is validated. **This app has zero `<form>` elements**, confirmed by
+direct count and already recorded in `DESIGN_PRINCIPLES.md` Deferred
+scope, and `test-bed-detail.js` runs no `checkValidity`, `reportValidity`
+or equivalent guard before its `PATCH`. So a typed `-3` sits in the field
+looking accepted, and the rejection only arrives from the server on save.
 
-**Test evidence required:** a negative and a fractional Duration each
-rejected server-side by direct API call, a valid value accepted and
-persisted, and the client attributes confirmed present in a real browser.
+**Fix at the client layer, where the fault actually is.** The user needs
+immediate feedback at entry, not a server error after a save attempt.
+Do not change the server validation, it is working.
+
+### 2.2 Sensor counts have no validation at either layer
+
+Carried in this brief as "server-side rejection was never confirmed."
+Now confirmed, and the finding is worse than that wording implied. The
+two halves differ sharply:
+
+- **Cost rates are validated.** `test-beds.js:437` runs all nine rate
+  fields through `isValidNonNegativePercent`.
+- **Sensor counts are not validated anywhere.** `safesightCameras`,
+  `airQualitySensors` and `hemirSensors` sit in
+  `TEST_BED_WRITABLE_KEYS` but appear in no validation loop, and
+  client-side they receive only `{ number: f.number }`, so no `integer`
+  and therefore no `min` or `step` either. Negative, fractional and
+  string values are accepted at both layers. `estCostPerUnit` is in the
+  same position.
+
+**These multiply directly into installation and hosting cost.** A
+negative sensor count produces a negative cost line and a wrong total,
+silently. That is a live data-integrity hole in the figure a go/no-go
+decision rests on, and it is materially more serious than the reported
+Duration issue.
+
+Validate at both layers, non-negative integers for counts, non-negative
+number for `estCostPerUnit`, reusing `field-validation.js` rather than
+writing new checks.
+
+**Test evidence required:** in a real browser, confirm a negative value
+can no longer be typed into Duration or any sensor count, and that
+feedback appears at entry rather than only on save. By direct API call
+bypassing the browser, confirm negative and fractional values are
+rejected for `testBedDuration`, all three sensor counts and
+`estCostPerUnit`, and that valid values are accepted and persisted.
+Confirm a cost breakdown computed from a rejected value never reaches
+the database.
 
 ---
 
@@ -406,6 +441,10 @@ Three changes, all from the annotated screenshots.
    display time, exactly as `DESIGN_PRINCIPLES.md` Section 2 already
    states for Opportunity age and days-since-last-update.
 
+   A `daysAgo()` helper and a `tb-detail-age` element already exist in
+   `app.js`, used by the strip being removed. Reuse the helper rather
+   than writing a second date-difference function.
+
    **It must render as a read-only row, not a `tbFieldRow` click-to-edit
    row.** Every other field in Key Dates is editable, so the default
    path would silently make a computed value look editable. Follow the
@@ -513,14 +552,33 @@ API call to `document-requirements` returns the unchanged key names.
   This is the point of the decision: the two record types keep running
   through identical arithmetic, so they cannot drift apart later.
 
-- **Lock it at zero rather than leaving it writable but invisible.**
-  Remove `warrantyPct` from `TB_COST_FIELDS` **and** from
-  `TEST_BED_WRITABLE_KEYS`, so a direct API `PATCH` naming it is
-  rejected the same as any unrecognised field. This is the treatment
-  `accumulated_cost` and `indicativeCost` already received in Round 5
-  Phase 6. Without it, a hidden field with no UI could still be set to a
-  non-zero value and silently change a Test Bed's cost with nothing on
-  screen to explain it.
+- **Corrected after Code's review, 2026-08-18. Removing the input is not
+  enough, and this inverts the phase's intent if built as originally
+  written.** `buildTestBedCostBreakdown` (`test-beds.js:19`) falls back
+  to `warrantyPct: 2` when the key is absent or empty. So simply
+  deleting the input and the stored key produces a permanent, invisible
+  2 percent warranty, exactly the silent cost drift this phase exists to
+  prevent. Worth noting plainly: any Test Bed that never had warranty
+  set has been computing a 2 percent warranty nobody chose, today, right
+  now.
+
+- **Pass `warrantyPct: 0` explicitly** in `buildTestBedCostBreakdown`,
+  replacing the conditional entirely, so the stored payload key is
+  ignored rather than read. **This is not a cost-engine change.**
+  `buildTestBedCostBreakdown` is the Test Bed route's own mapping
+  function, and exists to hold exactly this kind of Test-Bed-specific
+  decision. `deal-calculator.js` is untouched, and so is `deals.js:148`,
+  which carries Opportunity's own separate `?? 2`. Confirm all three
+  defaults are genuinely independent before editing, they are, at
+  `deal-calculator.js:108`, `deals.js:148` and `test-beds.js:19`.
+
+- **Then lock it.** Remove `warrantyPct` from `TB_COST_FIELDS`, from
+  `TEST_BED_WRITABLE_KEYS`, and from the percent-validation loop at
+  `test-beds.js:436`, so a direct API `PATCH` naming it is rejected the
+  same as any unrecognised field. Same treatment `accumulated_cost` and
+  `indicativeCost` already received in Round 5 Phase 6. Passing 0
+  explicitly means no `warrantyPct` backfill is needed, stale stored
+  values simply stop being read.
 
 - **Omit the warranty line from the itemised breakdown while it is
   zero**, rather than rendering a permanent `USD 0.00` row. Consistent
@@ -540,8 +598,24 @@ immediately while the stored mirror stays stale until each record is next
 saved, and the Test Beds list view reads the stored payload. List and
 detail will disagree until every record is touched.
 
-Backfill both fields across all live Test Beds as part of this phase, and
-confirm list and detail agree afterwards.
+**Corrected after Code's review: the split is not list versus detail, it
+is live versus stored, and the detail page sits on both sides of it.**
+There are three cost surfaces, not two:
+
+| Surface | Source | After the change |
+|---|---|---|
+| Itemised breakdown | `bed.costBreakdown`, live-recomputed on every `GET` | drops immediately |
+| Detail header `tb-detail-cost` | `p.accumulated_cost`, stored | stale until next save |
+| Test Beds list column | `p.indicativeCost`, stored | stale until next save |
+
+So the visible inconsistency is between two figures **on the same page**,
+header against breakdown, not only between two screens. An evidence check
+that confirms only "list and detail agree" can pass while that
+inconsistency is sitting in front of the user.
+
+Backfill `accumulated_cost` and `indicativeCost` across all live Test
+Beds as part of this phase, and confirm all three surfaces agree
+afterwards, naming each one separately.
 
 Opportunity's warranty handling is **untouched**, and because the engine
 is not being changed this should now be provable rather than merely
