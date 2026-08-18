@@ -842,9 +842,81 @@ function wireTbOnce() {
   document.getElementById('tb-note-add').addEventListener('click', () => window.addTbNote())
 }
 
+// Round 8 Phase 1: restore fields left open across a re-render.
+//
+// initTestBedDetailPanel rebuilds all four panels' innerHTML and used to
+// reset tbEdits to {} unconditionally. Six call sites in this file
+// re-enter it mid-session (adding a note, saving fields, linking a buyer,
+// completing a document, adding a use case, adding an install note), each
+// via loadTestBedDetail(), whose own GET is a real network round trip. The
+// old rows stay on screen and fully clickable for the whole of that trip,
+// so a field opened during it was destroyed the instant the response
+// landed: input element replaced, focus dropped to BODY, and anything
+// typed silently discarded. The user sees a field that looked like it
+// responded, refuses to accept typing, and works on a second click.
+//
+// That is the same "never silently discard real unsaved input" rule this
+// build has applied to New Lead, Park, Est. Close Date and the four
+// contact-detail side-effect reloads (INTERACTION_STANDARDS section 5) -
+// this was the one path where a reload could still throw an edit away with
+// no confirmation and no trace.
+//
+// The draft is preserved, not the whole edit record: `orig` is deliberately
+// re-read from the FRESH payload, so dirty state is computed against what
+// the server now holds rather than against what it held before the reload.
+// If the reload brought the same value the user was typing, the field
+// correctly becomes clean.
+function captureTbOpenEdits() {
+  const active = document.activeElement
+  const focusedKey = active && active.id && active.id.startsWith('tb-input-')
+    ? active.id.slice('tb-input-'.length)
+    : null
+  let selection = null
+  if (focusedKey) {
+    // setSelectionRange/selectionStart throw on some input types (number,
+    // date) in some browsers - a caret position is a nicety, never a reason
+    // to lose the edit itself.
+    try { selection = { start: active.selectionStart, end: active.selectionEnd } } catch { selection = null }
+  }
+  return { edits: { ...tbEdits }, focusedKey, selection }
+}
+
+function restoreTbOpenEdits(captured) {
+  if (!captured) return []
+  const restored = []
+  for (const [key, edit] of Object.entries(captured.edits)) {
+    // A field can legitimately vanish across a re-render (a stage-scoped
+    // panel, a row removed by the reload). Skip it rather than throwing.
+    if (!document.getElementById(`tb-display-${key}`) || !document.getElementById(`tb-input-${key}`)) continue
+    window.openTbField(key)
+    const live = tbEdits[key]
+    if (!live) continue
+    const input = document.getElementById(`tb-input-${key}`)
+    input.value = edit.draft
+    live.draft = edit.draft
+    document.getElementById(`tb-edit-${key}`).classList.toggle('dirty', live.draft !== live.orig)
+    restored.push(key)
+  }
+
+  if (captured.focusedKey && restored.includes(captured.focusedKey)) {
+    const input = document.getElementById(`tb-input-${captured.focusedKey}`)
+    if (input) {
+      input.focus()
+      if (captured.selection) {
+        try { input.setSelectionRange(captured.selection.start, captured.selection.end) } catch { /* not supported on this input type */ }
+      }
+    }
+  }
+  if (restored.length) updateTbSaveBar()
+  return restored
+}
+
 // ── Entry point, called by app.js's renderTestBedDetail() ─────────────────
 window.initTestBedDetailPanel = function (bed) {
   wireTbOnce()
+  // Captured BEFORE tbEdits is reset and before any panel is rebuilt.
+  const carried = captureTbOpenEdits()
+
   tbDetailId = bed.id
   tbBed = bed
   tbPayload = bed.payload ?? {}
@@ -857,4 +929,8 @@ window.initTestBedDetailPanel = function (bed) {
   renderTbCommercials()
   updateTbSaveBar()
   wireTbFieldInputs()
+
+  // After wireTbFieldInputs, so restored inputs carry the same listeners
+  // (including the Round 7 Phase 2.1 numeric validity guard) as any other.
+  restoreTbOpenEdits(carried)
 }
