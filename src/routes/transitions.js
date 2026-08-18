@@ -312,7 +312,22 @@ export default async function transitionsRoutes(app) {
         ? probQuery.eq('variant', record.variant)
         : probQuery.is('variant', null)
 
-      const { data: probDefault, error: probDefaultErr } = await probQuery
+      // .maybeSingle() (Round 7, 2026-08-18): without it this query
+      // resolves to an ARRAY, so `if (probDefault)` was truthy even for
+      // zero rows and `probDefault.default_probability_pct` was always
+      // undefined. The update below therefore sent {probability_pct:
+      // undefined}, which supabase-js drops on serialisation, so it
+      // matched no rows and changed nothing - confirmed live: 0 rows
+      // affected, no error, value unchanged. The documented
+      // reset-on-stage-change (DESIGN_PRINCIPLES.md Section 2) has never
+      // once fired since this mechanism was written.
+      //
+      // The warn branch below did fire every time, but blamed a
+      // "missing opportunity_details row", pointing at the wrong cause
+      // entirely - the same misdiagnosis class as the line 192 fix in
+      // step 3.0. contacts.js and test-beds.js both call this same table
+      // with .maybeSingle() correctly; only this site omitted it.
+      const { data: probDefault, error: probDefaultErr } = await probQuery.maybeSingle()
 
       // Round 7 step 3.0. Unlike the five above, this sits AFTER the
       // transition has already succeeded, so an error here must not
