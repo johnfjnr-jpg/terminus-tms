@@ -29,8 +29,54 @@ Build `scripts/verify-harness.mjs` as tracked, reusable tooling
 alongside the existing `scripts/sign-in.js`, `scripts/create-test-user.js`
 and `scripts/seed-test-opportunity.js`. Read paths and credentials from
 the environment, never from a hardcoded absolute path. Use the built-in
-`node:test` runner and add a `"test"` script to `package.json`; do not
-add a third-party framework.
+`node:test` runner; do not add a third-party framework.
+
+**The suite is split in two, and the split is load-bearing.**
+
+- `npm test` runs **1.1 only**: pure functions, no database, no
+  credentials, no network. It must be runnable by anyone on a clean
+  checkout with no environment setup at all.
+- `npm run test:db` runs **1.2 and 1.3**, which require a real database
+  and documented environment variables.
+
+Add the GitHub Action in this phase, not later. It runs `npm test` on
+every push. It must not run `test:db`, which would require putting
+database credentials into CI, a separate decision that is not being
+made here. Keeping the pure suite genuinely dependency-free is what
+makes that separation possible, so do not let a database import leak
+into the 1.1 path.
+
+### 1.0 Fixtures and teardown
+
+Every database-backed test in 1.2 and 1.3 creates its own disposable
+fixtures. Follow `DESIGN_PRINCIPLES.md` Rule 9:
+
+- Tag every fixture with a per-run `runTag = Date.now()` and derive all
+  fixture names and counter keys from it, so no two runs collide and no
+  run ever reuses a real, already-existing record as a convenient test
+  subject.
+- **Counter keys must be unique per run.** The "no gaps" assertion in
+  1.2 is only valid on a counter key that nothing else is touching
+  concurrently. A shared key makes that assertion meaningless, it would
+  be measuring other traffic, not atomicity.
+- Check **every** delete's returned `error`, and the affected-row count
+  on every `.update()`. Throw or log loudly on any failure. Never print
+  a fixture ID as "torn down" without confirming the row is actually
+  gone by querying it. An error's wording is a hint to investigate,
+  never a substitute for checking the row.
+- Teardown soft-deletes test records.
+
+**Teardown must never delete `reference_number_counters` rows.** This is
+not a style preference, it is a recorded real collision from Milestone 4,
+see `DESIGN_PRINCIPLES.md` Section "Deferred scope". A `GBR-SMARTC`
+counter row was deleted during test cleanup while a soft-deleted record
+still permanently held `TT-GBR-SMARTC-001`. Reference codes are never
+reused even after deletion, so the counter restarted at 1 and collided
+with the already-claimed code, a real Postgres unique-constraint
+violation caught live. The underlying design question is still
+unresolved and deliberately out of scope here. Leave counter rows in
+place; the unique per-run key above is what keeps them from
+accumulating meaningfully.
 
 ### 1.1 Cost calculation, `src/lib/deal-calculator.js`
 
@@ -99,12 +145,39 @@ database because it reads `stage_gate_rules`.
 - One assertion that both call sites agree: the same record and
   transition evaluated through `transitions.js` and through
   `records.js` produce the same blocking set.
+- **A fifth assertion for `child_record_status`, which has no code
+  branch at all.** `src/routes/transitions.js:140` is a bare comment,
+  "child_record_status handled in a future milestone", so the rule loop
+  falls through and pushes nothing. This is not theoretical:
+  `supabase/seeds/003_test_bed.sql` seeds three real
+  `child_record_status` rules on the `test_bed` Decommissioning ->
+  Closed transition (NDA reviewed, PDPA assessment reviewed, Data
+  Protection Impact Assessment reviewed). All three are silently
+  ignored today, so that transition is currently ungated.
 
-**Test evidence required:** `npm test` passing from a clean checkout
-with only documented environment variables set, plus the actual runner
-output pasted in full. Deliberately break one assertion per area, three
-in total, and show each failing, so the suite is proven to be capable
-of failing rather than merely passing vacuously.
+  Assert the **current no-op behaviour explicitly**: a Test Bed with
+  those three rules unmet returns an empty blocking set and the
+  transition is permitted. Comment the assertion clearly, in the test
+  itself, stating that this asserted behaviour is **wrong**, that it
+  documents a known gate hole rather than endorsing it, and that when
+  the `child_record_status` branch is built this assertion must be
+  **inverted**, not deleted. The point is that implementing the branch
+  should cause a visible, deliberate test failure rather than passing
+  silently.
+
+**Test evidence required:**
+
+1. `npm test` passing from a clean checkout with **no** environment
+   setup, plus the actual runner output pasted in full.
+2. `npm run test:db` passing with only the documented environment
+   variables set, output pasted in full.
+3. A green GitHub Action run on a real push, linked.
+4. Teardown proven, not assumed: after a full `test:db` run, query and
+   report the fixture rows' actual state, per Rule 9, and confirm no
+   `reference_number_counters` row was deleted.
+5. Deliberately break one assertion per area, three in total, and show
+   each failing, so the suite is proven capable of failing rather than
+   passing vacuously.
 
 ---
 
