@@ -1,0 +1,28 @@
+# Round 7 Phase 1. Runs the PURE suite on every push.
+#
+# Deliberately runs `npm test` only, never `npm run test:db`. The
+# database suite needs real credentials, and putting those into CI is a
+# separate decision that has not been made. Keeping the pure suite free
+# of any database import is what makes that separation possible - if a
+# db import ever leaks into scripts/tests/cost.test.mjs, this job starts
+# needing secrets and the split has been broken.
+name: test
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  pure:
+    name: pure suite (no database)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      # No `npm ci`: the pure suite imports only src/lib/deal-calculator.js,
+      # which has no dependencies. Installing nothing is the strongest
+      # proof that this suite runs on a clean checkout with no setup.
+      - name: Run pure suite
+        run: npm test
