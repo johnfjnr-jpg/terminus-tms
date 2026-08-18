@@ -24,6 +24,9 @@ const COUNTRY = 'ZZT' // reserved-looking, not a real country in use
 // scheme is given, so a unique industry segment gives a unique counter.
 const industryFor = (suffix) => `${runTag}${suffix}`.toUpperCase()
 
+// Raw call. Only the two tests that assert scheme SEMANTICS use this
+// directly, because those tests are about the null/'industry'/'account'
+// keyspaces and cannot be namespaced away without testing nothing.
 const issue = async (industry, scheme) => {
   const args = { p_country_code: COUNTRY, p_industry_code: industry }
   if (scheme !== undefined) args.p_scheme = scheme
@@ -31,6 +34,16 @@ const issue = async (industry, scheme) => {
   if (error) throw new Error(`issue_reference_number failed: ${error.message}`)
   return data
 }
+
+// Default for every test that just needs A counter rather than a
+// specific keyspace. p_scheme = 'harness' puts the row at
+// `harness:ZZT-<runTag><suffix>`, its own keyspace: filterable by a
+// single prefix, structurally unable to collide with a real counter, and
+// never confusable with one by eye. Nothing is deleted, so the
+// Milestone 4 rule is untouched.
+const HARNESS_SCHEME = 'harness'
+const issueHarness = (industry) => issue(industry, HARNESS_SCHEME)
+const harnessPrefix = (industry) => `${HARNESS_SCHEME}:${COUNTRY}-${industry}`
 
 // 'TT-ZZT-<industry>-<number>' -> '<number>'
 const numberPart = (ref) => ref.slice(ref.lastIndexOf('-') + 1)
@@ -40,13 +53,21 @@ before(() => { db = adminClient(); runTag = newRunTag() })
 after(() => {
   // Deliberately empty of counter cleanup. Deleting a
   // reference_number_counters row is what caused the Milestone 4
-  // collision; these rows stay. They are namespaced by runTag and
-  // cannot collide with a real counter.
+  // collision, so these rows stay.
+  //
+  // They do accumulate, roughly one per counter-using test per run, and
+  // that is an accepted cost, not a claim that they vanish. What keeps
+  // them harmless is the keyspace: everything issued via issueHarness()
+  // lands under the 'harness:' scheme prefix and can be listed or
+  // reasoned about with a single filter. The two scheme-semantics tests
+  // below are the deliberate exception - they must exercise the
+  // unprefixed and 'account:' keyspaces to test them at all - and they
+  // remain identifiable by the reserved ZZT country code.
 })
 
 test('999 to 1000 boundary: padding grows, nothing truncates', async () => {
   const industry = industryFor('B')
-  const prefix = `${COUNTRY}-${industry}`
+  const prefix = harnessPrefix(industry)
 
   // Seed the counter to 997 so the next four issues are 998..1001.
   // The RPC increments an existing row, so 997 -> 998 on first call.
@@ -55,7 +76,7 @@ test('999 to 1000 boundary: padding grows, nothing truncates', async () => {
   assert.equal(seedErr, null, `seeding the counter failed: ${seedErr?.message}`)
 
   const refs = []
-  for (let i = 0; i < 4; i++) refs.push(await issue(industry))
+  for (let i = 0; i < 4; i++) refs.push(await issueHarness(industry))
   const nums = refs.map(numberPart)
 
   assert.deepEqual(nums, ['998', '999', '1000', '1001'])
@@ -74,7 +95,7 @@ test('999 to 1000 boundary: padding grows, nothing truncates', async () => {
 
 test('low numbers are zero-padded to three characters', async () => {
   const industry = industryFor('P')
-  const first = await issue(industry)
+  const first = await issueHarness(industry)
   assert.equal(numberPart(first), '001', 'a fresh counter must start at 001, not 1')
 })
 
@@ -85,7 +106,7 @@ test('atomicity: 50 genuinely concurrent issues, no duplicates and no gaps', asy
   // Promise.all so the calls genuinely overlap. A sequential loop would
   // pass even if the RPC were not atomic at all, which is the whole
   // point of this test.
-  const refs = await Promise.all(Array.from({ length: N }, () => issue(industry)))
+  const refs = await Promise.all(Array.from({ length: N }, () => issueHarness(industry)))
   const nums = refs.map(r => Number(numberPart(r)))
 
   const unique = new Set(nums)

@@ -147,8 +147,29 @@ reused even after deletion, so the counter restarted at 1 and collided
 with the already-claimed code, a real Postgres unique-constraint
 violation caught live. The underlying design question is still
 unresolved and deliberately out of scope here. Leave counter rows in
-place; the unique per-run key above is what keeps them from
-accumulating meaningfully.
+place.
+
+**Corrected 2026-08-18, after Phase 1 was built.** This paragraph
+originally claimed the unique per-run key "keeps them from accumulating
+meaningfully." That was wrong, and it misled the build: unique keys
+guarantee the opposite, a fresh row per counter per run, accumulating
+without bound. Uniqueness prevents *collision*, not accumulation, and
+the two are not the same property.
+
+The real requirement is a separate **keyspace**, not a smaller number of
+rows. Issue every harness counter through `p_scheme: 'harness'`, the
+same parameter section 1.2 already tests. Rows then land at
+`harness:<country>-<key>`, listable with one prefix filter and
+structurally unable to collide with a real counter. Nothing is deleted,
+so the Milestone 4 rule is untouched.
+
+**One exception, and it is inherent rather than an oversight.** The two
+tests that assert scheme *semantics* - that `null`/omitted/`'industry'`
+share one counter, and that a second scheme runs independently of it -
+must exercise the unprefixed and `'account:'` keyspaces, or they assert
+nothing. Those calls stay un-namespaced and remain identifiable by the
+reserved `ZZT` country code. Accumulation is an accepted cost, stated
+plainly here rather than wished away by the wording.
 
 ### 1.1 Cost calculation, `src/lib/deal-calculator.js`
 
