@@ -428,6 +428,34 @@ export default async function testBedsRoutes(app) {
       if ('testBedDuration' in payload && !isValidNonNegativeInteger(payload.testBedDuration)) {
         return reply.code(400).send({ error: 'testBedDuration must be a non-negative whole number' })
       }
+      // Round 7 Phase 2.2 (2026-08-18): sensor counts and estCostPerUnit.
+      // These were writable but validated NOWHERE, at either layer - the
+      // gap was carried in the brief as "server-side rejection was never
+      // confirmed", and the answer turned out to be that it did not exist
+      // at all. It matters more than the Duration report that prompted the
+      // look: all three counts multiply directly into the install and
+      // hosting line items in buildTestBedCostBreakdown(), so a negative
+      // count produced a negative cost line and a silently wrong total on
+      // the figure a go/no-go decision rests on.
+      //
+      // Counts reuse isValidNonNegativeInteger, the same validator
+      // testBedDuration already uses - a physical count of devices has the
+      // identical shape to a duration in months: never negative, never
+      // fractional.
+      for (const key of ['safesightCameras', 'airQualitySensors', 'hemirSensors']) {
+        if (key in payload && !isValidNonNegativeInteger(payload[key])) {
+          return reply.code(400).send({ error: `${key} must be a non-negative whole number` })
+        }
+      }
+      // estCostPerUnit is a money rate, not a count, so it takes the same
+      // non-negative-up-to-2dp shape as the Base Cost Data rates below.
+      // Note it currently has NO rendered input (Round 6 Phase 3 trimmed
+      // Site Details to 4 fields and it was not among them), so this
+      // server check is the only layer it can have - see the client-side
+      // note in test-bed-detail.js.
+      if ('estCostPerUnit' in payload && !isValidNonNegativePercent(payload.estCostPerUnit)) {
+        return reply.code(400).send({ error: 'estCostPerUnit must be a non-negative number, up to 2 decimal places' })
+      }
       // Round 5 Phase 6: Base Cost Data rate fields and warrantyPct -
       // isValidNonNegativePercent is misleadingly named for this use (it's
       // really just "non-negative, up to 2 decimal places"), but that's

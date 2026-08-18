@@ -76,10 +76,17 @@ const TB_SITE_FIELDS = [
 // The generated Sensors list itself (renderTbSensors) stays on Site
 // Details - it's a read-only display of these counts, not the
 // counts themselves.
+// integer (Round 7 Phase 2.2, 2026-08-18): these are physical device
+// counts - never negative, never fractional - and they multiply straight
+// into the install and hosting cost lines. They had carried only
+// `number: true`, so no min/step and no .no-spinner, and the render call
+// site below passed only `{ number: f.number }`, dropping anything else
+// anyway. Same integer treatment as testBedDuration, matched by a real
+// server-side check added in the same phase (test-beds.js).
 const TB_SENSOR_COUNT_FIELDS = [
-  { key: 'safesightCameras', label: 'No. of SafeSight Cameras', number: true },
-  { key: 'airQualitySensors', label: 'No. of Air Quality Sensors', number: true },
-  { key: 'hemirSensors', label: 'No. of HEMIR Sensors', number: true },
+  { key: 'safesightCameras', label: 'No. of SafeSight Cameras', number: true, integer: true },
+  { key: 'airQualitySensors', label: 'No. of Air Quality Sensors', number: true, integer: true },
+  { key: 'hemirSensors', label: 'No. of HEMIR Sensors', number: true, integer: true },
 ]
 // noPast/integer (Round 5 Phase 4, 2026-08-17): mirrors Opportunity's
 // identical Round 3 Phase 3 fix (opportunity-reference.js's DATE_FIELDS) -
@@ -308,7 +315,7 @@ function renderTbInstallSection() {
 // needed.
 function renderTbSensorCounts() {
   document.getElementById('tb-sensor-count-rows').innerHTML =
-    TB_SENSOR_COUNT_FIELDS.map(f => tbFieldRow(f.key, f.label, tbPayload[f.key], { number: f.number })).join('')
+    TB_SENSOR_COUNT_FIELDS.map(f => tbFieldRow(f.key, f.label, tbPayload[f.key], { number: f.number, integer: f.integer })).join('')
 }
 
 // Sensors list: "generated" per PROTOTYPE_SPECIFICATION.md Section 6, but
@@ -582,10 +589,76 @@ async function renderTbStageExitCriteria(stageName) {
 // ── Click-to-edit mechanics (fields only - Sensors/Use Cases/Install
 // Notes/Buyers save immediately via their own actions above, not
 // through this batched edit bar) ────────────────────────────────────
+// Round 7 Phase 2.1 (2026-08-18): stop a negative being ENTERED, which is
+// what was actually reported - not a save-time failure, which already
+// worked.
+//
+// min="0" on <input type="number"> only constrains the spinner and only
+// fails constraint validation when a FORM is validated. This app has zero
+// <form> elements and runs no checkValidity() before its PATCH, so a
+// typed "-3" sat in the field looking accepted until the server rejected
+// the save. The server check is correct and is deliberately unchanged;
+// this adds the missing client half so the feedback arrives at entry.
+//
+// Both halves are needed: keydown stops the keystroke, and the input
+// handler catches paste, drag-drop and autofill, which never fire
+// keydown. Note <input type="number"> reports value === '' for text it
+// cannot parse at all (e.g. "abc"), so there is nothing to strip in that
+// case - the field simply stays empty, which is already correct.
+function flashTbEntryWarning(label, problem) {
+  const feedback = document.getElementById('tb-save-feedback')
+  if (!feedback) return
+  feedback.textContent = `${label} ${problem}.`
+  feedback.className = 'msg-error'
+}
+
+function guardNumericEntry(input, f) {
+  input.addEventListener('keydown', (e) => {
+    if (e.ctrlKey || e.metaKey || e.altKey || e.key.length > 1) return
+    if (e.key === '-' || e.key === '+') {
+      e.preventDefault()
+      flashTbEntryWarning(f.label, 'cannot be negative')
+      return
+    }
+    if (e.key === 'e' || e.key === 'E') {
+      e.preventDefault()
+      flashTbEntryWarning(f.label, 'must be a plain number')
+      return
+    }
+    if (f.integer && (e.key === '.' || e.key === ',')) {
+      e.preventDefault()
+      flashTbEntryWarning(f.label, 'must be a whole number')
+    }
+  })
+
+  input.addEventListener('input', () => {
+    const raw = input.value
+    if (raw === '') return
+    let clean = raw.replace(/[^0-9.]/g, '')
+    if (f.integer) {
+      clean = clean.replace(/\./g, '')
+    } else {
+      // keep only the first decimal point
+      const first = clean.indexOf('.')
+      if (first !== -1) {
+        clean = clean.slice(0, first + 1) + clean.slice(first + 1).replace(/\./g, '')
+      }
+    }
+    if (clean !== raw) {
+      input.value = clean
+      flashTbEntryWarning(f.label, raw.includes('-') ? 'cannot be negative' : 'must be a whole number')
+    }
+  })
+}
+
 function wireTbFieldInputs() {
   TB_ALL_EDITABLE_FIELDS.forEach(f => {
     const input = document.getElementById(`tb-input-${f.key}`)
     if (!input) return
+    // Registered BEFORE the onTbFieldInput listener below, deliberately:
+    // listeners fire in registration order, so the value is sanitised
+    // before the draft is read from it.
+    if (f.number) guardNumericEntry(input, f)
     input.addEventListener('input', () => onTbFieldInput(f.key))
     if (input.tagName === 'SELECT') input.addEventListener('change', () => onTbFieldInput(f.key))
   })
