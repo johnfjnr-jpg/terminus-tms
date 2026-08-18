@@ -2476,3 +2476,21 @@ input.input-invalid {
   color: var(--muted);
   margin: 4px 6px 6px;
 }
+
+/* Round 8 Phase 3 (2026-08-18): the itemized cost total, on its own
+   full-width row beneath the three side-by-side breakdown sections rather
+   than as a fourth column. Total Cost is the figure the whole tab exists
+   to produce - the panel's own subtitle calls it a go/no-go decision - so
+   it stays prominent and full width instead of competing with a section
+   card for space. The `Hosting x N months` line sits with it because it is
+   a whole-engagement figure, not a per-month rate like the lines inside the
+   Hosting card. max-width matches the .ref-cards grid below it so the two
+   align rather than the total running the full page width at 3440.
+
+   Sits ABOVE the three sections (Round 8 Phase 3): side-by-side alone left
+   the total 241px below the fold at 1920x1080, and putting the headline
+   figure first is what makes it visible without scrolling. */
+.tb-cost-total {
+  max-width: 1292px;
+  margin: 0 0 18px;
+}

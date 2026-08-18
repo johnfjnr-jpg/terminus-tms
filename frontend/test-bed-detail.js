@@ -412,38 +412,79 @@ function renderTbCostBreakdown() {
       <span style="font-size:13px;color:var(--white)">${formatCost(cost)}</span>
     </div>`
 
+  // Round 8 Phase 3: the three sections sit side by side rather than
+  // stacked, and Total Cost sits ABOVE them, directly under the heading.
+  //
+  // The defect this fixes is not the stacking itself, it is what the
+  // stacking did to the one figure the tab exists to produce: measured
+  // before the change, Total Cost sat at y=1788 / 1698 / 1464 against a
+  // 1000px viewport at 1240 / 1920 / 3440, so the go/no-go number was
+  // below the fold at every width while ~3000px of horizontal space sat
+  // empty at 3440.
+  //
+  // Reuses .ref-cards with auto-fit, not a fixed three-column grid: it is
+  // the established pattern everywhere else on this page, it already
+  // carries the proven minmax(280px, 420px) cap under
+  // #view-test-bed-detail, and it matches the brief's own "where space
+  // allows" - three across when there is room, wrapping gracefully rather
+  // than overflowing when there is not.
+  //
+  // The `Hosting x N months` term line is deliberately NOT inside the
+  // Hosting card. It is a whole-engagement figure, not a per-month rate
+  // like the three lines above it, and leaving it there made Hosting one
+  // row taller than the other two for no reason a reader could see. It
+  // stays with Total Cost as the step between monthly and total.
+  //
+  // Total ABOVE the detail, not beneath it, is a deliberate departure from
+  // the conventional read. Side-by-side sections alone moved the total up
+  // 377px but left it below the fold at 1920x1080 by 241px, because the
+  // header, chevron, tab row and input-rate panels consume 907px before
+  // this section starts. Putting the headline figure first is what
+  // actually makes it visible without scrolling at 1920 and 3440. It does
+  // NOT fix 1240x900, where the input panels alone already end past the
+  // fold - see DESIGN_PRINCIPLES.md's page-density entry, which is a
+  // whole-page problem and not solvable inside this panel.
+  const section = (title, rows) => `
+    <div class="pg-card">
+      <p class="pg-card-title">${escHtml(title)}</p>
+      ${rows}
+    </div>`
+
+  const warrantyLine = b.hardware.warrantyCost > 0
+    ? line(`Warranty (${b.hardware.warrantyUnits} unit${b.hardware.warrantyUnits === 1 ? '' : 's'})`, rowCost(g.hardwareGroup, 'hwWarranty'))
+    : ''
+
   el.innerHTML = `
-    <p class="label" style="margin-bottom:8px">Hardware</p>
-    ${line(`SafeSight (${tbPayload.safesightCameras || 0} x ${formatCost(tbPayload.ssUnitCost || 0)})`, rowCost(g.hardwareGroup, 'hwSs'))}
-    ${line(`Air Quality (${tbPayload.airQualitySensors || 0} x ${formatCost(tbPayload.aqUnitCost || 0)})`, rowCost(g.hardwareGroup, 'hwAqm'))}
-    ${line(`HEMIR (${tbPayload.hemirSensors || 0} x ${formatCost(tbPayload.hemirUnitCost || 0)})`, rowCost(g.hardwareGroup, 'hwHemir'))}
-    ${/* Round 7 Phase 8: omitted while zero rather than rendering a
-          permanent USD 0.00 row. Same reasoning as the documented decision
-          not to build the Test Bed list matrices - permanently empty UI
-          with no visible explanation is worse than absent UI. Kept
-          conditional rather than deleted so the line reappears correctly
-          if a warranty ever applies again. */''}
-    ${b.hardware.warrantyCost > 0
-      ? line(`Warranty (${b.hardware.warrantyUnits} unit${b.hardware.warrantyUnits === 1 ? '' : 's'})`, rowCost(g.hardwareGroup, 'hwWarranty'))
-      : ''}
-    ${subtotal('Hardware subtotal', g.hardwareGroup.rawTotalCost)}
+    <div class="tb-cost-total">
+      ${line(`Hosting x ${b.months} month${b.months === 1 ? '' : 's'}`, b.hostingTermCost)}
+      <div class="data-row" style="border-top:1px solid var(--hairline-strong);margin-top:10px;padding-top:10px">
+        <span style="font-size:15px;font-weight:500;color:var(--white)">Total Cost</span>
+        <span style="font-size:15px;font-weight:500;color:var(--white)">${formatCost(b.totalCost)}</span>
+      </div>
+    </div>
 
-    <p class="label" style="margin:18px 0 8px">Installation</p>
-    ${line('SafeSight', rowCost(g.installGroup, 'inSs'))}
-    ${line('Air Quality', rowCost(g.installGroup, 'inAqm'))}
-    ${line('HEMIR', rowCost(g.installGroup, 'inHemir'))}
-    ${subtotal('Installation subtotal', g.installGroup.rawTotalCost)}
+    <div class="ref-cards">
+      ${section('Hardware', [
+        line(`SafeSight (${tbPayload.safesightCameras || 0} x ${formatCost(tbPayload.ssUnitCost || 0)})`, rowCost(g.hardwareGroup, 'hwSs')),
+        line(`Air Quality (${tbPayload.airQualitySensors || 0} x ${formatCost(tbPayload.aqUnitCost || 0)})`, rowCost(g.hardwareGroup, 'hwAqm')),
+        line(`HEMIR (${tbPayload.hemirSensors || 0} x ${formatCost(tbPayload.hemirUnitCost || 0)})`, rowCost(g.hardwareGroup, 'hwHemir')),
+        warrantyLine,
+        subtotal('Hardware subtotal', g.hardwareGroup.rawTotalCost),
+      ].join(''))}
 
-    <p class="label" style="margin:18px 0 8px">Hosting (per month)</p>
-    ${line('SafeSight', rowCost(g.hostingGroup, 'hoSs'))}
-    ${line('Air Quality', rowCost(g.hostingGroup, 'hoAqm'))}
-    ${line('HEMIR', rowCost(g.hostingGroup, 'hoHemir'))}
-    ${subtotal('Hosting subtotal / month', b.hostingMonthCost)}
-    ${line(`Hosting x ${b.months} month${b.months === 1 ? '' : 's'}`, b.hostingTermCost)}
+      ${section('Installation', [
+        line('SafeSight', rowCost(g.installGroup, 'inSs')),
+        line('Air Quality', rowCost(g.installGroup, 'inAqm')),
+        line('HEMIR', rowCost(g.installGroup, 'inHemir')),
+        subtotal('Installation subtotal', g.installGroup.rawTotalCost),
+      ].join(''))}
 
-    <div class="data-row" style="border-top:1px solid var(--hairline-strong);margin-top:10px;padding-top:10px">
-      <span style="font-size:15px;font-weight:500;color:var(--white)">Total Cost</span>
-      <span style="font-size:15px;font-weight:500;color:var(--white)">${formatCost(b.totalCost)}</span>
+      ${section('Hosting (per month)', [
+        line('SafeSight', rowCost(g.hostingGroup, 'hoSs')),
+        line('Air Quality', rowCost(g.hostingGroup, 'hoAqm')),
+        line('HEMIR', rowCost(g.hostingGroup, 'hoHemir')),
+        subtotal('Hosting subtotal / month', b.hostingMonthCost),
+      ].join(''))}
     </div>`
 }
 
