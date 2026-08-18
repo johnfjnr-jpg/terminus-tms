@@ -56,16 +56,12 @@ where not exists (
 -- produced during that stage and gate the exit from it. The template arrives
 -- on entry, the completed document releases the exit.
 --
--- requirement_type is document_status, NOT child_record_status, and the
--- distinction is load-bearing rather than stylistic. The two are not
--- interchangeable for documents: GET /test-beds/:id/document-requirements
--- builds completable_documents - the list that renders the operator's
--- "Confirm" button - by filtering on requirement_type = 'document_status'
--- specifically (test-beds.js, both call sites). A child_record_status rule
--- would block this transition correctly and then offer the operator no way
--- to satisfy it from within the product. child_record_status is the generic
--- mechanism for children with no UI affordance of their own; document_status
--- is the operator-completable one.
+-- requirement_type is document_status, NOT child_record_status. That choice
+-- is load-bearing rather than stylistic, and the full reasoning now lives in
+-- DESIGN_PRINCIPLES.md ("A document gate must use document_status") rather
+-- than here, since nobody reads a migration to configure a gate. Short
+-- version: only document_status drives completable_documents, the list that
+-- renders the operator's "Confirm" button.
 --
 -- "NDA" is the exact string from stage_reference_docs.document_name. No case
 -- folding anywhere in the matching path, so the vocabulary has to line up.
