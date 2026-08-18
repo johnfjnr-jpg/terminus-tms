@@ -40,13 +40,36 @@ export async function computeBlocking(db, record, from_stage, to_stage, currentR
       const track = rule.requirement_detail?.track
       if (!track) continue
 
-      const { data: approval, error: approvalErr } = await db
+      // Round 7 Phase 3.1: scope is a property of the RULE, not a global
+      // policy. Absent scope defaults to 'revision', which is the behaviour
+      // every rule had before this change - a continuity requirement, so an
+      // existing rule and an already-issued approval keep behaving exactly
+      // as they did, with no migration of intent.
+      //
+      // 'revision' voids an approval on any edit, which is correct for a
+      // one-shot artefact like a Deal Sheet frozen at submission (Rule 2).
+      // 'stage' matches the stage the approval was given at, which is
+      // correct for a stage gate on a record that stays under edit for
+      // weeks - previously such an approval was silently voided by any
+      // field edit, with nothing on screen to say why.
+      const scope = rule.requirement_detail?.scope ?? 'revision'
+
+      let approvalQuery = db
         .from('approvals')
         .select('id')
         .eq('record_id', record.id)
-        .eq('revision_number', currentRevision)
         .eq('track', track)
         .eq('decision', 'approved')
+
+      approvalQuery = scope === 'stage'
+        // from_stage, not record.status: the gate is defined on the
+        // transition out of a specific stage, and that is the stage the
+        // approval must have been given at. A null stage (an approval
+        // issued before this column existed) cannot match, deliberately.
+        ? approvalQuery.eq('stage', from_stage)
+        : approvalQuery.eq('revision_number', currentRevision)
+
+      const { data: approval, error: approvalErr } = await approvalQuery
         .maybeSingle()
 
       // Round 7 step 3.0: an unchecked error here is indistinguishable
@@ -59,7 +82,10 @@ export async function computeBlocking(db, record, from_stage, to_stage, currentR
         blocking.push({
           requirement_type: 'approval_obtained',
           track,
-          message: `Requires an approved ${track} decision on revision ${currentRevision}`
+          scope,
+          message: scope === 'stage'
+            ? `Requires an approved ${track} decision at stage ${from_stage}`
+            : `Requires an approved ${track} decision on revision ${currentRevision}`
         })
       }
     }

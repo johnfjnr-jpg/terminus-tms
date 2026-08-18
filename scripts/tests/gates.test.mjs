@@ -316,3 +316,129 @@ for (const [table, requirement_type, requirement_detail] of [
     assert.equal(r.blocking, undefined, 'must not return a blocking set built from an unknown answer')
   })
 }
+
+// ---------------------------------------------------------------------
+// Round 7 Phase 3.1: approval scope is a property of the rule.
+//
+// The continuity assertion is the important one. "Absent scope defaults
+// to revision" is a stated requirement, not a preference: every rule
+// written before 3.1, and every approval already issued, must behave
+// exactly as it did. A regression there would be invisible in the UI and
+// would quietly loosen or tighten real gates.
+
+test('3.1 continuity: a rule with NO scope still behaves exactly as before', async () => {
+  const [FROM, TO] = stagePair()
+  const rec = await fx.createRecord({ record_type: TYPE, status: FROM, owner_id: ownerId })
+  await fx.createRule({
+    record_type: TYPE, from_stage: FROM, to_stage: TO,
+    requirement_type: 'approval_obtained', requirement_detail: { track: 'Senior' }, // no scope
+  })
+
+  const blocked = await computeBlocking(db, rec, FROM, TO, 1, {})
+  assert.equal(blocked.blocking.length, 1)
+  assert.equal(blocked.blocking[0].scope, 'revision', 'absent scope must default to revision')
+  assert.match(blocked.blocking[0].message, /revision 1/)
+
+  await fx.createApproval({
+    record_id: rec.id, revision_number: 1, stage: FROM,
+    track: 'Senior', decision: 'approved', approver_id: ownerId,
+  })
+  assert.deepEqual((await computeBlocking(db, rec, FROM, TO, 1, {})).blocking, [])
+
+  // The pre-3.1 behaviour that must survive: a new revision voids it.
+  assert.equal((await computeBlocking(db, rec, FROM, TO, 2, {})).blocking.length, 1,
+    'an unscoped rule must still be voided by a new revision')
+})
+
+test('3.1 scope "stage": an edit no longer voids the approval', async () => {
+  const [FROM, TO] = stagePair()
+  const rec = await fx.createRecord({ record_type: TYPE, status: FROM, owner_id: ownerId })
+  await fx.createRule({
+    record_type: TYPE, from_stage: FROM, to_stage: TO,
+    requirement_type: 'approval_obtained',
+    requirement_detail: { track: 'Legal', scope: 'stage' },
+  })
+
+  const blocked = await computeBlocking(db, rec, FROM, TO, 1, {})
+  assert.equal(blocked.blocking[0].scope, 'stage')
+  assert.match(blocked.blocking[0].message, new RegExp(`at stage ${FROM}`))
+
+  await fx.createApproval({
+    record_id: rec.id, revision_number: 1, stage: FROM,
+    track: 'Legal', decision: 'approved', approver_id: ownerId,
+  })
+  assert.deepEqual((await computeBlocking(db, rec, FROM, TO, 1, {})).blocking, [])
+
+  // This is the whole point of 3.1: revision 2, 5, 50 - still satisfied.
+  for (const rev of [2, 5, 50]) {
+    assert.deepEqual((await computeBlocking(db, rec, FROM, TO, rev, {})).blocking, [],
+      `a stage-scoped approval must survive revision ${rev}`)
+  }
+})
+
+test('3.1 scope "stage": an approval given at a DIFFERENT stage does not count', async () => {
+  const [FROM, TO] = stagePair()
+  const [OTHER] = stagePair()
+  const rec = await fx.createRecord({ record_type: TYPE, status: FROM, owner_id: ownerId })
+  await fx.createRule({
+    record_type: TYPE, from_stage: FROM, to_stage: TO,
+    requirement_type: 'approval_obtained',
+    requirement_detail: { track: 'Legal', scope: 'stage' },
+  })
+  await fx.createApproval({
+    record_id: rec.id, revision_number: 1, stage: OTHER,
+    track: 'Legal', decision: 'approved', approver_id: ownerId,
+  })
+  assert.equal((await computeBlocking(db, rec, FROM, TO, 1, {})).blocking.length, 1,
+    'stage scoping must not be satisfied by an approval from another stage')
+})
+
+test('3.1: a NULL-stage approval cannot satisfy a stage-scoped rule', async () => {
+  // Approvals issued before the stage column existed. Back-filling them
+  // from the record's current status would fabricate history, so they are
+  // deliberately unable to satisfy a stage-scoped gate.
+  const [FROM, TO] = stagePair()
+  const rec = await fx.createRecord({ record_type: TYPE, status: FROM, owner_id: ownerId })
+  await fx.createRule({
+    record_type: TYPE, from_stage: FROM, to_stage: TO,
+    requirement_type: 'approval_obtained',
+    requirement_detail: { track: 'Legal', scope: 'stage' },
+  })
+  await fx.createApproval({
+    record_id: rec.id, revision_number: 1, stage: null,
+    track: 'Legal', decision: 'approved', approver_id: ownerId,
+  })
+  assert.equal((await computeBlocking(db, rec, FROM, TO, 1, {})).blocking.length, 1,
+    'a legacy null-stage approval must not satisfy a stage-scoped rule')
+})
+
+test('3.1 constraint 1: revision_number is still recorded on stage-scoped approvals', async () => {
+  // Pricing history must stay possible: gate on stage, record the revision.
+  const [FROM, TO] = stagePair()
+  const rec = await fx.createRecord({ record_type: TYPE, status: FROM, owner_id: ownerId })
+  const a = await fx.createApproval({
+    record_id: rec.id, revision_number: 7, stage: FROM,
+    track: 'Legal', decision: 'approved', approver_id: ownerId,
+  })
+  const { data, error } = await db.from('approvals')
+    .select('revision_number, stage').eq('id', a.id).single()
+  assert.equal(error, null)
+  assert.equal(data.revision_number, 7, 'revision_number must still be written')
+  assert.equal(data.stage, FROM, 'stage must be written alongside it, not instead of it')
+})
+
+test('3.1: a rejected decision never satisfies either scope', async () => {
+  const [FROM, TO] = stagePair()
+  const rec = await fx.createRecord({ record_type: TYPE, status: FROM, owner_id: ownerId })
+  await fx.createRule({
+    record_type: TYPE, from_stage: FROM, to_stage: TO,
+    requirement_type: 'approval_obtained',
+    requirement_detail: { track: 'Legal', scope: 'stage' },
+  })
+  await fx.createApproval({
+    record_id: rec.id, revision_number: 1, stage: FROM,
+    track: 'Legal', decision: 'rejected', approver_id: ownerId,
+  })
+  assert.equal((await computeBlocking(db, rec, FROM, TO, 1, {})).blocking.length, 1,
+    'a rejection must not satisfy a gate')
+})

@@ -114,9 +114,9 @@ export class Fixtures {
     return data
   }
 
-  async createApproval({ record_id, revision_number, track, decision, approver_id }) {
+  async createApproval({ record_id, revision_number, track, decision, approver_id, stage = null }) {
     const { data, error } = await this.db.from('approvals')
-      .insert({ record_id, revision_number, track, decision, approver_id })
+      .insert({ record_id, revision_number, track, decision, approver_id, stage })
       .select('id').single()
     if (error) throw new Error(`fixture createApproval failed: ${error.message}`)
     this.approvals.push(data.id)

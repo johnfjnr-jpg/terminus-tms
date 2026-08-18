@@ -39,7 +39,7 @@ export default async function approvalsRoutes(app) {
     // Resolve revision_number: use supplied value or default to the latest
     let revisionNumber = revision_number
     if (revisionNumber == null) {
-      const { data: revRow } = await db
+      const { data: revRow, error: revRowErr } = await db
         .from('record_revisions')
         .select('revision_number')
         .eq('record_id', request.params.id)
@@ -47,13 +47,24 @@ export default async function approvalsRoutes(app) {
         .limit(1)
         .maybeSingle()
 
+      // Round 7 Phase 3.1: same unchecked-error shape as the six fixed in
+      // step 3.0, but with a worse consequence. There the fallback to 1
+      // caused a misread; here it would WRITE 1 into a durable audit row,
+      // permanently recording an approval against the wrong revision.
+      // Phase 3.1 constraint 1 makes revision_number matter for every
+      // approval, stage-scoped ones included, so it must be right.
+      if (revRowErr) {
+        request.log.error({ err: revRowErr }, 'failed to resolve current revision for approval')
+        return reply.code(500).send({ error: revRowErr.message })
+      }
+
       revisionNumber = revRow?.revision_number ?? 1
     }
 
     // Verify the record exists and is accessible (RLS will block if not)
     const { data: record, error: recordErr } = await db
       .from('records')
-      .select('id, record_type')
+      .select('id, record_type, status')
       .eq('id', request.params.id)
       .maybeSingle()
 
@@ -65,6 +76,12 @@ export default async function approvalsRoutes(app) {
       .from('approvals')
       .insert({
         record_id: request.params.id,
+        // Round 7 Phase 3.1: the stage this approval was given at, captured
+        // now rather than derived later - by the time a stage-scoped rule is
+        // evaluated the record may have moved on, and reconstructing it then
+        // would be a guess. revision_number is still written alongside it,
+        // for every approval regardless of scope (constraint 1).
+        stage: record.status,
         revision_number: revisionNumber,
         track,
         tier: tier ?? null,
