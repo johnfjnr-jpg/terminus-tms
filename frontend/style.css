@@ -2046,6 +2046,35 @@ textarea::placeholder { color: var(--muted-2); }
   margin: 0;
 }
 #opp-tab-commercial input[type="number"] { -moz-appearance: textfield; }
+
+/* Round 8 Phase 2 (2026-08-18): the identical rule for Test Bed's own
+   Commercials tab, which the Round 3 rule above never covered.
+   #tb-tab-commercials did not exist when that rule was written - Test
+   Bed's Commercials tab was built two rounds later, in Round 5 Phase 6 -
+   so its nine cost-rate inputs (Hardware, Installation and Hosting, three
+   each) have shown spinner arrows ever since. The fix predated the fields
+   and was simply never reapplied, the same shape as Test Bed's Duration
+   missing Opportunity's equivalent fix in Round 5.
+
+   Only the three Unit Counts were suppressed, and only incidentally:
+   tbFieldRow emits class="no-spinner" solely when opts.integer is set,
+   which they gained in Round 7 Phase 2.2 for a different reason. The cost
+   rates are deliberately NOT integer - they are money, to 2dp - so adding
+   integer to them would have been the wrong fix, stamping min=0/step=1 on
+   them and forcing whole numbers.
+
+   Written as a second scoped rule rather than by widening the selector
+   above to cover both tabs: that would silently change Opportunity's
+   behaviour to fix a Test Bed problem, and these two tabs have already
+   been found to drift apart once. A blanket selector per tab also covers
+   any cost field added later with no per-field wiring, which is the same
+   reasoning Round 3 gave for choosing this mechanism over a class. */
+#tb-tab-commercials input[type="number"]::-webkit-inner-spin-button,
+#tb-tab-commercials input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+#tb-tab-commercials input[type="number"] { -moz-appearance: textfield; }
 .ref-field-edit.dirty input, .ref-field-edit.dirty textarea { border-bottom-color: var(--green); }
 .ref-field-discard {
   cursor: pointer;
