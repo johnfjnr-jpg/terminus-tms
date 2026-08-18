@@ -1,0 +1,567 @@
+// Round 9 Phase 0.1 - generates CURRENT_STATE.md at the repo root.
+//
+// What this is: read-only reporting tooling, in the same category as
+// scripts/verify-harness.mjs and scripts/seed.js. It makes no product
+// change and writes nothing to the database.
+//
+// Why it exists: design conversations happen in chat, away from the repo.
+// The facts that go stale between sessions are factual rather than
+// conceptual - gate rule contents, stage definitions, approval tracks,
+// writable-key allowlists, route inventory, record counts by status.
+// Those were previously reconstructed by hand at the start of every round,
+// which is slow and occasionally wrong.
+//
+// Rules this file exists to satisfy (PROJECT_INSTRUCTIONS_ADDENDUM.md,
+// ROUND9_BUILD_BRIEF.md section 0.1):
+//
+//   1. Generated, never hand edited. The output carries a generation
+//      timestamp and the git commit SHA it was produced at, so a stale
+//      copy is detectable rather than silently trusted.
+//   2. It records what IS, never why. Reasoning stays in
+//      DESIGN_PRINCIPLES.md; prototype extraction stays in
+//      PROTOTYPE_SPECIFICATION.md.
+//   3. Every value is read from the live database or by parsing the real
+//      source file. Nothing here is restated from any document in this
+//      repo. A generator that reads a document is a document with extra
+//      steps.
+//   4. No secrets and no client data. Environment variables, keys and
+//      tokens are never printed. Records are reported as counts by status
+//      only - never a name, a reference code, an owner or an id. This file
+//      is uploaded into chat sessions.
+//   5. Written to CURRENT_STATE.md at the repo root and tracked in git.
+//      The diff between rounds is the configuration changelog.
+//
+// Determinism: two runs with no change between them must produce
+// byte-identical output apart from the timestamp, or the diffs the file
+// exists for are worthless. Every list is explicitly sorted in JS on a
+// content key; nothing relies on database return order. Row `id` and
+// `created_at` are deliberately NOT emitted - they are per-environment
+// noise that would swamp the configuration changes the diff is for.
+//
+// Usage:
+//   node --env-file-if-exists=.env scripts/state-dump.mjs
+//   npm run state:dump
+//
+// Credentials come from the environment (or the local .env, via the same
+// loader the database test suite already uses). Never a hardcoded path.
+
+import { writeFileSync, readFileSync, readdirSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { execFileSync } from 'node:child_process'
+
+// Reuses the harness's environment loader rather than writing a second
+// one. Same concern, one implementation - a second copy is how two paths
+// drift apart. Nothing else from that module is imported, and no fixture
+// is ever created: this script only reads.
+import { loadEnv, adminClient } from './verify-harness.mjs'
+
+const HERE = dirname(fileURLToPath(import.meta.url))
+const REPO_ROOT = join(HERE, '..')
+
+// ─────────────────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────────────────
+
+function git(...args) {
+  try {
+    return execFileSync('git', ['--no-optional-locks', ...args], {
+      cwd: REPO_ROOT, encoding: 'utf8'
+    }).trim()
+  } catch {
+    return null
+  }
+}
+
+// Canonical JSON: keys sorted recursively, so a jsonb column that comes
+// back with a different key order between runs still renders identically.
+function canonical(value) {
+  if (Array.isArray(value)) return value.map(canonical)
+  if (value && typeof value === 'object') {
+    const out = {}
+    for (const k of Object.keys(value).sort()) out[k] = canonical(value[k])
+    return out
+  }
+  return value
+}
+
+function jsonCell(value) {
+  if (value === null || value === undefined) return '(null)'
+  return '`' + JSON.stringify(canonical(value)) + '`'
+}
+
+// Markdown table cells cannot carry a raw pipe or newline.
+function cell(value) {
+  if (value === null || value === undefined) return '(null)'
+  return String(value).replace(/\|/g, '\\|').replace(/\n/g, ' ')
+}
+
+// Stable sort key built from the named columns, so ordering never depends
+// on what Postgres happened to return.
+function by(...keys) {
+  return (a, b) => {
+    for (const k of keys) {
+      const av = a[k] === null || a[k] === undefined ? '' : String(a[k])
+      const bv = b[k] === null || b[k] === undefined ? '' : String(b[k])
+      if (av !== bv) return av < bv ? -1 : 1
+    }
+    return 0
+  }
+}
+
+// PostgREST caps a plain select at 1000 rows. Page explicitly rather than
+// silently reporting the first page as the whole table.
+async function fetchAll(db, table, columns) {
+  const PAGE = 1000
+  const rows = []
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await db.from(table).select(columns).range(from, from + PAGE - 1)
+    if (error) throw new Error(`state-dump: reading ${table} failed: ${error.message}`)
+    rows.push(...data)
+    if (data.length < PAGE) break
+  }
+  return rows
+}
+
+function table(headers, rows) {
+  if (!rows.length) return '_None._\n'
+  const head = `| ${headers.join(' | ')} |`
+  const sep = `|${headers.map(() => '---').join('|')}|`
+  return [head, sep, ...rows.map(r => `| ${r.join(' | ')} |`)].join('\n') + '\n'
+}
+
+// ─────────────────────────────────────────────────────────────
+// Source-file parsing (never the database, never a document)
+// ─────────────────────────────────────────────────────────────
+
+const ROUTES_DIR = join(REPO_ROOT, 'src', 'routes')
+
+function routeFiles() {
+  return readdirSync(ROUTES_DIR).filter(f => f.endsWith('.js')).sort()
+}
+
+// Extracts the string literals from a block of JavaScript source, skipping
+// // and /* */ comments and any `...spread` identifiers.
+//
+// This is a character scanner rather than a regex for a real reason: these
+// allowlists carry long explanatory comments, and those comments contain
+// apostrophes ("Opportunity's own", "it's read-only"). A regex for quoted
+// strings reads each of those apostrophes as a delimiter and returns
+// fragments of prose as though they were payload keys - which is exactly
+// what the first draft of this function did, reporting 40 and 44 keys for
+// two allowlists that hold neither number.
+function stringLiteralsIn(body) {
+  const strings = []
+  const spreads = []
+  let i = 0
+  while (i < body.length) {
+    const c = body[i]
+    const next = body[i + 1]
+
+    if (c === '/' && next === '/') {
+      while (i < body.length && body[i] !== '\n') i += 1
+      continue
+    }
+    if (c === '/' && next === '*') {
+      i += 2
+      while (i < body.length && !(body[i] === '*' && body[i + 1] === '/')) i += 1
+      i += 2
+      continue
+    }
+    if (c === "'" || c === '"' || c === '`') {
+      const quote = c
+      i += 1
+      let value = ''
+      while (i < body.length && body[i] !== quote) {
+        if (body[i] === '\\') { value += body[i + 1] ?? ''; i += 2; continue }
+        value += body[i]
+        i += 1
+      }
+      i += 1
+      strings.push(value)
+      continue
+    }
+    if (c === '.' && body.slice(i, i + 3) === '...') {
+      const m = /^\.\.\.(\w+)/.exec(body.slice(i))
+      if (m) { spreads.push(m[1]); i += m[0].length; continue }
+    }
+    i += 1
+  }
+  return { strings, spreads }
+}
+
+// Parses `const SOMETHING_WRITABLE_KEYS = new Set([...])` out of the real
+// route files.
+//
+// A spread inside the Set (`...BILLING_KEYS`) is resolved when the
+// referenced const is a literal array of strings. When it is computed
+// (accounts.js builds its address keys with .map()), it is reported as an
+// unresolved spread with the defining line cited, never dropped. Silently
+// listing 4 keys for a Set that really allows more is exactly the kind of
+// quiet wrongness this file exists to remove.
+function parseWritableKeys() {
+  const out = []
+  for (const file of routeFiles()) {
+    const src = readFileSync(join(ROUTES_DIR, file), 'utf8')
+    const lines = src.split('\n')
+
+    function resolveSpread(ident) {
+      const m = src.match(new RegExp(`const\\s+${ident}\\s*=\\s*\\[([^\\]]*)\\]`, 'm'))
+      if (!m) return null
+      const keys = stringLiteralsIn(m[1]).strings
+      return keys.length ? keys : null
+    }
+    function defLine(ident) {
+      const idx = lines.findIndex(l => new RegExp(`const\\s+${ident}\\s*=`).test(l))
+      return idx < 0 ? null : idx + 1
+    }
+
+    const re = /const\s+([A-Z0-9_]*WRITABLE_KEYS)\s*=\s*new Set\(\[([\s\S]*?)\]\)/g
+    let m
+    while ((m = re.exec(src)) !== null) {
+      const { strings, spreads } = stringLiteralsIn(m[2])
+      const keys = [...strings]
+      const unresolved = []
+      for (const sp of spreads) {
+        const resolved = resolveSpread(sp)
+        if (resolved) keys.push(...resolved)
+        else unresolved.push({ ident: sp, line: defLine(sp) })
+      }
+      out.push({ file: `src/routes/${file}`, name: m[1], keys, unresolved })
+    }
+  }
+  return out.sort(by('name'))
+}
+
+// Route inventory: the prefix each route module is registered under comes
+// from src/server.js, the paths from the module itself. Both parsed from
+// the real source.
+function parseRoutes() {
+  const serverSrc = readFileSync(join(REPO_ROOT, 'src', 'server.js'), 'utf8')
+
+  // import fooRoutes from './routes/foo.js'
+  const identToFile = new Map()
+  for (const m of serverSrc.matchAll(/import\s+(\w+)\s+from\s+'\.\/routes\/([\w.-]+)'/g)) {
+    identToFile.set(m[1], m[2])
+  }
+
+  // app.register(fooRoutes, { prefix: '/api' })
+  const fileToPrefix = new Map()
+  for (const m of serverSrc.matchAll(/register\((\w+)\s*,\s*\{\s*prefix:\s*'([^']*)'/g)) {
+    const file = identToFile.get(m[1])
+    if (file) fileToPrefix.set(file, m[2])
+  }
+
+  const routes = []
+
+  // Routes declared directly on the server instance (unauthenticated).
+  for (const m of serverSrc.matchAll(/fastify\.(get|post|patch|put|delete)\('([^']+)'/g)) {
+    routes.push({ method: m[1].toUpperCase(), path: m[2], source: 'src/server.js', auth: 'public' })
+  }
+
+  for (const file of routeFiles()) {
+    const src = readFileSync(join(ROUTES_DIR, file), 'utf8')
+    const prefix = fileToPrefix.get(file)
+    for (const m of src.matchAll(/app\.(get|post|patch|put|delete)\('([^']*)'/g)) {
+      routes.push({
+        method: m[1].toUpperCase(),
+        path: `${prefix ?? '(unregistered)'}${m[2]}`,
+        source: `src/routes/${file}`,
+        auth: prefix === undefined ? 'not registered' : 'authenticated'
+      })
+    }
+  }
+
+  return routes.sort(by('path', 'method'))
+}
+
+function parseMigrations() {
+  return readdirSync(join(REPO_ROOT, 'supabase', 'migrations'))
+    .filter(f => f.endsWith('.sql'))
+    .sort()
+}
+
+function parseSeeds() {
+  return readdirSync(join(REPO_ROOT, 'supabase', 'seeds'))
+    .filter(f => f.endsWith('.sql'))
+    .sort()
+}
+
+// ─────────────────────────────────────────────────────────────
+// Main
+// ─────────────────────────────────────────────────────────────
+
+const env = loadEnv()
+const db = adminClient(env)
+
+const sha = git('rev-parse', 'HEAD')
+const dirty = git('status', '--porcelain')
+const generatedAt = new Date().toISOString()
+
+const out = []
+const w = s => out.push(s)
+
+w('# Current state')
+w('')
+w('**Generated by `scripts/state-dump.mjs`. Never hand edit.** Any edit here is')
+w('overwritten on the next run. It records what is configured right now, never')
+w('why: reasoning lives in `DESIGN_PRINCIPLES.md`, and what the prototype does')
+w('lives in `PROTOTYPE_SPECIFICATION.md`.')
+w('')
+w('Every value below is read from the live database or parsed from the real')
+w('source file. Nothing is restated from another document in this repo.')
+w('')
+w('Contains no environment variable, key or token, and no client data. Records')
+w('appear as counts by status only, never by name or reference code, because')
+w('this file is uploaded into chat sessions.')
+w('')
+w(`- Generated at: \`${generatedAt}\``)
+w(`- Git commit: \`${sha ?? '(unavailable)'}\``)
+w(`- Working tree at generation: \`${dirty ? 'dirty (uncommitted changes present)' : 'clean'}\``)
+w('')
+w('If the commit above is not current `HEAD`, this file is stale and is')
+w('untrusted rather than approximately right.')
+w('')
+
+// ── stage_definitions ────────────────────────────────────────
+{
+  const rows = (await fetchAll(db, 'stage_definitions', 'record_type, variant, stage_name, sort_order'))
+    .sort(by('record_type', 'variant', 'sort_order', 'stage_name'))
+  w('## `stage_definitions`')
+  w('')
+  w(`${rows.length} rows.`)
+  w('')
+  w(table(
+    ['record_type', 'variant', 'sort_order', 'stage_name'],
+    rows.map(r => [cell(r.record_type), cell(r.variant), cell(r.sort_order), cell(r.stage_name)])
+  ))
+}
+
+// ── stage_gate_rules ─────────────────────────────────────────
+{
+  const rows = (await fetchAll(db, 'stage_gate_rules',
+    'record_type, variant, from_stage, to_stage, requirement_type, requirement_detail'))
+    .sort(by('record_type', 'variant', 'from_stage', 'to_stage', 'requirement_type'))
+  w('## `stage_gate_rules`')
+  w('')
+  w(`${rows.length} rows. Full \`requirement_detail\`, keys sorted.`)
+  w('')
+  w(table(
+    ['record_type', 'variant', 'from_stage', 'to_stage', 'requirement_type', 'requirement_detail'],
+    rows.map(r => [
+      cell(r.record_type), cell(r.variant), cell(r.from_stage), cell(r.to_stage),
+      cell(r.requirement_type), jsonCell(r.requirement_detail)
+    ])
+  ))
+
+  const counts = {}
+  for (const r of rows) {
+    const k = `${r.record_type} | ${r.requirement_type}`
+    counts[k] = (counts[k] ?? 0) + 1
+  }
+  w('Rule count by record type and requirement type:')
+  w('')
+  w(table(['record_type', 'requirement_type', 'rules'],
+    Object.keys(counts).sort().map(k => [...k.split(' | ').map(cell), counts[k]])))
+}
+
+// ── stage_reference_docs ─────────────────────────────────────
+{
+  const rows = (await fetchAll(db, 'stage_reference_docs', 'record_type, stage_name, document_name'))
+    .sort(by('record_type', 'stage_name', 'document_name'))
+  w('## `stage_reference_docs`')
+  w('')
+  w(`${rows.length} rows. \`document_name\` reproduced exactly, including spacing.`)
+  w('')
+  w(table(
+    ['record_type', 'stage_name', 'document_name'],
+    rows.map(r => [cell(r.record_type), cell(r.stage_name), '`' + r.document_name + '`'])
+  ))
+}
+
+// ── approval_tracks ──────────────────────────────────────────
+{
+  const rows = (await fetchAll(db, 'approval_tracks', 'track_name, description')).sort(by('track_name'))
+  w('## `approval_tracks`')
+  w('')
+  w(`${rows.length} rows.`)
+  w('')
+  w(table(['track_name', 'description'], rows.map(r => [cell(r.track_name), cell(r.description)])))
+}
+
+// ── routing_rules ────────────────────────────────────────────
+{
+  const rows = (await fetchAll(db, 'routing_rules', 'record_type, track, condition, required_tier'))
+    .sort(by('record_type', 'track', 'required_tier'))
+  w('## `routing_rules`')
+  w('')
+  w(`${rows.length} rows.`)
+  w('')
+  w(table(['record_type', 'track', 'required_tier', 'condition'],
+    rows.map(r => [cell(r.record_type), cell(r.track), cell(r.required_tier), jsonCell(r.condition)])))
+}
+
+// ── conversion_criteria ──────────────────────────────────────
+{
+  const rows = (await fetchAll(db, 'conversion_criteria', 'from_record_type, to_record_type, condition'))
+    .sort(by('from_record_type', 'to_record_type'))
+  w('## `conversion_criteria`')
+  w('')
+  w(`${rows.length} rows.`)
+  w('')
+  w(table(['from_record_type', 'to_record_type', 'condition'],
+    rows.map(r => [cell(r.from_record_type), cell(r.to_record_type), jsonCell(r.condition)])))
+}
+
+// ── stage_probability_defaults ───────────────────────────────
+{
+  const rows = (await fetchAll(db, 'stage_probability_defaults', 'record_type, variant, stage, default_probability_pct'))
+    .sort(by('record_type', 'variant', 'stage'))
+  w('## `stage_probability_defaults`')
+  w('')
+  w(`${rows.length} rows.`)
+  w('')
+  w(table(['record_type', 'variant', 'stage', 'default_probability_pct'],
+    rows.map(r => [cell(r.record_type), cell(r.variant), cell(r.stage), cell(r.default_probability_pct)])))
+}
+
+// ── record counts ────────────────────────────────────────────
+// Counts only. No id, no reference code, no owner, no payload.
+{
+  const rows = await fetchAll(db, 'records', 'record_type, status, deleted_at')
+  const counts = new Map()
+  for (const r of rows) {
+    const key = `${r.record_type} ${r.status}`
+    const bucket = counts.get(key) ?? { record_type: r.record_type, status: r.status, live: 0, deleted: 0 }
+    if (r.deleted_at) bucket.deleted += 1
+    else bucket.live += 1
+    counts.set(key, bucket)
+  }
+  const all = [...counts.values()].sort(by('record_type', 'status'))
+
+  const totalLive = all.reduce((a, b) => a + b.live, 0)
+  const totalDeleted = all.reduce((a, b) => a + b.deleted, 0)
+
+  // scripts/verify-harness.mjs mints a synthetic record_type per run,
+  // `harness_<runTag>` (scripts/tests/gates.test.mjs), so every
+  // `npm run test:db` run adds new record_type values permanently. Listed
+  // one line each they swamp this section and make the round-on-round diff
+  // useless, so they are aggregated into a single line. Aggregated, not
+  // hidden: the totals above include them, the distinct-type count is
+  // reported, and any harness type still holding a LIVE row is listed
+  // individually, because that is a teardown failure rather than
+  // accumulated residue.
+  const HARNESS_TYPE = /^harness_/
+  const harness = all.filter(r => HARNESS_TYPE.test(r.record_type))
+  const business = all.filter(r => !HARNESS_TYPE.test(r.record_type))
+  const harnessLive = harness.filter(r => r.live > 0)
+  const harnessTypes = new Set(harness.map(r => r.record_type))
+  const harnessLiveTotal = harness.reduce((a, b) => a + b.live, 0)
+  const harnessDeletedTotal = harness.reduce((a, b) => a + b.deleted, 0)
+
+  w('## Record counts by type and status')
+  w('')
+  w(`${totalLive} live, ${totalDeleted} soft deleted, ${totalLive + totalDeleted} rows in total.`)
+  w('')
+  w(table(['record_type', 'status', 'live', 'soft deleted'],
+    business.map(r => [cell(r.record_type), cell(r.status), r.live, r.deleted])))
+  w('')
+  w('### Test fixture record types')
+  w('')
+  w('`scripts/verify-harness.mjs` mints one synthetic `record_type` per run, so')
+  w('these accumulate permanently. They are aggregated here rather than listed')
+  w('row by row, and are included in the totals above.')
+  w('')
+  w(table(['distinct `harness_*` record types', 'live rows', 'soft deleted rows'],
+    [[harnessTypes.size, harnessLiveTotal, harnessDeletedTotal]]))
+  w('')
+  if (harnessLive.length) {
+    w('Harness record types still holding a live row, which teardown should have')
+    w('soft deleted:')
+    w('')
+    w(table(['record_type', 'status', 'live'],
+      harnessLive.map(r => [cell(r.record_type), cell(r.status), r.live])))
+  } else {
+    w('No harness record type holds a live row; every fixture row is soft deleted.')
+    w('')
+  }
+}
+
+// ── approvals ────────────────────────────────────────────────
+{
+  const rows = await fetchAll(db, 'approvals', 'decision, track, stage')
+  const counts = new Map()
+  for (const r of rows) {
+    const key = `${r.decision} ${r.track}`
+    const b = counts.get(key) ?? { decision: r.decision, track: r.track, total: 0, nullStage: 0 }
+    b.total += 1
+    if (r.stage === null || r.stage === undefined) b.nullStage += 1
+    counts.set(key, b)
+  }
+  const list = [...counts.values()].sort(by('decision', 'track'))
+  const nullStage = rows.filter(r => r.stage === null || r.stage === undefined).length
+
+  w('## `approvals`')
+  w('')
+  w(`${rows.length} rows, of which ${nullStage} carry a null \`stage\`.`)
+  w('')
+  w(table(['decision', 'track', 'rows', 'null stage'],
+    list.map(r => [cell(r.decision), cell(r.track), r.total, r.nullStage])))
+}
+
+// ── writable key allowlists ──────────────────────────────────
+{
+  w('## Writable-key allowlists')
+  w('')
+  w('Parsed from the real route files. A `PATCH` naming a key absent from the')
+  w("relevant list is rejected.")
+  w('')
+  for (const set of parseWritableKeys()) {
+    w(`### \`${set.name}\` (\`${set.file}\`)`)
+    w('')
+    w(`${set.keys.length} literal keys.`)
+    w('')
+    w(set.keys.map(k => '`' + k + '`').join(', '))
+    w('')
+    for (const u of set.unresolved) {
+      w(`Plus a spread of \`${u.ident}\`, computed at \`${set.file}:${u.line ?? '?'}\` rather`)
+      w('than written as a literal list, so its members are not enumerable here.')
+      w('')
+    }
+  }
+}
+
+// ── routes ───────────────────────────────────────────────────
+{
+  const routes = parseRoutes()
+  w('## Registered routes')
+  w('')
+  w(`${routes.length} routes. Prefixes parsed from \`src/server.js\`, paths from each route module.`)
+  w('')
+  w(table(['method', 'path', 'auth', 'source'],
+    routes.map(r => [r.method, '`' + r.path + '`', r.auth, '`' + r.source + '`'])))
+}
+
+// ── migrations and seeds ─────────────────────────────────────
+{
+  const migrations = parseMigrations()
+  w('## Migrations, in filename order')
+  w('')
+  w(`${migrations.length} files in \`supabase/migrations/\`.`)
+  w('')
+  w(migrations.map((f, i) => `${i + 1}. \`${f}\``).join('\n'))
+  w('')
+
+  const seeds = parseSeeds()
+  w('## Seed files, in application order')
+  w('')
+  w(`\`npm run db:seed\` applies these in filename order.`)
+  w('')
+  w(seeds.map((f, i) => `${i + 1}. \`${f}\``).join('\n'))
+  w('')
+}
+
+const target = join(REPO_ROOT, 'CURRENT_STATE.md')
+writeFileSync(target, out.join('\n').replace(/\n{3,}/g, '\n\n').trimEnd() + '\n')
+console.log(`Wrote ${target}`)
+console.log(`  commit ${sha ?? '(unavailable)'}${dirty ? ' (working tree dirty)' : ''}`)

@@ -10,7 +10,8 @@
     "db:push": "npx supabase db push",
     "db:seed": "node scripts/seed.js",
     "test": "node --test scripts/tests/cost.test.mjs",
-    "test:db": "node --test --env-file-if-exists=.env scripts/tests/reference-number.test.mjs scripts/tests/gates.test.mjs"
+    "test:db": "node --test --env-file-if-exists=.env scripts/tests/reference-number.test.mjs scripts/tests/gates.test.mjs",
+    "state:dump": "node --env-file-if-exists=.env scripts/state-dump.mjs"
   },
   "dependencies": {
     "@fastify/static": "^10.1.2",
