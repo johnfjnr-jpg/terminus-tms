@@ -135,3 +135,33 @@ investigation findings are worth recording precisely regardless of
 outcome, given this build's history of both "genuine regression" and
 "never actually covered" turning out to be the answer in different
 cases.
+
+---
+
+## Round 8 outcome
+
+All 6 phases built. Assembled from the entries written at the time, not
+from memory.
+
+| Phase | Delivered | Beyond the original brief |
+|---|---|---|
+| 1. Commercials click-to-type | Open edits preserved across an in-app reload: captured before `tbEdits` is reset, restored after `wireTbFieldInputs`, with `orig` re-read from the fresh payload so dirty state is computed against what the server now holds | **The reported symptom was never reproduced.** Under settled conditions every field on both tabs accepted typing on the first click. What was found instead is a real defect on its own terms: `initTestBedDetailPanel` rebuilt all four panels and wiped `tbEdits`, and six call sites re-enter it mid-session, so a field opened during the reload's GET was destroyed - input replaced, focus dropped to `BODY`, typing discarded. Fixed because it is genuinely serious, **not** because it was confirmed to be the screenshot. Proven both ways: reverted, all three probe fields fail; restored, all three survive |
+| 2. Spinner arrows | A second blanket rule scoped `#tb-tab-commercials`, mirroring Round 3 Phase 4's `#opp-tab-commercial` precedent | Reported as one panel; it was **nine fields across three panels**, the complete set confirmed by sweeping every tab. Ruled out two wrong fixes explicitly: widening the existing selector (would silently change Opportunity to fix Test Bed) and adding `integer: true` (would force whole-number money). A computed-style probe was caught **proving nothing** - identical readings for the known-good Opportunity tab and the known-bad Test Bed one - and discarded in favour of hover screenshots |
+| 3. Itemized cost layout | Hardware, Installation and Hosting side by side in `.ref-cards`; Total Cost and the term line moved above them | The brief describes "panels" but the page has two sets - the input rate cards were already side by side and were never broken; the **itemized breakdown** was the stacked one. Breakdown height 745px → 368px. Total Cost visible at 3440, still short at 1920 and structurally unreachable at 1240×900, where the input panels alone end past the fold |
+| 4. Next Stage text | The hint alongside the disabled button removed - markup, logic and style | The brief credits the text to Round 5 Phase 8; that phase added the **button**. The hint came from Round 7 Phase 6, whose brief required a "readable reason", so this phase **reverses half of a decision taken one round earlier** - recorded as deliberate. The distinction survives, because it was never carried by the hint: the button's own label still reads "Final stage" versus a disabled "Next Stage" |
+| 5. Notes and Summary | Moved beneath the name, Summary above Notes, widened from a capped 520px (280px at 1240) to the full column - 1180px at 1920 and 3440. 2 notes by default with expand to full history | Built **without compromising the arrangement** to protect the carried Total Cost criterion, which was an addition rather than part of this phase's brief. That criterion **failed and got worse**: header 191px → 346px, Total Cost y=1054 → y=1210, shortfall 151px → 306px. Reported as this phase's own evidence and corrected in both documents, including this entry's own earlier speculation that Phase 5 would recover it |
+| 6. Accounts layout | `#view-account-detail` given the `max-width: none` override the other three detail views already had | The panels, the grid and the 280-420px cap were **all already correct**. Account detail was the only detail view still inheriting `.wrap`'s 1240px cap, so its grid measured 1017px at every viewport size and could never fit three 420px cards. Found only by measuring the **container** - the cards themselves reported healthy 420px widths and zero overflow at every width, before and after |
+
+**Cross-cutting, recorded in `DESIGN_PRINCIPLES.md` as it happened:** a new
+standing entry naming the repeated shape behind Phases 2 and 6 - a fix
+built for the pages that existed at the time is not a fix for the pages
+built after it, now at three confirmed instances across Rounds 5, 8 and 8;
+the page-density limit, corrected twice to record the real outcome rather
+than the hoped-for one; and the header measured at 191px, not the 336px
+first logged.
+
+**Carried forward, owed by no phase:** the 306px needed to bring Total
+Cost above the fold at 1920. The levers are the 145px navigation band, the
+96px tab row and the 379px input-rate panels - **separate, dedicated
+scope**. Attaching it to whatever phase happened to be nearby is exactly
+how it reached Phase 5 and failed there.
