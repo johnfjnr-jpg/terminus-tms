@@ -383,9 +383,13 @@ with the business.
 
 ### 3.0 Fix the six unchecked query errors in `transitions.js` FIRST
 
-**Do this before touching the rule loop.** Section 3.2 adds a fifth
-branch to that same loop; adding it on top of unchecked errors just
-makes a seventh.
+**Do this before 3.1, not merely before 3.2.** Section 3.2 adds a fifth
+branch to the same loop, so fixing these first avoids making a seventh -
+but 3.1 is the more urgent reason. **3.1 is what starts writing
+approvals in earnest, and writing the first `decision = 'approved'` row
+is exactly what ends the latent condition described at line 203 below.**
+The window in which that fail-open is unreachable closes the moment 3.1
+lands. Do 3.0 first.
 
 `transitions.js` was never part of the Milestone 5 unchecked-error scan,
 and `DESIGN_PRINCIPLES.md` Deferred scope already records that a wider
@@ -406,11 +410,15 @@ scan is overdue. Six sites destructure `data` without `error`. They do
   therefore not in `validStages`, so the transition is rejected. The
   invariant that zero `stage_definitions` rows must reject every
   `to_stage` **still holds under error**, because error and zero-rows
-  collapse to the same empty list. The defect is diagnostic, not
-  behavioural: a database fault is reported to the user as
-  `"<stage> is not a valid stage for this record type"`, a confident,
-  wrong 400 where a 500 is the truth. Fix it so the two cases are
-  distinguishable; do not change the fail-closed outcome.
+  collapse to the same empty list.
+
+  **Fix it anyway.** Being diagnostic rather than behavioural is a
+  reason to rank it below line 203, not a reason to leave it. A
+  confident, wrong 400 saying `"<stage> is not a valid stage for this
+  record type"` sends someone to debug a stage-definition problem that
+  does not exist, while the real database fault goes entirely
+  unreported. Make the two cases distinguishable; do not change the
+  fail-closed outcome.
 
 - **Line 203 is the serious one, and it is the only fail-open.** On
   error `revRow` is `null`, so `currentRevision` falls back to `1`. The
@@ -425,6 +433,16 @@ scan is overdue. Six sites destructure `data` without `error`. They do
   holds zero `decision = 'approved'` rows, so no record can hit this
   today. That is a fact about today's data, not a property of the code,
   and Phase 3.1 is about to start writing approvals in earnest.
+
+  **Stage-scoping reduces this exposure but does not remove it, and 3.1
+  must not be read as fixing it.** Once 3.1 lands, a rule carrying
+  `scope: "stage"` no longer depends on `currentRevision`, so Test Bed
+  stage gates stop being exposed. **Revision-scoped rules still match on
+  `revision_number`, and those are the real ones**: Deal Sheet and
+  Opportunity commercial approvals keep `scope: "revision"` by design,
+  and absent `scope` defaults to `revision` for continuity. So the
+  fail-open survives 3.1 on precisely the approvals that carry
+  commercial authority. It is closed here, in 3.0, or not at all.
 
 Fix all six: destructure `error`, and return or propagate it rather than
 letting a null `data` stand in for a real answer. An unchecked error is

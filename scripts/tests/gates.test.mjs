@@ -268,3 +268,51 @@ test('child_record_status is a NO-OP today - this asserted behaviour is WRONG', 
     'CURRENT behaviour: child_record_status never blocks. When the branch ' +
     'is built this must become an assertion that it DOES block.')
 })
+
+// ---------------------------------------------------------------------
+// Round 7 step 3.0: the three unchecked query errors INSIDE
+// computeBlocking (transitions.js lines 43, 68, 124 before the fix).
+//
+// Each failure is injected rather than forced by revoking a permission.
+// A revoke proves it once, in a session; these assert it on every run,
+// and they can isolate a single table - revoking select on `records`
+// would break the record fetch long before the document branch is
+// reached, so the interesting site could not be tested alone at all.
+//
+// Before the fix, every one of these returned a normal blocking[] with
+// the requirement listed as unmet: an error was indistinguishable from
+// "requirement not satisfied", so the gate decided rather than failed.
+const failingClientFor = (table, realDb) => {
+  const failure = { message: `forced failure on ${table}`, code: 'TEST' }
+  const chain = {
+    select: () => chain, eq: () => chain, or: () => chain, is: () => chain,
+    order: () => chain, limit: () => chain,
+    maybeSingle: async () => ({ data: null, error: failure }),
+    // awaited directly (the stage_gate_rules query has no maybeSingle)
+    then: (resolve) => resolve({ data: null, error: failure }),
+  }
+  return { from: (t) => (t === table ? chain : realDb.from(t)) }
+}
+
+for (const [table, requirement_type, requirement_detail] of [
+  ['approvals', 'approval_obtained', { track: 'Senior' }],
+  ['records', 'document_status', { document: 'NDA', status: 'approved' }],
+  ['record_contacts', 'contact_role_linked', { role: 'Client Legal Buyer' }],
+]) {
+  test(`step 3.0: a failed ${table} query returns an error, never a silent block`, async () => {
+    const [FROM, TO] = stagePair()
+    const rec = await fx.createRecord({ record_type: TYPE, status: FROM, owner_id: ownerId })
+    await fx.createRule({ record_type: TYPE, from_stage: FROM, to_stage: TO, requirement_type, requirement_detail })
+
+    // Sanity: with a healthy client this blocks normally, so the
+    // assertion below is about the error path, not a broken fixture.
+    const healthy = await computeBlocking(db, rec, FROM, TO, 1, {})
+    assert.equal(healthy.error, undefined)
+    assert.equal(healthy.blocking.length, 1)
+
+    const r = await computeBlocking(failingClientFor(table, db), rec, FROM, TO, 1, {})
+    assert.ok(r.error, `a failed ${table} query must surface an error`)
+    assert.match(r.error.message, /forced failure/)
+    assert.equal(r.blocking, undefined, 'must not return a blocking set built from an unknown answer')
+  })
+}

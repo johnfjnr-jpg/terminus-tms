@@ -40,7 +40,7 @@ export async function computeBlocking(db, record, from_stage, to_stage, currentR
       const track = rule.requirement_detail?.track
       if (!track) continue
 
-      const { data: approval } = await db
+      const { data: approval, error: approvalErr } = await db
         .from('approvals')
         .select('id')
         .eq('record_id', record.id)
@@ -48,6 +48,12 @@ export async function computeBlocking(db, record, from_stage, to_stage, currentR
         .eq('track', track)
         .eq('decision', 'approved')
         .maybeSingle()
+
+      // Round 7 step 3.0: an unchecked error here is indistinguishable
+      // from "no approval exists", which this branch would read as
+      // "requirement unmet" and block on. Fails closed, but silently and
+      // non-deterministically - it is what made the gate suite flake.
+      if (approvalErr) return { error: approvalErr }
 
       if (!approval) {
         blocking.push({
@@ -65,7 +71,7 @@ export async function computeBlocking(db, record, from_stage, to_stage, currentR
 
       // Document records are stored as record_type='document' children of the parent record.
       // The document type is held in records.variant; completion status in records.status.
-      const { data: docRecord } = await db
+      const { data: docRecord, error: docErr } = await db
         .from('records')
         .select('id')
         .eq('parent_record_id', record.id)
@@ -73,6 +79,10 @@ export async function computeBlocking(db, record, from_stage, to_stage, currentR
         .eq('variant', docName)
         .eq('status', reqStatus)
         .maybeSingle()
+
+      // Round 7 step 3.0: as above - an error would read as "document
+      // absent" and block.
+      if (docErr) return { error: docErr }
 
       if (!docRecord) {
         blocking.push({
@@ -121,12 +131,16 @@ export async function computeBlocking(db, record, from_stage, to_stage, currentR
       const role = rule.requirement_detail?.role
       if (!role) continue
 
-      const { data: link } = await db
+      const { data: link, error: linkErr } = await db
         .from('record_contacts')
         .select('id')
         .eq('record_id', record.id)
         .eq('role', role)
         .maybeSingle()
+
+      // Round 7 step 3.0: as above - an error would read as "no contact
+      // linked" and block.
+      if (linkErr) return { error: linkErr }
 
       if (!link) {
         blocking.push({
@@ -189,7 +203,23 @@ export default async function transitionsRoutes(app) {
       ? stageQuery.eq('variant', record.variant)
       : stageQuery.is('variant', null)
 
-    const { data: stageDefs } = await stageQuery
+    const { data: stageDefs, error: stageDefsErr } = await stageQuery
+
+    // Round 7 step 3.0. The fail-closed OUTCOME here was already correct
+    // and is deliberately unchanged: on error stageDefs was null,
+    // (stageDefs ?? []) gave [], to_stage was absent from it, and the
+    // transition was refused - which is also what the documented
+    // invariant requires when a record type genuinely has zero
+    // stage_definitions rows. The defect was diagnostic. A database
+    // fault was reported as "<stage> is not a valid stage for this
+    // record type", sending a reader to debug a stage-definition problem
+    // that does not exist while the real fault went unreported. The two
+    // cases are now distinguishable: a real error is a 500, an empty
+    // list is still a 400.
+    if (stageDefsErr) {
+      request.log.error({ err: stageDefsErr }, 'failed to load stage_definitions for transition validation')
+      return reply.code(500).send({ error: stageDefsErr.message })
+    }
 
     const validStages = (stageDefs ?? []).map(s => s.stage_name)
     if (!validStages.includes(to_stage)) {
@@ -200,13 +230,29 @@ export default async function transitionsRoutes(app) {
 
     // Get the current revision (and its payload, for payload_field_required
     // checks below) to check approvals against
-    const { data: revRow } = await db
+    const { data: revRow, error: revRowErr } = await db
       .from('record_revisions')
       .select('revision_number, payload')
       .eq('record_id', record.id)
       .order('revision_number', { ascending: false })
       .limit(1)
       .maybeSingle()
+
+    // Round 7 step 3.0. This was the ONLY fail-OPEN of the six, and the
+    // reason 3.0 runs before 3.1 rather than merely before 3.2. On error
+    // revRow was null, so currentRevision silently fell back to 1 and
+    // the approvals branch matched revision_number = 1. A stale
+    // revision-1 approval then satisfied a gate on a record sitting at a
+    // much later revision, and the transition proceeded. Reachable only
+    // on approvals-only gates, since revPayload was also undefined and
+    // payload_field_required blocks - which is exactly the shape of a
+    // commercial sign-off gate. Stage-scoping in 3.1 does NOT remove
+    // this: revision-scoped rules keep matching on revision_number, and
+    // those are the Deal Sheet and Opportunity commercial approvals.
+    if (revRowErr) {
+      request.log.error({ err: revRowErr }, 'failed to load current revision before gate evaluation')
+      return reply.code(500).send({ error: revRowErr.message })
+    }
 
     const currentRevision = revRow?.revision_number ?? 1
 
@@ -266,7 +312,15 @@ export default async function transitionsRoutes(app) {
         ? probQuery.eq('variant', record.variant)
         : probQuery.is('variant', null)
 
-      const { data: probDefault } = await probQuery
+      const { data: probDefault, error: probDefaultErr } = await probQuery
+
+      // Round 7 step 3.0. Unlike the five above, this sits AFTER the
+      // transition has already succeeded, so an error here must not
+      // become a 500 on an otherwise-successful response - it is logged,
+      // matching how the update below already treats its own failures.
+      if (probDefaultErr) {
+        request.log.error({ err: probDefaultErr }, 'failed to load stage_probability_defaults after transition')
+      }
 
       if (probDefault) {
         // Reached only after the owner-gated update above genuinely
