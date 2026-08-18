@@ -815,6 +815,17 @@ the live-computed breakdown for every Test Bed.
 
 ## Phase 9: Chevron hover shows outstanding criteria
 
+**Prediction recorded ahead of the build, 2026-08-18.** The chevron strip
+runs the full page width, so the rightmost stage (`Closed`) sits hard
+against the viewport edge and its popup is where clipping will occur. A
+test that hovers a convenient middle chevron will never find it. **Test
+the leftmost and rightmost chevrons specifically**, at every tested
+width, and apply the standing layout-verification rule in
+`DESIGN_PRINCIPLES.md` - in particular measuring the popup's own
+container rather than the body, since a popup clipped at the viewport
+edge will not widen the document.
+
+
 Hovering a stage in the chevron strip shows a popup listing that stage's
 outstanding actions and exit criteria.
 
