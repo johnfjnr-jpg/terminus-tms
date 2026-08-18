@@ -235,9 +235,20 @@ function renderTbReference() {
 
   renderTbNotes()
 
-  // Key Dates: unchanged, still the Reference tab's own right-hand panel.
+  // Key Dates. Round 7 Phase 5: Age relocates here from the removed header
+  // strip. It needs no storage - it is `today` minus `created_at` computed
+  // at display time, exactly as DESIGN_PRINCIPLES.md Section 2 already
+  // states for Opportunity age - so it reuses the existing daysAgo()
+  // helper rather than a second date-difference function.
+  //
+  // tbReadonlyRow, NOT tbFieldRow, deliberately. Every other row in this
+  // panel is click-to-edit, so the default path would render a computed
+  // value that looks editable, and clicking it would open an input backed
+  // by no payload key. Same read-only treatment already used one line
+  // above for Date Created, which is the identical case.
   document.getElementById('tb-dates-rows').innerHTML =
     tbReadonlyRow('Date Created', formatDate(tbBed.created_at))
+    + tbReadonlyRow('Age', daysAgo(tbBed.created_at))
     + TB_DATE_FIELDS.map(f => tbFieldRow(f.key, f.label, tbPayload[f.key], { date: f.date, noPast: f.noPast, number: f.number, integer: f.integer, suffix: f.suffix })).join('')
 }
 

@@ -1858,15 +1858,55 @@ async function loadTestBedDetail(id) {
   await renderTestBedDetail(currentTestBed)
 }
 
+// Round 7 Phase 5: Summary and the last 2 notes, latest first, filling
+// the space to the right of the Test Bed name.
+//
+// Notes reuse the shared pattern from DESIGN_PRINCIPLES.md Rule 10 -
+// timestamp, then author, then text, via .ref-notes-row /
+// .ref-notes-when / .ref-notes-author / .ref-notes-text - the same
+// markup the Reference tab and every other note list in the app uses.
+// Deliberately not a compact header-only variant: Rule 10 exists so a
+// note reads identically wherever it appears.
+//
+// Each block is hidden outright when it has nothing to show, rather
+// than rendering an empty container. A record with no notes and a
+// record with one note both have to look deliberate.
+function renderTbHeaderDigest(p) {
+  const summaryEl = document.getElementById('tb-header-summary')
+  const notesEl = document.getElementById('tb-header-notes')
+  if (!summaryEl || !notesEl) return
+
+  const summary = (p.summary ?? '').trim()
+  summaryEl.innerHTML = summary
+    ? `<p class="tb-header-digest-label">Summary</p><p class="tb-header-summary-text">${escHtml(summary)}</p>`
+    : ''
+  summaryEl.classList.toggle('hidden', !summary)
+
+  const notes = Array.isArray(p.notes) ? p.notes : []
+  // slice(-2) then reverse: the last two chronologically, newest first.
+  const latest = notes.slice(-2).reverse()
+  notesEl.innerHTML = latest.length
+    ? `<p class="tb-header-digest-label">Latest notes</p>` + latest.map(n => `
+    <div class="ref-notes-row">
+      <span class="ref-notes-when">${formatDate(n.at)}</span><span class="ref-notes-author">${escHtml(n.by ?? '')}</span><span class="ref-notes-text">${escHtml(n.text)}</span>
+    </div>`).join('')
+    : ''
+  notesEl.classList.toggle('hidden', !latest.length)
+}
+
 async function renderTestBedDetail(bed) {
   const p = bed.payload ?? {}
 
   document.getElementById('tb-detail-name').textContent = p.name ?? '--'
   document.getElementById('tb-detail-client').textContent = p.client_organisation ?? ''
-  document.getElementById('tb-detail-stage').textContent = bed.status
-  document.getElementById('tb-detail-cost').textContent = formatCost(p.accumulated_cost)
-  document.getElementById('tb-detail-age').textContent = daysAgo(bed.created_at)
-  document.getElementById('tb-detail-refcode').textContent = bed.reference_code ?? 'Not yet generated'
+
+  // Round 7 Phase 5. The four stat-strip writes that used to sit here
+  // (stage, accumulated cost, age, reference code) are gone with the
+  // strip itself - every value already had a home and was duplicated
+  // there. Age was the exception and now renders in Key Dates on the
+  // Reference tab. Removing the markup without removing these lines
+  // would have thrown on a null element on every Test Bed open.
+  renderTbHeaderDigest(p)
 
   const stages = await fetchStages('test_bed')
   renderChevronStrip('tb-chevron-strip', bed.status, stages)

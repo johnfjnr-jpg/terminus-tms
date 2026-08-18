@@ -688,6 +688,20 @@
         <h1 id="tb-detail-name"></h1>
         <p class="sub" id="tb-detail-client"></p>
       </div>
+      <!-- Round 7 Phase 5: the space to the right of the name was empty.
+           Filled with the Summary and the last 2 notes, latest first.
+           Notes use the shared markup from DESIGN_PRINCIPLES.md Rule 10
+           (.ref-notes-row / .ref-notes-when / .ref-notes-author /
+           .ref-notes-text) - timestamp, author, text, in that order -
+           rather than a compact header variant with its own ordering,
+           so every note in the app still reads the same way. Both
+           blocks are hidden entirely when empty rather than rendering
+           an empty box: an always-present container that is usually
+           blank reads as broken. -->
+      <div id="tb-header-digest" class="tb-header-digest">
+        <div id="tb-header-summary" class="tb-header-summary hidden"></div>
+        <div id="tb-header-notes" class="tb-header-notes hidden"></div>
+      </div>
       <!-- Convert to Opportunity: moved here from the page bottom
            (2026-08-15) - checked first for an existing top-right
            secondary-action convention, none exists anywhere in this app
@@ -739,24 +753,14 @@
     </div>
     <div id="tb-chevron-strip" class="chevron-strip"></div>
 
-    <div class="stats-grid" style="margin-bottom:28px">
-      <div>
-        <span class="label">Stage</span>
-        <div class="stat-value" id="tb-detail-stage">--</div>
-      </div>
-      <div>
-        <span class="label">Accumulated cost</span>
-        <div class="stat-value" id="tb-detail-cost">--</div>
-      </div>
-      <div>
-        <span class="label">Age</span>
-        <div class="stat-value" id="tb-detail-age">--</div>
-      </div>
-      <div>
-        <span class="label">Terminus Reference</span>
-        <div class="stat-value" id="tb-detail-refcode" style="font-size:15px">--</div>
-      </div>
-    </div>
+    <!-- Round 7 Phase 5: the Stage / Accumulated cost / Age / Terminus
+         Reference strip is removed. Each value already has a home and
+         was duplicated here: Stage is the chevron directly below,
+         Terminus Reference is on the Reference tab, Accumulated cost is
+         on Commercials. Age was the only one with nowhere else to go,
+         so it relocated to the Key Dates panel on the Reference tab
+         (renderTbKeyDates, test-bed-detail.js) as a read-only row - it
+         is not dropped. -->
 
     <!-- Round 5 Phase 7 (2026-08-17): relocated here, always visible,
          not nested inside any tab panel - same "page-level, not tab-
