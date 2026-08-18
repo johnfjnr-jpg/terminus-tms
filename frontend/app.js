@@ -2070,21 +2070,25 @@ function wireTbNextStageButton(bed, stages) {
 // first.
 function refreshTbNextStageButton() {
   const btn = document.getElementById('tb-next-stage-btn')
-  const hint = document.getElementById('tb-next-stage-hint')
   if (!btn || !tbNextStageState) return
   const { recordId, currentStage, nextStage } = tbNextStageState
 
-  const setHint = (text) => {
-    if (!hint) return
-    hint.textContent = text
-    hint.classList.toggle('hidden', !text)
-  }
-
+  // Round 8 Phase 4: the explanatory hint alongside the disabled button
+  // ("Open the <stage> tab to progress") is removed - the disabled state
+  // is taken as sufficient on its own.
+  //
+  // This reverses half of Round 7 Phase 6, which required the disabled
+  // state to carry "a readable reason" distinguishing "not the current
+  // stage" from "final stage". Recorded as a deliberate reversal rather
+  // than an oversight. The distinction itself SURVIVES, because it was
+  // never carried by the hint: it is the button's own label that changes,
+  // "Final stage" versus a disabled "Next Stage". What is genuinely lost
+  // is the one-line explanation of WHY the not-current-stage case is
+  // disabled, which is now inferred from the tab the user is on.
   if (!nextStage) {
     btn.disabled = true
     btn.textContent = 'Final stage'
     btn.onclick = null
-    setHint('')
     return
   }
 
@@ -2095,12 +2099,10 @@ function refreshTbNextStageButton() {
   if (!onCurrentStageTab) {
     btn.disabled = true
     btn.onclick = null
-    setHint(`Open the ${currentStage} tab to progress`)
     return
   }
 
   btn.disabled = false
-  setHint('')
   // sectionId stays 'tb-transition-section' - it is a discriminator
   // inside attemptTransition selecting which detail loader to reload
   // with, never a DOM lookup, and no element of that id exists now.

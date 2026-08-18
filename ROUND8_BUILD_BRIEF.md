@@ -93,6 +93,17 @@ status.
    expand and see the full history, confirmed, not a permanent
    truncation, the full record must remain reachable from this view.
 
+**Also an acceptance criterion of this phase, carried forward from Phase
+3:** re-verify Total Cost's visibility on the Commercials tab at
+1920x1080 against a **real monitor viewport (~950px usable after browser
+chrome), not the flat headless 1080 figure**. Phase 3 got it to y=1054,
+still ~21px clipped headless and fully below the fold on a real screen,
+and identified this header block as the single largest consumer of
+vertical space at 336px. If this phase's rework happens to recover
+enough, confirm it explicitly; **if it does not, the gap returns to Phase
+3's own finding rather than being silently dropped.** Do not assume it
+was fixed as an incidental side effect.
+
 **Test evidence required:** screenshot before/after showing the
 repositioned, widened layout. Confirm exactly 2 notes show by default
 on a Test Bed with more than 2 real notes, confirm expanding reveals

@@ -2393,13 +2393,6 @@ input.input-invalid {
   padding-left: 16px;
   flex-shrink: 0;
 }
-.tb-next-stage-hint {
-  font-family: var(--mono);
-  font-size: 11px;
-  letter-spacing: 0.04em;
-  opacity: 0.55;
-  white-space: nowrap;
-}
 /* Both message areas sit directly under the tab row, so a rejection or a
    refused edit is readable from the row without scrolling. */
 .tb-row-feedback:not(:empty) {
