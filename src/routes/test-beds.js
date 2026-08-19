@@ -795,10 +795,31 @@ export default async function testBedsRoutes(app) {
   // Marks a planning document as approved (status always set to "approved").
   // Optionally stores a Google Drive URL in document_details.
   app.post('/test-beds/:id/complete-document', async (request, reply) => {
-    const { document_type, document_location } = request.body ?? {}
-    const status = 'approved'
+    // Round 9 Phase 6.1: `approve` added, DEFAULTING TO TRUE so every
+    // pre-existing caller behaves exactly as it did.
+    //
+    // The brief expected the URL half of the merged Terminus Documents
+    // panel to be "wiring rather than new mechanism", since this endpoint
+    // already stored a Drive URL. Checked directly before building, and
+    // it is not: `status` was a hardcoded, unconditional 'approved', so
+    // saving a URL through this endpoint APPROVED the document as a side
+    // effect. That makes the panel's stated purpose impossible - the URL
+    // points at the WORKING COPY, which an operator sets while the
+    // document is still being written and long before anyone confirms it,
+    // and satisfying a gate by pasting a link is precisely the failure
+    // this gate exists to prevent.
+    //
+    // approve === false means: record or keep the document child and set
+    // its location, without touching its status. A document that does not
+    // exist yet is created at 'draft', not 'approved'.
+    const { document_type, document_location, approve } = request.body ?? {}
+    const shouldApprove = approve !== false
+    const status = shouldApprove ? 'approved' : 'draft'
 
     if (!document_type?.trim()) return reply.code(400).send({ error: 'document_type is required' })
+    if (approve !== undefined && typeof approve !== 'boolean') {
+      return reply.code(400).send({ error: 'approve must be a boolean' })
+    }
 
     const db = createUserClient(request.jwt)
 
@@ -835,13 +856,15 @@ export default async function testBedsRoutes(app) {
       // a non-owner's update() is filtered by RLS to zero affected rows
       // rather than erroring, so it can't be told apart from success
       // without checking the returned rows directly.
-      const { data: updated, error: updateErr } = await db
-        .from('records')
-        .update({ status })
-        .eq('id', existing.id)
-        .select('id')
-      if (updateErr) return reply.code(500).send({ error: updateErr.message })
-      if (!updated?.length) return reply.code(403).send({ error: 'not permitted' })
+      if (shouldApprove) {
+        const { data: updated, error: updateErr } = await db
+          .from('records')
+          .update({ status })
+          .eq('id', existing.id)
+          .select('id')
+        if (updateErr) return reply.code(500).send({ error: updateErr.message })
+        if (!updated?.length) return reply.code(403).send({ error: 'not permitted' })
+      }
       docId = existing.id
     } else {
       const { data: docRecord, error } = await db
@@ -864,21 +887,40 @@ export default async function testBedsRoutes(app) {
     }
 
     if (document_location !== undefined) {
-      await db.from('document_details').upsert(
+      // Round 9 Phase 6.1: this upsert's error was never checked, so a
+      // failed save returned 200 and the operator saw their URL sitting
+      // in the input while nothing had been stored. Same shape as the
+      // unchecked-error class already recorded in DESIGN_PRINCIPLES.md,
+      // and it matters more now that the URL is an editable field rather
+      // than an occasional argument.
+      const { error: locErr } = await db.from('document_details').upsert(
         { record_id: docId, document_location: document_location || null },
         { onConflict: 'record_id' }
       )
+      if (locErr) {
+        request.log.error({ err: locErr }, 'failed to store document location')
+        return reply.code(500).send({ error: locErr.message })
+      }
     }
 
     await db.from('audit_log').insert({
       record_id: bed.id,
       record_type: 'test_bed',
-      action: 'document_approved',
+      action: shouldApprove ? 'document_approved' : 'document_location_set',
       actor_id: request.user.id,
-      detail: { document_type, status }
+      detail: shouldApprove
+        ? { document_type, status }
+        : { document_type, document_location: document_location ?? null }
     })
 
-    return reply.code(existing ? 200 : 201).send({ id: docId, document_type, status })
+    // The stored status is reported, not the requested one: with
+    // approve:false on a document that is ALREADY approved, nothing is
+    // changed and 'draft' would be a lie.
+    const { data: finalDoc } = await db.from('records').select('status').eq('id', docId).maybeSingle()
+
+    return reply.code(existing ? 200 : 201).send({
+      id: docId, document_type, status: finalDoc?.status ?? status
+    })
   })
 
   // POST /api/test-beds/:id/convert

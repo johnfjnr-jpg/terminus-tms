@@ -1677,6 +1677,16 @@ let tbSortKey = 'created_at'
 let tbSortDir = 'desc'
 let tbStagesCache = [] // [{stage_name, sort_order, phase}], set once per loadTestBeds()
 
+// Round 9 Phase 6.3: the DETAIL view's own stage list. tbStagesCache is
+// populated by loadTestBeds(), the LIST view, so it is empty whenever a
+// Test Bed is opened without passing through the list - a direct link, or
+// the "View it" button after creating one. Reading it from the stage-tab
+// loader made the terminal-stage check silently inert on exactly those
+// paths. renderTestBedDetail already fetches the stages it needs for the
+// chevron strip and the Next Stage button; this holds on to that result
+// instead of fetching a third time.
+let tbDetailStages = []
+
 async function loadTestBeds() {
   const [result] = await Promise.all([
     api('GET', '/api/test-beds'),
@@ -2023,6 +2033,7 @@ async function renderTestBedDetail(bed) {
   renderTbHeaderDigest(p)
 
   const stages = await fetchStages('test_bed')
+  tbDetailStages = stages
   renderChevronStrip('tb-chevron-strip', bed.status, stages)
   wireTbChevronHover(bed.id)
   markTbCurrentStageTab(bed.status)
@@ -2162,6 +2173,27 @@ async function loadTbStageDetailTab(stageName) {
   currentTbStageTab = stageName
   document.getElementById('tb-stage-detail-heading').textContent = stageName
 
+  // Round 9 Phase 6.3: the Closed tab renders NOTHING. Not an empty
+  // Terminus Documents card, not an empty Approvals card, nothing.
+  // Closed is terminal: it has no exit gate, no documents of its own and
+  // no approvals, so every panel here would be permanently empty. That is
+  // consistent with the documented decision not to build the Test Bed
+  // list matrices - permanently empty UI with no visible explanation is
+  // worse than absent UI. Handled by which stage is terminal in the data
+  // (no next stage in stage_definitions) rather than by matching the
+  // string 'Closed', so a record type whose last stage is named something
+  // else behaves the same way.
+  const orderedStages = (tbDetailStages.length ? tbDetailStages : tbStagesCache)
+    .slice().sort((a, b) => a.sort_order - b.sort_order)
+  const isTerminal = orderedStages.length > 0
+    && orderedStages[orderedStages.length - 1].stage_name === stageName
+  const panelsRow = document.getElementById('tb-stage-panels-row')
+  if (panelsRow) panelsRow.classList.toggle('hidden', isTerminal)
+  if (isTerminal) {
+    document.getElementById('tb-stage-install-section')?.classList.add('hidden')
+    return
+  }
+
   // Round 6 Phase 3 (2026-08-17): Installer/Test Bed Tech Team/Install
   // Notes only ever apply to the Installation and Commissioning stage -
   // a pure visibility toggle, not a re-render, the fields themselves are
@@ -2172,7 +2204,7 @@ async function loadTbStageDetailTab(stageName) {
   // fields on every switch would.
   document.getElementById('tb-stage-install-section').classList.toggle('hidden', stageName !== 'Installation and Commissioning')
 
-  await renderTestBedDocuments(currentTestBed, stageName, 'tb-stage-documents-section', 'tb-stage-reference-docs-section', () => myToken === tbStageTabLoadToken)
+  await renderTestBedDocuments(currentTestBed, stageName, 'tb-stage-documents-section', () => myToken === tbStageTabLoadToken)
   if (myToken !== tbStageTabLoadToken) return // a newer stage-tab load has since started; drop this stale one
 
   const approvalsResult = await api('GET', `/api/records/${currentTestBed.id}/stage-approvals`)
@@ -2182,8 +2214,20 @@ async function loadTbStageDetailTab(stageName) {
     row.innerHTML = '<p class="empty-state">Failed to load approvals for this stage.</p>'
   } else {
     const stageEntry = approvalsResult.data.find(s => s.stage_name === stageName)
+    // Round 9 Phase 6.2: CONFIRMED BEFORE CHANGING, and left alone.
+    // buildStageTracks (records.js) derives this list from the stage's own
+    // approval_obtained rules, not from approval_tracks, so the panel was
+    // already scoped correctly: Qualification returns Technical and
+    // Commercial, Pre-Site Assessment returns Commercial and Legal, Site
+    // Assessment returns three, Closed returns none. Nothing to fix.
+    //
+    // What DID change is the surrounding markup. The panel used to carry a
+    // Stage / Exit criteria / Approvers header, which made sense on
+    // Opportunity's all-stages table and made none here, where the panel
+    // shows exactly one stage and sits next to a dedicated Exit Criteria
+    // panel repeating the same text. The tracks are rendered directly.
     row.innerHTML = stageEntry
-      ? buildStageApprovalRowHtml(currentTestBed.id, stageEntry)
+      ? buildStageTrackListHtml(currentTestBed.id, stageEntry)
       : '<p class="empty-state">Unknown stage.</p>'
   }
 
@@ -2194,7 +2238,6 @@ async function loadTbStageDetailTab(stageName) {
   await renderTbStageExitCriteria(stageName)
 }
 
-let openDocForm = null
 
 // stageName/docsContainerId/refContainerId (Round 5 Phase 7, 2026-08-17):
 // generalized from a fixed-tab, current-stage-only renderer to one that
@@ -2211,157 +2254,142 @@ let openDocForm = null
 // documents, confirmed live. Checked immediately after the fetch, before
 // any DOM write, not just by the caller afterward - by the time this
 // function would otherwise write, the write itself is already stale.
-async function renderTestBedDocuments(bed, stageName, docsContainerId, refContainerId, isStillCurrent = () => true) {
+async function renderTestBedDocuments(bed, stageName, docsContainerId, isStillCurrent = () => true) {
   const section = document.getElementById(docsContainerId)
   if (!section) return
 
   const result = await api('GET', `/api/test-beds/${bed.id}/document-requirements?stage=${encodeURIComponent(stageName)}`)
   if (!isStillCurrent()) return
 
-  const referenceSection = document.getElementById(refContainerId)
-
   if (!result.ok) {
-    section.innerHTML = '<p class="empty-state">Could not load document requirements.</p>'
-    if (referenceSection) referenceSection.innerHTML = '<p class="empty-state">Could not load customer documents.</p>'
+    section.innerHTML = '<p class="empty-state">Could not load documents.</p>'
     return
   }
 
-  // reference_docs: unconditional, informational, never gates anything -
-  // rendered regardless of whether completable_documents has anything.
-  // Milestone 4 close-out fix, see test-beds.js's own comment on this
-  // endpoint for why this is a separate array, not merged into the table
-  // below.
-  if (referenceSection) {
-    const refDocs = result.data.reference_docs ?? []
-    referenceSection.innerHTML = refDocs.length
-      ? refDocs.map(d => `<div class="data-row"><span style="font-size:13px">${escHtml(d.document_name)}</span></div>`).join('')
-      : '<p class="empty-state">No customer documents listed for this stage.</p>'
-  }
+  // Round 9 Phase 6.1: ONE panel, built from BOTH endpoint keys, which is
+  // what merging the two panels actually means.
+  //
+  // The document LIST comes from reference_docs (stage_reference_docs),
+  // the stage's configured catalogue and the authoritative answer to
+  // "what documents belong to this stage". The per-document STATE -
+  // status, stored URL, and whether a gate rule makes it confirmable -
+  // comes from completable_documents, derived from stage_gate_rules.
+  //
+  // Unioned by name rather than intersected, deliberately. The two tables
+  // hold document names as independent free strings with nothing aligning
+  // them, a gap recorded in DESIGN_PRINCIPLES.md and only closed by the
+  // Phase 7.4 invariant. Intersecting would make a mismatch INVISIBLE -
+  // the document would silently vanish from the panel. A union shows it,
+  // and a document listed with no Confirm control is a legible symptom of
+  // exactly that misalignment.
+  const refDocs = result.data.reference_docs ?? []
+  const gated = result.data.completable_documents ?? []
+  const gatedByName = new Map(gated.map(d => [d.document, d]))
 
-  const docs = result.data.completable_documents ?? []
-  if (!docs.length) {
-    section.innerHTML = '<p class="empty-state">No documents created for this stage yet.</p>'
+  const names = [...refDocs.map(d => d.document_name)]
+  for (const d of gated) if (!names.includes(d.document)) names.push(d.document)
+
+  if (!names.length) {
+    section.innerHTML = '<p class="empty-state">No documents configured for this stage.</p>'
+    section.dataset.stage = stageName
     return
   }
-  // DPIA and APD together trigger the CaDP group header row.
-  const hasCaDP = docs.some(d => d.document === 'DPIA') && docs.some(d => d.document === 'APD')
-  const cadpSet = new Set(['DPIA', 'APD'])
-  const normalDocs = hasCaDP ? docs.filter(d => !cadpSet.has(d.document)) : docs
-  const cadpDocs  = hasCaDP ? docs.filter(d =>  cadpSet.has(d.document)) : []
 
-  function docKey(name) { return name.replace(/\s+/g, '-').replace(/[^A-Za-z0-9-]/g, '') }
-
-  function docRow(req, indented) {
-    const key = docKey(req.document)
-    const isApproved = req.current_status === 'approved'
-    const statusLabel = isApproved ? 'Approved' : (req.current_status ? 'Started' : 'Not started')
-    const statusClass = isApproved ? 'doc-status--approved' : (req.current_status ? 'doc-status--started' : 'doc-status--notstarted')
-    const locationHtml = req.document_location
-      ? `<a class="doc-link" href="${escHtml(req.document_location)}" target="_blank" rel="noopener">Open in Drive</a>`
-      : '<span style="color:var(--muted-2);font-size:13px">--</span>'
-    const actionHtml = isApproved
-      ? ''
-      : `<button class="btn-sm" onclick="openDocumentForm('${escHtml(bed.id)}','${escHtml(req.document)}')">Send for Approval</button>`
-    const resultHtml = isApproved ? '<span class="status-ok">Approved</span>' : ''
-    const indentStyle = indented ? ' style="padding-left:24px"' : ''
+  section.innerHTML = names.map(name => {
+    const req = gatedByName.get(name)
+    const key = tbDocKey(name)
+    const isApproved = req?.current_status === 'approved'
+    const statusLabel = isApproved ? 'Approved' : (req?.current_status ? 'Started' : 'Not started')
+    const statusClass = isApproved ? 'doc-status--approved' : (req?.current_status ? 'doc-status--started' : 'doc-status--notstarted')
+    // A document with no gate rule is catalogue-only: listed because the
+    // stage owns it, but nothing about it releases a transition, so it
+    // gets no Confirm control.
+    const confirmHtml = !req
+      ? '<span class="tb-doc-nogate">Not gated</span>'
+      : isApproved
+        ? ''
+        : `<button class="btn-sm" onclick="confirmStageDocument('${escHtml(bed.id)}','${escHtml(name)}')">Confirm</button>`
 
     return `
-    <tr id="doc-row-${key}">
-      <td${indentStyle}>${escHtml(req.document)}</td>
-      <td><span class="doc-status ${statusClass}">${statusLabel}</span></td>
-      <td>${locationHtml}</td>
-      <td>${actionHtml}</td>
-      <td>${resultHtml}</td>
-    </tr>
-    <tr class="doc-form-row hidden" id="doc-form-${key}">
-      <td colspan="5">
-        <div class="doc-inline-form">
-          <div class="form-group">
-            <label>Google Drive link (optional)</label>
-            <input type="text" id="doc-loc-${key}" placeholder="https://drive.google.com/…">
-          </div>
-          <div style="display:flex;gap:8px;margin-top:10px">
-            <button class="btn-sm btn-primary" onclick="submitDocumentForm('${escHtml(bed.id)}','${escHtml(req.document)}')">Confirm</button>
-            <button class="btn-sm btn-ghost" onclick="cancelDocumentForm('${escHtml(req.document)}')">Cancel</button>
-          </div>
-        </div>
-      </td>
-    </tr>`
-  }
-
-  let rows = normalDocs.map(d => docRow(d, false)).join('')
-
-  if (hasCaDP) {
-    rows += `
-    <tr class="doc-group-header-row">
-      <td colspan="5">
-        <span class="doc-group-name">Compliance and Data Protection</span>
-        <span class="doc-group-note">Both APD and DPIA required before leaving Planning — no order between them.</span>
-      </td>
-    </tr>`
-    rows += cadpDocs.map(d => docRow(d, true)).join('')
-  }
-
-  section.innerHTML = `
-  <table class="doc-table">
-    <thead>
-      <tr>
-        <th>Document</th>
-        <th>Status</th>
-        <th>Location</th>
-        <th>Action</th>
-        <th>Result</th>
-      </tr>
-    </thead>
-    <tbody>${rows}</tbody>
-  </table>`
+    <div class="tb-doc-row" id="doc-row-${key}">
+      <div class="tb-doc-head">
+        <span class="tb-doc-name">${escHtml(name)}</span>
+        <span class="doc-status ${statusClass}">${statusLabel}</span>
+      </div>
+      <div class="tb-doc-actions">
+        <input type="text" class="tb-doc-url" id="doc-loc-${key}"
+               placeholder="Document URL"
+               value="${escHtml(req?.document_location ?? '')}"
+               onchange="saveStageDocumentUrl('${escHtml(bed.id)}','${escHtml(name)}')">
+        ${confirmHtml}
+      </div>
+      <div class="tb-doc-feedback" id="doc-fb-${key}"></div>
+    </div>`
+  }).join('')
+  // Which stage this panel is currently SHOWING, not which was last
+  // requested. Verification waits on this rather than on a fixed delay:
+  // a fixed delay reported a working popup as broken in Round 7 Phase 9,
+  // and here it would report the previous tab's contents as this tab's.
+  section.dataset.stage = stageName
 }
 
-window.openDocumentForm = (bedId, documentType) => {
-  const key = documentType.replace(/\s+/g, '-').replace(/[^A-Za-z0-9-]/g, '')
-  if (openDocForm && openDocForm !== key) {
-    document.getElementById(`doc-form-${openDocForm}`)?.classList.add('hidden')
-    document.getElementById(`doc-row-${openDocForm}`)?.classList.remove('hidden')
-  }
-  openDocForm = key
-  document.getElementById(`doc-row-${key}`)?.classList.add('hidden')
-  document.getElementById(`doc-form-${key}`)?.classList.remove('hidden')
-  document.getElementById(`doc-loc-${key}`)?.focus()
+function tbDocKey(name) { return name.replace(/\s+/g, '-').replace(/[^A-Za-z0-9-]/g, '') }
+
+async function refreshTbStagePanels() {
+  if (!currentTestBed || !currentTbStageTab) return
+  await renderTestBedDocuments(currentTestBed, currentTbStageTab, 'tb-stage-documents-section')
+  await renderTbStageExitCriteria(currentTbStageTab)
 }
 
-window.cancelDocumentForm = (documentType) => {
-  const key = documentType.replace(/\s+/g, '-').replace(/[^A-Za-z0-9-]/g, '')
-  document.getElementById(`doc-form-${key}`)?.classList.add('hidden')
-  document.getElementById(`doc-row-${key}`)?.classList.remove('hidden')
-  openDocForm = null
-}
-
-window.submitDocumentForm = async (bedId, documentType) => {
-  const key = documentType.replace(/\s+/g, '-').replace(/[^A-Za-z0-9-]/g, '')
-  const document_location = document.getElementById(`doc-loc-${key}`)?.value.trim() || null
-
+// Round 9 Phase 6.1: saving a URL must NOT approve the document. This
+// endpoint hardcoded status='approved' until this phase, so storing a
+// working-copy link would have satisfied the gate - the exact failure a
+// document gate exists to prevent. approve:false is why this is a
+// separate call from confirmStageDocument below.
+window.saveStageDocumentUrl = async (bedId, documentType) => {
+  const key = tbDocKey(documentType)
+  const input = document.getElementById(`doc-loc-${key}`)
+  const fb = document.getElementById(`doc-fb-${key}`)
+  if (!input) return
   const result = await api('POST', `/api/test-beds/${bedId}/complete-document`, {
     document_type: documentType,
-    document_location
+    document_location: input.value.trim(),
+    approve: false
   })
+  if (fb) {
+    fb.textContent = result.ok ? 'URL saved.' : `Could not save URL: ${result.data?.error ?? 'unknown error'}`
+    fb.className = result.ok ? 'tb-doc-feedback ok' : 'tb-doc-feedback err'
+  }
+  if (result.ok) await refreshTbStagePanels()
+}
 
-  if (result.ok) {
-    openDocForm = null
-    await loadTestBedDetail(bedId)
+// Confirm carries whatever is in the URL box, so an operator who pastes a
+// link and confirms in one go does not lose it.
+window.confirmStageDocument = async (bedId, documentType) => {
+  const key = tbDocKey(documentType)
+  const input = document.getElementById(`doc-loc-${key}`)
+  const fb = document.getElementById(`doc-fb-${key}`)
+  const body = { document_type: documentType }
+  if (input && input.value.trim()) body.document_location = input.value.trim()
+  const result = await api('POST', `/api/test-beds/${bedId}/complete-document`, body)
+  if (!result.ok) {
+    if (fb) {
+      fb.textContent = `Could not confirm: ${result.data?.error ?? 'unknown error'}`
+      fb.className = 'tb-doc-feedback err'
+    }
     return
   }
-
-  // Surface error inline below the form
-  const formRow = document.getElementById(`doc-form-${key}`)
-  if (formRow) {
-    const existing = formRow.querySelector('.doc-form-error')
-    if (existing) existing.remove()
-    const err = document.createElement('p')
-    err.className = 'msg-error doc-form-error'
-    err.textContent = result.data?.error ?? 'Failed to mark document.'
-    formRow.querySelector('.doc-inline-form')?.appendChild(err)
-  }
+  await refreshTbStagePanels()
+  refreshTbNextStageButton()
 }
+
+// openDocumentForm / cancelDocumentForm / submitDocumentForm and the
+// module-level openDocForm were removed in Round 9 Phase 6.1. They drove
+// the old inline "Send for Approval" form, a second table row that
+// expanded under the document. The merged panel has a permanently visible
+// URL field instead, so the form, its toggle state and its three handlers
+// have no markup left to act on. Their only caller was the panel that was
+// replaced, confirmed by search before deleting.
 
 // Old renderTestBedApprovals()/grantSeniorApproval() (Milestone 4,
 // removed 2026-08-15): hardcoded to the 'Decommissioning' stage name,
@@ -2651,6 +2679,33 @@ function buildStageApprovalRowHtml(recordId, st) {
     <div class="sa-criteria">${criteriaHtml}</div>
     <div class="sa-approvers">${approversHtml}</div>
   </div>`
+}
+
+// Round 9 Phase 6.2: the Test Bed stage tab's own Approvals rendering.
+// Deliberately a sibling of buildStageApprovalRowHtml rather than a
+// change to it: that function is shared with Opportunity's all-stages
+// table, which still needs its Stage and Exit criteria columns, and
+// editing it to suit one caller is how two callers drift apart.
+// Both still read the same GET /records/:id/stage-approvals data and the
+// same clickable rule - a track is only tickable at the record's real
+// current stage.
+function buildStageTrackListHtml(recordId, st) {
+  if (!st.tracks.length) return '<p class="empty-state">No approvals required for this stage.</p>'
+  return st.tracks.map(t => {
+    const clickable = st.state === 'current' && !t.approved
+    const onclick = clickable ? `onclick="submitStageApproval('${recordId}','${escHtml(t.track)}')"` : ''
+    const meta = t.approved
+      ? `Approved ${formatDate(t.decided_at)}`
+      : (st.state === 'current' ? 'Click to approve' : 'Not yet at this stage')
+    return `
+    <div class="sa-approval-row${t.approved ? ' approved' : ''}${clickable ? ' clickable' : ''}" ${onclick}>
+      <span class="ring-radio-ring"><span class="ring-radio-dot"></span></span>
+      <div>
+        <div class="sa-approval-role">${escHtml(t.track)}</div>
+        <div class="sa-approval-meta">${meta}</div>
+      </div>
+    </div>`
+  }).join('')
 }
 
 function renderStageApprovalsRows(recordId, stages, containerId = 'opp-stage-approvals-rows') {

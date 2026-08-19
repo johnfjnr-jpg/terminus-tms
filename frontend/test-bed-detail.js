@@ -631,22 +631,112 @@ window.linkTbBuyer = async function (role) {
 // effect.
 async function renderTbStageExitCriteria(stageName) {
   const el = document.getElementById('tb-stage-exit-criteria-list')
+  if (!el) return
   const result = await api('GET', `/api/records/${tbDetailId}/exit-criteria?stage=${encodeURIComponent(stageName)}`)
   if (!result.ok) {
     el.innerHTML = '<p class="empty-state">Unable to load exit criteria.</p>'
+    el.dataset.stage = stageName
     return
   }
-  const { to_stage, blocking } = result.data
+  const { to_stage, requirements } = result.data
   if (!to_stage) {
     el.innerHTML = '<p class="empty-state">This is the final stage - nothing further to exit toward.</p>'
+    el.dataset.stage = stageName
     return
   }
-  if (!blocking.length) {
-    el.innerHTML = `<p class="empty-state">Nothing outstanding - ready to move to ${escHtml(to_stage)}.</p>`
+  if (!requirements.length) {
+    el.innerHTML = `<p class="empty-state">No exit criteria configured for ${escHtml(to_stage)}.</p>`
+    el.dataset.stage = stageName
     return
   }
-  el.innerHTML = `<p class="sub" style="margin-bottom:10px">Outstanding to move to ${escHtml(to_stage)}:</p>`
-    + blocking.map(b => `<div class="data-row"><span style="font-size:13px">${escHtml(b.message)}</span></div>`).join('')
+
+  // Round 9 Phase 6.2: the full TICK LIST, satisfied and unsatisfied
+  // both, from Phase 3's `requirements` rather than the old `blocking`.
+  // `blocking` still exists on the response and is still what the
+  // transition endpoint decides on; this panel simply stopped discarding
+  // the met ones.
+  //
+  // TICKABLE REQUIRES BOTH CONDITIONS, and this is load-bearing:
+  //   1. the field is a member of TB_EXIT_CRITERION_KEYS, and
+  //   2. it carries a label.
+  //
+  // Label presence alone must NOT be the test. `label` is additive and
+  // ignored by the gate engine, so any payload_field_required rule may be
+  // given one purely for display - and if this panel keyed on the label
+  // alone, that rule would render as a tick box and ticking it would
+  // write an ISO timestamp into an unrelated payload field. The key-set
+  // membership is the half that makes the control safe; the label is only
+  // the half that makes it readable. The same set is the server's PATCH
+  // allowlist, so the panel can only ever offer a tick the server would
+  // accept.
+  const rows = requirements.map(r => {
+    const tickable = r.requirement_type === 'payload_field_required'
+      && TB_EXIT_CRITERION_KEYS.has(r.field)
+      && !!r.label
+    const label = escHtml(r.label ?? r.message)
+    const mark = r.met ? '<span class="tb-crit-box tb-crit-box--met">&#10003;</span>' : '<span class="tb-crit-box"></span>'
+
+    if (tickable) {
+      return `<div class="tb-crit-row tb-crit-row--tickable" onclick="toggleExitCriterion('${escHtml(r.field)}', ${r.met ? 'true' : 'false'})" title="${r.met ? 'Tick to clear' : 'Tick to confirm'}">
+        ${mark}<span class="tb-crit-text">${label}</span>
+      </div>`
+    }
+    // Document and field requirements are computed, so they are read-only
+    // rows. Presenting them as tick boxes would invite a click that
+    // cannot do anything.
+    return `<div class="tb-crit-row tb-crit-row--computed">
+      ${mark}<span class="tb-crit-text">${escHtml(r.message)}</span>
+    </div>`
+  }).join('')
+
+  const outstanding = requirements.filter(r => !r.met).length
+  const summary = outstanding === 0
+    ? `<p class="sub" style="margin-bottom:10px">All criteria met - ready to move to ${escHtml(to_stage)}.</p>`
+    : `<p class="sub" style="margin-bottom:10px">${outstanding} of ${requirements.length} outstanding to move to ${escHtml(to_stage)}:</p>`
+
+  el.innerHTML = summary + rows
+  // Which stage this panel is SHOWING. See the same marker on the
+  // documents panel for why verification waits on it.
+  el.dataset.stage = stageName
+  const fb = document.createElement('div')
+  fb.id = 'tb-crit-feedback'
+  fb.className = 'tb-doc-feedback'
+  el.appendChild(fb)
+}
+
+// The five judgement-criterion payload keys, mirroring
+// TB_EXIT_CRITERION_KEYS in src/routes/test-beds.js. Duplicated here
+// deliberately and knowingly: the browser has no import path to a server
+// module, and the alternative - trusting whatever `label` the rule
+// happens to carry - is the unsafe test this list exists to avoid. The
+// server validates the same set independently on every PATCH, so a drift
+// between the two lists costs a rejected save, never a write to an
+// unintended field.
+const TB_EXIT_CRITERION_KEYS = new Set([
+  'exitQualTechnicalCommercialValue',
+  'exitQualDataAndUseCase',
+  'exitQualPhysicalSuitability',
+  'exitQualPartnerCommitment',
+  'exitMonAllMeetingActionsCompleted',
+])
+
+// Tick writes an ISO timestamp; untick sends null, which the server
+// deletes the key for. Never a boolean: payload_field_required treats a
+// stored `false` as PRESENT, so an unticked box would open the gate.
+window.toggleExitCriterion = async (field, isMet) => {
+  const fb = document.getElementById('tb-crit-feedback')
+  const result = await api('PATCH', `/api/test-beds/${tbDetailId}`, {
+    payload: { [field]: isMet ? null : new Date().toISOString() }
+  })
+  if (!result.ok) {
+    if (fb) {
+      fb.textContent = `Could not update: ${result.data?.error ?? 'unknown error'}`
+      fb.className = 'tb-doc-feedback err'
+    }
+    return
+  }
+  await renderTbStageExitCriteria(currentTbStageTab)
+  refreshTbNextStageButton()
 }
 
 // ── Click-to-edit mechanics (fields only - Sensors/Use Cases/Install

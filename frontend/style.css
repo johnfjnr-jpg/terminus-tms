@@ -2499,3 +2499,89 @@ input.input-invalid {
   max-width: 1292px;
   margin: 0 0 18px;
 }
+
+/* ── Round 9 Phase 6: merged Terminus Documents panel and the Exit
+   Criteria tick list ────────────────────────────────────────────────
+   No new grid CSS: all three stage-tab panels sit in the existing
+   .ref-cards grid with its proven minmax(280px, 420px) cap, so the row
+   wraps rather than squeezing. Everything below is inside-the-card
+   styling only. */
+
+.tb-doc-row {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+.tb-doc-row:last-child { border-bottom: none; }
+
+.tb-doc-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+.tb-doc-name {
+  font-size: 13px;
+  /* The panel is capped at 420px and document names run long ("Partnership
+     and Test Bed Agreement"). Wrapping is correct here rather than
+     ellipsis: the name is the row's identity and a truncated one is
+     unusable, whereas a second line costs nothing. */
+  overflow-wrap: anywhere;
+}
+.tb-doc-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+.tb-doc-url {
+  flex: 1 1 auto;
+  min-width: 0;            /* without this a flex item refuses to shrink below its content width */
+  font-size: 12px;
+  padding: 4px 6px;
+}
+.tb-doc-nogate {
+  font-size: 11px;
+  color: var(--muted-2);
+  white-space: nowrap;
+}
+.tb-doc-feedback {
+  font-size: 11px;
+  margin-top: 4px;
+  min-height: 0;
+}
+.tb-doc-feedback.ok  { color: var(--green); }
+.tb-doc-feedback.err { color: var(--red, #e06c6c); }
+
+.tb-crit-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--line);
+}
+.tb-crit-row:last-child { border-bottom: none; }
+.tb-crit-row--tickable { cursor: pointer; }
+.tb-crit-row--tickable:hover .tb-crit-box { border-color: var(--green); }
+.tb-crit-box {
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+  margin-top: 2px;
+  border: 1px solid var(--muted-2);
+  border-radius: 3px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  line-height: 1;
+}
+.tb-crit-box--met {
+  border-color: var(--green);
+  color: var(--green);
+}
+.tb-crit-text {
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+/* A computed row is read-only, so it must not look clickable. */
+.tb-crit-row--computed { cursor: default; }

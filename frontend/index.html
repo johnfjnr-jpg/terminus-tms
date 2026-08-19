@@ -1034,46 +1034,54 @@
          list Opportunity's own Stage & Approvals tab still shows. -->
     <div class="detail-tab-panel hidden" id="tb-tab-stage-detail">
       <p class="pg-card-title" id="tb-stage-detail-heading">Stage</p>
-      <!-- Round 7 Phase 7: both renames are DISPLAY ONLY. The underlying
-           stage_reference_docs table, the document-requirements endpoint
-           keys (reference_docs / completable_documents) and every payload
-           field are untouched - a label change must not become a schema
-           change. The element ids below deliberately keep their original
-           names for the same reason.
+      <!-- Round 9 Phase 6.1 (2026-08-19): the two document panels are now
+           ONE, titled Terminus Documents, and it sits at the LEFT of the
+           row alongside Exit Criteria and Approvals.
 
-           Note the label here read "Reference Material", singular, not
-           the "Reference Materials" the brief named. Renamed the string
-           that actually existed. -->
-      <div class="pg-card">
-        <p class="pg-card-title">Customer Documents</p>
-        <div id="tb-stage-reference-docs-section"></div>
-      </div>
-      <div style="margin-top:24px">
-        <p class="section-title">Terminus Docs</p>
-        <div id="tb-stage-documents-section"></div>
-      </div>
-      <!-- Round 7 Phase 7: Exit Criteria and Approvals side by side rather
-           than stacked. Reuses the existing .ref-cards grid, which already
-           carries the proven minmax(280px, 420px) cap under
-           #view-test-bed-detail - no new grid CSS, and the same width
-           behaviour as every other panel pair in the app.
+           What was here before was the same document listed twice. The
+           panel labelled "Customer Documents" rendered `reference_docs`,
+           which comes from stage_reference_docs - Terminus's OWN per-stage
+           document list ("while at Pre-Site Assessment, go get the NDA").
+           The panel labelled "Terminus Docs" rendered
+           `completable_documents`, the gate-driven table with the Confirm
+           action. One thing presented as two, and the Round 7 Phase 7
+           rename had attached a customer-facing name to Terminus's own
+           list. Confirmed by reading the rendering code in Phase 0 item 4
+           and visible in Phase 4's screenshot.
 
-           Exit Criteria moved UP to sit beside Approvals; it was relocated
-           to this tab in Round 6 Phase 3 and is fed by
-           GET /records/:id/exit-criteria?stage=<this tab's stage>, the same
-           stage= generalization document-requirements uses. Both are now
-           .pg-card panels so the pair reads as one row, matching how
-           Account and Contact detail already build .ref-cards children. -->
-      <div class="ref-cards" style="margin-top:24px">
+           Customer Documents as a CONCEPT does not exist in the system at
+           all today. It means client-supplied reference material and it
+           lands on the Reference tab in Round 11, with the Drive work. It
+           is removed from the stage tabs entirely rather than left
+           pointing at the wrong data.
+
+           Still display-only: stage_reference_docs, the
+           document-requirements endpoint keys and every payload field are
+           untouched, and #tb-stage-documents-section keeps its id for the
+           same reason.
+
+           All three panels share the existing .ref-cards grid and its
+           proven minmax(280px, 420px) cap, so the row wraps rather than
+           squeezing, the same behaviour as every other panel row here. -->
+      <!-- Round 9 Phase 6.3: hidden wholesale on the terminal stage, which
+           renders no panels at all rather than three empty cards. Nothing
+           replaces them, not even an explanatory line: an explanatory line
+           was drafted and removed, because the instruction is that Closed
+           renders nothing and a permanent "nothing further to do" note on
+           a terminal stage is the same permanently-static UI the rule is
+           against. The stage heading remains, since that is the tab's own
+           identity rather than a panel. -->
+      <div class="ref-cards" id="tb-stage-panels-row">
+        <div class="pg-card">
+          <p class="pg-card-title">Terminus Documents</p>
+          <div id="tb-stage-documents-section"></div>
+        </div>
         <div class="pg-card">
           <p class="pg-card-title">Exit Criteria</p>
           <div id="tb-stage-exit-criteria-list"></div>
         </div>
         <div class="pg-card">
           <p class="pg-card-title">Approvals</p>
-          <div class="sa-row sa-head">
-            <span>Stage</span><span>Exit criteria</span><span>Approvers</span>
-          </div>
           <div id="tb-stage-approval-row"></div>
         </div>
       </div>
