@@ -12,8 +12,8 @@ Contains no environment variable, key or token, and no client data. Records
 appear as counts by status only, never by name or reference code, because
 this file is uploaded into chat sessions.
 
-- Generated at: `2026-08-18T22:42:48.356Z`
-- Git commit: `9e7cb1c5b30f403416227298c6ff5a189b927e16`
+- Generated at: `2026-08-19T01:48:00.148Z`
+- Git commit: `c230d6d7a5111de295a9100a764d40dbd66e862e`
 - Working tree at generation: `dirty (uncommitted changes present)`
 
 If the commit above is not current `HEAD`, this file is stale and is
@@ -47,7 +47,7 @@ untrusted rather than approximately right.
 
 ## `stage_gate_rules`
 
-26 rows. Full `requirement_detail`, keys sorted.
+54 rows. Full `requirement_detail`, keys sorted.
 
 | record_type | variant | from_stage | to_stage | requirement_type | requirement_detail |
 |---|---|---|---|---|---|
@@ -67,16 +67,44 @@ untrusted rather than approximately right.
 | contact | (null) | Unqualified | Qualified | payload_field_required | `{"field":"source"}` |
 | contact | (null) | Unqualified | Qualified | payload_field_required | `{"field":"summary"}` |
 | smoke_test | (null) | draft | active | approval_obtained | `{"track":"Internal"}` |
-| test_bed | (null) | Decommissioning | Closed | approval_obtained | `{"track":"Senior"}` |
+| test_bed | (null) | Decommissioning | Closed | approval_obtained | `{"scope":"stage","track":"Technical"}` |
+| test_bed | (null) | Decommissioning | Closed | approval_obtained | `{"scope":"stage","track":"Commercial"}` |
+| test_bed | (null) | Decommissioning | Closed | approval_obtained | `{"scope":"stage","track":"Legal"}` |
+| test_bed | (null) | Decommissioning | Closed | document_status | `{"document":"Site Decommissioning Report","status":"approved"}` |
+| test_bed | (null) | Installation and Commissioning | Monitoring and Analysis | approval_obtained | `{"scope":"stage","track":"Commercial"}` |
+| test_bed | (null) | Installation and Commissioning | Monitoring and Analysis | approval_obtained | `{"scope":"stage","track":"Technical"}` |
+| test_bed | (null) | Installation and Commissioning | Monitoring and Analysis | document_status | `{"document":"Site Installation Document","status":"approved"}` |
+| test_bed | (null) | Monitoring and Analysis | Review and Completion | approval_obtained | `{"scope":"stage","track":"Technical"}` |
+| test_bed | (null) | Monitoring and Analysis | Review and Completion | approval_obtained | `{"scope":"stage","track":"Commercial"}` |
+| test_bed | (null) | Monitoring and Analysis | Review and Completion | approval_obtained | `{"scope":"stage","track":"Legal"}` |
+| test_bed | (null) | Monitoring and Analysis | Review and Completion | document_status | `{"document":"Test Bed Performance","status":"approved"}` |
+| test_bed | (null) | Monitoring and Analysis | Review and Completion | document_status | `{"document":"Review Meeting Minutes","status":"approved"}` |
+| test_bed | (null) | Monitoring and Analysis | Review and Completion | payload_field_required | `{"field":"exitMonAllMeetingActionsCompleted","label":"All Meeting Actions Completed"}` |
+| test_bed | (null) | Pre-Site Assessment | Site Assessment | approval_obtained | `{"scope":"stage","track":"Commercial"}` |
+| test_bed | (null) | Pre-Site Assessment | Site Assessment | approval_obtained | `{"scope":"stage","track":"Legal"}` |
 | test_bed | (null) | Pre-Site Assessment | Site Assessment | document_status | `{"document":"NDA","status":"approved"}` |
 | test_bed | (null) | Qualification | Pre-Site Assessment | approval_obtained | `{"scope":"stage","track":"Technical"}` |
 | test_bed | (null) | Qualification | Pre-Site Assessment | approval_obtained | `{"scope":"stage","track":"Commercial"}` |
 | test_bed | (null) | Qualification | Pre-Site Assessment | contact_role_linked | `{"role":"Client Commercial Buyer"}` |
 | test_bed | (null) | Qualification | Pre-Site Assessment | contact_role_linked | `{"role":"Client Technical Buyer"}` |
 | test_bed | (null) | Qualification | Pre-Site Assessment | contact_role_linked | `{"role":"Client Legal Buyer"}` |
+| test_bed | (null) | Qualification | Pre-Site Assessment | payload_field_required | `{"field":"exitQualTechnicalCommercialValue","label":"Technical and Commercial Value"}` |
+| test_bed | (null) | Qualification | Pre-Site Assessment | payload_field_required | `{"field":"exitQualPartnerCommitment","label":"Partner Commitment"}` |
+| test_bed | (null) | Qualification | Pre-Site Assessment | payload_field_required | `{"field":"exitQualDataAndUseCase","label":"Data and Use Case"}` |
+| test_bed | (null) | Qualification | Pre-Site Assessment | payload_field_required | `{"field":"exitQualPhysicalSuitability","label":"Physical Suitability"}` |
 | test_bed | (null) | Qualification | Pre-Site Assessment | payload_field_required | `{"field":"testBedDuration"}` |
 | test_bed | (null) | Qualification | Pre-Site Assessment | payload_field_required | `{"field":"estimatedInstallationDate"}` |
 | test_bed | (null) | Qualification | Pre-Site Assessment | payload_field_required | `{"field":"estGoLiveDate"}` |
+| test_bed | (null) | Review and Completion | Decommissioning | approval_obtained | `{"scope":"stage","track":"Commercial"}` |
+| test_bed | (null) | Review and Completion | Decommissioning | approval_obtained | `{"scope":"stage","track":"Technical"}` |
+| test_bed | (null) | Review and Completion | Decommissioning | approval_obtained | `{"scope":"stage","track":"Legal"}` |
+| test_bed | (null) | Review and Completion | Decommissioning | document_status | `{"document":"Test Bed Close Out Report","status":"approved"}` |
+| test_bed | (null) | Site Assessment | Installation and Commissioning | approval_obtained | `{"scope":"stage","track":"Commercial"}` |
+| test_bed | (null) | Site Assessment | Installation and Commissioning | approval_obtained | `{"scope":"stage","track":"Technical"}` |
+| test_bed | (null) | Site Assessment | Installation and Commissioning | approval_obtained | `{"scope":"stage","track":"Legal"}` |
+| test_bed | (null) | Site Assessment | Installation and Commissioning | document_status | `{"document":"Site Assessment Report","status":"approved"}` |
+| test_bed | (null) | Site Assessment | Installation and Commissioning | document_status | `{"document":"Compliance and Data Protection","status":"approved"}` |
+| test_bed | (null) | Site Assessment | Installation and Commissioning | document_status | `{"document":"Partnership and Test Bed Agreement","status":"approved"}` |
 
 Rule count by record type and requirement type:
 
@@ -84,22 +112,23 @@ Rule count by record type and requirement type:
 |---|---|---|
 | contact | payload_field_required | 15 |
 | smoke_test | approval_obtained | 1 |
-| test_bed | approval_obtained | 3 |
+| test_bed | approval_obtained | 18 |
 | test_bed | contact_role_linked | 3 |
-| test_bed | document_status | 1 |
-| test_bed | payload_field_required | 3 |
+| test_bed | document_status | 9 |
+| test_bed | payload_field_required | 8 |
 
 ## `stage_reference_docs`
 
-8 rows. `document_name` reproduced exactly, including spacing.
+9 rows. `document_name` reproduced exactly, including spacing.
 
 | record_type | stage_name | document_name |
 |---|---|---|
-| test_bed | Decommissioning | `Site Installation Document` |
+| test_bed | Decommissioning | `Site Decommissioning Report` |
 | test_bed | Installation and Commissioning | `Site Installation Document` |
-| test_bed | Monitoring and Analysis | `Test Bed Review Document` |
+| test_bed | Monitoring and Analysis | `Review Meeting Minutes` |
+| test_bed | Monitoring and Analysis | `Test Bed Performance` |
 | test_bed | Pre-Site Assessment | `NDA` |
-| test_bed | Review and Completion | `Test Bed Review Document` |
+| test_bed | Review and Completion | `Test Bed Close Out Report` |
 | test_bed | Site Assessment | `Compliance and Data Protection` |
 | test_bed | Site Assessment | `Partnership and Test Bed Agreement` |
 | test_bed | Site Assessment | `Site Assessment Report` |
@@ -146,7 +175,7 @@ _None._
 
 ## Record counts by type and status
 
-27 live, 1217 soft deleted, 1244 rows in total.
+43 live, 1642 soft deleted, 1685 rows in total.
 
 | record_type | status | live | soft deleted |
 |---|---|---|---|
@@ -154,13 +183,13 @@ _None._
 | contact | Parked | 0 | 2 |
 | contact | Qualified | 7 | 89 |
 | contact | Unqualified | 1 | 49 |
-| document | approved | 2 | 95 |
+| document | approved | 20 | 151 |
 | opportunity | Discovery | 3 | 39 |
 | opportunity | Negotiation | 0 | 1 |
 | opportunity | Proposal | 0 | 1 |
-| test_bed | Closed | 0 | 3 |
-| test_bed | Pre-Site Assessment | 0 | 2 |
-| test_bed | Qualification | 7 | 78 |
+| test_bed | Closed | 2 | 3 |
+| test_bed | Pre-Site Assessment | 0 | 3 |
+| test_bed | Qualification | 3 | 84 |
 | test_bed | Site Assessment | 0 | 2 |
 
 ### Test fixture record types
@@ -171,18 +200,19 @@ row by row, and are included in the totals above.
 
 | distinct `harness_*` record types | live rows | soft deleted rows |
 |---|---|---|
-| 61 | 0 | 715 |
+| 90 | 0 | 1077 |
 
 No harness record type holds a live row; every fixture row is soft deleted.
 
 ## `approvals`
 
-2 rows, of which 0 carry a null `stage`.
+38 rows, of which 0 carry a null `stage`.
 
 | decision | track | rows | null stage |
 |---|---|---|---|
-| approved | Commercial | 1 | 0 |
-| approved | Technical | 1 | 0 |
+| approved | Commercial | 15 | 0 |
+| approved | Legal | 10 | 0 |
+| approved | Technical | 13 | 0 |
 
 ## Writable-key allowlists
 
@@ -215,9 +245,9 @@ than written as a literal list, so its members are not enumerable here.
 
 ### `TEST_BED_WRITABLE_KEYS` (`src/routes/test-beds.js`)
 
-35 literal keys.
+40 literal keys.
 
-`name`, `client_organisation`, `notes`, `summary`, `terminusLead`, `commercialAuthority`, `technicalAuthority`, `region`, `country`, `siteOwnership`, `installationEnvironment`, `siteAddress`, `city`, `safesightCameras`, `airQualitySensors`, `hemirSensors`, `estCostPerUnit`, `testBedDuration`, `estimatedInstallationDate`, `estGoLiveDate`, `installer`, `techTeam`, `installNotes`, `terminusLegalOwner`, `initialLead`, `useCases`, `ssUnitCost`, `aqUnitCost`, `hemirUnitCost`, `ssInstallCost`, `aqInstallCost`, `hemirInstallCost`, `ssHostingCost`, `aqHostingCost`, `hemirHostingCost`
+`name`, `client_organisation`, `notes`, `summary`, `terminusLead`, `commercialAuthority`, `technicalAuthority`, `region`, `country`, `siteOwnership`, `installationEnvironment`, `siteAddress`, `city`, `safesightCameras`, `airQualitySensors`, `hemirSensors`, `estCostPerUnit`, `testBedDuration`, `estimatedInstallationDate`, `estGoLiveDate`, `installer`, `techTeam`, `installNotes`, `terminusLegalOwner`, `initialLead`, `useCases`, `ssUnitCost`, `aqUnitCost`, `hemirUnitCost`, `ssInstallCost`, `aqInstallCost`, `hemirInstallCost`, `ssHostingCost`, `aqHostingCost`, `hemirHostingCost`, `exitQualTechnicalCommercialValue`, `exitQualDataAndUseCase`, `exitQualPhysicalSuitability`, `exitQualPartnerCommitment`, `exitMonAllMeetingActionsCompleted`
 
 ## Registered routes
 
@@ -269,7 +299,7 @@ than written as a literal list, so its members are not enumerable here.
 
 ## Migrations, in filename order
 
-36 files in `supabase/migrations/`.
+45 files in `supabase/migrations/`.
 
 1. `20260801000000_initial_schema.sql`
 2. `20260802000000_lead_opportunity.sql`
@@ -307,6 +337,15 @@ than written as a literal list, so its members are not enumerable here.
 34. `20260817000002_account_parent_account_id.sql`
 35. `20260818000000_approval_stage_scope.sql`
 36. `20260818000001_gate_config_transitions_1_2.sql`
+37. `20260819000000_test_bed_document_catalogue.sql`
+38. `20260819000001_gate_config_transition_1_criteria.sql`
+39. `20260819000002_gate_config_transition_2_approvals.sql`
+40. `20260819000003_gate_config_transition_3.sql`
+41. `20260819000004_gate_config_transition_4.sql`
+42. `20260819000005_approvals_unique_include_stage.sql`
+43. `20260819000006_gate_config_transition_5.sql`
+44. `20260819000007_gate_config_transition_6.sql`
+45. `20260819000008_gate_config_transition_7_and_drop_senior.sql`
 
 ## Seed files, in application order
 

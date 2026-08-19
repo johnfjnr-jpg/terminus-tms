@@ -205,10 +205,23 @@ function parseWritableKeys() {
     const src = readFileSync(join(ROUTES_DIR, file), 'utf8')
     const lines = src.split('\n')
 
+    // Resolves both shapes a key list is written in here: a literal array
+    // `const X = [...]`, and a `const X = new Set([...])`. The Set form was
+    // missed by the first version, which mattered immediately: Round 9
+    // Phase 3 declared TB_EXIT_CRITERION_KEYS as a Set and spread it into
+    // TEST_BED_WRITABLE_KEYS, so the five judgement-criterion keys stopped
+    // being enumerated in this file at all. An allowlist reported as 35 of
+    // its 40 keys is under-reporting, and a state file that under-reports
+    // is worse than one that admits it cannot tell.
     function resolveSpread(ident) {
-      const m = src.match(new RegExp(`const\\s+${ident}\\s*=\\s*\\[([^\\]]*)\\]`, 'm'))
-      if (!m) return null
-      const keys = stringLiteralsIn(m[1]).strings
+      const set = src.match(new RegExp(`const\\s+${ident}\\s*=\\s*new Set\\(\\[([\\s\\S]*?)\\]\\)`, 'm'))
+      if (set) {
+        const keys = stringLiteralsIn(set[1]).strings
+        if (keys.length) return keys
+      }
+      const arr = src.match(new RegExp(`const\\s+${ident}\\s*=\\s*\\[([^\\]]*)\\]`, 'm'))
+      if (!arr) return null
+      const keys = stringLiteralsIn(arr[1]).strings
       return keys.length ? keys : null
     }
     function defLine(ident) {

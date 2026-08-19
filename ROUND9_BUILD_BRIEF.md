@@ -777,6 +777,63 @@ them.
 
 ---
 
+## Round 10 candidates, carried forward
+
+Found during Round 9 and deliberately not built in it. Each is a real
+defect or friction with evidence attached, not a speculative improvement.
+
+0. **The reciprocal `CURRENT_STATE.md` staleness check, costed in Round 9
+   Phase 9.4 and deliberately not built.** The reworded check is that the
+   recorded SHA is an ancestor of `HEAD` and no tracked configuration
+   source has changed since. **The mechanics are trivial**: `git
+   merge-base --is-ancestor` plus `git diff --name-only <sha>..HEAD --
+   supabase/migrations supabase/seeds src/routes`, both verified working
+   against the real repository. **The cost is not the mechanics, it is
+   what the check would do to a round in progress.** Measured on this
+   round's own branch: 6 commits touch a configuration source and exactly
+   1 regenerates `CURRENT_STATE.md`, because regeneration is deliberately
+   the last phase. A check of this shape in `npm test` would therefore be
+   **red for most of every round**, and a check that is expected to be red
+   is a check people learn to ignore. It also cannot see the half that
+   matters most: the generator reads the live database, which changes with
+   no git commit at all, so a green result would prove only that no
+   tracked file had moved. **Recorded as a candidate**, worth building
+   only as a merge-to-`main` or release gate rather than a per-commit one.
+   The standing rule in `DESIGN_PRINCIPLES.md` already covers the
+   discipline; this would only cover the forgetting.
+
+1. **Every transition returns the operator to the Reference tab.** Found
+   as a general behaviour in Round 8 Phase 1, where it was left unfixed
+   pending a product decision, and quantified in Round 9 Phase 8: it fires
+   on **all seven transitions**, so **7 of the 59 clicks in a full
+   lifecycle exist only because of it.** `loadTestBedDetail()` sets
+   `tbUserPickedTab = false` as its first statement and `renderTestBedDetail()`
+   then switches to Reference, which is right for a genuinely fresh
+   navigation and wrong for the six in-file call sites that re-enter it
+   mid-session. The product judgement recorded in Round 8 still stands
+   open: treat every reload as fresh, preserve the tab across in-app
+   reloads only, or stop reloading the whole record for narrow mutations.
+   The third removes the cause; the first two compensate for it.
+
+2. **The exit criteria panel lags the server by one refresh.** On two of
+   the seven transitions in the Round 9 Phase 8 walkthrough the panel
+   showed one outstanding row while Next Stage was already enabled, and
+   the transition then succeeded from that same screen. No incorrect
+   outcome, since the server decides and the server was right, but an
+   operator sees a red row and a working button at once and has to guess
+   which to believe. Cause: each approval triggers its own re-render while
+   the previous request is still in flight. Fix is a settled-state refresh
+   rather than a per-action one.
+
+3. **Buyer-role `select` ids contain spaces**, for example
+   `tb-buyer-select-Client Commercial Buyer`. Legal HTML, but `#id` then
+   parses as a descendant selector, so the control cannot be addressed by
+   the obvious selector and needs `[id="..."]`. Harmless to a person,
+   a trap for any scripted test or future code touching those elements,
+   and it cost two failed driver runs in Phase 8.
+
+---
+
 ## Documentation discipline
 
 Update `DESIGN_PRINCIPLES.md` the moment a decision in this brief changes
