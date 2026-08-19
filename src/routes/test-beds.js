@@ -382,7 +382,21 @@ export default async function testBedsRoutes(app) {
   const TB_EXIT_CRITERION_KEYS = new Set([
     // Qualification -> Pre-Site Assessment
     'exitQualTechnicalCommercialValue',   // Technical and Commercial Value
-    'exitQualDataAndUseCase',             // Data and Use Case
+    // exitQualDataAndUseCase RETIRED, Round 11 Phase 1 (2026-08-19). It
+    // asked two questions at once and the framework now asks them
+    // separately, so the criterion ceases to exist rather than being
+    // renamed: it becomes Clear Use Case Requirements and Metrics and Data
+    // Rights, both scored rather than ticked, both landing in Phase 4.
+    // Its gate rule was deleted in the same change - removing the key here
+    // while the labelled rule survived would have made the row computed
+    // rather than tickable, so it would still block with nothing in the
+    // product able to satisfy it. All three live Qualification records hold
+    // zero ticks, so that sequencing would have blocked every one of them.
+    //
+    // Removing it here also removes it from TEST_BED_WRITABLE_KEYS below,
+    // which is built by spreading this set, so a PATCH naming it is now
+    // rejected. That is intended: four live Closed records still hold the
+    // key in their payloads as history, and nothing should write to it.
     'exitQualPhysicalSuitability',        // Physical Suitability
     'exitQualPartnerCommitment',          // Partner Commitment
     // Monitoring and Analysis -> Review and Completion

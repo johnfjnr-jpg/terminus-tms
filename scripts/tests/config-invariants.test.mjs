@@ -67,7 +67,21 @@ const tbRules = () => rules.filter(r => r.record_type === 'test_bed')
 // and then confirmed by direct query at 38 after each phase landed. If a
 // future round changes the configuration, this number is expected to
 // move: update it from a measurement, never from an expectation.
-const EXPECTED_TEST_BED_RULES = 38
+//
+//   Round 11 Phase 1, exitQualDataAndUseCase retired         -1  -> 37
+//
+// UPDATED FROM THE MEASUREMENT, not from the projection, exactly as the
+// paragraph above requires. The invariant fired on its own before this
+// line was touched, reporting "Expected 38, found 37", which is the
+// assertion doing its job rather than an inconvenience: a deliberate
+// configuration change is supposed to break it and be re-measured.
+//
+// EXPECTED TO MOVE AGAIN THIS ROUND. Phase 4 replaces the three remaining
+// tick criteria with five scored ones and adds the measurability
+// confirmation and three re-score rules, so 37 is this phase's measured
+// figure and not the round's. Phase 7 re-derives it from the live table
+// once those rows exist.
+const EXPECTED_TEST_BED_RULES = 37
 
 test('INVARIANT 1: test_bed carries exactly the configured number of gate rules', () => {
   const byTransition = {}

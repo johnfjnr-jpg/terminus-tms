@@ -165,7 +165,7 @@ provisional and will be revised in review.
 | Rollout Path | Does a route to deployment exist | Not yet |
 | Client Commitment | Will the client organisation genuinely engage | Not yet |
 | Clear Use Case Requirements and Metrics | Can it be proven | **Through Monitoring and Analysis** |
-| Physical Suitability | Can it be installed | **Up to installation** |
+| Physical Suitability | Can it be installed | **Re-scored at Site Assessment** |
 | Data Rights | Is it worth doing for Terminus | **Re-scored at Site Assessment** |
 
 **AMENDED after Phase 0. This was written as "two renames from the Round 9
@@ -609,8 +609,19 @@ Extend `config-invariants.test.mjs`.
    table**, and its anchors exist. The same shape as the existing document
    invariant, which closed the gap where two tables held names as
    independent free strings.
-2. **Every stored score references an anchor version that exists.** An
-   orphaned version means a historical score has no definition.
+2. **Every stored score references an anchor version that exists and that
+   carries a complete anchor set for that criterion.** An orphaned version
+   means a historical score has no definition.
+
+   **AMENDED during Phase 1, before the invariant was written, because the
+   obvious phrasing fails on legitimate data.** "References an anchor row"
+   would be wrong: anchors exist for **1, 3 and 5 only**, and 2 and 4 are
+   deliberately "between these", so a genuine score of 2 has a version but no
+   row of its own and would be reported as an orphan on every single
+   occurrence. **The referent is the version, not the row.** Complete means
+   the version carries the full set of anchors that criterion defines, so a
+   half-inserted version is caught rather than silently accepted as a
+   definition a score can point at.
 3. **The rule count assertion updates to the measured figure**, scoped to
    `record_type = 'test_bed'` explicitly, per Round 9's precedent.
 

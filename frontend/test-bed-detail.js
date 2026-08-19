@@ -891,7 +891,12 @@ async function renderTbStageExitCriteria(stageName, isStillCurrent = () => true,
 // unintended field.
 const TB_EXIT_CRITERION_KEYS = new Set([
   'exitQualTechnicalCommercialValue',
-  'exitQualDataAndUseCase',
+  // exitQualDataAndUseCase RETIRED, Round 11 Phase 1 (2026-08-19), together
+  // with its gate rule. The criterion ceases to exist rather than being
+  // renamed: it splits into Clear Use Case Requirements and Metrics and
+  // Data Rights, both scored rather than ticked, arriving in Phase 4.
+  // Leaving it here would render a tick box for a criterion that no longer
+  // exists, against a gate rule that no longer exists to satisfy.
   'exitQualPhysicalSuitability',
   'exitQualPartnerCommitment',
   'exitMonAllMeetingActionsCompleted',
