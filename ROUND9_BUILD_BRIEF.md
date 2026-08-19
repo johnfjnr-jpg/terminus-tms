@@ -478,6 +478,24 @@ constraint Round 7 Phase 7 correctly applied to its own renames.
 - **Exit Criteria** renders Phase 3's full tick list, satisfied and
   unsatisfied both, with judgement criteria as genuinely tickable controls
   and document or field requirements as read-only computed rows.
+
+  **Constraint, fixed in Phase 3 and inherited here explicitly rather than
+  rediscovered. A requirement renders tickable only when BOTH hold:**
+
+  1. its `field` is a member of `TB_EXIT_CRITERION_KEYS`
+     (`src/routes/test-beds.js`), and
+  2. it carries a `label`, which supplies the wording.
+
+  **Label presence alone is not sufficient and must not be used as the
+  test.** `label` is additive and ignored by the engine, so any
+  `payload_field_required` rule may legitimately be given one purely for
+  display. If the panel keyed on the label alone, that rule would render
+  as a tick box, and a user ticking it would write an ISO timestamp into
+  an unrelated payload field. The key-set membership is the half that
+  makes the control safe; the label is only the half that makes it
+  readable. `TB_EXIT_CRITERION_KEYS` is also the allowlist the `PATCH`
+  validates against, so the two conditions together mean the panel can
+  only offer a tick the server would actually accept.
 - **Approvals shows only the tracks that stage's gate actually requires.**
   Confirm what the current renderer does before changing it. If it renders
   every track regardless, that is the fix; if it already scopes to the
@@ -556,6 +574,22 @@ the assertion belongs in the suite where it passes or fails, not in prose.
    damage the ledger drift actually causes, whatever the cause, using
    only the credentials the suite already has. Architecture rule 7 in
    `CLAUDE.md` addresses the cause.
+
+   **Candidate, declined here with the measured reason recorded:
+   an invariant asserting that the local and remote migration ledgers
+   agree.** Declined on cost, not on value. The cost was measured, not
+   estimated: `db.schema('supabase_migrations')` returns `Invalid schema:
+   supabase_migrations`, and no arbitrary-SQL RPC exists, so the
+   credentials `test:db` documents (`SUPABASE_URL`,
+   `SUPABASE_SECRET_KEY`) cannot read the ledger at all. Building it
+   requires one of two things, and both are larger than the check:
+   **a new `public` view or `SECURITY DEFINER` function** exposing the
+   ledger, which is a schema change and a widening of the API surface
+   made to serve a test; or **shelling out to `npx supabase migration
+   list`**, which adds a CLI dependency and a third credential to a suite
+   deliberately scoped to two so it can stay runnable on a clean
+   checkout. Worth revisiting only if ledger drift recurs, or if
+   something else independently justifies exposing the ledger.
 
 **Test evidence required:** `npm test` and `npm run test:db` both passing,
 output pasted in full. For each of the three new invariants, deliberately
