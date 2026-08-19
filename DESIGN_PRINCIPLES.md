@@ -1832,3 +1832,65 @@ Explicitly deferred, not forgotten, not a section number of its own since this i
   **The walkthrough produced an argument from use, pointing the same way.** Eight hesitations were recorded across five scored criteria, and **zero on the confirmation**. It was answered without pausing, in the same session, by the same person, against the same engagement. **The thing that was easy was the thing with no scale**, and the things that were hard were the things whose anchors are conjunctions.
 
   **Worth recording because the two arguments are independent.** A decision defended only by the reasoning that produced it is defended once; this one now has evidence from a source that could have contradicted it and did not. It also sharpens the structural finding above: the difficulty was not in judging the engagement, which was the same engagement throughout, **it was in mapping a judgement onto a scale whose endpoints are compound and whose middle is undescribed.**
+
+- **Round 11A, 2026-08-19: `.find()` where `.filter()` was meant, and it cost the business four-fifths of a save. The fault is one character of intent and the shape is worth more than the fix.**
+
+  `saveTbFields` intercepted scores with `dirtyEntries.find(...)`, took **one**, and passed every other dirty entry to `saveTbDirtyEntries`, which PATCHes them as ordinary payload fields. **The score keys are deliberately absent from `TEST_BED_WRITABLE_KEYS`** - that absence is what makes the series append-only - so the PATCH was rejected with "payload contains fields that cannot be set from this endpoint", **and it took any unrelated dirty field down with it.**
+
+  **Round 11 never exercised it.** Phase 8 drove a full end-to-end walkthrough, scored all five criteria, re-scored three, and passed. Its `score()` helper set one draft and pressed Save, then the next.
+
+- **A driver written alongside the feature inherits the author's model of how the feature is used, and that is structural rather than an oversight. Round 11A, 2026-08-19.**
+
+  **The specific fact that makes it structural: the Phase 8 driver was written by the person who wrote the interception, in the same round, hours apart.** It therefore exercised the shape the code was built for. `recordTbScore` took one score, so the driver recorded one score at a time; the code and its test agreed with each other and both disagreed with how anyone would use a panel carrying five controls and a single Save button. **Scoring five things and pressing Save once was never tried by anyone until the business tried it.**
+
+  **A walkthrough proves the path it walks. It does not discover that a different path exists**, and it is least likely to discover one when its author knows the implementation, because knowing the implementation is exactly what makes the built-for path feel like the natural one.
+
+  **This is the second consecutive round in which the business's first few minutes of real use found a fault that passed every check.** Round 10 shipped a duplicate Summary and a stale wrapper, both caught by someone looking at the screen. Round 11 shipped this, caught the moment someone scored more than one criterion. In both cases the round's own evidence was real, the assertions were true, and the suites were green. **Two rounds is a pattern**: the checks are sound and the usage model behind them is narrower than reality.
+
+  **The cheapest guard, and it is a question rather than a practice: before writing the driver, state how many of a thing a user would do before saving, and drive that number.** One is almost never the answer for a panel with more than one control.
+
+- **Partial failure across N appends is a stated behaviour rather than whatever falls out, because it genuinely cannot be atomic. Round 11A Phase 1, 2026-08-19.** Each score is its own append to its own revision and `record_revisions` is immutable by design, so **there is no rollback available**: a recorded score is recorded. All-or-nothing is not on the menu, and pretending otherwise would be the real error.
+
+  The rule, in full: scores are attempted in panel order; a recorded score **stands**; on the first failure everything stops, the remaining scores are not attempted and the ordinary fields are **not** saved; everything not recorded stays dirty so the edit bar keeps it visible; and the message names what was recorded and what was not, by criterion name rather than payload key.
+
+  **Stopping rather than continuing is deliberate.** A failure here is far more likely to be systemic, an expired token or a dropped connection, than specific to one criterion, and pressing on turns one clear error into a list of them. **Not saving the fields is the other half**: leaving them dirty keeps the edit bar up, so what still needs doing is visible rather than silently half-applied.
+
+  Proven with three valid scores, a fourth deliberately invalid, a fifth never attempted, and an unrelated field dirty in the same save. Server-side afterwards: three recorded, two absent, the field untouched, and the message reading *"Recorded Rollout Path, Client Commitment, Clear Use Case Requirements and Metrics. Physical Suitability could not be recorded: a comment is required at a score of 1 or 2. Your other edits have not been saved and are still open."*
+
+- **OPEN ITEM: the whole-batch cross-tab save. Three problems in one behaviour, older than the fault that exposed it. Round 11A Phase 2, 2026-08-19. Not fixed.** Once Phase 1 landed, the score-specific leak became harmless: scores go to their own endpoint from wherever Save is pressed, and the PATCH carries only the field. **The general case did not become harmless.**
+
+  `tbEdits` and the save bar are page-level and tabs are visibility only, so a field dirtied on one tab is saved by a Save pressed on another. Demonstrated with an invalid Est. Go Live date dirtied on Reference and a unit count edited on Commercials:
+
+      active tab: commercials
+      message: "estGoLiveDate cannot be in the past"
+      the offending field is visible on this tab: false
+      the valid unit-count edit: rejected along with it
+
+  **THREE SEPARATE PROBLEMS, each independently worth fixing:**
+
+  1. **The message names a raw payload key**, `estGoLiveDate`, not the label the user saw on the field. Every other error surface in this system uses the label; this one leaks the schema.
+  2. **The field it names is not on screen**, and nothing in the message reaches it. The user is told which field is wrong and given no way to get to it, on a page with ten tabs.
+  3. **A valid edit is refused because of an invalid one the user cannot see.** The unit count was correct and was rejected with the date. Nothing distinguishes "your edit failed" from "someone else's edit failed and took yours".
+
+  **Pre-existing, and by a long way. The whole-batch PATCH dates to `7ae8a13`, Milestone 4. Fields were spread across tabs by `b5aa346`, Rounds 5 and 6.** So the two halves that combine into this have coexisted for six rounds. **Scoring exposed it rather than caused it**: the score interception was the first thing to put a control on one tab whose failure surfaced on another, which made a long-standing behaviour finally visible.
+
+  **Recorded rather than fixed because the remedy is a design decision, not a repair.** The two candidates are **per-tab save bars**, so a save only ever carries what the user can see, or **a save that names and links its failures**, so a page-level save stays page-level but every error is reachable. The first is simpler and changes the mental model; the second keeps the model and costs more. That is a choice for the business, and this was a fix round scoped to a regression.
+
+
+- **A reproduction reproduces the fault, not the user's session, and the difference was four-fifths of the damage. Round 11A, 2026-08-19.**
+
+  The regression was reproduced exactly: same click sequence, same rejected keys, same error string, `disallowed` read from the server's own response. **From that reproduction the consequence was reported as "the business's work is four-fifths gone", and that was wrong.**
+
+  **The fault was identical and the consequence was not.** The reproduction pressed Save once, so one score landed and four were rejected. The business pressed Save five times over eleven minutes, so four landed and one was rejected. Same defect, opposite outcome, and nothing in the reproduction could have shown it.
+
+  **What showed it was the revision timestamps, and only those:**
+
+      rev 3  12:38:32Z  +measurabilityConfirmed
+      rev 4  12:39:26Z  +scoreRolloutPath
+      rev 5  12:40:30Z  +scoreClientCommitment
+      rev 6  12:41:39Z  +scoreUseCaseRequirementsAndMetrics
+      rev 7  12:49:30Z  +scorePhysicalSuitability
+
+  One append per revision, roughly one a minute. **That is a person retrying**, and it is visible nowhere except in the spacing. The current payload alone shows four scores present and one absent, which is equally consistent with the user having only entered four.
+
+  **The general form: a reproduction establishes the mechanism and says nothing about the blast radius.** How much damage a fault did depends on what the user did in response to it, which is a fact about their session and is recoverable only from the record's own history. **Read the history before reporting the damage**, and where the damage is being reported to the person who suffered it, the difference between "re-enter four scores" and "re-enter one" is the whole value of the report.
