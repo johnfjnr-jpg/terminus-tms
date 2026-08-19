@@ -944,6 +944,23 @@ window.setTbScoreDraft = function (key, value) {
   renderTbScores()
 }
 
+
+// The measurability confirmation saves immediately rather than joining the
+// batched edit bar. It is a single yes or no with nothing to draft, and it is
+// deliberately NOT a score - folding it into the score interception would put
+// a reason dialogue in front of a question that has no scale to move along.
+window.setTbMeasurability = async function (value) {
+  if (value === '') return
+  const result = await api('POST', `/api/test-beds/${tbDetailId}/measurability`, { confirmed: value === 'yes' })
+  if (!result.ok) {
+    const feedback = document.getElementById('tb-save-feedback')
+    feedback.textContent = result.data?.error ?? 'Could not record the confirmation.'
+    feedback.className = 'msg-error'
+    return
+  }
+  await loadTestBedDetail(tbDetailId)
+}
+
 window.setTbScoreComment = function (key, value) {
   tbScoreComments[key] = value
 }
@@ -1036,7 +1053,26 @@ async function renderTbScores() {
     return
   }
 
-  el.innerHTML = tbScoringCriteria.map(c => {
+  const mSeries = tbScoreSeries('measurabilityConfirmed')
+  const mCurrent = mSeries.length ? mSeries[mSeries.length - 1] : null
+  const measurability = `
+    <div class="tb-score-row" data-criterion="measurabilityConfirmed" data-entries="${mSeries.length}">
+      <div class="tb-score-head">
+        <span class="tb-score-name">Can the proposed sensors capture what would be measured?</span>
+        <span class="tb-score-value${mCurrent ? '' : ' tb-score-value--none'}">${
+          mCurrent ? (mCurrent.value ? 'Yes' : 'No') : 'Not confirmed'
+        }</span>
+        <select class="tb-score-select" id="tb-measurability-select" aria-label="Measurability confirmation"
+                onchange="setTbMeasurability(this.value)">
+          <option value="">${mCurrent ? 'Change...' : 'Confirm...'}</option>
+          <option value="yes">Yes</option>
+          <option value="no">No</option>
+        </select>
+      </div>
+      ${mCurrent ? `<div class="ref-notes-row tb-score-entry"><span class="ref-notes-when">${formatDateTime(mCurrent.at)}</span><span class="ref-notes-author">${escHtml(mCurrent.by ?? '--')}</span><span class="ref-notes-text">${mCurrent.value ? 'Yes' : 'No'} at ${escHtml(mCurrent.stage ?? '')}</span></div>` : ''}
+    </div>`
+
+  el.innerHTML = measurability + tbScoringCriteria.map(c => {
     const series = tbScoreSeries(c.criterion_key)
     const current = series.length ? series[series.length - 1] : null
     const expanded = !!tbScoresExpanded[c.criterion_key]

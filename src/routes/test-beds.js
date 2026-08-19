@@ -1280,6 +1280,85 @@ export default async function testBedsRoutes(app) {
   // creation) is untouched and unrelated to this.
   const VALID_CLIENT_BUYER_ROLES = ['Client Commercial Buyer', 'Client Technical Buyer', 'Client Legal Buyer']
 
+  // Appends one entry to an append-only payload series and writes the
+  // revision. Extracted so the measurability confirmation writes through the
+  // SAME path a score does rather than through a second convention that
+  // agrees today and drifts later - the shape is Phase 2's general one, and
+  // two writers of one shape is not a fork of the mechanism.
+  //
+  // Returns { error } with a status, or { ok: true }.
+  async function appendPayloadSeriesEntry(db, recordId, key, entry, actorId) {
+    const { data: revRow, error: revReadErr } = await db
+      .from('record_revisions')
+      .select('revision_number, payload')
+      .eq('record_id', recordId)
+      .order('revision_number', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    // An unchecked error here would read as "no existing series", which is
+    // materially different: it would make a revision look like a first entry.
+    if (revReadErr) return { status: 500, error: revReadErr.message }
+    if (!revRow) return { status: 404, error: 'test bed has no revision' }
+
+    const payload = revRow.payload ?? {}
+    const existing = Array.isArray(payload[key]) ? payload[key] : []
+    const merged = { ...payload, [key]: [...existing, entry] }
+
+    const { error: revErr } = await db
+      .from('record_revisions')
+      .insert({ record_id: recordId, revision_number: revRow.revision_number + 1, payload: merged, created_by: actorId })
+    if (revErr) {
+      if (revErr.code === '42501') return { status: 403, error: 'not permitted' }
+      return { status: 500, error: revErr.message }
+    }
+    return { ok: true, entries: existing.length + 1, existingCount: existing.length }
+  }
+
+  // POST /api/test-beds/:id/measurability
+  //
+  // Round 11 Phase 4.3, 2026-08-19. A plain yes or no, deliberately NOT
+  // folded into the 1 to 5: can the proposed sensors capture what would be
+  // measured? Either they can or they cannot, and a 3 is not a meaningful
+  // answer, which is why it is not scored.
+  //
+  // Recorded WITH AN AUTHOR, because it is a technical judgement and it is
+  // currently the only technical judgement recorded anywhere before
+  // commitment. Entitlement stays out of scope, consistent with everything
+  // else in this system: this proves who confirmed it, not that they were
+  // entitled to confirm it. The author is written here rather than accepted
+  // from the client, for the same reason a score's is.
+  app.post('/test-beds/:id/measurability', async (request, reply) => {
+    const { confirmed, comment } = request.body ?? {}
+    if (typeof confirmed !== 'boolean') {
+      return reply.code(400).send({ error: 'confirmed must be true or false' })
+    }
+    const db = createUserClient(request.jwt)
+
+    const { data: record, error: recErr } = await db
+      .from('records').select('id, status')
+      .eq('id', request.params.id).eq('record_type', 'test_bed').is('deleted_at', null).maybeSingle()
+    if (recErr) return reply.code(500).send({ error: recErr.message })
+    if (!record) return reply.code(404).send({ error: 'test bed not found' })
+
+    const entry = {
+      at: new Date().toISOString(),
+      by: request.user.email,
+      value: confirmed,
+      stage: record.status,
+    }
+    if (String(comment ?? '').trim()) entry.comment = String(comment).trim()
+
+    const result = await appendPayloadSeriesEntry(db, record.id, 'measurabilityConfirmed', entry, request.user.id)
+    if (!result.ok) return reply.code(result.status).send({ error: result.error })
+
+    await db.from('audit_log').insert({
+      record_id: record.id, record_type: 'test_bed',
+      action: 'measurability_confirmed', actor_id: request.user.id,
+      detail: { value: confirmed, stage: entry.stage },
+    })
+    return reply.code(201).send({ entry, entries: result.entries })
+  })
+
   // POST /api/test-beds/:id/scores
   //
   // Round 11 Phase 2, 2026-08-19. Appends ONE entry to a criterion's
