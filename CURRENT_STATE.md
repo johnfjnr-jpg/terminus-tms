@@ -12,8 +12,8 @@ Contains no environment variable, key or token, and no client data. Records
 appear as counts by status only, never by name or reference code, because
 this file is uploaded into chat sessions.
 
-- Generated at: `2026-08-19T01:48:00.148Z`
-- Git commit: `c230d6d7a5111de295a9100a764d40dbd66e862e`
+- Generated at: `2026-08-19T07:09:05.113Z`
+- Git commit: `efa1ea33600d87cee72a9452d9618f3e1e319b39`
 - Working tree at generation: `dirty (uncommitted changes present)`
 
 If the commit above is not current `HEAD`, this file is stale and is
@@ -175,21 +175,21 @@ _None._
 
 ## Record counts by type and status
 
-43 live, 1642 soft deleted, 1685 rows in total.
+56 live, 2147 soft deleted, 2203 rows in total.
 
 | record_type | status | live | soft deleted |
 |---|---|---|---|
-| account | active | 7 | 141 |
+| account | active | 7 | 152 |
 | contact | Parked | 0 | 2 |
-| contact | Qualified | 7 | 89 |
-| contact | Unqualified | 1 | 49 |
-| document | approved | 20 | 151 |
+| contact | Qualified | 9 | 108 |
+| contact | Unqualified | 1 | 53 |
+| document | approved | 29 | 234 |
 | opportunity | Discovery | 3 | 39 |
 | opportunity | Negotiation | 0 | 1 |
 | opportunity | Proposal | 0 | 1 |
-| test_bed | Closed | 2 | 3 |
+| test_bed | Closed | 3 | 7 |
 | test_bed | Pre-Site Assessment | 0 | 3 |
-| test_bed | Qualification | 3 | 84 |
+| test_bed | Qualification | 4 | 130 |
 | test_bed | Site Assessment | 0 | 2 |
 
 ### Test fixture record types
@@ -200,19 +200,19 @@ row by row, and are included in the totals above.
 
 | distinct `harness_*` record types | live rows | soft deleted rows |
 |---|---|---|
-| 90 | 0 | 1077 |
+| 116 | 0 | 1415 |
 
 No harness record type holds a live row; every fixture row is soft deleted.
 
 ## `approvals`
 
-38 rows, of which 0 carry a null `stage`.
+135 rows, of which 0 carry a null `stage`.
 
 | decision | track | rows | null stage |
 |---|---|---|---|
-| approved | Commercial | 15 | 0 |
-| approved | Legal | 10 | 0 |
-| approved | Technical | 13 | 0 |
+| approved | Commercial | 54 | 0 |
+| approved | Legal | 30 | 0 |
+| approved | Technical | 51 | 0 |
 
 ## Writable-key allowlists
 
@@ -251,7 +251,7 @@ than written as a literal list, so its members are not enumerable here.
 
 ## Registered routes
 
-41 routes. Prefixes parsed from `src/server.js`, paths from each route module.
+43 routes. Prefixes parsed from `src/server.js`, paths from each route module.
 
 | method | path | auth | source |
 |---|---|---|---|
@@ -268,6 +268,7 @@ than written as a literal list, so its members are not enumerable here.
 | POST | `/api/contacts/:id/create-opportunity` | authenticated | `src/routes/contacts.js` |
 | POST | `/api/contacts/:id/create-test-bed` | authenticated | `src/routes/contacts.js` |
 | POST | `/api/contacts/:id/link-account` | authenticated | `src/routes/contacts.js` |
+| GET | `/api/contacts/:id/test-bed-name-suggestion` | authenticated | `src/routes/contacts.js` |
 | POST | `/api/deals/calculate` | authenticated | `src/routes/deals.js` |
 | POST | `/api/deals/submit` | authenticated | `src/routes/deals.js` |
 | GET | `/api/industries` | authenticated | `src/routes/industries.js` |
@@ -295,6 +296,7 @@ than written as a literal list, so its members are not enumerable here.
 | POST | `/api/test-beds/:id/complete-document` | authenticated | `src/routes/test-beds.js` |
 | POST | `/api/test-beds/:id/convert` | authenticated | `src/routes/test-beds.js` |
 | GET | `/api/test-beds/:id/document-requirements` | authenticated | `src/routes/test-beds.js` |
+| GET | `/api/test-beds/:id/lifecycle-documents` | authenticated | `src/routes/test-beds.js` |
 | GET | `/health` | public | `src/server.js` |
 
 ## Migrations, in filename order

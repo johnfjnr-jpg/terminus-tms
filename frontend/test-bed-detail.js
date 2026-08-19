@@ -38,11 +38,26 @@ const REGION_OPTIONS = ['Americas', 'Europe & UK', 'Middle East', 'APAC', 'Afric
 // any of the 4 roles, no title-based restriction. Resolved to real
 // options at render time (renderTbReference), not here - this array is a
 // static const evaluated before terminusStaffCache is ever populated.
+// Round 10 Phase 1 (2026-08-19): `name` becomes editable. It has been a
+// writable key since Milestone 4 but had no control anywhere, which is
+// exactly why Round 5 Phase 2 ruled out a creation-time name prompt - a
+// badly-chosen name could not be corrected afterward. Adding the control
+// here is what makes that reversal safe, so the two halves of Phase 1
+// ship together rather than the prompt landing on its own.
+//
+// It uses the ordinary tbFieldRow click-to-edit shape, the same as every
+// other field on this tab, and it saves through the same batched save bar.
+// It is NOT a separate mechanism and must not become one.
+const TB_NAME_FIELD = { key: 'name', label: 'Test Bed Name' }
+// Round 10 Phase 3.1 (2026-08-19): labels shortened per the business's own
+// table. DISPLAY ONLY - every `key` here is unchanged, so no payload key,
+// endpoint key or column moves. The shortening pairs with Phase 2 item 4's
+// narrowing of Customer Details, which ships in the same change.
 const TB_TERMINUS_FIELDS = [
   { key: 'terminusLead', label: 'Terminus Lead', staffField: true },
-  { key: 'commercialAuthority', label: 'Commercial Authority', staffField: true },
-  { key: 'technicalAuthority', label: 'Technical Authority', staffField: true },
-  { key: 'terminusLegalOwner', label: 'Legal Authority', staffField: true },
+  { key: 'commercialAuthority', label: 'Comm. Auth', staffField: true },
+  { key: 'technicalAuthority', label: 'Tech. Auth', staffField: true },
+  { key: 'terminusLegalOwner', label: 'Legal Auth', staffField: true },
   { key: 'region', label: 'Region', options: REGION_OPTIONS },
   { key: 'country', label: 'Country' },
 ]
@@ -55,6 +70,15 @@ const TB_TERMINUS_FIELDS = [
 const TB_CUSTOMER_FIELDS = [
   { key: 'initialLead', label: 'Client Lead' },
 ]
+// Matches VALID_INSTALLATION_ENVIRONMENT in src/routes/test-beds.js exactly.
+// Declared HERE, above TB_SITE_FIELDS, because that array references it in
+// its own initialiser and `const` is not hoisted - declaring it further down
+// threw "Cannot access before initialization" at load and took the entire
+// file with it, leaving window.initTestBedDetailPanel undefined and the
+// whole Test Bed detail panel dead. Same total-page-failure mode as the
+// recorded top-level const collision, from a different cause.
+const INSTALLATION_ENVIRONMENT_OPTIONS = ['Indoor', 'Outdoor', 'Both']
+
 const TB_SUMMARY_FIELD = { key: 'summary', label: 'Summary' }
 // Matches VALID_SITE_OWNERSHIP in src/routes/test-beds.js exactly (no
 // frontend-reachable picklist-admin endpoint exists for this yet, same
@@ -64,7 +88,13 @@ const SITE_OWNERSHIP_OPTIONS = ['Local Authority', 'Port Authority', 'National H
 
 const TB_SITE_FIELDS = [
   { key: 'siteOwnership', label: 'Site Ownership', options: SITE_OWNERSHIP_OPTIONS },
-  { key: 'installationEnvironment', label: 'Installation Environment' },
+  // INST. ENV., not INT. ENV. - confirmed with the business: "Int." reads
+  // as Internal or International, and "Inst." matches the existing
+  // "Est. Inst Date" convention. Options follow the VALID_SITE_OWNERSHIP
+  // hardcoded-array convention rather than a new picklist table; the
+  // business has confirmed these move to an Admin-configured list later,
+  // and a table built now would be a second home for the same decision.
+  { key: 'installationEnvironment', label: 'Inst. Env.', options: INSTALLATION_ENVIRONMENT_OPTIONS },
   { key: 'siteAddress', label: 'Site Address' },
   { key: 'city', label: 'City' },
   { key: 'estCostPerUnit', label: 'Estimated Cost per Unit' },
@@ -126,9 +156,22 @@ const TB_INSTALL_FIELDS = [
   { key: 'installer', label: 'Installer' },
   { key: 'techTeam', label: 'Test Bed Tech Team' },
 ]
-const TB_ALL_EDITABLE_FIELDS = [...TB_TERMINUS_FIELDS, ...TB_CUSTOMER_FIELDS, ...TB_SITE_FIELDS, ...TB_SENSOR_COUNT_FIELDS, ...TB_DATE_FIELDS, ...TB_INSTALL_FIELDS, ...TB_COST_FIELDS, TB_SUMMARY_FIELD]
+const TB_ALL_EDITABLE_FIELDS = [TB_NAME_FIELD, ...TB_TERMINUS_FIELDS, ...TB_CUSTOMER_FIELDS, ...TB_SITE_FIELDS, ...TB_SENSOR_COUNT_FIELDS, ...TB_DATE_FIELDS, ...TB_INSTALL_FIELDS, ...TB_COST_FIELDS, TB_SUMMARY_FIELD]
 
+// These strings are NOT labels. Each is a real role value written to
+// record_contacts, validated by VALID_CLIENT_BUYER_ROLES in test-beds.js,
+// and named by three live `contact_role_linked` gate rules on the
+// Qualification exit. Renaming any of them would break those gates.
+// Round 10 Phase 3.1 shortens what is DISPLAYED and leaves the values
+// alone - the exact distinction the standing display-rename rule exists
+// for, and the reason the shortened text lives in its own map.
 const CLIENT_BUYER_ROLES = ['Client Commercial Buyer', 'Client Technical Buyer', 'Client Legal Buyer']
+const CLIENT_BUYER_ROLE_LABELS = {
+  'Client Commercial Buyer': 'Comm. Buyer',
+  'Client Technical Buyer': 'Tech. Buyer',
+  'Client Legal Buyer': 'Legal Buyer',
+}
+
 
 function tbFieldLabel(key) {
   return TB_ALL_EDITABLE_FIELDS.find(f => f.key === key)?.label ?? key
@@ -183,7 +226,7 @@ function tbFieldRow(key, label, value, opts = {}) {
   return `
   <div class="ref-field" data-key="${key}">
     <div class="ref-field-label"><span>${label}</span></div>
-    <div class="ref-field-display" id="tb-display-${key}" tabindex="0" onclick="openTbField('${key}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openTbField('${key}')}">${display}</div>
+    <div class="ref-field-display" id="tb-display-${key}" tabindex="0" onclick="openTbField('${key}',true)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openTbField('${key}',true)}">${display}</div>
     <div class="ref-field-edit hidden" id="tb-edit-${key}">
       ${inputTag}
       <span class="ref-field-discard" tabindex="0" onclick="discardTbField('${key}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();discardTbField('${key}')}">&times;</span>
@@ -207,7 +250,10 @@ function tbReadonlyRow(label, value) {
 // own referenceRows order (Terminus Ops.dc.html:744).
 function renderTbReference() {
   document.getElementById('tb-terminus-rows').innerHTML =
-    tbReadonlyRow('Terminus Reference', tbBed.reference_code)
+    // Name first: it is the record's own identity, and it is the value the
+    // page header renders. Terminus Reference stays immediately beneath it.
+    tbFieldRow(TB_NAME_FIELD.key, TB_NAME_FIELD.label, tbPayload[TB_NAME_FIELD.key], {})
+    + tbReadonlyRow('Terminus Reference', tbBed.reference_code)
     + TB_TERMINUS_FIELDS.map(f => tbFieldRow(f.key, f.label, tbPayload[f.key], { options: f.staffField ? terminusStaffCache.map(s => s.name) : f.options })).join('')
     + tbReadonlyRow('Industry', tbBed.industry?.name)
     + tbReadonlyRow('Stage', tbBed.status)
@@ -255,17 +301,58 @@ function renderTbReference() {
     + TB_DATE_FIELDS.map(f => tbFieldRow(f.key, f.label, tbPayload[f.key], { date: f.date, noPast: f.noPast, number: f.number, integer: f.integer, suffix: f.suffix })).join('')
 }
 
+// Round 10 Phase 2 (2026-08-19): Notes moved here from the header and
+// gained the two-most-recent default plus expansion to the genuine full
+// history, per the brief's "retaining" requirement.
+//
+// A REAL DEFECT WAS FOUND WHILE MOVING IT, and is fixed here rather than
+// carried across. The header version computed its default as
+// `notes.slice(-2).reverse()`, which assumes the array is oldest-first.
+// It is not: addTbNote() below PREPENDS (`[newNote, ...existing]`), so the
+// array is newest-first and slice(-2) takes the two OLDEST notes. The
+// header therefore showed the two oldest under the label "Latest notes",
+// and "Show all" listed the whole history oldest-first. Demonstrated on a
+// real record with three notes before this change: stored THIRD/SECOND/
+// FIRST, header showed FIRST and SECOND. It had never been visible in
+// production because no live Test Bed had more than one note.
+//
+// Ordering is now derived from the notes' own timestamps rather than from
+// an assumption about array order, so a payload written by any future
+// path sorts correctly regardless of which end it appends to.
+let tbNotesExpanded = false
+
+window.toggleTbNotes = function () {
+  tbNotesExpanded = !tbNotesExpanded
+  renderTbNotes()
+}
+
 function renderTbNotes() {
   const notes = Array.isArray(tbPayload.notes) ? tbPayload.notes : []
   const el = document.getElementById('tb-notes-list')
+  const title = document.getElementById('tb-notes-title')
   if (!notes.length) {
+    if (title) title.textContent = 'Notes'
     el.innerHTML = '<p class="empty-state">No notes yet.</p>'
     return
   }
-  el.innerHTML = notes.map(n => `
+
+  const byNewest = [...notes].sort((a, b) => String(b.at ?? '').localeCompare(String(a.at ?? '')))
+  const shown = tbNotesExpanded ? byNewest : byNewest.slice(0, 2)
+  if (title) title.textContent = tbNotesExpanded || notes.length <= 2 ? 'Notes' : 'Latest notes'
+
+  // Rule 10: timestamp, then author, then text, via the shared
+  // .ref-notes-row markup - unchanged, not a bottom-of-page variant.
+  const rows = shown.map(n => `
     <div class="ref-notes-row">
       <span class="ref-notes-when">${formatDate(n.at)}</span><span class="ref-notes-author">${escHtml(n.by ?? '')}</span><span class="ref-notes-text">${escHtml(n.text)}</span>
     </div>`).join('')
+
+  const toggle = notes.length > 2
+    ? `<button class="btn-text tb-header-notes-toggle" id="tb-notes-toggle" onclick="toggleTbNotes()">${
+        tbNotesExpanded ? 'Show fewer' : `Show all ${notes.length} notes`}</button>`
+    : ''
+
+  el.innerHTML = rows + toggle
 }
 
 window.addTbNote = async function () {
@@ -292,13 +379,29 @@ window.addTbNote = async function () {
 // test-beds.js) since Phase 6 is the very next phase in this round, not
 // dropped from the schema, just no longer rendered as a plain typed
 // field here ahead of their real replacement landing.
+// Round 10 Phase 3 (2026-08-19): this used to hardcode each label and each
+// opts object at the call site instead of reading TB_SITE_FIELDS, so
+// changing a field definition changed nothing on screen. Phase 3.1's
+// "Inst. Env." rename and Phase 3.2's picklist were both applied to the
+// definition and both silently had NO effect until this was found in the
+// browser. Exactly the gap Round 5 Phase 4 recorded on TB_DATE_FIELDS,
+// where the render call site "explicitly constructed its own opts object
+// rather than spreading the field definition" and would have dropped
+// noPast/integer. Same file, same shape, fixed the general way this time:
+// the definitions are now the single source for label AND options.
+// The four keys this panel actually renders, named explicitly. NOT the whole
+// of TB_SITE_FIELDS: that array still carries estCostPerUnit and
+// indicativeCost, which Round 5 Phase 6 made server-computed and removed
+// from TEST_BED_WRITABLE_KEYS, so rendering them here would put two
+// editable fields on screen whose every save the server rejects. The array
+// stays their home because it is still the batched-save field list.
+const TB_SITE_PANEL_KEYS = ['siteOwnership', 'installationEnvironment', 'siteAddress', 'city']
+
 function renderTbSiteDetails() {
-  const siteOwnershipField = TB_SITE_FIELDS.find(f => f.key === 'siteOwnership')
-  document.getElementById('tb-site-rows').innerHTML =
-    tbFieldRow('siteOwnership', 'Site Ownership', tbPayload.siteOwnership, { options: siteOwnershipField.options })
-    + tbFieldRow('installationEnvironment', 'Installation Environment', tbPayload.installationEnvironment)
-    + tbFieldRow('siteAddress', 'Site Address', tbPayload.siteAddress)
-    + tbFieldRow('city', 'City', tbPayload.city)
+  document.getElementById('tb-site-rows').innerHTML = TB_SITE_PANEL_KEYS.map(key => {
+    const f = TB_SITE_FIELDS.find(x => x.key === key)
+    return tbFieldRow(f.key, f.label, tbPayload[f.key], { options: f.options })
+  }).join('')
 
   // Sensor count fields themselves are edited on the Commercials tab now
   // (renderTbSensorCounts) - this list is still read directly off the
@@ -339,7 +442,30 @@ function renderTbSensorCounts() {
 // work). Generating names from the real, typed counts is honest; a
 // status/location/photo would not be, so those stay an explicit "Not
 // yet linked" rather than invented.
-function renderTbSensors() {
+// Round 10 Phase 8 (2026-08-19): a Show Sensors toggle, and one panel per
+// sensor instead of a flat list.
+//
+// CONTENTS ARE DELIBERATELY MINIMAL AND NOTHING IS INVENTED. Each panel
+// carries the sensor's identity and the "not yet linked to a real device"
+// state that was already there, and that is the complete set of what this
+// system knows about an individual sensor. The counts are plain typed
+// numbers on the Test Bed's payload; no device record exists to join to, so
+// there is no serial, no location, no status and no install date to show.
+// The panel says it has room for detail rather than filling it with
+// plausible-looking blanks - an empty field labelled "Serial" would imply a
+// serial exists and has not been entered, which is false.
+//
+// This is the visible surface of a real gap, not a layout change. See
+// DESIGN_PRINCIPLES: the linkage mechanism already exists in the prototype
+// (applyDeviceLink/linkTargetOptions) and belongs to Asset Management.
+let tbSensorsExpanded = false
+
+window.toggleTbSensors = function () {
+  tbSensorsExpanded = !tbSensorsExpanded
+  renderTbSensors()
+}
+
+function tbSensorList() {
   const counts = [
     { prefix: 'SafeSight Camera', n: Number(tbPayload.safesightCameras) || 0 },
     { prefix: 'Air Quality Sensor', n: Number(tbPayload.airQualitySensors) || 0 },
@@ -349,16 +475,41 @@ function renderTbSensors() {
   for (const c of counts) {
     for (let i = 1; i <= c.n; i++) rows.push(`${c.prefix} ${i}`)
   }
+  return rows
+}
+
+function renderTbSensors() {
+  const rows = tbSensorList()
   const el = document.getElementById('tb-sensors-list')
+  const toggle = document.getElementById('tb-sensors-toggle')
+  if (!el) return
+
   if (!rows.length) {
+    if (toggle) { toggle.textContent = ''; toggle.classList.add('hidden') }
     el.innerHTML = '<p class="empty-state">No sensor counts set yet.</p>'
+    el.dataset.sensors = '0'
     return
   }
-  el.innerHTML = rows.map(name => `
-    <div class="data-row">
-      <span style="font-size:13px">${escHtml(name)}</span>
-      <span class="data-row-label">Not yet linked to a real device</span>
-    </div>`).join('')
+
+  if (toggle) {
+    toggle.classList.remove('hidden')
+    toggle.textContent = tbSensorsExpanded ? 'Hide sensors' : `Show sensors (${rows.length})`
+    toggle.onclick = () => window.toggleTbSensors()
+  }
+  el.dataset.sensors = String(rows.length)
+  el.dataset.expanded = tbSensorsExpanded ? 'true' : 'false'
+
+  if (!tbSensorsExpanded) {
+    el.innerHTML = ''
+    return
+  }
+
+  el.innerHTML = `<div class="tb-sensor-grid">` + rows.map(name => `
+    <div class="tb-sensor-panel" data-sensor="${escHtml(name)}">
+      <p class="tb-sensor-name">${escHtml(name)}</p>
+      <p class="tb-sensor-state">Not linked to a device</p>
+    </div>`).join('') + `</div>
+    <p class="tb-sensor-note">Per-sensor detail is not held anywhere yet. These panels carry the sensor's identity only, and gain real content when Asset Management links each one to a device record.</p>`
 }
 
 // Commercials tab (Round 5 Phase 6, 2026-08-17). Rate inputs use the
@@ -572,22 +723,31 @@ async function renderTbBuyerRows() {
     if (current) {
       return `
       <div class="ref-field" data-key="buyer-${role}">
-        <div class="ref-field-label"><span>${escHtml(role)}</span></div>
+        <div class="ref-field-label"><span>${escHtml(CLIENT_BUYER_ROLE_LABELS[role] ?? role)}</span></div>
         <div class="ref-field-display readonly">${escHtml(current.name ?? current.contact_id)}</div>
       </div>`
     }
     const options = tbAccountContacts.map(c => `<option value="${c.id}">${escHtml(c.payload?.name ?? c.id)}</option>`).join('')
     return `
     <div class="ref-field" data-key="buyer-${role}">
-      <div class="ref-field-label"><span>${escHtml(role)}</span></div>
-      <div style="display:flex;gap:8px;align-items:center">
+      <div class="ref-field-label"><span>${escHtml(CLIENT_BUYER_ROLE_LABELS[role] ?? role)}</span></div>
+      <div class="tb-buyer-controls">
         <!-- Round 6 Phase 2 (2026-08-17): selecting a Contact saves
              directly, no separate "Link" confirm click - the standalone
              Link button (still present on Opportunity's own, unchanged,
              Buyer Role dropdown, out of this phase's scope) is removed
              here specifically. -->
         <select id="tb-buyer-select-${escHtml(role)}" onchange="linkTbBuyer('${escHtml(role)}')">
-          <option value="">${tbAccountContacts.length ? 'Select a contact linked to this Account' : 'No Contacts linked to this Account yet'}</option>
+          <!-- "Select a contact", not "Select a contact linked to this
+               Account". Measured: the long version needs ~268px to render
+               without clipping and the narrowed card affords ~204px, so it
+               was the single widest thing in the panel and it is a
+               PLACEHOLDER, not data - real contact names are far shorter.
+               Opportunity's identical control (opportunity-reference.js) is
+               deliberately left alone: its panel is not narrowed, so it has
+               no truncation to fix, and changing it would be an unrequested
+               display change on a screen this phase does not cover. -->
+          <option value="">${tbAccountContacts.length ? 'Select a contact' : 'No Contacts linked yet'}</option>
           ${options}
         </select>
         <!-- Round 5 Phase 9 (2026-08-17): the desired Contact may not
@@ -629,24 +789,41 @@ window.linkTbBuyer = async function (role) {
 // derived criteria list. Purely a read: never attempts the transition
 // itself, so viewing this tab can never advance the stage as a side
 // effect.
-async function renderTbStageExitCriteria(stageName) {
+// isStillCurrent (Round 10 Phase 5A): required once the three stage-panel
+// fetches run concurrently. This renderer previously had NO token guard and
+// was safe only by running last; started alongside the others it can resolve
+// after a newer tab's load and write the wrong stage into the panel. Same
+// predicate and same shape as renderTestBedDocuments'.
+// recordId (Round 10 Phase 5B): taken from the caller rather than read off
+// this file's own tbDetailId, which is set by initTestBedDetailPanel AFTER
+// renderTestBedDetail has already assigned currentTestBed and awaited two
+// further network calls. Clicking a stage tab inside that window - the same
+// real race tbUserPickedTab was added for in Round 5 Phase 7 - fetched
+// /api/records/null/exit-criteria, 404'd, and left the panel reading
+// "Unable to load exit criteria" until the user clicked away and back.
+// The other two renderers never had this because they were already passed
+// the record. Reproduced deliberately before fixing.
+async function renderTbStageExitCriteria(stageName, isStillCurrent = () => true, recordId = null) {
   const el = document.getElementById('tb-stage-exit-criteria-list')
   if (!el) return
-  const result = await api('GET', `/api/records/${tbDetailId}/exit-criteria?stage=${encodeURIComponent(stageName)}`)
+  const id = recordId ?? tbDetailId
+  if (!id) { markStagePanelFailed(el); el.innerHTML = '<p class="empty-state">Unable to load exit criteria.</p>'; return }
+  const result = await api('GET', `/api/records/${id}/exit-criteria?stage=${encodeURIComponent(stageName)}`)
+  if (!isStillCurrent()) return
   if (!result.ok) {
     el.innerHTML = '<p class="empty-state">Unable to load exit criteria.</p>'
-    el.dataset.stage = stageName
+    markStagePanelFailed(el)
     return
   }
   const { to_stage, requirements } = result.data
   if (!to_stage) {
     el.innerHTML = '<p class="empty-state">This is the final stage - nothing further to exit toward.</p>'
-    el.dataset.stage = stageName
+    markStagePanelSettled(el, stageName)
     return
   }
   if (!requirements.length) {
     el.innerHTML = `<p class="empty-state">No exit criteria configured for ${escHtml(to_stage)}.</p>`
-    el.dataset.stage = stageName
+    markStagePanelSettled(el, stageName)
     return
   }
 
@@ -677,7 +854,7 @@ async function renderTbStageExitCriteria(stageName) {
     const mark = r.met ? '<span class="tb-crit-box tb-crit-box--met">&#10003;</span>' : '<span class="tb-crit-box"></span>'
 
     if (tickable) {
-      return `<div class="tb-crit-row tb-crit-row--tickable" onclick="toggleExitCriterion('${escHtml(r.field)}', ${r.met ? 'true' : 'false'})" title="${r.met ? 'Tick to clear' : 'Tick to confirm'}">
+      return `<div class="tb-crit-row tb-crit-row--tickable" data-field="${escHtml(r.field)}" onclick="toggleExitCriterion('${escHtml(r.field)}', ${r.met ? 'true' : 'false'})" title="${r.met ? 'Tick to clear' : 'Tick to confirm'}">
         ${mark}<span class="tb-crit-text">${label}</span>
       </div>`
     }
@@ -697,7 +874,7 @@ async function renderTbStageExitCriteria(stageName) {
   el.innerHTML = summary + rows
   // Which stage this panel is SHOWING. See the same marker on the
   // documents panel for why verification waits on it.
-  el.dataset.stage = stageName
+  markStagePanelSettled(el, stageName)
   const fb = document.createElement('div')
   fb.id = 'tb-crit-feedback'
   fb.className = 'tb-doc-feedback'
@@ -723,20 +900,62 @@ const TB_EXIT_CRITERION_KEYS = new Set([
 // Tick writes an ISO timestamp; untick sends null, which the server
 // deletes the key for. Never a boolean: payload_field_required treats a
 // stored `false` as PRESENT, so an unticked box would open the gate.
-window.toggleExitCriterion = async (field, isMet) => {
-  const fb = document.getElementById('tb-crit-feedback')
-  const result = await api('PATCH', `/api/test-beds/${tbDetailId}`, {
-    payload: { [field]: isMet ? null : new Date().toISOString() }
-  })
-  if (!result.ok) {
-    if (fb) {
-      fb.textContent = `Could not update: ${result.data?.error ?? 'unknown error'}`
-      fb.className = 'tb-doc-feedback err'
+// Round 10 Phase 5B (2026-08-19).
+//
+// Measured after 5A's parallelising: click to visible tick was 1162ms, two
+// SERIAL round trips - PATCH 305ms, then a full exit-criteria GET 838ms -
+// with nothing at all changing on screen in between. The tick was waiting
+// on a recomputation of every OTHER row before showing its own result.
+//
+// NOT OPTIMISTIC, deliberately, and this is the whole design. The row is
+// updated only after its own PATCH has been CONFIRMED by the server, which
+// is the point at which the value is genuinely stored. What it no longer
+// waits for is the recomputation of everything derived from it. So the
+// contract holds: nothing is displayed that the server has not confirmed,
+// and a failed write leaves the control exactly as it was.
+//
+// Writes are SERIALISED per record. Two PATCHes in flight together each
+// merge into whatever revision they read at the start, so an interleaved
+// pair can silently drop the first tick - "tick two criteria in rapid
+// succession and confirm both register" is precisely the case that breaks.
+// A queue is the honest fix; a debounce would only make it less likely.
+let tbCriterionQueue = Promise.resolve()
+
+function applyConfirmedCriterionTick(field, met) {
+  const row = document.querySelector(`#tb-stage-exit-criteria-list .tb-crit-row--tickable[data-field="${CSS.escape(field)}"]`)
+  if (!row) return
+  const box = row.querySelector('.tb-crit-box')
+  if (box) box.className = met ? 'tb-crit-box tb-crit-box--met' : 'tb-crit-box'
+  if (box) box.innerHTML = met ? '&#10003;' : ''
+  row.setAttribute('title', met ? 'Tick to clear' : 'Tick to confirm')
+  row.setAttribute('onclick', `toggleExitCriterion('${field}', ${met ? 'true' : 'false'})`)
+}
+
+window.toggleExitCriterion = (field, isMet) => {
+  const run = async () => {
+    const fb = document.getElementById('tb-crit-feedback')
+    if (fb) { fb.textContent = ''; fb.className = '' }
+    const stageAtClick = currentTbStageTab
+    const recordId = tbDetailId
+    const result = await api('PATCH', `/api/test-beds/${recordId}`, {
+      payload: { [field]: isMet ? null : new Date().toISOString() }
+    })
+    if (!result.ok) {
+      const el = document.getElementById('tb-crit-feedback')
+      if (el) {
+        el.textContent = `Could not update: ${result.data?.error ?? 'unknown error'}`
+        el.className = 'tb-doc-feedback err'
+      }
+      return // control untouched - a failed write must not look like a success
     }
-    return
+    // Server-confirmed. Reflect THIS row now, before the recomputation.
+    if (currentTbStageTab === stageAtClick) applyConfirmedCriterionTick(field, !isMet)
+    // Then bring the derived state up to date. Not awaited by the tick.
+    await renderTbStageExitCriteria(stageAtClick, () => currentTbStageTab === stageAtClick, recordId)
+    refreshTbNextStageButton()
   }
-  await renderTbStageExitCriteria(currentTbStageTab)
-  refreshTbNextStageButton()
+  tbCriterionQueue = tbCriterionQueue.then(run, run)
+  return tbCriterionQueue
 }
 
 // ── Click-to-edit mechanics (fields only - Sensors/Use Cases/Install
@@ -822,14 +1041,17 @@ function wireTbFieldInputs() {
   })
 }
 
-window.openTbField = function (key) {
+// fromUserGesture (Round 10 Phase 0A): true only from the real click and
+// keydown handlers on the display element. The restore path below passes
+// nothing on purpose - see window.revealFieldControl in app.js.
+window.openTbField = function (key, fromUserGesture) {
   if (tbEdits[key]) return
   const orig = String(tbPayload[key] ?? '')
   tbEdits[key] = { draft: orig, orig }
   document.getElementById(`tb-display-${key}`).classList.add('hidden')
   document.getElementById(`tb-edit-${key}`).classList.remove('hidden')
   const input = document.getElementById(`tb-input-${key}`)
-  input.focus()
+  window.revealFieldControl(input, fromUserGesture)
   // Clear a stale error from an earlier, unrelated failed save (2026-08-15
   // fix) - tb-save-feedback previously only got reset at the top of
   // saveTbFields(), so a real failure (e.g. Summary rejected by the

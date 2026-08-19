@@ -49,7 +49,7 @@ function acctFieldRow(key, label, value, opts = {}) {
   return `
   <div class="ref-field" data-key="${key}">
     <div class="ref-field-label"><span>${label}</span></div>
-    <div class="ref-field-display" id="acct-display-${key}" tabindex="0" onclick="openAcctField('${key}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openAcctField('${key}')}">${escHtml(v) || '--'}</div>
+    <div class="ref-field-display" id="acct-display-${key}" tabindex="0" onclick="openAcctField('${key}',true)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openAcctField('${key}',true)}">${escHtml(v) || '--'}</div>
     <div class="ref-field-edit hidden" id="acct-edit-${key}">
       ${inputTag}
       <span class="ref-field-discard" tabindex="0" onclick="discardAcctField('${key}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();discardAcctField('${key}')}">&times;</span>
@@ -210,13 +210,14 @@ function wireAcctFieldInputs() {
   })
 }
 
-window.openAcctField = function (key) {
+// fromUserGesture (Round 10 Phase 0A): see window.revealFieldControl in app.js.
+window.openAcctField = function (key, fromUserGesture) {
   if (acctEdits[key]) return
   const orig = String(acctPayload[key] ?? '')
   acctEdits[key] = { draft: orig, orig }
   document.getElementById(`acct-display-${key}`).classList.add('hidden')
   document.getElementById(`acct-edit-${key}`).classList.remove('hidden')
-  document.getElementById(`acct-input-${key}`).focus()
+  window.revealFieldControl(document.getElementById(`acct-input-${key}`), fromUserGesture)
   clearAcctSaveFeedback()
   updateAcctSaveBar()
 }

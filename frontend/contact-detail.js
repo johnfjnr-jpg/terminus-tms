@@ -506,7 +506,7 @@ function cdColumnFieldRow(field, currentId) {
   return `
   <div class="ref-field" data-key="${field.key}">
     <div class="ref-field-label"><span>${field.label}</span></div>
-    <div class="ref-field-display" id="cd-display-${field.key}" onclick="openCdField('${field.key}')">${escHtml(cdIndustryName(currentId)) || '--'}</div>
+    <div class="ref-field-display" id="cd-display-${field.key}" onclick="openCdField('${field.key}',true)">${escHtml(cdIndustryName(currentId)) || '--'}</div>
     <div class="ref-field-edit hidden" id="cd-edit-${field.key}">
       <select id="cd-input-${field.key}">
         <option value="">Select ${field.label.toLowerCase()}</option>
@@ -525,7 +525,7 @@ function cdFieldRow(key, label, value, opts = {}) {
   return `
   <div class="ref-field" data-key="${key}">
     <div class="ref-field-label"><span>${label}</span></div>
-    <div class="ref-field-display" id="cd-display-${key}" onclick="openCdField('${key}')">${escHtml(v) || '--'}</div>
+    <div class="ref-field-display" id="cd-display-${key}" onclick="openCdField('${key}',true)">${escHtml(v) || '--'}</div>
     <div class="ref-field-edit hidden" id="cd-edit-${key}">
       ${inputTag}
       <span class="ref-field-discard" onclick="discardCdField('${key}')">&times;</span>
@@ -640,13 +640,14 @@ function cdCurrentValue(key) {
   return cdPayload[key] ?? ''
 }
 
-window.openCdField = function (key) {
+// fromUserGesture (Round 10 Phase 0A): see window.revealFieldControl in app.js.
+window.openCdField = function (key, fromUserGesture) {
   if (cdEdits[key]) return
   const orig = String(cdCurrentValue(key) ?? '')
   cdEdits[key] = { draft: orig, orig }
   document.getElementById(`cd-display-${key}`).classList.add('hidden')
   document.getElementById(`cd-edit-${key}`).classList.remove('hidden')
-  document.getElementById(`cd-input-${key}`).focus()
+  window.revealFieldControl(document.getElementById(`cd-input-${key}`), fromUserGesture)
   updateCdEditBar()
 }
 

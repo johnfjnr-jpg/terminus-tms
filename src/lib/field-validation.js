@@ -117,3 +117,35 @@ export function isValidIsoTimestamp(value) {
   if (h > 23 || mi > 59 || sec > 59) return false
   return !Number.isNaN(Date.parse(value))
 }
+
+/**
+ * Round 10 Phase 4 item 1 (2026-08-19). Mobile numbers were accepted as
+ * completely free text, so "call me on the office line" persisted as
+ * happily as a real number.
+ *
+ * THE RULE, deliberately permissive, because a validator that rejects real
+ * international numbers is worse than none at all:
+ *   - an optional single leading "+"
+ *   - digits, and the separators space, hyphen, parenthesis and full stop,
+ *     in any arrangement
+ *   - once every separator is stripped, between 7 and 15 digits must remain
+ *
+ * 15 is the E.164 maximum for a full international number; 7 is about the
+ * shortest real national significant number in use. Nothing is checked
+ * about country prefixes or number plans: that needs a real library and a
+ * maintained dataset, and getting it half right would reject genuine
+ * numbers, which is the specific failure this rule is written to avoid.
+ *
+ * KNOWN AND ACCEPTED EXCLUSION: extensions ("+44 20 7946 0958 ext 221")
+ * are rejected, because "ext"/"x" would mean admitting letters and there
+ * is no evidence this business records them. Recorded rather than silently
+ * unsupported.
+ */
+export function isValidMobile(value) {
+  if (typeof value !== 'string') return false
+  const trimmed = value.trim()
+  if (!trimmed) return false
+  if (!/^\+?[0-9 ()\-.]+$/.test(trimmed)) return false
+  const digits = trimmed.replace(/[^0-9]/g, '')
+  return digits.length >= 7 && digits.length <= 15
+}

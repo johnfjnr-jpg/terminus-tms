@@ -6,11 +6,39 @@ async function init() {
   const { supabaseUrl, supabaseAnonKey } = await fetch('/api/config').then(r => r.json())
   supabaseClient = supabase.createClient(supabaseUrl, supabaseAnonKey)
 
+  // Round 10 Phase 4 item 3 (2026-08-19). This handler used to call
+  // showApp(session) for EVERY session-bearing auth event, and showApp()
+  // ends with navigate('leads'). Supabase refreshes the access token in
+  // the background, so roughly once an hour a TOKEN_REFRESHED event threw
+  // the user back to Leads from wherever they were, with no action of
+  // their own. Reproduced directly in Phase 0: visibilitychange and window
+  // focus produce no auth event and no navigation; a real refreshSession()
+  // produces TOKEN_REFRESHED and moved the app to view-leads.
+  //
+  // It was REPORTED as "the New Contact dialogue's Save returns me to the
+  // Leads page". Neither contact-creation dialogue navigates anywhere -
+  // saveContact ends in closeNewLeadModal() + loadContactsData(), and
+  // saveInlineBuyerContact reloads the originating record. A periodic
+  // background event that steals the user's place is always attributed to
+  // whatever they last did deliberately, because that is the only thing
+  // they can see. Both save paths are deliberately untouched.
+  //
+  // Guarded on APP STATE, not on an event-name allowlist. Which events
+  // supabase-js emits, and when, varies by version; "am I already inside
+  // the app" is the question actually being asked and it cannot drift.
+  // Entering the app still lands on Leads exactly as before.
   supabaseClient.auth.onAuthStateChange((_event, session) => {
     currentSession = session
     window.currentSession = session
-    if (session) showApp(session)
-    else showAuth()
+    if (!session) { showAuth(); return }
+    const alreadyInApp = !document.getElementById('app-shell').classList.contains('hidden')
+    if (alreadyInApp) {
+      // Refreshed credentials, same session, same place. Keep the header
+      // truthful and change nothing else.
+      document.getElementById('nav-email').textContent = session.user.email
+      return
+    }
+    showApp(session)
   })
 
   const { data: { session: existing } } = await supabaseClient.auth.getSession()
@@ -117,6 +145,23 @@ function switchOppTab(tab) {
 // Reference exactly as before - this only protects a click that
 // happens to race ahead of that same load's own completion.
 let tbUserPickedTab = false
+
+// Round 10 Phase 6 (2026-08-19): after a successful transition the operator
+// lands on the tab for the stage the record has just ENTERED, not back on
+// Reference. Round 9 Phase 8 measured that return as 7 of the 59 clicks in a
+// full lifecycle - a per-transition tax, and the cheapest thing on the list
+// to remove.
+//
+// Carried as an intent flag rather than a parameter because the decision is
+// made in attemptTransition and consumed by renderTestBedDetail, which sits
+// two calls away and takes only the record. Same shape as tbUserPickedTab
+// immediately above, deliberately: one more parameter threaded through
+// loadTestBedDetail would have to be threaded through every one of its six
+// other call sites, none of which care.
+//
+// Cleared as soon as it is read, so it can never leak into a later,
+// unrelated load.
+let tbLandOnStageAfterLoad = null
 document.querySelectorAll('#tb-detail-tabs .detail-tab').forEach(btn => {
   btn.addEventListener('click', () => { tbUserPickedTab = true; switchTbTab(btn.dataset.tbTab) })
 })
@@ -183,12 +228,35 @@ async function api(method, path, body) {
   // POST (createFromContact's + Create was the one real call site).
   const headers = { Authorization: `Bearer ${currentSession.access_token}` }
   if (body) headers['Content-Type'] = 'application/json'
-  const res = await fetch(path, {
-    method,
-    headers,
-    body: body ? JSON.stringify(body) : undefined
-  })
-  const data = await res.json()
+  // Round 10 Phase 5A: a network-level failure must return {ok:false}, not
+  // reject. fetch() rejects on a dropped connection, an offline client or an
+  // aborted request, and this function had no catch - so every caller's
+  // `if (!result.ok)` branch was unreachable in exactly the case it was
+  // written for, and the await threw instead. That was survivable while a
+  // failed load simply left the previous content on screen. It stopped being
+  // survivable the moment this round added a synchronous pending state: the
+  // throw skipped the error branch, nothing cleared the marker, and the
+  // panel sat on "Loading ..." permanently - the precise
+  // permanently-static-UI outcome the phase was told not to produce.
+  // Found by aborting the requests deliberately, not by reasoning.
+  let res
+  try {
+    res = await fetch(path, {
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined
+    })
+  } catch (err) {
+    return { ok: false, status: 0, data: { error: 'Network request failed. Check your connection and try again.' } }
+  }
+  // A non-JSON body (a proxy error page, a 502 from infrastructure) must
+  // not throw here either, for the same reason.
+  let data = null
+  try {
+    data = await res.json()
+  } catch {
+    data = { error: `Unexpected response from the server (HTTP ${res.status}).` }
+  }
   return { ok: res.ok, status: res.status, data }
 }
 
@@ -630,6 +698,7 @@ window.attemptTransition = async (id, toStage, feedbackId, sectionId, currentSta
 
   if (result.ok) {
     if (sectionId === 'tb-transition-section') {
+      tbLandOnStageAfterLoad = toStage
       await loadTestBedDetail(id)
     } else {
       await loadOpportunityDetail(id)
@@ -1209,13 +1278,103 @@ window.createFromContact = async (id, type) => {
       // 'Add Another' implied "another one just like it," which is
       // exactly the behaviour this phase corrects.
       proceedLabel: recordType === 'opportunity' ? 'Create New Opportunity' : 'Add New',
-      onProceed: () => performCreateFromContact(id, type),
+      // Round 10 Phase 1: for a Test Bed the warning is still the first
+      // decision ("you already have one, still want another?"), and the
+      // name dialogue is the second. Kept as two steps rather than merged
+      // because the warning is shared with Opportunity and folding a Test
+      // Bed-only field into it would fork a shared mechanism.
+      onProceed: () => startCreateFromContact(id, type),
     })
     return
   }
 
-  performCreateFromContact(id, type)
+  startCreateFromContact(id, type)
 }
+
+// Test Bed creation now always goes through the name dialogue; Opportunity
+// is untouched and still creates directly, matching this round's scope.
+async function startCreateFromContact(id, type) {
+  if (type !== 'test-bed') return performCreateFromContact(id, type)
+  await openNewTestBedModal(id)
+}
+
+let ntbContactId = null
+let ntbKeydownHandler = null
+
+async function openNewTestBedModal(contactId) {
+  ntbContactId = contactId
+  const modal = document.getElementById('new-test-bed-modal')
+  const input = document.getElementById('new-test-bed-name')
+  const err = document.getElementById('new-test-bed-error')
+  err.classList.add('hidden')
+  input.value = ''
+  input.placeholder = 'Loading suggested name...'
+  modal.classList.remove('hidden')
+
+  // The default is the server's, computed by the same function the create
+  // endpoint itself uses, so what is offered is by construction what would
+  // otherwise have been applied.
+  const result = await api('GET', `/api/contacts/${contactId}/test-bed-name-suggestion`)
+  if (ntbContactId !== contactId) return // dialogue closed or reopened meanwhile
+  if (result.ok) {
+    input.value = result.data.suggestedName ?? ''
+    input.placeholder = ''
+  } else {
+    input.placeholder = ''
+    err.textContent = result.data?.error ?? 'Could not load a suggested name. Type one to continue.'
+    err.classList.remove('hidden')
+  }
+  input.focus()
+  input.select()
+
+  ntbKeydownHandler = (e) => {
+    if (e.key === 'Escape') { e.preventDefault(); closeNewTestBedModal(); return }
+    if (e.key === 'Enter' && document.activeElement === input) { e.preventDefault(); saveNewTestBed(); return }
+    if (e.key !== 'Tab') return
+    const focusable = [...modal.querySelectorAll('input, button')].filter(el => el.offsetParent !== null && !el.disabled)
+    if (!focusable.length) return
+    const first = focusable[0], last = focusable[focusable.length - 1]
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus() }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus() }
+  }
+  document.addEventListener('keydown', ntbKeydownHandler)
+}
+
+function closeNewTestBedModal() {
+  document.getElementById('new-test-bed-modal').classList.add('hidden')
+  if (ntbKeydownHandler) { document.removeEventListener('keydown', ntbKeydownHandler); ntbKeydownHandler = null }
+  ntbContactId = null
+}
+
+async function saveNewTestBed() {
+  if (!ntbContactId) return
+  const input = document.getElementById('new-test-bed-name')
+  const err = document.getElementById('new-test-bed-error')
+  const name = input.value.trim()
+  if (!name) {
+    err.textContent = 'Enter a name for this Test Bed.'
+    err.classList.remove('hidden')
+    input.focus()
+    return
+  }
+  const btn = document.getElementById('new-test-bed-save')
+  btn.disabled = true
+  const original = btn.textContent
+  btn.textContent = 'Creating...'
+  const contactId = ntbContactId
+  try {
+    await performCreateFromContact(contactId, 'test-bed', name)
+  } finally {
+    btn.disabled = false
+    btn.textContent = original
+  }
+}
+
+document.getElementById('new-test-bed-cancel').addEventListener('click', closeNewTestBedModal)
+document.getElementById('new-test-bed-save').addEventListener('click', saveNewTestBed)
+document.getElementById('new-test-bed-modal').addEventListener('click', (e) => {
+  if (e.target.id === 'new-test-bed-modal') closeNewTestBedModal()
+})
 
 // Writes into contactCreateFeedback + a full re-render, not a direct DOM
 // write (2026-08-16, Phase 5) - the old feedback div lived inside the
@@ -1224,18 +1383,27 @@ window.createFromContact = async (id, type) => {
 // it (already closed by the time this async call resolves), so the
 // result needs to persist in state and render as its own row under the
 // contact, independent of hover state.
-async function performCreateFromContact(id, type) {
-  contactCreateFeedback[id] = null
-  renderBothContactGrids()
-
+async function performCreateFromContact(id, type, name) {
   const path = type === 'opportunity' ? `/api/contacts/${id}/create-opportunity` : `/api/contacts/${id}/create-test-bed`
-  const result = await api('POST', path)
+  const result = await api('POST', path, name ? { name } : undefined)
 
+  // A failed create must leave the dialogue OPEN with the reason on it -
+  // closing first would strand the user on the list with a message they
+  // did not see fail.
   if (!result.ok) {
+    const err = document.getElementById('new-test-bed-error')
+    if (name && err && !document.getElementById('new-test-bed-modal').classList.contains('hidden')) {
+      err.textContent = result.data?.error ?? 'Failed to create Test Bed.'
+      err.classList.remove('hidden')
+      return
+    }
     contactCreateFeedback[id] = `<p class="msg-error">${escHtml(result.data.error ?? 'Failed to create record.')}</p>`
     renderBothContactGrids()
     return
   }
+  closeNewTestBedModal()
+  contactCreateFeedback[id] = null
+  renderBothContactGrids()
 
   // Round 3 Phase 2 (2026-08-17): Opportunity now navigates straight to
   // the new record's detail page rather than leaving the user on the
@@ -1974,47 +2142,22 @@ async function loadTestBedDetail(id) {
 // expand control revealing the genuine full history. A default view, not
 // a truncation - the full record stays reachable from this header, which
 // was the explicit requirement.
-let tbHeaderNotesExpanded = false
-
-window.toggleTbHeaderNotes = function () {
-  tbHeaderNotesExpanded = !tbHeaderNotesExpanded
-  renderTbHeaderDigest(currentTestBed?.payload ?? {})
-}
-
+// Round 10 Phase 2 (2026-08-19): the header renders SUMMARY ONLY. Notes
+// moved to the bottom of the Reference tab, where it now carries the
+// two-most-recent default and the expansion control this function used to
+// own. tbHeaderNotesExpanded / toggleTbHeaderNotes are gone with it - the
+// state belongs next to the thing it controls, and keeping a header copy
+// would have meant two renderers of the same list, which is exactly how
+// the ordering defect below survived unnoticed.
 function renderTbHeaderDigest(p) {
   const summaryEl = document.getElementById('tb-header-summary')
-  const notesEl = document.getElementById('tb-header-notes')
-  if (!summaryEl || !notesEl) return
+  if (!summaryEl) return
 
   const summary = (p.summary ?? '').trim()
   summaryEl.innerHTML = summary
     ? `<p class="tb-header-digest-label">Summary</p><p class="tb-header-summary-text">${escHtml(summary)}</p>`
     : ''
   summaryEl.classList.toggle('hidden', !summary)
-
-  const notes = Array.isArray(p.notes) ? p.notes : []
-  // Newest first. slice(-2) then reverse for the default view; the full
-  // history is the same list reversed, nothing filtered out.
-  const shown = tbHeaderNotesExpanded
-    ? [...notes].reverse()
-    : notes.slice(-2).reverse()
-
-  // Rule 10: timestamp, then author, then text, via the shared
-  // .ref-notes-row markup - not a header-only variant.
-  const rows = shown.map(n => `
-    <div class="ref-notes-row">
-      <span class="ref-notes-when">${formatDate(n.at)}</span><span class="ref-notes-author">${escHtml(n.by ?? '')}</span><span class="ref-notes-text">${escHtml(n.text)}</span>
-    </div>`).join('')
-
-  const toggle = notes.length > 2
-    ? `<button class="btn-text tb-header-notes-toggle" onclick="toggleTbHeaderNotes()">${
-        tbHeaderNotesExpanded ? 'Show fewer' : `Show all ${notes.length} notes`}</button>`
-    : ''
-
-  notesEl.innerHTML = shown.length
-    ? `<p class="tb-header-digest-label">${tbHeaderNotesExpanded ? 'Notes' : 'Latest notes'}</p>${rows}${toggle}`
-    : ''
-  notesEl.classList.toggle('hidden', !shown.length)
 }
 
 
@@ -2039,10 +2182,31 @@ async function renderTestBedDetail(bed) {
   markTbCurrentStageTab(bed.status)
 
   await loadTerminusStaffIfNeeded()
-  // tbUserPickedTab: skip the default-to-Reference switch if the user
-  // has already clicked a real tab since this load began - see the
-  // flag's own declaration comment for the race this guards against.
-  if (!tbUserPickedTab) switchTbTab('reference')
+  // Round 10 Phase 6: land on the stage just entered, if this load followed
+  // a transition. Read and cleared here so a later unrelated load cannot
+  // inherit it.
+  //
+  // THE FINAL TRANSITION IS THE EXCEPTION, AND IT IS DELIBERATE AND
+  // TEMPORARY. Closed is terminal and Round 9 Phase 6.3 made it render
+  // nothing at all, so landing there today would put the operator on a
+  // genuinely blank tab as the reward for completing the lifecycle. Round
+  // 10 Phase 7 gives Closed a real panel; until it does, the last
+  // transition lands on Reference exactly as before. Terminality is read
+  // from the data (no stage after this one) rather than by matching the
+  // string 'Closed', matching how loadTbStageDetailTab already decides it.
+  // Round 10 Phase 7 removed Phase 6's temporary exception. Phase 6 landed
+  // the FINAL transition on Reference because Closed rendered nothing and
+  // arriving on a blank tab was a poor reward for completing the lifecycle.
+  // Closed now shows the completed record, so every transition including the
+  // last lands on the stage just entered, which is the behaviour the brief
+  // asked for and the exception was only ever deferring.
+  const landing = tbLandOnStageAfterLoad
+  tbLandOnStageAfterLoad = null
+  if (landing) {
+    switchTbTab(`stage-${landing}`)
+  } else if (!tbUserPickedTab) {
+    switchTbTab('reference')
+  }
   window.initTestBedDetailPanel(bed)
 
   // Round 5 Phase 7 (2026-08-17): renderTestBedDocuments/loadTbStageApprovals
@@ -2167,6 +2331,58 @@ function refreshTbNextStageButton() {
 let currentTbStageTab = null
 let tbStageTabLoadToken = 0
 
+// Round 10 Phase 5A step 2 (2026-08-19): the synchronous pending state.
+//
+// Parallelising cut the criteria panel's stale window from 2034ms to
+// 1083ms, and documents sits at 649ms. Both are still long enough for a
+// person to read the previous stage's documents and criteria under the new
+// stage's heading, which changes at ~26ms. This closes that.
+//
+// THE CONTRACT, and it is what makes the panels verifiable:
+//   dataset.stage  = the stage whose DATA is currently displayed.
+//                    Set only when real data has rendered. Cleared while
+//                    pending and on error, so it never claims a stage it
+//                    is not showing.
+//   dataset.pending = the stage being loaded, present only in flight.
+//
+// A test therefore still waits on dataset.stage, which is real state and
+// cannot be satisfied by this mechanism's own side effects - waiting on
+// dataset.pending would be waiting on the fix rather than on the data.
+//
+// Not a spinner, not a delay, not a debounce: the ordering is fixed by
+// marking synchronously at the moment of the click, before any await, so
+// there is no window in which stale content is presented as current. And
+// it cannot become permanently-static UI, because every renderer below
+// replaces it with either data or a real error message.
+function markStagePanelsPending(stageName) {
+  for (const id of ['tb-stage-documents-section', 'tb-stage-exit-criteria-list', 'tb-stage-approval-row']) {
+    const el = document.getElementById(id)
+    if (!el) continue
+    el.dataset.pending = stageName
+    delete el.dataset.stage
+    el.innerHTML = `<p class="empty-state">Loading ${escHtml(stageName)}...</p>`
+  }
+}
+
+// Sets the panel to "showing this stage's real data". Paired with the
+// helper above so the two attributes can never drift apart.
+function markStagePanelSettled(el, stageName) {
+  if (!el) return
+  delete el.dataset.pending
+  el.dataset.stage = stageName
+}
+
+// The fetch failed. The panel shows an error, not this stage's data, so
+// dataset.stage must NOT be set - otherwise a check waiting on it would
+// pass against an error message.
+function markStagePanelFailed(el) {
+  if (!el) return
+  delete el.dataset.pending
+  delete el.dataset.stage
+}
+
+const stillCurrentTerminal = (token) => () => token === tbStageTabLoadToken
+
 async function loadTbStageDetailTab(stageName) {
   if (!currentTestBed) return
   const myToken = ++tbStageTabLoadToken
@@ -2183,14 +2399,33 @@ async function loadTbStageDetailTab(stageName) {
   // (no next stage in stage_definitions) rather than by matching the
   // string 'Closed', so a record type whose last stage is named something
   // else behaves the same way.
+  // Round 10 Phase 7: fetch the stage list if neither cache holds it yet.
+  // tbDetailStages is assigned partway through renderTestBedDetail, AFTER the
+  // header name is written, and tbStagesCache is only ever populated by the
+  // LIST view - so opening a stage tab on a direct navigation, inside that
+  // window, left orderedStages empty, isTerminal false, and the Closed tab
+  // rendering the ordinary stage panels instead of the completed record.
+  // Round 9 Phase 6.3 hit the same shape from the other side, where the
+  // terminal check "read a cache only the list view populates". Resolved by
+  // making the check able to answer the question itself rather than by
+  // adding another wait somewhere else.
+  if (!tbDetailStages.length && !tbStagesCache.length) {
+    tbDetailStages = await fetchStages('test_bed')
+    if (myToken !== tbStageTabLoadToken) return
+  }
   const orderedStages = (tbDetailStages.length ? tbDetailStages : tbStagesCache)
     .slice().sort((a, b) => a.sort_order - b.sort_order)
   const isTerminal = orderedStages.length > 0
     && orderedStages[orderedStages.length - 1].stage_name === stageName
   const panelsRow = document.getElementById('tb-stage-panels-row')
   if (panelsRow) panelsRow.classList.toggle('hidden', isTerminal)
+  document.getElementById('tb-tab-closed')?.classList.toggle('hidden', !isTerminal)
   if (isTerminal) {
     document.getElementById('tb-stage-install-section')?.classList.add('hidden')
+    // Round 10 Phase 7: Closed shows the completed record. Supersedes Round 9
+    // Phase 6.3's "renders nothing" - see the panel's own comment in
+    // index.html for why this is the opposite case to an empty card.
+    await renderTbClosedPanel(currentTestBed.id, stillCurrentTerminal(myToken))
     return
   }
 
@@ -2204,14 +2439,61 @@ async function loadTbStageDetailTab(stageName) {
   // fields on every switch would.
   document.getElementById('tb-stage-install-section').classList.toggle('hidden', stageName !== 'Installation and Commissioning')
 
-  await renderTestBedDocuments(currentTestBed, stageName, 'tb-stage-documents-section', () => myToken === tbStageTabLoadToken)
-  if (myToken !== tbStageTabLoadToken) return // a newer stage-tab load has since started; drop this stale one
+  // Round 10 Phase 5A step 1 (2026-08-19): the three fetches run CONCURRENTLY.
+  //
+  // They were strictly sequential, and measured as such: documents 654ms,
+  // approvals 310ms, exit-criteria 1070ms, summing to exactly the 2034ms
+  // the criteria panel took to stop showing the previous stage's content.
+  // The criteria panel depends on neither of the other two and was waiting
+  // on both. Each panel now renders the moment its OWN request lands
+  // rather than after all three, so the slowest one no longer sets the
+  // floor for the other two.
+  //
+  // A REQUIRED correctness change came with it, not a nicety:
+  // renderTbStageExitCriteria had no token guard at all. It was safe only
+  // because it ran last, after two checks, so nothing could overtake it.
+  // Started concurrently it can resolve after a newer tab's load and
+  // overwrite the panel with the wrong stage - the exact race
+  // tbStageTabLoadToken exists to prevent and which Round 5 Phase 7
+  // confirmed live on the other two panels. It now takes the same
+  // isStillCurrent predicate renderTestBedDocuments already used.
+  const stillCurrent = () => myToken === tbStageTabLoadToken
 
+  // Synchronous, before any await: from this instant no panel is showing
+  // the previous stage's content as though it were current.
+  markStagePanelsPending(stageName)
+
+  const documentsDone = renderTestBedDocuments(currentTestBed, stageName, 'tb-stage-documents-section', stillCurrent)
+  const criteriaDone = renderTbStageExitCriteria(stageName, stillCurrent, currentTestBed.id)
+  const approvalsDone = renderTbStageApprovals(stageName, stillCurrent)
+
+  // Belt and braces on the same requirement: api() no longer rejects, but
+  // any unexpected throw in a renderer must still not leave a panel stuck
+  // on its pending marker. Only the current load may clear it, or a stale
+  // failure would wipe a newer load's state.
+  try {
+    await Promise.all([documentsDone, criteriaDone, approvalsDone])
+  } catch (err) {
+    if (!stillCurrent()) return
+    for (const id of ['tb-stage-documents-section', 'tb-stage-exit-criteria-list', 'tb-stage-approval-row']) {
+      const el = document.getElementById(id)
+      if (!el || !el.dataset.pending) continue
+      el.innerHTML = '<p class="empty-state">Could not load this stage. Reopen the tab to retry.</p>'
+      markStagePanelFailed(el)
+    }
+  }
+}
+
+// Extracted from loadTbStageDetailTab so all three panels are started the
+// same way and each can render on its own response. Behaviour is unchanged.
+async function renderTbStageApprovals(stageName, isStillCurrent = () => true) {
   const approvalsResult = await api('GET', `/api/records/${currentTestBed.id}/stage-approvals`)
-  if (myToken !== tbStageTabLoadToken) return
+  if (!isStillCurrent()) return
   const row = document.getElementById('tb-stage-approval-row')
   if (!approvalsResult.ok) {
     row.innerHTML = '<p class="empty-state">Failed to load approvals for this stage.</p>'
+    markStagePanelFailed(row)
+    return
   } else {
     const stageEntry = approvalsResult.data.find(s => s.stage_name === stageName)
     // Round 9 Phase 6.2: CONFIRMED BEFORE CHANGING, and left alone.
@@ -2230,12 +2512,7 @@ async function loadTbStageDetailTab(stageName) {
       ? buildStageTrackListHtml(currentTestBed.id, stageEntry)
       : '<p class="empty-state">Unknown stage.</p>'
   }
-
-  // Round 6 Phase 3 (2026-08-17): each stage tab's own Exit Criteria,
-  // relocated from the Reference tab - see renderTbStageExitCriteria's
-  // own comment (test-bed-detail.js) for the ?stage= generalization.
-  if (myToken !== tbStageTabLoadToken) return
-  await renderTbStageExitCriteria(stageName)
+  markStagePanelSettled(row, stageName)
 }
 
 
@@ -2263,6 +2540,7 @@ async function renderTestBedDocuments(bed, stageName, docsContainerId, isStillCu
 
   if (!result.ok) {
     section.innerHTML = '<p class="empty-state">Could not load documents.</p>'
+    markStagePanelFailed(section)
     return
   }
 
@@ -2291,7 +2569,7 @@ async function renderTestBedDocuments(bed, stageName, docsContainerId, isStillCu
 
   if (!names.length) {
     section.innerHTML = '<p class="empty-state">No documents configured for this stage.</p>'
-    section.dataset.stage = stageName
+    markStagePanelSettled(section, stageName)
     return
   }
 
@@ -2330,7 +2608,66 @@ async function renderTestBedDocuments(bed, stageName, docsContainerId, isStillCu
   // requested. Verification waits on this rather than on a fixed delay:
   // a fixed delay reported a working popup as broken in Round 7 Phase 9,
   // and here it would report the previous tab's contents as this tab's.
-  section.dataset.stage = stageName
+  markStagePanelSettled(section, stageName)
+}
+
+// Round 10 Phase 7 (2026-08-19): the Closed tab's single read-only panel.
+//
+// READ-ONLY IS STRUCTURAL, NOT COSMETIC. There is no Confirm control and no
+// editable URL because the endpoint returns nothing either could act on -
+// no gate rule, no required_status. A closed Test Bed's documents ARE the
+// record, and altering them after closure undermines the audit trail; the
+// backward transition path from Round 9 Phase 4A is how something changes,
+// and it records the move as a regression.
+//
+// Grouped by stage in LIFECYCLE order, from stage_definitions.sort_order,
+// because a flat list of nine documents loses the shape of what happened.
+// A stage that produced no documents is omitted rather than shown empty.
+async function renderTbClosedPanel(recordId, isStillCurrent = () => true) {
+  const groupsEl = document.getElementById('tb-closed-groups')
+  const subEl = document.getElementById('tb-closed-sub')
+  if (!groupsEl) return
+  groupsEl.dataset.pending = 'true'
+  delete groupsEl.dataset.record
+  groupsEl.innerHTML = '<p class="empty-state">Loading the completed record...</p>'
+
+  const result = await api('GET', `/api/test-beds/${recordId}/lifecycle-documents`)
+  if (!isStillCurrent()) return
+  delete groupsEl.dataset.pending
+  if (!result.ok) {
+    groupsEl.innerHTML = '<p class="empty-state">Could not load the lifecycle documents.</p>'
+    if (subEl) subEl.textContent = ''
+    return
+  }
+
+  const { groups, total, produced } = result.data
+  // Degrades honestly. A Test Bed can reach Closed with documents missing
+  // via the backward transition path, so the count is stated rather than
+  // implied, and a document never produced says so instead of rendering a
+  // blank row that reads like a missing URL.
+  if (subEl) {
+    subEl.textContent = produced === total
+      ? `All ${total} documents produced across the lifecycle.`
+      : `${produced} of ${total} documents produced. ${total - produced} were never recorded.`
+  }
+  if (!groups.length) {
+    groupsEl.innerHTML = '<p class="empty-state">No documents are configured for this record type.</p>'
+    groupsEl.dataset.record = recordId
+    return
+  }
+
+  groupsEl.innerHTML = groups.map(g => `
+    <div class="tb-closed-group" data-stage="${escHtml(g.stage)}">
+      <p class="tb-closed-stage">${escHtml(g.stage)}</p>
+      ${g.documents.map(d => `
+        <div class="tb-closed-doc${d.produced ? '' : ' tb-closed-doc-missing'}" data-document="${escHtml(d.document)}">
+          <span class="tb-closed-doc-name">${escHtml(d.document)}</span>
+          <span class="doc-status ${d.status === 'approved' ? 'doc-status--approved' : (d.status ? 'doc-status--started' : 'doc-status--notstarted')}">${
+            d.status ? escHtml(d.status === 'approved' ? 'Approved' : d.status) : 'Not produced'}</span>
+          <span class="tb-closed-doc-url">${d.document_location ? escHtml(d.document_location) : (d.produced ? 'No document URL recorded' : '')}</span>
+        </div>`).join('')}
+    </div>`).join('')
+  groupsEl.dataset.record = recordId
 }
 
 function tbDocKey(name) { return name.replace(/\s+/g, '-').replace(/[^A-Za-z0-9-]/g, '') }
@@ -2338,7 +2675,7 @@ function tbDocKey(name) { return name.replace(/\s+/g, '-').replace(/[^A-Za-z0-9-
 async function refreshTbStagePanels() {
   if (!currentTestBed || !currentTbStageTab) return
   await renderTestBedDocuments(currentTestBed, currentTbStageTab, 'tb-stage-documents-section')
-  await renderTbStageExitCriteria(currentTbStageTab)
+  await renderTbStageExitCriteria(currentTbStageTab, () => true, currentTestBed?.id)
 }
 
 // Round 9 Phase 6.1: saving a URL must NOT approve the document. This
@@ -2731,13 +3068,115 @@ function renderStageApprovalsRows(recordId, stages, containerId = 'opp-stage-app
 // confirmed by tracing the exact default-parameter fallback, not
 // guessed. Fixed by checking which view this recordId actually belongs
 // to before deciding how to refresh.
+// Round 10 Phase 5B (2026-08-19): an approval no longer triggers a full
+// stage-tab reload.
+//
+// It called loadTbStageDetailTab, which re-fetches documents, approvals and
+// criteria AND increments tbStageTabLoadToken as its first act - so ticking
+// a second approval while the first was still reloading INVALIDATED the
+// first, which then returned early and never rendered. That is Round 9
+// Phase 8's "each approval triggers its own re-render while the previous
+// request is still in flight", and it is why a red criteria row could sit
+// beside an enabled Next Stage button.
+//
+// An approval can change the approvals panel and the exit criteria it may
+// now satisfy. It cannot change the stage's DOCUMENTS, so that fetch is
+// dropped entirely. And nothing here touches the tab load token, so a
+// genuine tab switch in flight is no longer cancelled by an approval, nor
+// an approval by another approval.
+//
+// A failed write returns without altering the row, and says so, rather
+// than leaving a control that looks approved when nothing was recorded.
+// Reflects one approval the server has already confirmed. Deliberately
+// narrow: it marks the single track that was just recorded and touches
+// nothing else, so it can never claim a state the response did not carry.
+function applyConfirmedApproval(track, decidedAt) {
+  const rows = [...document.querySelectorAll('#tb-stage-approval-row .sa-approval-row')]
+  const row = rows.find(r => r.querySelector('.sa-approval-role')?.textContent.trim() === track)
+  if (!row) return
+  row.classList.add('approved')
+  row.classList.remove('clickable')
+  row.removeAttribute('onclick')
+  const meta = row.querySelector('.sa-approval-meta')
+  if (meta) meta.textContent = decidedAt ? `Approved ${formatDate(decidedAt)}` : 'Approved'
+}
+
 window.submitStageApproval = async (recordId, track) => {
   const result = await api('POST', `/api/records/${recordId}/approvals`, { track, decision: 'approved' })
-  if (!result.ok) return
+  if (!result.ok) {
+    const row = document.getElementById('tb-stage-approval-row')
+    if (recordId === currentTestBed?.id && row) {
+      let fb = document.getElementById('tb-approval-feedback')
+      if (!fb) {
+        fb = document.createElement('div')
+        fb.id = 'tb-approval-feedback'
+        row.appendChild(fb)
+      }
+      fb.textContent = `Could not record the ${track} approval: ${result.data?.error ?? 'unknown error'}`
+      fb.className = 'tb-doc-feedback err'
+    }
+    return
+  }
   if (recordId === currentTestBed?.id && currentTbStageTab) {
-    await loadTbStageDetailTab(currentTbStageTab)
+    const stage = currentTbStageTab
+    // Server-confirmed, not optimistic: POST /approvals returns the created
+    // row (201) including its real decided_at, so this reflects exactly what
+    // was stored rather than what was hoped for. The refresh below still
+    // runs; it just no longer gates the tick.
+    applyConfirmedApproval(track, result.data?.decided_at)
+    await Promise.all([
+      renderTbStageApprovals(stage, () => currentTbStageTab === stage),
+      renderTbStageExitCriteria(stage, () => currentTbStageTab === stage, recordId),
+    ])
+    refreshTbNextStageButton()
   } else {
     await loadStageApprovals(recordId, stageApprovalsContainerByRecord[recordId])
+  }
+}
+
+// ── Click-to-edit: reveal AND open, in one click (Round 10 Phase 0A) ─────────
+//
+// The defect this closes, measured in Round 10 Phase 0 rather than inferred:
+// a closed click-to-edit field is a <div class="ref-field-display"> and its
+// control lives in a SIBLING <div class="ref-field-edit hidden">. The open*
+// handlers hide the div, unhide the sibling and call focus(). The click that
+// reveals the control is therefore consumed by a DIFFERENT element, so it can
+// never also open it - after the first click the <select> was revealed,
+// focused, and sitting directly under the pointer having received ZERO
+// pointer events. A second click was needed to open the list. Reported
+// against Commercial Authority; Round 8 Phase 1 could not reproduce it, most
+// likely because there is no defect in the dropdown to find.
+//
+// Eight controls were affected across Test Bed's Reference tab alone (5
+// <select>, 2 <input type="date">), and the same four-file pattern exists on
+// Opportunity, Contact and Account detail. This is ONE shared helper rather
+// than four copies precisely because of the standing rule that a fix built
+// for the surfaces that existed at the time is not a fix for the ones added
+// after it - that shape has produced a shipped defect three separate times.
+//
+// showPicker() is the purpose-built API for this and requires transient user
+// activation, which is why openFrom must be a genuine gesture and why the
+// programmatic restore path deliberately does not pass one - restoring an
+// edit after a save must not pop a picker open in the user's face.
+//
+// Text, number and textarea controls are left alone on purpose: focus alone
+// already makes them usable, so one click genuinely works there today and a
+// change would be a regression, not a fix.
+window.revealFieldControl = function (input, fromUserGesture) {
+  if (!input) return
+  input.focus()
+  if (!fromUserGesture) return
+  const isPopupControl = input.tagName === 'SELECT'
+    || (input.tagName === 'INPUT' && input.type === 'date')
+  if (!isPopupControl) return
+  if (typeof input.showPicker !== 'function') return
+  try {
+    input.showPicker()
+  } catch {
+    // NotAllowedError (no user activation) or InvalidStateError (detached).
+    // Focus is already set, so the pre-0A behaviour is the floor: the field
+    // still opens and is still usable, it just needs the second click again.
+    // Never rethrow - a browser without showPicker must not break editing.
   }
 }
 

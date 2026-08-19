@@ -684,9 +684,26 @@
     <div class="detail-head">
       <div class="tb-head-main">
         <button class="btn-text" id="btn-back-testbeds">Back to test beds</button>
-        <p class="eyebrow" style="margin-top:16px">Test Bed</p>
-        <h1 id="tb-detail-name"></h1>
-        <p class="sub" id="tb-detail-client"></p>
+        <!-- Round 10 Phase 2 (2026-08-19): Summary sits IN LINE with the
+             Test Bed name rather than stacked beneath it, and Notes leaves
+             the header entirely for the bottom of the page.
+
+             This partially reverses Round 8 Phase 5, which moved both into
+             the left column stacked under the name. That change was made on
+             its own merits and its vertical cost was accepted knowingly and
+             measured: side by side the header was max(name 130, digest 191)
+             = 191px; stacked it became 346px, and DESIGN_PRINCIPLES' own
+             page-density entry records that it pushed Total Cost DOWN by
+             156px rather than recovering anything. Putting Summary back in
+             line and moving Notes out is the deliberate correction. -->
+        <div class="tb-head-identity">
+          <div class="tb-head-identity-main">
+            <p class="eyebrow" style="margin-top:16px">Test Bed</p>
+            <h1 id="tb-detail-name"></h1>
+            <p class="sub" id="tb-detail-client"></p>
+          </div>
+          <div id="tb-header-summary" class="tb-head-summary-inline hidden"></div>
+        </div>
         <!-- Round 8 Phase 5: Summary and Notes moved INTO the left column,
              directly beneath the name, rather than sitting as a separate
              middle column beside it. Summary above Notes. Both are now the
@@ -700,10 +717,7 @@
              stacked it is name + summary + notes. See DESIGN_PRINCIPLES'
              page-density entry, which records the real outcome rather than
              the hoped-for one. -->
-        <div id="tb-header-digest" class="tb-header-digest">
-          <div id="tb-header-summary" class="tb-header-summary hidden"></div>
-          <div id="tb-header-notes" class="tb-header-notes hidden"></div>
-        </div>
+
       </div>
       <!-- Convert to Opportunity: moved here from the page bottom
            (2026-08-15) - checked first for an existing top-right
@@ -904,17 +918,41 @@
              one-off fixed width, so it still reflows correctly with
              the other 5 cards at every tested viewport instead of
              becoming a second, independently-sized layout system. -->
-        <div class="pg-card pg-card-wide">
+        <!-- Round 10 Phase 3.1 + Phase 2 item 4 (2026-08-19), shipped as ONE
+             change because they are conditional on each other. The
+             "Client Buyers" grouping label is removed per the business's
+             table, and the panel drops back to a single .ref-cards track.
+
+             Round 6 Phase 2 widened this to .pg-card-wide specifically to
+             stop the buyer role dropdown and its "+ New" button
+             truncating, confirmed live by screenshot at the time. That is
+             why narrowing was never allowed to ship on its own: the
+             shorter labels have to make the room first. Re-measured at
+             1240/1920/3440 after this change, not assumed. -->
+        <div class="pg-card">
           <p class="pg-card-title">Customer Details</p>
           <div id="tb-customer-rows"></div>
           <div style="margin-top:16px">
-            <p class="label" style="margin-bottom:8px">Client Buyers</p>
             <div id="tb-buyer-rows"></div>
           </div>
         </div>
         <div class="pg-card">
-          <p class="pg-card-title">Key Dates</p>
-          <div id="tb-dates-rows"></div>
+          <p class="pg-card-title">Site Details</p>
+          <div id="tb-site-rows"></div>
+          <!-- Round 10 Phase 8 (2026-08-19): Sensors became a toggle, and
+               each sensor renders as its own panel rather than a flat list
+               row. Contents are deliberately minimal - identity, and the
+               existing "not yet linked to a real device" state. No field is
+               invented here: there is no per-sensor data in this system to
+               show. See DESIGN_PRINCIPLES for why this is the visible
+               surface of a real gap rather than a layout change. -->
+          <div style="margin-top:16px">
+            <div class="tb-sensors-head">
+              <p class="label" style="margin:0">Sensors</p>
+              <button class="btn-text" id="tb-sensors-toggle" type="button"></button>
+            </div>
+            <div id="tb-sensors-list"></div>
+          </div>
         </div>
         <!-- Round 6 Phase 3 (2026-08-17): trimmed - sensor count fields
              moved to the Commercials tab (alongside the cost engine that
@@ -924,12 +962,8 @@
              of the counts, not the counts themselves, "anything not
              otherwise relocated" per the brief. -->
         <div class="pg-card">
-          <p class="pg-card-title">Site Details</p>
-          <div id="tb-site-rows"></div>
-          <div style="margin-top:16px">
-            <p class="label" style="margin-bottom:8px">Sensors</p>
-            <div id="tb-sensors-list"></div>
-          </div>
+          <p class="pg-card-title">Key Dates</p>
+          <div id="tb-dates-rows"></div>
         </div>
       </div>
       <div style="margin-top:28px">
@@ -954,8 +988,12 @@
           <button class="btn-sm" id="tb-usecase-add">Add</button>
         </div>
       </div>
+      <!-- Round 10 Phase 2: Notes now lives ONLY here, at the bottom of the
+           page, and carries the two-most-recent default plus the expansion
+           to full history that Round 8 Phase 5 built into the header. The
+           header copy is gone rather than duplicated. -->
       <div style="margin-top:24px">
-        <p class="pg-card-title">Notes</p>
+        <p class="pg-card-title" id="tb-notes-title">Notes</p>
         <div id="tb-notes-list"></div>
         <div style="display:flex;gap:8px;margin-top:10px">
           <input type="text" id="tb-note-input" placeholder="Add a note">
@@ -1032,6 +1070,27 @@
          one call) and buildStageApprovalRowHtml (app.js), rendering just
          the one row matching the currently-open stage tab, not the whole
          list Opportunity's own Stage & Approvals tab still shows. -->
+    <!-- Round 10 Phase 7 (2026-08-19): the Closed tab shows the completed
+         record. This SUPERSEDES Round 9 Phase 6.3's decision that Closed
+         renders nothing, and the original reasoning is left visible rather
+         than deleted: that decision was against PERMANENTLY EMPTY UI with no
+         visible explanation, consistent with the documented choice not to
+         build the Test Bed list matrices. It was correct for what Closed was
+         then, which was a stage with no gate, no documents of its own and no
+         approvals - every panel would have been empty forever.
+
+         This is the opposite case. A panel that becomes meaningful AT Closed,
+         and is genuinely full when reached, is not an empty card. The rule
+         stands everywhere else: this is not a licence to show empty panels on
+         other terminal states. -->
+    <div class="detail-tab-panel hidden" id="tb-tab-closed">
+      <div class="pg-card" id="tb-closed-card">
+        <p class="pg-card-title">Lifecycle documents</p>
+        <p class="sub" id="tb-closed-sub"></p>
+        <div id="tb-closed-groups"></div>
+      </div>
+    </div>
+
     <div class="detail-tab-panel hidden" id="tb-tab-stage-detail">
       <p class="pg-card-title" id="tb-stage-detail-heading">Stage</p>
       <!-- Round 9 Phase 6.1 (2026-08-19): the two document panels are now
@@ -2079,6 +2138,37 @@
       <button class="btn-primary hidden" id="linked-records-cancel">Cancel</button>
       <button class="btn-ghost hidden" id="linked-records-proceed"></button>
       <button class="btn-primary" id="linked-records-close">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── New Test Bed name dialogue (Round 10 Phase 1, 2026-08-19) ─────────
+     Reverses Round 5 Phase 2's deliberate choice of a silent auto-suffix.
+     That decision was correct for its own reasoning (no friction at fast
+     entry, and no way to fix a bad name afterward because `name` had no
+     edit control) - and the second half of that reasoning stops being
+     true in this same phase, which is what makes the reversal safe. See
+     DESIGN_PRINCIPLES.md.
+
+     The suffixed value is PRE-FILLED, not applied silently: it is a
+     sensible starting value the user can accept with one keystroke or
+     replace. The default comes from the server
+     (GET /contacts/:id/test-bed-name-suggestion) rather than being
+     recomputed here, so the browser never holds a second copy of the
+     naming rule. Focus trap and Escape follow INTERACTION_STANDARDS.md
+     Section 4, same shape as the inline buyer-contact dialogue. -->
+<div id="new-test-bed-modal" class="hidden modal-backdrop" style="z-index:200">
+  <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="new-test-bed-heading">
+    <p class="eyebrow" id="new-test-bed-heading">New Test Bed</p>
+    <p class="sub" style="margin-top:6px">Name this Test Bed. The suggested name is based on the Account, and can be replaced.</p>
+    <div class="form-row" style="margin-top:16px">
+      <label for="new-test-bed-name">Test Bed name</label>
+      <input type="text" id="new-test-bed-name" autocomplete="off">
+    </div>
+    <p class="msg-error hidden" id="new-test-bed-error"></p>
+    <div class="form-actions" style="margin-top:20px">
+      <button class="btn-ghost" id="new-test-bed-cancel">Cancel</button>
+      <button class="btn-primary" id="new-test-bed-save">Create Test Bed</button>
     </div>
   </div>
 </div>

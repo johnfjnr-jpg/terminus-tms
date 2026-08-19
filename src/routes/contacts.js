@@ -1,4 +1,5 @@
 import { createUserClient } from '../supabase.js'
+import { isValidMobile } from '../lib/field-validation.js'
 import { issueReferenceNumber, issueAccountNumber } from '../lib/reference-number.js'
 import { countryToCode } from '../lib/country-code.js'
 
@@ -141,6 +142,14 @@ export default async function contactsRoutes(app) {
     if (!VALID_SOURCES.includes(source)) {
       return reply.code(400).send({ error: `source must be one of: ${VALID_SOURCES.join(', ')}` })
     }
+    // Round 10 Phase 4 item 1: mobile was accepted as free text on both
+    // write paths. Enforced here rather than only in the browser, per the
+    // standing rule against trusting client-only validation for anything
+    // persisted - and this is the creation path the inline buyer-contact
+    // dialogue also goes through.
+    if (!isValidMobile(mobile)) {
+      return reply.code(400).send({ error: 'mobile must be a phone number: an optional leading +, then 7 to 15 digits, with spaces, hyphens, brackets or dots as separators' })
+    }
 
     const db = createUserClient(request.jwt)
 
@@ -265,6 +274,14 @@ export default async function contactsRoutes(app) {
           error: 'payload contains fields that cannot be set from this endpoint',
           disallowed
         })
+      }
+      // Guarded on the SUBMITTED key, never the merged payload - the same
+      // shape as installationEnvironment and siteOwnership on test-beds.js.
+      // Existing contacts hold free-text mobiles written before this rule
+      // existed, and validating the merged result would fail every
+      // unrelated save on those records permanently.
+      if ('mobile' in payload && !isValidMobile(payload.mobile)) {
+        return reply.code(400).send({ error: 'mobile must be a phone number: an optional leading +, then 7 to 15 digits, with spaces, hyphens, brackets or dots as separators' })
       }
     }
 
@@ -785,6 +802,54 @@ export default async function contactsRoutes(app) {
   // test-bed-detail.js) - same scale, same values, so carrying it over
   // is now the honest, correct default, not the mistake it would have
   // been before.
+  // ONE computation path for the Test Bed naming rule, per the standing
+  // rule that a second path which agrees today will disagree later. Both
+  // the creation endpoint below and the read-only suggestion endpoint
+  // that populates the creation dialogue's default call this, so the name
+  // a user is offered is by construction the name they would have got.
+  //
+  // Count-then-suffix, deliberately not the atomic reference-number
+  // generator: this is a display label with no uniqueness constraint
+  // anywhere, unlike reference_code, so a rare race between two
+  // simultaneous creates producing the same suffix is cosmetic, not a
+  // data-integrity risk. That reasoning is unchanged from Round 5 Phase 2.
+  async function suggestTestBedName(db, accountId, accountName, log) {
+    if (!accountName) return 'New Test Bed'
+    const { count, error } = await db
+      .from('records')
+      .select('id', { count: 'exact', head: true })
+      .eq('record_type', 'test_bed')
+      .eq('account_id', accountId)
+      .is('deleted_at', null)
+    if (error) {
+      // Log and fall back to the unsuffixed name rather than failing the
+      // create outright - the same log-and-continue convention this file
+      // already uses for reference-number issuance.
+      log?.error({ err: error }, 'failed to count sibling test beds for name suffix')
+      return accountName
+    }
+    return count ? `${accountName} (${count + 1})` : accountName
+  }
+
+  // GET /contacts/:id/test-bed-name-suggestion
+  //
+  // Read-only. Supplies the creation dialogue with the value it should
+  // pre-fill, so the suffix is offered rather than applied silently
+  // (Round 10 Phase 1, reversing Round 5 Phase 2 - see DESIGN_PRINCIPLES).
+  // Deliberately its own endpoint rather than computing the suffix in the
+  // browser: a client-side count would be a second implementation of the
+  // naming rule, and the two would drift.
+  app.get('/contacts/:id/test-bed-name-suggestion', async (request, reply) => {
+    const db = createUserClient(request.jwt)
+    const { contact, accountName, error } = await loadQualifiedContact(db, request.params.id)
+    if (error) return reply.code(error.code).send(error.body)
+    if (!contact.parent_record_id) {
+      return reply.code(422).send({ error: 'Contact must be linked to an Account before creating a Test Bed' })
+    }
+    const suggestedName = await suggestTestBedName(db, contact.parent_record_id, accountName, request.log)
+    return reply.send({ suggestedName })
+  })
+
   app.post('/contacts/:id/create-test-bed', async (request, reply) => {
     const db = createUserClient(request.jwt)
     const { contact, accountName, contactPayload, error } = await loadQualifiedContact(db, request.params.id)
@@ -824,20 +889,17 @@ export default async function contactsRoutes(app) {
     // a cosmetic possibility, not a data-integrity risk, not worth the
     // extra atomic-counter machinery that field's real uniqueness
     // guarantee requires.
-    let name = accountName ?? 'New Test Bed'
-    if (accountName) {
-      const { count: siblingCount, error: siblingErr } = await db
-        .from('records')
-        .select('id', { count: 'exact', head: true })
-        .eq('record_type', 'test_bed')
-        .eq('account_id', contact.parent_record_id)
-        .is('deleted_at', null)
-      if (siblingErr) {
-        request.log.error({ err: siblingErr }, 'failed to count sibling test beds for name suffix')
-      } else if (siblingCount) {
-        name = `${accountName} (${siblingCount + 1})`
-      }
+    // Round 10 Phase 1 (2026-08-19): the suffixed value is now a DEFAULT
+    // offered in the creation dialogue, not something applied silently.
+    // A caller supplying its own name gets that name; a caller supplying
+    // none keeps the pre-Round-10 behaviour exactly, which is what every
+    // existing test and any direct API caller relies on.
+    const suggested = await suggestTestBedName(db, contact.parent_record_id, accountName, request.log)
+    const supplied = typeof request.body?.name === 'string' ? request.body.name.trim() : ''
+    if (request.body && 'name' in request.body && !supplied) {
+      return reply.code(400).send({ error: 'name, when supplied, cannot be blank' })
     }
+    const name = supplied || suggested
 
     let referenceCode = null
     if (contact.industry_id) {

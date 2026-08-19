@@ -64,6 +64,13 @@ export const VALID_SITE_OWNERSHIP = [
   'Central Government', 'Private', 'Other',
 ]
 
+// Round 10 Phase 3.2 (2026-08-19). Same hardcoded-array convention as
+// VALID_SITE_OWNERSHIP above and VALID_SOURCES in contacts.js - no
+// picklist-admin table exists for any field yet, and the business has
+// confirmed these move to an Admin-configured list later, so a table
+// built now would be a second home for the same decision.
+export const VALID_INSTALLATION_ENVIRONMENT = ['Indoor', 'Outdoor', 'Both']
+
 export default async function testBedsRoutes(app) {
   // GET /api/test-beds
   //
@@ -457,6 +464,31 @@ export default async function testBedsRoutes(app) {
       if ('siteOwnership' in payload && payload.siteOwnership && !VALID_SITE_OWNERSHIP.includes(payload.siteOwnership)) {
         return reply.code(400).send({ error: `siteOwnership must be one of: ${VALID_SITE_OWNERSHIP.join(', ')}` })
       }
+      // Round 10 Phase 1: `name` became user-editable this round. It has
+      // been a writable key since Milestone 4, but nothing in the product
+      // could reach it, so it never needed a guard. Now that a click-to-
+      // edit control exists, clearing the field and saving would leave a
+      // record with no name at all, and the header, both list views and
+      // the linked-records modal all render it. Rejected server-side
+      // rather than only in the browser, per the standing rule against
+      // trusting client-only validation for anything persisted.
+      if ('name' in payload && (typeof payload.name !== 'string' || !payload.name.trim())) {
+        return reply.code(400).send({ error: 'name cannot be blank' })
+      }
+      // Round 10 Phase 3.2. Guarded on the key being PRESENT IN THE
+      // SUBMITTED PAYLOAD, exactly like siteOwnership above, not on the
+      // merged result. That distinction is load-bearing: three
+      // soft-deleted records still hold legacy free-text values
+      // ("Indoor and Outdoor", "Roadside verge - real save"), and
+      // validating the merged payload would make every unrelated save on
+      // such a record fail for a field the user never touched - the same
+      // shape as the NOT VALID constraint that once edit-locked a batch of
+      // Test Beds, including for soft-delete. An empty string is allowed
+      // through so a value can still be cleared back to unset.
+      if ('installationEnvironment' in payload && payload.installationEnvironment
+          && !VALID_INSTALLATION_ENVIRONMENT.includes(payload.installationEnvironment)) {
+        return reply.code(400).send({ error: `installationEnvironment must be one of: ${VALID_INSTALLATION_ENVIRONMENT.join(', ')}` })
+      }
       // Real bug found and fixed (2026-08-15): these fields had a writable
       // key but zero value validation, a plain text input accepted (and
       // this endpoint happily persisted) a garbled date string and a
@@ -789,6 +821,120 @@ export default async function testBedsRoutes(app) {
     })
 
     return { reference_docs, completable_documents }
+  })
+
+  // GET /api/test-beds/:id/lifecycle-documents
+  //
+  // Round 10 Phase 7 (2026-08-19). Every document produced across the whole
+  // lifecycle, grouped by stage in lifecycle order, for the Closed tab.
+  //
+  // ONE call, not eight. The obvious alternative was to call the existing
+  // per-stage document-requirements endpoint once per stage, which is eight
+  // round trips to build one read-only panel and would have made the Closed
+  // tab the slowest screen in the app.
+  //
+  // READ-ONLY BY CONSTRUCTION, not by the frontend choosing not to render a
+  // button. It returns no gate rule, no required_status and nothing a
+  // Confirm control could act on - a closed Test Bed's documents are the
+  // record, and altering them after closure undermines the audit trail. The
+  // backward transition path built in Round 9 Phase 4A is the way to change
+  // something, and it records the move as a regression.
+  //
+  // The catalogue is stage_reference_docs, which is what makes the grouping
+  // authoritative: it is the table that says which document belongs to which
+  // stage. A document child record whose variant matches no catalogue entry
+  // is still returned, under its own heading, rather than silently dropped -
+  // the same union-not-intersection reasoning the stage panel already uses,
+  // because the two tables hold names as independent free strings.
+  app.get('/test-beds/:id/lifecycle-documents', async (request, reply) => {
+    const db = createUserClient(request.jwt)
+
+    const { data: bed, error: bedErr } = await db
+      .from('records')
+      .select('id, record_type, status')
+      .eq('id', request.params.id)
+      .eq('record_type', 'test_bed')
+      .is('deleted_at', null)
+      .maybeSingle()
+    if (bedErr) return reply.code(500).send({ error: bedErr.message })
+    if (!bed) return reply.code(404).send({ error: 'not found' })
+
+    const { data: stages, error: stagesErr } = await db
+      .from('stage_definitions')
+      .select('stage_name, sort_order')
+      .eq('record_type', 'test_bed')
+      .order('sort_order')
+    if (stagesErr) return reply.code(500).send({ error: stagesErr.message })
+
+    const { data: catalogue, error: catErr } = await db
+      .from('stage_reference_docs')
+      .select('stage_name, document_name')
+      .eq('record_type', 'test_bed')
+    if (catErr) return reply.code(500).send({ error: catErr.message })
+
+    const { data: children, error: kidsErr } = await db
+      .from('records')
+      .select('id, variant, status, created_at')
+      .eq('parent_record_id', bed.id)
+      .eq('record_type', 'document')
+      .is('deleted_at', null)
+    if (kidsErr) return reply.code(500).send({ error: kidsErr.message })
+
+    const locations = {}
+    const ids = (children ?? []).map(c => c.id)
+    if (ids.length) {
+      const { data: details, error: detErr } = await db
+        .from('document_details')
+        .select('record_id, document_location')
+        .in('record_id', ids)
+      if (detErr) return reply.code(500).send({ error: detErr.message })
+      for (const d of details ?? []) locations[d.record_id] = d.document_location
+    }
+
+    const childByName = {}
+    for (const c of children ?? []) childByName[c.variant] = c
+
+    const groups = []
+    const claimed = new Set()
+    for (const st of stages ?? []) {
+      const names = (catalogue ?? []).filter(c => c.stage_name === st.stage_name).map(c => c.document_name)
+      if (!names.length) continue
+      groups.push({
+        stage: st.stage_name,
+        sort_order: st.sort_order,
+        documents: names.map(name => {
+          const child = childByName[name]
+          if (child) claimed.add(child.variant)
+          return {
+            document: name,
+            // null, not a fabricated status: a document never produced is a
+            // real state and the panel has to be able to say so.
+            status: child?.status ?? null,
+            document_location: child ? (locations[child.id] ?? null) : null,
+            produced: !!child,
+          }
+        })
+      })
+    }
+
+    // Anything the record actually holds that the catalogue does not name.
+    const orphans = (children ?? []).filter(c => !claimed.has(c.variant))
+    if (orphans.length) {
+      groups.push({
+        stage: 'Not in the stage catalogue',
+        sort_order: 9999,
+        documents: orphans.map(c => ({
+          document: c.variant,
+          status: c.status,
+          document_location: locations[c.id] ?? null,
+          produced: true,
+        }))
+      })
+    }
+
+    const total = groups.reduce((n, g) => n + g.documents.length, 0)
+    const produced = groups.reduce((n, g) => n + g.documents.filter(d => d.produced).length, 0)
+    return reply.send({ record_status: bed.status, total, produced, groups })
   })
 
   // POST /api/test-beds/:id/complete-document

@@ -156,7 +156,7 @@ function refFieldRow(key, label, value, opts = {}) {
   return `
   <div class="ref-field" data-key="${key}">
     <div class="ref-field-label"><span>${label}</span></div>
-    <div class="ref-field-display" id="ref-display-${key}" tabindex="0" onclick="openRefField('${key}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openRefField('${key}')}">${v !== '' ? escHtml(v) + (opts.number && opts.suffix ? ` ${opts.suffix}` : '') : '--'}</div>
+    <div class="ref-field-display" id="ref-display-${key}" tabindex="0" onclick="openRefField('${key}',true)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openRefField('${key}',true)}">${v !== '' ? escHtml(v) + (opts.number && opts.suffix ? ` ${opts.suffix}` : '') : '--'}</div>
     <div class="ref-field-edit hidden" id="ref-edit-${key}">
       ${inputTag}
       <span class="ref-field-discard" tabindex="0" onclick="discardRefField('${key}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();discardRefField('${key}')}">&times;</span>
@@ -346,14 +346,15 @@ function refFieldOrigValue(key) {
   return refPayload[key] ?? ''
 }
 
-window.openRefField = function (key) {
+// fromUserGesture (Round 10 Phase 0A): see window.revealFieldControl in app.js.
+window.openRefField = function (key, fromUserGesture) {
   if (refEdits[key]) return
   const orig = String(refFieldOrigValue(key))
   refEdits[key] = { draft: orig, orig }
   document.getElementById(`ref-display-${key}`).classList.add('hidden')
   document.getElementById(`ref-edit-${key}`).classList.remove('hidden')
   const input = document.getElementById(`ref-input-${key}`)
-  input.focus()
+  window.revealFieldControl(input, fromUserGesture)
   updateRefEditBar()
 }
 

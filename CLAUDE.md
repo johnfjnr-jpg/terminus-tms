@@ -94,6 +94,22 @@ not resolve it quietly.
    be replayed with no warning, and an unguarded `INSERT` duplicates rows
    invisibly.
 
+8. **Correct for every caller that exists is not correct for the caller
+   about to be built, and the fault only goes live when something starts
+   depending on the branch that was being skipped.** Before building on an
+   existing path, exercise the branch your new use will rely on,
+   especially its failure branch. Three confirmed instances:
+   `complete-document` hardcoded `status = 'approved'`, right for every
+   caller it had and a gate bypass the moment a URL field was added;
+   `api()` had no `catch` around `fetch`, so every caller's `!ok` branch
+   was unreachable on a network failure until a pending state needed it
+   and sat on "Loading" forever; and `renderTbStageExitCriteria` had no
+   load-token guard, safe only because it ran last, until the fetches were
+   parallelised. **None appeared as a regression** and no test broke,
+   because nothing was broken until the new use arrived. Distinct from
+   build-discipline rule 6, which is a fix failing to reach a new surface;
+   this is an unchanged path meeting a new demand.
+
 ---
 
 ## Verification
@@ -107,15 +123,58 @@ not resolve it quietly.
 5. When a control matters, the assertion belongs in the automated suite,
    where it passes or fails, not in prose.
 
-6. **Every Supabase call has its `error` checked, including upserts and
+6. **Never verify on a fixed delay. Wait on real state.** Promoted here
+   Round 10 after being restated in four consecutive round briefs and
+   living nowhere permanent. Round 6 Phase 3 and Round 8 Phase 6 both
+   recorded checks that resolved against the previous tab's content.
+
+7. **Before waiting on a condition, state what it would look like if the
+   action had NOT happened, and check it differs.** This is the operative
+   test; "wait on something only the new state can satisfy" is the
+   principle, and it gives no help on any specific condition. The
+   counterfactual does, immediately and without knowing the feature:
+   `#tb-display-name` exists either way; `dataset.stage === 'Qualification'`
+   is already true from the previous record's panel; six `.tb-crit-box--met`
+   exist either way, because that selector also matches the computed rows.
+
+   Rule 6 is necessary and not sufficient: **eight probe faults across
+   Round 10 Phases 5B and 6 passed it**, most being real-state waits the
+   OLD state already satisfied. **Two of them briefly presented as product
+   defects** - one as a cross-record data-binding fault, a second Test
+   Bed's approval rows appearing bound to the first record's id, which
+   would have meant approvals recorded against the wrong record; the other
+   as a feature simply not working, the landing tab reading as the
+   previous stage on all seven transitions. Both were the harness
+   measuring mid-navigation. **Knowing this rule does not confer the
+   ability to spot which conditions are stale-satisfiable** - four of the
+   eight were written in the phase that promoted it. Apply the
+   counterfactual; do not rely on recognising the shape.
+
+8. **Every Supabase call has its `error` checked, including upserts and
    any write whose result is not otherwise read.** An unchecked write
    returns success with nothing stored. Two confirmed instances of this
    exact shape: `PATCH /contacts/:id` and `PATCH /test-beds/:id` at
    Milestone 5, and the `document_details` upsert behind the document URL
    in Round 9 Phase 6. A read whose error is unchecked is at least
    visibly empty; a write whose error is unchecked looks like it worked.
-6. An invariant not proven capable of failing is not evidence. Inject a
+
+9. An invariant not proven capable of failing is not evidence. Inject a
    real violating case, watch it fail, then revert.
+
+10. **Layout is checked at 1240px, 1920px and 3440px, before and after.**
+    Promoted here Round 10 after appearing in seven briefs and no
+    permanent document. 1240 is where things break, 3440 is where a cap
+    stops content using real width, and a before/after pair is what makes
+    a layout claim checkable rather than asserted.
+
+11. **Test fixtures are SOFT deleted, never hard deleted, and a
+    `reference_number_counters` row is never deleted at all.** Promoted
+    here Round 10 after four briefs restated it. `records` carries
+    `ON DELETE RESTRICT` references from `record_revisions`, `approvals`
+    and `audit_log`, so a hard delete is blocked or orphans history; and a
+    counter deleted while a soft-deleted record still holds a code from it
+    restarts and collides, which has happened. Confirm teardown by
+    re-querying `deleted_at`, never by trusting the delete's own result.
 
 ---
 

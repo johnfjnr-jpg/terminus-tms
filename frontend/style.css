@@ -2358,6 +2358,89 @@ input.input-invalid {
   min-width: 0;
   max-width: 1180px;
 }
+/* Round 10 Phase 2 (2026-08-19): Summary sits in line with the name.
+   The identity column keeps its natural width and the summary takes the
+   remaining space, capped so it stays readable rather than running the
+   full width of a 3440px monitor. Wraps to its own line below 1100px,
+   where side by side would squeeze the summary into the 155px-wide,
+   four-ragged-lines state DESIGN_PRINCIPLES records from Round 7 Phase 5 -
+   the whole reason "assert a minimum usable width" is a standing rule. */
+/* Round 10 Phase 3.1 + Phase 2 item 4 (2026-08-19): Customer Details keeps a
+   narrower label column than the rest of the tab.
+
+   MEASURED, not chosen: .ref-field-label is `flex: 0 0 170px`, a FIXED
+   width, so shortening the label TEXT frees no horizontal space at all on
+   its own - which is the assumption the brief's "narrowing is only safe
+   because of the label changes" rested on, and it does not hold by itself.
+   The room has to be taken from the label column, and it can only be taken
+   where the labels are genuinely short.
+
+   Scoped to this card deliberately. The widest label on the rest of the tab
+   is "Estimated Installation Date" at 161px, which would wrap at anything
+   under ~165px; inside Customer Details the widest is now 66px
+   ("Comm. Buyer"), so 90px carries every label on one line with real room
+   to spare. Not applied to .ref-field-label globally, which is shared with
+   Contact and Opportunity detail, neither of which had its labels
+   shortened - the "a fix built for the pages that existed" trap in
+   reverse. */
+#tb-customer-rows .ref-field-label,
+#tb-buyer-rows .ref-field-label {
+  flex-basis: 90px;
+}
+/* The select sizes to its own widest option, not to the space available, so
+   narrowing the label column alone handed it only 12 of the ~80px freed.
+   Letting it grow into the row is what actually uses the room, and
+   min-width:0 is required or a flex item refuses to shrink below its
+   content width and pushes "+ New" past the card edge. */
+/* The select could not grow until its own WRAPPER could: the row is
+   label + wrapper, and the wrapper held select + "+ New" at content width,
+   so growing the select inside a box that never grew changed nothing.
+   Both need it, which is why the first attempt moved the select by 12px
+   and no further. */
+.tb-buyer-controls {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+#tb-buyer-rows select {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.tb-head-identity {
+  display: flex;
+  align-items: flex-start;
+  /* Column and row gaps set separately, deliberately. A single `gap: 48px`
+     also applies 48px BETWEEN the wrapped lines, which measured as a 96px
+     dead band above the summary at 1240px where it wraps. The horizontal
+     separation is what the in-line layout needs; the vertical one is pure
+     cost on exactly the viewport this page can least afford it, per the
+     recorded whole-page density finding. */
+  column-gap: 48px;
+  row-gap: 0;
+  flex-wrap: wrap;
+}
+.tb-head-identity-main {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+.tb-head-summary-inline {
+  flex: 1 1 380px;
+  min-width: 380px;
+  max-width: 620px;
+  margin-top: 16px;
+}
+/* No viewport media query here, deliberately. min-width plus flex-wrap
+   already drops the summary to its own full-width line whenever the space
+   actually beside the name falls below a usable 380px, which is measured
+   from the real container rather than guessed from the viewport - the
+   distinction the standing layout rule exists to enforce. Measured at
+   1240px the header column is 665px wide and only 274px remains beside the
+   name, close to the 155px four-ragged-lines state Round 7 Phase 5
+   recorded, so wrapping there is the correct outcome and not a shortfall. */
+
 .tb-header-digest {
   margin-top: 22px;
   display: flex;
@@ -2585,3 +2668,92 @@ input.input-invalid {
 }
 /* A computed row is read-only, so it must not look clickable. */
 .tb-crit-row--computed { cursor: default; }
+
+/* ── Closed tab: the completed record (Round 10 Phase 7, 2026-08-19) ───────
+   Read-only throughout. No control here takes a click, deliberately: a
+   closed Test Bed's documents are the record, and the backward transition
+   path is how something changes, which records the move as a regression. */
+#tb-closed-card { max-width: 900px; }
+.tb-closed-group { margin-top: 22px; }
+.tb-closed-group:first-child { margin-top: 10px; }
+.tb-closed-stage {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--green);
+  margin: 0 0 8px;
+}
+.tb-closed-doc {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  padding: 9px 0;
+  border-top: 1px solid var(--hairline);
+}
+.tb-closed-doc-name { flex: 0 0 300px; font-size: 13px; }
+.tb-closed-doc-url {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 12px;
+  font-family: var(--mono);
+  opacity: 0.75;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tb-closed-doc-missing { opacity: 0.5; }
+
+/* ── Sensors panels (Round 10 Phase 8, 2026-08-19) ────────────────────────
+   One panel per sensor, inside the Site Details card, so the grid has to
+   work at that card's own width (420px) rather than the page's. minmax
+   with auto-fill reflows from three across down to one without a media
+   query, and a high sensor count simply grows the list downward instead of
+   overflowing sideways - checked at 1240/1920/3440 with a real mixed count.
+   Deliberately NOT reusing .pg-card: these sit INSIDE a .pg-card, and
+   nesting that border weight reads as a second card rather than an item. */
+.tb-sensors-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.tb-sensor-grid {
+  display: grid;
+  /* 140px is measured, not chosen. The widest generated identity
+     ("SafeSight Camera 10") needs 114px of text plus 22px of panel padding
+     and border, so a 118px floor clipped 35 of 42 names at 1240px - and the
+     identity is the ONLY content these panels carry, so truncating it
+     defeats the panel entirely. Assert a minimum USABLE width, not mere
+     presence. At the Site Details card's own 390px inner width this gives
+     two across with real room to spare. */
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 8px;
+}
+.tb-sensor-panel {
+  border: 1px solid var(--hairline);
+  padding: 8px 10px;
+  min-width: 0;
+}
+.tb-sensor-name {
+  font-size: 12px;
+  margin: 0 0 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tb-sensor-state {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  opacity: 0.5;
+  margin: 0;
+}
+/* Says the panel has room for detail without inventing any. */
+.tb-sensor-note {
+  font-size: 11px;
+  opacity: 0.55;
+  margin: 10px 0 0;
+}
