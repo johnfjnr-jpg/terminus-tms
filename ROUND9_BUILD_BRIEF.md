@@ -397,6 +397,75 @@ rather than reconstructing it from this brief.
 
 ---
 
+## Phase 4A: Close the two defects Phase 4 surfaced
+
+**Added 2026-08-19, after Phase 4. This is a scope addition and it is its
+own phase, deliberately not bolted onto Phase 5.** Both defects were found
+by Phase 4's own evidence, and both are code changes in a round whose
+other phases are configuration and layout, so folding them into a
+configuration phase would hide a mechanism change inside a data change.
+
+**Why now rather than before Phase 8.** Finding B fires whenever a track
+is required at two consecutive stages with no field edit between them.
+Commercial gates transitions 1 to 4, and Phase 5 configures Commercial on
+transitions 5, 6 and 7 as well, so the same 409 would fire three more
+times inside Phase 5's own evidence and would have to be worked around
+three more times before anyone could see whether Phase 5's rows were
+correct. A workaround repeated inside the evidence for a phase is no
+longer a workaround, it is a defect being normalised.
+
+### 4A.1 Stage adjacency
+
+Confirmed rule:
+
+- **Forward transitions must be exactly one stage.** Gates apply as
+  configured.
+- **Backward transitions to any lower stage are permitted, ungated**, and
+  recorded in `audit_log` as a regression.
+- **Same-stage and unknown-stage transitions are refused.**
+
+Build it in `transitions.js`. No new table and no schema change.
+
+**Backward moves being ungated is a deliberate concession, and it is a
+separate future question, recorded rather than resolved here.** A record
+moved forward in error has to be recoverable, and the alternative,
+gating a reversal on the gates of the stage being returned to, is
+incoherent: those gates describe what it takes to leave that stage, not
+what it takes to re-enter it. What is genuinely open is whether a
+backward move should require a reason, an entitlement, or both, which is
+the same governance question as approval entitlement and belongs with it.
+
+### 4A.2 Approvals unique constraint
+
+Target: `(record_id, revision_number, stage, track, approver_id)`, with
+`NULLS NOT DISTINCT`.
+
+Both keys are retained deliberately, so a new decision is admitted when
+**either** the revision or the stage moves. Dropping `revision_number`
+would have been the smaller-looking change and is wrong: Round 7 Phase
+3.1 constraint 1 requires approvals to keep recording the revision even
+when gated on stage, so a future pricing-history view stays possible.
+
+`NULLS NOT DISTINCT` because `approvals.stage` is nullable and pre-3.1
+rows carry null by design. Under the default `NULLS DISTINCT`, two
+null-stage approvals for the same record, revision, track and approver
+would no longer collide, which would quietly weaken the constraint for
+exactly the historical rows it already protects.
+
+**Confirm directly, before building, that the approvals route always
+writes a stage today** rather than relying on Phase 0's zero-null finding
+continuing to hold for future writes. Phase 0 measured the data; this
+needs to establish the property.
+
+**Test evidence required:** Qualification to Closed refused by direct
+call. Every two-stage forward jump refused. A backward move permitted,
+with its `audit_log` entry shown. The same approver approving the same
+track at two consecutive stages with no intervening edit, accepted, which
+is the exact 409 that fired twice in Phase 4. A genuine duplicate at the
+same stage and revision still refused. Both suites green.
+
+---
+
 ## Phase 5: Configure gates, transitions 5 to 7
 
 | # | Transition | Documents (`document_status`) | Approvals (all `scope: "stage"`) | Criteria |

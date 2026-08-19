@@ -337,8 +337,9 @@ export default async function transitionsRoutes(app) {
     // string with zero validation.
     let stageQuery = db
       .from('stage_definitions')
-      .select('stage_name')
+      .select('stage_name, sort_order')
       .eq('record_type', record.record_type)
+      .order('sort_order', { ascending: true })
 
     stageQuery = record.variant
       ? stageQuery.eq('variant', record.variant)
@@ -362,10 +363,57 @@ export default async function transitionsRoutes(app) {
       return reply.code(500).send({ error: stageDefsErr.message })
     }
 
-    const validStages = (stageDefs ?? []).map(s => s.stage_name)
+    const orderedStages = stageDefs ?? []
+    const validStages = orderedStages.map(s => s.stage_name)
     if (!validStages.includes(to_stage)) {
       return reply.code(400).send({
         error: `${to_stage} is not a valid stage for this record type`
+      })
+    }
+
+    // ── Stage adjacency (Round 9 Phase 4A.1, 2026-08-19) ──────────────
+    //
+    // Until now this endpoint checked only that to_stage existed in
+    // stage_definitions, and nothing about WHERE it sat. Gate rules are
+    // keyed on the (from_stage, to_stage) pair, so a skipped stage did
+    // not bypass its gates, it landed on a pair for which no rules exist
+    // at all: 51 of test_bed's 56 ordered stage pairs carried no rules,
+    // Qualification -> Closed among them. The hole was in the space
+    // between the rules, which is why every rule-level check passed
+    // while it was open.
+    //
+    // Adjacency is measured by POSITION IN THE ORDERED LIST, not by
+    // sort_order arithmetic. The confirmed rule was written as "exactly
+    // +1 on sort_order", and for every record type today that is the
+    // same thing, because every stage list is contiguous from 1. It
+    // stops being the same thing the moment anyone numbers a list 10,
+    // 20, 30, which is a normal way to leave room for insertions, and
+    // then +1 arithmetic would refuse every forward transition in that
+    // record type. Position is also what GET /records/:id/exit-criteria
+    // already uses to decide which stage a record is heading for
+    // (stages[currentIdx + 1]), so the endpoint that says what is needed
+    // to exit and the endpoint that performs the exit now agree by
+    // construction rather than by coincidence.
+    const fromIdx = orderedStages.findIndex(s => s.stage_name === from_stage)
+    const toIdx = orderedStages.findIndex(s => s.stage_name === to_stage)
+
+    // An unknown CURRENT stage is refused rather than treated as the
+    // start of the list. A record whose status is not in its own type's
+    // stage list is a data fault, and guessing a direction for it would
+    // turn that fault into an unaudited stage change.
+    if (fromIdx < 0) {
+      return reply.code(400).send({
+        error: `record's current stage ${from_stage} is not in the stage list for this record type`
+      })
+    }
+
+    const isBackward = toIdx < fromIdx
+    if (!isBackward && toIdx !== fromIdx + 1) {
+      return reply.code(400).send({
+        error: `cannot skip stages: ${to_stage} is not the next stage after ${from_stage}`,
+        from_stage,
+        to_stage,
+        next_stage: orderedStages[fromIdx + 1]?.stage_name ?? null
       })
     }
 
@@ -397,17 +445,28 @@ export default async function transitionsRoutes(app) {
 
     const currentRevision = revRow?.revision_number ?? 1
 
-    const { blocking, error: blockingErr } = await computeBlocking(db, record, from_stage, to_stage, currentRevision, revRow?.payload)
-    if (blockingErr) {
-      request.log.error({ err: blockingErr }, 'failed to fetch stage_gate_rules')
-      return reply.code(500).send({ error: blockingErr.message })
-    }
+    // A backward move is deliberately UNGATED. Gate rules describe what it
+    // takes to LEAVE a stage, not what it takes to re-enter one, so
+    // evaluating them on a reversal would be asking the wrong question:
+    // the (from, to) pair of a reversal is not a configured transition
+    // and never will be. A record advanced in error has to be
+    // recoverable, and this is the mechanism. It is a real concession,
+    // recorded as such in DESIGN_PRINCIPLES.md: whether a reversal should
+    // require a reason, an entitlement, or both is a live question and is
+    // the same governance question as approval entitlement.
+    if (!isBackward) {
+      const { blocking, error: blockingErr } = await computeBlocking(db, record, from_stage, to_stage, currentRevision, revRow?.payload)
+      if (blockingErr) {
+        request.log.error({ err: blockingErr }, 'failed to fetch stage_gate_rules')
+        return reply.code(500).send({ error: blockingErr.message })
+      }
 
-    if (blocking.length > 0) {
-      return reply.code(422).send({
-        error: 'transition blocked by unmet requirements',
-        blocking
-      })
+      if (blocking.length > 0) {
+        return reply.code(422).send({
+          error: 'transition blocked by unmet requirements',
+          blocking
+        })
+      }
     }
 
     // records_select is team-wide, records_update is still owner-only - a
@@ -436,7 +495,14 @@ export default async function transitionsRoutes(app) {
       record_type: record.record_type,
       action: 'transition',
       actor_id: request.user.id,
-      detail: { from: from_stage, to: to_stage, revision: currentRevision }
+      // A backward move is marked in the audit trail rather than being
+      // indistinguishable from ordinary progress. `action` deliberately
+      // stays 'transition' so every existing query over the trail still
+      // finds it; the direction is carried in the detail. Ungated is not
+      // the same as unrecorded.
+      detail: isBackward
+        ? { from: from_stage, to: to_stage, revision: currentRevision, direction: 'backward', regression: true, gated: false }
+        : { from: from_stage, to: to_stage, revision: currentRevision }
     })
 
     // Auto-update probability_pct from stage defaults after a successful transition.
