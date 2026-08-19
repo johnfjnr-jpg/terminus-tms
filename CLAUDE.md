@@ -106,6 +106,14 @@ not resolve it quietly.
    on visibly broken layouts.
 5. When a control matters, the assertion belongs in the automated suite,
    where it passes or fails, not in prose.
+
+6. **Every Supabase call has its `error` checked, including upserts and
+   any write whose result is not otherwise read.** An unchecked write
+   returns success with nothing stored. Two confirmed instances of this
+   exact shape: `PATCH /contacts/:id` and `PATCH /test-beds/:id` at
+   Milestone 5, and the `document_details` upsert behind the document URL
+   in Round 9 Phase 6. A read whose error is unchecked is at least
+   visibly empty; a write whose error is unchecked looks like it worked.
 6. An invariant not proven capable of failing is not evidence. Inject a
    real violating case, watch it fail, then revert.
 
