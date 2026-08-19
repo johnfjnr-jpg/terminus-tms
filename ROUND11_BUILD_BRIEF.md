@@ -770,3 +770,48 @@ itself worth recording deliberately. Data Rights is the first candidate for
 a minimum threshold once there is evidence, because a 1 means the Test Bed
 cannot deliver its primary return to Terminus, and the programme is
 cost-only with no client billing.
+
+---
+
+## Round 11 outcome
+
+All 10 phases built and signed off: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9. Checked with
+`grep -n "^## Phase\|^### Phase"` per rule 7, which returns 10 headings and no
+sub-phases. **The corrected pattern and the old one agree on this brief**,
+recorded so a matching count is not read as evidence the Round 10A correction
+was unnecessary.
+
+Assembled from the entries written at the time, not from memory.
+
+| Phase | Delivered | Beyond the brief |
+|---|---|---|
+| 0. Investigate | All eight items | **Six findings against the brief, three changing a later phase.** `[]` passes `payload_field_required`, so an empty score series would open its own gate. The Est. Close Date reason writes a NOTE, which this round's evidence forbids. `buyer-contacts` returns **422** for a foreign Account and cannot be reused. Plus the four-versus-five criteria contradiction inside the brief, an unstated SPLIT, and a premise about an Opportunity Account picker removed in Round 3 |
+| 1. The model as data | Two tables, 5 criteria, 15 anchors, `exitQualDataAndUseCase` retired | All 18 existing tables checked before creating either. Anchor versioning proven with the counterfactual stated first, and immutability shown to be **RLS deny-by-default**, not convention. The retirement's sequencing came from surveying all 151 Test Beds: all three live Qualification records hold zero ticks, which refuted the alternative order |
+| 2. Append-only series | `POST /scores`, panel with history | **PATCH rejected as the write path**, which makes append-only structural rather than conventional. Entry shape built for Round 12 rather than for scoring. Author written server-side, a deliberate departure from the notes pattern. The ordering fixture injects the newest entry at position 0, so the correct answer is 2 and the wrong one is 5 |
+| 3. The reason dialogue | `window.requestChangeReason`, both callers rewired | **Interaction shared, storage not**, and the two go opposite ways. A hidden-ancestor focus defect that worked perfectly for the existing caller and failed silently for the new one. Found the Est. Close Date note being dropped when another field is dirty, pre-existing since Round 3 |
+| 4. Gates | 53 to 59 rules, engine change, three re-score gates, measurability | The length clause written generally, proven with a rule that was then reverted. A qualification score demonstrably does **not** satisfy the Site Assessment gate. A layout defect **every programmatic assertion passed** |
+| 5. Installer and Tech Team | `installer_account_id`, `record_contacts` role, both gates, both controls | `record_contacts` **had no DELETE policy at all**, so two of my endpoints believed a delete that removed nothing. `RECORD_COLUMN_FIELDS` and two hardcoded selects had nothing aligning them. A probe that read only the body reported a 500 as an open gate |
+| 6. Customer Documents | `document_kind`, four consumers filtered positively | **The fourth consumer was the gate itself**, found by sweeping rather than by Phase 0's read. The first gate proof could not tell the filter from the status difference. The constraint caught three fixtures, and the first fix failed **byte-identically** |
+| 7. Invariants | 4 configuration + 1 stylesheet, each proven capable of failing | Invariant 10's violating state was **unreachable by any supported write**, so the pre-constraint condition had to be reproduced. The stylesheet invariant caught a live two-round-old defect on its first run |
+| 8. Score a real Test Bed | Qualification to Monitoring, all five scored, all three re-scored at their own gates | **Eight ambiguous anchors recorded verbatim**, plus the structural finding that is the round's main output |
+| 9. Regenerate and reconcile | Fixtures torn down, `CURRENT_STATE.md` regenerated, every hunk attributed | The generator did not record the two new configuration tables, so the reconciliation would have been incomplete by construction. Extended it |
+
+### Four things only visible from the end of the round
+
+**1. The anchors are the deliverable and the anchors are what needs work.** Every mechanism built this round functions: scores store, gates block and release, history survives, versions resolve. **The framework's content is where the difficulty is**, and it took a real engagement to see it. Every 5 anchor is a conjunction of three or four independent conditions joined by implicit AND, so each criterion is a set of axes collapsed onto one number. Real engagements satisfy most conditions and fail one; that happened on four of five criteria. **2 and 4 as "between these" cannot carry a gap that is not one dimension**, and on two criteria both anchors were false in their own distinguishing clause so the score was chosen because it is between, not because anything supported it. **This is a design point, not a wording problem**, and no individual row change touches it.
+
+**2. Phase 0 returned six findings against the brief, and three changed what a later phase could do.** That is now the fourth consecutive round where the investigate-first phase paid for itself. The pattern is stable and worth stating as such: **a brief written from documents rather than code contains wrong premises**, not through carelessness but because documents record intent and code records behaviour. The sharpest was that `[]` passes `payload_field_required`, which would have let an unscored criterion open its own gate, and no amount of reading the brief would have surfaced it.
+
+**3. Three defects this round were composed rather than authored, and each survived review of every component.** `record_contacts` had no DELETE policy, so a delete removed nothing and reported no error, so a replace-then-insert duplicated a link, so a `.maybeSingle()` chosen years earlier errored, so a working gate returned 500. **Every link in that chain is defensible on its own terms.** The same shape produced the `RECORD_COLUMN_FIELDS` gap, where a set and two hardcoded select lists had nothing aligning them, and the destructuring finding, where a fixed parameter list silently discarded a newly-mandatory column. **A component that meets its contract cannot be found by examining it**; only driving the whole path finds these, which is the argument Round 9 Phase 5 made for completing a lifecycle, arriving from a different direction.
+
+**4. Three checks passed for the wrong reason and were caught only by constructing the divergent case.** The gate filter proof returned 0 both ways because status already excluded the document. The `--line` sweep had been run by hand twice and never encoded. The ordering default could not be distinguished from a wrong implementation until the fixture made position and chronology disagree. **A check that passes for the wrong reason is indistinguishable from one that passes for the right reason**, and re-reading either the check or the code separates them never. In two of the three the divergent case was one the product cannot produce, which is the point rather than a caveat: the protection exists for the write path that does not yet exist.
+
+### Open, carried forward
+
+Round 10's seven and Round 10A's three stand. Added:
+
+11. **The pending-state pattern now has three surfaces**: stage panels, Customer Details buyer rows at 650ms, and the Installation Tech Team row at 292ms. One pass over every async renderer, not a fix per panel. The pending marker must never be the thing a check waits on.
+12. **A reader omitting the `document_kind` filter cannot be caught by an invariant.** The constraint protects writers; nothing protects a future query that forgets which kind it wants. All four call sites changed in one commit and are named in the migration comment. **An accepted weakness, not a solved problem.**
+13. **Confirming an Est. Close Date move while another field is dirty drops the move's own note.** Pre-existing since Round 3 Phase 3, whose evidence proved cancelling preserves unrelated edits and never tested that confirming preserves the note. The fix is to Opportunity's note construction.
+14. **The temp-drop-then-restore migration pattern is on its third use.** Two permanent ledger entries for a temporary condition, worth paying at three. **A fourth makes it a candidate for a test-only mechanism** rather than a migration pair each time.
+15. **Anchor wording awaits business review**, with eight specific ambiguities and one structural finding recorded verbatim in `DESIGN_PRINCIPLES.md`. Nothing was amended at build time, deliberately: the rows are provisional by design and amending them would substitute a build-time judgement for the review the framework exists to receive.

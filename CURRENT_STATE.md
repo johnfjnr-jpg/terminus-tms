@@ -12,8 +12,8 @@ Contains no environment variable, key or token, and no client data. Records
 appear as counts by status only, never by name or reference code, because
 this file is uploaded into chat sessions.
 
-- Generated at: `2026-08-19T09:47:06.397Z`
-- Git commit: `d96b802a27a5ecb0b9cd0a219448fbc300837a26`
+- Generated at: `2026-08-19T12:26:45.640Z`
+- Git commit: `40e3392a561838721cae58de76f43a03b73c1f34`
 - Working tree at generation: `dirty (uncommitted changes present)`
 
 If the commit above is not current `HEAD`, this file is stale and is
@@ -47,7 +47,7 @@ untrusted rather than approximately right.
 
 ## `stage_gate_rules`
 
-54 rows. Full `requirement_detail`, keys sorted.
+61 rows. Full `requirement_detail`, keys sorted.
 
 | record_type | variant | from_stage | to_stage | requirement_type | requirement_detail |
 |---|---|---|---|---|---|
@@ -73,12 +73,15 @@ untrusted rather than approximately right.
 | test_bed | (null) | Decommissioning | Closed | document_status | `{"document":"Site Decommissioning Report","status":"approved"}` |
 | test_bed | (null) | Installation and Commissioning | Monitoring and Analysis | approval_obtained | `{"scope":"stage","track":"Commercial"}` |
 | test_bed | (null) | Installation and Commissioning | Monitoring and Analysis | approval_obtained | `{"scope":"stage","track":"Technical"}` |
+| test_bed | (null) | Installation and Commissioning | Monitoring and Analysis | contact_role_linked | `{"role":"Test Bed Tech Team"}` |
 | test_bed | (null) | Installation and Commissioning | Monitoring and Analysis | document_status | `{"document":"Site Installation Document","status":"approved"}` |
+| test_bed | (null) | Installation and Commissioning | Monitoring and Analysis | payload_field_required | `{"field":"installer_account_id","label":"Installer"}` |
 | test_bed | (null) | Monitoring and Analysis | Review and Completion | approval_obtained | `{"scope":"stage","track":"Technical"}` |
 | test_bed | (null) | Monitoring and Analysis | Review and Completion | approval_obtained | `{"scope":"stage","track":"Commercial"}` |
 | test_bed | (null) | Monitoring and Analysis | Review and Completion | approval_obtained | `{"scope":"stage","track":"Legal"}` |
 | test_bed | (null) | Monitoring and Analysis | Review and Completion | document_status | `{"document":"Test Bed Performance","status":"approved"}` |
 | test_bed | (null) | Monitoring and Analysis | Review and Completion | document_status | `{"document":"Review Meeting Minutes","status":"approved"}` |
+| test_bed | (null) | Monitoring and Analysis | Review and Completion | payload_field_required | `{"entry_stage_at_or_after":"Monitoring and Analysis","field":"scoreUseCaseRequirementsAndMetrics","label":"Clear Use Case Requirements and Metrics","min_length":1}` |
 | test_bed | (null) | Monitoring and Analysis | Review and Completion | payload_field_required | `{"field":"exitMonAllMeetingActionsCompleted","label":"All Meeting Actions Completed"}` |
 | test_bed | (null) | Pre-Site Assessment | Site Assessment | approval_obtained | `{"scope":"stage","track":"Commercial"}` |
 | test_bed | (null) | Pre-Site Assessment | Site Assessment | approval_obtained | `{"scope":"stage","track":"Legal"}` |
@@ -88,13 +91,15 @@ untrusted rather than approximately right.
 | test_bed | (null) | Qualification | Pre-Site Assessment | contact_role_linked | `{"role":"Client Commercial Buyer"}` |
 | test_bed | (null) | Qualification | Pre-Site Assessment | contact_role_linked | `{"role":"Client Technical Buyer"}` |
 | test_bed | (null) | Qualification | Pre-Site Assessment | contact_role_linked | `{"role":"Client Legal Buyer"}` |
-| test_bed | (null) | Qualification | Pre-Site Assessment | payload_field_required | `{"field":"exitQualTechnicalCommercialValue","label":"Technical and Commercial Value"}` |
-| test_bed | (null) | Qualification | Pre-Site Assessment | payload_field_required | `{"field":"exitQualPartnerCommitment","label":"Partner Commitment"}` |
-| test_bed | (null) | Qualification | Pre-Site Assessment | payload_field_required | `{"field":"exitQualDataAndUseCase","label":"Data and Use Case"}` |
-| test_bed | (null) | Qualification | Pre-Site Assessment | payload_field_required | `{"field":"exitQualPhysicalSuitability","label":"Physical Suitability"}` |
 | test_bed | (null) | Qualification | Pre-Site Assessment | payload_field_required | `{"field":"testBedDuration"}` |
 | test_bed | (null) | Qualification | Pre-Site Assessment | payload_field_required | `{"field":"estimatedInstallationDate"}` |
 | test_bed | (null) | Qualification | Pre-Site Assessment | payload_field_required | `{"field":"estGoLiveDate"}` |
+| test_bed | (null) | Qualification | Pre-Site Assessment | payload_field_required | `{"field":"scoreRolloutPath","label":"Rollout Path","min_length":1}` |
+| test_bed | (null) | Qualification | Pre-Site Assessment | payload_field_required | `{"field":"scoreClientCommitment","label":"Client Commitment","min_length":1}` |
+| test_bed | (null) | Qualification | Pre-Site Assessment | payload_field_required | `{"field":"scoreUseCaseRequirementsAndMetrics","label":"Clear Use Case Requirements and Metrics","min_length":1}` |
+| test_bed | (null) | Qualification | Pre-Site Assessment | payload_field_required | `{"field":"scorePhysicalSuitability","label":"Physical Suitability","min_length":1}` |
+| test_bed | (null) | Qualification | Pre-Site Assessment | payload_field_required | `{"field":"scoreDataRights","label":"Data Rights","min_length":1}` |
+| test_bed | (null) | Qualification | Pre-Site Assessment | payload_field_required | `{"field":"measurabilityConfirmed","label":"Sensors can capture what would be measured","min_length":1}` |
 | test_bed | (null) | Review and Completion | Decommissioning | approval_obtained | `{"scope":"stage","track":"Commercial"}` |
 | test_bed | (null) | Review and Completion | Decommissioning | approval_obtained | `{"scope":"stage","track":"Technical"}` |
 | test_bed | (null) | Review and Completion | Decommissioning | approval_obtained | `{"scope":"stage","track":"Legal"}` |
@@ -105,6 +110,8 @@ untrusted rather than approximately right.
 | test_bed | (null) | Site Assessment | Installation and Commissioning | document_status | `{"document":"Site Assessment Report","status":"approved"}` |
 | test_bed | (null) | Site Assessment | Installation and Commissioning | document_status | `{"document":"Compliance and Data Protection","status":"approved"}` |
 | test_bed | (null) | Site Assessment | Installation and Commissioning | document_status | `{"document":"Partnership and Test Bed Agreement","status":"approved"}` |
+| test_bed | (null) | Site Assessment | Installation and Commissioning | payload_field_required | `{"entry_stage_at_or_after":"Site Assessment","field":"scorePhysicalSuitability","label":"Physical Suitability","min_length":1}` |
+| test_bed | (null) | Site Assessment | Installation and Commissioning | payload_field_required | `{"entry_stage_at_or_after":"Site Assessment","field":"scoreDataRights","label":"Data Rights","min_length":1}` |
 
 Rule count by record type and requirement type:
 
@@ -113,9 +120,35 @@ Rule count by record type and requirement type:
 | contact | payload_field_required | 15 |
 | smoke_test | approval_obtained | 1 |
 | test_bed | approval_obtained | 18 |
-| test_bed | contact_role_linked | 3 |
+| test_bed | contact_role_linked | 4 |
 | test_bed | document_status | 9 |
-| test_bed | payload_field_required | 8 |
+| test_bed | payload_field_required | 14 |
+
+## `scoring_criteria`
+
+5 rows.
+
+| record_type | sort_order | criterion_key | name | rescore_through_stage |
+|---|---|---|---|---|
+| test_bed | 1 | scoreRolloutPath | Rollout Path | (null) |
+| test_bed | 2 | scoreClientCommitment | Client Commitment | (null) |
+| test_bed | 3 | scoreUseCaseRequirementsAndMetrics | Clear Use Case Requirements and Metrics | Monitoring and Analysis |
+| test_bed | 4 | scorePhysicalSuitability | Physical Suitability | Site Assessment |
+| test_bed | 5 | scoreDataRights | Data Rights | Site Assessment |
+
+## `scoring_anchors`
+
+15 rows. Wording is not printed: it is provisional and
+pending business review, and emitting it would bury every configuration
+change in prose. The shape is what a diff needs.
+
+| criterion_key | version | scores defined |
+|---|---|---|
+| scoreClientCommitment | 1 | 1, 3, 5 |
+| scoreDataRights | 1 | 1, 3, 5 |
+| scorePhysicalSuitability | 1 | 1, 3, 5 |
+| scoreRolloutPath | 1 | 1, 3, 5 |
+| scoreUseCaseRequirementsAndMetrics | 1 | 1, 3, 5 |
 
 ## `stage_reference_docs`
 
@@ -175,22 +208,25 @@ _None._
 
 ## Record counts by type and status
 
-65 live, 2300 soft deleted, 2365 rows in total.
+65 live, 3042 soft deleted, 3107 rows in total.
 
 | record_type | status | live | soft deleted |
 |---|---|---|---|
-| account | active | 7 | 153 |
+| account | active | 7 | 162 |
 | contact | Parked | 0 | 2 |
-| contact | Qualified | 9 | 108 |
+| contact | Qualified | 9 | 115 |
 | contact | Unqualified | 1 | 53 |
-| document | approved | 38 | 254 |
-| opportunity | Discovery | 3 | 39 |
+| document | approved | 38 | 347 |
+| document | received | 0 | 3 |
+| opportunity | Discovery | 3 | 40 |
 | opportunity | Negotiation | 0 | 1 |
 | opportunity | Proposal | 0 | 1 |
 | test_bed | Closed | 4 | 7 |
+| test_bed | Installation and Commissioning | 0 | 1 |
+| test_bed | Monitoring and Analysis | 0 | 1 |
 | test_bed | Pre-Site Assessment | 0 | 3 |
-| test_bed | Qualification | 3 | 132 |
-| test_bed | Site Assessment | 0 | 2 |
+| test_bed | Qualification | 3 | 134 |
+| test_bed | Site Assessment | 0 | 3 |
 
 ### Test fixture record types
 
@@ -200,19 +236,19 @@ row by row, and are included in the totals above.
 
 | distinct `harness_*` record types | live rows | soft deleted rows |
 |---|---|---|
-| 126 | 0 | 1545 |
+| 174 | 0 | 2169 |
 
 No harness record type holds a live row; every fixture row is soft deleted.
 
 ## `approvals`
 
-151 rows, of which 0 carry a null `stage`.
+160 rows, of which 0 carry a null `stage`.
 
 | decision | track | rows | null stage |
 |---|---|---|---|
-| approved | Commercial | 60 | 0 |
-| approved | Legal | 35 | 0 |
-| approved | Technical | 56 | 0 |
+| approved | Commercial | 64 | 0 |
+| approved | Legal | 37 | 0 |
+| approved | Technical | 59 | 0 |
 
 ## Writable-key allowlists
 
@@ -245,13 +281,13 @@ than written as a literal list, so its members are not enumerable here.
 
 ### `TEST_BED_WRITABLE_KEYS` (`src/routes/test-beds.js`)
 
-40 literal keys.
+37 literal keys.
 
-`name`, `client_organisation`, `notes`, `summary`, `terminusLead`, `commercialAuthority`, `technicalAuthority`, `region`, `country`, `siteOwnership`, `installationEnvironment`, `siteAddress`, `city`, `safesightCameras`, `airQualitySensors`, `hemirSensors`, `estCostPerUnit`, `testBedDuration`, `estimatedInstallationDate`, `estGoLiveDate`, `installer`, `techTeam`, `installNotes`, `terminusLegalOwner`, `initialLead`, `useCases`, `ssUnitCost`, `aqUnitCost`, `hemirUnitCost`, `ssInstallCost`, `aqInstallCost`, `hemirInstallCost`, `ssHostingCost`, `aqHostingCost`, `hemirHostingCost`, `exitQualTechnicalCommercialValue`, `exitQualDataAndUseCase`, `exitQualPhysicalSuitability`, `exitQualPartnerCommitment`, `exitMonAllMeetingActionsCompleted`
+`name`, `client_organisation`, `notes`, `summary`, `terminusLead`, `commercialAuthority`, `technicalAuthority`, `region`, `country`, `siteOwnership`, `installationEnvironment`, `siteAddress`, `city`, `safesightCameras`, `airQualitySensors`, `hemirSensors`, `estCostPerUnit`, `testBedDuration`, `estimatedInstallationDate`, `estGoLiveDate`, `installNotes`, `terminusLegalOwner`, `initialLead`, `useCases`, `ssUnitCost`, `aqUnitCost`, `hemirUnitCost`, `ssInstallCost`, `aqInstallCost`, `hemirInstallCost`, `ssHostingCost`, `aqHostingCost`, `hemirHostingCost`, `exitQualTechnicalCommercialValue`, `exitQualPhysicalSuitability`, `exitQualPartnerCommitment`, `exitMonAllMeetingActionsCompleted`
 
 ## Registered routes
 
-43 routes. Prefixes parsed from `src/server.js`, paths from each route module.
+51 routes. Prefixes parsed from `src/server.js`, paths from each route module.
 
 | method | path | auth | source |
 |---|---|---|---|
@@ -286,6 +322,7 @@ than written as a literal list, so its members are not enumerable here.
 | GET | `/api/records/:id/exit-criteria` | authenticated | `src/routes/records.js` |
 | GET | `/api/records/:id/stage-approvals` | authenticated | `src/routes/records.js` |
 | POST | `/api/records/:id/transition` | authenticated | `src/routes/transitions.js` |
+| GET | `/api/scoring-criteria` | authenticated | `src/routes/scoring.js` |
 | GET | `/api/stage-definitions` | authenticated | `src/routes/stage-definitions.js` |
 | GET | `/api/terminus-staff` | authenticated | `src/routes/terminus-staff.js` |
 | GET | `/api/test-beds` | authenticated | `src/routes/test-beds.js` |
@@ -295,13 +332,20 @@ than written as a literal list, so its members are not enumerable here.
 | POST | `/api/test-beds/:id/buyer-contacts` | authenticated | `src/routes/test-beds.js` |
 | POST | `/api/test-beds/:id/complete-document` | authenticated | `src/routes/test-beds.js` |
 | POST | `/api/test-beds/:id/convert` | authenticated | `src/routes/test-beds.js` |
+| GET | `/api/test-beds/:id/customer-documents` | authenticated | `src/routes/test-beds.js` |
+| POST | `/api/test-beds/:id/customer-documents` | authenticated | `src/routes/test-beds.js` |
+| DELETE | `/api/test-beds/:id/customer-documents/:docId` | authenticated | `src/routes/test-beds.js` |
 | GET | `/api/test-beds/:id/document-requirements` | authenticated | `src/routes/test-beds.js` |
+| PATCH | `/api/test-beds/:id/installer` | authenticated | `src/routes/test-beds.js` |
 | GET | `/api/test-beds/:id/lifecycle-documents` | authenticated | `src/routes/test-beds.js` |
+| POST | `/api/test-beds/:id/measurability` | authenticated | `src/routes/test-beds.js` |
+| POST | `/api/test-beds/:id/scores` | authenticated | `src/routes/test-beds.js` |
+| POST | `/api/test-beds/:id/tech-team` | authenticated | `src/routes/test-beds.js` |
 | GET | `/health` | public | `src/server.js` |
 
 ## Migrations, in filename order
 
-45 files in `supabase/migrations/`.
+52 files in `supabase/migrations/`.
 
 1. `20260801000000_initial_schema.sql`
 2. `20260802000000_lead_opportunity.sql`
@@ -348,6 +392,13 @@ than written as a literal list, so its members are not enumerable here.
 43. `20260819000006_gate_config_transition_5.sql`
 44. `20260819000007_gate_config_transition_6.sql`
 45. `20260819000008_gate_config_transition_7_and_drop_senior.sql`
+46. `20260819000009_scoring_model.sql`
+47. `20260819000010_scoring_gates.sql`
+48. `20260819000011_installer_and_tech_team.sql`
+49. `20260819000012_record_contacts_delete_policy.sql`
+50. `20260819000013_customer_documents.sql`
+51. `20260819000014_temp_drop_document_kind_required.sql`
+52. `20260819000015_restore_document_kind_required.sql`
 
 ## Seed files, in application order
 
