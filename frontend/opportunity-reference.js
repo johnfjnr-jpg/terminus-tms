@@ -494,117 +494,55 @@ function renderRefNotes(notes) {
 // business event under the hood (mandatory reason, writes a note, bumps
 // the moves counter, updates opportunity_details via the same dedicated
 // close-date-move endpoint), just reached differently now.
-let refPendingCloseDate = null
 let refPendingRemainingEntries = []
 
-// Full focus trap (2026-08-17, follow-up to the first Phase 3 pass),
-// matching INTERACTION_STANDARDS.md Section 4's general rule, not just
-// its data-loss-prevention reasoning - direct port of Park's own
-// cdParkKeydownHandler (contact-detail.js): focus moves to the panel's
-// first focusable element on open; Tab/Shift+Tab cycle only through the
-// panel's own three focusable elements (reason -> Cancel -> Save move ->
-// back to reason); Escape cancels, same as clicking Cancel; the handler
-// is attached on open and removed on close, not left permanently
-// attached, since this DOM node persists across page reloads the same
-// way Park's does. Backdrop-click still cancels too (wired once in
-// wireRefOnce, same as before), the panel's own Tab/Escape ownership
-// doesn't change that.
-let refCloseDateKeydownHandler = null
-
+// REWIRED to the shared dialogue, Round 11 Phase 3 (2026-08-19). The
+// mechanism Round 3 Phase 3 built here is now window.requestChangeReason in
+// app.js, used by this caller and by Test Bed's score revision.
+//
+// THE STORAGE IS DELIBERATELY UNCHANGED. This still POSTs to
+// /opportunities/:id/close-date-move, which writes the reason into
+// payload.notes as prose and bumps closeMoves, exactly as before. Round 11's
+// brief requires a score's reason to live on the score entry rather than in
+// a note, which is why the storage could not be shared - but rewriting a
+// working mechanism to match a new one is scope this round was not given,
+// and the note is correct for what it records.
+//
+// What moved out of this file: the dialogue's own DOM handling, its focus
+// trap, its single Escape owner and its focus return. What stayed: which
+// field triggers it, what the reason means, and where it is written.
+//
+// The Round 3 property this must not lose - cancelling does not discard an
+// unrelated dirty field - is now a property of the shared helper, which
+// touches no caller state on cancel. Re-verified on BOTH callers after the
+// rewire rather than assumed to have survived it.
 function openCloseDateMovePrompt(newDate, remainingDirtyEntries) {
-  refPendingCloseDate = newDate
   refPendingRemainingEntries = remainingDirtyEntries
-  document.getElementById('ref-closedate-date-display').textContent = newDate || '--'
-  document.getElementById('ref-closedate-reason').value = ''
-  document.getElementById('ref-closedate-error').classList.add('hidden')
-  document.getElementById('ref-closedate-form').classList.remove('hidden')
-  document.getElementById('ref-closedate-reason').focus()
-
-  refCloseDateKeydownHandler = (e) => {
-    if (e.key === 'Escape') {
-      e.preventDefault()
-      window.cancelCloseDateMove()
-      return
-    }
-    if (e.key !== 'Tab') return
-    const focusable = [
-      document.getElementById('ref-closedate-reason'),
-      document.getElementById('ref-closedate-cancel'),
-      document.getElementById('ref-closedate-confirm'),
-    ]
-    const first = focusable[0]
-    const last = focusable[focusable.length - 1]
-    if (e.shiftKey && document.activeElement === first) {
-      e.preventDefault()
-      last.focus()
-    } else if (!e.shiftKey && document.activeElement === last) {
-      e.preventDefault()
-      first.focus()
-    }
-  }
-  document.addEventListener('keydown', refCloseDateKeydownHandler)
-}
-
-// Single close path for both Cancel/Escape and a successful Confirm
-// (mirroring Park's own closeCdParkForm, called from both
-// requestCloseCdParkForm and saveCdParkForm) - the keydown handler and
-// focus-return only need writing once, not once per caller.
-function closeCloseDateMoveDialog() {
-  document.getElementById('ref-closedate-form').classList.add('hidden')
-  refPendingCloseDate = null
-  refPendingRemainingEntries = []
-  if (refCloseDateKeydownHandler) {
-    document.removeEventListener('keydown', refCloseDateKeydownHandler)
-    refCloseDateKeydownHandler = null
-  }
-  // Returns focus to the control that opened it (INTERACTION_STANDARDS.md
-  // Section 4), same as Park returning focus to its own Park button -
-  // this dialogue opens from Save, not a dedicated named button, so Save
-  // is the equivalent control here.
-  document.getElementById('ref-save-all')?.focus()
-}
-
-// Cancelling here doesn't discard the estClose edit itself, or any other
-// dirty field - the Reference tab's own edit bar is still showing
-// exactly what it did before Save was clicked, so the user can correct
-// the date, retry Save, or discard that one field individually via its
-// own × control, same as any other open field. Confirmed by real test,
-// not just this reasoning - see the 2026-08-17 follow-up test evidence.
-window.cancelCloseDateMove = function () {
-  closeCloseDateMoveDialog()
-}
-
-window.confirmCloseDateMove = async function () {
-  const reason = document.getElementById('ref-closedate-reason').value.trim()
-  const errEl = document.getElementById('ref-closedate-error')
-  errEl.classList.add('hidden')
-
-  if (!reason) {
-    errEl.textContent = 'A reason for the move is required.'
-    errEl.classList.remove('hidden')
-    return
-  }
-
-  const result = await api('POST', `/api/opportunities/${refOpportunityId}/close-date-move`, { date: refPendingCloseDate, reason })
-  if (!result.ok) {
-    errEl.textContent = result.data?.error ?? 'Failed to save.'
-    errEl.classList.remove('hidden')
-    return
-  }
-
-  const remaining = refPendingRemainingEntries
-  closeCloseDateMoveDialog()
-  delete refEdits.estClose
-
-  // Whatever else was dirty in the same Save click gets saved together
-  // here, in one action, rather than requiring a second, separate Save -
-  // if nothing else was dirty, just reload to pick up the new
-  // forecast_close_date/closeMoves.
-  if (remaining.length) {
-    await performGenericRefSave(remaining)
-  } else {
-    await loadOpportunityDetail(refOpportunityId)
-  }
+  window.requestChangeReason({
+    heading: 'Move Est. Close Date',
+    contextLabel: 'New Est. Close Date',
+    contextValue: newDate || '--',
+    promptLabel: 'Reason for moving (required)',
+    confirmLabel: 'Save move',
+    emptyReasonError: 'A reason for the move is required.',
+    // Opens from Save rather than a dedicated named button, so Save is the
+    // control focus returns to (INTERACTION_STANDARDS.md Section 4).
+    returnFocusTo: 'ref-save-all',
+    onConfirm: async (reason) => {
+      const result = await api('POST', `/api/opportunities/${refOpportunityId}/close-date-move`, { date: newDate, reason })
+      return { ok: result.ok, error: result.data?.error }
+    },
+    onDone: async () => {
+      const remaining = refPendingRemainingEntries
+      refPendingRemainingEntries = []
+      delete refEdits.estClose
+      // Whatever else was dirty in the same Save click is saved together
+      // here, in one action, rather than needing a second Save.
+      if (remaining.length) await performGenericRefSave(remaining)
+      else await loadOpportunityDetail(refOpportunityId)
+    },
+    onCancel: () => { refPendingRemainingEntries = [] },
+  })
 }
 
 function wireRefOnce() {
@@ -614,17 +552,11 @@ function wireRefOnce() {
     Object.keys(refEdits).forEach(key => window.discardRefField(key))
   })
   document.getElementById('ref-save-all').addEventListener('click', saveRefFields)
-  // Backdrop-click cancels (wired once, permanent - same pattern as
-  // linked-records-modal/confirm-delete-modal in app.js, only fires when
-  // the backdrop itself, not a child, is the click target). Escape is
-  // NOT wired here (2026-08-17 follow-up) - it's owned by
-  // refCloseDateKeydownHandler instead, attached only while the dialogue
-  // is actually open (openCloseDateMovePrompt above), same as Park's own
-  // cdParkKeydownHandler, so there's exactly one Escape owner, not two
-  // competing handlers.
-  document.getElementById('ref-closedate-form').addEventListener('click', (e) => {
-    if (e.target.id === 'ref-closedate-form') window.cancelCloseDateMove()
-  })
+  // Backdrop-click and Escape are both owned by the shared dialogue in
+  // app.js now (Round 11 Phase 3), attached on open and removed on close,
+  // so there is still exactly one Escape owner rather than two competing
+  // handlers - the property the 2026-08-17 follow-up established, now held
+  // in one place for both callers instead of once per caller.
   // Cancel/Save row width sync (Round 3 Phase 3, item 6) - same
   // getBoundingClientRect technique as Contact detail's
   // syncCdBelowGridWidth (contact-detail.js), matching the edit bar's

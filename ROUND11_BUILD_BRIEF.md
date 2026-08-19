@@ -62,8 +62,6 @@ wait for sign-off before starting the next.
 
 ---
 
----
-
 ## Amendments after Phase 0
 
 Phase 0 returned six findings against this brief, three of which change what
@@ -624,6 +622,27 @@ Extend `config-invariants.test.mjs`.
    definition a score can point at.
 3. **The rule count assertion updates to the measured figure**, scoped to
    `record_type = 'test_bed'` explicitly, per Round 9's precedent.
+4. **ADDED during Phase 2. Every custom property used in `style.css` is
+   defined in it.** `grep -oE "var\(--[a-z-]+\)"` against the definitions
+   list, as a test rather than a check someone remembers to run.
+
+   **Round 10 Phase 7 found this exact fault, fixed its own block, and did
+   not sweep the file.** `var(--line)` was already live in two places at
+   that moment, introduced by `66f2aa6` in Round 9 Phase 6, so
+   `.tb-doc-row` and `.tb-crit-row` have each carried a `border-bottom`
+   that never rendered for two rounds. An undefined custom property fails
+   at computed-value time and the declaration is silently dropped.
+
+   **It was visible in screenshots throughout and nobody read it as a
+   defect**, because rows running together looks like a design choice.
+   Opening the screenshot catches what looks wrong; it does not catch what
+   looks deliberate. **The remedy is the sweep, not a third individual
+   fix**, and the two `var(--line)` declarations are corrected here rather
+   than earlier, in the same phase that makes a third instance impossible.
+
+   Scoped to this round rather than Round 12 deliberately: the check is
+   small, this phase already extends the suite it belongs in, and deferring
+   a known cheap check is what let the second instance ship.
 
 For each new invariant, inject a real violating row, show it failing and
 naming the offending row, then revert. An invariant not proven capable of

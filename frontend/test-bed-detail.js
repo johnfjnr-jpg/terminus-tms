@@ -928,6 +928,32 @@ const TB_EXIT_CRITERION_KEYS = new Set([
 // the clause keeps the gate honest. Relying on the convention alone is the
 // discipline-not-a-property case the brief rejected.
 let tbScoresExpanded = {}
+let tbScoreComments = {}
+
+// A score draft goes into tbEdits under the criterion key, so it is dirty in
+// exactly the same sense every other field is: the save bar appears, Cancel
+// discards it, and saveTbFields() sees it among dirtyEntries. That is what
+// lets the interception be shared rather than reimplemented per field type.
+window.setTbScoreDraft = function (key, value) {
+  const orig = ''
+  if (value === '') delete tbEdits[key]
+  else tbEdits[key] = { draft: value, orig }
+  if (value === '') delete tbScoreComments[key]
+  clearTbSaveFeedback()
+  updateTbSaveBar()
+  renderTbScores()
+}
+
+window.setTbScoreComment = function (key, value) {
+  tbScoreComments[key] = value
+}
+
+// Which tbEdits keys are scores rather than payload fields. Derived from the
+// criteria table rather than hardcoded, so a criterion added as a row is
+// picked up without a code change.
+function tbScoreKeys() {
+  return new Set(tbScoringCriteria.map(c => c.criterion_key))
+}
 
 window.toggleTbScoreHistory = function (key) {
   tbScoresExpanded[key] = !tbScoresExpanded[key]
@@ -945,6 +971,57 @@ window.toggleTbScoreHistory = function (key) {
 function tbScoreSeries(key) {
   const raw = Array.isArray(tbPayload[key]) ? tbPayload[key] : []
   return [...raw].sort((a, b) => String(a.at ?? '').localeCompare(String(b.at ?? '')))
+}
+
+// Records one score. A FIRST score needs no reason and is written straight
+// through; a REVISION opens the shared dialogue and writes the reason onto
+// the entry. The server enforces both rules independently, so this is the
+// affordance rather than the guarantee - a caller bypassing the browser gets
+// the same 400.
+async function recordTbScore(key, draft, remainingDirtyEntries) {
+  const crit = tbScoringCriteria.find(c => c.criterion_key === key)
+  const score = Number(draft)
+  const comment = tbScoreComments[key] ?? ''
+  const isRevision = tbScoreSeries(key).length > 0
+
+  const finish = async () => {
+    delete tbEdits[key]
+    delete tbScoreComments[key]
+    if (remainingDirtyEntries.length) await saveTbDirtyEntries(remainingDirtyEntries)
+    else await loadTestBedDetail(tbDetailId)
+  }
+
+  const post = async (reason) => {
+    const body = { criterion: key, score }
+    if (comment.trim()) body.comment = comment.trim()
+    if (reason) body.reason = reason
+    const result = await api('POST', `/api/test-beds/${tbDetailId}/scores`, body)
+    return { ok: result.ok, error: result.data?.error }
+  }
+
+  if (!isRevision) {
+    const result = await post(null)
+    if (!result.ok) {
+      const feedback = document.getElementById('tb-save-feedback')
+      feedback.textContent = result.error ?? 'Could not record the score.'
+      feedback.className = 'msg-error'
+      return
+    }
+    await finish()
+    return
+  }
+
+  window.requestChangeReason({
+    heading: `Revise ${crit?.name ?? 'score'}`,
+    contextLabel: 'New score',
+    contextValue: String(score),
+    promptLabel: 'Reason for the change (required)',
+    confirmLabel: 'Save score',
+    emptyReasonError: 'A reason for the change is required.',
+    returnFocusTo: 'tb-save-all',
+    onConfirm: post,
+    onDone: finish,
+  })
 }
 
 async function renderTbScores() {
@@ -967,12 +1044,26 @@ async function renderTbScores() {
     // The CURRENT value is the newest entry. History is everything, shown on
     // request - same default-plus-expansion shape as Notes, and the count is
     // rendered so "3 of 3" is visible rather than implied.
+    // The pending draft, if this criterion is open in the edit bar. A score
+    // registers in tbEdits exactly like any other field, which is what makes
+    // saveTbFields() the single interception point rather than this panel
+    // having its own save path.
+    const pending = tbEdits[c.criterion_key]?.draft ?? ''
+    const options = [1,2,3,4,5].map(n =>
+      `<option value="${n}"${String(pending) === String(n) ? ' selected' : ''}>${n}</option>`).join('')
+
     const head = `
       <div class="tb-score-head">
         <span class="tb-score-name">${escHtml(c.name)}</span>
         <span class="tb-score-value${current ? '' : ' tb-score-value--none'}" data-criterion="${escHtml(c.criterion_key)}">${
           current ? escHtml(String(current.value)) : 'Not scored'
         }</span>
+        <select class="tb-score-select" id="tb-score-select-${escHtml(c.criterion_key)}"
+                aria-label="${escHtml(c.name)} score"
+                onchange="setTbScoreDraft('${escHtml(c.criterion_key)}', this.value)">
+          <option value="">${current ? 'Revise...' : 'Score...'}</option>
+          ${options}
+        </select>
         ${series.length > 1
           ? `<button class="btn-text" onclick="toggleTbScoreHistory('${escHtml(c.criterion_key)}')">${
               expanded ? 'Hide history' : `Show history (${series.length})`
@@ -980,7 +1071,18 @@ async function renderTbScores() {
           : ''}
       </div>`
 
-    if (!expanded) return `<div class="tb-score-row" data-criterion="${escHtml(c.criterion_key)}" data-entries="${series.length}">${head}</div>`
+    // Comment is mandatory at 1 or 2 and lives INLINE rather than in the
+    // dialogue. The dialogue asks one question, "why did this change", and
+    // stays single-purpose the way Est. Close Date's did; the comment is
+    // part of the score itself, not part of the change.
+    const commentBox = pending === '' ? '' : `
+      <div class="tb-score-comment">
+        <label for="tb-score-comment-${escHtml(c.criterion_key)}">Comment${Number(pending) <= 2 ? ' (required at 1 or 2)' : ' (optional)'}</label>
+        <textarea id="tb-score-comment-${escHtml(c.criterion_key)}" rows="2"
+                  oninput="setTbScoreComment('${escHtml(c.criterion_key)}', this.value)">${escHtml(tbScoreComments[c.criterion_key] ?? '')}</textarea>
+      </div>`
+
+    if (!expanded) return `<div class="tb-score-row" data-criterion="${escHtml(c.criterion_key)}" data-entries="${series.length}">${head}${commentBox}</div>`
 
     // Newest first when reading history, which is how a person reads a
     // change log, while the stored series stays chronological.
@@ -995,7 +1097,7 @@ async function renderTbScores() {
         }${e.reason ? `<br><em>Reason: ${escHtml(e.reason)}</em>` : ''}</span>
       </div>`).join('')
 
-    return `<div class="tb-score-row" data-criterion="${escHtml(c.criterion_key)}" data-entries="${series.length}">${head}<div class="tb-score-history">${rows}</div></div>`
+    return `<div class="tb-score-row" data-criterion="${escHtml(c.criterion_key)}" data-entries="${series.length}">${head}${commentBox}<div class="tb-score-history">${rows}</div></div>`
   }).join('')
 }
 
@@ -1244,6 +1346,35 @@ async function saveTbFields() {
   }
 
   const dirtyEntries = Object.entries(tbEdits).filter(([, e]) => e.draft !== e.orig)
+  if (!dirtyEntries.length) return
+
+  // SCORES (Round 11 Phase 3, 2026-08-19). Detected here, automatically, the
+  // moment Save is clicked with a score among the dirty fields - the exact
+  // shape Round 3 Phase 3 built for Est. Close Date, and the reason this is
+  // an interception rather than a separate "record score" button.
+  //
+  // Any other dirty fields from the same Save click are HELD until the score
+  // is recorded, then saved together in one action. That is Est. Close
+  // Date's own behaviour, and it is what keeps Cancel honest: cancelling the
+  // dialogue leaves every edit exactly where it was, including this one.
+  const scoreKeys = tbScoreKeys()
+  const scoreEntry = dirtyEntries.find(([key]) => scoreKeys.has(key))
+  if (scoreEntry) {
+    await recordTbScore(scoreEntry[0], scoreEntry[1].draft,
+      dirtyEntries.filter(([key]) => key !== scoreEntry[0]))
+    return
+  }
+
+  await saveTbDirtyEntries(dirtyEntries)
+}
+
+// SPLIT OUT of saveTbFields, Round 11 Phase 3, so recordTbScore can reuse the
+// exact same payload-merge and freshness-check logic for whatever else was
+// dirty in the same Save click, once the reason is confirmed - not a second,
+// drifting copy of it. Directly mirrors performGenericRefSave, which Round 3
+// Phase 3 split out of saveRefFields for the identical reason.
+async function saveTbDirtyEntries(dirtyEntries) {
+  const feedback = document.getElementById('tb-save-feedback')
   if (!dirtyEntries.length) return
 
   // Origin-contact freshness check (Round 2 Phase 1, 2026-08-16) - same

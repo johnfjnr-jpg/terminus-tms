@@ -1380,24 +1380,12 @@
            Escape both cancel (opportunity-reference.js's wireRefOnce),
            see that file's own comment for why this doesn't also build
            Park's full focus-trap. -->
-      <div id="ref-closedate-form" class="hidden modal-backdrop">
-        <div class="modal-panel" role="alertdialog" aria-modal="true" aria-labelledby="ref-closedate-heading">
-          <p class="eyebrow" id="ref-closedate-heading">Move Est. Close Date</p>
-          <div class="form-group">
-            <label>New Est. Close Date</label>
-            <p class="sub" id="ref-closedate-date-display" style="margin-top:4px"></p>
-          </div>
-          <div class="form-group" style="margin-top:10px">
-            <label for="ref-closedate-reason">Reason for moving (required)</label>
-            <textarea id="ref-closedate-reason" rows="2"></textarea>
-          </div>
-          <p class="msg-error hidden" id="ref-closedate-error"></p>
-          <div class="form-actions" style="margin-top:10px">
-            <button class="btn-ghost" id="ref-closedate-cancel" onclick="cancelCloseDateMove()">Cancel</button>
-            <button class="btn-primary" id="ref-closedate-confirm" onclick="confirmCloseDateMove()">Save move</button>
-          </div>
-        </div>
-      </div>
+      <!-- The Est. Close Date dialogue markup was REMOVED here, Round 11
+           Phase 3, when its behaviour moved into #change-reason-form above.
+           Removed rather than left standing: two removals in Round 10 left
+           their containers behind and both reached the business, so a
+           removal is verified by counting to zero rather than by confirming
+           the replacement renders. -->
 
       <div style="margin-top:28px">
         <p class="label" style="margin-bottom:10px">Executive Summary &middot; <span id="ref-opptype-value">--</span></p>
@@ -2133,6 +2121,45 @@
      backdrop (100), so it stacks correctly on top. Escape and clicking
      this dialog's own backdrop both map to Keep editing, never Discard -
      no destructive action ever happens from an ambiguous input. -->
+<!-- MOVED here from inside #view-opportunity-detail, Round 11 Phase 3.
+     A shared dialogue placed inside one caller's view container is
+     display-hidden on every other page, so it worked for Opportunity and
+     silently failed for Test Bed: removing the `hidden` class revealed a
+     node whose ancestor was still hidden, offsetParent was null, and the
+     textarea could not take focus. It belongs at top level with the other
+     global modals. -->
+<!-- Shared reason-for-change dialogue (Round 11 Phase 3, 2026-08-19).
+ONE dialogue, two callers: Opportunity's Est. Close Date move and
+Test Bed's score revision. The INTERACTION is shared and the
+STORAGE is not - each caller supplies its own onConfirm, so the
+close-date move still writes its note through its own endpoint and
+a score revision writes the reason onto the score entry. Two
+independent implementations of "require a reason when this field
+changes" is the shape that produced the duplicated notes
+renderers found in Round 10 Phase 2.
+Focus trap per INTERACTION_STANDARDS.md Section 4: focus to the
+textarea on open, Tab/Shift+Tab confined to the three controls,
+Escape and backdrop-click both cancel, focus returns to whatever
+opened it. -->
+<div id="change-reason-form" class="hidden modal-backdrop">
+<div class="modal-panel" role="alertdialog" aria-modal="true" aria-labelledby="change-reason-heading">
+<p class="eyebrow" id="change-reason-heading"></p>
+<div class="form-group">
+<label id="change-reason-context-label"></label>
+<p class="sub" id="change-reason-context-value" style="margin-top:4px"></p>
+</div>
+<div class="form-group" style="margin-top:10px">
+<label for="change-reason-input" id="change-reason-prompt"></label>
+<textarea id="change-reason-input" rows="2"></textarea>
+</div>
+<p class="msg-error hidden" id="change-reason-error"></p>
+<div class="form-actions" style="margin-top:10px">
+<button class="btn-ghost" id="change-reason-cancel" onclick="cancelChangeReason()">Cancel</button>
+<button class="btn-primary" id="change-reason-confirm" onclick="confirmChangeReason()"></button>
+</div>
+</div>
+</div>
+
 <div id="discard-confirm-modal" class="hidden modal-backdrop" style="z-index:200">
   <div class="modal-panel" role="alertdialog" aria-modal="true" aria-labelledby="discard-confirm-heading">
     <p class="eyebrow" id="discard-confirm-heading">Discard unsaved changes?</p>

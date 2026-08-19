@@ -2789,3 +2789,21 @@ input.input-invalid {
 }
 .tb-score-history { margin-top: 8px; }
 .tb-score-entry { padding: 6px 0; }
+
+/* Score entry, Round 11 Phase 3 (2026-08-19). */
+.tb-score-select {
+  flex: 0 0 auto;
+  min-width: 92px;
+}
+.tb-score-comment {
+  margin-top: 8px;
+}
+.tb-score-comment label {
+  display: block;
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.tb-score-comment textarea {
+  width: 100%;
+}
