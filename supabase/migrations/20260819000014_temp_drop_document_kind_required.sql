@@ -1,0 +1,18 @@
+-- TEMPORARY, Round 11 Phase 7, 2026-08-19. Restored by
+-- 20260819000015_restore_document_kind_required.sql in the same phase.
+--
+-- Drops records_document_kind_required so a LIVE document with a null
+-- document_kind can be created, which is the exact shape invariant 10 exists
+-- to catch and which the constraint otherwise makes unreachable: an INSERT
+-- without a kind is refused, and an UPDATE setting it to null is refused too,
+-- both confirmed directly before writing this.
+--
+-- That is precisely why the injection is needed. The constraint is NOT VALID,
+-- so it exempts every row that existed before it; those rows are reachable
+-- only by having been written when no constraint existed, and this migration
+-- reproduces that condition rather than approximating it.
+--
+-- Same pattern as 20260815000009/10 (temp block record_revisions select) and
+-- 20260815000013/14 (temp drop audit_log FK), both used in this repo to force
+-- a real failure rather than reason about one.
+alter table public.records drop constraint if exists records_document_kind_required;

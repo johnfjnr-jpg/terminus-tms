@@ -1758,3 +1758,36 @@ Explicitly deferred, not forgotten, not a section number of its own since this i
   **At the other two tested widths the same words describe nothing.** At 1240 the grid is two columns, so "to the right of Terminus Details" is where Customer Details already is; at 3440 all five cards fit one row and there is no "below" at all. Forcing the 1920 arrangement with an explicit `grid-column` would hold it at one width and push the card out of flow at the others.
 
   **The implementation used the natural flow position and reported where it actually lands at each width**, rather than claiming the brief was met everywhere when it was met at one. Recorded as a general point rather than an issue with this brief: **a position in a reflowing layout is a function of viewport, so a brief that names a position is implicitly naming a viewport too, and it is worth saying which.** Absent that, flow is the right default, because it is the only choice that degrades predictably.
+
+- **Round 11 Phase 7, 2026-08-19: four configuration invariants and one stylesheet invariant, each proven capable of failing against a real row.** `npm run test:db` goes 35 to 38, `npm test` 22 to 23.
+
+  **Invariant 8, criteria named by gate rules.** The same shape as invariant 4, which closed the gap where `stage_gate_rules` and `stage_reference_docs` held document names as independent free strings. Here it is `requirement_detail.field` against `scoring_criteria.criterion_key`, and **the failure is worse than a mismatch: a gate naming a criterion that does not exist blocks on a field nothing can ever write**, so the transition is unsatisfiable from inside the product. Anchors are asserted too, because a criterion with no anchors is scoreable in principle and refused in practice, `POST /scores` returning 409. Proven in **both** its cases: a phantom criterion, and a real criterion with no anchor rows.
+
+  **Invariant 9, stored scores against anchor versions.** Amended before it was written, because the obvious phrasing fails on legitimate data: anchors exist for 1, 3 and 5 only, so asserting a row for the exact score would report every genuine 2 and 4 as an orphan. **The referent is the version, and completeness is derived from the data** rather than assumed to be `{1,3,5}`, so giving 2 or 4 real wording later needs no change to the test.
+
+  **Invariant 10, live documents with no `document_kind`.** The one that could not be proven without dropping the constraint, and the reason is the point: an INSERT without a kind is refused and an UPDATE to null is refused, **both confirmed directly**, so a live null-kind row is unreachable by any supported write. That is exactly why the invariant exists - the rows it protects against are reachable only by having been written when no constraint existed, which is what `NOT VALID` permanently exempts. **Reproduced rather than approximated**, using the temp-drop-then-restore migration pattern this repo already established twice (`20260815000009/10`, `20260815000013/14`). Restoration confirmed as real **enforcement** rather than presence, by a genuine rejected insert afterwards.
+
+- **The stylesheet invariant caught a live two-round-old defect on its first run, which is the best possible argument for encoding a check rather than remembering it. Round 11 Phase 7, 2026-08-19.** It was written before the `var(--line)` instances were fixed, deliberately, so its first execution ran against the real fault:
+
+      ✖ every custom property used in style.css is defined in it
+        --line  line 2595  border-bottom: 1px solid var(--line);
+        --line  line 2643  border-bottom: 1px solid var(--line);
+
+  **Round 9 Phase 6 introduced them. Round 10 Phase 7 found this exact fault in its own new block, fixed that block, and did not sweep the file.** They then survived two further rounds of screenshots, because rows running together reads as a design choice: **opening the screenshot catches what looks wrong, not what looks deliberate.**
+
+  **It lives in `npm test`, not `npm run test:db`**, and the placement is a decision rather than a convenience. It reads a file: no database, no credentials, no fixtures, no teardown. **A check that requires a live database to run is a check that gets skipped** - on a fresh checkout, in a hook, by anyone without `.env`, and by every future session that reaches for the fast suite because the slow one takes 28 seconds. This one costs milliseconds and has no reason to be gated behind any of that. **The general rule: put a check in the cheapest suite that can run it, because the real failure mode of a good check is not being run.**
+
+  **`var(--x, fallback)` is deliberately excluded, and the reason generalises past CSS.** A reference carrying a fallback is well defined whether or not the token exists, which is the entire purpose of the syntax, so flagging it would report correct code as broken. **A check that cries wolf does not merely waste attention, it takes its own genuine coverage down with it**: once readers learn that some of its output is noise they stop reading the output, and the real finding arrives in a list nobody opens. Precision is not politeness in an assertion, it is what keeps the assertion readable enough to act on.
+
+
+- **The temp-drop-then-restore migration pattern is now on its third use, and a fourth would make it a mechanism rather than a habit. Round 11 Phase 7, 2026-08-19.** Three instances, each forcing a real failure rather than reasoning about one:
+
+      20260815000009/10   temporarily block record_revisions select
+      20260815000013/14   temporarily drop the audit_log FK
+      20260819000014/15   temporarily drop records_document_kind_required
+
+  **The cost is two permanent ledger entries for a temporary condition**, which is worth paying here and is worth naming rather than absorbing. The migration list is the configuration changelog, and entries that exist only to have been undone dilute it: a future reader scanning 47 migrations for what the schema does now has to read two that describe a state that lasted minutes.
+
+  **It is the right trade at three.** The alternative was proving invariant 10 by argument, and the standing rule is explicit that an invariant not proven capable of failing is not evidence. The violating state was **unreachable by any supported write** - an INSERT without a kind refused, an UPDATE to null refused, both confirmed - so reproducing the pre-constraint condition was the only route to a real failure.
+
+  **If it recurs a fourth time it is a candidate for a test-only mechanism instead**: a suite that can drop and restore a constraint within its own transaction, or a fixture helper that does it around the assertion, leaving the ledger untouched. Recorded now, at three, so the fourth session recognises the threshold rather than adding a fifth pair and then noticing.

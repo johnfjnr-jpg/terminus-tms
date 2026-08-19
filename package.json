@@ -9,7 +9,7 @@
     "dev": "node --env-file=.env --watch src/server.js",
     "db:push": "npx supabase db push",
     "db:seed": "node scripts/seed.js",
-    "test": "node --test scripts/tests/cost.test.mjs",
+    "test": "node --test scripts/tests/cost.test.mjs scripts/tests/stylesheet.test.mjs",
     "test:db": "node --test --env-file-if-exists=.env scripts/tests/reference-number.test.mjs scripts/tests/gates.test.mjs scripts/tests/config-invariants.test.mjs",
     "state:dump": "node --env-file-if-exists=.env scripts/state-dump.mjs"
   },

@@ -2592,7 +2592,7 @@ input.input-invalid {
 
 .tb-doc-row {
   padding: 10px 0;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--hairline);
 }
 .tb-doc-row:last-child { border-bottom: none; }
 
@@ -2640,7 +2640,7 @@ input.input-invalid {
   align-items: flex-start;
   gap: 8px;
   padding: 7px 0;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--hairline);
 }
 .tb-crit-row:last-child { border-bottom: none; }
 .tb-crit-row--tickable { cursor: pointer; }
