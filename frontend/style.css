@@ -2455,12 +2455,12 @@ input.input-invalid {
   opacity: 0.55;
   margin: 0 0 6px;
 }
-.tb-header-summary-text {
-  margin: 0;
-  font-size: 13px;
-  line-height: 1.5;
-  opacity: 0.85;
-}
+/* .tb-header-summary-text removed Round 10A Phase 1: it styled the
+   read-only paragraph that renderTbHeaderDigest built, and that renderer
+   and its markup are both gone. The Summary display is now an ordinary
+   .ref-field-display, styled with the rest of the click-to-edit fields.
+   Deleted rather than left behind, because a stale rule for a class
+   nothing emits is the CSS half of the very defect this round is fixing. */
 /* The note rows themselves deliberately carry no overrides: they use the
    shared .ref-notes-row treatment unchanged, per Rule 10. */
 .tb-header-notes-toggle {

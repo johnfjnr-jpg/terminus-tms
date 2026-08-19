@@ -12,8 +12,8 @@ Contains no environment variable, key or token, and no client data. Records
 appear as counts by status only, never by name or reference code, because
 this file is uploaded into chat sessions.
 
-- Generated at: `2026-08-19T07:09:05.113Z`
-- Git commit: `efa1ea33600d87cee72a9452d9618f3e1e319b39`
+- Generated at: `2026-08-19T09:47:06.397Z`
+- Git commit: `d96b802a27a5ecb0b9cd0a219448fbc300837a26`
 - Working tree at generation: `dirty (uncommitted changes present)`
 
 If the commit above is not current `HEAD`, this file is stale and is
@@ -175,21 +175,21 @@ _None._
 
 ## Record counts by type and status
 
-56 live, 2147 soft deleted, 2203 rows in total.
+65 live, 2300 soft deleted, 2365 rows in total.
 
 | record_type | status | live | soft deleted |
 |---|---|---|---|
-| account | active | 7 | 152 |
+| account | active | 7 | 153 |
 | contact | Parked | 0 | 2 |
 | contact | Qualified | 9 | 108 |
 | contact | Unqualified | 1 | 53 |
-| document | approved | 29 | 234 |
+| document | approved | 38 | 254 |
 | opportunity | Discovery | 3 | 39 |
 | opportunity | Negotiation | 0 | 1 |
 | opportunity | Proposal | 0 | 1 |
-| test_bed | Closed | 3 | 7 |
+| test_bed | Closed | 4 | 7 |
 | test_bed | Pre-Site Assessment | 0 | 3 |
-| test_bed | Qualification | 4 | 130 |
+| test_bed | Qualification | 3 | 132 |
 | test_bed | Site Assessment | 0 | 2 |
 
 ### Test fixture record types
@@ -200,19 +200,19 @@ row by row, and are included in the totals above.
 
 | distinct `harness_*` record types | live rows | soft deleted rows |
 |---|---|---|
-| 116 | 0 | 1415 |
+| 126 | 0 | 1545 |
 
 No harness record type holds a live row; every fixture row is soft deleted.
 
 ## `approvals`
 
-135 rows, of which 0 carry a null `stage`.
+151 rows, of which 0 carry a null `stage`.
 
 | decision | track | rows | null stage |
 |---|---|---|---|
-| approved | Commercial | 54 | 0 |
-| approved | Legal | 30 | 0 |
-| approved | Technical | 51 | 0 |
+| approved | Commercial | 60 | 0 |
+| approved | Legal | 35 | 0 |
+| approved | Technical | 56 | 0 |
 
 ## Writable-key allowlists
 

@@ -2149,16 +2149,19 @@ async function loadTestBedDetail(id) {
 // state belongs next to the thing it controls, and keeping a header copy
 // would have meant two renderers of the same list, which is exactly how
 // the ordering defect below survived unnoticed.
-function renderTbHeaderDigest(p) {
-  const summaryEl = document.getElementById('tb-header-summary')
-  if (!summaryEl) return
-
-  const summary = (p.summary ?? '').trim()
-  summaryEl.innerHTML = summary
-    ? `<p class="tb-header-digest-label">Summary</p><p class="tb-header-summary-text">${escHtml(summary)}</p>`
-    : ''
-  summaryEl.classList.toggle('hidden', !summary)
-}
+// Round 10A Phase 1 (2026-08-19): this function is gone, and its removal is
+// the point rather than a tidy-up.
+//
+// It rebuilt #tb-header-summary's innerHTML on every render, which is why
+// the header instance could only ever be a read-only copy: an editable
+// control inside it would have been destroyed, along with anything typed
+// into it, on every save-triggered reload. The Summary control is now
+// STATIC markup in index.html and is populated by initTestBedDetailPanel
+// exactly like every other click-to-edit field, so the open-edit capture
+// and restore that already runs across reloads covers it for free.
+//
+// Nothing replaces this call. renderTestBedDetail no longer touches the
+// header summary at all.
 
 
 async function renderTestBedDetail(bed) {
@@ -2173,7 +2176,6 @@ async function renderTestBedDetail(bed) {
   // there. Age was the exception and now renders in Key Dates on the
   // Reference tab. Removing the markup without removing these lines
   // would have thrown on a null element on every Test Bed open.
-  renderTbHeaderDigest(p)
 
   const stages = await fetchStages('test_bed')
   tbDetailStages = stages
