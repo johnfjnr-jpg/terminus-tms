@@ -1,5 +1,5 @@
 import { createUserClient } from '../supabase.js'
-import { computeBlocking, approvalSatisfiesRule } from './transitions.js'
+import { computeBlocking, approvalSatisfiesRule , GATE_RECORD_SELECT } from './transitions.js'
 
 /**
  * Builds the stage-approvals panel's per-track state for one stage.
@@ -258,7 +258,7 @@ export default async function recordsRoutes(app) {
 
     const { data: record, error: recordErr } = await db
       .from('records')
-      .select('id, record_type, status, variant, parent_record_id, industry_id')
+      .select(GATE_RECORD_SELECT)
       .eq('id', request.params.id)
       .is('deleted_at', null)
       .maybeSingle()

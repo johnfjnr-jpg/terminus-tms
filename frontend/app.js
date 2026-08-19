@@ -3164,6 +3164,119 @@ window.submitStageApproval = async (recordId, track) => {
 // Text, number and textarea controls are left alone on purpose: focus alone
 // already makes them usable, so one click genuinely works there today and a
 // change would be a regression, not a fix.
+// ── Shared reason-for-change dialogue (Round 11 Phase 3, 2026-08-19) ─────
+//
+// Lives in app.js for the same reason window.revealFieldControl does: this
+// file loads first, so a helper defined here reaches every detail screen,
+// and it is attached to `window` rather than declared as a top-level const
+// per the recorded name-collision rule.
+//
+// WHAT IS SHARED IS THE INTERACTION, NOT THE STORAGE, and that split is the
+// whole point of the phase. Round 3 Phase 3 built this behaviour for
+// Opportunity's Est. Close Date and proved the load-bearing property
+// empirically: cancelling the dialogue does NOT discard an unrelated dirty
+// field edited in the same batch. That property is what is worth reusing.
+// Where the reason ends up is not: Est. Close Date writes it into
+// payload.notes as prose, and a score revision writes it onto the score
+// entry itself. Each caller supplies its own onConfirm and this helper never
+// touches storage at all.
+//
+// CANCEL DELIBERATELY DOES NOTHING TO THE CALLER'S STATE. It closes the
+// dialogue and returns focus, and that is all. The caller's edit bar is
+// still showing exactly what it showed before Save was pressed, so the user
+// can correct the value, retry, or discard that one field through its own
+// control. Discarding the pending change here would be the destructive
+// reading of Cancel and would take unrelated edits with it.
+let changeReasonState = null
+let changeReasonKeydownHandler = null
+
+// Backdrop-click cancels, wired once and permanently, the same pattern
+// discard-confirm-modal and linked-records-modal already use: it only fires
+// when the backdrop itself, not a child, is the click target. Escape is NOT
+// wired here - it is owned by the per-open handler above, so there is exactly
+// one Escape owner rather than two competing ones.
+document.getElementById('change-reason-form').addEventListener('click', (e) => {
+  if (e.target.id === 'change-reason-form') window.cancelChangeReason()
+})
+
+window.requestChangeReason = function (opts) {
+  changeReasonState = opts
+
+  document.getElementById('change-reason-heading').textContent = opts.heading
+  document.getElementById('change-reason-context-label').textContent = opts.contextLabel
+  document.getElementById('change-reason-context-value').textContent = opts.contextValue ?? '--'
+  document.getElementById('change-reason-prompt').textContent = opts.promptLabel
+  document.getElementById('change-reason-confirm').textContent = opts.confirmLabel
+  const input = document.getElementById('change-reason-input')
+  input.value = ''
+  document.getElementById('change-reason-error').classList.add('hidden')
+  document.getElementById('change-reason-form').classList.remove('hidden')
+  input.focus()
+
+  // Direct port of Park's own handler, per INTERACTION_STANDARDS.md Section
+  // 4: attached on open and removed on close rather than left permanently
+  // attached, since this node persists across in-app navigation. Round 3's
+  // first version had two overlapping Escape owners, which was a real bug in
+  // its own right; one owner, one attach, one detach.
+  changeReasonKeydownHandler = (e) => {
+    if (e.key === 'Escape') { e.preventDefault(); window.cancelChangeReason(); return }
+    if (e.key !== 'Tab') return
+    const focusable = [
+      document.getElementById('change-reason-input'),
+      document.getElementById('change-reason-cancel'),
+      document.getElementById('change-reason-confirm'),
+    ]
+    const first = focusable[0]
+    const last = focusable[focusable.length - 1]
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus() }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus() }
+  }
+  document.addEventListener('keydown', changeReasonKeydownHandler)
+}
+
+function closeChangeReasonDialog() {
+  document.getElementById('change-reason-form').classList.add('hidden')
+  if (changeReasonKeydownHandler) {
+    document.removeEventListener('keydown', changeReasonKeydownHandler)
+    changeReasonKeydownHandler = null
+  }
+  const returnTo = changeReasonState?.returnFocusTo
+  changeReasonState = null
+  if (returnTo) document.getElementById(returnTo)?.focus()
+}
+
+window.cancelChangeReason = function () {
+  const onCancel = changeReasonState?.onCancel
+  closeChangeReasonDialog()
+  if (onCancel) onCancel()
+}
+
+window.confirmChangeReason = async function () {
+  const state = changeReasonState
+  if (!state) return
+  const reason = document.getElementById('change-reason-input').value.trim()
+  const errEl = document.getElementById('change-reason-error')
+  errEl.classList.add('hidden')
+
+  if (!reason) {
+    errEl.textContent = state.emptyReasonError ?? 'A reason is required.'
+    errEl.classList.remove('hidden')
+    return
+  }
+
+  const result = await state.onConfirm(reason)
+  if (!result?.ok) {
+    // The dialogue STAYS OPEN on failure, with the typed reason intact.
+    // Closing it would discard what the user wrote for a failure that is
+    // very likely retryable.
+    errEl.textContent = result?.error ?? 'Failed to save.'
+    errEl.classList.remove('hidden')
+    return
+  }
+  closeChangeReasonDialog()
+  if (state.onDone) await state.onDone()
+}
+
 window.revealFieldControl = function (input, fromUserGesture) {
   if (!input) return
   input.focus()

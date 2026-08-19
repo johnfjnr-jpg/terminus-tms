@@ -117,6 +117,24 @@ not resolve it quietly.
    build-discipline rule 6, which is a fix failing to reach a new surface;
    this is an unchanged path meeting a new demand.
 
+9. **A destructuring parameter list is an allowlist that gives no feedback
+   when it excludes something.** `function f({ a, b })` accepts a call
+   passing `c` and silently discards it. The options object **reads as
+   open-ended at the call site and is closed at the definition**, and the
+   two are usually far enough apart that the caller cannot see it. Adding a
+   key to a call is a no-op until the definition names it too.
+
+   **The diagnostic signature: the failure output does not change at all.**
+   Round 11 Phase 6 added a newly-mandatory column to three fixture calls
+   and the suite failed **byte-identically** - same tests, same constraint
+   name, same message - because `Fixtures.createRecord` destructured a fixed
+   key set and built its insert from those names only. An unchanged failure
+   after a change that looks correct is evidence **the change never reached
+   the code path**, which is cheaper to test than any theory about the
+   failure itself. Same family as a render call site hardcoding its own
+   `opts` instead of spreading the field definition, twice recorded: the
+   definition looks like the source of truth and the call site ignores it.
+
 ---
 
 ## Verification

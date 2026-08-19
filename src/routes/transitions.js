@@ -34,6 +34,25 @@ import { createUserClient } from '../supabase.js'
  * @param ctx.from_stage the stage being exited (the gate's own stage)
  * @param ctx.currentRevision the record's current revision number
  */
+// Fields a payload_field_required rule may name that are REAL COLUMNS on
+// records rather than payload keys, so the gate reads the record row instead
+// of the revision payload.
+//
+// EVERY CALLER'S SELECT LIST IS BUILT FROM THIS SET, deliberately. Round 11
+// Phase 5 added installer_account_id here and the gate blocked unsatisfiably
+// until the two callers' hardcoded select lists were updated too: the row
+// simply did not carry the column, so record[field] was undefined and the
+// requirement could never be met. Nothing in the schema or the types aligned
+// the two lists, which is the same shape as stage_reference_docs and
+// stage_gate_rules holding document names as independent free strings, and
+// the same failure mode as Round 7 Phase 3.2 - a gate that is configured
+// correctly and cannot be satisfied from inside the product.
+export const RECORD_COLUMN_FIELDS = new Set(['parent_record_id', 'industry_id', 'installer_account_id'])
+
+// The select every computeBlocking caller must use. Derived, never retyped.
+export const GATE_RECORD_SELECT =
+  ['id', 'record_type', 'status', 'variant', ...RECORD_COLUMN_FIELDS].join(', ')
+
 export function ruleScope(rule) {
   // Absent scope defaults to 'revision' - the behaviour every rule had
   // before 3.1, and a continuity requirement, not a style choice. Read it
@@ -145,6 +164,14 @@ export async function computeBlocking(db, record, from_stage, to_stage, currentR
         .select('id')
         .eq('parent_record_id', record.id)
         .eq('record_type', 'document')
+        // Round 11 Phase 6, and this is the load-bearing one. Nine
+        // document_status rules match on variant, and Customer Documents are
+        // NAMED BY A PERSON. Without this filter a client-supplied file
+        // called "NDA" would satisfy the NDA gate on transition 2: a
+        // document nobody at Terminus reviewed releasing a gate that exists
+        // to prove somebody did. Same outcome as Round 9 Phase 6.1, reached
+        // by naming rather than by status.
+        .eq('document_kind', 'terminus')
         .eq('variant', docName)
         .eq('status', reqStatus)
         .maybeSingle()
@@ -174,7 +201,6 @@ export async function computeBlocking(db, record, from_stage, to_stage, currentR
       const field = rule.requirement_detail?.field
       if (!field) continue
 
-      const RECORD_COLUMN_FIELDS = new Set(['parent_record_id', 'industry_id'])
       const value = RECORD_COLUMN_FIELDS.has(field) ? record[field] : revPayload?.[field]
 
       // Round 9 Phase 3.2: `label` is additive and ignored by the
@@ -186,12 +212,72 @@ export async function computeBlocking(db, record, from_stage, to_stage, currentR
       // two. Rules without a label are unaffected, message included.
       const label = rule.requirement_detail?.label
 
+      // Round 11 Phase 4.1.1: OPTIONAL SERIES CLAUSES, and they are an
+      // engine change rather than a scoring one.
+      //
+      // The base test blocks only on undefined, null and '' - measured
+      // against the real evaluator in Round 11 Phase 0, where `false`, `0`,
+      // `'0'`, `{}` and crucially `[]` all PASS. A score series is an array,
+      // so the empty series is its natural initial state, and an empty array
+      // satisfying "this field is required" means an unscored criterion
+      // opens its own gate.
+      //
+      // WRITTEN GENERALLY, in terms of the stored value's length rather than
+      // in terms of what a score is: ANY payload field holding a series will
+      // want non-empty to mean non-empty, and Round 12's field-change trail
+      // is the next one. Key-absence was considered and rejected as the
+      // mechanism, because it makes correctness depend on no renderer, no
+      // migration and no future write path ever initialising the key to [],
+      // which is a discipline rather than a property.
+      //
+      // A rule carrying NEITHER clause behaves exactly as it does today, so
+      // all 15 contact rules and the unlabelled date and duration rules are
+      // unaffected BY CONSTRUCTION rather than by inspection.
+      const minLength = rule.requirement_detail?.min_length
+      const atOrAfter = rule.requirement_detail?.entry_stage_at_or_after
+
+      let met = !(value === undefined || value === null || value === '')
+
+      if (met && minLength !== undefined) {
+        // A non-array with a length clause is a misconfiguration, not a
+        // pass: the rule is asserting something about a series and the field
+        // does not hold one.
+        met = Array.isArray(value) && value.length >= minLength
+      }
+
+      if (met && atOrAfter) {
+        // "recorded at or after <stage>", not merely "recorded". A stale
+        // qualification guess must not carry unchallenged into installation,
+        // which is the whole point of a re-score gate: permitting a re-score
+        // and requiring one are different, and this is the requiring half.
+        //
+        // Compared by POSITION in the sort_order-ordered list, not by
+        // sort_order arithmetic - the same departure Round 9 Phase 4A made
+        // deliberately for adjacency, so a stage list numbered 10, 20, 30 to
+        // leave room for insertions still behaves correctly.
+        const { data: stageRows, error: stageErr } = await db
+          .from('stage_definitions')
+          .select('stage_name, sort_order')
+          .eq('record_type', record.record_type)
+          .order('sort_order', { ascending: true })
+        if (stageErr) return { error: stageErr }
+
+        const order = (stageRows ?? []).map(r => r.stage_name)
+        const threshold = order.indexOf(atOrAfter)
+        met = threshold >= 0 && Array.isArray(value) && value.some(entry => {
+          const idx = order.indexOf(entry?.stage)
+          return idx >= 0 && idx >= threshold
+        })
+      }
+
       requirements.push({
         requirement_type: 'payload_field_required',
         field,
         ...(label ? { label } : {}),
-        message: label ? `Requires ${label}` : `Requires ${field} to be set`,
-        met: !(value === undefined || value === null || value === '')
+        message: label
+          ? (atOrAfter ? `Requires ${label} scored at or after ${atOrAfter}` : `Requires ${label}`)
+          : `Requires ${field} to be set`,
+        met
       })
     }
 
@@ -313,7 +399,7 @@ export default async function transitionsRoutes(app) {
 
     const { data: record, error: recordErr } = await db
       .from('records')
-      .select('id, record_type, status, variant, parent_record_id, industry_id')
+      .select(GATE_RECORD_SELECT)
       .eq('id', request.params.id)
       .maybeSingle()
 

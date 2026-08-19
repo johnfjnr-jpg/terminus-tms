@@ -7,14 +7,29 @@ const VALID_SOURCES = ['Web', 'Email Inquiry', 'Referral', 'Direct Outreach', 'M
 
 export default async function contactsRoutes(app) {
   // GET /api/contacts — excludes soft-deleted rows.
+  // ?account_id= added Round 11 Phase 5, 2026-08-19. A NEW CAPABILITY, not an
+  // existing parameter: this endpoint took no query parameters at all and
+  // returned every non-deleted contact, which every caller then filtered
+  // client-side. Phase 5 needs Contacts of the INSTALLER's Account, which is
+  // a different Account from the record's own, so the filter has to be
+  // expressed rather than assumed from context.
+  //
+  // Also the first half of the recorded open item that this endpoint fetches
+  // every contact and filters in the browser, which is a scaling problem
+  // rather than a fixed cost. Existing callers are untouched and still get
+  // the full list, so this is a strict superset of the previous behaviour.
   app.get('/contacts', async (request, reply) => {
     const db = createUserClient(request.jwt)
+    const accountId = request.query?.account_id
 
-    const { data: contacts, error } = await db
+    let query = db
       .from('records')
       .select('*')
       .eq('record_type', 'contact')
       .is('deleted_at', null)
+    if (accountId) query = query.eq('parent_record_id', accountId)
+
+    const { data: contacts, error } = await query
       .order('created_at', { ascending: false })
 
     if (error) {

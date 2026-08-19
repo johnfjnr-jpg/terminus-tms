@@ -333,12 +333,31 @@ export default async function testBedsRoutes(app) {
 
     const payload = revResult.data?.payload ?? {}
 
+    // Round 11 Phase 5: resolve the Installer Account's name the same way the
+    // client Account's is resolved just above, rather than making the browser
+    // fetch it. client_installed is COMPUTED, never stored: it is simply
+    // whether the two Account links are the same, which is the whole reason
+    // Installer is a link rather than a picklist.
+    let installer = null
+    if (bed.installer_account_id) {
+      const { data: instRev } = await db
+        .from('record_revisions').select('payload')
+        .eq('record_id', bed.installer_account_id)
+        .order('revision_number', { ascending: false }).limit(1).maybeSingle()
+      installer = {
+        id: bed.installer_account_id,
+        name: instRev?.payload?.name ?? null,
+        client_installed: bed.installer_account_id === bed.account_id,
+      }
+    }
+
     return {
       ...bed,
       payload,
       latest_revision_number: revResult.data?.revision_number ?? 1,
       industry: industryResult.data ? { id: industryResult.data.id, name: industryResult.data.name } : null,
       account,
+      installer,
       buyer_contacts,
       // Round 5 Phase 6: always live-recomputed from the current payload,
       // never read back as a stored value itself - the detail page's own
@@ -382,7 +401,21 @@ export default async function testBedsRoutes(app) {
   const TB_EXIT_CRITERION_KEYS = new Set([
     // Qualification -> Pre-Site Assessment
     'exitQualTechnicalCommercialValue',   // Technical and Commercial Value
-    'exitQualDataAndUseCase',             // Data and Use Case
+    // exitQualDataAndUseCase RETIRED, Round 11 Phase 1 (2026-08-19). It
+    // asked two questions at once and the framework now asks them
+    // separately, so the criterion ceases to exist rather than being
+    // renamed: it becomes Clear Use Case Requirements and Metrics and Data
+    // Rights, both scored rather than ticked, both landing in Phase 4.
+    // Its gate rule was deleted in the same change - removing the key here
+    // while the labelled rule survived would have made the row computed
+    // rather than tickable, so it would still block with nothing in the
+    // product able to satisfy it. All three live Qualification records hold
+    // zero ticks, so that sequencing would have blocked every one of them.
+    //
+    // Removing it here also removes it from TEST_BED_WRITABLE_KEYS below,
+    // which is built by spreading this set, so a PATCH naming it is now
+    // rejected. That is intended: four live Closed records still hold the
+    // key in their payloads as history, and nothing should write to it.
     'exitQualPhysicalSuitability',        // Physical Suitability
     'exitQualPartnerCommitment',          // Partner Commitment
     // Monitoring and Analysis -> Review and Completion
@@ -396,7 +429,13 @@ export default async function testBedsRoutes(app) {
     'siteOwnership', 'installationEnvironment', 'siteAddress', 'city',
     'safesightCameras', 'airQualitySensors', 'hemirSensors', 'estCostPerUnit',
     'testBedDuration', 'estimatedInstallationDate', 'estGoLiveDate',
-    'installer', 'techTeam', 'installNotes',
+    // 'installer' and 'techTeam' REMOVED, Round 11 Phase 5: both are real
+    // links now (installer_account_id, and a record_contacts row), written
+    // by their own endpoints with their own validation. A PATCH naming
+    // either is rejected rather than writing a free-text value that nothing
+    // reads. Six soft-deleted probe records still hold the old payload keys
+    // as history, now unread, same as the warrantyPct precedent.
+    'installNotes',
     // terminusCommercialOwner/terminusTechnicalOwner removed (2026-08-16,
     // Phase 7) - they duplicated the real, prototype-accurate
     // commercialAuthority/technicalAuthority fields above under a
@@ -785,6 +824,10 @@ export default async function testBedsRoutes(app) {
       .select('id, variant, status')
       .eq('parent_record_id', bed.id)
       .eq('record_type', 'document')
+      // Round 11 Phase 6: Terminus's own documents only. Read POSITIVELY
+      // rather than by excluding customer ones, so a new kind added later
+      // is invisible here until someone decides otherwise.
+      .eq('document_kind', 'terminus')
       .is('deleted_at', null)
 
     if (docsErr) {
@@ -877,6 +920,12 @@ export default async function testBedsRoutes(app) {
       .select('id, variant, status, created_at')
       .eq('parent_record_id', bed.id)
       .eq('record_type', 'document')
+      // Round 11 Phase 6. THE ONE THAT ABSENCE COULD NOT HAVE COVERED: this
+      // panel is union-not-intersection by design, surfacing any variant the
+      // catalogue does not name under its own heading rather than dropping
+      // it. Customer Documents are excluded by being a different KIND, not
+      // by having an unrecognised name.
+      .eq('document_kind', 'terminus')
       .is('deleted_at', null)
     if (kidsErr) return reply.code(500).send({ error: kidsErr.message })
 
@@ -988,6 +1037,11 @@ export default async function testBedsRoutes(app) {
       .select('id')
       .eq('parent_record_id', bed.id)
       .eq('record_type', 'document')
+      // Round 11 Phase 6: without this, two Customer Documents sharing a
+      // name would make .maybeSingle() ERROR rather than misbehave quietly,
+      // and Customer Documents are named by a person so collision is a
+      // realistic input rather than a theoretical one.
+      .eq('document_kind', 'terminus')
       .eq('variant', document_type)
       .maybeSingle()
 
@@ -1020,6 +1074,7 @@ export default async function testBedsRoutes(app) {
           parent_record_id: bed.id,
           status,
           variant: document_type,
+          document_kind: 'terminus',
           owner_id: request.user.id
         })
         .select()
@@ -1265,6 +1320,521 @@ export default async function testBedsRoutes(app) {
   // linkContact() helper in contacts.js (role='commercial buyer' at
   // creation) is untouched and unrelated to this.
   const VALID_CLIENT_BUYER_ROLES = ['Client Commercial Buyer', 'Client Technical Buyer', 'Client Legal Buyer']
+
+  // Appends one entry to an append-only payload series and writes the
+  // revision. Extracted so the measurability confirmation writes through the
+  // SAME path a score does rather than through a second convention that
+  // agrees today and drifts later - the shape is Phase 2's general one, and
+  // two writers of one shape is not a fork of the mechanism.
+  //
+  // Returns { error } with a status, or { ok: true }.
+  async function appendPayloadSeriesEntry(db, recordId, key, entry, actorId) {
+    const { data: revRow, error: revReadErr } = await db
+      .from('record_revisions')
+      .select('revision_number, payload')
+      .eq('record_id', recordId)
+      .order('revision_number', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    // An unchecked error here would read as "no existing series", which is
+    // materially different: it would make a revision look like a first entry.
+    if (revReadErr) return { status: 500, error: revReadErr.message }
+    if (!revRow) return { status: 404, error: 'test bed has no revision' }
+
+    const payload = revRow.payload ?? {}
+    const existing = Array.isArray(payload[key]) ? payload[key] : []
+    const merged = { ...payload, [key]: [...existing, entry] }
+
+    const { error: revErr } = await db
+      .from('record_revisions')
+      .insert({ record_id: recordId, revision_number: revRow.revision_number + 1, payload: merged, created_by: actorId })
+    if (revErr) {
+      if (revErr.code === '42501') return { status: 403, error: 'not permitted' }
+      return { status: 500, error: revErr.message }
+    }
+    return { ok: true, entries: existing.length + 1, existingCount: existing.length }
+  }
+
+  // POST /api/test-beds/:id/measurability
+  //
+  // Round 11 Phase 4.3, 2026-08-19. A plain yes or no, deliberately NOT
+  // folded into the 1 to 5: can the proposed sensors capture what would be
+  // measured? Either they can or they cannot, and a 3 is not a meaningful
+  // answer, which is why it is not scored.
+  //
+  // Recorded WITH AN AUTHOR, because it is a technical judgement and it is
+  // currently the only technical judgement recorded anywhere before
+  // commitment. Entitlement stays out of scope, consistent with everything
+  // else in this system: this proves who confirmed it, not that they were
+  // entitled to confirm it. The author is written here rather than accepted
+  // from the client, for the same reason a score's is.
+  app.post('/test-beds/:id/measurability', async (request, reply) => {
+    const { confirmed, comment } = request.body ?? {}
+    if (typeof confirmed !== 'boolean') {
+      return reply.code(400).send({ error: 'confirmed must be true or false' })
+    }
+    const db = createUserClient(request.jwt)
+
+    const { data: record, error: recErr } = await db
+      .from('records').select('id, status')
+      .eq('id', request.params.id).eq('record_type', 'test_bed').is('deleted_at', null).maybeSingle()
+    if (recErr) return reply.code(500).send({ error: recErr.message })
+    if (!record) return reply.code(404).send({ error: 'test bed not found' })
+
+    const entry = {
+      at: new Date().toISOString(),
+      by: request.user.email,
+      value: confirmed,
+      stage: record.status,
+    }
+    if (String(comment ?? '').trim()) entry.comment = String(comment).trim()
+
+    const result = await appendPayloadSeriesEntry(db, record.id, 'measurabilityConfirmed', entry, request.user.id)
+    if (!result.ok) return reply.code(result.status).send({ error: result.error })
+
+    await db.from('audit_log').insert({
+      record_id: record.id, record_type: 'test_bed',
+      action: 'measurability_confirmed', actor_id: request.user.id,
+      detail: { value: confirmed, stage: entry.stage },
+    })
+    return reply.code(201).send({ entry, entries: result.entries })
+  })
+
+  // POST /api/test-beds/:id/scores
+  //
+  // Round 11 Phase 2, 2026-08-19. Appends ONE entry to a criterion's
+  // append-only series. Every score is a new entry; nothing is ever
+  // overwritten.
+  //
+  // WHY THIS IS NOT PATCH /test-beds/:id, which is the obvious reuse and is
+  // wrong. A PATCH takes the whole value for a key, so a client would send
+  // the entire array - and could therefore forge `by`, back-date `at`, claim
+  // any `anchorVersion`, drop earlier entries or rewrite them. That defeats
+  // append-only entirely, and append-only is the whole point: a 3
+  // overwritten by a 1 when someone finally visits the site and finds no
+  // power at the mounting positions is the single most valuable data point
+  // this framework will produce. The criterion keys are deliberately absent
+  // from TEST_BED_WRITABLE_KEYS so this endpoint is the only way in.
+  //
+  // THE ENTRY SHAPE IS DELIBERATELY GENERAL, NOT SCORING-SPECIFIC, because
+  // Round 12 surfaces a field-change trail and criterion authorship and must
+  // not fork what this builds:
+  //
+  //   { at, by, value, comment, reason, anchorVersion }
+  //
+  // `at` and `by` are the SAME KEY NAMES the notes pattern already uses
+  // ({text, at, by}), so anything that renders one can render the other.
+  // `value` rather than `score` is what makes it general: Round 12's field
+  // change records a new value in exactly the same slot, and "what it was
+  // before" is the previous entry's value rather than a second field.
+  // `anchorVersion` is simply ABSENT on a series that has no anchors, which
+  // is how this codebase already reads optional payload keys - no `meta` bag,
+  // because a wrapper invented for a consumer that does not exist yet is
+  // structure without evidence.
+  //
+  // AUTHOR, TIMESTAMP AND ANCHOR VERSION ARE ALL WRITTEN HERE, never taken
+  // from the client. The author is a deliberate departure from the notes
+  // pattern, which sets `by` client-side from the session: a note records
+  // that somebody said something, a score records a judgement somebody is
+  // answerable for, and it gates a transition. Approvals get
+  // `with check (auth.uid() = approver_id)` from RLS; a payload key has no
+  // equivalent, because record_revisions RLS constrains who writes a
+  // revision, not what a JSON field inside it claims. `at` follows for the
+  // same reason - a client clock is not evidence - and `anchorVersion` must
+  // be resolved server-side or a client could stamp a score with a version
+  // whose wording it was never made against, which is the one thing the
+  // versioning exists to prevent.
+  app.post('/test-beds/:id/scores', async (request, reply) => {
+    const { criterion, score, comment, reason } = request.body ?? {}
+    const db = createUserClient(request.jwt)
+
+    // The criterion must be real. scoring_criteria is the vocabulary, so an
+    // unrecognised key cannot create a series under a name nothing defines.
+    const { data: crit, error: critErr } = await db
+      .from('scoring_criteria')
+      .select('id, criterion_key, name')
+      .eq('record_type', 'test_bed')
+      .eq('criterion_key', criterion ?? '')
+      .maybeSingle()
+    if (critErr) {
+      request.log.error({ err: critErr }, 'failed to look up scoring criterion')
+      return reply.code(500).send({ error: critErr.message })
+    }
+    if (!crit) return reply.code(400).send({ error: 'criterion is not a recognised scoring criterion' })
+
+    if (!Number.isInteger(score) || score < 1 || score > 5) {
+      return reply.code(400).send({ error: 'score must be a whole number from 1 to 5' })
+    }
+
+    const { data: record, error: recErr } = await db
+      .from('records')
+      .select('id, status')
+      .eq('id', request.params.id)
+      .eq('record_type', 'test_bed')
+      .is('deleted_at', null)
+      .maybeSingle()
+    if (recErr) return reply.code(500).send({ error: recErr.message })
+    if (!record) return reply.code(404).send({ error: 'test bed not found' })
+
+    const { data: revRow, error: revReadErr } = await db
+      .from('record_revisions')
+      .select('revision_number, payload')
+      .eq('record_id', record.id)
+      .order('revision_number', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    // Round 7 step 3.0's lesson applied here rather than rediscovered: an
+    // unchecked error would read as "no existing series", which would make
+    // a revision look like a first score and skip the mandatory reason.
+    if (revReadErr) return reply.code(500).send({ error: revReadErr.message })
+    if (!revRow) return reply.code(404).send({ error: 'test bed has no revision' })
+
+    const payload = revRow.payload ?? {}
+    const existing = Array.isArray(payload[crit.criterion_key]) ? payload[crit.criterion_key] : []
+
+    // Mandatory at 1 or 2, naming what is missing. A low score is the one
+    // that has to be actionable; without it the framework records an opinion
+    // nobody can act on.
+    if (score <= 2 && !String(comment ?? '').trim()) {
+      return reply.code(400).send({ error: 'a comment is required at a score of 1 or 2, naming what is missing' })
+    }
+
+    // Mandatory on any entry after the first. Phase 3 makes this an
+    // interrupting dialogue fired on a detected change; the rule itself is
+    // enforced here so it holds for any caller, not only that one.
+    if (existing.length > 0 && !String(reason ?? '').trim()) {
+      return reply.code(400).send({ error: 'a reason for the change is required when revising a score' })
+    }
+
+    // Resolved here, never accepted from the client. max(version) is the
+    // current anchor set, computed rather than stored.
+    const { data: latestAnchor, error: anchorErr } = await db
+      .from('scoring_anchors')
+      .select('version')
+      .eq('criterion_id', crit.id)
+      .order('version', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (anchorErr) return reply.code(500).send({ error: anchorErr.message })
+    if (!latestAnchor) {
+      return reply.code(409).send({ error: `no anchors are defined for ${crit.name}, so a score cannot be recorded against a definition` })
+    }
+
+    const entry = {
+      at: new Date().toISOString(),
+      by: request.user.email,
+      value: score,
+      anchorVersion: latestAnchor.version,
+      stage: record.status,
+    }
+    if (String(comment ?? '').trim()) entry.comment = String(comment).trim()
+    if (String(reason ?? '').trim()) entry.reason = String(reason).trim()
+
+    // APPENDED, oldest first. Notes prepend; this appends, and the two
+    // disagree on purpose - "the first entry" is what decides whether a
+    // reason is mandatory, and series[0] meaning the first is worth more
+    // than matching an unrelated array's direction. Every reader sorts on
+    // `at` regardless, per the Round 10 Phase 2 fix, so neither order is
+    // load-bearing at render time.
+    const mergedPayload = { ...payload, [crit.criterion_key]: [...existing, entry] }
+    const nextRevision = revRow.revision_number + 1
+
+    const { error: revErr } = await db
+      .from('record_revisions')
+      .insert({ record_id: record.id, revision_number: nextRevision, payload: mergedPayload, created_by: request.user.id })
+    if (revErr) {
+      if (revErr.code === '42501') return reply.code(403).send({ error: 'not permitted' })
+      request.log.error({ err: revErr }, 'failed to save score revision')
+      return reply.code(500).send({ error: revErr.message })
+    }
+
+    await db.from('audit_log').insert({
+      record_id: record.id,
+      record_type: 'test_bed',
+      action: existing.length ? 'score_revised' : 'score_recorded',
+      actor_id: request.user.id,
+      detail: { criterion: crit.criterion_key, value: score, anchorVersion: entry.anchorVersion, stage: entry.stage }
+    })
+
+    return reply.code(201).send({ criterion: crit.criterion_key, entry, entries: existing.length + 1 })
+  })
+
+  // GET  /api/test-beds/:id/customer-documents
+  // POST /api/test-beds/:id/customer-documents
+  // DELETE /api/test-beds/:id/customer-documents/:docId
+  //
+  // Round 11 Phase 6, 2026-08-19. Client-supplied reference material: site
+  // drawings, QHSE guidelines, anything Terminus needs from the client's
+  // side. A pasted URL, not an upload - Round 14 replaces the paste with a
+  // real upload and must not need to change this record structure to do it,
+  // which is why the URL lives in document_details exactly as a Terminus
+  // document's does.
+  //
+  // THE NAME IS NOT AN IDENTIFIER HERE, and that is the deliberate difference
+  // from complete-document. That endpoint upserts by (parent, variant), so a
+  // second document of the same name updates the first. These are named by a
+  // person, so two files genuinely called "Site drawings" are two documents:
+  // each POST creates a row, and the row id is what addresses it. Keying by
+  // name would silently overwrite one client file with another.
+  app.get('/test-beds/:id/customer-documents', async (request, reply) => {
+    const db = createUserClient(request.jwt)
+    const { data: docs, error } = await db
+      .from('records')
+      .select('id, variant, status, created_at')
+      .eq('parent_record_id', request.params.id)
+      .eq('record_type', 'document')
+      .eq('document_kind', 'customer')
+      .is('deleted_at', null)
+      .order('created_at', { ascending: true })
+    if (error) {
+      request.log.error({ err: error }, 'failed to list customer documents')
+      return reply.code(500).send({ error: error.message })
+    }
+    if (!docs.length) return []
+
+    const { data: locations, error: locErr } = await db
+      .from('document_details').select('record_id, document_location')
+      .in('record_id', docs.map(d => d.id))
+    if (locErr) {
+      request.log.error({ err: locErr }, 'failed to read customer document locations')
+      return reply.code(500).send({ error: locErr.message })
+    }
+    const byId = Object.fromEntries((locations ?? []).map(l => [l.record_id, l.document_location]))
+    return docs.map(d => ({ id: d.id, name: d.variant, url: byId[d.id] ?? null, created_at: d.created_at }))
+  })
+
+  app.post('/test-beds/:id/customer-documents', async (request, reply) => {
+    const { name, url } = request.body ?? {}
+    if (!String(name ?? '').trim()) return reply.code(400).send({ error: 'name is required' })
+    if (!String(url ?? '').trim()) return reply.code(400).send({ error: 'url is required' })
+    // Deliberately permissive about the URL itself beyond requiring a real
+    // scheme: this is a link to somebody else's system and guessing at what
+    // shapes are legitimate would reject real ones, which is the same
+    // reasoning that kept the mobile validator from checking number plans.
+    if (!/^https?:\/\/\S+$/i.test(String(url).trim())) {
+      return reply.code(400).send({ error: 'url must start with http:// or https://' })
+    }
+
+    const db = createUserClient(request.jwt)
+    const { data: bed, error: bedErr } = await db
+      .from('records').select('id')
+      .eq('id', request.params.id).eq('record_type', 'test_bed').is('deleted_at', null).maybeSingle()
+    if (bedErr) return reply.code(500).send({ error: bedErr.message })
+    if (!bed) return reply.code(404).send({ error: 'test bed not found' })
+
+    // status 'received', not 'approved' and not 'draft'. These gate nothing,
+    // so a status borrowed from the approval vocabulary would be a claim
+    // about a review that never happens. Confirmed with the business.
+    const { data: doc, error: insErr } = await db
+      .from('records')
+      .insert({
+        record_type: 'document',
+        document_kind: 'customer',
+        parent_record_id: bed.id,
+        status: 'received',
+        variant: String(name).trim(),
+        owner_id: request.user.id,
+      })
+      .select('id, variant, created_at')
+      .single()
+    if (insErr) {
+      request.log.error({ err: insErr }, 'failed to create customer document')
+      return reply.code(500).send({ error: insErr.message })
+    }
+
+    const { error: locErr } = await db.from('document_details')
+      .upsert({ record_id: doc.id, document_location: String(url).trim() }, { onConflict: 'record_id' })
+    // Checked, per the standing rule and the Round 9 Phase 6.1 instance: an
+    // unchecked write returns success with nothing stored, and here the URL
+    // is the entire point of the record.
+    if (locErr) {
+      request.log.error({ err: locErr }, 'failed to store customer document location')
+      return reply.code(500).send({ error: locErr.message })
+    }
+
+    await db.from('audit_log').insert({
+      record_id: bed.id, record_type: 'test_bed', action: 'customer_document_added',
+      actor_id: request.user.id, detail: { document_id: doc.id, name: doc.variant },
+    })
+    return reply.code(201).send({ id: doc.id, name: doc.variant, url: String(url).trim(), created_at: doc.created_at })
+  })
+
+  app.delete('/test-beds/:id/customer-documents/:docId', async (request, reply) => {
+    const db = createUserClient(request.jwt)
+    // SOFT delete, never hard. records carries ON DELETE RESTRICT references
+    // and the standing rule is explicit, so this sets deleted_at and the
+    // affected rows are checked rather than the error alone - a filtered
+    // update returns zero rows with no error.
+    const { data: updated, error } = await db
+      .from('records')
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('id', request.params.docId)
+      .eq('parent_record_id', request.params.id)
+      .eq('record_type', 'document')
+      .eq('document_kind', 'customer')
+      .select('id')
+    if (error) return reply.code(500).send({ error: error.message })
+    if (!updated?.length) return reply.code(404).send({ error: 'customer document not found' })
+
+    await db.from('audit_log').insert({
+      record_id: request.params.id, record_type: 'test_bed', action: 'customer_document_removed',
+      actor_id: request.user.id, detail: { document_id: request.params.docId },
+    })
+    return reply.send({ ok: true })
+  })
+
+  // PATCH /api/test-beds/:id/installer
+  //
+  // Round 11 Phase 5, 2026-08-19. Sets or clears the Installer Account.
+  //
+  // ITS OWN PATH, NOT buyer-contacts. That endpoint refuses any Contact whose
+  // parent_record_id differs from the Test Bed's account_id, with a 422, and
+  // that check is exactly what makes the three contact_role_linked gates on
+  // transition 1 mean anything - a Client Buyer who is not of the client's
+  // Account is not a client buyer. Loosening it to accommodate this phase
+  // would have weakened three live gates to add one feature. So Phase 5
+  // builds its own path and leaves that check untouched.
+  app.patch('/test-beds/:id/installer', async (request, reply) => {
+    const { installer_account_id } = request.body ?? {}
+    const db = createUserClient(request.jwt)
+
+    const { data: bed, error: bedErr } = await db
+      .from('records').select('id, account_id, installer_account_id')
+      .eq('id', request.params.id).eq('record_type', 'test_bed').is('deleted_at', null).maybeSingle()
+    if (bedErr) return reply.code(500).send({ error: bedErr.message })
+    if (!bed) return reply.code(404).send({ error: 'test bed not found' })
+
+    if (installer_account_id) {
+      const { data: acct, error: acctErr } = await db
+        .from('records').select('id')
+        .eq('id', installer_account_id).eq('record_type', 'account').is('deleted_at', null).maybeSingle()
+      if (acctErr) return reply.code(500).send({ error: acctErr.message })
+      if (!acct) return reply.code(422).send({ error: 'Installer must be a real, non-deleted Account' })
+    }
+
+    // CHANGING THE INSTALLER INVALIDATES A TECH TEAM FROM THE OLD ACCOUNT,
+    // and this is handled explicitly rather than left to be discovered.
+    // Keeping the link would leave the contact_role_linked gate satisfied by
+    // a Contact of an Account with nothing to do with the installation, which
+    // is precisely the integrity the buyer-contacts 422 exists to protect.
+    // The link is removed and the removal is REPORTED in the response rather
+    // than done silently, so the UI can say what happened.
+    let clearedTechTeam = null
+    const changing = String(bed.installer_account_id ?? '') !== String(installer_account_id ?? '')
+    if (changing) {
+      const { data: link, error: linkErr } = await db
+        .from('record_contacts').select('id, contact_id')
+        .eq('record_id', bed.id).eq('role', 'Test Bed Tech Team').maybeSingle()
+      if (linkErr) return reply.code(500).send({ error: linkErr.message })
+      if (link) {
+        const { data: contact, error: cErr } = await db
+          .from('records').select('id, parent_record_id').eq('id', link.contact_id).maybeSingle()
+        if (cErr) return reply.code(500).send({ error: cErr.message })
+        const stillValid = installer_account_id && contact?.parent_record_id === installer_account_id
+        if (!stillValid) {
+          // .select() and check the ROWS, not just the error. record_contacts
+          // had no DELETE policy at all until this phase added one, so an
+          // RLS-filtered delete returns zero rows and NO error - and the
+          // first version of this endpoint reported cleared_tech_team on the
+          // strength of that null error while the link was still there.
+          const { data: deleted, error: delErr } = await db
+            .from('record_contacts').delete().eq('id', link.id).select('id')
+          if (delErr) return reply.code(500).send({ error: delErr.message })
+          if (!deleted?.length) return reply.code(403).send({ error: 'not permitted to clear the existing Test Bed Tech Team' })
+          clearedTechTeam = link.contact_id
+        }
+      }
+    }
+
+    // records_update is owner-only under RLS, so a non-owner's update is
+    // filtered to zero rows rather than erroring. Checking the returned rows
+    // is what tells the two apart.
+    const { data: updated, error: updErr } = await db
+      .from('records').update({ installer_account_id: installer_account_id ?? null })
+      .eq('id', bed.id).select('id, installer_account_id')
+    if (updErr) return reply.code(500).send({ error: updErr.message })
+    if (!updated?.length) return reply.code(403).send({ error: 'not permitted' })
+
+    await db.from('audit_log').insert({
+      record_id: bed.id, record_type: 'test_bed', action: 'installer_set',
+      actor_id: request.user.id,
+      detail: { installer_account_id: installer_account_id ?? null, cleared_tech_team: clearedTechTeam },
+    })
+
+    return reply.send({
+      installer_account_id: updated[0].installer_account_id,
+      client_installed: !!updated[0].installer_account_id && updated[0].installer_account_id === bed.account_id,
+      cleared_tech_team: clearedTechTeam,
+    })
+  })
+
+  // POST /api/test-beds/:id/tech-team
+  //
+  // Round 11 Phase 5. A single Contact from the INSTALLER's Account, which is
+  // the variation the buyer-contacts endpoint cannot express: it validates
+  // against the Test Bed's own account_id and returns 422 otherwise.
+  //
+  // The same STRUCTURE is reused rather than forked - a record_contacts row
+  // with a role, validated at save time, gated by contact_role_linked, which
+  // only checks that a validated link exists and never re-derives the Account
+  // match. What differs is which Account it validates against, and that is
+  // one line rather than a new mechanism.
+  app.post('/test-beds/:id/tech-team', async (request, reply) => {
+    const { contact_id } = request.body ?? {}
+    const db = createUserClient(request.jwt)
+
+    const { data: bed, error: bedErr } = await db
+      .from('records').select('id, installer_account_id')
+      .eq('id', request.params.id).eq('record_type', 'test_bed').is('deleted_at', null).maybeSingle()
+    if (bedErr) return reply.code(500).send({ error: bedErr.message })
+    if (!bed) return reply.code(404).send({ error: 'test bed not found' })
+
+    // A Tech Team without an Installer has no Account to be validated
+    // against, so the order is enforced rather than left to produce a
+    // confusing downstream failure.
+    if (!bed.installer_account_id) {
+      return reply.code(422).send({ error: 'Set the Installer before choosing a Test Bed Tech Team' })
+    }
+    if (!contact_id) return reply.code(400).send({ error: 'contact_id is required' })
+
+    const { data: contact, error: cErr } = await db
+      .from('records').select('id, parent_record_id')
+      .eq('id', contact_id).eq('record_type', 'contact').is('deleted_at', null).maybeSingle()
+    if (cErr) return reply.code(500).send({ error: cErr.message })
+    if (!contact) return reply.code(404).send({ error: 'contact not found' })
+
+    if (contact.parent_record_id !== bed.installer_account_id) {
+      return reply.code(422).send({ error: "Contact is not linked to the Installer's Account" })
+    }
+
+    // One Tech Team, so an existing link is REPLACED rather than added to,
+    // and the replacement is verified. Without checking the affected rows a
+    // filtered delete leaves the old link in place and the insert then
+    // creates a SECOND row for the same (record_id, role) - which the
+    // contact_role_linked gate reads with .maybeSingle(), so a duplicate
+    // turns a working gate into a 500 rather than into a wrong answer.
+    const { data: existingLinks, error: exErr } = await db.from('record_contacts')
+      .select('id').eq('record_id', bed.id).eq('role', 'Test Bed Tech Team')
+    if (exErr) return reply.code(500).send({ error: exErr.message })
+    if (existingLinks.length) {
+      const { data: deleted, error: delErr } = await db.from('record_contacts')
+        .delete().eq('record_id', bed.id).eq('role', 'Test Bed Tech Team').select('id')
+      if (delErr) return reply.code(500).send({ error: delErr.message })
+      if (deleted.length !== existingLinks.length) {
+        return reply.code(403).send({ error: 'not permitted to replace the existing Test Bed Tech Team' })
+      }
+    }
+
+    const { error: insErr } = await db.from('record_contacts')
+      .insert({ record_id: bed.id, contact_id, role: 'Test Bed Tech Team', created_by: request.user.id })
+    if (insErr) return reply.code(500).send({ error: insErr.message })
+
+    await db.from('audit_log').insert({
+      record_id: bed.id, record_type: 'test_bed', action: 'tech_team_linked',
+      actor_id: request.user.id, detail: { contact_id },
+    })
+    return reply.code(201).send({ contact_id })
+  })
 
   app.post('/test-beds/:id/buyer-contacts', async (request, reply) => {
     const { role, contact_id } = request.body ?? {}

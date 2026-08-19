@@ -2592,7 +2592,7 @@ input.input-invalid {
 
 .tb-doc-row {
   padding: 10px 0;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--hairline);
 }
 .tb-doc-row:last-child { border-bottom: none; }
 
@@ -2640,7 +2640,7 @@ input.input-invalid {
   align-items: flex-start;
   gap: 8px;
   padding: 7px 0;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--hairline);
 }
 .tb-crit-row:last-child { border-bottom: none; }
 .tb-crit-row--tickable { cursor: pointer; }
@@ -2757,3 +2757,105 @@ input.input-invalid {
   opacity: 0.55;
   margin: 10px 0 0;
 }
+
+/* Qualification scoring, Round 11 Phase 2 (2026-08-19).
+   Variables checked against the definitions at the top of this file rather
+   than used from memory: Round 10 Phase 7 used --accent and --line, neither
+   of which exists here, and an undefined custom property fails at
+   computed-value time so the declaration is silently dropped. */
+.tb-score-row {
+  border-bottom: 1px solid var(--hairline);
+  padding: 10px 0;
+}
+.tb-score-row:last-child { border-bottom: none; }
+.tb-score-head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+.tb-score-name {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.tb-score-value {
+  font-family: var(--mono);
+  font-size: 18px;
+  color: var(--green);
+  flex: 0 0 auto;
+}
+.tb-score-value--none {
+  font-size: 13px;
+  color: var(--muted-2);
+}
+.tb-score-history { margin-top: 8px; }
+.tb-score-entry { padding: 6px 0; }
+
+/* Score entry, Round 11 Phase 3 (2026-08-19), width corrected Phase 4.
+   The base rule at the top of this file gives every `select` width: 100%,
+   so `flex: 0 0 auto` alone did nothing: the control kept its 100% basis,
+   took the whole row, and crushed the criterion name into one word per
+   line. Exactly the Round 10 Phase 3 finding - a select sizes to its own
+   rules, not to the space you intend for it - and it passed every
+   programmatic assertion, so only the screenshot showed it. An explicit
+   width is what actually constrains it. */
+.tb-score-select {
+  flex: 0 0 auto;
+  width: 118px;
+  min-width: 118px;
+}
+.tb-score-head {
+  flex-wrap: wrap;
+}
+.tb-score-name {
+  flex: 1 1 200px;
+}
+.tb-score-comment {
+  margin-top: 8px;
+}
+.tb-score-comment label {
+  display: block;
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.tb-score-comment textarea {
+  width: 100%;
+}
+
+/* Installer search results, Round 11 Phase 5 (2026-08-19). */
+.tb-installer-results {
+  margin-top: 6px;
+  border: 1px solid var(--hairline);
+  max-height: 190px;
+  overflow-y: auto;
+}
+.tb-installer-result {
+  padding: 8px 10px;
+  cursor: pointer;
+}
+.tb-installer-result:hover {
+  background: var(--black);
+}
+
+/* Customer Documents, Round 11 Phase 6 (2026-08-19). */
+.tb-custdoc-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--hairline);
+}
+.tb-custdoc-row:last-child { border-bottom: none; }
+.tb-custdoc-name {
+  font-size: 14px;
+}
+.tb-custdoc-url {
+  display: block;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tb-custdoc-url:hover { color: var(--green); }

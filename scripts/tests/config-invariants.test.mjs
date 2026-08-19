@@ -25,6 +25,7 @@ import { adminClient } from '../verify-harness.mjs'
 
 let db
 let rules, stages, refDocs, tracks
+let criteria, anchors, liveDocuments, livePayloads
 
 before(async () => {
   db = adminClient()
@@ -45,6 +46,37 @@ before(async () => {
   const t = await db.from('approval_tracks').select('track_name')
   assert.equal(t.error, null, `approval_tracks query failed: ${t.error?.message}`)
   tracks = t.data
+
+  // Round 11 Phase 7.
+  const c = await db.from('scoring_criteria').select('id, record_type, criterion_key, name')
+  assert.equal(c.error, null, `scoring_criteria query failed: ${c.error?.message}`)
+  criteria = c.data
+
+  const a = await db.from('scoring_anchors').select('criterion_id, version, score')
+  assert.equal(a.error, null, `scoring_anchors query failed: ${a.error?.message}`)
+  anchors = a.data
+
+  // Every LIVE document, for invariant 10. Scoped to live deliberately:
+  // soft-deleted documents predating the column are history, and rewriting
+  // them would contradict the immutability decision for no gain.
+  const dk = await db.from('records')
+    .select('id, record_type, variant, document_kind, parent_record_id')
+    .eq('record_type', 'document').is('deleted_at', null)
+  assert.equal(dk.error, null, `document rows query failed: ${dk.error?.message}`)
+  liveDocuments = dk.data
+
+  // Every live record's current revision payload, for invariant 9. Read
+  // once here rather than per test.
+  const recs = await db.from('records').select('id, record_type').is('deleted_at', null)
+  assert.equal(recs.error, null, `records query failed: ${recs.error?.message}`)
+  const revs = await db.from('record_revisions')
+    .select('record_id, revision_number, payload')
+    .in('record_id', recs.data.map(r => r.id))
+    .order('revision_number', { ascending: true })
+  assert.equal(revs.error, null, `record_revisions query failed: ${revs.error?.message}`)
+  const latest = {}
+  for (const r of revs.data) latest[r.record_id] = r.payload
+  livePayloads = Object.entries(latest).map(([record_id, payload]) => ({ record_id, payload }))
 })
 
 const tbRules = () => rules.filter(r => r.record_type === 'test_bed')
@@ -67,7 +99,22 @@ const tbRules = () => rules.filter(r => r.record_type === 'test_bed')
 // and then confirmed by direct query at 38 after each phase landed. If a
 // future round changes the configuration, this number is expected to
 // move: update it from a measurement, never from an expectation.
-const EXPECTED_TEST_BED_RULES = 38
+//
+//   Round 11 Phase 1, exitQualDataAndUseCase retired         -1  -> 37
+//   Round 11 Phase 4.1, 3 tick rules out, 5 score rules in    +2  -> 39
+//   Round 11 Phase 4.2, 3 re-score rules                      +3  -> 42
+//   Round 11 Phase 4.3, measurability confirmation            +1  -> 43
+//   Round 11 Phase 5, Installer and Test Bed Tech Team        +2  -> 45
+//
+// UPDATED FROM THE MEASUREMENT EACH TIME, not from the projection, exactly
+// as the paragraph above requires. The invariant fired on its own before
+// this line was touched on both occasions - "Expected 38, found 37" after
+// Phase 1, and "Expected 37, found 43" after Phase 4 - which is the
+// assertion doing its job rather than an inconvenience: a deliberate
+// configuration change is supposed to break it and be re-measured.
+// Phase 7 re-derives 45 from the live table rather than carrying it forward
+// on trust.
+const EXPECTED_TEST_BED_RULES = 45
 
 test('INVARIANT 1: test_bed carries exactly the configured number of gate rules', () => {
   const byTransition = {}
@@ -250,4 +297,126 @@ test('INVARIANT 7: every adjacent forward transition on test_bed carries at leas
   }
   assert.deepEqual(ungated, [],
     `adjacent test_bed transitions with no gate rules at all - an operator can walk straight through these:\n${JSON.stringify(ungated, null, 2)}`)
+})
+
+
+// ─────────────────────────────────────────────────────────────
+// 8. Scoring criteria referenced by a gate rule exist, with anchors
+// ─────────────────────────────────────────────────────────────
+//
+// Round 11 Phase 7. The same shape as invariant 4, which closed the gap where
+// stage_gate_rules and stage_reference_docs held document names as
+// independent free strings with nothing aligning them. Here it is
+// stage_gate_rules.requirement_detail.field against
+// scoring_criteria.criterion_key, and the failure mode is worse: a gate
+// naming a criterion that does not exist blocks on a field nothing can ever
+// write, so the transition is unsatisfiable from inside the product. That is
+// the Round 7 Phase 3.2 shape, where a correctly configured gate had no
+// operator path to satisfy it.
+//
+// ANCHORS ARE ASSERTED TOO, because a criterion with no anchors is scoreable
+// in principle and refused in practice: POST /scores returns 409 rather than
+// record a score against a definition that does not exist.
+test('INVARIANT 8: every criterion named by a gate rule exists and carries anchors', () => {
+  const byKey = Object.fromEntries(criteria.map(c => [`${c.record_type}||${c.criterion_key}`, c]))
+  const anchoredIds = new Set(anchors.map(a => a.criterion_id))
+
+  const scoreRules = rules.filter(r =>
+    r.requirement_type === 'payload_field_required' &&
+    String(r.requirement_detail?.field ?? '').startsWith('score'))
+
+  const problems = []
+  for (const r of scoreRules) {
+    const key = `${r.record_type}||${r.requirement_detail.field}`
+    const crit = byKey[key]
+    if (!crit) {
+      problems.push({ id: r.id, from_stage: r.from_stage, to_stage: r.to_stage,
+        field: r.requirement_detail.field, problem: 'no scoring_criteria row' })
+      continue
+    }
+    if (!anchoredIds.has(crit.id)) {
+      problems.push({ id: r.id, from_stage: r.from_stage, to_stage: r.to_stage,
+        field: r.requirement_detail.field, problem: 'criterion exists but has no anchors' })
+    }
+  }
+  assert.deepEqual(problems, [],
+    `gate rules naming a criterion that does not exist, or one with no anchors - both are gates nothing can satisfy:\n${JSON.stringify(problems, null, 2)}`)
+})
+
+// ─────────────────────────────────────────────────────────────
+// 9. Stored scores reference an anchor version that exists and is complete
+// ─────────────────────────────────────────────────────────────
+//
+// Round 11 Phase 7. AMENDED before it was written, because the obvious
+// phrasing fails on legitimate data: anchors exist for scores 1, 3 and 5
+// only, and 2 and 4 are deliberately "between these", so asserting that a
+// row exists for the exact score would report every genuine 2 and 4 as an
+// orphan.
+//
+// THE REFERENT IS THE VERSION, NOT THE ROW. Complete means the version
+// carries the full set of anchors that criterion defines at any version, so a
+// half-inserted version is caught rather than silently accepted as a
+// definition a historical score can point at. An orphaned version means a
+// recorded judgement has no definition, which is the one thing anchor
+// versioning exists to prevent.
+test('INVARIANT 9: every stored score references a complete anchor version', () => {
+  const keys = new Set(criteria.map(c => c.criterion_key))
+  const byId = Object.fromEntries(criteria.map(c => [c.id, c]))
+
+  // What a complete set looks like per criterion: the scores that criterion
+  // has anchors for at ANY version. Derived from the data, not assumed to be
+  // {1,3,5}, so giving 2 or 4 real wording later needs no change here.
+  const scoresByCriterion = {}
+  const versionsByCriterion = {}
+  for (const a of anchors) {
+    (scoresByCriterion[a.criterion_id] ??= new Set()).add(a.score)
+    ;((versionsByCriterion[a.criterion_id] ??= {})[a.version] ??= new Set()).add(a.score)
+  }
+
+  const problems = []
+  for (const { record_id, payload } of livePayloads) {
+    for (const [key, value] of Object.entries(payload ?? {})) {
+      if (!keys.has(key) || !Array.isArray(value)) continue
+      const crit = criteria.find(c => c.criterion_key === key)
+      if (!crit) continue
+      const expected = scoresByCriterion[crit.id] ?? new Set()
+      for (const entry of value) {
+        const v = entry?.anchorVersion
+        const held = versionsByCriterion[crit.id]?.[v]
+        if (!held) {
+          problems.push({ record_id, criterion: key, anchorVersion: v ?? null, problem: 'version does not exist' })
+          continue
+        }
+        const missing = [...expected].filter(sc => !held.has(sc))
+        if (missing.length) {
+          problems.push({ record_id, criterion: key, anchorVersion: v, problem: `version incomplete, missing anchors for ${missing.join(', ')}` })
+        }
+      }
+    }
+  }
+  assert.deepEqual(problems, [],
+    `stored scores pointing at an anchor version that does not exist or is incomplete - the judgement has no definition:\n${JSON.stringify(problems, null, 2)}`)
+})
+
+// ─────────────────────────────────────────────────────────────
+// 10. No live document carries a null document_kind
+// ─────────────────────────────────────────────────────────────
+//
+// Round 11 Phase 7. The CHECK constraint added with the column is NOT VALID,
+// so it exempts every row that existed before it and governs writes only from
+// that moment on. THAT EXEMPTION IS A DATA PROPERTY AND THEREFORE ASSERTABLE,
+// unlike the reader-side discipline it sits beside: nothing can assert that a
+// future query remembers to filter on the kind, because that leaves no trace
+// in the data.
+//
+// A document with a null kind appears in NEITHER the Terminus queries nor the
+// Customer Documents query. It is invisible rather than wrong, which is the
+// harder failure to notice: nothing renders incorrectly, a document simply
+// stops existing as far as the product is concerned.
+test('INVARIANT 10: no live document record has a null document_kind', () => {
+  const orphans = liveDocuments
+    .filter(d => d.document_kind === null || d.document_kind === undefined)
+    .map(d => ({ id: d.id, variant: d.variant, parent_record_id: d.parent_record_id }))
+  assert.deepEqual(orphans, [],
+    `live documents with no document_kind - these appear in neither the Terminus queries nor the Customer Documents query:\n${JSON.stringify(orphans, null, 2)}`)
 })

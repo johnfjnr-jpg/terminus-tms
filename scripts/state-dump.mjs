@@ -382,6 +382,59 @@ w('')
 {
   const rows = (await fetchAll(db, 'stage_reference_docs', 'record_type, stage_name, document_name'))
     .sort(by('record_type', 'stage_name', 'document_name'))
+// ── scoring_criteria and scoring_anchors ─────────────────────
+//
+// Added Round 11 Phase 9. These are configuration in exactly the sense this
+// file exists to record: admin-managed reference data holding the scoring
+// framework's own content, in the same category as stage_definitions and
+// approval_tracks. Without them the round that introduced the framework
+// would have produced a CURRENT_STATE.md that does not mention it, and the
+// reconciliation would be incomplete by construction.
+//
+// ANCHOR WORDING IS DELIBERATELY NOT PRINTED. It is long, provisional, and
+// about to be revised by the business, so emitting it would swamp every
+// future diff with prose changes and bury the configuration changes this
+// file exists to surface. What is printed is the SHAPE: which criteria
+// exist, which versions each carries, and which scores each version
+// defines. A wording change is then visible as a new version rather than as
+// a wall of text.
+{
+  const crits = (await fetchAll(db, 'scoring_criteria',
+    'id, record_type, criterion_key, name, sort_order, rescore_through_stage'))
+    .sort(by('record_type', 'sort_order', 'criterion_key'))
+  const anchorRows = await fetchAll(db, 'scoring_anchors', 'criterion_id, version, score')
+
+  w('## `scoring_criteria`')
+  w('')
+  w(`${crits.length} rows.`)
+  w('')
+  w(table(
+    ['record_type', 'sort_order', 'criterion_key', 'name', 'rescore_through_stage'],
+    crits.map(r => [cell(r.record_type), cell(r.sort_order), cell(r.criterion_key),
+                    cell(r.name), cell(r.rescore_through_stage)])
+  ))
+
+  w('## `scoring_anchors`')
+  w('')
+  w(`${anchorRows.length} rows. Wording is not printed: it is provisional and`)
+  w('pending business review, and emitting it would bury every configuration')
+  w('change in prose. The shape is what a diff needs.')
+  w('')
+  const shape = {}
+  for (const a of anchorRows) {
+    const k = `${a.criterion_id}||${a.version}`
+    ;(shape[k] ??= []).push(a.score)
+  }
+  const byCrit = Object.fromEntries(crits.map(c => [c.id, c]))
+  const rows = Object.keys(shape).sort().map(k => {
+    const [id, version] = k.split('||')
+    return { key: byCrit[id]?.criterion_key ?? '(unknown criterion)', version: Number(version),
+             scores: shape[k].sort((a, b) => a - b).join(', ') }
+  }).sort(by('key', 'version'))
+  w(table(['criterion_key', 'version', 'scores defined'],
+    rows.map(r => [cell(r.key), cell(r.version), cell(r.scores)])))
+}
+
   w('## `stage_reference_docs`')
   w('')
   w(`${rows.length} rows. \`document_name\` reproduced exactly, including spacing.`)

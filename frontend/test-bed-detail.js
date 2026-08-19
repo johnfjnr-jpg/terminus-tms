@@ -152,10 +152,18 @@ const TB_COST_FIELDS = [
   // TEST_BED_WRITABLE_KEYS server-side in the same change, so a direct
   // PATCH naming it is rejected rather than silently accepted with no UI.
 ]
-const TB_INSTALL_FIELDS = [
-  { key: 'installer', label: 'Installer' },
-  { key: 'techTeam', label: 'Test Bed Tech Team' },
-]
+// Round 11 Phase 5: `installer` and `techTeam` REMOVED from this array. They
+// were free-text payload keys and are now real links - installer_account_id,
+// a column, and a record_contacts row with role 'Test Bed Tech Team' - each
+// with its own endpoint and its own validation. Leaving them here would have
+// rendered a second, editable free-text copy of the same concept beside the
+// real control, which is the duplicate-Summary shape from Round 10 Phase 2.
+// Both keys are also removed from TEST_BED_WRITABLE_KEYS server-side, so a
+// PATCH naming either is now rejected rather than writing dead data.
+//
+// The array is left in place because Install Notes still belongs to this
+// panel; it is empty of field rows and renderTbInstallSection reflects that.
+const TB_INSTALL_FIELDS = []
 const TB_ALL_EDITABLE_FIELDS = [TB_NAME_FIELD, ...TB_TERMINUS_FIELDS, ...TB_CUSTOMER_FIELDS, ...TB_SITE_FIELDS, ...TB_SENSOR_COUNT_FIELDS, ...TB_DATE_FIELDS, ...TB_INSTALL_FIELDS, ...TB_COST_FIELDS, TB_SUMMARY_FIELD]
 
 // These strings are NOT labels. Each is a real role value written to
@@ -281,6 +289,10 @@ function renderTbReference() {
   // function, unchanged, just called from here now instead of
   // renderTbSiteDetails.
   renderTbUseCases()
+
+  renderTbScores()
+
+  renderTbCustomerDocuments()
 
   renderTbNotes()
 
@@ -422,7 +434,229 @@ function renderTbSiteDetails() {
 function renderTbInstallSection() {
   document.getElementById('tb-install-rows').innerHTML =
     TB_INSTALL_FIELDS.map(f => tbFieldRow(f.key, f.label, tbPayload[f.key])).join('')
+  renderTbInstallerRow()
+  renderTbTechTeamRow()
   renderTbInstallNotes()
+}
+
+let tbInstallerSearching = false
+let tbInstallerContacts = []
+
+// Customer Documents, Round 11 Phase 6 (2026-08-19). Client-supplied
+// reference material, distinguished from Terminus's own stage documents by
+// records.document_kind rather than by having a name no gate rule mentions.
+//
+// Rendered from the row id, never from the name: two client files genuinely
+// called "Site drawings" are two documents, so nothing here keys by variant.
+let tbCustomerDocs = []
+
+function tbCustDocFeedback(text, kind) {
+  const el = document.getElementById('tb-custdocs-feedback')
+  if (!el) return
+  el.textContent = text ?? ''
+  el.className = text ? `tb-doc-feedback${kind ? ' ' + kind : ''}` : 'tb-doc-feedback'
+}
+
+async function renderTbCustomerDocuments() {
+  const el = document.getElementById('tb-custdocs-list')
+  if (!el) return
+  const result = await api('GET', `/api/test-beds/${tbDetailId}/customer-documents`)
+  tbCustomerDocs = result.ok ? (result.data ?? []) : []
+
+  if (!tbCustomerDocs.length) {
+    el.innerHTML = '<p class="empty-state">No client documents yet.</p>'
+    return
+  }
+  el.innerHTML = tbCustomerDocs.map(d => `
+    <div class="tb-custdoc-row" data-doc-id="${escHtml(d.id)}">
+      <div style="flex:1;min-width:0">
+        <div class="tb-custdoc-name">${escHtml(d.name)}</div>
+        <a class="tb-custdoc-url" href="${escHtml(d.url ?? '')}" target="_blank" rel="noopener noreferrer">${escHtml(d.url ?? '')}</a>
+      </div>
+      <button class="btn-text" onclick="removeTbCustomerDocument('${escHtml(d.id)}')">Remove</button>
+    </div>`).join('')
+}
+
+window.addTbCustomerDocument = async function () {
+  const nameEl = document.getElementById('tb-custdoc-name')
+  const urlEl = document.getElementById('tb-custdoc-url')
+  const name = nameEl.value.trim()
+  const url = urlEl.value.trim()
+  tbCustDocFeedback('')
+  if (!name || !url) {
+    tbCustDocFeedback('A name and a link are both required.', 'err')
+    return
+  }
+  const result = await api('POST', `/api/test-beds/${tbDetailId}/customer-documents`, { name, url })
+  if (!result.ok) {
+    tbCustDocFeedback(result.data?.error ?? 'Could not add the document.', 'err')
+    return
+  }
+  nameEl.value = ''
+  urlEl.value = ''
+  await renderTbCustomerDocuments()
+}
+
+window.removeTbCustomerDocument = async function (docId) {
+  tbCustDocFeedback('')
+  const result = await api('DELETE', `/api/test-beds/${tbDetailId}/customer-documents/${docId}`)
+  if (!result.ok) {
+    tbCustDocFeedback(result.data?.error ?? 'Could not remove the document.', 'err')
+    return
+  }
+  await renderTbCustomerDocuments()
+}
+
+function tbInstallerFeedback(text, kind) {
+  const el = document.getElementById('tb-installer-feedback')
+  if (!el) return
+  el.textContent = text ?? ''
+  el.className = text ? `tb-doc-feedback${kind ? ' ' + kind : ''}` : 'tb-doc-feedback'
+}
+
+// INSTALLER: a link to an Account, so it renders as the same search-and-link
+// shape Account detail's own Parent Account row uses, not as a picklist.
+// Client-installed versus contractor-installed is shown as a derived fact
+// rather than a stored label, because that is exactly what it is.
+function renderTbInstallerRow() {
+  const el = document.getElementById('tb-installer-row')
+  if (!el) return
+  const current = tbBed.installer
+
+  if (current && !tbInstallerSearching) {
+    el.innerHTML = `
+    <div class="ref-field" data-key="installer">
+      <div class="ref-field-label"><span>Installer</span></div>
+      <div style="flex:1;min-width:0">
+        <div class="ref-field-display readonly">${escHtml(current.name ?? '--')}</div>
+        <p class="sub" style="margin-top:2px">${current.client_installed
+          ? 'Client installs with their own staff'
+          : 'Installed by a contractor'}</p>
+        <button class="btn-sm" style="margin-top:6px" onclick="openTbInstallerSearch()">Change installer</button>
+      </div>
+    </div>`
+    return
+  }
+
+  const matches = accountsCache
+  el.innerHTML = `
+    <div class="ref-field" data-key="installer">
+      <div class="ref-field-label"><span>Installer</span></div>
+      <div style="flex:1;min-width:0">
+        <input type="text" id="tb-installer-search" placeholder="Search Accounts"
+               oninput="renderTbInstallerResults(this.value)">
+        <div id="tb-installer-results" class="tb-installer-results"></div>
+        ${current ? `<button class="btn-sm" style="margin-top:6px" onclick="closeTbInstallerSearch()">Cancel</button>` : ''}
+      </div>
+    </div>`
+  renderTbInstallerResults('')
+}
+
+window.openTbInstallerSearch = function () { tbInstallerSearching = true; renderTbInstallerRow() }
+window.closeTbInstallerSearch = function () { tbInstallerSearching = false; renderTbInstallerRow() }
+
+window.renderTbInstallerResults = function (term) {
+  const el = document.getElementById('tb-installer-results')
+  if (!el) return
+  const t = String(term ?? '').trim().toLowerCase()
+  // Same case-insensitive substring match every other Account search in this
+  // app uses, over the already-fetched accountsCache - no new endpoint.
+  const matches = accountsCache.filter(a => !t || String(a.payload?.name ?? '').toLowerCase().includes(t)).slice(0, 8)
+  el.innerHTML = matches.length
+    ? matches.map(a => `<div class="tb-installer-result" data-account-id="${a.id}" onclick="setTbInstaller(this.dataset.accountId)">${escHtml(a.payload?.name ?? '--')}${
+        a.id === tbBed.account_id ? ' <span class="sub">(this Test Bed\'s own Account)</span>' : ''
+      }</div>`).join('')
+    : '<p class="empty-state" style="padding:8px 10px">No matches.</p>'
+}
+
+window.setTbInstaller = async function (accountId) {
+  tbInstallerFeedback('')
+  const result = await api('PATCH', `/api/test-beds/${tbDetailId}/installer`, { installer_account_id: accountId })
+  if (!result.ok) {
+    tbInstallerFeedback(result.data?.error ?? 'Could not set the Installer.', 'err')
+    return
+  }
+  tbInstallerSearching = false
+  // THE USER SEES THE TECH TEAM BEING CLEARED rather than discovering it.
+  // Changing the Installer invalidates a Tech Team from the previous
+  // Account, and the server reports which link it removed. Saying nothing
+  // would leave a gate that was satisfied a moment ago silently blocking
+  // again, with the row simply empty and no reason on screen.
+  if (result.data?.cleared_tech_team) {
+    tbInstallerFeedback('Installer changed. The previous Test Bed Tech Team belonged to the old Installer\'s Account and has been cleared, so choose a new one.', 'err')
+  } else {
+    tbInstallerFeedback('Installer set.')
+  }
+  await loadTestBedDetail(tbDetailId)
+}
+
+// TECH TEAM: a single Contact from the INSTALLER's Account, which is a
+// different Account from the record's own. renderTbBuyerRows cannot be
+// reused for this - it reads tbBed.account_id from module state and the
+// endpoint behind it returns 422 for any Contact outside that Account.
+async function renderTbTechTeamRow() {
+  const el = document.getElementById('tb-techteam-row')
+  if (!el) return
+  const linked = (tbBed.buyer_contacts ?? []).find(c => c.role === 'Test Bed Tech Team')
+  const installer = tbBed.installer
+
+  // NO INSTALLER: say why, and render no control at all. The server already
+  // refuses this order with a 422; an empty select here would look available
+  // and produce that refusal only after the user had tried.
+  if (!installer) {
+    el.innerHTML = `
+    <div class="ref-field" data-key="techTeam">
+      <div class="ref-field-label"><span>Tech Team</span></div>
+      <div style="flex:1;min-width:0">
+        <p class="empty-state" style="text-align:left;padding:8px 0">Set the Installer first. The Tech Team is a person from the Installer's Account.</p>
+      </div>
+    </div>`
+    return
+  }
+
+  if (linked) {
+    el.innerHTML = `
+    <div class="ref-field" data-key="techTeam">
+      <div class="ref-field-label"><span>Tech Team</span></div>
+      <div style="flex:1;min-width:0">
+        <div class="ref-field-display readonly">${escHtml(linked.name ?? linked.contact_id)}</div>
+        <p class="sub" style="margin-top:2px">From ${escHtml(installer.name ?? 'the Installer')}</p>
+      </div>
+    </div>`
+    return
+  }
+
+  // Fetched with the Account as an explicit parameter. GET /api/contacts took
+  // no query parameters before this phase, so this is a new capability rather
+  // than an existing one being used.
+  const result = await api('GET', `/api/contacts?account_id=${installer.id}`)
+  tbInstallerContacts = result.ok ? (result.data ?? []) : []
+
+  const options = tbInstallerContacts
+    .map(c => `<option value="${c.id}">${escHtml(c.payload?.name ?? c.id)}</option>`).join('')
+  el.innerHTML = `
+    <div class="ref-field" data-key="techTeam">
+      <div class="ref-field-label"><span>Tech Team</span></div>
+      <div style="flex:1;min-width:0">
+        <select id="tb-techteam-select" onchange="setTbTechTeam(this.value)">
+          <option value="">${tbInstallerContacts.length
+            ? 'Select a contact' : `No Contacts at ${escHtml(installer.name ?? 'the Installer')} yet`}</option>
+          ${options}
+        </select>
+        <p class="sub" style="margin-top:2px">From ${escHtml(installer.name ?? 'the Installer')}</p>
+      </div>
+    </div>`
+}
+
+window.setTbTechTeam = async function (contactId) {
+  if (!contactId) return
+  tbInstallerFeedback('')
+  const result = await api('POST', `/api/test-beds/${tbDetailId}/tech-team`, { contact_id: contactId })
+  if (!result.ok) {
+    tbInstallerFeedback(result.data?.error ?? 'Could not set the Tech Team.', 'err')
+    return
+  }
+  await loadTestBedDetail(tbDetailId)
 }
 
 // Round 6 Phase 3 (2026-08-17): sensor counts, moved from Site Details.
@@ -702,6 +936,7 @@ window.removeTbUseCase = async function (idx) {
 // selectable, so an invalid link can't even be submitted from here (the
 // server's POST /test-beds/:id/buyer-contacts re-validates regardless).
 let tbAccountContacts = []
+let tbScoringCriteria = []
 
 async function renderTbBuyerRows() {
   const el = document.getElementById('tb-buyer-rows')
@@ -891,11 +1126,248 @@ async function renderTbStageExitCriteria(stageName, isStillCurrent = () => true,
 // unintended field.
 const TB_EXIT_CRITERION_KEYS = new Set([
   'exitQualTechnicalCommercialValue',
-  'exitQualDataAndUseCase',
+  // exitQualDataAndUseCase RETIRED, Round 11 Phase 1 (2026-08-19), together
+  // with its gate rule. The criterion ceases to exist rather than being
+  // renamed: it splits into Clear Use Case Requirements and Metrics and
+  // Data Rights, both scored rather than ticked, arriving in Phase 4.
+  // Leaving it here would render a tick box for a criterion that no longer
+  // exists, against a gate rule that no longer exists to satisfy.
   'exitQualPhysicalSuitability',
   'exitQualPartnerCommitment',
   'exitMonAllMeetingActionsCompleted',
 ])
+
+
+// ── Qualification scoring (Round 11 Phase 2, 2026-08-19) ─────────────────
+//
+// A score series is an APPEND-ONLY array on the record's own payload, one
+// per criterion, keyed by the criterion_key from scoring_criteria. Entries
+// are written ONLY by POST /test-beds/:id/scores - the criterion keys are
+// deliberately absent from TEST_BED_WRITABLE_KEYS, so there is no PATCH path
+// that could rewrite or forge history.
+//
+// AN UNSCORED CRITERION IS AN ABSENT KEY, NEVER AN EMPTY ARRAY. That is the
+// convention this codebase already uses: unticking an exit criterion sends
+// null and the server DELETEs the key rather than storing a sentinel, and
+// every notes reader normalises an absent key to [] at read time. Writing []
+// would mean "scored, zero times", which is not a state that exists.
+//
+// The gate does NOT depend on that convention holding, and that separation is
+// deliberate: payload_field_required treats [] as PRESENT, so an empty array
+// arriving by any route - a future renderer, a migration, a bulk write -
+// would open the gate. Phase 4.1.1's length clause is what makes the gate
+// correct regardless of who writes what. Convention keeps the data clean;
+// the clause keeps the gate honest. Relying on the convention alone is the
+// discipline-not-a-property case the brief rejected.
+let tbScoresExpanded = {}
+let tbScoreComments = {}
+
+// A score draft goes into tbEdits under the criterion key, so it is dirty in
+// exactly the same sense every other field is: the save bar appears, Cancel
+// discards it, and saveTbFields() sees it among dirtyEntries. That is what
+// lets the interception be shared rather than reimplemented per field type.
+window.setTbScoreDraft = function (key, value) {
+  const orig = ''
+  if (value === '') delete tbEdits[key]
+  else tbEdits[key] = { draft: value, orig }
+  if (value === '') delete tbScoreComments[key]
+  clearTbSaveFeedback()
+  updateTbSaveBar()
+  renderTbScores()
+}
+
+
+// The measurability confirmation saves immediately rather than joining the
+// batched edit bar. It is a single yes or no with nothing to draft, and it is
+// deliberately NOT a score - folding it into the score interception would put
+// a reason dialogue in front of a question that has no scale to move along.
+window.setTbMeasurability = async function (value) {
+  if (value === '') return
+  const result = await api('POST', `/api/test-beds/${tbDetailId}/measurability`, { confirmed: value === 'yes' })
+  if (!result.ok) {
+    const feedback = document.getElementById('tb-save-feedback')
+    feedback.textContent = result.data?.error ?? 'Could not record the confirmation.'
+    feedback.className = 'msg-error'
+    return
+  }
+  await loadTestBedDetail(tbDetailId)
+}
+
+window.setTbScoreComment = function (key, value) {
+  tbScoreComments[key] = value
+}
+
+// Which tbEdits keys are scores rather than payload fields. Derived from the
+// criteria table rather than hardcoded, so a criterion added as a row is
+// picked up without a code change.
+function tbScoreKeys() {
+  return new Set(tbScoringCriteria.map(c => c.criterion_key))
+}
+
+window.toggleTbScoreHistory = function (key) {
+  tbScoresExpanded[key] = !tbScoresExpanded[key]
+  renderTbScores()
+}
+
+// ORDERING IS DERIVED FROM `at`, NEVER FROM ARRAY POSITION. Round 10 Phase 2
+// found the header notes digest showing the two OLDEST notes under the label
+// "Latest notes", because it assumed oldest-first against an array that
+// prepends. It survived two rounds of screenshots because no live record ever
+// held more than one note, and with one entry every implementation of "the
+// most recent" looks identical, including every wrong one. This series
+// appends where notes prepend, so trusting position here would be the same
+// bug with the sign flipped.
+function tbScoreSeries(key) {
+  const raw = Array.isArray(tbPayload[key]) ? tbPayload[key] : []
+  return [...raw].sort((a, b) => String(a.at ?? '').localeCompare(String(b.at ?? '')))
+}
+
+// Records one score. A FIRST score needs no reason and is written straight
+// through; a REVISION opens the shared dialogue and writes the reason onto
+// the entry. The server enforces both rules independently, so this is the
+// affordance rather than the guarantee - a caller bypassing the browser gets
+// the same 400.
+async function recordTbScore(key, draft, remainingDirtyEntries) {
+  const crit = tbScoringCriteria.find(c => c.criterion_key === key)
+  const score = Number(draft)
+  const comment = tbScoreComments[key] ?? ''
+  const isRevision = tbScoreSeries(key).length > 0
+
+  const finish = async () => {
+    delete tbEdits[key]
+    delete tbScoreComments[key]
+    if (remainingDirtyEntries.length) await saveTbDirtyEntries(remainingDirtyEntries)
+    else await loadTestBedDetail(tbDetailId)
+  }
+
+  const post = async (reason) => {
+    const body = { criterion: key, score }
+    if (comment.trim()) body.comment = comment.trim()
+    if (reason) body.reason = reason
+    const result = await api('POST', `/api/test-beds/${tbDetailId}/scores`, body)
+    return { ok: result.ok, error: result.data?.error }
+  }
+
+  if (!isRevision) {
+    const result = await post(null)
+    if (!result.ok) {
+      const feedback = document.getElementById('tb-save-feedback')
+      feedback.textContent = result.error ?? 'Could not record the score.'
+      feedback.className = 'msg-error'
+      return
+    }
+    await finish()
+    return
+  }
+
+  window.requestChangeReason({
+    heading: `Revise ${crit?.name ?? 'score'}`,
+    contextLabel: 'New score',
+    contextValue: String(score),
+    promptLabel: 'Reason for the change (required)',
+    confirmLabel: 'Save score',
+    emptyReasonError: 'A reason for the change is required.',
+    returnFocusTo: 'tb-save-all',
+    onConfirm: post,
+    onDone: finish,
+  })
+}
+
+async function renderTbScores() {
+  const el = document.getElementById('tb-scores-list')
+  if (!el) return
+  if (!tbScoringCriteria.length) {
+    const result = await api('GET', '/api/scoring-criteria?record_type=test_bed')
+    if (result.ok) tbScoringCriteria = result.data ?? []
+  }
+  if (!tbScoringCriteria.length) {
+    el.innerHTML = '<p class="empty-state">No scoring criteria configured.</p>'
+    return
+  }
+
+  const mSeries = tbScoreSeries('measurabilityConfirmed')
+  const mCurrent = mSeries.length ? mSeries[mSeries.length - 1] : null
+  const measurability = `
+    <div class="tb-score-row" data-criterion="measurabilityConfirmed" data-entries="${mSeries.length}">
+      <div class="tb-score-head">
+        <span class="tb-score-name">Can the proposed sensors capture what would be measured?</span>
+        <span class="tb-score-value${mCurrent ? '' : ' tb-score-value--none'}">${
+          mCurrent ? (mCurrent.value ? 'Yes' : 'No') : 'Not confirmed'
+        }</span>
+        <select class="tb-score-select" id="tb-measurability-select" aria-label="Measurability confirmation"
+                onchange="setTbMeasurability(this.value)">
+          <option value="">${mCurrent ? 'Change...' : 'Confirm...'}</option>
+          <option value="yes">Yes</option>
+          <option value="no">No</option>
+        </select>
+      </div>
+      ${mCurrent ? `<div class="ref-notes-row tb-score-entry"><span class="ref-notes-when">${formatDateTime(mCurrent.at)}</span><span class="ref-notes-author">${escHtml(mCurrent.by ?? '--')}</span><span class="ref-notes-text">${mCurrent.value ? 'Yes' : 'No'} at ${escHtml(mCurrent.stage ?? '')}</span></div>` : ''}
+    </div>`
+
+  el.innerHTML = measurability + tbScoringCriteria.map(c => {
+    const series = tbScoreSeries(c.criterion_key)
+    const current = series.length ? series[series.length - 1] : null
+    const expanded = !!tbScoresExpanded[c.criterion_key]
+
+    // The CURRENT value is the newest entry. History is everything, shown on
+    // request - same default-plus-expansion shape as Notes, and the count is
+    // rendered so "3 of 3" is visible rather than implied.
+    // The pending draft, if this criterion is open in the edit bar. A score
+    // registers in tbEdits exactly like any other field, which is what makes
+    // saveTbFields() the single interception point rather than this panel
+    // having its own save path.
+    const pending = tbEdits[c.criterion_key]?.draft ?? ''
+    const options = [1,2,3,4,5].map(n =>
+      `<option value="${n}"${String(pending) === String(n) ? ' selected' : ''}>${n}</option>`).join('')
+
+    const head = `
+      <div class="tb-score-head">
+        <span class="tb-score-name">${escHtml(c.name)}</span>
+        <span class="tb-score-value${current ? '' : ' tb-score-value--none'}" data-criterion="${escHtml(c.criterion_key)}">${
+          current ? escHtml(String(current.value)) : 'Not scored'
+        }</span>
+        <select class="tb-score-select" id="tb-score-select-${escHtml(c.criterion_key)}"
+                aria-label="${escHtml(c.name)} score"
+                onchange="setTbScoreDraft('${escHtml(c.criterion_key)}', this.value)">
+          <option value="">${current ? 'Revise...' : 'Score...'}</option>
+          ${options}
+        </select>
+        ${series.length > 1
+          ? `<button class="btn-text" onclick="toggleTbScoreHistory('${escHtml(c.criterion_key)}')">${
+              expanded ? 'Hide history' : `Show history (${series.length})`
+            }</button>`
+          : ''}
+      </div>`
+
+    // Comment is mandatory at 1 or 2 and lives INLINE rather than in the
+    // dialogue. The dialogue asks one question, "why did this change", and
+    // stays single-purpose the way Est. Close Date's did; the comment is
+    // part of the score itself, not part of the change.
+    const commentBox = pending === '' ? '' : `
+      <div class="tb-score-comment">
+        <label for="tb-score-comment-${escHtml(c.criterion_key)}">Comment${Number(pending) <= 2 ? ' (required at 1 or 2)' : ' (optional)'}</label>
+        <textarea id="tb-score-comment-${escHtml(c.criterion_key)}" rows="2"
+                  oninput="setTbScoreComment('${escHtml(c.criterion_key)}', this.value)">${escHtml(tbScoreComments[c.criterion_key] ?? '')}</textarea>
+      </div>`
+
+    if (!expanded) return `<div class="tb-score-row" data-criterion="${escHtml(c.criterion_key)}" data-entries="${series.length}">${head}${commentBox}</div>`
+
+    // Newest first when reading history, which is how a person reads a
+    // change log, while the stored series stays chronological.
+    const rows = [...series].reverse().map(e => `
+      <div class="ref-notes-row tb-score-entry">
+        <span class="ref-notes-when">${formatDateTime(e.at)}</span>
+        <span class="ref-notes-author">${escHtml(e.by ?? '--')}</span>
+        <span class="ref-notes-text"><strong>${escHtml(String(e.value))}</strong>${
+          e.stage ? ` at ${escHtml(e.stage)}` : ''
+        } <span class="sub">v${escHtml(String(e.anchorVersion ?? '?'))}</span>${
+          e.comment ? `<br>${escHtml(e.comment)}` : ''
+        }${e.reason ? `<br><em>Reason: ${escHtml(e.reason)}</em>` : ''}</span>
+      </div>`).join('')
+
+    return `<div class="tb-score-row" data-criterion="${escHtml(c.criterion_key)}" data-entries="${series.length}">${head}${commentBox}<div class="tb-score-history">${rows}</div></div>`
+  }).join('')
+}
 
 // Tick writes an ISO timestamp; untick sends null, which the server
 // deletes the key for. Never a boolean: payload_field_required treats a
@@ -1142,6 +1614,35 @@ async function saveTbFields() {
   }
 
   const dirtyEntries = Object.entries(tbEdits).filter(([, e]) => e.draft !== e.orig)
+  if (!dirtyEntries.length) return
+
+  // SCORES (Round 11 Phase 3, 2026-08-19). Detected here, automatically, the
+  // moment Save is clicked with a score among the dirty fields - the exact
+  // shape Round 3 Phase 3 built for Est. Close Date, and the reason this is
+  // an interception rather than a separate "record score" button.
+  //
+  // Any other dirty fields from the same Save click are HELD until the score
+  // is recorded, then saved together in one action. That is Est. Close
+  // Date's own behaviour, and it is what keeps Cancel honest: cancelling the
+  // dialogue leaves every edit exactly where it was, including this one.
+  const scoreKeys = tbScoreKeys()
+  const scoreEntry = dirtyEntries.find(([key]) => scoreKeys.has(key))
+  if (scoreEntry) {
+    await recordTbScore(scoreEntry[0], scoreEntry[1].draft,
+      dirtyEntries.filter(([key]) => key !== scoreEntry[0]))
+    return
+  }
+
+  await saveTbDirtyEntries(dirtyEntries)
+}
+
+// SPLIT OUT of saveTbFields, Round 11 Phase 3, so recordTbScore can reuse the
+// exact same payload-merge and freshness-check logic for whatever else was
+// dirty in the same Save click, once the reason is confirmed - not a second,
+// drifting copy of it. Directly mirrors performGenericRefSave, which Round 3
+// Phase 3 split out of saveRefFields for the identical reason.
+async function saveTbDirtyEntries(dirtyEntries) {
+  const feedback = document.getElementById('tb-save-feedback')
   if (!dirtyEntries.length) return
 
   // Origin-contact freshness check (Round 2 Phase 1, 2026-08-16) - same
