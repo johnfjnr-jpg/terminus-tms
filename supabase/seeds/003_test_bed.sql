@@ -70,17 +70,44 @@
 -- that deletes or rewrites seeded data must reconcile the seed file in the
 -- same change. Seeds re-run, and they win.
 
--- Decommissioning → Closed: gated more heavily than the rest of the lifecycle.
-
--- Senior-tier approval required (ACTIVE GATE)
-INSERT INTO public.stage_gate_rules
-  (record_type, variant, from_stage, to_stage, requirement_type, requirement_detail)
-SELECT 'test_bed', NULL, 'Decommissioning', 'Closed', 'approval_obtained',
-       '{"track": "Senior"}'
-WHERE NOT EXISTS (
-  SELECT 1 FROM public.stage_gate_rules
-  WHERE record_type = 'test_bed' AND variant IS NULL
-    AND from_stage = 'Decommissioning' AND to_stage = 'Closed'
-    AND requirement_type = 'approval_obtained'
-    AND requirement_detail = '{"track": "Senior"}'::jsonb
-);
+-- Third removal (2026-08-19, Round 9 Phase 5.1). THIS FILE NOW CONTAINS
+-- NO EXECUTABLE STATEMENTS AT ALL. The one INSERT it still owned, the
+-- Senior-tier approval on Decommissioning -> Closed, has been deleted
+-- from here and from the live database in the same change, per the
+-- standing rule above.
+--
+-- What was removed:
+--
+--   record_type 'test_bed', variant NULL,
+--   from_stage 'Decommissioning', to_stage 'Closed',
+--   requirement_type 'approval_obtained',
+--   requirement_detail {"track": "Senior"}
+--
+-- Confirmed with the business: the final transition is gated by
+-- Technical, Commercial and Legal, the same three tracks as the two
+-- transitions before it, written by migration
+-- 20260819000008_gate_config_transition_7_and_drop_senior.sql. It is
+-- REPLACED, not supplemented.
+--
+-- Reported before deleting, and the finding went the opposite way to the
+-- one anticipated. `Senior` IS a real approval_tracks row, described as
+-- "Senior-tier sign-off, required for Test Bed closure. Tier to be
+-- defined when routing_rules is built." So this rule genuinely blocked
+-- and the track was genuinely tickable once a record reached
+-- Decommissioning; it was never a string no approval could be recorded
+-- against. Zero approvals were ever recorded against it, which is a fact
+-- about a lifecycle no record had yet completed, not about the mechanism.
+--
+-- The tier half was the unbacked part: routing_rules has always held zero
+-- rows, so the escalation the track's description promises never had data
+-- behind it. routing_rules is now referenced by nothing anywhere in the
+-- system. The Senior row stays in approval_tracks, deliberately, now
+-- unreferenced, because the tier concept may return.
+--
+-- The file is kept rather than deleted. scripts/seed.js applies every
+-- .sql file in this directory in filename order, and a file of comments
+-- is a valid no-op, so this costs nothing to run and keeps the record of
+-- what this seed used to own where the next person to open it will find
+-- it. Deleting the file would move that record into git history alone,
+-- which is exactly the reasoning the Round 7 Phase 0 note above rejected
+-- for the six dead INSERTs.

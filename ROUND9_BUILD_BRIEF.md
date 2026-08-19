@@ -719,7 +719,17 @@ across a large configuration change, which is the only thing that proves it
 reflects reality rather than the moment it was written.
 
 1. **Diff it against the Phase 0 output and confirm the diff is exactly
-   what this round did**, item by item. Every new gate rule, every document
+   what this round did**, item by item.
+
+   **Known item to reconcile, recorded now so it does not read as
+   unexplained.** `TT-SGP-AIRPRT-005` is a diagnostic stray: it was
+   created through the real `create-test-bed` endpoint while debugging a
+   failing Phase 4A script, and soft deleted immediately once identified.
+   It accounts for one increment of the `SGP-AIRPRT` counter and one
+   soft-deleted `test_bed` row that no phase's own work produced.
+   `TT-SGP-AIRPRT-006` is the Phase 4A adjacency probe, also created
+   through the real endpoint and soft deleted at the end of that phase,
+   and accounts for a second increment and a second soft-deleted row. Every new gate rule, every document
    catalogue change, the deleted `Senior` rule, the new criteria fields. A
    difference that no phase in this brief accounts for is a finding, not
    noise, and must be reported rather than absorbed.
