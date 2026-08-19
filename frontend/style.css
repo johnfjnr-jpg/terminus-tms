@@ -2757,3 +2757,35 @@ input.input-invalid {
   opacity: 0.55;
   margin: 10px 0 0;
 }
+
+/* Qualification scoring, Round 11 Phase 2 (2026-08-19).
+   Variables checked against the definitions at the top of this file rather
+   than used from memory: Round 10 Phase 7 used --accent and --line, neither
+   of which exists here, and an undefined custom property fails at
+   computed-value time so the declaration is silently dropped. */
+.tb-score-row {
+  border-bottom: 1px solid var(--hairline);
+  padding: 10px 0;
+}
+.tb-score-row:last-child { border-bottom: none; }
+.tb-score-head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+.tb-score-name {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.tb-score-value {
+  font-family: var(--mono);
+  font-size: 18px;
+  color: var(--green);
+  flex: 0 0 auto;
+}
+.tb-score-value--none {
+  font-size: 13px;
+  color: var(--muted-2);
+}
+.tb-score-history { margin-top: 8px; }
+.tb-score-entry { padding: 6px 0; }

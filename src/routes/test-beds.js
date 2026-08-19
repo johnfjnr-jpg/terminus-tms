@@ -1280,6 +1280,165 @@ export default async function testBedsRoutes(app) {
   // creation) is untouched and unrelated to this.
   const VALID_CLIENT_BUYER_ROLES = ['Client Commercial Buyer', 'Client Technical Buyer', 'Client Legal Buyer']
 
+  // POST /api/test-beds/:id/scores
+  //
+  // Round 11 Phase 2, 2026-08-19. Appends ONE entry to a criterion's
+  // append-only series. Every score is a new entry; nothing is ever
+  // overwritten.
+  //
+  // WHY THIS IS NOT PATCH /test-beds/:id, which is the obvious reuse and is
+  // wrong. A PATCH takes the whole value for a key, so a client would send
+  // the entire array - and could therefore forge `by`, back-date `at`, claim
+  // any `anchorVersion`, drop earlier entries or rewrite them. That defeats
+  // append-only entirely, and append-only is the whole point: a 3
+  // overwritten by a 1 when someone finally visits the site and finds no
+  // power at the mounting positions is the single most valuable data point
+  // this framework will produce. The criterion keys are deliberately absent
+  // from TEST_BED_WRITABLE_KEYS so this endpoint is the only way in.
+  //
+  // THE ENTRY SHAPE IS DELIBERATELY GENERAL, NOT SCORING-SPECIFIC, because
+  // Round 12 surfaces a field-change trail and criterion authorship and must
+  // not fork what this builds:
+  //
+  //   { at, by, value, comment, reason, anchorVersion }
+  //
+  // `at` and `by` are the SAME KEY NAMES the notes pattern already uses
+  // ({text, at, by}), so anything that renders one can render the other.
+  // `value` rather than `score` is what makes it general: Round 12's field
+  // change records a new value in exactly the same slot, and "what it was
+  // before" is the previous entry's value rather than a second field.
+  // `anchorVersion` is simply ABSENT on a series that has no anchors, which
+  // is how this codebase already reads optional payload keys - no `meta` bag,
+  // because a wrapper invented for a consumer that does not exist yet is
+  // structure without evidence.
+  //
+  // AUTHOR, TIMESTAMP AND ANCHOR VERSION ARE ALL WRITTEN HERE, never taken
+  // from the client. The author is a deliberate departure from the notes
+  // pattern, which sets `by` client-side from the session: a note records
+  // that somebody said something, a score records a judgement somebody is
+  // answerable for, and it gates a transition. Approvals get
+  // `with check (auth.uid() = approver_id)` from RLS; a payload key has no
+  // equivalent, because record_revisions RLS constrains who writes a
+  // revision, not what a JSON field inside it claims. `at` follows for the
+  // same reason - a client clock is not evidence - and `anchorVersion` must
+  // be resolved server-side or a client could stamp a score with a version
+  // whose wording it was never made against, which is the one thing the
+  // versioning exists to prevent.
+  app.post('/test-beds/:id/scores', async (request, reply) => {
+    const { criterion, score, comment, reason } = request.body ?? {}
+    const db = createUserClient(request.jwt)
+
+    // The criterion must be real. scoring_criteria is the vocabulary, so an
+    // unrecognised key cannot create a series under a name nothing defines.
+    const { data: crit, error: critErr } = await db
+      .from('scoring_criteria')
+      .select('id, criterion_key, name')
+      .eq('record_type', 'test_bed')
+      .eq('criterion_key', criterion ?? '')
+      .maybeSingle()
+    if (critErr) {
+      request.log.error({ err: critErr }, 'failed to look up scoring criterion')
+      return reply.code(500).send({ error: critErr.message })
+    }
+    if (!crit) return reply.code(400).send({ error: 'criterion is not a recognised scoring criterion' })
+
+    if (!Number.isInteger(score) || score < 1 || score > 5) {
+      return reply.code(400).send({ error: 'score must be a whole number from 1 to 5' })
+    }
+
+    const { data: record, error: recErr } = await db
+      .from('records')
+      .select('id, status')
+      .eq('id', request.params.id)
+      .eq('record_type', 'test_bed')
+      .is('deleted_at', null)
+      .maybeSingle()
+    if (recErr) return reply.code(500).send({ error: recErr.message })
+    if (!record) return reply.code(404).send({ error: 'test bed not found' })
+
+    const { data: revRow, error: revReadErr } = await db
+      .from('record_revisions')
+      .select('revision_number, payload')
+      .eq('record_id', record.id)
+      .order('revision_number', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    // Round 7 step 3.0's lesson applied here rather than rediscovered: an
+    // unchecked error would read as "no existing series", which would make
+    // a revision look like a first score and skip the mandatory reason.
+    if (revReadErr) return reply.code(500).send({ error: revReadErr.message })
+    if (!revRow) return reply.code(404).send({ error: 'test bed has no revision' })
+
+    const payload = revRow.payload ?? {}
+    const existing = Array.isArray(payload[crit.criterion_key]) ? payload[crit.criterion_key] : []
+
+    // Mandatory at 1 or 2, naming what is missing. A low score is the one
+    // that has to be actionable; without it the framework records an opinion
+    // nobody can act on.
+    if (score <= 2 && !String(comment ?? '').trim()) {
+      return reply.code(400).send({ error: 'a comment is required at a score of 1 or 2, naming what is missing' })
+    }
+
+    // Mandatory on any entry after the first. Phase 3 makes this an
+    // interrupting dialogue fired on a detected change; the rule itself is
+    // enforced here so it holds for any caller, not only that one.
+    if (existing.length > 0 && !String(reason ?? '').trim()) {
+      return reply.code(400).send({ error: 'a reason for the change is required when revising a score' })
+    }
+
+    // Resolved here, never accepted from the client. max(version) is the
+    // current anchor set, computed rather than stored.
+    const { data: latestAnchor, error: anchorErr } = await db
+      .from('scoring_anchors')
+      .select('version')
+      .eq('criterion_id', crit.id)
+      .order('version', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (anchorErr) return reply.code(500).send({ error: anchorErr.message })
+    if (!latestAnchor) {
+      return reply.code(409).send({ error: `no anchors are defined for ${crit.name}, so a score cannot be recorded against a definition` })
+    }
+
+    const entry = {
+      at: new Date().toISOString(),
+      by: request.user.email,
+      value: score,
+      anchorVersion: latestAnchor.version,
+      stage: record.status,
+    }
+    if (String(comment ?? '').trim()) entry.comment = String(comment).trim()
+    if (String(reason ?? '').trim()) entry.reason = String(reason).trim()
+
+    // APPENDED, oldest first. Notes prepend; this appends, and the two
+    // disagree on purpose - "the first entry" is what decides whether a
+    // reason is mandatory, and series[0] meaning the first is worth more
+    // than matching an unrelated array's direction. Every reader sorts on
+    // `at` regardless, per the Round 10 Phase 2 fix, so neither order is
+    // load-bearing at render time.
+    const mergedPayload = { ...payload, [crit.criterion_key]: [...existing, entry] }
+    const nextRevision = revRow.revision_number + 1
+
+    const { error: revErr } = await db
+      .from('record_revisions')
+      .insert({ record_id: record.id, revision_number: nextRevision, payload: mergedPayload, created_by: request.user.id })
+    if (revErr) {
+      if (revErr.code === '42501') return reply.code(403).send({ error: 'not permitted' })
+      request.log.error({ err: revErr }, 'failed to save score revision')
+      return reply.code(500).send({ error: revErr.message })
+    }
+
+    await db.from('audit_log').insert({
+      record_id: record.id,
+      record_type: 'test_bed',
+      action: existing.length ? 'score_revised' : 'score_recorded',
+      actor_id: request.user.id,
+      detail: { criterion: crit.criterion_key, value: score, anchorVersion: entry.anchorVersion, stage: entry.stage }
+    })
+
+    return reply.code(201).send({ criterion: crit.criterion_key, entry, entries: existing.length + 1 })
+  })
+
   app.post('/test-beds/:id/buyer-contacts', async (request, reply) => {
     const { role, contact_id } = request.body ?? {}
 

@@ -282,6 +282,8 @@ function renderTbReference() {
   // renderTbSiteDetails.
   renderTbUseCases()
 
+  renderTbScores()
+
   renderTbNotes()
 
   // Key Dates. Round 7 Phase 5: Age relocates here from the removed header
@@ -702,6 +704,7 @@ window.removeTbUseCase = async function (idx) {
 // selectable, so an invalid link can't even be submitted from here (the
 // server's POST /test-beds/:id/buyer-contacts re-validates regardless).
 let tbAccountContacts = []
+let tbScoringCriteria = []
 
 async function renderTbBuyerRows() {
   const el = document.getElementById('tb-buyer-rows')
@@ -901,6 +904,100 @@ const TB_EXIT_CRITERION_KEYS = new Set([
   'exitQualPartnerCommitment',
   'exitMonAllMeetingActionsCompleted',
 ])
+
+
+// ── Qualification scoring (Round 11 Phase 2, 2026-08-19) ─────────────────
+//
+// A score series is an APPEND-ONLY array on the record's own payload, one
+// per criterion, keyed by the criterion_key from scoring_criteria. Entries
+// are written ONLY by POST /test-beds/:id/scores - the criterion keys are
+// deliberately absent from TEST_BED_WRITABLE_KEYS, so there is no PATCH path
+// that could rewrite or forge history.
+//
+// AN UNSCORED CRITERION IS AN ABSENT KEY, NEVER AN EMPTY ARRAY. That is the
+// convention this codebase already uses: unticking an exit criterion sends
+// null and the server DELETEs the key rather than storing a sentinel, and
+// every notes reader normalises an absent key to [] at read time. Writing []
+// would mean "scored, zero times", which is not a state that exists.
+//
+// The gate does NOT depend on that convention holding, and that separation is
+// deliberate: payload_field_required treats [] as PRESENT, so an empty array
+// arriving by any route - a future renderer, a migration, a bulk write -
+// would open the gate. Phase 4.1.1's length clause is what makes the gate
+// correct regardless of who writes what. Convention keeps the data clean;
+// the clause keeps the gate honest. Relying on the convention alone is the
+// discipline-not-a-property case the brief rejected.
+let tbScoresExpanded = {}
+
+window.toggleTbScoreHistory = function (key) {
+  tbScoresExpanded[key] = !tbScoresExpanded[key]
+  renderTbScores()
+}
+
+// ORDERING IS DERIVED FROM `at`, NEVER FROM ARRAY POSITION. Round 10 Phase 2
+// found the header notes digest showing the two OLDEST notes under the label
+// "Latest notes", because it assumed oldest-first against an array that
+// prepends. It survived two rounds of screenshots because no live record ever
+// held more than one note, and with one entry every implementation of "the
+// most recent" looks identical, including every wrong one. This series
+// appends where notes prepend, so trusting position here would be the same
+// bug with the sign flipped.
+function tbScoreSeries(key) {
+  const raw = Array.isArray(tbPayload[key]) ? tbPayload[key] : []
+  return [...raw].sort((a, b) => String(a.at ?? '').localeCompare(String(b.at ?? '')))
+}
+
+async function renderTbScores() {
+  const el = document.getElementById('tb-scores-list')
+  if (!el) return
+  if (!tbScoringCriteria.length) {
+    const result = await api('GET', '/api/scoring-criteria?record_type=test_bed')
+    if (result.ok) tbScoringCriteria = result.data ?? []
+  }
+  if (!tbScoringCriteria.length) {
+    el.innerHTML = '<p class="empty-state">No scoring criteria configured.</p>'
+    return
+  }
+
+  el.innerHTML = tbScoringCriteria.map(c => {
+    const series = tbScoreSeries(c.criterion_key)
+    const current = series.length ? series[series.length - 1] : null
+    const expanded = !!tbScoresExpanded[c.criterion_key]
+
+    // The CURRENT value is the newest entry. History is everything, shown on
+    // request - same default-plus-expansion shape as Notes, and the count is
+    // rendered so "3 of 3" is visible rather than implied.
+    const head = `
+      <div class="tb-score-head">
+        <span class="tb-score-name">${escHtml(c.name)}</span>
+        <span class="tb-score-value${current ? '' : ' tb-score-value--none'}" data-criterion="${escHtml(c.criterion_key)}">${
+          current ? escHtml(String(current.value)) : 'Not scored'
+        }</span>
+        ${series.length > 1
+          ? `<button class="btn-text" onclick="toggleTbScoreHistory('${escHtml(c.criterion_key)}')">${
+              expanded ? 'Hide history' : `Show history (${series.length})`
+            }</button>`
+          : ''}
+      </div>`
+
+    if (!expanded) return `<div class="tb-score-row" data-criterion="${escHtml(c.criterion_key)}" data-entries="${series.length}">${head}</div>`
+
+    // Newest first when reading history, which is how a person reads a
+    // change log, while the stored series stays chronological.
+    const rows = [...series].reverse().map(e => `
+      <div class="ref-notes-row tb-score-entry">
+        <span class="ref-notes-when">${formatDateTime(e.at)}</span>
+        <span class="ref-notes-author">${escHtml(e.by ?? '--')}</span>
+        <span class="ref-notes-text"><strong>${escHtml(String(e.value))}</strong>${
+          e.stage ? ` at ${escHtml(e.stage)}` : ''
+        } <span class="sub">v${escHtml(String(e.anchorVersion ?? '?'))}</span>${
+          e.comment ? `<br>${escHtml(e.comment)}` : ''
+        }${e.reason ? `<br><em>Reason: ${escHtml(e.reason)}</em>` : ''}</span>
+      </div>`).join('')
+
+    return `<div class="tb-score-row" data-criterion="${escHtml(c.criterion_key)}" data-entries="${series.length}">${head}<div class="tb-score-history">${rows}</div></div>`
+  }).join('')
+}
 
 // Tick writes an ISO timestamp; untick sends null, which the server
 // deletes the key for. Never a boolean: payload_field_required treats a
