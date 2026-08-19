@@ -333,12 +333,31 @@ export default async function testBedsRoutes(app) {
 
     const payload = revResult.data?.payload ?? {}
 
+    // Round 11 Phase 5: resolve the Installer Account's name the same way the
+    // client Account's is resolved just above, rather than making the browser
+    // fetch it. client_installed is COMPUTED, never stored: it is simply
+    // whether the two Account links are the same, which is the whole reason
+    // Installer is a link rather than a picklist.
+    let installer = null
+    if (bed.installer_account_id) {
+      const { data: instRev } = await db
+        .from('record_revisions').select('payload')
+        .eq('record_id', bed.installer_account_id)
+        .order('revision_number', { ascending: false }).limit(1).maybeSingle()
+      installer = {
+        id: bed.installer_account_id,
+        name: instRev?.payload?.name ?? null,
+        client_installed: bed.installer_account_id === bed.account_id,
+      }
+    }
+
     return {
       ...bed,
       payload,
       latest_revision_number: revResult.data?.revision_number ?? 1,
       industry: industryResult.data ? { id: industryResult.data.id, name: industryResult.data.name } : null,
       account,
+      installer,
       buyer_contacts,
       // Round 5 Phase 6: always live-recomputed from the current payload,
       // never read back as a stored value itself - the detail page's own
@@ -410,7 +429,13 @@ export default async function testBedsRoutes(app) {
     'siteOwnership', 'installationEnvironment', 'siteAddress', 'city',
     'safesightCameras', 'airQualitySensors', 'hemirSensors', 'estCostPerUnit',
     'testBedDuration', 'estimatedInstallationDate', 'estGoLiveDate',
-    'installer', 'techTeam', 'installNotes',
+    // 'installer' and 'techTeam' REMOVED, Round 11 Phase 5: both are real
+    // links now (installer_account_id, and a record_contacts row), written
+    // by their own endpoints with their own validation. A PATCH naming
+    // either is rejected rather than writing a free-text value that nothing
+    // reads. Six soft-deleted probe records still hold the old payload keys
+    // as history, now unread, same as the warrantyPct precedent.
+    'installNotes',
     // terminusCommercialOwner/terminusTechnicalOwner removed (2026-08-16,
     // Phase 7) - they duplicated the real, prototype-accurate
     // commercialAuthority/technicalAuthority fields above under a
@@ -1516,6 +1541,159 @@ export default async function testBedsRoutes(app) {
     })
 
     return reply.code(201).send({ criterion: crit.criterion_key, entry, entries: existing.length + 1 })
+  })
+
+  // PATCH /api/test-beds/:id/installer
+  //
+  // Round 11 Phase 5, 2026-08-19. Sets or clears the Installer Account.
+  //
+  // ITS OWN PATH, NOT buyer-contacts. That endpoint refuses any Contact whose
+  // parent_record_id differs from the Test Bed's account_id, with a 422, and
+  // that check is exactly what makes the three contact_role_linked gates on
+  // transition 1 mean anything - a Client Buyer who is not of the client's
+  // Account is not a client buyer. Loosening it to accommodate this phase
+  // would have weakened three live gates to add one feature. So Phase 5
+  // builds its own path and leaves that check untouched.
+  app.patch('/test-beds/:id/installer', async (request, reply) => {
+    const { installer_account_id } = request.body ?? {}
+    const db = createUserClient(request.jwt)
+
+    const { data: bed, error: bedErr } = await db
+      .from('records').select('id, account_id, installer_account_id')
+      .eq('id', request.params.id).eq('record_type', 'test_bed').is('deleted_at', null).maybeSingle()
+    if (bedErr) return reply.code(500).send({ error: bedErr.message })
+    if (!bed) return reply.code(404).send({ error: 'test bed not found' })
+
+    if (installer_account_id) {
+      const { data: acct, error: acctErr } = await db
+        .from('records').select('id')
+        .eq('id', installer_account_id).eq('record_type', 'account').is('deleted_at', null).maybeSingle()
+      if (acctErr) return reply.code(500).send({ error: acctErr.message })
+      if (!acct) return reply.code(422).send({ error: 'Installer must be a real, non-deleted Account' })
+    }
+
+    // CHANGING THE INSTALLER INVALIDATES A TECH TEAM FROM THE OLD ACCOUNT,
+    // and this is handled explicitly rather than left to be discovered.
+    // Keeping the link would leave the contact_role_linked gate satisfied by
+    // a Contact of an Account with nothing to do with the installation, which
+    // is precisely the integrity the buyer-contacts 422 exists to protect.
+    // The link is removed and the removal is REPORTED in the response rather
+    // than done silently, so the UI can say what happened.
+    let clearedTechTeam = null
+    const changing = String(bed.installer_account_id ?? '') !== String(installer_account_id ?? '')
+    if (changing) {
+      const { data: link, error: linkErr } = await db
+        .from('record_contacts').select('id, contact_id')
+        .eq('record_id', bed.id).eq('role', 'Test Bed Tech Team').maybeSingle()
+      if (linkErr) return reply.code(500).send({ error: linkErr.message })
+      if (link) {
+        const { data: contact, error: cErr } = await db
+          .from('records').select('id, parent_record_id').eq('id', link.contact_id).maybeSingle()
+        if (cErr) return reply.code(500).send({ error: cErr.message })
+        const stillValid = installer_account_id && contact?.parent_record_id === installer_account_id
+        if (!stillValid) {
+          // .select() and check the ROWS, not just the error. record_contacts
+          // had no DELETE policy at all until this phase added one, so an
+          // RLS-filtered delete returns zero rows and NO error - and the
+          // first version of this endpoint reported cleared_tech_team on the
+          // strength of that null error while the link was still there.
+          const { data: deleted, error: delErr } = await db
+            .from('record_contacts').delete().eq('id', link.id).select('id')
+          if (delErr) return reply.code(500).send({ error: delErr.message })
+          if (!deleted?.length) return reply.code(403).send({ error: 'not permitted to clear the existing Test Bed Tech Team' })
+          clearedTechTeam = link.contact_id
+        }
+      }
+    }
+
+    // records_update is owner-only under RLS, so a non-owner's update is
+    // filtered to zero rows rather than erroring. Checking the returned rows
+    // is what tells the two apart.
+    const { data: updated, error: updErr } = await db
+      .from('records').update({ installer_account_id: installer_account_id ?? null })
+      .eq('id', bed.id).select('id, installer_account_id')
+    if (updErr) return reply.code(500).send({ error: updErr.message })
+    if (!updated?.length) return reply.code(403).send({ error: 'not permitted' })
+
+    await db.from('audit_log').insert({
+      record_id: bed.id, record_type: 'test_bed', action: 'installer_set',
+      actor_id: request.user.id,
+      detail: { installer_account_id: installer_account_id ?? null, cleared_tech_team: clearedTechTeam },
+    })
+
+    return reply.send({
+      installer_account_id: updated[0].installer_account_id,
+      client_installed: !!updated[0].installer_account_id && updated[0].installer_account_id === bed.account_id,
+      cleared_tech_team: clearedTechTeam,
+    })
+  })
+
+  // POST /api/test-beds/:id/tech-team
+  //
+  // Round 11 Phase 5. A single Contact from the INSTALLER's Account, which is
+  // the variation the buyer-contacts endpoint cannot express: it validates
+  // against the Test Bed's own account_id and returns 422 otherwise.
+  //
+  // The same STRUCTURE is reused rather than forked - a record_contacts row
+  // with a role, validated at save time, gated by contact_role_linked, which
+  // only checks that a validated link exists and never re-derives the Account
+  // match. What differs is which Account it validates against, and that is
+  // one line rather than a new mechanism.
+  app.post('/test-beds/:id/tech-team', async (request, reply) => {
+    const { contact_id } = request.body ?? {}
+    const db = createUserClient(request.jwt)
+
+    const { data: bed, error: bedErr } = await db
+      .from('records').select('id, installer_account_id')
+      .eq('id', request.params.id).eq('record_type', 'test_bed').is('deleted_at', null).maybeSingle()
+    if (bedErr) return reply.code(500).send({ error: bedErr.message })
+    if (!bed) return reply.code(404).send({ error: 'test bed not found' })
+
+    // A Tech Team without an Installer has no Account to be validated
+    // against, so the order is enforced rather than left to produce a
+    // confusing downstream failure.
+    if (!bed.installer_account_id) {
+      return reply.code(422).send({ error: 'Set the Installer before choosing a Test Bed Tech Team' })
+    }
+    if (!contact_id) return reply.code(400).send({ error: 'contact_id is required' })
+
+    const { data: contact, error: cErr } = await db
+      .from('records').select('id, parent_record_id')
+      .eq('id', contact_id).eq('record_type', 'contact').is('deleted_at', null).maybeSingle()
+    if (cErr) return reply.code(500).send({ error: cErr.message })
+    if (!contact) return reply.code(404).send({ error: 'contact not found' })
+
+    if (contact.parent_record_id !== bed.installer_account_id) {
+      return reply.code(422).send({ error: "Contact is not linked to the Installer's Account" })
+    }
+
+    // One Tech Team, so an existing link is REPLACED rather than added to,
+    // and the replacement is verified. Without checking the affected rows a
+    // filtered delete leaves the old link in place and the insert then
+    // creates a SECOND row for the same (record_id, role) - which the
+    // contact_role_linked gate reads with .maybeSingle(), so a duplicate
+    // turns a working gate into a 500 rather than into a wrong answer.
+    const { data: existingLinks, error: exErr } = await db.from('record_contacts')
+      .select('id').eq('record_id', bed.id).eq('role', 'Test Bed Tech Team')
+    if (exErr) return reply.code(500).send({ error: exErr.message })
+    if (existingLinks.length) {
+      const { data: deleted, error: delErr } = await db.from('record_contacts')
+        .delete().eq('record_id', bed.id).eq('role', 'Test Bed Tech Team').select('id')
+      if (delErr) return reply.code(500).send({ error: delErr.message })
+      if (deleted.length !== existingLinks.length) {
+        return reply.code(403).send({ error: 'not permitted to replace the existing Test Bed Tech Team' })
+      }
+    }
+
+    const { error: insErr } = await db.from('record_contacts')
+      .insert({ record_id: bed.id, contact_id, role: 'Test Bed Tech Team', created_by: request.user.id })
+    if (insErr) return reply.code(500).send({ error: insErr.message })
+
+    await db.from('audit_log').insert({
+      record_id: bed.id, record_type: 'test_bed', action: 'tech_team_linked',
+      actor_id: request.user.id, detail: { contact_id },
+    })
+    return reply.code(201).send({ contact_id })
   })
 
   app.post('/test-beds/:id/buyer-contacts', async (request, reply) => {

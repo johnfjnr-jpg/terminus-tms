@@ -152,10 +152,18 @@ const TB_COST_FIELDS = [
   // TEST_BED_WRITABLE_KEYS server-side in the same change, so a direct
   // PATCH naming it is rejected rather than silently accepted with no UI.
 ]
-const TB_INSTALL_FIELDS = [
-  { key: 'installer', label: 'Installer' },
-  { key: 'techTeam', label: 'Test Bed Tech Team' },
-]
+// Round 11 Phase 5: `installer` and `techTeam` REMOVED from this array. They
+// were free-text payload keys and are now real links - installer_account_id,
+// a column, and a record_contacts row with role 'Test Bed Tech Team' - each
+// with its own endpoint and its own validation. Leaving them here would have
+// rendered a second, editable free-text copy of the same concept beside the
+// real control, which is the duplicate-Summary shape from Round 10 Phase 2.
+// Both keys are also removed from TEST_BED_WRITABLE_KEYS server-side, so a
+// PATCH naming either is now rejected rather than writing dead data.
+//
+// The array is left in place because Install Notes still belongs to this
+// panel; it is empty of field rows and renderTbInstallSection reflects that.
+const TB_INSTALL_FIELDS = []
 const TB_ALL_EDITABLE_FIELDS = [TB_NAME_FIELD, ...TB_TERMINUS_FIELDS, ...TB_CUSTOMER_FIELDS, ...TB_SITE_FIELDS, ...TB_SENSOR_COUNT_FIELDS, ...TB_DATE_FIELDS, ...TB_INSTALL_FIELDS, ...TB_COST_FIELDS, TB_SUMMARY_FIELD]
 
 // These strings are NOT labels. Each is a real role value written to
@@ -424,7 +432,164 @@ function renderTbSiteDetails() {
 function renderTbInstallSection() {
   document.getElementById('tb-install-rows').innerHTML =
     TB_INSTALL_FIELDS.map(f => tbFieldRow(f.key, f.label, tbPayload[f.key])).join('')
+  renderTbInstallerRow()
+  renderTbTechTeamRow()
   renderTbInstallNotes()
+}
+
+let tbInstallerSearching = false
+let tbInstallerContacts = []
+
+function tbInstallerFeedback(text, kind) {
+  const el = document.getElementById('tb-installer-feedback')
+  if (!el) return
+  el.textContent = text ?? ''
+  el.className = text ? `tb-doc-feedback${kind ? ' ' + kind : ''}` : 'tb-doc-feedback'
+}
+
+// INSTALLER: a link to an Account, so it renders as the same search-and-link
+// shape Account detail's own Parent Account row uses, not as a picklist.
+// Client-installed versus contractor-installed is shown as a derived fact
+// rather than a stored label, because that is exactly what it is.
+function renderTbInstallerRow() {
+  const el = document.getElementById('tb-installer-row')
+  if (!el) return
+  const current = tbBed.installer
+
+  if (current && !tbInstallerSearching) {
+    el.innerHTML = `
+    <div class="ref-field" data-key="installer">
+      <div class="ref-field-label"><span>Installer</span></div>
+      <div style="flex:1;min-width:0">
+        <div class="ref-field-display readonly">${escHtml(current.name ?? '--')}</div>
+        <p class="sub" style="margin-top:2px">${current.client_installed
+          ? 'Client installs with their own staff'
+          : 'Installed by a contractor'}</p>
+        <button class="btn-sm" style="margin-top:6px" onclick="openTbInstallerSearch()">Change installer</button>
+      </div>
+    </div>`
+    return
+  }
+
+  const matches = accountsCache
+  el.innerHTML = `
+    <div class="ref-field" data-key="installer">
+      <div class="ref-field-label"><span>Installer</span></div>
+      <div style="flex:1;min-width:0">
+        <input type="text" id="tb-installer-search" placeholder="Search Accounts"
+               oninput="renderTbInstallerResults(this.value)">
+        <div id="tb-installer-results" class="tb-installer-results"></div>
+        ${current ? `<button class="btn-sm" style="margin-top:6px" onclick="closeTbInstallerSearch()">Cancel</button>` : ''}
+      </div>
+    </div>`
+  renderTbInstallerResults('')
+}
+
+window.openTbInstallerSearch = function () { tbInstallerSearching = true; renderTbInstallerRow() }
+window.closeTbInstallerSearch = function () { tbInstallerSearching = false; renderTbInstallerRow() }
+
+window.renderTbInstallerResults = function (term) {
+  const el = document.getElementById('tb-installer-results')
+  if (!el) return
+  const t = String(term ?? '').trim().toLowerCase()
+  // Same case-insensitive substring match every other Account search in this
+  // app uses, over the already-fetched accountsCache - no new endpoint.
+  const matches = accountsCache.filter(a => !t || String(a.payload?.name ?? '').toLowerCase().includes(t)).slice(0, 8)
+  el.innerHTML = matches.length
+    ? matches.map(a => `<div class="tb-installer-result" data-account-id="${a.id}" onclick="setTbInstaller(this.dataset.accountId)">${escHtml(a.payload?.name ?? '--')}${
+        a.id === tbBed.account_id ? ' <span class="sub">(this Test Bed\'s own Account)</span>' : ''
+      }</div>`).join('')
+    : '<p class="empty-state" style="padding:8px 10px">No matches.</p>'
+}
+
+window.setTbInstaller = async function (accountId) {
+  tbInstallerFeedback('')
+  const result = await api('PATCH', `/api/test-beds/${tbDetailId}/installer`, { installer_account_id: accountId })
+  if (!result.ok) {
+    tbInstallerFeedback(result.data?.error ?? 'Could not set the Installer.', 'err')
+    return
+  }
+  tbInstallerSearching = false
+  // THE USER SEES THE TECH TEAM BEING CLEARED rather than discovering it.
+  // Changing the Installer invalidates a Tech Team from the previous
+  // Account, and the server reports which link it removed. Saying nothing
+  // would leave a gate that was satisfied a moment ago silently blocking
+  // again, with the row simply empty and no reason on screen.
+  if (result.data?.cleared_tech_team) {
+    tbInstallerFeedback('Installer changed. The previous Test Bed Tech Team belonged to the old Installer\'s Account and has been cleared, so choose a new one.', 'err')
+  } else {
+    tbInstallerFeedback('Installer set.')
+  }
+  await loadTestBedDetail(tbDetailId)
+}
+
+// TECH TEAM: a single Contact from the INSTALLER's Account, which is a
+// different Account from the record's own. renderTbBuyerRows cannot be
+// reused for this - it reads tbBed.account_id from module state and the
+// endpoint behind it returns 422 for any Contact outside that Account.
+async function renderTbTechTeamRow() {
+  const el = document.getElementById('tb-techteam-row')
+  if (!el) return
+  const linked = (tbBed.buyer_contacts ?? []).find(c => c.role === 'Test Bed Tech Team')
+  const installer = tbBed.installer
+
+  // NO INSTALLER: say why, and render no control at all. The server already
+  // refuses this order with a 422; an empty select here would look available
+  // and produce that refusal only after the user had tried.
+  if (!installer) {
+    el.innerHTML = `
+    <div class="ref-field" data-key="techTeam">
+      <div class="ref-field-label"><span>Tech Team</span></div>
+      <div style="flex:1;min-width:0">
+        <p class="empty-state" style="text-align:left;padding:8px 0">Set the Installer first. The Tech Team is a person from the Installer's Account.</p>
+      </div>
+    </div>`
+    return
+  }
+
+  if (linked) {
+    el.innerHTML = `
+    <div class="ref-field" data-key="techTeam">
+      <div class="ref-field-label"><span>Tech Team</span></div>
+      <div style="flex:1;min-width:0">
+        <div class="ref-field-display readonly">${escHtml(linked.name ?? linked.contact_id)}</div>
+        <p class="sub" style="margin-top:2px">From ${escHtml(installer.name ?? 'the Installer')}</p>
+      </div>
+    </div>`
+    return
+  }
+
+  // Fetched with the Account as an explicit parameter. GET /api/contacts took
+  // no query parameters before this phase, so this is a new capability rather
+  // than an existing one being used.
+  const result = await api('GET', `/api/contacts?account_id=${installer.id}`)
+  tbInstallerContacts = result.ok ? (result.data ?? []) : []
+
+  const options = tbInstallerContacts
+    .map(c => `<option value="${c.id}">${escHtml(c.payload?.name ?? c.id)}</option>`).join('')
+  el.innerHTML = `
+    <div class="ref-field" data-key="techTeam">
+      <div class="ref-field-label"><span>Tech Team</span></div>
+      <div style="flex:1;min-width:0">
+        <select id="tb-techteam-select" onchange="setTbTechTeam(this.value)">
+          <option value="">${tbInstallerContacts.length
+            ? 'Select a contact' : `No Contacts at ${escHtml(installer.name ?? 'the Installer')} yet`}</option>
+          ${options}
+        </select>
+        <p class="sub" style="margin-top:2px">From ${escHtml(installer.name ?? 'the Installer')}</p>
+      </div>
+    </div>`
+}
+
+window.setTbTechTeam = async function (contactId) {
+  if (!contactId) return
+  tbInstallerFeedback('')
+  const result = await api('POST', `/api/test-beds/${tbDetailId}/tech-team`, { contact_id: contactId })
+  if (!result.ok) {
+    tbInstallerFeedback(result.data?.error ?? 'Could not set the Tech Team.', 'err')
+    return
+  }
+  await loadTestBedDetail(tbDetailId)
 }
 
 // Round 6 Phase 3 (2026-08-17): sensor counts, moved from Site Details.

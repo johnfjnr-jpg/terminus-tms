@@ -72,6 +72,7 @@ const tbRules = () => rules.filter(r => r.record_type === 'test_bed')
 //   Round 11 Phase 4.1, 3 tick rules out, 5 score rules in    +2  -> 39
 //   Round 11 Phase 4.2, 3 re-score rules                      +3  -> 42
 //   Round 11 Phase 4.3, measurability confirmation            +1  -> 43
+//   Round 11 Phase 5, Installer and Test Bed Tech Team        +2  -> 45
 //
 // UPDATED FROM THE MEASUREMENT EACH TIME, not from the projection, exactly
 // as the paragraph above requires. The invariant fired on its own before
@@ -79,9 +80,9 @@ const tbRules = () => rules.filter(r => r.record_type === 'test_bed')
 // Phase 1, and "Expected 37, found 43" after Phase 4 - which is the
 // assertion doing its job rather than an inconvenience: a deliberate
 // configuration change is supposed to break it and be re-measured.
-// Phase 7 re-derives 43 from the live table rather than carrying it forward
+// Phase 7 re-derives 45 from the live table rather than carrying it forward
 // on trust.
-const EXPECTED_TEST_BED_RULES = 43
+const EXPECTED_TEST_BED_RULES = 45
 
 test('INVARIANT 1: test_bed carries exactly the configured number of gate rules', () => {
   const byTransition = {}

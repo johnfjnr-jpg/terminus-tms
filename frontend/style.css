@@ -2821,3 +2821,18 @@ input.input-invalid {
 .tb-score-comment textarea {
   width: 100%;
 }
+
+/* Installer search results, Round 11 Phase 5 (2026-08-19). */
+.tb-installer-results {
+  margin-top: 6px;
+  border: 1px solid var(--hairline);
+  max-height: 190px;
+  overflow-y: auto;
+}
+.tb-installer-result {
+  padding: 8px 10px;
+  cursor: pointer;
+}
+.tb-installer-result:hover {
+  background: var(--black);
+}

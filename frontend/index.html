@@ -1196,6 +1196,14 @@
       <div id="tb-stage-install-section" class="hidden" style="margin-top:24px">
         <p class="section-title">Installation</p>
         <div id="tb-install-rows"></div>
+        <!-- Round 11 Phase 5: Installer and Test Bed Tech Team are real links
+             now, not free text, so they render here rather than through
+             tbFieldRow's batched edit bar. Both are immediate-save actions
+             like the buyer roles, because each is a relationship rather than
+             a payload value and each has its own endpoint. -->
+        <div id="tb-installer-row"></div>
+        <div id="tb-techteam-row"></div>
+        <p id="tb-installer-feedback" class="tb-doc-feedback"></p>
         <div style="margin-top:16px">
           <p class="label" style="margin-bottom:8px">Install Notes</p>
           <div id="tb-install-notes-list"></div>
