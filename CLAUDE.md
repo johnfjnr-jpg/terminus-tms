@@ -87,6 +87,13 @@ not resolve it quietly.
 6. **Display renames stay display renames.** A label change must not become
    a schema, endpoint or payload change.
 
+7. **Every migration is written idempotently**, whatever the migration
+   ledger is expected to guarantee. Guard data writes with `WHERE NOT
+   EXISTS`, and DDL with `IF NOT EXISTS`. The ledger has been observed
+   drifting from the schema silently, so a migration already applied can
+   be replayed with no warning, and an unguarded `INSERT` duplicates rows
+   invisibly.
+
 ---
 
 ## Verification
