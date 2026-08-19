@@ -702,7 +702,40 @@
             <h1 id="tb-detail-name"></h1>
             <p class="sub" id="tb-detail-client"></p>
           </div>
-          <div id="tb-header-summary" class="tb-head-summary-inline hidden"></div>
+          <!-- Round 10A Phase 1 (2026-08-19): the Summary CONTROL lives here,
+               not a read-only copy of it. Round 10 Phase 2 moved a display
+               into the header and left the editable block on the Reference
+               tab, so Summary rendered twice; removing the lower block as
+               first instructed would have removed the only edit path, since
+               this element had no handler and no control inside it.
+
+               STATIC MARKUP, rendered once and never rebuilt. The ids are
+               the ones the click-to-edit mechanism already uses
+               (openTbField/discardTbField/tbEdits/TB_ALL_EDITABLE_FIELDS),
+               moved rather than renamed, so the save bar, the open-edit
+               capture across reloads and the batched save all keep working
+               with no change. Same "render once, never tear down" reasoning
+               Round 6 Phase 3 used for the Install fields.
+
+               It sits OUTSIDE the tab panels deliberately: switchTbTab only
+               hides and shows .detail-tab-panel elements, so Summary is now
+               editable from every tab rather than only Reference. Confirmed
+               with the business as correct, because Summary describes the
+               Test Bed rather than any one stage.
+
+               It can no longer hide itself when empty, because a hidden
+               control cannot be clicked and an empty Summary could then
+               never be filled in. -->
+          <div id="tb-header-summary" class="tb-head-summary-inline">
+            <p class="tb-header-digest-label">Summary</p>
+            <div class="ref-field" id="tb-field-summary-wrap" data-key="summary" style="border:none">
+              <div class="ref-field-display" id="tb-display-summary" tabindex="0" onclick="openTbField('summary',true)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openTbField('summary',true)}" style="font-size:13px">--</div>
+              <div class="ref-field-edit hidden" id="tb-edit-summary">
+                <textarea id="tb-input-summary" rows="3" style="flex:1"></textarea>
+                <span class="ref-field-discard" tabindex="0" onclick="discardTbField('summary')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();discardTbField('summary')}">&times;</span>
+              </div>
+            </div>
+          </div>
         </div>
         <!-- Round 8 Phase 5: Summary and Notes moved INTO the left column,
              directly beneath the name, rather than sitting as a separate
@@ -932,9 +965,17 @@
         <div class="pg-card">
           <p class="pg-card-title">Customer Details</p>
           <div id="tb-customer-rows"></div>
-          <div style="margin-top:16px">
-            <div id="tb-buyer-rows"></div>
-          </div>
+          <!-- Round 10A Phase 2 (2026-08-19): the wrapper that stood here is
+               gone. It existed only to carry the "CLIENT BUYERS" grouping
+               label and to space it away from the rows above; Round 10 Phase
+               3.1 removed the label per the business's own table and left the
+               container and its margin-top:16px behind. Measured: every row
+               in this panel is the same height, and the gap from Client Lead
+               to Comm. Buyer was 57px against 40px everywhere else - the
+               buyer row was not taller, it was pushed down by 16px of margin
+               belonging to an element that no longer exists. Removed rather
+               than compensated for. -->
+          <div id="tb-buyer-rows"></div>
         </div>
         <div class="pg-card">
           <p class="pg-card-title">Site Details</p>
@@ -966,16 +1007,10 @@
           <div id="tb-dates-rows"></div>
         </div>
       </div>
-      <div style="margin-top:28px">
-        <p class="pg-card-title">Summary</p>
-        <div class="ref-field" id="tb-field-summary-wrap" data-key="summary" style="border:none">
-          <div class="ref-field-display" id="tb-display-summary" tabindex="0" onclick="openTbField('summary')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openTbField('summary')}" style="font-size:14px">--</div>
-          <div class="ref-field-edit hidden" id="tb-edit-summary">
-            <textarea id="tb-input-summary" rows="3" style="flex:1"></textarea>
-            <span class="ref-field-discard" tabindex="0" onclick="discardTbField('summary')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();discardTbField('summary')}">&times;</span>
-          </div>
-        </div>
-      </div>
+      <!-- Round 10A Phase 1 (2026-08-19): the Summary block that stood here
+           is gone. It was the ORIGINAL one; Round 10 Phase 2 added a second
+           in the header and never removed this, so Summary rendered twice.
+           The control itself moved to the header, ids intact. -->
       <!-- Round 6 Phase 3 (2026-08-17): Use Cases repositioned to sit
            with Summary, no longer its own separate .ref-cards grid
            panel - same pg-card-title + content shape as Summary/Notes
