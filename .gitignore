@@ -15,3 +15,4 @@ session-ref.json
 /verify-*.mjs
 /debug-*.mjs
 /get-session-*.mjs
+/.scratch/
