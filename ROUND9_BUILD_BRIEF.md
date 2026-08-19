@@ -529,6 +529,34 @@ the assertion belongs in the suite where it passes or fails, not in prose.
 5. **New invariant: no rule anywhere names a track absent from
    `approval_tracks`.** The `Senior` case is the argument for it.
 
+6. **New invariant: no duplicate configuration rows.** No two
+   `stage_gate_rules` rows share the same
+   `(record_type, variant, from_stage, to_stage, requirement_type,
+   requirement_detail)`, and no two `stage_reference_docs` rows share the
+   same `(record_type, stage_name, document_name)`. Neither table carries
+   a unique constraint, so a duplicate is legal at the database level,
+   invisible in the UI, and doubles a requirement.
+
+   **This replaces the migration-ledger parity check, and the substitution
+   is deliberate.** Round 9 Phase 2 found the local and remote ledgers
+   disagreeing silently, which replayed two already-applied migrations.
+   A direct ledger-parity assertion was costed and is **not cheap**:
+   PostgREST does not expose the `supabase_migrations` schema (`Invalid
+   schema: supabase_migrations`, confirmed directly), and no
+   arbitrary-SQL RPC exists, so `test:db`'s documented credentials
+   (`SUPABASE_URL`, `SUPABASE_SECRET_KEY`) cannot read it at all.
+   Reaching it needs either a new `public` view or `SECURITY DEFINER`
+   function exposing the ledger, which is a schema change and an API
+   surface widening made to serve a test, or shelling out to
+   `npx supabase migration list`, which adds a CLI dependency and a
+   third credential to a suite deliberately scoped to two. **Recorded as
+   a candidate rather than built.**
+
+   The duplicate invariant costs one query per table and catches the
+   damage the ledger drift actually causes, whatever the cause, using
+   only the credentials the suite already has. Architecture rule 7 in
+   `CLAUDE.md` addresses the cause.
+
 **Test evidence required:** `npm test` and `npm run test:db` both passing,
 output pasted in full. For each of the three new invariants, deliberately
 inject a real violating row, show the assertion failing and naming the
@@ -610,11 +638,22 @@ reflects reality rather than the moment it was written.
    > round's own phase list.
 
 4. **Add the reciprocal check to the automated suite** if it can be done
-   cheaply: fail the build when `CURRENT_STATE.md`'s recorded commit SHA is
-   not the current HEAD. Report the cost before building it. If it is more
-   than trivial, record it as a candidate rather than doing it here, since
-   the standing rule above already covers the discipline and this only
-   covers the forgetting.
+   cheaply: fail the build when `CURRENT_STATE.md`'s recorded commit SHA
+   is **not an ancestor of HEAD, or when a tracked configuration source
+   has changed since that commit.** Report the cost before building it.
+   If it is more than trivial, record it as a candidate rather than doing
+   it here, since the standing rule above already covers the discipline
+   and this only covers the forgetting.
+
+   **Reworded 2026-08-19, after Round 9 Phase 2.** This item originally
+   said "is not the current HEAD", and that check can never pass. A
+   generated file records the commit it was generated at, and it is then
+   committed, so the commit containing it is always later than the one it
+   names. `CURRENT_STATE.md` was stale by its own rule the moment it was
+   first committed. Ancestry plus an unchanged-sources test is the check
+   that actually expresses the intent: the file was generated from a
+   state this branch still contains, and nothing it reports has moved
+   since.
 
 **Test evidence required:** the committed file, the full diff against the
 Phase 0 output, and an explicit line-by-line reconciliation of that diff

@@ -89,3 +89,31 @@ export function isNotPastIsoDate(value) {
   const today = new Date().toISOString().slice(0, 10)
   return value.trim() >= today
 }
+
+// Round 9 Phase 3.2: an exit-criterion tick is stored as an ISO timestamp
+// string, never a boolean.
+//
+// The reason is specific and load-bearing. `payload_field_required` in
+// transitions.js blocks only on `undefined`, `null` and `''`, so a stored
+// boolean `false` reads as PRESENT and satisfies the gate. An unticked box
+// would open the transition. Storing a timestamp on tick and deleting the
+// key on untick makes "present and non-empty" structurally equivalent to
+// "ticked", rather than dependent on a truthiness detail in a branch that
+// knows nothing about criteria.
+//
+// Validated as a real parseable instant, not merely date-shaped, and
+// required to round-trip exactly, which rejects values Date would
+// otherwise silently coerce ("2027-02-30T00:00:00.000Z").
+export function isValidIsoTimestamp(value) {
+  if (typeof value !== 'string') return false
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/.exec(value)
+  if (!m) return false
+  const [, y, mo, d, h, mi, sec] = m.map(Number)
+  // Calendar validity of the written components, checked the same way
+  // isValidIsoDate does it. Date.parse alone is not enough: it silently
+  // rolls "2027-02-30" forward to 2 March rather than rejecting it.
+  const utc = new Date(Date.UTC(y, mo - 1, d))
+  if (utc.getUTCFullYear() !== y || utc.getUTCMonth() !== mo - 1 || utc.getUTCDate() !== d) return false
+  if (h > 23 || mi > 59 || sec > 59) return false
+  return !Number.isNaN(Date.parse(value))
+}

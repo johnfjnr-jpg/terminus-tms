@@ -1,6 +1,6 @@
 import { createUserClient } from '../supabase.js'
 import { issueReferenceNumber } from '../lib/reference-number.js'
-import { isValidIsoDate, isNotPastIsoDate, isValidNonNegativeInteger, isValidNonNegativePercent } from '../lib/field-validation.js'
+import { isValidIsoDate, isNotPastIsoDate, isValidNonNegativeInteger, isValidNonNegativePercent, isValidIsoTimestamp } from '../lib/field-validation.js'
 import { calculateTestBedCost } from '../lib/deal-calculator.js'
 
 // Round 5 Phase 6 (2026-08-17): builds the itemized cost breakdown from
@@ -352,7 +352,38 @@ export default async function testBedsRoutes(app) {
   // it's a creation-time precondition (Milestone 3), not a plain field
   // edit; there is no endpoint to change it post-creation, matching how
   // there is no unlink-Account action anywhere in this app.
+  // Round 9 Phase 3.2: the judgement criteria that gate a stage exit.
+  //
+  // These are ordinary payload_field_required rules, not a new
+  // requirement type - no branch is added to transitions.js and the whole
+  // checklist stays configurable as data for the eventual Admin module.
+  // The rule rows carry an additive `label` the engine ignores.
+  //
+  // Naming: `exit` + the abbreviated stage the criterion gates the exit
+  // FROM, so a key names its own gate. exitQual* gate Qualification to
+  // Pre-Site Assessment; exitMon* gate Monitoring and Analysis to Review
+  // and Completion. The rows themselves are written in Phases 4 and 5;
+  // the keys are fixed HERE, once, because each one is written in three
+  // places (this allowlist, the gate rule's requirement_detail.field, and
+  // the tick control) and renaming one afterwards is three edits with no
+  // constraint aligning them.
+  //
+  // THE STORED VALUE IS AN ISO TIMESTAMP, NEVER A BOOLEAN, and untick
+  // DELETES the key. payload_field_required blocks only on undefined,
+  // null and '', so a stored `false` reads as present and would satisfy
+  // the gate with the box visibly unticked. See isValidIsoTimestamp.
+  const TB_EXIT_CRITERION_KEYS = new Set([
+    // Qualification -> Pre-Site Assessment
+    'exitQualTechnicalCommercialValue',   // Technical and Commercial Value
+    'exitQualDataAndUseCase',             // Data and Use Case
+    'exitQualPhysicalSuitability',        // Physical Suitability
+    'exitQualPartnerCommitment',          // Partner Commitment
+    // Monitoring and Analysis -> Review and Completion
+    'exitMonAllMeetingActionsCompleted',  // All Meeting Actions Completed
+  ])
+
   const TEST_BED_WRITABLE_KEYS = new Set([
+    ...TB_EXIT_CRITERION_KEYS,
     'name', 'client_organisation', 'notes', 'summary',
     'terminusLead', 'commercialAuthority', 'technicalAuthority', 'region', 'country',
     'siteOwnership', 'installationEnvironment', 'siteAddress', 'city',
@@ -436,6 +467,20 @@ export default async function testBedsRoutes(app) {
       for (const key of ['estimatedInstallationDate', 'estGoLiveDate']) {
         if (key in payload && !isValidIsoDate(payload[key])) {
           return reply.code(400).send({ error: `${key} must be a valid date (YYYY-MM-DD)` })
+        }
+      }
+      // Round 9 Phase 3.2: an exit criterion is ticked by storing an ISO
+      // timestamp and unticked by sending null, which DELETES the key at
+      // the merge below. Everything else is refused here, so no client
+      // can write a boolean, a 0 or an empty string into a key the gate
+      // reads as present-and-non-empty.
+      for (const key of TB_EXIT_CRITERION_KEYS) {
+        if (!(key in payload)) continue
+        if (payload[key] === null) continue
+        if (!isValidIsoTimestamp(payload[key])) {
+          return reply.code(400).send({
+            error: `${key} must be an ISO timestamp string to tick, or null to clear it`
+          })
         }
       }
       // Past-date restriction (Round 5 Phase 4, 2026-08-17), mirroring
@@ -552,6 +597,15 @@ export default async function testBedsRoutes(app) {
 
       const nextRevision = (revRow?.revision_number ?? 0) + 1
       const mergedPayload = { ...(revRow?.payload ?? {}), ...payload }
+
+      // Round 9 Phase 3.2: untick REMOVES the key rather than storing an
+      // empty value. Deliberately scoped to the criterion keys alone: a
+      // null on any other field keeps meaning exactly what it meant
+      // before, so this cannot change the behaviour of anything else on
+      // the record.
+      for (const key of TB_EXIT_CRITERION_KEYS) {
+        if (key in payload && payload[key] === null) delete mergedPayload[key]
+      }
 
       // Round 5 Phase 6: recomputed on every save, not just when a rate
       // field itself changes - a save from the Reference tab (a unit

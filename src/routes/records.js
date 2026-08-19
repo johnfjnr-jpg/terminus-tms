@@ -287,7 +287,7 @@ export default async function recordsRoutes(app) {
       // invariant transitions.js already enforces), or it's genuinely
       // the final stage already - either way, nothing to exit toward,
       // an empty, honest list rather than a fabricated one.
-      return { from_stage: fromStage, to_stage: null, blocking: [] }
+      return { from_stage: fromStage, to_stage: null, blocking: [], requirements: [] }
     }
 
     const { data: revRow } = await db
@@ -299,12 +299,19 @@ export default async function recordsRoutes(app) {
       .maybeSingle()
     const currentRevision = revRow?.revision_number ?? 1
 
-    const { blocking, error: blockingErr } = await computeBlocking(db, record, fromStage, nextStage.stage_name, currentRevision, revRow?.payload)
+    const { requirements, blocking, error: blockingErr } = await computeBlocking(db, record, fromStage, nextStage.stage_name, currentRevision, revRow?.payload)
     if (blockingErr) {
       request.log.error({ err: blockingErr }, 'failed to compute exit criteria')
       return reply.code(500).send({ error: blockingErr.message })
     }
 
-    return { from_stage: fromStage, to_stage: nextStage.stage_name, blocking }
+    // Round 9 Phase 3.1: `requirements` is every criterion for this
+    // transition with its `met` flag, which is what the tick list needs.
+    // `blocking` is the unmet subset and is returned UNCHANGED, so the
+    // two existing consumers (renderTbStageExitCriteria in
+    // test-bed-detail.js and the chevron hover popup in app.js, both of
+    // which read only to_stage and blocking[].message) keep working
+    // without modification. The change is purely additive.
+    return { from_stage: fromStage, to_stage: nextStage.stage_name, blocking, requirements }
   })
 }

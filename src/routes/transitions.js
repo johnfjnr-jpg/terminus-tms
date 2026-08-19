@@ -52,6 +52,24 @@ export function approvalSatisfiesRule(approval, rule, { from_stage, currentRevis
     : approval.revision_number === currentRevision
 }
 
+/**
+ * Round 9 Phase 3.1: this now builds a FULL requirement list, each entry
+ * carrying `met`, and derives `blocking` from it as
+ * `requirements.filter(r => !r.met)`.
+ *
+ * The business needs a tick list, every criterion for a transition shown
+ * with its satisfied state, not only the unsatisfied ones. The obvious
+ * way to get that is a second function that lists requirements while this
+ * one lists blockers, and that is exactly what rule 4 forbids: one gate
+ * computation path, never a second. So satisfied items simply stop being
+ * discarded. Every predicate is still evaluated once, in one place.
+ *
+ * `blocking` is a derived VIEW, not a parallel result. Its entries are
+ * byte-identical to what this function returned before (the `met` key is
+ * stripped, since every member of `blocking` is unmet by construction),
+ * so the mutating transition endpoint's 409 body is unchanged. That is
+ * the property the Phase 3 regression test pins.
+ */
 export async function computeBlocking(db, record, from_stage, to_stage, currentRevision, revPayload) {
   // Null-variant rules apply to all variants; variant-specific rules apply only to that variant.
   // Use .is('variant', null) directly when there is no variant -- .or() with a single condition
@@ -73,7 +91,8 @@ export async function computeBlocking(db, record, from_stage, to_stage, currentR
     return { error: rulesErr }
   }
 
-  const blocking = []
+  // One entry per rule, met or unmet. See the note above the function.
+  const requirements = []
 
   for (const rule of rules) {
     if (rule.requirement_type === 'approval_obtained') {
@@ -103,16 +122,15 @@ export async function computeBlocking(db, record, from_stage, to_stage, currentR
       // non-deterministically - it is what made the gate suite flake.
       if (approvalErr) return { error: approvalErr }
 
-      if (!approval) {
-        blocking.push({
-          requirement_type: 'approval_obtained',
-          track,
-          scope,
-          message: scope === 'stage'
-            ? `Requires an approved ${track} decision at stage ${from_stage}`
-            : `Requires an approved ${track} decision on revision ${currentRevision}`
-        })
-      }
+      requirements.push({
+        requirement_type: 'approval_obtained',
+        track,
+        scope,
+        message: scope === 'stage'
+          ? `Requires an approved ${track} decision at stage ${from_stage}`
+          : `Requires an approved ${track} decision on revision ${currentRevision}`,
+        met: approval
+      })
     }
 
     if (rule.requirement_type === 'document_status') {
@@ -135,14 +153,13 @@ export async function computeBlocking(db, record, from_stage, to_stage, currentR
       // absent" and block.
       if (docErr) return { error: docErr }
 
-      if (!docRecord) {
-        blocking.push({
-          requirement_type: 'document_status',
-          document: docName,
-          required_status: reqStatus,
-          message: `Requires ${docName} to be ${reqStatus}`
-        })
-      }
+      requirements.push({
+        requirement_type: 'document_status',
+        document: docName,
+        required_status: reqStatus,
+        message: `Requires ${docName} to be ${reqStatus}`,
+        met: !!docRecord
+      })
     }
 
     // payload_field_required: requirement_detail = {field}. Checks the
@@ -160,13 +177,22 @@ export async function computeBlocking(db, record, from_stage, to_stage, currentR
       const RECORD_COLUMN_FIELDS = new Set(['parent_record_id', 'industry_id'])
       const value = RECORD_COLUMN_FIELDS.has(field) ? record[field] : revPayload?.[field]
 
-      if (value === undefined || value === null || value === '') {
-        blocking.push({
-          requirement_type: 'payload_field_required',
-          field,
-          message: `Requires ${field} to be set`
-        })
-      }
+      // Round 9 Phase 3.2: `label` is additive and ignored by the
+      // engine's own matching - this branch reads `field` and nothing
+      // else, so an unrecognised key in requirement_detail cannot break
+      // it. It is carried through here so the tick list and a rejected
+      // transition can both say "Physical Suitability" rather than
+      // "exitQualPhysicalSuitability", from one construction rather than
+      // two. Rules without a label are unaffected, message included.
+      const label = rule.requirement_detail?.label
+
+      requirements.push({
+        requirement_type: 'payload_field_required',
+        field,
+        ...(label ? { label } : {}),
+        message: label ? `Requires ${label}` : `Requires ${field} to be set`,
+        met: !(value === undefined || value === null || value === '')
+      })
     }
 
     // contact_role_linked: requirement_detail = {role}. Checks that a
@@ -193,13 +219,12 @@ export async function computeBlocking(db, record, from_stage, to_stage, currentR
       // linked" and block.
       if (linkErr) return { error: linkErr }
 
-      if (!link) {
-        blocking.push({
-          requirement_type: 'contact_role_linked',
-          role,
-          message: `Requires a Contact linked as ${role}`
-        })
-      }
+      requirements.push({
+        requirement_type: 'contact_role_linked',
+        role,
+        message: `Requires a Contact linked as ${role}`,
+        met: !!link
+      })
     }
 
     // child_record_status (Round 7 Phase 3.2, 2026-08-18). Until this
@@ -250,21 +275,27 @@ export async function computeBlocking(db, record, from_stage, to_stage, currentR
 
       if (childErr) return { error: childErr }
 
-      if (!child) {
-        blocking.push({
-          requirement_type: 'child_record_status',
-          child_record_type: childType,
-          ...(variant !== undefined && variant !== null ? { variant } : {}),
-          required_status: reqStatus,
-          message: variant
-            ? `Requires ${variant} to be ${reqStatus}`
-            : `Requires a ${childType} child at status ${reqStatus}`
-        })
-      }
+      requirements.push({
+        requirement_type: 'child_record_status',
+        child_record_type: childType,
+        ...(variant !== undefined && variant !== null ? { variant } : {}),
+        required_status: reqStatus,
+        message: variant
+          ? `Requires ${variant} to be ${reqStatus}`
+          : `Requires a ${childType} child at status ${reqStatus}`,
+        met: !!child
+      })
     }
   }
 
-  return { blocking }
+  // `blocking` keeps its exact pre-Phase-3 shape: the unmet subset, with
+  // `met` stripped, since every member of it is unmet by definition.
+  // Callers that only ever wanted the blockers are untouched.
+  const blocking = requirements
+    .filter(r => !r.met)
+    .map(({ met, ...rest }) => rest)
+
+  return { requirements, blocking }
 }
 
 export default async function transitionsRoutes(app) {
