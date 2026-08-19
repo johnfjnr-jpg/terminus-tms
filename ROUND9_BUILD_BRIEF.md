@@ -863,3 +863,99 @@ outcome:
 Before declaring this round complete, check the phase count against this
 document's own list with `grep -n "^## Phase"`. Rounds 3 and 5 both
 recorded a premature completion claim caught only by doing exactly that.
+
+## Round 9 outcome
+
+All 11 phases built and signed off: 0, 1, 2, 3, 4, **4A**, 5, 6, 7, 8, 9.
+Checked with `grep -n "^## Phase"` against this document per rule 7, which
+is what caught the premature completion claims in Rounds 3 and 5. Phase 4A
+was added mid-round and is included in the count.
+
+Assembled from the entries written at the time, not from memory.
+
+| Phase | Delivered | Beyond the original brief |
+|---|---|---|
+| 0. State generator, then investigate with it | `scripts/state-dump.mjs` and the first `CURRENT_STATE.md`, both evidence checks, all eight investigation items | **Two faults in my own generator, found by checking rather than reading**, either of which would have shipped a confidently wrong file: it reported 4 keys for an allowlist permitting 16, and 40 and 44 keys for two allowlists holding 35 each, because a regex read the apostrophes inside explanatory comments as string delimiters. Item 7 answered against expectation - `payload_field_required` treats boolean `false` as **present** - which decided Phase 3's storage shape. Item 1 found **three of seven live Test Beds carrying real external client identity**, which changed Phase 1's scope before it ran |
+| 1. Reset by soft delete | Four test-data Test Beds soft deleted, one fresh fixture through the real `create-test-bed` path | Scope **narrowed on instruction** after item 1: the three records with real client identity were left untouched rather than reset. Zero hard deletes proven across `records`, `record_revisions` and `audit_log`; of 249 counter rows exactly one changed, confirmed independently by `updated_at` rather than by my own diff |
+| 2. Document catalogue | `stage_reference_docs` 8 rows to 9, in one idempotent migration; alignment checked against the Phase 4 and 5 gate tables **before** any row was written, 9 of 9 with zero mismatches | **The brief's instruction to reconcile `003_test_bed.sql` did not apply**: that seed contains no `stage_reference_docs` rows at all, the catalogue lives entirely in migrations, and adding them would have created a second home for the same data. Applying the migration also **replayed two Round 7 migrations the ledger did not record**, harmless only because both happened to guard their writes |
+| 3. Exit criteria become a tick list | `computeBlocking()` returns every requirement with `met`; `blocking` is derived as the unmet subset. ISO-timestamp tick, delete-on-untick | `blocking`'s key set proven **byte-identical per requirement type**, so the mutating endpoint's refusal body is unchanged. The five criterion keys were fixed here rather than in Phase 4, because each is written in three places with nothing aligning them. My first `isValidIsoTimestamp` wrongly accepted `2027-02-30T00:00:00.000Z`, caught by testing it |
+| 4. Gates, transitions 1 to 4 | 15 rules across four migrations, measured after each landed: 10, 14, 16, 22, 25 | **Two mechanism defects surfaced that no configuration check could have found**: no stage adjacency, and the approvals unique constraint still carrying its pre-stage shape. **My own walkthrough method was invalid twice and disclosed rather than quietly rerun** - the first used the mutating endpoint as a read probe, the second double-counted approvals |
+| 4A. Close the two defects | Scope addition, taken as its own phase. Adjacency enforced; `stage` added to the approvals constraint with `NULLS NOT DISTINCT` | Adjacency measured by **position in the ordered list, not `sort_order` arithmetic**, a stated departure from the rule as written that survives a stage list numbered 10, 20, 30. Backward moves permitted ungated and marked `regression: true` in `audit_log`. The constraint's precondition was **established as a property of the code** (one insert path, `records.status` `NOT NULL`) rather than inferred from Phase 0's zero-null measurement |
+| 5. Gates, transitions 5 to 7 | 13 net rules, 25 to 38; the `Senior` rule deleted from database and seed together | **`Senior` was a real `approval_tracks` row**, the opposite of what the brief anticipated: the rule genuinely blocked and the track was genuinely tickable. What was never backed is the tier half. `003_test_bed.sql` now holds **zero executable statements** and is kept as a comment record. Section 8 rewritten with the superseded paragraph quoted verbatim. **4A.2 held under first real load**: nine approvals at one revision across three stages |
+| 6. Standardise the 8 stage tabs | Two document panels merged into one Terminus Documents panel at the left; the tick list; Closed renders nothing | **`complete-document` approved the document on URL save** - the round's second most consequential defect, and it would have released a gate on the strength of a link to an unreviewed document. Its `document_details` upsert error was unchecked, and it reported the requested status rather than the stored one. **Two faults of my own**: the terminal-stage check read a cache only the list view populates, and my first render pass measured on a fixed delay and reported each tab's contents one tab late |
+| 7. Defend the configuration in the suite | Seven invariants, each proven capable of failing by injecting a real violating row and reverting | **Invariants 2 and 4 failed before anything was injected**, against 15 gate rules, 16 still-live records, 5 documents, 2 links and 1 approval abandoned by a test run that died on a transient error. `Fixtures.teardown()` runs in an `after` hook and is never reached when a file aborts in `before`. The `JWT issued at future` rejection **recurred**, its first observation since Milestone 1 |
+| 8. Full lifecycle walkthrough | `TT-SGP-AIRPRT-008` driven Qualification to Closed through the browser. All three checks pass: seven transitions in ladder order with one real actor and no `data_correction` or skip entries, zero null-stage approvals, **59 clicks** | **The system captured who approved and never captured who was accountable**: 18 approvals against Commercial, Technical and Legal while the three fields naming those authorities stayed empty. The Reference-tab return quantified at **7 of the 59 clicks**. The criteria panel lags the server by one refresh. **A third of the total is navigation, not decision**, which reframes the click count the brief expected to be about approvals |
+| 9. Regenerate and reconcile | `CURRENT_STATE.md` regenerated, every diff hunk reconciled against a phase, the standing rule recorded | **The reconciliation found a defect in the generator, not the configuration**: Phase 3 declared its key set as a `Set`, the spread resolver handled only literal arrays, and the file reported 35 of an allowlist's 40 keys. **This is the phase justifying its own existence.** 9.4 costed and declined with a measured reason: 6 commits this round touch a configuration source and 1 regenerates the file, so a per-commit check would be red for most of every round |
+
+### Three things only visible from the end of the round
+
+**1. The verification method produced findings twice, and neither came from
+a check running correctly.** The missing adjacency rule was found because a
+walkthrough script misused the mutating transition endpoint as a read probe,
+skipped a stage, and **succeeded**. The abandoned harness fixtures were found
+because two new invariants failed before anything had been injected into
+them. In both cases the instinct was that the tooling was broken, and in both
+cases the tooling was broken **and** the finding was real. A broken harness
+is a source of findings and should be read before it is fixed; correcting
+either one quietly would have buried a genuine defect.
+
+**2. Two defects would have shipped invisibly, in exactly the same shape:
+correct for every caller that existed, wrong for the use about to be built.**
+The migration ledger drifted from the schema with no symptom, and did no
+damage only because the two replayed migrations happened to guard their
+writes - an unguarded `INSERT`, which is an entirely normal way to write a
+migration whose ledger entry is supposed to guarantee single execution, would
+have duplicated gate rules silently. And `complete-document` hardcoded
+`status = 'approved'`, which was correct for every caller it had, and became
+a gate bypass the moment a URL field was added. **Neither would have appeared
+as a regression**: no test would have broken, because nothing was broken
+until the new use arrived. Both are arguments for guarding against the
+mechanism rather than against today's callers, which is why CLAUDE.md gained
+two rules this round rather than one.
+
+**3. Every gate rule was individually correct and every test passed, and the
+lifecycle still could not be completed.** At the close of Phase 4 the
+configuration was right, the automated suite was green, and the orphaned-rule
+invariant passed - and a Test Bed could not be driven from Qualification to
+Closed, because gate rules are keyed on `(from, to)` pairs and nothing was
+checking which pairs had rules at all. The hole was in the space between the
+rules, and every check in place was a check *on* rules. **A workflow that has
+never been completed end to end is not a workflow, it is a set of rules each
+tested alone.** Driving it once, by the person who configured it, was the
+cheapest possible way to learn that.
+
+### Open, carried forward
+
+1. **Terminus accountability fields.** A Test Bed can reach Closed with no
+   Terminus Lead and no Commercial, Technical or Legal Authority recorded.
+   Recommendation carried and not built: one `payload_field_required` rule on
+   transition 1 for **Terminus Lead**; the three Authority fields left open
+   until approval entitlement exists, since requiring a field that cannot yet
+   be enforced against is how documents come to describe absent controls.
+2. **The three Round 10 UI candidates**: return to the Reference tab on every
+   transition; the exit criteria panel lagging the server by one refresh;
+   buyer-role `select` ids containing spaces.
+3. **Customer Documents and Google Drive, Round 11.** Customer Documents was
+   removed from the stage tabs this round rather than left pointing at
+   Terminus's own data. The concept does not exist in the system and arrives
+   on the Reference tab with the Drive work.
+4. **Harness `record_type` accumulation.** 90 distinct synthetic types and
+   1,077 soft-deleted rows. The same shape as the counter-accumulation
+   finding, whose fix - a separate keyspace - was never applied to the second
+   place the fault lives.
+5. **Teardown that only runs on the happy path.** `Fixtures.teardown()` sits
+   in an `after` hook, so a run that aborts in `before` abandons everything it
+   had already created. The harness should reconcile by run tag at startup,
+   or sweep abandoned tags.
+6. **Two candidates, both costed and declined with measured reasons**: the
+   migration-ledger parity invariant, which needs either a new `public` view
+   or a CLI dependency and a third credential; and the 9.4 `CURRENT_STATE.md`
+   staleness gate, worth building as a merge-to-`main` or release check
+   rather than per commit.
+7. **`routing_rules` is referenced by nothing anywhere in the system.** Zero
+   rows since the schema was created, and with the `Senior` rule gone it has
+   no consumer at all - no gate rule, no route, no frontend path. It should be
+   treated as unbuilt design, not as configuration awaiting rows.
+8. **Approval entitlement remains unenforced**, deliberately and unchanged.
+   An approval proves a tick happened, not that the entitled person made it.
+   Item 1 above is the half of this that can be answered without it.
