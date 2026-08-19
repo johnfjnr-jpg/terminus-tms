@@ -824,6 +824,10 @@ export default async function testBedsRoutes(app) {
       .select('id, variant, status')
       .eq('parent_record_id', bed.id)
       .eq('record_type', 'document')
+      // Round 11 Phase 6: Terminus's own documents only. Read POSITIVELY
+      // rather than by excluding customer ones, so a new kind added later
+      // is invisible here until someone decides otherwise.
+      .eq('document_kind', 'terminus')
       .is('deleted_at', null)
 
     if (docsErr) {
@@ -916,6 +920,12 @@ export default async function testBedsRoutes(app) {
       .select('id, variant, status, created_at')
       .eq('parent_record_id', bed.id)
       .eq('record_type', 'document')
+      // Round 11 Phase 6. THE ONE THAT ABSENCE COULD NOT HAVE COVERED: this
+      // panel is union-not-intersection by design, surfacing any variant the
+      // catalogue does not name under its own heading rather than dropping
+      // it. Customer Documents are excluded by being a different KIND, not
+      // by having an unrecognised name.
+      .eq('document_kind', 'terminus')
       .is('deleted_at', null)
     if (kidsErr) return reply.code(500).send({ error: kidsErr.message })
 
@@ -1027,6 +1037,11 @@ export default async function testBedsRoutes(app) {
       .select('id')
       .eq('parent_record_id', bed.id)
       .eq('record_type', 'document')
+      // Round 11 Phase 6: without this, two Customer Documents sharing a
+      // name would make .maybeSingle() ERROR rather than misbehave quietly,
+      // and Customer Documents are named by a person so collision is a
+      // realistic input rather than a theoretical one.
+      .eq('document_kind', 'terminus')
       .eq('variant', document_type)
       .maybeSingle()
 
@@ -1059,6 +1074,7 @@ export default async function testBedsRoutes(app) {
           parent_record_id: bed.id,
           status,
           variant: document_type,
+          document_kind: 'terminus',
           owner_id: request.user.id
         })
         .select()
@@ -1541,6 +1557,130 @@ export default async function testBedsRoutes(app) {
     })
 
     return reply.code(201).send({ criterion: crit.criterion_key, entry, entries: existing.length + 1 })
+  })
+
+  // GET  /api/test-beds/:id/customer-documents
+  // POST /api/test-beds/:id/customer-documents
+  // DELETE /api/test-beds/:id/customer-documents/:docId
+  //
+  // Round 11 Phase 6, 2026-08-19. Client-supplied reference material: site
+  // drawings, QHSE guidelines, anything Terminus needs from the client's
+  // side. A pasted URL, not an upload - Round 14 replaces the paste with a
+  // real upload and must not need to change this record structure to do it,
+  // which is why the URL lives in document_details exactly as a Terminus
+  // document's does.
+  //
+  // THE NAME IS NOT AN IDENTIFIER HERE, and that is the deliberate difference
+  // from complete-document. That endpoint upserts by (parent, variant), so a
+  // second document of the same name updates the first. These are named by a
+  // person, so two files genuinely called "Site drawings" are two documents:
+  // each POST creates a row, and the row id is what addresses it. Keying by
+  // name would silently overwrite one client file with another.
+  app.get('/test-beds/:id/customer-documents', async (request, reply) => {
+    const db = createUserClient(request.jwt)
+    const { data: docs, error } = await db
+      .from('records')
+      .select('id, variant, status, created_at')
+      .eq('parent_record_id', request.params.id)
+      .eq('record_type', 'document')
+      .eq('document_kind', 'customer')
+      .is('deleted_at', null)
+      .order('created_at', { ascending: true })
+    if (error) {
+      request.log.error({ err: error }, 'failed to list customer documents')
+      return reply.code(500).send({ error: error.message })
+    }
+    if (!docs.length) return []
+
+    const { data: locations, error: locErr } = await db
+      .from('document_details').select('record_id, document_location')
+      .in('record_id', docs.map(d => d.id))
+    if (locErr) {
+      request.log.error({ err: locErr }, 'failed to read customer document locations')
+      return reply.code(500).send({ error: locErr.message })
+    }
+    const byId = Object.fromEntries((locations ?? []).map(l => [l.record_id, l.document_location]))
+    return docs.map(d => ({ id: d.id, name: d.variant, url: byId[d.id] ?? null, created_at: d.created_at }))
+  })
+
+  app.post('/test-beds/:id/customer-documents', async (request, reply) => {
+    const { name, url } = request.body ?? {}
+    if (!String(name ?? '').trim()) return reply.code(400).send({ error: 'name is required' })
+    if (!String(url ?? '').trim()) return reply.code(400).send({ error: 'url is required' })
+    // Deliberately permissive about the URL itself beyond requiring a real
+    // scheme: this is a link to somebody else's system and guessing at what
+    // shapes are legitimate would reject real ones, which is the same
+    // reasoning that kept the mobile validator from checking number plans.
+    if (!/^https?:\/\/\S+$/i.test(String(url).trim())) {
+      return reply.code(400).send({ error: 'url must start with http:// or https://' })
+    }
+
+    const db = createUserClient(request.jwt)
+    const { data: bed, error: bedErr } = await db
+      .from('records').select('id')
+      .eq('id', request.params.id).eq('record_type', 'test_bed').is('deleted_at', null).maybeSingle()
+    if (bedErr) return reply.code(500).send({ error: bedErr.message })
+    if (!bed) return reply.code(404).send({ error: 'test bed not found' })
+
+    // status 'received', not 'approved' and not 'draft'. These gate nothing,
+    // so a status borrowed from the approval vocabulary would be a claim
+    // about a review that never happens. Confirmed with the business.
+    const { data: doc, error: insErr } = await db
+      .from('records')
+      .insert({
+        record_type: 'document',
+        document_kind: 'customer',
+        parent_record_id: bed.id,
+        status: 'received',
+        variant: String(name).trim(),
+        owner_id: request.user.id,
+      })
+      .select('id, variant, created_at')
+      .single()
+    if (insErr) {
+      request.log.error({ err: insErr }, 'failed to create customer document')
+      return reply.code(500).send({ error: insErr.message })
+    }
+
+    const { error: locErr } = await db.from('document_details')
+      .upsert({ record_id: doc.id, document_location: String(url).trim() }, { onConflict: 'record_id' })
+    // Checked, per the standing rule and the Round 9 Phase 6.1 instance: an
+    // unchecked write returns success with nothing stored, and here the URL
+    // is the entire point of the record.
+    if (locErr) {
+      request.log.error({ err: locErr }, 'failed to store customer document location')
+      return reply.code(500).send({ error: locErr.message })
+    }
+
+    await db.from('audit_log').insert({
+      record_id: bed.id, record_type: 'test_bed', action: 'customer_document_added',
+      actor_id: request.user.id, detail: { document_id: doc.id, name: doc.variant },
+    })
+    return reply.code(201).send({ id: doc.id, name: doc.variant, url: String(url).trim(), created_at: doc.created_at })
+  })
+
+  app.delete('/test-beds/:id/customer-documents/:docId', async (request, reply) => {
+    const db = createUserClient(request.jwt)
+    // SOFT delete, never hard. records carries ON DELETE RESTRICT references
+    // and the standing rule is explicit, so this sets deleted_at and the
+    // affected rows are checked rather than the error alone - a filtered
+    // update returns zero rows with no error.
+    const { data: updated, error } = await db
+      .from('records')
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('id', request.params.docId)
+      .eq('parent_record_id', request.params.id)
+      .eq('record_type', 'document')
+      .eq('document_kind', 'customer')
+      .select('id')
+    if (error) return reply.code(500).send({ error: error.message })
+    if (!updated?.length) return reply.code(404).send({ error: 'customer document not found' })
+
+    await db.from('audit_log').insert({
+      record_id: request.params.id, record_type: 'test_bed', action: 'customer_document_removed',
+      actor_id: request.user.id, detail: { document_id: request.params.docId },
+    })
+    return reply.send({ ok: true })
   })
 
   // PATCH /api/test-beds/:id/installer

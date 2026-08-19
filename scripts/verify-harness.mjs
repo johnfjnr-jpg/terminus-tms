@@ -95,9 +95,14 @@ export class Fixtures {
     // Deliberately absent: reference_number_counters. See teardown().
   }
 
-  async createRecord({ record_type, status, variant = null, parent_record_id = null, owner_id }) {
+  // document_kind added Round 11 Phase 6. This signature DESTRUCTURES a fixed
+  // key set, so anything a caller passes that is not named here is silently
+  // dropped - which is what happened first: the three document fixtures were
+  // given a kind, the harness discarded it, and the CHECK constraint rejected
+  // them exactly as before. A fixed destructure is a quiet allowlist.
+  async createRecord({ record_type, status, variant = null, parent_record_id = null, owner_id, document_kind = null }) {
     const { data, error } = await this.db.from('records')
-      .insert({ record_type, status, variant, parent_record_id, owner_id })
+      .insert({ record_type, status, variant, parent_record_id, owner_id, document_kind })
       .select('id, record_type, variant, status, parent_record_id')
       .single()
     if (error) throw new Error(`fixture createRecord failed: ${error.message}`)

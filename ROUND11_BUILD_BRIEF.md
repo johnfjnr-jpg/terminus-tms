@@ -622,6 +622,19 @@ Extend `config-invariants.test.mjs`.
    definition a score can point at.
 3. **The rule count assertion updates to the measured figure**, scoped to
    `record_type = 'test_bed'` explicitly, per Round 9's precedent.
+5. **ADDED during Phase 6. No live `document` record has a null
+   `document_kind`.** The column's CHECK constraint is added `NOT VALID`, so
+   it exempts every row that existed before it and only governs writes from
+   that moment on. **That exemption is a data property and therefore
+   assertable**, unlike the reader-side discipline it sits beside: a backfill
+   that missed rows, or a legacy row resurfacing through a restore, produces
+   a document that appears in neither the Terminus queries nor the Customer
+   Documents query, which is invisible rather than wrong.
+
+   Scoped to LIVE rows deliberately. Soft-deleted documents predating the
+   column are history and re-writing them would contradict the immutability
+   decision for no gain.
+
 4. **ADDED during Phase 2. Every custom property used in `style.css` is
    defined in it.** `grep -oE "var\(--[a-z-]+\)"` against the definitions
    list, as a test rather than a check someone remembers to run.

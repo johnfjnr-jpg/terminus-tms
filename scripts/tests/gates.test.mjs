@@ -83,7 +83,7 @@ test('document_status: blocks until a child document record matches name and sta
 
   // A document at the wrong status must NOT clear the gate.
   const draft = await fx.createRecord({
-    record_type: 'document', variant: 'NDA', status: 'draft',
+    record_type: 'document', document_kind: 'terminus', variant: 'NDA', status: 'draft',
     parent_record_id: rec.id, owner_id: ownerId,
   })
   const stillBlocked = await computeBlocking(db, rec, FROM, TO, 1, {})
@@ -288,7 +288,7 @@ test('child_record_status clears when a matching child exists', async () => {
 
   // Wrong status must NOT satisfy it.
   const doc = await fx.createRecord({
-    record_type: 'document', variant: 'NDA', status: 'draft',
+    record_type: 'document', document_kind: 'terminus', variant: 'NDA', status: 'draft',
     parent_record_id: rec.id, owner_id: ownerId,
   })
   assert.equal((await computeBlocking(db, rec, FROM, TO, 1, {})).blocking.length, 1,
@@ -297,7 +297,7 @@ test('child_record_status clears when a matching child exists', async () => {
   // Wrong variant must NOT satisfy it either - no case folding, and no
   // matching a different document just because the type lines up.
   await fx.createRecord({
-    record_type: 'document', variant: 'nda', status: 'approved',
+    record_type: 'document', document_kind: 'terminus', variant: 'nda', status: 'approved',
     parent_record_id: rec.id, owner_id: ownerId,
   })
   assert.equal((await computeBlocking(db, rec, FROM, TO, 1, {})).blocking.length, 1,
@@ -343,7 +343,7 @@ test('child_record_status ignores a child of another parent', async () => {
     requirement_detail: { record_type: 'document', variant: 'NDA', status: 'approved' },
   })
   await fx.createRecord({
-    record_type: 'document', variant: 'NDA', status: 'approved',
+    record_type: 'document', document_kind: 'terminus', variant: 'NDA', status: 'approved',
     parent_record_id: other.id, owner_id: ownerId,
   })
   assert.equal((await computeBlocking(db, rec, FROM, TO, 1, {})).blocking.length, 1,

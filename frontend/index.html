@@ -1006,6 +1006,26 @@
           <p class="pg-card-title">Key Dates</p>
           <div id="tb-dates-rows"></div>
         </div>
+        <!-- Customer Documents, Round 11 Phase 6 (2026-08-19). A FIFTH card
+             in the same .ref-cards grid, so it flows onto the next row
+             beneath the existing four rather than being positioned by hand.
+             The brief asks for "to the right of Terminus Details and below
+             the Customer Details, Site Details and Key Dates panels", which
+             at 1920 means row 2 column 2; forcing that with an explicit
+             grid-column breaks at 1240 where the grid reflows to fewer
+             columns, so the natural flow position is used and the rendered
+             position is reported at each width instead. -->
+        <div class="pg-card">
+          <p class="pg-card-title">Customer Documents</p>
+          <p class="sub" style="margin-bottom:8px">Client-supplied material. These are the client's documents and gate nothing.</p>
+          <div id="tb-custdocs-list"></div>
+          <div id="tb-custdocs-add" style="margin-top:10px">
+            <input type="text" id="tb-custdoc-name" placeholder="Document name">
+            <input type="text" id="tb-custdoc-url" placeholder="https://..." style="margin-top:6px">
+            <button class="btn-sm" style="margin-top:8px" onclick="addTbCustomerDocument()">Add document</button>
+          </div>
+          <p id="tb-custdocs-feedback" class="tb-doc-feedback"></p>
+        </div>
       </div>
       <!-- Round 10A Phase 1 (2026-08-19): the Summary block that stood here
            is gone. It was the ORIGINAL one; Round 10 Phase 2 added a second

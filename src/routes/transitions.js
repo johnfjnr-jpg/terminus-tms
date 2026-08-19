@@ -164,6 +164,14 @@ export async function computeBlocking(db, record, from_stage, to_stage, currentR
         .select('id')
         .eq('parent_record_id', record.id)
         .eq('record_type', 'document')
+        // Round 11 Phase 6, and this is the load-bearing one. Nine
+        // document_status rules match on variant, and Customer Documents are
+        // NAMED BY A PERSON. Without this filter a client-supplied file
+        // called "NDA" would satisfy the NDA gate on transition 2: a
+        // document nobody at Terminus reviewed releasing a gate that exists
+        // to prove somebody did. Same outcome as Round 9 Phase 6.1, reached
+        // by naming rather than by status.
+        .eq('document_kind', 'terminus')
         .eq('variant', docName)
         .eq('status', reqStatus)
         .maybeSingle()

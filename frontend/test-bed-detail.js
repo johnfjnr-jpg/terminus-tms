@@ -292,6 +292,8 @@ function renderTbReference() {
 
   renderTbScores()
 
+  renderTbCustomerDocuments()
+
   renderTbNotes()
 
   // Key Dates. Round 7 Phase 5: Age relocates here from the removed header
@@ -439,6 +441,71 @@ function renderTbInstallSection() {
 
 let tbInstallerSearching = false
 let tbInstallerContacts = []
+
+// Customer Documents, Round 11 Phase 6 (2026-08-19). Client-supplied
+// reference material, distinguished from Terminus's own stage documents by
+// records.document_kind rather than by having a name no gate rule mentions.
+//
+// Rendered from the row id, never from the name: two client files genuinely
+// called "Site drawings" are two documents, so nothing here keys by variant.
+let tbCustomerDocs = []
+
+function tbCustDocFeedback(text, kind) {
+  const el = document.getElementById('tb-custdocs-feedback')
+  if (!el) return
+  el.textContent = text ?? ''
+  el.className = text ? `tb-doc-feedback${kind ? ' ' + kind : ''}` : 'tb-doc-feedback'
+}
+
+async function renderTbCustomerDocuments() {
+  const el = document.getElementById('tb-custdocs-list')
+  if (!el) return
+  const result = await api('GET', `/api/test-beds/${tbDetailId}/customer-documents`)
+  tbCustomerDocs = result.ok ? (result.data ?? []) : []
+
+  if (!tbCustomerDocs.length) {
+    el.innerHTML = '<p class="empty-state">No client documents yet.</p>'
+    return
+  }
+  el.innerHTML = tbCustomerDocs.map(d => `
+    <div class="tb-custdoc-row" data-doc-id="${escHtml(d.id)}">
+      <div style="flex:1;min-width:0">
+        <div class="tb-custdoc-name">${escHtml(d.name)}</div>
+        <a class="tb-custdoc-url" href="${escHtml(d.url ?? '')}" target="_blank" rel="noopener noreferrer">${escHtml(d.url ?? '')}</a>
+      </div>
+      <button class="btn-text" onclick="removeTbCustomerDocument('${escHtml(d.id)}')">Remove</button>
+    </div>`).join('')
+}
+
+window.addTbCustomerDocument = async function () {
+  const nameEl = document.getElementById('tb-custdoc-name')
+  const urlEl = document.getElementById('tb-custdoc-url')
+  const name = nameEl.value.trim()
+  const url = urlEl.value.trim()
+  tbCustDocFeedback('')
+  if (!name || !url) {
+    tbCustDocFeedback('A name and a link are both required.', 'err')
+    return
+  }
+  const result = await api('POST', `/api/test-beds/${tbDetailId}/customer-documents`, { name, url })
+  if (!result.ok) {
+    tbCustDocFeedback(result.data?.error ?? 'Could not add the document.', 'err')
+    return
+  }
+  nameEl.value = ''
+  urlEl.value = ''
+  await renderTbCustomerDocuments()
+}
+
+window.removeTbCustomerDocument = async function (docId) {
+  tbCustDocFeedback('')
+  const result = await api('DELETE', `/api/test-beds/${tbDetailId}/customer-documents/${docId}`)
+  if (!result.ok) {
+    tbCustDocFeedback(result.data?.error ?? 'Could not remove the document.', 'err')
+    return
+  }
+  await renderTbCustomerDocuments()
+}
 
 function tbInstallerFeedback(text, kind) {
   const el = document.getElementById('tb-installer-feedback')
