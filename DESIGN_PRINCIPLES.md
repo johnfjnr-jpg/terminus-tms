@@ -1832,3 +1832,32 @@ Explicitly deferred, not forgotten, not a section number of its own since this i
   **The walkthrough produced an argument from use, pointing the same way.** Eight hesitations were recorded across five scored criteria, and **zero on the confirmation**. It was answered without pausing, in the same session, by the same person, against the same engagement. **The thing that was easy was the thing with no scale**, and the things that were hard were the things whose anchors are conjunctions.
 
   **Worth recording because the two arguments are independent.** A decision defended only by the reasoning that produced it is defended once; this one now has evidence from a source that could have contradicted it and did not. It also sharpens the structural finding above: the difficulty was not in judging the engagement, which was the same engagement throughout, **it was in mapping a judgement onto a scale whose endpoints are compound and whose middle is undescribed.**
+
+- **Round 11A, 2026-08-19: `.find()` where `.filter()` was meant, and it cost the business four-fifths of a save. The fault is one character of intent and the shape is worth more than the fix.**
+
+  `saveTbFields` intercepted scores with `dirtyEntries.find(...)`, took **one**, and passed every other dirty entry to `saveTbDirtyEntries`, which PATCHes them as ordinary payload fields. **The score keys are deliberately absent from `TEST_BED_WRITABLE_KEYS`** - that absence is what makes the series append-only - so the PATCH was rejected with "payload contains fields that cannot be set from this endpoint", **and it took any unrelated dirty field down with it.**
+
+  **Round 11 never exercised it, and the reason is the lesson.** Phase 8 drove a full end-to-end walkthrough, scored all five criteria, re-scored three, and passed. Its `score()` helper set one draft and pressed Save, then the next. **The driver was written by the person who wrote the interception, and it exercised the shape the code was written for rather than the shape a person would use.** Scoring five things and pressing Save once is the obvious way to use a panel with five controls and one Save button; it was never tried.
+
+  **The general form, and it is not "test more": a driver written alongside the feature inherits the author's model of how the feature is used.** Phase 8 asked whether a person could apply the anchors, which was the right question and produced the round's best finding, and it drove the interaction one criterion at a time because that is how the code was built to work. **A walkthrough proves the path it walks. It does not discover that a different path exists.** The cheapest guard is to state, before writing the driver, how many of a thing a user would do before saving, and drive that number.
+
+- **Partial failure across N appends is a stated behaviour rather than whatever falls out, because it genuinely cannot be atomic. Round 11A Phase 1, 2026-08-19.** Each score is its own append to its own revision and `record_revisions` is immutable by design, so **there is no rollback available**: a recorded score is recorded. All-or-nothing is not on the menu, and pretending otherwise would be the real error.
+
+  The rule, in full: scores are attempted in panel order; a recorded score **stands**; on the first failure everything stops, the remaining scores are not attempted and the ordinary fields are **not** saved; everything not recorded stays dirty so the edit bar keeps it visible; and the message names what was recorded and what was not, by criterion name rather than payload key.
+
+  **Stopping rather than continuing is deliberate.** A failure here is far more likely to be systemic, an expired token or a dropped connection, than specific to one criterion, and pressing on turns one clear error into a list of them. **Not saving the fields is the other half**: leaving them dirty keeps the edit bar up, so what still needs doing is visible rather than silently half-applied.
+
+  Proven with three valid scores, a fourth deliberately invalid, a fifth never attempted, and an unrelated field dirty in the same save. Server-side afterwards: three recorded, two absent, the field untouched, and the message reading *"Recorded Rollout Path, Client Commitment, Clear Use Case Requirements and Metrics. Physical Suitability could not be recorded: a comment is required at a score of 1 or 2. Your other edits have not been saved and are still open."*
+
+- **Open item: a dirty edit crossing tabs is a real problem in its own right, and it is older than the fault that surfaced it. Round 11A Phase 2, 2026-08-19. Not fixed.** Once Phase 1 landed, the score-specific leak became harmless: scores go to their own endpoint from wherever Save is pressed, and the PATCH carries only the field. **The general case did not become harmless.**
+
+  `tbEdits` and the save bar are page-level and tabs are visibility only, so a field dirtied on one tab is saved by a Save pressed on another. Demonstrated with an invalid Est. Go Live date dirtied on Reference and a unit count edited on Commercials:
+
+      active tab: commercials
+      message: "estGoLiveDate cannot be in the past"
+      the offending field is visible on this tab: false
+      the valid unit-count edit: rejected along with it
+
+  **Three separate problems in one behaviour.** The message names a raw payload key rather than a label. The field it names is not on screen and the user has no way to reach it from the message. And a valid edit is refused because of an invalid one somewhere the user cannot see.
+
+  **Pre-existing, and by a long way.** The whole-batch PATCH dates to `7ae8a13`, Milestone 4, and fields were spread across tabs by `b5aa346`, Rounds 5 and 6. Round 11 did not cause it; scoring merely provided a route that made it visible. **Recorded rather than fixed because the fix is a design decision** - per-tab save bars, or a save that names and links its failures, or validation before submit - and this is a two-phase fix round.

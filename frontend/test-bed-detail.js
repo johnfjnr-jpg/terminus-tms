@@ -1227,50 +1227,104 @@ function tbScoreSeries(key) {
 // the entry. The server enforces both rules independently, so this is the
 // affordance rather than the guarantee - a caller bypassing the browser gets
 // the same 400.
-async function recordTbScore(key, draft, remainingDirtyEntries) {
-  const crit = tbScoringCriteria.find(c => c.criterion_key === key)
-  const score = Number(draft)
-  const comment = tbScoreComments[key] ?? ''
-  const isRevision = tbScoreSeries(key).length > 0
+// Records EVERY dirty score, one at a time, then saves whatever else was
+// dirty in the same Save click.
+//
+// PARTIAL FAILURE IS A STATED BEHAVIOUR, not whatever falls out, because
+// this operation genuinely cannot be atomic. Each score is its own append to
+// its own revision, and record_revisions is immutable by design, so there is
+// no rollback available: a score that has been recorded is recorded.
+//
+// The rule, in full:
+//
+//   * Scores are attempted in panel order.
+//   * A recorded score STANDS. It is never retracted, because it cannot be.
+//   * On the FIRST failure, everything stops. The remaining scores are not
+//     attempted and the ordinary fields are NOT saved.
+//   * Everything not recorded stays dirty in the edit bar, so the user can
+//     correct the problem and press Save again.
+//   * The message names what was recorded and what was not, by criterion.
+//
+// Stopping rather than continuing is the deliberate half. A failure here is
+// far more likely to be systemic (auth expired, network gone) than specific
+// to one criterion, and pressing on would turn one clear error into a list of
+// them. Not saving the fields is the other half: leaving them dirty keeps the
+// edit bar up, so what still needs doing is visible rather than silently
+// half-applied.
+async function recordTbScores(scoreEntries, otherDirtyEntries) {
+  const feedback = document.getElementById('tb-save-feedback')
+  const recorded = []
 
-  const finish = async () => {
-    delete tbEdits[key]
-    delete tbScoreComments[key]
-    if (remainingDirtyEntries.length) await saveTbDirtyEntries(remainingDirtyEntries)
-    else await loadTestBedDetail(tbDetailId)
-  }
+  for (const [key, entry] of scoreEntries) {
+    const crit = tbScoringCriteria.find(c => c.criterion_key === key)
+    const name = crit?.name ?? key
+    const score = Number(entry.draft)
+    const comment = tbScoreComments[key] ?? ''
+    const isRevision = tbScoreSeries(key).length > 0
 
-  const post = async (reason) => {
-    const body = { criterion: key, score }
-    if (comment.trim()) body.comment = comment.trim()
-    if (reason) body.reason = reason
-    const result = await api('POST', `/api/test-beds/${tbDetailId}/scores`, body)
-    return { ok: result.ok, error: result.data?.error }
-  }
+    const post = async (reason) => {
+      const body = { criterion: key, score }
+      if (comment.trim()) body.comment = comment.trim()
+      if (reason) body.reason = reason
+      const result = await api('POST', `/api/test-beds/${tbDetailId}/scores`, body)
+      return { ok: result.ok, error: result.data?.error }
+    }
 
-  if (!isRevision) {
-    const result = await post(null)
+    let result
+    if (isRevision) {
+      // A revision needs its own reason, so several revisions in one save
+      // means several dialogues in sequence. That is correct rather than
+      // tedious: one reason cannot describe two different changes, and the
+      // reason belongs on the entry.
+      result = await new Promise(resolve => {
+        window.requestChangeReason({
+          heading: `Revise ${name}`,
+          contextLabel: 'New score',
+          contextValue: String(score),
+          promptLabel: 'Reason for the change (required)',
+          confirmLabel: 'Save score',
+          emptyReasonError: 'A reason for the change is required.',
+          returnFocusTo: 'tb-save-all',
+          onConfirm: post,
+          onDone: () => resolve({ ok: true }),
+          // Cancelling the dialogue is a decision not to record THIS score,
+          // and it stops the run for the same reason a failure does: the user
+          // has stepped out of the flow deliberately.
+          onCancel: () => resolve({ ok: false, cancelled: true }),
+        })
+      })
+    } else {
+      result = await post(null)
+    }
+
     if (!result.ok) {
-      const feedback = document.getElementById('tb-save-feedback')
-      feedback.textContent = result.error ?? 'Could not record the score.'
+      // The failing score stays DIRTY on purpose, so the edit bar still shows
+      // it and Save can be pressed again once the cause is fixed.
+      const done = recorded.length
+        ? `Recorded ${recorded.join(', ')}. `
+        : 'Nothing was recorded. '
+      const why = result.cancelled
+        ? `${name} was cancelled.`
+        : `${name} could not be recorded: ${result.error ?? 'unknown error'}`
+      const rest = otherDirtyEntries.length
+        ? ' Your other edits have not been saved and are still open.'
+        : ''
+      feedback.textContent = `${done}${why}${rest}`
       feedback.className = 'msg-error'
+      // Recorded scores are cleared; everything else stays dirty for a retry.
+      await loadTestBedDetail(tbDetailId)
       return
     }
-    await finish()
-    return
+
+    recorded.push(name)
+    delete tbEdits[key]
+    delete tbScoreComments[key]
   }
 
-  window.requestChangeReason({
-    heading: `Revise ${crit?.name ?? 'score'}`,
-    contextLabel: 'New score',
-    contextValue: String(score),
-    promptLabel: 'Reason for the change (required)',
-    confirmLabel: 'Save score',
-    emptyReasonError: 'A reason for the change is required.',
-    returnFocusTo: 'tb-save-all',
-    onConfirm: post,
-    onDone: finish,
-  })
+  // Every score landed. Now whatever else was dirty in the same click, saved
+  // through the identical path an ordinary save uses.
+  if (otherDirtyEntries.length) await saveTbDirtyEntries(otherDirtyEntries)
+  else await loadTestBedDetail(tbDetailId)
 }
 
 async function renderTbScores() {
@@ -1621,15 +1675,27 @@ async function saveTbFields() {
   // shape Round 3 Phase 3 built for Est. Close Date, and the reason this is
   // an interception rather than a separate "record score" button.
   //
-  // Any other dirty fields from the same Save click are HELD until the score
-  // is recorded, then saved together in one action. That is Est. Close
+  // Any other dirty fields from the same Save click are HELD until the scores
+  // are recorded, then saved together in one action. That is Est. Close
   // Date's own behaviour, and it is what keeps Cancel honest: cancelling the
   // dialogue leaves every edit exactly where it was, including this one.
+  //
+  // ROUND 11A PHASE 1: `.filter()`, NOT `.find()`. The original took ONE score
+  // and passed every other dirty entry to saveTbDirtyEntries, which PATCHes
+  // them as ordinary payload fields - and the score keys are deliberately
+  // absent from TEST_BED_WRITABLE_KEYS, which is what makes the series
+  // append-only. So scoring N criteria and pressing Save once recorded the
+  // first and rejected the rest with "payload contains fields that cannot be
+  // set from this endpoint", taking any unrelated dirty field down with them.
+  //
+  // Found by the business in use. It was never exercised in Round 11 because
+  // Phase 8's own driver scored one criterion and saved, then the next, which
+  // is not how anyone uses it.
   const scoreKeys = tbScoreKeys()
-  const scoreEntry = dirtyEntries.find(([key]) => scoreKeys.has(key))
-  if (scoreEntry) {
-    await recordTbScore(scoreEntry[0], scoreEntry[1].draft,
-      dirtyEntries.filter(([key]) => key !== scoreEntry[0]))
+  const scoreEntries = dirtyEntries.filter(([key]) => scoreKeys.has(key))
+  if (scoreEntries.length) {
+    await recordTbScores(scoreEntries,
+      dirtyEntries.filter(([key]) => !scoreKeys.has(key)))
     return
   }
 

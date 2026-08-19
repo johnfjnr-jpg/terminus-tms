@@ -12,8 +12,8 @@ Contains no environment variable, key or token, and no client data. Records
 appear as counts by status only, never by name or reference code, because
 this file is uploaded into chat sessions.
 
-- Generated at: `2026-08-19T12:26:45.640Z`
-- Git commit: `40e3392a561838721cae58de76f43a03b73c1f34`
+- Generated at: `2026-08-19T13:12:41.616Z`
+- Git commit: `194e6fa1606ef885b8b35f2bbee72a3eb05c93e6`
 - Working tree at generation: `dirty (uncommitted changes present)`
 
 If the commit above is not current `HEAD`, this file is stale and is
@@ -208,16 +208,16 @@ _None._
 
 ## Record counts by type and status
 
-65 live, 3042 soft deleted, 3107 rows in total.
+66 live, 3139 soft deleted, 3205 rows in total.
 
 | record_type | status | live | soft deleted |
 |---|---|---|---|
-| account | active | 7 | 162 |
+| account | active | 7 | 164 |
 | contact | Parked | 0 | 2 |
 | contact | Qualified | 9 | 115 |
 | contact | Unqualified | 1 | 53 |
-| document | approved | 38 | 347 |
-| document | received | 0 | 3 |
+| document | approved | 38 | 359 |
+| document | received | 1 | 3 |
 | opportunity | Discovery | 3 | 40 |
 | opportunity | Negotiation | 0 | 1 |
 | opportunity | Proposal | 0 | 1 |
@@ -225,7 +225,7 @@ _None._
 | test_bed | Installation and Commissioning | 0 | 1 |
 | test_bed | Monitoring and Analysis | 0 | 1 |
 | test_bed | Pre-Site Assessment | 0 | 3 |
-| test_bed | Qualification | 3 | 134 |
+| test_bed | Qualification | 3 | 139 |
 | test_bed | Site Assessment | 0 | 3 |
 
 ### Test fixture record types
@@ -236,19 +236,19 @@ row by row, and are included in the totals above.
 
 | distinct `harness_*` record types | live rows | soft deleted rows |
 |---|---|---|
-| 174 | 0 | 2169 |
+| 180 | 0 | 2247 |
 
 No harness record type holds a live row; every fixture row is soft deleted.
 
 ## `approvals`
 
-160 rows, of which 0 carry a null `stage`.
+162 rows, of which 0 carry a null `stage`.
 
 | decision | track | rows | null stage |
 |---|---|---|---|
-| approved | Commercial | 64 | 0 |
+| approved | Commercial | 65 | 0 |
 | approved | Legal | 37 | 0 |
-| approved | Technical | 59 | 0 |
+| approved | Technical | 60 | 0 |
 
 ## Writable-key allowlists
 
