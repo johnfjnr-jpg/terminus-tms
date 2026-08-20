@@ -70,6 +70,23 @@ not resolve it quietly.
    headings, then confirm each one has an explicit sign-off; a heading
    that is shared context rather than a phase is stated as such.
 
+8. **Fix the class, not the instance the failure happened to name.** Round
+   13 Phase 0, 2026-08-20, found by the next round rather than by the round
+   that caused it. Round 12's final merge hit three failing invariants
+   naming four orphaned `stage_gate_rules` rows left by a test run killed
+   mid-flight. Those four rows were deleted, the suite went green, and the
+   round was signed off on that basis. **The same killed run had also left
+   six live `harness_*` records**, which nothing asserted against at that
+   moment and which therefore went unnoticed for a full round, falsifying
+   `CURRENT_STATE.md`'s own printed claim that "No harness record type holds
+   a live row" the entire time.
+
+   **The fix was scoped to what the assertion named rather than to what the
+   event did.** A killed run leaves whatever it had created, not whatever the
+   first failing check happens to mention. When residue is found, enumerate
+   everything the responsible actor writes and check all of it, and re-assert
+   the claims that depend on it rather than only the one that fired.
+
 ---
 
 ## Architecture
@@ -211,6 +228,30 @@ not resolve it quietly.
     counter deleted while a soft-deleted record still holds a code from it
     restarts and collides, which has happened. Confirm teardown by
     re-querying `deleted_at`, never by trusting the delete's own result.
+
+12. **A tool that returns empty rather than erroring produces output
+    indistinguishable from a true negative.** Round 13 Phase 0, 2026-08-20.
+    `scripts/state-dump.mjs` holds two literal NUL bytes at lines 500 and
+    561, used as composite-key separators inside template literals. `file`
+    reports the file as `data`, and **plain `grep` therefore matches nothing
+    in it, silently and with exit status 1**, which is the same answer it
+    gives for a pattern that genuinely is not there. Use `grep -a` on that
+    file.
+
+    **This nearly produced a published wrong conclusion.** Searching the
+    generator for `scoring_criteria` returned nothing, and the reading that
+    follows from that is "the generator does not record the scoring tables",
+    which is false and was about to be reported as a finding. The real answer
+    is the opposite: it records them and simply omits one column. What caught
+    it was noticing that a file `head` could read was a file `grep` could not.
+
+    **The general rule, which outlives this one file:** when a search returns
+    nothing, the possibilities are that the thing is absent OR that the search
+    did not run. Those are different, and most tools do not distinguish them
+    for you. Before reporting an absence, confirm the search can find
+    something you already know is there. Same family as Architecture rule 9,
+    where a failure output that does not change is evidence the change never
+    reached the code path.
 
 ---
 

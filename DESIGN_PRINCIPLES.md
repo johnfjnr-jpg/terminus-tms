@@ -1831,6 +1831,19 @@ Explicitly deferred, not forgotten, not a section number of its own since this i
 
   **What the review might consider, offered as options rather than a recommendation**, since the business owns this: scoring the conditions individually and deriving the number; naming which condition is load-bearing at each level so a partial match has a rule; or giving 2 and 4 real wording so the middle is described rather than interpolated. **All three are row changes, not build changes**, which is the design decision that has held up.
 
+- **Test Bed creation reaches the naming dialogue from every browser path, and two server branches are not covered by that. Round 13 Phase 0, 2026-08-20.**
+
+  **Recorded because the business reported a fault here and then withdrew it, and the withdrawal closes their report rather than the question.** They said creating a Test Bed named it after the Company with no chance to edit, then corrected themselves that renaming works.
+
+  **The browser answer is clean, established by driving both paths rather than by reading them.** There are two entry points, the Contacts list hover "+ Create" dropdown and the Contact detail page's own Test Bed button, and both open the dialogue with the suffixed default pre-filled and fully pre-selected. Both funnel through one choke point, `startCreateFromContact`, which for a Test Bed always opens the dialogue; the duplicate-record warning routes into the same function via `onProceed`, and the dialogue refuses a blank name, so clearing the field cannot bypass it either. **One choke point is why this is safe, and it is worth naming as the reason rather than the coincidence.**
+
+  **Two server-side branches sit outside that guarantee, and this is Architecture rule 8 in its exact form: correct for every caller that exists.**
+
+  - `POST /contacts/:id/create-test-bed` treats `name` as optional and, when it is absent, silently applies the suffixed default. That branch is deliberate and documented, kept so existing tests and direct API callers keep the pre-Round-10 behaviour. It is also the branch a future caller inherits without knowing the dialogue exists.
+  - `POST /test-beds` requires a name, and **has no browser caller at all**. It cannot produce an unnamed record, so it is not a naming risk; it is a second creation endpoint that nothing in the product exercises.
+
+  **Recorded, not fixed.** Nothing is broken today and no phase of Round 13 depends on it. The value of the record is that the next person to add a creation path meets this note rather than the fault, which is the whole point of rule 8.
+
 - **The framing for the business review, and the measurement that earns it. Round 12, 2026-08-20.**
 
   **The instrument makes its own gap legible, and no row edit closes it.** Rendering the anchors at the point of scoring was built to answer "I am scoring blind", and it did something the walkthrough could only argue: it put the gap on screen, permanently, for every person who scores anything from now on. A scorer looking at Rollout Path sees a 5 asking for four things at once and, directly above it, a 4 that is blank.
