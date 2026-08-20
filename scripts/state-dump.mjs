@@ -399,8 +399,19 @@ w('')
 // defines. A wording change is then visible as a new version rather than as
 // a wall of text.
 {
+  // `asks` is included, Round 13 Phase 3. It is a configuration value that can
+  // change by row edit, and until this round it was not recorded here at all,
+  // so changing it produced no diff and the configuration changelog simply
+  // missed it. Note the ORDER this matters in: a row edit is only visible as a
+  // row edit if the column already exists in the baseline, so the column is
+  // added and committed BEFORE the value changes, not after.
+  //
+  // Unlike the anchor wording below, `asks` is printed in full. It is one
+  // short question per criterion, not a wall of provisional text, and it is
+  // the label a scorer reads, so a change to it is exactly the kind of thing
+  // the diff between rounds exists to surface.
   const crits = (await fetchAll(db, 'scoring_criteria',
-    'id, record_type, criterion_key, name, sort_order, rescore_through_stage'))
+    'id, record_type, criterion_key, name, asks, sort_order, rescore_through_stage'))
     .sort(by('record_type', 'sort_order', 'criterion_key'))
   const anchorRows = await fetchAll(db, 'scoring_anchors', 'criterion_id, version, score')
 
@@ -409,9 +420,9 @@ w('')
   w(`${crits.length} rows.`)
   w('')
   w(table(
-    ['record_type', 'sort_order', 'criterion_key', 'name', 'rescore_through_stage'],
+    ['record_type', 'sort_order', 'criterion_key', 'name', 'asks', 'rescore_through_stage'],
     crits.map(r => [cell(r.record_type), cell(r.sort_order), cell(r.criterion_key),
-                    cell(r.name), cell(r.rescore_through_stage)])
+                    cell(r.name), cell(r.asks), cell(r.rescore_through_stage)])
   ))
 
   w('## `scoring_anchors`')
