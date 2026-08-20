@@ -1169,6 +1169,11 @@ const TB_EXIT_CRITERION_KEYS = new Set([
 // discipline-not-a-property case the brief rejected.
 let tbScoresExpanded = {}
 let tbScoreComments = {}
+// Which criteria have their anchors revealed. Kept across re-renders because
+// renderTbScores rewrites innerHTML: without this the block would vanish the
+// moment a draft change re-rendered the panel, one interaction after the user
+// opened it.
+let tbScoreAnchorsOpen = {}
 
 // A score draft goes into tbEdits under the criterion key, so it is dirty in
 // exactly the same sense every other field is: the save bar appears, Cancel
@@ -1210,6 +1215,22 @@ window.setTbScoreComment = function (key, value) {
 // picked up without a code change.
 function tbScoreKeys() {
   return new Set(tbScoringCriteria.map(c => c.criterion_key))
+}
+
+// REVEALED WITHOUT RE-RENDERING, and that is the whole reason this is not a
+// call to renderTbScores. The panel renders by rewriting innerHTML, so
+// re-rendering on focus would destroy the very select the user just opened,
+// closing its dropdown as they reached for it. The flag is set for later
+// re-renders and the class is removed directly for this one.
+window.showTbScoreAnchors = function (key) {
+  tbScoreAnchorsOpen[key] = true
+  document.getElementById(`tb-anchors-${key}`)?.classList.remove('hidden')
+}
+
+// The wording for a given version, or an empty set. Versions are jsonb object
+// keys so they arrive as strings.
+function tbAnchorSet(criterion, version) {
+  return criterion?.anchors?.[String(version)] ?? {}
 }
 
 window.toggleTbScoreHistory = function (key) {
@@ -1485,6 +1506,8 @@ async function renderTbScores() {
         }</span>
         <select class="tb-score-select" id="tb-score-select-${escHtml(c.criterion_key)}"
                 aria-label="${escHtml(c.name)} score"
+                onfocus="showTbScoreAnchors('${escHtml(c.criterion_key)}')"
+                onmousedown="showTbScoreAnchors('${escHtml(c.criterion_key)}')"
                 onchange="setTbScoreDraft('${escHtml(c.criterion_key)}', this.value)">
           <option value="">${current ? 'Revise...' : 'Score...'}</option>
           ${options}
@@ -1500,6 +1523,35 @@ async function renderTbScores() {
     // dialogue. The dialogue asks one question, "why did this change", and
     // stays single-purpose the way Est. Close Date's did; the comment is
     // part of the score itself, not part of the change.
+    // THE ANCHORS, inline rather than on hover. Three reasons, recorded:
+    // they run to two or three sentences and a tooltip cannot hold that;
+    // hover does not exist on touch; and hiding the instrument behind a
+    // gesture makes consulting it optional, when the design intent is that
+    // scoring is a matching exercise rather than a recalled judgement.
+    //
+    // ALL FIVE VALUES ARE LISTED. 2 and 4 have no wording and are shown with
+    // none rather than hidden or given invented text. That is the honest
+    // rendering of what the data says, and it puts Round 11 Phase 8's
+    // structural finding in front of the person scoring: every 5 is a
+    // conjunction of three or four independent conditions, so an engagement
+    // that satisfies most and fails one has nowhere to land, and 2 and 4
+    // cannot carry a gap that is not one dimension.
+    //
+    // Informational, not a second control. The select remains the only way to
+    // set a score, so there is one write path rather than two that must agree.
+    const anchorSet = tbAnchorSet(c, c.current_version)
+    const anchorsBlock = `
+      <div class="tb-score-anchors${tbScoreAnchorsOpen[c.criterion_key] || pending !== '' ? '' : ' hidden'}"
+           id="tb-anchors-${escHtml(c.criterion_key)}">
+        ${c.asks ? `<p class="tb-score-asks">${escHtml(c.asks)}</p>` : ''}
+        ${[1,2,3,4,5].map(n => `
+          <div class="tb-score-anchor${anchorSet[n] ? '' : ' tb-score-anchor--nowording'}">
+            <span class="tb-score-anchor-n">${n}</span>
+            <span class="tb-score-anchor-text">${anchorSet[n] ? escHtml(anchorSet[n]) : ''}</span>
+          </div>`).join('')}
+        <p class="sub tb-score-anchor-ver">Version ${escHtml(String(c.current_version))}</p>
+      </div>`
+
     const commentBox = pending === '' ? '' : `
       <div class="tb-score-comment">
         <label for="tb-score-comment-${escHtml(c.criterion_key)}">Comment${Number(pending) <= 2 ? ' (required at 1 or 2)' : ' (optional)'}</label>
@@ -1507,7 +1559,7 @@ async function renderTbScores() {
                   oninput="setTbScoreComment('${escHtml(c.criterion_key)}', this.value)">${escHtml(tbScoreComments[c.criterion_key] ?? '')}</textarea>
       </div>`
 
-    if (!expanded) return `<div class="tb-score-row" data-criterion="${escHtml(c.criterion_key)}" data-entries="${series.length}">${head}${commentBox}</div>`
+    if (!expanded) return `<div class="tb-score-row" data-criterion="${escHtml(c.criterion_key)}" data-entries="${series.length}">${head}${anchorsBlock}${commentBox}</div>`
 
     // Newest first when reading history, which is how a person reads a
     // change log, while the stored series stays chronological.
@@ -1519,10 +1571,19 @@ async function renderTbScores() {
           e.stage ? ` at ${escHtml(e.stage)}` : ''
         } <span class="sub">v${escHtml(String(e.anchorVersion ?? '?'))}</span>${
           e.comment ? `<br>${escHtml(e.comment)}` : ''
-        }${e.reason ? `<br><em>Reason: ${escHtml(e.reason)}</em>` : ''}</span>
+        }${e.reason ? `<br><em>Reason: ${escHtml(e.reason)}</em>` : ''}${
+          // THE ENTRY RESOLVES AGAINST ITS OWN VERSION, not the current one.
+          // Printing "v1" beside a score is a label; showing the wording that
+          // score was actually chosen against is the thing the version column
+          // exists for. When the anchors are revised, an old entry keeps
+          // meaning what it meant, and that is visible rather than asserted.
+          tbAnchorSet(c, e.anchorVersion)[e.value]
+            ? `<br><span class="tb-score-entry-anchor">${escHtml(tbAnchorSet(c, e.anchorVersion)[e.value])}</span>`
+            : ''
+        }</span>
       </div>`).join('')
 
-    return `<div class="tb-score-row" data-criterion="${escHtml(c.criterion_key)}" data-entries="${series.length}">${head}${commentBox}<div class="tb-score-history">${rows}</div></div>`
+    return `<div class="tb-score-row" data-criterion="${escHtml(c.criterion_key)}" data-entries="${series.length}">${head}${anchorsBlock}${commentBox}<div class="tb-score-history">${rows}</div></div>`
   }).join('')
 }
 
