@@ -357,3 +357,170 @@ every phase has an explicit sign-off. A report cannot sign off the phase
 containing it.
 
 **State in the close-out whether this round edited `CLAUDE.md`.**
+
+---
+
+## Round 15 outcome
+
+Seven phases, 0 through 6, confirmed by
+`grep -n "^## Phase\|^### Phase"` returning 7 headings with no `###`
+sub-phases this round. Each of Phases 0 through 5 carries an explicit
+sign-off in the session transcript; Phase 6 is signed off by the message
+that commissioned this close-out, and the report containing it does not
+sign off its own phase.
+
+Shipped: a cross-field date rule, typing into a tabbed-to field, the end of
+`type="number"`, a cost summary panel, and one retitle.
+
+### THIS ROUND EDITED `CLAUDE.md`
+
+Three times, so **the next session must re-read it from disk** and treat the
+copy delivered at session start as a pointer to the file rather than as its
+content.
+
+1. **Verification 15 added** (Phase 2 sign-off). A criterion expressed as a
+   measurement at one viewport stops describing the thing it was written
+   about. Seven rounds re-measured the carried Total Cost item at 1920
+   because that is where Round 8 first took the number, while the problem
+   migrated to 1240.
+2. **Verification 4 sharpened** (Phase 5). Presence is not legibility, and
+   no assertion can tell them apart. It previously named only *visibly
+   broken* layouts; Phase 4 shipped a card that was not broken in any
+   respect a check can name.
+3. **Verification 11 sharpened** (Phase 5). Enumerate what to tear down from
+   the database, by a tag the fixtures carry, never from a file the harness
+   wrote.
+
+### The carried Round 8 item: measured at both widths, NOT resolved
+
+Eight rounds carried, and the first with a full measurement at both widths.
+`DESIGN_PRINCIPLES.md`'s page-density entry is updated and **left open**.
+
+| Viewport | Before | After | Below the fold |
+|---|---|---|---|
+| 1240 x 800 | 1143px | 1090px | 343px to **290px** |
+| 1920 x 950 | 1028px | 975px | 78px to **25px** |
+| 3440 x 1440 | 794px | 740px | above the fold throughout |
+
+53px at every width, which is the moved `Hosting x N months` row and nothing
+else. **Phase 4 does not resolve it and must not be read as progress against
+it.** The levers are unchanged and none is in the header: the page header,
+the workflow stage strip, the two tab rows, and the four input-rate panels,
+still the largest single consumer.
+
+Phase 0 found the criterion had inverted underneath seven rounds of
+measuring: at 1920 the gap had closed by 228px through the sticky tab row
+and the Reference grid work, changes made for other reasons, while at 1240
+it had become worse than it was ever recorded at 1920. Nobody attacked it
+and it moved anyway, in both directions at once.
+
+### The Site Details merge is DEFERRED TO ROUND 16, not dropped
+
+It was not in this round's scope and is not abandoned. **Round 16 carries it
+together with the sub-tab component**, which is the reason to do them
+together rather than separately: both change how the Reference tab is
+divided, and doing either alone would have to be partly undone by the other.
+
+### Record history is deferred for the SIXTH time, as a choice
+
+Not an oversight and not a backlog item that keeps missing the cut. Every
+round since Round 10 has had a more valuable use of its phases, and the
+deferral is recorded here rather than allowed to become invisible. It is
+worth deciding deliberately whether it is genuinely wanted, because a sixth
+deferral is evidence about its priority.
+
+### `CURRENT_STATE.md` reconciled
+
+Regenerated at `390981b`. Every changed line accounted for by a phase:
+
+- **The staleness header changed, and that is a Phase 6 finding.** The
+  generator emitted the pre-Round-10A rule, "if the commit above is not
+  current `HEAD`, this file is stale", for five rounds after `CLAUDE.md`
+  corrected it. **That check can never pass**: the file records the commit
+  it was generated at and is then committed, so it can never name its own
+  commit. This file is uploaded into chat sessions, so the superseded
+  version was the one that travelled. `scripts/state-dump.mjs` now emits the
+  two-part test and names `CLAUDE.md` as the authority.
+- **Configuration unchanged, confirmed against the database rather than
+  inferred from an absent diff line**: `stage_gate_rules` 61 total and 45 on
+  `test_bed`; `scoring_criteria` 5; `scoring_anchors` 15, all at version 1.
+  This round configured nothing.
+- **Record counts moved, and all of it is business activity or torn-down
+  fixtures.** Live 88 to 93: exactly the five records the business created.
+  Approvals 222 to 229: exactly their seven decisions.
+
+### Open item 23: the business used the app, and this time it was NOT branch code
+
+A different answer from the last two rounds, and it needed a different check
+to get. They used it substantively: 5 records created, 14 revisions, 7
+approvals, a Test Bed advanced to Installation and Commissioning and four
+documents approved.
+
+**All of it between 10:19 and 12:25 UTC. The first Round 15 code reached
+disk at 13:52 UTC.** Zero of their 14 revisions were written after that, so
+they exercised `main`, not this branch.
+
+**Counting new records would not have answered this.** Editing an existing
+record writes a revision and creates no record, which is most of what they
+did. The item stays open: the exposure is structural, since the dev server
+serves the frontend from disk, and this round it simply did not fire.
+
+### Fixture residue, found by the rule this round sharpened
+
+**Two orphaned fixture sets, from the same cause, one of them undetected for
+four phases.** Phase 4 rebuilt its fixture mid-phase and overwrote `f4.json`,
+leaving two records the teardown file no longer named; tearing down by
+database tag instead caught four where the file said two.
+
+Phase 6 then applied the same method round-wide and found **four more live
+records, `r15p2a`, the FIRST Phase 2 fixture**, orphaned when `f2.json` was
+overwritten with the `r15p2b` set. Phase 2, Phase 3, Phase 4 and Phase 5 had
+all reported clean teardowns in the meantime, because each read its own file.
+All four are now soft deleted and re-queried to zero.
+
+The lesson is Verification 11's new clause and it earned its place: a
+bookkeeping file records what you meant to create, and a clean 2/2 against an
+incomplete list is worse than no report at all.
+
+### Probe defects, and where they landed
+
+Every one was in the harness, not the product, and each was caught by a
+signal rather than by suspicion.
+
+- **Phase 3, three times over on the same measurement.** Arrow keys reported
+  0 of 59 changed on *unmodified* code, because `focus()` on a zero-rect
+  element is a silent no-op while `document.activeElement` still names it.
+  The uncalibrated zero appeared on the baseline, where it was obvious,
+  rather than on the result, where it would have been welcome.
+- **Phase 3, a survey that counted 42 where the census said 43.** The 43rd
+  was not an input but a *selector*, inside the function that stamped
+  `min`/`step` at runtime, which changed what the survey meant.
+- **Phase 4, an 11px discrepancy that was not noise.** The harness anchored
+  on the `.data-row` where Phase 0 anchored on the `span`; the difference was
+  the row's own `padding-top`. Writing it off would have made the carried
+  item's before and after incomparable.
+- **Phase 4, a totals check reporting three mismatches on correct figures**,
+  because it formatted the engine value with its own `Intl` call and compared
+  strings.
+- **Phase 4, `>` on a generator that writes its own file**, which clobbered
+  the header with the command's stdout.
+- **Phase 5 and Phase 2, waits satisfied by static markup.** The tab button,
+  `#tb-cost-breakdown` and `tb-display-summary` all exist before the record
+  loads.
+
+### Open, carried forward
+
+Round 14's twenty-six stand. Item 23 did not fire this round and stays open
+on structural grounds. Two added:
+
+27. **Twelve `.ref-field` rows and four wrappers overhang their container by
+    exactly 4px** on the Test Bed Commercials tab, identical at 1240, 1920
+    and 3440 and identical before and after Phase 4. Pre-existing, causes no
+    page scroll, and reported rather than fixed because it was outside every
+    phase's scope.
+28. **Opportunity and the Deal Sheet have no client-side numeric guard.**
+    Test Bed has `tbValidateNumeric`; the other two relied on the browser
+    refusing the keystrokes plus the server refusing the save. Phase 3
+    removed the first of those, so the server is now the only layer on those
+    surfaces. It does reject and it does surface the refusal, verified, but
+    the entry experience is now different between record types.
