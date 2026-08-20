@@ -265,7 +265,57 @@ Open the screenshots.
 
 ---
 
-## Phase 3: The anchors become visible
+## Phase 3: A read-only summary on Reference
+
+**BUILT OUT OF ORDER, and this note exists so rule 7's count at close-out
+reads an accurate list rather than a reconstructed one.**
+
+This was Phase 4 in the brief as amended after Phase 0, and the anchors phase
+was Phase 3. The reorder after Phase 0 moved five phase numbers, and the
+instruction that followed Phase 2 named "Phase 3" while describing the summary
+card, so the summary was built third and the anchors fourth. The brief is
+corrected here to match what was actually built, in that order, rather than
+recording an intent the work did not follow.
+
+**The anchors are deferred behind this, not dropped**, and they remain the
+round's most important item: they are what the business meant by "I am scoring
+blind". Nothing in the summary card depends on them, and nothing in the
+anchors phase depends on the summary card, so the swap costs nothing beyond
+this note.
+
+
+Confirmed with the business. Removing scoring from Reference entirely would
+mean a completed Test Bed's scores are only visible by opening the stage tab
+where each was recorded, which makes the record harder to read as a whole.
+
+### 3.1 Shape
+
+**A card in the existing `.ref-cards` grid**, under the same
+`minmax(280px, 420px)` cap as its neighbours. Not a full-width block. Five
+rows of criterion name and current score, compact enough that the name and
+its value sit close, consistent with every other panel on that tab.
+
+### 3.2 Read-only, and evidently so
+
+**A row that silently does nothing when clicked becomes a dead end the user
+keeps trying.** It must be evident that scoring happens on the stage tab.
+Choose the mechanism, state it, and do not build a control that looks
+operable and is not, which is the reasoning Round 11 Phase 5 used for the
+Tech Team dropdown when no Installer is set.
+
+**Test evidence required:** confirm the card sits in the grid with its
+neighbours at all three widths, container measured not element, no overflow.
+Confirm it renders every criterion including unscored ones, and that
+"Not scored" is distinguishable from a score. Confirm nothing on it is
+editable, asserted structurally as Round 10 Phase 7 did for the Closed
+panel: zero inputs, zero controls, zero click handlers. Open the
+screenshots.
+
+---
+
+---
+
+## Phase 4: The anchors become visible
 
 **The business scored a real prospect and reported "I am scoring blind."**
 Fifteen anchor rows exist, versioned, and nothing displays them at the point
@@ -273,7 +323,7 @@ of scoring, so the control is a 1-to-5 dropdown with no framework attached.
 An inexperienced salesperson choosing a number from that has exactly the
 problem the anchors were written to solve.
 
-### 3.1 Inline, not on hover
+### 4.1 Inline, not on hover
 
 The business suggested a hover popup. **Build it inline instead**, and
 record the reasoning:
@@ -299,7 +349,7 @@ work is to stop discarding it and render it. The request-count evidence below
 therefore has a known answer to confirm rather than a number to discover:
 **one call, at first render, and none thereafter.**
 
-### 3.2 What to expect
+### 4.2 What to expect
 
 This will make Round 11 Phase 8's structural finding visible immediately:
 every 5 anchor is a conjunction of three or four independent conditions,
@@ -318,39 +368,6 @@ the panel shows v2 while a historical entry still resolves to v1. Confirm
 anchors are not fetched per keystroke or per row render, and report the
 request count for opening the panel and scoring all five. Confirm the
 anchors do not truncate at 1240. Open the screenshots.
-
----
-
----
-
-## Phase 4: A read-only summary on Reference
-
-Confirmed with the business. Removing scoring from Reference entirely would
-mean a completed Test Bed's scores are only visible by opening the stage tab
-where each was recorded, which makes the record harder to read as a whole.
-
-### 4.1 Shape
-
-**A card in the existing `.ref-cards` grid**, under the same
-`minmax(280px, 420px)` cap as its neighbours. Not a full-width block. Five
-rows of criterion name and current score, compact enough that the name and
-its value sit close, consistent with every other panel on that tab.
-
-### 4.2 Read-only, and evidently so
-
-**A row that silently does nothing when clicked becomes a dead end the user
-keeps trying.** It must be evident that scoring happens on the stage tab.
-Choose the mechanism, state it, and do not build a control that looks
-operable and is not, which is the reasoning Round 11 Phase 5 used for the
-Tech Team dropdown when no Installer is set.
-
-**Test evidence required:** confirm the card sits in the grid with its
-neighbours at all three widths, container measured not element, no overflow.
-Confirm it renders every criterion including unscored ones, and that
-"Not scored" is distinguishable from a score. Confirm nothing on it is
-editable, asserted structurally as Round 10 Phase 7 did for the Closed
-panel: zero inputs, zero controls, zero click handlers. Open the
-screenshots.
 
 ---
 
