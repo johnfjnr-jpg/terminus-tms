@@ -1748,6 +1748,33 @@ async function renderTbScores() {
     //
     // Informational, not a second control. The select remains the only way to
     // set a score, so there is one write path rather than two that must agree.
+    // THE CURRENT ENTRY'S EXPLANATION, ALWAYS SHOWN. Round 14 Phase 1.
+    //
+    // The history control only appears once a criterion has more than one
+    // entry, so a single-entry criterion displayed its explanation NOWHERE:
+    // measured by searching the whole document, not the panel. That was
+    // survivable while the field was optional and became a contradiction the
+    // moment the rule required a Reason at a first score of 1 or 2, which is
+    // the shape the new rule produces most of. The system insisted the user
+    // write it and then never showed it back.
+    //
+    // Rejected: expansion-from-one, which makes the user click to see
+    // something they were just required to write; and revision-only, which is
+    // the same contradiction one entry later. The Reason explains the score
+    // being displayed, so it sits with it, and the history control keeps its
+    // existing job of showing what came BEFORE.
+    //
+    // A historical `comment` renders unlabelled, exactly as the history rows
+    // render it. Labelling it "Reason" would be this build asserting that an
+    // entry written under the old rule meant what the new field means, which
+    // is a claim about a decision nobody made. An entry carrying both shows
+    // both, because hiding either would lose text a person wrote.
+    const currentExplanation = !current ? '' : [
+      current.comment ? `<span class="tb-score-current-text">${escHtml(current.comment)}</span>` : '',
+      current.reason ? `<span class="tb-score-current-text"><em>Reason:</em> ${escHtml(current.reason)}</span>` : '',
+    ].filter(Boolean).join('')
+    const currentBlock = currentExplanation ? `<div class="tb-score-current">${currentExplanation}</div>` : ''
+
     // THE QUESTION, raised out of the anchors block. Round 13 Phase 3.
     //
     // It used to render inside anchorsBlock, which means it existed only once
@@ -1781,7 +1808,7 @@ async function renderTbScores() {
                   oninput="setTbScoreReason('${escHtml(c.criterion_key)}', this.value)">${escHtml(tbScoreReasons[c.criterion_key] ?? '')}</textarea>
       </div>`
 
-    if (!expanded) return `<div class="tb-score-row" data-criterion="${escHtml(c.criterion_key)}" data-entries="${series.length}">${head}${asksLine}${anchorsBlock}${commentBox}</div>`
+    if (!expanded) return `<div class="tb-score-row" data-criterion="${escHtml(c.criterion_key)}" data-entries="${series.length}">${head}${currentBlock}${asksLine}${anchorsBlock}${commentBox}</div>`
 
     // Newest first when reading history, which is how a person reads a
     // change log, while the stored series stays chronological.
@@ -1805,7 +1832,7 @@ async function renderTbScores() {
         }</span>
       </div>`).join('')
 
-    return `<div class="tb-score-row" data-criterion="${escHtml(c.criterion_key)}" data-entries="${series.length}">${head}${asksLine}${anchorsBlock}${commentBox}<div class="tb-score-history">${rows}</div></div>`
+    return `<div class="tb-score-row" data-criterion="${escHtml(c.criterion_key)}" data-entries="${series.length}">${head}${currentBlock}${asksLine}${anchorsBlock}${commentBox}<div class="tb-score-history">${rows}</div></div>`
   }).join('')
 
   // Every render rewrites the markup, so the lock has to be re-applied onto
