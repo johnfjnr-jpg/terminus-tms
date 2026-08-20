@@ -12,8 +12,8 @@ Contains no environment variable, key or token, and no client data. Records
 appear as counts by status only, never by name or reference code, because
 this file is uploaded into chat sessions.
 
-- Generated at: `2026-08-20T01:10:50.298Z`
-- Git commit: `bcc0688fc204c2809828e8e4ab38f77add7e2967`
+- Generated at: `2026-08-20T05:18:11.326Z`
+- Git commit: `beabd78d990949cafd5a314a1500fe0464cabd8b`
 - Working tree at generation: `clean`
 
 If the commit above is not current `HEAD`, this file is stale and is
@@ -128,13 +128,13 @@ Rule count by record type and requirement type:
 
 5 rows.
 
-| record_type | sort_order | criterion_key | name | rescore_through_stage |
-|---|---|---|---|---|
-| test_bed | 1 | scoreRolloutPath | Rollout Path | (null) |
-| test_bed | 2 | scoreClientCommitment | Client Commitment | (null) |
-| test_bed | 3 | scoreUseCaseRequirementsAndMetrics | Clear Use Case Requirements and Metrics | Monitoring and Analysis |
-| test_bed | 4 | scorePhysicalSuitability | Physical Suitability | Site Assessment |
-| test_bed | 5 | scoreDataRights | Data Rights | Site Assessment |
+| record_type | sort_order | criterion_key | name | asks | rescore_through_stage |
+|---|---|---|---|---|---|
+| test_bed | 1 | scoreRolloutPath | Rollout Path | Does a suitable rollout path exist | (null) |
+| test_bed | 2 | scoreClientCommitment | Client Commitment | Will the client organisation genuinely engage | (null) |
+| test_bed | 3 | scoreUseCaseRequirementsAndMetrics | Clear Use Case Requirements and Metrics | Can it be proven | Monitoring and Analysis |
+| test_bed | 4 | scorePhysicalSuitability | Physical Suitability | Can it be installed | Site Assessment |
+| test_bed | 5 | scoreDataRights | Data Rights | Is it worth doing for Terminus | Site Assessment |
 
 ## `scoring_anchors`
 
@@ -208,16 +208,16 @@ _None._
 
 ## Record counts by type and status
 
-73 live, 3522 soft deleted, 3595 rows in total.
+77 live, 4304 soft deleted, 4381 rows in total.
 
 | record_type | status | live | soft deleted |
 |---|---|---|---|
-| account | active | 7 | 188 |
+| account | active | 7 | 205 |
 | contact | Parked | 0 | 2 |
-| contact | Qualified | 9 | 136 |
+| contact | Qualified | 9 | 149 |
 | contact | Unqualified | 1 | 53 |
-| document | approved | 45 | 410 |
-| document | received | 1 | 3 |
+| document | approved | 49 | 499 |
+| document | received | 1 | 72 |
 | opportunity | Discovery | 3 | 40 |
 | opportunity | Negotiation | 0 | 1 |
 | opportunity | Proposal | 0 | 1 |
@@ -225,9 +225,9 @@ _None._
 | test_bed | Installation and Commissioning | 0 | 11 |
 | test_bed | Monitoring and Analysis | 0 | 1 |
 | test_bed | Pre-Site Assessment | 0 | 6 |
-| test_bed | Qualification | 2 | 142 |
+| test_bed | Qualification | 1 | 159 |
 | test_bed | Review and Completion | 1 | 0 |
-| test_bed | Site Assessment | 0 | 14 |
+| test_bed | Site Assessment | 1 | 14 |
 
 ### Test fixture record types
 
@@ -237,19 +237,19 @@ row by row, and are included in the totals above.
 
 | distinct `harness_*` record types | live rows | soft deleted rows |
 |---|---|---|
-| 200 | 0 | 2507 |
+| 245 | 0 | 3084 |
 
 No harness record type holds a live row; every fixture row is soft deleted.
 
 ## `approvals`
 
-199 rows, of which 0 carry a null `stage`.
+204 rows, of which 0 carry a null `stage`.
 
 | decision | track | rows | null stage |
 |---|---|---|---|
-| approved | Commercial | 82 | 0 |
-| approved | Legal | 52 | 0 |
-| approved | Technical | 65 | 0 |
+| approved | Commercial | 84 | 0 |
+| approved | Legal | 54 | 0 |
+| approved | Technical | 66 | 0 |
 
 ## Writable-key allowlists
 
@@ -346,7 +346,7 @@ than written as a literal list, so its members are not enumerable here.
 
 ## Migrations, in filename order
 
-52 files in `supabase/migrations/`.
+53 files in `supabase/migrations/`.
 
 1. `20260801000000_initial_schema.sql`
 2. `20260802000000_lead_opportunity.sql`
@@ -400,6 +400,7 @@ than written as a literal list, so its members are not enumerable here.
 50. `20260819000013_customer_documents.sql`
 51. `20260819000014_temp_drop_document_kind_required.sql`
 52. `20260819000015_restore_document_kind_required.sql`
+53. `20260820000001_rollout_path_asks.sql`
 
 ## Seed files, in application order
 

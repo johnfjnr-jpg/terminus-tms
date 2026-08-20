@@ -1817,6 +1817,14 @@ Explicitly deferred, not forgotten, not a section number of its own since this i
 
   **8. Data Rights 3 offers two branches and the real case was a third.** Its branches are "assumed by both parties but has not been discussed explicitly" and "agreed by someone without authority". The real case was **discussed explicitly, not yet agreed, authority unknown** - better than both branches, since a real conversation had happened, and described by neither. Scored 3 for want of anywhere better.
 
+  **9. Data Rights: the `asks` and the anchors measure different things, and the gap is a DRIFT rather than an error. Added Round 13 Phase 3, 2026-08-20, from a code read rather than from the walkthrough, which is why it is numbered after the eight rather than among them.**
+
+  The `asks` states **intent**: "Is it worth doing for Terminus". That was deliberate. **Data Rights is the only one of the five that measures value to Terminus rather than value to the client**, and on a cost-only programme, where no client billing exists anywhere in the model, the data is a substantial part of what Terminus gets back. The question is doing real work.
+
+  The anchors measure the **mechanism**: whether the client has confirmed Terminus may retain and use the data, whether the person confirming had authority, whether restrictions on use, retention and publication are stated and acceptable, and where personal data is involved whether the client's own basis for sharing is identified. Permission is necessary for the value and is not the same as the value: a client may grant unrestricted rights to data that is worth little, and may hedge rights on data that is worth a great deal.
+
+  **Two defensible resolutions, and neither is a build decision.** Either the `asks` narrows to match the anchors, which makes the criterion a permission check and needs a name and question that say so. Or the anchors widen to measure worth, which makes it a materially different criterion, and one that would have to say what "worth" is assessed against on a programme with no revenue line. The first is a wording change; the second is a framework change of the same kind as the structural finding below.
+
   **The wording is NOT amended here, deliberately.** The rows are provisional by design and the business review is what changes them. Amending them now would substitute a build-time judgement for the review the framework was built to receive, and the whole point of storing anchors as data was that review changes rows rather than a build.
 
 - **The structural finding: every 5 anchor is a conjunction of independent conditions, and "between these" cannot carry a gap that is not one dimension. Round 11 Phase 8, 2026-08-19. This is the round's main output.**
@@ -1830,6 +1838,87 @@ Explicitly deferred, not forgotten, not a section number of its own since this i
   **The concrete cost, measured rather than asserted.** On Rollout Path the 5 was three-and-a-half of four and the 3 was actively false, so both anchors were wrong in opposite directions and the 4 was chosen because it is between, not because anything supported it. On Client Commitment both anchors were false in their own distinguishing clause. **A score chosen because no anchor fits is not an anchored score**, and the framework's stated purpose is that a good anchor can be checked by asking a question with a yes or no answer.
 
   **What the review might consider, offered as options rather than a recommendation**, since the business owns this: scoring the conditions individually and deriving the number; naming which condition is load-bearing at each level so a partial match has a rule; or giving 2 and 4 real wording so the middle is described rather than interpolated. **All three are row changes, not build changes**, which is the design decision that has held up.
+
+- **Data Rights' question does not describe what its anchors measure. Round 13 Phase 3, 2026-08-20. Reported, not changed.**
+
+  **The `asks` value is "Is it worth doing for Terminus".** The other four questions each describe their own criterion directly: does a suitable rollout path exist, will the client organisation genuinely engage, can it be proven, can it be installed. This one describes commercial worth.
+
+  **The anchors it labels measure something else entirely**, and they are unambiguous about it: whether the client has confirmed Terminus may retain and use the data, whether the person confirming had authority to grant it, whether restrictions on use, retention and publication are stated and acceptable, and where personal data is involved whether the client's own basis for sharing is identified. Nothing in any of the three anchors concerns whether the engagement is worth doing.
+
+  **A hypothesis about how it got there, REFUTED the same round and kept visible rather than deleted.** It read: Round 11 Phase 1 retired `exitQualTechnicalCommercialValue`, "Technical and Commercial Value", and split `exitQualDataAndUseCase` into two, so a commercial-worth question surviving onto one of the replacements is the obvious explanation. **It is wrong.** The business confirmed the wording was deliberate: Data Rights is the only criterion measuring value to Terminus rather than to the client, and on a cost-only programme the data is a substantial part of the return. **The framing above is therefore also wrong in its emphasis**, and item 9 of the ambiguous-anchor list carries the corrected version: this is a drift between a question about intent and anchors about mechanism, not a stray label. Left here because a plausible reconstruction that turned out to be false is worth seeing struck, and because it is a reminder that "the obvious explanation" for a value nobody has been asked about is a guess wearing evidence's clothes.
+
+  **Proposed wording, for the business to accept or reject:** "May Terminus use the data". It matches the register and length of the other four, and it is the question the three anchors actually discriminate on. A fuller alternative, if the authority clause is felt to be load-bearing rather than a detail of the anchors: "May Terminus use the data, and has the right person agreed".
+
+  **Not edited, and the proposal is now one of two options rather than a recommendation.** Narrowing the `asks` is only correct if the criterion is meant to be a permission check; widening the anchors is correct if it is meant to measure worth. The business owns that choice and it is recorded as item 9 of the review list. The round's scope was one row edit, confirmed, and this is a second.
+
+- **The sticky region is the tab row alone, and its cost is not constant. Round 13 Phase 5, 2026-08-20.**
+
+  **Option A, confirmed with the business.** Not the workflow chevron, not the Test Bed name, not Summary. The tab row is the smallest thing that answers "where am I and how do I get elsewhere"; the chevron and the name are checked on arrival rather than continuously. **Every pixel made permanently sticky is a pixel taken from every long tab forever**, and Round 10 Phase 2 cut the header from 346px to 145px specifically to recover height. **Adding to the sticky region later is cheap; removing from it once people rely on it is not**, which is the whole reason for choosing the smallest version first.
+
+  **The cost is largest where height is scarcest, because the row wraps.** Measured: 119px at 1240, 82px at 1920, 45px at 3440, which against realistic viewport heights is 14.9%, 7.6% and 3.1%.
+
+  **The breakdown matters more than the total, and it locates the real lever.** At 1240 the tab buttons take 71px over two lines and the action group takes a further 34px on a line of its own; at 1920 the buttons take 34px on one line and the action group again takes 34px on its own line. So **the action group costs a full extra line at both of the widths people actually work at**, and removing it from the sticky region would save about 38px at each, more than any width threshold would.
+
+  **The action group stays sticky, confirmed.** Round 7 Phase 6 put Next Stage, Cancel and Save Changes inside `#tb-detail-tabs` so they would pin right, so making that element sticky makes those actions sticky too. That was raised as possibly exceeding "the tab row alone" and **confirmed as intended**: the placement was deliberate, and a sticky Save is newly valuable rather than incidental, because Phase 1 and Phase 2 together mean a user working down five criteria now carries unsaved state the whole way. **119px at 1240 is accepted, at 15% of the viewport**, with the action group's own line named as the lever to reach for first if it grates in use.
+
+  **Trim what sticks rather than disable it by width.** The width-threshold fallback was named in the brief and is the weaker option: it removes navigation help at exactly the width where wrapping makes navigation hardest, while saving less than dropping the action line would.
+
+  **No new scroll context is created, and that was checked rather than assumed.** `.app-shell-flex` is `height: 100vh` with `overflow: hidden` and `.app-content-scroll` is the scroll container, so the body does not scroll and `top: 0` resolves against that container. There is no `overflow`, `transform`, `filter` or `contain` ancestor between the row and that scroller, any one of which would make `position: sticky` silently do nothing.
+
+- **The Reference layout: two growing panels get their own row, and the scores summary does not join them. Round 13 Phase 6, 2026-08-20.**
+
+  **The rejected alternative is recorded first, because a future round will otherwise restore it for tidiness.** The business proposed Use Cases and Customer Documents as their own wider panels with the scores summary in a left-hand column beside them. **A fixed five-row card beside two panels that grow indefinitely produces a short card next to a long one and a large dead area beneath it**, which is the dead-space failure mode already fixed three times in this project. The scores summary stays in the card row, where it is also read at the same moment as the four detail cards; Use Cases and Customer Documents are worked with once you are already in the record.
+
+  **Why these two can sit side by side when the scores card could not.** Both grow, so which of them is taller varies by record and neither is permanently short. Measured both ways on purpose: with 24 use cases against 8 documents the panels are 1639px and 674px, and with 2 use cases against 20 documents they are 192px and 1328px. `align-items: start` is what makes that true rather than hoped for, since each panel then sizes to its own content instead of stretching to match the other.
+
+  **A restructure, not a reorder.** Use Cases was a full-width section outside the grid, put there by Round 6 Phase 3 to sit beside Summary; Summary moved to the header in Round 10A Phase 1 and left it standing alone. Customer Documents was a 420px card inside the grid. Both moved.
+
+  **Row 1 still wraps at 1920 and is deliberately not forced flat.** Five cards at 420px need roughly 2160px against a 1556px grid. Narrowing the cap to fit five across would reintroduce exactly the truncation Round 6 Phase 2 fixed, so the cap stays at 420px and the row wraps. Row counts are unchanged at 3, 2 and 1 across the three widths despite losing a card, because Customer Details spans two columns.
+
+- **OPEN: the scoring panel is too tall for its own explanations, and this is now the second thing pointing at it. Round 13 Phase 5, 2026-08-20.**
+
+  **Phase 1's lock note renders at the top of the scoring panel**, saying which criterion is holding up further entry. Working down to the fifth criterion scrolls it out of view entirely: measured at minus 509px at 1240, which is above the viewport rather than behind the sticky row. The lock still functions and the comment field is still marked, so nobody is stranded; what is lost is the explanation of why the other controls are disabled.
+
+  **The first thing pointing here was the scrolling scoring panel request**, parked at the head of this round as superseded by the sticky tab row. It is not superseded by it: the sticky row solves "where am I in the record" and this is "the panel is taller than the decisions it contains". **Two independent observations now land on the same surface**, which is worth more than either on its own and is the reason this is recorded rather than fixed in passing. A per-criterion notice, a shorter panel, and a second sticky region inside the panel are all candidates, and choosing between them is a design decision rather than a build one.
+
+- **The score dropdown stays where it is, and the reason it cannot simply be moved is a browser constraint rather than a layout preference. Round 13 Phase 4, 2026-08-20. Offered and declined by the business. No code changed.**
+
+  **Recorded so a later round does not rediscover it as an unaddressed defect.** The observation is real and will be made again by anyone who opens the panel: choosing a score covers the anchor text the score is supposed to be chosen against.
+
+  **The constraint.** The control is a native `select`. Its open list is rendered by the browser in its own popup layer, above the page, and **the position of that list is not controllable from CSS or from script**: it is placed by the browser relative to the control, and it will overlay whatever sits below it. So the overlap is not a consequence of where the anchors were put and cannot be fixed by adjusting spacing, z-index or stacking context. The only structural fix is to move the control so that what it covers does not matter.
+
+  **What was offered.** Move the select below the anchor list, so the list opens over content already read rather than over the wording being consulted. **Declined by the business**, who looked at it and preferred the current arrangement.
+
+  **Why the decision is worth having in writing rather than the observation.** The alternatives left, should it be raised again, are a non-native control, which means owning keyboard interaction, focus and accessibility that the native element provides for free, or a layout in which the anchors sit above the control. Both are real changes with real costs, and neither is a tidy-up. **A phase that ships no diff is still a phase**, per Round 11A, and the output here is that the next person to notice the overlap finds a decision rather than a bug.
+
+- **Pending is a different mark, not an early tick, and the failure path is what the distinction is for. Round 13 Phase 2, 2026-08-20.**
+
+  **An ordinary tick was rejected, and the reason decides every future case of showing unsaved state.** A tick that means "the server has recorded this" in one moment and "you have chosen this and not saved it" in another is a screen that lies, and Round 11A's fault was precisely a screen state that did not match the server. So an unsaved score gets its own mark: a filled dot rather than a check, a dashed rather than solid border, and the word "unsaved" on the row. **Three distinctions, none of them colour**, confirmed by taking the screenshot again under `grayscale(1)` and reading it.
+
+  **The guarantee is structural rather than careful.** Each row carries `data-met`, written only by the render and only from the server's own `met`. The function that applies pending marks returns early on any row where that is `true`, so there is no path in it that can produce a confirmed tick. Asserted directly rather than by inspection: every tick on screen was cross-checked against a fresh `/exit-criteria` call in all four states, including immediately after a failure, and both directions were checked, ticks without server confirmation and server-confirmed rows not ticked.
+
+  **The failure path is the half a happy-path driver never reaches**, and it was driven with a real server refusal rather than a simulated one: Phase 1's comment rule, with Phase 1's own client guard neutralised for the run. The mark did not promote, and the server held zero entries for that criterion.
+
+- **Round 11A's recorded partial-failure behaviour is wrong about what survives, found while verifying something else. Round 13 Phase 2, 2026-08-20.**
+
+  **The claim was "a recorded score stands; the first failure stops everything including the ordinary fields; everything unrecorded stays dirty".** The first two halves are correct. **The third is false.** `recordTbScores` calls `loadTestBedDetail` on its failure branch before returning, and loading a record resets `tbEdits`, so every unrecorded draft is discarded rather than left dirty.
+
+  **Measured, not reasoned about.** Three criteria entered, the failing one in the middle: before the save the drafts were Rollout Path 4, Physical Suitability 2, Data Rights 5; after it `tbEdits` was `{}` and all three selects had returned to their empty state. Rollout Path was recorded, so the user keeps that one; **the valid 5 they entered for Data Rights is gone from the form and must be retyped**, with nothing on screen saying so.
+
+  **Left as a finding rather than fixed, and the exposure is much smaller than it was.** Phase 1 makes the comment case unreachable from the browser, which was the only common route to a partial failure. What remains is a cancelled revision reason, a network failure, or a concurrent change. Recorded because a close-out that describes behaviour the code does not have is worse than no description: the next person reasons from it.
+
+- **Test Bed creation reaches the naming dialogue from every browser path, and two server branches are not covered by that. Round 13 Phase 0, 2026-08-20.**
+
+  **Recorded because the business reported a fault here and then withdrew it, and the withdrawal closes their report rather than the question.** They said creating a Test Bed named it after the Company with no chance to edit, then corrected themselves that renaming works.
+
+  **The browser answer is clean, established by driving both paths rather than by reading them.** There are two entry points, the Contacts list hover "+ Create" dropdown and the Contact detail page's own Test Bed button, and both open the dialogue with the suffixed default pre-filled and fully pre-selected. Both funnel through one choke point, `startCreateFromContact`, which for a Test Bed always opens the dialogue; the duplicate-record warning routes into the same function via `onProceed`, and the dialogue refuses a blank name, so clearing the field cannot bypass it either. **One choke point is why this is safe, and it is worth naming as the reason rather than the coincidence.**
+
+  **Two server-side branches sit outside that guarantee, and this is Architecture rule 8 in its exact form: correct for every caller that exists.**
+
+  - `POST /contacts/:id/create-test-bed` treats `name` as optional and, when it is absent, silently applies the suffixed default. That branch is deliberate and documented, kept so existing tests and direct API callers keep the pre-Round-10 behaviour. It is also the branch a future caller inherits without knowing the dialogue exists.
+  - `POST /test-beds` requires a name, and **has no browser caller at all**. It cannot produce an unnamed record, so it is not a naming risk; it is a second creation endpoint that nothing in the product exercises.
+
+  **Recorded, not fixed.** Nothing is broken today and no phase of Round 13 depends on it. The value of the record is that the next person to add a creation path meets this note rather than the fault, which is the whole point of rule 8.
 
 - **The framing for the business review, and the measurement that earns it. Round 12, 2026-08-20.**
 

@@ -1139,15 +1139,19 @@ async function renderTbStageExitCriteria(stageName, isStillCurrent = () => true,
     const label = escHtml(r.label ?? r.message)
     const mark = r.met ? '<span class="tb-crit-box tb-crit-box--met">&#10003;</span>' : '<span class="tb-crit-box"></span>'
 
+    // data-met is written from the SERVER's own `met`, and nothing else ever
+    // writes it. It is what applyTbPendingMarks reads to decide a row is
+    // untouchable, and what the verification asserts against a fresh API
+    // call, so a confirmed tick cannot exist without a server round trip.
     if (tickable) {
-      return `<div class="tb-crit-row tb-crit-row--tickable" data-field="${escHtml(r.field)}" onclick="toggleExitCriterion('${escHtml(r.field)}', ${r.met ? 'true' : 'false'})" title="${r.met ? 'Tick to clear' : 'Tick to confirm'}">
+      return `<div class="tb-crit-row tb-crit-row--tickable" data-field="${escHtml(r.field)}" data-met="${r.met ? 'true' : 'false'}" onclick="toggleExitCriterion('${escHtml(r.field)}', ${r.met ? 'true' : 'false'})" title="${r.met ? 'Tick to clear' : 'Tick to confirm'}">
         ${mark}<span class="tb-crit-text">${label}</span>
       </div>`
     }
     // Document and field requirements are computed, so they are read-only
     // rows. Presenting them as tick boxes would invite a click that
     // cannot do anything.
-    return `<div class="tb-crit-row tb-crit-row--computed">
+    return `<div class="tb-crit-row tb-crit-row--computed" data-field="${escHtml(r.field ?? '')}" data-met="${r.met ? 'true' : 'false'}">
       ${mark}<span class="tb-crit-text">${escHtml(r.message)}</span>
     </div>`
   }).join('')
@@ -1162,6 +1166,9 @@ async function renderTbStageExitCriteria(stageName, isStillCurrent = () => true,
     : `<p class="sub" style="margin-bottom:10px">${outstanding} of ${requirements.length} outstanding to move to ${escHtml(to_stage)}:</p>`
 
   el.innerHTML = summary + rows
+  // Every render rewrites the rows, so the pending marks are re-derived onto
+  // the new nodes from the live draft state.
+  applyTbPendingMarks()
   // Which stage this panel is SHOWING. See the same marker on the
   // documents panel for why verification waits on it.
   markStagePanelSettled(el, stageName)
@@ -1226,14 +1233,157 @@ let tbScoreAnchorsOpen = {}
 // exactly the same sense every other field is: the save bar appears, Cancel
 // discards it, and saveTbFields() sees it among dirtyEntries. That is what
 // lets the interception be shared rather than reimplemented per field type.
-window.setTbScoreDraft = function (key, value) {
+// ── Pending tick state in exit criteria. Round 13 Phase 2 ────────────────
+//
+// The panel shows what the SERVER has recorded. The business wants to see
+// requirements ticking off as scores are entered, before saving. A tick that
+// means "recorded" one moment and "chosen but unsaved" the next is a screen
+// that lies, and Round 11A's fault was exactly a screen state that did not
+// match the server, so the pending treatment is a different mark rather than
+// an early tick.
+//
+// DISTINGUISHABLE WITHOUT COLOUR, three ways over: a different glyph (a
+// filled dot, not a check), a dashed rather than solid border, and the word
+// "unsaved" appended to the row. A greyscale screenshot still answers it.
+//
+// APPLIED BY DIRECT DOM MUTATION, NEVER BY RE-RENDERING. Two panels are in
+// play and both render by rewriting innerHTML: re-rendering the exit criteria
+// panel is a network refetch, and re-rendering the scoring panel would eat
+// the comment field Phase 1 just put the caret in. Marks are toggled on the
+// existing nodes instead.
+//
+// A CONFIRMED ROW IS NEVER TOUCHED. The guard is structural rather than
+// careful: this function returns early on any row whose data-met is 'true',
+// and data-met is written only by the render, only from the server's own
+// `met`. There is no path here that can produce a confirmed tick.
+function applyTbPendingMarks() {
+  const list = document.getElementById('tb-stage-exit-criteria-list')
+  if (!list) return
+  const keys = tbScoreKeys()
+  for (const row of list.querySelectorAll('.tb-crit-row[data-field]')) {
+    const field = row.dataset.field
+    if (row.dataset.met === 'true') continue      // server-confirmed, untouchable
+    const box = row.querySelector('.tb-crit-box')
+    if (!box) continue
+    const draft = tbEdits[field]?.draft
+    const pending = keys.has(field) && draft !== undefined && draft !== ''
+    box.classList.toggle('tb-crit-box--pending', pending)
+    box.innerHTML = pending ? '&#9679;' : ''
+    const existing = row.querySelector('.tb-crit-pending-tag')
+    if (pending && !existing) {
+      const tag = document.createElement('span')
+      tag.className = 'tb-crit-pending-tag'
+      tag.textContent = 'unsaved'
+      row.appendChild(tag)
+    } else if (!pending && existing) {
+      existing.remove()
+    }
+  }
+}
+
+// ── Comment required at 1 or 2, enforced at entry. Round 13 Phase 1 ───────
+//
+// The server has always refused a 1 or 2 with no comment. What made that
+// expensive is Round 11A's partial-failure rule: the first refusal stops the
+// run, so everything after it in the batch is never attempted. Measured in
+// Phase 0 by driving the real shape rather than one score: three criteria
+// entered, the 2 second, and a perfectly valid 5 entered third was NOT
+// RECORDED because it followed the refusal. The user loses work they did
+// correctly, and only finds out at save.
+//
+// THE SERVER CHECK IS UNTOUCHED. This is an addition, not a relocation:
+// client-side validation is an affordance and the server rule is the
+// guarantee. Round 11A's partial-failure behaviour must be identical.
+
+// The one criterion holding up further entry, or null. Derived from the live
+// draft and comment state rather than tracked in a flag, so it cannot drift.
+function tbScoreAwaitingComment() {
+  const keys = tbScoreKeys()
+  for (const key of Object.keys(tbEdits)) {
+    if (!keys.has(key)) continue
+    const draft = Number(tbEdits[key]?.draft)
+    if (!Number.isFinite(draft) || draft > 2) continue
+    if (!String(tbScoreComments[key] ?? '').trim()) return key
+  }
+  return null
+}
+
+// APPLIED BY DIRECT DOM MUTATION, NEVER BY RE-RENDERING, and that is the
+// whole reason this is not a call to renderTbScores. The panel renders by
+// rewriting innerHTML, so re-rendering on comment input would destroy the
+// textarea the user is typing into, on the first keystroke. Same lesson as
+// Round 12's anchor reveal, arrived at from the other direction: there the
+// re-render would have closed a dropdown, here it would eat the caret.
+//
+// Called at the END of renderTbScores as well, because every render rewrites
+// the markup and the lock has to be restored onto the new nodes.
+function applyTbScoreEntryLock() {
+  const blocking = tbScoreAwaitingComment()
+  const blockingName = blocking
+    ? (tbScoringCriteria.find(c => c.criterion_key === blocking)?.name ?? blocking)
+    : null
+
+  for (const c of tbScoringCriteria) {
+    const sel = document.getElementById(`tb-score-select-${c.criterion_key}`)
+    // The blocking criterion keeps its OWN control enabled. Disabling it would
+    // trap the user: changing the score to a 3 is a legitimate way out, and
+    // taking that away leaves the comment as the only exit from a choice they
+    // may simply want to undo.
+    if (sel) sel.disabled = !!blocking && c.criterion_key !== blocking
+    const box = document.querySelector(`.tb-score-row[data-criterion="${c.criterion_key}"] .tb-score-comment`)
+    if (box) box.classList.toggle('tb-score-comment--needed', c.criterion_key === blocking)
+    const lab = box?.querySelector('label')
+    // NOT COLOUR ALONE: the label text itself changes, so the state survives
+    // a greyscale screenshot and a colour-blind reader.
+    if (lab) lab.textContent = c.criterion_key === blocking
+      ? 'Comment required before scoring anything else'
+      : (Number(tbEdits[c.criterion_key]?.draft) <= 2 ? 'Comment (required at 1 or 2)' : 'Comment (optional)')
+  }
+
+  const meas = document.getElementById('tb-measurability-select')
+  if (meas) meas.disabled = !!blocking
+
+  // A disabled control with no stated reason is a dead end the user keeps
+  // clicking, which is the same objection Round 12 Phase 3 raised against a
+  // row that silently does nothing. The note says which criterion and why.
+  const note = document.getElementById('tb-score-lock-note')
+  if (note) {
+    note.textContent = blocking ? `Add the comment for ${blockingName} before scoring anything else.` : ''
+    note.classList.toggle('hidden', !blocking)
+  }
+}
+
+window.setTbScoreDraft = async function (key, value) {
+  // THE HANDLER REFUSES, not only the control. Disabling the other selects is
+  // an affordance: it stops a person, and it stops nothing else. The probe
+  // dispatched a change event at a disabled select and the draft was taken,
+  // which is the same shape as Architecture rule 8, correct for every caller
+  // that exists. Any future call site that sets a draft without consulting
+  // `disabled` would have inherited that silently.
+  const awaiting = tbScoreAwaitingComment()
+  if (awaiting && awaiting !== key) {
+    applyTbScoreEntryLock()
+    return
+  }
   const orig = ''
   if (value === '') delete tbEdits[key]
   else tbEdits[key] = { draft: value, orig }
   if (value === '') delete tbScoreComments[key]
   clearTbSaveFeedback()
   updateTbSaveBar()
-  renderTbScores()
+  // AWAITED, because the comment field does not exist until this render
+  // produces it: the box is emitted only for a criterion with a pending
+  // draft. Focusing before the await would focus nothing, silently.
+  await renderTbScores()
+  // The other panel, mutated in place rather than refetched.
+  applyTbPendingMarks()
+  if (value !== '' && Number(value) <= 2) {
+    const ta = document.getElementById(`tb-score-comment-${key}`)
+    if (ta) {
+      ta.focus()
+      ta.setSelectionRange(ta.value.length, ta.value.length)
+    }
+  }
 }
 
 
@@ -1255,6 +1405,9 @@ window.setTbMeasurability = async function (value) {
 
 window.setTbScoreComment = function (key, value) {
   tbScoreComments[key] = value
+  // In place, on every keystroke. The lock lifts the moment the comment has
+  // content and returns the moment it is emptied again.
+  applyTbScoreEntryLock()
 }
 
 // Which tbEdits keys are scores rather than payload fields. Derived from the
@@ -1529,7 +1682,8 @@ async function renderTbScores() {
     </div>`
 
   const visible = tbScoringCriteria.filter(c => tbScoreVisible.keys.includes(c.criterion_key))
-  el.innerHTML = measurability + visible.map(c => {
+  const lockNote = '<p class="tb-score-lock hidden" id="tb-score-lock-note"></p>'
+  el.innerHTML = lockNote + measurability + visible.map(c => {
     const series = tbScoreSeries(c.criterion_key)
     const current = series.length ? series[series.length - 1] : null
     const expanded = !!tbScoresExpanded[c.criterion_key]
@@ -1586,11 +1740,24 @@ async function renderTbScores() {
     //
     // Informational, not a second control. The select remains the only way to
     // set a score, so there is one write path rather than two that must agree.
+    // THE QUESTION, raised out of the anchors block. Round 13 Phase 3.
+    //
+    // It used to render inside anchorsBlock, which means it existed only once
+    // the score control had been opened: a scorer reading the panel saw five
+    // criterion NAMES and no questions at all until they touched something.
+    // The business reads it as the label for the whole criterion, and a label
+    // that appears only on interaction is not a label.
+    //
+    // Rendered VERBATIM, with no punctuation added. These are stored values
+    // and the round's scope is one row edit; appending a question mark in the
+    // view would be this build inventing wording, which is the line the
+    // anchors are on the other side of.
+    const asksLine = c.asks ? `<p class="tb-score-asks">${escHtml(c.asks)}</p>` : ''
+
     const anchorSet = tbAnchorSet(c, c.current_version)
     const anchorsBlock = `
       <div class="tb-score-anchors${tbScoreAnchorsOpen[c.criterion_key] || pending !== '' ? '' : ' hidden'}"
            id="tb-anchors-${escHtml(c.criterion_key)}">
-        ${c.asks ? `<p class="tb-score-asks">${escHtml(c.asks)}</p>` : ''}
         ${[1,2,3,4,5].map(n => `
           <div class="tb-score-anchor${anchorSet[n] ? '' : ' tb-score-anchor--nowording'}">
             <span class="tb-score-anchor-n">${n}</span>
@@ -1606,7 +1773,7 @@ async function renderTbScores() {
                   oninput="setTbScoreComment('${escHtml(c.criterion_key)}', this.value)">${escHtml(tbScoreComments[c.criterion_key] ?? '')}</textarea>
       </div>`
 
-    if (!expanded) return `<div class="tb-score-row" data-criterion="${escHtml(c.criterion_key)}" data-entries="${series.length}">${head}${anchorsBlock}${commentBox}</div>`
+    if (!expanded) return `<div class="tb-score-row" data-criterion="${escHtml(c.criterion_key)}" data-entries="${series.length}">${head}${asksLine}${anchorsBlock}${commentBox}</div>`
 
     // Newest first when reading history, which is how a person reads a
     // change log, while the stored series stays chronological.
@@ -1630,8 +1797,13 @@ async function renderTbScores() {
         }</span>
       </div>`).join('')
 
-    return `<div class="tb-score-row" data-criterion="${escHtml(c.criterion_key)}" data-entries="${series.length}">${head}${anchorsBlock}${commentBox}<div class="tb-score-history">${rows}</div></div>`
+    return `<div class="tb-score-row" data-criterion="${escHtml(c.criterion_key)}" data-entries="${series.length}">${head}${asksLine}${anchorsBlock}${commentBox}<div class="tb-score-history">${rows}</div></div>`
   }).join('')
+
+  // Every render rewrites the markup, so the lock has to be re-applied onto
+  // the new nodes. Doing it here rather than at each call site is what stops
+  // a future render path from silently shipping an unlocked panel.
+  applyTbScoreEntryLock()
 }
 
 // Tick writes an ISO timestamp; untick sends null, which the server
@@ -1902,6 +2074,28 @@ async function saveTbFields() {
   // Found by the business in use. It was never exercised in Round 11 because
   // Phase 8's own driver scored one criterion and saved, then the next, which
   // is not how anyone uses it.
+  // A DEPARTURE FROM THE BRIEF'S THREE REQUIREMENTS, stated rather than
+  // slipped in. The brief asks that further SCORING be blocked. Without this
+  // guard the fault is still reachable in one click: select a 2, press Save
+  // immediately, and the batch is refused server-side exactly as before,
+  // which is the outcome this phase exists to remove. Save stays ENABLED and
+  // refuses with a reason rather than being disabled, because a dead control
+  // with no explanation is the failure mode Round 12 Phase 3 argued against.
+  // The server call is not made at all, so the server rule is untouched and
+  // simply not reached.
+  const awaiting = tbScoreAwaitingComment()
+  if (awaiting) {
+    const name = tbScoringCriteria.find(c => c.criterion_key === awaiting)?.name ?? awaiting
+    const feedback = document.getElementById('tb-save-feedback')
+    if (feedback) {
+      feedback.textContent = `A comment is required at a score of 1 or 2. Add the comment for ${name}, naming what is missing.`
+      feedback.className = 'msg-error'
+    }
+    const ta = document.getElementById(`tb-score-comment-${awaiting}`)
+    if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length) }
+    return
+  }
+
   const scoreKeys = tbScoreKeys()
   const scoreEntries = dirtyEntries.filter(([key]) => scoreKeys.has(key))
   if (scoreEntries.length) {
