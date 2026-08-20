@@ -1831,6 +1831,22 @@ Explicitly deferred, not forgotten, not a section number of its own since this i
 
   **What the review might consider, offered as options rather than a recommendation**, since the business owns this: scoring the conditions individually and deriving the number; naming which condition is load-bearing at each level so a partial match has a rule; or giving 2 and 4 real wording so the middle is described rather than interpolated. **All three are row changes, not build changes**, which is the design decision that has held up.
 
+- **Pending is a different mark, not an early tick, and the failure path is what the distinction is for. Round 13 Phase 2, 2026-08-20.**
+
+  **An ordinary tick was rejected, and the reason decides every future case of showing unsaved state.** A tick that means "the server has recorded this" in one moment and "you have chosen this and not saved it" in another is a screen that lies, and Round 11A's fault was precisely a screen state that did not match the server. So an unsaved score gets its own mark: a filled dot rather than a check, a dashed rather than solid border, and the word "unsaved" on the row. **Three distinctions, none of them colour**, confirmed by taking the screenshot again under `grayscale(1)` and reading it.
+
+  **The guarantee is structural rather than careful.** Each row carries `data-met`, written only by the render and only from the server's own `met`. The function that applies pending marks returns early on any row where that is `true`, so there is no path in it that can produce a confirmed tick. Asserted directly rather than by inspection: every tick on screen was cross-checked against a fresh `/exit-criteria` call in all four states, including immediately after a failure, and both directions were checked, ticks without server confirmation and server-confirmed rows not ticked.
+
+  **The failure path is the half a happy-path driver never reaches**, and it was driven with a real server refusal rather than a simulated one: Phase 1's comment rule, with Phase 1's own client guard neutralised for the run. The mark did not promote, and the server held zero entries for that criterion.
+
+- **Round 11A's recorded partial-failure behaviour is wrong about what survives, found while verifying something else. Round 13 Phase 2, 2026-08-20.**
+
+  **The claim was "a recorded score stands; the first failure stops everything including the ordinary fields; everything unrecorded stays dirty".** The first two halves are correct. **The third is false.** `recordTbScores` calls `loadTestBedDetail` on its failure branch before returning, and loading a record resets `tbEdits`, so every unrecorded draft is discarded rather than left dirty.
+
+  **Measured, not reasoned about.** Three criteria entered, the failing one in the middle: before the save the drafts were Rollout Path 4, Physical Suitability 2, Data Rights 5; after it `tbEdits` was `{}` and all three selects had returned to their empty state. Rollout Path was recorded, so the user keeps that one; **the valid 5 they entered for Data Rights is gone from the form and must be retyped**, with nothing on screen saying so.
+
+  **Left as a finding rather than fixed, and the exposure is much smaller than it was.** Phase 1 makes the comment case unreachable from the browser, which was the only common route to a partial failure. What remains is a cancelled revision reason, a network failure, or a concurrent change. Recorded because a close-out that describes behaviour the code does not have is worse than no description: the next person reasons from it.
+
 - **Test Bed creation reaches the naming dialogue from every browser path, and two server branches are not covered by that. Round 13 Phase 0, 2026-08-20.**
 
   **Recorded because the business reported a fault here and then withdrew it, and the withdrawal closes their report rather than the question.** They said creating a Test Bed named it after the Company with no chance to edit, then corrected themselves that renaming works.

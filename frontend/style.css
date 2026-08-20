@@ -2983,3 +2983,25 @@ input.input-invalid {
   opacity: 0.4;
   cursor: not-allowed;
 }
+
+/* Pending tick state, Round 13 Phase 2 (2026-08-20). Distinguishable from a
+   confirmed tick without relying on colour: a filled dot rather than a check,
+   a dashed rather than solid border, and the word "unsaved" on the row. */
+.tb-crit-box--pending {
+  border-style: dashed;
+  border-color: var(--muted);
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 12px;
+}
+.tb-crit-pending-tag {
+  margin-left: auto;
+  padding-left: 10px;
+  flex: 0 0 auto;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  align-self: center;
+}

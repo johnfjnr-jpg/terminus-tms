@@ -1139,15 +1139,19 @@ async function renderTbStageExitCriteria(stageName, isStillCurrent = () => true,
     const label = escHtml(r.label ?? r.message)
     const mark = r.met ? '<span class="tb-crit-box tb-crit-box--met">&#10003;</span>' : '<span class="tb-crit-box"></span>'
 
+    // data-met is written from the SERVER's own `met`, and nothing else ever
+    // writes it. It is what applyTbPendingMarks reads to decide a row is
+    // untouchable, and what the verification asserts against a fresh API
+    // call, so a confirmed tick cannot exist without a server round trip.
     if (tickable) {
-      return `<div class="tb-crit-row tb-crit-row--tickable" data-field="${escHtml(r.field)}" onclick="toggleExitCriterion('${escHtml(r.field)}', ${r.met ? 'true' : 'false'})" title="${r.met ? 'Tick to clear' : 'Tick to confirm'}">
+      return `<div class="tb-crit-row tb-crit-row--tickable" data-field="${escHtml(r.field)}" data-met="${r.met ? 'true' : 'false'}" onclick="toggleExitCriterion('${escHtml(r.field)}', ${r.met ? 'true' : 'false'})" title="${r.met ? 'Tick to clear' : 'Tick to confirm'}">
         ${mark}<span class="tb-crit-text">${label}</span>
       </div>`
     }
     // Document and field requirements are computed, so they are read-only
     // rows. Presenting them as tick boxes would invite a click that
     // cannot do anything.
-    return `<div class="tb-crit-row tb-crit-row--computed">
+    return `<div class="tb-crit-row tb-crit-row--computed" data-field="${escHtml(r.field ?? '')}" data-met="${r.met ? 'true' : 'false'}">
       ${mark}<span class="tb-crit-text">${escHtml(r.message)}</span>
     </div>`
   }).join('')
@@ -1162,6 +1166,9 @@ async function renderTbStageExitCriteria(stageName, isStillCurrent = () => true,
     : `<p class="sub" style="margin-bottom:10px">${outstanding} of ${requirements.length} outstanding to move to ${escHtml(to_stage)}:</p>`
 
   el.innerHTML = summary + rows
+  // Every render rewrites the rows, so the pending marks are re-derived onto
+  // the new nodes from the live draft state.
+  applyTbPendingMarks()
   // Which stage this panel is SHOWING. See the same marker on the
   // documents panel for why verification waits on it.
   markStagePanelSettled(el, stageName)
@@ -1226,6 +1233,54 @@ let tbScoreAnchorsOpen = {}
 // exactly the same sense every other field is: the save bar appears, Cancel
 // discards it, and saveTbFields() sees it among dirtyEntries. That is what
 // lets the interception be shared rather than reimplemented per field type.
+// ── Pending tick state in exit criteria. Round 13 Phase 2 ────────────────
+//
+// The panel shows what the SERVER has recorded. The business wants to see
+// requirements ticking off as scores are entered, before saving. A tick that
+// means "recorded" one moment and "chosen but unsaved" the next is a screen
+// that lies, and Round 11A's fault was exactly a screen state that did not
+// match the server, so the pending treatment is a different mark rather than
+// an early tick.
+//
+// DISTINGUISHABLE WITHOUT COLOUR, three ways over: a different glyph (a
+// filled dot, not a check), a dashed rather than solid border, and the word
+// "unsaved" appended to the row. A greyscale screenshot still answers it.
+//
+// APPLIED BY DIRECT DOM MUTATION, NEVER BY RE-RENDERING. Two panels are in
+// play and both render by rewriting innerHTML: re-rendering the exit criteria
+// panel is a network refetch, and re-rendering the scoring panel would eat
+// the comment field Phase 1 just put the caret in. Marks are toggled on the
+// existing nodes instead.
+//
+// A CONFIRMED ROW IS NEVER TOUCHED. The guard is structural rather than
+// careful: this function returns early on any row whose data-met is 'true',
+// and data-met is written only by the render, only from the server's own
+// `met`. There is no path here that can produce a confirmed tick.
+function applyTbPendingMarks() {
+  const list = document.getElementById('tb-stage-exit-criteria-list')
+  if (!list) return
+  const keys = tbScoreKeys()
+  for (const row of list.querySelectorAll('.tb-crit-row[data-field]')) {
+    const field = row.dataset.field
+    if (row.dataset.met === 'true') continue      // server-confirmed, untouchable
+    const box = row.querySelector('.tb-crit-box')
+    if (!box) continue
+    const draft = tbEdits[field]?.draft
+    const pending = keys.has(field) && draft !== undefined && draft !== ''
+    box.classList.toggle('tb-crit-box--pending', pending)
+    box.innerHTML = pending ? '&#9679;' : ''
+    const existing = row.querySelector('.tb-crit-pending-tag')
+    if (pending && !existing) {
+      const tag = document.createElement('span')
+      tag.className = 'tb-crit-pending-tag'
+      tag.textContent = 'unsaved'
+      row.appendChild(tag)
+    } else if (!pending && existing) {
+      existing.remove()
+    }
+  }
+}
+
 // ── Comment required at 1 or 2, enforced at entry. Round 13 Phase 1 ───────
 //
 // The server has always refused a 1 or 2 with no comment. What made that
@@ -1320,6 +1375,8 @@ window.setTbScoreDraft = async function (key, value) {
   // produces it: the box is emitted only for a criterion with a pending
   // draft. Focusing before the await would focus nothing, silently.
   await renderTbScores()
+  // The other panel, mutated in place rather than refetched.
+  applyTbPendingMarks()
   if (value !== '' && Number(value) <= 2) {
     const ta = document.getElementById(`tb-score-comment-${key}`)
     if (ta) {
