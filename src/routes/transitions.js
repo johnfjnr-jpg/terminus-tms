@@ -274,6 +274,12 @@ export async function computeBlocking(db, record, from_stage, to_stage, currentR
         requirement_type: 'payload_field_required',
         field,
         ...(label ? { label } : {}),
+        // Round 12 Phase 5: surfaced for DISPLAY only, so the exit criteria
+        // panel can tell a process requirement from a data-entry one without
+        // a per-rule flag or a new column. It is stripped from `blocking`
+        // below alongside `met`, so the transition endpoint's own response
+        // shape is byte for byte what it was.
+        ...(minLength !== undefined ? { min_length: minLength } : {}),
         message: label
           ? (atOrAfter ? `Requires ${label} scored at or after ${atOrAfter}` : `Requires ${label}`)
           : `Requires ${field} to be set`,
@@ -377,9 +383,15 @@ export async function computeBlocking(db, record, from_stage, to_stage, currentR
   // `blocking` keeps its exact pre-Phase-3 shape: the unmet subset, with
   // `met` stripped, since every member of it is unmet by definition.
   // Callers that only ever wanted the blockers are untouched.
+  // `min_length` is stripped here with `met`, for the same reason and more
+  // strictly: `met` is meaningless on a list of unmet things, and `min_length`
+  // is a display hint that the transition endpoint's callers never asked for.
+  // Phase 5 is a display change over this function's output and must not
+  // alter what the transition endpoint returns, so blocking[] stays exactly
+  // as it was.
   const blocking = requirements
     .filter(r => !r.met)
-    .map(({ met, ...rest }) => rest)
+    .map(({ met, min_length, ...rest }) => rest)
 
   return { requirements, blocking }
 }

@@ -290,7 +290,10 @@ function renderTbReference() {
   // renderTbSiteDetails.
   renderTbUseCases()
 
-  renderTbScores()
+  // Round 12 Phase 2: renderTbScores() no longer runs here. The panel lives on
+  // the stage tabs and is driven by renderTbStageScoring, from that tab's own
+  // gate rules. What Reference keeps is the read-only summary below.
+  renderTbScoreSummary()
 
   renderTbCustomerDocuments()
 
@@ -1048,9 +1051,14 @@ async function renderTbStageExitCriteria(stageName, isStillCurrent = () => true,
   if (!result.ok) {
     el.innerHTML = '<p class="empty-state">Unable to load exit criteria.</p>'
     markStagePanelFailed(el)
+    renderTbStageScoring(stageName, [], isStillCurrent)
     return
   }
   const { to_stage, requirements } = result.data
+  // The scoring panel derives from the SAME response, before any of the
+  // early returns below, so a stage with no exit criteria at all still gets
+  // its panel correctly hidden rather than left as the previous stage's.
+  renderTbStageScoring(stageName, requirements ?? [], isStillCurrent)
   if (!to_stage) {
     el.innerHTML = '<p class="empty-state">This is the final stage - nothing further to exit toward.</p>'
     markStagePanelSettled(el, stageName)
@@ -1081,7 +1089,50 @@ async function renderTbStageExitCriteria(stageName, isStillCurrent = () => true,
   // the half that makes it readable. The same set is the server's PATCH
   // allowlist, so the panel can only ever offer a tick the server would
   // accept.
-  const rows = requirements.map(r => {
+  // ── The exit criteria split, Round 12 Phase 5 (2026-08-20) ──────────────
+  //
+  // Confirmed with the business, and their reasoning decides future cases:
+  // the tick is confirmation that a STEP WAS PERFORMED, and a step performed
+  // is what you want visible in a process you are reinforcing. A date being
+  // filled in is not a step, it is a field. So process requirements always
+  // show with their tick, and data-entry requirements show only while unmet.
+  //
+  // THE CLASSIFICATION IS A PROPERTY OF THE REQUIREMENT, not a list of
+  // fields kept in step by hand. document_status and approval_obtained are
+  // process by their type; contact_role_linked is data entry by its type;
+  // payload_field_required is the only untidy case, because a date and a
+  // score key are the same requirement type.
+  //
+  // THE BRIEF'S ORIGINAL PREMISE WAS REFUTED AND IS RECORDED HERE BECAUSE
+  // THE REFUTATION IS THE USEFUL PART. It asserted TB_EXIT_CRITERION_KEYS
+  // already distinguishes the two. It does not: that set holds only the four
+  // legacy tick keys, because Round 11 Phase 2 deliberately kept score keys
+  // out of it and out of TEST_BED_WRITABLE_KEYS. Deriving from it alone
+  // would have classified all six process requirements as data entry, which
+  // is the exact opposite of the intent and would have hidden every score
+  // the moment it was ticked.
+  //
+  // ONE CAVEAT, RECORDED AS A CAVEAT RATHER THAN RESOLVED. `min_length`
+  // means "this field holds a series", which is not the same concept as
+  // "this is a process step". It correlates exactly today only because the
+  // only series-valued requirements happen to be the scored ones. It is a
+  // proxy, and a proxy that is currently exact. A future data-entry field
+  // holding a series would be misclassified and nothing would flag it.
+  const isProcessRequirement = (r) => {
+    if (r.requirement_type === 'document_status') return true
+    if (r.requirement_type === 'approval_obtained') return true
+    if (r.requirement_type === 'contact_role_linked') return false
+    if (r.requirement_type === 'payload_field_required') {
+      return r.min_length !== undefined || TB_EXIT_CRITERION_KEYS.has(r.field)
+    }
+    // An unrecognised type stays visible. Hiding a requirement nobody has
+    // classified is the failure mode worth avoiding: a gate would block with
+    // nothing on screen saying why.
+    return true
+  }
+  const shown = requirements.filter(r => isProcessRequirement(r) || !r.met)
+
+  const rows = shown.map(r => {
     const tickable = r.requirement_type === 'payload_field_required'
       && TB_EXIT_CRITERION_KEYS.has(r.field)
       && !!r.label
@@ -1101,6 +1152,10 @@ async function renderTbStageExitCriteria(stageName, isStillCurrent = () => true,
     </div>`
   }).join('')
 
+  // Counted over ALL requirements, not over the displayed subset. This line
+  // describes the GATE, not the list: every hidden row is a met one, so the
+  // outstanding figure is unchanged by the split, and the denominator stays
+  // the true number of requirements the transition is checked against.
   const outstanding = requirements.filter(r => !r.met).length
   const summary = outstanding === 0
     ? `<p class="sub" style="margin-bottom:10px">All criteria met - ready to move to ${escHtml(to_stage)}.</p>`
@@ -1161,6 +1216,11 @@ const TB_EXIT_CRITERION_KEYS = new Set([
 // discipline-not-a-property case the brief rejected.
 let tbScoresExpanded = {}
 let tbScoreComments = {}
+// Which criteria have their anchors revealed. Kept across re-renders because
+// renderTbScores rewrites innerHTML: without this the block would vanish the
+// moment a draft change re-rendered the panel, one interaction after the user
+// opened it.
+let tbScoreAnchorsOpen = {}
 
 // A score draft goes into tbEdits under the criterion key, so it is dirty in
 // exactly the same sense every other field is: the save bar appears, Cancel
@@ -1202,6 +1262,22 @@ window.setTbScoreComment = function (key, value) {
 // picked up without a code change.
 function tbScoreKeys() {
   return new Set(tbScoringCriteria.map(c => c.criterion_key))
+}
+
+// REVEALED WITHOUT RE-RENDERING, and that is the whole reason this is not a
+// call to renderTbScores. The panel renders by rewriting innerHTML, so
+// re-rendering on focus would destroy the very select the user just opened,
+// closing its dropdown as they reached for it. The flag is set for later
+// re-renders and the class is removed directly for this one.
+window.showTbScoreAnchors = function (key) {
+  tbScoreAnchorsOpen[key] = true
+  document.getElementById(`tb-anchors-${key}`)?.classList.remove('hidden')
+}
+
+// The wording for a given version, or an empty set. Versions are jsonb object
+// keys so they arrive as strings.
+function tbAnchorSet(criterion, version) {
+  return criterion?.anchors?.[String(version)] ?? {}
 }
 
 window.toggleTbScoreHistory = function (key) {
@@ -1327,13 +1403,107 @@ async function recordTbScores(scoreEntries, otherDirtyEntries) {
   else await loadTestBedDetail(tbDetailId)
 }
 
+// Round 12: the read-only scores summary on Reference.
+//
+// STRUCTURALLY INERT, and that is the assertion this card is verified by:
+// zero inputs, zero selects, zero buttons, zero click handlers, nothing
+// focusable. It renders spans and nothing else.
+//
+// It deliberately does NOT reuse .tb-score-row. The two panels share the
+// value styling and the 170px name column, so they read consistently, but the
+// summary carries its own row class so "no scoring panel remains on
+// Reference" stays a checkable claim rather than becoming ambiguous the
+// moment a read-only summary reuses the same selector.
+//
+// EVERY criterion renders, including unscored ones. A criterion missing from
+// the list is indistinguishable from a criterion that does not exist, and the
+// unscored ones are the ones worth seeing on a record you are reading whole.
+async function renderTbScoreSummary() {
+  const el = document.getElementById('tb-score-summary')
+  if (!el) return
+  await ensureTbScoringCriteria()
+  if (!tbScoringCriteria.length) {
+    el.innerHTML = '<p class="empty-state">No scoring criteria configured.</p>'
+    return
+  }
+  el.innerHTML = tbScoringCriteria.map(c => {
+    const series = tbScoreSeries(c.criterion_key)
+    const current = series.length ? series[series.length - 1] : null
+    // The stage the CURRENT score was recorded at. This is the half that
+    // makes the route evident without a control: it names the tab.
+    const where = current?.stage ? `<span class="tb-score-sum-where">${escHtml(current.stage)}</span>` : ''
+    return `
+      <div class="tb-score-sum-row" data-criterion="${escHtml(c.criterion_key)}">
+        <span class="tb-score-name">${escHtml(c.name)}</span>
+        <span class="tb-score-value${current ? '' : ' tb-score-value--none'}">${
+          current ? escHtml(String(current.value)) : 'Not scored'
+        }</span>
+        ${where}
+      </div>`
+  }).join('')
+}
+
+async function ensureTbScoringCriteria() {
+  if (tbScoringCriteria.length) return
+  const result = await api('GET', '/api/scoring-criteria?record_type=test_bed')
+  if (result.ok) tbScoringCriteria = result.data ?? []
+}
+
+// WHICH CRITERIA THE OPEN STAGE TAB ASKS FOR. Set by renderTbStageScoring from
+// that stage's own gate rules, read by renderTbScores. Holding it here is what
+// lets the two in-panel re-renders (a draft change, a history toggle) stay
+// argument-free rather than each having to rediscover the stage.
+let tbScoreVisible = { keys: [], measurability: false }
+
+// Round 12 Phase 2. Derives the panel from the requirements[] that
+// renderTbStageExitCriteria has ALREADY fetched for this stage, rather than
+// asking again or carrying a list.
+//
+// This follows loadTbStageDetailTab's `isTerminal`, which reads terminality
+// from stage_definitions, and deliberately not the line eight below it, which
+// decides the install section by `stageName !== 'Installation and
+// Commissioning'`. Both are pure visibility toggles over statically mounted
+// markup, so nothing here is duplicated per tab.
+//
+// The measurability confirmation is derived the same way and is NOT a member
+// of scoring_criteria: it appears exactly where a gate rule names
+// measurabilityConfirmed, which today is Qualification alone.
+async function renderTbStageScoring(stageName, requirements, isStillCurrent = () => true) {
+  const card = document.getElementById('tb-stage-scoring-card')
+  const list = document.getElementById('tb-scores-list')
+  if (!card || !list) return
+  await ensureTbScoringCriteria()
+  if (!isStillCurrent()) return
+
+  const known = new Set(tbScoringCriteria.map(c => c.criterion_key))
+  const fields = (requirements ?? [])
+    .filter(r => r.requirement_type === 'payload_field_required')
+    .map(r => r.field)
+  tbScoreVisible = {
+    keys: fields.filter(f => known.has(f)),
+    measurability: fields.includes('measurabilityConfirmed'),
+  }
+
+  const anything = tbScoreVisible.keys.length > 0 || tbScoreVisible.measurability
+  card.classList.toggle('hidden', !anything)
+  // Paired with the delete in loadTbStageDetailTab's synchronous hide, exactly
+  // as markStagePanelsPending/markStagePanelSettled are paired: the attribute
+  // names the stage this card has actually derived, so "hidden" can never be
+  // read as an answer while it is still the previous stage's hide.
+  card.dataset.stage = stageName
+  if (!anything) {
+    // No panel means NO PANEL, not an empty card. The list is emptied as well
+    // as hidden so a later reveal can never flash the previous stage's rows.
+    list.innerHTML = ''
+    return
+  }
+  await renderTbScores()
+}
+
 async function renderTbScores() {
   const el = document.getElementById('tb-scores-list')
   if (!el) return
-  if (!tbScoringCriteria.length) {
-    const result = await api('GET', '/api/scoring-criteria?record_type=test_bed')
-    if (result.ok) tbScoringCriteria = result.data ?? []
-  }
+  await ensureTbScoringCriteria()
   if (!tbScoringCriteria.length) {
     el.innerHTML = '<p class="empty-state">No scoring criteria configured.</p>'
     return
@@ -1341,7 +1511,7 @@ async function renderTbScores() {
 
   const mSeries = tbScoreSeries('measurabilityConfirmed')
   const mCurrent = mSeries.length ? mSeries[mSeries.length - 1] : null
-  const measurability = `
+  const measurability = !tbScoreVisible.measurability ? '' : `
     <div class="tb-score-row" data-criterion="measurabilityConfirmed" data-entries="${mSeries.length}">
       <div class="tb-score-head">
         <span class="tb-score-name">Can the proposed sensors capture what would be measured?</span>
@@ -1358,7 +1528,8 @@ async function renderTbScores() {
       ${mCurrent ? `<div class="ref-notes-row tb-score-entry"><span class="ref-notes-when">${formatDateTime(mCurrent.at)}</span><span class="ref-notes-author">${escHtml(mCurrent.by ?? '--')}</span><span class="ref-notes-text">${mCurrent.value ? 'Yes' : 'No'} at ${escHtml(mCurrent.stage ?? '')}</span></div>` : ''}
     </div>`
 
-  el.innerHTML = measurability + tbScoringCriteria.map(c => {
+  const visible = tbScoringCriteria.filter(c => tbScoreVisible.keys.includes(c.criterion_key))
+  el.innerHTML = measurability + visible.map(c => {
     const series = tbScoreSeries(c.criterion_key)
     const current = series.length ? series[series.length - 1] : null
     const expanded = !!tbScoresExpanded[c.criterion_key]
@@ -1382,6 +1553,8 @@ async function renderTbScores() {
         }</span>
         <select class="tb-score-select" id="tb-score-select-${escHtml(c.criterion_key)}"
                 aria-label="${escHtml(c.name)} score"
+                onfocus="showTbScoreAnchors('${escHtml(c.criterion_key)}')"
+                onmousedown="showTbScoreAnchors('${escHtml(c.criterion_key)}')"
                 onchange="setTbScoreDraft('${escHtml(c.criterion_key)}', this.value)">
           <option value="">${current ? 'Revise...' : 'Score...'}</option>
           ${options}
@@ -1397,6 +1570,35 @@ async function renderTbScores() {
     // dialogue. The dialogue asks one question, "why did this change", and
     // stays single-purpose the way Est. Close Date's did; the comment is
     // part of the score itself, not part of the change.
+    // THE ANCHORS, inline rather than on hover. Three reasons, recorded:
+    // they run to two or three sentences and a tooltip cannot hold that;
+    // hover does not exist on touch; and hiding the instrument behind a
+    // gesture makes consulting it optional, when the design intent is that
+    // scoring is a matching exercise rather than a recalled judgement.
+    //
+    // ALL FIVE VALUES ARE LISTED. 2 and 4 have no wording and are shown with
+    // none rather than hidden or given invented text. That is the honest
+    // rendering of what the data says, and it puts Round 11 Phase 8's
+    // structural finding in front of the person scoring: every 5 is a
+    // conjunction of three or four independent conditions, so an engagement
+    // that satisfies most and fails one has nowhere to land, and 2 and 4
+    // cannot carry a gap that is not one dimension.
+    //
+    // Informational, not a second control. The select remains the only way to
+    // set a score, so there is one write path rather than two that must agree.
+    const anchorSet = tbAnchorSet(c, c.current_version)
+    const anchorsBlock = `
+      <div class="tb-score-anchors${tbScoreAnchorsOpen[c.criterion_key] || pending !== '' ? '' : ' hidden'}"
+           id="tb-anchors-${escHtml(c.criterion_key)}">
+        ${c.asks ? `<p class="tb-score-asks">${escHtml(c.asks)}</p>` : ''}
+        ${[1,2,3,4,5].map(n => `
+          <div class="tb-score-anchor${anchorSet[n] ? '' : ' tb-score-anchor--nowording'}">
+            <span class="tb-score-anchor-n">${n}</span>
+            <span class="tb-score-anchor-text">${anchorSet[n] ? escHtml(anchorSet[n]) : ''}</span>
+          </div>`).join('')}
+        <p class="sub tb-score-anchor-ver">Version ${escHtml(String(c.current_version))}</p>
+      </div>`
+
     const commentBox = pending === '' ? '' : `
       <div class="tb-score-comment">
         <label for="tb-score-comment-${escHtml(c.criterion_key)}">Comment${Number(pending) <= 2 ? ' (required at 1 or 2)' : ' (optional)'}</label>
@@ -1404,7 +1606,7 @@ async function renderTbScores() {
                   oninput="setTbScoreComment('${escHtml(c.criterion_key)}', this.value)">${escHtml(tbScoreComments[c.criterion_key] ?? '')}</textarea>
       </div>`
 
-    if (!expanded) return `<div class="tb-score-row" data-criterion="${escHtml(c.criterion_key)}" data-entries="${series.length}">${head}${commentBox}</div>`
+    if (!expanded) return `<div class="tb-score-row" data-criterion="${escHtml(c.criterion_key)}" data-entries="${series.length}">${head}${anchorsBlock}${commentBox}</div>`
 
     // Newest first when reading history, which is how a person reads a
     // change log, while the stored series stays chronological.
@@ -1416,10 +1618,19 @@ async function renderTbScores() {
           e.stage ? ` at ${escHtml(e.stage)}` : ''
         } <span class="sub">v${escHtml(String(e.anchorVersion ?? '?'))}</span>${
           e.comment ? `<br>${escHtml(e.comment)}` : ''
-        }${e.reason ? `<br><em>Reason: ${escHtml(e.reason)}</em>` : ''}</span>
+        }${e.reason ? `<br><em>Reason: ${escHtml(e.reason)}</em>` : ''}${
+          // THE ENTRY RESOLVES AGAINST ITS OWN VERSION, not the current one.
+          // Printing "v1" beside a score is a label; showing the wording that
+          // score was actually chosen against is the thing the version column
+          // exists for. When the anchors are revised, an old entry keeps
+          // meaning what it meant, and that is visible rather than asserted.
+          tbAnchorSet(c, e.anchorVersion)[e.value]
+            ? `<br><span class="tb-score-entry-anchor">${escHtml(tbAnchorSet(c, e.anchorVersion)[e.value])}</span>`
+            : ''
+        }</span>
       </div>`).join('')
 
-    return `<div class="tb-score-row" data-criterion="${escHtml(c.criterion_key)}" data-entries="${series.length}">${head}${commentBox}<div class="tb-score-history">${rows}</div></div>`
+    return `<div class="tb-score-row" data-criterion="${escHtml(c.criterion_key)}" data-entries="${series.length}">${head}${anchorsBlock}${commentBox}<div class="tb-score-history">${rows}</div></div>`
   }).join('')
 }
 

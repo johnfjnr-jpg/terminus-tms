@@ -2806,8 +2806,25 @@ input.input-invalid {
 .tb-score-head {
   flex-wrap: wrap;
 }
+/* Round 12 Phase 2 (2026-08-20): the criterion name is a FIXED column, not a
+   growing one.
+
+   `flex: 1 1 200px` let the name absorb every spare pixel in the row, so the
+   score was pushed to the far right and the horizontal distance between a
+   criterion and its own score was set by the panel width rather than by
+   anything to do with the text. Measured on the Qualification tab before this
+   change: 229px between "Data Rights" and its score, identical at 1240, 1920
+   and 3440, which is the business's "the eye loses the connection" and is
+   also why it is not a width problem to be solved by capping the panel.
+
+   170px is NOT a chosen figure. It is `.ref-field-label`'s column, the
+   label-then-value measure this app already uses for every click-to-edit row
+   on Reference, Commercials, Contact and Account, with the same 12px flex gap.
+   Reusing it makes the bound 182px by construction and keeps the scoring rows
+   optically aligned with every other labelled row in the product instead of
+   introducing a second measure for the same problem. */
 .tb-score-name {
-  flex: 1 1 200px;
+  flex: 0 0 170px;
 }
 .tb-score-comment {
   margin-top: 8px;
@@ -2859,3 +2876,82 @@ input.input-invalid {
   white-space: nowrap;
 }
 .tb-custdoc-url:hover { color: var(--green); }
+
+/* Scores summary on the Test Bed Reference tab, Round 12 (2026-08-20).
+   Read-only rows: name, current score, and the stage that score was recorded
+   at. Shares .tb-score-name's 170px column and .tb-score-value's styling with
+   the stage-tab panel so the two read consistently, but carries its own row
+   class so "no scoring panel remains on Reference" stays a checkable claim.
+   Nothing here is a control, so nothing here has a hover, focus or cursor
+   treatment that would suggest otherwise. */
+.tb-score-sum-row {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--hairline);
+}
+.tb-score-sum-row:last-child { border-bottom: none; }
+.tb-score-sum-where {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted-2);
+  margin-left: auto;
+  text-align: right;
+}
+
+/* Score anchors, Round 12 (2026-08-20). Inline beneath the control, revealed
+   when the control opens, not on hover: the wording runs to two or three
+   sentences, hover does not exist on touch, and a gesture-hidden instrument
+   is an optional one. Full wording, never truncated, so no ellipsis, no
+   max-height and no line clamp anywhere in this block. */
+.tb-score-anchors {
+  margin: 8px 0 4px;
+  padding: 10px 12px;
+  background: var(--black);
+  border-left: 2px solid var(--hairline);
+}
+.tb-score-asks {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted-2);
+  margin-bottom: 8px;
+}
+.tb-score-anchor {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  padding: 5px 0;
+}
+.tb-score-anchor-n {
+  flex: 0 0 16px;
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--green);
+  text-align: right;
+}
+.tb-score-anchor-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+/* 2 and 4 carry no wording at any version. They are shown, and shown empty,
+   rather than hidden or given text this project invented. The dimmed number
+   is the only treatment: it says "no definition here", which is the finding,
+   without writing an anchor that the business did not write. */
+.tb-score-anchor--nowording .tb-score-anchor-n { color: var(--muted-2); }
+.tb-score-anchor--nowording .tb-score-anchor-text { min-height: 18px; }
+.tb-score-anchor-ver { margin-top: 8px; }
+.tb-score-entry-anchor {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--muted-2);
+}

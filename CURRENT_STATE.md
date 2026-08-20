@@ -12,9 +12,9 @@ Contains no environment variable, key or token, and no client data. Records
 appear as counts by status only, never by name or reference code, because
 this file is uploaded into chat sessions.
 
-- Generated at: `2026-08-19T13:12:41.616Z`
-- Git commit: `194e6fa1606ef885b8b35f2bbee72a3eb05c93e6`
-- Working tree at generation: `dirty (uncommitted changes present)`
+- Generated at: `2026-08-20T01:10:50.298Z`
+- Git commit: `bcc0688fc204c2809828e8e4ab38f77add7e2967`
+- Working tree at generation: `clean`
 
 If the commit above is not current `HEAD`, this file is stale and is
 untrusted rather than approximately right.
@@ -208,25 +208,26 @@ _None._
 
 ## Record counts by type and status
 
-66 live, 3139 soft deleted, 3205 rows in total.
+73 live, 3522 soft deleted, 3595 rows in total.
 
 | record_type | status | live | soft deleted |
 |---|---|---|---|
-| account | active | 7 | 164 |
+| account | active | 7 | 188 |
 | contact | Parked | 0 | 2 |
-| contact | Qualified | 9 | 115 |
+| contact | Qualified | 9 | 136 |
 | contact | Unqualified | 1 | 53 |
-| document | approved | 38 | 359 |
+| document | approved | 45 | 410 |
 | document | received | 1 | 3 |
 | opportunity | Discovery | 3 | 40 |
 | opportunity | Negotiation | 0 | 1 |
 | opportunity | Proposal | 0 | 1 |
 | test_bed | Closed | 4 | 7 |
-| test_bed | Installation and Commissioning | 0 | 1 |
+| test_bed | Installation and Commissioning | 0 | 11 |
 | test_bed | Monitoring and Analysis | 0 | 1 |
-| test_bed | Pre-Site Assessment | 0 | 3 |
-| test_bed | Qualification | 3 | 139 |
-| test_bed | Site Assessment | 0 | 3 |
+| test_bed | Pre-Site Assessment | 0 | 6 |
+| test_bed | Qualification | 2 | 142 |
+| test_bed | Review and Completion | 1 | 0 |
+| test_bed | Site Assessment | 0 | 14 |
 
 ### Test fixture record types
 
@@ -236,19 +237,19 @@ row by row, and are included in the totals above.
 
 | distinct `harness_*` record types | live rows | soft deleted rows |
 |---|---|---|
-| 180 | 0 | 2247 |
+| 200 | 0 | 2507 |
 
 No harness record type holds a live row; every fixture row is soft deleted.
 
 ## `approvals`
 
-162 rows, of which 0 carry a null `stage`.
+199 rows, of which 0 carry a null `stage`.
 
 | decision | track | rows | null stage |
 |---|---|---|---|
-| approved | Commercial | 65 | 0 |
-| approved | Legal | 37 | 0 |
-| approved | Technical | 60 | 0 |
+| approved | Commercial | 82 | 0 |
+| approved | Legal | 52 | 0 |
+| approved | Technical | 65 | 0 |
 
 ## Writable-key allowlists
 

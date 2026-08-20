@@ -97,7 +97,13 @@ function navigate(view, id) {
   else if (view === 'account-detail' && id) loadAccountDetail(id)
   else if (view === 'test-beds') loadTestBeds()
   else if (view === 'opportunities') loadOpportunities()
-  else if (view === 'test-bed-detail' && id) loadTestBedDetail(id)
+  else if (view === 'test-bed-detail' && id) {
+    // The ONE genuine arrival. Everything else that calls loadTestBedDetail
+    // is a save refreshing the record the user is already looking at.
+    tbFreshNavigation = true
+    tbUserPickedTab = false
+    loadTestBedDetail(id)
+  }
   else if (view === 'opportunity-detail' && id) loadOpportunityDetail(id)
 }
 
@@ -145,6 +151,39 @@ function switchOppTab(tab) {
 // Reference exactly as before - this only protects a click that
 // happens to race ahead of that same load's own completion.
 let tbUserPickedTab = false
+
+// tbFreshNavigation (Round 12 Phase 1, 2026-08-20): the flag that separates
+// ARRIVING at a record from RELOADING one.
+//
+// The comment above ends by noting that "the existing save-triggered reload
+// behaviour, both pre-existing and unchanged" still defaults to Reference.
+// That was accurate and it is the fault: loadTestBedDetail reset
+// tbUserPickedTab on every call, and ELEVEN of its thirteen call sites are
+// in-app saves rather than navigations. So every save moved the user to
+// Reference, from wherever they were doing the work that triggered it.
+//
+// Round 8 Phase 1 recorded six of those paths and left them for a product
+// decision. Round 11 added four more without the question being asked again.
+// Round 10 Phase 6 fixed the transition path alone, via tbLandOnStageAfterLoad.
+// The business reported two of the eleven, which are simply the two they
+// happened to try while doing installation work.
+//
+// FIXED BY INVERTING THE DEFAULT rather than by patching call sites. Making
+// each of the eleven pass "do not reset" would leave the twelfth, added in
+// some future round, inheriting the fault - which is the standing rule about
+// a fix built for the surfaces that existed, now at four confirmed instances.
+// Preserving the tab is now what happens unless something explicitly says
+// this is a navigation, and exactly one place says that: navigate().
+//
+// Set by navigate() and CONSUMED by loadTestBedDetail into tbArrivingFresh
+// below, before anything can fail. Consuming it at the top rather than in
+// the renderer is not tidiness: loadTestBedDetail returns early when the GET
+// fails, so a flag cleared only by the renderer would survive a failed load
+// and make the NEXT call - a save - read as an arrival and jump to Reference.
+// That is the original fault reintroduced through its own fix, reachable
+// whenever a save follows a load that 404ed or dropped.
+let tbFreshNavigation = false
+let tbArrivingFresh = false
 
 // Round 10 Phase 6 (2026-08-19): after a successful transition the operator
 // lands on the tab for the stage the record has just ENTERED, not back on
@@ -2115,7 +2154,11 @@ function renderTestBedsTable(unfilteredBeds) {
 let currentTestBed = null
 
 async function loadTestBedDetail(id) {
-  tbUserPickedTab = false // a genuinely fresh load - see the flag's own comment above
+  // Round 12 Phase 1: no longer resets tbUserPickedTab. Twelve of this
+  // function's thirteen call sites are in-app saves and only navigate() is an
+  // arrival. The flag is consumed HERE, before the GET can fail.
+  tbArrivingFresh = tbFreshNavigation
+  tbFreshNavigation = false
   const result = await api('GET', `/api/test-beds/${id}`)
   if (!result.ok) {
     document.getElementById('tb-detail-name').textContent = 'Not found'
@@ -2204,9 +2247,25 @@ async function renderTestBedDetail(bed) {
   // asked for and the exception was only ever deferring.
   const landing = tbLandOnStageAfterLoad
   tbLandOnStageAfterLoad = null
+  const fresh = tbArrivingFresh
+  // Read BEFORE any switch, since switchTbTab rewrites the active class.
+  const openTab = document.querySelector('#tb-detail-tabs .detail-tab.active')?.dataset.tbTab
+
   if (landing) {
+    // Round 10 Phase 6: a transition lands on the stage just entered. This
+    // is deliberate and outranks both branches below.
     switchTbTab(`stage-${landing}`)
-  } else if (!tbUserPickedTab) {
+  } else if (fresh && !tbUserPickedTab) {
+    // A genuine arrival, and the user has not raced the load with a click.
+    switchTbTab('reference')
+  } else if (openTab) {
+    // A RELOAD. Re-apply the open tab rather than leaving it alone, which
+    // preserves the tab AND refreshes it: switchTbTab re-runs
+    // loadTbStageDetailTab for a stage tab, so the panel shows the record as
+    // it now is. Leaving the switch out entirely would keep the tab and show
+    // stale content, which trades one fault for a worse one.
+    switchTbTab(openTab)
+  } else {
     switchTbTab('reference')
   }
   window.initTestBedDetailPanel(bed)
@@ -2424,6 +2483,14 @@ async function loadTbStageDetailTab(stageName) {
   document.getElementById('tb-tab-closed')?.classList.toggle('hidden', !isTerminal)
   if (isTerminal) {
     document.getElementById('tb-stage-install-section')?.classList.add('hidden')
+    // The terminal stage returns before the three fetches, so
+    // renderTbStageScoring never runs here and the card would be left with no
+    // dataset.stage at all. It is already hidden, with the whole panels row;
+    // marking it settled for this stage completes the attribute's contract, so
+    // "after a stage tab settles the card names the stage it decided for"
+    // holds on all eight tabs rather than seven.
+    const terminalScoringCard = document.getElementById('tb-stage-scoring-card')
+    if (terminalScoringCard) terminalScoringCard.dataset.stage = stageName
     // Round 10 Phase 7: Closed shows the completed record. Supersedes Round 9
     // Phase 6.3's "renders nothing" - see the panel's own comment in
     // index.html for why this is the opposite case to an empty card.
@@ -2464,6 +2531,12 @@ async function loadTbStageDetailTab(stageName) {
   // Synchronous, before any await: from this instant no panel is showing
   // the previous stage's content as though it were current.
   markStagePanelsPending(stageName)
+  // Round 12 Phase 2: the scoring card is hidden on the same instruction and
+  // for the same reason. It is revealed only once renderTbStageScoring has
+  // derived this stage's own criteria, so Pre-Site Assessment can never show
+  // Qualification's five while its fetch is still in flight.
+  const scoringCard = document.getElementById('tb-stage-scoring-card')
+  if (scoringCard) { scoringCard.classList.add('hidden'); delete scoringCard.dataset.stage }
 
   const documentsDone = renderTestBedDocuments(currentTestBed, stageName, 'tb-stage-documents-section', stillCurrent)
   const criteriaDone = renderTbStageExitCriteria(stageName, stillCurrent, currentTestBed.id)
