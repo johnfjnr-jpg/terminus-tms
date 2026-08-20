@@ -482,11 +482,16 @@ miscounted: **a phase that ships no diff is still a phase.**
 
 ## Round 12 outcome
 
-All 7 phases delivered and signed off: 0, 1, 2, 3, 4, 5, 6. Checked with
-`grep -n "^## Phase\|^### Phase"` per rule 7, **with the pattern including
-`###`**, which returns 7 headings and no sub-phases. Phase 0 is the
-investigate phase and built nothing, which is stated rather than left to be
-inferred from the absence of a diff.
+All 7 phases delivered. Checked with `grep -n "^## Phase\|^### Phase"` per
+rule 7, **with the pattern including `###`**, which returns 7 headings and no
+sub-phases. Phase 0 is the investigate phase and built nothing, which is
+stated rather than left to be inferred from the absence of a diff.
+
+**Phases 0 through 5 carry an explicit sign-off. Phase 6 is the phase this
+close-out is part of and is reported, not signed off**, because it cannot sign
+off the report that contains it. Stated because rule 7 exists to catch exactly
+the claim this sentence would otherwise be making, and two previous rounds
+recorded a premature completion caught only by counting.
 
 **The phase list was corrected mid-round rather than reconstructed at the
 end.** Phases 3 and 4 were swapped after the summary card was built out of
@@ -634,3 +639,13 @@ from, and the wording is still unamended by design. Three added:
     gate rule.** The other three retired with Round 11 Phase 4 when scores
     replaced ticks. The set is doing no harm, and it is now three quarters
     dead weight that a reader will reasonably assume is current.
+
+20. **One `npm run test:db` run failed once and did not reproduce in seven
+    subsequent runs.** The failing run's output was filtered to its pass and
+    fail counts and the detail was lost, which is why this is an open item
+    rather than an explanation: **the test name is not known.** The suite was
+    green immediately before, in Phase 5, and is green after. Candidates are
+    the `PGRST303` clock-skew error this project has now seen four times, and
+    the reference-number atomicity test's 50 concurrent inserts, but neither
+    is evidenced. Recorded rather than dismissed, and the lesson is not to
+    filter the output of a run whose result is not yet known.
