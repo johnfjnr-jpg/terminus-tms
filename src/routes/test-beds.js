@@ -1495,8 +1495,21 @@ export default async function testBedsRoutes(app) {
     // Mandatory at 1 or 2, naming what is missing. A low score is the one
     // that has to be actionable; without it the framework records an opinion
     // nobody can act on.
-    if (score <= 2 && !String(comment ?? '').trim()) {
-      return reply.code(400).send({ error: 'a comment is required at a score of 1 or 2, naming what is missing' })
+    //
+    // Round 14 Phase 1: THE RULE IS UNCHANGED. THE FIELD IT READS IS NOT.
+    // Two fields became one, called Reason, so the explanation for a low score
+    // now arrives in `reason` rather than `comment`. Checked against the
+    // running server before changing this line: a score of 2 carrying only a
+    // reason was refused 400, which is why the line had to move rather than
+    // being left alone as the brief first said.
+    //
+    // `comment` is still accepted and still stored when supplied, so the field
+    // stays in place exactly as it was and no historical entry is touched.
+    // What changed is which field satisfies the requirement. Confirmed before
+    // changing it that no test and no other caller posts a score comment: the
+    // browser was the only one.
+    if (score <= 2 && !String(reason ?? '').trim()) {
+      return reply.code(400).send({ error: 'a reason is required at a score of 1 or 2, naming what is missing' })
     }
 
     // Mandatory on any entry after the first. Phase 3 makes this an

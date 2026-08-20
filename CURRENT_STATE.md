@@ -12,8 +12,8 @@ Contains no environment variable, key or token, and no client data. Records
 appear as counts by status only, never by name or reference code, because
 this file is uploaded into chat sessions.
 
-- Generated at: `2026-08-20T05:18:11.326Z`
-- Git commit: `beabd78d990949cafd5a314a1500fe0464cabd8b`
+- Generated at: `2026-08-20T10:13:15.096Z`
+- Git commit: `27d8afa5b838260d01549365c55ae95de691f7c5`
 - Working tree at generation: `clean`
 
 If the commit above is not current `HEAD`, this file is stale and is
@@ -208,24 +208,24 @@ _None._
 
 ## Record counts by type and status
 
-77 live, 4304 soft deleted, 4381 rows in total.
+88 live, 4583 soft deleted, 4671 rows in total.
 
 | record_type | status | live | soft deleted |
 |---|---|---|---|
-| account | active | 7 | 205 |
+| account | active | 7 | 225 |
 | contact | Parked | 0 | 2 |
-| contact | Qualified | 9 | 149 |
+| contact | Qualified | 9 | 164 |
 | contact | Unqualified | 1 | 53 |
-| document | approved | 49 | 499 |
+| document | approved | 58 | 527 |
 | document | received | 1 | 72 |
-| opportunity | Discovery | 3 | 40 |
+| opportunity | Discovery | 3 | 49 |
 | opportunity | Negotiation | 0 | 1 |
 | opportunity | Proposal | 0 | 1 |
-| test_bed | Closed | 4 | 7 |
+| test_bed | Closed | 5 | 7 |
 | test_bed | Installation and Commissioning | 0 | 11 |
 | test_bed | Monitoring and Analysis | 0 | 1 |
 | test_bed | Pre-Site Assessment | 0 | 6 |
-| test_bed | Qualification | 1 | 159 |
+| test_bed | Qualification | 2 | 184 |
 | test_bed | Review and Completion | 1 | 0 |
 | test_bed | Site Assessment | 1 | 14 |
 
@@ -237,19 +237,19 @@ row by row, and are included in the totals above.
 
 | distinct `harness_*` record types | live rows | soft deleted rows |
 |---|---|---|
-| 245 | 0 | 3084 |
+| 259 | 0 | 3266 |
 
 No harness record type holds a live row; every fixture row is soft deleted.
 
 ## `approvals`
 
-204 rows, of which 0 carry a null `stage`.
+222 rows, of which 0 carry a null `stage`.
 
 | decision | track | rows | null stage |
 |---|---|---|---|
-| approved | Commercial | 84 | 0 |
-| approved | Legal | 54 | 0 |
-| approved | Technical | 66 | 0 |
+| approved | Commercial | 91 | 0 |
+| approved | Legal | 59 | 0 |
+| approved | Technical | 72 | 0 |
 
 ## Writable-key allowlists
 

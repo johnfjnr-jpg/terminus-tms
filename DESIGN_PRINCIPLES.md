@@ -1851,6 +1851,18 @@ Explicitly deferred, not forgotten, not a section number of its own since this i
 
   **Not edited, and the proposal is now one of two options rather than a recommendation.** Narrowing the `asks` is only correct if the criterion is meant to be a permission check; widening the anchors is correct if it is meant to measure worth. The business owns that choice and it is recorded as item 9 of the review list. The round's scope was one row edit, confirmed, and this is a second.
 
+- **The hover popups size to their content: a deliberate partial reversal of Round 6 Phase 1. Round 14 Phase 3, 2026-08-20.**
+
+  **Round 6 Phase 1's reasoning is left in place in the stylesheet rather than deleted, because that fix solved a real problem and this one modifies it rather than refuting it.** It added `white-space: nowrap`, `overflow: hidden` and `text-overflow: ellipsis` to `.linked-record-row`, plus a bounded `max-width` on the popup containers, to stop long names wrapping to three lines. Both halves were needed: nowrap alone stops wrapping, and without a width limit there is nothing for the ellipsis to truncate against.
+
+  **The cost it created, from the business's own screenshot and then measured.** Two Test Beds under one Account rendered identically, because the part being cut is the `(2)` and `(3)` suffix that is the only thing telling them apart. Phase 0 measured it at 1240, 1920 and 3440: two rows, **one distinct visible string**. The popup listed two records and identified neither.
+
+  **The lever is the container cap, not the row class, and the fourth surface is what establishes that.** `.linked-record-row` is also used by the linked-records modal, which sets no width bound and has no reported problem. Changing the row class would reach the modal; changing the container caps reaches exactly the three popups. **Single-line is kept**, so nothing Round 6 fixed comes back, and beyond the new ceiling the ellipsis still does its original job.
+
+  **Three containers, not the two Round 6 recorded.** `.contact-count-popup` and `.tb-matrix-popup` at 280px, and `.chevron-popup` at 320px, which was added in Round 7 Phase 9 after Round 6's record was written and inherited the treatment without inheriting the note. **A record of which callers exist ages the moment a caller is added**, which is build-discipline rule 6 arriving from the documentation side rather than the code side.
+
+  **The ceiling is a guard, not a layout choice:** `width: max-content` with `max-width: min(720px, calc(100vw - 48px))`, so the popup fits its longest row and a single absurd name cannot produce one wider than the window.
+
 - **The sticky region is the tab row alone, and its cost is not constant. Round 13 Phase 5, 2026-08-20.**
 
   **Option A, confirmed with the business.** Not the workflow chevron, not the Test Bed name, not Summary. The tab row is the smallest thing that answers "where am I and how do I get elsewhere"; the chevron and the name are checked on arrival rather than continuously. **Every pixel made permanently sticky is a pixel taken from every long tab forever**, and Round 10 Phase 2 cut the header from 346px to 145px specifically to recover height. **Adding to the sticky region later is cheap; removing from it once people rely on it is not**, which is the whole reason for choosing the smallest version first.

@@ -719,7 +719,8 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
   left: 0;
   z-index: 30;
   min-width: 180px;
-  max-width: 280px;
+  width: max-content;
+  max-width: min(720px, calc(100vw - 48px));
   background: var(--black);
   border: 1px solid var(--hairline-strong);
   padding: 4px;
@@ -2339,7 +2340,8 @@ textarea::placeholder { color: var(--muted-2); }
   transform: translateX(-50%);
   z-index: 30;
   min-width: 190px;
-  max-width: 280px;
+  width: max-content;
+  max-width: min(720px, calc(100vw - 48px));
   background: var(--black);
   border: 1px solid var(--hairline-strong);
   padding: 4px;
@@ -2555,6 +2557,41 @@ input.input-invalid {
   display: none;
 }
 
+/* THE THREE HOVER POPUPS SIZE TO THEIR CONTENT. Round 14 Phase 3
+   (2026-08-20). A DELIBERATE PARTIAL REVERSAL of Round 6 Phase 1, whose
+   reasoning is left in place above rather than deleted, because that fix
+   solved a real problem and this one modifies it rather than refuting it.
+
+   Round 6 Phase 1 added white-space:nowrap, overflow:hidden and
+   text-overflow:ellipsis to .linked-record-row, plus a bounded max-width on
+   the popup containers, to stop long names wrapping to three lines. Both
+   halves were needed: nowrap alone stops wrapping, and without a width limit
+   there is nothing for the ellipsis to truncate against.
+
+   THE COST, from the business's own screenshot: two Test Beds under one
+   Account rendered identically as "Singapore Instutue of Technolo...", because
+   the part being cut is the (2) and (3) suffix that is the ONLY thing telling
+   them apart. Measured in Phase 0 at 1240, 1920 and 3440: two rows, ONE
+   distinct visible string. The popup listed two records and identified
+   neither.
+
+   THE LEVER IS THE CONTAINER CAP, NOT THE ROW CLASS, and that is what the
+   fourth surface establishes. .linked-record-row is also used by the
+   linked-records modal, which sets no width bound and has no reported problem;
+   changing the row class would reach it, changing the container caps reaches
+   exactly these three popups. Single-line is KEPT: the row class is untouched,
+   so nothing that Round 6 fixed comes back.
+
+   width:max-content is what makes the popup size to the longest row instead of
+   to a number chosen in 2026. The ceiling stays, far above the old one, so a
+   single absurd name cannot produce a popup wider than the window: 720px, or
+   the viewport less a margin where that is smaller. Beyond the ceiling the
+   ellipsis still does its original job.
+
+   THREE containers, not the two Round 6 recorded. .chevron-popup was added in
+   Round 7 Phase 9, after that record was written, and inherited the same
+   treatment without inheriting the note. */
+
 /* ── Chevron hover popup (Round 7 Phase 9) ───────────────────────────────
    The wrapper exists because .chevron-strip has overflow:hidden and every
    .chevron-item carries a clip-path, so a popup inside either is clipped
@@ -2584,7 +2621,8 @@ input.input-invalid {
   margin-top: -8px;
   z-index: 40;
   min-width: 220px;
-  max-width: 320px;
+  width: max-content;
+  max-width: min(720px, calc(100vw - 48px));
   background: var(--black);
   border: 1px solid var(--hairline-strong);
   padding: 4px;
@@ -2862,16 +2900,16 @@ input.input-invalid {
 .tb-score-name {
   flex: 0 0 170px;
 }
-.tb-score-comment {
+.tb-score-reason {
   margin-top: 8px;
 }
-.tb-score-comment label {
+.tb-score-reason label {
   display: block;
   font-size: 11px;
   color: var(--muted);
   margin-bottom: 4px;
 }
-.tb-score-comment textarea {
+.tb-score-reason textarea {
   width: 100%;
 }
 
@@ -3004,12 +3042,12 @@ input.input-invalid {
    (2026-08-20). The needed state is carried by the label TEXT as well as by
    this treatment, so it is never colour alone: a greyscale screenshot and a
    colour-blind reader both still get the answer. */
-.tb-score-comment--needed {
+.tb-score-reason--needed {
   border-left: 2px solid var(--green);
   padding-left: 10px;
   margin-left: -12px;
 }
-.tb-score-comment--needed label {
+.tb-score-reason--needed label {
   color: var(--green);
   font-weight: 500;
 }
@@ -3069,4 +3107,27 @@ input.input-invalid {
   gap: 16px;
   margin-bottom: 28px;
   align-items: start;
+}
+
+/* The current entry's explanation, shown with the score it explains. Round 14
+   Phase 1 (2026-08-20). A single-entry criterion previously displayed its
+   explanation nowhere, because the history control only appears above one
+   entry. That became a contradiction when the rule started requiring a Reason
+   at a first score of 1 or 2. Sits directly under the head, above the
+   question, so it reads as belonging to the value rather than to the anchors. */
+.tb-score-current {
+  margin: 2px 0 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.tb-score-current-text {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.tb-score-current-text em {
+  font-style: normal;
+  color: var(--muted-2);
 }
