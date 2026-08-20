@@ -381,3 +381,152 @@ containing it.
 **State in the close-out whether this round edited `CLAUDE.md`.** Round 13
 established that the next session receives a stale snapshot and only
 re-reads from disk if prompted.
+
+---
+
+## Round 14 outcome
+
+All 6 phases delivered. Checked with `grep -n "^## Phase\|^### Phase"` per rule
+7, **with the pattern including `###`**, which returns 6 headings and no
+sub-phases. Phase 0 is the investigate phase and built nothing, which is stated
+rather than inferred from an absent diff.
+
+**Phases 0 through 4 carry an explicit sign-off. Phase 5 is the phase this
+close-out is part of and is reported, not signed off**, because it cannot sign
+off the report that contains it. Phase 1 was signed off twice, once for the
+build and once for the display decision that completed it.
+
+### THIS ROUND EDITED `CLAUDE.md` TWICE
+
+**The next session receives a snapshot taken at its own start, which will
+predate both.** It must re-read from disk, and that only happens if this
+close-out says so, which is why this is the first item rather than a footnote.
+
+- **Verification 13: a count of zero from an instrument never shown to reach
+  one is not a measurement.**
+- **Verification 14: a check that passes when both sides are absent is not a
+  check**, and it is more dangerous than 13 because it reports success rather
+  than nothing.
+
+Both came out of this round's own probes rather than out of the product.
+
+| Phase | Delivered | Beyond the brief |
+|---|---|---|
+| 0. Investigate | Six items, five amendments | **Item 2 inverted the brief's own reasoning**: the data had been obeying the new rule all along under the old field names |
+| 1. One Reason field | Two fields become one, enforced at entry | **The server's 1-or-2 check had to move**, found by asking the running server before writing code. My own amendment saying otherwise was wrong |
+| 1. completion | The current entry's Reason always renders | **A single-entry criterion showed its explanation nowhere**, which the new rule turned from survivable into a contradiction |
+| 2. Dialogue removed | Score caller gone, Opportunity untouched | **The zero was calibrated**: the same counter reads 1 on Opportunity |
+| 3. Popup truncation | Three containers size to content | **The third container was never in Round 6's record**, and only a class sweep reaches it |
+| 4. Creation navigates | Both entry points and the warning path | **A vacuous assertion reported MATCH for two paths that created nothing** |
+| 5. Regenerate | Reconciled, every hunk attributed | Live changes belong to an actor outside the round, again |
+
+### The scoring panel's height, as a named item for the business
+
+**Three independent observations, from three rounds and three causes, now point
+at one surface.** This is stated here as a decision for the business rather
+than as a close-out line, because it is the third time and the answer is theirs.
+
+1. **Round 13 Phase 1's lock note scrolls above the viewport** when working on
+   a lower criterion, measured at minus 509px at 1240, so the explanation for
+   the disabled controls is off screen while the controls are disabled.
+2. **The scrolling scoring panel the business asked for**, parked at the head
+   of Round 13 on the recommendation that the sticky tab row superseded it. **It
+   did not.** The sticky row answers where you are in the record; this is that
+   the panel is taller than the decisions it holds. **Parking it was my
+   recommendation and it was wrong.**
+3. **Round 14 Phase 1 measured the cost of always showing the Reason**: 665px
+   to **875px** with five criteria scored, up 210px or 32 per cent, which at
+   1240x800 moves the panel from 0.83 viewports to **1.09**. It no longer fits
+   one screen at the width where height is scarcest.
+
+**The three options, none of them a build decision:** collapse a criterion once
+it is scored, collapse the Reason specifically, or revisit the scrolling panel.
+**The case for the third is stronger now than when they raised it.**
+
+### Record history is deferred for the fifth time, as a choice
+
+**Stated plainly as a choice rather than allowed to read as a drift.** The
+per-field change trail and criterion authorship from `audit_log` has been
+requested and deferred in five consecutive rounds. Nothing in this round
+brought it closer, and no phase was cut to make room for it: every phase here
+came from the business using the merged Round 13 build, and this did not.
+
+**What has changed since it was first asked for** is that the argument for it
+is now partly satisfied by accident: scores carry an author, a stage, an anchor
+version and a Reason, and the panel shows the current one and the history
+behind it. **That covers scoring and nothing else.** A fifth deferral is a
+choice to keep covering scoring and not the rest.
+
+### `CURRENT_STATE.md` reconciled
+
+**13 of 16 sections are byte-identical across the whole round**, including all
+nine configuration sections. The three counts hold: `stage_gate_rules` **61
+total, 45 on test_bed**, `scoring_criteria` **5**, `scoring_anchors` **15 at
+version 1 only**. This round configured nothing, so identical configuration is
+the required result rather than a pleasing one.
+
+Three sections changed. The header is mechanical. `approvals` is plus 18 and
+record counts are plus 11 live, and **every one of those 11 is the business**:
+`TT-SGP-EDUCAM-002` created, nine documents approved, and `TT-SGP-EDUCAM-003`
+driven through Monitoring and Analysis, Review and Completion, Decommissioning
+and into Closed between 06:10 and 06:26. Attributed by owner and by
+`audit_log`, and **explained by an actor outside the round, which is a
+different answer from explained by a phase.** Soft-deleted growth is this
+round's fixtures and the `test:db` runs.
+
+**Every harness-wide query in this phase was paged**, because Round 13 Phase 7
+hit PostgREST's 1000-row default and a delete reported success while missing
+its target. The scan covers **3240 harness records**, comfortably past the cap,
+with 0 live, 0 orphaned gate rules and 0 approvals attached to them.
+
+### Open item 23 fired again, and this time it mattered more
+
+**The dev server serves the frontend from disk, so the business was again
+exercising unmerged branch code mid-round.** Confirmed rather than assumed: the
+served assets carry Phase 1's `tb-score-reason`, Phase 2's pending marks, Phase
+3's `width: max-content` and Phase 4's removed "Created. View it".
+
+**They were not incidentally exposed to it, they used it.** The `score_revised`
+at 06:25:16 went through Phase 1's one-Reason field and its entry-time
+enforcement, on a real record, before any of it was signed off. Nothing broke.
+**That is luck rather than design**, and it is the second consecutive round in
+which it has happened.
+
+### Seven probe defects, and where they landed
+
+**Every defect this round found in its own work was in the verification, not in
+the code under test**, which is now the third consecutive round.
+
+Phase 0: a fixture linked Test Beds by `account_id` and `initialLead` when the
+popup is driven by `record_contacts`, so no popup existed; a second Opportunity
+run hit the duplicate warning **because the first run had created one**; and a
+measurement read the inline `span`, whose `scrollWidth` is always 0, rather
+than the row that carries the truncation. Phase 2: a guessed save-button id
+that never clicked, an opportunity fixture missing its `opportunity_details`
+row so the endpoint updated zero rows and the date silently never moved, and
+two assertions reading the payload for values that live elsewhere. Phase 3:
+the chevron popup opens on a delegated `mouseover` needing a
+`.chevron-item[data-stage]` target, not a `mouseenter` on the wrapper. Phase 4:
+a fixed delay that clicked Save before the suggested name had arrived, and the
+vacuous `null === null` match.
+
+**Two of them produced output that looked like a product defect**: the
+Opportunity date silently not moving, and two creation paths reporting no
+navigation. In both cases the thing that separated a probe defect from a
+product defect was running the same probe against `main` before concluding
+anything.
+
+### Open, carried forward
+
+Round 13's twenty-four stand, with item 21 now promoted into the named business
+item above and item 23 confirmed as recurring. Two added:
+
+25. **The score `comment` field is still accepted and still stored by the
+    server, and nothing writes it.** Left in place deliberately so historical
+    entries keep what they carry, per Phase 1.2. A future reader will find a
+    field with a writer that no longer exists.
+26. **`recordTbScores` still computes a partial-failure message across several
+    scores**, and Phase 1's entry-time enforcement makes the common route to it
+    unreachable. The message is still correct and still reachable by network
+    failure or concurrent change; it is simply much harder to see, which is
+    worth knowing before anyone assumes it is dead code.
