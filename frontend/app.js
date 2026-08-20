@@ -2483,6 +2483,14 @@ async function loadTbStageDetailTab(stageName) {
   document.getElementById('tb-tab-closed')?.classList.toggle('hidden', !isTerminal)
   if (isTerminal) {
     document.getElementById('tb-stage-install-section')?.classList.add('hidden')
+    // The terminal stage returns before the three fetches, so
+    // renderTbStageScoring never runs here and the card would be left with no
+    // dataset.stage at all. It is already hidden, with the whole panels row;
+    // marking it settled for this stage completes the attribute's contract, so
+    // "after a stage tab settles the card names the stage it decided for"
+    // holds on all eight tabs rather than seven.
+    const terminalScoringCard = document.getElementById('tb-stage-scoring-card')
+    if (terminalScoringCard) terminalScoringCard.dataset.stage = stageName
     // Round 10 Phase 7: Closed shows the completed record. Supersedes Round 9
     // Phase 6.3's "renders nothing" - see the panel's own comment in
     // index.html for why this is the opposite case to an empty card.
@@ -2523,6 +2531,12 @@ async function loadTbStageDetailTab(stageName) {
   // Synchronous, before any await: from this instant no panel is showing
   // the previous stage's content as though it were current.
   markStagePanelsPending(stageName)
+  // Round 12 Phase 2: the scoring card is hidden on the same instruction and
+  // for the same reason. It is revealed only once renderTbStageScoring has
+  // derived this stage's own criteria, so Pre-Site Assessment can never show
+  // Qualification's five while its fetch is still in flight.
+  const scoringCard = document.getElementById('tb-stage-scoring-card')
+  if (scoringCard) { scoringCard.classList.add('hidden'); delete scoringCard.dataset.stage }
 
   const documentsDone = renderTestBedDocuments(currentTestBed, stageName, 'tb-stage-documents-section', stillCurrent)
   const criteriaDone = renderTbStageExitCriteria(stageName, stillCurrent, currentTestBed.id)

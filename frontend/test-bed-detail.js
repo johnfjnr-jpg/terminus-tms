@@ -290,8 +290,9 @@ function renderTbReference() {
   // renderTbSiteDetails.
   renderTbUseCases()
 
-  renderTbScores()
-
+  // Round 12 Phase 2: renderTbScores() no longer runs here. The panel lives on
+  // the stage tabs and is driven by renderTbStageScoring, from that tab's own
+  // gate rules.
   renderTbCustomerDocuments()
 
   renderTbNotes()
@@ -1048,9 +1049,14 @@ async function renderTbStageExitCriteria(stageName, isStillCurrent = () => true,
   if (!result.ok) {
     el.innerHTML = '<p class="empty-state">Unable to load exit criteria.</p>'
     markStagePanelFailed(el)
+    renderTbStageScoring(stageName, [], isStillCurrent)
     return
   }
   const { to_stage, requirements } = result.data
+  // The scoring panel derives from the SAME response, before any of the
+  // early returns below, so a stage with no exit criteria at all still gets
+  // its panel correctly hidden rather than left as the previous stage's.
+  renderTbStageScoring(stageName, requirements ?? [], isStillCurrent)
   if (!to_stage) {
     el.innerHTML = '<p class="empty-state">This is the final stage - nothing further to exit toward.</p>'
     markStagePanelSettled(el, stageName)
@@ -1327,13 +1333,67 @@ async function recordTbScores(scoreEntries, otherDirtyEntries) {
   else await loadTestBedDetail(tbDetailId)
 }
 
+async function ensureTbScoringCriteria() {
+  if (tbScoringCriteria.length) return
+  const result = await api('GET', '/api/scoring-criteria?record_type=test_bed')
+  if (result.ok) tbScoringCriteria = result.data ?? []
+}
+
+// WHICH CRITERIA THE OPEN STAGE TAB ASKS FOR. Set by renderTbStageScoring from
+// that stage's own gate rules, read by renderTbScores. Holding it here is what
+// lets the two in-panel re-renders (a draft change, a history toggle) stay
+// argument-free rather than each having to rediscover the stage.
+let tbScoreVisible = { keys: [], measurability: false }
+
+// Round 12 Phase 2. Derives the panel from the requirements[] that
+// renderTbStageExitCriteria has ALREADY fetched for this stage, rather than
+// asking again or carrying a list.
+//
+// This follows loadTbStageDetailTab's `isTerminal`, which reads terminality
+// from stage_definitions, and deliberately not the line eight below it, which
+// decides the install section by `stageName !== 'Installation and
+// Commissioning'`. Both are pure visibility toggles over statically mounted
+// markup, so nothing here is duplicated per tab.
+//
+// The measurability confirmation is derived the same way and is NOT a member
+// of scoring_criteria: it appears exactly where a gate rule names
+// measurabilityConfirmed, which today is Qualification alone.
+async function renderTbStageScoring(stageName, requirements, isStillCurrent = () => true) {
+  const card = document.getElementById('tb-stage-scoring-card')
+  const list = document.getElementById('tb-scores-list')
+  if (!card || !list) return
+  await ensureTbScoringCriteria()
+  if (!isStillCurrent()) return
+
+  const known = new Set(tbScoringCriteria.map(c => c.criterion_key))
+  const fields = (requirements ?? [])
+    .filter(r => r.requirement_type === 'payload_field_required')
+    .map(r => r.field)
+  tbScoreVisible = {
+    keys: fields.filter(f => known.has(f)),
+    measurability: fields.includes('measurabilityConfirmed'),
+  }
+
+  const anything = tbScoreVisible.keys.length > 0 || tbScoreVisible.measurability
+  card.classList.toggle('hidden', !anything)
+  // Paired with the delete in loadTbStageDetailTab's synchronous hide, exactly
+  // as markStagePanelsPending/markStagePanelSettled are paired: the attribute
+  // names the stage this card has actually derived, so "hidden" can never be
+  // read as an answer while it is still the previous stage's hide.
+  card.dataset.stage = stageName
+  if (!anything) {
+    // No panel means NO PANEL, not an empty card. The list is emptied as well
+    // as hidden so a later reveal can never flash the previous stage's rows.
+    list.innerHTML = ''
+    return
+  }
+  await renderTbScores()
+}
+
 async function renderTbScores() {
   const el = document.getElementById('tb-scores-list')
   if (!el) return
-  if (!tbScoringCriteria.length) {
-    const result = await api('GET', '/api/scoring-criteria?record_type=test_bed')
-    if (result.ok) tbScoringCriteria = result.data ?? []
-  }
+  await ensureTbScoringCriteria()
   if (!tbScoringCriteria.length) {
     el.innerHTML = '<p class="empty-state">No scoring criteria configured.</p>'
     return
@@ -1341,7 +1401,7 @@ async function renderTbScores() {
 
   const mSeries = tbScoreSeries('measurabilityConfirmed')
   const mCurrent = mSeries.length ? mSeries[mSeries.length - 1] : null
-  const measurability = `
+  const measurability = !tbScoreVisible.measurability ? '' : `
     <div class="tb-score-row" data-criterion="measurabilityConfirmed" data-entries="${mSeries.length}">
       <div class="tb-score-head">
         <span class="tb-score-name">Can the proposed sensors capture what would be measured?</span>
@@ -1358,7 +1418,8 @@ async function renderTbScores() {
       ${mCurrent ? `<div class="ref-notes-row tb-score-entry"><span class="ref-notes-when">${formatDateTime(mCurrent.at)}</span><span class="ref-notes-author">${escHtml(mCurrent.by ?? '--')}</span><span class="ref-notes-text">${mCurrent.value ? 'Yes' : 'No'} at ${escHtml(mCurrent.stage ?? '')}</span></div>` : ''}
     </div>`
 
-  el.innerHTML = measurability + tbScoringCriteria.map(c => {
+  const visible = tbScoringCriteria.filter(c => tbScoreVisible.keys.includes(c.criterion_key))
+  el.innerHTML = measurability + visible.map(c => {
     const series = tbScoreSeries(c.criterion_key)
     const current = series.length ? series[series.length - 1] : null
     const expanded = !!tbScoresExpanded[c.criterion_key]

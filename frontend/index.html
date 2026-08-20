@@ -1043,15 +1043,6 @@
           <button class="btn-sm" id="tb-usecase-add">Add</button>
         </div>
       </div>
-      <!-- Round 11 Phase 2: Qualification scoring. Record-level rather than
-           stage-scoped, because a criterion is scored at qualification and
-           re-scored at a later stage, so it describes the Test Bed rather
-           than any one stage - the same reasoning that put Summary in the
-           header in Round 10A Phase 1. -->
-      <div style="margin-top:24px">
-        <p class="pg-card-title">Qualification scoring</p>
-        <div id="tb-scores-list"></div>
-      </div>
       <!-- Round 10 Phase 2: Notes now lives ONLY here, at the bottom of the
            page, and carries the two-most-recent default plus the expansion
            to full history that Round 8 Phase 5 built into the header. The
@@ -1195,6 +1186,36 @@
            against. The stage heading remains, since that is the tab's own
            identity rather than a panel. -->
       <div class="ref-cards" id="tb-stage-panels-row">
+        <!-- Round 12 Phase 2 (2026-08-20): Qualification scoring moved here
+             from the Reference tab. At Site Assessment the gate correctly
+             demands Physical Suitability and Data Rights scored at or after
+             that stage, and there was no way to do it from that tab: the gate
+             pointed at an affordance that was not where the gate is.
+
+             WHICH CRITERIA APPEAR IS DERIVED, NEVER LISTED. The rule is that
+             stage S shows the score-keyed payload_field_required rules whose
+             from_stage is S, and it is computed from the SAME
+             /exit-criteria?stage= response the Exit Criteria panel beside it
+             already fetches - no second request and no second source. Today
+             that yields Qualification (five plus the measurability
+             confirmation), Site Assessment (two) and Monitoring and Analysis
+             (one), and nothing on the other five. Add a re-score gate rule and
+             the panel follows it with no code change.
+
+             HIDDEN BY DEFAULT, revealed only once the derivation says so.
+             loadTbStageDetailTab hides it synchronously alongside
+             markStagePanelsPending, so a stage with no scoring due can never
+             show the previous stage's criteria while its own fetch is in
+             flight. The cost is that the card appears a beat after the row on
+             the three stages that do have scoring, which is a reflow while the
+             row is visibly loading anyway. The alternative, mounting it with a
+             pending marker, puts a card on all eight stages and then removes
+             it from five, which is closer to the empty-card outcome this
+             placement exists to avoid. -->
+        <div class="pg-card hidden" id="tb-stage-scoring-card">
+          <p class="pg-card-title">Qualification scoring</p>
+          <div id="tb-scores-list"></div>
+        </div>
         <div class="pg-card">
           <p class="pg-card-title">Terminus Documents</p>
           <div id="tb-stage-documents-section"></div>

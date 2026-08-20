@@ -2806,8 +2806,25 @@ input.input-invalid {
 .tb-score-head {
   flex-wrap: wrap;
 }
+/* Round 12 Phase 2 (2026-08-20): the criterion name is a FIXED column, not a
+   growing one.
+
+   `flex: 1 1 200px` let the name absorb every spare pixel in the row, so the
+   score was pushed to the far right and the horizontal distance between a
+   criterion and its own score was set by the panel width rather than by
+   anything to do with the text. Measured on the Qualification tab before this
+   change: 229px between "Data Rights" and its score, identical at 1240, 1920
+   and 3440, which is the business's "the eye loses the connection" and is
+   also why it is not a width problem to be solved by capping the panel.
+
+   170px is NOT a chosen figure. It is `.ref-field-label`'s column, the
+   label-then-value measure this app already uses for every click-to-edit row
+   on Reference, Commercials, Contact and Account, with the same 12px flex gap.
+   Reusing it makes the bound 182px by construction and keeps the scoring rows
+   optically aligned with every other labelled row in the product instead of
+   introducing a second measure for the same problem. */
 .tb-score-name {
-  flex: 1 1 200px;
+  flex: 0 0 170px;
 }
 .tb-score-comment {
   margin-top: 8px;
