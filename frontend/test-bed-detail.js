@@ -261,7 +261,7 @@ function tbFieldRow(key, label, value, opts = {}) {
   return `
   <div class="ref-field" data-key="${key}">
     <div class="ref-field-label"><span>${label}</span></div>
-    <div class="ref-field-display" id="tb-display-${key}" tabindex="0" onclick="openTbField('${key}',true)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openTbField('${key}',true)}">${display}</div>
+    <div class="ref-field-display" id="tb-display-${key}" tabindex="0" onclick="openTbField('${key}',true)" onkeydown="fieldDisplayKeydown(event,c=>openTbField('${key}',true,c))">${display}</div>
     <div class="ref-field-edit hidden" id="tb-edit-${key}">
       ${inputTag}
       <span class="ref-field-discard" tabindex="0" onclick="discardTbField('${key}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();discardTbField('${key}')}">&times;</span>
@@ -2018,14 +2018,14 @@ function wireTbFieldInputs() {
 // fromUserGesture (Round 10 Phase 0A): true only from the real click and
 // keydown handlers on the display element. The restore path below passes
 // nothing on purpose - see window.revealFieldControl in app.js.
-window.openTbField = function (key, fromUserGesture) {
+window.openTbField = function (key, fromUserGesture, seedChar) {
   if (tbEdits[key]) return
   const orig = String(tbPayload[key] ?? '')
   tbEdits[key] = { draft: orig, orig }
   document.getElementById(`tb-display-${key}`).classList.add('hidden')
   document.getElementById(`tb-edit-${key}`).classList.remove('hidden')
   const input = document.getElementById(`tb-input-${key}`)
-  window.revealFieldControl(input, fromUserGesture)
+  window.revealFieldControl(input, fromUserGesture, seedChar)
   // Clear a stale error from an earlier, unrelated failed save (2026-08-15
   // fix) - tb-save-feedback previously only got reset at the top of
   // saveTbFields(), so a real failure (e.g. Summary rejected by the

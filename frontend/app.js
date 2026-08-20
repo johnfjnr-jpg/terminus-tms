@@ -3358,9 +3358,77 @@ window.confirmChangeReason = async function () {
   if (state.onDone) await state.onDone()
 }
 
-window.revealFieldControl = function (input, fromUserGesture) {
+// Round 15 Phase 2: the keyboard path onto a click-to-edit field.
+//
+// The display element is a button in all but name: tabindex 0, Enter and Space
+// activate it. What it did NOT do was take a printable character, so a user
+// tabbing through a form and typing lost the character and had to notice the
+// field had not opened, press Enter, and type it again.
+//
+// PRINTABLE IS `key.length === 1` WITH NO Ctrl/Meta/Alt. That is the whole
+// test, and it is a test of what the key IS rather than a list of what to
+// exclude: Tab, Escape, Home, End, PageUp, F1 and every arrow have multi
+// character names, so a deny-list would have to be maintained forever and a
+// missed entry would open a field on a navigation key. Opening on Tab would
+// make it impossible to move through a form without editing everything on the
+// way, which is why this is expressed as an allow-test.
+//
+// Space stays an ACTIVATION key rather than becoming printable input, even
+// though it passes the length test. It is the button convention, it is what
+// this element already did, and a leading space is not a first character
+// anybody means to type.
+window.fieldDisplayKeydown = function (event, open) {
+  if (event.key === 'Enter' || event.key === ' ') {
+    event.preventDefault()
+    open()
+    return
+  }
+  if (event.ctrlKey || event.metaKey || event.altKey) return
+  if (event.key.length !== 1) return
+  event.preventDefault()
+  open(event.key)
+}
+
+window.revealFieldControl = function (input, fromUserGesture, seedChar) {
   if (!input) return
   input.focus()
+  // SEEDED HERE rather than in each of the four callers, for the same reason
+  // this helper exists at all: Round 10 Phase 0A found the reveal duplicated
+  // four ways and collapsed it, and a second thing done four ways would drift
+  // the same way the first did.
+  //
+  // Only a free-text control can take a character. A date input and a select
+  // cannot hold an arbitrary first character, and a number input silently
+  // discards anything non-numeric, which is the seam Phase 3 sits on: change
+  // the type and the accepted characters change with it.
+  //
+  // TEXTAREA is included deliberately. Summary is a textarea on Test Bed,
+  // Opportunity and Contact, and the first version of this test read
+  // `tagName === 'INPUT'`, which excluded the single field on each of those
+  // screens that a person is most likely to tab to and start typing into.
+  //
+  // The assignment is checked rather than assumed. A number input given a
+  // non-numeric character does not keep the old value and does not keep the
+  // character: it goes EMPTY. Seeding "a" onto a duration of 12 therefore
+  // blanked the field and dispatched an input event carrying "", which
+  // registers an empty draft that Save would then persist. The character is
+  // kept only when the control actually took it, and the original value is
+  // put back otherwise, with no input event dispatched at all.
+  if (seedChar) {
+    const takesText = input.tagName === 'TEXTAREA'
+      || (input.tagName === 'INPUT' && (input.type === 'text' || input.type === 'number'))
+    if (takesText) {
+      const original = input.value
+      input.value = seedChar
+      if (input.value === seedChar) {
+        input.dispatchEvent(new Event('input', { bubbles: true }))
+        // Number inputs throw on setSelectionRange, so the caret is best-effort.
+        try { input.setSelectionRange(input.value.length, input.value.length) } catch { /* not a text-selectable input */ }
+      } else {
+        input.value = original
+      }
+    }
+  }
   if (!fromUserGesture) return
   const isPopupControl = input.tagName === 'SELECT'
     || (input.tagName === 'INPUT' && input.type === 'date')

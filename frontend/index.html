@@ -568,7 +568,7 @@
              (2026-08-14), but kept as a real class rather than an inline
              style regardless. -->
         <div class="ref-field ref-field-noborder" id="cd-field-summary-wrap" data-key="summary">
-          <div class="ref-field-display" id="cd-display-summary" onclick="openCdField('summary')" style="font-size:14px">--</div>
+          <div class="ref-field-display" id="cd-display-summary" tabindex="0" onclick="openCdField('summary',true)" onkeydown="fieldDisplayKeydown(event,c=>openCdField('summary',true,c))" style="font-size:14px">--</div>
           <div class="ref-field-edit hidden" id="cd-edit-summary">
             <textarea id="cd-input-summary" rows="3" style="flex:1"></textarea>
             <span class="ref-field-discard" onclick="discardCdField('summary')">&times;</span>
@@ -729,7 +729,7 @@
           <div id="tb-header-summary" class="tb-head-summary-inline">
             <p class="tb-header-digest-label">Summary</p>
             <div class="ref-field" id="tb-field-summary-wrap" data-key="summary" style="border:none">
-              <div class="ref-field-display" id="tb-display-summary" tabindex="0" onclick="openTbField('summary',true)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openTbField('summary',true)}" style="font-size:13px">--</div>
+              <div class="ref-field-display" id="tb-display-summary" tabindex="0" onclick="openTbField('summary',true)" onkeydown="fieldDisplayKeydown(event,c=>openTbField('summary',true,c))" style="font-size:13px">--</div>
               <div class="ref-field-edit hidden" id="tb-edit-summary">
                 <textarea id="tb-input-summary" rows="3" style="flex:1"></textarea>
                 <span class="ref-field-discard" tabindex="0" onclick="discardTbField('summary')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();discardTbField('summary')}">&times;</span>
@@ -1498,7 +1498,7 @@
         <p class="label" style="margin-bottom:10px">Executive Summary &middot; <span id="ref-opptype-value">--</span></p>
         <div id="ref-opptype-row"></div>
         <div class="ref-field" id="ref-field-summary-wrap" data-key="summary" style="border:none">
-          <div class="ref-field-display" id="ref-display-summary" tabindex="0" onclick="openRefField('summary')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openRefField('summary')}" style="font-size:14px">--</div>
+          <div class="ref-field-display" id="ref-display-summary" tabindex="0" onclick="openRefField('summary',true)" onkeydown="fieldDisplayKeydown(event,c=>openRefField('summary',true,c))" style="font-size:14px">--</div>
           <div class="ref-field-edit hidden" id="ref-edit-summary">
             <textarea id="ref-input-summary" rows="3" style="flex:1"></textarea>
             <span class="ref-field-discard" tabindex="0" onclick="discardRefField('summary')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();discardRefField('summary')}">&times;</span>

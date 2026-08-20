@@ -295,6 +295,25 @@ not resolve it quietly.
     compare: two empty arrays, two undefined fields, two zero counts.
     **Compare presence first, then value.**
 
+15. **A criterion expressed as a measurement at one viewport stops describing
+    the thing it was written about.** Round 15 Phase 0, 2026-08-20. Round 8
+    recorded Total Cost sitting 306px below the fold **at 1920**, named its
+    levers, and carried it forward. Seven rounds then re-measured at 1920
+    because that is where the number was first taken.
+
+    **Measured again at every width, the criterion had inverted.** At 1920 the
+    gap had closed by 228px, to 78px, and at 1080 it was gone entirely, both
+    through changes made for other reasons: a sticky tab row and a grid that
+    packed panels three across. **At 1240 it was 343px, worse than it had ever
+    been recorded anywhere.** The problem had migrated to the narrower width
+    while the criterion kept pointing at the wider one.
+
+    **A number is not a criterion; the condition it stands for is.** Write the
+    condition, and measure it wherever it can occur, which for layout is the
+    three widths Verification 10 already names. A criterion that names one
+    viewport will be re-measured there indefinitely, and will report progress
+    on a problem that has moved somewhere else.
+
 ---
 
 ## `CURRENT_STATE.md`
