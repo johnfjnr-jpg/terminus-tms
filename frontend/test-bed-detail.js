@@ -1528,10 +1528,11 @@ async function recordTbScores(scoreEntries, otherDirtyEntries) {
     // refuses further scoring and Save refuses locally until one exists.
     // Asking again at save would ask the same question twice for one field.
     //
-    // The requestChangeReason caller is REMOVED IN PHASE 2, not here, and this
-    // comment records why it is already unreachable. The `cancelled` branch in
-    // the failure message below is unreachable for the same reason: only the
-    // dialogue ever set it. Both go together in Phase 2, as one deletion.
+    // Round 14 Phase 2: window.requestChangeReason still exists and still has
+    // ONE caller, Opportunity's Est. Close Date, which is where it started in
+    // Round 3 Phase 3 before Round 11 Phase 3 generalised it to two. Returning
+    // a helper to a single caller is not a regression; it is the second caller
+    // going away because it had nothing left to ask.
     const result = await post(reasonText || null)
 
     if (!result.ok) {
@@ -1540,9 +1541,11 @@ async function recordTbScores(scoreEntries, otherDirtyEntries) {
       const done = recorded.length
         ? `Recorded ${recorded.join(', ')}. `
         : 'Nothing was recorded. '
-      const why = result.cancelled
-        ? `${name} was cancelled.`
-        : `${name} could not be recorded: ${result.error ?? 'unknown error'}`
+      // The `cancelled` branch went with the dialogue. Only the dialogue's
+      // onCancel ever set that flag, so keeping the branch would leave a
+      // message no code path can produce, which reads to the next person as a
+      // state the system can reach.
+      const why = `${name} could not be recorded: ${result.error ?? 'unknown error'}`
       const rest = otherDirtyEntries.length
         ? ' Your other edits have not been saved and are still open.'
         : ''
