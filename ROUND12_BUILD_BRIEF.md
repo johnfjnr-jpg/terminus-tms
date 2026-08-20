@@ -478,3 +478,159 @@ Check the phase count with `grep -n "^## Phase\|^### Phase"` and confirm
 every phase has an explicit sign-off before declaring the round complete.
 Note that Round 11A recorded a phase that shipped no diff and was initially
 miscounted: **a phase that ships no diff is still a phase.**
+---
+
+## Round 12 outcome
+
+All 7 phases delivered and signed off: 0, 1, 2, 3, 4, 5, 6. Checked with
+`grep -n "^## Phase\|^### Phase"` per rule 7, **with the pattern including
+`###`**, which returns 7 headings and no sub-phases. Phase 0 is the
+investigate phase and built nothing, which is stated rather than left to be
+inferred from the absence of a diff.
+
+**The phase list was corrected mid-round rather than reconstructed at the
+end.** Phases 3 and 4 were swapped after the summary card was built out of
+order, and the reason is recorded at Phase 3 above. Rule 7 exists to catch a
+count that was never right; a list edited to match what happened is the input
+it needs.
+
+| Phase | Delivered | Beyond the brief |
+|---|---|---|
+| 0. Investigate | Seven items reported, three findings against the brief | **Round 11A confirmed in production**, and item 4's earlier reading refuted: what Round 11 recorded as a probe artefact was a real fault, and the scope was eleven save paths rather than two |
+| 1. Saves stop discarding the tab | Every in-app save preserves the open tab and still refreshes it | **Fixed by inverting the default rather than patching twelve call sites**, so a save added in a later round is correct without its author knowing the rule exists. Promoted to `DESIGN_PRINCIPLES.md` rule 11 |
+| 2. Scoring moves to the stage tabs | Panel on exactly the three stages whose gates demand a score | **Adopted `.ref-field-label`'s existing 170px column** rather than inventing a gap figure, and the injected rule proved the derivation moves with the data rather than reproducing the expected answer |
+| 3. Read-only summary on Reference | Sixth card in the grid, every criterion, current entry | **Adds no row at any width**, measured before and after. Read-only proven by injecting a control and watching four counters move |
+| 4. The anchors become visible | Inline at the point of scoring, current version, all five values | **History entries resolve against their own version**, not just print one, and the structural finding was quantified rather than restated |
+| 5. The exit criteria split | Process always shown, data entry only while unmet | **The transition endpoint proven unchanged across a real server restart**, refused and permitted paths both, using two identical records because a permitted transition mutates what it measures |
+| 6. Regenerate and reconcile | Fixtures torn down, `CURRENT_STATE.md` regenerated, every hunk attributed | **The diff's live changes were not this round's at all.** Attributed to production use between rounds |
+
+### The three things this round exists to hand on
+
+**1. The anchors, quantified, as the input to the business review.** A 5
+anchor averages **3.4 sentences across the five criteria**, each an
+independent condition a real engagement can satisfy or fail on its own: 4, 4,
+3, 3 and 3. **Scores 2 and 4 have no wording at any version**, confirmed
+directly by the row count: 15 anchors, one version, scores 1, 3 and 5 only.
+
+**The instrument now makes its own gap legible, and no row edit closes it.**
+Rendering the wording at the point of scoring did something the Round 11
+walkthrough could only argue: it put the gap on screen permanently, for
+everyone who scores anything from now on. A scorer sees a 5 asking for four
+things at once and, directly above it, a 4 that is blank.
+
+**Anchors being rows means wording is cheap to change, and this is not a
+wording problem.** Those two facts are usually confused and they are
+independent. **A scale whose middle is empty is not fixed by rewriting its
+ends.**
+
+**2. The tab fix is a property, not a patch.** `loadTestBedDetail` had
+thirteen call sites; twelve were saves and one was navigation, and it reset
+the tab on every call. Round 8 recorded six of those paths, Round 11 added
+four more, Round 10 Phase 6 fixed the transition alone, and the business
+reported the two they happened to try.
+
+**The test that made the fix a property: ask what a new call site gets if its
+author knows nothing about the rule.** Under the obvious repair, passing "do
+not reset" from each save, the answer is the broken behaviour, so the fix is
+complete only for the call sites that existed when it was written. Inverting
+the default makes the answer the correct behaviour, and moves the exception to
+one visible line in `navigate()`. Evidence: same probe, unfixed then fixed,
+**0 of 12 kept before and 12 of 12 after**, with every path's save confirmed
+to have changed data so a path that threw could not pass by leaving the tab
+untouched.
+
+**3. Three observations for the business, none actioned.** They wait until the
+shape is finished so there is something real to react to.
+
+- **The Approvals panel wraps to a second row at 1920 on the stage tabs.**
+  Four cards capped at 420px need about 1728px and the content column gives
+  about 1650. At 3440 all four fit; at 1240 the row already wrapped.
+- **On Qualification the five criteria names appear twice on one tab**, as
+  controls in the scoring panel and as requirement lines in Exit Criteria.
+  Defensible as affordance versus checklist, and still the same five names
+  side by side.
+- **The exit criteria summary reads "8 of 14 outstanding" above 10 visible
+  rows.** The 8 is countable on screen and the 14 is the true gate size, so it
+  is truthful; the line was deliberately left counting the gate rather than
+  the list. The denominator no longer matches what is rendered.
+
+### `CURRENT_STATE.md` reconciled
+
+**13 of 16 sections are byte-identical.** All nine configuration sections are
+unchanged, which is the required result for a round that configured no gates
+rather than a pleasing one: `stage_gate_rules` **61 rows, 45 on test_bed**,
+`scoring_criteria` **5**, `scoring_anchors` **15 at version 1 only**, and the
+writable-key allowlists, registered routes, migrations and seeds all
+untouched. The anchors phase inserted a version 2 and removed it, and the
+count proves the removal rather than the intention.
+
+Three sections changed. The header is mechanical. `approvals` and the record
+counts are fixture churn, every fixture soft deleted and confirmed by
+re-querying `deleted_at`.
+
+**The one hunk that was not this round's work at all, and it is the
+reconciliation's main output.** Live documents rose by seven and a LIVE Test
+Bed moved from Qualification to Review and Completion, which no phase of this
+round accounts for and which reads at first glance like a probe that touched
+real data. It is not. **All twelve changes belong to one record,
+`TT-SGP-SMARTC-005`, driven through five stages with seven documents by the
+business in production on 2026-08-19 between 22:29 and 22:44**, after Round
+11A regenerated this file at 13:12 and before this round began. Zero live
+records changed during the round.
+
+**That is worth more than the reconciliation it came out of.** The record the
+business scored in Round 11A, whose lost work that round recovered, has since
+been taken through the entire lifecycle to Review and Completion in real use.
+The gates, the scores, the documents and the approvals all held for a real
+engagement end to end, which no walkthrough of ours can establish.
+
+### Selection by what the round created, not by relationship
+
+Teardown selected on owner plus creation time and cross-checked against the
+name tag, and the two sets agreed exactly. **Round 11 Phase 9 selected by
+walking from a parent and matched 2 of 26**, because anything whose link was
+never made, or was made and then cleared, is invisible to a relationship
+selector. Creation time cannot miss a row the round made, whatever it ended up
+attached to. 246 records were created across the round, **0 live, 246 soft
+deleted**, and the 18 `approvals` and 14 `record_contacts` rows created
+alongside them all hang off soft-deleted parents, which is the intended
+outcome of a soft delete rather than residue.
+
+### Seven harness defects, no product defects, and that is the finding
+
+**Every defect this round found in its own work was in the verification, not
+in the code under test.** Three in Phase 1: the first probe reported 0 of 11
+on correct code because it waited on a condition satisfied before the tab
+decision ran; two paths passed while throwing, because a tab survives
+trivially when nothing reloads; and the leak test reported a leak that a
+timestamped trace showed did not exist. Three in Phase 2: the cross-check
+called a null `rescore_through_stage` a disagreement, the gap metric went
+negative on wrapped text, and a fixture-name wait matched both fixtures. One
+in Phase 6: an unchecked Supabase error dereferenced as data.
+
+**Six of the seven would have produced a confident, specific, wrong claim**,
+and three of them briefly did. The pattern that catches them is the same one
+every time and it is cheaper than any of the theories it displaces: **state
+what the evidence would look like if the change had not worked, and check it
+differs.** Four of the seven passed a real-state wait that the OLD state
+already satisfied, which is precisely the shape `CLAUDE.md` verification rule
+7 warns is not recognisable by shape.
+
+### Open, carried forward
+
+Round 11's fifteen and Round 11A's one stand, with item 15 sharpened rather
+than closed: the anchor review now has a measurement and a framing to work
+from, and the wording is still unamended by design. Three added:
+
+17. **Three observations awaiting the business**, listed above, held until the
+    shape is finished so there is something real to react to.
+18. **`min_length` is a proxy for "process step", and a proxy that is
+    currently exact.** It means "this field holds a series", which correlates
+    with process today only because the only series-valued requirements happen
+    to be the scored ones. A future data-entry field holding a series would be
+    misclassified and **nothing would flag it.** Recorded in the code at the
+    classifier itself so whoever adds such a field meets it there.
+19. **`TB_EXIT_CRITERION_KEYS` holds four keys and only one still has a live
+    gate rule.** The other three retired with Round 11 Phase 4 when scores
+    replaced ticks. The set is doing no harm, and it is now three quarters
+    dead weight that a reader will reasonably assume is current.
