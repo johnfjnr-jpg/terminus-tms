@@ -380,3 +380,186 @@ Check the phase count with `grep -n "^## Phase\|^### Phase"` and confirm
 every phase has an explicit sign-off before declaring the round complete. A
 phase that ships no diff is still a phase, and a report cannot sign off the
 phase containing it.
+
+---
+
+## Round 13 outcome
+
+All 8 phases delivered. Checked with `grep -n "^## Phase\|^### Phase"` per rule
+7, **with the pattern including `###`**, which returns 8 headings and no
+sub-phases. Phase 0 is the investigate phase and built nothing, and Phase 4
+shipped no diff to `src/` or `frontend/` by design; both are stated rather
+than left to be inferred from an absent diff.
+
+**Phases 0 through 6 carry an explicit sign-off. Phase 7 is the phase this
+close-out is part of and is reported, not signed off**, because it cannot sign
+off the report that contains it.
+
+### THIS ROUND EDITED `CLAUDE.md`
+
+**Two rules were added, and the next session will not see them unless it
+re-reads the file from disk.** `CLAUDE.md` is delivered into each session as a
+snapshot taken at session start, so a session following this round receives the
+version from before it. That is why this notice exists and why it is the first
+thing in the outcome rather than a footnote.
+
+- **Verification 12: a tool that returns empty rather than erroring produces
+  output indistinguishable from a true negative.**
+- **Build discipline 8: fix the class, not the instance the failure happened
+  to name.**
+
+| Phase | Delivered | Beyond the brief |
+|---|---|---|
+| 0. Investigate | Seven items, three findings against the brief | **A silent `grep` failure that nearly published a wrong conclusion**, and six live harness records left by Round 12 that falsified a `CURRENT_STATE.md` claim for a full round |
+| 1. Comment at entry | Focus moves to the comment, further scoring blocked, server untouched | **The handler refuses, not only the control.** A change event dispatched at a disabled select still took the draft, which is Architecture rule 8's shape. Save also refuses locally, a stated departure, without which the fault was still reachable in one click |
+| 2. Pending tick state | A dot, a dashed border and the word "unsaved", promoting on save and never on failure | **Round 11A's recorded partial-failure behaviour is wrong**, found while verifying something else |
+| 3. The question | Raised out of the anchors block; one row edit | **The generator change was moved forward from Phase 7**, because a row edit is only visible as a row edit if the column already exists in the baseline |
+| 4. Dropdown position | Nothing. A decision recorded | **A refuted hypothesis of my own, kept visible and struck** |
+| 5. Sticky tab row | The tab row alone, 119px at 1240 | **The action group's own line is the lever, not a width threshold**, which is a better answer than the fallback the brief named |
+| 6. Reference layout | Two growing panels in their own row | **Independence proven in both directions**, which is what makes it evidence rather than an observation |
+| 7. Regenerate and reconcile | Fixtures torn down, regenerated, every hunk attributed | **A third class of residue from the same killed run**, and a silent row cap that made a delete report success |
+
+### The round's own rule, demonstrated three times on itself
+
+**Build discipline 8 was promoted in Phase 0 and its third instance was found
+in Phase 7 of the same round.** One killed test run in Round 12 left three
+kinds of residue:
+
+1. **4 orphaned `stage_gate_rules`**, which failed three invariants and were
+   cleaned at the end of Round 12. That is the instance the assertion named.
+2. **6 live `harness_*` records**, which nothing asserted against, found in
+   Phase 0 of this round. They falsified `CURRENT_STATE.md`'s own printed claim
+   that no harness record type holds a live row, for a full round.
+3. **1 `approvals` row** carrying a null `stage` on the `Senior` track, found
+   in Phase 7 because it changed a configuration section. `CURRENT_STATE.md`
+   had recorded 0 null stages.
+
+**Each time the fix was scoped to what had just complained.** The rule says to
+enumerate everything the responsible actor writes; the harness's own teardown
+reports `recordsSoftDeleted`, `rulesDeleted`, `approvalsDeleted` and
+`contactLinksDeleted`, so the list of what to check was available from the
+start and was not used until the third pass.
+
+### Corrections to the record, which are this round's real output
+
+**1. Round 11A's partial-failure behaviour is not what its close-out says.**
+The claim is "everything unrecorded stays dirty". Measured with three criteria
+and the failing one in the middle: before the save the drafts were Rollout Path
+4, Physical Suitability 2, Data Rights 5; after it `tbEdits` was `{}` and all
+three selects were empty. **The valid 5 is discarded from the form with nothing
+saying so**, because the failure branch reloads the record and loading resets
+the drafts. Phase 1 makes the common route to this unreachable; the record is
+corrected rather than the code.
+
+**2. A hypothesis of mine, refuted in the same round.** Phase 3 recorded that
+Data Rights' `asks` looked like a stray label from the retired Technical and
+Commercial Value criterion. It was deliberate: Data Rights is the only
+criterion measuring value to Terminus rather than to the client, on a
+cost-only programme where the data is a substantial part of the return. Kept
+visible and struck, with the note that **the obvious explanation for a value
+nobody has been asked about is a guess wearing evidence's clothes.**
+
+**3. A better answer than the brief's own fallback.** The width threshold named
+for the sticky row would remove navigation help at exactly the width where
+wrapping makes navigation hardest. The action group's own line costs 34px at
+both 1240 and 1920, more than the threshold would save. **Trim what sticks
+rather than disable it by width.**
+
+### Seven probe defects, and one that was a tool
+
+**Every defect this round found in its own verification was in the
+verification, not in the code under test**, which is now the second consecutive
+round where that is true.
+
+Phase 2: a fixture pre-seeded a Rollout Path score, so the promote test ran
+against a criterion the server had already confirmed, **and the wait on
+`data-met` becoming `true` was already true before the save**, resolving
+instantly against a save that never happened. Phase 5: the hit-test x came
+from the scroller's rect rather than the row's, so every test returned
+`DIV.wrap`; the probe scrolled a fixed 700px and **reported a false failure**
+where the page was too short to travel that far; and the ordinary fixture does
+not scroll at all at 3440, so stickiness there was untested rather than
+passing. Phase 6: the measurement waited on `#tb-usecases-list`, which is
+populated whether or not the separate customer-documents fetch has landed, so
+a panel that settles at 1328px was measured at 231px and **very nearly became
+a reported finding that it does not grow**. Phase 7: a records query hit
+PostgREST's 1000-row default against 3000-plus harness rows, so the row being
+looked for was silently outside the set and **the delete reported 0 and looked
+like success**.
+
+**The eighth was not mine.** `scripts/state-dump.mjs` holds two literal NUL
+bytes, so `grep` treats it as binary and matches nothing, silently, with the
+same exit status as a pattern that genuinely is not there. Searching it for
+`scoring_criteria` returned nothing, and the reading that follows is "the
+generator does not record the scoring tables", which is false and was about to
+be reported. What caught it was noticing that a file `head` could read was a
+file `grep` could not.
+
+### `PGRST303` caught with its evidence intact, which partly answers Round 12's open item 20
+
+**Phase 7's first `test:db` run failed 10 of 38, and this time the output was
+kept.** All ten failures are one root cause: `config-invariants.test.mjs`
+raises `PGRST303: JWT issued at future` on its shared setup query, so every
+invariant in that file fails at once. **30 occurrences of the message in a
+single run.** Residue was checked before re-running, per the brief's own
+instruction: 61 gate rules, 0 harness orphans, 0 live probe records, 0
+null-stage approvals. Two retries then passed 38 of 38 with zero occurrences.
+
+**Round 12's open item 20 recorded a failure whose cause was destroyed by
+filtering.** This is the mechanism it named as a candidate, now with evidence,
+and it is the fifth sighting in this project. **It is not proof that Round 12's
+failure was this**, because that run reported `fail=1` and this reports
+`fail=10`, and this fault takes out a whole file at once. What it does
+establish is that the clock-skew error is real, is current, and takes out
+every test in the file whose setup it hits. **The instruction to keep the full
+output is what turned an unexplained failure into a diagnosed one**, one round
+after the instruction was written.
+
+### `CURRENT_STATE.md` reconciled
+
+**11 of 16 sections are byte-identical across the whole round.** The three
+counts the brief names all hold: `stage_gate_rules` **61 total, 45 on
+test_bed**, `scoring_anchors` **15 rows, version 1 only**, `scoring_criteria`
+**5 rows with exactly one `asks` value different**.
+
+**The `asks` column already existed in the baseline before this phase**, added
+and committed in Phase 3 along with a clean regenerated baseline. The
+round-level diff therefore shows the column and the value change together,
+which is expected; **the one-line attribution lives in history**, at `7d24f59`
+against `f01a5c1`, which is the whole reason the ordering was chosen.
+
+Migrations 52 to 53, accounted for by Phase 3. Record counts and `approvals`
+are fixture churn plus the item below.
+
+**Live changes explained by an actor outside the round, which is a different
+answer from explained by a phase.** Four live documents, five approvals and a
+run of transitions and a score revision on `TT-SGP-SMARTC-004` belong to the
+business using the system between 04:26 and 04:28, attributed by owner and by
+`audit_log`. **Worth stating precisely because of where they were working:**
+the dev server serves the frontend from disk, so it has been serving this
+round's unmerged branch since the branch was created. Their use during the
+round exercised Phase 1, 2, 3 and 5 code that had not been signed off. Nothing
+broke, and the score revision they recorded went through Phase 1's comment
+guard and Phase 2's pending marks.
+
+### Open, carried forward
+
+Round 12's twenty stand, with item 15 unchanged: the anchor review has not
+happened and no wording was amended. Four added:
+
+21. **The scoring panel is taller than the decisions it holds**, and two
+    independent observations now land on it: Phase 1's lock note scrolls above
+    the viewport when working on a lower criterion, and the scrolling-panel
+    request parked at the head of this round. **That request is not superseded
+    by the sticky tab row**, which solves locating yourself in the record
+    rather than the panel's own height.
+22. **Data Rights is item 9 of the anchor review**, framed as a drift rather
+    than an error: the `asks` states intent, the anchors measure the mechanism,
+    and permission is necessary for value without being value. Two defensible
+    resolutions, neither a build decision.
+23. **The dev server serves the working tree**, so an unmerged branch is live
+    to anyone using that server. Useful during this round and a real hazard in
+    general.
+24. **Round 11A's close-out is wrong about what survives a partial failure**,
+    corrected in `DESIGN_PRINCIPLES.md` and left uncorrected in the code, since
+    Phase 1 makes the common route unreachable.
