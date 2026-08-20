@@ -2025,3 +2025,35 @@ Explicitly deferred, not forgotten, not a section number of its own since this i
   One append per revision, roughly one a minute. **That is a person retrying**, and it is visible nowhere except in the spacing. The current payload alone shows four scores present and one absent, which is equally consistent with the user having only entered four.
 
   **The general form: a reproduction establishes the mechanism and says nothing about the blast radius.** How much damage a fault did depends on what the user did in response to it, which is a fact about their session and is recoverable only from the record's own history. **Read the history before reporting the damage**, and where the damage is being reported to the person who suffered it, the difference between "re-enter four scores" and "re-enter one" is the whole value of the report.
+
+- **The over-broad integer pass has now happened twice, and the second time it arrived through the mobile keypad rather than through a validator. Round 15 Phase 3, 2026-08-20.**
+
+  **First instance, Round 3 Phase 4.** Every numeric entry field on the
+  Commercials tab was forced through `isValidNonNegativeInteger`. That was right
+  for genuine counts and wrong for margins and rates, and it broke the factoring
+  rate's own 1.5% default outright. It was corrected twice the same day.
+
+  **Second instance, Round 15 Phase 3.** The brief specified `type="text"` with
+  `inputmode="numeric"` for all 43 numeric field definitions, and named decimal
+  precision as the first of four things the change must not break. Those two
+  instructions contradict each other and the contradiction is invisible from the
+  code: `inputmode="numeric"` asks iOS for a digits-only keypad **with no decimal
+  separator**, so all 25 Deal Sheet fields and all 9 Test Bed cost rates would
+  have become untypeable on a phone. Nothing on a desktop browser would have
+  shown it.
+
+  **The reason this instance is worth recording separately is that it would have
+  passed the check the brief specified.** The stated evidence was "confirm
+  `inputmode="numeric"` is present", and it would have been present, on every
+  field, exactly as asked. The build shipped the split instead: 32 integer fields
+  take `numeric`, 37 decimal-capable fields take `decimal`, matching the
+  pre-existing `step="1"` split field by field.
+
+  **The shape, stated so the third instance is recognisable:** a numeric
+  treatment is applied uniformly because uniformity is what makes it a class fix
+  rather than per-field drift, and the class genuinely contains two kinds of
+  number. The first instance came through a server validator and surfaced as a
+  live bug; this one came through a keyboard hint on a platform the build was not
+  being tested on. **Whenever a numeric rule is about to be applied across a
+  whole surface, the question to ask first is which of those fields carry real
+  decimal precision** - the answer has been "some of them" both times.

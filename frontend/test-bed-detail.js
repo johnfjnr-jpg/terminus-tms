@@ -877,16 +877,67 @@ function renderTbCostBreakdown() {
     ? line(`Warranty (${b.hardware.warrantyUnits} unit${b.hardware.warrantyUnits === 1 ? '' : 's'})`, rowCost(g.hardwareGroup, 'hwWarranty'))
     : ''
 
+  // Round 15 Phase 4: a cost summary card, leftmost, so the totals read
+  // before the breakdowns.
+  //
+  // NOTHING HERE IS COMPUTED. All three category figures are read straight
+  // off the engine's own output: calculateTestBedCost already returns
+  // hardwareGroup.rawTotalCost, installGroup.rawTotalCost and
+  // hostingTermCost, and its own totalCost is the sum of exactly those
+  // three. Re-adding the itemized lines here would be a second computation
+  // path that agrees today and drifts later, which is the reason Round 9
+  // made computeBlocking the single evaluator.
+  //
+  // The `Hosting x N months` line MOVES here from the total block above. It
+  // is the Hosting category total, which is what this card is for, and it
+  // was never a peer of Total Cost. It appears once: see the assertion on
+  // the rendered instance count, not merely on its presence, after Round 10
+  // Phase 2 moved Summary and shipped a duplicate.
+  //
+  // Total Cost itself deliberately does NOT move into this card. Round 8
+  // Phase 3 put it above the detail rather than beneath it, and that is
+  // what keeps it visible without scrolling at the wider viewports; pulling
+  // it into the grid would push it back down behind the rate panels.
+  //
+  // The total row's border-top and its 10px/10px of margin and padding go
+  // with the moved line. They existed to divide two rows inside that block;
+  // one row is left, so they were dividing Total Cost from the sub-heading
+  // above it, which is not a division that means anything. Same reasoning as
+  // the spinner CSS removed in Phase 3: a rule describing a state that can no
+  // longer occur reads as intent and is just residue.
+  //
+  // Rendered at the weight of a subtotal, not of a line item. line() styles
+  // its value with .data-row-label, which is the dimmed treatment for the
+  // itemized rows a total is built from. Using it here made the three
+  // category totals the least prominent figures on the tab, sitting beside
+  // neighbouring cards whose own subtotals are full white, which is the
+  // opposite of what a card called Cost summary is for. subtotal() carries
+  // the right typography but also a border-top dividing it from the rows
+  // above it, and in this card every row IS a total, so there is nothing to
+  // divide it from.
+  const summaryRow = (label, cost) => `
+    <div class="data-row">
+      <span style="font-size:13px;color:var(--white)">${escHtml(label)}</span>
+      <span style="font-size:13px;color:var(--white)">${formatCost(cost)}</span>
+    </div>`
+
+  const summaryCard = section('Cost summary', [
+    summaryRow('Hardware', g.hardwareGroup.rawTotalCost),
+    summaryRow('Installation', g.installGroup.rawTotalCost),
+    summaryRow(`Hosting x ${b.months} month${b.months === 1 ? '' : 's'}`, b.hostingTermCost),
+  ].join(''))
+
   el.innerHTML = `
     <div class="tb-cost-total">
-      ${line(`Hosting x ${b.months} month${b.months === 1 ? '' : 's'}`, b.hostingTermCost)}
-      <div class="data-row" style="border-top:1px solid var(--hairline-strong);margin-top:10px;padding-top:10px">
+      <div class="data-row">
         <span style="font-size:15px;font-weight:500;color:var(--white)">Total Cost</span>
         <span style="font-size:15px;font-weight:500;color:var(--white)">${formatCost(b.totalCost)}</span>
       </div>
     </div>
 
     <div class="ref-cards">
+      ${summaryCard}
+
       ${section('Hardware', [
         line(`SafeSight (${tbPayload.safesightCameras || 0} x ${formatCost(tbPayload.ssUnitCost || 0)})`, rowCost(g.hardwareGroup, 'hwSs')),
         line(`Air Quality (${tbPayload.airQualitySensors || 0} x ${formatCost(tbPayload.aqUnitCost || 0)})`, rowCost(g.hardwareGroup, 'hwAqm')),
