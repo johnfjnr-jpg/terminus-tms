@@ -1222,7 +1222,11 @@ const TB_EXIT_CRITERION_KEYS = new Set([
 // the clause keeps the gate honest. Relying on the convention alone is the
 // discipline-not-a-property case the brief rejected.
 let tbScoresExpanded = {}
-let tbScoreComments = {}
+// Round 14 Phase 1: one field, called Reason. Renamed from tbScoreComments
+// deliberately rather than left alone: the field is called Reason and holding
+// it in a map called comments is exactly the drift that costs someone an hour
+// a year from now.
+let tbScoreReasons = {}
 // Which criteria have their anchors revealed. Kept across re-renders because
 // renderTbScores rewrites innerHTML: without this the block would vanish the
 // moment a draft change re-rendered the panel, one interaction after the user
@@ -1281,7 +1285,7 @@ function applyTbPendingMarks() {
   }
 }
 
-// ── Comment required at 1 or 2, enforced at entry. Round 13 Phase 1 ───────
+// ── Reason, required at entry. Round 13 Phase 1, one field from Round 14 ──
 //
 // The server has always refused a 1 or 2 with no comment. What made that
 // expensive is Round 11A's partial-failure rule: the first refusal stops the
@@ -1297,13 +1301,26 @@ function applyTbPendingMarks() {
 
 // The one criterion holding up further entry, or null. Derived from the live
 // draft and comment state rather than tracked in a flag, so it cannot drift.
-function tbScoreAwaitingComment() {
+// TWO CONDITIONS, ONE FIELD. A Reason is required when the score is 1 or 2 on
+// any entry, or when the entry is a revision, meaning any entry after the
+// first for that criterion. A revision down to 2 satisfies both with ONE
+// Reason, which is the whole point of collapsing the two fields: they were
+// always the same statement.
+//
+// The revision half is read from the STORED series rather than from a flag,
+// so it cannot drift from what the server will decide with the same question.
+function tbScoreReasonRequired(key) {
+  const draft = Number(tbEdits[key]?.draft)
+  if (!Number.isFinite(draft)) return false
+  return draft <= 2 || tbScoreSeries(key).length > 0
+}
+
+function tbScoreAwaitingReason() {
   const keys = tbScoreKeys()
   for (const key of Object.keys(tbEdits)) {
     if (!keys.has(key)) continue
-    const draft = Number(tbEdits[key]?.draft)
-    if (!Number.isFinite(draft) || draft > 2) continue
-    if (!String(tbScoreComments[key] ?? '').trim()) return key
+    if (!tbScoreReasonRequired(key)) continue
+    if (!String(tbScoreReasons[key] ?? '').trim()) return key
   }
   return null
 }
@@ -1318,7 +1335,7 @@ function tbScoreAwaitingComment() {
 // Called at the END of renderTbScores as well, because every render rewrites
 // the markup and the lock has to be restored onto the new nodes.
 function applyTbScoreEntryLock() {
-  const blocking = tbScoreAwaitingComment()
+  const blocking = tbScoreAwaitingReason()
   const blockingName = blocking
     ? (tbScoringCriteria.find(c => c.criterion_key === blocking)?.name ?? blocking)
     : null
@@ -1330,14 +1347,14 @@ function applyTbScoreEntryLock() {
     // taking that away leaves the comment as the only exit from a choice they
     // may simply want to undo.
     if (sel) sel.disabled = !!blocking && c.criterion_key !== blocking
-    const box = document.querySelector(`.tb-score-row[data-criterion="${c.criterion_key}"] .tb-score-comment`)
-    if (box) box.classList.toggle('tb-score-comment--needed', c.criterion_key === blocking)
+    const box = document.querySelector(`.tb-score-row[data-criterion="${c.criterion_key}"] .tb-score-reason`)
+    if (box) box.classList.toggle('tb-score-reason--needed', c.criterion_key === blocking)
     const lab = box?.querySelector('label')
     // NOT COLOUR ALONE: the label text itself changes, so the state survives
     // a greyscale screenshot and a colour-blind reader.
     if (lab) lab.textContent = c.criterion_key === blocking
-      ? 'Comment required before scoring anything else'
-      : (Number(tbEdits[c.criterion_key]?.draft) <= 2 ? 'Comment (required at 1 or 2)' : 'Comment (optional)')
+      ? 'Reason required before scoring anything else'
+      : (tbScoreReasonRequired(c.criterion_key) ? 'Reason (required)' : 'Reason (optional)')
   }
 
   const meas = document.getElementById('tb-measurability-select')
@@ -1348,7 +1365,7 @@ function applyTbScoreEntryLock() {
   // row that silently does nothing. The note says which criterion and why.
   const note = document.getElementById('tb-score-lock-note')
   if (note) {
-    note.textContent = blocking ? `Add the comment for ${blockingName} before scoring anything else.` : ''
+    note.textContent = blocking ? `Add the Reason for ${blockingName} before scoring anything else.` : ''
     note.classList.toggle('hidden', !blocking)
   }
 }
@@ -1360,7 +1377,7 @@ window.setTbScoreDraft = async function (key, value) {
   // which is the same shape as Architecture rule 8, correct for every caller
   // that exists. Any future call site that sets a draft without consulting
   // `disabled` would have inherited that silently.
-  const awaiting = tbScoreAwaitingComment()
+  const awaiting = tbScoreAwaitingReason()
   if (awaiting && awaiting !== key) {
     applyTbScoreEntryLock()
     return
@@ -1368,7 +1385,7 @@ window.setTbScoreDraft = async function (key, value) {
   const orig = ''
   if (value === '') delete tbEdits[key]
   else tbEdits[key] = { draft: value, orig }
-  if (value === '') delete tbScoreComments[key]
+  if (value === '') delete tbScoreReasons[key]
   clearTbSaveFeedback()
   updateTbSaveBar()
   // AWAITED, because the comment field does not exist until this render
@@ -1377,8 +1394,11 @@ window.setTbScoreDraft = async function (key, value) {
   await renderTbScores()
   // The other panel, mutated in place rather than refetched.
   applyTbPendingMarks()
-  if (value !== '' && Number(value) <= 2) {
-    const ta = document.getElementById(`tb-score-comment-${key}`)
+  // The SAME predicate the lock uses, not a second copy of half of it. The
+  // first version of this line tested `Number(value) <= 2`, which is the old
+  // one-condition rule and would have skipped the focus on a revision.
+  if (value !== '' && tbScoreReasonRequired(key)) {
+    const ta = document.getElementById(`tb-score-reason-${key}`)
     if (ta) {
       ta.focus()
       ta.setSelectionRange(ta.value.length, ta.value.length)
@@ -1403,8 +1423,8 @@ window.setTbMeasurability = async function (value) {
   await loadTestBedDetail(tbDetailId)
 }
 
-window.setTbScoreComment = function (key, value) {
-  tbScoreComments[key] = value
+window.setTbScoreReason = function (key, value) {
+  tbScoreReasons[key] = value
   // In place, on every keystroke. The lock lifts the moment the comment has
   // content and returns the moment it is emptied again.
   applyTbScoreEntryLock()
@@ -1488,43 +1508,31 @@ async function recordTbScores(scoreEntries, otherDirtyEntries) {
     const crit = tbScoringCriteria.find(c => c.criterion_key === key)
     const name = crit?.name ?? key
     const score = Number(entry.draft)
-    const comment = tbScoreComments[key] ?? ''
-    const isRevision = tbScoreSeries(key).length > 0
+    const reasonText = String(tbScoreReasons[key] ?? '').trim()
 
     const post = async (reason) => {
       const body = { criterion: key, score }
-      if (comment.trim()) body.comment = comment.trim()
+      // ONE FIELD. `comment` is left in place on the server and simply never
+      // written from here again, so historical entries keep what they carry
+      // and new ones carry a reason.
       if (reason) body.reason = reason
       const result = await api('POST', `/api/test-beds/${tbDetailId}/scores`, body)
       return { ok: result.ok, error: result.data?.error }
     }
 
-    let result
-    if (isRevision) {
-      // A revision needs its own reason, so several revisions in one save
-      // means several dialogues in sequence. That is correct rather than
-      // tedious: one reason cannot describe two different changes, and the
-      // reason belongs on the entry.
-      result = await new Promise(resolve => {
-        window.requestChangeReason({
-          heading: `Revise ${name}`,
-          contextLabel: 'New score',
-          contextValue: String(score),
-          promptLabel: 'Reason for the change (required)',
-          confirmLabel: 'Save score',
-          emptyReasonError: 'A reason for the change is required.',
-          returnFocusTo: 'tb-save-all',
-          onConfirm: post,
-          onDone: () => resolve({ ok: true }),
-          // Cancelling the dialogue is a decision not to record THIS score,
-          // and it stops the run for the same reason a failure does: the user
-          // has stepped out of the flow deliberately.
-          onCancel: () => resolve({ ok: false, cancelled: true }),
-        })
-      })
-    } else {
-      result = await post(null)
-    }
+    // ONE PATH, because the Reason has already been collected at entry.
+    //
+    // The dialogue used to fire here for a revision. With the requirement
+    // enforced at the point of entry it has nothing left to ask: by the time
+    // Save runs, a revision cannot be dirty without a Reason, because the lock
+    // refuses further scoring and Save refuses locally until one exists.
+    // Asking again at save would ask the same question twice for one field.
+    //
+    // The requestChangeReason caller is REMOVED IN PHASE 2, not here, and this
+    // comment records why it is already unreachable. The `cancelled` branch in
+    // the failure message below is unreachable for the same reason: only the
+    // dialogue ever set it. Both go together in Phase 2, as one deletion.
+    const result = await post(reasonText || null)
 
     if (!result.ok) {
       // The failing score stays DIRTY on purpose, so the edit bar still shows
@@ -1547,7 +1555,7 @@ async function recordTbScores(scoreEntries, otherDirtyEntries) {
 
     recorded.push(name)
     delete tbEdits[key]
-    delete tbScoreComments[key]
+    delete tbScoreReasons[key]
   }
 
   // Every score landed. Now whatever else was dirty in the same click, saved
@@ -1767,10 +1775,10 @@ async function renderTbScores() {
       </div>`
 
     const commentBox = pending === '' ? '' : `
-      <div class="tb-score-comment">
-        <label for="tb-score-comment-${escHtml(c.criterion_key)}">Comment${Number(pending) <= 2 ? ' (required at 1 or 2)' : ' (optional)'}</label>
-        <textarea id="tb-score-comment-${escHtml(c.criterion_key)}" rows="2"
-                  oninput="setTbScoreComment('${escHtml(c.criterion_key)}', this.value)">${escHtml(tbScoreComments[c.criterion_key] ?? '')}</textarea>
+      <div class="tb-score-reason">
+        <label for="tb-score-reason-${escHtml(c.criterion_key)}">Reason${tbScoreReasonRequired(c.criterion_key) ? ' (required)' : ' (optional)'}</label>
+        <textarea id="tb-score-reason-${escHtml(c.criterion_key)}" rows="2"
+                  oninput="setTbScoreReason('${escHtml(c.criterion_key)}', this.value)">${escHtml(tbScoreReasons[c.criterion_key] ?? '')}</textarea>
       </div>`
 
     if (!expanded) return `<div class="tb-score-row" data-criterion="${escHtml(c.criterion_key)}" data-entries="${series.length}">${head}${asksLine}${anchorsBlock}${commentBox}</div>`
@@ -2083,15 +2091,21 @@ async function saveTbFields() {
   // with no explanation is the failure mode Round 12 Phase 3 argued against.
   // The server call is not made at all, so the server rule is untouched and
   // simply not reached.
-  const awaiting = tbScoreAwaitingComment()
+  const awaiting = tbScoreAwaitingReason()
   if (awaiting) {
     const name = tbScoringCriteria.find(c => c.criterion_key === awaiting)?.name ?? awaiting
     const feedback = document.getElementById('tb-save-feedback')
     if (feedback) {
-      feedback.textContent = `A comment is required at a score of 1 or 2. Add the comment for ${name}, naming what is missing.`
+      // The message names WHICH condition applies, because the two read
+      // differently to a user: a low score asks what is missing, a revision
+      // asks what changed. One field, one requirement, two honest phrasings.
+      const low = Number(tbEdits[awaiting]?.draft) <= 2
+      feedback.textContent = low
+        ? `A Reason is required at a score of 1 or 2. Add the Reason for ${name}, naming what is missing.`
+        : `A Reason is required when revising a score. Add the Reason for ${name}, naming what changed.`
       feedback.className = 'msg-error'
     }
-    const ta = document.getElementById(`tb-score-comment-${awaiting}`)
+    const ta = document.getElementById(`tb-score-reason-${awaiting}`)
     if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length) }
     return
   }

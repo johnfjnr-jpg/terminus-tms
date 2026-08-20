@@ -2862,16 +2862,16 @@ input.input-invalid {
 .tb-score-name {
   flex: 0 0 170px;
 }
-.tb-score-comment {
+.tb-score-reason {
   margin-top: 8px;
 }
-.tb-score-comment label {
+.tb-score-reason label {
   display: block;
   font-size: 11px;
   color: var(--muted);
   margin-bottom: 4px;
 }
-.tb-score-comment textarea {
+.tb-score-reason textarea {
   width: 100%;
 }
 
@@ -3004,12 +3004,12 @@ input.input-invalid {
    (2026-08-20). The needed state is carried by the label TEXT as well as by
    this treatment, so it is never colour alone: a greyscale screenshot and a
    colour-blind reader both still get the answer. */
-.tb-score-comment--needed {
+.tb-score-reason--needed {
   border-left: 2px solid var(--green);
   padding-left: 10px;
   margin-left: -12px;
 }
-.tb-score-comment--needed label {
+.tb-score-reason--needed label {
   color: var(--green);
   font-weight: 500;
 }
