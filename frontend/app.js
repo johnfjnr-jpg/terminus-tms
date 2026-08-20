@@ -1444,21 +1444,29 @@ async function performCreateFromContact(id, type, name) {
   contactCreateFeedback[id] = null
   renderBothContactGrids()
 
-  // Round 3 Phase 2 (2026-08-17): Opportunity now navigates straight to
-  // the new record's detail page rather than leaving the user on the
-  // Contacts list with a manual "View it" link. Applies to both the path
-  // that goes through the linked-records warning above and the plain
-  // first-Opportunity path (they share this one function) - there's no
-  // reason the same create action should behave differently depending on
-  // whether a warning happened to fire first. Test Bed is untouched, the
-  // brief scoped this to Opportunity only.
-  if (type === 'opportunity') {
-    navigate('opportunity-detail', result.data.id)
-    return
-  }
-
-  contactCreateFeedback[id] = `<p class="msg-success">Created. <button class="btn-text" style="color:var(--green)" onclick="navigate('test-bed-detail', '${result.data.id}')">View it</button></p>`
-  renderBothContactGrids()
+  // Round 3 Phase 2 (2026-08-17): Opportunity navigates straight to the new
+  // record's detail page rather than leaving the user on the Contacts list
+  // with a manual "View it" link. Applies to both the path that goes through
+  // the linked-records warning above and the plain first-Opportunity path
+  // (they share this one function) - there's no reason the same create action
+  // should behave differently depending on whether a warning happened to fire
+  // first. Test Bed was untouched, the brief scoped that round to Opportunity
+  // only.
+  //
+  // Round 14 Phase 4 (2026-08-20): Test Bed now does the same, on the same
+  // reasoning: the user has just named it and the next thing they do is fill
+  // it in. THIS CLOSES A STATED GAP RATHER THAN BUILDING ON A GUESS. Round 14
+  // Phase 0 drove the Opportunity path on a clean Contact and confirmed it
+  // still lands on view-opportunity-detail, so the precedent being followed
+  // was verified rather than assumed. Round 6 Phase 2 once found a brief
+  // citing a precedent removed three rounds earlier, which is why that check
+  // ran before this line was written.
+  //
+  // The naming dialogue is already closed above, so nothing is left sitting
+  // over the detail screen. The "Created. View it" feedback row is gone: a
+  // link to a page you have just been taken to is a control with nothing to
+  // do.
+  navigate(type === 'opportunity' ? 'opportunity-detail' : 'test-bed-detail', result.data.id)
 }
 
 // Not routed through openDiscardConfirm (2026-08-15 check): that dialog's
