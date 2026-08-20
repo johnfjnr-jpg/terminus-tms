@@ -1033,7 +1033,7 @@ Explicitly deferred, not forgotten, not a section number of its own since this i
 
 - **Every in-app reload returns the user to the Reference tab, whichever tab they were actually working on, found Round 8 Phase 1, 2026-08-18, pre-existing and deliberately not touched by that phase's fix.** `loadTestBedDetail()` sets `tbUserPickedTab = false` as its first statement, carrying the comment "a genuinely fresh load", and `renderTestBedDetail()` then runs `if (!tbUserPickedTab) switchTbTab('reference')`. That is correct for a genuinely fresh navigation into a record. It is **not** obviously correct for the six in-file call sites that re-enter the same function mid-session - adding a note, saving fields, linking a buyer, completing a document, adding a use case, adding an install note - because each of those is a user already working somewhere specific, not arriving fresh. Concretely: edit a Hardware Cost Rate on Commercials, trigger any of those six paths, and the tab silently switches to Reference. **Confirmed by direct test, clicking the real tab button so `tbUserPickedTab` was genuinely set**, ruling out the flag simply never having been raised: the tab still reverted, because the reload resets it before the render reads it. **The edit itself is safe** - Round 8 Phase 1 fixed the separate defect where a reload destroyed an open field's content, and the typed value now survives intact with its dirty state correct. What does not survive is the user's place: the value is preserved on a panel they are no longer looking at, and keyboard focus lands on `BODY` because the input it belonged to is now hidden. **Deliberately left alone, flagged for a real decision rather than fixed in passing**, since the right answer is a product judgement and not obvious. It is a choice between three positions, all defensible: treat every reload as fresh (today's behaviour, simple, occasionally rude); preserve the open tab across in-app reloads while still resetting on genuine navigation (probably what a user expects, needs the two cases distinguished at the call site rather than inside `loadTestBedDetail`); or stop reloading the whole record for narrow mutations at all and update just the affected panel, which is the largest change and the one that removes the underlying cause rather than compensating for it.
 
-- **The Test Bed detail page has a whole-page vertical density limit that no individual panel can solve, quantified Round 8 Phase 3, 2026-08-18.** Recorded as its own entry because it was found while fixing something else, is not a defect in the panel that surfaced it, and will otherwise be rediscovered by whichever phase next tries to bring a figure above the fold. **The measurements**, taken at realistic monitor heights rather than a flat 1000px: the header block consumes 0-336px, the chevron strip a further 96px, the tab row another 96px, and the Commercials input-rate panels 379px, so **907px of a 1080px viewport is consumed before the Itemized Cost section begins at all**. At 1240x900 the input panels alone end at y=996, already 96px past the fold. **The consequence, stated plainly: at 1240x900 nothing in the Itemized Cost section can be visible without scrolling, whatever its internal layout.** Round 8 Phase 3 laid the three cost sections side by side (collapsing the breakdown from 745px to 368px) and then moved Total Cost above them rather than beneath - two genuine improvements that together moved the figure up more than 600px - and 3440x1440 now shows it comfortably, but 1920x1080 still clips it by roughly 20px and 1240x900 remains ~250px short. **Updated after Round 8 Phase 5 actually ran, 2026-08-18: the gap did not close, it grew, and the header was never the lever.** Two corrections to what this entry first said. First, the header block is **191px**, not 336px - the 336px figure measured from the page top to the chevron and included the margin and the "Workflow stage" title, which are not the header. Second, and more importantly, this entry speculated that Round 8 Phase 5's header rework "may recover most of this as a side effect". **It did the opposite, by design and knowingly.** Phase 5 moved Summary and Notes out of a middle column beside the name and stacked them beneath it. Side by side, the header cost `max(name 130, digest 191) = 191px`; stacked, it costs name + summary + notes, measured at **346px**. Total Cost moved from y=1054 to **y=1210**, so against a real ~950px viewport the shortfall went from 151px to **306px**. That was the correct outcome for that phase, whose brief asked for the repositioning on its own merits, and the visibility criterion attached to it was an addition rather than part of its scope - but it means **no part of this gap is owed by the header, and nothing about it should be expected from further work there.** **The real levers, none of them in the header:** the 145px band of margin, "Workflow stage" title and chevron strip between header and tabs; the 96px tab row; and the 379px block of input-rate panels, the largest single consumer on the Commercials tab. Recovering the 306px needs a deliberate pass at page furniture and the input panels, and should be scoped as its own work rather than attached to whatever phase happens to be nearby - which is exactly how it became attached to Phase 5 and then failed there. The remaining option, equally legitimate, is to accept that a go/no-go figure sits one scroll down at laptop resolutions and stop treating it as a defect. **Worth deciding deliberately rather than absorbing**, since the alternative is each future phase independently discovering that it cannot lift its own figure above the fold and either giving up quietly or trimming a few pixels from its own panel in a way that does not generalise. Also worth noting for whoever tests this: a headless viewport of 1080px has no browser chrome, so a real 1920x1080 monitor has roughly 950px of usable height and is meaningfully worse than these figures suggest, not better.
+- **The Test Bed detail page has a whole-page vertical density limit that no individual panel can solve, quantified Round 8 Phase 3, 2026-08-18.** Recorded as its own entry because it was found while fixing something else, is not a defect in the panel that surfaced it, and will otherwise be rediscovered by whichever phase next tries to bring a figure above the fold. **The measurements**, taken at realistic monitor heights rather than a flat 1000px: the header block consumes 0-336px, the chevron strip a further 96px, the tab row another 96px, and the Commercials input-rate panels 379px, so **907px of a 1080px viewport is consumed before the Itemized Cost section begins at all**. At 1240x900 the input panels alone end at y=996, already 96px past the fold. **The consequence, stated plainly: at 1240x900 nothing in the Itemized Cost section can be visible without scrolling, whatever its internal layout.** Round 8 Phase 3 laid the three cost sections side by side (collapsing the breakdown from 745px to 368px) and then moved Total Cost above them rather than beneath - two genuine improvements that together moved the figure up more than 600px - and 3440x1440 now shows it comfortably, but 1920x1080 still clips it by roughly 20px and 1240x900 remains ~250px short. **Updated after Round 8 Phase 5 actually ran, 2026-08-18: the gap did not close, it grew, and the header was never the lever.** Two corrections to what this entry first said. First, the header block is **191px**, not 336px - the 336px figure measured from the page top to the chevron and included the margin and the "Workflow stage" title, which are not the header. Second, and more importantly, this entry speculated that Round 8 Phase 5's header rework "may recover most of this as a side effect". **It did the opposite, by design and knowingly.** Phase 5 moved Summary and Notes out of a middle column beside the name and stacked them beneath it. Side by side, the header cost `max(name 130, digest 191) = 191px`; stacked, it costs name + summary + notes, measured at **346px**. Total Cost moved from y=1054 to **y=1210**, so against a real ~950px viewport the shortfall went from 151px to **306px**. That was the correct outcome for that phase, whose brief asked for the repositioning on its own merits, and the visibility criterion attached to it was an addition rather than part of its scope - but it means **no part of this gap is owed by the header, and nothing about it should be expected from further work there.** **The real levers, none of them in the header:** the 145px band of margin, "Workflow stage" title and chevron strip between header and tabs; the 96px tab row; and the 379px block of input-rate panels, the largest single consumer on the Commercials tab. Recovering the 306px needs a deliberate pass at page furniture and the input panels, and should be scoped as its own work rather than attached to whatever phase happens to be nearby - which is exactly how it became attached to Phase 5 and then failed there. The remaining option, equally legitimate, is to accept that a go/no-go figure sits one scroll down at laptop resolutions and stop treating it as a defect. **Worth deciding deliberately rather than absorbing**, since the alternative is each future phase independently discovering that it cannot lift its own figure above the fold and either giving up quietly or trimming a few pixels from its own panel in a way that does not generalise. Also worth noting for whoever tests this: a headless viewport of 1080px has no browser chrome, so a real 1920x1080 monitor has roughly 950px of usable height and is meaningfully worse than these figures suggest, not better. **Updated Round 15 Phase 4, 2026-08-20: still open, and now measured at both widths for the first time.** Seven rounds re-measured this at 1920 because that is where Round 8 first took the number, and Round 15 Phase 0 found the criterion had inverted underneath them. At 1920 the gap had closed by 228px, to 78px, through changes made for other reasons: Round 13's sticky tab row cut the tab band from 96px to 82px, and the Reference grid work packed the rate panels three across instead of stacking. **Nobody attacked this item and it shrank anyway. And it is now worse at 1240 than it was ever recorded at 1920.** Round 15 Phase 4 added a Cost summary card and moved the `Hosting x N months` row into it, which lifted Total Cost by 53px at every width: **1240x800, 1143px to 1090px, 343px below the fold to 290px; 1920x950, 1028px to 975px, 78px to 25px; 3440x1440, 794px to 740px and above the fold throughout.** **The item is left OPEN.** 53px is the moved row and nothing else; the panel is worth having on its own terms and does not touch what sits above Total Cost. **The levers, unchanged and none of them in the header:** the page header, the workflow stage strip, the two tab rows, and the four input-rate panels, which remain the largest single consumer. This is the eighth round the item has been carried and the first with a full measurement at both widths, which is the thing that was actually missing: a criterion pinned to one viewport stops describing what it was written about, and this one had migrated to the narrower width while everyone kept checking the wider one.
 
 - **A fix built for the pages that existed at the time is not a fix for the pages built after it. Named as its own standing entry, Round 8, 2026-08-18, after a third confirmed instance.** This shape has now produced a real, shipped defect three separate times, in three different rounds, and each time it was found by someone reporting a symptom rather than by anything in the build catching it. It is recorded here for the same reason the false-verification-signal principle was after Round 6: it is easy to see once named and nearly invisible while it is only a sentence inside three unrelated phase write-ups. **The three instances.** (1) **Round 5 Phase 4**: Opportunity's Contract Duration got a non-negative-integer fix in Round 3 Phase 3; Test Bed's own Duration field, the same shape on a different record type, never received it. (2) **Round 8 Phase 2**: spinner-arrow suppression was written in Round 3 Phase 4 as a deliberately blanket rule, scoped `#opp-tab-commercial`; Test Bed's Commercials tab was built two rounds later as `#tb-tab-commercials` and sat outside that selector, so nine cost-rate fields showed spinner arrows from the day they were built. (3) **Round 8 Phase 6**: Contact, Test Bed and Opportunity detail each override `.wrap`'s 1240px `max-width`; Account detail, built later in Round 5 Phase 10, never got the override, so its three panels could only ever render 2+1 no matter how wide the monitor. **The common shape, stated so it can be recognised early:** a fix is applied thoroughly and correctly across every surface that exists on the day it is written, often *deliberately* as a blanket or shared mechanism precisely to avoid per-instance drift - and then a new surface is added later that the blanket does not reach, because the selector, the field list or the override was enumerated at a moment when that surface did not exist. **The blanket mechanism is not the problem and should not be abandoned**; scoping is what made all three fixes correct in the first place. The problem is that adding a new page, tab or record type is silently also a decision about every existing scoped rule, and nothing currently forces that question to be asked. **Two practical consequences.** When building a genuinely new surface, explicitly check what scoped rules and shared field lists already exist for its siblings and decide, in writing, whether each applies - Round 8 Phase 6 was a one-line omission that took three rounds to surface. And when fixing an instance of this, fix the class rather than the report: Phase 2 was reported as one field on one panel and was actually nine fields across three panels, so the reported symptom understated it by a factor of three. **Where the automated suite can help, it should**: an assertion that every `input[type="number"]` inside a cost panel is spinner-suppressed, or that every detail view carries the wide-layout override, is the kind of check that catches this class on the day the new surface is added rather than rounds later.
 
@@ -1851,6 +1851,22 @@ Explicitly deferred, not forgotten, not a section number of its own since this i
 
   **Not edited, and the proposal is now one of two options rather than a recommendation.** Narrowing the `asks` is only correct if the criterion is meant to be a permission check; widening the anchors is correct if it is meant to measure worth. The business owns that choice and it is recorded as item 9 of the review list. The round's scope was one row edit, confirmed, and this is a second.
 
+- **The first cross-field rule: Est. Go Live cannot precede Estimated Installation Date, and the three cases were decided rather than left to fall out. Round 15 Phase 1, 2026-08-20.**
+
+  Every other validation in this application checks one key against itself. This is the first that relates two, and relating two is what makes the edit-lock hazard live rather than theoretical.
+
+  **Case 1, only one of the two set: no violation.** The rule describes a relationship, and with one value absent there is no relationship to break. Proven on three genuinely fresh records rather than on one record edited twice, because the first version of that check set the installation date in its own first step and then tested the second date against it, which is a case-2 test wearing a case-1 label.
+
+  **Case 2, the violation from the other end: refused.** Moving the installation date later than a stored go-live date is the same violation approached backwards, and a check reading only the submitted key would miss it. So the check reads the merged VALUES once it has decided to run.
+
+  **Case 3, records that already violate: they stay saveable.** Surveyed before building, across all 234 test_bed records paged: 28 carry both dates, **2 violate, one of them live**. So this was not hypothetical. The guard is on the SUBMITTED KEYS, `if ('estimatedInstallationDate' in payload || 'estGoLiveDate' in payload)`, following the shape the two existing date checks already use rather than inventing one. A save touching neither date is never checked, so an unrelated edit on a violating record still succeeds, proven from the browser as well as from the API.
+
+  **An edit that touches a date is required to leave the pair valid, and that is not a trap:** either date can be moved to resolve it, and both routes out were tested.
+
+  **The client bound is native, not a second mechanism.** `min` on go-live is the later of today and the stored installation date; `max` on installation is the stored go-live date. That is the same browser-level-plus-server split `noPast` already uses. A user editing both in one batch gets no client bound for the pair and is caught by the server, which is the affordance-versus-guarantee division this project already draws.
+
+  **The message names labels, and the nine that do not are a separate item.** This message says "Est. Go Live cannot be before Estimated Installation Date". The two checks immediately above it name payload keys, and so do seven others across `test-beds.js` and `opportunities.js`, with no server-side key-to-label map anywhere. **Fixing the two adjacent ones would fix two of nine and leave seven**, which is Build discipline 8 pointing at a partial fix rather than away from one.
+
 - **The hover popups size to their content: a deliberate partial reversal of Round 6 Phase 1. Round 14 Phase 3, 2026-08-20.**
 
   **Round 6 Phase 1's reasoning is left in place in the stylesheet rather than deleted, because that fix solved a real problem and this one modifies it rather than refuting it.** It added `white-space: nowrap`, `overflow: hidden` and `text-overflow: ellipsis` to `.linked-record-row`, plus a bounded `max-width` on the popup containers, to stop long names wrapping to three lines. Both halves were needed: nowrap alone stops wrapping, and without a width limit there is nothing for the ellipsis to truncate against.
@@ -2009,3 +2025,94 @@ Explicitly deferred, not forgotten, not a section number of its own since this i
   One append per revision, roughly one a minute. **That is a person retrying**, and it is visible nowhere except in the spacing. The current payload alone shows four scores present and one absent, which is equally consistent with the user having only entered four.
 
   **The general form: a reproduction establishes the mechanism and says nothing about the blast radius.** How much damage a fault did depends on what the user did in response to it, which is a fact about their session and is recoverable only from the record's own history. **Read the history before reporting the damage**, and where the damage is being reported to the person who suffered it, the difference between "re-enter four scores" and "re-enter one" is the whole value of the report.
+
+- **The over-broad integer pass has now happened twice, and the second time it arrived through the mobile keypad rather than through a validator. Round 15 Phase 3, 2026-08-20.**
+
+  **First instance, Round 3 Phase 4.** Every numeric entry field on the
+  Commercials tab was forced through `isValidNonNegativeInteger`. That was right
+  for genuine counts and wrong for margins and rates, and it broke the factoring
+  rate's own 1.5% default outright. It was corrected twice the same day.
+
+  **Second instance, Round 15 Phase 3.** The brief specified `type="text"` with
+  `inputmode="numeric"` for all 43 numeric field definitions, and named decimal
+  precision as the first of four things the change must not break. Those two
+  instructions contradict each other and the contradiction is invisible from the
+  code: `inputmode="numeric"` asks iOS for a digits-only keypad **with no decimal
+  separator**, so all 25 Deal Sheet fields and all 9 Test Bed cost rates would
+  have become untypeable on a phone. Nothing on a desktop browser would have
+  shown it.
+
+  **The reason this instance is worth recording separately is that it would have
+  passed the check the brief specified.** The stated evidence was "confirm
+  `inputmode="numeric"` is present", and it would have been present, on every
+  field, exactly as asked. The build shipped the split instead: 32 integer fields
+  take `numeric`, 37 decimal-capable fields take `decimal`, matching the
+  pre-existing `step="1"` split field by field.
+
+  **The shape, stated so the third instance is recognisable:** a numeric
+  treatment is applied uniformly because uniformity is what makes it a class fix
+  rather than per-field drift, and the class genuinely contains two kinds of
+  number. The first instance came through a server validator and surfaced as a
+  live bug; this one came through a keyboard hint on a platform the build was not
+  being tested on. **Whenever a numeric rule is about to be applied across a
+  whole surface, the question to ask first is which of those fields carry real
+  decimal precision** - the answer has been "some of them" both times.
+
+
+- **Presence is not legibility, and every programmatic check passes on the difference. Round 15 Phase 4, 2026-08-20.**
+
+  The clearest instance yet of the rule that says to open the screenshot and
+  look at it, and a sharper one than the cases that rule was written from,
+  because nothing here was broken.
+
+  Phase 4 added a Cost summary card whose whole purpose is that the totals read
+  before the breakdowns they come from. It rendered in the right place, with the
+  right three figures, verified against the engine's own output to the dollar,
+  exactly one instance of each row, no overflow, no page scroll, identical
+  measurements at 1240, 1920 and 3440. **Every check passed.**
+
+  It was built with the shared `line()` helper, whose value carries the dimmed
+  `.data-row-label` treatment meant for the itemized rows a total is built
+  *from*. So the three category totals rendered as **the least prominent figures
+  on the tab**, sitting beside neighbouring cards whose own subtotals were full
+  white. The card said "Cost summary" and then whispered it.
+
+  **No assertion available could have caught this**, because every property an
+  assertion can name was correct. The figures were right, they were present,
+  they were positioned as asked. What was wrong was their weight relative to
+  everything around them, which is a judgement about hierarchy and exists only
+  when a person looks at the whole screen at once.
+
+  **The general form: a check confirms a thing is THERE; only looking confirms
+  it READS.** For anything whose stated purpose is emphasis, ordering or
+  prominence - a summary, a headline figure, a warning, a primary action - the
+  screenshot is not a formality after the assertions pass. It is the only
+  instrument that measures the thing the change was for. Assert presence and
+  correctness by all means, and then look, because the two questions are
+  different and the first one is not evidence for the second.
+
+
+- **A bookkeeping file records what you meant to create, not what exists. Round 15 Phase 4, 2026-08-20.**
+
+  Phase 4 built a fixture, then rebuilt it mid-phase to match Phase 0's payload
+  exactly, and the rebuild **overwrote the same `f4.json`**. The teardown script
+  read that file, found two ids, and would have reported a clean 2/2 while
+  leaving an Account and a Test Bed live in the database indefinitely.
+
+  What caught it was tearing down by **enumerating from the database on the
+  fixture's own tag** rather than reading the file: four live records, not two,
+  followed by a re-query confirming zero still tagged.
+
+  **The fault is structural, not carelessness.** A file written at creation time
+  is a record of intent at that instant; anything that supersedes it - a rebuild,
+  a retry, a killed run, a second fixture created to isolate a case - leaves
+  records the file no longer names, and it leaves NO trace of having done so. The
+  teardown then reports success against its own incomplete list, which is worse
+  than reporting nothing, because a clean 2/2 reads as proof.
+
+  **This is the same shape as the killed-run residue in CLAUDE.md's build
+  discipline rule 8:** cleanup scoped to what the record happens to name rather
+  than to what the actor actually did. There it was an assertion naming four rows
+  while the same event had written six more; here it is a JSON file naming two
+  records while the same phase had created four. **Enumerate from the database,
+  by a tag the fixtures themselves carry, and re-query to confirm zero remain.**

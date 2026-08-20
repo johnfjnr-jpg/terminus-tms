@@ -669,6 +669,42 @@ export default async function testBedsRoutes(app) {
       const nextRevision = (revRow?.revision_number ?? 0) + 1
       const mergedPayload = { ...(revRow?.payload ?? {}), ...payload }
 
+      // Round 15 Phase 1: Est. Go Live cannot precede Estimated Installation
+      // Date. The first cross-field rule in this application; every other
+      // check here validates one key against itself.
+      //
+      // GUARDED ON THE SUBMITTED KEYS, NEVER ON THE MERGED PAYLOAD ALONE, and
+      // that is the whole design. Two live records already violate this rule
+      // (surveyed before building: 234 test_bed records, 28 with both dates,
+      // 2 violating, one of them live). Validating the merged payload would
+      // make every unrelated save on those records fail, which is the
+      // edit-lock hazard recorded on 2026-08-15 when a NOT VALID constraint
+      // locked eight Test Beds out of being edited at all, including out of
+      // soft-delete. So a save that touches neither date is never checked.
+      //
+      // It reads the merged VALUES once it has decided to run, because the
+      // violation is reachable from both sides: editing the installation date
+      // later than a stored go-live date is the same violation approached
+      // from the other end, and checking only the submitted key would miss it.
+      //
+      // A record already violating stays saveable for anything else, and an
+      // edit that touches a date is required to leave the pair valid. That is
+      // not a trap: either date can be moved to resolve it.
+      //
+      // THE MESSAGE NAMES THE LABELS the user sees, not the payload keys. The
+      // two checks above name keys, and so do seven others across this file
+      // and opportunities.js. Fixing two of nine here would leave seven and
+      // is recorded as its own item rather than done in passing.
+      if ('estimatedInstallationDate' in payload || 'estGoLiveDate' in payload) {
+        const install = mergedPayload.estimatedInstallationDate
+        const goLive = mergedPayload.estGoLiveDate
+        if (install && goLive && goLive < install) {
+          return reply.code(400).send({
+            error: 'Est. Go Live cannot be before Estimated Installation Date',
+          })
+        }
+      }
+
       // Round 9 Phase 3.2: untick REMOVES the key rather than storing an
       // empty value. Deliberately scoped to the criterion keys alone: a
       // null on any other field keeps meaning exactly what it meant

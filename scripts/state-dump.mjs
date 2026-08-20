@@ -332,8 +332,26 @@ w(`- Generated at: \`${generatedAt}\``)
 w(`- Git commit: \`${sha ?? '(unavailable)'}\``)
 w(`- Working tree at generation: \`${dirty ? 'dirty (uncommitted changes present)' : 'clean'}\``)
 w('')
-w('If the commit above is not current `HEAD`, this file is stale and is')
-w('untrusted rather than approximately right.')
+// Round 15 Phase 6: this printed the pre-Round-10A staleness rule, "if the
+// commit above is not current HEAD, this file is stale", for five rounds
+// after CLAUDE.md corrected it. That check can never pass: the file records
+// the commit it was generated at and is then committed, so it can never name
+// its own commit and was stale by its own rule the moment it was written.
+// A rule that always fails gets worked around rather than followed, and this
+// file is uploaded into chat sessions, so the wrong version travelled.
+// CLAUDE.md is the authority; the two-part test is restated here only because
+// a reader of this file may not have that one open.
+w('Staleness has two parts, and both must hold for this file to be current:')
+w('the recorded commit is an ancestor of `HEAD`, AND no tracked configuration')
+w('source has changed since it. See `CLAUDE.md`, which is the authority.')
+w('')
+w('    git merge-base --is-ancestor <recorded-sha> HEAD')
+w('    git diff --name-only <recorded-sha>..HEAD -- \\')
+w('      supabase/migrations supabase/seeds src/routes')
+w('')
+w('A changed source is not automatically staleness: the generator parses')
+w('source files from disk, so a run made with uncommitted changes present')
+w('already reflects them. Regenerate and diff rather than assuming.')
 w('')
 
 // ── stage_definitions ────────────────────────────────────────

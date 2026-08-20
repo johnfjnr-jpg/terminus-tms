@@ -109,7 +109,7 @@ const TB_SITE_FIELDS = [
 // integer (Round 7 Phase 2.2, 2026-08-18): these are physical device
 // counts - never negative, never fractional - and they multiply straight
 // into the install and hosting cost lines. They had carried only
-// `number: true`, so no min/step and no .no-spinner, and the render call
+// `number: true`, so no integer treatment at all, and the render call
 // site below passed only `{ number: f.number }`, dropping anything else
 // anyway. Same integer treatment as testBedDuration, matched by a real
 // server-side check added in the same phase (test-beds.js).
@@ -205,16 +205,51 @@ function tbFieldRow(key, label, value, opts = {}) {
     // level constraint, not just server-side rejection after the fact"
     // discipline as the date type itself, mirroring opportunity-
     // reference.js's refFieldRow exactly.
-    const min = opts.noPast ? ` min="${new Date().toISOString().slice(0, 10)}"` : ''
-    inputTag = `<input type="date" id="tb-input-${key}" value="${escHtml(v)}"${min}>`
+    const today = new Date().toISOString().slice(0, 10)
+    // Round 15 Phase 1: the cross-field bound, expressed as native min/max
+    // rather than as a second validation mechanism. This is the same
+    // browser-level-plus-server split noPast already uses: the browser stops
+    // most of it at the point of choosing, and src/routes/test-beds.js rejects
+    // it independently for any caller.
+    //
+    // Est. Go Live cannot be earlier than the installation date, so its floor
+    // is the LATER of today and that date. The installation date cannot be
+    // later than an existing go-live date, which is the same rule approached
+    // from the other end and is the case a one-sided bound would miss.
+    //
+    // Both read tbPayload, so the bound reflects what is stored rather than
+    // what is on screen. A user editing both in one batch gets no client bound
+    // for the pair and is caught by the server, which is the affordance-versus-
+    // guarantee split this project already draws.
+    const otherInstall = tbPayload?.estimatedInstallationDate
+    const otherGoLive = tbPayload?.estGoLiveDate
+    let floor = opts.noPast ? today : ''
+    let ceiling = ''
+    if (key === 'estGoLiveDate' && otherInstall) {
+      floor = floor && floor > otherInstall ? floor : otherInstall
+    }
+    if (key === 'estimatedInstallationDate' && otherGoLive) {
+      ceiling = otherGoLive
+    }
+    const min = floor ? ` min="${floor}"` : ''
+    const max = ceiling ? ` max="${ceiling}"` : ''
+    inputTag = `<input type="date" id="tb-input-${key}" value="${escHtml(v)}"${min}${max}>`
   } else if (opts.number) {
-    // integer (Round 5 Phase 4): min=0/step=1 are the native-constraint
-    // half, .no-spinner (style.css, already shared with Opportunity's
-    // Contract Duration) removes the up/down arrows that invite clicking
-    // into a negative value one step at a time - same split as noPast
-    // above, browser-level plus server-side, neither alone is trusted.
-    const intAttrs = opts.integer ? ' min="0" step="1" class="no-spinner"' : ''
-    inputTag = `<input type="number" id="tb-input-${key}" value="${escHtml(v)}"${intAttrs}>` +
+    // Round 5 Phase 4 gave integer fields min=0/step=1 as the
+    // native-constraint half of a browser-plus-server split, with
+    // .no-spinner hiding the arrows. All three are gone with type="number",
+    // which is what provided them and is also what let the arrow keys
+    // change a value without anyone typing.
+    //
+    // The server half is untouched. tbValidateNumeric already rejected
+    // negative and fractional entry and now genuinely runs: the browser
+    // used to make those two branches unreachable from the UI.
+    //
+    // inputmode keeps the numeric keypad on mobile. "numeric" is digits
+    // only; a cost rate carries real decimal precision and needs "decimal",
+    // or iOS offers no decimal separator and the value cannot be typed.
+    const mode = opts.integer ? 'numeric' : 'decimal'
+    inputTag = `<input type="text" inputmode="${mode}" id="tb-input-${key}" value="${escHtml(v)}">` +
       (opts.suffix ? `<span class="field-suffix">${escHtml(opts.suffix)}</span>` : '')
   } else {
     inputTag = `<input type="text" id="tb-input-${key}" value="${escHtml(v)}">`
@@ -234,7 +269,7 @@ function tbFieldRow(key, label, value, opts = {}) {
   return `
   <div class="ref-field" data-key="${key}">
     <div class="ref-field-label"><span>${label}</span></div>
-    <div class="ref-field-display" id="tb-display-${key}" tabindex="0" onclick="openTbField('${key}',true)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openTbField('${key}',true)}">${display}</div>
+    <div class="ref-field-display" id="tb-display-${key}" tabindex="0" onclick="openTbField('${key}',true)" onkeydown="fieldDisplayKeydown(event,c=>openTbField('${key}',true,c))">${display}</div>
     <div class="ref-field-edit hidden" id="tb-edit-${key}">
       ${inputTag}
       <span class="ref-field-discard" tabindex="0" onclick="discardTbField('${key}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();discardTbField('${key}')}">&times;</span>
@@ -842,16 +877,67 @@ function renderTbCostBreakdown() {
     ? line(`Warranty (${b.hardware.warrantyUnits} unit${b.hardware.warrantyUnits === 1 ? '' : 's'})`, rowCost(g.hardwareGroup, 'hwWarranty'))
     : ''
 
+  // Round 15 Phase 4: a cost summary card, leftmost, so the totals read
+  // before the breakdowns.
+  //
+  // NOTHING HERE IS COMPUTED. All three category figures are read straight
+  // off the engine's own output: calculateTestBedCost already returns
+  // hardwareGroup.rawTotalCost, installGroup.rawTotalCost and
+  // hostingTermCost, and its own totalCost is the sum of exactly those
+  // three. Re-adding the itemized lines here would be a second computation
+  // path that agrees today and drifts later, which is the reason Round 9
+  // made computeBlocking the single evaluator.
+  //
+  // The `Hosting x N months` line MOVES here from the total block above. It
+  // is the Hosting category total, which is what this card is for, and it
+  // was never a peer of Total Cost. It appears once: see the assertion on
+  // the rendered instance count, not merely on its presence, after Round 10
+  // Phase 2 moved Summary and shipped a duplicate.
+  //
+  // Total Cost itself deliberately does NOT move into this card. Round 8
+  // Phase 3 put it above the detail rather than beneath it, and that is
+  // what keeps it visible without scrolling at the wider viewports; pulling
+  // it into the grid would push it back down behind the rate panels.
+  //
+  // The total row's border-top and its 10px/10px of margin and padding go
+  // with the moved line. They existed to divide two rows inside that block;
+  // one row is left, so they were dividing Total Cost from the sub-heading
+  // above it, which is not a division that means anything. Same reasoning as
+  // the spinner CSS removed in Phase 3: a rule describing a state that can no
+  // longer occur reads as intent and is just residue.
+  //
+  // Rendered at the weight of a subtotal, not of a line item. line() styles
+  // its value with .data-row-label, which is the dimmed treatment for the
+  // itemized rows a total is built from. Using it here made the three
+  // category totals the least prominent figures on the tab, sitting beside
+  // neighbouring cards whose own subtotals are full white, which is the
+  // opposite of what a card called Cost summary is for. subtotal() carries
+  // the right typography but also a border-top dividing it from the rows
+  // above it, and in this card every row IS a total, so there is nothing to
+  // divide it from.
+  const summaryRow = (label, cost) => `
+    <div class="data-row">
+      <span style="font-size:13px;color:var(--white)">${escHtml(label)}</span>
+      <span style="font-size:13px;color:var(--white)">${formatCost(cost)}</span>
+    </div>`
+
+  const summaryCard = section('Cost summary', [
+    summaryRow('Hardware', g.hardwareGroup.rawTotalCost),
+    summaryRow('Installation', g.installGroup.rawTotalCost),
+    summaryRow(`Hosting x ${b.months} month${b.months === 1 ? '' : 's'}`, b.hostingTermCost),
+  ].join(''))
+
   el.innerHTML = `
     <div class="tb-cost-total">
-      ${line(`Hosting x ${b.months} month${b.months === 1 ? '' : 's'}`, b.hostingTermCost)}
-      <div class="data-row" style="border-top:1px solid var(--hairline-strong);margin-top:10px;padding-top:10px">
+      <div class="data-row">
         <span style="font-size:15px;font-weight:500;color:var(--white)">Total Cost</span>
         <span style="font-size:15px;font-weight:500;color:var(--white)">${formatCost(b.totalCost)}</span>
       </div>
     </div>
 
     <div class="ref-cards">
+      ${summaryCard}
+
       ${section('Hardware', [
         line(`SafeSight (${tbPayload.safesightCameras || 0} x ${formatCost(tbPayload.ssUnitCost || 0)})`, rowCost(g.hardwareGroup, 'hwSs')),
         line(`Air Quality (${tbPayload.airQualitySensors || 0} x ${formatCost(tbPayload.aqUnitCost || 0)})`, rowCost(g.hardwareGroup, 'hwAqm')),
@@ -1927,8 +2013,12 @@ const tbInvalidFields = new Map()
 
 function tbValidateNumeric(input, f) {
   const raw = input.value
-  // <input type="number"> reports '' for text it cannot parse at all.
   // An empty field is "not set", which is a legitimate state here.
+  //
+  // This used to read "type=\"number\" reports '' for text it cannot parse".
+  // That is no longer how unparseable text arrives: with type="text" the raw
+  // string reaches this function intact, so "abc" is now caught by the
+  // Number.isFinite branch below rather than being silently flattened to ''.
   if (raw.trim() === '') return null
   const n = Number(raw)
   if (!Number.isFinite(n)) return 'must be a number'
@@ -1991,21 +2081,29 @@ function wireTbFieldInputs() {
 // fromUserGesture (Round 10 Phase 0A): true only from the real click and
 // keydown handlers on the display element. The restore path below passes
 // nothing on purpose - see window.revealFieldControl in app.js.
-window.openTbField = function (key, fromUserGesture) {
+window.openTbField = function (key, fromUserGesture, seedChar) {
   if (tbEdits[key]) return
   const orig = String(tbPayload[key] ?? '')
   tbEdits[key] = { draft: orig, orig }
   document.getElementById(`tb-display-${key}`).classList.add('hidden')
   document.getElementById(`tb-edit-${key}`).classList.remove('hidden')
   const input = document.getElementById(`tb-input-${key}`)
-  window.revealFieldControl(input, fromUserGesture)
   // Clear a stale error from an earlier, unrelated failed save (2026-08-15
   // fix) - tb-save-feedback previously only got reset at the top of
   // saveTbFields(), so a real failure (e.g. Summary rejected by the
   // writable-keys check) stayed on screen indefinitely, reappearing the
   // instant any other field was opened next, since opening a field makes
   // the save bar visible again without ever touching this text.
+  //
+  // MUST run BEFORE revealFieldControl, not after (Round 15 Phase 3). The
+  // seed character introduced in Phase 2 dispatches a real input event, so
+  // guardNumericEntry validates it and writes its message here while the
+  // field is being opened. Clearing afterwards wiped that message, leaving
+  // the input flagged red and Save disabled with nothing on screen saying
+  // why. Correct for every caller that existed when it was written, since
+  // none of them produced feedback before this line ran.
   clearTbSaveFeedback()
+  window.revealFieldControl(input, fromUserGesture, seedChar)
   updateTbSaveBar()
 }
 

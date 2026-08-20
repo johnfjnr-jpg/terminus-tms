@@ -568,7 +568,7 @@
              (2026-08-14), but kept as a real class rather than an inline
              style regardless. -->
         <div class="ref-field ref-field-noborder" id="cd-field-summary-wrap" data-key="summary">
-          <div class="ref-field-display" id="cd-display-summary" onclick="openCdField('summary')" style="font-size:14px">--</div>
+          <div class="ref-field-display" id="cd-display-summary" tabindex="0" onclick="openCdField('summary',true)" onkeydown="fieldDisplayKeydown(event,c=>openCdField('summary',true,c))" style="font-size:14px">--</div>
           <div class="ref-field-edit hidden" id="cd-edit-summary">
             <textarea id="cd-input-summary" rows="3" style="flex:1"></textarea>
             <span class="ref-field-discard" onclick="discardCdField('summary')">&times;</span>
@@ -729,7 +729,7 @@
           <div id="tb-header-summary" class="tb-head-summary-inline">
             <p class="tb-header-digest-label">Summary</p>
             <div class="ref-field" id="tb-field-summary-wrap" data-key="summary" style="border:none">
-              <div class="ref-field-display" id="tb-display-summary" tabindex="0" onclick="openTbField('summary',true)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openTbField('summary',true)}" style="font-size:13px">--</div>
+              <div class="ref-field-display" id="tb-display-summary" tabindex="0" onclick="openTbField('summary',true)" onkeydown="fieldDisplayKeydown(event,c=>openTbField('summary',true,c))" style="font-size:13px">--</div>
               <div class="ref-field-edit hidden" id="tb-edit-summary">
                 <textarea id="tb-input-summary" rows="3" style="flex:1"></textarea>
                 <span class="ref-field-discard" tabindex="0" onclick="discardTbField('summary')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();discardTbField('summary')}">&times;</span>
@@ -1032,9 +1032,20 @@
              Tech Team dropdown, which was REPLACED by a line naming what to
              do first rather than left present and inert. The stage name is
              read from the score entry already in the payload, so this card
-             costs no request. -->
+             costs no request.
+
+             Round 15 Phase 5 (2026-08-20): retitled from "Scores" to
+             "Qualification score", sentence case, matching the stage tab
+             panel's "Qualification scoring" and the house convention. Two
+             similarly named panels on different tabs is deliberate and
+             confirmed with the business, not an accident to be tidied.
+
+             Display only. No id or class carries the old title: this card's
+             own ids are tb-score-summary and tb-score-summary-sub, which name
+             the concept rather than the heading, and tb-scores-list belongs to
+             the stage panel, not to this one. -->
         <div class="pg-card">
-          <p class="pg-card-title">Scores</p>
+          <p class="pg-card-title">Qualification score</p>
           <p class="sub" id="tb-score-summary-sub">Recorded on the stage tabs.</p>
           <div id="tb-score-summary"></div>
         </div>
@@ -1498,7 +1509,7 @@
         <p class="label" style="margin-bottom:10px">Executive Summary &middot; <span id="ref-opptype-value">--</span></p>
         <div id="ref-opptype-row"></div>
         <div class="ref-field" id="ref-field-summary-wrap" data-key="summary" style="border:none">
-          <div class="ref-field-display" id="ref-display-summary" tabindex="0" onclick="openRefField('summary')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openRefField('summary')}" style="font-size:14px">--</div>
+          <div class="ref-field-display" id="ref-display-summary" tabindex="0" onclick="openRefField('summary',true)" onkeydown="fieldDisplayKeydown(event,c=>openRefField('summary',true,c))" style="font-size:14px">--</div>
           <div class="ref-field-edit hidden" id="ref-edit-summary">
             <textarea id="ref-input-summary" rows="3" style="flex:1"></textarea>
             <span class="ref-field-discard" tabindex="0" onclick="discardRefField('summary')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();discardRefField('summary')}">&times;</span>
@@ -1550,19 +1561,19 @@
         <div class="unit-cards">
           <div class="unit-card">
             <label for="deal-ssExisting">SafeSight, existing infra</label>
-            <input type="number" id="deal-ssExisting" min="0" placeholder="0">
+            <input type="text" inputmode="numeric" id="deal-ssExisting" min="0" placeholder="0">
           </div>
           <div class="unit-card">
             <label for="deal-ssNew">SafeSight, new infra</label>
-            <input type="number" id="deal-ssNew" min="0" placeholder="0">
+            <input type="text" inputmode="numeric" id="deal-ssNew" min="0" placeholder="0">
           </div>
           <div class="unit-card">
             <label for="deal-aqm">AQ Sensor</label>
-            <input type="number" id="deal-aqm" min="0" placeholder="0">
+            <input type="text" inputmode="numeric" id="deal-aqm" min="0" placeholder="0">
           </div>
           <div class="unit-card">
             <label for="deal-hemir">HEMIR</label>
-            <input type="number" id="deal-hemir" min="0" placeholder="0">
+            <input type="text" inputmode="numeric" id="deal-hemir" min="0" placeholder="0">
           </div>
         </div>
 
@@ -1571,12 +1582,12 @@
              them. Their value is surfaced instead in each row's note below
              ("N units x $rate"), not as its own column, matching the
              prototype's card shape (Item/Cost/Margin%/Price only). -->
-        <input type="number" id="deal-ssUnitCost" class="hidden" readonly>
-        <input type="number" id="deal-aqUnitCost" class="hidden" readonly>
-        <input type="number" id="deal-hemirUnitCost" class="hidden" readonly>
-        <input type="number" id="deal-hoSafesight" class="hidden" readonly>
-        <input type="number" id="deal-hoAqm" class="hidden" readonly>
-        <input type="number" id="deal-hoHemir" class="hidden" readonly>
+        <input type="text" inputmode="numeric" id="deal-ssUnitCost" class="hidden" readonly>
+        <input type="text" inputmode="numeric" id="deal-aqUnitCost" class="hidden" readonly>
+        <input type="text" inputmode="numeric" id="deal-hemirUnitCost" class="hidden" readonly>
+        <input type="text" inputmode="numeric" id="deal-hoSafesight" class="hidden" readonly>
+        <input type="text" inputmode="numeric" id="deal-hoAqm" class="hidden" readonly>
+        <input type="text" inputmode="numeric" id="deal-hoHemir" class="hidden" readonly>
 
         <p class="label" style="margin:24px 0 10px">Computed pricing (USD) &middot; costs mirrored from Base Cost Data</p>
         <div class="pg-cards">
@@ -1587,25 +1598,25 @@
             <div class="pg-row">
               <div><div class="pg-item-name">SafeSight</div><div class="pg-item-note" id="pg-note-hwSs">--</div></div>
               <div class="pg-cost" id="pg-cost-hwSs">--</div>
-              <input type="number" class="pg-margin-input" id="deal-margin-hwSs" placeholder="target">
+              <input type="text" inputmode="numeric" class="pg-margin-input" id="deal-margin-hwSs" placeholder="target">
               <div class="pg-price" id="pg-price-hwSs">--</div>
             </div>
             <div class="pg-row">
               <div><div class="pg-item-name">AQ Sensor</div><div class="pg-item-note" id="pg-note-hwAqm">--</div></div>
               <div class="pg-cost" id="pg-cost-hwAqm">--</div>
-              <input type="number" class="pg-margin-input" id="deal-margin-hwAqm" placeholder="target">
+              <input type="text" inputmode="numeric" class="pg-margin-input" id="deal-margin-hwAqm" placeholder="target">
               <div class="pg-price" id="pg-price-hwAqm">--</div>
             </div>
             <div class="pg-row">
               <div><div class="pg-item-name">HEMIR</div><div class="pg-item-note" id="pg-note-hwHemir">--</div></div>
               <div class="pg-cost" id="pg-cost-hwHemir">--</div>
-              <input type="number" class="pg-margin-input" id="deal-margin-hwHemir" placeholder="target">
+              <input type="text" inputmode="numeric" class="pg-margin-input" id="deal-margin-hwHemir" placeholder="target">
               <div class="pg-price" id="pg-price-hwHemir">--</div>
             </div>
             <div class="pg-row">
               <div><div class="pg-item-name">Warranty provision</div><div class="pg-item-note" id="pg-note-hwWarranty">--</div></div>
               <div class="pg-cost" id="pg-cost-hwWarranty">--</div>
-              <input type="number" class="pg-margin-input" id="deal-margin-hwWarranty" placeholder="target">
+              <input type="text" inputmode="numeric" class="pg-margin-input" id="deal-margin-hwWarranty" placeholder="target">
               <div class="pg-price" id="pg-price-hwWarranty">--</div>
             </div>
 
@@ -1624,19 +1635,19 @@
             <div class="pg-row">
               <div><div class="pg-item-name">SafeSight</div><div class="pg-item-note" id="pg-note-hoSs">--</div></div>
               <div class="pg-cost" id="pg-cost-hoSs">--</div>
-              <input type="number" class="pg-margin-input" id="deal-margin-hoSs" placeholder="target">
+              <input type="text" inputmode="numeric" class="pg-margin-input" id="deal-margin-hoSs" placeholder="target">
               <div class="pg-price" id="pg-price-hoSs">--</div>
             </div>
             <div class="pg-row">
               <div><div class="pg-item-name">AQ Sensor</div><div class="pg-item-note" id="pg-note-hoAqm">--</div></div>
               <div class="pg-cost" id="pg-cost-hoAqm">--</div>
-              <input type="number" class="pg-margin-input" id="deal-margin-hoAqm" placeholder="target">
+              <input type="text" inputmode="numeric" class="pg-margin-input" id="deal-margin-hoAqm" placeholder="target">
               <div class="pg-price" id="pg-price-hoAqm">--</div>
             </div>
             <div class="pg-row">
               <div><div class="pg-item-name">HEMIR</div><div class="pg-item-note" id="pg-note-hoHemir">--</div></div>
               <div class="pg-cost" id="pg-cost-hoHemir">--</div>
-              <input type="number" class="pg-margin-input" id="deal-margin-hoHemir" placeholder="target">
+              <input type="text" inputmode="numeric" class="pg-margin-input" id="deal-margin-hoHemir" placeholder="target">
               <div class="pg-price" id="pg-price-hoHemir">--</div>
             </div>
 
@@ -1664,7 +1675,7 @@
           </div>
           <div class="form-group hidden" id="deal-lumpCost-group">
             <label>Lump sum contractor price (USD)</label>
-            <input type="number" id="deal-lumpCost">
+            <input type="text" inputmode="numeric" id="deal-lumpCost">
             <p class="data-row-label" id="deal-lump-summary" style="margin-top:8px">--</p>
           </div>
           <div class="form-group hidden" id="deal-install-seetable">
@@ -1691,10 +1702,10 @@
         <table class="doc-table hidden" id="deal-install-table">
           <thead><tr><th>Installation (per unit)</th><th>Units</th><th>Rate (USD, fixed at creation)</th><th>Cost (USD)</th><th>Margin % (blank = target)</th><th>Price (USD)</th></tr></thead>
           <tbody>
-            <tr><td>SafeSight, existing infra</td><td class="col-mono" id="deal-install-units-inSsEx">0</td><td><input type="number" id="deal-inSsExisting" readonly></td><td class="col-mono" id="deal-install-cost-inSsEx">$0</td><td><input type="number" id="deal-margin-inSsEx" placeholder="target"></td><td class="col-mono" id="deal-install-price-inSsEx">$0</td></tr>
-            <tr><td>SafeSight, new infra</td><td class="col-mono" id="deal-install-units-inSsNew">0</td><td><input type="number" id="deal-inSsNew" readonly></td><td class="col-mono" id="deal-install-cost-inSsNew">$0</td><td><input type="number" id="deal-margin-inSsNew" placeholder="target"></td><td class="col-mono" id="deal-install-price-inSsNew">$0</td></tr>
-            <tr><td>AQ Sensor</td><td class="col-mono" id="deal-install-units-inAqm">0</td><td><input type="number" id="deal-inAqm" readonly></td><td class="col-mono" id="deal-install-cost-inAqm">$0</td><td><input type="number" id="deal-margin-inAqm" placeholder="target"></td><td class="col-mono" id="deal-install-price-inAqm">$0</td></tr>
-            <tr><td>HEMIR</td><td class="col-mono" id="deal-install-units-inHemir">0</td><td><input type="number" id="deal-inHemir" readonly></td><td class="col-mono" id="deal-install-cost-inHemir">$0</td><td><input type="number" id="deal-margin-inHemir" placeholder="target"></td><td class="col-mono" id="deal-install-price-inHemir">$0</td></tr>
+            <tr><td>SafeSight, existing infra</td><td class="col-mono" id="deal-install-units-inSsEx">0</td><td><input type="text" inputmode="numeric" id="deal-inSsExisting" readonly></td><td class="col-mono" id="deal-install-cost-inSsEx">$0</td><td><input type="text" inputmode="numeric" id="deal-margin-inSsEx" placeholder="target"></td><td class="col-mono" id="deal-install-price-inSsEx">$0</td></tr>
+            <tr><td>SafeSight, new infra</td><td class="col-mono" id="deal-install-units-inSsNew">0</td><td><input type="text" inputmode="numeric" id="deal-inSsNew" readonly></td><td class="col-mono" id="deal-install-cost-inSsNew">$0</td><td><input type="text" inputmode="numeric" id="deal-margin-inSsNew" placeholder="target"></td><td class="col-mono" id="deal-install-price-inSsNew">$0</td></tr>
+            <tr><td>AQ Sensor</td><td class="col-mono" id="deal-install-units-inAqm">0</td><td><input type="text" inputmode="numeric" id="deal-inAqm" readonly></td><td class="col-mono" id="deal-install-cost-inAqm">$0</td><td><input type="text" inputmode="numeric" id="deal-margin-inAqm" placeholder="target"></td><td class="col-mono" id="deal-install-price-inAqm">$0</td></tr>
+            <tr><td>HEMIR</td><td class="col-mono" id="deal-install-units-inHemir">0</td><td><input type="text" inputmode="numeric" id="deal-inHemir" readonly></td><td class="col-mono" id="deal-install-cost-inHemir">$0</td><td><input type="text" inputmode="numeric" id="deal-margin-inHemir" placeholder="target"></td><td class="col-mono" id="deal-install-price-inHemir">$0</td></tr>
           </tbody>
           <tbody>
             <tr>
@@ -1750,14 +1761,14 @@
                 <div class="pg-item-name">Target margin %</div>
                 <div class="pg-item-note">Seeds the margin on every pricing line. Margin on price, not markup on cost.</div>
               </div>
-              <input type="number" id="deal-targetMargin">
+              <input type="text" inputmode="numeric" id="deal-targetMargin">
             </div>
             <div class="terms-field-row">
               <div>
                 <div class="pg-item-name">Warranty %</div>
                 <div class="pg-item-note">Replacement unit provision, applied across total units.</div>
               </div>
-              <input type="number" id="deal-warrantyPct">
+              <input type="text" inputmode="numeric" id="deal-warrantyPct">
             </div>
           </div>
 
@@ -1804,7 +1815,7 @@
                 <div class="pg-item-name">% Currency Contingency</div>
                 <div class="pg-item-note">Uplift on the converted price to absorb exchange rate movement between proposal and contract. Zero when both currencies match.</div>
               </div>
-              <input type="number" id="deal-fxContingency" placeholder="0">
+              <input type="text" inputmode="numeric" id="deal-fxContingency" placeholder="0">
             </div>
           </div>
 
@@ -1816,14 +1827,14 @@
                 <div class="pg-item-note">Deducted by the customer from the invoice.</div>
                 <button class="btn-ghost" id="deal-grossUp-toggle" type="button" style="margin-top:8px">Gross up: Off</button>
               </div>
-              <input type="number" id="deal-whtPct">
+              <input type="text" inputmode="numeric" id="deal-whtPct">
             </div>
             <div class="terms-field-row">
               <div>
                 <div class="pg-item-name">GST %</div>
                 <div class="pg-item-note">Added to the invoice, passed through to the tax authority.</div>
               </div>
-              <input type="number" id="deal-gstPct">
+              <input type="text" inputmode="numeric" id="deal-gstPct">
             </div>
           </div>
         </div>
@@ -1835,7 +1846,7 @@
       <!-- Payment Terms -->
       <div class="deal-tab-panel hidden" id="deal-tab-payment">
         <div class="form-grid">
-          <div class="form-group"><label>Contract duration (months)</label><input type="number" id="deal-duration" min="0"></div>
+          <div class="form-group"><label>Contract duration (months)</label><input type="text" inputmode="numeric" id="deal-duration" min="0"></div>
         </div>
 
         <div class="payment-card">
@@ -1869,7 +1880,7 @@
           <div id="deal-top-schedule-row" style="display:flex;gap:24px;align-items:flex-end;margin-top:18px;flex-wrap:wrap">
             <div class="form-group" id="deal-recovery-group" style="width:150px;flex:0 0 150px">
               <label>Recovery period (months)</label>
-              <input type="number" id="deal-recoveryMonths" min="0">
+              <input type="text" inputmode="numeric" id="deal-recoveryMonths" min="0">
             </div>
             <div id="deal-recovery-readonly" class="hidden" style="width:150px;flex:0 0 150px">
               <span class="label" style="display:block;margin-bottom:6px">Recovery period</span>
@@ -1906,8 +1917,8 @@
           <label class="label" style="margin-bottom:10px;display:block">PO factoring</label>
           <button class="btn-ghost" id="deal-factoring-toggle" type="button">Factoring: Off</button>
           <div class="form-grid hidden" id="deal-factoring-fields" style="margin-top:16px">
-            <div class="form-group"><label>Rate % (monthly)</label><input type="number" id="deal-factoring-ratePct"></div>
-            <div class="form-group"><label>Term (months)</label><input type="number" id="deal-factoring-termMonths"></div>
+            <div class="form-group"><label>Rate % (monthly)</label><input type="text" inputmode="numeric" id="deal-factoring-ratePct"></div>
+            <div class="form-group"><label>Term (months)</label><input type="text" inputmode="numeric" id="deal-factoring-termMonths"></div>
             <div class="form-group">
               <label>Repayment method</label>
               <div class="view-toggle" id="deal-factoring-method-toggle">

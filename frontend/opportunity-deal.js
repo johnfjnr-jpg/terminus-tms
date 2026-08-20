@@ -670,9 +670,9 @@ function renderMilestoneRows(milestones) {
   const tbody = document.getElementById('deal-milestones-tbody')
   tbody.innerHTML = Array.from({ length: MILESTONE_ROWS }).map((_, i) => `
     <tr>
-      <td><input type="number" id="deal-ms-${i}-month" min="0" style="width:64px"></td>
+      <td><input type="text" inputmode="numeric" id="deal-ms-${i}-month" style="width:64px"></td>
       <td><input type="text" id="deal-ms-${i}-label" placeholder="e.g. Installation complete"></td>
-      <td><input type="number" id="deal-ms-${i}-usd" min="0"></td>
+      <td><input type="text" inputmode="decimal" id="deal-ms-${i}-usd"></td>
       <td class="col-mono" id="deal-ms-${i}-pct">--</td>
     </tr>
   `).join('')
@@ -694,9 +694,9 @@ function renderContractorMilestoneRows(contractorMilestones) {
   const tbody = document.getElementById('deal-contractor-tbody')
   tbody.innerHTML = Array.from({ length: MILESTONE_ROWS }).map((_, i) => `
     <tr>
-      <td><input type="number" id="deal-cm-${i}-month" min="0" style="width:64px"></td>
+      <td><input type="text" inputmode="numeric" id="deal-cm-${i}-month" style="width:64px"></td>
       <td><input type="text" id="deal-cm-${i}-label" placeholder="e.g. Site handover"></td>
-      <td><input type="number" id="deal-cm-${i}-usd" min="0"></td>
+      <td><input type="text" inputmode="decimal" id="deal-cm-${i}-usd"></td>
       <td class="col-mono" id="deal-cm-${i}-pct">--</td>
     </tr>
   `).join('')
@@ -856,7 +856,7 @@ function populateForm(payload) {
   setVal('deal-factoring-termMonths', factoring.termMonths ?? '')
   updateFactoringButtons()
 
-  applyCommercialNumberInputAttrs()
+  applyCommercialNumericInputModes()
   clearDealFormDirty()
 }
 
@@ -885,11 +885,10 @@ function populateForm(payload) {
 // client-side hint every other field in this codebase gets, never
 // trusted alone.
 const PERCENT_FIELD_IDS = new Set(['deal-targetMargin', 'deal-warrantyPct', 'deal-whtPct', 'deal-gstPct', 'deal-factoring-ratePct', 'deal-lumpCost', 'deal-fxContingency'])
-function applyCommercialNumberInputAttrs() {
-  document.querySelectorAll('#opp-tab-commercial input[type="number"]').forEach(el => {
+function applyCommercialNumericInputModes() {
+  document.querySelectorAll('#opp-tab-commercial input[inputmode]').forEach(el => {
     const isPercent = PERCENT_FIELD_IDS.has(el.id) || el.id.startsWith('deal-margin-') || el.id.endsWith('-usd')
-    el.min = '0'
-    el.step = isPercent ? '0.01' : '1'
+    el.inputMode = isPercent ? 'decimal' : 'numeric'
   })
 }
 

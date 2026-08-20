@@ -161,7 +161,17 @@ not resolve it quietly.
 2. Assert a minimum usable width, not mere presence.
 3. Run overflow checks on block-level elements.
 4. **Open the screenshot and look at it.** Programmatic checks have passed
-   on visibly broken layouts.
+   on visibly broken layouts. **Presence is not legibility, and no
+   assertion can tell them apart.** Round 15 Phase 4 shipped a Cost
+   summary card, whose whole purpose is that totals read first, with its
+   totals in the dimmed treatment meant for the itemized rows a total is
+   built from: the least prominent figures on the tab. Right place, right
+   figures to the dollar, exactly one instance, no overflow, identical at
+   all three widths. **Every check passed**, because every property a
+   check can name was correct. For anything whose purpose is emphasis,
+   ordering or prominence, looking is not a formality after the
+   assertions; it is the only instrument that measures what the change
+   was for.
 5. When a control matters, the assertion belongs in the automated suite,
    where it passes or fails, not in prose.
 
@@ -229,6 +239,17 @@ not resolve it quietly.
     restarts and collides, which has happened. Confirm teardown by
     re-querying `deleted_at`, never by trusting the delete's own result.
 
+    **Enumerate what to tear down from the database, by a tag the fixtures
+    carry, never from a file the harness wrote.** Round 15 Phase 4, a
+    fixture rebuilt mid-phase overwrote the same `f4.json`, so the file
+    named two records where four existed. Teardown would have reported a
+    clean 2/2 and left an Account and a Test Bed live. A bookkeeping file
+    records what you meant to create; a rebuild, a retry or a killed run
+    leaves records it no longer names and no trace of having done so. Same
+    shape as build discipline rule 8: cleanup scoped to what the record
+    names rather than to what the actor did. Re-query the tag afterwards
+    and confirm zero remain.
+
 12. **A tool that returns empty rather than erroring produces output
     indistinguishable from a true negative.** Round 13 Phase 0, 2026-08-20.
     `scripts/state-dump.mjs` holds two literal NUL bytes at lines 500 and
@@ -294,6 +315,25 @@ not resolve it quietly.
     shape appears wherever a comparison can be reached with nothing to
     compare: two empty arrays, two undefined fields, two zero counts.
     **Compare presence first, then value.**
+
+15. **A criterion expressed as a measurement at one viewport stops describing
+    the thing it was written about.** Round 15 Phase 0, 2026-08-20. Round 8
+    recorded Total Cost sitting 306px below the fold **at 1920**, named its
+    levers, and carried it forward. Seven rounds then re-measured at 1920
+    because that is where the number was first taken.
+
+    **Measured again at every width, the criterion had inverted.** At 1920 the
+    gap had closed by 228px, to 78px, and at 1080 it was gone entirely, both
+    through changes made for other reasons: a sticky tab row and a grid that
+    packed panels three across. **At 1240 it was 343px, worse than it had ever
+    been recorded anywhere.** The problem had migrated to the narrower width
+    while the criterion kept pointing at the wider one.
+
+    **A number is not a criterion; the condition it stands for is.** Write the
+    condition, and measure it wherever it can occur, which for layout is the
+    three widths Verification 10 already names. A criterion that names one
+    viewport will be re-measured there indefinitely, and will report progress
+    on a problem that has moved somewhere else.
 
 ---
 

@@ -12,12 +12,21 @@ Contains no environment variable, key or token, and no client data. Records
 appear as counts by status only, never by name or reference code, because
 this file is uploaded into chat sessions.
 
-- Generated at: `2026-08-20T10:13:15.096Z`
-- Git commit: `27d8afa5b838260d01549365c55ae95de691f7c5`
-- Working tree at generation: `clean`
+- Generated at: `2026-08-20T22:22:50.212Z`
+- Git commit: `390981b3d11373b31b5e66c689d81f50c59ad668`
+- Working tree at generation: `dirty (uncommitted changes present)`
 
-If the commit above is not current `HEAD`, this file is stale and is
-untrusted rather than approximately right.
+Staleness has two parts, and both must hold for this file to be current:
+the recorded commit is an ancestor of `HEAD`, AND no tracked configuration
+source has changed since it. See `CLAUDE.md`, which is the authority.
+
+    git merge-base --is-ancestor <recorded-sha> HEAD
+    git diff --name-only <recorded-sha>..HEAD -- \
+      supabase/migrations supabase/seeds src/routes
+
+A changed source is not automatically staleness: the generator parses
+source files from disk, so a run made with uncommitted changes present
+already reflects them. Regenerate and diff rather than assuming.
 
 ## `stage_definitions`
 
@@ -208,24 +217,24 @@ _None._
 
 ## Record counts by type and status
 
-88 live, 4583 soft deleted, 4671 rows in total.
+93 live, 4854 soft deleted, 4947 rows in total.
 
 | record_type | status | live | soft deleted |
 |---|---|---|---|
-| account | active | 7 | 225 |
+| account | active | 7 | 234 |
 | contact | Parked | 0 | 2 |
-| contact | Qualified | 9 | 164 |
+| contact | Qualified | 9 | 167 |
 | contact | Unqualified | 1 | 53 |
-| document | approved | 58 | 527 |
+| document | approved | 62 | 559 |
 | document | received | 1 | 72 |
-| opportunity | Discovery | 3 | 49 |
+| opportunity | Discovery | 3 | 52 |
 | opportunity | Negotiation | 0 | 1 |
 | opportunity | Proposal | 0 | 1 |
 | test_bed | Closed | 5 | 7 |
-| test_bed | Installation and Commissioning | 0 | 11 |
+| test_bed | Installation and Commissioning | 1 | 11 |
 | test_bed | Monitoring and Analysis | 0 | 1 |
 | test_bed | Pre-Site Assessment | 0 | 6 |
-| test_bed | Qualification | 2 | 184 |
+| test_bed | Qualification | 2 | 200 |
 | test_bed | Review and Completion | 1 | 0 |
 | test_bed | Site Assessment | 1 | 14 |
 
@@ -237,19 +246,19 @@ row by row, and are included in the totals above.
 
 | distinct `harness_*` record types | live rows | soft deleted rows |
 |---|---|---|
-| 259 | 0 | 3266 |
+| 275 | 0 | 3474 |
 
 No harness record type holds a live row; every fixture row is soft deleted.
 
 ## `approvals`
 
-222 rows, of which 0 carry a null `stage`.
+229 rows, of which 0 carry a null `stage`.
 
 | decision | track | rows | null stage |
 |---|---|---|---|
-| approved | Commercial | 91 | 0 |
-| approved | Legal | 59 | 0 |
-| approved | Technical | 72 | 0 |
+| approved | Commercial | 94 | 0 |
+| approved | Legal | 61 | 0 |
+| approved | Technical | 74 | 0 |
 
 ## Writable-key allowlists
 
