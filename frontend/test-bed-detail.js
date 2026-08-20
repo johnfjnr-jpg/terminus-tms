@@ -292,7 +292,9 @@ function renderTbReference() {
 
   // Round 12 Phase 2: renderTbScores() no longer runs here. The panel lives on
   // the stage tabs and is driven by renderTbStageScoring, from that tab's own
-  // gate rules.
+  // gate rules. What Reference keeps is the read-only summary below.
+  renderTbScoreSummary()
+
   renderTbCustomerDocuments()
 
   renderTbNotes()
@@ -1331,6 +1333,46 @@ async function recordTbScores(scoreEntries, otherDirtyEntries) {
   // through the identical path an ordinary save uses.
   if (otherDirtyEntries.length) await saveTbDirtyEntries(otherDirtyEntries)
   else await loadTestBedDetail(tbDetailId)
+}
+
+// Round 12: the read-only scores summary on Reference.
+//
+// STRUCTURALLY INERT, and that is the assertion this card is verified by:
+// zero inputs, zero selects, zero buttons, zero click handlers, nothing
+// focusable. It renders spans and nothing else.
+//
+// It deliberately does NOT reuse .tb-score-row. The two panels share the
+// value styling and the 170px name column, so they read consistently, but the
+// summary carries its own row class so "no scoring panel remains on
+// Reference" stays a checkable claim rather than becoming ambiguous the
+// moment a read-only summary reuses the same selector.
+//
+// EVERY criterion renders, including unscored ones. A criterion missing from
+// the list is indistinguishable from a criterion that does not exist, and the
+// unscored ones are the ones worth seeing on a record you are reading whole.
+async function renderTbScoreSummary() {
+  const el = document.getElementById('tb-score-summary')
+  if (!el) return
+  await ensureTbScoringCriteria()
+  if (!tbScoringCriteria.length) {
+    el.innerHTML = '<p class="empty-state">No scoring criteria configured.</p>'
+    return
+  }
+  el.innerHTML = tbScoringCriteria.map(c => {
+    const series = tbScoreSeries(c.criterion_key)
+    const current = series.length ? series[series.length - 1] : null
+    // The stage the CURRENT score was recorded at. This is the half that
+    // makes the route evident without a control: it names the tab.
+    const where = current?.stage ? `<span class="tb-score-sum-where">${escHtml(current.stage)}</span>` : ''
+    return `
+      <div class="tb-score-sum-row" data-criterion="${escHtml(c.criterion_key)}">
+        <span class="tb-score-name">${escHtml(c.name)}</span>
+        <span class="tb-score-value${current ? '' : ' tb-score-value--none'}">${
+          current ? escHtml(String(current.value)) : 'Not scored'
+        }</span>
+        ${where}
+      </div>`
+  }).join('')
 }
 
 async function ensureTbScoringCriteria() {
