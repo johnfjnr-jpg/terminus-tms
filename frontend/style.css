@@ -2193,6 +2193,42 @@ textarea::placeholder { color: var(--muted-2); }
   flex-wrap: wrap;
   row-gap: 4px;
 }
+
+/* Sticky tab row, Round 13 Phase 5 (2026-08-20). Option A, confirmed with the
+   business: THE TAB ROW ALONE. Not the workflow chevron, not the Test Bed
+   name, not Summary.
+
+   The reason for the narrow choice is recorded rather than left implicit: the
+   tab row is the smallest thing that answers "where am I and how do I get
+   elsewhere". The chevron and the name are checked on arrival rather than
+   continuously, and every pixel made permanently sticky is a pixel taken from
+   every long tab forever. Round 10 Phase 2 cut the header from 346px to 145px
+   specifically to recover height. Adding the chevron later is trivial;
+   removing it once people rely on it is not.
+
+   NO NEW SCROLL CONTEXT. .app-shell-flex is height:100vh with overflow
+   hidden and .app-content-scroll is the scroll container, so the body does
+   not scroll and top:0 resolves against that container. Measured in Phase 0
+   and re-checked here: there is no overflow, transform, filter or contain
+   ancestor between this row and that scroller, any of which would make
+   position:sticky silently do nothing.
+
+   AN OPAQUE BACKGROUND IS NOT DECORATION. Sticky leaves the element in flow,
+   so content scrolls BEHIND it rather than being pushed; without a solid
+   background the two render on top of each other. var(--dark) is the page
+   ground, matching .modal-header-sticky's use of var(--black) against its
+   own panel.
+
+   z-index 5 sits above page content and below the modal layer at 100, and
+   above the Commercials cashflow header at 3, which is inside its own
+   overflow container and cannot interact with this one anyway. */
+#tb-detail-tabs {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--dark);
+  padding-top: 10px;
+}
 .detail-tab {
   font-family: var(--mono);
   font-size: 11px;

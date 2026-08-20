@@ -1851,6 +1851,18 @@ Explicitly deferred, not forgotten, not a section number of its own since this i
 
   **Not edited, and the proposal is now one of two options rather than a recommendation.** Narrowing the `asks` is only correct if the criterion is meant to be a permission check; widening the anchors is correct if it is meant to measure worth. The business owns that choice and it is recorded as item 9 of the review list. The round's scope was one row edit, confirmed, and this is a second.
 
+- **The sticky region is the tab row alone, and its cost is not constant. Round 13 Phase 5, 2026-08-20.**
+
+  **Option A, confirmed with the business.** Not the workflow chevron, not the Test Bed name, not Summary. The tab row is the smallest thing that answers "where am I and how do I get elsewhere"; the chevron and the name are checked on arrival rather than continuously. **Every pixel made permanently sticky is a pixel taken from every long tab forever**, and Round 10 Phase 2 cut the header from 346px to 145px specifically to recover height. **Adding to the sticky region later is cheap; removing from it once people rely on it is not**, which is the whole reason for choosing the smallest version first.
+
+  **The cost is largest where height is scarcest, because the row wraps.** Measured: 119px at 1240, 82px at 1920, 45px at 3440, which against realistic viewport heights is 14.9%, 7.6% and 3.1%.
+
+  **The breakdown matters more than the total, and it locates the real lever.** At 1240 the tab buttons take 71px over two lines and the action group takes a further 34px on a line of its own; at 1920 the buttons take 34px on one line and the action group again takes 34px on its own line. So **the action group costs a full extra line at both of the widths people actually work at**, and removing it from the sticky region would save about 38px at each, more than any width threshold would.
+
+  **A scope point that follows from the markup rather than from the decision.** Round 7 Phase 6 put Next Stage, Cancel and Save Changes inside `#tb-detail-tabs` so they would pin right. Making that element sticky therefore makes those actions sticky too. That is arguably more than "the tab row alone" as specified, and it is arguably useful, since Save Changes stays reachable from anywhere in a long tab. **Recorded as a question for the business rather than resolved here.**
+
+  **No new scroll context is created, and that was checked rather than assumed.** `.app-shell-flex` is `height: 100vh` with `overflow: hidden` and `.app-content-scroll` is the scroll container, so the body does not scroll and `top: 0` resolves against that container. There is no `overflow`, `transform`, `filter` or `contain` ancestor between the row and that scroller, any one of which would make `position: sticky` silently do nothing.
+
 - **The score dropdown stays where it is, and the reason it cannot simply be moved is a browser constraint rather than a layout preference. Round 13 Phase 4, 2026-08-20. Offered and declined by the business. No code changed.**
 
   **Recorded so a later round does not rediscover it as an unaddressed defect.** The observation is real and will be made again by anyone who opens the panel: choosing a score covers the anchor text the score is supposed to be chosen against.
