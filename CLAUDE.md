@@ -161,7 +161,17 @@ not resolve it quietly.
 2. Assert a minimum usable width, not mere presence.
 3. Run overflow checks on block-level elements.
 4. **Open the screenshot and look at it.** Programmatic checks have passed
-   on visibly broken layouts.
+   on visibly broken layouts. **Presence is not legibility, and no
+   assertion can tell them apart.** Round 15 Phase 4 shipped a Cost
+   summary card, whose whole purpose is that totals read first, with its
+   totals in the dimmed treatment meant for the itemized rows a total is
+   built from: the least prominent figures on the tab. Right place, right
+   figures to the dollar, exactly one instance, no overflow, identical at
+   all three widths. **Every check passed**, because every property a
+   check can name was correct. For anything whose purpose is emphasis,
+   ordering or prominence, looking is not a formality after the
+   assertions; it is the only instrument that measures what the change
+   was for.
 5. When a control matters, the assertion belongs in the automated suite,
    where it passes or fails, not in prose.
 
@@ -228,6 +238,17 @@ not resolve it quietly.
     counter deleted while a soft-deleted record still holds a code from it
     restarts and collides, which has happened. Confirm teardown by
     re-querying `deleted_at`, never by trusting the delete's own result.
+
+    **Enumerate what to tear down from the database, by a tag the fixtures
+    carry, never from a file the harness wrote.** Round 15 Phase 4, a
+    fixture rebuilt mid-phase overwrote the same `f4.json`, so the file
+    named two records where four existed. Teardown would have reported a
+    clean 2/2 and left an Account and a Test Bed live. A bookkeeping file
+    records what you meant to create; a rebuild, a retry or a killed run
+    leaves records it no longer names and no trace of having done so. Same
+    shape as build discipline rule 8: cleanup scoped to what the record
+    names rather than to what the actor did. Re-query the tag afterwards
+    and confirm zero remain.
 
 12. **A tool that returns empty rather than erroring produces output
     indistinguishable from a true negative.** Round 13 Phase 0, 2026-08-20.
