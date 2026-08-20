@@ -1006,27 +1006,7 @@
           <p class="pg-card-title">Key Dates</p>
           <div id="tb-dates-rows"></div>
         </div>
-        <!-- Customer Documents, Round 11 Phase 6 (2026-08-19). A FIFTH card
-             in the same .ref-cards grid, so it flows onto the next row
-             beneath the existing four rather than being positioned by hand.
-             The brief asks for "to the right of Terminus Details and below
-             the Customer Details, Site Details and Key Dates panels", which
-             at 1920 means row 2 column 2; forcing that with an explicit
-             grid-column breaks at 1240 where the grid reflows to fewer
-             columns, so the natural flow position is used and the rendered
-             position is reported at each width instead. -->
-        <div class="pg-card">
-          <p class="pg-card-title">Customer Documents</p>
-          <p class="sub" style="margin-bottom:8px">Client-supplied material. These are the client's documents and gate nothing.</p>
-          <div id="tb-custdocs-list"></div>
-          <div id="tb-custdocs-add" style="margin-top:10px">
-            <input type="text" id="tb-custdoc-name" placeholder="Document name">
-            <input type="text" id="tb-custdoc-url" placeholder="https://..." style="margin-top:6px">
-            <button class="btn-sm" style="margin-top:8px" onclick="addTbCustomerDocument()">Add document</button>
-          </div>
-          <p id="tb-custdocs-feedback" class="tb-doc-feedback"></p>
-        </div>
-        <!-- Scores summary, Round 12 (2026-08-20). A SIXTH card in the same
+                <!-- Scores summary, Round 12 (2026-08-20). A SIXTH card in the same
              .ref-cards grid, under the same minmax(280px, 420px) cap as its
              neighbours rather than a full-width block, so it reflows with
              them instead of being positioned by hand. Same reasoning as
@@ -1059,22 +1039,68 @@
           <div id="tb-score-summary"></div>
         </div>
       </div>
+      <!-- Row 2, Round 13 Phase 6 (2026-08-20). Use Cases and Customer
+           Documents, side by side, each growing independently.
+
+           THIS IS A RESTRUCTURE, NOT A REORDER. Use Cases was a full-width
+           section outside the grid, put there by Round 6 Phase 3 to sit with
+           Summary; Summary then moved to the header in Round 10A Phase 1 and
+           left it standing alone at full width. Customer Documents was a
+           420px card inside the grid. Both move into this row.
+
+           WHY THESE TWO TOGETHER, and why the scores summary is NOT here. The
+           business proposed the scores summary in a left-hand column beside
+           these two. A fixed five-row card beside two panels that grow
+           indefinitely produces a short card next to a long one and a large
+           dead area beneath it, which is the dead-space failure mode already
+           fixed three times in this project. These two both grow, so which is
+           taller varies and neither is permanently short. The scores summary
+           is also read at the same moment as the four detail cards, while
+           these two are worked with once you are already in the record.
+
+           A WIDER CAP THAN ROW 1 ON PURPOSE. Row 1 caps cards at 420px
+           because they are label-and-value lists. These hold free text and a
+           URL each, and Use Cases has been rendering at the full 3076px at
+           3440 since Round 6 Phase 3, so halving it here is a narrowing
+           rather than a widening. align-items:start lets each size to its own
+           content instead of one stretching to match the other. -->
+      <div class="ref-cards-wide">
+        <div class="pg-card">
+
+          <p class="pg-card-title">Use Cases</p>
+          <div id="tb-usecases-list"></div>
+          <div style="display:flex;gap:8px;margin-top:10px">
+            <input type="text" id="tb-usecase-input" placeholder="Add a use case">
+            <button class="btn-sm" id="tb-usecase-add">Add</button>
+          </div>
+        </div>
+  <!-- Customer Documents, Round 11 Phase 6 (2026-08-19). A FIFTH card
+               in the same .ref-cards grid, so it flows onto the next row
+               beneath the existing four rather than being positioned by hand.
+               The brief asks for "to the right of Terminus Details and below
+               the Customer Details, Site Details and Key Dates panels", which
+               at 1920 means row 2 column 2; forcing that with an explicit
+               grid-column breaks at 1240 where the grid reflows to fewer
+               columns, so the natural flow position is used and the rendered
+               position is reported at each width instead. -->
+          <div class="pg-card">
+            <p class="pg-card-title">Customer Documents</p>
+            <p class="sub" style="margin-bottom:8px">Client-supplied material. These are the client's documents and gate nothing.</p>
+            <div id="tb-custdocs-list"></div>
+            <div id="tb-custdocs-add" style="margin-top:10px">
+              <input type="text" id="tb-custdoc-name" placeholder="Document name">
+              <input type="text" id="tb-custdoc-url" placeholder="https://..." style="margin-top:6px">
+              <button class="btn-sm" style="margin-top:8px" onclick="addTbCustomerDocument()">Add document</button>
+            </div>
+            <p id="tb-custdocs-feedback" class="tb-doc-feedback"></p>
+          </div>
+      </div>
+
       <!-- Round 10A Phase 1 (2026-08-19): the Summary block that stood here
            is gone. It was the ORIGINAL one; Round 10 Phase 2 added a second
            in the header and never removed this, so Summary rendered twice.
            The control itself moved to the header, ids intact. -->
-      <!-- Round 6 Phase 3 (2026-08-17): Use Cases repositioned to sit
-           with Summary, no longer its own separate .ref-cards grid
-           panel - same pg-card-title + content shape as Summary/Notes
-           immediately around it, not a bordered grid card. -->
-      <div style="margin-top:24px">
-        <p class="pg-card-title">Use Cases</p>
-        <div id="tb-usecases-list"></div>
-        <div style="display:flex;gap:8px;margin-top:10px">
-          <input type="text" id="tb-usecase-input" placeholder="Add a use case">
-          <button class="btn-sm" id="tb-usecase-add">Add</button>
-        </div>
-      </div>
+            
       <!-- Round 10 Phase 2: Notes now lives ONLY here, at the bottom of the
            page, and carries the two-most-recent default plus the expansion
            to full history that Round 8 Phase 5 built into the header. The

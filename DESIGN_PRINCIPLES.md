@@ -1865,6 +1865,16 @@ Explicitly deferred, not forgotten, not a section number of its own since this i
 
   **No new scroll context is created, and that was checked rather than assumed.** `.app-shell-flex` is `height: 100vh` with `overflow: hidden` and `.app-content-scroll` is the scroll container, so the body does not scroll and `top: 0` resolves against that container. There is no `overflow`, `transform`, `filter` or `contain` ancestor between the row and that scroller, any one of which would make `position: sticky` silently do nothing.
 
+- **The Reference layout: two growing panels get their own row, and the scores summary does not join them. Round 13 Phase 6, 2026-08-20.**
+
+  **The rejected alternative is recorded first, because a future round will otherwise restore it for tidiness.** The business proposed Use Cases and Customer Documents as their own wider panels with the scores summary in a left-hand column beside them. **A fixed five-row card beside two panels that grow indefinitely produces a short card next to a long one and a large dead area beneath it**, which is the dead-space failure mode already fixed three times in this project. The scores summary stays in the card row, where it is also read at the same moment as the four detail cards; Use Cases and Customer Documents are worked with once you are already in the record.
+
+  **Why these two can sit side by side when the scores card could not.** Both grow, so which of them is taller varies by record and neither is permanently short. Measured both ways on purpose: with 24 use cases against 8 documents the panels are 1639px and 674px, and with 2 use cases against 20 documents they are 192px and 1328px. `align-items: start` is what makes that true rather than hoped for, since each panel then sizes to its own content instead of stretching to match the other.
+
+  **A restructure, not a reorder.** Use Cases was a full-width section outside the grid, put there by Round 6 Phase 3 to sit beside Summary; Summary moved to the header in Round 10A Phase 1 and left it standing alone. Customer Documents was a 420px card inside the grid. Both moved.
+
+  **Row 1 still wraps at 1920 and is deliberately not forced flat.** Five cards at 420px need roughly 2160px against a 1556px grid. Narrowing the cap to fit five across would reintroduce exactly the truncation Round 6 Phase 2 fixed, so the cap stays at 420px and the row wraps. Row counts are unchanged at 3, 2 and 1 across the three widths despite losing a card, because Customer Details spans two columns.
+
 - **OPEN: the scoring panel is too tall for its own explanations, and this is now the second thing pointing at it. Round 13 Phase 5, 2026-08-20.**
 
   **Phase 1's lock note renders at the top of the scoring panel**, saying which criterion is holding up further entry. Working down to the fifth criterion scrolls it out of view entirely: measured at minus 509px at 1240, which is above the viewport rather than behind the sticky row. The lock still functions and the comment field is still marked, so nobody is stranded; what is lost is the explanation of why the other controls are disabled.

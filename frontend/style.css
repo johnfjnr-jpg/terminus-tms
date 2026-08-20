@@ -3049,3 +3049,24 @@ input.input-invalid {
   color: var(--muted);
   align-self: center;
 }
+
+/* Reference row 2, Round 13 Phase 6 (2026-08-20). Use Cases and Customer
+   Documents side by side, each growing independently.
+
+   A WIDER TRACK THAN .ref-cards ON PURPOSE. Row 1 caps at 420px because those
+   cards are label-and-value lists. These two hold free text and URLs, and Use
+   Cases has rendered at the full container width since Round 6 Phase 3, so
+   this is a narrowing rather than a widening. The 1fr upper bound lets the two
+   share whatever is there rather than capping and leaving dead space to the
+   right at 3440.
+
+   align-items: start is what makes "independently" true: each panel sizes to
+   its own content, so a long Use Cases list does not stretch a short Customer
+   Documents card to match it, and a short one does not truncate the other. */
+.ref-cards-wide {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+  gap: 16px;
+  margin-bottom: 28px;
+  align-items: start;
+}
