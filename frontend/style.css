@@ -1219,7 +1219,7 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
 }
 .terms-field-row:last-child { border-bottom: none; }
 /* Deliberately no custom input/select styling here - the global
-   input[type="number"]/select rule (style.css, underline style) already
+   input[type="text"]/select rule (style.css, underline style) already
    covers every other field on this tab (targetMargin, warrantyPct, etc.),
    overriding it just for this card would introduce a second, one-off
    input chrome the prototype's own bordered-box style doesn't need to
@@ -1551,7 +1551,6 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
 }
 
 input[type="text"],
-input[type="number"],
 input[type="date"],
 select,
 textarea {
@@ -1566,7 +1565,6 @@ textarea {
 }
 
 input[type="text"]:focus,
-input[type="number"]:focus,
 input[type="date"]:focus,
 select:focus,
 textarea:focus {
@@ -2036,65 +2034,21 @@ textarea::placeholder { color: var(--muted-2); }
   align-self: center;
   flex-shrink: 0;
 }
-/* Round 3 Phase 3 (2026-08-17): Contract Duration's up/down spinner
-   arrows removed - min=0/step=1 (opportunity-reference.js) already
-   constrains the value, the arrows themselves added nothing but visual
-   noise for a field that's realistically typed, not incremented one at
-   a time. -webkit-appearance/-moz-appearance are the two vendor hooks
-   that actually control this, no standard property does. */
-.no-spinner::-webkit-inner-spin-button,
-.no-spinner::-webkit-outer-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
-.no-spinner { -moz-appearance: textfield; }
+/* Round 15 Phase 3 (2026-08-20): three spinner-suppression rule groups were
+   removed here, from Round 3 Phase 3 (.no-spinner), Round 3 Phase 4
+   (#opp-tab-commercial) and Round 8 Phase 2 (#tb-tab-commercials).
 
-/* Round 3 Phase 4 (2026-08-17): every numeric entry field on the
-   Commercials tab, in one blanket selector rather than adding
-   .no-spinner to each input individually ("not field-by-field", per the
-   brief) - covers every current field across all four sub-tabs plus any
-   dynamically-generated one (milestone/contractor-milestone rows,
-   created after initial render) with no extra wiring, since it's a
-   plain CSS attribute selector, not a class that would need adding at
-   creation time. min=0/step=1 (opportunity-deal.js, same "not
-   field-by-field" blanket JS pass) is the client-side hint;
-   isValidNonNegativeInteger server-side (src/routes/opportunities.js)
-   is what actually rejects a negative or fractional value. */
-#opp-tab-commercial input[type="number"]::-webkit-inner-spin-button,
-#opp-tab-commercial input[type="number"]::-webkit-outer-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
-#opp-tab-commercial input[type="number"] { -moz-appearance: textfield; }
+   All three suppressed the up/down arrows on input[type="number"]. No
+   input[type="number"] exists in this application any more: every numeric
+   field is input[type="text"] with inputmode, which has no spin buttons to
+   suppress and no arrow-key stepping to begin with. That was the point of
+   the change - the two earlier rounds could hide the arrows but not the
+   keyboard behaviour, which is intrinsic to the input type.
 
-/* Round 8 Phase 2 (2026-08-18): the identical rule for Test Bed's own
-   Commercials tab, which the Round 3 rule above never covered.
-   #tb-tab-commercials did not exist when that rule was written - Test
-   Bed's Commercials tab was built two rounds later, in Round 5 Phase 6 -
-   so its nine cost-rate inputs (Hardware, Installation and Hosting, three
-   each) have shown spinner arrows ever since. The fix predated the fields
-   and was simply never reapplied, the same shape as Test Bed's Duration
-   missing Opportunity's equivalent fix in Round 5.
+   Removed rather than left in place: a rule for a state that cannot occur
+   reads as protection and provides none. .no-spinner is gone from the two
+   renderers that emitted it in the same change. */
 
-   Only the three Unit Counts were suppressed, and only incidentally:
-   tbFieldRow emits class="no-spinner" solely when opts.integer is set,
-   which they gained in Round 7 Phase 2.2 for a different reason. The cost
-   rates are deliberately NOT integer - they are money, to 2dp - so adding
-   integer to them would have been the wrong fix, stamping min=0/step=1 on
-   them and forcing whole numbers.
-
-   Written as a second scoped rule rather than by widening the selector
-   above to cover both tabs: that would silently change Opportunity's
-   behaviour to fix a Test Bed problem, and these two tabs have already
-   been found to drift apart once. A blanket selector per tab also covers
-   any cost field added later with no per-field wiring, which is the same
-   reasoning Round 3 gave for choosing this mechanism over a class. */
-#tb-tab-commercials input[type="number"]::-webkit-inner-spin-button,
-#tb-tab-commercials input[type="number"]::-webkit-outer-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
-#tb-tab-commercials input[type="number"] { -moz-appearance: textfield; }
 .ref-field-edit.dirty input, .ref-field-edit.dirty textarea { border-bottom-color: var(--green); }
 .ref-field-discard {
   cursor: pointer;

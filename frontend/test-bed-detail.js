@@ -109,7 +109,7 @@ const TB_SITE_FIELDS = [
 // integer (Round 7 Phase 2.2, 2026-08-18): these are physical device
 // counts - never negative, never fractional - and they multiply straight
 // into the install and hosting cost lines. They had carried only
-// `number: true`, so no min/step and no .no-spinner, and the render call
+// `number: true`, so no integer treatment at all, and the render call
 // site below passed only `{ number: f.number }`, dropping anything else
 // anyway. Same integer treatment as testBedDuration, matched by a real
 // server-side check added in the same phase (test-beds.js).
@@ -235,13 +235,21 @@ function tbFieldRow(key, label, value, opts = {}) {
     const max = ceiling ? ` max="${ceiling}"` : ''
     inputTag = `<input type="date" id="tb-input-${key}" value="${escHtml(v)}"${min}${max}>`
   } else if (opts.number) {
-    // integer (Round 5 Phase 4): min=0/step=1 are the native-constraint
-    // half, .no-spinner (style.css, already shared with Opportunity's
-    // Contract Duration) removes the up/down arrows that invite clicking
-    // into a negative value one step at a time - same split as noPast
-    // above, browser-level plus server-side, neither alone is trusted.
-    const intAttrs = opts.integer ? ' min="0" step="1" class="no-spinner"' : ''
-    inputTag = `<input type="number" id="tb-input-${key}" value="${escHtml(v)}"${intAttrs}>` +
+    // Round 5 Phase 4 gave integer fields min=0/step=1 as the
+    // native-constraint half of a browser-plus-server split, with
+    // .no-spinner hiding the arrows. All three are gone with type="number",
+    // which is what provided them and is also what let the arrow keys
+    // change a value without anyone typing.
+    //
+    // The server half is untouched. tbValidateNumeric already rejected
+    // negative and fractional entry and now genuinely runs: the browser
+    // used to make those two branches unreachable from the UI.
+    //
+    // inputmode keeps the numeric keypad on mobile. "numeric" is digits
+    // only; a cost rate carries real decimal precision and needs "decimal",
+    // or iOS offers no decimal separator and the value cannot be typed.
+    const mode = opts.integer ? 'numeric' : 'decimal'
+    inputTag = `<input type="text" inputmode="${mode}" id="tb-input-${key}" value="${escHtml(v)}">` +
       (opts.suffix ? `<span class="field-suffix">${escHtml(opts.suffix)}</span>` : '')
   } else {
     inputTag = `<input type="text" id="tb-input-${key}" value="${escHtml(v)}">`
@@ -1954,8 +1962,12 @@ const tbInvalidFields = new Map()
 
 function tbValidateNumeric(input, f) {
   const raw = input.value
-  // <input type="number"> reports '' for text it cannot parse at all.
   // An empty field is "not set", which is a legitimate state here.
+  //
+  // This used to read "type=\"number\" reports '' for text it cannot parse".
+  // That is no longer how unparseable text arrives: with type="text" the raw
+  // string reaches this function intact, so "abc" is now caught by the
+  // Number.isFinite branch below rather than being silently flattened to ''.
   if (raw.trim() === '') return null
   const n = Number(raw)
   if (!Number.isFinite(n)) return 'must be a number'
@@ -2025,14 +2037,22 @@ window.openTbField = function (key, fromUserGesture, seedChar) {
   document.getElementById(`tb-display-${key}`).classList.add('hidden')
   document.getElementById(`tb-edit-${key}`).classList.remove('hidden')
   const input = document.getElementById(`tb-input-${key}`)
-  window.revealFieldControl(input, fromUserGesture, seedChar)
   // Clear a stale error from an earlier, unrelated failed save (2026-08-15
   // fix) - tb-save-feedback previously only got reset at the top of
   // saveTbFields(), so a real failure (e.g. Summary rejected by the
   // writable-keys check) stayed on screen indefinitely, reappearing the
   // instant any other field was opened next, since opening a field makes
   // the save bar visible again without ever touching this text.
+  //
+  // MUST run BEFORE revealFieldControl, not after (Round 15 Phase 3). The
+  // seed character introduced in Phase 2 dispatches a real input event, so
+  // guardNumericEntry validates it and writes its message here while the
+  // field is being opened. Clearing afterwards wiped that message, leaving
+  // the input flagged red and Save disabled with nothing on screen saying
+  // why. Correct for every caller that existed when it was written, since
+  // none of them produced feedback before this line ran.
   clearTbSaveFeedback()
+  window.revealFieldControl(input, fromUserGesture, seedChar)
   updateTbSaveBar()
 }
 

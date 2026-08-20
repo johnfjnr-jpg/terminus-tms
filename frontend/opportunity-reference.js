@@ -133,13 +133,20 @@ function refFieldRow(key, label, value, opts = {}) {
     const min = opts.noPast ? ` min="${new Date().toISOString().slice(0, 10)}"` : ''
     inputTag = `<input type="date" id="ref-input-${key}" value="${escHtml(v)}"${min}>`
   } else if (opts.number) {
-    // integer (Round 3 Phase 3, Contract Duration): min=0/step=1 are the
-    // same native-constraint split as noPast above, and .no-spinner
-    // (style.css) removes the up/down arrows - isValidNonNegativeInteger
-    // on the server is what actually rejects a negative or fractional
-    // value, this is a client-side hint only.
-    const intAttrs = opts.integer ? ' min="0" step="1" class="no-spinner"' : ''
-    inputTag = `<input type="number" id="ref-input-${key}" value="${escHtml(v)}"${intAttrs}>` +
+    // Round 3 Phase 3 (Contract Duration) gave integer fields min=0/step=1
+    // as the same native-constraint split as noPast above, with .no-spinner
+    // hiding the arrows. All three are gone with type="number".
+    //
+    // They were native-UI hints only: nothing in this codebase ever read
+    // min or step, and no native validity check was ever run against them.
+    // isValidNonNegativeInteger on the server is what actually rejects a
+    // negative or fractional value, and it is unchanged.
+    //
+    // inputmode keeps the numeric keypad on mobile. "numeric" is digits
+    // only; a field that carries real decimal precision needs "decimal",
+    // or iOS offers no decimal separator and the value cannot be typed.
+    const mode = opts.integer ? 'numeric' : 'decimal'
+    inputTag = `<input type="text" inputmode="${mode}" id="ref-input-${key}" value="${escHtml(v)}">` +
       (opts.suffix ? `<span class="field-suffix">${escHtml(opts.suffix)}</span>` : '')
   } else {
     inputTag = `<input type="text" id="ref-input-${key}" value="${escHtml(v)}">`
