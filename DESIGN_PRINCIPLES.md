@@ -1851,6 +1851,22 @@ Explicitly deferred, not forgotten, not a section number of its own since this i
 
   **Not edited, and the proposal is now one of two options rather than a recommendation.** Narrowing the `asks` is only correct if the criterion is meant to be a permission check; widening the anchors is correct if it is meant to measure worth. The business owns that choice and it is recorded as item 9 of the review list. The round's scope was one row edit, confirmed, and this is a second.
 
+- **The first cross-field rule: Est. Go Live cannot precede Estimated Installation Date, and the three cases were decided rather than left to fall out. Round 15 Phase 1, 2026-08-20.**
+
+  Every other validation in this application checks one key against itself. This is the first that relates two, and relating two is what makes the edit-lock hazard live rather than theoretical.
+
+  **Case 1, only one of the two set: no violation.** The rule describes a relationship, and with one value absent there is no relationship to break. Proven on three genuinely fresh records rather than on one record edited twice, because the first version of that check set the installation date in its own first step and then tested the second date against it, which is a case-2 test wearing a case-1 label.
+
+  **Case 2, the violation from the other end: refused.** Moving the installation date later than a stored go-live date is the same violation approached backwards, and a check reading only the submitted key would miss it. So the check reads the merged VALUES once it has decided to run.
+
+  **Case 3, records that already violate: they stay saveable.** Surveyed before building, across all 234 test_bed records paged: 28 carry both dates, **2 violate, one of them live**. So this was not hypothetical. The guard is on the SUBMITTED KEYS, `if ('estimatedInstallationDate' in payload || 'estGoLiveDate' in payload)`, following the shape the two existing date checks already use rather than inventing one. A save touching neither date is never checked, so an unrelated edit on a violating record still succeeds, proven from the browser as well as from the API.
+
+  **An edit that touches a date is required to leave the pair valid, and that is not a trap:** either date can be moved to resolve it, and both routes out were tested.
+
+  **The client bound is native, not a second mechanism.** `min` on go-live is the later of today and the stored installation date; `max` on installation is the stored go-live date. That is the same browser-level-plus-server split `noPast` already uses. A user editing both in one batch gets no client bound for the pair and is caught by the server, which is the affordance-versus-guarantee division this project already draws.
+
+  **The message names labels, and the nine that do not are a separate item.** This message says "Est. Go Live cannot be before Estimated Installation Date". The two checks immediately above it name payload keys, and so do seven others across `test-beds.js` and `opportunities.js`, with no server-side key-to-label map anywhere. **Fixing the two adjacent ones would fix two of nine and leave seven**, which is Build discipline 8 pointing at a partial fix rather than away from one.
+
 - **The hover popups size to their content: a deliberate partial reversal of Round 6 Phase 1. Round 14 Phase 3, 2026-08-20.**
 
   **Round 6 Phase 1's reasoning is left in place in the stylesheet rather than deleted, because that fix solved a real problem and this one modifies it rather than refuting it.** It added `white-space: nowrap`, `overflow: hidden` and `text-overflow: ellipsis` to `.linked-record-row`, plus a bounded `max-width` on the popup containers, to stop long names wrapping to three lines. Both halves were needed: nowrap alone stops wrapping, and without a width limit there is nothing for the ellipsis to truncate against.

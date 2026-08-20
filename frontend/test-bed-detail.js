@@ -205,8 +205,35 @@ function tbFieldRow(key, label, value, opts = {}) {
     // level constraint, not just server-side rejection after the fact"
     // discipline as the date type itself, mirroring opportunity-
     // reference.js's refFieldRow exactly.
-    const min = opts.noPast ? ` min="${new Date().toISOString().slice(0, 10)}"` : ''
-    inputTag = `<input type="date" id="tb-input-${key}" value="${escHtml(v)}"${min}>`
+    const today = new Date().toISOString().slice(0, 10)
+    // Round 15 Phase 1: the cross-field bound, expressed as native min/max
+    // rather than as a second validation mechanism. This is the same
+    // browser-level-plus-server split noPast already uses: the browser stops
+    // most of it at the point of choosing, and src/routes/test-beds.js rejects
+    // it independently for any caller.
+    //
+    // Est. Go Live cannot be earlier than the installation date, so its floor
+    // is the LATER of today and that date. The installation date cannot be
+    // later than an existing go-live date, which is the same rule approached
+    // from the other end and is the case a one-sided bound would miss.
+    //
+    // Both read tbPayload, so the bound reflects what is stored rather than
+    // what is on screen. A user editing both in one batch gets no client bound
+    // for the pair and is caught by the server, which is the affordance-versus-
+    // guarantee split this project already draws.
+    const otherInstall = tbPayload?.estimatedInstallationDate
+    const otherGoLive = tbPayload?.estGoLiveDate
+    let floor = opts.noPast ? today : ''
+    let ceiling = ''
+    if (key === 'estGoLiveDate' && otherInstall) {
+      floor = floor && floor > otherInstall ? floor : otherInstall
+    }
+    if (key === 'estimatedInstallationDate' && otherGoLive) {
+      ceiling = otherGoLive
+    }
+    const min = floor ? ` min="${floor}"` : ''
+    const max = ceiling ? ` max="${ceiling}"` : ''
+    inputTag = `<input type="date" id="tb-input-${key}" value="${escHtml(v)}"${min}${max}>`
   } else if (opts.number) {
     // integer (Round 5 Phase 4): min=0/step=1 are the native-constraint
     // half, .no-spinner (style.css, already shared with Opportunity's
