@@ -1089,7 +1089,50 @@ async function renderTbStageExitCriteria(stageName, isStillCurrent = () => true,
   // the half that makes it readable. The same set is the server's PATCH
   // allowlist, so the panel can only ever offer a tick the server would
   // accept.
-  const rows = requirements.map(r => {
+  // ── The exit criteria split, Round 12 Phase 5 (2026-08-20) ──────────────
+  //
+  // Confirmed with the business, and their reasoning decides future cases:
+  // the tick is confirmation that a STEP WAS PERFORMED, and a step performed
+  // is what you want visible in a process you are reinforcing. A date being
+  // filled in is not a step, it is a field. So process requirements always
+  // show with their tick, and data-entry requirements show only while unmet.
+  //
+  // THE CLASSIFICATION IS A PROPERTY OF THE REQUIREMENT, not a list of
+  // fields kept in step by hand. document_status and approval_obtained are
+  // process by their type; contact_role_linked is data entry by its type;
+  // payload_field_required is the only untidy case, because a date and a
+  // score key are the same requirement type.
+  //
+  // THE BRIEF'S ORIGINAL PREMISE WAS REFUTED AND IS RECORDED HERE BECAUSE
+  // THE REFUTATION IS THE USEFUL PART. It asserted TB_EXIT_CRITERION_KEYS
+  // already distinguishes the two. It does not: that set holds only the four
+  // legacy tick keys, because Round 11 Phase 2 deliberately kept score keys
+  // out of it and out of TEST_BED_WRITABLE_KEYS. Deriving from it alone
+  // would have classified all six process requirements as data entry, which
+  // is the exact opposite of the intent and would have hidden every score
+  // the moment it was ticked.
+  //
+  // ONE CAVEAT, RECORDED AS A CAVEAT RATHER THAN RESOLVED. `min_length`
+  // means "this field holds a series", which is not the same concept as
+  // "this is a process step". It correlates exactly today only because the
+  // only series-valued requirements happen to be the scored ones. It is a
+  // proxy, and a proxy that is currently exact. A future data-entry field
+  // holding a series would be misclassified and nothing would flag it.
+  const isProcessRequirement = (r) => {
+    if (r.requirement_type === 'document_status') return true
+    if (r.requirement_type === 'approval_obtained') return true
+    if (r.requirement_type === 'contact_role_linked') return false
+    if (r.requirement_type === 'payload_field_required') {
+      return r.min_length !== undefined || TB_EXIT_CRITERION_KEYS.has(r.field)
+    }
+    // An unrecognised type stays visible. Hiding a requirement nobody has
+    // classified is the failure mode worth avoiding: a gate would block with
+    // nothing on screen saying why.
+    return true
+  }
+  const shown = requirements.filter(r => isProcessRequirement(r) || !r.met)
+
+  const rows = shown.map(r => {
     const tickable = r.requirement_type === 'payload_field_required'
       && TB_EXIT_CRITERION_KEYS.has(r.field)
       && !!r.label
@@ -1109,6 +1152,10 @@ async function renderTbStageExitCriteria(stageName, isStillCurrent = () => true,
     </div>`
   }).join('')
 
+  // Counted over ALL requirements, not over the displayed subset. This line
+  // describes the GATE, not the list: every hidden row is a met one, so the
+  // outstanding figure is unchanged by the split, and the denominator stays
+  // the true number of requirements the transition is checked against.
   const outstanding = requirements.filter(r => !r.met).length
   const summary = outstanding === 0
     ? `<p class="sub" style="margin-bottom:10px">All criteria met - ready to move to ${escHtml(to_stage)}.</p>`
