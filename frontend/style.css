@@ -2955,3 +2955,31 @@ input.input-invalid {
   line-height: 1.5;
   color: var(--muted-2);
 }
+
+/* Comment required at 1 or 2, enforced at entry. Round 13 Phase 1
+   (2026-08-20). The needed state is carried by the label TEXT as well as by
+   this treatment, so it is never colour alone: a greyscale screenshot and a
+   colour-blind reader both still get the answer. */
+.tb-score-comment--needed {
+  border-left: 2px solid var(--green);
+  padding-left: 10px;
+  margin-left: -12px;
+}
+.tb-score-comment--needed label {
+  color: var(--green);
+  font-weight: 500;
+}
+.tb-score-lock {
+  margin: 0 0 10px;
+  padding: 8px 10px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--white);
+  background: var(--black);
+  border-left: 2px solid var(--green);
+}
+/* A disabled score control reads as unavailable rather than as broken. */
+.tb-score-select:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}

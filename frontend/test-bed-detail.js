@@ -1226,14 +1226,107 @@ let tbScoreAnchorsOpen = {}
 // exactly the same sense every other field is: the save bar appears, Cancel
 // discards it, and saveTbFields() sees it among dirtyEntries. That is what
 // lets the interception be shared rather than reimplemented per field type.
-window.setTbScoreDraft = function (key, value) {
+// ── Comment required at 1 or 2, enforced at entry. Round 13 Phase 1 ───────
+//
+// The server has always refused a 1 or 2 with no comment. What made that
+// expensive is Round 11A's partial-failure rule: the first refusal stops the
+// run, so everything after it in the batch is never attempted. Measured in
+// Phase 0 by driving the real shape rather than one score: three criteria
+// entered, the 2 second, and a perfectly valid 5 entered third was NOT
+// RECORDED because it followed the refusal. The user loses work they did
+// correctly, and only finds out at save.
+//
+// THE SERVER CHECK IS UNTOUCHED. This is an addition, not a relocation:
+// client-side validation is an affordance and the server rule is the
+// guarantee. Round 11A's partial-failure behaviour must be identical.
+
+// The one criterion holding up further entry, or null. Derived from the live
+// draft and comment state rather than tracked in a flag, so it cannot drift.
+function tbScoreAwaitingComment() {
+  const keys = tbScoreKeys()
+  for (const key of Object.keys(tbEdits)) {
+    if (!keys.has(key)) continue
+    const draft = Number(tbEdits[key]?.draft)
+    if (!Number.isFinite(draft) || draft > 2) continue
+    if (!String(tbScoreComments[key] ?? '').trim()) return key
+  }
+  return null
+}
+
+// APPLIED BY DIRECT DOM MUTATION, NEVER BY RE-RENDERING, and that is the
+// whole reason this is not a call to renderTbScores. The panel renders by
+// rewriting innerHTML, so re-rendering on comment input would destroy the
+// textarea the user is typing into, on the first keystroke. Same lesson as
+// Round 12's anchor reveal, arrived at from the other direction: there the
+// re-render would have closed a dropdown, here it would eat the caret.
+//
+// Called at the END of renderTbScores as well, because every render rewrites
+// the markup and the lock has to be restored onto the new nodes.
+function applyTbScoreEntryLock() {
+  const blocking = tbScoreAwaitingComment()
+  const blockingName = blocking
+    ? (tbScoringCriteria.find(c => c.criterion_key === blocking)?.name ?? blocking)
+    : null
+
+  for (const c of tbScoringCriteria) {
+    const sel = document.getElementById(`tb-score-select-${c.criterion_key}`)
+    // The blocking criterion keeps its OWN control enabled. Disabling it would
+    // trap the user: changing the score to a 3 is a legitimate way out, and
+    // taking that away leaves the comment as the only exit from a choice they
+    // may simply want to undo.
+    if (sel) sel.disabled = !!blocking && c.criterion_key !== blocking
+    const box = document.querySelector(`.tb-score-row[data-criterion="${c.criterion_key}"] .tb-score-comment`)
+    if (box) box.classList.toggle('tb-score-comment--needed', c.criterion_key === blocking)
+    const lab = box?.querySelector('label')
+    // NOT COLOUR ALONE: the label text itself changes, so the state survives
+    // a greyscale screenshot and a colour-blind reader.
+    if (lab) lab.textContent = c.criterion_key === blocking
+      ? 'Comment required before scoring anything else'
+      : (Number(tbEdits[c.criterion_key]?.draft) <= 2 ? 'Comment (required at 1 or 2)' : 'Comment (optional)')
+  }
+
+  const meas = document.getElementById('tb-measurability-select')
+  if (meas) meas.disabled = !!blocking
+
+  // A disabled control with no stated reason is a dead end the user keeps
+  // clicking, which is the same objection Round 12 Phase 3 raised against a
+  // row that silently does nothing. The note says which criterion and why.
+  const note = document.getElementById('tb-score-lock-note')
+  if (note) {
+    note.textContent = blocking ? `Add the comment for ${blockingName} before scoring anything else.` : ''
+    note.classList.toggle('hidden', !blocking)
+  }
+}
+
+window.setTbScoreDraft = async function (key, value) {
+  // THE HANDLER REFUSES, not only the control. Disabling the other selects is
+  // an affordance: it stops a person, and it stops nothing else. The probe
+  // dispatched a change event at a disabled select and the draft was taken,
+  // which is the same shape as Architecture rule 8, correct for every caller
+  // that exists. Any future call site that sets a draft without consulting
+  // `disabled` would have inherited that silently.
+  const awaiting = tbScoreAwaitingComment()
+  if (awaiting && awaiting !== key) {
+    applyTbScoreEntryLock()
+    return
+  }
   const orig = ''
   if (value === '') delete tbEdits[key]
   else tbEdits[key] = { draft: value, orig }
   if (value === '') delete tbScoreComments[key]
   clearTbSaveFeedback()
   updateTbSaveBar()
-  renderTbScores()
+  // AWAITED, because the comment field does not exist until this render
+  // produces it: the box is emitted only for a criterion with a pending
+  // draft. Focusing before the await would focus nothing, silently.
+  await renderTbScores()
+  if (value !== '' && Number(value) <= 2) {
+    const ta = document.getElementById(`tb-score-comment-${key}`)
+    if (ta) {
+      ta.focus()
+      ta.setSelectionRange(ta.value.length, ta.value.length)
+    }
+  }
 }
 
 
@@ -1255,6 +1348,9 @@ window.setTbMeasurability = async function (value) {
 
 window.setTbScoreComment = function (key, value) {
   tbScoreComments[key] = value
+  // In place, on every keystroke. The lock lifts the moment the comment has
+  // content and returns the moment it is emptied again.
+  applyTbScoreEntryLock()
 }
 
 // Which tbEdits keys are scores rather than payload fields. Derived from the
@@ -1529,7 +1625,8 @@ async function renderTbScores() {
     </div>`
 
   const visible = tbScoringCriteria.filter(c => tbScoreVisible.keys.includes(c.criterion_key))
-  el.innerHTML = measurability + visible.map(c => {
+  const lockNote = '<p class="tb-score-lock hidden" id="tb-score-lock-note"></p>'
+  el.innerHTML = lockNote + measurability + visible.map(c => {
     const series = tbScoreSeries(c.criterion_key)
     const current = series.length ? series[series.length - 1] : null
     const expanded = !!tbScoresExpanded[c.criterion_key]
@@ -1632,6 +1729,11 @@ async function renderTbScores() {
 
     return `<div class="tb-score-row" data-criterion="${escHtml(c.criterion_key)}" data-entries="${series.length}">${head}${anchorsBlock}${commentBox}<div class="tb-score-history">${rows}</div></div>`
   }).join('')
+
+  // Every render rewrites the markup, so the lock has to be re-applied onto
+  // the new nodes. Doing it here rather than at each call site is what stops
+  // a future render path from silently shipping an unlocked panel.
+  applyTbScoreEntryLock()
 }
 
 // Tick writes an ISO timestamp; untick sends null, which the server
@@ -1902,6 +2004,28 @@ async function saveTbFields() {
   // Found by the business in use. It was never exercised in Round 11 because
   // Phase 8's own driver scored one criterion and saved, then the next, which
   // is not how anyone uses it.
+  // A DEPARTURE FROM THE BRIEF'S THREE REQUIREMENTS, stated rather than
+  // slipped in. The brief asks that further SCORING be blocked. Without this
+  // guard the fault is still reachable in one click: select a 2, press Save
+  // immediately, and the batch is refused server-side exactly as before,
+  // which is the outcome this phase exists to remove. Save stays ENABLED and
+  // refuses with a reason rather than being disabled, because a dead control
+  // with no explanation is the failure mode Round 12 Phase 3 argued against.
+  // The server call is not made at all, so the server rule is untouched and
+  // simply not reached.
+  const awaiting = tbScoreAwaitingComment()
+  if (awaiting) {
+    const name = tbScoringCriteria.find(c => c.criterion_key === awaiting)?.name ?? awaiting
+    const feedback = document.getElementById('tb-save-feedback')
+    if (feedback) {
+      feedback.textContent = `A comment is required at a score of 1 or 2. Add the comment for ${name}, naming what is missing.`
+      feedback.className = 'msg-error'
+    }
+    const ta = document.getElementById(`tb-score-comment-${awaiting}`)
+    if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length) }
+    return
+  }
+
   const scoreKeys = tbScoreKeys()
   const scoreEntries = dirtyEntries.filter(([key]) => scoreKeys.has(key))
   if (scoreEntries.length) {
