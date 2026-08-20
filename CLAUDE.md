@@ -275,6 +275,26 @@ not resolve it quietly.
     case genuinely does not exist, say so rather than reporting the zero as
     though it had been calibrated.
 
+14. **A check that passes when both sides are absent is not a check, and it is
+    more dangerous than rule 13 because it reports success rather than
+    nothing.** Round 14 Phase 4, 2026-08-20. The positive-case twin of the
+    rule above: 13 is about an absence you failed to measure, this is about a
+    match you never made.
+
+    Phase 4 asserted that the reference code on screen equalled the reference
+    code in the database. On two of three paths the record had not been
+    created at all, so both sides were `null`, `null === null` was true, and
+    **the probe printed MATCH for the two paths that had failed.** The other
+    signals in the same output said the navigation had not happened, and the
+    match line said it had.
+
+    **The fix is to require both sides to exist before comparing them**, which
+    costs one clause: `!!a && !!b && a === b`. The general form is that
+    equality between two unknowns is not evidence of anything, and the same
+    shape appears wherever a comparison can be reached with nothing to
+    compare: two empty arrays, two undefined fields, two zero counts.
+    **Compare presence first, then value.**
+
 ---
 
 ## `CURRENT_STATE.md`
