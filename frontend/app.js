@@ -114,18 +114,211 @@ document.getElementById('btn-back-opps').addEventListener('click', () => navigat
 document.getElementById('btn-back-testbeds').addEventListener('click', () => navigate('test-beds'))
 document.getElementById('btn-back-contact-detail').addEventListener('click', () => navigate(cdReturnView))
 
+// ── Tab strips ────────────────────────────────────────────────────────────────
+//
+// ONE component, three consumers: Opportunity's detail strip, Test Bed's
+// detail strip, and the sub-tab strip Phase 2 puts inside a panel.
+//
+// Round 16 Phase 1, and the reason it generalises rather than adding a third
+// implementation: there were already TWO. switchOppTab and switchTbTab were
+// near-identical functions, each wired to a hardcoded container id, each
+// reading buttons from static HTML, neither taking a list of panes. A
+// standalone sub-tab strip would have made three and Round 17's per-unit
+// strip four. That is the shape Round 10 Phase 0A had to collapse after the
+// click-to-edit reveal had drifted four ways, and collapsing costs more each
+// round it is deferred.
+//
+// ARIA lives here so all three strips get it at once. Before this there was
+// no role="tablist", no role="tab", no aria-selected and no arrow-key
+// handling anywhere in the application. Building it into the sub-strip alone
+// would have left the one conformant strip nested inside two non-conformant
+// parents.
+//
+// Keyboard follows the APG Tabs pattern: Left/Right move between tabs,
+// Home/End jump to the ends, and a roving tabindex keeps exactly one tab in
+// the page's tab sequence. LEFT AND RIGHT DELIBERATELY, not up and down:
+// Phase 4 gives up and down to field navigation, so the two never contend for
+// the same key. The handler is bound to the tab buttons, never to a pane, so
+// a field inside a pane cannot have its keys intercepted by the strip.
+//
+// `activate` is a hook, not a fixed behaviour: Test Bed's stage tabs all share
+// one physical panel and need a load call, Opportunity's map one-to-one.
+window.createTabStrip = function ({ strip, keyAttr, dataAttr, tabs, tabClass, panes, panelFor, activate, label }) {
+  const stripEl = typeof strip === 'string' ? document.getElementById(strip) : strip
+  if (!stripEl) return null
+  // Two ways in, one code path after this. The two detail strips ADOPT
+  // buttons that already exist as static HTML; a sub-tab strip has no static
+  // markup and passes `tabs` to have them generated. Everything below -
+  // selection, ARIA, keyboard, the roving tabindex - is identical either way,
+  // which is the whole point of generalising rather than writing a third one.
+  if (tabs) {
+    stripEl.innerHTML = tabs.map((t, i) =>
+      `<button type="button" class="detail-tab${tabClass ? ' ' + tabClass : ''}${i === 0 ? ' active' : ''}" data-${dataAttr}="${escHtml(t.key)}">${escHtml(t.label)}</button>`
+    ).join('')
+  }
+  const buttons = () => [...stripEl.querySelectorAll('.detail-tab')]
+  const keyOf = btn => btn.dataset[keyAttr]
+
+  stripEl.setAttribute('role', 'tablist')
+  if (label) stripEl.setAttribute('aria-label', label)
+
+  buttons().forEach(btn => {
+    const key = keyOf(btn)
+    btn.setAttribute('role', 'tab')
+    if (!btn.id) btn.id = `${stripEl.id}-tab-${key.replace(/[^a-zA-Z0-9_-]/g, '-')}`
+    const pane = panelFor(key)
+    // aria-controls only when the pane really exists and carries an id.
+    // Pointing it at nothing is worse than omitting it: a screen reader
+    // announces a relationship that does not resolve.
+    if (pane && pane.id) {
+      btn.setAttribute('aria-controls', pane.id)
+      pane.setAttribute('role', 'tabpanel')
+      if (!pane.hasAttribute('tabindex')) pane.setAttribute('tabindex', '0')
+      // aria-labelledby is NOT set here. Test Bed's eight stage tabs all
+      // control the one shared #tb-tab-stage-detail panel, so setting it per
+      // button in this loop leaves the panel labelled by whichever stage tab
+      // happened to be last. It is set in select(), to the tab actually open.
+    }
+  })
+
+  function select(key, { focusTab = false } = {}) {
+    const btns = buttons()
+    btns.forEach(b => {
+      const on = keyOf(b) === key
+      b.classList.toggle('active', on)
+      b.setAttribute('aria-selected', on ? 'true' : 'false')
+      // Roving tabindex: exactly one tab is in the page's tab sequence, so
+      // Tab moves THROUGH the strip rather than into every tab in turn.
+      // These are <button> elements and stay Enter/Space-activatable.
+      b.tabIndex = on ? 0 : -1
+    })
+    panes().forEach(p => p.classList.add('hidden'))
+    if (activate) activate(key)
+    else { const pane = panelFor(key); if (pane) pane.classList.remove('hidden') }
+    // Labelled by the tab that is actually open, for the shared-panel case
+    // above. Set after activate(), which is what reveals the pane.
+    const openPane = panelFor(key)
+    const openBtn = btns.find(b => keyOf(b) === key)
+    if (openPane && openBtn?.id) openPane.setAttribute('aria-labelledby', openBtn.id)
+    if (focusTab) openBtn?.focus()
+  }
+
+  stripEl.addEventListener('click', e => {
+    const btn = e.target.closest('.detail-tab')
+    if (btn && stripEl.contains(btn)) select(keyOf(btn))
+  })
+
+  stripEl.addEventListener('keydown', e => {
+    const btn = e.target.closest('.detail-tab')
+    if (!btn || !stripEl.contains(btn)) return
+    const btns = buttons()
+    const i = btns.indexOf(btn)
+    let next = null
+    if (e.key === 'ArrowRight') next = btns[(i + 1) % btns.length]
+    else if (e.key === 'ArrowLeft') next = btns[(i - 1 + btns.length) % btns.length]
+    else if (e.key === 'Home') next = btns[0]
+    else if (e.key === 'End') next = btns[btns.length - 1]
+    else return
+    e.preventDefault()
+    select(keyOf(next), { focusTab: true })
+  })
+
+  // Initial ARIA state, applied at construction rather than waiting for the
+  // first switch. Without this a strip nobody has clicked yet carries
+  // role="tab" and aria-controls but no aria-selected at all, which was the
+  // live state of the Opportunity strip on a freshly opened record: the
+  // .active class said one thing and assistive technology was told nothing.
+  // The initial key comes from whichever button already carries .active in
+  // the static markup, so this reads the existing state rather than imposing
+  // a default on it.
+  const initial = buttons().find(b => b.classList.contains('active')) ?? buttons()[0]
+  if (initial) {
+    buttons().forEach(b => {
+      const on = b === initial
+      b.setAttribute('aria-selected', on ? 'true' : 'false')
+      b.tabIndex = on ? 0 : -1
+    })
+    const pane = panelFor(keyOf(initial))
+    if (pane && initial.id) pane.setAttribute('aria-labelledby', initial.id)
+  }
+
+  return { select, current: () => keyOf(buttons().find(b => b.classList.contains('active'))) }
+}
+
+// The sub-tab consumer. Builds the strip and its panes into a mount point and
+// returns the pane elements for the caller to fill, so a consumer never has
+// to know how selection, ARIA or the keyboard work.
+//
+// SUBORDINATION, chosen rather than defaulted (Round 16 Phase 1). Two rows of
+// tabs with no hierarchy between them is a real usability problem, and the
+// parent strip is already sticky as of Round 13 Phase 5. The sub-strip is
+// made visibly lesser on three axes at once rather than one, because a single
+// difference reads as a variant and three read as a level:
+//
+//   1. smaller, 10px against the parent's 11px
+//   2. sentence case, where the parent is uppercase - uppercase mono reads as
+//      page chrome, sentence case reads as content, which is the hierarchy
+//   3. no rule across the container, where .detail-tabs draws a full-width
+//      1px hairline, and a 1px active underline against the parent's 2px
+//
+// Reported and looked at rather than asserted, per Verification 4: whether
+// one strip reads as subordinate to another is exactly the kind of claim no
+// assertion can make.
+//
+// PANE CLASS. Deliberately .sub-tab-panel, NOT .detail-tab-panel. The parent
+// strips sweep .detail-tab-panel to hide panes, and Opportunity's sweep was
+// document-wide until this phase scoped it, so a sub-pane reusing that class
+// would have been hidden by its own parent. Architecture rule 8.
+//
+// SELECTION IS NOT RECORD STATE, and does not persist across records. It is
+// reset on every mount, which happens per record render. Round 12 Phase 8
+// kept the Sensors toggle across records on the reasoning that it is a
+// display preference about how much detail the user wants; this is a
+// different thing, a position within one record's content, and carrying pane
+// 3 over to a record whose pane 3 is empty would be surprising. Stated as a
+// decision rather than inherited from the toggle's.
+window.createSubTabs = function ({ mount, tabs, label }) {
+  const mountEl = typeof mount === 'string' ? document.getElementById(mount) : mount
+  if (!mountEl) return null
+  mountEl.innerHTML =
+    `<div class="sub-tabs" id="${mountEl.id}-strip"></div>` +
+    `<div class="sub-tab-panes">` +
+    tabs.map((t, i) => `<div class="sub-tab-panel${i === 0 ? '' : ' hidden'}" id="${mountEl.id}-pane-${t.key}"></div>`).join('') +
+    `</div>`
+  const strip = window.createTabStrip({
+    strip: `${mountEl.id}-strip`,
+    keyAttr: 'subTab',
+    dataAttr: 'sub-tab',
+    tabClass: 'sub-tab',
+    tabs,
+    label,
+    panes: () => [...mountEl.querySelectorAll('.sub-tab-panel')],
+    panelFor: key => document.getElementById(`${mountEl.id}-pane-${key}`),
+  })
+  const panes = {}
+  for (const t of tabs) panes[t.key] = document.getElementById(`${mountEl.id}-pane-${t.key}`)
+  strip.select(tabs[0].key)
+  return { strip, panes }
+}
+
 // Opportunity detail tabs (Commercials / Documents / Stage & Approvals) -
 // wired once, the tab bar is static HTML present for the life of the page,
 // not regenerated per opportunity, so this must not run again per-opportunity
 // or listeners would stack.
-document.querySelectorAll('#opp-detail-tabs .detail-tab').forEach(btn => {
-  btn.addEventListener('click', () => switchOppTab(btn.dataset.oppTab))
+//
+// The pane sweep is scoped to #view-opportunity-detail. It used to be a bare
+// document.querySelectorAll('.detail-tab-panel'), which also hid Test Bed's
+// four panels. Harmless while one detail view is on screen at a time, and
+// wrong the moment anything else uses that class - which a sub-tab pane
+// would have. Architecture rule 8.
+const oppTabStrip = window.createTabStrip({
+  strip: 'opp-detail-tabs',
+  keyAttr: 'oppTab',
+  label: 'Opportunity sections',
+  panes: () => [...document.querySelectorAll('#view-opportunity-detail .detail-tab-panel')],
+  panelFor: key => document.getElementById(`opp-tab-${key}`),
 })
-function switchOppTab(tab) {
-  document.querySelectorAll('#opp-detail-tabs .detail-tab').forEach(b => b.classList.toggle('active', b.dataset.oppTab === tab))
-  document.querySelectorAll('.detail-tab-panel').forEach(p => p.classList.add('hidden'))
-  document.getElementById(`opp-tab-${tab}`).classList.remove('hidden')
-}
+function switchOppTab(tab) { oppTabStrip.select(tab) }
 
 // Test Bed detail tabs (Reference / Commercials / 8 stage tabs) - same
 // static-tab-bar-wired-once pattern as Opportunity's above.
@@ -201,8 +394,12 @@ let tbArrivingFresh = false
 // Cleared as soon as it is read, so it can never leak into a later,
 // unrelated load.
 let tbLandOnStageAfterLoad = null
-document.querySelectorAll('#tb-detail-tabs .detail-tab').forEach(btn => {
-  btn.addEventListener('click', () => { tbUserPickedTab = true; switchTbTab(btn.dataset.tbTab) })
+// Test Bed's strip is the same component. tbUserPickedTab is set on a real
+// click here, before the component's own delegated handler runs, so the
+// race Round 5 Phase 7 found is unaffected: it only needs to know a human
+// chose the tab, not which one.
+document.getElementById('tb-detail-tabs').addEventListener('click', e => {
+  if (e.target.closest('.detail-tab')) tbUserPickedTab = true
 })
 // Round 5 Phase 7 (2026-08-17): tab ids starting "stage-" (the 8 new
 // stage buttons, data-tb-tab="stage-<Stage Name>") all share one
@@ -244,19 +441,28 @@ function markTbCurrentStageTab(currentStage) {
   })
 }
 
-function switchTbTab(tab) {
-  document.querySelectorAll('#tb-detail-tabs .detail-tab').forEach(b => b.classList.toggle('active', b.dataset.tbTab === tab))
-  // Round 7 Phase 6: Next Stage is gated on the open tab, and the tab can
-  // change with no re-render, so the button is refreshed here too.
-  refreshTbNextStageButton()
-  document.querySelectorAll('#view-test-bed-detail .detail-tab-panel').forEach(p => p.classList.add('hidden'))
-  if (tab.startsWith('stage-')) {
-    document.getElementById('tb-tab-stage-detail').classList.remove('hidden')
-    loadTbStageDetailTab(tab.slice('stage-'.length))
-  } else {
-    document.getElementById(`tb-tab-${tab}`).classList.remove('hidden')
-  }
-}
+// The eight stage tabs share ONE physical panel, #tb-tab-stage-detail, and
+// need a load call, so this consumer supplies an activate hook rather than
+// the default one-tab-one-pane mapping.
+const tbTabStrip = window.createTabStrip({
+  strip: 'tb-detail-tabs',
+  keyAttr: 'tbTab',
+  label: 'Test Bed sections',
+  panes: () => [...document.querySelectorAll('#view-test-bed-detail .detail-tab-panel')],
+  panelFor: key => document.getElementById(key.startsWith('stage-') ? 'tb-tab-stage-detail' : `tb-tab-${key}`),
+  activate: key => {
+    // Round 7 Phase 6: Next Stage is gated on the open tab, and the tab can
+    // change with no re-render, so the button is refreshed here too.
+    refreshTbNextStageButton()
+    if (key.startsWith('stage-')) {
+      document.getElementById('tb-tab-stage-detail').classList.remove('hidden')
+      loadTbStageDetailTab(key.slice('stage-'.length))
+    } else {
+      document.getElementById(`tb-tab-${key}`).classList.remove('hidden')
+    }
+  },
+})
+function switchTbTab(tab) { tbTabStrip.select(tab) }
 
 // ── API ───────────────────────────────────────────────────────────────────────
 async function api(method, path, body) {
