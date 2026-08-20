@@ -332,6 +332,26 @@ Expect live changes no phase accounts for. The business uses the system
 between rounds, and Round 13 found four such records. Attribute them and
 state plainly that they are explained by an actor outside the round.
 
+**A NAMED ITEM FOR THE BUSINESS, not a close-out line: the scoring panel's
+height.** Three independent observations now point at it, from three different
+rounds and three different causes:
+
+1. Round 13 Phase 1's lock note scrolls above the viewport when working on a
+   lower criterion, so the explanation for the disabled controls is off screen.
+2. The scrolling scoring panel the business raised, parked at the head of Round
+   13 on the recommendation that the sticky tab row superseded it. **It did
+   not:** the sticky row answers where you are in the record, not that the
+   panel is taller than the decisions it holds.
+3. Round 14 Phase 1 measured the cost of always showing the Reason: **665px to
+   875px with five criteria scored, up 210px or 32 percent**, which at 1240x800
+   takes the panel from 0.83 viewports to 1.09. It no longer fits one screen at
+   the width where height is scarcest.
+
+**The options, for the business rather than for a build decision:** collapse a
+criterion once it is scored, collapse the Reason specifically, or revisit the
+scrolling panel. **The case for the third is stronger now than when they raised
+it**, and the recommendation to park it was mine.
+
 **Note open item 23:** the dev server serves the frontend from disk, so
 the business may be exercising unmerged branch code mid-round. Report
 whether that happened again.

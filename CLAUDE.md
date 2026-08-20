@@ -253,6 +253,28 @@ not resolve it quietly.
     where a failure output that does not change is evidence the change never
     reached the code path.
 
+13. **A count of zero from an instrument never shown to reach one is not a
+    measurement.** Round 14 Phase 2, 2026-08-20. Asserting that something
+    does not happen is asserting an absence, and an absence is what a broken
+    probe reports too: a counter on the wrong object, a wrapper installed
+    after the code path ran, a selector that matches nothing all read exactly
+    like the clean result you were hoping for.
+
+    **So the instrument has to be shown firing.** Phase 2 wrapped
+    `requestChangeReason` and counted zero across six score paths, which is
+    the claim. What made it evidence was running the same wrapper on
+    Opportunity's Est. Close Date and reading one. **The positive case is not
+    a bonus check, it is the thing that gives the zero meaning**, and it is
+    usually available for free because the mechanism being removed still
+    exists somewhere else.
+
+    This is Verification 9 stated for absences rather than invariants, and the
+    same family as Verification 12 and Architecture rule 9: **a tool that
+    reports nothing, a search that never ran, and an unchanged failure output
+    are all the same mistake wearing different clothes.** Where the positive
+    case genuinely does not exist, say so rather than reporting the zero as
+    though it had been calibrated.
+
 ---
 
 ## `CURRENT_STATE.md`
