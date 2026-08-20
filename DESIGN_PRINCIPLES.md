@@ -1831,6 +1831,18 @@ Explicitly deferred, not forgotten, not a section number of its own since this i
 
   **What the review might consider, offered as options rather than a recommendation**, since the business owns this: scoring the conditions individually and deriving the number; naming which condition is load-bearing at each level so a partial match has a rule; or giving 2 and 4 real wording so the middle is described rather than interpolated. **All three are row changes, not build changes**, which is the design decision that has held up.
 
+- **Data Rights' question does not describe what its anchors measure. Round 13 Phase 3, 2026-08-20. Reported, not changed.**
+
+  **The `asks` value is "Is it worth doing for Terminus".** The other four questions each describe their own criterion directly: does a suitable rollout path exist, will the client organisation genuinely engage, can it be proven, can it be installed. This one describes commercial worth.
+
+  **The anchors it labels measure something else entirely**, and they are unambiguous about it: whether the client has confirmed Terminus may retain and use the data, whether the person confirming had authority to grant it, whether restrictions on use, retention and publication are stated and acceptable, and where personal data is involved whether the client's own basis for sharing is identified. Nothing in any of the three anchors concerns whether the engagement is worth doing.
+
+  **A hypothesis about how it got there, offered as a hypothesis.** Round 11 Phase 1 retired `exitQualTechnicalCommercialValue`, "Technical and Commercial Value", and split `exitQualDataAndUseCase` into Clear Use Case Requirements and Metrics and Data Rights. A commercial-worth question surviving onto one of the criteria that replaced that generation is the obvious explanation, and it is not evidence.
+
+  **Proposed wording, for the business to accept or reject:** "May Terminus use the data". It matches the register and length of the other four, and it is the question the three anchors actually discriminate on. A fuller alternative, if the authority clause is felt to be load-bearing rather than a detail of the anchors: "May Terminus use the data, and has the right person agreed".
+
+  **Not edited.** The round's scope is one row edit, confirmed with the business. This is a second, and the reason the anchors are not being touched applies to it: the wording is the business's to own, and a build-time judgement substituted for their review is the thing the whole review exists to avoid.
+
 - **Pending is a different mark, not an early tick, and the failure path is what the distinction is for. Round 13 Phase 2, 2026-08-20.**
 
   **An ordinary tick was rejected, and the reason decides every future case of showing unsaved state.** A tick that means "the server has recorded this" in one moment and "you have chosen this and not saved it" in another is a screen that lies, and Round 11A's fault was precisely a screen state that did not match the server. So an unsaved score gets its own mark: a filled dot rather than a check, a dashed rather than solid border, and the word "unsaved" on the row. **Three distinctions, none of them colour**, confirmed by taking the screenshot again under `grayscale(1)` and reading it.

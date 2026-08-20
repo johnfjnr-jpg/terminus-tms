@@ -2913,13 +2913,21 @@ input.input-invalid {
   background: var(--black);
   border-left: 2px solid var(--hairline);
 }
+/* The criterion's question. Round 13 Phase 3 (2026-08-20): raised from a 9px
+   uppercase mono caption inside the anchor block to a readable line on the row
+   itself. It was styled as a caption AND rendered only when the anchors were
+   revealed, so it read as a heading for the anchor list rather than as the
+   question the criterion asks. The business reads it as the label for the
+   whole criterion. Body face, sentence case, sized to be read rather than
+   scanned, and now always present. */
 .tb-score-asks {
-  font-family: var(--mono);
-  font-size: 9px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--muted-2);
-  margin-bottom: 8px;
+  margin: 2px 0 8px;
+  font-family: var(--body);
+  font-size: 13px;
+  line-height: 1.45;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--muted);
 }
 .tb-score-anchor {
   display: flex;

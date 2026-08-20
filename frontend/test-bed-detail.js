@@ -1740,11 +1740,24 @@ async function renderTbScores() {
     //
     // Informational, not a second control. The select remains the only way to
     // set a score, so there is one write path rather than two that must agree.
+    // THE QUESTION, raised out of the anchors block. Round 13 Phase 3.
+    //
+    // It used to render inside anchorsBlock, which means it existed only once
+    // the score control had been opened: a scorer reading the panel saw five
+    // criterion NAMES and no questions at all until they touched something.
+    // The business reads it as the label for the whole criterion, and a label
+    // that appears only on interaction is not a label.
+    //
+    // Rendered VERBATIM, with no punctuation added. These are stored values
+    // and the round's scope is one row edit; appending a question mark in the
+    // view would be this build inventing wording, which is the line the
+    // anchors are on the other side of.
+    const asksLine = c.asks ? `<p class="tb-score-asks">${escHtml(c.asks)}</p>` : ''
+
     const anchorSet = tbAnchorSet(c, c.current_version)
     const anchorsBlock = `
       <div class="tb-score-anchors${tbScoreAnchorsOpen[c.criterion_key] || pending !== '' ? '' : ' hidden'}"
            id="tb-anchors-${escHtml(c.criterion_key)}">
-        ${c.asks ? `<p class="tb-score-asks">${escHtml(c.asks)}</p>` : ''}
         ${[1,2,3,4,5].map(n => `
           <div class="tb-score-anchor${anchorSet[n] ? '' : ' tb-score-anchor--nowording'}">
             <span class="tb-score-anchor-n">${n}</span>
@@ -1760,7 +1773,7 @@ async function renderTbScores() {
                   oninput="setTbScoreComment('${escHtml(c.criterion_key)}', this.value)">${escHtml(tbScoreComments[c.criterion_key] ?? '')}</textarea>
       </div>`
 
-    if (!expanded) return `<div class="tb-score-row" data-criterion="${escHtml(c.criterion_key)}" data-entries="${series.length}">${head}${anchorsBlock}${commentBox}</div>`
+    if (!expanded) return `<div class="tb-score-row" data-criterion="${escHtml(c.criterion_key)}" data-entries="${series.length}">${head}${asksLine}${anchorsBlock}${commentBox}</div>`
 
     // Newest first when reading history, which is how a person reads a
     // change log, while the stored series stays chronological.
@@ -1784,7 +1797,7 @@ async function renderTbScores() {
         }</span>
       </div>`).join('')
 
-    return `<div class="tb-score-row" data-criterion="${escHtml(c.criterion_key)}" data-entries="${series.length}">${head}${anchorsBlock}${commentBox}<div class="tb-score-history">${rows}</div></div>`
+    return `<div class="tb-score-row" data-criterion="${escHtml(c.criterion_key)}" data-entries="${series.length}">${head}${asksLine}${anchorsBlock}${commentBox}<div class="tb-score-history">${rows}</div></div>`
   }).join('')
 
   // Every render rewrites the markup, so the lock has to be re-applied onto
