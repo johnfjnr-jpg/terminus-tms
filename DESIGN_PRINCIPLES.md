@@ -1831,6 +1831,14 @@ Explicitly deferred, not forgotten, not a section number of its own since this i
 
   **What the review might consider, offered as options rather than a recommendation**, since the business owns this: scoring the conditions individually and deriving the number; naming which condition is load-bearing at each level so a partial match has a rule; or giving 2 and 4 real wording so the middle is described rather than interpolated. **All three are row changes, not build changes**, which is the design decision that has held up.
 
+- **The framing for the business review, and the measurement that earns it. Round 12, 2026-08-20.**
+
+  **The instrument makes its own gap legible, and no row edit closes it.** Rendering the anchors at the point of scoring was built to answer "I am scoring blind", and it did something the walkthrough could only argue: it put the gap on screen, permanently, for every person who scores anything from now on. A scorer looking at Rollout Path sees a 5 asking for four things at once and, directly above it, a 4 that is blank.
+
+  **Measured from the rows rather than asserted.** A 5 anchor averages **3.4 sentences across the five criteria**, each an independent condition a real engagement can satisfy or fail on its own: 4, 4, 3, 3 and 3. **Scores 2 and 4 have no wording at any version**, which the count confirms directly: 15 anchor rows, one version, scores 1, 3 and 5 only.
+
+  **This sharpens the closing line of the structural finding above rather than contradicting it.** That entry ends "all three are row changes, not build changes, which is the design decision that has held up", and that remains true about the MECHANISM: anchors are rows, so wording is cheap to change, and the framework does not need rebuilding to fix it. **What the measurement adds is that cheapness of change is not the same as the change being a wording change.** This is not a wording problem. **A scale whose middle is empty is not fixed by rewriting its ends**, so of the three options offered above, the first two change what the scale IS and only the third is wording, and the third is the one that fills the middle rather than improving the endpoints.
+
 - **The measurability binary was answered instantly while every 1 to 5 scale caused hesitation, and that supports keeping it separate for a reason opposite to the one that produced the decision. Round 11 Phase 8, 2026-08-19.**
 
   **The original reasoning was about the question's nature**: either the sensors can capture what would be measured or they cannot, a 3 is not a meaningful answer, so it is not scored. That is an argument from the shape of the question.
