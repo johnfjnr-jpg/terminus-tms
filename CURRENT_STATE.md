@@ -12,9 +12,9 @@ Contains no environment variable, key or token, and no client data. Records
 appear as counts by status only, never by name or reference code, because
 this file is uploaded into chat sessions.
 
-- Generated at: `2026-08-20T01:10:50.298Z`
-- Git commit: `bcc0688fc204c2809828e8e4ab38f77add7e2967`
-- Working tree at generation: `clean`
+- Generated at: `2026-08-20T04:42:21.142Z`
+- Git commit: `c92939b0fc4e815d771d07fa9f5eda637a151502`
+- Working tree at generation: `dirty (uncommitted changes present)`
 
 If the commit above is not current `HEAD`, this file is stale and is
 untrusted rather than approximately right.
@@ -128,13 +128,13 @@ Rule count by record type and requirement type:
 
 5 rows.
 
-| record_type | sort_order | criterion_key | name | rescore_through_stage |
-|---|---|---|---|---|
-| test_bed | 1 | scoreRolloutPath | Rollout Path | (null) |
-| test_bed | 2 | scoreClientCommitment | Client Commitment | (null) |
-| test_bed | 3 | scoreUseCaseRequirementsAndMetrics | Clear Use Case Requirements and Metrics | Monitoring and Analysis |
-| test_bed | 4 | scorePhysicalSuitability | Physical Suitability | Site Assessment |
-| test_bed | 5 | scoreDataRights | Data Rights | Site Assessment |
+| record_type | sort_order | criterion_key | name | asks | rescore_through_stage |
+|---|---|---|---|---|---|
+| test_bed | 1 | scoreRolloutPath | Rollout Path | Does a route to deployment exist | (null) |
+| test_bed | 2 | scoreClientCommitment | Client Commitment | Will the client organisation genuinely engage | (null) |
+| test_bed | 3 | scoreUseCaseRequirementsAndMetrics | Clear Use Case Requirements and Metrics | Can it be proven | Monitoring and Analysis |
+| test_bed | 4 | scorePhysicalSuitability | Physical Suitability | Can it be installed | Site Assessment |
+| test_bed | 5 | scoreDataRights | Data Rights | Is it worth doing for Terminus | Site Assessment |
 
 ## `scoring_anchors`
 
@@ -208,16 +208,16 @@ _None._
 
 ## Record counts by type and status
 
-73 live, 3522 soft deleted, 3595 rows in total.
+77 live, 4062 soft deleted, 4139 rows in total.
 
 | record_type | status | live | soft deleted |
 |---|---|---|---|
-| account | active | 7 | 188 |
+| account | active | 7 | 199 |
 | contact | Parked | 0 | 2 |
-| contact | Qualified | 9 | 136 |
+| contact | Qualified | 9 | 147 |
 | contact | Unqualified | 1 | 53 |
-| document | approved | 45 | 410 |
-| document | received | 1 | 3 |
+| document | approved | 49 | 475 |
+| document | received | 1 | 24 |
 | opportunity | Discovery | 3 | 40 |
 | opportunity | Negotiation | 0 | 1 |
 | opportunity | Proposal | 0 | 1 |
@@ -225,9 +225,9 @@ _None._
 | test_bed | Installation and Commissioning | 0 | 11 |
 | test_bed | Monitoring and Analysis | 0 | 1 |
 | test_bed | Pre-Site Assessment | 0 | 6 |
-| test_bed | Qualification | 2 | 142 |
+| test_bed | Qualification | 1 | 153 |
 | test_bed | Review and Completion | 1 | 0 |
-| test_bed | Site Assessment | 0 | 14 |
+| test_bed | Site Assessment | 1 | 14 |
 
 ### Test fixture record types
 
@@ -237,19 +237,20 @@ row by row, and are included in the totals above.
 
 | distinct `harness_*` record types | live rows | soft deleted rows |
 |---|---|---|
-| 200 | 0 | 2507 |
+| 233 | 0 | 2928 |
 
 No harness record type holds a live row; every fixture row is soft deleted.
 
 ## `approvals`
 
-199 rows, of which 0 carry a null `stage`.
+205 rows, of which 1 carry a null `stage`.
 
 | decision | track | rows | null stage |
 |---|---|---|---|
-| approved | Commercial | 82 | 0 |
-| approved | Legal | 52 | 0 |
-| approved | Technical | 65 | 0 |
+| approved | Commercial | 84 | 0 |
+| approved | Legal | 54 | 0 |
+| approved | Senior | 1 | 1 |
+| approved | Technical | 66 | 0 |
 
 ## Writable-key allowlists
 
