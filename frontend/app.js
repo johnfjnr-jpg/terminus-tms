@@ -277,7 +277,20 @@ window.createTabStrip = function ({ strip, keyAttr, dataAttr, tabs, tabClass, pa
 // different thing, a position within one record's content, and carrying pane
 // 3 over to a record whose pane 3 is empty would be surprising. Stated as a
 // decision rather than inherited from the toggle's.
-window.createSubTabs = function ({ mount, tabs, label, adopt }) {
+// Round 18 Phase 2: `onSelect` forwards the strip's own selection outward.
+//
+// createTabStrip has always exposed `current()`, and this function has always
+// returned the strip, so a consumer could ASK which tab is open. What no
+// consumer could do is find out that it had CHANGED, because nothing here
+// passed createTabStrip an `activate` callback and so nothing re-ran on a
+// switch. That is the whole gap behind the unit correction control reading a
+// different type from the table beside it.
+//
+// The default pane reveal is reproduced inside `activate` rather than dropped:
+// createTabStrip runs `activate(key)` INSTEAD of its own reveal, not before
+// it, so a consumer that forgets this would hide every pane and show none.
+// With no `onSelect` passed the behaviour is byte-identical to before.
+window.createSubTabs = function ({ mount, tabs, label, adopt, onSelect }) {
   const mountEl = typeof mount === 'string' ? document.getElementById(mount) : mount
   if (!mountEl) return null
   // ADOPTED, not rebuilt. Each block is an existing DOM node that gets MOVED
@@ -310,6 +323,11 @@ window.createSubTabs = function ({ mount, tabs, label, adopt }) {
     label,
     panes: () => [...mountEl.querySelectorAll('.sub-tab-panel')],
     panelFor: key => document.getElementById(`${mountEl.id}-pane-${key}`),
+    activate: key => {
+      const pane = document.getElementById(`${mountEl.id}-pane-${key}`)
+      if (pane) pane.classList.remove('hidden')
+      if (onSelect) onSelect(key)
+    },
   })
   const panes = {}
   for (const t of tabs) {

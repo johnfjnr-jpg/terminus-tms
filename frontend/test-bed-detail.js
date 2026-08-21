@@ -857,6 +857,11 @@ const COUNT_KEY_TO_UNIT_TYPE = {
   hemirSensors: 'HEMIR',
 }
 
+// Derived from the map above rather than written out a second time: two
+// literal maps of the same relationship are one edit away from disagreeing.
+const COUNT_KEY_FOR_UNIT_TYPE = Object.fromEntries(
+  Object.entries(COUNT_KEY_TO_UNIT_TYPE).map(([key, type]) => [type, key]))
+
 // The locked count field is REPLACED by a line, not left present and inert.
 //
 // This is the fourth time this project has argued the same thing: Round 11
@@ -2656,6 +2661,17 @@ window.initTestBedDetailPanel = function (bed) {
 // as 24 and a card per unit is unreadable at the top of that range. Columns
 // are fixed and narrow so a row scans horizontally in one pass.
 const UNIT_TYPES = ['SafeSight', 'Air Quality', 'HEMIR']
+
+// The sub-tab key is the type with its spaces stripped, which is what the
+// strip is built with. Derived from UNIT_TYPES so the strip and this lookup
+// cannot disagree about what a key means.
+//
+// Declared HERE, after UNIT_TYPES. It was first placed beside
+// COUNT_KEY_FOR_UNIT_TYPE 1800 lines earlier, where UNIT_TYPES is still in its
+// temporal dead zone, and the ReferenceError killed the whole script at load:
+// every Test Bed screen went blank, not just this control.
+const UNIT_TYPE_FOR_TAB_KEY = Object.fromEntries(
+  UNIT_TYPES.map(t => [t.replace(/\s+/g, ''), t]))
 const UNIT_STATES = ['Planned', 'Installed', 'Faulty', 'Removed']
 let tbUnits = []
 
@@ -2905,20 +2921,27 @@ window.renderTbUnits = async function () {
     }
   }
 
-  renderTbCountCorrection()
-
   // Rebuilt only when the mount is empty or the record changed, so a re-render
   // after a save does not snap the open type back to SafeSight.
   if (mount.dataset.builtFor !== String(tbDetailId)) {
     const built = window.createSubTabs({
       mount, label: 'Unit types',
       tabs: UNIT_TYPES.map(t => ({ key: t.replace(/\s+/g, ''), label: t })),
+      // Round 18 Phase 2: the correction control is rebuilt for whichever type
+      // the strip now shows, so the two can never name different types.
+      onSelect: key => renderTbCountCorrection(UNIT_TYPE_FOR_TAB_KEY[key]),
     })
     mount.dataset.builtFor = String(tbDetailId)
     mount._panes = built.panes
+    mount._strip = built.strip
     mount.addEventListener('change', onTbUnitFieldChange)
   }
   for (const t of UNIT_TYPES) renderTbUnitPane(mount._panes[t.replace(/\s+/g, '')], t)
+  // On a REBUILD the strip's own construction selects the first tab and fires
+  // onSelect, so the control is already correct. On a re-render of an existing
+  // strip nothing fires, so the currently open tab is read back and used.
+  // strip.current() is the API createTabStrip has exposed all along.
+  renderTbCountCorrection(UNIT_TYPE_FOR_TAB_KEY[mount._strip?.current()] ?? UNIT_TYPES[0])
 }
 
 
@@ -2936,17 +2959,36 @@ window.renderTbUnits = async function () {
 // Apply control stays disabled until a reason is typed, so the refusal is
 // visible before the attempt rather than after it. The server refuses the
 // same thing independently, since a client-only lock is an affordance.
-function renderTbCountCorrection() {
+// Round 18 Phase 2: the correction control acts on the type the TAB shows.
+//
+// The reported defect: Air Quality selected, the table correctly showing Air
+// Quality rows, and this control reading "SafeSight (1 now)". Someone
+// adjusting Air Quality corrects SafeSight without noticing, and because a
+// correction carries a mandatory reason and writes an audit row, that is a
+// recorded wrong decision rather than a slip.
+//
+// THE TYPE SELECTOR IS GONE, and that is the decision rather than a
+// simplification. Syncing the dropdown to the tab would fix the reported case
+// and leave the class: two controls selecting one concept can always be put
+// into disagreement, and the next person to do it would be a user rather than
+// a bug. The tab already selects the type and the table already follows it, so
+// the tab is the selector and this control states which type it is acting on.
+//
+// What it costs, stated because it is a real cost: correcting a count for a
+// type you are not looking at now takes one click on that type's tab first.
+// That is the same click the table needs anyway to show what the correction
+// is about, and correcting a count you cannot see is the hazard this removes.
+function renderTbCountCorrection(type) {
   const host = document.getElementById('tb-units-correction')
   if (!host) return
-  const types = UNIT_TYPES.filter(t => tbUnits.some(u => u.type === t))
-  if (!types.length) { host.innerHTML = ''; return }
-  const opt = t => `<option value="${escHtml(t)}">${escHtml(t)} (${tbUnits.filter(u => u.type === t).length} now)</option>`
+  const rows = tbUnits.filter(u => u.type === type)
+  // A type with no slots has no count to correct: the count is not locked, so
+  // it is still an ordinary editable field on Commercials.
+  if (!rows.length) { host.innerHTML = ''; return }
   host.innerHTML = `
-    <p class="label" style="margin:20px 0 8px">Correct a count</p>
-    <p class="sub" style="margin-bottom:10px">The count is a plan before installation and a record after it. Correcting one is recorded with your reason.</p>
+    <p class="label" style="margin:20px 0 8px">Correct the ${escHtml(type)} count</p>
+    <p class="sub" style="margin-bottom:10px">${rows.length} ${escHtml(type)} unit${rows.length === 1 ? '' : 's'} now. The count is a plan before installation and a record after it. Correcting one is recorded with your reason.</p>
     <div class="tb-count-correct">
-      <select id="tb-cc-type">${types.map(opt).join('')}</select>
       <input type="text" inputmode="numeric" id="tb-cc-count" placeholder="New count">
       <input type="text" id="tb-cc-reason" placeholder="Why is the count wrong?">
       <button class="btn-sm" id="tb-cc-apply" disabled>Apply</button>
@@ -2960,7 +3002,9 @@ function renderTbCountCorrection() {
   count.addEventListener('input', refresh)
   apply.onclick = async () => {
     const fb = document.getElementById('tb-cc-feedback')
-    const key = { SafeSight: 'safesightCameras', 'Air Quality': 'airQualitySensors', HEMIR: 'hemirSensors' }[document.getElementById('tb-cc-type').value]
+    // `type` comes from the closure, which is the tab that was open when this
+    // control was rendered, and the control is re-rendered on every switch.
+    const key = COUNT_KEY_FOR_UNIT_TYPE[type]
     apply.disabled = true
     fb.className = 'tb-doc-feedback'
     fb.textContent = 'Applying'
