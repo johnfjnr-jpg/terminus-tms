@@ -3192,3 +3192,35 @@ input.input-invalid {
 .tb-count-locked-value { display: block; padding: 8px 0; }
 .tb-count-locked-number { font-size: 14px; color: var(--white); }
 .tb-count-locked-note { display: block; font-size: 12px; color: var(--muted); margin-top: 3px; }
+
+/* Round 18 Phase 4: the history pane. Reuses the units table's rules for
+   borders and spacing; only the detail column needs anything of its own,
+   because a serialised jsonb payload is far longer than any other cell and
+   would otherwise set the table's width. */
+.tb-history-table td { font-size: 12px; }
+.tb-history-detail {
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 11px;
+  max-width: 520px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Round 18 Phase 5: the stage a note was written at, shown as a small chip
+   before the note's text. Absent entirely on notes written before this
+   existed, rather than shown empty: a placeholder would imply the stage is
+   missing when in fact it was never recorded. */
+.ref-notes-stage {
+  display: inline-block;
+  margin-right: 8px;
+  padding: 0 6px;
+  border: 1px solid var(--hairline-strong);
+  border-radius: 3px;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  vertical-align: 1px;
+}

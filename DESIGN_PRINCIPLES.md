@@ -3098,3 +3098,367 @@ Explicitly deferred, not forgotten, not a section number of its own since this i
   What would have caught it here: asking, while building a write path, what
   else writes to the same record and how close together. Nothing in this
   project asks that yet.
+
+
+- **The `PGRST303` diagnosis does not fit the call path it was recorded against. The correlation holds; the mechanism is unresolved. Round 18 Phase 0, 2026-08-21.**
+
+  **Superseding, not deleting**, the Round 17 Phase 0 entry that reads
+  "PGRST303 DIAGNOSED against open item 30... the host clock is 185ms ahead...
+  with a zero-tolerance `iat` check, a token minted and used inside the same
+  second reads as issued in the future." That reasoning stays visible because
+  it is careful and its measurement is real; it is the conclusion that
+  overreached.
+
+  **What it cannot explain.** The failure caught with full output in Round 18
+  Phase 0 is at `scripts/tests/reference-number.test.mjs:76`, seeding a counter
+  row through `adminClient()`. That client authenticates with
+  `SUPABASE_SECRET_KEY`, which on this project is an **opaque `sb_secret_` key,
+  not a JWT**. The host mints no token on that path, so there is no `iat` for a
+  host clock to stamp ahead of anything.
+
+  **The measurement is still real.** The host is consistently ahead of the
+  Supabase `Date` header: +0.34s, +0.39s, +0.45s across three samples, mean
+  +0.39s, in the same range Round 17 recorded. It is simply not evidence for
+  the stated mechanism on this path, because the host's clock never touches the
+  token.
+
+  **What is established:** the error is `PGRST303 JWT issued at future`; it is
+  intermittent; it needs the full suite rather than the file alone, 0 in 8
+  isolated runs against 2 in roughly 14 full-suite runs; and it is unrelated to
+  any code under test. **What is not established is why**, and candidates now
+  include skew between Supabase's own gateway and database rather than anything
+  on this machine, which nothing here can measure.
+
+  **How it happened, which is the part worth carrying.** Round 17 Phase 0 found
+  a real measurement, a plausible mechanism and a fit to every prior sighting,
+  and wrote DIAGNOSED. Seven sightings of an uncharacterised fault make a
+  mechanism that explains them all very attractive. **The check it skipped was
+  the cheapest one: which credential does the failing call actually present.**
+  Same family as this project's own rule that a document describing a control
+  is not evidence the control exists, applied to a cause rather than a control.
+
+  **Operationally unchanged:** a suite run failing only with `PGRST303` is not
+  a failing suite, and should be re-run with both results reported. That advice
+  was right and does not depend on the mechanism.
+
+
+- **Open item 38: the chevron popup overlays the detail tab row and swallows clicks on it. Round 18 Phase 1, 2026-08-21.**
+
+  Found as a probe fault and confirmed as a real one. A click on a stage tab
+  landed on the popup instead, so a panel that had rendered perfectly well
+  looked like a hang.
+
+  **It is not confined to automation.** The popup opens on hover with a 180ms
+  rest, is positioned inside `#tb-chevron-wrap`, and the detail tab row sits
+  directly beneath it. The gesture that triggers it is the same gesture someone
+  makes on the way to the tabs: the chevron strip runs the full page width
+  immediately above them, so a pointer travelling from the strip down to a
+  stage tab rests on a chevron en route, opens the popup, and arrives at a tab
+  that is now covered.
+
+  **Anyone moving between stages with a popup open hits this**, and the failure
+  is silent: the click does nothing and the tab does not change, which reads as
+  an unresponsive tab rather than as an overlay.
+
+  Not fixed in the phase that found it, because Phase 1 was scoped to what the
+  popup SAYS rather than where it sits, and moving a positioned element is a
+  layout change with its own before-and-after obligations at three widths.
+  Candidates, none chosen: dismiss on pointer-down anywhere, make the popup
+  `pointer-events: none` (it currently accepts the pointer so it can be moved
+  into, which was deliberate), or position it above the strip rather than
+  below.
+
+
+- **CANDIDATE, not a claim: a cross-file race in the database suite. Round 18 Phase 1, 2026-08-21.**
+
+  Recorded as a hypothesis with its mechanism named, because it was not
+  established and the runs that would have established it were contaminated.
+
+  **The observation.** `INVARIANT 2: no gate rule names a stage absent from
+  stage_definitions` failed naming an orphaned `harness_*` gate rule. Queried
+  immediately afterwards, **zero orphaned rules existed** and the run tag's
+  records were all soft deleted, so the row the assertion saw had been a LIVE
+  fixture at the moment of reading rather than residue.
+
+  **The mechanism.** `npm run test:db` passes five files to `node --test`,
+  which runs files in parallel across the available CPUs, eight here.
+  `config-invariants.test.mjs` asserts properties of the WHOLE configuration
+  while `gates.test.mjs` legitimately holds fixture `stage_gate_rules` rows for
+  the duration of its own tests. A global invariant and a fixture-creating file
+  running concurrently against one database is a race by construction.
+
+  **Why it fits the intermittency pattern**, which is the reason to write it
+  down rather than dismiss it:
+
+  - It needs the full suite. Isolated runs of a single file cannot produce it,
+    which matches 0 failures in 8 isolated runs against 2 in roughly 14
+    full-suite runs.
+  - It clears on retry, because the next run's timing differs.
+  - **It leaves no residue when the holding file finishes normally**, which is
+    exactly why it reads as unexplained: by the time anyone looks, the row is
+    gone and the database is clean.
+
+  That third property is what makes it worth naming. An intermittent failure
+  that leaves evidence gets diagnosed; one that tidies up after itself gets
+  recorded as uncharacterised, which is what has happened to this suite's
+  intermittency for several rounds.
+
+  **Two serial runs (`--test-concurrency=1`) passed 50/50**, which is
+  consistent and is not proof: two runs of a race that fires perhaps one time
+  in seven prove very little.
+
+  **Phase 6 investigates if there is room; otherwise this carries as an open
+  item with the mechanism named.** The cheap test is a run count at
+  `--test-concurrency=1` against the same count in parallel, on a database
+  with confirmed-zero residue at the start of each.
+
+
+- **A declaration placed near its relatives rather than after its dependencies takes the whole page down, and nothing static catches it. Second instance, Round 18 Phase 2, 2026-08-21.**
+
+  Promoting this from two recorded incidents to a named pattern, because the
+  second arrived by exactly the same route as the first and was written by
+  someone who had read the first.
+
+  **Instance one, Round 10 Phase 3, 2026-08-19.**
+  `INSTALLATION_ENVIRONMENT_OPTIONS` was declared next to the other picklist
+  constants, below `TB_SITE_FIELDS`, which references it inside its own
+  initialiser. **Instance two, Round 18 Phase 2, 2026-08-21.**
+  `UNIT_TYPE_FOR_TAB_KEY` was declared beside `COUNT_KEY_FOR_UNIT_TYPE`, its
+  closest relative in meaning, **1800 lines above the `UNIT_TYPES` it derives
+  from**. The Round 10 entry also names a top-level `const` collision reaching
+  the same outcome by a third route.
+
+  **The shape, which is what makes it worth naming:**
+
+  - The declaration is put where it BELONGS BY MEANING, next to the constants
+    it reads like, rather than after the thing it depends on. That instinct is
+    correct everywhere else and wrong here.
+  - `const` is not hoisted, so the reference throws at load.
+  - The file is a classic script sharing one global scope, so **every later
+    declaration in it is never evaluated**. The failure is not the missing
+    constant; it is that `window.initTestBedDetailPanel` and everything after
+    it stops existing.
+  - **The whole screen is blank.** Not the control, not the panel: the screen.
+  - **`node --check` passes, correctly.** A temporal dead zone violation is a
+    runtime error, not a syntax error, and no static check in this project
+    catches it.
+
+  **What actually catches it is loading the page and reading `pageerror`**, and
+  in both instances that is what did. In this one the symptom presented as a
+  probe failing to find the record's name, which is two steps removed from the
+  cause and reads at first like a broken test.
+
+  **The step to perform, since a rule naming a mistake to avoid has now failed
+  twice:** after adding any top-level `const` to a classic script, load the
+  page once and check `pageerror` is empty, before running anything that
+  depends on the page working. It costs one browser open and it is the only
+  instrument that reports this at all.
+
+
+- **The history pane, and what looking at it decided. Round 18 Phase 4, 2026-08-21. Recorded verbatim: this list is the input to the vocabulary work and must not be tidied.**
+
+  Deferred eight times, shipped raw and read-only from `audit_log`, in the
+  Reference sub-tab strip. What follows is the phase's actual output.
+
+  **THE MEASUREMENTS.** Largest record: **83 entries**. Tab click to first row
+  painted: **235ms**, one request, fetched only when the tab is opened. Pane
+  height **4983px against a 1000px viewport, five screens**. Operable nodes in
+  the rendered pane: **0**, with the counter shown moving to 1 on an injected
+  button and back.
+
+  **RECOMMENDATION, in priority order.**
+
+  1. **Grouping beats paging, and filtering beats both.** 83 rows is a long
+     scroll, not a pagination problem, and paging it would hide the one thing
+     the pane is for: seeing the shape of what happened. **71 of the 83
+     entries share the previous entry's minute.** This is not a timeline, it is
+     a handful of bursts, and the right first move is to collapse a burst into
+     one line that can be opened.
+  2. **Two action types are 64% of the record**, 33 `approval_submitted` and
+     20 `document_approved`. Any grouping that does not collapse consecutive
+     runs of the same action will not help.
+  3. **Fix the When column before anything else.** It is 41px wide and **every
+     one of 83 rows wraps to three lines**, so every row is 59px instead of
+     about 30. The pane is twice as tall as its content needs for no reason a
+     reader could see, and that is a five-minute fix that halves the scroll.
+  4. **The actor column is doing nothing on this record and should not be
+     removed.** All 83 entries carry one actor. Phase 0 found five actors
+     across the log as a whole, three real accounts and two probe users, so
+     the column is real; it is this record that is single-actor. What it must
+     not do is show a raw uuid, which is what it does today.
+  5. **Decide what belongs here before deciding what it should say.** The
+     wording work is cheap once the set is settled and wasted if it is not.
+
+  **WHICH ACTION TYPES READ AS NOISE, from the 83 on this record.** Verbatim,
+  as observed, not as reasoned:
+
+  - `document_location_set` **reads as noise, four entries, two of them
+    consecutive duplicates on the same document** with different URLs a minute
+    apart. It records that someone pasted a link, then repasted it. Nobody
+    reviewing a Test Bed's history needs that.
+  - `approval_submitted` **is not noise but is unreadable in bulk**: 33
+    entries, arriving in threes, differing only by `track`. Three consecutive
+    lines saying Technical, Commercial, Legal are one event to a human.
+  - `document_approved` **at 20 entries has the same problem**, and pairs with
+    the `transition` immediately after it. A document approved and the stage it
+    unblocked are one story told twice.
+  - `transition` **is the signal**, 14 entries, and is what a reader is looking
+    for. It is currently indistinguishable from everything around it.
+  - `buyer_contact_linked` **reads as setup rather than history**, 9 entries
+    all within one minute at the start.
+  - `created_from_contact` **is the one entry that anchors the record** and it
+    is at the bottom of a five-screen scroll.
+  - `data_correction` **is genuinely interesting and is invisible**, two
+    entries lost among 81 others.
+
+  **The shape of the finding: the two entries a person would most want, the
+  correction and the creation, are the hardest to find, and the two action
+  types that dominate are the ones that carry least meaning per row.**
+
+  **What the pane says about where it belongs.** It works as a sub-tab and
+  reads as a peer of Use Cases, but it is five times the height of anything
+  else in that strip. That is tolerable now and will not be once grouping
+  makes it useful enough to open often.
+
+
+- **Notes carry the stage they were written at, and nothing migrates. Round 18 Phase 5, 2026-08-21.**
+
+  Notes were thin because they lacked context, not because there were too few
+  of them. A note written while scoring already had its context, captured as
+  the Reason on the score. A note written while advancing a stage had none.
+
+  **NOTHING MIGRATES, and that is the decision rather than the easy path.**
+  Every note written before this change has no stage and **did not have one
+  when it was written**. Deriving one from the record's current status would be
+  a claim about a decision nobody made: the record is at Closed today and the
+  note was written months ago at Qualification, and stamping today's status
+  onto it would be a fabrication dressed as data. **Round 14 Phase 1 made the
+  same call about comments and reasons**, leaving historical entries carrying
+  what they carried, and the reasoning holds unchanged.
+
+  **The key is omitted, not emptied.** An empty string is a claim that the note
+  was written at a stage called "", and the renderer would then have to tell
+  that apart from a note that genuinely predates this. Absent means absent, and
+  an older note therefore gets **no chip and no placeholder**: a dash or an
+  "unknown" label would imply something is missing when nothing is. Confirmed
+  by measurement, row heights identical at 37px with and without a chip.
+
+  **TWO DECISIONS STATED RATHER THAN DISCOVERED, both reported before building.**
+
+  **One: the same-key lost update is OUT OF SCOPE, and the real fix is not what
+  it looks like.** `addTbNote` rebuilds the whole `notes` array from a value
+  read at page load, so two notes added concurrently resolve last-writer-wins
+  and one disappears. That is Round 17A Phase 2's explicitly open same-key case
+  sitting on this very write.
+
+  It is not fixed here, and the reason matters: **the obvious fix does not
+  work.** Moving the append server-side, the shape `appendPayloadSeriesEntry`
+  already uses for scores, still reads the array and writes it back in
+  JavaScript, so two concurrent calls still lose one. A real fix appends inside
+  the SQL statement, which means teaching `append_record_revision` a
+  jsonb-array-append operation, which changes the single atomic writer that ten
+  call sites depend on. **That is not a note-stage phase's work**, and writing
+  it down here is what stops the next round "fixing" it by re-reading before
+  writing and believing the problem gone.
+
+  **Two: `by` stays client-supplied.** Seven sites across four frontend files
+  construct a user-typed note with `currentSession.user.email`; five server
+  routes construct a system-composed note with `request.user.email`. **That
+  split is coherent: whoever writes the text sets the author.** Moving one of
+  the seven would replace a consistent arrangement with an inconsistent one, so
+  it moves as a set or not at all. The stage therefore travels beside `by` at
+  the same trust level, in the same object, rather than one field being
+  authoritative and its neighbour not.
+
+  **Both Test Bed note writers changed**, `notes` and `installNotes`, through
+  one shared constructor. Doing one and not the other would have been exactly
+  the arbitrary inconsistency the `by` decision above argues against.
+
+  **The write path is unchanged**: `PATCH /api/test-beds/:id`, which since
+  Round 17A Phase 1 goes through `appendRecordRevision` and therefore through
+  the atomic writer. This phase added a key to a payload object; it did not add
+  a path.
+
+
+- **The suite's intermittent invariant failures are a cross-file race, characterised and reproducible on demand. Round 18 Phase 6, 2026-08-21. This closes the candidate recorded in Phase 1.**
+
+  **The mechanism.** `npm run test:db` passes five files to `node --test`,
+  which runs files in parallel across the available CPUs.
+  `config-invariants.test.mjs` asserts properties of the WHOLE configuration
+  while `gates.test.mjs` legitimately holds fixture `stage_gate_rules` rows for
+  the duration of its own tests. A global invariant and a fixture-creating file
+  running concurrently against one database is a race by construction.
+
+  **The window, observed directly rather than waited for.** Polling
+  `stage_gate_rules` every 120ms while `gates.test.mjs` ran: harness rows first
+  visible at **1.8 seconds**, peaking at **23 rows visible at once**, across
+  most of the run.
+
+  **Reproduced deterministically**, which is what turns this from a candidate
+  into a finding. Start `gates.test.mjs`, wait six seconds for it to create its
+  fixtures, then run `config-invariants.test.mjs` alone against the same
+  database:
+
+      residue before                     0 harness gate rules
+      6s in, visible                     8 harness gate rules
+      config-invariants                  2 FAILED: INVARIANT 2 and INVARIANT 4
+      gates finished                     0 failed
+      residue after                      0 harness gate rules
+
+  Those are exactly the two invariants seen failing intermittently, and the
+  rows they named were gone by the time anyone looked.
+
+  **Why running the two files together does NOT reproduce it.**
+  `config-invariants` completes in about a second and `gates` does not create
+  a rule until 1.8 seconds in, so the fast file finishes before the window
+  opens. It fires in the five-file suite because the scheduler starts
+  `config-invariants` later or runs it slower under load. **That is the whole
+  intermittency**: not randomness in the database, but where in the schedule
+  one file lands.
+
+  **It explains all three properties** recorded when this was still a
+  hypothesis: it needs the full suite's parallelism, it clears on retry because
+  the next run's scheduling differs, and **it leaves no residue when the
+  holding file finishes normally**, which is why it stayed uncharacterised for
+  several rounds.
+
+  **Not fixed here.** The fix is a choice between scoping the global
+  invariants to exclude `harness_%` record types, and running that file
+  serially, and each has a cost: the first weakens an invariant that exists to
+  catch exactly the orphaned rows a killed run leaves, and the second slows the
+  suite. That is a decision, not a repair.
+
+
+- **`PGRST303` remains unresolved, and Round 17's mechanism is wrong on every path rather than merely on one. Round 18 Phase 6, 2026-08-21.**
+
+  Sharpening the Phase 0 correction, which said the diagnosis did not fit the
+  admin call path. It does not fit any path.
+
+  **No code in this project mints a token.** The session JWT's `iss` is
+  `https://<project>.supabase.co/auth/v1`, so its `iat` is stamped by Supabase
+  Auth, and `SUPABASE_SECRET_KEY` is an opaque `sb_secret_` key that is not a
+  JWT at all. **The host clock cannot stamp an `iat` on anything**, so the
+  +0.39s host skew Round 17 measured, re-measured today at +0.27s, is real and
+  is evidence for nothing about this error.
+
+  **Not reproducible by volume.** 650 requests in four shapes produced zero
+  occurrences: 200 concurrent reads on one client, 200 concurrent reads each on
+  a freshly constructed client, 150 sustained sequential reads, and 100
+  concurrent writes to `reference_number_counters` itself, the exact table and
+  operation that fails. So it is not concurrency, not client construction, and
+  not that table.
+
+  **What is established:** three sightings today, all in full-suite runs, all
+  at `reference-number.test.mjs:76`; never in an isolated run of that file, 0
+  in 8; unrelated to any code under test; clears on re-run.
+
+  **The leading untested candidate**, recorded as untested: Supabase exchanges
+  the opaque key for a JWT at its own gateway, stamped with the gateway's
+  clock, which PostgREST then validates against the database's. Skew between
+  two of their components would produce exactly this and would be invisible
+  from here. **Nothing in this repository can test that**, which is itself the
+  finding: the next round should stop trying to characterise it locally and
+  either ask Supabase or accept it as environmental.
+
+  **Operationally unchanged and still right:** a run failing only with
+  `PGRST303` is not a failing suite, and both results should be reported.

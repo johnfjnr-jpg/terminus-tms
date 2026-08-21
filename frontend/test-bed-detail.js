@@ -485,6 +485,46 @@ window.toggleTbNotes = function () {
   renderTbNotes()
 }
 
+// Round 18 Phase 5: a new note records the stage it was written at.
+//
+// Notes are thin because they lack context, not because there are too few of
+// them. A note written while scoring already has its context, captured as the
+// Reason on the score. A note written while advancing a stage had none.
+//
+// THE KEY IS OMITTED, NOT EMPTIED, when the stage is somehow unknown. An empty
+// string is a claim that the note was written at a stage called "", and the
+// renderer would then have to tell that apart from a note that genuinely
+// predates this change. Absent means absent.
+//
+// `by` STAYS CLIENT-SUPPLIED, which is a decision rather than an oversight.
+// Seven sites across four frontend files construct a user-typed note this way
+// and five server routes construct a system-composed one with
+// request.user.email. That split is coherent: whoever writes the text sets the
+// author. Moving one of the seven would replace a consistent arrangement with
+// an inconsistent one, so it moves as a set or not at all.
+//
+// Both Test Bed note writers use this, notes and installNotes. Doing one and
+// not the other would be the arbitrary inconsistency this comment just argued
+// against.
+// Rendered ONLY when the note carries a stage. Nothing migrates: every note
+// written before this change has no stage and did not have one when written,
+// and inventing one from the record's current status would be a claim about a
+// decision nobody made. Round 14 Phase 1 made the same call about comments and
+// reasons and the reasoning holds.
+//
+// So an older note gets no chip and no placeholder. A dash or an "unknown"
+// label would imply something is missing, when nothing is: it was written
+// before the system recorded this.
+function tbNoteStageChip(n) {
+  return n.stage ? `<span class="ref-notes-stage">${escHtml(n.stage)}</span>` : ''
+}
+
+function tbNewNote(text) {
+  const note = { text, at: new Date().toISOString(), by: currentSession?.user?.email ?? '' }
+  if (tbBed?.status) note.stage = tbBed.status
+  return note
+}
+
 function renderTbNotes() {
   const notes = Array.isArray(tbPayload.notes) ? tbPayload.notes : []
   const el = document.getElementById('tb-notes-list')
@@ -503,7 +543,7 @@ function renderTbNotes() {
   // .ref-notes-row markup - unchanged, not a bottom-of-page variant.
   const rows = shown.map(n => `
     <div class="ref-notes-row">
-      <span class="ref-notes-when">${formatDate(n.at)}</span><span class="ref-notes-author">${escHtml(n.by ?? '')}</span><span class="ref-notes-text">${escHtml(n.text)}</span>
+      <span class="ref-notes-when">${formatDate(n.at)}</span><span class="ref-notes-author">${escHtml(n.by ?? '')}</span><span class="ref-notes-text">${tbNoteStageChip(n)}${escHtml(n.text)}</span>
     </div>`).join('')
 
   const toggle = notes.length > 2
@@ -519,7 +559,7 @@ window.addTbNote = async function () {
   const text = input.value.trim()
   if (!text) return
   const existing = Array.isArray(tbPayload.notes) ? tbPayload.notes : []
-  const notes = [{ text, at: new Date().toISOString(), by: currentSession?.user?.email ?? '' }, ...existing]
+  const notes = [tbNewNote(text), ...existing]
   const result = await api('PATCH', `/api/test-beds/${tbDetailId}`, { payload: { notes } })
   if (result.ok) {
     input.value = ''
@@ -574,10 +614,70 @@ function mountTbReferenceSubTabs() {
     tabs: [
       { key: 'useCases', label: 'Use cases' },
       { key: 'customerDocuments', label: 'Customer documents' },
+      { key: 'history', label: 'History' },
     ],
-    adopt: { useCases: 'tb-usecases-block', customerDocuments: 'tb-custdocs-block' },
+    adopt: {
+      useCases: 'tb-usecases-block',
+      customerDocuments: 'tb-custdocs-block',
+      history: 'tb-history-block',
+    },
+    // Round 18 Phase 4: loaded when its tab is opened, not on every record
+    // load. Uses the onSelect hook Phase 2 added to this same component, which
+    // is what makes a lazy pane possible at all: before it, nothing outside
+    // the strip could learn that the open tab had changed.
+    onSelect: key => { if (key === 'history') renderTbHistory() },
   })
   mount.dataset.builtFor = String(tbDetailId)
+}
+
+// Round 18 Phase 4: the history pane. Deferred eight times, shipped raw.
+//
+// WHAT IT IS: this record's own audit_log entries, newest first, exactly as
+// stored. Actions render as whatever the column carries and actors as the uuid
+// that identifies them, because deciding what each action should SAY to a
+// person is the expensive judgement and it is better made looking at real
+// entries than guessed at beforehand.
+//
+// OBVIOUSLY PROVISIONAL, and the mechanism is wording rather than colour.
+// Open item 37 records that this palette has one accent and it is already
+// every card title, so there is nothing to signal "unfinished" with. The line
+// at the top says so in words instead, and says which decisions are still
+// open rather than merely apologising.
+//
+// READ-ONLY, STRUCTURALLY. Every cell is a span inside a table. There is no
+// button, no input, no link, no contenteditable and no tabindex anywhere in
+// what this writes, and audit_log itself has no UPDATE or DELETE policy, so
+// there is nothing to write to even if something tried.
+async function renderTbHistory() {
+  const host = document.getElementById('tb-history-block')
+  if (!host || !tbDetailId) return
+  host.innerHTML = '<p class="sub">Loading history.</p>'
+
+  const result = await api('GET', `/api/records/${tbDetailId}/history`)
+  if (!result.ok) {
+    host.innerHTML = '<p class="empty-state">Unable to load history.</p>'
+    return
+  }
+  const entries = result.data?.entries ?? []
+  const notice = `<p class="sub" style="margin-bottom:12px">Raw audit entries, unedited. What each action should say, how entries should be grouped, and which of them belong here at all are not decided yet.</p>`
+  if (!entries.length) {
+    host.innerHTML = notice + '<p class="empty-state">No history recorded for this record.</p>'
+    return
+  }
+  const cell = v => `<span>${escHtml(v)}</span>`
+  const rows = entries.map(e => `
+    <tr>
+      <td>${cell(String(e.timestamp ?? '').slice(0, 16).replace('T', ' '))}</td>
+      <td>${cell(e.action ?? '')}</td>
+      <td>${cell(String(e.actor_id ?? '').slice(0, 8))}</td>
+      <td class="tb-history-detail">${cell(e.detail && Object.keys(e.detail).length ? JSON.stringify(e.detail) : '')}</td>
+    </tr>`).join('')
+  host.innerHTML = notice + `
+    <p class="sub" style="margin-bottom:10px">${entries.length} entr${entries.length === 1 ? 'y' : 'ies'}.</p>
+    <table class="tb-units-table tb-history-table">
+      <thead><tr><th>When</th><th>Action</th><th>Actor</th><th>Detail</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`
 }
 
 function renderTbSiteDetails() {
@@ -856,6 +956,11 @@ const COUNT_KEY_TO_UNIT_TYPE = {
   airQualitySensors: 'Air Quality',
   hemirSensors: 'HEMIR',
 }
+
+// Derived from the map above rather than written out a second time: two
+// literal maps of the same relationship are one edit away from disagreeing.
+const COUNT_KEY_FOR_UNIT_TYPE = Object.fromEntries(
+  Object.entries(COUNT_KEY_TO_UNIT_TYPE).map(([key, type]) => [type, key]))
 
 // The locked count field is REPLACED by a line, not left present and inert.
 //
@@ -1155,7 +1260,7 @@ function renderTbInstallNotes() {
   }
   el.innerHTML = notes.map(n => `
     <div class="ref-notes-row">
-      <span class="ref-notes-when">${formatDate(n.at)}</span><span class="ref-notes-author">${escHtml(n.by ?? '')}</span><span class="ref-notes-text">${escHtml(n.text)}</span>
+      <span class="ref-notes-when">${formatDate(n.at)}</span><span class="ref-notes-author">${escHtml(n.by ?? '')}</span><span class="ref-notes-text">${tbNoteStageChip(n)}${escHtml(n.text)}</span>
     </div>`).join('')
 }
 
@@ -1164,7 +1269,7 @@ window.addTbInstallNote = async function () {
   const text = input.value.trim()
   if (!text) return
   const existing = Array.isArray(tbPayload.installNotes) ? tbPayload.installNotes : []
-  const installNotes = [{ text, at: new Date().toISOString(), by: currentSession?.user?.email ?? '' }, ...existing]
+  const installNotes = [tbNewNote(text), ...existing]
   const result = await api('PATCH', `/api/test-beds/${tbDetailId}`, { payload: { installNotes } })
   if (result.ok) {
     input.value = ''
@@ -2656,6 +2761,17 @@ window.initTestBedDetailPanel = function (bed) {
 // as 24 and a card per unit is unreadable at the top of that range. Columns
 // are fixed and narrow so a row scans horizontally in one pass.
 const UNIT_TYPES = ['SafeSight', 'Air Quality', 'HEMIR']
+
+// The sub-tab key is the type with its spaces stripped, which is what the
+// strip is built with. Derived from UNIT_TYPES so the strip and this lookup
+// cannot disagree about what a key means.
+//
+// Declared HERE, after UNIT_TYPES. It was first placed beside
+// COUNT_KEY_FOR_UNIT_TYPE 1800 lines earlier, where UNIT_TYPES is still in its
+// temporal dead zone, and the ReferenceError killed the whole script at load:
+// every Test Bed screen went blank, not just this control.
+const UNIT_TYPE_FOR_TAB_KEY = Object.fromEntries(
+  UNIT_TYPES.map(t => [t.replace(/\s+/g, ''), t]))
 const UNIT_STATES = ['Planned', 'Installed', 'Faulty', 'Removed']
 let tbUnits = []
 
@@ -2905,20 +3021,27 @@ window.renderTbUnits = async function () {
     }
   }
 
-  renderTbCountCorrection()
-
   // Rebuilt only when the mount is empty or the record changed, so a re-render
   // after a save does not snap the open type back to SafeSight.
   if (mount.dataset.builtFor !== String(tbDetailId)) {
     const built = window.createSubTabs({
       mount, label: 'Unit types',
       tabs: UNIT_TYPES.map(t => ({ key: t.replace(/\s+/g, ''), label: t })),
+      // Round 18 Phase 2: the correction control is rebuilt for whichever type
+      // the strip now shows, so the two can never name different types.
+      onSelect: key => renderTbCountCorrection(UNIT_TYPE_FOR_TAB_KEY[key]),
     })
     mount.dataset.builtFor = String(tbDetailId)
     mount._panes = built.panes
+    mount._strip = built.strip
     mount.addEventListener('change', onTbUnitFieldChange)
   }
   for (const t of UNIT_TYPES) renderTbUnitPane(mount._panes[t.replace(/\s+/g, '')], t)
+  // On a REBUILD the strip's own construction selects the first tab and fires
+  // onSelect, so the control is already correct. On a re-render of an existing
+  // strip nothing fires, so the currently open tab is read back and used.
+  // strip.current() is the API createTabStrip has exposed all along.
+  renderTbCountCorrection(UNIT_TYPE_FOR_TAB_KEY[mount._strip?.current()] ?? UNIT_TYPES[0])
 }
 
 
@@ -2936,17 +3059,36 @@ window.renderTbUnits = async function () {
 // Apply control stays disabled until a reason is typed, so the refusal is
 // visible before the attempt rather than after it. The server refuses the
 // same thing independently, since a client-only lock is an affordance.
-function renderTbCountCorrection() {
+// Round 18 Phase 2: the correction control acts on the type the TAB shows.
+//
+// The reported defect: Air Quality selected, the table correctly showing Air
+// Quality rows, and this control reading "SafeSight (1 now)". Someone
+// adjusting Air Quality corrects SafeSight without noticing, and because a
+// correction carries a mandatory reason and writes an audit row, that is a
+// recorded wrong decision rather than a slip.
+//
+// THE TYPE SELECTOR IS GONE, and that is the decision rather than a
+// simplification. Syncing the dropdown to the tab would fix the reported case
+// and leave the class: two controls selecting one concept can always be put
+// into disagreement, and the next person to do it would be a user rather than
+// a bug. The tab already selects the type and the table already follows it, so
+// the tab is the selector and this control states which type it is acting on.
+//
+// What it costs, stated because it is a real cost: correcting a count for a
+// type you are not looking at now takes one click on that type's tab first.
+// That is the same click the table needs anyway to show what the correction
+// is about, and correcting a count you cannot see is the hazard this removes.
+function renderTbCountCorrection(type) {
   const host = document.getElementById('tb-units-correction')
   if (!host) return
-  const types = UNIT_TYPES.filter(t => tbUnits.some(u => u.type === t))
-  if (!types.length) { host.innerHTML = ''; return }
-  const opt = t => `<option value="${escHtml(t)}">${escHtml(t)} (${tbUnits.filter(u => u.type === t).length} now)</option>`
+  const rows = tbUnits.filter(u => u.type === type)
+  // A type with no slots has no count to correct: the count is not locked, so
+  // it is still an ordinary editable field on Commercials.
+  if (!rows.length) { host.innerHTML = ''; return }
   host.innerHTML = `
-    <p class="label" style="margin:20px 0 8px">Correct a count</p>
-    <p class="sub" style="margin-bottom:10px">The count is a plan before installation and a record after it. Correcting one is recorded with your reason.</p>
+    <p class="label" style="margin:20px 0 8px">Correct the ${escHtml(type)} count</p>
+    <p class="sub" style="margin-bottom:10px">${rows.length} ${escHtml(type)} unit${rows.length === 1 ? '' : 's'} now. The count is a plan before installation and a record after it. Correcting one is recorded with your reason.</p>
     <div class="tb-count-correct">
-      <select id="tb-cc-type">${types.map(opt).join('')}</select>
       <input type="text" inputmode="numeric" id="tb-cc-count" placeholder="New count">
       <input type="text" id="tb-cc-reason" placeholder="Why is the count wrong?">
       <button class="btn-sm" id="tb-cc-apply" disabled>Apply</button>
@@ -2960,7 +3102,9 @@ function renderTbCountCorrection() {
   count.addEventListener('input', refresh)
   apply.onclick = async () => {
     const fb = document.getElementById('tb-cc-feedback')
-    const key = { SafeSight: 'safesightCameras', 'Air Quality': 'airQualitySensors', HEMIR: 'hemirSensors' }[document.getElementById('tb-cc-type').value]
+    // `type` comes from the closure, which is the tab that was open when this
+    // control was rendered, and the control is re-rendered on every switch.
+    const key = COUNT_KEY_FOR_UNIT_TYPE[type]
     apply.disabled = true
     fb.className = 'tb-doc-feedback'
     fb.textContent = 'Applying'

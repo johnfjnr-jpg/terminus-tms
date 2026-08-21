@@ -87,6 +87,28 @@ not resolve it quietly.
    everything the responsible actor writes and check all of it, and re-assert
    the claims that depend on it rather than only the one that fired.
 
+9. **Create the round branch before Phase 1 begins, and commit at every phase
+   boundary.** Not at the close, and not when the first code change happens.
+
+   **`main`'s working tree is never mid-round.** The dev server serves the
+   frontend from disk and the API from the same tree, so an uncommitted round
+   means whatever the business opens is whatever the current phase has
+   reached. Round 17A ran eight phases that way for four hours, including a
+   window where ten write paths had been edited and the server had not been
+   restarted, so the browser was served new frontend code against old backend
+   code. Nothing came of it because the business had finished for the day 55
+   minutes earlier: timing, not design.
+
+   **Per-phase commits are the recovery point.** Round 15 restored its edits
+   after checking out `main` to compare, because the work had landing points
+   to return to. **Round 14 lost work to that same manoeuvre even with commits
+   in place**, which is the measure of how much worse it goes without them. A
+   round with no commits has nothing to restore to, and any interruption costs
+   the whole round.
+
+   A phase that ships no diff still commits, even if only the brief: the
+   branch should carry its own scope from the start.
+
 ---
 
 ## Architecture
@@ -346,6 +368,28 @@ not resolve it quietly.
     three widths Verification 10 already names. A criterion that names one
     viewport will be re-measured there indefinitely, and will report progress
     on a problem that has moved somewhere else.
+
+16. **Capture the run to a file, then search the file. Never pipe a run whose
+    result is not yet known through a filter.** Write the full output to disk
+    and grep the file.
+
+    **This names a step to perform rather than a mistake to avoid**, which is
+    the distinction Round 17A Phase 5 recorded after a rule caught its own
+    author within the hour for the third time: knowing a rule confers no
+    ability to spot its instances, so prefer rules that prescribe an action.
+
+    **Three instances, and the middle one is the argument.** Round 12 lost a
+    failure's identity to filtering. **Round 13 diagnosed `PGRST303` at seven
+    sightings precisely BECAUSE it kept the output.** Round 17A lost a 49/50
+    the same way Round 12 did, after the rule already existed in prose.
+
+    **Round 18 Phase 0 identified that same failure on its first captured
+    run**, before this rule was written down, which is what it costs to
+    follow: one redirection.
+
+    A filtered run that shows nothing is indistinguishable from a run that
+    found nothing, and the moment you most need the output is the moment you
+    have already discarded it.
 
 ---
 
