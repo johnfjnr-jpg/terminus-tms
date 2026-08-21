@@ -3253,3 +3253,69 @@ Explicitly deferred, not forgotten, not a section number of its own since this i
   page once and check `pageerror` is empty, before running anything that
   depends on the page working. It costs one browser open and it is the only
   instrument that reports this at all.
+
+
+- **The history pane, and what looking at it decided. Round 18 Phase 4, 2026-08-21. Recorded verbatim: this list is the input to the vocabulary work and must not be tidied.**
+
+  Deferred eight times, shipped raw and read-only from `audit_log`, in the
+  Reference sub-tab strip. What follows is the phase's actual output.
+
+  **THE MEASUREMENTS.** Largest record: **83 entries**. Tab click to first row
+  painted: **235ms**, one request, fetched only when the tab is opened. Pane
+  height **4983px against a 1000px viewport, five screens**. Operable nodes in
+  the rendered pane: **0**, with the counter shown moving to 1 on an injected
+  button and back.
+
+  **RECOMMENDATION, in priority order.**
+
+  1. **Grouping beats paging, and filtering beats both.** 83 rows is a long
+     scroll, not a pagination problem, and paging it would hide the one thing
+     the pane is for: seeing the shape of what happened. **71 of the 83
+     entries share the previous entry's minute.** This is not a timeline, it is
+     a handful of bursts, and the right first move is to collapse a burst into
+     one line that can be opened.
+  2. **Two action types are 64% of the record**, 33 `approval_submitted` and
+     20 `document_approved`. Any grouping that does not collapse consecutive
+     runs of the same action will not help.
+  3. **Fix the When column before anything else.** It is 41px wide and **every
+     one of 83 rows wraps to three lines**, so every row is 59px instead of
+     about 30. The pane is twice as tall as its content needs for no reason a
+     reader could see, and that is a five-minute fix that halves the scroll.
+  4. **The actor column is doing nothing on this record and should not be
+     removed.** All 83 entries carry one actor. Phase 0 found five actors
+     across the log as a whole, three real accounts and two probe users, so
+     the column is real; it is this record that is single-actor. What it must
+     not do is show a raw uuid, which is what it does today.
+  5. **Decide what belongs here before deciding what it should say.** The
+     wording work is cheap once the set is settled and wasted if it is not.
+
+  **WHICH ACTION TYPES READ AS NOISE, from the 83 on this record.** Verbatim,
+  as observed, not as reasoned:
+
+  - `document_location_set` **reads as noise, four entries, two of them
+    consecutive duplicates on the same document** with different URLs a minute
+    apart. It records that someone pasted a link, then repasted it. Nobody
+    reviewing a Test Bed's history needs that.
+  - `approval_submitted` **is not noise but is unreadable in bulk**: 33
+    entries, arriving in threes, differing only by `track`. Three consecutive
+    lines saying Technical, Commercial, Legal are one event to a human.
+  - `document_approved` **at 20 entries has the same problem**, and pairs with
+    the `transition` immediately after it. A document approved and the stage it
+    unblocked are one story told twice.
+  - `transition` **is the signal**, 14 entries, and is what a reader is looking
+    for. It is currently indistinguishable from everything around it.
+  - `buyer_contact_linked` **reads as setup rather than history**, 9 entries
+    all within one minute at the start.
+  - `created_from_contact` **is the one entry that anchors the record** and it
+    is at the bottom of a five-screen scroll.
+  - `data_correction` **is genuinely interesting and is invisible**, two
+    entries lost among 81 others.
+
+  **The shape of the finding: the two entries a person would most want, the
+  correction and the creation, are the hardest to find, and the two action
+  types that dominate are the ones that carry least meaning per row.**
+
+  **What the pane says about where it belongs.** It works as a sub-tab and
+  reads as a peer of Use Cases, but it is five times the height of anything
+  else in that strip. That is tolerable now and will not be once grouping
+  makes it useful enough to open often.

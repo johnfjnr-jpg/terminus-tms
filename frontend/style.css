@@ -3192,3 +3192,18 @@ input.input-invalid {
 .tb-count-locked-value { display: block; padding: 8px 0; }
 .tb-count-locked-number { font-size: 14px; color: var(--white); }
 .tb-count-locked-note { display: block; font-size: 12px; color: var(--muted); margin-top: 3px; }
+
+/* Round 18 Phase 4: the history pane. Reuses the units table's rules for
+   borders and spacing; only the detail column needs anything of its own,
+   because a serialised jsonb payload is far longer than any other cell and
+   would otherwise set the table's width. */
+.tb-history-table td { font-size: 12px; }
+.tb-history-detail {
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 11px;
+  max-width: 520px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

@@ -229,6 +229,50 @@ export default async function recordsRoutes(app) {
     return result
   })
 
+  // GET /api/records/:id/history
+  //
+  // Round 18 Phase 4. THE ONLY read of audit_log anywhere in this system.
+  // Every other reference to that table is an insert, so "reads it once" is
+  // structural here rather than a convention to keep: there is one query, in
+  // one place, and any second consumer calls this route.
+  //
+  // READ-ONLY BY CONSTRUCTION. audit_log has no UPDATE or DELETE policy at
+  // all, deny-by-default since the initial schema, so there is no write to
+  // expose even if something wanted to. This route selects and returns.
+  //
+  // RAW, DELIBERATELY. `action` and `detail` are returned exactly as stored,
+  // and `actor_id` as the uuid it is. Round 18 Phase 4 ships without
+  // vocabulary work on purpose: what each action should say to a person is
+  // the expensive judgement, and it is better made looking at real entries
+  // than guessed at beforehand.
+  //
+  // Ordered newest first, which is the only display decision taken here and
+  // is the same direction notes already use.
+  app.get('/records/:id/history', async (request, reply) => {
+    const db = createUserClient(request.jwt)
+
+    const { data: record, error: recordErr } = await db
+      .from('records')
+      .select('id')
+      .eq('id', request.params.id)
+      .is('deleted_at', null)
+      .maybeSingle()
+    if (recordErr) return reply.code(500).send({ error: recordErr.message })
+    if (!record) return reply.code(404).send({ error: 'not found' })
+
+    const { data: entries, error } = await db
+      .from('audit_log')
+      .select('id, action, actor_id, timestamp, detail')
+      .eq('record_id', request.params.id)
+      .order('timestamp', { ascending: false })
+
+    if (error) {
+      request.log.error({ err: error }, 'failed to read record history')
+      return reply.code(500).send({ error: error.message })
+    }
+    return reply.send({ entries: entries ?? [] })
+  })
+
   // GET /api/records/:id/exit-criteria (Round 5 Phase 5, 2026-08-17)
   // Read-only, for the Exit Criteria panel: what's still outstanding to
   // exit a given stage (i.e. the blocking[] a real transition attempt

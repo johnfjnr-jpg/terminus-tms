@@ -574,10 +574,70 @@ function mountTbReferenceSubTabs() {
     tabs: [
       { key: 'useCases', label: 'Use cases' },
       { key: 'customerDocuments', label: 'Customer documents' },
+      { key: 'history', label: 'History' },
     ],
-    adopt: { useCases: 'tb-usecases-block', customerDocuments: 'tb-custdocs-block' },
+    adopt: {
+      useCases: 'tb-usecases-block',
+      customerDocuments: 'tb-custdocs-block',
+      history: 'tb-history-block',
+    },
+    // Round 18 Phase 4: loaded when its tab is opened, not on every record
+    // load. Uses the onSelect hook Phase 2 added to this same component, which
+    // is what makes a lazy pane possible at all: before it, nothing outside
+    // the strip could learn that the open tab had changed.
+    onSelect: key => { if (key === 'history') renderTbHistory() },
   })
   mount.dataset.builtFor = String(tbDetailId)
+}
+
+// Round 18 Phase 4: the history pane. Deferred eight times, shipped raw.
+//
+// WHAT IT IS: this record's own audit_log entries, newest first, exactly as
+// stored. Actions render as whatever the column carries and actors as the uuid
+// that identifies them, because deciding what each action should SAY to a
+// person is the expensive judgement and it is better made looking at real
+// entries than guessed at beforehand.
+//
+// OBVIOUSLY PROVISIONAL, and the mechanism is wording rather than colour.
+// Open item 37 records that this palette has one accent and it is already
+// every card title, so there is nothing to signal "unfinished" with. The line
+// at the top says so in words instead, and says which decisions are still
+// open rather than merely apologising.
+//
+// READ-ONLY, STRUCTURALLY. Every cell is a span inside a table. There is no
+// button, no input, no link, no contenteditable and no tabindex anywhere in
+// what this writes, and audit_log itself has no UPDATE or DELETE policy, so
+// there is nothing to write to even if something tried.
+async function renderTbHistory() {
+  const host = document.getElementById('tb-history-block')
+  if (!host || !tbDetailId) return
+  host.innerHTML = '<p class="sub">Loading history.</p>'
+
+  const result = await api('GET', `/api/records/${tbDetailId}/history`)
+  if (!result.ok) {
+    host.innerHTML = '<p class="empty-state">Unable to load history.</p>'
+    return
+  }
+  const entries = result.data?.entries ?? []
+  const notice = `<p class="sub" style="margin-bottom:12px">Raw audit entries, unedited. What each action should say, how entries should be grouped, and which of them belong here at all are not decided yet.</p>`
+  if (!entries.length) {
+    host.innerHTML = notice + '<p class="empty-state">No history recorded for this record.</p>'
+    return
+  }
+  const cell = v => `<span>${escHtml(v)}</span>`
+  const rows = entries.map(e => `
+    <tr>
+      <td>${cell(String(e.timestamp ?? '').slice(0, 16).replace('T', ' '))}</td>
+      <td>${cell(e.action ?? '')}</td>
+      <td>${cell(String(e.actor_id ?? '').slice(0, 8))}</td>
+      <td class="tb-history-detail">${cell(e.detail && Object.keys(e.detail).length ? JSON.stringify(e.detail) : '')}</td>
+    </tr>`).join('')
+  host.innerHTML = notice + `
+    <p class="sub" style="margin-bottom:10px">${entries.length} entr${entries.length === 1 ? 'y' : 'ies'}.</p>
+    <table class="tb-units-table tb-history-table">
+      <thead><tr><th>When</th><th>Action</th><th>Actor</th><th>Detail</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`
 }
 
 function renderTbSiteDetails() {
