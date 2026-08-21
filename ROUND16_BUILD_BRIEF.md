@@ -393,3 +393,152 @@ every phase has an explicit sign-off. A report cannot sign off the phase
 containing it, and a phase that ships no diff is still a phase.
 
 **State in the close-out whether this round edited `CLAUDE.md`.**
+
+---
+
+## Round 16 outcome
+
+Six phases, 0 through 5, confirmed by `grep -n "^## Phase\|^### Phase"`
+returning 6 headings with no `###` sub-phases. Phases 0 through 4 each carry
+an explicit sign-off in the session transcript; Phase 5 is signed off by the
+message that commissioned this close-out, and the report containing it does
+not sign off its own phase.
+
+### THIS ROUND DID NOT EDIT `CLAUDE.md`
+
+Confirmed by `git log main..HEAD -- CLAUDE.md`, which returns nothing. The
+next session's injected copy is therefore current and needs no re-read on
+that account. Round 15 edited it three times and this round edited it none.
+
+Four findings landed in `DESIGN_PRINCIPLES.md` instead, none of which
+generalises to a standing rule: the Round 13 Phase 6 supersession, the
+half-delivered-fix shape, and the `el.focus()` keyboard-delivery finding.
+
+### Phase 1 generalised two switchers, and fixed two live faults doing it
+
+The phase was reframed by Phase 0 and the reframing is the round's most
+useful result. It was scoped as "build a sub-tab component"; investigation
+found the duplication it was about to add **already existed**. `switchOppTab`
+and `switchTbTab` were two near-identical functions, each wired to a
+hardcoded container id, each reading buttons from static HTML, neither taking
+a list of panes. Standalone would have made three, and Round 17's per-unit
+strip four.
+
+So Phase 1 collapsed them into one `createTabStrip` with three consumers,
+which is materially larger than the phase as briefed and the cheaper option.
+
+**Two ARIA faults were live on `main` and are fixes rather than prevention:**
+
+1. **Initial state was only applied on the first switch**, so a strip nobody
+   had clicked carried `role` and `aria-controls` and **no `aria-selected` at
+   all**. That was the real state of the Opportunity strip on every freshly
+   opened record: the `.active` class said one thing and assistive technology
+   was told nothing.
+2. **`aria-labelledby` was set per button while wiring**, and Test Bed's eight
+   stage tabs all control one shared panel, so the panel was labelled by
+   whichever stage tab happened to be last in the loop.
+
+Before this round the application had no `role="tablist"`, no `role="tab"`, no
+`aria-selected` and no arrow-key handling anywhere at all.
+
+### The Site Details merge reduces height at 1240 ONLY
+
+Stated plainly because the phase reads as a decluttering win and is one at
+exactly one width:
+
+| Width | Before | After |
+|---|---|---|
+| 1240 | 1536px | **1257px**, a whole grid row disappears |
+| 1920 | 1257px | **1257px**, unchanged |
+| 3440 | 876px | **876px**, unchanged |
+
+Customer Details grew from 297px to 459px, at an unchanged 420px width, by
+very nearly what the removed card freed. **At 1920 and 3440 the merge buys no
+vertical space whatever.** Anyone citing it later as a height saving should
+cite 1240 and not the other two.
+
+### Record history is deferred for the SEVENTH time, as a choice
+
+Not an oversight and not a backlog item that keeps narrowly missing the cut.
+Every round since Round 10 has had a more valuable use of its phases, and this
+round spent them on a component collapse, two relocations and a
+half-delivered fix. **A seventh deferral is itself evidence about its real
+priority relative to everything that keeps displacing it**, and the question
+worth putting to the business is whether it is genuinely wanted rather than
+when it will be scheduled.
+
+### `CURRENT_STATE.md` reconciled
+
+Regenerated at `04a19c6`. Staleness test passed before regenerating: the
+recorded SHA is an ancestor of `HEAD` and no tracked configuration source had
+changed.
+
+- **Configuration unchanged, verified against the database with every query
+  paged rather than inferred from an absent diff line**: `stage_gate_rules` 61
+  total and 45 on `test_bed`; `scoring_criteria` 5; `scoring_anchors` 15, all
+  at version 1. This round configured nothing, as scoped.
+- **Live record counts are identical, 93 before and after, on every record
+  type.** Every fixture this round created was torn down.
+- Totals rose by the fixtures and suite runs that were then soft deleted:
+  account, contact, opportunity and test_bed each +5, one per phase.
+
+### Open item 23 did not fire, and this time nothing fired at all
+
+Counted by **revisions, not new records**, per Round 15's finding that editing
+an existing record writes a revision and creates nothing.
+
+    record_revisions written this round: 27   mine 27, NOT mine 0
+    records created this round: 412           mine 412, not mine 0
+
+**The business did not touch the application during this round.** Not "used it
+before the branch code landed", as in Round 15 - no writes at all. The item
+stays open on structural grounds, since the dev server still serves the
+frontend from disk and the exposure is unchanged; it simply had no occasion to
+occur.
+
+### Teardown enumerated by owner, per Phase 2's own refinement
+
+Phase 2 found that enumerating by tag misses `document` records, because the
+tag lives in `payload.name` and documents do not carry one. Teardown now
+enumerates by `owner_id`, which every record type has. Zero live probe-owned
+records remained at Phase 5, Phase 4's teardown having already been complete.
+`reference_number_counters` stands at 974 rows, untouched by rule.
+
+### Probe defects, and where they landed
+
+Every one was in the harness rather than the product, and each was caught by a
+signal rather than by suspicion.
+
+- **Phase 4, 130 mismatches on working code.** `el.focus()` set
+  `document.activeElement` on a visible element with a 190px rect and the
+  browser delivered no keydown at all. Recorded in `DESIGN_PRINCIPLES.md` as
+  its own entry, because the visibility check that catches Round 15's
+  zero-rect version passes cleanly here.
+- **Phase 4, a dropped argument that halved the scope.** An unhide call read
+  `` `#${x} .hidden` `` with the `panelId` argument omitted, producing
+  `#undefined .hidden`; the Deal Sheet contributed 11 landing targets instead
+  of 55.
+- **Phase 4, an uncalibrated trap test.** The first version proved focus never
+  escaped a dialog over a page with no eligible fields behind it. Re-run over
+  a populated page: 18 candidates document-wide, 10 inside, **8 outside**.
+- **Phase 2, two miscounts.** Sensors counted by container children read 2
+  where the answer was 24; a customer-document add read `1 -> 1` because an
+  empty-state row was replaced by a real one.
+- **Phase 3, a defect introduced and caught inside one phase.** Removing
+  `renderTbSiteDetails` left `renderTbSensors` reachable only from its own
+  toggle, so Phase 2's pane would have rendered empty on load.
+
+### Open, carried forward
+
+Round 15's twenty-eight stand. Item 23 did not fire and stays open on
+structural grounds. Two added:
+
+29. **Sub-tab panes inherit the full content width**, so at 3440 a use case's
+    Remove control sits roughly 2900px from the text it belongs to. It matches
+    the Notes list directly beneath it, which has always been full width, so
+    it is consistent with the page rather than anomalous. Reported rather than
+    changed unasked.
+30. **One database-suite run returned 37/38 and the failure text was not
+    captured.** Four subsequent runs returned 38/38 with no `PGRST303` and no
+    assertion text in any log. Recorded as an uncharacterised transient rather
+    than presented as five green runs.

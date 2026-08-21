@@ -2185,3 +2185,43 @@ Explicitly deferred, not forgotten, not a section number of its own since this i
   that navigation was deferred. Recording the deferral is what makes it
   visible; leaving it out is what let a half-delivered fix look complete for a
   round.
+
+
+- **`el.focus()` can set `document.activeElement` and still leave the keyboard going nowhere, and the check that catches the known version of this does not catch it. Round 16 Phase 4, 2026-08-21.**
+
+  Recorded separately from Round 15 Phase 3's zero-rect finding rather than
+  folded into it, because **the diagnostic that catches that one passes
+  cleanly here.**
+
+  **The known version, Round 15 Phase 3.** `el.focus()` on an element with a
+  zero rect is a silent no-op. An arrow-key probe reported 0 of 59 fields
+  changing on unmodified code, and the tell was that the element was not
+  visible: `offsetParent` null, `getBoundingClientRect()` zero.
+
+  **The version found here passes every one of those checks.** The element was
+  visible with a 190px rect, `offsetParent` was not null, and
+  `document.activeElement === el` returned **true** immediately after the
+  `focus()` call. A probe verifying "did the focus take" by the standard
+  means got a clean yes. **And a capture-phase listener on `document` then
+  recorded no keydown at all** when the key was pressed: not a keydown that
+  was ignored, not one that reached the wrong element, none dispatched.
+
+  It reported **130 mismatches across four screens on working code**, and every
+  one of them looked exactly like the feature failing to work.
+
+  **What distinguishes the two, and it is the only reliable tell: instrument
+  the EVENT, not the focus.** Whether `activeElement` agrees says nothing
+  about whether the browser will deliver a key to it. A capture-phase
+  `keydown` listener on `document` answers the real question in one line, and
+  distinguishes "the handler ran and did nothing" from "no event ever arrived",
+  which are indistinguishable from the outcome alone.
+
+  **The fix is the same as Round 15's and worth stating as the standing
+  practice: drive keyboard tests from a REAL mouse click on the element.** A
+  click is what a person does, it establishes whatever the browser needs in
+  order to route keys, and it has now been the difference twice. Reserve
+  `focus()` for setting up state you are not about to send keys to.
+
+  Same family as Verification 12 and 13: a tool that reports nothing, a search
+  that never ran, and a key that was never delivered are the same mistake
+  wearing different clothes, and each one reads as a true negative.
