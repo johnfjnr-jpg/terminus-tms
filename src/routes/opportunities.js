@@ -1,4 +1,5 @@
 import { createUserClient } from '../supabase.js'
+import { sendWriteError, sendRefusal } from '../lib/write-errors.js'
 import { appendRecordRevision } from '../lib/record-revision.js'
 import { isValidIsoDate, isValidNonNegativeInteger, isValidNonNegativePercent, isNotPastIsoDate } from '../lib/field-validation.js'
 
@@ -342,7 +343,7 @@ export default async function opportunitiesRoutes(app) {
 
     if (revErr) {
       request.log.error({ err: revErr }, 'failed to save opportunity payload')
-      return reply.code(500).send({ error: revErr.message })
+      return sendWriteError(reply, revErr)
     }
 
     return reply.send({ record_id: record.id, revision_number: newRevision.revision_number, payload: newRevision.payload })
@@ -425,30 +426,19 @@ export default async function opportunitiesRoutes(app) {
       db, request.params.id, { closeMoves, notes: [note, ...(payload.notes ?? [])] }, request.user.id)
 
     if (revErr) {
-      // record_revisions_select is team-wide, so the earlier existence
-      // check above no longer 404s a non-owner - this insert's own RLS
-      // check (record_revisions_insert requires auth.uid() = the
-      // record's owner_id) is what actually stops them, and unlike a
-      // silent zero-row UPDATE, a rejected INSERT raises a real Postgres
-      // error (42501, insufficient_privilege) rather than returning
-      // quietly. Surfacing that as 403 rather than 500 keeps this route
-      // consistent with the other five - it's still the write's own
-      // result driving the response, not an added owner-checking SELECT.
-      if (revErr.code === '42501') {
-        return reply.code(403).send({ error: 'not permitted' })
-      }
+      // record_revisions_select is team-wide, so the existence check
+      // above no longer 404s a non-owner. This insert's own RLS check is
+      // what stops them, and sendWriteError turns that into the readable
+      // refusal. See src/lib/write-errors.js.
       request.log.error({ err: revErr }, 'failed to save close-date-move revision')
-      return reply.code(500).send({ error: revErr.message })
+      return sendWriteError(reply, revErr)
     }
 
-    // records_select/record_revisions_select are team-wide, but
-    // opportunity_details_update is still owner-only - a non-owner's
-    // update() is filtered by RLS to zero affected rows rather than
-    // erroring. In practice the record_revisions insert above already
-    // fails loudly first for a non-owner (its RLS check requires
-    // auth.uid() = owner_id too), but checking this write's own result
-    // rather than relying on that ordering is the same fix as the other
-    // five routes, and doesn't depend on nothing upstream ever changing.
+    // opportunity_details_update is owner-only, and an UPDATE is not
+    // refused loudly: RLS filters the row out, so this succeeds and
+    // affects zero rows. The insert above already fails first for a
+    // non-owner today, but checking this write's own result does not
+    // depend on that ordering holding.
     const { data: updatedDetails, error: updateErr } = await db
       .from('opportunity_details')
       .update({ forecast_close_date: date.trim() })
@@ -457,10 +447,10 @@ export default async function opportunitiesRoutes(app) {
 
     if (updateErr) {
       request.log.error({ err: updateErr }, 'failed to update forecast_close_date')
-      return reply.code(500).send({ error: updateErr.message })
+      return sendWriteError(reply, updateErr)
     }
     if (!updatedDetails?.length) {
-      return reply.code(403).send({ error: 'not permitted' })
+      return sendRefusal(reply)
     }
 
     await db.from('audit_log').insert({
@@ -537,7 +527,7 @@ export default async function opportunitiesRoutes(app) {
 
     if (insertErr) {
       request.log.error({ err: insertErr }, 'failed to link buyer contact')
-      return reply.code(500).send({ error: insertErr.message })
+      return sendWriteError(reply, insertErr)
     }
 
     await db.from('audit_log').insert({

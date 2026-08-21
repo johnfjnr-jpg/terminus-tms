@@ -1,4 +1,5 @@
 import { createUserClient } from '../supabase.js'
+import { sendWriteError } from '../lib/write-errors.js'
 
 export default async function approvalsRoutes(app) {
   // GET /api/records/:id/approvals
@@ -100,7 +101,7 @@ export default async function approvalsRoutes(app) {
         })
       }
       request.log.error({ err: insertErr }, 'failed to insert approval')
-      return reply.code(500).send({ error: insertErr.message })
+      return sendWriteError(reply, insertErr)
     }
 
     await db.from('audit_log').insert({

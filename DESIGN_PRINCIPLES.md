@@ -3462,3 +3462,188 @@ Explicitly deferred, not forgotten, not a section number of its own since this i
 
   **Operationally unchanged and still right:** a run failing only with
   `PGRST303` is not a failing suite, and both results should be reported.
+
+
+- **Live test fixtures reached the business's working set and stayed there for eleven rounds. Round 18A Phase 1, 2026-08-21.**
+
+  A Round 9 probe created a Test Bed named "21st Century Boy", owned by the
+  automation account, and never tore it down. The business adopted it as real
+  data: they linked their own contact to it as a buyer, moved it to Closed, and
+  eventually tried to edit its Summary. That failed with open item 32's message,
+  which is the only reason any of this was found.
+
+  **Twenty-six live records, five of them top-level and visible in list views.**
+  Three Accounts and two Test Beds, plus twenty children and one orphan document
+  whose parent was already deleted. No `terminus-probe.invalid` user owned a
+  single live record; the entire set belonged to `john+test@`, the account
+  interactive probes run as, which is exactly the account whose fixtures were
+  never covered by `Fixtures.teardown()` because they were created through the
+  API rather than the harness.
+
+  **What would have caught it.** Nothing did, for eleven rounds. Every round's
+  residue check asked "are there live `harness_*` rows" and "are there live
+  records owned by a probe user", and the answer to both was honestly zero the
+  whole time. **The check that was missing is the one nobody wrote: are there
+  live records owned by the interactive test account.** A residue rule phrased
+  around the harness cannot see fixtures made by a browser.
+
+  **THE DELETE THAT WOULD HAVE DESTROYED BUSINESS DATA, and the thing that
+  stopped it was asking rather than checking after.** The obvious removal is to
+  clear the join rows for the records being deleted, and the obvious filter is
+  the contact. A live business-owned contact, "joane tester", held **21
+  `record_contacts` links, of which 6 were to LIVE business-owned Test Beds as
+  Test Bed Tech Team** and only 7 were to the fixtures. `delete where contact_id
+  = joane` would have silently removed six real working links, on a table with
+  no soft delete and no history.
+
+  **The mechanism that made it safe: resolve to explicit row ids, then delete by
+  id.** Not by record, not by contact, not by any predicate. Nine rows were
+  enumerated, each checked to have at least one side inside the removal set, and
+  deleted one at a time with the affected-row count asserted. **A filter can
+  over-match; a list of ids cannot.** The surviving count was then asserted
+  directly: joane's live business links, 6 before and 6 after.
+
+  **Records soft deleted, junctions hard deleted**, per Verification 11 and the
+  harness's own convention. `record_revisions` and `audit_log` were left
+  untouched at 50 and 132 rows: the records are withdrawn, and their history is
+  not rewritten. Two reference codes retire with them and are never reissued,
+  which is what the counter table exists to guarantee.
+
+  **Live records fell from 119 to 93, the first time that number has gone down
+  in this project.**
+
+
+- **A residue check phrased around one production mechanism cannot see residue made by another. Round 18A Phase 1, 2026-08-21.**
+
+  Eighteen rounds of residue reports were true and none of them looked at the
+  place the residue was.
+
+  **What the standing check asks.** Are there live `harness_*` rows? Are there
+  live records owned by a `terminus-probe.invalid` user? Both were honestly and
+  correctly zero, every round, including the rounds in which twenty-six live
+  fixture records sat in the business's Test Bed list.
+
+  **Why it missed.** Those two questions are shaped around one producer,
+  `scripts/verify-harness.mjs`, which mints a synthetic `record_type` per run
+  and owns its records as a probe user. **A browser session driven by an
+  interactive test account produces neither.** It signs in as
+  `john+test@terminustechnologies.io` and calls the real API, so what it leaves
+  behind is an ordinary `test_bed` with an ordinary reference code, owned by an
+  account that is not a probe user and is not the business either. It is
+  indistinguishable from real data by every property the check tests.
+
+  **The general form, which is the reason to record this rather than just add a
+  query:** a residue check inherits the shape of the mechanism it was written
+  against. Every new way of creating data is a new way of leaving it behind, and
+  the existing check will keep reporting zero, truthfully, about the mechanism
+  it knows. **The question to ask is not "is the harness clean" but "is anything
+  live that no person owns".**
+
+  **The check that was missing, now added to the standing step:** live records
+  owned by any account that is not a real business account, not only harness
+  record types and not only probe users.
+
+  Same family as build discipline rule 8, which says to enumerate everything the
+  responsible actor writes rather than what the failing assertion names. This is
+  that rule applied to actors instead of tables: enumerate every actor that can
+  write, not only the one the check was built for.
+
+- **The same permission failure takes two shapes and only one of them is
+  loud. Round 18A Phase 2, 2026-08-21.** The reported defect was an INSERT:
+  `record_revisions_insert` requires `auth.uid() = owner_id`, and a refused
+  INSERT raises `42501` with a Postgres message the route passed through as
+  a 500. Mapping `42501` to a readable 403 fixes that shape and only that
+  shape. An UPDATE refused by the same ownership rule **raises nothing at
+  all**: RLS filters the row out of the statement's scope, so the update
+  succeeds against zero rows and returns no error. Nine routes had already
+  detected the zero-row case independently and replied `403 "not
+  permitted"`, which is why the second shape never looked like a defect and
+  never got a message worth reading either.
+
+  Both shapes now route through `sendWriteError` and `sendRefusal` in
+  `src/lib/write-errors.js` and produce one sentence: "This record belongs
+  to another user. You can view it, but only its owner can change it."
+  **The general form: a single rule enforced at two layers can surface as
+  an error on one and as silence on the other, and a fix derived from the
+  reported instance will cover whichever layer happened to be reported.**
+  Searching for the error code finds the loud shape and cannot find the
+  quiet one, because the quiet one has no code to search for. The quiet
+  shape was found by asking what the same RLS policy does to a different
+  verb, not by extending the search.
+
+- **A helper that both hides the site and is the site defeats a
+  call-site heuristic, and the heuristic reports a smaller number rather
+  than an error. Round 18A Phase 2, 2026-08-21.** Phase 0 counted 45
+  write-error sites by pattern-matching. Asked to re-derive rather than
+  inherit that figure, the first analyser was calibrated against the three
+  handlers already known to exist and **found one of them.** Two returned
+  their refusal through `appendPayloadSeriesEntry` rather than replying
+  directly, so the reply-shaped pattern could not see them.
+
+  The cause was not the pattern but the walk: a two-pass design resolved
+  each variable to its **final** state and applied that to every site,
+  so a variable reused down a file mislabelled its own earlier uses. A
+  single pass tracking state as it walks found 3 of 3, and then reported
+  **52 sites, a different set from the 45**, not merely more of them.
+  **Calibration is what separated the two runs**, and the calibration was
+  available for free because the three handlers already existed. Same
+  family as Verification 13: an instrument that has never been shown
+  producing the answer you are looking for is not measuring, and a
+  count is exactly the kind of output that looks reasonable while being
+  wrong.
+
+- **Ask what the same policy does to a different verb. Round 18A Phase 2,
+  2026-08-21.** A general form for a class of defect that build discipline
+  rule 8 states too narrowly for this case. Rule 8 says fix the class, not
+  the instance the failure named, and it is written around an actor leaving
+  residue: enumerate everything the actor writes. That framing pointed at
+  the wrong axis here.
+
+  The reported defect was one route surfacing `42501` as a 500. The obvious
+  class is **every site that handles this error**, and sweeping for it
+  produced 52 sites and a real fix. But the actual class is **every way this
+  policy manifests**, and the two are not the same set. `records_update` and
+  `record_revisions_insert` are the same ownership rule enforced at two
+  layers. Refused on an INSERT it raises `42501`. Refused on an UPDATE it
+  raises **nothing at all**: RLS filters the row out of the statement's
+  scope, so the update succeeds against zero rows and returns no error.
+
+  **A search for the error code cannot reach a silent zero-row success.**
+  There is no code to search for, no log line, no failure. Nine routes had
+  independently detected the zero-row case and replied `403 "not
+  permitted"`, which means nine separate authors had each met this and
+  handled it locally **without anyone noticing they were all handling the
+  same policy** as the defect being reported. Nine independent local fixes
+  to one thing is itself the signal, and it was sitting in the codebase in
+  plain sight the whole time.
+
+  **The question that reaches it: take the rule, not the error, and ask
+  what it does to each verb it governs.** Insert, update, delete, and the
+  RPC path. One of those answers is usually "nothing visible happens",
+  and that is the branch no error-shaped search will ever return.
+
+- **A suite that authenticates with a credential which bypasses the rule
+  cannot see the rule, correct or broken. Round 18A Phase 3, 2026-08-21.**
+  Every database-backed test in this project ran through `adminClient()`,
+  which holds the service key. Row-level security is not consulted for that
+  client at all. So the suite reported green roughly fifty times across two
+  rounds while a business user could not save a Summary, and **there was no
+  version of those tests that could have caught it**, because none of them
+  ever met a policy.
+
+  This is not a missing assertion. It is a missing actor. Adding ownership
+  assertions to the existing files would have changed nothing: they would
+  have been asserted by a client for which the answer is always yes.
+  `scripts/tests/ownership.test.mjs` is the first thing here that signs in
+  as a person, via `userClient()`, and it needed two of them, because one
+  user cannot demonstrate a boundary.
+
+  **The demonstration is injection B in that phase's calibration.** Swapping
+  the non-owner's client back to the service key, which is exactly the state
+  the suite was in for two rounds, turns four of the nine tests red. The
+  measurement of what the old suite was blind to is the new suite failing
+  when put back into the old suite's position.
+
+  **General form: ask which credential the tests hold, and what that
+  credential is exempt from.** Anything it is exempt from is invisible, and
+  it will be invisible in a way that produces passes rather than errors.

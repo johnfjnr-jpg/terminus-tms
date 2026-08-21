@@ -1,4 +1,5 @@
 import { createUserClient } from '../supabase.js'
+import { sendWriteError, sendRefusal } from '../lib/write-errors.js'
 import { appendRecordRevision } from '../lib/record-revision.js'
 import { issueAccountNumber } from '../lib/reference-number.js'
 import { countryToCode } from '../lib/country-code.js'
@@ -203,7 +204,7 @@ export default async function accountsRoutes(app) {
 
     if (recordErr) {
       request.log.error({ err: recordErr }, 'failed to insert account')
-      return reply.code(500).send({ error: recordErr.message })
+      return sendWriteError(reply, recordErr)
     }
 
     const payload = {
@@ -225,7 +226,7 @@ export default async function accountsRoutes(app) {
 
     if (revErr) {
       request.log.error({ err: revErr }, 'failed to insert account revision')
-      return reply.code(500).send({ error: revErr.message })
+      return sendWriteError(reply, revErr)
     }
 
     await db.from('audit_log').insert({
@@ -377,8 +378,8 @@ export default async function accountsRoutes(app) {
         .update({ industry_id })
         .eq('id', record.id)
         .select('id')
-      if (updateErr) return reply.code(500).send({ error: updateErr.message })
-      if (!updated?.length) return reply.code(403).send({ error: 'not permitted' })
+      if (updateErr) return sendWriteError(reply, updateErr)
+      if (!updated?.length) return sendRefusal(reply)
     }
 
     if (parent_account_id !== undefined) {
@@ -390,8 +391,8 @@ export default async function accountsRoutes(app) {
         .update({ parent_account_id })
         .eq('id', record.id)
         .select('id')
-      if (updateErr) return reply.code(500).send({ error: updateErr.message })
-      if (!updated?.length) return reply.code(403).send({ error: 'not permitted' })
+      if (updateErr) return sendWriteError(reply, updateErr)
+      if (!updated?.length) return sendRefusal(reply)
     }
 
     if (payload) {
@@ -442,7 +443,7 @@ export default async function accountsRoutes(app) {
       // merge against data that may have moved since.
       const { error: revErr } = await appendRecordRevision(db, record.id, payload, request.user.id)
 
-      if (revErr) return reply.code(500).send({ error: revErr.message })
+      if (revErr) return sendWriteError(reply, revErr)
 
       if (reference_code) {
         const { error: refErr } = await db.from('records').update({ reference_code }).eq('id', record.id)

@@ -1,4 +1,5 @@
 import { createUserClient } from '../supabase.js'
+import { sendWriteError, writeErrorStatus, sendRefusal } from '../lib/write-errors.js'
 import { appendRecordRevision } from '../lib/record-revision.js'
 import { issueReferenceNumber } from '../lib/reference-number.js'
 import { isValidIsoDate, isNotPastIsoDate, isValidNonNegativeInteger, isValidNonNegativePercent, isValidIsoTimestamp, isValidLatitude, isValidLongitude } from '../lib/field-validation.js'
@@ -271,7 +272,7 @@ export default async function testBedsRoutes(app) {
 
     if (recordErr) {
       request.log.error({ err: recordErr }, 'failed to insert test bed')
-      return reply.code(500).send({ error: recordErr.message })
+      return sendWriteError(reply, recordErr)
     }
 
     const { error: revErr } = await db
@@ -290,7 +291,7 @@ export default async function testBedsRoutes(app) {
 
     if (revErr) {
       request.log.error({ err: revErr }, 'failed to insert test bed revision')
-      return reply.code(500).send({ error: revErr.message })
+      return sendWriteError(reply, revErr)
     }
 
     await db.from('audit_log').insert({
@@ -747,7 +748,7 @@ export default async function testBedsRoutes(app) {
           const { error: delErr } = await db.from('records')
             .update({ deleted_at: new Date().toISOString() })
             .in('id', surplus.map(u => u.id))
-          if (delErr) return reply.code(500).send({ error: delErr.message })
+          if (delErr) return sendWriteError(reply, delErr)
         }
         // RAISING A COUNT RECONCILES ITS SLOTS TOO, decided in Round 17A
         // Phase 3 rather than left to fall out. It previously did nothing,
@@ -783,7 +784,7 @@ export default async function testBedsRoutes(app) {
             corrections: locked.map(l => ({ type: l.type, from: l.have.length, to: l.want })),
           },
         })
-        if (auditErr) return reply.code(500).send({ error: auditErr.message })
+        if (auditErr) return sendWriteError(reply, auditErr)
       }
     }
 
@@ -797,8 +798,8 @@ export default async function testBedsRoutes(app) {
         .update({ industry_id })
         .eq('id', record.id)
         .select('id')
-      if (updateErr) return reply.code(500).send({ error: updateErr.message })
-      if (!updated?.length) return reply.code(403).send({ error: 'not permitted' })
+      if (updateErr) return sendWriteError(reply, updateErr)
+      if (!updated?.length) return sendRefusal(reply)
     }
 
     if (payload) {
@@ -904,7 +905,7 @@ export default async function testBedsRoutes(app) {
         { ...payload, accumulated_cost: costBreakdown.totalCost, indicativeCost: costBreakdown.totalCost },
         request.user.id, removeKeys)
 
-      if (revErr) return reply.code(500).send({ error: revErr.message })
+      if (revErr) return sendWriteError(reply, revErr)
 
       // AFTER the write, and from the payload the write actually stored
       // rather than from the merged view computed before it. Deriving from
@@ -1286,8 +1287,8 @@ export default async function testBedsRoutes(app) {
           .update({ status })
           .eq('id', existing.id)
           .select('id')
-        if (updateErr) return reply.code(500).send({ error: updateErr.message })
-        if (!updated?.length) return reply.code(403).send({ error: 'not permitted' })
+        if (updateErr) return sendWriteError(reply, updateErr)
+        if (!updated?.length) return sendRefusal(reply)
       }
       docId = existing.id
     } else {
@@ -1306,7 +1307,7 @@ export default async function testBedsRoutes(app) {
 
       if (error) {
         request.log.error({ err: error }, 'failed to create document record')
-        return reply.code(500).send({ error: error.message })
+        return sendWriteError(reply, error)
       }
       docId = docRecord.id
     }
@@ -1324,7 +1325,7 @@ export default async function testBedsRoutes(app) {
       )
       if (locErr) {
         request.log.error({ err: locErr }, 'failed to store document location')
-        return reply.code(500).send({ error: locErr.message })
+        return sendWriteError(reply, locErr)
       }
     }
 
@@ -1466,7 +1467,7 @@ export default async function testBedsRoutes(app) {
 
     if (oppErr) {
       request.log.error({ err: oppErr }, 'failed to create opportunity from test bed')
-      return reply.code(500).send({ error: oppErr.message })
+      return sendWriteError(reply, oppErr)
     }
 
     const { error: revErr } = await db
@@ -1487,7 +1488,7 @@ export default async function testBedsRoutes(app) {
         created_by: request.user.id
       })
 
-    if (revErr) return reply.code(500).send({ error: revErr.message })
+    if (revErr) return sendWriteError(reply, revErr)
 
     const { error: detErr } = await db
       .from('opportunity_details')
@@ -1498,7 +1499,7 @@ export default async function testBedsRoutes(app) {
         test_bed_cost: bedPayload.accumulated_cost ?? null
       })
 
-    if (detErr) return reply.code(500).send({ error: detErr.message })
+    if (detErr) return sendWriteError(reply, detErr)
 
     await db.from('audit_log').insert([
       {
@@ -1575,8 +1576,7 @@ export default async function testBedsRoutes(app) {
     const { error: revErr } = await appendRecordRevision(
       db, recordId, { [key]: [...existing, entry] }, actorId)
     if (revErr) {
-      if (revErr.code === '42501') return { status: 403, error: 'not permitted' }
-      return { status: 500, error: revErr.message }
+      return writeErrorStatus(revErr)
     }
     return { ok: true, entries: existing.length + 1, existingCount: existing.length }
   }
@@ -1782,9 +1782,8 @@ export default async function testBedsRoutes(app) {
     const { error: revErr } = await appendRecordRevision(
       db, record.id, { [crit.criterion_key]: [...existing, entry] }, request.user.id)
     if (revErr) {
-      if (revErr.code === '42501') return reply.code(403).send({ error: 'not permitted' })
       request.log.error({ err: revErr }, 'failed to save score revision')
-      return reply.code(500).send({ error: revErr.message })
+      return sendWriteError(reply, revErr)
     }
 
     await db.from('audit_log').insert({
@@ -1904,11 +1903,11 @@ export default async function testBedsRoutes(app) {
       if (key in body) unitPatch[key] = body[key]
     }
     const { error: insErr } = await appendRecordRevision(db, unit.id, unitPatch, request.user.id)
-    if (insErr) return reply.code(500).send({ error: insErr.message })
+    if (insErr) return sendWriteError(reply, insErr)
 
     if ('state' in body && body.state !== unit.status) {
       const { error: stErr } = await db.from('records').update({ status: body.state }).eq('id', unit.id)
-      if (stErr) return reply.code(500).send({ error: stErr.message })
+      if (stErr) return sendWriteError(reply, stErr)
     }
     const { units, error: reErr } = await loadUnits(db, request.params.id)
     if (reErr) return reply.code(500).send({ error: reErr.message })
@@ -1995,7 +1994,7 @@ export default async function testBedsRoutes(app) {
       .single()
     if (insErr) {
       request.log.error({ err: insErr }, 'failed to create customer document')
-      return reply.code(500).send({ error: insErr.message })
+      return sendWriteError(reply, insErr)
     }
 
     const { error: locErr } = await db.from('document_details')
@@ -2005,7 +2004,7 @@ export default async function testBedsRoutes(app) {
     // is the entire point of the record.
     if (locErr) {
       request.log.error({ err: locErr }, 'failed to store customer document location')
-      return reply.code(500).send({ error: locErr.message })
+      return sendWriteError(reply, locErr)
     }
 
     await db.from('audit_log').insert({
@@ -2029,7 +2028,7 @@ export default async function testBedsRoutes(app) {
       .eq('record_type', 'document')
       .eq('document_kind', 'customer')
       .select('id')
-    if (error) return reply.code(500).send({ error: error.message })
+    if (error) return sendWriteError(reply, error)
     if (!updated?.length) return reply.code(404).send({ error: 'customer document not found' })
 
     await db.from('audit_log').insert({
@@ -2095,7 +2094,7 @@ export default async function testBedsRoutes(app) {
           // strength of that null error while the link was still there.
           const { data: deleted, error: delErr } = await db
             .from('record_contacts').delete().eq('id', link.id).select('id')
-          if (delErr) return reply.code(500).send({ error: delErr.message })
+          if (delErr) return sendWriteError(reply, delErr)
           if (!deleted?.length) return reply.code(403).send({ error: 'not permitted to clear the existing Test Bed Tech Team' })
           clearedTechTeam = link.contact_id
         }
@@ -2108,8 +2107,8 @@ export default async function testBedsRoutes(app) {
     const { data: updated, error: updErr } = await db
       .from('records').update({ installer_account_id: installer_account_id ?? null })
       .eq('id', bed.id).select('id, installer_account_id')
-    if (updErr) return reply.code(500).send({ error: updErr.message })
-    if (!updated?.length) return reply.code(403).send({ error: 'not permitted' })
+    if (updErr) return sendWriteError(reply, updErr)
+    if (!updated?.length) return sendRefusal(reply)
 
     await db.from('audit_log').insert({
       record_id: bed.id, record_type: 'test_bed', action: 'installer_set',
@@ -2175,7 +2174,7 @@ export default async function testBedsRoutes(app) {
     if (existingLinks.length) {
       const { data: deleted, error: delErr } = await db.from('record_contacts')
         .delete().eq('record_id', bed.id).eq('role', 'Test Bed Tech Team').select('id')
-      if (delErr) return reply.code(500).send({ error: delErr.message })
+      if (delErr) return sendWriteError(reply, delErr)
       if (deleted.length !== existingLinks.length) {
         return reply.code(403).send({ error: 'not permitted to replace the existing Test Bed Tech Team' })
       }
@@ -2183,7 +2182,7 @@ export default async function testBedsRoutes(app) {
 
     const { error: insErr } = await db.from('record_contacts')
       .insert({ record_id: bed.id, contact_id, role: 'Test Bed Tech Team', created_by: request.user.id })
-    if (insErr) return reply.code(500).send({ error: insErr.message })
+    if (insErr) return sendWriteError(reply, insErr)
 
     await db.from('audit_log').insert({
       record_id: bed.id, record_type: 'test_bed', action: 'tech_team_linked',
@@ -2241,7 +2240,7 @@ export default async function testBedsRoutes(app) {
 
     if (insertErr) {
       request.log.error({ err: insertErr }, 'failed to link buyer contact')
-      return reply.code(500).send({ error: insertErr.message })
+      return sendWriteError(reply, insertErr)
     }
 
     await db.from('audit_log').insert({

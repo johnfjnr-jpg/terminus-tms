@@ -1,4 +1,5 @@
 import { createUserClient } from '../supabase.js'
+import { sendWriteError } from '../lib/write-errors.js'
 import { computeBlocking, approvalSatisfiesRule , GATE_RECORD_SELECT } from './transitions.js'
 
 /**
@@ -59,7 +60,7 @@ export default async function recordsRoutes(app) {
 
     if (recordErr) {
       request.log.error({ err: recordErr }, 'failed to insert record')
-      return reply.code(500).send({ error: recordErr.message })
+      return sendWriteError(reply, recordErr)
     }
 
     const { error: revErr } = await db
@@ -68,7 +69,7 @@ export default async function recordsRoutes(app) {
 
     if (revErr) {
       request.log.error({ err: revErr }, 'failed to insert record_revision')
-      return reply.code(500).send({ error: revErr.message })
+      return sendWriteError(reply, revErr)
     }
 
     await db.from('audit_log').insert({
