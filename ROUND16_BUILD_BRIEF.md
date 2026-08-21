@@ -369,7 +369,7 @@ sharpened in Round 15, which found four live records four phases old that
 every per-phase teardown had reported clean.
 
 Report whether the business exercised unmerged branch code mid-round, per
-open item 23. **Count revisions, not new records** — Round 15 established
+open item 23. **Count revisions, not new records.** Round 15 established
 that editing an existing record writes a revision and creates nothing, and
 a record count would have reported clean for the wrong reason.
 
@@ -490,11 +490,24 @@ an existing record writes a revision and creates nothing.
     record_revisions written this round: 27   mine 27, NOT mine 0
     records created this round: 412           mine 412, not mine 0
 
-**The business did not touch the application during this round.** Not "used it
-before the branch code landed", as in Round 15 - no writes at all. The item
-stays open on structural grounds, since the dev server still serves the
-frontend from disk and the exposure is unchanged; it simply had no occasion to
-occur.
+**The business did not touch the application during this round.** No writes at
+all.
+
+**THE ITEM STAYS OPEN AT FULL STRENGTH, and the two rounds establish different
+things.** Round 15 established that the business used the app and stopped
+before the branch code reached disk, so they exercised `main`. **This round
+establishes only that they were absent.** Absence is not evidence about the
+exposure; it is evidence about their week.
+
+**Two rounds of non-occurrence do not reduce a structural exposure.** The dev
+server serves the frontend from disk, so whenever they open the app mid-round
+they get whatever branch is checked out, unreviewed and unmerged. Nothing
+about that has changed, nothing in either round tested it, and the risk is
+identical to the day it was first recorded. **Do not read a run of quiet
+rounds as the item decaying**, which is the specific way a structural item
+gets quietly downgraded: each round reports "did not fire", the phrase
+accumulates, and the exposure is eventually treated as theoretical because
+nothing has gone wrong yet.
 
 ### Teardown enumerated by owner, per Phase 2's own refinement
 
