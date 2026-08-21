@@ -3147,3 +3147,11 @@ input.input-invalid {
 .tb-count-correct select { width: 180px; }
 .tb-count-correct #tb-cc-count { width: 110px; }
 .tb-count-correct #tb-cc-reason { flex: 1; min-width: 240px; }
+
+/* Locked count notice (Round 17 Phase 4). Deliberately carries no control
+   affordance: no border-bottom, no input chrome, nothing that reads as
+   editable. The number stays prominent because it is still the figure the
+   cost engine uses. */
+.tb-count-locked-value { display: block; padding: 8px 0; }
+.tb-count-locked-number { font-size: 14px; color: var(--white); }
+.tb-count-locked-note { display: block; font-size: 12px; color: var(--muted); margin-top: 3px; }

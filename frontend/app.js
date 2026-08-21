@@ -2477,6 +2477,11 @@ async function loadTestBedDetail(id) {
     return
   }
   currentTestBed = result.data
+  // Round 17 Phase 4: unit counts are loaded once per detail load and used by
+  // both tabs, Commercials to know which counts are locked and the units view
+  // to render them. A READ, deliberately: the derive control is the only
+  // thing that writes.
+  if (typeof window.loadTbUnitCounts === 'function') await window.loadTbUnitCounts(id)
   await renderTestBedDetail(currentTestBed)
 }
 

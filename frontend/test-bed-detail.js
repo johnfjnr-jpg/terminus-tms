@@ -737,9 +737,66 @@ window.setTbTechTeam = async function (contactId) {
 // TB_SENSOR_COUNT_FIELDS is already folded into TB_ALL_EDITABLE_FIELDS
 // so wireTbFieldInputs() wires these for free, no separate wiring
 // needed.
+// Round 17 Phase 4. Populated by one GET per detail load, in app.js, and read
+// by both tabs. Never written from here.
+let tbUnitCounts = {}
+window.loadTbUnitCounts = async function (id) {
+  const result = await api('GET', `/api/test-beds/${id}/units`)
+  tbUnitCounts = {}
+  if (!result.ok) return
+  for (const u of result.data ?? []) tbUnitCounts[u.type] = (tbUnitCounts[u.type] ?? 0) + 1
+}
+
+const COUNT_KEY_TO_UNIT_TYPE = {
+  safesightCameras: 'SafeSight',
+  airQualitySensors: 'Air Quality',
+  hemirSensors: 'HEMIR',
+}
+
+// The locked count field is REPLACED by a line, not left present and inert.
+//
+// This is the fourth time this project has argued the same thing: Round 11
+// Phase 5's Tech Team dropdown that could not be used until an Installer was
+// set, Round 12 Phase 3's read-only scores card, Round 14 Phase 4's removed
+// "Created. View it", and this. A control that is visible and refuses is a
+// dead end the user keeps trying; a line naming what to do is a route.
+//
+// AND IT IS NOT A DEAD END HERE, which is the part worth getting right. Phase
+// 3 built a real way through, so the line names it: the count is locked, this
+// is why, and the correction lives on the Installation and Commissioning tab
+// with the units it is about. A notice that said only "locked" would be the
+// dead end this pattern exists to avoid.
+//
+// Nothing in it is operable: no input, no button, no handler, no tabindex.
+// Asserted structurally rather than by eye, because "looks read-only" and "is
+// read-only" are different claims.
+//
+// The wording is deliberately tight. The first version repeated the unit type
+// and added "where the units are", and in a 420px card that wrapped to six
+// lines and made each row three times its normal height, so three locked
+// counts turned a 130px card into 480px. The row label already names the
+// type, so the notice does not: it carries the number, the reason and the
+// destination, and nothing else. Every check passed on the long version;
+// only the screenshot showed it.
+function tbLockedCountRow(f, deployed) {
+  return `
+    <div class="ref-field tb-count-locked">
+      <span class="ref-field-label">${escHtml(f.label)}</span>
+      <span class="tb-count-locked-value">
+        <span class="tb-count-locked-number">${escHtml(String(tbPayload[f.key] ?? ''))}</span>
+        <span class="tb-count-locked-note">Locked: ${deployed} unit${deployed === 1 ? '' : 's'} exist. Correct it on the Installation and Commissioning tab.</span>
+      </span>
+    </div>`
+}
+
 function renderTbSensorCounts() {
   document.getElementById('tb-sensor-count-rows').innerHTML =
-    TB_SENSOR_COUNT_FIELDS.map(f => tbFieldRow(f.key, f.label, tbPayload[f.key], { number: f.number, integer: f.integer })).join('')
+    TB_SENSOR_COUNT_FIELDS.map(f => {
+      const deployed = tbUnitCounts[COUNT_KEY_TO_UNIT_TYPE[f.key]] ?? 0
+      return deployed
+        ? tbLockedCountRow(f, deployed)
+        : tbFieldRow(f.key, f.label, tbPayload[f.key], { number: f.number, integer: f.integer })
+    }).join('')
 }
 
 // Round 17 Phase 2 (2026-08-21): tbSensorList, renderTbSensors,
