@@ -987,22 +987,62 @@ function positionTbChevronPopup(item, popup, wrap) {
   popup.style.left = `${Math.max(0, Math.min(centred, Math.max(0, maxLeft)))}px`
 }
 
+// Round 18 Phase 1: WHICH RECORD is read at hover time, from the element,
+// rather than captured when the listener was created.
+//
+// Two faults with one cause, both present since Round 7 Phase 9 built this
+// (1918f03) and neither touched since:
+//
+//  1. `tb-chevron-wrap` is STATIC markup in index.html, so `dataset.wired`
+//     survives every navigation. The early return meant that on the second
+//     and every later Test Bed opened in a page session, this function did
+//     nothing and the listener kept the FIRST record's id in its closure.
+//  2. The popup cached what it was showing by stage NAME alone, so hovering
+//     the same stage name on a different record counted as "already showing
+//     this" and issued no request at all, leaving the previous record's
+//     answer on screen.
+//
+// Either alone still gives a wrong answer on a second record, so the fix is
+// record identity rather than two patches: the id lives on the element and is
+// read when the pointer rests, and the cache key is record plus stage.
+//
+// WHY IT SURVIVED FOUR ROUNDS: it is correct for the first record opened in a
+// page session, and every test opens one record and hovers.
+//
+// The listeners are still attached exactly once. That part was right, and the
+// wrap being static is precisely why attaching per record would accumulate
+// them.
 function wireTbChevronHover(recordId) {
   const wrap = document.getElementById('tb-chevron-wrap')
   const popup = document.getElementById('tb-chevron-popup')
-  if (!wrap || !popup || wrap.dataset.wired === '1') return
+  if (!wrap || !popup) return
+
+  // Updated on EVERY load, before the wiring guard below.
+  wrap.dataset.recordId = recordId
+  // A popup still open from the previous record describes a record the user
+  // has left. Drop it and its cache key rather than letting a stale answer
+  // survive the switch.
+  hideTbChevronPopup()
+  popup.dataset.key = ''
+
+  if (wrap.dataset.wired === '1') return
   wrap.dataset.wired = '1'
 
   wrap.addEventListener('mouseover', (e) => {
     const item = e.target.closest('.chevron-item[data-stage]')
     if (!item) return
     const stage = item.dataset.stage
-    if (popup.dataset.stage === stage && !popup.classList.contains('hidden')) return
+    // Read now, not closed over. This is the line that makes the handler
+    // belong to whichever record is on screen.
+    const currentId = wrap.dataset.recordId
+    if (!currentId) return
+    const key = `${currentId}::${stage}`
+    if (popup.dataset.key === key && !popup.classList.contains('hidden')) return
 
     clearTimeout(tbChevronHoverTimer)
     tbChevronHoverTimer = setTimeout(async () => {
       const myToken = ++tbChevronLoadToken
-      const result = await api('GET', `/api/records/${recordId}/exit-criteria?stage=${encodeURIComponent(stage)}`)
+      const result = await api('GET', `/api/records/${currentId}/exit-criteria?stage=${encodeURIComponent(stage)}`)
       // A newer hover has started, or the pointer has left. Drop this one.
       if (myToken !== tbChevronLoadToken) return
 
@@ -1014,7 +1054,7 @@ function wireTbChevronHover(recordId) {
           ? blocking.map(b => `<div class="linked-record-row">${escHtml(b.message)}</div>`).join('')
           : '<div class="linked-record-row">Nothing outstanding.</div>')
       }
-      popup.dataset.stage = stage
+      popup.dataset.key = key
       positionTbChevronPopup(item, popup, wrap)
     }, TB_CHEVRON_HOVER_DELAY_MS)
   })
