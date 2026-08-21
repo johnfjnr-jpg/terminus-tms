@@ -1123,20 +1123,15 @@
             </div>
             <p id="tb-custdocs-feedback" class="tb-doc-feedback"></p>
           </div>
-          <!-- Round 10 Phase 8 (2026-08-19): Sensors became a toggle, and
-               each sensor renders as its own panel rather than a flat list
-               row. Contents are deliberately minimal - identity, and the
-               existing "not yet linked to a real device" state. No field is
-               invented here: there is no per-sensor data in this system to
-               show. See DESIGN_PRINCIPLES for why this is the visible
-               surface of a real gap rather than a layout change. -->
-          <div id="tb-sensors-block">
-            <div class="tb-sensors-head">
-              <p class="label" style="margin:0">Sensors</p>
-              <button class="btn-text" id="tb-sensors-toggle" type="button"></button>
-            </div>
-            <div id="tb-sensors-list"></div>
-          </div>
+          <!-- Round 17 Phase 2 (2026-08-21): the Sensors pane is REMOVED.
+               It listed strings built by tbSensorList from the three counts
+               plus a loop index ("SafeSight Camera 1", "SafeSight Camera 2"),
+               with a standing "not yet linked to a device" note. Real unit
+               records now exist on the Installation and Commissioning tab,
+               each with a serial, coordinates and a state. Every string this
+               produced would be a worse version of a real record, so the pane
+               is redundant rather than complementary, and leaving it would be
+               two places showing one concept differently. -->
       </div>
 
       <!-- Round 10A Phase 1 (2026-08-19): the Summary block that stood here
@@ -1346,6 +1341,24 @@
         <div id="tb-installer-row"></div>
         <div id="tb-techteam-row"></div>
         <p id="tb-installer-feedback" class="tb-doc-feedback"></p>
+        <!-- Round 17 Phase 2 (2026-08-21): the per-unit view.
+
+             INSIDE #tb-stage-install-section deliberately, per Phase 0 item 6.
+             That section is toggled by a pure visibility switch rather than a
+             re-render, which Round 6 Phase 3 built that way on purpose so
+             switching stage tabs and back cannot lose an in-progress edit.
+             Units inherit that property for free.
+
+             Three sub-tabs BY TYPE, not one per unit. The component accepts
+             any number of panes, and one per unit was refused: 24 tabs wrap
+             to three rows of 10px subordinate labels, and reaching the last
+             unit costs 23 arrow presses where a list costs one scroll. The
+             variable count belongs in a list inside a pane. -->
+        <div style="margin-top:24px">
+          <p class="label" style="margin-bottom:8px">Units</p>
+          <p class="sub" id="tb-units-sub" style="margin-bottom:12px"></p>
+          <div id="tb-units"></div>
+        </div>
         <div style="margin-top:16px">
           <p class="label" style="margin-bottom:8px">Install Notes</p>
           <div id="tb-install-notes-list"></div>

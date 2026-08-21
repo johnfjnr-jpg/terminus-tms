@@ -2818,7 +2818,12 @@ async function loadTbStageDetailTab(stageName) {
   // switching to a different stage tab and back can never silently lose
   // an in-progress edit here the way tearing down and rebuilding the
   // fields on every switch would.
-  document.getElementById('tb-stage-install-section').classList.toggle('hidden', stageName !== 'Installation and Commissioning')
+  const isInstall = stageName === 'Installation and Commissioning'
+  document.getElementById('tb-stage-install-section').classList.toggle('hidden', !isInstall)
+  // Round 17 Phase 2: units render only for the stage that owns them, and
+  // only once that section is visible. Deriving against a hidden section
+  // would create records for a tab nobody opened.
+  if (isInstall && typeof window.renderTbUnits === 'function') window.renderTbUnits()
 
   // Round 10 Phase 5A step 1 (2026-08-19): the three fetches run CONCURRENTLY.
   //
