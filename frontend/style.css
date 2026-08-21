@@ -3207,3 +3207,20 @@ input.input-invalid {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* Round 18 Phase 5: the stage a note was written at, shown as a small chip
+   before the note's text. Absent entirely on notes written before this
+   existed, rather than shown empty: a placeholder would imply the stage is
+   missing when in fact it was never recorded. */
+.ref-notes-stage {
+  display: inline-block;
+  margin-right: 8px;
+  padding: 0 6px;
+  border: 1px solid var(--hairline-strong);
+  border-radius: 3px;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  vertical-align: 1px;
+}

@@ -3319,3 +3319,62 @@ Explicitly deferred, not forgotten, not a section number of its own since this i
   reads as a peer of Use Cases, but it is five times the height of anything
   else in that strip. That is tolerable now and will not be once grouping
   makes it useful enough to open often.
+
+
+- **Notes carry the stage they were written at, and nothing migrates. Round 18 Phase 5, 2026-08-21.**
+
+  Notes were thin because they lacked context, not because there were too few
+  of them. A note written while scoring already had its context, captured as
+  the Reason on the score. A note written while advancing a stage had none.
+
+  **NOTHING MIGRATES, and that is the decision rather than the easy path.**
+  Every note written before this change has no stage and **did not have one
+  when it was written**. Deriving one from the record's current status would be
+  a claim about a decision nobody made: the record is at Closed today and the
+  note was written months ago at Qualification, and stamping today's status
+  onto it would be a fabrication dressed as data. **Round 14 Phase 1 made the
+  same call about comments and reasons**, leaving historical entries carrying
+  what they carried, and the reasoning holds unchanged.
+
+  **The key is omitted, not emptied.** An empty string is a claim that the note
+  was written at a stage called "", and the renderer would then have to tell
+  that apart from a note that genuinely predates this. Absent means absent, and
+  an older note therefore gets **no chip and no placeholder**: a dash or an
+  "unknown" label would imply something is missing when nothing is. Confirmed
+  by measurement, row heights identical at 37px with and without a chip.
+
+  **TWO DECISIONS STATED RATHER THAN DISCOVERED, both reported before building.**
+
+  **One: the same-key lost update is OUT OF SCOPE, and the real fix is not what
+  it looks like.** `addTbNote` rebuilds the whole `notes` array from a value
+  read at page load, so two notes added concurrently resolve last-writer-wins
+  and one disappears. That is Round 17A Phase 2's explicitly open same-key case
+  sitting on this very write.
+
+  It is not fixed here, and the reason matters: **the obvious fix does not
+  work.** Moving the append server-side, the shape `appendPayloadSeriesEntry`
+  already uses for scores, still reads the array and writes it back in
+  JavaScript, so two concurrent calls still lose one. A real fix appends inside
+  the SQL statement, which means teaching `append_record_revision` a
+  jsonb-array-append operation, which changes the single atomic writer that ten
+  call sites depend on. **That is not a note-stage phase's work**, and writing
+  it down here is what stops the next round "fixing" it by re-reading before
+  writing and believing the problem gone.
+
+  **Two: `by` stays client-supplied.** Seven sites across four frontend files
+  construct a user-typed note with `currentSession.user.email`; five server
+  routes construct a system-composed note with `request.user.email`. **That
+  split is coherent: whoever writes the text sets the author.** Moving one of
+  the seven would replace a consistent arrangement with an inconsistent one, so
+  it moves as a set or not at all. The stage therefore travels beside `by` at
+  the same trust level, in the same object, rather than one field being
+  authoritative and its neighbour not.
+
+  **Both Test Bed note writers changed**, `notes` and `installNotes`, through
+  one shared constructor. Doing one and not the other would have been exactly
+  the arbitrary inconsistency the `by` decision above argues against.
+
+  **The write path is unchanged**: `PATCH /api/test-beds/:id`, which since
+  Round 17A Phase 1 goes through `appendRecordRevision` and therefore through
+  the atomic writer. This phase added a key to a payload object; it did not add
+  a path.

@@ -485,6 +485,46 @@ window.toggleTbNotes = function () {
   renderTbNotes()
 }
 
+// Round 18 Phase 5: a new note records the stage it was written at.
+//
+// Notes are thin because they lack context, not because there are too few of
+// them. A note written while scoring already has its context, captured as the
+// Reason on the score. A note written while advancing a stage had none.
+//
+// THE KEY IS OMITTED, NOT EMPTIED, when the stage is somehow unknown. An empty
+// string is a claim that the note was written at a stage called "", and the
+// renderer would then have to tell that apart from a note that genuinely
+// predates this change. Absent means absent.
+//
+// `by` STAYS CLIENT-SUPPLIED, which is a decision rather than an oversight.
+// Seven sites across four frontend files construct a user-typed note this way
+// and five server routes construct a system-composed one with
+// request.user.email. That split is coherent: whoever writes the text sets the
+// author. Moving one of the seven would replace a consistent arrangement with
+// an inconsistent one, so it moves as a set or not at all.
+//
+// Both Test Bed note writers use this, notes and installNotes. Doing one and
+// not the other would be the arbitrary inconsistency this comment just argued
+// against.
+// Rendered ONLY when the note carries a stage. Nothing migrates: every note
+// written before this change has no stage and did not have one when written,
+// and inventing one from the record's current status would be a claim about a
+// decision nobody made. Round 14 Phase 1 made the same call about comments and
+// reasons and the reasoning holds.
+//
+// So an older note gets no chip and no placeholder. A dash or an "unknown"
+// label would imply something is missing, when nothing is: it was written
+// before the system recorded this.
+function tbNoteStageChip(n) {
+  return n.stage ? `<span class="ref-notes-stage">${escHtml(n.stage)}</span>` : ''
+}
+
+function tbNewNote(text) {
+  const note = { text, at: new Date().toISOString(), by: currentSession?.user?.email ?? '' }
+  if (tbBed?.status) note.stage = tbBed.status
+  return note
+}
+
 function renderTbNotes() {
   const notes = Array.isArray(tbPayload.notes) ? tbPayload.notes : []
   const el = document.getElementById('tb-notes-list')
@@ -503,7 +543,7 @@ function renderTbNotes() {
   // .ref-notes-row markup - unchanged, not a bottom-of-page variant.
   const rows = shown.map(n => `
     <div class="ref-notes-row">
-      <span class="ref-notes-when">${formatDate(n.at)}</span><span class="ref-notes-author">${escHtml(n.by ?? '')}</span><span class="ref-notes-text">${escHtml(n.text)}</span>
+      <span class="ref-notes-when">${formatDate(n.at)}</span><span class="ref-notes-author">${escHtml(n.by ?? '')}</span><span class="ref-notes-text">${tbNoteStageChip(n)}${escHtml(n.text)}</span>
     </div>`).join('')
 
   const toggle = notes.length > 2
@@ -519,7 +559,7 @@ window.addTbNote = async function () {
   const text = input.value.trim()
   if (!text) return
   const existing = Array.isArray(tbPayload.notes) ? tbPayload.notes : []
-  const notes = [{ text, at: new Date().toISOString(), by: currentSession?.user?.email ?? '' }, ...existing]
+  const notes = [tbNewNote(text), ...existing]
   const result = await api('PATCH', `/api/test-beds/${tbDetailId}`, { payload: { notes } })
   if (result.ok) {
     input.value = ''
@@ -1220,7 +1260,7 @@ function renderTbInstallNotes() {
   }
   el.innerHTML = notes.map(n => `
     <div class="ref-notes-row">
-      <span class="ref-notes-when">${formatDate(n.at)}</span><span class="ref-notes-author">${escHtml(n.by ?? '')}</span><span class="ref-notes-text">${escHtml(n.text)}</span>
+      <span class="ref-notes-when">${formatDate(n.at)}</span><span class="ref-notes-author">${escHtml(n.by ?? '')}</span><span class="ref-notes-text">${tbNoteStageChip(n)}${escHtml(n.text)}</span>
     </div>`).join('')
 }
 
@@ -1229,7 +1269,7 @@ window.addTbInstallNote = async function () {
   const text = input.value.trim()
   if (!text) return
   const existing = Array.isArray(tbPayload.installNotes) ? tbPayload.installNotes : []
-  const installNotes = [{ text, at: new Date().toISOString(), by: currentSession?.user?.email ?? '' }, ...existing]
+  const installNotes = [tbNewNote(text), ...existing]
   const result = await api('PATCH', `/api/test-beds/${tbDetailId}`, { payload: { installNotes } })
   if (result.ok) {
     input.value = ''
