@@ -3211,3 +3211,45 @@ Explicitly deferred, not forgotten, not a section number of its own since this i
   item with the mechanism named.** The cheap test is a run count at
   `--test-concurrency=1` against the same count in parallel, on a database
   with confirmed-zero residue at the start of each.
+
+
+- **A declaration placed near its relatives rather than after its dependencies takes the whole page down, and nothing static catches it. Second instance, Round 18 Phase 2, 2026-08-21.**
+
+  Promoting this from two recorded incidents to a named pattern, because the
+  second arrived by exactly the same route as the first and was written by
+  someone who had read the first.
+
+  **Instance one, Round 10 Phase 3, 2026-08-19.**
+  `INSTALLATION_ENVIRONMENT_OPTIONS` was declared next to the other picklist
+  constants, below `TB_SITE_FIELDS`, which references it inside its own
+  initialiser. **Instance two, Round 18 Phase 2, 2026-08-21.**
+  `UNIT_TYPE_FOR_TAB_KEY` was declared beside `COUNT_KEY_FOR_UNIT_TYPE`, its
+  closest relative in meaning, **1800 lines above the `UNIT_TYPES` it derives
+  from**. The Round 10 entry also names a top-level `const` collision reaching
+  the same outcome by a third route.
+
+  **The shape, which is what makes it worth naming:**
+
+  - The declaration is put where it BELONGS BY MEANING, next to the constants
+    it reads like, rather than after the thing it depends on. That instinct is
+    correct everywhere else and wrong here.
+  - `const` is not hoisted, so the reference throws at load.
+  - The file is a classic script sharing one global scope, so **every later
+    declaration in it is never evaluated**. The failure is not the missing
+    constant; it is that `window.initTestBedDetailPanel` and everything after
+    it stops existing.
+  - **The whole screen is blank.** Not the control, not the panel: the screen.
+  - **`node --check` passes, correctly.** A temporal dead zone violation is a
+    runtime error, not a syntax error, and no static check in this project
+    catches it.
+
+  **What actually catches it is loading the page and reading `pageerror`**, and
+  in both instances that is what did. In this one the symptom presented as a
+  probe failing to find the record's name, which is two steps removed from the
+  cause and reads at first like a broken test.
+
+  **The step to perform, since a rule naming a mistake to avoid has now failed
+  twice:** after adding any top-level `const` to a classic script, load the
+  page once and check `pageerror` is empty, before running anything that
+  depends on the page working. It costs one browser open and it is the only
+  instrument that reports this at all.
