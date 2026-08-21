@@ -3140,3 +3140,74 @@ Explicitly deferred, not forgotten, not a section number of its own since this i
   **Operationally unchanged:** a suite run failing only with `PGRST303` is not
   a failing suite, and should be re-run with both results reported. That advice
   was right and does not depend on the mechanism.
+
+
+- **Open item 38: the chevron popup overlays the detail tab row and swallows clicks on it. Round 18 Phase 1, 2026-08-21.**
+
+  Found as a probe fault and confirmed as a real one. A click on a stage tab
+  landed on the popup instead, so a panel that had rendered perfectly well
+  looked like a hang.
+
+  **It is not confined to automation.** The popup opens on hover with a 180ms
+  rest, is positioned inside `#tb-chevron-wrap`, and the detail tab row sits
+  directly beneath it. The gesture that triggers it is the same gesture someone
+  makes on the way to the tabs: the chevron strip runs the full page width
+  immediately above them, so a pointer travelling from the strip down to a
+  stage tab rests on a chevron en route, opens the popup, and arrives at a tab
+  that is now covered.
+
+  **Anyone moving between stages with a popup open hits this**, and the failure
+  is silent: the click does nothing and the tab does not change, which reads as
+  an unresponsive tab rather than as an overlay.
+
+  Not fixed in the phase that found it, because Phase 1 was scoped to what the
+  popup SAYS rather than where it sits, and moving a positioned element is a
+  layout change with its own before-and-after obligations at three widths.
+  Candidates, none chosen: dismiss on pointer-down anywhere, make the popup
+  `pointer-events: none` (it currently accepts the pointer so it can be moved
+  into, which was deliberate), or position it above the strip rather than
+  below.
+
+
+- **CANDIDATE, not a claim: a cross-file race in the database suite. Round 18 Phase 1, 2026-08-21.**
+
+  Recorded as a hypothesis with its mechanism named, because it was not
+  established and the runs that would have established it were contaminated.
+
+  **The observation.** `INVARIANT 2: no gate rule names a stage absent from
+  stage_definitions` failed naming an orphaned `harness_*` gate rule. Queried
+  immediately afterwards, **zero orphaned rules existed** and the run tag's
+  records were all soft deleted, so the row the assertion saw had been a LIVE
+  fixture at the moment of reading rather than residue.
+
+  **The mechanism.** `npm run test:db` passes five files to `node --test`,
+  which runs files in parallel across the available CPUs, eight here.
+  `config-invariants.test.mjs` asserts properties of the WHOLE configuration
+  while `gates.test.mjs` legitimately holds fixture `stage_gate_rules` rows for
+  the duration of its own tests. A global invariant and a fixture-creating file
+  running concurrently against one database is a race by construction.
+
+  **Why it fits the intermittency pattern**, which is the reason to write it
+  down rather than dismiss it:
+
+  - It needs the full suite. Isolated runs of a single file cannot produce it,
+    which matches 0 failures in 8 isolated runs against 2 in roughly 14
+    full-suite runs.
+  - It clears on retry, because the next run's timing differs.
+  - **It leaves no residue when the holding file finishes normally**, which is
+    exactly why it reads as unexplained: by the time anyone looks, the row is
+    gone and the database is clean.
+
+  That third property is what makes it worth naming. An intermittent failure
+  that leaves evidence gets diagnosed; one that tidies up after itself gets
+  recorded as uncharacterised, which is what has happened to this suite's
+  intermittency for several rounds.
+
+  **Two serial runs (`--test-concurrency=1`) passed 50/50**, which is
+  consistent and is not proof: two runs of a race that fires perhaps one time
+  in seven prove very little.
+
+  **Phase 6 investigates if there is room; otherwise this carries as an open
+  item with the mechanism named.** The cheap test is a run count at
+  `--test-concurrency=1` against the same count in parallel, on a database
+  with confirmed-zero residue at the start of each.
