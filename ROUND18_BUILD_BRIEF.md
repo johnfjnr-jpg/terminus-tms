@@ -392,3 +392,249 @@ heading inflated the count the rule depends on.
 
 A report cannot sign off the phase containing it, and a phase that ships no
 diff is still a phase.
+
+---
+
+## Round 18 outcome
+
+Seven phases, 0 through 6, confirmed by `grep -n "^## Phase\|^### Phase"`
+returning 7 headings with no `###` sub-phases and **no non-phase heading
+beginning with the word Phase**, per Round 17A's finding that a close-out
+heading inflated the very count rule 7 depends on.
+
+**It caught this close-out too, on the first run.** A section here was headed
+"Phase 4's recommendation" and the count came back 8. That is the second round
+running in which the author of the remedy tripped the same wire while writing
+the document the remedy is about, which is the third recorded instance of a
+rule catching its own author, and it is the argument for checks over prose:
+the grep noticed, nobody would have. Phases 0 through 5 each
+carry an explicit sign-off in the session transcript; Phase 6 is signed off by
+the message that commissioned this close-out, and the report containing it does
+not sign off its own phase.
+
+### THIS ROUND EDITED `CLAUDE.md`
+
+Two rules were added, and **the next session must re-read the file from disk**.
+The copy delivered at session start is a snapshot, and a session following a
+round that edited it receives the old version. This round proved that in its
+own first minutes: the injected copy was 417 lines and disk was 429, missing
+Round 17A's Verification 4 refinement entirely.
+
+- **Build discipline 9**: create the round branch before Phase 1 begins, and
+  commit at every phase boundary.
+- **Verification 16**: capture the run to a file, then search the file.
+
+### The chevron was wrong from the day it was built
+
+Not since a later round changed the endpoint, which is what this brief assumed.
+The wired guard, the closure over `recordId` and the `?stage=` parameter all
+landed together in `1918f03`, Round 7 Phase 9, and none was touched since.
+
+**Two faults, one cause.** `tb-chevron-wrap` is static markup, so
+`dataset.wired` survived every navigation and the listener kept the first
+record's id in its closure; and the popup cached what it was showing by stage
+NAME alone, so hovering the same stage on a second record issued no request at
+all and left the previous record's answer on screen. Either alone still gives a
+wrong answer, so the fix was record identity rather than two patches.
+
+**The endpoint was never at fault**: `blocking` is exactly the unmet subset of
+`requirements`, both 11 on the record tested.
+
+**WHY FOUR ROUNDS OF TESTING MISSED IT, which is the part worth carrying: it is
+correct for the first record opened in a page session, and every test opens one
+record and hovers.** The defect needs a second record in the same page to
+appear at all. No automated check has ever done that, and neither has any
+casual look, because a person checking a fix opens the record they just fixed.
+
+### Record history shipped, after eight deferrals
+
+Raw and deliberately provisional. Read-only, from `audit_log`, in the Reference
+sub-tab strip, loaded when its tab is opened.
+
+It is provisional **by wording rather than by colour**, because open item 37
+records that this palette has one accent and it is already every card title.
+The line says: "Raw audit entries, unedited. What each action should say, how
+entries should be grouped, and which of them belong here at all are not decided
+yet." It names the open decisions rather than merely apologising.
+
+`GET /api/records/:id/history` is the only read of `audit_log` anywhere in
+`src/`; every other reference is an insert. Read-only asserted structurally,
+zero operable nodes, with the counter shown moving to 1 on an injected button
+and back.
+
+### The history pane recommendation, verbatim, from Phase 4
+
+Reproduced here in full because it is the input to the vocabulary work and must
+not be paraphrased into something tidier. Measurements first: **83 entries**,
+**235ms** to paint, **4983px against a 1000px viewport**, five screens.
+
+1. **Grouping beats paging, and filtering beats both.** 83 rows is a long
+   scroll, not a pagination problem, and paging it would hide the one thing the
+   pane is for: seeing the shape of what happened. **71 of the 83 entries share
+   the previous entry's minute.** This is not a timeline, it is a handful of
+   bursts, and the right first move is to collapse a burst into one line that
+   can be opened.
+2. **Two action types are 64% of the record**, 33 `approval_submitted` and 20
+   `document_approved`. Any grouping that does not collapse consecutive runs of
+   the same action will not help.
+3. **Fix the When column before anything else.** It is 41px wide and **every
+   one of 83 rows wraps to three lines**, so every row is 59px instead of about
+   30. The pane is twice as tall as its content needs for no reason a reader
+   could see, and that is a five-minute fix that halves the scroll.
+4. **The actor column is doing nothing on this record and should not be
+   removed.** All 83 entries carry one actor. Phase 0 found five actors across
+   the log as a whole, three real accounts and two probe users, so the column is
+   real; it is this record that is single-actor. What it must not do is show a
+   raw uuid, which is what it does today.
+5. **Decide what belongs here before deciding what it should say.** The wording
+   work is cheap once the set is settled and wasted if it is not.
+
+**Which action types read as noise**, verbatim, as observed rather than as
+reasoned:
+
+- `document_location_set` **reads as noise, four entries, two of them
+  consecutive duplicates on the same document** with different URLs a minute
+  apart. It records that someone pasted a link, then repasted it.
+- `approval_submitted` **is not noise but is unreadable in bulk**: 33 entries,
+  arriving in threes, differing only by `track`. Three consecutive lines saying
+  Technical, Commercial, Legal are one event to a human.
+- `document_approved` **at 20 entries has the same problem**, and pairs with the
+  `transition` immediately after it. A document approved and the stage it
+  unblocked are one story told twice.
+- `transition` **is the signal**, 14 entries, and is what a reader is looking
+  for. It is currently indistinguishable from everything around it.
+- `buyer_contact_linked` **reads as setup rather than history**, 9 entries all
+  within one minute at the start.
+- `created_from_contact` **is the one entry that anchors the record** and it is
+  at the bottom of a five-screen scroll.
+- `data_correction` **is genuinely interesting and is invisible**, two entries
+  lost among 81 others.
+
+**The shape of the finding: the two entries a person would most want, the
+correction and the creation, are the hardest to find, and the two action types
+that dominate are the ones that carry least meaning per row.**
+
+### CARRIED ITEM: `CLAUDE.md`'s size, and the ratchet that produced it
+
+`CLAUDE.md` is **473 lines and 25653 bytes**, up from 429 and 23238 at the start
+of this round. Its own opening says it is deliberately short and that past
+roughly two pages it "stops being read properly and stops working". It is
+roughly ten pages.
+
+**Named as a ratchet rather than as a defect:** every round has said promote
+this and no round has said remove that. Nothing here was added carelessly and
+each addition was justified on its own; the sum is the problem, and no single
+round's decision produced it.
+
+**Evidence the stated failure mode is already occurring**, rather than a
+prediction: Round 17A found two rules that had been followed literally while
+wrong, and this round opened with a stale injected snapshot missing a
+refinement written the day before.
+
+**Two candidate directions, neither chosen here:**
+
+1. **The instruction stays in `CLAUDE.md`; the evidence that produced it moves
+   to `DESIGN_PRINCIPLES.md`.** Most rules here now carry several paragraphs of
+   incident history, which is what makes them persuasive and also what makes
+   them long. A one-line rule with a pointer keeps the persuasion available to
+   anyone who wants it without spending the reader's attention by default.
+2. **Any rule a test can assert stops being prose**, as Round 9's gate rules did
+   when they became invariants. Several rules here describe properties a check
+   could hold: the phase-count grep, the `CURRENT_STATE.md` staleness test, the
+   overflow and three-width layout checks. A rule that a suite enforces does not
+   need to be read to be obeyed.
+
+### The suite's intermittent failures are now characterised
+
+Recorded in full in `DESIGN_PRINCIPLES.md`. Both had been carried without
+characterisation for several rounds.
+
+**The cross-file race is closed as a candidate and reproduced on demand.**
+`config-invariants.test.mjs` asserts properties of the whole configuration while
+`gates.test.mjs` legitimately holds fixture rows. Polling showed harness rows
+first visible at 1.8 seconds and peaking at 23 at once. Started deliberately six
+seconds apart, `config-invariants` fails **INVARIANT 2 and INVARIANT 4**, which
+are exactly the two seen failing intermittently, while `gates` finishes clean
+and the residue returns to zero. **Running the two files together does not
+reproduce it**, because the fast file finishes before the window opens, which is
+precisely why it only fires in the five-file suite. Not fixed: the choice is
+between scoping the invariants to exclude `harness_%` and running that file
+serially, and each has a real cost.
+
+**`PGRST303` is sharpened rather than solved, and Round 17's mechanism is wrong
+on every path.** No code in this project mints a token: the session JWT's `iss`
+is Supabase Auth, and `SUPABASE_SECRET_KEY` is an opaque `sb_secret_` key that
+is not a JWT. The host clock, measured at +0.39s in Phase 0 and +0.27s now,
+cannot stamp an `iat` on anything. **Not reproducible by volume**: 650 requests
+in four shapes produced zero, including 100 concurrent writes to the exact table
+and operation that fails. The leading candidate, explicitly untested, is skew
+between Supabase's own gateway and database, which nothing in this repository
+can measure.
+
+### `CURRENT_STATE.md` regenerated and reconciled
+
+Regenerated at `751beda` with the working tree dirty, which is correct: the
+round is not committed at generation time. Staleness test run first and passed.
+Every line accounted for by phase:
+
+- **Routes 55 to 56**, `GET /api/records/:id/history`. Phase 4.
+- **No migration change, and none expected**: this round added a route and no
+  migrations, which is why that section does not appear in the diff at all.
+- **Live records 107 to 119.** All 12 are the business's, created before the
+  branch existed. Not residue.
+- **Soft deleted +1776, `harness_*` types 362 to 486.** This round's fixtures
+  and 124 test-suite runs, every one torn down.
+- **contact Qualified +6 soft** (three buyers each in Phases 1 and 5),
+  **test_bed Qualification +2 soft** (Phases 1 and 2), **Pre-Site Assessment +1
+  soft** (Phase 5's fixture, transitioned then torn down).
+- **Approvals 247 to 265.** All 18 are the business's, on live records, zero
+  attached to a soft-deleted record.
+- **Live Closed test beds 6 to 7 and live Qualification 2 to 1**: the business
+  moved one through.
+
+**Configuration unchanged**, confirmed by reading the regenerated file rather
+than by the diff's silence: `stage_gate_rules` 61 total and 45 on `test_bed`
+(18 approval_obtained, 4 contact_role_linked, 9 document_status, 14
+payload_field_required), `scoring_criteria` 5, `scoring_anchors` 15 with all
+five criteria at version 1.
+
+### Teardown, enumerated by `owner_id`
+
+Zero live `harness_*` rows. Zero live records owned by any probe user. The 26
+owned by the test user were all created between 2026-08-17 and 2026-08-19, so
+none is this round's. Live records **119**, matching the Phase 0 baseline
+exactly.
+
+**The teardown template was corrected mid-round**, in Phase 2, after it left
+nine unit records alive by enumerating only the tagged parent. It now
+enumerates children, which is build discipline rule 8 applied to my own
+tooling.
+
+### The business did not exercise branch code, and this time by design
+
+    branch created                    2026-08-21T12:44:45Z
+    business revisions today          67
+    first / last                      03:29:40Z / 09:02:28Z
+    after the branch existed          0
+
+**Open item 23 did not fire, for the fifth round running, and this is the first
+round where that means something.** Every previous entry recorded an absence
+that was about the business's week. This round `main`'s working tree was never
+mid-round, because the branch existed from before Phase 1 and every phase
+committed to it, so the exposure was closed rather than merely unexercised.
+
+### Open, carried forward
+
+Round 17A's thirty-seven stand. One added:
+
+38. **The chevron popup overlays the detail tab row and swallows clicks on
+    it.** Found as a probe fault and confirmed as a real one: the pointer
+    travels from the chevron strip to the tabs, rests on a chevron on the way,
+    and arrives at a tab the popup now covers. The click does nothing and reads
+    as an unresponsive tab.
+
+Item 35 is resolved and kept for its measurements. Items 36 and 37 stand; item
+37, the missing attention colour, was met again in Phase 4 and carried by
+wording again. Item 23 stands but is now about a closed exposure rather than an
+open one. The same-key lost update on notes is recorded inside Phase 5's entry
+with the reason the obvious fix does not work.

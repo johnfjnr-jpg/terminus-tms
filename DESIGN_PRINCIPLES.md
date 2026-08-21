@@ -3378,3 +3378,87 @@ Explicitly deferred, not forgotten, not a section number of its own since this i
   Round 17A Phase 1 goes through `appendRecordRevision` and therefore through
   the atomic writer. This phase added a key to a payload object; it did not add
   a path.
+
+
+- **The suite's intermittent invariant failures are a cross-file race, characterised and reproducible on demand. Round 18 Phase 6, 2026-08-21. This closes the candidate recorded in Phase 1.**
+
+  **The mechanism.** `npm run test:db` passes five files to `node --test`,
+  which runs files in parallel across the available CPUs.
+  `config-invariants.test.mjs` asserts properties of the WHOLE configuration
+  while `gates.test.mjs` legitimately holds fixture `stage_gate_rules` rows for
+  the duration of its own tests. A global invariant and a fixture-creating file
+  running concurrently against one database is a race by construction.
+
+  **The window, observed directly rather than waited for.** Polling
+  `stage_gate_rules` every 120ms while `gates.test.mjs` ran: harness rows first
+  visible at **1.8 seconds**, peaking at **23 rows visible at once**, across
+  most of the run.
+
+  **Reproduced deterministically**, which is what turns this from a candidate
+  into a finding. Start `gates.test.mjs`, wait six seconds for it to create its
+  fixtures, then run `config-invariants.test.mjs` alone against the same
+  database:
+
+      residue before                     0 harness gate rules
+      6s in, visible                     8 harness gate rules
+      config-invariants                  2 FAILED: INVARIANT 2 and INVARIANT 4
+      gates finished                     0 failed
+      residue after                      0 harness gate rules
+
+  Those are exactly the two invariants seen failing intermittently, and the
+  rows they named were gone by the time anyone looked.
+
+  **Why running the two files together does NOT reproduce it.**
+  `config-invariants` completes in about a second and `gates` does not create
+  a rule until 1.8 seconds in, so the fast file finishes before the window
+  opens. It fires in the five-file suite because the scheduler starts
+  `config-invariants` later or runs it slower under load. **That is the whole
+  intermittency**: not randomness in the database, but where in the schedule
+  one file lands.
+
+  **It explains all three properties** recorded when this was still a
+  hypothesis: it needs the full suite's parallelism, it clears on retry because
+  the next run's scheduling differs, and **it leaves no residue when the
+  holding file finishes normally**, which is why it stayed uncharacterised for
+  several rounds.
+
+  **Not fixed here.** The fix is a choice between scoping the global
+  invariants to exclude `harness_%` record types, and running that file
+  serially, and each has a cost: the first weakens an invariant that exists to
+  catch exactly the orphaned rows a killed run leaves, and the second slows the
+  suite. That is a decision, not a repair.
+
+
+- **`PGRST303` remains unresolved, and Round 17's mechanism is wrong on every path rather than merely on one. Round 18 Phase 6, 2026-08-21.**
+
+  Sharpening the Phase 0 correction, which said the diagnosis did not fit the
+  admin call path. It does not fit any path.
+
+  **No code in this project mints a token.** The session JWT's `iss` is
+  `https://<project>.supabase.co/auth/v1`, so its `iat` is stamped by Supabase
+  Auth, and `SUPABASE_SECRET_KEY` is an opaque `sb_secret_` key that is not a
+  JWT at all. **The host clock cannot stamp an `iat` on anything**, so the
+  +0.39s host skew Round 17 measured, re-measured today at +0.27s, is real and
+  is evidence for nothing about this error.
+
+  **Not reproducible by volume.** 650 requests in four shapes produced zero
+  occurrences: 200 concurrent reads on one client, 200 concurrent reads each on
+  a freshly constructed client, 150 sustained sequential reads, and 100
+  concurrent writes to `reference_number_counters` itself, the exact table and
+  operation that fails. So it is not concurrency, not client construction, and
+  not that table.
+
+  **What is established:** three sightings today, all in full-suite runs, all
+  at `reference-number.test.mjs:76`; never in an isolated run of that file, 0
+  in 8; unrelated to any code under test; clears on re-run.
+
+  **The leading untested candidate**, recorded as untested: Supabase exchanges
+  the opaque key for a JWT at its own gateway, stamped with the gateway's
+  clock, which PostgREST then validates against the database's. Skew between
+  two of their components would produce exactly this and would be invisible
+  from here. **Nothing in this repository can test that**, which is itself the
+  finding: the next round should stop trying to characterise it locally and
+  either ask Supabase or accept it as environmental.
+
+  **Operationally unchanged and still right:** a run failing only with
+  `PGRST303` is not a failing suite, and both results should be reported.

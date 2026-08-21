@@ -12,8 +12,8 @@ Contains no environment variable, key or token, and no client data. Records
 appear as counts by status only, never by name or reference code, because
 this file is uploaded into chat sessions.
 
-- Generated at: `2026-08-21T07:46:26.563Z`
-- Git commit: `715c0ad3f0bf836a484d442847908bd7480e8cb0`
+- Generated at: `2026-08-21T13:58:53.789Z`
+- Git commit: `751beda72893efc2dfac5a7d30e64b1760a6b4ec`
 - Working tree at generation: `dirty (uncommitted changes present)`
 
 Staleness has two parts, and both must hold for this file to be current:
@@ -217,28 +217,28 @@ _None._
 
 ## Record counts by type and status
 
-107 live, 6433 soft deleted, 6540 rows in total.
+119 live, 8197 soft deleted, 8316 rows in total.
 
 | record_type | status | live | soft deleted |
 |---|---|---|---|
 | account | active | 7 | 248 |
 | contact | Parked | 0 | 2 |
-| contact | Qualified | 9 | 176 |
+| contact | Qualified | 9 | 182 |
 | contact | Unqualified | 1 | 53 |
-| document | approved | 71 | 699 |
+| document | approved | 80 | 828 |
 | document | received | 1 | 74 |
 | opportunity | Discovery | 3 | 58 |
 | opportunity | Negotiation | 0 | 1 |
 | opportunity | Proposal | 0 | 1 |
-| test_bed | Closed | 6 | 7 |
+| test_bed | Closed | 7 | 7 |
 | test_bed | Installation and Commissioning | 1 | 29 |
 | test_bed | Monitoring and Analysis | 0 | 1 |
-| test_bed | Pre-Site Assessment | 0 | 7 |
-| test_bed | Qualification | 2 | 211 |
+| test_bed | Pre-Site Assessment | 0 | 8 |
+| test_bed | Qualification | 1 | 213 |
 | test_bed | Review and Completion | 1 | 0 |
 | test_bed | Site Assessment | 1 | 14 |
 | unit | Installed | 4 | 3 |
-| unit | Planned | 0 | 374 |
+| unit | Planned | 3 | 847 |
 | unit | Removed | 0 | 1 |
 
 ### Test fixture record types
@@ -249,19 +249,19 @@ row by row, and are included in the totals above.
 
 | distinct `harness_*` record types | live rows | soft deleted rows |
 |---|---|---|
-| 362 | 0 | 4474 |
+| 486 | 0 | 5627 |
 
 No harness record type holds a live row; every fixture row is soft deleted.
 
 ## `approvals`
 
-247 rows, of which 0 carry a null `stage`.
+265 rows, of which 0 carry a null `stage`.
 
 | decision | track | rows | null stage |
 |---|---|---|---|
-| approved | Commercial | 101 | 0 |
-| approved | Legal | 66 | 0 |
-| approved | Technical | 80 | 0 |
+| approved | Commercial | 108 | 0 |
+| approved | Legal | 71 | 0 |
+| approved | Technical | 86 | 0 |
 
 ## Writable-key allowlists
 
@@ -300,7 +300,7 @@ than written as a literal list, so its members are not enumerable here.
 
 ## Registered routes
 
-55 routes. Prefixes parsed from `src/server.js`, paths from each route module.
+56 routes. Prefixes parsed from `src/server.js`, paths from each route module.
 
 | method | path | auth | source |
 |---|---|---|---|
@@ -333,6 +333,7 @@ than written as a literal list, so its members are not enumerable here.
 | GET | `/api/records/:id/approvals` | authenticated | `src/routes/approvals.js` |
 | POST | `/api/records/:id/approvals` | authenticated | `src/routes/approvals.js` |
 | GET | `/api/records/:id/exit-criteria` | authenticated | `src/routes/records.js` |
+| GET | `/api/records/:id/history` | authenticated | `src/routes/records.js` |
 | GET | `/api/records/:id/stage-approvals` | authenticated | `src/routes/records.js` |
 | POST | `/api/records/:id/transition` | authenticated | `src/routes/transitions.js` |
 | GET | `/api/scoring-criteria` | authenticated | `src/routes/scoring.js` |
