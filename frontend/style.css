@@ -3118,3 +3118,40 @@ input.input-invalid {
 }
 .sub-tab.active { color: var(--white); border-bottom-color: var(--green); }
 .sub-tab:focus-visible { outline: 1px solid var(--white); outline-offset: 2px; }
+
+/* ── Units table (Round 17 Phase 2) ────────────────────────────────────
+   A table, not a card per unit: this renders 1 unit as often as 24, and
+   a stack of cards is unreadable at the top of that range. Fixed narrow
+   columns so a row scans horizontally in one pass, and a row height close
+   to the input's own so 24 rows stay a list rather than a page. */
+.tb-units-table { width: 100%; border-collapse: collapse; }
+.tb-units-table th {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted-2);
+  text-align: left;
+  padding: 0 10px 6px 0;
+  border-bottom: 1px solid var(--hairline-strong);
+}
+.tb-units-table td { padding: 2px 10px 2px 0; border-bottom: 1px solid var(--hairline); }
+.tb-units-table th:first-child, .tb-units-table td:first-child { width: 36px; }
+.tb-units-table th:nth-child(5), .tb-units-table td:nth-child(5) { width: 130px; }
+.tb-units-table input, .tb-units-table select { padding: 5px 0; font-size: 13px; }
+.tb-unit-index { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+.tb-unit-feedback { font-family: var(--mono); font-size: 10px; color: var(--muted-2); width: 90px; }
+
+/* Count correction (Round 17 Phase 3). */
+.tb-count-correct { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.tb-count-correct select { width: 180px; }
+.tb-count-correct #tb-cc-count { width: 110px; }
+.tb-count-correct #tb-cc-reason { flex: 1; min-width: 240px; }
+
+/* Locked count notice (Round 17 Phase 4). Deliberately carries no control
+   affordance: no border-bottom, no input chrome, nothing that reads as
+   editable. The number stays prominent because it is still the figure the
+   cost engine uses. */
+.tb-count-locked-value { display: block; padding: 8px 0; }
+.tb-count-locked-number { font-size: 14px; color: var(--white); }
+.tb-count-locked-note { display: block; font-size: 12px; color: var(--muted); margin-top: 3px; }

@@ -149,3 +149,33 @@ export function isValidMobile(value) {
   const digits = trimmed.replace(/[^0-9]/g, '')
   return digits.length >= 7 && digits.length <= 15
 }
+
+// Round 17 Phase 1: unit coordinates.
+//
+// THE FIRST FIELDS IN THIS SYSTEM THAT LEGITIMATELY ACCEPT A NEGATIVE VALUE.
+// Every numeric validator above rejects one, and correctly: a duration, a
+// count, a rate and a dollar figure are all non-negative by nature, and
+// isValidNonNegativeInteger's own comment explains why. A latitude south of
+// the equator or a longitude west of Greenwich is negative in the ordinary
+// case, so reusing any existing validator here would reject roughly half the
+// planet. Recorded because the pattern in this file reads as "numbers are
+// non-negative" and this is the genuine exception, not an oversight.
+//
+// Range-checked as well as parsed. A latitude of 91 is not a coordinate, and
+// unlike a too-precise percentage it cannot be a rounding artefact. Decimal
+// precision is deliberately NOT capped: 6 decimal places is roughly 0.1m and
+// real GPS output carries more, so truncating would discard real precision on
+// the field whose whole purpose is to say exactly where a unit is.
+//
+// Empty is "not set", the same convention every other optional field uses:
+// a Planned slot has no coordinates yet, which is the normal state.
+function isValidCoordinate(value, limit) {
+  if (typeof value === 'number') return Number.isFinite(value) && Math.abs(value) <= limit
+  if (typeof value !== 'string') return false
+  if (value.trim() === '') return true
+  if (!/^-?\d+(\.\d+)?$/.test(value.trim())) return false
+  return Math.abs(Number(value.trim())) <= limit
+}
+
+export function isValidLatitude(value) { return isValidCoordinate(value, 90) }
+export function isValidLongitude(value) { return isValidCoordinate(value, 180) }

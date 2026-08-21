@@ -551,6 +551,16 @@ structural grounds. Two added:
     the Notes list directly beneath it, which has always been full width, so
     it is consistent with the page rather than anomalous. Reported rather than
     changed unasked.
+31. **The units table's column headers scroll out of view.** Round 17 Phase 2:
+    at 24 units the table is 814px and the header row leaves the viewport, so
+    a reader deep in the list has no labels for Serial, Latitude, Longitude
+    and State. **It is masked today and will stop being masked exactly when
+    the feature starts being used**: every empty cell carries a placeholder
+    repeating its column name, so the labels read as inline hints while the
+    units are still Planned, and they disappear the moment real serials and
+    coordinates are entered. A sticky header row is the fix. Logged rather
+    than built, being outside that phase's scope.
+
 30. **One database-suite run returned 37/38 and the failure text was not
     captured.** Four subsequent runs returned 38/38 with no `PGRST303` and no
     assertion text in any log. Recorded as an uncharacterised transient rather

@@ -337,14 +337,6 @@ function renderTbReference() {
 
   renderTbCustomerDocuments()
 
-  // Round 16 Phase 3: called from here, not from renderTbSiteDetails.
-  // Phase 2 moved the Sensors block into a sub-tab pane and Phase 3 removed
-  // the panel whose render used to drive it, which left renderTbSensors
-  // reachable only from its own toggle: the pane would have rendered empty on
-  // load and filled in only if someone happened to click Show sensors. It
-  // sits with the other two pane renders now, where it belongs.
-  renderTbSensors()
-
   renderTbNotes()
 
   // Key Dates. Round 7 Phase 5: Age relocates here from the removed header
@@ -478,9 +470,8 @@ function mountTbReferenceSubTabs() {
     tabs: [
       { key: 'useCases', label: 'Use cases' },
       { key: 'customerDocuments', label: 'Customer documents' },
-      { key: 'sensors', label: 'Sensors' },
     ],
-    adopt: { useCases: 'tb-usecases-block', customerDocuments: 'tb-custdocs-block', sensors: 'tb-sensors-block' },
+    adopt: { useCases: 'tb-usecases-block', customerDocuments: 'tb-custdocs-block' },
   })
   mount.dataset.builtFor = String(tbDetailId)
 }
@@ -498,8 +489,9 @@ function renderTbSiteDetails() {
     return tbFieldRow(f.key, f.label, tbPayload[f.key], { options: f.options })
   }).join('')
 
-  // renderTbSensors is NOT called from here any more. Phase 2 moved the
-  // Sensors block into its own sub-tab pane, and it is rendered from there.
+  // No Sensors render here. Round 16 Phase 2 moved that block into a sub-tab
+  // pane and Round 17 Phase 2 removed it outright, real unit records having
+  // replaced the generated strings.
 }
 
 // Round 6 Phase 3 (2026-08-17): Installer/Test Bed Tech Team/Install
@@ -745,87 +737,78 @@ window.setTbTechTeam = async function (contactId) {
 // TB_SENSOR_COUNT_FIELDS is already folded into TB_ALL_EDITABLE_FIELDS
 // so wireTbFieldInputs() wires these for free, no separate wiring
 // needed.
+// Round 17 Phase 4. Populated by one GET per detail load, in app.js, and read
+// by both tabs. Never written from here.
+let tbUnitCounts = {}
+window.loadTbUnitCounts = async function (id) {
+  const result = await api('GET', `/api/test-beds/${id}/units`)
+  tbUnitCounts = {}
+  if (!result.ok) return
+  for (const u of result.data ?? []) tbUnitCounts[u.type] = (tbUnitCounts[u.type] ?? 0) + 1
+}
+
+const COUNT_KEY_TO_UNIT_TYPE = {
+  safesightCameras: 'SafeSight',
+  airQualitySensors: 'Air Quality',
+  hemirSensors: 'HEMIR',
+}
+
+// The locked count field is REPLACED by a line, not left present and inert.
+//
+// This is the fourth time this project has argued the same thing: Round 11
+// Phase 5's Tech Team dropdown that could not be used until an Installer was
+// set, Round 12 Phase 3's read-only scores card, Round 14 Phase 4's removed
+// "Created. View it", and this. A control that is visible and refuses is a
+// dead end the user keeps trying; a line naming what to do is a route.
+//
+// AND IT IS NOT A DEAD END HERE, which is the part worth getting right. Phase
+// 3 built a real way through, so the line names it: the count is locked, this
+// is why, and the correction lives on the Installation and Commissioning tab
+// with the units it is about. A notice that said only "locked" would be the
+// dead end this pattern exists to avoid.
+//
+// Nothing in it is operable: no input, no button, no handler, no tabindex.
+// Asserted structurally rather than by eye, because "looks read-only" and "is
+// read-only" are different claims.
+//
+// The wording is deliberately tight. The first version repeated the unit type
+// and added "where the units are", and in a 420px card that wrapped to six
+// lines and made each row three times its normal height, so three locked
+// counts turned a 130px card into 480px. The row label already names the
+// type, so the notice does not: it carries the number, the reason and the
+// destination, and nothing else. Every check passed on the long version;
+// only the screenshot showed it.
+function tbLockedCountRow(f, deployed) {
+  return `
+    <div class="ref-field tb-count-locked">
+      <span class="ref-field-label">${escHtml(f.label)}</span>
+      <span class="tb-count-locked-value">
+        <span class="tb-count-locked-number">${escHtml(String(tbPayload[f.key] ?? ''))}</span>
+        <span class="tb-count-locked-note">Locked: ${deployed} unit${deployed === 1 ? '' : 's'} exist. Correct it on the Installation and Commissioning tab.</span>
+      </span>
+    </div>`
+}
+
 function renderTbSensorCounts() {
   document.getElementById('tb-sensor-count-rows').innerHTML =
-    TB_SENSOR_COUNT_FIELDS.map(f => tbFieldRow(f.key, f.label, tbPayload[f.key], { number: f.number, integer: f.integer })).join('')
+    TB_SENSOR_COUNT_FIELDS.map(f => {
+      const deployed = tbUnitCounts[COUNT_KEY_TO_UNIT_TYPE[f.key]] ?? 0
+      return deployed
+        ? tbLockedCountRow(f, deployed)
+        : tbFieldRow(f.key, f.label, tbPayload[f.key], { number: f.number, integer: f.integer })
+    }).join('')
 }
 
-// Sensors list: "generated" per PROTOTYPE_SPECIFICATION.md Section 6, but
-// the real Device-link mechanism that would back real status/lat-long/
-// photo data is explicitly not connected to Test Bed in this build (its
-// own "Known dependency" section - that's Asset Management's deferred
-// work). Generating names from the real, typed counts is honest; a
-// status/location/photo would not be, so those stay an explicit "Not
-// yet linked" rather than invented.
-// Round 10 Phase 8 (2026-08-19): a Show Sensors toggle, and one panel per
-// sensor instead of a flat list.
+// Round 17 Phase 2 (2026-08-21): tbSensorList, renderTbSensors,
+// toggleTbSensors and tbSensorsExpanded are REMOVED, roughly 60 lines.
 //
-// CONTENTS ARE DELIBERATELY MINIMAL AND NOTHING IS INVENTED. Each panel
-// carries the sensor's identity and the "not yet linked to a real device"
-// state that was already there, and that is the complete set of what this
-// system knows about an individual sensor. The counts are plain typed
-// numbers on the Test Bed's payload; no device record exists to join to, so
-// there is no serial, no location, no status and no install date to show.
-// The panel says it has room for detail rather than filling it with
-// plausible-looking blanks - an empty field labelled "Serial" would imply a
-// serial exists and has not been entered, which is false.
-//
-// This is the visible surface of a real gap, not a layout change. See
-// DESIGN_PRINCIPLES: the linkage mechanism already exists in the prototype
-// (applyDeviceLink/linkTargetOptions) and belongs to Asset Management.
-let tbSensorsExpanded = false
-
-window.toggleTbSensors = function () {
-  tbSensorsExpanded = !tbSensorsExpanded
-  renderTbSensors()
-}
-
-function tbSensorList() {
-  const counts = [
-    { prefix: 'SafeSight Camera', n: Number(tbPayload.safesightCameras) || 0 },
-    { prefix: 'Air Quality Sensor', n: Number(tbPayload.airQualitySensors) || 0 },
-    { prefix: 'HEMIR Sensor', n: Number(tbPayload.hemirSensors) || 0 },
-  ]
-  const rows = []
-  for (const c of counts) {
-    for (let i = 1; i <= c.n; i++) rows.push(`${c.prefix} ${i}`)
-  }
-  return rows
-}
-
-function renderTbSensors() {
-  const rows = tbSensorList()
-  const el = document.getElementById('tb-sensors-list')
-  const toggle = document.getElementById('tb-sensors-toggle')
-  if (!el) return
-
-  if (!rows.length) {
-    if (toggle) { toggle.textContent = ''; toggle.classList.add('hidden') }
-    el.innerHTML = '<p class="empty-state">No sensor counts set yet.</p>'
-    el.dataset.sensors = '0'
-    return
-  }
-
-  if (toggle) {
-    toggle.classList.remove('hidden')
-    toggle.textContent = tbSensorsExpanded ? 'Hide sensors' : `Show sensors (${rows.length})`
-    toggle.onclick = () => window.toggleTbSensors()
-  }
-  el.dataset.sensors = String(rows.length)
-  el.dataset.expanded = tbSensorsExpanded ? 'true' : 'false'
-
-  if (!tbSensorsExpanded) {
-    el.innerHTML = ''
-    return
-  }
-
-  el.innerHTML = `<div class="tb-sensor-grid">` + rows.map(name => `
-    <div class="tb-sensor-panel" data-sensor="${escHtml(name)}">
-      <p class="tb-sensor-name">${escHtml(name)}</p>
-      <p class="tb-sensor-state">Not linked to a device</p>
-    </div>`).join('') + `</div>
-    <p class="tb-sensor-note">Per-sensor detail is not held anywhere yet. These panels carry the sensor's identity only, and gain real content when Asset Management links each one to a device record.</p>`
-}
+// They produced the Sensors list by looping the three counts and emitting
+// strings, "SafeSight Camera 1" through "SafeSight Camera 12", with a
+// standing note that nothing linked a Test Bed to a real device. Real unit
+// records now exist, each carrying a serial, coordinates and a state, so
+// every string this generated would be a worse version of a record that
+// exists. Deleted rather than left unreferenced: dead code that still reads
+// as a feature is the thing a later round mistakes for one.
 
 // Commercials tab (Round 5 Phase 6, 2026-08-17). Rate inputs use the
 // same tbFieldRow/click-to-edit mechanism as every other Test Bed field
@@ -2443,4 +2426,206 @@ window.initTestBedDetailPanel = function (bed) {
   // After wireTbFieldInputs, so restored inputs carry the same listeners
   // (including the Round 7 Phase 2.1 numeric validity guard) as any other.
   restoreTbOpenEdits(carried)
+}
+
+// ── Units (Round 17 Phase 2) ──────────────────────────────────────────────
+//
+// Three sub-tab panes by TYPE, with each type's units as a LIST inside its
+// pane. createSubTabs' second consumer, per Round 16 Phase 1, which built it
+// for exactly this and argued that a standalone strip would make three
+// implementations. One tab per unit was refused: see the markup comment.
+//
+// A TABLE rather than a stack of cards, because this renders 1 unit as often
+// as 24 and a card per unit is unreadable at the top of that range. Columns
+// are fixed and narrow so a row scans horizontally in one pass.
+const UNIT_TYPES = ['SafeSight', 'Air Quality', 'HEMIR']
+const UNIT_STATES = ['Planned', 'Installed', 'Faulty', 'Removed']
+let tbUnits = []
+
+function tbUnitRow(u) {
+  const opt = s => `<option value="${s}"${u.state === s ? ' selected' : ''}>${s}</option>`
+  return `
+    <tr data-unit-id="${u.id}">
+      <td class="tb-unit-index">${escHtml(String(u.index ?? ''))}</td>
+      <td><input type="text" class="tb-unit-field" data-field="serialNumber"
+                 value="${escHtml(u.serialNumber ?? '')}" placeholder="Not recorded"></td>
+      <td><input type="text" inputmode="decimal" class="tb-unit-field" data-field="latitude"
+                 value="${escHtml(u.latitude ?? '')}" placeholder="Latitude"></td>
+      <td><input type="text" inputmode="decimal" class="tb-unit-field" data-field="longitude"
+                 value="${escHtml(u.longitude ?? '')}" placeholder="Longitude"></td>
+      <td><select class="tb-unit-field" data-field="state">${UNIT_STATES.map(opt).join('')}</select></td>
+      <td class="tb-unit-feedback"></td>
+    </tr>`
+}
+
+function renderTbUnitPane(pane, type) {
+  const rows = tbUnits.filter(u => u.type === type)
+  if (!rows.length) {
+    pane.innerHTML = `<p class="empty-state">No ${escHtml(type)} slots. They derive from the count on Commercials.</p>`
+    return
+  }
+  pane.innerHTML = `
+    <table class="tb-units-table">
+      <thead><tr><th>#</th><th>Serial</th><th>Latitude</th><th>Longitude</th><th>State</th><th></th></tr></thead>
+      <tbody>${rows.map(tbUnitRow).join('')}</tbody>
+    </table>`
+}
+
+// Saved per field on change, not through the page's batched save bar. Same
+// reasoning as Installer and Tech Team directly above: each unit is its own
+// record with its own endpoint, so a page-level Save would be collecting
+// edits across records that do not share a save.
+async function onTbUnitFieldChange(e) {
+  const input = e.target.closest('.tb-unit-field')
+  if (!input) return
+  const tr = input.closest('tr')
+  const cell = tr.querySelector('.tb-unit-feedback')
+  cell.textContent = 'Saving'
+  cell.className = 'tb-unit-feedback'
+  const result = await api('PATCH', `/api/test-beds/${tbDetailId}/units/${tr.dataset.unitId}`,
+    { [input.dataset.field]: input.value })
+  if (!result.ok) {
+    cell.textContent = result.data?.error ?? 'Save failed'
+    cell.className = 'tb-unit-feedback msg-error'
+    return
+  }
+  cell.textContent = 'Saved'
+  const i = tbUnits.findIndex(u => u.id === tr.dataset.unitId)
+  if (i !== -1) tbUnits[i] = result.data
+}
+
+// Derive runs on render, which is what makes a slot exist for a Test Bed
+// whose counts were set before units did. It is idempotent, so this creates
+// what is missing and nothing else.
+window.renderTbUnits = async function () {
+  const mount = document.getElementById('tb-units')
+  if (!mount || !tbDetailId) return
+  const sub = document.getElementById('tb-units-sub')
+
+  // READ ONLY on render. Round 17 Phase 3: this used to POST derive here, so
+  // opening this tab created records, and once the count lock existed that
+  // meant opening a tab locked a field on a DIFFERENT tab. Someone at Site
+  // Assessment looking at what installation involves would have locked the
+  // Commercials counts by looking. A write must not be the consequence of a
+  // read.
+  const listed = await api('GET', `/api/test-beds/${tbDetailId}/units`)
+  if (!listed.ok) {
+    mount.innerHTML = `<p class="empty-state">Unable to load units.</p>`
+    if (sub) sub.textContent = ''
+    return
+  }
+  tbUnits = listed.data ?? []
+
+  // Nothing derived yet: show the counts and the control that creates the
+  // slots. Pressing it is the act that locks the counts, so the lock is
+  // attributable to a person and a moment rather than to a page view.
+  if (!tbUnits.length) {
+    const planned = [
+      { type: 'SafeSight', n: Number(tbPayload.safesightCameras) || 0 },
+      { type: 'Air Quality', n: Number(tbPayload.airQualitySensors) || 0 },
+      { type: 'HEMIR', n: Number(tbPayload.hemirSensors) || 0 },
+    ]
+    const total = planned.reduce((t, p) => t + p.n, 0)
+    delete mount.dataset.builtFor
+    if (sub) sub.textContent = ''
+    if (!total) {
+      mount.innerHTML = '<p class="empty-state">No sensor counts are set on Commercials, so there are no unit slots to create.</p>'
+      return
+    }
+    mount.innerHTML = `
+      <p class="sub" style="margin-bottom:10px">${planned.filter(p => p.n).map(p => `${p.n} ${escHtml(p.type)}`).join(', ')}, from the counts on Commercials.</p>
+      <p class="sub" style="margin-bottom:12px">Creating the unit slots locks these counts. Correcting one afterwards needs a reason.</p>
+      <button class="btn-sm" id="tb-units-derive">Create ${total} unit slot${total === 1 ? '' : 's'}</button>
+      <p id="tb-units-derive-feedback" class="tb-doc-feedback"></p>`
+    document.getElementById('tb-units-derive').onclick = async () => {
+      const btn = document.getElementById('tb-units-derive')
+      const fb = document.getElementById('tb-units-derive-feedback')
+      btn.disabled = true
+      fb.textContent = 'Creating'
+      const made = await api('POST', `/api/test-beds/${tbDetailId}/units/derive`)
+      if (!made.ok) {
+        btn.disabled = false
+        fb.textContent = made.data?.error ?? 'Could not create the unit slots.'
+        fb.className = 'tb-doc-feedback msg-error'
+        return
+      }
+      await window.renderTbUnits()
+    }
+    return
+  }
+
+  if (sub) {
+    const n = tbUnits.length
+    sub.textContent = `${n} unit${n === 1 ? '' : 's'}. These counts are locked on Commercials; correcting one needs a reason.`
+  }
+
+  renderTbCountCorrection()
+
+  // Rebuilt only when the mount is empty or the record changed, so a re-render
+  // after a save does not snap the open type back to SafeSight.
+  if (mount.dataset.builtFor !== String(tbDetailId)) {
+    const built = window.createSubTabs({
+      mount, label: 'Unit types',
+      tabs: UNIT_TYPES.map(t => ({ key: t.replace(/\s+/g, ''), label: t })),
+    })
+    mount.dataset.builtFor = String(tbDetailId)
+    mount._panes = built.panes
+    mount.addEventListener('change', onTbUnitFieldChange)
+  }
+  for (const t of UNIT_TYPES) renderTbUnitPane(mount._panes[t.replace(/\s+/g, '')], t)
+}
+
+
+// The way out of the lock (Round 17 Phase 3).
+//
+// Not an unlock that silently discards units, and not a permanent lock: if
+// ten of twelve are installed and the twelfth never arrives, the count is
+// wrong and locked, and there has to be a way to say so.
+//
+// It lives HERE rather than on Commercials because this is where the units
+// are: a person correcting a count is looking at what actually arrived.
+// Phase 4 replaces the Commercials field with a line pointing here.
+//
+// THE REASON IS ENFORCED AT ENTRY, not at save, per Round 14 Phase 1: the
+// Apply control stays disabled until a reason is typed, so the refusal is
+// visible before the attempt rather than after it. The server refuses the
+// same thing independently, since a client-only lock is an affordance.
+function renderTbCountCorrection() {
+  const host = document.getElementById('tb-units-correction')
+  if (!host) return
+  const types = UNIT_TYPES.filter(t => tbUnits.some(u => u.type === t))
+  if (!types.length) { host.innerHTML = ''; return }
+  const opt = t => `<option value="${escHtml(t)}">${escHtml(t)} (${tbUnits.filter(u => u.type === t).length} now)</option>`
+  host.innerHTML = `
+    <p class="label" style="margin:20px 0 8px">Correct a count</p>
+    <p class="sub" style="margin-bottom:10px">The count is a plan before installation and a record after it. Correcting one is recorded with your reason.</p>
+    <div class="tb-count-correct">
+      <select id="tb-cc-type">${types.map(opt).join('')}</select>
+      <input type="text" inputmode="numeric" id="tb-cc-count" placeholder="New count">
+      <input type="text" id="tb-cc-reason" placeholder="Why is the count wrong?">
+      <button class="btn-sm" id="tb-cc-apply" disabled>Apply</button>
+    </div>
+    <p id="tb-cc-feedback" class="tb-doc-feedback"></p>`
+  const reason = document.getElementById('tb-cc-reason')
+  const count = document.getElementById('tb-cc-count')
+  const apply = document.getElementById('tb-cc-apply')
+  const refresh = () => { apply.disabled = !reason.value.trim() || !count.value.trim() }
+  reason.addEventListener('input', refresh)
+  count.addEventListener('input', refresh)
+  apply.onclick = async () => {
+    const fb = document.getElementById('tb-cc-feedback')
+    const key = { SafeSight: 'safesightCameras', 'Air Quality': 'airQualitySensors', HEMIR: 'hemirSensors' }[document.getElementById('tb-cc-type').value]
+    apply.disabled = true
+    fb.className = 'tb-doc-feedback'
+    fb.textContent = 'Applying'
+    const result = await api('PATCH', `/api/test-beds/${tbDetailId}`,
+      { payload: { [key]: count.value.trim() }, countCorrectionReason: reason.value.trim() })
+    if (!result.ok) {
+      fb.textContent = result.data?.error ?? 'Could not apply the correction.'
+      fb.className = 'tb-doc-feedback msg-error'
+      apply.disabled = false
+      return
+    }
+    await loadTestBedDetail(tbDetailId)
+  }
 }

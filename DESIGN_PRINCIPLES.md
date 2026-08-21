@@ -2225,3 +2225,102 @@ Explicitly deferred, not forgotten, not a section number of its own since this i
   Same family as Verification 12 and 13: a tool that reports nothing, a search
   that never ran, and a key that was never delivered are the same mistake
   wearing different clothes, and each one reads as a true negative.
+
+
+- **Coordinates are the first fields in this system that legitimately accept a negative value, and every existing numeric validator would have rejected half the planet. Round 17 Phase 1, 2026-08-21.**
+
+  This file already records two rounds of work on numeric validation, and both
+  moved in the same direction: `isValidNonNegativeInteger` for counts and
+  durations, `isValidNonNegativePercent` for rates and dollar figures, each
+  with a comment explaining that the quantity cannot sensibly be negative.
+  Round 15 Phase 3 then found the second instance of the over-broad integer
+  pass. **The accumulated pattern in `field-validation.js` reads as "numbers
+  in this system are non-negative", and by Round 17 that was true of every
+  numeric field there was.**
+
+  A latitude south of the equator and a longitude west of Greenwich are
+  negative in the ordinary case, not the exceptional one. **Reusing any
+  existing validator here would have rejected roughly half of the world's
+  surface**, and it would have done so while looking entirely consistent with
+  the file around it, which is what makes it worth recording rather than
+  simply doing.
+
+  `isValidLatitude` and `isValidLongitude` range-check as well as parse, since
+  a latitude of 91 is not a coordinate and, unlike a three-decimal percentage,
+  cannot be a rounding artefact. **Decimal places are deliberately NOT
+  capped.** Six places is roughly 0.1m and real GPS output carries more;
+  truncating would discard genuine precision on the one field whose entire
+  purpose is recording exactly where a unit is.
+
+  **The general form: a convention that has been correct for every case so far
+  is not a rule, and the moment a genuinely different quantity arrives it
+  becomes a trap** precisely because following it looks like consistency.
+
+
+- **A unit cannot be edited by anyone but its creator, the block lands on the wrong table, and it reports as a server error. Round 17 Phase 1, 2026-08-21.**
+
+  Named as a specific failure mode rather than a general note about RLS,
+  because the general fact has been true and harmless for six rounds and this
+  is the case where it stops being harmless.
+
+  **`records_update` is `auth.uid() = owner_id`.** Reads are team-wide, so
+  every record type until now has been effectively single-owner in practice:
+  a Contact, an Opportunity or a Test Bed is created and edited by the same
+  person, and nothing has needed otherwise.
+
+  **Units are the first record type plausibly edited by someone other than
+  their creator.** Slots are derived during setup by whoever is running the
+  Test Bed; serials, coordinates and state are entered at the site by whoever
+  installs them. That is two different people in the ordinary case, not the
+  exceptional one, **so this bites the moment an installer opens the UI.**
+
+  **Two things beyond the policy itself, both measured:**
+
+  1. **The block lands on the `record_revisions` INSERT, not the `records`
+     UPDATE.** A unit edit writes a revision first and only touches `records`
+     when the state changes, so the refusal comes from the append-only history
+     table rather than from the row being edited. Anyone reasoning about which
+     policy to widen will look at `records_update` first, and that is not
+     where the failure is.
+  2. **It surfaces as an opaque HTTP 500** carrying `new row violates
+     row-level security policy for table "record_revisions"`. A person who is
+     not permitted to edit a unit is told the server broke. That is worse than
+     a refusal, because it invites a retry and a bug report rather than a
+     conversation about permissions.
+
+  **Recorded and deliberately not fixed in the phase that found it.** Widening
+  a write policy is a security decision with a blast radius across every
+  record type, and it belongs in a change scoped to it rather than inside a
+  phase building a record shape.
+
+
+- **A write must not be the consequence of a read. Round 17 Phase 3, 2026-08-21.**
+
+  Phase 2 derived unit slots when the Installation and Commissioning tab
+  rendered. It was idempotent, it created only what the counts implied, and it
+  was the obvious place to put it: the units are needed the moment that tab is
+  open.
+
+  **Phase 3 made the cost visible.** The count locks once units exist, so
+  deriving on render meant **opening a tab would lock a field on a different
+  tab**. Someone at Site Assessment, looking at the Installation and
+  Commissioning tab to find out what installation involves, would have locked
+  the Commercials counts by looking at it.
+
+  **The general form is worse than the specific case.** Reading a screen is
+  how a person finds out what something is. If reading changes state, then
+  looking is committing, and the only safe way to explore the system is not
+  to. That is a bad property for any system and a corrosive one for a system
+  people are still learning.
+
+  **The fix is an explicit control**, and it buys three things rather than
+  one: the user has acted rather than been acted upon; **the lock becomes
+  attributable to a person and a moment** instead of to a page view; and the
+  stage question dissolves, because a control that exists only on the
+  Installation and Commissioning tab cannot create units earlier, so the data
+  condition and the stage condition agree without a stage rule being written.
+
+  **The tell to look for.** A side effect on render is easy to justify while
+  it is only creating something, and the justification stops holding the
+  moment anything else keys off what was created. When a render writes,
+  ask what else will read that write.
