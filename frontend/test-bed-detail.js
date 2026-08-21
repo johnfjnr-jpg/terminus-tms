@@ -323,6 +323,11 @@ function renderTbReference() {
   // no longer its own separate .ref-cards grid panel - same render
   // function, unchanged, just called from here now instead of
   // renderTbSiteDetails.
+  // Round 16 Phase 2: the sub-tab strip is mounted BEFORE the three content
+  // renders below, because mounting moves their container blocks into panes
+  // and a render into a detached node would paint nothing visible.
+  mountTbReferenceSubTabs()
+
   renderTbUseCases()
 
   // Round 12 Phase 2: renderTbScores() no longer runs here. The panel lives on
@@ -446,6 +451,31 @@ window.addTbNote = async function () {
 // editable fields on screen whose every save the server rejects. The array
 // stays their home because it is still the batched-save field list.
 const TB_SITE_PANEL_KEYS = ['siteOwnership', 'installationEnvironment', 'siteAddress', 'city']
+
+// Round 16 Phase 2. Mounted once per RECORD, not once per render.
+//
+// renderTestBedDetail runs again after every save, and rebuilding the strip
+// on each run would snap the open pane back to Use Cases while someone was
+// working in Customer Documents. Keyed on the record id so it still resets
+// between records, which is the persistence decision Phase 1 recorded: which
+// pane is open is a position inside one record's content, not a preference
+// that should follow the user to a record whose third pane is empty.
+function mountTbReferenceSubTabs() {
+  const mount = document.getElementById('tb-ref-subtabs')
+  if (!mount) return
+  if (mount.dataset.builtFor === String(tbDetailId)) return
+  window.createSubTabs({
+    mount,
+    label: 'Reference detail',
+    tabs: [
+      { key: 'useCases', label: 'Use cases' },
+      { key: 'customerDocuments', label: 'Customer documents' },
+      { key: 'sensors', label: 'Sensors' },
+    ],
+    adopt: { useCases: 'tb-usecases-block', customerDocuments: 'tb-custdocs-block', sensors: 'tb-sensors-block' },
+  })
+  mount.dataset.builtFor = String(tbDetailId)
+}
 
 function renderTbSiteDetails() {
   document.getElementById('tb-site-rows').innerHTML = TB_SITE_PANEL_KEYS.map(key => {

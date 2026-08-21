@@ -277,9 +277,25 @@ window.createTabStrip = function ({ strip, keyAttr, dataAttr, tabs, tabClass, pa
 // different thing, a position within one record's content, and carrying pane
 // 3 over to a record whose pane 3 is empty would be surprising. Stated as a
 // decision rather than inherited from the toggle's.
-window.createSubTabs = function ({ mount, tabs, label }) {
+window.createSubTabs = function ({ mount, tabs, label, adopt }) {
   const mountEl = typeof mount === 'string' ? document.getElementById(mount) : mount
   if (!mountEl) return null
+  // ADOPTED, not rebuilt. Each block is an existing DOM node that gets MOVED
+  // into its pane by appendChild, which detaches it from wherever it was.
+  // That is the relocation guarantee: a move cannot leave a copy behind, so
+  // "exactly one instance, and zero in the old position" is structural rather
+  // than something the render has to remember to do. It also keeps every id,
+  // every attached listener and every inline handler on those blocks intact,
+  // so nothing that reads or writes them needs to know this happened.
+  //
+  // Captured BEFORE the innerHTML below, because the blocks start life inside
+  // this mount: setting innerHTML detaches them, and a reference taken first
+  // still points at a live node with its subtree and listeners.
+  const adopted = {}
+  if (adopt) for (const [key, ref] of Object.entries(adopt)) {
+    const el = typeof ref === 'string' ? document.getElementById(ref) : ref
+    if (el) { el.remove(); adopted[key] = el }
+  }
   mountEl.innerHTML =
     `<div class="sub-tabs" id="${mountEl.id}-strip"></div>` +
     `<div class="sub-tab-panes">` +
@@ -296,7 +312,10 @@ window.createSubTabs = function ({ mount, tabs, label }) {
     panelFor: key => document.getElementById(`${mountEl.id}-pane-${key}`),
   })
   const panes = {}
-  for (const t of tabs) panes[t.key] = document.getElementById(`${mountEl.id}-pane-${t.key}`)
+  for (const t of tabs) {
+    panes[t.key] = document.getElementById(`${mountEl.id}-pane-${t.key}`)
+    if (adopted[t.key]) panes[t.key].appendChild(adopted[t.key])
+  }
   strip.select(tabs[0].key)
   return { strip, panes }
 }

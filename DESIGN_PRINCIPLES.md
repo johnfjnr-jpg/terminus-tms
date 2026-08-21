@@ -2116,3 +2116,41 @@ Explicitly deferred, not forgotten, not a section number of its own since this i
   while the same event had written six more; here it is a JSON file naming two
   records while the same phase had created four. **Enumerate from the database,
   by a tag the fixtures themselves carry, and re-query to confirm zero remain.**
+
+
+- **Use Cases and Customer Documents move into sub-tabs, superseding Round 13 Phase 6 one round later. Round 16 Phase 2, 2026-08-21.**
+
+  **What Round 13 Phase 6 did, and its reasoning, left visible rather than
+  deleted.** It moved Use Cases and Customer Documents out of the `.ref-cards`
+  grid into a dedicated side-by-side `.ref-cards-wide` row with
+  `align-items: start`, specifically so each panel could grow independently
+  instead of one stretching to match the height of the other. That was a real
+  problem, correctly diagnosed, and the fix worked.
+
+  **The business's reason for reversing it is better, and it is worth being
+  precise about why.** Independent growth solves a problem that only exists
+  when the lists are long. They are usually short. So the layout optimised for
+  the rare case and paid for it in the common one: two large, mostly-empty
+  panels occupying a full-width row for two lists that typically hold two or
+  three items each. One pane at a time gives whichever list is being read the
+  entire width AND removes the empty half of the row.
+
+  **Measured, because decluttering is the stated purpose and a height is the
+  evidence.** Same record, same fixture, before and after:
+
+      1240   1716px -> 1536px   (-180px)
+      1920   1416px -> 1257px   (-159px)
+      3440   1035px ->  876px   (-159px)
+
+  **A supersession is not a reversal of a mistake.** Round 13 Phase 6 was
+  right about the mechanism and right about the failure it prevented; what
+  changed is a judgement about which case to optimise for, and that judgement
+  belongs to the business rather than to the layout. Recorded this way so a
+  future round reading the `.ref-cards-wide` rule does not reintroduce it on
+  the strength of the original argument, which still reads as sound.
+
+  **One consequence to watch.** The panes inherit the full content width, so at
+  3440 a use-case row's Remove control sits roughly 2900px from the text it
+  belongs to. That matches the Notes list directly beneath it, which has always
+  been full width, so it is consistent with the page rather than anomalous, and
+  it is recorded as an open item rather than fixed unasked.
