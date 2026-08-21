@@ -976,24 +976,17 @@
                belonging to an element that no longer exists. Removed rather
                than compensated for. -->
           <div id="tb-buyer-rows"></div>
-        </div>
-        <div class="pg-card">
-          <p class="pg-card-title">Site Details</p>
+          <!-- Round 16 Phase 3 (2026-08-21): Site Ownership, Inst. Env., Site
+               Address and City moved here from the Site Details card, which is
+               removed. Its Sensors block had already left in Phase 2, so this
+               deletes a panel that no longer contained it and Sensors moved
+               exactly once.
+
+               #tb-site-rows keeps its id and simply renders inside this card
+               now. The id is what renderTbSiteDetails writes into and what the
+               Round 10 Phase 0A single-click reveal reaches through, so
+               renaming it would be churn for a display change. -->
           <div id="tb-site-rows"></div>
-          <!-- Round 10 Phase 8 (2026-08-19): Sensors became a toggle, and
-               each sensor renders as its own panel rather than a flat list
-               row. Contents are deliberately minimal - identity, and the
-               existing "not yet linked to a real device" state. No field is
-               invented here: there is no per-sensor data in this system to
-               show. See DESIGN_PRINCIPLES for why this is the visible
-               surface of a real gap rather than a layout change. -->
-          <div style="margin-top:16px">
-            <div class="tb-sensors-head">
-              <p class="label" style="margin:0">Sensors</p>
-              <button class="btn-text" id="tb-sensors-toggle" type="button"></button>
-            </div>
-            <div id="tb-sensors-list"></div>
-          </div>
         </div>
         <!-- Round 6 Phase 3 (2026-08-17): trimmed - sensor count fields
              moved to the Commercials tab (alongside the cost engine that
@@ -1075,10 +1068,36 @@
            3440 since Round 6 Phase 3, so halving it here is a narrowing
            rather than a widening. align-items:start lets each size to its own
            content instead of one stretching to match the other. -->
-      <div class="ref-cards-wide">
-        <div class="pg-card">
+      <!-- Round 16 Phase 2 (2026-08-21): Use Cases, Customer Documents and
+           Sensors move into a sub-tab strip, one pane each.
 
-          <p class="pg-card-title">Use Cases</p>
+           THIS SUPERSEDES ROUND 13 PHASE 6, one round later, deliberately.
+           That round moved Use Cases and Customer Documents out of the card
+           grid into this side-by-side .ref-cards-wide row specifically so
+           each could grow independently, with align-items:start, rather than
+           one stretching to match the other. That reasoning was sound and is
+           left visible here rather than deleted.
+
+           The business's reason is better: two large, mostly-empty panels for
+           two lists that are usually short is a poor use of the tab's
+           vertical space. Independent growth solved a real problem for lists
+           that are rarely long enough to have it. One pane at a time gives
+           each list the full width AND removes the empty half.
+
+           Sensors moves here from the Site Details card, which Phase 3
+           removes. Ordered this way round so Sensors moves EXACTLY ONCE:
+           out of Site Details into a pane now, leaving Phase 3 to delete a
+           panel that no longer contains it.
+
+           These three blocks are static markup inside the mount and are
+           ADOPTED into panes by createSubTabs, which moves the nodes rather
+           than rebuilding them, so ids, listeners and inline handlers all
+           survive untouched. -->
+      <div id="tb-ref-subtabs">
+        <div id="tb-usecases-block">
+          <!-- No .pg-card and no title: the pane is the container and the tab
+               label is the heading. A bordered card carrying the same word as
+               the tab above it is the clutter this phase exists to remove. -->
           <div id="tb-usecases-list"></div>
           <div style="display:flex;gap:8px;margin-top:10px">
             <input type="text" id="tb-usecase-input" placeholder="Add a use case">
@@ -1094,8 +1113,7 @@
                grid-column breaks at 1240 where the grid reflows to fewer
                columns, so the natural flow position is used and the rendered
                position is reported at each width instead. -->
-          <div class="pg-card">
-            <p class="pg-card-title">Customer Documents</p>
+          <div id="tb-custdocs-block">
             <p class="sub" style="margin-bottom:8px">Client-supplied material. These are the client's documents and gate nothing.</p>
             <div id="tb-custdocs-list"></div>
             <div id="tb-custdocs-add" style="margin-top:10px">
@@ -1104,6 +1122,20 @@
               <button class="btn-sm" style="margin-top:8px" onclick="addTbCustomerDocument()">Add document</button>
             </div>
             <p id="tb-custdocs-feedback" class="tb-doc-feedback"></p>
+          </div>
+          <!-- Round 10 Phase 8 (2026-08-19): Sensors became a toggle, and
+               each sensor renders as its own panel rather than a flat list
+               row. Contents are deliberately minimal - identity, and the
+               existing "not yet linked to a real device" state. No field is
+               invented here: there is no per-sensor data in this system to
+               show. See DESIGN_PRINCIPLES for why this is the visible
+               surface of a real gap rather than a layout change. -->
+          <div id="tb-sensors-block">
+            <div class="tb-sensors-head">
+              <p class="label" style="margin:0">Sensors</p>
+              <button class="btn-text" id="tb-sensors-toggle" type="button"></button>
+            </div>
+            <div id="tb-sensors-list"></div>
           </div>
       </div>
 

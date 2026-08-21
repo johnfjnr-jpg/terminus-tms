@@ -323,6 +323,11 @@ function renderTbReference() {
   // no longer its own separate .ref-cards grid panel - same render
   // function, unchanged, just called from here now instead of
   // renderTbSiteDetails.
+  // Round 16 Phase 2: the sub-tab strip is mounted BEFORE the three content
+  // renders below, because mounting moves their container blocks into panes
+  // and a render into a detached node would paint nothing visible.
+  mountTbReferenceSubTabs()
+
   renderTbUseCases()
 
   // Round 12 Phase 2: renderTbScores() no longer runs here. The panel lives on
@@ -331,6 +336,14 @@ function renderTbReference() {
   renderTbScoreSummary()
 
   renderTbCustomerDocuments()
+
+  // Round 16 Phase 3: called from here, not from renderTbSiteDetails.
+  // Phase 2 moved the Sensors block into a sub-tab pane and Phase 3 removed
+  // the panel whose render used to drive it, which left renderTbSensors
+  // reachable only from its own toggle: the pane would have rendered empty on
+  // load and filled in only if someone happened to click Show sensors. It
+  // sits with the other two pane renders now, where it belongs.
+  renderTbSensors()
 
   renderTbNotes()
 
@@ -447,16 +460,46 @@ window.addTbNote = async function () {
 // stays their home because it is still the batched-save field list.
 const TB_SITE_PANEL_KEYS = ['siteOwnership', 'installationEnvironment', 'siteAddress', 'city']
 
+// Round 16 Phase 2. Mounted once per RECORD, not once per render.
+//
+// renderTestBedDetail runs again after every save, and rebuilding the strip
+// on each run would snap the open pane back to Use Cases while someone was
+// working in Customer Documents. Keyed on the record id so it still resets
+// between records, which is the persistence decision Phase 1 recorded: which
+// pane is open is a position inside one record's content, not a preference
+// that should follow the user to a record whose third pane is empty.
+function mountTbReferenceSubTabs() {
+  const mount = document.getElementById('tb-ref-subtabs')
+  if (!mount) return
+  if (mount.dataset.builtFor === String(tbDetailId)) return
+  window.createSubTabs({
+    mount,
+    label: 'Reference detail',
+    tabs: [
+      { key: 'useCases', label: 'Use cases' },
+      { key: 'customerDocuments', label: 'Customer documents' },
+      { key: 'sensors', label: 'Sensors' },
+    ],
+    adopt: { useCases: 'tb-usecases-block', customerDocuments: 'tb-custdocs-block', sensors: 'tb-sensors-block' },
+  })
+  mount.dataset.builtFor = String(tbDetailId)
+}
+
 function renderTbSiteDetails() {
+  // Round 16 Phase 3: these four now render INSIDE the Customer Details card.
+  // The keys moved out of a panel, not out of TB_SITE_FIELDS: that array also
+  // holds estCostPerUnit and indicativeCost, which have no rendered input at
+  // all, and TB_ALL_EDITABLE_FIELDS spreads it, so it is still the home of the
+  // batched-save field list, the label lookup and the input wiring. Deleting
+  // it to remove the panel would have taken those two definitions and the
+  // save path with it.
   document.getElementById('tb-site-rows').innerHTML = TB_SITE_PANEL_KEYS.map(key => {
     const f = TB_SITE_FIELDS.find(x => x.key === key)
     return tbFieldRow(f.key, f.label, tbPayload[f.key], { options: f.options })
   }).join('')
 
-  // Sensor count fields themselves are edited on the Commercials tab now
-  // (renderTbSensorCounts) - this list is still read directly off the
-  // same tbPayload keys regardless of which tab edits them.
-  renderTbSensors()
+  // renderTbSensors is NOT called from here any more. Phase 2 moved the
+  // Sensors block into its own sub-tab pane, and it is rendered from there.
 }
 
 // Round 6 Phase 3 (2026-08-17): Installer/Test Bed Tech Team/Install

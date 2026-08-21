@@ -12,8 +12,8 @@ Contains no environment variable, key or token, and no client data. Records
 appear as counts by status only, never by name or reference code, because
 this file is uploaded into chat sessions.
 
-- Generated at: `2026-08-20T22:22:50.212Z`
-- Git commit: `390981b3d11373b31b5e66c689d81f50c59ad668`
+- Generated at: `2026-08-21T00:40:36.702Z`
+- Git commit: `04a19c6ebdb920d57f898dfcc02fea28a5dc159e`
 - Working tree at generation: `dirty (uncommitted changes present)`
 
 Staleness has two parts, and both must hold for this file to be current:
@@ -217,24 +217,24 @@ _None._
 
 ## Record counts by type and status
 
-93 live, 4854 soft deleted, 4947 rows in total.
+93 live, 5296 soft deleted, 5389 rows in total.
 
 | record_type | status | live | soft deleted |
 |---|---|---|---|
-| account | active | 7 | 234 |
+| account | active | 7 | 239 |
 | contact | Parked | 0 | 2 |
-| contact | Qualified | 9 | 167 |
+| contact | Qualified | 9 | 172 |
 | contact | Unqualified | 1 | 53 |
-| document | approved | 62 | 559 |
-| document | received | 1 | 72 |
-| opportunity | Discovery | 3 | 52 |
+| document | approved | 62 | 615 |
+| document | received | 1 | 74 |
+| opportunity | Discovery | 3 | 57 |
 | opportunity | Negotiation | 0 | 1 |
 | opportunity | Proposal | 0 | 1 |
 | test_bed | Closed | 5 | 7 |
 | test_bed | Installation and Commissioning | 1 | 11 |
 | test_bed | Monitoring and Analysis | 0 | 1 |
 | test_bed | Pre-Site Assessment | 0 | 6 |
-| test_bed | Qualification | 2 | 200 |
+| test_bed | Qualification | 2 | 205 |
 | test_bed | Review and Completion | 1 | 0 |
 | test_bed | Site Assessment | 1 | 14 |
 
@@ -246,7 +246,7 @@ row by row, and are included in the totals above.
 
 | distinct `harness_*` record types | live rows | soft deleted rows |
 |---|---|---|
-| 275 | 0 | 3474 |
+| 303 | 0 | 3838 |
 
 No harness record type holds a live row; every fixture row is soft deleted.
 

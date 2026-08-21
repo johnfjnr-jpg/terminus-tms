@@ -3085,3 +3085,36 @@ input.input-invalid {
   font-style: normal;
   color: var(--muted-2);
 }
+
+/* ── Sub-tab strip (Round 16 Phase 1) ──────────────────────────────────
+   A second tab strip inside a panel. Two rows of tabs with no hierarchy
+   between them is a real usability problem, and the parent .detail-tabs
+   row is sticky as of Round 13 Phase 5, so this one is made visibly
+   subordinate on three axes at once rather than one: a single difference
+   reads as a variant, three read as a level.
+
+   1. 10px against the parent's 11px.
+   2. Sentence case against the parent's uppercase. Uppercase mono reads as
+      page chrome; sentence case reads as content, which is the hierarchy
+      being expressed.
+   3. No full-width rule under the strip, where .detail-tabs draws a 1px
+      hairline, and a 1px active underline against the parent's 2px.
+
+   Deliberately NOT a .detail-tab-panel: the parent strips sweep that class
+   to hide panes, so a sub-pane carrying it would be hidden by its own
+   parent. Architecture rule 8. */
+.sub-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.sub-tab {
+  font-size: 10px;
+  text-transform: none;
+  letter-spacing: 0.04em;
+  padding: 6px 2px;
+  margin-right: 16px;
+  border-bottom-width: 1px;
+}
+.sub-tab.active { color: var(--white); border-bottom-color: var(--green); }
+.sub-tab:focus-visible { outline: 1px solid var(--white); outline-offset: 2px; }
