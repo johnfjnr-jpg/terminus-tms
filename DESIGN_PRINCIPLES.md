@@ -2154,3 +2154,34 @@ Explicitly deferred, not forgotten, not a section number of its own since this i
   belongs to. That matches the Notes list directly beneath it, which has always
   been full width, so it is consistent with the page rather than anomalous, and
   it is recorded as an open item rather than fixed unasked.
+
+
+- **A report with two parts became a brief with one, and the second part sat undelivered for a round while looking finished. Round 16 Phase 4, 2026-08-21.**
+
+  The business reported two things about the arrow keys on Commercials: that
+  they **changed values**, and that they **should navigate between fields**.
+  Round 15 Phase 3 ended `type="number"` and stopped them changing values. It
+  did not make them navigate. So after that round the arrow keys did nothing at
+  all, which is not what was asked for and is arguably worse than the original
+  complaint: a key that does the wrong thing is at least discoverable, and a
+  key that does nothing reads as an application with no keyboard support.
+
+  **The gap was in Round 15's own report and not in its brief.** Nobody
+  overlooked it during the build; the build did exactly what it was scoped to
+  do, verified it thoroughly, and the missing half was never in scope to be
+  noticed. **That makes this a brief-writing failure rather than a build one**,
+  and it is worth separating because the two have different remedies. No amount
+  of build discipline catches a requirement that was never written down.
+
+  **The shape, stated so it is recognisable:** a single report contains a
+  complaint and a request. The complaint is concrete, reproducible and easy to
+  scope, so it becomes the phase. The request is vaguer, needs a design
+  decision, and quietly does not. The phase then passes every check it has,
+  because the checks were written from the same half.
+
+  **The practical remedy is at brief-writing time, not build time: when a
+  report has two clauses, write two, and if only one is being scoped, say so
+  in the brief.** Round 15's brief would have needed one sentence recording
+  that navigation was deferred. Recording the deferral is what makes it
+  visible; leaving it out is what let a half-delivered fix look complete for a
+  round.

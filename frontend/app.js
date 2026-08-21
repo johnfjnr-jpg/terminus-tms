@@ -483,6 +483,85 @@ const tbTabStrip = window.createTabStrip({
 })
 function switchTbTab(tab) { tbTabStrip.select(tab) }
 
+// ── Up and down navigate between fields ───────────────────────────────────────
+//
+// Round 16 Phase 4, completing a fix Round 15 delivered half of. The business
+// reported two things about the arrow keys: that they changed values, and that
+// they should navigate. Round 15 Phase 3 stopped them changing values by
+// ending type="number", and did not make them navigate, so they did nothing at
+// all. The gap was in that round's report and not in its brief.
+//
+// THE RULE. Up and down move to the previous and next field. Single-line text
+// and numeric inputs only.
+//
+// Numeric fields are type="text" with an inputmode as of Round 15 Phase 3, so
+// text and numeric are the same type now and this rule never has to tell them
+// apart: it includes both and treats them identically. The three exclusions
+// are each unambiguous on their own, and each has its own reason:
+//
+//   textarea      up and down are LINE movement. Summary, Notes and Install
+//                 Notes are multi-line and jumping out mid-sentence is worse
+//                 than the problem being solved.
+//   select        up and down move through the option list.
+//   input[date]   up and down change the focused date part.
+//
+// LEFT AND RIGHT ARE NEVER TOUCHED, on any field. Someone correcting a
+// character mid-string reaches for the left arrow and that must keep working.
+// This handler returns unless the key is up or down, so left and right never
+// reach it at all.
+const ARROW_NAV_TYPES = new Set(['text', 'email'])
+
+function isArrowNavField(el) {
+  if (!el || el.tagName !== 'INPUT') return false
+  if (!ARROW_NAV_TYPES.has(el.type)) return false
+  if (el.disabled) return false
+  return el.offsetParent !== null
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return
+  // A modified arrow is somebody else's shortcut, not this.
+  if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return
+  const el = e.target
+  if (!isArrowNavField(el)) return
+
+  // SCOPE. Every focus-trapping dialog in this app carries .modal-backdrop -
+  // Park, the two Account modals, New Lead, the inline buyer contact, the
+  // change-reason dialogue, New Test Bed. Scoping to the nearest one means
+  // arrow navigation can never carry focus out of a trapped dialog, which is
+  // the same confinement INTERACTION_STANDARDS Section 4 already requires of
+  // Tab. Written against the shared container rather than against a list of
+  // dialog ids, so a dialog added later is covered without being enumerated.
+  const scope = el.closest('.modal-backdrop') ?? document
+
+  // Candidates include readonly fields, so one can be navigated OUT of.
+  const fields = [...scope.querySelectorAll('input')].filter(isArrowNavField)
+  const i = fields.indexOf(el)
+  if (i === -1) return
+
+  // Always swallow the key on an eligible field, whether or not a move
+  // follows. A bare up or down in a single-line input jumps the caret to the
+  // start or end of the value, so letting it through at the ends of a form
+  // would make the last field behave differently from every other one.
+  e.preventDefault()
+
+  // Readonly fields are not landing targets: the ten computed Deal Sheet cost
+  // figures would otherwise be stops on a route through fields a person can
+  // actually type in. Step past them rather than skipping a single neighbour,
+  // since they occur in runs.
+  const step = e.key === 'ArrowDown' ? 1 : -1
+  for (let j = i + step; j >= 0 && j < fields.length; j += step) {
+    if (fields[j].readOnly) continue
+    fields[j].focus()
+    // Caret to the end, matching what focusing a field by Tab does, rather
+    // than leaving it wherever the previous field's offset happened to be.
+    try { fields[j].setSelectionRange(fields[j].value.length, fields[j].value.length) } catch { /* not selectable */ }
+    return
+  }
+  // Deliberately no wraparound. Tab does not wrap at the end of a form and
+  // neither does this; the last field simply stays put.
+})
+
 // ── API ───────────────────────────────────────────────────────────────────────
 async function api(method, path, body) {
   if (!currentSession) return { ok: false, data: { error: 'not authenticated' } }
