@@ -2445,20 +2445,64 @@ window.renderTbUnits = async function () {
   if (!mount || !tbDetailId) return
   const sub = document.getElementById('tb-units-sub')
 
-  const derived = await api('POST', `/api/test-beds/${tbDetailId}/units/derive`)
-  if (!derived.ok) {
+  // READ ONLY on render. Round 17 Phase 3: this used to POST derive here, so
+  // opening this tab created records, and once the count lock existed that
+  // meant opening a tab locked a field on a DIFFERENT tab. Someone at Site
+  // Assessment looking at what installation involves would have locked the
+  // Commercials counts by looking. A write must not be the consequence of a
+  // read.
+  const listed = await api('GET', `/api/test-beds/${tbDetailId}/units`)
+  if (!listed.ok) {
     mount.innerHTML = `<p class="empty-state">Unable to load units.</p>`
     if (sub) sub.textContent = ''
     return
   }
-  tbUnits = derived.data.units ?? []
+  tbUnits = listed.data ?? []
+
+  // Nothing derived yet: show the counts and the control that creates the
+  // slots. Pressing it is the act that locks the counts, so the lock is
+  // attributable to a person and a moment rather than to a page view.
+  if (!tbUnits.length) {
+    const planned = [
+      { type: 'SafeSight', n: Number(tbPayload.safesightCameras) || 0 },
+      { type: 'Air Quality', n: Number(tbPayload.airQualitySensors) || 0 },
+      { type: 'HEMIR', n: Number(tbPayload.hemirSensors) || 0 },
+    ]
+    const total = planned.reduce((t, p) => t + p.n, 0)
+    delete mount.dataset.builtFor
+    if (sub) sub.textContent = ''
+    if (!total) {
+      mount.innerHTML = '<p class="empty-state">No sensor counts are set on Commercials, so there are no unit slots to create.</p>'
+      return
+    }
+    mount.innerHTML = `
+      <p class="sub" style="margin-bottom:10px">${planned.filter(p => p.n).map(p => `${p.n} ${escHtml(p.type)}`).join(', ')}, from the counts on Commercials.</p>
+      <p class="sub" style="margin-bottom:12px">Creating the unit slots locks these counts. Correcting one afterwards needs a reason.</p>
+      <button class="btn-sm" id="tb-units-derive">Create ${total} unit slot${total === 1 ? '' : 's'}</button>
+      <p id="tb-units-derive-feedback" class="tb-doc-feedback"></p>`
+    document.getElementById('tb-units-derive').onclick = async () => {
+      const btn = document.getElementById('tb-units-derive')
+      const fb = document.getElementById('tb-units-derive-feedback')
+      btn.disabled = true
+      fb.textContent = 'Creating'
+      const made = await api('POST', `/api/test-beds/${tbDetailId}/units/derive`)
+      if (!made.ok) {
+        btn.disabled = false
+        fb.textContent = made.data?.error ?? 'Could not create the unit slots.'
+        fb.className = 'tb-doc-feedback msg-error'
+        return
+      }
+      await window.renderTbUnits()
+    }
+    return
+  }
 
   if (sub) {
     const n = tbUnits.length
-    sub.textContent = n
-      ? `${n} unit${n === 1 ? '' : 's'}, derived from the counts on Commercials.`
-      : 'No units yet. They derive from the sensor counts on Commercials.'
+    sub.textContent = `${n} unit${n === 1 ? '' : 's'}. These counts are locked on Commercials; correcting one needs a reason.`
   }
+
+  renderTbCountCorrection()
 
   // Rebuilt only when the mount is empty or the record changed, so a re-render
   // after a save does not snap the open type back to SafeSight.
@@ -2472,4 +2516,59 @@ window.renderTbUnits = async function () {
     mount.addEventListener('change', onTbUnitFieldChange)
   }
   for (const t of UNIT_TYPES) renderTbUnitPane(mount._panes[t.replace(/\s+/g, '')], t)
+}
+
+
+// The way out of the lock (Round 17 Phase 3).
+//
+// Not an unlock that silently discards units, and not a permanent lock: if
+// ten of twelve are installed and the twelfth never arrives, the count is
+// wrong and locked, and there has to be a way to say so.
+//
+// It lives HERE rather than on Commercials because this is where the units
+// are: a person correcting a count is looking at what actually arrived.
+// Phase 4 replaces the Commercials field with a line pointing here.
+//
+// THE REASON IS ENFORCED AT ENTRY, not at save, per Round 14 Phase 1: the
+// Apply control stays disabled until a reason is typed, so the refusal is
+// visible before the attempt rather than after it. The server refuses the
+// same thing independently, since a client-only lock is an affordance.
+function renderTbCountCorrection() {
+  const host = document.getElementById('tb-units-correction')
+  if (!host) return
+  const types = UNIT_TYPES.filter(t => tbUnits.some(u => u.type === t))
+  if (!types.length) { host.innerHTML = ''; return }
+  const opt = t => `<option value="${escHtml(t)}">${escHtml(t)} (${tbUnits.filter(u => u.type === t).length} now)</option>`
+  host.innerHTML = `
+    <p class="label" style="margin:20px 0 8px">Correct a count</p>
+    <p class="sub" style="margin-bottom:10px">The count is a plan before installation and a record after it. Correcting one is recorded with your reason.</p>
+    <div class="tb-count-correct">
+      <select id="tb-cc-type">${types.map(opt).join('')}</select>
+      <input type="text" inputmode="numeric" id="tb-cc-count" placeholder="New count">
+      <input type="text" id="tb-cc-reason" placeholder="Why is the count wrong?">
+      <button class="btn-sm" id="tb-cc-apply" disabled>Apply</button>
+    </div>
+    <p id="tb-cc-feedback" class="tb-doc-feedback"></p>`
+  const reason = document.getElementById('tb-cc-reason')
+  const count = document.getElementById('tb-cc-count')
+  const apply = document.getElementById('tb-cc-apply')
+  const refresh = () => { apply.disabled = !reason.value.trim() || !count.value.trim() }
+  reason.addEventListener('input', refresh)
+  count.addEventListener('input', refresh)
+  apply.onclick = async () => {
+    const fb = document.getElementById('tb-cc-feedback')
+    const key = { SafeSight: 'safesightCameras', 'Air Quality': 'airQualitySensors', HEMIR: 'hemirSensors' }[document.getElementById('tb-cc-type').value]
+    apply.disabled = true
+    fb.className = 'tb-doc-feedback'
+    fb.textContent = 'Applying'
+    const result = await api('PATCH', `/api/test-beds/${tbDetailId}`,
+      { payload: { [key]: count.value.trim() }, countCorrectionReason: reason.value.trim() })
+    if (!result.ok) {
+      fb.textContent = result.data?.error ?? 'Could not apply the correction.'
+      fb.className = 'tb-doc-feedback msg-error'
+      apply.disabled = false
+      return
+    }
+    await loadTestBedDetail(tbDetailId)
+  }
 }

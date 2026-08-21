@@ -2292,3 +2292,35 @@ Explicitly deferred, not forgotten, not a section number of its own since this i
   a write policy is a security decision with a blast radius across every
   record type, and it belongs in a change scoped to it rather than inside a
   phase building a record shape.
+
+
+- **A write must not be the consequence of a read. Round 17 Phase 3, 2026-08-21.**
+
+  Phase 2 derived unit slots when the Installation and Commissioning tab
+  rendered. It was idempotent, it created only what the counts implied, and it
+  was the obvious place to put it: the units are needed the moment that tab is
+  open.
+
+  **Phase 3 made the cost visible.** The count locks once units exist, so
+  deriving on render meant **opening a tab would lock a field on a different
+  tab**. Someone at Site Assessment, looking at the Installation and
+  Commissioning tab to find out what installation involves, would have locked
+  the Commercials counts by looking at it.
+
+  **The general form is worse than the specific case.** Reading a screen is
+  how a person finds out what something is. If reading changes state, then
+  looking is committing, and the only safe way to explore the system is not
+  to. That is a bad property for any system and a corrosive one for a system
+  people are still learning.
+
+  **The fix is an explicit control**, and it buys three things rather than
+  one: the user has acted rather than been acted upon; **the lock becomes
+  attributable to a person and a moment** instead of to a page view; and the
+  stage question dissolves, because a control that exists only on the
+  Installation and Commissioning tab cannot create units earlier, so the data
+  condition and the stage condition agree without a stage rule being written.
+
+  **The tell to look for.** A side effect on render is easy to justify while
+  it is only creating something, and the justification stops holding the
+  moment anything else keys off what was created. When a render writes,
+  ask what else will read that write.

@@ -480,7 +480,7 @@ export default async function testBedsRoutes(app) {
   ])
 
   app.patch('/test-beds/:id', async (request, reply) => {
-    const { payload, industry_id } = request.body ?? {}
+    const { payload, industry_id, countCorrectionReason } = request.body ?? {}
 
     // Round 7 Phase 2 (2026-08-18): see contacts.js for the full note.
     // A body this endpoint cannot act on is now a 400, not a silent
@@ -627,6 +627,100 @@ export default async function testBedsRoutes(app) {
       .eq('record_type', 'test_bed')
       .is('deleted_at', null)
       .maybeSingle()
+
+    // ── The count lock (Round 17 Phase 3) ────────────────────────────────
+    //
+    // The business's own reasoning: the count is a PLAN used to estimate cost
+    // at qualification, and once units are deployed it is a RECORD of what
+    // was installed. The two must not diverge.
+    //
+    // Expressed as a DATA condition, "locked when units exist for that type",
+    // not as "locked from stage N". The brief asked to prefer the data
+    // condition where both give the same answer, because it cannot drift from
+    // reality, and here they do agree: units come into existence only through
+    // the derive control, which exists only on the Installation and
+    // Commissioning tab. The stage rule is enforced by where the control
+    // lives rather than by a second condition that could disagree.
+    //
+    // SERVER-SIDE, because a client-only lock is an affordance and not a
+    // guarantee. This is the layer that refuses.
+    //
+    // Placed here rather than in the validation section above because `db`
+    // does not exist up there.
+    if (payload) {
+      const { units: unitsNow, error: unitsErr } = await loadUnits(db, request.params.id)
+      if (unitsErr) return reply.code(500).send({ error: unitsErr.message })
+
+      const locked = []
+      for (const { type, key } of UNIT_TYPE_COUNT_KEYS) {
+        if (!(key in payload)) continue
+        const have = unitsNow.filter(u => u.type === type)
+        if (!have.length) continue
+        const want = Number(payload[key]) || 0
+        if (want === have.length) continue
+        locked.push({ type, key, want, have })
+      }
+
+      if (locked.length && !String(countCorrectionReason ?? '').trim()) {
+        return reply.code(400).send({
+          error: `${locked.map(l => l.type).join(', ')} units already exist, so this count is locked. A correction needs a reason.`,
+          locked: locked.map(l => ({ type: l.type, key: l.key, deployed: l.have.length })),
+        })
+      }
+
+      for (const l of locked) {
+        // WHAT HAPPENS TO UNIT RECORDS ON A DOWNWARD CORRECTION, decided
+        // rather than left to fall out.
+        //
+        // Surplus slots are removed ONLY while still Planned, highest index
+        // first, which is the shape the business described: twelve ordered,
+        // ten installed, the twelfth never arrived. A Planned slot is a plan
+        // with nothing in it and removing it costs nothing.
+        //
+        // A surplus unit in ANY other state is refused. Installed, Faulty and
+        // Removed each record something that physically happened, and a count
+        // correction is a clerical act. Letting it delete the record of a
+        // deployed device would make the count authoritative over reality,
+        // which is the inversion this lock exists to prevent. Removed is
+        // included deliberately: it means the unit WAS here.
+        //
+        // Soft deleted, never hard: records carries ON DELETE RESTRICT from
+        // record_revisions and audit_log.
+        if (l.want < l.have.length) {
+          const surplus = [...l.have].sort((a, b) => (b.index ?? 0) - (a.index ?? 0)).slice(0, l.have.length - l.want)
+          const blocking = surplus.filter(u => u.state !== 'Planned')
+          if (blocking.length) {
+            return reply.code(400).send({
+              error: `cannot reduce ${l.type} to ${l.want}: ${blocking.length} of the units that would be removed ${blocking.length === 1 ? 'is' : 'are'} not Planned. Set them to Removed on the units view first if they are gone.`,
+            })
+          }
+          const { error: delErr } = await db.from('records')
+            .update({ deleted_at: new Date().toISOString() })
+            .in('id', surplus.map(u => u.id))
+          if (delErr) return reply.code(500).send({ error: delErr.message })
+        }
+        // Raising a count creates no slots here. Deriving stays an explicit
+        // act on the units view: a write must not be the consequence of a
+        // read, and it should not be a side effect of an unrelated write.
+      }
+
+      // The reason is the whole point of permitting the correction, so it is
+      // recorded where Round 18 will surface it, with a real actor. Written
+      // after the units are reconciled so a refused correction logs nothing.
+      if (locked.length) {
+        const { error: auditErr } = await db.from('audit_log').insert({
+          record_id: request.params.id,
+          record_type: 'test_bed',
+          action: 'unit_count_corrected',
+          actor_id: request.user.id,
+          detail: {
+            reason: String(countCorrectionReason).trim(),
+            corrections: locked.map(l => ({ type: l.type, from: l.have.length, to: l.want })),
+          },
+        })
+        if (auditErr) return reply.code(500).send({ error: auditErr.message })
+      }
+    }
 
     if (recordErr || !record) {
       return reply.code(404).send({ error: 'not found' })

@@ -309,6 +309,32 @@ a record of what was installed, and the two must not diverge.**
 The count is editable until units exist for that type. Once they do, it is
 locked.
 
+**AMENDED after Phase 2: DERIVATION IS AN EXPLICIT ACTION, not a render
+side effect.**
+
+Phase 2 derived slots when the Installation and Commissioning tab rendered.
+That made opening a tab create records, and under this rule it would also
+have made **opening a tab lock a field on a different tab**. Someone at Site
+Assessment looking at what installation involves would have locked the counts
+by looking.
+
+**The shape instead.** The Installation and Commissioning tab shows the
+counts and a control saying units have not been derived yet. Pressing it
+creates the slots, and from that moment the counts are locked. The user has
+acted rather than been acted upon, and **the lock is attributable to a
+person and a moment** rather than to a page view.
+
+**This also resolves 3.2's stage question without a stage rule**, which is
+the outcome this brief said to prefer: the control exists only on that tab,
+so units cannot come into existence before Installation and Commissioning,
+and the data condition and the stage condition give the same answer without
+a stage condition being written anywhere.
+
+**The principle, recorded in `DESIGN_PRINCIPLES.md`: a write must not be the
+consequence of a read.** Reading a screen is how a person finds out what
+something is. If that same act changes state, they cannot look without
+committing, and the only safe way to explore the system becomes not to.
+
 **The business's qualifier makes this a stage question, not only a data
 one.** Costs feed qualification, so counts must stay editable through the
 early stages, and units come into existence at Installation and

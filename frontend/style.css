@@ -3141,3 +3141,9 @@ input.input-invalid {
 .tb-units-table input, .tb-units-table select { padding: 5px 0; font-size: 13px; }
 .tb-unit-index { font-family: var(--mono); font-size: 12px; color: var(--muted); }
 .tb-unit-feedback { font-family: var(--mono); font-size: 10px; color: var(--muted-2); width: 90px; }
+
+/* Count correction (Round 17 Phase 3). */
+.tb-count-correct { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.tb-count-correct select { width: 180px; }
+.tb-count-correct #tb-cc-count { width: 110px; }
+.tb-count-correct #tb-cc-reason { flex: 1; min-width: 240px; }
