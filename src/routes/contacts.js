@@ -1,4 +1,5 @@
 import { createUserClient } from '../supabase.js'
+import { appendRecordRevision } from '../lib/record-revision.js'
 import { isValidMobile } from '../lib/field-validation.js'
 import { issueReferenceNumber, issueAccountNumber } from '../lib/reference-number.js'
 import { countryToCode } from '../lib/country-code.js'
@@ -331,30 +332,20 @@ export default async function contactsRoutes(app) {
     }
 
     if (payload) {
-      // Real bug found and fixed (2026-08-15): unchecked error here made
-      // a failed fetch indistinguishable from "no prior revision" -
-      // mergedPayload would silently drop every existing field down to
-      // just this PATCH's own keys. Checking revRowErr explicitly, same
-      // fix as the identical pattern in test-beds.js's PATCH.
-      const { data: revRow, error: revRowErr } = await db
-        .from('record_revisions')
-        .select('revision_number, payload')
-        .eq('record_id', record.id)
-        .order('revision_number', { ascending: false })
-        .limit(1)
-        .maybeSingle()
-
-      if (revRowErr) {
-        request.log.error({ err: revRowErr }, 'failed to load current revision before PATCH merge')
-        return reply.code(500).send({ error: revRowErr.message })
-      }
-
-      const nextRevision = (revRow?.revision_number ?? 0) + 1
-      const mergedPayload = { ...(revRow?.payload ?? {}), ...payload }
-
-      const { error: revErr } = await db
-        .from('record_revisions')
-        .insert({ record_id: record.id, revision_number: nextRevision, payload: mergedPayload, created_by: request.user.id })
+      // Round 17A Phase 1: the read that used to stand here existed only to
+      // build the merge, and the merge now happens inside the write, so both
+      // the read and the gap the race lived in are gone.
+      //
+      // WHAT THAT READ WAS PROTECTING, since deleting it must not delete the
+      // lesson: a 2026-08-15 fix added an explicit error check because an
+      // unchecked one made a failed fetch indistinguishable from "no prior
+      // revision", which silently reduced the payload to this PATCH's own
+      // keys. That failure mode is now structurally unreachable rather than
+      // guarded against - there is no client-side read left to fail, and
+      // append_record_revision does the lookup and the insert in one
+      // statement, so it cannot see "no prior revision" for a record that
+      // has one.
+      const { error: revErr } = await appendRecordRevision(db, record.id, payload, request.user.id)
 
       if (revErr) return reply.code(500).send({ error: revErr.message })
     }
@@ -497,11 +488,12 @@ export default async function contactsRoutes(app) {
     if (updateErr) return reply.code(500).send({ error: updateErr.message })
     if (!updated?.length) return reply.code(403).send({ error: 'not permitted' })
 
-    // Real bug found and fixed (2026-08-15): same unchecked-error shape
-    // as the two PATCH endpoints - a failed fetch here would have made
-    // mergedPayload below wipe the Contact down to just the new note,
-    // silently, on the very save that's supposed to be recording an
-    // Account link.
+    // Real bug found and fixed (2026-08-15): a failed fetch here would have
+    // wiped the Contact down to just the new note, silently, on the very save
+    // that is supposed to be recording an Account link. The check stays and
+    // still matters: Round 17A Phase 1 moved the merge into the write, but
+    // this read survives because prepending to notes needs the existing
+    // array, so it can still fail and must still be checked.
     const { data: revRow, error: revRowErr } = await db
       .from('record_revisions')
       .select('revision_number, payload')
@@ -520,12 +512,14 @@ export default async function contactsRoutes(app) {
       at: new Date().toISOString(),
       by: request.user.email,
     }
-    const mergedPayload = { ...(revRow?.payload ?? {}), notes: [note, ...(revRow?.payload?.notes ?? [])] }
-    const nextRevision = (revRow?.revision_number ?? 0) + 1
-
-    const { error: revErr } = await db
-      .from('record_revisions')
-      .insert({ record_id: contact.id, revision_number: nextRevision, payload: mergedPayload, created_by: request.user.id })
+    // Round 17A Phase 1: the read above STAYS, because prepending to notes
+    // needs the existing array. Only the `notes` key is sent, so every other
+    // key is merged server-side from the current payload rather than from
+    // this read. Two writers prepending a note to the SAME record can still
+    // lose one, which is same-key last-writer-wins and is Phase 2's concern,
+    // not this one.
+    const { error: revErr } = await appendRecordRevision(
+      db, contact.id, { notes: [note, ...(revRow?.payload?.notes ?? [])] }, request.user.id)
 
     if (revErr) return reply.code(500).send({ error: revErr.message })
 

@@ -164,6 +164,100 @@ const TB_COST_FIELDS = [
 // The array is left in place because Install Notes still belongs to this
 // panel; it is empty of field rows and renderTbInstallSection reflects that.
 const TB_INSTALL_FIELDS = []
+// Round 17A Phase 6: the live cost preview.
+//
+// THE BROWSER ADDS UP NOTHING. These are the keys the server's cost engine
+// reads, sent as drafts to POST /api/test-beds/calculate, and whatever comes
+// back is rendered. buildTestBedCostBreakdown is the single mapping point for
+// a saved record too, so a preview and a save cannot disagree: it is the same
+// function over the same values, not two implementations that match today.
+//
+// The list is duplicated in that route's body schema on purpose - one is the
+// contract, one is the caller - and scripts/tests/cost-preview.test.mjs parses
+// both files and asserts they are identical. Fastify strips body keys the
+// schema does not name, silently, so a key misspelled here would not error: it
+// would compute as zero and show a confident wrong total. That is Architecture
+// rule 9's shape, and the assertion is what makes it loud.
+const TB_COST_INPUT_KEYS = [
+  'safesightCameras', 'airQualitySensors', 'hemirSensors',
+  'ssUnitCost', 'aqUnitCost', 'hemirUnitCost',
+  'ssInstallCost', 'aqInstallCost', 'hemirInstallCost',
+  'ssHostingCost', 'aqHostingCost', 'hemirHostingCost',
+  'testBedDuration',
+]
+
+// Non-null while the figures on screen come from unsaved drafts. Cleared the
+// moment nothing that feeds the cost is dirty any more.
+let tbCostPreview = null
+let tbCostPreviewTimer = null
+
+function tbCostFieldsDirty() {
+  return TB_COST_INPUT_KEYS.some(k => tbEdits[k] && tbEdits[k].draft !== tbEdits[k].orig)
+}
+
+// THE TRIGGER: debounced on input, 400ms after the last keystroke, and
+// immediately on a discard.
+//
+// Not per keystroke, which would be a round trip per character in a field
+// where four digits is normal, and a different defect from the one being
+// fixed. Not on blur either, though that was the other candidate: the
+// complaint is that the summary reads zero WHILE values sit on screen, and a
+// blur trigger leaves it stale for exactly as long as the user is looking at
+// the number they just typed. 400ms is long enough that ordinary typing
+// produces one call per field rather than one per digit, and short enough
+// that the figure has settled before attention moves.
+function scheduleTbCostPreview() {
+  clearTimeout(tbCostPreviewTimer)
+  tbCostPreviewTimer = setTimeout(runTbCostPreview, 400)
+}
+
+async function runTbCostPreview() {
+  if (!tbCostFieldsDirty()) {
+    // Back to the stored values, so the stored breakdown is the truth again.
+    tbCostPreview = null
+    renderTbCostBreakdown()
+    return
+  }
+  const body = {}
+  for (const k of TB_COST_INPUT_KEYS) body[k] = tbEffectiveValue(k)
+  const result = await api('POST', '/api/test-beds/calculate', body)
+  // A failed preview must not leave a wrong number on screen wearing the
+  // unsaved marker. Fall back to the stored breakdown, which is at least true
+  // about something.
+  tbCostPreview = result.ok ? result.data : null
+  renderTbCostBreakdown()
+}
+
+// Round 17A Phase 4. The value a field currently HAS from the user's point of
+// view: the open draft if one exists, otherwise what is stored. A bound
+// computed from tbPayload alone describes the last save rather than the
+// screen, which is exactly how the date bound went stale.
+function tbEffectiveValue(key) {
+  return tbEdits[key]?.draft || tbPayload?.[key] || ''
+}
+
+// Recomputes the native min/max on BOTH date inputs from their effective
+// values. The inputs are rendered once and then only shown and hidden, so the
+// attributes have to be updated in place: re-rendering the row would throw
+// away an open edit.
+function refreshTbDateBounds() {
+  const today = new Date().toISOString().slice(0, 10)
+  const install = tbEffectiveValue('estimatedInstallationDate')
+  const goLive = tbEffectiveValue('estGoLiveDate')
+
+  const goLiveInput = document.getElementById('tb-input-estGoLiveDate')
+  if (goLiveInput) {
+    const floor = install && install > today ? install : today
+    goLiveInput.min = floor
+  }
+  const installInput = document.getElementById('tb-input-estimatedInstallationDate')
+  if (installInput) {
+    installInput.min = today
+    if (goLive) installInput.max = goLive
+    else installInput.removeAttribute('max')
+  }
+}
+
 const TB_ALL_EDITABLE_FIELDS = [TB_NAME_FIELD, ...TB_TERMINUS_FIELDS, ...TB_CUSTOMER_FIELDS, ...TB_SITE_FIELDS, ...TB_SENSOR_COUNT_FIELDS, ...TB_DATE_FIELDS, ...TB_INSTALL_FIELDS, ...TB_COST_FIELDS, TB_SUMMARY_FIELD]
 
 // These strings are NOT labels. Each is a real role value written to
@@ -217,12 +311,22 @@ function tbFieldRow(key, label, value, opts = {}) {
     // later than an existing go-live date, which is the same rule approached
     // from the other end and is the case a one-sided bound would miss.
     //
-    // Both read tbPayload, so the bound reflects what is stored rather than
-    // what is on screen. A user editing both in one batch gets no client bound
-    // for the pair and is caught by the server, which is the affordance-versus-
-    // guarantee split this project already draws.
-    const otherInstall = tbPayload?.estimatedInstallationDate
-    const otherGoLive = tbPayload?.estGoLiveDate
+    // Round 17A Phase 4: both read the EFFECTIVE value, which is the open
+    // draft if there is one and the stored value otherwise.
+    //
+    // They used to read tbPayload alone, and the comment that stood here said
+    // so plainly: a user editing both dates in one batch got no client bound
+    // for the pair. That is the defect the business reported as "the calendar
+    // allows a go-live before the installation date". The bound was not wrong,
+    // it was STALE: written into the input once at render and never revisited
+    // when the other date moved in the same session.
+    //
+    // The server half is unchanged and was confirmed still refusing in all
+    // three directions before this was touched, so no invalid pair could ever
+    // reach the database. This is an affordance, and it is now an accurate
+    // one: the picker stops offering dates the save will refuse.
+    const otherInstall = tbEffectiveValue('estimatedInstallationDate')
+    const otherGoLive = tbEffectiveValue('estGoLiveDate')
     let floor = opts.noPast ? today : ''
     let ceiling = ''
     if (key === 'estGoLiveDate' && otherInstall) {
@@ -842,7 +946,11 @@ function renderTbCommercials() {
 
 function renderTbCostBreakdown() {
   const el = document.getElementById('tb-cost-breakdown')
-  const b = tbBed.costBreakdown
+  // Round 17A Phase 6: the preview, when there is one, otherwise what was
+  // saved. Both come from the same server function, so this is a choice of
+  // INPUTS, not of arithmetic.
+  const b = tbCostPreview ?? tbBed.costBreakdown
+  const unsaved = !!tbCostPreview
   if (!b) {
     el.innerHTML = '<p class="empty-state">Unable to load cost breakdown.</p>'
     return
@@ -850,6 +958,11 @@ function renderTbCostBreakdown() {
 
   const g = b.groups
   const rowCost = (group, key) => group.rows.find(r => r.key === key)?.rawCost ?? 0
+  // The itemized labels quote their own inputs, so while a preview is showing
+  // they must quote the DRAFT inputs. Otherwise a card would read
+  // "SafeSight (12 x USD 4,200.00)" beside a figure computed from 14, which is
+  // a row that contradicts itself.
+  const inp = key => (unsaved ? tbEffectiveValue(key) : tbPayload[key]) || 0
   const line = (label, cost) => `
     <div class="data-row">
       <span style="font-size:13px">${escHtml(label)}</span>
@@ -920,10 +1033,31 @@ function renderTbCostBreakdown() {
   // the rendered instance count, not merely on its presence, after Round 10
   // Phase 2 moved Summary and shipped a duplicate.
   //
-  // Total Cost itself deliberately does NOT move into this card. Round 8
-  // Phase 3 put it above the detail rather than beneath it, and that is
-  // what keeps it visible without scrolling at the wider viewports; pulling
-  // it into the grid would push it back down behind the rate panels.
+  // Round 17A Phase 5: TOTAL COST NOW LIVES IN THIS CARD, at the business's
+  // request, and THE PARAGRAPH THAT STOOD HERE WAS RIGHT ABOUT THE COST.
+  //
+  // It said that pulling the total into the grid would push it back down
+  // behind the rate panels. Measured at Round 15 Phase 4's own anchor, before
+  // and after, that is exactly what happens. The merge cannot be done for
+  // free, and the price depends entirely on where in the card the total sits:
+  //
+  //   1240x800   below the fold   290px  ->  335px  (total first)
+  //                                      ->  475px  (total last)
+  //   1920x950   below the fold    25px  ->   70px  (total first)
+  //                                      ->  210px  (total last)
+  //   3440x1440                   above the fold in every arrangement
+  //
+  // TOTAL FIRST, therefore, which is why this card's rows are ordered the way
+  // they are and not in the conventional total-at-the-bottom form. Putting it
+  // last costs 185px because the three category rows push it down; putting it
+  // first costs 45px, and that 45px is precisely the card's own chrome:
+  // 14px padding-top, a 26px title, 4px of title margin. A bare band has no
+  // title, so no arrangement of a titled card can match it.
+  //
+  // What the business gains is one place to read the cost. What it costs is
+  // 45px of fold at both widths, which is recorded rather than absorbed
+  // silently, because the whole reason this figure sits where it does is a
+  // carried item about it being below the fold.
   //
   // The total row's border-top and its 10px/10px of margin and padding go
   // with the moved line. They existed to divide two rows inside that block;
@@ -947,27 +1081,51 @@ function renderTbCostBreakdown() {
       <span style="font-size:13px;color:var(--white)">${formatCost(cost)}</span>
     </div>`
 
-  const summaryCard = section('Cost summary', [
-    summaryRow('Hardware', g.hardwareGroup.rawTotalCost),
-    summaryRow('Installation', g.installGroup.rawTotalCost),
-    summaryRow(`Hosting x ${b.months} month${b.months === 1 ? '' : 's'}`, b.hostingTermCost),
-  ].join(''))
+  // The total is the one row in this card that IS a sum of the rows above it,
+  // so unlike them it earns a divider, and it is the only figure on the tab
+  // that should be read first. Round 15 Phase 4 shipped this card with its
+  // totals in line()'s dimmed treatment, which made them the least prominent
+  // numbers on screen; the lesson is that a summary row has to outweigh what
+  // it summarises, so this outweighs the three rows above it in turn.
+  const summaryTotalRow = (label, cost) => `
+    <div class="data-row tb-cost-summary-total">
+      <span>${escHtml(label)}</span>
+      <span>${formatCost(cost)}</span>
+    </div>`
+
+  // Round 17A Phase 6: the card says so when its figures are a preview.
+  //
+  // A total the user cannot tell apart from a saved one makes the Save bar
+  // advisory: they read the number, believe it is recorded, and move on. So
+  // the marker sits in the card's own title, where the figures are, rather
+  // than relying on the Save bar being noticed elsewhere on the page.
+  //
+  // Two words, deliberately. Round 17 Phase 4 put a full explanatory sentence
+  // in a 420px card and it wrapped to six lines and tripled the row height;
+  // the same card is 390px here. "Save to store them" is the instruction, and
+  // the Save bar is already on screen saying it.
+  const summaryTitle = unsaved
+    ? `Cost summary <span class="tb-cost-unsaved">unsaved</span>`
+    : escHtml('Cost summary')
+  const summaryCard = `
+    <div class="pg-card${unsaved ? ' tb-cost-card-unsaved' : ''}">
+      <p class="pg-card-title">${summaryTitle}</p>
+      ${[
+        summaryTotalRow('Total Cost', b.totalCost),
+        summaryRow('Hardware', g.hardwareGroup.rawTotalCost),
+        summaryRow('Installation', g.installGroup.rawTotalCost),
+        summaryRow(`Hosting x ${b.months} month${b.months === 1 ? '' : 's'}`, b.hostingTermCost),
+      ].join('')}
+    </div>`
 
   el.innerHTML = `
-    <div class="tb-cost-total">
-      <div class="data-row">
-        <span style="font-size:15px;font-weight:500;color:var(--white)">Total Cost</span>
-        <span style="font-size:15px;font-weight:500;color:var(--white)">${formatCost(b.totalCost)}</span>
-      </div>
-    </div>
-
     <div class="ref-cards">
       ${summaryCard}
 
       ${section('Hardware', [
-        line(`SafeSight (${tbPayload.safesightCameras || 0} x ${formatCost(tbPayload.ssUnitCost || 0)})`, rowCost(g.hardwareGroup, 'hwSs')),
-        line(`Air Quality (${tbPayload.airQualitySensors || 0} x ${formatCost(tbPayload.aqUnitCost || 0)})`, rowCost(g.hardwareGroup, 'hwAqm')),
-        line(`HEMIR (${tbPayload.hemirSensors || 0} x ${formatCost(tbPayload.hemirUnitCost || 0)})`, rowCost(g.hardwareGroup, 'hwHemir')),
+        line(`SafeSight (${inp('safesightCameras')} x ${formatCost(inp('ssUnitCost'))})`, rowCost(g.hardwareGroup, 'hwSs')),
+        line(`Air Quality (${inp('airQualitySensors')} x ${formatCost(inp('aqUnitCost'))})`, rowCost(g.hardwareGroup, 'hwAqm')),
+        line(`HEMIR (${inp('hemirSensors')} x ${formatCost(inp('hemirUnitCost'))})`, rowCost(g.hardwareGroup, 'hwHemir')),
         warrantyLine,
         subtotal('Hardware subtotal', g.hardwareGroup.rawTotalCost),
       ].join(''))}
@@ -2066,17 +2224,30 @@ function tbMarkFieldValidity(key, input, problem, label) {
   renderTbValidationFeedback()
 }
 
+// Round 17A Phase 4.2: ownership is MARKED, not inferred from the class.
+//
+// This function always intended to clear only its own message - the comment
+// that stood here said exactly that. It identified "its own" by
+// `className === 'msg-error'`, and a server save error carries that same
+// class, so the test could never tell them apart. Confirmed live before
+// changing it: open two fields, make one save fail, type one valid digit into
+// the other, and the server's reason vanished on the keystroke.
+//
+// That is the same defect as the reported stale banner wearing the opposite
+// sign. One path would not clear a message when the thing it described had
+// gone; this one cleared a message that was not its to clear. Both come from
+// having no record of who put it there.
 function renderTbValidationFeedback() {
   const feedback = document.getElementById('tb-save-feedback')
   if (!feedback) return
   if (tbInvalidFields.size) {
     feedback.textContent = [...tbInvalidFields.values()].join('. ') + '.'
     feedback.className = 'msg-error'
-  } else if (feedback.className === 'msg-error') {
-    // Only clear feedback this function itself put there, so a real
-    // save error from the server is not wiped by an unrelated keystroke.
+    feedback.dataset.owner = 'validation'
+  } else if (feedback.dataset.owner === 'validation') {
     feedback.textContent = ''
     feedback.className = ''
+    delete feedback.dataset.owner
   }
 }
 
@@ -2128,7 +2299,25 @@ window.openTbField = function (key, fromUserGesture, seedChar) {
   // the input flagged red and Save disabled with nothing on screen saying
   // why. Correct for every caller that existed when it was written, since
   // none of them produced feedback before this line ran.
-  clearTbSaveFeedback()
+  // Round 17A Phase 4.2: ONLY on a real user gesture.
+  //
+  // The clear below was added on 2026-08-15 so a stale error from an earlier
+  // failed save did not reappear the instant any other field was opened. That
+  // is right for a person opening a field, and wrong for restoreTbOpenEdits,
+  // which re-opens the fields that were already open after a reload. Every
+  // real entry point passes fromUserGesture true; the restore is the only
+  // caller that does not, so the flag already separates exactly these two
+  // cases.
+  //
+  // The damage it was doing is the reported defect's mirror image: a save
+  // fails, the handler writes the reason and reloads, the reload re-opens the
+  // very field the message is about, and the message is wiped by the reopen.
+  // The user sees the value rejected and no reason why.
+  //
+  // Ordering with revealFieldControl is unchanged and still load-bearing
+  // (Round 15 Phase 3): the seed character dispatches a real input event whose
+  // validation message lands here, so clearing afterwards would wipe it.
+  if (fromUserGesture) clearTbSaveFeedback()
   window.revealFieldControl(input, fromUserGesture, seedChar)
   updateTbSaveBar()
 }
@@ -2137,6 +2326,9 @@ function clearTbSaveFeedback() {
   const feedback = document.getElementById('tb-save-feedback')
   feedback.textContent = ''
   feedback.className = ''
+  // The marker goes with the message, or the next validation message would
+  // inherit an ownership claim from a message that no longer exists.
+  delete feedback.dataset.owner
 }
 
 window.discardTbField = function (key) {
@@ -2147,6 +2339,11 @@ window.discardTbField = function (key) {
   document.getElementById(`tb-display-${key}`).classList.remove('hidden')
   const input = document.getElementById(`tb-input-${key}`)
   if (input) input.value = tbPayload[key] ?? ''
+  // Discarding a date reverts the draft, so the pair's bound reverts with it.
+  if (key === 'estimatedInstallationDate' || key === 'estGoLiveDate') refreshTbDateBounds()
+  // Discarding a cost input reverts it too, and runTbCostPreview clears the
+  // preview outright once nothing that feeds the cost is dirty any more.
+  if (TB_COST_INPUT_KEYS.includes(key)) scheduleTbCostPreview()
   updateTbSaveBar()
 }
 
@@ -2155,6 +2352,12 @@ function onTbFieldInput(key) {
   if (!edit) return
   edit.draft = document.getElementById(`tb-input-${key}`).value
   document.getElementById(`tb-edit-${key}`).classList.toggle('dirty', edit.draft !== edit.orig)
+  // The pair's bound depends on both drafts, so moving either one moves the
+  // other's limit. This is the line that stops the bound going stale.
+  if (key === 'estimatedInstallationDate' || key === 'estGoLiveDate') refreshTbDateBounds()
+  // Round 17A Phase 6: a cost input moving means the totals on screen are out
+  // of date. Debounced, so this is one call per pause and not one per digit.
+  if (TB_COST_INPUT_KEYS.includes(key)) scheduleTbCostPreview()
   updateTbSaveBar()
 }
 
@@ -2416,16 +2619,30 @@ window.initTestBedDetailPanel = function (bed) {
   tbEdits = {}
   tbAccountContacts = []
 
+  // Round 17A Phase 6: BEFORE renderTbCommercials, not after it.
+  //
+  // A load means the stored figures are current, so any preview from before it
+  // is discarded. Clearing this after the render left the just-saved card
+  // still wearing the "unsaved" marker, because renderTbCostBreakdown had
+  // already read the old preview and nothing rendered again afterwards. The
+  // order is the whole fix. If the reload restored open cost edits, the line
+  // after restoreTbOpenEdits puts the preview back.
+  tbCostPreview = null
+
   renderTbReference()
   renderTbSiteDetails()
   renderTbInstallSection()
   renderTbCommercials()
   updateTbSaveBar()
   wireTbFieldInputs()
+  refreshTbDateBounds()
 
   // After wireTbFieldInputs, so restored inputs carry the same listeners
   // (including the Round 7 Phase 2.1 numeric validity guard) as any other.
   restoreTbOpenEdits(carried)
+  // Round 17A Phase 6: a reload that restored dirty cost fields has drafts on
+  // screen again, so the preview belongs back with them.
+  if (tbCostFieldsDirty()) scheduleTbCostPreview()
 }
 
 // ── Units (Round 17 Phase 2) ──────────────────────────────────────────────
@@ -2475,28 +2692,131 @@ function renderTbUnitPane(pane, type) {
 // reasoning as Installer and Tech Team directly above: each unit is its own
 // record with its own endpoint, so a page-level Save would be collecting
 // edits across records that do not share a save.
-async function onTbUnitFieldChange(e) {
+//
+// SAVE-ON-BLUR IS DELIBERATELY UNCHANGED HERE. The business has flagged the
+// inconsistency with the rest of the app's batched Save bar as something to
+// discuss, and a discussion is not a decision. Round 17A Phase 2 fixes the
+// write path's safety and touches the interaction pattern not at all.
+//
+// ONE WRITE AT A TIME PER ROW (Round 17A Phase 2, 2026-08-21).
+//
+// Phase 1 made overlapping writes atomic, so two PATCHes carrying DIFFERENT
+// keys now both land. That is not the whole problem. Two PATCHes carrying the
+// SAME key resolve last-writer-wins by arrival, not by intent, and atomicity
+// cannot address that: both writes are individually correct and one of them
+// is simply stale. Measured before this guard existed, at 12 trials per
+// spacing, the older value won 1 time in 60 - rare, silent, and a wrong
+// serial number on an installed device.
+//
+// The queue is per unit id, so two rows never wait on each other, and a
+// 24-row table still saves 24 rows concurrently. Within one row the writes
+// run in the order the user made them, which is what makes the last edit the
+// one that survives.
+//
+// The value is captured HERE, at the change event, not read inside the queued
+// task. Reading it later would take whatever the input happened to hold when
+// the task ran, which is the same stale-read shape Phase 1 removed from the
+// server.
+//
+// Nothing is dropped or coalesced. A user cannot outrun this guard; they can
+// only lengthen the queue, and the cost of lengthening it is latency rather
+// than a lost write. See the drain reporting below.
+const tbUnitWriteQueues = new Map()
+
+function tbUnitWriteQueue(unitId) {
+  let q = tbUnitWriteQueues.get(unitId)
+  if (!q) {
+    // failures is keyed BY FIELD and deliberately outlives the burst. See
+    // tbUnitSettleRow for why a burst-scoped failure flag is not enough.
+    q = { chain: Promise.resolve(), pending: 0, failures: new Map() }
+    tbUnitWriteQueues.set(unitId, q)
+  }
+  return q
+}
+
+// The status cell is SHARED BY EVERY FIELD IN THE ROW, so one cell has to
+// describe up to four fields, and the naive rule - each write sets it as it
+// finishes - lets a later success erase an earlier refusal. Phase 0 caught
+// the concurrent form of that: two of three PATCHes refused and the row
+// reading "Saved", because the one that succeeded finished last.
+//
+// A BURST-SCOPED FLAG IS NOT ENOUGH, measured rather than assumed. Settling
+// once per drain fixes the concurrent case and leaves the sequential one,
+// which is the commoner one: an invalid latitude is refused in about 40ms,
+// well before the operator has finished typing the longitude, so the two
+// writes never overlap. The row showed the error, then the longitude's write
+// drained separately and replaced it with "Saved" while the latitude sat
+// unsaved on screen.
+//
+// So failures are tracked PER FIELD and cleared only by a later successful
+// write to that same field. The row says "Saved" when every field's most
+// recent write succeeded, and otherwise names what is still wrong. A refusal
+// stays visible until it is actually resolved.
+function tbUnitSettleRow(unitId, q) {
+  const cell = document.querySelector(`#tb-units tr[data-unit-id="${unitId}"] .tb-unit-feedback`)
+  if (!cell) return
+  if (q.failures.size) {
+    // The first unresolved failure, not the most recent: the earliest thing
+    // that went wrong is the one to fix first, and the messages already name
+    // their own field.
+    cell.textContent = [...q.failures.values()][0]
+    cell.className = 'tb-unit-feedback msg-error'
+  } else {
+    cell.textContent = 'Saved'
+    cell.className = 'tb-unit-feedback'
+  }
+}
+
+function onTbUnitFieldChange(e) {
   const input = e.target.closest('.tb-unit-field')
   if (!input) return
   const tr = input.closest('tr')
+  const unitId = tr.dataset.unitId
+  const field = input.dataset.field
+  const value = input.value
   const cell = tr.querySelector('.tb-unit-feedback')
+
+  const q = tbUnitWriteQueue(unitId)
+  q.pending += 1
   cell.textContent = 'Saving'
   cell.className = 'tb-unit-feedback'
-  const result = await api('PATCH', `/api/test-beds/${tbDetailId}/units/${tr.dataset.unitId}`,
-    { [input.dataset.field]: input.value })
-  if (!result.ok) {
-    cell.textContent = result.data?.error ?? 'Save failed'
-    cell.className = 'tb-unit-feedback msg-error'
-    return
-  }
-  cell.textContent = 'Saved'
-  const i = tbUnits.findIndex(u => u.id === tr.dataset.unitId)
-  if (i !== -1) tbUnits[i] = result.data
+
+  q.chain = q.chain.then(async () => {
+    const result = await api('PATCH', `/api/test-beds/${tbDetailId}/units/${unitId}`, { [field]: value })
+    if (!result.ok) {
+      q.failures.set(field, result.data?.error ?? 'Save failed')
+      return
+    }
+    // This field is good again, so its outstanding refusal is resolved.
+    q.failures.delete(field)
+    const i = tbUnits.findIndex(u => u.id === unitId)
+    if (i !== -1) tbUnits[i] = result.data
+  }).catch(() => {
+    // api() catches network faults and returns !ok, so reaching here means
+    // something else threw. The queue must not break: a rejected link would
+    // silently stop every later write for this row.
+    q.failures.set(field, 'Save failed')
+  }).then(() => {
+    q.pending -= 1
+    if (q.pending === 0) tbUnitSettleRow(unitId, q)
+  })
 }
 
-// Derive runs on render, which is what makes a slot exist for a Test Bed
-// whose counts were set before units did. It is idempotent, so this creates
-// what is missing and nothing else.
+// Round 17A Phase 3: how many slots each count implies, and how many of them
+// do not exist yet. Shared by the create control and the reconcile line so
+// the two can never disagree about what "missing" means.
+function tbUnitShortfall() {
+  const planned = [
+    { type: 'SafeSight', n: Number(tbPayload.safesightCameras) || 0 },
+    { type: 'Air Quality', n: Number(tbPayload.airQualitySensors) || 0 },
+    { type: 'HEMIR', n: Number(tbPayload.hemirSensors) || 0 },
+  ]
+  const total = planned.reduce((t, p) => t + p.n, 0)
+  const missing = planned.reduce(
+    (t, p) => t + Math.max(0, p.n - tbUnits.filter(u => u.type === p.type).length), 0)
+  return { planned, total, missing }
+}
+
 window.renderTbUnits = async function () {
   const mount = document.getElementById('tb-units')
   if (!mount || !tbDetailId) return
@@ -2520,12 +2840,7 @@ window.renderTbUnits = async function () {
   // slots. Pressing it is the act that locks the counts, so the lock is
   // attributable to a person and a moment rather than to a page view.
   if (!tbUnits.length) {
-    const planned = [
-      { type: 'SafeSight', n: Number(tbPayload.safesightCameras) || 0 },
-      { type: 'Air Quality', n: Number(tbPayload.airQualitySensors) || 0 },
-      { type: 'HEMIR', n: Number(tbPayload.hemirSensors) || 0 },
-    ]
-    const total = planned.reduce((t, p) => t + p.n, 0)
+    const { planned, total } = tbUnitShortfall()
     delete mount.dataset.builtFor
     if (sub) sub.textContent = ''
     if (!total) {
@@ -2554,9 +2869,40 @@ window.renderTbUnits = async function () {
     return
   }
 
+  // Round 17A Phase 3: the reconcile line.
+  //
+  // Raising a count now creates its slots server-side, in the same request as
+  // the correction, so counts and slots normally cannot drift. They still can
+  // if that derivation fails partway: the count is already written when it
+  // runs, so a failure leaves the count raised and the slots short, and the
+  // create control is gated on there being NO units at all, which is exactly
+  // the state a partly-derived Test Bed is not in.
+  //
+  // That was the reachability defect this phase is named for, in its general
+  // form: the only caller of a working idempotent endpoint disappeared the
+  // moment it became useful. So the affordance is gated on there being work
+  // to do rather than on there being nothing there, and it says how much.
+  const { missing } = tbUnitShortfall()
   if (sub) {
     const n = tbUnits.length
-    sub.textContent = `${n} unit${n === 1 ? '' : 's'}. These counts are locked on Commercials; correcting one needs a reason.`
+    const base = `${n} unit${n === 1 ? '' : 's'}. These counts are locked on Commercials; correcting one needs a reason.`
+    if (missing > 0) {
+      sub.innerHTML = `${escHtml(base)} <span class="msg-error">${missing} slot${missing === 1 ? '' : 's'} named by the counts ${missing === 1 ? 'does' : 'do'} not exist yet.</span> <button class="btn-sm" id="tb-units-reconcile">Create ${missing} missing slot${missing === 1 ? '' : 's'}</button>`
+      document.getElementById('tb-units-reconcile').onclick = async () => {
+        const btn = document.getElementById('tb-units-reconcile')
+        btn.disabled = true
+        btn.textContent = 'Creating'
+        const made = await api('POST', `/api/test-beds/${tbDetailId}/units/derive`)
+        if (!made.ok) {
+          btn.disabled = false
+          btn.textContent = 'Could not create them. Try again'
+          return
+        }
+        await window.renderTbUnits()
+      }
+    } else {
+      sub.textContent = base
+    }
   }
 
   renderTbCountCorrection()

@@ -1,4 +1,5 @@
 import { createUserClient } from '../supabase.js'
+import { appendRecordRevision } from '../lib/record-revision.js'
 import { issueAccountNumber } from '../lib/reference-number.js'
 import { countryToCode } from '../lib/country-code.js'
 
@@ -434,10 +435,12 @@ export default async function accountsRoutes(app) {
         }
       }
 
-      const nextRevision = (revRow?.revision_number ?? 0) + 1
-      const { error: revErr } = await db
-        .from('record_revisions')
-        .insert({ record_id: record.id, revision_number: nextRevision, payload: mergedPayload, created_by: request.user.id })
+      // Round 17A Phase 1: the write is atomic and merges server-side, so
+      // `payload` goes in as a PATCH. mergedPayload above is still computed,
+      // but only to decide the lazy Account Number - it is no longer what
+      // gets written, because a payload assembled from the read above would
+      // merge against data that may have moved since.
+      const { error: revErr } = await appendRecordRevision(db, record.id, payload, request.user.id)
 
       if (revErr) return reply.code(500).send({ error: revErr.message })
 

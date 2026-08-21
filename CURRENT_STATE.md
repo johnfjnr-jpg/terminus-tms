@@ -12,9 +12,9 @@ Contains no environment variable, key or token, and no client data. Records
 appear as counts by status only, never by name or reference code, because
 this file is uploaded into chat sessions.
 
-- Generated at: `2026-08-21T03:19:35.226Z`
-- Git commit: `50d1a065cbb55ffff87519b0917bdafd5d226a13`
-- Working tree at generation: `clean`
+- Generated at: `2026-08-21T07:46:26.563Z`
+- Git commit: `715c0ad3f0bf836a484d442847908bd7480e8cb0`
+- Working tree at generation: `dirty (uncommitted changes present)`
 
 Staleness has two parts, and both must hold for this file to be current:
 the recorded commit is an ancestor of `HEAD`, AND no tracked configuration
@@ -217,28 +217,28 @@ _None._
 
 ## Record counts by type and status
 
-93 live, 5818 soft deleted, 5911 rows in total.
+107 live, 6433 soft deleted, 6540 rows in total.
 
 | record_type | status | live | soft deleted |
 |---|---|---|---|
-| account | active | 7 | 247 |
+| account | active | 7 | 248 |
 | contact | Parked | 0 | 2 |
-| contact | Qualified | 9 | 172 |
+| contact | Qualified | 9 | 176 |
 | contact | Unqualified | 1 | 53 |
-| document | approved | 62 | 651 |
+| document | approved | 71 | 699 |
 | document | received | 1 | 74 |
-| opportunity | Discovery | 3 | 57 |
+| opportunity | Discovery | 3 | 58 |
 | opportunity | Negotiation | 0 | 1 |
 | opportunity | Proposal | 0 | 1 |
-| test_bed | Closed | 5 | 7 |
+| test_bed | Closed | 6 | 7 |
 | test_bed | Installation and Commissioning | 1 | 29 |
 | test_bed | Monitoring and Analysis | 0 | 1 |
-| test_bed | Pre-Site Assessment | 0 | 6 |
-| test_bed | Qualification | 2 | 205 |
+| test_bed | Pre-Site Assessment | 0 | 7 |
+| test_bed | Qualification | 2 | 211 |
 | test_bed | Review and Completion | 1 | 0 |
 | test_bed | Site Assessment | 1 | 14 |
-| unit | Installed | 0 | 2 |
-| unit | Planned | 0 | 223 |
+| unit | Installed | 4 | 3 |
+| unit | Planned | 0 | 374 |
 | unit | Removed | 0 | 1 |
 
 ### Test fixture record types
@@ -249,19 +249,19 @@ row by row, and are included in the totals above.
 
 | distinct `harness_*` record types | live rows | soft deleted rows |
 |---|---|---|
-| 321 | 0 | 4072 |
+| 362 | 0 | 4474 |
 
 No harness record type holds a live row; every fixture row is soft deleted.
 
 ## `approvals`
 
-229 rows, of which 0 carry a null `stage`.
+247 rows, of which 0 carry a null `stage`.
 
 | decision | track | rows | null stage |
 |---|---|---|---|
-| approved | Commercial | 94 | 0 |
-| approved | Legal | 61 | 0 |
-| approved | Technical | 74 | 0 |
+| approved | Commercial | 101 | 0 |
+| approved | Legal | 66 | 0 |
+| approved | Technical | 80 | 0 |
 
 ## Writable-key allowlists
 
@@ -274,10 +274,10 @@ relevant list is rejected.
 
 `name`, `address`, `terminusLead`, `websiteUrl`
 
-Plus a spread of `BILLING_KEYS`, computed at `src/routes/accounts.js:12` rather
+Plus a spread of `BILLING_KEYS`, computed at `src/routes/accounts.js:13` rather
 than written as a literal list, so its members are not enumerable here.
 
-Plus a spread of `SHIPPING_KEYS`, computed at `src/routes/accounts.js:13` rather
+Plus a spread of `SHIPPING_KEYS`, computed at `src/routes/accounts.js:14` rather
 than written as a literal list, so its members are not enumerable here.
 
 ### `CONTACT_WRITABLE_KEYS` (`src/routes/contacts.js`)
@@ -300,7 +300,7 @@ than written as a literal list, so its members are not enumerable here.
 
 ## Registered routes
 
-54 routes. Prefixes parsed from `src/server.js`, paths from each route module.
+55 routes. Prefixes parsed from `src/server.js`, paths from each route module.
 
 | method | path | auth | source |
 |---|---|---|---|
@@ -357,11 +357,12 @@ than written as a literal list, so its members are not enumerable here.
 | GET | `/api/test-beds/:id/units` | authenticated | `src/routes/test-beds.js` |
 | PATCH | `/api/test-beds/:id/units/:unitId` | authenticated | `src/routes/test-beds.js` |
 | POST | `/api/test-beds/:id/units/derive` | authenticated | `src/routes/test-beds.js` |
+| POST | `/api/test-beds/calculate` | authenticated | `src/routes/test-beds.js` |
 | GET | `/health` | public | `src/server.js` |
 
 ## Migrations, in filename order
 
-53 files in `supabase/migrations/`.
+55 files in `supabase/migrations/`.
 
 1. `20260801000000_initial_schema.sql`
 2. `20260802000000_lead_opportunity.sql`
@@ -416,6 +417,8 @@ than written as a literal list, so its members are not enumerable here.
 51. `20260819000014_temp_drop_document_kind_required.sql`
 52. `20260819000015_restore_document_kind_required.sql`
 53. `20260820000001_rollout_path_asks.sql`
+54. `20260821000000_atomic_record_revision.sql`
+55. `20260821000001_atomic_record_revision_key_removal.sql`
 
 ## Seed files, in application order
 

@@ -463,6 +463,16 @@ function markTbCurrentStageTab(currentStage) {
 // The eight stage tabs share ONE physical panel, #tb-tab-stage-detail, and
 // need a load call, so this consumer supplies an activate hook rather than
 // the default one-tab-one-pane mapping.
+// Round 17A Phase 4.2: the save bar's feedback is cleared when the tab
+// genuinely CHANGES, and not when the same tab is re-applied.
+//
+// That distinction is the whole fix. Every reload calls switchTbTab, including
+// the branch that re-selects the tab already open, so clearing on any
+// activation would erase the message recordTbScores deliberately writes before
+// reloading - the one case where a failure must survive a reload, because the
+// reload is part of reporting it.
+let tbLastActiveTab = null
+
 const tbTabStrip = window.createTabStrip({
   strip: 'tb-detail-tabs',
   keyAttr: 'tbTab',
@@ -470,6 +480,10 @@ const tbTabStrip = window.createTabStrip({
   panes: () => [...document.querySelectorAll('#view-test-bed-detail .detail-tab-panel')],
   panelFor: key => document.getElementById(key.startsWith('stage-') ? 'tb-tab-stage-detail' : `tb-tab-${key}`),
   activate: key => {
+    if (tbLastActiveTab && tbLastActiveTab !== key && typeof clearTbSaveFeedback === 'function') {
+      clearTbSaveFeedback()
+    }
+    tbLastActiveTab = key
     // Round 7 Phase 6: Next Stage is gated on the open tab, and the tab can
     // change with no re-render, so the button is refreshed here too.
     refreshTbNextStageButton()
@@ -2471,6 +2485,10 @@ async function loadTestBedDetail(id) {
   // arrival. The flag is consumed HERE, before the GET can fail.
   tbArrivingFresh = tbFreshNavigation
   tbFreshNavigation = false
+  // Round 17A Phase 4.2: arriving at the view is the other way the thing the
+  // message was about goes away. navigate() is the only setter of this flag,
+  // so no save path can reach this branch and wipe its own report.
+  if (tbArrivingFresh && typeof clearTbSaveFeedback === 'function') clearTbSaveFeedback()
   const result = await api('GET', `/api/test-beds/${id}`)
   if (!result.ok) {
     document.getElementById('tb-detail-name').textContent = 'Not found'

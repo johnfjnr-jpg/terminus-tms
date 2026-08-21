@@ -2606,9 +2606,46 @@ input.input-invalid {
    Sits ABOVE the three sections (Round 8 Phase 3): side-by-side alone left
    the total 241px below the fold at 1920x1080, and putting the headline
    figure first is what makes it visible without scrolling. */
-.tb-cost-total {
-  max-width: 1292px;
-  margin: 0 0 18px;
+/* Round 17A Phase 5: .tb-cost-total is gone with the block it styled. Total
+   Cost moved into the Cost summary card, so the standalone band above the
+   grid no longer exists and a rule describing it would be residue.
+
+   The total leads the card rather than closing it, because the ordering is
+   what decides how far down the page it lands: first costs 45px of fold
+   against the old standalone band, last costs 185px. So the divider sits
+   BELOW it, separating the headline from the three categories it is composed
+   of, rather than above it in the conventional total-at-the-bottom form.
+
+   It has to outweigh those three rows: Round 15 Phase 4 shipped this card
+   with its totals in the dimmed itemized-row treatment, the least prominent
+   figures on the tab, which is the opposite of what a card called Cost
+   summary is for. */
+/* Round 17A Phase 6: a cost summary computed from unsaved drafts says so.
+   The marker rides in the card title next to the figures, not somewhere else
+   on the page, because a total that cannot be told apart from a saved one
+   turns the Save bar into a suggestion. */
+.tb-cost-unsaved {
+  margin-left: 8px;
+  padding: 1px 6px;
+  border: 1px solid var(--green);
+  border-radius: 3px;
+  color: var(--green);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+}
+.tb-cost-card-unsaved {
+  border-color: var(--green);
+}
+
+.tb-cost-summary-total {
+  border-bottom: 1px solid var(--hairline);
+  margin-bottom: 8px;
+  padding-bottom: 10px;
+}
+.tb-cost-summary-total span {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--white);
 }
 
 /* ── Round 9 Phase 6: merged Terminus Documents panel and the Exit

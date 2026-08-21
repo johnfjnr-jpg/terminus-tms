@@ -581,6 +581,44 @@ rounds accumulate**, and three consecutive "did not fire" entries is exactly
 the shape that turns a structural exposure into one treated as theoretical.
 It is not decaying. It has not been tested.
 
+#### Re-measured after the round closed, 2026-08-21. The conclusion STANDS.
+
+The original count above was taken at 11:22, one minute before the merge, and
+the business began testing shortly afterwards and surfaced seven issues. That
+made the "NOT mine 0" line a claim about a window that had not finished, so it
+was re-measured against the merge timestamp rather than left unrevisited.
+
+    merge commit 715c0ad          2026-08-21T03:23:24Z
+    business revisions BEFORE      0
+    business revisions AFTER      41   03:29:40Z to 03:52:03Z
+
+**Every business write lands after the merge**, the first of them 6.3 minutes
+past it, across seven records. Zero fall in the round window before it. **They
+were on `main`, so open item 23 did not fire and the close-out above is
+correct as written.**
+
+**The instrument was calibrated rather than trusted**, per Verification rule
+13, because "NOT mine 0" is exactly what a probe reports when it cannot tell
+two actors apart. Over all 1971 revisions ever written it separates four
+distinct `created_by` values, and it reports 41 for the business actor in the
+window it is being used to measure, so a zero from it is a measurement.
+Identities resolved rather than assumed: the build actor is
+`r10-r10@terminus-probe.invalid`, the business is
+`john@terminustechnologies.io`.
+
+**What this does not establish.** Revisions record writes, so this measures
+that the business did not WRITE against branch code. It cannot show whether
+they opened the application while an unmerged branch was checked out and wrote
+nothing, which is precisely what Round 15 recorded. The exposure is unchanged
+and untested; this confirms only that the third round's entry is honest.
+
+**The duplicate-key failure leaves no trace in this data.** All seven records
+carry consecutive revision numbers with no gaps, because a refused insert
+writes nothing. Open item 35 is therefore not visible in any revision series
+and cannot be found by looking for one.
+
+---
+
 ### Probe defects, and where they landed
 
 Every one was in the harness rather than the product.

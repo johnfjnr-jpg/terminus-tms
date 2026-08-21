@@ -1,7 +1,9 @@
 import { createUserClient } from '../supabase.js'
+import { appendRecordRevision } from '../lib/record-revision.js'
 import { issueReferenceNumber } from '../lib/reference-number.js'
 import { isValidIsoDate, isNotPastIsoDate, isValidNonNegativeInteger, isValidNonNegativePercent, isValidIsoTimestamp, isValidLatitude, isValidLongitude } from '../lib/field-validation.js'
 import { calculateTestBedCost } from '../lib/deal-calculator.js'
+import { UNIT_TYPE_COUNT_KEYS, VALID_UNIT_STATES, VALID_STATE_SOURCES, loadUnits, deriveMissingUnitSlots } from '../lib/units.js'
 
 // Round 5 Phase 6 (2026-08-17): builds the itemized cost breakdown from
 // whatever's currently in a Test Bed's payload - the one place this
@@ -72,6 +74,50 @@ export const VALID_SITE_OWNERSHIP = [
 export const VALID_INSTALLATION_ENVIRONMENT = ['Indoor', 'Outdoor', 'Both']
 
 export default async function testBedsRoutes(app) {
+  // POST /api/test-beds/calculate
+  //
+  // Round 17A Phase 6. Returns the cost breakdown for a set of DRAFT values,
+  // so the Commercials tab can show what the figures on screen come to before
+  // they are saved. The business's report was that the cost summaries read
+  // zero while values sat on screen unsaved.
+  //
+  // NO SECOND COST ENGINE, which is the constraint that shaped this. The
+  // browser does not add up anything: it sends the draft payload and renders
+  // what comes back. buildTestBedCostBreakdown is already exported and is
+  // already the single mapping point, called by GET /test-beds/:id and by the
+  // PATCH that maintains accumulated_cost, so a preview computed here runs
+  // through the same arithmetic as a save by construction rather than by
+  // agreement. A browser implementation would be a second engine that agrees
+  // on the day it is written and drifts quietly afterwards, on a tab whose
+  // numbers carry a go/no-go decision.
+  //
+  // SHAPED AFTER POST /api/deals/calculate, NOT WIRED TO IT. That endpoint has
+  // the right contract - full inputs in the body, computed result out, no
+  // record id, no persistence - and the wrong engine: it calls calculateDeal,
+  // which is Opportunity's, with Opportunity's input shape.
+  //
+  // IT CANNOT PERSIST, and that is structural rather than careful. There is no
+  // database client in this handler and no record id in its contract: it takes
+  // values and returns numbers. A preview that writes is a write disguised as
+  // a read, which is the thing Round 17 Phase 2 removed from the units view.
+  app.post('/test-beds/calculate', {
+    schema: {
+      body: {
+        type: 'object',
+        additionalProperties: false,
+        properties: Object.fromEntries([
+          'safesightCameras', 'airQualitySensors', 'hemirSensors',
+          'ssUnitCost', 'aqUnitCost', 'hemirUnitCost',
+          'ssInstallCost', 'aqInstallCost', 'hemirInstallCost',
+          'ssHostingCost', 'aqHostingCost', 'hemirHostingCost',
+          'testBedDuration',
+        ].map(k => [k, { type: ['string', 'number', 'null'] }])),
+      },
+    },
+  }, async (request, reply) => {
+    return reply.send(buildTestBedCostBreakdown(request.body ?? {}))
+  })
+
   // GET /api/test-beds
   //
   // Milestone 4: also resolves linked Account name and industry name for
@@ -647,6 +693,10 @@ export default async function testBedsRoutes(app) {
     //
     // Placed here rather than in the validation section above because `db`
     // does not exist up there.
+    // Round 17A Phase 3: raised counts are reconciled after the revision is
+    // written, and the lock check happens before it, so the two blocks need a
+    // flag between them.
+    let raisedCounts = false
     if (payload) {
       const { units: unitsNow, error: unitsErr } = await loadUnits(db, request.params.id)
       if (unitsErr) return reply.code(500).send({ error: unitsErr.message })
@@ -699,9 +749,24 @@ export default async function testBedsRoutes(app) {
             .in('id', surplus.map(u => u.id))
           if (delErr) return reply.code(500).send({ error: delErr.message })
         }
-        // Raising a count creates no slots here. Deriving stays an explicit
-        // act on the units view: a write must not be the consequence of a
-        // read, and it should not be a side effect of an unrelated write.
+        // RAISING A COUNT RECONCILES ITS SLOTS TOO, decided in Round 17A
+        // Phase 3 rather than left to fall out. It previously did nothing,
+        // which is the defect the business reported: they corrected a count
+        // down, corrected it back up, and no slot came back.
+        //
+        // This does not contradict Round 17 Phase 2's rule that a write must
+        // not be the consequence of a READ. Deriving on render was a side
+        // effect of looking. A count correction is an explicit act, typed by
+        // a person, carrying a mandatory reason and an audit row naming them.
+        // Deriving from it is a consequence of an act, which is a different
+        // case and the ordinary one.
+        //
+        // The deciding argument is symmetry within this endpoint: a downward
+        // correction ALREADY removes surplus slots here, with no second act
+        // required. Reconciling one direction automatically and demanding a
+        // separate control for the other would be an inconsistency the user
+        // has to learn rather than a rule they can infer.
+        if (l.want > l.have.length) raisedCounts = true
       }
 
       // The reason is the whole point of permitting the correction, so it is
@@ -760,7 +825,8 @@ export default async function testBedsRoutes(app) {
         return reply.code(500).send({ error: revRowErr.message })
       }
 
-      const nextRevision = (revRow?.revision_number ?? 0) + 1
+      // No nextRevision computed here any more: the number is the database's
+      // to choose, inside the same statement that does the merge.
       const mergedPayload = { ...(revRow?.payload ?? {}), ...payload }
 
       // Round 15 Phase 1: Est. Go Live cannot precede Estimated Installation
@@ -804,8 +870,16 @@ export default async function testBedsRoutes(app) {
       // null on any other field keeps meaning exactly what it meant
       // before, so this cannot change the behaviour of anything else on
       // the record.
+      // Round 17A Phase 1: these keys are DELETED, not set to null, and a
+      // jsonb merge cannot express that, so they travel as an explicit
+      // removal list to append_record_revision rather than as a mutation of
+      // a payload object that is no longer what gets written.
+      const removeKeys = []
       for (const key of TB_EXIT_CRITERION_KEYS) {
-        if (key in payload && payload[key] === null) delete mergedPayload[key]
+        if (key in payload && payload[key] === null) {
+          delete mergedPayload[key]
+          removeKeys.push(key)
+        }
       }
 
       // Round 5 Phase 6: recomputed on every save, not just when a rate
@@ -820,11 +894,31 @@ export default async function testBedsRoutes(app) {
       mergedPayload.accumulated_cost = costBreakdown.totalCost
       mergedPayload.indicativeCost = costBreakdown.totalCost
 
-      const { error: revErr } = await db
-        .from('record_revisions')
-        .insert({ record_id: record.id, revision_number: nextRevision, payload: mergedPayload, created_by: request.user.id })
+      // The patch carries this PATCH's own keys plus the two computed cost
+      // fields. mergedPayload is still built above, because the date rule, the
+      // count lock and buildTestBedCostBreakdown all need a merged view to
+      // validate and compute against, but it is no longer what gets written:
+      // writing it would merge against a read that may have moved.
+      const { data: written, error: revErr } = await appendRecordRevision(
+        db, record.id,
+        { ...payload, accumulated_cost: costBreakdown.totalCost, indicativeCost: costBreakdown.totalCost },
+        request.user.id, removeKeys)
 
       if (revErr) return reply.code(500).send({ error: revErr.message })
+
+      // AFTER the write, and from the payload the write actually stored
+      // rather than from the merged view computed before it. Deriving from
+      // mergedPayload would derive against counts that may have moved between
+      // the read and the write, which is the same stale-read shape Phase 1
+      // removed from the revision number itself.
+      //
+      // Idempotent, so a raise that needs no new slots creates none, and the
+      // same function serves POST /units/derive.
+      if (raisedCounts) {
+        const { error: deriveErr } = await deriveMissingUnitSlots(
+          db, record.id, written.payload, request.user.id)
+        if (deriveErr) return reply.code(500).send({ error: deriveErr.message })
+      }
     }
 
     return reply.send({ ok: true })
@@ -1475,9 +1569,11 @@ export default async function testBedsRoutes(app) {
     const existing = Array.isArray(payload[key]) ? payload[key] : []
     const merged = { ...payload, [key]: [...existing, entry] }
 
-    const { error: revErr } = await db
-      .from('record_revisions')
-      .insert({ record_id: recordId, revision_number: revRow.revision_number + 1, payload: merged, created_by: actorId })
+    // Round 17A Phase 1: written through the one atomic writer. Only this
+    // series' own key travels, so a concurrent write to a different key of the
+    // same record no longer loses either one.
+    const { error: revErr } = await appendRecordRevision(
+      db, recordId, { [key]: [...existing, entry] }, actorId)
     if (revErr) {
       if (revErr.code === '42501') return { status: 403, error: 'not permitted' }
       return { status: 500, error: revErr.message }
@@ -1679,12 +1775,12 @@ export default async function testBedsRoutes(app) {
     // than matching an unrelated array's direction. Every reader sorts on
     // `at` regardless, per the Round 10 Phase 2 fix, so neither order is
     // load-bearing at render time.
-    const mergedPayload = { ...payload, [crit.criterion_key]: [...existing, entry] }
-    const nextRevision = revRow.revision_number + 1
-
-    const { error: revErr } = await db
-      .from('record_revisions')
-      .insert({ record_id: record.id, revision_number: nextRevision, payload: mergedPayload, created_by: request.user.id })
+    // Round 17A Phase 1: only this criterion's own series travels as the
+    // patch. Scoring five criteria in one save is what the business was doing
+    // when this defect was reported, and five patches to five different keys
+    // can no longer collide with each other or lose one another's writes.
+    const { error: revErr } = await appendRecordRevision(
+      db, record.id, { [crit.criterion_key]: [...existing, entry] }, request.user.id)
     if (revErr) {
       if (revErr.code === '42501') return reply.code(403).send({ error: 'not permitted' })
       request.log.error({ err: revErr }, 'failed to save score revision')
@@ -1726,40 +1822,12 @@ export default async function testBedsRoutes(app) {
   // draft: a Device persists and the link is the deployment. This builds only
   // the deployment half, which is the half installation needs now.
   const VALID_UNIT_TYPES = ['SafeSight', 'Air Quality', 'HEMIR']
-  const VALID_UNIT_STATES = ['Planned', 'Installed', 'Faulty', 'Removed']
-  // Two possible authors of a state, present from the start so the eventual
-  // operational platform writes to the same place rather than needing a
-  // parallel path. One field now removes a migration later.
-  const VALID_STATE_SOURCES = ['Person', 'Platform']
-  // Which count produces which type of slot.
-  const UNIT_TYPE_COUNT_KEYS = [
-    { type: 'SafeSight', key: 'safesightCameras' },
-    { type: 'Air Quality', key: 'airQualitySensors' },
-    { type: 'HEMIR', key: 'hemirSensors' },
-  ]
 
-  async function loadUnits(db, bedId) {
-    const { data: units, error } = await db
-      .from('records')
-      .select('id, variant, status, created_at, record_revisions(revision_number, payload)')
-      .eq('parent_record_id', bedId)
-      .eq('record_type', 'unit')
-      .is('deleted_at', null)
-      .order('created_at', { ascending: true })
-    if (error) return { error }
-    const shaped = (units ?? []).map(u => {
-      const latest = (u.record_revisions ?? []).sort((a, b) => b.revision_number - a.revision_number)[0]
-      const p = latest?.payload ?? {}
-      return {
-        id: u.id, type: u.variant, state: u.status,
-        index: p.unitIndex ?? null, serialNumber: p.serialNumber ?? null,
-        latitude: p.latitude ?? null, longitude: p.longitude ?? null,
-        stateSource: p.stateSource ?? null, created_at: u.created_at,
-      }
-    })
-    shaped.sort((a, b) => a.type.localeCompare(b.type) || (a.index ?? 0) - (b.index ?? 0))
-    return { units: shaped }
-  }
+  // Round 17A Phase 3: the unit vocabulary and the derivation loop moved to
+  // src/lib/units.js so that the count-correction path and POST /units/derive
+  // share ONE implementation rather than two copies of the same loop.
+  // VALID_UNIT_STATES, VALID_STATE_SOURCES, UNIT_TYPE_COUNT_KEYS, loadUnits
+  // and deriveMissingUnitSlots are all imported at the top of this file.
 
   // GET /api/test-beds/:id/units
   app.get('/test-beds/:id/units', async (request, reply) => {
@@ -1792,38 +1860,8 @@ export default async function testBedsRoutes(app) {
     if (revErr) return reply.code(500).send({ error: revErr.message })
     const counts = rev?.payload ?? {}
 
-    const { units: existing, error: listErr } = await loadUnits(db, bed.id)
-    if (listErr) return reply.code(500).send({ error: listErr.message })
-
-    const created = []
-    for (const { type, key } of UNIT_TYPE_COUNT_KEYS) {
-      const want = Number(counts[key]) || 0
-      const have = existing.filter(u => u.type === type)
-      // Highest index already used, so a slot is never reissued after a
-      // removal: indexes identify a slot, not a position in an array.
-      let next = have.reduce((m, u) => Math.max(m, Number(u.index) || 0), 0)
-      for (let i = have.length; i < want; i++) {
-        next += 1
-        const { data: unit, error: insErr } = await db
-          .from('records')
-          .insert({
-            record_type: 'unit', parent_record_id: bed.id,
-            variant: type,
-            // Planned is why a slot can exist before a serial does.
-            status: 'Planned',
-            owner_id: request.user.id,
-          })
-          .select('id').single()
-        if (insErr) return reply.code(500).send({ error: insErr.message })
-        const { error: revIns } = await db.from('record_revisions').insert({
-          record_id: unit.id, revision_number: 1,
-          payload: { unitIndex: next, stateSource: 'Person' },
-          created_by: request.user.id,
-        })
-        if (revIns) return reply.code(500).send({ error: revIns.message })
-        created.push({ id: unit.id, type, index: next })
-      }
-    }
+    const { created, error: deriveErr } = await deriveMissingUnitSlots(db, bed.id, counts, request.user.id)
+    if (deriveErr) return reply.code(500).send({ error: deriveErr.message })
     const { units, error: reErr } = await loadUnits(db, bed.id)
     if (reErr) return reply.code(500).send({ error: reErr.message })
     return { created: created.length, units }
@@ -1856,19 +1894,16 @@ export default async function testBedsRoutes(app) {
       return reply.code(404).send({ error: 'unit does not belong to this test bed' })
     }
 
-    const { data: rev, error: revErr } = await db
-      .from('record_revisions').select('revision_number, payload')
-      .eq('record_id', unit.id).order('revision_number', { ascending: false }).limit(1).maybeSingle()
-    if (revErr) return reply.code(500).send({ error: revErr.message })
-
-    const merged = { ...(rev?.payload ?? {}) }
+    // Round 17A Phase 1. THIS IS THE SITE PHASE 0 REPRODUCED AGAINST: three
+    // values entered at paste speed produced two refused writes and a row
+    // reading "Saved". Only the keys this request actually names travel as
+    // the patch, so serial, latitude and longitude no longer overwrite one
+    // another with a stale merge.
+    const unitPatch = {}
     for (const key of ['serialNumber', 'latitude', 'longitude', 'stateSource']) {
-      if (key in body) merged[key] = body[key]
+      if (key in body) unitPatch[key] = body[key]
     }
-    const { error: insErr } = await db.from('record_revisions').insert({
-      record_id: unit.id, revision_number: (rev?.revision_number ?? 0) + 1,
-      payload: merged, created_by: request.user.id,
-    })
+    const { error: insErr } = await appendRecordRevision(db, unit.id, unitPatch, request.user.id)
     if (insErr) return reply.code(500).send({ error: insErr.message })
 
     if ('state' in body && body.state !== unit.status) {
