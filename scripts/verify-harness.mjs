@@ -219,3 +219,69 @@ export class Fixtures {
     }
   }
 }
+
+// ---------------------------------------------------------------------------
+// Round 18A Phase 3 - acting AS a user rather than as the service key.
+//
+// Every helper above this line uses adminClient(), which holds the service
+// key and BYPASSES row-level security entirely. That is what fifty green
+// runs across two rounds were measuring: a client for which no ownership
+// policy is ever consulted. A suite built only on it cannot see an
+// ownership rule at all, correct or broken, because it never meets one.
+// ---------------------------------------------------------------------------
+
+/**
+ * A named probe user, created on first use and reused forever after.
+ *
+ * Deliberately NOT created per run. records.owner_id is a foreign key to
+ * auth.users and fixture records are SOFT deleted (Verification 11), so a
+ * user created per run still owns rows afterwards and can never be
+ * removed. Per-run users would therefore accumulate permanently, one pair
+ * per suite run, which is precisely the residue this project keeps finding.
+ * Two fixed users cost two rows, once.
+ */
+export async function ensureProbeUser(db, email) {
+  for (let page = 1; page <= 20; page++) {
+    const { data, error } = await db.auth.admin.listUsers({ page, perPage: 200 })
+    if (error) throw new Error(`ensureProbeUser: listUsers failed: ${error.message}`)
+    const found = data?.users?.find(u => u.email === email)
+    if (found) return found.id
+    if (!data?.users?.length || data.users.length < 200) break
+  }
+  const { data, error } = await db.auth.admin.createUser({ email, email_confirm: true })
+  if (error) throw new Error(`ensureProbeUser: createUser ${email} failed: ${error.message}`)
+  return data.user.id
+}
+
+/**
+ * A Supabase client authenticated AS the given user, so row-level security
+ * applies to everything it does.
+ *
+ * Mints a real session the way a real sign-in does: generateLink produces a
+ * magic-link token (it returns the link to this caller and dispatches no
+ * mail), and verifyOtp exchanges it for a session on an anon-key client.
+ * Measured Round 18A Phase 3: 30 consecutive generateLink calls and 12
+ * consecutive full pairs, zero failures, roughly 190ms per session, so the
+ * two sessions a suite run needs are nowhere near any budget.
+ */
+export async function userClient(email, env = loadEnv()) {
+  // loadEnv only requires the service key, because everything else in this
+  // module uses it. Acting as a user needs the anon key too, so it is
+  // checked here rather than widened into loadEnv, which would break the
+  // service-key-only callers that have never needed it.
+  if (!env.SUPABASE_PUBLISHABLE_KEY) {
+    throw new Error('userClient: SUPABASE_PUBLISHABLE_KEY is not set. ' +
+      'Acting as a user requires the anon key; the service key bypasses row-level security.')
+  }
+  const admin = adminClient(env)
+  const anon = createClient(env.SUPABASE_URL, env.SUPABASE_PUBLISHABLE_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  })
+  const { data: link, error: linkErr } =
+    await admin.auth.admin.generateLink({ type: 'magiclink', email })
+  if (linkErr) throw new Error(`userClient: generateLink for ${email} failed: ${linkErr.message}`)
+  const { data: session, error: otpErr } =
+    await anon.auth.verifyOtp({ token_hash: link.properties.hashed_token, type: 'email' })
+  if (otpErr) throw new Error(`userClient: verifyOtp for ${email} failed: ${otpErr.message}`)
+  return { db: anon, userId: session.user.id, accessToken: session.session.access_token }
+}

@@ -3591,3 +3591,59 @@ Explicitly deferred, not forgotten, not a section number of its own since this i
   producing the answer you are looking for is not measuring, and a
   count is exactly the kind of output that looks reasonable while being
   wrong.
+
+- **Ask what the same policy does to a different verb. Round 18A Phase 2,
+  2026-08-21.** A general form for a class of defect that build discipline
+  rule 8 states too narrowly for this case. Rule 8 says fix the class, not
+  the instance the failure named, and it is written around an actor leaving
+  residue: enumerate everything the actor writes. That framing pointed at
+  the wrong axis here.
+
+  The reported defect was one route surfacing `42501` as a 500. The obvious
+  class is **every site that handles this error**, and sweeping for it
+  produced 52 sites and a real fix. But the actual class is **every way this
+  policy manifests**, and the two are not the same set. `records_update` and
+  `record_revisions_insert` are the same ownership rule enforced at two
+  layers. Refused on an INSERT it raises `42501`. Refused on an UPDATE it
+  raises **nothing at all**: RLS filters the row out of the statement's
+  scope, so the update succeeds against zero rows and returns no error.
+
+  **A search for the error code cannot reach a silent zero-row success.**
+  There is no code to search for, no log line, no failure. Nine routes had
+  independently detected the zero-row case and replied `403 "not
+  permitted"`, which means nine separate authors had each met this and
+  handled it locally **without anyone noticing they were all handling the
+  same policy** as the defect being reported. Nine independent local fixes
+  to one thing is itself the signal, and it was sitting in the codebase in
+  plain sight the whole time.
+
+  **The question that reaches it: take the rule, not the error, and ask
+  what it does to each verb it governs.** Insert, update, delete, and the
+  RPC path. One of those answers is usually "nothing visible happens",
+  and that is the branch no error-shaped search will ever return.
+
+- **A suite that authenticates with a credential which bypasses the rule
+  cannot see the rule, correct or broken. Round 18A Phase 3, 2026-08-21.**
+  Every database-backed test in this project ran through `adminClient()`,
+  which holds the service key. Row-level security is not consulted for that
+  client at all. So the suite reported green roughly fifty times across two
+  rounds while a business user could not save a Summary, and **there was no
+  version of those tests that could have caught it**, because none of them
+  ever met a policy.
+
+  This is not a missing assertion. It is a missing actor. Adding ownership
+  assertions to the existing files would have changed nothing: they would
+  have been asserted by a client for which the answer is always yes.
+  `scripts/tests/ownership.test.mjs` is the first thing here that signs in
+  as a person, via `userClient()`, and it needed two of them, because one
+  user cannot demonstrate a boundary.
+
+  **The demonstration is injection B in that phase's calibration.** Swapping
+  the non-owner's client back to the service key, which is exactly the state
+  the suite was in for two rounds, turns four of the nine tests red. The
+  measurement of what the old suite was blind to is the new suite failing
+  when put back into the old suite's position.
+
+  **General form: ask which credential the tests hold, and what that
+  credential is exempt from.** Anything it is exempt from is invisible, and
+  it will be invisible in a way that produces passes rather than errors.
