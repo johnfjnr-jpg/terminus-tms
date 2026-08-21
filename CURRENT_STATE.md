@@ -12,9 +12,9 @@ Contains no environment variable, key or token, and no client data. Records
 appear as counts by status only, never by name or reference code, because
 this file is uploaded into chat sessions.
 
-- Generated at: `2026-08-21T00:40:36.702Z`
-- Git commit: `04a19c6ebdb920d57f898dfcc02fea28a5dc159e`
-- Working tree at generation: `dirty (uncommitted changes present)`
+- Generated at: `2026-08-21T03:19:35.226Z`
+- Git commit: `50d1a065cbb55ffff87519b0917bdafd5d226a13`
+- Working tree at generation: `clean`
 
 Staleness has two parts, and both must hold for this file to be current:
 the recorded commit is an ancestor of `HEAD`, AND no tracked configuration
@@ -217,26 +217,29 @@ _None._
 
 ## Record counts by type and status
 
-93 live, 5296 soft deleted, 5389 rows in total.
+93 live, 5818 soft deleted, 5911 rows in total.
 
 | record_type | status | live | soft deleted |
 |---|---|---|---|
-| account | active | 7 | 239 |
+| account | active | 7 | 247 |
 | contact | Parked | 0 | 2 |
 | contact | Qualified | 9 | 172 |
 | contact | Unqualified | 1 | 53 |
-| document | approved | 62 | 615 |
+| document | approved | 62 | 651 |
 | document | received | 1 | 74 |
 | opportunity | Discovery | 3 | 57 |
 | opportunity | Negotiation | 0 | 1 |
 | opportunity | Proposal | 0 | 1 |
 | test_bed | Closed | 5 | 7 |
-| test_bed | Installation and Commissioning | 1 | 11 |
+| test_bed | Installation and Commissioning | 1 | 29 |
 | test_bed | Monitoring and Analysis | 0 | 1 |
 | test_bed | Pre-Site Assessment | 0 | 6 |
 | test_bed | Qualification | 2 | 205 |
 | test_bed | Review and Completion | 1 | 0 |
 | test_bed | Site Assessment | 1 | 14 |
+| unit | Installed | 0 | 2 |
+| unit | Planned | 0 | 223 |
+| unit | Removed | 0 | 1 |
 
 ### Test fixture record types
 
@@ -246,7 +249,7 @@ row by row, and are included in the totals above.
 
 | distinct `harness_*` record types | live rows | soft deleted rows |
 |---|---|---|
-| 303 | 0 | 3838 |
+| 321 | 0 | 4072 |
 
 No harness record type holds a live row; every fixture row is soft deleted.
 
@@ -297,7 +300,7 @@ than written as a literal list, so its members are not enumerable here.
 
 ## Registered routes
 
-51 routes. Prefixes parsed from `src/server.js`, paths from each route module.
+54 routes. Prefixes parsed from `src/server.js`, paths from each route module.
 
 | method | path | auth | source |
 |---|---|---|---|
@@ -351,6 +354,9 @@ than written as a literal list, so its members are not enumerable here.
 | POST | `/api/test-beds/:id/measurability` | authenticated | `src/routes/test-beds.js` |
 | POST | `/api/test-beds/:id/scores` | authenticated | `src/routes/test-beds.js` |
 | POST | `/api/test-beds/:id/tech-team` | authenticated | `src/routes/test-beds.js` |
+| GET | `/api/test-beds/:id/units` | authenticated | `src/routes/test-beds.js` |
+| PATCH | `/api/test-beds/:id/units/:unitId` | authenticated | `src/routes/test-beds.js` |
+| POST | `/api/test-beds/:id/units/derive` | authenticated | `src/routes/test-beds.js` |
 | GET | `/health` | public | `src/server.js` |
 
 ## Migrations, in filename order

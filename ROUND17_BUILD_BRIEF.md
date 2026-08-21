@@ -432,3 +432,192 @@ every phase has an explicit sign-off. A report cannot sign off the phase
 containing it, and a phase that ships no diff is still a phase.
 
 **State in the close-out whether this round edited `CLAUDE.md`.**
+
+---
+
+## Round 17 outcome
+
+Six phases, 0 through 5, confirmed by `grep -n "^## Phase\|^### Phase"`
+returning 6 headings with no `###` sub-phases. Phases 0 through 4 each carry
+an explicit sign-off in the session transcript; Phase 5 is signed off by the
+message that commissioned this close-out, and the report containing it does
+not sign off its own phase.
+
+This round built the first records in the system that represent physical
+things.
+
+### THIS ROUND DID NOT EDIT `CLAUDE.md`
+
+Confirmed by `git log main..HEAD -- CLAUDE.md`, which returns nothing. Round
+15 edited it three times, Round 16 none, Round 17 none. The next session's
+injected copy is current on that account.
+
+Five findings landed in `DESIGN_PRINCIPLES.md` instead: the Section 2b
+supersession, the coordinate exception, the RLS failure mode, the
+write-as-consequence-of-a-read principle, and Phase 4's wording finding.
+
+### The Section 2b conflict, and the narrowing that resolved it
+
+**Phase 0 found a recorded, confirmed business direction that this round as
+briefed contradicted, and the brief did not cite it.**
+`PROTOTYPE_SPECIFICATION.md` Section 6 states that Test Bed should consume
+the prototype's existing Device link mechanism **rather than build its own
+serial tracking or its own linking logic**, and that connecting it is a
+dependency of Asset Management, **not to be retrofitted into Test Bed ahead
+of it**. Reported rather than built through.
+
+**What the prototype actually models, and it is better than this brief's
+first draft.** `applyDeviceLink()` and `linkTargetOptions()` link a Device to
+a Test Bed or Opportunity by `linkKind`/`linkId` with a full history of
+linked and unlinked dates. **A Device persists and has its own identity; the
+link is the deployment.** Phase 1.2 argued for one record holding both and
+was wrong on that point.
+
+**The narrowing, which is what makes this a supersession rather than a
+reversal.** That note's concern is Test Bed **inventing a parallel device
+identity**: its own serial generation, its own registry, its own linking
+logic, competing with the manufacturing-domain numbering scheme. **This round
+does none of those three.** No serial is generated, no registry exists, no
+linking mechanism is built. **The serial is a typed reference to the device
+deployed at this slot, not a device record.**
+
+**The business need that overrode it:** installation is happening now and the
+deployment has to be recorded somewhere; Asset Management is not scheduled.
+**When Asset Management builds real Device records the serial becomes the
+join** and the deployment record is already shaped to attach to one, which is
+the opposite of a migration.
+
+Also recorded there and still unresolved: **two link-kind conventions for one
+concept**, `'testbed'`/`'opportunity'` against `'tb'`/`'op'`, which the
+prototype spec says the live build must standardise rather than carry
+forward. Nothing this round touched either.
+
+### The RLS failure mode, which bites as soon as anyone but the owner uses the units view
+
+`records_update` is `auth.uid() = owner_id`. Reads are team-wide, so every
+record type until now has been effectively single-owner in practice and this
+has been harmless for six rounds.
+
+**Units are the first record type plausibly edited by someone other than
+their creator.** Slots are derived during setup by whoever runs the Test Bed;
+serials, coordinates and state are entered at the site by whoever installs
+them. That is two people in the ordinary case.
+
+**Two things beyond the policy itself, both measured:**
+
+1. **The block lands on the `record_revisions` INSERT, not the `records`
+   UPDATE.** A unit edit writes a revision first and only touches `records`
+   when the state changes. Anyone reasoning about which policy to widen will
+   look at `records_update` first, and that is not where the failure is.
+2. **It surfaces as an opaque HTTP 500** carrying `new row violates
+   row-level security policy for table "record_revisions"`. A person who is
+   not permitted to edit a unit is told the server broke, which invites a
+   retry and a bug report rather than a conversation about permissions.
+
+Deliberately not fixed in the phase that found it: widening a write policy is
+a security decision with a blast radius across every record type.
+
+### Record history is ROUND 18, with a confirmed shape
+
+Deferred seven times and now scheduled with a definite form rather than as a
+line item: **a read-only History pane sourced from `audit_log`, deliberately
+without readability work**, so the business can see what it actually contains
+before deciding what each action should say. **Plus notes carrying the stage
+they were written at.**
+
+Phase 3 contributes to it directly: `unit_count_corrected` rows now exist
+carrying a reason, an actor and the from/to figures, which is exactly the
+kind of entry Round 18 will surface.
+
+### `CURRENT_STATE.md` reconciled
+
+Regenerated at `50d1a06`, working tree clean. Staleness test passed first:
+the recorded SHA was an ancestor of `HEAD`, and `src/routes/test-beds.js` had
+changed, which is what this regeneration accounts for.
+
+**The generator reports the new record type, which is what Round 11 Phase 9
+found missing from the round that built the scoring tables:**
+
+    | unit | Installed | 0 | 2   |
+    | unit | Planned   | 0 | 223 |
+    | unit | Removed   | 0 | 1   |
+
+Three of the four states appear because three occurred during testing; no
+unit was set to Faulty. **All show 0 live because every fixture was torn
+down**, which is the correct end state, not an absence of the feature.
+
+**The three new routes are reported too**, 51 to 54: `GET
+/api/test-beds/:id/units`, `POST /api/test-beds/:id/units/derive`, `PATCH
+/api/test-beds/:id/units/:unitId`.
+
+**No new table, so no new configuration section**, which is the right
+outcome: a unit is a `records` row following the `document` precedent, and
+`stage_definitions` confirms it needs no rows there, holding entries for
+`opportunity`, `contact`, `smoke_test` and `test_bed` only.
+
+**Configuration unchanged**, verified against the database with every query
+paged: `stage_gate_rules` 61 total and 45 on `test_bed`; `scoring_criteria`
+5; `scoring_anchors` 15, all at version 1.
+
+**Live record counts identical at 93**, before and after.
+
+### Open item 23 did not fire, for the third round running, and STANDS AT FULL STRENGTH
+
+Counted by revisions rather than new records:
+
+    record_revisions this round: 280   mine 280, NOT mine 0
+    records created this round:  492   mine 492, not mine 0
+
+**The three rounds establish different things and none of them establishes
+anything about the exposure.** Round 15: the business used the application
+and stopped before the branch code reached disk, so they exercised `main`.
+Round 16: absent. Round 17: absent. **Absence is evidence about their weeks,
+not about the risk.**
+
+The dev server still serves the frontend from disk, so whenever they open the
+app mid-round they get whatever branch is checked out, unreviewed and
+unmerged. **Round 16 recorded the specific failure mode of letting quiet
+rounds accumulate**, and three consecutive "did not fire" entries is exactly
+the shape that turns a structural exposure into one treated as theoretical.
+It is not decaying. It has not been tested.
+
+### Probe defects, and where they landed
+
+Every one was in the harness rather than the product.
+
+- **Phase 1, a 400 on a working endpoint.** The derive POST sent
+  `Content-Type: application/json` with no body, which Fastify rejects with
+  `FST_ERR_CTP_EMPTY_JSON_BODY`. That trap is documented in `app.js`'s own
+  `api()` helper, which sets the header only when there is a body.
+- **Phase 1, a 500 on `records.latest_revision_number does not exist`.** I
+  took it for a column because it appears in the `GET /test-beds/:id`
+  response. It is computed there, per Architecture rule 2. **An API payload
+  is not a schema.**
+- **Phase 3, a serialised-JSON comparison that failed on identical data.**
+  `jsonb` does not preserve key order, so Postgres returned `{to,from,type}`
+  where the probe expected `{type,from,to}`. String equality on a serialised
+  object is not value equality.
+- **Phase 3, a stale precondition.** The "opening a tab writes nothing" test
+  reused a bed a previous probe had already derived, so it measured the claim
+  against a bed that already had 24 units and reported a 400 lock as though
+  looking had caused it. The probe now asserts the precondition and exits.
+- **Phase 3, two broken splices.** Relocating the lock code left the file with
+  a brace imbalance twice. Reverted to the committed state and redone in one
+  pass rather than patched further.
+
+### Open, carried forward
+
+Round 16's thirty-one stand, including item 31, the units table's scrolling
+column headers, which was logged during this round. Item 23 stands at full
+strength. Three added:
+
+32. **`records_update` blocks a non-owner from editing a unit**, failing on
+    the `record_revisions` insert and surfacing as an opaque 500. The named
+    failure mode above.
+33. **Two link-kind conventions for one concept in the prototype**,
+    `'testbed'`/`'opportunity'` against `'tb'`/`'op'`. The prototype spec says
+    the live build should standardise on one; nothing has yet.
+34. **A unit's four states have no transition rules.** They are a validated
+    value with no ordering, so a unit can go from Removed back to Planned.
+    That may be correct, since a slot can be reused, but it has not been
+    decided.
