@@ -1,6 +1,6 @@
 import { createUserClient } from '../supabase.js'
 import { issueReferenceNumber } from '../lib/reference-number.js'
-import { isValidIsoDate, isNotPastIsoDate, isValidNonNegativeInteger, isValidNonNegativePercent, isValidIsoTimestamp } from '../lib/field-validation.js'
+import { isValidIsoDate, isNotPastIsoDate, isValidNonNegativeInteger, isValidNonNegativePercent, isValidIsoTimestamp, isValidLatitude, isValidLongitude } from '../lib/field-validation.js'
 import { calculateTestBedCost } from '../lib/deal-calculator.js'
 
 // Round 5 Phase 6 (2026-08-17): builds the itemized cost breakdown from
@@ -1606,6 +1606,184 @@ export default async function testBedsRoutes(app) {
     })
 
     return reply.code(201).send({ criterion: crit.criterion_key, entry, entries: existing.length + 1 })
+  })
+
+  // ── Units ───────────────────────────────────────────────────────────────
+  //
+  // Round 17 Phase 1. A unit is a DEPLOYMENT, not a device.
+  //
+  // It is a `records` row with record_type 'unit', parented to its Test Bed,
+  // following `document` exactly: a live record type with its own
+  // discriminator, no stage_definitions rows and no transitions, because its
+  // four states are a validated value rather than a workflow. No new table,
+  // per standing rule 4.
+  //
+  // WHAT THIS DELIBERATELY DOES NOT BUILD. PROTOTYPE_SPECIFICATION.md Section
+  // 6 records a confirmed direction that Test Bed should not build its own
+  // serial tracking or linking logic, and should not be retrofitted ahead of
+  // Asset Management. That note's concern is Test Bed inventing a PARALLEL
+  // DEVICE IDENTITY, and none of it is invented here: no serial is generated,
+  // no registry exists, no linking mechanism is built. `serialNumber` is a
+  // typed reference to the device deployed at this slot. When Asset
+  // Management builds real Device records the serial becomes the join and
+  // this record is already shaped to attach to one.
+  //
+  // The prototype's own decomposition is better than this round's first
+  // draft: a Device persists and the link is the deployment. This builds only
+  // the deployment half, which is the half installation needs now.
+  const VALID_UNIT_TYPES = ['SafeSight', 'Air Quality', 'HEMIR']
+  const VALID_UNIT_STATES = ['Planned', 'Installed', 'Faulty', 'Removed']
+  // Two possible authors of a state, present from the start so the eventual
+  // operational platform writes to the same place rather than needing a
+  // parallel path. One field now removes a migration later.
+  const VALID_STATE_SOURCES = ['Person', 'Platform']
+  // Which count produces which type of slot.
+  const UNIT_TYPE_COUNT_KEYS = [
+    { type: 'SafeSight', key: 'safesightCameras' },
+    { type: 'Air Quality', key: 'airQualitySensors' },
+    { type: 'HEMIR', key: 'hemirSensors' },
+  ]
+
+  async function loadUnits(db, bedId) {
+    const { data: units, error } = await db
+      .from('records')
+      .select('id, variant, status, created_at, record_revisions(revision_number, payload)')
+      .eq('parent_record_id', bedId)
+      .eq('record_type', 'unit')
+      .is('deleted_at', null)
+      .order('created_at', { ascending: true })
+    if (error) return { error }
+    const shaped = (units ?? []).map(u => {
+      const latest = (u.record_revisions ?? []).sort((a, b) => b.revision_number - a.revision_number)[0]
+      const p = latest?.payload ?? {}
+      return {
+        id: u.id, type: u.variant, state: u.status,
+        index: p.unitIndex ?? null, serialNumber: p.serialNumber ?? null,
+        latitude: p.latitude ?? null, longitude: p.longitude ?? null,
+        stateSource: p.stateSource ?? null, created_at: u.created_at,
+      }
+    })
+    shaped.sort((a, b) => a.type.localeCompare(b.type) || (a.index ?? 0) - (b.index ?? 0))
+    return { units: shaped }
+  }
+
+  // GET /api/test-beds/:id/units
+  app.get('/test-beds/:id/units', async (request, reply) => {
+    const db = createUserClient(request.jwt)
+    const { units, error } = await loadUnits(db, request.params.id)
+    if (error) {
+      request.log.error({ err: error }, 'failed to list units')
+      return reply.code(500).send({ error: error.message })
+    }
+    return units
+  })
+
+  // POST /api/test-beds/:id/units/derive
+  //
+  // IDEMPOTENT, and that is the answer to "what happens on first render of a
+  // Test Bed whose counts are already set": every existing Test Bed is in
+  // that position, so this creates the slots that are missing and nothing
+  // else. Running it twice creates nothing the second time.
+  app.post('/test-beds/:id/units/derive', async (request, reply) => {
+    const db = createUserClient(request.jwt)
+    const { data: bed, error: bedErr } = await db
+      .from('records').select('id')
+      .eq('id', request.params.id).eq('record_type', 'test_bed').is('deleted_at', null).maybeSingle()
+    if (bedErr) return reply.code(500).send({ error: bedErr.message })
+    if (!bed) return reply.code(404).send({ error: 'test bed not found' })
+
+    const { data: rev, error: revErr } = await db
+      .from('record_revisions').select('payload')
+      .eq('record_id', bed.id).order('revision_number', { ascending: false }).limit(1).maybeSingle()
+    if (revErr) return reply.code(500).send({ error: revErr.message })
+    const counts = rev?.payload ?? {}
+
+    const { units: existing, error: listErr } = await loadUnits(db, bed.id)
+    if (listErr) return reply.code(500).send({ error: listErr.message })
+
+    const created = []
+    for (const { type, key } of UNIT_TYPE_COUNT_KEYS) {
+      const want = Number(counts[key]) || 0
+      const have = existing.filter(u => u.type === type)
+      // Highest index already used, so a slot is never reissued after a
+      // removal: indexes identify a slot, not a position in an array.
+      let next = have.reduce((m, u) => Math.max(m, Number(u.index) || 0), 0)
+      for (let i = have.length; i < want; i++) {
+        next += 1
+        const { data: unit, error: insErr } = await db
+          .from('records')
+          .insert({
+            record_type: 'unit', parent_record_id: bed.id,
+            variant: type,
+            // Planned is why a slot can exist before a serial does.
+            status: 'Planned',
+            owner_id: request.user.id,
+          })
+          .select('id').single()
+        if (insErr) return reply.code(500).send({ error: insErr.message })
+        const { error: revIns } = await db.from('record_revisions').insert({
+          record_id: unit.id, revision_number: 1,
+          payload: { unitIndex: next, stateSource: 'Person' },
+          created_by: request.user.id,
+        })
+        if (revIns) return reply.code(500).send({ error: revIns.message })
+        created.push({ id: unit.id, type, index: next })
+      }
+    }
+    const { units, error: reErr } = await loadUnits(db, bed.id)
+    if (reErr) return reply.code(500).send({ error: reErr.message })
+    return { created: created.length, units }
+  })
+
+  // PATCH /api/test-beds/:id/units/:unitId
+  app.patch('/test-beds/:id/units/:unitId', async (request, reply) => {
+    const body = request.body ?? {}
+    const db = createUserClient(request.jwt)
+
+    if ('state' in body && !VALID_UNIT_STATES.includes(body.state)) {
+      return reply.code(400).send({ error: `state must be one of: ${VALID_UNIT_STATES.join(', ')}` })
+    }
+    if ('stateSource' in body && !VALID_STATE_SOURCES.includes(body.stateSource)) {
+      return reply.code(400).send({ error: `stateSource must be one of: ${VALID_STATE_SOURCES.join(', ')}` })
+    }
+    if ('latitude' in body && !isValidLatitude(body.latitude)) {
+      return reply.code(400).send({ error: 'latitude must be a number between -90 and 90' })
+    }
+    if ('longitude' in body && !isValidLongitude(body.longitude)) {
+      return reply.code(400).send({ error: 'longitude must be a number between -180 and 180' })
+    }
+
+    const { data: unit, error: unitErr } = await db
+      .from('records').select('id, status, parent_record_id')
+      .eq('id', request.params.unitId).eq('record_type', 'unit').is('deleted_at', null).maybeSingle()
+    if (unitErr) return reply.code(500).send({ error: unitErr.message })
+    if (!unit) return reply.code(404).send({ error: 'unit not found' })
+    if (unit.parent_record_id !== request.params.id) {
+      return reply.code(404).send({ error: 'unit does not belong to this test bed' })
+    }
+
+    const { data: rev, error: revErr } = await db
+      .from('record_revisions').select('revision_number, payload')
+      .eq('record_id', unit.id).order('revision_number', { ascending: false }).limit(1).maybeSingle()
+    if (revErr) return reply.code(500).send({ error: revErr.message })
+
+    const merged = { ...(rev?.payload ?? {}) }
+    for (const key of ['serialNumber', 'latitude', 'longitude', 'stateSource']) {
+      if (key in body) merged[key] = body[key]
+    }
+    const { error: insErr } = await db.from('record_revisions').insert({
+      record_id: unit.id, revision_number: (rev?.revision_number ?? 0) + 1,
+      payload: merged, created_by: request.user.id,
+    })
+    if (insErr) return reply.code(500).send({ error: insErr.message })
+
+    if ('state' in body && body.state !== unit.status) {
+      const { error: stErr } = await db.from('records').update({ status: body.state }).eq('id', unit.id)
+      if (stErr) return reply.code(500).send({ error: stErr.message })
+    }
+    const { units, error: reErr } = await loadUnits(db, request.params.id)
+    if (reErr) return reply.code(500).send({ error: reErr.message })
+    return units.find(u => u.id === unit.id)
   })
 
   // GET  /api/test-beds/:id/customer-documents
