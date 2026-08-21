@@ -2324,3 +2324,777 @@ Explicitly deferred, not forgotten, not a section number of its own since this i
   it is only creating something, and the justification stops holding the
   moment anything else keys off what was created. When a render writes,
   ask what else will read that write.
+
+
+- **Open item 35: two writes to one record can collide on `record_revisions_record_id_revision_number_key`, and the unique constraint is the only thing standing between a race and a corrupted history. Found by business testing, 2026-08-21, after Round 17 merged.**
+
+  Recorded here rather than in a round brief because the numbered sequence's
+  home is Round 17's close-out list, which is signed off and ends at 34. This
+  is 35 and lives in this file.
+
+  **It is a race in the revision mechanism, not a scoring defect.** The
+  business hit it scoring five criteria in one save and the message names
+  scoring nowhere: it names `record_revisions`. Scoring is where it surfaced
+  because scoring is what happened to be writing.
+
+  **The same write succeeded on retry, and that is the whole diagnosis.** A
+  duplicate key on identical input that then succeeds unchanged cannot be a
+  property of the input. If the score, the payload or the criterion were
+  wrong, the retry would have failed the same way, because nothing about them
+  changed between the two attempts. **A changed outcome on unchanged input is
+  timing.** This is the mirror of Architecture rule 9, where an unchanged
+  failure output proves the change never reached the code path; here a changed
+  outcome on an unchanged input proves the input was never the variable.
+
+  **The mechanism, read out of the code rather than inferred from the
+  message.** `src/routes/test-beds.js` reads the highest revision at 1609,
+  computes `nextRevision = revRow.revision_number + 1` at 1683, and inserts it
+  at 1687. Between the read and the insert there is no transaction, no `SELECT
+  FOR UPDATE`, no sequence, no `ON CONFLICT` and no retry. Two requests that
+  both read revision 12 both compute 13, and the second one loses.
+
+  **What loses is not the point. What would happen without the constraint
+  is.** `unique (record_id, revision_number)`, at
+  `supabase/migrations/20260801000000_initial_schema.sql:41`, is the only
+  reason the second write fails rather than landing as a second revision 13.
+  A history table with two rows claiming the same revision number would break
+  every reader that resolves "the current revision" by ordering on it, and
+  that includes every gate decision, because `transitions.js` matches
+  revision-scoped approvals on exactly that number. **The constraint is doing
+  load-bearing correctness work and reporting it as a 500.**
+
+  **Why it became reachable when it did.** Round 14 made `recordTbScores` post
+  all dirty scores rather than one, which took the in-flight window for a
+  single Save from one POST to N. The loop itself is sequential and awaits
+  each response, so five scores alone do not overlap each other. **The
+  overlap comes from two Save sequences, not from one.**
+  `frontend/test-bed-detail.js:2197` sets `saveBtn.disabled` from
+  `tbInvalidFields.size` and from nothing else, so the control is never
+  disabled while a save is in flight: a second click during a five-POST
+  sequence starts a second five-POST sequence against the same record, and the
+  two interleave.
+
+  **Stated precisely, because the distinction matters to whoever fixes it:**
+  the unguarded read-then-insert is verified from the source. The overlapping
+  Save click is the mechanism the code makes available and is not directly
+  observed, so it is the leading candidate rather than a confirmed
+  reproduction. Anything else that writes twice quickly to one record reaches
+  the same place.
+
+  **The class, not the instance, per build discipline rule 8.** Nine sites
+  share this exact read-max-then-insert shape and none of them handles
+  `23505`: `accounts.js:440`, `contacts.js:357` and `528`,
+  `opportunities.js:354` and `440`, `test-beds.js:825`, `1480`, `1687` and
+  `1869`, plus `deals.js:297` computing from a revision number resolved the
+  same way. `approvals.js:97` is the only place in `src/routes/` that catches
+  a unique violation at all, and it catches a different constraint. **The
+  scoring endpoint is where the business stood when it fired, not where the
+  fault lives.** Unit edits are the newest member of this set and the most
+  exposed, since Round 17 made them the first record type two people edit.
+
+  **This was noticed once already and scoped too narrowly.**
+  `src/routes/records.js:43` carries a Milestone 2 TODO to wrap record
+  creation in an rpc "to make creation atomic". Creation is the case that
+  cannot collide, because a new record has no prior revision to read. The
+  update path, which is the one that can, never got even a TODO. Same shape
+  as the rule it illustrates: the fix was scoped to what the note named
+  rather than to what the mechanism does.
+
+  **Not fixed here.** Recorded so the fix is made for this reason, across all
+  nine sites, rather than rediscovered as a scoring bug at the tenth.
+
+
+- **Open item 35 is resolved: every record revision is now written by one atomic database function, and the payload merge moved with the number. Round 17A Phase 1, 2026-08-21.**
+
+  **The reproduction, before and after, same script and same counts**, because a
+  race with no forensic trace can only be shown fixed by the case that failed:
+
+      concurrent writes to one record   before          after
+        2                               50% refused     0%
+        3                               53% refused     0%
+        5                               68% refused     0%
+       10                               82% refused     0%
+      200 requests total                58 landed       200 landed
+
+  Two concurrent writes collided in **10 of 10 trials** before. Through the UI,
+  three values entered at paste speed produced two refused writes; after, all
+  three persist.
+
+  **THE COUNT WAS TEN, NOT NINE.** Every document in this round said nine,
+  including the Phase 0 report that enumerated them. Re-enumerated from the
+  code rather than from the list, the tenth is `test-beds.js`'s unit PATCH,
+  **which is the site Phase 0 reproduced against and the site Phase 2 is
+  about.** The enumeration dropped the one the round was named for, because
+  the arithmetic in the original list already came to ten while the prose said
+  nine and nobody added it up. A count restated often enough stops being
+  checked.
+
+  **The merge had to move with the number, and the narrower fix was worse than
+  the defect.** One JS read supplied both, so making only the numbering atomic
+  would let both writers succeed at different numbers, each merging its own
+  field into the same stale payload, and the second silently drops the first's.
+  Phase 0 had already produced that outcome from the race itself: three values
+  entered, one stored, one absent, one holding a previous value, **and the row
+  reading "Saved"** because all four fields of a unit row share one status cell
+  and the write that succeeded finished last. **Numbering alone would have made
+  that the normal result rather than the collision result**, trading a loud
+  failure for a silent loss. Measured directly: 40 concurrent patches to
+  distinct keys, 3 of 40 keys surviving under the old shape, 40 of 40 under the
+  new one.
+
+  **One writer, not ten, and this file had already half-made the argument.**
+  `appendPayloadSeriesEntry` was extracted in Round 17 carrying the comment
+  "two writers of one shape is not a fork of the mechanism". It had **one
+  caller**, while the endpoint it was extracted from kept its own copy. A
+  shared writer was created and the original was never migrated onto it, in the
+  same file, in the same round. **An atomicity guarantee that lives in more
+  than one place is not a guarantee**, which is a stronger claim than the
+  usual case against duplication.
+
+  **SECURITY INVOKER, which is the one place this diverges from
+  `issue_reference_number`'s shape, and the divergence is the point.** That
+  function is `security definer` because `reference_number_counters` has RLS
+  enabled with no policies and is reachable only through it. `record_revisions`
+  is the opposite: it carries a real insert policy requiring the caller to be
+  the record's owner, which is the check open item 32 is about. **A definer
+  function would have let any authenticated user write a revision to any
+  record**, a severe permission widening arriving inside a bug fix and visible
+  nowhere. Confirmed by exercising the failure branch rather than reasoning
+  about it: a non-owner is still refused `42501`, and a forged `created_by` is
+  still refused.
+
+  **An advisory transaction lock rather than `SELECT ... FOR UPDATE` on the
+  parent row.** Locking the record would serialize correctly, but under RLS a
+  locking read also applies the UPDATE policy, `auth.uid() = owner_id`, so
+  taking the lock would fail for exactly the non-owner case open item 32
+  describes. `pg_advisory_xact_lock` needs no privilege on any table and is
+  keyed per record, so writers to different records never contend.
+
+  Worth recording that Phase 0's finding "no transaction is reachable through
+  PostgREST" was true of the **client** and not of the database. A function
+  body is a transaction. The option that looked unavailable was available all
+  along, one layer down.
+
+  **THE UNIQUE CONSTRAINT STAYS, and a future round must not remove it as
+  redundant.** It stops being the mechanism and becomes the backstop: it is
+  what would catch a call site added later that bypasses the function, which is
+  precisely how ten sites came to share one shape in the first place. Proven
+  still live by injecting a duplicate directly and watching it refuse, and
+  asserted in the suite rather than in this paragraph.
+
+  **The test is calibrated, not merely green.** Run against a JS reimplementation
+  of the old read-then-insert at the same concurrency, 37 of 40 appends fail and
+  3 of 40 keys survive, so both assertions genuinely fail on the old shape. The
+  same run shows **contiguity alone would not have caught it**: the naive shape
+  left revisions 1..4 perfectly contiguous while losing 37 writes. An invariant
+  that only checks for gaps would have passed on a database losing most of its
+  traffic.
+
+
+- **When a list and its own count disagree, the list is the evidence. The count is a summary, and a summary is the thing that gets restated. Round 17A Phase 1, 2026-08-21.**
+
+  Recorded separately from open item 35's resolution because the defect is in
+  how the work was described, not in the code, and it will recur on a
+  different subject.
+
+  **What happened.** `ROUND17A_INPUT.md` enumerated the affected write sites as
+  `accounts.js:440`, `contacts.js:357` and `528`, `opportunities.js:354` and
+  `440`, `test-beds.js:825`, `1480`, `1687` and `1869`, and `deals.js:297`.
+  **That is ten loci. The same sentence called them nine.** The arithmetic was
+  wrong the first time it was written, in a document produced specifically to
+  be precise about these loci.
+
+  **The reconciliation went the wrong way.** Phase 0 re-enumerated, found ten
+  in the list and nine in the prose, and **silently resolved it downward by
+  dropping one from the enumeration to match the count** rather than by adding
+  one to the count to match the enumeration. The nine-item list was then
+  reported as authoritative, restated in the fix brief, and **accepted twice**,
+  once at the input document and once at Phase 0.
+
+  **The dropped site was `test-beds.js`'s unit PATCH: the one Phase 0
+  reproduced the race against, and the one Phase 2 exists to fix.** The round
+  leads with that surface. The enumeration dropped the site the round is named
+  for, and every later document inherited it.
+
+  **Why the count wins by default, which is the part worth generalising.** A
+  count is short, quotable and travels into summaries, briefs and headings; a
+  list is long and gets skimmed. So the count is what everyone checks against,
+  and a list that contradicts it reads as a typo in the list. **It is the other
+  way round: the list carries the loci, each independently checkable against
+  the code, while the count carries nothing and is derived.** Re-derive the
+  count from the list every time it is restated, and when they disagree,
+  re-enumerate from the source rather than reconciling one document against
+  another.
+
+  Same family as the `CURRENT_STATE.md` rule that a generated file is right
+  about what exists and a hand-written one about what was intended, and the
+  same family as Verification 12: an enumeration nobody re-ran is not evidence
+  that the thing enumerated is all there is.
+
+
+- **Contiguity is the obvious check on a revision series and it is blind to the failure mode that actually occurs. Round 17A Phase 1, 2026-08-21.**
+
+  The revision number exists so that gate evaluation can resolve current state
+  by ordering on it, so "are the numbers contiguous per record" is the natural
+  invariant to reach for, and it is the one a reasonable person would write.
+
+  **Measured against the pre-fix shape at 40-way concurrency, it passes while
+  most of the traffic is being lost:**
+
+      naive read-then-insert:  37 of 40 appends refused
+                                3 of 40 patch keys surviving
+                                revisions 1..4, PERFECTLY CONTIGUOUS
+
+  **A refused insert writes nothing**, so every collision removes a write and
+  leaves no gap behind. Contiguity is preserved *by* the failure rather than
+  broken by it. A suite asserting only contiguity would have reported a healthy
+  database while 92% of the writes to it were being thrown away.
+
+  **This is why the calibrated before case is the only proof.** Not the absence
+  of errors afterwards, which is what a race that got rarer also looks like;
+  not contiguity, which is what a race that is failing perfectly also looks
+  like. The proof is the same test, at the same concurrency, shown failing on
+  the old shape and passing on the new one: 37 failures and 3 of 40 keys, next
+  to 0 failures and 40 of 40.
+
+  **The general form: when choosing an invariant for a failure you cannot see,
+  ask what the failure mode does to the invariant, not what health does to it.**
+  Verification 9 says an invariant not proven capable of failing is not
+  evidence. This is the sharper case, because contiguity IS capable of failing,
+  just never on this fault.
+
+
+- **Atomic writes and non-overlapping writes are different guarantees, and the unit row needed both. Round 17A Phase 2, 2026-08-21.**
+
+  Phase 1 made concurrent writes to one record atomic. That fixed the refusals
+  and the cross-field losses, and it did not fix ordering: two writes carrying
+  the **same** key are both individually correct, and the one that reaches the
+  lock second wins regardless of which the user meant last. Atomicity has
+  nothing to say about it.
+
+  **Measured before building anything**, because the residual after Phase 1 was
+  smaller than expected and worth sizing rather than assuming: two overlapping
+  same-key writes put the older value in the database **1 time in 60**. Rare,
+  silent, and a wrong serial number on an installed device.
+
+  **The guard is a per-unit promise chain**, so writes for one row run in the
+  order the user made them and writes for different rows never wait on each
+  other. Proven structurally rather than statistically, by running the old
+  handler and the new one against the same page and the same gestures and
+  counting requests in flight:
+
+      pre-Phase-2 handler:   4 change events, 4 PATCHes, MAX 4 IN FLIGHT to one record
+      shipped handler:       4 change events, 4 PATCHes, MAX 1 IN FLIGHT
+
+  **A statistical result would not have been evidence here.** Both runs above
+  stored the right values, because a 1-in-60 fault does not show up in one
+  trial. What makes the fix real is that the overlap is gone by construction,
+  not that a sample came out clean.
+
+  **A user cannot outrun it, and what happens if they try is latency.** Eight
+  changes across one row entered in 286ms drain in 2326ms, one round trip each,
+  all eight landing with every last intent stored. Nothing is dropped and
+  nothing is coalesced. Two rows entered together settle in 450ms, so a 24-row
+  table still saves 24 rows concurrently.
+
+  **The status cell was lying, and fixing it needed per-field state rather than
+  per-burst.** One cell serves four fields, so the naive rule of each write
+  setting it lets a later success erase an earlier refusal. Settling once per
+  drain fixes the concurrent case and **leaves the commoner sequential one**:
+  an invalid latitude is refused in about 40ms, long before the operator
+  finishes typing the longitude, so the two never overlap, the row showed the
+  error and then replaced it with "Saved" while the latitude sat unsaved on
+  screen. Failures are now keyed by field and cleared only by a later
+  successful write to that same field, so a refusal stays visible until it is
+  resolved, and then clears on its own.
+
+  **Save-on-blur is untouched.** The business flagged the inconsistency with
+  the batched Save bar for discussion, and a discussion is not a decision.
+
+  **What this does NOT cover, stated because the guard looks more complete than
+  it is: it is a client-side serialization.** Two browser tabs, two people, or
+  anything not going through this handler can still issue same-key writes that
+  race, and the server will accept them in arrival order. Closing that needs
+  optimistic concurrency on the endpoint, a version or an If-Match, which is a
+  contract change rather than a fix.
+
+
+- **A probe whose own input is silently altered reports on a case it never ran. Round 17A Phase 2, 2026-08-21.**
+
+  Distinct from the failure modes already recorded here. Verification 12 is a
+  search that never ran, 13 is an instrument never shown to reach one, 14 is a
+  comparison with nothing on either side. **This one runs, measures correctly,
+  and reports truthfully about the wrong input.** Every signal in the output is
+  accurate. The only false thing is the label.
+
+  **The instance.** A browser probe cleared a field before typing by selecting
+  its contents. Headless, the selection silently did nothing, twice and by two
+  different mechanisms: `Cmd+A` produced no selection, and `clickCount: 3` did
+  not either. So the typed text **appended** rather than replaced. The field
+  held `51.5074`, the probe typed `999` intending an out-of-range latitude, and
+  the field became `51.5074999`.
+
+  **51.5074999 is a perfectly valid latitude.** The server accepted it, exactly
+  as it should, and the probe printed `invalid value accepted, 200` and
+  `refusal not visible`. Both lines were true about what happened and both were
+  read as findings about a rejection path that was never exercised. **The
+  conclusion drawn was that server validation had a hole in it**, which is a
+  serious claim, and it was wrong.
+
+  **A third variant of the same shape in the same phase**, with no selection
+  involved: a value retyped identically to what the field already held fired no
+  `change` event at all, so no write occurred, and the previous run's data sat
+  in the database satisfying every assertion about it. The probe was reporting
+  on a save it had not made.
+
+  **What catches all three is one cheap step: write a known value through the
+  probe's own input path and read it back before trusting anything else.**
+  It costs one round trip and it fails loudly on exactly the case that
+  otherwise reads as a product defect. In this phase it caught the first two
+  immediately; the third was caught only by noticing that the database held
+  correct values while no change events had fired.
+
+  **The general rule: calibrate the input, not only the instrument.**
+  Verification 13 established that a counter must be shown capable of reaching
+  one. This is the other half. **An instrument proven to measure correctly, wired
+  to an input you never confirmed, produces confident output about a case that
+  did not occur** - and it will usually look like a defect in the system rather
+  than a defect in the probe, because the reading is real.
+
+
+- **Open item 36: a state-only unit edit writes a no-op revision. Predates Round 17A Phase 1 and is not a regression. Logged Round 17A Phase 2, 2026-08-21.**
+
+  `PATCH /api/test-beds/:id/units/:unitId` builds its payload patch from
+  `serialNumber`, `latitude`, `longitude` and `stateSource` only. `state` is
+  not a payload key: it is written to `records.status` separately. So changing
+  only the State dropdown sends a patch with no keys, and
+  `append_record_revision` appends a revision whose payload is identical to the
+  one before it.
+
+  **Not introduced by the atomic writer.** The pre-Phase-1 code did the same
+  thing by a different route: it copied the current payload, applied whichever
+  of the four keys were present, none were, and inserted the copy. Same
+  outcome, same revision count. Phase 1 changed how the revision is written,
+  not whether this one is written.
+
+  **Why it is worth an item rather than a fix in passing.** It inflates a
+  unit's history with entries that record nothing, which matters directly to
+  Round 18, whose whole content is a History pane sourced from `audit_log` and
+  the revision series. A reader will see a revision and reasonably infer a
+  change. The fix is one guard on an empty patch, but "should a state change
+  produce a revision at all" is a question about what a revision means, and
+  that is Round 18's subject rather than a decision to take silently inside a
+  race fix.
+
+
+- **A raised unit count is a correction and reconciles its own slots. Round 17A Phase 3, 2026-08-21.**
+
+  Two decisions the business's defect forced, stated rather than left to fall
+  out of whichever branch happened to exist.
+
+  **ONE: raising a locked count is a correction and needs a reason, exactly as
+  lowering one does.** This was already the server's behaviour and had never
+  been stated: the lock fires on any divergence between the count and the
+  slots, in either direction. Confirmed in both directions rather than assumed,
+  each refused 400 with the same message. It is the right rule on its own
+  merits: an increase is as much a divergence between the plan and what is on
+  site as a decrease, and the audit row records `from` and `to`, so direction
+  is already legible without needing different treatment.
+
+  **TWO: a successful increase derives the missing slots in the same request.
+  It is not a second explicit act.**
+
+  Round 17 Phase 2 established that a write must not be the consequence of a
+  READ, after deriving on render meant that opening a tab locked a field on a
+  different tab. **That rule is not engaged here.** A count correction is an
+  explicit act: typed by a person, carrying a mandatory reason, and writing an
+  audit row naming them. Deriving from an act is the ordinary case; the rule is
+  about deriving from a page view.
+
+  **The deciding argument is symmetry inside the endpoint.** A downward
+  correction ALREADY removes surplus slots with no second act required.
+  Reconciling one direction automatically while demanding a separate control
+  for the other is an inconsistency the user has to learn rather than a rule
+  they can infer, and the business found it as a defect precisely because they
+  inferred the symmetric behaviour and did not get it.
+
+  **Derivation now has one implementation**, `deriveMissingUnitSlots` in
+  `src/lib/units.js`, called by both `POST /units/derive` and the correction
+  path. Adding the second caller by copying the loop was the obvious move and
+  is the exact shape Architecture rule 3 forbids. **It is also the shape Round
+  17 got wrong in this same file**: `appendPayloadSeriesEntry` was extracted
+  for this reason and left with one caller while its origin kept a copy.
+
+  **The derive control is now gated on there being work to do, not on there
+  being nothing there.** `if (!tbUnits.length)` was the reachability defect in
+  its general form: the only caller of a working idempotent endpoint vanished
+  at the moment it became useful. Counts and slots can still drift if the new
+  derivation fails partway, because the count is written before it runs, so the
+  units view shows a reconcile line naming the shortfall whenever one exists.
+
+
+- **The unit index invariant was false the day it was written, and the correction is to the comment. Round 17A Phase 3, 2026-08-21.**
+
+  `test-beds.js` stated that "a slot is never reissued after a removal:
+  indexes identify a slot, not a position in an array." The next index is
+  computed from `loadUnits`, **which excludes soft-deleted rows**, so
+  `max(index)` has never seen a removed slot. Reduce three slots to two, raise
+  it back, and the restored slot is index 3 again beside a soft-deleted index 3.
+
+  **Reissue is kept, and the comment is corrected**, because reissue is right
+  here for a reason that lives in a different function. A count correction
+  removes surplus slots **only while they are still Planned**, highest index
+  first, and refuses outright if any slot it would remove is Installed, Faulty
+  or Removed. So a soft-deleted slot never held a device, and reissuing its
+  number cannot overwrite the history of anything physical. Removing from the
+  top also means live indexes for a type are always exactly 1..N, which is what
+  the units table displays.
+
+  The alternative, never reissuing, would print #1 to #10, #13, #14 on a Test
+  Bed the business calls a twelve-unit site, which reads as missing data.
+
+  **Asserted, not described**, per Verification 5, and the assertion was proven
+  capable of failing per Verification 9: injecting a never-reissue
+  implementation fails exactly the reissue test and nothing else, and reverting
+  restores green. **That matters because the previous rule lived only in a
+  comment**, which is why it could be false for a full round without anything
+  noticing.
+
+  **What this leaves for Round 18:** a soft-deleted slot and a live slot can
+  share an index, so a History pane keyed on index alone would be ambiguous. It
+  must key on the unit's record id.
+
+
+- **A blank screenshot passes every check, because the checks are not looking at it. Round 17A Phase 3, 2026-08-21. Promoted into `CLAUDE.md` as a refinement to Verification 4 in the same round.**
+
+  Verification 4 says to open the screenshot and look at it, because presence
+  is not legibility and no assertion can tell them apart. **It assumes the
+  screenshot contains the thing.**
+
+  Phase 3 captured a clipped region to show the new reconcile line. The clip
+  was computed from the element's rect while the element was scrolled out of
+  the viewport, so the coordinates addressed empty page and the image was pure
+  background. **Every programmatic check passed on that capture**, and
+  correctly: they were querying the live DOM, which was fine. The picture and
+  the assertions were describing different things, and only one of them was
+  being offered as visual evidence.
+
+  **A blank image is not a failed check. It is no check, and it looks like
+  diligence** - the screenshot exists, it is attached, the step was performed.
+
+  The fix costs one line: scroll the element into view, take its rect after
+  scrolling, and confirm the capture is not empty before treating it as
+  evidence. Same family as Verification 12 and 13, where a search that never
+  ran and a counter never shown to reach one both read exactly like clean
+  results, and the same family as Phase 2's altered-input probe: **the
+  instrument produced output, and the output was about nothing.**
+
+
+- **The stale date bound and the stale banner are one defect: neither knew what it was about. Round 17A Phase 4, 2026-08-21.**
+
+  **4.1, downgraded on evidence before it was built.** Phase 0 confirmed the
+  server refuses a bad pair in all three directions, so no invalid data could
+  reach the database and this was never an integrity fault. It is an
+  affordance: the picker offered dates the save would refuse, and the user
+  found out at Save.
+
+  The bound was not wrong, it was **stale**. It was computed from `tbPayload`
+  and written into the input once at render, so it described the last save
+  rather than the screen, and the code comment that stood there admitted
+  exactly this. Both bounds now read the EFFECTIVE value, the open draft if
+  there is one and the stored value otherwise, and are recomputed when either
+  date moves or is discarded. Verified in one session without saving: moving
+  the installation date to 2027-03-01 moved the go-live floor to 2027-03-01
+  while the stored value stayed 2026-10-01, and discarding put it back.
+
+  **4.2, and the class turned out to have two signs.** The reported fault was a
+  banner surviving a stage transition. `clearTbSaveFeedback` had four callers
+  and no path that changes what the user is looking at was among them.
+
+  **Two more paths were found by sweeping rather than by fixing the report**,
+  and one of them was the opposite fault:
+
+  1. **`restoreTbOpenEdits` was clearing a message it should have kept.** A
+     save fails, the handler writes the reason and reloads, the reload
+     re-opens the very field the message is about, and `openTbField`'s
+     2026-08-15 clear wipes it. The user sees a value rejected and no reason
+     why. That clear is right for a person opening a field and wrong for the
+     app restoring one, and `fromUserGesture` already separated the two: every
+     real entry point passes it, the restore is the only caller that does not.
+  2. **`renderTbValidationFeedback` was clearing a message it did not own.**
+     Its comment said it cleared "only feedback this function itself put
+     there" and it identified ownership by `className === 'msg-error'`, which
+     is the class a server error carries too. Confirmed live: open two fields,
+     make one save fail, type one valid digit into the other, and the server's
+     reason vanished on the keystroke. Ownership is now marked on the element
+     rather than inferred from its styling.
+
+  **The unifying fault is that the element carried a message with no record of
+  who put it there or what it was about.** One path would not clear a message
+  after the thing it described had gone; another cleared one that was not its
+  to clear. Both are the same missing fact.
+
+  **What clears it now, stated so the next path added is measured against a
+  rule rather than against the four callers that happen to exist:** the top
+  level tab changing, arriving at the record afresh, and the existing
+  deliberate cases. **What does NOT clear it, also deliberate:** a same-record
+  reload on the same tab, because a failing save writes its reason and then
+  reloads, so wiping there would destroy the report as it was being made. Sub
+  tab switches do not clear either, since the fields the message is about are
+  still on screen.
+
+
+- **An injected precondition is not the precondition. Round 17A Phase 4, 2026-08-21.**
+
+  Distinct from the altered-input rule recorded earlier in the same round, and
+  the distinction is the point. There, the probe's input was silently changed
+  and the probe reported truthfully about something the user never typed. Here
+  **the precondition was created faithfully and was simply not the real thing**,
+  so the probe ran against a state that looked identical and behaved
+  differently.
+
+  **The instance.** Testing whether an unrelated keystroke wiped a save error,
+  the error was put on screen directly:
+
+      el.textContent = 'Est. Go Live cannot be before Estimated Installation Date'
+      el.className = 'msg-error'
+
+  Visually and structurally that is what a server refusal produces. The test
+  passed: the message survived the keystroke. **It was wrong.** Repeated by
+  producing a genuine refusal through the real save path, the message was wiped
+  on the first valid digit, which is how the second ownership fault in that
+  element was found. It had been sitting behind a green result.
+
+  **Why the fake differed, which is the general shape.** A real message arrives
+  with everything else its production sets up: the field left open and dirty,
+  the save bar's state, the validity map, whatever the reload restored. The
+  injection reproduced the two properties I had thought of and none of the
+  ones I had not, and the fault lived in one of those.
+
+  **So: build the precondition by running the thing that produces it.** If that
+  is too slow or too awkward, say the result is conditional on the injection
+  rather than reporting it as a test of the real path. **A hand-made state
+  tests the code against your model of the state, which is the thing you were
+  trying to check.**
+
+
+- **A rule caught its own author within the hour of being written, for the third time in this project. Round 17A Phase 4, 2026-08-21.**
+
+  The altered-input rule was recorded at the start of Phase 4, from a probe
+  whose selection silently failed so typed text appended. **Within the same
+  phase, typing a date into `type="date"` filled the segments in an order that
+  produced `0007-12-30` from `03/01/2027`**, and the first run reported "the
+  bound did not follow the draft" - true about an input that was never entered.
+  The rule's own remedy, calibrate the input before trusting the reading,
+  caught it, and the rewritten probe now aborts rather than reporting.
+
+  Third recorded instance of this shape. Round 10 Phase 5B promoted the
+  stale-condition rule and then wrote four more stale conditions in the phase
+  that promoted it. Round 14 promoted the calibrated-zero rule against the same
+  pattern.
+
+  **What this says about promotion, and it is not that the rules do not work.**
+  Each of them worked: the fault was caught, quickly, by the rule just written.
+  What it says is that **knowing a rule confers no ability to spot its
+  instances**, which Round 10 already recorded and which keeps being confirmed.
+  The value of writing one down is the mechanical check it prescribes, not the
+  recognition it fails to grant. **Prefer rules that name a step to perform
+  over rules that name a mistake to avoid.**
+
+
+- **Total Cost moved into the Cost summary card, and the superseded reasoning turned out to be right about the cost. Round 17A Phase 5, 2026-08-21.**
+
+  The business asked for the standalone Total Cost line to be removed and the
+  Cost summary panel to carry the total. Round 15 Phase 4 had explicitly
+  declined that, on the grounds that pulling the total into the grid would push
+  it back down behind the rate panels, which is why Round 8 Phase 3 had put it
+  above the detail in the first place.
+
+  **Verification 15 was the reason to re-measure, and re-measuring did not
+  overturn the objection.** The carried item HAD migrated between widths, which
+  is what Verification 15 is about. The physics of this particular panel had
+  not. Measured at Round 15 Phase 4's own anchor, before and after, and the
+  before reproduced the carried record exactly:
+
+      1240x800    below the fold  290px  ->  335px total first  /  475px total last
+      1920x950    below the fold   25px  ->   70px total first  /  210px total last
+      3440x1440   above the fold in every arrangement
+
+  **THE MERGE CANNOT BE DONE FOR FREE, and the ordering inside the card is the
+  whole difference.** Total last, the conventional form and the literal reading
+  of the request, costs 185px, because the three category rows push it down.
+  Total first costs 45px, and that 45px is exactly the card's own chrome:
+  14px of padding, a 26px title, 4px of title margin. **A bare band has no
+  title, so no arrangement of a titled card can match it.** Shipped total
+  first, with the divider beneath the headline rather than above it.
+
+  **What was gained and what was paid, both stated, because the whole reason
+  this figure's position is argued about is a carried item about it being below
+  the fold.** Gained: one place to read the cost, and the standalone band gone.
+  Paid: 45px of fold at both widths. The carried item is not improved by this
+  phase and must not be read as though it were; it is 45px worse.
+
+  **Prominence checked by looking, not only by measuring**, because Round 15
+  Phase 4 shipped this same card with its totals in the dimmed itemized-row
+  treatment and every assertion passed. Total Cost renders at 15px/600 against
+  the category rows' 13px/300, is the first row in the card, and is
+  unambiguously the heaviest figure in it. **One honest caveat from the
+  screenshots: it is the dominant figure in its CARD, and less dominant on the
+  TAB than the full-width band was**, because it no longer spans the content
+  width and now sits beside two cards of equal visual weight. That is inherent
+  to the merge rather than to this implementation of it.
+
+  **Asserted as a move, which is two claims** (Verification 7): exactly one
+  instance of the string renders anywhere in the detail view, counted by text
+  across the whole view rather than within the new card, and zero
+  `.tb-cost-total` nodes remain. Both at all three widths, with zero overflow
+  on the cards, the panel and the body.
+
+
+- **The cost preview computes on the server, because a second engine agrees on the day it is written. Round 17A Phase 6, 2026-08-21.**
+
+  The business reported that the cost summaries read zero while values sat on
+  screen unsaved. The obvious fix is to add the figures up in the browser, and
+  it is the wrong one: it would be a second implementation of arithmetic that
+  carries a go/no-go decision, matching the server on the day it is written and
+  drifting quietly afterwards. Same discipline Round 9 established for
+  `computeBlocking`, and the business has confirmed the Opportunities cash flow
+  tool will use the same engine, which makes the rule matter beyond this tab.
+
+  **So the drafts go to the server and the figures come back.** `POST
+  /api/test-beds/calculate` is one new route over `buildTestBedCostBreakdown`,
+  which was already exported and already the single mapping point for a saved
+  record. The preview and the save therefore run the same function over the
+  same values **by construction rather than by agreement.**
+
+  **Shaped after `POST /api/deals/calculate`, not wired to it.** That endpoint
+  has the right contract, full inputs in the body and computed figures out with
+  no record id and no persistence, and the wrong engine: it calls
+  `calculateDeal`, which is Opportunity's.
+
+  **It cannot persist, structurally rather than carefully.** The handler has no
+  database client and its contract has no record id. Confirmed by direct query
+  rather than by reading it: previewing left the revision count at 4 and the
+  stored total at 78,000 while the screen showed 83,000.
+
+  **THE ONE-ENGINE PROOF IS THE COMPARISON, NOT THE ARCHITECTURE.** The same
+  values previewed and then saved produce the identical figure, USD 83,000.00
+  both times, which is what distinguishes one engine from two that happen to
+  agree. Asserting the design would have proved nothing.
+
+  **The trigger is debounced on input at 400ms, and blur was the other
+  candidate.** Blur was rejected because the complaint is that the summary
+  reads stale WHILE the values are on screen, and a blur trigger leaves it
+  stale for exactly as long as the user is looking at the number they just
+  typed. Measured: four keystrokes produce one call, not four.
+
+  **The itemized labels follow the drafts too.** They quote their own inputs,
+  so a preview would otherwise render "SafeSight (10 x USD 4,000.00)" beside a
+  figure computed from 4,500: a row contradicting itself.
+
+  **A KEY LIST THAT IS SILENTLY AN ALLOWLIST, and the assertion that makes it
+  loud.** Fastify strips body keys a schema does not name, by default and
+  without error, so a key misspelled on the client would arrive absent, compute
+  as zero, and render a confident wrong total. That is Architecture rule 9's
+  shape at a distance of two files. `scripts/tests/cost-preview.test.mjs`
+  parses both real files and asserts the lists are identical, plus that every
+  key the engine reads is accepted. Proven capable of failing by misspelling
+  one key, which fails that test alone with its own message.
+
+  **The unsaved state is marked in the card's own title**, next to the figures,
+  rather than relying on the Save bar being noticed elsewhere on the page: a
+  total that cannot be told apart from a saved one makes the Save bar
+  advisory. **Honest note from the screenshots: the word UNSAVED is doing the
+  work, not the colour.** The badge and card outline use `--green`, which is
+  also every card title's colour in this palette, so it reads as emphasis
+  rather than as warning. It is unmistakable against the three unmarked cards
+  beside it, and a palette with an attention colour would say it better.
+
+
+- **A calibration that silently fails to inject produces the same output as a test that cannot fail. Round 17A Phase 6, 2026-08-21.**
+
+  Verification 9 says an invariant not proven capable of failing is not
+  evidence, and the way to prove it is to inject a violating case and watch it
+  fail. **The injection is itself a step that can fail silently**, and when it
+  does the suite prints exactly what a working injection against a broken
+  invariant prints: everything passes.
+
+  **The instance.** A new invariant asserts that the client's cost-key list and
+  the route's body schema name the same keys. To prove it could fail, one key
+  was to be misspelled:
+
+      sed -i '' "s/'hemirHostingCost', 'testBedDuration',/.../" frontend/...
+
+  The two keys sit on different lines in the source, so the pattern matched
+  nothing. **`sed` exits 0 when it matches nothing**, so the `|| python3`
+  fallback never ran either, and the file was untouched. The suite reported 25
+  passing, and **that was very nearly recorded as proof the invariant works.**
+  It was proof of nothing: an unchanged file cannot violate anything.
+
+  **What makes it dangerous is that the reading is indistinguishable.** A green
+  suite after a real injection means the invariant is broken. A green suite
+  after a failed injection means the injection is broken. The output is the
+  same, and the natural reading is the wrong one, because the whole point of
+  the exercise was to test the invariant rather than the tooling.
+
+  **The step: assert the file actually changed before running the suite.** In
+  Python, `assert s.count(old) == 1` before writing, and a `grep` for the
+  injected text afterwards. Both are one line, and either would have caught
+  this. Same family as the altered-input and injected-precondition rules
+  recorded earlier this round: **the instrument ran, and it ran on the wrong
+  thing.**
+
+
+- **Open item 37: the palette has no attention colour, so every warning state has to say the word. Logged Round 17A Phase 6, 2026-08-21.**
+
+  `:root` defines `--dark`, `--black`, `--white`, `--green`, three hairline and
+  muted greys, and three typefaces. **`--green` is the only accent**, and it is
+  already the colour of every card title, every active tab and the brand mark.
+
+  So a state that needs to say "look at this, it is not normal" has nothing to
+  say it with. Phase 6's unsaved cost preview marks itself with a `--green`
+  badge and card outline, and it is unmistakable against three unmarked cards
+  beside it, but **the colour reads as emphasis rather than as warning and the
+  word UNSAVED is carrying the meaning on its own.**
+
+  `.msg-error` exists and has its own colour, and it is the wrong borrow: an
+  unsaved preview is not an error, and using the error treatment for a normal
+  state would spend the one signal the app has for genuine failures.
+
+  **This will recur** rather than being a one-off in one card: pending states,
+  stale data, anything provisional, and open item 32's permissions refusal all
+  want the same missing token. Adding one is a palette decision and belongs
+  with the business alongside the brand colours in Section 9 of this document,
+  not inside a fix round.
+
+
+- **A round can make a latent defect materially worse without touching it. Round 17 did exactly that to open item 35, and nothing in that round could have noticed. Recorded Round 17A, 2026-08-21.**
+
+  The revision race has existed since the first `PATCH` was written. For most
+  of the system's life it needed **two overlapping user actions** to reach: a
+  second Save pressed while the first was in flight, a double click, two tabs.
+  Rare enough that it was never reported.
+
+  **Round 17 built the units view, and the defect became reachable by ordinary
+  typing.** `onTbUnitFieldChange` writes on every `change` event, unawaited and
+  with no in-flight guard, on a table that holds up to 24 rows of four fields
+  each. Round 17A Phase 0 measured it: values entered at scanner or paste speed
+  produce writes 14ms apart, and 2 of 3 were refused, with the row reading
+  "Saved" over the top of two discarded values.
+
+  **Round 17 introduced no defect.** Every line it wrote was correct against
+  the code it was written for. It changed the *reachability* of something
+  already there, which no test of Round 17's own work would show, because
+  Round 17's own work behaved exactly as specified.
+
+  **The general shape, which is the reason to record it rather than fold it
+  into item 35's entry:** a latent fault's severity is a function of the
+  surfaces that reach it, and those are added by rounds that never look at the
+  fault. So severity is not a property of the defect that can be assessed once
+  and carried forward. **An item's carried entry describes the day it was
+  written**, and a new surface over an old fault deserves a re-read of what the
+  old fault now costs.
+
+  What would have caught it here: asking, while building a write path, what
+  else writes to the same record and how close together. Nothing in this
+  project asks that yet.

@@ -18,6 +18,7 @@
  */
 
 import { createUserClient } from '../supabase.js';
+import { appendRecordRevision } from '../lib/record-revision.js';
 import { calculateDeal } from '../lib/deal-calculator.js';
 
 /**
@@ -253,9 +254,9 @@ export default async function dealsRoutes(app) {
     const { opportunityId, clientReportedTotals } = request.body;
     const db = createUserClient(request.jwt);
 
-    let dealInputs, revisionNumber, payload;
+    let dealInputs, payload;
     try {
-      ({ dealInputs, revisionNumber, payload } = await loadDealInputsFromOpportunity(db, opportunityId));
+      ({ dealInputs, payload } = await loadDealInputsFromOpportunity(db, opportunityId));
     } catch (err) {
       request.log.warn({ err, opportunityId }, 'Deal submit: could not load Opportunity');
       return reply.code(404).send({ error: err.message });
@@ -290,16 +291,16 @@ export default async function dealsRoutes(app) {
     // has no UPDATE/DELETE RLS policy - deny-by-default). This gives the
     // submitted figures their own revision_number for the approvals
     // table to reference, same pattern transitions.js relies on.
-    const { data: newRevision, error: revErr } = await db
-      .from('record_revisions')
-      .insert({
-        record_id: opportunityId,
-        revision_number: revisionNumber + 1,
-        payload,
-        created_by: request.user.id,
-      })
-      .select('revision_number')
-      .single();
+    //
+    // Round 17A Phase 1: written through the one atomic writer. The whole
+    // payload goes in as the patch, which is what re-stamping means here.
+    // The revision number this route used to compute came from
+    // loadDealInputsFromOpportunity's read and is no longer destructured at
+    // all: the number is the database's to choose, from its own read, inside
+    // the same statement as the merge. The loader still returns it for any
+    // other caller.
+    const { data: newRevision, error: revErr } = await appendRecordRevision(
+      db, opportunityId, payload, request.user.id);
 
     if (revErr) {
       request.log.error({ err: revErr }, 'failed to persist deal submit snapshot');

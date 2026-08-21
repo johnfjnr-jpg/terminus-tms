@@ -172,6 +172,18 @@ not resolve it quietly.
    ordering or prominence, looking is not a formality after the
    assertions; it is the only instrument that measures what the change
    was for.
+
+   **Refined Round 17A Phase 3, 2026-08-21: "open the screenshot" assumes
+   the screenshot contains the thing.** A clipped capture was taken of a
+   region the element had scrolled out of, so the image was pure
+   background, and **every programmatic check passed on it** because the
+   checks were querying the live DOM while the picture showed nothing at
+   all. A blank image is not a failed check; it is no check, and it looks
+   like diligence. **Confirm the element is inside the captured region
+   before treating the image as evidence** - scroll it into view, take the
+   rect after scrolling, and sanity-check that the capture is not empty.
+   Same family as Verification 12 and 13: an instrument that reports
+   nothing reads exactly like a clean result.
 5. When a control matters, the assertion belongs in the automated suite,
    where it passes or fails, not in prose.
 

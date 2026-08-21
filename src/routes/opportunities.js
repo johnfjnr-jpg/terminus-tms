@@ -1,4 +1,5 @@
 import { createUserClient } from '../supabase.js'
+import { appendRecordRevision } from '../lib/record-revision.js'
 import { isValidIsoDate, isValidNonNegativeInteger, isValidNonNegativePercent, isNotPastIsoDate } from '../lib/field-validation.js'
 
 export default async function opportunitiesRoutes(app) {
@@ -325,35 +326,19 @@ export default async function opportunitiesRoutes(app) {
       return reply.code(404).send({ error: 'not found' })
     }
 
-    // Real bug found and fixed (Milestone 5, 2026-08-15): this fetch's
-    // error was never checked. A failed fetch made revRow undefined,
-    // which mergedPayload below then silently treated as "no existing
-    // payload" - a save would have wiped every other field on the
-    // Opportunity down to just whatever this one PATCH submitted, with
-    // no error surfaced. Same fix as PATCH /test-beds/:id and
-    // PATCH /contacts/:id, checked here too (Milestone 6) since this
-    // route shares the identical shape and wasn't in the original scan.
-    const { data: revRow, error: revRowErr } = await db
-      .from('record_revisions')
-      .select('revision_number, payload')
-      .eq('record_id', record.id)
-      .order('revision_number', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-
-    if (revRowErr) {
-      request.log.error({ err: revRowErr }, 'failed to load current revision before PATCH merge')
-      return reply.code(500).send({ error: revRowErr.message })
-    }
-
-    const nextRevision = (revRow?.revision_number ?? 0) + 1
-    const mergedPayload = { ...(revRow?.payload ?? {}), ...payload }
-
-    const { data: newRevision, error: revErr } = await db
-      .from('record_revisions')
-      .insert({ record_id: record.id, revision_number: nextRevision, payload: mergedPayload, created_by: request.user.id })
-      .select('revision_number, payload')
-      .single()
+    // Round 17A Phase 1: the read that stood here existed only to build the
+    // merge, which now happens inside the write. The response still needs the
+    // resulting revision number and merged payload, and the function returns
+    // both, so this route's contract is unchanged.
+    //
+    // WHAT THAT READ WAS PROTECTING, kept because deleting the code must not
+    // delete the lesson: a Milestone 5 fix added an explicit error check here
+    // because an unchecked one made a failed fetch look like "no existing
+    // payload", so a save would silently wipe every other field down to this
+    // PATCH's own keys. That failure mode is now structurally unreachable
+    // rather than guarded: there is no client-side read left to fail.
+    const { data: newRevision, error: revErr } = await appendRecordRevision(
+      db, record.id, payload, request.user.id)
 
     if (revErr) {
       request.log.error({ err: revErr }, 'failed to save opportunity payload')
@@ -432,12 +417,12 @@ export default async function opportunitiesRoutes(app) {
       at: new Date().toISOString(),
       by: request.user.email,
     }
-    const mergedPayload = { ...payload, closeMoves, notes: [note, ...(payload.notes ?? [])] }
-    const nextRevision = revRowResult.data.revision_number + 1
-
-    const { error: revErr } = await db
-      .from('record_revisions')
-      .insert({ record_id: request.params.id, revision_number: nextRevision, payload: mergedPayload, created_by: request.user.id })
+    // Round 17A Phase 1: the read above STAYS, because closeMoves increments
+    // and notes prepends, and both need the current values. Only those two
+    // keys are sent; everything else is merged server-side from the current
+    // payload rather than from this read.
+    const { data: newRevision, error: revErr } = await appendRecordRevision(
+      db, request.params.id, { closeMoves, notes: [note, ...(payload.notes ?? [])] }, request.user.id)
 
     if (revErr) {
       // record_revisions_select is team-wide, so the earlier existence
@@ -486,7 +471,10 @@ export default async function opportunitiesRoutes(app) {
       detail: { from: oldDate, to: date.trim(), reason: reason.trim() },
     })
 
-    return reply.send({ revision_number: nextRevision, payload: mergedPayload, forecast_close_date: date.trim() })
+    // Round 17A Phase 1: the number and the merged payload now come back from
+    // the write itself rather than from figures computed before it, which is
+    // the only way the response can describe what was actually stored.
+    return reply.send({ revision_number: newRevision.revision_number, payload: newRevision.payload, forecast_close_date: date.trim() })
   })
 
   // POST /api/opportunities/:id/buyer-contacts
