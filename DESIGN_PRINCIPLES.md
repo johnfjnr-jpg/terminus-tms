@@ -3462,3 +3462,52 @@ Explicitly deferred, not forgotten, not a section number of its own since this i
 
   **Operationally unchanged and still right:** a run failing only with
   `PGRST303` is not a failing suite, and both results should be reported.
+
+
+- **Live test fixtures reached the business's working set and stayed there for eleven rounds. Round 18A Phase 1, 2026-08-21.**
+
+  A Round 9 probe created a Test Bed named "21st Century Boy", owned by the
+  automation account, and never tore it down. The business adopted it as real
+  data: they linked their own contact to it as a buyer, moved it to Closed, and
+  eventually tried to edit its Summary. That failed with open item 32's message,
+  which is the only reason any of this was found.
+
+  **Twenty-six live records, five of them top-level and visible in list views.**
+  Three Accounts and two Test Beds, plus twenty children and one orphan document
+  whose parent was already deleted. No `terminus-probe.invalid` user owned a
+  single live record; the entire set belonged to `john+test@`, the account
+  interactive probes run as, which is exactly the account whose fixtures were
+  never covered by `Fixtures.teardown()` because they were created through the
+  API rather than the harness.
+
+  **What would have caught it.** Nothing did, for eleven rounds. Every round's
+  residue check asked "are there live `harness_*` rows" and "are there live
+  records owned by a probe user", and the answer to both was honestly zero the
+  whole time. **The check that was missing is the one nobody wrote: are there
+  live records owned by the interactive test account.** A residue rule phrased
+  around the harness cannot see fixtures made by a browser.
+
+  **THE DELETE THAT WOULD HAVE DESTROYED BUSINESS DATA, and the thing that
+  stopped it was asking rather than checking after.** The obvious removal is to
+  clear the join rows for the records being deleted, and the obvious filter is
+  the contact. A live business-owned contact, "joane tester", held **21
+  `record_contacts` links, of which 6 were to LIVE business-owned Test Beds as
+  Test Bed Tech Team** and only 7 were to the fixtures. `delete where contact_id
+  = joane` would have silently removed six real working links, on a table with
+  no soft delete and no history.
+
+  **The mechanism that made it safe: resolve to explicit row ids, then delete by
+  id.** Not by record, not by contact, not by any predicate. Nine rows were
+  enumerated, each checked to have at least one side inside the removal set, and
+  deleted one at a time with the affected-row count asserted. **A filter can
+  over-match; a list of ids cannot.** The surviving count was then asserted
+  directly: joane's live business links, 6 before and 6 after.
+
+  **Records soft deleted, junctions hard deleted**, per Verification 11 and the
+  harness's own convention. `record_revisions` and `audit_log` were left
+  untouched at 50 and 132 rows: the records are withdrawn, and their history is
+  not rewritten. Two reference codes retire with them and are never reissued,
+  which is what the counter table exists to guarantee.
+
+  **Live records fell from 119 to 93, the first time that number has gone down
+  in this project.**
