@@ -1,4 +1,5 @@
 import { createUserClient } from '../supabase.js'
+import { sendWriteError, sendRefusal } from '../lib/write-errors.js'
 
 // Round 5 Phase 5 (2026-08-17): extracted from POST /records/:id/transition
 // unchanged, so the new read-only Exit Criteria panel (GET
@@ -582,10 +583,10 @@ export default async function transitionsRoutes(app) {
 
     if (updateErr) {
       request.log.error({ err: updateErr }, 'failed to update record status')
-      return reply.code(500).send({ error: updateErr.message })
+      return sendWriteError(reply, updateErr)
     }
     if (!updated?.length) {
-      return reply.code(403).send({ error: 'not permitted' })
+      return sendRefusal(reply)
     }
 
     await db.from('audit_log').insert({

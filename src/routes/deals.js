@@ -18,6 +18,7 @@
  */
 
 import { createUserClient } from '../supabase.js';
+import { sendWriteError } from '../lib/write-errors.js'
 import { appendRecordRevision } from '../lib/record-revision.js';
 import { calculateDeal } from '../lib/deal-calculator.js';
 
@@ -304,7 +305,7 @@ export default async function dealsRoutes(app) {
 
     if (revErr) {
       request.log.error({ err: revErr }, 'failed to persist deal submit snapshot');
-      return reply.code(500).send({ error: revErr.message });
+      return sendWriteError(reply, revErr);
     }
 
     await db.from('audit_log').insert({

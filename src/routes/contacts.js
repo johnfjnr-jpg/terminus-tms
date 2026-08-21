@@ -1,4 +1,5 @@
 import { createUserClient } from '../supabase.js'
+import { sendWriteError, sendRefusal } from '../lib/write-errors.js'
 import { appendRecordRevision } from '../lib/record-revision.js'
 import { isValidMobile } from '../lib/field-validation.js'
 import { issueReferenceNumber, issueAccountNumber } from '../lib/reference-number.js'
@@ -183,7 +184,7 @@ export default async function contactsRoutes(app) {
 
     if (recordErr) {
       request.log.error({ err: recordErr }, 'failed to insert contact')
-      return reply.code(500).send({ error: recordErr.message })
+      return sendWriteError(reply, recordErr)
     }
 
     const payload = { name: name.trim(), company: company.trim(), email: email.trim(), mobile: mobile.trim() }
@@ -208,7 +209,7 @@ export default async function contactsRoutes(app) {
 
     if (revErr) {
       request.log.error({ err: revErr }, 'failed to insert contact revision')
-      return reply.code(500).send({ error: revErr.message })
+      return sendWriteError(reply, revErr)
     }
 
     await db.from('audit_log').insert({
@@ -327,8 +328,8 @@ export default async function contactsRoutes(app) {
         .update(columnUpdate)
         .eq('id', record.id)
         .select('id')
-      if (updateErr) return reply.code(500).send({ error: updateErr.message })
-      if (!updated?.length) return reply.code(403).send({ error: 'not permitted' })
+      if (updateErr) return sendWriteError(reply, updateErr)
+      if (!updated?.length) return sendRefusal(reply)
     }
 
     if (payload) {
@@ -347,7 +348,7 @@ export default async function contactsRoutes(app) {
       // has one.
       const { error: revErr } = await appendRecordRevision(db, record.id, payload, request.user.id)
 
-      if (revErr) return reply.code(500).send({ error: revErr.message })
+      if (revErr) return sendWriteError(reply, revErr)
     }
 
     return reply.send({ ok: true })
@@ -443,7 +444,7 @@ export default async function contactsRoutes(app) {
 
       if (accountErr) {
         request.log.error({ err: accountErr }, 'failed to create account for link-account')
-        return reply.code(500).send({ error: accountErr.message })
+        return sendWriteError(reply, accountErr)
       }
 
       const acctPayload = {
@@ -468,7 +469,7 @@ export default async function contactsRoutes(app) {
 
       if (acctRevErr) {
         request.log.error({ err: acctRevErr }, 'failed to insert account revision for link-account')
-        return reply.code(500).send({ error: acctRevErr.message })
+        return sendWriteError(reply, acctRevErr)
       }
 
       resolvedAccountId = newAccount.id
@@ -485,8 +486,8 @@ export default async function contactsRoutes(app) {
       .eq('id', contact.id)
       .select('id')
 
-    if (updateErr) return reply.code(500).send({ error: updateErr.message })
-    if (!updated?.length) return reply.code(403).send({ error: 'not permitted' })
+    if (updateErr) return sendWriteError(reply, updateErr)
+    if (!updated?.length) return sendRefusal(reply)
 
     // Real bug found and fixed (2026-08-15): a failed fetch here would have
     // wiped the Contact down to just the new note, silently, on the very save
@@ -521,7 +522,7 @@ export default async function contactsRoutes(app) {
     const { error: revErr } = await appendRecordRevision(
       db, contact.id, { notes: [note, ...(revRow?.payload?.notes ?? [])] }, request.user.id)
 
-    if (revErr) return reply.code(500).send({ error: revErr.message })
+    if (revErr) return sendWriteError(reply, revErr)
 
     await db.from('audit_log').insert({
       record_id: contact.id,
@@ -570,10 +571,10 @@ export default async function contactsRoutes(app) {
 
     if (updateErr) {
       request.log.error({ err: updateErr }, 'failed to soft-delete contact')
-      return reply.code(500).send({ error: updateErr.message })
+      return sendWriteError(reply, updateErr)
     }
     if (!updated?.length) {
-      return reply.code(403).send({ error: 'not permitted' })
+      return sendRefusal(reply)
     }
 
     await db.from('audit_log').insert({
@@ -734,7 +735,7 @@ export default async function contactsRoutes(app) {
 
     if (oppErr) {
       request.log.error({ err: oppErr }, 'failed to create opportunity from contact')
-      return reply.code(500).send({ error: oppErr.message })
+      return sendWriteError(reply, oppErr)
     }
 
     const { error: revErr } = await db
@@ -750,12 +751,12 @@ export default async function contactsRoutes(app) {
         payload: { name, company_name: accountName ?? '', customerLead: contactPayload.name ?? null },
         created_by: request.user.id
       })
-    if (revErr) return reply.code(500).send({ error: revErr.message })
+    if (revErr) return sendWriteError(reply, revErr)
 
     const { error: detErr } = await db
       .from('opportunity_details')
       .insert({ record_id: opp.id, probability_pct: probDefault?.default_probability_pct ?? null })
-    if (detErr) return reply.code(500).send({ error: detErr.message })
+    if (detErr) return sendWriteError(reply, detErr)
 
     try {
       await linkContact(db, opp.id, contact.id, request.user.id)
@@ -944,7 +945,7 @@ export default async function contactsRoutes(app) {
 
     if (recordErr) {
       request.log.error({ err: recordErr }, 'failed to create test bed from contact')
-      return reply.code(500).send({ error: recordErr.message })
+      return sendWriteError(reply, recordErr)
     }
 
     const { error: revErr } = await db
@@ -967,7 +968,7 @@ export default async function contactsRoutes(app) {
         },
         created_by: request.user.id
       })
-    if (revErr) return reply.code(500).send({ error: revErr.message })
+    if (revErr) return sendWriteError(reply, revErr)
 
     try {
       await linkContact(db, record.id, contact.id, request.user.id)

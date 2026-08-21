@@ -273,6 +273,17 @@ not resolve it quietly.
     restarts and collides, which has happened. Confirm teardown by
     re-querying `deleted_at`, never by trusting the delete's own result.
 
+    **Residue is every live record no person owns, not only `harness_*` rows
+    and probe-owned ones.** Added Round 18A after eighteen rounds of true
+    reports missed twenty-six live fixture records sitting in the business's
+    own list views. Those two questions are shaped around
+    `verify-harness.mjs`, which mints a synthetic `record_type` and owns its
+    rows as a probe user. **A browser session driven by an interactive test
+    account produces neither**: it signs in and calls the real API, so it
+    leaves an ordinary record with an ordinary reference code, owned by an
+    account that is neither a probe user nor the business. Ask which accounts
+    are real people, and check for live records owned by anything else.
+
     **Enumerate what to tear down from the database, by a tag the fixtures
     carry, never from a file the harness wrote.** Round 15 Phase 4, a
     fixture rebuilt mid-phase overwrote the same `f4.json`, so the file
