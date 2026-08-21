@@ -12,9 +12,9 @@ Contains no environment variable, key or token, and no client data. Records
 appear as counts by status only, never by name or reference code, because
 this file is uploaded into chat sessions.
 
-- Generated at: `2026-08-21T13:58:53.789Z`
-- Git commit: `751beda72893efc2dfac5a7d30e64b1760a6b4ec`
-- Working tree at generation: `dirty (uncommitted changes present)`
+- Generated at: `2026-08-21T22:31:15.215Z`
+- Git commit: `dd7459a94c40c045857e43c96c0acb3d799c29b8`
+- Working tree at generation: `clean`
 
 Staleness has two parts, and both must hold for this file to be current:
 the recorded commit is an ancestor of `HEAD`, AND no tracked configuration
@@ -217,28 +217,28 @@ _None._
 
 ## Record counts by type and status
 
-119 live, 8197 soft deleted, 8316 rows in total.
+93 live, 8756 soft deleted, 8849 rows in total.
 
 | record_type | status | live | soft deleted |
 |---|---|---|---|
-| account | active | 7 | 248 |
+| account | active | 4 | 251 |
 | contact | Parked | 0 | 2 |
-| contact | Qualified | 9 | 182 |
+| contact | Qualified | 7 | 184 |
 | contact | Unqualified | 1 | 53 |
-| document | approved | 80 | 828 |
+| document | approved | 61 | 883 |
 | document | received | 1 | 74 |
 | opportunity | Discovery | 3 | 58 |
 | opportunity | Negotiation | 0 | 1 |
 | opportunity | Proposal | 0 | 1 |
-| test_bed | Closed | 7 | 7 |
+| test_bed | Closed | 5 | 9 |
 | test_bed | Installation and Commissioning | 1 | 29 |
 | test_bed | Monitoring and Analysis | 0 | 1 |
 | test_bed | Pre-Site Assessment | 0 | 8 |
-| test_bed | Qualification | 1 | 213 |
+| test_bed | Qualification | 1 | 214 |
 | test_bed | Review and Completion | 1 | 0 |
 | test_bed | Site Assessment | 1 | 14 |
 | unit | Installed | 4 | 3 |
-| unit | Planned | 3 | 847 |
+| unit | Planned | 3 | 1000 |
 | unit | Removed | 0 | 1 |
 
 ### Test fixture record types
@@ -249,19 +249,19 @@ row by row, and are included in the totals above.
 
 | distinct `harness_*` record types | live rows | soft deleted rows |
 |---|---|---|
-| 486 | 0 | 5627 |
+| 532 | 0 | 5970 |
 
 No harness record type holds a live row; every fixture row is soft deleted.
 
 ## `approvals`
 
-265 rows, of which 0 carry a null `stage`.
+229 rows, of which 0 carry a null `stage`.
 
 | decision | track | rows | null stage |
 |---|---|---|---|
-| approved | Commercial | 108 | 0 |
-| approved | Legal | 71 | 0 |
-| approved | Technical | 86 | 0 |
+| approved | Commercial | 94 | 0 |
+| approved | Legal | 61 | 0 |
+| approved | Technical | 74 | 0 |
 
 ## Writable-key allowlists
 
@@ -274,10 +274,10 @@ relevant list is rejected.
 
 `name`, `address`, `terminusLead`, `websiteUrl`
 
-Plus a spread of `BILLING_KEYS`, computed at `src/routes/accounts.js:13` rather
+Plus a spread of `BILLING_KEYS`, computed at `src/routes/accounts.js:14` rather
 than written as a literal list, so its members are not enumerable here.
 
-Plus a spread of `SHIPPING_KEYS`, computed at `src/routes/accounts.js:14` rather
+Plus a spread of `SHIPPING_KEYS`, computed at `src/routes/accounts.js:15` rather
 than written as a literal list, so its members are not enumerable here.
 
 ### `CONTACT_WRITABLE_KEYS` (`src/routes/contacts.js`)
