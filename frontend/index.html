@@ -976,9 +976,16 @@
                belonging to an element that no longer exists. Removed rather
                than compensated for. -->
           <div id="tb-buyer-rows"></div>
-        </div>
-        <div class="pg-card">
-          <p class="pg-card-title">Site Details</p>
+          <!-- Round 16 Phase 3 (2026-08-21): Site Ownership, Inst. Env., Site
+               Address and City moved here from the Site Details card, which is
+               removed. Its Sensors block had already left in Phase 2, so this
+               deletes a panel that no longer contained it and Sensors moved
+               exactly once.
+
+               #tb-site-rows keeps its id and simply renders inside this card
+               now. The id is what renderTbSiteDetails writes into and what the
+               Round 10 Phase 0A single-click reveal reaches through, so
+               renaming it would be churn for a display change. -->
           <div id="tb-site-rows"></div>
         </div>
         <!-- Round 6 Phase 3 (2026-08-17): trimmed - sensor count fields

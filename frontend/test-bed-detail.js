@@ -337,6 +337,14 @@ function renderTbReference() {
 
   renderTbCustomerDocuments()
 
+  // Round 16 Phase 3: called from here, not from renderTbSiteDetails.
+  // Phase 2 moved the Sensors block into a sub-tab pane and Phase 3 removed
+  // the panel whose render used to drive it, which left renderTbSensors
+  // reachable only from its own toggle: the pane would have rendered empty on
+  // load and filled in only if someone happened to click Show sensors. It
+  // sits with the other two pane renders now, where it belongs.
+  renderTbSensors()
+
   renderTbNotes()
 
   // Key Dates. Round 7 Phase 5: Age relocates here from the removed header
@@ -478,15 +486,20 @@ function mountTbReferenceSubTabs() {
 }
 
 function renderTbSiteDetails() {
+  // Round 16 Phase 3: these four now render INSIDE the Customer Details card.
+  // The keys moved out of a panel, not out of TB_SITE_FIELDS: that array also
+  // holds estCostPerUnit and indicativeCost, which have no rendered input at
+  // all, and TB_ALL_EDITABLE_FIELDS spreads it, so it is still the home of the
+  // batched-save field list, the label lookup and the input wiring. Deleting
+  // it to remove the panel would have taken those two definitions and the
+  // save path with it.
   document.getElementById('tb-site-rows').innerHTML = TB_SITE_PANEL_KEYS.map(key => {
     const f = TB_SITE_FIELDS.find(x => x.key === key)
     return tbFieldRow(f.key, f.label, tbPayload[f.key], { options: f.options })
   }).join('')
 
-  // Sensor count fields themselves are edited on the Commercials tab now
-  // (renderTbSensorCounts) - this list is still read directly off the
-  // same tbPayload keys regardless of which tab edits them.
-  renderTbSensors()
+  // renderTbSensors is NOT called from here any more. Phase 2 moved the
+  // Sensors block into its own sub-tab pane, and it is rendered from there.
 }
 
 // Round 6 Phase 3 (2026-08-17): Installer/Test Bed Tech Team/Install
