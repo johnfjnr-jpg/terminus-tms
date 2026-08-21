@@ -3098,3 +3098,45 @@ Explicitly deferred, not forgotten, not a section number of its own since this i
   What would have caught it here: asking, while building a write path, what
   else writes to the same record and how close together. Nothing in this
   project asks that yet.
+
+
+- **The `PGRST303` diagnosis does not fit the call path it was recorded against. The correlation holds; the mechanism is unresolved. Round 18 Phase 0, 2026-08-21.**
+
+  **Superseding, not deleting**, the Round 17 Phase 0 entry that reads
+  "PGRST303 DIAGNOSED against open item 30... the host clock is 185ms ahead...
+  with a zero-tolerance `iat` check, a token minted and used inside the same
+  second reads as issued in the future." That reasoning stays visible because
+  it is careful and its measurement is real; it is the conclusion that
+  overreached.
+
+  **What it cannot explain.** The failure caught with full output in Round 18
+  Phase 0 is at `scripts/tests/reference-number.test.mjs:76`, seeding a counter
+  row through `adminClient()`. That client authenticates with
+  `SUPABASE_SECRET_KEY`, which on this project is an **opaque `sb_secret_` key,
+  not a JWT**. The host mints no token on that path, so there is no `iat` for a
+  host clock to stamp ahead of anything.
+
+  **The measurement is still real.** The host is consistently ahead of the
+  Supabase `Date` header: +0.34s, +0.39s, +0.45s across three samples, mean
+  +0.39s, in the same range Round 17 recorded. It is simply not evidence for
+  the stated mechanism on this path, because the host's clock never touches the
+  token.
+
+  **What is established:** the error is `PGRST303 JWT issued at future`; it is
+  intermittent; it needs the full suite rather than the file alone, 0 in 8
+  isolated runs against 2 in roughly 14 full-suite runs; and it is unrelated to
+  any code under test. **What is not established is why**, and candidates now
+  include skew between Supabase's own gateway and database rather than anything
+  on this machine, which nothing here can measure.
+
+  **How it happened, which is the part worth carrying.** Round 17 Phase 0 found
+  a real measurement, a plausible mechanism and a fit to every prior sighting,
+  and wrote DIAGNOSED. Seven sightings of an uncharacterised fault make a
+  mechanism that explains them all very attractive. **The check it skipped was
+  the cheapest one: which credential does the failing call actually present.**
+  Same family as this project's own rule that a document describing a control
+  is not evidence the control exists, applied to a cause rather than a control.
+
+  **Operationally unchanged:** a suite run failing only with `PGRST303` is not
+  a failing suite, and should be re-run with both results reported. That advice
+  was right and does not depend on the mechanism.

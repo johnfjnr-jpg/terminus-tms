@@ -109,6 +109,20 @@ Report before Phase 1 starts.
    since a change three rounds ago is a different finding from one that
    broke last week.
 
+   **ANSWERED, Phase 0, 2026-08-21. It has been wrong since `1918f03`, Round
+   7 Phase 9, the commit that built it.** The wired guard, the closure over
+   `recordId` and the `?stage=` parameter all landed together and none has
+   been touched since. Round 9 Phase 3 and Round 12 Phase 5 are NOT
+   implicated: the endpoint provably agrees with the panel today, `blocking`
+   being exactly the unmet subset of `requirements`, both 11 on the record
+   tested.
+
+   **It is correct only for the first record opened in a page session**, and
+   that is why it survived four rounds of testing: **every test opens one
+   record and hovers.** The defect needs a second record in the same page to
+   appear at all, which no automated check and no casual look has ever done.
+   This brief's own premise, that a later round broke it, was wrong.
+
 3. **The unit type sub-tab and the correction control.** The tabs select a
    type and the table follows; the correction dropdown does not. Report how
    each is wired and whether the tab strip exposes its active key to
@@ -123,8 +137,17 @@ Report before Phase 1 starts.
    needs paging, grouping or filtering before it needs better words.
 
    Report whether the actor is ever anyone but the two known accounts.
-   Today it is the business and the probe user, and that changes what an
-   actor column is for.
+
+   **CORRECTED, Phase 0, 2026-08-21: there are FIVE actors, not two.** Three
+   real accounts and two probe users: `john+test@` 989 rows,
+   `r10-r10@terminus-probe.invalid` 467, `john@terminustechnologies.io` 458,
+   `johnf.jnr@gmail.com` 200, `r10-r10p1@` 16.
+
+   **This brief's premise was wrong and it changes what Phase 4 is looking
+   at.** An actor column was written off here as having nothing to do; with
+   three real accounts in the log it is doing real work, and the question
+   becomes how to show it without the two probe users making a real record's
+   history look like test traffic.
 
 5. **Notes today.** Where they are stored, their shape, who writes `by`,
    and whether anything already records the stage a note was written at.
@@ -301,6 +324,25 @@ has not made.
 when written, and inventing one from the record's current status would be a
 claim about a decision nobody made. Round 14 Phase 1 made the same call
 about comments and reasons, and the reasoning holds.
+
+### Amended after Phase 0, 2026-08-21: a decision to state rather than discover
+
+`addTbNote` builds the whole `notes` array in the browser from `tbPayload.notes`,
+a value read at page load, and PATCHes the entire array. Two notes added
+concurrently to one record are therefore **last-writer-wins, and one is lost
+silently.**
+
+That is Round 17A Phase 2's explicitly open same-key case, sitting on the exact
+write Phase 5 is about to touch. Phase 1 of that round made the write atomic
+and the merge server-side; it did not make two writers to the same KEY safe,
+and `notes` is one key.
+
+**Report whether fixing it is in scope before building.** It is a real defect
+on this path, it is adjacent rather than incidental, and widening a phase
+because the code is already open is how scope creeps. Two further facts for
+that decision: `by` is client-supplied (`currentSession?.user?.email`) unlike
+`audit_log.actor_id` which the server sets, and no note has ever carried a
+stage, so nothing existing depends on the array's shape.
 
 **Test evidence required:** a note written at a given stage carries it,
 verified server-side. A note written after a transition carries the new
