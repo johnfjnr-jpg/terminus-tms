@@ -224,6 +224,49 @@ Software that supports traceability, controlled approval, and documented decisio
 
 ## 5. Sales opportunity stage gates in detail
 
+> **PARTIALLY SUPERSEDED, 2026-08-22, by `OPPORTUNITY_DESIGN.md` v1.1.**
+> The six-stage model below (Discovery, Qualified, Proposal, Evaluation,
+> Negotiation, Closing) is replaced by four working stages and two
+> terminal states. Read `OPPORTUNITY_DESIGN.md` before building any
+> Opportunity stage gate. The reasoning below is retained rather than
+> deleted because three of its statements still govern.
+>
+> **What still stands, unchanged:**
+>
+> - **Approvals have no required order between tracks.** All required
+>   tracks must be satisfied, in parallel, whoever is ready first. An
+>   earlier draft of `OPPORTUNITY_DESIGN.md` proposed an ordered
+>   sequence at Negotiating and that proposal has been withdrawn.
+>   Ordering is not expressible in `stage_gate_rules`, and more
+>   importantly it was a decision taken here and should not have been
+>   reversed silently.
+> - **Every new or revised commercial document requires approval before
+>   being sent**, as a document-level gate rather than an
+>   Opportunity-stage gate. This is a standing control and it is at risk:
+>   the four-stage compression turns Evaluation and Negotiation into one
+>   stage whose approvals fire on exit, which would let a re-priced
+>   proposal reach a client unapproved. Recorded as an unresolved gap in
+>   `OPPORTUNITY_DESIGN.md`.
+> - **The Deal Sheet freezes when the proposal is approved for
+>   submission**, which is the natural application of the immutable
+>   approved snapshot principle. The transition it was named against,
+>   Proposal to Evaluation, no longer exists. The principle stands and
+>   the transition needs renaming.
+>
+> **What has been confirmed since:**
+>
+> - **Bid/No Bid is an approval at the gate into Proposal.** This
+>   section flagged that placement as an assumption for confirmation.
+>   The business confirmed it on 2026-08-22. What a rejection means,
+>   block versus auto-close, remains undecided.
+>
+> **What is still true and still broken:** `routing_rules` was flagged
+> empty in the Milestone 2 audit below. It holds **0 rows today**,
+> confirmed at commit `dd7459a`. The tiered Commercial escalation
+> described in this section, and still described on the
+> `approval_tracks.Commercial` row, has never worked. Opportunity is the
+> record type it was designed for.
+
 **This section describes Opportunity, Discovery through Closing.** Test Bed is a genuinely separate record type with its own lifecycle, Planning through Closed, see Section 8. The gate mechanics below (configurable tracks, no required order) apply equally to both, this is one engine used by two different record types, not two engines.
 
 **Every stage gate has a configurable set of required approvals, not a fixed number:**
@@ -249,6 +292,31 @@ For the two tracks already concretely needed, Commercial (Sales/line management,
 ---
 
 ## 6. Opportunity value estimation, before a Deal Sheet exists
+
+> **UNBUILT, AND THE GAP IS A CONTROL GAP RATHER THAN A DOCUMENTATION
+> GAP. Recorded 2026-08-22.**
+>
+> Everything below assumes `product_defaults` and `system_defaults`
+> supply unit, mounting and hosting costs. **Neither table exists.** The
+> Deferred scope entry for Base Cost Data in this document says so
+> directly: the cost lines are a stopgap, held as freely editable
+> payload fields on the Opportunity record itself, which
+> `SALESPERSON_WRITABLE_KEYS` confirms.
+>
+> **The consequence is not that this section is out of date.** It is
+> that every Opportunity carries its own private cost basis and nothing
+> compares them. Two deals priced in the same week can use different
+> hardware costs, and the Commercial approval is computed against
+> whatever the salesperson typed. The Round 17A Phase 6 rule guarantees
+> one calculation path. It does not guarantee one set of inputs.
+>
+> This matters more from the moment Bid/No Bid and the Proposal gate
+> make Commercial approval load-bearing on Opportunity.
+>
+> **Not scheduled, and not a reason to stop.** Recorded so that the next
+> person to reach for this section knows they are reading a design for
+> something unbuilt, and so the gap is owned rather than rediscovered.
+> Reconciling it is the first thing any commercial-model work has to do.
 
 The sales owner shouldn't need a completed Deal Sheet just to see a ballpark contract value early in the sales cycle. At the Opportunity level, they enter four numbers only:
 
@@ -756,6 +824,80 @@ today's existing behaviour.
 ## Deferred scope
 
 Explicitly deferred, not forgotten, not a section number of its own since this is a running list, not a build phase. Add to it as new deferrals come up rather than letting them live only in conversation.
+
+- **The staff dropdowns constrain input but create no reference: the payload
+  holds a name as text. Raised 2026-08-22 while scoping Bid Review routing
+  for Opportunity. ANSWERED the same day by direct query.**
+
+  The 2026-08-16 entry in this section records the Terminus staff
+  directory: a small `terminus_staff` reference table holding name and
+  title, seeded with the seven real staff names by migration, `GET`-only,
+  no admin UI, replacing the free-text Terminus Lead and
+  Commercial/Technical/Legal Authority fields with dropdowns. **All of that
+  was settled. What the selection stores was recorded nowhere**, and it
+  decides whether approval routing can ever key off these fields, which is
+  why it was asked: the Opportunity model puts a Sales Lead approval at
+  three stages and a Bid Review approval at the gate into Proposal, and
+  `routing_rules` holds zero rows.
+
+  **The answer is text.** Three independent lines agree, and no line
+  dissents.
+
+  1. **The stored values.** Across live and soft-deleted Opportunity and
+     Test Bed records, 1,388 readings of the four staff keys returned
+     **zero UUIDs and 48 name strings**, every one an exact match for a
+     `terminus_staff.name`. Measured 2026-08-22.
+  2. **The write path.** Every dropdown is built as
+     `terminusStaffCache.map(s => s.name)` and rendered
+     `<option value="${s.name}">`. The option value is the name.
+     `opportunity-reference.js:271`, `test-bed-detail.js:404`,
+     `account-detail.js:92`, `contact-detail.js:278`.
+  3. **The code already said so.** `src/routes/opportunities.js:162`
+     records that the fields were free text until 2026-08-16 and are now
+     "a dropdown sourced from terminus_staff, still written through this
+     same PATCH/payload-merge path either way, just constrained to a
+     controlled option list client-side".
+
+  **A note on how this was measured, because the obvious method fails.**
+  All three live Opportunity records have these keys **absent from the
+  payload entirely**, not null. A query against live Opportunities alone
+  compares nothing to nothing and returns an answer shaped exactly like
+  "not a UUID". The reading came from soft-deleted Opportunities and from
+  live Test Beds, and no conclusion was drawn from the live Opportunity
+  rows. This is Verification 14 in its natural habitat.
+
+  **Two things the query surfaced that were not being asked about.**
+
+  - **There is no server-side validation.** `terminus_staff` is referenced
+    zero times in `test-beds.js` and `accounts.js`, and once in
+    `opportunities.js`, in a comment. The controlled option list is a
+    client-side affordance, so any string can be written into `lead`
+    through the ordinary PATCH path. The dropdown is not an integrity
+    control and nothing else is acting as one.
+  - **The directory feeds three record types, not two.** Every document
+    describing this change says Test Bed and Opportunity. `Account`
+    carries its own `terminusLead` as a `staffField`, populated from the
+    same list through the shared Account Details panel that Contact hosts,
+    and one live Account holds a name in it.
+
+  **The consequences, now that the answer is known.** A staff member
+  leaving, or a spelling correction in `terminus_staff`, leaves every
+  historical record pointing at a string that no longer resolves to
+  anyone. Nothing can be counted per person reliably. And **Bid Review
+  cannot route to a person** without either a reference column or a
+  resolve-by-name step that the rename case defeats.
+
+  **Not a defect, and not scheduled.** For display and for constrained
+  entry a name string is adequate, which is presumably why it was built
+  that way. It becomes load-bearing only when something routes off it.
+  Recorded here so the round that builds routing meets this note rather
+  than the consequence.
+
+  **Score attribution is NOT affected and is sound.** A score entry's
+  author is written server-side from the authenticated session and never
+  accepted from the client, settled in Round 11. Who recorded a score and
+  who is named as Sales Lead on the record are two different attributions,
+  and only the second is in question here.
 
 - **JWT "issued in the future" rejection, rare and unreproduced.** Observed once during Milestone 1 reference-number testing (2026-08-14), from Supabase's own auth/API layer, not from project code. Investigated, local clock skew ruled out, project code ruled out, 200 further attempts across 8 rounds produced zero recurrence. Cause unconfirmed. Cannot rule out a real production user hitting the same rejection, since the validation layer involved is the one any real caller's JWT passes through. Not fixed, not reliably reproducible. A defensive retry on this specific error is the likely fix if it's ever seen in production traffic.
 

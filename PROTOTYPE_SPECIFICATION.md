@@ -204,19 +204,49 @@ build should standardise on one, not carry the inconsistency forward.
   "Terminus staff, from Contacts," a population this live system has no
   equivalent of. Contact here is exclusively client people, gated by
   qualification, Account links, and buyer roles, per `DESIGN_PRINCIPLES.md`'s
-  Lead/Contact/Account model. There is no staff directory record type
-  anywhere in this system. Same finding, same reasoning, as Test Bed's
-  own Owner-field decision in Milestone 3, caught before build this time
-  rather than after.
+  Lead/Contact/Account model. There was no staff directory record type
+  anywhere in this system at the time. Same finding, same reasoning, as
+  Test Bed's own Owner-field decision in Milestone 3, caught before build
+  this time rather than after.
+
+  **SUPERSEDED 2026-08-16, recorded here 2026-08-22.** A staff directory
+  was subsequently built: `terminus_staff`, a small reference table
+  holding name and title, seeded with the seven real staff names by
+  migration, `GET`-only API, no admin UI, following the same governance
+  pattern as `industries` and `stage_definitions`. See the "Terminus staff
+  directory, 2026-08-16" entry under Deferred scope in
+  `DESIGN_PRINCIPLES.md` for the full record. The reasoning above remains
+  correct about why these fields are not Contact records. It is no longer
+  correct that no staff population exists.
 
   **Built accordingly**: Account is a real picker, `records.account_id`,
   search-existing-or-create-new, reusing the exact mechanism already
   built for Contact-to-Account linking, not a new one. **Terminus Lead,
-  Commercial Authority, Technical Authority, and Legal Authority stay
-  free text**, unchanged from their original field names, no
+  Commercial Authority, Technical Authority, and Legal Authority were
+  built as free text**, unchanged from their original field names, no
   Contact-dropdown swap, since these were never mislabeled as client
   contacts in the first place, unlike Test Bed's fields, which needed
   renaming as well as re-scoping.
+
+  **SUPERSEDED 2026-08-16, recorded here 2026-08-22. All four are now
+  dropdowns**, sourced from `terminus_staff`, on Opportunity and on Test
+  Bed. **Account carries a fifth staff-sourced field**, its own
+  `terminusLead`, populated from the same list through the shared Account
+  Details panel, so the directory feeds three record types rather than
+  two. The decision NOT to make them Contact records stands and was
+  correct; what changed is that they are no longer unconstrained text. The
+  same change fixed a real latent bug in `refFieldRow`, Opportunity's
+  field-rendering function, which lacked the leading blank `<option>` that
+  Test Bed's equivalent already had, so an unset field's edit-mode dropdown
+  silently pre-selected the alphabetically-first name.
+
+  **What these fields store was recorded nowhere and is now measured.**
+  Answered 2026-08-22 by direct query, recorded under Deferred scope in
+  `DESIGN_PRINCIPLES.md`. **The payload holds the staff member's name as
+  text, not a reference to a `terminus_staff` row.** The dropdown
+  constrains entry client-side and creates no reference; there is no
+  server-side validation, and approval routing cannot key off these fields
+  as they stand.
 
   Zero live or soft-deleted Opportunity records had any value in any of
   these 5 fields at the time of the swap, confirmed by direct query of

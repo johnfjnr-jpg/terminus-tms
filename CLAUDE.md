@@ -18,6 +18,7 @@ being read properly and stops working.
 | `PROTOTYPE_SPECIFICATION.md` | What the prototype actually does, cited by line |
 | `INTERACTION_STANDARDS.md` | What correct interaction behaviour means |
 | `CURRENT_STATE.md` | What is configured and built right now. Generated |
+| `OPPORTUNITY_DESIGN.md` | What Opportunities is meant to become, and what is still undecided. Read for any Opportunity work |
 | The current round's build brief | This round's scope |
 | The previous round's build brief | What was just changed and what it left open |
 
@@ -401,6 +402,44 @@ not resolve it quietly.
     A filtered run that shows nothing is indistinguishable from a run that
     found nothing, and the moment you most need the output is the moment you
     have already discarded it.
+
+17. **A probe that distinguishes two states must be shown returning a
+    different value in each, on the actual file or system under test.**
+    Promoted Round 19, 2026-08-22. A probe can be well formed, run cleanly,
+    and still be unable to tell the two states apart, in which case it
+    reports the answer you wanted for a reason unrelated to the truth.
+
+    Two instances in one round of documentation work, which is the
+    lowest-stakes setting available:
+
+    - **A substring that cannot fail.** Phase 2 asserted that a superseded
+      sentence was gone using `free text**, unchanged from their original`.
+      That is a substring of its own replacement, `built as free text**,
+      unchanged from their original`, so it returns 1 whether the edit
+      worked or not.
+    - **A marker shared with everything else.** Phase 3 asserted that
+      Finding 6's `FINDING, UNRESOLVED` was gone and read 7, because six
+      other findings and the status legend carry the same marker.
+
+    **The check: run the probe against a state you know differs, and
+    confirm the value changes.** Cheapest forms are a known-present and a
+    known-absent string on the same file, a before and after delta, or
+    reinstating the thing you removed and watching the probe fire.
+
+    **Distinct from 13 and 14, and the boundary is worth holding.** Rule 13
+    is an absence from an instrument never shown reaching one, and its
+    remedy is to find a positive case elsewhere. Rule 14 is a comparison
+    reached with nothing on either side, and its remedy is to require both
+    sides to exist. Both assume the instrument, once firing, measures the
+    right thing. **This is the case where it fires correctly and measures
+    the wrong thing.** The substring probe was present, non-empty, and
+    structurally incapable of separating pass from fail, so `!!a && !!b`
+    does not help and a positive case looks identical to the failure.
+
+    Rule 12 is the nearest neighbour and prescribes calibrating a SEARCH
+    that may not have run. Both instances here are searches that ran
+    perfectly against the wrong thing, which is why this is a separate
+    number rather than a sentence inside a rule about `grep -a`.
 
 ---
 
