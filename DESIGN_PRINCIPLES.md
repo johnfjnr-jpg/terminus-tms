@@ -3789,3 +3789,56 @@ Explicitly deferred, not forgotten, not a section number of its own since this i
   **General form: ask which credential the tests hold, and what that
   credential is exempt from.** Anything it is exempt from is invisible, and
   it will be invisible in a way that produces passes rather than errors.
+
+- **A foreign-key violation still reaches the user as a raw Postgres message.
+  Found Round 20 Phase 5, 2026-08-22. RECORDED, NOT FIXED.**
+
+  `POST /records/:id/approvals` with a `track` that is not a row in
+  `approval_tracks` returns **500** carrying
+  `insert or update on table "approvals" violates foreign key constraint
+  "approvals_track_fkey"`.
+
+  Round 18A routed every write-error site through `src/lib/write-errors.js`
+  and gave row-level-security refusals a sentence a person can act on. That
+  helper maps `42501` and nothing else. **`23503`, a foreign-key violation,
+  is the same defect wearing a different code**: a constraint the user
+  cannot see, surfacing as "the server broke" on an action that was simply
+  not allowed.
+
+  The correct message already exists in shape. A track that is not
+  configured is not a server fault, it is a choice the caller cannot make,
+  and the readable form is the same one Round 18A wrote for ownership.
+
+  **Not this round.** It is the reason-codes round's natural neighbour,
+  because that round adds the first new constrained vocabulary since this
+  was found. Recorded now so it is met as a note rather than as a
+  production 500.
+
+- **The chevron leads with Closed Lost, because sort_order 0 is both a
+  probability and a position. Found Round 20 Phase 6, 2026-08-22 by looking
+  at a screenshot. RECORDED, NOT FIXED.**
+
+  `Closed Lost` carries `sort_order` 0 so that its probability and its
+  ordering agree, and the stage chevron renders stages in `sort_order`. So
+  the Opportunity workflow reads, left to right, **Closed Lost,
+  Qualification, Solution Alignment, Proposal, Evaluation, Negotiating,
+  Closed Won**, and a new deal appears to begin one step after having been
+  lost.
+
+  **Nothing functional is wrong.** Adjacency is measured by position in the
+  ordered list, `reachable_from_any_stage` bypasses adjacency entirely on
+  the way in, and `is_terminal` blocks the way out. Every gate behaves
+  correctly and every test passes.
+
+  **No assertion would have caught this**, which is the point of it being
+  recorded here. The panel has a real layout box at all three widths, every
+  row has usable width, there is no overflow, and the criteria and labels
+  are exactly right. What is wrong is the story the row tells, and only
+  looking at it measures that. Verification 4.
+
+  Two resolutions, both cheap, neither taken here because the ordering was
+  a confirmed decision rather than an accident: give `Closed Lost` a
+  sort_order above `Closed Won` and let probability and position stop
+  agreeing, or exclude `reachable_from_any_stage` rows from the chevron and
+  render them as a separate control. The second is probably right, since a
+  stage reachable from anywhere is not a step in a sequence.

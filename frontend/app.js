@@ -1084,17 +1084,56 @@ function wireTbChevronHover(recordId) {
   wrap.addEventListener('mouseleave', hideTbChevronPopup)
 }
 
-function renderTransitionSection(elementId, feedbackId, recordId, currentStage, stages) {
+// The Opportunity exit-criterion payload keys, mirroring the same 19 names
+// inside SALESPERSON_WRITABLE_KEYS on the server.
+//
+// Duplicated here deliberately, for the reason TB_EXIT_CRITERION_KEYS already
+// records: the browser has no import path to a server module, and the only
+// alternative is trusting whatever `label` a rule happens to carry. `label`
+// is additive and ignored by the gate engine, so ANY payload_field_required
+// rule may be given one purely for display. A panel keyed on the label alone
+// would render that rule as a tick box, and ticking it would write into an
+// unrelated payload field. Key-set membership is the half that makes the
+// control safe; the label is only the half that makes it readable.
+//
+// The server validates the same set independently on every PATCH, so drift
+// between the two lists costs a rejected save, never a write to an
+// unintended field.
+const OPP_EXIT_CRITERION_KEYS = new Set([
+  'exitQualBudget', 'exitQualTimeline', 'exitQualCommitment',
+  'exitSolTechnicalSolution', 'exitSolBuyersKnown', 'exitSolKeyStakeholders', 'exitSolTermsReviewed',
+  'exitPropPricingApproved', 'exitPropContractTerms', 'exitPropImplSchedule', 'exitPropDocumentation',
+  'exitEvalClarificationsResponded', 'exitEvalRevisedPricing', 'exitEvalTechnicalClarifications',
+  'exitNegScopeAgreed', 'exitNegPricingAgreed', 'exitNegLegalResolved',
+  'exitNegCommercialsApproved', 'exitNegContractExecuted',
+])
+
+async function renderTransitionSection(elementId, feedbackId, recordId, currentStage, stages) {
   const section = document.getElementById(elementId)
   const currentIdx = stages.findIndex(s => s.stage_name === currentStage)
-  const nextStage = stages[currentIdx + 1]?.stage_name
+
+  // Round 20 Phase 6: a record already in a terminal stage is heading
+  // nowhere. This line computed stages[currentIdx + 1] regardless, and
+  // Closed Lost sorts to position 0, so a lost deal would have been
+  // offered a button reading "Move to Qualification".
+  //
+  // The same fault was fixed server-side in Phase 2, in records.js. This is
+  // a SECOND, independent implementation of "the next stage" in the browser,
+  // which the server fix could never have reached. Build discipline rule 6.
+  const currentRow = currentIdx >= 0 ? stages[currentIdx] : undefined
+  const nextStage = currentIdx >= 0 && !currentRow?.is_terminal
+    ? stages[currentIdx + 1]?.stage_name
+    : undefined
 
   if (!nextStage) {
-    section.innerHTML = '<p class="muted" style="font-size:14px">This record has reached the final stage.</p>'
+    section.innerHTML = currentRow?.is_terminal
+      ? `<p class="muted" style="font-size:14px">${escHtml(currentStage)} is a closed state. Nothing further to move toward.</p>`
+      : '<p class="muted" style="font-size:14px">This record has reached the final stage.</p>'
     return
   }
 
   section.innerHTML = `
+    <div id="${elementId}-criteria" class="opp-crit-list"><p class="muted" style="font-size:14px">Loading exit criteria...</p></div>
     <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px">
       <span style="font-size:14px">Advance to <strong>${escHtml(nextStage)}</strong></span>
       <button class="btn-primary" onclick="attemptTransition('${recordId}', '${escHtml(nextStage)}', '${feedbackId}', '${elementId}', '${currentStage}')">
@@ -1103,6 +1142,72 @@ function renderTransitionSection(elementId, feedbackId, recordId, currentStage, 
     </div>
     <div id="${feedbackId}"></div>
   `
+  await renderOppExitCriteria(elementId, recordId, currentStage, nextStage)
+}
+
+// The tick list, following the Test Bed panel that is already built and in
+// use. The busiest Opportunity transition carries 5 criteria and 3
+// approvals; Test Bed's Qualification exit already renders 9 criteria, 2
+// approvals and 3 further requirements on one panel, so the pattern carries
+// this count with room to spare. Measured in Phase 6 rather than assumed.
+async function renderOppExitCriteria(elementId, recordId, fromStage, toStage) {
+  const el = document.getElementById(`${elementId}-criteria`)
+  if (!el) return
+  const result = await api('GET', `/api/records/${recordId}/exit-criteria?stage=${encodeURIComponent(fromStage)}`)
+  if (!result.ok) {
+    el.innerHTML = '<p class="empty-state">Unable to load exit criteria.</p>'
+    return
+  }
+  const requirements = result.data?.requirements ?? []
+  if (!requirements.length) {
+    el.innerHTML = `<p class="muted" style="font-size:14px">No exit criteria configured for ${escHtml(toStage)}.</p>`
+    return
+  }
+
+  const rows = requirements.map(r => {
+    const tickable = r.requirement_type === 'payload_field_required'
+      && OPP_EXIT_CRITERION_KEYS.has(r.field)
+      && !!r.label
+    const mark = r.met
+      ? '<span class="tb-crit-box tb-crit-box--met">&#10003;</span>'
+      : '<span class="tb-crit-box"></span>'
+    if (tickable) {
+      return `<div class="tb-crit-row tb-crit-row--tickable" data-field="${escHtml(r.field)}" data-met="${r.met ? 'true' : 'false'}" onclick="toggleOppExitCriterion('${escHtml(recordId)}', '${escHtml(r.field)}', ${r.met ? 'true' : 'false'})" title="${r.met ? 'Tick to clear' : 'Tick to confirm'}">
+        ${mark}<span class="tb-crit-text">${escHtml(r.label)}</span>
+      </div>`
+    }
+    // Approvals are earned elsewhere and computed here, so they are
+    // read-only rows. Presenting one as a tick box would invite a click
+    // that cannot do anything.
+    return `<div class="tb-crit-row tb-crit-row--computed" data-field="${escHtml(r.field ?? '')}" data-met="${r.met ? 'true' : 'false'}">
+      ${mark}<span class="tb-crit-text">${escHtml(r.message)}</span>
+    </div>`
+  }).join('')
+
+  const outstanding = requirements.filter(r => !r.met).length
+  const summary = outstanding === 0
+    ? `<p class="sub" style="margin-bottom:10px">All criteria met - ready to move to ${escHtml(toStage)}.</p>`
+    : `<p class="sub" style="margin-bottom:10px">${outstanding} of ${requirements.length} outstanding to move to ${escHtml(toStage)}:</p>`
+  el.innerHTML = summary + rows
+}
+
+// Ticking writes an ISO timestamp, clearing writes null, which is the same
+// shape Test Bed uses: the gate asks only whether the field is set, and a
+// timestamp answers that while also recording when it was confirmed.
+window.toggleOppExitCriterion = async (recordId, field, isMet) => {
+  if (!OPP_EXIT_CRITERION_KEYS.has(field)) return
+  const row = document.querySelector(`.tb-crit-row[data-field="${field}"]`)
+  if (row) row.style.opacity = '0.5'
+  const result = await api('PATCH', `/api/opportunities/${recordId}`, {
+    payload: { [field]: isMet ? null : new Date().toISOString() }
+  })
+  if (!result.ok) {
+    if (row) row.style.opacity = ''
+    const fb = document.getElementById('transition-feedback')
+    if (fb) fb.innerHTML = `<p class="msg-error">${escHtml(result.data?.error ?? 'Could not update the criterion.')}</p>`
+    return
+  }
+  await loadOpportunityDetail(recordId)
 }
 
 window.attemptTransition = async (id, toStage, feedbackId, sectionId, currentStage) => {
@@ -3387,7 +3492,7 @@ async function renderOppDetail(opp) {
 
   const stages = await fetchStages('opportunity')
   renderChevronStrip('opp-chevron-strip', opp.status, stages)
-  renderTransitionSection('transition-section', 'transition-feedback', opp.id, opp.status, stages)
+  await renderTransitionSection('transition-section', 'transition-feedback', opp.id, opp.status, stages)
 
   await loadTerminusStaffIfNeeded()
 
