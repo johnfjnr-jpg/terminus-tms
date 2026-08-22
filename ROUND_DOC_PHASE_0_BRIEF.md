@@ -263,3 +263,166 @@ it re-reads from disk. `CLAUDE.md` records this about itself.
 
 When this round closes, note in the close-out that `CLAUDE.md` changed, so
 the following session re-reads it rather than trusting what it was given.
+
+---
+
+## Round 19 outcome
+
+A documentation round. Four phases, 0 through 3, no migration, no code, no
+configuration change.
+
+### Rule 7 had nothing to grep, and that is a finding
+
+`grep -n "^## Phase\|^### Phase"` against this brief returns **0**, with the
+`###` half of the pattern included as build discipline rule 7 requires. The
+same pattern returns 5 against `ROUND18A_FIX_BRIEF.md`, so the zero is a real
+absence rather than a broken pattern.
+
+**This brief carries its phase list as a markdown table, at lines 178 to 181,
+not as headings.** Rule 7 counts headings, so against a brief shaped this way
+it counts nothing and reports a clean zero. That is the Round 10A situation
+restated: a check that cannot see its subject returns the same value as a
+check that saw nothing wrong.
+
+The wider `grep -n "^#\+ .*Phase"` returns 1, the document title, which is a
+single-hash heading the rule's own pattern is written to skip.
+
+**Not resolved here.** The candidate resolutions are to require phase
+headings in every brief, or to widen rule 7 to count a phase table as well.
+Both are decisions about the standing rule rather than about this round.
+
+Counted from the table, the four phases are 0, 1, 2 and 3, and each carries
+an explicit sign-off in the session transcript: "Phase 0 report reviewed and
+signed off, with four corrections", "Phase 1 signed off", "Phase 2 signed
+off, and the Amendment 4 merge is adopted", "Phase 3 signed off, with two
+amendments before close-out". This report does not sign off its own phase.
+
+Six commits at phase boundaries. The brief was committed before any target
+file was touched.
+
+### What each phase did
+
+**0.** Five investigations, no edits. I1 answered the staff storage question
+against the database. I2 confirmed all six anchors unique. I3 confirmed
+`CURRENT_STATE.md` not stale on both halves of its own test. I4 confirmed
+four of five configured-state expectations and found the fifth wrongly
+worded. I5 confirmed Finding 6 needed replacing. Two corrections then landed
+in the amendment files: the em dash criterion, and the anchor-check command.
+
+**1.** Amendments 1, 2 and 3. `CLAUDE.md` read list gains
+`OPPORTUNITY_DESIGN.md`. `DESIGN_PRINCIPLES.md` Section 5 gains a
+partially-superseded banner naming the three statements that still govern.
+Section 6 is reframed from stale documentation to a control gap.
+
+**2.** Amendments 4 revised and 5, both landed as an answered finding rather
+than as the open question they were drafted around. `PROTOTYPE_SPECIFICATION.md`
+Section 3's two false statements are marked superseded with the original
+reasoning left standing, and it keeps its green marker.
+
+**3.** `OPPORTUNITY_DESIGN.md` Finding 6 replaced, open decisions 9 to 10, and
+the status legend restated as three markers with four states.
+
+### The staff field question, answered
+
+The payload holds a name as text, not a reference to a `terminus_staff` row.
+Zero UUIDs and 48 name strings across 1,388 readings, every string an exact
+match for a `terminus_staff.name`. Three independent lines agree and none
+dissents: the stored values, the write path building every option value from
+`s.name`, and a comment in `opportunities.js` that already said so.
+
+**All three live Opportunity records hold these keys absent from the payload
+entirely**, so a query against live Opportunities alone compares nothing to
+nothing and returns something shaped exactly like the answer. The reading came
+from soft-deleted Opportunities and live Test Beds instead.
+
+Two things the query surfaced without being asked. There is **no server-side
+validation**, so the controlled list is a client-side affordance and any
+string can be written to `lead` through the ordinary PATCH path. And the
+directory feeds **three record types, not the two every document described**:
+`Account` carries its own `terminusLead`.
+
+One record of one finding, in `DESIGN_PRINCIPLES.md` under Deferred scope,
+dated 2026-08-22. The earlier plan split it across two entries in the same
+file and that was dropped: two records of one thing drift apart.
+
+### `CLAUDE.md` changed in phases 1 and 3
+
+**The next session must re-read it from disk.** The copy delivered at session
+start is a snapshot taken then, so a session following a round that edited it
+receives the old version.
+
+- **Phase 1**: the read-list table gains `OPPORTUNITY_DESIGN.md`.
+- **Phase 3**: **Verification 17** promoted, on a probe that distinguishes two
+  states needing to be shown returning a different value in each. Two
+  instances from this round support it, both searches that ran perfectly
+  against the wrong thing. A third candidate was cut on review because it was
+  a search that did not run, which is rule 12's case, and keeping it would
+  have undercut the boundary between 17 and 12.
+
+### The 28 em dashes in `PROTOTYPE_SPECIFICATION.md`
+
+Pre-existing, in section headings including Section 3's own. **Deferred, not
+this round's work.** Both amendment files originally asserted a count of zero
+before and after for every file, which could never have passed on the one
+file Amendment 5 edits. Restated as unchanged at 28 there, zero in every other
+file, and no em dash in introduced text. Each amendment file also held one em
+dash of its own, inside that criterion. Both removed.
+
+### Record counts fall outside the `CURRENT_STATE.md` staleness test
+
+The test reads `supabase/migrations`, `supabase/seeds` and `src/routes`. Record
+counts are read from the live database and change without any of those
+changing, so a divergence between the generated file and the database would
+pass the staleness test silently.
+
+**Named as a coverage gap. No instance was observed this round**: the
+Opportunity counts were re-queried directly and the database and
+`CURRENT_STATE.md` agree exactly, 3 live and 60 soft deleted, Discovery 58,
+Negotiation 1, Proposal 1.
+
+### New finding: the two-page constraint has been false for many rounds
+
+`CLAUDE.md` opens by stating about itself that it is deliberately short, that
+it carries rules rather than reasoning, and that **"if this file grows past
+roughly two pages it stops being read properly and stops working."** The file
+is **523 lines** at the close of this round, and was 485 at the start of it.
+Two pages is on the order of 120 lines.
+
+**The constraint has been silently false for many rounds, and every promotion
+decision taken since has been taken against a ceiling already breached.**
+Including this round's own, which was argued on its merits and against a limit
+nobody could have been applying.
+
+**Same shape as the staleness test this file documents about itself.** That
+rule read "a copy whose SHA is not current HEAD is stale", which could never
+pass, and Round 9 recorded that a rule which always fails is worked around
+rather than followed. This is the same failure in the other direction: a rule
+that is never checked is not followed either, and a stated limit that is
+routinely exceeded stops being a limit and becomes decoration.
+
+**Not a fix for this round. The resolution is a decision**, and there are two
+honest options. Restate the constraint as something true, which means naming
+the real length at which the file stops being read and measuring against it.
+Or restructure the file so it can hold what it now carries, which probably
+means separating the rules from the evidence that justifies them, since most
+of the growth is worked examples rather than rules.
+
+### Reconciliation
+
+`CURRENT_STATE.md` was **not regenerated, deliberately**. It is generated at
+round close when configuration changed, and **this round changed no
+configuration**: no migration, no seed, no route, no database write. Its
+checksum is unchanged from the start of the round, and its own staleness test
+passes on both halves, with `dd7459a` an ancestor of `HEAD` and no tracked
+configuration source touched since. Regenerating it would have produced a diff
+consisting only of a new timestamp and commit SHA, which is churn rather than
+a changelog.
+
+Files changed: `CLAUDE.md`, `DESIGN_PRINCIPLES.md`, `PROTOTYPE_SPECIFICATION.md`,
+`OPPORTUNITY_DESIGN.md`, and both amendment files. Every one is documentation.
+
+Em dashes at close: 0 in `CLAUDE.md`, `DESIGN_PRINCIPLES.md`,
+`OPPORTUNITY_DESIGN.md`, `CURRENT_STATE.md` and both amendment files, and 28
+in `PROTOTYPE_SPECIFICATION.md`, unchanged. Heading lists byte-identical in
+every file except `OPPORTUNITY_DESIGN.md`, where exactly one heading changed,
+Finding 6's own title.

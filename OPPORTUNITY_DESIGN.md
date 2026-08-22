@@ -20,14 +20,14 @@ Rounds 9 to 18A.
 
 Nothing here is uniformly settled, and treating it as though it were is how
 a design record becomes a liability. Every substantive item carries one of
-four markers.
+three markers, and FINDING has two states.
 
 | Marker | Meaning |
 |---|---|
 | **CONFIRMED** | Decided with the business. Build against it |
 | **RECOMMENDED, UNDECIDED** | An advisor's proposal with reasoning. The business has not chosen. Do not build against it |
 | **FINDING, UNRESOLVED** | A disagreement or gap found and reported. Needs investigation, not a build decision |
-| **ANSWERED** | A finding that was investigated and settled by evidence, with the date and the measurement recorded. Distinct from CONFIRMED, which is a business decision rather than a measured fact |
+| **FINDING, ANSWERED** | The same finding after investigation settled it, with the date and the measurement recorded. It keeps the FINDING lineage so a resolved finding stays visibly a finding rather than becoming a decision. Distinct from CONFIRMED, which is a business decision rather than a measured fact |
 
 ---
 
@@ -173,7 +173,7 @@ Reworded below.
 
 ### Finding 6. Staff directory: it exists, and the fields store a name
 
-**ANSWERED 2026-08-22 by direct query.** This entry recorded a
+**FINDING, ANSWERED 2026-08-22 by direct query.** This entry recorded a
 contradiction between `PROTOTYPE_SPECIFICATION.md` and `CURRENT_STATE.md`
 and asked for the database to be queried. That was done. Both halves are
 now settled, and the second one is the answer this document needed.
