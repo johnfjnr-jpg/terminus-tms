@@ -104,7 +104,11 @@ function navigate(view, id) {
     tbUserPickedTab = false
     loadTestBedDetail(id)
   }
-  else if (view === 'opportunity-detail' && id) loadOpportunityDetail(id)
+  else if (view === 'opportunity-detail' && id) {
+    // Arriving at a record: the default-to-Reference is wanted.
+    oppUserPickedTab = false
+    loadOpportunityDetail(id)
+  }
 }
 
 document.querySelectorAll('.nav-link').forEach(el => {
@@ -356,6 +360,13 @@ const oppTabStrip = window.createTabStrip({
   panelFor: key => document.getElementById(`opp-tab-${key}`),
 })
 function switchOppTab(tab) { oppTabStrip.select(tab) }
+
+// A real click on the tab row is the user picking a tab. Wired here rather
+// than inside createTabStrip because the shared factory serves Test Bed's
+// strip too, and that one already has its own flag.
+document.getElementById('opp-detail-tabs')?.addEventListener('click', e => {
+  if (e.target.closest('.detail-tab')) oppUserPickedTab = true
+})
 
 // Test Bed detail tabs (Reference / Commercials / 8 stage tabs) - same
 // static-tab-bar-wired-once pattern as Opportunity's above.
@@ -1099,6 +1110,42 @@ function wireTbChevronHover(recordId) {
 // The server validates the same set independently on every PATCH, so drift
 // between the two lists costs a rejected save, never a write to an
 // unintended field.
+// ── Opportunity stage state, Round 21 Phase 1 ───────────────────────────
+//
+// The tick handler needs to know which record and which stage it is acting
+// for WITHOUT re-reading the page, which is the whole point of the fix
+// below. Mirrors currentTbStageTab, which Test Bed has kept for ten rounds.
+let currentOppDetailId = null
+let currentOppStage = null
+let currentOppNextStage = null
+
+// Serialises ticks. Test Bed's tbCriterionQueue exists because a person
+// ticking three boxes quickly issues three overlapping PATCHes and three
+// overlapping re-renders, and the slowest can land last and paint a stale
+// panel. Round 11A is the precedent this project already paid for: a
+// mechanism correct for one interaction and untested for a repeated one.
+let oppCriterionQueue = Promise.resolve()
+
+// oppUserPickedTab, Round 21 Phase 1. The same race Round 5 Phase 7 found
+// on Test Bed and fixed there with tbUserPickedTab, never ported here.
+//
+// renderOppDetail ends with an unconditional switchOppTab('reference'), and
+// it runs AFTER several awaited round trips, while the tab bar is already
+// visible and clickable. A user who clicks Stage and Approvals in that
+// window has the click silently overwritten moments later when the page's
+// own default finally lands.
+//
+// Measured in Phase 1 rather than assumed: with the page allowed to settle
+// first, three consecutive ticks hold the tab; without settling, the first
+// tick appeared to reset it, and that reset was this load completing rather
+// than anything the tick did. Two causes, one symptom, and this one
+// survived the tick-handler fix.
+//
+// Cleared on ARRIVAL at a record, so opening an Opportunity still lands on
+// Reference exactly as before. This only protects a click that races that
+// same load's own completion.
+let oppUserPickedTab = false
+
 const OPP_EXIT_CRITERION_KEYS = new Set([
   'exitQualBudget', 'exitQualTimeline', 'exitQualCommitment',
   'exitSolTechnicalSolution', 'exitSolBuyersKnown', 'exitSolKeyStakeholders', 'exitSolTermsReviewed',
@@ -1131,6 +1178,12 @@ async function renderTransitionSection(elementId, feedbackId, recordId, currentS
       : '<p class="muted" style="font-size:14px">This record has reached the final stage.</p>'
     return
   }
+
+  // Recorded before the panel renders, so the tick handler can re-render
+  // this panel alone rather than reloading the record.
+  currentOppDetailId = recordId
+  currentOppStage = currentStage
+  currentOppNextStage = nextStage
 
   section.innerHTML = `
     <div id="${elementId}-criteria" class="opp-crit-list"><p class="muted" style="font-size:14px">Loading exit criteria...</p></div>
@@ -1189,25 +1242,79 @@ async function renderOppExitCriteria(elementId, recordId, fromStage, toStage) {
     ? `<p class="sub" style="margin-bottom:10px">All criteria met - ready to move to ${escHtml(toStage)}.</p>`
     : `<p class="sub" style="margin-bottom:10px">${outstanding} of ${requirements.length} outstanding to move to ${escHtml(toStage)}:</p>`
   el.innerHTML = summary + rows
+  const fb = document.createElement('div')
+  fb.id = 'opp-crit-feedback'
+  fb.className = 'tb-doc-feedback'
+  el.appendChild(fb)
+}
+
+// Reflects a SERVER-CONFIRMED tick on the row that was clicked, before the
+// panel re-renders. Without it the row sits unchanged for the length of the
+// round trip and a second click lands on stale `met` state.
+function applyConfirmedOppTick(recordId, field, met) {
+  const row = document.querySelector(`#transition-section-criteria .tb-crit-row--tickable[data-field="${CSS.escape(field)}"]`)
+  if (!row) return
+  const box = row.querySelector('.tb-crit-box')
+  if (box) {
+    box.className = met ? 'tb-crit-box tb-crit-box--met' : 'tb-crit-box'
+    box.innerHTML = met ? '&#10003;' : ''
+  }
+  row.dataset.met = met ? 'true' : 'false'
+  row.setAttribute('title', met ? 'Tick to clear' : 'Tick to confirm')
+  row.setAttribute('onclick', `toggleOppExitCriterion('${recordId}', '${field}', ${met ? 'true' : 'false'})`)
 }
 
 // Ticking writes an ISO timestamp, clearing writes null, which is the same
 // shape Test Bed uses: the gate asks only whether the field is set, and a
 // timestamp answers that while also recording when it was confirmed.
-window.toggleOppExitCriterion = async (recordId, field, isMet) => {
-  if (!OPP_EXIT_CRITERION_KEYS.has(field)) return
-  const row = document.querySelector(`.tb-crit-row[data-field="${field}"]`)
-  if (row) row.style.opacity = '0.5'
-  const result = await api('PATCH', `/api/opportunities/${recordId}`, {
-    payload: { [field]: isMet ? null : new Date().toISOString() }
-  })
-  if (!result.ok) {
-    if (row) row.style.opacity = ''
-    const fb = document.getElementById('transition-feedback')
-    if (fb) fb.innerHTML = `<p class="msg-error">${escHtml(result.data?.error ?? 'Could not update the criterion.')}</p>`
-    return
+// Round 21 Phase 1. THE BLOCKING DEFECT, and it was one line.
+//
+// This previously ended with `await loadOpportunityDetail(recordId)`, which
+// re-renders the entire record page. The page's default active tab is
+// Reference, so every tick threw the user back to Reference and the next
+// tick cost re-clicking the tab and scrolling down again. Measured in Phase
+// 0 across three consecutive ticks: the tab read `reference` after every
+// one, and the criteria panel was out of the viewport after every one.
+//
+// The panel was never on the Reference page, which was the reported
+// diagnosis. It sits inside #opp-tab-approvals. The location was never the
+// problem; reloading the page after a write was.
+//
+// Test Bed has done this correctly since Round 9: re-render the panel, not
+// the page, and capture the stage at click time so a tab switch mid-flight
+// cannot paint the wrong stage's answer.
+window.toggleOppExitCriterion = (recordId, field, isMet) => {
+  if (!OPP_EXIT_CRITERION_KEYS.has(field)) return oppCriterionQueue
+  const run = async () => {
+    // Captured at CLICK time, not read after the await. The user may have
+    // moved on by the time the write returns.
+    const stageAtClick = currentOppStage
+    const nextAtClick = currentOppNextStage
+    const fb = document.getElementById('opp-crit-feedback')
+    if (fb) { fb.textContent = ''; fb.className = 'tb-doc-feedback' }
+
+    const result = await api('PATCH', `/api/opportunities/${recordId}`, {
+      payload: { [field]: isMet ? null : new Date().toISOString() }
+    })
+
+    if (!result.ok) {
+      // The control is left exactly as it was. A failed write must not look
+      // like a success, which is why nothing optimistic happens before this.
+      const el = document.getElementById('opp-crit-feedback')
+      if (el) {
+        el.textContent = `Could not update: ${result.data?.error ?? 'unknown error'}`
+        el.className = 'tb-doc-feedback err'
+      }
+      return
+    }
+
+    if (currentOppDetailId === recordId && currentOppStage === stageAtClick) {
+      applyConfirmedOppTick(recordId, field, !isMet)
+      await renderOppExitCriteria('transition-section', recordId, stageAtClick, nextAtClick)
+    }
   }
-  await loadOpportunityDetail(recordId)
+  oppCriterionQueue = oppCriterionQueue.then(run, run)
+  return oppCriterionQueue
 }
 
 window.attemptTransition = async (id, toStage, feedbackId, sectionId, currentStage) => {
@@ -3504,9 +3611,10 @@ async function renderOppDetail(opp) {
   // Executive Summary, Notes.
   window.initOpportunityReferencePanel?.(opp)
 
-  // Always land back on Reference when opening/switching opportunities,
-  // same convention as other modules resetting their sub-view on entry.
-  switchOppTab('reference')
+  // Land back on Reference when opening or switching opportunities, the same
+  // convention as other modules resetting their sub-view on entry, UNLESS the
+  // user already picked a tab while this load was still in flight.
+  if (!oppUserPickedTab) switchOppTab('reference')
   renderOppDocumentsList()
   await loadStageApprovals(opp.id)
 }
