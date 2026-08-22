@@ -3880,3 +3880,108 @@ Explicitly deferred, not forgotten, not a section number of its own since this i
   agreeing, or exclude `reachable_from_any_stage` rows from the chevron and
   render them as a separate control. The second is probably right, since a
   stage reachable from anywhere is not a step in a sequence.
+
+- **A fix built for the screen that existed is not a fix for the screen
+  built after it. Three instances in three rounds, Round 21, 2026-08-22.
+  RECORDED FOR A DELIBERATE AUDIT IN ROUND 22.**
+
+  Build discipline rule 6 says a fix built for the pages that existed is not
+  a fix for the pages built after it, and names three instances from earlier
+  rounds. Three more have now landed in consecutive rounds, all on the same
+  seam: **Test Bed was built first and Opportunity was built beside it, so
+  every Test Bed fix is a fix Opportunity does not have.**
+
+  - **`refFieldRow`'s missing blank option**, Round 19. Test Bed's field
+    renderer had a leading blank `<option>`; Opportunity's did not, so an
+    unset dropdown silently pre-selected the alphabetically first name. Two
+    implementations of one job, and the fix reached only one.
+  - **`renderTransitionSection` duplicating server-owned logic**, Round 20
+    Phase 6. Round 20 Phase 2 fixed `records.js` so a record in a terminal
+    stage is offered no next stage. The browser computed
+    `stages[currentIdx + 1]` independently, where the server fix could not
+    reach, and a lost deal would have been offered "Move to Qualification".
+  - **`tbUserPickedTab` with no Opportunity equivalent**, Round 21 Phase 1.
+    Round 5 Phase 7 found that an unconditional default-to-Reference landing
+    after an awaited load silently overwrites a tab click made in that
+    window, and fixed it for Test Bed. Opportunity kept the race for
+    sixteen rounds, and it was one of the two causes behind the reported
+    blocker.
+
+  - **`submitStageApproval` refreshing nothing for Opportunity**, Round 21
+    Phase 4. Every branch of that function tests `currentTestBed`.
+    Opportunity's all-stages approvals table has called it since Round 9, so
+    an Opportunity approval POSTed successfully and then matched no branch:
+    no refresh, no error, nothing on screen at all.
+
+  - **Two shared loaders defaulting to a deleted container**, Round 21
+    Phase 5. `loadStageApprovals` and `renderStageApprovalsRows` both default
+    `containerId` to `'opp-stage-approvals-rows'`, the all-stages table this
+    round replaced with per-stage cards and removed. Test Bed passes its own
+    container and is unaffected, so every caller that exists is fine and the
+    next one to omit the argument would have thrown on a null element rather
+    than doing nothing. Both now guard.
+
+  - **Element ids built from a stage name, containing spaces**, Round 21
+    Phase 7. `getElementById('opp-stage-criteria-stage-Solution Alignment')`
+    resolves. `querySelector` on the same id parses it as
+    `#opp-stage-criteria-stage-Solution` with a descendant `Alignment` and
+    matches nothing, **with no error from either**. Four of the six
+    Opportunity stages are two words, so it was latent in two thirds of the
+    panels, and only a probe that happened to use a selector rather than an
+    id lookup would ever have surfaced it. The tab-strip factory already
+    sanitised the same way when building button ids; the new panel ids did
+    not.
+
+  **The fourth instance is different from the other three, and worse.** The
+  blank option, the duplicated next-stage derivation and the missing tab
+  guard were all LATENT: wrong code waiting for a use that had not arrived,
+  or a defect the user could work around without noticing what it was. This
+  one **has been live in production since Round 9**. Anyone approving a
+  track from Opportunity's Stage and Approvals tab has watched the screen do
+  nothing, and the only reason it was not reported is that Opportunity's
+  approvals were barely used before this round configured them.
+
+  **A silent production defect is what this pattern produces when the
+  forked screen is actually in use**, rather than merely built. The other
+  three were found by working nearby. This one would have been found by the
+  business.
+
+  **The pattern is not carelessness, it is structural.** Nothing links the
+  two implementations, so nothing reports that one has moved. Each was found
+  by working on the Opportunity side for an unrelated reason, which means
+  the ones nobody has had a reason to touch are still there.
+
+  **A deliberate audit belongs in Round 22**, which is already about
+  convergence between the two screens. Enumerate every Test Bed behaviour
+  that Opportunity's equivalent should have, rather than waiting for the
+  next one to surface as a defect. Not audited here: this round is the stage
+  tabs, and an audit found mid-round becomes scope creep rather than a
+  finding.
+
+- **The Exit Criteria and Approvals panels repeat each other, on both record
+  types. Observed Round 21 Phase 4, 2026-08-22. NOT INTRODUCED HERE AND NOT
+  THIS ROUND'S WORK.**
+
+  A stage tab shows an Exit Criteria card and an Approvals card side by side.
+  The Approvals card lists Commercial, Technical and Legal with their dates.
+  The Exit Criteria card lists the same three as computed rows reading
+  "Requires an approved Commercial decision at stage Solution Alignment", and
+  so on. Three facts, stated twice, a hand apart.
+
+  **This is Test Bed's existing behaviour, not something the Opportunity
+  build created.** `renderTbStageExitCriteria`'s `isProcessRequirement`
+  returns true for `approval_obtained`, so Test Bed shows them in both panels
+  too, and has since Round 9 Phase 6.2.
+
+  **Test Bed solved the mirror image of this and recorded why.** That round's
+  comment notes the Approvals panel used to carry a Stage / Exit criteria /
+  Approvers header, "which made sense on Opportunity's all-stages table and
+  made none here, where the panel shows exactly one stage and sits next to a
+  dedicated Exit Criteria panel repeating the same text". The header went.
+  The rows did not.
+
+  Two defensible readings, which is why this is an observation rather than a
+  fix. The Exit Criteria card is the complete gate, and a gate that omitted
+  its approvals would be lying about what blocks the transition. Or the
+  Approvals card is the authority on approvals and the criteria card should
+  defer to it. Nobody has chosen, and choosing changes both record types.

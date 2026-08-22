@@ -14,6 +14,7 @@ import stageDefinitionsRoutes from './routes/stage-definitions.js'
 import industriesRoutes from './routes/industries.js'
 import scoringRoutes from './routes/scoring.js'
 import terminusStaffRoutes from './routes/terminus-staff.js'
+import closedLostReasonsRoutes from './routes/closed-lost-reasons.js'
 import accountsRoutes from './routes/accounts.js'
 import contactsRoutes from './routes/contacts.js'
 
@@ -69,6 +70,7 @@ await fastify.register(async function authenticatedRoutes(app) {
   app.register(industriesRoutes, { prefix: '/api' })
   app.register(scoringRoutes, { prefix: '/api' })
   app.register(terminusStaffRoutes, { prefix: '/api' })
+  app.register(closedLostReasonsRoutes, { prefix: '/api' })
   app.register(accountsRoutes, { prefix: '/api' })
   app.register(contactsRoutes, { prefix: '/api' })
 })

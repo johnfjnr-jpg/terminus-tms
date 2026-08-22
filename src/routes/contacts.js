@@ -688,11 +688,37 @@ export default async function contactsRoutes(app) {
   // created with account_id absent - the same honest-absence convention
   // this build uses everywhere else, not a forced block.
   app.post('/contacts/:id/create-opportunity', async (request, reply) => {
+    // Round 21 Phase 8: the name is REQUIRED, and this route previously
+    // never read request.body at all.
+    //
+    // It derived the name from the Account and fell back to the literal
+    // 'New Opportunity'. Every Opportunity created from one Account was
+    // therefore called the same thing, and multiple opportunities per
+    // account is the normal case, so a pipeline list showed identical rows.
+    // Proven in Round 21 Phase 0 by sending opportunity_name, then name,
+    // then nothing: all three stored the Account name, which is how a Round
+    // 20 finding that "both conversion routes require opportunity_name"
+    // turned out to be true of only one of them.
+    //
+    // REQUIRED rather than falling back, decided deliberately. The silent
+    // fallback is what produced the defect: it made a missing name look like
+    // a supplied one, and nothing surfaced for eleven rounds. The only
+    // caller is the browser and it now always sends one, so a request
+    // without a name is a bug in the caller and should say so.
+    //
+    // POST /test-beds/:id/convert already required opportunity_name and is
+    // deliberately NOT touched. It works, and unifying a working path with a
+    // broken one is how working paths break.
+    const { name: requestedName } = request.body ?? {}
+    if (!requestedName?.trim()) {
+      return reply.code(400).send({ error: 'name is required' })
+    }
+
     const db = createUserClient(request.jwt)
     const { contact, accountName, contactPayload, error } = await loadQualifiedContact(db, request.params.id)
     if (error) return reply.code(error.code).send(error.body)
 
-    const name = accountName ?? 'New Opportunity'
+    const name = requestedName.trim()
 
     const { data: probDefault } = await db
       .from('stage_probability_defaults')

@@ -104,7 +104,11 @@ function navigate(view, id) {
     tbUserPickedTab = false
     loadTestBedDetail(id)
   }
-  else if (view === 'opportunity-detail' && id) loadOpportunityDetail(id)
+  else if (view === 'opportunity-detail' && id) {
+    // Arriving at a record: the default-to-Reference is wanted.
+    oppUserPickedTab = false
+    loadOpportunityDetail(id)
+  }
 }
 
 document.querySelectorAll('.nav-link').forEach(el => {
@@ -162,7 +166,12 @@ window.createTabStrip = function ({ strip, keyAttr, dataAttr, tabs, tabClass, pa
   stripEl.setAttribute('role', 'tablist')
   if (label) stripEl.setAttribute('aria-label', label)
 
-  buttons().forEach(btn => {
+  // Named and exposed as adopt() below, because a strip can gain buttons
+  // AFTER construction. Opportunity's stage tabs are generated per record
+  // from stage_definitions, long after this factory ran, and without this
+  // they would carry the class and the click handling (both live queries)
+  // but none of the ARIA a screen reader needs.
+  const wireButtons = () => buttons().forEach(btn => {
     const key = keyOf(btn)
     btn.setAttribute('role', 'tab')
     if (!btn.id) btn.id = `${stripEl.id}-tab-${key.replace(/[^a-zA-Z0-9_-]/g, '-')}`
@@ -180,6 +189,7 @@ window.createTabStrip = function ({ strip, keyAttr, dataAttr, tabs, tabClass, pa
       // happened to be last. It is set in select(), to the tab actually open.
     }
   })
+  wireButtons()
 
   function select(key, { focusTab = false } = {}) {
     const btns = buttons()
@@ -242,7 +252,7 @@ window.createTabStrip = function ({ strip, keyAttr, dataAttr, tabs, tabClass, pa
     if (pane && initial.id) pane.setAttribute('aria-labelledby', initial.id)
   }
 
-  return { select, current: () => keyOf(buttons().find(b => b.classList.contains('active'))) }
+  return { select, adopt: wireButtons, current: () => keyOf(buttons().find(b => b.classList.contains('active'))) }
 }
 
 // The sub-tab consumer. Builds the strip and its panes into a mount point and
@@ -356,6 +366,342 @@ const oppTabStrip = window.createTabStrip({
   panelFor: key => document.getElementById(`opp-tab-${key}`),
 })
 function switchOppTab(tab) { oppTabStrip.select(tab) }
+
+// ── Opportunity stage tabs, Round 21 Phase 2 ────────────────────────────
+//
+// One tab per working stage, generated from stage_definitions rather than
+// written into index.html. Test Bed's eight are static markup that happens
+// to match the database, kept in step by hand: Round 20 renamed every
+// Opportunity stage, and a hardcoded strip would have gone silently wrong.
+//
+// WHICH STAGES GET A TAB, expressed as a property rather than a name list:
+// every stage EXCEPT those marked reachable_from_any_stage. Closed Lost
+// carries that flag, and a stage reachable from anywhere is not a step in a
+// sequence, so it has no tab. It has no criteria and no approvals either,
+// so its tab would be permanently empty. The chevron already shows it, and
+// the control for losing a deal arrives in Phase 7.
+//
+// Closed Won is terminal but NOT reachable-from-anywhere: it is entered
+// from Negotiating like any other forward move, so it keeps its tab.
+// The key is SANITISED, and that is not cosmetic.
+//
+// It becomes part of several element ids, and an id containing a space works
+// with getElementById and breaks silently in any CSS selector:
+// querySelector('#opp-stage-criteria-stage-Solution Alignment') parses as
+// "#opp-stage-criteria-stage-Solution" with a descendant "Alignment" and
+// matches nothing, with no error. Four of the six Opportunity stages are two
+// words, so the fault would have been latent in two thirds of the panels and
+// invisible until something used a selector rather than an id lookup.
+//
+// Found in Phase 7 by a verification probe doing exactly that. createTabStrip
+// already sanitises the same way when it builds button ids, which is where
+// the pattern comes from.
+//
+// The real stage name is never derived back from this: every generated
+// element carries data-opp-stage-tab or data-opp-stage-panel with the
+// unsanitised name, so two stages that sanitised to the same key would still
+// be distinguishable, and none of the seven do.
+function oppStageTabKey(stageName) {
+  return `stage-${String(stageName).replace(/[^a-zA-Z0-9_-]+/g, '-')}`
+}
+
+function renderOppStageTabs(stages, currentStage) {
+  const strip = document.getElementById('opp-detail-tabs')
+  const host = document.getElementById('view-opportunity-detail')
+  if (!strip || !host) return
+
+  const stageTabs = (stages ?? []).filter(s => !s.reachable_from_any_stage)
+
+  // Remove the previous record's generated tabs and panels before adding
+  // this record's. Without this, switching between records with different
+  // stage lists would accumulate tabs from both.
+  strip.querySelectorAll('.detail-tab[data-opp-stage-tab]').forEach(b => b.remove())
+  host.querySelectorAll('.detail-tab-panel[data-opp-stage-panel]').forEach(p => p.remove())
+
+  for (const st of stageTabs) {
+    const key = oppStageTabKey(st.stage_name)
+    // The panel first, so the button's aria-controls resolves when adopt()
+    // runs. Pointing it at nothing is worse than omitting it.
+    const panel = document.createElement('div')
+    panel.className = 'detail-tab-panel hidden'
+    panel.id = `opp-tab-${key}`
+    panel.dataset.oppStagePanel = st.stage_name
+    // Phase 2 renders the slot. Phase 3 moves the exit criteria in, Phase 4
+    // the approvals, Phase 5 documents and assessments. A placeholder that
+    // says what is coming beats an empty box that looks broken.
+    // A TERMINAL stage gets a different panel, not four empty cards.
+    //
+    // Round 10 Phase 7 settled this for Test Bed, superseding Round 9 Phase
+    // 6.3's "renders nothing": the Closed tab hides the panel row and shows
+    // the completed record instead. Closed Won has zero exit criteria and
+    // zero approvals, because criteria belong to the stage you are LEAVING
+    // and nothing leaves a terminal stage, so without this case it would
+    // render four permanently empty placeholders. A placeholder on a working
+    // stage says "not configured yet"; four of them on a stage that can
+    // never have any says the screen is broken.
+    //
+    // Keyed on is_terminal from the stage row, not on the name 'Closed Won',
+    // so a record type whose terminal stage is named something else behaves
+    // the same way.
+    if (st.is_terminal) {
+      panel.innerHTML = `
+        <div class="ref-cards">
+          <div class="pg-card">
+            <p class="pg-card-title">${escHtml(st.stage_name)}</p>
+            <p class="empty-state">This is a closed state. There is nothing to complete here:
+            exit criteria and approvals belong to the stage a record is leaving, and a closed
+            record is not leaving one.</p>
+          </div>
+        </div>`
+      host.appendChild(panel)
+      const tbtn = document.createElement('button')
+      tbtn.type = 'button'
+      tbtn.className = 'detail-tab'
+      tbtn.dataset.oppTab = key
+      tbtn.dataset.oppStageTab = st.stage_name
+      tbtn.textContent = st.stage_name
+      strip.appendChild(tbtn)
+      continue
+    }
+
+    // Phase 3 fills the exit criteria, Phase 4 the approvals. Documents and
+    // Assessments are slots: the business wants them visible for what is
+    // coming, and Test Bed renders empty panels the same way.
+    panel.innerHTML = `
+      <div class="ref-cards">
+        <div class="pg-card">
+          <p class="pg-card-title">Exit Criteria</p>
+          <div id="opp-stage-criteria-${escHtml(key)}"></div>
+        </div>
+        <div class="pg-card">
+          <p class="pg-card-title">Approvals</p>
+          <div id="opp-stage-approvals-${escHtml(key)}"></div>
+        </div>
+        <div class="pg-card">
+          <p class="pg-card-title">Terminus Documents</p>
+          <div id="opp-stage-documents-${escHtml(key)}"><p class="empty-state">No documents configured for this stage.</p></div>
+        </div>
+        <div class="pg-card">
+          <p class="pg-card-title">Assessments</p>
+          <div id="opp-stage-assessments-${escHtml(key)}"><p class="empty-state">No assessments configured for this stage.</p></div>
+        </div>
+      </div>
+      <div id="opp-stage-transition-${escHtml(key)}" style="margin-top:24px"></div>`
+    host.appendChild(panel)
+
+    const btn = document.createElement('button')
+    btn.type = 'button'
+    btn.className = 'detail-tab'
+    btn.dataset.oppTab = key
+    btn.dataset.oppStageTab = st.stage_name
+    btn.textContent = st.stage_name
+    strip.appendChild(btn)
+  }
+
+  // The generated buttons need the ARIA the factory applies at construction.
+  oppTabStrip.adopt()
+  markOppCurrentStageTab(currentStage)
+}
+
+// One token per stage-tab load, mirroring tbStageTabLoadToken. Clicking
+// through tabs quickly leaves two loads in flight, and an older, slower
+// response can resolve after a newer one and paint the WRONG stage's
+// criteria under the new stage's heading. Test Bed found that live in Round
+// 5 Phase 7; this strip is new, so it is guarded from the start rather than
+// after the same discovery.
+let oppStageTabLoadToken = 0
+
+// What a stage tab shows: the criteria for LEAVING that stage, whether or
+// not the record is currently in it.
+//
+// That is Test Bed's behaviour, read from its source rather than invented.
+// renderTbStageExitCriteria fetches ?stage=<the tab's stage> with no
+// reference to the record's status, and its `tickable` test is the field
+// being a known criterion key with a label, again with no reference to the
+// current stage. Confirmed against the API: exit-criteria answers for any
+// stage, so a Qualification record asked about Negotiating returns
+// Negotiating's eight requirements.
+//
+// So criteria are tickable on any stage tab. Approvals are the half Test
+// Bed DOES gate to the current stage, and that arrives in Phase 4.
+//
+// The advance control renders only on the record's current stage, because
+// that is the only stage it could act on: the transition endpoint moves the
+// record from its own status, not from whichever tab is open.
+async function loadOppStageTab(recordId, stageName, currentStage, stages) {
+  const myToken = ++oppStageTabLoadToken
+  currentOppStageTab = stageName
+  // A terminal stage's panel is static markup with nothing to fetch. Asking
+  // for criteria and approvals it can never have would be two round trips
+  // whose only possible answer is empty.
+  if ((stages ?? []).find(s => s.stage_name === stageName)?.is_terminal) return
+  const key = oppStageTabKey(stageName)
+  await renderOppExitCriteria(`opp-stage-criteria-${key}`, recordId, stageName,
+    (stages ?? []).find(s => s.stage_name === stageName)?.is_terminal
+      ? null
+      : nextStageAfter(stages, stageName),
+    () => myToken === oppStageTabLoadToken)
+  if (myToken !== oppStageTabLoadToken) return
+  await renderOppStageApprovals(recordId, stageName, () => myToken === oppStageTabLoadToken)
+  if (myToken !== oppStageTabLoadToken) return
+
+  const tEl = document.getElementById(`opp-stage-transition-${key}`)
+  if (!tEl) return
+  if (stageName !== currentStage) {
+    tEl.innerHTML = ''
+    return
+  }
+  renderOppAdvanceControl(tEl, recordId, currentStage, stages)
+}
+
+// Approvals for ONE stage, mirroring renderTbStageApprovals.
+//
+// The asymmetry with the criteria panel is deliberate and is Test Bed's
+// rule, not a simplification. Criteria tick on any stage tab. Approvals are
+// clickable only when st.state === 'current' AND the track is not already
+// approved. Both halves come from buildStageTrackListHtml, which is already
+// shared and already correct, so this renders through it rather than
+// growing a fourth copy of the same markup.
+//
+// A non-current stage renders READ-ONLY, not absent. Someone looking at
+// Proposal from Qualification should see what will be required there, which
+// is the whole reason the tab exists before the record reaches it.
+async function renderOppStageApprovals(recordId, stageName, isStillCurrent = () => true) {
+  const el = document.getElementById(`opp-stage-approvals-${oppStageTabKey(stageName)}`)
+  if (!el) return
+  const result = await api('GET', `/api/records/${recordId}/stage-approvals`)
+  if (!isStillCurrent()) return
+  if (!result.ok) {
+    el.innerHTML = '<p class="empty-state">Failed to load approvals for this stage.</p>'
+    return
+  }
+  const entry = (result.data ?? []).find(st => st.stage_name === stageName)
+  el.innerHTML = entry
+    ? buildStageTrackListHtml(recordId, entry)
+    : '<p class="empty-state">Unknown stage.</p>'
+}
+
+function nextStageAfter(stages, stageName) {
+  const list = stages ?? []
+  const i = list.findIndex(s => s.stage_name === stageName)
+  if (i < 0) return null
+  if (list[i]?.is_terminal) return null
+  return list[i + 1]?.stage_name ?? null
+}
+
+function renderOppAdvanceControl(el, recordId, currentStage, stages) {
+  const next = nextStageAfter(stages, currentStage)
+  if (!next) {
+    const row = (stages ?? []).find(s => s.stage_name === currentStage)
+    el.innerHTML = row?.is_terminal
+      ? `<p class="muted" style="font-size:14px">${escHtml(currentStage)} is a closed state. Nothing further to move toward.</p>`
+      : '<p class="muted" style="font-size:14px">This record has reached the final stage.</p>'
+    return
+  }
+  // The lose-a-deal control sits BESIDE the advance control, not in the tab
+  // row. Settled by measurement rather than preference: Phase 2 measured the
+  // eight-tab strip at 876px in 876px, zero margin, so a ninth control there
+  // would overflow it at 1240px.
+  //
+  // btn-ghost, not btn-primary. There is one primary action on this panel
+  // and it is advancing; losing is the other thing you can do, and giving
+  // both equal weight would put an irreversible action alongside the routine
+  // one with nothing to tell them apart.
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px">
+      <span style="font-size:14px">Advance to <strong>${escHtml(next)}</strong></span>
+      <button class="btn-primary" onclick="attemptTransition('${recordId}', '${escHtml(next)}', 'transition-feedback', 'opp-stage-transition', '${escHtml(currentStage)}')">
+        Move to ${escHtml(next)}
+      </button>
+      <button class="btn-ghost" onclick="openCloseLostPrompt('${recordId}', '${escHtml(currentStage)}')">
+        Mark Closed Lost
+      </button>
+    </div>
+    <div id="transition-feedback"></div>`
+}
+
+// Losing a deal, Round 21 Phase 7.
+//
+// Uses requestChangeReason rather than a second modal, so the focus trap,
+// the Escape handling and the stays-open-on-failure behaviour are the ones
+// INTERACTION_STANDARDS.md Section 4 already governs. Test Bed's precedent
+// for a destructive action is confirm-delete-modal, a bare confirm; the
+// precedent for an action needing a reason is this dialogue. Losing a deal
+// is both, and this is the one that already carries a reason.
+//
+// Irreversible today, and the wording says so, because whether a loss can be
+// reopened is still an open decision in OPPORTUNITY_DESIGN.md. When that is
+// decided the wording changes; until then it must not imply an undo that
+// does not exist.
+window.openCloseLostPrompt = async (recordId, currentStage) => {
+  const reasons = await api('GET', '/api/closed-lost-reasons')
+  if (!reasons.ok) {
+    const fb = document.getElementById('transition-feedback')
+    if (fb) fb.innerHTML = '<p class="msg-error">Could not load the Closed Lost reasons.</p>'
+    return
+  }
+  window.requestChangeReason({
+    heading: 'Mark this opportunity Closed Lost',
+    contextLabel: 'Stage at which it is being lost',
+    contextValue: currentStage,
+    choiceLabel: 'Reason (required)',
+    choices: (reasons.data ?? []).map(r => ({ value: r.id, label: r.label })),
+    promptLabel: 'Notes (optional)',
+    confirmLabel: 'Mark Closed Lost',
+    // Stated on the screen, not only in a comment. Whether a loss can be
+    // reopened is an open decision in OPPORTUNITY_DESIGN.md, so today it
+    // cannot be, and the dialogue must not imply an undo that does not
+    // exist. When that decision lands, this line changes with it.
+    warning: 'This cannot be undone. A closed deal cannot be reopened or moved to another stage.',
+    emptyReasonError: 'A reason is required to close a deal as lost.',
+    returnFocusTo: 'opp-stage-transition',
+    onConfirm: async (note, reasonId) => {
+      const result = await api('POST', `/api/opportunities/${recordId}/close-lost`, { reason_id: reasonId, note })
+      return { ok: result.ok, error: result.data?.error }
+    },
+    onDone: async () => { await loadOpportunityDetail(recordId) },
+  })
+}
+
+// The green dot on the tab matching the record's REAL stage, mirroring
+// markTbCurrentStageTab. It matters more here than on Test Bed, because
+// Opportunity's stage names are not obviously ordered: Solution Alignment
+// and Evaluation give a reader no clue which comes first, so without the
+// dot the strip says nothing about where the record actually is.
+function markOppCurrentStageTab(currentStage) {
+  document.querySelectorAll('#opp-detail-tabs .detail-tab[data-opp-stage-tab]').forEach(btn => {
+    const isCurrent = btn.dataset.oppStageTab === currentStage
+    let dot = btn.querySelector('.opp-tab-current-dot')
+    if (isCurrent && !dot) {
+      dot = document.createElement('span')
+      dot.className = 'sa-dot opp-tab-current-dot'
+      // display:inline-block set explicitly, not left to .sa-dot: that
+      // class's width and height only take effect inside a flex container,
+      // and a <button> is not one. The same trap markTbCurrentStageTab
+      // documents.
+      dot.style.cssText = 'background:var(--green);margin-right:6px;display:inline-block'
+      btn.prepend(dot)
+    } else if (!isCurrent && dot) {
+      dot.remove()
+    }
+  })
+}
+
+// A real click on the tab row is the user picking a tab. Wired here rather
+// than inside createTabStrip because the shared factory serves Test Bed's
+// strip too, and that one already has its own flag.
+document.getElementById('opp-detail-tabs')?.addEventListener('click', e => {
+  const btn = e.target.closest('.detail-tab')
+  if (!btn) return
+  oppUserPickedTab = true
+  // A stage tab loads its own panel on open, rather than every panel being
+  // populated up front. Six stages times two fetches on every record open is
+  // work nobody asked for, and Test Bed loads per tab for the same reason.
+  const stage = btn.dataset.oppStageTab
+  if (stage && currentOppDetailId) {
+    loadOppStageTab(currentOppDetailId, stage, currentOppStage, currentOppStages)
+  }
+})
 
 // Test Bed detail tabs (Reference / Commercials / 8 stage tabs) - same
 // static-tab-bar-wired-once pattern as Opportunity's above.
@@ -1099,6 +1445,47 @@ function wireTbChevronHover(recordId) {
 // The server validates the same set independently on every PATCH, so drift
 // between the two lists costs a rejected save, never a write to an
 // unintended field.
+// ── Opportunity stage state, Round 21 Phase 1 ───────────────────────────
+//
+// The tick handler needs to know which record and which stage it is acting
+// for WITHOUT re-reading the page, which is the whole point of the fix
+// below. Mirrors currentTbStageTab, which Test Bed has kept for ten rounds.
+let currentOppDetailId = null
+let currentOppStage = null
+// The record's stage list, so a tick can work out the destination for its
+// own stage without refetching it.
+let currentOppStages = []
+// Which stage TAB is open, as distinct from currentOppStage, which is the
+// record's own stage. Phase 3 made those two different things.
+let currentOppStageTab = null
+
+// Serialises ticks. Test Bed's tbCriterionQueue exists because a person
+// ticking three boxes quickly issues three overlapping PATCHes and three
+// overlapping re-renders, and the slowest can land last and paint a stale
+// panel. Round 11A is the precedent this project already paid for: a
+// mechanism correct for one interaction and untested for a repeated one.
+let oppCriterionQueue = Promise.resolve()
+
+// oppUserPickedTab, Round 21 Phase 1. The same race Round 5 Phase 7 found
+// on Test Bed and fixed there with tbUserPickedTab, never ported here.
+//
+// renderOppDetail ends with an unconditional switchOppTab('reference'), and
+// it runs AFTER several awaited round trips, while the tab bar is already
+// visible and clickable. A user who clicks Stage and Approvals in that
+// window has the click silently overwritten moments later when the page's
+// own default finally lands.
+//
+// Measured in Phase 1 rather than assumed: with the page allowed to settle
+// first, three consecutive ticks hold the tab; without settling, the first
+// tick appeared to reset it, and that reset was this load completing rather
+// than anything the tick did. Two causes, one symptom, and this one
+// survived the tick-handler fix.
+//
+// Cleared on ARRIVAL at a record, so opening an Opportunity still lands on
+// Reference exactly as before. This only protects a click that races that
+// same load's own completion.
+let oppUserPickedTab = false
+
 const OPP_EXIT_CRITERION_KEYS = new Set([
   'exitQualBudget', 'exitQualTimeline', 'exitQualCommitment',
   'exitSolTechnicalSolution', 'exitSolBuyersKnown', 'exitSolKeyStakeholders', 'exitSolTermsReviewed',
@@ -1108,52 +1495,19 @@ const OPP_EXIT_CRITERION_KEYS = new Set([
   'exitNegCommercialsApproved', 'exitNegContractExecuted',
 ])
 
-async function renderTransitionSection(elementId, feedbackId, recordId, currentStage, stages) {
-  const section = document.getElementById(elementId)
-  const currentIdx = stages.findIndex(s => s.stage_name === currentStage)
-
-  // Round 20 Phase 6: a record already in a terminal stage is heading
-  // nowhere. This line computed stages[currentIdx + 1] regardless, and
-  // Closed Lost sorts to position 0, so a lost deal would have been
-  // offered a button reading "Move to Qualification".
-  //
-  // The same fault was fixed server-side in Phase 2, in records.js. This is
-  // a SECOND, independent implementation of "the next stage" in the browser,
-  // which the server fix could never have reached. Build discipline rule 6.
-  const currentRow = currentIdx >= 0 ? stages[currentIdx] : undefined
-  const nextStage = currentIdx >= 0 && !currentRow?.is_terminal
-    ? stages[currentIdx + 1]?.stage_name
-    : undefined
-
-  if (!nextStage) {
-    section.innerHTML = currentRow?.is_terminal
-      ? `<p class="muted" style="font-size:14px">${escHtml(currentStage)} is a closed state. Nothing further to move toward.</p>`
-      : '<p class="muted" style="font-size:14px">This record has reached the final stage.</p>'
-    return
-  }
-
-  section.innerHTML = `
-    <div id="${elementId}-criteria" class="opp-crit-list"><p class="muted" style="font-size:14px">Loading exit criteria...</p></div>
-    <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px">
-      <span style="font-size:14px">Advance to <strong>${escHtml(nextStage)}</strong></span>
-      <button class="btn-primary" onclick="attemptTransition('${recordId}', '${escHtml(nextStage)}', '${feedbackId}', '${elementId}', '${currentStage}')">
-        Move to ${escHtml(nextStage)}
-      </button>
-    </div>
-    <div id="${feedbackId}"></div>
-  `
-  await renderOppExitCriteria(elementId, recordId, currentStage, nextStage)
-}
-
 // The tick list, following the Test Bed panel that is already built and in
 // use. The busiest Opportunity transition carries 5 criteria and 3
 // approvals; Test Bed's Qualification exit already renders 9 criteria, 2
 // approvals and 3 further requirements on one panel, so the pattern carries
 // this count with room to spare. Measured in Phase 6 rather than assumed.
-async function renderOppExitCriteria(elementId, recordId, fromStage, toStage) {
-  const el = document.getElementById(`${elementId}-criteria`)
+async function renderOppExitCriteria(containerId, recordId, fromStage, toStage, isStillCurrent = () => true) {
+  const el = document.getElementById(containerId)
   if (!el) return
   const result = await api('GET', `/api/records/${recordId}/exit-criteria?stage=${encodeURIComponent(fromStage)}`)
+  // Dropped rather than painted if a newer load has started. Without this a
+  // slower response for an earlier tab lands last and shows that stage's
+  // criteria under this one's heading.
+  if (!isStillCurrent()) return
   if (!result.ok) {
     el.innerHTML = '<p class="empty-state">Unable to load exit criteria.</p>'
     return
@@ -1172,14 +1526,21 @@ async function renderOppExitCriteria(elementId, recordId, fromStage, toStage) {
       ? '<span class="tb-crit-box tb-crit-box--met">&#10003;</span>'
       : '<span class="tb-crit-box"></span>'
     if (tickable) {
-      return `<div class="tb-crit-row tb-crit-row--tickable" data-field="${escHtml(r.field)}" data-met="${r.met ? 'true' : 'false'}" onclick="toggleOppExitCriterion('${escHtml(recordId)}', '${escHtml(r.field)}', ${r.met ? 'true' : 'false'})" title="${r.met ? 'Tick to clear' : 'Tick to confirm'}">
+      // The STAGE travels with the row. Phase 1's handler read the record's
+      // own stage, which was right when the panel only ever existed on one
+      // screen and is wrong now that a panel can be open for a stage the
+      // record is not in.
+      return `<div class="tb-crit-row tb-crit-row--tickable" data-field="${escHtml(r.field)}" data-stage="${escHtml(fromStage)}" data-met="${r.met ? 'true' : 'false'}" onclick="toggleOppExitCriterion('${escHtml(recordId)}', '${escHtml(fromStage)}', '${escHtml(r.field)}', ${r.met ? 'true' : 'false'})" title="${r.met ? 'Tick to clear' : 'Tick to confirm'}">
         ${mark}<span class="tb-crit-text">${escHtml(r.label)}</span>
       </div>`
     }
     // Approvals are earned elsewhere and computed here, so they are
     // read-only rows. Presenting one as a tick box would invite a click
     // that cannot do anything.
-    return `<div class="tb-crit-row tb-crit-row--computed" data-field="${escHtml(r.field ?? '')}" data-met="${r.met ? 'true' : 'false'}">
+    // data-stage on the computed rows too. It feeds no handler, but six
+    // stage panels now sit in the DOM at once and a row that does not say
+    // which panel it belongs to is a row a probe can misattribute.
+    return `<div class="tb-crit-row tb-crit-row--computed" data-field="${escHtml(r.field ?? '')}" data-stage="${escHtml(fromStage)}" data-met="${r.met ? 'true' : 'false'}">
       ${mark}<span class="tb-crit-text">${escHtml(r.message)}</span>
     </div>`
   }).join('')
@@ -1189,25 +1550,95 @@ async function renderOppExitCriteria(elementId, recordId, fromStage, toStage) {
     ? `<p class="sub" style="margin-bottom:10px">All criteria met - ready to move to ${escHtml(toStage)}.</p>`
     : `<p class="sub" style="margin-bottom:10px">${outstanding} of ${requirements.length} outstanding to move to ${escHtml(toStage)}:</p>`
   el.innerHTML = summary + rows
+  const fb = document.createElement('div')
+  fb.className = 'tb-doc-feedback opp-crit-feedback'
+  el.appendChild(fb)
+}
+
+// Reflects a SERVER-CONFIRMED tick on the row that was clicked, before the
+// panel re-renders. Without it the row sits unchanged for the length of the
+// round trip and a second click lands on stale `met` state.
+function applyConfirmedOppTick(recordId, stageName, field, met) {
+  const row = document.querySelector(
+    `.tb-crit-row--tickable[data-field="${CSS.escape(field)}"][data-stage="${CSS.escape(stageName)}"]`)
+  if (!row) return
+  const box = row.querySelector('.tb-crit-box')
+  if (box) {
+    box.className = met ? 'tb-crit-box tb-crit-box--met' : 'tb-crit-box'
+    box.innerHTML = met ? '&#10003;' : ''
+  }
+  row.dataset.met = met ? 'true' : 'false'
+  row.setAttribute('title', met ? 'Tick to clear' : 'Tick to confirm')
+  row.setAttribute('onclick', `toggleOppExitCriterion('${recordId}', '${stageName}', '${field}', ${met ? 'true' : 'false'})`)
 }
 
 // Ticking writes an ISO timestamp, clearing writes null, which is the same
 // shape Test Bed uses: the gate asks only whether the field is set, and a
 // timestamp answers that while also recording when it was confirmed.
-window.toggleOppExitCriterion = async (recordId, field, isMet) => {
-  if (!OPP_EXIT_CRITERION_KEYS.has(field)) return
-  const row = document.querySelector(`.tb-crit-row[data-field="${field}"]`)
-  if (row) row.style.opacity = '0.5'
-  const result = await api('PATCH', `/api/opportunities/${recordId}`, {
-    payload: { [field]: isMet ? null : new Date().toISOString() }
-  })
-  if (!result.ok) {
-    if (row) row.style.opacity = ''
-    const fb = document.getElementById('transition-feedback')
-    if (fb) fb.innerHTML = `<p class="msg-error">${escHtml(result.data?.error ?? 'Could not update the criterion.')}</p>`
-    return
+// Round 21 Phase 1. THE BLOCKING DEFECT, and it was one line.
+//
+// This previously ended with `await loadOpportunityDetail(recordId)`, which
+// re-renders the entire record page. The page's default active tab is
+// Reference, so every tick threw the user back to Reference and the next
+// tick cost re-clicking the tab and scrolling down again. Measured in Phase
+// 0 across three consecutive ticks: the tab read `reference` after every
+// one, and the criteria panel was out of the viewport after every one.
+//
+// The panel was never on the Reference page, which was the reported
+// diagnosis. It sat inside #opp-tab-approvals, a tab Phase 5 has since
+// removed entirely. The location was never the
+// problem; reloading the page after a write was.
+//
+// Test Bed has done this correctly since Round 9: re-render the panel, not
+// the page, and capture the stage at click time so a tab switch mid-flight
+// cannot paint the wrong stage's answer.
+window.toggleOppExitCriterion = (recordId, stageName, field, isMet) => {
+  if (!OPP_EXIT_CRITERION_KEYS.has(field)) return oppCriterionQueue
+  const run = async () => {
+    // Round 21 Phase 3: the stage now arrives as an ARGUMENT rather than
+    // being read from currentOppStage.
+    //
+    // Phase 1 captured the record's own stage at click time, which was
+    // correct while the panel existed on exactly one screen. A stage tab can
+    // now be open for a stage the record is not in, and Test Bed permits
+    // ticking there, so the record's status is no longer the stage the click
+    // belongs to. Reading it would have re-rendered the wrong panel and left
+    // the clicked one showing a stale tick.
+    //
+    // Still captured at click time in the sense that matters: it is bound
+    // into the row's own onclick when the row is rendered, so it cannot
+    // drift while the write is in flight.
+    const stageAtClick = stageName
+    const key = oppStageTabKey(stageAtClick)
+    const panel = document.getElementById(`opp-stage-criteria-${key}`)
+    const fb = panel?.querySelector('.opp-crit-feedback')
+    if (fb) { fb.textContent = ''; fb.className = 'tb-doc-feedback opp-crit-feedback' }
+
+    const result = await api('PATCH', `/api/opportunities/${recordId}`, {
+      payload: { [field]: isMet ? null : new Date().toISOString() }
+    })
+
+    if (!result.ok) {
+      // The control is left exactly as it was. A failed write must not look
+      // like a success, which is why nothing optimistic happens before this.
+      const el = document.getElementById(`opp-stage-criteria-${key}`)?.querySelector('.opp-crit-feedback')
+      if (el) {
+        el.textContent = `Could not update: ${result.data?.error ?? 'unknown error'}`
+        el.className = 'tb-doc-feedback opp-crit-feedback err'
+      }
+      return
+    }
+
+    // Still the same record, and that stage's panel is still on the page.
+    if (currentOppDetailId === recordId && document.getElementById(`opp-stage-criteria-${key}`)) {
+      applyConfirmedOppTick(recordId, stageAtClick, field, !isMet)
+      const token = ++oppStageTabLoadToken
+      await renderOppExitCriteria(`opp-stage-criteria-${key}`, recordId, stageAtClick,
+        nextStageAfter(currentOppStages, stageAtClick), () => token === oppStageTabLoadToken)
+    }
   }
-  await loadOpportunityDetail(recordId)
+  oppCriterionQueue = oppCriterionQueue.then(run, run)
+  return oppCriterionQueue
 }
 
 window.attemptTransition = async (id, toStage, feedbackId, sectionId, currentStage) => {
@@ -1811,17 +2242,38 @@ window.createFromContact = async (id, type) => {
   startCreateFromContact(id, type)
 }
 
-// Test Bed creation now always goes through the name dialogue; Opportunity
-// is untouched and still creates directly, matching this round's scope.
+// Round 21 Phase 8: BOTH now go through the name dialogue.
+//
+// Opportunity used to create directly, and the server filled the name in
+// from the Account, so every Opportunity for one Account got the same name.
+// The dialogue was already here and already correct for Test Bed; what was
+// missing was asking.
+//
+// The Test Bed path is unchanged in behaviour. The dialogue is parameterised
+// by type rather than copied, and its ids, handlers, focus trap and Escape
+// owner are the same ones Test Bed has used since Round 10.
 async function startCreateFromContact(id, type) {
-  if (type !== 'test-bed') return performCreateFromContact(id, type)
-  await openNewTestBedModal(id)
+  await openNewRecordModal(id, type === 'test-bed' ? 'test-bed' : 'opportunity')
 }
 
 let ntbContactId = null
 let ntbKeydownHandler = null
+// Which record type the shared name dialogue is currently creating.
+let ntbType = 'test-bed'
 
-async function openNewTestBedModal(contactId) {
+// Parameterised by type, Round 21 Phase 8. Test Bed's behaviour is unchanged:
+// same element ids, same handlers, same focus trap, same Escape owner, and
+// the same suggested-name endpoint. Only the three strings differ.
+async function openNewRecordModal(contactId, type) {
+  ntbType = type
+  const isBed = type === 'test-bed'
+  document.getElementById('new-test-bed-heading').textContent = isBed ? 'New Test Bed' : 'New Opportunity'
+  document.getElementById('new-test-bed-label').textContent = isBed ? 'Test Bed name' : 'Opportunity name'
+  document.getElementById('new-test-bed-save').textContent = isBed ? 'Create Test Bed' : 'Create Opportunity'
+  document.getElementById('new-test-bed-sub').textContent = isBed
+    ? 'Name this Test Bed. The suggested name is based on the Account, and can be replaced.'
+    : 'Name this Opportunity. The suggested name is based on the Account, and should be replaced: '
+      + 'an Account usually has more than one Opportunity, and identical names make the pipeline list unreadable.'
   ntbContactId = contactId
   const modal = document.getElementById('new-test-bed-modal')
   const input = document.getElementById('new-test-bed-name')
@@ -1872,7 +2324,7 @@ async function saveNewTestBed() {
   const err = document.getElementById('new-test-bed-error')
   const name = input.value.trim()
   if (!name) {
-    err.textContent = 'Enter a name for this Test Bed.'
+    err.textContent = ntbType === 'test-bed' ? 'Enter a name for this Test Bed.' : 'Enter a name for this Opportunity.'
     err.classList.remove('hidden')
     input.focus()
     return
@@ -1882,8 +2334,9 @@ async function saveNewTestBed() {
   const original = btn.textContent
   btn.textContent = 'Creating...'
   const contactId = ntbContactId
+  const type = ntbType
   try {
-    await performCreateFromContact(contactId, 'test-bed', name)
+    await performCreateFromContact(contactId, type, name)
   } finally {
     btn.disabled = false
     btn.textContent = original
@@ -1905,7 +2358,10 @@ document.getElementById('new-test-bed-modal').addEventListener('click', (e) => {
 // contact, independent of hover state.
 async function performCreateFromContact(id, type, name) {
   const path = type === 'opportunity' ? `/api/contacts/${id}/create-opportunity` : `/api/contacts/${id}/create-test-bed`
-  const result = await api('POST', path, name ? { name } : undefined)
+  // Always sends a name. The Opportunity route now requires one, and the
+  // Test Bed route already did; the old `name ? {name} : undefined` was what
+  // let an Opportunity be created with none at all.
+  const result = await api('POST', path, { name })
 
   // A failed create must leave the dialogue OPEN with the reason on it -
   // closing first would strand the user on the list with a message they
@@ -3492,7 +3948,6 @@ async function renderOppDetail(opp) {
 
   const stages = await fetchStages('opportunity')
   renderChevronStrip('opp-chevron-strip', opp.status, stages)
-  await renderTransitionSection('transition-section', 'transition-feedback', opp.id, opp.status, stages)
 
   await loadTerminusStaffIfNeeded()
 
@@ -3504,11 +3959,35 @@ async function renderOppDetail(opp) {
   // Executive Summary, Notes.
   window.initOpportunityReferencePanel?.(opp)
 
-  // Always land back on Reference when opening/switching opportunities,
-  // same convention as other modules resetting their sub-view on entry.
-  switchOppTab('reference')
-  renderOppDocumentsList()
-  await loadStageApprovals(opp.id)
+  // The stage tabs are generated per record, from that record's own stage
+  // list, BEFORE the default-to-Reference below. Generating them after would
+  // mean the strip briefly shows the previous record's stages.
+  // Round 21 Phase 9: assigned HERE, not in renderTransitionSection.
+  //
+  // Phase 3 set these inside that function, which was correct while it ran on
+  // every render. Phase 5 removed its last caller together with the Stage and
+  // Approvals tab and did not move the assignments, so currentOppDetailId
+  // stayed null and the tick handler's guard
+  //   currentOppDetailId === recordId
+  // was false for every tick. The PATCH still succeeded and the database
+  // still updated; only the panel never re-rendered, so a tick looked like it
+  // had done nothing.
+  //
+  // Nothing between Phase 5 and Phase 9 ticked a criterion through the
+  // browser, which is why four phases passed over a live regression. The full
+  // walk is what found it.
+  currentOppDetailId = opp.id
+  currentOppStage = opp.status
+  currentOppStages = stages ?? []
+  renderOppStageTabs(stages, opp.status)
+  // The record's own stage panel is filled eagerly, so the tab carrying the
+  // green dot is never a blank card if the user goes straight to it.
+  loadOppStageTab(opp.id, opp.status, opp.status, stages)
+
+  // Land back on Reference when opening or switching opportunities, the same
+  // convention as other modules resetting their sub-view on entry, UNLESS the
+  // user already picked a tab while this load was still in flight.
+  if (!oppUserPickedTab) switchOppTab('reference')
 }
 
 // ── Documents tab: deliberately just a caption + flat template-link list,
@@ -3517,11 +3996,6 @@ async function renderOppDetail(opp) {
 // document_details, a different, per-stage-requirement thing, not a
 // static template library) - so this renders an honest empty state
 // rather than fabricated entries.
-function renderOppDocumentsList() {
-  document.getElementById('opp-documents-list').innerHTML =
-    '<p class="empty-state">No document templates configured yet.</p>'
-}
-
 // ── Stage & Approvals tab ───────────────────────────────────────────────────
 // containerId (2026-08-15, Milestone 4): generalized from Opportunity's
 // original hardcoded 'opp-stage-approvals-rows' so Test Bed's Approvals
@@ -3534,6 +4008,12 @@ const stageApprovalsContainerByRecord = {}
 async function loadStageApprovals(id, containerId = 'opp-stage-approvals-rows') {
   stageApprovalsContainerByRecord[id] = containerId
   const container = document.getElementById(containerId)
+  // Round 21 Phase 5: the default names Opportunity's all-stages table,
+  // which this round replaced with per-stage cards and removed. The default
+  // is now unreachable from any live caller, and a caller that fell through
+  // to it would have thrown on a null container rather than doing nothing.
+  // Test Bed passes its own container and is unaffected.
+  if (!container) return
   container.innerHTML = '<p class="empty-state">Loading...</p>'
   const result = await api('GET', `/api/records/${id}/stage-approvals`)
   if (!result.ok) {
@@ -3625,6 +4105,7 @@ function buildStageTrackListHtml(recordId, st) {
 
 function renderStageApprovalsRows(recordId, stages, containerId = 'opp-stage-approvals-rows') {
   const container = document.getElementById(containerId)
+  if (!container) return
   if (!stages.length) {
     container.innerHTML = '<p class="empty-state">No stages configured for this record type.</p>'
     return
@@ -3681,6 +4162,37 @@ function applyConfirmedApproval(track, decidedAt) {
 
 window.submitStageApproval = async (recordId, track) => {
   const result = await api('POST', `/api/records/${recordId}/approvals`, { track, decision: 'approved' })
+
+  // Round 21 Phase 4: this function was written for Test Bed and every
+  // branch below tests currentTestBed. Opportunity's all-stages table has
+  // called it since Round 9, so an Opportunity approval POSTed successfully
+  // and then matched no branch: no refresh, no error, nothing on screen.
+  // Architecture rule 8, and the Opportunity stage panels would have
+  // inherited it. The Opportunity path is handled first and returns.
+  if (recordId === currentOppDetailId) {
+    if (!result.ok) {
+      const el = document.getElementById(`opp-stage-approvals-${oppStageTabKey(currentOppStageTab ?? '')}`)
+      if (el) {
+        let fb = el.querySelector('.opp-approval-feedback')
+        if (!fb) { fb = document.createElement('div'); fb.className = 'opp-approval-feedback'; el.appendChild(fb) }
+        fb.textContent = `Could not record the ${track} approval: ${result.data?.error ?? 'unknown error'}`
+        fb.className = 'tb-doc-feedback opp-approval-feedback err'
+      }
+      return
+    }
+    const stage = currentOppStageTab
+    if (!stage) return
+    const token = ++oppStageTabLoadToken
+    // Both panels: an approval can satisfy an approval_obtained criterion,
+    // so the Exit Criteria card beside it is stale the moment this lands.
+    await Promise.all([
+      renderOppStageApprovals(recordId, stage, () => token === oppStageTabLoadToken),
+      renderOppExitCriteria(`opp-stage-criteria-${oppStageTabKey(stage)}`, recordId, stage,
+        nextStageAfter(currentOppStages, stage), () => token === oppStageTabLoadToken),
+    ])
+    return
+  }
+
   if (!result.ok) {
     const row = document.getElementById('tb-stage-approval-row')
     if (recordId === currentTestBed?.id && row) {
@@ -3785,9 +4297,41 @@ window.requestChangeReason = function (opts) {
   document.getElementById('change-reason-confirm').textContent = opts.confirmLabel
   const input = document.getElementById('change-reason-input')
   input.value = ''
+
+  // Round 21 Phase 7: an optional PICKLIST above the free text.
+  //
+  // Added to this dialogue rather than built as a second one. It already
+  // owns the focus trap, the Escape handling and the stays-open-on-failure
+  // behaviour that INTERACTION_STANDARDS.md Section 4 requires, and a second
+  // modal would be a second place for those to drift. Callers that pass no
+  // choices are byte for byte unaffected: the group stays hidden and the
+  // free text stays mandatory.
+  //
+  // When choices ARE passed the roles swap: the choice is mandatory and the
+  // free text becomes optional colour alongside it.
+  const choiceGroup = document.getElementById('change-reason-choice-group')
+  const choiceSel = document.getElementById('change-reason-choice')
+  if (opts.choices?.length) {
+    document.getElementById('change-reason-choice-label').textContent = opts.choiceLabel ?? 'Reason'
+    choiceSel.innerHTML = '<option value="">--</option>' +
+      opts.choices.map(c => `<option value="${escHtml(c.value)}">${escHtml(c.label)}</option>`).join('')
+    choiceSel.value = ''
+    choiceGroup.classList.remove('hidden')
+  } else {
+    choiceGroup.classList.add('hidden')
+    choiceSel.innerHTML = ''
+  }
+
+  // An optional line for an action that cannot be undone. Empty for the two
+  // callers that predate it, so nothing appears where nothing appeared.
+  const warnEl = document.getElementById('change-reason-warning')
+  if (opts.warning) { warnEl.textContent = opts.warning; warnEl.classList.remove('hidden') }
+  else { warnEl.textContent = ''; warnEl.classList.add('hidden') }
+
   document.getElementById('change-reason-error').classList.add('hidden')
   document.getElementById('change-reason-form').classList.remove('hidden')
-  input.focus()
+  if (opts.choices?.length) choiceSel.focus()
+  else input.focus()
 
   // Direct port of Park's own handler, per INTERACTION_STANDARDS.md Section
   // 4: attached on open and removed on close rather than left permanently
@@ -3797,11 +4341,18 @@ window.requestChangeReason = function (opts) {
   changeReasonKeydownHandler = (e) => {
     if (e.key === 'Escape') { e.preventDefault(); window.cancelChangeReason(); return }
     if (e.key !== 'Tab') return
-    const focusable = [
-      document.getElementById('change-reason-input'),
-      document.getElementById('change-reason-cancel'),
-      document.getElementById('change-reason-confirm'),
-    ]
+    // The picklist joins the trap only while it is showing. Filtered rather
+      // than left in as a null, because a null becomes focusable[0] and
+      // Shift+Tab would call .focus() on it: a regression for the two
+      // callers that pass no choices at all.
+      const focusable = [
+        document.getElementById('change-reason-choice-group').classList.contains('hidden')
+          ? null
+          : document.getElementById('change-reason-choice'),
+        document.getElementById('change-reason-input'),
+        document.getElementById('change-reason-cancel'),
+        document.getElementById('change-reason-confirm'),
+      ].filter(Boolean)
     const first = focusable[0]
     const last = focusable[focusable.length - 1]
     if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus() }
@@ -3834,13 +4385,19 @@ window.confirmChangeReason = async function () {
   const errEl = document.getElementById('change-reason-error')
   errEl.classList.add('hidden')
 
-  if (!reason) {
+  // With a picklist the CHOICE is what is mandatory and the free text is
+  // optional. Without one, the free text is mandatory exactly as before.
+  const choice = state.choices?.length
+    ? document.getElementById('change-reason-choice').value
+    : null
+
+  if (state.choices?.length ? !choice : !reason) {
     errEl.textContent = state.emptyReasonError ?? 'A reason is required.'
     errEl.classList.remove('hidden')
     return
   }
 
-  const result = await state.onConfirm(reason)
+  const result = await state.onConfirm(reason, choice)
   if (!result?.ok) {
     // The dialogue STAYS OPEN on failure, with the typed reason intact.
     // Closing it would discard what the user wrote for a failure that is

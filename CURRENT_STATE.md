@@ -12,9 +12,9 @@ Contains no environment variable, key or token, and no client data. Records
 appear as counts by status only, never by name or reference code, because
 this file is uploaded into chat sessions.
 
-- Generated at: `2026-08-22T10:41:22.744Z`
-- Git commit: `cfe2996f9daa92b61b62660e54aa61e06f5ed4e6`
-- Working tree at generation: `dirty (uncommitted changes present)`
+- Generated at: `2026-08-22T13:57:18.422Z`
+- Git commit: `61ee2fde8c4c526eb1c7a400f14363bb3fd5e91f`
+- Working tree at generation: `clean`
 
 Staleness has two parts, and both must hold for this file to be current:
 the recorded commit is an ancestor of `HEAD`, AND no tracked configuration
@@ -252,31 +252,31 @@ _None._
 
 ## Record counts by type and status
 
-93 live, 9413 soft deleted, 9506 rows in total.
+94 live, 10068 soft deleted, 10162 rows in total.
 
 | record_type | status | live | soft deleted |
 |---|---|---|---|
 | account | active | 4 | 251 |
 | contact | Parked | 0 | 2 |
-| contact | Qualified | 7 | 185 |
+| contact | Qualified | 7 | 206 |
 | contact | Unqualified | 1 | 53 |
-| document | approved | 61 | 923 |
+| document | approved | 61 | 959 |
 | document | received | 1 | 74 |
-| opportunity | Closed Lost | 0 | 4 |
-| opportunity | Closed Won | 0 | 3 |
+| opportunity | Closed Lost | 0 | 11 |
+| opportunity | Closed Won | 0 | 5 |
 | opportunity | Negotiating | 0 | 1 |
 | opportunity | Proposal | 0 | 4 |
-| opportunity | Qualification | 3 | 71 |
-| opportunity | Solution Alignment | 0 | 5 |
+| opportunity | Qualification | 3 | 114 |
+| opportunity | Solution Alignment | 1 | 9 |
 | test_bed | Closed | 5 | 9 |
 | test_bed | Installation and Commissioning | 1 | 29 |
 | test_bed | Monitoring and Analysis | 0 | 1 |
 | test_bed | Pre-Site Assessment | 0 | 8 |
-| test_bed | Qualification | 1 | 240 |
+| test_bed | Qualification | 1 | 287 |
 | test_bed | Review and Completion | 1 | 0 |
 | test_bed | Site Assessment | 1 | 14 |
 | unit | Installed | 4 | 3 |
-| unit | Planned | 3 | 1170 |
+| unit | Planned | 3 | 1323 |
 | unit | Removed | 0 | 1 |
 
 ### Test fixture record types
@@ -287,7 +287,7 @@ row by row, and are included in the totals above.
 
 | distinct `harness_*` record types | live rows | soft deleted rows |
 |---|---|---|
-| 584 | 0 | 6362 |
+| 629 | 0 | 6704 |
 
 No harness record type holds a live row; every fixture row is soft deleted.
 
@@ -338,7 +338,7 @@ than written as a literal list, so its members are not enumerable here.
 
 ## Registered routes
 
-57 routes. Prefixes parsed from `src/server.js`, paths from each route module.
+59 routes. Prefixes parsed from `src/server.js`, paths from each route module.
 
 | method | path | auth | source |
 |---|---|---|---|
@@ -346,6 +346,7 @@ than written as a literal list, so its members are not enumerable here.
 | POST | `/api/accounts` | authenticated | `src/routes/accounts.js` |
 | GET | `/api/accounts/:id` | authenticated | `src/routes/accounts.js` |
 | PATCH | `/api/accounts/:id` | authenticated | `src/routes/accounts.js` |
+| GET | `/api/closed-lost-reasons` | authenticated | `src/routes/closed-lost-reasons.js` |
 | GET | `/api/config` | public | `src/server.js` |
 | GET | `/api/contacts` | authenticated | `src/routes/contacts.js` |
 | POST | `/api/contacts` | authenticated | `src/routes/contacts.js` |
@@ -365,6 +366,7 @@ than written as a literal list, so its members are not enumerable here.
 | PATCH | `/api/opportunities/:id` | authenticated | `src/routes/opportunities.js` |
 | POST | `/api/opportunities/:id/buyer-contacts` | authenticated | `src/routes/opportunities.js` |
 | POST | `/api/opportunities/:id/close-date-move` | authenticated | `src/routes/opportunities.js` |
+| POST | `/api/opportunities/:id/close-lost` | authenticated | `src/routes/opportunities.js` |
 | PUT | `/api/opportunities/:id/probability-override` | authenticated | `src/routes/opportunities.js` |
 | GET | `/api/records` | authenticated | `src/routes/records.js` |
 | POST | `/api/records` | authenticated | `src/routes/records.js` |
@@ -402,7 +404,7 @@ than written as a literal list, so its members are not enumerable here.
 
 ## Migrations, in filename order
 
-62 files in `supabase/migrations/`.
+64 files in `supabase/migrations/`.
 
 1. `20260801000000_initial_schema.sql`
 2. `20260802000000_lead_opportunity.sql`
@@ -466,6 +468,8 @@ than written as a literal list, so its members are not enumerable here.
 60. `20260822000004_closed_lost_sort_order.sql`
 61. `20260822000005_scaffold_criteria.sql`
 62. `20260822000006_remove_scaffold.sql`
+63. `20260822000007_closed_lost_reasons.sql`
+64. `20260822000008_closed_lost_record.sql`
 
 ## Seed files, in application order
 
