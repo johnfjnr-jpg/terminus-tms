@@ -383,8 +383,26 @@ function switchOppTab(tab) { oppTabStrip.select(tab) }
 //
 // Closed Won is terminal but NOT reachable-from-anywhere: it is entered
 // from Negotiating like any other forward move, so it keeps its tab.
+// The key is SANITISED, and that is not cosmetic.
+//
+// It becomes part of several element ids, and an id containing a space works
+// with getElementById and breaks silently in any CSS selector:
+// querySelector('#opp-stage-criteria-stage-Solution Alignment') parses as
+// "#opp-stage-criteria-stage-Solution" with a descendant "Alignment" and
+// matches nothing, with no error. Four of the six Opportunity stages are two
+// words, so the fault would have been latent in two thirds of the panels and
+// invisible until something used a selector rather than an id lookup.
+//
+// Found in Phase 7 by a verification probe doing exactly that. createTabStrip
+// already sanitises the same way when it builds button ids, which is where
+// the pattern comes from.
+//
+// The real stage name is never derived back from this: every generated
+// element carries data-opp-stage-tab or data-opp-stage-panel with the
+// unsanitised name, so two stages that sanitised to the same key would still
+// be distinguishable, and none of the seven do.
 function oppStageTabKey(stageName) {
-  return `stage-${stageName}`
+  return `stage-${String(stageName).replace(/[^a-zA-Z0-9_-]+/g, '-')}`
 }
 
 function renderOppStageTabs(stages, currentStage) {
@@ -580,14 +598,69 @@ function renderOppAdvanceControl(el, recordId, currentStage, stages) {
       : '<p class="muted" style="font-size:14px">This record has reached the final stage.</p>'
     return
   }
+  // The lose-a-deal control sits BESIDE the advance control, not in the tab
+  // row. Settled by measurement rather than preference: Phase 2 measured the
+  // eight-tab strip at 876px in 876px, zero margin, so a ninth control there
+  // would overflow it at 1240px.
+  //
+  // btn-ghost, not btn-primary. There is one primary action on this panel
+  // and it is advancing; losing is the other thing you can do, and giving
+  // both equal weight would put an irreversible action alongside the routine
+  // one with nothing to tell them apart.
   el.innerHTML = `
     <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px">
       <span style="font-size:14px">Advance to <strong>${escHtml(next)}</strong></span>
       <button class="btn-primary" onclick="attemptTransition('${recordId}', '${escHtml(next)}', 'transition-feedback', 'opp-stage-transition', '${escHtml(currentStage)}')">
         Move to ${escHtml(next)}
       </button>
+      <button class="btn-ghost" onclick="openCloseLostPrompt('${recordId}', '${escHtml(currentStage)}')">
+        Mark Closed Lost
+      </button>
     </div>
     <div id="transition-feedback"></div>`
+}
+
+// Losing a deal, Round 21 Phase 7.
+//
+// Uses requestChangeReason rather than a second modal, so the focus trap,
+// the Escape handling and the stays-open-on-failure behaviour are the ones
+// INTERACTION_STANDARDS.md Section 4 already governs. Test Bed's precedent
+// for a destructive action is confirm-delete-modal, a bare confirm; the
+// precedent for an action needing a reason is this dialogue. Losing a deal
+// is both, and this is the one that already carries a reason.
+//
+// Irreversible today, and the wording says so, because whether a loss can be
+// reopened is still an open decision in OPPORTUNITY_DESIGN.md. When that is
+// decided the wording changes; until then it must not imply an undo that
+// does not exist.
+window.openCloseLostPrompt = async (recordId, currentStage) => {
+  const reasons = await api('GET', '/api/closed-lost-reasons')
+  if (!reasons.ok) {
+    const fb = document.getElementById('transition-feedback')
+    if (fb) fb.innerHTML = '<p class="msg-error">Could not load the Closed Lost reasons.</p>'
+    return
+  }
+  window.requestChangeReason({
+    heading: 'Mark this opportunity Closed Lost',
+    contextLabel: 'Stage at which it is being lost',
+    contextValue: currentStage,
+    choiceLabel: 'Reason (required)',
+    choices: (reasons.data ?? []).map(r => ({ value: r.id, label: r.label })),
+    promptLabel: 'Notes (optional)',
+    confirmLabel: 'Mark Closed Lost',
+    // Stated on the screen, not only in a comment. Whether a loss can be
+    // reopened is an open decision in OPPORTUNITY_DESIGN.md, so today it
+    // cannot be, and the dialogue must not imply an undo that does not
+    // exist. When that decision lands, this line changes with it.
+    warning: 'This cannot be undone. A closed deal cannot be reopened or moved to another stage.',
+    emptyReasonError: 'A reason is required to close a deal as lost.',
+    returnFocusTo: 'opp-stage-transition',
+    onConfirm: async (note, reasonId) => {
+      const result = await api('POST', `/api/opportunities/${recordId}/close-lost`, { reason_id: reasonId, note })
+      return { ok: result.ok, error: result.data?.error }
+    },
+    onDone: async () => { await loadOpportunityDetail(recordId) },
+  })
 }
 
 // The green dot on the tab matching the record's REAL stage, mirroring
@@ -4228,9 +4301,41 @@ window.requestChangeReason = function (opts) {
   document.getElementById('change-reason-confirm').textContent = opts.confirmLabel
   const input = document.getElementById('change-reason-input')
   input.value = ''
+
+  // Round 21 Phase 7: an optional PICKLIST above the free text.
+  //
+  // Added to this dialogue rather than built as a second one. It already
+  // owns the focus trap, the Escape handling and the stays-open-on-failure
+  // behaviour that INTERACTION_STANDARDS.md Section 4 requires, and a second
+  // modal would be a second place for those to drift. Callers that pass no
+  // choices are byte for byte unaffected: the group stays hidden and the
+  // free text stays mandatory.
+  //
+  // When choices ARE passed the roles swap: the choice is mandatory and the
+  // free text becomes optional colour alongside it.
+  const choiceGroup = document.getElementById('change-reason-choice-group')
+  const choiceSel = document.getElementById('change-reason-choice')
+  if (opts.choices?.length) {
+    document.getElementById('change-reason-choice-label').textContent = opts.choiceLabel ?? 'Reason'
+    choiceSel.innerHTML = '<option value="">--</option>' +
+      opts.choices.map(c => `<option value="${escHtml(c.value)}">${escHtml(c.label)}</option>`).join('')
+    choiceSel.value = ''
+    choiceGroup.classList.remove('hidden')
+  } else {
+    choiceGroup.classList.add('hidden')
+    choiceSel.innerHTML = ''
+  }
+
+  // An optional line for an action that cannot be undone. Empty for the two
+  // callers that predate it, so nothing appears where nothing appeared.
+  const warnEl = document.getElementById('change-reason-warning')
+  if (opts.warning) { warnEl.textContent = opts.warning; warnEl.classList.remove('hidden') }
+  else { warnEl.textContent = ''; warnEl.classList.add('hidden') }
+
   document.getElementById('change-reason-error').classList.add('hidden')
   document.getElementById('change-reason-form').classList.remove('hidden')
-  input.focus()
+  if (opts.choices?.length) choiceSel.focus()
+  else input.focus()
 
   // Direct port of Park's own handler, per INTERACTION_STANDARDS.md Section
   // 4: attached on open and removed on close rather than left permanently
@@ -4240,11 +4345,18 @@ window.requestChangeReason = function (opts) {
   changeReasonKeydownHandler = (e) => {
     if (e.key === 'Escape') { e.preventDefault(); window.cancelChangeReason(); return }
     if (e.key !== 'Tab') return
-    const focusable = [
-      document.getElementById('change-reason-input'),
-      document.getElementById('change-reason-cancel'),
-      document.getElementById('change-reason-confirm'),
-    ]
+    // The picklist joins the trap only while it is showing. Filtered rather
+      // than left in as a null, because a null becomes focusable[0] and
+      // Shift+Tab would call .focus() on it: a regression for the two
+      // callers that pass no choices at all.
+      const focusable = [
+        document.getElementById('change-reason-choice-group').classList.contains('hidden')
+          ? null
+          : document.getElementById('change-reason-choice'),
+        document.getElementById('change-reason-input'),
+        document.getElementById('change-reason-cancel'),
+        document.getElementById('change-reason-confirm'),
+      ].filter(Boolean)
     const first = focusable[0]
     const last = focusable[focusable.length - 1]
     if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus() }
@@ -4277,13 +4389,19 @@ window.confirmChangeReason = async function () {
   const errEl = document.getElementById('change-reason-error')
   errEl.classList.add('hidden')
 
-  if (!reason) {
+  // With a picklist the CHOICE is what is mandatory and the free text is
+  // optional. Without one, the free text is mandatory exactly as before.
+  const choice = state.choices?.length
+    ? document.getElementById('change-reason-choice').value
+    : null
+
+  if (state.choices?.length ? !choice : !reason) {
     errEl.textContent = state.emptyReasonError ?? 'A reason is required.'
     errEl.classList.remove('hidden')
     return
   }
 
-  const result = await state.onConfirm(reason)
+  const result = await state.onConfirm(reason, choice)
   if (!result?.ok) {
     // The dialogue STAYS OPEN on failure, with the typed reason intact.
     // Closing it would discard what the user wrote for a failure that is

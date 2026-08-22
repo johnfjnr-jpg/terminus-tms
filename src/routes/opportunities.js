@@ -588,6 +588,161 @@ export default async function opportunitiesRoutes(app) {
     })
   })
 
+  // POST /api/opportunities/:id/close-lost (Round 21 Phase 7)
+  //
+  // Losing a deal is ONE act, not a transition plus a note. A path that
+  // records the status without the reason leaves a lost deal nobody can
+  // report on, which is the whole point of the reason list, so both are
+  // written by this route and the ordering is chosen so that a failure
+  // cannot produce that state.
+  //
+  // ORDER, and why: the reason, the stage at death and the probability go
+  // first, in one UPDATE, and the status change follows. If the status write
+  // fails, the record is still in its working stage carrying reason columns,
+  // which is visibly odd and recoverable. The reverse ordering would produce
+  // a deal marked lost with no reason, which reads as complete and is not.
+  //
+  // WHAT THIS DOES NOT DUPLICATE. Closed Lost carries zero gate rules,
+  // asserted rather than assumed at Round 20 Phase 5 and again here, so
+  // there is no gate evaluation to bypass. It is reached through
+  // reachable_from_any_stage, so there is no adjacency to satisfy either.
+  // What this route repeats from the transition endpoint is the status
+  // write, the revision and the audit row, and nothing that decides whether
+  // the move is allowed.
+  app.post('/opportunities/:id/close-lost', async (request, reply) => {
+    const { reason_id, note } = request.body ?? {}
+
+    // Enforced here AND by a database CHECK. A route-level check is correct
+    // for every caller that exists and silent for the next one, which this
+    // project has recorded five times.
+    if (!reason_id) {
+      return reply.code(400).send({ error: 'reason_id is required' })
+    }
+
+    const db = createUserClient(request.jwt)
+
+    const { data: reason, error: reasonErr } = await db
+      .from('closed_lost_reasons')
+      .select('id, label, active')
+      .eq('id', reason_id)
+      .maybeSingle()
+
+    if (reasonErr) {
+      request.log.error({ err: reasonErr }, 'failed to read closed lost reason')
+      return reply.code(500).send({ error: reasonErr.message })
+    }
+    if (!reason || !reason.active) {
+      return reply.code(400).send({ error: 'reason_id is not a current Closed Lost reason' })
+    }
+
+    const { data: record, error: recErr } = await db
+      .from('records')
+      .select('id, status, record_type, deleted_at')
+      .eq('id', request.params.id)
+      .maybeSingle()
+
+    if (recErr) {
+      request.log.error({ err: recErr }, 'failed to read record for close-lost')
+      return reply.code(500).send({ error: recErr.message })
+    }
+    if (!record || record.deleted_at || record.record_type !== 'opportunity') {
+      return reply.code(404).send({ error: 'not found' })
+    }
+
+    // A terminal stage cannot be left, and that includes being lost from
+    // one. transitions.js refuses this for the generic path; refusing it
+    // here keeps the two paths agreeing rather than leaving this one open.
+    const { data: stageRow } = await db
+      .from('stage_definitions')
+      .select('is_terminal')
+      .eq('record_type', 'opportunity')
+      .is('variant', null)
+      .eq('stage_name', record.status)
+      .maybeSingle()
+
+    if (stageRow?.is_terminal) {
+      return reply.code(400).send({ error: `${record.status} is a terminal stage and cannot be left` })
+    }
+
+    const lostAt = new Date().toISOString()
+
+    // The configured default for Closed Lost, read rather than hardcoded.
+    const { data: probDefault } = await db
+      .from('stage_probability_defaults')
+      .select('default_probability_pct')
+      .eq('record_type', 'opportunity')
+      .is('variant', null)
+      .eq('stage', 'Closed Lost')
+      .maybeSingle()
+
+    // The override is CLEARED here, and this is a deliberate exception to
+    // Round 20's rule that an override survives a stage change. That rule
+    // exists because a judgement does not expire when the stage moves. A
+    // lost deal is the one case where it does: the judgement was about a
+    // deal that might close, and it did not. Leaving a 63 percent override
+    // on a lost deal would put a number in the pipeline that is not merely
+    // stale but false.
+    const { data: updatedDetails, error: detErr } = await db
+      .from('opportunity_details')
+      .update({
+        closed_lost_reason_id: reason.id,
+        closed_lost_from_stage: record.status,
+        closed_lost_note: note?.trim() ? note.trim() : null,
+        closed_lost_at: lostAt,
+        probability_pct: probDefault?.default_probability_pct ?? 0,
+        probability_override_pct: null,
+        probability_override_reason: null,
+        probability_override_by: null,
+        probability_override_at: null,
+      })
+      .eq('record_id', request.params.id)
+      .select('record_id')
+
+    if (detErr) {
+      request.log.error({ err: detErr }, 'failed to record the loss')
+      return sendWriteError(reply, detErr)
+    }
+    if (!updatedDetails?.length) {
+      return sendRefusal(reply)
+    }
+
+    const { data: updatedRecord, error: statusErr } = await db
+      .from('records')
+      .update({ status: 'Closed Lost' })
+      .eq('id', request.params.id)
+      .select('id')
+
+    if (statusErr) {
+      request.log.error({ err: statusErr }, 'failed to set Closed Lost after recording the loss')
+      return sendWriteError(reply, statusErr)
+    }
+    if (!updatedRecord?.length) {
+      return sendRefusal(reply)
+    }
+
+    await db.from('audit_log').insert({
+      record_id: request.params.id,
+      record_type: 'opportunity',
+      action: 'closed_lost',
+      actor_id: request.user.id,
+      detail: {
+        from: record.status,
+        to: 'Closed Lost',
+        reason: reason.label,
+        reason_id: reason.id,
+        ...(note?.trim() ? { note: note.trim() } : {}),
+      },
+    })
+
+    return reply.send({
+      record_id: request.params.id,
+      from: record.status,
+      to: 'Closed Lost',
+      reason: reason.label,
+      probability_pct: probDefault?.default_probability_pct ?? 0,
+    })
+  })
+
   // POST /api/opportunities/:id/buyer-contacts
   //
   // Round 3 Phase 3 (2026-08-17): Technical/Commercial/Legal/IT-Security
