@@ -426,6 +426,14 @@ not resolve it quietly.
     measured, as when a line-based search targets text wrapped across a
     line break, which returned 0 for a retained sentence in Round 20 Phase 1.
 
+    A distinct species: a probe that discriminates perfectly but is shown
+    only part of the population, as when a paged API silently caps a scan
+    at its default limit, so confirm the query is evaluated over the WHOLE
+    population rather than only that it returns different values, since a
+    calibration string inside the returned page passes the guard while the
+    scan stays blind to the rest (Round 20 Phase 8 read 1000 of 8237
+    `record_revisions` rows and reported a residue count of zero).
+
     **The check: run the probe against a state you know differs, and
     confirm the value changes.** Cheapest forms are a known-present and a
     known-absent string on the same file, a before and after delta, or
