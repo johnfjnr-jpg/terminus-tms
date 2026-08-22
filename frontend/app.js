@@ -1100,8 +1100,6 @@ function wireTbChevronHover(recordId) {
 // between the two lists costs a rejected save, never a write to an
 // unintended field.
 const OPP_EXIT_CRITERION_KEYS = new Set([
-  // SCAFFOLD, Round 20 Phase 7. Removed in Phase 8.
-  'scaffoldOne', 'scaffoldTwo', 'scaffoldThree',
   'exitQualBudget', 'exitQualTimeline', 'exitQualCommitment',
   'exitSolTechnicalSolution', 'exitSolBuyersKnown', 'exitSolKeyStakeholders', 'exitSolTermsReviewed',
   'exitPropPricingApproved', 'exitPropContractTerms', 'exitPropImplSchedule', 'exitPropDocumentation',

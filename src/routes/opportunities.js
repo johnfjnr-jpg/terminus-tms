@@ -181,9 +181,6 @@ export default async function opportunitiesRoutes(app) {
     // these land in the same change as the rules that require them. There
     // is no UI to tick them yet and that is stated in the phase report:
     // this makes them settable, not visible.
-    // SCAFFOLD, Round 20 Phase 7. Removed in Phase 8 together with the
-    // three gate rules that name them. Nothing is built against these.
-    'scaffoldOne', 'scaffoldTwo', 'scaffoldThree',
     'exitQualBudget', 'exitQualTimeline', 'exitQualCommitment',
     'exitSolTechnicalSolution', 'exitSolBuyersKnown', 'exitSolKeyStakeholders', 'exitSolTermsReviewed',
     'exitPropPricingApproved', 'exitPropContractTerms', 'exitPropImplSchedule', 'exitPropDocumentation',
