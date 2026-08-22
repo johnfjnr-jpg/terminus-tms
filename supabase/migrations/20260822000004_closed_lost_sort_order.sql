@@ -1,0 +1,53 @@
+-- Terminus TMS: Closed Lost moves to the end of the ordered list.
+-- Round 20 Phase 7.
+--
+-- WHY 0 WAS CHOSEN, so nobody restores it by reasoning from probability.
+--
+-- Closed Lost was given sort_order 0 in 20260822000001 so that its position
+-- and its probability agreed: a lost deal is 0 percent, and 0 is a natural
+-- first slot. That pairing reads well and is not load-bearing. Probability
+-- lives in its own column on its own table, stage_probability_defaults,
+-- keyed by stage name. It is not derived from sort_order and never has
+-- been. The two numbers happened to match; nothing consulted them together.
+--
+-- WHY IT CHANGED.
+--
+-- sort_order is the only ordering the stage chevron has, so Closed Lost at
+-- position 0 rendered as the first step of the workflow, and the workflow
+-- read: Closed Lost, Qualification, Solution Alignment, Proposal,
+-- Evaluation, Negotiating, Closed Won.
+--
+-- That is not only an odd reading order. GET /records/:id/stage-approvals
+-- computes each stage's state as "completed" when its index is below the
+-- current one, so a live Opportunity in Qualification was returned with
+-- Closed Lost marked COMPLETED. Measured before this migration, not
+-- inferred: all three live Opportunities reported exactly that. The server
+-- was asserting that a deal which has never been lost had already passed
+-- through being lost.
+--
+-- 110 rather than 105 or 101: the list is spaced by 20 and 110 keeps a gap
+-- above Closed Won for anything that later needs to sit between them.
+--
+-- THE ALTERNATIVE THAT WAS REJECTED, and why, so it is not proposed again.
+--
+-- The chevron could have been ordered by something other than sort_order:
+-- a display_order column, or a code-side sort that pushes
+-- reachable_from_any_stage rows to the end. Both create a SECOND ordering
+-- that has to be kept in step with the first. The two would agree on the
+-- day they were written and drift the first time a stage is inserted,
+-- which is exactly the failure mode this project has recorded for a second
+-- computation path. One ordering, and it is sort_order.
+--
+-- WHAT IS UNAFFECTED, verified rather than assumed:
+--   Adjacency is measured by POSITION in the ordered list. Negotiating to
+--   Closed Won was index 5 to 6 and is now index 4 to 5: still +1.
+--   Closed Lost is reached through reachable_from_any_stage, which bypasses
+--   the adjacency check entirely, so its position never mattered for
+--   reaching it, at 0 or at 110.
+--   is_terminal blocks outbound from both terminal stages regardless of
+--   where they sit.
+--   Probability is untouched. Closed Lost stays 0 percent.
+
+update public.stage_definitions
+  set sort_order = 110
+  where record_type = 'opportunity' and variant is null and stage_name = 'Closed Lost';
