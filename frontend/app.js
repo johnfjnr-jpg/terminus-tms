@@ -419,6 +419,10 @@ function renderOppStageTabs(stages, currentStage) {
           <p class="pg-card-title">Exit Criteria</p>
           <div id="opp-stage-criteria-${escHtml(key)}"></div>
         </div>
+        <div class="pg-card">
+          <p class="pg-card-title">Approvals</p>
+          <div id="opp-stage-approvals-${escHtml(key)}"></div>
+        </div>
       </div>
       <div id="opp-stage-transition-${escHtml(key)}" style="margin-top:24px"></div>`
     host.appendChild(panel)
@@ -464,12 +468,15 @@ let oppStageTabLoadToken = 0
 // record from its own status, not from whichever tab is open.
 async function loadOppStageTab(recordId, stageName, currentStage, stages) {
   const myToken = ++oppStageTabLoadToken
+  currentOppStageTab = stageName
   const key = oppStageTabKey(stageName)
   await renderOppExitCriteria(`opp-stage-criteria-${key}`, recordId, stageName,
     (stages ?? []).find(s => s.stage_name === stageName)?.is_terminal
       ? null
       : nextStageAfter(stages, stageName),
     () => myToken === oppStageTabLoadToken)
+  if (myToken !== oppStageTabLoadToken) return
+  await renderOppStageApprovals(recordId, stageName, () => myToken === oppStageTabLoadToken)
   if (myToken !== oppStageTabLoadToken) return
 
   const tEl = document.getElementById(`opp-stage-transition-${key}`)
@@ -479,6 +486,33 @@ async function loadOppStageTab(recordId, stageName, currentStage, stages) {
     return
   }
   renderOppAdvanceControl(tEl, recordId, currentStage, stages)
+}
+
+// Approvals for ONE stage, mirroring renderTbStageApprovals.
+//
+// The asymmetry with the criteria panel is deliberate and is Test Bed's
+// rule, not a simplification. Criteria tick on any stage tab. Approvals are
+// clickable only when st.state === 'current' AND the track is not already
+// approved. Both halves come from buildStageTrackListHtml, which is already
+// shared and already correct, so this renders through it rather than
+// growing a fourth copy of the same markup.
+//
+// A non-current stage renders READ-ONLY, not absent. Someone looking at
+// Proposal from Qualification should see what will be required there, which
+// is the whole reason the tab exists before the record reaches it.
+async function renderOppStageApprovals(recordId, stageName, isStillCurrent = () => true) {
+  const el = document.getElementById(`opp-stage-approvals-${oppStageTabKey(stageName)}`)
+  if (!el) return
+  const result = await api('GET', `/api/records/${recordId}/stage-approvals`)
+  if (!isStillCurrent()) return
+  if (!result.ok) {
+    el.innerHTML = '<p class="empty-state">Failed to load approvals for this stage.</p>'
+    return
+  }
+  const entry = (result.data ?? []).find(st => st.stage_name === stageName)
+  el.innerHTML = entry
+    ? buildStageTrackListHtml(recordId, entry)
+    : '<p class="empty-state">Unknown stage.</p>'
 }
 
 function nextStageAfter(stages, stageName) {
@@ -1301,6 +1335,9 @@ let currentOppNextStage = null
 // The record's stage list, so a tick can work out the destination for its
 // own stage without refetching it.
 let currentOppStages = []
+// Which stage TAB is open, as distinct from currentOppStage, which is the
+// record's own stage. Phase 3 made those two different things.
+let currentOppStageTab = null
 
 // Serialises ticks. Test Bed's tbCriterionQueue exists because a person
 // ticking three boxes quickly issues three overlapping PATCHes and three
@@ -4008,6 +4045,37 @@ function applyConfirmedApproval(track, decidedAt) {
 
 window.submitStageApproval = async (recordId, track) => {
   const result = await api('POST', `/api/records/${recordId}/approvals`, { track, decision: 'approved' })
+
+  // Round 21 Phase 4: this function was written for Test Bed and every
+  // branch below tests currentTestBed. Opportunity's all-stages table has
+  // called it since Round 9, so an Opportunity approval POSTed successfully
+  // and then matched no branch: no refresh, no error, nothing on screen.
+  // Architecture rule 8, and the Opportunity stage panels would have
+  // inherited it. The Opportunity path is handled first and returns.
+  if (recordId === currentOppDetailId) {
+    if (!result.ok) {
+      const el = document.getElementById(`opp-stage-approvals-${oppStageTabKey(currentOppStageTab ?? '')}`)
+      if (el) {
+        let fb = el.querySelector('.opp-approval-feedback')
+        if (!fb) { fb = document.createElement('div'); fb.className = 'opp-approval-feedback'; el.appendChild(fb) }
+        fb.textContent = `Could not record the ${track} approval: ${result.data?.error ?? 'unknown error'}`
+        fb.className = 'tb-doc-feedback opp-approval-feedback err'
+      }
+      return
+    }
+    const stage = currentOppStageTab
+    if (!stage) return
+    const token = ++oppStageTabLoadToken
+    // Both panels: an approval can satisfy an approval_obtained criterion,
+    // so the Exit Criteria card beside it is stale the moment this lands.
+    await Promise.all([
+      renderOppStageApprovals(recordId, stage, () => token === oppStageTabLoadToken),
+      renderOppExitCriteria(`opp-stage-criteria-${oppStageTabKey(stage)}`, recordId, stage,
+        nextStageAfter(currentOppStages, stage), () => token === oppStageTabLoadToken),
+    ])
+    return
+  }
+
   if (!result.ok) {
     const row = document.getElementById('tb-stage-approval-row')
     if (recordId === currentTestBed?.id && row) {
