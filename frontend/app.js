@@ -411,7 +411,16 @@ function renderOppStageTabs(stages, currentStage) {
     // Phase 2 renders the slot. Phase 3 moves the exit criteria in, Phase 4
     // the approvals, Phase 5 documents and assessments. A placeholder that
     // says what is coming beats an empty box that looks broken.
-    panel.innerHTML = `<p class="empty-state">${escHtml(st.stage_name)}: panels arrive in the next phases.</p>`
+    // Phase 3 fills the exit criteria. Phase 4 adds approvals, Phase 5
+    // documents and assessments, each as its own card in this row.
+    panel.innerHTML = `
+      <div class="ref-cards">
+        <div class="pg-card">
+          <p class="pg-card-title">Exit Criteria</p>
+          <div id="opp-stage-criteria-${escHtml(key)}"></div>
+        </div>
+      </div>
+      <div id="opp-stage-transition-${escHtml(key)}" style="margin-top:24px"></div>`
     host.appendChild(panel)
 
     const btn = document.createElement('button')
@@ -426,6 +435,77 @@ function renderOppStageTabs(stages, currentStage) {
   // The generated buttons need the ARIA the factory applies at construction.
   oppTabStrip.adopt()
   markOppCurrentStageTab(currentStage)
+}
+
+// One token per stage-tab load, mirroring tbStageTabLoadToken. Clicking
+// through tabs quickly leaves two loads in flight, and an older, slower
+// response can resolve after a newer one and paint the WRONG stage's
+// criteria under the new stage's heading. Test Bed found that live in Round
+// 5 Phase 7; this strip is new, so it is guarded from the start rather than
+// after the same discovery.
+let oppStageTabLoadToken = 0
+
+// What a stage tab shows: the criteria for LEAVING that stage, whether or
+// not the record is currently in it.
+//
+// That is Test Bed's behaviour, read from its source rather than invented.
+// renderTbStageExitCriteria fetches ?stage=<the tab's stage> with no
+// reference to the record's status, and its `tickable` test is the field
+// being a known criterion key with a label, again with no reference to the
+// current stage. Confirmed against the API: exit-criteria answers for any
+// stage, so a Qualification record asked about Negotiating returns
+// Negotiating's eight requirements.
+//
+// So criteria are tickable on any stage tab. Approvals are the half Test
+// Bed DOES gate to the current stage, and that arrives in Phase 4.
+//
+// The advance control renders only on the record's current stage, because
+// that is the only stage it could act on: the transition endpoint moves the
+// record from its own status, not from whichever tab is open.
+async function loadOppStageTab(recordId, stageName, currentStage, stages) {
+  const myToken = ++oppStageTabLoadToken
+  const key = oppStageTabKey(stageName)
+  await renderOppExitCriteria(`opp-stage-criteria-${key}`, recordId, stageName,
+    (stages ?? []).find(s => s.stage_name === stageName)?.is_terminal
+      ? null
+      : nextStageAfter(stages, stageName),
+    () => myToken === oppStageTabLoadToken)
+  if (myToken !== oppStageTabLoadToken) return
+
+  const tEl = document.getElementById(`opp-stage-transition-${key}`)
+  if (!tEl) return
+  if (stageName !== currentStage) {
+    tEl.innerHTML = ''
+    return
+  }
+  renderOppAdvanceControl(tEl, recordId, currentStage, stages)
+}
+
+function nextStageAfter(stages, stageName) {
+  const list = stages ?? []
+  const i = list.findIndex(s => s.stage_name === stageName)
+  if (i < 0) return null
+  if (list[i]?.is_terminal) return null
+  return list[i + 1]?.stage_name ?? null
+}
+
+function renderOppAdvanceControl(el, recordId, currentStage, stages) {
+  const next = nextStageAfter(stages, currentStage)
+  if (!next) {
+    const row = (stages ?? []).find(s => s.stage_name === currentStage)
+    el.innerHTML = row?.is_terminal
+      ? `<p class="muted" style="font-size:14px">${escHtml(currentStage)} is a closed state. Nothing further to move toward.</p>`
+      : '<p class="muted" style="font-size:14px">This record has reached the final stage.</p>'
+    return
+  }
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px">
+      <span style="font-size:14px">Advance to <strong>${escHtml(next)}</strong></span>
+      <button class="btn-primary" onclick="attemptTransition('${recordId}', '${escHtml(next)}', 'transition-feedback', 'transition-section', '${escHtml(currentStage)}')">
+        Move to ${escHtml(next)}
+      </button>
+    </div>
+    <div id="transition-feedback"></div>`
 }
 
 // The green dot on the tab matching the record's REAL stage, mirroring
@@ -456,7 +536,16 @@ function markOppCurrentStageTab(currentStage) {
 // than inside createTabStrip because the shared factory serves Test Bed's
 // strip too, and that one already has its own flag.
 document.getElementById('opp-detail-tabs')?.addEventListener('click', e => {
-  if (e.target.closest('.detail-tab')) oppUserPickedTab = true
+  const btn = e.target.closest('.detail-tab')
+  if (!btn) return
+  oppUserPickedTab = true
+  // A stage tab loads its own panel on open, rather than every panel being
+  // populated up front. Six stages times two fetches on every record open is
+  // work nobody asked for, and Test Bed loads per tab for the same reason.
+  const stage = btn.dataset.oppStageTab
+  if (stage && currentOppDetailId) {
+    loadOppStageTab(currentOppDetailId, stage, currentOppStage, currentOppStages)
+  }
 })
 
 // Test Bed detail tabs (Reference / Commercials / 8 stage tabs) - same
@@ -1209,6 +1298,9 @@ function wireTbChevronHover(recordId) {
 let currentOppDetailId = null
 let currentOppStage = null
 let currentOppNextStage = null
+// The record's stage list, so a tick can work out the destination for its
+// own stage without refetching it.
+let currentOppStages = []
 
 // Serialises ticks. Test Bed's tbCriterionQueue exists because a person
 // ticking three boxes quickly issues three overlapping PATCHes and three
@@ -1276,17 +1368,18 @@ async function renderTransitionSection(elementId, feedbackId, recordId, currentS
   currentOppStage = currentStage
   currentOppNextStage = nextStage
 
+  // Round 21 Phase 3: the exit criteria and the advance control now live on
+  // the record's own stage tab, which is the point of the round: everything
+  // needed to exit a stage on one screen.
+  //
+  // This section is left in place, pointing at where they went, rather than
+  // deleted with the tab. The tab still owns the all-stages approvals table,
+  // which moves in Phase 4, and removing the tab before its remaining
+  // content has somewhere to go would strand it.
   section.innerHTML = `
-    <div id="${elementId}-criteria" class="opp-crit-list"><p class="muted" style="font-size:14px">Loading exit criteria...</p></div>
-    <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px">
-      <span style="font-size:14px">Advance to <strong>${escHtml(nextStage)}</strong></span>
-      <button class="btn-primary" onclick="attemptTransition('${recordId}', '${escHtml(nextStage)}', '${feedbackId}', '${elementId}', '${currentStage}')">
-        Move to ${escHtml(nextStage)}
-      </button>
-    </div>
-    <div id="${feedbackId}"></div>
+    <p class="muted" style="font-size:14px">Exit criteria and the advance control are on the
+    <strong>${escHtml(currentStage)}</strong> tab, with the green dot.</p>
   `
-  await renderOppExitCriteria(elementId, recordId, currentStage, nextStage)
 }
 
 // The tick list, following the Test Bed panel that is already built and in
@@ -1294,10 +1387,14 @@ async function renderTransitionSection(elementId, feedbackId, recordId, currentS
 // approvals; Test Bed's Qualification exit already renders 9 criteria, 2
 // approvals and 3 further requirements on one panel, so the pattern carries
 // this count with room to spare. Measured in Phase 6 rather than assumed.
-async function renderOppExitCriteria(elementId, recordId, fromStage, toStage) {
-  const el = document.getElementById(`${elementId}-criteria`)
+async function renderOppExitCriteria(containerId, recordId, fromStage, toStage, isStillCurrent = () => true) {
+  const el = document.getElementById(containerId)
   if (!el) return
   const result = await api('GET', `/api/records/${recordId}/exit-criteria?stage=${encodeURIComponent(fromStage)}`)
+  // Dropped rather than painted if a newer load has started. Without this a
+  // slower response for an earlier tab lands last and shows that stage's
+  // criteria under this one's heading.
+  if (!isStillCurrent()) return
   if (!result.ok) {
     el.innerHTML = '<p class="empty-state">Unable to load exit criteria.</p>'
     return
@@ -1316,14 +1413,21 @@ async function renderOppExitCriteria(elementId, recordId, fromStage, toStage) {
       ? '<span class="tb-crit-box tb-crit-box--met">&#10003;</span>'
       : '<span class="tb-crit-box"></span>'
     if (tickable) {
-      return `<div class="tb-crit-row tb-crit-row--tickable" data-field="${escHtml(r.field)}" data-met="${r.met ? 'true' : 'false'}" onclick="toggleOppExitCriterion('${escHtml(recordId)}', '${escHtml(r.field)}', ${r.met ? 'true' : 'false'})" title="${r.met ? 'Tick to clear' : 'Tick to confirm'}">
+      // The STAGE travels with the row. Phase 1's handler read the record's
+      // own stage, which was right when the panel only ever existed on one
+      // screen and is wrong now that a panel can be open for a stage the
+      // record is not in.
+      return `<div class="tb-crit-row tb-crit-row--tickable" data-field="${escHtml(r.field)}" data-stage="${escHtml(fromStage)}" data-met="${r.met ? 'true' : 'false'}" onclick="toggleOppExitCriterion('${escHtml(recordId)}', '${escHtml(fromStage)}', '${escHtml(r.field)}', ${r.met ? 'true' : 'false'})" title="${r.met ? 'Tick to clear' : 'Tick to confirm'}">
         ${mark}<span class="tb-crit-text">${escHtml(r.label)}</span>
       </div>`
     }
     // Approvals are earned elsewhere and computed here, so they are
     // read-only rows. Presenting one as a tick box would invite a click
     // that cannot do anything.
-    return `<div class="tb-crit-row tb-crit-row--computed" data-field="${escHtml(r.field ?? '')}" data-met="${r.met ? 'true' : 'false'}">
+    // data-stage on the computed rows too. It feeds no handler, but six
+    // stage panels now sit in the DOM at once and a row that does not say
+    // which panel it belongs to is a row a probe can misattribute.
+    return `<div class="tb-crit-row tb-crit-row--computed" data-field="${escHtml(r.field ?? '')}" data-stage="${escHtml(fromStage)}" data-met="${r.met ? 'true' : 'false'}">
       ${mark}<span class="tb-crit-text">${escHtml(r.message)}</span>
     </div>`
   }).join('')
@@ -1334,16 +1438,16 @@ async function renderOppExitCriteria(elementId, recordId, fromStage, toStage) {
     : `<p class="sub" style="margin-bottom:10px">${outstanding} of ${requirements.length} outstanding to move to ${escHtml(toStage)}:</p>`
   el.innerHTML = summary + rows
   const fb = document.createElement('div')
-  fb.id = 'opp-crit-feedback'
-  fb.className = 'tb-doc-feedback'
+  fb.className = 'tb-doc-feedback opp-crit-feedback'
   el.appendChild(fb)
 }
 
 // Reflects a SERVER-CONFIRMED tick on the row that was clicked, before the
 // panel re-renders. Without it the row sits unchanged for the length of the
 // round trip and a second click lands on stale `met` state.
-function applyConfirmedOppTick(recordId, field, met) {
-  const row = document.querySelector(`#transition-section-criteria .tb-crit-row--tickable[data-field="${CSS.escape(field)}"]`)
+function applyConfirmedOppTick(recordId, stageName, field, met) {
+  const row = document.querySelector(
+    `.tb-crit-row--tickable[data-field="${CSS.escape(field)}"][data-stage="${CSS.escape(stageName)}"]`)
   if (!row) return
   const box = row.querySelector('.tb-crit-box')
   if (box) {
@@ -1352,7 +1456,7 @@ function applyConfirmedOppTick(recordId, field, met) {
   }
   row.dataset.met = met ? 'true' : 'false'
   row.setAttribute('title', met ? 'Tick to clear' : 'Tick to confirm')
-  row.setAttribute('onclick', `toggleOppExitCriterion('${recordId}', '${field}', ${met ? 'true' : 'false'})`)
+  row.setAttribute('onclick', `toggleOppExitCriterion('${recordId}', '${stageName}', '${field}', ${met ? 'true' : 'false'})`)
 }
 
 // Ticking writes an ISO timestamp, clearing writes null, which is the same
@@ -1374,15 +1478,27 @@ function applyConfirmedOppTick(recordId, field, met) {
 // Test Bed has done this correctly since Round 9: re-render the panel, not
 // the page, and capture the stage at click time so a tab switch mid-flight
 // cannot paint the wrong stage's answer.
-window.toggleOppExitCriterion = (recordId, field, isMet) => {
+window.toggleOppExitCriterion = (recordId, stageName, field, isMet) => {
   if (!OPP_EXIT_CRITERION_KEYS.has(field)) return oppCriterionQueue
   const run = async () => {
-    // Captured at CLICK time, not read after the await. The user may have
-    // moved on by the time the write returns.
-    const stageAtClick = currentOppStage
-    const nextAtClick = currentOppNextStage
-    const fb = document.getElementById('opp-crit-feedback')
-    if (fb) { fb.textContent = ''; fb.className = 'tb-doc-feedback' }
+    // Round 21 Phase 3: the stage now arrives as an ARGUMENT rather than
+    // being read from currentOppStage.
+    //
+    // Phase 1 captured the record's own stage at click time, which was
+    // correct while the panel existed on exactly one screen. A stage tab can
+    // now be open for a stage the record is not in, and Test Bed permits
+    // ticking there, so the record's status is no longer the stage the click
+    // belongs to. Reading it would have re-rendered the wrong panel and left
+    // the clicked one showing a stale tick.
+    //
+    // Still captured at click time in the sense that matters: it is bound
+    // into the row's own onclick when the row is rendered, so it cannot
+    // drift while the write is in flight.
+    const stageAtClick = stageName
+    const key = oppStageTabKey(stageAtClick)
+    const panel = document.getElementById(`opp-stage-criteria-${key}`)
+    const fb = panel?.querySelector('.opp-crit-feedback')
+    if (fb) { fb.textContent = ''; fb.className = 'tb-doc-feedback opp-crit-feedback' }
 
     const result = await api('PATCH', `/api/opportunities/${recordId}`, {
       payload: { [field]: isMet ? null : new Date().toISOString() }
@@ -1391,17 +1507,20 @@ window.toggleOppExitCriterion = (recordId, field, isMet) => {
     if (!result.ok) {
       // The control is left exactly as it was. A failed write must not look
       // like a success, which is why nothing optimistic happens before this.
-      const el = document.getElementById('opp-crit-feedback')
+      const el = document.getElementById(`opp-stage-criteria-${key}`)?.querySelector('.opp-crit-feedback')
       if (el) {
         el.textContent = `Could not update: ${result.data?.error ?? 'unknown error'}`
-        el.className = 'tb-doc-feedback err'
+        el.className = 'tb-doc-feedback opp-crit-feedback err'
       }
       return
     }
 
-    if (currentOppDetailId === recordId && currentOppStage === stageAtClick) {
-      applyConfirmedOppTick(recordId, field, !isMet)
-      await renderOppExitCriteria('transition-section', recordId, stageAtClick, nextAtClick)
+    // Still the same record, and that stage's panel is still on the page.
+    if (currentOppDetailId === recordId && document.getElementById(`opp-stage-criteria-${key}`)) {
+      applyConfirmedOppTick(recordId, stageAtClick, field, !isMet)
+      const token = ++oppStageTabLoadToken
+      await renderOppExitCriteria(`opp-stage-criteria-${key}`, recordId, stageAtClick,
+        nextStageAfter(currentOppStages, stageAtClick), () => token === oppStageTabLoadToken)
     }
   }
   oppCriterionQueue = oppCriterionQueue.then(run, run)
@@ -3705,7 +3824,11 @@ async function renderOppDetail(opp) {
   // The stage tabs are generated per record, from that record's own stage
   // list, BEFORE the default-to-Reference below. Generating them after would
   // mean the strip briefly shows the previous record's stages.
+  currentOppStages = stages ?? []
   renderOppStageTabs(stages, opp.status)
+  // The record's own stage panel is filled eagerly, so the tab carrying the
+  // green dot is never a blank card if the user goes straight to it.
+  loadOppStageTab(opp.id, opp.status, opp.status, stages)
 
   // Land back on Reference when opening or switching opportunities, the same
   // convention as other modules resetting their sub-view on entry, UNLESS the
