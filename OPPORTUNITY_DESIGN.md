@@ -33,6 +33,21 @@ three markers, and FINDING has two states.
 
 ## Version history
 
+**v1.2, 2026-08-22.** The confirmed decisions for Round 20, the first
+Opportunity build round. The stage set is settled as seven rows and the
+decisions this document carried as RECOMMENDED, UNDECIDED are now either
+CONFIRMED or explicitly out of the round. Changes:
+
+1. **Five working stages, not four.** Evaluation is reinstated as a stage
+   in its own right, on this document's own rule.
+2. Stored stage names and sort orders fixed. Sort orders are spaced by 20.
+3. Terminal states confirmed as columns, not a named code exception.
+4. **Bid/No Bid confirmed as NOT a separate approval.** The three
+   authorities at Solution Alignment constitute the decision.
+5. Probability confirmed as a stored column with a nullable override.
+6. Two findings from the Round 20 Phase 0 investigation recorded.
+7. The six-month watch item on the assessments recorded.
+
 **v1.1, 2026-08-22.** Amended after reading `CURRENT_STATE.md`,
 `DESIGN_PRINCIPLES.md` and `PROTOTYPE_SPECIFICATION.md` against v1.0.
 Changes:
@@ -232,22 +247,48 @@ superseded reasoning is stated here so it is visible rather than deleted.
 **CONFIRMED**, subject to Finding 1: this is the intended model, not the
 configured one.
 
-| Stage | The question | Exit criteria | Approvals |
+**CONFIRMED v1.2: seven rows, five working stages and two terminal states.**
+These are the stored `stage_name` values exactly as they will be written,
+not labels. Sort orders are spaced by 20 so a stage can be inserted later
+without renumbering, which the adjacency check already tolerates because it
+compares position in the ordered list rather than sort_order arithmetic.
+
+| # | `stage_name` | `sort_order` | Probability | Terminal |
+|---|---|---|---|---|
+| 1 | `Qualification` | 10 | 10 | |
+| 2 | `Solution Alignment` | 20 | 20 | |
+| 3 | `Proposal` | 40 | 40 | |
+| 4 | `Evaluation` | 60 | 60 | |
+| 5 | `Negotiating` | 80 | 80 | |
+| 6 | `Closed Won` | 100 | 100 | `is_terminal` |
+| 7 | `Closed Lost` | 0 | 0 | `is_terminal`, `reachable_from_any_stage` |
+
+| Stage | The question | Exit criteria | Approvals to exit |
 |---|---|---|---|
-| **Discovery / Qualification** | Is it real. Budget, timeline, authority, commitment | Budget, Timeline, Commitment to move forward | Sales Lead |
-| **Solution Alignment** | Can we win it. Requirements, decision makers, competition, relationships, terms | Technical solution understood, Buyers known, Key stakeholders, Terms and conditions reviewed, Deal assessment current, Risk assessment current | Bid Review, Commercial, Technical, Legal |
+| **Qualification** | Is it real. Budget, timeline, authority, commitment | Budget, Timeline, Commitment to move forward | None, confirmed Round 20 Phase 5 |
+| **Solution Alignment** | Can we win it. Requirements, decision makers, competition, relationships, terms | Technical solution understood, Buyers known, Key stakeholders, Terms and conditions reviewed, Deal assessment current, Risk assessment current | Commercial, Technical, Legal |
 | **Proposal** | Production and submission | Pricing approved, Contract terms and variations approved, Implementation schedule agreed, Proposal documentation approved, Deal assessment current, Risk assessment current | Commercial, Technical, Legal |
-| **Negotiating / Contracting** | Clarifications, re-pricing, verbal award, contract | Scope changes approved, Pricing changes approved, Technical clarifications completed, Legal issues resolved, Commercials approved, Deal assessment current, Risk assessment current | Sales Lead, Commercial, Technical, Legal |
-| **Closed Won** | Executed | Contract executed | Sales Lead |
+| **Evaluation** | Client-led. They assess, we respond | Clarifications responded to, Revised pricing submitted if required, Technical clarifications completed | Commercial, Technical, Legal |
+| **Negotiating** | Both sides converge. Re-pricing, verbal award, contract | Scope changes approved, Pricing changes approved, Technical clarifications completed, Legal issues resolved, Commercials approved, Deal assessment current, Risk assessment current | Commercial, Technical, Legal, as a final approval |
+| **Closed Won** | Executed | Contract executed | Sales Lead, on entry |
 | **Closed Lost** | Reachable from any stage | None | |
 
-Four working stages, two terminal states, three forward transitions plus
+Five working stages, two terminal states, **four forward transitions** plus
 the terminal ones.
 
-**Three changes from v1.0**, each recorded in its own section below: the
-approvals at Solution Alignment now include Bid Review; the assessments are
-current at Negotiating as well; and "updated" has become "current",
-which is a real change and not a wording preference.
+**All five transitions now carry a stated approval position, confirmed
+Round 20 Phase 5.** `Qualification` to `Solution Alignment` carries none;
+the other four each require Commercial, Technical and Legal. v1.2
+originally left three of them marked "not yet stated" rather than filling
+them in, because a gate rule nobody asked for is worse than an absent one.
+The business stated them, so they are configured rather than invented, and
+the exit criteria for `Evaluation` arrived in the same conversation.
+
+**Changes from v1.1**, each recorded below: Evaluation is a stage again;
+Bid Review is not an approval; the approvals at Solution Alignment are the
+three authorities alone; and the assessments are current at Negotiating as
+well. "Updated" has become "current", which is a real change and not a
+wording preference.
 
 ### Why "current" rather than "updated"
 
@@ -261,7 +302,28 @@ this stage.** That is expressible today with no build. The
 `entry_stage_at_or_after` key already exists in `requirement_detail` and is
 in live use on three Test Bed gate rules. It is a row edit.
 
-### Why four stages and not seven
+### Why five stages, superseding "why four and not seven"
+
+**CONFIRMED v1.2. Evaluation is reinstated as a stage in its own right.**
+Evaluation and Negotiating have different exit criteria: Evaluation is
+client-led and we respond, Negotiating is where both sides converge. This
+document's own rule, stated in the superseded reasoning immediately below,
+is that **a distinction needing its own exit criteria is a stage rather
+than a label.** The rule was written to be applied and this is the first
+application of it.
+
+The compression of Clarification and Closing into Negotiating stands. The
+compression of Evaluation into it does not.
+
+**This narrows the approval gap below without closing it.** With Evaluation
+separate, the boundary a proposal crosses on its way to the client is a
+real transition again, and Proposal's Commercial, Technical and Legal
+approvals fire on it. What is still open is a revision made **while in**
+Evaluation or Negotiating, because neither transition carries approvals
+yet. The gap moved from structural to unpopulated, which is a better place
+for it to be but is not the same as fixed.
+
+### Superseded v1.2: why four stages and not seven
 
 An earlier draft had Clarification, Negotiation and Closing as separate
 stages. They were compressed into Negotiating/Contracting because all three
@@ -282,6 +344,11 @@ gap below.
 
 It names the work rather than the position, and it does not collide with
 the client's own evaluation of the bids.
+
+**Amended v1.2.** Both stages now exist, so the reasoning above is about
+naming stage 2 rather than about choosing between the two. `Evaluation` at
+stage 4 IS the client's own evaluation of the bids, which is exactly what
+that word should mean, and it sits where the client is doing it.
 
 ### Legal at Solution Alignment is not premature
 
@@ -355,7 +422,31 @@ an edit to an approved snapshot.
 
 ## Bid/No Bid
 
-**CONFIRMED: Bid/No Bid is an approval, at the gate into Proposal.**
+> **SUPERSEDED v1.2, 2026-08-22. CONFIRMED: Bid/No Bid is NOT a separate
+> approval.** The three authorities at Solution Alignment, Commercial,
+> Technical and Legal, constitute the decision between them.
+>
+> **Rejected on scale, not on principle.** The case for a fourth approval
+> is real: each of the three answers a domain question and none of them is
+> "should we spend the effort", so a deal can pass all three and still be
+> one you should not bid. But at current headcount the three approvals are
+> the same people in the same room, and the bid decision is already being
+> made explicitly in conversation by everyone who would sit on a bid
+> review. A fourth approval would record something already decided by the
+> people clicking the other three. That is ceremony rather than governance.
+>
+> **The part of the argument that survived is the reason code.** Without
+> one, declining to bid on relationship grounds has to be dressed up as a
+> pricing objection, and the Closed Lost reason reporting is polluted at
+> the source. Reason codes are out of Round 20 and are their own round.
+>
+> **Revisit when the approving parties are no longer the same people.**
+>
+> Consequently `Bid Review` as a track name is withdrawn rather than
+> undecided, and Finding 3 no longer blocks anything.
+
+**Superseded v1.1 reasoning, retained: Bid/No Bid is an approval, at the
+gate into Proposal.**
 
 This confirms the assumption `DESIGN_PRINCIPLES.md` Section 5 flagged for
 confirmation and never received. It is the point real sales and technical
@@ -450,9 +541,22 @@ transition succeeded because no gate rules existed for that pair.
 v1.0 recorded this as needing "a named exception," to be recorded as a
 deliberate weakening.
 
-**RECOMMENDED, UNDECIDED: make it a stage property instead.** Add
+**CONFIRMED v1.2: a stage property, not a named exception.** Add
 `is_terminal` and `reachable_from_any_stage` as columns on the stage row,
 and have the adjacency check read the row.
+
+**`is_terminal` blocks OUTBOUND transitions, which is not a detail.**
+Round 20 Phase 0 confirmed against the source that backward transitions to
+any earlier stage are currently unrestricted; only forward moves are
+adjacency-checked. `Closed Won` at 100 and `Closed Lost` at 0 are adjacent
+in the ordered list, so without outbound blocking **a won deal could be
+advanced into lost**, and any terminal record could be sent back to
+Qualification. The column has to refuse departures, not only arrivals.
+
+**One further site is in scope**, found in the same investigation:
+`src/routes/records.js:316` derives the stage a record is heading for as
+`stages[currentIdx + 1]`, so it will offer a terminal row as the next stage
+unless it excludes them.
 
 The reason this is now clearly better than a named exception is Finding 1:
 **`Closed Won` and `Closed Lost` do not exist as rows and have to be
@@ -460,6 +564,29 @@ created from scratch anyway.** The data-driven version therefore costs
 nothing over the hardcoded one, nothing is weakened, and the next terminal
 state is a row rather than a code change. A hardcoded exception would also
 break the standing rule that gate vocabulary lives as data.
+
+### Probability, confirmed v1.2
+
+**CONFIRMED: the stored column stays. No read-time derivation.**
+
+Add `probability_override_pct`, nullable, alongside a reason, an author and
+a timestamp. `transitions.js` writes the stage default **only when the
+override is null**. Both values are visible. `Closed Lost` is an explicit 0
+rather than null, so a lost deal reads as nought percent rather than as
+unknown.
+
+**No automatic step on verbal award.** The sales lead adjusts and records
+why, which is what the override is for.
+
+**Why this is not a small change.** Round 20 Phase 0 tested the existing
+mechanism rather than reading it: a fixture Opportunity had
+`probability_pct` set to a sentinel 77, was transitioned Discovery to
+Qualified through the real API, and read back **20**, the Qualified stage
+default. **The reset fires on every transition today**, so an override
+added without changing that write path would be destroyed by the next stage
+change. The comment at `src/routes/transitions.js:623`, which records that
+the reset "has never once fired", describes the state before the Round 7
+`.maybeSingle()` fix on the following line and is historical.
 
 ### Open
 
@@ -894,24 +1021,126 @@ clarification rather than an imagined one.
 
 ---
 
+## Why there is no Sales Lead approval, recorded so it is revisitable
+
+**CONFIRMED v1.2, Round 20 Phase 5.** The confirmed model has no Sales Lead
+track and creates no new tracks. Only Commercial, Technical and Legal.
+
+**A Sales Lead approval is the sales lead approving their own transition.**
+The transition is already authenticated, attributed to a user id and
+timestamped in `audit_log`, and the exit criteria above it are the
+governance. A signature by the actor on their own act records the same fact
+twice and reads as a control while adding none.
+
+**Scale-dependent, exactly like the Bid Review decision, and revisitable on
+the same trigger.** The moment someone other than the sales lead can move a
+record, a Sales Lead approval stops being a countersignature on your own
+work and becomes a real control. **Revisit when the person moving the
+record and the person accountable for it are no longer the same person.**
+
+**What survives in the meantime is the audit trail**, which already exists
+and needed no build. Verified in Phase 5 rather than assumed: an ad-hoc
+approval on a track no gate rule requires is accepted today and stored in
+full, carrying track, decision, comment, stage, revision number, approver
+id and timestamp, plus an `approval_submitted` row in `audit_log`. So the
+business can already record a Legal or Technical sign-off obtained during
+clarification. What does not exist is the request-and-block workflow, which
+is deferred with the reason-codes round.
+
+**`approvals.track` is a foreign key to `approval_tracks`**, so a track
+that does not exist cannot be recorded at all, and no route or frontend
+switch names any track: they are data, not labels on hardcoded branches.
+Adding a Sales Lead track later is therefore a row, not a code change.
+
+---
+
+## The six-month test on the assessments
+
+**Recorded v1.2. Watch item, not a build item. Do not build anything
+against this.**
+
+With no Bid Review approval, the assessments have no formal consumer. They
+are exit criteria feeding a judgement made in conversation.
+
+**The test: in six months, are the scores being maintained, or is somebody
+re-saving the same numbers to clear the gate?** If the latter, the
+instrument has died, and the fix is either a real bid review or fewer
+criteria rather than more enforcement.
+
+The "current" criterion, an entry dated at or after entry to the stage,
+makes re-saving visible but does not make it meaningful: a re-save with
+identical numbers satisfies it and is exactly the failure this test is
+looking for.
+
+---
+
+## Findings from the Round 20 Phase 0 investigation
+
+Recorded as findings, not fixes. Neither is scheduled.
+
+### FINDING, UNRESOLVED. One stage vocabulary, four column names, no joins
+
+The same set of strings is stored under four different column names in four
+tables, with **no foreign key between any of them** and no check
+constraint anywhere:
+
+| Table | Column |
+|---|---|
+| `records` | `status` |
+| `stage_definitions` | `stage_name` |
+| `stage_probability_defaults` | `stage` |
+| `stage_gate_rules` | `from_stage`, `to_stage` |
+
+`records.status` is plain `text not null`. Deleting a `stage_definitions`
+row does not fail and orphans every record holding that status silently,
+which is why the Round 20 migration has to move records itself.
+
+**It has already cost something twice.** A Round 19 probe read `r.stage`
+where the column is `stage_name`, compared `undefined` against a stage name
+and reported a confident false, which is Verification 14's shape. The same
+naming split is why `stage_probability_defaults` has to be remapped in the
+same migration as `stage_definitions`: nothing links them, so nothing
+complains when they disagree.
+
+### FINDING, UNRESOLVED. `approvals.comment` and `tier` unused on all 229 rows
+
+`approvals` carries `decision`, `comment`, `tier` and `stage`. Across all
+229 rows: **`decision` is `approved` on every one**, `comment` is null on
+every one, and `tier` is null on every one.
+
+**No rejection has ever been recorded in this system.** The rejection path
+is not merely unbuilt, it is entirely unexercised, which is Architecture
+rule 8's shape exactly: correct for every caller it has, and untested for
+the caller Round 20's blocking rejection will be.
+
+`comment` is sitting where a reason would go. Whether the reason-code round
+uses it or adds a reference column is that round's decision, but the field
+already exists and has never held anything.
+
+---
+
 ## Open decisions
 
 | Item | Status |
 |---|---|
-| Deal assessment criteria | Undecided. Conversation before build |
+| Deal assessment criteria | Undecided. Conversation before build. Explicitly out of Round 20 |
 | Risk assessment criteria | Undecided. Depends on the first |
-| **Instrument shape: 1-to-5 anchors or derived from binary conditions** | **Undecided. Decide before any criteria are written** |
-| **Bid/No Bid rejection semantics: auto-close or block** | **Undecided. Blocking recommended** |
-| **`Bid Review` as the track name** | **Undecided** |
-| **`stage_probability_defaults`: remap, drop, or replace** | **Undecided. Needed before the restructure** |
-| **Terminal stages as columns (`is_terminal`, `reachable_from_any_stage`) or a named code exception** | **Undecided. Columns recommended** |
-| **Revision event: series plus approval plus re-score as one thing** | **Undecided. Recommended** |
-| **Deal Sheet freeze point after the stage compression** | **Undecided** |
+| Instrument shape: 1-to-5 anchors or derived from binary conditions | Confirmed v1.2. 1-to-5, existing mechanism unchanged, no schema change and no condition-based derivation |
+| Bid/No Bid rejection semantics: auto-close or block | Confirmed v1.2. Rejection blocks the transition. The reason it carries is a separate round |
+| `Bid Review` as the track name | Withdrawn v1.2. There is no Bid Review approval, so there is no track to name |
+| `stage_probability_defaults`: remap, drop, or replace | Confirmed v1.2. Remapped in the same migration as the stage rows, with per-row values asserted |
+| Terminal stages as columns (`is_terminal`, `reachable_from_any_stage`) or a named code exception | Confirmed v1.2. Columns. `is_terminal` blocks outbound transitions |
+| **Revision event: series plus approval plus re-score as one thing** | **Undecided. Recommended. Out of Round 20** |
+| **Deal Sheet freeze point after the stage compression** | **Undecided. The five-stage set changes which transition it should name** |
 | Is a loss reversible | Undecided |
 | Closed Lost reason list contents | Confirmed as configured rows, contents undecided |
 | Staff directory: does `terminus_staff` exist and what does it hold | Answered 2026-08-22. It exists; the fields store a name as text. See Finding 6 |
-| **Staff fields have no server-side validation** | **Open. The option list is client-side only, so any string can be written to `lead` through the ordinary PATCH path** |
+| **Staff fields have no server-side validation** | **Open. The option list is client-side only, so any string can be written to `lead` through the ordinary PATCH path. Explicitly out of Round 20** |
 | **`Account` is a third staff-field surface** | **Open. Its own `terminusLead`, described in no document until 2026-08-22; one live Account holds a name** |
 | **Base Cost Data catalog** | **Finding. Recorded as a control gap, not scheduled** |
-| `routing_rules` empty, Commercial tiering never worked | Finding. Not scheduled |
+| `routing_rules` empty, Commercial tiering never worked | Finding. Not scheduled. Confirmed still 0 rows at Round 20 Phase 0 |
+| **One stage vocabulary under four column names, joined by nothing** | **Finding v1.2. Not scheduled. See the findings section above** |
+| **`approvals.comment` unused on all 229 rows, `tier` null on all 229** | **Finding v1.2. Not scheduled. Sits where a reason would go** |
+| Approvals unstated on three transitions | Closed Round 20 Phase 5. Qualification to Solution Alignment carries none, Proposal to Evaluation and Evaluation to Negotiating each carry Commercial, Technical and Legal |
+| Closed Lost stage-at-death storage | Confirmed v1.2. A server-written key on `opportunity_details`, deliberately NOT in `SALESPERSON_WRITABLE_KEYS` |
 | Buyer contact role mapping | Open since the Test Bed build |

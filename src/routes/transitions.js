@@ -436,7 +436,7 @@ export default async function transitionsRoutes(app) {
     // string with zero validation.
     let stageQuery = db
       .from('stage_definitions')
-      .select('stage_name, sort_order')
+      .select('stage_name, sort_order, is_terminal, reachable_from_any_stage')
       .eq('record_type', record.record_type)
       .order('sort_order', { ascending: true })
 
@@ -506,8 +506,47 @@ export default async function transitionsRoutes(app) {
       })
     }
 
+    // ── Terminal stages (Round 20 Phase 2, 2026-08-22) ────────────────
+    //
+    // Two independent stage properties, both columns on the stage row so
+    // the vocabulary stays data rather than becoming a named exception in
+    // this file. Both default false, so every stage that predates them
+    // behaves exactly as it did.
+    //
+    // is_terminal blocks the transition OUT. That is a new restriction on
+    // a path that has always been open: backward moves are unrestricted
+    // here and always have been, so without this a record could be moved
+    // out of a terminal stage in either direction. Closed Won and Closed
+    // Lost are adjacent in the ordered list, which makes the forward case
+    // concrete rather than theoretical: a won deal one position away from
+    // lost.
+    //
+    // Confirmed against the live database before adding this, because it
+    // removes a permitted behaviour: three real transitions have left a
+    // last-position stage, all of them contact Parked -> Unqualified or
+    // Qualified, which is the un-park path. contact.Parked is NOT marked
+    // terminal, so that path is untouched. No opportunity or test_bed
+    // record has ever left its own last stage.
+    const fromRow = orderedStages[fromIdx]
+    if (fromRow?.is_terminal) {
+      return reply.code(400).send({
+        error: `${from_stage} is a terminal stage and cannot be left`,
+        from_stage,
+        to_stage
+      })
+    }
+
+    // reachable_from_any_stage exempts the DESTINATION from adjacency, and
+    // nothing else. Gate rules for the (from_stage, to_stage) pair are
+    // still evaluated below exactly as they are for any other transition,
+    // so this widens which stages may be entered from here, not what is
+    // required to enter them. It is checked AFTER is_terminal above, so a
+    // terminal stage still cannot be left, even toward a stage that is
+    // reachable from anywhere.
+    const reachableFromAnywhere = orderedStages[toIdx]?.reachable_from_any_stage === true
+
     const isBackward = toIdx < fromIdx
-    if (!isBackward && toIdx !== fromIdx + 1) {
+    if (!reachableFromAnywhere && !isBackward && toIdx !== fromIdx + 1) {
       return reply.code(400).send({
         error: `cannot skip stages: ${to_stage} is not the next stage after ${from_stage}`,
         from_stage,
@@ -635,6 +674,28 @@ export default async function transitionsRoutes(app) {
       // with .maybeSingle() correctly; only this site omitted it.
       const { data: probDefault, error: probDefaultErr } = await probQuery.maybeSingle()
 
+      // Round 20 Phase 4: a person's override outranks the stage default.
+      //
+      // Read BEFORE the write below rather than folded into its WHERE
+      // clause, so the skip is visible in the log and so a read failure
+      // cannot be mistaken for "no override set". An unchecked read here
+      // would silently overwrite the very value this exists to protect.
+      const { data: overrideRow, error: overrideErr } = await db
+        .from('opportunity_details')
+        .select('probability_override_pct')
+        .eq('record_id', record.id)
+        .maybeSingle()
+
+      if (overrideErr) {
+        request.log.error({ err: overrideErr }, 'failed to read probability_override_pct after transition')
+      }
+
+      // Null is the only value that lets the default through, and null is
+      // what every record held before this column existed, so the
+      // unoverridden path is byte for byte what it was.
+      const hasOverride = overrideRow?.probability_override_pct !== null
+        && overrideRow?.probability_override_pct !== undefined
+
       // Round 7 step 3.0. Unlike the five above, this sits AFTER the
       // transition has already succeeded, so an error here must not
       // become a 500 on an otherwise-successful response - it is logged,
@@ -643,7 +704,16 @@ export default async function transitionsRoutes(app) {
         request.log.error({ err: probDefaultErr }, 'failed to load stage_probability_defaults after transition')
       }
 
-      if (probDefault) {
+      if (hasOverride) {
+        // Deliberately a log line and not a warning. This is the feature
+        // working, not a fault, and the reset-affected-no-rows warning
+        // below already taught this codebase what a misdirected warning
+        // costs to diagnose.
+        request.log.info(
+          { record_id: record.id, to_stage, override_pct: overrideRow.probability_override_pct },
+          'probability_pct left at the record override; stage default not applied'
+        )
+      } else if (probDefault) {
         // Reached only after the owner-gated update above genuinely
         // succeeded, so a zero-row result here isn't an authorization
         // failure (the caller IS the owner) - it would mean the

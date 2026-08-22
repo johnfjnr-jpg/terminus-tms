@@ -14,7 +14,7 @@ export default async function stageDefinitionsRoutes(app) {
 
     let query = db
       .from('stage_definitions')
-      .select('stage_name, sort_order, phase')
+      .select('stage_name, sort_order, phase, is_terminal, reachable_from_any_stage')
       .eq('record_type', record_type)
       .order('sort_order', { ascending: true })
 

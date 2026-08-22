@@ -3789,3 +3789,94 @@ Explicitly deferred, not forgotten, not a section number of its own since this i
   **General form: ask which credential the tests hold, and what that
   credential is exempt from.** Anything it is exempt from is invisible, and
   it will be invisible in a way that produces passes rather than errors.
+
+- **A foreign-key violation still reaches the user as a raw Postgres message.
+  Found Round 20 Phase 5, 2026-08-22. RECORDED, NOT FIXED.**
+
+  `POST /records/:id/approvals` with a `track` that is not a row in
+  `approval_tracks` returns **500** carrying
+  `insert or update on table "approvals" violates foreign key constraint
+  "approvals_track_fkey"`.
+
+  Round 18A routed every write-error site through `src/lib/write-errors.js`
+  and gave row-level-security refusals a sentence a person can act on. That
+  helper maps `42501` and nothing else. **`23503`, a foreign-key violation,
+  is the same defect wearing a different code**: a constraint the user
+  cannot see, surfacing as "the server broke" on an action that was simply
+  not allowed.
+
+  The correct message already exists in shape. A track that is not
+  configured is not a server fault, it is a choice the caller cannot make,
+  and the readable form is the same one Round 18A wrote for ownership.
+
+  **Not this round.** It is the reason-codes round's natural neighbour,
+  because that round adds the first new constrained vocabulary since this
+  was found. Recorded now so it is met as a note rather than as a
+  production 500.
+
+- **The chevron leads with Closed Lost, because sort_order 0 is both a
+  probability and a position. Found Round 20 Phase 6, 2026-08-22 by looking
+  at a screenshot. FIXED Round 20 Phase 7: sort_order 110.**
+
+  **Why 0 was chosen, so nobody restores it by reasoning from probability.**
+  Closed Lost was given sort_order 0 so its position and its probability
+  agreed: a lost deal is 0 percent, and 0 is a natural first slot. **That
+  pairing reads well and is not load-bearing.** Probability lives in its own
+  column on its own table, `stage_probability_defaults`, keyed by stage
+  name. It is not derived from sort_order and never has been. The two
+  numbers happened to match and nothing consulted them together.
+
+  **Why it changed, and it is worse than the reading order.**
+  `GET /records/:id/stage-approvals` computes each stage's state as
+  `completed` when its index is below the current one. With Closed Lost at
+  index 0, **all three live Opportunities returned Closed Lost as
+  `completed`**, measured before the change rather than inferred. The server
+  was asserting that a deal which has never been lost had already passed
+  through being lost. After the move it reads `upcoming`.
+
+  110 rather than 101: the list is spaced by 20 and 110 leaves a gap above
+  Closed Won.
+
+  **The alternative that was rejected, so it is not proposed again.** The
+  chevron could be ordered by something other than sort_order: a
+  display_order column, or a code-side sort pushing
+  `reachable_from_any_stage` rows to the end. **Both create a second
+  ordering that has to be kept in step with the first.** They would agree on
+  the day they were written and drift the first time a stage is inserted,
+  which is the second-computation-path failure this document already records
+  in several forms. One ordering, and it is sort_order.
+
+  **What the move proved, which the original position had been hiding.**
+  Closed Lost at 0 was reached from Qualification as a BACKWARD move of one
+  position, and backward moves have always been unrestricted. So the
+  reachable_from_any_stage test passed for a reason unrelated to the column.
+  At 110 the same transition is a FORWARD jump of five positions, which
+  nothing but that column permits, and it still succeeds. The fix turned a
+  test that could not fail into one that can.
+
+  **Superseded reasoning, retained: RECORDED, NOT FIXED.**
+
+  `Closed Lost` carries `sort_order` 0 so that its probability and its
+  ordering agree, and the stage chevron renders stages in `sort_order`. So
+  the Opportunity workflow reads, left to right, **Closed Lost,
+  Qualification, Solution Alignment, Proposal, Evaluation, Negotiating,
+  Closed Won**, and a new deal appears to begin one step after having been
+  lost.
+
+  **Nothing functional is wrong.** Adjacency is measured by position in the
+  ordered list, `reachable_from_any_stage` bypasses adjacency entirely on
+  the way in, and `is_terminal` blocks the way out. Every gate behaves
+  correctly and every test passes.
+
+  **No assertion would have caught this**, which is the point of it being
+  recorded here. The panel has a real layout box at all three widths, every
+  row has usable width, there is no overflow, and the criteria and labels
+  are exactly right. What is wrong is the story the row tells, and only
+  looking at it measures that. Verification 4.
+
+  Two resolutions, both cheap, neither taken here because the ordering was
+  a confirmed decision rather than an accident: give `Closed Lost` a
+  sort_order above `Closed Won` and let probability and position stop
+  agreeing, or exclude `reachable_from_any_stage` rows from the chevron and
+  render them as a separate control. The second is probably right, since a
+  stage reachable from anywhere is not a step in a sequence.

@@ -699,7 +699,7 @@ export default async function contactsRoutes(app) {
       .select('default_probability_pct')
       .eq('record_type', 'opportunity')
       .is('variant', null)
-      .eq('stage', 'Discovery')
+      .eq('stage', 'Qualification')
       .maybeSingle()
 
     let referenceCode = null
@@ -725,7 +725,7 @@ export default async function contactsRoutes(app) {
       .from('records')
       .insert({
         record_type: 'opportunity',
-        status: 'Discovery',
+        status: 'Qualification',
         owner_id: request.user.id,
         reference_code: referenceCode,
         account_id: contact.parent_record_id ?? null
@@ -767,7 +767,7 @@ export default async function contactsRoutes(app) {
 
     await db.from('audit_log').insert([
       { record_id: contact.id, record_type: 'contact', action: 'created_opportunity', actor_id: request.user.id, detail: { opportunity_id: opp.id } },
-      { record_id: opp.id, record_type: 'opportunity', action: 'created_from_contact', actor_id: request.user.id, detail: { contact_id: contact.id, initial_stage: 'Discovery' } }
+      { record_id: opp.id, record_type: 'opportunity', action: 'created_from_contact', actor_id: request.user.id, detail: { contact_id: contact.id, initial_stage: 'Qualification' } }
     ])
 
     return reply.code(201).send(opp)

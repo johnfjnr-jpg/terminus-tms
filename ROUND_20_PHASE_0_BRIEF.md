@@ -305,3 +305,155 @@ on I4 and I5 coming back clean. Do not plan it before.
    discovering it in Phase 5.
 
 Then stop and wait for sign-off.
+
+---
+
+## Round 20 outcome
+
+The first Opportunity build round. Nine phases, 0 through 8, plus this
+close-out. Phase 9, the optional deletion of the test data, was
+deliberately skipped: the migration rehearsal had already delivered its
+value, and deleting live records buys tidiness at the cost of an
+unrehearsed operation.
+
+### Rule 7 returned zero, and that is the second round it has done so
+
+`grep -n "^## Phase\|^### Phase"` against this brief returns **0**, with the
+`###` half included. The same pattern returns 5 against
+`ROUND18A_FIX_BRIEF.md`, so the zero is a real absence rather than a broken
+pattern. **This brief carries its phase list as a table, at lines 247 to
+255**, and rule 7 counts headings.
+
+Round 19 recorded the same thing and left it as a finding about the rule.
+It has now happened twice in consecutive rounds, which makes it a property
+of how briefs are written here rather than an accident. The two candidate
+resolutions are unchanged: require phase headings in every brief, or widen
+rule 7 to count a phase table. **Still not resolved, and now with a second
+data point.**
+
+Counted from the table, phases 0 through 8, each with an explicit sign-off
+in the session transcript. This report does not sign off its own phase.
+
+### What the round did
+
+Five working stages and two terminal states replace six configured stages
+that were never the model. `Qualification`, `Solution Alignment`,
+`Proposal`, `Evaluation`, `Negotiating`, `Closed Won`, `Closed Lost`.
+Terminal behaviour is two columns rather than a code exception. Probability
+gained a per-record override that survives a transition. Thirty-one gate
+rules configure the workflow, and the browser gained the control that
+satisfies them.
+
+### `CLAUDE.md` changed twice, in phases 2 and 9
+
+**The next session must re-read it from disk.** The copy delivered at
+session start is a snapshot, so a session following a round that edited it
+receives the old version.
+
+Both edits append to **Verification 17**, promoted last round, and both
+came from that rule catching its own author:
+
+- **Phase 2**: a probe can be specific, unique and correct and still fail
+  to discriminate when the tool's granularity does not match the thing
+  measured, as when a line-based search targets text wrapped across a line
+  break.
+- **Phase 9**: a probe can discriminate perfectly and be shown only part of
+  the population, as when a paged API caps a scan at its default limit.
+
+### The finding with the longest reach
+
+**`renderTransitionSection` derived server-owned state a second time, in
+the browser.** Phase 2 fixed `records.js` so a record in a terminal stage
+is not offered a next stage. Phase 6 found the same computation,
+`stages[currentIdx + 1]`, implemented independently in `frontend/app.js`,
+where the server fix could never have reached it. Without the second fix a
+lost deal would have been offered a button reading "Move to Qualification".
+
+Build discipline rule 6 in its exact shape: a fix built for the surfaces
+that existed is not a fix for the surface built beside it. **Worth a
+deliberate search in a later round for other client-side derivations of
+server-owned state. Not scheduled.**
+
+### Recorded and not fixed
+
+- **A foreign-key violation reaches the user as a raw Postgres 500.**
+  `POST /records/:id/approvals` with a track absent from `approval_tracks`
+  returns 500 carrying `violates foreign key constraint
+  "approvals_track_fkey"`. Round 18A routed every write-error site through
+  `src/lib/write-errors.js`, and that helper maps `42501` and nothing else.
+  `23503` is the same defect wearing a different code. Its natural
+  neighbour is the reason-codes round, which adds the first new constrained
+  vocabulary since this was found.
+
+- **Seventeen revisions still carry scaffold payload keys, and they are
+  history rather than residue.** Six `scaffoldOne`, six `scaffoldTwo`, five
+  `scaffoldThree`, all on ONE record, soft deleted, owned by a test
+  account, with no live record carrying any. `record_revisions` is append
+  only and `records` carries `ON DELETE RESTRICT` from it, so removing them
+  is neither permitted nor desirable: a revision records what was true when
+  it was written, including a criterion that existed then and does not now.
+  **The precedent is established.** Round 11 Phase 1 retired
+  `exitQualDataAndUseCase` together with its gate rule, and **50 revisions
+  still carry that key today** with no rule naming it. Nobody should read
+  either set as something left behind.
+
+### The unstated approvals item is closed
+
+v1.2 recorded three transitions with no stated approvals and deliberately
+did not invent them. The business stated all three, so they are configured
+rather than guessed:
+
+- `Qualification` to `Solution Alignment`: **none**
+- `Proposal` to `Evaluation`: **Commercial, Technical, Legal**
+- `Evaluation` to `Negotiating`: **Commercial, Technical, Legal**
+
+`Evaluation`'s own exit criteria arrived in the same conversation, so the
+stage model no longer carries a "not yet stated" cell anywhere.
+
+### Open decisions in `OPPORTUNITY_DESIGN.md`: seven
+
+Asserted row by row rather than by count, since a total is the shape that
+passes while wrong:
+
+1. Revision event: series plus approval plus re-score as one thing
+2. Deal Sheet freeze point after the stage compression
+3. Staff fields have no server-side validation
+4. `Account` is a third staff-field surface
+5. Base Cost Data catalog
+6. One stage vocabulary under four column names, joined by nothing
+7. `approvals.comment` unused on all 229 rows, `tier` null on all 229
+
+Eight at the end of Phase 1, seven now: the approvals item closed and
+nothing new opened. No bolded row claims to be confirmed.
+
+### Reconciliation
+
+`CURRENT_STATE.md` regenerated. **Unlike Round 19 it was genuinely stale**:
+13 tracked configuration sources changed since its recorded commit, seven
+migrations and six route files. Every changed line is accounted for by a
+phase.
+
+- **`stage_definitions` 19 to 20 rows**, the six opportunity stages
+  replaced by seven. Phase 3, with `Closed Lost` moved to 110 in Phase 7.
+- **`stage_gate_rules` 61 to 92**, the 31 opportunity rules from Phase 5.
+  The scaffold's three are absent, asserted by name in Phase 8.
+- **`stage_probability_defaults` 6 to 7 rows**, remapped in the same
+  migration as the stages. `Proposal` reads 40, not the carried-over 50.
+- **`SALESPERSON_WRITABLE_KEYS` 35 to 54 keys**, the 19 exit criteria from
+  Phase 5. The three scaffold keys were removed in Phase 8.
+- **Routes 56 to 57**, the probability override endpoint from Phase 4.
+- **Opportunity records by status** now read across the new vocabulary. 93
+  live records, unchanged all round.
+- **Soft-deleted rows grew by 598 and harness types by 47**, all from suite
+  runs and phase fixtures. Zero live.
+
+**One correction inside the reconciliation, and it was my own.** The first
+regeneration listed `r20p2_1787389749442` and `r20p2inj_1787389787303` as
+record types in their own right. They are Phase 2 fixtures, all 12 soft
+deleted, and the standing residue check did not see them because it looks
+for LIVE records. **They escaped the generator's fixture aggregation
+because I prefixed them `r20p2_` rather than `harness_`.** Renamed to
+`harness_r20p2*` so they aggregate honestly; nothing was deleted. A
+synthetic record type that does not carry the harness prefix will be
+reported as though it were a real one, permanently, because soft-deleted
+records are never removed.
