@@ -1021,6 +1021,39 @@ clarification rather than an imagined one.
 
 ---
 
+## Why there is no Sales Lead approval, recorded so it is revisitable
+
+**CONFIRMED v1.2, Round 20 Phase 5.** The confirmed model has no Sales Lead
+track and creates no new tracks. Only Commercial, Technical and Legal.
+
+**A Sales Lead approval is the sales lead approving their own transition.**
+The transition is already authenticated, attributed to a user id and
+timestamped in `audit_log`, and the exit criteria above it are the
+governance. A signature by the actor on their own act records the same fact
+twice and reads as a control while adding none.
+
+**Scale-dependent, exactly like the Bid Review decision, and revisitable on
+the same trigger.** The moment someone other than the sales lead can move a
+record, a Sales Lead approval stops being a countersignature on your own
+work and becomes a real control. **Revisit when the person moving the
+record and the person accountable for it are no longer the same person.**
+
+**What survives in the meantime is the audit trail**, which already exists
+and needed no build. Verified in Phase 5 rather than assumed: an ad-hoc
+approval on a track no gate rule requires is accepted today and stored in
+full, carrying track, decision, comment, stage, revision number, approver
+id and timestamp, plus an `approval_submitted` row in `audit_log`. So the
+business can already record a Legal or Technical sign-off obtained during
+clarification. What does not exist is the request-and-block workflow, which
+is deferred with the reason-codes round.
+
+**`approvals.track` is a foreign key to `approval_tracks`**, so a track
+that does not exist cannot be recorded at all, and no route or frontend
+switch names any track: they are data, not labels on hardcoded branches.
+Adding a Sales Lead track later is therefore a row, not a code change.
+
+---
+
 ## The six-month test on the assessments
 
 **Recorded v1.2. Watch item, not a build item. Do not build anything

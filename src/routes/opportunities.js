@@ -176,6 +176,17 @@ export default async function opportunitiesRoutes(app) {
     // path, this one included.
     'lead', 'commercial', 'technical', 'legal',
     'customerLead', 'commAddress',
+    // Round 20 Phase 5: the exit-criteria fields the new gate rules name.
+    // A gate whose field cannot be written is not a gate, it is a wall, so
+    // these land in the same change as the rules that require them. There
+    // is no UI to tick them yet and that is stated in the phase report:
+    // this makes them settable, not visible.
+    'exitQualBudget', 'exitQualTimeline', 'exitQualCommitment',
+    'exitSolTechnicalSolution', 'exitSolBuyersKnown', 'exitSolKeyStakeholders', 'exitSolTermsReviewed',
+    'exitPropPricingApproved', 'exitPropContractTerms', 'exitPropImplSchedule', 'exitPropDocumentation',
+    'exitEvalClarificationsResponded', 'exitEvalRevisedPricing', 'exitEvalTechnicalClarifications',
+    'exitNegScopeAgreed', 'exitNegPricingAgreed', 'exitNegLegalResolved',
+    'exitNegCommercialsApproved', 'exitNegContractExecuted',
     'summary', 'oppType',
     'actualClose', 'estGoLive', 'actualGoLive',
     'notes',
