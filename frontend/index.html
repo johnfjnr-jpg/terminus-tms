@@ -1449,8 +1449,6 @@
     <div class="detail-tabs" id="opp-detail-tabs">
       <button class="detail-tab active" data-opp-tab="reference">Reference</button>
       <button class="detail-tab" data-opp-tab="commercial">Commercials</button>
-      <button class="detail-tab" data-opp-tab="documents">Documents</button>
-      <button class="detail-tab" data-opp-tab="approvals">Stage &amp; Approvals</button>
     </div>
 
     <!-- Reference: reference number strip, three cards (Terminus Details /
@@ -2010,10 +2008,6 @@
          not this tab. There is no document-template data source anywhere in
          this app yet, so this renders an honest empty state rather than
          fabricated entries. -->
-    <div class="detail-tab-panel hidden" id="opp-tab-documents">
-      <p class="data-row-label" style="margin-bottom:14px">Template URLs are maintained centrally in Admin, and completed copies are saved into this opportunity's folder.</p>
-      <div id="opp-documents-list"></div>
-    </div>
 
     <!-- Stage & Approvals: every stage in the lifecycle, not just the
          current one. Ring radios are real (backed by stage_gate_rules +
@@ -2021,18 +2015,7 @@
          app to gate who may click one - restricted to the current stage
          only, a UX judgment call on real data (record.status), not a
          fabricated permission system. -->
-    <div class="detail-tab-panel hidden" id="opp-tab-approvals">
-      <div class="sa-row sa-head">
-        <span>Stage</span><span>Exit criteria</span><span>Approvers</span>
       </div>
-      <div id="opp-stage-approvals-rows"></div>
-
-      <div style="margin-top:40px">
-        <p class="section-title">Stage transition</p>
-        <div id="transition-section"></div>
-      </div>
-    </div>
-  </div>
 
   </div><!-- /app-content-scroll -->
 

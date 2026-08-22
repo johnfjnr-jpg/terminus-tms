@@ -411,8 +411,44 @@ function renderOppStageTabs(stages, currentStage) {
     // Phase 2 renders the slot. Phase 3 moves the exit criteria in, Phase 4
     // the approvals, Phase 5 documents and assessments. A placeholder that
     // says what is coming beats an empty box that looks broken.
-    // Phase 3 fills the exit criteria. Phase 4 adds approvals, Phase 5
-    // documents and assessments, each as its own card in this row.
+    // A TERMINAL stage gets a different panel, not four empty cards.
+    //
+    // Round 10 Phase 7 settled this for Test Bed, superseding Round 9 Phase
+    // 6.3's "renders nothing": the Closed tab hides the panel row and shows
+    // the completed record instead. Closed Won has zero exit criteria and
+    // zero approvals, because criteria belong to the stage you are LEAVING
+    // and nothing leaves a terminal stage, so without this case it would
+    // render four permanently empty placeholders. A placeholder on a working
+    // stage says "not configured yet"; four of them on a stage that can
+    // never have any says the screen is broken.
+    //
+    // Keyed on is_terminal from the stage row, not on the name 'Closed Won',
+    // so a record type whose terminal stage is named something else behaves
+    // the same way.
+    if (st.is_terminal) {
+      panel.innerHTML = `
+        <div class="ref-cards">
+          <div class="pg-card">
+            <p class="pg-card-title">${escHtml(st.stage_name)}</p>
+            <p class="empty-state">This is a closed state. There is nothing to complete here:
+            exit criteria and approvals belong to the stage a record is leaving, and a closed
+            record is not leaving one.</p>
+          </div>
+        </div>`
+      host.appendChild(panel)
+      const tbtn = document.createElement('button')
+      tbtn.type = 'button'
+      tbtn.className = 'detail-tab'
+      tbtn.dataset.oppTab = key
+      tbtn.dataset.oppStageTab = st.stage_name
+      tbtn.textContent = st.stage_name
+      strip.appendChild(tbtn)
+      continue
+    }
+
+    // Phase 3 fills the exit criteria, Phase 4 the approvals. Documents and
+    // Assessments are slots: the business wants them visible for what is
+    // coming, and Test Bed renders empty panels the same way.
     panel.innerHTML = `
       <div class="ref-cards">
         <div class="pg-card">
@@ -422,6 +458,14 @@ function renderOppStageTabs(stages, currentStage) {
         <div class="pg-card">
           <p class="pg-card-title">Approvals</p>
           <div id="opp-stage-approvals-${escHtml(key)}"></div>
+        </div>
+        <div class="pg-card">
+          <p class="pg-card-title">Terminus Documents</p>
+          <div id="opp-stage-documents-${escHtml(key)}"><p class="empty-state">No documents configured for this stage.</p></div>
+        </div>
+        <div class="pg-card">
+          <p class="pg-card-title">Assessments</p>
+          <div id="opp-stage-assessments-${escHtml(key)}"><p class="empty-state">No assessments configured for this stage.</p></div>
         </div>
       </div>
       <div id="opp-stage-transition-${escHtml(key)}" style="margin-top:24px"></div>`
@@ -469,6 +513,10 @@ let oppStageTabLoadToken = 0
 async function loadOppStageTab(recordId, stageName, currentStage, stages) {
   const myToken = ++oppStageTabLoadToken
   currentOppStageTab = stageName
+  // A terminal stage's panel is static markup with nothing to fetch. Asking
+  // for criteria and approvals it can never have would be two round trips
+  // whose only possible answer is empty.
+  if ((stages ?? []).find(s => s.stage_name === stageName)?.is_terminal) return
   const key = oppStageTabKey(stageName)
   await renderOppExitCriteria(`opp-stage-criteria-${key}`, recordId, stageName,
     (stages ?? []).find(s => s.stage_name === stageName)?.is_terminal
@@ -535,7 +583,7 @@ function renderOppAdvanceControl(el, recordId, currentStage, stages) {
   el.innerHTML = `
     <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px">
       <span style="font-size:14px">Advance to <strong>${escHtml(next)}</strong></span>
-      <button class="btn-primary" onclick="attemptTransition('${recordId}', '${escHtml(next)}', 'transition-feedback', 'transition-section', '${escHtml(currentStage)}')">
+      <button class="btn-primary" onclick="attemptTransition('${recordId}', '${escHtml(next)}', 'transition-feedback', 'opp-stage-transition', '${escHtml(currentStage)}')">
         Move to ${escHtml(next)}
       </button>
     </div>
@@ -1509,7 +1557,8 @@ function applyConfirmedOppTick(recordId, stageName, field, met) {
 // one, and the criteria panel was out of the viewport after every one.
 //
 // The panel was never on the Reference page, which was the reported
-// diagnosis. It sits inside #opp-tab-approvals. The location was never the
+// diagnosis. It sat inside #opp-tab-approvals, a tab Phase 5 has since
+// removed entirely. The location was never the
 // problem; reloading the page after a write was.
 //
 // Test Bed has done this correctly since Round 9: re-render the panel, not
@@ -3846,7 +3895,6 @@ async function renderOppDetail(opp) {
 
   const stages = await fetchStages('opportunity')
   renderChevronStrip('opp-chevron-strip', opp.status, stages)
-  await renderTransitionSection('transition-section', 'transition-feedback', opp.id, opp.status, stages)
 
   await loadTerminusStaffIfNeeded()
 
@@ -3871,8 +3919,6 @@ async function renderOppDetail(opp) {
   // convention as other modules resetting their sub-view on entry, UNLESS the
   // user already picked a tab while this load was still in flight.
   if (!oppUserPickedTab) switchOppTab('reference')
-  renderOppDocumentsList()
-  await loadStageApprovals(opp.id)
 }
 
 // ── Documents tab: deliberately just a caption + flat template-link list,
@@ -3881,11 +3927,6 @@ async function renderOppDetail(opp) {
 // document_details, a different, per-stage-requirement thing, not a
 // static template library) - so this renders an honest empty state
 // rather than fabricated entries.
-function renderOppDocumentsList() {
-  document.getElementById('opp-documents-list').innerHTML =
-    '<p class="empty-state">No document templates configured yet.</p>'
-}
-
 // ── Stage & Approvals tab ───────────────────────────────────────────────────
 // containerId (2026-08-15, Milestone 4): generalized from Opportunity's
 // original hardcoded 'opp-stage-approvals-rows' so Test Bed's Approvals
@@ -3898,6 +3939,12 @@ const stageApprovalsContainerByRecord = {}
 async function loadStageApprovals(id, containerId = 'opp-stage-approvals-rows') {
   stageApprovalsContainerByRecord[id] = containerId
   const container = document.getElementById(containerId)
+  // Round 21 Phase 5: the default names Opportunity's all-stages table,
+  // which this round replaced with per-stage cards and removed. The default
+  // is now unreachable from any live caller, and a caller that fell through
+  // to it would have thrown on a null container rather than doing nothing.
+  // Test Bed passes its own container and is unaffected.
+  if (!container) return
   container.innerHTML = '<p class="empty-state">Loading...</p>'
   const result = await api('GET', `/api/records/${id}/stage-approvals`)
   if (!result.ok) {
@@ -3989,6 +4036,7 @@ function buildStageTrackListHtml(recordId, st) {
 
 function renderStageApprovalsRows(recordId, stages, containerId = 'opp-stage-approvals-rows') {
   const container = document.getElementById(containerId)
+  if (!container) return
   if (!stages.length) {
     container.innerHTML = '<p class="empty-state">No stages configured for this record type.</p>'
     return
