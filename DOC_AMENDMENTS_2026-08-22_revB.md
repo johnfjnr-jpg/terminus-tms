@@ -161,8 +161,18 @@ dangerous rather than less.
 
 ## Verification for this change
 
-1. Each anchor matched exactly once before editing. Confirm with `grep -ac`
-   on the anchor's first line. Use `grep -a`, per Verification rule 12.
+1. Each anchor matched exactly once before editing. Confirm with
+   `grep -acF -e` on the anchor's first line. Use `grep -a`, per
+   Verification rule 12, and calibrate the search against a string already
+   known to be in that file before trusting a count.
+
+   **Use `grep -acF -e`, not `grep -ac`.** Amendment 4 revised's anchor
+   begins with `- **JWT`, and a leading dash is parsed as an option rather
+   than as a pattern: the first Phase 0 run of that anchor errored instead
+   of counting. It errored visibly, so it was caught, but the same shape
+   returning `0` would have read as a genuine absence. `-e` ends option
+   parsing, `-F` takes the anchor literally so its asterisks and backticks
+   are not read as a pattern.
 2. `grep -n "^## " PROTOTYPE_SPECIFICATION.md` returns the same heading
    count and the same headings as before. No heading created, moved or
    consumed.

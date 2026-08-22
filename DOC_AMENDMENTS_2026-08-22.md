@@ -200,7 +200,15 @@ This is a documentation change and it ships no code, so the evidence is
 small and specific.
 
 1. Each anchor matched exactly once before editing. Confirm with
-   `grep -ac` on the anchor's first line.
+   `grep -acF -e` on the anchor's first line.
+
+   **Use `grep -acF -e`, not `grep -ac`.** Amendment 4 revised's anchor
+   begins with `- **JWT`, and a leading dash is parsed as an option rather
+   than as a pattern: the first Phase 0 run of that anchor errored instead
+   of counting. It errored visibly, so it was caught, but the same shape
+   returning `0` would have read as a genuine absence. `-e` ends option
+   parsing, `-F` takes the anchor literally so its asterisks and backticks
+   are not read as a pattern.
 2. Each inserted block renders as a blockquote or list item in the
    surrounding structure, not as a broken table or a code fence.
 3. `grep -n "^## " DESIGN_PRINCIPLES.md` returns the same heading count and
