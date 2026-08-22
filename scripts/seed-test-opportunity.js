@@ -106,7 +106,7 @@ const payload = {
 
 const { data: record, error: recordErr } = await supabaseAdmin
   .from('records')
-  .insert({ record_type: 'opportunity', status: 'Discovery', owner_id: owner.id })
+  .insert({ record_type: 'opportunity', status: 'Qualification', owner_id: owner.id })
   .select()
   .single()
 
@@ -120,7 +120,7 @@ const { data: probDefault } = await supabaseAdmin
   .select('default_probability_pct')
   .eq('record_type', 'opportunity')
   .is('variant', null)
-  .eq('stage', 'Discovery')
+  .eq('stage', 'Qualification')
   .maybeSingle()
 
 const { error: detailsErr } = await supabaseAdmin

@@ -1450,14 +1450,14 @@ export default async function testBedsRoutes(app) {
       .select('default_probability_pct')
       .eq('record_type', 'opportunity')
       .is('variant', null)
-      .eq('stage', 'Discovery')
+      .eq('stage', 'Qualification')
       .maybeSingle()
 
     const { data: opp, error: oppErr } = await db
       .from('records')
       .insert({
         record_type: 'opportunity',
-        status: 'Discovery',
+        status: 'Qualification',
         owner_id: request.user.id,
         account_id: bed.account_id ?? null,
         reference_code: bed.reference_code ?? null
