@@ -206,8 +206,12 @@ small and specific.
 3. `grep -n "^## " DESIGN_PRINCIPLES.md` returns the same heading count and
    the same headings as before the edit. No heading was created, moved or
    consumed.
-4. **No em dashes introduced anywhere.** `grep -c "—"` returns the same
-   number as before the edit, which should be zero.
+4. **No em dash in any text this change introduces.** The em dash count is
+   unchanged at 28 in `PROTOTYPE_SPECIFICATION.md` and zero in every other
+   file. Those 28 are pre-existing, they sit in section headings, and
+   removing them is a deferred item rather than this round's work. This
+   change edits `CLAUDE.md` and `DESIGN_PRINCIPLES.md`, both of which are
+   at zero and must stay there.
 5. The `CLAUDE.md` read-list table has exactly one added row and still
    renders as a table.
 6. `CURRENT_STATE.md` is unchanged and untouched.

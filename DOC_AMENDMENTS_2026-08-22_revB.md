@@ -139,7 +139,10 @@ dangerous rather than less.
 
     **SUPERSEDED 2026-08-16, recorded here 2026-08-22. All four are now
     dropdowns**, sourced from `terminus_staff`, on Opportunity and on Test
-    Bed. The decision NOT to make them Contact records stands and was
+    Bed. **Account carries a fifth staff-sourced field**, its own
+    `terminusLead`, populated from the same list through the shared Account
+    Details panel, so the directory feeds three record types rather than
+    two. The decision NOT to make them Contact records stands and was
     correct; what changed is that they are no longer unconstrained text. The
     same change fixed a real latent bug in `refFieldRow`, Opportunity's
     field-rendering function, which lacked the leading blank `<option>` that
@@ -167,7 +170,13 @@ dangerous rather than less.
    is still fully extracted; two of its statements are now marked as
    superseded, which is a different thing from the section being
    incompletely known.
-4. `grep -c "—"` returns zero, before and after.
+4. **No em dash in any text this change introduces.** The em dash count is
+   unchanged at 28 in `PROTOTYPE_SPECIFICATION.md` and zero in every other
+   file. **The 28 are pre-existing and this criterion must not be written as
+   zero for that file**, which is what an earlier draft of this line said and
+   what would have failed the moment it was checked. They sit in section
+   headings, including Section 3's own, and removing them is a deferred item
+   rather than this round's work.
 5. `CURRENT_STATE.md` unchanged and untouched.
 6. **The open question is not answered in either document.** If the query
    gets run during this change, the answer lands as a new dated entry in
