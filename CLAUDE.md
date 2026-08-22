@@ -18,6 +18,7 @@ being read properly and stops working.
 | `PROTOTYPE_SPECIFICATION.md` | What the prototype actually does, cited by line |
 | `INTERACTION_STANDARDS.md` | What correct interaction behaviour means |
 | `CURRENT_STATE.md` | What is configured and built right now. Generated |
+| `OPPORTUNITY_DESIGN.md` | What Opportunities is meant to become, and what is still undecided. Read for any Opportunity work |
 | The current round's build brief | This round's scope |
 | The previous round's build brief | What was just changed and what it left open |
 

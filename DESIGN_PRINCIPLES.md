@@ -224,6 +224,49 @@ Software that supports traceability, controlled approval, and documented decisio
 
 ## 5. Sales opportunity stage gates in detail
 
+> **PARTIALLY SUPERSEDED, 2026-08-22, by `OPPORTUNITY_DESIGN.md` v1.1.**
+> The six-stage model below (Discovery, Qualified, Proposal, Evaluation,
+> Negotiation, Closing) is replaced by four working stages and two
+> terminal states. Read `OPPORTUNITY_DESIGN.md` before building any
+> Opportunity stage gate. The reasoning below is retained rather than
+> deleted because three of its statements still govern.
+>
+> **What still stands, unchanged:**
+>
+> - **Approvals have no required order between tracks.** All required
+>   tracks must be satisfied, in parallel, whoever is ready first. An
+>   earlier draft of `OPPORTUNITY_DESIGN.md` proposed an ordered
+>   sequence at Negotiating and that proposal has been withdrawn.
+>   Ordering is not expressible in `stage_gate_rules`, and more
+>   importantly it was a decision taken here and should not have been
+>   reversed silently.
+> - **Every new or revised commercial document requires approval before
+>   being sent**, as a document-level gate rather than an
+>   Opportunity-stage gate. This is a standing control and it is at risk:
+>   the four-stage compression turns Evaluation and Negotiation into one
+>   stage whose approvals fire on exit, which would let a re-priced
+>   proposal reach a client unapproved. Recorded as an unresolved gap in
+>   `OPPORTUNITY_DESIGN.md`.
+> - **The Deal Sheet freezes when the proposal is approved for
+>   submission**, which is the natural application of the immutable
+>   approved snapshot principle. The transition it was named against,
+>   Proposal to Evaluation, no longer exists. The principle stands and
+>   the transition needs renaming.
+>
+> **What has been confirmed since:**
+>
+> - **Bid/No Bid is an approval at the gate into Proposal.** This
+>   section flagged that placement as an assumption for confirmation.
+>   The business confirmed it on 2026-08-22. What a rejection means,
+>   block versus auto-close, remains undecided.
+>
+> **What is still true and still broken:** `routing_rules` was flagged
+> empty in the Milestone 2 audit below. It holds **0 rows today**,
+> confirmed at commit `dd7459a`. The tiered Commercial escalation
+> described in this section, and still described on the
+> `approval_tracks.Commercial` row, has never worked. Opportunity is the
+> record type it was designed for.
+
 **This section describes Opportunity, Discovery through Closing.** Test Bed is a genuinely separate record type with its own lifecycle, Planning through Closed, see Section 8. The gate mechanics below (configurable tracks, no required order) apply equally to both, this is one engine used by two different record types, not two engines.
 
 **Every stage gate has a configurable set of required approvals, not a fixed number:**
@@ -249,6 +292,31 @@ For the two tracks already concretely needed, Commercial (Sales/line management,
 ---
 
 ## 6. Opportunity value estimation, before a Deal Sheet exists
+
+> **UNBUILT, AND THE GAP IS A CONTROL GAP RATHER THAN A DOCUMENTATION
+> GAP. Recorded 2026-08-22.**
+>
+> Everything below assumes `product_defaults` and `system_defaults`
+> supply unit, mounting and hosting costs. **Neither table exists.** The
+> Deferred scope entry for Base Cost Data in this document says so
+> directly: the cost lines are a stopgap, held as freely editable
+> payload fields on the Opportunity record itself, which
+> `SALESPERSON_WRITABLE_KEYS` confirms.
+>
+> **The consequence is not that this section is out of date.** It is
+> that every Opportunity carries its own private cost basis and nothing
+> compares them. Two deals priced in the same week can use different
+> hardware costs, and the Commercial approval is computed against
+> whatever the salesperson typed. The Round 17A Phase 6 rule guarantees
+> one calculation path. It does not guarantee one set of inputs.
+>
+> This matters more from the moment Bid/No Bid and the Proposal gate
+> make Commercial approval load-bearing on Opportunity.
+>
+> **Not scheduled, and not a reason to stop.** Recorded so that the next
+> person to reach for this section knows they are reading a design for
+> something unbuilt, and so the gap is owned rather than rediscovered.
+> Reconciling it is the first thing any commercial-model work has to do.
 
 The sales owner shouldn't need a completed Deal Sheet just to see a ballpark contract value early in the sales cycle. At the Opportunity level, they enter four numbers only:
 
