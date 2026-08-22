@@ -365,7 +365,11 @@ const oppTabStrip = window.createTabStrip({
   panes: () => [...document.querySelectorAll('#view-opportunity-detail .detail-tab-panel')],
   panelFor: key => document.getElementById(`opp-tab-${key}`),
 })
-function switchOppTab(tab) { oppTabStrip.select(tab) }
+// opts is forwarded rather than dropped. select() accepts { focusTab }, and a
+// wrapper that takes one argument silently discards a second: the call site
+// reads as though it passed something and the definition never named it. That
+// is Architecture rule 9 in miniature, one line wide.
+function switchOppTab(tab, opts) { oppTabStrip.select(tab, opts) }
 
 // ── Opportunity stage tabs, Round 21 Phase 2 ────────────────────────────
 //
@@ -467,8 +471,36 @@ function renderOppStageTabs(stages, currentStage) {
     // Phase 3 fills the exit criteria, Phase 4 the approvals. Documents and
     // Assessments are slots: the business wants them visible for what is
     // coming, and Test Bed renders empty panels the same way.
+    //
+    // Round 22 Phase 1: the order is Assessments, Terminus Documents, Exit
+    // Criteria, Approvals, matching Test Bed position for position with
+    // Assessments in the slot Test Bed gives Qualification scoring.
+    //
+    // The previous order was not a decision. Round 21 built these panels in
+    // three phases and each appended its card at the end, so the row recorded
+    // the build sequence: Phase 3 Exit Criteria, Phase 4 Approvals, Phase 5
+    // Documents and Assessments. Nothing else ordered them, and no
+    // hand-written document recorded an intended order.
+    //
+    // This is a 2-up grid at 1240 and 1920, so "left to right" is READING
+    // order: Assessments and Terminus Documents on the first row, Exit
+    // Criteria and Approvals on the second. At 3440 the row is single and
+    // reading order collapses back onto DOM order. Reordering the blocks is
+    // enough either way, because DOM position is the only thing that orders
+    // them: there is no `order:` declaration anywhere in the stylesheet.
+    //
+    // Each card addresses its own container by id, so moving the blocks
+    // cannot disturb which container a loader fills.
     panel.innerHTML = `
       <div class="ref-cards">
+        <div class="pg-card">
+          <p class="pg-card-title">Assessments</p>
+          <div id="opp-stage-assessments-${escHtml(key)}"><p class="empty-state">No assessments configured for this stage.</p></div>
+        </div>
+        <div class="pg-card">
+          <p class="pg-card-title">Terminus Documents</p>
+          <div id="opp-stage-documents-${escHtml(key)}"><p class="empty-state">No documents configured for this stage.</p></div>
+        </div>
         <div class="pg-card">
           <p class="pg-card-title">Exit Criteria</p>
           <div id="opp-stage-criteria-${escHtml(key)}"></div>
@@ -476,14 +508,6 @@ function renderOppStageTabs(stages, currentStage) {
         <div class="pg-card">
           <p class="pg-card-title">Approvals</p>
           <div id="opp-stage-approvals-${escHtml(key)}"></div>
-        </div>
-        <div class="pg-card">
-          <p class="pg-card-title">Terminus Documents</p>
-          <div id="opp-stage-documents-${escHtml(key)}"><p class="empty-state">No documents configured for this stage.</p></div>
-        </div>
-        <div class="pg-card">
-          <p class="pg-card-title">Assessments</p>
-          <div id="opp-stage-assessments-${escHtml(key)}"><p class="empty-state">No assessments configured for this stage.</p></div>
         </div>
       </div>
       <div id="opp-stage-transition-${escHtml(key)}" style="margin-top:24px"></div>`
@@ -610,10 +634,10 @@ function renderOppAdvanceControl(el, recordId, currentStage, stages) {
   el.innerHTML = `
     <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px">
       <span style="font-size:14px">Advance to <strong>${escHtml(next)}</strong></span>
-      <button class="btn-primary" onclick="attemptTransition('${recordId}', '${escHtml(next)}', 'transition-feedback', 'opp-stage-transition', '${escHtml(currentStage)}')">
+      <button class="btn-primary" onclick="attemptTransition('${recordId}', '${escHtml(next)}', 'transition-feedback', 'opportunity', '${escHtml(currentStage)}')">
         Move to ${escHtml(next)}
       </button>
-      <button class="btn-ghost" onclick="openCloseLostPrompt('${recordId}', '${escHtml(currentStage)}')">
+      <button class="btn-ghost" id="opp-close-lost-btn-${escHtml(oppStageTabKey(currentStage))}" onclick="openCloseLostPrompt('${recordId}', '${escHtml(currentStage)}')">
         Mark Closed Lost
       </button>
     </div>
@@ -654,12 +678,37 @@ window.openCloseLostPrompt = async (recordId, currentStage) => {
     // exist. When that decision lands, this line changes with it.
     warning: 'This cannot be undone. A closed deal cannot be reopened or moved to another stage.',
     emptyReasonError: 'A reason is required to close a deal as lost.',
-    returnFocusTo: 'opp-stage-transition',
+    // Round 22 Phase 3: the real id of the control that opened this. It was
+    // 'opp-stage-transition', which matches nothing: the generated ids all
+    // carry the stage key, as `opp-stage-transition-${key}`. getElementById
+    // returned null and the `?.focus()` swallowed it, so cancelling this
+    // dialogue dropped focus silently. Same family as Round 21 Phase 7's
+    // element ids built from a stage name: an id that resolves in the mind
+    // and not in the document.
+    //
+    // It points at the button rather than that container, because the
+    // container is a <div> with no tabindex and .focus() on one is a no-op:
+    // fixing the id alone would have replaced a silent failure with a
+    // quieter one.
+    returnFocusTo: `opp-close-lost-btn-${oppStageTabKey(currentStage)}`,
     onConfirm: async (note, reasonId) => {
       const result = await api('POST', `/api/opportunities/${recordId}/close-lost`, { reason_id: reasonId, note })
       return { ok: result.ok, error: result.data?.error }
     },
-    onDone: async () => { await loadOpportunityDetail(recordId) },
+    // Round 22 Phase 3: a lost deal lands on Reference, carried through the
+    // SAME one-shot an advance uses rather than a second switch call here.
+    //
+    // Reference because a lost deal is not a stage you work in, which is the
+    // same reasoning that keeps Closed Lost out of the tab strip, and because
+    // Reference is where you look to see what happened. Landing on the stage
+    // it died at would show exit criteria for a transition that will never
+    // happen.
+    //
+    // Set BEFORE the reload, since the reload is what consumes it.
+    onDone: async () => {
+      oppLandOnTabAfterLoad = 'reference'
+      await loadOpportunityDetail(recordId)
+    },
   })
 }
 
@@ -1486,6 +1535,36 @@ let oppCriterionQueue = Promise.resolve()
 // same load's own completion.
 let oppUserPickedTab = false
 
+// oppLandOnTabAfterLoad, Round 22 Phase 2, widened in Phase 3. The
+// Opportunity twin of tbLandOnStageAfterLoad, ported rather than invented.
+//
+// Phase 3: this holds a TAB KEY, not a stage name, which is the one place it
+// deliberately diverges from Test Bed's twin. Losing a deal has to land on
+// Reference, and Reference is not a stage, so a variable holding a stage name
+// could not carry it. Converting at the two points that set it keeps ONE
+// value type and ONE place that decides the tab, which is the whole reason
+// option A was chosen over a second switch call after the reload. Adding a
+// separate path for the lose case would have undone that in the next phase.
+//
+// The problem it solves is that an advance is the one case where the SYSTEM
+// should move the tab and the user has not asked it to. oppUserPickedTab
+// cannot express that: it is armed by any tab click, and the user reaches the
+// advance control by clicking a stage tab, so by the time they advance the
+// guard is always set and the only switch in renderOppDetail is suppressed.
+// The strip is rebuilt with every panel hidden and nothing selects one, so
+// the record moves and the screen goes blank.
+//
+// A one-shot intent is the answer instead of touching the guard. Set at the
+// transition, read and cleared once on the next render, and it OUTRANKS the
+// guard rather than clearing it. That is what makes the Round 21 Phase 1 race
+// unaffected by construction: the guard's own value is never written here.
+//
+// Measured before building. Three consecutive advances in one session left
+// zero panels visible and no active tab at all, stable across ten samples
+// over five seconds, so it was a settled empty screen and not a slow render.
+// The business hit this four times in two and a half minutes on 2026-08-22.
+let oppLandOnTabAfterLoad = null
+
 const OPP_EXIT_CRITERION_KEYS = new Set([
   'exitQualBudget', 'exitQualTimeline', 'exitQualCommitment',
   'exitSolTechnicalSolution', 'exitSolBuyersKnown', 'exitSolKeyStakeholders', 'exitSolTermsReviewed',
@@ -1641,19 +1720,51 @@ window.toggleOppExitCriterion = (recordId, stageName, field, isMet) => {
   return oppCriterionQueue
 }
 
-window.attemptTransition = async (id, toStage, feedbackId, sectionId, currentStage) => {
+// Round 22 Phase 2: this was a fork and is now a lookup, because after this
+// phase both record types do the SAME two things on a successful transition -
+// record where to land, then reload. It was only ever a fork because Test Bed
+// had a landing intent and Opportunity had none.
+//
+// That asymmetry is the seventh instance of the built-for-the-screen-that-
+// existed finding, and the second one that was live rather than latent:
+// Opportunity took the branch that did less, every time, in production.
+// Adding a second branch beside the first would have widened the fork rather
+// than closed it.
+//
+// The discriminator was called `sectionId` and looked like an element id. It
+// never was one. It was compared once and never looked up, and no element
+// with id 'tb-transition-section' exists anywhere in the app, as the Test Bed
+// call site's own comment already said. Renamed to what it actually is.
+const TRANSITION_LANDING = {
+  test_bed: {
+    land: stage => { tbLandOnStageAfterLoad = stage },
+    reload: id => loadTestBedDetail(id),
+  },
+  opportunity: {
+    // Converted to a tab key here, at the one point a transition sets it.
+    land: stage => { oppLandOnTabAfterLoad = oppStageTabKey(stage) },
+    reload: id => loadOpportunityDetail(id),
+  },
+}
+
+window.attemptTransition = async (id, toStage, feedbackId, recordKind, currentStage) => {
   const feedback = document.getElementById(feedbackId)
   if (feedback) feedback.innerHTML = ''
 
   const result = await api('POST', `/api/records/${id}/transition`, { to_stage: toStage })
 
   if (result.ok) {
-    if (sectionId === 'tb-transition-section') {
-      tbLandOnStageAfterLoad = toStage
-      await loadTestBedDetail(id)
-    } else {
-      await loadOpportunityDetail(id)
+    const target = TRANSITION_LANDING[recordKind]
+    // An unrecognised kind is a programming error, not a runtime condition.
+    // The old `else` treated every value that was not the Test Bed's as an
+    // Opportunity, so a third record type would have silently reloaded the
+    // wrong detail view and looked like it worked. Saying so beats guessing.
+    if (!target) {
+      console.error(`attemptTransition: unknown record kind "${recordKind}"`)
+      return
     }
+    target.land(toStage)
+    await target.reload(id)
     return
   }
 
@@ -3249,9 +3360,9 @@ async function renderTestBedDetail(bed) {
 // component): the chevron itself has never had a click handler
 // anywhere in this app's real history, so this isn't restoring
 // anything, it's the first real click-to-transition entry point built
-// alongside it. sectionId stays 'tb-transition-section' - required for
-// attemptTransition's own success-path branch to reload as a Test Bed,
-// not an Opportunity - but feedbackId is this button's own
+// alongside it. The fourth argument is the record kind ('test_bed'),
+// which selects the landing pair attemptTransition reloads with, so this
+// reloads as a Test Bed and not an Opportunity - but feedbackId is its own
 // (tb-next-stage-feedback), so a blocking rejection triggered from up
 // here is shown right here, not only in the section below, which could
 // be scrolled out of view at the moment this button is clicked. Called
@@ -3318,10 +3429,11 @@ function refreshTbNextStageButton() {
   }
 
   btn.disabled = false
-  // sectionId stays 'tb-transition-section' - it is a discriminator
-  // inside attemptTransition selecting which detail loader to reload
-  // with, never a DOM lookup, and no element of that id exists now.
-  btn.onclick = () => attemptTransition(recordId, nextStage, 'tb-next-stage-feedback', 'tb-transition-section', currentStage)
+  // Round 22 Phase 2: the fourth argument is the record kind, and now says
+  // so. It read as an element id and never was one: attemptTransition only
+  // ever compared it, and no element of that id exists. This comment used to
+  // carry that explanation; the parameter name carries it now.
+  btn.onclick = () => attemptTransition(recordId, nextStage, 'tb-next-stage-feedback', 'test_bed', currentStage)
 }
 
 // Round 5 Phase 7 (2026-08-17): one shared panel, 8 buttons - loads
@@ -3984,10 +4096,44 @@ async function renderOppDetail(opp) {
   // green dot is never a blank card if the user goes straight to it.
   loadOppStageTab(opp.id, opp.status, opp.status, stages)
 
-  // Land back on Reference when opening or switching opportunities, the same
-  // convention as other modules resetting their sub-view on entry, UNLESS the
-  // user already picked a tab while this load was still in flight.
-  if (!oppUserPickedTab) switchOppTab('reference')
+  // Round 22 Phase 2: read and cleared here, at the top of the landing
+  // decision, mirroring where renderTestBedDetail reads its own.
+  //
+  // Cleared BEFORE it is acted on, so a one-shot really is one shot: if the
+  // switch below throws, the next render starts from no intent rather than
+  // landing again on a stage the record has since left.
+  const landing = oppLandOnTabAfterLoad
+  oppLandOnTabAfterLoad = null
+
+  if (landing) {
+    // A transition lands on the stage just entered, and this OUTRANKS the
+    // guard rather than clearing it. oppUserPickedTab is not written anywhere
+    // in this phase, which is what makes the Round 21 Phase 1 race unaffected
+    // by construction: an early click during an in-flight load still sets the
+    // guard, and the branch below still honours it, exactly as before.
+    //
+    // Terminal stages need no special case. Closed Won is an ordinary tab
+    // with an ordinary key and a one-card panel, so this addresses it like
+    // any other. Round 10 Phase 7 removed Test Bed's equivalent exception for
+    // the same reason.
+    //
+    // focusTab moves focus onto the tab just landed on. Test Bed does not
+    // need this: its Next Stage control lives in the tab row and survives the
+    // re-render, so focus stays put. Opportunity's advance control lives
+    // INSIDE the stage panel, and renderOppStageTabs destroys and rebuilds
+    // every panel, so the button the user just clicked no longer exists and
+    // focus falls to <body>. Measured, not assumed: document.activeElement
+    // read BODY after a real click. Landing focus on the tab puts it where
+    // the user now is, and that element exists synchronously at switch time
+    // whereas the new advance control does not.
+    switchOppTab(landing, { focusTab: true })
+  } else if (!oppUserPickedTab) {
+    // Land back on Reference when opening or switching opportunities, the
+    // same convention as other modules resetting their sub-view on entry,
+    // UNLESS the user already picked a tab while this load was still in
+    // flight.
+    switchOppTab('reference')
+  }
 }
 
 // ── Documents tab: deliberately just a caption + flat template-link list,
