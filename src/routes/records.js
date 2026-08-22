@@ -314,7 +314,7 @@ export default async function recordsRoutes(app) {
 
     let stageQuery = db
       .from('stage_definitions')
-      .select('stage_name, sort_order')
+      .select('stage_name, sort_order, is_terminal')
       .eq('record_type', record.record_type)
       .order('sort_order', { ascending: true })
     stageQuery = record.variant ? stageQuery.eq('variant', record.variant) : stageQuery.is('variant', null)
@@ -324,7 +324,24 @@ export default async function recordsRoutes(app) {
 
     const fromStage = request.query.stage || record.status
     const currentIdx = (stages ?? []).findIndex(s => s.stage_name === fromStage)
-    const nextStage = currentIdx >= 0 ? stages[currentIdx + 1] : undefined
+
+    // Round 20 Phase 2: a record already in a terminal stage is heading
+    // nowhere, so it has no exit criteria.
+    //
+    // The property that matters here is the stage the record is IN, not
+    // the one it would move to. Closed Won sorts last and is the genuine
+    // next stage after Negotiating, so it must keep being offered. Closed
+    // Lost sorts to position 0, ahead of Qualification, so a lost deal's
+    // currentIdx is 0 and stages[currentIdx + 1] is Qualification: without
+    // this, the exit-criteria panel on a lost deal would list what is
+    // needed to qualify it.
+    //
+    // is_terminal defaults false, so every stage that predates this column
+    // behaves exactly as it did.
+    const currentRow = currentIdx >= 0 ? stages[currentIdx] : undefined
+    const nextStage = currentIdx >= 0 && !currentRow?.is_terminal
+      ? stages[currentIdx + 1]
+      : undefined
 
     if (!nextStage) {
       // Either the requested stage isn't in this record type's own

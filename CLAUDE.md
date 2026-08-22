@@ -421,6 +421,11 @@ not resolve it quietly.
       Finding 6's `FINDING, UNRESOLVED` was gone and read 7, because six
       other findings and the status legend carry the same marker.
 
+    A probe can also be specific, unique and correct and still fail to
+    discriminate because the tool's granularity does not match the thing
+    measured, as when a line-based search targets text wrapped across a
+    line break, which returned 0 for a retained sentence in Round 20 Phase 1.
+
     **The check: run the probe against a state you know differs, and
     confirm the value changes.** Cheapest forms are a known-present and a
     known-absent string on the same file, a before and after delta, or
