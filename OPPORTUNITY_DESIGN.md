@@ -20,13 +20,14 @@ Rounds 9 to 18A.
 
 Nothing here is uniformly settled, and treating it as though it were is how
 a design record becomes a liability. Every substantive item carries one of
-three markers.
+four markers.
 
 | Marker | Meaning |
 |---|---|
 | **CONFIRMED** | Decided with the business. Build against it |
 | **RECOMMENDED, UNDECIDED** | An advisor's proposal with reasoning. The business has not chosen. Do not build against it |
 | **FINDING, UNRESOLVED** | A disagreement or gap found and reported. Needs investigation, not a build decision |
+| **ANSWERED** | A finding that was investigated and settled by evidence, with the date and the measurement recorded. Distinct from CONFIRMED, which is a business decision rather than a measured fact |
 
 ---
 
@@ -170,26 +171,46 @@ to enforce a courtesy that a business of this size does not need.
 "unconditional." It is unconditional **on stage** and capped at one.
 Reworded below.
 
-### Finding 6. The staff directory contradiction
+### Finding 6. Staff directory: it exists, and the fields store a name
 
-**FINDING, UNRESOLVED. Investigate before building anything that names a
-person.**
+**ANSWERED 2026-08-22 by direct query.** This entry recorded a
+contradiction between `PROTOTYPE_SPECIFICATION.md` and `CURRENT_STATE.md`
+and asked for the database to be queried. That was done. Both halves are
+now settled, and the second one is the answer this document needed.
 
-`PROTOTYPE_SPECIFICATION.md` Section 3 states plainly that there is no
-staff directory record type anywhere in this system, and that Opportunity's
-four Authority fields were therefore built as free text. `SALESPERSON_
-WRITABLE_KEYS` confirms `lead`, `commercial`, `technical` and `legal` are
-writable payload strings.
+**The directory exists.** `terminus_staff`, a small reference table holding
+name and title, seeded with the seven real staff names by migration,
+`GET`-only, no admin UI. Built 2026-08-16. The apparent contradiction was
+that `PROTOTYPE_SPECIFICATION.md` Section 3 described the position before
+that date and had never been revisited. Section 3 now carries the
+supersession, so the two documents agree.
 
-But `CURRENT_STATE.md` lists migration `20260816000000_terminus_staff.sql`
-and a live registered route `GET /api/terminus-staff`.
+**The fields store a name as text, not a reference to a staff row.**
+Measured across live and soft-deleted Opportunity and Test Bed records:
+zero UUIDs and 48 name strings, every one an exact match for a
+`terminus_staff.name`. The dropdown constrains entry client-side and
+creates no reference, and there is no server-side validation.
 
-**These cannot both be current.** Do not resolve this by choosing the more
-plausible one. Query the database and read the route.
+**The full record, including how it was measured and what else the query
+surfaced, is the 2026-08-22 entry under `## Deferred scope` in
+`DESIGN_PRINCIPLES.md`**, beginning "The staff dropdowns constrain input
+but create no reference". It sits alongside the 2026-08-16 entry that
+records the directory itself. There is no separate dated entry: one record
+of one finding.
 
-It matters here because the assessments are scored by a named Sales Lead
-and challenged in bid review. Attribution to a free-text string is not
-attribution.
+**What this means for the model below.** The assessments are scored by a
+named Sales Lead and challenged in bid review, and attribution to a
+free-text string is not attribution. **Bid Review cannot route to a person
+as these fields stand**, and `routing_rules` holds zero rows, so nothing
+routes off them today either. Two consequences follow into the open
+decisions: staff fields have no server-side validation, and `Account` is a
+third staff-field surface that no document described.
+
+**Score attribution is not affected.** A score entry's author is written
+server-side from the authenticated session and never accepted from the
+client, settled in Round 11. Who recorded a score and who is named as Sales
+Lead on the record are two different attributions, and only the second was
+ever in question.
 
 ---
 
@@ -888,7 +909,9 @@ clarification rather than an imagined one.
 | **Deal Sheet freeze point after the stage compression** | **Undecided** |
 | Is a loss reversible | Undecided |
 | Closed Lost reason list contents | Confirmed as configured rows, contents undecided |
-| **Staff directory: does `terminus_staff` exist and what does it hold** | **Finding. Investigate, do not assume** |
+| Staff directory: does `terminus_staff` exist and what does it hold | Answered 2026-08-22. It exists; the fields store a name as text. See Finding 6 |
+| **Staff fields have no server-side validation** | **Open. The option list is client-side only, so any string can be written to `lead` through the ordinary PATCH path** |
+| **`Account` is a third staff-field surface** | **Open. Its own `terminusLead`, described in no document until 2026-08-22; one live Account holds a name** |
 | **Base Cost Data catalog** | **Finding. Recorded as a control gap, not scheduled** |
 | `routing_rules` empty, Commercial tiering never worked | Finding. Not scheduled |
 | Buyer contact role mapping | Open since the Test Bed build |
