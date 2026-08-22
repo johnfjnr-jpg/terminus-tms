@@ -3880,3 +3880,41 @@ Explicitly deferred, not forgotten, not a section number of its own since this i
   agreeing, or exclude `reachable_from_any_stage` rows from the chevron and
   render them as a separate control. The second is probably right, since a
   stage reachable from anywhere is not a step in a sequence.
+
+- **A fix built for the screen that existed is not a fix for the screen
+  built after it. Three instances in three rounds, Round 21, 2026-08-22.
+  RECORDED FOR A DELIBERATE AUDIT IN ROUND 22.**
+
+  Build discipline rule 6 says a fix built for the pages that existed is not
+  a fix for the pages built after it, and names three instances from earlier
+  rounds. Three more have now landed in consecutive rounds, all on the same
+  seam: **Test Bed was built first and Opportunity was built beside it, so
+  every Test Bed fix is a fix Opportunity does not have.**
+
+  - **`refFieldRow`'s missing blank option**, Round 19. Test Bed's field
+    renderer had a leading blank `<option>`; Opportunity's did not, so an
+    unset dropdown silently pre-selected the alphabetically first name. Two
+    implementations of one job, and the fix reached only one.
+  - **`renderTransitionSection` duplicating server-owned logic**, Round 20
+    Phase 6. Round 20 Phase 2 fixed `records.js` so a record in a terminal
+    stage is offered no next stage. The browser computed
+    `stages[currentIdx + 1]` independently, where the server fix could not
+    reach, and a lost deal would have been offered "Move to Qualification".
+  - **`tbUserPickedTab` with no Opportunity equivalent**, Round 21 Phase 1.
+    Round 5 Phase 7 found that an unconditional default-to-Reference landing
+    after an awaited load silently overwrites a tab click made in that
+    window, and fixed it for Test Bed. Opportunity kept the race for
+    sixteen rounds, and it was one of the two causes behind the reported
+    blocker.
+
+  **The pattern is not carelessness, it is structural.** Nothing links the
+  two implementations, so nothing reports that one has moved. Each was found
+  by working on the Opportunity side for an unrelated reason, which means
+  the ones nobody has had a reason to touch are still there.
+
+  **A deliberate audit belongs in Round 22**, which is already about
+  convergence between the two screens. Enumerate every Test Bed behaviour
+  that Opportunity's equivalent should have, rather than waiting for the
+  next one to surface as a defect. Not audited here: this round is the stage
+  tabs, and an audit found mid-round becomes scope creep rather than a
+  finding.

@@ -166,7 +166,12 @@ window.createTabStrip = function ({ strip, keyAttr, dataAttr, tabs, tabClass, pa
   stripEl.setAttribute('role', 'tablist')
   if (label) stripEl.setAttribute('aria-label', label)
 
-  buttons().forEach(btn => {
+  // Named and exposed as adopt() below, because a strip can gain buttons
+  // AFTER construction. Opportunity's stage tabs are generated per record
+  // from stage_definitions, long after this factory ran, and without this
+  // they would carry the class and the click handling (both live queries)
+  // but none of the ARIA a screen reader needs.
+  const wireButtons = () => buttons().forEach(btn => {
     const key = keyOf(btn)
     btn.setAttribute('role', 'tab')
     if (!btn.id) btn.id = `${stripEl.id}-tab-${key.replace(/[^a-zA-Z0-9_-]/g, '-')}`
@@ -184,6 +189,7 @@ window.createTabStrip = function ({ strip, keyAttr, dataAttr, tabs, tabClass, pa
       // happened to be last. It is set in select(), to the tab actually open.
     }
   })
+  wireButtons()
 
   function select(key, { focusTab = false } = {}) {
     const btns = buttons()
@@ -246,7 +252,7 @@ window.createTabStrip = function ({ strip, keyAttr, dataAttr, tabs, tabClass, pa
     if (pane && initial.id) pane.setAttribute('aria-labelledby', initial.id)
   }
 
-  return { select, current: () => keyOf(buttons().find(b => b.classList.contains('active'))) }
+  return { select, adopt: wireButtons, current: () => keyOf(buttons().find(b => b.classList.contains('active'))) }
 }
 
 // The sub-tab consumer. Builds the strip and its panes into a mount point and
@@ -360,6 +366,91 @@ const oppTabStrip = window.createTabStrip({
   panelFor: key => document.getElementById(`opp-tab-${key}`),
 })
 function switchOppTab(tab) { oppTabStrip.select(tab) }
+
+// ── Opportunity stage tabs, Round 21 Phase 2 ────────────────────────────
+//
+// One tab per working stage, generated from stage_definitions rather than
+// written into index.html. Test Bed's eight are static markup that happens
+// to match the database, kept in step by hand: Round 20 renamed every
+// Opportunity stage, and a hardcoded strip would have gone silently wrong.
+//
+// WHICH STAGES GET A TAB, expressed as a property rather than a name list:
+// every stage EXCEPT those marked reachable_from_any_stage. Closed Lost
+// carries that flag, and a stage reachable from anywhere is not a step in a
+// sequence, so it has no tab. It has no criteria and no approvals either,
+// so its tab would be permanently empty. The chevron already shows it, and
+// the control for losing a deal arrives in Phase 7.
+//
+// Closed Won is terminal but NOT reachable-from-anywhere: it is entered
+// from Negotiating like any other forward move, so it keeps its tab.
+function oppStageTabKey(stageName) {
+  return `stage-${stageName}`
+}
+
+function renderOppStageTabs(stages, currentStage) {
+  const strip = document.getElementById('opp-detail-tabs')
+  const host = document.getElementById('view-opportunity-detail')
+  if (!strip || !host) return
+
+  const stageTabs = (stages ?? []).filter(s => !s.reachable_from_any_stage)
+
+  // Remove the previous record's generated tabs and panels before adding
+  // this record's. Without this, switching between records with different
+  // stage lists would accumulate tabs from both.
+  strip.querySelectorAll('.detail-tab[data-opp-stage-tab]').forEach(b => b.remove())
+  host.querySelectorAll('.detail-tab-panel[data-opp-stage-panel]').forEach(p => p.remove())
+
+  for (const st of stageTabs) {
+    const key = oppStageTabKey(st.stage_name)
+    // The panel first, so the button's aria-controls resolves when adopt()
+    // runs. Pointing it at nothing is worse than omitting it.
+    const panel = document.createElement('div')
+    panel.className = 'detail-tab-panel hidden'
+    panel.id = `opp-tab-${key}`
+    panel.dataset.oppStagePanel = st.stage_name
+    // Phase 2 renders the slot. Phase 3 moves the exit criteria in, Phase 4
+    // the approvals, Phase 5 documents and assessments. A placeholder that
+    // says what is coming beats an empty box that looks broken.
+    panel.innerHTML = `<p class="empty-state">${escHtml(st.stage_name)}: panels arrive in the next phases.</p>`
+    host.appendChild(panel)
+
+    const btn = document.createElement('button')
+    btn.type = 'button'
+    btn.className = 'detail-tab'
+    btn.dataset.oppTab = key
+    btn.dataset.oppStageTab = st.stage_name
+    btn.textContent = st.stage_name
+    strip.appendChild(btn)
+  }
+
+  // The generated buttons need the ARIA the factory applies at construction.
+  oppTabStrip.adopt()
+  markOppCurrentStageTab(currentStage)
+}
+
+// The green dot on the tab matching the record's REAL stage, mirroring
+// markTbCurrentStageTab. It matters more here than on Test Bed, because
+// Opportunity's stage names are not obviously ordered: Solution Alignment
+// and Evaluation give a reader no clue which comes first, so without the
+// dot the strip says nothing about where the record actually is.
+function markOppCurrentStageTab(currentStage) {
+  document.querySelectorAll('#opp-detail-tabs .detail-tab[data-opp-stage-tab]').forEach(btn => {
+    const isCurrent = btn.dataset.oppStageTab === currentStage
+    let dot = btn.querySelector('.opp-tab-current-dot')
+    if (isCurrent && !dot) {
+      dot = document.createElement('span')
+      dot.className = 'sa-dot opp-tab-current-dot'
+      // display:inline-block set explicitly, not left to .sa-dot: that
+      // class's width and height only take effect inside a flex container,
+      // and a <button> is not one. The same trap markTbCurrentStageTab
+      // documents.
+      dot.style.cssText = 'background:var(--green);margin-right:6px;display:inline-block'
+      btn.prepend(dot)
+    } else if (!isCurrent && dot) {
+      dot.remove()
+    }
+  })
+}
 
 // A real click on the tab row is the user picking a tab. Wired here rather
 // than inside createTabStrip because the shared factory serves Test Bed's
@@ -3610,6 +3701,11 @@ async function renderOppDetail(opp) {
   // opportunity-reference.js owns the Reference tab — click-to-edit fields,
   // Executive Summary, Notes.
   window.initOpportunityReferencePanel?.(opp)
+
+  // The stage tabs are generated per record, from that record's own stage
+  // list, BEFORE the default-to-Reference below. Generating them after would
+  // mean the strip briefly shows the previous record's stages.
+  renderOppStageTabs(stages, opp.status)
 
   // Land back on Reference when opening or switching opportunities, the same
   // convention as other modules resetting their sub-view on entry, UNLESS the
