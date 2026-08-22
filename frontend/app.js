@@ -637,7 +637,7 @@ function renderOppAdvanceControl(el, recordId, currentStage, stages) {
       <button class="btn-primary" onclick="attemptTransition('${recordId}', '${escHtml(next)}', 'transition-feedback', 'opportunity', '${escHtml(currentStage)}')">
         Move to ${escHtml(next)}
       </button>
-      <button class="btn-ghost" onclick="openCloseLostPrompt('${recordId}', '${escHtml(currentStage)}')">
+      <button class="btn-ghost" id="opp-close-lost-btn-${escHtml(oppStageTabKey(currentStage))}" onclick="openCloseLostPrompt('${recordId}', '${escHtml(currentStage)}')">
         Mark Closed Lost
       </button>
     </div>
@@ -678,12 +678,37 @@ window.openCloseLostPrompt = async (recordId, currentStage) => {
     // exist. When that decision lands, this line changes with it.
     warning: 'This cannot be undone. A closed deal cannot be reopened or moved to another stage.',
     emptyReasonError: 'A reason is required to close a deal as lost.',
-    returnFocusTo: 'opp-stage-transition',
+    // Round 22 Phase 3: the real id of the control that opened this. It was
+    // 'opp-stage-transition', which matches nothing: the generated ids all
+    // carry the stage key, as `opp-stage-transition-${key}`. getElementById
+    // returned null and the `?.focus()` swallowed it, so cancelling this
+    // dialogue dropped focus silently. Same family as Round 21 Phase 7's
+    // element ids built from a stage name: an id that resolves in the mind
+    // and not in the document.
+    //
+    // It points at the button rather than that container, because the
+    // container is a <div> with no tabindex and .focus() on one is a no-op:
+    // fixing the id alone would have replaced a silent failure with a
+    // quieter one.
+    returnFocusTo: `opp-close-lost-btn-${oppStageTabKey(currentStage)}`,
     onConfirm: async (note, reasonId) => {
       const result = await api('POST', `/api/opportunities/${recordId}/close-lost`, { reason_id: reasonId, note })
       return { ok: result.ok, error: result.data?.error }
     },
-    onDone: async () => { await loadOpportunityDetail(recordId) },
+    // Round 22 Phase 3: a lost deal lands on Reference, carried through the
+    // SAME one-shot an advance uses rather than a second switch call here.
+    //
+    // Reference because a lost deal is not a stage you work in, which is the
+    // same reasoning that keeps Closed Lost out of the tab strip, and because
+    // Reference is where you look to see what happened. Landing on the stage
+    // it died at would show exit criteria for a transition that will never
+    // happen.
+    //
+    // Set BEFORE the reload, since the reload is what consumes it.
+    onDone: async () => {
+      oppLandOnTabAfterLoad = 'reference'
+      await loadOpportunityDetail(recordId)
+    },
   })
 }
 
@@ -1510,8 +1535,16 @@ let oppCriterionQueue = Promise.resolve()
 // same load's own completion.
 let oppUserPickedTab = false
 
-// oppLandOnStageAfterLoad, Round 22 Phase 2. The Opportunity twin of
-// tbLandOnStageAfterLoad, ported rather than invented.
+// oppLandOnTabAfterLoad, Round 22 Phase 2, widened in Phase 3. The
+// Opportunity twin of tbLandOnStageAfterLoad, ported rather than invented.
+//
+// Phase 3: this holds a TAB KEY, not a stage name, which is the one place it
+// deliberately diverges from Test Bed's twin. Losing a deal has to land on
+// Reference, and Reference is not a stage, so a variable holding a stage name
+// could not carry it. Converting at the two points that set it keeps ONE
+// value type and ONE place that decides the tab, which is the whole reason
+// option A was chosen over a second switch call after the reload. Adding a
+// separate path for the lose case would have undone that in the next phase.
 //
 // The problem it solves is that an advance is the one case where the SYSTEM
 // should move the tab and the user has not asked it to. oppUserPickedTab
@@ -1530,7 +1563,7 @@ let oppUserPickedTab = false
 // zero panels visible and no active tab at all, stable across ten samples
 // over five seconds, so it was a settled empty screen and not a slow render.
 // The business hit this four times in two and a half minutes on 2026-08-22.
-let oppLandOnStageAfterLoad = null
+let oppLandOnTabAfterLoad = null
 
 const OPP_EXIT_CRITERION_KEYS = new Set([
   'exitQualBudget', 'exitQualTimeline', 'exitQualCommitment',
@@ -1708,7 +1741,8 @@ const TRANSITION_LANDING = {
     reload: id => loadTestBedDetail(id),
   },
   opportunity: {
-    land: stage => { oppLandOnStageAfterLoad = stage },
+    // Converted to a tab key here, at the one point a transition sets it.
+    land: stage => { oppLandOnTabAfterLoad = oppStageTabKey(stage) },
     reload: id => loadOpportunityDetail(id),
   },
 }
@@ -4068,8 +4102,8 @@ async function renderOppDetail(opp) {
   // Cleared BEFORE it is acted on, so a one-shot really is one shot: if the
   // switch below throws, the next render starts from no intent rather than
   // landing again on a stage the record has since left.
-  const landing = oppLandOnStageAfterLoad
-  oppLandOnStageAfterLoad = null
+  const landing = oppLandOnTabAfterLoad
+  oppLandOnTabAfterLoad = null
 
   if (landing) {
     // A transition lands on the stage just entered, and this OUTRANKS the
@@ -4092,7 +4126,7 @@ async function renderOppDetail(opp) {
     // read BODY after a real click. Landing focus on the tab puts it where
     // the user now is, and that element exists synchronously at switch time
     // whereas the new advance control does not.
-    switchOppTab(oppStageTabKey(landing), { focusTab: true })
+    switchOppTab(landing, { focusTab: true })
   } else if (!oppUserPickedTab) {
     // Land back on Reference when opening or switching opportunities, the
     // same convention as other modules resetting their sub-view on entry,
