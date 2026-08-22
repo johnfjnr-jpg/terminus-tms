@@ -1452,7 +1452,6 @@ function wireTbChevronHover(recordId) {
 // below. Mirrors currentTbStageTab, which Test Bed has kept for ten rounds.
 let currentOppDetailId = null
 let currentOppStage = null
-let currentOppNextStage = null
 // The record's stage list, so a tick can work out the destination for its
 // own stage without refetching it.
 let currentOppStages = []
@@ -1495,50 +1494,6 @@ const OPP_EXIT_CRITERION_KEYS = new Set([
   'exitNegScopeAgreed', 'exitNegPricingAgreed', 'exitNegLegalResolved',
   'exitNegCommercialsApproved', 'exitNegContractExecuted',
 ])
-
-async function renderTransitionSection(elementId, feedbackId, recordId, currentStage, stages) {
-  const section = document.getElementById(elementId)
-  const currentIdx = stages.findIndex(s => s.stage_name === currentStage)
-
-  // Round 20 Phase 6: a record already in a terminal stage is heading
-  // nowhere. This line computed stages[currentIdx + 1] regardless, and
-  // Closed Lost sorts to position 0, so a lost deal would have been
-  // offered a button reading "Move to Qualification".
-  //
-  // The same fault was fixed server-side in Phase 2, in records.js. This is
-  // a SECOND, independent implementation of "the next stage" in the browser,
-  // which the server fix could never have reached. Build discipline rule 6.
-  const currentRow = currentIdx >= 0 ? stages[currentIdx] : undefined
-  const nextStage = currentIdx >= 0 && !currentRow?.is_terminal
-    ? stages[currentIdx + 1]?.stage_name
-    : undefined
-
-  if (!nextStage) {
-    section.innerHTML = currentRow?.is_terminal
-      ? `<p class="muted" style="font-size:14px">${escHtml(currentStage)} is a closed state. Nothing further to move toward.</p>`
-      : '<p class="muted" style="font-size:14px">This record has reached the final stage.</p>'
-    return
-  }
-
-  // Recorded before the panel renders, so the tick handler can re-render
-  // this panel alone rather than reloading the record.
-  currentOppDetailId = recordId
-  currentOppStage = currentStage
-  currentOppNextStage = nextStage
-
-  // Round 21 Phase 3: the exit criteria and the advance control now live on
-  // the record's own stage tab, which is the point of the round: everything
-  // needed to exit a stage on one screen.
-  //
-  // This section is left in place, pointing at where they went, rather than
-  // deleted with the tab. The tab still owns the all-stages approvals table,
-  // which moves in Phase 4, and removing the tab before its remaining
-  // content has somewhere to go would strand it.
-  section.innerHTML = `
-    <p class="muted" style="font-size:14px">Exit criteria and the advance control are on the
-    <strong>${escHtml(currentStage)}</strong> tab, with the green dot.</p>
-  `
-}
 
 // The tick list, following the Test Bed panel that is already built and in
 // use. The busiest Opportunity transition carries 5 criteria and 3
@@ -4007,6 +3962,22 @@ async function renderOppDetail(opp) {
   // The stage tabs are generated per record, from that record's own stage
   // list, BEFORE the default-to-Reference below. Generating them after would
   // mean the strip briefly shows the previous record's stages.
+  // Round 21 Phase 9: assigned HERE, not in renderTransitionSection.
+  //
+  // Phase 3 set these inside that function, which was correct while it ran on
+  // every render. Phase 5 removed its last caller together with the Stage and
+  // Approvals tab and did not move the assignments, so currentOppDetailId
+  // stayed null and the tick handler's guard
+  //   currentOppDetailId === recordId
+  // was false for every tick. The PATCH still succeeded and the database
+  // still updated; only the panel never re-rendered, so a tick looked like it
+  // had done nothing.
+  //
+  // Nothing between Phase 5 and Phase 9 ticked a criterion through the
+  // browser, which is why four phases passed over a live regression. The full
+  // walk is what found it.
+  currentOppDetailId = opp.id
+  currentOppStage = opp.status
   currentOppStages = stages ?? []
   renderOppStageTabs(stages, opp.status)
   // The record's own stage panel is filled eagerly, so the tab carrying the
