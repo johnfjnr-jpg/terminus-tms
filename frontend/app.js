@@ -467,8 +467,36 @@ function renderOppStageTabs(stages, currentStage) {
     // Phase 3 fills the exit criteria, Phase 4 the approvals. Documents and
     // Assessments are slots: the business wants them visible for what is
     // coming, and Test Bed renders empty panels the same way.
+    //
+    // Round 22 Phase 1: the order is Assessments, Terminus Documents, Exit
+    // Criteria, Approvals, matching Test Bed position for position with
+    // Assessments in the slot Test Bed gives Qualification scoring.
+    //
+    // The previous order was not a decision. Round 21 built these panels in
+    // three phases and each appended its card at the end, so the row recorded
+    // the build sequence: Phase 3 Exit Criteria, Phase 4 Approvals, Phase 5
+    // Documents and Assessments. Nothing else ordered them, and no
+    // hand-written document recorded an intended order.
+    //
+    // This is a 2-up grid at 1240 and 1920, so "left to right" is READING
+    // order: Assessments and Terminus Documents on the first row, Exit
+    // Criteria and Approvals on the second. At 3440 the row is single and
+    // reading order collapses back onto DOM order. Reordering the blocks is
+    // enough either way, because DOM position is the only thing that orders
+    // them: there is no `order:` declaration anywhere in the stylesheet.
+    //
+    // Each card addresses its own container by id, so moving the blocks
+    // cannot disturb which container a loader fills.
     panel.innerHTML = `
       <div class="ref-cards">
+        <div class="pg-card">
+          <p class="pg-card-title">Assessments</p>
+          <div id="opp-stage-assessments-${escHtml(key)}"><p class="empty-state">No assessments configured for this stage.</p></div>
+        </div>
+        <div class="pg-card">
+          <p class="pg-card-title">Terminus Documents</p>
+          <div id="opp-stage-documents-${escHtml(key)}"><p class="empty-state">No documents configured for this stage.</p></div>
+        </div>
         <div class="pg-card">
           <p class="pg-card-title">Exit Criteria</p>
           <div id="opp-stage-criteria-${escHtml(key)}"></div>
@@ -476,14 +504,6 @@ function renderOppStageTabs(stages, currentStage) {
         <div class="pg-card">
           <p class="pg-card-title">Approvals</p>
           <div id="opp-stage-approvals-${escHtml(key)}"></div>
-        </div>
-        <div class="pg-card">
-          <p class="pg-card-title">Terminus Documents</p>
-          <div id="opp-stage-documents-${escHtml(key)}"><p class="empty-state">No documents configured for this stage.</p></div>
-        </div>
-        <div class="pg-card">
-          <p class="pg-card-title">Assessments</p>
-          <div id="opp-stage-assessments-${escHtml(key)}"><p class="empty-state">No assessments configured for this stage.</p></div>
         </div>
       </div>
       <div id="opp-stage-transition-${escHtml(key)}" style="margin-top:24px"></div>`
