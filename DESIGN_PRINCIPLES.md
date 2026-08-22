@@ -3913,6 +3913,14 @@ Explicitly deferred, not forgotten, not a section number of its own since this i
     an Opportunity approval POSTed successfully and then matched no branch:
     no refresh, no error, nothing on screen at all.
 
+  - **Two shared loaders defaulting to a deleted container**, Round 21
+    Phase 5. `loadStageApprovals` and `renderStageApprovalsRows` both default
+    `containerId` to `'opp-stage-approvals-rows'`, the all-stages table this
+    round replaced with per-stage cards and removed. Test Bed passes its own
+    container and is unaffected, so every caller that exists is fine and the
+    next one to omit the argument would have thrown on a null element rather
+    than doing nothing. Both now guard.
+
   **The fourth instance is different from the other three, and worse.** The
   blank option, the duplicated next-stage derivation and the missing tab
   guard were all LATENT: wrong code waiting for a use that had not arrived,
