@@ -578,6 +578,26 @@ unknown.
 **No automatic step on verbal award.** The sales lead adjusts and records
 why, which is what the override is for.
 
+**One exception, added Round 21 Phase 7: losing the deal clears the
+override.**
+
+The rule above is that an override survives a stage change, because a
+judgement does not expire because the stage moved. **Closing a deal as lost
+is the one case where it does expire.** The judgement was about a deal that
+might close, and it did not. An override of 63 percent left on a lost deal is
+not a stale number, it is a false one, and it would sit in the pipeline
+total.
+
+So `POST /opportunities/:id/close-lost` writes the configured Closed Lost
+default, 0, and nulls all four override columns rather than merely being
+outranked by them. Measured rather than assumed: 63 before, 0 after, override
+null, against the Round 20 Phase 4 result that an ordinary transition leaves
+the same 63 in place.
+
+**Recorded here rather than only in the phase report**, because it is an
+exception to a decision recorded here, and an exception that lives somewhere
+else gets re-litigated by whoever reads only this.
+
 **Why this is not a small change.** Round 20 Phase 0 tested the existing
 mechanism rather than reading it: a fixture Opportunity had
 `probability_pct` set to a sentinel 77, was transitioned Discovery to

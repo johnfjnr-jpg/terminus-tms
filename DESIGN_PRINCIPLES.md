@@ -3921,6 +3921,17 @@ Explicitly deferred, not forgotten, not a section number of its own since this i
     next one to omit the argument would have thrown on a null element rather
     than doing nothing. Both now guard.
 
+  - **Element ids built from a stage name, containing spaces**, Round 21
+    Phase 7. `getElementById('opp-stage-criteria-stage-Solution Alignment')`
+    resolves. `querySelector` on the same id parses it as
+    `#opp-stage-criteria-stage-Solution` with a descendant `Alignment` and
+    matches nothing, **with no error from either**. Four of the six
+    Opportunity stages are two words, so it was latent in two thirds of the
+    panels, and only a probe that happened to use a selector rather than an
+    id lookup would ever have surfaced it. The tab-strip factory already
+    sanitised the same way when building button ids; the new panel ids did
+    not.
+
   **The fourth instance is different from the other three, and worse.** The
   blank option, the duplicated next-stage derivation and the missing tab
   guard were all LATENT: wrong code waiting for a use that had not arrived,

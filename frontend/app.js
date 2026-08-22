@@ -2287,17 +2287,38 @@ window.createFromContact = async (id, type) => {
   startCreateFromContact(id, type)
 }
 
-// Test Bed creation now always goes through the name dialogue; Opportunity
-// is untouched and still creates directly, matching this round's scope.
+// Round 21 Phase 8: BOTH now go through the name dialogue.
+//
+// Opportunity used to create directly, and the server filled the name in
+// from the Account, so every Opportunity for one Account got the same name.
+// The dialogue was already here and already correct for Test Bed; what was
+// missing was asking.
+//
+// The Test Bed path is unchanged in behaviour. The dialogue is parameterised
+// by type rather than copied, and its ids, handlers, focus trap and Escape
+// owner are the same ones Test Bed has used since Round 10.
 async function startCreateFromContact(id, type) {
-  if (type !== 'test-bed') return performCreateFromContact(id, type)
-  await openNewTestBedModal(id)
+  await openNewRecordModal(id, type === 'test-bed' ? 'test-bed' : 'opportunity')
 }
 
 let ntbContactId = null
 let ntbKeydownHandler = null
+// Which record type the shared name dialogue is currently creating.
+let ntbType = 'test-bed'
 
-async function openNewTestBedModal(contactId) {
+// Parameterised by type, Round 21 Phase 8. Test Bed's behaviour is unchanged:
+// same element ids, same handlers, same focus trap, same Escape owner, and
+// the same suggested-name endpoint. Only the three strings differ.
+async function openNewRecordModal(contactId, type) {
+  ntbType = type
+  const isBed = type === 'test-bed'
+  document.getElementById('new-test-bed-heading').textContent = isBed ? 'New Test Bed' : 'New Opportunity'
+  document.getElementById('new-test-bed-label').textContent = isBed ? 'Test Bed name' : 'Opportunity name'
+  document.getElementById('new-test-bed-save').textContent = isBed ? 'Create Test Bed' : 'Create Opportunity'
+  document.getElementById('new-test-bed-sub').textContent = isBed
+    ? 'Name this Test Bed. The suggested name is based on the Account, and can be replaced.'
+    : 'Name this Opportunity. The suggested name is based on the Account, and should be replaced: '
+      + 'an Account usually has more than one Opportunity, and identical names make the pipeline list unreadable.'
   ntbContactId = contactId
   const modal = document.getElementById('new-test-bed-modal')
   const input = document.getElementById('new-test-bed-name')
@@ -2348,7 +2369,7 @@ async function saveNewTestBed() {
   const err = document.getElementById('new-test-bed-error')
   const name = input.value.trim()
   if (!name) {
-    err.textContent = 'Enter a name for this Test Bed.'
+    err.textContent = ntbType === 'test-bed' ? 'Enter a name for this Test Bed.' : 'Enter a name for this Opportunity.'
     err.classList.remove('hidden')
     input.focus()
     return
@@ -2358,8 +2379,9 @@ async function saveNewTestBed() {
   const original = btn.textContent
   btn.textContent = 'Creating...'
   const contactId = ntbContactId
+  const type = ntbType
   try {
-    await performCreateFromContact(contactId, 'test-bed', name)
+    await performCreateFromContact(contactId, type, name)
   } finally {
     btn.disabled = false
     btn.textContent = original
@@ -2381,7 +2403,10 @@ document.getElementById('new-test-bed-modal').addEventListener('click', (e) => {
 // contact, independent of hover state.
 async function performCreateFromContact(id, type, name) {
   const path = type === 'opportunity' ? `/api/contacts/${id}/create-opportunity` : `/api/contacts/${id}/create-test-bed`
-  const result = await api('POST', path, name ? { name } : undefined)
+  // Always sends a name. The Opportunity route now requires one, and the
+  // Test Bed route already did; the old `name ? {name} : undefined` was what
+  // let an Opportunity be created with none at all.
+  const result = await api('POST', path, { name })
 
   // A failed create must leave the dialogue OPEN with the reason on it -
   // closing first would strand the user on the list with a message they
