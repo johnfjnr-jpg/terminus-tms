@@ -1045,8 +1045,7 @@ looking for.
 
 Recorded as findings, not fixes. Neither is scheduled.
 
-### FINDING, UNRESOLVED. One stage vocabulary under four column names,
-joined by nothing
+### FINDING, UNRESOLVED. One stage vocabulary, four column names, no joins
 
 The same set of strings is stored under four different column names in four
 tables, with **no foreign key between any of them** and no check
@@ -1070,8 +1069,7 @@ naming split is why `stage_probability_defaults` has to be remapped in the
 same migration as `stage_definitions`: nothing links them, so nothing
 complains when they disagree.
 
-### FINDING, UNRESOLVED. `approvals.comment` is unused on all 229 rows, and
-`tier` is null on all 229
+### FINDING, UNRESOLVED. `approvals.comment` and `tier` unused on all 229 rows
 
 `approvals` carries `decision`, `comment`, `tier` and `stage`. Across all
 229 rows: **`decision` is `approved` on every one**, `comment` is null on
