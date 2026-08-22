@@ -265,10 +265,10 @@ compares position in the ordered list rather than sort_order arithmetic.
 
 | Stage | The question | Exit criteria | Approvals to exit |
 |---|---|---|---|
-| **Qualification** | Is it real. Budget, timeline, authority, commitment | Budget, Timeline, Commitment to move forward | **Not yet stated** |
+| **Qualification** | Is it real. Budget, timeline, authority, commitment | Budget, Timeline, Commitment to move forward | None, confirmed Round 20 Phase 5 |
 | **Solution Alignment** | Can we win it. Requirements, decision makers, competition, relationships, terms | Technical solution understood, Buyers known, Key stakeholders, Terms and conditions reviewed, Deal assessment current, Risk assessment current | Commercial, Technical, Legal |
 | **Proposal** | Production and submission | Pricing approved, Contract terms and variations approved, Implementation schedule agreed, Proposal documentation approved, Deal assessment current, Risk assessment current | Commercial, Technical, Legal |
-| **Evaluation** | Client-led. They assess, we respond | **Not yet stated** | **Not yet stated** |
+| **Evaluation** | Client-led. They assess, we respond | Clarifications responded to, Revised pricing submitted if required, Technical clarifications completed | Commercial, Technical, Legal |
 | **Negotiating** | Both sides converge. Re-pricing, verbal award, contract | Scope changes approved, Pricing changes approved, Technical clarifications completed, Legal issues resolved, Commercials approved, Deal assessment current, Risk assessment current | Commercial, Technical, Legal, as a final approval |
 | **Closed Won** | Executed | Contract executed | Sales Lead, on entry |
 | **Closed Lost** | Reachable from any stage | None | |
@@ -276,13 +276,13 @@ compares position in the ordered list rather than sort_order arithmetic.
 Five working stages, two terminal states, **four forward transitions** plus
 the terminal ones.
 
-**Three transitions carry no stated approvals**, and they are marked above
-rather than filled in: `Qualification` to `Solution Alignment`,
-`Proposal` to `Evaluation`, and `Evaluation` to `Negotiating`. Two of them
-are new with the Evaluation split. **Not invented here.** A gate rule that
-nobody asked for is worse than an absent one, and the same discipline
-governed `20260815000000_test_bed_flat_stages.sql`, which left six of eight
-test_bed transitions with no gate rows rather than guess at them.
+**All five transitions now carry a stated approval position, confirmed
+Round 20 Phase 5.** `Qualification` to `Solution Alignment` carries none;
+the other four each require Commercial, Technical and Legal. v1.2
+originally left three of them marked "not yet stated" rather than filling
+them in, because a gate rule nobody asked for is worse than an absent one.
+The business stated them, so they are configured rather than invented, and
+the exit criteria for `Evaluation` arrived in the same conversation.
 
 **Changes from v1.1**, each recorded below: Evaluation is a stage again;
 Bid Review is not an approval; the approvals at Solution Alignment are the
@@ -1141,6 +1141,6 @@ already exists and has never held anything.
 | `routing_rules` empty, Commercial tiering never worked | Finding. Not scheduled. Confirmed still 0 rows at Round 20 Phase 0 |
 | **One stage vocabulary under four column names, joined by nothing** | **Finding v1.2. Not scheduled. See the findings section above** |
 | **`approvals.comment` unused on all 229 rows, `tier` null on all 229** | **Finding v1.2. Not scheduled. Sits where a reason would go** |
-| **Approvals unstated on three transitions** | **Open v1.2. Qualification to Solution Alignment, Proposal to Evaluation, Evaluation to Negotiating. Not invented** |
+| Approvals unstated on three transitions | Closed Round 20 Phase 5. Qualification to Solution Alignment carries none, Proposal to Evaluation and Evaluation to Negotiating each carry Commercial, Technical and Legal |
 | Closed Lost stage-at-death storage | Confirmed v1.2. A server-written key on `opportunity_details`, deliberately NOT in `SALESPERSON_WRITABLE_KEYS` |
 | Buyer contact role mapping | Open since the Test Bed build |
