@@ -467,6 +467,116 @@ export default async function opportunitiesRoutes(app) {
     return reply.send({ revision_number: newRevision.revision_number, payload: newRevision.payload, forecast_close_date: date.trim() })
   })
 
+  // PUT /api/opportunities/:id/probability-override (Round 20 Phase 4)
+  //
+  // Sets or clears the per-record probability override. Author and
+  // timestamp are written SERVER-SIDE from the authenticated session and
+  // are never accepted from the client, which is the rule Round 11 settled
+  // for score attribution and the same reason applies: an attribution the
+  // caller supplies is a claim, not a record.
+  //
+  // A reason is required to SET and required to CLEAR. Removing a
+  // judgement is itself a judgement, and a cleared override silently
+  // hands the record back to the stage default, which is exactly the kind
+  // of change that is invisible afterwards without a line saying why.
+  app.put('/opportunities/:id/probability-override', async (request, reply) => {
+    const { probability_pct, reason } = request.body ?? {}
+
+    if (!reason?.trim()) {
+      return reply.code(400).send({ error: 'reason is required' })
+    }
+
+    const clearing = probability_pct === null
+    if (!clearing) {
+      if (!Number.isInteger(probability_pct) || probability_pct < 0 || probability_pct > 100) {
+        return reply.code(400).send({ error: 'probability_pct must be an integer from 0 to 100, or null to clear' })
+      }
+    }
+
+    const db = createUserClient(request.jwt)
+
+    const { data: details, error: readErr } = await db
+      .from('opportunity_details')
+      .select('probability_pct, probability_override_pct')
+      .eq('record_id', request.params.id)
+      .maybeSingle()
+
+    if (readErr) {
+      request.log.error({ err: readErr }, 'failed to read opportunity_details for probability override')
+      return reply.code(500).send({ error: readErr.message })
+    }
+    if (!details) {
+      return reply.code(404).send({ error: 'not found' })
+    }
+
+    // Clearing hands the record back to whatever its current stage says,
+    // computed here rather than left stale. Without this the record would
+    // keep displaying the overridden number until its next transition,
+    // which is the same class of fault as the override being erased by one.
+    let restoredDefault = null
+    if (clearing) {
+      const { data: record } = await db
+        .from('records').select('status, variant').eq('id', request.params.id).maybeSingle()
+      if (record) {
+        let q = db.from('stage_probability_defaults')
+          .select('default_probability_pct')
+          .eq('record_type', 'opportunity')
+          .eq('stage', record.status)
+        q = record.variant ? q.eq('variant', record.variant) : q.is('variant', null)
+        const { data: def } = await q.maybeSingle()
+        restoredDefault = def?.default_probability_pct ?? null
+      }
+    }
+
+    const patch = clearing
+      ? {
+          probability_override_pct: null,
+          probability_override_reason: null,
+          probability_override_by: null,
+          probability_override_at: null,
+          ...(restoredDefault !== null ? { probability_pct: restoredDefault } : {}),
+        }
+      : {
+          probability_override_pct: probability_pct,
+          probability_override_reason: reason.trim(),
+          probability_override_by: request.user.id,
+          probability_override_at: new Date().toISOString(),
+          probability_pct,
+        }
+
+    const { data: updated, error: updateErr } = await db
+      .from('opportunity_details')
+      .update(patch)
+      .eq('record_id', request.params.id)
+      .select('record_id')
+
+    if (updateErr) {
+      request.log.error({ err: updateErr }, 'failed to write probability override')
+      return sendWriteError(reply, updateErr)
+    }
+    if (!updated?.length) {
+      return sendRefusal(reply)
+    }
+
+    await db.from('audit_log').insert({
+      record_id: request.params.id,
+      record_type: 'opportunity',
+      action: clearing ? 'probability_override_cleared' : 'probability_override_set',
+      actor_id: request.user.id,
+      detail: {
+        from: details.probability_override_pct,
+        to: clearing ? null : probability_pct,
+        previous_probability_pct: details.probability_pct,
+        reason: reason.trim(),
+      },
+    })
+
+    return reply.send({
+      probability_override_pct: clearing ? null : probability_pct,
+      probability_pct: clearing ? restoredDefault : probability_pct,
+    })
+  })
+
   // POST /api/opportunities/:id/buyer-contacts
   //
   // Round 3 Phase 3 (2026-08-17): Technical/Commercial/Legal/IT-Security

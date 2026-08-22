@@ -674,6 +674,28 @@ export default async function transitionsRoutes(app) {
       // with .maybeSingle() correctly; only this site omitted it.
       const { data: probDefault, error: probDefaultErr } = await probQuery.maybeSingle()
 
+      // Round 20 Phase 4: a person's override outranks the stage default.
+      //
+      // Read BEFORE the write below rather than folded into its WHERE
+      // clause, so the skip is visible in the log and so a read failure
+      // cannot be mistaken for "no override set". An unchecked read here
+      // would silently overwrite the very value this exists to protect.
+      const { data: overrideRow, error: overrideErr } = await db
+        .from('opportunity_details')
+        .select('probability_override_pct')
+        .eq('record_id', record.id)
+        .maybeSingle()
+
+      if (overrideErr) {
+        request.log.error({ err: overrideErr }, 'failed to read probability_override_pct after transition')
+      }
+
+      // Null is the only value that lets the default through, and null is
+      // what every record held before this column existed, so the
+      // unoverridden path is byte for byte what it was.
+      const hasOverride = overrideRow?.probability_override_pct !== null
+        && overrideRow?.probability_override_pct !== undefined
+
       // Round 7 step 3.0. Unlike the five above, this sits AFTER the
       // transition has already succeeded, so an error here must not
       // become a 500 on an otherwise-successful response - it is logged,
@@ -682,7 +704,16 @@ export default async function transitionsRoutes(app) {
         request.log.error({ err: probDefaultErr }, 'failed to load stage_probability_defaults after transition')
       }
 
-      if (probDefault) {
+      if (hasOverride) {
+        // Deliberately a log line and not a warning. This is the feature
+        // working, not a fault, and the reset-affected-no-rows warning
+        // below already taught this codebase what a misdirected warning
+        // costs to diagnose.
+        request.log.info(
+          { record_id: record.id, to_stage, override_pct: overrideRow.probability_override_pct },
+          'probability_pct left at the record override; stage default not applied'
+        )
+      } else if (probDefault) {
         // Reached only after the owner-gated update above genuinely
         // succeeded, so a zero-row result here isn't an authorization
         // failure (the caller IS the owner) - it would mean the
