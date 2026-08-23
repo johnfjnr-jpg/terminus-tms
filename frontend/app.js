@@ -1682,7 +1682,41 @@ function renderOppAssessCriterion(c) {
       </div>
     </div>`
 
+  // Round 26 Phase 1: THE CURRENT ENTRY GETS ITS OWN BLOCK.
+  //
+  // The defect the business reported as "displaying 1 save behind" was not a
+  // stale render: the payload refreshes correctly and the value was always
+  // right. It was that `series.slice(0, -1)` excludes the newest entry from
+  // the history and nothing else rendered it, so the current assessment's
+  // REASON, AUTHOR and TIMESTAMP were absent from the screen entirely. Only
+  // its level showed. Reproduced with three saves carrying distinct reason
+  // strings, because two entries can share a displayed minute and timestamps
+  // could not have separated them.
+  //
+  // Not fixed by unhiding the newest history row. OPPORTUNITY_DESIGN.md is
+  // explicit that the reason must be shown PROMINENTLY, because the reason is
+  // what a bid review challenges and the number is not; the current one is
+  // precisely the one that gets challenged. A row at the top of a collapsed
+  // list is present, not prominent.
+  //
+  // So the reason sits directly under the criterion, in reading colour, with
+  // its author and time beneath in a quieter treatment. History keeps its
+  // meaning as what the assessment USED to say, which is why slice(0, -1)
+  // stays: the newest entry is above it now, not missing.
+  //
+  // An entry with no reason is legitimate: Not applicable requires none. It
+  // says so rather than rendering an empty quote, because a blank space reads
+  // as a failed render.
+  const currentBlock = !current ? '' : `
+    <div class="opp-assess-current">
+      <p class="opp-assess-current-reason${current.reason ? '' : ' opp-assess-current-reason--none'}">${
+        current.reason ? escHtml(current.reason) : 'No reason recorded.'
+      }</p>
+      <p class="opp-assess-current-meta">${escHtml(current.by ?? '--')} &middot; ${escHtml(formatDateTime(current.at))}</p>
+    </div>`
+
   const history = series.length > 1 ? `
+    <p class="opp-assess-history-label">Previously</p>
     <div class="opp-assess-history">
       ${series.slice(0, -1).reverse().map(e => `<div class="opp-assess-entry"><span>${escHtml(formatDateTime(e.at))}</span><span>${escHtml(labelFor(e.value))}</span><span>${escHtml(e.reason ?? '')}</span></div>`).join('')}
     </div>` : ''
@@ -1701,6 +1735,7 @@ function renderOppAssessCriterion(c) {
         </select>
       </div>
       ${c.asks ? `<p class="opp-assess-asks">${escHtml(c.asks)}</p>` : ''}
+      ${currentBlock}
       ${anchors}
       ${reasonBox}
       ${history}
