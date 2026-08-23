@@ -12,8 +12,8 @@ Contains no environment variable, key or token, and no client data. Records
 appear as counts by status only, never by name or reference code, because
 this file is uploaded into chat sessions.
 
-- Generated at: `2026-08-23T12:39:48.752Z`
-- Git commit: `24d13cfb26f728d9dfe52d3291d913c1318bc211`
+- Generated at: `2026-08-23T15:13:26.179Z`
+- Git commit: `bc5f023ab44715afac4bbe0fcf4086b94b52cc8d`
 - Working tree at generation: `clean`
 
 Staleness has two parts, and both must hold for this file to be current:
@@ -169,10 +169,17 @@ Rule count by record type and requirement type:
 
 ## `scoring_criteria`
 
-5 rows.
+12 rows.
 
 | record_type | sort_order | criterion_key | name | asks | rescore_through_stage |
 |---|---|---|---|---|---|
+| opportunity | 1 | assessCommBudgetConfirmed | Budget confirmed | Is money identified and committed | (null) |
+| opportunity | 2 | assessCommMetricsValue | Metrics and quantified value | Is the value stated in the buyer's own numbers | (null) |
+| opportunity | 3 | assessCommFundingMechanism | Funding mechanism | How would this actually be paid for | (null) |
+| opportunity | 4 | assessCommPricingModelFit | Pricing model fit | Does our commercial model match how they buy | (null) |
+| opportunity | 5 | assessCommCompetition | Competition, including do-nothing | What else are they weighing, including doing nothing | (null) |
+| opportunity | 6 | assessCommRoiPayback | ROI and payback expectation | Over what period do they expect this to pay back | (null) |
+| opportunity | 7 | assessCommCommercialFit | Commercial fit | Is this deal worth doing on these terms | (null) |
 | test_bed | 1 | scoreRolloutPath | Rollout Path | Does a suitable rollout path exist | (null) |
 | test_bed | 2 | scoreClientCommitment | Client Commitment | Will the client organisation genuinely engage | (null) |
 | test_bed | 3 | scoreUseCaseRequirementsAndMetrics | Clear Use Case Requirements and Metrics | Can it be proven | Monitoring and Analysis |
@@ -181,12 +188,19 @@ Rule count by record type and requirement type:
 
 ## `scoring_anchors`
 
-15 rows. Wording is not printed: it is provisional and
+50 rows. Wording is not printed: it is provisional and
 pending business review, and emitting it would bury every configuration
 change in prose. The shape is what a diff needs.
 
 | criterion_key | version | scores defined |
 |---|---|---|
+| assessCommBudgetConfirmed | 1 | 1, 2, 3, 4, 5 |
+| assessCommCommercialFit | 1 | 1, 2, 3, 4, 5 |
+| assessCommCompetition | 1 | 1, 2, 3, 4, 5 |
+| assessCommFundingMechanism | 1 | 1, 2, 3, 4, 5 |
+| assessCommMetricsValue | 1 | 1, 2, 3, 4, 5 |
+| assessCommPricingModelFit | 1 | 1, 2, 3, 4, 5 |
+| assessCommRoiPayback | 1 | 1, 2, 3, 4, 5 |
 | scoreClientCommitment | 1 | 1, 3, 5 |
 | scoreDataRights | 1 | 1, 3, 5 |
 | scorePhysicalSuitability | 1 | 1, 3, 5 |
@@ -252,7 +266,7 @@ _None._
 
 ## Record counts by type and status
 
-94 live, 10624 soft deleted, 10718 rows in total.
+94 live, 11121 soft deleted, 11215 rows in total.
 
 | record_type | status | live | soft deleted |
 |---|---|---|---|
@@ -260,24 +274,24 @@ _None._
 | contact | Parked | 0 | 2 |
 | contact | Qualified | 7 | 206 |
 | contact | Unqualified | 1 | 53 |
-| document | approved | 61 | 997 |
+| document | approved | 61 | 1029 |
 | document | received | 1 | 74 |
-| opportunity | Closed Lost | 0 | 17 |
+| opportunity | Closed Lost | 0 | 18 |
 | opportunity | Closed Won | 1 | 7 |
 | opportunity | Evaluation | 0 | 4 |
-| opportunity | Negotiating | 0 | 1 |
-| opportunity | Proposal | 0 | 4 |
-| opportunity | Qualification | 3 | 115 |
-| opportunity | Solution Alignment | 0 | 11 |
+| opportunity | Negotiating | 0 | 13 |
+| opportunity | Proposal | 0 | 7 |
+| opportunity | Qualification | 3 | 118 |
+| opportunity | Solution Alignment | 0 | 14 |
 | test_bed | Closed | 5 | 9 |
 | test_bed | Installation and Commissioning | 1 | 29 |
 | test_bed | Monitoring and Analysis | 0 | 1 |
 | test_bed | Pre-Site Assessment | 0 | 8 |
-| test_bed | Qualification | 1 | 293 |
+| test_bed | Qualification | 1 | 296 |
 | test_bed | Review and Completion | 1 | 0 |
 | test_bed | Site Assessment | 1 | 16 |
 | unit | Installed | 4 | 3 |
-| unit | Planned | 3 | 1476 |
+| unit | Planned | 3 | 1612 |
 | unit | Removed | 0 | 1 |
 
 ### Test fixture record types
@@ -288,19 +302,19 @@ row by row, and are included in the totals above.
 
 | distinct `harness_*` record types | live rows | soft deleted rows |
 |---|---|---|
-| 674 | 0 | 7046 |
+| 714 | 0 | 7350 |
 
 No harness record type holds a live row; every fixture row is soft deleted.
 
 ## `approvals`
 
-326 rows, of which 0 carry a null `stage`.
+335 rows, of which 0 carry a null `stage`.
 
 | decision | track | rows | null stage |
 |---|---|---|---|
-| approved | Commercial | 127 | 0 |
-| approved | Legal | 94 | 0 |
-| approved | Technical | 105 | 0 |
+| approved | Commercial | 130 | 0 |
+| approved | Legal | 97 | 0 |
+| approved | Technical | 108 | 0 |
 
 ## Writable-key allowlists
 
@@ -339,7 +353,7 @@ than written as a literal list, so its members are not enumerable here.
 
 ## Registered routes
 
-59 routes. Prefixes parsed from `src/server.js`, paths from each route module.
+61 routes. Prefixes parsed from `src/server.js`, paths from each route module.
 
 | method | path | auth | source |
 |---|---|---|---|
@@ -369,6 +383,7 @@ than written as a literal list, so its members are not enumerable here.
 | POST | `/api/opportunities/:id/close-date-move` | authenticated | `src/routes/opportunities.js` |
 | POST | `/api/opportunities/:id/close-lost` | authenticated | `src/routes/opportunities.js` |
 | PUT | `/api/opportunities/:id/probability-override` | authenticated | `src/routes/opportunities.js` |
+| POST | `/api/opportunities/:id/scores` | authenticated | `src/routes/opportunities.js` |
 | GET | `/api/records` | authenticated | `src/routes/records.js` |
 | POST | `/api/records` | authenticated | `src/routes/records.js` |
 | GET | `/api/records/:id` | authenticated | `src/routes/records.js` |
@@ -379,6 +394,7 @@ than written as a literal list, so its members are not enumerable here.
 | GET | `/api/records/:id/stage-approvals` | authenticated | `src/routes/records.js` |
 | POST | `/api/records/:id/transition` | authenticated | `src/routes/transitions.js` |
 | GET | `/api/scoring-criteria` | authenticated | `src/routes/scoring.js` |
+| GET | `/api/scoring-lenses` | authenticated | `src/routes/scoring.js` |
 | GET | `/api/stage-definitions` | authenticated | `src/routes/stage-definitions.js` |
 | GET | `/api/terminus-staff` | authenticated | `src/routes/terminus-staff.js` |
 | GET | `/api/test-beds` | authenticated | `src/routes/test-beds.js` |
@@ -405,7 +421,7 @@ than written as a literal list, so its members are not enumerable here.
 
 ## Migrations, in filename order
 
-69 files in `supabase/migrations/`.
+70 files in `supabase/migrations/`.
 
 1. `20260801000000_initial_schema.sql`
 2. `20260802000000_lead_opportunity.sql`
@@ -476,6 +492,7 @@ than written as a literal list, so its members are not enumerable here.
 67. `20260823000003_scoring_level_reason.sql`
 68. `20260823000004_scoring_criterion_stages.sql`
 69. `20260823000005_assessment_current_gate.sql`
+70. `20260823000006_commercial_lens.sql`
 
 ## Seed files, in application order
 
