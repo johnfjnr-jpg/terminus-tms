@@ -1684,10 +1684,22 @@ function applyTbPendingMarks() {
 //
 // The revision half is read from the STORED series rather than from a flag,
 // so it cannot drift from what the server will decide with the same question.
+// Round 24 Phase 3: the LEVEL says whether it needs a reason, replacing a
+// literal `draft <= 2`.
+//
+// The revision half of this rule is untouched and is deliberately not a level
+// property: "any entry after the first needs a reason for the change" is about
+// the series, not about which level was chosen, and the two are different
+// questions that happen to share a return value.
+//
+// A criterion with no scale resolves to the default set, which carries the
+// flag at 1 and 2, so every Test Bed criterion behaves exactly as before.
 function tbScoreReasonRequired(key) {
   const draft = Number(tbEdits[key]?.draft)
   if (!Number.isFinite(draft)) return false
-  return draft <= 2 || tbScoreSeries(key).length > 0
+  const crit = tbScoringCriteria.find(c => c.criterion_key === key)
+  const level = tbScoreLevels(crit).find(l => l.value === draft)
+  return !!level?.reason_required || tbScoreSeries(key).length > 0
 }
 
 function tbScoreAwaitingReason() {
@@ -1818,7 +1830,7 @@ window.setTbScoreReason = function (key, value) {
 function tbScoreLevels(c) {
   return Array.isArray(c?.levels) && c.levels.length
     ? c.levels
-    : [1, 2, 3, 4, 5].map(n => ({ value: n, label: String(n) }))
+    : [1, 2, 3, 4, 5].map(n => ({ value: n, label: String(n), reason_required: n <= 2 }))
 }
 
 // Which tbEdits keys are scores rather than payload fields. Derived from the

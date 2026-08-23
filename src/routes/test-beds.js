@@ -5,6 +5,7 @@ import { issueReferenceNumber } from '../lib/reference-number.js'
 import { isValidIsoDate, isNotPastIsoDate, isValidNonNegativeInteger, isValidNonNegativePercent, isValidIsoTimestamp, isValidLatitude, isValidLongitude } from '../lib/field-validation.js'
 import { calculateTestBedCost } from '../lib/deal-calculator.js'
 import { UNIT_TYPE_COUNT_KEYS, VALID_UNIT_STATES, VALID_STATE_SOURCES, loadUnits, deriveMissingUnitSlots } from '../lib/units.js'
+import { resolveLevels } from '../lib/scoring-levels.js'
 
 // Round 5 Phase 6 (2026-08-17): builds the itemized cost breakdown from
 // whatever's currently in a Test Bed's payload - the one place this
@@ -1698,20 +1699,17 @@ export default async function testBedsRoutes(app) {
     //
     // A null scale_id resolves to the legacy 1 to 5, the same default the read
     // route applies, so every criterion that exists behaves identically.
-    let allowed = [1, 2, 3, 4, 5]
-    if (crit.scale_id) {
-      const { data: levelRows, error: levelErr } = await db
-        .from('scoring_scale_levels')
-        .select('value')
-        .eq('scale_id', crit.scale_id)
-      if (levelErr) return reply.code(500).send({ error: levelErr.message })
-      // An empty set is a misconfigured scale, not a permissive one. Falling
-      // back to 1 to 5 here would accept a score the panel cannot display.
-      if (!levelRows?.length) {
-        return reply.code(409).send({ error: `no levels are defined for ${crit.name}, so a score cannot be recorded` })
-      }
-      allowed = levelRows.map(l => l.value)
+    // Round 24 Phase 3: resolved through the shared helper, the same one the
+    // read path uses. Phase 2 had the default written here AND in
+    // src/routes/scoring.js, which is two definitions of one thing.
+    const { levels, error: levelErr } = await resolveLevels(db, crit.scale_id)
+    if (levelErr) return reply.code(500).send({ error: levelErr.message })
+    // An empty set is a misconfigured scale, not a permissive one. Falling
+    // back to 1 to 5 here would accept a score the panel cannot display.
+    if (!levels.length) {
+      return reply.code(409).send({ error: `no levels are defined for ${crit.name}, so a score cannot be recorded` })
     }
+    const allowed = levels.map(l => l.value)
     if (!Number.isInteger(score) || !allowed.includes(score)) {
       // The default path keeps its ORIGINAL wording, byte for byte. A message
       // is behaviour someone can see, and "Test Bed behaviour must not change
@@ -1766,8 +1764,25 @@ export default async function testBedsRoutes(app) {
     // What changed is which field satisfies the requirement. Confirmed before
     // changing it that no test and no other caller posts a score comment: the
     // browser was the only one.
-    if (score <= 2 && !String(reason ?? '').trim()) {
-      return reply.code(400).send({ error: 'a reason is required at a score of 1 or 2, naming what is missing' })
+    // Round 24 Phase 3: the level says whether it needs a reason, replacing an
+    // inline `score <= 2`.
+    //
+    // That test is right for a five-point scale and arbitrary for any other
+    // shape: on a two-level scale it fires on the confirmed state. The default
+    // scale carries the flag at 1 and 2, so every criterion that exists today
+    // behaves exactly as it did.
+    //
+    // The message keeps its original wording byte for byte on the default
+    // path, for the same reason the range refusal does: a message is behaviour
+    // someone can see. Round 14 Phase 1 moved this rule once and found the
+    // change by running the server rather than by reading it.
+    const chosen = levels.find(l => l.value === score)
+    if (chosen?.reason_required && !String(reason ?? '').trim()) {
+      return reply.code(400).send({
+        error: crit.scale_id
+          ? `a reason is required at ${chosen.label}, naming what is missing`
+          : 'a reason is required at a score of 1 or 2, naming what is missing',
+      })
     }
 
     // Mandatory on any entry after the first. Phase 3 makes this an

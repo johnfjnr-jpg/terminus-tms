@@ -1,4 +1,5 @@
 import { createUserClient } from '../supabase.js'
+import { DEFAULT_LEVELS, resolveLevels } from '../lib/scoring-levels.js'
 
 export default async function scoringRoutes(app) {
   // GET /api/scoring-criteria?record_type=test_bed
@@ -61,29 +62,24 @@ export default async function scoringRoutes(app) {
     // default is applied to ANY criterion without a scale, so it holds for
     // rows created long after this migration rather than only for the five
     // that existed when it ran.
+    // Round 24 Phase 3: resolved through the shared helper, so the default and
+    // its reason-required flags have ONE definition rather than one per route.
+    //
+    // Checked, and not merely because every error should be. An unchecked
+    // failure here would present as "this scale has no levels", and a
+    // criterion with no levels renders a select with nothing in it, which
+    // reads as a criterion that cannot be scored rather than as a read that
+    // did not happen.
     const scaleIds = [...new Set(criteria.map(c => c.scale_id).filter(Boolean))]
     const levelsByScale = {}
-    if (scaleIds.length) {
-      const { data: levelRows, error: levelErr } = await db
-        .from('scoring_scale_levels')
-        .select('scale_id, value, label')
-        .in('scale_id', scaleIds)
-        .order('value', { ascending: true })
-
-      // Checked, and not merely because every error should be. An unchecked
-      // failure here would present as "this scale has no levels", and a
-      // criterion with no levels renders a select with nothing in it, which
-      // reads as a criterion that cannot be scored rather than as a read that
-      // did not happen.
+    for (const scaleId of scaleIds) {
+      const { levels, error: levelErr } = await resolveLevels(db, scaleId)
       if (levelErr) {
         request.log.error({ err: levelErr }, 'failed to list scoring scale levels')
         return reply.code(500).send({ error: levelErr.message })
       }
-      for (const l of levelRows ?? []) {
-        (levelsByScale[l.scale_id] ??= []).push({ value: l.value, label: l.label })
-      }
+      levelsByScale[scaleId] = levels
     }
-    const DEFAULT_LEVELS = [1, 2, 3, 4, 5].map(n => ({ value: n, label: String(n) }))
 
     return criteria.map(c => {
       const versions = byCriterion[c.id] ?? {}
