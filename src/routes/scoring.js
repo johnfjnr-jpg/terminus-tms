@@ -19,7 +19,7 @@ export default async function scoringRoutes(app) {
 
     const { data: criteria, error } = await db
       .from('scoring_criteria')
-      .select('id, record_type, criterion_key, name, asks, sort_order, rescore_through_stage')
+      .select('id, record_type, criterion_key, name, asks, sort_order, rescore_through_stage, scale_id')
       .eq('record_type', recordType)
       .order('sort_order', { ascending: true })
 
@@ -49,11 +49,48 @@ export default async function scoringRoutes(app) {
       ;(byCriterion[a.criterion_id][a.version] ??= {})[a.score] = a.wording
     }
 
+    // Round 24 Phase 2: LEVELS, resolved here and nowhere else.
+    //
+    // This is the single place the 1-to-5 default lives. It was previously
+    // written twice in the frontend and once as a range check on the server,
+    // and a criterion with a different number of levels could not be
+    // expressed. Callers now read `levels` and never assume a count.
+    //
+    // A null scale_id means the legacy 1 to 5, with the level number as its
+    // own label, which is exactly what the panel rendered before this. That
+    // default is applied to ANY criterion without a scale, so it holds for
+    // rows created long after this migration rather than only for the five
+    // that existed when it ran.
+    const scaleIds = [...new Set(criteria.map(c => c.scale_id).filter(Boolean))]
+    const levelsByScale = {}
+    if (scaleIds.length) {
+      const { data: levelRows, error: levelErr } = await db
+        .from('scoring_scale_levels')
+        .select('scale_id, value, label')
+        .in('scale_id', scaleIds)
+        .order('value', { ascending: true })
+
+      // Checked, and not merely because every error should be. An unchecked
+      // failure here would present as "this scale has no levels", and a
+      // criterion with no levels renders a select with nothing in it, which
+      // reads as a criterion that cannot be scored rather than as a read that
+      // did not happen.
+      if (levelErr) {
+        request.log.error({ err: levelErr }, 'failed to list scoring scale levels')
+        return reply.code(500).send({ error: levelErr.message })
+      }
+      for (const l of levelRows ?? []) {
+        (levelsByScale[l.scale_id] ??= []).push({ value: l.value, label: l.label })
+      }
+    }
+    const DEFAULT_LEVELS = [1, 2, 3, 4, 5].map(n => ({ value: n, label: String(n) }))
+
     return criteria.map(c => {
       const versions = byCriterion[c.id] ?? {}
       const versionNumbers = Object.keys(versions).map(Number).sort((a, b) => a - b)
       return {
         ...c,
+        levels: c.scale_id ? (levelsByScale[c.scale_id] ?? []) : DEFAULT_LEVELS,
         anchors: versions,
         current_version: versionNumbers.length ? versionNumbers[versionNumbers.length - 1] : null,
       }

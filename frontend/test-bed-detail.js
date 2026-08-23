@@ -1805,6 +1805,22 @@ window.setTbScoreReason = function (key, value) {
   applyTbScoreEntryLock()
 }
 
+// Round 24 Phase 2. The level set a criterion is scored against.
+//
+// TWO SOURCES NOW FEED THE ANCHOR BLOCK, where one used to. The ROWS come from
+// levels; the --nowording marking still comes from whether an anchor carries
+// wording at that level. Test Bed declares five levels and has anchors at
+// three, so it renders five rows with 2 and 4 marked, exactly as before.
+//
+// The fallback is defence against an old cached response rather than policy:
+// the API always sends levels, and a criterion rendering an empty select would
+// be worse than one rendering the legacy five.
+function tbScoreLevels(c) {
+  return Array.isArray(c?.levels) && c.levels.length
+    ? c.levels
+    : [1, 2, 3, 4, 5].map(n => ({ value: n, label: String(n) }))
+}
+
 // Which tbEdits keys are scores rather than payload fields. Derived from the
 // criteria table rather than hardcoded, so a criterion added as a row is
 // picked up without a code change.
@@ -2082,8 +2098,17 @@ async function renderTbScores() {
     // saveTbFields() the single interception point rather than this panel
     // having its own save path.
     const pending = tbEdits[c.criterion_key]?.draft ?? ''
-    const options = [1,2,3,4,5].map(n =>
-      `<option value="${n}"${String(pending) === String(n) ? ' selected' : ''}>${n}</option>`).join('')
+    // Round 24 Phase 2: derived from the criterion's own levels, not from a
+    // literal [1,2,3,4,5]. The API resolves them, defaulting a criterion with
+    // no scale to 1 to 5 with the number as its own label, so this renders
+    // exactly what it rendered before for every criterion that exists today.
+    //
+    // Deliberately NOT derived from which anchors carry wording. Test Bed's
+    // anchors exist at 1, 3 and 5 only, so that derivation would offer three
+    // options where five are offered, and the count is the visible symptom.
+    const levels = tbScoreLevels(c)
+    const options = levels.map(l =>
+      `<option value="${l.value}"${String(pending) === String(l.value) ? ' selected' : ''}>${escHtml(String(l.label))}</option>`).join('')
 
     const head = `
       <div class="tb-score-head">
@@ -2171,10 +2196,10 @@ async function renderTbScores() {
     const anchorsBlock = `
       <div class="tb-score-anchors${tbScoreAnchorsOpen[c.criterion_key] || pending !== '' ? '' : ' hidden'}"
            id="tb-anchors-${escHtml(c.criterion_key)}">
-        ${[1,2,3,4,5].map(n => `
-          <div class="tb-score-anchor${anchorSet[n] ? '' : ' tb-score-anchor--nowording'}">
-            <span class="tb-score-anchor-n">${n}</span>
-            <span class="tb-score-anchor-text">${anchorSet[n] ? escHtml(anchorSet[n]) : ''}</span>
+        ${levels.map(l => `
+          <div class="tb-score-anchor${anchorSet[l.value] ? '' : ' tb-score-anchor--nowording'}">
+            <span class="tb-score-anchor-n">${escHtml(String(l.label))}</span>
+            <span class="tb-score-anchor-text">${anchorSet[l.value] ? escHtml(anchorSet[l.value]) : ''}</span>
           </div>`).join('')}
         <p class="sub tb-score-anchor-ver">Version ${escHtml(String(c.current_version))}</p>
       </div>`

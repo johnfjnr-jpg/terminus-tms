@@ -1678,7 +1678,7 @@ export default async function testBedsRoutes(app) {
     // unrecognised key cannot create a series under a name nothing defines.
     const { data: crit, error: critErr } = await db
       .from('scoring_criteria')
-      .select('id, criterion_key, name')
+      .select('id, criterion_key, name, scale_id')
       .eq('record_type', 'test_bed')
       .eq('criterion_key', criterion ?? '')
       .maybeSingle()
@@ -1688,8 +1688,40 @@ export default async function testBedsRoutes(app) {
     }
     if (!crit) return reply.code(400).send({ error: 'criterion is not a recognised scoring criterion' })
 
-    if (!Number.isInteger(score) || score < 1 || score > 5) {
-      return reply.code(400).send({ error: 'score must be a whole number from 1 to 5' })
+    // Round 24 Phase 2: validated against the criterion's OWN levels.
+    //
+    // This was `score < 1 || score > 5`, which is right for every criterion
+    // that exists today and wrong for the first one with a different number of
+    // levels: a two-level criterion would have accepted a 5, stored it, and
+    // rendered a select with no option matching it. Architecture rule 8, on a
+    // path whose new caller is a round away.
+    //
+    // A null scale_id resolves to the legacy 1 to 5, the same default the read
+    // route applies, so every criterion that exists behaves identically.
+    let allowed = [1, 2, 3, 4, 5]
+    if (crit.scale_id) {
+      const { data: levelRows, error: levelErr } = await db
+        .from('scoring_scale_levels')
+        .select('value')
+        .eq('scale_id', crit.scale_id)
+      if (levelErr) return reply.code(500).send({ error: levelErr.message })
+      // An empty set is a misconfigured scale, not a permissive one. Falling
+      // back to 1 to 5 here would accept a score the panel cannot display.
+      if (!levelRows?.length) {
+        return reply.code(409).send({ error: `no levels are defined for ${crit.name}, so a score cannot be recorded` })
+      }
+      allowed = levelRows.map(l => l.value)
+    }
+    if (!Number.isInteger(score) || !allowed.includes(score)) {
+      // The default path keeps its ORIGINAL wording, byte for byte. A message
+      // is behaviour someone can see, and "Test Bed behaviour must not change
+      // at all" covers the text of a refusal as much as the refusal itself.
+      // Only a criterion with a real scale gets the enumerated form.
+      return reply.code(400).send({
+        error: crit.scale_id
+          ? `score must be one of ${[...allowed].sort((a, b) => a - b).join(', ')}`
+          : 'score must be a whole number from 1 to 5',
+      })
     }
 
     const { data: record, error: recErr } = await db
