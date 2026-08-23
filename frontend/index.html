@@ -1449,6 +1449,11 @@
     <div class="detail-tabs" id="opp-detail-tabs">
       <button class="detail-tab active" data-opp-tab="reference">Reference</button>
       <button class="detail-tab" data-opp-tab="commercial">Commercials</button>
+      <!-- Round 25 Phase 4: the ninth tab. Static, like Reference and
+           Commercials; the stage tabs after it are generated per record and
+           renderOppStageTabs removes only [data-opp-stage-tab] buttons, so
+           this one keeps its place at the front. -->
+      <button class="detail-tab" data-opp-tab="assessment">Assessment</button>
     </div>
 
     <!-- Reference: reference number strip, three cards (Terminus Details /
@@ -1999,6 +2004,17 @@
       <div class="form-actions" style="margin-top:28px">
         <button class="btn-ghost" id="btn-save-deal" disabled>Save changes</button>
         <span id="deal-feedback"></span>
+      </div>
+    </div>
+
+    <!-- Assessment: the Deal assessment, read under four lenses.
+         Round 25 Phase 4 mounts the tab and its panel and nothing else. The
+         four lens sub-tabs arrive in Phase 5 and the criteria panel in Phase
+         6, so this renders an honest empty state rather than a skeleton
+         implying content that is not there yet. -->
+    <div class="detail-tab-panel hidden" id="opp-tab-assessment">
+      <div id="opp-assessment-mount">
+        <p class="empty-state">The deal assessment is not configured for this opportunity yet.</p>
       </div>
     </div>
 

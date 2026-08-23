@@ -2144,7 +2144,19 @@ textarea::placeholder { color: var(--muted-2); }
    group, which overflowed the viewport at 1920px and cut "Save changes"
    off entirely. Wrapping lets the action group drop to a second line when
    there is genuinely no room, instead of disappearing off the edge. */
-#tb-detail-tabs {
+/* Round 25 Phase 4: #opp-detail-tabs joins #tb-detail-tabs here.
+
+   The eight-tab Opportunity row measured 876px in 876px at 1240 with zero
+   margin, so the ninth tab is the one that activates this. Without the rule
+   it protrudes 7px past the container edge instead of wrapping, because
+   .detail-tabs is flex with the default nowrap.
+
+   Ten Test Bed labels have laid out as two rows of five at 1240 since Round
+   18, so this is the sibling strip's proven behaviour rather than a new one.
+   The cost is measured and accepted: two rows push the content below down
+   23px at 1240 and nothing at 1920. */
+#tb-detail-tabs,
+#opp-detail-tabs {
   flex-wrap: wrap;
   row-gap: 4px;
 }
