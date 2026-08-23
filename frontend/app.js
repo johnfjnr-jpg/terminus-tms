@@ -1535,6 +1535,77 @@ let oppCriterionQueue = Promise.resolve()
 // same load's own completion.
 let oppUserPickedTab = false
 
+// Round 25 Phase 5: the lens vocabulary, fetched ONCE for the page rather than
+// per record. Lenses are global reference data, so a per-record fetch would
+// re-ask the same question on every opportunity opened.
+//
+// Caching it here is what keeps the sub-tab mount cheap enough to run on
+// record load: the first opportunity pays one small request and every one
+// after it mounts synchronously. Round 22 measured a one-second window where a
+// stage panel was on screen with its control not yet rendered, and this avoids
+// the same shape by not putting a fetch between the tab and its strip.
+let oppLenses = null
+let oppLensesPromise = null
+
+async function ensureOppLenses() {
+  if (oppLenses) return oppLenses
+  if (!oppLensesPromise) {
+    oppLensesPromise = api('GET', '/api/scoring-lenses').then(r => {
+      oppLensesPromise = null
+      if (!r.ok) return null
+      oppLenses = r.data
+      return oppLenses
+    })
+  }
+  return oppLensesPromise
+}
+
+// The four lens sub-tabs inside the Assessment tab.
+//
+// createSubTabs is a five-key destructuring allowlist: mount, tabs, label,
+// adopt, onSelect. A sixth key is discarded with no error, so this passes only
+// keys the function reads. Read from the definition rather than from its two
+// existing consumers, which pass different subsets between them.
+//
+// KEYS ARE SANITISED even though the four lens names have no spaces today.
+// createSubTabs builds its pane ids as `${mount.id}-pane-${key}` from the RAW
+// key, so a lens renamed to two words would produce an id that getElementById
+// resolves and every CSS selector misses. That is Round 21 Phase 7 exactly,
+// and it costs one replace to make impossible rather than to remember.
+function oppLensKey(name) {
+  return String(name).toLowerCase().replace(/[^a-z0-9_-]+/g, '-')
+}
+
+async function mountOppAssessmentLenses() {
+  const mount = document.getElementById('opp-assessment-mount')
+  if (!mount) return
+  const lenses = await ensureOppLenses()
+  if (!lenses?.length) {
+    // Distinct from an empty LENS. This is the vocabulary itself being absent
+    // or unreadable, a configuration fault rather than an empty section, so it
+    // does not borrow the empty-lens wording.
+    mount.innerHTML = '<p class="empty-state">The assessment lenses are not configured.</p>'
+    return
+  }
+
+  const built = window.createSubTabs({
+    mount,
+    label: 'Assessment lenses',
+    tabs: lenses.map(l => ({ key: oppLensKey(l.name), label: l.name })),
+  })
+  if (!built) return
+
+  // Phase 5 renders every lens empty. Phase 6 fills them from the criteria.
+  //
+  // The empty state NAMES THE LENS, because "no criteria" on four identical
+  // panes gives a reader no way to tell which one they are looking at once the
+  // sub-tab strip is out of view.
+  for (const l of lenses) {
+    const pane = built.panes[oppLensKey(l.name)]
+    if (pane) pane.innerHTML = `<p class="empty-state">No ${escHtml(l.name)} criteria are configured for this opportunity yet.</p>`
+  }
+}
+
 // oppLandOnTabAfterLoad, Round 22 Phase 2, widened in Phase 3. The
 // Opportunity twin of tbLandOnStageAfterLoad, ported rather than invented.
 //
@@ -4092,6 +4163,11 @@ async function renderOppDetail(opp) {
   currentOppStage = opp.status
   currentOppStages = stages ?? []
   renderOppStageTabs(stages, opp.status)
+  // Round 25 Phase 5: mounted here, beside the stage tabs, for the same reason
+  // they are. The Assessment tab's contents belong to THIS record, and mounting
+  // on record load means the strip is already there when the tab is opened
+  // rather than appearing a beat afterwards.
+  mountOppAssessmentLenses()
   // The record's own stage panel is filled eagerly, so the tab carrying the
   // green dot is never a blank card if the user goes straight to it.
   loadOppStageTab(opp.id, opp.status, opp.status, stages)
