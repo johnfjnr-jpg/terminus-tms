@@ -9,6 +9,19 @@
  * appendPayloadSeriesEntry is the cautionary case: a helper extracted for
  * exactly this reason, left with one caller while the code it was extracted
  * from kept its copy.
+ *
+ * ROUND 25 PHASE 0 FOUND THE REASON, and it is not neglect, so the warning
+ * above should be read with it. appendPayloadSeriesEntry does read-then-write
+ * in ONE call with no hook between them. The score path needs the existing
+ * series BEFORE it writes, because "any entry after the first requires a
+ * reason for the change" is decided from the series length and must refuse
+ * the request rather than append and then complain. Adopting the helper as it
+ * stands would mean writing first and validating second.
+ *
+ * So unifying them is a real change to the helper, not a call-site swap: it
+ * needs to expose the existing series or accept a validator. Worth doing when
+ * a third writer appears, which the Opportunity score path will be, and worth
+ * knowing that the cost is that change rather than the swap it looks like.
  */
 
 export const UNIT_TYPE_COUNT_KEYS = [

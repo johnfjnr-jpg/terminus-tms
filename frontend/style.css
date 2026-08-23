@@ -3000,8 +3000,29 @@ input.input-invalid {
   align-items: baseline;
   padding: 5px 0;
 }
+/* Round 25 Phase 1: a fixed 16px basis fits a level NUMBER and not a level
+   LABEL.
+
+   Round 24 Phase 2 changed the span's content from the level number to the
+   level label, which is pixel-identical on Test Bed because its labels are
+   "1" through "5", and broken for any word-labelled scale: "Buyer confirmed"
+   had 16px to live in, so it wrapped inside the green numeric badge and
+   collided with the wording column beside it. That is every scale the Deal
+   assessment uses. Architecture rule 8, correct for every caller that existed
+   and wrong for the one being built.
+
+   `0 0 auto` with a 16px floor gives max(content, 16px). A numeric label is
+   under 16px wide, so Test Bed's geometry is byte-identical: measured before
+   and after at 1240 and 1920, labelW|labelLeft|textLeft unchanged at
+   16|331|357 on all five rows. A word label gets its natural width instead of
+   wrapping.
+
+   Test Bed cannot verify this fix on its own. Pixel-identical is exactly what
+   the defect already produces there, so the fix is verified against a
+   word-labelled scale as well. */
 .tb-score-anchor-n {
-  flex: 0 0 16px;
+  flex: 0 0 auto;
+  min-width: 16px;
   font-family: var(--mono);
   font-size: 13px;
   color: var(--green);

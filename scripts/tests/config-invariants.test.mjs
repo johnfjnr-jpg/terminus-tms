@@ -321,6 +321,19 @@ test('INVARIANT 8: every criterion named by a gate rule exists and carries ancho
   const byKey = Object.fromEntries(criteria.map(c => [`${c.record_type}||${c.criterion_key}`, c]))
   const anchoredIds = new Set(anchors.map(a => a.criterion_id))
 
+  // ROUND 25 PHASE 1, RECORDED AND DELIBERATELY NOT FIXED HERE.
+  //
+  // This filter sees only payload_field_required rules naming a field. The
+  // assessment_current rule type added in Round 24 names NO field: it resolves
+  // the set of criteria required at a stage or earlier. So a criterion pulled
+  // into a rollup can carry no anchors and this invariant will not say so; the
+  // failure surfaces later as a 409 from the score endpoint, which refuses to
+  // record against a criterion with no definition.
+  //
+  // Not fixed in Round 25 because that round ships zero assessment_current
+  // rows, so the extension would be a branch nothing exercises, which is the
+  // shape Architecture rule 8 warns about. It belongs with the round that
+  // inserts the first rollup row.
   const scoreRules = rules.filter(r =>
     r.requirement_type === 'payload_field_required' &&
     String(r.requirement_detail?.field ?? '').startsWith('score'))

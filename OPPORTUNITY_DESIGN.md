@@ -728,6 +728,34 @@ author, timestamp, reason and anchor version per entry.
 **The third changes the stage model**, and the change is already made in
 the table above.
 
+### How "current" is computed, v1.3, added Round 24
+
+**Confirmed: the rollup is CUMULATIVE.** The exit criterion at a stage
+requires that every criterion required at THAT STAGE OR EARLIER carries an
+entry dated at or after entry to the stage. Expressed by the
+`assessment_current` gate rule type, whose currency half reuses
+`entry_stage_at_or_after`.
+
+**Why cumulative rather than a required row per rollup stage.** Sized against
+the real design before choosing: marking each rollup stage explicitly costs 88
+required rows against the design's 7 at Qualification, 21 at Solution
+Alignment and 2 at Proposal; computing "at this stage or earlier" costs 30,
+one per criterion at the stage it is introduced. The 58 extra rows each repeat
+what an introduction row already states.
+
+**The consequence, recorded because it follows from a choice made on row count
+alone.** The rule resolves the set at evaluation time, so **its strictness
+grows as criteria are configured, with no rule change and no migration.** A
+rule requiring seven criteria after the Commercial lens is configured requires
+thirty-two once the remaining lenses land. A record that satisfied the gate
+one week fails the next, and nothing in `stage_gate_rules` will have changed
+to explain it.
+
+**That is why no `assessment_current` rows exist yet.** Round 24 inserted none
+because a rule over an empty set would have read as satisfied, and Round 25
+inserted none because the strictness is not yet knowable. They arrive when the
+full criterion set exists.
+
 ### Where they sit, v1.1
 
 | Stage | Requirement |
