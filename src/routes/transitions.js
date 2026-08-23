@@ -288,6 +288,88 @@ export async function computeBlocking(db, record, from_stage, to_stage, currentR
       })
     }
 
+    // Round 24 Phase 6: assessment_current.
+    //
+    // requirement_detail = {label, entry_stage_at_or_after}. Unlike every other
+    // rule type this names NOTHING to check: it resolves the set of criteria
+    // required at the stage being exited or earlier, and asserts each carries
+    // an entry dated at or after entry to that stage.
+    //
+    // "or earlier" is the accumulate model. Checking only the criteria
+    // introduced at this stage would leave a budget confirmed at Qualification
+    // never revisited, and going stale is what that criterion does.
+    //
+    // Stage comparison is by POSITION in the sort_order-ordered list, never by
+    // sort_order arithmetic, the same departure Round 9 Phase 4A made for
+    // adjacency so a list numbered 10, 20, 30 still behaves.
+    if (rule.requirement_type === 'assessment_current') {
+      const label = rule.requirement_detail?.label
+      const atOrAfter = rule.requirement_detail?.entry_stage_at_or_after
+
+      const { data: stageRows, error: stageErr } = await db
+        .from('stage_definitions')
+        .select('stage_name, sort_order')
+        .eq('record_type', record.record_type)
+        .order('sort_order', { ascending: true })
+      if (stageErr) return { error: stageErr }
+      const order = (stageRows ?? []).map(r => r.stage_name)
+      const fromIdx = order.indexOf(rule.from_stage)
+      const threshold = atOrAfter ? order.indexOf(atOrAfter) : fromIdx
+
+      const { data: crits, error: critErr } = await db
+        .from('scoring_criteria')
+        .select('id, criterion_key, name')
+        .eq('record_type', record.record_type)
+        .order('sort_order', { ascending: true })
+      if (critErr) return { error: critErr }
+
+      let pairs = []
+      if (crits?.length) {
+        const { data: pairRows, error: pairErr } = await db
+          .from('scoring_criterion_stages')
+          .select('criterion_id, stage, required')
+          .in('criterion_id', crits.map(c => c.id))
+        if (pairErr) return { error: pairErr }
+        pairs = pairRows ?? []
+      }
+
+      const requiredCriteria = (crits ?? []).filter(c => pairs.some(p => {
+        if (p.criterion_id !== c.id || !p.required) return false
+        const i = order.indexOf(p.stage)
+        return i >= 0 && fromIdx >= 0 && i <= fromIdx
+      }))
+
+      const missing = requiredCriteria.filter(c => {
+        const series = revPayload?.[c.criterion_key]
+        if (!Array.isArray(series)) return true
+        return !series.some(entry => {
+          const i = order.indexOf(entry?.stage)
+          return i >= 0 && i >= threshold
+        })
+      })
+
+      // A rule whose set is EMPTY does not pass vacuously. An assessment with
+      // no required criteria is a misconfigured gate, and "nothing to check"
+      // reading as "checked and fine" is the failure this project has recorded
+      // more than once: a count of zero from an instrument never shown
+      // reaching one.
+      const met = threshold >= 0
+        && fromIdx >= 0
+        && requiredCriteria.length > 0
+        && missing.length === 0
+
+      requirements.push({
+        requirement_type: 'assessment_current',
+        ...(label ? { label } : {}),
+        message: requiredCriteria.length === 0
+          ? `${label ?? 'The assessment'} has no required criteria configured, so it cannot be current`
+          : (missing.length === 0
+            ? `${label ?? 'The assessment'} is current`
+            : `${label ?? 'The assessment'}: ${missing.length} of ${requiredCriteria.length} criteria not scored at or after ${atOrAfter ?? rule.from_stage} (${missing.map(c => c.name).join(', ')})`),
+        met,
+      })
+    }
+
     // contact_role_linked: requirement_detail = {role}. Checks that a
     // record_contacts row exists for this record + role - a
     // relationship check, distinct from payload_field_required's

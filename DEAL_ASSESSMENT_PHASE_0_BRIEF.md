@@ -340,3 +340,189 @@ Then stop and wait for sign-off.
   path is a fifth candidate and is already known to be Test Bed specific.
 - **Architecture rule 9.** A destructuring parameter list is an allowlist that
   silently discards what it does not name.
+
+---
+
+## Round 24 outcome, Round A of the multi-round plan
+
+Seven stages of work, 0 through 6, plus this close-out. Round A was the
+mechanism round: it built no Opportunity feature and was never meant to. Its
+whole constraint was that Test Bed does not change, and it did not.
+
+### Rule 7 returned zero for a new reason
+
+`grep -c "^## Phase\|^### Phase"` returns **0** against this brief, calibrated
+at **5** against `ROUND18A_FIX_BRIEF.md`. That is the fifth consecutive round
+the rule has failed, after three zeros and Round 22's plausible 1.
+
+**This time the zero is correct and the rule is asking the wrong question.**
+This brief deliberately contains no phase list. It commissioned an
+investigation that produced a MULTI-ROUND PLAN, and Round A's phase list was
+written in the Phase 0 report and signed off in conversation. There is nothing
+in the brief for the rule to count, and there should not be.
+
+So the rule's premise, that a round's phase list lives in its brief as
+headings, has now failed in two distinct ways: briefs that carry the list as a
+table, and briefs that carry no list because the round was planned elsewhere.
+Counted from the commits: phases 1 through 6, each signed off in the session
+transcript, plus this close-out. This report does not sign off its own stage.
+
+### What Round A built
+
+| | |
+|---|---|
+| 1 | `scoring_lenses`, four rows, and a NULLABLE `scoring_criteria.lens_id` |
+| 2 | `scoring_scales` and `scoring_scale_levels`, a nullable `scale_id`, and the two hardcoded `[1,2,3,4,5]` arrays derived from them |
+| 3 | `reason_required` per level, replacing an inline `score <= 2`, plus `src/lib/scoring-levels.js` |
+| 4 | Nothing. Binary was already expressible after 2 and 3. The stage looked instead, and found a defect three stages old |
+| 5 | `scoring_criterion_stages`, separating visibility from requirement |
+| 6 | `assessment_current`, the rollup rule, built and exercised on a synthetic record type |
+
+### The defect Round B must not inherit
+
+**The anchor block renders the level LABEL in a slot styled for a single
+character.** Introduced in Round A stage 2, when the anchor row's number span
+changed from `${n}` to `${label}`.
+
+**It is pixel-identical for Test Bed and broken for every word-labelled
+scale.** Test Bed's labels are "1" to "5", so nothing shows. The Deal
+assessment's are "Not applicable", "Our hypothesis", "Buyer confirmed": each
+wraps onto two lines inside a narrow green numeric badge and collides with the
+wording column beside it. That is EVERY scale the Deal assessment will use,
+not only the binary one.
+
+Architecture rule 8 in its exact shape, introduced in a stage that was signed
+off, and invisible until something rendered a scale that did not exist yet.
+**Named here for Round B's list rather than left to be rediscovered**, because
+Round B rebuilds that panel and "it gets fixed anyway" is how a known defect
+becomes a rediscovered one.
+
+### Three more findings from looking at binary
+
+- **The vocabulary splits.** A binary through the score path prompts
+  "Score..." and reads "Not scored". The hardcoded `measurabilityConfirmed`
+  block prompts "Confirm..." and reads "Not confirmed". Two binary criteria in
+  one card, using different words for the same act. **This is a decision, not
+  a fix**: when `measurabilityConfirmed` becomes a row, both cannot stand, and
+  it should be decided rather than settled by whichever renders last.
+- **An unanchored binary renders as broken**: two empty anchor rows and the
+  literal "Version null". That case is reachable, because `INVARIANT 8` only
+  requires anchors for GATED criteria and this round separated visibility from
+  gating.
+- **The two treatments read as different features.** Yes/No with no anchor
+  block beside Not confirmed/Confirmed with one.
+
+### A probe species with five instances, named and not yet ruled on
+
+Verification 17 covers a probe that cannot tell two states apart. **This is a
+different thing: a probe running against a THIRD state nobody meant to
+measure.** It does not report a wrong answer about the right subject; it
+reports a right answer about the wrong one.
+
+1. **The 401 hashed as a baseline.** A response body hashed for a
+   byte-identical comparison, where the body was `{"error":"unauthorized"}`.
+   Two such hashes match perfectly.
+2. **The expired session in Round 22**, which surfaced as
+   `contacts.find is not a function` rather than as an auth failure.
+3. **The stale token that produced an empty fixture id**, so a browser probe
+   ran against a record id of `""` and reported cleanly on a page that had
+   loaded nothing.
+4. **The `--watch` contaminated baseline.** The dev server had already loaded
+   the edited route against the un-migrated schema, so the "before" capture
+   was a 500: neither the before state nor the after state.
+5. **The 401 labelled ALLOWED**, and the worst of the five, because it printed
+   four consecutive clean passes on a gate that was never reached.
+
+**No rule proposed.** Five instances is worth naming before anyone decides
+what to do about it, and four of the five were caught only because the probe
+happened to print a status or a length alongside its verdict.
+
+### Two mechanisms, one visible outcome
+
+Stage 6 case D returned **403 and it was not the gate**. The rollup passed and
+the write was refused afterwards, which reads exactly like the rollup failing.
+
+The cause is worth carrying into Round B by itself: **the API test user is a
+different account from the owner of the live records**, `266a2812` against
+`75425a02`. A fixture created with the wrong owner passes every gate and then
+fails at the write, and Round B creates fixtures constantly.
+
+### Recorded rather than encoded
+
+`scoring_anchors.score` carries `check (score between 1 and 5)`.
+**`scoring_scale_levels.value` deliberately carries no such check.** A scale
+using values outside that range can therefore exist and cannot carry anchor
+wording. Adding a second 1-to-5 check would have looked considered while
+making the constraint harder to lift, and both seeded scales sit inside the
+range. Named in the migration, where the next person meets it.
+
+The same choice was made twice more this round, and it is becoming the round's
+habit: the missing instrument discriminator on `assessment_current` is
+recorded in that migration, and the reason for the nullable `lens_id` in its
+own.
+
+### The generated file's blind spot is now five tables and two columns wide
+
+`CURRENT_STATE.md` cannot see:
+
+- `closed_lost_reasons`, from Round 21
+- `scoring_lenses`
+- `scoring_scales`
+- `scoring_scale_levels`
+- `scoring_criterion_stages`
+
+Four of the five appear once each, as a migration FILENAME. **`scoring_scale_levels`
+appears zero times**, because its name is not in a filename: it is created
+inside the scales migration.
+
+**The blind spot has a second shape nobody had named.** The generator fetches
+**eleven tables by name**, and it fetches `scoring_criteria` with an explicit
+seven-column list. So `lens_id` and `scale_id`, both added this round to a
+table the file DOES dump, are equally invisible. It is not only unknown tables;
+it is unnamed columns on known ones.
+
+A file whose stated job is recording what is configured now omits five
+configuration tables and two configuration columns. Not fixed here.
+
+### Open decisions in `OPPORTUNITY_DESIGN.md`
+
+**Seven bolded rows, none claiming Confirmed**, asserted individually:
+
+1. Revision event: series plus approval plus re-score as one thing
+2. Deal Sheet freeze point after the stage compression
+3. Staff fields have no server-side validation
+4. `Account` is a third staff-field surface
+5. Base Cost Data catalog
+6. One stage vocabulary under four column names, joined by nothing
+7. `approvals.comment` unused on all 229 rows, `tier` null on all 229
+
+**The table has two conventions for open and they disagree at seven versus
+ten**, found in Round 22 and unchanged. Twenty-one rows, seven bolded, and
+three further rows marked Undecided without bolding: Deal assessment criteria,
+Risk assessment criteria, and **Is a loss reversible**. The third governs
+wording already shipped.
+
+Row 7's own figure is now stale: `approvals` holds **326** rows, not 229. The
+claim survives, `comment` is non-null on **0 of 326** and `tier` on 0 of 326,
+and no rejection has ever been recorded. The number is a document-versus-data
+drift rather than a wrong claim.
+
+### Reconciliation
+
+`CURRENT_STATE.md` regenerated at `24d13cf`. Eight tracked configuration
+sources changed, five migrations and three routes. Every diff line is
+accounted for:
+
+- **Migrations 64 to 69**: the round's five, one per stage that shipped one.
+- **Registered routes 60 to 60**: unchanged, correct. Three route FILES were
+  edited and no endpoint was added or removed.
+- **Live records 94, unchanged.** Every fixture this round created was torn
+  down and re-queried.
+- **Soft deleted 10068 to 10624**: suite runs and stage fixtures.
+- **`approvals` 229 to 326**: fixture approvals from Round 22's walks and this
+  round's, none on a live record.
+- **One live Opportunity moved from Solution Alignment to Closed Won.** This
+  is the business's own record, walked on 2026-08-22, and the previous
+  generation predated it.
+- **No new sections.** Explained above, and the finding rather than an
+  omission.
