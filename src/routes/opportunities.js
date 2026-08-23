@@ -182,7 +182,13 @@ export default async function opportunitiesRoutes(app) {
     // these land in the same change as the rules that require them. There
     // is no UI to tick them yet and that is stated in the phase report:
     // this makes them settable, not visible.
-    'exitQualBudget', 'exitQualTimeline', 'exitQualCommitment',
+    // Round 26 Phase 2. Written by POST /opportunities/:id/assessment-reviewed
+  // rather than by a PATCH, but named here anyway: Round 20 Phase 5 found a
+  // gate whose field is not writable is a wall rather than a gate, and leaving
+  // it out would make that true again the first time anyone reaches for a
+  // PATCH.
+  'assessmentReviewed',
+  'exitQualBudget', 'exitQualTimeline', 'exitQualCommitment',
     'exitSolTechnicalSolution', 'exitSolBuyersKnown', 'exitSolKeyStakeholders', 'exitSolTermsReviewed',
     'exitPropPricingApproved', 'exitPropContractTerms', 'exitPropImplSchedule', 'exitPropDocumentation',
     'exitEvalClarificationsResponded', 'exitEvalRevisedPricing', 'exitEvalTechnicalClarifications',
@@ -610,6 +616,76 @@ export default async function opportunitiesRoutes(app) {
   // What this route repeats from the transition endpoint is the status
   // write, the revision and the audit row, and nothing that decides whether
   // the move is allowed.
+  // POST /api/opportunities/:id/assessment-reviewed
+  //
+  // Round 26 Phase 2. Appends {at, by, stage} to an append-only series.
+  //
+  // NOT the generic exit-criteria tick, which PATCHes a single ISO timestamp.
+  // A timestamp cannot satisfy min_length, and more importantly one timestamp
+  // cannot say WHICH stages have been reviewed: the four rules each name their
+  // own stage through entry_stage_at_or_after, so the record has to carry one
+  // entry per stage reviewed.
+  //
+  // APPEND ONLY, with no clear. Every other tick toggles, and this one cannot:
+  // "I read the assessment at Solution Alignment" is an event, and un-saying
+  // it is not a thing a person does. The same reasoning makes score entries
+  // append-only.
+  //
+  // The stage is the RECORD'S OWN, read server-side, never taken from the
+  // client. A client-supplied stage would let a review be attributed to a
+  // stage the record was never in, which is the one thing the currency clause
+  // exists to prevent.
+  app.post('/opportunities/:id/assessment-reviewed', async (request, reply) => {
+    const db = createUserClient(request.jwt)
+
+    const { data: record, error: recErr } = await db
+      .from('records')
+      .select('id, status')
+      .eq('id', request.params.id)
+      .eq('record_type', 'opportunity')
+      .is('deleted_at', null)
+      .maybeSingle()
+    if (recErr) return reply.code(500).send({ error: recErr.message })
+    if (!record) return reply.code(404).send({ error: 'opportunity not found' })
+
+    const { data: revRow, error: revReadErr } = await db
+      .from('record_revisions')
+      .select('revision_number, payload')
+      .eq('record_id', record.id)
+      .order('revision_number', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (revReadErr) return reply.code(500).send({ error: revReadErr.message })
+    if (!revRow) return reply.code(404).send({ error: 'opportunity has no revision' })
+
+    const existing = Array.isArray(revRow.payload?.assessmentReviewed) ? revRow.payload.assessmentReviewed : []
+
+    // Reviewing the same stage twice is a no-op rather than a second entry.
+    // The gate asks whether this stage has been reviewed, not how often, and a
+    // second row would be noise in a history a person reads.
+    if (existing.some(e => e?.stage === record.status)) {
+      return reply.code(200).send({ entries: existing.length, alreadyReviewed: true, stage: record.status })
+    }
+
+    const entry = { at: new Date().toISOString(), by: request.user.email, stage: record.status }
+    const { error: revErr } = await appendRecordRevision(
+      db, record.id, { assessmentReviewed: [...existing, entry] }, request.user.id)
+    if (revErr) {
+      request.log.error({ err: revErr }, 'failed to record assessment review')
+      return sendWriteError(reply, revErr)
+    }
+
+    await db.from('audit_log').insert({
+      record_id: record.id,
+      record_type: 'opportunity',
+      action: 'assessment_reviewed',
+      actor_id: request.user.id,
+      detail: { stage: entry.stage },
+    })
+
+    return reply.code(201).send({ entry, entries: existing.length + 1 })
+  })
+
   // POST /api/opportunities/:id/scores
   //
   // Round 25 Phase 3. The second caller of the shared score handler, and the

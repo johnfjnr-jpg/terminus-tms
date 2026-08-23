@@ -1917,6 +1917,26 @@ async function renderOppExitCriteria(containerId, recordId, fromStage, toStage, 
   }
 
   const rows = requirements.map(r => {
+    // Round 26 Phase 2: assessmentReviewed is tickable but NOT through the
+    // generic path. That path PATCHes a single ISO timestamp and toggles; this
+    // key holds an append-only series of {at, by, stage}, because one timestamp
+    // cannot say which stages have been reviewed and the four rules each name
+    // their own stage through entry_stage_at_or_after.
+    //
+    // It is also one-way. A met row is not clickable, because "I read the
+    // assessment at this stage" is an event and un-saying it is not a thing a
+    // person does.
+    const isReview = r.requirement_type === 'payload_field_required' && r.field === 'assessmentReviewed'
+    if (isReview) {
+      const box = r.met
+        ? '<span class="tb-crit-box tb-crit-box--met">&#10003;</span>'
+        : '<span class="tb-crit-box"></span>'
+      const cls = r.met ? 'tb-crit-row' : 'tb-crit-row tb-crit-row--tickable'
+      const click = r.met ? '' : ` onclick="recordOppAssessmentReview('${escHtml(recordId)}', '${escHtml(fromStage)}')"`
+      return `<div class="${cls}" data-field="${escHtml(r.field)}" data-stage="${escHtml(fromStage)}" data-met="${r.met ? 'true' : 'false'}"${click} title="${r.met ? 'Reviewed at this stage' : 'Confirm you have read the assessment'}">
+        ${box}<span class="tb-crit-text">${escHtml(r.label ?? 'Assessment reviewed')}</span>
+      </div>`
+    }
     const tickable = r.requirement_type === 'payload_field_required'
       && OPP_EXIT_CRITERION_KEYS.has(r.field)
       && !!r.label
@@ -1990,6 +2010,39 @@ function applyConfirmedOppTick(recordId, stageName, field, met) {
 // Test Bed has done this correctly since Round 9: re-render the panel, not
 // the page, and capture the stage at click time so a tab switch mid-flight
 // cannot paint the wrong stage's answer.
+// Round 26 Phase 2. Serialised through the same queue the criterion ticks use,
+// so a review and a tick cannot land two overlapping revisions on one record.
+//
+// One way: there is no clear. "I read the assessment at this stage" is an
+// event, and the row stops being clickable once met.
+window.recordOppAssessmentReview = (recordId, stageName) => {
+  const run = async () => {
+    const key = oppStageTabKey(stageName)
+    const fb = document.getElementById(`opp-stage-criteria-${key}`)?.querySelector('.opp-crit-feedback')
+    if (fb) { fb.textContent = ''; fb.className = 'tb-doc-feedback opp-crit-feedback' }
+
+    const result = await api('POST', `/api/opportunities/${recordId}/assessment-reviewed`)
+    if (!result.ok) {
+      const el = document.getElementById(`opp-stage-criteria-${key}`)?.querySelector('.opp-crit-feedback')
+      if (el) {
+        el.textContent = `Could not record the review: ${result.data?.error ?? 'unknown error'}`
+        el.className = 'tb-doc-feedback opp-crit-feedback err'
+      }
+      return
+    }
+    // Re-rendered from the server rather than marked optimistically. Whether
+    // the row is met depends on entry_stage_at_or_after, which is the
+    // evaluator's judgement and not something this side should predict.
+    if (currentOppDetailId === recordId && document.getElementById(`opp-stage-criteria-${key}`)) {
+      const token = ++oppStageTabLoadToken
+      await renderOppExitCriteria(`opp-stage-criteria-${key}`, recordId, stageName,
+        nextStageAfter(currentOppStages, stageName), () => token === oppStageTabLoadToken)
+    }
+  }
+  oppCriterionQueue = oppCriterionQueue.then(run, run)
+  return oppCriterionQueue
+}
+
 window.toggleOppExitCriterion = (recordId, stageName, field, isMet) => {
   if (!OPP_EXIT_CRITERION_KEYS.has(field)) return oppCriterionQueue
   const run = async () => {
