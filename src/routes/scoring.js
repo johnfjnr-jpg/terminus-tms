@@ -70,6 +70,28 @@ export default async function scoringRoutes(app) {
     // criterion with no levels renders a select with nothing in it, which
     // reads as a criterion that cannot be scored rather than as a read that
     // did not happen.
+    // Round 24 Phase 5: the stages a criterion is shown and scoreable at.
+    //
+    // Returned WITH the criteria rather than behind a ?stage= filter, because
+    // the panel caches this response once per record and re-renders per stage
+    // tab. A per-stage endpoint would turn one fetch into eight.
+    const { data: stageRows, error: stageErr } = await db
+      .from('scoring_criterion_stages')
+      .select('criterion_id, stage, required')
+      .in('criterion_id', criteria.map(c => c.id))
+
+    // An unchecked failure here would present as "this criterion appears at no
+    // stage", which renders an empty panel: indistinguishable from a stage
+    // that genuinely has no criteria, and wrong in a way nobody would query.
+    if (stageErr) {
+      request.log.error({ err: stageErr }, 'failed to list scoring criterion stages')
+      return reply.code(500).send({ error: stageErr.message })
+    }
+    const stagesByCriterion = {}
+    for (const r of stageRows ?? []) {
+      (stagesByCriterion[r.criterion_id] ??= []).push({ stage: r.stage, required: r.required })
+    }
+
     const scaleIds = [...new Set(criteria.map(c => c.scale_id).filter(Boolean))]
     const levelsByScale = {}
     for (const scaleId of scaleIds) {
@@ -87,6 +109,7 @@ export default async function scoringRoutes(app) {
       return {
         ...c,
         levels: c.scale_id ? (levelsByScale[c.scale_id] ?? []) : DEFAULT_LEVELS,
+        stages: stagesByCriterion[c.id] ?? [],
         anchors: versions,
         current_version: versionNumbers.length ? versionNumbers[versionNumbers.length - 1] : null,
       }

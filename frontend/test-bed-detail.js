@@ -2042,12 +2042,24 @@ async function renderTbStageScoring(stageName, requirements, isStillCurrent = ()
   await ensureTbScoringCriteria()
   if (!isStillCurrent()) return
 
-  const known = new Set(tbScoringCriteria.map(c => c.criterion_key))
+  // Round 24 Phase 5: which criteria show here comes from the criterion's own
+  // stage rows, not from whether a gate rule at this stage names it.
+  //
+  // Visibility and requirement were the same fact until now, which is exactly
+  // what the Deal assessment cannot use: its criteria display and are
+  // scoreable at stages they do not block. Gating is untouched, so the same
+  // rules that blocked a transition yesterday block it today.
+  //
+  // measurabilityConfirmed still comes from the requirements list. It is not a
+  // scoring_criteria row, so it has no stage rows to read, and this phase
+  // deliberately does not move it.
   const fields = (requirements ?? [])
     .filter(r => r.requirement_type === 'payload_field_required')
     .map(r => r.field)
   tbScoreVisible = {
-    keys: fields.filter(f => known.has(f)),
+    keys: tbScoringCriteria
+      .filter(c => (c.stages ?? []).some(st => st.stage === stageName))
+      .map(c => c.criterion_key),
     measurability: fields.includes('measurabilityConfirmed'),
   }
 
