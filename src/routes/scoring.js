@@ -46,7 +46,7 @@ export default async function scoringRoutes(app) {
 
     const { data: criteria, error } = await db
       .from('scoring_criteria')
-      .select('id, record_type, criterion_key, name, asks, sort_order, rescore_through_stage, scale_id')
+      .select('id, record_type, criterion_key, name, asks, sort_order, rescore_through_stage, scale_id, lens_id')
       .eq('record_type', recordType)
       .order('sort_order', { ascending: true })
 

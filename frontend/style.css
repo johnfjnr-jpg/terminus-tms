@@ -3257,3 +3257,95 @@ input.input-invalid {
   letter-spacing: 0.04em;
   vertical-align: 1px;
 }
+
+/* ── Opportunity assessment panel ─────────────────────────────────────────
+   Round 25 Phase 6.
+
+   Its own classes rather than Test Bed's. renderTbScores is 187 lines bound
+   to eleven module-level variables in test-bed-detail.js, so the SHAPE is
+   reusable and the function is not; giving this panel its own classes means
+   Test Bed's rendering cannot be affected by a choice made here, which is the
+   round's binding constraint expressed as CSS rather than as care.
+
+   THE RAGGED COLUMN, deferred from Phase 1 and decided here.
+
+   Phase 1 gave the anchor label its natural width, which fixed the collision
+   and left both label starts and text starts ragged: with word labels of
+   differing widths every row began at a different x. Phase 1 deferred the
+   remedy because it depends on the container, and the real one is this panel
+   at roughly 876px rather than the 420px stage card.
+
+   Decided: a two-column GRID whose first column is max-content. Every row in
+   one criterion shares a label column sized to that scale's widest label, so
+   labels stay right-aligned and the wording starts at ONE x. It adapts to a
+   longer label instead of needing a number chosen today, and it cannot affect
+   Test Bed, whose anchors keep their flex layout untouched. */
+/* CAPPED, and the number is measured rather than chosen.
+
+   Uncapped, the criterion name is at the left of the row and its control at
+   the right, so the distance between the two grows with the viewport: measured
+   at 397px at 1240, 1077px at 1920 and 2597px at 3440, without limit. The same
+   cap fixes a second thing, because the anchor wording ran the full row too:
+   at 1556px a 12px line is roughly 200 characters, far past a readable
+   measure.
+
+   880px is the content width at 1240, which is the width this panel was
+   looked at and read correctly. Freezing that geometry is not an arbitrary
+   pick: it is the one width where both the eye travel and the line length were
+   already right. */
+.opp-assess-criterion {
+  max-width: 880px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--hairline);
+}
+.opp-assess-criterion:last-child { border-bottom: 0; }
+/* The head row, corrected after looking at it. The global select rule sets
+   width:100%, so a select dropped into a flex row fills whatever is left: the
+   criterion name was squeezed into ~110px and wrapped over two lines while the
+   control took ~680px it had no use for. Fixed widths on the two right-hand
+   columns give the name the row's remaining space, which is what should
+   expand. */
+.opp-assess-head {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+}
+.opp-assess-name { font-size: 15px; flex: 1 1 auto; min-width: 0; }
+.opp-assess-value {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--green);
+  flex: 0 0 132px;
+  text-align: right;
+}
+.opp-assess-value--none { color: var(--muted-2); }
+.opp-assess-asks { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.opp-assess-select { flex: 0 0 210px; width: 210px; }
+
+.opp-assess-anchors {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  column-gap: 14px;
+  row-gap: 6px;
+  margin-top: 12px;
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 4px;
+}
+.opp-assess-anchor-n {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--green);
+  text-align: right;
+}
+.opp-assess-anchor--nowording .opp-assess-anchor-n { color: var(--muted-2); }
+.opp-assess-anchor-t { font-size: 12px; color: var(--muted); }
+.opp-assess-ver { font-size: 11px; color: var(--muted-2); margin-top: 10px; }
+.opp-assess-note { font-size: 12px; color: var(--muted-2); margin-top: 10px; }
+
+.opp-assess-reason { margin-top: 12px; }
+.opp-assess-reason label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+.opp-assess-reason textarea { width: 100%; }
+.opp-assess-actions { display: flex; gap: 10px; align-items: center; margin-top: 10px; }
+.opp-assess-history { margin-top: 10px; font-size: 12px; color: var(--muted-2); }
+.opp-assess-entry { display: flex; gap: 12px; padding: 3px 0; }

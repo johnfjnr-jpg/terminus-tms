@@ -1576,6 +1576,206 @@ function oppLensKey(name) {
   return String(name).toLowerCase().replace(/[^a-z0-9_-]+/g, '-')
 }
 
+// Round 25 Phase 6: the Opportunity assessment panel.
+//
+// THE SHAPE IS TAKEN FROM renderTbScores AND THE FUNCTION IS NOT. That function
+// is 187 lines bound to eleven module-level variables in test-bed-detail.js
+// plus six references to measurabilityConfirmed, so it is Test Bed's panel
+// rather than a panel. What is taken: current value from the newest entry,
+// a select of levels, the anchor block on demand, a reason box whose
+// obligation comes from the level, and history behind a count. What is left:
+// every one of those module variables, the measurability special case, the
+// tbEdits integration, and the shared save bar.
+//
+// CRITERIA ARE CACHED PER PAGE, not per record. They are reference data for
+// the record type, and the record's own scores travel in opp.payload, which
+// GET /api/opportunities/:id already returns. So after the first opportunity
+// there is no fetch at all between opening the tab and seeing the panel.
+let oppCriteria = null
+let oppCriteriaPromise = null
+const oppAssessDraft = {}
+const oppAssessReason = {}
+const oppAssessOpen = {}
+
+async function ensureOppCriteria() {
+  if (oppCriteria) return oppCriteria
+  if (!oppCriteriaPromise) {
+    oppCriteriaPromise = api('GET', '/api/scoring-criteria?record_type=opportunity').then(r => {
+      oppCriteriaPromise = null
+      if (!r.ok) return null
+      oppCriteria = r.data
+      return oppCriteria
+    })
+  }
+  return oppCriteriaPromise
+}
+
+function oppAssessSeries(key) {
+  const v = currentOppPayload?.[key]
+  return Array.isArray(v) ? [...v].sort((a, b) => String(a?.at).localeCompare(String(b?.at))) : []
+}
+
+// THE VOCABULARY, decided here because this is the first Opportunity screen to
+// need it and it therefore sets the precedent.
+//
+// Round A Phase 4 found two in use: the score path prompts "Score..." and
+// reads "Not scored"; the hardcoded measurabilityConfirmed block prompts
+// "Confirm..." and reads "Not confirmed". Neither fits.
+//
+// "Score" implies a number, and these levels are named states: a select
+// prompting "Score..." above Not applicable, Unknown, Our hypothesis, Buyer
+// confirmed, Verified reads as though a number were being asked for.
+// "Confirm" implies two outcomes and is wrong for five ordered ones.
+//
+// Chosen: "Assess..." and "Not assessed", after the instrument the business
+// calls it. It fits five-level and binary alike, so when measurabilityConfirmed
+// migrates it has a target that covers it rather than one that covers half the
+// treatments. THIS IS DELIBERATELY A THIRD STRING and the reconciliation is
+// still owed: it is the one to converge on, not one more to choose between.
+const OPP_ASSESS_PROMPT = 'Assess...'
+const OPP_ASSESS_NONE = 'Not assessed'
+
+function renderOppAssessCriterion(c) {
+  const series = oppAssessSeries(c.criterion_key)
+  const current = series.length ? series[series.length - 1] : null
+  const levels = Array.isArray(c.levels) ? c.levels : []
+  const labelFor = v => levels.find(l => l.value === v)?.label ?? String(v)
+  const draft = oppAssessDraft[c.criterion_key] ?? ''
+  const anchorSet = c.anchors?.[c.current_version] ?? {}
+
+  // AN UNANCHORED CRITERION, decided here.
+  //
+  // Round A Phase 4 found it renders as blank rows and the literal "Version
+  // null". It is reachable: INVARIANT 8 covers only payload_field_required
+  // rules, so a criterion pulled in by a rollup, or visible and ungated, can
+  // carry no anchors at all.
+  //
+  // Decided: say so and REFUSE THE INTERACTION. The score endpoint answers 409
+  // to a criterion with no anchors, so a select offered here is one that cannot
+  // succeed, and an interaction guaranteed to fail is worse than a disabled one
+  // that explains itself.
+  const unanchored = c.current_version == null || !Object.keys(anchorSet).length
+
+  const options = levels.map(l =>
+    `<option value="${l.value}"${String(draft) === String(l.value) ? ' selected' : ''}>${escHtml(String(l.label))}</option>`).join('')
+
+  const anchors = unanchored
+    ? '<p class="opp-assess-note">No level definitions are recorded for this criterion yet, so it cannot be assessed.</p>'
+    : `<div class="opp-assess-anchors${oppAssessOpen[c.criterion_key] || draft !== '' ? '' : ' hidden'}" id="opp-assess-anchors-${escHtml(c.criterion_key)}">
+         ${levels.map(l => `
+           <span class="opp-assess-anchor-n${anchorSet[l.value] ? '' : ' opp-assess-anchor--nowording'}">${escHtml(String(l.label))}</span>
+           <span class="opp-assess-anchor-t">${anchorSet[l.value] ? escHtml(anchorSet[l.value]) : ''}</span>`).join('')}
+         <p class="opp-assess-ver" style="grid-column:1/-1">Definition version ${escHtml(String(c.current_version))}</p>
+       </div>`
+
+  const chosen = levels.find(l => String(l.value) === String(draft))
+  const mustGiveReason = !!chosen?.reason_required || series.length > 0
+  const reasonBox = draft === '' ? '' : `
+    <div class="opp-assess-reason">
+      <label for="opp-assess-reason-${escHtml(c.criterion_key)}">Reason${mustGiveReason ? ' (required)' : ' (optional)'}</label>
+      <textarea id="opp-assess-reason-${escHtml(c.criterion_key)}" rows="2"
+        oninput="setOppAssessReason('${escHtml(c.criterion_key)}', this.value)">${escHtml(oppAssessReason[c.criterion_key] ?? '')}</textarea>
+      <div class="opp-assess-actions">
+        <button class="btn-primary" onclick="commitOppAssess('${escHtml(c.criterion_key)}')">Record</button>
+        <button class="btn-ghost" onclick="cancelOppAssess('${escHtml(c.criterion_key)}')">Cancel</button>
+        <span class="opp-assess-feedback" id="opp-assess-feedback-${escHtml(c.criterion_key)}"></span>
+      </div>
+    </div>`
+
+  const history = series.length > 1 ? `
+    <div class="opp-assess-history">
+      ${series.slice(0, -1).reverse().map(e => `<div class="opp-assess-entry"><span>${escHtml(formatDateTime(e.at))}</span><span>${escHtml(labelFor(e.value))}</span><span>${escHtml(e.reason ?? '')}</span></div>`).join('')}
+    </div>` : ''
+
+  return `
+    <div class="opp-assess-criterion" data-criterion="${escHtml(c.criterion_key)}" data-entries="${series.length}">
+      <div class="opp-assess-head">
+        <span class="opp-assess-name">${escHtml(c.name)}</span>
+        <span class="opp-assess-value${current ? '' : ' opp-assess-value--none'}">${current ? escHtml(labelFor(current.value)) : OPP_ASSESS_NONE}</span>
+        <select class="opp-assess-select" id="opp-assess-select-${escHtml(c.criterion_key)}"
+          aria-label="${escHtml(c.name)}"${unanchored ? ' disabled' : ''}
+          onfocus="toggleOppAssessAnchorsOpen('${escHtml(c.criterion_key)}')"
+          onchange="setOppAssessDraft('${escHtml(c.criterion_key)}', this.value)">
+          <option value="">${current ? 'Revise...' : OPP_ASSESS_PROMPT}</option>
+          ${options}
+        </select>
+      </div>
+      ${c.asks ? `<p class="opp-assess-asks">${escHtml(c.asks)}</p>` : ''}
+      ${anchors}
+      ${reasonBox}
+      ${history}
+    </div>`
+}
+
+// Which criteria a lens shows: those visible AT THE RECORD'S CURRENT STAGE.
+//
+// Round A settled that visibility marks the stages a criterion can be answered
+// at, and the Assessment tab is not a stage tab, so it needs a stage to mean
+// anything. The record's own is the only defensible one: a criterion
+// introduced at Proposal is not answerable on a record still in Qualification.
+function renderOppAssessLens(pane, lensId) {
+  const forLens = (oppCriteria ?? [])
+    .filter(c => c.lens_id === lensId)
+    .filter(c => (c.stages ?? []).some(st => st.stage === currentOppStage))
+  if (!forLens.length) {
+    pane.innerHTML = `<p class="empty-state">No criteria are configured for this lens at ${escHtml(currentOppStage ?? 'this stage')}.</p>`
+    return
+  }
+  pane.innerHTML = forLens.map(renderOppAssessCriterion).join('')
+}
+
+window.setOppAssessDraft = function (key, value) {
+  if (value === '') delete oppAssessDraft[key]
+  else oppAssessDraft[key] = value
+  rerenderOppAssessLens()
+}
+window.setOppAssessReason = function (key, value) { oppAssessReason[key] = value }
+window.cancelOppAssess = function (key) {
+  delete oppAssessDraft[key]
+  delete oppAssessReason[key]
+  rerenderOppAssessLens()
+}
+// Opening on focus rather than toggling, so tabbing to the select reveals the
+// definitions a scorer is about to choose between. Idempotent: re-focusing
+// does not close them.
+window.toggleOppAssessAnchorsOpen = function (key) {
+  if (oppAssessOpen[key]) return
+  oppAssessOpen[key] = true
+  rerenderOppAssessLens()
+}
+
+window.commitOppAssess = async function (key) {
+  const value = Number(oppAssessDraft[key])
+  const reason = String(oppAssessReason[key] ?? '').trim()
+  const fb = document.getElementById(`opp-assess-feedback-${key}`)
+  const result = await api('POST', `/api/opportunities/${currentOppDetailId}/scores`, {
+    criterion: key, score: value, ...(reason ? { reason } : {}),
+  })
+  if (!result.ok) {
+    // The control is left exactly as it was, with the typed reason intact: the
+    // refusals this endpoint gives are all correctable, and discarding the
+    // draft would make the user retype to find that out.
+    if (fb) { fb.textContent = result.data?.error ?? 'Could not record the assessment.'; fb.className = 'opp-assess-feedback msg-error' }
+    return
+  }
+  delete oppAssessDraft[key]
+  delete oppAssessReason[key]
+  // The server owns the series, so the panel re-reads it rather than guessing.
+  const fresh = await api('GET', `/api/opportunities/${currentOppDetailId}`)
+  if (fresh.ok) currentOppPayload = fresh.data.payload ?? {}
+  rerenderOppAssessLens()
+}
+
+function rerenderOppAssessLens() {
+  const key = oppAssessCurrentLens
+  const pane = key && document.getElementById(`opp-assessment-mount-pane-${key}`)
+  const lens = (oppLenses ?? []).find(l => oppLensKey(l.name) === key)
+  if (pane && lens) renderOppAssessLens(pane, lens.id)
+}
+
+let oppAssessCurrentLens = null
+let currentOppPayload = {}
+
 async function mountOppAssessmentLenses() {
   const mount = document.getElementById('opp-assessment-mount')
   if (!mount) return
@@ -1588,21 +1788,34 @@ async function mountOppAssessmentLenses() {
     return
   }
 
+  await ensureOppCriteria()
+
+  // onSelect FIRES ON CONSTRUCTION. createSubTabs ends with
+  // strip.select(tabs[0].key), so this callback runs once for Commercial
+  // before any user has chosen anything. Round 25 Phase 5 read that from the
+  // definition rather than meeting it as a symptom: a consumer treating
+  // onSelect as "the user chose" and fetching here would fire a request at
+  // mount and look like a race. It is used only to record which pane is open
+  // and to render from data already in hand.
   const built = window.createSubTabs({
     mount,
     label: 'Assessment lenses',
     tabs: lenses.map(l => ({ key: oppLensKey(l.name), label: l.name })),
+    onSelect: key => {
+      oppAssessCurrentLens = key
+      const lens = lenses.find(l => oppLensKey(l.name) === key)
+      const pane = document.getElementById(`opp-assessment-mount-pane-${key}`)
+      if (pane && lens) renderOppAssessLens(pane, lens.id)
+    },
   })
   if (!built) return
 
-  // Phase 5 renders every lens empty. Phase 6 fills them from the criteria.
-  //
-  // The empty state NAMES THE LENS, because "no criteria" on four identical
-  // panes gives a reader no way to tell which one they are looking at once the
-  // sub-tab strip is out of view.
+  // Every pane is rendered up front, not only the open one. Four lenses over
+  // criteria already in memory is cheap, and it means switching a sub-tab
+  // never shows an empty pane that fills a moment later.
   for (const l of lenses) {
     const pane = built.panes[oppLensKey(l.name)]
-    if (pane) pane.innerHTML = `<p class="empty-state">No ${escHtml(l.name)} criteria are configured for this opportunity yet.</p>`
+    if (pane) renderOppAssessLens(pane, l.id)
   }
 }
 
@@ -4162,6 +4375,9 @@ async function renderOppDetail(opp) {
   currentOppDetailId = opp.id
   currentOppStage = opp.status
   currentOppStages = stages ?? []
+  // Round 25 Phase 6: the record's own scores travel in the payload this
+  // response already carries, so the panel needs no fetch of its own.
+  currentOppPayload = opp.payload ?? {}
   renderOppStageTabs(stages, opp.status)
   // Round 25 Phase 5: mounted here, beside the stage tabs, for the same reason
   // they are. The Assessment tab's contents belong to THIS record, and mounting
