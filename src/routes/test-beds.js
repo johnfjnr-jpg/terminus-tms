@@ -5,7 +5,7 @@ import { issueReferenceNumber } from '../lib/reference-number.js'
 import { isValidIsoDate, isNotPastIsoDate, isValidNonNegativeInteger, isValidNonNegativePercent, isValidIsoTimestamp, isValidLatitude, isValidLongitude } from '../lib/field-validation.js'
 import { calculateTestBedCost } from '../lib/deal-calculator.js'
 import { UNIT_TYPE_COUNT_KEYS, VALID_UNIT_STATES, VALID_STATE_SOURCES, loadUnits, deriveMissingUnitSlots } from '../lib/units.js'
-import { resolveLevels } from '../lib/scoring-levels.js'
+import { recordScoreEntry } from '../lib/score-entry.js'
 
 // Round 5 Phase 6 (2026-08-17): builds the itemized cost breakdown from
 // whatever's currently in a Test Bed's payload - the one place this
@@ -1672,176 +1672,23 @@ export default async function testBedsRoutes(app) {
   // whose wording it was never made against, which is the one thing the
   // versioning exists to prevent.
   app.post('/test-beds/:id/scores', async (request, reply) => {
-    const { criterion, score, comment, reason } = request.body ?? {}
-    const db = createUserClient(request.jwt)
-
-    // The criterion must be real. scoring_criteria is the vocabulary, so an
-    // unrecognised key cannot create a series under a name nothing defines.
-    const { data: crit, error: critErr } = await db
-      .from('scoring_criteria')
-      .select('id, criterion_key, name, scale_id')
-      .eq('record_type', 'test_bed')
-      .eq('criterion_key', criterion ?? '')
-      .maybeSingle()
-    if (critErr) {
-      request.log.error({ err: critErr }, 'failed to look up scoring criterion')
-      return reply.code(500).send({ error: critErr.message })
-    }
-    if (!crit) return reply.code(400).send({ error: 'criterion is not a recognised scoring criterion' })
-
-    // Round 24 Phase 2: validated against the criterion's OWN levels.
+    // Round 25 Phase 3: a thin wrapper. The handler is shared with the
+    // Opportunity route in src/lib/score-entry.js.
     //
-    // This was `score < 1 || score > 5`, which is right for every criterion
-    // that exists today and wrong for the first one with a different number of
-    // levels: a two-level criterion would have accepted a 5, stored it, and
-    // rendered a select with no option matching it. Architecture rule 8, on a
-    // path whose new caller is a round away.
-    //
-    // A null scale_id resolves to the legacy 1 to 5, the same default the read
-    // route applies, so every criterion that exists behaves identically.
-    // Round 24 Phase 3: resolved through the shared helper, the same one the
-    // read path uses. Phase 2 had the default written here AND in
-    // src/routes/scoring.js, which is two definitions of one thing.
-    const { levels, error: levelErr } = await resolveLevels(db, crit.scale_id)
-    if (levelErr) return reply.code(500).send({ error: levelErr.message })
-    // An empty set is a misconfigured scale, not a permissive one. Falling
-    // back to 1 to 5 here would accept a score the panel cannot display.
-    if (!levels.length) {
-      return reply.code(409).send({ error: `no levels are defined for ${crit.name}, so a score cannot be recorded` })
-    }
-    const allowed = levels.map(l => l.value)
-    if (!Number.isInteger(score) || !allowed.includes(score)) {
-      // The default path keeps its ORIGINAL wording, byte for byte. A message
-      // is behaviour someone can see, and "Test Bed behaviour must not change
-      // at all" covers the text of a refusal as much as the refusal itself.
-      // Only a criterion with a real scale gets the enumerated form.
-      return reply.code(400).send({
-        error: crit.scale_id
-          ? `score must be one of ${[...allowed].sort((a, b) => a - b).join(', ')}`
-          : 'score must be a whole number from 1 to 5',
-      })
-    }
-
-    const { data: record, error: recErr } = await db
-      .from('records')
-      .select('id, status')
-      .eq('id', request.params.id)
-      .eq('record_type', 'test_bed')
-      .is('deleted_at', null)
-      .maybeSingle()
-    if (recErr) return reply.code(500).send({ error: recErr.message })
-    if (!record) return reply.code(404).send({ error: 'test bed not found' })
-
-    const { data: revRow, error: revReadErr } = await db
-      .from('record_revisions')
-      .select('revision_number, payload')
-      .eq('record_id', record.id)
-      .order('revision_number', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-    // Round 7 step 3.0's lesson applied here rather than rediscovered: an
-    // unchecked error would read as "no existing series", which would make
-    // a revision look like a first score and skip the mandatory reason.
-    if (revReadErr) return reply.code(500).send({ error: revReadErr.message })
-    if (!revRow) return reply.code(404).send({ error: 'test bed has no revision' })
-
-    const payload = revRow.payload ?? {}
-    const existing = Array.isArray(payload[crit.criterion_key]) ? payload[crit.criterion_key] : []
-
-    // Mandatory at 1 or 2, naming what is missing. A low score is the one
-    // that has to be actionable; without it the framework records an opinion
-    // nobody can act on.
-    //
-    // Round 14 Phase 1: THE RULE IS UNCHANGED. THE FIELD IT READS IS NOT.
-    // Two fields became one, called Reason, so the explanation for a low score
-    // now arrives in `reason` rather than `comment`. Checked against the
-    // running server before changing this line: a score of 2 carrying only a
-    // reason was refused 400, which is why the line had to move rather than
-    // being left alone as the brief first said.
-    //
-    // `comment` is still accepted and still stored when supplied, so the field
-    // stays in place exactly as it was and no historical entry is touched.
-    // What changed is which field satisfies the requirement. Confirmed before
-    // changing it that no test and no other caller posts a score comment: the
-    // browser was the only one.
-    // Round 24 Phase 3: the level says whether it needs a reason, replacing an
-    // inline `score <= 2`.
-    //
-    // That test is right for a five-point scale and arbitrary for any other
-    // shape: on a two-level scale it fires on the confirmed state. The default
-    // scale carries the flag at 1 and 2, so every criterion that exists today
-    // behaves exactly as it did.
-    //
-    // The message keeps its original wording byte for byte on the default
-    // path, for the same reason the range refusal does: a message is behaviour
-    // someone can see. Round 14 Phase 1 moved this rule once and found the
-    // change by running the server rather than by reading it.
-    const chosen = levels.find(l => l.value === score)
-    if (chosen?.reason_required && !String(reason ?? '').trim()) {
-      return reply.code(400).send({
-        error: crit.scale_id
-          ? `a reason is required at ${chosen.label}, naming what is missing`
-          : 'a reason is required at a score of 1 or 2, naming what is missing',
-      })
-    }
-
-    // Mandatory on any entry after the first. Phase 3 makes this an
-    // interrupting dialogue fired on a detected change; the rule itself is
-    // enforced here so it holds for any caller, not only that one.
-    if (existing.length > 0 && !String(reason ?? '').trim()) {
-      return reply.code(400).send({ error: 'a reason for the change is required when revising a score' })
-    }
-
-    // Resolved here, never accepted from the client. max(version) is the
-    // current anchor set, computed rather than stored.
-    const { data: latestAnchor, error: anchorErr } = await db
-      .from('scoring_anchors')
-      .select('version')
-      .eq('criterion_id', crit.id)
-      .order('version', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-    if (anchorErr) return reply.code(500).send({ error: anchorErr.message })
-    if (!latestAnchor) {
-      return reply.code(409).send({ error: `no anchors are defined for ${crit.name}, so a score cannot be recorded against a definition` })
-    }
-
-    const entry = {
-      at: new Date().toISOString(),
-      by: request.user.email,
-      value: score,
-      anchorVersion: latestAnchor.version,
-      stage: record.status,
-    }
-    if (String(comment ?? '').trim()) entry.comment = String(comment).trim()
-    if (String(reason ?? '').trim()) entry.reason = String(reason).trim()
-
-    // APPENDED, oldest first. Notes prepend; this appends, and the two
-    // disagree on purpose - "the first entry" is what decides whether a
-    // reason is mandatory, and series[0] meaning the first is worth more
-    // than matching an unrelated array's direction. Every reader sorts on
-    // `at` regardless, per the Round 10 Phase 2 fix, so neither order is
-    // load-bearing at render time.
-    // Round 17A Phase 1: only this criterion's own series travels as the
-    // patch. Scoring five criteria in one save is what the business was doing
-    // when this defect was reported, and five patches to five different keys
-    // can no longer collide with each other or lose one another's writes.
-    const { error: revErr } = await appendRecordRevision(
-      db, record.id, { [crit.criterion_key]: [...existing, entry] }, request.user.id)
-    if (revErr) {
-      request.log.error({ err: revErr }, 'failed to save score revision')
-      return sendWriteError(reply, revErr)
-    }
-
-    await db.from('audit_log').insert({
-      record_id: record.id,
-      record_type: 'test_bed',
-      action: existing.length ? 'score_revised' : 'score_recorded',
-      actor_id: request.user.id,
-      detail: { criterion: crit.criterion_key, value: score, anchorVersion: entry.anchorVersion, stage: entry.stage }
+    // The two messages are passed rather than derived. They are behaviour a
+    // user can see, and deriving them from the record type would produce
+    // "test_bed not found", which is a different string. Passing them makes
+    // byte-identical a property of the call rather than of careful wording.
+    const result = await recordScoreEntry({
+      db: createUserClient(request.jwt),
+      recordType: 'test_bed',
+      recordId: request.params.id,
+      body: request.body,
+      user: request.user,
+      messages: { notFound: 'test bed not found', noRevision: 'test bed has no revision' },
+      logError: (err, msg) => request.log.error({ err }, msg),
     })
-
-    return reply.code(201).send({ criterion: crit.criterion_key, entry, entries: existing.length + 1 })
+    return reply.code(result.status).send(result.body)
   })
 
   // ── Units ───────────────────────────────────────────────────────────────
