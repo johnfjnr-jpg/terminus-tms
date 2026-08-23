@@ -2,6 +2,32 @@ import { createUserClient } from '../supabase.js'
 import { DEFAULT_LEVELS, resolveLevels } from '../lib/scoring-levels.js'
 
 export default async function scoringRoutes(app) {
+  // GET /api/scoring-lenses
+  //
+  // Round 25 Phase 5. The lens vocabulary, for the Assessment tab's sub-tabs.
+  //
+  // A route rather than four names in the frontend. Round A made lenses a
+  // table precisely so the set is data: hardcoding them here would contradict
+  // that on the first screen that renders them, and a fifth lens would then
+  // need a deploy rather than a row.
+  //
+  // Not scoped by record_type: a lens is a way of reading criteria and is not
+  // owned by a record type. Test Bed's five criteria carry a null lens_id and
+  // simply never ask.
+  app.get('/scoring-lenses', async (request, reply) => {
+    const db = createUserClient(request.jwt)
+    const { data, error } = await db
+      .from('scoring_lenses')
+      .select('id, name, sort_order')
+      .order('sort_order', { ascending: true })
+
+    if (error) {
+      request.log.error({ err: error }, 'failed to list scoring lenses')
+      return reply.code(500).send({ error: error.message })
+    }
+    return data ?? []
+  })
+
   // GET /api/scoring-criteria?record_type=test_bed
   //
   // Round 11 Phase 1/2, 2026-08-19. Admin-managed reference data, read-only
@@ -20,7 +46,7 @@ export default async function scoringRoutes(app) {
 
     const { data: criteria, error } = await db
       .from('scoring_criteria')
-      .select('id, record_type, criterion_key, name, asks, sort_order, rescore_through_stage, scale_id')
+      .select('id, record_type, criterion_key, name, asks, sort_order, rescore_through_stage, scale_id, lens_id')
       .eq('record_type', recordType)
       .order('sort_order', { ascending: true })
 

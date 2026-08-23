@@ -348,3 +348,208 @@ species is named so it is recognised.
    reported and not resolved.
 
 Then stop and wait for sign-off.
+
+---
+
+## Round 25 outcome, Round B of the multi-round plan
+
+Nine stages, 0 through 8. The riskiest round in the sequence, and the seam it
+was built to test held: there is now Opportunity-side scoring code, it shares
+one handler with Test Bed, and Test Bed's scoring panel is pixel-identical at
+1240 and 1920 at every stage of the round, with the comparison calibrated at
+each step against an injected one-row change.
+
+### Rule 7 returned a plausible number again
+
+`grep -c "^## Phase\|^### Phase"` returns **1** against this brief. The real
+count is **9**, carried as a table. Calibrated: the same pattern returns 5
+against `ROUND18A_FIX_BRIEF.md`.
+
+The single match is `## Phase 0, investigation and plan`, a section heading
+ABOUT the first stage rather than the list of them. That is the Round 22
+failure exactly: not a zero that is obviously broken, but a number that looks
+like an answer.
+
+Six consecutive rounds now. **Round 24 established the premise is wrong rather
+than the pattern**: briefs carry their phase list as a table, or carry none at
+all because the round was planned in conversation. This round is the first
+where the rule matched a heading that exists and still gave the wrong count.
+
+Counted from the commits: phases 1 through 7 signed off in the transcript,
+plus Phase 0 and this close-out.
+
+### Two explicit column lists that outlived their schema
+
+**`GET /api/scoring-criteria` selected an explicit column list written before
+`lens_id` existed.** Every `c.lens_id` arrived as `undefined`, so no criterion
+matched any lens and the panel rendered nothing. The filter was correct, the
+data was correct, and the join silently could not happen.
+
+**This is the second instance of one shape.** Round 24 Phase 7 recorded that
+`scripts/state-dump.mjs` fetches `scoring_criteria` with a seven-column list
+that excludes `lens_id` and `scale_id`, so both are invisible in the generated
+file. Neither of us connected the two at the time: the same mistake, in a
+route and in a generator, found five phases apart.
+
+The shape is worth naming: **an explicit column list is a snapshot of the
+schema on the day it was written, and nothing tells it when the schema moves.**
+A `select('*')` would have carried both. The list exists for good reasons, and
+the cost is that adding a column is two edits in two files, one of which
+nobody is looking at.
+
+### "Assess..." and "Not assessed" is the destination
+
+Round A Phase 4 found two vocabularies: the score path prompts "Score..." and
+reads "Not scored"; the hardcoded `measurabilityConfirmed` block prompts
+"Confirm..." and reads "Not confirmed". Neither fits a five-level named scale.
+"Score" asks for a number the scale does not have; "Confirm" implies two
+outcomes where there are five.
+
+**Chosen: "Assess..." and "Not assessed", after the instrument.** It is
+deliberately a third string, and that is only defensible because it is the
+DESTINATION rather than one more option. It covers five-level and binary
+alike, so the round that migrates `measurabilityConfirmed` has a target that
+fits both treatments.
+
+**Recorded here so that round converges on it rather than choosing again.**
+Three strings is worse than two unless one of them is where everything is
+going.
+
+### The eye travel, and why the first number was wrong
+
+Uncapped, the distance from a criterion name to its control grew with the
+viewport: **397px at 1240, 1077px at 1920, 2597px at 3440**, without limit.
+
+**The first measurement read 16px.** The name span is `flex: 1 1 auto`, so its
+BOX fills the row while its TEXT sits at the left edge, and measuring
+`getBoundingClientRect()` gives the distance between two boxes that are
+touching. Measuring the rendered text with a Range gave the real figure.
+
+Capped at **880px**, the content width at 1240, which is where the panel had
+already been looked at and read correctly. The same cap fixes a second thing:
+the anchor wording ran the full row, so a 12px line at 1556px was roughly 200
+characters. Now stable at ~400px at all three widths.
+
+### The unanchored criterion, closed
+
+Round 24 Phase 4 found it renders as two blank rows and the literal "Version
+null". It is reachable because `INVARIANT 8` covers only
+`payload_field_required` rules.
+
+**Decided: disabled, with a stated reason.** The score endpoint answers 409 to
+a criterion with no anchors, so a select offered there is one that cannot
+succeed, and a control guaranteed to fail is worse than one that says why.
+Verified against an anchored criterion in the same panel: disabled, zero blank
+rows, no "Version null".
+
+### Verification 6 twice in one round, both self-caught
+
+Both were fixed delays racing a second round trip, and both produced a
+confident wrong reading rather than a failure.
+
+- **Phase 6**, a 1200ms wait after Record. The commit POSTs and then re-reads,
+  so the panel showed "Not assessed" while the database already held the
+  entry.
+- **Phase 7**, a 400ms wait after opening the tab, compounded by a wait the
+  PREVIOUS render already satisfied. Together they produced 0, 1, 6 where 1,
+  6, 7 was right: a clean off-by-one that read exactly like a stale-stage
+  defect. It was resolved by instrumenting the filter in the page rather than
+  by reasoning about it, which showed the filter was correct before any theory
+  was formed.
+
+A third fault in the same phase: a presence check written as
+`getElementById(...)?.querySelector(...) !== null`, which yields `undefined`
+before the mount runs, and `undefined !== null` is TRUE. Verification 14's
+family: compare presence first, then value.
+
+### A third route to the same residue
+
+Live records read 96 rather than 94 at the end of Phase 7. Two fixtures
+survived because the probe was piped through `head`, which closed the pipe and
+killed the process before its `finally` teardown ran.
+
+**That is the third distinct route to the Round 21 outcome**, after a probe
+that threw before recording its id and a stale token that produced an empty
+fixture id. The cleanup was correct in all three; what varied was whether it
+got to run. Torn down by enumerating from the database by tag: 11,237
+revisions scanned paged, 57 carrying a tag so the scan was not blind, 23
+tagged records, 2 live, both soft deleted and re-queried.
+
+### Recorded and not fixed
+
+- **`INVARIANT 8` still cannot see `assessment_current`.** It filters on
+  `payload_field_required` rules naming a field, and the rollup rule names
+  none. Latent while zero rollup rows exist, and extending it in a round that
+  ships none would be a branch nothing exercises.
+- **The provisional-anchor marker, deferred to Round C by name.** All 35
+  wordings begin with the literal `PROVISIONAL`, which is stronger than a
+  comment and lives inside text a later round rewrites, so the marker leaves
+  silently when someone improves an anchor. The evidence that a comment is not
+  enough is in the repository: `scoring_model.sql` carries the same warning in
+  almost the same words over Test Bed's fifteen anchors, and they have been
+  read as settled ever since. Round C populates twenty-five more and writes
+  wording nobody has tested, which is where a queryable marker matters.
+
+### What the generated file can now see, and what it still cannot
+
+This round's route changes made three things visible: the **seven Commercial
+criteria as rows**, their **anchors as a count** (15 to 50), and the **two new
+routes** (59 to 61).
+
+Everything else remains invisible, and the blind spot is unchanged in shape:
+
+- `scoring_lenses`, `scoring_scales`, `scoring_criterion_stages` and
+  `closed_lost_reasons` appear once each, as a migration FILENAME.
+  `scoring_scale_levels` appears **zero times**, because its name is not in a
+  filename.
+- `lens_id`, `scale_id` and `reason_required` appear **zero times**, against a
+  calibration of `rescore_through_stage`, which the same section prints. The
+  criteria table is dumped with a fixed six-column list.
+
+So the file now records seven criteria without recording which lens or scale
+any of them uses, which is the configuration that makes them work.
+
+### Open decisions in `OPPORTUNITY_DESIGN.md`
+
+**Seven bolded rows, none claiming Confirmed**, asserted individually:
+
+1. Revision event: series plus approval plus re-score as one thing
+2. Deal Sheet freeze point after the stage compression
+3. Staff fields have no server-side validation
+4. `Account` is a third staff-field surface
+5. Base Cost Data catalog
+6. One stage vocabulary under four column names, joined by nothing
+7. `approvals.comment` unused on all 229 rows, `tier` null on all 229
+
+**The table still has two conventions for open and they disagree at seven
+versus ten**, found in Round 22 and unchanged: 21 rows, 7 bolded, and 3
+further marked Undecided without bolding, being Deal assessment criteria, Risk
+assessment criteria, and Is a loss reversible.
+
+**One of those three moved this round and the table does not say so.** "Deal
+assessment criteria: Undecided, conversation before build" now describes seven
+configured criteria across three stages with anchors and stage rows. It is
+partially answered rather than undecided, and twenty-five criteria remain.
+Reported, not resolved.
+
+Row 7's figure is stale again: `approvals` holds **335** rows, not 229. The
+claim survives, `comment` non-null on 0 and `tier` on 0, and no rejection has
+ever been recorded.
+
+### Reconciliation
+
+`CURRENT_STATE.md` regenerated at `bc5f023`. Four tracked configuration
+sources changed, one migration and three routes. Every diff line accounted
+for:
+
+- **`scoring_criteria` 5 to 12 rows**: the seven Commercial criteria.
+- **`scoring_anchors` 15 to 50**: the 35 provisional anchors, printed as
+  scores defined per version rather than as wording.
+- **Routes 59 to 61**: `POST /api/opportunities/:id/scores` and
+  `GET /api/scoring-lenses`.
+- **Migrations 69 to 70**: the Commercial lens configuration.
+- **Live records 94, unchanged.** Every fixture torn down and re-queried,
+  including the two that escaped in Phase 7.
+- **Soft deleted 10624 to 11121, approvals 326 to 335**: walk and phase
+  fixtures, none on a live record.
+- **No new sections**, which is the blind spot above rather than an omission.

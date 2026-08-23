@@ -1,4 +1,5 @@
 import { createUserClient } from '../supabase.js'
+import { recordScoreEntry } from '../lib/score-entry.js'
 import { sendWriteError, sendRefusal } from '../lib/write-errors.js'
 import { appendRecordRevision } from '../lib/record-revision.js'
 import { isValidIsoDate, isValidNonNegativeInteger, isValidNonNegativePercent, isNotPastIsoDate } from '../lib/field-validation.js'
@@ -609,6 +610,29 @@ export default async function opportunitiesRoutes(app) {
   // What this route repeats from the transition endpoint is the status
   // write, the revision and the audit row, and nothing that decides whether
   // the move is allowed.
+  // POST /api/opportunities/:id/scores
+  //
+  // Round 25 Phase 3. The second caller of the shared score handler, and the
+  // first Opportunity-side scoring code of any kind.
+  //
+  // This route and POST /test-beds/:id/scores are the SAME CODE with two
+  // arguments. Rounds 21 and 22 found five separate cases of Test Bed-specific
+  // code that silently did nothing for Opportunity, one live in production
+  // since Round 9; a copied route would have been a sixth, agreeing on the day
+  // it was written and drifting afterwards.
+  app.post('/opportunities/:id/scores', async (request, reply) => {
+    const result = await recordScoreEntry({
+      db: createUserClient(request.jwt),
+      recordType: 'opportunity',
+      recordId: request.params.id,
+      body: request.body,
+      user: request.user,
+      messages: { notFound: 'opportunity not found', noRevision: 'opportunity has no revision' },
+      logError: (err, msg) => request.log.error({ err }, msg),
+    })
+    return reply.code(result.status).send(result.body)
+  })
+
   app.post('/opportunities/:id/close-lost', async (request, reply) => {
     const { reason_id, note } = request.body ?? {}
 
