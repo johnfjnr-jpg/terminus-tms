@@ -678,3 +678,303 @@ was written for a state the walk did not reach. The check passed for the right
 reason and said the wrong thing, which is the milder half of the family this
 round has been recording: a label that describes the intent rather than the
 test.
+
+---
+
+## Phase 9: the discarded errors, and the round's close-out
+
+### The 22, and a correction to this phase's own premise
+
+**The 11 scripts are not in the repository.** `.gitignore` excludes
+`/verify-*.mjs` and `/debug-*.mjs` at the repo root, deliberately, with the
+reason written beside it: one-shot verification harnesses are round-scoped,
+hardcode absolute paths and need `session-ref.json`, while reusable tooling
+lives in `scripts/` and is tracked. `git ls-files` returns exactly one match
+for verify or debug, and it is `scripts/verify-harness.mjs`.
+
+So "leaving it means the next probe inherits it" is true for a session on this
+machine and false for anyone cloning the repo. The phase was worth doing on the
+first reading and the second reading is narrower than the first. Fixed anyway,
+because a future session in this working copy reads these files, which is how
+Phase 3 found them.
+
+**They are dead.** Nothing references them: not `package.json`, not
+`.github/workflows/test.yml`, which runs `npm test` only, and no tracked file
+names any of them.
+
+**All 22 are one shape, and it is not the shape Phase 2 hit.**
+
+| shape | count |
+|---|---|
+| a WRITE whose `error` is discarded, Verification 8 | **22** |
+| a list READ coerced to `[]`, the false-clean shape | **0** |
+
+Every one is the same statement, twice per file:
+`const { data } = await db.from('records').update({ deleted_at: ... })`. That
+confirms Phase 3's separate finding rather than restating it: the list shape
+exists nowhere else, and these are its cousin, not its instances.
+
+### The verification, which is a re-scan and nothing more
+
+These scripts are dead and untracked, so there is no behaviour to run and
+manufacturing one would be worse than saying so.
+
+```
+discarded-write shape remaining:   0
+discarded-read  shape remaining:   0
+delErr destructured:              22
+delErr actually CHECKED:          22
+
+CALIBRATION, pattern known PRESENT: 'await db.from(' -> 29
+CALIBRATION, pattern known ABSENT:  'zzz-not-a-real-pattern' -> 0
+```
+
+The destructured count and the checked count are reported separately on
+purpose. The first version of this fix named `delErr` and never read it, which
+would have been a fix that satisfies a grep for the pattern and checks nothing.
+
+---
+
+## Rule 7, under its corrected wording
+
+**The sign-offs were enumerated from the conversation FIRST, and `git log` was
+opened afterwards.** The order is the control: a list derived from the commits
+and then checked against the commits is a check against itself.
+
+| Sign-off | Commit |
+|---|---|
+| Phase 0 | `c5aa493` |
+| Phase 1 | `5f28ae0` |
+| Phase 2 | `a73afb5` |
+| Phase 3 | `82ba541` |
+| Phase 4 | `bd06f91` |
+| Phase 5 | `bd485f3` |
+| Phase 6 | `02d9473` |
+| Phase 7 | `08be6e1` |
+| Phase 8 | `53a9a7d` |
+| Phase 9 | this commit |
+
+Nine sign-offs before this one, nine commits, one to one, none missing. Plus
+`6f7f001` on `main`, the brief committed before the branch was cut: instructed
+work, not a phase, and accounted for as such.
+
+---
+
+## `CURRENT_STATE.md`, regenerated and reconciled
+
+Regenerated at `53a9a7d`. The diff reconciles to the phase list except for one
+entry, which is the rule earning its keep.
+
+- **72 migrations, up from 71, with `20260824000002_scoring_scale_level_description.sql`
+  listed.** Phase 3.
+- **Soft-deleted rows up by 249, live count unchanged at 94.** This round's
+  fixtures, created and torn down. Accounted for.
+- **One live Opportunity moved from Qualification to Solution Alignment.**
+  No phase accounts for it. **Investigated rather than resolved quietly:**
+  `TT-SGP-SMARTC-003`, and every audit row on it carries
+  `actor 75425a02`, the business account, never `266a2812`, the test account.
+  The business reviewed the assessment at Qualification at 09:14:57Z,
+  transitioned at 09:15:08Z, and scored four Commercial criteria between
+  09:25 and 09:32.
+
+**The business was using the product during this session**, and the
+reconciliation rule is what surfaced it.
+
+### What that means under build discipline rule 9
+
+The machine runs UTC+8. The business finished at **09:32Z, 17:32 local**. This
+round's first commit was **17:59 local** and its first code change was Phase 1
+at roughly **18:25 local**. Phase 0 was investigation and changed no file.
+
+**So the business was served Round 27's merged code throughout, and the
+exposure rule 9 describes did not occur.** It did not occur because of the
+ordering, not because anything prevented it, which is exactly what Round 17A
+recorded: timing, not design.
+
+**One exposure is open now and should be named.** The dev server was restarted
+from this branch's working tree at 19:11 local and has served the branch since.
+The round is not merged. Anyone opening the app now sees the whole unreleased
+round. No business action is recorded after 09:32Z, so nobody has, but that is
+an observation about what happened rather than a control.
+
+---
+
+## Records carried beyond the phase list
+
+### R1. The false-clean teardown
+
+`j?.data ?? []` turned three 401s from an expired token into three empty arrays,
+and the sweep reported **TEARDOWN CLEAN** while three fixtures sat live.
+
+Previous instances of the third-state species produced a false **zero**. This
+produced a false **pass**, which is worse: a zero invites a second look and a
+pass closes the question. The only thing that caught it was a warning written
+into the sweep for exactly that case, "nothing found to tear down, so the zero
+below is uncalibrated". An absence that had not been manufactured would have
+read identically. The helper now throws on a non-2xx.
+
+Phase 3 swept for the same shape everywhere else in tracked code and found
+none: `verify-harness.mjs`, `state-dump.mjs` and all nine test files check
+every read.
+
+### R2. The blind instrument, both halves
+
+**Calibrated on the elements the PROBE measures rather than the elements the
+PHASE changed.** The Phase 2 comparison measures fourteen selectors and fired
+correctly in Phases 2 through 5. For Phase 6 the injection was aimed at
+`.tb-score-entry` and `.tb-score-current`, Test Bed's own equivalents of what
+that phase changed, and **fired zero**, because neither is in the measured set.
+"Zero differences" came from an instrument that could not have seen the change.
+
+**A calibrated instrument stays calibrated only for the change it was
+calibrated against.** Verification 17 at one remove.
+
+**And the record had no history to compare.** The Test Bed used through Phases
+2 to 5 has no scores at all, so `.tb-score-entry` rendered zero times and a
+history comparison would have passed on two sets of nothing, which is
+Verification 14. **Two independent reasons the same green result meant
+nothing.** Rerun on a record with history, over the phase's own elements: zero
+differences, and 48 when injected into.
+
+### R3. The held DOM node
+
+`saveAllOppAssess` held `const fb = getElementById(...)` across the whole batch.
+A record load overlapping the save replaces the bar, because
+`mountOppAssessmentLenses` rebuilds it and `createSubTabs` rewrites the mount,
+so the captured node was detached by the end. Measured by wrapping the handler
+and comparing node identity across the call: `sameNode` false,
+`beforeStillConnected` false, the captured node holding "Recorded 1 of 1."
+while the live one was empty.
+
+**Every write had succeeded and the confirmation went to a node nobody could
+see**, which is the worst form of this class: silence reads as failure, and the
+natural response is to score it again. Checking the database before concluding
+is what separated it from a save that never happened.
+
+**The same function got the same class right and wrong.** The dirty set is
+derived from `oppAssessDraft` rather than declared, precisely so there is no
+second source of truth; the feedback element was a held reference to something
+the app rebuilds, which is the same mistake in a different medium. Hold the id,
+resolve the node.
+
+### R4. The Section 5 departure, and the measurement behind it
+
+`INTERACTION_STANDARDS.md` Section 5 counts a nav-bar click as real navigation,
+because it was written for a page-wide dirty registry where leaving discards.
+
+**Here it does not.** Phase 1 clears the draft maps on a RECORD CHANGE, so
+going to the Opportunities list and back to the same record still has the work.
+Measured, not argued: after the round trip the panel read
+`{"dirty":1,"select":"4","reason":"R28P7 unsaved work"}`.
+
+So the guard warns on the two events that lose work, arriving at a different
+record and unloading the tab, and stays quiet on the two that do not. Warning
+about a discard that will not happen makes the dialog's own words false and
+teaches people to dismiss it.
+
+**Recorded so the round that builds the system-wide registry meets the
+reasoning rather than the exception.** When leaving a page does discard,
+Section 5's letter and this reasoning give the same answer; they differ only
+while it does not.
+
+### R5. The sticky-bar capture
+
+A capture cleared its clip-height guard and its file-size guard and did not
+contain the save bar, because the bar is `position: sticky; bottom: 0`, the
+mount was 2748px, and the clip capped at 1900. **"Inside the element" and
+"inside the frame" are different questions under sticky positioning**, and the
+element-rect check answers the first while the capture needs the second.
+
+Third instance of the family, after a clipped region the element had scrolled
+out of and a capture non-empty and mostly background. The fix that worked:
+scroll the real scroll container, take the rect after scrolling, and assert the
+subject's rect lies inside the clip.
+
+### R6. A wait on a variable set early in an async function
+
+`openAssess` waited on `currentOppDetailId`, which `loadOpportunityDetail`
+assigns near the top; everything the panel needs happens after. The probe
+returned while `mountOppAssessmentLenses` was still running and raced a rebuild
+for four runs, presenting as a hang.
+
+**A wait on a variable an async function sets early is not a wait for that
+function.** Wait on the last thing it does.
+
+### R7. The mislabelled assertion
+
+The Phase 8 walk printed "exactly the four re-scorable criteria offer history"
+against an assertion of `historyToggles.length === 1`. The assertion was right;
+the label was written for a state the walk did not reach. **It passed for the
+right reason and said the wrong thing.** The milder half of the family this
+round kept finding, and the one that survives review most easily, because the
+number is correct and only the prose is not.
+
+### R8. The quarter rule, restated
+
+The brief read "if more than a quarter of CRITERIA need an override, the
+generic wording is wrong". Against the data that trips at 100 per cent, because
+every criterion keeps its Not applicable and its Verified.
+
+**The override decision is per LEVEL, not per criterion.** Two levels of five
+genuinely differ per criterion and three do not, which is 40 per cent.
+Restated that way the rule is usable; as written it condemns wording that is
+working.
+
+### R9. The `.opp-assess-head` correction
+
+Phase 2 stated that `.opp-assess-head` is shared markup and used it to argue
+against merging phases 2 and 4. **It is not shared**: once in `app.js`, once in
+`style.css`, zero times in `test-bed-detail.js`, whose equivalent is the
+sibling `.tb-score-head`. Calibration: `tb-crit-row`, which genuinely is
+shared, appears in both. The conclusion held on blast radius; the stated reason
+was wrong and was corrected in Phase 4's commit rather than inherited.
+
+### R10. A latent finding for whichever round gives Test Bed a scale
+
+Test Bed's criteria all carry `scale_id` null, so they render their own anchors
+and nothing else. Test Bed's anchors exist at levels 1, 3 and 5 only, because 2
+and 4 are deliberately "between these".
+
+**If Test Bed is ever given a scale, levels 2 and 4 would start showing that
+scale's generic wording**, in a panel whose whole design says those levels have
+no wording. Demonstrated rather than predicted: injecting a description into
+Test Bed's cached levels left every anchored row untouched and filled exactly
+those two. Architecture rule 8's shape, and it will not surface until the scale
+arrives.
+
+### R11. Two configuration blind spots
+
+**INVARIANT 8's second one.** Its filter is `payload_field_required` rules whose
+field `startsWith('score')`. The seven Commercial criteria are `assessComm*`
+and no gate rule names any of them, so **it sees the Test Bed five and nothing
+from the Opportunity assessment.** That sits beside the `assessment_current`
+blind spot recorded in Round 25 Phase 1 and still unfixed: two blind spots in an
+invariant whose stated job is to catch a gate nothing can satisfy. The binding
+constraint on this round's decision turned out to be INVARIANT 9, which the
+brief did not mention.
+
+**`CURRENT_STATE.md` does not record `scoring_scale_levels` at all.** Zero
+mentions before the migration and zero after, confirmed with `grep -a` for the
+NUL-byte trap and calibrated against `scoring_anchors`, which is recorded.
+`scripts/state-dump.mjs` never reads the table. **That table is where this
+round's wording now lives**, so a change to the generic level wording would not
+appear in the configuration changelog, which is the file's stated purpose.
+Reported and left unfixed, as instructed.
+
+### R12. The twenty retired overrides, kept as rows
+
+Recommended and accepted: **keep 15, retire 20. Nothing deleted.**
+
+| Level | Verdict | Why |
+|---|---|---|
+| Not applicable | **keep all 7** | Each says WHEN not-applicable is legitimate for that criterion, and two of the seven say "rarely applicable" and constrain its use. That is a guardrail at the two criteria where the dishonest answer is most tempting |
+| Unknown | keep 1, retire 6 | Six restate the level using the criterion's own name, already on screen above. Metrics is the exception: "the conversation is about capability, not outcome" is a diagnostic cue |
+| Our hypothesis | retire all 7 | Every one is "Terminus believes X, from [sources]". If the source lists are missed they belong on the `asks` line, not in five stacked rows |
+| Buyer confirmed | retire all 7 | Every one is "a named person has stated <the criterion>" |
+| Verified | **keep all 7** | What counts as corroboration genuinely differs and is the hardest judgement on the scale. The generic is a list of synonyms, not a test |
+
+**The rows stay whatever is retired.** INVARIANT 9 binds 35 anchor rows to 62
+live score entries, and `scoring_anchors` has no delete policy at all.
+
+**And the win is reading effort, not scrolling.** Retiring the twenty is 16px of
+height, measured. It takes each criterion from five paragraphs to two.
