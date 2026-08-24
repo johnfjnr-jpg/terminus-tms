@@ -1454,7 +1454,35 @@
            renderOppStageTabs removes only [data-opp-stage-tab] buttons, so
            this one keeps its place at the front. -->
       <button class="detail-tab" data-opp-tab="assessment">Assessment</button>
+      <!-- Round 29 Phase 3: the record-level actions, at the right-hand end of
+           the tab row, following Test Bed's .tb-tab-actions (index.html:873).
+
+           WHY THESE TWO AND NOT SAVE. Test Bed's bar carries Save because Test
+           Bed's save IS record-level: one dirty map covering every field. Its
+           grouping is a consequence of its single scope, not a layout
+           convention to copy. Opportunity has three dirty mechanisms and no
+           single record-level save, so a panel-scoped save in a record-level
+           position would copy the position without the property that earns it.
+           Round 29 Phase 2 photographed that and measured the cost. Advance and
+           Mark Closed Lost act on records.status rather than on any panel's
+           edits, so they belong here on both record types.
+
+           STATIC HERE, RE-APPENDED AFTER GENERATION. Test Bed's ten stage tabs
+           are static markup, so its action bar can simply be last. Opportunity
+           generates its stage tabs per record in renderOppStageTabs, which
+           appends them, so this block would end up before them. That function
+           re-appends this container after generating, which is one line and
+           keeps the position declarative here. -->
+      <div class="opp-tab-actions" id="opp-tab-actions">
+        <button class="btn-sm btn-primary" id="opp-next-stage-btn">Next Stage</button>
+        <button class="btn-sm btn-ghost" id="opp-close-lost-btn">Mark Closed Lost</button>
+      </div>
     </div>
+    <!-- Under the tab row so a blocking rejection triggered from up there is
+         readable without scrolling, which is the reason Test Bed keeps
+         tb-next-stage-feedback here rather than only in the panel below
+         (index.html:888). -->
+    <div id="opp-next-stage-feedback" class="tb-next-stage-feedback"></div>
 
     <!-- Reference: reference number strip, three cards (Terminus Details /
          Customer Details / Key Dates), Executive Summary + Notes. Click to
