@@ -85,7 +85,7 @@ Sections 1 to 5 above describe intended behaviour. Everything below describes be
 
 **Test Bed, built Round 7 Phase 6.**
 
-`.tb-tab-actions` is the last child of the tab strip element, after the ten stage tabs, at `frontend/index.html:873`. It holds three buttons in this order: `#tb-cancel-all` (`:874`), `#tb-save-all` (`:875`), `#tb-next-stage-btn` (`:876`).
+`.tb-tab-actions` is the last child of the tab strip element, after the ten stage tabs, at `frontend/index.html`, the `.tb-tab-actions` block. It holds three buttons in this order: `#tb-cancel-all` (`:874`), `#tb-save-all` (`:875`), `#tb-next-stage-btn` (`:876`).
 
 **It is INSIDE the strip, not beside it.** `margin-left: auto` keeps it pinned right regardless of how many stage tabs precede it, and it participates in the strip's `flex-wrap`.
 
@@ -97,7 +97,7 @@ Sections 1 to 5 above describe intended behaviour. Everything below describes be
 
 `tb-save-feedback` was moved here rather than deleted with the banner, because `clearTbSaveFeedback()` and `saveTbFields()` both read it with no null guard and removing the element would have thrown on every save.
 
-**Cancel and Save changes appear only when there is something to save.** `updateTbSaveBar()` at `frontend/test-bed-detail.js:2589`:
+**Cancel and Save changes appear only when there is something to save.** `updateTbSaveBar()` at `frontend/test-bed-detail.js`, `updateTbSaveBar()`:
 
 ```js
 const dirtyCount = Object.values(tbEdits).filter(e => e.draft !== e.orig).length
@@ -109,13 +109,13 @@ const show = dirtyCount > 0 || tbInvalidFields.size > 0
 - **An invalid field disables Save outright** rather than letting the value travel to the server to be refused (`saveBtn.disabled = tbInvalidFields.size > 0`).
 - **The bar stays visible at dirtyCount 0 while a field is invalid.** The rationale, from the comment: `tb-save-feedback` sits alongside the controls, so hiding them would hide the message explaining the block.
 
-`#tb-save-all` is wired once to `saveTbFields` in `wireTbOnce()` at `frontend/test-bed-detail.js:2728`, and drafts live in `tbEdits`, declared at `:15`, which is the same map every other Test Bed field uses.
+`#tb-save-all` is wired once to `saveTbFields` in `wireTbOnce()` at `frontend/test-bed-detail.js`, `wireTbOnce()`, and drafts live in `tbEdits`, declared at `:15`, which is the same map every other Test Bed field uses.
 
 ---
 
 ## 7. Next Stage is disabled by two conditions, and neither is what you would guess
 
-**`refreshTbNextStageButton()` at `frontend/app.js:4240` is the ONLY writer of `#tb-next-stage-btn.disabled`.** There are no other writers anywhere in `frontend/`.
+**`refreshTbNextStageButton()` at `frontend/app.js`, `refreshTbNextStageButton()` is the ONLY writer of `#tb-next-stage-btn.disabled`.** There are no other writers anywhere in `frontend/`.
 
 | # | Condition | What the button shows |
 |---|---|---|
@@ -124,7 +124,7 @@ const show = dirtyCount > 0 || tbInvalidFields.size > 0
 
 **Unsaved changes do NOT disable it.** **Unmet exit criteria do NOT disable it.** Recorded explicitly because both are the natural guess and both are wrong: Round 29 Phase 0 was asked to settle this after a rule was stated from one screenshot and corrected from a second, and both readings were wrong. The function references neither `tbEdits` nor any criteria state.
 
-**Unmet criteria are refused at the SERVER and explained in place.** `attemptTransition` at `frontend/app.js:2593` posts the transition, and on a 422 with `blocking[]` renders that list into the feedback element it was given. So the button is clickable, the attempt is made, and the refusal names what is outstanding.
+**Unmet criteria are refused at the SERVER and explained in place.** `attemptTransition` at `frontend/app.js`, `window.attemptTransition` posts the transition, and on a 422 with `blocking[]` renders that list into the feedback element it was given. So the button is clickable, the attempt is made, and the refusal names what is outstanding.
 
 > The rationale for condition 2, from the comment above the function: **stage progression happens from inside the stage itself.** The user opens the record's real current stage tab, reviews its criteria and approvals, and progresses from there. This is called a confirmed business rule.
 
@@ -136,24 +136,24 @@ const show = dirtyCount > 0 || tbInvalidFields.size > 0
 
 ## 8. The chevron hover shows a stage's outstanding requirements, for any stage
 
-**Test Bed, built Round 7 Phase 9, `wireTbChevronHover()` at `frontend/app.js:1495`.**
+**Test Bed, built Round 7 Phase 9, `wireTbChevronHover()` at `frontend/app.js`, `wireChevronHover()`.**
 
 Hovering a chevron shows a popup listing that stage's outstanding exit criteria, from `GET /api/records/:id/exit-criteria?stage=<name>`, or "Nothing outstanding."
 
-**It answers for stages the record has not reached, by construction rather than by a special case.** The endpoint's `?stage=` is an override for which stage to compute FROM, and it "never validates whether a reachable stage was requested, only which `stage_gate_rules` rows get looked up" (`src/routes/records.js:301` and the comment above it).
+**It answers for stages the record has not reached, by construction rather than by a special case.** The endpoint's `?stage=` is an override for which stage to compute FROM, and it "never validates whether a reachable stage was requested, only which `stage_gate_rules` rows get looked up" (`src/routes/records.js`, the `/records/:id/exit-criteria` route and the comment above it).
 
 **Four properties that look incidental and are not.** Each was built deliberately and each would be re-derived wrongly:
 
 | Property | Where | Why |
 |---|---|---|
-| **180ms debounce** before fetching | `TB_CHEVRON_HOVER_DELAY_MS`, `frontend/app.js:1445` | A pointer sweeps eight chevrons in well under a second. Firing on every `mouseover` would issue eight requests for one gesture, so the fetch starts only once the pointer has rested |
+| **180ms debounce** before fetching | `TB_CHEVRON_HOVER_DELAY_MS`, `frontend/app.js`, `TB_CHEVRON_HOVER_DELAY_MS` | A pointer sweeps eight chevrons in well under a second. Firing on every `mouseover` would issue eight requests for one gesture, so the fetch starts only once the pointer has rested |
 | **A load token** | `tbChevronLoadToken`, used in `hideTbChevronPopup()` at `:1447` and in the handler | Hovering is faster and less deliberate than clicking, so responses arrive out of order. A stale one must never paint. The symptom would be the wrong stage's criteria appearing for a moment and vanishing, invisible to any test that hovers once and waits |
 | **`mouseleave` on the WRAPPER**, not the chevron | `:1495` onward | So moving the pointer from a chevron INTO the popup is not a leave |
 | **No click handler on the chevron, ever** | same | Confirmed by history in Round 5 Phases 7 and 8: the chevron has never had one, and adding hover must not add click |
 
 **Popup positioning is centred then clamped** inside the wrapper (`positionTbChevronPopup()`, `:1460`), because the strip runs the full page width and a centred popup on the leftmost or rightmost chevron would be clipped at the viewport edge.
 
-**The record identity is read at hover time from the element, not closed over.** Round 18 Phase 1 fixed two faults with one cause here: `#tb-chevron-wrap` is static markup in `frontend/index.html:797`, so its `dataset.wired` survives every navigation, and the popup's cache key was stage name alone. Either alone gives a wrong answer on the second record opened in a page session. **It survived four rounds because it is correct for the first record opened, and every test opens one record.**
+**The record identity is read at hover time from the element, not closed over.** Round 18 Phase 1 fixed two faults with one cause here: `#tb-chevron-wrap` is static markup in `frontend/index.html`, `#tb-chevron-wrap`, so its `dataset.wired` survives every navigation, and the popup's cache key was stage name alone. Either alone gives a wrong answer on the second record opened in a page session. **It survived four rounds because it is correct for the first record opened, and every test opens one record.**
 
 ---
 
@@ -163,33 +163,33 @@ Hovering a chevron shows a popup listing that stage's outstanding exit criteria,
 
 | Record type | Mechanism | Bar | Where the bar sits |
 |---|---|---|---|
-| Test Bed | `tbEdits` (`test-bed-detail.js:15`) | `.tb-tab-actions` | inside the tab strip, `index.html:873` |
-| Opportunity, Reference | `refEdits`, via `updateRefEditBar()` (`opportunity-reference.js:387`) | `#ref-edit-bar` | inside the Reference panel, `index.html:1493` |
-| Opportunity, Assessment | derived from `oppAssessDraft` via `oppAssessDirtyKeys()` (`app.js:1975`) | `#opp-assess-savebar` | appended to `#opp-assessment-mount`, `app.js:2177` |
+| Test Bed | `tbEdits` (``frontend/test-bed-detail.js`, `let tbEdits``) | `.tb-tab-actions` | inside the tab strip, ``frontend/index.html`'s `.tb-tab-actions`` |
+| Opportunity, Reference | `refEdits`, via `updateRefEditBar()` (``frontend/opportunity-reference.js`, `updateRefEditBar()``) | `#ref-edit-bar` | inside the Reference panel, ``frontend/index.html`, `#ref-edit-bar`` |
+| Opportunity, Assessment | derived from `oppAssessDraft` via `oppAssessDirtyKeys()` (``oppAssessDirtyKeys()``) | `#opp-assess-savebar` | appended to `#opp-assessment-mount`, ``mountOppAssessmentLenses()`` |
 
-**Accounts reuses `.ref-edit-bar`** as a class, at `index.html:403`.
+**Accounts reuses `.ref-edit-bar`** as a class, at ``frontend/index.html`'s Accounts bar`.
 
 **The Reference bar reports openness as well as dirtiness**, "N fields open, M changed", and shows Save only when `dirtyCount` is above zero while Cancel shows whenever a field is open.
 
 **The assessment registry is DERIVED, not declared.** There is no `oppEdits`. Round 28 Phase 5 recorded the reason: a parallel map would be a second source of truth that agrees today, and because the set is derived it inherits the clearing that Round 28 Phase 1 added on a record change with no extra code.
 
-**The assessment save is a batch and reports partial failure by name.** `saveAllOppAssess()` at `frontend/app.js:2044` loops the whole dirty set, keeps a criterion dirty with its typed reason if its write is refused, and reports "Recorded X of N. Not recorded: ..." rather than success. A missing required reason refuses the whole batch before anything is written, which is a different thing from a partial failure.
+**The assessment save is a batch and reports partial failure by name.** `saveAllOppAssess()` at `frontend/app.js`, `saveAllOppAssess` loops the whole dirty set, keeps a criterion dirty with its typed reason if its write is refused, and reports "Recorded X of N. Not recorded: ..." rather than success. A missing required reason refuses the whole batch before anything is written, which is a different thing from a partial failure.
 
 ---
 
 ## 10. Opportunity's stage progression lives inside the stage panel
 
-**Built Round 21.** `loadOppStageTab()` at `frontend/app.js:595` clears the transition slot entirely when the open tab is not the record's stage:
+**Built Round 21.** `loadOppStageTab()` at `frontend/app.js`, `loadOppStageTab()` clears the transition slot entirely when the open tab is not the record's stage:
 
 ```js
 if (stageName !== currentStage) { tEl.innerHTML = ''; return }
 ```
 
-(`frontend/app.js:618`.) Otherwise `renderOppAdvanceControl()` at `:683` renders it.
+(`frontend/app.js`, the `stageName !== currentStage` guard.) Otherwise `renderOppAdvanceControl()` at `:683` renders it.
 
 **So Opportunity and Test Bed enforce the same business rule by opposite means**: Test Bed places the control on the record-level tab line and DISABLES it off the current stage tab; Opportunity places it inside the stage panel, where it does not exist off the current stage tab. The rule, progression happens from inside the stage, is identical. Only the mechanism differs.
 
-**Mark Closed Lost sits beside the advance control** as a `btn-ghost` against the advance's `btn-primary`, opening a prompt via `openCloseLostPrompt()` at `frontend/app.js:727`.
+**Mark Closed Lost sits beside the advance control** as a `btn-ghost` against the advance's `btn-primary`, opening a prompt via `openCloseLostPrompt()` at `frontend/app.js`, `openCloseLostPrompt`.
 
 > The rationale, from the comment: there is one primary action on this panel. The prompt wires `returnFocusTo` back to the button that opened it, which is Section 4's pattern applied without Section 4 mentioning it.
 
