@@ -168,3 +168,87 @@ its evidence.
   `CURRENT_STATE.md`, and the two records the close-out must carry.
 
 Awaiting sign-off. Nothing has been built.
+
+---
+
+## Agreed in conversation at Phase 0 sign-off, recorded here
+
+Phase 0 was signed off on 2026-08-24. The four items below were agreed in
+conversation and existed nowhere in the repo. **That is the failure Round 26
+found twice**: rule 7's refinement recorded in a close-out nobody re-reads,
+and the cumulative-rollup decision living only in a migration comment. A
+decision that exists only in a conversation is a decision the next session
+does not have, so it is written here before Phase 1 begins.
+
+### C1. Phase 1 constraints
+
+**`.tb-crit-row` is shared with Test Bed, so anything new must be an additive
+modifier class.** Not a change to the rule at `style.css:2715`, and not a new
+declaration on `.tb-crit-row` itself. Test Bed's own criteria panel emits the
+same class at `test-bed-detail.js:1522` and `:1529`, so either would reach it.
+
+**Test Bed pixel-identical is the check that would catch a leak.** Per I2 the
+stylesheet is the only route by which this round can reach Test Bed, the JS
+side being safe because `renderOppExitCriteria` is Opportunity-only. So a
+before-and-after comparison of Test Bed's criteria panel is not a courtesy
+check at the end of the round. It is the only instrument pointed at the one
+surface a display change here can damage, and it belongs in Phase 2's evidence.
+
+**Report whether threading the record's stage into `renderOppExitCriteria`
+changes anything else that renderer decides.** The function gains a parameter
+it has never had. A parameter in scope is a parameter a second decision can
+quietly start depending on, and the report has to state, for each of the other
+decisions the renderer makes, whether the new one is read there. Same family
+as Architecture rule 9: the options list reads as open-ended at the call site
+and is closed at the definition, and the distance between the two is where an
+unintended dependency lives unseen.
+
+### C2. For the close-out: Test Bed's third precedent
+
+**Test Bed has never offered a tick for a stage-dependent requirement.** Its
+three `entry_stage_at_or_after` rules are score rules, deliberately kept out of
+`TB_EXIT_CRITERION_KEYS`, so they render read-only as `.tb-crit-row--computed`
+and the action that satisfies them lives in a separate scoring panel.
+
+That is a third precedent, alongside the approval treatment being borrowed and
+the tickable row as it stands today. **It is not the pattern the business
+chose.** Recording it means the choice reads as a choice that was made rather
+than one defaulted into, and a later round asking why the row is a tick at all
+finds the alternative already stated instead of having to rediscover it.
+
+### C3. For the close-out: evidence before the claim, not after
+
+Round 26's `CLAUDE.md` commit carried a message asserting a check that had
+errored at the moment the message was written. **The claim was true and the
+order was wrong.**
+
+**A commit message asserting a verification that never ran reads identically to
+one asserting a verification that passed.** Nothing in the artefact separates
+them, which is why the order is the control rather than the eventual truth of
+the claim. Run the check, read its output, then write the sentence that
+describes it. Same family as Verification 12 and 13: a search that never ran
+and an instrument never shown reaching one both read as a clean result.
+
+### C4. For the close-out: two probe faults from Phase 0
+
+**The uncalibrated zero on the dev server restart.** Every probe returned
+`000`, including the calibration case whose whole job was to show the probe
+could tell a live server from a dead one. **A run in which the calibration and
+the measurement return the same value has measured nothing.** Seventh instance
+of the third-state species, and the second caught pre-emptively rather than
+after a conclusion had been published.
+
+The restart at the head of Phase 1 was calibrated three ways before any reading
+was trusted: a dead port returned `000`, an unknown path on the live server
+returned `404`, and an unauthenticated API call returned `401`. The refreshed
+token was calibrated the same way, a good token returning `200` from
+`GET /api/opportunities` and a malformed one returning `401`, so the `200` is a
+reading rather than a default.
+
+**The terminal-stage probe fault.** `loadOppStageTab` returns early for a
+terminal stage, whose panel is static markup with nothing to fetch, so a wait
+for a criteria row on Closed Won or Closed Lost can never be satisfied.
+**A wait that cannot be satisfied reads as a hang rather than as a result**, so
+it presents as the harness being slow rather than as the probe being wrong, and
+it is the one failure mode a timeout will not label correctly. Any Phase 2 loop
+over all stages special-cases the terminal ones rather than waiting on them.
