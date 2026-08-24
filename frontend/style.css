@@ -3374,7 +3374,17 @@ input.input-invalid {
   text-align: right;
 }
 .opp-assess-value--none { color: var(--muted-2); }
-.opp-assess-asks { font-size: 12px; color: var(--muted); margin-top: 2px; }
+/* Round 28 Phase 4: the question now sits INSIDE the name cell, on the same
+   line, so this is an inline rule rather than a block one.
+
+   THE MARGIN IS THE POINT, and it was measured rather than guessed. As a <p>
+   with only margin-top set, this element kept the browser's default 1em bottom
+   margin, roughly 12px, which nobody had reset. That produced a 22px gap
+   between the question and the definitions control below it: 12px of default
+   margin the stylesheet never mentioned, plus the control's own 10px. Moving
+   the question inline removes the element that carried it, so the line and the
+   gap are one fix rather than two. */
+.opp-assess-asks { font-size: 12px; color: var(--muted); margin-left: 10px; }
 .opp-assess-select { flex: 0 0 210px; width: 210px; }
 
 .opp-assess-anchors {

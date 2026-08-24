@@ -1804,7 +1804,15 @@ function renderOppAssessCriterion(c) {
   return `
     <div class="opp-assess-criterion" data-criterion="${escHtml(c.criterion_key)}" data-entries="${series.length}">
       <div class="opp-assess-head">
-        <span class="opp-assess-name">${escHtml(c.name)}</span>
+        <span class="opp-assess-name">${escHtml(c.name)}${
+          // Round 28 Phase 3 of the business's list, item 3: the question
+          // joins the name INSIDE the name cell rather than sitting on a line
+          // of its own. Inline rather than a second flex child, so a long pair
+          // wraps within the cell instead of squeezing the value and the
+          // select, which is the fault the head's fixed columns were added to
+          // fix in the first place.
+          c.asks ? `<span class="opp-assess-asks">${escHtml(c.asks)}</span>` : ''
+        }</span>
         <span class="opp-assess-value${current ? '' : ' opp-assess-value--none'}">${current ? escHtml(labelFor(current.value)) : OPP_ASSESS_NONE}</span>
         <select class="opp-assess-select" id="opp-assess-select-${escHtml(c.criterion_key)}"
           aria-label="${escHtml(c.name)}"${unanchored ? ' disabled' : ''}
@@ -1814,7 +1822,6 @@ function renderOppAssessCriterion(c) {
           ${options}
         </select>
       </div>
-      ${c.asks ? `<p class="opp-assess-asks">${escHtml(c.asks)}</p>` : ''}
       ${currentBlock}
       ${anchors}
       ${reasonBox}
