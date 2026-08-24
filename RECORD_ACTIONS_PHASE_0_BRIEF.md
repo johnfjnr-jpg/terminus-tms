@@ -565,3 +565,87 @@ that does not have to be undone. Option A is the step that would.
 does not reproduce Test Bed's three-control grouping. Opportunity would carry
 two controls on the tab line and Test Bed three, and that difference is
 principled rather than accidental.
+
+---
+
+# Phase 4: the prominence judgement. NOTHING CHANGES
+
+**Phase 3 already moved Closed Lost, so what remained was the prominence
+judgement found by looking. It is measured here, three treatments were
+previewed, and the recommendation is that nothing changes.**
+
+## The mechanism, from source
+
+`.btn-primary:disabled` and `.btn-ghost` resolve to the SAME colours
+(`style.css:1619` and `:1637`): `--muted` text, `--hairline-strong` border. The
+only difference is that the disabled rule adds `opacity: 0.5`.
+
+**So a disabled primary is an enabled ghost at half opacity.** The dominance is
+not a matter of taste; it is one declaration.
+
+## Measured, as rendered
+
+Effective alpha, the colour's own alpha times the element's opacity, which is
+what the eye receives:
+
+| State | advance text | lost text | ratio |
+|---|---|---|---|
+| the record's own stage tab | **1.0** (green) | 0.5 | 0.5x, correct |
+| any other tab | 0.25 | 0.5 | **2x, inverted** |
+| a Closed Won record | 0.25 | 0.25 | 1x, both disabled |
+
+**Advance is disabled on 8 of the 9 tabs**, counted by clicking every tab and
+reading the button. So the inverted state is the default, not an edge case.
+
+## The argument tested rather than accepted
+
+Phase 3 said the dominance is "arguably correct, since it is the only available
+action there." **That reason does not survive.** Round 21 Phase 7's own comment,
+now recorded at Section 10, says the intent is that giving both equal weight
+"would put an irreversible action alongside the routine one with nothing to
+tell them apart". The current state does not give equal weight; it gives the
+irreversible one double, on 8 of 9 tabs. A state that exceeds the thing the
+design was written to prevent is not defended by saying it is informative.
+
+**A different reason does survive, and it is the one the recommendation rests
+on.** The consequence of pressing Mark Closed Lost is not a lost deal. It is a
+dialogue headed "Mark this opportunity Closed Lost", carrying a mandatory
+reason, an explicit "This cannot be undone" warning and a confirm
+(`frontend/app.js:833` onward). **Prominence tracking consequence is satisfied
+at the point of consequence, which is the dialogue, not the border.** The
+realistic cost of a curiosity click is a wasted dialogue open.
+
+## The three treatments, previewed and looked at
+
+| | Effect | Verdict |
+|---|---|---|
+| **A, as built** | lost 0.5 text in a 0.22 border; advance 0.25 in a 0.11 border | The Closed Lost box is what the eye lands on. The 2x is perceptible, because at these levels it is the difference between barely there and readable |
+| **D, drop the border** | lost 0.5 text, no box | Removes the affordance that says it is a control. Beside a bordered button, a bare label reads as a caption |
+| **D2, drop the border and dim to `--muted-2`** | lost 0.32 text, no box | **Inverts the problem.** The disabled bordered button becomes the more prominent element, so the screen says the thing you cannot do matters more than the thing you can |
+
+**Every remedy costs something real**, and the structural reason is that
+availability and prominence pull opposite ways here: any enabled control
+outweighs any disabled one, because that is what disabled means. The two
+principles cannot both hold for adjacent controls where one is disabled by
+default.
+
+## The recommendation
+
+**No change, and no diff.** Manufacturing one would trade a measured 2x for an
+affordance loss or an inversion, both of which are worse.
+
+**No Test Bed comparison was run**, because nothing changed and a comparison
+that cannot fail is not evidence.
+
+## What would make this worth revisiting
+
+Stated so the decision has an expiry rather than being permanent by default:
+
+- **A reported mis-click.** The dialogue is the guard, and if it is being
+  reached by accident the guard is doing work it should not have to.
+- **A second irreversible action joining the tab line.** One available
+  irreversible control beside one disabled routine one is the case measured
+  here; two would change the reading.
+- **A disabled treatment that is not `opacity: 0.5`.** The whole effect follows
+  from one declaration shared app-wide, so if that is ever revisited for other
+  reasons, this pairing should be re-measured rather than assumed.
