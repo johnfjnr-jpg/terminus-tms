@@ -253,3 +253,217 @@ frame under sticky positioning.
    be something, because it was written from photographs.
 
 Then stop and wait for sign-off.
+
+---
+
+# Phase 0 report
+
+Round 29. Investigation only, no code. Signed off 2026-08-24.
+
+Round number confirmed against the repo: the highest `Merge Round N` is 28, at
+`d445ab8`. The brief was committed to `main` before branching, and the branch
+was taken from `main` rather than from `d445ab8` so it carries its own scope
+from the start, per build discipline rule 9.
+
+**Three of four screenshot premises were wrong.** That is the round's own
+argument demonstrated on its own input.
+
+---
+
+## I1. What is built, read from source
+
+### The action bar
+
+`.tb-tab-actions` is INSIDE the tab strip element, its last child after the ten
+stage tabs, pinned right by `margin-left: auto`
+(`frontend/index.html:873-877`). Round 7 Phase 6 built it, replacing BOTH a
+separate save-bar banner line AND a "Stage Transition" section.
+
+Two feedback elements sit under the row and are deliberately not merged,
+`tb-save-feedback` and `tb-next-stage-feedback`. The rationale is written
+beside them: one says "your edit was refused", the other "this transition is
+blocked", and a shared element would let the second overwrite the first.
+
+### Cancel and Save changes
+
+`updateTbSaveBar()`, `frontend/test-bed-detail.js:2589`:
+
+```js
+const dirtyCount = Object.values(tbEdits).filter(e => e.draft !== e.orig).length
+const show = dirtyCount > 0 || tbInvalidFields.size > 0
+```
+
+Both toggle on `show`. `saveBtn.disabled = tbInvalidFields.size > 0`, so an
+invalid numeric field disables Save rather than letting the value travel to the
+server to be refused. **The bar stays visible at dirtyCount 0 while a field is
+invalid**, because `tb-save-feedback` sits alongside and hiding the controls
+would hide the message explaining the block.
+
+### The chevron hover panel
+
+`wireTbChevronHover()`, `frontend/app.js:1495`, Round 7 Phase 9. Trigger:
+`mouseover` on `.chevron-item[data-stage]`, debounced 180ms; a load token; a
+`mouseleave` on the WRAPPER so moving the pointer into the popup is not a
+leave; and the chevron itself has never had a click handler in this app's
+history.
+
+It lists `result.data.blocking` from
+`GET /api/records/:id/exit-criteria?stage=<name>`, or "Nothing outstanding."
+
+**Unreached stages resolve by construction, not by a special case.** The
+endpoint "never validates whether a reachable stage was requested, only which
+`stage_gate_rules` rows get looked up" (`src/routes/records.js:290-299`).
+
+---
+
+## The NEXT STAGE conditions. BOTH readings were wrong
+
+`refreshTbNextStageButton()`, `frontend/app.js:4240`, is the ONLY writer of
+`#tb-next-stage-btn.disabled`. Writers elsewhere in `frontend/`: zero.
+
+| # | Condition | Label |
+|---|---|---|
+| 1 | `!nextStage`, the record is at its final stage | changes to "Final stage" |
+| 2 | `!onCurrentStageTab`, the open tab is not `stage-<record.status>` | stays "Next Stage" |
+
+```
+refreshTbNextStageButton mentions tbEdits:      0
+refreshTbNextStageButton mentions criteria/met: 0
+  calibration, it does mention 'nextStage':     3
+```
+
+**Unsaved changes do not disable it. Unmet exit criteria do not disable it
+either.** Unmet criteria are refused at the SERVER: `attemptTransition` posts,
+receives a 422 with `blocking[]`, and renders the list into
+`tb-next-stage-feedback`. The button is clickable and the refusal is explained.
+
+**The screenshots were showing condition 2**, the user on a tab that is not the
+record's current stage. That is the only disabling the comments call a
+confirmed business rule: stage progression happens from inside the stage
+itself.
+
+---
+
+## I2. The gap, as a count and a sample
+
+**Specified and not built.** Five numbered sections. The header reads "Status:
+Specification only, not yet implemented" and **that is false**: section 4's
+focus trapping is built at 42 sites, section 3's error treatment at 35, and
+section 5's discard-confirm halves are built and named in its own body. Only
+section 5's SYSTEM-WIDE REGISTRY is genuinely unbuilt. Sections 1 and 2 are
+partial, 27 `tabindex` and 8 `Enter` handlers.
+
+**Built and not specified**, ten sampled mechanisms each carrying a written
+rationale in code comments:
+
+| mechanism | in source | in the standards |
+|---|---|---|
+| Next Stage and its two rules | 2 | 0 |
+| the tab-line action bar | 3 | 0 |
+| chevron hover popup | 59 | 0 |
+| load-token race discipline | 32 | 0 |
+| sub-tab strip component | 10 | 0 |
+| definitions disclosure | 10 | 0 |
+| sticky save bar | 18 | 0 |
+| pending vs confirmed tick mark | 2 | 0 |
+| "Not yet at this stage" | 3 | 0 |
+| mandatory reason on a revision | 13 | 6 |
+
+**Ten of ten have zero coverage.** The tenth's six hits are the English word
+"reason", not the mechanism, checked rather than counted.
+
+---
+
+## I3. The strip. THE CONSTRAINT IS INVERTED
+
+| | tabs | tabs total | rows | rightmost tab ends | free at right |
+|---|---|---|---|---|---|
+| Test Bed 1240 | 10 | 1304px | 2 | 843 | **33px** |
+| Test Bed 1920 | 10 | 1304px | 1 | 1484 | **72px** |
+| Opportunity 1240 | 9 | **832px** | 2 | 193 | **683px** |
+| Opportunity 1920 | 9 | 832px | 1 | 992 | **564px** |
+
+Both strips are 876px at 1240 and 1556px at 1920, both `flex-wrap: wrap`.
+**Test Bed already carries three controls, 135px, in the tighter strip.**
+
+The brief's "876px in 876px with zero margin" does not describe the current
+strip. Three controls on Opportunity's tab line is not a space problem.
+
+---
+
+## I4. Reference HAS a bar, and Opportunity has three dirty mechanisms
+
+The brief says Reference has its own per-field mechanism "with no bar". It has
+one: `#ref-edit-bar` (`frontend/index.html:1493`) with `#ref-cancel-all` and
+`#ref-save-all`, driven by `updateRefEditBar()`
+(`frontend/opportunity-reference.js:387`), reporting "N fields open, M
+changed". Accounts reuses the same `.ref-edit-bar` class.
+
+| | mechanism | refs |
+|---|---|---|
+| Opportunity assessment | `oppAssessDirtyKeys` | 10 |
+| Opportunity reference | `refEdits` / `dirtyEntries` | 10 |
+| Test Bed | `tbEdits` | 30 |
+
+**Opportunity has three dirty mechanisms; Test Bed has one.**
+
+### The options, not chosen
+
+| | What | Cost |
+|---|---|---|
+| A | Leave both scopes, move only the assessment bar to the tab line | Cheapest. A record-level position implying record-level scope while covering one panel. Two bars can be visible at once |
+| B | Unify assessment and Reference behind one bar | Touches a working mechanism, which Round 28 Phase 5 declined for reasons that still apply |
+| C | Move only advance and Closed Lost; leave save where it saves | Keeps save beside its scope. Does not reproduce Test Bed's grouping |
+
+---
+
+## I5. Closed Lost has no Test Bed equivalent
+
+`close-lost`, `closeLost`, `abandon`, `Closed Lost` all return 0 in
+`test-bed-detail.js`; calibration, `stage` returns 79. No precedent to copy.
+Opportunity's is a `btn-ghost` beside the `btn-primary` advance, with the
+rationale written beside it, one primary action on this panel, and it opens a
+prompt with `returnFocusTo` wired: section 4's pattern applied without section
+4 mentioning it.
+
+---
+
+## I6. What the design could not express
+
+Four premises checked, THREE wrong: the NEXT STAGE rule in both readings, the
+strip being tight, and Reference having no bar. The one that held: the bar is
+at the right end of the tab strip, outside the stage panel, `NEXT STAGE` always
+present, the other two only when dirty.
+
+---
+
+## Cannot be built as stated
+
+**"Move save, advance and Closed Lost to the tab line" is not one move**,
+because there is no single Opportunity save. Two bars cover different scopes.
+
+**The chevron hover is construction, not a port.** `#tb-chevron-wrap` is static
+markup and Opportunity has no chevron strip at all, so the per-record lifecycle
+differs. The static wrap is precisely why Test Bed's listener is attached once.
+
+**Phase 1 cannot be documentation-only and honest** without correcting the
+status header, which is a statement about what is built.
+
+---
+
+## The accepted phase plan
+
+| Phase | Content | Change |
+|---|---|---|
+| 0 | This investigation | as briefed |
+| 1 | The built patterns into `INTERACTION_STANDARDS.md`, including the status header | briefed 1, widened by one line |
+| **2** | **The save-scope decision, per I4** | **briefed 3, moved before the move** |
+| 3 | Move the controls to the tab line | briefed 2 |
+| 4 | Closed Lost placement | briefed 4 |
+| 5 | The chevron hover, per the business | briefed 5, and it is construction |
+| 6 | Full walk and close-out | briefed 6 |
+
+**I4 moves before the move**: you cannot move "the save bar" before deciding
+which of two bars it is. The original ordering would either move one and leave
+the other, which is the false implication, or force the scope decision inside a
+phase scoped as a layout change.
