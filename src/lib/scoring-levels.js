@@ -20,6 +20,11 @@
  * framework records an opinion nobody can act on.
  */
 
+// Round 28 Phase 3: NO `description` here, deliberately. A criterion with a
+// null scale_id has no scale row and therefore no generic wording to fall back
+// to, so it renders its own anchors and nothing else. Every Test Bed criterion
+// is in that state, which is why Test Bed cannot be changed by this phase even
+// if the precedence rule were wrong.
 export const DEFAULT_LEVELS = [
   { value: 1, label: '1', reason_required: true },
   { value: 2, label: '2', reason_required: true },
@@ -43,10 +48,18 @@ export async function resolveLevels(db, scaleId) {
 
   const { data, error } = await db
     .from('scoring_scale_levels')
-    .select('value, label, reason_required')
+    .select('value, label, reason_required, description')
     .eq('scale_id', scaleId)
     .order('value', { ascending: true })
 
   if (error) return { error }
-  return { levels: (data ?? []).map(l => ({ value: l.value, label: l.label, reason_required: l.reason_required })) }
+  // Round 28 Phase 3: `description` is the scale's generic wording for the
+  // level, and it is a FALLBACK, never a replacement. A per-criterion
+  // scoring_anchors row at the criterion's current version overrides it, which
+  // is what keeps Test Bed rendering exactly what it renders today. The
+  // precedence itself lives in the two renderers, beside the anchor set they
+  // already resolve, rather than being pre-resolved here: this function does
+  // not know which criterion is being scored and therefore cannot see the
+  // override.
+  return { levels: (data ?? []).map(l => ({ value: l.value, label: l.label, reason_required: l.reason_required, description: l.description ?? null })) }
 }

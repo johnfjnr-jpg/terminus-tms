@@ -82,7 +82,47 @@ function showApp(session) {
   navigate('leads')
 }
 
+// ── Round 28 Phase 7: the unsaved-assessment guard ──────────────────────
+//
+// INTERACTION_STANDARDS.md Section 5, which is marked specification only and
+// not yet implemented. This is NOT the system-wide dirty-state registry it
+// specifies. It is that document's rule applied to the one place this round
+// built a registry, using the shared #discard-confirm-modal that already
+// exists and is already used by New Lead and Park.
+//
+// IT READS THE SAME SOURCE PHASE 5 DERIVES, oppAssessDirtyKeys(), and declares
+// no flag of its own. A dirty flag beside a dirty set is a second source of
+// truth that agrees today, which is the whole reason Phase 5 has no oppEdits.
+//
+// WARNS ONLY WHERE SOMETHING IS ACTUALLY LOST, which is a departure from
+// Section 5's letter and is stated as one. Section 5 lists a nav-bar click as
+// real navigation, because it was written for a page-wide registry where
+// leaving the page discards. Here it does not: Phase 1 clears the draft maps
+// on a RECORD CHANGE, so going to the Opportunities list and back to the same
+// record still has the drafts. The two events that genuinely lose work are
+// arriving at a DIFFERENT record, and unloading the tab. Warning about a
+// discard that will not happen would make the dialog's own words false, and
+// teaches people to dismiss it.
+function oppAssessNavigationDiscards(view, id) {
+  if (!oppAssessDirtyKeys().length) return false
+  // Same record is not a loss: Phase 1 clears only when the id changes.
+  if (view === 'opportunity-detail' && id === currentOppDetailId) return false
+  // Any other view leaves the drafts in place, invisible but intact.
+  return view === 'opportunity-detail'
+}
+
 function navigate(view, id) {
+  // The guard runs BEFORE anything is hidden or loaded, so Keep editing
+  // returns to a screen that never moved.
+  if (oppAssessNavigationDiscards(view, id)) {
+    openDiscardConfirm(() => {
+      for (const k of oppAssessDirtyKeys()) {
+        delete oppAssessDraft[k]; delete oppAssessReason[k]; delete oppAssessAnswer[k]
+      }
+      navigate(view, id)
+    })
+    return
+  }
   ALL_VIEWS.forEach(v => document.getElementById(`view-${v}`)?.classList.add('hidden'))
   document.querySelectorAll('.nav-link').forEach(el => el.classList.remove('active'))
 
@@ -1623,6 +1663,11 @@ let oppCriteriaPromise = null
 const oppAssessDraft = {}
 const oppAssessReason = {}
 const oppAssessOpen = {}
+// Round 28 Phase 6: which criteria have their history revealed. RECORD STATE,
+// not configuration, so it joins the list Phase 1 clears on a record change.
+// Adding it there in the same edit rather than later is the whole of Phase 1's
+// lesson: a map keyed by criterion that outlives its record is the defect.
+const oppAssessHistoryOpen = {}
 const oppAssessAnswer = {}   // criterion_key -> { amount, currency }
 
 async function ensureOppCriteria() {
@@ -1671,6 +1716,18 @@ function renderOppAssessCriterion(c) {
   const draft = oppAssessDraft[c.criterion_key] ?? ''
   const anchorSet = c.anchors?.[c.current_version] ?? {}
 
+  // Round 28 Phase 3: DISPLAY PRECEDENCE. A per-criterion anchor at this
+  // criterion's current version wins; the scale's generic description is the
+  // fallback. The seven Commercial criteria all carry anchors today, so this
+  // renders exactly what it rendered before until an override is retired, and
+  // retiring one is a decision the business has not yet taken.
+  //
+  // ONLY FOR THE CURRENT DEFINITION BLOCK. Never for a historical entry: the
+  // description is not versioned, so a later edit to it would silently restate
+  // every past judgement in wording it was not made against, which is the one
+  // thing anchor versioning exists to prevent.
+  const wordingFor = l => anchorSet[l.value] ?? l.description ?? ''
+
   // AN UNANCHORED CRITERION, decided here.
   //
   // Round A Phase 4 found it renders as blank rows and the literal "Version
@@ -1687,12 +1744,44 @@ function renderOppAssessCriterion(c) {
   const options = levels.map(l =>
     `<option value="${l.value}"${String(draft) === String(l.value) ? ' selected' : ''}>${escHtml(String(l.label))}</option>`).join('')
 
+  // Round 28 Phase 6: CLOSED UNLESS ASKED FOR, and back to two states.
+  //
+  // Phase 2 kept a default of "open while a draft is in progress", inherited
+  // from a panel where each criterion saved on its own. Measured here with one
+  // save for the panel: drafting all seven took the pane from 1849px to 4131px,
+  // which hands back more than the close control ever bought.
+  //
+  // BOTH auto-open routes go, and the measurement is what showed the second one
+  // mattered. The named suspect was the draft default, and it does fire: with
+  // the state undecided and a draft present, seven blocks opened. But on the
+  // path a person actually takes it never gets the chance, because focusing the
+  // select to choose a level already opened the block. Removing the draft
+  // default alone would have changed nothing a scorer would see.
+  //
+  // The reveal-on-focus existed because before Phase 2 there was no control at
+  // all. There is one now, labelled, so opening a 200 to 400px block because
+  // the cursor landed on a select is a surprise rather than a service.
+  const anchorsOpen = !!oppAssessOpen[c.criterion_key]
+  // Round 28 Phase 6: the CURRENT assessment stays exactly where Round 26
+  // Phase 1 put it, prominent and unconditional, reason and author and
+  // timestamp. Only the earlier ones go behind a control. That distinction is
+  // the whole of Round 26's finding: the reason is what a bid review
+  // challenges, and the current one is precisely the one that gets challenged.
+  const historyOpen = !!oppAssessHistoryOpen[c.criterion_key]
   const anchors = unanchored
     ? '<p class="opp-assess-note">No level definitions are recorded for this criterion yet, so it cannot be assessed.</p>'
-    : `<div class="opp-assess-anchors${oppAssessOpen[c.criterion_key] || draft !== '' ? '' : ' hidden'}" id="opp-assess-anchors-${escHtml(c.criterion_key)}">
+    // The control sits OUTSIDE the block it controls, so opening and closing
+    // are the same gesture in the same place. Inside, it would vanish with the
+    // thing it collapses and leave no way back. It is also the first way to
+    // reveal the definitions that is visible at all: before this the only
+    // route was focusing the select, which is not an affordance.
+    : `<button type="button" class="anchors-toggle" id="opp-assess-anchors-toggle-${escHtml(c.criterion_key)}"
+               aria-expanded="${anchorsOpen ? 'true' : 'false'}" aria-controls="opp-assess-anchors-${escHtml(c.criterion_key)}"
+               onclick="toggleOppAssessAnchorsOpen('${escHtml(c.criterion_key)}')">${anchorsOpen ? 'Hide definitions' : 'Show definitions'}</button>
+       <div class="opp-assess-anchors${anchorsOpen ? '' : ' hidden'}" id="opp-assess-anchors-${escHtml(c.criterion_key)}">
          ${levels.map(l => `
-           <span class="opp-assess-anchor-n${anchorSet[l.value] ? '' : ' opp-assess-anchor--nowording'}">${escHtml(String(l.label))}</span>
-           <span class="opp-assess-anchor-t">${anchorSet[l.value] ? escHtml(anchorSet[l.value]) : ''}</span>`).join('')}
+           <span class="opp-assess-anchor-n${wordingFor(l) ? '' : ' opp-assess-anchor--nowording'}">${escHtml(String(l.label))}</span>
+           <span class="opp-assess-anchor-t">${escHtml(wordingFor(l))}</span>`).join('')}
          <p class="opp-assess-ver" style="grid-column:1/-1">Definition version ${escHtml(String(c.current_version))}</p>
        </div>`
 
@@ -1725,8 +1814,12 @@ function renderOppAssessCriterion(c) {
       <textarea id="opp-assess-reason-${escHtml(c.criterion_key)}" rows="2"
         oninput="setOppAssessReason('${escHtml(c.criterion_key)}', this.value)">${escHtml(oppAssessReason[c.criterion_key] ?? '')}</textarea>
       <div class="opp-assess-actions">
-        <button class="btn-primary" onclick="commitOppAssess('${escHtml(c.criterion_key)}')">Record</button>
-        <button class="btn-ghost" onclick="cancelOppAssess('${escHtml(c.criterion_key)}')">Cancel</button>
+        ${/* Round 28 Phase 5: the Record and Cancel buttons that stood here are
+             now one shared bar for the whole panel, which is what the business
+             asked for and what Test Bed already does. The per-criterion
+             FEEDBACK line stays: a batch that partly fails has to say which
+             criterion failed, beside that criterion, and a single line on the
+             bar cannot do that for four of seven. */''}
         <span class="opp-assess-feedback" id="opp-assess-feedback-${escHtml(c.criterion_key)}"></span>
       </div>
     </div>`
@@ -1766,8 +1859,12 @@ function renderOppAssessCriterion(c) {
     </div>`
 
   const history = series.length > 1 ? `
-    <p class="opp-assess-history-label">Previously</p>
-    <div class="opp-assess-history">
+    <button type="button" class="anchors-toggle" id="opp-assess-history-toggle-${escHtml(c.criterion_key)}"
+            aria-expanded="${historyOpen ? 'true' : 'false'}" aria-controls="opp-assess-history-${escHtml(c.criterion_key)}"
+            onclick="toggleOppAssessHistory('${escHtml(c.criterion_key)}')">${
+      historyOpen ? 'Hide earlier assessments' : `Show ${series.length - 1} earlier assessment${series.length - 1 === 1 ? '' : 's'}`
+    }</button>
+    <div class="opp-assess-history${historyOpen ? '' : ' hidden'}" id="opp-assess-history-${escHtml(c.criterion_key)}">
       ${series.slice(0, -1).reverse().map(e => `<div class="opp-assess-entry"><span>${escHtml(formatDateTime(e.at))}</span><span>${escHtml(labelFor(e.value))}</span>${
         e.answer ? `<span class="opp-assess-entry-answer">${escHtml(e.answer.currency)} ${escHtml(Number(e.answer.amount).toLocaleString('en-GB'))}</span>` : ''
       }<span>${escHtml(e.reason ?? '')}</span></div>`).join('')}
@@ -1776,17 +1873,23 @@ function renderOppAssessCriterion(c) {
   return `
     <div class="opp-assess-criterion" data-criterion="${escHtml(c.criterion_key)}" data-entries="${series.length}">
       <div class="opp-assess-head">
-        <span class="opp-assess-name">${escHtml(c.name)}</span>
+        <span class="opp-assess-name">${escHtml(c.name)}${
+          // Round 28 Phase 3 of the business's list, item 3: the question
+          // joins the name INSIDE the name cell rather than sitting on a line
+          // of its own. Inline rather than a second flex child, so a long pair
+          // wraps within the cell instead of squeezing the value and the
+          // select, which is the fault the head's fixed columns were added to
+          // fix in the first place.
+          c.asks ? `<span class="opp-assess-asks">${escHtml(c.asks)}</span>` : ''
+        }</span>
         <span class="opp-assess-value${current ? '' : ' opp-assess-value--none'}">${current ? escHtml(labelFor(current.value)) : OPP_ASSESS_NONE}</span>
         <select class="opp-assess-select" id="opp-assess-select-${escHtml(c.criterion_key)}"
           aria-label="${escHtml(c.name)}"${unanchored ? ' disabled' : ''}
-          onfocus="toggleOppAssessAnchorsOpen('${escHtml(c.criterion_key)}')"
           onchange="setOppAssessDraft('${escHtml(c.criterion_key)}', this.value)">
           <option value="">${current ? 'Revise...' : OPP_ASSESS_PROMPT}</option>
           ${options}
         </select>
       </div>
-      ${c.asks ? `<p class="opp-assess-asks">${escHtml(c.asks)}</p>` : ''}
       ${currentBlock}
       ${anchors}
       ${reasonBox}
@@ -1828,13 +1931,205 @@ window.cancelOppAssess = function (key) {
   delete oppAssessAnswer[key]
   rerenderOppAssessLens()
 }
-// Opening on focus rather than toggling, so tabbing to the select reveals the
-// definitions a scorer is about to choose between. Idempotent: re-focusing
-// does not close them.
+// Round 28 Phase 6: revealOppAssessAnchors is GONE, along with the onfocus that
+// called it. It existed to compensate for there being no visible control, and
+// Phase 2 added one.
+
+// The explicit control. DIRECT DOM MUTATION, NEVER A RE-RENDER, following
+// showTbScoreAnchors' reasoning rather than this file's own previous habit:
+// rerenderOppAssessLens rewrites the pane's innerHTML, which would destroy a
+// reason textarea mid-sentence and drop the caret. The flag is set for later
+// re-renders and this render is updated in place.
 window.toggleOppAssessAnchorsOpen = function (key) {
-  if (oppAssessOpen[key]) return
-  oppAssessOpen[key] = true
+  const block = document.getElementById(`opp-assess-anchors-${key}`)
+  if (!block) return
+  const open = block.classList.contains('hidden')
+  oppAssessOpen[key] = open
+  block.classList.toggle('hidden', !open)
+  const btn = document.getElementById(`opp-assess-anchors-toggle-${key}`)
+  if (btn) {
+    btn.textContent = open ? 'Hide definitions' : 'Show definitions'
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false')
+  }
+}
+
+// ── Round 28 Phase 5: one save for the panel ────────────────────────────
+//
+// ASSESSMENT SCOPED, NOT RECORD WIDE, and the reasoning is recorded because
+// the obvious precedent points the other way. Test Bed's equivalent is record
+// wide: a score draft lands in tbEdits, the same dirty map every other Test
+// Bed field uses, and #tb-save-all saves the lot. Opportunity has no such bar
+// for scoring to join, and building one would mean unifying with
+// opportunity-reference.js's own edit mechanism, which works. Unifying a
+// working path with a new one is how working paths break. It would also be a
+// half step toward the system-wide registry INTERACTION_STANDARDS.md Section 5
+// specifies and that is explicitly not this round's, so it would be re-done
+// rather than extended.
+//
+// THE REGISTRY IS DERIVED, NOT DECLARED. There is no oppEdits. The dirty set
+// is read from oppAssessDraft, which already exists and already holds exactly
+// this. A parallel map would be a second source of truth that agrees today,
+// which is Architecture rule 3, and it would also need its own clearing on a
+// record change. Because this is derived, Round 28 Phase 1's clearing of the
+// three draft maps covers it for free.
+function oppAssessDirtyKeys() {
+  // Ordered by the criteria list rather than by insertion, so messages and
+  // saves run in the order the panel displays.
+  return (oppCriteria ?? [])
+    .map(c => c.criterion_key)
+    .filter(k => oppAssessDraft[k] !== undefined)
+}
+
+function oppAssessNameFor(key) {
+  return (oppCriteria ?? []).find(c => c.criterion_key === key)?.name ?? key
+}
+
+// Which dirty criteria still owe a reason. Pre-flight, and deliberately NOT
+// the same thing as a partial failure: this refuses the batch before anything
+// is written, because a reason is a rule the panel already knows, and firing
+// seven requests to have some refused is worse than not firing them.
+function oppAssessMissingReasons() {
+  return oppAssessDirtyKeys().filter(k => {
+    const c = (oppCriteria ?? []).find(x => x.criterion_key === k)
+    const chosen = (c?.levels ?? []).find(l => String(l.value) === String(oppAssessDraft[k]))
+    const mustGive = !!chosen?.reason_required || oppAssessSeries(k).length > 0
+    return mustGive && !String(oppAssessReason[k] ?? '').trim()
+  })
+}
+
+// The bar is mutated in place, never re-rendered from a template that would
+// replace the pane, because the pane holds a reason textarea the person may be
+// typing into.
+function renderOppAssessSaveBar() {
+  const bar = document.getElementById('opp-assess-savebar')
+  if (!bar) return
+  const dirty = oppAssessDirtyKeys()
+  bar.classList.toggle('hidden', dirty.length === 0)
+  const count = document.getElementById('opp-assess-savebar-count')
+  if (count) {
+    count.textContent = dirty.length === 1
+      ? '1 assessment ready to record'
+      : `${dirty.length} assessments ready to record`
+  }
+}
+
+window.cancelAllOppAssess = function () {
+  for (const k of oppAssessDirtyKeys()) {
+    delete oppAssessDraft[k]
+    delete oppAssessReason[k]
+    delete oppAssessAnswer[k]
+  }
+  // Synchronous, so this one was never at risk, but it resolves the node the
+  // same way rather than leaving two habits in one file.
+  const fb = document.getElementById('opp-assess-savebar-feedback')
+  if (fb) { fb.textContent = ''; fb.className = 'opp-assess-savebar-feedback' }
   rerenderOppAssessLens()
+}
+
+// THE BATCH. Round 11A is the precedent and it is exact: .find() where
+// .filter() was meant, so scoring five things and pressing Save once kept one
+// and lost four, silently. The loop below runs over the WHOLE dirty array and
+// its result is reported per key.
+//
+// SEQUENTIAL, NOT Promise.all. Every score appends a record revision through
+// append_record_revision, which serialises writers for one record on an
+// advisory lock, so parallel requests would queue there anyway. Sequential
+// buys deterministic attribution: the nth failure belongs to the nth
+// criterion, with no ambiguity about which request the server refused.
+//
+// A PARTIAL SAVE IS WORSE THAN A FAILED ONE. A criterion that failed stays
+// dirty with its reason intact so it can be retried, the ones that succeeded
+// are cleared, and the bar reports the failures by name rather than reporting
+// success for the batch.
+window.saveAllOppAssess = async function () {
+  // Round 28 Phase 7: RESOLVED AT WRITE TIME, never captured once.
+  //
+  // This held `const fb = getElementById(...)` across the whole batch, and a
+  // record load that overlapped the save replaced the bar underneath it:
+  // mountOppAssessmentLenses rebuilds the bar because createSubTabs rewrites
+  // the mount, so the node captured at the start was detached by the end.
+  // Measured rather than reasoned about, by wrapping the handler and comparing
+  // node identity across the call: sameNode false, beforeStillConnected false,
+  // and the captured node holding "Recorded 1 of 1." while the live one was
+  // empty. The writes had all succeeded; only the confirmation was posted to a
+  // node nobody could see.
+  //
+  // A held DOM node is a second reference to something the app rebuilds, which
+  // is the same shape as a declared dirty flag beside a derived one. Hold the
+  // id, resolve the node.
+  const setFb = (text, cls) => {
+    const fb = document.getElementById('opp-assess-savebar-feedback')
+    if (fb) { fb.textContent = text; fb.className = `opp-assess-savebar-feedback ${cls}` }
+  }
+  const keys = oppAssessDirtyKeys()
+  if (!keys.length) return
+
+  const missing = oppAssessMissingReasons()
+  if (missing.length) {
+    setFb(`A reason is required for ${missing.map(oppAssessNameFor).join(', ')}. Nothing was recorded.`, 'msg-error')
+    return
+  }
+
+  const btn = document.getElementById('opp-assess-savebar-record')
+  if (btn) btn.disabled = true
+  setFb(`Recording ${keys.length}...`, '')
+
+  const failed = []
+  let saved = 0
+  for (const key of keys) {
+    const a = oppAssessAnswer[key] ?? {}
+    const sendAnswer = key === OPP_VALUE_CAPTURE_KEY && String(a.amount ?? '').trim() !== ''
+    const reason = String(oppAssessReason[key] ?? '').trim()
+    const result = await api('POST', `/api/opportunities/${currentOppDetailId}/scores`, {
+      criterion: key, score: Number(oppAssessDraft[key]),
+      ...(reason ? { reason } : {}),
+      ...(sendAnswer ? { answer: { amount: Number(a.amount), currency: a.currency ?? 'SGD' } } : {}),
+    })
+    if (result.ok) {
+      saved++
+      delete oppAssessDraft[key]
+      delete oppAssessReason[key]
+      delete oppAssessAnswer[key]
+    } else {
+      // Left dirty ON PURPOSE, with the typed reason intact. Every refusal
+      // this endpoint gives is correctable, and discarding the draft would
+      // make the person retype to find that out.
+      failed.push({ key, error: result.data?.error ?? 'unknown error' })
+    }
+  }
+
+  // The server owns the series, so the panel re-reads it rather than guessing.
+  const fresh = await api('GET', `/api/opportunities/${currentOppDetailId}`)
+  if (fresh.ok) currentOppPayload = fresh.data.payload ?? {}
+  rerenderOppAssessLens()
+  if (btn) btn.disabled = false
+
+  if (!failed.length) {
+    setFb(`Recorded ${saved} of ${keys.length}.`, 'msg-ok')
+  } else {
+    setFb(`Recorded ${saved} of ${keys.length}. Not recorded: ${failed.map(f => oppAssessNameFor(f.key)).join(', ')}.`, 'msg-error')
+    for (const f of failed) {
+      const cell = document.getElementById(`opp-assess-feedback-${f.key}`)
+      if (cell) { cell.textContent = f.error; cell.className = 'opp-assess-feedback msg-error' }
+    }
+  }
+}
+
+// Mirrors toggleOppAssessAnchorsOpen exactly, including the direct DOM
+// mutation: rerenderOppAssessLens rewrites the pane's innerHTML and would
+// destroy a reason textarea mid-sentence.
+window.toggleOppAssessHistory = function (key) {
+  const block = document.getElementById(`opp-assess-history-${key}`)
+  if (!block) return
+  const open = block.classList.contains('hidden')
+  oppAssessHistoryOpen[key] = open
+  block.classList.toggle('hidden', !open)
+  const btn = document.getElementById(`opp-assess-history-toggle-${key}`)
+  if (btn) {
+    const n = block.querySelectorAll('.opp-assess-entry').length
+    btn.textContent = open ? 'Hide earlier assessments' : `Show ${n} earlier assessment${n === 1 ? '' : 's'}`
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false')
+  }
 }
 
 window.commitOppAssess = async function (key) {
@@ -1871,6 +2166,9 @@ function rerenderOppAssessLens() {
   const pane = key && document.getElementById(`opp-assessment-mount-pane-${key}`)
   const lens = (oppLenses ?? []).find(l => oppLensKey(l.name) === key)
   if (pane && lens) renderOppAssessLens(pane, lens.id)
+  // ONE entry point, so the bar cannot fall out of step with the panel. Round
+  // 28 Phase 5.
+  renderOppAssessSaveBar()
 }
 
 let oppAssessCurrentLens = null
@@ -1910,6 +2208,31 @@ async function mountOppAssessmentLenses() {
   })
   if (!built) return
 
+  // Round 28 Phase 5: the shared save bar, mounted OUTSIDE the lens panes.
+  //
+  // Drafts are keyed by criterion across every lens, so a person who assesses
+  // two Commercial criteria and then opens Technical still has two pending.
+  // A bar inside a pane would disappear with the pane and take the count with
+  // it. Mounted here it also survives renderOppAssessLens, which rewrites only
+  // a pane's innerHTML.
+  //
+  // Built once per record load, and then MUTATED rather than rebuilt, so it
+  // never destroys a reason textarea mid-sentence.
+  let bar = document.getElementById('opp-assess-savebar')
+  if (!bar) {
+    bar = document.createElement('div')
+    bar.id = 'opp-assess-savebar'
+    bar.className = 'opp-assess-savebar hidden'
+    bar.innerHTML = `
+      <span id="opp-assess-savebar-count" class="opp-assess-savebar-count"></span>
+      <button type="button" class="btn-primary" id="opp-assess-savebar-record"
+              onclick="saveAllOppAssess()">Record</button>
+      <button type="button" class="btn-ghost" id="opp-assess-savebar-cancel"
+              onclick="cancelAllOppAssess()">Cancel</button>
+      <span id="opp-assess-savebar-feedback" class="opp-assess-savebar-feedback"></span>`
+    mount.appendChild(bar)
+  }
+
   // Every pane is rendered up front, not only the open one. Four lenses over
   // criteria already in memory is cheap, and it means switching a sub-tab
   // never shows an empty pane that fills a moment later.
@@ -1917,6 +2240,7 @@ async function mountOppAssessmentLenses() {
     const pane = built.panes[oppLensKey(l.name)]
     if (pane) renderOppAssessLens(pane, l.id)
   }
+  renderOppAssessSaveBar()
 }
 
 // oppLandOnTabAfterLoad, Round 22 Phase 2, widened in Phase 3. The
@@ -4607,6 +4931,32 @@ async function renderOppDetail(opp) {
   // Nothing between Phase 5 and Phase 9 ticked a criterion through the
   // browser, which is why four phases passed over a live regression. The full
   // walk is what found it.
+  // Round 28 Phase 1. The assessment panel's draft state is module-level and
+  // keyed by criterion, so before this it outlived the record it belonged to.
+  // Navigating from Opportunity A to Opportunity B rendered B's panel with A's
+  // unsaved level pre-selected in the select and A's reason text in the box,
+  // with Record live. ONE CLICK WOULD HAVE WRITTEN A'S JUDGEMENT ONTO B, with
+  // A's stated reason, and it would read as entirely deliberate in the history.
+  //
+  // ON A RECORD CHANGE, NOT ON EVERY LOAD, and the distinction is the whole
+  // design. loadOpportunityDetail also runs for same-record reloads after a
+  // transition or an approval, and clearing there would discard a draft the
+  // person is still working on: a new data-loss path opened while closing a
+  // bleed. The counterfactual is the giveaway, because "B is clean" passes
+  // under the clear-everything version too.
+  //
+  // ALL FOUR MAPS, not the three the probe happened to name. The class is
+  // assessment state keyed by criterion that outlives its record, and
+  // oppAssessOpen is in it: leaving that one behind means a fresh record opens
+  // with the previous record's anchor blocks already revealed. Build
+  // discipline rule 8. oppLenses and oppCriteria are deliberately NOT cleared:
+  // they cache configuration, which is record-type scoped and genuinely
+  // outlives any one record.
+  if (currentOppDetailId !== opp.id) {
+    for (const m of [oppAssessDraft, oppAssessReason, oppAssessAnswer, oppAssessOpen, oppAssessHistoryOpen]) {
+      for (const k of Object.keys(m)) delete m[k]
+    }
+  }
   currentOppDetailId = opp.id
   currentOppStage = opp.status
   currentOppStages = stages ?? []
@@ -5172,3 +5522,20 @@ window.revealFieldControl = function (input, fromUserGesture, seedChar) {
 
 // Expose navigate globally for inline onclick handlers
 window.navigate = navigate
+
+// Leaving the page IS a loss, and nothing in this app warned about one before.
+// Reads oppAssessDirtyKeys() for the same reason the navigation guard does.
+//
+// NEVER FIRES AFTER A SUCCESSFUL SAVE, and not by inferring anything:
+// saveAllOppAssess deletes each draft the moment its write is confirmed, so by
+// the time any redirect or unload happens the set is already empty. That is
+// exactly the mechanism Section 5 prescribes, clear the flag when the save
+// succeeds rather than try to tell an app-initiated navigation from a real one
+// afterwards, and Phase 5's derived registry gets it for free.
+window.addEventListener('beforeunload', e => {
+  if (!oppAssessDirtyKeys().length) return
+  e.preventDefault()
+  // Assigning returnValue is what actually triggers the browser's own prompt
+  // in Chrome. The string is never displayed; browsers show their own wording.
+  e.returnValue = ''
+})
