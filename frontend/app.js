@@ -4607,6 +4607,32 @@ async function renderOppDetail(opp) {
   // Nothing between Phase 5 and Phase 9 ticked a criterion through the
   // browser, which is why four phases passed over a live regression. The full
   // walk is what found it.
+  // Round 28 Phase 1. The assessment panel's draft state is module-level and
+  // keyed by criterion, so before this it outlived the record it belonged to.
+  // Navigating from Opportunity A to Opportunity B rendered B's panel with A's
+  // unsaved level pre-selected in the select and A's reason text in the box,
+  // with Record live. ONE CLICK WOULD HAVE WRITTEN A'S JUDGEMENT ONTO B, with
+  // A's stated reason, and it would read as entirely deliberate in the history.
+  //
+  // ON A RECORD CHANGE, NOT ON EVERY LOAD, and the distinction is the whole
+  // design. loadOpportunityDetail also runs for same-record reloads after a
+  // transition or an approval, and clearing there would discard a draft the
+  // person is still working on: a new data-loss path opened while closing a
+  // bleed. The counterfactual is the giveaway, because "B is clean" passes
+  // under the clear-everything version too.
+  //
+  // ALL FOUR MAPS, not the three the probe happened to name. The class is
+  // assessment state keyed by criterion that outlives its record, and
+  // oppAssessOpen is in it: leaving that one behind means a fresh record opens
+  // with the previous record's anchor blocks already revealed. Build
+  // discipline rule 8. oppLenses and oppCriteria are deliberately NOT cleared:
+  // they cache configuration, which is record-type scoped and genuinely
+  // outlives any one record.
+  if (currentOppDetailId !== opp.id) {
+    for (const m of [oppAssessDraft, oppAssessReason, oppAssessAnswer, oppAssessOpen]) {
+      for (const k of Object.keys(m)) delete m[k]
+    }
+  }
   currentOppDetailId = opp.id
   currentOppStage = opp.status
   currentOppStages = stages ?? []
