@@ -234,6 +234,7 @@ export async function computeBlocking(db, record, from_stage, to_stage, currentR
       // A rule carrying NEITHER clause behaves exactly as it does today, so
       // all 15 contact rules and the unlabelled date and duration rules are
       // unaffected BY CONSTRUCTION rather than by inspection.
+      const verb = rule.requirement_detail?.verb ?? 'scored'
       const minLength = rule.requirement_detail?.min_length
       const atOrAfter = rule.requirement_detail?.entry_stage_at_or_after
 
@@ -281,8 +282,22 @@ export async function computeBlocking(db, record, from_stage, to_stage, currentR
         // below alongside `met`, so the transition endpoint's own response
         // shape is byte for byte what it was.
         ...(minLength !== undefined ? { min_length: minLength } : {}),
+        // Round 26 Phase 2: the verb is a rule property, defaulting to the
+        // word this message has always used.
+        //
+        // "scored" was right while entry_stage_at_or_after existed only for
+        // scores, and it is wrong the first time it does not: "Requires
+        // Assessment reviewed scored at or after Qualification" is what the
+        // hardcoded verb produces for a label that already carries its own.
+        //
+        // ADDITIVE, the same way `label` was in Round 9 Phase 3.2. A rule
+        // without a verb gets "scored", so Test Bed's three rules are
+        // byte-identical by construction rather than by inspection, and a rule
+        // whose label is a past participle sets it to an empty string.
         message: label
-          ? (atOrAfter ? `Requires ${label} scored at or after ${atOrAfter}` : `Requires ${label}`)
+          ? (atOrAfter
+            ? `Requires ${label}${verb ? ` ${verb}` : ''} at or after ${atOrAfter}`
+            : `Requires ${label}`)
           : `Requires ${field} to be set`,
         met
       })

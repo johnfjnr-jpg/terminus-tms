@@ -1596,6 +1596,7 @@ let oppCriteriaPromise = null
 const oppAssessDraft = {}
 const oppAssessReason = {}
 const oppAssessOpen = {}
+const oppAssessAnswer = {}   // criterion_key -> { amount, currency }
 
 async function ensureOppCriteria() {
   if (oppCriteria) return oppCriteria
@@ -1670,8 +1671,29 @@ function renderOppAssessCriterion(c) {
 
   const chosen = levels.find(l => String(l.value) === String(draft))
   const mustGiveReason = !!chosen?.reason_required || series.length > 0
+  // Round 26 Phase 3: the answer inputs, on the one criterion that carries one.
+  //
+  // Inside the draft area beside the reason, because the amount is part of the
+  // same act as choosing the level and is recorded with it, not separately.
+  const answerDraft = oppAssessAnswer[c.criterion_key] ?? {}
+  const answerBox = c.criterion_key !== OPP_VALUE_CAPTURE_KEY ? '' : `
+    <div class="opp-assess-answer">
+      <label for="opp-assess-amount-${escHtml(c.criterion_key)}">Budget figure (optional)</label>
+      <div class="opp-assess-answer-row">
+        <input type="text" inputmode="decimal" id="opp-assess-amount-${escHtml(c.criterion_key)}"
+          value="${escHtml(String(answerDraft.amount ?? ''))}" placeholder="450000"
+          oninput="setOppAssessAnswer('${escHtml(c.criterion_key)}', 'amount', this.value)">
+        <select id="opp-assess-currency-${escHtml(c.criterion_key)}"
+          aria-label="Currency"
+          onchange="setOppAssessAnswer('${escHtml(c.criterion_key)}', 'currency', this.value)">
+          ${CURRENCY_CODES.map(x => `<option value="${x}"${(answerDraft.currency ?? 'SGD') === x ? ' selected' : ''}>${x}</option>`).join('')}
+        </select>
+      </div>
+    </div>`
+
   const reasonBox = draft === '' ? '' : `
     <div class="opp-assess-reason">
+      ${answerBox}
       <label for="opp-assess-reason-${escHtml(c.criterion_key)}">Reason${mustGiveReason ? ' (required)' : ' (optional)'}</label>
       <textarea id="opp-assess-reason-${escHtml(c.criterion_key)}" rows="2"
         oninput="setOppAssessReason('${escHtml(c.criterion_key)}', this.value)">${escHtml(oppAssessReason[c.criterion_key] ?? '')}</textarea>
@@ -1682,9 +1704,46 @@ function renderOppAssessCriterion(c) {
       </div>
     </div>`
 
+  // Round 26 Phase 1: THE CURRENT ENTRY GETS ITS OWN BLOCK.
+  //
+  // The defect the business reported as "displaying 1 save behind" was not a
+  // stale render: the payload refreshes correctly and the value was always
+  // right. It was that `series.slice(0, -1)` excludes the newest entry from
+  // the history and nothing else rendered it, so the current assessment's
+  // REASON, AUTHOR and TIMESTAMP were absent from the screen entirely. Only
+  // its level showed. Reproduced with three saves carrying distinct reason
+  // strings, because two entries can share a displayed minute and timestamps
+  // could not have separated them.
+  //
+  // Not fixed by unhiding the newest history row. OPPORTUNITY_DESIGN.md is
+  // explicit that the reason must be shown PROMINENTLY, because the reason is
+  // what a bid review challenges and the number is not; the current one is
+  // precisely the one that gets challenged. A row at the top of a collapsed
+  // list is present, not prominent.
+  //
+  // So the reason sits directly under the criterion, in reading colour, with
+  // its author and time beneath in a quieter treatment. History keeps its
+  // meaning as what the assessment USED to say, which is why slice(0, -1)
+  // stays: the newest entry is above it now, not missing.
+  //
+  // An entry with no reason is legitimate: Not applicable requires none. It
+  // says so rather than rendering an empty quote, because a blank space reads
+  // as a failed render.
+  const currentBlock = !current ? '' : `
+    <div class="opp-assess-current">
+      <p class="opp-assess-current-reason${current.reason ? '' : ' opp-assess-current-reason--none'}">${
+        current.reason ? escHtml(current.reason) : 'No reason recorded.'
+      }</p>
+      ${current.answer ? `<p class="opp-assess-current-answer">${escHtml(current.answer.currency)} ${escHtml(Number(current.answer.amount).toLocaleString('en-GB'))}</p>` : ''}
+      <p class="opp-assess-current-meta">${escHtml(current.by ?? '--')} &middot; ${escHtml(formatDateTime(current.at))}</p>
+    </div>`
+
   const history = series.length > 1 ? `
+    <p class="opp-assess-history-label">Previously</p>
     <div class="opp-assess-history">
-      ${series.slice(0, -1).reverse().map(e => `<div class="opp-assess-entry"><span>${escHtml(formatDateTime(e.at))}</span><span>${escHtml(labelFor(e.value))}</span><span>${escHtml(e.reason ?? '')}</span></div>`).join('')}
+      ${series.slice(0, -1).reverse().map(e => `<div class="opp-assess-entry"><span>${escHtml(formatDateTime(e.at))}</span><span>${escHtml(labelFor(e.value))}</span>${
+        e.answer ? `<span class="opp-assess-entry-answer">${escHtml(e.answer.currency)} ${escHtml(Number(e.answer.amount).toLocaleString('en-GB'))}</span>` : ''
+      }<span>${escHtml(e.reason ?? '')}</span></div>`).join('')}
     </div>` : ''
 
   return `
@@ -1701,6 +1760,7 @@ function renderOppAssessCriterion(c) {
         </select>
       </div>
       ${c.asks ? `<p class="opp-assess-asks">${escHtml(c.asks)}</p>` : ''}
+      ${currentBlock}
       ${anchors}
       ${reasonBox}
       ${history}
@@ -1730,9 +1790,15 @@ window.setOppAssessDraft = function (key, value) {
   rerenderOppAssessLens()
 }
 window.setOppAssessReason = function (key, value) { oppAssessReason[key] = value }
+// Held without re-rendering, like the reason: re-rendering on every keystroke
+// would destroy the input the person is typing into.
+window.setOppAssessAnswer = function (key, field, value) {
+  oppAssessAnswer[key] = { ...(oppAssessAnswer[key] ?? {}), [field]: value }
+}
 window.cancelOppAssess = function (key) {
   delete oppAssessDraft[key]
   delete oppAssessReason[key]
+  delete oppAssessAnswer[key]
   rerenderOppAssessLens()
 }
 // Opening on focus rather than toggling, so tabbing to the select reveals the
@@ -1748,8 +1814,14 @@ window.commitOppAssess = async function (key) {
   const value = Number(oppAssessDraft[key])
   const reason = String(oppAssessReason[key] ?? '').trim()
   const fb = document.getElementById(`opp-assess-feedback-${key}`)
+  // The answer travels only for the criterion that carries one, and only when
+  // an amount was actually typed: a blank input is not an answer of zero.
+  const a = oppAssessAnswer[key] ?? {}
+  const sendAnswer = key === OPP_VALUE_CAPTURE_KEY && String(a.amount ?? '').trim() !== ''
   const result = await api('POST', `/api/opportunities/${currentOppDetailId}/scores`, {
-    criterion: key, score: value, ...(reason ? { reason } : {}),
+    criterion: key, score: value,
+    ...(reason ? { reason } : {}),
+    ...(sendAnswer ? { answer: { amount: Number(a.amount), currency: a.currency ?? 'SGD' } } : {}),
   })
   if (!result.ok) {
     // The control is left exactly as it was, with the typed reason intact: the
@@ -1760,6 +1832,7 @@ window.commitOppAssess = async function (key) {
   }
   delete oppAssessDraft[key]
   delete oppAssessReason[key]
+  delete oppAssessAnswer[key]
   // The server owns the series, so the panel re-reads it rather than guessing.
   const fresh = await api('GET', `/api/opportunities/${currentOppDetailId}`)
   if (fresh.ok) currentOppPayload = fresh.data.payload ?? {}
@@ -1849,6 +1922,38 @@ async function mountOppAssessmentLenses() {
 // The business hit this four times in two and a half minutes on 2026-08-22.
 let oppLandOnTabAfterLoad = null
 
+// Round 26 Phase 3: ONE currency list.
+//
+// These ten codes were written twice as static <option> markup, on
+// deal-bidCurrency and deal-proposalCurrency. The assessment panel needs the
+// same ten, and adding a third copy is a third thing to keep in step, so the
+// two static lists are gone and all three selects are filled from here.
+//
+// Safe to generate: opportunity-deal.js only reads and writes `.value`, and it
+// defaults explicitly to 'USD' rather than relying on option order.
+const CURRENCY_CODES = ['USD', 'GBP', 'EUR', 'AED', 'SAR', 'SGD', 'AUD', 'CAD', 'JPY', 'INR']
+
+function fillCurrencySelect(el) {
+  if (!el || el.options.length) return
+  el.innerHTML = CURRENCY_CODES.map(c => `<option value="${c}">${c}</option>`).join('')
+}
+
+// The two static selects are markup that exists for the life of the page, so
+// they are filled once rather than per record.
+document.addEventListener('DOMContentLoaded', () => {
+  fillCurrencySelect(document.getElementById('deal-bidCurrency'))
+  fillCurrencySelect(document.getElementById('deal-proposalCurrency'))
+})
+
+// Round 26 Phase 3: the one criterion that captures a value beside its score.
+//
+// A LITERAL, deliberately. The business chose Budget confirmed alone precisely
+// to learn whether a value belongs beside a score before committing to a
+// shape, and a per-criterion type declaration is the shape that decision was
+// meant to defer. Naming the criterion here makes the narrowness visible; when
+// types are decided this constant is what they replace.
+const OPP_VALUE_CAPTURE_KEY = 'assessCommBudgetConfirmed'
+
 const OPP_EXIT_CRITERION_KEYS = new Set([
   'exitQualBudget', 'exitQualTimeline', 'exitQualCommitment',
   'exitSolTechnicalSolution', 'exitSolBuyersKnown', 'exitSolKeyStakeholders', 'exitSolTermsReviewed',
@@ -1882,6 +1987,26 @@ async function renderOppExitCriteria(containerId, recordId, fromStage, toStage, 
   }
 
   const rows = requirements.map(r => {
+    // Round 26 Phase 2: assessmentReviewed is tickable but NOT through the
+    // generic path. That path PATCHes a single ISO timestamp and toggles; this
+    // key holds an append-only series of {at, by, stage}, because one timestamp
+    // cannot say which stages have been reviewed and the four rules each name
+    // their own stage through entry_stage_at_or_after.
+    //
+    // It is also one-way. A met row is not clickable, because "I read the
+    // assessment at this stage" is an event and un-saying it is not a thing a
+    // person does.
+    const isReview = r.requirement_type === 'payload_field_required' && r.field === 'assessmentReviewed'
+    if (isReview) {
+      const box = r.met
+        ? '<span class="tb-crit-box tb-crit-box--met">&#10003;</span>'
+        : '<span class="tb-crit-box"></span>'
+      const cls = r.met ? 'tb-crit-row' : 'tb-crit-row tb-crit-row--tickable'
+      const click = r.met ? '' : ` onclick="recordOppAssessmentReview('${escHtml(recordId)}', '${escHtml(fromStage)}')"`
+      return `<div class="${cls}" data-field="${escHtml(r.field)}" data-stage="${escHtml(fromStage)}" data-met="${r.met ? 'true' : 'false'}"${click} title="${r.met ? 'Reviewed at this stage' : 'Confirm you have read the assessment'}">
+        ${box}<span class="tb-crit-text">${escHtml(r.label ?? 'Assessment reviewed')}</span>
+      </div>`
+    }
     const tickable = r.requirement_type === 'payload_field_required'
       && OPP_EXIT_CRITERION_KEYS.has(r.field)
       && !!r.label
@@ -1955,6 +2080,39 @@ function applyConfirmedOppTick(recordId, stageName, field, met) {
 // Test Bed has done this correctly since Round 9: re-render the panel, not
 // the page, and capture the stage at click time so a tab switch mid-flight
 // cannot paint the wrong stage's answer.
+// Round 26 Phase 2. Serialised through the same queue the criterion ticks use,
+// so a review and a tick cannot land two overlapping revisions on one record.
+//
+// One way: there is no clear. "I read the assessment at this stage" is an
+// event, and the row stops being clickable once met.
+window.recordOppAssessmentReview = (recordId, stageName) => {
+  const run = async () => {
+    const key = oppStageTabKey(stageName)
+    const fb = document.getElementById(`opp-stage-criteria-${key}`)?.querySelector('.opp-crit-feedback')
+    if (fb) { fb.textContent = ''; fb.className = 'tb-doc-feedback opp-crit-feedback' }
+
+    const result = await api('POST', `/api/opportunities/${recordId}/assessment-reviewed`)
+    if (!result.ok) {
+      const el = document.getElementById(`opp-stage-criteria-${key}`)?.querySelector('.opp-crit-feedback')
+      if (el) {
+        el.textContent = `Could not record the review: ${result.data?.error ?? 'unknown error'}`
+        el.className = 'tb-doc-feedback opp-crit-feedback err'
+      }
+      return
+    }
+    // Re-rendered from the server rather than marked optimistically. Whether
+    // the row is met depends on entry_stage_at_or_after, which is the
+    // evaluator's judgement and not something this side should predict.
+    if (currentOppDetailId === recordId && document.getElementById(`opp-stage-criteria-${key}`)) {
+      const token = ++oppStageTabLoadToken
+      await renderOppExitCriteria(`opp-stage-criteria-${key}`, recordId, stageName,
+        nextStageAfter(currentOppStages, stageName), () => token === oppStageTabLoadToken)
+    }
+  }
+  oppCriterionQueue = oppCriterionQueue.then(run, run)
+  return oppCriterionQueue
+}
+
 window.toggleOppExitCriterion = (recordId, stageName, field, isMet) => {
   if (!OPP_EXIT_CRITERION_KEYS.has(field)) return oppCriterionQueue
   const run = async () => {

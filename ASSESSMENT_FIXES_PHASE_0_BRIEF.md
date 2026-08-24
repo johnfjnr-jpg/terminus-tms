@@ -301,3 +301,289 @@ fixtures because `head` closed the pipe and killed the process before its
    reported and not resolved.
 
 Then stop and wait for sign-off.
+
+---
+
+# Round 26 close-out
+
+Branch `round-26-assessment-fixes`, off `main` at `cd59c57`. Four phases,
+each committed at its boundary, each signed off before the next began.
+
+| Phase | Commit | What shipped |
+|---|---|---|
+| 1 | `a4972d8` | The current entry's own block: reason, author, timestamp, and the history relabelled |
+| 2 | `7f6cc39` | The exit criteria swap: three Qualification rules out, `assessmentReviewed` in at four stages |
+| 3 | `c11a2fd` | Value capture on Budget confirmed: an `answer` beside the level and the reason |
+| 4 | this commit | The full walk, `CURRENT_STATE.md`, and this record |
+
+## Rule 7 check, and its calibration
+
+    grep -n "^## Phase\|^### Phase" ASSESSMENT_FIXES_PHASE_0_BRIEF.md
+
+Returns **1**. The round ran **four** phases.
+
+Calibrated three ways, because a count that disagrees with the truth is
+worth nothing until the instrument is shown to work. The narrow `^## Phase`
+pattern Round 10 got wrong returns 1 here as well, so this brief does not
+discriminate between the two patterns. Injecting `### Phase 99: calibration`
+takes the wide pattern to 2 and removing it returns it to 1, so the pattern
+can see a `###` heading and the file is unmodified afterwards.
+
+**The instrument works and the premise is false**, which is exactly what
+Round 24 established. This is a Phase 0 brief: it carries one `## Phase 0`
+heading and a section called "The plan to produce". The phase list was
+produced in the Phase 0 report and lives in the conversation, not in the
+file, so there is nothing in the brief for the grep to count.
+
+**Seventh failure, and the fifth distinct way.** The rule as written assumes
+the brief carries its phase list as headings. For every brief in the
+one-brief-per-round shape it does not. The rule's action is still worth
+performing, because performing it is what surfaces the mismatch; what should
+change is what the result is compared against. **The phase list has to be
+enumerated from the sign-offs**, which is what the table above does.
+
+## The walk
+
+One Opportunity from Qualification through Solution Alignment to Proposal,
+scoring on the Assessment tab, ticking and advancing on the stage tab, in one
+browser session with no reload.
+
+**Every strip click was counted and named**, because the constraint under
+test is about clicks that should not be needed:
+
+| # | What for |
+|---|---|
+| 1 | Open the Assessment tab to score at Qualification |
+| 2 | Reach the tick and the advance control |
+| 3 | Look at the Assessment tab at Solution Alignment |
+| 4 | Return from the Assessment tab to the control |
+| 5 | Look at the Assessment tab at Proposal |
+
+**Five clicks, and zero of them were needed to reach the next stage's control
+after an advance.** Both advances landed on the correct stage tab with that
+stage's exit criteria already rendered and the advance control already
+present, with the click counter unmoved. The four excursions are the
+Assessment tab and the stage tab being different tabs on one strip, which is
+the design, not a landing fault.
+
+Stored at the end: review entries at `["Qualification","Solution Alignment"]`,
+and a Budget series of `3 @ Qualification {750000 GBP}` then
+`4 @ Solution Alignment {820000 GBP}`. The stage on each entry is written
+server-side from the record's own status, never sent by the client.
+
+### What the walk found
+
+**The review row renders on stage tabs the record has not reached, and
+clicking it there writes a real entry and changes nothing on screen.**
+
+Criteria are tickable on any stage tab. That was ported from Test Bed and is
+correct for every rule that existed when it was built, because those rules
+are bare presence checks: ticking one from a future tab sets the field and
+the row turns met everywhere. `assessmentReviewed` is the first Opportunity
+rule whose met-ness depends on the record's stage, and the interaction has
+never met one before.
+
+Measured, with the record at Qualification and the Proposal tab open:
+
+| | met | tickable | feedback |
+|---|---|---|---|
+| before the click | false | yes | none |
+| after the click  | false | yes | none |
+
+The write landed. `assessmentReviewed` gained
+`{stage: "Qualification"}`, because the server dates the entry from the
+record, and Proposal's rule requires an entry at or after Proposal.
+Calibration: switching to Qualification's own tab shows that same write as
+met=true, so the click worked and only the clicked row is inert.
+
+**This is Architecture rule 8 for the ninth time**, and it is the symptom
+Phase 2 named at the level of a missing function: a control that does nothing
+is indistinguishable from a gate refusing. Here the user gets no feedback at
+all, and the row invites the click again.
+
+**Not fixed in this round.** It is a containment decision rather than a
+defect in what Phase 2 built, the harm is confusion rather than wrong data,
+and the two candidate fixes differ in what they say about the design. Either
+the row stops being tickable on tabs other than the record's own stage for
+rules carrying `entry_stage_at_or_after`, or the click reports why it did not
+take. Recorded here for the round that chooses.
+
+## Findings and decisions recorded beyond the phase list
+
+**The history defect's real cause.** The panel was never one save behind. It
+rendered `series.slice(0, -1)`, deliberately hiding the newest entry so the
+history would not repeat the level shown in the header, and nothing else on
+screen carried that entry's reason, author or timestamp. The newest save was
+absent, not stale, and "one behind" is what absence looks like when the rows
+below it are correct.
+
+**Round 25 Phase 6 verified entry counts against the database and passed
+while the display lagged.** The check asked whether the write had landed. It
+had. The claim that mattered was whether the entry was visible, and no count
+of rows in `record_revisions` can answer that. This is Verification 3 in its
+plainest form: a check that could pass while the claim is false.
+
+**The verb finding.** `entry_stage_at_or_after` built its blocking message as
+"Requires <label> scored at or after <stage>". The verb was hardcoded because
+the clause had only ever gated scores, and these are the first rules where it
+gates something else: it would have read "Requires Assessment reviewed scored
+at or after Qualification". Made a property of the rule with a default of
+`scored`, so all three existing Test Bed rules read byte-identically and the
+four new ones carry `"verb": ""`. Additive, not a fork.
+
+**The second empty-set trap, after Round A Phase 6.** A Test Bed message check
+passed by running `every()` over an empty array: the Test Bed chosen for the
+comparison had already satisfied the rules whose messages were being compared,
+so there were no messages and the assertion was vacuously true. Re-run against
+a fixture where the rules actually fire, it compared two real messages. Same
+family as Verification 14: a check reached with nothing to compare reports
+success.
+
+**The two-edit script that aborted on its second anchor.** A Phase 2 edit
+script asserted on both anchors before writing either, failed the second, and
+wrote neither. Re-running only the half that had failed left
+`recordOppAssessmentReview` undefined while its call site existed, so clicking
+the row threw `ReferenceError` and the page did nothing. **The symptom matters
+as much as the cause**: a missing function reads as a UI that does nothing,
+which is exactly what a gate refusing looks like. The walk finding above is
+the same symptom arrived at from the opposite direction.
+
+**The currency consolidation.** Reusing `bidCurrency`'s picklist by copying
+its ten options would have satisfied the instruction and created a third copy
+to drift. Instead the two static option lists in `index.html` were removed and
+all three selects now fill from one `CURRENCY_CODES` array. Two lists removed,
+one source, three consumers. Verified the deal panel still offers the same ten
+codes in the same order and still defaults to USD.
+
+**The unconstrained answer shape.** The server checks that the amount is
+finite and non-negative and that the currency is one of the ten. It does not
+check which criteria may carry an answer, because nothing yet declares that. A
+later writer's typo in the criterion key is silent, and an answer posted
+against ROI and payback is accepted and stored, demonstrated rather than
+asserted. The cost was accepted in exchange for no migration and no
+per-criterion type vocabulary. Recorded in `src/lib/score-entry.js` under a
+heading a future writer meets before adding a second such criterion, and in
+`OPPORTUNITY_DESIGN.md`, not only here.
+
+**The current entry without a figure.** A re-score that types no figure
+records none, so the figure sits on an earlier entry and not on the current
+one. Looking at the Phase 3 screenshot found it; no assertion would have,
+because every property a check can name was correct. The history rows now
+carry the figure so it stays on the page. Carrying the old figure forward onto
+the new entry was rejected: it would show an amount against an act that never
+recorded one, the same class as a computed rollup presented as a person's
+judgement. **Whether a figure should be required above some level is a rule
+for Round C**, recorded in `OPPORTUNITY_DESIGN.md` as a choice rather than an
+oversight.
+
+**The live-data effect, measured on the real records.** All three live
+Qualification Opportunities held none of the three keys the migration removes.
+Asked through `GET /records/:id/exit-criteria` after the migration, each
+returns exactly one requirement and one unmet:
+
+    TT-SGP-SMARTC-001: 1 requirement, unmet ["Assessment reviewed"]
+    TT-SGP-SMARTC-002: 1 requirement, unmet ["Assessment reviewed"]
+    TT-SGP-SMARTC-003: 1 requirement, unmet ["Assessment reviewed"]
+
+Three deals blocked by three things nobody had done are now blocked by one
+thing one person can do. That is what the swap was for.
+
+**The three orphaned payload keys, left deliberately.** The one Closed Won
+record still holds `exitQualBudget`, `exitQualTimeline` and
+`exitQualCommitment`, confirmed present after the migration. Removing a rule
+does not remove data. Round 20 Phase 8 established the same thing where fifty
+revisions still carry a key retired in Round 11: a revision records what was
+true when it was written, and rewriting history to match today's configuration
+would be the larger mistake.
+
+## `CURRENT_STATE.md`: the blind spot, and whether this round changes it
+
+**Searched with `grep -a`, calibrated first.** Plain `grep` for
+`stage_gate_rules` in `scripts/state-dump.mjs` returns 0 with exit status 1,
+because the file holds two literal NUL bytes; `grep -a` returns 3; a
+known-absent string returns 0 under `-a`. The instrument separates absence
+from failure before any absence is reported.
+
+**The first probe did not discriminate and was replaced.** Counting mentions
+of `scoring_lenses` in `CURRENT_STATE.md` returns 1, and so does
+`scoring_criteria`, which is fully dumped. Both counts are 1 for opposite
+reasons. Re-asked as "is there a `## \`<table>\`` section heading":
+
+| Table | Own section |
+|---|---|
+| `scoring_criteria` | yes |
+| `scoring_anchors` | yes |
+| `stage_gate_rules` | yes |
+| `scoring_lenses` | **no** |
+| `scoring_scales` | **no** |
+| `scoring_scale_levels` | **no** |
+| `scoring_criterion_stages` | **no** |
+
+Calibration: a name that cannot be a section returns 0.
+
+**The single mentions are migration filenames.** Lines 490, 491 and 493 are
+`20260823000001_scoring_lenses.sql` and its neighbours. So the file's
+migration ledger records that four tables were created while its configuration
+sections behave as though they do not exist, and a search for the table name
+returns a hit that reads like coverage. `scoring_criteria`'s printed column
+list also omits `scale_id` and `lens_id`, the two columns Round 24 added.
+
+**That is the same fault as Round 25 Phase 6's**, where `lens_id` was missing
+from `GET /api/scoring-criteria`'s explicit column list and zero criteria
+rendered: an explicit column list that outlived the schema. Three instances
+now, two of them in the generator.
+
+**This round does not change it, and adds one thing beneath it.** No table and
+no column were added, so nothing new became invisible at the schema level. But
+the `answer` structure lives inside `record_revisions.payload`, which the
+generator does not and should not print, and no configuration table declares
+it. **Nothing generated can record that value capture exists.** That is the
+accepted cost of the score-entry option, stated in the terms this file
+measures in.
+
+**Not fixed here.** Adding four sections and two columns to the generator
+would produce a `CURRENT_STATE.md` diff that no phase of this round accounts
+for, which is the reconciliation rule pointing the other way. The generator's
+own note on `asks` says when to do it: the column is added and committed
+before the values change, so the right moment is the start of Round C.
+
+## The regenerated diff, reconciled
+
+Every line accounted for by a phase:
+
+| Diff | Phase |
+|---|---|
+| `stage_gate_rules` 92 to 93 rows: three Qualification rules out, four in | 2 |
+| `payload_field_required` for opportunity 19 to 20 | 2 |
+| `assessmentReviewed` added to the 54 literal writable keys, now 55 | 2 |
+| `POST /api/opportunities/:id/assessment-reviewed`, 61 routes to 62 | 2 |
+| `20260824000001_assessment_reviewed.sql`, 70 migrations to 71 | 2 |
+| Soft-deleted, revision and approval counts up | Fixtures from all four phases |
+| Git commit SHA | This round |
+
+**Two of the four phases produced no diff at all, by construction.** The
+generator parses `supabase/migrations`, `supabase/seeds` and `src/routes`.
+Phase 1 changed `frontend/` only and Phase 3 changed `frontend/` and
+`src/lib/`, so neither is visible. Stated rather than glossed: the
+reconciliation is complete, and it is complete over a file that cannot see
+half this round.
+
+## Teardown and residue
+
+Enumerated from the database, not from any file a probe wrote.
+
+- **94 live records**, the same 94 as before the round, all owned by
+  `john@terminustechnologies.io`. No other account owns a live record, so
+  there is no probe residue and no interactive-test-account residue.
+- Four live Opportunities: three at Qualification, one Closed Won. Unchanged.
+- **18 approvals created since 2026-08-23 across 6 records, and all 6 records
+  are soft deleted.** Calibrated: the same query run against the earlier date
+  range finds 9 live records, so the probe can see a live one.
+- Every fixture the walk created was soft deleted and confirmed by re-querying
+  `deleted_at`, never by trusting the delete's own result. No
+  `reference_number_counters` row was touched.
+
+## Suites
+
+`npm test` 25 of 25. `npm run test:db` 59 of 59. Both green at every phase
+boundary and again at close.

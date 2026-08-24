@@ -756,6 +756,39 @@ because a rule over an empty set would have read as satisfied, and Round 25
 inserted none because the strictness is not yet knowable. They arrive when the
 full criterion set exists.
 
+### The budget figure, and when an entry may carry none
+
+**Round 26 Phase 3. The business decided this deliberately; it is a choice,
+not an oversight.**
+
+Budget confirmed carries a figure beside its level and reason: an `answer` of
+`{amount, currency}` on the score entry. The figure belongs to the ENTRY that
+recorded it, exactly as the level and the reason do. It is not a property of
+the criterion that survives being re-scored.
+
+**So a re-score that types no figure legitimately records none**, and the
+current entry then shows a level and a reason with no amount while the amount
+sits on an earlier entry in the history. Both readings are truthful and the
+history keeps every figure ever recorded.
+
+**The alternative was rejected.** Carrying the last known figure forward onto
+the new entry would put an amount against an act that never recorded one,
+which is the same class of mistake as a computed rollup presented as a
+person's judgement, and this document has already settled that class once.
+
+**What is undecided is whether a figure should be REQUIRED above some level**,
+so that Verified cannot be recorded without one. That is a rule about a
+criterion, it needs the full criterion set to be worth writing, and it is
+therefore Round C's question rather than Round 26's. Recorded in the open
+decisions table.
+
+**The shape is unconstrained and nothing declares which criteria may carry an
+answer.** The server validates that an amount is finite and non-negative and
+that the currency is one of the ten, and accepts an answer against any
+criterion. A later writer's typo in the key is silent. The cost was accepted
+knowingly in exchange for no migration and no per-criterion type vocabulary;
+the note a future writer meets first is in `src/lib/score-entry.js`.
+
 ### Where they sit, v1.1
 
 | Stage | Requirement |
@@ -1192,3 +1225,4 @@ already exists and has never held anything.
 | Approvals unstated on three transitions | Closed Round 20 Phase 5. Qualification to Solution Alignment carries none, Proposal to Evaluation and Evaluation to Negotiating each carry Commercial, Technical and Legal |
 | Closed Lost stage-at-death storage | Confirmed v1.2. A server-written key on `opportunity_details`, deliberately NOT in `SALESPERSON_WRITABLE_KEYS` |
 | Buyer contact role mapping | Open since the Test Bed build |
+| **Is a budget figure required above some level on Budget confirmed** | **Open. Round 26 Phase 3 made it optional per entry deliberately. Needs the full criterion set, so Round C** |
