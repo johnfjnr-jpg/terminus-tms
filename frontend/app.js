@@ -1687,9 +1687,25 @@ function renderOppAssessCriterion(c) {
   const options = levels.map(l =>
     `<option value="${l.value}"${String(draft) === String(l.value) ? ' selected' : ''}>${escHtml(String(l.label))}</option>`).join('')
 
+  // Round 28 Phase 2. THREE STATES, where there were two.
+  //
+  // `undefined` means nobody has decided, and the old defaulting applies: a
+  // draft in progress opens the block. `true` and `false` are a decision the
+  // person made with the control below, and a decision outranks the default,
+  // which is why this is `??` rather than the `||` it replaces. With `||` an
+  // explicit close was undone the instant a draft existed.
+  const anchorsOpen = oppAssessOpen[c.criterion_key] ?? (draft !== '')
   const anchors = unanchored
     ? '<p class="opp-assess-note">No level definitions are recorded for this criterion yet, so it cannot be assessed.</p>'
-    : `<div class="opp-assess-anchors${oppAssessOpen[c.criterion_key] || draft !== '' ? '' : ' hidden'}" id="opp-assess-anchors-${escHtml(c.criterion_key)}">
+    // The control sits OUTSIDE the block it controls, so opening and closing
+    // are the same gesture in the same place. Inside, it would vanish with the
+    // thing it collapses and leave no way back. It is also the first way to
+    // reveal the definitions that is visible at all: before this the only
+    // route was focusing the select, which is not an affordance.
+    : `<button type="button" class="anchors-toggle" id="opp-assess-anchors-toggle-${escHtml(c.criterion_key)}"
+               aria-expanded="${anchorsOpen ? 'true' : 'false'}" aria-controls="opp-assess-anchors-${escHtml(c.criterion_key)}"
+               onclick="toggleOppAssessAnchorsOpen('${escHtml(c.criterion_key)}')">${anchorsOpen ? 'Hide definitions' : 'Show definitions'}</button>
+       <div class="opp-assess-anchors${anchorsOpen ? '' : ' hidden'}" id="opp-assess-anchors-${escHtml(c.criterion_key)}">
          ${levels.map(l => `
            <span class="opp-assess-anchor-n${anchorSet[l.value] ? '' : ' opp-assess-anchor--nowording'}">${escHtml(String(l.label))}</span>
            <span class="opp-assess-anchor-t">${anchorSet[l.value] ? escHtml(anchorSet[l.value]) : ''}</span>`).join('')}
@@ -1780,7 +1796,7 @@ function renderOppAssessCriterion(c) {
         <span class="opp-assess-value${current ? '' : ' opp-assess-value--none'}">${current ? escHtml(labelFor(current.value)) : OPP_ASSESS_NONE}</span>
         <select class="opp-assess-select" id="opp-assess-select-${escHtml(c.criterion_key)}"
           aria-label="${escHtml(c.name)}"${unanchored ? ' disabled' : ''}
-          onfocus="toggleOppAssessAnchorsOpen('${escHtml(c.criterion_key)}')"
+          onfocus="revealOppAssessAnchors('${escHtml(c.criterion_key)}')"
           onchange="setOppAssessDraft('${escHtml(c.criterion_key)}', this.value)">
           <option value="">${current ? 'Revise...' : OPP_ASSESS_PROMPT}</option>
           ${options}
@@ -1829,12 +1845,36 @@ window.cancelOppAssess = function (key) {
   rerenderOppAssessLens()
 }
 // Opening on focus rather than toggling, so tabbing to the select reveals the
-// definitions a scorer is about to choose between. Idempotent: re-focusing
-// does not close them.
-window.toggleOppAssessAnchorsOpen = function (key) {
-  if (oppAssessOpen[key]) return
+// definitions a scorer is about to choose between.
+//
+// Round 28 Phase 2: RENAMED, because it never toggled and the name said it
+// did. It reveals, one way, and the real toggle is now the function below.
+// The guard also changed from `if (open)` to `if (decided)`: an explicit
+// close has to survive the next focus, or the control does nothing that lasts
+// past reaching for the select again, which is the very next thing a scorer
+// does.
+window.revealOppAssessAnchors = function (key) {
+  if (oppAssessOpen[key] !== undefined) return
   oppAssessOpen[key] = true
   rerenderOppAssessLens()
+}
+
+// The explicit control. DIRECT DOM MUTATION, NEVER A RE-RENDER, following
+// showTbScoreAnchors' reasoning rather than this file's own previous habit:
+// rerenderOppAssessLens rewrites the pane's innerHTML, which would destroy a
+// reason textarea mid-sentence and drop the caret. The flag is set for later
+// re-renders and this render is updated in place.
+window.toggleOppAssessAnchorsOpen = function (key) {
+  const block = document.getElementById(`opp-assess-anchors-${key}`)
+  if (!block) return
+  const open = block.classList.contains('hidden')
+  oppAssessOpen[key] = open
+  block.classList.toggle('hidden', !open)
+  const btn = document.getElementById(`opp-assess-anchors-toggle-${key}`)
+  if (btn) {
+    btn.textContent = open ? 'Hide definitions' : 'Show definitions'
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false')
+  }
 }
 
 window.commitOppAssess = async function (key) {

@@ -1670,6 +1670,36 @@ textarea::placeholder { color: var(--muted-2); }
 }
 .btn-text:hover { color: var(--white); }
 
+/* ── Round 28 Phase 2: the anchors close control ────────────────────────────
+   ONE class, used by BOTH record types, which is deliberate and is the one
+   place in this round where sharing beats siblings. Round 9 Phase 6.2 keeps
+   two approval builders apart because their callers genuinely need different
+   things; here the two callers need exactly the same control for exactly the
+   same reason, and a second declaration of the same five properties is a pair
+   that drifts.
+
+   A BRAND NEW class rather than a reuse of .btn-text, whose 11px uppercase
+   mono is the treatment for a history disclosure sitting in a row head. This
+   control introduces itself above a block of prose and should read as a
+   sentence, not a caption. Being new, it also cannot change the computed style
+   of anything that already exists, which is what this phase's before-and-after
+   has to show. */
+.anchors-toggle {
+  display: inline-block;
+  margin-top: 10px;
+  padding: 0;
+  background: none;
+  border: none;
+  font-family: var(--body);
+  font-size: 12px;
+  color: var(--muted);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.anchors-toggle:hover { color: var(--white); }
+.anchors-toggle:focus-visible { outline: 1px solid var(--green); outline-offset: 2px; }
+
 /* ── Auth screen ────────────────────────────────────────────── */
 .view-auth {
   display: flex;

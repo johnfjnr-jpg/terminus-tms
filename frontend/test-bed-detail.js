@@ -1845,9 +1845,31 @@ function tbScoreKeys() {
 // re-rendering on focus would destroy the very select the user just opened,
 // closing its dropdown as they reached for it. The flag is set for later
 // re-renders and the class is removed directly for this one.
+// Round 28 Phase 2: the guard is new. An explicit close has to survive the
+// next focus or mousedown, or the control does nothing that lasts past
+// reaching for the select again, which is the very next thing a scorer does.
 window.showTbScoreAnchors = function (key) {
+  if (tbScoreAnchorsOpen[key] !== undefined) return
   tbScoreAnchorsOpen[key] = true
   document.getElementById(`tb-anchors-${key}`)?.classList.remove('hidden')
+  const btn = document.getElementById(`tb-anchors-toggle-${key}`)
+  if (btn) { btn.textContent = 'Hide definitions'; btn.setAttribute('aria-expanded', 'true') }
+}
+
+// The explicit control. Direct DOM mutation for the same reason its sibling
+// above uses it: renderTbScores rewrites innerHTML, which would close the very
+// dropdown the scorer just opened and eat a half-typed reason.
+window.toggleTbScoreAnchors = function (key) {
+  const block = document.getElementById(`tb-anchors-${key}`)
+  if (!block) return
+  const open = block.classList.contains('hidden')
+  tbScoreAnchorsOpen[key] = open
+  block.classList.toggle('hidden', !open)
+  const btn = document.getElementById(`tb-anchors-toggle-${key}`)
+  if (btn) {
+    btn.textContent = open ? 'Hide definitions' : 'Show definitions'
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false')
+  }
 }
 
 // The wording for a given version, or an empty set. Versions are jsonb object
@@ -2217,8 +2239,17 @@ async function renderTbScores() {
     const asksLine = c.asks ? `<p class="tb-score-asks">${escHtml(c.asks)}</p>` : ''
 
     const anchorSet = tbAnchorSet(c, c.current_version)
+    // Round 28 Phase 2. THREE STATES, where there were two. `undefined` means
+    // nobody has decided and the old defaulting applies, a pending draft opens
+    // the block; `true` and `false` are a decision the person made with the
+    // control below, and a decision outranks the default, which is why this is
+    // `??` rather than the `||` it replaces.
+    const anchorsOpen = tbScoreAnchorsOpen[c.criterion_key] ?? (pending !== '')
     const anchorsBlock = `
-      <div class="tb-score-anchors${tbScoreAnchorsOpen[c.criterion_key] || pending !== '' ? '' : ' hidden'}"
+      <button type="button" class="anchors-toggle" id="tb-anchors-toggle-${escHtml(c.criterion_key)}"
+              aria-expanded="${anchorsOpen ? 'true' : 'false'}" aria-controls="tb-anchors-${escHtml(c.criterion_key)}"
+              onclick="toggleTbScoreAnchors('${escHtml(c.criterion_key)}')">${anchorsOpen ? 'Hide definitions' : 'Show definitions'}</button>
+      <div class="tb-score-anchors${anchorsOpen ? '' : ' hidden'}"
            id="tb-anchors-${escHtml(c.criterion_key)}">
         ${levels.map(l => `
           <div class="tb-score-anchor${anchorSet[l.value] ? '' : ' tb-score-anchor--nowording'}">
@@ -2767,6 +2798,20 @@ window.initTestBedDetailPanel = function (bed) {
   // Captured BEFORE tbEdits is reset and before any panel is rebuilt.
   const carried = captureTbOpenEdits()
 
+  // Round 28 Phase 2. Test Bed carried the bleed Opportunity had until Round
+  // 28 Phase 1: tbScoreAnchorsOpen is module-level, keyed by criterion, and
+  // was never cleared anywhere. tbEdits beside it is reset on every load and
+  // this map was not, so a Test Bed opened after another one showed the
+  // previous record's anchor blocks already revealed.
+  //
+  // Same class, one record type behind. COSMETIC here rather than dangerous,
+  // because a revealed definition is not a judgement, but severity is not
+  // identity and the phase is already in this block on both types. Cleared on
+  // a RECORD CHANGE for the same reason Phase 1 chose that over every load:
+  // initTestBedDetailPanel also runs for same-record reloads.
+  if (tbDetailId !== bed.id) {
+    for (const k of Object.keys(tbScoreAnchorsOpen)) delete tbScoreAnchorsOpen[k]
+  }
   tbDetailId = bed.id
   tbBed = bed
   tbPayload = bed.payload ?? {}
