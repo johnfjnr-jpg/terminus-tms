@@ -467,3 +467,101 @@ status header, which is a statement about what is built.
 which of two bars it is. The original ordering would either move one and leave
 the other, which is the false implication, or force the scope decision inside a
 phase scoped as a layout change.
+
+---
+
+# Phase 2: the save scope, measured
+
+**A decision phase. No code, and the decision is not taken here: it is
+recommended and awaits sign-off.**
+
+## What two dirty bars actually looks like
+
+**Today they can never both be on screen.** Measured on one record at 1240:
+
+| State | assessment bar | reference bar | both on screen |
+|---|---|---|---|
+| clean, on Reference | hidden | hidden | **false** |
+| assessment drafted, on Assessment | visible, 876x71 | hidden | **false** |
+| plus a Reference field open, on Reference | **not on screen** | visible, 420x56 | **false** |
+
+In the third row `assessDirty` is 1 and `refDirty` is 1: **both scopes are dirty
+at the same time**, and the assessment bar is not hidden by its own class. It is
+invisible because its ancestor tab panel is. Only the open tab's bar renders.
+
+**Nothing prevents both being dirty.** `refEdits` is reset only in
+`renderReferenceTab()` (`frontend/opportunity-reference.js:252`), which runs on
+record load; the Opportunity tab switcher only toggles `hidden` on panes
+(`frontend/app.js:245`); and Round 28 Phase 1 clears the assessment maps on a
+record change, not on a tab change. So the state is reachable by an ordinary
+sequence and is held indefinitely.
+
+## Option A, previewed rather than argued
+
+The assessment bar was reparented into the tab strip client-side, with no code
+change, to photograph the proposal:
+
+| | |
+|---|---|
+| both on screen | **true** |
+| assessment bar | tab strip, second row, 416px wide at left 762 |
+| reference bar | 157px below, inside the Reference panel |
+| vertical gap | 157px |
+
+**It fits.** The bar lands in the free space Phase 0 measured, 683px at 1240.
+**Space was never the problem.**
+
+**Looked at, it reads as confusion rather than as two controls**, for four
+reasons that are visible in the capture and are not matters of styling:
+
+1. The record-level bar says **"1 assessment ready to record"** while the reader
+   is on **Reference**. It describes work on a tab that is not on screen.
+2. **Two Cancel buttons**, 157px apart, cancelling different things.
+3. **RECORD and SAVE**, two words for the same act, on one screen.
+4. The bar sits in the tab strip's **second row**, beside the wrapped tabs, so
+   its position says "record level" while its content says "one tab".
+
+## How rare, and the honest answer
+
+**Nothing prevents it, and it is unlikely rather than blocked.**
+
+- Reference is the landing tab, so the natural order is Reference then
+  Assessment, not the reverse.
+- Reaching it takes a deliberate sequence: draft an assessment, switch tab,
+  open a Reference field.
+- **But it is exactly what someone scoring an assessment does when they notice
+  the Opportunity name is wrong**, and there is no warning on leaving the
+  Assessment tab with a draft: Round 28 Phase 7's guard covers a record change
+  and a page unload, deliberately, because a tab change loses nothing.
+
+**Option A would make it more likely, not less.** A bar visible from Reference
+invites a press from Reference, and the press would record an assessment the
+reader cannot see.
+
+## The recommendation: OPTION C, awaiting sign-off
+
+**Move advance and Mark Closed Lost to the tab line. Leave both save bars with
+the panels they save.**
+
+**The reasoning, and it is the part worth keeping.** Test Bed's bar carries
+Save because **Test Bed's save IS record-level**: one dirty map, `tbEdits`
+(`frontend/test-bed-detail.js:15`), covering every field on the record. Its
+grouping is a CONSEQUENCE of its single scope, not a layout convention to copy.
+
+Opportunity has three mechanisms and no single record-level save. Putting a
+panel-scoped save in a record-level position copies the position without the
+property that earns it, and the capture is what that costs.
+
+**Advance and Closed Lost are genuinely record-level**: they act on
+`records.status`, not on any panel's edits, so the tab line is where they
+belong on both record types.
+
+**This is not a dead end for option B.** When the system-wide registry
+`INTERACTION_STANDARDS.md` Section 5 specifies is built, Opportunity's save
+becomes record-level for real and can join the bar then. Option C is the step
+that does not have to be undone. Option A is the step that would.
+
+**What C does not do**, stated so it is a choice rather than an omission: it
+does not reproduce Test Bed's three-control grouping. Opportunity would carry
+two controls on the tab line and Test Bed three, and that difference is
+principled rather than accidental.
