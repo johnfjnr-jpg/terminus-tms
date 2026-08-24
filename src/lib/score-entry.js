@@ -37,6 +37,17 @@ import { resolveLevels } from './scoring-levels.js'
 import { writeErrorStatus } from './write-errors.js'
 
 /**
+ * The currency codes an answer may carry.
+ *
+ * The same ten the deal panel offers. Kept here rather than imported from the
+ * frontend because the server cannot import it, and duplicated deliberately
+ * with this note: frontend/app.js CURRENCY_CODES is the other copy, and the
+ * two must agree. The alternative was a table, which is a migration for a list
+ * that has not changed since the prototype.
+ */
+export const CURRENCY_CODES = ['USD', 'GBP', 'EUR', 'AED', 'SAR', 'SGD', 'AUD', 'CAD', 'JPY', 'INR']
+
+/**
  * @param {object}   o
  * @param {object}   o.db          a user-scoped Supabase client
  * @param {string}   o.recordType  'test_bed' | 'opportunity'
@@ -48,7 +59,7 @@ import { writeErrorStatus } from './write-errors.js'
  * @returns {Promise<{status:number, body:object}>}
  */
 export async function recordScoreEntry({ db, recordType, recordId, body, user, messages, logError }) {
-  const { criterion, score, comment, reason } = body ?? {}
+  const { criterion, score, comment, reason, answer } = body ?? {}
   const log = logError ?? (() => {})
 
   // The criterion must be real, and real FOR THIS RECORD TYPE. scoring_criteria
@@ -155,6 +166,41 @@ export async function recordScoreEntry({ db, recordType, recordId, body, user, m
   }
   if (String(comment ?? '').trim()) entry.comment = String(comment).trim()
   if (String(reason ?? '').trim()) entry.reason = String(reason).trim()
+
+  // Round 26 Phase 3: the ANSWER a criterion carries beside its score.
+  //
+  // ITS OWN FIELD, not `comment`. `comment` exists on this shape, is stored,
+  // and is sent by nothing on the Opportunity side, which makes it tempting.
+  // That is not a reason: it is a free-text note, and putting a figure in it
+  // would make one field mean two things depending on which criterion it
+  // belongs to. The same argument settled approvals.comment in Round 25.
+  //
+  // ============================================================================
+  // READ THIS BEFORE ADDING A SECOND CRITERION THAT CARRIES AN ANSWER.
+  // ============================================================================
+  //
+  // NOTHING DECLARES WHICH CRITERIA HAVE ONE. The business chose Budget
+  // confirmed alone to learn whether a value belongs beside a score before
+  // committing to a per-criterion type vocabulary, and accepted the cost that
+  // follows: this endpoint will store an `answer` against ANY criterion, and a
+  // writer that sends it to the wrong one is not corrected. The shape below is
+  // checked; the question of which criteria may carry it is not, because
+  // nothing yet knows.
+  //
+  // The round that decides types is where that gets fixed. Until then the
+  // frontend names its one criterion in OPP_VALUE_CAPTURE_KEY, and that
+  // constant plus this comment are the whole of the constraint.
+  if (answer !== undefined && answer !== null) {
+    const amount = Number(answer.amount)
+    const currency = String(answer.currency ?? '').trim()
+    if (!Number.isFinite(amount) || amount < 0) {
+      return { status: 400, body: { error: 'answer.amount must be a number that is not negative' } }
+    }
+    if (!CURRENCY_CODES.includes(currency)) {
+      return { status: 400, body: { error: `answer.currency must be one of ${CURRENCY_CODES.join(', ')}` } }
+    }
+    entry.answer = { amount, currency }
+  }
 
   const { error: revErr } = await appendRecordRevision(
     db, record.id, { [crit.criterion_key]: [...existing, entry] }, user.id)
