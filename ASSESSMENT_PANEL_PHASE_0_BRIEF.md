@@ -609,3 +609,72 @@ rows, because RLS filters the rows out rather than raising. **Verification 8's
 shape**, working in our favour here, and a caller not checking the row count
 would read it as success. The immutability guarantee is real; the way it
 reports itself is not self-announcing.
+
+---
+
+## Phase 8: the full walk
+
+One Opportunity through Qualification, Solution Alignment and Proposal. The
+assessment work through the UI, because that is this round's subject; the
+generic exit criteria and the approvals through the API, because they are not.
+The strip clicked once to reach a control and not again.
+
+**The walk found no problem.** Every round before this one found something in
+the walk that the targeted phases did not, so that is a result worth stating
+plainly rather than assuming it means the walk was weak.
+
+### The three things this round made worth watching
+
+**Phase 1 and Phase 7 against each other, for the first time.** Drafted at
+Qualification with a level, a reason and a figure, then navigated to another
+record. Phase 7's dialog opened BEFORE Phase 1 could clear: the dialog showed,
+the record had not changed, and the draft was still held. Keep editing returned
+all three, the figure included. After the save, the same navigation was silent
+and completed. The ordering is right: the warning is upstream of the clearing,
+so the clearing never runs on work the person has not been asked about.
+
+**Phase 5 and Phase 6 on the same entries from different ends.** Four criteria
+drafted at Solution Alignment and saved with one press: "Recorded 4 of 4", all
+four grew in the database, and the re-scored Budget confirmed went to two
+entries. Its history control then read **"Show 1 earlier assessment"**, and the
+three criteria scored once offered no history control at all. The count is the
+series minus the current entry, which is what "earlier" has to mean.
+
+**Phase 6's removal of both auto-open routes, under a walk.** The definitions
+block was opened by hand, closed by hand, and then a level was chosen: it
+stayed closed. It was still closed on arrival at Solution Alignment, and still
+closed at Proposal after a full walk, including with all seven criteria in
+draft.
+
+### The number the business asked about
+
+Measured on a fresh record at Proposal, in the same two states Phase 0
+measured, identical at 1240 and 1920:
+
+| | Phase 0 | Phase 8 | |
+|---|---|---|---|
+| collapsed, nothing touched | 818 | **687** | -131 |
+| a level chosen on all seven | 3266 | **1463** | **-1803, 55 per cent** |
+
+Zero block-level overflow at either width. At an 1100px viewport the drafting
+state went from three screens to just over one.
+
+**Where it came from, and one correction to how it was described.** Phase 2's
+close control is the largest single contributor, but its 1506px was measured
+against a state that no longer exists, because Phase 6 stopped the definitions
+opening at all. What the round actually did is remove the two lines per
+criterion (Phase 4, 208px), take the history out of the default view (Phase 6,
+626px on a record with three entries each), and stop the definitions block ever
+opening by itself (Phases 2 and 6 together). Phase 3's generic wording
+contributes 16px of height and its win is reading effort rather than scrolling,
+which was stated when it was measured.
+
+### One mislabelled assertion, recorded rather than tidied
+
+The Proposal check printed "exactly the four re-scorable criteria offer history"
+against an assertion of `historyToggles.length === 1`. The assertion is right,
+because only Budget confirmed had been scored twice at that point; the label
+was written for a state the walk did not reach. The check passed for the right
+reason and said the wrong thing, which is the milder half of the family this
+round has been recording: a label that describes the intent rather than the
+test.
