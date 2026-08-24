@@ -61,15 +61,33 @@ not resolve it quietly.
    rather than assuming coverage.
 
 7. **Before declaring a round complete, check the phase count against the
-   brief's own list** with `grep -n "^## Phase\|^### Phase"`. Two rounds
-   recorded a premature completion claim caught only by doing exactly
-   that. **The pattern must include `###`.** It originally matched `##`
-   only, and Round 10 split Phase 5 into `### Phase 5A` and `### Phase
-   5B`: the narrow pattern returns 11 headings against that brief where
-   the real count is 13, so it would have missed two signed-off phases,
-   which is exactly the undercount this rule exists to prevent. Count
-   headings, then confirm each one has an explicit sign-off; a heading
-   that is shared context rather than a phase is stated as such.
+   phases that were actually signed off**, not against the brief.
+   Enumerate the sign-offs, then confirm each has a matching commit and
+   that none is missing. Two rounds recorded a premature completion claim
+   caught only by counting.
+
+   **The brief is not a reliable source for the count, and searching it
+   is worse than not searching it.** The rule originally read "check
+   against the brief's own list" with `grep -n "^## Phase\|^### Phase"`.
+   That has now failed seven consecutive rounds in five distinct ways:
+   four briefs carried the phase list as a **table** and returned 0; one
+   brief correctly carried **no list at all**, because the phases were
+   produced in a Phase 0 report and signed off in conversation, and also
+   returned 0; and two briefs returned **1** from a section heading
+   *about* Phase 0 rather than a list of phases. **The 1 is the dangerous
+   result**: a zero is obviously broken, and a plausible number is not.
+   A round trusting it would have declared itself complete after Phase 0.
+
+   The instrument works. In Round 26 it was calibrated three ways,
+   including injecting `### Phase 99` and watching the count move and
+   return. **The premise is what is false**: a phase list does not
+   reliably live in a brief as headings.
+
+   If a brief does carry phase headings, the pattern must include `###`.
+   Round 10 split Phase 5 into `### Phase 5A` and `### Phase 5B`, and the
+   narrow pattern returns 11 against that brief where the real count is
+   13. A heading that is shared context rather than a phase is stated as
+   such.
 
 8. **Fix the class, not the instance the failure happened to name.** Round
    13 Phase 0, 2026-08-20, found by the next round rather than by the round
