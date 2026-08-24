@@ -404,6 +404,19 @@ const oppTabStrip = window.createTabStrip({
   label: 'Opportunity sections',
   panes: () => [...document.querySelectorAll('#view-opportunity-detail .detail-tab-panel')],
   panelFor: key => document.getElementById(`opp-tab-${key}`),
+  // Round 29 Phase 3. The advance control is gated on the OPEN TAB now, and
+  // the tab changes with no re-render, so it is refreshed here. Test Bed does
+  // the same from its own activate (app.js:969).
+  //
+  // THE DEFAULT REVEAL IS REPRODUCED, NOT DROPPED. createTabStrip runs
+  // activate(key) INSTEAD of its own reveal, not before it, so a consumer that
+  // forgets this hides every pane and shows none. That warning is written at
+  // app.js:339 and this is the second consumer to meet it.
+  activate: key => {
+    const pane = document.getElementById(`opp-tab-${key}`)
+    if (pane) pane.classList.remove('hidden')
+    refreshOppNextStageButton()
+  },
 })
 // opts is forwarded rather than dropped. select() accepts { focusTab }, and a
 // wrapper that takes one argument silently discards a second: the call site
@@ -461,6 +474,10 @@ function renderOppStageTabs(stages, currentStage) {
   // stage lists would accumulate tabs from both.
   strip.querySelectorAll('.detail-tab[data-opp-stage-tab]').forEach(b => b.remove())
   host.querySelectorAll('.detail-tab-panel[data-opp-stage-panel]').forEach(p => p.remove())
+  // Round 29 Phase 3: the action container is static markup, and the stage
+  // tabs below are appended, so without this it would sit before them. Moved
+  // rather than rebuilt, so its buttons keep their identity and their wiring.
+  const tabActions = document.getElementById('opp-tab-actions')
 
   for (const st of stageTabs) {
     const key = oppStageTabKey(st.stage_name)
@@ -564,6 +581,8 @@ function renderOppStageTabs(stages, currentStage) {
 
   // The generated buttons need the ARIA the factory applies at construction.
   oppTabStrip.adopt()
+  if (tabActions) strip.appendChild(tabActions)
+  wireOppNextStageButton(currentStage, stages)
   markOppCurrentStageTab(currentStage)
 }
 
@@ -680,6 +699,97 @@ function oppStageIsAhead(stages, stageName, recordStage) {
   return here > at
 }
 
+// ── Round 29 Phase 3: the record-level controls, on the tab line ────────
+//
+// SECTION 10's FINDING IS THE DECISION INSIDE THIS PHASE. Test Bed and
+// Opportunity have always enforced the same business rule, stage progression
+// happens from inside the stage itself, by OPPOSITE mechanisms: Test Bed
+// disables its control off the record's current stage tab, Opportunity cleared
+// the slot so the control did not exist there. Moving the control to the tab
+// line means adopting Test Bed's mechanism, so the disabling rule comes with
+// it or the rule is lost.
+//
+// Cached because the button's enabled-ness depends on the OPEN TAB, which
+// changes with no re-render. Test Bed's tbNextStageState (app.js:4217) for the
+// same reason.
+let oppNextStageState = null
+
+function wireOppNextStageButton(currentStage, stages) {
+  const row = (stages ?? []).find(s => s.stage_name === currentStage)
+  oppNextStageState = {
+    recordId: currentOppDetailId,
+    currentStage,
+    nextStage: nextStageAfter(stages, currentStage),
+    isTerminal: !!row?.is_terminal,
+  }
+  const fb = document.getElementById('opp-next-stage-feedback')
+  if (fb) fb.innerHTML = ''
+  refreshOppNextStageButton()
+}
+
+// TWO CONDITIONS FOR ADVANCE, ONE FOR CLOSED LOST, and the difference is the
+// part that is a decision rather than a copy.
+//
+// ADVANCE is stage-scoped. It moves the record from its own stage to the next,
+// and the rule says review that stage's criteria and approvals first, so it
+// carries both of Test Bed's conditions: final stage, and not on the record's
+// current stage tab.
+//
+// MARK CLOSED LOST IS RECORD-SCOPED AND DOES NOT CARRY THE SECOND. The
+// close-lost route says so itself (src/routes/opportunities.js:598): Closed
+// Lost carries zero gate rules, and it is reached through
+// reachable_from_any_stage, so there is no adjacency to satisfy and no
+// criteria to review from any particular tab. Disabling it off the current
+// stage tab would disable a control that would have worked, which is exactly
+// the fault Round 27 recorded when a two-state discriminator was borrowed onto
+// a three-state control. The discriminator encodes why the rule exists, and
+// this rule does not exist for losing a deal.
+//
+// It IS disabled on a terminal record, because you cannot lose a deal that is
+// already closed. Disabled rather than hidden, so the pair keeps its shape and
+// reads as one group whatever the record's state.
+function refreshOppNextStageButton() {
+  const btn = document.getElementById('opp-next-stage-btn')
+  const lost = document.getElementById('opp-close-lost-btn')
+  if (!btn || !oppNextStageState) return
+  const { recordId, currentStage, nextStage, isTerminal } = oppNextStageState
+
+  if (lost) {
+    lost.disabled = isTerminal
+    lost.onclick = isTerminal ? null : () => openCloseLostPrompt(recordId, currentStage)
+  }
+
+  // No next stage. Two reasons produce it and they are told apart by the
+  // label, following Test Bed: "Final stage" is terminal and nothing the user
+  // does will change it. Opportunity's terminals are Closed Won and Closed
+  // Lost, and Closed Lost is reachable_from_any_stage so it has no tab at all,
+  // which means a lost record can never satisfy the current-stage condition
+  // below. Handling the no-next-stage case first is what stops that reading as
+  // "open the right tab" when there is no right tab to open.
+  if (!nextStage) {
+    btn.disabled = true
+    btn.textContent = isTerminal ? 'Final stage' : 'No further stage'
+    btn.onclick = null
+    return
+  }
+
+  btn.textContent = `Move to ${nextStage}`
+  // Compared on data-opp-stage-tab, which carries the RAW stage name, rather
+  // than on data-opp-tab, which carries the sanitised key. Both are set on a
+  // stage tab (app.js:521-522); the raw name needs no round trip through
+  // oppStageTabKey to compare, and it is undefined on Reference, Commercials
+  // and Assessment, so those correctly fail the test rather than accidentally
+  // matching a key.
+  const activeStage = document.querySelector('#opp-detail-tabs .detail-tab.active')?.dataset.oppStageTab
+  if (activeStage !== currentStage) {
+    btn.disabled = true
+    btn.onclick = null
+    return
+  }
+  btn.disabled = false
+  btn.onclick = () => attemptTransition(recordId, nextStage, 'opp-next-stage-feedback', 'opportunity', currentStage)
+}
+
 function renderOppAdvanceControl(el, recordId, currentStage, stages) {
   const next = nextStageAfter(stages, currentStage)
   if (!next) {
@@ -689,26 +799,21 @@ function renderOppAdvanceControl(el, recordId, currentStage, stages) {
       : '<p class="muted" style="font-size:14px">This record has reached the final stage.</p>'
     return
   }
-  // The lose-a-deal control sits BESIDE the advance control, not in the tab
-  // row. Settled by measurement rather than preference: Phase 2 measured the
-  // eight-tab strip at 876px in 876px, zero margin, so a ninth control there
-  // would overflow it at 1240px.
+  // Round 29 Phase 3: BOTH CONTROLS HAVE MOVED to the tab line. What remains
+  // here is the sentence telling the reader where the record can go, which is
+  // information about this stage and belongs in this stage's panel.
   //
-  // btn-ghost, not btn-primary. There is one primary action on this panel
-  // and it is advancing; losing is the other thing you can do, and giving
-  // both equal weight would put an irreversible action alongside the routine
-  // one with nothing to tell them apart.
+  // A STALE MEASUREMENT IS CORRECTED RATHER THAN INHERITED. This block
+  // previously carried "Phase 2 measured the eight-tab strip at 876px in 876px,
+  // zero margin, so a ninth control there would overflow it at 1240px", and
+  // that is why Mark Closed Lost was put here in the first place. Round 29
+  // Phase 0 measured the strip again: nine tabs total 832px in 876px, leaving
+  // 683px free at 1240 and 564px at 1920, and Test Bed already carries three
+  // controls in a strip with 33px free. The number that decided this placement
+  // was wrong, and leaving it written here would have the next round re-derive
+  // the same conclusion from it.
   el.innerHTML = `
-    <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px">
-      <span style="font-size:14px">Advance to <strong>${escHtml(next)}</strong></span>
-      <button class="btn-primary" onclick="attemptTransition('${recordId}', '${escHtml(next)}', 'transition-feedback', 'opportunity', '${escHtml(currentStage)}')">
-        Move to ${escHtml(next)}
-      </button>
-      <button class="btn-ghost" id="opp-close-lost-btn-${escHtml(oppStageTabKey(currentStage))}" onclick="openCloseLostPrompt('${recordId}', '${escHtml(currentStage)}')">
-        Mark Closed Lost
-      </button>
-    </div>
-    <div id="transition-feedback"></div>`
+    <p class="muted" style="font-size:14px;margin-bottom:16px">Advance to <strong>${escHtml(next)}</strong> from the control on the tab row.</p>`
 }
 
 // Losing a deal, Round 21 Phase 7.
@@ -727,7 +832,12 @@ function renderOppAdvanceControl(el, recordId, currentStage, stages) {
 window.openCloseLostPrompt = async (recordId, currentStage) => {
   const reasons = await api('GET', '/api/closed-lost-reasons')
   if (!reasons.ok) {
-    const fb = document.getElementById('transition-feedback')
+    // Round 29 Phase 3: repointed. This wrote to #transition-feedback, which
+    // lived inside the stage panel and no longer exists now the control is on
+    // the tab row. The `if (fb)` guard meant it would not have thrown; it
+    // would have reported a failure to nothing, which is the worse half of
+    // that pair.
+    const fb = document.getElementById('opp-next-stage-feedback')
     if (fb) fb.innerHTML = '<p class="msg-error">Could not load the Closed Lost reasons.</p>'
     return
   }
@@ -757,7 +867,13 @@ window.openCloseLostPrompt = async (recordId, currentStage) => {
     // container is a <div> with no tabindex and .focus() on one is a no-op:
     // fixing the id alone would have replaced a silent failure with a
     // quieter one.
-    returnFocusTo: `opp-close-lost-btn-${oppStageTabKey(currentStage)}`,
+    // Round 29 Phase 3: the id lost its stage suffix when the button moved to
+    // the tab row, where there is one button rather than one per stage. Round
+    // 22 Phase 3 fixed this exact line once already, for the same reason: an
+    // id that resolves in the mind and not in the document, whose failure is
+    // swallowed by an optional call. Moving a control renames it, and every
+    // reference to the old name is a silent failure waiting.
+    returnFocusTo: 'opp-close-lost-btn',
     onConfirm: async (note, reasonId) => {
       const result = await api('POST', `/api/opportunities/${recordId}/close-lost`, { reason_id: reasonId, note })
       return { ok: result.ok, error: result.data?.error }
@@ -1444,12 +1560,29 @@ let tbChevronHoverTimer = null
 let tbChevronLoadToken = 0
 const TB_CHEVRON_HOVER_DELAY_MS = 180
 
-function hideTbChevronPopup() {
+// Round 29 Phase 5: ONE hover mechanism for both record types, parameterised,
+// rather than a second implementation of it.
+//
+// The four properties below are precisely the ones that look incidental and
+// would be re-derived wrongly by anyone copying the visible behaviour: the
+// debounce, the load token, mouseleave on the wrapper, and no click handler
+// ever. A shared function is the only arrangement in which they CANNOT drift
+// apart. renderChevronStrip is already shared between the two strips for the
+// same reason, so this follows an established pairing rather than inventing
+// one.
+//
+// Distinct from Round 9 Phase 6.2's decision to keep two approval builders as
+// siblings: those two callers genuinely need different columns. These two need
+// identical behaviour against the identical endpoint, and the only thing that
+// differs is which element ids to read.
+let chevronPopupId = 'tb-chevron-popup'
+
+function hideChevronPopup() {
   clearTimeout(tbChevronHoverTimer)
   // Bump the token so any in-flight response is stale and cannot paint
   // after the pointer has already left.
   tbChevronLoadToken++
-  const popup = document.getElementById('tb-chevron-popup')
+  const popup = document.getElementById(chevronPopupId)
   if (popup) popup.classList.add('hidden')
 }
 
@@ -1457,7 +1590,7 @@ function hideTbChevronPopup() {
 // stops the leftmost and rightmost popups being clipped at the viewport
 // edge - the strip runs the full page width, so Closed sits hard against
 // it and a centred popup would overflow.
-function positionTbChevronPopup(item, popup, wrap) {
+function positionChevronPopup(item, popup, wrap) {
   const wrapRect = wrap.getBoundingClientRect()
   const itemRect = item.getBoundingClientRect()
   popup.classList.remove('hidden')
@@ -1492,17 +1625,20 @@ function positionTbChevronPopup(item, popup, wrap) {
 // The listeners are still attached exactly once. That part was right, and the
 // wrap being static is precisely why attaching per record would accumulate
 // them.
-function wireTbChevronHover(recordId) {
-  const wrap = document.getElementById('tb-chevron-wrap')
-  const popup = document.getElementById('tb-chevron-popup')
+function wireChevronHover({ wrapId, popupId, recordId }) {
+  const wrap = document.getElementById(wrapId)
+  const popup = document.getElementById(popupId)
   if (!wrap || !popup) return
+  // Which popup hideChevronPopup should hide. Set before any early return, so
+  // a pointer leaving one record type's strip cannot hide the other's.
+  chevronPopupId = popupId
 
   // Updated on EVERY load, before the wiring guard below.
   wrap.dataset.recordId = recordId
   // A popup still open from the previous record describes a record the user
   // has left. Drop it and its cache key rather than letting a stale answer
   // survive the switch.
-  hideTbChevronPopup()
+  hideChevronPopup()
   popup.dataset.key = ''
 
   if (wrap.dataset.wired === '1') return
@@ -1535,7 +1671,7 @@ function wireTbChevronHover(recordId) {
           : '<div class="linked-record-row">Nothing outstanding.</div>')
       }
       popup.dataset.key = key
-      positionTbChevronPopup(item, popup, wrap)
+      positionChevronPopup(item, popup, wrap)
     }, TB_CHEVRON_HOVER_DELAY_MS)
   })
 
@@ -1543,7 +1679,7 @@ function wireTbChevronHover(recordId) {
   // not a leave. The chevron itself stays non-clickable - confirmed by
   // history in Round 5 Phases 7 and 8 that it has never had a click
   // handler, and adding hover must not add click.
-  wrap.addEventListener('mouseleave', hideTbChevronPopup)
+  wrap.addEventListener('mouseleave', hideChevronPopup)
 }
 
 // The Opportunity exit-criterion payload keys, mirroring the same 19 names
@@ -4131,7 +4267,7 @@ async function renderTestBedDetail(bed) {
   const stages = await fetchStages('test_bed')
   tbDetailStages = stages
   renderChevronStrip('tb-chevron-strip', bed.status, stages)
-  wireTbChevronHover(bed.id)
+  wireChevronHover({ wrapId: 'tb-chevron-wrap', popupId: 'tb-chevron-popup', recordId: bed.id })
   markTbCurrentStageTab(bed.status)
 
   await loadTerminusStaffIfNeeded()
@@ -4903,6 +5039,14 @@ async function renderOppDetail(opp) {
 
   const stages = await fetchStages('opportunity')
   renderChevronStrip('opp-chevron-strip', opp.status, stages)
+  // Round 29 Phase 5. Wired on EVERY record load, before the wiring guard
+  // inside, for the reason Round 18 Phase 1 recorded on Test Bed: the wrapper
+  // is static markup, so its dataset.wired survives every navigation, and a
+  // listener that closed over the record id would keep the FIRST record's id
+  // for the whole page session. Opportunity's strip is static markup too, so
+  // it has the identical exposure rather than a different lifecycle. The fix
+  // is the same one, which is now the same code.
+  wireChevronHover({ wrapId: 'opp-chevron-wrap', popupId: 'opp-chevron-popup', recordId: opp.id })
 
   await loadTerminusStaffIfNeeded()
 

@@ -2520,7 +2520,17 @@ input.input-invalid {
    row, after Closed, replacing the separate save-bar banner line and the
    Stage Transition section. margin-left:auto pins the group right without
    depending on how many stage tabs precede it. */
-.tb-tab-actions {
+/* Round 29 Phase 3: .opp-tab-actions joins the SELECTOR rather than getting a
+   rule of its own. Both are the same control group, pinned right in a tab
+   strip, for the same reason, and a second declaration of these five
+   properties is a pair that drifts. Round 28 Phase 2 made the same call for
+   .anchors-toggle.
+
+   WIDENING A SELECTOR CANNOT CHANGE WHAT THE OLD ONE MATCHED, which is why
+   this is safe for Test Bed in a way that editing a declaration would not be.
+   The pixel comparison proves it rather than the reasoning doing so. */
+.tb-tab-actions,
+.opp-tab-actions {
   margin-left: auto;
   display: flex;
   align-items: center;
