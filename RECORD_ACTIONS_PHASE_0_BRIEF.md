@@ -649,3 +649,248 @@ Stated so the decision has an expiry rather than being permanent by default:
 - **A disabled treatment that is not `opacity: 0.5`.** The whole effect follows
   from one declaration shared app-wide, so if that is ever revisited for other
   reasons, this pairing should be re-measured rather than assumed.
+
+---
+
+# Phase 6: the full walk, and the round's close-out
+
+## The walk
+
+One Opportunity through Qualification, Solution Alignment and Proposal, scoring
+and saving from the panel, advancing from the tab line, hovering chevrons at
+each stage; then a second record marked Closed Lost from the tab line.
+
+**The walk found no problem.** Every round before this one found something in
+the walk the targeted phases did not, so that is stated plainly rather than
+taken as proof the walk was thorough.
+
+### The three things this round made worth watching
+
+**Advance from the tab line, and the tab following the record.** Round 22 built
+that behaviour and Phase 3 moved the control that triggers it. At both
+transitions the control was disabled off the record's own stage tab and enabled
+on it, and after the move the open tab was the record's NEW stage:
+Qualification to Solution Alignment, then Solution Alignment to Proposal, with
+`activeStage` matching the record each time.
+
+**An unsaved draft, then the tab-line controls.** Round 28 Phase 7's guard
+covers a record change and a page unload, and the tab line is a surface it had
+never met. Measured at two stages: switching to a stage tab with a draft held
+raised no dialogue and discarded nothing, and the unload guard was still armed
+while the draft was held. **The tab line changed no part of that**, which is the
+right answer: a tab switch loses nothing, so warning about it would be false.
+
+**A chevron hover while a save is in flight.** The load token and the save's own
+sequencing had never run against each other. At both stages the save reported
+"Recorded 1 of 1", the popup showed the stage the pointer was resting on and
+never another, and exactly one exit-criteria request was issued.
+
+### Closed Lost from the tab line
+
+The dialogue carried its heading, its reason picker and the "cannot be undone"
+warning. After confirming, the database read Closed Lost, advance read "Final
+stage" disabled, Mark Closed Lost was disabled, and the record landed on
+Reference with no active stage tab, which is correct: Closed Lost carries
+`reachable_from_any_stage` and therefore has no tab to land on.
+
+---
+
+## Rule 7, under its corrected wording
+
+**Sign-offs enumerated from the conversation FIRST, then `git log`.** The order
+is the control: a list derived from the commits and checked against the commits
+is a check against itself.
+
+| Sign-off | Commit |
+|---|---|
+| Phase 0 | `64aec69` |
+| Phase 1 | `e232e2c` |
+| Phase 2 | `640dcd7` |
+| Phase 3 | `36b1b8b` |
+| Phase 4 | `a210e55` |
+| Phase 5 | `7de8d1a` |
+| Phase 6 | this commit |
+
+Six sign-offs before this one, six commits, one to one, none missing. Plus
+`34ebad6` on `main`, the brief committed before the branch was cut: instructed
+work, not a phase.
+
+## `CURRENT_STATE.md`: NOT regenerated
+
+**This round changed no migration, no seed and no route.** The full diff against
+`main` is five files: two documents and three frontend files. Measured:
+`git diff --name-only main..HEAD -- supabase/migrations supabase/seeds
+src/routes` returns **0**, and the same command over `frontend` returns 3, so
+the query was reading the range.
+
+---
+
+## Records carried beyond the phase list
+
+### R1. Seven premise corrections, and the count is itself a finding
+
+**Enumerated rather than tallied**, because a running count is exactly the kind
+of number this round has been about.
+
+**From the brief, which was written from photographs by someone without
+repository access, and said so:**
+
+1. `NEXT STAGE` is disabled while the record is dirty. **Wrong.**
+2. The greying is more likely the exit criteria being unmet. **Also wrong.** The
+   only writer of that button's disabled state disables on two conditions,
+   final stage and not-on-the-current-stage-tab, and references neither
+   `tbEdits` nor any criteria state.
+3. The strip is at 876px in 876px with zero margin, so a third control would
+   overflow at 1240. **Wrong**, and inverted: nine tabs total 832px with 683px
+   free, while Test Bed carries three controls with 33px free.
+4. Opportunity's Reference tab has no bar. **Wrong.** `#ref-edit-bar` exists and
+   reports "N fields open, M changed".
+
+**Mine:**
+
+5. "Built at 42 sites" and "35 sites" in Phase 1. **Line counts presented as
+   site counts**; 42 lines hold 53 occurrences. Corrected before that phase
+   committed.
+6. "Opportunity has no chevron strip at all", Phase 0. **Wrong**: it has one,
+   rendered by the same shared `renderChevronStrip()`. **The cause was a `grep`
+   truncated by `head -12`, read as a complete result.**
+7. "The per-record lifecycle differs", Phase 0. **Wrong**: Opportunity's strip
+   is static markup too, so the Round 18 exposure is identical rather than new.
+
+**Four from the brief, three mine, seven in total.** The running tally in
+conversation reached "six, five mine and two yours", which is both internally
+inconsistent and misattributed. Recording the enumeration rather than the tally
+is the point: **a count nobody can re-derive is the thing this round exists to
+stop.**
+
+Separately, and not a premise: my Phase 3 argument that the prominence was
+"arguably correct because it is the only available action" did not survive
+Phase 4.
+
+### R2. The standards file caught an argument one phase after being written
+
+Phase 1 wrote Round 21 Phase 7's rationale into Section 10: *giving both equal
+weight would put an irreversible action alongside the routine one with nothing
+to tell them apart.*
+
+**Phase 4 then used that sentence to defeat an argument Phase 3 had made.**
+The document written this round caught the reasoning of this round, one phase
+after being written.
+
+**That is the first time the standards file has done the job it was created
+for**, and it is the round's own justification demonstrated rather than
+asserted. The alternative history is visible: without Section 10 the argument
+would have stood, because nobody would have gone looking for a comment in
+`app.js` to refute a styling judgement.
+
+### R3. A wrong number, written down, load-bearing a round later
+
+`renderOppAdvanceControl` carried: *"Phase 2 measured the eight-tab strip at
+876px in 876px, zero margin, so a ninth control there would overflow it at
+1240px."*
+
+**That is why Mark Closed Lost was in the panel at all.** The number was wrong,
+it was written down, and a design decision rested on it a round later.
+
+Corrected in place rather than left to be inherited. This is the failure
+Sections 6 to 10 exist to prevent, found in the wild inside the round that
+created them.
+
+### R4. Moving a control renames it
+
+**Every reference to the old name is a silent failure waiting.** Phase 3 created
+two, both found:
+
+- The Closed Lost failure path wrote to `#transition-feedback`, which lived in
+  the stage panel and no longer existed. Its `if (fb)` guard meant it would
+  **report a failure to nothing** rather than throw.
+- `returnFocusTo` still named `opp-close-lost-btn-<stage>`, an id that lost its
+  suffix in the move. **Round 22 Phase 3 fixed that exact line once already**,
+  for the same reason: an id that resolves in the mind and not in the document,
+  whose failure is swallowed by an optional call.
+
+### R5. Availability and prominence pull opposite ways
+
+`.btn-primary:disabled` and `.btn-ghost` resolve to the SAME colours; the
+disabled rule adds `opacity: 0.5`. **A disabled primary is an enabled ghost at
+half opacity.** Measured: on the record's own stage tab advance carries 1.0 text
+alpha against Closed Lost's 0.5, correct; on every other tab it is 0.25 against
+0.5, inverted. **Advance is disabled on 8 of 9 tabs**, counted by clicking every
+tab.
+
+**The structural finding, which is a property of any such pairing rather than a
+bug in this one:** any enabled control outweighs any disabled one, because that
+is what disabled means. "Prominence tracks consequence" and "disabled means
+dimmer" cannot both hold for adjacent controls where one is disabled by default.
+
+Nothing changed, because every remedy costs more than it buys: dropping the
+border removes the affordance, and dimming further **inverts** the problem so
+the disabled control dominates the available one. The recommendation rests on
+the consequence being guarded at the point of consequence, which is the
+dialogue rather than the border.
+
+**Three conditions would make it worth revisiting**, so the decision has an
+expiry: a reported mis-click; a second irreversible action joining the tab line;
+or a change to the shared `opacity: 0.5` disabled treatment.
+
+### R6. Two stale things agreeing is not a working check
+
+The fixture teardown was still tagged `R28`, and it only caught this round's
+fixture because the setup script's tag was stale in the same direction.
+**Updating one and not the other would have produced a clean zero over a tag
+nothing carried.** The false-clean species in a new mechanism: the previous
+instance turned three 401s into three empty arrays, this one would have turned
+a rename into an empty sweep.
+
+### R7. A capture that ends the state it is capturing
+
+**Two consecutive captures came out byte-identical with no popup in either**,
+while the DOM read immediately before each said it was rendered at 373px tall.
+The clipped screenshot resets pointer state, so the frame is taken **after**
+`mouseleave` has fired.
+
+**Before-only is what let the first two through.** The fix generalises: **any
+capture of a transient state needs the state confirmed on both sides of the
+shutter.**
+
+Its predecessor in the same phase is milder and worth keeping beside it: the
+first in-frame guard checked the popup's **position but not its visibility**, so
+it passed on a hidden element, which a rect satisfies trivially.
+
+### R8. The half-inert calibration
+
+Injecting into `.chevron-popup` and `.chevron-item` fired 5 differences, and
+**only the `.chevron-popup` half landed**. `.chevron-strip.many .chevron-item`
+outranks a bare `.chevron-item`, so that half of the injection was overridden
+and proved nothing.
+
+**Specificity can make a calibration inert without making it silent.** The
+instrument reported a number, and the number came entirely from the half that
+worked. Claiming only what the working half proves is the difference between a
+calibrated instrument and one that looks calibrated.
+
+### R9. The document does not claim a completeness it lacks
+
+Phase 0 sampled ten built mechanisms with written rationales and found **ten
+with zero coverage**. Phase 1 documented **five of them**, in Sections 6 to 10.
+
+The remaining five are **named and explicitly not recorded** in the document
+itself: the load-token discipline, the sub-tab strip, the definitions
+disclosure, the pending tick mark, and the mandatory reason on a revision.
+
+**Naming is not recording, and a list that pretended otherwise would be the same
+failure one level down.** The three-way classification carries the same
+restraint: Sections 1 and 2 are marked PARTIAL rather than forced into
+built-or-not, because 27 `tabindex` attributes and 8 `Enter` handlers is neither
+nothing nor the standard.
+
+### R10. One wording decision, with the business
+
+Hovering **Closed Lost** in the chevron says "Nothing outstanding." The popup
+answers *what would block leaving this stage*, and for a stage nobody leaves the
+answer is vacuously nothing, which reads as *you have met the requirements* when
+the truth is *there are none, and you can always come here*.
+
+**The discriminator is `to_stage === null`, not the requirement count.** It is
+shared with Test Bed's `Closed`, which has the same shape, so changing it
+changes both popups. Reported with the test ready; not changed.
