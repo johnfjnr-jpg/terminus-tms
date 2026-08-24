@@ -252,3 +252,225 @@ for a criteria row on Closed Won or Closed Lost can never be satisfied.
 it presents as the harness being slow rather than as the probe being wrong, and
 it is the one failure mode a timeout will not label correctly. Any Phase 2 loop
 over all stages special-cases the terminal ones rather than waiting on them.
+
+---
+
+## Phase 2: verification and close-out
+
+### The two claims Phase 1 did not cover
+
+Fixture in the same shape throughout: an Opportunity at Solution Alignment
+carrying one entry at Qualification, so its current stage was unreviewed and a
+click that fired would demonstrably add an entry.
+
+**A. Three ticks in sequence, without reloading.** Every tick re-enters
+`renderOppExitCriteria` through `toggleOppExitCriterion`, which now passes
+`currentOppStage`. If that were wrong the disabled state would flicker or
+invert on a path nothing else exercises.
+
+Three generic criteria ticked in a row. All three landed in the database
+(`null` before, set after, read back through the API each time). The active
+tab read `Solution Alignment` after every one, which is the Round 21 Phase 1
+defect staying fixed. A sentinel set on `window` after page load survived all
+three, so no tick reloaded the document. **After three re-renders the Proposal
+row still read `unreached=true`, no `onclick`, meta line intact.**
+
+**B. Advance then review.** The disabled state is about POSITION, not
+permanence, and this is the claim the defect could never satisfy: it always
+wrote at the record's own stage, so it could never produce an entry dated at a
+stage the record had just arrived at.
+
+Before advancing, Proposal read `unreached=true, onclick=false`. The rest of
+the Solution Alignment gate was satisfied through the real API, leaving 0 unmet
+requirements, and the record was then advanced **through the UI's own advance
+control**, not the transition endpoint. The wait was on `currentOppStage`
+changing, which the previous value could not satisfy.
+
+After arriving, the same Proposal row read
+`unreached=false, met=false, onclick=true, tickable=true, cursor=pointer,
+meta=null`. Clicking it: 1 POST, series 2 to 3, and **the new entry is dated at
+Proposal**.
+
+### Rule 7 under its corrected wording, the first round to use it
+
+**It passed, and it is workable, but its instrument now lives outside the
+repo and that is the thing worth recording.**
+
+Sign-offs enumerated, then joined to commits:
+
+| Sign-off | Commit |
+|---|---|
+| Phase 0 | `eb622fa` |
+| (Phase 0 boundary, instructed work, no phase of its own) | `20aa31b` |
+| Phase 1 | `95ed806` |
+| Phase 2 | this commit |
+
+Two phases signed off before this one, two matching commits, none missing, and
+one boundary commit accounted for rather than counted as a phase. The brief's
+own plan said two phases after Phase 0, which agrees.
+
+**The old instrument returned 1 against this brief.** Eighth consecutive
+round, and the same mode as the two prior cases: a `## Phase 0, investigation`
+heading ABOUT Phase 0 rather than a list of phases. Calibrated the Round 26
+way, by injecting `### Phase 99` and watching the count move 1 to 2 and back,
+so the instrument works and the premise is again what is false. **A round
+trusting it would have declared itself complete after Phase 0**, which is
+exactly the danger the corrected rule names.
+
+**What is genuinely better.** The corrected rule cannot return a
+plausible-but-wrong number, because there is no count to misread. The failure
+mode that has now recurred eight times is structurally impossible under it.
+
+**What is genuinely worse, and should be known before the next round trusts
+it.** The sign-offs live in the conversation, not in the repo, so the
+authoritative side of the check has no artefact. The join is between one list
+that can be verified (`git log main..HEAD`) and one that cannot. Nothing on the
+repo side can detect a sign-off left OUT of the enumeration: if a phase is
+forgotten, both lists agree and the check passes. That is the shape of
+Verification 14, a check that passes when both sides are absent, moved from
+values to list membership.
+
+**So the rule should be read as prescribing an order**: enumerate the
+sign-offs FIRST, from the conversation, and only then open `git log`. Deriving
+the list from the commits and then confirming the commits is a check against
+itself. A session resuming mid-round from a summary may not hold the sign-off
+history at all, and should say so rather than counting commits and calling it
+the same thing.
+
+### `CURRENT_STATE.md`: not regenerated, and not stale
+
+**This round changed no migration, no seed and no route.** The full diff
+against `main` is three files: this brief, `frontend/app.js` and
+`frontend/style.css`.
+
+The staleness test from the `CURRENT_STATE.md` rules was run in full and both
+halves were calibrated:
+
+- the recorded SHA `c11a2fd` **is** an ancestor of `HEAD`, and the same test
+  was shown able to fail by asking the reverse question
+- `git diff --name-only c11a2fd..HEAD -- supabase/migrations supabase/seeds
+  src/routes` returned **0 files**, and the same command over `frontend`
+  returned 2, so the query was reading the range
+
+**A disagreement worth stating rather than resolving quietly.** The
+`CURRENT_STATE.md` rules say a round is not complete until the file is
+regenerated and its diff reconciled. That was set aside deliberately for this
+round, on the basis that the file records configuration and source-parsed
+state, none of which moved. Regenerating it would have produced a diff of a
+timestamp and a SHA and nothing else, which is a change no phase accounts for
+and therefore a finding under the same rule that asked for it.
+
+### Residue
+
+Fixtures were enumerated from the DATABASE by the `R27P1` tag, never from the
+file the setup script wrote. That mattered on the first attempt: the sweep
+found a Contact and an Account left by an ABORTED setup run that no fixture
+file named. Eight records found and soft deleted after Phase 1, three after
+Phase 2, both confirmed by re-querying the tag and by a direct row-level
+re-query of the ids.
+
+Close-out sweep over the whole population, paged rather than left to a default
+limit: **94 live records, every one owned by a single owner id, none owned by
+the test account, no `harness_*` record type live, no `R27P1` reference
+surviving.** Calibrated by reporting a type known to be present.
+
+The four live Opportunities are the business's own and were confirmed as such:
+three Willowglen records at Qualification created before Round 26, and one
+Closed Won. Not residue. Left alone.
+
+---
+
+## Records carried beyond the phase list
+
+### R1. C1 to C4 as committed, and a second instance of C4
+
+C1 to C4 stand as committed at `20aa31b`. C4 gains a second instance found
+while building Phase 1.
+
+**Evaluation carries no `assessmentReviewed` rule at all**, so a wait for the
+review row on that tab can never be satisfied. Same unsatisfiable-wait species
+as the terminal-stage fault recorded in Phase 0, in the same probe, from a
+different cause: the terminal case is a panel with nothing to fetch, this one
+is a panel that fetches correctly and legitimately contains no such row.
+
+**Same fix in both cases: wait on the PANEL rendering, and treat "no row" as a
+result rather than as a state still to arrive.** The probe now reports
+`NO REVIEW ROW (no assessmentReviewed rule at this stage)` for Evaluation and
+carries on, which is a reading. Before the change it timed out, which is not.
+
+The general form is worth holding separately from the two instances.
+**A wait whose condition can never become true presents as a hang rather than
+as a result**, so it is read as the harness being slow rather than as the probe
+being wrong, and a timeout is the one instrument that cannot label it
+correctly. Before waiting on a condition, ask not only whether the OLD state
+already satisfies it, which is Verification 7, but whether the NEW state ever
+can.
+
+### R2. Two instruments, and the strongest instance of it in this project
+
+The Phase 0 brief flagged a trap in the verification requirement. **It then
+appeared live in the pre-fix calibration run, which is the part that makes
+this worth recording.**
+
+Pre-fix, the direct call to `recordOppAssessmentReview` for an unreached stage
+**fired one POST and left the series unchanged at 2**. Both readings are
+correct. The write reached the server; the server returned its 200 no-op
+because the record's current stage had just been reviewed by the preceding
+click in the same run.
+
+**A series-only probe would have printed "unchanged" for a call that reached
+the server**, which is the exact false negative Phase 0 predicted, produced by
+the exact mechanism Phase 0 named, in a run whose purpose was to demonstrate
+the defect.
+
+The pair is what separated them: a network counter says whether the call
+happened, the series says whether it changed anything, and **the defect lives
+in the gap between those two questions**. Neither instrument is wrong and
+neither is sufficient. Where a write path can legitimately no-op, an unchanged
+result is not evidence the write did not happen, and the only fix is a second
+instrument measuring the other half.
+
+### R3. Three states, and why the round existed at all
+
+Approvals have TWO states per stage: reached, or not. A past stage shows
+"Approved <date>" because the approval exists, so `st.state === 'current'`
+discriminates correctly and `buildStageTrackListHtml` has used it since
+Round 9.
+
+**The review row has THREE.** Its rule is `entry_stage_at_or_after`, so an
+entry written now and dated at the record's current stage satisfies an EARLIER
+stage's rule. A past stage is therefore genuinely satisfiable, and clicking it
+genuinely works. Ahead, current and past are three distinct answers where
+approvals have two.
+
+**Borrowing the two-state discriminator would have disabled a row where
+clicking still works**, and it would have looked right: the row would have been
+disabled on every stage that was not current, which is the correct answer on
+three of the four and wrong only on the one nobody would have tested. The
+measured evidence is a single reading, `unreached=false` on Qualification, a
+past stage, on a record at Solution Alignment.
+
+**The general form.** When borrowing a pattern, the treatment and the
+discriminator are two separate decisions. The treatment transferred exactly:
+visible, no pointer cursor, no handler, a meta line saying why. The
+discriminator did not transfer at all, because it encodes how many states the
+borrowed surface has, and that is a property of the rule underneath rather
+than of the pattern. **Copy the appearance, re-derive the condition.**
+
+### R4. The prominence judgement, recorded unfixed
+
+The unreached row's tick box is muted, and **that is a weak signal**, because
+the read-only computed rows in the same panel render a visually similar empty
+box. The meta line is carrying essentially all of it.
+
+This is faithful to the borrowed pattern. Test Bed's unavailable approval rows
+are not dimmed either; unavailability is carried by the absent pointer cursor
+and the meta line. It was a choice, not an oversight, and it is left as built.
+
+**It is recorded because it is the class of thing no assertion measures.**
+Every property a check can name is correct: the row renders exactly once, the
+meta text is right, the cursor is `default`, the layout holds at 1240, 1920 and
+3440, and Test Bed is pixel-identical. Prominence is not among them. Round 15
+Phase 4 shipped a Cost summary card whose totals read last with every check
+passing, and this is the same instrument gap pointed at a smaller thing. Worth
+the business's eye rather than a further round's assumption.
