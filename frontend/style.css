@@ -2746,6 +2746,31 @@ input.input-invalid {
 /* A computed row is read-only, so it must not look clickable. */
 .tb-crit-row--computed { cursor: default; }
 
+/* ── Round 27 Phase 1: the review row on a stage the record has not reached
+   ─────────────────────────────────────────────────────────────────────────
+   ADDITIVE ONLY. `.tb-crit-row` above is shared with Test Bed's own criteria
+   panel (test-bed-detail.js:1522, :1529), so a change to that rule or to
+   `.tb-crit-box` would leak into a record type this round is not touching.
+   Everything here is scoped under an `opp-` class that only
+   renderOppExitCriteria emits, and the stylesheet is the ONLY route by which
+   this round could reach Test Bed at all: the JS side is already separate.
+
+   The meta line reuses `.sa-approval-meta` rather than declaring its own
+   copy of mono 9px `--muted-2`. The row is borrowing Test Bed's approval
+   treatment deliberately, so it should read in the same voice, and a second
+   declaration of the same three properties is a pair that drifts. */
+.opp-crit-row--unreached { cursor: default; }
+/* Follows the borrowed pattern in withholding a dim: an unavailable approval
+   row is not dimmed either. Unavailability is carried by the absent pointer
+   cursor, the muted box, and the meta line saying why. */
+.opp-crit-row--unreached .tb-crit-box { border-color: var(--hairline-strong); }
+.opp-crit-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
 /* ── Closed tab: the completed record (Round 10 Phase 7, 2026-08-19) ───────
    Read-only throughout. No control here takes a click, deliberately: a
    closed Test Bed's documents are the record, and the backward transition

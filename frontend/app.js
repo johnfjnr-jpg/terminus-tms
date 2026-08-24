@@ -564,7 +564,11 @@ async function loadOppStageTab(recordId, stageName, currentStage, stages) {
     (stages ?? []).find(s => s.stage_name === stageName)?.is_terminal
       ? null
       : nextStageAfter(stages, stageName),
-    () => myToken === oppStageTabLoadToken)
+    () => myToken === oppStageTabLoadToken,
+    // Round 27 Phase 1: this call site already HAD the record's stage and
+    // was not passing it on, which is why the renderer could not make the
+    // decision at all.
+    currentStage)
   if (myToken !== oppStageTabLoadToken) return
   await renderOppStageApprovals(recordId, stageName, () => myToken === oppStageTabLoadToken)
   if (myToken !== oppStageTabLoadToken) return
@@ -611,6 +615,29 @@ function nextStageAfter(stages, stageName) {
   if (i < 0) return null
   if (list[i]?.is_terminal) return null
   return list[i + 1]?.stage_name ?? null
+}
+
+// Round 27 Phase 1: is `stageName` STRICTLY AHEAD of the record's own stage.
+//
+// Strictly ahead, not `!== current`, and the difference is the whole point.
+// Test Bed's approval rows use `st.state === 'current'` because an approval
+// on a past stage already exists and shows its date. This criterion is not
+// like that: its rule is `entry_stage_at_or_after`, so an entry written now
+// and dated at the record's current stage SATISFIES an earlier stage's rule.
+// A past stage is genuinely tickable and clicking it genuinely works.
+// Copying the approval discriminator would have disabled the row on stages
+// where it still does something.
+//
+// Fails OPEN. An unknown stage on either side leaves the row exactly as it
+// renders today rather than disabling it, because this is a display guard
+// over a write the server already handles safely, and a guard that gets it
+// wrong should not be the thing that stops legitimate work.
+function oppStageIsAhead(stages, stageName, recordStage) {
+  const list = stages ?? []
+  const here = list.findIndex(s => s.stage_name === stageName)
+  const at = list.findIndex(s => s.stage_name === recordStage)
+  if (here < 0 || at < 0) return false
+  return here > at
 }
 
 function renderOppAdvanceControl(el, recordId, currentStage, stages) {
@@ -1968,7 +1995,19 @@ const OPP_EXIT_CRITERION_KEYS = new Set([
 // approvals; Test Bed's Qualification exit already renders 9 criteria, 2
 // approvals and 3 further requirements on one panel, so the pattern carries
 // this count with room to spare. Measured in Phase 6 rather than assumed.
-async function renderOppExitCriteria(containerId, recordId, fromStage, toStage, isStillCurrent = () => true) {
+// Round 27 Phase 1: `recordStage` is new, and it is read in exactly ONE
+// place, the review branch below. Nothing else this function decides looks
+// at it: not the load-token drop, not the error or empty branches, not the
+// generic `tickable` test, not the computed rows, and not the `outstanding`
+// count. An unreached review row still counts as outstanding, deliberately,
+// because the criterion IS outstanding for that transition; the count
+// describes the gate, and this parameter describes only whether a person
+// can act on the row from where the record currently stands.
+//
+// Defaulted to the global rather than left undefined. A future call site
+// that forgets to pass it gets the right answer instead of `undefined`,
+// which would make every row fail open and quietly restore the defect.
+async function renderOppExitCriteria(containerId, recordId, fromStage, toStage, isStillCurrent = () => true, recordStage = currentOppStage) {
   const el = document.getElementById(containerId)
   if (!el) return
   const result = await api('GET', `/api/records/${recordId}/exit-criteria?stage=${encodeURIComponent(fromStage)}`)
@@ -2001,10 +2040,37 @@ async function renderOppExitCriteria(containerId, recordId, fromStage, toStage, 
       const box = r.met
         ? '<span class="tb-crit-box tb-crit-box--met">&#10003;</span>'
         : '<span class="tb-crit-box"></span>'
-      const cls = r.met ? 'tb-crit-row' : 'tb-crit-row tb-crit-row--tickable'
-      const click = r.met ? '' : ` onclick="recordOppAssessmentReview('${escHtml(recordId)}', '${escHtml(fromStage)}')"`
-      return `<div class="${cls}" data-field="${escHtml(r.field)}" data-stage="${escHtml(fromStage)}" data-met="${r.met ? 'true' : 'false'}"${click} title="${r.met ? 'Reviewed at this stage' : 'Confirm you have read the assessment'}">
-        ${box}<span class="tb-crit-text">${escHtml(r.label ?? 'Assessment reviewed')}</span>
+      // Round 27 Phase 1. The row rendered on stages the record has not
+      // reached, and clicking it there wrote a real entry dated at the
+      // record's OWN stage, so it changed nothing on screen and left the
+      // person believing they had reviewed a stage they had not. Ninth
+      // instance of Architecture rule 8: a path correct for every caller it
+      // had, and wrong the moment a panel could be open for a stage the
+      // record is not in.
+      //
+      // Borrows Test Bed's approval treatment (buildStageTrackListHtml):
+      // visible, no clickable class so no pointer cursor, no onclick, and a
+      // meta line saying why. Not hidden. A criterion that vanishes on some
+      // tabs reads as a configuration gap rather than as a sequence.
+      const ahead = !r.met && oppStageIsAhead(currentOppStages, fromStage, recordStage)
+      const cls = r.met
+        ? 'tb-crit-row'
+        : (ahead ? 'tb-crit-row opp-crit-row--unreached' : 'tb-crit-row tb-crit-row--tickable')
+      const click = (r.met || ahead)
+        ? ''
+        : ` onclick="recordOppAssessmentReview('${escHtml(recordId)}', '${escHtml(fromStage)}')"`
+      const title = r.met
+        ? 'Reviewed at this stage'
+        : (ahead ? 'Not yet at this stage' : 'Confirm you have read the assessment')
+      // The meta line needs a second line, and .tb-crit-row is a flex row
+      // with no meta slot. The text and the meta are stacked inside one
+      // child so the row itself is untouched: .tb-crit-row is shared with
+      // Test Bed's own criteria panel and nothing here may reach it.
+      const text = ahead
+        ? `<span class="opp-crit-stack"><span class="tb-crit-text">${escHtml(r.label ?? 'Assessment reviewed')}</span><span class="sa-approval-meta">Not yet at this stage</span></span>`
+        : `<span class="tb-crit-text">${escHtml(r.label ?? 'Assessment reviewed')}</span>`
+      return `<div class="${cls}" data-field="${escHtml(r.field)}" data-stage="${escHtml(fromStage)}" data-met="${r.met ? 'true' : 'false'}" data-unreached="${ahead ? 'true' : 'false'}"${click} title="${title}">
+        ${box}${text}
       </div>`
     }
     const tickable = r.requirement_type === 'payload_field_required'
@@ -2086,6 +2152,15 @@ function applyConfirmedOppTick(recordId, stageName, field, met) {
 // One way: there is no clear. "I read the assessment at this stage" is an
 // event, and the row stops being clickable once met.
 window.recordOppAssessmentReview = (recordId, stageName) => {
+  // Round 27 Phase 1. Defence in depth, not the correction. The correction
+  // is that the row no longer emits an onclick on a stage ahead of the
+  // record, and the server needs no change either: the endpoint takes no
+  // stage, always writes at `record.status`, and a repeat is a 200 no-op,
+  // so there is no request it could refuse. This exists because the handler
+  // is on `window` and had no guard of ANY kind, which made a stale row, a
+  // console call or a future call site enough to write an entry the person
+  // would then believe belonged to the stage they were looking at.
+  if (oppStageIsAhead(currentOppStages, stageName, currentOppStage)) return oppCriterionQueue
   const run = async () => {
     const key = oppStageTabKey(stageName)
     const fb = document.getElementById(`opp-stage-criteria-${key}`)?.querySelector('.opp-crit-feedback')
@@ -2106,7 +2181,8 @@ window.recordOppAssessmentReview = (recordId, stageName) => {
     if (currentOppDetailId === recordId && document.getElementById(`opp-stage-criteria-${key}`)) {
       const token = ++oppStageTabLoadToken
       await renderOppExitCriteria(`opp-stage-criteria-${key}`, recordId, stageName,
-        nextStageAfter(currentOppStages, stageName), () => token === oppStageTabLoadToken)
+        nextStageAfter(currentOppStages, stageName), () => token === oppStageTabLoadToken,
+        currentOppStage)
     }
   }
   oppCriterionQueue = oppCriterionQueue.then(run, run)
@@ -2155,7 +2231,8 @@ window.toggleOppExitCriterion = (recordId, stageName, field, isMet) => {
       applyConfirmedOppTick(recordId, stageAtClick, field, !isMet)
       const token = ++oppStageTabLoadToken
       await renderOppExitCriteria(`opp-stage-criteria-${key}`, recordId, stageAtClick,
-        nextStageAfter(currentOppStages, stageAtClick), () => token === oppStageTabLoadToken)
+        nextStageAfter(currentOppStages, stageAtClick), () => token === oppStageTabLoadToken,
+        currentOppStage)
     }
   }
   oppCriterionQueue = oppCriterionQueue.then(run, run)
@@ -4784,7 +4861,8 @@ window.submitStageApproval = async (recordId, track) => {
     await Promise.all([
       renderOppStageApprovals(recordId, stage, () => token === oppStageTabLoadToken),
       renderOppExitCriteria(`opp-stage-criteria-${oppStageTabKey(stage)}`, recordId, stage,
-        nextStageAfter(currentOppStages, stage), () => token === oppStageTabLoadToken),
+        nextStageAfter(currentOppStages, stage), () => token === oppStageTabLoadToken,
+        currentOppStage),
     ])
     return
   }
