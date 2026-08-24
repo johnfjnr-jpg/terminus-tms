@@ -1560,12 +1560,29 @@ let tbChevronHoverTimer = null
 let tbChevronLoadToken = 0
 const TB_CHEVRON_HOVER_DELAY_MS = 180
 
-function hideTbChevronPopup() {
+// Round 29 Phase 5: ONE hover mechanism for both record types, parameterised,
+// rather than a second implementation of it.
+//
+// The four properties below are precisely the ones that look incidental and
+// would be re-derived wrongly by anyone copying the visible behaviour: the
+// debounce, the load token, mouseleave on the wrapper, and no click handler
+// ever. A shared function is the only arrangement in which they CANNOT drift
+// apart. renderChevronStrip is already shared between the two strips for the
+// same reason, so this follows an established pairing rather than inventing
+// one.
+//
+// Distinct from Round 9 Phase 6.2's decision to keep two approval builders as
+// siblings: those two callers genuinely need different columns. These two need
+// identical behaviour against the identical endpoint, and the only thing that
+// differs is which element ids to read.
+let chevronPopupId = 'tb-chevron-popup'
+
+function hideChevronPopup() {
   clearTimeout(tbChevronHoverTimer)
   // Bump the token so any in-flight response is stale and cannot paint
   // after the pointer has already left.
   tbChevronLoadToken++
-  const popup = document.getElementById('tb-chevron-popup')
+  const popup = document.getElementById(chevronPopupId)
   if (popup) popup.classList.add('hidden')
 }
 
@@ -1573,7 +1590,7 @@ function hideTbChevronPopup() {
 // stops the leftmost and rightmost popups being clipped at the viewport
 // edge - the strip runs the full page width, so Closed sits hard against
 // it and a centred popup would overflow.
-function positionTbChevronPopup(item, popup, wrap) {
+function positionChevronPopup(item, popup, wrap) {
   const wrapRect = wrap.getBoundingClientRect()
   const itemRect = item.getBoundingClientRect()
   popup.classList.remove('hidden')
@@ -1608,17 +1625,20 @@ function positionTbChevronPopup(item, popup, wrap) {
 // The listeners are still attached exactly once. That part was right, and the
 // wrap being static is precisely why attaching per record would accumulate
 // them.
-function wireTbChevronHover(recordId) {
-  const wrap = document.getElementById('tb-chevron-wrap')
-  const popup = document.getElementById('tb-chevron-popup')
+function wireChevronHover({ wrapId, popupId, recordId }) {
+  const wrap = document.getElementById(wrapId)
+  const popup = document.getElementById(popupId)
   if (!wrap || !popup) return
+  // Which popup hideChevronPopup should hide. Set before any early return, so
+  // a pointer leaving one record type's strip cannot hide the other's.
+  chevronPopupId = popupId
 
   // Updated on EVERY load, before the wiring guard below.
   wrap.dataset.recordId = recordId
   // A popup still open from the previous record describes a record the user
   // has left. Drop it and its cache key rather than letting a stale answer
   // survive the switch.
-  hideTbChevronPopup()
+  hideChevronPopup()
   popup.dataset.key = ''
 
   if (wrap.dataset.wired === '1') return
@@ -1651,7 +1671,7 @@ function wireTbChevronHover(recordId) {
           : '<div class="linked-record-row">Nothing outstanding.</div>')
       }
       popup.dataset.key = key
-      positionTbChevronPopup(item, popup, wrap)
+      positionChevronPopup(item, popup, wrap)
     }, TB_CHEVRON_HOVER_DELAY_MS)
   })
 
@@ -1659,7 +1679,7 @@ function wireTbChevronHover(recordId) {
   // not a leave. The chevron itself stays non-clickable - confirmed by
   // history in Round 5 Phases 7 and 8 that it has never had a click
   // handler, and adding hover must not add click.
-  wrap.addEventListener('mouseleave', hideTbChevronPopup)
+  wrap.addEventListener('mouseleave', hideChevronPopup)
 }
 
 // The Opportunity exit-criterion payload keys, mirroring the same 19 names
@@ -4247,7 +4267,7 @@ async function renderTestBedDetail(bed) {
   const stages = await fetchStages('test_bed')
   tbDetailStages = stages
   renderChevronStrip('tb-chevron-strip', bed.status, stages)
-  wireTbChevronHover(bed.id)
+  wireChevronHover({ wrapId: 'tb-chevron-wrap', popupId: 'tb-chevron-popup', recordId: bed.id })
   markTbCurrentStageTab(bed.status)
 
   await loadTerminusStaffIfNeeded()
@@ -5019,6 +5039,14 @@ async function renderOppDetail(opp) {
 
   const stages = await fetchStages('opportunity')
   renderChevronStrip('opp-chevron-strip', opp.status, stages)
+  // Round 29 Phase 5. Wired on EVERY record load, before the wiring guard
+  // inside, for the reason Round 18 Phase 1 recorded on Test Bed: the wrapper
+  // is static markup, so its dataset.wired survives every navigation, and a
+  // listener that closed over the record id would keep the FIRST record's id
+  // for the whole page session. Opportunity's strip is static markup too, so
+  // it has the identical exposure rather than a different lifecycle. The fix
+  // is the same one, which is now the same code.
+  wireChevronHover({ wrapId: 'opp-chevron-wrap', popupId: 'opp-chevron-popup', recordId: opp.id })
 
   await loadTerminusStaffIfNeeded()
 

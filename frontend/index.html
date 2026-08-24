@@ -1444,7 +1444,21 @@
          renders at the component's default single-line sizing, already
          calibrated to match this page's old .tlabel sizing exactly -
          see the .chevron-strip.many comment in style.css. -->
-    <div id="opp-chevron-strip" class="chevron-strip"></div>
+    <!-- Round 29 Phase 5: the popup is a SIBLING of the strip inside a wrapper,
+         which is Test Bed's arrangement (index.html:797) and its reason
+         applies here unchanged: .chevron-strip has overflow:hidden and each
+         .chevron-item carries a clip-path, so a popup rendered inside either
+         would be clipped away entirely. The wrapper is the positioning context
+         AND the hover target, so moving the pointer from a chevron into the
+         popup does not register as leaving.
+
+         The strip itself already existed and is rendered by the same shared
+         renderChevronStrip() Test Bed uses. What Opportunity lacked was this
+         wrapper and this popup. -->
+    <div id="opp-chevron-wrap" class="chevron-wrap">
+      <div id="opp-chevron-strip" class="chevron-strip"></div>
+      <div id="opp-chevron-popup" class="chevron-popup hidden"></div>
+    </div>
 
     <div class="detail-tabs" id="opp-detail-tabs">
       <button class="detail-tab active" data-opp-tab="reference">Reference</button>
