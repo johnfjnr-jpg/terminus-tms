@@ -82,7 +82,47 @@ function showApp(session) {
   navigate('leads')
 }
 
+// ── Round 28 Phase 7: the unsaved-assessment guard ──────────────────────
+//
+// INTERACTION_STANDARDS.md Section 5, which is marked specification only and
+// not yet implemented. This is NOT the system-wide dirty-state registry it
+// specifies. It is that document's rule applied to the one place this round
+// built a registry, using the shared #discard-confirm-modal that already
+// exists and is already used by New Lead and Park.
+//
+// IT READS THE SAME SOURCE PHASE 5 DERIVES, oppAssessDirtyKeys(), and declares
+// no flag of its own. A dirty flag beside a dirty set is a second source of
+// truth that agrees today, which is the whole reason Phase 5 has no oppEdits.
+//
+// WARNS ONLY WHERE SOMETHING IS ACTUALLY LOST, which is a departure from
+// Section 5's letter and is stated as one. Section 5 lists a nav-bar click as
+// real navigation, because it was written for a page-wide registry where
+// leaving the page discards. Here it does not: Phase 1 clears the draft maps
+// on a RECORD CHANGE, so going to the Opportunities list and back to the same
+// record still has the drafts. The two events that genuinely lose work are
+// arriving at a DIFFERENT record, and unloading the tab. Warning about a
+// discard that will not happen would make the dialog's own words false, and
+// teaches people to dismiss it.
+function oppAssessNavigationDiscards(view, id) {
+  if (!oppAssessDirtyKeys().length) return false
+  // Same record is not a loss: Phase 1 clears only when the id changes.
+  if (view === 'opportunity-detail' && id === currentOppDetailId) return false
+  // Any other view leaves the drafts in place, invisible but intact.
+  return view === 'opportunity-detail'
+}
+
 function navigate(view, id) {
+  // The guard runs BEFORE anything is hidden or loaded, so Keep editing
+  // returns to a screen that never moved.
+  if (oppAssessNavigationDiscards(view, id)) {
+    openDiscardConfirm(() => {
+      for (const k of oppAssessDirtyKeys()) {
+        delete oppAssessDraft[k]; delete oppAssessReason[k]; delete oppAssessAnswer[k]
+      }
+      navigate(view, id)
+    })
+    return
+  }
   ALL_VIEWS.forEach(v => document.getElementById(`view-${v}`)?.classList.add('hidden'))
   document.querySelectorAll('.nav-link').forEach(el => el.classList.remove('active'))
 
@@ -1979,6 +2019,8 @@ window.cancelAllOppAssess = function () {
     delete oppAssessReason[k]
     delete oppAssessAnswer[k]
   }
+  // Synchronous, so this one was never at risk, but it resolves the node the
+  // same way rather than leaving two habits in one file.
   const fb = document.getElementById('opp-assess-savebar-feedback')
   if (fb) { fb.textContent = ''; fb.className = 'opp-assess-savebar-feedback' }
   rerenderOppAssessLens()
@@ -2000,8 +2042,25 @@ window.cancelAllOppAssess = function () {
 // are cleared, and the bar reports the failures by name rather than reporting
 // success for the batch.
 window.saveAllOppAssess = async function () {
-  const fb = document.getElementById('opp-assess-savebar-feedback')
-  const setFb = (text, cls) => { if (fb) { fb.textContent = text; fb.className = `opp-assess-savebar-feedback ${cls}` } }
+  // Round 28 Phase 7: RESOLVED AT WRITE TIME, never captured once.
+  //
+  // This held `const fb = getElementById(...)` across the whole batch, and a
+  // record load that overlapped the save replaced the bar underneath it:
+  // mountOppAssessmentLenses rebuilds the bar because createSubTabs rewrites
+  // the mount, so the node captured at the start was detached by the end.
+  // Measured rather than reasoned about, by wrapping the handler and comparing
+  // node identity across the call: sameNode false, beforeStillConnected false,
+  // and the captured node holding "Recorded 1 of 1." while the live one was
+  // empty. The writes had all succeeded; only the confirmation was posted to a
+  // node nobody could see.
+  //
+  // A held DOM node is a second reference to something the app rebuilds, which
+  // is the same shape as a declared dirty flag beside a derived one. Hold the
+  // id, resolve the node.
+  const setFb = (text, cls) => {
+    const fb = document.getElementById('opp-assess-savebar-feedback')
+    if (fb) { fb.textContent = text; fb.className = `opp-assess-savebar-feedback ${cls}` }
+  }
   const keys = oppAssessDirtyKeys()
   if (!keys.length) return
 
@@ -5463,3 +5522,20 @@ window.revealFieldControl = function (input, fromUserGesture, seedChar) {
 
 // Expose navigate globally for inline onclick handlers
 window.navigate = navigate
+
+// Leaving the page IS a loss, and nothing in this app warned about one before.
+// Reads oppAssessDirtyKeys() for the same reason the navigation guard does.
+//
+// NEVER FIRES AFTER A SUCCESSFUL SAVE, and not by inferring anything:
+// saveAllOppAssess deletes each draft the moment its write is confirmed, so by
+// the time any redirect or unload happens the set is already empty. That is
+// exactly the mechanism Section 5 prescribes, clear the flag when the save
+// succeeds rather than try to tell an app-initiated navigation from a real one
+// afterwards, and Phase 5's derived registry gets it for free.
+window.addEventListener('beforeunload', e => {
+  if (!oppAssessDirtyKeys().length) return
+  e.preventDefault()
+  // Assigning returnValue is what actually triggers the browser's own prompt
+  // in Chrome. The string is never displayed; browsers show their own wording.
+  e.returnValue = ''
+})
