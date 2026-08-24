@@ -1671,6 +1671,18 @@ function renderOppAssessCriterion(c) {
   const draft = oppAssessDraft[c.criterion_key] ?? ''
   const anchorSet = c.anchors?.[c.current_version] ?? {}
 
+  // Round 28 Phase 3: DISPLAY PRECEDENCE. A per-criterion anchor at this
+  // criterion's current version wins; the scale's generic description is the
+  // fallback. The seven Commercial criteria all carry anchors today, so this
+  // renders exactly what it rendered before until an override is retired, and
+  // retiring one is a decision the business has not yet taken.
+  //
+  // ONLY FOR THE CURRENT DEFINITION BLOCK. Never for a historical entry: the
+  // description is not versioned, so a later edit to it would silently restate
+  // every past judgement in wording it was not made against, which is the one
+  // thing anchor versioning exists to prevent.
+  const wordingFor = l => anchorSet[l.value] ?? l.description ?? ''
+
   // AN UNANCHORED CRITERION, decided here.
   //
   // Round A Phase 4 found it renders as blank rows and the literal "Version
@@ -1707,8 +1719,8 @@ function renderOppAssessCriterion(c) {
                onclick="toggleOppAssessAnchorsOpen('${escHtml(c.criterion_key)}')">${anchorsOpen ? 'Hide definitions' : 'Show definitions'}</button>
        <div class="opp-assess-anchors${anchorsOpen ? '' : ' hidden'}" id="opp-assess-anchors-${escHtml(c.criterion_key)}">
          ${levels.map(l => `
-           <span class="opp-assess-anchor-n${anchorSet[l.value] ? '' : ' opp-assess-anchor--nowording'}">${escHtml(String(l.label))}</span>
-           <span class="opp-assess-anchor-t">${anchorSet[l.value] ? escHtml(anchorSet[l.value]) : ''}</span>`).join('')}
+           <span class="opp-assess-anchor-n${wordingFor(l) ? '' : ' opp-assess-anchor--nowording'}">${escHtml(String(l.label))}</span>
+           <span class="opp-assess-anchor-t">${escHtml(wordingFor(l))}</span>`).join('')}
          <p class="opp-assess-ver" style="grid-column:1/-1">Definition version ${escHtml(String(c.current_version))}</p>
        </div>`
 

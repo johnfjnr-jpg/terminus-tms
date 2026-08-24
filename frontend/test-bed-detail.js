@@ -2239,6 +2239,21 @@ async function renderTbScores() {
     const asksLine = c.asks ? `<p class="tb-score-asks">${escHtml(c.asks)}</p>` : ''
 
     const anchorSet = tbAnchorSet(c, c.current_version)
+    // Round 28 Phase 3: DISPLAY PRECEDENCE, the same rule as Opportunity's.
+    // A per-criterion anchor at the current version wins, the scale's generic
+    // description is the fallback.
+    //
+    // TEST BED CANNOT CHANGE HERE, twice over. Every Test Bed criterion has a
+    // null scale_id, so resolveLevels returns DEFAULT_LEVELS, which carries no
+    // descriptions at all; and all five carry their own anchors anyway, so the
+    // override would win even if a scale existed. Confirmed against the live
+    // data before writing this, not assumed from the rule.
+    //
+    // ONLY FOR THE CURRENT DEFINITION BLOCK. The history below deliberately
+    // keeps reading tbAnchorSet directly, because the description is not
+    // versioned and using it there would restate a past judgement in wording it
+    // was never made against.
+    const tbWordingFor = l => anchorSet[l.value] ?? l.description ?? ''
     // Round 28 Phase 2. THREE STATES, where there were two. `undefined` means
     // nobody has decided and the old defaulting applies, a pending draft opens
     // the block; `true` and `false` are a decision the person made with the
@@ -2252,9 +2267,9 @@ async function renderTbScores() {
       <div class="tb-score-anchors${anchorsOpen ? '' : ' hidden'}"
            id="tb-anchors-${escHtml(c.criterion_key)}">
         ${levels.map(l => `
-          <div class="tb-score-anchor${anchorSet[l.value] ? '' : ' tb-score-anchor--nowording'}">
+          <div class="tb-score-anchor${tbWordingFor(l) ? '' : ' tb-score-anchor--nowording'}">
             <span class="tb-score-anchor-n">${escHtml(String(l.label))}</span>
-            <span class="tb-score-anchor-text">${anchorSet[l.value] ? escHtml(anchorSet[l.value]) : ''}</span>
+            <span class="tb-score-anchor-text">${escHtml(tbWordingFor(l))}</span>
           </div>`).join('')}
         <p class="sub tb-score-anchor-ver">Version ${escHtml(String(c.current_version))}</p>
       </div>`
