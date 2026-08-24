@@ -3387,6 +3387,42 @@ input.input-invalid {
 .opp-assess-asks { font-size: 12px; color: var(--muted); margin-left: 10px; }
 .opp-assess-select { flex: 0 0 210px; width: 210px; }
 
+/* ── Round 28 Phase 5: the shared save bar ──────────────────────────────────
+   Sticky to the bottom of the assessment tab so it stays reachable while the
+   person scrolls seven criteria, which is the whole point of one save rather
+   than seven. Test Bed's own bar is a fixed row at the foot of the record; this
+   one is scoped to the assessment panel and says so by living inside it.
+
+   New classes throughout, so nothing that already exists changes computed
+   style. */
+.opp-assess-savebar {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  max-width: 880px;
+  margin-top: 16px;
+  padding: 12px 14px;
+  background: var(--black);
+  border-top: 1px solid var(--hairline-strong);
+}
+.opp-assess-savebar.hidden { display: none; }
+.opp-assess-savebar-count {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-right: auto;
+}
+.opp-assess-savebar-feedback {
+  font-size: 12px;
+  flex: 1 1 100%;
+  min-height: 0;
+}
+
 .opp-assess-anchors {
   display: grid;
   grid-template-columns: max-content 1fr;

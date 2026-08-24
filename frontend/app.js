@@ -1753,8 +1753,12 @@ function renderOppAssessCriterion(c) {
       <textarea id="opp-assess-reason-${escHtml(c.criterion_key)}" rows="2"
         oninput="setOppAssessReason('${escHtml(c.criterion_key)}', this.value)">${escHtml(oppAssessReason[c.criterion_key] ?? '')}</textarea>
       <div class="opp-assess-actions">
-        <button class="btn-primary" onclick="commitOppAssess('${escHtml(c.criterion_key)}')">Record</button>
-        <button class="btn-ghost" onclick="cancelOppAssess('${escHtml(c.criterion_key)}')">Cancel</button>
+        ${/* Round 28 Phase 5: the Record and Cancel buttons that stood here are
+             now one shared bar for the whole panel, which is what the business
+             asked for and what Test Bed already does. The per-criterion
+             FEEDBACK line stays: a batch that partly fails has to say which
+             criterion failed, beside that criterion, and a single line on the
+             bar cannot do that for four of seven. */''}
         <span class="opp-assess-feedback" id="opp-assess-feedback-${escHtml(c.criterion_key)}"></span>
       </div>
     </div>`
@@ -1896,6 +1900,149 @@ window.toggleOppAssessAnchorsOpen = function (key) {
   }
 }
 
+// ── Round 28 Phase 5: one save for the panel ────────────────────────────
+//
+// ASSESSMENT SCOPED, NOT RECORD WIDE, and the reasoning is recorded because
+// the obvious precedent points the other way. Test Bed's equivalent is record
+// wide: a score draft lands in tbEdits, the same dirty map every other Test
+// Bed field uses, and #tb-save-all saves the lot. Opportunity has no such bar
+// for scoring to join, and building one would mean unifying with
+// opportunity-reference.js's own edit mechanism, which works. Unifying a
+// working path with a new one is how working paths break. It would also be a
+// half step toward the system-wide registry INTERACTION_STANDARDS.md Section 5
+// specifies and that is explicitly not this round's, so it would be re-done
+// rather than extended.
+//
+// THE REGISTRY IS DERIVED, NOT DECLARED. There is no oppEdits. The dirty set
+// is read from oppAssessDraft, which already exists and already holds exactly
+// this. A parallel map would be a second source of truth that agrees today,
+// which is Architecture rule 3, and it would also need its own clearing on a
+// record change. Because this is derived, Round 28 Phase 1's clearing of the
+// three draft maps covers it for free.
+function oppAssessDirtyKeys() {
+  // Ordered by the criteria list rather than by insertion, so messages and
+  // saves run in the order the panel displays.
+  return (oppCriteria ?? [])
+    .map(c => c.criterion_key)
+    .filter(k => oppAssessDraft[k] !== undefined)
+}
+
+function oppAssessNameFor(key) {
+  return (oppCriteria ?? []).find(c => c.criterion_key === key)?.name ?? key
+}
+
+// Which dirty criteria still owe a reason. Pre-flight, and deliberately NOT
+// the same thing as a partial failure: this refuses the batch before anything
+// is written, because a reason is a rule the panel already knows, and firing
+// seven requests to have some refused is worse than not firing them.
+function oppAssessMissingReasons() {
+  return oppAssessDirtyKeys().filter(k => {
+    const c = (oppCriteria ?? []).find(x => x.criterion_key === k)
+    const chosen = (c?.levels ?? []).find(l => String(l.value) === String(oppAssessDraft[k]))
+    const mustGive = !!chosen?.reason_required || oppAssessSeries(k).length > 0
+    return mustGive && !String(oppAssessReason[k] ?? '').trim()
+  })
+}
+
+// The bar is mutated in place, never re-rendered from a template that would
+// replace the pane, because the pane holds a reason textarea the person may be
+// typing into.
+function renderOppAssessSaveBar() {
+  const bar = document.getElementById('opp-assess-savebar')
+  if (!bar) return
+  const dirty = oppAssessDirtyKeys()
+  bar.classList.toggle('hidden', dirty.length === 0)
+  const count = document.getElementById('opp-assess-savebar-count')
+  if (count) {
+    count.textContent = dirty.length === 1
+      ? '1 assessment ready to record'
+      : `${dirty.length} assessments ready to record`
+  }
+}
+
+window.cancelAllOppAssess = function () {
+  for (const k of oppAssessDirtyKeys()) {
+    delete oppAssessDraft[k]
+    delete oppAssessReason[k]
+    delete oppAssessAnswer[k]
+  }
+  const fb = document.getElementById('opp-assess-savebar-feedback')
+  if (fb) { fb.textContent = ''; fb.className = 'opp-assess-savebar-feedback' }
+  rerenderOppAssessLens()
+}
+
+// THE BATCH. Round 11A is the precedent and it is exact: .find() where
+// .filter() was meant, so scoring five things and pressing Save once kept one
+// and lost four, silently. The loop below runs over the WHOLE dirty array and
+// its result is reported per key.
+//
+// SEQUENTIAL, NOT Promise.all. Every score appends a record revision through
+// append_record_revision, which serialises writers for one record on an
+// advisory lock, so parallel requests would queue there anyway. Sequential
+// buys deterministic attribution: the nth failure belongs to the nth
+// criterion, with no ambiguity about which request the server refused.
+//
+// A PARTIAL SAVE IS WORSE THAN A FAILED ONE. A criterion that failed stays
+// dirty with its reason intact so it can be retried, the ones that succeeded
+// are cleared, and the bar reports the failures by name rather than reporting
+// success for the batch.
+window.saveAllOppAssess = async function () {
+  const fb = document.getElementById('opp-assess-savebar-feedback')
+  const setFb = (text, cls) => { if (fb) { fb.textContent = text; fb.className = `opp-assess-savebar-feedback ${cls}` } }
+  const keys = oppAssessDirtyKeys()
+  if (!keys.length) return
+
+  const missing = oppAssessMissingReasons()
+  if (missing.length) {
+    setFb(`A reason is required for ${missing.map(oppAssessNameFor).join(', ')}. Nothing was recorded.`, 'msg-error')
+    return
+  }
+
+  const btn = document.getElementById('opp-assess-savebar-record')
+  if (btn) btn.disabled = true
+  setFb(`Recording ${keys.length}...`, '')
+
+  const failed = []
+  let saved = 0
+  for (const key of keys) {
+    const a = oppAssessAnswer[key] ?? {}
+    const sendAnswer = key === OPP_VALUE_CAPTURE_KEY && String(a.amount ?? '').trim() !== ''
+    const reason = String(oppAssessReason[key] ?? '').trim()
+    const result = await api('POST', `/api/opportunities/${currentOppDetailId}/scores`, {
+      criterion: key, score: Number(oppAssessDraft[key]),
+      ...(reason ? { reason } : {}),
+      ...(sendAnswer ? { answer: { amount: Number(a.amount), currency: a.currency ?? 'SGD' } } : {}),
+    })
+    if (result.ok) {
+      saved++
+      delete oppAssessDraft[key]
+      delete oppAssessReason[key]
+      delete oppAssessAnswer[key]
+    } else {
+      // Left dirty ON PURPOSE, with the typed reason intact. Every refusal
+      // this endpoint gives is correctable, and discarding the draft would
+      // make the person retype to find that out.
+      failed.push({ key, error: result.data?.error ?? 'unknown error' })
+    }
+  }
+
+  // The server owns the series, so the panel re-reads it rather than guessing.
+  const fresh = await api('GET', `/api/opportunities/${currentOppDetailId}`)
+  if (fresh.ok) currentOppPayload = fresh.data.payload ?? {}
+  rerenderOppAssessLens()
+  if (btn) btn.disabled = false
+
+  if (!failed.length) {
+    setFb(`Recorded ${saved} of ${keys.length}.`, 'msg-ok')
+  } else {
+    setFb(`Recorded ${saved} of ${keys.length}. Not recorded: ${failed.map(f => oppAssessNameFor(f.key)).join(', ')}.`, 'msg-error')
+    for (const f of failed) {
+      const cell = document.getElementById(`opp-assess-feedback-${f.key}`)
+      if (cell) { cell.textContent = f.error; cell.className = 'opp-assess-feedback msg-error' }
+    }
+  }
+}
+
 window.commitOppAssess = async function (key) {
   const value = Number(oppAssessDraft[key])
   const reason = String(oppAssessReason[key] ?? '').trim()
@@ -1930,6 +2077,9 @@ function rerenderOppAssessLens() {
   const pane = key && document.getElementById(`opp-assessment-mount-pane-${key}`)
   const lens = (oppLenses ?? []).find(l => oppLensKey(l.name) === key)
   if (pane && lens) renderOppAssessLens(pane, lens.id)
+  // ONE entry point, so the bar cannot fall out of step with the panel. Round
+  // 28 Phase 5.
+  renderOppAssessSaveBar()
 }
 
 let oppAssessCurrentLens = null
@@ -1969,6 +2119,31 @@ async function mountOppAssessmentLenses() {
   })
   if (!built) return
 
+  // Round 28 Phase 5: the shared save bar, mounted OUTSIDE the lens panes.
+  //
+  // Drafts are keyed by criterion across every lens, so a person who assesses
+  // two Commercial criteria and then opens Technical still has two pending.
+  // A bar inside a pane would disappear with the pane and take the count with
+  // it. Mounted here it also survives renderOppAssessLens, which rewrites only
+  // a pane's innerHTML.
+  //
+  // Built once per record load, and then MUTATED rather than rebuilt, so it
+  // never destroys a reason textarea mid-sentence.
+  let bar = document.getElementById('opp-assess-savebar')
+  if (!bar) {
+    bar = document.createElement('div')
+    bar.id = 'opp-assess-savebar'
+    bar.className = 'opp-assess-savebar hidden'
+    bar.innerHTML = `
+      <span id="opp-assess-savebar-count" class="opp-assess-savebar-count"></span>
+      <button type="button" class="btn-primary" id="opp-assess-savebar-record"
+              onclick="saveAllOppAssess()">Record</button>
+      <button type="button" class="btn-ghost" id="opp-assess-savebar-cancel"
+              onclick="cancelAllOppAssess()">Cancel</button>
+      <span id="opp-assess-savebar-feedback" class="opp-assess-savebar-feedback"></span>`
+    mount.appendChild(bar)
+  }
+
   // Every pane is rendered up front, not only the open one. Four lenses over
   // criteria already in memory is cheap, and it means switching a sub-tab
   // never shows an empty pane that fills a moment later.
@@ -1976,6 +2151,7 @@ async function mountOppAssessmentLenses() {
     const pane = built.panes[oppLensKey(l.name)]
     if (pane) renderOppAssessLens(pane, l.id)
   }
+  renderOppAssessSaveBar()
 }
 
 // oppLandOnTabAfterLoad, Round 22 Phase 2, widened in Phase 3. The
