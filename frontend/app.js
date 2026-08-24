@@ -1623,6 +1623,11 @@ let oppCriteriaPromise = null
 const oppAssessDraft = {}
 const oppAssessReason = {}
 const oppAssessOpen = {}
+// Round 28 Phase 6: which criteria have their history revealed. RECORD STATE,
+// not configuration, so it joins the list Phase 1 clears on a record change.
+// Adding it there in the same edit rather than later is the whole of Phase 1's
+// lesson: a map keyed by criterion that outlives its record is the defect.
+const oppAssessHistoryOpen = {}
 const oppAssessAnswer = {}   // criterion_key -> { amount, currency }
 
 async function ensureOppCriteria() {
@@ -1699,14 +1704,30 @@ function renderOppAssessCriterion(c) {
   const options = levels.map(l =>
     `<option value="${l.value}"${String(draft) === String(l.value) ? ' selected' : ''}>${escHtml(String(l.label))}</option>`).join('')
 
-  // Round 28 Phase 2. THREE STATES, where there were two.
+  // Round 28 Phase 6: CLOSED UNLESS ASKED FOR, and back to two states.
   //
-  // `undefined` means nobody has decided, and the old defaulting applies: a
-  // draft in progress opens the block. `true` and `false` are a decision the
-  // person made with the control below, and a decision outranks the default,
-  // which is why this is `??` rather than the `||` it replaces. With `||` an
-  // explicit close was undone the instant a draft existed.
-  const anchorsOpen = oppAssessOpen[c.criterion_key] ?? (draft !== '')
+  // Phase 2 kept a default of "open while a draft is in progress", inherited
+  // from a panel where each criterion saved on its own. Measured here with one
+  // save for the panel: drafting all seven took the pane from 1849px to 4131px,
+  // which hands back more than the close control ever bought.
+  //
+  // BOTH auto-open routes go, and the measurement is what showed the second one
+  // mattered. The named suspect was the draft default, and it does fire: with
+  // the state undecided and a draft present, seven blocks opened. But on the
+  // path a person actually takes it never gets the chance, because focusing the
+  // select to choose a level already opened the block. Removing the draft
+  // default alone would have changed nothing a scorer would see.
+  //
+  // The reveal-on-focus existed because before Phase 2 there was no control at
+  // all. There is one now, labelled, so opening a 200 to 400px block because
+  // the cursor landed on a select is a surprise rather than a service.
+  const anchorsOpen = !!oppAssessOpen[c.criterion_key]
+  // Round 28 Phase 6: the CURRENT assessment stays exactly where Round 26
+  // Phase 1 put it, prominent and unconditional, reason and author and
+  // timestamp. Only the earlier ones go behind a control. That distinction is
+  // the whole of Round 26's finding: the reason is what a bid review
+  // challenges, and the current one is precisely the one that gets challenged.
+  const historyOpen = !!oppAssessHistoryOpen[c.criterion_key]
   const anchors = unanchored
     ? '<p class="opp-assess-note">No level definitions are recorded for this criterion yet, so it cannot be assessed.</p>'
     // The control sits OUTSIDE the block it controls, so opening and closing
@@ -1798,8 +1819,12 @@ function renderOppAssessCriterion(c) {
     </div>`
 
   const history = series.length > 1 ? `
-    <p class="opp-assess-history-label">Previously</p>
-    <div class="opp-assess-history">
+    <button type="button" class="anchors-toggle" id="opp-assess-history-toggle-${escHtml(c.criterion_key)}"
+            aria-expanded="${historyOpen ? 'true' : 'false'}" aria-controls="opp-assess-history-${escHtml(c.criterion_key)}"
+            onclick="toggleOppAssessHistory('${escHtml(c.criterion_key)}')">${
+      historyOpen ? 'Hide earlier assessments' : `Show ${series.length - 1} earlier assessment${series.length - 1 === 1 ? '' : 's'}`
+    }</button>
+    <div class="opp-assess-history${historyOpen ? '' : ' hidden'}" id="opp-assess-history-${escHtml(c.criterion_key)}">
       ${series.slice(0, -1).reverse().map(e => `<div class="opp-assess-entry"><span>${escHtml(formatDateTime(e.at))}</span><span>${escHtml(labelFor(e.value))}</span>${
         e.answer ? `<span class="opp-assess-entry-answer">${escHtml(e.answer.currency)} ${escHtml(Number(e.answer.amount).toLocaleString('en-GB'))}</span>` : ''
       }<span>${escHtml(e.reason ?? '')}</span></div>`).join('')}
@@ -1820,7 +1845,6 @@ function renderOppAssessCriterion(c) {
         <span class="opp-assess-value${current ? '' : ' opp-assess-value--none'}">${current ? escHtml(labelFor(current.value)) : OPP_ASSESS_NONE}</span>
         <select class="opp-assess-select" id="opp-assess-select-${escHtml(c.criterion_key)}"
           aria-label="${escHtml(c.name)}"${unanchored ? ' disabled' : ''}
-          onfocus="revealOppAssessAnchors('${escHtml(c.criterion_key)}')"
           onchange="setOppAssessDraft('${escHtml(c.criterion_key)}', this.value)">
           <option value="">${current ? 'Revise...' : OPP_ASSESS_PROMPT}</option>
           ${options}
@@ -1867,20 +1891,9 @@ window.cancelOppAssess = function (key) {
   delete oppAssessAnswer[key]
   rerenderOppAssessLens()
 }
-// Opening on focus rather than toggling, so tabbing to the select reveals the
-// definitions a scorer is about to choose between.
-//
-// Round 28 Phase 2: RENAMED, because it never toggled and the name said it
-// did. It reveals, one way, and the real toggle is now the function below.
-// The guard also changed from `if (open)` to `if (decided)`: an explicit
-// close has to survive the next focus, or the control does nothing that lasts
-// past reaching for the select again, which is the very next thing a scorer
-// does.
-window.revealOppAssessAnchors = function (key) {
-  if (oppAssessOpen[key] !== undefined) return
-  oppAssessOpen[key] = true
-  rerenderOppAssessLens()
-}
+// Round 28 Phase 6: revealOppAssessAnchors is GONE, along with the onfocus that
+// called it. It existed to compensate for there being no visible control, and
+// Phase 2 added one.
 
 // The explicit control. DIRECT DOM MUTATION, NEVER A RE-RENDER, following
 // showTbScoreAnchors' reasoning rather than this file's own previous habit:
@@ -2040,6 +2053,23 @@ window.saveAllOppAssess = async function () {
       const cell = document.getElementById(`opp-assess-feedback-${f.key}`)
       if (cell) { cell.textContent = f.error; cell.className = 'opp-assess-feedback msg-error' }
     }
+  }
+}
+
+// Mirrors toggleOppAssessAnchorsOpen exactly, including the direct DOM
+// mutation: rerenderOppAssessLens rewrites the pane's innerHTML and would
+// destroy a reason textarea mid-sentence.
+window.toggleOppAssessHistory = function (key) {
+  const block = document.getElementById(`opp-assess-history-${key}`)
+  if (!block) return
+  const open = block.classList.contains('hidden')
+  oppAssessHistoryOpen[key] = open
+  block.classList.toggle('hidden', !open)
+  const btn = document.getElementById(`opp-assess-history-toggle-${key}`)
+  if (btn) {
+    const n = block.querySelectorAll('.opp-assess-entry').length
+    btn.textContent = open ? 'Hide earlier assessments' : `Show ${n} earlier assessment${n === 1 ? '' : 's'}`
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false')
   }
 }
 
@@ -4864,7 +4894,7 @@ async function renderOppDetail(opp) {
   // they cache configuration, which is record-type scoped and genuinely
   // outlives any one record.
   if (currentOppDetailId !== opp.id) {
-    for (const m of [oppAssessDraft, oppAssessReason, oppAssessAnswer, oppAssessOpen]) {
+    for (const m of [oppAssessDraft, oppAssessReason, oppAssessAnswer, oppAssessOpen, oppAssessHistoryOpen]) {
       for (const k of Object.keys(m)) delete m[k]
     }
   }
