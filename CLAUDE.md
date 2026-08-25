@@ -175,6 +175,31 @@ not resolve it quietly.
    build-discipline rule 6, which is a fix failing to reach a new surface;
    this is an unchanged path meeting a new demand.
 
+   **A VALIDATION can go stale the same way, and that direction is not
+   watched.** Round 30 Phase 2, 2026-08-25. All nine instances above are
+   code built for a screen that then changed. This is a **rule built for a
+   state that then changed**, and it is harder to see because the rule
+   keeps running and keeps passing.
+
+   The assessment panel required a reason on any revision, and tested it by
+   asking whether the reason box was non-empty. That was correct for every
+   caller it had, because the box was created empty on every revision. The
+   same phase then **prefilled the box with the recorded reason**, which
+   makes the test pass by construction: it fires on every save, reports
+   satisfied every time, and no longer asks anything. **Nothing fails. No
+   test breaks. The guard is gone and the output is identical**, which is
+   the Architecture rule 9 signature arriving from the validation side.
+
+   The replacement has to restate the intent rather than the symptom: the
+   reason must **differ from the one already recorded**, because otherwise
+   a new level is recorded carrying the reasoning given for a different
+   level.
+
+   **The check to run: when you change the state a rule reads, re-derive
+   what the rule now asks, not whether it still passes.** A rule whose
+   answer has become constant is indistinguishable from a rule that is
+   working, and the passing case is the one you will see.
+
 9. **A destructuring parameter list is an allowlist that gives no feedback
    when it excludes something.** `function f({ a, b })` accepts a call
    passing `c` and silently discards it. The options object **reads as
