@@ -2061,29 +2061,61 @@ function renderOppAssessCriterion(c) {
   // Inside the draft area beside the reason, because the amount is part of the
   // same act as choosing the level and is recorded with it, not separately.
   const answerDraft = oppAssessAnswer[c.criterion_key] ?? {}
+  // Round 31 Phase 4: DECLARED HERE, not further down where Round 30 Phase 2
+  // left it. The inline value reads it, and a const declared after its first
+  // reader is a temporal dead zone: renderOppAssessCriterion threw "Cannot
+  // access 'dirty' before initialization" on the one criterion scoped into the
+  // prototype, which is the only one whose branch reaches it.
+  const dirty = oppAssessDraft[c.criterion_key] !== undefined || oppAssessReasonEdited(c.criterion_key)
+
+  // ── Round 31 Phase 4: THE VALUE, INLINE, IN TWO STATES ──────────────────
+  //
+  // The brief treated the value as one thing. Measured it is two, and the
+  // difference is 3x: as text it is 86px, as the two controls it is 260px, and
+  // at 1920 the reason cell after it is 717px or 543px accordingly.
+  //
+  // TEXT AT REST, CONTROLS WHEN DRAFTING, and the reason is not that it is the
+  // obvious shape. At rest the value is RECORDED DATA and reads like the level
+  // beside it; while drafting it is an INPUT and needs room to type in. Giving
+  // both states the wider treatment would take 174px from this row's reason at
+  // all times to serve a state that exists only while somebody is editing. And
+  // this criterion is the one that already carries the longest real reason in
+  // the fixture, so it is the row that can least afford the permanent cost.
+  //
+  // The 260px does not fit the head line at 1240, where 137px remains after
+  // the criterion cell and the segments. It wraps, which is what the row
+  // already does with the reason at that width, and the wrapped line then
+  // carries the controls and the reason together.
+  const answerText = current?.answer
+    ? `${escHtml(current.answer.currency)} ${escHtml(Number(current.answer.amount).toLocaleString('en-GB'))}`
+    : ''
   const answerBox = c.criterion_key !== OPP_VALUE_CAPTURE_KEY ? '' : `
-    <div class="opp-assess-answer">
-      <label for="opp-assess-amount-${escHtml(c.criterion_key)}">Budget figure (optional)</label>
-      <div class="opp-assess-answer-row">
-        <input type="text" inputmode="decimal" id="opp-assess-amount-${escHtml(c.criterion_key)}"
-          value="${escHtml(String(answerDraft.amount ?? ''))}" placeholder="450000"
-          oninput="setOppAssessAnswer('${escHtml(c.criterion_key)}', 'amount', this.value)">
-        <select id="opp-assess-currency-${escHtml(c.criterion_key)}"
-          aria-label="Currency"
-          onchange="setOppAssessAnswer('${escHtml(c.criterion_key)}', 'currency', this.value)">
-          ${CURRENCY_CODES.map(x => `<option value="${x}"${(answerDraft.currency ?? 'SGD') === x ? ' selected' : ''}>${x}</option>`).join('')}
-        </select>
-      </div>
-    </div>`
+    <span class="opp-assess-answer">
+      <input type="text" inputmode="decimal" id="opp-assess-amount-${escHtml(c.criterion_key)}"
+        aria-label="Budget figure, optional"
+        value="${escHtml(String(answerDraft.amount ?? current?.answer?.amount ?? ''))}" placeholder="Budget figure"
+        oninput="setOppAssessAnswer('${escHtml(c.criterion_key)}', 'amount', this.value)">
+      <select id="opp-assess-currency-${escHtml(c.criterion_key)}"
+        aria-label="Currency"
+        onchange="setOppAssessAnswer('${escHtml(c.criterion_key)}', 'currency', this.value)">
+        ${CURRENCY_CODES.map(x => `<option value="${x}"${(answerDraft.currency ?? current?.answer?.currency ?? 'SGD') === x ? ' selected' : ''}>${x}</option>`).join('')}
+      </select>
+    </span>`
+
+  // Scoped by the SAME constant as Phase 3, so Phase 6 decides one thing
+  // rather than hunting for two.
+  const valueInline = c.criterion_key !== OPP_HOVER_DEFINITIONS_KEY ? ''
+    : dirty ? answerBox
+    : (answerText ? `<span class="opp-assess-value-inline">${answerText}</span>` : '')
 
   // Round 30 Phase 2: only the amount inputs are conditional now. The reason
   // moved on to the row, and the Record and Cancel buttons went to the shared
   // bar in Round 28 Phase 5. The per-criterion FEEDBACK line stays: a batch
   // that partly fails has to say which criterion failed, beside that
   // criterion, and one line on the bar cannot do that for four of seven.
-  const dirty = oppAssessDraft[c.criterion_key] !== undefined || oppAssessReasonEdited(c.criterion_key)
+  // The amount controls are on the ROW now, so what is left below it is the
+  // per-criterion failure message alone.
   const reasonBox = `
-    ${dirty ? answerBox : ''}
     <span class="opp-assess-feedback" id="opp-assess-feedback-${escHtml(c.criterion_key)}"></span>`
 
   // Round 26 Phase 1: THE CURRENT ENTRY GETS ITS OWN BLOCK.
@@ -2125,10 +2157,17 @@ function renderOppAssessCriterion(c) {
   // timestamp because it is the same kind of fact, a property of the entry
   // that recorded it, which is Round 26 Phase 3's own reasoning for why it is
   // not carried forward onto later entries.
+  // Round 30 Phase 4 put the figure on this line, on Round 26 Phase 3's
+  // reasoning that it belongs to the ENTRY rather than the criterion. That
+  // reasoning is untouched and it is still the current entry's figure; what
+  // changed is where the entry's figure is READ. Behind a disclosure it was a
+  // recorded money figure nobody could see without opening something, and
+  // Round 15 Phase 4 is this project's record of what happens when the thing
+  // whose whole purpose is to be read is given the quiet treatment.
+  //
+  // It LEAVES here rather than appearing in both places. A move is two claims.
   const currentBlock = !current ? `<p class="opp-assess-current-meta opp-assess-current-meta--none">${OPP_ASSESS_NONE}</p>` : `
-    <p class="opp-assess-current-meta">${
-      current.answer ? `<span class="opp-assess-current-answer">${escHtml(current.answer.currency)} ${escHtml(Number(current.answer.amount).toLocaleString('en-GB'))}</span>` : ''
-    }${escHtml(current.by ?? '--')} &middot; ${escHtml(formatDateTime(current.at))}</p>`
+    <p class="opp-assess-current-meta">${escHtml(current.by ?? '--')} &middot; ${escHtml(formatDateTime(current.at))}</p>`
 
   const earlier = series.length - 1
   const history = series.length > 1 ? `
@@ -2198,6 +2237,7 @@ function renderOppAssessCriterion(c) {
             }<span class="visually-hidden">${detailOpen ? 'Hide' : 'Show'} details for ${escHtml(c.name)}</span></button>
         </span>
         ${levelGroup}
+        ${valueInline}
         ${/* PRESENT AT REST AND PREFILLED. Zero of seven reason fields existed
              before this phase, so amending one reason cost three steps and
              restated the level; and the field, once reached, was empty while
