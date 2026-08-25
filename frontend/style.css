@@ -3510,6 +3510,27 @@ input.input-invalid {
    max-width is a readable measure rather than the row's, because the wording is
    prose: the five range from 78 to 154 characters and the longest sets four
    lines at 420px. */
+/* Round 32 Phase 1: the affordance, which is the actual repair.
+
+   Phase 0 measured the name reporting `cursor: auto` and no underline, so the
+   question that WAS on a title attribute the whole time had nothing on screen
+   pointing at it. The business read the panel and reported the text missing.
+
+   DOTTED, NOT SOLID. This stylesheet already spends a solid underline on
+   things you click: `.doc-link` at 1022 and `.anchors-toggle` at 1697, both
+   with `cursor: pointer` and a hover colour change. Borrowing that exact
+   treatment would promise a link. The dots keep the "there is more here"
+   reading and drop the "you can click it" one, and `cursor: help` says which
+   kind of more.
+
+   The hairline colour at rest so seven of them do not stripe the panel; the
+   muted colour on hover so the target confirms itself under the pointer. */
+.opp-assess-name--asks {
+  cursor: help;
+  text-decoration: underline dotted var(--hairline-strong);
+  text-underline-offset: 3px;
+}
+.opp-assess-name--asks:hover { text-decoration-color: var(--muted); }
 .opp-assess-defn {
   position: absolute;
   top: 100%;
