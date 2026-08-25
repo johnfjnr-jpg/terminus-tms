@@ -2425,6 +2425,7 @@ window.showOppLevelDefinition = function (el) {
   if (!found) return hideOppAssessDefn()
 
   box.innerHTML = `<span class="opp-assess-defn-l">${escHtml(found.label)}</span>${escHtml(found.wording)}`
+  box.classList.remove('opp-assess-defn--asks')
   box.classList.remove('hidden')
   box.setAttribute('aria-hidden', 'false')
 
@@ -2438,6 +2439,17 @@ window.showOppLevelDefinition = function (el) {
   const bw = box.getBoundingClientRect().width
   const centred = (er.left - rr.left) + (er.width / 2) - (bw / 2)
   box.style.left = `${Math.max(0, Math.min(centred, rr.width - bw))}px`
+  // Round 32 Phase 1: `top` IS SET HERE TOO, and it has to be. The element is
+  // now shared with the question, which anchors to the name, so leaving this
+  // path to the stylesheet would let the question's inline `top` leak into the
+  // level definitions the next time one is shown.
+  //
+  // Having to set it fixed the same 1240 fault this popup already had: `top:
+  // 100%` dropped it below the wrapped reason cell rather than under the
+  // segments it explains. That was Round 31's, it predates this phase, and it
+  // is repaired here because sharing the element made touching it unavoidable.
+  const gr = el.closest('.opp-assess-levels').getBoundingClientRect()
+  box.style.top = `${gr.bottom - rr.top}px`
 }
 
 // ── Round 32 Phase 1: the criterion's question, on the same element ───────
@@ -2522,12 +2534,38 @@ function oppShowCriterionQuestionNow (key) {
   if (!el) return
 
   box.innerHTML = escHtml(asks)
+  // THE QUESTION IS CONTENT, NOT SUPPORTING DETAIL, and the shared element
+  // defaults to the treatment for supporting detail.
+  //
+  // Measured with the alpha composited: the box inherits `--muted` at alpha
+  // 0.5, which puts the question at 4.83:1 against the popup's own background,
+  // where the criterion name six pixels above it reads at 15.29:1. That clears
+  // AA by a third of a point, at 12px, for the one sentence this phase exists
+  // to make findable. It is Round 15 Phase 4's fault exactly: right place,
+  // right words, and the least prominent treatment on the panel.
+  //
+  // The level definitions KEEP the muted treatment, because five of them are
+  // read comparatively against each other and are genuinely supporting. Same
+  // element, two roles, so the role is a modifier rather than a new box.
+  box.classList.add('opp-assess-defn--asks')
   box.classList.remove('hidden')
   box.setAttribute('aria-hidden', 'false')
 
+  // ANCHORED TO THE NAME, NOT TO THE ROW, which only looking at 1240 revealed.
+  //
+  // The CSS said `top: 100%`, and at 1920 the row is one line tall so the popup
+  // landed six pixels under the name and was right. At 1240 the reason cell
+  // wraps to its own line, the row is 110px tall, and `top: 100%` put the
+  // question BELOW the reason and hard against the next criterion's name. It
+  // read as labelling the row underneath it.
+  //
+  // Every programmatic check passed on that: shown, correct text, correct
+  // identity, left aligned, no overhang. Position relative to the thing it
+  // explains is not a property any of them named.
   const rr = box.parentElement.getBoundingClientRect()
   const er = el.getBoundingClientRect()
   box.style.left = `${er.left - rr.left}px`
+  box.style.top = `${er.bottom - rr.top}px`
 }
 
 window.hideOppAssessDefn = function () {

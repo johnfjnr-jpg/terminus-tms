@@ -3533,7 +3533,10 @@ input.input-invalid {
 .opp-assess-name--asks:hover { text-decoration-color: var(--muted); }
 .opp-assess-defn {
   position: absolute;
-  top: 100%;
+  /* `top` is set inline by whichever path shows this, against the element the
+     popup is explaining rather than against the row. Round 32 Phase 1: the
+     `top: 100%` that stood here was right at 1920, where the row is one line,
+     and wrong at 1240, where the row wraps and 100% is below the reason cell. */
   /* ABOVE THE SAVE BAR, which is 45. The bar was raised above the segments in
      the same phase, and the ordering between these two is a real decision
      rather than a number: a row near the foot of the panel puts its popup in
@@ -3545,6 +3548,19 @@ input.input-invalid {
   padding: 8px 10px;
   background: var(--black);
   border: 1px solid var(--hairline-strong);
+  /* Round 32 Phase 1: THE THIRD PART OF THE CONVENTION, which this popup was
+     built without.
+
+     Four floating surfaces in this stylesheet carry the same trio:
+     `.contact-count-popup`, `.contact-create-dropdown`, `.tb-matrix-popup` and
+     `.chevron-popup`, each `var(--black)` on `var(--hairline-strong)` with this
+     exact shadow. This one had the first two and not the third, and looking at
+     1240 is what found it: the popup overlaps the reason cell there, its bottom
+     border lands mid-glyph, and with no shadow the line below reads as SLICED
+     rather than covered. The shadow is what says one surface is above another.
+
+     Not a new value. The same one, fifth of five. */
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
   border-radius: 4px;
   font-size: 12px;
   line-height: 16px;
@@ -3554,6 +3570,10 @@ input.input-invalid {
      mouseleave and the popup would chase the cursor. */
   pointer-events: none;
 }
+/* Round 32 Phase 1: the question reads as content. See the note in
+   oppShowCriterionQuestionNow for the measurement: 4.83:1 inherited against
+   15.29:1 for the name it explains. */
+.opp-assess-defn--asks { color: var(--white); }
 .opp-assess-defn.hidden { display: none; }
 .opp-assess-defn-l {
   display: block;
