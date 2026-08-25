@@ -673,3 +673,234 @@ many rounds, same ceiling.
 If reasons start crossing it once the field is easy to use, this decision
 should be revisited, and the threshold is recorded here so the next round
 measures rather than re-argues.
+
+---
+
+# Phase 6: the full walk, and the round's close-out
+
+## The walk
+
+One Opportunity, built at Qualification and walked to Proposal. The assessment
+panel and the tab-line advance were driven by clicking them. The four Solution
+Alignment payload fields and the three track approvals went through the API,
+which is said rather than glossed: they are not this round's subject and
+driving them through the UI would have tripled the probe.
+
+**Qualification.** One criterion visible. Reason field present at rest on 1 of
+1, five segments, none checked, detail collapsed. Scored by clicking one
+segment once, reason typed, saved from the panel bar: "Recorded 1 of 1", and
+the database read back one entry at the clicked level. The detail region opened
+and closed twice, 320px, two sections, because a criterion with one entry has
+no history to show.
+
+**The review row ticked through its own control** on the Qualification tab, and
+the tab-line control read "Move to Solution Alignment", enabled. Clicked.
+Arrived.
+
+**Solution Alignment.** Six criteria. Four scored and saved in one action:
+"Recorded 4 of 4". Tab-line control read "Move to Proposal", enabled. Clicked.
+Arrived.
+
+**Proposal.** Seven criteria.
+
+## The three things watched
+
+**The segmented control against the unsaved-changes guard.** Clicking the level
+the record already holds left dirty at 0, the bar hidden, and `beforeunload`
+declining to warn. Clicking a different level moved all three. Clicking back to
+the recorded level moved them back. **The no-op does not arm the guard and a
+real change does**, in both directions, which is the property Phase 3 built and
+this is the first time it has met a real walk.
+
+**The detail region across a stage advance.** One region left open at Solution
+Alignment, one flag set. After advancing, still one flag, still one region open,
+and the criteria count moved from six to seven. **A stage advance is the same
+record, so the state survives** - which is exactly what Phase 4 scoped it to,
+since the clearing is on a record change and a criterion's definitions do not
+stop being open because the record moved stage.
+
+**The reason-must-differ guard meeting a real correction.** The level was
+changed and the carried 42-character reason left alone. Refused before anything
+was written: "A reason is required for Metrics and quantified value, and it must
+say something the recorded one does not." The series was unchanged. With the
+reason actually corrected, "Recorded 1 of 1" and the series grew to two at the
+clicked level. **The guard Phase 2 built because the prefill had made the old
+rule pass by construction did its job the first time a real correction met it.**
+
+## The verification Phase 0 found unperformable
+
+Clicking straight into the fourth criterion's reason with nothing else touched,
+three times in sequence without reloading:
+
+    attempt 1: field exists true, focus reached it true, holds 42 chars, expands to 90px, dirty 0
+    attempt 2: field exists true, focus reached it true, holds 42 chars, expands to 90px, dirty 0
+    attempt 3: field exists true, focus reached it true, holds 42 chars, expands to 90px, dirty 0
+
+Phase 0 ran the same check and got `a reason field exists to click: false`,
+three times out of three.
+
+## The numbers
+
+Against **1279 at rest and 2055 drafting**, the state the business is actually
+in, measured on a fully scored record at Proposal:
+
+| viewport | at rest | | drafting | |
+|---|---|---|---|---|
+| 1240 | 1279 -> **769** | -40% | 2055 -> **838** | -59% |
+| 1920 | 1279 -> **461** | **-64%** | 2055 -> **530** | **-74%** |
+| 3440 | 1279 -> **461** | -64% | 2055 -> **530** | -74% |
+
+Row heights uniform: 66px at 1920 and 3440, 110px at 1240. Zero block-level
+overflow at any width in any state.
+
+**Against the numbers the brief set as the target**, 687 collapsed and 1463
+drafting, which Phase 0 established measure a record nobody has scored: 687 ->
+461 and 1463 -> 530.
+
+The drafting state is now 69px above the resting state rather than 776px above
+it. Drafting has almost stopped costing anything, because the field it used to
+conjure is already there.
+
+---
+
+## Findings recorded
+
+**A validation can go stale the way a code path can.** The reason requirement
+tested whether the box was non-empty, which was true for every caller it had
+because the box was created empty on every revision. Phase 2 prefilled the box,
+which makes that test pass by construction: it still fires on every save and
+still reports satisfied. Nothing fails, no test breaks, and the output is
+identical. Architecture rule 8's nine prior instances are all code built for a
+screen that then changed; this is a rule built for a state that then changed,
+and that direction is not watched. **Recorded in `CLAUDE.md` in the round that
+found it**, per that file's own rule, rather than in this brief alone.
+
+**Its pair, from the other side: a rule that stopped saying anything.** The
+required-reason affordance lived on the reason box's `<label>`, and Phase 2
+moved the reason on to the row and dropped the label with it. The rule stayed
+enforced and stopped being announced, so the first a person heard of it was the
+save refusing. Found in Phase 3 only because `mustGiveReason` survived as a
+local nothing read: **the evidence of the loss was the thing left behind.**
+There, a rule stopped asking anything; here, a rule stopped saying anything.
+
+**Two correct measurements of the wrong box.** The reason cell's content box was
+sized to exactly one line and measured as exactly one line, and the screenshot
+still showed the top third of line two: **`overflow` clips at the padding box,
+not the content box**, so 8px of bottom padding is 8px of the next line. Then
+`clientHeight` came back two pixels under the declared height rather than the
+one the border accounts for. Both numbers are read off the element now. This is
+the strongest argument in this project for looking: the number said it was fine,
+twice.
+
+**Three calibration variants in three rounds.** Round 28 Phase 6 found a probe
+**blind for one phase** after firing correctly for four. Round 29 found one
+**half-inert from selector specificity**, where a bare class was outranked.
+Round 30 Phase 4 found one **half-matched from a structural assumption**:
+`button:nth-of-type(2)` matched nothing because the buttons were not siblings,
+so the control half of a two-part calibration read 8 to 8 while the height half
+worked. Reporting the half that did not fire is what makes the half that did
+mean anything.
+
+**A 250px arithmetic error found by a uniformity check.** The criterion cell was
+sized to the widest name and not to the name plus the control plus the gap, so
+the name got 222px against a 227px name and wrapped. **One row measuring 86px
+against the others' 66** is what showed it, which is not something anyone would
+have gone looking for.
+
+**A rejected approach documented in the code and taken anyway.** Round 12 Phase
+2 fixed Test Bed's name column so the eye travel from a criterion to its score
+could not be set by the panel width, and its comment states that this "is also
+why it is not a width problem to be solved by capping the panel". Opportunity
+gave the name `flex: 1 1 auto` and capped the panel at 880px, both halves the
+wrong way round, and received the complaint Round 12 was avoiding. **The first
+instance in this project of a written rationale being passed on the way to
+doing the opposite.** A rationale is not a guard: nothing reads it.
+
+**217px of undeclared `<p>` margin**, 17 per cent of the panel the business
+complained about, proved by injection and reverted exactly. There is no `p`
+reset anywhere in the stylesheet; the reset zeroes `body` alone. The census:
+**119 of 225 paragraph sites across nine classes declare no bottom margin,
+`.empty-state` alone at 68 sites across six files.** Screen cost measured at
+Reference -136px and Test Bed detail -120px, against -0px on the opportunities
+list, which is the calibration.
+
+**The census corrected itself from its own output.** Class attributes are built
+in template literals, so the first pass had its capture terminated by a quote
+inside an interpolation, produced a class literally named `?`, and hid
+`.opp-assess-current-reason` from its own tally.
+
+**The reason corpus.** Fifty justifications recorded against a score across both
+record types: median 14 characters, longest 58. Rendered in the cell's own
+typography, the longest uses 372px of a cell between 817 and 876px, and fifty of
+fifty fit on one line at all three widths. **Truncation begins at 133 characters
+at 1920**, found by bisection on ordinary prose. The falsifier is recorded with
+the finding, and so is the evidence against it: **Test Bed's scoring panel is a
+separate instrument this round did not touch, and its ceiling is 58 too.**
+
+**The business's own reasons are 8 and 9 characters**, typed to clear a required
+field rather than written. **That distribution may be an artifact of the panel
+that produced it**: until Phase 2 a reason cost three steps to reach, restated
+the level as a side effect, and arrived as an empty box beside the text it was
+replacing.
+
+**A deliberate divergence from Test Bed, with a measured reason.** Test Bed
+keeps two controls per row where Opportunity now has one. Its scoring list is
+390px inside a 420px card, identical at 1240 and 1920, and it has no width
+problem to solve: the merge here was forced by a row that could not spare 237px,
+and that constraint does not exist there. Round 29 recorded the two converging
+where the mechanism was shared. **Convergence is not a permanent state.** A
+divergence taken deliberately, with the measurement that forced it, is a
+different thing from drift, and the distinction is worth holding because only
+one of them needs correcting.
+
+**The three-string vocabulary reconciliation is still owed.** `OPP_ASSESS_PROMPT`
+retired with the select it was the placeholder for. `OPP_ASSESS_NONE` kept a job
+rather than being deleted, because deleting it would have retired the note that
+records the reconciliation. It is one string quieter than it was: the string
+moved from a standing line to a disclosure.
+
+---
+
+## Rule 7
+
+Enumerated from the conversation first, then checked against `git log`.
+
+| Phase | | Commit |
+|---|---|---|
+| 0 | investigation and plan | `fe47a1c` |
+| 1 | the undeclared margins | `4976a32` |
+| 2 | the row | `1e6780a` |
+| 3 | the level control | `b7a83ac` |
+| 4 | what comes off the row | `f6c348c` |
+| 5 | the reason treatment, no diff | `4b71863` |
+| 6 | the walk and this close-out | this commit |
+
+Plus `4c3785b`, the `CLAUDE.md` refinement, **which is not a phase**: it is the
+correction landing in the file the next session reads, in the round that found
+it.
+
+**Phases 3 and 4 are the brief's 4 and 3, swapped mid-round.** The argument for
+swapping them was partly wrong and was corrected in Phase 3: dropping the value
+cell gives the reason 398px at 1240 and one of seven reasons fits, so the 342px
+was never what forced the reason onto its own line. The other half of the
+argument held.
+
+**The instrument the rule warns about, run to show what it returns.**
+`grep -c '^## Phase\|^### Phase'` against this brief returns **1**, from a
+section heading about Phase 0 rather than a list of phases, because the phase
+list is a table. That is the dangerous result the rule names: a plausible
+number rather than an obvious zero. Calibrated by appending `## Phase 99`,
+watching it read 2, and removing it.
+
+## `CURRENT_STATE.md`
+
+**Not regenerated, and it does not need to be.** This round changed
+`frontend/app.js`, `frontend/style.css`, `CLAUDE.md` and this brief. It touched
+no migration, no seed and no route.
+
+The filter was calibrated rather than trusted: run across `82ba541`, the most
+recent commit that did change a migration, it reports 1; run across this round
+it reports 0.
+
+Both halves of the staleness test pass: the recorded SHA is an ancestor of
+`HEAD`, and zero tracked configuration sources have changed since it.
