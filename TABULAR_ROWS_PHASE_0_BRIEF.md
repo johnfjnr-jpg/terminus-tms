@@ -294,3 +294,259 @@ because the setup script's tag was stale in the same direction.
    because this brief is written from one screenshot.
 
 Then stop and wait for sign-off.
+
+---
+
+# Phase 0 report
+
+Round 30. Branch `round-30-assessment-tabular-rows`, cut from `main` after the
+brief was committed there, so the branch carries its own scope from its first
+commit.
+
+Investigation only. No code, no migrations, no seeds, no routes. The two live
+style injections below were removed and confirmed gone.
+
+---
+
+## I1. What the row actually costs
+
+Fixture at Proposal, walked through the real gates: `assessmentReviewed` at
+each stage, four Solution Alignment payload fields, three track approvals.
+Fresh record, zero assessment series, which is the state Round 28 measured.
+
+### Round 28's numbers reproduce exactly
+
+| state | 1240 | 1920 |
+|---|---|---|
+| collapsed, nothing touched | 687 | 687 |
+| a level chosen on all seven | 1463 | 1463 |
+
+**Reproducing them rather than quoting them is what made the gap visible.**
+Both are fresh-record figures. The business is not on a fresh record.
+
+### The states the business is actually in
+
+| state | panel, 7 criteria | per row |
+|---|---|---|
+| never scored | 687 | 96 (112 wrapping) |
+| **scored with a reason** | **1279** | **173** (229 with a value, 189 wrapping) |
+| drafting, fresh | 1463 | 197 |
+| **drafting, already scored** | **2055** | **274** (399 with a value) |
+
+**1279 and 2055 are this round's targets.** 687 and 1463 describe the emptiest
+possible record.
+
+The business estimated the row at roughly 200px from one screenshot. Measured:
+173px, and 229px for Budget confirmed.
+
+### Where the vertical space goes, per element
+
+**There is no `p` reset anywhere in the stylesheet.** The reset block zeroes
+`body` only, so every `<p>` in the application carries the user agent's default
+1em top and bottom margin unless a rule overrides it.
+
+Gaps read directly off one scored row:
+
+| gap | declared | actual | undeclared |
+|---|---|---|---|
+| head to current block | 10px | 14px | +4 |
+| reason to meta, inside the block | 3px | 14px | +11 |
+| current block to definitions control | 10px | 21px | +11 |
+| below the control | 0 | 4px | +4 |
+
+`.opp-assess-current-reason` and `.opp-assess-current-meta` declare no margin at
+all. The meta's 11px bottom margin escapes its parent, which has no bottom
+padding or border to stop the collapse, and lands between the current block and
+the control below it.
+
+**Proved by injection rather than by reading the cascade: 217px off the 1279px
+pane, 29px per row, 43px on the row carrying a value, and it reverts to 1279
+exactly.** That is 17 per cent of the panel, available before any design
+decision is taken.
+
+### The class is application-wide
+
+Injecting the same reset everywhere and reading the delta per screen:
+
+| screen | visible `<p>` | carrying a UA margin | delta |
+|---|---|---|---|
+| opportunity detail, Assessment | 17 | 15 | 275px |
+| opportunity detail, Reference | 9 | 4 | 136px |
+| test bed detail | 12 | 2 | 120px |
+| opportunities list | 2 | 0 | **0px** |
+
+The zero is the calibration. The instrument discriminates rather than always
+reporting a number.
+
+### The empty width
+
+| viewport | pane | row | used | empty |
+|---|---|---|---|---|
+| 1240 | 876 | 876 | 100% | **0px** |
+| 1920 | 1556 | 880 | 57% | **676px** |
+| 3440 | 3076 | 880 | 29% | **2196px** |
+
+Zero block-level overflow at all three. The business reported "about 60 per
+cent", which is 1920, not 1240.
+
+---
+
+## I2. Direct access to one field
+
+**The verification this brief names cannot be performed.** Clicking into the
+fourth criterion's reason with nothing else touched, three times in sequence
+without reloading, returned the same answer three times: there is no field to
+click. **Zero of seven criteria carry a reason field at rest.**
+
+`reasonBox` is emitted only for a criterion with a draft in progress. The
+shortest real route to one reason field is three steps, and the level is
+necessarily restated as part of amending a reason.
+
+Two further findings from looking at the drafting state, both checked rather
+than read off the picture:
+
+- **The existing reason is not carried into the field you must type into.**
+  192 characters sit on screen above it; the textarea holds zero. The business
+  described "just 1 field he wants to change as a go back and correct thing".
+  There is nothing to correct: you retype it.
+- **The head then shows the same words twice**, the value cell and the select
+  both reading the chosen level.
+
+**One thing the picture appeared to show was false.** The Budget figure box
+looked prefilled with `450000`. It is empty. `450000` is a hardcoded
+`placeholder` in the source that happened to equal this fixture's stored
+amount. Reported from the image it would have been a fabricated finding.
+
+Tab order costs 14 stops for seven criteria: each criterion's definitions
+toggle sits between it and the next.
+
+---
+
+## I3. Verdict on the five mechanisms
+
+| mechanism | fits a row | what it becomes |
+|---|---|---|
+| Save bar | panel level, unaffected | stays; its `max-width: 880px` must track whatever the row does or it detaches from the rows it belongs to |
+| Definitions | no, 222px tall at full row width | already expand only; becomes the row's expanded region |
+| History | no | already expand only; joins definitions under one control |
+| The value | does not earn a column | 1 of 7 criteria carry one, so a permanent column is empty on six rows. Treatment decided in Phase 2 with the row present |
+| The reason | **no, not at 1240** | this is what reshapes Phase 1 |
+
+**The reason is what breaks the proposal.** At 1240 there are 876px. Worst-case
+name plus question is 521px, the level label 117px, the select 210px: **848px
+of 876 before the reason gets anything.** Dropping the question entirely leaves
+322px, and the shortest real reason measures 357px on one line while the
+longest measures 1210px.
+
+---
+
+## I4. What the row does at width
+
+Container chain at 1240: `#app-shell` 1240, `.app-content-scroll` 1024,
+`#view-opportunity-detail` 1000 with 62px padding each side, pane **876**.
+At 1920 the pane is 1556; at 3440 it is 3076.
+
+**The 880px cap is inert below a 1244px viewport.** It does nothing at 1240 and
+wastes 676px at 1920 and 2196px at 3440.
+
+"Competition, including do-nothing" wraps its name at both widths, costing 16px
+on that row in every state.
+
+---
+
+## I5. Test Bed
+
+Its scoring list is **390px wide, inside a 420px card, identical at 1240 and
+1920**, one card in a multi-panel row rather than a full-width panel. Row
+heights identical at both widths. It cannot take a five-column row and this
+round should not touch it.
+
+**The most important finding of this phase.** Round 12 Phase 2 solved the same
+problem on Test Bed and took the opposite decision, and wrote the reasoning
+into the stylesheet: `.tb-score-name` is `flex: 0 0 170px` so the eye travel
+from a criterion to its score is a constant 182px, and the comment states
+explicitly that this "is also why it is not a width problem to be solved by
+capping the panel."
+
+**Opportunity gave the name `flex: 1 1 auto` and capped the panel at 880px.**
+It took the approach Round 12 had rejected, and received the complaint Round 12
+was avoiding.
+
+**This is the first instance in this project of a rejected approach being
+documented in the code and taken anyway.** Distinct from every prior finding of
+its family: build discipline rule 6 is a fix not reaching a new surface, and
+architecture rule 8 is an unchanged path meeting a new demand. Here the
+reasoning against the approach was written down, in this repository, in a
+comment a reader of the scoring CSS would pass on the way to the Opportunity
+rules, and the approach was taken regardless. A written rationale is not a
+guard. Nothing reads it.
+
+One fault the two panels share: Test Bed's reason field is also absent at rest,
+zero of six, and its code says so in as many words: "the comment field does not
+exist until this render produces it".
+
+---
+
+## I6. What cannot be built as stated
+
+**The brief's premises are mostly right**, which is unusual for output item 5:
+roughly 200px tall, roughly 60 per cent of the width, an empty right-hand side,
+the stacking order, and two toggles on a criterion carrying history are all
+confirmed by measurement. Written from one screenshot and it held.
+
+What does not survive:
+
+1. **The five-column row does not fit at 1240.** 848px of 876 is spent before
+   the reason.
+2. **The 880px cap is not the 1240 lever.** Verification 15: a fix well defined
+   at one width that does nothing at the other.
+3. **The named verification is unperformable**, because the field it names does
+   not exist at rest.
+4. **687 and 1463 measure a state the business never sees.**
+
+---
+
+## The plan
+
+| Phase | Content |
+|---|---|
+| 1 | The undeclared margins |
+| 2 | The row: name, level, reason, value on one line, reason present at rest |
+| 3 | What comes off the row: meta, definitions, history |
+| 4 | The level control |
+| 5 | The reason treatment, decided by looking |
+| 6 | Full walk and close-out |
+
+Six phases rather than the brief's five. The margins go first because they are
+17 per cent of the panel, need no judgement, and move the baseline every later
+phase measures against. Phase 2 absorbs direct access, because a reason cell
+present at rest is what makes direct access fall out of the row rather than
+needing its own mechanism.
+
+**Departure from build discipline rule 8, recorded rather than assumed.** The
+rule says fix the class. The class is application-wide, and an application-wide
+`p` reset inside a panel round would change screens nobody asked about. Phase 1
+fixes the assessment panel explicitly and enumerates the rest with counts as a
+recorded finding, so the round that does the application-wide reset meets the
+reasoning rather than the exception.
+
+**All success measurements this round are against 1279 and 2055.**
+
+---
+
+## Teardown
+
+Six records, enumerated from the database by this round's tag, asserted against
+the round number rather than assumed. Soft deleted; no
+`reference_number_counters` row touched. Re-queried directly at row level: zero
+still live, six carrying `deleted_at`.
+
+**One of the six was named by no file.** The fixture B setup script threw before
+writing its bookkeeping file, leaving a contact and an account behind, and a
+later recovery script wrote a file naming the contact and the opportunity but
+never the account. Verification 11 demonstrated inside the phase that cites it.
+
+A broader sweep of all 25 live records across four record types found zero
+matching any round-tag or fixture pattern, with the matcher calibrated against
+a pattern known present. `joane tester` and `fred blogs` sit live in Contacts;
+they are neither this round's nor a probe's.
