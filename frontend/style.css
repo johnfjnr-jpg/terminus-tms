@@ -3964,3 +3964,52 @@ input.input-invalid {
    one. Carrying it forward would have been the other fix and it is wrong,
    because it would show a figure against an entry that never recorded it. */
 .opp-assess-entry-answer { font-family: var(--mono); color: var(--muted); }
+
+/* ── Round 32 Phase 2: the four lens rollups on the exit criteria card ─────
+   A DISPLAY IN A CARD WHERE EVERYTHING ELSE GATES, so it has to look like a
+   different kind of thing. Every requirement above it is a tick box against a
+   label; these are a name against a count, with no box, under their own
+   heading, behind a rule. The heading is what names the block as a summary
+   rather than as more requirements.
+
+   The card is 420px at 1240, 1920 and 3440 and does not grow, so this is
+   designed for 420px rather than for the viewport.
+
+   Margins declared rather than inherited: Round 30 Phase 0 measured 217px of
+   undeclared p margin in this panel, 17% of its height. */
+.opp-lens-rollups {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--hairline);
+}
+.opp-lens-rollups-h {
+  margin: 0 0 8px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+.opp-lens-rollup {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  padding: 3px 0;
+  font-size: 13px;
+}
+/* Tabular figures so four counts in a column line up on the digit rather than
+   drifting with the glyph widths. */
+.opp-lens-rollup-v {
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+/* GREEN ON THE COUNT, never on a box. The card's met rows earn green on a tick
+   box; borrowing the box would be the thing this block must not do, and
+   borrowing only the colour reads as a status value. */
+.opp-lens-rollup[data-state="satisfied"] .opp-lens-rollup-v { color: var(--green); }
+.opp-lens-rollup[data-state="none"] .opp-lens-rollup-n { color: var(--muted); }
+.opp-lens-rollup-fail {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+}

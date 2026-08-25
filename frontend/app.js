@@ -1965,10 +1965,21 @@ function renderOppAssessCriterion(c) {
   // nothing is drafted they are the same segment and only the fill shows.
   const effective = oppAssessEffectiveLevel(c.criterion_key)
   const recordedValue = current ? current.value : undefined
-  // Round 31 Phase 3, prototype scope: ONE CRITERION. Phase 6 decides whether
-  // this generalises, and a flag read from a named constant is what makes that
-  // a decision rather than a search-and-replace.
-  const hoverDefs = c.criterion_key === OPP_HOVER_DEFINITIONS_KEY && !unanchored
+  // Round 32 Phase 2: GENERALISED, on the business's decision, and the constant
+  // that scoped it is retired.
+  //
+  // Round 31 Phase 3 prototyped the level definitions on one criterion and
+  // Phase 6 measured what widening the gate would cost: six DOM nodes and no
+  // layout change at all. The business had already approved the widening in
+  // Round C's brief, and Round C has not started, so a round that left one row
+  // hovering differently from the other six would have shipped the worse of the
+  // two end states for no gain.
+  //
+  // WHAT REMAINS IS THE ANCHOR GUARD, and it is the real condition. A criterion
+  // with no anchors at its current version has no wording to show, so hovering
+  // its segments would open an empty box. That was always the substantive half
+  // of this expression; the criterion key was the prototype's scaffolding.
+  const hoverDefs = !unanchored
 
   const levelGroup = `
     <div class="opp-assess-levels" role="radiogroup" aria-label="${escHtml(c.name)}"${unanchored ? ' data-unanchored="1"' : ''}${
@@ -2119,12 +2130,13 @@ function renderOppAssessCriterion(c) {
   // this position in either state. The scope is permanent, and its reason is
   // the value rather than the prototype.
   //
-  // The two constants hold the same string today, so this changes no
-  // behaviour. It stops holding the moment a second criterion is configured to
-  // capture a value, or the moment the round that generalises the hover
-  // retires OPP_HOVER_DEFINITIONS_KEY and takes this gate with it. Right
-  // behaviour reached through the wrong reason is Architecture rule 8 in the
-  // form that waits for two coinciding things to stop coinciding.
+  // Round 32 Phase 2: THE SECOND OF THOSE TWO CASES HAS NOW HAPPENED. Phase 7
+  // wrote that this gate would stop agreeing with the hover's the moment a
+  // round generalised the hover and retired OPP_HOVER_DEFINITIONS_KEY. That
+  // round is this one, and because the gate had already been re-pointed the
+  // retirement moved the hover to seven criteria and left the value on one,
+  // which is the intended behaviour and would not have been the behaviour a
+  // round earlier.
   //
   // OPP_VALUE_CAPTURE_KEY is what answerBox and the two save paths already
   // use, so this is one gate for one fact rather than a second that agrees.
@@ -3047,14 +3059,19 @@ document.addEventListener('DOMContentLoaded', () => {
 // types are decided this constant is what they replace.
 const OPP_VALUE_CAPTURE_KEY = 'assessCommBudgetConfirmed'
 
-// Round 31 Phase 3: the criterion the hover definitions are being tried on.
+// OPP_HOVER_DEFINITIONS_KEY stood here and was retired in Round 32 Phase 2,
+// when the level definitions generalised to all seven criteria.
 //
-// DELIBERATELY ITS OWN CONSTANT rather than reusing OPP_VALUE_CAPTURE_KEY,
-// which happens to hold the same string. They are the same criterion for two
-// unrelated reasons: it is the one that captures a money figure, and it is the
-// one the business chose to prototype on. Collapsing them would make Phase 6's
-// question, whether this generalises, look like a question about the value.
-const OPP_HOVER_DEFINITIONS_KEY = 'assessCommBudgetConfirmed'
+// It is worth recording what it bought, because it looked redundant the whole
+// time it existed. It held the same string as OPP_VALUE_CAPTURE_KEY, one line
+// below it, for two unrelated reasons: Budget confirmed is the criterion that
+// captures a money figure, and it was also the one chosen to prototype the
+// hover on. Round 31 Phase 7 separated the value's gate from it precisely so
+// this retirement would not drag the value along, and the value stays on
+// OPP_VALUE_CAPTURE_KEY, which is now the only one of the two left.
+//
+// Two constants holding one string for two reasons is what made one of them
+// removable without reading every call site.
 
 const OPP_EXIT_CRITERION_KEYS = new Set([
   'exitQualBudget', 'exitQualTimeline', 'exitQualCommitment',
@@ -3082,9 +3099,98 @@ const OPP_EXIT_CRITERION_KEYS = new Set([
 // Defaulted to the global rather than left undefined. A future call site
 // that forgets to pass it gets the right answer instead of `undefined`,
 // which would make every row fail open and quietly restore the defect.
+// ── Round 32 Phase 2: the four lens rollups ───────────────────────────────
+//
+// The levels that CLOSE a question. Not applicable (1), Buyer confirmed (4)
+// and Verified (5). Unknown (2) is plainly a gap, and Our hypothesis (3) is a
+// real answer that is not yet confirmed, which will read as a gap: that is a
+// judgement the business took rather than arithmetic, and a lens full of
+// hypotheses is not a lens to be confident in.
+//
+// Numeric rather than by label, because a label is display text and a rename
+// would silently move a level in or out of this set. The probe asserts that 1,
+// 4 and 5 are still Not applicable, Buyer confirmed and Verified, so a scale
+// change is loud rather than silent.
+const OPP_LENS_SATISFYING_LEVELS = new Set([1, 4, 5])
+
+// STAGE SCOPED, not lens wide, settled with the business in Phase 0.
+//
+// Criterion visibility marks the stages a criterion can be ANSWERED at, and
+// Commercial holds one criterion at Qualification and seven at Proposal. Read
+// lens wide, the rollup would ask a record at Qualification to satisfy six
+// criteria that Qualification does not render, and no action taken at that
+// stage could change the answer. That is unactionable rather than strict.
+//
+// The consequence is real and is handled below: the same lens can be satisfied
+// at one stage and not at the next, on the same record at the same moment.
+//
+// THREE STATES AT THE RULE, not two with a rendering rule over them. `every()`
+// on an empty array returns true, so a lens with nothing configured computes
+// SATISFIED, on no evidence, and three of the four lenses are empty until
+// Round C. Returning early on an empty set is what makes "satisfied" and
+// "nothing to satisfy" different values rather than the same value rendered
+// twice. Third instance of that trap in this project, and the first designed
+// in rather than inherited.
+function oppLensRollup(lens, stage, criteria) {
+  const mine = (criteria ?? []).filter(c => c.lens_id === lens.id
+    && (c.stages ?? []).some(st => st.stage === stage))
+  if (!mine.length) return { name: lens.name, state: 'none', met: 0, total: 0 }
+  const met = mine.filter(c => {
+    const series = oppAssessSeries(c.criterion_key)
+    if (!series.length) return false
+    return OPP_LENS_SATISFYING_LEVELS.has(Number(series[series.length - 1].value))
+  }).length
+  return { name: lens.name, state: met === mine.length ? 'satisfied' : 'unsatisfied', met, total: mine.length }
+}
+
+// A FRACTION, NOT A TICK, and the two constraints resolve to the same answer.
+//
+// Every other row in this card is a tick box against a label, and the rollups
+// are a display while the rest of the card gates. A rollup rendered as a tick
+// row would be claiming to be a requirement. So: no box, a name and a count.
+//
+// The same choice solves the problem the business raised about advancing a
+// stage. Commercial is 1 of 1 at Qualification and 7 criteria at Proposal, so
+// a satisfied lens becomes unsatisfied on advancing, correctly, and A TICK
+// DISAPPEARING SAYS NOTHING ABOUT WHY. "1 of 1" becoming "6 of 7" says exactly
+// what happened: the stage brought six more criteria into view. The count is
+// not decoration on the state, it is what makes the state legible.
+//
+// "None at this stage" rather than "0 of 0", because a zero fraction reads as
+// a measurement of nothing rather than as nothing to measure.
+function renderOppLensRollupsHtml(stage, criteria, lenses) {
+  if (!criteria || !lenses) {
+    // SAID, not omitted. An empty block and a block that failed to load are
+    // the same 60px of heading, which is the ambiguity Round 31 Phase 1 found
+    // on the Assessments placeholder.
+    return `<div class="opp-lens-rollups"><p class="opp-lens-rollups-h">Assessment by lens</p>
+      <p class="opp-lens-rollup-fail">Could not load the assessment.</p></div>`
+  }
+  const rows = (lenses ?? []).map(l => {
+    const r = oppLensRollup(l, stage, criteria)
+    const value = r.state === 'none' ? 'None at this stage' : `${r.met} of ${r.total}`
+    return `<div class="opp-lens-rollup" data-lens="${escHtml(l.name)}" data-state="${r.state}" data-met="${r.met}" data-total="${r.total}">
+      <span class="opp-lens-rollup-n">${escHtml(l.name)}</span><span class="opp-lens-rollup-v">${escHtml(value)}</span>
+    </div>`
+  }).join('')
+  return `<div class="opp-lens-rollups"><p class="opp-lens-rollups-h">Assessment by lens</p>${rows}</div>`
+}
+
 async function renderOppExitCriteria(containerId, recordId, fromStage, toStage, isStillCurrent = () => true, recordStage = currentOppStage) {
   const el = document.getElementById(containerId)
   if (!el) return
+  // ASKED FOR HERE, NOT INHERITED. Phase 0 measured both of these already
+  // populated by the time any stage panel renders, because
+  // mountOppAssessmentLenses runs from renderOppDetail rather than from the
+  // Assessment tab. That is true for every caller that exists and is exactly
+  // Architecture rule 8: the day the Assessment panel is mounted lazily per
+  // tab, the rollups would read "None at this stage" for every lens and
+  // nothing would fail. Both helpers cache, so asking costs nothing when the
+  // answer is already there.
+  //
+  // Started before the await, not after, so the three requests overlap.
+  const criteriaPromise = ensureOppCriteria()
+  const lensesPromise = ensureOppLenses()
   const result = await api('GET', `/api/records/${recordId}/exit-criteria?stage=${encodeURIComponent(fromStage)}`)
   // Dropped rather than painted if a newer load has started. Without this a
   // slower response for an earlier tab lands last and shows that stage's
@@ -3178,7 +3284,12 @@ async function renderOppExitCriteria(containerId, recordId, fromStage, toStage, 
   const summary = outstanding === 0
     ? `<p class="sub" style="margin-bottom:10px">All criteria met - ready to move to ${escHtml(toStage)}.</p>`
     : `<p class="sub" style="margin-bottom:10px">${outstanding} of ${requirements.length} outstanding to move to ${escHtml(toStage)}:</p>`
-  el.innerHTML = summary + rows
+  const [criteria, lenses] = await Promise.all([criteriaPromise, lensesPromise])
+  // RE-CHECKED AFTER THE SECOND AWAIT. The guard above covered the only await
+  // this function had; parallelising gave it two, and the same slow-response
+  // fault Round 31 hit on renderTbStageExitCriteria applies to the later one.
+  if (!isStillCurrent()) return
+  el.innerHTML = summary + rows + renderOppLensRollupsHtml(fromStage, criteria, lenses)
   const fb = document.createElement('div')
   fb.className = 'tb-doc-feedback opp-crit-feedback'
   el.appendChild(fb)
