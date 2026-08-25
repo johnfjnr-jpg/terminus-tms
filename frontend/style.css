@@ -1698,12 +1698,13 @@ textarea::placeholder { color: var(--muted-2); }
   text-underline-offset: 3px;
 }
 .anchors-toggle:hover { color: var(--white); }
-/* Round 28 Phase 6: two of these now sit side by side on Opportunity, the
-   definitions control and the history control, and with only the markup's own
-   whitespace between them they ran together. Found by looking, which is the
-   only instrument that measures it. An adjacent-sibling rule, so it cannot
-   reach Test Bed, whose rows carry exactly one. */
-.anchors-toggle + .anchors-toggle { margin-left: 18px; }
+/* Round 28 Phase 6 added `.anchors-toggle + .anchors-toggle { margin-left: 18px }`
+   here, for the two controls that sat side by side on Opportunity. Its own
+   comment recorded that it could not reach Test Bed, whose rows carry exactly
+   one; Round 30 Phase 4 merged Opportunity's two into one, so the rule had no
+   subject left anywhere and is removed with them. Test Bed still uses the base
+   rule above, and its history control is .btn-text rather than a second
+   .anchors-toggle. */
 .anchors-toggle:focus-visible { outline: 1px solid var(--green); outline-offset: 2px; }
 
 /* ── Auth screen ────────────────────────────────────────────── */
@@ -3364,8 +3365,22 @@ input.input-invalid {
    looked at and read correctly. Freezing that geometry is not an arbitrary
    pick: it is the one width where both the eye travel and the line length were
    already right. */
+/* Round 30 Phase 2: THE CAP MOVES, and the number changes with it.
+   880px was the content width at 1240, frozen because that is where the anchor
+   prose read correctly. Measured across the three widths it does not do what
+   it was written to do: at 1240 the pane is 876px, so the cap is INERT, four
+   pixels short of ever binding, and it only starts to act above a 1244px
+   viewport. What it actually does is hold the row at 880px while the pane is
+   1556px at 1920 and 3076px at 3440, leaving 676px and 2196px unused, which is
+   the empty right-hand side the business asked about.
+
+   1600px keeps the reason cell under roughly 1000px, which is where a 14px
+   line stops being scannable, and lets 1920, the width the business reported
+   from, use its whole pane. The definitions block keeps the old measure on its
+   own account below, which is where the 880 belonged: on the prose, not on the
+   row. */
 .opp-assess-criterion {
-  max-width: 880px;
+  max-width: 1600px;
   padding: 16px 0;
   border-bottom: 1px solid var(--hairline);
 }
@@ -3376,20 +3391,297 @@ input.input-invalid {
    control took ~680px it had no use for. Fixed widths on the two right-hand
    columns give the name the row's remaining space, which is what should
    expand. */
-.opp-assess-head {
+/* Round 30 Phase 2: four columns, three fixed and one that takes the rest.
+   Three fixed columns are what make seven criteria read as a grid: every name
+   starts at the same x, every level label ends at the same x, every control
+   sits in the same place. That is Round 12 Phase 2's decision on Test Bed,
+   taken here deliberately. Its comment records that a name column of
+   `flex: 1 1 200px` let the name absorb every spare pixel, so the distance
+   between a criterion and its own score was set by the panel width, and states
+   that this "is also why it is not a width problem to be solved by capping the
+   panel". Opportunity had `flex: 1 1 auto` and an 880px cap, both halves the
+   wrong way round.
+
+   240px rather than Test Bed's 170px because the names are longer: Test Bed
+   borrows .ref-field-label's column, and here "Competition, including
+   do-nothing" measures 227px on its own. 240 is the widest name plus a little,
+   so no name in the current set wraps.
+
+   align-items: start rather than baseline, because a textarea and a span have
+   no shared baseline worth aligning to once the textarea can grow. */
+.opp-assess-row {
   display: flex;
-  align-items: baseline;
-  gap: 16px;
+  align-items: start;
+  gap: 14px;
+  /* THE REASON DROPS TO ITS OWN LINE WHEN THE ROW CANNOT GIVE IT A USABLE ONE,
+     which at 1240 it cannot. Measured: a 876px pane leaves the reason 252px
+     once the name, the level and the control have taken theirs, and 0 of 7
+     real reasons fit that. Looked at, it was worse than the number: seven
+     cells each clipped mid-word with a half-line of the next showing under it.
+
+     Wrapping on a flex basis rather than a media query, because the constraint
+     is the PANE and not the viewport. The panel sits in a lens sub-tab inside
+     a tab inside a padded view, and a query on the window would have to
+     re-derive that chain and would be wrong the next time any of it changes. */
+  flex-wrap: wrap;
 }
-.opp-assess-name { font-size: 15px; flex: 1 1 auto; min-width: 0; }
-.opp-assess-value {
+/* Round 30 Phase 4: the criterion cell is the name AND the one control, and it
+   widens from 240 to hold both. A control at the far end of the row instead
+   would have cost 38px of the reason cell and dropped two of the six reasons
+   that read whole on one line.
+
+   258 AND NOT 250, and the first number was wrong for a reason worth keeping:
+   240 was the widest NAME, so a cell of 250 leaves the name 222 once the
+   control and its gap are taken, and "Competition, including do-nothing"
+   measures 227 and wrapped. One row came back 86px against the others' 66,
+   which is what showed it. The cell has to hold the name plus the control plus
+   the gap, not the name plus a round number. */
+.opp-assess-crit {
+  flex: 0 0 258px;
+  min-width: 0;
+  display: flex;
+  align-items: start;
+  gap: 6px;
+}
+.opp-assess-name {
+  font-size: 15px;
+  flex: 1 1 auto;
+  min-width: 0;
+  padding-top: 8px;
+}
+.opp-assess-more {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  margin-top: 6px;
+  padding: 0;
+  background: none;
+  border: 1px solid var(--hairline);
+  border-radius: 3px;
+  color: var(--muted);
+  cursor: pointer;
   font-family: var(--mono);
-  font-size: 13px;
-  color: var(--green);
-  flex: 0 0 132px;
-  text-align: right;
+  font-size: 11px;
+  line-height: 1;
+  position: relative;
 }
-.opp-assess-value--none { color: var(--muted-2); }
+.opp-assess-more:hover { color: var(--white); border-color: var(--hairline-strong); }
+.opp-assess-more:focus-visible { outline: 1px solid var(--green); outline-offset: 2px; }
+/* The chevron is drawn rather than typed, so it can rotate on open instead of
+   swapping to a different glyph with a different optical weight. */
+.opp-assess-more-c {
+  display: block;
+  width: 5px;
+  height: 5px;
+  margin: 0 auto;
+  border-right: 1px solid currentColor;
+  border-bottom: 1px solid currentColor;
+  transform: rotate(45deg) translate(-1px, -1px);
+}
+.opp-assess-more[aria-expanded="true"] .opp-assess-more-c { transform: rotate(225deg) translate(-2px, -2px); }
+.opp-assess-more[aria-expanded="true"] { color: var(--white); border-color: var(--hairline-strong); }
+/* THE ONE THING THE COLLAPSED ROW STILL SAYS. Definitions always exist and are
+   not news; who and when is not news; "this judgement has moved twice" is. */
+.opp-assess-more-n {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 13px;
+  height: 13px;
+  padding: 0 3px;
+  border-radius: 7px;
+  background: var(--hairline-strong);
+  color: var(--white);
+  font-size: 9px;
+  line-height: 13px;
+}
+/* Present for a screen reader, absent for everyone else. The chevron carries
+   no text, so without this the button announces as unlabelled. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+/* ── Round 30 Phase 3: the five levels, as segments ──────────────────────
+   .opp-assess-value and .opp-assess-select are gone, together, because they
+   were one fact in two columns: the cell held the recorded level and the
+   control held a "Revise..." placeholder, and the moment a draft matched the
+   record both read the same words. 342px of a 876px row to say one thing
+   twice.
+
+   THE WIDTH IS AFFORDABLE HERE AND WAS NOT BEFORE. At 1240 the reason already
+   sits on its own line, so the head line carries only the name and the level
+   and has 622px spare once the name has taken 240. At 1920 the reason shares
+   the line, so the padding is 8px a side rather than 10: measured, that keeps
+   the control at 466px and leaves the reason 822px, which still fits six of
+   the seven reasons on one line. At 10px a side it was 486px and 802px, and
+   two of the six dropped to a second line.
+
+   The input is the state and the label is the surface. Hiding the input with
+   `appearance: none` rather than `display: none` keeps it focusable, so the
+   group keeps the platform's arrow-key behaviour instead of this file
+   reimplementing it. */
+/* JOINED, not five chips with gaps between them. This is one control with
+   five positions, and drawing it as one is both what it is and 16px narrower:
+   four 4px gaps and four doubled borders come back. That matters because the
+   first cut measured 815px of reason at 1920 against Phase 2's 932px, and one
+   of the six reasons that had fitted on a line no longer did.
+
+   The 16px is taken by making the control read correctly, not by shaving the
+   padding until a particular string fits. The strings in the fixture are ones
+   this round invented; tuning a control to them would be fitting the design to
+   the test data. */
+.opp-assess-levels {
+  display: flex;
+  flex: 0 0 auto;
+  padding-top: 3px;
+}
+.opp-assess-level-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  margin: 0;
+  pointer-events: none;
+}
+.opp-assess-level {
+  display: block;
+  padding: 5px 8px;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--muted);
+  border: 1px solid var(--hairline);
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+}
+/* Adjacent segments share one border rather than drawing two, and only the
+   ends of the control are rounded. */
+.opp-assess-level-input + .opp-assess-level { margin-left: -1px; }
+.opp-assess-levels > .opp-assess-level-input:first-of-type + .opp-assess-level {
+  border-radius: 3px 0 0 3px;
+  margin-left: 0;
+}
+.opp-assess-levels > .opp-assess-level:last-child { border-radius: 0 3px 3px 0; }
+/* A checked or hovered segment lifts above its neighbours so its own border is
+   the one drawn on the shared edge. */
+.opp-assess-level-input:checked + .opp-assess-level,
+.opp-assess-level:hover { position: relative; z-index: 1; }
+.opp-assess-level:hover { color: var(--white); border-color: var(--hairline-strong); }
+.opp-assess-level-input:checked + .opp-assess-level {
+  color: var(--black);
+  background: var(--green);
+  border-color: var(--green);
+}
+/* What the record holds, while a draft shows something else. A draft must not
+   be able to hide the thing it is replacing. When nothing is drafted this is
+   the same segment as the filled one and only the fill reads. */
+.opp-assess-level--recorded { box-shadow: inset 0 -2px 0 var(--green); }
+.opp-assess-level-input:checked + .opp-assess-level--recorded { box-shadow: none; }
+.opp-assess-level-input:focus-visible + .opp-assess-level {
+  outline: 1px solid var(--green);
+  outline-offset: 2px;
+}
+.opp-assess-level-input:disabled + .opp-assess-level {
+  color: var(--muted-2);
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+/* The reason takes what is left, which is the point: it is the widest and most
+   variable thing on the row, and the empty width the business pointed at is on
+   this side. One row at rest; the person can pull it open, and Phase 5 judges
+   whether that is the right treatment with real content in front of it. */
+/* ONE LINE EXACTLY AT REST, four when you are in it.
+
+   The height is arithmetic, not a guess: 20px of line, 8px of padding top and
+   bottom, 1px of border, so the content box holds exactly one 20px line and
+   never a fraction of a second one. The first attempt used rows="1" and let
+   the browser compute it, which produced a sliver of line two under every
+   reason long enough to wrap, and that is what the screenshot showed.
+
+   Focusing expands it, which is the brief's "the full text on expand" reached
+   through the gesture a person already makes to edit the thing. Phase 5 judges
+   whether one line at rest is the right measure with real content in front of
+   it; this is the treatment it judges, not a decision taken here. */
+.opp-assess-reason-cell {
+  flex: 1 1 520px;
+  min-width: 0;
+  font-size: 14px;
+  line-height: 20px;
+  /* THE BOTTOM PADDING GOES, and this is the correction that mattered.
+     Sizing the CONTENT box to one line looked right and measured right, and
+     the screenshot still showed the top third of line two. `overflow` clips at
+     the PADDING box, not the content box, so 8px of bottom padding is 8px of
+     the next line showing through. The content box was one line and the
+     clipping region was 1.4 of them.
+
+     So the visible band is padding-top plus exactly one line, and the check is
+     clientHeight minus padding-top equal to the line-height, which cannot be
+     satisfied by a box showing a fraction. Confirmed by looking, at three
+     times scale, after the number said it was already fine once.
+
+     30 and 90 rather than 29 and 89: clientHeight comes back two pixels under
+     the declared height on this control, not the one the border accounts for,
+     so both figures are read off the element rather than derived. */
+  height: 30px;
+  padding: 8px 0 0;
+  overflow: hidden;
+  resize: vertical;
+}
+/* Four lines, by the same arithmetic: 8 of padding and 80 of text, so a fifth
+   line cannot peek under the fourth either. */
+.opp-assess-reason-cell:focus {
+  height: 90px;
+  overflow-y: auto;
+}
+.opp-assess-reason-cell::placeholder { color: var(--muted-2); font-style: italic; }
+/* Round 30 Phase 4: .opp-assess-underrow is gone. It was one line carrying the
+   provenance and two controls, 27px plus a 6px gap, 231px across seven
+   criteria and a third of the row height at 1920. Its three subjects moved
+   behind the row's one control, each keeping a heading inside so one control
+   does not mean one undifferentiated blob.
+
+   Each landed where it did for its own reason rather than because it came off
+   the row. The definitions are about the CRITERION and are read when you are
+   unsure which level applies. The history is about the SERIES and is read when
+   you are asking how a judgement moved. Who and when, and the figure, are
+   about the CURRENT ENTRY, and Round 26 Phase 1 already made them subordinate
+   to the reason: "who and when are context for the claim rather than the
+   claim". All three are read on demand, which is what a disclosure is for. */
+.opp-assess-detail {
+  margin-top: 10px;
+  margin-left: 272px;
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 4px;
+  max-width: 880px;
+}
+.opp-assess-detail.hidden { display: none; }
+.opp-assess-detail-h {
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted-2);
+  margin: 14px 0 6px;
+}
+.opp-assess-detail > .opp-assess-detail-h:first-child { margin-top: 0; }
+/* The definitions keep their grid and lose their own panel treatment: they are
+   inside one now, and two nested panels read as a mistake. */
+.opp-assess-detail .opp-assess-anchors {
+  margin-top: 0;
+  padding: 0;
+  background: none;
+  border-radius: 0;
+}
+/* A save that fails for one criterion has to say so beside that criterion, so
+   this sits OUTSIDE the collapsed region. Empty, it holds no line open. */
+.opp-assess-feedback:empty { display: none; }
 /* Round 28 Phase 4: the question now sits INSIDE the name cell, on the same
    line, so this is an inline rule rather than a block one.
 
@@ -3400,8 +3692,20 @@ input.input-invalid {
    margin the stylesheet never mentioned, plus the control's own 10px. Moving
    the question inline removes the element that carried it, so the line and the
    gap are one fix rather than two. */
-.opp-assess-asks { font-size: 12px; color: var(--muted); margin-left: 10px; }
-.opp-assess-select { flex: 0 0 210px; width: 210px; }
+/* Round 30 Phase 2: the question left the row and lives in the definitions
+   block, where the rest of this criterion's reference text already is. It is
+   identical on every record forever, and on the row it cost up to 284px of a
+   876px line. It stays reachable without opening anything, as the name's
+   title. */
+/* Round 30 Phase 4: the question leads the detail region rather than sitting
+   inside the definitions grid, so it is reading text again rather than a cell.
+   Round 30 Phase 2 moved it off the row; this is where it landed. */
+.opp-assess-asks {
+  font-size: 13px;
+  color: var(--white);
+  margin: 0 0 12px;
+}
+
 
 /* ── Round 28 Phase 5: the shared save bar ──────────────────────────────────
    Sticky to the bottom of the assessment tab so it stays reachable while the
@@ -3418,7 +3722,9 @@ input.input-invalid {
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
-  max-width: 880px;
+  /* Tracks the row. Phase 0 named this: a bar capped at 880 under rows that
+     now reach 1600 stops reading as the bar for those rows. */
+  max-width: 1600px;
   margin-top: 16px;
   padding: 12px 14px;
   background: var(--black);
@@ -3440,6 +3746,11 @@ input.input-invalid {
 }
 
 .opp-assess-anchors {
+  /* The 880 lives here now. This is the prose the cap was written for: at
+     1556px a 12px line is roughly 200 characters, far past a readable measure.
+     On the block it serves the state it was meant for and stops penalising the
+     closed one, which is the state a person is in almost always. */
+  max-width: 880px;
   display: grid;
   grid-template-columns: max-content 1fr;
   column-gap: 14px;
@@ -3457,38 +3768,49 @@ input.input-invalid {
 }
 .opp-assess-anchor--nowording .opp-assess-anchor-n { color: var(--muted-2); }
 .opp-assess-anchor-t { font-size: 12px; color: var(--muted); }
-.opp-assess-ver { font-size: 11px; color: var(--muted-2); margin-top: 10px; }
-.opp-assess-note { font-size: 12px; color: var(--muted-2); margin-top: 10px; }
+/* The same fault, in the two paragraphs the definitions block and the
+   unanchored notice carry. Fixed here rather than when a later phase happens
+   to open the block: cleanup scoped to the instance the failure named is the
+   shape build discipline rule 8 exists to stop. */
+.opp-assess-ver { font-size: 11px; color: var(--muted-2); margin-top: 10px; margin-bottom: 0; }
+.opp-assess-note { font-size: 12px; color: var(--muted-2); margin-top: 10px; margin-bottom: 0; }
 
-.opp-assess-reason { margin-top: 12px; }
-.opp-assess-reason label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
-.opp-assess-reason textarea { width: 100%; }
-.opp-assess-actions { display: flex; gap: 10px; align-items: center; margin-top: 10px; }
+/* Round 30 Phase 2: .opp-assess-reason, its label, its textarea and
+   .opp-assess-actions are gone. The reason is a cell on the row now, and a
+   moved thing has to leave the place it came from or the next reader finds two
+   sources for one element. */
 .opp-assess-history { margin-top: 10px; font-size: 12px; color: var(--muted-2); }
 .opp-assess-entry { display: flex; gap: 12px; padding: 3px 0; }
 
-/* The current assessment's reason, Round 26 Phase 1.
+/* Round 26 Phase 1 put the current reason in a bordered block beneath the
+   head, in reading colour, because OPPORTUNITY_DESIGN.md requires it to be
+   prominent: the reason is what a bid review challenges.
 
-   Prominent because OPPORTUNITY_DESIGN.md requires it: the reason is what a
-   bid review challenges, and the current one is the one that gets challenged.
-   Reading colour and size for the reason; author and time beneath it in the
-   quieter treatment, because who and when are context for the claim rather
-   than the claim. */
-.opp-assess-current {
-  margin-top: 10px;
-  padding-left: 12px;
-  border-left: 2px solid var(--green);
-}
-.opp-assess-current-reason {
-  font-size: 14px;
-  color: var(--white);
-}
-.opp-assess-current-reason--none { color: var(--muted-2); font-style: italic; }
+   Round 30 Phase 2 keeps the requirement and changes where it is met. The
+   reason is the widest cell on the row now, and an editable one, which is more
+   prominent than a quote underneath and is also the only way to correct it
+   without restating a level. So .opp-assess-current, .opp-assess-current-reason
+   and its --none variant are gone with the paragraph they styled.
+
+   Round 30 Phase 1's finding is recorded in the brief rather than here, since
+   the elements it was written about no longer exist: three paragraphs in this
+   block declared no margin at all and the user agent's 1em was doing the
+   spacing, 217px of a 1279px panel. The stylesheet still has no `p` reset, and
+   119 of 225 paragraph sites still declare no bottom margin. */
 .opp-assess-current-meta {
   font-size: 11px;
   color: var(--muted-2);
-  margin-top: 3px;
+  margin-top: 0;
+  margin-bottom: 0;
 }
+/* A criterion nobody has assessed says so, on the under-row where it costs the
+   row no width. An empty segment group is accurate and silent; this is the
+   same fact with a word on it. */
+.opp-assess-current-meta--none { font-style: italic; }
+/* The figure sits beside the author and the timestamp rather than taking a
+   column of its own: one criterion of seven records one, so a column for it is
+   blank on six rows, and at 1240 the row has no width to spare. */
+.opp-assess-current-meta .opp-assess-current-answer { margin-right: 10px; }
 
 /* The answer a criterion carries beside its score, Round 26 Phase 3. */
 .opp-assess-answer { margin-bottom: 12px; }
@@ -3498,9 +3820,8 @@ input.input-invalid {
 .opp-assess-answer-row select { flex: 0 0 90px; width: 90px; }
 .opp-assess-current-answer {
   font-family: var(--mono);
-  font-size: 14px;
+  font-size: 12px;
   color: var(--green);
-  margin-top: 4px;
 }
 
 /* The answer on a history row, Round 26 Phase 3.
