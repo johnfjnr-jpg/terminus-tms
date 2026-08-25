@@ -1799,11 +1799,11 @@ let oppCriteriaPromise = null
 const oppAssessDraft = {}
 const oppAssessReason = {}
 const oppAssessOpen = {}
-// Round 28 Phase 6: which criteria have their history revealed. RECORD STATE,
-// not configuration, so it joins the list Phase 1 clears on a record change.
-// Adding it there in the same edit rather than later is the whole of Phase 1's
-// lesson: a map keyed by criterion that outlives its record is the defect.
-const oppAssessHistoryOpen = {}
+// Round 28 Phase 6 added oppAssessHistoryOpen here, as record state that had to
+// join the list cleared on a record change. Round 30 Phase 4 retires it with
+// the second control: one control has one state, and the clearing list loses
+// the entry in the same edit that removes the map rather than keeping a name
+// nothing writes.
 const oppAssessAnswer = {}   // criterion_key -> { amount, currency }
 
 async function ensureOppCriteria() {
@@ -1876,11 +1876,16 @@ function oppAssessEffectiveLevel(key) {
 // placeholder for. Five visible segments have nothing to prompt: an empty
 // group reads as nothing chosen without being told so.
 //
-// OPP_ASSESS_NONE STAYS AND KEEPS A JOB, on the under-row, where it costs the
-// row no width. Deleting it would have retired the vocabulary note above
-// along with it, and that note records a reconciliation this project still
-// owes: three strings are in use for one idea, and this is the one to
-// converge on rather than one more to choose between.
+// OPP_ASSESS_NONE STAYS AND KEEPS A JOB. Deleting it would retire the
+// vocabulary note above along with it, and that note records a reconciliation
+// this project still owes: three strings are in use for one idea, and this is
+// the one to converge on rather than one more to choose between.
+//
+// Round 30 Phase 4 moved the job. It was on the under-row, which no longer
+// exists; it now answers the "This assessment" section for a criterion nobody
+// has assessed. Same string, and a better place for it: the five empty
+// segments already say a criterion is unassessed, but they say it by silence,
+// and a section that reads as blank looks like a failed render.
 const OPP_ASSESS_NONE = 'Not assessed'
 
 function renderOppAssessCriterion(c) {
@@ -1969,28 +1974,26 @@ function renderOppAssessCriterion(c) {
   // The reveal-on-focus existed because before Phase 2 there was no control at
   // all. There is one now, labelled, so opening a 200 to 400px block because
   // the cursor landed on a select is a surprise rather than a service.
-  const anchorsOpen = !!oppAssessOpen[c.criterion_key]
+  // Round 30 Phase 4: ONE open flag, because there is one control. Two states
+  // for one control is a second source of truth waiting to disagree.
+  const detailOpen = !!oppAssessOpen[c.criterion_key]
   // Round 28 Phase 6: the CURRENT assessment stays exactly where Round 26
   // Phase 1 put it, prominent and unconditional, reason and author and
   // timestamp. Only the earlier ones go behind a control. That distinction is
   // the whole of Round 26's finding: the reason is what a bid review
   // challenges, and the current one is precisely the one that gets challenged.
-  const historyOpen = !!oppAssessHistoryOpen[c.criterion_key]
+
+  // Round 30 Phase 4: the definitions are a SECTION now, not a control plus a
+  // section. Their control has merged with the history's, and the merge is
+  // forced by width rather than chosen for tidiness: see the criterion cell
+  // below.
   const anchors = unanchored
     ? '<p class="opp-assess-note">No level definitions are recorded for this criterion yet, so it cannot be assessed.</p>'
-    // The control sits OUTSIDE the block it controls, so opening and closing
-    // are the same gesture in the same place. Inside, it would vanish with the
-    // thing it collapses and leave no way back. It is also the first way to
-    // reveal the definitions that is visible at all: before this the only
-    // route was focusing the select, which is not an affordance.
-    : `<button type="button" class="anchors-toggle" id="opp-assess-anchors-toggle-${escHtml(c.criterion_key)}"
-               aria-expanded="${anchorsOpen ? 'true' : 'false'}" aria-controls="opp-assess-anchors-${escHtml(c.criterion_key)}"
-               onclick="toggleOppAssessAnchorsOpen('${escHtml(c.criterion_key)}')">${anchorsOpen ? 'Hide definitions' : 'Show definitions'}</button>
-       <div class="opp-assess-anchors${anchorsOpen ? '' : ' hidden'}" id="opp-assess-anchors-${escHtml(c.criterion_key)}">
+    : `<p class="opp-assess-detail-h">Level definitions</p>
+       <div class="opp-assess-anchors" id="opp-assess-anchors-${escHtml(c.criterion_key)}">
          ${levels.map(l => `
            <span class="opp-assess-anchor-n${wordingFor(l) ? '' : ' opp-assess-anchor--nowording'}">${escHtml(String(l.label))}</span>
            <span class="opp-assess-anchor-t">${escHtml(wordingFor(l))}</span>`).join('')}
-         ${c.asks ? `<p class="opp-assess-asks" style="grid-column:1/-1">${escHtml(c.asks)}</p>` : ''}
          <p class="opp-assess-ver" style="grid-column:1/-1">Definition version ${escHtml(String(c.current_version))}</p>
        </div>`
 
@@ -2081,13 +2084,10 @@ function renderOppAssessCriterion(c) {
       current.answer ? `<span class="opp-assess-current-answer">${escHtml(current.answer.currency)} ${escHtml(Number(current.answer.amount).toLocaleString('en-GB'))}</span>` : ''
     }${escHtml(current.by ?? '--')} &middot; ${escHtml(formatDateTime(current.at))}</p>`
 
+  const earlier = series.length - 1
   const history = series.length > 1 ? `
-    <button type="button" class="anchors-toggle" id="opp-assess-history-toggle-${escHtml(c.criterion_key)}"
-            aria-expanded="${historyOpen ? 'true' : 'false'}" aria-controls="opp-assess-history-${escHtml(c.criterion_key)}"
-            onclick="toggleOppAssessHistory('${escHtml(c.criterion_key)}')">${
-      historyOpen ? 'Hide earlier assessments' : `Show ${series.length - 1} earlier assessment${series.length - 1 === 1 ? '' : 's'}`
-    }</button>
-    <div class="opp-assess-history${historyOpen ? '' : ' hidden'}" id="opp-assess-history-${escHtml(c.criterion_key)}">
+    <p class="opp-assess-detail-h">${earlier} earlier assessment${earlier === 1 ? '' : 's'}</p>
+    <div class="opp-assess-history" id="opp-assess-history-${escHtml(c.criterion_key)}">
       ${series.slice(0, -1).reverse().map(e => `<div class="opp-assess-entry"><span>${escHtml(formatDateTime(e.at))}</span><span>${escHtml(labelFor(e.value))}</span>${
         e.answer ? `<span class="opp-assess-entry-answer">${escHtml(e.answer.currency)} ${escHtml(Number(e.answer.amount).toLocaleString('en-GB'))}</span>` : ''
       }<span>${escHtml(e.reason ?? '')}</span></div>`).join('')}
@@ -2121,7 +2121,35 @@ function renderOppAssessCriterion(c) {
   return `
     <div class="opp-assess-criterion" data-criterion="${escHtml(c.criterion_key)}" data-entries="${series.length}"${dirty ? ' data-dirty="1"' : ''}>
       <div class="opp-assess-row">
-        <span class="opp-assess-name"${c.asks ? ` title="${escHtml(c.asks)}"` : ''}>${escHtml(c.name)}</span>
+        ${/* Round 30 Phase 4: THE CONTROL LIVES IN THE CRITERION CELL, and the
+             position is the whole reason the merge happens.
+
+             Measured: the under-row is 27px plus a 6px gap, 231px across seven
+             criteria, and a third of the row height at 1920. It only goes away
+             if its controls move on to the row, and the row has no width to
+             give: a control at the end costs 38px of the reason cell and drops
+             two of the six reasons that read whole on one line. Widening the
+             criterion cell from 240 to 250 costs 10px and drops none, because
+             the widest name measures 227px and the cell had spare.
+
+             So ONE control rather than two, and the reason is arithmetic
+             rather than the brief's preference for one link over two. Two
+             chevrons in 22px would be indistinguishable from each other
+             anyway; two LABELLED controls need 237px the row does not have.
+
+             The count stays on the outside, because it is the one thing the
+             collapsed row should still say: definitions always exist and are
+             not news, who and when is not news, but "this judgement has moved
+             twice" is. */''}
+        <span class="opp-assess-crit">
+          <span class="opp-assess-name"${c.asks ? ` title="${escHtml(c.asks)}"` : ''}>${escHtml(c.name)}</span>
+          <button type="button" class="opp-assess-more" id="opp-assess-more-${escHtml(c.criterion_key)}"
+            aria-expanded="${detailOpen ? 'true' : 'false'}" aria-controls="opp-assess-detail-${escHtml(c.criterion_key)}"
+            title="${detailOpen ? 'Hide' : 'Show'} definitions, history and who recorded this"
+            onclick="toggleOppAssessDetail('${escHtml(c.criterion_key)}')"><span class="opp-assess-more-c" aria-hidden="true"></span>${
+              series.length > 1 ? `<span class="opp-assess-more-n">${series.length - 1}</span>` : ''
+            }<span class="visually-hidden">${detailOpen ? 'Hide' : 'Show'} details for ${escHtml(c.name)}</span></button>
+        </span>
         ${levelGroup}
         ${/* PRESENT AT REST AND PREFILLED. Zero of seven reason fields existed
              before this phase, so amending one reason cost three steps and
@@ -2133,11 +2161,36 @@ function renderOppAssessCriterion(c) {
           placeholder="${mustGiveReason ? 'Reason (required)' : 'Reason'}"
           oninput="setOppAssessReason('${escHtml(c.criterion_key)}', this.value)">${escHtml(oppAssessReason[c.criterion_key] ?? oppAssessStoredReason(c.criterion_key))}</textarea>
       </div>
-      <div class="opp-assess-underrow">
+      ${/* OUTSIDE the collapsed region, both of them, and for the same reason:
+           they are about what is happening right now rather than about the
+           criterion's background. The amount inputs only exist while a draft
+           is open, and a save that fails for one criterion has to say so
+           beside that criterion; a message rendered inside a collapsed block
+           would be a refusal nobody saw. The feedback span collapses to
+           nothing when empty rather than holding a line open. */''}
+      ${reasonBox}
+      ${/* Round 30 Phase 4, after opening it and looking: THREE SECTIONS EACH
+           NEED A HEADING, and the first cut gave two of them one. The
+           provenance line floated at the top with nothing saying what it was,
+           and the question sat between the definitions grid and its own
+           version line, an orphan sentence in the middle of a block about
+           something else.
+
+           The question LEADS, because it is what the criterion asks and the
+           rest of the region is the answer to it: what the levels mean, what
+           this record says, and what it used to say. */''}
+      <div class="opp-assess-detail${detailOpen ? '' : ' hidden'}" id="opp-assess-detail-${escHtml(c.criterion_key)}">
+        ${c.asks ? `<p class="opp-assess-asks">${escHtml(c.asks)}</p>` : ''}
+        ${/* The heading is UNCONDITIONAL, so the section always answers the same
+             question and "nothing yet" is an answer to it rather than an
+             absence. That is also what keeps OPP_ASSESS_NONE doing a job: the
+             five empty segments already say a criterion is unassessed, but
+             they say it by silence, and a section that reads as blank looks
+             like a failed render. */''}
+        <p class="opp-assess-detail-h">This assessment</p>
         ${currentBlock}
         ${anchors}
         ${history}
-        ${reasonBox}
       </div>
     </div>`
 }
@@ -2211,16 +2264,22 @@ window.cancelOppAssess = function (key) {
 // rerenderOppAssessLens rewrites the pane's innerHTML, which would destroy a
 // reason textarea mid-sentence and drop the caret. The flag is set for later
 // re-renders and this render is updated in place.
-window.toggleOppAssessAnchorsOpen = function (key) {
-  const block = document.getElementById(`opp-assess-anchors-${key}`)
+//
+// Round 30 Phase 4: toggleOppAssessAnchorsOpen and toggleOppAssessHistory are
+// one function, because they are one control. The direct DOM mutation is the
+// part worth keeping and the reason is unchanged.
+window.toggleOppAssessDetail = function (key) {
+  const block = document.getElementById(`opp-assess-detail-${key}`)
   if (!block) return
   const open = block.classList.contains('hidden')
   oppAssessOpen[key] = open
   block.classList.toggle('hidden', !open)
-  const btn = document.getElementById(`opp-assess-anchors-toggle-${key}`)
+  const btn = document.getElementById(`opp-assess-more-${key}`)
   if (btn) {
-    btn.textContent = open ? 'Hide definitions' : 'Show definitions'
     btn.setAttribute('aria-expanded', open ? 'true' : 'false')
+    btn.setAttribute('title', `${open ? 'Hide' : 'Show'} definitions, history and who recorded this`)
+    const sr = btn.querySelector('.visually-hidden')
+    if (sr) sr.textContent = `${open ? 'Hide' : 'Show'} details for ${btn.closest('.opp-assess-criterion')?.querySelector('.opp-assess-name')?.textContent ?? 'this criterion'}`
   }
 }
 
@@ -2426,23 +2485,6 @@ window.saveAllOppAssess = async function () {
       const cell = document.getElementById(`opp-assess-feedback-${f.key}`)
       if (cell) { cell.textContent = f.error; cell.className = 'opp-assess-feedback msg-error' }
     }
-  }
-}
-
-// Mirrors toggleOppAssessAnchorsOpen exactly, including the direct DOM
-// mutation: rerenderOppAssessLens rewrites the pane's innerHTML and would
-// destroy a reason textarea mid-sentence.
-window.toggleOppAssessHistory = function (key) {
-  const block = document.getElementById(`opp-assess-history-${key}`)
-  if (!block) return
-  const open = block.classList.contains('hidden')
-  oppAssessHistoryOpen[key] = open
-  block.classList.toggle('hidden', !open)
-  const btn = document.getElementById(`opp-assess-history-toggle-${key}`)
-  if (btn) {
-    const n = block.querySelectorAll('.opp-assess-entry').length
-    btn.textContent = open ? 'Hide earlier assessments' : `Show ${n} earlier assessment${n === 1 ? '' : 's'}`
-    btn.setAttribute('aria-expanded', open ? 'true' : 'false')
   }
 }
 
@@ -5275,7 +5317,7 @@ async function renderOppDetail(opp) {
   // they cache configuration, which is record-type scoped and genuinely
   // outlives any one record.
   if (currentOppDetailId !== opp.id) {
-    for (const m of [oppAssessDraft, oppAssessReason, oppAssessAnswer, oppAssessOpen, oppAssessHistoryOpen]) {
+    for (const m of [oppAssessDraft, oppAssessReason, oppAssessAnswer, oppAssessOpen]) {
       for (const k of Object.keys(m)) delete m[k]
     }
   }

@@ -1698,12 +1698,13 @@ textarea::placeholder { color: var(--muted-2); }
   text-underline-offset: 3px;
 }
 .anchors-toggle:hover { color: var(--white); }
-/* Round 28 Phase 6: two of these now sit side by side on Opportunity, the
-   definitions control and the history control, and with only the markup's own
-   whitespace between them they ran together. Found by looking, which is the
-   only instrument that measures it. An adjacent-sibling rule, so it cannot
-   reach Test Bed, whose rows carry exactly one. */
-.anchors-toggle + .anchors-toggle { margin-left: 18px; }
+/* Round 28 Phase 6 added `.anchors-toggle + .anchors-toggle { margin-left: 18px }`
+   here, for the two controls that sat side by side on Opportunity. Its own
+   comment recorded that it could not reach Test Bed, whose rows carry exactly
+   one; Round 30 Phase 4 merged Opportunity's two into one, so the rule had no
+   subject left anywhere and is removed with them. Test Bed still uses the base
+   rule above, and its history control is .btn-text rather than a second
+   .anchors-toggle. */
 .anchors-toggle:focus-visible { outline: 1px solid var(--green); outline-offset: 2px; }
 
 /* ── Auth screen ────────────────────────────────────────────── */
@@ -3424,11 +3425,88 @@ input.input-invalid {
      re-derive that chain and would be wrong the next time any of it changes. */
   flex-wrap: wrap;
 }
+/* Round 30 Phase 4: the criterion cell is the name AND the one control, and it
+   widens from 240 to hold both. A control at the far end of the row instead
+   would have cost 38px of the reason cell and dropped two of the six reasons
+   that read whole on one line.
+
+   258 AND NOT 250, and the first number was wrong for a reason worth keeping:
+   240 was the widest NAME, so a cell of 250 leaves the name 222 once the
+   control and its gap are taken, and "Competition, including do-nothing"
+   measures 227 and wrapped. One row came back 86px against the others' 66,
+   which is what showed it. The cell has to hold the name plus the control plus
+   the gap, not the name plus a round number. */
+.opp-assess-crit {
+  flex: 0 0 258px;
+  min-width: 0;
+  display: flex;
+  align-items: start;
+  gap: 6px;
+}
 .opp-assess-name {
   font-size: 15px;
-  flex: 0 0 240px;
+  flex: 1 1 auto;
   min-width: 0;
   padding-top: 8px;
+}
+.opp-assess-more {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  margin-top: 6px;
+  padding: 0;
+  background: none;
+  border: 1px solid var(--hairline);
+  border-radius: 3px;
+  color: var(--muted);
+  cursor: pointer;
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1;
+  position: relative;
+}
+.opp-assess-more:hover { color: var(--white); border-color: var(--hairline-strong); }
+.opp-assess-more:focus-visible { outline: 1px solid var(--green); outline-offset: 2px; }
+/* The chevron is drawn rather than typed, so it can rotate on open instead of
+   swapping to a different glyph with a different optical weight. */
+.opp-assess-more-c {
+  display: block;
+  width: 5px;
+  height: 5px;
+  margin: 0 auto;
+  border-right: 1px solid currentColor;
+  border-bottom: 1px solid currentColor;
+  transform: rotate(45deg) translate(-1px, -1px);
+}
+.opp-assess-more[aria-expanded="true"] .opp-assess-more-c { transform: rotate(225deg) translate(-2px, -2px); }
+.opp-assess-more[aria-expanded="true"] { color: var(--white); border-color: var(--hairline-strong); }
+/* THE ONE THING THE COLLAPSED ROW STILL SAYS. Definitions always exist and are
+   not news; who and when is not news; "this judgement has moved twice" is. */
+.opp-assess-more-n {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 13px;
+  height: 13px;
+  padding: 0 3px;
+  border-radius: 7px;
+  background: var(--hairline-strong);
+  color: var(--white);
+  font-size: 9px;
+  line-height: 13px;
+}
+/* Present for a screen reader, absent for everyone else. The chevron carries
+   no text, so without this the button announces as unlabelled. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
 }
 /* ── Round 30 Phase 3: the five levels, as segments ──────────────────────
    .opp-assess-value and .opp-assess-select are gone, together, because they
@@ -3563,18 +3641,47 @@ input.input-invalid {
   overflow-y: auto;
 }
 .opp-assess-reason-cell::placeholder { color: var(--muted-2); font-style: italic; }
-/* Everything the row does not carry: who, when, the figure, and the controls.
-   One line, quiet, under the row it belongs to. */
-.opp-assess-underrow {
-  display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: 0 18px;
-  margin-top: 6px;
-  padding-left: 254px;
+/* Round 30 Phase 4: .opp-assess-underrow is gone. It was one line carrying the
+   provenance and two controls, 27px plus a 6px gap, 231px across seven
+   criteria and a third of the row height at 1920. Its three subjects moved
+   behind the row's one control, each keeping a heading inside so one control
+   does not mean one undifferentiated blob.
+
+   Each landed where it did for its own reason rather than because it came off
+   the row. The definitions are about the CRITERION and are read when you are
+   unsure which level applies. The history is about the SERIES and is read when
+   you are asking how a judgement moved. Who and when, and the figure, are
+   about the CURRENT ENTRY, and Round 26 Phase 1 already made them subordinate
+   to the reason: "who and when are context for the claim rather than the
+   claim". All three are read on demand, which is what a disclosure is for. */
+.opp-assess-detail {
+  margin-top: 10px;
+  margin-left: 272px;
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 4px;
+  max-width: 880px;
 }
-.opp-assess-underrow .opp-assess-anchors,
-.opp-assess-underrow .opp-assess-history { flex: 1 1 100%; }
+.opp-assess-detail.hidden { display: none; }
+.opp-assess-detail-h {
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted-2);
+  margin: 14px 0 6px;
+}
+.opp-assess-detail > .opp-assess-detail-h:first-child { margin-top: 0; }
+/* The definitions keep their grid and lose their own panel treatment: they are
+   inside one now, and two nested panels read as a mistake. */
+.opp-assess-detail .opp-assess-anchors {
+  margin-top: 0;
+  padding: 0;
+  background: none;
+  border-radius: 0;
+}
+/* A save that fails for one criterion has to say so beside that criterion, so
+   this sits OUTSIDE the collapsed region. Empty, it holds no line open. */
+.opp-assess-feedback:empty { display: none; }
 /* Round 28 Phase 4: the question now sits INSIDE the name cell, on the same
    line, so this is an inline rule rather than a block one.
 
@@ -3590,11 +3697,13 @@ input.input-invalid {
    identical on every record forever, and on the row it cost up to 284px of a
    876px line. It stays reachable without opening anything, as the name's
    title. */
+/* Round 30 Phase 4: the question leads the detail region rather than sitting
+   inside the definitions grid, so it is reading text again rather than a cell.
+   Round 30 Phase 2 moved it off the row; this is where it landed. */
 .opp-assess-asks {
-  font-size: 12px;
-  color: var(--muted);
-  margin-top: 10px;
-  margin-bottom: 0;
+  font-size: 13px;
+  color: var(--white);
+  margin: 0 0 12px;
 }
 
 
