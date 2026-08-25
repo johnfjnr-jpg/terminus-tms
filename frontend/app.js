@@ -1824,6 +1824,36 @@ function oppAssessSeries(key) {
   return Array.isArray(v) ? [...v].sort((a, b) => String(a?.at).localeCompare(String(b?.at))) : []
 }
 
+// Round 30 Phase 2: the record's own current answer for a criterion, and the
+// reason that was given for it.
+//
+// These exist because the reason field is now PRESENT AT REST and PREFILLED.
+// Before this phase the field was emitted only for a criterion with a pending
+// draft, so reaching one reason took three steps and the level was necessarily
+// restated; and the field it produced was empty, so "go back and correct one
+// field" meant retyping 192 characters that were already on the screen.
+function oppAssessCurrent(key) {
+  const s = oppAssessSeries(key)
+  return s.length ? s[s.length - 1] : null
+}
+function oppAssessStoredReason(key) {
+  return String(oppAssessCurrent(key)?.reason ?? '')
+}
+// The field always holds text, so "has a reason" can no longer mean dirty.
+// Dirty means the text DIFFERS from what the record already says.
+function oppAssessReasonEdited(key) {
+  return oppAssessReason[key] !== undefined
+    && String(oppAssessReason[key]) !== oppAssessStoredReason(key)
+}
+// The level this save would record: the drafted one, or the record's own when
+// only the reason was corrected. Undefined means the criterion has never been
+// assessed and a reason alone cannot be recorded against it.
+function oppAssessEffectiveLevel(key) {
+  if (oppAssessDraft[key] !== undefined) return oppAssessDraft[key]
+  const cur = oppAssessCurrent(key)
+  return cur ? cur.value : undefined
+}
+
 // THE VOCABULARY, decided here because this is the first Opportunity screen to
 // need it and it therefore sets the precedent.
 //
@@ -1918,6 +1948,7 @@ function renderOppAssessCriterion(c) {
          ${levels.map(l => `
            <span class="opp-assess-anchor-n${wordingFor(l) ? '' : ' opp-assess-anchor--nowording'}">${escHtml(String(l.label))}</span>
            <span class="opp-assess-anchor-t">${escHtml(wordingFor(l))}</span>`).join('')}
+         ${c.asks ? `<p class="opp-assess-asks" style="grid-column:1/-1">${escHtml(c.asks)}</p>` : ''}
          <p class="opp-assess-ver" style="grid-column:1/-1">Definition version ${escHtml(String(c.current_version))}</p>
        </div>`
 
@@ -1943,22 +1974,15 @@ function renderOppAssessCriterion(c) {
       </div>
     </div>`
 
-  const reasonBox = draft === '' ? '' : `
-    <div class="opp-assess-reason">
-      ${answerBox}
-      <label for="opp-assess-reason-${escHtml(c.criterion_key)}">Reason${mustGiveReason ? ' (required)' : ' (optional)'}</label>
-      <textarea id="opp-assess-reason-${escHtml(c.criterion_key)}" rows="2"
-        oninput="setOppAssessReason('${escHtml(c.criterion_key)}', this.value)">${escHtml(oppAssessReason[c.criterion_key] ?? '')}</textarea>
-      <div class="opp-assess-actions">
-        ${/* Round 28 Phase 5: the Record and Cancel buttons that stood here are
-             now one shared bar for the whole panel, which is what the business
-             asked for and what Test Bed already does. The per-criterion
-             FEEDBACK line stays: a batch that partly fails has to say which
-             criterion failed, beside that criterion, and a single line on the
-             bar cannot do that for four of seven. */''}
-        <span class="opp-assess-feedback" id="opp-assess-feedback-${escHtml(c.criterion_key)}"></span>
-      </div>
-    </div>`
+  // Round 30 Phase 2: only the amount inputs are conditional now. The reason
+  // moved on to the row, and the Record and Cancel buttons went to the shared
+  // bar in Round 28 Phase 5. The per-criterion FEEDBACK line stays: a batch
+  // that partly fails has to say which criterion failed, beside that
+  // criterion, and one line on the bar cannot do that for four of seven.
+  const dirty = oppAssessDraft[c.criterion_key] !== undefined || oppAssessReasonEdited(c.criterion_key)
+  const reasonBox = `
+    ${dirty ? answerBox : ''}
+    <span class="opp-assess-feedback" id="opp-assess-feedback-${escHtml(c.criterion_key)}"></span>`
 
   // Round 26 Phase 1: THE CURRENT ENTRY GETS ITS OWN BLOCK.
   //
@@ -1985,14 +2009,24 @@ function renderOppAssessCriterion(c) {
   // An entry with no reason is legitimate: Not applicable requires none. It
   // says so rather than rendering an empty quote, because a blank space reads
   // as a failed render.
+  // Round 30 Phase 2: THE REASON PARAGRAPH IS GONE FROM HERE, because the
+  // reason is now an editable cell on the row itself. Rendering the same
+  // sentence twice, once as prose and once inside the box you must type into,
+  // is not a design; and Round 26's requirement that the current reason be
+  // PROMINENT is better served by the widest cell on the row than by a quote
+  // beneath it.
+  //
+  // What remains is who and when, and the figure where one was recorded. The
+  // ANSWER JOINS THEM rather than taking a column: one criterion of seven
+  // carries a value, so a column for it is empty on six rows, and at 1240 the
+  // 876px row cannot spare the width. It belongs beside the author and the
+  // timestamp because it is the same kind of fact, a property of the entry
+  // that recorded it, which is Round 26 Phase 3's own reasoning for why it is
+  // not carried forward onto later entries.
   const currentBlock = !current ? '' : `
-    <div class="opp-assess-current">
-      <p class="opp-assess-current-reason${current.reason ? '' : ' opp-assess-current-reason--none'}">${
-        current.reason ? escHtml(current.reason) : 'No reason recorded.'
-      }</p>
-      ${current.answer ? `<p class="opp-assess-current-answer">${escHtml(current.answer.currency)} ${escHtml(Number(current.answer.amount).toLocaleString('en-GB'))}</p>` : ''}
-      <p class="opp-assess-current-meta">${escHtml(current.by ?? '--')} &middot; ${escHtml(formatDateTime(current.at))}</p>
-    </div>`
+    <p class="opp-assess-current-meta">${
+      current.answer ? `<span class="opp-assess-current-answer">${escHtml(current.answer.currency)} ${escHtml(Number(current.answer.amount).toLocaleString('en-GB'))}</span>` : ''
+    }${escHtml(current.by ?? '--')} &middot; ${escHtml(formatDateTime(current.at))}</p>`
 
   const history = series.length > 1 ? `
     <button type="button" class="anchors-toggle" id="opp-assess-history-toggle-${escHtml(c.criterion_key)}"
@@ -2006,18 +2040,35 @@ function renderOppAssessCriterion(c) {
       }<span>${escHtml(e.reason ?? '')}</span></div>`).join('')}
     </div>` : ''
 
+  // ── Round 30 Phase 2: THE ROW ──────────────────────────────────────────
+  //
+  // Four columns, three of them fixed, so seven criteria read as a grid rather
+  // than as seven differently-shaped blocks. The reason takes what is left,
+  // which puts the widest and most variable thing where the empty space
+  // actually is: 676px of the pane at 1920 and 2196px at 3440.
+  //
+  // THE QUESTION COMES OFF THE ROW, and this is a departure from the brief's
+  // proposed shape, which asked for "name and question in the left column".
+  // Measured, it cannot be: name plus question is 521px at its worst, and with
+  // the level label and the select that is 848px of the 876px a 1240 pane has,
+  // leaving 28px for the reason. The question is static reference text,
+  // identical on every record forever, so it goes where the rest of this
+  // criterion's reference text already lives, the definitions block, and stays
+  // reachable on hover without opening anything.
+  //
+  // THE NAME IS A FIXED COLUMN, which is Round 12 Phase 2's decision on Test
+  // Bed taken deliberately rather than by coincidence. Its comment says the
+  // eye travel from a criterion to its own score must not be set by the panel
+  // width, "and is also why it is not a width problem to be solved by capping
+  // the panel". Opportunity gave the name flex: 1 1 auto and capped the panel
+  // at 880px, which is the opposite of both halves, and received the complaint
+  // Round 12 was avoiding. The number differs because the names differ: Test
+  // Bed borrows .ref-field-label's 170px, and "Competition, including
+  // do-nothing" alone measures 227px.
   return `
-    <div class="opp-assess-criterion" data-criterion="${escHtml(c.criterion_key)}" data-entries="${series.length}">
-      <div class="opp-assess-head">
-        <span class="opp-assess-name">${escHtml(c.name)}${
-          // Round 28 Phase 3 of the business's list, item 3: the question
-          // joins the name INSIDE the name cell rather than sitting on a line
-          // of its own. Inline rather than a second flex child, so a long pair
-          // wraps within the cell instead of squeezing the value and the
-          // select, which is the fault the head's fixed columns were added to
-          // fix in the first place.
-          c.asks ? `<span class="opp-assess-asks">${escHtml(c.asks)}</span>` : ''
-        }</span>
+    <div class="opp-assess-criterion" data-criterion="${escHtml(c.criterion_key)}" data-entries="${series.length}"${dirty ? ' data-dirty="1"' : ''}>
+      <div class="opp-assess-row">
+        <span class="opp-assess-name"${c.asks ? ` title="${escHtml(c.asks)}"` : ''}>${escHtml(c.name)}</span>
         <span class="opp-assess-value${current ? '' : ' opp-assess-value--none'}">${current ? escHtml(labelFor(current.value)) : OPP_ASSESS_NONE}</span>
         <select class="opp-assess-select" id="opp-assess-select-${escHtml(c.criterion_key)}"
           aria-label="${escHtml(c.name)}"${unanchored ? ' disabled' : ''}
@@ -2025,11 +2076,22 @@ function renderOppAssessCriterion(c) {
           <option value="">${current ? 'Revise...' : OPP_ASSESS_PROMPT}</option>
           ${options}
         </select>
+        ${/* PRESENT AT REST AND PREFILLED. Zero of seven reason fields existed
+             before this phase, so amending one reason cost three steps and
+             restated the level; and the field, once reached, was empty while
+             the text it was replacing sat on the screen above it. Both of
+             those are this element. */''}
+        <textarea class="opp-assess-reason-cell" id="opp-assess-reason-${escHtml(c.criterion_key)}" rows="1"
+          aria-label="Reason for ${escHtml(c.name)}"${unanchored ? ' disabled' : ''}
+          placeholder="${current ? 'No reason recorded' : 'Reason'}"
+          oninput="setOppAssessReason('${escHtml(c.criterion_key)}', this.value)">${escHtml(oppAssessReason[c.criterion_key] ?? oppAssessStoredReason(c.criterion_key))}</textarea>
       </div>
-      ${currentBlock}
-      ${anchors}
-      ${reasonBox}
-      ${history}
+      <div class="opp-assess-underrow">
+        ${currentBlock}
+        ${anchors}
+        ${history}
+        ${reasonBox}
+      </div>
     </div>`
 }
 
@@ -2055,7 +2117,17 @@ window.setOppAssessDraft = function (key, value) {
   else oppAssessDraft[key] = value
   rerenderOppAssessLens()
 }
-window.setOppAssessReason = function (key, value) { oppAssessReason[key] = value }
+window.setOppAssessReason = function (key, value) {
+  oppAssessReason[key] = value
+  // Round 30 Phase 2: the bar is updated, the pane is NOT re-rendered. A
+  // corrected reason is now a change on its own, so the bar has to count it;
+  // and rerenderOppAssessLens rewrites the pane's innerHTML, which would
+  // destroy the very textarea this keystroke came from. renderOppAssessSaveBar
+  // mutates the bar in place, which is why it was written that way.
+  const row = document.querySelector(`.opp-assess-criterion[data-criterion="${key}"]`)
+  if (row) row.toggleAttribute('data-dirty', oppAssessDraft[key] !== undefined || oppAssessReasonEdited(key))
+  renderOppAssessSaveBar()
+}
 // Held without re-rendering, like the reason: re-rendering on every keystroke
 // would destroy the input the person is typing into.
 window.setOppAssessAnswer = function (key, field, value) {
@@ -2111,9 +2183,13 @@ window.toggleOppAssessAnchorsOpen = function (key) {
 function oppAssessDirtyKeys() {
   // Ordered by the criteria list rather than by insertion, so messages and
   // saves run in the order the panel displays.
+  //
+  // Round 30 Phase 2: a corrected reason is a change on its own. Before this
+  // the only way to be dirty was to have chosen a level, which is why amending
+  // a reason forced the level to be restated.
   return (oppCriteria ?? [])
     .map(c => c.criterion_key)
-    .filter(k => oppAssessDraft[k] !== undefined)
+    .filter(k => oppAssessDraft[k] !== undefined || oppAssessReasonEdited(k))
 }
 
 function oppAssessNameFor(key) {
@@ -2129,8 +2205,33 @@ function oppAssessMissingReasons() {
     const c = (oppCriteria ?? []).find(x => x.criterion_key === k)
     const chosen = (c?.levels ?? []).find(l => String(l.value) === String(oppAssessDraft[k]))
     const mustGive = !!chosen?.reason_required || oppAssessSeries(k).length > 0
-    return mustGive && !String(oppAssessReason[k] ?? '').trim()
+    if (!mustGive) return false
+    const text = oppAssessReason[k] !== undefined ? String(oppAssessReason[k]) : oppAssessStoredReason(k)
+    if (!text.trim()) return true
+
+    // Round 30 Phase 2, and this is a guard the prefill would otherwise have
+    // removed in silence. The check used to be "is the box non-empty", which
+    // was correct for every caller it had, because the box started empty on
+    // every revision. Prefilling makes that test pass by construction.
+    //
+    // So a CHANGE OF LEVEL on an already-assessed criterion now requires the
+    // reason to differ from the one already recorded. Carrying the previous
+    // reason forward onto a new level would record a judgement justified by
+    // the reasoning for a different judgement, which is the one thing the
+    // reason requirement exists to prevent. Correcting a reason on its own is
+    // untouched: there is no new level to justify.
+    const levelChanged = oppAssessDraft[k] !== undefined
+      && String(oppAssessDraft[k]) !== String(oppAssessCurrent(k)?.value ?? '')
+    return levelChanged && !oppAssessReasonEdited(k)
   })
+}
+
+// The mirror of the above, reachable only now that a reason can be typed
+// against a criterion carrying no assessment at all: there is no level to
+// record it against, and the endpoint would answer 400 seven times over.
+// Refused before anything is written, like the missing reasons.
+function oppAssessMissingLevels() {
+  return oppAssessDirtyKeys().filter(k => oppAssessEffectiveLevel(k) === undefined)
 }
 
 // The bar is mutated in place, never re-rendered from a template that would
@@ -2200,9 +2301,19 @@ window.saveAllOppAssess = async function () {
   const keys = oppAssessDirtyKeys()
   if (!keys.length) return
 
+  // Round 30 Phase 2: a reason typed against a criterion that has never been
+  // assessed has no level to be recorded against. Refused here, before
+  // anything is written, for the same reason the missing reasons are: firing
+  // seven requests to have some answered 400 is worse than not firing them.
+  const noLevel = oppAssessMissingLevels()
+  if (noLevel.length) {
+    setFb(`Choose a level for ${noLevel.map(oppAssessNameFor).join(', ')} before recording a reason. Nothing was recorded.`, 'msg-error')
+    return
+  }
+
   const missing = oppAssessMissingReasons()
   if (missing.length) {
-    setFb(`A reason is required for ${missing.map(oppAssessNameFor).join(', ')}. Nothing was recorded.`, 'msg-error')
+    setFb(`A reason is required for ${missing.map(oppAssessNameFor).join(', ')}, and it must say something the recorded one does not. Nothing was recorded.`, 'msg-error')
     return
   }
 
@@ -2215,9 +2326,13 @@ window.saveAllOppAssess = async function () {
   for (const key of keys) {
     const a = oppAssessAnswer[key] ?? {}
     const sendAnswer = key === OPP_VALUE_CAPTURE_KEY && String(a.amount ?? '').trim() !== ''
-    const reason = String(oppAssessReason[key] ?? '').trim()
+    // Round 30 Phase 2: the field always holds text now, so an unedited reason
+    // reads from the record rather than from the draft map, and a criterion
+    // dirty only because its reason changed records the level the record
+    // already carries instead of Number(undefined).
+    const reason = String(oppAssessReason[key] ?? oppAssessStoredReason(key)).trim()
     const result = await api('POST', `/api/opportunities/${currentOppDetailId}/scores`, {
-      criterion: key, score: Number(oppAssessDraft[key]),
+      criterion: key, score: Number(oppAssessEffectiveLevel(key)),
       ...(reason ? { reason } : {}),
       ...(sendAnswer ? { answer: { amount: Number(a.amount), currency: a.currency ?? 'SGD' } } : {}),
     })

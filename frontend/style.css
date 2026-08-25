@@ -3364,8 +3364,22 @@ input.input-invalid {
    looked at and read correctly. Freezing that geometry is not an arbitrary
    pick: it is the one width where both the eye travel and the line length were
    already right. */
+/* Round 30 Phase 2: THE CAP MOVES, and the number changes with it.
+   880px was the content width at 1240, frozen because that is where the anchor
+   prose read correctly. Measured across the three widths it does not do what
+   it was written to do: at 1240 the pane is 876px, so the cap is INERT, four
+   pixels short of ever binding, and it only starts to act above a 1244px
+   viewport. What it actually does is hold the row at 880px while the pane is
+   1556px at 1920 and 3076px at 3440, leaving 676px and 2196px unused, which is
+   the empty right-hand side the business asked about.
+
+   1600px keeps the reason cell under roughly 1000px, which is where a 14px
+   line stops being scannable, and lets 1920, the width the business reported
+   from, use its whole pane. The definitions block keeps the old measure on its
+   own account below, which is where the 880 belonged: on the prose, not on the
+   row. */
 .opp-assess-criterion {
-  max-width: 880px;
+  max-width: 1600px;
   padding: 16px 0;
   border-bottom: 1px solid var(--hairline);
 }
@@ -3376,20 +3390,115 @@ input.input-invalid {
    control took ~680px it had no use for. Fixed widths on the two right-hand
    columns give the name the row's remaining space, which is what should
    expand. */
-.opp-assess-head {
+/* Round 30 Phase 2: four columns, three fixed and one that takes the rest.
+   Three fixed columns are what make seven criteria read as a grid: every name
+   starts at the same x, every level label ends at the same x, every control
+   sits in the same place. That is Round 12 Phase 2's decision on Test Bed,
+   taken here deliberately. Its comment records that a name column of
+   `flex: 1 1 200px` let the name absorb every spare pixel, so the distance
+   between a criterion and its own score was set by the panel width, and states
+   that this "is also why it is not a width problem to be solved by capping the
+   panel". Opportunity had `flex: 1 1 auto` and an 880px cap, both halves the
+   wrong way round.
+
+   240px rather than Test Bed's 170px because the names are longer: Test Bed
+   borrows .ref-field-label's column, and here "Competition, including
+   do-nothing" measures 227px on its own. 240 is the widest name plus a little,
+   so no name in the current set wraps.
+
+   align-items: start rather than baseline, because a textarea and a span have
+   no shared baseline worth aligning to once the textarea can grow. */
+.opp-assess-row {
   display: flex;
-  align-items: baseline;
-  gap: 16px;
+  align-items: start;
+  gap: 14px;
+  /* THE REASON DROPS TO ITS OWN LINE WHEN THE ROW CANNOT GIVE IT A USABLE ONE,
+     which at 1240 it cannot. Measured: a 876px pane leaves the reason 252px
+     once the name, the level and the control have taken theirs, and 0 of 7
+     real reasons fit that. Looked at, it was worse than the number: seven
+     cells each clipped mid-word with a half-line of the next showing under it.
+
+     Wrapping on a flex basis rather than a media query, because the constraint
+     is the PANE and not the viewport. The panel sits in a lens sub-tab inside
+     a tab inside a padded view, and a query on the window would have to
+     re-derive that chain and would be wrong the next time any of it changes. */
+  flex-wrap: wrap;
 }
-.opp-assess-name { font-size: 15px; flex: 1 1 auto; min-width: 0; }
+.opp-assess-name {
+  font-size: 15px;
+  flex: 0 0 240px;
+  min-width: 0;
+  padding-top: 8px;
+}
 .opp-assess-value {
   font-family: var(--mono);
   font-size: 13px;
   color: var(--green);
   flex: 0 0 132px;
   text-align: right;
+  padding-top: 9px;
 }
 .opp-assess-value--none { color: var(--muted-2); }
+/* The reason takes what is left, which is the point: it is the widest and most
+   variable thing on the row, and the empty width the business pointed at is on
+   this side. One row at rest; the person can pull it open, and Phase 5 judges
+   whether that is the right treatment with real content in front of it. */
+/* ONE LINE EXACTLY AT REST, four when you are in it.
+
+   The height is arithmetic, not a guess: 20px of line, 8px of padding top and
+   bottom, 1px of border, so the content box holds exactly one 20px line and
+   never a fraction of a second one. The first attempt used rows="1" and let
+   the browser compute it, which produced a sliver of line two under every
+   reason long enough to wrap, and that is what the screenshot showed.
+
+   Focusing expands it, which is the brief's "the full text on expand" reached
+   through the gesture a person already makes to edit the thing. Phase 5 judges
+   whether one line at rest is the right measure with real content in front of
+   it; this is the treatment it judges, not a decision taken here. */
+.opp-assess-reason-cell {
+  flex: 1 1 520px;
+  min-width: 0;
+  font-size: 14px;
+  line-height: 20px;
+  /* THE BOTTOM PADDING GOES, and this is the correction that mattered.
+     Sizing the CONTENT box to one line looked right and measured right, and
+     the screenshot still showed the top third of line two. `overflow` clips at
+     the PADDING box, not the content box, so 8px of bottom padding is 8px of
+     the next line showing through. The content box was one line and the
+     clipping region was 1.4 of them.
+
+     So the visible band is padding-top plus exactly one line, and the check is
+     clientHeight minus padding-top equal to the line-height, which cannot be
+     satisfied by a box showing a fraction. Confirmed by looking, at three
+     times scale, after the number said it was already fine once.
+
+     30 and 90 rather than 29 and 89: clientHeight comes back two pixels under
+     the declared height on this control, not the one the border accounts for,
+     so both figures are read off the element rather than derived. */
+  height: 30px;
+  padding: 8px 0 0;
+  overflow: hidden;
+  resize: vertical;
+}
+/* Four lines, by the same arithmetic: 8 of padding and 80 of text, so a fifth
+   line cannot peek under the fourth either. */
+.opp-assess-reason-cell:focus {
+  height: 90px;
+  overflow-y: auto;
+}
+.opp-assess-reason-cell::placeholder { color: var(--muted-2); font-style: italic; }
+/* Everything the row does not carry: who, when, the figure, and the controls.
+   One line, quiet, under the row it belongs to. */
+.opp-assess-underrow {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0 18px;
+  margin-top: 6px;
+  padding-left: 254px;
+}
+.opp-assess-underrow .opp-assess-anchors,
+.opp-assess-underrow .opp-assess-history { flex: 1 1 100%; }
 /* Round 28 Phase 4: the question now sits INSIDE the name cell, on the same
    line, so this is an inline rule rather than a block one.
 
@@ -3400,7 +3509,17 @@ input.input-invalid {
    margin the stylesheet never mentioned, plus the control's own 10px. Moving
    the question inline removes the element that carried it, so the line and the
    gap are one fix rather than two. */
-.opp-assess-asks { font-size: 12px; color: var(--muted); margin-left: 10px; }
+/* Round 30 Phase 2: the question left the row and lives in the definitions
+   block, where the rest of this criterion's reference text already is. It is
+   identical on every record forever, and on the row it cost up to 284px of a
+   876px line. It stays reachable without opening anything, as the name's
+   title. */
+.opp-assess-asks {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 10px;
+  margin-bottom: 0;
+}
 .opp-assess-select { flex: 0 0 210px; width: 210px; }
 
 /* ── Round 28 Phase 5: the shared save bar ──────────────────────────────────
@@ -3418,7 +3537,9 @@ input.input-invalid {
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
-  max-width: 880px;
+  /* Tracks the row. Phase 0 named this: a bar capped at 880 under rows that
+     now reach 1600 stops reading as the bar for those rows. */
+  max-width: 1600px;
   margin-top: 16px;
   padding: 12px 14px;
   background: var(--black);
@@ -3440,6 +3561,11 @@ input.input-invalid {
 }
 
 .opp-assess-anchors {
+  /* The 880 lives here now. This is the prose the cap was written for: at
+     1556px a 12px line is roughly 200 characters, far past a readable measure.
+     On the block it serves the state it was meant for and stops penalising the
+     closed one, which is the state a person is in almost always. */
+  max-width: 880px;
   display: grid;
   grid-template-columns: max-content 1fr;
   column-gap: 14px;
@@ -3464,54 +3590,38 @@ input.input-invalid {
 .opp-assess-ver { font-size: 11px; color: var(--muted-2); margin-top: 10px; margin-bottom: 0; }
 .opp-assess-note { font-size: 12px; color: var(--muted-2); margin-top: 10px; margin-bottom: 0; }
 
-.opp-assess-reason { margin-top: 12px; }
-.opp-assess-reason label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
-.opp-assess-reason textarea { width: 100%; }
-.opp-assess-actions { display: flex; gap: 10px; align-items: center; margin-top: 10px; }
+/* Round 30 Phase 2: .opp-assess-reason, its label, its textarea and
+   .opp-assess-actions are gone. The reason is a cell on the row now, and a
+   moved thing has to leave the place it came from or the next reader finds two
+   sources for one element. */
 .opp-assess-history { margin-top: 10px; font-size: 12px; color: var(--muted-2); }
 .opp-assess-entry { display: flex; gap: 12px; padding: 3px 0; }
 
-/* The current assessment's reason, Round 26 Phase 1.
+/* Round 26 Phase 1 put the current reason in a bordered block beneath the
+   head, in reading colour, because OPPORTUNITY_DESIGN.md requires it to be
+   prominent: the reason is what a bid review challenges.
 
-   Prominent because OPPORTUNITY_DESIGN.md requires it: the reason is what a
-   bid review challenges, and the current one is the one that gets challenged.
-   Reading colour and size for the reason; author and time beneath it in the
-   quieter treatment, because who and when are context for the claim rather
-   than the claim. */
-.opp-assess-current {
-  margin-top: 10px;
-  padding-left: 12px;
-  border-left: 2px solid var(--green);
-}
-/* Round 30 Phase 1: THE MARGINS ARE DECLARED, because the stylesheet has no
-   `p` reset and the user agent's 1em was doing the spacing here.
+   Round 30 Phase 2 keeps the requirement and changes where it is met. The
+   reason is the widest cell on the row now, and an editable one, which is more
+   prominent than a quote underneath and is also the only way to correct it
+   without restating a level. So .opp-assess-current, .opp-assess-current-reason
+   and its --none variant are gone with the paragraph they styled.
 
-   Measured rather than assumed. The gaps this block renders were 14px where
-   10px was declared, 14px where 3px was declared, and 21px where 10px was
-   declared, because these two elements set no margin at all and inherited
-   1em of their own font size top and bottom. The meta's 11px bottom margin
-   then ESCAPED the parent, which has no bottom padding or border to stop the
-   collapse, and landed between the current block and the control below it.
-
-   217px of a 1279px panel, proved by injecting the reset, reading the delta
-   and watching it revert.
-
-   These declare 0 rather than the round zeroing every margin: the stylesheet
-   already says what it wants these gaps to be, and what was wrong was that
-   it was not being asked. Restoring the declared intent is the fix; flattening
-   the block is a different change nobody asked for. */
-.opp-assess-current-reason {
-  font-size: 14px;
-  color: var(--white);
-  margin: 0;
-}
-.opp-assess-current-reason--none { color: var(--muted-2); font-style: italic; }
+   Round 30 Phase 1's finding is recorded in the brief rather than here, since
+   the elements it was written about no longer exist: three paragraphs in this
+   block declared no margin at all and the user agent's 1em was doing the
+   spacing, 217px of a 1279px panel. The stylesheet still has no `p` reset, and
+   119 of 225 paragraph sites still declare no bottom margin. */
 .opp-assess-current-meta {
   font-size: 11px;
   color: var(--muted-2);
-  margin-top: 3px;
+  margin-top: 0;
   margin-bottom: 0;
 }
+/* The figure sits beside the author and the timestamp rather than taking a
+   column of its own: one criterion of seven records one, so a column for it is
+   blank on six rows, and at 1240 the row has no width to spare. */
+.opp-assess-current-meta .opp-assess-current-answer { margin-right: 10px; }
 
 /* The answer a criterion carries beside its score, Round 26 Phase 3. */
 .opp-assess-answer { margin-bottom: 12px; }
@@ -3521,10 +3631,8 @@ input.input-invalid {
 .opp-assess-answer-row select { flex: 0 0 90px; width: 90px; }
 .opp-assess-current-answer {
   font-family: var(--mono);
-  font-size: 14px;
+  font-size: 12px;
   color: var(--green);
-  margin-top: 4px;
-  margin-bottom: 0;
 }
 
 /* The answer on a history row, Round 26 Phase 3.
