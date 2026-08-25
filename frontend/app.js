@@ -1871,7 +1871,16 @@ function oppAssessEffectiveLevel(key) {
 // migrates it has a target that covers it rather than one that covers half the
 // treatments. THIS IS DELIBERATELY A THIRD STRING and the reconciliation is
 // still owed: it is the one to converge on, not one more to choose between.
-const OPP_ASSESS_PROMPT = 'Assess...'
+//
+// Round 30 Phase 3: OPP_ASSESS_PROMPT is gone with the select it was the
+// placeholder for. Five visible segments have nothing to prompt: an empty
+// group reads as nothing chosen without being told so.
+//
+// OPP_ASSESS_NONE STAYS AND KEEPS A JOB, on the under-row, where it costs the
+// row no width. Deleting it would have retired the vocabulary note above
+// along with it, and that note records a reconciliation this project still
+// owes: three strings are in use for one idea, and this is the one to
+// converge on rather than one more to choose between.
 const OPP_ASSESS_NONE = 'Not assessed'
 
 function renderOppAssessCriterion(c) {
@@ -1879,7 +1888,6 @@ function renderOppAssessCriterion(c) {
   const current = series.length ? series[series.length - 1] : null
   const levels = Array.isArray(c.levels) ? c.levels : []
   const labelFor = v => levels.find(l => l.value === v)?.label ?? String(v)
-  const draft = oppAssessDraft[c.criterion_key] ?? ''
   const anchorSet = c.anchors?.[c.current_version] ?? {}
 
   // Round 28 Phase 3: DISPLAY PRECEDENCE. A per-criterion anchor at this
@@ -1907,8 +1915,42 @@ function renderOppAssessCriterion(c) {
   // that explains itself.
   const unanchored = c.current_version == null || !Object.keys(anchorSet).length
 
-  const options = levels.map(l =>
-    `<option value="${l.value}"${String(draft) === String(l.value) ? ' selected' : ''}>${escHtml(String(l.label))}</option>`).join('')
+  // ── Round 30 Phase 3: THE FIVE LEVELS, VISIBLE ──────────────────────────
+  //
+  // The select is gone and so is the separate value cell, and they go together
+  // because they were the same fact in two places: at rest one said "Buyer
+  // confirmed" and the other said "Revise...", and the moment you drafted the
+  // level it already held, both read "Buyer confirmed". 342px of a 876px row
+  // to say one thing twice.
+  //
+  // ONE CLICK RATHER THAN TWO. A native select is one click to open and one to
+  // choose, and it cannot be fewer, because the options do not exist until it
+  // is open. Five segments are one click on the level you want, and the target
+  // is visible before you reach for it, which is what "direct access to one
+  // field without a sequence" asks for.
+  //
+  // Real radio inputs rather than buttons wearing role="radio", so arrow-key
+  // navigation, the group semantics and the checked state are the platform's
+  // rather than this file's.
+  //
+  // THE RECORDED LEVEL IS STILL LEGIBLE WHILE A DRAFT IS OPEN. The filled
+  // segment is what the row now says; the one the record actually holds keeps
+  // a marker underneath it, so a draft never hides what it is replacing. When
+  // nothing is drafted they are the same segment and only the fill shows.
+  const effective = oppAssessEffectiveLevel(c.criterion_key)
+  const recordedValue = current ? current.value : undefined
+  const levelGroup = `
+    <div class="opp-assess-levels" role="radiogroup" aria-label="${escHtml(c.name)}"${unanchored ? ' data-unanchored="1"' : ''}>
+      ${levels.map(l => {
+        const id = `opp-assess-lv-${escHtml(c.criterion_key)}-${escHtml(String(l.value))}`
+        const on = effective !== undefined && String(effective) === String(l.value)
+        const wasRecorded = recordedValue !== undefined && String(recordedValue) === String(l.value)
+        return `<input type="radio" class="opp-assess-level-input" name="opp-assess-lv-${escHtml(c.criterion_key)}"
+                  id="${id}" value="${escHtml(String(l.value))}"${on ? ' checked' : ''}${unanchored ? ' disabled' : ''}
+                  onchange="setOppAssessDraft('${escHtml(c.criterion_key)}', this.value)">
+                <label class="opp-assess-level${wasRecorded ? ' opp-assess-level--recorded' : ''}" for="${id}">${escHtml(String(l.label))}</label>`
+      }).join('')}
+    </div>`
 
   // Round 28 Phase 6: CLOSED UNLESS ASKED FOR, and back to two states.
   //
@@ -1952,7 +1994,18 @@ function renderOppAssessCriterion(c) {
          <p class="opp-assess-ver" style="grid-column:1/-1">Definition version ${escHtml(String(c.current_version))}</p>
        </div>`
 
-  const chosen = levels.find(l => String(l.value) === String(draft))
+  // Round 30 Phase 3, found while clearing up after Phase 2: THE "(REQUIRED)"
+  // AFFORDANCE HAD GONE. It lived on the reason box's own <label>, and Phase 2
+  // moved the reason on to the row and dropped the label with it, so the rule
+  // was still enforced and no longer announced: the first a person heard of it
+  // was the save refusing. mustGiveReason survived as a local nothing read,
+  // which is what surfaced it.
+  //
+  // It reads from the DRAFTED level where there is one and the recorded level
+  // otherwise, because a criterion already carrying an entry requires a reason
+  // for its next one whatever is chosen.
+  const effectiveForReason = oppAssessEffectiveLevel(c.criterion_key)
+  const chosen = levels.find(l => String(l.value) === String(effectiveForReason))
   const mustGiveReason = !!chosen?.reason_required || series.length > 0
   // Round 26 Phase 3: the answer inputs, on the one criterion that carries one.
   //
@@ -2023,7 +2076,7 @@ function renderOppAssessCriterion(c) {
   // timestamp because it is the same kind of fact, a property of the entry
   // that recorded it, which is Round 26 Phase 3's own reasoning for why it is
   // not carried forward onto later entries.
-  const currentBlock = !current ? '' : `
+  const currentBlock = !current ? `<p class="opp-assess-current-meta opp-assess-current-meta--none">${OPP_ASSESS_NONE}</p>` : `
     <p class="opp-assess-current-meta">${
       current.answer ? `<span class="opp-assess-current-answer">${escHtml(current.answer.currency)} ${escHtml(Number(current.answer.amount).toLocaleString('en-GB'))}</span>` : ''
     }${escHtml(current.by ?? '--')} &middot; ${escHtml(formatDateTime(current.at))}</p>`
@@ -2069,13 +2122,7 @@ function renderOppAssessCriterion(c) {
     <div class="opp-assess-criterion" data-criterion="${escHtml(c.criterion_key)}" data-entries="${series.length}"${dirty ? ' data-dirty="1"' : ''}>
       <div class="opp-assess-row">
         <span class="opp-assess-name"${c.asks ? ` title="${escHtml(c.asks)}"` : ''}>${escHtml(c.name)}</span>
-        <span class="opp-assess-value${current ? '' : ' opp-assess-value--none'}">${current ? escHtml(labelFor(current.value)) : OPP_ASSESS_NONE}</span>
-        <select class="opp-assess-select" id="opp-assess-select-${escHtml(c.criterion_key)}"
-          aria-label="${escHtml(c.name)}"${unanchored ? ' disabled' : ''}
-          onchange="setOppAssessDraft('${escHtml(c.criterion_key)}', this.value)">
-          <option value="">${current ? 'Revise...' : OPP_ASSESS_PROMPT}</option>
-          ${options}
-        </select>
+        ${levelGroup}
         ${/* PRESENT AT REST AND PREFILLED. Zero of seven reason fields existed
              before this phase, so amending one reason cost three steps and
              restated the level; and the field, once reached, was empty while
@@ -2083,7 +2130,7 @@ function renderOppAssessCriterion(c) {
              those are this element. */''}
         <textarea class="opp-assess-reason-cell" id="opp-assess-reason-${escHtml(c.criterion_key)}" rows="1"
           aria-label="Reason for ${escHtml(c.name)}"${unanchored ? ' disabled' : ''}
-          placeholder="${current ? 'No reason recorded' : 'Reason'}"
+          placeholder="${mustGiveReason ? 'Reason (required)' : 'Reason'}"
           oninput="setOppAssessReason('${escHtml(c.criterion_key)}', this.value)">${escHtml(oppAssessReason[c.criterion_key] ?? oppAssessStoredReason(c.criterion_key))}</textarea>
       </div>
       <div class="opp-assess-underrow">
@@ -2113,9 +2160,25 @@ function renderOppAssessLens(pane, lensId) {
 }
 
 window.setOppAssessDraft = function (key, value) {
-  if (value === '') delete oppAssessDraft[key]
+  // Round 30 Phase 3: CHOOSING THE LEVEL THE RECORD ALREADY HOLDS IS NOT A
+  // CHANGE. With a select this could not arise cleanly, because the control's
+  // resting state was a "Revise..." placeholder rather than the current level;
+  // with five visible segments the current one is right there to click, and
+  // clicking it used to open a draft asserting what the record already said.
+  // That is also where the duplicate reading came from in Phase 0: value cell
+  // and control showing the same words, because the draft equalled the record.
+  const cur = oppAssessCurrent(key)
+  if (value === '' || (cur && String(cur.value) === String(value))) delete oppAssessDraft[key]
   else oppAssessDraft[key] = value
+
+  // The lens re-renders, which replaces the radio that was just operated, so
+  // keyboard focus would land back on the document and arrow-key navigation
+  // through the group would stop after one step. The id is stable across the
+  // render, so it is re-resolved rather than held: the same reasoning as the
+  // save bar's feedback node in Round 28 Phase 7.
+  const focused = document.activeElement?.id
   rerenderOppAssessLens()
+  if (focused) document.getElementById(focused)?.focus()
 }
 window.setOppAssessReason = function (key, value) {
   oppAssessReason[key] = value

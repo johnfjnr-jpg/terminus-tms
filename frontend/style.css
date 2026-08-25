@@ -3430,15 +3430,91 @@ input.input-invalid {
   min-width: 0;
   padding-top: 8px;
 }
-.opp-assess-value {
-  font-family: var(--mono);
-  font-size: 13px;
-  color: var(--green);
-  flex: 0 0 132px;
-  text-align: right;
-  padding-top: 9px;
+/* ── Round 30 Phase 3: the five levels, as segments ──────────────────────
+   .opp-assess-value and .opp-assess-select are gone, together, because they
+   were one fact in two columns: the cell held the recorded level and the
+   control held a "Revise..." placeholder, and the moment a draft matched the
+   record both read the same words. 342px of a 876px row to say one thing
+   twice.
+
+   THE WIDTH IS AFFORDABLE HERE AND WAS NOT BEFORE. At 1240 the reason already
+   sits on its own line, so the head line carries only the name and the level
+   and has 622px spare once the name has taken 240. At 1920 the reason shares
+   the line, so the padding is 8px a side rather than 10: measured, that keeps
+   the control at 466px and leaves the reason 822px, which still fits six of
+   the seven reasons on one line. At 10px a side it was 486px and 802px, and
+   two of the six dropped to a second line.
+
+   The input is the state and the label is the surface. Hiding the input with
+   `appearance: none` rather than `display: none` keeps it focusable, so the
+   group keeps the platform's arrow-key behaviour instead of this file
+   reimplementing it. */
+/* JOINED, not five chips with gaps between them. This is one control with
+   five positions, and drawing it as one is both what it is and 16px narrower:
+   four 4px gaps and four doubled borders come back. That matters because the
+   first cut measured 815px of reason at 1920 against Phase 2's 932px, and one
+   of the six reasons that had fitted on a line no longer did.
+
+   The 16px is taken by making the control read correctly, not by shaving the
+   padding until a particular string fits. The strings in the fixture are ones
+   this round invented; tuning a control to them would be fitting the design to
+   the test data. */
+.opp-assess-levels {
+  display: flex;
+  flex: 0 0 auto;
+  padding-top: 3px;
 }
-.opp-assess-value--none { color: var(--muted-2); }
+.opp-assess-level-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  margin: 0;
+  pointer-events: none;
+}
+.opp-assess-level {
+  display: block;
+  padding: 5px 8px;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--muted);
+  border: 1px solid var(--hairline);
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+}
+/* Adjacent segments share one border rather than drawing two, and only the
+   ends of the control are rounded. */
+.opp-assess-level-input + .opp-assess-level { margin-left: -1px; }
+.opp-assess-levels > .opp-assess-level-input:first-of-type + .opp-assess-level {
+  border-radius: 3px 0 0 3px;
+  margin-left: 0;
+}
+.opp-assess-levels > .opp-assess-level:last-child { border-radius: 0 3px 3px 0; }
+/* A checked or hovered segment lifts above its neighbours so its own border is
+   the one drawn on the shared edge. */
+.opp-assess-level-input:checked + .opp-assess-level,
+.opp-assess-level:hover { position: relative; z-index: 1; }
+.opp-assess-level:hover { color: var(--white); border-color: var(--hairline-strong); }
+.opp-assess-level-input:checked + .opp-assess-level {
+  color: var(--black);
+  background: var(--green);
+  border-color: var(--green);
+}
+/* What the record holds, while a draft shows something else. A draft must not
+   be able to hide the thing it is replacing. When nothing is drafted this is
+   the same segment as the filled one and only the fill reads. */
+.opp-assess-level--recorded { box-shadow: inset 0 -2px 0 var(--green); }
+.opp-assess-level-input:checked + .opp-assess-level--recorded { box-shadow: none; }
+.opp-assess-level-input:focus-visible + .opp-assess-level {
+  outline: 1px solid var(--green);
+  outline-offset: 2px;
+}
+.opp-assess-level-input:disabled + .opp-assess-level {
+  color: var(--muted-2);
+  cursor: not-allowed;
+  opacity: 0.5;
+}
 /* The reason takes what is left, which is the point: it is the widest and most
    variable thing on the row, and the empty width the business pointed at is on
    this side. One row at rest; the person can pull it open, and Phase 5 judges
@@ -3520,7 +3596,7 @@ input.input-invalid {
   margin-top: 10px;
   margin-bottom: 0;
 }
-.opp-assess-select { flex: 0 0 210px; width: 210px; }
+
 
 /* ── Round 28 Phase 5: the shared save bar ──────────────────────────────────
    Sticky to the bottom of the assessment tab so it stays reachable while the
@@ -3618,6 +3694,10 @@ input.input-invalid {
   margin-top: 0;
   margin-bottom: 0;
 }
+/* A criterion nobody has assessed says so, on the under-row where it costs the
+   row no width. An empty segment group is accurate and silent; this is the
+   same fact with a word on it. */
+.opp-assess-current-meta--none { font-style: italic; }
 /* The figure sits beside the author and the timestamp rather than taking a
    column of its own: one criterion of seven records one, so a column for it is
    blank on six rows, and at 1240 the row has no width to spare. */
