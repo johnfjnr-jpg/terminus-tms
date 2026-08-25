@@ -309,3 +309,129 @@ investigation says otherwise.
 5. **Anything that cannot be built as stated.**
 
 Then stop and wait for sign-off.
+
+---
+
+# Phase 6 record: does it generalise
+
+**No product diff.** A decision phase, and the decision did not need one.
+
+---
+
+## What was actually scoped, which corrects this brief
+
+The brief lists four things built behind a named constant. **Two are.**
+
+| | behind `OPP_HOVER_DEFINITIONS_KEY` |
+|---|---|
+| Hover and focus definitions | **yes** |
+| The inline value | **yes** |
+| The reason growing to fit | **no**, and never was |
+| Phases 1 and 2 | no, and correctly so |
+
+`growOppAssessReason` is wired unconditionally on every reason cell.
+Measured: `growTargets: 7`. It has applied to all seven criteria since Phase
+5 shipped, and Phase 5 measured it there.
+
+---
+
+## 1. Hover and focus definitions: GENERALISES, and should still wait
+
+Measured by widening the gate in the live page and re-reading the panel:
+
+| | scoped to one | generalised |
+|---|---|---|
+| popups | 1 | 7 |
+| hover targets | 5 | 35 |
+| focus targets | 5 | 35 |
+| DOM nodes in the pane | 279 | **285** |
+| pane height, 1240 | 769 | **769** |
+| pane height, 1920 | 461 | **461** |
+| row heights | identical | identical |
+
+**Six DOM nodes and no layout change at either width.** Hovering a criterion
+that never had one shows its own wording: Pricing model fit's Not applicable
+reads "Not applicable where only one commercial model is on the table".
+
+It works for free because the wording was already in the client for all seven
+before this round: the definitions block has always rendered it. Phase 2's
+reversioning is what makes it presentable, because all 35 anchors are now at
+version 2 without the prefix.
+
+**And it should still wait.** The business said "Let's get this item nailed
+first" and they have not seen it: this round is not merged. Generalising now
+would decide on their behalf the exact thing they asked to decide after trying
+it. That is a procedural reason, not a technical one, and the distinction is
+the point: it generalises, and it should not generalise yet.
+
+---
+
+## 2. The inline value: NOTHING TO GENERALISE, which is not a shortfall
+
+**One of seven criteria carries a recorded answer.** On the other six the value
+position renders nothing at rest and nothing while drafting, and their reason
+keeps the full width:
+
+| | value cell at rest | while drafting | reason |
+|---|---|---|---|
+| Budget confirmed | "SGD 450,000" | amount + currency | 718px |
+| the other six | nothing | nothing | 817px |
+
+Drafting Pricing model fit produces `amountInputs: 0, currencySelects: 0`, an
+empty value position and an 817px reason.
+
+So "generalises" is the wrong question for it. Widening its gate would change
+nothing, because the thing it displays exists on one criterion.
+
+**The finding that matters is which constant gates it.** It is gated by
+`OPP_HOVER_DEFINITIONS_KEY`, the prototype constant, and the right reason is
+`OPP_VALUE_CAPTURE_KEY`, which is what the editing controls already use.
+
+Today the two hold the same string, so the behaviour is identical either way.
+**It stops being identical the moment a second criterion is configured to
+capture a value**, which Round C's twenty-five could do, or the moment the
+round that generalises the hover retires the prototype constant and takes the
+value's gate with it. Correct for every caller that exists.
+
+**Recommended, not shipped: re-point `valueInline` at `OPP_VALUE_CAPTURE_KEY`.**
+One line. It is not this phase's diff because the judgement does not need it,
+and it should not be left for the round that removes the prototype scope to
+discover.
+
+---
+
+## 3. The reason growing to fit: ALREADY GENERALISED
+
+Never scoped. Phase 5 measured all seven: one line used of the four that were
+shown, and +0px on focus at every width once the height followed the content.
+
+Nothing to decide.
+
+---
+
+## 4. Phases 1 and 2: never criterion-scoped, and correctly
+
+Phase 1 removed a card from the stage tab, which is per stage rather than per
+criterion. Phase 2 reversioned all 35 anchors across all seven, deliberately
+and on the business's decision, because leaving 30 rows carrying a retired
+marker would make six criteria read as provisional while one did not.
+
+Both are already whole.
+
+---
+
+## The answer
+
+| | generalises | now |
+|---|---|---|
+| Hover and focus definitions | yes, +6 nodes, no layout cost | **no**: the business asked to try it first |
+| The inline value | no-op, nothing to generalise | its gate should be re-pointed |
+| The reason growing | already did | done |
+| Phases 1 and 2 | already whole | done |
+
+**One of the four is a real generalisation decision, and the answer is not
+yet.** Two were never scoped, and one cannot be generalised because the thing
+it shows exists once.
+
+**Test Bed pixel-identical is not asserted, because nothing changed.** A
+comparison across a phase that touched no file is a check that cannot fail.
