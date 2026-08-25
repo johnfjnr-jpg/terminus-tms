@@ -3413,6 +3413,10 @@ input.input-invalid {
   display: flex;
   align-items: start;
   gap: 14px;
+  /* Round 31 Phase 3: the positioning context for the definition popup, and
+     the width it clamps against. The row is the width the panel actually has,
+     so clamping to it is clamping to the pane. */
+  position: relative;
   /* THE REASON DROPS TO ITS OWN LINE WHEN THE ROW CANNOT GIVE IT A USABLE ONE,
      which at 1240 it cannot. Measured: a 876px pane leaves the reason 252px
      once the name, the level and the control have taken theirs, and 0 of 7
@@ -3495,6 +3499,44 @@ input.input-invalid {
   font-size: 9px;
   line-height: 13px;
 }
+/* ── Round 31 Phase 3: a level's wording, on hover and on focus ───────────
+   FLOATING, NOT IN THE ROW, and the choice was measured rather than taken.
+   In the row it costs 36px at every width and moves the six rows below down by
+   that much WHILE THE POINTER IS OVER ONE OF THEM: you hover a segment to read
+   what it means and the thing you were aiming at moves. Floating leaves the row
+   and the pane untouched, and its only cost is needing to be clamped at 1240,
+   where a left-aligned box on the rightmost segment overhangs the pane by 62px.
+
+   max-width is a readable measure rather than the row's, because the wording is
+   prose: the five range from 78 to 154 characters and the longest sets four
+   lines at 420px. */
+.opp-assess-defn {
+  position: absolute;
+  top: 100%;
+  z-index: 40;
+  max-width: 420px;
+  margin-top: 6px;
+  padding: 8px 10px;
+  background: var(--black);
+  border: 1px solid var(--hairline-strong);
+  border-radius: 4px;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--muted);
+  /* It explains the thing under the pointer; it must never become the thing
+     under the pointer, or leaving the segment for it would fire the wrapper's
+     mouseleave and the popup would chase the cursor. */
+  pointer-events: none;
+}
+.opp-assess-defn.hidden { display: none; }
+.opp-assess-defn-l {
+  display: block;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--green);
+  margin-bottom: 3px;
+}
+
 /* Present for a screen reader, absent for everyone else. The chevron carries
    no text, so without this the button announces as unlabelled. */
 .visually-hidden {

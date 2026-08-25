@@ -1965,16 +1965,41 @@ function renderOppAssessCriterion(c) {
   // nothing is drafted they are the same segment and only the fill shows.
   const effective = oppAssessEffectiveLevel(c.criterion_key)
   const recordedValue = current ? current.value : undefined
+  // Round 31 Phase 3, prototype scope: ONE CRITERION. Phase 6 decides whether
+  // this generalises, and a flag read from a named constant is what makes that
+  // a decision rather than a search-and-replace.
+  const hoverDefs = c.criterion_key === OPP_HOVER_DEFINITIONS_KEY && !unanchored
+
   const levelGroup = `
-    <div class="opp-assess-levels" role="radiogroup" aria-label="${escHtml(c.name)}"${unanchored ? ' data-unanchored="1"' : ''}>
+    <div class="opp-assess-levels" role="radiogroup" aria-label="${escHtml(c.name)}"${unanchored ? ' data-unanchored="1"' : ''}${
+      // MOUSELEAVE ON THE WRAPPER, not on each segment. Section 8's third
+      // property, and the one that transfers unchanged: leaving one segment for
+      // the next inside the same group is not a leave, and binding per segment
+      // would hide and re-show the popup on every boundary crossed.
+      hoverDefs ? ' onmouseleave="hideOppLevelDefinition()"' : ''}>
       ${levels.map(l => {
         const id = `opp-assess-lv-${escHtml(c.criterion_key)}-${escHtml(String(l.value))}`
         const on = effective !== undefined && String(effective) === String(l.value)
         const wasRecorded = recordedValue !== undefined && String(recordedValue) === String(l.value)
+        // Round 31 Phase 3: the criterion and the level ride ON THE ELEMENT.
+        //
+        // INTERACTION_STANDARDS section 8 records this as the lesson that cost
+        // four rounds to learn: the chevron popup closed over its record and
+        // keyed its cache on stage name alone, which is correct for the first
+        // record opened in a page session and wrong for the second. A handler
+        // reads what it is pointing at, never what it was built holding.
+        //
+        // The wording itself is NOT put in an attribute. It is already in the
+        // client on oppCriteria, and duplicating it into the DOM would make the
+        // markup a second copy to go stale against the anchors it came from.
         return `<input type="radio" class="opp-assess-level-input" name="opp-assess-lv-${escHtml(c.criterion_key)}"
                   id="${id}" value="${escHtml(String(l.value))}"${on ? ' checked' : ''}${unanchored ? ' disabled' : ''}
-                  onchange="setOppAssessDraft('${escHtml(c.criterion_key)}', this.value)">
-                <label class="opp-assess-level${wasRecorded ? ' opp-assess-level--recorded' : ''}" for="${id}">${escHtml(String(l.label))}</label>`
+                  data-criterion="${escHtml(c.criterion_key)}" data-level="${escHtml(String(l.value))}"
+                  onchange="setOppAssessDraft('${escHtml(c.criterion_key)}', this.value)"${hoverDefs ? `
+                  onfocus="showOppLevelDefinition(this)" onblur="hideOppLevelDefinition()"` : ''}>
+                <label class="opp-assess-level${wasRecorded ? ' opp-assess-level--recorded' : ''}" for="${id}"
+                  data-criterion="${escHtml(c.criterion_key)}" data-level="${escHtml(String(l.value))}"${hoverDefs ? `
+                  onmouseover="showOppLevelDefinition(this)"` : ''}>${escHtml(String(l.label))}</label>`
       }).join('')}
     </div>`
 
@@ -2142,6 +2167,7 @@ function renderOppAssessCriterion(c) {
   return `
     <div class="opp-assess-criterion" data-criterion="${escHtml(c.criterion_key)}" data-entries="${series.length}"${dirty ? ' data-dirty="1"' : ''}>
       <div class="opp-assess-row">
+        ${hoverDefs ? `<div class="opp-assess-defn hidden" id="opp-assess-defn-${escHtml(c.criterion_key)}" role="tooltip" aria-hidden="true"></div>` : ''}
         ${/* Round 30 Phase 4: THE CONTROL LIVES IN THE CRITERION CELL, and the
              position is the whole reason the merge happens.
 
@@ -2254,6 +2280,71 @@ window.setOppAssessDraft = function (key, value) {
   rerenderOppAssessLens()
   if (focused) document.getElementById(focused)?.focus()
 }
+// ── Round 31 Phase 3: the level definitions, on hover and on focus ────────
+//
+// NO FETCH, SO NO DEBOUNCE AND NO LOAD TOKEN. Section 8's first two properties
+// exist because the chevron popup fetches: eight requests for one sweep, and
+// responses arriving out of order. The wording here is already on oppCriteria,
+// arriving with the criteria themselves, so there is no request to coalesce and
+// no stale response that could paint. Copying them because the pattern has them
+// would be carrying a remedy without its illness.
+//
+// The two that DO transfer are the identity read from the element, above, and
+// the clamping below.
+function oppLevelWording(criterionKey, levelValue) {
+  const c = (oppCriteria ?? []).find(x => x.criterion_key === criterionKey)
+  if (!c) return null
+  const set = c.anchors?.[c.current_version] ?? {}
+  const level = (c.levels ?? []).find(l => String(l.value) === String(levelValue))
+  // The same precedence the definitions block uses, and for the same reason:
+  // a per-criterion anchor at the CURRENT version wins, the scale's generic
+  // description is the fallback. One resolution path, not two that agree today.
+  const wording = set[levelValue] ?? set[Number(levelValue)] ?? level?.description ?? ''
+  return wording ? { label: level?.label ?? String(levelValue), wording, version: c.current_version } : null
+}
+
+window.showOppLevelDefinition = function (el) {
+  // READ FROM THE ELEMENT, never from anything this function was built holding.
+  const key = el?.dataset?.criterion
+  const value = el?.dataset?.level
+  if (!key || value === undefined) return
+  const box = document.getElementById(`opp-assess-defn-${key}`)
+  if (!box) return
+  const found = oppLevelWording(key, value)
+  if (!found) return hideOppLevelDefinition()
+
+  box.innerHTML = `<span class="opp-assess-defn-l">${escHtml(found.label)}</span>${escHtml(found.wording)}`
+  box.classList.remove('hidden')
+  box.setAttribute('aria-hidden', 'false')
+
+  // CENTRED THEN CLAMPED, section 8's positioning rule, which transfers because
+  // the geometry is the same: measured at 1240 a left-aligned box on the
+  // rightmost segment overhangs the pane by 62px. Clamped to the row, because
+  // the row is the width the panel actually has.
+  const row = box.parentElement
+  const rr = row.getBoundingClientRect()
+  const er = el.getBoundingClientRect()
+  const bw = box.getBoundingClientRect().width
+  const centred = (er.left - rr.left) + (er.width / 2) - (bw / 2)
+  box.style.left = `${Math.max(0, Math.min(centred, rr.width - bw))}px`
+}
+
+window.hideOppLevelDefinition = function () {
+  for (const box of document.querySelectorAll('.opp-assess-defn')) {
+    // A FOCUSED SEGMENT OUTLIVES A HOVERED ONE, which is the difference between
+    // the two triggers and the reason this is not just classList.add('hidden').
+    //
+    // A pointer passing over the group while somebody is arrow-keying through
+    // it would otherwise take their wording away and not give it back: the
+    // mouseleave fires, the focus is still there, and nothing re-shows it. So
+    // leaving falls back to whatever is focused, and only hides when nothing is.
+    const focused = box.parentElement?.querySelector('.opp-assess-level-input:focus')
+    if (focused) { showOppLevelDefinition(focused); return }
+    box.classList.add('hidden')
+    box.setAttribute('aria-hidden', 'true')
+  }
+}
+
 window.setOppAssessReason = function (key, value) {
   oppAssessReason[key] = value
   // Round 30 Phase 2: the bar is updated, the pane is NOT re-rendered. A
@@ -2681,6 +2772,15 @@ document.addEventListener('DOMContentLoaded', () => {
 // meant to defer. Naming the criterion here makes the narrowness visible; when
 // types are decided this constant is what they replace.
 const OPP_VALUE_CAPTURE_KEY = 'assessCommBudgetConfirmed'
+
+// Round 31 Phase 3: the criterion the hover definitions are being tried on.
+//
+// DELIBERATELY ITS OWN CONSTANT rather than reusing OPP_VALUE_CAPTURE_KEY,
+// which happens to hold the same string. They are the same criterion for two
+// unrelated reasons: it is the one that captures a money figure, and it is the
+// one the business chose to prototype on. Collapsing them would make Phase 6's
+// question, whether this generalises, look like a question about the value.
+const OPP_HOVER_DEFINITIONS_KEY = 'assessCommBudgetConfirmed'
 
 const OPP_EXIT_CRITERION_KEYS = new Set([
   'exitQualBudget', 'exitQualTimeline', 'exitQualCommitment',
