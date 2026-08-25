@@ -2246,7 +2246,8 @@ function renderOppAssessCriterion(c) {
         <textarea class="opp-assess-reason-cell" id="opp-assess-reason-${escHtml(c.criterion_key)}" rows="1"
           aria-label="Reason for ${escHtml(c.name)}"${unanchored ? ' disabled' : ''}
           placeholder="${mustGiveReason ? 'Reason (required)' : 'Reason'}"
-          oninput="setOppAssessReason('${escHtml(c.criterion_key)}', this.value)">${escHtml(oppAssessReason[c.criterion_key] ?? oppAssessStoredReason(c.criterion_key))}</textarea>
+          onfocus="growOppAssessReason(this)" onblur="resetOppAssessReason(this)"
+          oninput="setOppAssessReason('${escHtml(c.criterion_key)}', this.value); growOppAssessReason(this)">${escHtml(oppAssessReason[c.criterion_key] ?? oppAssessStoredReason(c.criterion_key))}</textarea>
       </div>
       ${/* OUTSIDE the collapsed region, both of them, and for the same reason:
            they are about what is happening right now rather than about the
@@ -2383,6 +2384,31 @@ window.hideOppLevelDefinition = function () {
     box.classList.add('hidden')
     box.setAttribute('aria-hidden', 'true')
   }
+}
+
+// ── Round 31 Phase 5: the reason grows to its content ─────────────────────
+//
+// The cap is four lines, which is what Round 30 Phase 2 made the height. Its
+// arithmetic holds and is reused: the visible band is padding-top plus whole
+// lines, because `overflow` clips at the PADDING box and a bottom padding would
+// show a slice of the next line. clientHeight runs two pixels under the
+// declared height on this control, measured rather than derived, so the height
+// set here is the content plus that two.
+const OPP_REASON_MAX_H = 90   // 8 of padding + 4 lines of 20 + the 2
+
+window.growOppAssessReason = function (el) {
+  if (!el) return
+  // 'auto' first, so scrollHeight reports the CONTENT rather than the box it is
+  // already in. Without it a box that has grown can never shrink back as text
+  // is deleted, because scrollHeight would keep returning the larger of the two.
+  el.style.height = 'auto'
+  el.style.height = `${Math.min(el.scrollHeight + 2, OPP_REASON_MAX_H)}px`
+}
+window.resetOppAssessReason = function (el) {
+  // The inline height is REMOVED rather than set back to a number, so the rest
+  // state stays the stylesheet's one line and there is one place that decides
+  // what that is.
+  if (el) el.style.height = ''
 }
 
 window.setOppAssessReason = function (key, value) {

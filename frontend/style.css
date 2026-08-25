@@ -3681,10 +3681,19 @@ input.input-invalid {
   overflow: hidden;
   resize: vertical;
 }
-/* Four lines, by the same arithmetic: 8 of padding and 80 of text, so a fifth
-   line cannot peek under the fourth either. */
+/* Round 31 Phase 5: THE HEIGHT ON FOCUS IS THE CONTENT'S, not a constant.
+   Round 30 Phase 2 expanded to four lines on focus, which was a reasonable
+   guess and is measurably wrong. Measured with corpus content in the cell, all
+   seven criteria use ONE of the four lines at every width, and so would all
+   fifty real reasons: the longest renders at 372px against a cell between 718
+   and 876px. Focus was costing a 57px jump at 1920 and 60px at 1240 to reveal
+   three empty lines, on every visit to the field this panel exists for.
+
+   Growing to fit means no jump at all for content that fits one line, which is
+   all the content there is, and exactly as much room as is needed for content
+   that does not. The four lines survive as the CAP rather than the height, so
+   a reason past 133 characters still stops growing and scrolls. */
 .opp-assess-reason-cell:focus {
-  height: 90px;
   overflow-y: auto;
 }
 .opp-assess-reason-cell::placeholder { color: var(--muted-2); font-style: italic; }
