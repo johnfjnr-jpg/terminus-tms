@@ -539,21 +539,42 @@ function renderOppStageTabs(stages, currentStage) {
     // Documents and Assessments. Nothing else ordered them, and no
     // hand-written document recorded an intended order.
     //
-    // This is a 2-up grid at 1240 and 1920, so "left to right" is READING
-    // order: Assessments and Terminus Documents on the first row, Exit
-    // Criteria and Approvals on the second. At 3440 the row is single and
-    // reading order collapses back onto DOM order. Reordering the blocks is
-    // enough either way, because DOM position is the only thing that orders
-    // them: there is no `order:` declaration anywhere in the stylesheet.
+    // Round 21 described this as "a 2-up grid at 1240 and 1920". Measured in
+    // Round 31 Phase 1 it is two columns at 1240, THREE at 1920 and seven at
+    // 3440, because .ref-cards is repeat(auto-fit, minmax(280px, 1fr)) and
+    // nothing declares a column count. The reading-order reasoning below still
+    // holds; the number in it did not.
     //
-    // Each card addresses its own container by id, so moving the blocks
-    // cannot disturb which container a loader fills.
+    // Reordering the blocks is what orders them, because DOM position is the
+    // only thing that does: there is no `order:` declaration anywhere in the
+    // stylesheet. Each card addresses its own container by id, so moving the
+    // blocks cannot disturb which container a loader fills.
+    //
+    // ── Round 31 Phase 1: THE ASSESSMENTS CARD IS GONE ──────────────────────
+    //
+    // It was never wired. `opp-stage-assessments-<key>` appeared exactly once
+    // in the repository, at its own creation here, and nothing ever called
+    // getElementById on it. Round 21 Phase 5 built it as a slot and it stayed
+    // one for ten rounds.
+    //
+    // Its sentence said "No assessments configured for this stage." That was
+    // TRUE when it was written and Round 25 Phase 2 made it false by
+    // configuring assessCommBudgetConfirmed at Qualification. The business
+    // read it and reported the assessments as lost. Nothing was lost.
+    //
+    // REMOVED RATHER THAN WIRED, which is the business's decision and the
+    // reason is the one this project has recorded more often than any other:
+    // the Assessment tab already holds the instrument, at 461px for seven
+    // criteria across four lens sub-tabs, and a second surface showing the
+    // same criteria is a second thing to drift.
+    //
+    // TERMINUS DOCUMENTS STAYS. It is the same shape, an unwired placeholder
+    // carrying its own text, and it is deliberately kept: it is a slot for
+    // something that will exist, where Assessments duplicated a tab that
+    // already works. Removing both because they look alike would be treating
+    // the shape as the fault rather than the duplication.
     panel.innerHTML = `
       <div class="ref-cards">
-        <div class="pg-card">
-          <p class="pg-card-title">Assessments</p>
-          <div id="opp-stage-assessments-${escHtml(key)}"><p class="empty-state">No assessments configured for this stage.</p></div>
-        </div>
         <div class="pg-card">
           <p class="pg-card-title">Terminus Documents</p>
           <div id="opp-stage-documents-${escHtml(key)}"><p class="empty-state">No documents configured for this stage.</p></div>
@@ -1944,16 +1965,41 @@ function renderOppAssessCriterion(c) {
   // nothing is drafted they are the same segment and only the fill shows.
   const effective = oppAssessEffectiveLevel(c.criterion_key)
   const recordedValue = current ? current.value : undefined
+  // Round 31 Phase 3, prototype scope: ONE CRITERION. Phase 6 decides whether
+  // this generalises, and a flag read from a named constant is what makes that
+  // a decision rather than a search-and-replace.
+  const hoverDefs = c.criterion_key === OPP_HOVER_DEFINITIONS_KEY && !unanchored
+
   const levelGroup = `
-    <div class="opp-assess-levels" role="radiogroup" aria-label="${escHtml(c.name)}"${unanchored ? ' data-unanchored="1"' : ''}>
+    <div class="opp-assess-levels" role="radiogroup" aria-label="${escHtml(c.name)}"${unanchored ? ' data-unanchored="1"' : ''}${
+      // MOUSELEAVE ON THE WRAPPER, not on each segment. Section 8's third
+      // property, and the one that transfers unchanged: leaving one segment for
+      // the next inside the same group is not a leave, and binding per segment
+      // would hide and re-show the popup on every boundary crossed.
+      hoverDefs ? ' onmouseleave="hideOppLevelDefinition()"' : ''}>
       ${levels.map(l => {
         const id = `opp-assess-lv-${escHtml(c.criterion_key)}-${escHtml(String(l.value))}`
         const on = effective !== undefined && String(effective) === String(l.value)
         const wasRecorded = recordedValue !== undefined && String(recordedValue) === String(l.value)
+        // Round 31 Phase 3: the criterion and the level ride ON THE ELEMENT.
+        //
+        // INTERACTION_STANDARDS section 8 records this as the lesson that cost
+        // four rounds to learn: the chevron popup closed over its record and
+        // keyed its cache on stage name alone, which is correct for the first
+        // record opened in a page session and wrong for the second. A handler
+        // reads what it is pointing at, never what it was built holding.
+        //
+        // The wording itself is NOT put in an attribute. It is already in the
+        // client on oppCriteria, and duplicating it into the DOM would make the
+        // markup a second copy to go stale against the anchors it came from.
         return `<input type="radio" class="opp-assess-level-input" name="opp-assess-lv-${escHtml(c.criterion_key)}"
                   id="${id}" value="${escHtml(String(l.value))}"${on ? ' checked' : ''}${unanchored ? ' disabled' : ''}
-                  onchange="setOppAssessDraft('${escHtml(c.criterion_key)}', this.value)">
-                <label class="opp-assess-level${wasRecorded ? ' opp-assess-level--recorded' : ''}" for="${id}">${escHtml(String(l.label))}</label>`
+                  data-criterion="${escHtml(c.criterion_key)}" data-level="${escHtml(String(l.value))}"
+                  onchange="setOppAssessDraft('${escHtml(c.criterion_key)}', this.value)"${hoverDefs ? `
+                  onfocus="showOppLevelDefinition(this)" onblur="hideOppLevelDefinition()"` : ''}>
+                <label class="opp-assess-level${wasRecorded ? ' opp-assess-level--recorded' : ''}" for="${id}"
+                  data-criterion="${escHtml(c.criterion_key)}" data-level="${escHtml(String(l.value))}"${hoverDefs ? `
+                  onmouseover="showOppLevelDefinition(this)"` : ''}>${escHtml(String(l.label))}</label>`
       }).join('')}
     </div>`
 
@@ -2015,29 +2061,78 @@ function renderOppAssessCriterion(c) {
   // Inside the draft area beside the reason, because the amount is part of the
   // same act as choosing the level and is recorded with it, not separately.
   const answerDraft = oppAssessAnswer[c.criterion_key] ?? {}
+  // Round 31 Phase 4: DECLARED HERE, not further down where Round 30 Phase 2
+  // left it. The inline value reads it, and a const declared after its first
+  // reader is a temporal dead zone: renderOppAssessCriterion threw "Cannot
+  // access 'dirty' before initialization" on the one criterion scoped into the
+  // prototype, which is the only one whose branch reaches it.
+  const dirty = oppAssessDraft[c.criterion_key] !== undefined || oppAssessReasonEdited(c.criterion_key)
+
+  // ── Round 31 Phase 4: THE VALUE, INLINE, IN TWO STATES ──────────────────
+  //
+  // The brief treated the value as one thing. Measured it is two, and the
+  // difference is 3x: as text it is 86px, as the two controls it is 260px, and
+  // at 1920 the reason cell after it is 717px or 543px accordingly.
+  //
+  // TEXT AT REST, CONTROLS WHEN DRAFTING, and the reason is not that it is the
+  // obvious shape. At rest the value is RECORDED DATA and reads like the level
+  // beside it; while drafting it is an INPUT and needs room to type in. Giving
+  // both states the wider treatment would take 174px from this row's reason at
+  // all times to serve a state that exists only while somebody is editing. And
+  // this criterion is the one that already carries the longest real reason in
+  // the fixture, so it is the row that can least afford the permanent cost.
+  //
+  // The 260px does not fit the head line at 1240, where 137px remains after
+  // the criterion cell and the segments. It wraps, which is what the row
+  // already does with the reason at that width, and the wrapped line then
+  // carries the controls and the reason together.
+  const answerText = current?.answer
+    ? `${escHtml(current.answer.currency)} ${escHtml(Number(current.answer.amount).toLocaleString('en-GB'))}`
+    : ''
   const answerBox = c.criterion_key !== OPP_VALUE_CAPTURE_KEY ? '' : `
-    <div class="opp-assess-answer">
-      <label for="opp-assess-amount-${escHtml(c.criterion_key)}">Budget figure (optional)</label>
-      <div class="opp-assess-answer-row">
-        <input type="text" inputmode="decimal" id="opp-assess-amount-${escHtml(c.criterion_key)}"
-          value="${escHtml(String(answerDraft.amount ?? ''))}" placeholder="450000"
-          oninput="setOppAssessAnswer('${escHtml(c.criterion_key)}', 'amount', this.value)">
-        <select id="opp-assess-currency-${escHtml(c.criterion_key)}"
-          aria-label="Currency"
-          onchange="setOppAssessAnswer('${escHtml(c.criterion_key)}', 'currency', this.value)">
-          ${CURRENCY_CODES.map(x => `<option value="${x}"${(answerDraft.currency ?? 'SGD') === x ? ' selected' : ''}>${x}</option>`).join('')}
-        </select>
-      </div>
-    </div>`
+    <span class="opp-assess-answer">
+      <input type="text" inputmode="decimal" id="opp-assess-amount-${escHtml(c.criterion_key)}"
+        aria-label="Budget figure, optional"
+        value="${escHtml(String(answerDraft.amount ?? current?.answer?.amount ?? ''))}" placeholder="Budget figure"
+        oninput="setOppAssessAnswer('${escHtml(c.criterion_key)}', 'amount', this.value)">
+      <select id="opp-assess-currency-${escHtml(c.criterion_key)}"
+        aria-label="Currency"
+        onchange="setOppAssessAnswer('${escHtml(c.criterion_key)}', 'currency', this.value)">
+        ${CURRENCY_CODES.map(x => `<option value="${x}"${(answerDraft.currency ?? current?.answer?.currency ?? 'SGD') === x ? ' selected' : ''}>${x}</option>`).join('')}
+      </select>
+    </span>`
+
+  // Round 31 Phase 7: GATED BY WHICH CRITERION CARRIES A VALUE, not by which
+  // one the round prototyped on.
+  //
+  // Phase 4 scoped this with OPP_HOVER_DEFINITIONS_KEY so Phase 6 would decide
+  // one thing rather than hunt for two, and Phase 6 found that reasoning was
+  // the wrong way round: there is nothing here to generalise, because one
+  // criterion of seven carries an answer and the other six render nothing in
+  // this position in either state. The scope is permanent, and its reason is
+  // the value rather than the prototype.
+  //
+  // The two constants hold the same string today, so this changes no
+  // behaviour. It stops holding the moment a second criterion is configured to
+  // capture a value, or the moment the round that generalises the hover
+  // retires OPP_HOVER_DEFINITIONS_KEY and takes this gate with it. Right
+  // behaviour reached through the wrong reason is Architecture rule 8 in the
+  // form that waits for two coinciding things to stop coinciding.
+  //
+  // OPP_VALUE_CAPTURE_KEY is what answerBox and the two save paths already
+  // use, so this is one gate for one fact rather than a second that agrees.
+  const valueInline = c.criterion_key !== OPP_VALUE_CAPTURE_KEY ? ''
+    : dirty ? answerBox
+    : (answerText ? `<span class="opp-assess-value-inline">${answerText}</span>` : '')
 
   // Round 30 Phase 2: only the amount inputs are conditional now. The reason
   // moved on to the row, and the Record and Cancel buttons went to the shared
   // bar in Round 28 Phase 5. The per-criterion FEEDBACK line stays: a batch
   // that partly fails has to say which criterion failed, beside that
   // criterion, and one line on the bar cannot do that for four of seven.
-  const dirty = oppAssessDraft[c.criterion_key] !== undefined || oppAssessReasonEdited(c.criterion_key)
+  // The amount controls are on the ROW now, so what is left below it is the
+  // per-criterion failure message alone.
   const reasonBox = `
-    ${dirty ? answerBox : ''}
     <span class="opp-assess-feedback" id="opp-assess-feedback-${escHtml(c.criterion_key)}"></span>`
 
   // Round 26 Phase 1: THE CURRENT ENTRY GETS ITS OWN BLOCK.
@@ -2079,10 +2174,17 @@ function renderOppAssessCriterion(c) {
   // timestamp because it is the same kind of fact, a property of the entry
   // that recorded it, which is Round 26 Phase 3's own reasoning for why it is
   // not carried forward onto later entries.
+  // Round 30 Phase 4 put the figure on this line, on Round 26 Phase 3's
+  // reasoning that it belongs to the ENTRY rather than the criterion. That
+  // reasoning is untouched and it is still the current entry's figure; what
+  // changed is where the entry's figure is READ. Behind a disclosure it was a
+  // recorded money figure nobody could see without opening something, and
+  // Round 15 Phase 4 is this project's record of what happens when the thing
+  // whose whole purpose is to be read is given the quiet treatment.
+  //
+  // It LEAVES here rather than appearing in both places. A move is two claims.
   const currentBlock = !current ? `<p class="opp-assess-current-meta opp-assess-current-meta--none">${OPP_ASSESS_NONE}</p>` : `
-    <p class="opp-assess-current-meta">${
-      current.answer ? `<span class="opp-assess-current-answer">${escHtml(current.answer.currency)} ${escHtml(Number(current.answer.amount).toLocaleString('en-GB'))}</span>` : ''
-    }${escHtml(current.by ?? '--')} &middot; ${escHtml(formatDateTime(current.at))}</p>`
+    <p class="opp-assess-current-meta">${escHtml(current.by ?? '--')} &middot; ${escHtml(formatDateTime(current.at))}</p>`
 
   const earlier = series.length - 1
   const history = series.length > 1 ? `
@@ -2121,6 +2223,7 @@ function renderOppAssessCriterion(c) {
   return `
     <div class="opp-assess-criterion" data-criterion="${escHtml(c.criterion_key)}" data-entries="${series.length}"${dirty ? ' data-dirty="1"' : ''}>
       <div class="opp-assess-row">
+        ${hoverDefs ? `<div class="opp-assess-defn hidden" id="opp-assess-defn-${escHtml(c.criterion_key)}" role="tooltip" aria-hidden="true"></div>` : ''}
         ${/* Round 30 Phase 4: THE CONTROL LIVES IN THE CRITERION CELL, and the
              position is the whole reason the merge happens.
 
@@ -2151,6 +2254,7 @@ function renderOppAssessCriterion(c) {
             }<span class="visually-hidden">${detailOpen ? 'Hide' : 'Show'} details for ${escHtml(c.name)}</span></button>
         </span>
         ${levelGroup}
+        ${valueInline}
         ${/* PRESENT AT REST AND PREFILLED. Zero of seven reason fields existed
              before this phase, so amending one reason cost three steps and
              restated the level; and the field, once reached, was empty while
@@ -2159,7 +2263,8 @@ function renderOppAssessCriterion(c) {
         <textarea class="opp-assess-reason-cell" id="opp-assess-reason-${escHtml(c.criterion_key)}" rows="1"
           aria-label="Reason for ${escHtml(c.name)}"${unanchored ? ' disabled' : ''}
           placeholder="${mustGiveReason ? 'Reason (required)' : 'Reason'}"
-          oninput="setOppAssessReason('${escHtml(c.criterion_key)}', this.value)">${escHtml(oppAssessReason[c.criterion_key] ?? oppAssessStoredReason(c.criterion_key))}</textarea>
+          onfocus="growOppAssessReason(this)" onblur="resetOppAssessReason(this)"
+          oninput="setOppAssessReason('${escHtml(c.criterion_key)}', this.value); growOppAssessReason(this)">${escHtml(oppAssessReason[c.criterion_key] ?? oppAssessStoredReason(c.criterion_key))}</textarea>
       </div>
       ${/* OUTSIDE the collapsed region, both of them, and for the same reason:
            they are about what is happening right now rather than about the
@@ -2233,6 +2338,96 @@ window.setOppAssessDraft = function (key, value) {
   rerenderOppAssessLens()
   if (focused) document.getElementById(focused)?.focus()
 }
+// ── Round 31 Phase 3: the level definitions, on hover and on focus ────────
+//
+// NO FETCH, SO NO DEBOUNCE AND NO LOAD TOKEN. Section 8's first two properties
+// exist because the chevron popup fetches: eight requests for one sweep, and
+// responses arriving out of order. The wording here is already on oppCriteria,
+// arriving with the criteria themselves, so there is no request to coalesce and
+// no stale response that could paint. Copying them because the pattern has them
+// would be carrying a remedy without its illness.
+//
+// The two that DO transfer are the identity read from the element, above, and
+// the clamping below.
+function oppLevelWording(criterionKey, levelValue) {
+  const c = (oppCriteria ?? []).find(x => x.criterion_key === criterionKey)
+  if (!c) return null
+  const set = c.anchors?.[c.current_version] ?? {}
+  const level = (c.levels ?? []).find(l => String(l.value) === String(levelValue))
+  // The same precedence the definitions block uses, and for the same reason:
+  // a per-criterion anchor at the CURRENT version wins, the scale's generic
+  // description is the fallback. One resolution path, not two that agree today.
+  const wording = set[levelValue] ?? set[Number(levelValue)] ?? level?.description ?? ''
+  return wording ? { label: level?.label ?? String(levelValue), wording, version: c.current_version } : null
+}
+
+window.showOppLevelDefinition = function (el) {
+  // READ FROM THE ELEMENT, never from anything this function was built holding.
+  const key = el?.dataset?.criterion
+  const value = el?.dataset?.level
+  if (!key || value === undefined) return
+  const box = document.getElementById(`opp-assess-defn-${key}`)
+  if (!box) return
+  const found = oppLevelWording(key, value)
+  if (!found) return hideOppLevelDefinition()
+
+  box.innerHTML = `<span class="opp-assess-defn-l">${escHtml(found.label)}</span>${escHtml(found.wording)}`
+  box.classList.remove('hidden')
+  box.setAttribute('aria-hidden', 'false')
+
+  // CENTRED THEN CLAMPED, section 8's positioning rule, which transfers because
+  // the geometry is the same: measured at 1240 a left-aligned box on the
+  // rightmost segment overhangs the pane by 62px. Clamped to the row, because
+  // the row is the width the panel actually has.
+  const row = box.parentElement
+  const rr = row.getBoundingClientRect()
+  const er = el.getBoundingClientRect()
+  const bw = box.getBoundingClientRect().width
+  const centred = (er.left - rr.left) + (er.width / 2) - (bw / 2)
+  box.style.left = `${Math.max(0, Math.min(centred, rr.width - bw))}px`
+}
+
+window.hideOppLevelDefinition = function () {
+  for (const box of document.querySelectorAll('.opp-assess-defn')) {
+    // A FOCUSED SEGMENT OUTLIVES A HOVERED ONE, which is the difference between
+    // the two triggers and the reason this is not just classList.add('hidden').
+    //
+    // A pointer passing over the group while somebody is arrow-keying through
+    // it would otherwise take their wording away and not give it back: the
+    // mouseleave fires, the focus is still there, and nothing re-shows it. So
+    // leaving falls back to whatever is focused, and only hides when nothing is.
+    const focused = box.parentElement?.querySelector('.opp-assess-level-input:focus')
+    if (focused) { showOppLevelDefinition(focused); return }
+    box.classList.add('hidden')
+    box.setAttribute('aria-hidden', 'true')
+  }
+}
+
+// ── Round 31 Phase 5: the reason grows to its content ─────────────────────
+//
+// The cap is four lines, which is what Round 30 Phase 2 made the height. Its
+// arithmetic holds and is reused: the visible band is padding-top plus whole
+// lines, because `overflow` clips at the PADDING box and a bottom padding would
+// show a slice of the next line. clientHeight runs two pixels under the
+// declared height on this control, measured rather than derived, so the height
+// set here is the content plus that two.
+const OPP_REASON_MAX_H = 90   // 8 of padding + 4 lines of 20 + the 2
+
+window.growOppAssessReason = function (el) {
+  if (!el) return
+  // 'auto' first, so scrollHeight reports the CONTENT rather than the box it is
+  // already in. Without it a box that has grown can never shrink back as text
+  // is deleted, because scrollHeight would keep returning the larger of the two.
+  el.style.height = 'auto'
+  el.style.height = `${Math.min(el.scrollHeight + 2, OPP_REASON_MAX_H)}px`
+}
+window.resetOppAssessReason = function (el) {
+  // The inline height is REMOVED rather than set back to a number, so the rest
+  // state stays the stylesheet's one line and there is one place that decides
+  // what that is.
+  if (el) el.style.height = ''
+}
+
 window.setOppAssessReason = function (key, value) {
   oppAssessReason[key] = value
   // Round 30 Phase 2: the bar is updated, the pane is NOT re-rendered. A
@@ -2660,6 +2855,15 @@ document.addEventListener('DOMContentLoaded', () => {
 // meant to defer. Naming the criterion here makes the narrowness visible; when
 // types are decided this constant is what they replace.
 const OPP_VALUE_CAPTURE_KEY = 'assessCommBudgetConfirmed'
+
+// Round 31 Phase 3: the criterion the hover definitions are being tried on.
+//
+// DELIBERATELY ITS OWN CONSTANT rather than reusing OPP_VALUE_CAPTURE_KEY,
+// which happens to hold the same string. They are the same criterion for two
+// unrelated reasons: it is the one that captures a money figure, and it is the
+// one the business chose to prototype on. Collapsing them would make Phase 6's
+// question, whether this generalises, look like a question about the value.
+const OPP_HOVER_DEFINITIONS_KEY = 'assessCommBudgetConfirmed'
 
 const OPP_EXIT_CRITERION_KEYS = new Set([
   'exitQualBudget', 'exitQualTimeline', 'exitQualCommitment',

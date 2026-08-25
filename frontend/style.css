@@ -3413,6 +3413,10 @@ input.input-invalid {
   display: flex;
   align-items: start;
   gap: 14px;
+  /* Round 31 Phase 3: the positioning context for the definition popup, and
+     the width it clamps against. The row is the width the panel actually has,
+     so clamping to it is clamping to the pane. */
+  position: relative;
   /* THE REASON DROPS TO ITS OWN LINE WHEN THE ROW CANNOT GIVE IT A USABLE ONE,
      which at 1240 it cannot. Measured: a 876px pane leaves the reason 252px
      once the name, the level and the control have taken theirs, and 0 of 7
@@ -3495,6 +3499,49 @@ input.input-invalid {
   font-size: 9px;
   line-height: 13px;
 }
+/* ── Round 31 Phase 3: a level's wording, on hover and on focus ───────────
+   FLOATING, NOT IN THE ROW, and the choice was measured rather than taken.
+   In the row it costs 36px at every width and moves the six rows below down by
+   that much WHILE THE POINTER IS OVER ONE OF THEM: you hover a segment to read
+   what it means and the thing you were aiming at moves. Floating leaves the row
+   and the pane untouched, and its only cost is needing to be clamped at 1240,
+   where a left-aligned box on the rightmost segment overhangs the pane by 62px.
+
+   max-width is a readable measure rather than the row's, because the wording is
+   prose: the five range from 78 to 154 characters and the longest sets four
+   lines at 420px. */
+.opp-assess-defn {
+  position: absolute;
+  top: 100%;
+  /* ABOVE THE SAVE BAR, which is 45. The bar was raised above the segments in
+     the same phase, and the ordering between these two is a real decision
+     rather than a number: a row near the foot of the panel puts its popup in
+     the bar's band, and the popup is what somebody is actively reading while
+     the bar is persistent chrome. */
+  z-index: 50;
+  max-width: 420px;
+  margin-top: 6px;
+  padding: 8px 10px;
+  background: var(--black);
+  border: 1px solid var(--hairline-strong);
+  border-radius: 4px;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--muted);
+  /* It explains the thing under the pointer; it must never become the thing
+     under the pointer, or leaving the segment for it would fire the wrapper's
+     mouseleave and the popup would chase the cursor. */
+  pointer-events: none;
+}
+.opp-assess-defn.hidden { display: none; }
+.opp-assess-defn-l {
+  display: block;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--green);
+  margin-bottom: 3px;
+}
+
 /* Present for a screen reader, absent for everyone else. The chevron carries
    no text, so without this the button announces as unlabelled. */
 .visually-hidden {
@@ -3634,10 +3681,19 @@ input.input-invalid {
   overflow: hidden;
   resize: vertical;
 }
-/* Four lines, by the same arithmetic: 8 of padding and 80 of text, so a fifth
-   line cannot peek under the fourth either. */
+/* Round 31 Phase 5: THE HEIGHT ON FOCUS IS THE CONTENT'S, not a constant.
+   Round 30 Phase 2 expanded to four lines on focus, which was a reasonable
+   guess and is measurably wrong. Measured with corpus content in the cell, all
+   seven criteria use ONE of the four lines at every width, and so would all
+   fifty real reasons: the longest renders at 372px against a cell between 718
+   and 876px. Focus was costing a 57px jump at 1920 and 60px at 1240 to reveal
+   three empty lines, on every visit to the field this panel exists for.
+
+   Growing to fit means no jump at all for content that fits one line, which is
+   all the content there is, and exactly as much room as is needed for content
+   that does not. The four lines survive as the CAP rather than the height, so
+   a reason past 133 characters still stops growing and scrolls. */
 .opp-assess-reason-cell:focus {
-  height: 90px;
   overflow-y: auto;
 }
 .opp-assess-reason-cell::placeholder { color: var(--muted-2); font-style: italic; }
@@ -3725,6 +3781,18 @@ input.input-invalid {
   /* Tracks the row. Phase 0 named this: a bar capped at 880 under rows that
      now reach 1600 stops reading as the bar for those rows. */
   max-width: 1600px;
+  /* Round 31 Phase 4: ABOVE THE ROWS THAT SCROLL UNDER IT.
+     Found by looking at this phase's own capture: a green segment appeared to
+     sit on top of the bar, and elementFromPoint at a point inside both boxes
+     returned the segment rather than the bar. Round 30 Phase 3 gave a checked
+     or hovered segment `position: relative; z-index: 1` so its border wins on
+     the edge it shares with its neighbours, which is correct among the five of
+     them and wrong the moment one meets a sticky element at z-index auto.
+     Architecture rule 8's shape: right for every context it had.
+     A sticky bar that content paints over is not doing the job it is sticky
+     for, so the bar is raised rather than the segments lowered: lowering them
+     would give the shared-border problem back. */
+  z-index: 45;
   margin-top: 16px;
   padding: 12px 14px;
   background: var(--black);
@@ -3807,22 +3875,44 @@ input.input-invalid {
    row no width. An empty segment group is accurate and silent; this is the
    same fact with a word on it. */
 .opp-assess-current-meta--none { font-style: italic; }
-/* The figure sits beside the author and the timestamp rather than taking a
-   column of its own: one criterion of seven records one, so a column for it is
-   blank on six rows, and at 1240 the row has no width to spare. */
-.opp-assess-current-meta .opp-assess-current-answer { margin-right: 10px; }
+/* Round 30 Phase 4 put the figure beside the author and the timestamp, on the
+   reasoning that one criterion of seven records one so a column for it is blank
+   on six rows. That still holds, and Round 31 Phase 4 does not give it a
+   column: it gives it an inline cell on the one row that has one, which renders
+   only when there is a figure to render. The rule that styled it here is gone
+   with the element. */
 
-/* The answer a criterion carries beside its score, Round 26 Phase 3. */
-.opp-assess-answer { margin-bottom: 12px; }
-.opp-assess-answer label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
-.opp-assess-answer-row { display: flex; gap: 10px; align-items: baseline; }
-.opp-assess-answer-row input { flex: 0 0 160px; width: 160px; }
-.opp-assess-answer-row select { flex: 0 0 90px; width: 90px; }
-.opp-assess-current-answer {
+/* ── Round 31 Phase 4: the value, on the row, in two states ───────────────
+   Round 26 Phase 3 built this as a labelled block below the row and Round 30
+   Phase 4 moved the recorded figure on to the disclosure. It is on the row now
+   because the business asked for it there, and because a recorded money figure
+   behind a disclosure is a figure nobody reads.
+
+   TWO STATES, measured rather than assumed to be one thing. As text the figure
+   is 86px; as the amount input plus the currency select it is 260px, and at
+   1920 the reason cell after it is 717px or 543px accordingly. The corpus's
+   longest real reason renders at 372px, so both survive it.
+
+   The label is gone and the input carries a placeholder and an aria-label
+   instead. On a row there is nowhere for a label to sit that does not cost a
+   line, and "Budget figure" reads the same in the box as above it. */
+.opp-assess-value-inline {
+  flex: 0 0 auto;
+  align-self: start;
+  padding-top: 9px;
   font-family: var(--mono);
-  font-size: 12px;
+  font-size: 13px;
   color: var(--green);
+  white-space: nowrap;
 }
+.opp-assess-answer {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 10px;
+  align-items: start;
+}
+.opp-assess-answer input { flex: 0 0 160px; width: 160px; }
+.opp-assess-answer select { flex: 0 0 90px; width: 90px; }
 
 /* The answer on a history row, Round 26 Phase 3.
 
