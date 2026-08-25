@@ -3982,6 +3982,17 @@ input.input-invalid {
   padding-top: 12px;
   border-top: 1px solid var(--hairline);
 }
+/* ONE RULE BETWEEN THE REQUIREMENTS AND THE SUMMARY, not two.
+   `.tb-crit-row:last-child` already suppresses the final row's border, and it
+   has never matched here: a feedback div is appended after the rows, so the
+   last requirement has carried a border all along, measured at 1px before this
+   phase on all five stages. Adding a block separator on top of it produced two
+   hairlines 14px apart, which reads as a mistake rather than as a division.
+   This extends the existing suppression to its real intent, the last row
+   before something else, and it CANNOT REACH TEST BED because it requires an
+   element that exists only on Opportunity. Touching .tb-crit-row itself, which
+   Test Bed's own criteria panel shares, is the thing not to do here. */
+.tb-crit-row:has(+ .opp-lens-rollups) { border-bottom: none; }
 .opp-lens-rollups-h {
   margin: 0 0 8px;
   font-family: var(--mono);
@@ -3999,15 +4010,21 @@ input.input-invalid {
 }
 /* Tabular figures so four counts in a column line up on the digit rather than
    drifting with the glyph widths. */
+/* THREE STATES, THREE TREATMENTS. Looking at Proposal showed an unsatisfied
+   count and an empty lens sharing the muted value colour, so a real
+   measurement and an absence read alike in the column the eye scans. A count
+   is data and takes the body colour; "None at this stage" is not a count and
+   stays recessed, with its lens name recessed too. */
 .opp-lens-rollup-v {
   font-variant-numeric: tabular-nums;
-  color: var(--muted);
+  color: var(--white);
 }
 /* GREEN ON THE COUNT, never on a box. The card's met rows earn green on a tick
    box; borrowing the box would be the thing this block must not do, and
    borrowing only the colour reads as a status value. */
 .opp-lens-rollup[data-state="satisfied"] .opp-lens-rollup-v { color: var(--green); }
-.opp-lens-rollup[data-state="none"] .opp-lens-rollup-n { color: var(--muted); }
+.opp-lens-rollup[data-state="none"] .opp-lens-rollup-n,
+.opp-lens-rollup[data-state="none"] .opp-lens-rollup-v { color: var(--muted); }
 .opp-lens-rollup-fail {
   margin: 0;
   font-size: 13px;
