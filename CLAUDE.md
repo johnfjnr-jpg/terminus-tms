@@ -200,6 +200,39 @@ not resolve it quietly.
    answer has become constant is indistinguishable from a rule that is
    working, and the passing case is the one you will see.
 
+   **A HARDCODED CLAIM goes stale the same way and nothing can catch it,
+   because a literal has no source to disagree with.** Round 31 Phase 0,
+   2026-08-25. The third variant, and the sharpest: code built for a screen
+   that changed is caught when the screen is exercised, a rule built for a
+   state that changed is at least still running, but a sentence typed into
+   the markup is not derived from anything and therefore cannot be
+   falsified by anything.
+
+   Round 21 Phase 5 wrote `No assessments configured for this stage.` into
+   an Opportunity stage-tab card as a deliberate placeholder, and it was
+   TRUE: nothing was configured. Round 25 Phase 2 configured
+   `assessCommBudgetConfirmed` at Qualification and the sentence became
+   false. It then sat on the screen for five rounds until the business read
+   it and reported assessments as LOST. Nothing was lost; the card had
+   never been wired to anything.
+
+   **The signature is a container that is written and never read.** The id
+   `opp-stage-assessments-<key>` appears exactly once in the repository, at
+   its own creation, and `git log -S` returns exactly one commit whose
+   subject is "placeholders". Two live cards beside it are empty `<div>`s
+   filled by a loader; the two placeholders carry their text inline. **The
+   difference between a slot and a lie is visible in four adjacent lines of
+   markup**, and it is worth looking for whenever an empty state is
+   reported as a defect.
+
+   The same round found the pattern once more, in a comment: Round 21's own
+   note describing the card row as "a 2-up grid at 1240 and 1920" measured
+   as two columns at 1240 and **three** at 1920.
+
+   **The check: a hardcoded statement about configuration is a claim with a
+   shelf life. Prefer deriving it, and where it must be a literal, expect
+   it to rot and re-read it when the configuration it describes changes.**
+
 9. **A destructuring parameter list is an allowlist that gives no feedback
    when it excludes something.** `function f({ a, b })` accepts a call
    passing `c` and silently discards it. The options object **reads as

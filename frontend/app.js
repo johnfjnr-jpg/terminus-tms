@@ -539,21 +539,42 @@ function renderOppStageTabs(stages, currentStage) {
     // Documents and Assessments. Nothing else ordered them, and no
     // hand-written document recorded an intended order.
     //
-    // This is a 2-up grid at 1240 and 1920, so "left to right" is READING
-    // order: Assessments and Terminus Documents on the first row, Exit
-    // Criteria and Approvals on the second. At 3440 the row is single and
-    // reading order collapses back onto DOM order. Reordering the blocks is
-    // enough either way, because DOM position is the only thing that orders
-    // them: there is no `order:` declaration anywhere in the stylesheet.
+    // Round 21 described this as "a 2-up grid at 1240 and 1920". Measured in
+    // Round 31 Phase 1 it is two columns at 1240, THREE at 1920 and seven at
+    // 3440, because .ref-cards is repeat(auto-fit, minmax(280px, 1fr)) and
+    // nothing declares a column count. The reading-order reasoning below still
+    // holds; the number in it did not.
     //
-    // Each card addresses its own container by id, so moving the blocks
-    // cannot disturb which container a loader fills.
+    // Reordering the blocks is what orders them, because DOM position is the
+    // only thing that does: there is no `order:` declaration anywhere in the
+    // stylesheet. Each card addresses its own container by id, so moving the
+    // blocks cannot disturb which container a loader fills.
+    //
+    // ── Round 31 Phase 1: THE ASSESSMENTS CARD IS GONE ──────────────────────
+    //
+    // It was never wired. `opp-stage-assessments-<key>` appeared exactly once
+    // in the repository, at its own creation here, and nothing ever called
+    // getElementById on it. Round 21 Phase 5 built it as a slot and it stayed
+    // one for ten rounds.
+    //
+    // Its sentence said "No assessments configured for this stage." That was
+    // TRUE when it was written and Round 25 Phase 2 made it false by
+    // configuring assessCommBudgetConfirmed at Qualification. The business
+    // read it and reported the assessments as lost. Nothing was lost.
+    //
+    // REMOVED RATHER THAN WIRED, which is the business's decision and the
+    // reason is the one this project has recorded more often than any other:
+    // the Assessment tab already holds the instrument, at 461px for seven
+    // criteria across four lens sub-tabs, and a second surface showing the
+    // same criteria is a second thing to drift.
+    //
+    // TERMINUS DOCUMENTS STAYS. It is the same shape, an unwired placeholder
+    // carrying its own text, and it is deliberately kept: it is a slot for
+    // something that will exist, where Assessments duplicated a tab that
+    // already works. Removing both because they look alike would be treating
+    // the shape as the fault rather than the duplication.
     panel.innerHTML = `
       <div class="ref-cards">
-        <div class="pg-card">
-          <p class="pg-card-title">Assessments</p>
-          <div id="opp-stage-assessments-${escHtml(key)}"><p class="empty-state">No assessments configured for this stage.</p></div>
-        </div>
         <div class="pg-card">
           <p class="pg-card-title">Terminus Documents</p>
           <div id="opp-stage-documents-${escHtml(key)}"><p class="empty-state">No documents configured for this stage.</p></div>
