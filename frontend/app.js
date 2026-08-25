@@ -2102,9 +2102,26 @@ function renderOppAssessCriterion(c) {
       </select>
     </span>`
 
-  // Scoped by the SAME constant as Phase 3, so Phase 6 decides one thing
-  // rather than hunting for two.
-  const valueInline = c.criterion_key !== OPP_HOVER_DEFINITIONS_KEY ? ''
+  // Round 31 Phase 7: GATED BY WHICH CRITERION CARRIES A VALUE, not by which
+  // one the round prototyped on.
+  //
+  // Phase 4 scoped this with OPP_HOVER_DEFINITIONS_KEY so Phase 6 would decide
+  // one thing rather than hunt for two, and Phase 6 found that reasoning was
+  // the wrong way round: there is nothing here to generalise, because one
+  // criterion of seven carries an answer and the other six render nothing in
+  // this position in either state. The scope is permanent, and its reason is
+  // the value rather than the prototype.
+  //
+  // The two constants hold the same string today, so this changes no
+  // behaviour. It stops holding the moment a second criterion is configured to
+  // capture a value, or the moment the round that generalises the hover
+  // retires OPP_HOVER_DEFINITIONS_KEY and takes this gate with it. Right
+  // behaviour reached through the wrong reason is Architecture rule 8 in the
+  // form that waits for two coinciding things to stop coinciding.
+  //
+  // OPP_VALUE_CAPTURE_KEY is what answerBox and the two save paths already
+  // use, so this is one gate for one fact rather than a second that agrees.
+  const valueInline = c.criterion_key !== OPP_VALUE_CAPTURE_KEY ? ''
     : dirty ? answerBox
     : (answerText ? `<span class="opp-assess-value-inline">${answerText}</span>` : '')
 
