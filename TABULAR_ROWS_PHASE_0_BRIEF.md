@@ -550,3 +550,126 @@ A broader sweep of all 25 live records across four record types found zero
 matching any round-tag or fixture pattern, with the matcher calibrated against
 a pattern known present. `joane tester` and `fred blogs` sit live in Contacts;
 they are neither this round's nor a probe's.
+
+---
+
+# Phase 5 record: the reason treatment, and nothing changes
+
+**No product diff.** No frontend, API, migration or seed file is touched by
+this phase. The question it was given turned out to have an answer that
+required no change, and the measurement is the deliverable.
+
+---
+
+## The question could not be answered from this round's own fixtures
+
+Phase 2 built the reason truncated and left the judgement to this phase. At the
+end of Phase 2 six of seven reasons read whole on one line; after Phase 4 five
+of seven did. **Both exceptions are strings this round invented.** The
+business's two scored opportunities carry reasons of eight and nine characters,
+typed to clear a required field rather than written. Neither end of that range
+is evidence about anything.
+
+So the corpus is the business's own writing, everywhere it exists in this
+product. Lengths only are recorded here: the content is client data.
+
+## What this business actually writes
+
+**Fifty reasons and comments recorded against a score, across both record
+types**, opportunity assessments and test bed scores together.
+
+| | characters |
+|---|---|
+| shortest | 3 |
+| p25 | 8 |
+| median | 14 |
+| p75 | 25 |
+| p90 | 39 |
+| **longest** | **58** |
+
+Widened to every value of three words or more anywhere in the system, 79 of
+them: median 24, p75 32, p90 39. The single outlier at 659 characters is a
+contact `summary`, a paragraph field, not a one-line justification.
+
+**The longest score justification this business has ever written is 58
+characters.**
+
+## Measured against the cell rather than counted
+
+The fifty real strings, rendered in the reason cell's own typography, in the
+live page, at all three widths. The measurer was calibrated first: one
+character 7px, fifty characters 350px.
+
+| viewport | reason cell | the 50 real strings | fit on one line |
+|---|---|---|---|
+| 1240 | 876px | min 19, median 92, max **372** | **50 of 50** |
+| 1920 | 817px | min 19, median 92, max **372** | **50 of 50** |
+| 3440 | 861px | min 19, median 92, max **372** | **50 of 50** |
+
+The longest real justification uses 372px of a cell between 817 and 876px:
+**the cell is 2.2 to 2.4 times the width the longest real content needs.**
+
+## Where truncation actually begins
+
+Found by bisection on ordinary English prose in the live cell, rather than by
+dividing by an average character width.
+
+| viewport | truncation begins at | longest real | ratio |
+|---|---|---|---|
+| 1240 | **142 characters** | 58 | 2.4x |
+| 1920 | **133 characters** | 58 | 2.3x |
+| 3440 | **140 characters** | 58 | 2.4x |
+
+**The business would have to write more than twice as long as they ever have
+before the first reason truncates.**
+
+## The outlier degrades gracefully
+
+A 659-character value, the length of the longest prose anywhere in the system,
+pasted into the cell: one line of five at rest, four lines on focus, and the
+remainder scrollable. Nothing is lost and nothing overflows.
+
+## Looked at, with content at the real distribution
+
+A fixture whose seven reasons carry the real percentile lengths, min 3 through
+max 58, in this round's own words rather than the business's strings. At 1920
+the panel is 461px, every reason reads whole, and none is near its cell's
+capacity.
+
+**One observation from looking, recorded and not acted on.** At real content
+lengths the cells carry a lot of unused width: 130 to 330px of content in an
+817px field. That is not the empty space the business complained about, which
+was 676px of dead panel to the right of everything. This is width inside an
+input, and an input's width is an affordance: a narrow reason box says write
+less, which is the wrong instruction for the field a bid review reads. No
+change proposed.
+
+## The decision
+
+**Nothing to decide. No diff.**
+
+Truncation is not a live condition. It is 2.3x away from anything this business
+has written, in a panel where the full text is one click away when it ever is.
+
+**Test Bed pixel-identical is not asserted, because nothing changed.** Running
+a comparison across a phase that touched no file is a check that cannot fail,
+and reporting it would be the third species of uncalibrated instrument this
+round has recorded.
+
+## What would falsify this
+
+**The historical distribution may be an artifact of the panel that produced
+it.** Until Phase 2 a reason cost three steps to reach, restated the level as a
+side effect, and arrived as an empty box beside the text it was replacing.
+Eight-character reasons are what that panel deserved. A panel where the field
+is present, prefilled and directly editable may earn longer ones.
+
+The corroboration against that reading is that **Test Bed's scoring panel is a
+separate instrument with its own history, untouched by this round, and its
+longest justification is also 58 characters.** Two panels, two record types,
+many rounds, same ceiling.
+
+**The falsifier is now a number rather than a feeling: 133 characters at 1920.**
+If reasons start crossing it once the field is easy to use, this decision
+should be revisited, and the threshold is recorded here so the next round
+measures rather than re-argues.
