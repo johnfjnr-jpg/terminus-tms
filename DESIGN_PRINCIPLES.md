@@ -4034,3 +4034,125 @@ distinction survives into the wording rather than stopping at the rule.
 **Cost: 152px on a card that is 420px wide at 1240, 1920 and 3440 and does not
 grow.** Roughly 66px of that is the three empty lenses, which stop being empty
 at Round C.
+
+### The confirmation scale is three level, reversing Round 24
+
+Round 33 Phase 1. **Round 24 recorded "Binary criteria remain two-state" as a
+decision. This reverses it**, and the reversal is recorded here with the
+superseded reasoning left visible, because Round 24 was right on what it could
+see.
+
+**What Round 24 could not see: the lens rollups did not exist.** They were
+built in Round 32, and they made a two-state scale untenable for a reason
+unrelated to the scale itself. A rollup is satisfied when every criterion in a
+lens at a stage is at Not applicable, Buyer confirmed or Verified. **A
+two-state scale has no Not applicable**, so a criterion that genuinely does not
+apply to a deal had nowhere to say so and would have read as unsatisfied for
+the life of the record. Nine criteria sit on this scale and eight are Legal,
+where export control on a domestic deal, local content with no offset regime
+and anti-corruption diligence with no intermediary are the ordinary cases.
+
+**A second reason, independent of the rollup, and the one nobody had reached.**
+The row says a criterion is unassessed BY SILENCE: no segment is filled.
+Against five levels silence can only mean "no judgement". Against **Not
+confirmed / Confirmed** silence reads as "not confirmed", which is a claim the
+record has not made. **The unassessed state and the negative state were one
+keystroke and no pixels apart.** A third level restores the distinction,
+because silence is again none of the three.
+
+**Renamed, because it is no longer binary.** `Binary confirmation` became
+`Requirement confirmation, three level`, mirroring `Deal evidence, five level`
+and naming the kind of claim it makes: a requirement, and whether it has been
+discharged.
+
+#### The values are 1, 2 and 4, and the gaps are the design
+
+| Value | Confirmation scale | Evidence scale, same value |
+|---|---|---|
+| 1 | Not applicable | Not applicable |
+| 2 | Not confirmed | Unknown |
+| 4 | Confirmed | Buyer confirmed |
+
+Each state takes the value of the evidence-scale state it is ordinally
+equivalent to, so **one rule is correct for both scales with no special case**
+and no second computation path.
+
+**The obvious numbering is the one that breaks it.** Numbered 1, 2, 3, the
+rollup's satisfying set of `{1, 4, 5}` would not contain Confirmed, because 3
+is Our hypothesis. Measured rather than reasoned: `Set([1,4,5]).has(3)` is
+false. **It would have broken in the direction that reports finished work as
+outstanding**, which is the direction nobody investigates.
+
+**The gaps at 3 and 5 are true statements about the scale.** A requirement has
+no hypothesis state and nothing beyond confirmed to verify.
+
+Safe on three counts, each checked rather than assumed: `scoring_scale_levels`
+declares `unique (scale_id, value)` and no contiguity constraint;
+`scoring_anchors.score` checks `between 1 and 5`, which all three satisfy; and
+`src/lib/score-entry.js` validates with `allowed.includes(score)` over the
+configured values rather than a range, which is Round 24's own "score <= 2 made
+data-driven" paying off.
+
+#### Writing the two descriptions restored Round 30's anchor split
+
+The scale carried **no descriptions on either level**, deliberately, because
+nothing pointed at it. `wordingFor` resolves `anchorSet[value] ?? description
+?? ''`, so before this phase every criterion on this scale would have needed
+per-criterion anchors at every level or the hover would have opened an empty
+box. **Round 30's split, which retires middle anchors to the generic scale
+wording, was unavailable to it.**
+
+With the descriptions written the split works: measured on a probe criterion
+carrying anchors at 1 and 4 only, hovering Not confirmed reads *"Not confirmed,
+the requirement is open or unmet"* from the scale.
+
+**CORRECTED IN PHASE 3: the sentence above described Round 30's split as
+something that had happened, and it has not.** Phase 1 wrote that claim into
+this document, inherited from Round C's brief, which inherited it from Round
+31's brief, which stated that "Round 30's retirement decision kept 15". Read
+from the live table in Phase 3, **all seven Commercial criteria carry anchors
+at all five scores, at both versions**: 35 rows at version 2, not 14. Round 31
+Phase 2 reversioned all 35 and its own report says so, so the data was never
+wrong. The claim about the data was.
+
+**The split is a capability, not a precedent.** It works, it is now available
+on both scales, and it has never been used. See the anchor-drafting decision
+below.
+
+**The wording is a proposal the business corrects**, under the standing rule
+recorded for the Commercial seven: code can write it, the business judges it in
+use. The evidence scale grades how strongly something is evidenced and rises
+through who said it. This scale asks whether a requirement has been discharged,
+so its wording names the requirement rather than the source of belief.
+
+**Left unchanged and flagged rather than decided:** `reason_required` is false
+on all three levels. Whether Not confirmed should require a reason the way
+Unknown does on the evidence scale is a business decision this phase did not
+take.
+
+### Six criterion names wrap, and the cell is not widened
+
+Round 33 Phase 2, decided rather than deferred.
+
+Six of Round C's twenty-three names exceed the 230px the criterion cell gives a
+name, the widest being "Anti-corruption and integrity due diligence" at 281px
+against a cell Round 30 sized to the 227px of the longest name of that day.
+
+**Measured at 1240, the binding width: the cell can grow by exactly 51px before
+the value cell is forced off the line, and the widest name needs exactly 51px.**
+
+**That is a coincidence, not a fit, and it is why the cell is not widened.** A
+cell that exactly accommodates today's longest name has no slack, and no slack
+is the condition that produced this problem in the first place: 258px was
+exactly right for the seven names that existed in Round 30. **Twenty-five more
+criteria are the visible future**, between Round D's creation checks and
+whatever follows, so spending the last pixel now buys one round.
+
+**Accepted instead: the wrap.** Six rows are 20px taller. Measured on the Legal
+lens, four wrapped names take the panel from 769px to 959px at 1240, against
+879px for eight unwrapped ones. The cost is height on a panel that scrolls,
+against a column that breaks on the next name added.
+
+**The alternative left open is shortening the names**, which is the business's
+to take and only genuinely helps one: "Anti-corruption and integrity due
+diligence" is 51px over and the other five are between 2px and 17px over.

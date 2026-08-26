@@ -12,9 +12,9 @@ Contains no environment variable, key or token, and no client data. Records
 appear as counts by status only, never by name or reference code, because
 this file is uploaded into chat sessions.
 
-- Generated at: `2026-08-25T11:18:59.087Z`
-- Git commit: `82440a30abfaa3c69da62f2e33ded1175150fe49`
-- Working tree at generation: `clean`
+- Generated at: `2026-08-26T09:45:10.614Z`
+- Git commit: `ec2b67e0d33a05d1e702ccb797d3702e162c4b45`
+- Working tree at generation: `dirty (uncommitted changes present)`
 
 Staleness has two parts, and both must hold for this file to be current:
 the recorded commit is an ancestor of `HEAD`, AND no tracked configuration
@@ -170,17 +170,40 @@ Rule count by record type and requirement type:
 
 ## `scoring_criteria`
 
-12 rows.
+35 rows.
 
 | record_type | sort_order | criterion_key | name | asks | rescore_through_stage |
 |---|---|---|---|---|---|
 | opportunity | 1 | assessCommBudgetConfirmed | Budget confirmed | Is money identified and committed | (null) |
+| opportunity | 1 | assessLegalProcurementRoute | Procurement route and compliance | How must they buy this, and what rules bind that route | (null) |
+| opportunity | 1 | assessOrgEconomicBuyer | Economic Buyer identified | Who can say yes and release the money | (null) |
+| opportunity | 1 | assessTechNeedDefinition | Need / problem definition | What problem are we solving, and how do they describe it | (null) |
 | opportunity | 2 | assessCommMetricsValue | Metrics and quantified value | Is the value stated in the buyer's own numbers | (null) |
+| opportunity | 2 | assessLegalPaperProcess | Paper process | Whose contract do we sign, and what passes through legal | (null) |
+| opportunity | 2 | assessOrgChampion | Champion identified | Who inside is selling this when we are not there | (null) |
+| opportunity | 2 | assessTechDecisionCriteria | Decision criteria | What will they judge the options on | (null) |
 | opportunity | 3 | assessCommFundingMechanism | Funding mechanism | How would this actually be paid for | (null) |
+| opportunity | 3 | assessLegalExportControl | Export control and licensing status | Can this be shipped and supported lawfully | (null) |
+| opportunity | 3 | assessOrgPrioritisation | Prioritisation | Where does this sit against everything else they are funding | (null) |
+| opportunity | 3 | assessTechSolutionFit | Solution fit | Does what we do meet what they actually need | (null) |
 | opportunity | 4 | assessCommPricingModelFit | Pricing model fit | Does our commercial model match how they buy | (null) |
+| opportunity | 4 | assessLegalDataProtection | Data protection and residency | What personal data is involved, and where must it live | (null) |
+| opportunity | 4 | assessOrgTriggerTimeline | Trigger event / timeline | What is forcing a decision, and by when | (null) |
+| opportunity | 4 | assessTechIntegrationComplexity | Integration complexity | What has to connect, and how hard is it | (null) |
 | opportunity | 5 | assessCommCompetition | Competition, including do-nothing | What else are they weighing, including doing nothing | (null) |
+| opportunity | 5 | assessLegalLiabilityIndemnity | Liability insurance and indemnity | What are we on the hook for, and are we covered for it | (null) |
+| opportunity | 5 | assessOrgPainOwner | Internal pain owner | Whose problem is this, and what does it cost them | (null) |
+| opportunity | 5 | assessTechDataArchitecture | Data and architecture requirements | What data moves, where must it live, and who owns it | (null) |
 | opportunity | 6 | assessCommRoiPayback | ROI and payback expectation | Over what period do they expect this to pay back | (null) |
+| opportunity | 6 | assessLegalLocalContent | Local content or offset requirements | Does this jurisdiction require local participation | (null) |
+| opportunity | 6 | assessOrgBuyingCommittee | Buying committee mapped | Who else has a say, and what does each of them want | (null) |
+| opportunity | 6 | assessTechDeliveryFeasibility | Delivery feasibility | Can we deliver this scope, on this site, to this date | (null) |
 | opportunity | 7 | assessCommCommercialFit | Commercial fit | Is this deal worth doing on these terms | (null) |
+| opportunity | 7 | assessLegalAntiCorruption | Anti-corruption and integrity due diligence | Who stands between us and the buyer, and have we checked them | (null) |
+| opportunity | 7 | assessOrgDecisionProcess | Decision process | What are the actual steps from here to a signature | (null) |
+| opportunity | 7 | assessTechPilotRequirement | Pilot or proof-of-concept requirement | Do they need to see it working before they commit | (null) |
+| opportunity | 8 | assessLegalIpOwnership | IP ownership and licensing terms | Who owns what is created, and on what terms is ours licensed | (null) |
+| opportunity | 8 | assessOrgPolitics | Political dynamics | Who gains and who loses if this goes ahead | (null) |
 | test_bed | 1 | scoreRolloutPath | Rollout Path | Does a suitable rollout path exist | (null) |
 | test_bed | 2 | scoreClientCommitment | Client Commitment | Will the client organisation genuinely engage | (null) |
 | test_bed | 3 | scoreUseCaseRequirementsAndMetrics | Clear Use Case Requirements and Metrics | Can it be proven | Monitoring and Analysis |
@@ -189,7 +212,7 @@ Rule count by record type and requirement type:
 
 ## `scoring_anchors`
 
-85 rows. Wording is not printed: it is provisional and
+182 rows. Wording is not printed: it is provisional and
 pending business review, and emitting it would bury every configuration
 change in prose. The shape is what a diff needs.
 
@@ -209,6 +232,29 @@ change in prose. The shape is what a diff needs.
 | assessCommPricingModelFit | 2 | 1, 2, 3, 4, 5 |
 | assessCommRoiPayback | 1 | 1, 2, 3, 4, 5 |
 | assessCommRoiPayback | 2 | 1, 2, 3, 4, 5 |
+| assessLegalAntiCorruption | 1 | 1, 2, 4 |
+| assessLegalDataProtection | 1 | 1, 2, 4 |
+| assessLegalExportControl | 1 | 1, 2, 4 |
+| assessLegalIpOwnership | 1 | 1, 2, 4 |
+| assessLegalLiabilityIndemnity | 1 | 1, 2, 4 |
+| assessLegalLocalContent | 1 | 1, 2, 4 |
+| assessLegalPaperProcess | 1 | 1, 2, 4 |
+| assessLegalProcurementRoute | 1 | 1, 2, 4 |
+| assessOrgBuyingCommittee | 1 | 1, 2, 3, 4, 5 |
+| assessOrgChampion | 1 | 1, 2, 3, 4, 5 |
+| assessOrgDecisionProcess | 1 | 1, 2, 3, 4, 5 |
+| assessOrgEconomicBuyer | 1 | 1, 2, 3, 4, 5 |
+| assessOrgPainOwner | 1 | 1, 2, 3, 4, 5 |
+| assessOrgPolitics | 1 | 1, 2, 3, 4, 5 |
+| assessOrgPrioritisation | 1 | 1, 2, 3, 4, 5 |
+| assessOrgTriggerTimeline | 1 | 1, 2, 3, 4, 5 |
+| assessTechDataArchitecture | 1 | 1, 2, 3, 4, 5 |
+| assessTechDecisionCriteria | 1 | 1, 2, 3, 4, 5 |
+| assessTechDeliveryFeasibility | 1 | 1, 2, 3, 4, 5 |
+| assessTechIntegrationComplexity | 1 | 1, 2, 3, 4, 5 |
+| assessTechNeedDefinition | 1 | 1, 2, 3, 4, 5 |
+| assessTechPilotRequirement | 1 | 1, 2, 4 |
+| assessTechSolutionFit | 1 | 1, 2, 3, 4, 5 |
 | scoreClientCommitment | 1 | 1, 3, 5 |
 | scoreDataRights | 1 | 1, 3, 5 |
 | scorePhysicalSuitability | 1 | 1, 3, 5 |
@@ -274,23 +320,23 @@ _None._
 
 ## Record counts by type and status
 
-94 live, 12294 soft deleted, 12388 rows in total.
+94 live, 12790 soft deleted, 12884 rows in total.
 
 | record_type | status | live | soft deleted |
 |---|---|---|---|
-| account | active | 4 | 322 |
+| account | active | 4 | 350 |
 | contact | Parked | 0 | 2 |
-| contact | Qualified | 7 | 277 |
-| contact | Unqualified | 1 | 53 |
-| document | approved | 61 | 1093 |
+| contact | Qualified | 7 | 304 |
+| contact | Unqualified | 1 | 54 |
+| document | approved | 61 | 1121 |
 | document | received | 1 | 74 |
 | opportunity | Closed Lost | 0 | 19 |
 | opportunity | Closed Won | 1 | 7 |
 | opportunity | Evaluation | 0 | 4 |
 | opportunity | Negotiating | 0 | 15 |
-| opportunity | Proposal | 0 | 61 |
+| opportunity | Proposal | 0 | 87 |
 | opportunity | Qualification | 0 | 145 |
-| opportunity | Solution Alignment | 3 | 16 |
+| opportunity | Solution Alignment | 3 | 17 |
 | test_bed | Closed | 5 | 9 |
 | test_bed | Installation and Commissioning | 1 | 29 |
 | test_bed | Monitoring and Analysis | 0 | 1 |
@@ -299,7 +345,7 @@ _None._
 | test_bed | Review and Completion | 1 | 0 |
 | test_bed | Site Assessment | 1 | 17 |
 | unit | Installed | 4 | 3 |
-| unit | Planned | 3 | 1884 |
+| unit | Planned | 3 | 2003 |
 | unit | Removed | 0 | 1 |
 
 ### Test fixture record types
@@ -310,19 +356,19 @@ row by row, and are included in the totals above.
 
 | distinct `harness_*` record types | live rows | soft deleted rows |
 |---|---|---|
-| 794 | 0 | 7958 |
+| 829 | 0 | 8224 |
 
 No harness record type holds a live row; every fixture row is soft deleted.
 
 ## `approvals`
 
-498 rows, of which 0 carry a null `stage`.
+579 rows, of which 0 carry a null `stage`.
 
 | decision | track | rows | null stage |
 |---|---|---|---|
-| approved | Commercial | 185 | 0 |
-| approved | Legal | 151 | 0 |
-| approved | Technical | 162 | 0 |
+| approved | Commercial | 212 | 0 |
+| approved | Legal | 178 | 0 |
+| approved | Technical | 189 | 0 |
 
 ## Writable-key allowlists
 
@@ -430,7 +476,7 @@ than written as a literal list, so its members are not enumerable here.
 
 ## Migrations, in filename order
 
-73 files in `supabase/migrations/`.
+79 files in `supabase/migrations/`.
 
 1. `20260801000000_initial_schema.sql`
 2. `20260802000000_lead_opportunity.sql`
@@ -505,6 +551,12 @@ than written as a literal list, so its members are not enumerable here.
 71. `20260824000001_assessment_reviewed.sql`
 72. `20260824000002_scoring_scale_level_description.sql`
 73. `20260825000001_retire_provisional_anchor_prefix.sql`
+74. `20260826000001_confirmation_scale_three_level.sql`
+75. `20260826000002_confirmation_reason_required.sql`
+76. `20260826000003_organisational_lens.sql`
+77. `20260826000004_organisational_sort_order.sql`
+78. `20260826000005_technical_lens.sql`
+79. `20260826000006_legal_lens.sql`
 
 ## Seed files, in application order
 

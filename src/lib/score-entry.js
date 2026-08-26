@@ -130,8 +130,25 @@ export async function recordScoreEntry({ db, recordType, recordId, body, user, m
     return {
       status: 400,
       body: {
+        // Round 33 Phase 2: "naming what is missing" was correct for every
+        // caller it had and false for the one that arrived.
+        //
+        // Until this round exactly one scaled level required a reason,
+        // Unknown, and a gap is what a reason explains there. The confirmation
+        // scale now requires one at Not confirmed AND at Confirmed, where the
+        // reason names the licence reference or the DPA clause, so the clause
+        // told a scorer confirming a requirement to name what was missing.
+        //
+        // Architecture rule 8 arriving through DATA rather than through code:
+        // no line of this file changed to make the string wrong, a
+        // scoring_scale_levels row did.
+        //
+        // "saying why" is true at every level on both scales and keeps the
+        // nudge. The null-scale branch is unchanged and still says "what is
+        // missing", because it is Test Bed's and its rule really is a score of
+        // 1 or 2.
         error: crit.scale_id
-          ? `a reason is required at ${chosen.label}, naming what is missing`
+          ? `a reason is required at ${chosen.label}, saying why`
           : 'a reason is required at a score of 1 or 2, naming what is missing',
       },
     }

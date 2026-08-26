@@ -756,6 +756,45 @@ because a rule over an empty set would have read as satisfied, and Round 25
 inserted none because the strictness is not yet knowable. They arrive when the
 full criterion set exists.
 
+#### The same property has a second surface, found in Round 33 Phase 0
+
+**A set growing underneath a rule is not only a gate problem.** The paragraphs
+above are the gate side, written in Round A. Round 32 built the lens rollups
+and gave the property a display side, and the two were recorded separately for
+one round without either naming the other.
+
+**The display side.** A rollup is satisfied when every criterion in a lens at a
+stage is at Not applicable, Buyer confirmed or Verified. It is stage scoped, so
+the set it resolves over grows every time a stage introduces more criteria: a
+lens satisfied at Qualification becomes unsatisfied at Solution Alignment on
+the same record at the same moment, correctly, because the stage brought more
+criteria into view.
+
+**That much is intended and Round 32 made it legible** by rendering a fraction
+rather than a tick: "1 of 1" becoming "6 of 7" says what happened where a
+vanishing tick says nothing.
+
+**What was not intended is the version with no exit.** Round 33 Phase 0 found
+that the confirmation scale had two levels and therefore no Not applicable, so
+a criterion that genuinely does not apply to a deal had nowhere to say so and
+would have read as unsatisfied for the life of the record. Nine criteria are on
+that scale and eight are Legal, where not applying is the common case.
+
+**A rollup that can never complete stops being read**, which is the failure
+Round 26 avoided by choosing a manual tick over a computed rollup.
+
+**Fixed in Round 33 Phase 1** by giving the scale a Not applicable level rather
+than by excepting it in the rule. See the reversal recorded in
+`DESIGN_PRINCIPLES.md`.
+
+**The generalisation worth keeping.** Both surfaces are the same shape: a rule
+whose set is resolved at evaluation time, over a set the configuration is still
+growing. **The gate side fails loudly**, because a transition is refused and
+somebody asks why. **The display side fails quietly**, because a number simply
+reads lower than it should and nobody can tell a real gap from a structural
+one. When the next thing resolves a set at evaluation time, ask which of the
+two it is, and expect the quiet one to need the more deliberate design.
+
 ### The budget figure, and when an entry may carry none
 
 **Round 26 Phase 3. The business decided this deliberately; it is a choice,
