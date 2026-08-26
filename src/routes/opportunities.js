@@ -177,6 +177,12 @@ export default async function opportunitiesRoutes(app) {
     // path, this one included.
     'lead', 'commercial', 'technical', 'legal',
     'customerLead', 'commAddress',
+    // Round 34 Phase 4: region and country, which Test Bed has carried as
+    // ordinary payload keys since Milestone 4 and Opportunity has never had.
+    // Converging the Terminus Details panel needs them writable here before
+    // the panel can offer them; without this the fields would render, accept
+    // a value, and be refused by the allowlist on save.
+    'region', 'country',
     // Round 20 Phase 5: the exit-criteria fields the new gate rules name.
     // A gate whose field cannot be written is not a gate, it is a wall, so
     // these land in the same change as the rules that require them. There

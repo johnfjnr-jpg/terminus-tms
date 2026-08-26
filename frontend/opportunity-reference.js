@@ -40,11 +40,42 @@ let refAccountContacts = []
 // pricing cards in opportunity-deal.js).
 let refEdits = {}
 
+// Round 34 Phase 4: the labels converge on Test Bed's, and the KEYS DO NOT
+// MOVE. Test Bed shortened these in Round 10 Phase 3.1 "per the business's own
+// table", recording that the change was DISPLAY ONLY, and the same holds here:
+// `lead`, `commercial`, `technical` and `legal` are the stored payload keys and
+// none of them changes, so no endpoint, column or saved record is touched.
+//
+// That is what makes a vocabulary divergence cheap, and it is worth checking
+// rather than assuming: a rename that reached a key would be a migration.
+//
+// REGION AND COUNTRY ARE NEW HERE. They are ordinary payload keys on Test Bed
+// and were not writable on an Opportunity at all until this phase added them to
+// the allowlist. Region takes the same fixed option list Test Bed uses, so the
+// two record types cannot drift into different vocabularies for one field.
+// COPIED VERBATIM, not written from the same idea. There are already four
+// identical copies of this list: test-bed-detail.js:23, account-detail.js:23,
+// contact-detail.js:61 inline, and app.js:4711 as TB_MATRIX_REGIONS. They have
+// stayed consistent only because nobody had written a fifth from memory.
+//
+// This phase wrote one and it diverged on the first attempt, in two ways at
+// once: "Asia Pacific" for APAC, and a different order. Nothing would have
+// caught it. There is no server-side validation of region on either record
+// type, so the wrong value would have saved, and an Opportunity would have
+// carried a region string no Test Bed could match.
+//
+// Left as a fifth copy rather than extracted, because a shared constants module
+// is a change to four working screens and belongs in the fork decision Phase 0
+// recorded, not in a phase adding two fields. The duplication is now five and
+// that is worth knowing.
+const REF_REGION_OPTIONS = ['Americas', 'Europe & UK', 'Middle East', 'APAC', 'Africa']
 const TERMINUS_FIELDS = [
   { key: 'lead', label: 'Terminus Lead', staffField: true },
-  { key: 'commercial', label: 'Commercial Authority', staffField: true },
-  { key: 'technical', label: 'Technical Authority', staffField: true },
-  { key: 'legal', label: 'Legal Authority', staffField: true },
+  { key: 'commercial', label: 'Comm. Auth', staffField: true },
+  { key: 'technical', label: 'Tech. Auth', staffField: true },
+  { key: 'legal', label: 'Legal Auth', staffField: true },
+  { key: 'region', label: 'Region', options: REF_REGION_OPTIONS },
+  { key: 'country', label: 'Country' },
 ]
 // 'account' deliberately absent - it's a real records.account_id link,
 // not a free-text payload field, rendered as its own read-only row in
@@ -98,6 +129,11 @@ const SUMMARY_FIELD = { key: 'summary', label: 'Executive Summary' }
 // that function needed).
 const NAME_FIELD = { key: 'name', label: 'Opportunity Name' }
 const ALL_EDITABLE_FIELDS = [NAME_FIELD, ...TERMINUS_FIELDS, ...CUSTOMER_FIELDS, ...DATE_FIELDS, OPPTYPE_FIELD, SUMMARY_FIELD]
+
+// Round 34 Phase 4: held here rather than read from `opp` inside the render,
+// because renderReferenceTab is the only place that has the record and the
+// rows are built from module state everywhere else.
+let refOppReference = null
 
 function refFieldLabel(key) {
   return ALL_EDITABLE_FIELDS.find(f => f.key === key)?.label ?? key
@@ -262,14 +298,44 @@ function renderReferenceTab(opp) {
   // just rendered as the page's own h1 instead of a labelled row - same
   // display/edit/input trio of element IDs (ref-display-name/
   // ref-edit-name/ref-input-name), no changes needed to either function.
+  refOppReference = opp.reference_code ?? null
   document.getElementById('ref-display-name').textContent = refPayload.name || '--'
   document.getElementById('ref-input-name').value = refPayload.name ?? ''
   document.getElementById('ref-edit-name').classList.add('hidden')
   document.getElementById('ref-display-name').classList.remove('hidden')
 
+  // Round 34 Phase 4: Terminus Reference joins the panel, and Status becomes
+  // Stage.
+  //
+  // TEST BED'S ORDER, which its own comment explains: the reference sits
+  // immediately beneath the name because the name is the record's identity and
+  // is what the page header renders. Opportunity's header renders the name too,
+  // so the same reasoning gives the same order here.
+  //
+  // NOTHING LEAVES THE HEADER. The brief asks what moves out of it, and the
+  // answer is nothing: Opportunity's header carries the name and the company
+  // name, and has never shown the reference at all. This adds a row rather than
+  // relocating one.
+  //
+  // READ ONLY, because reference_code is issued by the numbering service and
+  // Status is the stage machine's. Test Bed renders both the same way.
+  //
+  // "Stage" rather than "Status" is DISPLAY ONLY: refStatus still reads the
+  // record's own status and no key, column or endpoint moves. Round 20 recorded
+  // four column names for this one idea across the database, and this changes
+  // none of them.
+  //
+  // INDUSTRY IS DELIBERATELY NOT ADDED, and that is a finding rather than an
+  // omission. Test Bed renders it from tbBed.industry?.name, resolved
+  // server-side. An Opportunity has an industry_id column, but nothing in
+  // opportunities.js reads or writes it, the endpoint returns no industry
+  // object, and zero of the four live opportunities carry a value. A row here
+  // would read '--' on every record and could never do otherwise, which is the
+  // container-written-and-never-read shape Round 31 Phase 1 spent a phase on.
   document.getElementById('ref-terminus-rows').innerHTML =
-    TERMINUS_FIELDS.map(f => refFieldRow(f.key, f.label, refPayload[f.key], { options: f.staffField ? terminusStaffCache.map(s => s.name) : f.options })).join('')
-    + refReadonlyRow('Status', refStatus)
+    refReadonlyRow('Terminus Reference', refOppReference)
+    + TERMINUS_FIELDS.map(f => refFieldRow(f.key, f.label, refPayload[f.key], { options: f.staffField ? terminusStaffCache.map(s => s.name) : f.options })).join('')
+    + refReadonlyRow('Stage', refStatus)
 
   // Account: read-only and inherited (2026-08-16), same
   // tbReadonlyRow('Account', ...) shape Test Bed already uses - no
