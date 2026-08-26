@@ -1965,18 +1965,36 @@ function renderOppAssessCriterion(c) {
   // nothing is drafted they are the same segment and only the fill shows.
   const effective = oppAssessEffectiveLevel(c.criterion_key)
   const recordedValue = current ? current.value : undefined
-  // Round 31 Phase 3, prototype scope: ONE CRITERION. Phase 6 decides whether
-  // this generalises, and a flag read from a named constant is what makes that
-  // a decision rather than a search-and-replace.
-  const hoverDefs = c.criterion_key === OPP_HOVER_DEFINITIONS_KEY && !unanchored
+  // Round 32 Phase 2: GENERALISED, on the business's decision, and the constant
+  // that scoped it is retired.
+  //
+  // Round 31 Phase 3 prototyped the level definitions on one criterion and
+  // Phase 6 measured what widening the gate would cost: six DOM nodes and no
+  // layout change at all. The business had already approved the widening in
+  // Round C's brief, and Round C has not started, so a round that left one row
+  // hovering differently from the other six would have shipped the worse of the
+  // two end states for no gain.
+  //
+  // WHAT REMAINS IS THE ANCHOR GUARD, and it is the real condition. A criterion
+  // with no anchors at its current version has no wording to show, so hovering
+  // its segments would open an empty box. That was always the substantive half
+  // of this expression; the criterion key was the prototype's scaffolding.
+  const hoverDefs = !unanchored
 
   const levelGroup = `
     <div class="opp-assess-levels" role="radiogroup" aria-label="${escHtml(c.name)}"${unanchored ? ' data-unanchored="1"' : ''}${
+      // Round 32 Phase 1: the wrapper declares whether the LEVEL hover is wired
+      // on this row. hideOppAssessDefn falls back to a focused segment, and now
+      // that the popup exists on all seven rows that fallback would have
+      // generalised the level definitions to rows Round 31 Phase 6 deliberately
+      // left without them. The gate has to be readable from the DOM because the
+      // fallback runs from the element, not from this closure.
+      hoverDefs ? ' data-level-hover="1"' : ''}${
       // MOUSELEAVE ON THE WRAPPER, not on each segment. Section 8's third
       // property, and the one that transfers unchanged: leaving one segment for
       // the next inside the same group is not a leave, and binding per segment
       // would hide and re-show the popup on every boundary crossed.
-      hoverDefs ? ' onmouseleave="hideOppLevelDefinition()"' : ''}>
+      hoverDefs ? ' onmouseleave="hideOppAssessDefn()"' : ''}>
       ${levels.map(l => {
         const id = `opp-assess-lv-${escHtml(c.criterion_key)}-${escHtml(String(l.value))}`
         const on = effective !== undefined && String(effective) === String(l.value)
@@ -1996,7 +2014,7 @@ function renderOppAssessCriterion(c) {
                   id="${id}" value="${escHtml(String(l.value))}"${on ? ' checked' : ''}${unanchored ? ' disabled' : ''}
                   data-criterion="${escHtml(c.criterion_key)}" data-level="${escHtml(String(l.value))}"
                   onchange="setOppAssessDraft('${escHtml(c.criterion_key)}', this.value)"${hoverDefs ? `
-                  onfocus="showOppLevelDefinition(this)" onblur="hideOppLevelDefinition()"` : ''}>
+                  onfocus="showOppLevelDefinition(this)" onblur="hideOppAssessDefn()"` : ''}>
                 <label class="opp-assess-level${wasRecorded ? ' opp-assess-level--recorded' : ''}" for="${id}"
                   data-criterion="${escHtml(c.criterion_key)}" data-level="${escHtml(String(l.value))}"${hoverDefs ? `
                   onmouseover="showOppLevelDefinition(this)"` : ''}>${escHtml(String(l.label))}</label>`
@@ -2112,12 +2130,13 @@ function renderOppAssessCriterion(c) {
   // this position in either state. The scope is permanent, and its reason is
   // the value rather than the prototype.
   //
-  // The two constants hold the same string today, so this changes no
-  // behaviour. It stops holding the moment a second criterion is configured to
-  // capture a value, or the moment the round that generalises the hover
-  // retires OPP_HOVER_DEFINITIONS_KEY and takes this gate with it. Right
-  // behaviour reached through the wrong reason is Architecture rule 8 in the
-  // form that waits for two coinciding things to stop coinciding.
+  // Round 32 Phase 2: THE SECOND OF THOSE TWO CASES HAS NOW HAPPENED. Phase 7
+  // wrote that this gate would stop agreeing with the hover's the moment a
+  // round generalised the hover and retired OPP_HOVER_DEFINITIONS_KEY. That
+  // round is this one, and because the gate had already been re-pointed the
+  // retirement moved the hover to seven criteria and left the value on one,
+  // which is the intended behaviour and would not have been the behaviour a
+  // round earlier.
   //
   // OPP_VALUE_CAPTURE_KEY is what answerBox and the two save paths already
   // use, so this is one gate for one fact rather than a second that agrees.
@@ -2223,7 +2242,17 @@ function renderOppAssessCriterion(c) {
   return `
     <div class="opp-assess-criterion" data-criterion="${escHtml(c.criterion_key)}" data-entries="${series.length}"${dirty ? ' data-dirty="1"' : ''}>
       <div class="opp-assess-row">
-        ${hoverDefs ? `<div class="opp-assess-defn hidden" id="opp-assess-defn-${escHtml(c.criterion_key)}" role="tooltip" aria-hidden="true"></div>` : ''}
+        ${/* Round 32 Phase 1: ONE POPUP PER ROW, and it is no longer gated on the
+             criterion Round 31 prototyped the level hover on.
+
+             The element now carries two different strings for two different
+             targets: the criterion's question, hovered on the name, on every
+             row; and a level's definition, hovered on a segment, on the one
+             criterion Round 31 Phase 6 left it scoped to. Sharing the element
+             is what makes them mutually exclusive BY CONSTRUCTION rather than
+             by a rule somebody has to keep. Two elements could both be open,
+             which the brief correctly called a state nobody had designed. */''}
+        <div class="opp-assess-defn hidden" id="opp-assess-defn-${escHtml(c.criterion_key)}" role="tooltip" aria-hidden="true"></div>
         ${/* Round 30 Phase 4: THE CONTROL LIVES IN THE CRITERION CELL, and the
              position is the whole reason the merge happens.
 
@@ -2245,7 +2274,43 @@ function renderOppAssessCriterion(c) {
              not news, who and when is not news, but "this judgement has moved
              twice" is. */''}
         <span class="opp-assess-crit">
-          <span class="opp-assess-name"${c.asks ? ` title="${escHtml(c.asks)}"` : ''}>${escHtml(c.name)}</span>
+        ${/* Round 32 Phase 1: THE AFFORDANCE IS THE FIX, and the popup is how it
+             pays off.
+
+             The `title` that stood here was added by Round 30 Phase 2 and was
+             never removed: measured in Phase 0, present on all seven names at
+             both widths, carrying the right question. The business still could
+             not find it, and "a title is too quiet" turned out to be the wrong
+             diagnosis. Measured on the live element, the name reported
+             `cursor: auto`, `tabIndex: -1` and no underline. NOTHING ON THE ROW
+             SAID THE NAME WAS HOVERABLE, so finding the question required
+             resting a pointer on a word that gave no reason to rest there.
+
+             So the underline is not decoration, it is the whole repair. DOTTED
+             rather than solid, because this stylesheet already spends a solid
+             underline on things you click: `.doc-link` and `.anchors-toggle`
+             both pair one with `cursor: pointer` and a colour change. A solid
+             underline here would promise a navigation that does not exist.
+             `cursor: help` is the other half and it is the conventional half.
+
+             THE TITLE IS REMOVED, not superseded. Leaving it would ship both:
+             the popup on hover and the OS tooltip about a second later, on top
+             of it. That is Verification 7's move claim, and the second half of
+             it gets its own assertion.
+
+             REMOVING IT WOULD OTHERWISE COST SCREEN READERS THE QUESTION, since
+             the name is not focusable and the popup only exists while hovered.
+             `aria-describedby` against a visually hidden span puts the question
+             back where a title had it, permanently rather than on an event, and
+             adds no tab stop. Hover only is a decision this round took on
+             measurement: seven spans made focusable would be seven new tab
+             stops in a panel the business has already said gains nothing from
+             the keyboard, and the disclosure carries the question one
+             reachable chevron away. */''}
+          <span class="opp-assess-name${c.asks ? ' opp-assess-name--asks' : ''}" data-criterion="${escHtml(c.criterion_key)}"${c.asks ? `
+            aria-describedby="opp-assess-q-${escHtml(c.criterion_key)}"
+            onmouseover="showOppCriterionQuestion(this)" onmouseleave="hideOppAssessDefn()"` : ''}>${escHtml(c.name)}</span>${
+            c.asks ? `<span class="visually-hidden" id="opp-assess-q-${escHtml(c.criterion_key)}">${escHtml(c.asks)}</span>` : ''}
           <button type="button" class="opp-assess-more" id="opp-assess-more-${escHtml(c.criterion_key)}"
             aria-expanded="${detailOpen ? 'true' : 'false'}" aria-controls="opp-assess-detail-${escHtml(c.criterion_key)}"
             title="${detailOpen ? 'Hide' : 'Show'} definitions, history and who recorded this"
@@ -2369,9 +2434,10 @@ window.showOppLevelDefinition = function (el) {
   const box = document.getElementById(`opp-assess-defn-${key}`)
   if (!box) return
   const found = oppLevelWording(key, value)
-  if (!found) return hideOppLevelDefinition()
+  if (!found) return hideOppAssessDefn()
 
   box.innerHTML = `<span class="opp-assess-defn-l">${escHtml(found.label)}</span>${escHtml(found.wording)}`
+  box.classList.remove('opp-assess-defn--asks')
   box.classList.remove('hidden')
   box.setAttribute('aria-hidden', 'false')
 
@@ -2385,9 +2451,141 @@ window.showOppLevelDefinition = function (el) {
   const bw = box.getBoundingClientRect().width
   const centred = (er.left - rr.left) + (er.width / 2) - (bw / 2)
   box.style.left = `${Math.max(0, Math.min(centred, rr.width - bw))}px`
+  // Round 32 Phase 1: `top` IS SET HERE TOO, and it has to be. The element is
+  // now shared with the question, which anchors to the name, so leaving this
+  // path to the stylesheet would let the question's inline `top` leak into the
+  // level definitions the next time one is shown.
+  //
+  // Having to set it fixed the same 1240 fault this popup already had: `top:
+  // 100%` dropped it below the wrapped reason cell rather than under the
+  // segments it explains. That was Round 31's, it predates this phase, and it
+  // is repaired here because sharing the element made touching it unavoidable.
+  const gr = el.closest('.opp-assess-levels').getBoundingClientRect()
+  box.style.top = `${gr.bottom - rr.top}px`
 }
 
-window.hideOppLevelDefinition = function () {
+// ── Round 32 Phase 1: the criterion's question, on the same element ───────
+//
+// SECTION 8 RE-DERIVED RATHER THAN COPIED, for the second time, and a copy
+// would have been wrong twice.
+//
+// Floating rather than in-row TRANSFERS, and for the reason Round 31 gave:
+// measured here at all three widths, an in-row question costs 36px on the row
+// and moves every row below it down by 36px, under the pointer that asked for
+// it.
+//
+// Identity read from the element TRANSFERS. The panel re-renders on every
+// draft change, so anything this function was built holding can be stale by
+// the time somebody hovers.
+//
+// CENTRING INVERTS. Round 31 centred and clamped because its target was a
+// segment near the row's right edge, overhanging by 62px at 1240. A criterion
+// name is the row's LEFTMOST element, and centring the box on it would start
+// it 38px outside the pane at every width. Left aligned on the name is what
+// the geometry asks for.
+//
+// AND THE CLAMP DOES NOT COME WITH IT, which this phase found by trying to
+// prove the clamp could fire and failing. The comment that stood here said the
+// clamp was kept because a long enough question would reach the right edge and
+// Round C is about to add sixteen more questions. That was wrong, and it was
+// wrong in the shape Round 31 Phase 0 recorded: a sentence typed into the code,
+// derived from nothing, that nothing would have contradicted.
+//
+// Injected with a 400-character question, the box does not overhang. It wraps,
+// because `.opp-assess-defn` is capped at `max-width: 420px` and the narrowest
+// row measures 876px. The name is the row's first element, so the offset cannot
+// be negative either. Both halves of `Math.max(0, Math.min(...))` were
+// unreachable, and an unreachable guard reads as protection while providing
+// none.
+//
+// THE CAP IS WHAT DOES THE WORK, and it is therefore load bearing. A round that
+// raises or removes `max-width` on that rule puts the clamp back in scope.
+// A SHOW DELAY, WHICH ROUND 31 REFUSED AND THIS PHASE MEASURED BACK IN.
+//
+// Phase 0 predicted the refusal would not transfer and this is the measurement.
+// Round 31 refused a delay because it swept five ADJACENT SEGMENTS in 667ms and
+// counted five shows on ONE box: the content changed in place, nothing hid
+// between, and a delay would have been protecting against a flicker that did
+// not exist.
+//
+// The same sweep down the name column reads 7 to 8 shows across SEVEN DISTINCT
+// BOXES in 681ms, each shown and then hidden as the pointer left it. That is
+// not one popup rewriting itself, it is seven popups opening and closing down
+// the panel in under a second, and a pointer on its way to the save bar travels
+// exactly that path.
+//
+// So the property does not merely fail to transfer, it inverts, which is the
+// third of section 8's four to do so this round.
+//
+// 140ms, from the same measurement rather than from convention. The sweep
+// crosses each name in about 97ms, so 140 suppresses all seven; a native title
+// waits five to ten times longer, and that delay is part of what Phase 0
+// diagnosed. HIDING IS NOT DELAYED. A tooltip that lingers after the pointer
+// has left is a tooltip in the way.
+let oppQuestionTimer = null
+window.showOppCriterionQuestion = function (el) {
+  // READ FROM THE ELEMENT, never from anything this function was built holding.
+  // Read HERE and not inside the timer: the panel re-renders on every draft
+  // change, so an element captured now can be detached 140ms from now, and the
+  // key is what the timer actually needs.
+  const key = el?.dataset?.criterion
+  clearTimeout(oppQuestionTimer)
+  if (!key) return
+  oppQuestionTimer = setTimeout(() => oppShowCriterionQuestionNow(key), 140)
+}
+
+function oppShowCriterionQuestionNow (key) {
+  const box = document.getElementById(`opp-assess-defn-${key}`)
+  if (!box) return
+  const asks = (oppCriteria ?? []).find(x => x.criterion_key === key)?.asks
+  if (!asks) return hideOppAssessDefn()
+  // RE-FOUND FROM THE DOM RATHER THAN CARRIED THROUGH THE TIMER, for the reason
+  // above: a re-render between the hover and the fire would leave the captured
+  // span detached, and a detached element measures 0 by 0 at the origin.
+  const el = box.parentElement?.querySelector('.opp-assess-name')
+  if (!el) return
+
+  box.innerHTML = escHtml(asks)
+  // THE QUESTION IS CONTENT, NOT SUPPORTING DETAIL, and the shared element
+  // defaults to the treatment for supporting detail.
+  //
+  // Measured with the alpha composited: the box inherits `--muted` at alpha
+  // 0.5, which puts the question at 4.83:1 against the popup's own background,
+  // where the criterion name six pixels above it reads at 15.29:1. That clears
+  // AA by a third of a point, at 12px, for the one sentence this phase exists
+  // to make findable. It is Round 15 Phase 4's fault exactly: right place,
+  // right words, and the least prominent treatment on the panel.
+  //
+  // The level definitions KEEP the muted treatment, because five of them are
+  // read comparatively against each other and are genuinely supporting. Same
+  // element, two roles, so the role is a modifier rather than a new box.
+  box.classList.add('opp-assess-defn--asks')
+  box.classList.remove('hidden')
+  box.setAttribute('aria-hidden', 'false')
+
+  // ANCHORED TO THE NAME, NOT TO THE ROW, which only looking at 1240 revealed.
+  //
+  // The CSS said `top: 100%`, and at 1920 the row is one line tall so the popup
+  // landed six pixels under the name and was right. At 1240 the reason cell
+  // wraps to its own line, the row is 110px tall, and `top: 100%` put the
+  // question BELOW the reason and hard against the next criterion's name. It
+  // read as labelling the row underneath it.
+  //
+  // Every programmatic check passed on that: shown, correct text, correct
+  // identity, left aligned, no overhang. Position relative to the thing it
+  // explains is not a property any of them named.
+  const rr = box.parentElement.getBoundingClientRect()
+  const er = el.getBoundingClientRect()
+  box.style.left = `${er.left - rr.left}px`
+  box.style.top = `${er.bottom - rr.top}px`
+}
+
+window.hideOppAssessDefn = function () {
+  // Round 32 Phase 1: a PENDING show is cancelled here too. Without this a
+  // pointer that crossed a name and left would still open its popup 140ms
+  // later, over whatever the pointer had moved on to, which is the flicker the
+  // delay exists to prevent arriving late instead of early.
+  clearTimeout(oppQuestionTimer)
   for (const box of document.querySelectorAll('.opp-assess-defn')) {
     // A FOCUSED SEGMENT OUTLIVES A HOVERED ONE, which is the difference between
     // the two triggers and the reason this is not just classList.add('hidden').
@@ -2396,7 +2594,12 @@ window.hideOppLevelDefinition = function () {
     // it would otherwise take their wording away and not give it back: the
     // mouseleave fires, the focus is still there, and nothing re-shows it. So
     // leaving falls back to whatever is focused, and only hides when nothing is.
-    const focused = box.parentElement?.querySelector('.opp-assess-level-input:focus')
+    // Round 32 Phase 1: SCOPED TO A ROW THAT WIRES THE LEVEL HOVER. The popup
+    // now exists on all seven rows, so an unscoped fallback would show level
+    // definitions on the six Round 31 Phase 6 left without them, reached by a
+    // path nobody wired, which is exactly the generalisation that phase
+    // declined to make.
+    const focused = box.parentElement?.querySelector('.opp-assess-levels[data-level-hover] .opp-assess-level-input:focus')
     if (focused) { showOppLevelDefinition(focused); return }
     box.classList.add('hidden')
     box.setAttribute('aria-hidden', 'true')
@@ -2856,14 +3059,19 @@ document.addEventListener('DOMContentLoaded', () => {
 // types are decided this constant is what they replace.
 const OPP_VALUE_CAPTURE_KEY = 'assessCommBudgetConfirmed'
 
-// Round 31 Phase 3: the criterion the hover definitions are being tried on.
+// OPP_HOVER_DEFINITIONS_KEY stood here and was retired in Round 32 Phase 2,
+// when the level definitions generalised to all seven criteria.
 //
-// DELIBERATELY ITS OWN CONSTANT rather than reusing OPP_VALUE_CAPTURE_KEY,
-// which happens to hold the same string. They are the same criterion for two
-// unrelated reasons: it is the one that captures a money figure, and it is the
-// one the business chose to prototype on. Collapsing them would make Phase 6's
-// question, whether this generalises, look like a question about the value.
-const OPP_HOVER_DEFINITIONS_KEY = 'assessCommBudgetConfirmed'
+// It is worth recording what it bought, because it looked redundant the whole
+// time it existed. It held the same string as OPP_VALUE_CAPTURE_KEY, one line
+// below it, for two unrelated reasons: Budget confirmed is the criterion that
+// captures a money figure, and it was also the one chosen to prototype the
+// hover on. Round 31 Phase 7 separated the value's gate from it precisely so
+// this retirement would not drag the value along, and the value stays on
+// OPP_VALUE_CAPTURE_KEY, which is now the only one of the two left.
+//
+// Two constants holding one string for two reasons is what made one of them
+// removable without reading every call site.
 
 const OPP_EXIT_CRITERION_KEYS = new Set([
   'exitQualBudget', 'exitQualTimeline', 'exitQualCommitment',
@@ -2891,9 +3099,98 @@ const OPP_EXIT_CRITERION_KEYS = new Set([
 // Defaulted to the global rather than left undefined. A future call site
 // that forgets to pass it gets the right answer instead of `undefined`,
 // which would make every row fail open and quietly restore the defect.
+// ── Round 32 Phase 2: the four lens rollups ───────────────────────────────
+//
+// The levels that CLOSE a question. Not applicable (1), Buyer confirmed (4)
+// and Verified (5). Unknown (2) is plainly a gap, and Our hypothesis (3) is a
+// real answer that is not yet confirmed, which will read as a gap: that is a
+// judgement the business took rather than arithmetic, and a lens full of
+// hypotheses is not a lens to be confident in.
+//
+// Numeric rather than by label, because a label is display text and a rename
+// would silently move a level in or out of this set. The probe asserts that 1,
+// 4 and 5 are still Not applicable, Buyer confirmed and Verified, so a scale
+// change is loud rather than silent.
+const OPP_LENS_SATISFYING_LEVELS = new Set([1, 4, 5])
+
+// STAGE SCOPED, not lens wide, settled with the business in Phase 0.
+//
+// Criterion visibility marks the stages a criterion can be ANSWERED at, and
+// Commercial holds one criterion at Qualification and seven at Proposal. Read
+// lens wide, the rollup would ask a record at Qualification to satisfy six
+// criteria that Qualification does not render, and no action taken at that
+// stage could change the answer. That is unactionable rather than strict.
+//
+// The consequence is real and is handled below: the same lens can be satisfied
+// at one stage and not at the next, on the same record at the same moment.
+//
+// THREE STATES AT THE RULE, not two with a rendering rule over them. `every()`
+// on an empty array returns true, so a lens with nothing configured computes
+// SATISFIED, on no evidence, and three of the four lenses are empty until
+// Round C. Returning early on an empty set is what makes "satisfied" and
+// "nothing to satisfy" different values rather than the same value rendered
+// twice. Third instance of that trap in this project, and the first designed
+// in rather than inherited.
+function oppLensRollup(lens, stage, criteria) {
+  const mine = (criteria ?? []).filter(c => c.lens_id === lens.id
+    && (c.stages ?? []).some(st => st.stage === stage))
+  if (!mine.length) return { name: lens.name, state: 'none', met: 0, total: 0 }
+  const met = mine.filter(c => {
+    const series = oppAssessSeries(c.criterion_key)
+    if (!series.length) return false
+    return OPP_LENS_SATISFYING_LEVELS.has(Number(series[series.length - 1].value))
+  }).length
+  return { name: lens.name, state: met === mine.length ? 'satisfied' : 'unsatisfied', met, total: mine.length }
+}
+
+// A FRACTION, NOT A TICK, and the two constraints resolve to the same answer.
+//
+// Every other row in this card is a tick box against a label, and the rollups
+// are a display while the rest of the card gates. A rollup rendered as a tick
+// row would be claiming to be a requirement. So: no box, a name and a count.
+//
+// The same choice solves the problem the business raised about advancing a
+// stage. Commercial is 1 of 1 at Qualification and 7 criteria at Proposal, so
+// a satisfied lens becomes unsatisfied on advancing, correctly, and A TICK
+// DISAPPEARING SAYS NOTHING ABOUT WHY. "1 of 1" becoming "6 of 7" says exactly
+// what happened: the stage brought six more criteria into view. The count is
+// not decoration on the state, it is what makes the state legible.
+//
+// "None at this stage" rather than "0 of 0", because a zero fraction reads as
+// a measurement of nothing rather than as nothing to measure.
+function renderOppLensRollupsHtml(stage, criteria, lenses) {
+  if (!criteria || !lenses) {
+    // SAID, not omitted. An empty block and a block that failed to load are
+    // the same 60px of heading, which is the ambiguity Round 31 Phase 1 found
+    // on the Assessments placeholder.
+    return `<div class="opp-lens-rollups"><p class="opp-lens-rollups-h">Assessment by lens</p>
+      <p class="opp-lens-rollup-fail">Could not load the assessment.</p></div>`
+  }
+  const rows = (lenses ?? []).map(l => {
+    const r = oppLensRollup(l, stage, criteria)
+    const value = r.state === 'none' ? 'None at this stage' : `${r.met} of ${r.total}`
+    return `<div class="opp-lens-rollup" data-lens="${escHtml(l.name)}" data-state="${r.state}" data-met="${r.met}" data-total="${r.total}">
+      <span class="opp-lens-rollup-n">${escHtml(l.name)}</span><span class="opp-lens-rollup-v">${escHtml(value)}</span>
+    </div>`
+  }).join('')
+  return `<div class="opp-lens-rollups"><p class="opp-lens-rollups-h">Assessment by lens</p>${rows}</div>`
+}
+
 async function renderOppExitCriteria(containerId, recordId, fromStage, toStage, isStillCurrent = () => true, recordStage = currentOppStage) {
   const el = document.getElementById(containerId)
   if (!el) return
+  // ASKED FOR HERE, NOT INHERITED. Phase 0 measured both of these already
+  // populated by the time any stage panel renders, because
+  // mountOppAssessmentLenses runs from renderOppDetail rather than from the
+  // Assessment tab. That is true for every caller that exists and is exactly
+  // Architecture rule 8: the day the Assessment panel is mounted lazily per
+  // tab, the rollups would read "None at this stage" for every lens and
+  // nothing would fail. Both helpers cache, so asking costs nothing when the
+  // answer is already there.
+  //
+  // Started before the await, not after, so the three requests overlap.
+  const criteriaPromise = ensureOppCriteria()
+  const lensesPromise = ensureOppLenses()
   const result = await api('GET', `/api/records/${recordId}/exit-criteria?stage=${encodeURIComponent(fromStage)}`)
   // Dropped rather than painted if a newer load has started. Without this a
   // slower response for an earlier tab lands last and shows that stage's
@@ -2987,7 +3284,12 @@ async function renderOppExitCriteria(containerId, recordId, fromStage, toStage, 
   const summary = outstanding === 0
     ? `<p class="sub" style="margin-bottom:10px">All criteria met - ready to move to ${escHtml(toStage)}.</p>`
     : `<p class="sub" style="margin-bottom:10px">${outstanding} of ${requirements.length} outstanding to move to ${escHtml(toStage)}:</p>`
-  el.innerHTML = summary + rows
+  const [criteria, lenses] = await Promise.all([criteriaPromise, lensesPromise])
+  // RE-CHECKED AFTER THE SECOND AWAIT. The guard above covered the only await
+  // this function had; parallelising gave it two, and the same slow-response
+  // fault Round 31 hit on renderTbStageExitCriteria applies to the later one.
+  if (!isStillCurrent()) return
+  el.innerHTML = summary + rows + renderOppLensRollupsHtml(fromStage, criteria, lenses)
   const fb = document.createElement('div')
   fb.className = 'tb-doc-feedback opp-crit-feedback'
   el.appendChild(fb)

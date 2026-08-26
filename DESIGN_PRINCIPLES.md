@@ -3985,3 +3985,52 @@ Explicitly deferred, not forgotten, not a section number of its own since this i
   its approvals would be lying about what blocks the transition. Or the
   Approvals card is the authority on approvals and the criteria card should
   defer to it. Nobody has chosen, and choosing changes both record types.
+
+### The four lens rollups on the Exit Criteria card
+
+Round 32 Phase 2. Sits directly on the observation above: this is a second
+thing in that card, and it is deliberately not a gate.
+
+**A display, and the approvals still gate.** Round 26 settled that the criteria
+inform and the approvals gate, choosing a manual Assessment reviewed tick over
+a computed rollup because a computed rollup tightens silently as criteria are
+configured. A computed DISPLAY needs neither that decision reopened nor any
+gate-rule mechanism: it reads the series the Assessment panel already reads and
+counts.
+
+**Satisfied means every criterion in the lens at this stage is at Not
+applicable, Buyer confirmed or Verified.** Unknown is plainly a gap. **Our
+hypothesis is a real answer that is not yet confirmed and reads as a gap**,
+which is a judgement the business took rather than arithmetic: a lens full of
+hypotheses is not a lens to be confident in.
+
+**STAGE SCOPED, not lens wide.** Criterion visibility marks the stages a
+criterion can be answered at, and Commercial holds one criterion at
+Qualification and seven at Proposal. Read lens wide, a record at Qualification
+would be asked to satisfy six criteria that Qualification does not render, and
+no action at that stage could change the answer. That is unactionable rather
+than strict. The brief specified lens wide; measured on one record at one
+moment the two readings returned `false` and `true`.
+
+**THREE STATES AT THE RULE, not two with a rendering rule over them.**
+`every()` on an empty array returns true, so a lens with nothing configured
+computes SATISFIED on no evidence, and three of the four lenses are empty until
+Round C. Returning early on an empty set is what makes "satisfied" and "nothing
+to satisfy" different values rather than one value rendered twice.
+
+**A FRACTION, NOT A TICK, and two separate constraints resolve to the same
+answer.** Every other row in that card is a tick box against a label, so a tick
+row would claim to be a requirement in a card where everything else is one. And
+because the rollup is stage scoped, a satisfied lens becomes unsatisfied on
+advancing a stage, correctly: **a vanishing tick says nothing about why, where
+"1 of 1" becoming "6 of 7" says the stage brought six more criteria into
+view.** The count is not decoration on the state, it is what makes the state
+legible. Walked across both transitions on one record in Round 32 Phase 3.
+
+**"None at this stage" rather than "0 of 0"**, because a zero fraction reads as
+a measurement of nothing rather than as nothing to measure. The three-state
+distinction survives into the wording rather than stopping at the rule.
+
+**Cost: 152px on a card that is 420px wide at 1240, 1920 and 3440 and does not
+grow.** Roughly 66px of that is the three empty lenses, which stop being empty
+at Round C.

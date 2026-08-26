@@ -3510,9 +3510,33 @@ input.input-invalid {
    max-width is a readable measure rather than the row's, because the wording is
    prose: the five range from 78 to 154 characters and the longest sets four
    lines at 420px. */
+/* Round 32 Phase 1: the affordance, which is the actual repair.
+
+   Phase 0 measured the name reporting `cursor: auto` and no underline, so the
+   question that WAS on a title attribute the whole time had nothing on screen
+   pointing at it. The business read the panel and reported the text missing.
+
+   DOTTED, NOT SOLID. This stylesheet already spends a solid underline on
+   things you click: `.doc-link` at 1022 and `.anchors-toggle` at 1697, both
+   with `cursor: pointer` and a hover colour change. Borrowing that exact
+   treatment would promise a link. The dots keep the "there is more here"
+   reading and drop the "you can click it" one, and `cursor: help` says which
+   kind of more.
+
+   The hairline colour at rest so seven of them do not stripe the panel; the
+   muted colour on hover so the target confirms itself under the pointer. */
+.opp-assess-name--asks {
+  cursor: help;
+  text-decoration: underline dotted var(--hairline-strong);
+  text-underline-offset: 3px;
+}
+.opp-assess-name--asks:hover { text-decoration-color: var(--muted); }
 .opp-assess-defn {
   position: absolute;
-  top: 100%;
+  /* `top` is set inline by whichever path shows this, against the element the
+     popup is explaining rather than against the row. Round 32 Phase 1: the
+     `top: 100%` that stood here was right at 1920, where the row is one line,
+     and wrong at 1240, where the row wraps and 100% is below the reason cell. */
   /* ABOVE THE SAVE BAR, which is 45. The bar was raised above the segments in
      the same phase, and the ordering between these two is a real decision
      rather than a number: a row near the foot of the panel puts its popup in
@@ -3524,6 +3548,19 @@ input.input-invalid {
   padding: 8px 10px;
   background: var(--black);
   border: 1px solid var(--hairline-strong);
+  /* Round 32 Phase 1: THE THIRD PART OF THE CONVENTION, which this popup was
+     built without.
+
+     Four floating surfaces in this stylesheet carry the same trio:
+     `.contact-count-popup`, `.contact-create-dropdown`, `.tb-matrix-popup` and
+     `.chevron-popup`, each `var(--black)` on `var(--hairline-strong)` with this
+     exact shadow. This one had the first two and not the third, and looking at
+     1240 is what found it: the popup overlaps the reason cell there, its bottom
+     border lands mid-glyph, and with no shadow the line below reads as SLICED
+     rather than covered. The shadow is what says one surface is above another.
+
+     Not a new value. The same one, fifth of five. */
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
   border-radius: 4px;
   font-size: 12px;
   line-height: 16px;
@@ -3533,6 +3570,10 @@ input.input-invalid {
      mouseleave and the popup would chase the cursor. */
   pointer-events: none;
 }
+/* Round 32 Phase 1: the question reads as content. See the note in
+   oppShowCriterionQuestionNow for the measurement: 4.83:1 inherited against
+   15.29:1 for the name it explains. */
+.opp-assess-defn--asks { color: var(--white); }
 .opp-assess-defn.hidden { display: none; }
 .opp-assess-defn-l {
   display: block;
@@ -3923,3 +3964,69 @@ input.input-invalid {
    one. Carrying it forward would have been the other fix and it is wrong,
    because it would show a figure against an entry that never recorded it. */
 .opp-assess-entry-answer { font-family: var(--mono); color: var(--muted); }
+
+/* ── Round 32 Phase 2: the four lens rollups on the exit criteria card ─────
+   A DISPLAY IN A CARD WHERE EVERYTHING ELSE GATES, so it has to look like a
+   different kind of thing. Every requirement above it is a tick box against a
+   label; these are a name against a count, with no box, under their own
+   heading, behind a rule. The heading is what names the block as a summary
+   rather than as more requirements.
+
+   The card is 420px at 1240, 1920 and 3440 and does not grow, so this is
+   designed for 420px rather than for the viewport.
+
+   Margins declared rather than inherited: Round 30 Phase 0 measured 217px of
+   undeclared p margin in this panel, 17% of its height. */
+.opp-lens-rollups {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--hairline);
+}
+/* ONE RULE BETWEEN THE REQUIREMENTS AND THE SUMMARY, not two.
+   `.tb-crit-row:last-child` already suppresses the final row's border, and it
+   has never matched here: a feedback div is appended after the rows, so the
+   last requirement has carried a border all along, measured at 1px before this
+   phase on all five stages. Adding a block separator on top of it produced two
+   hairlines 14px apart, which reads as a mistake rather than as a division.
+   This extends the existing suppression to its real intent, the last row
+   before something else, and it CANNOT REACH TEST BED because it requires an
+   element that exists only on Opportunity. Touching .tb-crit-row itself, which
+   Test Bed's own criteria panel shares, is the thing not to do here. */
+.tb-crit-row:has(+ .opp-lens-rollups) { border-bottom: none; }
+.opp-lens-rollups-h {
+  margin: 0 0 8px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+.opp-lens-rollup {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  padding: 3px 0;
+  font-size: 13px;
+}
+/* Tabular figures so four counts in a column line up on the digit rather than
+   drifting with the glyph widths. */
+/* THREE STATES, THREE TREATMENTS. Looking at Proposal showed an unsatisfied
+   count and an empty lens sharing the muted value colour, so a real
+   measurement and an absence read alike in the column the eye scans. A count
+   is data and takes the body colour; "None at this stage" is not a count and
+   stays recessed, with its lens name recessed too. */
+.opp-lens-rollup-v {
+  font-variant-numeric: tabular-nums;
+  color: var(--white);
+}
+/* GREEN ON THE COUNT, never on a box. The card's met rows earn green on a tick
+   box; borrowing the box would be the thing this block must not do, and
+   borrowing only the colour reads as a status value. */
+.opp-lens-rollup[data-state="satisfied"] .opp-lens-rollup-v { color: var(--green); }
+.opp-lens-rollup[data-state="none"] .opp-lens-rollup-n,
+.opp-lens-rollup[data-state="none"] .opp-lens-rollup-v { color: var(--muted); }
+.opp-lens-rollup-fail {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+}
