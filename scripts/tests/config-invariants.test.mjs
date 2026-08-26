@@ -26,6 +26,7 @@ import { adminClient } from '../verify-harness.mjs'
 let db
 let rules, stages, refDocs, tracks
 let criteria, anchors, liveDocuments, livePayloads
+let contactRoles, contactStances
 
 before(async () => {
   db = adminClient()
@@ -46,6 +47,15 @@ before(async () => {
   const t = await db.from('approval_tracks').select('track_name')
   assert.equal(t.error, null, `approval_tracks query failed: ${t.error?.message}`)
   tracks = t.data
+
+  // Round 35 Phase 2.
+  const cr = await db.from('contact_roles').select('id, label, sort_order, active')
+  assert.equal(cr.error, null, `contact_roles query failed: ${cr.error?.message}`)
+  contactRoles = cr.data
+
+  const cs = await db.from('contact_stances').select('id, label, axis, sort_order, active')
+  assert.equal(cs.error, null, `contact_stances query failed: ${cs.error?.message}`)
+  contactStances = cs.data
 
   // Round 11 Phase 7.
   const c = await db.from('scoring_criteria').select('id, record_type, criterion_key, name')
@@ -432,4 +442,79 @@ test('INVARIANT 10: no live document record has a null document_kind', () => {
     .map(d => ({ id: d.id, variant: d.variant, parent_record_id: d.parent_record_id }))
   assert.deepEqual(orphans, [],
     `live documents with no document_kind - these appear in neither the Terminus queries nor the Customer Documents query:\n${JSON.stringify(orphans, null, 2)}`)
+})
+
+// ─────────────────────────────────────────────────────────────
+// INVARIANTS 11 AND 12: the Key Customer Contacts vocabularies
+// ─────────────────────────────────────────────────────────────
+//
+// Round 35 Phase 2. Both tables are configuration, seeded by migration and
+// edited through Supabase's own editor, so nothing in the application would
+// notice a row being retitled, retired or given the wrong axis. These are the
+// assertions that would.
+//
+// INVARIANT 12 IS THE ONE THAT MATTERS. The axis column is not decoration: it
+// says which stance values compete for a slot. Six values on "disposition" are
+// mutually exclusive, and Pain Owner sits on its own axis because someone can
+// own the problem AND block the fix, which is precisely what the live
+// Organisational criterion "Political dynamics: who gains and who loses if
+// this goes ahead" exists to record.
+//
+// Moving Pain Owner onto the disposition axis would leave every query, route
+// and test still passing while quietly making that case unrecordable, because
+// the constraint lives in the data rather than in code. That is the shape
+// Architecture rule 8's fourth variant describes, arriving from the
+// configuration side, and this is the assertion that refuses it.
+
+test('INVARIANT 11: the contact vocabularies carry exactly their configured rows, all active', () => {
+  const roles = contactRoles.map(r => r.label).sort()
+  assert.deepEqual(roles, [
+    'Commercial Buyer', 'Cyber Sec', 'DPO', 'Executive Sponsor', 'IT',
+    'Legal', 'Procurement', 'QHSE', 'Technical Buyer',
+  ], 'contact_roles has drifted from the nine configured in Round 35 Phase 2')
+
+  const stances = contactStances.map(s => s.label).sort()
+  assert.deepEqual(stances, [
+    'Blocker', 'Champion', 'Neutral', 'Pain Owner', 'Sceptic', 'Supporter', 'Unknown',
+  ], 'contact_stances has drifted from the seven configured in Round 35 Phase 2')
+
+  // A retired row is legitimate configuration, so this is not "active must be
+  // true" - it is that nothing has been retired WITHOUT a round saying so.
+  const retired = [...contactRoles, ...contactStances].filter(x => x.active !== true).map(x => x.label)
+  assert.deepEqual(retired, [],
+    `rows retired with no round accounting for it: ${retired.join(', ')}`)
+
+  // sort_order is what the picker orders by, so a duplicate is a picker whose
+  // order depends on which row the database happens to return first.
+  for (const [name, rows] of [['contact_roles', contactRoles], ['contact_stances', contactStances]]) {
+    const orders = rows.map(r => r.sort_order)
+    assert.equal(new Set(orders).size, orders.length, `${name} has duplicate sort_order values`)
+  }
+})
+
+test('INVARIANT 12: Pain Owner is on its own axis, so a Pain Owner who is a Blocker stays recordable', () => {
+  const axisOf = label => contactStances.find(s => s.label === label)?.axis
+
+  // Present-first, so a renamed row fails as a missing label rather than as a
+  // pair of undefineds comparing equal. Verification rule 14.
+  for (const label of ['Champion', 'Supporter', 'Neutral', 'Sceptic', 'Blocker', 'Unknown', 'Pain Owner']) {
+    assert.ok(axisOf(label), `stance "${label}" is missing, so every axis claim below is vacuous`)
+  }
+
+  const disposition = ['Champion', 'Supporter', 'Neutral', 'Sceptic', 'Blocker', 'Unknown']
+  const shared = new Set(disposition.map(axisOf))
+  assert.equal(shared.size, 1,
+    'the six competing stances must share one axis, or the scale means nothing')
+
+  assert.notEqual(axisOf('Pain Owner'), axisOf('Blocker'),
+    'Pain Owner shares an axis with Blocker, which makes "owns the problem and blocks the fix" unrecordable and silently breaks Political dynamics')
+  assert.notEqual(axisOf('Pain Owner'), axisOf('Champion'),
+    'Pain Owner shares an axis with Champion, which makes the commonest good case unrecordable')
+
+  // The negative half, as its own assertion rather than as an assumption: two
+  // values that SHOULD compete must still land on one axis, otherwise this
+  // test would pass just as well against a table where every row has a unique
+  // axis and nothing competes with anything.
+  assert.equal(axisOf('Supporter'), axisOf('Blocker'),
+    'Supporter and Blocker must compete, or a contact could be recorded as both')
 })

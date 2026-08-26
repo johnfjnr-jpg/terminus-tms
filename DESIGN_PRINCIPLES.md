@@ -4182,11 +4182,26 @@ admin-managed as rows, the same deferral `industries`, `terminus_staff`,
 `GET`-only from the API, edited through Supabase's own editor until an Admin
 module exists.
 
-**One consequence to settle rather than assume in Phase 2, recorded here because
-it follows from this decision rather than being taken with it.** Tier 3 of the
-2026-08-15 model is a free-text escape valve on the specific deal. A configured
-list with no inline creation and no free text leaves no escape valve at all, so
-whether tier 3 survives is now an open question rather than a settled one.
+**One consequence, opened here and answered by the business the same day.** Tier
+3 of the 2026-08-15 model is a free-text escape valve on the specific deal. A
+configured list with no inline creation and no free text would leave no escape
+valve at all, so this note originally recorded tier 3's survival as an open
+question.
+
+**TIER 3 SURVIVES. Answered 2026-08-27.** A free-text role sits alongside the
+nine configured ones, and the business's reasoning is their own from the
+original request: the list should grow as they work with different
+organisations, and admin promotes the recurring ones into the catalog later.
+
+**That is how the catalog learns what to add.** Admin-only with no free text
+means a salesperson meeting a role outside the nine has nowhere to put them, and
+nine roles will not cover every organisation. The free-text entry is the record
+of a role the catalog does not yet have, which is the evidence admin needs in
+order to add it.
+
+**So the 2026-08-15 three-tier model is intact and unsuperseded**: core roles, an
+admin-curated catalog, and a free-text escape valve on the deal. The admin-only
+decision above applies to tier 2, as it always did, and never applied to tier 3.
 
 ### Pain Owner is a stance, and the roles are nine
 
@@ -4268,3 +4283,89 @@ Architecture rule 8 says goes stale unnoticed. `step 3.0: a failed
 record_contacts query returns an error, never a silent block` still passes: the
 test's failing-client stub already answers both `maybeSingle` and a directly
 awaited chain, so a genuine query failure still surfaces.
+
+### Stance is one vocabulary on two axes, not one field and not two
+
+Round 35 Phase 2, 2026-08-27. Established against the live Organisational
+criteria rather than decided from the shape, which is what the phase was asked
+for.
+
+The seven stances are Champion, Supporter, Neutral, Sceptic, Blocker, Unknown
+and Pain Owner. The question was whether they compete for one slot. Worked
+through as pairs, asking of each whether a real person could hold both and
+whether any configured criterion needs them to:
+
+| pair | expressible | why |
+|---|---|---|
+| Champion + Supporter | no | points on one scale of active support |
+| Supporter + Blocker | no | a direct contradiction |
+| Champion + Sceptic | no | someone selling this internally is not hedging |
+| Pain Owner + Champion | **yes** | the commonest good case |
+| Pain Owner + Blocker | **yes, and a criterion needs it** | see below |
+| Pain Owner + Unknown | yes | we know whose problem it is, not where they stand |
+
+**"Political dynamics: who gains and who loses if this goes ahead" is what
+settles it.** The head of operations owns the problem and blocks because the fix
+costs their team headcount. One field records either the ownership or the
+opposition and loses the fact that they are the same person, which is the whole
+content of that criterion.
+
+**So neither "one field" nor "two fields" is the answer as posed.** One field
+cannot express Pain Owner with Blocker. Two hardcoded fields would put Pain
+Owner in the schema, so the next orthogonal stance, a Gatekeeper who controls
+access or a Coach who feeds us information, becomes a migration rather than a
+row.
+
+**One vocabulary, an `axis` column, and a link row carries at most one value per
+axis.** `disposition` holds the six competing values, exactly one, defaulting to
+Unknown. `stake` holds Pain Owner and is optional. A third axis is a row, and a
+fourth value on an existing axis is a row. Deliberately not a CHECK, for the
+same reason `closed_lost_reasons` took a foreign key over one.
+
+**Asserted in the suite rather than described here**, as INVARIANT 12 in
+`config-invariants.test.mjs`, because the constraint lives entirely in data:
+moving Pain Owner onto the disposition axis would leave every query, route and
+test passing while making that case unrecordable. Proven capable of failing by
+injection, and the negative half is asserted too, so the test cannot pass
+against a table where every row has a unique axis and nothing competes with
+anything.
+
+**What it still cannot express, recorded rather than papered over.** "Buying
+committee mapped" asks who else has a say AND what does each of them want. List
+plus role plus stance answers the first half, and no enumeration answers the
+second. That half needs a free-text line per contact, and it is Phase 3's to
+place.
+
+### A configured role reference and a free-text role are two columns, not one
+
+Round 35 Phase 2, 2026-08-27. The other thing this phase was asked to establish
+rather than assume, and the live data answered it.
+
+A configured reference plus a separate free-text column is one shape; a text
+column that usually holds a configured label is another. **The question the
+catalog exists for, "which roles do we cover on deals we win", is already broken
+by the second shape**, measured across all 459 `record_contacts` rows:
+
+```
+"commercial buyer"  written 2 ways, 390 rows: 350 lowercase + 40 "Client Commercial Buyer"
+"technical buyer"   written 2 ways,  31 rows: 28 "Client Technical Buyer" + 3 "Technical Buyer"
+
+2 of 4 distinct roles are already split across more than one spelling.
+A GROUP BY on that column returns 6 rows for 4 real roles.
+```
+
+**That divergence arrived with no free-text feature in the product at all**, from
+two independently-built writers. Adding one to the same column would make it
+worse by design.
+
+**So `contact_roles` is uuid-keyed and the link row will carry
+`role_id uuid references contact_roles(id)` for tiers 1 and 2 and `role_other
+text` for tier 3**, exactly one of them set. "Which roles do we cover" becomes a
+join, free-text entries are a visibly separate bucket rather than silent
+misspellings of catalog members, and admin can see which text keeps recurring,
+which is what makes promotion into the catalog possible at all.
+
+**Phase 3 builds that link-row change**, and it has to reckon with
+`record_contacts.role` being `not null` with a `unique (record_id, contact_id,
+role)` on it. Test Bed's rows and the three live `contact_role_linked` gates
+match on that column and must not move.
