@@ -4213,3 +4213,58 @@ mutually exclusive with Supporter, Sceptic and Blocker the way those three are
 with each other. One person can be the pain owner and a sceptic. Whether stance
 is therefore one field or two is a question for that phase, not an assumption to
 carry into it.
+
+### A gate that asked for exactly one now asks for at least one
+
+Round 35 Phase 1, 2026-08-27.
+
+`contact_role_linked` is the requirement type behind four live `stage_gate_rules`
+rows, all of them Test Bed's: three on the Qualification exit (Client
+Commercial, Technical and Legal Buyer) and one on Installation and Commissioning
+(Test Bed Tech Team). Its evaluator in `computeBlocking` read the link with
+`.maybeSingle()`.
+
+**That was correct for every record that existed and could not survive the model
+this round introduces.** Every writer of a `record_contacts` row wrote it into a
+fixed slot, one role holding one contact, so no record was ever expected to hold
+two. Round 35 replaces that on Opportunity with a list whose whole purpose is to
+hold two technical evaluators, or a champion who is also the commercial buyer.
+
+**`.maybeSingle()` errors on two rows, and the failure is not a wrong verdict but
+no verdict.** The error falls through to `computeBlocking`'s `return { error }`,
+and both callers turn that into a 500. So a second contact in a gated role does
+not weaken the gate, it takes down `POST /records/:id/transition` and the
+exit-criteria panel in `records.js` for that record.
+
+Measured through supabase-js itself, the same client the route uses, across all
+three states:
+
+| rows | error | data | what the gate then does |
+|---|---|---|---|
+| zero | null | null | `met: false`, correct |
+| one | null | a row | `met: true`, correct |
+| two | `PGRST116` | null | `return { error }`, a 500 |
+
+**And the condition is reachable through the product today, without this round.**
+`POST /test-beds/:id/buyer-contacts` accepts a second contact in the same role
+with a 201: there is no duplicate guard at the endpoint, and the Test Bed
+batch-save path fires one call per dropdown. Two soft-deleted Test Beds already
+hold Client Commercial Buyer twice. Only the soft delete is keeping this off a
+live screen.
+
+**Fixed by asking the question the rule actually asks.** The rule asks whether
+anyone holds the role, so the query is `.limit(1)` and the verdict is
+`(links?.length ?? 0) > 0`. One row is all the answer needs, and the query now
+says so rather than fetching a set in order to be surprised by its size.
+
+Proven live on a real Test Bed at Qualification carrying two contacts in one
+role, with the fix stashed and restored and the server's own reload waited on
+rather than a delay: `GET /records/:id/exit-criteria` returned **500 "JSON object
+requested, multiple (or no) rows returned"** before and **200 with Commercial
+Buyer = true** after.
+
+**The error branch was checked rather than assumed**, because that is the branch
+Architecture rule 8 says goes stale unnoticed. `step 3.0: a failed
+record_contacts query returns an error, never a silent block` still passes: the
+test's failing-client stub already answers both `maybeSingle` and a directly
+awaited chain, so a genuine query failure still surfaces.
