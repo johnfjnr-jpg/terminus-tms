@@ -384,19 +384,31 @@ function onRefFieldInput(key) {
   updateRefEditBar()
 }
 
+// Round 34 Phase 3: two buttons in the tab row, gated on DIRTY.
+//
+// This toggled a banner that sat above the cards and appeared the moment any
+// field was OPENED, which moved the panel 76px under the pointer that had just
+// clicked it. Both halves of that are now gone: the banner is deleted, and the
+// gate is dirtyCount rather than keys.length.
+//
+// Round 5 Phase 5 stated the principle on Test Bed and this adopts it verbatim:
+// opening a field and leaving it unchanged should have zero visible effect.
+//
+// "N fields open, M changed" goes with the banner. It was a count of a state
+// that is now invisible by design, and Test Bed dropped the same text for the
+// same reason.
+//
+// A field opened and left alone is still cancellable through its own discard
+// control, which is what makes hiding both buttons safe.
 function updateRefEditBar() {
-  const bar = document.getElementById('ref-edit-bar')
-  const keys = Object.keys(refEdits)
-  if (!keys.length) {
-    bar.classList.add('hidden')
-    return
+  const dirtyCount = Object.values(refEdits).filter(e => e.draft !== e.orig).length
+  const show = dirtyCount > 0
+  // `tab-action-idle` rather than `hidden`: see the note on it in style.css.
+  // `hidden` is display:none, which takes the buttons out of the flex flow and
+  // lets the strip re-wrap around their absence.
+  for (const id of ['ref-cancel-all', 'ref-save-all']) {
+    document.getElementById(id)?.classList.toggle('tab-action-idle', !show)
   }
-  bar.classList.remove('hidden')
-  const dirtyCount = keys.filter(k => refEdits[k].draft !== refEdits[k].orig).length
-  document.getElementById('ref-edit-count').textContent =
-    `${keys.length} field${keys.length === 1 ? '' : 's'} open${dirtyCount ? `, ${dirtyCount} changed` : ''}`
-  document.getElementById('ref-save-all').classList.toggle('hidden', dirtyCount === 0)
-  syncRefEditBarWidth()
 }
 
 async function saveRefFields() {
@@ -564,27 +576,12 @@ function wireRefOnce() {
   // so there is still exactly one Escape owner rather than two competing
   // handlers - the property the 2026-08-17 follow-up established, now held
   // in one place for both callers instead of once per caller.
-  // Cancel/Save row width sync (Round 3 Phase 3, item 6) - same
-  // getBoundingClientRect technique as Contact detail's
-  // syncCdBelowGridWidth (contact-detail.js), matching the edit bar's
-  // own right edge to the Key Dates panel's (the rightmost card in
-  // .ref-cards) rather than letting it span the full, uncapped container
-  // width, which on a wide viewport runs well past where the 3-panel row
-  // actually ends (.ref-cards' own minmax(280px,420px) columns cap out
-  // long before the container does).
-  window.addEventListener('resize', syncRefEditBarWidth)
-}
-
-// See wireRefOnce's comment above for why this exists.
-function syncRefEditBarWidth() {
-  const cards = document.querySelectorAll('#opp-tab-reference .ref-cards .pg-card')
-  const lastCard = cards[cards.length - 1]
-  const bar = document.getElementById('ref-edit-bar')
-  if (!lastCard || !bar || bar.classList.contains('hidden')) return
-  const cardRect = lastCard.getBoundingClientRect()
-  const barRect = bar.getBoundingClientRect()
-  const width = cardRect.right - barRect.left
-  if (width > 0) bar.style.width = `${width}px`
+  // Round 34 Phase 3: the resize listener went with the banner. It existed to
+  // match the bar's right edge to the rightmost card's, because the bar spanned
+  // an uncapped container while .ref-cards caps its columns at 420px. A control
+  // in the tab row has no width to sync, so the listener has nothing left to do
+  // and syncRefEditBarWidth is deleted rather than left pointing at an element
+  // that no longer exists.
 }
 
 // ── Entry point, called by app.js's renderOppDetail() ─────────────────────

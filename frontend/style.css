@@ -4058,3 +4058,24 @@ input.input-invalid {
   font-size: 13px;
   color: var(--muted);
 }
+
+/* Round 34 Phase 3: the tab row's edit controls RESERVE THEIR SPACE.
+
+   Moving Cancel and Save into the tab row removed the 76px shift the banner
+   caused, and introduced a 37px one in a narrow band of widths. The strip is
+   flex-wrap: wrap, and its children total 1446px plus gaps with both buttons
+   shown. Measured: at 1240 and 1600 it is already two lines whether or not
+   they are there, and at 2400 and 3440 it is one line either way. Only between
+   roughly 1556px and 2036px does showing them flip it from one line to two,
+   and 1920 sits squarely in that band.
+
+   `visibility: hidden` rather than `display: none`, so the strip commits to the
+   same width at all times and wraps the same way whether or not anything is
+   dirty. It also keeps the buttons out of the tab order while hidden, which
+   `display: none` did too.
+
+   THE COST IS STATED RATHER THAN HIDDEN: in that band the strip is
+   permanently two lines instead of one. That is 37px of constant chrome
+   against 37px that moved, and a thing that does not move is worth more than a
+   thing that is occasionally shorter. */
+#opp-tab-actions .tab-action-idle { visibility: hidden; }
