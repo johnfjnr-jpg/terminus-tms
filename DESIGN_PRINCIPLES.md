@@ -4156,3 +4156,60 @@ against a column that breaks on the next name added.
 **The alternative left open is shortening the names**, which is the business's
 to take and only genuinely helps one: "Anti-corruption and integrity due
 diligence" is 51px over and the other five are between 2px and 17px over.
+
+### Inline role creation: reconsidered against a live proposal, and refused
+
+Round 35 Phase 0, 2026-08-27. **The 2026-08-15 three-tier buyer-role model above
+stands unsuperseded**, and this entry records that it was tested rather than
+merely left alone.
+
+Round 35's brief proposed that a new role be creatable from the Key Customer
+Contacts panel by any user, with a system-wide effect confirmation, citing the
+Use Case Curation design's Industry escape valve as the precedent.
+
+**The precedent does not transfer, in three ways that each matter on their own.**
+It writes into Admin - Picklists, a screen `PROTOTYPE_SPECIFICATION.md` Section 7
+puts out of v1 scope and which does not exist in this build, so a role created
+badly could not be retired by anyone using this application. It is gated to a
+CTO or CEO project role, with everyone else able only to flag "New industry,
+needs review" and no ability to write. And it carries a mandatory six-character
+code as deliberate friction, for which a role has no equivalent.
+
+**So inline creation as proposed meant any user adding a permanent row nobody in
+this app can remove.** Refused by the business on that finding. The role list is
+admin-managed as rows, the same deferral `industries`, `terminus_staff`,
+`stage_gate_rules` and `closed_lost_reasons` already carry: seeded by migration,
+`GET`-only from the API, edited through Supabase's own editor until an Admin
+module exists.
+
+**One consequence to settle rather than assume in Phase 2, recorded here because
+it follows from this decision rather than being taken with it.** Tier 3 of the
+2026-08-15 model is a free-text escape valve on the specific deal. A configured
+list with no inline creation and no free text leaves no escape valve at all, so
+whether tier 3 survives is now an open question rather than a settled one.
+
+### Pain Owner is a stance, and the roles are nine
+
+Round 35 Phase 0, 2026-08-27. The business corrected a Phase 0 recommendation and
+the correction is the record.
+
+Phase 0 proposed Pain Owner as the tenth **role**, to close the gap against the
+live Organisational criterion "Internal pain owner". **The business moved it to
+stance instead: the person whose problem this is has a job title, and whose
+problem it is is a posture**, which is the same argument that moves Champion out
+of the role list.
+
+**Roles, nine:** Executive Sponsor, Technical Buyer, Commercial Buyer,
+Procurement, Legal, IT, Cyber Sec, QHSE, DPO. Every one names a function someone
+holds regardless of this deal.
+
+**Stance gains a seventh value.** Role is the function, stance is where they
+stand, and stance is what the Organisational lens is scored against: "Political
+dynamics" asks who gains and who loses, and "Champion identified" asks who is
+selling this internally, neither of which a job title can answer.
+
+**To establish rather than assume in Phase 2:** Champion and Pain Owner are not
+mutually exclusive with Supporter, Sceptic and Blocker the way those three are
+with each other. One person can be the pain owner and a sceptic. Whether stance
+is therefore one field or two is a question for that phase, not an assumption to
+carry into it.
