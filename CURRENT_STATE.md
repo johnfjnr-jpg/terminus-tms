@@ -12,9 +12,9 @@ Contains no environment variable, key or token, and no client data. Records
 appear as counts by status only, never by name or reference code, because
 this file is uploaded into chat sessions.
 
-- Generated at: `2026-08-26T09:45:10.614Z`
-- Git commit: `ec2b67e0d33a05d1e702ccb797d3702e162c4b45`
-- Working tree at generation: `dirty (uncommitted changes present)`
+- Generated at: `2026-08-26T13:25:00.576Z`
+- Git commit: `9a3b3d6746a8808a9319985e650b9ef799dfa8e4`
+- Working tree at generation: `clean`
 
 Staleness has two parts, and both must hold for this file to be current:
 the recorded commit is an ancestor of `HEAD`, AND no tracked configuration
@@ -320,23 +320,23 @@ _None._
 
 ## Record counts by type and status
 
-94 live, 12790 soft deleted, 12884 rows in total.
+94 live, 12980 soft deleted, 13074 rows in total.
 
 | record_type | status | live | soft deleted |
 |---|---|---|---|
-| account | active | 4 | 350 |
+| account | active | 4 | 374 |
 | contact | Parked | 0 | 2 |
-| contact | Qualified | 7 | 304 |
+| contact | Qualified | 7 | 328 |
 | contact | Unqualified | 1 | 54 |
-| document | approved | 61 | 1121 |
+| document | approved | 61 | 1129 |
 | document | received | 1 | 74 |
 | opportunity | Closed Lost | 0 | 19 |
 | opportunity | Closed Won | 1 | 7 |
 | opportunity | Evaluation | 0 | 4 |
 | opportunity | Negotiating | 0 | 15 |
-| opportunity | Proposal | 0 | 87 |
-| opportunity | Qualification | 0 | 145 |
-| opportunity | Solution Alignment | 3 | 17 |
+| opportunity | Proposal | 0 | 105 |
+| opportunity | Qualification | 0 | 148 |
+| opportunity | Solution Alignment | 3 | 20 |
 | test_bed | Closed | 5 | 9 |
 | test_bed | Installation and Commissioning | 1 | 29 |
 | test_bed | Monitoring and Analysis | 0 | 1 |
@@ -345,7 +345,7 @@ _None._
 | test_bed | Review and Completion | 1 | 0 |
 | test_bed | Site Assessment | 1 | 17 |
 | unit | Installed | 4 | 3 |
-| unit | Planned | 3 | 2003 |
+| unit | Planned | 3 | 2037 |
 | unit | Removed | 0 | 1 |
 
 ### Test fixture record types
@@ -356,19 +356,19 @@ row by row, and are included in the totals above.
 
 | distinct `harness_*` record types | live rows | soft deleted rows |
 |---|---|---|
-| 829 | 0 | 8224 |
+| 839 | 0 | 8300 |
 
 No harness record type holds a live row; every fixture row is soft deleted.
 
 ## `approvals`
 
-579 rows, of which 0 carry a null `stage`.
+633 rows, of which 0 carry a null `stage`.
 
 | decision | track | rows | null stage |
 |---|---|---|---|
-| approved | Commercial | 212 | 0 |
-| approved | Legal | 178 | 0 |
-| approved | Technical | 189 | 0 |
+| approved | Commercial | 230 | 0 |
+| approved | Legal | 196 | 0 |
+| approved | Technical | 207 | 0 |
 
 ## Writable-key allowlists
 
@@ -395,9 +395,9 @@ than written as a literal list, so its members are not enumerable here.
 
 ### `SALESPERSON_WRITABLE_KEYS` (`src/routes/opportunities.js`)
 
-55 literal keys.
+63 literal keys.
 
-`ssExisting`, `ssNew`, `aqm`, `hemir`, `installResp`, `lumpSumCost`, `targetMargin`, `marginOverrides`, `warrantyPct`, `whtPct`, `gstPct`, `grossUp`, `duration`, `structure`, `recoveryMonths`, `invoicing`, `milestones`, `contractorMilestones`, `factoring`, `lead`, `commercial`, `technical`, `legal`, `customerLead`, `commAddress`, `assessmentReviewed`, `exitQualBudget`, `exitQualTimeline`, `exitQualCommitment`, `exitSolTechnicalSolution`, `exitSolBuyersKnown`, `exitSolKeyStakeholders`, `exitSolTermsReviewed`, `exitPropPricingApproved`, `exitPropContractTerms`, `exitPropImplSchedule`, `exitPropDocumentation`, `exitEvalClarificationsResponded`, `exitEvalRevisedPricing`, `exitEvalTechnicalClarifications`, `exitNegScopeAgreed`, `exitNegPricingAgreed`, `exitNegLegalResolved`, `exitNegCommercialsApproved`, `exitNegContractExecuted`, `summary`, `oppType`, `actualClose`, `estGoLive`, `actualGoLive`, `notes`, `name`, `bidCurrency`, `proposalCurrency`, `fxContingency`
+`ssExisting`, `ssNew`, `aqm`, `hemir`, `installResp`, `lumpSumCost`, `targetMargin`, `marginOverrides`, `warrantyPct`, `whtPct`, `gstPct`, `grossUp`, `duration`, `structure`, `recoveryMonths`, `invoicing`, `milestones`, `contractorMilestones`, `factoring`, `lead`, `commercial`, `technical`, `legal`, `customerLead`, `commAddress`, `region`, `country`, `commAddress2`, `commCity`, `commPostcode`, `commCountry`, `commRegion`, `commAddressSameAsAccount`, `assessmentReviewed`, `exitQualBudget`, `exitQualTimeline`, `exitQualCommitment`, `exitSolTechnicalSolution`, `exitSolBuyersKnown`, `exitSolKeyStakeholders`, `exitSolTermsReviewed`, `exitPropPricingApproved`, `exitPropContractTerms`, `exitPropImplSchedule`, `exitPropDocumentation`, `exitEvalClarificationsResponded`, `exitEvalRevisedPricing`, `exitEvalTechnicalClarifications`, `exitNegScopeAgreed`, `exitNegPricingAgreed`, `exitNegLegalResolved`, `exitNegCommercialsApproved`, `exitNegContractExecuted`, `summary`, `oppType`, `actualClose`, `estGoLive`, `actualGoLive`, `notes`, `name`, `bidCurrency`, `proposalCurrency`, `fxContingency`
 
 ### `TEST_BED_WRITABLE_KEYS` (`src/routes/test-beds.js`)
 
