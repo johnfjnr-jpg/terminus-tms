@@ -4369,3 +4369,132 @@ which is what makes promotion into the catalog possible at all.
 `record_contacts.role` being `not null` with a `unique (record_id, contact_id,
 role)` on it. Test Bed's rows and the three live `contact_role_linked` gates
 match on that column and must not move.
+
+### The Key Customer Contacts panel is full width below the three, not a fourth card
+
+Round 35 Phase 3, 2026-08-27. Read only in this phase.
+
+**Phase 0 measured a fourth card in `.ref-cards` at all three widths and the
+worst case is the common one.** At 1240 it pairs with Key Dates and costs
+nothing until the list is long; at 3440 all four fit in one row; **at 1920 it
+strands itself on a second row with two thirds of that row empty**, because
+`#view-opportunity-detail .ref-cards` resolves to three 420px tracks there.
+
+**The other half of the reason is that a list has no ceiling.** The three cards
+above are each a known height. A panel that grows to eleven contacts inside a
+fixed-height row forces the row rather than growing on its own.
+
+`.ref-cards-wide` already exists for exactly this, `minmax(420px, 1fr)` with
+`align-items: start`, and with a single child resolves to one full-width track.
+Reused rather than given a new rule. Measured full width at every viewport: 876,
+1556 and 3076px, sitting 28px below the three cards in all three cases, with no
+horizontal overflow at any list length.
+
+| contacts | panel height |
+|---|---|
+| 0 (empty state) | 185px |
+| 1 | 131px |
+| 4 | 291px |
+| 11 | 590px |
+
+**The trailing space at wide viewports is accepted and named.** At 3440 the data
+columns occupy about 630px of a 3076px card. The first version made Role the
+flexible column on the reasoning that a typed role has no natural length; looked
+at, that was wrong, because the Role track resolved to 2594px and stranded
+Linked at the far right of the row, a thousand pixels from anything it related
+to. The columns now group left and a fourth empty track absorbs the slack, which
+is what every dense list in this app already does. Phase 4's stance column and
+the per-contact note the design record already calls for are what fill it.
+
+### Showing every link is the panel's purpose, and the role is not uppercased
+
+Round 35 Phase 3, 2026-08-27.
+
+**The four fixed slots filter `record_contacts` to four title-cased strings, and
+that filter is why the vocabulary diverged unnoticed.** All four live
+opportunities carry a lowercase `commercial buyer` link, and not one of them has
+ever appeared on screen. Nothing looked broken, so nothing was reported. Phase 2
+measured the result: 2 of 4 distinct roles across `record_contacts` are already
+split across more than one spelling.
+
+Confirmed through the real UI on all four: the panel now shows each one, marked
+as typed rather than catalog, with a derived legend.
+
+**The role is rendered without `text-transform: uppercase`, a deliberate
+departure from `.tag`**, which every other pill in this app uses. Uppercasing
+renders `commercial buyer` and `Commercial Buyer` identically, which erases the
+exact difference the panel exists to show. The stored value is shown as stored.
+
+**A typed role is not a lesser fact about the deal.** Same size, same colour,
+same weight as a catalog role; only the border differs, dashed against solid. It
+is the record of a role the catalog does not yet carry, which is what tells admin
+what to add. The escape valve is how the catalog learns, so treating it as an
+error state would be backwards.
+
+**One fetch, two derivations.** `GET /opportunities/:id` previously queried
+`record_contacts` filtered to `VALID_OPPORTUNITY_BUYER_ROLES`. Rather than add a
+second query that would agree today and drift later, the fetch is now unfiltered
+and both `buyer_contacts` and `key_contacts` derive from it. The error is
+checked, which the query it replaces did not do: a read whose error goes
+unchecked renders as an empty list, and here that is indistinguishable from "this
+deal knows nobody", the exact reading the panel exists to make trustworthy.
+
+### The buyer-role select offers the wrong account's contacts after the first record
+
+Round 35 Phase 3, 2026-08-27. Found while investigating an empty panel, not
+looked for. **Pre-existing, in code Phase 5 removes. Reported, not fixed.**
+
+`refAccountContacts` (`opportunity-reference.js`) is a module-level cache
+guarded by `if (!refAccountContacts.length)`, so it is fetched once per page
+load, filtered to whichever Opportunity was opened FIRST, and reused for every
+subsequent one regardless of account.
+
+Demonstrated on two live records with disjoint contact lists:
+
+```
+TT-SGP-MANUFI-002 account really has: Boon Sain
+TT-SGP-SMARTC-002 account really has: Kim Zhang, Tan Jun, Wong Guang Shing
+
+visited MANUFI-002 first, its select offers: Boon Sain
+then SMARTC-002, its select offers:          Boon Sain
+```
+
+Opened on its own, SMARTC-002's select offers its own three. **The list follows
+the page load rather than the record.**
+
+**Not a data-integrity hole**, because `POST /opportunities/:id/buyer-contacts`
+re-validates and returns 422 for a Contact of another Account. It is a control
+that appears to offer something the server will refuse, which is the exact shape
+Round 35 Phase 0 was asked about under "does `LINK` reach outside the account":
+the answer is still no, and this is a picker that looks as though it might.
+
+### What `record_contacts`' own constraints leave for Phase 4
+
+Round 35 Phase 3, 2026-08-27. Established while reading the same rows this phase
+renders.
+
+`role text not null`, `unique (record_id, contact_id, role)`, no UPDATE policy,
+a DELETE policy since Round 11 Phase 5, and `on delete restrict` on both foreign
+keys to `records`.
+
+1. **`role` cannot stay NOT NULL once a row carries `role_id` instead.** Dropping
+   the NOT NULL is additive and leaves every existing row untouched, which is
+   what keeps Test Bed's rows and the three live `contact_role_linked` gates
+   working: the gate reads `.eq('role', role)`, so that column must survive as a
+   column. The alternative, writing a denormalised label into `role` alongside
+   `role_id`, creates two sources for one fact and goes stale the moment admin
+   renames a catalog row.
+
+2. **The unique constraint stops constraining once `role` is null**, because
+   Postgres treats nulls as distinct in a unique constraint by default. Phase 4
+   needs partial replacements on `role_id` and on `role_other`. **This is stated
+   as a property to verify in Phase 4, not one verified here**: no row with a
+   null role exists yet, so it cannot be tested until Phase 4 creates one.
+
+3. **There is no UPDATE policy, so a stance cannot be changed in place.** The
+   table's own comment records that as deliberate: a wrong link is corrected by
+   adding the right row. But a stance genuinely changes over time, which is the
+   point of recording it, and delete-plus-insert loses that history unless
+   something else keeps it. Phase 4 decides between an UPDATE policy and an
+   append-only stance history, and the decision belongs in the open rather than
+   inside whichever is easier to build.

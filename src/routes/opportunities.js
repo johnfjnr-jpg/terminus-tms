@@ -116,18 +116,44 @@ export default async function opportunitiesRoutes(app) {
       }
     }
 
-    // Buyer Roles resolved server-side (Round 3 Phase 3, 2026-08-17) -
+    // Contact links resolved server-side (Round 3 Phase 3, 2026-08-17) -
     // same shape and same query pattern as Test Bed's own GET
     // /test-beds/:id buyer_contacts (test-beds.js), now that Technical/
     // Commercial/Legal/IT-Security Buyer are real record_contacts links
     // instead of free text.
-    const { data: buyerLinks } = await db
+    //
+    // ONE FETCH, TWO DERIVATIONS. Round 35 Phase 3. This used to query
+    // record_contacts filtered to VALID_OPPORTUNITY_BUYER_ROLES, which is
+    // what the four fixed slots need. Key Customer Contacts needs EVERY
+    // link, so rather than add a second query that would agree today and
+    // drift later, the fetch is unfiltered and both shapes are derived from
+    // it. buyer_contacts is unchanged in shape and content; key_contacts is
+    // the same rows without the filter.
+    //
+    // THE FILTER IS WHY THE VOCABULARY DIVERGED UNNOTICED. All four live
+    // opportunities carry a lowercase "commercial buyer" link, and the four
+    // slots have never shown any of them, because the role string does not
+    // match the title-cased array. Nothing was broken on screen, so nothing
+    // was ever reported. Round 35 Phase 2 measured the result: 2 of 4
+    // distinct roles across record_contacts are already split across more
+    // than one spelling.
+    //
+    // The error IS checked, unlike the query this replaces. A read whose
+    // error goes unchecked renders as an empty list, which here is
+    // indistinguishable from "this deal knows nobody" - the exact reading
+    // this panel exists to make trustworthy.
+    const { data: allLinks, error: linksErr } = await db
       .from('record_contacts')
       .select('id, contact_id, role, created_at')
       .eq('record_id', opp.id)
-      .in('role', VALID_OPPORTUNITY_BUYER_ROLES)
+      .order('created_at', { ascending: true })
 
-    const links = buyerLinks ?? []
+    if (linksErr) {
+      request.log.error({ err: linksErr }, 'failed to load contact links')
+      return reply.code(500).send({ error: linksErr.message })
+    }
+
+    const links = allLinks ?? []
     const buyerContactIds = [...new Set(links.map(l => l.contact_id))]
     let buyerContactNames = {}
     if (buyerContactIds.length) {
@@ -140,10 +166,46 @@ export default async function opportunitiesRoutes(app) {
         if (!(r.record_id in buyerContactNames)) buyerContactNames[r.record_id] = r.payload?.name ?? null
       }
     }
-    const buyer_contacts = links.map(l => ({
-      role: l.role,
+
+    const buyer_contacts = links
+      .filter(l => VALID_OPPORTUNITY_BUYER_ROLES.includes(l.role))
+      .map(l => ({
+        role: l.role,
+        contact_id: l.contact_id,
+        name: buyerContactNames[l.contact_id] ?? null
+      }))
+
+    // in_catalog: whether this link's role is one the catalog carries.
+    //
+    // AN EXACT MATCH, NOT A CASE-FOLDED ONE. "commercial buyer" and
+    // "Commercial Buyer" are different values, and folding them here would
+    // paper over the data-quality problem this panel exists to surface -
+    // the same reasoning transitions.js already applies to variant matching.
+    // A row reading "commercial buyer" against a catalog holding "Commercial
+    // Buyer" is genuinely a role typed on the deal, and saying so is what
+    // lets admin see what to reconcile.
+    //
+    // A STRING MATCH IS THE PHASE 3 MECHANISM AND PHASE 4 REPLACES IT. Once
+    // the link row carries role_id, in_catalog is role_id !== null and this
+    // comparison goes. It is written here rather than in the frontend so
+    // there is one answer rather than two, and it is named here so the
+    // replacement is a deletion rather than a second path left running.
+    const { data: catalogRoles, error: catalogErr } = await db
+      .from('contact_roles')
+      .select('label')
+    if (catalogErr) {
+      request.log.error({ err: catalogErr }, 'failed to load the contact role catalog')
+      return reply.code(500).send({ error: catalogErr.message })
+    }
+    const catalog = new Set((catalogRoles ?? []).map(r => r.label))
+
+    const key_contacts = links.map(l => ({
+      id: l.id,
       contact_id: l.contact_id,
-      name: buyerContactNames[l.contact_id] ?? null
+      name: buyerContactNames[l.contact_id] ?? null,
+      role: l.role,
+      in_catalog: catalog.has(l.role),
+      linked_at: l.created_at
     }))
 
     return {
@@ -151,7 +213,8 @@ export default async function opportunitiesRoutes(app) {
       payload: revResult.data?.payload ?? {},
       latest_revision_number: revResult.data?.revision_number ?? 1,
       account,
-      buyer_contacts
+      buyer_contacts,
+      key_contacts
     }
   })
 

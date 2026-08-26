@@ -4111,3 +4111,101 @@ input.input-invalid {
   line-height: 18px;
 }
 .ref-empty-inline a { color: var(--green); }
+
+/* ── Key Customer Contacts (Round 35 Phase 3, 2026-08-27) ────────────
+   A list, not a field set, so it is a grid with a header row rather than
+   .ref-field rows: a .ref-field is a label and one value, and these rows
+   are three peer columns whose headings belong at the top once rather
+   than repeated on every row.
+
+   FIXED TRACKS AND THE FLEXIBLE ONE LAST, HOLDING NOTHING. The first
+   version made Role the flexible column, on the reasoning that a typed
+   role has no natural length. Measured and then looked at, that was
+   wrong: at 1920 the Role track resolved to 1074px and at 3440 to
+   2594px, so a pill 270px wide sat alone in it and Linked stranded
+   itself at the far right of the row, a thousand pixels from anything it
+   related to. Every dense list in this app groups its columns left and
+   lets the slack fall off the right-hand end, and the reason is visible
+   the moment the width is real.
+
+   So the data columns size to content and a fourth, empty track absorbs
+   whatever is left. Role is capped rather than unbounded: a long typed
+   role wraps inside its pill instead of pushing Linked across the row,
+   which keeps every row's columns on the same verticals.
+
+   The trailing space is not waste. Phase 4 adds stance, and the design
+   record already names a per-contact note as what "Buying committee
+   mapped: what does each of them want" needs. This is where both go. */
+.kc-head,
+.kc-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 300px) minmax(160px, 360px) 120px minmax(0, 1fr);
+  gap: 16px;
+  align-items: baseline;
+}
+
+.kc-head {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted-2);
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--hairline-strong);
+  margin-bottom: 4px;
+}
+
+.kc-row {
+  padding: 9px 0;
+  border-bottom: 1px solid var(--hairline);
+  font-size: 14px;
+}
+.kc-row:last-of-type { border-bottom: none; }
+
+.kc-name {
+  color: var(--white);
+  cursor: pointer;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.kc-name:hover { color: var(--green); }
+.kc-name:focus-visible { outline: 1px solid var(--green); outline-offset: 2px; }
+
+.kc-when {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.kc-role { min-width: 0; }
+
+/* .tag's twin, with ONE deliberate difference: no text-transform.
+   Uppercasing renders "commercial buyer" and "Commercial Buyer"
+   identically, and telling those apart is the whole job of this column,
+   so the stored value is shown as stored. Everything else - the mono
+   face, the 10.5px, the letter-spacing, the border - is .tag's, because
+   a role here should read as the same kind of object it reads as
+   everywhere else. */
+.kc-role-tag {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  border: 1px solid var(--hairline-strong);
+  padding: 3px 8px;
+  display: inline-block;
+  overflow-wrap: anywhere;
+}
+
+/* A role the catalog does not carry yet. SAME SIZE, SAME COLOUR, SAME
+   WEIGHT: it is not a warning and not an error, it is a fact about the
+   deal that the catalog has not caught up with, and the escape valve is
+   how the catalog learns what to add. Only the border style differs. */
+.kc-role-tag--typed { border-style: dashed; }
+
+.kc-legend {
+  margin: 14px 0 0;
+  font-size: 12px;
+  color: var(--muted-2);
+}

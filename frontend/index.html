@@ -1607,6 +1607,33 @@
         </div>
       </div>
 
+      <!-- Key Customer Contacts (Round 35 Phase 3, 2026-08-27): READ ONLY in
+           this phase. Renders every record_contacts row on this Opportunity,
+           unfiltered, from the GET's own key_contacts. Adding, removing and
+           stance arrive in Phase 4.
+
+           FULL WIDTH BELOW THE THREE, NOT A FOURTH CARD IN .ref-cards. Phase
+           0 measured a fourth card at all three widths: at 1240 it pairs with
+           Key Dates and costs nothing until the list is long, at 3440 all
+           four fit, and AT 1920 IT STRANDS ITSELF on a second row with two
+           thirds of that row empty, because #view-opportunity-detail
+           .ref-cards resolves to three 420px tracks there. 1920 is the
+           common width, so the worst case is the usual one.
+
+           A list has no ceiling and the three cards above are each a known
+           height, which is the other half of the reason: a panel that grows
+           to eleven contacts inside a fixed-height row forces the row rather
+           than growing on its own. .ref-cards-wide already exists for exactly
+           this, minmax(420px, 1fr) with align-items:start, and with a single
+           child it resolves to one full-width track. Reused rather than
+           given a new rule. -->
+      <div class="ref-cards-wide">
+        <div class="pg-card">
+          <p class="pg-card-title">Key Customer Contacts</p>
+          <div id="ref-key-contacts"></div>
+        </div>
+      </div>
+
       <!-- Est. Close Date move: mandatory-reason dialogue (Round 3 Phase 3,
            2026-08-17), triggered automatically by saveRefFields
            (opportunity-reference.js) the moment Est. Close Date is among

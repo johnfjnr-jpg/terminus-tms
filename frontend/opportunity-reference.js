@@ -383,6 +383,68 @@ window.linkRefBuyer = async function (role) {
   await loadOpportunityDetail(refOpportunityId)
 }
 
+// ── Key Customer Contacts (Round 35 Phase 3, 2026-08-27) ─────────────
+// READ ONLY. Renders every record_contacts row on this Opportunity, from
+// the GET's own key_contacts, which is unfiltered. Adding, removing and
+// stance arrive in Phase 4.
+//
+// SHOWING EVERY ROW IS THE POINT, not a side effect of not having built
+// the filter yet. The four fixed slots filter to four title-cased strings,
+// so all four live opportunities carry a lowercase "commercial buyer" link
+// that has never appeared on screen. Nothing looked broken, so nothing was
+// reported, and Phase 2 measured what that cost: 2 of 4 distinct roles
+// across record_contacts are already split across more than one spelling.
+// A panel that hides what it cannot classify is how a vocabulary diverges
+// unnoticed.
+//
+// THE ROLE IS NOT UPPERCASED, and that is a deliberate departure from
+// .tag, which every other pill in this app uses. text-transform:uppercase
+// would render "commercial buyer" and "Commercial Buyer" identically,
+// which erases the exact difference this panel exists to show. The value
+// is displayed as it is stored.
+//
+// A TYPED ROLE IS NOT A LESSER FACT ABOUT THE DEAL. It is the same size,
+// the same colour and the same weight as a catalog role, and carries a
+// dashed border rather than a solid one. It is the record of a role the
+// catalog does not yet have, which is what tells admin what to add: the
+// escape valve is how the catalog learns, so treating it as an error
+// state would be backwards.
+function renderKeyContacts(opp) {
+  const el = document.getElementById('ref-key-contacts')
+  if (!el) return
+
+  const contacts = opp.key_contacts ?? []
+  if (!contacts.length) {
+    // Rendered only when the list is genuinely empty, so this is a slot
+    // rather than a sentence typed into the markup that stops being true
+    // when something is configured. Architecture rule 8's third variant.
+    el.innerHTML = '<p class="empty-state">No contacts linked to this Opportunity yet.</p>'
+    return
+  }
+
+  const rows = contacts.map(c => `
+    <div class="kc-row" data-contact-id="${escHtml(c.contact_id)}" data-in-catalog="${c.in_catalog}">
+      <span class="kc-name" tabindex="0" onclick="navigate('contact-detail','${escHtml(c.contact_id)}')"
+            onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();navigate('contact-detail','${escHtml(c.contact_id)}')}"
+        >${escHtml(c.name ?? c.contact_id)}</span>
+      <span class="kc-role"><span class="kc-role-tag${c.in_catalog ? '' : ' kc-role-tag--typed'}">${escHtml(c.role)}</span></span>
+      <span class="kc-when">${escHtml(formatDate(c.linked_at))}</span>
+    </div>`).join('')
+
+  // The legend is derived from the rows rather than always present: with
+  // nothing typed there is no convention to explain, and a legend for an
+  // absent treatment is a claim with a shelf life.
+  const typed = contacts.filter(c => !c.in_catalog).length
+  const legend = typed
+    ? `<p class="kc-legend">${typed} role${typed === 1 ? '' : 's'} here ${typed === 1 ? 'is' : 'are'} typed on this deal and not yet in the role catalog.</p>`
+    : ''
+
+  el.innerHTML = `
+    <div class="kc-head"><span>Contact</span><span>Role</span><span>Linked</span><span></span></div>
+    ${rows}
+    ${legend}`
+}
+
 function renderReferenceTab(opp) {
   refOpportunityId = opp.id
   refPayload = opp.payload ?? {}
@@ -469,6 +531,12 @@ function renderReferenceTab(opp) {
   // and same async-fetch-then-render shape as Test Bed's
   // renderTbBuyerRows (test-bed-detail.js).
   renderRefBuyerRows(opp)
+
+  // Key Customer Contacts (Round 35 Phase 3): read only, and synchronous -
+  // key_contacts arrives fully resolved on the GET, so unlike
+  // renderRefBuyerRows there is nothing to fetch and no load-token race to
+  // guard.
+  renderKeyContacts(opp)
 
   // estClose now renders through the same refFieldRow mechanism as every
   // other date field below (Round 3 Phase 3), just pulled out of
