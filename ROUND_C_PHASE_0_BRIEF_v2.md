@@ -343,3 +343,402 @@ on a nested field and would have returned zero however much residue existed.
 7. **Anything that cannot be built as stated.**
 
 Then stop and wait for sign-off.
+
+---
+
+# Phase 0 report
+
+Round 33, 2026-08-26. Branch `round-33-remaining-lenses`, cut from `main` at
+`afbddee` after the brief was committed. Server restarted from that tree, token
+refreshed.
+
+**No configuration changed.** Re-queried at the end: `scoring_criteria` 12 rows
+as before, `scoring_scale_levels` 5 of 7 carrying a description as before,
+`scoring_anchors` 85. Every probe in this phase was a **client-side injection
+into `oppCriteria`**, which goes through `renderOppAssessCriterion` unchanged
+and touches no table.
+
+**No earlier Round C brief exists.** Checked four ways before the brief was
+committed and reported then: no filename match in the working tree, no `*_v2*`
+file of any kind, no path matching `round_c` in 46 branches or all of history,
+and no markdown file carrying "remaining lenses" other than
+`OPPORTUNITY_DESIGN.md`. The instruction's superseded-brief line was itself the
+sixth instance of output item 7.
+
+---
+
+## I1. What a binary looks like in the Round 30 row
+
+**The injection is faithful.** The probe object was asserted to carry exactly
+the API's key set for a real criterion (`id, record_type, criterion_key, name,
+asks, sort_order, rescore_through_stage, scale_id, lens_id, levels, stages,
+anchors, current_version`), and it does.
+
+### The control
+
+| | Five-level | Binary |
+|---|---|---|
+| Level group | 453px | **179px, 40%** |
+| Segments | 103, 72, 106, 114, 61 | 101, 79 |
+| Row at 1240 / 1920 | 110 / 66 | 130 / 86 **when the name wraps**, 109 / 65 when it does not |
+
+**The 20px is the NAME, not the control.** Both probes carried a binary; the
+one that measured 130/86 was "Export control and licensing status" at 232px in
+a 230px slot. That is I4's problem appearing inside I1's, and it is worth
+separating because the obvious reading is that a binary row is taller.
+
+### The finding: a binary breaks the grid, but only in a lens that mixes
+
+Round 30's stated purpose for three fixed columns was that *every name starts
+at the same x, every level label ends at the same x, every control sits in the
+same place.* A 179px group in a row sized for 453px satisfies the first and
+breaks the other two.
+
+Measured at 1920, distinct left edges of the reason column within one lens:
+
+| Lens | Composition | Reason column starts at | |
+|---|---|---|---|
+| Organisational | 8 five-level | `[739]` | aligned |
+| **Technical** | **6 five-level, 1 binary** | **`[739, 465]`** | **broken, 274px apart** |
+| Legal | 8 binary | `[465]` | aligned, at a different x from the others |
+
+**Looked at, the Technical lens is the one that reads as a defect.** Six rows
+carry a joined five-segment bar ending at the same x with the reason beginning
+just after it; the seventh has two small chips and a reason field starting
+350px further left. It does not read as a different kind of criterion, it reads
+as a broken row.
+
+**Legal, all eight binary, reads perfectly well.** Two chips are legible as a
+control when every row has them. So the defect is not "binary in the row", it
+is **binary and five-level in the same lens**, which is exactly what Technical
+is and what Round 24 says Legal may also be.
+
+At 1240 the question does not arise: the reason wraps to its own line on every
+row, so all left edges read 0.
+
+### Unanchored
+
+Round B Phase 6's treatment holds unchanged for a binary: `data-unanchored`
+set, both inputs `disabled`, the reason cell `disabled`, and the level hover
+withheld. It is the state every one of these criteria is in between its
+`scoring_criteria` row and its anchors migration.
+
+### The vocabulary, and it is worse for a binary
+
+**The row says nothing at all for an unassessed criterion.** `OPP_ASSESS_NONE`
+is "Not assessed" and lives in the collapsed detail region's "This assessment"
+section, not on the row. Round 30 Phase 4's comment says the segments *"say a
+criterion is unassessed, but they say it by silence."*
+
+**Silence is legible against five levels and nearly illegible against two.**
+Nothing selected among Not applicable / Unknown / Our hypothesis / Buyer
+confirmed / Verified can only mean "no judgement". Nothing selected among **Not
+confirmed / Confirmed** means "no judgement" but reads as "not confirmed",
+which is a claim the record has not made. **The unassessed state and the
+negative state are one keystroke and no pixels apart.**
+
+That is a vocabulary problem the five-level scale does not have, and it is the
+same problem I3 raises from the other end.
+
+---
+
+## I2. The binary scale's descriptions, proposed not chosen
+
+**Live, read from `scoring_scale_levels` rather than from the migration:**
+
+| Value | Label | `reason_required` | `description` |
+|---|---|---|---|
+| 1 | Not confirmed | false | **NULL** |
+| 2 | Confirmed | false | **NULL** |
+
+Zero criteria point at this scale. The five-level scale has 5 of 5
+descriptions, so the null count is a measurement rather than a broken read.
+
+### The structural consequence nobody has named
+
+`wordingFor = anchorSet[l.value] ?? l.description ?? ''`.
+
+**Round 30's split works because the five-level scale has generic
+descriptions to fall back to.** It retired the middle three per-criterion
+anchors and the hover still says something, because the scale supplies it.
+
+**The binary scale supplies nothing.** A binary criterion without per-criterion
+anchors at both levels renders an empty hover box. So either the two
+descriptions get written, or **all nine binary criteria must carry
+per-criterion anchors at both levels, with no split available.**
+
+### Proposed wording, for the business to write or correct
+
+Offered because the brief asks for a proposal. **Not a decision.**
+
+| Value | Label | Proposed description |
+|---|---|---|
+| 1 | Not confirmed | *Not established, or established and negative* |
+| 2 | Confirmed | *Established as true, by a named source or a document* |
+
+The five-level set describes **who says so** and rises through it. A binary
+describes **whether it is settled**, so the proposal names the source at the
+positive end only, and deliberately makes level 1 carry two meanings, because
+the scale as configured has nowhere else to put them. **That doubling is the
+problem I3 describes, and it is why the wording proposal should not be settled
+before the I3 decision.**
+
+---
+
+## I3 and I5, one finding on two surfaces
+
+**Both are a set growing underneath a rule, and neither surface can see the
+other.**
+
+### The gate side, already recorded
+
+`OPPORTUNITY_DESIGN.md:750`: `assessment_current` resolves its set at
+evaluation time, so *"a rule requiring seven criteria after the Commercial lens
+is configured requires thirty-two once the remaining lenses land. A record that
+satisfied the gate one week fails the next, and nothing in `stage_gate_rules`
+will have changed to explain it."*
+
+**Zero such rows exist and none is inserted this round.** The property is now
+live in the sense that the set it would resolve over is about to quadruple.
+Measured: a rule written today against Qualification would resolve over **1**
+criterion in Commercial and **7** after this round.
+
+### The display side, new
+
+The rollup satisfies on Not applicable, Buyer confirmed or Verified. **A binary
+has no Not applicable.** Under the rule as it stands, `Confirmed` satisfies and
+`Not confirmed` does not, so a criterion that genuinely does not apply to a
+deal has nowhere to say so and **reads as unsatisfied for the life of the
+record.**
+
+Nine criteria are binary, and the ones most likely not to apply are exactly the
+Legal eight: export control on a domestic deal, local content on a deal with no
+offset regime, anti-corruption diligence on a deal with no intermediary.
+
+**A Legal rollup that can never reach 8 of 8 stops being read.** That is the
+same failure the criteria informed rather than gated to avoid, arriving through
+the display instead.
+
+### The recommendation
+
+**Yes, the binary scale should change before nine criteria are configured
+against it, and the cheapest correct change is a third level.**
+
+| Value | Label |
+|---|---|
+| 1 | Not applicable |
+| 2 | Not confirmed |
+| 3 | Confirmed |
+
+**Why a third level rather than a rule exception.** The satisfying set is
+already `{Not applicable, Buyer confirmed, Verified}` by value. Adding Not
+applicable at value 1 on the binary scale makes the existing rule correct for
+both scales with **no special case in `oppLensRollup`**, no second computation
+path, and the same word carrying the same meaning on both scales, which is what
+Architecture rule 3 asks for.
+
+**Why now rather than later.** `scoring_anchors` is append-only and a new level
+means every binary criterion needs an anchor at it. Nine criteria configured
+against a two-level scale and then migrated is nine `scoring_criteria` rows,
+eighteen anchors and a version bump; done first it is one migration and
+twenty-seven anchors written once.
+
+**Why this is a decision and not a build detail.** It renames the scale: a
+three-level "Binary confirmation" is not binary. Round 24 recorded *"binary
+criteria remain two-state"* as a decision, and this reverses it. It also
+reopens whether the ninth criterion, Technical's single binary, should be
+binary at all.
+
+**The counter-argument, stated fairly.** The doubled meaning could stay and
+"Not confirmed" could be read as "not established either way", with a reason
+carrying the nuance. That costs nothing now and makes every Legal rollup read
+short forever, and the business would be reading a number they know to be
+wrong. Round 26 chose a manual tick over a computed rollup precisely to avoid
+a number nobody trusts.
+
+---
+
+## I4. The panel at real counts
+
+**Per lens, per stage, once configured**, computed from the mapping below and
+measured in the live panel, identical at 1240, 1920 and 3440:
+
+| Stage | Commercial | Organisational | Technical | Legal |
+|---|---|---|---|---|
+| Qualification | 1 | 4 | 1 | 1 |
+| Solution Alignment | 6 | 8 | 7 | 7 |
+| Proposal, Evaluation, Negotiating | 7 | 8 | 7 | 8 |
+
+**No lens ever shows sixteen.** The brief asks whether the fraction still
+explains itself at sixteen criteria on one stage; sixteen is the count of new
+criteria introduced at Solution Alignment across all lenses, and **the largest
+any single lens reaches is eight**. `0 of 8` explains itself exactly as `0 of
+7` does.
+
+### Panel heights, re-measured rather than quoted
+
+Against the seven Commercial criteria measured live in the same run at 769px
+(1240) and 461px (1920 and 3440):
+
+| Lens | Criteria | 1240 | 1920 / 3440 |
+|---|---|---|---|
+| Commercial, today | 7 | 769 | 461 |
+| Organisational | 8, none wrapping | **879** (+110) | **527** (+66) |
+| Technical | 7, two wrapping | **809** (+40) | **501** (+40) |
+| Legal | 8, four wrapping | **959** (+190) | **607** (+146) |
+
+**Legal is the tallest panel** and 8 criteria alone do not explain it: 190px at
+1240 against Organisational's 110px for the same count. The difference is four
+wrapped names at 20px each.
+
+### The names, and six of them do not fit
+
+The criterion cell is 258px and the name gets **230px** of it. Measured in the
+row's own font:
+
+| Width | Name | Stage |
+|---|---|---|
+| **281px** | Anti-corruption and integrity due diligence | Solution Alignment |
+| 247px | Pilot or proof-of-concept requirement | Solution Alignment |
+| 241px | Local content or offset requirements | Solution Alignment |
+| 237px | Data and architecture requirements | Solution Alignment |
+| 236px | Procurement route and compliance | Qualification |
+| 232px | Export control and licensing status | Solution Alignment |
+
+**Six of twenty-three exceed 230px.** Today **zero of seven** do, and the
+widest live name is "Competition, including do-nothing" at 227px, which is what
+Round 30 sized the cell to. The widest new name is **54px wider than the cell
+was designed for**.
+
+Widening the cell to fit 281px costs 51px from the reason column at every
+width, on every row, for one criterion. Accepting the wrap costs 20px of height
+on six rows. **Neither is obviously right and the phase that configures Legal
+should decide it with the panel in front of it.**
+
+---
+
+## I6. What the design cannot express
+
+### 1. The brief never states which lens each criterion is in
+
+The lens table gives totals: Organisational 8, Technical 7, Legal 8. The stage
+allocation gives 23 names across three stages. **There is no join between
+them**, and Phases 3, 4 and 5 are named per lens.
+
+**It is derivable, but only by arithmetic and only with two guesses.** Legal's
+eight are nameable with confidence. Organisational must take 4 of the 10
+remaining Solution Alignment names and Technical 6, which forces **"Decision
+criteria" into Technical**, where it reads oddly. And Technical's single binary
+is not identified anywhere; "Pilot or proof-of-concept requirement" is the only
+plausible candidate.
+
+Every measurement above uses that derived mapping. **It should be confirmed
+before Phase 3, not assumed.**
+
+### 2. Round 24 and this brief disagree about Legal
+
+`DEAL_ASSESSMENT_PHASE_0_BRIEF.md:112`: *"Six of the Legal seven are binary."*
+Seven Legal criteria, one of them not binary.
+
+This brief: Legal 8, **0 evidence-state, 8 binary**.
+
+**Both cannot be true**, and the difference is exactly the criterion that would
+make Legal a mixed lens, which I1 shows is the only composition that breaks the
+grid. If Round 24 is right, Legal breaks the same way Technical does and Phase
+5 inherits Phase 2's fix; if this brief is right, Legal is safe and only
+Technical needs it.
+
+### 3. Round 24 defers a value on three binary criteria
+
+`DEAL_ASSESSMENT_PHASE_0_BRIEF.md:149`: *"Three binary criteria carry an answer
+as well as a confirmation: procurement route is open tender or sole source or
+framework, data residency is PDPA or GDPR or local."*
+
+This round's non-goals put the value beyond Budget confirmed out of scope,
+which is right. **Recorded because two of those three are being configured this
+round**, and the deferral is easier to honour deliberately than to rediscover.
+
+### 4. The brief's own output numbering is off by one
+
+I6 says *"Output item 6 has caught the brief's central premise being wrong"*
+while the output list makes item 6 the phase plan and item 7 the premise check.
+Round 32's brief had the same off-by-one in the same place. Harmless, and worth
+one line because it is now twice.
+
+### 5. "Champion identified", as the brief instructs, reported not resolved
+
+Round 26 moved it from Solution Alignment to Qualification and the spreadsheet
+was never updated. This brief places it at Qualification, consistent with Round
+26 and with `DEAL_ASSESSMENT_PHASE_0_BRIEF.md:108`. **The discrepancy is with
+the spreadsheet only**, and it is reported rather than resolved.
+
+---
+
+## The anchor row count, before anything is written
+
+| | Criteria | Per criterion | Rows |
+|---|---|---|---|
+| Evidence-state, all five levels per criterion | 14 | 5 | 70 |
+| Evidence-state, Round 30's split | 14 | 2 | **28** |
+| Binary, **no split available** | 9 | 2 | **18** |
+| Binary, if a third level is added | 9 | 3 | 27 |
+
+**Minimum as the scales stand: 46 rows.** Maximum without the split: 88.
+
+**The nine binary rows are not optional**, whichever way the split question
+goes, because the binary scale has no generic descriptions to fall back on.
+That is the asymmetry to carry into Phase 1: writing the two scale descriptions
+is what would make a split possible at all.
+
+---
+
+## The phase plan
+
+The brief's shape survives with **one insertion and one reordering**, and both
+follow from I1 and I3.
+
+| Phase | Content |
+|---|---|
+| 0 | This investigation |
+| **1** | **The binary scale: the Not applicable decision, then its descriptions** |
+| **2** | **The row: one control width, so a mixed lens keeps its grid** |
+| 3 | Organisational configured, 8 criteria, 0 binary |
+| 4 | Technical configured, 7 criteria, 1 binary, the mixed lens |
+| 5 | Legal configured, 8 criteria, 8 binary |
+| 6 | Full walk and close-out |
+
+**Phase 1 grows to carry the I3 decision**, because the scale's shape must be
+settled before its wording is written: a third level changes what level 1 says.
+The brief had Phase 1 as wording alone.
+
+**Phase 2 is now a fix rather than a look.** The brief framed it as *"a binary
+criterion in the row"* with *"if I1 shows a binary reads badly, Phase 2 grows"*.
+I1 shows it reads badly in exactly one composition, and the repair is a width
+on `.opp-assess-levels` so a two-segment group occupies the column a
+five-segment one does. That is small, and it must land before Phase 4.
+
+**Phases 3, 4 and 5 are not identical work and should not merge.** Phase 3 is
+eight ordinary criteria and is the one to establish the anchor drafting rhythm
+on. Phase 4 is the only mixed lens and is where Phase 2's fix is proven. Phase
+5 is eight binaries, four wrapped names, and the tallest panel in the
+application.
+
+**Ordering unchanged: Legal last.** The brief's reason holds and I1 strengthens
+it.
+
+---
+
+## Anything that cannot be built as stated
+
+1. **Phases 3, 4 and 5 cannot start without the lens mapping**, which the brief
+   does not contain. Derived above; confirm before Phase 3.
+2. **The Legal binary count is contradicted by Round 24.** Eight of eight, or
+   seven with one evidence-state. It changes whether Legal is a mixed lens.
+3. **The binary scale cannot express "not applicable"**, and under the rollup
+   rule that is not a gap in wording but a rollup that can never complete.
+   Recommended above; it is the business's decision.
+4. **A binary criterion cannot use Round 30's anchor split**, because the scale
+   has no generic descriptions. Eighteen anchors are mandatory unless Phase 1
+   writes the two descriptions first.
+5. **Six of twenty-three names do not fit the criterion cell.** Not a blocker;
+   a decision between 51px of reason column and 20px of height on six rows.
