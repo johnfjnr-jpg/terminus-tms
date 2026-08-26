@@ -4104,8 +4104,20 @@ wording, was unavailable to it.**
 
 With the descriptions written the split works: measured on a probe criterion
 carrying anchors at 1 and 4 only, hovering Not confirmed reads *"Not confirmed,
-the requirement is open or unmet"* from the scale. **Nine criteria therefore
-need eighteen anchors rather than twenty-seven.**
+the requirement is open or unmet"* from the scale.
+
+**CORRECTED IN PHASE 3: the sentence above described Round 30's split as
+something that had happened, and it has not.** Phase 1 wrote that claim into
+this document, inherited from Round C's brief, which inherited it from Round
+31's brief, which stated that "Round 30's retirement decision kept 15". Read
+from the live table in Phase 3, **all seven Commercial criteria carry anchors
+at all five scores, at both versions**: 35 rows at version 2, not 14. Round 31
+Phase 2 reversioned all 35 and its own report says so, so the data was never
+wrong. The claim about the data was.
+
+**The split is a capability, not a precedent.** It works, it is now available
+on both scales, and it has never been used. See the anchor-drafting decision
+below.
 
 **The wording is a proposal the business corrects**, under the standing rule
 recorded for the Commercial seven: code can write it, the business judges it in
@@ -4117,3 +4129,30 @@ so its wording names the requirement rather than the source of belief.
 on all three levels. Whether Not confirmed should require a reason the way
 Unknown does on the evidence scale is a business decision this phase did not
 take.
+
+### Six criterion names wrap, and the cell is not widened
+
+Round 33 Phase 2, decided rather than deferred.
+
+Six of Round C's twenty-three names exceed the 230px the criterion cell gives a
+name, the widest being "Anti-corruption and integrity due diligence" at 281px
+against a cell Round 30 sized to the 227px of the longest name of that day.
+
+**Measured at 1240, the binding width: the cell can grow by exactly 51px before
+the value cell is forced off the line, and the widest name needs exactly 51px.**
+
+**That is a coincidence, not a fit, and it is why the cell is not widened.** A
+cell that exactly accommodates today's longest name has no slack, and no slack
+is the condition that produced this problem in the first place: 258px was
+exactly right for the seven names that existed in Round 30. **Twenty-five more
+criteria are the visible future**, between Round D's creation checks and
+whatever follows, so spending the last pixel now buys one round.
+
+**Accepted instead: the wrap.** Six rows are 20px taller. Measured on the Legal
+lens, four wrapped names take the panel from 769px to 959px at 1240, against
+879px for eight unwrapped ones. The cost is height on a panel that scrolls,
+against a column that breaks on the next name added.
+
+**The alternative left open is shortening the names**, which is the business's
+to take and only genuinely helps one: "Anti-corruption and integrity due
+diligence" is 51px over and the other five are between 2px and 17px over.

@@ -233,6 +233,34 @@ not resolve it quietly.
    shelf life. Prefer deriving it, and where it must be a literal, expect
    it to rot and re-read it when the configuration it describes changes.**
 
+   **A MIGRATION CAN INVALIDATE A STRING, AND NOTHING IN THE CODEBASE CAN
+   FLAG IT.** Round 33 Phase 2, 2026-08-26. The fourth variant, and the only
+   one where the change and the thing it breaks are in different
+   repositories of meaning: the first three are code built for a screen that
+   changed, a rule built for a state that changed, and a literal that was
+   true when typed. **This is a DATA ROW changing under a string that was
+   correct when written.**
+
+   `score-entry.js` refused a blank reason with `a reason is required at
+   ${label}, naming what is missing`. That was true while exactly one scaled
+   level required a reason, Unknown, where a gap is what a reason explains.
+   A migration then set `reason_required` on a confirmation scale's
+   **Confirmed** level, because the business wants the licence reference
+   recorded, and the message began telling a scorer confirming a requirement
+   to name what was missing.
+
+   **No line of code changed. No test could fail. `git log -S` on the string
+   returns the commit that wrote it and nothing since**, because nothing
+   since touched it. The only trace is in a migration that never mentions
+   the file.
+
+   **The check: when a migration changes configuration that code branches
+   on, grep the code for strings that describe the OLD configuration.** The
+   branch itself will be correct, because it reads the data; the prose
+   around it will not be, because it was written when the data said
+   something else. `reason_required`, `is_terminal`, `required`, and any
+   enum a message names in words are where this lives.
+
 9. **A destructuring parameter list is an allowlist that gives no feedback
    when it excludes something.** `function f({ a, b })` accepts a call
    passing `c` and silently discards it. The options object **reads as
