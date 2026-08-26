@@ -3625,9 +3625,37 @@ input.input-invalid {
    padding until a particular string fits. The strings in the fixture are ones
    this round invented; tuning a control to them would be fitting the design to
    the test data. */
+/* Round 33 Phase 2: THE LEVEL GROUP IS A COLUMN, which is what Round 30 said
+   it was and what `flex: 0 0 auto` stopped it being the moment a second scale
+   existed.
+
+   Round 30's note on `.opp-assess-crit` states the rule: "Three fixed columns
+   are what make seven criteria read as a grid: every name starts at the same
+   x, every level label ends at the same x, every control sits in the same
+   place." Content-sized, this column keeps the first promise and breaks the
+   other two as soon as two scales share a lens. Measured at 1920 on the
+   Technical lens, six five-level rows put their reason at x=739 and the one
+   three-level row at x=465.
+
+   MIN-WIDTH RATHER THAN A FIXED WIDTH, and the difference is what happens to a
+   scale nobody has built yet. Fixed, a scale wider than the column overflows
+   the row. As a floor, it grows and the alignment degrades visibly for that
+   lens only. A wrong layout is worse than a misaligned one, and the misaligned
+   one is the defect this phase already knows how to see.
+
+   THE NUMBER IS A MEASUREMENT AND IT WILL ROT. 453px is the rendered width of
+   the five-level group with its current labels, taken from the live panel at
+   all three widths. It is the same kind of literal as the 258px on
+   `.opp-assess-crit`, which Round 30 derived from the widest name of the day
+   and which six of Round C's twenty-three names now exceed. Renaming a level
+   moves this number, and nothing in the automated suite measures rendered
+   width, so the guard is that the two are declared together and this note says
+   how to re-derive it. */
+.opp-assess-criterion { --opp-levels-w: 453px; }
 .opp-assess-levels {
   display: flex;
   flex: 0 0 auto;
+  min-width: var(--opp-levels-w);
   padding-top: 3px;
 }
 .opp-assess-level-input {
