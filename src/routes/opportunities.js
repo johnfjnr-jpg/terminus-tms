@@ -345,6 +345,62 @@ export default async function opportunitiesRoutes(app) {
       return reply.code(404).send({ error: 'not found' })
     }
 
+    // ── Round 34 Phase 2: the two date orderings ──────────────────────────
+    //
+    // A deal cannot go live before it closes. The business set both directions
+    // of that one constraint: Actual Go Live cannot precede Actual Close, and
+    // Est Go Live cannot precede Est Close. ACTUAL-VERSUS-ESTIMATE PAIRS ARE
+    // DELIBERATELY UNCONSTRAINED, because beating a forecast is not an error.
+    //
+    // The shape is Round 15 Phase 1's on Test Bed, which this mirrors rather
+    // than reinvents: guarded on the SUBMITTED keys so a save touching no date
+    // is never checked, read from the MERGED values because the violation is
+    // reachable from either end, and a record already violating stays saveable
+    // for anything else while any edit touching a date must leave the pair
+    // valid.
+    //
+    // THIS READ IS NOT THE ONE ROUND 17A REMOVED, and the difference is what
+    // makes it safe. That read built the payload that got WRITTEN, so a failed
+    // fetch looked like "no existing payload" and a save wiped every field down
+    // to the submitted keys. This one feeds a VALIDATION and nothing else: it
+    // is never merged into the write, and its error is checked and refused, so
+    // "could not find out" can never be mistaken for "nothing there".
+    //
+    // It costs one round trip, and only on a save that touches a date.
+    const DATE_ORDER_KEYS = ['actualClose', 'actualGoLive', 'estGoLive']
+    if (DATE_ORDER_KEYS.some(k => k in payload)) {
+      const [revRowResult, detailsResult] = await Promise.all([
+        db.from('record_revisions').select('payload')
+          .eq('record_id', record.id).order('revision_number', { ascending: false })
+          .limit(1).maybeSingle(),
+        db.from('opportunity_details').select('forecast_close_date')
+          .eq('record_id', record.id).maybeSingle(),
+      ])
+      if (revRowResult.error) {
+        request.log.error({ err: revRowResult.error }, 'failed to load current revision for date ordering')
+        return reply.code(500).send({ error: revRowResult.error.message })
+      }
+      if (detailsResult.error) {
+        request.log.error({ err: detailsResult.error }, 'failed to load forecast close date for date ordering')
+        return reply.code(500).send({ error: detailsResult.error.message })
+      }
+      const merged = { ...(revRowResult.data?.payload ?? {}), ...payload }
+      // Est. Close Date is not a payload key: it is opportunity_details
+      // .forecast_close_date, written through close-date-move. So this rule
+      // spans two endpoints, and the other half lives in that handler.
+      const estClose = detailsResult.data?.forecast_close_date ?? null
+
+      // THE MESSAGES NAME THE LABELS a user sees, not the payload keys, which
+      // is the one thing Round 15's own comment says it fixed here and left
+      // unfixed in seven other messages across this file.
+      if (merged.actualClose && merged.actualGoLive && merged.actualGoLive < merged.actualClose) {
+        return reply.code(400).send({ error: 'Actual Go Live cannot be before Actual Close Date' })
+      }
+      if (estClose && merged.estGoLive && merged.estGoLive < estClose) {
+        return reply.code(400).send({ error: 'Est. Go Live cannot be before Est. Close Date' })
+      }
+    }
+
     // Round 17A Phase 1: the read that stood here existed only to build the
     // merge, which now happens inside the write. The response still needs the
     // resulting revision number and merged payload, and the function returns
@@ -422,6 +478,23 @@ export default async function opportunitiesRoutes(app) {
 
     if (!revRowResult.data) {
       return reply.code(404).send({ error: 'not found' })
+    }
+
+    // Round 34 Phase 2: the other end of "Est Go Live cannot precede Est
+    // Close". Moving the close date LATER than a stored go-live date is the
+    // same violation approached from the other side, and this endpoint is the
+    // only way that field moves.
+    //
+    // THE SAME MESSAGE either way, because it is one constraint. Test Bed
+    // states its equivalent once for both directions and a user who reads two
+    // different sentences for one rule has to work out that they are the same
+    // rule.
+    //
+    // No extra read: this handler already loads both the forecast date and the
+    // latest revision, for the move note and the counter.
+    const existingGoLive = (revRowResult.data?.payload ?? {}).estGoLive
+    if (existingGoLive && existingGoLive < date) {
+      return reply.code(400).send({ error: 'Est. Go Live cannot be before Est. Close Date' })
     }
 
     const oldDate = oppDetailsResult.data?.forecast_close_date ?? 'not set'
