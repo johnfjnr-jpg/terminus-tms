@@ -89,7 +89,30 @@ export default async function opportunitiesRoutes(app) {
           .order('revision_number', { ascending: false })
           .limit(1)
           .maybeSingle()
-        account = { id: acctRec.id, name: acctRev?.payload?.name ?? null }
+        // Round 34 Phase 5: the account's SHIPPING address travels with the
+        // name, and it costs nothing: this handler already reads the account's
+        // latest revision payload to get the name.
+        //
+        // IT IS RETURNED, NEVER COPIED. The proposal address on an Opportunity
+        // is a flag saying "this deal uses the account's address", so the panel
+        // renders the account's current value rather than a snapshot taken when
+        // somebody ticked a box. A copy would go stale the day the account
+        // moves and nothing would say so.
+        //
+        // SHIPPING rather than billing, confirmed with the business: shipping
+        // is the delivery address, and the separate-PO-box case is what the
+        // override exists for.
+        const ap = acctRev?.payload ?? {}
+        account = {
+          id: acctRec.id,
+          name: ap.name ?? null,
+          shippingAddress: ap.shippingAddress ?? null,
+          shippingAddress2: ap.shippingAddress2 ?? null,
+          shippingCity: ap.shippingCity ?? null,
+          shippingPostcode: ap.shippingPostcode ?? null,
+          shippingCountry: ap.shippingCountry ?? null,
+          shippingRegion: ap.shippingRegion ?? null,
+        }
       }
     }
 
@@ -183,6 +206,21 @@ export default async function opportunitiesRoutes(app) {
     // the panel can offer them; without this the fields would render, accept
     // a value, and be refused by the allowlist on save.
     'region', 'country',
+    // Round 34 Phase 5: the proposal address becomes six fields matching the
+    // Account, plus the flag that says to use the account's instead.
+    //
+    // A DELIBERATE EXCEPTION to this round's organising principle, recorded as
+    // one rather than left to read as drift. Everything else here converges on
+    // Test Bed, and Test Bed's Site Address is ONE line plus a city because a
+    // test bed is one deployment at one place. An Opportunity's proposal
+    // address is a company's address, so it takes the Account's six-field
+    // shape. The business overruled "consistent with Test Bed" on this field
+    // and this is their reasoning.
+    //
+    // commAddress is unchanged and becomes line 1, so the one live record
+    // carrying a value keeps it.
+    'commAddress2', 'commCity', 'commPostcode', 'commCountry', 'commRegion',
+    'commAddressSameAsAccount',
     // Round 20 Phase 5: the exit-criteria fields the new gate rules name.
     // A gate whose field cannot be written is not a gate, it is a wall, so
     // these land in the same change as the rules that require them. There

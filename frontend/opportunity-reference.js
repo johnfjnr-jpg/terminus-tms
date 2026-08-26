@@ -90,10 +90,39 @@ const TERMINUS_FIELDS = [
 // already linked to this Opportunity's Account, direct port of Test
 // Bed's existing Client Buyer mechanism (test-bed-detail.js), not the
 // full mandatory-core/admin-catalog/escape-valve model.
+// Round 34 Phase 5: Client Lead, and the proposal address as SIX fields.
+//
+// "Client Lead" matches Test Bed, and like every other rename this round it is
+// DISPLAY ONLY: the stored key is still `customerLead`.
+//
+// SIX FIELDS IS A DELIBERATE EXCEPTION to this round's converge-on-Test-Bed
+// principle, and it is recorded as one so a later reader does not repair it.
+// Test Bed's Site Address is one line and a city because a test bed is one
+// deployment at one place. An Opportunity's proposal address is a company's
+// address, so it takes the Account's shape instead. The business overruled
+// "consistent with Test Bed" here and the reasoning is theirs.
+//
+// The suffixes and their order match ACCT_ADDRESS_SUFFIXES in
+// account-detail.js exactly, because the whole point is that one can stand in
+// for the other. Region reuses the same option list.
+//
+// commAddress keeps its key and becomes line 1, so the one live record
+// carrying a value keeps it.
 const CUSTOMER_FIELDS = [
-  { key: 'customerLead', label: 'Customer Lead' },
-  { key: 'commAddress', label: 'Commercial Address for Proposal' },
+  { key: 'customerLead', label: 'Client Lead' },
 ]
+const PROPOSAL_ADDRESS_FIELDS = [
+  { key: 'commAddress', label: 'Address Line 1' },
+  { key: 'commAddress2', label: 'Address Line 2' },
+  { key: 'commCity', label: 'City' },
+  { key: 'commPostcode', label: 'Postcode / Zip' },
+  { key: 'commCountry', label: 'Country' },
+  { key: 'commRegion', label: 'Region', options: REF_REGION_OPTIONS },
+]
+const SAME_AS_ACCOUNT_KEY = 'commAddressSameAsAccount'
+// The account's six, in the order the six above expect them.
+const ACCOUNT_SHIPPING_KEYS = ['shippingAddress', 'shippingAddress2', 'shippingCity',
+  'shippingPostcode', 'shippingCountry', 'shippingRegion']
 // Role strings match this endpoint's own VALID_OPPORTUNITY_BUYER_ROLES
 // (src/routes/opportunities.js) exactly, and the field labels these
 // replaced, so nothing else about the panel's layout changes.
@@ -128,12 +157,86 @@ const SUMMARY_FIELD = { key: 'summary', label: 'Executive Summary' }
 // openRefField's generic `ref-display-${key}` lookup with no changes to
 // that function needed).
 const NAME_FIELD = { key: 'name', label: 'Opportunity Name' }
-const ALL_EDITABLE_FIELDS = [NAME_FIELD, ...TERMINUS_FIELDS, ...CUSTOMER_FIELDS, ...DATE_FIELDS, OPPTYPE_FIELD, SUMMARY_FIELD]
+const ALL_EDITABLE_FIELDS = [NAME_FIELD, ...TERMINUS_FIELDS, ...CUSTOMER_FIELDS,
+  ...PROPOSAL_ADDRESS_FIELDS, ...DATE_FIELDS, OPPTYPE_FIELD, SUMMARY_FIELD]
 
 // Round 34 Phase 4: held here rather than read from `opp` inside the render,
 // because renderReferenceTab is the only place that has the record and the
 // rows are built from module state everywhere else.
 let refOppReference = null
+
+// Round 34 Phase 5: the account, held for the proposal address.
+let refAccount = null
+
+// Does the linked account actually have a shipping address to stand in for?
+function accountHasShipping() {
+  return ACCOUNT_SHIPPING_KEYS.some(k => String(refAccount?.[k] ?? '').trim())
+}
+
+// A FLAG, NOT COPIED VALUES, and the business's own phrasing decided it.
+//
+// "Same as account" is a relationship, not a default. A copy fills the six
+// fields once and then diverges silently the day the account moves, and nothing
+// on either screen would say the deal is quoting an old address. A flag stays
+// true, so the panel renders whatever the account says today.
+//
+// It costs nothing to read: GET /opportunities/:id already loaded the account's
+// latest revision payload for its name, and now returns the shipping fields
+// from the same read.
+//
+// WHEN THE ACCOUNT HAS NO ADDRESS, which is five of six live accounts, the tick
+// is still allowed and the rows are replaced by a line saying so with a link to
+// the account. The three options were: render six blanks, which is
+// indistinguishable from a broken panel and is the shape Round 31 Phase 1 spent
+// a phase removing; disable the tick, which stops somebody recording the
+// intention before the account is filled in; or say it and point at the place
+// to fix it. The business's own instruction settles the last part - the account
+// address is edited on the account, not from here.
+function renderProposalAddress() {
+  const on = !!refEffective(SAME_AS_ACCOUNT_KEY)
+  const tick = `
+  <div class="ref-field" data-key="${SAME_AS_ACCOUNT_KEY}">
+    <div class="ref-field-label"><span>Proposal Address</span></div>
+    <label class="ref-same-as-account">
+      <input type="checkbox" id="ref-input-${SAME_AS_ACCOUNT_KEY}"${on ? ' checked' : ''}
+             onchange="toggleRefSameAsAccount(this.checked)">
+      <span>Same as account</span>
+    </label>
+  </div>`
+  if (!on) {
+    return tick + PROPOSAL_ADDRESS_FIELDS
+      .map(f => refFieldRow(f.key, f.label, refPayload[f.key], { options: f.options })).join('')
+  }
+  if (!accountHasShipping()) {
+    return tick + `
+  <div class="ref-field">
+    <div class="ref-field-label"><span></span></div>
+    <div class="ref-empty-inline">This account has no shipping address.
+      <a href="#" onclick="navigate('account-detail','${escHtml(refAccount?.id ?? '')}');return false">Add it on the account</a>.</div>
+  </div>`
+  }
+  return tick + PROPOSAL_ADDRESS_FIELDS
+    .map((f, i) => refReadonlyRow(f.label, refAccount?.[ACCOUNT_SHIPPING_KEYS[i]] ?? null)).join('')
+}
+
+// The tick rides the same batched save as every other field: it writes into
+// refEdits, so the tab-row controls appear and Save sends it with the rest.
+window.toggleRefSameAsAccount = function (checked) {
+  const orig = !!refPayload[SAME_AS_ACCOUNT_KEY]
+  if (checked === orig) delete refEdits[SAME_AS_ACCOUNT_KEY]
+  else refEdits[SAME_AS_ACCOUNT_KEY] = { draft: checked, orig }
+  // Re-render only this card: the rows it shows depend on the flag.
+  document.getElementById('ref-customer-rows').innerHTML =
+    refReadonlyRow('Account', refAccount?.name || 'Not linked')
+    + CUSTOMER_FIELDS.map(f => refFieldRow(f.key, f.label, refPayload[f.key])).join('')
+    + renderProposalAddress()
+  updateRefEditBar()
+}
+
+// The drafted value where there is one, the stored value otherwise.
+function refEffective(key) {
+  return key in refEdits ? refEdits[key].draft : refPayload[key]
+}
 
 function refFieldLabel(key) {
   return ALL_EDITABLE_FIELDS.find(f => f.key === key)?.label ?? key
@@ -355,9 +458,11 @@ function renderReferenceTab(opp) {
   // is gone. "Not linked" for the unset case (a legacy Opportunity
   // created before auto-population existed) - honest placeholder, never
   // an error.
+  refAccount = opp.account ?? null
   document.getElementById('ref-customer-rows').innerHTML =
     refReadonlyRow('Account', opp.account?.name || 'Not linked')
     + CUSTOMER_FIELDS.map(f => refFieldRow(f.key, f.label, refPayload[f.key])).join('')
+    + renderProposalAddress()
 
   // Buyer Roles (Round 3 Phase 3): record_contacts-backed, not part of
   // the generic refPayload rows above - own render pass, same reasoning
