@@ -89,7 +89,30 @@ export default async function opportunitiesRoutes(app) {
           .order('revision_number', { ascending: false })
           .limit(1)
           .maybeSingle()
-        account = { id: acctRec.id, name: acctRev?.payload?.name ?? null }
+        // Round 34 Phase 5: the account's SHIPPING address travels with the
+        // name, and it costs nothing: this handler already reads the account's
+        // latest revision payload to get the name.
+        //
+        // IT IS RETURNED, NEVER COPIED. The proposal address on an Opportunity
+        // is a flag saying "this deal uses the account's address", so the panel
+        // renders the account's current value rather than a snapshot taken when
+        // somebody ticked a box. A copy would go stale the day the account
+        // moves and nothing would say so.
+        //
+        // SHIPPING rather than billing, confirmed with the business: shipping
+        // is the delivery address, and the separate-PO-box case is what the
+        // override exists for.
+        const ap = acctRev?.payload ?? {}
+        account = {
+          id: acctRec.id,
+          name: ap.name ?? null,
+          shippingAddress: ap.shippingAddress ?? null,
+          shippingAddress2: ap.shippingAddress2 ?? null,
+          shippingCity: ap.shippingCity ?? null,
+          shippingPostcode: ap.shippingPostcode ?? null,
+          shippingCountry: ap.shippingCountry ?? null,
+          shippingRegion: ap.shippingRegion ?? null,
+        }
       }
     }
 
@@ -177,6 +200,27 @@ export default async function opportunitiesRoutes(app) {
     // path, this one included.
     'lead', 'commercial', 'technical', 'legal',
     'customerLead', 'commAddress',
+    // Round 34 Phase 4: region and country, which Test Bed has carried as
+    // ordinary payload keys since Milestone 4 and Opportunity has never had.
+    // Converging the Terminus Details panel needs them writable here before
+    // the panel can offer them; without this the fields would render, accept
+    // a value, and be refused by the allowlist on save.
+    'region', 'country',
+    // Round 34 Phase 5: the proposal address becomes six fields matching the
+    // Account, plus the flag that says to use the account's instead.
+    //
+    // A DELIBERATE EXCEPTION to this round's organising principle, recorded as
+    // one rather than left to read as drift. Everything else here converges on
+    // Test Bed, and Test Bed's Site Address is ONE line plus a city because a
+    // test bed is one deployment at one place. An Opportunity's proposal
+    // address is a company's address, so it takes the Account's six-field
+    // shape. The business overruled "consistent with Test Bed" on this field
+    // and this is their reasoning.
+    //
+    // commAddress is unchanged and becomes line 1, so the one live record
+    // carrying a value keeps it.
+    'commAddress2', 'commCity', 'commPostcode', 'commCountry', 'commRegion',
+    'commAddressSameAsAccount',
     // Round 20 Phase 5: the exit-criteria fields the new gate rules name.
     // A gate whose field cannot be written is not a gate, it is a wall, so
     // these land in the same change as the rules that require them. There
@@ -345,6 +389,62 @@ export default async function opportunitiesRoutes(app) {
       return reply.code(404).send({ error: 'not found' })
     }
 
+    // ── Round 34 Phase 2: the two date orderings ──────────────────────────
+    //
+    // A deal cannot go live before it closes. The business set both directions
+    // of that one constraint: Actual Go Live cannot precede Actual Close, and
+    // Est Go Live cannot precede Est Close. ACTUAL-VERSUS-ESTIMATE PAIRS ARE
+    // DELIBERATELY UNCONSTRAINED, because beating a forecast is not an error.
+    //
+    // The shape is Round 15 Phase 1's on Test Bed, which this mirrors rather
+    // than reinvents: guarded on the SUBMITTED keys so a save touching no date
+    // is never checked, read from the MERGED values because the violation is
+    // reachable from either end, and a record already violating stays saveable
+    // for anything else while any edit touching a date must leave the pair
+    // valid.
+    //
+    // THIS READ IS NOT THE ONE ROUND 17A REMOVED, and the difference is what
+    // makes it safe. That read built the payload that got WRITTEN, so a failed
+    // fetch looked like "no existing payload" and a save wiped every field down
+    // to the submitted keys. This one feeds a VALIDATION and nothing else: it
+    // is never merged into the write, and its error is checked and refused, so
+    // "could not find out" can never be mistaken for "nothing there".
+    //
+    // It costs one round trip, and only on a save that touches a date.
+    const DATE_ORDER_KEYS = ['actualClose', 'actualGoLive', 'estGoLive']
+    if (DATE_ORDER_KEYS.some(k => k in payload)) {
+      const [revRowResult, detailsResult] = await Promise.all([
+        db.from('record_revisions').select('payload')
+          .eq('record_id', record.id).order('revision_number', { ascending: false })
+          .limit(1).maybeSingle(),
+        db.from('opportunity_details').select('forecast_close_date')
+          .eq('record_id', record.id).maybeSingle(),
+      ])
+      if (revRowResult.error) {
+        request.log.error({ err: revRowResult.error }, 'failed to load current revision for date ordering')
+        return reply.code(500).send({ error: revRowResult.error.message })
+      }
+      if (detailsResult.error) {
+        request.log.error({ err: detailsResult.error }, 'failed to load forecast close date for date ordering')
+        return reply.code(500).send({ error: detailsResult.error.message })
+      }
+      const merged = { ...(revRowResult.data?.payload ?? {}), ...payload }
+      // Est. Close Date is not a payload key: it is opportunity_details
+      // .forecast_close_date, written through close-date-move. So this rule
+      // spans two endpoints, and the other half lives in that handler.
+      const estClose = detailsResult.data?.forecast_close_date ?? null
+
+      // THE MESSAGES NAME THE LABELS a user sees, not the payload keys, which
+      // is the one thing Round 15's own comment says it fixed here and left
+      // unfixed in seven other messages across this file.
+      if (merged.actualClose && merged.actualGoLive && merged.actualGoLive < merged.actualClose) {
+        return reply.code(400).send({ error: 'Actual Go Live cannot be before Actual Close Date' })
+      }
+      if (estClose && merged.estGoLive && merged.estGoLive < estClose) {
+        return reply.code(400).send({ error: 'Est. Go Live cannot be before Est. Close Date' })
+      }
+    }
+
     // Round 17A Phase 1: the read that stood here existed only to build the
     // merge, which now happens inside the write. The response still needs the
     // resulting revision number and merged payload, and the function returns
@@ -422,6 +522,23 @@ export default async function opportunitiesRoutes(app) {
 
     if (!revRowResult.data) {
       return reply.code(404).send({ error: 'not found' })
+    }
+
+    // Round 34 Phase 2: the other end of "Est Go Live cannot precede Est
+    // Close". Moving the close date LATER than a stored go-live date is the
+    // same violation approached from the other side, and this endpoint is the
+    // only way that field moves.
+    //
+    // THE SAME MESSAGE either way, because it is one constraint. Test Bed
+    // states its equivalent once for both directions and a user who reads two
+    // different sentences for one rule has to work out that they are the same
+    // rule.
+    //
+    // No extra read: this handler already loads both the forecast date and the
+    // latest revision, for the move note and the counter.
+    const existingGoLive = (revRowResult.data?.payload ?? {}).estGoLive
+    if (existingGoLive && existingGoLive < date) {
+      return reply.code(400).send({ error: 'Est. Go Live cannot be before Est. Close Date' })
     }
 
     const oldDate = oppDetailsResult.data?.forecast_close_date ?? 'not set'

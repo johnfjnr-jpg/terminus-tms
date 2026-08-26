@@ -1487,7 +1487,28 @@
            appends them, so this block would end up before them. That function
            re-appends this container after generating, which is one line and
            keeps the position declarative here. -->
+      <!-- Round 34 Phase 3: Cancel and Save join the record actions here,
+           replacing the ref-edit-bar banner that sat above the cards.
+
+           THE BANNER MOVED THE CONTENT IT EDITED. It was in the flow above
+           .ref-cards and un-hid the moment any field was OPENED, so clicking a
+           field pushed the whole panel down 76px, taking the field out from
+           under the pointer that had just clicked it.
+
+           Test Bed had exactly this and fixed it twice. Round 5 Phase 5 gated
+           its bar on dirtyCount rather than on whether a field was open, and
+           recorded the principle: opening a field and leaving it unchanged
+           should have zero visible effect. Round 7 Phase 6 then removed the
+           banner outright and moved Cancel and Save into the tab row, which is
+           where this copy comes from. Its comment says the Round 5 fix was
+           deliberately not applied to Opportunity "unless a future round asks
+           for it there too". This is that round.
+
+           ORDER MATCHES TEST BED: edit controls first, record actions after,
+           so the two groups read as two groups. -->
       <div class="opp-tab-actions" id="opp-tab-actions">
+        <button class="btn-sm btn-ghost tab-action-idle" id="ref-cancel-all">Cancel</button>
+        <button class="btn-sm btn-primary tab-action-idle" id="ref-save-all">Save changes</button>
         <button class="btn-sm btn-primary" id="opp-next-stage-btn">Next Stage</button>
         <button class="btn-sm btn-ghost" id="opp-close-lost-btn">Mark Closed Lost</button>
       </div>
@@ -1496,7 +1517,16 @@
          readable without scrolling, which is the reason Test Bed keeps
          tb-next-stage-feedback here rather than only in the panel below
          (index.html:888). -->
-    <div id="opp-next-stage-feedback" class="tb-next-stage-feedback"></div>
+    <!-- Round 34 Phase 3: ref-save-feedback joins this line rather than the
+         tab row itself. Test Bed recorded why: placed inline in the row it
+         "pushed the buttons off-screen at 1920px", because it is long free
+         text. The two stay SEPARATE elements for the reason Test Bed gives -
+         one says an edit was refused, the other says a transition is blocked,
+         and one element would let the second overwrite the first. -->
+    <div class="tb-row-feedback">
+      <span id="ref-save-feedback"></span>
+      <div id="opp-next-stage-feedback" class="tb-next-stage-feedback"></div>
+    </div>
 
     <!-- Reference: reference number strip, three cards (Terminus Details /
          Customer Details / Key Dates), Executive Summary + Notes. Click to
@@ -1530,13 +1560,6 @@
       <div style="display:flex;align-items:baseline;gap:14px;padding-bottom:14px;border-bottom:1px solid var(--hairline-strong);margin-bottom:20px">
         <span class="label">Opportunity Reference</span>
         <span class="stat-value" id="ref-reference-code">Not yet generated</span>
-      </div>
-
-      <div class="ref-edit-bar hidden" id="ref-edit-bar">
-        <span class="data-row-label" id="ref-edit-count" style="margin:0"></span>
-        <button class="btn-ghost" id="ref-cancel-all">Cancel</button>
-        <button class="btn-primary hidden" id="ref-save-all">Save</button>
-        <span id="ref-save-feedback"></span>
       </div>
 
       <div class="ref-cards">

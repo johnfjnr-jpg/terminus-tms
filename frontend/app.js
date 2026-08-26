@@ -2600,7 +2600,32 @@ window.hideOppAssessDefn = function () {
     // path nobody wired, which is exactly the generalisation that phase
     // declined to make.
     const focused = box.parentElement?.querySelector('.opp-assess-levels[data-level-hover] .opp-assess-level-input:focus')
-    if (focused) { showOppLevelDefinition(focused); return }
+    // Round 34 Phase 1: `continue`, NOT `return`. This loop hides EVERY popup,
+    // and the fallback is about one of them.
+    //
+    // `return` exits the function, so the first row carrying a focused segment
+    // ended the sweep and every popup after it in document order was never
+    // hidden. The business photographed five open at once, and five is what
+    // eight rows leave behind when the third is focused.
+    //
+    // THE FALLBACK ITSELF IS RIGHT and is unchanged. A focused segment outlives
+    // a hovered one, because a pointer crossing the group while somebody is
+    // arrow-keying through it would otherwise take their wording away and never
+    // give it back. That is a statement about ONE box; it was written with a
+    // keyword that made it a statement about all of them.
+    //
+    // WHY NOBODY CAUGHT IT: it needs a focused segment, which a person acquires
+    // by clicking a level and moving on, and which a deliberate hover test
+    // never has. Round 32 Phase 1 verified this popup by hovering and its
+    // verification was correct.
+    //
+    // ROW EXCLUSIVITY IS NOT NEEDED AND IS NOT ADDED. Round 32 made the
+    // question and level popups exclusive WITHIN a row by sharing one element,
+    // and left rows able to open independently. With the loop completing, every
+    // hide sweeps every box, so a second row's popup can only survive through
+    // this fallback, which is deliberate. Adding cross-row exclusivity would
+    // suppress the one popup this fallback exists to protect.
+    if (focused) { showOppLevelDefinition(focused); continue }
     box.classList.add('hidden')
     box.setAttribute('aria-hidden', 'true')
   }

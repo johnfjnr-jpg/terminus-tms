@@ -40,11 +40,42 @@ let refAccountContacts = []
 // pricing cards in opportunity-deal.js).
 let refEdits = {}
 
+// Round 34 Phase 4: the labels converge on Test Bed's, and the KEYS DO NOT
+// MOVE. Test Bed shortened these in Round 10 Phase 3.1 "per the business's own
+// table", recording that the change was DISPLAY ONLY, and the same holds here:
+// `lead`, `commercial`, `technical` and `legal` are the stored payload keys and
+// none of them changes, so no endpoint, column or saved record is touched.
+//
+// That is what makes a vocabulary divergence cheap, and it is worth checking
+// rather than assuming: a rename that reached a key would be a migration.
+//
+// REGION AND COUNTRY ARE NEW HERE. They are ordinary payload keys on Test Bed
+// and were not writable on an Opportunity at all until this phase added them to
+// the allowlist. Region takes the same fixed option list Test Bed uses, so the
+// two record types cannot drift into different vocabularies for one field.
+// COPIED VERBATIM, not written from the same idea. There are already four
+// identical copies of this list: test-bed-detail.js:23, account-detail.js:23,
+// contact-detail.js:61 inline, and app.js:4711 as TB_MATRIX_REGIONS. They have
+// stayed consistent only because nobody had written a fifth from memory.
+//
+// This phase wrote one and it diverged on the first attempt, in two ways at
+// once: "Asia Pacific" for APAC, and a different order. Nothing would have
+// caught it. There is no server-side validation of region on either record
+// type, so the wrong value would have saved, and an Opportunity would have
+// carried a region string no Test Bed could match.
+//
+// Left as a fifth copy rather than extracted, because a shared constants module
+// is a change to four working screens and belongs in the fork decision Phase 0
+// recorded, not in a phase adding two fields. The duplication is now five and
+// that is worth knowing.
+const REF_REGION_OPTIONS = ['Americas', 'Europe & UK', 'Middle East', 'APAC', 'Africa']
 const TERMINUS_FIELDS = [
   { key: 'lead', label: 'Terminus Lead', staffField: true },
-  { key: 'commercial', label: 'Commercial Authority', staffField: true },
-  { key: 'technical', label: 'Technical Authority', staffField: true },
-  { key: 'legal', label: 'Legal Authority', staffField: true },
+  { key: 'commercial', label: 'Comm. Auth', staffField: true },
+  { key: 'technical', label: 'Tech. Auth', staffField: true },
+  { key: 'legal', label: 'Legal Auth', staffField: true },
+  { key: 'region', label: 'Region', options: REF_REGION_OPTIONS },
+  { key: 'country', label: 'Country' },
 ]
 // 'account' deliberately absent - it's a real records.account_id link,
 // not a free-text payload field, rendered as its own read-only row in
@@ -59,10 +90,39 @@ const TERMINUS_FIELDS = [
 // already linked to this Opportunity's Account, direct port of Test
 // Bed's existing Client Buyer mechanism (test-bed-detail.js), not the
 // full mandatory-core/admin-catalog/escape-valve model.
+// Round 34 Phase 5: Client Lead, and the proposal address as SIX fields.
+//
+// "Client Lead" matches Test Bed, and like every other rename this round it is
+// DISPLAY ONLY: the stored key is still `customerLead`.
+//
+// SIX FIELDS IS A DELIBERATE EXCEPTION to this round's converge-on-Test-Bed
+// principle, and it is recorded as one so a later reader does not repair it.
+// Test Bed's Site Address is one line and a city because a test bed is one
+// deployment at one place. An Opportunity's proposal address is a company's
+// address, so it takes the Account's shape instead. The business overruled
+// "consistent with Test Bed" here and the reasoning is theirs.
+//
+// The suffixes and their order match ACCT_ADDRESS_SUFFIXES in
+// account-detail.js exactly, because the whole point is that one can stand in
+// for the other. Region reuses the same option list.
+//
+// commAddress keeps its key and becomes line 1, so the one live record
+// carrying a value keeps it.
 const CUSTOMER_FIELDS = [
-  { key: 'customerLead', label: 'Customer Lead' },
-  { key: 'commAddress', label: 'Commercial Address for Proposal' },
+  { key: 'customerLead', label: 'Client Lead' },
 ]
+const PROPOSAL_ADDRESS_FIELDS = [
+  { key: 'commAddress', label: 'Address Line 1' },
+  { key: 'commAddress2', label: 'Address Line 2' },
+  { key: 'commCity', label: 'City' },
+  { key: 'commPostcode', label: 'Postcode / Zip' },
+  { key: 'commCountry', label: 'Country' },
+  { key: 'commRegion', label: 'Region', options: REF_REGION_OPTIONS },
+]
+const SAME_AS_ACCOUNT_KEY = 'commAddressSameAsAccount'
+// The account's six, in the order the six above expect them.
+const ACCOUNT_SHIPPING_KEYS = ['shippingAddress', 'shippingAddress2', 'shippingCity',
+  'shippingPostcode', 'shippingCountry', 'shippingRegion']
 // Role strings match this endpoint's own VALID_OPPORTUNITY_BUYER_ROLES
 // (src/routes/opportunities.js) exactly, and the field labels these
 // replaced, so nothing else about the panel's layout changes.
@@ -97,7 +157,86 @@ const SUMMARY_FIELD = { key: 'summary', label: 'Executive Summary' }
 // openRefField's generic `ref-display-${key}` lookup with no changes to
 // that function needed).
 const NAME_FIELD = { key: 'name', label: 'Opportunity Name' }
-const ALL_EDITABLE_FIELDS = [NAME_FIELD, ...TERMINUS_FIELDS, ...CUSTOMER_FIELDS, ...DATE_FIELDS, OPPTYPE_FIELD, SUMMARY_FIELD]
+const ALL_EDITABLE_FIELDS = [NAME_FIELD, ...TERMINUS_FIELDS, ...CUSTOMER_FIELDS,
+  ...PROPOSAL_ADDRESS_FIELDS, ...DATE_FIELDS, OPPTYPE_FIELD, SUMMARY_FIELD]
+
+// Round 34 Phase 4: held here rather than read from `opp` inside the render,
+// because renderReferenceTab is the only place that has the record and the
+// rows are built from module state everywhere else.
+let refOppReference = null
+
+// Round 34 Phase 5: the account, held for the proposal address.
+let refAccount = null
+
+// Does the linked account actually have a shipping address to stand in for?
+function accountHasShipping() {
+  return ACCOUNT_SHIPPING_KEYS.some(k => String(refAccount?.[k] ?? '').trim())
+}
+
+// A FLAG, NOT COPIED VALUES, and the business's own phrasing decided it.
+//
+// "Same as account" is a relationship, not a default. A copy fills the six
+// fields once and then diverges silently the day the account moves, and nothing
+// on either screen would say the deal is quoting an old address. A flag stays
+// true, so the panel renders whatever the account says today.
+//
+// It costs nothing to read: GET /opportunities/:id already loaded the account's
+// latest revision payload for its name, and now returns the shipping fields
+// from the same read.
+//
+// WHEN THE ACCOUNT HAS NO ADDRESS, which is five of six live accounts, the tick
+// is still allowed and the rows are replaced by a line saying so with a link to
+// the account. The three options were: render six blanks, which is
+// indistinguishable from a broken panel and is the shape Round 31 Phase 1 spent
+// a phase removing; disable the tick, which stops somebody recording the
+// intention before the account is filled in; or say it and point at the place
+// to fix it. The business's own instruction settles the last part - the account
+// address is edited on the account, not from here.
+function renderProposalAddress() {
+  const on = !!refEffective(SAME_AS_ACCOUNT_KEY)
+  const tick = `
+  <div class="ref-field" data-key="${SAME_AS_ACCOUNT_KEY}">
+    <div class="ref-field-label"><span>Proposal Address</span></div>
+    <label class="ref-same-as-account">
+      <input type="checkbox" id="ref-input-${SAME_AS_ACCOUNT_KEY}"${on ? ' checked' : ''}
+             onchange="toggleRefSameAsAccount(this.checked)">
+      <span>Same as account</span>
+    </label>
+  </div>`
+  if (!on) {
+    return tick + PROPOSAL_ADDRESS_FIELDS
+      .map(f => refFieldRow(f.key, f.label, refPayload[f.key], { options: f.options })).join('')
+  }
+  if (!accountHasShipping()) {
+    return tick + `
+  <div class="ref-field">
+    <div class="ref-field-label"><span></span></div>
+    <div class="ref-empty-inline">This account has no shipping address.
+      <a href="#" onclick="navigate('account-detail','${escHtml(refAccount?.id ?? '')}');return false">Add it on the account</a>.</div>
+  </div>`
+  }
+  return tick + PROPOSAL_ADDRESS_FIELDS
+    .map((f, i) => refReadonlyRow(f.label, refAccount?.[ACCOUNT_SHIPPING_KEYS[i]] ?? null)).join('')
+}
+
+// The tick rides the same batched save as every other field: it writes into
+// refEdits, so the tab-row controls appear and Save sends it with the rest.
+window.toggleRefSameAsAccount = function (checked) {
+  const orig = !!refPayload[SAME_AS_ACCOUNT_KEY]
+  if (checked === orig) delete refEdits[SAME_AS_ACCOUNT_KEY]
+  else refEdits[SAME_AS_ACCOUNT_KEY] = { draft: checked, orig }
+  // Re-render only this card: the rows it shows depend on the flag.
+  document.getElementById('ref-customer-rows').innerHTML =
+    refReadonlyRow('Account', refAccount?.name || 'Not linked')
+    + CUSTOMER_FIELDS.map(f => refFieldRow(f.key, f.label, refPayload[f.key])).join('')
+    + renderProposalAddress()
+  updateRefEditBar()
+}
+
+// The drafted value where there is one, the stored value otherwise.
+function refEffective(key) {
+  return key in refEdits ? refEdits[key].draft : refPayload[key]
+}
 
 function refFieldLabel(key) {
   return ALL_EDITABLE_FIELDS.find(f => f.key === key)?.label ?? key
@@ -262,14 +401,44 @@ function renderReferenceTab(opp) {
   // just rendered as the page's own h1 instead of a labelled row - same
   // display/edit/input trio of element IDs (ref-display-name/
   // ref-edit-name/ref-input-name), no changes needed to either function.
+  refOppReference = opp.reference_code ?? null
   document.getElementById('ref-display-name').textContent = refPayload.name || '--'
   document.getElementById('ref-input-name').value = refPayload.name ?? ''
   document.getElementById('ref-edit-name').classList.add('hidden')
   document.getElementById('ref-display-name').classList.remove('hidden')
 
+  // Round 34 Phase 4: Terminus Reference joins the panel, and Status becomes
+  // Stage.
+  //
+  // TEST BED'S ORDER, which its own comment explains: the reference sits
+  // immediately beneath the name because the name is the record's identity and
+  // is what the page header renders. Opportunity's header renders the name too,
+  // so the same reasoning gives the same order here.
+  //
+  // NOTHING LEAVES THE HEADER. The brief asks what moves out of it, and the
+  // answer is nothing: Opportunity's header carries the name and the company
+  // name, and has never shown the reference at all. This adds a row rather than
+  // relocating one.
+  //
+  // READ ONLY, because reference_code is issued by the numbering service and
+  // Status is the stage machine's. Test Bed renders both the same way.
+  //
+  // "Stage" rather than "Status" is DISPLAY ONLY: refStatus still reads the
+  // record's own status and no key, column or endpoint moves. Round 20 recorded
+  // four column names for this one idea across the database, and this changes
+  // none of them.
+  //
+  // INDUSTRY IS DELIBERATELY NOT ADDED, and that is a finding rather than an
+  // omission. Test Bed renders it from tbBed.industry?.name, resolved
+  // server-side. An Opportunity has an industry_id column, but nothing in
+  // opportunities.js reads or writes it, the endpoint returns no industry
+  // object, and zero of the four live opportunities carry a value. A row here
+  // would read '--' on every record and could never do otherwise, which is the
+  // container-written-and-never-read shape Round 31 Phase 1 spent a phase on.
   document.getElementById('ref-terminus-rows').innerHTML =
-    TERMINUS_FIELDS.map(f => refFieldRow(f.key, f.label, refPayload[f.key], { options: f.staffField ? terminusStaffCache.map(s => s.name) : f.options })).join('')
-    + refReadonlyRow('Status', refStatus)
+    refReadonlyRow('Terminus Reference', refOppReference)
+    + TERMINUS_FIELDS.map(f => refFieldRow(f.key, f.label, refPayload[f.key], { options: f.staffField ? terminusStaffCache.map(s => s.name) : f.options })).join('')
+    + refReadonlyRow('Stage', refStatus)
 
   // Account: read-only and inherited (2026-08-16), same
   // tbReadonlyRow('Account', ...) shape Test Bed already uses - no
@@ -289,9 +458,11 @@ function renderReferenceTab(opp) {
   // is gone. "Not linked" for the unset case (a legacy Opportunity
   // created before auto-population existed) - honest placeholder, never
   // an error.
+  refAccount = opp.account ?? null
   document.getElementById('ref-customer-rows').innerHTML =
     refReadonlyRow('Account', opp.account?.name || 'Not linked')
     + CUSTOMER_FIELDS.map(f => refFieldRow(f.key, f.label, refPayload[f.key])).join('')
+    + renderProposalAddress()
 
   // Buyer Roles (Round 3 Phase 3): record_contacts-backed, not part of
   // the generic refPayload rows above - own render pass, same reasoning
@@ -384,19 +555,31 @@ function onRefFieldInput(key) {
   updateRefEditBar()
 }
 
+// Round 34 Phase 3: two buttons in the tab row, gated on DIRTY.
+//
+// This toggled a banner that sat above the cards and appeared the moment any
+// field was OPENED, which moved the panel 76px under the pointer that had just
+// clicked it. Both halves of that are now gone: the banner is deleted, and the
+// gate is dirtyCount rather than keys.length.
+//
+// Round 5 Phase 5 stated the principle on Test Bed and this adopts it verbatim:
+// opening a field and leaving it unchanged should have zero visible effect.
+//
+// "N fields open, M changed" goes with the banner. It was a count of a state
+// that is now invisible by design, and Test Bed dropped the same text for the
+// same reason.
+//
+// A field opened and left alone is still cancellable through its own discard
+// control, which is what makes hiding both buttons safe.
 function updateRefEditBar() {
-  const bar = document.getElementById('ref-edit-bar')
-  const keys = Object.keys(refEdits)
-  if (!keys.length) {
-    bar.classList.add('hidden')
-    return
+  const dirtyCount = Object.values(refEdits).filter(e => e.draft !== e.orig).length
+  const show = dirtyCount > 0
+  // `tab-action-idle` rather than `hidden`: see the note on it in style.css.
+  // `hidden` is display:none, which takes the buttons out of the flex flow and
+  // lets the strip re-wrap around their absence.
+  for (const id of ['ref-cancel-all', 'ref-save-all']) {
+    document.getElementById(id)?.classList.toggle('tab-action-idle', !show)
   }
-  bar.classList.remove('hidden')
-  const dirtyCount = keys.filter(k => refEdits[k].draft !== refEdits[k].orig).length
-  document.getElementById('ref-edit-count').textContent =
-    `${keys.length} field${keys.length === 1 ? '' : 's'} open${dirtyCount ? `, ${dirtyCount} changed` : ''}`
-  document.getElementById('ref-save-all').classList.toggle('hidden', dirtyCount === 0)
-  syncRefEditBarWidth()
 }
 
 async function saveRefFields() {
@@ -564,27 +747,12 @@ function wireRefOnce() {
   // so there is still exactly one Escape owner rather than two competing
   // handlers - the property the 2026-08-17 follow-up established, now held
   // in one place for both callers instead of once per caller.
-  // Cancel/Save row width sync (Round 3 Phase 3, item 6) - same
-  // getBoundingClientRect technique as Contact detail's
-  // syncCdBelowGridWidth (contact-detail.js), matching the edit bar's
-  // own right edge to the Key Dates panel's (the rightmost card in
-  // .ref-cards) rather than letting it span the full, uncapped container
-  // width, which on a wide viewport runs well past where the 3-panel row
-  // actually ends (.ref-cards' own minmax(280px,420px) columns cap out
-  // long before the container does).
-  window.addEventListener('resize', syncRefEditBarWidth)
-}
-
-// See wireRefOnce's comment above for why this exists.
-function syncRefEditBarWidth() {
-  const cards = document.querySelectorAll('#opp-tab-reference .ref-cards .pg-card')
-  const lastCard = cards[cards.length - 1]
-  const bar = document.getElementById('ref-edit-bar')
-  if (!lastCard || !bar || bar.classList.contains('hidden')) return
-  const cardRect = lastCard.getBoundingClientRect()
-  const barRect = bar.getBoundingClientRect()
-  const width = cardRect.right - barRect.left
-  if (width > 0) bar.style.width = `${width}px`
+  // Round 34 Phase 3: the resize listener went with the banner. It existed to
+  // match the bar's right edge to the rightmost card's, because the bar spanned
+  // an uncapped container while .ref-cards caps its columns at 420px. A control
+  // in the tab row has no width to sync, so the listener has nothing left to do
+  // and syncRefEditBarWidth is deleted rather than left pointing at an element
+  // that no longer exists.
 }
 
 // ── Entry point, called by app.js's renderOppDetail() ─────────────────────
