@@ -211,6 +211,47 @@ if (stageName !== currentStage) { tEl.innerHTML = ''; return }
 
 **Those are not documented here yet.** Naming them is not recording them, and a list that pretends otherwise would be the same failure one level down.
 
+## 11. The assessment hover: one popup per row, two contents
+
+Built in Round 31 Phase 3 and generalised in Round 32 Phases 1 and 2. Recorded
+here because this document's own audit found ten built mechanisms with zero
+coverage, and naming them was not recording them.
+
+**One `.opp-assess-defn` element per criterion row, carrying two different
+strings for two different targets.** Hovering the criterion NAME shows the
+criterion's question; hovering a level SEGMENT shows that level's definition.
+Sharing one element makes them mutually exclusive by construction rather than
+by a rule somebody has to maintain: two elements could both be open, which is a
+state nobody designed.
+
+**The affordance is the mechanism, not the popup.** A `title` attribute carried
+the question from Round 30 Phase 2 and was never removed, and the business
+still reported the text missing. Measured, the name had `cursor: auto`, no
+underline and `tabIndex: -1`: nothing on the row said it was hoverable. The
+repair is a dotted underline and `cursor: help`. **Dotted rather than solid**,
+because a solid underline in this stylesheet means a thing you click
+(`.doc-link`, `.anchors-toggle`, both with `cursor: pointer`).
+
+**A native `title` is removed when a popup replaces it**, or both fire about a
+second apart, and `aria-describedby` against a visually hidden span keeps the
+question available to screen readers without adding a tab stop.
+
+| Property | Rule | Why |
+|---|---|---|
+| Placement | Floating, never in-row | In-row moves every row below down 36px under the pointer |
+| Anchor | To the element explained, not to the row | At 1240 the row wraps and `top: 100%` lands below the reason cell |
+| Alignment | Left on a name, centred-and-clamped on a segment | A name is the row's leftmost element; centring starts it 38px outside the pane |
+| Show delay | 140ms | A pointer crossing the name column opens seven distinct boxes in 681ms |
+| Hide | Immediate, and cancels a pending show | A tooltip that lingers is a tooltip in the way |
+| Identity | Read from the element at hover time | The panel re-renders on every draft change |
+| Focus | Segments yes, names no | Segments are radio inputs already; seven spans would be seven new tab stops |
+| Elevation | The shared floating-surface shadow | Four other popups carry it; without it an overlapped line reads as sliced |
+
+**Each property is re-derived rather than copied when the mechanism reaches a
+new target.** Round 32 Phase 1 re-derived all five for a criterion name and
+**three inverted**: centring, focus and the show delay. A copy would have been
+wrong three ways.
+
 ## Cross-reference
 
 This document is the target DESIGN_PRINCIPLES.md's Deferred scope entry for "Tab/Enter field navigation and unsaved-changes-on-navigate warnings" points to. Build against this specification when that work is picked up. This document is not itself built from, it describes intended behavior only.

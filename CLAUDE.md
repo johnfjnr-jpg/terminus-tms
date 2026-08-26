@@ -291,6 +291,27 @@ not resolve it quietly.
    living nowhere permanent. Round 6 Phase 3 and Round 8 Phase 6 both
    recorded checks that resolved against the previous tab's content.
 
+   **A fixed delay does not only produce a wrong answer. It produces
+   AGREEMENT, which is worse, because agreement is what a passing check
+   looks like.** Round 32 Phase 1, 2026-08-25. A Test Bed comparison
+   captured each page 600ms after its load condition and reported
+   before-equals-after at two of three widths, which was read as a clean
+   result. Four captures of ONE unchanged tree then differed: the first
+   was 22KB smaller than the other three, because content was still
+   arriving and the shutter caught a race.
+
+   **So the two matching widths were not a weaker result, they were no
+   result.** Two unstable readings that happen to agree are
+   indistinguishable from two stable ones, and the instrument gives no
+   sign which it produced. Re-run against a settled condition, the third
+   width's hash changed too, which means all three earlier readings had
+   been mid-render.
+
+   **The check to run before trusting any before-and-after: capture the
+   same unchanged tree twice and confirm the two agree.** An instrument
+   that cannot reproduce itself cannot compare anything, and this costs
+   one extra capture.
+
 7. **Before waiting on a condition, state what it would look like if the
    action had NOT happened, and check it differs.** This is the operative
    test; "wait on something only the new state can satisfy" is the
@@ -529,6 +550,41 @@ not resolve it quietly.
     that may not have run. Both instances here are searches that ran
     perfectly against the wrong thing, which is why this is a separate
     number rather than a sentence inside a rule about `grep -a`.
+
+18. **One green result can have more than one independent cause, and fixing
+    the first reveals the second rather than the answer.** Round 32 Phase 2,
+    2026-08-25. Second instance after Round 28 Phase 6, and the first with
+    three.
+
+    A Test Bed comparison reported identical before and after. It was blind
+    three ways, and **each was invisible until the previous one was fixed**:
+
+    - It ran on the record's Reference tab, which holds **zero
+      `.tb-crit-row` elements**, so it could not have exhibited the
+      regression it existed to rule out. The claim was about a rule
+      affecting those rows.
+    - Moved to a stage tab, its calibration injected 14 nodes and **the
+      pixel hash did not move**, because the injection had landed on a
+      hidden element. The pixel dimension had never been shown reaching a
+      different value.
+    - Calibrated on a visible row, the injection grew the card by 148px and
+      **the 1240 hash still did not move**, because that page scrolls an
+      inner container, the card sits below the fold at that width, and
+      `fullPage` captures the viewport.
+
+    Only after all three did the instrument discriminate at every width, and
+    the answer was unchanged: before and after really were identical. **The
+    result was right the whole time and none of the three readings that said
+    so had been evidence.**
+
+    **What generalises is the order.** A green result is not one claim, it
+    is a conjunction: the probe ran, it ran on a page that can exhibit the
+    fault, it measured a dimension that can move, and it saw the region the
+    change is in. Rules 12, 13, 14 and 17 each name one of those failing.
+    **This is the case where several fail at once**, and the sign is that
+    fixing one changes nothing about the output. **A calibration that does
+    not move the number has not passed; it has failed to run**, and the next
+    thing to check is whether the instrument can see the thing at all.
 
 ---
 
