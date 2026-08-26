@@ -742,3 +742,65 @@ it.
    writes the two descriptions first.
 5. **Six of twenty-three names do not fit the criterion cell.** Not a blocker;
    a decision between 51px of reason column and 20px of height on six rows.
+
+---
+
+# The confirmed lens mapping
+
+**Settled with the business at the Phase 0 sign-off.** Phase 0 derived this by
+arithmetic from the lens totals and the stage list, because the brief states
+both and never states the join. **This table is the join.** Phases 3 to 5 work
+from it rather than from the derivation.
+
+Two things the derivation could not settle, now confirmed:
+
+- **Technical's single binary is "Pilot or proof-of-concept requirement".**
+- **"Decision criteria" is Technical and evidence-state.**
+
+| # | Lens | Introduced at | Criterion | Scale |
+|---|---|---|---|---|
+| 1 | Organisational | Qualification | Economic Buyer identified | Evidence |
+| 2 | Organisational | Qualification | Prioritisation | Evidence |
+| 3 | Organisational | Qualification | Trigger event / timeline | Evidence |
+| 4 | Organisational | Qualification | Champion identified | Evidence |
+| 5 | Organisational | Solution Alignment | Buying committee mapped | Evidence |
+| 6 | Organisational | Solution Alignment | Decision process | Evidence |
+| 7 | Organisational | Solution Alignment | Internal pain owner | Evidence |
+| 8 | Organisational | Solution Alignment | Political dynamics | Evidence |
+| 9 | Technical | Qualification | Need / problem definition | Evidence |
+| 10 | Technical | Solution Alignment | Decision criteria | Evidence |
+| 11 | Technical | Solution Alignment | Solution fit | Evidence |
+| 12 | Technical | Solution Alignment | Integration complexity | Evidence |
+| 13 | Technical | Solution Alignment | Delivery feasibility | Evidence |
+| 14 | Technical | Solution Alignment | **Pilot or proof-of-concept requirement** | **Confirmation** |
+| 15 | Technical | Solution Alignment | Data and architecture requirements | Evidence |
+| 16 | Legal | Qualification | Procurement route and compliance | Confirmation |
+| 17 | Legal | Solution Alignment | Paper process | Confirmation |
+| 18 | Legal | Solution Alignment | Export control and licensing status | Confirmation |
+| 19 | Legal | Solution Alignment | Data protection and residency | Confirmation |
+| 20 | Legal | Solution Alignment | Liability insurance and indemnity | Confirmation |
+| 21 | Legal | Solution Alignment | Local content or offset requirements | Confirmation |
+| 22 | Legal | Solution Alignment | Anti-corruption and integrity due diligence | Confirmation |
+| 23 | Legal | Proposal | IP ownership and licensing terms | Confirmation |
+
+**Totals reconcile:** Organisational 8 evidence, Technical 6 evidence and 1
+confirmation, Legal 8 confirmation. Twenty-three, fourteen evidence-state, nine
+confirmation, matching the brief's lens table exactly.
+
+**Technical is the only mixed lens in the system.** Organisational is
+uniformly evidence-state, Legal uniformly confirmation, Commercial's seven
+uniformly evidence-state. Phase 0 measured that a mixed lens is the only
+composition whose reason column fails to align, so **Technical is what Phase 2
+exists for and why Phase 4 sits behind it.**
+
+## Recorded against Round 24, not resolved
+
+`DEAL_ASSESSMENT_PHASE_0_BRIEF.md:112` reads *"Six of the Legal seven are
+binary."* **Legal is eight of eight.** The business has confirmed it, and the
+discrepancy is recorded here rather than corrected in that brief, because both
+documents were written from the same superset and the disagreement is evidence
+about the superset rather than a typo in one of them.
+
+The count matters beyond bookkeeping: a seventh Legal criterion on the evidence
+scale would have made Legal a second mixed lens, and mixed is the only
+composition that breaks.
