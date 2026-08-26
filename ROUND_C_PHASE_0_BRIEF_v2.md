@@ -804,3 +804,285 @@ about the superset rather than a typo in one of them.
 The count matters beyond bookkeeping: a seventh Legal criterion on the evidence
 scale would have made Legal a second mixed lens, and mixed is the only
 composition that breaks.
+
+---
+
+# Round 33 close-out
+
+Branch `round-33-remaining-lenses`, cut from `main` at `afbddee`. Seven phases,
+each signed off in conversation before the next began, plus one boundary commit
+that is not a phase.
+
+## The phases, counted from the sign-offs
+
+| Phase | Content | Commits |
+|---|---|---|
+| 0 | Investigation | `ea4d34e` |
+| — | The confirmed lens mapping | `79c498d` |
+| 1 | The confirmation scale's three levels | `cf4bdfe` |
+| 2 | The reason requirement, and the mixed-lens fix | `b202bf0`, `38a6b5e` |
+| 3 | Organisational configured | `f8a8524` |
+| 4 | Technical configured | `64e81db` |
+| 5 | Legal configured | `ec2b67e` |
+| 6 | The walk and this close-out | this commit |
+
+**Rule 7's instrument returned 1 against this brief**, the reading the rule
+names as dangerous, and the fourth round to produce it. Counted from the
+sign-offs instead: seven phases, every one with a commit.
+
+## What shipped
+
+Twenty-three criteria across three lenses: Organisational 8, Technical 7, Legal
+8. **Thirty opportunity criteria against seven when the round began, and 182
+anchors against 85.**
+
+Six migrations: the confirmation scale's third level and descriptions, its
+reason requirement, the three lenses, and one sort-order correction.
+
+**Four lenses now compute a rollup at every stage.** "None at this stage" does
+not appear anywhere on the panel, measured as zero occurrences across four
+stages at three widths, where three of four lenses read it a round ago. That is
+what this round was clearing.
+
+## A false claim that survived four rounds
+
+**Round C's brief describes "Round 30's split" as the template**: per-criterion
+wording at Not applicable and Verified, the middle three retired to the scale's
+generic descriptions.
+
+**Read from the live table in Phase 3 before drafting anything, the split does
+not exist.** All seven Commercial criteria carry anchors at all five scores at
+both versions: 35 rows at version 2, not 14.
+
+The chain: Round 30 recommended a retirement, nothing retired anything, Round
+31's brief stated "Round 30's retirement decision kept 15", Round 31 Phase 2
+measured 35 and reversioned all 35 **without recording that the claim it had
+inherited was false**, Round C's brief carried it forward, and Phase 1 of this
+round wrote it into `DESIGN_PRINCIPLES.md`.
+
+**The data was never wrong. The claim about it was**, and it survived because
+every round that touched the number worked from a document rather than from the
+table. Same shape as Round 29's "a written rationale is not a guard", one level
+up: **a recorded decision is not a record of what happened.**
+
+The correction is in `DESIGN_PRINCIPLES.md` beside the sentence that carried
+it, and the split is recorded as **a capability never used** rather than as a
+template nobody followed.
+
+**Reported before writing: 97 anchors against the brief's 46.** That is why the
+number was catchable at all.
+
+## The split reasoning inverts between the two scales
+
+Phase 3 read the Commercial seven side by side and found **level 4 the closest
+to generic** on the evidence scale: its pattern is "the buyer has stated <the
+criterion>", nearly derivable from the name. Level 2 is the most per-criterion,
+because it names WHAT is unestablished, and Unknown is the level the gate exists
+to surface.
+
+Phase 4 applied the same reading to the confirmation scale and it **came out
+the other way**. Level 4 is the FURTHEST from generic there, because "the
+requirement is met and evidenced" cannot say what counts as evidence, and what
+counts differs completely per requirement. Phase 2 had made a reason mandatory
+at Confirmed precisely so the reference is recorded, so the level whose anchor
+tells a scorer what to name is the one that must not be generic.
+
+**The same argument, applied to a different scale, reverses.** Recorded because
+the reasoning is portable and the conclusion is not.
+
+## Architecture rule 8, a fourth variant, twice
+
+**A migration can invalidate a string, and nothing in the codebase can flag
+it.** Phase 2 set `reason_required` on a Confirmed level, and
+`score-entry.js`'s "a reason is required at <level>, naming what is missing"
+began telling a scorer confirming a requirement to name what was missing. No
+line of code changed, no test could fail, and `git log -S` on the string returns
+only the commit that wrote it. The only trace is in a migration that never
+mentions the file. Promoted to `CLAUDE.md` with the check: when a migration
+changes configuration that code branches on, grep the code for prose describing
+the OLD configuration.
+
+**The same variant then appeared in a probe.** Phase 5's sort-order comparator
+listed only Qualification and Solution Alignment, the two stages Phases 3 and 4
+happened to use, so `indexOf` returned -1 for Proposal and it **failed a
+correctly ordered lens**. A comparator built for a population that then changed.
+
+**It failed in the safe direction**, which is worth naming: one that wrongly
+passed a shuffled lens would have shipped the disorder.
+
+## The mixed lens, and a defect nobody reported
+
+Phase 0 measured that a lens mixing two scales is the only composition whose
+reason column fails to align: Technical at x=567 and x=739, 274px apart, which
+read as a broken row rather than as a different kind of criterion.
+
+**Measuring all four lenses rather than the two the brief named also found
+Legal's column at an x of its own.** Internally consistent, so nothing looked
+wrong within the lens, but **the reason column jumped when you changed lens
+sub-tab.** Nobody had reported it and the brief did not ask about it.
+
+**Phase 2's fix: a floor on the level group, not a fixed width.** Fixed, a scale
+wider than the column overflows the row; as a floor it grows and the alignment
+degrades visibly for one lens, which is a defect this round already knows how to
+see. **A wrong layout is worse than a misaligned one**, and the argument is
+about how the choice fails rather than how it works.
+
+Measured before and after, per lens, at all three widths: Technical `[567,739]`
+to `[739]`, Legal `567` to `739`, Organisational byte-identical, and one pixel
+on Commercial's value row explained rather than waved through, because the
+five-level group's natural width is 452.547px and 453 is the smallest integer
+that aligns.
+
+**453px is a measurement and it will rot**, exactly as the 258px criterion cell
+did. The guard is the stylesheet test, which fails on an undefined custom
+property, **calibrated on this property specifically**: removing the definition
+fails the suite naming `--opp-levels-w` and its declaration.
+
+## The values are 1, 2 and 4
+
+Each confirmation state takes the value of the evidence state it is ordinally
+equivalent to, so **one rollup rule reads both scales with no special case**.
+
+**The obvious numbering is the one that breaks it.** At 1, 2, 3 the satisfying
+set `{1,4,5}` does not contain Confirmed, because 3 is Our hypothesis, and it
+would have failed in the direction that **reports finished work as
+outstanding**. My Phase 0 recommendation said adding Not applicable at value 1
+needed no special case and never addressed where Confirmed lands; that is
+corrected in Phase 1's migration header.
+
+Safe on three counts, each checked rather than assumed: no contiguity
+constraint, the anchors check is `between 1 and 5`, and `score-entry.js`
+validates with `allowed.includes(score)` over configured values rather than a
+range, which is Round 24's own data-driven work paying off two rounds later.
+
+## The wrap, decided rather than deferred
+
+Six of twenty-three names exceed the 230px slot, the widest at 281px against a
+cell Round 30 sized to that day's longest name at 227px.
+
+**At 1240 the cell can grow by exactly 51px before the value cell is forced off
+the line, and the widest name needs exactly 51px.** That is a coincidence, not a
+fit. A cell with no slack is the condition that produced this problem, and
+twenty-five more criteria are the visible future, so the wrap is accepted: six
+rows are 20px taller, and Legal's four wrapped names take its panel from 879px
+to 959px at 1240.
+
+## Not applicable, and what the scale change bought
+
+**Five criteria across three lenses now open level 1 with "Rarely
+applicable"**, constraining the level that requires no reason and is therefore
+the cheapest way to make a criterion go away.
+
+The Legal eight are why the scale gained a third level at all, and each level 1
+anchor says WHEN specifically. **"Not applicable, this deal does not raise the
+requirement" is true and useless; "no personal data is processed, transmitted or
+stored at any point in the deployment or its support" is a test somebody can
+apply and be wrong about.**
+
+## Test Bed
+
+**Immune by construction in Phase 1**, argued rather than captured: all five
+Test Bed criteria carry a null `scale_id` and resolve through `DEFAULT_LEVELS`,
+which never reads `scoring_scale_levels`. Round 28 Phase 3's own comment says
+so, and a pixel before/after was not available for an applied migration, which
+was stated rather than substituted with a weaker check.
+
+**Measured against a real before from Phase 3 onward**, once captures existed
+that predated a phase's migrations. Pixel-identical at all three widths across
+every phase, on a stage tab holding eight `.tb-crit-row` elements, with the card
+scrolled into the captured region and the calibration discriminating on 5 of 6
+dimensions.
+
+## The sort order, found by looking
+
+Round 25 orders Commercial strictly by introduction stage and **nothing states
+that as a rule**. Looking at the configured Organisational lens found Internal
+pain owner, introduced at Solution Alignment, sitting third between two
+Qualification criteria. Corrected in its own migration rather than by editing an
+applied one, because Phase 3 sets a rhythm two more lenses inherit.
+
+## The walk
+
+One record, Qualification through Solution Alignment to Proposal, one session,
+no reloads, all four lenses. 11 of 11.
+
+- **All four rollups moved together across the advance**, read immediately
+  before and after in the same DOM: `1 of 1 -> 1 of 6`, `2 of 4 -> 2 of 8`,
+  `0 of 1 -> 0 of 7`, `1 of 1 -> 1 of 7`. Round 32 verified one lens across a
+  transition; four had never been seen.
+- **A confirmation criterion end to end**: free at Not applicable, blocked at
+  both Not confirmed and Confirmed with an empty reason, and unblocked once a
+  reason is typed. That mapping had never been exercised by a walk.
+- **The mixed Technical lens with real scores**, `[3,5]` segment counts and a
+  single reason column at x=739.
+- **Legal at seven rows with the save bar up**, popup `z-index` 50 outranking
+  the bar's 45, which is the stacking Round 31 Phase 4 fixed.
+- Across Solution Alignment to Proposal, **every numerator unchanged and two
+  denominators grown**, which is what a stage introducing criteria should do.
+
+## Probe faults, recorded
+
+Four, all corrected, and three of them waits or expectations rather than code.
+
+1. **A calibration line printed with no readings behind it** (gate re-check).
+   The line "the same grep read non-zero and zero on the same file" printed
+   after two greps that had errored. Fourth instance of a conclusion printed
+   regardless of the measurement.
+2. **A comparator built for a population that changed** (Phase 5), above.
+3. **A wait satisfied by an in-flight state** (Phase 6). The save bar writes
+   "Recording N..." then "Recorded N of N", and waiting on non-empty text
+   returned the first, so everything read afterwards was read mid-save and a
+   correct rollup looked unchanged.
+4. **A walk driving the renderer instead of the control** (Phase 6). Calling
+   `renderOppAssessLens` directly painted one lens's rows into another lens's
+   pane and left `oppAssessCurrentLens` elsewhere, so the app's own re-render
+   discarded it on the next draft change. **A walk that drives anything other
+   than the control a person uses is not walking the product.**
+
+And one expectation typed rather than derived: the walk asserted "Legal 1 of 8"
+from memory where the walk had made it 2 of 8. Replaced with the structural
+claim, that a stage introducing criteria can only grow a denominator and must
+not move a numerator.
+
+## `CURRENT_STATE.md`
+
+**Regenerated, and the staleness test was run rather than assumed.** The
+recorded SHA `82440a3` was an ancestor of `HEAD` and six migrations had changed
+since, so it was stale by the second half of the test.
+
+**The diff reconciles.** 86 changed lines: 48 are the three lens phases' criteria
+and anchor rows, 6 the migration file list, 2 the confirmation scale's rename
+and descriptions, 26 append-only history from fixture work, and 4 the generation
+stamp itself. **No line is unaccounted for.**
+
+**Regenerated twice, deliberately.** The first run recorded 103 live records
+against a baseline of 94, because three walk fixtures were still live. Torn
+down and regenerated: **94 live, exactly baseline**, with every per-type live
+count identical and only soft-deleted history grown.
+
+## Residue
+
+Zero live records carry this round's tag, re-queried after teardown: 9 ids, 0
+live, 9 soft deleted, no `reference_number_counters` row touched. The broader
+sweep reads 16 live records across Opportunities, Contacts and Accounts, none
+fixture-looking, which is the same 16 Round 32 recorded.
+
+**The teardown's own guard caught a half-edit**: the tag was changed to R33 and
+the round number left at 32, and the script refused rather than running against
+the wrong tag.
+
+## Still open
+
+- **Round D**: the two creation checks, the incomplete-approval reason with
+  Round 32's per-lens refinement, coverage and confidence.
+- **`assessment_current` rules**, still zero and still deliberate. Both surfaces
+  of the growing-set property are now recorded together in
+  `OPPORTUNITY_DESIGN.md`.
+- **The anchor wording**, drafted and awaiting the business's correction in use,
+  which is what happened to the Commercial seven between Round 25 and Round 30.
+- **`reason_required` on the confirmation scale's Not confirmed**, left as the
+  business set it; whether Not applicable should ever require one is untouched.
+- **A roving tabindex for the level segments**, recorded in Round 31 and still
+  not fixed.
+- **Shortening "Anti-corruption and integrity due diligence"**, the only name
+  more than 17px over its slot.
