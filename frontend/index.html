@@ -1853,13 +1853,24 @@
              rendering was ever missing. Total row matches the prototype's
              own Total line and the Hw/Hosting cards' existing pg-total
              convention. -->
+        <!-- Round 37 Phase 1: the four rates now come from Base Cost Data.
+             They read empty before this, because nothing had ever written the
+             payload keys behind them, so per-unit installation priced at $0 on
+             every deal - reported by the business on first use.
+
+             AQ Sensor and HEMIR say "existing infra" because the catalog holds
+             an existing AND a new figure for each, and this tab has one row
+             each. The label states which of the two is in the number rather
+             than leaving the basis to be inferred. Their new-infrastructure
+             figures, $1,000 and $10,000, reach no row and are unresolved. -->
+        <p id="deal-install-basis" style="margin:0 0 10px;font-family:var(--mono);font-size:10.5px;color:var(--muted-2)"></p>
         <table class="doc-table hidden" id="deal-install-table">
-          <thead><tr><th>Installation (per unit)</th><th>Units</th><th>Rate (USD, fixed at creation)</th><th>Cost (USD)</th><th>Margin % (blank = target)</th><th>Price (USD)</th></tr></thead>
+          <thead><tr><th>Installation (per unit)</th><th>Units</th><th>Rate (USD, from Base Cost Data)</th><th>Cost (USD)</th><th>Margin % (blank = target)</th><th>Price (USD)</th></tr></thead>
           <tbody>
             <tr><td>SafeSight, existing infra</td><td class="col-mono" id="deal-install-units-inSsEx">0</td><td><input type="text" inputmode="numeric" id="deal-inSsExisting" readonly></td><td class="col-mono" id="deal-install-cost-inSsEx">$0</td><td><input type="text" inputmode="numeric" id="deal-margin-inSsEx" placeholder="target"></td><td class="col-mono" id="deal-install-price-inSsEx">$0</td></tr>
             <tr><td>SafeSight, new infra</td><td class="col-mono" id="deal-install-units-inSsNew">0</td><td><input type="text" inputmode="numeric" id="deal-inSsNew" readonly></td><td class="col-mono" id="deal-install-cost-inSsNew">$0</td><td><input type="text" inputmode="numeric" id="deal-margin-inSsNew" placeholder="target"></td><td class="col-mono" id="deal-install-price-inSsNew">$0</td></tr>
-            <tr><td>AQ Sensor</td><td class="col-mono" id="deal-install-units-inAqm">0</td><td><input type="text" inputmode="numeric" id="deal-inAqm" readonly></td><td class="col-mono" id="deal-install-cost-inAqm">$0</td><td><input type="text" inputmode="numeric" id="deal-margin-inAqm" placeholder="target"></td><td class="col-mono" id="deal-install-price-inAqm">$0</td></tr>
-            <tr><td>HEMIR</td><td class="col-mono" id="deal-install-units-inHemir">0</td><td><input type="text" inputmode="numeric" id="deal-inHemir" readonly></td><td class="col-mono" id="deal-install-cost-inHemir">$0</td><td><input type="text" inputmode="numeric" id="deal-margin-inHemir" placeholder="target"></td><td class="col-mono" id="deal-install-price-inHemir">$0</td></tr>
+            <tr><td>AQ Sensor, existing infra</td><td class="col-mono" id="deal-install-units-inAqm">0</td><td><input type="text" inputmode="numeric" id="deal-inAqm" readonly></td><td class="col-mono" id="deal-install-cost-inAqm">$0</td><td><input type="text" inputmode="numeric" id="deal-margin-inAqm" placeholder="target"></td><td class="col-mono" id="deal-install-price-inAqm">$0</td></tr>
+            <tr><td>HEMIR, existing infra</td><td class="col-mono" id="deal-install-units-inHemir">0</td><td><input type="text" inputmode="numeric" id="deal-inHemir" readonly></td><td class="col-mono" id="deal-install-cost-inHemir">$0</td><td><input type="text" inputmode="numeric" id="deal-margin-inHemir" placeholder="target"></td><td class="col-mono" id="deal-install-price-inHemir">$0</td></tr>
           </tbody>
           <tbody>
             <tr>

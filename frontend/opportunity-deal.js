@@ -139,10 +139,15 @@ function readPayload() {
 
     installResp: uiState.installResp,
     lumpSumCost: num('deal-lumpCost'),
-    inSsExisting: num('deal-inSsExisting'),
-    inSsNew: num('deal-inSsNew'),
-    inAqm: num('deal-inAqm'),
-    inHemir: num('deal-inHemir'),
+    // Round 37 Phase 1: from the catalog, like the unit and hosting rates
+    // above. These read the form until this phase, and the form was fed from a
+    // payload nothing has ever written, so per-unit installation priced at $0
+    // on every deal. Measured at two mixes before the fix: $0 against $96,500
+    // and $0 against $295,000.
+    inSsExisting: catalogRates.inSsExisting ?? 0,
+    inSsNew: catalogRates.inSsNew ?? 0,
+    inAqm: catalogRates.inAqm ?? 0,
+    inHemir: catalogRates.inHemir ?? 0,
 
     hoSafesight: catalogRates.hoSafesight ?? 0,
     hoAqm: catalogRates.hoAqm ?? 0,
@@ -870,6 +875,18 @@ function renderInstallationTab(result, payload) {
   setInstallRow('inSsNew')
   setInstallRow('inAqm')
   setInstallRow('inHemir')
+  // Round 37 Phase 1: name the basis and the batch, for the same reason the
+  // Hw/Hosting cards carry a provenance line. An installation figure is now a
+  // claim about a specific batch, and the two products whose new-infrastructure
+  // figure has no row should say so where the number is read, not only in a
+  // migration comment nobody opens while pricing a deal.
+  const basis = document.getElementById('deal-install-basis')
+  if (basis) {
+    const b = Object.values(catalogBatches)[0]
+    basis.textContent = b
+      ? `Rates from batch "${b.batch_label}", effective ${b.effective_from}. AQ Sensor and HEMIR use the existing-infrastructure figure; their new-infrastructure rates are held in the catalog and have no row on this tab.`
+      : ''
+  }
   document.getElementById('deal-install-total-cost').textContent = `$${money(result.groups.installGroup.rawTotalCost)}`
   document.getElementById('deal-install-total-price').textContent = `$${money(result.groups.installGroup.rawTotalPrice)}`
 
@@ -904,10 +921,13 @@ function populateForm(payload) {
   uiState.installResp = p.installResp || 'Client Own Installation Team'
   document.getElementById('deal-installResp').value = uiState.installResp
   setVal('deal-lumpCost', p.lumpSumCost ?? '')
-  setVal('deal-inSsExisting', p.inSsExisting ?? '')
-  setVal('deal-inSsNew', p.inSsNew ?? '')
-  setVal('deal-inAqm', p.inAqm ?? '')
-  setVal('deal-inHemir', p.inHemir ?? '')
+  // From the catalog, not from `p`, same correction the unit and hosting rates
+  // took in Round 36 Phase 2. `p` never carried these: they are refused by
+  // SALESPERSON_WRITABLE_KEYS and no writer has ever existed.
+  setVal('deal-inSsExisting', catalogRates.inSsExisting ?? '')
+  setVal('deal-inSsNew', catalogRates.inSsNew ?? '')
+  setVal('deal-inAqm', catalogRates.inAqm ?? '')
+  setVal('deal-inHemir', catalogRates.inHemir ?? '')
   updateInstallVisibility()
 
   setVal('deal-targetMargin', p.targetMargin ?? 30)
