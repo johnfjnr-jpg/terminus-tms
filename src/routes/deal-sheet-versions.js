@@ -44,7 +44,7 @@ export default async function dealSheetVersionsRoutes(app) {
     const db = createUserClient(request.jwt)
     const { data, error } = await db
       .from('deal_sheet_versions')
-      .select('id, major, minor, status, reason, sections, batch_id, created_by, created_at, issued_by, issued_at')
+      .select('id, major, minor, status, reason, sections, batch_id, created_by, created_by_email, created_at, issued_by, issued_by_email, issued_at')
       .eq('record_id', request.params.id)
       .order('major', { ascending: false })
       .order('minor', { ascending: false })
@@ -143,6 +143,10 @@ export default async function dealSheetVersionsRoutes(app) {
         sections: SECTIONS,
         batch_id: batchId,
         created_by: request.user.id,
+        // The email beside the uuid, the same convention assessment entries and
+        // Notes History already use, because auth.users is not readable from
+        // the client and a version's author has to be legible in the list.
+        created_by_email: request.user.email ?? null,
       })
       .select()
       .single()
@@ -186,6 +190,7 @@ export default async function dealSheetVersionsRoutes(app) {
         minor: 0,
         status: 'issued',
         issued_by: request.user.id,
+        issued_by_email: request.user.email ?? null,
         issued_at: new Date().toISOString(),
       })
       .eq('id', version.id)

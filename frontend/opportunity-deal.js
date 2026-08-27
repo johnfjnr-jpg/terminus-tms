@@ -533,19 +533,35 @@ function renderVersionList() {
   if (!dealVersions.length) {
     list.innerHTML = '<p class="pg-item-note">No versions saved yet. V0.1 is the first.</p>'
   } else {
-    list.innerHTML = dealVersions.map(v => `
+    // Number, status, reason, AUTHOR, timestamp and what the version carried.
+    // "A version nobody can find is a version nobody can restore", and during a
+    // bid review the question is usually who took it and what it covered rather
+    // than which number it got.
+    //
+    // sections is shown as a COUNT with the names on hover rather than a list,
+    // because eight names per row would bury the reason, which is the thing the
+    // business said matters most. It is shown at all because a version taken
+    // before a tab existed and one taken after it where the operator left that
+    // tab blank are otherwise indistinguishable.
+    list.innerHTML = dealVersions.map(v => {
+      const when = new Date(v.issued_at ?? v.created_at)
+      const who = (v.status === 'issued' ? v.issued_by_email : v.created_by_email) || 'unknown author'
+      const sections = Array.isArray(v.sections) ? v.sections : []
+      return `
       <div class="ds-row">
-        <div>
+        <div style="min-width:0">
           <div class="ds-label">${escapeSheet(versionLabel(v))}
             <span class="pg-item-note" style="display:inline">${v.status === 'issued' ? 'issued' : 'draft'}</span>
           </div>
           <div class="pg-item-note">${escapeSheet(v.reason)}</div>
-          <div class="pg-item-note">${escapeSheet(new Date(v.created_at).toISOString().slice(0, 10))}</div>
+          <div class="pg-item-note">${escapeSheet(who)} &middot; ${escapeSheet(when.toISOString().slice(0, 16).replace('T', ' '))}</div>
+          <div class="pg-item-note" title="${escapeSheet(sections.join(', '))}">${sections.length} section${sections.length === 1 ? '' : 's'} recorded</div>
         </div>
         <div class="ds-value">
           <button class="btn-text" data-restore-version="${escapeSheet(v.id)}">Restore</button>
         </div>
-      </div>`).join('')
+      </div>`
+    }).join('')
   }
 
   // Issue acts on the latest DRAFT. Disabled when there is none, rather than

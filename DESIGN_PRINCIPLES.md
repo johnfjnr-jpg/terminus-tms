@@ -933,6 +933,31 @@ Explicitly deferred, not forgotten, not a section number of its own since this i
 
   **No currency column, and that closes the related finding above rather than deferring it again.** Bid Currency ("the currency our costs are held in") is a Structural Terms field on the deal, and `calculateDeal()` contains no currency handling at all. A column here would be written once and read by nothing, which is the defect this table exists to stop repeating. USD is implicit until conversion is designed.
 
+  **A DECLARED POLICY IS NOT AN ENFORCEMENT: RLS DOES NOT BIND BYPASSRLS, AND THE SERVICE ROLE HAS IT. Round 37 Phase 4, 2026-08-27.** Round 37 Phase 3 scoped the version update policy to `using (status = 'draft')` and reported it as the immutability rule. It refuses the application and nothing else. Measured by attempting the write and watching it land, rather than by reading the policy:
+
+  | | as the application | as the service role |
+  |---|---|---|
+  | update an issued version | 0 rows, unchanged | **1 row, reason overwritten** |
+  | edit a cited batch | n/a | **1 row, 8000 to 7777** |
+
+  **So a `USING (false)` policy would have passed review and refused nothing.** That is the third direction this project has reached the same sentence from: a rationale written beside a call is not a guard, a recorded decision is not a record of what happened, and now a declared policy is not an enforcement.
+
+  **TRIGGERS FIRE FOR EVERY ROLE, BYPASSRLS INCLUDED**, which is why the enforcement moved there and why one mechanism now covers both tables.
+
+  **The hard part is that issuing is itself an update to the row it freezes.** A draft is mutable, an issued version is not, and the relabel changes status and number in the same statement, so the trigger cannot simply refuse updates to rows that end up issued: it has to allow exactly that transition and nothing else. Legal is draft to issued, major + 1, minor 0, issuer set; everything that makes the version a record of a price must be identical on both sides. Verified as the service role: the relabel is allowed and the row is immutable immediately after, while five illegal variants are each refused for their own reason - same major, non-zero minor, altered inputs, altered batch pointer, rewritten reason.
+
+  **The batch trigger is scoped to CITED batches only.** The foreign key already refuses the delete and binds the owner; the trigger adds the edit, which is the worse case, because a deleted batch is obvious and a batch quietly changed from 8000 to 7777 leaves every version citing it describing a price that was never quoted. An uncited batch stays editable in the Supabase editor, verified, because that is the only maintenance path this build has and a typo caught before anything cites it must still be fixable.
+
+  **No delete trigger, deliberately.** The application already cannot delete, measured at zero rows. A delete trigger would bind the owner, and "immutable once issued" is a rule about ALTERATION - a version that says one thing must never quietly say another. Making issued rows undeletable by anyone would make a fixture or a genuine mistake permanent with no path short of dropping the trigger.
+
+  **A guard is complete only for the columns that existed when it was written.** `created_by_email` was added one migration after the trigger listed every column the relabel must preserve, so for one migration the relabel could rewrite the author and nothing would have failed. Caught by re-reading the guard against the new column. The Architecture rule 9 shape at its smallest.
+
+  **NOTHING IN THE SYSTEM REPRESENTS A PROPOSAL, so the one-to-one link is recorded as absent rather than invented.** Measured: zero `record_type = 'proposal'` rows, no proposal table, and `document_kind` in use is `terminus` and `customer` only. **"Proposal" exists solely as an Opportunity stage name.** An issued version is already uniquely identified and immutable, so a future `proposal.version_id` foreign key is a one-line addition when a proposal exists to hold it.
+
+  **The author is stored as text beside the uuid**, the convention assessment entries and Notes History already use, because `auth.users` is not exposed through PostgREST and a list rendered from uuids can show a version's number, status, reason and timestamp and not who took it.
+
+  **On the reason field's size, the measurement does not settle it and the choice stands on reasoning.** Live assessment reasons run 1 to 192 characters with a median of 42 across 4,371 entries, and this round's own version reasons ran 43 to 62. That is not a wide enough separation to justify a different control on evidence. Three rows is chosen because it INVITES a paragraph where the one-line control invites a sentence, and the business asked for the thinking rather than a label.
+
   **THE PROPOSAL-GATE FREEZE IS SUPERSEDED BY MANUAL SAVE. Round 37 Phase 3, 2026-08-27, confirmed with the business.** This document recorded that the Deal Sheet freezes at the Proposal gate, automatically, as an application of the immutable-approved-snapshot principle. Round 20 Phase 0 found the transition it was named against no longer exists and recorded the freeze point as needing renaming. **It is not renamed, it is replaced.** A version somebody chose to take is a better record than one the system took on their behalf, and it carries the one thing an automatic freeze never could: the reason. **The superseded reasoning is left standing above rather than deleted**, because a reader who remembers the freeze needs to see it struck.
 
   **The supersession is documentation, not a conversion, because the Deal Sheet never existed as an artefact.** Round 37 Phase 0 measured it: zero `record_type = 'deal'` rows against 330 opportunity rows, nothing named freeze or frozen anywhere in `src/`, and the only snapshot path unreachable from the UI since Round 3 Phase 4. There was nothing to migrate.
