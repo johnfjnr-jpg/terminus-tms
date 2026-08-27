@@ -18,6 +18,7 @@ import closedLostReasonsRoutes from './routes/closed-lost-reasons.js'
 import accountsRoutes from './routes/accounts.js'
 import contactsRoutes from './routes/contacts.js'
 import contactVocabulariesRoutes from './routes/contact-vocabularies.js'
+import baseCostsRoutes from './routes/base-costs.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -75,6 +76,7 @@ await fastify.register(async function authenticatedRoutes(app) {
   app.register(accountsRoutes, { prefix: '/api' })
   app.register(contactsRoutes, { prefix: '/api' })
   app.register(contactVocabulariesRoutes, { prefix: '/api' })
+  app.register(baseCostsRoutes, { prefix: '/api' })
 })
 
 const port = parseInt(process.env.PORT ?? '3000', 10)

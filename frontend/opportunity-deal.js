@@ -18,6 +18,7 @@
 // DESIGN_PRINCIPLES.md Section 5 describes as needed once a genuine
 // submit/approval workflow for the Deal Sheet is designed.
 import { calculateDeal } from '/lib/deal-calculator.js'
+import { catalogToRates } from '/lib/base-costs.js'
 
 let opportunityId = null
 let wired = false
@@ -48,6 +49,30 @@ let dealFormDirty = false
 // import already guarantees the calculation itself can't drift; this is
 // the one input source deals.js reads that payload alone doesn't cover).
 let testBedCost = 0
+
+// ── Base Cost Data, Round 36 Phase 2 ──────────────────────────────────────
+//
+// The rates the Commercials tab prices from. Until this round they were read
+// from the Opportunity's own payload, where nothing ever wrote them: Phase 0
+// found all four live Opportunities carrying zero rate keys, the ten keys
+// refused by SALESPERSON_WRITABLE_KEYS since the allowlist was created, and
+// every figure on this tab computing correctly from inputs that did not exist.
+//
+// Held here rather than merged into the payload on load. The rates must not
+// become payload keys again: pickSalespersonWritable() strips them at save and
+// the server refuses them anyway, but the reason is not the allowlist. A rate
+// in the payload is a per-deal cost basis, which is the divergence this round
+// exists to end, and Test Bed still shows what it looks like - ten of 39
+// hand-typed values disagreeing with the catalog.
+//
+// catalogMissing carries the products the catalog did not supply. An absent
+// rate is NOT zero: a zero unit cost and a missing one produce the same $0 on
+// screen, and telling them apart is the whole finding of Phase 0.
+let catalogRates = {}
+let catalogBatches = {}
+let catalogMissing = []
+let catalogLoaded = false
+let catalogError = null
 
 // UI-only state not captured by a plain input/select element.
 const uiState = {
@@ -104,9 +129,13 @@ function readPayload() {
     aqm: num('deal-aqm'),
     hemir: num('deal-hemir'),
 
-    ssUnitCost: num('deal-ssUnitCost'),
-    aqUnitCost: num('deal-aqUnitCost'),
-    hemirUnitCost: num('deal-hemirUnitCost'),
+    // Rates come from the catalog, never from the form. The hidden inputs are
+    // still populated (populateForm) so the note lines under each row can show
+    // "N units x $rate", but they are no longer the source: a readonly input
+    // is a display of a rate, not a record of one.
+    ssUnitCost: catalogRates.ssUnitCost ?? 0,
+    aqUnitCost: catalogRates.aqUnitCost ?? 0,
+    hemirUnitCost: catalogRates.hemirUnitCost ?? 0,
 
     installResp: uiState.installResp,
     lumpSumCost: num('deal-lumpCost'),
@@ -115,9 +144,9 @@ function readPayload() {
     inAqm: num('deal-inAqm'),
     inHemir: num('deal-inHemir'),
 
-    hoSafesight: num('deal-hoSafesight'),
-    hoAqm: num('deal-hoAqm'),
-    hoHemir: num('deal-hoHemir'),
+    hoSafesight: catalogRates.hoSafesight ?? 0,
+    hoAqm: catalogRates.hoAqm ?? 0,
+    hoHemir: catalogRates.hoHemir ?? 0,
 
     targetMargin: num('deal-targetMargin'),
     marginOverrides,
@@ -297,6 +326,74 @@ function renderPricingCards(result, payload) {
   setRow(hostingGroup, 'hoHemir', `${hemirUnits} units x $${money(payload.hoHemir ?? 0)}`)
   document.getElementById('pg-total-cost-ho').textContent = `$${money(hostingGroup.rawTotalCost)}`
   document.getElementById('pg-total-price-ho').textContent = `$${money(hostingGroup.rawTotalPrice)}`
+}
+
+// Where the costs came from, and anything wrong with them. Round 36 Phase 2.
+//
+// Three conditions, and none of them may be silent. The first is provenance:
+// a figure on this screen is now a claim about a specific batch on a specific
+// date, and the screen should say which.
+//
+// The second is a product the catalog does not supply. Its cost renders as $0,
+// and a genuine zero and a missing rate are indistinguishable in that cell -
+// which is precisely the fault Phase 0 found across this entire tab. The cell
+// cannot tell them apart, so the notice has to.
+//
+// The third is currency. bidCurrency is captured on Structural Terms, defaults
+// to USD and is read by nothing: calculateDeal() has no currency handling at
+// all. Before this round that was harmless, because every figure was $0 and
+// zero is zero in any currency. It stops being harmless here, the moment real
+// USD catalog costs render under a deal that says its bid currency is SGD.
+//
+// This notice does NOT convert and does not refuse the deal. Converting needs a
+// rate source that does not exist, and refusing is a business decision about
+// deals that can legitimately be quoted in another currency. Both belong to the
+// phase that decides between them. What Phase 2 must not do is ship the third
+// option, which is to show a number in the wrong currency and say nothing.
+function renderCatalogNotice(payload) {
+  const notice = document.getElementById('deal-catalog-notice')
+  const warn = document.getElementById('deal-catalog-warn')
+  if (!notice || !warn) return
+
+  const labels = { safesight: 'SafeSight', air_quality: 'AQ Sensor', hemir: 'HEMIR' }
+  const problems = []
+
+  if (catalogError) {
+    problems.push(`${catalogError} Every cost below is $0 because no rate could be read, not because anything is free.`)
+  } else if (catalogMissing.length) {
+    problems.push(
+      `Base Cost Data has no current batch for ${catalogMissing.map(m => labels[m] ?? m).join(' and ')}. ` +
+      `${catalogMissing.length === 1 ? 'That product\u2019s cost' : 'Those products\u2019 costs'} reads $0 because no rate exists, not because it is free.`)
+  }
+
+  const bid = payload.bidCurrency
+  if (bid && bid !== 'USD') {
+    problems.push(
+      `Bid Currency is ${bid}, and Base Cost Data is held in USD. ` +
+      `The costs below are USD figures and have not been converted.`)
+  }
+
+  if (problems.length) {
+    warn.textContent = problems.join(' ')
+    warn.classList.remove('hidden')
+  } else {
+    warn.textContent = ''
+    warn.classList.add('hidden')
+  }
+
+  // Provenance, only when there is a batch to name. Every product currently
+  // resolves to one batch, but the catalog allows them to differ, because a
+  // manufacturing run is per product and runs arrive at different times.
+  const batches = Object.values(catalogBatches)
+  if (!batches.length) {
+    notice.textContent = ''
+    return
+  }
+  const dates = [...new Set(batches.map(b => b.effective_from))]
+  const names = [...new Set(batches.map(b => b.batch_label))]
+  notice.textContent = dates.length === 1 && names.length === 1
+    ? `Rates from batch "${names[0]}", effective ${dates[0]}.`
+    : `Rates from ${batches.length} current batches, effective ${dates.sort()[0]} to ${dates.sort()[dates.length - 1]}.`
 }
 
 // ── Recompute + render ────────────────────────────────────────────────────
@@ -534,6 +631,7 @@ function renderResults(result, payload) {
   renderDealSheet(result, payload)
   renderYearSchedule(result, payload)
   renderPricingCards(result, payload)
+  renderCatalogNotice(payload)
   renderInstallationTab(result, payload)
 
   const cf = result.cashFlow
@@ -787,13 +885,18 @@ function populateForm(payload) {
   setVal('deal-aqm', p.aqm ?? 0)
   setVal('deal-hemir', p.hemir ?? 0)
 
-  setVal('deal-ssUnitCost', p.ssUnitCost ?? '')
-  setVal('deal-aqUnitCost', p.aqUnitCost ?? '')
-  setVal('deal-hemirUnitCost', p.hemirUnitCost ?? '')
+  // From the catalog, not from `p`. The index.html comment above these inputs
+  // said "rates are fixed at Opportunity creation"; Round 36 Phase 0 found
+  // creation writes {name, company_name, customerLead} and nothing else, so
+  // they were never fixed at creation or anywhere. That comment is corrected in
+  // the markup in this same change rather than left to rot beside working code.
+  setVal('deal-ssUnitCost', catalogRates.ssUnitCost ?? '')
+  setVal('deal-aqUnitCost', catalogRates.aqUnitCost ?? '')
+  setVal('deal-hemirUnitCost', catalogRates.hemirUnitCost ?? '')
 
-  setVal('deal-hoSafesight', p.hoSafesight ?? '')
-  setVal('deal-hoAqm', p.hoAqm ?? '')
-  setVal('deal-hoHemir', p.hoHemir ?? '')
+  setVal('deal-hoSafesight', catalogRates.hoSafesight ?? '')
+  setVal('deal-hoAqm', catalogRates.hoAqm ?? '')
+  setVal('deal-hoHemir', catalogRates.hoHemir ?? '')
 
   const overrides = p.marginOverrides ?? {}
   MARGIN_KEYS.forEach(key => setVal(`deal-margin-${key}`, overrides[key] ?? ''))
@@ -990,6 +1093,21 @@ function wireOnce() {
     '#deal-duration, #deal-recoveryMonths, #deal-factoring-ratePct, #deal-factoring-termMonths'
   ).forEach(el => el.addEventListener('input', recompute))
 
+  // The currency selects, Round 36 Phase 2. The selector above matches the
+  // <input> TAG, so it never matched these two <select> elements, and 'input'
+  // is not the event a select fires on choice anyway.
+  //
+  // FOUND BY EXERCISING THE BRANCH, not by reading. Changing Bid Currency has
+  // never triggered a recompute, and until this round that was harmless because
+  // nothing downstream read the value: bidCurrency is captured, saved, and
+  // ignored by calculateDeal(). Phase 2 gives it a reader, the catalog currency
+  // notice, so the unwired select became a notice that could not appear for the
+  // condition it exists to report. Architecture rule 8 exactly: an unchanged
+  // path meeting a new demand, with no regression and no failing test, because
+  // nothing was broken until the new use arrived.
+  document.querySelectorAll('#deal-bidCurrency, #deal-proposalCurrency')
+    .forEach(el => el.addEventListener('change', recompute))
+
   // Separate from the recompute listener above - tracks a genuine edit to
   // this one field specifically, so saveDeal() can tell "user changed
   // Duration on this tab" apart from "this tab just still has whatever
@@ -1049,9 +1167,23 @@ function wireOnce() {
 
 // Mirrors SALESPERSON_WRITABLE_KEYS in src/routes/opportunities.js's PATCH
 // handler, which rejects any other key outright. Rate fields (ssUnitCost,
-// aqUnitCost, hemirUnitCost, install/hosting rates) are excluded here -
-// they're read-only after Opportunity creation, a deliberate stopgap until
-// a real Base Cost Data table exists (see that route's comment block).
+// aqUnitCost, hemirUnitCost, install/hosting rates) are excluded here.
+//
+// Round 36 Phase 2: the stopgap this comment described is over. It said the
+// rates were "read-only after Opportunity creation, a deliberate stopgap until
+// a real Base Cost Data table exists". Phase 0 found nothing wrote them at
+// creation either, and the table now exists, so readPayload() sources the unit
+// and hosting rates from the catalog instead of from the form.
+//
+// THE STRIP STAYS, and it is doing more than before. readPayload() now puts
+// live catalog figures on these keys, so without this they would be written
+// into the Opportunity's payload on the next save - reintroducing the per-deal
+// cost basis this round exists to remove, and doing it silently, with values
+// that look right on the day they are saved and go stale the moment a new
+// batch lands. The server's allowlist would refuse the whole PATCH anyway,
+// which means the visible symptom would be every save on this tab failing.
+// The install rates stay stripped for the older reason: they are still payload
+// fields, and the Installation tab is next round's.
 function pickSalespersonWritable(payload) {
   const {
     ssUnitCost, aqUnitCost, hemirUnitCost,
@@ -1130,10 +1262,43 @@ async function saveDeal() {
 
 
 // ── Entry point, called by app.js's renderOppDetail() ─────────────────────
-window.initOpportunityDealPanel = function (opp) {
+// Fetched once per page, not per record: the catalog is system configuration,
+// identical for every Opportunity, and re-fetching it on each record open would
+// make the same request for the same answer on every navigation.
+//
+// The failure branch is exercised rather than assumed, per Architecture rule 8.
+// window.api() returns {ok:false} on a network failure as well as an HTTP
+// error - a catch was added around fetch() in Round 17A precisely because
+// every caller's !ok branch was unreachable until something needed it.
+async function loadCatalog() {
+  if (catalogLoaded) return
+  const result = await window.api('GET', '/api/base-costs')
+  if (!result.ok) {
+    catalogError = result.data?.error ?? 'Base Cost Data could not be loaded.'
+    catalogRates = {}
+    catalogMissing = Object.keys({ safesight: 1, air_quality: 1, hemir: 1 })
+    catalogLoaded = true
+    return
+  }
+  const { rates, missing, batches } = catalogToRates(result.data?.products ?? [])
+  catalogRates = rates
+  catalogBatches = batches
+  catalogMissing = missing
+  catalogError = null
+  catalogLoaded = true
+}
+
+window.initOpportunityDealPanel = async function (opp) {
   opportunityId = opp.id
   testBedCost = opp.opportunity_details?.test_bed_cost ?? 0
   wireOnce()
+
+  // Awaited BEFORE populateForm and recompute, not raced alongside them. A
+  // recompute that runs before the rates arrive renders a full set of $0
+  // figures and then replaces them, which is the same indistinguishable zero
+  // this round exists to remove, shown for however long the request takes.
+  await loadCatalog()
+
   populateForm(opp.payload)
   recompute()
 }

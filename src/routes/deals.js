@@ -18,6 +18,7 @@
  */
 
 import { createUserClient } from '../supabase.js';
+import { resolveCurrentBatches, catalogToRates } from '../lib/base-costs.js';
 import { sendWriteError } from '../lib/write-errors.js'
 import { appendRecordRevision } from '../lib/record-revision.js';
 import { calculateDeal } from '../lib/deal-calculator.js';
@@ -95,6 +96,32 @@ async function loadDealInputsFromOpportunity(db, opportunityId) {
   const overrides = payload.marginOverrides ?? {};
   const marginFor = (key) => overrides[key] ?? targetMargin;
 
+  // Base Cost Data, Round 36 Phase 2. The rates were read from the payload
+  // until this round, where nothing ever wrote them, so every recompute this
+  // function fed was arithmetic on absent inputs.
+  //
+  // CHANGED HERE AS WELL AS ON THE TAB, and not because anything calls it
+  // today. POST /api/deals/submit has been unreachable from the UI since Round
+  // 3 Phase 4 removed its button. That is exactly the Architecture rule 8
+  // shape: leaving this reading the payload would be correct for every caller
+  // that exists and wrong the moment submit is wired, and the failure would be
+  // a live preview and an authoritative snapshot disagreeing about the price of
+  // a deal, which is the one thing this function exists to prevent.
+  //
+  // The error is checked. An unchecked read here would degrade to "no rates",
+  // which renders as $0 and is indistinguishable from a genuinely free product.
+  const { data: batchRows, error: batchErr } = await db
+    .from('base_cost_batches')
+    .select('id, product, batch_label, effective_from, unit_cost, install_cost_existing, install_cost_new, hosting_cost_month');
+
+  if (batchErr) {
+    throw new Error(`Base Cost Data could not be read: ${batchErr.message}`);
+  }
+
+  const asOf = new Date().toISOString().slice(0, 10);
+  const { rates: catalogRates, missing: catalogMissing } =
+    catalogToRates(resolveCurrentBatches(batchRows ?? [], asOf));
+
   const ssExisting = payload.ssExisting ?? 0;
   const ssNew = payload.ssNew ?? 0;
   const aqmUnits = payload.aqm ?? 0;
@@ -133,19 +160,19 @@ async function loadDealInputsFromOpportunity(db, opportunityId) {
   ];
 
   const hostingLineItems = [
-    { key: 'hoSs', cost: (payload.hoSafesight ?? 0) * (ssExisting + ssNew), marginPct: marginFor('hoSs') },
-    { key: 'hoAqm', cost: (payload.hoAqm ?? 0) * aqmUnits, marginPct: marginFor('hoAqm') },
-    { key: 'hoHemir', cost: (payload.hoHemir ?? 0) * hemirUnits, marginPct: marginFor('hoHemir') },
+    { key: 'hoSs', cost: (catalogRates.hoSafesight ?? 0) * (ssExisting + ssNew), marginPct: marginFor('hoSs') },
+    { key: 'hoAqm', cost: (catalogRates.hoAqm ?? 0) * aqmUnits, marginPct: marginFor('hoAqm') },
+    { key: 'hoHemir', cost: (catalogRates.hoHemir ?? 0) * hemirUnits, marginPct: marginFor('hoHemir') },
   ];
 
   const factoring = payload.factoring ?? {};
 
   const dealInputs = {
-    ssUnitCost: payload.ssUnitCost ?? 0,
+    ssUnitCost: catalogRates.ssUnitCost ?? 0,
     ssUnits: ssExisting + ssNew,
-    aqUnitCost: payload.aqUnitCost ?? 0,
+    aqUnitCost: catalogRates.aqUnitCost ?? 0,
     aqUnits: aqmUnits,
-    hemirUnitCost: payload.hemirUnitCost ?? 0,
+    hemirUnitCost: catalogRates.hemirUnitCost ?? 0,
     hemirUnits,
     warrantyPct: payload.warrantyPct ?? 2,
     installLineItems,
@@ -174,7 +201,10 @@ async function loadDealInputsFromOpportunity(db, opportunityId) {
     testBedCost,
   };
 
-  return { dealInputs, revisionNumber: revision.revision_number, payload };
+  // catalogMissing travels with the inputs rather than being swallowed. A
+  // product with no batch prices at 0, and a caller that cannot see the
+  // difference between that and a free product is the Phase 0 fault again.
+  return { dealInputs, revisionNumber: revision.revision_number, payload, catalogMissing };
 }
 
 // Adjust this import to wherever your existing JWT verification helper

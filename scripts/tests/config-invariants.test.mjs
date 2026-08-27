@@ -27,6 +27,7 @@ let db
 let rules, stages, refDocs, tracks
 let criteria, anchors, liveDocuments, livePayloads
 let contactRoles, contactStances
+let baseCosts
 
 before(async () => {
   db = adminClient()
@@ -87,6 +88,21 @@ before(async () => {
   const latest = {}
   for (const r of revs.data) latest[r.record_id] = r.payload
   livePayloads = Object.entries(latest).map(([record_id, payload]) => ({ record_id, payload }))
+
+  // Round 36 Phase 1: Base Cost Data. numeric arrives from PostgREST as a
+  // string, so coerce once here rather than in each assertion, where a
+  // forgotten Number() would compare '8000' to 8000 and fail for a reason
+  // that has nothing to do with the configuration.
+  const bc = await db.from('base_cost_batches')
+    .select('id, product, batch_label, effective_from, unit_cost, install_cost_existing, install_cost_new, hosting_cost_month')
+  assert.equal(bc.error, null, `base_cost_batches query failed: ${bc.error?.message}`)
+  baseCosts = bc.data.map(r => ({
+    ...r,
+    unit_cost: Number(r.unit_cost),
+    install_cost_existing: Number(r.install_cost_existing),
+    install_cost_new: Number(r.install_cost_new),
+    hosting_cost_month: Number(r.hosting_cost_month),
+  }))
 })
 
 const tbRules = () => rules.filter(r => r.record_type === 'test_bed')
@@ -517,4 +533,90 @@ test('INVARIANT 12: Pain Owner is on its own axis, so a Pain Owner who is a Bloc
   // axis and nothing competes with anything.
   assert.equal(axisOf('Supporter'), axisOf('Blocker'),
     'Supporter and Blocker must compete, or a contact could be recorded as both')
+})
+
+// ─────────────────────────────────────────────────────────────
+// 13-14. Base Cost Data, Round 36 Phase 1
+// ─────────────────────────────────────────────────────────────
+//
+// These twelve figures are the round. Everything Phase 2 puts on the
+// Commercials tab is arithmetic on them, so a silent change here is a silent
+// change to every deal's cost basis, and nothing else in the suite would
+// notice: the calculator tests use their own literals, and the tab renders
+// whatever it is given.
+//
+// Round 36 Phase 0 recorded the specific shape this defends against. A
+// migration changed a scoring level's reason_required and left a message in
+// score-entry.js describing the OLD configuration; no line of code changed, no
+// test could fail, and git log -S on the string returned only the commit that
+// wrote it. A catalog of numbers maintained by hand in the Supabase editor is
+// the same exposure with a shorter fuse.
+const CATALOG = {
+  safesight:   { unit_cost: 8000,   install_cost_existing: 2000, install_cost_new: 20000, hosting_cost_month: 200 },
+  air_quality: { unit_cost: 2000,   install_cost_existing: 500,  install_cost_new: 1000,  hosting_cost_month: 100 },
+  hemir:       { unit_cost: 100000, install_cost_existing: 5000, install_cost_new: 10000, hosting_cost_month: 500 },
+}
+
+test('INVARIANT 13: the base cost catalog carries exactly the figures the business supplied', () => {
+  // Present-first, so a renamed or missing product fails as a missing product
+  // rather than as two undefineds comparing equal. Verification rule 14.
+  for (const product of Object.keys(CATALOG)) {
+    const rows = baseCosts.filter(b => b.product === product)
+    assert.ok(rows.length > 0, `no batch exists for "${product}", so every figure asserted below is vacuous`)
+  }
+
+  // Compared against the CURRENT batch per product, not against every row.
+  // A superseded batch legitimately holds different figures - that is what a
+  // batch is - so asserting over the whole table would fail the first time the
+  // business enters a new manufacturing run, and the natural fix would be to
+  // delete the history this table exists to keep.
+  const today = new Date().toISOString().slice(0, 10)
+  for (const [product, expected] of Object.entries(CATALOG)) {
+    const current = baseCosts
+      .filter(b => b.product === product && b.effective_from <= today)
+      .sort((a, b) => b.effective_from.localeCompare(a.effective_from))[0]
+
+    assert.ok(current, `"${product}" has no batch effective on or before ${today}, so the Commercials tab would silently omit it`)
+    assert.deepEqual({
+      unit_cost: current.unit_cost,
+      install_cost_existing: current.install_cost_existing,
+      install_cost_new: current.install_cost_new,
+      hosting_cost_month: current.hosting_cost_month,
+    }, expected, `the current ${product} batch has drifted from the figures the business supplied in Round 36`)
+  }
+})
+
+test('INVARIANT 14: one batch per product per date, so "current" has exactly one answer', () => {
+  // The resolver in routes/base-costs.js takes the newest effective_from at or
+  // before a date. Two batches sharing a product and a date make that ordering
+  // arbitrary, and the route would pick by whichever row the database returned
+  // first, which is not a decision anyone made.
+  //
+  // The rule is restated here rather than imported from the route DELIBERATELY.
+  // A test that reuses the implementation's own derivation passes by
+  // construction and stops asking anything, which is the Round 30 failure:
+  // a rule whose answer has become constant is indistinguishable from a rule
+  // that is working.
+  const seen = new Map()
+  for (const b of baseCosts) {
+    const key = `${b.product}@${b.effective_from}`
+    assert.ok(!seen.has(key),
+      `two batches share product "${b.product}" and effective_from ${b.effective_from}, so which one is current is undefined`)
+    seen.set(key, b.id)
+  }
+
+  // The negative half, as its own assertion. Without it this test would pass
+  // just as well against an EMPTY table, which is the exact shape Verification
+  // rule 13 names: a count of zero from an instrument never shown reaching one.
+  assert.ok(baseCosts.length >= Object.keys(CATALOG).length,
+    `base_cost_batches holds ${baseCosts.length} rows, fewer than the ${Object.keys(CATALOG).length} products the catalog defines`)
+
+  // Every row names a product the CHECK constraint allows. Asserted rather than
+  // assumed: the constraint and this list are two places holding the same three
+  // strings, and a migration that widens one without the other is exactly how
+  // the tab would gain a product nothing renders.
+  for (const b of baseCosts) {
+    assert.ok(CATALOG[b.product],
+      `base_cost_batches holds product "${b.product}", which this suite and the Commercials tab know nothing about`)
+  }
 })
