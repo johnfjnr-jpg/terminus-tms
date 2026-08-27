@@ -1354,11 +1354,19 @@ async function loadTerminusStaffIfNeeded() {
 // endpoint. Each already has its own real validation; chaining them is
 // genuinely just orchestration, not a second implementation of
 // anything.
-let ibcContext = null // { recordType: 'test_bed' | 'opportunity', recordId, accountId, role }
+// { recordType: 'test_bed' | 'opportunity', recordId, accountId, role,
+//   roleId?, roleOther? }
+//
+// role is the DISPLAY label in both cases and is what the error messages
+// name. roleId/roleOther are the Opportunity shape only, added Round 35
+// Phase 5 when the four fixed slots retired: Test Bed still links by one of
+// three hardcoded strings, Opportunity links by a catalog uuid or by text
+// typed on the deal, and step 4 below sends whichever its record type takes.
+let ibcContext = null
 let ibcKeydownHandler = null
 
-window.openInlineBuyerContactModal = async function (recordType, recordId, accountId, role) {
-  ibcContext = { recordType, recordId, accountId, role }
+window.openInlineBuyerContactModal = async function (recordType, recordId, accountId, role, roleId, roleOther) {
+  ibcContext = { recordType, recordId, accountId, role, roleId, roleOther }
   // Round 6 Phase 2 (2026-08-17): title stays "New Contact" regardless
   // of which buyer role triggered this - previously interpolated the
   // role in ("New Client Commercial Buyer"), dropped deliberately, the
@@ -1481,12 +1489,23 @@ window.saveInlineBuyerContact = async function () {
       return
     }
 
-    // Step 4: link as this specific buyer role, the same endpoint the
-    // ordinary (already-qualified-Contact) dropdown flow already uses.
+    // Step 4: link in this specific role, the same endpoint the ordinary
+    // (already-qualified-Contact) dropdown flow already uses.
+    //
+    // TWO SHAPES, ONE STEP. Round 35 Phase 5. Test Bed links by one of three
+    // hardcoded role strings; Opportunity's four fixed slots were retired for
+    // Key Customer Contacts, so it links by a catalog role_id or by a
+    // role_other typed on the deal. Branching here rather than building a
+    // second modal keeps the four proven endpoints this orchestrates as one
+    // sequence, which is the whole reason this function exists.
     const path = ibcContext.recordType === 'test_bed'
       ? `/api/test-beds/${ibcContext.recordId}/buyer-contacts`
-      : `/api/opportunities/${ibcContext.recordId}/buyer-contacts`
-    const roleLinked = await api('POST', path, { role: ibcContext.role, contact_id: contactId })
+      : `/api/opportunities/${ibcContext.recordId}/key-contacts`
+    const body = ibcContext.recordType === 'test_bed'
+      ? { role: ibcContext.role, contact_id: contactId }
+      : { contact_id: contactId,
+          ...(ibcContext.roleId ? { role_id: ibcContext.roleId } : { role_other: ibcContext.roleOther }) }
+    const roleLinked = await api('POST', path, body)
     if (!roleLinked.ok) {
       errEl.innerHTML = `Contact created, linked to the Account, and qualified, but linking as ${escHtml(ibcContext.role)} failed: ${escHtml(roleLinked.data?.error ?? 'unknown error')}. It can be linked directly from the role dropdown now that it's qualified.`
       errEl.classList.remove('hidden')
@@ -1494,9 +1513,9 @@ window.saveInlineBuyerContact = async function () {
     }
 
     // Full success - return to the original screen, per the brief, with
-    // the new Contact now selectable and correctly linked (the reload
-    // below picks it up via the record's own buyer_contacts, already
-    // written by step 4).
+    // the new Contact now selectable and correctly linked (the reload below
+    // picks it up via the record's own buyer_contacts on Test Bed, or
+    // key_contacts on Opportunity, already written by step 4).
     const { recordType, recordId } = ibcContext
     closeInlineBuyerContactModal()
     if (recordType === 'test_bed') {

@@ -4625,3 +4625,88 @@ saying so is what surfaces the divergence Phase 2 measured across 459 rows.
 **Refusing new input does fold case**, because this is the only moment at which
 a near-miss can be prevented rather than merely reported. Typing `legal` when
 `Legal` is in the catalog returns 422 naming the catalog role.
+
+### The four fixed buyer slots are retired, and that is what fixes "Sel"
+
+Round 35 Phase 5, 2026-08-27.
+
+Removed entirely rather than hidden: `BUYER_ROLES`, `renderRefBuyerRows`,
+`window.linkRefBuyer`, `refAccountContacts`, the `#ref-buyer-rows` markup and
+its `ref-buyer-select-*` / `ref-buyer-feedback-*` ids,
+`VALID_OPPORTUNITY_BUYER_ROLES`, `POST /opportunities/:id/buyer-contacts`, and
+`buyer_contacts` from the Opportunity GET.
+
+**Verified by counting to zero with the counter calibrated**, because Round 10
+left two containers behind and both reached the business. Six selectors read
+zero on the live page; the same six read one after a matching element was
+injected, and zero again after it was removed. `window.linkRefBuyer` is
+`undefined`; `openInlineBuyerContactModal` is still a function, because Test
+Bed uses it.
+
+**THE TRUNCATED CONTROL GOES WITH THE SLOTS, AND THAT IS THE FIX.** Phase 0
+measured the select at 41px of the 256px it needs, 16%, identical at 1240, 1920
+and 3440 because it was a fixed collapse rather than a responsive squeeze, and
+established that removing `LINK` would return only 67px and reach 108px, still
+42%. **The 196px control column was the constraint, so nothing short of
+replacing the row could fix it.** Measured again after the retirement, the
+Reference tab's remaining selects are 320px of the 256px they need and 220px of
+137px. The truncation is not improved; the control it afflicted no longer
+exists.
+
+**The four live `commercial buyer` rows were DELETED, not migrated**, on the
+business's standing instruction that test data is deleted rather than
+preserved. All four came from the Milestone 3 backfill, whose own migration
+says of the role: *"this is a default, not a verified fact"*. None carried
+`role_id` or `role_other`, so none was written by the new panel, and none had a
+stance entry. Re-queried afterwards: zero rows remain on live Opportunities,
+and `record_contacts` still holds 455, all Test Bed's.
+
+### "+ New" survives the retirement, because it was the slots' one real capability
+
+Round 35 Phase 5, 2026-08-27.
+
+Phase 0 established that `LINK` did nothing the select did not, so removing it
+removed nothing. **`+ New` is different**: it creates a qualified Contact
+without leaving the deal, orchestrating four already-proven endpoints in
+sequence. Retiring the slots without it would have taken that away silently,
+which is not what "retire the slots" asked for.
+
+`openInlineBuyerContactModal` is shared with Test Bed and stays one
+implementation. Its step 4 now branches on record type, because the two link
+differently: Test Bed by one of three hardcoded role strings, Opportunity by a
+catalog `role_id` or a `role_other` typed on the deal.
+
+**That makes Test Bed reachable, so it was checked rather than reasoned about,
+and the check is stronger than a pixel comparison would have been.** A fixture
+Test Bed was created and the shared modal driven end to end through the real
+`+ New` button: the Contact was created, linked to the Account, transitioned to
+Qualified through the ordinary gate, and appeared in the slot. The link it
+wrote carries `role` as text with `role_id` and `role_other` both null, so Test
+Bed's model is untouched by a change to the function it shares.
+
+### Enumerating teardown from the database is necessary and not sufficient
+
+Round 35 Phase 5, 2026-08-27. **A refinement to Verification rule 11, found by
+it failing.**
+
+Rule 11 says to enumerate teardown from the database by a tag the fixtures
+carry, never from a file the harness wrote, because a rebuild leaves records
+the file no longer names. This phase enumerated from the database and **still
+nearly left a live Contact on a business Account**, because the query that
+enumerated it read `record_revisions` with no `Range` header and saw 1000 of
+15,800 rows.
+
+**The teardown then reported clean, and it was clean about the empty set it had
+been given.** The same truncation made an assertion fail that was actually
+true: the Contact existed, was Qualified, and was on the right Account, and the
+probe that said otherwise had simply not looked at the page containing it.
+
+This is Round 34 Phase 2's paged scan arriving in a new place, and the earlier
+entry framed it as a scanning problem. **It is a teardown problem too, and that
+direction is worse**, because a scan that under-reports produces a wrong
+finding somebody may notice, while a teardown that under-reports produces
+residue nobody is looking for.
+
+**The check: a teardown enumeration is a scan, so it carries every obligation a
+scan carries.** Page it, and confirm the population it walked is the whole
+population, not the first page of it.

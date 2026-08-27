@@ -12,12 +12,11 @@
 // Authority (2026-08-16): a dropdown sourced from terminus_staff (app.js's
 // terminusStaffCache, same table/pattern as industries), not a Contact
 // dropdown - these are internal Terminus people, not client-side
-// contacts. Technical/Commercial/Legal/IT-Security Buyer (Round 3 Phase
-// 3, 2026-08-17, see BUYER_ROLES/renderRefBuyerRows below): a real
-// record_contacts link, filtered to Contacts already linked to this
-// Opportunity's own Account, direct port of Test Bed's existing Client
-// Buyer mechanism. Customer Lead and Commercial Address for Proposal are
-// the only remaining plain-text person/address fields.
+// contacts. Client-side buyers were four fixed slots from Round 3 Phase 3
+// until Round 35 Phase 5 retired them for Key Customer Contacts, a list of
+// people each carrying a role and a stance: see renderKeyContacts below.
+// Customer Lead and Commercial Address for Proposal are the only remaining
+// plain-text person/address fields.
 
 let refOpportunityId = null
 let refPayload = {}
@@ -29,7 +28,6 @@ let refWired = false
 // as Test Bed's own buyer mechanism (test-bed-detail.js) - fetched once
 // per opportunity load (reset in initOpportunityReferencePanel below),
 // reused across re-renders within that same view.
-let refAccountContacts = []
 
 // refEdits[key] = { draft, orig } — only present entries are "open".
 // Every field row renders once (in renderReferenceTab); opening, typing,
@@ -85,11 +83,10 @@ const TERMINUS_FIELDS = [
 // Account picker, Milestone 6, removed entirely when that capability
 // was deliberately taken away).
 // techBuyer/commBuyer/legalBuyer/itBuyer removed from here (Round 3 Phase
-// 3, 2026-08-17) - no longer free text, see BUYER_ROLES below and
-// renderRefBuyerRows, a real record_contacts link filtered to Contacts
-// already linked to this Opportunity's Account, direct port of Test
-// Bed's existing Client Buyer mechanism (test-bed-detail.js), not the
-// full mandatory-core/admin-catalog/escape-valve model.
+// 3, 2026-08-17) - they became four fixed record_contacts links, and Round
+// 35 Phase 5 retired those in turn for Key Customer Contacts, which IS the
+// full mandatory-core/admin-catalog/escape-valve model the Round 3 comment
+// recorded as not yet built.
 // Round 34 Phase 5: Client Lead, and the proposal address as SIX fields.
 //
 // "Client Lead" matches Test Bed, and like every other rename this round it is
@@ -123,10 +120,6 @@ const SAME_AS_ACCOUNT_KEY = 'commAddressSameAsAccount'
 // The account's six, in the order the six above expect them.
 const ACCOUNT_SHIPPING_KEYS = ['shippingAddress', 'shippingAddress2', 'shippingCity',
   'shippingPostcode', 'shippingCountry', 'shippingRegion']
-// Role strings match this endpoint's own VALID_OPPORTUNITY_BUYER_ROLES
-// (src/routes/opportunities.js) exactly, and the field labels these
-// replaced, so nothing else about the panel's layout changes.
-const BUYER_ROLES = ['Technical Buyer', 'Commercial Buyer', 'Legal Buyer', 'IT / Security Buyer']
 // estClose (Round 3 Phase 3): folded into the generic click-to-edit
 // mechanism and the batched Save flow - no longer its own permanently-
 // present form behind a separate "Edit" link. Its value isn't a payload
@@ -318,71 +311,6 @@ function refReadonlyRow(label, value) {
   </div>`
 }
 
-// Buyer Roles (Round 3 Phase 3): direct port of Test Bed's
-// renderTbBuyerRows/linkTbBuyer (test-bed-detail.js) - a role already
-// linked renders read-only, an unlinked role gets a select (Contacts
-// already linked to this Opportunity's own Account) plus a Link button.
-// The server (POST /opportunities/:id/buyer-contacts) re-validates the
-// Account match regardless of this client-side filtering.
-async function renderRefBuyerRows(opp) {
-  const el = document.getElementById('ref-buyer-rows')
-  if (!el) return
-  if (!opp.account_id) {
-    el.innerHTML = '<p class="empty-state">No linked Account.</p>'
-    return
-  }
-
-  if (!refAccountContacts.length) {
-    const result = await api('GET', '/api/contacts')
-    if (result.ok) {
-      refAccountContacts = result.data.filter(c => c.parent_record_id === opp.account_id)
-    }
-  }
-
-  const linked = opp.buyer_contacts ?? []
-  el.innerHTML = BUYER_ROLES.map(role => {
-    const current = linked.find(l => l.role === role)
-    if (current) {
-      return `
-      <div class="ref-field" data-key="buyer-${role}">
-        <div class="ref-field-label"><span>${escHtml(role)}</span></div>
-        <div class="ref-field-display readonly">${escHtml(current.name ?? current.contact_id)}</div>
-      </div>`
-    }
-    const options = refAccountContacts.map(c => `<option value="${c.id}">${escHtml(c.payload?.name ?? c.id)}</option>`).join('')
-    return `
-    <div class="ref-field" data-key="buyer-${role}">
-      <div class="ref-field-label"><span>${escHtml(role)}</span></div>
-      <div style="display:flex;gap:8px;align-items:center">
-        <select id="ref-buyer-select-${escHtml(role)}">
-          <option value="">${refAccountContacts.length ? 'Select a contact linked to this Account' : 'No Contacts linked to this Account yet'}</option>
-          ${options}
-        </select>
-        <button class="btn-sm" onclick="linkRefBuyer('${escHtml(role)}')">Link</button>
-        <!-- Round 5 Phase 9 (2026-08-17): direct port of Test Bed's own
-             "+ New" trigger (test-bed-detail.js) - one shared modal
-             (app.js's openInlineBuyerContactModal), not a second
-             implementation. -->
-        <button class="btn-sm btn-ghost" onclick="openInlineBuyerContactModal('opportunity', '${escHtml(refOpportunityId)}', '${escHtml(opp.account_id)}', '${escHtml(role)}')">+ New</button>
-      </div>
-      <div id="ref-buyer-feedback-${escHtml(role)}"></div>
-    </div>`
-  }).join('')
-}
-
-window.linkRefBuyer = async function (role) {
-  const select = document.getElementById(`ref-buyer-select-${role}`)
-  const contact_id = select.value
-  const feedback = document.getElementById(`ref-buyer-feedback-${role}`)
-  if (!contact_id) return
-  const result = await api('POST', `/api/opportunities/${refOpportunityId}/buyer-contacts`, { role, contact_id })
-  if (!result.ok) {
-    feedback.innerHTML = `<p class="msg-error">${escHtml(result.data.error ?? 'Failed to link contact.')}</p>`
-    return
-  }
-  await loadOpportunityDetail(refOpportunityId)
-}
-
 // ── Key Customer Contacts (Round 35, Phases 3 and 4) ─────────────────
 // Phase 3 built this read only. Phase 4 adds linking, removing, and an
 // append-only stance carrying an optional note.
@@ -532,11 +460,12 @@ async function renderKcAddRow() {
   if (!el) return
   if (!kcContext.accountId) { el.innerHTML = '<p class="empty-state">No linked Account, so no Contacts to add.</p>'; return }
 
-  // FETCHED PER ACCOUNT, NOT ONCE PER PAGE LOAD. renderRefBuyerRows caches
-  // into a module-level array guarded by `if (!length)`, so after opening one
-  // Opportunity every later one offers the FIRST one's account contacts.
-  // Demonstrated live in Phase 3 and left alone there because Phase 5 removes
-  // that code; it is not repeated here.
+  // FETCHED PER ACCOUNT, NOT ONCE PER PAGE LOAD, and the difference is why
+  // this is keyed on the account rather than guarded by `if (!length)`.
+  // renderRefBuyerRows did the latter, so after opening one Opportunity every
+  // later one offered the FIRST one's account contacts. Demonstrated live in
+  // Phase 3 on two records with disjoint contact lists, and left alone there
+  // because Phase 5 was going to delete it, which it did.
   if (kcAccountContacts.accountId !== kcContext.accountId) {
     const result = await api('GET', '/api/contacts')
     kcAccountContacts = result.ok
@@ -562,6 +491,14 @@ async function renderKcAddRow() {
       </select>
       <input type="text" id="kc-add-other" class="hidden" placeholder="Role as they describe it">
       <button class="btn-sm" onclick="kcAdd()">Add</button>
+      <!-- "+ New" survives the retirement of the four slots. It was their
+           one real capability beyond the select: create a qualified Contact
+           without leaving the deal. Removing the slots without it would have
+           taken that away silently, which is not what "retire the slots"
+           asked for. Same shared modal (app.js's
+           openInlineBuyerContactModal), now passed the role's uuid or the
+           typed text rather than one of four hardcoded strings. -->
+      <button class="btn-sm btn-ghost" onclick="kcNewContact()">+ New</button>
     </div>
     <div id="kc-feedback"></div>`
 }
@@ -571,6 +508,19 @@ window.kcAddRoleChanged = function () {
   const chosen = document.getElementById('kc-add-role')?.value
   other?.classList.toggle('hidden', chosen !== '__other')
   if (chosen === '__other') other?.focus()
+}
+
+window.kcNewContact = function () {
+  const roleSel = document.getElementById('kc-add-role')?.value
+  const typed = document.getElementById('kc-add-other')?.value?.trim() ?? ''
+  // The role is chosen BEFORE the Contact is created, because step 4 of the
+  // modal links in that role and has nowhere to ask for one.
+  if (!roleSel) { kcFeedback('Pick a role first, so the new contact can be linked in it.'); return }
+  if (roleSel === '__other' && !typed) { kcFeedback('Type the role first, so the new contact can be linked in it.'); return }
+  const label = roleSel === '__other' ? typed : (kcRoles.find(r => r.id === roleSel)?.label ?? '')
+  openInlineBuyerContactModal('opportunity', kcContext.oppId, kcContext.accountId, label,
+    roleSel === '__other' ? null : roleSel,
+    roleSel === '__other' ? typed : null)
 }
 
 window.kcAdd = async function () {
@@ -680,12 +630,6 @@ function renderReferenceTab(opp) {
     refReadonlyRow('Account', opp.account?.name || 'Not linked')
     + CUSTOMER_FIELDS.map(f => refFieldRow(f.key, f.label, refPayload[f.key])).join('')
     + renderProposalAddress()
-
-  // Buyer Roles (Round 3 Phase 3): record_contacts-backed, not part of
-  // the generic refPayload rows above - own render pass, same reasoning
-  // and same async-fetch-then-render shape as Test Bed's
-  // renderTbBuyerRows (test-bed-detail.js).
-  renderRefBuyerRows(opp)
 
   // Key Customer Contacts (Round 35 Phases 3 and 4). The vocabularies are
   // needed before the row's stance select can be built, so this is the one
@@ -980,6 +924,10 @@ function wireRefOnce() {
 // ── Entry point, called by app.js's renderOppDetail() ─────────────────────
 window.initOpportunityReferencePanel = function (opp) {
   wireRefOnce()
-  refAccountContacts = []
+  // kcAccountContacts is reset by the account it was fetched for rather than
+  // here, so navigating between two Opportunities on the SAME account keeps
+  // the fetch and navigating to a different one discards it. The array this
+  // line used to clear, refAccountContacts, is gone with the four slots
+  // (Round 35 Phase 5).
   renderReferenceTab(opp)
 }
