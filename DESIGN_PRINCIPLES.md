@@ -933,6 +933,23 @@ Explicitly deferred, not forgotten, not a section number of its own since this i
 
   **No currency column, and that closes the related finding above rather than deferring it again.** Bid Currency ("the currency our costs are held in") is a Structural Terms field on the deal, and `calculateDeal()` contains no currency handling at all. A column here would be written once and read by nothing, which is the defect this table exists to stop repeating. USD is implicit until conversion is designed.
 
+  **AQ SENSOR AND HEMIR NEW-INFRASTRUCTURE INSTALLATION: A DEFERRED CASE, NOT AN UNCONFIRMED DEFAULT. Round 37 Phase 5, 2026-08-27, decided by the business.** Four unit inputs stay. The catalog holds an existing and a new installation figure for all three products; the Commercials tab has two rows for SafeSight and one each for AQ Sensor and HEMIR, so their new-infrastructure figures, $1,000 and $10,000, reach no row and are not consumed.
+
+  **The business's reasoning, recorded as theirs:** the difference may be real and they do not yet know, so it is designed for in the DATA rather than in the SCREEN. The catalog carrying both figures for all three products is the expensive half and it is already right. Two more unit boxes that would read zero on almost every deal is the shape Round 30 spent a round removing, and the same shape the value-column question was rejected on twice.
+
+  **This is a deferral with a known cost, not a gap nobody noticed**, and the screen says so: the rows read "AQ Sensor, existing infra" and "HEMIR, existing infra", and a basis line beside the table names the batch and states plainly that their new-infrastructure rates have no row. **The labelling is what makes the deferral visible rather than silent**, which is the reason it stays.
+
+  **THE FOUR-FIGURE STRIP AND THE DEAL SHEET ARE TWO DIFFERENT FACTS, NOT TWO PRESENTATIONS OF ONE, and the reason is a multiplication.** The Hw/Hosting card totals hosting PER MONTH; the strip and the Deal Summary matrix carry it over the TERM. Measured on one deal at 36 months: the hosting card reads $12,500 and the matrix's hosting column reads $450,000. So a reader comparing the two is not seeing a discrepancy, they are seeing a month against a contract. **Removing the strip would remove the only place the term is visible on this tab**, which makes it a Payment Terms question rather than a Deal Sheet one.
+
+  **SECTIONS ARE DECLARED, NOT DERIVED FROM THE PAYLOAD'S KEYS, and Round 37 Phase 5 exercised that across a real gap for the first time.** Two versions on one deal: one carrying six sections with no payment keys in its payload at all, one carrying eight with the payment keys present and blank.
+
+  | | payload has a payment key | sections lists payment |
+  |---|---|---|
+  | taken before Payment Terms existed | no | **no** |
+  | taken after, left blank | yes, empty values | **yes** |
+
+  **A reader deriving sections from the keys would call both "no payment structure".** Declared, the version answers which: the structure was blank, or there was no structure to fill. That is the business's own refinement and it is the difference between an incomplete record and a record of what was complete at the time.
+
   **A DECLARED POLICY IS NOT AN ENFORCEMENT: RLS DOES NOT BIND BYPASSRLS, AND THE SERVICE ROLE HAS IT. Round 37 Phase 4, 2026-08-27.** Round 37 Phase 3 scoped the version update policy to `using (status = 'draft')` and reported it as the immutability rule. It refuses the application and nothing else. Measured by attempting the write and watching it land, rather than by reading the policy:
 
   | | as the application | as the service role |
