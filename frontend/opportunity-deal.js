@@ -139,10 +139,15 @@ function readPayload() {
 
     installResp: uiState.installResp,
     lumpSumCost: num('deal-lumpCost'),
-    inSsExisting: num('deal-inSsExisting'),
-    inSsNew: num('deal-inSsNew'),
-    inAqm: num('deal-inAqm'),
-    inHemir: num('deal-inHemir'),
+    // Round 37 Phase 1: from the catalog, like the unit and hosting rates
+    // above. These read the form until this phase, and the form was fed from a
+    // payload nothing has ever written, so per-unit installation priced at $0
+    // on every deal. Measured at two mixes before the fix: $0 against $96,500
+    // and $0 against $295,000.
+    inSsExisting: catalogRates.inSsExisting ?? 0,
+    inSsNew: catalogRates.inSsNew ?? 0,
+    inAqm: catalogRates.inAqm ?? 0,
+    inHemir: catalogRates.inHemir ?? 0,
 
     hoSafesight: catalogRates.hoSafesight ?? 0,
     hoAqm: catalogRates.hoAqm ?? 0,
@@ -396,6 +401,259 @@ function renderCatalogNotice(payload) {
     : `Rates from ${batches.length} current batches, effective ${dates.sort()[0]} to ${dates.sort()[dates.length - 1]}.`
 }
 
+// ── Deal Sheet sub-tab (Round 37 Phase 2), read-only ──────────────────────
+//
+// The artefact reviewed before a proposal is issued: every input needed to
+// reproduce the price, presented rather than edited. Phase 3 gives it versions.
+//
+// WHAT IT CAN CARRY TODAY is what the four editing sub-tabs produce, which
+// Round 37 Phase 0 measured as more than the brief expected: the unit counts,
+// the per-line margins, the warranty percentage, both currencies, the
+// contingency, the term, the installation responsibility, the milestones, the
+// tax adjustments and the payment structure are all captured and writable. The
+// one input that exists nowhere is the separate-or-rolled-up warranty setting.
+//
+// Rates are shown WITH THEIR BATCH, because a price is only reproducible if you
+// know which costs it was taken against, and that is the pointer a version will
+// freeze.
+function renderDealSheetTab(result, payload) {
+  const mount = document.getElementById('deal-sheet-inputs')
+  if (!mount) return
+
+  const ssUnits = (payload.ssExisting ?? 0) + (payload.ssNew ?? 0)
+  const dash = (v) => (v === undefined || v === null || v === '') ? '--' : v
+  const pct = (v) => (v === undefined || v === null || v === '') ? '--' : `${v}%`
+
+  // A margin row per line, showing whether it is the target or an override.
+  // Reading "target" tells a reviewer the line was never touched, which is a
+  // different fact from a line deliberately set to the same number.
+  const overrides = payload.marginOverrides ?? {}
+  const target = payload.targetMargin ?? 30
+  const MARGIN_LABELS = {
+    hwSs: 'SafeSight hardware', hwAqm: 'AQ Sensor hardware', hwHemir: 'HEMIR hardware',
+    hwWarranty: 'Warranty provision',
+    inSsEx: 'Install, SafeSight existing', inSsNew: 'Install, SafeSight new',
+    inAqm: 'Install, AQ Sensor', inHemir: 'Install, HEMIR',
+    hoSs: 'Hosting, SafeSight', hoAqm: 'Hosting, AQ Sensor', hoHemir: 'Hosting, HEMIR',
+  }
+
+  const card = (title, rows) => `
+    <div class="pg-card">
+      <p class="pg-card-title">${escapeSheet(title)}</p>
+      ${rows.map(([l, v, note]) => `
+        <div class="ds-row">
+          <div>
+            <div class="ds-label">${escapeSheet(l)}</div>
+            ${note ? `<div class="pg-item-note">${escapeSheet(note)}</div>` : ''}
+          </div>
+          <div class="ds-value">${escapeSheet(String(v))}</div>
+        </div>`).join('')}
+    </div>`
+
+  const rate = (k) => catalogRates[k] === undefined ? '--' : `$${money(catalogRates[k])}`
+
+  mount.innerHTML = [
+    card('Margins', [
+      ['Target margin', pct(target), 'applies to any line without its own'],
+      ...Object.entries(MARGIN_LABELS).map(([k, l]) =>
+        [l, overrides[k] === undefined ? `${target}%` : `${overrides[k]}%`,
+            overrides[k] === undefined ? 'target' : 'override']),
+    ]),
+    card('Base cost data, per unit', [
+      ['SafeSight', rate('ssUnitCost'), 'hardware'],
+      ['AQ Sensor', rate('aqUnitCost'), 'hardware'],
+      ['HEMIR', rate('hemirUnitCost'), 'hardware'],
+      ['SafeSight, existing infra', rate('inSsExisting'), 'installation'],
+      ['SafeSight, new infra', rate('inSsNew'), 'installation'],
+      ['AQ Sensor, existing infra', rate('inAqm'), 'installation'],
+      ['HEMIR, existing infra', rate('inHemir'), 'installation'],
+      ['SafeSight', rate('hoSafesight'), 'hosting, per month'],
+      ['AQ Sensor', rate('hoAqm'), 'hosting, per month'],
+      ['HEMIR', rate('hoHemir'), 'hosting, per month'],
+    ]),
+    card('Terms', [
+      ['Contract duration', payload.duration ? `${payload.duration} months` : '--'],
+      ['Installation responsibility', dash(payload.installResp)],
+      ['Warranty provision', pct(payload.warrantyPct ?? 2),
+       `${result.hardware.warrantyUnits} unit${result.hardware.warrantyUnits === 1 ? '' : 's'} at the mix average`],
+      ['Separate or rolled into hardware', 'not recorded', 'no field exists for this yet'],
+      ['Bid currency', dash(payload.bidCurrency), 'the currency Base Cost Data is held in'],
+      ['Proposal currency', dash(payload.proposalCurrency), 'quoted and invoiced to the customer'],
+      ['FX contingency', pct(payload.fxContingency)],
+      ['Withholding tax', pct(payload.whtPct), payload.grossUp ? 'grossed up' : 'absorbed'],
+      ['GST', pct(payload.gstPct), 'passed through'],
+    ]),
+    card('Units required', [
+      ['SafeSight, existing infra', payload.ssExisting ?? 0],
+      ['SafeSight, new infra', payload.ssNew ?? 0],
+      ['AQ Sensor', payload.aqm ?? 0],
+      ['HEMIR', payload.hemir ?? 0],
+      ['Total units', result.hardware.totalUnits],
+    ]),
+  ].join('')
+
+  const b = Object.values(catalogBatches)[0]
+  const prov = document.getElementById('deal-sheet-provenance')
+  if (prov) {
+    prov.textContent = b
+      ? `Read-only. Every figure below is an input to the price, priced against batch "${b.batch_label}", effective ${b.effective_from}. Edit on the other sub-tabs.`
+      : 'Read-only. Every figure below is an input to the price. Edit on the other sub-tabs.'
+  }
+  // ssUnits is read above for the same reason the note lines read it: a
+  // reviewer checking SafeSight against the two entries needs the sum.
+  void ssUnits
+}
+
+function escapeSheet(s) {
+  return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
+}
+
+// ── Deal Sheet versions (Round 37 Phase 3) ────────────────────────────────
+//
+// Saving is a deliberate act, so it is a button press and never a consequence
+// of editing. Nothing on this tab autosaves.
+let dealVersions = []
+
+function versionLabel(v) {
+  if (v.major === 0) return `V0.${v.minor}`
+  return v.minor === 0 ? `V${v.major}` : `V${v.major}.${v.minor}`
+}
+
+async function loadVersions() {
+  if (!opportunityId) return
+  const r = await window.api('GET', `/api/opportunities/${opportunityId}/deal-sheet-versions`)
+  dealVersions = r.ok && Array.isArray(r.data) ? r.data : []
+  renderVersionList()
+}
+
+function renderVersionList() {
+  const list = document.getElementById('deal-version-list')
+  if (!list) return
+
+  if (!dealVersions.length) {
+    list.innerHTML = '<p class="pg-item-note">No versions saved yet. V0.1 is the first.</p>'
+  } else {
+    // Number, status, reason, AUTHOR, timestamp and what the version carried.
+    // "A version nobody can find is a version nobody can restore", and during a
+    // bid review the question is usually who took it and what it covered rather
+    // than which number it got.
+    //
+    // sections is shown as a COUNT with the names on hover rather than a list,
+    // because eight names per row would bury the reason, which is the thing the
+    // business said matters most. It is shown at all because a version taken
+    // before a tab existed and one taken after it where the operator left that
+    // tab blank are otherwise indistinguishable.
+    list.innerHTML = dealVersions.map(v => {
+      const when = new Date(v.issued_at ?? v.created_at)
+      const who = (v.status === 'issued' ? v.issued_by_email : v.created_by_email) || 'unknown author'
+      const sections = Array.isArray(v.sections) ? v.sections : []
+      return `
+      <div class="ds-row">
+        <div style="min-width:0">
+          <div class="ds-label">${escapeSheet(versionLabel(v))}
+            <span class="pg-item-note" style="display:inline">${v.status === 'issued' ? 'issued' : 'draft'}</span>
+          </div>
+          <div class="pg-item-note">${escapeSheet(v.reason)}</div>
+          <div class="pg-item-note">${escapeSheet(who)} &middot; ${escapeSheet(when.toISOString().slice(0, 16).replace('T', ' '))}</div>
+          <div class="pg-item-note" title="${escapeSheet(sections.join(', '))}">${sections.length} section${sections.length === 1 ? '' : 's'} recorded</div>
+        </div>
+        <div class="ds-value">
+          <button class="btn-text" data-restore-version="${escapeSheet(v.id)}">Restore</button>
+        </div>
+      </div>`
+    }).join('')
+  }
+
+  // Issue acts on the latest DRAFT. Disabled when there is none, rather than
+  // offered and then refused, because a control that is always clickable and
+  // sometimes errors teaches people to ignore its message.
+  const draft = dealVersions.find(v => v.status === 'draft')
+  const btn = document.getElementById('btn-issue-version')
+  if (btn) {
+    btn.disabled = !draft
+    btn.textContent = draft ? `Issue ${versionLabel(draft)} as V${draft.major + 1}` : 'Issue latest draft'
+  }
+}
+
+function versionFeedback(msg, ok) {
+  const el = document.getElementById('deal-version-feedback')
+  if (!el) return
+  el.textContent = msg || ''
+  el.className = msg ? (ok ? 'msg-success' : 'msg-error') : 'hidden'
+}
+
+async function saveVersion() {
+  const reasonEl = document.getElementById('deal-version-reason')
+  const reason = (reasonEl?.value ?? '').trim()
+
+  // Required, and checked here so the user is told before a request is made.
+  // The schema's NOT NULL and length CHECK are what make it true; this is what
+  // makes it readable.
+  if (!reason) {
+    versionFeedback('A reason is required: what changed in this version, and why.', false)
+    reasonEl?.focus()
+    return false
+  }
+
+  // The version carries what the tab currently reads, including the catalog
+  // rates, which the server resolves again on its own rather than trusting
+  // these. readPayload() is the same function the save path uses, so a version
+  // and a save cannot disagree about what the inputs are.
+  const r = await window.api('POST', `/api/opportunities/${opportunityId}/deal-sheet-versions`,
+    { inputs: readPayload(), reason })
+
+  if (!r.ok) {
+    versionFeedback(r.data?.error ?? 'The version could not be saved.', false)
+    return false
+  }
+  reasonEl.value = ''
+  await loadVersions()
+  versionFeedback(`Saved ${versionLabel(r.data)}.`, true)
+  return true
+}
+
+async function issueLatestDraft() {
+  const draft = dealVersions.find(v => v.status === 'draft')
+  if (!draft) return
+  const r = await window.api('POST', `/api/deal-sheet-versions/${draft.id}/issue`)
+  if (!r.ok) {
+    versionFeedback(r.data?.error ?? 'The version could not be issued.', false)
+    await loadVersions()
+    return
+  }
+  await loadVersions()
+  versionFeedback(`Issued ${versionLabel(r.data)}. It cannot be changed now.`, true)
+}
+
+// RESTORE OVERWRITES THE CURRENT PRICING, which is what makes it useful during
+// a negotiation and what makes unsaved work a real risk.
+//
+// It uses openDiscardConfirm, the dialogue Round 28 built for the assessment
+// panel and Round 34 extended, rather than a third pattern. That dialogue's own
+// words are "discard unsaved changes", which is exactly what restoring does to
+// them, so restore REFUSES-OR-DISCARDS rather than forcing a save first.
+// Forcing a save would also write a revision the user never asked for, at the
+// moment they are trying to go back.
+async function restoreVersion(versionId) {
+  const go = async () => {
+    const r = await window.api('POST', `/api/deal-sheet-versions/${versionId}/restore`)
+    if (!r.ok) {
+      versionFeedback(r.data?.error ?? 'The version could not be restored.', false)
+      return
+    }
+    populateForm(r.data.inputs ?? {})
+    recompute()
+    markDealFormDirty()
+    versionFeedback(`Restored ${r.data.label}. Nothing is saved until you press Save Changes.`, true)
+  }
+
+  if (dealFormDirty) {
+    window.openDiscardConfirm(go)
+    return
+  }
+  await go()
+}
+
 // ── Recompute + render ────────────────────────────────────────────────────
 function recompute() {
   const payload = readPayload()
@@ -632,6 +890,7 @@ function renderResults(result, payload) {
   renderYearSchedule(result, payload)
   renderPricingCards(result, payload)
   renderCatalogNotice(payload)
+  renderDealSheetTab(result, payload)
   renderInstallationTab(result, payload)
 
   const cf = result.cashFlow
@@ -870,6 +1129,18 @@ function renderInstallationTab(result, payload) {
   setInstallRow('inSsNew')
   setInstallRow('inAqm')
   setInstallRow('inHemir')
+  // Round 37 Phase 1: name the basis and the batch, for the same reason the
+  // Hw/Hosting cards carry a provenance line. An installation figure is now a
+  // claim about a specific batch, and the two products whose new-infrastructure
+  // figure has no row should say so where the number is read, not only in a
+  // migration comment nobody opens while pricing a deal.
+  const basis = document.getElementById('deal-install-basis')
+  if (basis) {
+    const b = Object.values(catalogBatches)[0]
+    basis.textContent = b
+      ? `Rates from batch "${b.batch_label}", effective ${b.effective_from}. AQ Sensor and HEMIR use the existing-infrastructure figure; their new-infrastructure rates are held in the catalog and have no row on this tab.`
+      : ''
+  }
   document.getElementById('deal-install-total-cost').textContent = `$${money(result.groups.installGroup.rawTotalCost)}`
   document.getElementById('deal-install-total-price').textContent = `$${money(result.groups.installGroup.rawTotalPrice)}`
 
@@ -904,10 +1175,13 @@ function populateForm(payload) {
   uiState.installResp = p.installResp || 'Client Own Installation Team'
   document.getElementById('deal-installResp').value = uiState.installResp
   setVal('deal-lumpCost', p.lumpSumCost ?? '')
-  setVal('deal-inSsExisting', p.inSsExisting ?? '')
-  setVal('deal-inSsNew', p.inSsNew ?? '')
-  setVal('deal-inAqm', p.inAqm ?? '')
-  setVal('deal-inHemir', p.inHemir ?? '')
+  // From the catalog, not from `p`, same correction the unit and hosting rates
+  // took in Round 36 Phase 2. `p` never carried these: they are refused by
+  // SALESPERSON_WRITABLE_KEYS and no writer has ever existed.
+  setVal('deal-inSsExisting', catalogRates.inSsExisting ?? '')
+  setVal('deal-inSsNew', catalogRates.inSsNew ?? '')
+  setVal('deal-inAqm', catalogRates.inAqm ?? '')
+  setVal('deal-inHemir', catalogRates.inHemir ?? '')
   updateInstallVisibility()
 
   setVal('deal-targetMargin', p.targetMargin ?? 30)
@@ -1163,6 +1437,23 @@ function wireOnce() {
   })
 
   document.getElementById('btn-save-deal').addEventListener('click', saveDeal)
+
+  // Versions (Round 37 Phase 3). Restore is delegated at the list level, since
+  // the rows are regenerated on every load and per-row listeners would need
+  // re-attaching each time - the same reason wireOnce delegates dirty-tracking
+  // at the panel rather than per input.
+  document.getElementById('btn-save-version').addEventListener('click', saveVersion)
+  document.getElementById('btn-issue-version').addEventListener('click', issueLatestDraft)
+  document.getElementById('deal-version-list').addEventListener('click', (e) => {
+    const id = e.target?.dataset?.restoreVersion
+    if (id) restoreVersion(id)
+  })
+
+  // The reason box must NOT mark the tab dirty. It is not a deal input, and a
+  // typed reason enabling Save Changes would offer to save the pricing when the
+  // user is describing it. wireOnce delegates 'input' at the panel level, so
+  // this stops that one control at the source.
+  document.getElementById('deal-version-reason').addEventListener('input', (e) => e.stopPropagation())
 }
 
 // Mirrors SALESPERSON_WRITABLE_KEYS in src/routes/opportunities.js's PATCH
@@ -1301,4 +1592,6 @@ window.initOpportunityDealPanel = async function (opp) {
 
   populateForm(opp.payload)
   recompute()
+  // After the first render, so a slow list never delays the figures.
+  loadVersions()
 }

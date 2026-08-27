@@ -21,25 +21,45 @@
  * admin maintains rows by hand in the Supabase editor, so the stored key is a
  * word, and the translation happens once here rather than at every reader.
  *
- * install_cost_existing and install_cost_new are DELIBERATELY ABSENT from this
- * map, and the omission is the round's open question rather than an oversight.
- * The catalog carries both figures for all three products. The Commercials tab
- * splits existing from new infrastructure for SafeSight ONLY: AQ Sensor and
- * HEMIR each have one installation row and one unit count, so two of the twelve
- * supplied figures have nowhere to land and the single AQ/HEMIR row is
- * ambiguous between them.
+ * Round 37 Phase 1: install_cost_existing and install_cost_new are mapped here
+ * too. Round 36 left them out deliberately, and the business found the
+ * consequence on first use: selecting "Terminus Contractor - Per Unit" priced
+ * installation at $0 on every deal, because the four rate inputs had no source.
  *
- * The Installation tab is an explicit non-goal of this round's brief, so the
- * split is not resolved here. Wiring SafeSight's two figures alone would be
- * worse than wiring none: the installation table would show real SafeSight
- * costs beside $0 for AQ and HEMIR, in the same column, with nothing on screen
- * saying why. So installation stays on its existing payload path, reading
- * absent, exactly as before this round.
+ * SafeSight maps cleanly, two catalog figures onto the two rows the tab already
+ * has. AQ Sensor and HEMIR have TWO catalog figures and ONE row each, so the
+ * mapping has to choose, and choosing silently is what this project keeps
+ * recording as the expensive mistake.
+ *
+ * THEY TAKE install_cost_existing, AND THE ROWS SAY SO. The labels read "AQ
+ * Sensor, existing infra" and "HEMIR, existing infra", matching the convention
+ * the two SafeSight rows already use, so the basis of the figure is on the
+ * screen beside the figure rather than buried here. A reader who disagrees with
+ * the choice can see that a choice was made.
+ *
+ * The new-infrastructure figures for those two products, $1,000 and $10,000,
+ * are carried by the catalog and reach no row. That is unresolved and belongs
+ * with the Installation tab, which is where the business decides whether a deal
+ * records infrastructure per product or only for SafeSight.
  */
 export const PRODUCT_RATE_KEYS = {
-  safesight:   { unitCost: 'ssUnitCost',    hosting: 'hoSafesight' },
-  air_quality: { unitCost: 'aqUnitCost',    hosting: 'hoAqm' },
-  hemir:       { unitCost: 'hemirUnitCost', hosting: 'hoHemir' },
+  safesight: {
+    unitCost: 'ssUnitCost',
+    hosting: 'hoSafesight',
+    // The only product whose two catalog figures both have a row.
+    installExisting: 'inSsExisting',
+    installNew: 'inSsNew',
+  },
+  air_quality: {
+    unitCost: 'aqUnitCost',
+    hosting: 'hoAqm',
+    installExisting: 'inAqm',
+  },
+  hemir: {
+    unitCost: 'hemirUnitCost',
+    hosting: 'hoHemir',
+    installExisting: 'inHemir',
+  },
 };
 
 /**
@@ -117,6 +137,11 @@ export function catalogToRates(products) {
     }
     rates[keys.unitCost] = row.unit_cost;
     rates[keys.hosting] = row.hosting_cost_month;
+    // Only assigned where the product has a row for it. A product with no
+    // new-infrastructure row does not get a key invented for it, because an
+    // invented key is a number nothing on screen accounts for.
+    if (keys.installExisting) rates[keys.installExisting] = row.install_cost_existing;
+    if (keys.installNew) rates[keys.installNew] = row.install_cost_new;
     batches[product] = { batch_id: row.batch_id, batch_label: row.batch_label, effective_from: row.effective_from };
   }
 

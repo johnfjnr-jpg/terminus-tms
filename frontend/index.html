@@ -1688,6 +1688,7 @@
         <button data-deal-tab="install">Installation</button>
         <button data-deal-tab="terms">Structural Terms</button>
         <button data-deal-tab="payment">Payment Terms</button>
+        <button data-deal-tab="sheet">Deal Sheet</button>
       </div>
 
       <!-- Hw / Hosting Setup -->
@@ -1853,13 +1854,24 @@
              rendering was ever missing. Total row matches the prototype's
              own Total line and the Hw/Hosting cards' existing pg-total
              convention. -->
+        <!-- Round 37 Phase 1: the four rates now come from Base Cost Data.
+             They read empty before this, because nothing had ever written the
+             payload keys behind them, so per-unit installation priced at $0 on
+             every deal - reported by the business on first use.
+
+             AQ Sensor and HEMIR say "existing infra" because the catalog holds
+             an existing AND a new figure for each, and this tab has one row
+             each. The label states which of the two is in the number rather
+             than leaving the basis to be inferred. Their new-infrastructure
+             figures, $1,000 and $10,000, reach no row and are unresolved. -->
+        <p id="deal-install-basis" style="margin:0 0 10px;font-family:var(--mono);font-size:10.5px;color:var(--muted-2)"></p>
         <table class="doc-table hidden" id="deal-install-table">
-          <thead><tr><th>Installation (per unit)</th><th>Units</th><th>Rate (USD, fixed at creation)</th><th>Cost (USD)</th><th>Margin % (blank = target)</th><th>Price (USD)</th></tr></thead>
+          <thead><tr><th>Installation (per unit)</th><th>Units</th><th>Rate (USD, from Base Cost Data)</th><th>Cost (USD)</th><th>Margin % (blank = target)</th><th>Price (USD)</th></tr></thead>
           <tbody>
             <tr><td>SafeSight, existing infra</td><td class="col-mono" id="deal-install-units-inSsEx">0</td><td><input type="text" inputmode="numeric" id="deal-inSsExisting" readonly></td><td class="col-mono" id="deal-install-cost-inSsEx">$0</td><td><input type="text" inputmode="numeric" id="deal-margin-inSsEx" placeholder="target"></td><td class="col-mono" id="deal-install-price-inSsEx">$0</td></tr>
             <tr><td>SafeSight, new infra</td><td class="col-mono" id="deal-install-units-inSsNew">0</td><td><input type="text" inputmode="numeric" id="deal-inSsNew" readonly></td><td class="col-mono" id="deal-install-cost-inSsNew">$0</td><td><input type="text" inputmode="numeric" id="deal-margin-inSsNew" placeholder="target"></td><td class="col-mono" id="deal-install-price-inSsNew">$0</td></tr>
-            <tr><td>AQ Sensor</td><td class="col-mono" id="deal-install-units-inAqm">0</td><td><input type="text" inputmode="numeric" id="deal-inAqm" readonly></td><td class="col-mono" id="deal-install-cost-inAqm">$0</td><td><input type="text" inputmode="numeric" id="deal-margin-inAqm" placeholder="target"></td><td class="col-mono" id="deal-install-price-inAqm">$0</td></tr>
-            <tr><td>HEMIR</td><td class="col-mono" id="deal-install-units-inHemir">0</td><td><input type="text" inputmode="numeric" id="deal-inHemir" readonly></td><td class="col-mono" id="deal-install-cost-inHemir">$0</td><td><input type="text" inputmode="numeric" id="deal-margin-inHemir" placeholder="target"></td><td class="col-mono" id="deal-install-price-inHemir">$0</td></tr>
+            <tr><td>AQ Sensor, existing infra</td><td class="col-mono" id="deal-install-units-inAqm">0</td><td><input type="text" inputmode="numeric" id="deal-inAqm" readonly></td><td class="col-mono" id="deal-install-cost-inAqm">$0</td><td><input type="text" inputmode="numeric" id="deal-margin-inAqm" placeholder="target"></td><td class="col-mono" id="deal-install-price-inAqm">$0</td></tr>
+            <tr><td>HEMIR, existing infra</td><td class="col-mono" id="deal-install-units-inHemir">0</td><td><input type="text" inputmode="numeric" id="deal-inHemir" readonly></td><td class="col-mono" id="deal-install-cost-inHemir">$0</td><td><input type="text" inputmode="numeric" id="deal-margin-inHemir" placeholder="target"></td><td class="col-mono" id="deal-install-price-inHemir">$0</td></tr>
           </tbody>
           <tbody>
             <tr>
@@ -1971,8 +1983,61 @@
           </div>
         </div>
 
-        <p class="label" style="margin:24px 0 10px">Deal sheet (USD) &middot; <span id="deal-sheet-units">0</span> units</p>
-        <div class="deal-sheet" id="deal-sheet"></div>
+      </div>
+
+      <!-- Deal Sheet (Round 37 Phase 2) -->
+      <!--
+        READ-ONLY, and the business's "for now" is doing work. One place to edit
+        a number, and a version taken from what was reviewed rather than from
+        what might have been changed while reviewing. Nothing in this panel is
+        an input; every value is rendered by renderDealSheetTab().
+
+        LAID OUT IN .deal-sheet-cards, CSS COLUMNS CAPPED AT 460px. That is the answer
+        to the business's own complaint about the Deal Summary: "too wide, you
+        need to be able to keep the line label and the amount in view."
+        Measured on that panel before building this one, the whitespace between
+        the end of a row's label text and the start of its amount is 628px at
+        1240, 1308px at 1920 and 2828px at 3440, because its label column is
+        minmax(150px,1fr) and absorbs every extra pixel. A capped card cannot do
+        that, and auto-fit still uses the real width by flowing more cards
+        across rather than stretching four. See the CSS for the measurements.
+
+        The four-figure strip above the sub-tab row (Contract Net, Achieved
+        Margin, Total Deal Cost, Finance Cost) is NOT repeated here. It is
+        visible on all five sub-tabs already, so repeating it would be the
+        duplication this panel exists to avoid.
+      -->
+      <div class="deal-tab-panel hidden" id="deal-tab-sheet">
+        <p id="deal-sheet-provenance" style="margin:0 0 14px;font-family:var(--mono);font-size:10.5px;color:var(--muted-2)"></p>
+
+        <!-- Versions (Round 37 Phase 3). Save is a deliberate act, so it is a
+             button and never a side effect of editing.
+
+             THE REASON IS A TEXTAREA, NOT THE ONE-LINE-GROWING CONTROL the
+             assessment panel uses. That control is right for a sentence
+             explaining one score; a version reason explains what changed across
+             a whole sheet and why, which the business called "the thinking
+             about why things have been adjusted". Three rows at rest says a
+             paragraph is expected without forcing one, and it is the only
+             editable control on this otherwise read-only tab. -->
+        <div class="pg-card" id="deal-version-panel" style="max-width:460px;margin-bottom:20px">
+          <p class="pg-card-title">Versions</p>
+          <div id="deal-version-list"></div>
+          <div style="margin-top:12px">
+            <label class="label" for="deal-version-reason" style="margin-bottom:6px">Reason for this version</label>
+            <textarea id="deal-version-reason" rows="3" placeholder="What changed, and why."></textarea>
+            <p class="msg-error hidden" id="deal-version-feedback" style="margin-top:8px"></p>
+            <div style="display:flex;gap:8px;margin-top:10px">
+              <button class="btn-primary" id="btn-save-version">Save version</button>
+              <button class="btn-secondary" id="btn-issue-version" disabled>Issue latest draft</button>
+            </div>
+          </div>
+        </div>
+        <div class="deal-sheet-cards" id="deal-sheet-inputs"></div>
+        <p class="label" style="margin:24px 0 10px">Result (USD) &middot; <span id="deal-sheet-units">0</span> units</p>
+        <div class="deal-sheet-cards">
+          <div class="deal-sheet" id="deal-sheet"></div>
+        </div>
       </div>
 
       <!-- Payment Terms -->

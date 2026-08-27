@@ -12,8 +12,8 @@ Contains no environment variable, key or token, and no client data. Records
 appear as counts by status only, never by name or reference code, because
 this file is uploaded into chat sessions.
 
-- Generated at: `2026-08-27T08:32:19.380Z`
-- Git commit: `587d5e77bc903345b9108d35f9c4deca4b295827`
+- Generated at: `2026-08-27T22:42:34.407Z`
+- Git commit: `270b477902e2c35f67099bccc23654f8c734a4e2`
 - Working tree at generation: `dirty (uncommitted changes present)`
 
 Staleness has two parts, and both must hold for this file to be current:
@@ -320,24 +320,24 @@ _None._
 
 ## Record counts by type and status
 
-95 live, 14107 soft deleted, 14202 rows in total.
+95 live, 14645 soft deleted, 14740 rows in total.
 
 | record_type | status | live | soft deleted |
 |---|---|---|---|
 | account | Active | 0 | 6 |
 | account | active | 4 | 376 |
-| contact | Active | 0 | 39 |
+| contact | Active | 0 | 63 |
 | contact | Parked | 0 | 2 |
-| contact | Qualified | 8 | 389 |
+| contact | Qualified | 8 | 394 |
 | contact | Unqualified | 1 | 55 |
-| document | approved | 61 | 1197 |
+| document | approved | 61 | 1229 |
 | document | received | 1 | 74 |
 | opportunity | Closed Lost | 0 | 19 |
 | opportunity | Closed Won | 1 | 7 |
 | opportunity | Evaluation | 0 | 4 |
 | opportunity | Negotiating | 0 | 15 |
 | opportunity | Proposal | 0 | 108 |
-| opportunity | Qualification | 0 | 148 |
+| opportunity | Qualification | 0 | 153 |
 | opportunity | Solution Alignment | 3 | 25 |
 | test_bed | Closed | 5 | 9 |
 | test_bed | Installation and Commissioning | 1 | 29 |
@@ -347,7 +347,7 @@ _None._
 | test_bed | Review and Completion | 1 | 0 |
 | test_bed | Site Assessment | 1 | 17 |
 | unit | Installed | 4 | 3 |
-| unit | Planned | 3 | 2292 |
+| unit | Planned | 3 | 2428 |
 | unit | Removed | 0 | 1 |
 
 ### Test fixture record types
@@ -358,7 +358,7 @@ row by row, and are included in the totals above.
 
 | distinct `harness_*` record types | live rows | soft deleted rows |
 |---|---|---|
-| 931 | 0 | 8983 |
+| 979 | 0 | 9319 |
 
 No harness record type holds a live row; every fixture row is soft deleted.
 
@@ -409,7 +409,7 @@ than written as a literal list, so its members are not enumerable here.
 
 ## Registered routes
 
-67 routes. Prefixes parsed from `src/server.js`, paths from each route module.
+72 routes. Prefixes parsed from `src/server.js`, paths from each route module.
 
 | method | path | auth | source |
 |---|---|---|---|
@@ -431,6 +431,9 @@ than written as a literal list, so its members are not enumerable here.
 | POST | `/api/contacts/:id/create-test-bed` | authenticated | `src/routes/contacts.js` |
 | POST | `/api/contacts/:id/link-account` | authenticated | `src/routes/contacts.js` |
 | GET | `/api/contacts/:id/test-bed-name-suggestion` | authenticated | `src/routes/contacts.js` |
+| GET | `/api/deal-sheet-versions/:vid` | authenticated | `src/routes/deal-sheet-versions.js` |
+| POST | `/api/deal-sheet-versions/:vid/issue` | authenticated | `src/routes/deal-sheet-versions.js` |
+| POST | `/api/deal-sheet-versions/:vid/restore` | authenticated | `src/routes/deal-sheet-versions.js` |
 | POST | `/api/deals/calculate` | authenticated | `src/routes/deals.js` |
 | POST | `/api/deals/submit` | authenticated | `src/routes/deals.js` |
 | GET | `/api/industries` | authenticated | `src/routes/industries.js` |
@@ -441,6 +444,8 @@ than written as a literal list, so its members are not enumerable here.
 | POST | `/api/opportunities/:id/assessment-reviewed` | authenticated | `src/routes/opportunities.js` |
 | POST | `/api/opportunities/:id/close-date-move` | authenticated | `src/routes/opportunities.js` |
 | POST | `/api/opportunities/:id/close-lost` | authenticated | `src/routes/opportunities.js` |
+| GET | `/api/opportunities/:id/deal-sheet-versions` | authenticated | `src/routes/deal-sheet-versions.js` |
+| POST | `/api/opportunities/:id/deal-sheet-versions` | authenticated | `src/routes/deal-sheet-versions.js` |
 | POST | `/api/opportunities/:id/key-contacts` | authenticated | `src/routes/opportunities.js` |
 | DELETE | `/api/opportunities/:id/key-contacts/:linkId` | authenticated | `src/routes/opportunities.js` |
 | POST | `/api/opportunities/:id/key-contacts/:linkId/stance` | authenticated | `src/routes/opportunities.js` |
@@ -483,7 +488,7 @@ than written as a literal list, so its members are not enumerable here.
 
 ## Migrations, in filename order
 
-84 files in `supabase/migrations/`.
+88 files in `supabase/migrations/`.
 
 1. `20260801000000_initial_schema.sql`
 2. `20260802000000_lead_opportunity.sql`
@@ -569,6 +574,10 @@ than written as a literal list, so its members are not enumerable here.
 82. `20260827000003_record_contacts_role_reference.sql`
 83. `20260827000004_record_contact_stances.sql`
 84. `20260827000005_base_cost_batches.sql`
+85. `20260827000006_deal_sheet_versions.sql`
+86. `20260827000007_immutability_triggers.sql`
+87. `20260827000008_version_author_email.sql`
+88. `20260827000009_guard_author_on_relabel.sql`
 
 ## Seed files, in application order
 

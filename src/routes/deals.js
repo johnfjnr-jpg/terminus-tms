@@ -151,10 +151,15 @@ async function loadDealInputsFromOpportunity(db, opportunityId) {
   const installLineItems = lumpSumDeal ? [
     { key: 'inLump', cost: payload.lumpSumCost ?? 0, marginPct: marginFor('inLump') },
   ] : isPerUnit ? [
-    { key: 'inSsEx', cost: (payload.inSsExisting ?? 0) * ssExisting, marginPct: marginFor('inSsEx') },
-    { key: 'inSsNew', cost: (payload.inSsNew ?? 0) * ssNew, marginPct: marginFor('inSsNew') },
-    { key: 'inAqm', cost: (payload.inAqm ?? 0) * aqmUnits, marginPct: marginFor('inAqm') },
-    { key: 'inHemir', cost: (payload.inHemir ?? 0) * hemirUnits, marginPct: marginFor('inHemir') },
+    // Round 37 Phase 1: from the catalog, matching the tab. Changed here as
+    // well for the same reason the unit and hosting rates were in Round 36:
+    // leaving it reading the payload is correct for every caller that exists
+    // and wrong the moment submit is wired, and the divergence would be a
+    // preview and an authoritative snapshot disagreeing on installation.
+    { key: 'inSsEx', cost: (catalogRates.inSsExisting ?? 0) * ssExisting, marginPct: marginFor('inSsEx') },
+    { key: 'inSsNew', cost: (catalogRates.inSsNew ?? 0) * ssNew, marginPct: marginFor('inSsNew') },
+    { key: 'inAqm', cost: (catalogRates.inAqm ?? 0) * aqmUnits, marginPct: marginFor('inAqm') },
+    { key: 'inHemir', cost: (catalogRates.inHemir ?? 0) * hemirUnits, marginPct: marginFor('inHemir') },
   ] : [
     { key: 'inNone', cost: 0, marginPct: marginFor('inNone') },
   ];
