@@ -145,6 +145,69 @@ test('contact_role_linked: blocks until a record_contacts row exists for that ro
   assert.deepEqual(after_.blocking, [])
 })
 
+// Round 35 Phase 1, 2026-08-27. TWO CONTACTS IN ONE ROLE ON ONE RECORD.
+//
+// The check above this one was correct for every record that existed when it
+// was written, because every writer of a record_contacts row wrote it into a
+// fixed slot: one role, one contact. Round 35 replaces that with a list, whose
+// whole purpose is to hold two technical evaluators, or a champion who is also
+// the commercial buyer. So the branch this gate has always taken is about to
+// meet a demand nothing has ever made of it, which is Architecture rule 8.
+//
+// .maybeSingle() ERRORS ON TWO ROWS. It is not that the gate returns the wrong
+// verdict - it returns no verdict at all, and computeBlocking's contract is to
+// return { error }, which both callers turn into a 500. So a second contact in
+// a gated role does not weaken the gate, it takes down the transition endpoint
+// AND the exit-criteria panel for that record.
+//
+// Measured before the fix, through supabase-js itself:
+//   zero rows -> error null, data null   -> met: false
+//   one row   -> error null, data a row  -> met: true
+//   two rows  -> error PGRST116          -> return { error: linkErr }
+//
+// The requirement a duplicate expresses is still satisfied: a Contact IS
+// linked in that role. Two of them are. So the gate must say met, and this
+// test is the thing that says so.
+test('contact_role_linked: TWO contacts in one role satisfy the rule rather than erroring', async () => {
+  const [FROM, TO] = stagePair()
+  const rec = await fx.createRecord({ record_type: TYPE, status: FROM, owner_id: ownerId })
+  const first = await fx.createRecord({ record_type: TYPE, status: 'Qualified', owner_id: ownerId })
+  const second = await fx.createRecord({ record_type: TYPE, status: 'Qualified', owner_id: ownerId })
+  await fx.createRule({
+    record_type: TYPE, from_stage: FROM, to_stage: TO,
+    requirement_type: 'contact_role_linked', requirement_detail: { role: 'Client Commercial Buyer' },
+  })
+
+  // One link first, so the two-row case is reached by ADDING rather than by
+  // starting there - the same order a list panel produces it in.
+  await fx.createContactLink({
+    record_id: rec.id, contact_id: first.id,
+    role: 'Client Commercial Buyer', created_by: ownerId,
+  })
+  const one = await computeBlocking(db, rec, FROM, TO, 1, {})
+  assert.equal(one.error, undefined, 'one link must not error')
+  assert.deepEqual(one.blocking, [], 'one link satisfies the rule')
+
+  await fx.createContactLink({
+    record_id: rec.id, contact_id: second.id,
+    role: 'Client Commercial Buyer', created_by: ownerId,
+  })
+  const two = await computeBlocking(db, rec, FROM, TO, 1, {})
+
+  // Asserted separately and in this order on purpose. Before the fix the
+  // error assertion is the one that fires; asserting only `blocking` would
+  // throw on reading .length of undefined and report a TypeError instead of
+  // the real fault.
+  assert.equal(two.error, undefined,
+    'two contacts in one role must return a verdict, not an error')
+  assert.deepEqual(two.blocking, [],
+    'two contacts in one role satisfy the rule the same way one does')
+
+  const req = two.requirements.find(r => r.requirement_type === 'contact_role_linked')
+  assert.equal(req?.met, true, 'the requirement itself must report met')
+})
+
+
 test('variant matching: null-variant rules apply to all, variant rules only to their own', async () => {
   const [FROM, TO] = stagePair()
   // The code carries an explicit warning that .or() with a single

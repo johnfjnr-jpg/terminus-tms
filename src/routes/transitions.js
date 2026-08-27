@@ -394,26 +394,48 @@ export async function computeBlocking(db, record, from_stage, to_stage, currentR
     // record_contacts row (POST /test-beds/:id/buyer-contacts) - this
     // gate only checks that a validated link already exists, it does
     // not re-derive or re-validate the Account match itself.
+    //
+    // ASKS FOR AT LEAST ONE, NOT FOR EXACTLY ONE. Round 35 Phase 1,
+    // 2026-08-27. This read .maybeSingle() until now, which was correct
+    // for every record that existed, because every writer of a
+    // record_contacts row wrote it into a fixed slot: one role, one
+    // contact. Round 35 replaces that model on Opportunity with a list
+    // whose whole purpose is to hold two technical evaluators, or a
+    // champion who is also the commercial buyer.
+    //
+    // .maybeSingle() ERRORS ON TWO ROWS, and the failure is not a wrong
+    // verdict, it is no verdict: the error falls through to the return
+    // below and both callers turn it into a 500. So a second contact in
+    // a gated role would not have weakened the gate, it would have taken
+    // down POST /records/:id/transition AND the exit-criteria panel in
+    // records.js for that record. Two soft-deleted Test Beds already
+    // hold Client Commercial Buyer twice, so the condition is reachable
+    // today and only the soft delete is keeping it off a live screen.
+    //
+    // .limit(1) rather than a bare select: the rule asks whether anyone
+    // holds the role, so one row is all the answer needs, and the query
+    // says that rather than fetching a list to count it.
     if (rule.requirement_type === 'contact_role_linked') {
       const role = rule.requirement_detail?.role
       if (!role) continue
 
-      const { data: link, error: linkErr } = await db
+      const { data: links, error: linkErr } = await db
         .from('record_contacts')
         .select('id')
         .eq('record_id', record.id)
         .eq('role', role)
-        .maybeSingle()
+        .limit(1)
 
       // Round 7 step 3.0: as above - an error would read as "no contact
-      // linked" and block.
+      // linked" and block. Still reached: a genuine query failure sets
+      // error on the awaited result exactly as it did on maybeSingle's.
       if (linkErr) return { error: linkErr }
 
       requirements.push({
         requirement_type: 'contact_role_linked',
         role,
         message: `Requires a Contact linked as ${role}`,
-        met: !!link
+        met: (links?.length ?? 0) > 0
       })
     }
 

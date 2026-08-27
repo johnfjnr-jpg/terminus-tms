@@ -4156,3 +4156,712 @@ against a column that breaks on the next name added.
 **The alternative left open is shortening the names**, which is the business's
 to take and only genuinely helps one: "Anti-corruption and integrity due
 diligence" is 51px over and the other five are between 2px and 17px over.
+
+### Inline role creation: reconsidered against a live proposal, and refused
+
+Round 35 Phase 0, 2026-08-27. **The 2026-08-15 three-tier buyer-role model above
+stands unsuperseded**, and this entry records that it was tested rather than
+merely left alone.
+
+Round 35's brief proposed that a new role be creatable from the Key Customer
+Contacts panel by any user, with a system-wide effect confirmation, citing the
+Use Case Curation design's Industry escape valve as the precedent.
+
+**The precedent does not transfer, in three ways that each matter on their own.**
+It writes into Admin - Picklists, a screen `PROTOTYPE_SPECIFICATION.md` Section 7
+puts out of v1 scope and which does not exist in this build, so a role created
+badly could not be retired by anyone using this application. It is gated to a
+CTO or CEO project role, with everyone else able only to flag "New industry,
+needs review" and no ability to write. And it carries a mandatory six-character
+code as deliberate friction, for which a role has no equivalent.
+
+**So inline creation as proposed meant any user adding a permanent row nobody in
+this app can remove.** Refused by the business on that finding. The role list is
+admin-managed as rows, the same deferral `industries`, `terminus_staff`,
+`stage_gate_rules` and `closed_lost_reasons` already carry: seeded by migration,
+`GET`-only from the API, edited through Supabase's own editor until an Admin
+module exists.
+
+**One consequence, opened here and answered by the business the same day.** Tier
+3 of the 2026-08-15 model is a free-text escape valve on the specific deal. A
+configured list with no inline creation and no free text would leave no escape
+valve at all, so this note originally recorded tier 3's survival as an open
+question.
+
+**TIER 3 SURVIVES. Answered 2026-08-27.** A free-text role sits alongside the
+nine configured ones, and the business's reasoning is their own from the
+original request: the list should grow as they work with different
+organisations, and admin promotes the recurring ones into the catalog later.
+
+**That is how the catalog learns what to add.** Admin-only with no free text
+means a salesperson meeting a role outside the nine has nowhere to put them, and
+nine roles will not cover every organisation. The free-text entry is the record
+of a role the catalog does not yet have, which is the evidence admin needs in
+order to add it.
+
+**So the 2026-08-15 three-tier model is intact and unsuperseded**: core roles, an
+admin-curated catalog, and a free-text escape valve on the deal. The admin-only
+decision above applies to tier 2, as it always did, and never applied to tier 3.
+
+### Pain Owner is a stance, and the roles are nine
+
+Round 35 Phase 0, 2026-08-27. The business corrected a Phase 0 recommendation and
+the correction is the record.
+
+Phase 0 proposed Pain Owner as the tenth **role**, to close the gap against the
+live Organisational criterion "Internal pain owner". **The business moved it to
+stance instead: the person whose problem this is has a job title, and whose
+problem it is is a posture**, which is the same argument that moves Champion out
+of the role list.
+
+**Roles, nine:** Executive Sponsor, Technical Buyer, Commercial Buyer,
+Procurement, Legal, IT, Cyber Sec, QHSE, DPO. Every one names a function someone
+holds regardless of this deal.
+
+**Stance gains a seventh value.** Role is the function, stance is where they
+stand, and stance is what the Organisational lens is scored against: "Political
+dynamics" asks who gains and who loses, and "Champion identified" asks who is
+selling this internally, neither of which a job title can answer.
+
+**To establish rather than assume in Phase 2:** Champion and Pain Owner are not
+mutually exclusive with Supporter, Sceptic and Blocker the way those three are
+with each other. One person can be the pain owner and a sceptic. Whether stance
+is therefore one field or two is a question for that phase, not an assumption to
+carry into it.
+
+### A gate that asked for exactly one now asks for at least one
+
+Round 35 Phase 1, 2026-08-27.
+
+`contact_role_linked` is the requirement type behind four live `stage_gate_rules`
+rows, all of them Test Bed's: three on the Qualification exit (Client
+Commercial, Technical and Legal Buyer) and one on Installation and Commissioning
+(Test Bed Tech Team). Its evaluator in `computeBlocking` read the link with
+`.maybeSingle()`.
+
+**That was correct for every record that existed and could not survive the model
+this round introduces.** Every writer of a `record_contacts` row wrote it into a
+fixed slot, one role holding one contact, so no record was ever expected to hold
+two. Round 35 replaces that on Opportunity with a list whose whole purpose is to
+hold two technical evaluators, or a champion who is also the commercial buyer.
+
+**`.maybeSingle()` errors on two rows, and the failure is not a wrong verdict but
+no verdict.** The error falls through to `computeBlocking`'s `return { error }`,
+and both callers turn that into a 500. So a second contact in a gated role does
+not weaken the gate, it takes down `POST /records/:id/transition` and the
+exit-criteria panel in `records.js` for that record.
+
+Measured through supabase-js itself, the same client the route uses, across all
+three states:
+
+| rows | error | data | what the gate then does |
+|---|---|---|---|
+| zero | null | null | `met: false`, correct |
+| one | null | a row | `met: true`, correct |
+| two | `PGRST116` | null | `return { error }`, a 500 |
+
+**And the condition is reachable through the product today, without this round.**
+`POST /test-beds/:id/buyer-contacts` accepts a second contact in the same role
+with a 201: there is no duplicate guard at the endpoint, and the Test Bed
+batch-save path fires one call per dropdown. Two soft-deleted Test Beds already
+hold Client Commercial Buyer twice. Only the soft delete is keeping this off a
+live screen.
+
+**Fixed by asking the question the rule actually asks.** The rule asks whether
+anyone holds the role, so the query is `.limit(1)` and the verdict is
+`(links?.length ?? 0) > 0`. One row is all the answer needs, and the query now
+says so rather than fetching a set in order to be surprised by its size.
+
+Proven live on a real Test Bed at Qualification carrying two contacts in one
+role, with the fix stashed and restored and the server's own reload waited on
+rather than a delay: `GET /records/:id/exit-criteria` returned **500 "JSON object
+requested, multiple (or no) rows returned"** before and **200 with Commercial
+Buyer = true** after.
+
+**The error branch was checked rather than assumed**, because that is the branch
+Architecture rule 8 says goes stale unnoticed. `step 3.0: a failed
+record_contacts query returns an error, never a silent block` still passes: the
+test's failing-client stub already answers both `maybeSingle` and a directly
+awaited chain, so a genuine query failure still surfaces.
+
+### Stance is one vocabulary on two axes, not one field and not two
+
+Round 35 Phase 2, 2026-08-27. Established against the live Organisational
+criteria rather than decided from the shape, which is what the phase was asked
+for.
+
+The seven stances are Champion, Supporter, Neutral, Sceptic, Blocker, Unknown
+and Pain Owner. The question was whether they compete for one slot. Worked
+through as pairs, asking of each whether a real person could hold both and
+whether any configured criterion needs them to:
+
+| pair | expressible | why |
+|---|---|---|
+| Champion + Supporter | no | points on one scale of active support |
+| Supporter + Blocker | no | a direct contradiction |
+| Champion + Sceptic | no | someone selling this internally is not hedging |
+| Pain Owner + Champion | **yes** | the commonest good case |
+| Pain Owner + Blocker | **yes, and a criterion needs it** | see below |
+| Pain Owner + Unknown | yes | we know whose problem it is, not where they stand |
+
+**"Political dynamics: who gains and who loses if this goes ahead" is what
+settles it.** The head of operations owns the problem and blocks because the fix
+costs their team headcount. One field records either the ownership or the
+opposition and loses the fact that they are the same person, which is the whole
+content of that criterion.
+
+**So neither "one field" nor "two fields" is the answer as posed.** One field
+cannot express Pain Owner with Blocker. Two hardcoded fields would put Pain
+Owner in the schema, so the next orthogonal stance, a Gatekeeper who controls
+access or a Coach who feeds us information, becomes a migration rather than a
+row.
+
+**One vocabulary, an `axis` column, and a link row carries at most one value per
+axis.** `disposition` holds the six competing values, exactly one, defaulting to
+Unknown. `stake` holds Pain Owner and is optional. A third axis is a row, and a
+fourth value on an existing axis is a row. Deliberately not a CHECK, for the
+same reason `closed_lost_reasons` took a foreign key over one.
+
+**Asserted in the suite rather than described here**, as INVARIANT 12 in
+`config-invariants.test.mjs`, because the constraint lives entirely in data:
+moving Pain Owner onto the disposition axis would leave every query, route and
+test passing while making that case unrecordable. Proven capable of failing by
+injection, and the negative half is asserted too, so the test cannot pass
+against a table where every row has a unique axis and nothing competes with
+anything.
+
+**What it still cannot express, recorded rather than papered over.** "Buying
+committee mapped" asks who else has a say AND what does each of them want. List
+plus role plus stance answers the first half, and no enumeration answers the
+second. That half needs a free-text line per contact, and it is Phase 3's to
+place.
+
+### A configured role reference and a free-text role are two columns, not one
+
+Round 35 Phase 2, 2026-08-27. The other thing this phase was asked to establish
+rather than assume, and the live data answered it.
+
+A configured reference plus a separate free-text column is one shape; a text
+column that usually holds a configured label is another. **The question the
+catalog exists for, "which roles do we cover on deals we win", is already broken
+by the second shape**, measured across all 459 `record_contacts` rows:
+
+```
+"commercial buyer"  written 2 ways, 390 rows: 350 lowercase + 40 "Client Commercial Buyer"
+"technical buyer"   written 2 ways,  31 rows: 28 "Client Technical Buyer" + 3 "Technical Buyer"
+
+2 of 4 distinct roles are already split across more than one spelling.
+A GROUP BY on that column returns 6 rows for 4 real roles.
+```
+
+**That divergence arrived with no free-text feature in the product at all**, from
+two independently-built writers. Adding one to the same column would make it
+worse by design.
+
+**So `contact_roles` is uuid-keyed and the link row will carry
+`role_id uuid references contact_roles(id)` for tiers 1 and 2 and `role_other
+text` for tier 3**, exactly one of them set. "Which roles do we cover" becomes a
+join, free-text entries are a visibly separate bucket rather than silent
+misspellings of catalog members, and admin can see which text keeps recurring,
+which is what makes promotion into the catalog possible at all.
+
+**Phase 3 builds that link-row change**, and it has to reckon with
+`record_contacts.role` being `not null` with a `unique (record_id, contact_id,
+role)` on it. Test Bed's rows and the three live `contact_role_linked` gates
+match on that column and must not move.
+
+### The Key Customer Contacts panel is full width below the three, not a fourth card
+
+Round 35 Phase 3, 2026-08-27. Read only in this phase.
+
+**Phase 0 measured a fourth card in `.ref-cards` at all three widths and the
+worst case is the common one.** At 1240 it pairs with Key Dates and costs
+nothing until the list is long; at 3440 all four fit in one row; **at 1920 it
+strands itself on a second row with two thirds of that row empty**, because
+`#view-opportunity-detail .ref-cards` resolves to three 420px tracks there.
+
+**The other half of the reason is that a list has no ceiling.** The three cards
+above are each a known height. A panel that grows to eleven contacts inside a
+fixed-height row forces the row rather than growing on its own.
+
+`.ref-cards-wide` already exists for exactly this, `minmax(420px, 1fr)` with
+`align-items: start`, and with a single child resolves to one full-width track.
+Reused rather than given a new rule. Measured full width at every viewport: 876,
+1556 and 3076px, sitting 28px below the three cards in all three cases, with no
+horizontal overflow at any list length.
+
+| contacts | panel height |
+|---|---|
+| 0 (empty state) | 185px |
+| 1 | 131px |
+| 4 | 291px |
+| 11 | 590px |
+
+**The trailing space at wide viewports is accepted and named.** At 3440 the data
+columns occupy about 630px of a 3076px card. The first version made Role the
+flexible column on the reasoning that a typed role has no natural length; looked
+at, that was wrong, because the Role track resolved to 2594px and stranded
+Linked at the far right of the row, a thousand pixels from anything it related
+to. The columns now group left and a fourth empty track absorbs the slack, which
+is what every dense list in this app already does. Phase 4's stance column and
+the per-contact note the design record already calls for are what fill it.
+
+### Showing every link is the panel's purpose, and the role is not uppercased
+
+Round 35 Phase 3, 2026-08-27.
+
+**The four fixed slots filter `record_contacts` to four title-cased strings, and
+that filter is why the vocabulary diverged unnoticed.** All four live
+opportunities carry a lowercase `commercial buyer` link, and not one of them has
+ever appeared on screen. Nothing looked broken, so nothing was reported. Phase 2
+measured the result: 2 of 4 distinct roles across `record_contacts` are already
+split across more than one spelling.
+
+Confirmed through the real UI on all four: the panel now shows each one, marked
+as typed rather than catalog, with a derived legend.
+
+**The role is rendered without `text-transform: uppercase`, a deliberate
+departure from `.tag`**, which every other pill in this app uses. Uppercasing
+renders `commercial buyer` and `Commercial Buyer` identically, which erases the
+exact difference the panel exists to show. The stored value is shown as stored.
+
+**A typed role is not a lesser fact about the deal.** Same size, same colour,
+same weight as a catalog role; only the border differs, dashed against solid. It
+is the record of a role the catalog does not yet carry, which is what tells admin
+what to add. The escape valve is how the catalog learns, so treating it as an
+error state would be backwards.
+
+**One fetch, two derivations.** `GET /opportunities/:id` previously queried
+`record_contacts` filtered to `VALID_OPPORTUNITY_BUYER_ROLES`. Rather than add a
+second query that would agree today and drift later, the fetch is now unfiltered
+and both `buyer_contacts` and `key_contacts` derive from it. The error is
+checked, which the query it replaces did not do: a read whose error goes
+unchecked renders as an empty list, and here that is indistinguishable from "this
+deal knows nobody", the exact reading the panel exists to make trustworthy.
+
+### The buyer-role select offers the wrong account's contacts after the first record
+
+Round 35 Phase 3, 2026-08-27. Found while investigating an empty panel, not
+looked for. **Pre-existing, in code Phase 5 removes. Reported, not fixed.**
+
+`refAccountContacts` (`opportunity-reference.js`) is a module-level cache
+guarded by `if (!refAccountContacts.length)`, so it is fetched once per page
+load, filtered to whichever Opportunity was opened FIRST, and reused for every
+subsequent one regardless of account.
+
+Demonstrated on two live records with disjoint contact lists:
+
+```
+TT-SGP-MANUFI-002 account really has: Boon Sain
+TT-SGP-SMARTC-002 account really has: Kim Zhang, Tan Jun, Wong Guang Shing
+
+visited MANUFI-002 first, its select offers: Boon Sain
+then SMARTC-002, its select offers:          Boon Sain
+```
+
+Opened on its own, SMARTC-002's select offers its own three. **The list follows
+the page load rather than the record.**
+
+**Not a data-integrity hole**, because `POST /opportunities/:id/buyer-contacts`
+re-validates and returns 422 for a Contact of another Account. It is a control
+that appears to offer something the server will refuse, which is the exact shape
+Round 35 Phase 0 was asked about under "does `LINK` reach outside the account":
+the answer is still no, and this is a picker that looks as though it might.
+
+### What `record_contacts`' own constraints leave for Phase 4
+
+Round 35 Phase 3, 2026-08-27. Established while reading the same rows this phase
+renders.
+
+`role text not null`, `unique (record_id, contact_id, role)`, no UPDATE policy,
+a DELETE policy since Round 11 Phase 5, and `on delete restrict` on both foreign
+keys to `records`.
+
+1. **`role` cannot stay NOT NULL once a row carries `role_id` instead.** Dropping
+   the NOT NULL is additive and leaves every existing row untouched, which is
+   what keeps Test Bed's rows and the three live `contact_role_linked` gates
+   working: the gate reads `.eq('role', role)`, so that column must survive as a
+   column. The alternative, writing a denormalised label into `role` alongside
+   `role_id`, creates two sources for one fact and goes stale the moment admin
+   renames a catalog row.
+
+2. **The unique constraint stops constraining once `role` is null**, because
+   Postgres treats nulls as distinct in a unique constraint by default. Phase 4
+   needs partial replacements on `role_id` and on `role_other`. **This is stated
+   as a property to verify in Phase 4, not one verified here**: no row with a
+   null role exists yet, so it cannot be tested until Phase 4 creates one.
+
+3. **There is no UPDATE policy, so a stance cannot be changed in place.** The
+   table's own comment records that as deliberate: a wrong link is corrected by
+   adding the right row. But a stance genuinely changes over time, which is the
+   point of recording it, and delete-plus-insert loses that history unless
+   something else keeps it. Phase 4 decides between an UPDATE policy and an
+   append-only stance history, and the decision belongs in the open rather than
+   inside whichever is easier to build.
+
+### Round 11 Phase 5 met the `.maybeSingle()` fault, diagnosed it exactly, and fixed the instance
+
+Round 35 Phase 4, 2026-08-27. Found while reading `record_contacts`' own
+policies for an unrelated reason. **Build discipline rule 8, twenty-four rounds
+before the class was fixed.**
+
+`20260819000012_record_contacts_delete_policy.sql` records, in its own header:
+
+> the delete removed nothing, so links ACCUMULATED, and two rows for the same
+> (record_id, role) then made the `contact_role_linked` branch's own
+> `.maybeSingle()` return an error, turning a working gate into a 500.
+
+**Every word of that is the fault Round 35 Phase 1 fixed.** Round 11 reached it
+from the other side, understood it completely, and fixed what had produced the
+second row: it added the missing DELETE policy so links would stop
+accumulating. **`.maybeSingle()` was left as it was**, because with duplicates
+no longer being created it stopped mattering.
+
+**The fix was scoped to the event rather than to the class**, exactly as rule 8
+describes. The rule then held for twenty-four rounds because nothing else
+created a duplicate, and Round 35's whole purpose is a panel that creates them
+deliberately.
+
+Nothing here is a criticism of that round's work: the diagnosis is better than
+most, and it is written down, which is why this could be found at all. The
+lesson is narrower and worse. **A correct diagnosis recorded in a migration
+header is not a fix, and the thing it names goes on being true.**
+
+### The stance shape: an append-only table, and the reasoned departure named
+
+Round 35 Phase 4, 2026-08-27.
+
+The instruction was to follow the assessment score pattern rather than invent a
+second shape. A score entry is `{ at, by, value, comment? }` appended to an
+array in the record's payload through `append_record_revision`, never mutated,
+current value = last.
+
+**`record_contact_stances` is that shape. What differs is the medium, and the
+medium is chosen by where the data belongs.** A score belongs to the record,
+the record has a payload. A stance belongs to the LINK, and `record_contacts`
+has no payload. Storing link data in the record's payload keyed by link uuid
+gives opaque top-level keys and an orphaned key on every removal with nothing
+to clean it up; and because `append_record_revision` merges shallowly at the
+top level, the alternative of one nested object read and rewritten whole
+reintroduces exactly the lost-update race that function exists to remove.
+
+An append-only table carrying `created_by` and `created_at` is also the
+dominant shape in this schema already: `record_revisions`, `approvals`,
+`audit_log` and `record_contacts` itself are all precisely that.
+
+**No UPDATE and no DELETE policy**, so append-only is enforced by RLS rather
+than by discipline at the call site. Confirmed live against a user client: an
+UPDATE and a DELETE by the record's own owner both returned HTTP 200 affecting
+zero rows, and the entry was unchanged afterwards. **Calibrated by the three
+inserts the same client had just made**, so the zero is the missing policy
+rather than a broken client.
+
+### The note lands with the stance, because it has the same question inside it
+
+Round 35 Phase 4, 2026-08-27. The business agreed a per-contact free-text line
+for "what does each of them want", to land in Phase 4 or Phase 5.
+
+**Phase 4, and the reason is not convenience.** The note has the same
+mutability question stance has, and answering that question twice in two phases
+is how a second shape gets invented. A score entry already carries an optional
+free-text `comment` beside its value; this is that slot.
+
+**So an entry is one observation**: where they stand, optionally what they want,
+at a time, by someone. Updating only the note appends an entry repeating the
+stance, which is honest rather than wasteful, because it is a new reading made
+at a new time by a named person, and that is what the Organisational lens is
+scored against.
+
+**One entry per action, in the interface too.** Changing either control arms
+that row's Record button and clicking it writes one entry. Two controls saving
+independently would make "the note changed" and "the stance changed" separate
+history when they were one reading.
+
+### What a stance history shows in the panel, and where it lives
+
+Round 35 Phase 4, 2026-08-27. These are two questions and the answers differ.
+
+**The row reads the CURRENT stance**, because that is what someone scanning a
+buying committee needs: eleven rows each answering "where does this person
+stand" at a glance.
+
+**The history hangs off a count that appears only when there is more than one
+reading.** Every link opens at Unknown, so one reading is the floor rather than
+a fact, and a "1" beside every row is noise. `2 readings` appearing exactly
+where a stance has moved is a signal, and the full history, each entry with its
+date, stance and note, is the tooltip on it.
+
+**It does not get a column.** Most rows would leave it empty, and a column that
+is usually empty costs the width that the note now uses.
+
+### Remove and stance-change are different operations, structurally
+
+Round 35 Phase 4, 2026-08-27.
+
+Opportunity had no unlink endpoint at all and `record_contacts` has no UPDATE
+policy, so this phase had to build removal and decide what it means.
+
+**They touch different tables.** `DELETE .../key-contacts/:linkId` deletes a
+`record_contacts` row; `POST .../key-contacts/:linkId/stance` inserts into
+`record_contact_stances`. Nothing can do one while meaning the other, which is
+a property of the shape rather than of care at the call site.
+
+**Removal cascades the stance entries, so the endpoint copies them into
+`audit_log.detail` first.** `on delete cascade` rather than `restrict` because
+restrict would make any link with a stance recorded permanent. `audit_log`
+references `records` rather than the link, so the copy survives. **That one
+audit write is the only one in the file whose error is returned rather than
+logged**: deleting the link after failing to record its history would lose the
+history silently, which is the opposite of what an append-only stance is for.
+
+### A near-miss of a catalog role is refused at input, and reported when stored
+
+Round 35 Phase 4, 2026-08-27. Two jobs that look like one.
+
+**Classifying a stored row does not fold case.** `commercial buyer` against a
+catalog holding `Commercial Buyer` is genuinely a role typed on the deal, and
+saying so is what surfaces the divergence Phase 2 measured across 459 rows.
+
+**Refusing new input does fold case**, because this is the only moment at which
+a near-miss can be prevented rather than merely reported. Typing `legal` when
+`Legal` is in the catalog returns 422 naming the catalog role.
+
+### The four fixed buyer slots are retired, and that is what fixes "Sel"
+
+Round 35 Phase 5, 2026-08-27.
+
+Removed entirely rather than hidden: `BUYER_ROLES`, `renderRefBuyerRows`,
+`window.linkRefBuyer`, `refAccountContacts`, the `#ref-buyer-rows` markup and
+its `ref-buyer-select-*` / `ref-buyer-feedback-*` ids,
+`VALID_OPPORTUNITY_BUYER_ROLES`, `POST /opportunities/:id/buyer-contacts`, and
+`buyer_contacts` from the Opportunity GET.
+
+**Verified by counting to zero with the counter calibrated**, because Round 10
+left two containers behind and both reached the business. Six selectors read
+zero on the live page; the same six read one after a matching element was
+injected, and zero again after it was removed. `window.linkRefBuyer` is
+`undefined`; `openInlineBuyerContactModal` is still a function, because Test
+Bed uses it.
+
+**THE TRUNCATED CONTROL GOES WITH THE SLOTS, AND THAT IS THE FIX.** Phase 0
+measured the select at 41px of the 256px it needs, 16%, identical at 1240, 1920
+and 3440 because it was a fixed collapse rather than a responsive squeeze, and
+established that removing `LINK` would return only 67px and reach 108px, still
+42%. **The 196px control column was the constraint, so nothing short of
+replacing the row could fix it.** Measured again after the retirement, the
+Reference tab's remaining selects are 320px of the 256px they need and 220px of
+137px. The truncation is not improved; the control it afflicted no longer
+exists.
+
+**The four live `commercial buyer` rows were DELETED, not migrated**, on the
+business's standing instruction that test data is deleted rather than
+preserved. All four came from the Milestone 3 backfill, whose own migration
+says of the role: *"this is a default, not a verified fact"*. None carried
+`role_id` or `role_other`, so none was written by the new panel, and none had a
+stance entry. Re-queried afterwards: zero rows remain on live Opportunities,
+and `record_contacts` still holds 455, all Test Bed's.
+
+### "+ New" survives the retirement, because it was the slots' one real capability
+
+Round 35 Phase 5, 2026-08-27.
+
+Phase 0 established that `LINK` did nothing the select did not, so removing it
+removed nothing. **`+ New` is different**: it creates a qualified Contact
+without leaving the deal, orchestrating four already-proven endpoints in
+sequence. Retiring the slots without it would have taken that away silently,
+which is not what "retire the slots" asked for.
+
+`openInlineBuyerContactModal` is shared with Test Bed and stays one
+implementation. Its step 4 now branches on record type, because the two link
+differently: Test Bed by one of three hardcoded role strings, Opportunity by a
+catalog `role_id` or a `role_other` typed on the deal.
+
+**That makes Test Bed reachable, so it was checked rather than reasoned about,
+and the check is stronger than a pixel comparison would have been.** A fixture
+Test Bed was created and the shared modal driven end to end through the real
+`+ New` button: the Contact was created, linked to the Account, transitioned to
+Qualified through the ordinary gate, and appeared in the slot. The link it
+wrote carries `role` as text with `role_id` and `role_other` both null, so Test
+Bed's model is untouched by a change to the function it shares.
+
+### Enumerating teardown from the database is necessary and not sufficient
+
+Round 35 Phase 5, 2026-08-27. **A refinement to Verification rule 11, found by
+it failing.**
+
+Rule 11 says to enumerate teardown from the database by a tag the fixtures
+carry, never from a file the harness wrote, because a rebuild leaves records
+the file no longer names. This phase enumerated from the database and **still
+nearly left a live Contact on a business Account**, because the query that
+enumerated it read `record_revisions` with no `Range` header and saw 1000 of
+15,800 rows.
+
+**The teardown then reported clean, and it was clean about the empty set it had
+been given.** The same truncation made an assertion fail that was actually
+true: the Contact existed, was Qualified, and was on the right Account, and the
+probe that said otherwise had simply not looked at the page containing it.
+
+This is Round 34 Phase 2's paged scan arriving in a new place, and the earlier
+entry framed it as a scanning problem. **It is a teardown problem too, and that
+direction is worse**, because a scan that under-reports produces a wrong
+finding somebody may notice, while a teardown that under-reports produces
+residue nobody is looking for.
+
+**The check: a teardown enumeration is a scan, so it carries every obligation a
+scan carries.** Page it, and confirm the population it walked is the whole
+population, not the first page of it.
+
+## Round 35 close-out: Key Customer Contacts
+
+2026-08-27. Seven phases, 0 through 6. Opportunity's four fixed buyer slots are
+replaced by a list of people, each carrying a role from a configured catalog or
+typed on the deal, and an append-only stance carrying what they want.
+
+### A correct diagnosis recorded in a migration header is not a fix
+
+**The round's most valuable finding, and it is about this project rather than
+about contacts.** `20260819000012_record_contacts_delete_policy.sql`, Round 11
+Phase 5, records in its own header:
+
+> the delete removed nothing, so links ACCUMULATED, and two rows for the same
+> (record_id, role) then made the `contact_role_linked` branch's own
+> `.maybeSingle()` return an error, turning a working gate into a 500.
+
+That is precisely what Round 35 Phase 1 fixed, **twenty-four rounds later**.
+Round 11 reached it from the other side, understood it completely, and fixed
+what had produced the second row: the missing DELETE policy. `.maybeSingle()`
+was left alone, because with duplicates no longer created it stopped mattering.
+Build discipline rule 8: **the fix was scoped to the event rather than to the
+class**, and it held until a round whose whole purpose is creating duplicates
+deliberately.
+
+**It pairs with two earlier findings and the three together are one pattern:**
+
+| round | form |
+|---|---|
+| 29 | a written rationale is not a guard |
+| 33 | a recorded decision is not a record of what happened |
+| 35 | a correct diagnosis recorded in a migration header is not a fix |
+
+All three are the same shape: **prose that is true, kept next to code that does
+not enforce it, and the prose keeps being true while the thing it describes
+stops being safe.** The Round 11 case is the sharpest because the prose is not
+merely true, it is a complete and accurate diagnosis of the exact fault, sitting
+four directories from the line that carries it.
+
+### A teardown enumeration is a scan, and carries every obligation a scan carries
+
+Phase 5. **Not promoted to `CLAUDE.md` on one instance; recorded here as a
+promotion candidate if a second appears.**
+
+Verification rule 11 says to enumerate teardown from the database by a tag,
+never from a file. Phase 5 did exactly that and **still nearly left a live
+Contact on a business Account**, because the enumerating query read
+`record_revisions` with no `Range` header and saw 1000 of 15,800 rows.
+
+**The teardown then reported clean, and it was clean, about the empty set it had
+been handed.**
+
+The refinement: *an under-reporting scan produces a wrong finding somebody may
+notice, while an under-reporting teardown produces residue nobody is looking
+for.*
+
+**And the failure was the evidence that found it.** The same truncation made an
+assertion fail that was actually TRUE: the Contact existed, was Qualified, and
+was on the right Account. Had that assertion passed, the residue would have gone
+unnoticed. A probe wrong in the safe direction is how the probe got checked.
+
+### The axis model, and an invariant that exists because the constraint is data
+
+Phase 2. Stance is one vocabulary on two axes, which is neither of the two
+answers the question offered. One field cannot express a Pain Owner who is also
+a Blocker, and the live Organisational criterion "Political dynamics: who gains
+and who loses if this goes ahead" exists to record exactly that person. Two
+hardcoded fields would put Pain Owner in the schema and make the next orthogonal
+stance a migration rather than a row.
+
+**INVARIANT 12 exists because the constraint lives entirely in data.** Moving
+Pain Owner onto the disposition axis would leave every query, route and test
+passing while making that case unrecordable. Proven capable of failing by
+injection, **and its negative half is asserted too**, so it cannot pass against a
+table where every row has a unique axis and nothing competes with anything.
+
+### The live data answered a question posed as a design choice
+
+Phase 2. Whether a free-text role shares a column with a configured one was
+posed as a shape decision. It was already decided, in the data:
+
+```
+"commercial buyer"  written 2 ways, 390 rows: 350 lowercase + 40 "Client Commercial Buyer"
+"technical buyer"   written 2 ways,  31 rows: 28 "Client Technical Buyer" + 3 "Technical Buyer"
+
+2 of 4 distinct roles already split across more than one spelling.
+A GROUP BY returns 6 rows for 4 real roles.
+```
+
+**With no free-text feature in the product at all.** The divergence came from two
+independently-built writers. So `role_id` and `role_other` are separate columns.
+
+### The role is not uppercased, because `.tag` would erase the difference
+
+Phase 3. Every other pill in this app is `text-transform: uppercase`. That
+renders `commercial buyer` and `Commercial Buyer` identically, which is the one
+difference the panel exists to show. The stored value is shown as stored, and
+that is the only deliberate departure from `.tag`.
+
+**Related, and the same principle applied twice in opposite directions:**
+classifying a stored row does NOT fold case, because a near-miss is a real fact
+about the deal; refusing new input DOES fold case, because that is the only
+moment a near-miss can be prevented rather than reported.
+
+### `refAccountContacts` followed the page load rather than the record
+
+Phase 3, found while investigating an empty panel. A module-level cache guarded
+by `if (!length)`, so after opening one Opportunity every later one offered the
+FIRST one's account contacts. Demonstrated on two records with disjoint lists.
+Not a data-integrity hole, since the server returned 422; **a control that
+appeared to offer what it could not deliver.** Removed with the slots in Phase 5,
+and the replacement keys its cache on the account.
+
+### Zero media queries, so the first one did not arrive here
+
+Phase 4. The note began as a seventh column: 568px at 1920, 2088px at 3440, and
+**twelve pixels at 1240**, because six fixed tracks plus six gaps need 958px of
+the 876px that width gives. A breakpoint would have fixed it. **The stylesheet
+contains none at all** - the whole app adapts through `minmax()` and `auto-fit` -
+so the note became its own dimmed second line instead. **Establish the
+convention before departing from it.**
+
+### The two standing changes the business made this round
+
+Both apply to **data and process, not to shape**:
+
+1. **Test Bed pixel-identical is no longer an every-phase requirement.** Keep it
+   where a phase touches shared CSS or a shared function; where a phase
+   demonstrably cannot reach Test Bed, establish that and skip it. Round 32
+   Phase 2's three-way blind check is the argument: a comparison on a page with
+   none of the elements under test proves nothing and costs a calibration.
+2. **Test data is deleted rather than migrated.** Pre-revenue; the records here
+   are fixtures, not trading history. The exception is anything a real deal was
+   worked through, and the instruction is to ask rather than preserve.
+
+**Schema, vocabularies, append-only history and gate semantics stay as careful as
+they have been, because shape is cheap now and expensive once the business is
+trading.**
+
+### `state-dump.mjs` dumps no configured vocabulary table at all
+
+Its eleven configuration sections are `stage_definitions`, `stage_gate_rules`,
+`scoring_criteria`, `scoring_anchors`, `stage_reference_docs`,
+`approval_tracks`, `routing_rules`, `conversion_criteria`,
+`stage_probability_defaults`, `approvals` and record counts.
+
+**So the nine roles and seven stances do not appear in `CURRENT_STATE.md`**, and
+neither do `industries`, `terminus_staff`, `closed_lost_reasons` or
+`scoring_lenses`. Confirmed by search on the regenerated file: `Executive
+Sponsor` and `Pain Owner` both read 0, while `Champion identified`, a
+`scoring_criteria` row, reads 2, which is the calibration that the file does
+print row content for tables it covers.
+
+Pre-existing, not created by this round, and reported rather than fixed: it
+touches six tables and belongs to whoever picks up the generator.
