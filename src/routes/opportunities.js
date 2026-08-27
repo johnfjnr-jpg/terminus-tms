@@ -144,7 +144,7 @@ export default async function opportunitiesRoutes(app) {
     // this panel exists to make trustworthy.
     const { data: allLinks, error: linksErr } = await db
       .from('record_contacts')
-      .select('id, contact_id, role, created_at')
+      .select('id, contact_id, role, role_id, role_other, created_at')
       .eq('record_id', opp.id)
       .order('created_at', { ascending: true })
 
@@ -192,21 +192,71 @@ export default async function opportunitiesRoutes(app) {
     // replacement is a deletion rather than a second path left running.
     const { data: catalogRoles, error: catalogErr } = await db
       .from('contact_roles')
-      .select('label')
+      .select('id, label')
     if (catalogErr) {
       request.log.error({ err: catalogErr }, 'failed to load the contact role catalog')
       return reply.code(500).send({ error: catalogErr.message })
     }
     const catalog = new Set((catalogRoles ?? []).map(r => r.label))
 
-    const key_contacts = links.map(l => ({
-      id: l.id,
-      contact_id: l.contact_id,
-      name: buyerContactNames[l.contact_id] ?? null,
-      role: l.role,
-      in_catalog: catalog.has(l.role),
-      linked_at: l.created_at
-    }))
+    // Round 35 Phase 4: role_id/role_other replace the string match for any
+    // row the Key Customer Contacts panel wrote. in_catalog is now a fact
+    // about the row rather than a comparison, for those rows; the comparison
+    // survives only for rows that predate this phase and for Test Bed's,
+    // which still carry text in `role`.
+    const roleLabels = new Map((catalogRoles ?? []).map(r => [r.id, r.label]))
+
+    // The current stance is the latest entry, and the history is every entry.
+    // One query for every link on this record rather than one per link.
+    let stanceByLink = new Map()
+    if (links.length) {
+      const { data: stanceRows, error: stanceErr } = await db
+        .from('record_contact_stances')
+        .select('id, record_contact_id, stance_id, note, created_by, created_at')
+        .in('record_contact_id', links.map(l => l.id))
+        .order('created_at', { ascending: false })
+      if (stanceErr) {
+        request.log.error({ err: stanceErr }, 'failed to load contact stances')
+        return reply.code(500).send({ error: stanceErr.message })
+      }
+      const { data: stanceVocab, error: vocabErr } = await db
+        .from('contact_stances')
+        .select('id, label, axis')
+      if (vocabErr) {
+        request.log.error({ err: vocabErr }, 'failed to load the stance vocabulary')
+        return reply.code(500).send({ error: vocabErr.message })
+      }
+      const stanceLabels = new Map((stanceVocab ?? []).map(v => [v.id, v]))
+      for (const row of stanceRows ?? []) {
+        const list = stanceByLink.get(row.record_contact_id) ?? []
+        list.push({
+          at: row.created_at,
+          by: row.created_by,
+          stance: stanceLabels.get(row.stance_id)?.label ?? null,
+          axis: stanceLabels.get(row.stance_id)?.axis ?? null,
+          note: row.note ?? null
+        })
+        stanceByLink.set(row.record_contact_id, list)
+      }
+    }
+
+    const key_contacts = links.map(l => {
+      // Ordered newest first by the query above, so [0] is current.
+      const history = stanceByLink.get(l.id) ?? []
+      return {
+        id: l.id,
+        contact_id: l.contact_id,
+        name: buyerContactNames[l.contact_id] ?? null,
+        role: l.role_id ? (roleLabels.get(l.role_id) ?? null) : (l.role_other ?? l.role),
+        role_id: l.role_id,
+        role_other: l.role_other,
+        in_catalog: l.role_id ? true : (l.role_other ? false : catalog.has(l.role)),
+        stance: history[0]?.stance ?? null,
+        note: history[0]?.note ?? null,
+        stance_history: history,
+        linked_at: l.created_at
+      }
+    })
 
     return {
       ...opp,
@@ -1038,6 +1088,267 @@ export default async function opportunitiesRoutes(app) {
   // catalog/escape-valve model DESIGN_PRINCIPLES.md's Deferred scope
   // describes as a separate, not-yet-scoped piece.
   const VALID_OPPORTUNITY_BUYER_ROLES = ['Technical Buyer', 'Commercial Buyer', 'Legal Buyer', 'IT / Security Buyer']
+
+  // ── Key Customer Contacts, Round 35 Phase 4 ────────────────────────
+  //
+  // Three endpoints, and the shapes are deliberately not interchangeable.
+  //
+  //   POST   .../key-contacts              link a person, with a role
+  //   DELETE .../key-contacts/:linkId      remove a person from this deal
+  //   POST   .../key-contacts/:linkId/stance   record where they stand now
+  //
+  // REMOVE AND STANCE-CHANGE MUST NOT BECOME THE SAME OPERATION. They touch
+  // different tables: remove deletes a record_contacts row, a stance change
+  // inserts into record_contact_stances. Nothing here can do one while
+  // meaning the other, which is a property of the shape rather than of care
+  // at the call site.
+  //
+  // NOT A REPLACEMENT FOR POST /opportunities/:id/buyer-contacts YET. That
+  // endpoint still backs the four fixed slots and Phase 5 retires both
+  // together. Two write paths into one table is exactly the thing this
+  // project keeps recording as a fault, so it is named here as temporary
+  // with the round that ends it.
+  const ownedOpportunity = async (db, id, reply) => {
+    const { data: opp, error } = await db
+      .from('records')
+      .select('id, account_id, owner_id')
+      .eq('id', id)
+      .eq('record_type', 'opportunity')
+      .is('deleted_at', null)
+      .maybeSingle()
+    if (error) { reply.code(500).send({ error: error.message }); return null }
+    if (!opp) { reply.code(404).send({ error: 'opportunity not found' }); return null }
+    return opp
+  }
+
+  app.post('/opportunities/:id/key-contacts', async (request, reply) => {
+    const { contact_id, role_id, role_other, stance_id, note } = request.body ?? {}
+    const db = createUserClient(request.jwt)
+
+    const opp = await ownedOpportunity(db, request.params.id, reply)
+    if (!opp) return
+
+    if (!contact_id) return reply.code(400).send({ error: 'contact_id is required' })
+
+    const typed = String(role_other ?? '').trim()
+    // Exactly one, checked here as well as by the CHECK constraint, so the
+    // caller gets a sentence rather than a constraint violation.
+    if (!!role_id === !!typed) {
+      return reply.code(400).send({ error: 'supply exactly one of role_id or role_other' })
+    }
+
+    let resolvedRoleId = null
+    if (role_id) {
+      const { data: role, error: roleErr } = await db
+        .from('contact_roles').select('id, label, active').eq('id', role_id).maybeSingle()
+      if (roleErr) return reply.code(500).send({ error: roleErr.message })
+      if (!role) return reply.code(404).send({ error: 'role not found' })
+      // A retired role is not offered by GET /contact-roles, so a caller
+      // sending one is working from a stale picker. Refused rather than
+      // accepted quietly, because accepting it would put a row in the
+      // catalog bucket that the catalog no longer offers.
+      if (!role.active) return reply.code(422).send({ error: `${role.label} has been retired and cannot be assigned` })
+      resolvedRoleId = role.id
+    }
+
+    if (typed) {
+      // CASE-INSENSITIVE HERE, AND EXACT WHEN CLASSIFYING STORED ROWS. The
+      // two are different jobs. Classifying an existing row must not fold
+      // case, because "commercial buyer" against a catalog holding
+      // "Commercial Buyer" is genuinely a typed role and saying so is what
+      // surfaces the divergence. REFUSING NEW INPUT is where folding belongs:
+      // this is the only moment at which a near-miss can be prevented rather
+      // than merely reported.
+      const { data: clash, error: clashErr } = await db
+        .from('contact_roles').select('label').eq('active', true)
+      if (clashErr) return reply.code(500).send({ error: clashErr.message })
+      const hit = (clash ?? []).find(r => r.label.toLowerCase() === typed.toLowerCase())
+      if (hit) {
+        return reply.code(422).send({ error: `${hit.label} is already in the role catalog, so pick it rather than typing it` })
+      }
+    }
+
+    const { data: contact, error: contactErr } = await db
+      .from('records')
+      .select('id, parent_record_id')
+      .eq('id', contact_id)
+      .eq('record_type', 'contact')
+      .is('deleted_at', null)
+      .maybeSingle()
+    if (contactErr) return reply.code(500).send({ error: contactErr.message })
+    if (!contact) return reply.code(404).send({ error: 'contact not found' })
+
+    // THE ACCOUNT SCOPE IS INHERITED, NOT REQUIRED, AND IS KEPT DELIBERATELY.
+    // POST /opportunities/:id/buyer-contacts refuses a Contact of another
+    // Account because Test Bed's three contact_role_linked gates depend on
+    // that being true. Round 35 Phase 0 established that NO opportunity gate
+    // rule uses contact_role_linked, so nothing on this record type depends
+    // on it. It is kept because loosening it would let a partner or an
+    // intermediary onto a deal, which is a business decision nobody has been
+    // asked for, and quietly widening it inside a phase about something else
+    // is how scope moves without anyone choosing.
+    if (!contact.parent_record_id || contact.parent_record_id !== opp.account_id) {
+      return reply.code(422).send({ error: "Contact is not linked to this Opportunity's Account" })
+    }
+
+    const { data: inserted, error: insertErr } = await db
+      .from('record_contacts')
+      .insert({
+        record_id: opp.id, contact_id, role: null,
+        role_id: resolvedRoleId, role_other: typed || null,
+        created_by: request.user.id
+      })
+      .select('id')
+
+    // A DUPLICATE IS A SENTENCE, NOT A 500. The partial unique indexes refuse
+    // the same contact in the same role twice on one record, and sendWriteError
+    // maps only 42501, so a 23505 would reach the browser as a 500 carrying
+    // "duplicate key value violates unique constraint
+    // record_contacts_record_contact_role_id_uniq". That is the exact shape
+    // Round 18A Phase 2 built sendWriteError to stop.
+    //
+    // MAPPED HERE RATHER THAN IN sendWriteError, deliberately. That helper is
+    // called from about fifty sites and a duplicate means something different
+    // at most of them; teaching it a second code inside a phase about
+    // something else is how a shared helper acquires a purpose nobody asked
+    // for, which src/lib/score-entry.js already records at length.
+    if (insertErr?.code === '23505') {
+      return reply.code(409).send({ error: 'That contact already holds that role on this Opportunity.' })
+    }
+    if (insertErr) return sendWriteError(reply, insertErr)
+    // Rows, not just the error. Round 11 Phase 5: an RLS-filtered write
+    // returns zero rows and no error, and reporting success on a null error
+    // is the exact fault that let links accumulate unnoticed.
+    if (!inserted?.length) return reply.code(403).send({ error: 'not permitted to link a contact on this Opportunity' })
+    const linkId = inserted[0].id
+
+    // Every link starts with a stance, and the default is Unknown, chosen by
+    // the business. A person just linked is someone not yet placed, and
+    // recording that honestly is worth more than a Neutral that cannot be
+    // told apart from a real judgement.
+    let openingStanceId = stance_id
+    if (!openingStanceId) {
+      const { data: unknown } = await db
+        .from('contact_stances').select('id').eq('label', 'Unknown').maybeSingle()
+      openingStanceId = unknown?.id ?? null
+    }
+    if (openingStanceId) {
+      const { error: stanceErr } = await db.from('record_contact_stances').insert({
+        record_contact_id: linkId, stance_id: openingStanceId,
+        note: String(note ?? '').trim() || null, created_by: request.user.id
+      })
+      if (stanceErr) request.log.error({ err: stanceErr }, 'link created but its opening stance was not recorded')
+    }
+
+    // Verification rule 8: the error is checked, including on a write whose
+    // result is not otherwise read. Logged rather than returned: the link
+    // itself succeeded, so failing the response would be worse than a missing
+    // audit row. What it must not be is silent.
+    const { error: auditErr } = await db.from('audit_log').insert({
+      record_id: opp.id, record_type: 'opportunity',
+      action: 'key_contact_linked', actor_id: request.user.id,
+      detail: { contact_id, role_id: resolvedRoleId, role_other: typed || null }
+    })
+    if (auditErr) request.log.error({ err: auditErr }, 'key contact linked but not audited')
+
+    return reply.code(201).send({ ok: true, id: linkId })
+  })
+
+  app.post('/opportunities/:id/key-contacts/:linkId/stance', async (request, reply) => {
+    const { stance_id, note } = request.body ?? {}
+    const db = createUserClient(request.jwt)
+
+    const opp = await ownedOpportunity(db, request.params.id, reply)
+    if (!opp) return
+
+    // The link must belong to THIS opportunity. Without this a link id from
+    // another record would be accepted, since the RLS policy on the stance
+    // table checks ownership of whatever record the link points at, and the
+    // caller may own both.
+    const { data: link, error: linkErr } = await db
+      .from('record_contacts').select('id, record_id')
+      .eq('id', request.params.linkId).maybeSingle()
+    if (linkErr) return reply.code(500).send({ error: linkErr.message })
+    if (!link || link.record_id !== opp.id) return reply.code(404).send({ error: 'contact link not found on this Opportunity' })
+
+    if (!stance_id) return reply.code(400).send({ error: 'stance_id is required' })
+    const { data: stance, error: stanceErr } = await db
+      .from('contact_stances').select('id, label, active').eq('id', stance_id).maybeSingle()
+    if (stanceErr) return reply.code(500).send({ error: stanceErr.message })
+    if (!stance) return reply.code(404).send({ error: 'stance not found' })
+    if (!stance.active) return reply.code(422).send({ error: `${stance.label} has been retired and cannot be assigned` })
+
+    const { data: written, error: writeErr } = await db
+      .from('record_contact_stances')
+      .insert({
+        record_contact_id: link.id, stance_id: stance.id,
+        note: String(note ?? '').trim() || null, created_by: request.user.id
+      })
+      .select('id, created_at')
+    if (writeErr) return sendWriteError(reply, writeErr)
+    if (!written?.length) return reply.code(403).send({ error: 'not permitted to record a stance on this Opportunity' })
+
+    const { error: auditErr } = await db.from('audit_log').insert({
+      record_id: opp.id, record_type: 'opportunity',
+      action: 'key_contact_stance_recorded', actor_id: request.user.id,
+      detail: { link_id: link.id, stance: stance.label }
+    })
+    if (auditErr) request.log.error({ err: auditErr }, 'stance recorded but not audited')
+
+    return reply.code(201).send({ ok: true, id: written[0].id, at: written[0].created_at })
+  })
+
+  app.delete('/opportunities/:id/key-contacts/:linkId', async (request, reply) => {
+    const db = createUserClient(request.jwt)
+
+    const opp = await ownedOpportunity(db, request.params.id, reply)
+    if (!opp) return
+
+    const { data: link, error: linkErr } = await db
+      .from('record_contacts').select('id, record_id, contact_id, role, role_id, role_other')
+      .eq('id', request.params.linkId).maybeSingle()
+    if (linkErr) return reply.code(500).send({ error: linkErr.message })
+    if (!link || link.record_id !== opp.id) return reply.code(404).send({ error: 'contact link not found on this Opportunity' })
+
+    // THE STANCE HISTORY IS COPIED OUT BEFORE THE CASCADE DESTROYS IT.
+    // record_contact_stances cascades on this delete, which is what keeps
+    // removal possible at all; audit_log references records rather than the
+    // link, so this copy survives the removal. The history is preserved in
+    // the table whose job is preserving it.
+    const { data: history, error: histErr } = await db
+      .from('record_contact_stances')
+      .select('stance_id, note, created_by, created_at')
+      .eq('record_contact_id', link.id)
+      .order('created_at', { ascending: true })
+    if (histErr) return reply.code(500).send({ error: histErr.message })
+
+    // THIS ONE IS RETURNED, NOT LOGGED, and it is the only audit write in this
+    // file that is. The cascade is about to destroy the stance entries, and
+    // this row is the only copy that survives it. Deleting the link after
+    // failing to record its history would lose the history silently, which is
+    // the opposite of what an append-only stance is for.
+    const { data: audited, error: auditErr } = await db.from('audit_log').insert({
+      record_id: opp.id, record_type: 'opportunity',
+      action: 'key_contact_removed', actor_id: request.user.id,
+      detail: {
+        link_id: link.id, contact_id: link.contact_id,
+        role: link.role, role_id: link.role_id, role_other: link.role_other,
+        stance_history: history ?? []
+      }
+    }).select('id')
+    if (auditErr) return sendWriteError(reply, auditErr)
+    if (!audited?.length) return reply.code(403).send({ error: 'not permitted to record this removal' })
+
+    const { data: deleted, error: delErr } = await db
+      .from('record_contacts').delete().eq('id', link.id).select('id')
+    if (delErr) return sendWriteError(reply, delErr)
+    // Rows, not the error. record_contacts had no DELETE policy at all until
+    // Round 11 Phase 5, and the endpoint that first relied on one reported
+    // success on a null error while the link was still there.
+    if (!deleted?.length) return reply.code(403).send({ error: 'not permitted to remove this contact link' })
+
+    return reply.send({ ok: true, removed: link.id, stance_entries_removed: (history ?? []).length })
+  })
 
   app.post('/opportunities/:id/buyer-contacts', async (request, reply) => {
     const { role, contact_id } = request.body ?? {}

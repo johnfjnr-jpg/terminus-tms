@@ -383,66 +383,221 @@ window.linkRefBuyer = async function (role) {
   await loadOpportunityDetail(refOpportunityId)
 }
 
-// ── Key Customer Contacts (Round 35 Phase 3, 2026-08-27) ─────────────
-// READ ONLY. Renders every record_contacts row on this Opportunity, from
-// the GET's own key_contacts, which is unfiltered. Adding, removing and
-// stance arrive in Phase 4.
+// ── Key Customer Contacts (Round 35, Phases 3 and 4) ─────────────────
+// Phase 3 built this read only. Phase 4 adds linking, removing, and an
+// append-only stance carrying an optional note.
 //
-// SHOWING EVERY ROW IS THE POINT, not a side effect of not having built
-// the filter yet. The four fixed slots filter to four title-cased strings,
-// so all four live opportunities carry a lowercase "commercial buyer" link
-// that has never appeared on screen. Nothing looked broken, so nothing was
-// reported, and Phase 2 measured what that cost: 2 of 4 distinct roles
-// across record_contacts are already split across more than one spelling.
-// A panel that hides what it cannot classify is how a vocabulary diverges
-// unnoticed.
+// SHOWING EVERY ROW IS THE POINT, not a side effect of not having built the
+// filter yet. The four fixed slots filter record_contacts to four title-cased
+// strings, so all four live opportunities carry a lowercase "commercial
+// buyer" link that has never appeared on screen. Nothing looked broken, so
+// nothing was reported, and Phase 2 measured what that cost: 2 of 4 distinct
+// roles are already split across more than one spelling.
 //
-// THE ROLE IS NOT UPPERCASED, and that is a deliberate departure from
-// .tag, which every other pill in this app uses. text-transform:uppercase
-// would render "commercial buyer" and "Commercial Buyer" identically,
-// which erases the exact difference this panel exists to show. The value
-// is displayed as it is stored.
+// THE ROLE IS NOT UPPERCASED, a deliberate departure from .tag, which every
+// other pill in this app uses. text-transform:uppercase would render
+// "commercial buyer" and "Commercial Buyer" identically, which erases the
+// exact difference this panel exists to show.
 //
-// A TYPED ROLE IS NOT A LESSER FACT ABOUT THE DEAL. It is the same size,
-// the same colour and the same weight as a catalog role, and carries a
-// dashed border rather than a solid one. It is the record of a role the
-// catalog does not yet have, which is what tells admin what to add: the
-// escape valve is how the catalog learns, so treating it as an error
-// state would be backwards.
-function renderKeyContacts(opp) {
+// A TYPED ROLE IS NOT A LESSER FACT ABOUT THE DEAL. Same size, colour and
+// weight as a catalog role; only the border differs. It is the record of a
+// role the catalog does not yet carry, which is what tells admin what to add.
+//
+// ONE ENTRY PER ACTION, AND THE ROW READS THE NEWEST. Stance and note are
+// appended together because an entry is one observation about this person on
+// this deal: where they stand, optionally what they want, at a time, by
+// someone. Changing either arms that row's Record button; clicking it writes
+// one entry. Two controls writing two entries would make "the note changed"
+// and "the stance changed" separate history when they were one reading.
+//
+// REMOVE IS A SEPARATE CONTROL AND A SEPARATE ENDPOINT. It deletes the link;
+// Record appends a stance. Nothing here can do one while meaning the other.
+let kcRoles = []
+let kcStances = []
+let kcAccountContacts = []
+let kcContext = { oppId: null, accountId: null }
+
+async function renderKeyContacts(opp) {
   const el = document.getElementById('ref-key-contacts')
   if (!el) return
+  kcContext = { oppId: opp.id, accountId: opp.account_id ?? null }
 
   const contacts = opp.key_contacts ?? []
-  if (!contacts.length) {
-    // Rendered only when the list is genuinely empty, so this is a slot
-    // rather than a sentence typed into the markup that stops being true
-    // when something is configured. Architecture rule 8's third variant.
-    el.innerHTML = '<p class="empty-state">No contacts linked to this Opportunity yet.</p>'
-    return
-  }
-
   const rows = contacts.map(c => `
-    <div class="kc-row" data-contact-id="${escHtml(c.contact_id)}" data-in-catalog="${c.in_catalog}">
+    <div class="kc-row" data-link-id="${escHtml(c.id)}" data-contact-id="${escHtml(c.contact_id)}" data-in-catalog="${c.in_catalog}">
       <span class="kc-name" tabindex="0" onclick="navigate('contact-detail','${escHtml(c.contact_id)}')"
             onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();navigate('contact-detail','${escHtml(c.contact_id)}')}"
         >${escHtml(c.name ?? c.contact_id)}</span>
-      <span class="kc-role"><span class="kc-role-tag${c.in_catalog ? '' : ' kc-role-tag--typed'}">${escHtml(c.role)}</span></span>
+      <span class="kc-role"><span class="kc-role-tag${c.in_catalog ? '' : ' kc-role-tag--typed'}">${escHtml(c.role ?? '')}</span></span>
+      <span class="kc-stance">
+        <select id="kc-stance-${escHtml(c.id)}" onchange="kcArm('${escHtml(c.id)}')">
+          ${kcStanceOptions(c.stance)}
+        </select>
+      </span>
+      <span class="kc-act">
+        <button class="btn-sm kc-record hidden" id="kc-record-${escHtml(c.id)}"
+                onclick="kcRecord('${escHtml(c.id)}')">Record</button>
+        ${(c.stance_history?.length ?? 0) > 1
+          ? `<span class="kc-hist" title="${escHtml(kcHistoryTitle(c))}">${c.stance_history.length} readings</span>`
+          : ''}
+      </span>
       <span class="kc-when">${escHtml(formatDate(c.linked_at))}</span>
+      <span class="kc-remove" tabindex="0" title="Remove from this Opportunity"
+            onclick="kcRemove('${escHtml(c.id)}','${escHtml(c.name ?? '')}')"
+            onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();kcRemove('${escHtml(c.id)}','${escHtml(c.name ?? '')}')}">&times;</span>
+      <span class="kc-note">
+        <input type="text" id="kc-note-${escHtml(c.id)}" value="${escHtml(c.note ?? '')}"
+               placeholder="What do they want?" oninput="kcArm('${escHtml(c.id)}')"
+               onkeydown="if(event.key==='Enter'){event.preventDefault();kcRecord('${escHtml(c.id)}')}">
+      </span>
     </div>`).join('')
 
-  // The legend is derived from the rows rather than always present: with
-  // nothing typed there is no convention to explain, and a legend for an
-  // absent treatment is a claim with a shelf life.
+  // Derived from the rows rather than always present: with nothing typed
+  // there is no convention to explain, and a legend for an absent treatment
+  // is a claim with a shelf life.
   const typed = contacts.filter(c => !c.in_catalog).length
   const legend = typed
     ? `<p class="kc-legend">${typed} role${typed === 1 ? '' : 's'} here ${typed === 1 ? 'is' : 'are'} typed on this deal and not yet in the role catalog.</p>`
     : ''
 
+  el.innerHTML = contacts.length
+    ? `<div class="kc-head"><span>Contact</span><span>Role</span><span>Stance</span><span></span><span>Linked</span><span></span><span></span></div>
+       ${rows}
+       ${legend}
+       <div id="kc-add"></div>`
+    : `<p class="empty-state">No contacts linked to this Opportunity yet.</p>
+       <div id="kc-add"></div>`
+
+  await renderKcAddRow()
+}
+
+function kcStanceOptions(current) {
+  // Grouped by axis, because axis says which values compete. A flat list
+  // would offer Pain Owner alongside Blocker as though picking one ruled out
+  // the other, and "owns the problem and blocks the fix" is the case the
+  // vocabulary exists for.
+  const axes = [...new Set(kcStances.map(s => s.axis))]
+  return axes.map(ax => `<optgroup label="${escHtml(ax)}">` +
+    kcStances.filter(s => s.axis === ax).map(s =>
+      `<option value="${s.id}"${s.label === current ? ' selected' : ''}>${escHtml(s.label)}</option>`).join('') +
+    '</optgroup>').join('')
+}
+
+// SHOWN ONLY WHEN THERE IS MORE THAN ONE READING, which is the only case
+// where it says anything. A "1" beside every row is noise: every link opens
+// at Unknown, so one reading is the floor rather than a fact. A count that
+// appears exactly when a stance has moved is a signal, and the full history
+// hangs off it as a tooltip rather than taking a column that most rows would
+// leave empty. Where the history lives is a second question from what the row
+// reads, and the row reads the current stance because that is what someone
+// scanning a buying committee needs.
+function kcHistoryTitle(c) {
+  const h = c.stance_history ?? []
+  if (!h.length) return 'No readings recorded'
+  return h.map(e => `${formatDate(e.at)}  ${e.stance ?? '?'}${e.note ? ' - ' + e.note : ''}`).join('\n')
+}
+
+window.kcArm = function (linkId) {
+  document.getElementById(`kc-record-${linkId}`)?.classList.remove('hidden')
+}
+
+window.kcRecord = async function (linkId) {
+  const stance_id = document.getElementById(`kc-stance-${linkId}`)?.value
+  const note = document.getElementById(`kc-note-${linkId}`)?.value ?? ''
+  const btn = document.getElementById(`kc-record-${linkId}`)
+  if (btn) { btn.disabled = true; btn.textContent = 'Recording...' }
+  const result = await api('POST', `/api/opportunities/${kcContext.oppId}/key-contacts/${linkId}/stance`, { stance_id, note })
+  if (!result.ok) {
+    kcFeedback(result.data?.error ?? 'Failed to record.')
+    if (btn) { btn.disabled = false; btn.textContent = 'Record' }
+    return
+  }
+  await loadOpportunityDetail(kcContext.oppId)
+}
+
+window.kcRemove = async function (linkId, name) {
+  if (!confirm(`Remove ${name || 'this contact'} from this Opportunity? Their stance history is kept in the audit log.`)) return
+  const result = await api('DELETE', `/api/opportunities/${kcContext.oppId}/key-contacts/${linkId}`)
+  if (!result.ok) { kcFeedback(result.data?.error ?? 'Failed to remove.'); return }
+  await loadOpportunityDetail(kcContext.oppId)
+}
+
+function kcFeedback(msg) {
+  const el = document.getElementById('kc-feedback')
+  if (el) el.innerHTML = `<p class="msg-error">${escHtml(msg)}</p>`
+}
+
+async function renderKcAddRow() {
+  const el = document.getElementById('kc-add')
+  if (!el) return
+  if (!kcContext.accountId) { el.innerHTML = '<p class="empty-state">No linked Account, so no Contacts to add.</p>'; return }
+
+  // FETCHED PER ACCOUNT, NOT ONCE PER PAGE LOAD. renderRefBuyerRows caches
+  // into a module-level array guarded by `if (!length)`, so after opening one
+  // Opportunity every later one offers the FIRST one's account contacts.
+  // Demonstrated live in Phase 3 and left alone there because Phase 5 removes
+  // that code; it is not repeated here.
+  if (kcAccountContacts.accountId !== kcContext.accountId) {
+    const result = await api('GET', '/api/contacts')
+    kcAccountContacts = result.ok
+      ? result.data.filter(c => c.parent_record_id === kcContext.accountId)
+      : []
+    kcAccountContacts.accountId = kcContext.accountId
+  }
+
+  const people = kcAccountContacts.map(c =>
+    `<option value="${c.id}">${escHtml(c.payload?.name ?? c.id)}</option>`).join('')
+  const roleOpts = kcRoles.map(r => `<option value="${r.id}">${escHtml(r.label)}</option>`).join('')
+
   el.innerHTML = `
-    <div class="kc-head"><span>Contact</span><span>Role</span><span>Linked</span><span></span></div>
-    ${rows}
-    ${legend}`
+    <div class="kc-add-row">
+      <select id="kc-add-contact">
+        <option value="">${kcAccountContacts.length ? 'Select a contact linked to this Account' : 'No Contacts linked to this Account yet'}</option>
+        ${people}
+      </select>
+      <select id="kc-add-role" onchange="kcAddRoleChanged()">
+        <option value="">Select a role</option>
+        ${roleOpts}
+        <option value="__other">Not listed, type it</option>
+      </select>
+      <input type="text" id="kc-add-other" class="hidden" placeholder="Role as they describe it">
+      <button class="btn-sm" onclick="kcAdd()">Add</button>
+    </div>
+    <div id="kc-feedback"></div>`
+}
+
+window.kcAddRoleChanged = function () {
+  const other = document.getElementById('kc-add-other')
+  const chosen = document.getElementById('kc-add-role')?.value
+  other?.classList.toggle('hidden', chosen !== '__other')
+  if (chosen === '__other') other?.focus()
+}
+
+window.kcAdd = async function () {
+  const contact_id = document.getElementById('kc-add-contact')?.value
+  const roleSel = document.getElementById('kc-add-role')?.value
+  const typed = document.getElementById('kc-add-other')?.value?.trim() ?? ''
+  if (!contact_id) { kcFeedback('Pick a contact first.'); return }
+  if (!roleSel) { kcFeedback('Pick a role, or choose "Not listed, type it".'); return }
+  if (roleSel === '__other' && !typed) { kcFeedback('Type the role, or pick one from the list.'); return }
+  const body = roleSel === '__other' ? { contact_id, role_other: typed } : { contact_id, role_id: roleSel }
+  const result = await api('POST', `/api/opportunities/${kcContext.oppId}/key-contacts`, body)
+  if (!result.ok) { kcFeedback(result.data?.error ?? 'Failed to add.'); return }
+  await loadOpportunityDetail(kcContext.oppId)
+}
+
+// Fetched once per session, same lazy pattern as industriesCache and
+// terminusStaffCache. These are configuration, not per-record data, so unlike
+// the account contacts above there is nothing for a cache to get wrong.
+async function ensureKcVocabularies() {
+  if (!kcRoles.length) {
+    const r = await api('GET', '/api/contact-roles')
+    if (r.ok) kcRoles = r.data
+  }
+  if (!kcStances.length) {
+    const r = await api('GET', '/api/contact-stances')
+    if (r.ok) kcStances = r.data
+  }
 }
 
 function renderReferenceTab(opp) {
@@ -532,11 +687,10 @@ function renderReferenceTab(opp) {
   // renderTbBuyerRows (test-bed-detail.js).
   renderRefBuyerRows(opp)
 
-  // Key Customer Contacts (Round 35 Phase 3): read only, and synchronous -
-  // key_contacts arrives fully resolved on the GET, so unlike
-  // renderRefBuyerRows there is nothing to fetch and no load-token race to
-  // guard.
-  renderKeyContacts(opp)
+  // Key Customer Contacts (Round 35 Phases 3 and 4). The vocabularies are
+  // needed before the row's stance select can be built, so this is the one
+  // render pass here that awaits something.
+  ensureKcVocabularies().then(() => renderKeyContacts(opp))
 
   // estClose now renders through the same refFieldRow mechanism as every
   // other date field below (Round 3 Phase 3), just pulled out of

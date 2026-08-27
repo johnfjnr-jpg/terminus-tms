@@ -4139,9 +4139,36 @@ input.input-invalid {
 .kc-head,
 .kc-row {
   display: grid;
-  grid-template-columns: minmax(180px, 300px) minmax(160px, 360px) 120px minmax(0, 1fr);
+  grid-template-columns:
+    minmax(140px, 260px)   /* Contact */
+    minmax(120px, 240px)   /* Role */
+    116px                  /* Stance */
+    72px                   /* Record, and the reading count */
+    92px                   /* Linked */
+    22px                   /* Remove */
+    minmax(0, 1fr);        /* slack, so the columns group left */
   gap: 16px;
   align-items: baseline;
+}
+
+/* THE NOTE IS ITS OWN LINE, NOT A SEVENTH COLUMN, AND NO MEDIA QUERY.
+   Measured as a column first: 568px at 1920 and 2088px at 3440, both good,
+   and TWELVE PIXELS AT 1240, because six fixed tracks plus six gaps need
+   958px of the 876px that width gives. A breakpoint would fix it and this
+   stylesheet contains none at all - the whole app adapts through minmax()
+   and auto-fit - so the first one in the codebase should not arrive inside a
+   phase about contacts.
+
+   Its own line works at every width and is the pattern the record lists
+   already use, a dimmed second line under the row it belongs to. The
+   max-width is legibility rather than layout: a line of prose much past
+   90 characters is hard to read, so at 3440 the note stops rather than
+   running the full 3,076px. */
+.kc-note {
+  grid-column: 1 / -1;
+  min-width: 0;
+  max-width: 820px;
+  margin-top: 2px;
 }
 
 .kc-head {
@@ -4209,3 +4236,90 @@ input.input-invalid {
   font-size: 12px;
   color: var(--muted-2);
 }
+
+
+/* ── Key Customer Contacts, the Phase 4 controls ─────────────────────
+   Small and quiet. These sit inside a list row, so a control the size of
+   the app's ordinary form fields would make the row taller than the fact
+   it carries. */
+.kc-stance select,
+.kc-note input {
+  width: 100%;
+  min-width: 0;
+  font-family: var(--body);
+  font-size: 13px;
+  padding: 3px 6px;
+}
+/* QUIET UNTIL TOUCHED. Looked at with eleven contacts, a bordered input on
+   every row turned the panel into eleven boxes, most of them empty, and the
+   chrome read louder than the eleven facts it was carrying. Borderless and
+   transparent until hover or focus is the same control with the weight of
+   the dimmed second line it is meant to be. */
+.kc-note input {
+  font-size: 12.5px;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid transparent;
+  padding-left: 0;
+}
+.kc-note input:hover {
+  border-color: var(--hairline);
+  padding-left: 6px;
+}
+.kc-note input:focus {
+  border-color: var(--hairline-strong);
+  color: var(--white);
+  padding-left: 6px;
+}
+.kc-note input::placeholder { color: var(--muted-2); }
+
+.kc-act {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+/* The reading count, and its tooltip is the history. WHERE THE HISTORY LIVES
+   IS A SECOND QUESTION FROM WHAT THE ROW READS: the row reads the current
+   stance, because that is what a person scanning a buying committee needs.
+   The count says how many readings there have been, which is the signal that
+   a stance has moved at all, and the full history hangs off it rather than
+   taking a column no row would use most of the time. */
+.kc-hist {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  color: var(--muted-2);
+  cursor: help;
+  white-space: nowrap;
+}
+
+.kc-record { padding: 2px 8px; font-size: 11px; }
+
+.kc-remove {
+  cursor: pointer;
+  color: var(--muted-2);
+  font-size: 16px;
+  line-height: 1;
+  text-align: right;
+}
+.kc-remove:hover { color: var(--white); }
+.kc-remove:focus-visible { outline: 1px solid var(--green); outline-offset: 2px; }
+
+/* The add row sits below the list and below the legend, separated by the
+   same hairline the header uses, so it reads as an action on the list rather
+   than as another row of it. */
+.kc-add-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--hairline-strong);
+}
+.kc-add-row select,
+.kc-add-row input { font-size: 13px; padding: 4px 8px; min-width: 0; }
+.kc-add-row #kc-add-contact { flex: 1 1 240px; max-width: 320px; }
+.kc-add-row #kc-add-role    { flex: 0 1 220px; }
+.kc-add-row #kc-add-other   { flex: 1 1 220px; max-width: 300px; }

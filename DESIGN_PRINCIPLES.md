@@ -4498,3 +4498,130 @@ keys to `records`.
    something else keeps it. Phase 4 decides between an UPDATE policy and an
    append-only stance history, and the decision belongs in the open rather than
    inside whichever is easier to build.
+
+### Round 11 Phase 5 met the `.maybeSingle()` fault, diagnosed it exactly, and fixed the instance
+
+Round 35 Phase 4, 2026-08-27. Found while reading `record_contacts`' own
+policies for an unrelated reason. **Build discipline rule 8, twenty-four rounds
+before the class was fixed.**
+
+`20260819000012_record_contacts_delete_policy.sql` records, in its own header:
+
+> the delete removed nothing, so links ACCUMULATED, and two rows for the same
+> (record_id, role) then made the `contact_role_linked` branch's own
+> `.maybeSingle()` return an error, turning a working gate into a 500.
+
+**Every word of that is the fault Round 35 Phase 1 fixed.** Round 11 reached it
+from the other side, understood it completely, and fixed what had produced the
+second row: it added the missing DELETE policy so links would stop
+accumulating. **`.maybeSingle()` was left as it was**, because with duplicates
+no longer being created it stopped mattering.
+
+**The fix was scoped to the event rather than to the class**, exactly as rule 8
+describes. The rule then held for twenty-four rounds because nothing else
+created a duplicate, and Round 35's whole purpose is a panel that creates them
+deliberately.
+
+Nothing here is a criticism of that round's work: the diagnosis is better than
+most, and it is written down, which is why this could be found at all. The
+lesson is narrower and worse. **A correct diagnosis recorded in a migration
+header is not a fix, and the thing it names goes on being true.**
+
+### The stance shape: an append-only table, and the reasoned departure named
+
+Round 35 Phase 4, 2026-08-27.
+
+The instruction was to follow the assessment score pattern rather than invent a
+second shape. A score entry is `{ at, by, value, comment? }` appended to an
+array in the record's payload through `append_record_revision`, never mutated,
+current value = last.
+
+**`record_contact_stances` is that shape. What differs is the medium, and the
+medium is chosen by where the data belongs.** A score belongs to the record,
+the record has a payload. A stance belongs to the LINK, and `record_contacts`
+has no payload. Storing link data in the record's payload keyed by link uuid
+gives opaque top-level keys and an orphaned key on every removal with nothing
+to clean it up; and because `append_record_revision` merges shallowly at the
+top level, the alternative of one nested object read and rewritten whole
+reintroduces exactly the lost-update race that function exists to remove.
+
+An append-only table carrying `created_by` and `created_at` is also the
+dominant shape in this schema already: `record_revisions`, `approvals`,
+`audit_log` and `record_contacts` itself are all precisely that.
+
+**No UPDATE and no DELETE policy**, so append-only is enforced by RLS rather
+than by discipline at the call site. Confirmed live against a user client: an
+UPDATE and a DELETE by the record's own owner both returned HTTP 200 affecting
+zero rows, and the entry was unchanged afterwards. **Calibrated by the three
+inserts the same client had just made**, so the zero is the missing policy
+rather than a broken client.
+
+### The note lands with the stance, because it has the same question inside it
+
+Round 35 Phase 4, 2026-08-27. The business agreed a per-contact free-text line
+for "what does each of them want", to land in Phase 4 or Phase 5.
+
+**Phase 4, and the reason is not convenience.** The note has the same
+mutability question stance has, and answering that question twice in two phases
+is how a second shape gets invented. A score entry already carries an optional
+free-text `comment` beside its value; this is that slot.
+
+**So an entry is one observation**: where they stand, optionally what they want,
+at a time, by someone. Updating only the note appends an entry repeating the
+stance, which is honest rather than wasteful, because it is a new reading made
+at a new time by a named person, and that is what the Organisational lens is
+scored against.
+
+**One entry per action, in the interface too.** Changing either control arms
+that row's Record button and clicking it writes one entry. Two controls saving
+independently would make "the note changed" and "the stance changed" separate
+history when they were one reading.
+
+### What a stance history shows in the panel, and where it lives
+
+Round 35 Phase 4, 2026-08-27. These are two questions and the answers differ.
+
+**The row reads the CURRENT stance**, because that is what someone scanning a
+buying committee needs: eleven rows each answering "where does this person
+stand" at a glance.
+
+**The history hangs off a count that appears only when there is more than one
+reading.** Every link opens at Unknown, so one reading is the floor rather than
+a fact, and a "1" beside every row is noise. `2 readings` appearing exactly
+where a stance has moved is a signal, and the full history, each entry with its
+date, stance and note, is the tooltip on it.
+
+**It does not get a column.** Most rows would leave it empty, and a column that
+is usually empty costs the width that the note now uses.
+
+### Remove and stance-change are different operations, structurally
+
+Round 35 Phase 4, 2026-08-27.
+
+Opportunity had no unlink endpoint at all and `record_contacts` has no UPDATE
+policy, so this phase had to build removal and decide what it means.
+
+**They touch different tables.** `DELETE .../key-contacts/:linkId` deletes a
+`record_contacts` row; `POST .../key-contacts/:linkId/stance` inserts into
+`record_contact_stances`. Nothing can do one while meaning the other, which is
+a property of the shape rather than of care at the call site.
+
+**Removal cascades the stance entries, so the endpoint copies them into
+`audit_log.detail` first.** `on delete cascade` rather than `restrict` because
+restrict would make any link with a stance recorded permanent. `audit_log`
+references `records` rather than the link, so the copy survives. **That one
+audit write is the only one in the file whose error is returned rather than
+logged**: deleting the link after failing to record its history would lose the
+history silently, which is the opposite of what an append-only stance is for.
+
+### A near-miss of a catalog role is refused at input, and reported when stored
+
+Round 35 Phase 4, 2026-08-27. Two jobs that look like one.
+
+**Classifying a stored row does not fold case.** `commercial buyer` against a
+catalog holding `Commercial Buyer` is genuinely a role typed on the deal, and
+saying so is what surfaces the divergence Phase 2 measured across 459 rows.
+
+**Refusing new input does fold case**, because this is the only moment at which
+a near-miss can be prevented rather than merely reported. Typing `legal` when
+`Legal` is in the catalog returns 422 naming the catalog role.
