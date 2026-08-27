@@ -1,4 +1,5 @@
 import { createUserClient } from '../supabase.js'
+import { resolveCurrentBatches } from '../lib/base-costs.js'
 
 // Base Cost Data, the product catalog. Round 36 Phase 1.
 //
@@ -16,8 +17,9 @@ import { createUserClient } from '../supabase.js'
 // every caller, and Architecture rule 3 says one computation path per concern,
 // because a second path that agrees today will disagree later.
 //
-// So resolveCurrent() below is the one path, and as_of is the same path asked a
-// different date rather than a second one. The pricing-version round will need
+// So resolveCurrentBatches() in src/lib/base-costs.js is the one path, shared
+// with the frontend, and as_of is that same path asked a different date rather
+// than a second one. The pricing-version round will need
 // exactly that: what were the costs on the day this deal was approved.
 export default async function baseCostsRoutes(app) {
   // GET /api/base-costs
@@ -53,34 +55,11 @@ export default async function baseCostsRoutes(app) {
       return reply.code(500).send({ error: error.message })
     }
 
-    return { as_of: asOf, products: resolveCurrent(data ?? []) }
+    return { as_of: asOf, products: resolveCurrentBatches(data ?? [], asOf) }
   })
 }
 
-// The one derivation. Takes rows already filtered to effective_from <= as_of and
-// ordered effective_from descending, and keeps the first per product.
-//
-// Numeric columns arrive from PostgREST as strings, because Postgres numeric has
-// no lossless JSON representation. Coerced here rather than left for the caller:
-// Round 36 Phase 0 found the existing Test Bed rates stored as strings in the
-// payload, and "8000" * 10 happening to work in JavaScript is why nobody noticed.
-// A caller that gets a number cannot reintroduce that.
-function resolveCurrent(rows) {
-  const current = []
-  const seen = new Set()
-  for (const row of rows) {
-    if (seen.has(row.product)) continue
-    seen.add(row.product)
-    current.push({
-      product: row.product,
-      batch_id: row.id,
-      batch_label: row.batch_label,
-      effective_from: row.effective_from,
-      unit_cost: Number(row.unit_cost),
-      install_cost_existing: Number(row.install_cost_existing),
-      install_cost_new: Number(row.install_cost_new),
-      hosting_cost_month: Number(row.hosting_cost_month),
-    })
-  }
-  return current
-}
+// The derivation moved to src/lib/base-costs.js in Phase 2, so the Commercials
+// tab's live preview and this route resolve a batch through the SAME FILE
+// rather than two copies that agree today. It is served at /lib/base-costs.js,
+// the arrangement deal-calculator.js already uses for the same reason.

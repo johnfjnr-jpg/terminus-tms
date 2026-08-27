@@ -1712,11 +1712,23 @@
           </div>
         </div>
 
-        <!-- Rates are fixed at Opportunity creation, never edited here - held
-             only so readPayload()/populateForm() have somewhere to read/write
-             them. Their value is surfaced instead in each row's note below
-             ("N units x $rate"), not as its own column, matching the
-             prototype's card shape (Item/Cost/Margin%/Price only). -->
+        <!-- Rates come from Base Cost Data and are never edited here - held
+             only so populateForm() has somewhere to display them and the note
+             lines can read them back. Their value is surfaced in each row's
+             note below ("N units x $rate"), not as its own column, matching the
+             prototype's card shape (Item/Cost/Margin%/Price only).
+
+             CORRECTED, Round 36 Phase 2. This comment previously read "rates
+             are fixed at Opportunity creation". That was never true: Phase 0
+             found an Opportunity's revision 1 is {name, company_name,
+             customerLead}, all four live Opportunities carried zero rate keys,
+             and the ten rate keys have been refused by SALESPERSON_WRITABLE_KEYS
+             since the allowlist was written. The rates were not fixed at
+             creation, they were never written at all, and every figure on this
+             tab was arithmetic on absent inputs displayed as $0. Left as a
+             correction rather than a silent edit, because a sentence that was
+             true when typed and false afterwards is the failure mode this
+             project has recorded four times. -->
         <input type="text" inputmode="numeric" id="deal-ssUnitCost" class="hidden" readonly>
         <input type="text" inputmode="numeric" id="deal-aqUnitCost" class="hidden" readonly>
         <input type="text" inputmode="numeric" id="deal-hemirUnitCost" class="hidden" readonly>
@@ -1725,6 +1737,13 @@
         <input type="text" inputmode="numeric" id="deal-hoHemir" class="hidden" readonly>
 
         <p class="label" style="margin:24px 0 10px">Computed pricing (USD) &middot; costs mirrored from Base Cost Data</p>
+        <!-- Round 36 Phase 2: where the costs came from, and anything wrong with
+             them. Three states, all rendered by renderCatalogNotice():
+             the batch and its effective date; a product the catalog does not
+             supply, which must NOT be allowed to read as a $0 cost; and a bid
+             currency that is not the USD the catalog is held in. -->
+        <p id="deal-catalog-notice" style="margin:-4px 0 12px;font-family:var(--mono);font-size:10.5px;color:var(--muted-2)"></p>
+        <p class="msg-error hidden" id="deal-catalog-warn" style="margin:-4px 0 12px"></p>
         <div class="pg-cards">
           <div class="pg-card">
             <p class="pg-card-title">Unit cost and warranty</p>
