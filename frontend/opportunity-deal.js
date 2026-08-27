@@ -508,6 +508,136 @@ function escapeSheet(s) {
   return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
 }
 
+// ── Deal Sheet versions (Round 37 Phase 3) ────────────────────────────────
+//
+// Saving is a deliberate act, so it is a button press and never a consequence
+// of editing. Nothing on this tab autosaves.
+let dealVersions = []
+
+function versionLabel(v) {
+  if (v.major === 0) return `V0.${v.minor}`
+  return v.minor === 0 ? `V${v.major}` : `V${v.major}.${v.minor}`
+}
+
+async function loadVersions() {
+  if (!opportunityId) return
+  const r = await window.api('GET', `/api/opportunities/${opportunityId}/deal-sheet-versions`)
+  dealVersions = r.ok && Array.isArray(r.data) ? r.data : []
+  renderVersionList()
+}
+
+function renderVersionList() {
+  const list = document.getElementById('deal-version-list')
+  if (!list) return
+
+  if (!dealVersions.length) {
+    list.innerHTML = '<p class="pg-item-note">No versions saved yet. V0.1 is the first.</p>'
+  } else {
+    list.innerHTML = dealVersions.map(v => `
+      <div class="ds-row">
+        <div>
+          <div class="ds-label">${escapeSheet(versionLabel(v))}
+            <span class="pg-item-note" style="display:inline">${v.status === 'issued' ? 'issued' : 'draft'}</span>
+          </div>
+          <div class="pg-item-note">${escapeSheet(v.reason)}</div>
+          <div class="pg-item-note">${escapeSheet(new Date(v.created_at).toISOString().slice(0, 10))}</div>
+        </div>
+        <div class="ds-value">
+          <button class="btn-text" data-restore-version="${escapeSheet(v.id)}">Restore</button>
+        </div>
+      </div>`).join('')
+  }
+
+  // Issue acts on the latest DRAFT. Disabled when there is none, rather than
+  // offered and then refused, because a control that is always clickable and
+  // sometimes errors teaches people to ignore its message.
+  const draft = dealVersions.find(v => v.status === 'draft')
+  const btn = document.getElementById('btn-issue-version')
+  if (btn) {
+    btn.disabled = !draft
+    btn.textContent = draft ? `Issue ${versionLabel(draft)} as V${draft.major + 1}` : 'Issue latest draft'
+  }
+}
+
+function versionFeedback(msg, ok) {
+  const el = document.getElementById('deal-version-feedback')
+  if (!el) return
+  el.textContent = msg || ''
+  el.className = msg ? (ok ? 'msg-success' : 'msg-error') : 'hidden'
+}
+
+async function saveVersion() {
+  const reasonEl = document.getElementById('deal-version-reason')
+  const reason = (reasonEl?.value ?? '').trim()
+
+  // Required, and checked here so the user is told before a request is made.
+  // The schema's NOT NULL and length CHECK are what make it true; this is what
+  // makes it readable.
+  if (!reason) {
+    versionFeedback('A reason is required: what changed in this version, and why.', false)
+    reasonEl?.focus()
+    return false
+  }
+
+  // The version carries what the tab currently reads, including the catalog
+  // rates, which the server resolves again on its own rather than trusting
+  // these. readPayload() is the same function the save path uses, so a version
+  // and a save cannot disagree about what the inputs are.
+  const r = await window.api('POST', `/api/opportunities/${opportunityId}/deal-sheet-versions`,
+    { inputs: readPayload(), reason })
+
+  if (!r.ok) {
+    versionFeedback(r.data?.error ?? 'The version could not be saved.', false)
+    return false
+  }
+  reasonEl.value = ''
+  await loadVersions()
+  versionFeedback(`Saved ${versionLabel(r.data)}.`, true)
+  return true
+}
+
+async function issueLatestDraft() {
+  const draft = dealVersions.find(v => v.status === 'draft')
+  if (!draft) return
+  const r = await window.api('POST', `/api/deal-sheet-versions/${draft.id}/issue`)
+  if (!r.ok) {
+    versionFeedback(r.data?.error ?? 'The version could not be issued.', false)
+    await loadVersions()
+    return
+  }
+  await loadVersions()
+  versionFeedback(`Issued ${versionLabel(r.data)}. It cannot be changed now.`, true)
+}
+
+// RESTORE OVERWRITES THE CURRENT PRICING, which is what makes it useful during
+// a negotiation and what makes unsaved work a real risk.
+//
+// It uses openDiscardConfirm, the dialogue Round 28 built for the assessment
+// panel and Round 34 extended, rather than a third pattern. That dialogue's own
+// words are "discard unsaved changes", which is exactly what restoring does to
+// them, so restore REFUSES-OR-DISCARDS rather than forcing a save first.
+// Forcing a save would also write a revision the user never asked for, at the
+// moment they are trying to go back.
+async function restoreVersion(versionId) {
+  const go = async () => {
+    const r = await window.api('POST', `/api/deal-sheet-versions/${versionId}/restore`)
+    if (!r.ok) {
+      versionFeedback(r.data?.error ?? 'The version could not be restored.', false)
+      return
+    }
+    populateForm(r.data.inputs ?? {})
+    recompute()
+    markDealFormDirty()
+    versionFeedback(`Restored ${r.data.label}. Nothing is saved until you press Save Changes.`, true)
+  }
+
+  if (dealFormDirty) {
+    window.openDiscardConfirm(go)
+    return
+  }
+  await go()
+}
+
 // ── Recompute + render ────────────────────────────────────────────────────
 function recompute() {
   const payload = readPayload()
@@ -1291,6 +1421,23 @@ function wireOnce() {
   })
 
   document.getElementById('btn-save-deal').addEventListener('click', saveDeal)
+
+  // Versions (Round 37 Phase 3). Restore is delegated at the list level, since
+  // the rows are regenerated on every load and per-row listeners would need
+  // re-attaching each time - the same reason wireOnce delegates dirty-tracking
+  // at the panel rather than per input.
+  document.getElementById('btn-save-version').addEventListener('click', saveVersion)
+  document.getElementById('btn-issue-version').addEventListener('click', issueLatestDraft)
+  document.getElementById('deal-version-list').addEventListener('click', (e) => {
+    const id = e.target?.dataset?.restoreVersion
+    if (id) restoreVersion(id)
+  })
+
+  // The reason box must NOT mark the tab dirty. It is not a deal input, and a
+  // typed reason enabling Save Changes would offer to save the pricing when the
+  // user is describing it. wireOnce delegates 'input' at the panel level, so
+  // this stops that one control at the source.
+  document.getElementById('deal-version-reason').addEventListener('input', (e) => e.stopPropagation())
 }
 
 // Mirrors SALESPERSON_WRITABLE_KEYS in src/routes/opportunities.js's PATCH
@@ -1429,4 +1576,6 @@ window.initOpportunityDealPanel = async function (opp) {
 
   populateForm(opp.payload)
   recompute()
+  // After the first render, so a slow list never delays the figures.
+  loadVersions()
 }

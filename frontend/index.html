@@ -2009,6 +2009,30 @@
       -->
       <div class="deal-tab-panel hidden" id="deal-tab-sheet">
         <p id="deal-sheet-provenance" style="margin:0 0 14px;font-family:var(--mono);font-size:10.5px;color:var(--muted-2)"></p>
+
+        <!-- Versions (Round 37 Phase 3). Save is a deliberate act, so it is a
+             button and never a side effect of editing.
+
+             THE REASON IS A TEXTAREA, NOT THE ONE-LINE-GROWING CONTROL the
+             assessment panel uses. That control is right for a sentence
+             explaining one score; a version reason explains what changed across
+             a whole sheet and why, which the business called "the thinking
+             about why things have been adjusted". Three rows at rest says a
+             paragraph is expected without forcing one, and it is the only
+             editable control on this otherwise read-only tab. -->
+        <div class="pg-card" id="deal-version-panel" style="max-width:460px;margin-bottom:20px">
+          <p class="pg-card-title">Versions</p>
+          <div id="deal-version-list"></div>
+          <div style="margin-top:12px">
+            <label class="label" for="deal-version-reason" style="margin-bottom:6px">Reason for this version</label>
+            <textarea id="deal-version-reason" rows="3" placeholder="What changed, and why."></textarea>
+            <p class="msg-error hidden" id="deal-version-feedback" style="margin-top:8px"></p>
+            <div style="display:flex;gap:8px;margin-top:10px">
+              <button class="btn-primary" id="btn-save-version">Save version</button>
+              <button class="btn-secondary" id="btn-issue-version" disabled>Issue latest draft</button>
+            </div>
+          </div>
+        </div>
         <div class="deal-sheet-cards" id="deal-sheet-inputs"></div>
         <p class="label" style="margin:24px 0 10px">Result (USD) &middot; <span id="deal-sheet-units">0</span> units</p>
         <div class="deal-sheet-cards">
