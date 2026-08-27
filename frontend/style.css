@@ -1425,6 +1425,44 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
   white-space: nowrap;
 }
 
+/* Deal Sheet sub-tab cards (Round 37 Phase 2).
+   
+   Narrower than .pg-cards' 620px cap, and the difference is the point. This is
+   the screen built for READING, and the business's complaint about the Deal
+   Summary is a reading complaint: "too wide, you need to be able to keep the
+   line label and the amount in view."
+   
+   Measured on the Deal Summary, whose label column is minmax(150px,1fr), the
+   whitespace between the end of a row's label text and the start of its amount
+   is 628px at 1240, 1308px at 1920 and 2828px at 3440 - it grows with every
+   pixel of extra viewport. At 620px cards that becomes a constant 549px, which
+   no longer scales but is still a long travel for a three-character label like
+   "GST". At 460px it is under 400, which is one comfortable fixation.
+   
+   auto-fit rather than a fixed count, so the width is still used: one card per
+   row at 1240, two at 1920, four at 3440, instead of four stretched columns. */
+.deal-sheet-cards {
+  /* Fixed 460px tracks, not minmax, and not CSS columns. Both alternatives were
+     measured on this panel and both lost the thing the panel is for.
+
+     minmax(360px, 460px) reads correctly at 460 but is the same family as the
+     Deal Summary's own defect: a track that can stretch will.
+
+     column-width: 460px was worse. Columns DISTRIBUTE the available width among
+     however many columns fit, they do not cap it, so at 1240 the container's
+     876px became one 876px column and the whitespace between a label and its
+     amount went from 389px to 805px - past where it started.
+
+     Fixed tracks keep the reading cap at every width: the measured worst gap is
+     389px at 1240, 1920 and 3440 alike, against 628 / 1308 / 2828 on the Deal
+     Summary panel the business complained about. */
+  display: grid;
+  grid-template-columns: repeat(auto-fit, 460px);
+  justify-content: start;
+  align-items: start;
+  gap: 12px;
+}
+
 /* ── Cash flow detail (Payment Terms) ──────────────────────────
    Months run across as columns, cash-flow categories run down as
    rows (Cash in / Cash out sections, then Net cash flow / Cumulative

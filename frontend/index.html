@@ -1688,6 +1688,7 @@
         <button data-deal-tab="install">Installation</button>
         <button data-deal-tab="terms">Structural Terms</button>
         <button data-deal-tab="payment">Payment Terms</button>
+        <button data-deal-tab="sheet">Deal Sheet</button>
       </div>
 
       <!-- Hw / Hosting Setup -->
@@ -1982,8 +1983,37 @@
           </div>
         </div>
 
-        <p class="label" style="margin:24px 0 10px">Deal sheet (USD) &middot; <span id="deal-sheet-units">0</span> units</p>
-        <div class="deal-sheet" id="deal-sheet"></div>
+      </div>
+
+      <!-- Deal Sheet (Round 37 Phase 2) -->
+      <!--
+        READ-ONLY, and the business's "for now" is doing work. One place to edit
+        a number, and a version taken from what was reviewed rather than from
+        what might have been changed while reviewing. Nothing in this panel is
+        an input; every value is rendered by renderDealSheetTab().
+
+        LAID OUT IN .deal-sheet-cards, CSS COLUMNS CAPPED AT 460px. That is the answer
+        to the business's own complaint about the Deal Summary: "too wide, you
+        need to be able to keep the line label and the amount in view."
+        Measured on that panel before building this one, the whitespace between
+        the end of a row's label text and the start of its amount is 628px at
+        1240, 1308px at 1920 and 2828px at 3440, because its label column is
+        minmax(150px,1fr) and absorbs every extra pixel. A capped card cannot do
+        that, and auto-fit still uses the real width by flowing more cards
+        across rather than stretching four. See the CSS for the measurements.
+
+        The four-figure strip above the sub-tab row (Contract Net, Achieved
+        Margin, Total Deal Cost, Finance Cost) is NOT repeated here. It is
+        visible on all five sub-tabs already, so repeating it would be the
+        duplication this panel exists to avoid.
+      -->
+      <div class="deal-tab-panel hidden" id="deal-tab-sheet">
+        <p id="deal-sheet-provenance" style="margin:0 0 14px;font-family:var(--mono);font-size:10.5px;color:var(--muted-2)"></p>
+        <div class="deal-sheet-cards" id="deal-sheet-inputs"></div>
+        <p class="label" style="margin:24px 0 10px">Result (USD) &middot; <span id="deal-sheet-units">0</span> units</p>
+        <div class="deal-sheet-cards">
+          <div class="deal-sheet" id="deal-sheet"></div>
+        </div>
       </div>
 
       <!-- Payment Terms -->
