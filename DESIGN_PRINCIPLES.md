@@ -4710,3 +4710,158 @@ residue nobody is looking for.
 **The check: a teardown enumeration is a scan, so it carries every obligation a
 scan carries.** Page it, and confirm the population it walked is the whole
 population, not the first page of it.
+
+## Round 35 close-out: Key Customer Contacts
+
+2026-08-27. Seven phases, 0 through 6. Opportunity's four fixed buyer slots are
+replaced by a list of people, each carrying a role from a configured catalog or
+typed on the deal, and an append-only stance carrying what they want.
+
+### A correct diagnosis recorded in a migration header is not a fix
+
+**The round's most valuable finding, and it is about this project rather than
+about contacts.** `20260819000012_record_contacts_delete_policy.sql`, Round 11
+Phase 5, records in its own header:
+
+> the delete removed nothing, so links ACCUMULATED, and two rows for the same
+> (record_id, role) then made the `contact_role_linked` branch's own
+> `.maybeSingle()` return an error, turning a working gate into a 500.
+
+That is precisely what Round 35 Phase 1 fixed, **twenty-four rounds later**.
+Round 11 reached it from the other side, understood it completely, and fixed
+what had produced the second row: the missing DELETE policy. `.maybeSingle()`
+was left alone, because with duplicates no longer created it stopped mattering.
+Build discipline rule 8: **the fix was scoped to the event rather than to the
+class**, and it held until a round whose whole purpose is creating duplicates
+deliberately.
+
+**It pairs with two earlier findings and the three together are one pattern:**
+
+| round | form |
+|---|---|
+| 29 | a written rationale is not a guard |
+| 33 | a recorded decision is not a record of what happened |
+| 35 | a correct diagnosis recorded in a migration header is not a fix |
+
+All three are the same shape: **prose that is true, kept next to code that does
+not enforce it, and the prose keeps being true while the thing it describes
+stops being safe.** The Round 11 case is the sharpest because the prose is not
+merely true, it is a complete and accurate diagnosis of the exact fault, sitting
+four directories from the line that carries it.
+
+### A teardown enumeration is a scan, and carries every obligation a scan carries
+
+Phase 5. **Not promoted to `CLAUDE.md` on one instance; recorded here as a
+promotion candidate if a second appears.**
+
+Verification rule 11 says to enumerate teardown from the database by a tag,
+never from a file. Phase 5 did exactly that and **still nearly left a live
+Contact on a business Account**, because the enumerating query read
+`record_revisions` with no `Range` header and saw 1000 of 15,800 rows.
+
+**The teardown then reported clean, and it was clean, about the empty set it had
+been handed.**
+
+The refinement: *an under-reporting scan produces a wrong finding somebody may
+notice, while an under-reporting teardown produces residue nobody is looking
+for.*
+
+**And the failure was the evidence that found it.** The same truncation made an
+assertion fail that was actually TRUE: the Contact existed, was Qualified, and
+was on the right Account. Had that assertion passed, the residue would have gone
+unnoticed. A probe wrong in the safe direction is how the probe got checked.
+
+### The axis model, and an invariant that exists because the constraint is data
+
+Phase 2. Stance is one vocabulary on two axes, which is neither of the two
+answers the question offered. One field cannot express a Pain Owner who is also
+a Blocker, and the live Organisational criterion "Political dynamics: who gains
+and who loses if this goes ahead" exists to record exactly that person. Two
+hardcoded fields would put Pain Owner in the schema and make the next orthogonal
+stance a migration rather than a row.
+
+**INVARIANT 12 exists because the constraint lives entirely in data.** Moving
+Pain Owner onto the disposition axis would leave every query, route and test
+passing while making that case unrecordable. Proven capable of failing by
+injection, **and its negative half is asserted too**, so it cannot pass against a
+table where every row has a unique axis and nothing competes with anything.
+
+### The live data answered a question posed as a design choice
+
+Phase 2. Whether a free-text role shares a column with a configured one was
+posed as a shape decision. It was already decided, in the data:
+
+```
+"commercial buyer"  written 2 ways, 390 rows: 350 lowercase + 40 "Client Commercial Buyer"
+"technical buyer"   written 2 ways,  31 rows: 28 "Client Technical Buyer" + 3 "Technical Buyer"
+
+2 of 4 distinct roles already split across more than one spelling.
+A GROUP BY returns 6 rows for 4 real roles.
+```
+
+**With no free-text feature in the product at all.** The divergence came from two
+independently-built writers. So `role_id` and `role_other` are separate columns.
+
+### The role is not uppercased, because `.tag` would erase the difference
+
+Phase 3. Every other pill in this app is `text-transform: uppercase`. That
+renders `commercial buyer` and `Commercial Buyer` identically, which is the one
+difference the panel exists to show. The stored value is shown as stored, and
+that is the only deliberate departure from `.tag`.
+
+**Related, and the same principle applied twice in opposite directions:**
+classifying a stored row does NOT fold case, because a near-miss is a real fact
+about the deal; refusing new input DOES fold case, because that is the only
+moment a near-miss can be prevented rather than reported.
+
+### `refAccountContacts` followed the page load rather than the record
+
+Phase 3, found while investigating an empty panel. A module-level cache guarded
+by `if (!length)`, so after opening one Opportunity every later one offered the
+FIRST one's account contacts. Demonstrated on two records with disjoint lists.
+Not a data-integrity hole, since the server returned 422; **a control that
+appeared to offer what it could not deliver.** Removed with the slots in Phase 5,
+and the replacement keys its cache on the account.
+
+### Zero media queries, so the first one did not arrive here
+
+Phase 4. The note began as a seventh column: 568px at 1920, 2088px at 3440, and
+**twelve pixels at 1240**, because six fixed tracks plus six gaps need 958px of
+the 876px that width gives. A breakpoint would have fixed it. **The stylesheet
+contains none at all** - the whole app adapts through `minmax()` and `auto-fit` -
+so the note became its own dimmed second line instead. **Establish the
+convention before departing from it.**
+
+### The two standing changes the business made this round
+
+Both apply to **data and process, not to shape**:
+
+1. **Test Bed pixel-identical is no longer an every-phase requirement.** Keep it
+   where a phase touches shared CSS or a shared function; where a phase
+   demonstrably cannot reach Test Bed, establish that and skip it. Round 32
+   Phase 2's three-way blind check is the argument: a comparison on a page with
+   none of the elements under test proves nothing and costs a calibration.
+2. **Test data is deleted rather than migrated.** Pre-revenue; the records here
+   are fixtures, not trading history. The exception is anything a real deal was
+   worked through, and the instruction is to ask rather than preserve.
+
+**Schema, vocabularies, append-only history and gate semantics stay as careful as
+they have been, because shape is cheap now and expensive once the business is
+trading.**
+
+### `state-dump.mjs` dumps no configured vocabulary table at all
+
+Its eleven configuration sections are `stage_definitions`, `stage_gate_rules`,
+`scoring_criteria`, `scoring_anchors`, `stage_reference_docs`,
+`approval_tracks`, `routing_rules`, `conversion_criteria`,
+`stage_probability_defaults`, `approvals` and record counts.
+
+**So the nine roles and seven stances do not appear in `CURRENT_STATE.md`**, and
+neither do `industries`, `terminus_staff`, `closed_lost_reasons` or
+`scoring_lenses`. Confirmed by search on the regenerated file: `Executive
+Sponsor` and `Pain Owner` both read 0, while `Champion identified`, a
+`scoring_criteria` row, reads 2, which is the calibration that the file does
+print row content for tables it covers.
+
+Pre-existing, not created by this round, and reported rather than fixed: it
+touches six tables and belongs to whoever picks up the generator.
