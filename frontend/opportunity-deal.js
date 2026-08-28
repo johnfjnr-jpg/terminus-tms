@@ -595,6 +595,42 @@ async function saveVersion() {
     return false
   }
 
+  // ── SAVE FIRST, THEN VERSION. Round 38 Phase 1, the business's decision. ──
+  //
+  // Round 38 Phase 0 measured that the Deal Sheet is already live: it renders
+  // through recompute() from readPayload(), so it shows unsaved input, and a
+  // version taken from it captured that unsaved input. Measured by intercepting
+  // the POST: the body carried ssExisting 77 while the record had no ssExisting
+  // at all and stood at revision 12.
+  //
+  // THAT MAKES A VERSION UNTRUSTWORTHY AS THE THING IT EXISTS TO BE. The
+  // business asked for versions for "traceability of calculations used in
+  // proposals", and a version citing figures the record never held is a
+  // traceability record that cannot be checked against anything.
+  //
+  // So taking a version SAVES THE RECORD FIRST, and the two become one act. The
+  // alternative considered and rejected was leaving them separate, which is
+  // cleaner as code and permits exactly the disagreement versions exist to
+  // prevent. The cost is one extra write.
+  //
+  // Only when there is something to save. A version taken with nothing dirty
+  // needs no revision, because the record already holds what the screen shows,
+  // and writing one anyway would put an empty revision in the history every
+  // time somebody versioned twice.
+  let alsoSaved = false
+  if (dealFormDirty) {
+    const saved = await saveDeal()
+    if (!saved) {
+      // saveDeal() has already written its own reason into #deal-feedback, which
+      // is at the other end of the tab. This says what it means for the version,
+      // which is the thing the user was actually trying to do, where they are
+      // looking when they try it.
+      versionFeedback('The pricing could not be saved, so no version was taken.', false)
+      return false
+    }
+    alsoSaved = true
+  }
+
   // The version carries what the tab currently reads, including the catalog
   // rates, which the server resolves again on its own rather than trusting
   // these. readPayload() is the same function the save path uses, so a version
@@ -608,7 +644,11 @@ async function saveVersion() {
   }
   reasonEl.value = ''
   await loadVersions()
-  versionFeedback(`Saved ${versionLabel(r.data)}.`, true)
+  // Names both writes when both happened, because "Saved V0.1" alone would hide
+  // a revision the user did not ask for and would be surprised to find later.
+  versionFeedback(alsoSaved
+    ? `Pricing saved, and ${versionLabel(r.data)} taken from it.`
+    : `Saved ${versionLabel(r.data)}. The pricing was already saved.`, true)
   return true
 }
 
@@ -1451,9 +1491,22 @@ function wireOnce() {
 
   // The reason box must NOT mark the tab dirty. It is not a deal input, and a
   // typed reason enabling Save Changes would offer to save the pricing when the
-  // user is describing it. wireOnce delegates 'input' at the panel level, so
-  // this stops that one control at the source.
-  document.getElementById('deal-version-reason').addEventListener('input', (e) => e.stopPropagation())
+  // user is describing it. wireOnce delegates BOTH 'input' and 'change' at the
+  // panel level, so both are stopped at the source.
+  //
+  // 'change' MATTERS AND WAS MISSED IN ROUND 37. A textarea fires change on
+  // BLUR when its value has altered, and the blur that matters is the one
+  // caused by clicking Save version. So typing the reason was correctly
+  // ignored, and then the click that used it marked the tab dirty a moment
+  // before saveVersion read the flag.
+  //
+  // Harmless until Round 38 Phase 1, which made a dirty flag mean "save the
+  // record first": the spurious dirty produced a spurious revision on every
+  // version taken from an otherwise-clean screen. An unchanged path meeting a
+  // new demand, and it was invisible until the new demand arrived.
+  const reasonBox = document.getElementById('deal-version-reason')
+  reasonBox.addEventListener('input', (e) => e.stopPropagation())
+  reasonBox.addEventListener('change', (e) => e.stopPropagation())
 }
 
 // Mirrors SALESPERSON_WRITABLE_KEYS in src/routes/opportunities.js's PATCH
