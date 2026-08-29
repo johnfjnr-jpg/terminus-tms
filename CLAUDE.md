@@ -1231,6 +1231,38 @@ of the change. An unanswerable precondition is a stop.
     describes.** Landing them in separate phases would have shipped the first
     one as a regression that every individual reading called an improvement.
 
+31. **READ THE DECISIONS BEFORE THE ARTEFACTS.** Round 39 close, 2026-08-29,
+    set by the business, and it is the process fault that cost the round its
+    structural half.
+
+    > When a brief holds both a DECIDED DESIGN and a REFERENCE IMPLEMENTATION,
+    > the decision is an instruction and the implementation is only evidence
+    > about what exists today. **A prototype tells you what was built, not what
+    > was agreed.**
+
+    **The instance.** `COMMERCIALS_RESHAPE_PHASE_0_BRIEF.md` carries a section
+    headed **"Decided with the business"** whose first item is the layout: no
+    sub-tabs, one scrolling screen, five sections in order, detail expandable
+    beside the summary, Payment Terms and Cash Flow side by side.
+
+    **Round 39 read the prototype first and in full, and the decided layout was
+    in the same document.** The round then removed one sub-tab of five and
+    called that the reshape, and spent its measurement effort on switch counts
+    and both-visible windows for a structure the business had already decided to
+    remove. My own Phase 0 wrote "the prototype is the only place a layout was
+    ever specified", which is false, and pointed the round there.
+
+    **This is rule 30 at document level**: we reasoned about how the screen
+    behaves without first establishing which description of it was
+    authoritative. 30 asks whether a thing exists; this asks which of two
+    descriptions of a thing is the instruction.
+
+    **The check: before reading a reference implementation, find the decisions.**
+    Grep the brief and `DESIGN_PRINCIPLES.md` for "decided", "agreed",
+    "supersedes", "the business", and read those first. What survives is the
+    screen-content work, which is true under any layout; what is wasted is
+    every structural measurement taken against the superseded shape.
+
 ### At round close: index these by when they apply
 
 **Raised by the business 2026-08-29, Round 39. Not a trim, an index.**

@@ -84,7 +84,7 @@ function renderMoved(page) {
 
   // Target first: it applies whether or not there is a baseline.
   const targetBlock = `
-    ${t.movedSentence ? `<p class="msg-warn" style="margin-bottom:10px">${esc(t.movedSentence)}
+    ${t.movedSentence ? `<p class="msg-warning" style="margin-bottom:10px">${esc(t.movedSentence)}
       <span class="pg-item-note" style="display:block">The same change appears as a step in the bridge below.
       That is not double counting: the step says what it did to the margin, this says what the margin is now measured against.</span></p>` : ''}
     ${row('Against target', `${t.gapPoints >= 0 ? 'above' : 'below'} by ${Math.abs(t.gapPoints).toFixed(2)} pts`,
@@ -128,7 +128,7 @@ function renderMoved(page) {
     ${Math.abs(b.unexplained) > 1e-6
       ? `<p class="msg-error">${b.unexplained.toFixed(4)} points are unexplained. The bridge does not reconcile; do not rely on it.</p>` : ''}
     ${b.unassignedKeys.length
-      ? `<p class="msg-warn">Changed and not accounted for by any step: ${b.unassignedKeys.map(esc).join(', ')}.</p>` : ''}
+      ? `<p class="msg-warning">Changed and not accounted for by any step: ${b.unassignedKeys.map(esc).join(', ')}.</p>` : ''}
     <p class="pg-item-note" style="margin-top:12px">${esc(m.order)}</p>
     ${targetBlock}`
 }
