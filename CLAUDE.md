@@ -386,6 +386,34 @@ not resolve it quietly.
    `opts` instead of spreading the field definition, twice recorded: the
    definition looks like the source of truth and the call site ignores it.
 
+10. **A migration handed over for by-hand application carries its own ledger
+   row, in the same file.** Set by the business 2026-08-29, Round 40. Applying
+   SQL through the Supabase dashboard does NOT write to
+   `supabase_migrations.schema_migrations`, so the schema and the ledger
+   disagree from that moment and nothing in the application can see it: the
+   ledger is not in `public`, so PostgREST does not expose it, and
+   `CURRENT_STATE.md` reads the directory rather than the database.
+
+   **ONE PASTE, TWO STATEMENTS.** Not a following note and not a reminder. The
+   by-hand path cannot produce a mismatch when applying and recording are one
+   action, and it produces one every time they are two and the second is
+   remembered.
+
+   ```sql
+   insert into supabase_migrations.schema_migrations (version)
+   values ('<this file's version prefix>')
+   on conflict (version) do nothing;
+   ```
+
+   Safe under both paths, which is what lets it live in the file: by hand it
+   records what the dashboard will not, and under `supabase db push` the CLI
+   writes the row itself and the `on conflict` makes it a no-op.
+
+   **The instance is the argument.** Round 40 reconciled the directory against
+   the ledger for the first time since Round 9 and found 97 of 98 in sync - and
+   the single mismatch was the migration written that hour, which drifted while
+   both parties were reading about drift.
+
 ---
 
 ## Verification
