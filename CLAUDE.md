@@ -1128,11 +1128,25 @@ with both prior guesses, in opposite directions.**
 separate them.** Rule 25 says "13 wants a positive case found elsewhere, 17
 wants a calibration, and this wants the instrument moved". Set against each
 other, those are three ways of SOURCING one action: produce a non-null reading
-before trusting a null one. The single rule is **"before trusting a null
-reading, make the instrument produce a non-null one on the system under
-test"**, and the four instances are what teach you where to find the positive
-case: a known-present string (12), the same mechanism somewhere else (13), a
+before trusting a null one. The single rule is:
+
+> **Before trusting a null reading, make the instrument produce a non-null one
+> on the system under test, ON THE SAME POPULATION YOU ARE ABOUT TO MAKE THE
+> CLAIM ABOUT.**
+
+The four instances are what teach you where to find the positive case: a
+known-present string (12), the same mechanism somewhere else (13), a
 deliberately differing state (17), the code path the suite actually runs (25).
+
+**The population clause is 25's own twist and the merged sentence needed it
+adding back.** Without it the rule is satisfied by a narrow demonstration: the
+clock-skew budget DID produce a non-null reading, on the one call it wrapped,
+while the claim being quoted from it was about hundreds. **An instrument can be
+demonstrably working somewhere and blind on the population the claim covers**,
+and a positive reading from the narrow path is then evidence that the instrument
+exists rather than evidence for the claim. Nearest neighbour is Verification 17's
+own paged-API species, a probe that discriminates perfectly over 1000 of 8237
+rows.
 
 **14 and 18 do NOT join them, though they sit in the same family.** 14's remedy
 is a clause in the assertion, `!!a && !!b && a === b`, not a calibration at all.
@@ -1151,6 +1165,19 @@ Nobody holding only the merged sentence would arrive at 24.
 same GROUP and remain three rules.** Grouping is by when the check fires;
 collapsing is by whether the action is the same. The pass does both and must not
 confuse them.
+
+**AND A MERGE CAN DESTROY INFORMATION RATHER THAN ONLY TIDY IT.** The 18 result
+is what shows it: its action is the OPPOSITE instruction to the rules it most
+resembles, so a merge on similarity would have deleted "do not stop at the first
+fix" while looking like housekeeping. **Nothing would have failed. The merged
+rule would read perfectly well.**
+
+**The test, and it is the same one that kept 24: would each member's action
+survive being read from the merged sentence ALONE, by somebody who has never
+seen the originals?** If not, that member is carrying information the merge
+would consume, and it stays. Applied honestly this is what limits a collapse to
+four, not nine, and it is the reason an index pass is a measurement rather than
+an edit.
 
 Nothing is removed and nothing is reworded by the index pass. The current
 numbering is load-bearing, because rounds cite it: **the grouping sits above the
