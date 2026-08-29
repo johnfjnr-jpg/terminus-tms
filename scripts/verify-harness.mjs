@@ -57,6 +57,55 @@ export function adminClient(env = loadEnv()) {
 // A per-run tag. Every fixture name, record_type and counter key derives
 // from this, so two runs (or a run racing a human in the real UI) can
 // never collide.
+/**
+ * Retries an operation that failed with PGRST303, "JWT issued at future".
+ *
+ * ─────────────────────────────────────────────────────────────
+ * WHAT THIS IS, AND WHY IT IS A MITIGATION RATHER THAN A FIX
+ * ─────────────────────────────────────────────────────────────
+ *
+ * Second occurrence, Round 36 and Round 38. The cause is NOT this machine's
+ * clock and NOT the service key: SUPABASE_SECRET_KEY is an opaque key, not a
+ * JWT, so it carries no iat of its own. The JWT is minted server-side and its
+ * iat arrives fractionally ahead of the database node's clock, so the skew is
+ * between two Supabase components and nothing in this repository can correct
+ * it.
+ *
+ * SO THIS IS AN EXPLICIT DECISION TO ACCEPT THE CAUSE AND REMOVE THE SYMPTOM,
+ * not a claim that the problem is solved. What it buys is the property the
+ * suite actually needs: red means a real failure. A suite that fails
+ * intermittently is a suite whose red nobody reads.
+ *
+ * THREE THINGS KEEP IT HONEST:
+ *
+ *   It retries ONLY PGRST303. Any other error returns untouched on the first
+ *   attempt, so no real failure is ever masked or delayed.
+ *
+ *   It ANNOUNCES every retry on stderr. A run that needed one says so, so the
+ *   frequency stays visible instead of becoming invisible infrastructure. If
+ *   this starts printing often, that is a signal about the platform.
+ *
+ *   It gives up after two attempts and returns the error, so a persistent
+ *   failure still fails.
+ *
+ * Round 9 Phase 7's lesson is why this exists at all: an aborted run leaves
+ * fixtures behind, and re-running to green hides that rather than resolving it.
+ * A retry inside the run keeps the run intact.
+ */
+export async function retryOnClockSkew(label, operation, attempts = 2) {
+  let last
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    last = await operation()
+    if (last?.error?.code !== 'PGRST303') return last
+    if (attempt < attempts) {
+      process.stderr.write(
+        `  [clock skew] ${label}: PGRST303 "JWT issued at future", retrying (${attempt}/${attempts - 1})\n`)
+      await new Promise((r) => setTimeout(r, 1200))
+    }
+  }
+  return last
+}
+
 export function newRunTag() {
   return `r7h${Date.now()}${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`
 }

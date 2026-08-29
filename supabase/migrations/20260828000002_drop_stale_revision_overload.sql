@@ -1,0 +1,24 @@
+-- Terminus TMS: drop the superseded 4-argument append_record_revision.
+-- Round 38, condition 6a, immediately after 20260828000001.
+--
+-- ADDING A DEFAULTED PARAMETER WITH `create or replace function` DOES NOT
+-- REPLACE THE FUNCTION. Postgres identifies a function by its argument types,
+-- so (uuid, jsonb, uuid, text[], integer) is a NEW function and the original
+-- (uuid, jsonb, uuid, text[]) is still there. Both then match a four-argument
+-- call, and PostgREST refuses to guess:
+--
+--   PGRST203  Could not choose the best candidate function between: ...
+--
+-- Every existing caller broke the moment the previous migration applied, which
+-- is worse than the problem it was fixing. Found by calling the four-argument
+-- form immediately after applying it rather than by assuming `create or
+-- replace` meant replace.
+--
+-- The lesson is narrow and worth keeping: `create or replace function` replaces
+-- a function with the SAME signature and overloads one with a different
+-- signature, and adding a parameter changes the signature even when the
+-- parameter has a default.
+--
+-- Dropped with the explicit argument list, so this can only ever remove the old
+-- overload and never the new one. IF EXISTS so a replay is a no-op.
+drop function if exists public.append_record_revision(uuid, jsonb, uuid, text[]);

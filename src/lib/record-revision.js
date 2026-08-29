@@ -41,12 +41,17 @@
  *   The Supabase error object is returned rather than thrown so every call
  *   site keeps checking `error` exactly as it does today, per Verification 8.
  */
-export async function appendRecordRevision(db, recordId, patch, createdBy, remove = []) {
+export async function appendRecordRevision(db, recordId, patch, createdBy, remove = [], expectedRevision = null) {
   const { data, error } = await db.rpc('append_record_revision', {
     p_record_id: recordId,
     p_patch: patch ?? {},
     p_created_by: createdBy,
     p_remove: remove ?? [],
+    // Round 38, condition 6a. null means "do not check", so every caller that
+    // has not opted in behaves exactly as before. When supplied, the check runs
+    // INSIDE the function's advisory lock, which is what makes it a
+    // compare-and-swap rather than a fourth read-then-write.
+    p_expected_revision: expectedRevision,
   })
   if (error) return { error }
   return { data }

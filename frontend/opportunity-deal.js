@@ -24,23 +24,17 @@ import { changedKeys } from '/lib/payload-diff.js'
 
 let opportunityId = null
 let wired = false
-// 'duration' bug fix (2026-08-15): payload.duration is the same field as
-// the Reference tab's own "Contract Duration (months)" (Key Dates card),
-// two independent edit surfaces for one value - see
-// DESIGN_PRINCIPLES.md's Deferred scope. This tab's save has always sent
-// the WHOLE form as one snapshot (readPayload()), including whatever
-// #deal-duration currently shows, even when the user never touched it -
-// silently reverting a more recent Reference-tab edit made in another
-// tab without a reload. dealDurationDirty/dealDurationOrig let saveDeal()
-// omit the field entirely unless this tab's own input was genuinely
-// edited, and verify nothing changed it elsewhere since load before
-// overwriting when it was.
-let dealDurationDirty = false
-let dealDurationOrig = 0
+// Contract Duration is the same field as the Reference tab's own "Contract
+// Duration (months)", two edit surfaces for one value. From Round 38 the
+// protection against one overwriting the other is the record-level precondition
+// below, not a per-field flag: the whole save is conditional on the record
+// still being at the revision this screen loaded.
+// The revision this screen loaded, and the precondition every save carries.
+// Updated after a successful save, because that save IS the new revision.
+let loadedRevision = null
 // Save Changes activation (Round 3 Phase 4, 2026-08-17) - btn-save-deal
 // was previously always enabled regardless of whether anything on this
 // tab had actually changed, confirmed by direct inspection, not
-// assumed. Tracked separately from dealDurationDirty above, which is
 // scoped to one specific field's own freshness-check needs, not a
 // general "has this tab changed" signal.
 let dealFormDirty = false
@@ -658,7 +652,15 @@ async function saveVersion() {
     { inputs: readPayload(), reason })
 
   if (!r.ok) {
-    versionFeedback(r.data?.error ?? 'The version could not be saved.', false)
+    // The save and the version are two sequential writes, not one transaction.
+    // If the version fails after the save succeeded, a revision exists and no
+    // version does, and the user MUST be told both halves: the raw server error
+    // alone reads as "nothing happened", and they would not know their pricing
+    // is now saved. Observed by forcing this branch, not argued.
+    const detail = r.data?.error ?? 'The version could not be saved.'
+    versionFeedback(alsoSaved
+      ? `Your pricing was saved, but the version was not taken: ${detail} Try taking the version again.`
+      : detail, false)
     return false
   }
   reasonEl.value = ''
@@ -1271,8 +1273,6 @@ function populateForm(payload) {
   setVal('deal-fxContingency', p.fxContingency ?? 0)
 
   setVal('deal-duration', p.duration ?? 0)
-  dealDurationOrig = p.duration ?? 0
-  dealDurationDirty = false
   uiState.structure = p.structure || 'twoPhase'
   updateStructureButtons()
   setVal('deal-recoveryMonths', p.recoveryMonths ?? '')
@@ -1394,7 +1394,6 @@ function updateFactoringButtons() {
 }
 
 // Round 3 Phase 4 (2026-08-17): see the dealFormDirty declaration above
-// for why this is separate from dealDurationDirty.
 // ── DIRTY BY COMPARISON, NOT BY EVENT. Round 38. ─────────────────────────
 //
 // dealFormDirty used to be set by an 'input'/'change' listener on the whole
@@ -1485,7 +1484,6 @@ function wireOnce() {
   // this one field specifically, so saveDeal() can tell "user changed
   // Duration on this tab" apart from "this tab just still has whatever
   // value it loaded with".
-  document.getElementById('deal-duration').addEventListener('input', () => { dealDurationDirty = true })
 
   document.getElementById('deal-installResp').addEventListener('change', (e) => {
     uiState.installResp = e.target.value
@@ -1555,33 +1553,47 @@ function wireOnce() {
   // case; both are deleted here rather than a third being added.
 }
 
-// Mirrors SALESPERSON_WRITABLE_KEYS in src/routes/opportunities.js's PATCH
-// handler, which rejects any other key outright. Rate fields (ssUnitCost,
-// aqUnitCost, hemirUnitCost, install/hosting rates) are excluded here.
+// ── PER-TAB FIELD OWNERSHIP. Round 38, condition 5a. ─────────────────────
 //
-// Round 36 Phase 2: the stopgap this comment described is over. It said the
-// rates were "read-only after Opportunity creation, a deliberate stopgap until
-// a real Base Cost Data table exists". Phase 0 found nothing wrote them at
-// creation either, and the table now exists, so readPayload() sources the unit
-// and hosting rates from the catalog instead of from the form.
+// This was an EXCLUSION list: take everything readPayload() produced and strip
+// the ten rate keys. An exclusion list is silent about anything new - a key
+// added to readPayload() is owned by this tab by default and reaches the record
+// unless somebody remembers to exclude it, which is the same
+// everything-is-included-until-guarded shape the dirty flag had.
 //
-// THE STRIP STAYS, and it is doing more than before. readPayload() now puts
-// live catalog figures on these keys, so without this they would be written
-// into the Opportunity's payload on the next save - reintroducing the per-deal
-// cost basis this round exists to remove, and doing it silently, with values
-// that look right on the day they are saved and go stale the moment a new
-// batch lands. The server's allowlist would refuse the whole PATCH anyway,
-// which means the visible symptom would be every save on this tab failing.
-// The install rates stay stripped for the older reason: they are still payload
-// fields, and the Installation tab is next round's.
+// It is now an OWNERSHIP list, and the two rules are:
+//
+//   OWNED FIELDS ARE ALWAYS PRESENT, null when blank. Always present, so a
+//   cleared box actually clears the stored value rather than leaving the
+//   previous one behind through the merge. null rather than 0, because a blank
+//   box is not a zero.
+//
+//   UNOWNED FIELDS ARE NEVER IN THE PAYLOAD, edited or not. The Commercials tab
+//   does not own Contract Duration's neighbours on the Reference tab, the exit
+//   criteria, the notes or the addresses, and it must not send them even if a
+//   future readPayload() happens to produce one.
+//
+// The rate keys are unowned for the older reason: they come from Base Cost Data
+// and the server refuses them.
+const COMMERCIALS_OWNED_KEYS = [
+  'ssExisting', 'ssNew', 'aqm', 'hemir',
+  'installResp', 'lumpSumCost',
+  'targetMargin', 'marginOverrides',
+  'warrantyPct', 'whtPct', 'gstPct', 'grossUp',
+  'bidCurrency', 'proposalCurrency', 'fxContingency',
+  'duration', 'structure', 'recoveryMonths', 'invoicing',
+  'milestones', 'contractorMilestones', 'factoring',
+]
+
 function pickSalespersonWritable(payload) {
-  const {
-    ssUnitCost, aqUnitCost, hemirUnitCost,
-    inSsExisting, inSsNew, inAqm, inHemir,
-    hoSafesight, hoAqm, hoHemir,
-    ...writable
-  } = payload
-  return writable
+  const owned = {}
+  for (const key of COMMERCIALS_OWNED_KEYS) {
+    // Always present. A key readPayload() did not produce is a bug in this
+    // list, not a reason to omit it, so it lands as null rather than silently
+    // vanishing from the write.
+    owned[key] = payload[key] === undefined ? null : payload[key]
+  }
+  return owned
 }
 
 // ── Save / submit ──────────────────────────────────────────────────────
@@ -1592,59 +1604,41 @@ async function saveDeal() {
 
   const payload = pickSalespersonWritable(readPayload())
 
-  if (!dealDurationDirty) {
-    // Never touched on this tab this session - never resend it. Omitting
-    // the key entirely (rather than sending whatever #deal-duration
-    // still shows) means the server's merge leaves the current value
-    // exactly as it is, however it got there, since this endpoint only
-    // ever overwrites keys actually present in the payload.
-    delete payload.duration
-  } else {
-    // Genuine edit on this tab: confirm nothing changed the field
-    // elsewhere since this tab loaded before overwriting it, and log the
-    // same kind of Notes History entry the Reference tab's own edit path
-    // already writes for this field - one consistent audit trail
-    // regardless of which screen made the change.
-    const fresh = await window.api('GET', `/api/opportunities/${opportunityId}`)
-    if (!fresh.ok) {
-      feedback.textContent = 'Could not verify the current Duration value before saving.'
-      feedback.className = 'msg-error'
-      return false
-    }
-    const serverDuration = fresh.data.payload?.duration ?? 0
-    if (String(serverDuration) !== String(dealDurationOrig)) {
-      feedback.textContent = 'Duration was changed elsewhere since this tab was loaded. Reload the page before saving.'
-      feedback.className = 'msg-error'
-      return false
-    }
-    // Label text duplicated from opportunity-reference.js's own
-    // DATE_FIELDS entry for 'duration' ("Contract Duration (months)"),
-    // not imported - this file is a <script type="module">, its own
-    // scope, opportunity-reference.js's classic-script globals aren't
-    // reachable from here. Keep this string in sync with that label if
-    // it ever changes.
-    payload.notes = [
-      {
-        text: `Contract Duration (months) changed from ${dealDurationOrig || '--'} to ${payload.duration || '--'}.`,
-        at: new Date().toISOString(),
-        by: window.currentSession?.user?.email ?? '',
-      },
-      ...(fresh.data.payload?.notes ?? []),
-    ]
-  }
+  // ── THE DURATION SPECIAL CASE IS GONE. Round 38, conditions 5a and 6a. ──
+  //
+  // duration used to be deleted from the payload unless this tab had edited it,
+  // and a genuine edit triggered a GET-and-compare against the value at load,
+  // because Contract Duration is also editable on the Reference tab. That was
+  // the only protection against a cross-tab clobber on this screen, and it
+  // covered ONE key while every other key merged last-writer-wins unchecked.
+  //
+  // It is replaced, not merely removed, and in the same change: duration is now
+  // an owned field sent on every save like the other twenty-one, and the whole
+  // write is conditional on the record still being at the revision this screen
+  // loaded. That is wider (every key, not one) and stronger (a compare-and-swap
+  // inside the advisory lock, not a read followed by a separate write).
+  //
+  // The notes entry the old path wrote for a duration change goes with it. It
+  // recorded one field's history in a place nothing reads for that purpose,
+  // and record_revisions already holds every value this field has ever had.
 
-  const result = await window.api('PATCH', `/api/opportunities/${opportunityId}`, { payload })
+  const result = await window.api('PATCH', `/api/opportunities/${opportunityId}`,
+    { payload, expected_revision: loadedRevision })
 
   if (!result.ok) {
-    feedback.textContent = result.data?.error ?? 'Failed to save.'
+    // A stale write is answered 409 and says what to do about it. Shown, never
+    // silently merged, which is the whole point of the precondition.
+    feedback.textContent = result.data?.stale
+      ? result.data.error
+      : (result.data?.error ?? 'Failed to save.')
     feedback.className = 'msg-error'
     return false
   }
-
-  dealDurationDirty = false
-  dealDurationOrig = payload.duration ?? dealDurationOrig
   captureSavedBaseline()
 
+  // The save IS the new revision, so the screen now holds it. Without this the
+  // second save from one page load would be refused as stale.
+  loadedRevision = result.data.revision_number
   feedback.textContent = `Saved (revision ${result.data.revision_number}).`
   feedback.className = 'msg-success'
   return true
@@ -1688,6 +1682,9 @@ window.initOpportunityDealPanel = async function (opp) {
   // figures and then replaces them, which is the same indistinguishable zero
   // this round exists to remove, shown for however long the request takes.
   await loadCatalog()
+
+  // The precondition every save from this screen will carry.
+  loadedRevision = Number.isInteger(opp.latest_revision_number) ? opp.latest_revision_number : null
 
   populateForm(opp.payload)
   recompute()

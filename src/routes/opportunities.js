@@ -578,10 +578,36 @@ export default async function opportunitiesRoutes(app) {
     // payload", so a save would silently wipe every other field down to this
     // PATCH's own keys. That failure mode is now structurally unreachable
     // rather than guarded: there is no client-side read left to fail.
+    // ── THE RECORD-LEVEL FRESHNESS GUARD. Round 38, condition 6a. ────────
+    //
+    // expected_revision is the revision the screen was showing when it loaded.
+    // When present, the write is CONDITIONAL on the record still being at that
+    // revision, checked inside append_record_revision's advisory lock.
+    //
+    // Three per-FIELD checks existed before this, all in the browser and all
+    // read-then-write: Contract Duration here, Customer Lead on the Reference
+    // tab, Initial Lead on Test Bed. Each covered one key and left every other
+    // key merging last-writer-wins with nothing checked, which
+    // append_record_revision's own comment deferred as a separate concern.
+    //
+    // OPTIONAL. A caller that does not send it keeps today's behaviour exactly,
+    // so this route change breaks no existing screen.
+    const expectedRevision = request.body?.expected_revision
+    if (expectedRevision !== undefined && expectedRevision !== null
+        && !Number.isInteger(expectedRevision)) {
+      return reply.code(400).send({ error: 'expected_revision must be a whole number' })
+    }
+
     const { data: newRevision, error: revErr } = await appendRecordRevision(
-      db, record.id, payload, request.user.id)
+      db, record.id, payload, request.user.id, [], expectedRevision ?? null)
 
     if (revErr) {
+      // A stale write is a conflict the user resolves by reloading, not a
+      // server fault, so it must not go through sendWriteError's 500 path.
+      // PT409 is the SQLSTATE append_record_revision raises for exactly this.
+      if (revErr.code === 'PT409') {
+        return reply.code(409).send({ error: revErr.message, stale: true })
+      }
       request.log.error({ err: revErr }, 'failed to save opportunity payload')
       return sendWriteError(reply, revErr)
     }
