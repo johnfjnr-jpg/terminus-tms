@@ -1025,6 +1025,41 @@ not resolve it quietly.
     improves and the screen feels worse, the number is describing the
     document.**
 
+29. **RECORD WHAT AN OPTION'S STATED ADVANTAGE DEPENDS ON, AT THE MOMENT THE
+    DECISION IS TAKEN.** Round 39, 2026-08-29, set by the business, and the
+    value is on the RECORDING side rather than the superseding side.
+
+    > When a decision is taken by comparing options, record what each option's
+    > stated advantage depends on. A later round can then test the premise
+    > rather than re-litigate the choice. When a premise proves false the
+    > decision is **RE-TAKEN, not re-weighed**, and the original reasoning stays
+    > visible so a reader can tell which happened.
+
+    **The instance.** `MERGE_GATE.md` chose a manual gate over the CI-secret
+    path because "an enforced gate today beats a CI job that cannot run". That
+    advantage depends on one thing: that the manual gate can actually be run.
+    **It cannot.** Three of five stages need an authenticated session, the
+    session needs a password, and the password belongs to one person. The round
+    stalled on it twice in one day.
+
+    **The forward half is what would have caught this a round earlier.** Nobody
+    needed to re-argue the choice; somebody needed to have written down that the
+    advantage rested on "the gate runs unattended", at which point the next
+    session tests one sentence instead of re-opening the decision. Written that
+    way in Round 38, it would have been found in Round 38.
+
+    **Re-taken, not re-weighed, is the other half and it is about honesty of
+    the record.** A decision whose comparison has lost a leg is not the same
+    decision with a smaller margin. Leaving the superseded reasoning beside the
+    supersession is what lets a later reader tell whether a premise failed or
+    a preference changed, and those are different histories.
+
+    Related to Verification 23, two correct decisions about the same question
+    taken in different rounds, from the other end: 23 is a conflict nobody can
+    see because no file holds both. **This is a conflict between a decision and
+    the world, and it is invisible for the same reason: the thing that changed
+    was never written down as a thing the decision depended on.**
+
 28. **TWO CHANGES TO THE SAME SURFACE MUST BE MEASURED AS A PAIR.** Round 39
     Phase 2, 2026-08-29.
 
@@ -1045,6 +1080,27 @@ not resolve it quietly.
     each alone and both together, and say which combination the result
     describes.** Landing them in separate phases would have shipped the first
     one as a regression that every individual reading called an improvement.
+
+### At round close: index these by when they apply
+
+**Raised by the business 2026-08-29, Round 39. Not a trim, an index.**
+
+There are roughly forty rules and corollaries here, and the last several rounds
+have each added one or two. They are earning their keep. **But a set that stops
+being held in a head and starts being consulted is a different kind of
+document**, and this one is still arranged by the order things were learned.
+
+Group them by **when they apply**: before writing, before claiming, before
+deleting, before superseding, before quoting a measurement. **The check then
+fires at the moment rather than by recall**, which matters because several
+rules here record their own author being caught by them within the hour of
+writing them down. Knowing a rule confers no ability to spot its instances;
+being prompted at the right moment does.
+
+Nothing is removed and nothing is reworded by the index pass. The current
+numbering is load-bearing, because rounds cite it.
+
+---
 
 ## `CURRENT_STATE.md`
 

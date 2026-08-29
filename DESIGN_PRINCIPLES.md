@@ -1012,12 +1012,29 @@ Explicitly deferred, not forgotten, not a section number of its own since this i
   gate are shared credentials or no gate.
 
   **So the first increment is smaller than full separation and is worth taking
-  on its own: a dedicated test account in a scratch project, credentials in the
-  environment, and `scripts/sign-in.js` reading a password from
-  `TMS_TEST_PASSWORD` rather than `argv[2]`.** That makes the gate self-serve
-  without waiting for the migration path to run against both projects, and it is
-  the same scratch project the rest of this item needs, so nothing is built
-  twice.
+  on its own: a dedicated throwaway account in a scratch project, its password
+  in `TMS_TEST_PASSWORD`.** That makes the gate self-serve without waiting for
+  the migration path to run against both projects, and it is the same scratch
+  project the rest of this item needs, so nothing is built twice.
+
+  **TWO PATHS, NOT ONE. Corrected same day by the business, and the correction
+  matters more than the item.** The first version of this said the fix was
+  moving the password into the environment. **A real password does not belong in
+  an environment variable either**, and `create-test-user.js` already showed the
+  right pattern: a masked prompt, never argv, never a file. `sign-in.js` was the
+  outlier, and the cost of that was a real password typed on a command line
+  three times in one round, landing in `~/.zsh_history` in plaintext where it is
+  backed up and synced, and visible in `ps` while it ran.
+
+  So: **a person gets a masked prompt; the gate gets `TMS_TEST_PASSWORD`, and
+  only for an account that is disposable by design.** The environment variable
+  exists for a credential whose exposure costs nothing, which is the only kind
+  that belongs in a file at all. Done in Round 39 except the scratch project
+  itself.
+
+  **Rotate, do not reason about whether it mattered.** Same discipline applied
+  to the committed token, and it is the discipline rather than the size of the
+  loss that is being kept.
 
   **It is blocking day-to-day work now rather than being a future
   convenience**, which is why it moved here out of `MERGE_GATE.md`'s

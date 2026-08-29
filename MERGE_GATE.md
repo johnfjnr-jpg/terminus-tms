@@ -121,12 +121,28 @@ is the same scratch project environment separation already asks for.
 
 1. A **scratch Supabase project**, separate from the live one. `npm run test:db`
    writes real rows and the probe creates and soft-deletes real records.
-2. Two repository secrets: `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, and a test
-   account whose password is an environment variable rather than a thing typed
-   at a prompt. **`scripts/sign-in.js` takes the password as `argv[2]` today**,
-   which is what makes the gate need a keyboard: it should read
-   `TMS_TEST_PASSWORD` from the environment and fail loudly when it is absent,
-   the same way a missing prerequisite fails a stage rather than skipping it.
+2. Two repository secrets: `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, and a
+   **throwaway account in that scratch project** whose password is
+   `TMS_TEST_PASSWORD`.
+
+   **TWO PATHS, NOT ONE ENV VAR. Corrected 2026-08-29 by the business.** An
+   earlier version of this line said the fix was to move the password into the
+   environment. That is right for the gate and wrong for a person:
+   `create-test-user.js` has read from a masked prompt since it was written, so
+   the repository already had the convention and `sign-in.js` was the outlier.
+
+   | path | mechanism |
+   |---|---|
+   | A person signing in interactively | Masked prompt. Never argv, never a file |
+   | The gate, unattended | `TMS_TEST_PASSWORD`, scratch project throwaway only |
+
+   **A real password then never touches argv, shell history or `.env`, and the
+   only password `no-secrets.test.mjs` ever guards is one whose exposure costs
+   nothing.** Both paths are in `scripts/lib/prompt-password.js`.
+
+   Done as of Round 39: `sign-in.js` prompts, refuses an argv password outright,
+   and fails loudly with no terminal rather than reading an empty string.
+   Outstanding: the scratch project itself.
 3. A CI job that runs `npx supabase db push`, `npm run db:seed`,
    `node scripts/create-test-user.js`, `node scripts/sign-in.js`,
    `npm start &`, then `npm run verify`.

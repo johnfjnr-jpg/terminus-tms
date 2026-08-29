@@ -7,49 +7,28 @@
 // an env var, so it never ends up in shell history or process listings.
 
 import { supabaseAdmin } from '../src/supabase.js'
+// The masked prompt moved to scripts/lib/prompt-password.js in Round 39 so
+// sign-in.js could use the same one. This file is where it came from.
+import { promptHiddenPassword, refuseArgvPassword } from './lib/prompt-password.js'
 
+const USAGE = 'node --env-file=.env scripts/create-test-user.js <email>'
 const email = process.argv[2]
 
 if (!email) {
-  console.error('Usage: node --env-file=.env scripts/create-test-user.js <email>')
+  console.error(`Usage: ${USAGE}`)
   process.exit(1)
 }
 
-const ENTER_CODES = [10, 13, 4] // \n, \r, Ctrl-D
-const CTRL_C_CODE = 3
-const BACKSPACE_CODE = 127
+refuseArgvPassword(process.argv.slice(2), USAGE)
 
-function promptHiddenPassword(query) {
-  return new Promise((resolve) => {
-    const { stdin, stdout } = process
-    stdout.write(query)
-    stdin.resume()
-    stdin.setRawMode(true)
-    stdin.setEncoding('utf8')
-
-    let password = ''
-    const onData = (char) => {
-      const code = char.charCodeAt(0)
-      if (ENTER_CODES.includes(code)) {
-        stdin.setRawMode(false)
-        stdin.pause()
-        stdin.removeListener('data', onData)
-        stdout.write('\n')
-        resolve(password)
-      } else if (code === CTRL_C_CODE) {
-        stdout.write('\n')
-        process.exit(1)
-      } else if (code === BACKSPACE_CODE) {
-        password = password.slice(0, -1)
-      } else {
-        password += char
-      }
-    }
-    stdin.on('data', onData)
-  })
+let password
+try {
+  password = await promptHiddenPassword(`Password for ${email}: `)
+} catch (e) {
+  // A stack trace is not failing loudly, it is failing illegibly.
+  console.error(e.message)
+  process.exit(1)
 }
-
-const password = await promptHiddenPassword(`Password for ${email}: `)
 
 if (password.length < 6) {
   console.error('Password must be at least 6 characters.')
