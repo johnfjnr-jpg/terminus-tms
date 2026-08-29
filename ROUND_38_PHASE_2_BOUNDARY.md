@@ -113,13 +113,103 @@ were already second sightings.
 
 **The approval page is the piece that grew.** It was asked for as a question -
 what does a commercial approver need to see on one page - and the answer turned
-into a surface with five blocks, an endpoint, a shared assembler and 149 pure
-tests. That was the business's own sequencing, and every decision inside it was
-taken by the business, but it is fair to say the phase now contains two things:
-a reshape that has not begun, and an approval page that is substantially
-finished.
+out to be a surface, not a paragraph.
 
-**The recommendation, which is the business's call and not mine:** close Phase 2
-at the reshape, and let the approval page be its own phase in the record even
-though it was built inside this one. The alternative is a phase whose name
-describes a third of its contents.
+---
+
+## 6. The phase split, and the general rule it produces
+
+**Taken 2026-08-29.** Phase 2 is the reshape and its four items. The approval
+page is its own numbered phase, already delivered.
+
+**The useful part is the reason, not the renaming.**
+
+> **A question asked inside a phase can turn out to have a SURFACE as its
+> answer. The moment to re-scope is when that becomes apparent, not at the end
+> of the phase.**
+
+Here it was apparent early and was not acted on. "Bring me the question of what
+a commercial approver needs to see on one page" was asked as a question, and the
+answer was already a page - five blocks, an endpoint, a shared assembler, a
+sequential bridge - by the time the first block was designed. Everything after
+that point was building a second deliverable inside a phase named after the
+first.
+
+Nothing was wasted and nothing was wrong. But the phase's name stopped
+describing its contents several days before anyone said so, and a phase whose
+name is wrong is a phase whose completion cannot be checked. Build discipline
+rule 7 says to count the phases actually signed off rather than trusting the
+brief; this is the same failure arriving from the other direction, where the
+phase is real and its scope has quietly doubled.
+
+**The signal to watch for:** an answer that needs a route, a module and a test
+file is not an answer to a question, it is a deliverable. Say so at that moment.
+
+---
+
+## 7. Is the reshape still the right shape?
+
+Asked because the reshape was scoped against a question - what each Deal Sheet
+card earns - that a later decision has partly answered.
+
+### The reshape itself: YES, unchanged
+
+The business's premise is untouched by anything built since:
+
+> *"The computed pricing cards on HW / Hosting Setup show cost, margin and
+> price per product. The Deal Sheet shows revenue, cost and margin."* The same
+> numbers twice, on two screens, one of which you have to navigate to.
+
+**The approval page does not replace it, because it is a different moment and a
+different person.** The approval page is read once, by an approver, after the
+pricing is done. The reshape is about entering a deal: a salesperson typing
+units and watching the number move. Nobody opens the approval page mid-entry,
+and it would be wrong if they did - it deliberately shows what DID happen, under
+the opposite convention to an input screen.
+
+### One of the four items has changed, and it is item 2
+
+**Item 2 was "report what each Deal Sheet card still earns."** That question was
+asked when those four cards - Margins, Base cost data per unit, Terms, Units
+required (`opportunity-deal.js:389-419`) - were the ONLY consolidated view of a
+deal. Their job was "check what you are about to freeze before you take a
+version".
+
+**That job now belongs to the approval page**, which does it better on all four:
+margins appear as lines below target with the gap, base cost data appears with
+its age and a warning when a product has none, terms appear as dollar exposures
+rather than percentages, and units appear in the ask.
+
+So the question is not "what does each card earn" any more. It is narrower and
+easier: **what does each card earn DURING ENTRY**, when the answer is already
+live beneath the form. On a first read, three of the four restate values visible
+on the same screen; "Base cost data, per unit" is the one showing something a
+salesperson genuinely cannot otherwise see, because the catalog rates are
+read-only and not on the input surface at all. **That is a report, not a
+decision, and the decision is the business's.**
+
+### Item 3 has also changed, in both halves
+
+- **"A reason is required on a first version, where there is nothing to
+  explain."** The reason now has a job it did not have when that was written: it
+  is the ONLY prose anywhere explaining a re-price, and the approval page renders
+  it beside the bridge that shows what moved. On a first version, block 2 says
+  "First approval. No prior approved version" and the reason says why this
+  pricing. **The finding is arguably answered rather than open**, and the
+  business should be asked whether it still wants it raised.
+- **"Restore overwrites current pricing with no undo."** Still true, and **no
+  longer silent**: restore writes a revision, any revision after an approval
+  supersedes it, and the version list now says so in a sentence. The data loss
+  is unchanged; the invisibility is not.
+
+### Items 1 and 4 are unchanged
+
+The reshape, and layout at 1240, 1920 and 3440 before and after.
+
+### The one thing to add
+
+**The reshape must not lose the approval entry point or the save-then-version
+flow.** Both are new since the brief was written, both live in the panel being
+rebuilt, and `DESIGN_PRINCIPLES.md` now records save-then-version as
+load-bearing for approval. A reshape that separated them would break approval
+with nothing failing at the moment of the split.
