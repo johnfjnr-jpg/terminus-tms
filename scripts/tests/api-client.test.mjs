@@ -16,6 +16,11 @@
 // NOT checking is the extra step, and it has to be spelled out with a reason.
 // This test is what stops a second client appearing beside it.
 
+// THE PURE SUITE IS PURE, and that has to include credentials. These tests stub
+// fetch and never leave the process, so they must not need a signed-in session
+// on disk. Set before any import that might read one.
+process.env.TMS_ACCESS_TOKEN = 'test-token-not-a-real-credential'
+
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync, readdirSync } from 'node:fs'

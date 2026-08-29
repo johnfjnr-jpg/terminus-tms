@@ -825,6 +825,43 @@ today's existing behaviour.
 
 Explicitly deferred, not forgotten, not a section number of its own since this is a running list, not a build phase. Add to it as new deferrals come up rather than letting them live only in conversation.
 
+### CI HAD BEEN RED FOR THREE ROUNDS AND NOBODY LOOKED
+
+**Round 39, after the push. The business read the CI notification rather than
+assuming, and told me to read the run rather than guess from it.**
+
+**Measured**: the last green run was Round 37, 2026-08-27. Every run since has
+failed. Five failures on the Round 39 push, and **four of them predate this
+round entirely**:
+
+| test | cause | since |
+|---|---|---|
+| `api-client` 5 to 8 | `SESSION_PATH` was the absolute path of ONE LAPTOP, read at module load | Round 38 |
+| `edit-guard` 157 | asserted `core.hooksPath`, which is local git config and not a tracked file | Round 39 |
+
+**The local gate reported 222/222 the whole time**, because the local machine
+has the file the absolute path names and has run the `git config` the test
+asserted. **This is Verification 25's population clause in the wild, within the
+hour of writing it**: a green reading on one population is not evidence for a
+claim about another, and the clean checkout is a population the local gate
+cannot reach.
+
+**So the local gate cannot replace CI and CI cannot replace the local gate.**
+CI runs the clean-checkout population and nothing else can; the local gate runs
+the database and HTTP stages CI has no credentials for. Neither is redundant,
+and this is the evidence for both.
+
+**Fixed structurally rather than by making the tests lenient.** `SESSION_PATH`
+resolves from the module and is read at call time, with `TMS_ACCESS_TOKEN`
+taking precedence so the pure suite needs no credential on disk at all. The hook
+test asserts what is IN the repository - the hook exists, is executable, says
+what it should, and `npm prepare` installs it - because whether a given machine
+has run the installer is a property of the machine.
+
+**Verified against a constructed clean checkout**: tracked files only, no
+`session-ref.json`, a fresh `git init` with `core.hooksPath` unset. 222/222.
+Constructing the population was the work, exactly as with the recovery paths.
+
 ### An operation that reports success without verifying it did anything
 
 **Closed structurally at the Round 39 close, on the business's instruction, after

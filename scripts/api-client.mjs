@@ -40,7 +40,18 @@
 
 import { readFileSync } from 'node:fs'
 
-const SESSION_PATH = '/Users/johnfryatt/terminus-tms/session-ref.json'
+// ── RESOLVED FROM THIS MODULE, NOT FROM ONE MACHINE ─────────────────────────
+//
+// This was the absolute path of one laptop, and every checkout that was not that
+// laptop failed on it. CI has been red since Round 38 for exactly this, four
+// tests deep in a suite that reports green locally, and nobody looked because
+// the local gate said 222/222.
+//
+// AND IT IS READ LAZILY. At module load it threw ENOENT before any test could
+// run, so tests that never make a request were failing on a file they do not
+// need. A clean checkout HAS no session-ref.json: it is gitignored, because it
+// holds a credential.
+const SESSION_PATH = new URL('../session-ref.json', import.meta.url).pathname
 const BASE = process.env.TMS_BASE ?? 'http://localhost:3000'
 
 export class ApiError extends Error {
@@ -53,7 +64,24 @@ export class ApiError extends Error {
 }
 
 function token() {
-  return JSON.parse(readFileSync(SESSION_PATH, 'utf8')).access_token
+  // TMS_ACCESS_TOKEN first, for two callers that have no session file: the PURE
+  // SUITE, which stubs fetch and never leaves the process, and an unattended CI
+  // run against the scratch project once that exists. Same two-paths shape as
+  // the password in scripts/lib/prompt-password.js.
+  //
+  // Without this the pure suite needed a signed-in session on disk to test its
+  // own error handling, which is what made four of its tests fail on every
+  // machine that was not the one laptop.
+  if (process.env.TMS_ACCESS_TOKEN) return process.env.TMS_ACCESS_TOKEN
+
+  // Read at CALL time, not at import time. A caller that never makes a request
+  // must not need a signed-in session to exist.
+  try {
+    return JSON.parse(readFileSync(SESSION_PATH, 'utf8')).access_token
+  } catch (e) {
+    throw new Error(
+      `No session at ${SESSION_PATH}. Run: node --env-file=.env scripts/sign-in.js <email>\n  (${e.code ?? e.message})`)
+  }
 }
 
 /**

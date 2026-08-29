@@ -5,7 +5,7 @@
 // Every guard below is exercised by making it fire, not by asserting it exists.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { writeFileSync, readFileSync, existsSync, mkdtempSync, rmSync } from 'fs'
+import { writeFileSync, readFileSync, existsSync, mkdtempSync, rmSync, statSync } from 'fs'
 import { tmpdir } from 'os'
 import { join, relative } from 'path'
 import { edit, beginBatch, endBatch, JOURNAL } from '../lib/edit.mjs'
@@ -76,11 +76,26 @@ test('a crashed batch leaves a pending entry for the hook to catch', () => {
   } finally { rmSync(s.dir, { recursive: true, force: true }); if (existsSync(JOURNAL)) rmSync(JOURNAL) }
 })
 
-test('the pre-commit hook is installed and is the one in the repository', () => {
-  // A hook nobody wired up is a plan, not a guard. CLAUDE.md rule 30.
-  const cfg = readFileSync(join(ROOT, '.git/config'), 'utf8')
-  assert.match(cfg, /hooksPath\s*=\s*\.githooks/, 'core.hooksPath is not set to the tracked hooks')
+test('the hook and its installer are in the repository', () => {
+  // ── WHAT THIS MAY AND MAY NOT ASSERT ──────────────────────────────────
+  //
+  // It used to read .git/config and require core.hooksPath = .githooks. That is
+  // LOCAL GIT CONFIG, not a tracked file, so it passed on the machine that had
+  // run `git config` and failed on every clean checkout, including CI. Written
+  // within the hour of rule 25's population clause and falling straight through
+  // it: 222 local passes never covered the clean-checkout population.
+  //
+  // A test in the repository can only assert what is IN the repository: the
+  // hook exists, is executable, says what it should, and something in the repo
+  // installs it. Whether a given machine has run that installer is a property
+  // of the machine.
   const hook = readFileSync(join(ROOT, '.githooks/pre-commit'), 'utf8')
   assert.match(hook, /COMMIT REFUSED/)
   assert.match(hook, /edit-journal\.json/)
+  assert.ok(statSync(join(ROOT, '.githooks/pre-commit')).mode & 0o111, 'the hook is not executable')
+
+  // The installer, so a fresh clone gets the guard without anybody remembering.
+  const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'))
+  assert.match(pkg.scripts.prepare ?? '', /hooksPath/,
+    'npm has no prepare script installing the hook, so a clone would not have it')
 })
