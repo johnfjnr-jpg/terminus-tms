@@ -1,5 +1,5 @@
 import { createUserClient } from '../supabase.js'
-import { versionApprovalState, lastApprovedVersion, APPROVAL_TRACK } from '../lib/version-approval.js'
+import { versionApprovalState, liveVersionApproval, APPROVAL_TRACK } from '../lib/version-approval.js'
 import { buildApprovalPage } from '../lib/approval-page.js'
 import { toNumberOrNull } from '../lib/numeric-payload.js'
 import { resolveCurrentBatches, catalogToRates } from '../lib/base-costs.js'
@@ -159,9 +159,17 @@ export default async function dealSheetVersionsRoutes(app) {
 
     const latestNumber = latest.revision_number
     const version = (versions ?? [])[0] ?? null
-    const baselineRaw = lastApprovedVersion(versions ?? [], approvals ?? [], latestNumber)
-    const baseline = baselineRaw
-      ? { ...baselineRaw, approval: versionApprovalState(baselineRaw, approvals ?? [], latestNumber) }
+
+    // THROUGH THE SAME ENTRY POINT THE GATE USES. Verification 20, applied to
+    // something this round created: liveVersionApproval was written for the
+    // stage gate and this page kept assembling the same answer from the two
+    // functions underneath it. Two paths, agreeing today. The page takes the
+    // version it returns as block 2's baseline and its detail as the state.
+    const live = liveVersionApproval({
+      track: APPROVAL_TRACK, versions: versions ?? [], approvals: approvals ?? [], latestRevision: latestNumber,
+    })
+    const baseline = live.version
+      ? { ...live.version, approval: live.detail ?? versionApprovalState(live.version, approvals ?? [], latestNumber) }
       : null
 
     // WHEN THE TARGET LAST MOVED. Walking newest to oldest, the first revision

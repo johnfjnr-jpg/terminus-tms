@@ -51,6 +51,8 @@ export function loadEnv() {
 export function adminClient(env = loadEnv()) {
   return createClient(env.SUPABASE_URL, env.SUPABASE_SECRET_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
+    // EVERY request retried, not one hand-picked call. See skewRetryingFetch.
+    global: { fetch: skewRetryingFetch },
   })
 }
 
@@ -98,20 +100,59 @@ export function adminClient(env = loadEnv()) {
 // The count is asserted by clock-skew-budget.test.mjs at the end of the db run.
 export const clockSkew = { retries: 0, labels: [] }
 
-export async function retryOnClockSkew(label, operation, attempts = 2) {
-  let last
-  for (let attempt = 1; attempt <= attempts; attempt++) {
-    last = await operation()
-    if (last?.error?.code !== 'PGRST303') return last
-    if (attempt < attempts) {
-      clockSkew.retries += 1
-      clockSkew.labels.push(label)
-      process.stderr.write(
-        `  [clock skew] ${label}: PGRST303 "JWT issued at future", retrying (${attempt}/${attempts - 1})\n`)
-      await new Promise((r) => setTimeout(r, 1200))
-    }
+// ─────────────────────────────────────────────────────────────
+// THE RETRY MOVED TO THE FETCH, AND THE REASON IS THAT THE BUDGET WAS LYING
+// ─────────────────────────────────────────────────────────────
+//
+// Third occurrence, Round 38, and the instrument was the finding.
+//
+// retryOnClockSkew wrapped an OPERATION, and it was applied to exactly ONE call
+// in the whole suite: seeding a counter in reference-number.test.mjs. Every
+// other query - hundreds of them - was unwrapped. So when a run failed on
+// PGRST303 inside config-invariants.test.mjs, the budget test at the end of the
+// same run printed "retries this run: 0" and PASSED.
+//
+// That is Verification 13 and 17 together: a number reported by an instrument
+// aimed at a path that was not the one failing. The budget was holding because
+// it covered almost nothing, which reads exactly like a platform that has
+// settled down.
+//
+// Retrying at the FETCH covers every request any caller makes through this
+// client, with no call sites to remember and one place to count. A skew is a
+// property of the connection, not of a particular query, so this is also where
+// it belonged.
+//
+// STILL A MITIGATION, NOT A FIX. The cause is server-side: the JWT is minted
+// with an iat fractionally ahead of the database node's clock. Nothing in this
+// repository can correct that; what it can do is stop pretending to measure it.
+const SKEW_CODE = 'PGRST303'
+const SKEW_ATTEMPTS = 2
+const SKEW_BACKOFF_MS = 1200
+
+/**
+ * fetch, retrying once on a PostgREST clock-skew response.
+ *
+ * The body has to be read to see the code, and a Response body can be read
+ * once, so the response is cloned before inspection and the ORIGINAL is
+ * returned untouched when it is not a skew. A caller must never receive a body
+ * this function has already consumed.
+ */
+export async function skewRetryingFetch(input, init) {
+  for (let attempt = 1; attempt <= SKEW_ATTEMPTS; attempt++) {
+    const res = await fetch(input, init)
+    if (res.ok || attempt === SKEW_ATTEMPTS) return res
+
+    let body = null
+    try { body = await res.clone().json() } catch { return res }
+    if (body?.code !== SKEW_CODE) return res
+
+    const label = typeof input === 'string' ? new URL(input).pathname : 'request'
+    clockSkew.retries += 1
+    clockSkew.labels.push(label)
+    process.stderr.write(
+      `  [clock skew] ${label}: ${SKEW_CODE} "JWT issued at future", retrying\n`)
+    await new Promise((r) => setTimeout(r, SKEW_BACKOFF_MS))
   }
-  return last
 }
 
 export function newRunTag() {

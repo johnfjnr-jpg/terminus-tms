@@ -33,10 +33,28 @@ function scriptFiles(dir = 'scripts') {
   return out
 }
 
-test('no script calls fetch directly except the client itself', () => {
+// The files allowed to call fetch, each with the reason. Two, and they are at
+// different layers rather than being two clients:
+//
+//   api-client.mjs      the HTTP API client. Throws on any non-2xx unless the
+//                       call names the status and says why.
+//   verify-harness.mjs  the TRANSPORT under supabase-js, retrying a PostgREST
+//                       clock-skew response. It must NOT throw: it hands the
+//                       Response back to supabase-js, which does its own error
+//                       handling. A throwing transport would turn every
+//                       checked { error } into an exception.
+//
+// Adding a file here is a decision. Forgetting one is a failure, which is the
+// direction that matters.
+const MAY_CALL_FETCH = {
+  'api-client.mjs': 'the HTTP API client, and the one that throws',
+  'verify-harness.mjs': 'the transport under supabase-js, which retries clock skew and must not throw',
+}
+
+test('no script calls fetch directly except the two that are allowed to', () => {
   const offenders = []
   for (const file of scriptFiles()) {
-    if (file.endsWith('api-client.mjs')) continue
+    if (Object.keys(MAY_CALL_FETCH).some((f) => file.endsWith(f))) continue
     const text = readFileSync(join(ROOT, file), 'utf8')
     text.split('\n').forEach((line, i) => {
       // A comment mentioning fetch is prose, not a call.
@@ -46,6 +64,26 @@ test('no script calls fetch directly except the client itself', () => {
   }
   assert.deepEqual(offenders, [],
     'these bypass the throwing client, so a non-2xx there is silent again:\n  ' + offenders.join('\n  '))
+})
+
+test('every exempt file exists, so the list cannot rot', () => {
+  // An exemption naming a file that no longer exists reads exactly like a
+  // considered decision, and quietly stops covering anything.
+  const files = scriptFiles()
+  for (const name of Object.keys(MAY_CALL_FETCH)) {
+    assert.ok(files.some((f) => f.endsWith(name)), `exempt file ${name} does not exist`)
+  }
+})
+
+test('and each exempt file ACTUALLY calls fetch, or the exemption is dead', () => {
+  // The other direction. An exemption for a file that no longer needs one is
+  // a hole standing open for the next thing written into it.
+  for (const name of Object.keys(MAY_CALL_FETCH)) {
+    const file = scriptFiles().find((f) => f.endsWith(name))
+    const text = readFileSync(join(ROOT, file), 'utf8')
+    const calls = text.split('\n').some((l) => /\bfetch\s*\(/.test(l.replace(/\/\/.*$/, '')))
+    assert.ok(calls, `${name} is exempt from the fetch scan and does not call fetch`)
+  }
 })
 
 test('the scan can SEE a direct fetch', () => {

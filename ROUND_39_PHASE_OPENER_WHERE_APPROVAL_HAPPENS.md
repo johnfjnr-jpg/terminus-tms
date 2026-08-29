@@ -129,32 +129,88 @@ means one thing to the gate and another to the page.
 
 ---
 
-## 5. What I recommend, and what I am not deciding
+## 5. DECIDED 2026-08-29: option A, and why the gate fix made it urgent
 
-**Option A**, and the argument is that it is the only one where the approver
-cannot act without being shown the deal. B records that a page was opened, which
-is a weaker claim wearing the same word, and every "you must read this" control
-in every system decays into a click-through.
+**The Commercial row cannot be satisfied without the approval page having been
+put in front of the person.** Clicking the stage row opens the approval page;
+approve lives at its foot; the stage row becomes a status display, not a control.
 
-**The scope question is the business's and it is the real one:** should a
-Commercial approval on an Opportunity survive a re-price? The gate says yes
-today. The approval page says no. My reading is that a Commercial approval is
-about a price and should be revision-scoped, while Technical and Legal are about
-the solution and the contract and are reasonably stage-scoped - which would mean
-`scope` becomes per-track rather than per-rule, and it is exactly the kind of
-change that is cheap now and expensive once the business is trading.
+**The scope fix makes the current arrangement worse before better, and that is
+the argument.** A gate that closes on every re-price means clicking again, on a
+screen that shows nothing. **Friction without information produces reflexive
+clicking, and a rubber stamp applied four times is weaker evidence than one
+applied once.** Having made the gate correct, leaving the control where it is
+converts a silent failure into a trained one.
 
-Not decided here.
+**It also gives the stale-basis acknowledgement its home.** The over-twelve-month
+rule requires explicit acknowledgement that the basis is stale, and there was
+nowhere to attach it. A checkbox at the foot of the approval page, beside
+approve, reachable no other way.
 
 ---
 
-## 6. Two smaller things that belong to the same phase
+## 6. THE HOLE ONE STAGE LATER, scoped now rather than found in Round 45
 
-- **The over-twelve-months acknowledgement has no home until the control does.**
-  The requirement is stated on the page and cannot be enforced without an approve
-  action to attach it to.
-- **The Commercials reference panel carries the same staleness treatment**, from
-  `src/lib/cost-basis.js`, which is why the bands and their sentences were moved
-  there rather than left on the approval page. The salesperson sees the rates
-  before any approver does and is the first person who could act on an ageing
-  basis.
+**The question.** Commercial gates the transition INTO Proposal, and the Deal
+Sheet keeps moving THROUGH Proposal by design. What does a voided Commercial
+approval mean after the transition it guarded has already happened?
+
+**Measured answer: between the two gates, nothing.** The record sits at Proposal,
+the Deal Sheet moves freely, the approval reads `superseded` on the approval page
+and in the stage-approvals panel, and no gate is being evaluated. **The proposal
+document that reaches the customer is produced inside exactly that window.**
+
+**The second gate is specified and it already exists as a TICK BOX.**
+`DESIGN_PRINCIPLES.md:285` says of Proposal to Evaluation, "Proposal Submitted":
+
+> The proposal itself (built on the Deal Sheet) must be approved across all
+> required tracks before it can be sent. The Deal Sheet is effectively frozen at
+> this point.
+
+And the configuration for that transition, measured, carries:
+
+| Rule | What it is today |
+|---|---|
+| `exitPropPricingApproved` "Pricing approved" | **`payload_field_required`. A checkbox a person ticks.** |
+| `exitPropDocumentation` "Proposal documentation approved" | a checkbox |
+| `exitPropContractTerms` "Contract terms and variations approved" | a checkbox |
+| Commercial `approval_obtained` | now version-scoped, so it IS a live check |
+
+**So the thing labelled "Pricing approved" at the proposal gate is a
+self-assertion.** It can be ticked while the pricing has moved since anyone
+approved it, and it is the line a person reads. The Commercial rule beside it now
+does the real work, which means the tick is at best redundant and at worst the
+one people trust.
+
+**Scope for the next round: `exitPropPricingApproved` stops being a tick and
+becomes the THIRD CALLER of `liveVersionApproval()`.** Same reader, same derived
+state, no new mechanism. It needs a new `requirement_type` that evaluates a
+derived condition rather than reading a payload key, which is the piece of
+engine work this implies and the reason it is scoped rather than done here.
+
+**Callers of `liveVersionApproval()` after that change:**
+
+1. `computeBlocking`, the transition gate
+2. `buildStageTracks`, the stage-approvals panel
+3. the proposal-submission requirement
+4. the approval page itself, unified onto it in this round after it was found
+   assembling the same answer from the two functions underneath - Verification 20
+   applied to something this round created
+
+**What it does not close, stated so it is not assumed:** the window between the
+two gates. A deal repriced at Proposal and never moved onward is guarded by
+nothing, because no transition is being attempted. The containment is that the
+stage-approvals panel now shows the Commercial track un-ticked with the reason,
+on the tab the owner already uses. Whether a live deal should be able to sit at
+Proposal with a void Commercial approval and no prompt is a business question
+this round does not answer.
+
+---
+
+## 7. What I am not deciding
+
+**The scope question for Technical and Legal.** Recorded in
+`DESIGN_PRINCIPLES.md` with its successor and its trigger: scoping each track to
+the fields it governs, once a field-to-track map can be built safely, and the
+trigger is a person rather than a date - before a second individual holds any
+approval track.

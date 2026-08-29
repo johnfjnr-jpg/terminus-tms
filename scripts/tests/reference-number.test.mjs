@@ -15,7 +15,7 @@
 
 import { test, before, after } from 'node:test'
 import assert from 'node:assert/strict'
-import { adminClient, newRunTag , retryOnClockSkew } from '../verify-harness.mjs'
+import { adminClient, newRunTag } from '../verify-harness.mjs'
 
 let db, runTag
 const COUNTRY = 'ZZT' // reserved-looking, not a real country in use
@@ -71,10 +71,13 @@ test('999 to 1000 boundary: padding grows, nothing truncates', async () => {
 
   // Seed the counter to 997 so the next four issues are 998..1001.
   // The RPC increments an existing row, so 997 -> 998 on first call.
-  // Wrapped because this exact insert is where PGRST303 has landed twice. The
-  // retry fires only on that code and announces itself; see retryOnClockSkew.
-  const { error: seedErr } = await retryOnClockSkew('seed counter to 997', () =>
-    db.from('reference_number_counters').insert({ prefix, current_value: 997 }))
+  // This insert is where PGRST303 landed twice, and it used to be the ONE call in
+  // the suite wrapped against it. Round 38 moved the retry to the fetch layer in
+  // adminClient, so every request is covered and this needs no wrapper of its
+  // own - which is also what stopped the budget reporting zero while an
+  // unwrapped query failed on skew in the same run.
+  const { error: seedErr } = await db
+    .from('reference_number_counters').insert({ prefix, current_value: 997 })
   assert.equal(seedErr, null, `seeding the counter failed: ${seedErr?.message}`)
 
   const refs = []
