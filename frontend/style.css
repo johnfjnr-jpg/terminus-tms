@@ -4375,3 +4375,8 @@ input.input-invalid {
    weighted to read first. The strip above the sub-tabs is unchanged. */
 .terms-field-row.terms-achieved { border-top: 1px solid var(--hairline-strong); margin-top: 4px; padding-top: 12px; }
 .terms-field-row.terms-achieved .stat-value { font-family: var(--mono); font-size: 20px; color: var(--green); text-align: right; }
+
+/* Round 39: an ageing or stale cost basis, said where the rates are entered.
+   Same bands and same words as the approval page, from src/lib/cost-basis.js. */
+.deal-catalog-ageing { color: var(--white) !important; }
+.deal-catalog-stale  { color: var(--green) !important; }

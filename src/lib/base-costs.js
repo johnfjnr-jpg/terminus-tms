@@ -46,7 +46,25 @@ export const PRODUCT_RATE_KEYS = {
   safesight: {
     unitCost: 'ssUnitCost',
     hosting: 'hoSafesight',
-    // The only product whose two catalog figures both have a row.
+    // The only product whose installNew is MAPPED. Not the only one that has
+    // the figure.
+    //
+    // CORRECTED Round 39, 2026-08-29. This comment previously read "the only
+    // product whose two catalog figures both have a row", which is false and had
+    // been false since it was written. Measured against the live catalog:
+    //
+    //     safesight     install_cost_existing  2000   install_cost_new  20000
+    //     air_quality   install_cost_existing   500   install_cost_new   1000
+    //     hemir         install_cost_existing  5000   install_cost_new  10000
+    //
+    // All three carry both. Only safesight's installNew is mapped here, so
+    // catalogToRates emits no key for the other two, buildDealInputs builds no
+    // line for them, and THOSE TWO STORED FIGURES ARE READ BY NOTHING.
+    //
+    // Stored data is not used data, and the next reader should not assume it is.
+    // Whether to reach them is an open question recorded in DESIGN_PRINCIPLES.md,
+    // and the question is not "build the field" - it is whether those two numbers
+    // were ever quoted.
     installExisting: 'inSsExisting',
     installNew: 'inSsNew',
   },

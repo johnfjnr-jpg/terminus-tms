@@ -19,6 +19,7 @@
 // submit/approval workflow for the Deal Sheet is designed.
 import { calculateDeal } from '/lib/deal-calculator.js'
 import { catalogToRates } from '/lib/base-costs.js'
+import { stalenessBand, ageInDays } from '/lib/cost-basis.js'
 import { toNumberOrNull, numericOrDefault, NUMERIC_DEFAULTS, WRITABLE_NUMERIC_KEYS } from '/lib/numeric-payload.js'
 import { changedKeys } from '/lib/payload-diff.js'
 // Round 38: the ONE translation, shared with the submit route and the
@@ -71,6 +72,7 @@ let catalogRates = {}
 let catalogBatches = {}
 let catalogMissing = []
 let catalogLoaded = false
+let catalogAsOf = null
 let catalogError = null
 
 // UI-only state not captured by a plain input/select element.
@@ -329,113 +331,52 @@ function renderCatalogNotice(payload) {
   }
   const dates = [...new Set(batches.map(b => b.effective_from))]
   const names = [...new Set(batches.map(b => b.batch_label))]
-  notice.textContent = dates.length === 1 && names.length === 1
+  const provenance = dates.length === 1 && names.length === 1
     ? `Rates from batch "${names[0]}", effective ${dates[0]}.`
     : `Rates from ${batches.length} current batches, effective ${dates.sort()[0]} to ${dates.sort()[dates.length - 1]}.`
+
+  // ── STALENESS, SAME BANDS AND SAME WORDS AS THE APPROVAL PAGE ───────────
+  //
+  // Round 39. The business asked for this here rather than only there: the
+  // salesperson sees these rates before any approver does and is the first
+  // person who could act on an ageing basis. Same bands, same words, earlier.
+  //
+  // The bands and the sentences come from src/lib/cost-basis.js. This surface
+  // does not write its own - Verification 20 - and it does not decide when a
+  // basis is old either. It asks, and it prints what it is told.
+  //
+  // A date alone was necessary and not sufficient: the notice has named the
+  // effective date since Round 36 and said nothing about whether that date is a
+  // problem.
+  const ages = batches
+    .map((b) => ageInDays(b.effective_from, catalogAsOf))
+    .filter((d) => Number.isFinite(d))
+  const oldest = ages.length ? Math.max(...ages) : null
+  const band = stalenessBand(oldest)
+  notice.textContent = band.band === 'current'
+    ? provenance
+    : `${provenance} ${band.statement}`
+  notice.classList.toggle('deal-catalog-stale', band.band === 'stale')
+  notice.classList.toggle('deal-catalog-ageing', band.band === 'ageing')
 }
 
-// ── Deal Sheet sub-tab (Round 37 Phase 2), read-only ──────────────────────
+// ── The four Deal Sheet summary cards are GONE, Round 39 ────────────────
 //
-// The artefact reviewed before a proposal is issued: every input needed to
-// reproduce the price, presented rather than edited. Phase 3 gives it versions.
+// renderDealSheetTab built Margins, Base cost data per unit, Terms and Units
+// required. All four restated values already on screen, which is the duplication
+// the business reported when this round opened.
 //
-// WHAT IT CAN CARRY TODAY is what the four editing sub-tabs produce, which
-// Round 37 Phase 0 measured as more than the brief expected: the unit counts,
-// the per-line margins, the warranty percentage, both currencies, the
-// contingency, the term, the installation responsibility, the milestones, the
-// tax adjustments and the payment structure are all captured and writable. The
-// one input that exists nowhere is the separate-or-rolled-up warranty setting.
+// "Base cost data, per unit" went with them, and that corrects a decision rather
+// than executing one. Round 38 kept it on the grounds that it was "the only place
+// a salesperson sees the rates they are pricing against, because those rates are
+// read-only and absent from the input surface". Measured in Phase 2: the rates
+// ARE on the input surface, as read-only inputs, six on Hw / Hosting Setup and
+// four on Installation, and the batch and its effective date have been in
+// renderCatalogNotice since Round 36.
 //
-// Rates are shown WITH THEIR BATCH, because a price is only reproducible if you
-// know which costs it was taken against, and that is the pointer a version will
-// freeze.
-function renderDealSheetTab(result, payload) {
-  const mount = document.getElementById('deal-sheet-inputs')
-  if (!mount) return
+// What was genuinely missing during entry was the STALENESS BAND, and that joined
+// the existing notice instead of arriving as a second panel.
 
-  const ssUnits = numericOrDefault(payload, 'ssExisting') + numericOrDefault(payload, 'ssNew')
-  const dash = (v) => (v === undefined || v === null || v === '') ? '--' : v
-  const pct = (v) => (v === undefined || v === null || v === '') ? '--' : `${v}%`
-
-  // A margin row per line, showing whether it is the target or an override.
-  // Reading "target" tells a reviewer the line was never touched, which is a
-  // different fact from a line deliberately set to the same number.
-  const overrides = payload.marginOverrides ?? {}
-  const target = numericOrDefault(payload, 'targetMargin')
-  const MARGIN_LABELS = {
-    hwSs: 'SafeSight hardware', hwAqm: 'AQ Sensor hardware', hwHemir: 'HEMIR hardware',
-    hwWarranty: 'Warranty provision',
-    inSsEx: 'Install, SafeSight existing', inSsNew: 'Install, SafeSight new',
-    inAqm: 'Install, AQ Sensor', inHemir: 'Install, HEMIR',
-    hoSs: 'Hosting, SafeSight', hoAqm: 'Hosting, AQ Sensor', hoHemir: 'Hosting, HEMIR',
-  }
-
-  const card = (title, rows) => `
-    <div class="pg-card">
-      <p class="pg-card-title">${escapeSheet(title)}</p>
-      ${rows.map(([l, v, note]) => `
-        <div class="ds-row">
-          <div>
-            <div class="ds-label">${escapeSheet(l)}</div>
-            ${note ? `<div class="pg-item-note">${escapeSheet(note)}</div>` : ''}
-          </div>
-          <div class="ds-value">${escapeSheet(String(v))}</div>
-        </div>`).join('')}
-    </div>`
-
-  const rate = (k) => catalogRates[k] === undefined ? '--' : `$${money(catalogRates[k])}`
-
-  mount.innerHTML = [
-    card('Margins', [
-      ['Target margin', pct(target), 'applies to any line without its own'],
-      ...Object.entries(MARGIN_LABELS).map(([k, l]) =>
-        [l, overrides[k] === undefined ? `${target}%` : `${overrides[k]}%`,
-            overrides[k] === undefined ? 'target' : 'override']),
-    ]),
-    card('Base cost data, per unit', [
-      ['SafeSight', rate('ssUnitCost'), 'hardware'],
-      ['AQ Sensor', rate('aqUnitCost'), 'hardware'],
-      ['HEMIR', rate('hemirUnitCost'), 'hardware'],
-      ['SafeSight, existing infra', rate('inSsExisting'), 'installation'],
-      ['SafeSight, new infra', rate('inSsNew'), 'installation'],
-      ['AQ Sensor, existing infra', rate('inAqm'), 'installation'],
-      ['HEMIR, existing infra', rate('inHemir'), 'installation'],
-      ['SafeSight', rate('hoSafesight'), 'hosting, per month'],
-      ['AQ Sensor', rate('hoAqm'), 'hosting, per month'],
-      ['HEMIR', rate('hoHemir'), 'hosting, per month'],
-    ]),
-    card('Terms', [
-      ['Contract duration', payload.duration ? `${payload.duration} months` : '--'],
-      ['Installation responsibility', dash(payload.installResp)],
-      ['Warranty provision', pct(payload.warrantyPct ?? 2),
-       `${result.hardware.warrantyUnits} unit${result.hardware.warrantyUnits === 1 ? '' : 's'} at the mix average`],
-      ['Separate or rolled into hardware', 'not recorded', 'no field exists for this yet'],
-      ['Bid currency', dash(payload.bidCurrency), 'the currency Base Cost Data is held in'],
-      ['Proposal currency', dash(payload.proposalCurrency), 'quoted and invoiced to the customer'],
-      ['FX contingency', pct(payload.fxContingency)],
-      ['Withholding tax', pct(payload.whtPct), payload.grossUp ? 'grossed up' : 'absorbed'],
-      ['GST', pct(payload.gstPct), 'passed through'],
-    ]),
-    card('Units required', [
-      ['SafeSight, existing infra', numericOrDefault(payload, 'ssExisting')],
-      ['SafeSight, new infra', numericOrDefault(payload, 'ssNew')],
-      ['AQ Sensor', numericOrDefault(payload, 'aqm')],
-      ['HEMIR', numericOrDefault(payload, 'hemir')],
-      ['Total units', result.hardware.totalUnits],
-    ]),
-  ].join('')
-
-  const b = Object.values(catalogBatches)[0]
-  const prov = document.getElementById('deal-sheet-provenance')
-  if (prov) {
-    prov.textContent = b
-      ? `Read-only. Every figure below is an input to the price, priced against batch "${b.batch_label}", effective ${b.effective_from}. Edit on the other sub-tabs.`
-      : 'Read-only. Every figure below is an input to the price. Edit on the other sub-tabs.'
-  }
-  // ssUnits is read above for the same reason the note lines read it: a
-  // reviewer checking SafeSight against the two entries needs the sum.
-  void ssUnits
-}
 
 function escapeSheet(s) {
   return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
@@ -964,7 +905,6 @@ function renderResults(result, payload) {
   renderYearSchedule(result, payload)
   renderPricingCards(result, payload)
   renderCatalogNotice(payload)
-  renderDealSheetTab(result, payload)
   renderInstallationTab(result, payload)
 
   const cf = result.cashFlow
@@ -1715,6 +1655,11 @@ async function loadCatalog() {
   catalogRates = rates
   catalogBatches = batches
   catalogMissing = missing
+  // Round 39: as_of was returned by the endpoint and thrown away. Staleness is
+  // measured against it and not against today, because as_of is settable and
+  // ageing against today would make every batch look stale inside a historical
+  // read. One rule, in cost-basis.js, used here and by the approval page.
+  catalogAsOf = result.data?.as_of ?? null
   catalogError = null
   catalogLoaded = true
 }

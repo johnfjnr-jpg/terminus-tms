@@ -1739,7 +1739,6 @@
         <button data-deal-tab="install">Installation</button>
         <button data-deal-tab="terms">Structural Terms</button>
         <button data-deal-tab="payment">Payment Terms</button>
-        <button data-deal-tab="sheet">Deal Sheet</button>
       </div>
 
       <!-- Hw / Hosting Setup -->
@@ -2088,31 +2087,31 @@
           </div>
         </div>
 
-      </div>
+      
+        <!-- ROUND 39: THE DEAL SHEET SUB-TAB IS GONE, and this is its content
+             landing where the prototype specifies it.
 
-      <!-- Deal Sheet (Round 37 Phase 2) -->
-      <!--
-        READ-ONLY, and the business's "for now" is doing work. One place to edit
-        a number, and a version taken from what was reviewed rather than from
-        what might have been changed while reviewing. Nothing in this panel is
-        an input; every value is rendered by renderDealSheetTab().
+             Terminus Ops.dc.html has FOUR Commercials sub-tabs and no Deal Sheet
+             tab (11353-11355), and renders the itemised deal rows INSIDE
+             Structural Terms beneath the margin cards (1534-1543). The build
+             added a fifth tab; this returns to four and puts the rows back where
+             they were specified, a few pixels under the loop that changes them.
 
-        LAID OUT IN .deal-sheet-cards, CSS COLUMNS CAPPED AT 460px. That is the answer
-        to the business's own complaint about the Deal Summary: "too wide, you
-        need to be able to keep the line label and the amount in view."
-        Measured on that panel before building this one, the whitespace between
-        the end of a row's label text and the start of its amount is 628px at
-        1240, 1308px at 1920 and 2828px at 3440, because its label column is
-        minmax(150px,1fr) and absorbs every extra pixel. A capped card cannot do
-        that, and auto-fit still uses the real width by flowing more cards
-        across rather than stretching four. See the CSS for the measurements.
+             It was the tallest panel in the tab by a wide margin: 4270px at 1240
+             against 1828 for Structural Terms.
 
-        The four-figure strip above the sub-tab row (Contract Net, Achieved
-        Margin, Total Deal Cost, Finance Cost) is NOT repeated here. It is
-        visible on all five sub-tabs already, so repeating it would be the
-        duplication this panel exists to avoid.
-      -->
-      <div class="deal-tab-panel hidden" id="deal-tab-sheet">
+             THE FOUR SUMMARY CARDS ARE NOT RELOCATED, they are deleted. All four
+             restated values already on screen. That includes "Base cost data,
+             per unit": the rates are read-only inputs on Hw / Hosting Setup and
+             Installation already, and the batch and its effective date have been
+             in the catalog notice since Round 36. What was genuinely missing is
+             the staleness band, and that now joins the notice rather than
+             arriving as a second panel. See the Phase 2 report.
+
+             The versions panel comes with it, unseparated from save-then-version
+             and from the approval entry point, which DESIGN_PRINCIPLES.md records
+             as load-bearing. -->
+
         <p id="deal-sheet-provenance" style="margin:0 0 14px;font-family:var(--mono);font-size:10.5px;color:var(--muted-2)"></p>
 
         <!-- Versions (Round 37 Phase 3). Save is a deliberate act, so it is a
@@ -2146,13 +2145,34 @@
             </div>
           </div>
         </div>
-        <div class="deal-sheet-cards" id="deal-sheet-inputs"></div>
         <p class="label" style="margin:24px 0 10px">Result (USD) &middot; <span id="deal-sheet-units">0</span> units</p>
         <div class="deal-sheet-cards">
           <div class="deal-sheet" id="deal-sheet"></div>
         </div>
       </div>
 
+      <!-- Deal Sheet (Round 37 Phase 2) -->
+      <!--
+        READ-ONLY, and the business's "for now" is doing work. One place to edit
+        a number, and a version taken from what was reviewed rather than from
+        what might have been changed while reviewing. Nothing in this panel is
+        an input; every value is rendered by renderDealSheetTab().
+
+        LAID OUT IN .deal-sheet-cards, CSS COLUMNS CAPPED AT 460px. That is the answer
+        to the business's own complaint about the Deal Summary: "too wide, you
+        need to be able to keep the line label and the amount in view."
+        Measured on that panel before building this one, the whitespace between
+        the end of a row's label text and the start of its amount is 628px at
+        1240, 1308px at 1920 and 2828px at 3440, because its label column is
+        minmax(150px,1fr) and absorbs every extra pixel. A capped card cannot do
+        that, and auto-fit still uses the real width by flowing more cards
+        across rather than stretching four. See the CSS for the measurements.
+
+        The four-figure strip above the sub-tab row (Contract Net, Achieved
+        Margin, Total Deal Cost, Finance Cost) is NOT repeated here. It is
+        visible on all five sub-tabs already, so repeating it would be the
+        duplication this panel exists to avoid.
+      -->
       <!-- Payment Terms -->
       <div class="deal-tab-panel hidden" id="deal-tab-payment">
         <!-- Round 39 item 2: Contract duration MOVED to Structural Terms, beside

@@ -825,6 +825,37 @@ today's existing behaviour.
 
 Explicitly deferred, not forgotten, not a section number of its own since this is a running list, not a build phase. Add to it as new deferrals come up rather than letting them live only in conversation.
 
+- **WERE THOSE TWO NUMBERS EVER QUOTED? Air quality and HEMIR new-infrastructure
+  install costs. Raised 2026-08-29, Round 39.**
+
+  **The question is deliberately not "should we build the field".** The catalog
+  holds `install_cost_new` for all three products and the application reads only
+  SafeSight's. Completing the capability would price two lines against numbers
+  whose provenance nobody has established, which is the zero-versus-missing shape
+  one layer up: **an absent line is honest, a line priced at a rule of thumb is
+  not.**
+
+  **The evidence that they may not be quotations.** SafeSight's new-infra cost is
+  10x its existing (2000 to 20000), which reads like a real number - a pole, a
+  foundation and a power drop genuinely cost an order of magnitude more than
+  strapping a camera to a standing column. **Air quality and HEMIR both land on
+  EXACTLY 2x** (500 to 1000, 5000 to 10000), which is the signature of a column
+  somebody filled in rather than two quotations.
+
+  **The domain half, the business's judgement and not measured data:** an air
+  quality sensor almost always goes on something already standing, so AQ-new may
+  be genuinely rare. HEMIR siting is driven by coverage geometry rather than by
+  what happens to be there, so new mounting is plausible for HEMIR. To be
+  confirmed.
+
+  **So the order is: establish whether the numbers were quoted, then decide
+  whether the lines exist.** Not the reverse.
+
+  The false comment that hid this - "the only product whose two catalog figures
+  both have a row" - was corrected immediately in `src/lib/base-costs.js` rather
+  than waiting behind the capability. Removing a false claim is not building the
+  fix, the same argument that removed the "Pricing approved" tick.
+
 - **ONE SUPABASE PROJECT SERVES LOCAL DEVELOPMENT AND THE DEPLOYED APP. Raised
   2026-08-29, Round 38. Trigger: SEPARATE ENVIRONMENTS BEFORE THE SYSTEM HOLDS
   ANY REAL CUSTOMER DATA.**
