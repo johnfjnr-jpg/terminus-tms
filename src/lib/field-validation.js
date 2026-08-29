@@ -47,6 +47,13 @@ export function isValidNumber(value) {
 // negative and decimal values - Number.isInteger(Number(value)) would not,
 // since Number('-3') and Number('2.0') both produce integers.
 export function isValidNonNegativeInteger(value) {
+  // null is "not set", the stored representation of an empty box. Round 38.
+  // It is accepted alongside the empty string this function already treats as
+  // not-yet-set; the difference is that '' is an INPUT convention, normalised
+  // away before a write, and null is what reaches the database. An empty string
+  // in a numeric jsonb key errors on (payload->>'k')::numeric, which the
+  // forecast reporting will do.
+  if (value === null) return true
   if (typeof value === 'number') return Number.isInteger(value) && value >= 0
   if (typeof value !== 'string') return false
   if (value.trim() === '') return true
@@ -67,6 +74,8 @@ export function isValidNonNegativeInteger(value) {
 // property with a rounding comparison, since floating-point numbers have
 // no literal decimal-place count to test against a regex.
 export function isValidNonNegativePercent(value) {
+  // null is "not set". See isValidNonNegativeInteger above.
+  if (value === null) return true
   if (typeof value === 'number') {
     if (!Number.isFinite(value) || value < 0) return false
     return Math.abs(value - Math.round(value * 100) / 100) < 1e-9

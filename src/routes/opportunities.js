@@ -3,6 +3,7 @@ import { recordScoreEntry } from '../lib/score-entry.js'
 import { sendWriteError, sendRefusal } from '../lib/write-errors.js'
 import { appendRecordRevision } from '../lib/record-revision.js'
 import { isValidIsoDate, isValidNonNegativeInteger, isValidNonNegativePercent, isNotPastIsoDate } from '../lib/field-validation.js'
+import { WRITABLE_NUMERIC_KEYS, isStorableNumeric } from '../lib/numeric-payload.js'
 
 export default async function opportunitiesRoutes(app) {
   // GET /api/opportunities
@@ -363,6 +364,31 @@ export default async function opportunitiesRoutes(app) {
 
     if (!payload || typeof payload !== 'object') {
       return reply.code(400).send({ error: 'payload is required' })
+    }
+
+    // ── THE WRITE BOUNDARY FOR NUMERIC KEYS. Round 38. ──────────────────
+    //
+    // A number or null, and nothing else. Not a numeric string, which is what
+    // opportunity-reference.js sent for duration until this change, and not an
+    // empty string.
+    //
+    // Measured across all 17,618 record_revisions on 2026-08-28: 159 of these
+    // keys hold a numeric string against 241 holding a number, 49 of them
+    // duration written by the Reference tab. NO BACKFILL WAS RUN - record_
+    // revisions is append-only and its value as an audit trail is that nothing
+    // rewrites it, so the variance already stored is absorbed at the READ
+    // boundary by toNumberOrNull(). This guard is what stops it growing.
+    //
+    // Refused rather than coerced here. Coercing at the boundary would make the
+    // server quietly accept a shape it is documenting as wrong, and the caller
+    // would never learn.
+    const badNumeric = WRITABLE_NUMERIC_KEYS
+      .filter(k => k in payload && !isStorableNumeric(payload[k]))
+    if (badNumeric.length) {
+      return reply.code(400).send({
+        error: 'numeric fields must be a number or null, never a string',
+        fields: badNumeric.map(k => ({ key: k, received: typeof payload[k] === 'string' ? `string ${JSON.stringify(payload[k])}` : typeof payload[k] }))
+      })
     }
 
     const disallowedKeys = Object.keys(payload).filter(k => !SALESPERSON_WRITABLE_KEYS.has(k))

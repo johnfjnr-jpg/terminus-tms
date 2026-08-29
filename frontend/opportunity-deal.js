@@ -19,6 +19,8 @@
 // submit/approval workflow for the Deal Sheet is designed.
 import { calculateDeal } from '/lib/deal-calculator.js'
 import { catalogToRates } from '/lib/base-costs.js'
+import { toNumberOrNull, numericOrDefault, NUMERIC_DEFAULTS, WRITABLE_NUMERIC_KEYS } from '/lib/numeric-payload.js'
+import { changedKeys } from '/lib/payload-diff.js'
 
 let opportunityId = null
 let wired = false
@@ -87,9 +89,26 @@ const uiState = {
 const MARGIN_KEYS = ['hwSs', 'hwAqm', 'hwHemir', 'hwWarranty', 'inSsEx', 'inSsNew', 'inAqm', 'inHemir', 'hoSs', 'hoAqm', 'hoHemir']
 const MILESTONE_ROWS = 5
 
+// A blank box is NULL, not 0. Round 38, before the Phase 2 reshape.
+//
+// This returned 0 for a blank input since the file's first commit, which made a
+// deal with no target margin indistinguishable from a deal priced at cost, and
+// wrote that 0 into the record. Three separate defects on this tab have now had
+// that coercion underneath them.
+//
+// num() is kept for the values that are genuinely counts of things on screen
+// and where a blank truly is none. Everything the record stores goes through
+// numOrNull().
 function num(id) {
   const v = parseFloat(document.getElementById(id)?.value)
   return Number.isFinite(v) ? v : 0
+}
+
+// The read boundary, shared with the server through /lib/numeric-payload.js.
+// Accepts a number, a numeric string (which the Reference tab wrote for
+// duration until this change), null or ''. Returns a number or null.
+function numOrNull(id) {
+  return toNumberOrNull(document.getElementById(id)?.value)
 }
 
 function numOrUndefined(id) {
@@ -124,10 +143,10 @@ function readPayload() {
   })
 
   return {
-    ssExisting: num('deal-ssExisting'),
-    ssNew: num('deal-ssNew'),
-    aqm: num('deal-aqm'),
-    hemir: num('deal-hemir'),
+    ssExisting: numOrNull('deal-ssExisting'),
+    ssNew: numOrNull('deal-ssNew'),
+    aqm: numOrNull('deal-aqm'),
+    hemir: numOrNull('deal-hemir'),
 
     // Rates come from the catalog, never from the form. The hidden inputs are
     // still populated (populateForm) so the note lines under each row can show
@@ -138,7 +157,7 @@ function readPayload() {
     hemirUnitCost: catalogRates.hemirUnitCost ?? 0,
 
     installResp: uiState.installResp,
-    lumpSumCost: num('deal-lumpCost'),
+    lumpSumCost: numOrNull('deal-lumpCost'),
     // Round 37 Phase 1: from the catalog, like the unit and hosting rates
     // above. These read the form until this phase, and the form was fed from a
     // payload nothing has ever written, so per-unit installation priced at $0
@@ -153,12 +172,12 @@ function readPayload() {
     hoAqm: catalogRates.hoAqm ?? 0,
     hoHemir: catalogRates.hoHemir ?? 0,
 
-    targetMargin: num('deal-targetMargin'),
+    targetMargin: numOrNull('deal-targetMargin'),
     marginOverrides,
 
-    warrantyPct: num('deal-warrantyPct'),
-    whtPct: num('deal-whtPct'),
-    gstPct: num('deal-gstPct'),
+    warrantyPct: numOrNull('deal-warrantyPct'),
+    whtPct: numOrNull('deal-whtPct'),
+    gstPct: numOrNull('deal-gstPct'),
     grossUp: uiState.grossUp,
 
     // Currency (Round 3 Phase 6, 2026-08-17): data entry only, confirmed
@@ -166,11 +185,11 @@ function readPayload() {
     // or by calculateDeal(), same as this section's own comment states.
     bidCurrency: document.getElementById('deal-bidCurrency').value,
     proposalCurrency: document.getElementById('deal-proposalCurrency').value,
-    fxContingency: num('deal-fxContingency'),
+    fxContingency: numOrNull('deal-fxContingency'),
 
-    duration: num('deal-duration'),
+    duration: numOrNull('deal-duration'),
     structure: uiState.structure,
-    recoveryMonths: num('deal-recoveryMonths'),
+    recoveryMonths: numOrNull('deal-recoveryMonths'),
     invoicing: uiState.invoicing,
     milestones: readMilestones(),
 
@@ -216,14 +235,14 @@ function readContractorMilestones() {
 // the shared calculation itself, so it's allowed to be duplicated - the
 // preview it feeds is explicitly never trusted for the actual snapshot. ──
 function buildDealInputs(payload) {
-  const targetMargin = payload.targetMargin ?? 30
+  const targetMargin = numericOrDefault(payload, 'targetMargin')
   const overrides = payload.marginOverrides ?? {}
   const marginFor = (key) => overrides[key] ?? targetMargin
 
-  const ssExisting = payload.ssExisting ?? 0
-  const ssNew = payload.ssNew ?? 0
-  const aqmUnits = payload.aqm ?? 0
-  const hemirUnits = payload.hemir ?? 0
+  const ssExisting = numericOrDefault(payload, 'ssExisting')
+  const ssNew = numericOrDefault(payload, 'ssNew')
+  const aqmUnits = numericOrDefault(payload, 'aqm')
+  const hemirUnits = numericOrDefault(payload, 'hemir')
 
   const lumpSumDeal = (payload.installResp ?? '').includes('Lump Sum')
 
@@ -245,7 +264,7 @@ function buildDealInputs(payload) {
   // matrix's Installation column, the Deal sheet's installation cost
   // line) silently priced Lump Sum installation at $0.
   const installLineItems = lumpSumDeal ? [
-    { key: 'inLump', cost: payload.lumpSumCost ?? 0, marginPct: marginFor('inLump') },
+    { key: 'inLump', cost: numericOrDefault(payload, 'lumpSumCost'), marginPct: marginFor('inLump') },
   ] : isPerUnit ? [
     { key: 'inSsEx', cost: (payload.inSsExisting ?? 0) * ssExisting, marginPct: marginFor('inSsEx') },
     { key: 'inSsNew', cost: (payload.inSsNew ?? 0) * ssNew, marginPct: marginFor('inSsNew') },
@@ -270,7 +289,7 @@ function buildDealInputs(payload) {
     aqUnits: aqmUnits,
     hemirUnitCost: payload.hemirUnitCost ?? 0,
     hemirUnits,
-    warrantyPct: payload.warrantyPct ?? 2,
+    warrantyPct: numericOrDefault(payload, 'warrantyPct'),
     installLineItems,
     hostingLineItems,
     hardwareMargins: {
@@ -279,20 +298,20 @@ function buildDealInputs(payload) {
       hwHemir: marginFor('hwHemir'),
       hwWarranty: marginFor('hwWarranty'),
     },
-    months: payload.duration ?? 0,
+    months: numericOrDefault(payload, 'duration'),
     structure: payload.structure ?? 'twoPhase',
-    recoveryMonths: payload.recoveryMonths,
+    recoveryMonths: numericOrDefault(payload, 'recoveryMonths'),
     annualInvoicing: (payload.invoicing ?? 'annual') === 'annual',
     milestones: payload.milestones ?? [],
     lumpSumDeal,
-    lumpCost: payload.lumpSumCost ?? 0,
+    lumpCost: numericOrDefault(payload, 'lumpSumCost'),
     contractorMilestones: payload.contractorMilestones ?? [],
     factoringEnabled: factoring.enabled ?? false,
     factoringRatePct: factoring.ratePct ?? 1.5,
     factoringTermMonths: factoring.termMonths,
     factoringMethod: factoring.method ?? 'straight',
-    whtPct: payload.whtPct ?? 0,
-    gstPct: payload.gstPct ?? 0,
+    whtPct: numericOrDefault(payload, 'whtPct'),
+    gstPct: numericOrDefault(payload, 'gstPct'),
     grossUp: payload.grossUp ?? false,
     testBedCost,
   }
@@ -306,11 +325,11 @@ function buildDealInputs(payload) {
 // stay static DOM nodes, wired once in wireOnce()).
 function renderPricingCards(result, payload) {
   const { hardwareGroup, hostingGroup } = result.groups
-  const ssUnits = (payload.ssExisting ?? 0) + (payload.ssNew ?? 0)
+  const ssUnits = numericOrDefault(payload, 'ssExisting') + numericOrDefault(payload, 'ssNew')
   const aqUnits = payload.aqm ?? 0
-  const hemirUnits = payload.hemir ?? 0
+  const hemirUnits = numericOrDefault(payload, 'hemir')
   const { totalUnits, warrantyUnits } = result.hardware
-  const warrantyPct = payload.warrantyPct ?? 2
+  const warrantyPct = numericOrDefault(payload, 'warrantyPct')
 
   const setRow = (group, key, note) => {
     const row = group.rows.find(r => r.key === key)
@@ -420,7 +439,7 @@ function renderDealSheetTab(result, payload) {
   const mount = document.getElementById('deal-sheet-inputs')
   if (!mount) return
 
-  const ssUnits = (payload.ssExisting ?? 0) + (payload.ssNew ?? 0)
+  const ssUnits = numericOrDefault(payload, 'ssExisting') + numericOrDefault(payload, 'ssNew')
   const dash = (v) => (v === undefined || v === null || v === '') ? '--' : v
   const pct = (v) => (v === undefined || v === null || v === '') ? '--' : `${v}%`
 
@@ -428,7 +447,7 @@ function renderDealSheetTab(result, payload) {
   // Reading "target" tells a reviewer the line was never touched, which is a
   // different fact from a line deliberately set to the same number.
   const overrides = payload.marginOverrides ?? {}
-  const target = payload.targetMargin ?? 30
+  const target = numericOrDefault(payload, 'targetMargin')
   const MARGIN_LABELS = {
     hwSs: 'SafeSight hardware', hwAqm: 'AQ Sensor hardware', hwHemir: 'HEMIR hardware',
     hwWarranty: 'Warranty provision',
@@ -484,10 +503,10 @@ function renderDealSheetTab(result, payload) {
       ['GST', pct(payload.gstPct), 'passed through'],
     ]),
     card('Units required', [
-      ['SafeSight, existing infra', payload.ssExisting ?? 0],
-      ['SafeSight, new infra', payload.ssNew ?? 0],
-      ['AQ Sensor', payload.aqm ?? 0],
-      ['HEMIR', payload.hemir ?? 0],
+      ['SafeSight, existing infra', numericOrDefault(payload, 'ssExisting')],
+      ['SafeSight, new infra', numericOrDefault(payload, 'ssNew')],
+      ['AQ Sensor', numericOrDefault(payload, 'aqm')],
+      ['HEMIR', numericOrDefault(payload, 'hemir')],
       ['Total units', result.hardware.totalUnits],
     ]),
   ].join('')
@@ -683,7 +702,7 @@ async function restoreVersion(versionId) {
     }
     populateForm(r.data.inputs ?? {})
     recompute()
-    markDealFormDirty()
+    updateDirtyState()
     versionFeedback(`Restored ${r.data.label}. Nothing is saved until you press Save Changes.`, true)
   }
 
@@ -1145,10 +1164,10 @@ function renderInstallationTab(result, payload) {
   document.getElementById('deal-lump-summary').textContent =
     `Lump sum cost $${money(payload.lumpSumCost ?? 0)}, priced at $${money(result.groups.installGroup.rawTotalPrice)}, carried into the Deal Summary, Deal sheet and Cash flow.`
 
-  document.getElementById('deal-install-units-inSsEx').textContent = payload.ssExisting ?? 0
-  document.getElementById('deal-install-units-inSsNew').textContent = payload.ssNew ?? 0
-  document.getElementById('deal-install-units-inAqm').textContent = payload.aqm ?? 0
-  document.getElementById('deal-install-units-inHemir').textContent = payload.hemir ?? 0
+  document.getElementById('deal-install-units-inSsEx').textContent = numericOrDefault(payload, 'ssExisting')
+  document.getElementById('deal-install-units-inSsNew').textContent = numericOrDefault(payload, 'ssNew')
+  document.getElementById('deal-install-units-inAqm').textContent = numericOrDefault(payload, 'aqm')
+  document.getElementById('deal-install-units-inHemir').textContent = numericOrDefault(payload, 'hemir')
 
   // Cost/Price columns (Round 3 Phase 5, 2026-08-17) - reads straight from
   // result.groups.installGroup.rows, the same buildCostGroup() output
@@ -1224,8 +1243,20 @@ function populateForm(payload) {
   setVal('deal-inHemir', catalogRates.inHemir ?? '')
   updateInstallVisibility()
 
-  setVal('deal-targetMargin', p.targetMargin ?? 30)
-  setVal('deal-warrantyPct', p.warrantyPct ?? 2)
+  // A blank box stays blank rather than being filled with the default, because
+  // filling it would write the default into the record on the next save and
+  // make "the user chose 30" indistinguishable from "nobody set one".
+  //
+  // The default is shown as a PLACEHOLDER instead, which is the convention the
+  // per-line margin inputs on this tab already use ("target"). So an empty box
+  // reads as the default it is actually pricing at, rather than as zero or as
+  // nothing.
+  setVal('deal-targetMargin', toNumberOrNull(p.targetMargin) ?? '')
+  setVal('deal-warrantyPct', toNumberOrNull(p.warrantyPct) ?? '')
+  const marginBox = document.getElementById('deal-targetMargin')
+  const warrantyBox = document.getElementById('deal-warrantyPct')
+  if (marginBox) marginBox.placeholder = String(NUMERIC_DEFAULTS.targetMargin)
+  if (warrantyBox) warrantyBox.placeholder = String(NUMERIC_DEFAULTS.warrantyPct)
   setVal('deal-whtPct', p.whtPct ?? 0)
   setVal('deal-gstPct', p.gstPct ?? 0)
   uiState.grossUp = !!p.grossUp
@@ -1274,7 +1305,7 @@ function populateForm(payload) {
   updateFactoringButtons()
 
   applyCommercialNumericInputModes()
-  clearDealFormDirty()
+  captureSavedBaseline()
 }
 
 // Round 3 Phase 4 (2026-08-17), corrected twice the same day: min=0 on
@@ -1364,14 +1395,42 @@ function updateFactoringButtons() {
 
 // Round 3 Phase 4 (2026-08-17): see the dealFormDirty declaration above
 // for why this is separate from dealDurationDirty.
-function markDealFormDirty() {
-  dealFormDirty = true
-  document.getElementById('btn-save-deal').disabled = false
+// ── DIRTY BY COMPARISON, NOT BY EVENT. Round 38. ─────────────────────────
+//
+// dealFormDirty used to be set by an 'input'/'change' listener on the whole
+// panel, which gave it two properties that were defects rather than details:
+// every control inside the panel marked the tab dirty whether or not it changed
+// the deal, and each exception needed its own guard PER EVENT TYPE. The version
+// reason box needed such a guard, the guard covered 'input' and not 'change',
+// and a textarea fires change on blur - so the click that used the reason
+// dirtied the tab a moment before the flag was read.
+//
+// Now the flag is derived: the form's writable payload against the payload as
+// it was when last saved. A control that does not change the payload cannot
+// make it differ, whatever events it fires, so Phase 2 can add controls to this
+// panel without teaching each one not to lie.
+//
+// The baseline is taken from the FORM immediately after populateForm rather
+// than from the record, which sidesteps every representation difference between
+// the two: a record holding duration "36" renders a box holding 36, and the
+// baseline is what the box holds.
+let lastSavedPayload = {}
+
+function captureSavedBaseline() {
+  lastSavedPayload = pickSalespersonWritable(readPayload())
+  updateDirtyState()
 }
 
-function clearDealFormDirty() {
-  dealFormDirty = false
-  document.getElementById('btn-save-deal').disabled = true
+// Named rather than boolean so a wrong answer is debuggable: "dirty" says
+// nothing, "dirty because gstPct" says where to look.
+function dealDirtyKeys() {
+  return changedKeys(pickSalespersonWritable(readPayload()), lastSavedPayload)
+}
+
+function updateDirtyState() {
+  dealFormDirty = dealDirtyKeys().length > 0
+  const btn = document.getElementById('btn-save-deal')
+  if (btn) btn.disabled = !dealFormDirty
 }
 
 // ── Wiring (once per page load) ───────────────────────────────────────────
@@ -1389,8 +1448,8 @@ function wireOnce() {
   // that). The ring-radio/toggle-button controls (structure, invoicing,
   // gross-up, factoring) use click, not input/change, so those mark
   // dirty explicitly in their own handlers further down.
-  document.getElementById('opp-tab-commercial').addEventListener('input', markDealFormDirty)
-  document.getElementById('opp-tab-commercial').addEventListener('change', markDealFormDirty)
+  document.getElementById('opp-tab-commercial').addEventListener('input', updateDirtyState)
+  document.getElementById('opp-tab-commercial').addEventListener('change', updateDirtyState)
 
   document.querySelectorAll('#deal-tab-toggle button').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -1437,7 +1496,7 @@ function wireOnce() {
   document.getElementById('deal-grossUp-toggle').addEventListener('click', () => {
     uiState.grossUp = !uiState.grossUp
     updateGrossUpButton()
-    markDealFormDirty()
+    updateDirtyState()
     recompute()
   })
 
@@ -1446,7 +1505,7 @@ function wireOnce() {
       uiState.structure = el.dataset.structure
       updateStructureButtons()
       updateStructureVisibility()
-      markDealFormDirty()
+      updateDirtyState()
       recompute()
     })
   })
@@ -1455,7 +1514,7 @@ function wireOnce() {
     el.addEventListener('click', () => {
       uiState.invoicing = el.dataset.invoicing
       updateInvoicingButtons()
-      markDealFormDirty()
+      updateDirtyState()
       recompute()
     })
   })
@@ -1463,7 +1522,7 @@ function wireOnce() {
   document.getElementById('deal-factoring-toggle').addEventListener('click', () => {
     uiState.factoringEnabled = !uiState.factoringEnabled
     updateFactoringButtons()
-    markDealFormDirty()
+    updateDirtyState()
     recompute()
   })
 
@@ -1471,7 +1530,7 @@ function wireOnce() {
     btn.addEventListener('click', () => {
       uiState.factoringMethod = btn.dataset.method
       updateFactoringButtons()
-      markDealFormDirty()
+      updateDirtyState()
       recompute()
     })
   })
@@ -1489,24 +1548,11 @@ function wireOnce() {
     if (id) restoreVersion(id)
   })
 
-  // The reason box must NOT mark the tab dirty. It is not a deal input, and a
-  // typed reason enabling Save Changes would offer to save the pricing when the
-  // user is describing it. wireOnce delegates BOTH 'input' and 'change' at the
-  // panel level, so both are stopped at the source.
-  //
-  // 'change' MATTERS AND WAS MISSED IN ROUND 37. A textarea fires change on
-  // BLUR when its value has altered, and the blur that matters is the one
-  // caused by clicking Save version. So typing the reason was correctly
-  // ignored, and then the click that used it marked the tab dirty a moment
-  // before saveVersion read the flag.
-  //
-  // Harmless until Round 38 Phase 1, which made a dirty flag mean "save the
-  // record first": the spurious dirty produced a spurious revision on every
-  // version taken from an otherwise-clean screen. An unchanged path meeting a
-  // new demand, and it was invisible until the new demand arrived.
-  const reasonBox = document.getElementById('deal-version-reason')
-  reasonBox.addEventListener('input', (e) => e.stopPropagation())
-  reasonBox.addEventListener('change', (e) => e.stopPropagation())
+  // THE REASON BOX NEEDS NO GUARD ANY MORE, and that is the proof the cause is
+  // gone rather than the symptom. It is not part of the payload, so no event it
+  // fires can make the comparison differ. Round 37 gave it a stopPropagation on
+  // 'input'; Round 38 Phase 1 had to add a second for 'change' after the blur
+  // case; both are deleted here rather than a third being added.
 }
 
 // Mirrors SALESPERSON_WRITABLE_KEYS in src/routes/opportunities.js's PATCH
@@ -1597,7 +1643,7 @@ async function saveDeal() {
 
   dealDurationDirty = false
   dealDurationOrig = payload.duration ?? dealDurationOrig
-  clearDealFormDirty()
+  captureSavedBaseline()
 
   feedback.textContent = `Saved (revision ${result.data.revision_number}).`
   feedback.className = 'msg-success'

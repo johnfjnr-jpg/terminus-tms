@@ -2566,6 +2566,16 @@ opened it. -->
 <script src="/test-bed-detail.js"></script>
 <script src="/contact-detail.js"></script>
 <script src="/account-detail.js"></script>
+<!-- The numeric payload boundary, published for the classic scripts.
+     opportunity-reference.js is a classic <script> and cannot import, and the
+     alternative to this is a second copy of toNumberOrNull living in it - which
+     is exactly the two-copies-that-agree-today shape src/lib exists to avoid.
+     api() from app.js is already shared the same way. -->
+<script type="module">
+  import { toNumberOrNull, WRITABLE_NUMERIC_KEYS } from '/lib/numeric-payload.js'
+  window.toNumberOrNull = toNumberOrNull
+  window.WRITABLE_NUMERIC_KEYS = WRITABLE_NUMERIC_KEYS
+</script>
 <script type="module" src="/opportunity-deal.js"></script>
 </body>
 </html>

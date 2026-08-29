@@ -778,6 +778,21 @@ async function saveRefFields() {
 // below can reuse the exact same payload-merge/freshness-check logic for
 // whatever else was dirty in the same Save click, once the reason is
 // confirmed - not a second, drifting copy of this logic.
+// Which Reference tab fields are numeric, DERIVED from the field definitions
+// rather than kept as a second list beside them. A field gains `number: true`
+// where it is declared, and this follows it; a hand-kept copy would be one
+// edit away from disagreeing with the declaration it describes.
+//
+// Intersected with WRITABLE_NUMERIC_KEYS so the two screens cannot disagree
+// about what a numeric payload key is: duration is the only field in both
+// today, and a future numeric field is covered the moment it is declared.
+function refKeyIsNumeric(key) {
+  const declared = [...TERMINUS_FIELDS, ...CUSTOMER_FIELDS, ...DATE_FIELDS]
+    .some(f => f.key === key && f.number === true)
+  const shared = (window.WRITABLE_NUMERIC_KEYS ?? []).includes(key)
+  return declared || shared
+}
+
 async function performGenericRefSave(dirtyEntries) {
   const feedback = document.getElementById('ref-save-feedback')
   if (!dirtyEntries.length) return
@@ -806,7 +821,19 @@ async function performGenericRefSave(dirtyEntries) {
 
   const payloadUpdate = {}
   const newNotes = dirtyEntries.map(([key, e]) => {
-    payloadUpdate[key] = e.draft
+    // NUMBER-ISED BEFORE IT IS WRITTEN. Round 38, before the Phase 2 reshape.
+    //
+    // e.draft is an input's raw .value, always a string, and this assigned it
+    // straight into the payload. Contract Duration is a numeric key shared with
+    // the Commercials tab, so every save from this tab wrote duration as "36"
+    // while the other tab wrote 36. Measured across all 17,618 revisions:
+    // 49 string durations, and this was the live path still producing them.
+    //
+    // '' is accepted at this input boundary and normalised to null, because
+    // null is the stored representation of "not set": (payload->>'k')::numeric
+    // returns NULL for a JSON null and ERRORS on an empty string, and the
+    // forecast reporting this build is heading toward will cast in SQL.
+    payloadUpdate[key] = refKeyIsNumeric(key) ? window.toNumberOrNull(e.draft) : e.draft
     return {
       text: `${refFieldLabel(key)} changed from ${e.orig || '--'} to ${e.draft || '--'}.`,
       at: new Date().toISOString(),

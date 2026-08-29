@@ -19,6 +19,7 @@
 
 import { createUserClient } from '../supabase.js';
 import { resolveCurrentBatches, catalogToRates } from '../lib/base-costs.js';
+import { numericOrDefault } from '../lib/numeric-payload.js';
 import { sendWriteError } from '../lib/write-errors.js'
 import { appendRecordRevision } from '../lib/record-revision.js';
 import { calculateDeal } from '../lib/deal-calculator.js';
@@ -92,7 +93,7 @@ async function loadDealInputsFromOpportunity(db, opportunityId) {
 
   const payload = revision.payload ?? {};
 
-  const targetMargin = payload.targetMargin ?? 30;
+  const targetMargin = numericOrDefault(payload, 'targetMargin');
   const overrides = payload.marginOverrides ?? {};
   const marginFor = (key) => overrides[key] ?? targetMargin;
 
@@ -122,10 +123,10 @@ async function loadDealInputsFromOpportunity(db, opportunityId) {
   const { rates: catalogRates, missing: catalogMissing } =
     catalogToRates(resolveCurrentBatches(batchRows ?? [], asOf));
 
-  const ssExisting = payload.ssExisting ?? 0;
-  const ssNew = payload.ssNew ?? 0;
-  const aqmUnits = payload.aqm ?? 0;
-  const hemirUnits = payload.hemir ?? 0;
+  const ssExisting = numericOrDefault(payload, 'ssExisting');
+  const ssNew = numericOrDefault(payload, 'ssNew');
+  const aqmUnits = numericOrDefault(payload, 'aqm');
+  const hemirUnits = numericOrDefault(payload, 'hemir');
 
   // installResp is a fixed 4-option picklist (Terminus Ops.dc.html:5569-
   // 5570/5703): Client Own Installation Team / Terminus Contractor - Per
@@ -149,7 +150,7 @@ async function loadDealInputsFromOpportunity(db, opportunityId) {
   // submit-recompute architecture depends on both branching the same way
   // for the same input.
   const installLineItems = lumpSumDeal ? [
-    { key: 'inLump', cost: payload.lumpSumCost ?? 0, marginPct: marginFor('inLump') },
+    { key: 'inLump', cost: numericOrDefault(payload, 'lumpSumCost'), marginPct: marginFor('inLump') },
   ] : isPerUnit ? [
     // Round 37 Phase 1: from the catalog, matching the tab. Changed here as
     // well for the same reason the unit and hosting rates were in Round 36:
@@ -179,7 +180,7 @@ async function loadDealInputsFromOpportunity(db, opportunityId) {
     aqUnits: aqmUnits,
     hemirUnitCost: catalogRates.hemirUnitCost ?? 0,
     hemirUnits,
-    warrantyPct: payload.warrantyPct ?? 2,
+    warrantyPct: numericOrDefault(payload, 'warrantyPct'),
     installLineItems,
     hostingLineItems,
     hardwareMargins: {
@@ -188,20 +189,20 @@ async function loadDealInputsFromOpportunity(db, opportunityId) {
       hwHemir: marginFor('hwHemir'),
       hwWarranty: marginFor('hwWarranty'),
     },
-    months: payload.duration ?? 0,
+    months: numericOrDefault(payload, 'duration'),
     structure: payload.structure ?? 'twoPhase',
-    recoveryMonths: payload.recoveryMonths,
+    recoveryMonths: numericOrDefault(payload, 'recoveryMonths'),
     annualInvoicing: (payload.invoicing ?? 'annual') === 'annual',
     milestones: payload.milestones ?? [],
     lumpSumDeal,
-    lumpCost: payload.lumpSumCost ?? 0,
+    lumpCost: numericOrDefault(payload, 'lumpSumCost'),
     contractorMilestones: payload.contractorMilestones ?? [],
     factoringEnabled: factoring.enabled ?? false,
     factoringRatePct: factoring.ratePct ?? 1.5,
     factoringTermMonths: factoring.termMonths,
     factoringMethod: factoring.method ?? 'straight',
-    whtPct: payload.whtPct ?? 0,
-    gstPct: payload.gstPct ?? 0,
+    whtPct: numericOrDefault(payload, 'whtPct'),
+    gstPct: numericOrDefault(payload, 'gstPct'),
     grossUp: payload.grossUp ?? false,
     testBedCost,
   };
