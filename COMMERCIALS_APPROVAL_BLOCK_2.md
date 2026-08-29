@@ -74,11 +74,18 @@ rather than `not null`: one version row predates the column and is `issued`,
 which the immutability trigger refuses to alter, so it carries null and cannot
 be approved. Not backfilled. See section 9.
 
-**(b) `buildDealInputs` moves to `src/lib/deal-inputs.js`**, served to the
-browser the way `deal-calculator.js` and `numeric-payload.js` already are, and
-`loadDealInputsFromOpportunity` is rewritten to call it. One computation path
-per concern. The recompute-mismatch check stays, because it now guards a
-different thing: that the client sent what it displayed.
+**(b) `buildDealInputs` moves to `src/lib/deal-inputs.js`. BUILT, 2026-08-29.**
+Served to the browser the way `deal-calculator.js` already is, and
+`loadDealInputsFromOpportunity`'s eighty inline lines are gone. **Measured before
+merging**, because the server's comment claimed the two were "kept identical":
+both copies were extracted and run over eight payload shapes, every `installResp`
+branch plus blanks-as-null, numeric strings and an empty payload, and they agreed
+on all eight. That agreed output is now
+`scripts/tests/fixtures/deal-inputs-golden.json`, so the refactor is locked
+against what shipped rather than against what I thought it should do.
+
+The recompute-mismatch check stays, because it now guards a different thing: that
+the client sent what it displayed.
 
 ---
 

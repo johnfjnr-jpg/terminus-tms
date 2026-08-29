@@ -21,6 +21,10 @@ import { calculateDeal } from '/lib/deal-calculator.js'
 import { catalogToRates } from '/lib/base-costs.js'
 import { toNumberOrNull, numericOrDefault, NUMERIC_DEFAULTS, WRITABLE_NUMERIC_KEYS } from '/lib/numeric-payload.js'
 import { changedKeys } from '/lib/payload-diff.js'
+// Round 38: the ONE translation, shared with the submit route and the
+// approval page. It reads catalog rates as ordinary payload keys, which is
+// exactly what readPayload() puts there.
+import { buildDealInputs } from '/lib/deal-inputs.js'
 
 let opportunityId = null
 let wired = false
@@ -227,89 +231,6 @@ function readContractorMilestones() {
 // in src/routes/deals.js field for field. This mapping is glue code, not
 // the shared calculation itself, so it's allowed to be duplicated - the
 // preview it feeds is explicitly never trusted for the actual snapshot. ──
-function buildDealInputs(payload) {
-  const targetMargin = numericOrDefault(payload, 'targetMargin')
-  const overrides = payload.marginOverrides ?? {}
-  const marginFor = (key) => overrides[key] ?? targetMargin
-
-  const ssExisting = numericOrDefault(payload, 'ssExisting')
-  const ssNew = numericOrDefault(payload, 'ssNew')
-  const aqmUnits = numericOrDefault(payload, 'aqm')
-  const hemirUnits = numericOrDefault(payload, 'hemir')
-
-  const lumpSumDeal = (payload.installResp ?? '').includes('Lump Sum')
-
-  // isPerUnit used to be a separately-stored boolean, computed once via
-  // uiState.installResp === 'Terminus Installation Team' - an invented
-  // string that never matched the real 4-option picklist (Terminus
-  // Ops.dc.html:5569-5570/5703: Client Own Installation Team / Terminus
-  // Contractor - Per Unit / Terminus Contractor - Lump Sum / Terminus -
-  // Reseller Installation), so it was always false and Reseller
-  // Installation had no option at all. Derived fresh from installResp
-  // here instead, same substring-match mechanism as lumpSumDeal above,
-  // so there's no separate flag left to drift out of sync with the
-  // string it's meant to describe.
-  const isPerUnit = (payload.installResp ?? '').includes('Per Unit')
-
-  // Lump Sum must be its own branch, not folded into the isPerUnit check -
-  // it was previously falling through to the zero-cost 'inNone' line,
-  // meaning installGroup (and everything downstream: the Deal Summary
-  // matrix's Installation column, the Deal sheet's installation cost
-  // line) silently priced Lump Sum installation at $0.
-  const installLineItems = lumpSumDeal ? [
-    { key: 'inLump', cost: numericOrDefault(payload, 'lumpSumCost'), marginPct: marginFor('inLump') },
-  ] : isPerUnit ? [
-    { key: 'inSsEx', cost: (payload.inSsExisting ?? 0) * ssExisting, marginPct: marginFor('inSsEx') },
-    { key: 'inSsNew', cost: (payload.inSsNew ?? 0) * ssNew, marginPct: marginFor('inSsNew') },
-    { key: 'inAqm', cost: (payload.inAqm ?? 0) * aqmUnits, marginPct: marginFor('inAqm') },
-    { key: 'inHemir', cost: (payload.inHemir ?? 0) * hemirUnits, marginPct: marginFor('inHemir') },
-  ] : [
-    { key: 'inNone', cost: 0, marginPct: marginFor('inNone') },
-  ]
-
-  const hostingLineItems = [
-    { key: 'hoSs', cost: (payload.hoSafesight ?? 0) * (ssExisting + ssNew), marginPct: marginFor('hoSs') },
-    { key: 'hoAqm', cost: (payload.hoAqm ?? 0) * aqmUnits, marginPct: marginFor('hoAqm') },
-    { key: 'hoHemir', cost: (payload.hoHemir ?? 0) * hemirUnits, marginPct: marginFor('hoHemir') },
-  ]
-
-  const factoring = payload.factoring ?? {}
-
-  return {
-    ssUnitCost: payload.ssUnitCost ?? 0,
-    ssUnits: ssExisting + ssNew,
-    aqUnitCost: payload.aqUnitCost ?? 0,
-    aqUnits: aqmUnits,
-    hemirUnitCost: payload.hemirUnitCost ?? 0,
-    hemirUnits,
-    warrantyPct: numericOrDefault(payload, 'warrantyPct'),
-    installLineItems,
-    hostingLineItems,
-    hardwareMargins: {
-      hwSs: marginFor('hwSs'),
-      hwAqm: marginFor('hwAqm'),
-      hwHemir: marginFor('hwHemir'),
-      hwWarranty: marginFor('hwWarranty'),
-    },
-    months: numericOrDefault(payload, 'duration'),
-    structure: payload.structure ?? 'twoPhase',
-    recoveryMonths: numericOrDefault(payload, 'recoveryMonths'),
-    annualInvoicing: (payload.invoicing ?? 'annual') === 'annual',
-    milestones: payload.milestones ?? [],
-    lumpSumDeal,
-    lumpCost: numericOrDefault(payload, 'lumpSumCost'),
-    contractorMilestones: payload.contractorMilestones ?? [],
-    factoringEnabled: factoring.enabled ?? false,
-    factoringRatePct: factoring.ratePct ?? 1.5,
-    factoringTermMonths: factoring.termMonths,
-    factoringMethod: factoring.method ?? 'straight',
-    whtPct: numericOrDefault(payload, 'whtPct'),
-    gstPct: numericOrDefault(payload, 'gstPct'),
-    grossUp: payload.grossUp ?? false,
-    testBedCost,
-  }
-}
-
 // Hw / Hosting Setup pricing cards: reads Cost/Price straight from
 // result.groups.hardwareGroup / hostingGroup rows and totals - nothing
 // here is recomputed fresh. Only touches read-only cells (note/cost/
@@ -753,7 +674,7 @@ async function restoreVersion(versionId) {
 // ── Recompute + render ────────────────────────────────────────────────────
 function recompute() {
   const payload = readPayload()
-  const dealInputs = buildDealInputs(payload)
+  const dealInputs = buildDealInputs(payload, { testBedCost })
   const result = calculateDeal(dealInputs)
   renderResults(result, payload)
   return result

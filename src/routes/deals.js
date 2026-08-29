@@ -19,10 +19,10 @@
 
 import { createUserClient } from '../supabase.js';
 import { resolveCurrentBatches, catalogToRates } from '../lib/base-costs.js';
-import { numericOrDefault } from '../lib/numeric-payload.js';
 import { sendWriteError } from '../lib/write-errors.js'
 import { appendRecordRevision, SINGLE_KEY_RMW, CLIENT_UNWIRED } from '../lib/record-revision.js';
 import { calculateDeal } from '../lib/deal-calculator.js';
+import { buildDealInputs } from '../lib/deal-inputs.js';
 
 /**
  * Loads an Opportunity's complete pricing state from Supabase and
@@ -93,10 +93,6 @@ async function loadDealInputsFromOpportunity(db, opportunityId) {
 
   const payload = revision.payload ?? {};
 
-  const targetMargin = numericOrDefault(payload, 'targetMargin');
-  const overrides = payload.marginOverrides ?? {};
-  const marginFor = (key) => overrides[key] ?? targetMargin;
-
   // Base Cost Data, Round 36 Phase 2. The rates were read from the payload
   // until this round, where nothing ever wrote them, so every recompute this
   // function fed was arithmetic on absent inputs.
@@ -123,89 +119,29 @@ async function loadDealInputsFromOpportunity(db, opportunityId) {
   const { rates: catalogRates, missing: catalogMissing } =
     catalogToRates(resolveCurrentBatches(batchRows ?? [], asOf));
 
-  const ssExisting = numericOrDefault(payload, 'ssExisting');
-  const ssNew = numericOrDefault(payload, 'ssNew');
-  const aqmUnits = numericOrDefault(payload, 'aqm');
-  const hemirUnits = numericOrDefault(payload, 'hemir');
-
-  // installResp is a fixed 4-option picklist (Terminus Ops.dc.html:5569-
-  // 5570/5703): Client Own Installation Team / Terminus Contractor - Per
-  // Unit / Terminus Contractor - Lump Sum / Terminus - Reseller
-  // Installation. Confirmed via the Rule-8 audit: an earlier version of
-  // this picklist used 3 invented labels missing Reseller Installation
-  // entirely, with isPerUnit stored as a separate boolean computed via
-  // exact-equality against one of those wrong labels - always false, so
-  // Per Unit deals were silently priced with zero installation cost.
-  // Both branches below now derive straight from installResp via the same
-  // substring match, so there's no separate flag left to drift out of
-  // sync with the string it's meant to describe.
-  const lumpSumDeal = (payload.installResp ?? '').includes('Lump Sum');
-  const isPerUnit = (payload.installResp ?? '').includes('Per Unit');
-
-  // Lump Sum must be its own branch, not folded into the isPerUnit check -
-  // it was previously falling through to the zero-cost 'inNone' line,
-  // meaning installGroup (and everything downstream) silently priced Lump
-  // Sum installation at $0 server-side too. Kept identical to the
-  // client-side buildDealInputs() in frontend/opportunity-deal.js - the
-  // submit-recompute architecture depends on both branching the same way
-  // for the same input.
-  const installLineItems = lumpSumDeal ? [
-    { key: 'inLump', cost: numericOrDefault(payload, 'lumpSumCost'), marginPct: marginFor('inLump') },
-  ] : isPerUnit ? [
-    // Round 37 Phase 1: from the catalog, matching the tab. Changed here as
-    // well for the same reason the unit and hosting rates were in Round 36:
-    // leaving it reading the payload is correct for every caller that exists
-    // and wrong the moment submit is wired, and the divergence would be a
-    // preview and an authoritative snapshot disagreeing on installation.
-    { key: 'inSsEx', cost: (catalogRates.inSsExisting ?? 0) * ssExisting, marginPct: marginFor('inSsEx') },
-    { key: 'inSsNew', cost: (catalogRates.inSsNew ?? 0) * ssNew, marginPct: marginFor('inSsNew') },
-    { key: 'inAqm', cost: (catalogRates.inAqm ?? 0) * aqmUnits, marginPct: marginFor('inAqm') },
-    { key: 'inHemir', cost: (catalogRates.inHemir ?? 0) * hemirUnits, marginPct: marginFor('inHemir') },
-  ] : [
-    { key: 'inNone', cost: 0, marginPct: marginFor('inNone') },
-  ];
-
-  const hostingLineItems = [
-    { key: 'hoSs', cost: (catalogRates.hoSafesight ?? 0) * (ssExisting + ssNew), marginPct: marginFor('hoSs') },
-    { key: 'hoAqm', cost: (catalogRates.hoAqm ?? 0) * aqmUnits, marginPct: marginFor('hoAqm') },
-    { key: 'hoHemir', cost: (catalogRates.hoHemir ?? 0) * hemirUnits, marginPct: marginFor('hoHemir') },
-  ];
-
-  const factoring = payload.factoring ?? {};
-
-  const dealInputs = {
-    ssUnitCost: catalogRates.ssUnitCost ?? 0,
-    ssUnits: ssExisting + ssNew,
-    aqUnitCost: catalogRates.aqUnitCost ?? 0,
-    aqUnits: aqmUnits,
-    hemirUnitCost: catalogRates.hemirUnitCost ?? 0,
-    hemirUnits,
-    warrantyPct: numericOrDefault(payload, 'warrantyPct'),
-    installLineItems,
-    hostingLineItems,
-    hardwareMargins: {
-      hwSs: marginFor('hwSs'),
-      hwAqm: marginFor('hwAqm'),
-      hwHemir: marginFor('hwHemir'),
-      hwWarranty: marginFor('hwWarranty'),
-    },
-    months: numericOrDefault(payload, 'duration'),
-    structure: payload.structure ?? 'twoPhase',
-    recoveryMonths: numericOrDefault(payload, 'recoveryMonths'),
-    annualInvoicing: (payload.invoicing ?? 'annual') === 'annual',
-    milestones: payload.milestones ?? [],
-    lumpSumDeal,
-    lumpCost: numericOrDefault(payload, 'lumpSumCost'),
-    contractorMilestones: payload.contractorMilestones ?? [],
-    factoringEnabled: factoring.enabled ?? false,
-    factoringRatePct: factoring.ratePct ?? 1.5,
-    factoringTermMonths: factoring.termMonths,
-    factoringMethod: factoring.method ?? 'straight',
-    whtPct: numericOrDefault(payload, 'whtPct'),
-    gstPct: numericOrDefault(payload, 'gstPct'),
-    grossUp: payload.grossUp ?? false,
-    testBedCost,
-  };
+  // ── ONE TRANSLATION ──────────────────────────────────────────────────
+  //
+  // Round 38: the eighty lines that stood here were a second copy of
+  // frontend/opportunity-deal.js's buildDealInputs, and the comment above them
+  // said so - "kept identical to the client-side buildDealInputs()". Measured
+  // across eight payload shapes before merging, including every installResp
+  // branch, blanks-as-null and numeric strings: the two agreed on all eight. The
+  // claim held. It is still a second path, and Architecture rule 3 is about the
+  // one that has not disagreed yet.
+  //
+  // The shared function reads rates as ordinary payload keys, which is what
+  // readPayload() on the tab writes. This caller merges TODAY'S catalog in,
+  // which is what it has always done and is right for an authoritative
+  // recompute: submit prices at current rates, not at whatever was stored.
+  //
+  // RATES WIN OVER THE PAYLOAD, deliberately, and the spread order is the whole
+  // rule. Round 36 found the payload's own rate keys were never written by
+  // anything, so every recompute was arithmetic on absent inputs; letting a
+  // stale stored rate override the catalog here would put that back.
+  // catalogToRates already keys its output by the payload's own rate names
+  // (PRODUCT_RATE_KEYS), so the spread IS the merge. No adapter, and no second
+  // place where a rate key could be renamed on one side only.
+  const dealInputs = buildDealInputs({ ...payload, ...catalogRates }, { testBedCost });
 
   // catalogMissing travels with the inputs rather than being swallowed. A
   // product with no batch prices at 0, and a caller that cannot see the

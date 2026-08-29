@@ -1,0 +1,855 @@
+[
+  {
+    "label": "lump sum",
+    "payload": {
+      "ssExisting": 40,
+      "ssNew": 10,
+      "aqm": 6,
+      "hemir": 2,
+      "targetMargin": 30,
+      "warrantyPct": 2,
+      "whtPct": 10,
+      "gstPct": 7,
+      "grossUp": true,
+      "duration": 36,
+      "recoveryMonths": 12,
+      "invoicing": "annual",
+      "structure": "twoPhase",
+      "milestones": [
+        {
+          "month": 1,
+          "usd": 5
+        }
+      ],
+      "contractorMilestones": [],
+      "factoring": {
+        "enabled": true,
+        "ratePct": 1.5,
+        "termMonths": 12,
+        "method": "simple"
+      },
+      "marginOverrides": {
+        "hwSs": 25
+      },
+      "lumpSumCost": 60000,
+      "installResp": "Terminus Contractor - Lump Sum",
+      "ssUnitCost": 1200,
+      "aqUnitCost": 800,
+      "hemirUnitCost": 5000,
+      "inSsExisting": 300,
+      "inSsNew": 450,
+      "inAqm": 200,
+      "inHemir": 900,
+      "hoSafesight": 25,
+      "hoAqm": 15,
+      "hoHemir": 60
+    },
+    "testBedCost": 25000,
+    "expected": {
+      "ssUnitCost": 1200,
+      "ssUnits": 50,
+      "aqUnitCost": 800,
+      "aqUnits": 6,
+      "hemirUnitCost": 5000,
+      "hemirUnits": 2,
+      "warrantyPct": 2,
+      "installLineItems": [
+        {
+          "key": "inLump",
+          "cost": 60000,
+          "marginPct": 30
+        }
+      ],
+      "hostingLineItems": [
+        {
+          "key": "hoSs",
+          "cost": 1250,
+          "marginPct": 30
+        },
+        {
+          "key": "hoAqm",
+          "cost": 90,
+          "marginPct": 30
+        },
+        {
+          "key": "hoHemir",
+          "cost": 120,
+          "marginPct": 30
+        }
+      ],
+      "hardwareMargins": {
+        "hwSs": 25,
+        "hwAqm": 30,
+        "hwHemir": 30,
+        "hwWarranty": 30
+      },
+      "months": 36,
+      "structure": "twoPhase",
+      "recoveryMonths": 12,
+      "annualInvoicing": true,
+      "milestones": [
+        {
+          "month": 1,
+          "usd": 5
+        }
+      ],
+      "lumpSumDeal": true,
+      "lumpCost": 60000,
+      "contractorMilestones": [],
+      "factoringEnabled": true,
+      "factoringRatePct": 1.5,
+      "factoringTermMonths": 12,
+      "factoringMethod": "simple",
+      "whtPct": 10,
+      "gstPct": 7,
+      "grossUp": true,
+      "testBedCost": 25000
+    }
+  },
+  {
+    "label": "per unit",
+    "payload": {
+      "ssExisting": 40,
+      "ssNew": 10,
+      "aqm": 6,
+      "hemir": 2,
+      "targetMargin": 30,
+      "warrantyPct": 2,
+      "whtPct": 10,
+      "gstPct": 7,
+      "grossUp": true,
+      "duration": 36,
+      "recoveryMonths": 12,
+      "invoicing": "annual",
+      "structure": "twoPhase",
+      "milestones": [
+        {
+          "month": 1,
+          "usd": 5
+        }
+      ],
+      "contractorMilestones": [],
+      "factoring": {
+        "enabled": true,
+        "ratePct": 1.5,
+        "termMonths": 12,
+        "method": "simple"
+      },
+      "marginOverrides": {
+        "hwSs": 25
+      },
+      "lumpSumCost": 60000,
+      "installResp": "Terminus Contractor - Per Unit",
+      "ssUnitCost": 1200,
+      "aqUnitCost": 800,
+      "hemirUnitCost": 5000,
+      "inSsExisting": 300,
+      "inSsNew": 450,
+      "inAqm": 200,
+      "inHemir": 900,
+      "hoSafesight": 25,
+      "hoAqm": 15,
+      "hoHemir": 60
+    },
+    "testBedCost": 25000,
+    "expected": {
+      "ssUnitCost": 1200,
+      "ssUnits": 50,
+      "aqUnitCost": 800,
+      "aqUnits": 6,
+      "hemirUnitCost": 5000,
+      "hemirUnits": 2,
+      "warrantyPct": 2,
+      "installLineItems": [
+        {
+          "key": "inSsEx",
+          "cost": 12000,
+          "marginPct": 30
+        },
+        {
+          "key": "inSsNew",
+          "cost": 4500,
+          "marginPct": 30
+        },
+        {
+          "key": "inAqm",
+          "cost": 1200,
+          "marginPct": 30
+        },
+        {
+          "key": "inHemir",
+          "cost": 1800,
+          "marginPct": 30
+        }
+      ],
+      "hostingLineItems": [
+        {
+          "key": "hoSs",
+          "cost": 1250,
+          "marginPct": 30
+        },
+        {
+          "key": "hoAqm",
+          "cost": 90,
+          "marginPct": 30
+        },
+        {
+          "key": "hoHemir",
+          "cost": 120,
+          "marginPct": 30
+        }
+      ],
+      "hardwareMargins": {
+        "hwSs": 25,
+        "hwAqm": 30,
+        "hwHemir": 30,
+        "hwWarranty": 30
+      },
+      "months": 36,
+      "structure": "twoPhase",
+      "recoveryMonths": 12,
+      "annualInvoicing": true,
+      "milestones": [
+        {
+          "month": 1,
+          "usd": 5
+        }
+      ],
+      "lumpSumDeal": false,
+      "lumpCost": 60000,
+      "contractorMilestones": [],
+      "factoringEnabled": true,
+      "factoringRatePct": 1.5,
+      "factoringTermMonths": 12,
+      "factoringMethod": "simple",
+      "whtPct": 10,
+      "gstPct": 7,
+      "grossUp": true,
+      "testBedCost": 25000
+    }
+  },
+  {
+    "label": "client own",
+    "payload": {
+      "ssExisting": 40,
+      "ssNew": 10,
+      "aqm": 6,
+      "hemir": 2,
+      "targetMargin": 30,
+      "warrantyPct": 2,
+      "whtPct": 10,
+      "gstPct": 7,
+      "grossUp": true,
+      "duration": 36,
+      "recoveryMonths": 12,
+      "invoicing": "annual",
+      "structure": "twoPhase",
+      "milestones": [
+        {
+          "month": 1,
+          "usd": 5
+        }
+      ],
+      "contractorMilestones": [],
+      "factoring": {
+        "enabled": true,
+        "ratePct": 1.5,
+        "termMonths": 12,
+        "method": "simple"
+      },
+      "marginOverrides": {
+        "hwSs": 25
+      },
+      "lumpSumCost": 60000,
+      "installResp": "Client Own Installation Team",
+      "ssUnitCost": 1200,
+      "aqUnitCost": 800,
+      "hemirUnitCost": 5000,
+      "inSsExisting": 300,
+      "inSsNew": 450,
+      "inAqm": 200,
+      "inHemir": 900,
+      "hoSafesight": 25,
+      "hoAqm": 15,
+      "hoHemir": 60
+    },
+    "testBedCost": 25000,
+    "expected": {
+      "ssUnitCost": 1200,
+      "ssUnits": 50,
+      "aqUnitCost": 800,
+      "aqUnits": 6,
+      "hemirUnitCost": 5000,
+      "hemirUnits": 2,
+      "warrantyPct": 2,
+      "installLineItems": [
+        {
+          "key": "inNone",
+          "cost": 0,
+          "marginPct": 30
+        }
+      ],
+      "hostingLineItems": [
+        {
+          "key": "hoSs",
+          "cost": 1250,
+          "marginPct": 30
+        },
+        {
+          "key": "hoAqm",
+          "cost": 90,
+          "marginPct": 30
+        },
+        {
+          "key": "hoHemir",
+          "cost": 120,
+          "marginPct": 30
+        }
+      ],
+      "hardwareMargins": {
+        "hwSs": 25,
+        "hwAqm": 30,
+        "hwHemir": 30,
+        "hwWarranty": 30
+      },
+      "months": 36,
+      "structure": "twoPhase",
+      "recoveryMonths": 12,
+      "annualInvoicing": true,
+      "milestones": [
+        {
+          "month": 1,
+          "usd": 5
+        }
+      ],
+      "lumpSumDeal": false,
+      "lumpCost": 60000,
+      "contractorMilestones": [],
+      "factoringEnabled": true,
+      "factoringRatePct": 1.5,
+      "factoringTermMonths": 12,
+      "factoringMethod": "simple",
+      "whtPct": 10,
+      "gstPct": 7,
+      "grossUp": true,
+      "testBedCost": 25000
+    }
+  },
+  {
+    "label": "reseller",
+    "payload": {
+      "ssExisting": 40,
+      "ssNew": 10,
+      "aqm": 6,
+      "hemir": 2,
+      "targetMargin": 30,
+      "warrantyPct": 2,
+      "whtPct": 10,
+      "gstPct": 7,
+      "grossUp": true,
+      "duration": 36,
+      "recoveryMonths": 12,
+      "invoicing": "annual",
+      "structure": "twoPhase",
+      "milestones": [
+        {
+          "month": 1,
+          "usd": 5
+        }
+      ],
+      "contractorMilestones": [],
+      "factoring": {
+        "enabled": true,
+        "ratePct": 1.5,
+        "termMonths": 12,
+        "method": "simple"
+      },
+      "marginOverrides": {
+        "hwSs": 25
+      },
+      "lumpSumCost": 60000,
+      "installResp": "Terminus - Reseller Installation",
+      "ssUnitCost": 1200,
+      "aqUnitCost": 800,
+      "hemirUnitCost": 5000,
+      "inSsExisting": 300,
+      "inSsNew": 450,
+      "inAqm": 200,
+      "inHemir": 900,
+      "hoSafesight": 25,
+      "hoAqm": 15,
+      "hoHemir": 60
+    },
+    "testBedCost": 25000,
+    "expected": {
+      "ssUnitCost": 1200,
+      "ssUnits": 50,
+      "aqUnitCost": 800,
+      "aqUnits": 6,
+      "hemirUnitCost": 5000,
+      "hemirUnits": 2,
+      "warrantyPct": 2,
+      "installLineItems": [
+        {
+          "key": "inNone",
+          "cost": 0,
+          "marginPct": 30
+        }
+      ],
+      "hostingLineItems": [
+        {
+          "key": "hoSs",
+          "cost": 1250,
+          "marginPct": 30
+        },
+        {
+          "key": "hoAqm",
+          "cost": 90,
+          "marginPct": 30
+        },
+        {
+          "key": "hoHemir",
+          "cost": 120,
+          "marginPct": 30
+        }
+      ],
+      "hardwareMargins": {
+        "hwSs": 25,
+        "hwAqm": 30,
+        "hwHemir": 30,
+        "hwWarranty": 30
+      },
+      "months": 36,
+      "structure": "twoPhase",
+      "recoveryMonths": 12,
+      "annualInvoicing": true,
+      "milestones": [
+        {
+          "month": 1,
+          "usd": 5
+        }
+      ],
+      "lumpSumDeal": false,
+      "lumpCost": 60000,
+      "contractorMilestones": [],
+      "factoringEnabled": true,
+      "factoringRatePct": 1.5,
+      "factoringTermMonths": 12,
+      "factoringMethod": "simple",
+      "whtPct": 10,
+      "gstPct": 7,
+      "grossUp": true,
+      "testBedCost": 25000
+    }
+  },
+  {
+    "label": "no installResp",
+    "payload": {
+      "ssExisting": 40,
+      "ssNew": 10,
+      "aqm": 6,
+      "hemir": 2,
+      "targetMargin": 30,
+      "warrantyPct": 2,
+      "whtPct": 10,
+      "gstPct": 7,
+      "grossUp": true,
+      "duration": 36,
+      "recoveryMonths": 12,
+      "invoicing": "annual",
+      "structure": "twoPhase",
+      "milestones": [
+        {
+          "month": 1,
+          "usd": 5
+        }
+      ],
+      "contractorMilestones": [],
+      "factoring": {
+        "enabled": true,
+        "ratePct": 1.5,
+        "termMonths": 12,
+        "method": "simple"
+      },
+      "marginOverrides": {
+        "hwSs": 25
+      },
+      "lumpSumCost": 60000,
+      "ssUnitCost": 1200,
+      "aqUnitCost": 800,
+      "hemirUnitCost": 5000,
+      "inSsExisting": 300,
+      "inSsNew": 450,
+      "inAqm": 200,
+      "inHemir": 900,
+      "hoSafesight": 25,
+      "hoAqm": 15,
+      "hoHemir": 60
+    },
+    "testBedCost": 25000,
+    "expected": {
+      "ssUnitCost": 1200,
+      "ssUnits": 50,
+      "aqUnitCost": 800,
+      "aqUnits": 6,
+      "hemirUnitCost": 5000,
+      "hemirUnits": 2,
+      "warrantyPct": 2,
+      "installLineItems": [
+        {
+          "key": "inNone",
+          "cost": 0,
+          "marginPct": 30
+        }
+      ],
+      "hostingLineItems": [
+        {
+          "key": "hoSs",
+          "cost": 1250,
+          "marginPct": 30
+        },
+        {
+          "key": "hoAqm",
+          "cost": 90,
+          "marginPct": 30
+        },
+        {
+          "key": "hoHemir",
+          "cost": 120,
+          "marginPct": 30
+        }
+      ],
+      "hardwareMargins": {
+        "hwSs": 25,
+        "hwAqm": 30,
+        "hwHemir": 30,
+        "hwWarranty": 30
+      },
+      "months": 36,
+      "structure": "twoPhase",
+      "recoveryMonths": 12,
+      "annualInvoicing": true,
+      "milestones": [
+        {
+          "month": 1,
+          "usd": 5
+        }
+      ],
+      "lumpSumDeal": false,
+      "lumpCost": 60000,
+      "contractorMilestones": [],
+      "factoringEnabled": true,
+      "factoringRatePct": 1.5,
+      "factoringTermMonths": 12,
+      "factoringMethod": "simple",
+      "whtPct": 10,
+      "gstPct": 7,
+      "grossUp": true,
+      "testBedCost": 25000
+    }
+  },
+  {
+    "label": "bare payload",
+    "payload": {},
+    "testBedCost": 25000,
+    "expected": {
+      "ssUnitCost": 0,
+      "ssUnits": 0,
+      "aqUnitCost": 0,
+      "aqUnits": 0,
+      "hemirUnitCost": 0,
+      "hemirUnits": 0,
+      "warrantyPct": 2,
+      "installLineItems": [
+        {
+          "key": "inNone",
+          "cost": 0,
+          "marginPct": 30
+        }
+      ],
+      "hostingLineItems": [
+        {
+          "key": "hoSs",
+          "cost": 0,
+          "marginPct": 30
+        },
+        {
+          "key": "hoAqm",
+          "cost": 0,
+          "marginPct": 30
+        },
+        {
+          "key": "hoHemir",
+          "cost": 0,
+          "marginPct": 30
+        }
+      ],
+      "hardwareMargins": {
+        "hwSs": 30,
+        "hwAqm": 30,
+        "hwHemir": 30,
+        "hwWarranty": 30
+      },
+      "months": 0,
+      "structure": "twoPhase",
+      "recoveryMonths": 0,
+      "annualInvoicing": true,
+      "milestones": [],
+      "lumpSumDeal": false,
+      "lumpCost": 0,
+      "contractorMilestones": [],
+      "factoringEnabled": false,
+      "factoringRatePct": 1.5,
+      "factoringTermMonths": "__undefined__",
+      "factoringMethod": "straight",
+      "whtPct": 0,
+      "gstPct": 0,
+      "grossUp": false,
+      "testBedCost": 25000
+    }
+  },
+  {
+    "label": "blanks as null",
+    "payload": {
+      "ssExisting": null,
+      "ssNew": null,
+      "aqm": null,
+      "hemir": null,
+      "targetMargin": null,
+      "warrantyPct": null,
+      "whtPct": null,
+      "gstPct": null,
+      "grossUp": true,
+      "duration": null,
+      "recoveryMonths": null,
+      "invoicing": "annual",
+      "structure": "twoPhase",
+      "milestones": [
+        {
+          "month": 1,
+          "usd": 5
+        }
+      ],
+      "contractorMilestones": [],
+      "factoring": {
+        "enabled": true,
+        "ratePct": 1.5,
+        "termMonths": 12,
+        "method": "simple"
+      },
+      "marginOverrides": {
+        "hwSs": 25
+      },
+      "lumpSumCost": null,
+      "installResp": "Terminus Contractor - Per Unit",
+      "ssUnitCost": 1200,
+      "aqUnitCost": 800,
+      "hemirUnitCost": 5000,
+      "inSsExisting": 300,
+      "inSsNew": 450,
+      "inAqm": 200,
+      "inHemir": 900,
+      "hoSafesight": 25,
+      "hoAqm": 15,
+      "hoHemir": 60
+    },
+    "testBedCost": 25000,
+    "expected": {
+      "ssUnitCost": 1200,
+      "ssUnits": 0,
+      "aqUnitCost": 800,
+      "aqUnits": 0,
+      "hemirUnitCost": 5000,
+      "hemirUnits": 0,
+      "warrantyPct": 2,
+      "installLineItems": [
+        {
+          "key": "inSsEx",
+          "cost": 0,
+          "marginPct": 30
+        },
+        {
+          "key": "inSsNew",
+          "cost": 0,
+          "marginPct": 30
+        },
+        {
+          "key": "inAqm",
+          "cost": 0,
+          "marginPct": 30
+        },
+        {
+          "key": "inHemir",
+          "cost": 0,
+          "marginPct": 30
+        }
+      ],
+      "hostingLineItems": [
+        {
+          "key": "hoSs",
+          "cost": 0,
+          "marginPct": 30
+        },
+        {
+          "key": "hoAqm",
+          "cost": 0,
+          "marginPct": 30
+        },
+        {
+          "key": "hoHemir",
+          "cost": 0,
+          "marginPct": 30
+        }
+      ],
+      "hardwareMargins": {
+        "hwSs": 25,
+        "hwAqm": 30,
+        "hwHemir": 30,
+        "hwWarranty": 30
+      },
+      "months": 0,
+      "structure": "twoPhase",
+      "recoveryMonths": 0,
+      "annualInvoicing": true,
+      "milestones": [
+        {
+          "month": 1,
+          "usd": 5
+        }
+      ],
+      "lumpSumDeal": false,
+      "lumpCost": 0,
+      "contractorMilestones": [],
+      "factoringEnabled": true,
+      "factoringRatePct": 1.5,
+      "factoringTermMonths": 12,
+      "factoringMethod": "simple",
+      "whtPct": 0,
+      "gstPct": 0,
+      "grossUp": true,
+      "testBedCost": 25000
+    }
+  },
+  {
+    "label": "numeric strings",
+    "payload": {
+      "ssExisting": 40,
+      "ssNew": 10,
+      "aqm": 6,
+      "hemir": 2,
+      "targetMargin": "27.5",
+      "warrantyPct": 2,
+      "whtPct": 10,
+      "gstPct": 7,
+      "grossUp": true,
+      "duration": "48",
+      "recoveryMonths": 12,
+      "invoicing": "annual",
+      "structure": "twoPhase",
+      "milestones": [
+        {
+          "month": 1,
+          "usd": 5
+        }
+      ],
+      "contractorMilestones": [],
+      "factoring": {
+        "enabled": true,
+        "ratePct": 1.5,
+        "termMonths": 12,
+        "method": "simple"
+      },
+      "marginOverrides": {
+        "hwSs": 25
+      },
+      "lumpSumCost": 60000,
+      "installResp": "Terminus Contractor - Per Unit",
+      "ssUnitCost": 1200,
+      "aqUnitCost": 800,
+      "hemirUnitCost": 5000,
+      "inSsExisting": 300,
+      "inSsNew": 450,
+      "inAqm": 200,
+      "inHemir": 900,
+      "hoSafesight": 25,
+      "hoAqm": 15,
+      "hoHemir": 60
+    },
+    "testBedCost": 25000,
+    "expected": {
+      "ssUnitCost": 1200,
+      "ssUnits": 50,
+      "aqUnitCost": 800,
+      "aqUnits": 6,
+      "hemirUnitCost": 5000,
+      "hemirUnits": 2,
+      "warrantyPct": 2,
+      "installLineItems": [
+        {
+          "key": "inSsEx",
+          "cost": 12000,
+          "marginPct": 27.5
+        },
+        {
+          "key": "inSsNew",
+          "cost": 4500,
+          "marginPct": 27.5
+        },
+        {
+          "key": "inAqm",
+          "cost": 1200,
+          "marginPct": 27.5
+        },
+        {
+          "key": "inHemir",
+          "cost": 1800,
+          "marginPct": 27.5
+        }
+      ],
+      "hostingLineItems": [
+        {
+          "key": "hoSs",
+          "cost": 1250,
+          "marginPct": 27.5
+        },
+        {
+          "key": "hoAqm",
+          "cost": 90,
+          "marginPct": 27.5
+        },
+        {
+          "key": "hoHemir",
+          "cost": 120,
+          "marginPct": 27.5
+        }
+      ],
+      "hardwareMargins": {
+        "hwSs": 25,
+        "hwAqm": 27.5,
+        "hwHemir": 27.5,
+        "hwWarranty": 27.5
+      },
+      "months": 48,
+      "structure": "twoPhase",
+      "recoveryMonths": 12,
+      "annualInvoicing": true,
+      "milestones": [
+        {
+          "month": 1,
+          "usd": 5
+        }
+      ],
+      "lumpSumDeal": false,
+      "lumpCost": 60000,
+      "contractorMilestones": [],
+      "factoringEnabled": true,
+      "factoringRatePct": 1.5,
+      "factoringTermMonths": 12,
+      "factoringMethod": "simple",
+      "whtPct": 10,
+      "gstPct": 7,
+      "grossUp": true,
+      "testBedCost": 25000
+    }
+  }
+]
