@@ -748,6 +748,24 @@ not resolve it quietly.
     so a value it reports as unset is unset by the calculator's own
     definition.
 
+    **AND READ AND WRITE MUST AGREE ABOUT ABSENCE, OR MAKING IT VISIBLE ONLY
+    MAKES IT VISIBLE ONCE.** Round 39, 2026-08-29, set by the business. Rule 20
+    is two readers of one value; this is a READER AND A WRITER holding
+    different definitions of "not set", and the writer wins on the first click.
+
+    406 of 467 opportunities carry no `gstPct`. New rows were built to render
+    that as `not recorded` rather than as a confident GST-free price. The entry
+    box still did `setVal('deal-gstPct', p.gstPct ?? 0)`, so **opening any of
+    those deals filled the box with a rate nobody had entered, and the first
+    save RECORDED one**, destroying the absence the new rows existed to report.
+    The display would have been right exactly until somebody used the screen.
+
+    **The check: after changing how a missing value is DISPLAYED, find what
+    WRITES it and confirm the two agree.** A form default, a prefill, an
+    `?? 0`, a `COALESCE` and a column default are all writers. Where a screen
+    both shows and edits a value, the round that teaches it to say "not
+    recorded" is the round that has to stop it quietly recording something.
+
 21. **A RECONCILIATION THAT CANNOT FAIL IS NOT A RECONCILIATION.** Round 38,
     2026-08-29, on the approval page's bridge.
 
@@ -900,6 +918,31 @@ not resolve it quietly.
     thing it measures actually happens. A skew is a property of the
     connection, so the retry belongs on the transport, which deletes the call
     sites rather than listing them.
+
+    **COROLLARY, THE SAME RULE APPLIED TO A PROCEDURE RATHER THAN A COUNTER.
+    Round 39, 2026-08-29, set by the business. A RECOVERY PATH THAT HAS NEVER
+    BEEN EXERCISED IS NOT A RECOVERY PATH, IT IS A PLAN.**
+
+    `refresh-session.js` printed "Use: `scripts/sign-in.js <email>
+    <password>`" when the refresh token had expired. `sign-in.js` only ever
+    PRINTED an access token. `session-ref.json` was written by exactly one
+    file, `refresh-session.js` itself, which needs a live refresh token, which
+    is the one thing that has just been established as dead. **The recovery
+    step could not restore the file it existed to restore**, and nobody knew,
+    because until the rotation after the committed credential nobody had ever
+    needed it.
+
+    **Found by accident, which is how every unexercised recovery path is
+    found**, and the accident was cheap this time because the thing lost was a
+    dev session rather than data.
+
+    **On the list, and it is the general form: enumerate every recovery path
+    in the system and exercise each once, BEFORE there is real data to lose.**
+    Migration rollback, fixture teardown after a mid-run failure, restoring a
+    deleted record, rebuilding the database from migrations on an empty
+    project. **Each of those currently exists as an intention.** A zero is
+    evidence only once the instrument has produced a non-zero, and a recovery
+    is a procedure only once it has recovered something.
 
 26. **A STRUCTURAL FACT STATED AS A BEHAVIOURAL CLAIM.** Round 39 Phase 0,
     2026-08-29. The brief for a whole round rested on one sentence, and half

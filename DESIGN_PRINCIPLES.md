@@ -825,6 +825,23 @@ today's existing behaviour.
 
 Explicitly deferred, not forgotten, not a section number of its own since this is a running list, not a build phase. Add to it as new deferrals come up rather than letting them live only in conversation.
 
+- **EXERCISE EVERY RECOVERY PATH ONCE, BEFORE THERE IS REAL DATA TO LOSE.
+  Raised 2026-08-29, Round 39, by the business. Its own work package.**
+
+  Found by accident: rotation after the committed credential killed the refresh
+  token, and the only script that could restore `session-ref.json` needed that
+  token. **The recovery path could not recover, and nobody knew, because it had
+  never been run.** Cheap this time because the thing lost was a dev session.
+
+  **Each of these currently exists as an intention rather than a procedure:**
+  migration rollback; fixture teardown after a run killed mid-flight; restoring
+  a soft-deleted record; rebuilding the database from migrations against an
+  empty project; regenerating `CURRENT_STATE.md` from a clean checkout.
+
+  Exercising one means running it and confirming it produced the state it
+  claims, not reading it. **Trigger: before the first real customer data
+  exists**, which is the last moment the exercise is free.
+
 - **TAX RATES HAVE NEITHER AN AGE NOR A POLICY, AND COST BASIS HAS BOTH. Raised
   2026-08-29, Round 39. Same package as the configurable system defaults.**
 
