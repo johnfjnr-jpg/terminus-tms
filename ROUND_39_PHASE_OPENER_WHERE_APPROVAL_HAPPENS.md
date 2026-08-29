@@ -214,15 +214,24 @@ or issuing it, **and that is where it belongs anyway: on the artefact leaving th
 building, not on a stage transition taken afterwards.**
 
 **Issuance is therefore the thing to build, and everything else in this section
-depends on it.** Ordered:
+depends on it. DEFERRED BEHIND THE RESHAPE**, under build discipline rule 10,
+with the trigger BEFORE THE FIRST PROPOSAL GOES TO A REAL CUSTOMER. It is a real
+hole and it is not destroying live data: there are no customers, so no proposal
+has reached one. Ordered, for when it comes up:
 
 1. **Model issuance.** What is produced, from which version, by whom, when.
    `DESIGN_PRINCIPLES.md:1089` already records the shape as a one-line addition
    once a proposal exists to hold it: an issued version is uniquely identified
    and immutable, so a `proposal.version_id` foreign key is all the link needs.
 2. **Put the gate on it**, as the third caller of `liveVersionApproval()`.
-3. **Then** `exitPropPricingApproved` can be removed rather than converted,
-   because the control will exist at the point it was pretending to cover.
+**`exitPropPricingApproved` was not left waiting for that.** Deleting a false
+control is a migration, not a build, and it did not need the real one to exist
+first: the tick was redundant as well as untrue, because the same transition
+already carries the version-scoped Commercial rule that does the real check.
+Removed in `20260829000006`, along with its entry in the frontend criterion key
+set and the server's writable keys, so no tickable control survives its own rule.
+The payload key is not deleted from any record: one holds a value,
+`record_revisions` is append-only, and it becomes orphaned data nothing reads.
 
 **Callers of `liveVersionApproval()` today**, so the third is countable:
 
@@ -231,6 +240,28 @@ depends on it.** Ordered:
 3. the approval page, unified onto it in this round after it was found
    assembling the same answer from the two functions underneath - Verification 20
    applied to something this round created
+
+---
+
+## 6a. The approving surface, as scoped
+
+Beyond the mechanics in section 5:
+
+- **The stage row becomes a status display, not a control.** Clicking it opens
+  the approval page.
+- **Approve lives at the foot of the approval page**, and nowhere else.
+- **The over-twelve-month stale-basis acknowledgement sits beside approve**, and
+  is reachable no other way.
+- **The approval record names the version, the revision, the approver and the
+  acknowledgement if given**, so what was approved is recoverable without
+  inference. `approvals` today carries `revision_number`, `approver_id`, `stage`
+  and `comment`; it needs the version and the acknowledgement, which is the
+  schema work this implies.
+- **AN OWNER MUST NOT APPROVE THEIR OWN PRICE.** Recorded now, enforced from the
+  moment a second individual can hold Commercial. A price approved by the person
+  who set it is not approved, and it is invisible today because one person holds
+  every track. Enforcing it now would block every deal in the system, so it
+  carries the same person-trigger the others do and arrives with the hire.
 
 ---
 

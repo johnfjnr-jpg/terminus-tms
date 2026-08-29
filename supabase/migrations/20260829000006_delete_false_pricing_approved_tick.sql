@@ -1,0 +1,62 @@
+-- Terminus TMS: delete the "Pricing approved" tick box. Round 38, 2026-08-29.
+--
+-- ─────────────────────────────────────────────────────────────
+-- IT ASSERTS SOMETHING UNTRUE, AND IT IS REDUNDANT
+-- ─────────────────────────────────────────────────────────────
+--
+-- Proposal -> Evaluation carried a payload_field_required rule on
+-- exitPropPricingApproved, labelled "Pricing approved". Measured, that is:
+--
+--   a checkbox, ticked by the person whose pricing it is, referencing no
+--   approval, on the transition the business calls "Proposal Submitted".
+--
+-- AN EMPTY GATE IS AN ABSENCE. THIS IS A CLAIM. It puts a line in the record
+-- stating that the pricing was approved, self-administered, and an auditor reads
+-- that line as a control. One live Opportunity already holds it ticked
+-- (2026-08-22T14:11:53Z), against a deal whose Commercial approvals describe
+-- prices the record has since moved past.
+--
+-- ─────────────────────────────────────────────────────────────
+-- REDUNDANT AS WELL AS FALSE, WHICH IS WHY THIS IS A DELETE AND NOT A BUILD
+-- ─────────────────────────────────────────────────────────────
+--
+-- Confirmed against the live configuration before writing this. The SAME
+-- transition carries:
+--
+--   approval_obtained {"scope":"version","track":"Commercial"}
+--
+-- which since 20260829000005 asks liveVersionApproval() - the approval page's
+-- own evaluator - and is satisfied only while an approved Deal Sheet version is
+-- current. The real control is already sitting beside the false one on the same
+-- rule set. Removing the tick removes a duplicate claim, not a check.
+--
+-- The other three ticks on this transition are NOT touched.
+-- exitPropDocumentation, exitPropContractTerms and exitPropImplSchedule assert
+-- things no other rule covers, and a tick is a reasonable record of a human
+-- judgement that nothing else in the system can make. Pricing is the one where a
+-- real control exists and the tick contradicts it.
+--
+-- NOT A QUEUE JUMP. Modelling proposal issuance - the gate that would sit on the
+-- artefact leaving the building rather than on a stage transition taken
+-- afterwards - is deferred behind the reshape, with its own trigger. This is one
+-- migration removing a false statement, which is a different act from building
+-- the true control. An honest absence beats a dishonest control.
+--
+-- ─────────────────────────────────────────────────────────────
+-- WHAT IS NOT DELETED
+-- ─────────────────────────────────────────────────────────────
+--
+-- The payload key itself. One record holds a value for it and record_revisions
+-- is append-only; the key becomes orphaned data that nothing reads, which is
+-- what history looks like when a rule is withdrawn. It is also removed from the
+-- writable set in src/routes/opportunities.js, so no new value can be written.
+--
+-- REPLAY HAZARD. 20260822000003 inserts this rule guarded on a jsonb equality
+-- that will not match once the row is gone, so replaying it would put the tick
+-- straight back. config-invariants.test.mjs asserts the rule does not exist,
+-- which is what notices.
+
+delete from public.stage_gate_rules
+ where record_type = 'opportunity'
+   and requirement_type = 'payload_field_required'
+   and requirement_detail = '{"field":"exitPropPricingApproved","label":"Pricing approved"}'::jsonb;

@@ -692,3 +692,42 @@ test('Technical and Legal remain stage-scoped, deliberately', async () => {
       `${track} is no longer stage-scoped; if that is intended, this test is the decision point`)
   }
 })
+
+test('the false "Pricing approved" tick does not exist', async () => {
+  // Round 38, 20260829000006. It was a payload_field_required on
+  // exitPropPricingApproved: a checkbox ticked by the person whose pricing it
+  // is, referencing no approval, on the transition the business calls "Proposal
+  // Submitted". An empty gate is an absence; this was a claim, and an auditor
+  // reads it as a control.
+  //
+  // AND IT CATCHES A REPLAY. 20260822000003 inserts it guarded on a jsonb
+  // equality that no longer matches now the row is gone, so replaying that
+  // migration would put the tick straight back with nothing else noticing.
+  const { data, error } = await db
+    .from('stage_gate_rules')
+    .select('from_stage, to_stage, requirement_detail')
+    .eq('record_type', 'opportunity')
+    .eq('requirement_type', 'payload_field_required')
+  assert.equal(error, null, error?.message)
+
+  const found = data.filter((r) => r.requirement_detail?.field === 'exitPropPricingApproved')
+  assert.deepEqual(found, [],
+    'the self-administered "Pricing approved" tick is back, most likely from a replay of 20260822000003')
+})
+
+test('and the real control still sits on that transition', async () => {
+  // The other half. Deleting the tick is only correct because a version-scoped
+  // Commercial approval covers the same claim on the same rule set. If that ever
+  // goes, the deletion becomes a hole rather than a tidy-up.
+  const { data } = await db
+    .from('stage_gate_rules')
+    .select('requirement_type, requirement_detail')
+    .eq('record_type', 'opportunity')
+    .eq('from_stage', 'Proposal')
+    .eq('to_stage', 'Evaluation')
+  const commercial = data.find((r) => r.requirement_type === 'approval_obtained'
+    && r.requirement_detail?.track === 'Commercial')
+  assert.ok(commercial, 'Proposal -> Evaluation has no Commercial approval rule')
+  assert.equal(commercial.requirement_detail.scope, 'version',
+    'the Commercial rule that replaced the tick must be the one that reads live approval state')
+})

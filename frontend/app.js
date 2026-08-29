@@ -3121,7 +3121,13 @@ const OPP_VALUE_CAPTURE_KEY = 'assessCommBudgetConfirmed'
 const OPP_EXIT_CRITERION_KEYS = new Set([
   'exitQualBudget', 'exitQualTimeline', 'exitQualCommitment',
   'exitSolTechnicalSolution', 'exitSolBuyersKnown', 'exitSolKeyStakeholders', 'exitSolTermsReviewed',
-  'exitPropPricingApproved', 'exitPropContractTerms', 'exitPropImplSchedule', 'exitPropDocumentation',
+  // exitPropPricingApproved REMOVED, Round 38 (20260829000006). It was a
+  // self-administered tick labelled "Pricing approved" on the transition the
+  // business calls Proposal Submitted, referencing no approval, beside a
+  // Commercial approval_obtained rule that does the real check. Leaving the key
+  // here after deleting the rule would keep a tickable control that gates
+  // nothing, which is worse than either.
+  'exitPropContractTerms', 'exitPropImplSchedule', 'exitPropDocumentation',
   'exitEvalClarificationsResponded', 'exitEvalRevisedPricing', 'exitEvalTechnicalClarifications',
   'exitNegScopeAgreed', 'exitNegPricingAgreed', 'exitNegLegalResolved',
   'exitNegCommercialsApproved', 'exitNegContractExecuted',

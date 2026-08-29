@@ -12,8 +12,8 @@ Contains no environment variable, key or token, and no client data. Records
 appear as counts by status only, never by name or reference code, because
 this file is uploaded into chat sessions.
 
-- Generated at: `2026-08-29T04:03:04.093Z`
-- Git commit: `64a09417a98cbd05410c660d7194006b71a6324d`
+- Generated at: `2026-08-29T04:12:31.124Z`
+- Git commit: `da5dd5eff429ba5c0c5dd53d6dd6a488f9260a0b`
 - Working tree at generation: `dirty (uncommitted changes present)`
 
 Staleness has two parts, and both must hold for this file to be current:
@@ -57,7 +57,7 @@ already reflects them. Regenerate and diff rather than assuming.
 
 ## `stage_gate_rules`
 
-93 rows. Full `requirement_detail`, keys sorted.
+92 rows. Full `requirement_detail`, keys sorted.
 
 | record_type | variant | from_stage | to_stage | requirement_type | requirement_detail |
 |---|---|---|---|---|---|
@@ -97,7 +97,6 @@ already reflects them. Regenerate and diff rather than assuming.
 | opportunity | (null) | Proposal | Evaluation | payload_field_required | `{"field":"exitPropImplSchedule","label":"Implementation schedule agreed"}` |
 | opportunity | (null) | Proposal | Evaluation | payload_field_required | `{"field":"exitPropDocumentation","label":"Proposal documentation approved"}` |
 | opportunity | (null) | Proposal | Evaluation | payload_field_required | `{"field":"exitPropContractTerms","label":"Contract terms and variations approved"}` |
-| opportunity | (null) | Proposal | Evaluation | payload_field_required | `{"field":"exitPropPricingApproved","label":"Pricing approved"}` |
 | opportunity | (null) | Proposal | Evaluation | payload_field_required | `{"entry_stage_at_or_after":"Proposal","field":"assessmentReviewed","label":"Assessment reviewed","min_length":1,"verb":""}` |
 | opportunity | (null) | Qualification | Solution Alignment | payload_field_required | `{"entry_stage_at_or_after":"Qualification","field":"assessmentReviewed","label":"Assessment reviewed","min_length":1,"verb":""}` |
 | opportunity | (null) | Solution Alignment | Proposal | approval_obtained | `{"scope":"stage","track":"Technical"}` |
@@ -161,7 +160,7 @@ Rule count by record type and requirement type:
 |---|---|---|
 | contact | payload_field_required | 15 |
 | opportunity | approval_obtained | 12 |
-| opportunity | payload_field_required | 20 |
+| opportunity | payload_field_required | 19 |
 | smoke_test | approval_obtained | 1 |
 | test_bed | approval_obtained | 18 |
 | test_bed | contact_role_linked | 4 |
@@ -320,34 +319,34 @@ _None._
 
 ## Record counts by type and status
 
-95 live, 16906 soft deleted, 17001 rows in total.
+95 live, 17052 soft deleted, 17147 rows in total.
 
 | record_type | status | live | soft deleted |
 |---|---|---|---|
 | account | Active | 0 | 6 |
-| account | active | 4 | 396 |
-| contact | Active | 0 | 156 |
+| account | active | 4 | 397 |
+| contact | Active | 0 | 162 |
 | contact | Parked | 0 | 2 |
-| contact | Qualified | 8 | 448 |
+| contact | Qualified | 8 | 451 |
 | contact | Unqualified | 1 | 56 |
-| document | approved | 61 | 1353 |
+| document | approved | 61 | 1361 |
 | document | received | 1 | 74 |
 | opportunity | Closed Lost | 0 | 19 |
 | opportunity | Closed Won | 1 | 7 |
 | opportunity | Evaluation | 0 | 4 |
 | opportunity | Negotiating | 0 | 15 |
 | opportunity | Proposal | 0 | 108 |
-| opportunity | Qualification | 0 | 237 |
-| opportunity | Solution Alignment | 3 | 29 |
+| opportunity | Qualification | 0 | 243 |
+| opportunity | Solution Alignment | 3 | 30 |
 | test_bed | Closed | 5 | 9 |
 | test_bed | Installation and Commissioning | 1 | 29 |
 | test_bed | Monitoring and Analysis | 0 | 1 |
 | test_bed | Pre-Site Assessment | 0 | 8 |
-| test_bed | Qualification | 1 | 320 |
+| test_bed | Qualification | 1 | 321 |
 | test_bed | Review and Completion | 1 | 0 |
 | test_bed | Site Assessment | 1 | 17 |
 | unit | Installed | 4 | 3 |
-| unit | Planned | 3 | 2987 |
+| unit | Planned | 3 | 3023 |
 | unit | Removed | 0 | 1 |
 
 ### Test fixture record types
@@ -358,17 +357,17 @@ row by row, and are included in the totals above.
 
 | distinct `harness_*` record types | live rows | soft deleted rows |
 |---|---|---|
-| 1165 | 0 | 10621 |
+| 1177 | 0 | 10705 |
 
 No harness record type holds a live row; every fixture row is soft deleted.
 
 ## `approvals`
 
-686 rows, of which 0 carry a null `stage`.
+690 rows, of which 0 carry a null `stage`.
 
 | decision | track | rows | null stage |
 |---|---|---|---|
-| approved | Commercial | 277 | 0 |
+| approved | Commercial | 281 | 0 |
 | approved | Legal | 199 | 0 |
 | approved | Technical | 210 | 0 |
 
@@ -397,9 +396,9 @@ than written as a literal list, so its members are not enumerable here.
 
 ### `SALESPERSON_WRITABLE_KEYS` (`src/routes/opportunities.js`)
 
-63 literal keys.
+62 literal keys.
 
-`ssExisting`, `ssNew`, `aqm`, `hemir`, `installResp`, `lumpSumCost`, `targetMargin`, `marginOverrides`, `warrantyPct`, `whtPct`, `gstPct`, `grossUp`, `duration`, `structure`, `recoveryMonths`, `invoicing`, `milestones`, `contractorMilestones`, `factoring`, `lead`, `commercial`, `technical`, `legal`, `customerLead`, `commAddress`, `region`, `country`, `commAddress2`, `commCity`, `commPostcode`, `commCountry`, `commRegion`, `commAddressSameAsAccount`, `assessmentReviewed`, `exitQualBudget`, `exitQualTimeline`, `exitQualCommitment`, `exitSolTechnicalSolution`, `exitSolBuyersKnown`, `exitSolKeyStakeholders`, `exitSolTermsReviewed`, `exitPropPricingApproved`, `exitPropContractTerms`, `exitPropImplSchedule`, `exitPropDocumentation`, `exitEvalClarificationsResponded`, `exitEvalRevisedPricing`, `exitEvalTechnicalClarifications`, `exitNegScopeAgreed`, `exitNegPricingAgreed`, `exitNegLegalResolved`, `exitNegCommercialsApproved`, `exitNegContractExecuted`, `summary`, `oppType`, `actualClose`, `estGoLive`, `actualGoLive`, `notes`, `name`, `bidCurrency`, `proposalCurrency`, `fxContingency`
+`ssExisting`, `ssNew`, `aqm`, `hemir`, `installResp`, `lumpSumCost`, `targetMargin`, `marginOverrides`, `warrantyPct`, `whtPct`, `gstPct`, `grossUp`, `duration`, `structure`, `recoveryMonths`, `invoicing`, `milestones`, `contractorMilestones`, `factoring`, `lead`, `commercial`, `technical`, `legal`, `customerLead`, `commAddress`, `region`, `country`, `commAddress2`, `commCity`, `commPostcode`, `commCountry`, `commRegion`, `commAddressSameAsAccount`, `assessmentReviewed`, `exitQualBudget`, `exitQualTimeline`, `exitQualCommitment`, `exitSolTechnicalSolution`, `exitSolBuyersKnown`, `exitSolKeyStakeholders`, `exitSolTermsReviewed`, `exitPropContractTerms`, `exitPropImplSchedule`, `exitPropDocumentation`, `exitEvalClarificationsResponded`, `exitEvalRevisedPricing`, `exitEvalTechnicalClarifications`, `exitNegScopeAgreed`, `exitNegPricingAgreed`, `exitNegLegalResolved`, `exitNegCommercialsApproved`, `exitNegContractExecuted`, `summary`, `oppType`, `actualClose`, `estGoLive`, `actualGoLive`, `notes`, `name`, `bidCurrency`, `proposalCurrency`, `fxContingency`
 
 ### `TEST_BED_WRITABLE_KEYS` (`src/routes/test-beds.js`)
 
@@ -489,7 +488,7 @@ than written as a literal list, so its members are not enumerable here.
 
 ## Migrations, in filename order
 
-96 files in `supabase/migrations/`.
+97 files in `supabase/migrations/`.
 
 1. `20260801000000_initial_schema.sql`
 2. `20260802000000_lead_opportunity.sql`
@@ -587,6 +586,7 @@ than written as a literal list, so its members are not enumerable here.
 94. `20260829000003_version_revision_must_exist.sql`
 95. `20260829000004_version_must_carry_a_cost_basis.sql`
 96. `20260829000005_commercial_approval_is_version_scoped.sql`
+97. `20260829000006_delete_false_pricing_approved_tick.sql`
 
 ## Seed files, in application order
 

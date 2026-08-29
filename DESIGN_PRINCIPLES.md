@@ -825,6 +825,54 @@ today's existing behaviour.
 
 Explicitly deferred, not forgotten, not a section number of its own since this is a running list, not a build phase. Add to it as new deferrals come up rather than letting them live only in conversation.
 
+- **PROPOSAL ISSUANCE IS NOT AN EVENT IN THIS SYSTEM. Raised 2026-08-29, Round
+  38. AFTER THE RESHAPE. Trigger: BEFORE THE FIRST PROPOSAL GOES TO A REAL
+  CUSTOMER.**
+
+  Measured, not quoted: zero `record_type = 'proposal'`, no proposal table, all
+  thirteen document variants in use are Test Bed artefacts, and not one of the 26
+  `audit_log` actions records anything reaching a customer.
+  `deal_sheet_versions.status = 'issued'` relabels V0.4 as V1 and freezes it,
+  which is a numbering act inside Terminus and says nothing about anything
+  leaving the building.
+
+  `DESIGN_PRINCIPLES.md` Section 5 says a proposal "must be approved across all
+  required tracks **before it can be sent**". **There is nothing for that gate to
+  attach to.** Proposal to Evaluation fires after the customer already has the
+  proposal, so a gate there cannot stop an unapproved price reaching a client; it
+  can only record that one did.
+
+  So the control belongs on the act of producing or issuing the artefact, and
+  issuance has to be modelled first. Full scoping in
+  `ROUND_39_PHASE_OPENER_WHERE_APPROVAL_HAPPENS.md` section 6.
+
+  **Deferred deliberately under build discipline rule 10**, and this is the first
+  case that rule cost something: it is a real hole, correctly diagnosed, and it
+  is not destroying live data because there are no customers. A rule that bends
+  the first time it costs something is not a rule.
+
+- **AN OWNER MUST NOT APPROVE THEIR OWN PRICE. Raised 2026-08-29, Round 38.
+  RECORDED NOW, ENFORCED LATER. Trigger: from the moment a second individual can
+  hold the Commercial track.**
+
+  **A price approved by the person who set it is not approved.** It is the most
+  basic segregation of duties in commercial approval, and it is currently
+  invisible because one person holds every track: measured, one distinct
+  `approver_id` across every approval on every live Opportunity.
+
+  **Not enforced yet, and the reason is arithmetic rather than principle.** With
+  one person, refusing self-approval blocks every deal in the system. Enforcing
+  it today would mean the control is removed again within the hour, which is
+  worse than not having it.
+
+  **The rule, for when it lands:** a Commercial approval is refused when
+  `approvals.approver_id` equals the Opportunity's `owner_id`. Same shape as the
+  other person-triggered items, so it arrives with the hire rather than being
+  remembered after it.
+
+  Recorded here rather than only in the phase opener so it survives the round
+  that scoped it.
+
 - **THE DEAL MOVED AND ITS OWNER SHOULD BE TOLD. One notifier, two triggers.
   Raised 2026-08-29, Round 38. On the list the day it was created.**
 

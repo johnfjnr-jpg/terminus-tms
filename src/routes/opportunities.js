@@ -331,7 +331,11 @@ export default async function opportunitiesRoutes(app) {
   'assessmentReviewed',
   'exitQualBudget', 'exitQualTimeline', 'exitQualCommitment',
     'exitSolTechnicalSolution', 'exitSolBuyersKnown', 'exitSolKeyStakeholders', 'exitSolTermsReviewed',
-    'exitPropPricingApproved', 'exitPropContractTerms', 'exitPropImplSchedule', 'exitPropDocumentation',
+    // exitPropPricingApproved REMOVED with its gate rule, Round 38. The key is
+    // NOT deleted from any payload: one record holds a value and
+    // record_revisions is append-only. It simply becomes orphaned data nothing
+    // reads, and no new value can be written.
+    'exitPropContractTerms', 'exitPropImplSchedule', 'exitPropDocumentation',
     'exitEvalClarificationsResponded', 'exitEvalRevisedPricing', 'exitEvalTechnicalClarifications',
     'exitNegScopeAgreed', 'exitNegPricingAgreed', 'exitNegLegalResolved',
     'exitNegCommercialsApproved', 'exitNegContractExecuted',
