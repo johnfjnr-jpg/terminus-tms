@@ -12,9 +12,9 @@ Contains no environment variable, key or token, and no client data. Records
 appear as counts by status only, never by name or reference code, because
 this file is uploaded into chat sessions.
 
-- Generated at: `2026-08-29T09:15:12.756Z`
-- Git commit: `37760163cad203901371d4b5964127b17a825b0e`
-- Working tree at generation: `dirty (uncommitted changes present)`
+- Generated at: `2026-08-29T23:35:34.191Z`
+- Git commit: `5d0c5906e5503d2176489f839d3e7c303e17c23b`
+- Working tree at generation: `clean`
 
 Staleness has two parts, and both must hold for this file to be current:
 the recorded commit is an ancestor of `HEAD`, AND no tracked configuration
@@ -319,34 +319,34 @@ _None._
 
 ## Record counts by type and status
 
-95 live, 17900 soft deleted, 17995 rows in total.
+95 live, 19664 soft deleted, 19759 rows in total.
 
 | record_type | status | live | soft deleted |
 |---|---|---|---|
 | account | Active | 0 | 6 |
-| account | active | 4 | 406 |
-| contact | Active | 0 | 195 |
+| account | active | 4 | 426 |
+| contact | Active | 0 | 264 |
 | contact | Parked | 0 | 2 |
-| contact | Qualified | 8 | 483 |
+| contact | Qualified | 8 | 542 |
 | contact | Unqualified | 1 | 56 |
-| document | approved | 61 | 1405 |
+| document | approved | 61 | 1497 |
 | document | received | 1 | 74 |
 | opportunity | Closed Lost | 0 | 19 |
 | opportunity | Closed Won | 1 | 7 |
 | opportunity | Evaluation | 0 | 4 |
 | opportunity | Negotiating | 0 | 15 |
 | opportunity | Proposal | 0 | 108 |
-| opportunity | Qualification | 0 | 288 |
-| opportunity | Solution Alignment | 3 | 39 |
+| opportunity | Qualification | 0 | 376 |
+| opportunity | Solution Alignment | 3 | 58 |
 | test_bed | Closed | 5 | 9 |
 | test_bed | Installation and Commissioning | 1 | 29 |
 | test_bed | Monitoring and Analysis | 0 | 1 |
 | test_bed | Pre-Site Assessment | 0 | 8 |
-| test_bed | Qualification | 1 | 330 |
+| test_bed | Qualification | 1 | 350 |
 | test_bed | Review and Completion | 1 | 0 |
 | test_bed | Site Assessment | 1 | 17 |
 | unit | Installed | 4 | 3 |
-| unit | Planned | 3 | 3228 |
+| unit | Planned | 3 | 3659 |
 | unit | Removed | 0 | 1 |
 
 ### Test fixture record types
@@ -357,17 +357,17 @@ row by row, and are included in the totals above.
 
 | distinct `harness_*` record types | live rows | soft deleted rows |
 |---|---|---|
-| 1243 | 0 | 11167 |
+| 1381 | 0 | 12133 |
 
 No harness record type holds a live row; every fixture row is soft deleted.
 
 ## `approvals`
 
-730 rows, of which 0 carry a null `stage`.
+795 rows, of which 0 carry a null `stage`.
 
 | decision | track | rows | null stage |
 |---|---|---|---|
-| approved | Commercial | 321 | 0 |
+| approved | Commercial | 386 | 0 |
 | approved | Legal | 199 | 0 |
 | approved | Technical | 210 | 0 |
 
@@ -396,9 +396,9 @@ than written as a literal list, so its members are not enumerable here.
 
 ### `SALESPERSON_WRITABLE_KEYS` (`src/routes/opportunities.js`)
 
-62 literal keys.
+66 literal keys.
 
-`ssExisting`, `ssNew`, `aqm`, `hemir`, `installResp`, `lumpSumCost`, `targetMargin`, `marginOverrides`, `warrantyPct`, `whtPct`, `gstPct`, `grossUp`, `duration`, `structure`, `recoveryMonths`, `invoicing`, `milestones`, `contractorMilestones`, `factoring`, `lead`, `commercial`, `technical`, `legal`, `customerLead`, `commAddress`, `region`, `country`, `commAddress2`, `commCity`, `commPostcode`, `commCountry`, `commRegion`, `commAddressSameAsAccount`, `assessmentReviewed`, `exitQualBudget`, `exitQualTimeline`, `exitQualCommitment`, `exitSolTechnicalSolution`, `exitSolBuyersKnown`, `exitSolKeyStakeholders`, `exitSolTermsReviewed`, `exitPropContractTerms`, `exitPropImplSchedule`, `exitPropDocumentation`, `exitEvalClarificationsResponded`, `exitEvalRevisedPricing`, `exitEvalTechnicalClarifications`, `exitNegScopeAgreed`, `exitNegPricingAgreed`, `exitNegLegalResolved`, `exitNegCommercialsApproved`, `exitNegContractExecuted`, `summary`, `oppType`, `actualClose`, `estGoLive`, `actualGoLive`, `notes`, `name`, `bidCurrency`, `proposalCurrency`, `fxContingency`
+`ssExisting`, `ssNew`, `aqm`, `hemir`, `installResp`, `lumpSumCost`, `targetMargin`, `marginOverrides`, `inSsExisting`, `inSsNew`, `inAqm`, `inHemir`, `warrantyPct`, `whtPct`, `gstPct`, `grossUp`, `duration`, `structure`, `recoveryMonths`, `invoicing`, `milestones`, `contractorMilestones`, `factoring`, `lead`, `commercial`, `technical`, `legal`, `customerLead`, `commAddress`, `region`, `country`, `commAddress2`, `commCity`, `commPostcode`, `commCountry`, `commRegion`, `commAddressSameAsAccount`, `assessmentReviewed`, `exitQualBudget`, `exitQualTimeline`, `exitQualCommitment`, `exitSolTechnicalSolution`, `exitSolBuyersKnown`, `exitSolKeyStakeholders`, `exitSolTermsReviewed`, `exitPropContractTerms`, `exitPropImplSchedule`, `exitPropDocumentation`, `exitEvalClarificationsResponded`, `exitEvalRevisedPricing`, `exitEvalTechnicalClarifications`, `exitNegScopeAgreed`, `exitNegPricingAgreed`, `exitNegLegalResolved`, `exitNegCommercialsApproved`, `exitNegContractExecuted`, `summary`, `oppType`, `actualClose`, `estGoLive`, `actualGoLive`, `notes`, `name`, `bidCurrency`, `proposalCurrency`, `fxContingency`
 
 ### `TEST_BED_WRITABLE_KEYS` (`src/routes/test-beds.js`)
 
@@ -488,7 +488,7 @@ than written as a literal list, so its members are not enumerable here.
 
 ## Migrations, in filename order
 
-97 files in `supabase/migrations/`.
+98 files in `supabase/migrations/`.
 
 1. `20260801000000_initial_schema.sql`
 2. `20260802000000_lead_opportunity.sql`
@@ -587,6 +587,7 @@ than written as a literal list, so its members are not enumerable here.
 95. `20260829000004_version_must_carry_a_cost_basis.sql`
 96. `20260829000005_commercial_approval_is_version_scoped.sql`
 97. `20260829000006_delete_false_pricing_approved_tick.sql`
+98. `20260829000007_cost_basis_moves_to_the_rates_column.sql`
 
 ## Seed files, in application order
 

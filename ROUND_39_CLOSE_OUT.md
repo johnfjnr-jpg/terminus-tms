@@ -1,5 +1,8 @@
 # Round 39 close-out checklist
 
+> **Round 40's is in `ROUND_40_CLOSE_OUT.md`.** Two commits in Round 40's range,
+> `5b58c49` and `48f10ac`, are Round 39 work made after its tag.
+
 Written 2026-08-29, mid-round, so nothing here is remembered late. Items are
 recorded as they are agreed rather than assembled at the end, which is the
 failure mode this file exists to prevent.
