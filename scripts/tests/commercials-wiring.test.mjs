@@ -26,6 +26,12 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { JSDOM } from 'jsdom'
 import { gstPresentation, whtPresentation, ratePresentation, durationPresentation, ZERO_IS_NOT_A_VALUE } from '../../src/lib/deal-inputs.js'
+
+// The eleven lines that carry a per-line margin. Named here so the markup and
+// the screen's own MARGIN_KEYS are checked against one list rather than each
+// other, and a line added to one and not the other fails.
+const MARGIN_KEYS_EXPECTED = ['hwSs', 'hwAqm', 'hwHemir', 'hwWarranty',
+  'inSsEx', 'inSsNew', 'inAqm', 'inHemir', 'hoSs', 'hoAqm', 'hoHemir']
 import { readFileSync } from 'node:fs'
 import { changedKeys } from '../../src/lib/payload-diff.js'
 import { toNumberOrNull } from '../../src/lib/numeric-payload.js'
@@ -414,30 +420,49 @@ test('price to customer is contract net plus GST, and GST has a row', () => {
 // must not delete the data it edited
 // ─────────────────────────────────────────────────────────────
 
-test('the eleven per-line margin inputs are gone from the markup', () => {
-  // Eleven, not seven. Seven is the number visible on one sub-tab, which is why
-  // both parties said seven twice without counting: Verification 19.
+test('all eleven per-line margin inputs exist, and exactly eleven', () => {
+  // ── THE COUNT IS THE GUARD. Round 40 Phase 3 ────────────────────────
+  //
+  // Phase 1 removed these and asserted they were gone. Phase 3 returns them ON
+  // REQUEST, in the detail panel beside the summary and beside the installation
+  // lines, which is the layout's "viewable and editable on request".
+  //
+  // The assertion inverts and its PURPOSE does not. marginOverrides is in
+  // COMMERCIALS_OWNED_KEYS and is sent on every save, and readPayload builds it
+  // by reading these boxes: an input lost in a future rearrangement means its
+  // key is dropped from the payload, which the record reads as DELETION. So the
+  // count is asserted, not merely their presence.
+  //
+  // Eleven, not seven. Seven is the number that was visible on one sub-tab,
+  // which is why both parties said seven twice without counting.
   const html = readFileSync(new URL('../../frontend/index.html', import.meta.url), 'utf8')
-  const inputs = html.match(/id="deal-margin-[A-Za-z]+"/g) ?? []
-  assert.deepEqual(inputs, [], `per-line margin inputs survive: ${inputs.join(', ')}`)
+  const inputs = [...html.matchAll(/id="deal-margin-([A-Za-z]+)"/g)].map((m) => m[1]).sort()
+  assert.equal(inputs.length, 11, `expected 11 margin inputs, found ${inputs.length}: ${inputs.join(', ')}`)
+  assert.deepEqual(inputs, [...MARGIN_KEYS_EXPECTED].sort(),
+    'the inputs and MARGIN_KEYS must name the same eleven lines')
 
-  // And the column still shows what its header names.
-  const cells = html.match(/id="pg-margin-[A-Za-z]+"/g) ?? []
-  assert.equal(cells.length, 11, 'every margin cell must display the effective margin')
+  // The old read-only display cells are gone with the change, not left beside
+  // the inputs as a second reader of the same value.
+  assert.equal((html.match(/class="pg-margin"/g) ?? []).length, 0)
 })
 
-test('readPayload PRESERVES marginOverrides instead of rebuilding it', () => {
-  // THE EXPENSIVE HALF. marginOverrides is in COMMERCIALS_OWNED_KEYS and is
-  // sent on every save, so a readPayload that rebuilt it from a screen with no
-  // controls would send {} and delete the overrides on 33 opportunities at
-  // their first save. Removing a control must not delete its data.
+test('a margin box is read from the screen, and a blank one is not a zero', () => {
   const src = readFileSync(new URL('../../frontend/opportunity-deal.js', import.meta.url), 'utf8')
   const fn = src.slice(src.indexOf('function readPayload()'), src.indexOf('function readMilestones'))
 
-  assert.match(fn, /const marginOverrides = loadedMarginOverrides/,
-    'readPayload must carry the loaded overrides through unchanged')
-  assert.ok(!/numOrUndefined\(`deal-margin-/.test(fn),
-    'readPayload still reads the removed inputs')
+  // numOrUndefined, not numOrNull: an untouched box must DROP its key rather
+  // than write a null, or every deal acquires eleven explicit nulls.
+  assert.match(fn, /numOrUndefined\(`deal-margin-\$\{key\}`\)/)
+  assert.match(fn, /if \(v !== undefined\) marginOverrides\[key\] = v/)
+
+  // populateForm fills them from the record, so the round trip closes.
+  assert.match(src, /setVal\(`deal-margin-\$\{key\}`, loadedMarginOverrides\[key\] \?\? ''\)/)
+
+  // The TARGET is the placeholder, never the value: a blank box prices at
+  // target, and a box carrying the target would record an override nobody set.
+  assert.match(src, /el\.placeholder = String\(target\)/)
+  assert.ok(!/setVal\(`deal-margin-\$\{key\}`, .*target/.test(src),
+    'the target must not be written into a margin box as a value')
 
   // It is still SENT, or the server would see the key disappear entirely.
   assert.match(src, /'targetMargin', 'marginOverrides',/)

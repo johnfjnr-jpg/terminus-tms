@@ -127,6 +127,36 @@ test('no comment swallows a tag, and the five sections are siblings', () => {
   }
   assert.deepEqual(swallowed, [], 'a comment is swallowing markup:\n  ' + swallowed.join('\n  '))
 
+  // ── AND A STRAY --> OUTSIDE ANY COMMENT ──────────────────────────────
+  //
+  // The check above missed a second instance an hour later, and the reason is
+  // worth keeping. Inserting a block INSIDE an existing comment gives that
+  // comment's opener a new, nearer `-->` to pair with. The pair then looks
+  // valid and contains no tags, so the scan passes - while the ORIGINAL
+  // comment's tail is left outside any comment and RENDERS AS TEXT ON THE PAGE.
+  //
+  // That is what happened: "safe first (opportunity-deal.js's own header
+  // comment has the full dependency-check writeup)... -->" appeared under the
+  // Save changes button, in the browser, in prose.
+  //
+  // The delimiters still BALANCED, 139 and 139. Counting them proves nothing;
+  // what matters is that every `-->` is consumed by a pairing.
+  let scan = 0
+  const strays = []
+  for (;;) {
+    const a = html.indexOf('<!--', scan)
+    const outside = html.slice(scan, a < 0 ? undefined : a)
+    if (outside.includes('-->')) {
+      const at = html.slice(0, scan + outside.indexOf('-->')).split('\n').length
+      strays.push(`line ${at}: ${outside.slice(Math.max(0, outside.indexOf('-->') - 60), outside.indexOf('-->') + 3).replace(/\s+/g, ' ')}`)
+    }
+    if (a < 0) break
+    const b = html.indexOf('-->', a)
+    if (b < 0) break
+    scan = b + 3
+  }
+  assert.deepEqual(strays, [], 'a --> sits outside any comment, so its opener was stolen:\n  ' + strays.join('\n  '))
+
   // Calibration: the scan can see one. Verification 17.
   const planted = '<!-- oops </section> -->'
   assert.ok(/<\/?(section|div)\b/.test(planted.slice(0, planted.indexOf('-->'))),

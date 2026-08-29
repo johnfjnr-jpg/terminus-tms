@@ -166,22 +166,29 @@ function moneySigned(v) {
 // stores — see loadDealInputsFromOpportunity() in src/routes/deals.js,
 // this must stay in sync with that function's field names. ───────────────
 function readPayload() {
-  // ── PRESERVED, NOT REBUILT FROM THE SCREEN ───────────────────────────
+  // ── READ FROM THE BOXES AGAIN, BECAUSE THE BOXES ARE BACK ────────────
   //
-  // Round 40 Phase 1 removed the eleven per-line margin inputs. marginOverrides
-  // is in COMMERCIALS_OWNED_KEYS and is therefore sent on EVERY save, so
-  // rebuilding it from a screen that no longer carries the controls would send
-  // {} and DELETE the overrides on 33 opportunities at their first save.
+  // Round 40 Phase 3. Phase 1 removed the eleven inputs and this read the
+  // loaded object through unchanged, because marginOverrides is in
+  // COMMERCIALS_OWNED_KEYS and is sent on EVERY save: rebuilding it from a
+  // screen with no controls would have sent {} and DELETED the overrides on 33
+  // opportunities at their first save.
   //
-  // That is the read-and-write-must-agree-about-absence fault in its most
-  // expensive form: not a display saying the wrong thing, but a control being
-  // removed and the removal silently deleting the data it used to edit. The
-  // writer wins on the first click.
+  // The controls are back, on request, in the detail panel and beside the
+  // installation lines. So the screen is the source again, and the round trip
+  // is what has to hold: populateForm fills these boxes from the record, an
+  // untouched box is blank, and a blank box is no override rather than a zero.
   //
-  // So the value carried in on load is carried back out unchanged. When the
-  // detail panel returns in Phase 3 it will edit this object; until then
-  // nothing on this screen may change it, and nothing may drop it either.
-  const marginOverrides = loadedMarginOverrides
+  // THE SAME DANGER FROM THE OTHER SIDE, and it is why this is not simply the
+  // pre-Phase-1 code restored: if a box did not exist, numOrUndefined returns
+  // undefined and the key is dropped, which is deletion. The count is asserted
+  // in the suite so an input lost in a future rearrangement is a failing test
+  // rather than a quiet loss of somebody's pricing.
+  const marginOverrides = {}
+  MARGIN_KEYS.forEach(key => {
+    const v = numOrUndefined(`deal-margin-${key}`)
+    if (v !== undefined) marginOverrides[key] = v
+  })
 
   return {
     ssExisting: numOrNull('deal-ssExisting'),
@@ -324,15 +331,19 @@ function renderPricingCards(result, payload) {
   // An overridden line says so, because a line priced away from target is a
   // decision and the whole point of removing the inputs was that the default
   // should be visible rather than typed eleven times.
+  // Phase 3: the cells are inputs again. A blank box prices at target, so the
+  // PLACEHOLDER carries the target rather than the box carrying a value nobody
+  // entered - the same shape as gstPct, whtPct, duration and the install rates.
+  // An empty box is not a zero, and it must not become one on save.
   const target = numericOrDefault(payload, 'targetMargin')
   MARGIN_KEYS.forEach((key) => {
-    const cell = document.getElementById(`pg-margin-${key}`)
-    if (!cell) return
-    const override = toNumberOrNull(loadedMarginOverrides[key])
-    cell.textContent = override === null ? `${target}%` : `${override}%`
-    cell.classList.toggle('pg-margin-override', override !== null)
-    cell.title = override === null
-      ? `Target margin, ${target}%. The default for every component.`
+    const el = document.getElementById(`deal-margin-${key}`)
+    if (!el) return
+    el.placeholder = String(target)
+    const override = toNumberOrNull(el.value)
+    el.classList.toggle('pg-margin-override', override !== null)
+    el.title = override === null
+      ? `Blank prices this line at the target margin, ${target}%.`
       : `Priced at ${override}% against a target of ${target}%.`
   })
 
@@ -1449,9 +1460,11 @@ function populateForm(payload) {
   setVal('deal-hoAqm', catalogRates.hoAqm ?? '')
   setVal('deal-hoHemir', catalogRates.hoHemir ?? '')
 
-  // Held for the round trip, and read by renderPricingCards to show which
-  // lines are priced away from target.
+  // Held for the round trip AND written into the boxes, which are the source of
+  // truth again from Phase 3. A key the record does not carry leaves its box
+  // blank, which is "price at target" rather than "price at zero".
   loadedMarginOverrides = p.marginOverrides ?? {}
+  MARGIN_KEYS.forEach(key => setVal(`deal-margin-${key}`, loadedMarginOverrides[key] ?? ''))
 
   uiState.installResp = p.installResp || 'Client Own Installation Team'
   document.getElementById('deal-installResp').value = uiState.installResp
@@ -1738,6 +1751,26 @@ function wireOnce() {
   //
   // Four panels shown one at a time became five sections on one scrolling
   // screen, which is the layout the business decided and Round 39 read past.
+
+  // ── THE DETAIL PANEL, ON REQUEST. Round 40 Phase 3 ───────────────────
+  //
+  // Closed by default: the layout says the detail opens IF THE USER WANTS TO
+  // SEE IT, so absent is the resting state and the summary keeps the width.
+  //
+  // The class goes on the ROW, not on the panel, because it is the row that has
+  // to become two columns. Hiding the panel alone would leave a one-column grid
+  // with a gap in it.
+  const detailBtn = document.getElementById('btn-toggle-detail')
+  if (detailBtn) {
+    detailBtn.addEventListener('click', () => {
+      const row = document.getElementById('deal-summary-row')
+      const panel = document.getElementById('deal-detail-panel')
+      const open = panel.classList.toggle('hidden') === false
+      row.classList.toggle('detail-open', open)
+      detailBtn.setAttribute('aria-expanded', String(open))
+      detailBtn.textContent = open ? 'Hide detail' : 'Show detail'
+    })
+  }
 
   // Live recompute on every change, no debounce - it's a local function call.
   //

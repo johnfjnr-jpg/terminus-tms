@@ -1360,6 +1360,35 @@ of the change. An unanswerable precondition is a stop.
     same blind spot, which is why this belongs beside the census rather than in
     the round that found it.
 
+    **AND THE SHARPER INSTANCE, from the same phase.** A comment cut in half by
+    the same rebuild swallowed section 3's closing tag, so sections 4 and 5
+    became CHILDREN of section 3. **Four measures passed:** the div-balance count
+    (it counted tags inside comments), an id probe (every element was in the
+    DOM), the control census (nesting loses no controls) and the layout
+    measurement (nested sections still stack with increasing tops).
+
+    **THE FOUR MEASURES WERE NOT FOUR.** Set by the business, and it is what
+    makes this rule usable rather than only true. Counting controls, checking
+    presence, measuring geometry and balancing tags all ask ONE question in
+    different words: **is the thing there and in the right place on screen?**
+    None asks whether the document is well formed. It was never four independent
+    measures with one shared gap; it was one question asked four ways, and the
+    diversity was illusory.
+
+    > **When several measures all pass, ask what question they SHARE, not what
+    > each one covers.** A set assembled from one worry inherits that worry's
+    > blind spot however many members it has.
+
+    Nearest neighbour is Verification 18, where one green result has several
+    independent causes and fixing the first reveals the second. **This is the
+    opposite arrangement: several green results with ONE cause**, and no amount
+    of adding members to the set would have found it.
+
+    **The cause underneath is rule 34's caveat.** Slicing and reassembling markup
+    treats structured text as lines, and the comment straddled a boundary the
+    slicer did not know existed. A rebuild done with a script that does not read
+    what it carries loses exactly the structure the script cannot see.
+
     Distinct from Verification 4, "open the screenshot and look at it", which
     says looking beats an assertion for emphasis and prominence. **This is
     narrower and harder: the assertion was RIGHT, complete, and calibrated, and

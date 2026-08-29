@@ -4424,6 +4424,37 @@ input.input-invalid {
 /* Round 39: an ageing or stale cost basis, said where the rates are entered.
    Same bands and same words as the approval page, from src/lib/cost-basis.js. */
 .deal-catalog-ageing { color: var(--white) !important; }
+/* ── THE DETAIL OPENS BESIDE THE SUMMARY. Round 40 Phase 3 ─────────────────
+   The layout's word is HORIZONTALLY: the summary and the lines it summarises
+   are readable together, which is what removes the duplication rather than
+   moving it.
+
+   Closed, the summary keeps the full width. Open, the detail takes a column
+   beside it and the summary yields, rather than the row growing wider than the
+   screen.
+
+   Below 1240 the pair stacks: beside is the point, and half of 1100px each is
+   two unreadable columns instead of one readable one. That is the same call as
+   section 5's collapse and for the same reason. */
+.deal-summary-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 28px;
+  align-items: start;
+}
+.deal-summary-row.detail-open { grid-template-columns: minmax(0, 1fr) minmax(0, 420px); }
+@media (max-width: 1240px) {
+  .deal-summary-row.detail-open { grid-template-columns: minmax(0, 1fr); }
+}
+.deal-summary-col, .deal-detail-col { min-width: 0; }
+.deal-detail-col {
+  border-left: 1px solid var(--hairline);
+  padding-left: 24px;
+}
+@media (max-width: 1240px) {
+  .deal-detail-col { border-left: none; padding-left: 0; border-top: 1px solid var(--hairline); padding-top: 20px; }
+}
+
 /* ── ONE SCROLLING SCREEN, FIVE SECTIONS. Round 40 Phase 2 ─────────────────
    The sub-tab panels are gone. Sections stack and scroll, separated by a
    hairline rather than by being hidden, so the whole deal is one surface.
@@ -4453,8 +4484,13 @@ input.input-invalid {
 /* A line priced away from target margin. Round 40 Phase 1: the eleven inputs
    are gone and the column now displays the effective margin, so the one thing
    it must still distinguish is a default from a decision. */
-.pg-margin { font-family: var(--mono); font-size: 12px; color: var(--muted); }
-.pg-margin.pg-margin-override { color: var(--white); }
+/* Phase 3: the cells are inputs again, so the override marker rides on
+   .pg-margin-input. It was written as `.pg-margin.pg-margin-override` for the
+   Phase 2 display cells, and left that way it would have been a rule that
+   EXISTS and never matches - defined, so the class scan finds it, and dead,
+   because the compound selector no longer describes any element. A more
+   specific kind of the .btn-secondary fault, and the scan cannot see this one. */
+.pg-margin-input.pg-margin-override { color: var(--white); border-color: var(--hairline-strong); }
 .deal-schedule-off { color: var(--amber, #E0A33E); }
 .deal-catalog-stale  { color: var(--green) !important; }
 
