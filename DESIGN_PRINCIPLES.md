@@ -847,7 +847,19 @@ way**: `scripts/lib/edit.mjs` re-reads the file from disk and refuses unless the
 bytes changed and carry the replacement, and `.githooks/pre-commit` refuses any
 commit whose edit batch did not fully land.
 
-**AND THE FOURTH AND FIFTH INSTANCES HAPPENED WHILE BUILDING THE GUARD.** Round
+**THE FOURTH WAS NOT THIS CLASS AT ALL, AND THE BUSINESS RECLASSIFIED IT.** The
+`package.json` line putting the new tests into the suite did not land, and the
+commit message then said "217 pass" against a suite reporting 216. **That is
+Verification 20, a second reader of a computed value, where the second reader is
+a person typing prose.** Its remedy is rule 20's and it is now structural: any
+number describing a run is emitted BY the run, so `verify-all.mjs` prints the
+tally beside each suite stage and a message quotes it. Recorded there, not here.
+
+**THE FINDING UNDER IT IS THE REAL ONE: six tests were not running at all**, and
+a commit claimed a green suite that did not include the tests it was adding. The
+count mismatch is the only thing that surfaced it.
+
+**AND THE FIFTH INSTANCE HAPPENED WHILE BUILDING THE GUARD.** Round
 39 close, minutes apart.
 
 **The fourth.** The commit adding `edit.mjs` and the hook also needed one line in

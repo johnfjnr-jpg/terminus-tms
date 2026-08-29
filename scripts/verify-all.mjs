@@ -68,7 +68,21 @@ for (const stage of STAGES) {
     `${'='.repeat(72)}\n${stage.name}  (${bin} ${args.join(' ')})\nneeds: ${stage.needs}\n` +
     `exit: ${run.status === null ? `could not run (${run.error?.message ?? 'unknown'})` : run.status}  in ${ms}ms\n` +
     `${'='.repeat(72)}\n${output}`)
-  summary.push(`${ok ? 'PASS' : 'FAIL'}  ${stage.name.padEnd(26)} exit ${run.status ?? 'n/a'}  ${ms}ms`)
+  // ── THE COUNT COMES FROM THE RUN ────────────────────────────────────────
+  //
+  // Round 39 close, set by the business, and it is Verification 20 rather than
+  // a new idea: a hand-typed test count is a SECOND READER of a computed value,
+  // and second readers drift. A commit message said "217 pass" while the suite
+  // said 216, and the gap was not a typo: six new tests were not in the suite
+  // at all, because the line adding them had never landed.
+  //
+  // The mismatch is what surfaced it. That is the argument for emitting the
+  // number here rather than tidiness: a message that quotes this line cannot
+  // claim a green suite that did not include the tests it was adding.
+  const counts = output.match(/^. (tests|pass|fail) (\d+)$/gm) ?? []
+  const n = (k) => counts.find((l) => l.includes(` ${k} `))?.match(/(\d+)$/)?.[1]
+  const tally = n('tests') ? `  ${n('pass')}/${n('tests')} pass, ${n('fail')} fail` : ''
+  summary.push(`${ok ? 'PASS' : 'FAIL'}  ${stage.name.padEnd(26)} exit ${run.status ?? 'n/a'}  ${ms}ms${tally}`)
 }
 
 const stamp = process.env.VERIFY_STAMP ?? String(process.hrtime.bigint())

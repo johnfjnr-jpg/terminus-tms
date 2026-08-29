@@ -850,6 +850,32 @@ of the change. An unanswerable precondition is a stop.
     first by a test, not asserted equal by a comment. "Kept identical to" is
     the phrase that marks an unproven one.
 
+    **AND A HAND-TYPED NUMBER IS A SECOND READER OF A COMPUTED VALUE.** Round 39
+    close, 2026-08-29, set by the business, and it is **the least obvious instance
+    of this rule so far**, because the "second reader" is a person writing prose
+    rather than a second code path.
+
+    A commit message said **217 pass** while the suite said **216**. The gap was
+    not a typo. **Six new tests were not in the suite at all**, because the one
+    line adding them to `package.json` had never landed, so the commit claimed a
+    green suite that did not include the tests it was adding.
+
+    **The count mismatch is the only thing that surfaced it**, and that is the
+    argument for this rule rather than tidiness: had the two numbers agreed by
+    luck, six tests would have sat unrun indefinitely with every message saying
+    the suite was green.
+
+    **The remedy is rule 20's, not a new guard: ANY NUMBER DESCRIBING A RUN IS
+    EMITTED BY THE RUN, NEVER TYPED.** Test counts, timings, row counts.
+    `scripts/verify-all.mjs` now prints `222/222 pass, 0 fail` beside each suite
+    stage, parsed from that stage's own output, so a message quotes the gate
+    rather than restating it.
+
+    **It closes the neighbouring failure as far as it can be closed**, and the
+    limit is honest rather than papered over: a script that never ran produces
+    no number to quote, and nothing in the repository can catch an intention
+    that was never expressed.
+
     **A display surface never invents its own read.** The approval page
     reads every deal value through the same readers `buildDealInputs` uses,
     so a value it reports as unset is unset by the calculator's own
