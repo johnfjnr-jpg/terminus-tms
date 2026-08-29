@@ -87,6 +87,35 @@ const uiState = {
 }
 
 const MARGIN_KEYS = ['hwSs', 'hwAqm', 'hwHemir', 'hwWarranty', 'inSsEx', 'inSsNew', 'inAqm', 'inHemir', 'hoSs', 'hoAqm', 'hoHemir']
+
+// ── THE PER-LINE MARGIN MODEL IS SUPERSEDED. Round 40 Phase 1 ──────────────
+//
+// Round 36 gave every priced line its own margin cell, eleven of them. The
+// business has now decided the better model: TARGET MARGIN IS THE DEFAULT FOR
+// EVERY COMPONENT, viewable and editable on request rather than always on
+// screen. Recorded as a supersession, not as drift: the per-line model was
+// stated explicitly two rounds ago and a better one has been stated since.
+//
+// MEASURED BEFORE REMOVING, and the data settles the argument the reasoning
+// only asserted. Of 488 opportunities, 33 carry any per-line override and NONE
+// of the four live ones do. Of 129 Deal Sheet versions, 31 carry one and NONE
+// is issued. Per key: hwSs 32, hwAqm 7, hoAqm 1, and the other eight zero.
+//
+// hwWarranty is one of the eight zeroes. "A margin on the warranty line was
+// never a real decision" is therefore measured rather than asserted: in 488
+// opportunities nobody has ever set one.
+//
+// The eleven CONTROLS are gone. The payload key is not: three consumers read it
+// and keep working, all from the payload rather than the screen -
+// buildDealInputs's marginFor() fallback, the approval page's buildTarget
+// "below target" list, and the server's validator.
+//
+// A CONSEQUENCE STATED RATHER THAN DISCOVERED, and it is the business's own
+// note: between this phase and Phase 3 there is NO per-line margin adjustment
+// anywhere. Acceptable here because no live deal uses one and target margin
+// covers every component, and if a deal needs one in that window the answer is
+// the payload, not the screen.
+let loadedMarginOverrides = {}
 const MILESTONE_ROWS = 5
 
 // A blank box is NULL, not 0. Round 38, before the Phase 2 reshape.
@@ -136,11 +165,22 @@ function moneySigned(v) {
 // stores — see loadDealInputsFromOpportunity() in src/routes/deals.js,
 // this must stay in sync with that function's field names. ───────────────
 function readPayload() {
-  const marginOverrides = {}
-  MARGIN_KEYS.forEach(key => {
-    const v = numOrUndefined(`deal-margin-${key}`)
-    if (v !== undefined) marginOverrides[key] = v
-  })
+  // ── PRESERVED, NOT REBUILT FROM THE SCREEN ───────────────────────────
+  //
+  // Round 40 Phase 1 removed the eleven per-line margin inputs. marginOverrides
+  // is in COMMERCIALS_OWNED_KEYS and is therefore sent on EVERY save, so
+  // rebuilding it from a screen that no longer carries the controls would send
+  // {} and DELETE the overrides on 33 opportunities at their first save.
+  //
+  // That is the read-and-write-must-agree-about-absence fault in its most
+  // expensive form: not a display saying the wrong thing, but a control being
+  // removed and the removal silently deleting the data it used to edit. The
+  // writer wins on the first click.
+  //
+  // So the value carried in on load is carried back out unchanged. When the
+  // detail panel returns in Phase 3 it will edit this object; until then
+  // nothing on this screen may change it, and nothing may drop it either.
+  const marginOverrides = loadedMarginOverrides
 
   return {
     ssExisting: numOrNull('deal-ssExisting'),
@@ -258,6 +298,29 @@ function renderPricingCards(result, payload) {
     document.getElementById(`pg-price-${key}`).textContent = `$${money(row.rawPrice)}`
     document.getElementById(`pg-note-${key}`).textContent = note
   }
+
+  // ── A "MARGIN %" COLUMN MUST SHOW A MARGIN ──────────────────────────
+  //
+  // Phase 1 removed the inputs and the column headers still say Margin %. A
+  // header naming a value the cells do not carry is the same fault as a class
+  // with no rule: nothing fails, and the screen quietly stops meaning what it
+  // says. So the cells now DISPLAY the effective margin, which is the layout's
+  // own words - target margin is the default for every component, viewable.
+  //
+  // An overridden line says so, because a line priced away from target is a
+  // decision and the whole point of removing the inputs was that the default
+  // should be visible rather than typed eleven times.
+  const target = numericOrDefault(payload, 'targetMargin')
+  MARGIN_KEYS.forEach((key) => {
+    const cell = document.getElementById(`pg-margin-${key}`)
+    if (!cell) return
+    const override = toNumberOrNull(loadedMarginOverrides[key])
+    cell.textContent = override === null ? `${target}%` : `${override}%`
+    cell.classList.toggle('pg-margin-override', override !== null)
+    cell.title = override === null
+      ? `Target margin, ${target}%. The default for every component.`
+      : `Priced at ${override}% against a target of ${target}%.`
+  })
 
   setRow(hardwareGroup, 'hwSs', `${ssUnits} units x $${money(payload.ssUnitCost ?? 0)}`)
   setRow(hardwareGroup, 'hwAqm', `${aqUnits} units x $${money(payload.aqUnitCost ?? 0)}`)
@@ -1365,8 +1428,9 @@ function populateForm(payload) {
   setVal('deal-hoAqm', catalogRates.hoAqm ?? '')
   setVal('deal-hoHemir', catalogRates.hoHemir ?? '')
 
-  const overrides = p.marginOverrides ?? {}
-  MARGIN_KEYS.forEach(key => setVal(`deal-margin-${key}`, overrides[key] ?? ''))
+  // Held for the round trip, and read by renderPricingCards to show which
+  // lines are priced away from target.
+  loadedMarginOverrides = p.marginOverrides ?? {}
 
   uiState.installResp = p.installResp || 'Client Own Installation Team'
   document.getElementById('deal-installResp').value = uiState.installResp
@@ -1487,7 +1551,10 @@ function populateForm(payload) {
 const PERCENT_FIELD_IDS = new Set(['deal-targetMargin', 'deal-warrantyPct', 'deal-whtPct', 'deal-gstPct', 'deal-factoring-ratePct', 'deal-lumpCost', 'deal-fxContingency'])
 function applyCommercialNumericInputModes() {
   document.querySelectorAll('#opp-tab-commercial input[inputmode]').forEach(el => {
-    const isPercent = PERCENT_FIELD_IDS.has(el.id) || el.id.startsWith('deal-margin-') || el.id.endsWith('-usd')
+    // deal-margin-* is gone as of Round 40 Phase 1. The clause went with it
+    // rather than being left as a branch nothing can reach, which is how a
+    // reader comes to believe those inputs still exist.
+    const isPercent = PERCENT_FIELD_IDS.has(el.id) || el.id.endsWith('-usd')
     el.inputMode = isPercent ? 'decimal' : 'numeric'
   })
 }

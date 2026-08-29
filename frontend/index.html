@@ -1811,25 +1811,25 @@
             <div class="pg-row">
               <div><div class="pg-item-name">SafeSight</div><div class="pg-item-note" id="pg-note-hwSs">--</div></div>
               <div class="pg-cost" id="pg-cost-hwSs">--</div>
-              <input type="text" inputmode="numeric" class="pg-margin-input" id="deal-margin-hwSs" placeholder="target">
+              <div class="pg-margin" id="pg-margin-hwSs">--</div>
               <div class="pg-price" id="pg-price-hwSs">--</div>
             </div>
             <div class="pg-row">
               <div><div class="pg-item-name">AQ Sensor</div><div class="pg-item-note" id="pg-note-hwAqm">--</div></div>
               <div class="pg-cost" id="pg-cost-hwAqm">--</div>
-              <input type="text" inputmode="numeric" class="pg-margin-input" id="deal-margin-hwAqm" placeholder="target">
+              <div class="pg-margin" id="pg-margin-hwAqm">--</div>
               <div class="pg-price" id="pg-price-hwAqm">--</div>
             </div>
             <div class="pg-row">
               <div><div class="pg-item-name">HEMIR</div><div class="pg-item-note" id="pg-note-hwHemir">--</div></div>
               <div class="pg-cost" id="pg-cost-hwHemir">--</div>
-              <input type="text" inputmode="numeric" class="pg-margin-input" id="deal-margin-hwHemir" placeholder="target">
+              <div class="pg-margin" id="pg-margin-hwHemir">--</div>
               <div class="pg-price" id="pg-price-hwHemir">--</div>
             </div>
             <div class="pg-row">
               <div><div class="pg-item-name">Warranty provision</div><div class="pg-item-note" id="pg-note-hwWarranty">--</div></div>
               <div class="pg-cost" id="pg-cost-hwWarranty">--</div>
-              <input type="text" inputmode="numeric" class="pg-margin-input" id="deal-margin-hwWarranty" placeholder="target">
+              <div class="pg-margin" id="pg-margin-hwWarranty">--</div>
               <div class="pg-price" id="pg-price-hwWarranty">--</div>
             </div>
 
@@ -1848,19 +1848,19 @@
             <div class="pg-row">
               <div><div class="pg-item-name">SafeSight</div><div class="pg-item-note" id="pg-note-hoSs">--</div></div>
               <div class="pg-cost" id="pg-cost-hoSs">--</div>
-              <input type="text" inputmode="numeric" class="pg-margin-input" id="deal-margin-hoSs" placeholder="target">
+              <div class="pg-margin" id="pg-margin-hoSs">--</div>
               <div class="pg-price" id="pg-price-hoSs">--</div>
             </div>
             <div class="pg-row">
               <div><div class="pg-item-name">AQ Sensor</div><div class="pg-item-note" id="pg-note-hoAqm">--</div></div>
               <div class="pg-cost" id="pg-cost-hoAqm">--</div>
-              <input type="text" inputmode="numeric" class="pg-margin-input" id="deal-margin-hoAqm" placeholder="target">
+              <div class="pg-margin" id="pg-margin-hoAqm">--</div>
               <div class="pg-price" id="pg-price-hoAqm">--</div>
             </div>
             <div class="pg-row">
               <div><div class="pg-item-name">HEMIR</div><div class="pg-item-note" id="pg-note-hoHemir">--</div></div>
               <div class="pg-cost" id="pg-cost-hoHemir">--</div>
-              <input type="text" inputmode="numeric" class="pg-margin-input" id="deal-margin-hoHemir" placeholder="target">
+              <div class="pg-margin" id="pg-margin-hoHemir">--</div>
               <div class="pg-price" id="pg-price-hoHemir">--</div>
             </div>
 
@@ -1949,12 +1949,12 @@
              a note asserting either would be a claim nobody has checked. -->
         <p class="field-note" style="margin:0 0 10px">Existing infrastructure means mounting on poles, columns or buildings already in place. New infrastructure means we supply and erect the mount, which costs more and takes longer.</p>
         <table class="doc-table hidden" id="deal-install-table">
-          <thead><tr><th>Installation (per unit)</th><th>Units</th><th>Rate (USD, from Base Cost Data)</th><th>Cost (USD)</th><th title="Margin on this product's installation line. Leave blank to price at the target margin.">Margin % (blank = target)</th><th>Price (USD)</th></tr></thead>
+          <thead><tr><th>Installation (per unit)</th><th>Units</th><th>Rate (USD, from Base Cost Data)</th><th>Cost (USD)</th><th>Margin %</th><th>Price (USD)</th></tr></thead>
           <tbody>
-            <tr><td>SafeSight, existing infra</td><td class="col-mono" id="deal-install-units-inSsEx">0</td><td><input type="text" inputmode="numeric" id="deal-inSsExisting" readonly></td><td class="col-mono" id="deal-install-cost-inSsEx">$0</td><td><input type="text" inputmode="numeric" id="deal-margin-inSsEx" placeholder="target"></td><td class="col-mono" id="deal-install-price-inSsEx">$0</td></tr>
-            <tr><td>SafeSight, new infra</td><td class="col-mono" id="deal-install-units-inSsNew">0</td><td><input type="text" inputmode="numeric" id="deal-inSsNew" readonly></td><td class="col-mono" id="deal-install-cost-inSsNew">$0</td><td><input type="text" inputmode="numeric" id="deal-margin-inSsNew" placeholder="target"></td><td class="col-mono" id="deal-install-price-inSsNew">$0</td></tr>
-            <tr><td>AQ Sensor, existing infra</td><td class="col-mono" id="deal-install-units-inAqm">0</td><td><input type="text" inputmode="numeric" id="deal-inAqm" readonly></td><td class="col-mono" id="deal-install-cost-inAqm">$0</td><td><input type="text" inputmode="numeric" id="deal-margin-inAqm" placeholder="target"></td><td class="col-mono" id="deal-install-price-inAqm">$0</td></tr>
-            <tr><td>HEMIR, existing infra</td><td class="col-mono" id="deal-install-units-inHemir">0</td><td><input type="text" inputmode="numeric" id="deal-inHemir" readonly></td><td class="col-mono" id="deal-install-cost-inHemir">$0</td><td><input type="text" inputmode="numeric" id="deal-margin-inHemir" placeholder="target"></td><td class="col-mono" id="deal-install-price-inHemir">$0</td></tr>
+            <tr><td>SafeSight, existing infra</td><td class="col-mono" id="deal-install-units-inSsEx">0</td><td><input type="text" inputmode="numeric" id="deal-inSsExisting" readonly></td><td class="col-mono" id="deal-install-cost-inSsEx">$0</td><td><span class="pg-margin" id="pg-margin-inSsEx">--</span></td><td class="col-mono" id="deal-install-price-inSsEx">$0</td></tr>
+            <tr><td>SafeSight, new infra</td><td class="col-mono" id="deal-install-units-inSsNew">0</td><td><input type="text" inputmode="numeric" id="deal-inSsNew" readonly></td><td class="col-mono" id="deal-install-cost-inSsNew">$0</td><td><span class="pg-margin" id="pg-margin-inSsNew">--</span></td><td class="col-mono" id="deal-install-price-inSsNew">$0</td></tr>
+            <tr><td>AQ Sensor, existing infra</td><td class="col-mono" id="deal-install-units-inAqm">0</td><td><input type="text" inputmode="numeric" id="deal-inAqm" readonly></td><td class="col-mono" id="deal-install-cost-inAqm">$0</td><td><span class="pg-margin" id="pg-margin-inAqm">--</span></td><td class="col-mono" id="deal-install-price-inAqm">$0</td></tr>
+            <tr><td>HEMIR, existing infra</td><td class="col-mono" id="deal-install-units-inHemir">0</td><td><input type="text" inputmode="numeric" id="deal-inHemir" readonly></td><td class="col-mono" id="deal-install-cost-inHemir">$0</td><td><span class="pg-margin" id="pg-margin-inHemir">--</span></td><td class="col-mono" id="deal-install-price-inHemir">$0</td></tr>
           </tbody>
           <tbody>
             <tr>

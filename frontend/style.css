@@ -4424,6 +4424,11 @@ input.input-invalid {
 /* Round 39: an ageing or stale cost basis, said where the rates are entered.
    Same bands and same words as the approval page, from src/lib/cost-basis.js. */
 .deal-catalog-ageing { color: var(--white) !important; }
+/* A line priced away from target margin. Round 40 Phase 1: the eleven inputs
+   are gone and the column now displays the effective margin, so the one thing
+   it must still distinguish is a default from a decision. */
+.pg-margin { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+.pg-margin.pg-margin-override { color: var(--white); }
 .deal-schedule-off { color: var(--amber, #E0A33E); }
 .deal-catalog-stale  { color: var(--green) !important; }
 

@@ -410,6 +410,54 @@ test('price to customer is contract net plus GST, and GST has a row', () => {
 })
 
 // ─────────────────────────────────────────────────────────────
+// The per-line margin model is superseded, and removing a control
+// must not delete the data it edited
+// ─────────────────────────────────────────────────────────────
+
+test('the eleven per-line margin inputs are gone from the markup', () => {
+  // Eleven, not seven. Seven is the number visible on one sub-tab, which is why
+  // both parties said seven twice without counting: Verification 19.
+  const html = readFileSync(new URL('../../frontend/index.html', import.meta.url), 'utf8')
+  const inputs = html.match(/id="deal-margin-[A-Za-z]+"/g) ?? []
+  assert.deepEqual(inputs, [], `per-line margin inputs survive: ${inputs.join(', ')}`)
+
+  // And the column still shows what its header names.
+  const cells = html.match(/id="pg-margin-[A-Za-z]+"/g) ?? []
+  assert.equal(cells.length, 11, 'every margin cell must display the effective margin')
+})
+
+test('readPayload PRESERVES marginOverrides instead of rebuilding it', () => {
+  // THE EXPENSIVE HALF. marginOverrides is in COMMERCIALS_OWNED_KEYS and is
+  // sent on every save, so a readPayload that rebuilt it from a screen with no
+  // controls would send {} and delete the overrides on 33 opportunities at
+  // their first save. Removing a control must not delete its data.
+  const src = readFileSync(new URL('../../frontend/opportunity-deal.js', import.meta.url), 'utf8')
+  const fn = src.slice(src.indexOf('function readPayload()'), src.indexOf('function readMilestones'))
+
+  assert.match(fn, /const marginOverrides = loadedMarginOverrides/,
+    'readPayload must carry the loaded overrides through unchanged')
+  assert.ok(!/numOrUndefined\(`deal-margin-/.test(fn),
+    'readPayload still reads the removed inputs')
+
+  // It is still SENT, or the server would see the key disappear entirely.
+  assert.match(src, /'targetMargin', 'marginOverrides',/)
+})
+
+test('the three payload consumers are untouched', () => {
+  // The controls go, the key stays, and everything that reads the PAYLOAD keeps
+  // working. Named individually because "nothing else uses it" is the kind of
+  // claim this project has been wrong about before.
+  const inputs = readFileSync(new URL('../../src/lib/deal-inputs.js', import.meta.url), 'utf8')
+  const appr = readFileSync(new URL('../../src/lib/approval-page.js', import.meta.url), 'utf8')
+  const route = readFileSync(new URL('../../src/routes/opportunities.js', import.meta.url), 'utf8')
+
+  assert.match(inputs, /const overrides = payload\.marginOverrides \?\? \{\}/)
+  assert.match(inputs, /overrides\[key\] \?\? targetMargin/)
+  assert.match(appr, /payload\?\.marginOverrides \?\? \{\}/)
+  assert.match(route, /payload\.marginOverrides && typeof payload\.marginOverrides === 'object'/)
+})
+
+// ─────────────────────────────────────────────────────────────
 // An absent GST rate is an absence, not a zero
 // ─────────────────────────────────────────────────────────────
 
