@@ -1384,6 +1384,28 @@ of the change. An unanswerable precondition is a stop.
     opposite arrangement: several green results with ONE cause**, and no amount
     of adding members to the set would have found it.
 
+    **AND A COUNT IS NOT A STRUCTURE. Set by the business, Round 40, after the
+    same instinct produced three failures in one round.**
+
+    - **Div balance.** `<div>` minus `</div>` over the file returned zero while a
+      comment had swallowed a `</section>` and two sections were nested inside a
+      third. The count was right and described nothing.
+    - **Comment delimiters.** `<!--` 139, `-->` 139, balanced, while an orphaned
+      tail sat outside any comment and **rendered as prose on the page** under
+      the Save changes button. Inserting a block inside a comment gave the
+      opener a nearer closer to pair with; the count cannot see a re-pairing.
+    - **The control census**, which is a count done honestly and still could not
+      see a section losing its name, because a name is not a control.
+
+    **A count answers "how many", and structure is "which one is inside which".**
+    Balanced totals are consistent with any number of wrong pairings, so the
+    check has to walk the pairing: for comments, every `-->` consumed by an
+    opener; for nesting, the parentage asserted rather than the totals.
+
+    **The instinct will reach for a count again**, because a count is one line
+    and a walk is ten, and it is recorded here with all three instances so the
+    next reach is at least an informed one.
+
     **The cause underneath is rule 34's caveat.** Slicing and reassembling markup
     treats structured text as lines, and the comment straddled a boundary the
     slicer did not know existed. A rebuild done with a script that does not read
