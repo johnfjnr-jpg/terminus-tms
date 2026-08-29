@@ -38,6 +38,11 @@
 import { buildDealInputs, isSet, RAW_READERS, PRODUCT_UNITS } from './deal-inputs.js';
 import { calculateDeal } from './deal-calculator.js';
 import { NUMERIC_DEFAULTS, defaultProvenance, toNumberOrNull } from './numeric-payload.js';
+// The bands, the thresholds and the words all live in one place, because the
+// Commercials reference panel shows a salesperson the same thing earlier.
+// Verification 20: same bands, same words, one source.
+import { COST_BASIS_STALENESS, stalenessBand, ageInDays } from './cost-basis.js';
+export { COST_BASIS_STALENESS, stalenessBand, ageInDays } from './cost-basis.js';
 
 // ─────────────────────────────────────────────────────────────
 // Block 2: the bridge
@@ -397,64 +402,20 @@ export function buildExposures(payload, result) {
 // ─────────────────────────────────────────────────────────────
 
 /**
- * HOW OLD A COST BASIS MAY BE BEFORE IT IS A RISK BEING ACCEPTED.
- *
- * Set by the business 2026-08-29. `base_cost_batches` carries effective_from and
- * NO end date, so a batch never lapses and cost data ages indefinitely while the
- * system treats that as normal. Showing the date, which block 4 already did, is
- * necessary and not sufficient: an approver signing 36 months against a basis
- * nobody has revisited since last year is taking that risk silently.
- *
- * NO EVIDENCE WAS AVAILABLE TO ARGUE WITH, AND THAT IS STATED RATHER THAN
- * DRESSED UP. The catalog holds exactly one batch per product, all dated
- * 2026-08-27, so there is no price history in this system to measure how fast
- * hardware or hosting costs actually move. These thresholds are the business's
- * judgement, recorded as theirs, and the first real batch turnover is the moment
- * to check them against something.
- *
- * THEY BELONG IN CONFIGURATION, not here. Architecture rule 2: approval routing
- * and gate rules are database rows. There is no configuration surface for
- * Commercials yet, so this is the interim single point, dated like
- * NUMERIC_DEFAULTS and locked by a golden test so changing a threshold without
- * moving its date fails.
- */
-export const COST_BASIS_STALENESS = {
-  setOn: '2026-08-29',
-  bands: [
-    { band: 'current', maxDays: 182, meaning: 'Under six months. Normal.' },
-    {
-      band: 'ageing',
-      maxDays: 365,
-      meaning: 'Six to twelve months. Shown as an assumption being accepted.',
-    },
-    {
-      band: 'stale',
-      maxDays: Infinity,
-      meaning: 'Over twelve months. Approval requires explicit acknowledgement that the basis is stale.',
-    },
-  ],
-};
-
-/** Which band an age in days falls in. Null age is its own answer, not a band. */
-export function stalenessBand(ageDays) {
-  if (!Number.isFinite(ageDays)) return { band: 'undated', meaning: 'This batch carries no effective date.' };
-  return COST_BASIS_STALENESS.bands.find((b) => ageDays <= b.maxDays);
-}
-
-/**
  * @param {object} batches - catalogToRates().batches, product -> { batch_label, effective_from }
  * @param {string[]} missing - products with no batch at all
  * @param {string} asOfISO - the date the catalog was resolved for
  */
 export function buildCostBasis(batches, missing, asOfISO, payload = {}) {
-  const asOf = new Date(`${asOfISO}T00:00:00Z`);
   const products = Object.entries(batches ?? {}).map(([product, b]) => {
-    const from = b.effective_from ? new Date(`${String(b.effective_from).slice(0, 10)}T00:00:00Z`) : null;
-    const ageDays = from ? Math.round((asOf - from) / 86400000) : null;
-    const { band, meaning } = stalenessBand(ageDays);
+    // AGED AGAINST as_of, NOT TODAY. as_of is settable, and ageing against today
+    // would make every batch look stale inside a historical query where it was
+    // current. One function does this, in cost-basis.js.
+    const ageDays = ageInDays(b.effective_from, asOfISO);
+    const { band, meaning, statement } = stalenessBand(ageDays);
     return {
       product, batchLabel: b.batch_label ?? null, effectiveFrom: b.effective_from ?? null,
-      ageDays, band, bandMeaning: meaning,
+      ageDays, band, bandMeaning: meaning, bandStatement: statement,
     };
   }).sort((a, b) => (b.ageDays ?? -1) - (a.ageDays ?? -1));
 

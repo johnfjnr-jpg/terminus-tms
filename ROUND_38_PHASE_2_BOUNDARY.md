@@ -190,6 +190,11 @@ It becomes a **reference panel**:
 - visible DURING entry, not a block of restated numbers below the form
 - carrying each rate's batch label and effective date, because a rate without its
   date is the thing the staleness policy exists to stop being invisible
+- **carrying the SAME staleness treatment as the approval page** - same bands,
+  same words, earlier. The salesperson sees these rates before any approver does
+  and is the first person who could act on an ageing basis. The bands and their
+  sentences were moved into `src/lib/cost-basis.js` for exactly this, so the
+  panel reads them rather than writing its own (Verification 20)
 - read-only and clearly so, since nothing on it is editable and it must not read
   as a set of inputs somebody forgot to fill
 
