@@ -76,6 +76,29 @@ test('a crashed batch leaves a pending entry for the hook to catch', () => {
   } finally { rmSync(s.dir, { recursive: true, force: true }); if (existsSync(JOURNAL)) rmSync(JOURNAL) }
 })
 
+test('the CLI is a shorter path than a raw heredoc, or it loses to one', () => {
+  // ── THE FINDING THAT BUILT IT ────────────────────────────────────────
+  //
+  // scripts/lib/edit.mjs was bypassed within the hour of being written, by its
+  // own author, because a raw heredoc was one command and the helper needed a
+  // temp file, an absolute import path and three lines of ceremony. THE GUARD
+  // WORKED ONLY WHERE IT WAS USED, AND IT WAS USED ONLY WHERE IT WAS EASY.
+  //
+  // Measured across six instances: three caught by construction, three by luck,
+  // and all three lucky ones were raw edits to documents nothing executes. A
+  // failed code edit breaks a test. A failed documentation edit deletes an
+  // argument, silently, for ever.
+  //
+  // So the CLI form is the guard for the category that holds the reasons, and
+  // it only works if it stays the shorter path. This asserts the shape rather
+  // than the speed: one command, stdin, no import, no temp file.
+  const cli = readFileSync(join(ROOT, 'scripts/edit.mjs'), 'utf8')
+  assert.match(cli, /readFileSync\(0, 'utf8'\)/, 'it must read the edit from stdin')
+  assert.match(cli, /from '\.\/lib\/edit\.mjs'/, 'it must reuse the one implementation, not a second')
+  assert.ok(!/mkdtemp|tmpdir/.test(cli), 'a temp file would make it the slower path again')
+  assert.ok(statSync(join(ROOT, 'scripts/edit.mjs')).mode & 0o111, 'the CLI is not executable')
+})
+
 test('the hook and its installer are in the repository', () => {
   // ── WHAT THIS MAY AND MAY NOT ASSERT ──────────────────────────────────
   //

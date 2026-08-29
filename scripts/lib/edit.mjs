@@ -38,7 +38,7 @@
 // A crash therefore leaves a `pending` entry, which is exactly the state the
 // hook exists to catch. Silence is not success.
 import { readFileSync, writeFileSync, existsSync, unlinkSync } from 'fs'
-import { join } from 'path'
+import { join, isAbsolute } from 'path'
 
 const ROOT = new URL('../../', import.meta.url).pathname
 export const JOURNAL = join(ROOT, '.edit-journal.json')
@@ -89,7 +89,10 @@ export function edit(file, oldText, newText) {
     throw new Error(`edit did not land in ${file}: ${why}`)
   }
 
-  const path = join(ROOT, file)
+  // isAbsolute first: join(ROOT, '/tmp/x') produces a path under the repository
+  // and the edit then fails with "file does not exist", which is a correct
+  // refusal for the wrong reason and sends you looking in the wrong place.
+  const path = isAbsolute(file) ? file : join(ROOT, file)
   if (!existsSync(path)) fail('file does not exist')
   const before = readFileSync(path, 'utf8')
 

@@ -1311,6 +1311,33 @@ of the change. An unanswerable precondition is a stop.
     screen-content work, which is true under any layout; what is wasted is
     every structural measurement taken against the superseded shape.
 
+32. **A NUMBER THAT HAS BEEN CITED IS AN IDENTIFIER, NOT A POSITION.** Round 40,
+    2026-08-30, set by the business from a catch made while recording another
+    rule.
+
+    > It can be appended to. It can be superseded. **It can never be reordered.**
+
+    **The instance.** Architecture rule 10 was first written as rule 7, pushing
+    the existing 7, 8 and 9 down by one. Measured before committing: **51
+    citations of Architecture rules 8 and 9 exist** across code comments, briefs
+    and this file. Renumbering would have silently invalidated every one of them,
+    and nothing would have failed - a citation is prose, and prose that now
+    points at the wrong rule reads exactly like prose that points at the right
+    one.
+
+    So the new rule took the next free number and was moved into reading order,
+    rather than taking the number its topic suggested.
+
+    **AND IT IS THE SECOND AND HARDER REASON FOR A DECISION ALREADY TAKEN.** The
+    index pass groups ABOVE the numbers rather than renumbering, which was chosen
+    because rounds cite them. That was a readability argument. This is the
+    evidence: the citations are not hypothetical, there are 51 of them, and the
+    grouping is what makes the set navigable without touching a single one.
+
+    Same family as Verification 19, a name asserting a property, from the other
+    direction: **a number is a name that looks like an ordering**, and the
+    ordering is the part nobody may rely on.
+
 ### At round close: index these by when they apply
 
 **Raised by the business 2026-08-29, Round 39. Not a trim, an index.**
