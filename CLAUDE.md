@@ -614,6 +614,42 @@ not resolve it quietly.
     not move the number has not passed; it has failed to run**, and the next
     thing to check is whether the instrument can see the thing at all.
 
+19. **A CATEGORY NAME IS A FINDING AND NEEDS THE SAME EVIDENCE AS ONE.**
+    Round 38, 2026-08-29. Three claims in one round, all of them labels, all
+    of them false, and none of them found by re-reading:
+
+    - **`APPEND_ONLY`**, a symbol naming six revision writers as safe because
+      they only ever added. All six were single-key read-modify-write: a value
+      read in one round trip, rebuilt in JavaScript, written back. The worst
+      was the deal snapshot, which took the record's WHOLE payload from an
+      earlier read and re-stamped it over every key, so a concurrent write to
+      any key was lost entirely. It carried the append-only label for a round.
+    - **"every Test Bed and every Account belongs to a different owner, so
+      those routes answer 403 before reaching the write"**, written into a
+      test file as the justification for a source scan. It was a description
+      of the DATA phrased as a permission boundary. Measured, the test account
+      creates its own Account and Test Bed, owns both, and writes to both.
+      Nothing stopped it. There was no fixture that made one.
+    - **The unwired census**, "the four client-unwired sites". There were
+      five, two of which were fallback branches rather than sites, and wiring
+      them properly reached thirteen client call sites and a defect on a
+      fourteenth that no label had ever named.
+
+    **The mechanism is that a label is read as a summary of work already
+    done.** A finding gets challenged; a category name gets used. Nobody
+    greps for a claim inside a symbol, a bucket, a status enum or a comment
+    that explains why a check is scoped the way it is, so a name that was
+    approximately right when coined stays in place while the thing it names
+    moves. This is the same family as Architecture rule 9's fourth variant, a
+    literal that cannot be falsified, and the difference is that a label is
+    load-bearing: code branches on it and people reason from it.
+
+    **The check: when a name asserts a property, measure the property.**
+    Enumerate every member of the category and check each against the name,
+    the way you would check a finding before reporting it. All three above
+    took one pass of reading the actual call sites, and all three had
+    survived multiple rounds of people reading the label instead.
+
 ---
 
 ## `CURRENT_STATE.md`

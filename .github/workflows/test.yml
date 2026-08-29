@@ -2,10 +2,20 @@
 #
 # Deliberately runs `npm test` only, never `npm run test:db`. The
 # database suite needs real credentials, and putting those into CI is a
-# separate decision that has not been made. Keeping the pure suite free
-# of any database import is what makes that separation possible - if a
-# db import ever leaks into scripts/tests/cost.test.mjs, this job starts
-# needing secrets and the split has been broken.
+# separate decision. Keeping the pure suite free of any database import is
+# what makes that separation possible - if a db import ever leaks into
+# scripts/tests/cost.test.mjs, this job starts needing secrets and the split
+# has been broken.
+#
+# ROUND 38: THE DECISION IS NOW TAKEN, AND IT IS NOT "CI IS THE GATE".
+# A green tick here means the pure suite passed. It has never meant more, and
+# in Round 38 the pure suite passed a route answering 500 to every call, which
+# an HTTP probe outside CI found in under a minute.
+#
+# The gate is `npm run verify` and MERGE_GATE.md, which runs this suite plus
+# the database suite plus that probe, captures the whole output, and must be
+# pasted into the merge. What CI would need in order to take the gate back is
+# written down there too.
 name: test
 
 on:

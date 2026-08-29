@@ -16,3 +16,4 @@ session-ref.json
 /debug-*.mjs
 /get-session-*.mjs
 /.scratch/
+.verify/
