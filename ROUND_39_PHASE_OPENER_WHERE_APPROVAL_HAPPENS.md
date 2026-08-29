@@ -149,7 +149,7 @@ approve, reachable no other way.
 
 ---
 
-## 6. THE HOLE ONE STAGE LATER, scoped now rather than found in Round 45
+## 6. THE HOLE ONE STAGE LATER, and the gate is on the wrong side of the customer
 
 **The question.** Commercial gates the transition INTO Proposal, and the Deal
 Sheet keeps moving THROUGH Proposal by design. What does a voided Commercial
@@ -158,52 +158,79 @@ approval mean after the transition it guarded has already happened?
 **Measured answer: between the two gates, nothing.** The record sits at Proposal,
 the Deal Sheet moves freely, the approval reads `superseded` on the approval page
 and in the stage-approvals panel, and no gate is being evaluated. **The proposal
-document that reaches the customer is produced inside exactly that window.**
+that reaches the customer is produced inside exactly that window.**
 
-**The second gate is specified and it already exists as a TICK BOX.**
-`DESIGN_PRINCIPLES.md:285` says of Proposal to Evaluation, "Proposal Submitted":
+### The tick box is worse than nothing there
+
+The Proposal to Evaluation transition already carries a rule labelled
+**"Pricing approved"**. Measured, it is a `payload_field_required` on
+`exitPropPricingApproved`: **a checkbox, ticked by the person whose pricing it
+is, referencing no approval.**
+
+**That is worse than an empty gate.** An empty gate is an absence. This produces
+a line in the record asserting that the pricing was approved, and **an auditor
+reads that line as a control.** It is the same shape as a green stage gate over
+a moved price, one stage later and self-administered.
+
+### Making it a caller is right, and it is not sufficient
+
+`exitPropPricingApproved` should stop being a tick and become a caller of
+`liveVersionApproval()`. Same reader, same derived state, no new mechanism.
+
+**But look at where it sits. Proposal to Evaluation is AFTER the customer has the
+proposal.** "Proposal Submitted" is a stage transition recorded once the thing
+has already gone. A gate that fires there cannot stop an unapproved price
+reaching a client. **It can only record that one did.**
+
+`DESIGN_PRINCIPLES.md:285` already says the right thing:
 
 > The proposal itself (built on the Deal Sheet) must be approved across all
-> required tracks before it can be sent. The Deal Sheet is effectively frozen at
-> this point.
+> required tracks **before it can be sent**.
 
-And the configuration for that transition, measured, carries:
+Before it can be sent. Not before the stage is advanced afterwards.
 
-| Rule | What it is today |
+### So the next round's first question is narrower than the requirement type
+
+> **IS PROPOSAL ISSUANCE AN EVENT IN THE SYSTEM AT ALL?**
+
+**Measured, 2026-08-29, and the answer is no.**
+
+| | |
 |---|---|
-| `exitPropPricingApproved` "Pricing approved" | **`payload_field_required`. A checkbox a person ticks.** |
-| `exitPropDocumentation` "Proposal documentation approved" | a checkbox |
-| `exitPropContractTerms` "Contract terms and variations approved" | a checkbox |
-| Commercial `approval_obtained` | now version-scoped, so it IS a live check |
+| `record_type = 'proposal'` | **zero rows, no table.** "Proposal" exists solely as an Opportunity stage name |
+| Document variants in use | NDA, Site Assessment Report, Site drawings, Test Bed Close Out Report and nine more - **every one a Test Bed artefact.** No proposal document |
+| `document_kind` | `terminus` and `customer` only |
+| `audit_log` actions | 26 of them, and **not one records anything being sent to a customer** |
+| `deal_sheet_versions.status` | 44 draft, 1 issued |
 
-**So the thing labelled "Pricing approved" at the proposal gate is a
-self-assertion.** It can be ticked while the pricing has moved since anyone
-approved it, and it is the line a person reads. The Commercial rule beside it now
-does the real work, which means the tick is at best redundant and at worst the
-one people trust.
+**"Issued" is the nearest thing and it is not issuance.** `POST
+/deal-sheet-versions/:vid/issue` relabels V0.4 as V1 and freezes it. That is a
+numbering and immutability act inside Terminus, it is gated by nothing but the
+row's own status, and it says nothing about anything leaving the building.
 
-**Scope for the next round: `exitPropPricingApproved` stops being a tick and
-becomes the THIRD CALLER of `liveVersionApproval()`.** Same reader, same derived
-state, no new mechanism. It needs a new `requirement_type` that evaluates a
-derived condition rather than reading a payload key, which is the piece of
-engine work this implies and the reason it is scoped rather than done here.
+**So the specified gate has nothing to attach to.** If the proposal is a document
+somebody produces and emails, the control has to attach to the act of producing
+or issuing it, **and that is where it belongs anyway: on the artefact leaving the
+building, not on a stage transition taken afterwards.**
 
-**Callers of `liveVersionApproval()` after that change:**
+**Issuance is therefore the thing to build, and everything else in this section
+depends on it.** Ordered:
+
+1. **Model issuance.** What is produced, from which version, by whom, when.
+   `DESIGN_PRINCIPLES.md:1089` already records the shape as a one-line addition
+   once a proposal exists to hold it: an issued version is uniquely identified
+   and immutable, so a `proposal.version_id` foreign key is all the link needs.
+2. **Put the gate on it**, as the third caller of `liveVersionApproval()`.
+3. **Then** `exitPropPricingApproved` can be removed rather than converted,
+   because the control will exist at the point it was pretending to cover.
+
+**Callers of `liveVersionApproval()` today**, so the third is countable:
 
 1. `computeBlocking`, the transition gate
 2. `buildStageTracks`, the stage-approvals panel
-3. the proposal-submission requirement
-4. the approval page itself, unified onto it in this round after it was found
+3. the approval page, unified onto it in this round after it was found
    assembling the same answer from the two functions underneath - Verification 20
    applied to something this round created
-
-**What it does not close, stated so it is not assumed:** the window between the
-two gates. A deal repriced at Proposal and never moved onward is guarded by
-nothing, because no transition is being attempted. The containment is that the
-stage-approvals panel now shows the Commercial track un-ticked with the reason,
-on the tab the owner already uses. Whether a live deal should be able to sit at
-Proposal with a void Commercial approval and no prompt is a business question
-this round does not answer.
 
 ---
 
@@ -214,3 +241,21 @@ this round does not answer.
 the fields it governs, once a field-to-track map can be built safely, and the
 trigger is a person rather than a date - before a second individual holds any
 approval track.
+
+---
+
+## 8. Queue discipline, set by the business 2026-08-29
+
+**The approving surface, then THE RESHAPE, and the reshape does not move again.**
+
+The last several rounds were all correctness and control. Every one was
+justified and every one found something real, and the reshape was deferred each
+time for a good reason. That is how a rigorously controlled system nobody enjoys
+using gets built, and it is found out when the first real user arrives.
+
+**A control finding goes on the list unless it is destroying live data.** Not
+"unless it is serious", not "unless it is a gate". Findings are still reported,
+scoped and recorded; what changes is that they do not reorder the queue.
+
+Written into `CLAUDE.md` as build discipline rule 10, because a standing order
+that lives only in a phase opener is one round from being forgotten.

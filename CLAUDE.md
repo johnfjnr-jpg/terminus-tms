@@ -128,6 +128,31 @@ not resolve it quietly.
    A phase that ships no diff still commits, even if only the brief: the
    branch should carry its own scope from the start.
 
+10. **A CONTROL FINDING DOES NOT AUTOMATICALLY OUTRANK THE QUEUE.** Set by
+    the business 2026-08-29, and it is theirs to set.
+
+    Round 38 ran eight-plus stretches of correctness and control work. Every
+    one was justified, every one found something real, and the reshape - the
+    only work in the round that makes the system pleasant to use - was
+    deferred each time for a good reason.
+
+    **That is how you end up with a rigorously controlled system nobody
+    enjoys using, and you find out when the first real user arrives.**
+    Terminus is pre-revenue with one user, and the controls now materially
+    exceed the usability.
+
+    **The standing order: the approving surface, then THE RESHAPE, and the
+    reshape does not move again.** A control finding goes on the list unless
+    it is **destroying live data**. Not "unless it is serious", not "unless
+    it is a gate": destroying live data. Everything else is recorded, scoped
+    and queued.
+
+    Findings do not stop being worth reporting. This rule is about what
+    happens next, not about what gets noticed. Report it, scope it, put it on
+    the list, and carry on with the queued work.
+
+    **The next finding will be tempting, and the answer is still the list.**
+
 ---
 
 ## Architecture
@@ -813,6 +838,35 @@ not resolve it quietly.
     Generalises past parameters: any defaulted thing - an options key, a
     config column with a default, an enum whose first member is assumed -
     hides an incomplete change until a second value exercises it.
+
+25. **A COUNTER THAT HAS NEVER BEEN SEEN TO INCREMENT IS NOT A MEASUREMENT.**
+    Round 38, 2026-08-29. **A zero is evidence only once the instrument has
+    been shown capable of producing a non-zero.**
+
+    `retryOnClockSkew` wrapped an OPERATION and was applied to exactly one
+    call in a suite of hundreds. The budget test at the end of the run
+    printed `retries this run: 0` and passed **in the same run the suite
+    failed on PGRST303**, at a query the wrapper had never covered.
+
+    **The zero was not wrong about its own path. It was wrong about the
+    question anybody was asking it.** "Is the platform still skewing?" was
+    answered by an instrument pointed at one insert, and a budget that covers
+    almost nothing reads exactly like a platform that has settled down.
+
+    **The check, before any clean reading is quoted at anybody: make the
+    counter move.** Not in principle, not on a synthetic path - on the code
+    under test, in a way the suite actually exercises. If you cannot make it
+    move, you do not yet know what it measures.
+
+    Distinct from Verification 13, which is about an absence you failed to
+    measure, and from 17, which is about a probe that fires and measures the
+    wrong thing. **This is a probe that measures the right thing on far too
+    small a population**, and the population is invisible in the output. The
+    remedy is different too: 13 wants a positive case found elsewhere, 17
+    wants a calibration, and this wants the instrument moved to where the
+    thing it measures actually happens. A skew is a property of the
+    connection, so the retry belongs on the transport, which deletes the call
+    sites rather than listing them.
 
 ## `CURRENT_STATE.md`
 

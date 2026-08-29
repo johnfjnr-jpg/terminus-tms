@@ -825,14 +825,31 @@ today's existing behaviour.
 
 Explicitly deferred, not forgotten, not a section number of its own since this is a running list, not a build phase. Add to it as new deferrals come up rather than letting them live only in conversation.
 
-- **A catalog change silently re-prices every live deal, and nobody is told.
-  Raised 2026-08-29, Round 38. PHASE 3, on the list the day it was created.**
+- **THE DEAL MOVED AND ITS OWNER SHOULD BE TOLD. One notifier, two triggers.
+  Raised 2026-08-29, Round 38. On the list the day it was created.**
 
-  The record holds no rates, so a live deal sheet prices against the current
-  catalog. That is the right default and it is invisible: no revision, no audit
-  entry, no notice. Full reasoning in the "Where a field belongs" section at the
-  end of this file. The control is that the system knows which deals moved, by
-  how much, and tells their owners.
+  **Recorded as ONE feature deliberately**, because they arrived a day apart and
+  would otherwise be built twice and the second would look like a new
+  requirement:
+
+  1. **A catalog change silently re-prices every live deal.** The record holds
+     no rates, so a live deal sheet prices against the current catalog. That is
+     the right default and it is invisible: no revision, no audit entry, no
+     notice. Full reasoning in "Where a field belongs" at the end of this file.
+  2. **A deal sits at Proposal with a void Commercial approval and nobody is
+     looking.** Between the gate into Proposal and the gate out of it, no
+     transition is being attempted, so nothing evaluates. The approval reads
+     superseded on the approval page and in the stage-approvals panel, and
+     that is the whole of the containment.
+
+  **Both are the same sentence: this deal moved and its owner should be told.**
+  One notifier, two triggers, one place that decides what "moved" means. Two
+  notifiers would be Verification 20 at feature scale.
+
+  **Accepted for now, and the reason is scale rather than design.** One user, no
+  trading, and the owner is already on the tab that shows the un-ticked track.
+  The moment a second person owns a deal they did not price, neither containment
+  holds.
 
 - **`state-dump.mjs` covers no version and no approval detail, so a table
   central to approvals is invisible in `CURRENT_STATE.md`. Raised 2026-08-29.
