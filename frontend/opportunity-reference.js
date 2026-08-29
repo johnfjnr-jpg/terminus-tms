@@ -20,6 +20,8 @@
 
 let refOpportunityId = null
 let refPayload = {}
+// The revision this tab loaded, sent as the precondition on every save.
+let refLoadedRevision = null
 let refOppDetails = {}
 let refStatus = ''
 let refWired = false
@@ -553,6 +555,7 @@ async function ensureKcVocabularies() {
 function renderReferenceTab(opp) {
   refOpportunityId = opp.id
   refPayload = opp.payload ?? {}
+  refLoadedRevision = Number.isInteger(opp.latest_revision_number) ? opp.latest_revision_number : null
   refOppDetails = opp.opportunity_details ?? {}
   refStatus = opp.status ?? ''
   refEdits = {}
@@ -797,27 +800,15 @@ async function performGenericRefSave(dirtyEntries) {
   const feedback = document.getElementById('ref-save-feedback')
   if (!dirtyEntries.length) return
 
-  // Origin-contact freshness check (Round 2 Phase 1, 2026-08-16) - same
-  // pattern as Test Bed's own initialLead fix (test-bed-detail.js) and
-  // the same mechanism already proven for Duration (opportunity-deal.js).
-  // Untouched is already safe by construction here too, dirtyEntries only
-  // ever includes fields the user actually opened and changed. This only
-  // fires for a genuine edit to customerLead specifically.
-  const customerLeadEntry = dirtyEntries.find(([key]) => key === 'customerLead')
-  if (customerLeadEntry) {
-    const fresh = await api('GET', `/api/opportunities/${refOpportunityId}`)
-    if (!fresh.ok) {
-      feedback.textContent = 'Could not verify the current Customer Lead value before saving.'
-      feedback.className = 'msg-error'
-      return
-    }
-    const serverValue = fresh.data.payload?.customerLead ?? ''
-    if (serverValue !== customerLeadEntry[1].orig) {
-      feedback.textContent = 'Customer Lead was changed elsewhere since this tab was loaded. Reload the page before saving.'
-      feedback.className = 'msg-error'
-      return
-    }
-  }
+  // THE PER-FIELD CUSTOMER LEAD CHECK IS GONE. Round 38.
+  //
+  // It GET the record, compared one field against its value at page load, and
+  // refused the save if it had moved. Two concurrency mechanisms of different
+  // shapes on one screen is worse than either alone, and this one was the
+  // weaker: read-then-write rather than compare-and-swap, and one key wide
+  // while every other field on this tab merged unchecked.
+  //
+  // Replaced by the record-level precondition below, which this tab now sends.
 
   const payloadUpdate = {}
   const newNotes = dirtyEntries.map(([key, e]) => {
@@ -842,7 +833,8 @@ async function performGenericRefSave(dirtyEntries) {
   })
   payloadUpdate.notes = [...newNotes, ...(refPayload.notes ?? [])]
 
-  const result = await api('PATCH', `/api/opportunities/${refOpportunityId}`, { payload: payloadUpdate })
+  const result = await api('PATCH', `/api/opportunities/${refOpportunityId}`,
+    { payload: payloadUpdate, expected_revision: refLoadedRevision })
   if (!result.ok) {
     feedback.textContent = result.data?.error ?? 'Failed to save.'
     feedback.className = 'msg-error'

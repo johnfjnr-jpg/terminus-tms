@@ -11,6 +11,8 @@
 
 let tbDetailId = null
 let tbPayload = {}
+// The revision this screen loaded, sent as the precondition on the whole-form save.
+let tbLoadedRevision = null
 let tbBed = {}
 let tbEdits = {} // key -> { draft, orig }, same "only present entries are open" convention as opportunity-reference.js
 
@@ -2687,34 +2689,15 @@ async function saveTbDirtyEntries(dirtyEntries) {
   const feedback = document.getElementById('tb-save-feedback')
   if (!dirtyEntries.length) return
 
-  // Origin-contact freshness check (Round 2 Phase 1, 2026-08-16) - same
-  // pattern already proven for Opportunity's Duration field. Untouched is
-  // already safe by construction: dirtyEntries only ever includes fields
-  // actually opened and changed, initialLead is never resent unless the
-  // user edited it themselves, so an unrelated save can't silently
-  // revert it. This check only fires for a genuine edit to initialLead
-  // specifically, confirming the server's current value still matches
-  // what this tab loaded with before committing.
-  const initialLeadEntry = dirtyEntries.find(([key]) => key === 'initialLead')
-  if (initialLeadEntry) {
-    const fresh = await api('GET', `/api/test-beds/${tbDetailId}`)
-    if (!fresh.ok) {
-      feedback.textContent = 'Could not verify the current Initial Lead value before saving.'
-      feedback.className = 'msg-error'
-      return
-    }
-    const serverValue = fresh.data.payload?.initialLead ?? ''
-    if (serverValue !== initialLeadEntry[1].orig) {
-      feedback.textContent = 'Initial Lead was changed elsewhere since this tab was loaded. Reload the page before saving.'
-      feedback.className = 'msg-error'
-      return
-    }
-  }
+  // THE PER-FIELD INITIAL LEAD CHECK IS GONE. Round 38.
+  //
+  // It GET the record, compared one field against its value at page load, and
+  // refused the save if it had moved. Read-then-write rather than
+  // compare-and-swap, and one key wide while every other field on this screen
+  // merged unchecked. Replaced by the record-level precondition below.
 
-  const payloadUpdate = {}
-  for (const [key, e] of dirtyEntries) payloadUpdate[key] = e.draft
-
-  const result = await api('PATCH', `/api/test-beds/${tbDetailId}`, { payload: payloadUpdate })
+  const result = await api('PATCH', `/api/test-beds/${tbDetailId}`,
+    { payload: payloadUpdate, expected_revision: tbLoadedRevision })
   if (!result.ok) {
     feedback.textContent = result.data?.error ?? 'Failed to save.'
     feedback.className = 'msg-error'
@@ -2830,6 +2813,7 @@ window.initTestBedDetailPanel = function (bed) {
   tbDetailId = bed.id
   tbBed = bed
   tbPayload = bed.payload ?? {}
+  tbLoadedRevision = Number.isInteger(bed.latest_revision_number) ? bed.latest_revision_number : null
   tbEdits = {}
   tbAccountContacts = []
 

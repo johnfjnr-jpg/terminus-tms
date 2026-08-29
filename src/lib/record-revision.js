@@ -41,17 +41,69 @@
  *   The Supabase error object is returned rather than thrown so every call
  *   site keeps checking `error` exactly as it does today, per Verification 8.
  */
-export async function appendRecordRevision(db, recordId, patch, createdBy, remove = [], expectedRevision = null) {
+/**
+ * THE PRECONDITION IS REQUIRED. Round 38, after conditions 5a and 6a.
+ *
+ * p_expected_revision was optional, which meant unprotected by default: one
+ * writer sent it and ten did not, and any writer that omits it can still
+ * blindly overwrite a record that moved. An invariant that cannot be violated
+ * beats one that has to be remembered - which is the same argument that
+ * deleted the version reason box's guard rather than adding a third event to
+ * it.
+ *
+ * So every call site must now state, in the call, which of three things it is.
+ * Omitting the argument throws rather than defaulting to unprotected.
+ */
+
+/**
+ * This write APPENDS to a series and must not fail because an unrelated key
+ * moved. Score entries, assessment reviews and notes are additive: the merge is
+ * one key wide and losing the write to a conflict elsewhere on the record would
+ * be a worse outcome than the concurrency it would prevent.
+ */
+export const APPEND_ONLY = Symbol('append-only write: no precondition by design')
+
+/**
+ * A whole-form write whose CLIENT does not send a revision yet. Named debt
+ * rather than silence: this is not a design decision, it is a screen that has
+ * not been wired, and it is greppable so it cannot hide.
+ */
+export const CLIENT_UNWIRED = Symbol('whole-form write: client not yet sending a revision')
+
+/**
+ * @param {import('@supabase/supabase-js').SupabaseClient} db - a
+ *   request-scoped user client. RLS applies: the function is security
+ *   INVOKER precisely so record_revisions_insert stays in force.
+ * @param {string} recordId
+ * @param {object} patch - the keys being changed, nothing else
+ * @param {string} createdBy - request.user.id
+ * @param {string[]} remove - payload keys to DELETE
+ * @param {number|symbol} precondition - the revision this write expects the
+ *   record to be at, or APPEND_ONLY, or CLIENT_UNWIRED. REQUIRED.
+ * @returns {Promise<{ data?: { revision_number: number, payload: object }, error?: object }>}
+ */
+export async function appendRecordRevision(db, recordId, patch, createdBy, remove, precondition) {
+  if (precondition === undefined) {
+    // Thrown, not returned as an error: a caller that forgot this has a bug in
+    // the caller, and returning {error} would let it be logged and swallowed
+    // exactly like a database failure.
+    throw new Error(
+      'appendRecordRevision: a precondition is required. Pass the expected revision number, ' +
+      'or APPEND_ONLY for an additive write, or CLIENT_UNWIRED for a screen not yet sending one.')
+  }
+  const expected =
+    (precondition === APPEND_ONLY || precondition === CLIENT_UNWIRED) ? null : precondition
+
+  if (expected !== null && !Number.isInteger(expected)) {
+    throw new Error(`appendRecordRevision: precondition must be a whole number, APPEND_ONLY or CLIENT_UNWIRED, got ${String(precondition)}`)
+  }
+
   const { data, error } = await db.rpc('append_record_revision', {
     p_record_id: recordId,
     p_patch: patch ?? {},
     p_created_by: createdBy,
     p_remove: remove ?? [],
-    // Round 38, condition 6a. null means "do not check", so every caller that
-    // has not opted in behaves exactly as before. When supplied, the check runs
-    // INSIDE the function's advisory lock, which is what makes it a
-    // compare-and-swap rather than a fourth read-then-write.
-    p_expected_revision: expectedRevision,
+    p_expected_revision: expected,
   })
   if (error) return { error }
   return { data }

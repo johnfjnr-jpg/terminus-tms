@@ -21,8 +21,21 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      # No `npm ci`: the pure suite imports only src/lib/deal-calculator.js,
-      # which has no dependencies. Installing nothing is the strongest
-      # proof that this suite runs on a clean checkout with no setup.
+      # `npm ci` IS now required, and the property it replaced is recorded
+      # rather than quietly dropped. Round 38 added a jsdom harness covering
+      # the Commercials tab's wiring - dirty, save and version - because two
+      # of the three preceding defects there were wiring rather than logic and
+      # a suite of pure functions could not see them. jsdom is a real
+      # dependency, so "installs nothing" stopped being true.
+      #
+      # THIS WAS A LIVE CI BREAK for the length of one commit: the workflow
+      # deliberately installed nothing, the new test imports jsdom, and a clean
+      # checkout failed. Found by running the suite in an empty directory
+      # rather than by reasoning about it.
+      #
+      # devDependencies stay the only additions, so the SERVER still ships with
+      # the four runtime dependencies it had.
+      - name: Install (jsdom, for the wiring harness)
+        run: npm ci
       - name: Run pure suite
         run: npm test

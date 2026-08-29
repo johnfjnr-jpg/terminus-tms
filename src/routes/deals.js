@@ -21,7 +21,7 @@ import { createUserClient } from '../supabase.js';
 import { resolveCurrentBatches, catalogToRates } from '../lib/base-costs.js';
 import { numericOrDefault } from '../lib/numeric-payload.js';
 import { sendWriteError } from '../lib/write-errors.js'
-import { appendRecordRevision } from '../lib/record-revision.js';
+import { appendRecordRevision, APPEND_ONLY, CLIENT_UNWIRED } from '../lib/record-revision.js';
 import { calculateDeal } from '../lib/deal-calculator.js';
 
 /**
@@ -337,7 +337,11 @@ export default async function dealsRoutes(app) {
     // the same statement as the merge. The loader still returns it for any
     // other caller.
     const { data: newRevision, error: revErr } = await appendRecordRevision(
-      db, opportunityId, payload, request.user.id);
+      db, opportunityId, payload, request.user.id, [],
+      // Server-recomputed snapshot, not a form: there is no screen holding a
+      // revision for this to be conditional on. POST /deals/submit is also
+      // unreachable from the UI, so it has no client to wire.
+      APPEND_ONLY);
 
     if (revErr) {
       request.log.error({ err: revErr }, 'failed to persist deal submit snapshot');

@@ -1,6 +1,6 @@
 import { createUserClient } from '../supabase.js'
 import { sendWriteError, sendRefusal } from '../lib/write-errors.js'
-import { appendRecordRevision } from '../lib/record-revision.js'
+import { appendRecordRevision, APPEND_ONLY, CLIENT_UNWIRED } from '../lib/record-revision.js'
 import { isValidMobile } from '../lib/field-validation.js'
 import { issueReferenceNumber, issueAccountNumber } from '../lib/reference-number.js'
 import { countryToCode } from '../lib/country-code.js'
@@ -346,7 +346,9 @@ export default async function contactsRoutes(app) {
       // append_record_revision does the lookup and the insert in one
       // statement, so it cannot see "no prior revision" for a record that
       // has one.
-      const { error: revErr } = await appendRecordRevision(db, record.id, payload, request.user.id)
+      const { error: revErr } = await appendRecordRevision(db, record.id, payload, request.user.id, [],
+        // DEBT: whole-form PATCH, Contact screen not yet sending a revision.
+        CLIENT_UNWIRED)
 
       if (revErr) return sendWriteError(reply, revErr)
     }
@@ -520,7 +522,9 @@ export default async function contactsRoutes(app) {
     // lose one, which is same-key last-writer-wins and is Phase 2's concern,
     // not this one.
     const { error: revErr } = await appendRecordRevision(
-      db, contact.id, { notes: [note, ...(revRow?.payload?.notes ?? [])] }, request.user.id)
+      db, contact.id, { notes: [note, ...(revRow?.payload?.notes ?? [])] }, request.user.id, [],
+      // Additive: a note prepend.
+      APPEND_ONLY)
 
     if (revErr) return sendWriteError(reply, revErr)
 

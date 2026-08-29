@@ -1,6 +1,6 @@
 import { createUserClient } from '../supabase.js'
 import { sendWriteError, sendRefusal } from '../lib/write-errors.js'
-import { appendRecordRevision } from '../lib/record-revision.js'
+import { appendRecordRevision, APPEND_ONLY, CLIENT_UNWIRED } from '../lib/record-revision.js'
 import { issueAccountNumber } from '../lib/reference-number.js'
 import { countryToCode } from '../lib/country-code.js'
 
@@ -441,7 +441,10 @@ export default async function accountsRoutes(app) {
       // but only to decide the lazy Account Number - it is no longer what
       // gets written, because a payload assembled from the read above would
       // merge against data that may have moved since.
-      const { error: revErr } = await appendRecordRevision(db, record.id, payload, request.user.id)
+      const { error: revErr } = await appendRecordRevision(db, record.id, payload, request.user.id, [],
+        // DEBT: a whole-form PATCH that should carry the revision the Account
+        // screen loaded. The screen does not send one yet.
+        CLIENT_UNWIRED)
 
       if (revErr) return sendWriteError(reply, revErr)
 

@@ -92,12 +92,20 @@ export function adminClient(env = loadEnv()) {
  * fixtures behind, and re-running to green hides that rather than resolving it.
  * A retry inside the run keeps the run intact.
  */
+// Counted, so the retry is a PROPERTY rather than a comment. Round 38: CI runs
+// `npm test` only and never the database suite, so nothing was reading the
+// stderr line - "announces itself" was true of the code and false of the system.
+// The count is asserted by clock-skew-budget.test.mjs at the end of the db run.
+export const clockSkew = { retries: 0, labels: [] }
+
 export async function retryOnClockSkew(label, operation, attempts = 2) {
   let last
   for (let attempt = 1; attempt <= attempts; attempt++) {
     last = await operation()
     if (last?.error?.code !== 'PGRST303') return last
     if (attempt < attempts) {
+      clockSkew.retries += 1
+      clockSkew.labels.push(label)
       process.stderr.write(
         `  [clock skew] ${label}: PGRST303 "JWT issued at future", retrying (${attempt}/${attempts - 1})\n`)
       await new Promise((r) => setTimeout(r, 1200))

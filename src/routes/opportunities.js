@@ -1,7 +1,7 @@
 import { createUserClient } from '../supabase.js'
 import { recordScoreEntry } from '../lib/score-entry.js'
 import { sendWriteError, sendRefusal } from '../lib/write-errors.js'
-import { appendRecordRevision } from '../lib/record-revision.js'
+import { appendRecordRevision, APPEND_ONLY, CLIENT_UNWIRED } from '../lib/record-revision.js'
 import { isValidIsoDate, isValidNonNegativeInteger, isValidNonNegativePercent, isNotPastIsoDate } from '../lib/field-validation.js'
 import { WRITABLE_NUMERIC_KEYS, isStorableNumeric } from '../lib/numeric-payload.js'
 
@@ -599,7 +599,10 @@ export default async function opportunitiesRoutes(app) {
     }
 
     const { data: newRevision, error: revErr } = await appendRecordRevision(
-      db, record.id, payload, request.user.id, [], expectedRevision ?? null)
+      db, record.id, payload, request.user.id, [],
+      // The only writer sending a real precondition today. When the client omits
+      // it this is named debt rather than a silent blind write.
+      expectedRevision === undefined || expectedRevision === null ? CLIENT_UNWIRED : expectedRevision)
 
     if (revErr) {
       // A stale write is a conflict the user resolves by reloading, not a
@@ -706,7 +709,9 @@ export default async function opportunitiesRoutes(app) {
     // keys are sent; everything else is merged server-side from the current
     // payload rather than from this read.
     const { data: newRevision, error: revErr } = await appendRecordRevision(
-      db, request.params.id, { closeMoves, notes: [note, ...(payload.notes ?? [])] }, request.user.id)
+      db, request.params.id, { closeMoves, notes: [note, ...(payload.notes ?? [])] }, request.user.id, [],
+      // Additive: a counter increment and a note prepend, two keys wide.
+      APPEND_ONLY)
 
     if (revErr) {
       // record_revisions_select is team-wide, so the existence check
@@ -934,7 +939,9 @@ export default async function opportunitiesRoutes(app) {
 
     const entry = { at: new Date().toISOString(), by: request.user.email, stage: record.status }
     const { error: revErr } = await appendRecordRevision(
-      db, record.id, { assessmentReviewed: [...existing, entry] }, request.user.id)
+      db, record.id, { assessmentReviewed: [...existing, entry] }, request.user.id, [],
+      // Additive: one entry onto assessmentReviewed.
+      APPEND_ONLY)
     if (revErr) {
       request.log.error({ err: revErr }, 'failed to record assessment review')
       return sendWriteError(reply, revErr)

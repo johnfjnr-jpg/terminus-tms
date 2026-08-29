@@ -1,6 +1,6 @@
 import { createUserClient } from '../supabase.js'
 import { sendWriteError, writeErrorStatus, sendRefusal } from '../lib/write-errors.js'
-import { appendRecordRevision } from '../lib/record-revision.js'
+import { appendRecordRevision, APPEND_ONLY, CLIENT_UNWIRED } from '../lib/record-revision.js'
 import { issueReferenceNumber } from '../lib/reference-number.js'
 import { isValidIsoDate, isNotPastIsoDate, isValidNonNegativeInteger, isValidNonNegativePercent, isValidIsoTimestamp, isValidLatitude, isValidLongitude } from '../lib/field-validation.js'
 import { calculateTestBedCost } from '../lib/deal-calculator.js'
@@ -528,7 +528,7 @@ export default async function testBedsRoutes(app) {
   ])
 
   app.patch('/test-beds/:id', async (request, reply) => {
-    const { payload, industry_id, countCorrectionReason } = request.body ?? {}
+    const { payload, industry_id, countCorrectionReason, expected_revision: expectedRevision } = request.body ?? {}
 
     // Round 7 Phase 2 (2026-08-18): see contacts.js for the full note.
     // A body this endpoint cannot act on is now a 400, not a silent
@@ -904,8 +904,15 @@ export default async function testBedsRoutes(app) {
       const { data: written, error: revErr } = await appendRecordRevision(
         db, record.id,
         { ...payload, accumulated_cost: costBreakdown.totalCost, indicativeCost: costBreakdown.totalCost },
-        request.user.id, removeKeys)
+        request.user.id, removeKeys,
+        // The Test Bed detail form sends the revision it loaded. The other PATCH
+        // call sites on this route (notes, install notes, use cases) send none
+        // and are named debt at their own call sites.
+        Number.isInteger(expectedRevision) ? expectedRevision : CLIENT_UNWIRED)
 
+      if (revErr?.code === 'PT409') {
+        return reply.code(409).send({ error: revErr.message, stale: true })
+      }
       if (revErr) return sendWriteError(reply, revErr)
 
       // AFTER the write, and from the payload the write actually stored
@@ -1575,7 +1582,9 @@ export default async function testBedsRoutes(app) {
     // series' own key travels, so a concurrent write to a different key of the
     // same record no longer loses either one.
     const { error: revErr } = await appendRecordRevision(
-      db, recordId, { [key]: [...existing, entry] }, actorId)
+      db, recordId, { [key]: [...existing, entry] }, actorId, [],
+      // Additive: one series' own key.
+      APPEND_ONLY)
     if (revErr) {
       return writeErrorStatus(revErr)
     }
@@ -1796,7 +1805,9 @@ export default async function testBedsRoutes(app) {
     for (const key of ['serialNumber', 'latitude', 'longitude', 'stateSource']) {
       if (key in body) unitPatch[key] = body[key]
     }
-    const { error: insErr } = await appendRecordRevision(db, unit.id, unitPatch, request.user.id)
+    const { error: insErr } = await appendRecordRevision(db, unit.id, unitPatch, request.user.id, [],
+      // DEBT: unit field PATCH, unit row editor not yet sending a revision.
+      CLIENT_UNWIRED)
     if (insErr) return sendWriteError(reply, insErr)
 
     if ('state' in body && body.state !== unit.status) {
