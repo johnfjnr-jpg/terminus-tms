@@ -35,7 +35,7 @@
  * caller passes. The route reads; this decides what the page says.
  */
 
-import { buildDealInputs, isSet, RAW_READERS, PRODUCT_UNITS } from './deal-inputs.js';
+import { buildDealInputs, isSet, RAW_READERS, PRODUCT_UNITS, gstPresentation } from './deal-inputs.js';
 import { calculateDeal } from './deal-calculator.js';
 import { NUMERIC_DEFAULTS, defaultProvenance, toNumberOrNull } from './numeric-payload.js';
 // The bands, the thresholds and the words all live in one place, because the
@@ -345,8 +345,11 @@ export function buildExposures(payload, result) {
     key: 'gst',
     label: 'GST',
     amount: result.tax.gstAmount,
-    basis: `${payload.gstPct ?? NUMERIC_DEFAULTS.gstPct}% of the invoice base`,
-    note: 'Collected and remitted, not a cost. Shown because it changes what the client is invoiced.',
+    // Through gstPresentation(), not a second read of payload.gstPct: a row that
+    // printed "0% of the invoice base" told the approver a rate had been chosen
+    // on the 406 deals where none ever was.
+    basis: gstPresentation(payload).basis,
+    note: 'Collected and remitted, not a cost, and never in margin. Shown because it changes what the client is invoiced.',
     bornByTerminus: false,
   });
 

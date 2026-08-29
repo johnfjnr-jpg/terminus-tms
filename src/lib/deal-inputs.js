@@ -106,6 +106,44 @@ export function isSet(payload, key) {
   return v !== undefined && v !== null && v !== '';
 }
 
+// ── AN ABSENT GST RATE IS AN ABSENCE, NOT A ZERO ──────────────────────
+//
+// Round 39. 406 of 467 opportunities carry no gstPct at all. The calculator
+// defaults it to 0, which is right for arithmetic and wrong for a screen: with
+// no rate recorded, gstAmount is 0 and Price to customer equals the contract
+// net, so the page showed a complete, confident, GST-free price with nothing on
+// it saying a tax had never been recorded. A salesperson reads that number out.
+//
+// That is zero-versus-missing in the one place it reaches a customer, so the
+// page states the absence and keeps showing the figure. It stops pretending to
+// be complete rather than going blank.
+//
+// AND IT SAYS WHICH SIDE OF GST THE CONTRACT PRICE SITS ON. Prices are quoted
+// GST-EXCLUSIVE, which is the region's standard B2B practice and what the
+// calculator already does: gstAmount is added to the invoice base and
+// contractNet excludes it, so the rate cannot touch margin. "Price to customer"
+// reads as the whole number to anyone who has not been told that, so the label
+// says it rather than assuming it.
+//
+// ONE READER, because two would drift (Verification 20). Both matrices and the
+// approval page's GST exposure row all ask this, and it asks isSet(), which is
+// the calculator's own reader. An explicit 0 is a recorded decision, a
+// zero-rated supply, and reads as "GST at 0%" - only a missing value reads as
+// not recorded.
+export function gstPresentation(payload) {
+  const recorded = isSet(payload, 'gstPct');
+  const pct = recorded ? Number(RAW_READERS.gstPct(payload)) : null;
+  return {
+    recorded,
+    pct,
+    rowLabel: recorded ? `GST at ${pct}%, added to the invoice` : 'GST, not recorded',
+    priceLabel: recorded ? 'Price to customer, contract price plus GST' : 'Price to customer, excludes GST',
+    basis: recorded
+      ? `${pct}% of the invoice base`
+      : 'Not recorded. Priced at 0%, which is an absent rate rather than a zero-rated supply.',
+  };
+}
+
 export function buildDealInputs(payload, { testBedCost = 0 } = {}) {
   const targetMargin = numericOrDefault(payload, 'targetMargin')
   const overrides = payload.marginOverrides ?? {}

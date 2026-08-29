@@ -851,19 +851,62 @@ Explicitly deferred, not forgotten, not a section number of its own since this i
   backfilling a revision. The correction belongs on the next version of that
   deal, taken by a person.
 
-- **THE MODEL CANNOT EXPRESS A GST-INCLUSIVE PRICE. Raised 2026-08-29, Round 39.**
+  **AND IT IS THE SMALLER OF THE TWO PROBLEMS.** One deal, one statutory step,
+  fixable by a person. **Four hundred deals quoting no GST at all is the bigger
+  number**, and that is a presentation defect rather than a configuration one:
+  see the entry below.
 
-  Measured: `gstAmount = round(invoiceBase * gstPct / 100)` and price to customer
-  is `invoiceBase + gstAmount`, so **GST is strictly additive**. `contractNet`
-  excludes it and `achievedMargin` is computed on `contractNet`, so the GST rate
-  cannot affect margin. The word "inclusive" does not appear anywhere in `src/`
-  or `frontend/`.
+- **AN ABSENT RATE RENDERS AS AN ABSENCE. Settled 2026-08-29, Round 39.
+  Supersedes nothing; it applies decision 2's zero-versus-missing rule to the
+  one surface that reaches a customer.**
 
-  **So a wrong GST rate is a presentation error in this model, and only in this
-  model.** If any real contract is ever written at a GST-inclusive price, the
-  system cannot represent it: the tax would come out of revenue and every margin
-  on the screen would be overstated, with nothing to indicate it. That is a
-  question for the business before it is a build.
+  With `gstPct` unrecorded the calculator prices it at 0, correctly, and the
+  Deal Summary then showed a complete, confident, GST-free Price to customer
+  with nothing saying a tax had never been recorded. A salesperson reads that
+  number out.
+
+  **The figure is still shown. It stops pretending to be complete.** The GST row
+  says `not recorded`, and the price line says it excludes GST. Same treatment
+  the approval page already gives a defaulted field, and it comes from ONE
+  reader, `gstPresentation()` in `src/lib/deal-inputs.js`, asked by both matrices
+  and the approval page's exposure row.
+
+  **`NUMERIC_DEFAULTS.gstPct` stays 0.** 0 is the right stored value for "not
+  set" once the page stops presenting it as a fact. The entry box no longer
+  prefills it either: `?? 0` filled the box with a rate nobody had entered, so
+  the first save of any of those 406 deals would have RECORDED one and destroyed
+  the absence.
+
+  **An explicit 0 is a decision, not a gap.** A zero-rated supply is something
+  somebody chose, and it reads as `GST at 0%`.
+
+  **STILL OPEN, adjacent and not done: `whtPct` prefills `?? 0` on the same
+  screen, three lines away.** Same class. It is not GST-shaped, because WHT
+  reaches margin through `whtBorne` rather than only the price line, so it is
+  reported rather than swept.
+
+- **PRICES ARE GST-EXCLUSIVE. Settled by the business 2026-08-29, Round 39, and
+  it is a DECISION, not an observation of the code.**
+
+  Standard B2B practice in Singapore and across the region, it is what the
+  calculator already does, and it protects margin because the tax never touches
+  revenue. Measured: `gstAmount = round(invoiceBase * gstPct / 100)`, price to
+  customer is `invoiceBase + gstAmount`, `contractNet` excludes it and
+  `achievedMargin` is computed on `contractNet`.
+
+  **The page now says so rather than assuming it.** "Price to customer" reads as
+  the whole number to anyone who has not been told otherwise, so the row is
+  labelled `Price to customer, contract price plus GST`, or, where no rate was
+  recorded, `Price to customer, excludes GST`.
+
+- **THE MODEL CANNOT EXPRESS A GST-INCLUSIVE PRICE. Raised 2026-08-29, Round 39.
+  ON A TRIGGER, NOT A DATE: the first contract that comes back from a customer's
+  procurement written GST-inclusive.**
+
+  The word "inclusive" does not appear anywhere in `src/` or `frontend/`. If a
+  contract is ever written GST-inclusive, the tax comes out of revenue and every
+  margin on the screen is overstated with nothing to indicate it. Not worth
+  building until it happens, and it will happen eventually.
 
 - **THE OPPORTUNITY DETAIL TAB ROW MIXES TWO KINDS OF THING. Raised 2026-08-29,
   Round 39, from looking at a capture. Not this round.**

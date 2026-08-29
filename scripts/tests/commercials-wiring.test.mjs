@@ -25,6 +25,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { JSDOM } from 'jsdom'
+import { gstPresentation } from '../../src/lib/deal-inputs.js'
 import { readFileSync } from 'node:fs'
 import { changedKeys } from '../../src/lib/payload-diff.js'
 import { toNumberOrNull } from '../../src/lib/numeric-payload.js'
@@ -403,9 +404,73 @@ test('price to customer is contract net plus GST, and GST has a row', () => {
 
   const src = readFileSync(new URL('../../frontend/opportunity-deal.js', import.meta.url), 'utf8')
   const matrix = src.slice(src.indexOf('const rows = ['), src.indexOf('const headRow'))
-  assert.match(matrix, /GST at \$\{gstPct\}%, added to the invoice/,
+  assert.match(matrix, /label: gst\.rowLabel/,
     'the summary must carry the row its bottom line depends on')
-  assert.match(matrix, /Price to customer/)
+  assert.match(matrix, /label: gst\.priceLabel/)
+})
+
+// ─────────────────────────────────────────────────────────────
+// An absent GST rate is an absence, not a zero
+// ─────────────────────────────────────────────────────────────
+
+test('gstPresentation separates a missing rate from a recorded zero', () => {
+  // 406 of 467 opportunities carry no gstPct. Priced at 0 the page showed a
+  // complete GST-free price to read to a customer, with nothing saying a rate
+  // had never been recorded.
+  const absent = gstPresentation({})
+  assert.equal(absent.recorded, false)
+  assert.equal(absent.pct, null)
+  assert.match(absent.rowLabel, /not recorded/)
+  assert.match(absent.priceLabel, /excludes GST/)
+  assert.match(absent.basis, /Not recorded/)
+
+  // A stored null is the same absence. This is what a blank box now saves.
+  assert.deepEqual(gstPresentation({ gstPct: null }), absent)
+
+  // AND AN EXPLICIT ZERO IS A DECISION, NOT A GAP: a zero-rated supply is
+  // something somebody chose, and it must not read as "not recorded".
+  const zero = gstPresentation({ gstPct: 0 })
+  assert.equal(zero.recorded, true)
+  assert.equal(zero.rowLabel, 'GST at 0%, added to the invoice')
+  assert.match(zero.priceLabel, /plus GST/)
+  assert.ok(!/not recorded/i.test(zero.rowLabel + zero.priceLabel + zero.basis))
+
+  // Calibration in both directions: the probe must move on a real rate too,
+  // otherwise "not recorded" could be every answer it ever gives.
+  const nine = gstPresentation({ gstPct: 9 })
+  assert.equal(nine.rowLabel, 'GST at 9%, added to the invoice')
+  assert.equal(nine.basis, '9% of the invoice base')
+  assert.notEqual(nine.rowLabel, zero.rowLabel)
+  assert.notEqual(zero.rowLabel, absent.rowLabel)
+})
+
+test('the price to customer label always says which side of GST it sits on', () => {
+  // Prices are quoted GST-exclusive. "Price to customer" reads as the whole
+  // number to anyone who has not been told that, so the label says it.
+  for (const p of [{}, { gstPct: null }, { gstPct: 0 }, { gstPct: 9 }]) {
+    assert.match(gstPresentation(p).priceLabel, /GST/,
+      `silent about GST for ${JSON.stringify(p)}`)
+  }
+})
+
+test('nothing renders GST from a second read of the payload', () => {
+  // Verification 20. Two readers of one value drift, and the drift here is
+  // invisible: both are correct in isolation and only one is ever exercised.
+  const src = readFileSync(new URL('../../frontend/opportunity-deal.js', import.meta.url), 'utf8')
+  const appr = readFileSync(new URL('../../src/lib/approval-page.js', import.meta.url), 'utf8')
+
+  for (const [name, text] of [['opportunity-deal.js', src], ['approval-page.js', appr]]) {
+    const stray = text.split('\n')
+      .map((line, i) => [i + 1, line])
+      .filter(([, line]) => /payload\.gstPct|p\.gstPct/.test(line))
+      .filter(([, line]) => !line.trim().startsWith('//'))
+      .filter(([, line]) => !/toNumberOrNull\(p\.gstPct\)/.test(line))
+    assert.deepEqual(stray, [], `${name} reads gstPct directly instead of through gstPresentation`)
+  }
+
+  // And the calibration: the scan must be able to see one. Verification 17.
+  const planted = ['const x = payload.gstPct ?? 0'].filter(l => /payload\.gstPct/.test(l))
+  assert.equal(planted.length, 1, 'the scan cannot detect the thing it is scanning for')
 })
 
 test('the two withholding lines are labelled as different money', () => {
