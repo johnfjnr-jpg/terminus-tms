@@ -214,9 +214,26 @@ not resolve it quietly.
     where the work happens, and refuse to proceed when what was asked cannot
     be.
 
-    **Standing consequence while it is unresolved: assume Render auto-deploy
-    is ON.** A push to `main` is therefore a deploy until the business
-    confirms otherwise, and is treated as one.
+    **RESOLVED 2026-08-29 at the Round 39 close, and the answer was that the
+    question had no subject.** The standing consequence had been "assume Render
+    auto-deploy is ON, so a push to `main` is a deploy". **Render was never set
+    up: no deployment, no auto-deploy, no environment.** A push is a git
+    operation.
+
+    **The precondition was unanswerable for a reason neither party had
+    considered: not because the setting was hidden, but because there was
+    nothing for it to be a setting of.** "Hosted on Render" was a plan, recorded
+    in the same voice as a fact, and it ran for two rounds.
+
+    **That strengthens the rule rather than retiring it.** The correct move at
+    the Round 38 close was still to stop, and stopping is what eventually
+    produced the question that found this. **A precondition you cannot answer is
+    sometimes evidence that the thing it describes does not exist**, which is
+    only ever discovered by refusing to proceed without it.
+
+    The rule stands unchanged for the next outward-facing act. What changes is
+    that `main` is not a deploy target today, and the item that makes it one is
+    at the head of package B in `DESIGN_PRINCIPLES.md`.
 
 ---
 

@@ -856,6 +856,34 @@ this trigger.
 **PACKAGE B: THE SECOND PERSON WHO CAN APPROVE OR MERGE.**
 Every item here is invisible with one user and immediate with two.
 
+**GATED ON A DEPLOYMENT, WHICH DOES NOT EXIST AND WAS ON NO LIST. Raised
+2026-08-29 by the business at the Round 39 close, and it is the reason this
+package reads as achievable and is not.**
+
+TMS is meant to become the company's day-to-day work system. **It runs on one
+laptop, against one Supabase project, reachable by one person.** A second person
+cannot approve anything on a system that exists only on one Mac, so every item
+below is unreachable until this is built. It is listed first because it is the
+prerequisite, not because it is the next task.
+
+**What it needs**, and none of it is to be built now:
+
+- **A host.** There is none. Render was planned and never set up.
+- **A deploy pipeline**, so that what is running is a known commit rather than
+  whatever a laptop last had open.
+- **Migrations applied as PART of the deploy rather than ahead of it.** This is
+  the surviving half of the app-and-schema item below, which was itself
+  falsified for the same reason: there was no deployed app.
+- **The scratch project the merge gate already wants**, which is the same
+  project package A needs and is already pulled forward on its own driver.
+
+**The Round 39 deploy-surface measurement stands regardless of there being
+nothing to deploy to, and becomes the record of what will deploy the first time
+anything does**: three `src/lib` files the server executes, of which one changed
+behaviour and only in two strings; a `src/server.js` route gated on
+`TMS_DEV_SESSION_DIR`, which must never be set on a host; no migration; and all
+of `scripts/` never deployed at all.
+
 - An owner must not approve their own price
 - The deal moved and its owner should be told
 - The staff dropdowns constrain input but create no reference
@@ -1171,6 +1199,30 @@ sequence: they are single decisions the business takes when it wants to.
 
   **The fix is the same one as the item above**, plus applying migrations as part
   of the deploy rather than ahead of it.
+
+  > **FALSIFIED 2026-08-29 by the business, at the Round 39 close. THERE IS NO
+  > DEPLOYED APP.** Render was never set up: no deployment, no auto-deploy, no
+  > environment. **"Hosted on Render" was a plan, read as a current fact and never
+  > checked, and it ran for two rounds.**
+  >
+  > So there was never a deployed app to be out of step with the schema, and the
+  > 22-hour measurement above, while correct about the writes it counted, was
+  > answering a question that did not exist.
+  >
+  > **Re-taken, not re-weighed** (`CLAUDE.md` rule 29). The reasoning is left above
+  > rather than deleted, so a later reader can see that a premise failed rather
+  > than a preference changing. **The remedy half survives intact and moves to
+  > package B**: applying migrations as part of the deploy rather than ahead of it
+  > is exactly what a first deployment must be built to do.
+  >
+  > **The shape of the error is worth more than the error.** An intention was
+  > recorded in the same voice as a fact, and everything downstream reasoned from
+  > it correctly. Nearest existing rule is Verification 19, a name asserting a
+  > property nobody measured, and the remedy differs enough to be worth the
+  > business deciding whether it earns its own number: **19 says enumerate a
+  > category's members and check them against the name; this says establish that
+  > the thing EXISTS before reasoning about how it behaves.** Recorded here rather
+  > than minted silently.
 
 - **PROPOSAL ISSUANCE IS NOT AN EVENT IN THIS SYSTEM. Raised 2026-08-29, Round
   38. AFTER THE RESHAPE. Trigger: BEFORE THE FIRST PROPOSAL GOES TO A REAL
