@@ -1338,6 +1338,53 @@ of the change. An unanswerable precondition is a stop.
     direction: **a number is a name that looks like an ordering**, and the
     ordering is the part nobody may rely on.
 
+33. **EVERY MEASURE HAS A SHAPE, AND WHAT FALLS OUTSIDE IT IS FOUND BY LOOKING
+    OR NOT AT ALL.** Round 40 Phase 2, 2026-08-30, set by the business, and it
+    is recorded as the honest limit of a measure that WORKED rather than as a
+    fault in it.
+
+    **The instance.** Phase 2 removed four sub-tabs and rebuilt the screen as
+    five sections. The measure was a control census, before and after, naming
+    every interactive control: 75 to 71, losing exactly the four sub-tab buttons,
+    gaining nothing, with no surviving control changing shape. It was calibrated
+    and it was exact in both directions.
+
+    **The four sub-tab buttons were also the section NAMES.** With them gone,
+    Installation began with "Contractor payment milestones", **Structural Terms
+    had no heading at all**, and Payment Terms began with "Invoicing". **A
+    section name is not a control, so the census could not see it**, and no
+    amount of making the census better would have: it counts what it enumerates.
+
+    **The check: when you choose a measure, name what it cannot see, and look at
+    that.** The next rebuild will reach for the same instrument and inherit the
+    same blind spot, which is why this belongs beside the census rather than in
+    the round that found it.
+
+    Distinct from Verification 4, "open the screenshot and look at it", which
+    says looking beats an assertion for emphasis and prominence. **This is
+    narrower and harder: the assertion was RIGHT, complete, and calibrated, and
+    the thing that broke was simply not of the type it counts.**
+
+34. **A REBUILD IS ALSO A SURVEY.** Round 40 Phase 2, 2026-08-30, set by the
+    business.
+
+    Restructuring forces every selector, every id and every assumption in the
+    moved code to be re-read, and that reading finds things no test was looking
+    for. Phase 2's better find was not the layout: the live recompute used three
+    panel-scoped selectors plus four Payment Terms fields named individually,
+    **so an input added to Payment Terms would silently not have recomputed** -
+    and that was true before the round started. Nothing would have failed. The
+    figure would simply have been stale.
+
+    It surfaced only because the panels were being dismantled and the selector
+    had to be looked at.
+
+    **Worth recording as a reason structural work pays for itself beyond the
+    structure**, and as a reason to read what you move rather than moving it
+    mechanically: the survey is most of the value and it is free, but only if
+    the moving is done with the code open rather than by a script that does not
+    read what it carries.
+
 ### At round close: index these by when they apply
 
 **Raised by the business 2026-08-29, Round 39. Not a trim, an index.**
