@@ -1114,6 +1114,44 @@ they are not nine separate things to remember.
 **An index that reveals the set is smaller than its numbering is worth more than
 an index that files it neatly.**
 
+**THE TEST FOR A COLLAPSE IS THE REMEDY, NOT THE SHAPE.** Set by the business
+2026-08-29, from this file's own boundary work: **two failures that look
+identical are still two rules if the remedies differ.** Similarity of symptom is
+what makes rules feel mergeable and is not evidence that they are. Ask instead
+whether collapsing them costs anybody an action they would otherwise take.
+
+**MEASURED AGAINST THAT CRITERION, 2026-08-29, by extracting the prescribed
+action from each rule rather than reading its description. The result disagreed
+with both prior guesses, in opposite directions.**
+
+**12, 13, 17 and 25 collapse, and my own boundary paragraphs were wrong to
+separate them.** Rule 25 says "13 wants a positive case found elsewhere, 17
+wants a calibration, and this wants the instrument moved". Set against each
+other, those are three ways of SOURCING one action: produce a non-null reading
+before trusting a null one. The single rule is **"before trusting a null
+reading, make the instrument produce a non-null one on the system under
+test"**, and the four instances are what teach you where to find the positive
+case: a known-present string (12), the same mechanism somewhere else (13), a
+deliberately differing state (17), the code path the suite actually runs (25).
+
+**14 and 18 do NOT join them, though they sit in the same family.** 14's remedy
+is a clause in the assertion, `!!a && !!b && a === b`, not a calibration at all.
+18's is the opposite instruction to the others: **do not stop at the first
+fix**, because a calibration that does not move the number has failed to run
+rather than passed. That is an action the collapsed rule would lose.
+
+**19, 24 and 26 do NOT collapse**, against the expectation that they would.
+They share a trigger, a claim made without measuring it, and their actions are
+three different things: enumerate every member of a category and check it
+against the name (19); write one test passing a value different from the default
+(24); treat the clause after "so" or "which means" as a separate claim (26).
+Nobody holding only the merged sentence would arrive at 24.
+
+**Which is the distinction the index has to carry: 19, 24 and 26 belong in the
+same GROUP and remain three rules.** Grouping is by when the check fires;
+collapsing is by whether the action is the same. The pass does both and must not
+confuse them.
+
 Nothing is removed and nothing is reworded by the index pass. The current
 numbering is load-bearing, because rounds cite it: **the grouping sits above the
 numbers, not instead of them.**
