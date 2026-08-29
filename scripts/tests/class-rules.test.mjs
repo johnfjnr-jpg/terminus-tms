@@ -28,7 +28,9 @@ const NAME = /^-?[A-Za-z_][A-Za-z0-9_-]*$/
 // existence to satisfy a scan. Each is listed with what queries it, so a hook
 // that loses its last query becomes a dead entry somebody can see.
 const HOOKS = {
-  'deal-tab-panel': 'opportunity-deal.js, switching the sub-tab panels',
+  // deal-tab-panel went with the sub-tabs in Round 40 Phase 2. The exemption
+  // outliving its last query is exactly what the third test below exists to
+  // catch, and it caught this one within the minute.
   'lead-add-note-btn': 'app.js, the lead note composer',
   'lead-note-input': 'app.js, the lead note composer',
   'lead-note-input-wrap': 'app.js, the lead note composer',

@@ -4424,6 +4424,32 @@ input.input-invalid {
 /* Round 39: an ageing or stale cost basis, said where the rates are entered.
    Same bands and same words as the approval page, from src/lib/cost-basis.js. */
 .deal-catalog-ageing { color: var(--white) !important; }
+/* ── ONE SCROLLING SCREEN, FIVE SECTIONS. Round 40 Phase 2 ─────────────────
+   The sub-tab panels are gone. Sections stack and scroll, separated by a
+   hairline rather than by being hidden, so the whole deal is one surface.
+
+   Section 5 is a PAIR: Payment Terms and Cash Flow side by side, which is the
+   layout's own instruction and the only side-by-side it asks for. It collapses
+   to one column below 1100px, because two columns of numbers in half a laptop
+   width is worse than scrolling. */
+.deal-section {
+  display: block;
+  padding: 28px 0 4px;
+  border-top: 1px solid var(--hairline);
+}
+.deal-section:first-of-type { border-top: none; padding-top: 8px; }
+
+.deal-section--pair {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 32px;
+  align-items: start;
+}
+@media (max-width: 1100px) {
+  .deal-section--pair { grid-template-columns: minmax(0, 1fr); }
+}
+.deal-pair-col { min-width: 0; }
+
 /* A line priced away from target margin. Round 40 Phase 1: the eleven inputs
    are gone and the column now displays the effective margin, so the one thing
    it must still distinguish is a default from a decision. */

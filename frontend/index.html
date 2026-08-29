@@ -1727,24 +1727,19 @@
         </div>
       </div>
 
-      <p class="label" style="margin-bottom:10px">Deal Summary (USD)</p>
-      <div class="deal-matrix" id="deal-matrix"></div>
-      <span class="field-note">Contract prices are quoted exclusive of GST. GST is added to the invoice and passed straight through, so the rate never touches margin.</span>
+      <!-- ── ONE SCROLLING SCREEN, FIVE SECTIONS ─────────────────────────
+           Round 40 Phase 2. The four sub-tabs are gone: this is the layout
+           the business decided in COMMERCIALS_RESHAPE_PHASE_0_BRIEF.md under
+           "Decided with the business", which Round 39 read past because it
+           read the prototype first. CLAUDE.md rule 31.
 
-      <p class="msg-success hidden" id="deal-cashflow-ok">Cash position stays positive throughout the term.</p>
-      <p class="msg-error hidden" id="deal-cashflow-warn"></p>
-      <p class="msg-error hidden" id="deal-milestone-warn"></p>
-
-      <div class="view-toggle" id="deal-tab-toggle" style="margin:24px 0 20px">
-        <button data-deal-tab="hw" class="active">Hw / Hosting Setup</button>
-        <button data-deal-tab="install">Installation</button>
-        <button data-deal-tab="terms">Structural Terms</button>
-        <button data-deal-tab="payment">Payment Terms</button>
-      </div>
-
-      <!-- Hw / Hosting Setup -->
-      <div class="deal-tab-panel" id="deal-tab-hw">
-        <p class="label" style="margin-bottom:10px">Units Required</p>
+           The order is theirs: Units Required, Installation, Structural
+           Terms, Deal Sheet Summary, then Payment Terms and Cash Flow side
+           by side. The detail panel beside the summary is Phase 3. -->
+      <!-- ── SECTION 1: Units Required ─────────────────────────────────── -->
+      <!-- Computed pricing stays here in Phase 2. It is the detail the layout moves beside the summary in Phase 3, and moving it now would be doing that phase. -->
+      <section class="deal-section" id="deal-section-1">
+        <p class="section-title">Units Required</p>
         <div class="unit-cards">
           <div class="unit-card">
             <label for="deal-ssExisting">SafeSight, existing infra</label>
@@ -1872,10 +1867,11 @@
             </div>
           </div>
         </div>
-      </div>
+      </section>
 
-      <!-- Installation -->
-      <div class="deal-tab-panel hidden" id="deal-tab-install">
+      <!-- ── SECTION 2: Installation ─────────────────────────────────── -->
+      <section class="deal-section" id="deal-section-2">
+        <p class="section-title">Installation</p>
         <div class="form-grid">
           <!-- Round 39: entry explains itself. Phase 0 measured this control as
                the sharpest instance of the gap - four options, nothing on screen
@@ -1996,19 +1992,11 @@
           <p class="field-note hidden" id="deal-contractor-diff" style="margin-top:8px"></p>
           <p class="msg-error hidden" id="deal-contractor-warn"></p>
         </div>
-      </div>
+      </section>
 
-      <!-- Structural Terms -->
-      <!-- 3-card split (Round 3 Phase 6, 2026-08-17): Margin and Warranty /
-           Currency / Tax Adjustments, matching the prototype's real layout
-           exactly (Terminus Ops.dc.html:1477-1521, confirmed with real
-           line citations before building, not approximated). All 4
-           pre-existing IDs (deal-targetMargin/deal-warrantyPct/
-           deal-whtPct/deal-gstPct/deal-grossUp-toggle) are unchanged, just
-           relocated into cards - readPayload/populateForm/saveDeal in
-           opportunity-deal.js need no changes for these four, only for
-           the three genuinely new fields below. -->
-      <div class="deal-tab-panel hidden" id="deal-tab-terms">
+      <!-- ── SECTION 3: Structural Terms ─────────────────────────────────── -->
+      <section class="deal-section" id="deal-section-3">
+        <p class="section-title">Structural Terms</p>
         <div class="terms-cards">
           <div class="pg-card">
             <p class="pg-card-title">Margin and Warranty</p>
@@ -2132,6 +2120,21 @@
         <!-- Versions (Round 37 Phase 3). Save is a deliberate act, so it is a
              button and never a side effect of editing.
 
+      </section>
+
+      <!-- ── SECTION 4: Deal Sheet Summary ─────────────────────────────────── -->
+      <!-- The summary, its itemised result and the versions taken of it, together. The matrix was above the sub-tab row; the layout puts it here, after the terms that produce it. -->
+      <section class="deal-section" id="deal-section-4">
+        <p class="section-title">Deal Sheet Summary</p>
+      <p class="label" style="margin-bottom:10px">Deal Summary (USD)</p>
+      <div class="deal-matrix" id="deal-matrix"></div>
+      <span class="field-note">Contract prices are quoted exclusive of GST. GST is added to the invoice and passed straight through, so the rate never touches margin.</span>
+
+      <p class="msg-success hidden" id="deal-cashflow-ok">Cash position stays positive throughout the term.</p>
+      <p class="msg-error hidden" id="deal-cashflow-warn"></p>
+      <p class="msg-error hidden" id="deal-milestone-warn"></p>
+
+
              THE REASON IS A TEXTAREA, NOT THE ONE-LINE-GROWING CONTROL the
              assessment panel uses. That control is right for a sentence
              explaining one score; a version reason explains what changed across
@@ -2164,32 +2167,12 @@
         <div class="deal-sheet-cards">
           <div class="deal-sheet" id="deal-sheet"></div>
         </div>
-      </div>
+      </section>
 
-      <!-- Deal Sheet (Round 37 Phase 2) -->
-      <!--
-        READ-ONLY, and the business's "for now" is doing work. One place to edit
-        a number, and a version taken from what was reviewed rather than from
-        what might have been changed while reviewing. Nothing in this panel is
-        an input; every value is rendered by renderDealSheetTab().
-
-        LAID OUT IN .deal-sheet-cards, CSS COLUMNS CAPPED AT 460px. That is the answer
-        to the business's own complaint about the Deal Summary: "too wide, you
-        need to be able to keep the line label and the amount in view."
-        Measured on that panel before building this one, the whitespace between
-        the end of a row's label text and the start of its amount is 628px at
-        1240, 1308px at 1920 and 2828px at 3440, because its label column is
-        minmax(150px,1fr) and absorbs every extra pixel. A capped card cannot do
-        that, and auto-fit still uses the real width by flowing more cards
-        across rather than stretching four. See the CSS for the measurements.
-
-        The four-figure strip above the sub-tab row (Contract Net, Achieved
-        Margin, Total Deal Cost, Finance Cost) is NOT repeated here. It is
-        visible on all five sub-tabs already, so repeating it would be the
-        duplication this panel exists to avoid.
-      -->
-      <!-- Payment Terms -->
-      <div class="deal-tab-panel hidden" id="deal-tab-payment">
+      <!-- ── SECTION 5: Payment Terms and Cash Flow, SIDE BY SIDE ──────── -->
+      <section class="deal-section deal-section--pair" id="deal-section-5">
+        <div class="deal-pair-col">
+          <p class="section-title">Payment Terms</p>
         <!-- Round 39 item 2: Contract duration MOVED to Structural Terms, beside
              the margin controls. It is a commercial lever, not a payment term:
              the business names it as the second thing they reach for when margin
@@ -2300,6 +2283,8 @@
           </div>
         </div>
 
+        </div>
+        <div class="deal-pair-col">
         <div style="margin-top:28px">
           <p class="section-title">Cash flow (USD)</p>
           <div class="cashflow-scroll" id="deal-cashflow-grid"></div>
@@ -2309,7 +2294,9 @@
             <span class="stat-value" id="deal-cashflow-closing" style="color:var(--green)">--</span>
           </div>
         </div>
-      </div>
+        </div>
+      </section>
+
 
       <!-- Submit Deal removed (Round 3 Phase 4, 2026-08-17) - confirmed
            safe first (opportunity-deal.js's own header comment has the

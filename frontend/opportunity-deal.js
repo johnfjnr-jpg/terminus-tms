@@ -1734,20 +1734,20 @@ function wireOnce() {
   document.getElementById('opp-tab-commercial').addEventListener('input', updateDirtyState)
   document.getElementById('opp-tab-commercial').addEventListener('change', updateDirtyState)
 
-  document.querySelectorAll('#deal-tab-toggle button').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('#deal-tab-toggle button').forEach(b => b.classList.remove('active'))
-      btn.classList.add('active')
-      document.querySelectorAll('.deal-tab-panel').forEach(p => p.classList.add('hidden'))
-      document.getElementById(`deal-tab-${btn.dataset.dealTab}`).classList.remove('hidden')
-    })
-  })
+  // ── THE SUB-TAB WIRING IS GONE WITH THE SUB-TABS. Round 40 Phase 2 ────
+  //
+  // Four panels shown one at a time became five sections on one scrolling
+  // screen, which is the layout the business decided and Round 39 read past.
 
   // Live recompute on every change, no debounce - it's a local function call.
-  document.querySelectorAll(
-    '#deal-tab-hw input, #deal-tab-install input, #deal-tab-terms input, ' +
-    '#deal-duration, #deal-recoveryMonths, #deal-factoring-ratePct, #deal-factoring-termMonths'
-  ).forEach(el => el.addEventListener('input', recompute))
+  //
+  // ONE SELECTOR OVER THE WHOLE TAB, not four panel-scoped ones. The old list
+  // named #deal-tab-hw, #deal-tab-install and #deal-tab-terms and then had to
+  // name four Payment Terms fields individually, because that panel was not in
+  // the list: an input added to Payment Terms without being named here would
+  // silently not recompute. Scoping to the tab removes the class of fault
+  // rather than renaming its members.
+  document.querySelectorAll('#opp-tab-commercial input').forEach(el => el.addEventListener('input', recompute))
 
   // The currency selects, Round 36 Phase 2. The selector above matches the
   // <input> TAG, so it never matched these two <select> elements, and 'input'
