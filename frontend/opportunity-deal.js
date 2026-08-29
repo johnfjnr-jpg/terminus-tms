@@ -704,6 +704,7 @@ function computeDealMatrixCols(result, payload) {
 function renderDealMatrix(result, payload) {
   const { whtShare, all } = computeDealMatrixCols(result, payload)
   const whtPct = payload.whtPct || 0
+  const gstPct = payload.gstPct || 0
   const grossOf = (p) => (uiState.grossUp && whtPct < 100) ? Math.round(p / (1 - whtPct / 100)) : p
   const cells = (fn) => ({ hardware: `$${money(fn(all[0]))}`, hosting: `$${money(fn(all[1]))}`, installation: `$${money(fn(all[2]))}`, total: `$${money(fn(all[3]))}` })
   const dash = (v) => (v ? `$${money(v)}` : '-')
@@ -716,11 +717,39 @@ function renderDealMatrix(result, payload) {
       hardware: dash(result.financeCost), hosting: '-', installation: '-', total: dash(result.financeCost),
     },
     {
-      label: 'of which WHT absorbed', color: 'var(--muted-2)', totalColor: 'var(--muted-2)',
+      label: 'of which withholding tax absorbed by Terminus', color: 'var(--muted-2)', totalColor: 'var(--muted-2)',
       hardware: dash(whtShare[0]), hosting: dash(whtShare[1]), installation: dash(whtShare[2]), total: dash(result.tax.whtBorne),
     },
     { label: 'Margin', color: 'var(--muted)', totalColor: 'var(--green)', ...cells(c => c.price - c.cost) },
-    { label: 'WHT', color: 'var(--muted)', totalColor: 'var(--muted)', ...cells(c => Math.round(grossOf(c.price) * whtPct / 100)) },
+
+    // ── THE BOTTOM LINE MUST DERIVE FROM THE ROWS ABOVE IT ─────────────────
+    //
+    // Round 39. The business could not reconcile Price to customer from this
+    // table, and they were right: the difference between contract net and price
+    // to customer is ENTIRELY GST, and there was no GST row. Measured on the
+    // capture that prompted it: 1,818,111 + 127,268 = 1,945,379, and
+    // 127,268 is 7% of 1,818,111 to the dollar.
+    //
+    // Price to customer is invoiceBase + gstAmount. The itemised Deal Sheet
+    // below has carried a GST line since it was built; this summary, which is
+    // the one always on screen, did not. A summary whose bottom line cannot be
+    // followed from its own rows is not doing its job.
+    //
+    // AND THE TWO WHT LINES ARE THE SAME MONEY WHEN GROSS UP IS OFF, which made
+    // it read as deducted twice. They are now labelled by what they are rather
+    // than both being called WHT: one is the share Terminus absorbs inside Cost,
+    // the other is the amount the customer deducts from the invoice. With gross
+    // up ON they genuinely differ - absorbed becomes zero while the deduction
+    // stays - so they are two rows, not one, and the labels have to say so.
+    {
+      label: `Withholding tax at ${whtPct}%, deducted by the customer`,
+      color: 'var(--muted)', totalColor: 'var(--muted)',
+      ...cells(c => Math.round(grossOf(c.price) * whtPct / 100)),
+    },
+    {
+      label: `GST at ${gstPct}%, added to the invoice`, color: 'var(--muted)', totalColor: 'var(--muted)',
+      hardware: '-', hosting: '-', installation: '-', total: dash(result.tax.gstAmount),
+    },
     {
       label: 'Price to customer', color: 'var(--white)', totalColor: 'var(--green)',
       hardware: '-', hosting: '-', installation: '-', total: `$${money(result.tax.invoiceBase + result.tax.gstAmount)}`,
@@ -890,7 +919,23 @@ function renderResults(result, payload) {
   const marginText = `${result.achievedMargin.toFixed(1)}%`
   document.getElementById('deal-achieved-margin').textContent = marginText
   const localMargin = document.getElementById('deal-terms-achieved-margin')
-  if (localMargin) localMargin.textContent = marginText
+  if (localMargin) {
+    localMargin.textContent = marginText
+    // ── THE ACCENT CARRIES INFORMATION, NOT DECORATION ────────────────────
+    //
+    // Round 39. A deal 17.5 points BELOW its target rendered in the same large
+    // green as one on target, so the most important signal on the screen said
+    // nothing and the only thing separating the two states was a line of grey
+    // text a reader had to stop and parse.
+    //
+    // No red is introduced: the brand carries one accent, and the fix is to
+    // spend it rather than to add to it. Green now means AT OR ABOVE TARGET and
+    // anything under target is the ordinary foreground colour. That is what a
+    // single-accent palette is for, and it costs one class.
+    const target = numericOrDefault(payload, 'targetMargin')
+    localMargin.classList.toggle('on-target', result.achievedMargin >= target)
+    localMargin.classList.toggle('under-target', result.achievedMargin < target)
+  }
   const localNote = document.getElementById('deal-terms-achieved-note')
   if (localNote) {
     const target = numericOrDefault(payload, 'targetMargin')

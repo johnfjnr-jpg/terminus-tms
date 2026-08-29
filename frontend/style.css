@@ -4374,7 +4374,12 @@ input.input-invalid {
    readout, so it is the one row in the card that is not an input, and it is
    weighted to read first. The strip above the sub-tabs is unchanged. */
 .terms-field-row.terms-achieved { border-top: 1px solid var(--hairline-strong); margin-top: 4px; padding-top: 12px; }
-.terms-field-row.terms-achieved .stat-value { font-family: var(--mono); font-size: 20px; color: var(--green); text-align: right; }
+.terms-field-row.terms-achieved .stat-value { font-family: var(--mono); font-size: 20px; text-align: right; }
+/* Round 39: the accent means AT OR ABOVE TARGET. A figure below target takes the
+   ordinary foreground colour, so the green is a statement rather than a style.
+   No red: one accent, spent on the thing that matters. */
+.terms-field-row.terms-achieved .stat-value.on-target { color: var(--green); }
+.terms-field-row.terms-achieved .stat-value.under-target { color: var(--white); }
 
 /* Round 39: an ageing or stale cost basis, said where the rates are entered.
    Same bands and same words as the approval page, from src/lib/cost-basis.js. */

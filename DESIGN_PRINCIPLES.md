@@ -825,6 +825,18 @@ today's existing behaviour.
 
 Explicitly deferred, not forgotten, not a section number of its own since this is a running list, not a build phase. Add to it as new deferrals come up rather than letting them live only in conversation.
 
+- **THE OPPORTUNITY DETAIL TAB ROW MIXES TWO KINDS OF THING. Raised 2026-08-29,
+  Round 39, from looking at a capture. Not this round.**
+
+  The row runs REFERENCE, COMMERCIALS, ASSESSMENT, then QUALIFICATION, SOLUTION
+  ALIGNMENT, PROPOSAL, EVALUATION, NEGOTIATING, CLOSED WON. **Three record tabs
+  and six stage tabs, undifferentiated, in one row** - and the stage tracker is
+  already displayed above it, so the six are a second rendering of something the
+  screen has just said.
+
+  They read as peers and they are not the same kind of thing: the first three are
+  parts of a record, the last six are positions in a process.
+
 - **WERE THOSE TWO NUMBERS EVER QUOTED? Air quality and HEMIR new-infrastructure
   install costs. Raised 2026-08-29, Round 39.**
 

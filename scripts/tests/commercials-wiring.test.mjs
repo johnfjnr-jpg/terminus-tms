@@ -352,3 +352,69 @@ test('every installResp option the business wrote copy for has exactly one line'
     assert.ok(block.includes(`'${opt}':`), `${opt} is offered by the picklist and has no note`)
   }
 })
+
+// ─────────────────────────────────────────────────────────────
+// The accent means AT OR ABOVE TARGET
+// ─────────────────────────────────────────────────────────────
+//
+// A deal 17.5 points below its target rendered in the same large green as one on
+// target. In a single-accent palette the accent is the only colour that means
+// anything, so spending it on every value made the most important signal on the
+// screen say nothing.
+
+function classesFor(achieved, target) {
+  // The shipped rule, in the shape renderResults applies it.
+  return { onTarget: achieved >= target, underTarget: achieved < target }
+}
+
+test('AT OR ABOVE target takes the accent', () => {
+  assert.deepEqual(classesFor(35, 35), { onTarget: true, underTarget: false }, 'exactly on target is on target')
+  assert.deepEqual(classesFor(41.2, 35), { onTarget: true, underTarget: false })
+})
+
+test('BELOW target does not', () => {
+  // The case that prompted it: 17.5 against a target of 35.
+  assert.deepEqual(classesFor(17.5, 35), { onTarget: false, underTarget: true })
+  assert.deepEqual(classesFor(34.99, 35), { onTarget: false, underTarget: true })
+})
+
+test('the two states are mutually exclusive and one always applies', () => {
+  // A figure with neither class would fall back to whatever the cascade gives
+  // it, which is the silent version of the original fault.
+  for (const [a, t] of [[0, 0], [0, 35], [35, 0], [17.5, 35], [50, 35]]) {
+    const c = classesFor(a, t)
+    assert.notEqual(c.onTarget, c.underTarget, `neither or both for achieved ${a} against target ${t}`)
+  }
+})
+
+// ─────────────────────────────────────────────────────────────
+// The Deal Summary bottom line derives from its own rows
+// ─────────────────────────────────────────────────────────────
+
+test('price to customer is contract net plus GST, and GST has a row', () => {
+  // The business could not reconcile the summary and was right: the whole
+  // difference was GST and there was no GST row. Numbers from the capture that
+  // prompted it.
+  const contractNet = 1818111
+  const gstPct = 7
+  const gstAmount = Math.round(contractNet * gstPct / 100)
+  assert.equal(gstAmount, 127268)
+  assert.equal(contractNet + gstAmount, 1945379, 'the figure on screen')
+
+  const src = readFileSync(new URL('../../frontend/opportunity-deal.js', import.meta.url), 'utf8')
+  const matrix = src.slice(src.indexOf('const rows = ['), src.indexOf('const headRow'))
+  assert.match(matrix, /GST at \$\{gstPct\}%, added to the invoice/,
+    'the summary must carry the row its bottom line depends on')
+  assert.match(matrix, /Price to customer/)
+})
+
+test('the two withholding lines are labelled as different money', () => {
+  // They are equal when gross up is off, which read as deducted twice. With
+  // gross up ON they genuinely differ, so they are two rows and the labels have
+  // to say which is which.
+  const src = readFileSync(new URL('../../frontend/opportunity-deal.js', import.meta.url), 'utf8')
+  const matrix = src.slice(src.indexOf('const rows = ['), src.indexOf('const headRow'))
+  assert.match(matrix, /of which withholding tax absorbed by Terminus/)
+  assert.match(matrix, /Withholding tax at \$\{whtPct\}%, deducted by the customer/)
+  assert.ok(!/label: 'WHT'/.test(matrix), 'the bare "WHT" label is what made them look like one number twice')
+})

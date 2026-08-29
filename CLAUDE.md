@@ -966,6 +966,14 @@ not resolve it quietly.
     the window went from 60px to 450px at 1240x700, and elsewhere a window of
     zero appeared where the distance looked fine.
 
+    **A COROLLARY FOUND IN THE SAME CAPTURE: a note nobody can read is
+    functionally absent.** Round 39's Phase 0 reported an asymmetry as one that
+    "has never been named". It had been named on screen since Round 36, in a
+    sentence set dim, uppercase and monospaced. **The reason neither the
+    business nor I knew it was there is visible in the capture.** Presence is a
+    property of the document; being read is a property of the person. The claim
+    was false and it felt true, and the style is why.
+
     **The check: state the measure as something the PERSON experiences, not
     something the page has.** Distance, element count, panel height and
     scroll height are all properties of the document. Whether you can see two
