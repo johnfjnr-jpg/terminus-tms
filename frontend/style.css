@@ -1047,6 +1047,46 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
   border-color: var(--hairline-strong);
 }
 
+/* ── SECONDARY BUTTON, Round 39 ────────────────────────────────────────────
+   Specified by the business, following the brand guideline's hairlines and its
+   single sparing accent.
+
+   The class was in the markup on two buttons and HAD NO RULE ANYWHERE, so both
+   rendered as native browser buttons: a white box with dark sentence-case text
+   beside the green uppercase primary. Nothing failed, which is why it survived
+   the panel being rebuilt around it. A class name asserting a style that does
+   not exist cannot be falsified by anything.
+
+   Same geometry, type and uppercase treatment as primary. Hairline border in
+   the muted foreground, no fill, muted text. GREEN IS NOT SPENT ON IT: the
+   accent stays with the one action the panel is for. */
+.btn-secondary {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  background: none;
+  border: 1px solid var(--hairline-strong);
+  color: var(--muted);
+  padding: 9px 20px;
+  cursor: pointer;
+  /* Part of "same geometry and type as primary": a primary button's label sits
+     on one line, and uppercase with 0.1em tracking is wide enough that these
+     three wrapped mid-word inside a 430px row the moment the rule landed. The
+     row is flex-wrap: wrap so they move to a second line at full width instead
+     of shrinking into three squeezed columns. That container change is the one
+     place this went past a single rule, and it is reported as such. */
+  white-space: nowrap;
+}
+.btn-secondary:hover { background: rgba(242,242,240,0.05); color: var(--white); }
+.btn-secondary:disabled, .btn-secondary:disabled:hover {
+  opacity: 0.5;
+  cursor: default;
+  background: none;
+  color: var(--muted-2);
+  border-color: var(--hairline);
+}
+
 .doc-inline-form {
   padding: 14px 12px;
   background: rgba(242,242,240,0.03);

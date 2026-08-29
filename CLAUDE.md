@@ -153,6 +153,38 @@ not resolve it quietly.
 
     **The next finding will be tempting, and the answer is still the list.**
 
+    **AND THE LIMIT OF THIS RULE, set by the business 2026-08-29, Round 39: A
+    FINDING THAT YOUR OWN CHANGE CREATED IS PART OF THE CHANGE, NOT A NEW
+    ITEM.** Rule 10 keeps UNRELATED findings off a round. It does not license
+    closing a round whose own screen contradicts itself.
+
+    The instance. Teaching the Deal Summary to say `GST, not recorded` left
+    `Withholding Tax %` four lines above it still prefilling a 0, so one card
+    carried a bright zero and a dim zero meaning a value and a placeholder.
+    **That is worse than the uniform wrongness it replaced, and it is worse
+    because of what the round did.** The mechanism already existed, so applying
+    it to the two remaining rate keys was not new design.
+
+    **The test is authorship, not severity or relatedness.** A defect the round
+    introduced, or made visible by making its neighbour correct, is finishing
+    the work. A defect the round merely walked past goes on the list.
+
+    **AND THE LIMIT OF THIS RULE, set by the business 2026-08-29, Round 39: A
+    FINDING THAT YOUR OWN CHANGE CREATED IS PART OF THE CHANGE, NOT A NEW
+    ITEM.** Rule 10 keeps UNRELATED findings off a round. It does not license
+    closing a round whose own screen contradicts itself.
+
+    The instance. Teaching the Deal Summary to say `GST, not recorded` left
+    `Withholding Tax %` four lines above it still prefilling a 0, so one card
+    carried a bright zero and a dim zero meaning a value and a placeholder.
+    **That is worse than the uniform wrongness it replaced, and it is worse
+    because of what the round did.** The mechanism already existed, so applying
+    it to the two remaining rate keys was not new design.
+
+    **The test is authorship, not severity or relatedness.** A defect the round
+    introduced, or made visible by making its neighbour correct, is finishing
+    the work. A defect the round merely walked past goes on the list.
+
 11. **AN UNANSWERABLE PRECONDITION IS A STOP, NOT A PROCEED-WITH-JUSTIFICATION.**
     Round 38 close, 2026-08-29. Recorded from a real instance, with both
     halves of the fault, because only one of them was mine.

@@ -35,7 +35,7 @@
  * caller passes. The route reads; this decides what the page says.
  */
 
-import { buildDealInputs, isSet, RAW_READERS, PRODUCT_UNITS, gstPresentation } from './deal-inputs.js';
+import { buildDealInputs, isSet, RAW_READERS, PRODUCT_UNITS, gstPresentation, ratePresentation } from './deal-inputs.js';
 import { calculateDeal } from './deal-calculator.js';
 import { NUMERIC_DEFAULTS, defaultProvenance, toNumberOrNull } from './numeric-payload.js';
 // The bands, the thresholds and the words all live in one place, because the
@@ -332,7 +332,9 @@ export function buildExposures(payload, result) {
     key: 'wht',
     label: 'Withholding tax',
     amount: result.tax.whtBorne,
-    basis: `${payload.whtPct ?? NUMERIC_DEFAULTS.whtPct}% of the invoice base`,
+    // Through ratePresentation(), not a second read: a row printing "0% of the
+    // invoice base" tells the approver a rate was chosen where none ever was.
+    basis: ratePresentation(payload, 'whtPct').basis,
     note: grossUp
       ? `Grossed up, so Terminus bears none of it. The invoice to the client rises to `
         + `${result.tax.invoiceBase} to carry ${result.tax.whtAmount} of tax. If the client refuses the `

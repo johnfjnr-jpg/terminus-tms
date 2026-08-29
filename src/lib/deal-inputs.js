@@ -130,17 +130,50 @@ export function isSet(payload, key) {
 // the calculator's own reader. An explicit 0 is a recorded decision, a
 // zero-rated supply, and reads as "GST at 0%" - only a missing value reads as
 // not recorded.
-export function gstPresentation(payload) {
-  const recorded = isSet(payload, 'gstPct');
-  const pct = recorded ? Number(RAW_READERS.gstPct(payload)) : null;
+// ONE DECISION FOR EVERY RATE, and the wording per rate on top of it.
+//
+// Round 39 shipped this for GST alone, and the business's own reading of the
+// capture is why it now covers three: fixing GST made the Tax Adjustments card
+// DISAGREE WITH ITSELF, a bright zero and a dim zero four lines apart meaning a
+// value and a placeholder. That is worse than the uniform wrongness it
+// replaced, and it is worse because of what this round did.
+//
+// Their rule, written beside build-discipline rule 10: a finding that your own
+// change created is part of the change, not a new item.
+export function ratePresentation(payload, key) {
+  const recorded = isSet(payload, key);
+  const pct = recorded ? Number(RAW_READERS[key](payload)) : null;
   return {
     recorded,
     pct,
-    rowLabel: recorded ? `GST at ${pct}%, added to the invoice` : 'GST, not recorded',
-    priceLabel: recorded ? 'Price to customer, contract price plus GST' : 'Price to customer, excludes GST',
+    // What a figure cell shows instead of a computed zero.
+    value: recorded ? null : 'not recorded',
     basis: recorded
       ? `${pct}% of the invoice base`
-      : 'Not recorded. Priced at 0%, which is an absent rate rather than a zero-rated supply.',
+      : 'Not recorded. Priced at 0%, which is an absent rate rather than a rate somebody set to zero.',
+  };
+}
+
+export function gstPresentation(payload) {
+  const r = ratePresentation(payload, 'gstPct');
+  return {
+    ...r,
+    rowLabel: r.recorded ? `GST at ${r.pct}%, added to the invoice` : 'GST, not recorded',
+    priceLabel: r.recorded ? 'Price to customer, contract price plus GST' : 'Price to customer, excludes GST',
+  };
+}
+
+// WHT is not GST-shaped and does not get GST's words. It reaches MARGIN through
+// whtBorne rather than only the price line, so an absent rate is understating a
+// cost rather than only understating an invoice.
+export function whtPresentation(payload) {
+  const r = ratePresentation(payload, 'whtPct');
+  return {
+    ...r,
+    deductedLabel: r.recorded
+      ? `Withholding tax at ${r.pct}%, deducted by the customer`
+      : 'Withholding tax, not recorded',
+    grossUpLabel: r.recorded ? `Grossed up for WHT at ${r.pct}%` : 'Grossed up for WHT, rate not recorded',
   };
 }
 

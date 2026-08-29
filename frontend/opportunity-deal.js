@@ -25,7 +25,7 @@ import { changedKeys } from '/lib/payload-diff.js'
 // Round 38: the ONE translation, shared with the submit route and the
 // approval page. It reads catalog rates as ordinary payload keys, which is
 // exactly what readPayload() puts there.
-import { buildDealInputs, gstPresentation } from '/lib/deal-inputs.js'
+import { buildDealInputs, gstPresentation, whtPresentation } from '/lib/deal-inputs.js'
 import { reasonPromptFor } from '/lib/version-reason.js'
 
 let opportunityId = null
@@ -703,7 +703,8 @@ function computeDealMatrixCols(result, payload) {
 
 function renderDealMatrix(result, payload) {
   const { whtShare, all } = computeDealMatrixCols(result, payload)
-  const whtPct = payload.whtPct || 0
+  const wht = whtPresentation(payload)
+  const whtPct = wht.pct ?? 0
   const gst = gstPresentation(payload)
   const grossOf = (p) => (uiState.grossUp && whtPct < 100) ? Math.round(p / (1 - whtPct / 100)) : p
   const cells = (fn) => ({ hardware: `$${money(fn(all[0]))}`, hosting: `$${money(fn(all[1]))}`, installation: `$${money(fn(all[2]))}`, total: `$${money(fn(all[3]))}` })
@@ -741,10 +742,14 @@ function renderDealMatrix(result, payload) {
     // the other is the amount the customer deducts from the invoice. With gross
     // up ON they genuinely differ - absorbed becomes zero while the deduction
     // stays - so they are two rows, not one, and the labels have to say so.
+    // Same treatment as GST below, for the same reason. An unrecorded rate used
+    // to render $0 in all four columns, which is a confident figure for a tax
+    // nobody entered.
     {
-      label: `Withholding tax at ${whtPct}%, deducted by the customer`,
-      color: 'var(--muted)', totalColor: 'var(--muted)',
-      ...cells(c => Math.round(grossOf(c.price) * whtPct / 100)),
+      label: wht.deductedLabel, color: 'var(--muted)', totalColor: 'var(--muted)',
+      ...(wht.recorded
+        ? cells(c => Math.round(grossOf(c.price) * whtPct / 100))
+        : { hardware: '-', hosting: '-', installation: '-', total: wht.value }),
     },
     // AND AN ABSENT RATE IS NOT A ZERO. See gstPresentation() in deal-inputs.js:
     // with no rate recorded this row used to read "GST at 0%" and dash out, and
@@ -795,7 +800,8 @@ function renderDealSheet(result, payload) {
   const { hardwareGroup, installGroup, hostingGroup } = result.groups
   const hostingTermCost = hostingGroup.rawTotalCost * months
   const grossUp = uiState.grossUp
-  const whtPct = payload.whtPct || 0
+  const wht = whtPresentation(payload)
+  const whtPct = wht.pct ?? 0
   const gst = gstPresentation(payload)
   const { invoiceBase, whtAmount, gstAmount, whtBorne } = result.tax
   const { contractNet, oneOffPrice, hostingTermPrice } = result.totals
@@ -823,7 +829,7 @@ function renderDealSheet(result, payload) {
     { label: 'Gross margin', value: `$${money(contractNet - totalDealCostAll)}`, color: 'var(--green)' },
     { label: 'Invoice reconciliation, from revenue', value: `$${money(contractNet)}`, color: 'var(--muted-2)' },
     {
-      label: grossUp ? `Grossed up for WHT at ${whtPct}%` : 'No gross up, WHT absorbed',
+      label: grossUp ? wht.grossUpLabel : 'No gross up, WHT absorbed',
       value: grossUp ? `+ $${money(invoiceBase - contractNet)}` : '-', color: 'var(--muted)',
     },
     {
@@ -834,7 +840,10 @@ function renderDealSheet(result, payload) {
       label: `${gst.priceLabel}${grossUp ? ', grossed up for WHT' : ''}`,
       value: `$${money(invoiceBase + gstAmount)}`, color: 'var(--green)',
     },
-    { label: `Withholding tax at ${whtPct}%, deducted by the customer`, value: whtAmount ? `- $${money(whtAmount)}` : '-', color: 'var(--muted)' },
+    {
+      label: wht.deductedLabel,
+      value: wht.recorded ? (whtAmount ? `- $${money(whtAmount)}` : '-') : wht.value, color: 'var(--muted)',
+    },
     { label: 'Net receipt after WHT', value: `$${money(invoiceBase - whtAmount)}`, color: 'var(--green)' },
   ]
 
@@ -1269,7 +1278,12 @@ function populateForm(payload) {
   const warrantyBox = document.getElementById('deal-warrantyPct')
   if (marginBox) marginBox.placeholder = String(NUMERIC_DEFAULTS.targetMargin)
   if (warrantyBox) warrantyBox.placeholder = String(NUMERIC_DEFAULTS.warrantyPct)
-  setVal('deal-whtPct', p.whtPct ?? 0)
+  // ?? '' AND A PLACEHOLDER, the same as gstPct below and targetMargin above.
+  // A prefilled 0 records a rate nobody entered on the first save, which is the
+  // writer half of read-and-write-must-agree-about-absence.
+  setVal('deal-whtPct', toNumberOrNull(p.whtPct) ?? '')
+  const whtBox = document.getElementById('deal-whtPct')
+  if (whtBox) whtBox.placeholder = String(NUMERIC_DEFAULTS.whtPct)
   // ?? '' AND A PLACEHOLDER, matching targetMargin and warrantyPct three lines
   // up. `?? 0` filled the box with a rate nobody had entered, so the first save
   // of any of the 406 deals with no GST rate would have RECORDED one, destroying
@@ -1287,7 +1301,9 @@ function populateForm(payload) {
   // (Terminus Ops.dc.html:6800-6801, both 'USD').
   document.getElementById('deal-bidCurrency').value = p.bidCurrency || 'USD'
   document.getElementById('deal-proposalCurrency').value = p.proposalCurrency || 'USD'
-  setVal('deal-fxContingency', p.fxContingency ?? 0)
+  setVal('deal-fxContingency', toNumberOrNull(p.fxContingency) ?? '')
+  const fxBox = document.getElementById('deal-fxContingency')
+  if (fxBox) fxBox.placeholder = String(NUMERIC_DEFAULTS.fxContingency)
 
   setVal('deal-duration', p.duration ?? 0)
   uiState.structure = p.structure || 'twoPhase'

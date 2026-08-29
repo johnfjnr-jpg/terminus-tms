@@ -25,7 +25,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { JSDOM } from 'jsdom'
-import { gstPresentation } from '../../src/lib/deal-inputs.js'
+import { gstPresentation, whtPresentation, ratePresentation } from '../../src/lib/deal-inputs.js'
 import { readFileSync } from 'node:fs'
 import { changedKeys } from '../../src/lib/payload-diff.js'
 import { toNumberOrNull } from '../../src/lib/numeric-payload.js'
@@ -480,6 +480,75 @@ test('the two withholding lines are labelled as different money', () => {
   const src = readFileSync(new URL('../../frontend/opportunity-deal.js', import.meta.url), 'utf8')
   const matrix = src.slice(src.indexOf('const rows = ['), src.indexOf('const headRow'))
   assert.match(matrix, /of which withholding tax absorbed by Terminus/)
-  assert.match(matrix, /Withholding tax at \$\{whtPct\}%, deducted by the customer/)
+  assert.match(matrix, /label: wht\.deductedLabel/)
   assert.ok(!/label: 'WHT'/.test(matrix), 'the bare "WHT" label is what made them look like one number twice')
+
+  // The label still names the rate when there IS one, which the indirection
+  // above could otherwise have quietly dropped.
+  assert.equal(whtPresentation({ whtPct: 15 }).deductedLabel,
+    'Withholding tax at 15%, deducted by the customer')
+})
+
+// ─────────────────────────────────────────────────────────────
+// Every rate, not just the one the capture happened to show
+// ─────────────────────────────────────────────────────────────
+
+test('withholding tax gets the same absence treatment as GST', () => {
+  // WHT reaches MARGIN through whtBorne rather than only the price line, so an
+  // absent rate understates a cost, not only an invoice.
+  const absent = whtPresentation({})
+  assert.equal(absent.recorded, false)
+  assert.equal(absent.deductedLabel, 'Withholding tax, not recorded')
+  assert.equal(absent.value, 'not recorded')
+  assert.match(absent.grossUpLabel, /rate not recorded/)
+
+  const zero = whtPresentation({ whtPct: 0 })
+  assert.equal(zero.recorded, true, 'an explicit zero is a decision, not a gap')
+  assert.equal(zero.deductedLabel, 'Withholding tax at 0%, deducted by the customer')
+  assert.ok(!/not recorded/i.test(zero.deductedLabel + zero.grossUpLabel + zero.basis))
+
+  assert.notEqual(whtPresentation({ whtPct: 15 }).deductedLabel, zero.deductedLabel)
+})
+
+test('one reader decides for every rate, and it is the same one', () => {
+  // Verification 20 at the level of the mechanism rather than one value: gst
+  // and wht must not be two implementations of "is this recorded".
+  for (const key of ['gstPct', 'whtPct', 'fxContingency', 'targetMargin', 'warrantyPct']) {
+    assert.equal(ratePresentation({}, key).recorded, false, `${key} absent`)
+    assert.equal(ratePresentation({ [key]: 0 }, key).recorded, true, `${key} explicit zero`)
+    assert.equal(ratePresentation({ [key]: 7 }, key).pct, 7, `${key} value`)
+    assert.match(ratePresentation({}, key).basis, /Not recorded/)
+  }
+})
+
+test('no rate box prefills a value nobody entered', () => {
+  // THE WRITER HALF. A display that says "not recorded" beside a form that
+  // fills in 0 is a display that is right until somebody uses the screen, and
+  // the writer wins on the first click.
+  //
+  // Class-level, not three instance checks: the next RATE key added to this
+  // screen is the one nobody would think to check.
+  //
+  // SCOPED TO RATES, and the scope is read from the screen's own
+  // PERCENT_FIELD_IDS rather than a second list written here, which would drift
+  // (Verification 20). A rate of 0 prices the deal wrongly and silently. A unit
+  // COUNT of 0 is a different question - a deal with no AQ sensors is a real
+  // deal and its zero is not a lie - so the five non-rate boxes that still
+  // prefill are reported to the business rather than swept in under this rule.
+  const src = readFileSync(new URL('../../frontend/opportunity-deal.js', import.meta.url), 'utf8')
+  const rateIds = new Set(
+    (src.match(/const PERCENT_FIELD_IDS = new Set\(\[([^\]]*)\]/)?.[1] ?? '')
+      .split(',').map((t) => t.trim().replace(/^'|'$/g, '')).filter(Boolean),
+  )
+  assert.ok(rateIds.size >= 5, 'PERCENT_FIELD_IDS did not parse, so this test is measuring nothing')
+
+  const bad = [...src.matchAll(/setVal\('(deal-[A-Za-z]+)',\s*p\.[A-Za-z.]+\s*\?\?\s*0\)/g)]
+    .map((m) => m[1]).filter((id) => rateIds.has(id))
+  assert.deepEqual(bad, [], `these rate boxes prefill a manufactured zero: ${bad.join(', ')}`)
+
+  // Calibration: the scan must be able to see one. Verification 17.
+  const planted = [...("setVal('deal-whtPct', p.whtPct ?? 0)")
+    .matchAll(/setVal\('(deal-[A-Za-z]+)',\s*p\.[A-Za-z.]+\s*\?\?\s*0\)/g)]
+    .map((m) => m[1]).filter((id) => rateIds.has(id))
+  assert.deepEqual(planted, ['deal-whtPct'], 'the scan cannot detect the thing it is scanning for')
 })

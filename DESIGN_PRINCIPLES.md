@@ -825,6 +825,40 @@ today's existing behaviour.
 
 Explicitly deferred, not forgotten, not a section number of its own since this is a running list, not a build phase. Add to it as new deferrals come up rather than letting them live only in conversation.
 
+- **WHICH REGIONS ESCAPE THE WIDTH CAP. Raised 2026-08-29, Round 39, framing
+  set by the business. NOT "remove the cap".**
+
+  A cap is the correct choice for prose and for the 62ch field notes. It is the
+  wrong choice for a table with four numeric columns. So the question is which
+  regions escape it, and the answer is tables and the result list yes, prose and
+  forms no.
+
+  **Measured on Commercials at the three widths, and it corrects a claim I made
+  from reading a screenshot.** I reported "content stops at roughly 1150px, the
+  left third". The real numbers are different and name a different culprit:
+
+  | region | 1240 | 1920 | 3440 |
+  |---|---|---|---|
+  | Commercials panel | 876 | 1556 | 3076 |
+  | **Deal Summary table** | **876** | **1556** | **3076** |
+  | Result list, itemised Deal Sheet | 460 | 460 | 460 |
+  | Versions card | 460 | 460 | 460 |
+  | Field note | 396 | 396 | 396 |
+
+  **The Deal Summary table is already correct**, which is the opposite of what I
+  said: it tracks the panel at every width. **The fixed 460px things are the
+  Result list and the Versions card**, and the Result list is the one with the
+  business's argument behind it, being a label-and-figure list that reads better
+  wider.
+
+  The card grid is `460px` tracks: at 3440 it lays out six tracks and fills
+  three, so the three cards sit in the left 1380px of a 3076px row and the rest
+  is empty. That is a separate decision from the Result list's cap, and both
+  belong to this item.
+
+  The field note at 396px is 62ch and is correct as it stands. It is in the
+  table as the thing that must NOT change.
+
 - **EXERCISE EVERY RECOVERY PATH ONCE, BEFORE THERE IS REAL DATA TO LOSE.
   Raised 2026-08-29, Round 39, by the business. Its own work package.**
 
