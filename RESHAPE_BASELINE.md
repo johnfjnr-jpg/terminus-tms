@@ -1,5 +1,14 @@
 # What the Commercials reshape is measured against
 
+> **The Deal Sheet sits on a sub-tab of its own, so the number cannot be seen at
+> the same time as any input that changes it.**
+
+**That sentence is the brief.** Everything the reshape does should be traceable
+back to it, and anything that is not traceable to it is scope this round did not
+ask for.
+
+---
+
 Written 2026-08-29, **before the reshape round opens**, deliberately. Every round
 in this sequence has gone well because something was measured rather than
 asserted, and a reshape is the easiest place in the build to slip back into
@@ -77,15 +86,70 @@ three things and checking each costs six switches on top of the three edits.
 - The rates being priced against are visible during entry, with their dates -
   the reference panel decided in `ROUND_38_PHASE_2_BOUNDARY.md` section 7.
 
-**Rough times, proposed rather than measured, for the business to correct.** No
-timing data exists for the current tab, so these are targets to check against,
-not findings:
+### Ceilings, set by the business, recorded the way the staleness bands were
 
-| Task | Target |
+**These are judgement, not data, and they are labelled as such so they do not
+harden.** No timing data exists for the current tab and none was invented; the
+business will walk the three tasks and time them once the reshape is built.
+
+| Task | Ceiling |
 |---|---|
-| 1. Price a new deal | under 3 minutes |
-| 2. Re-price and version | under 90 seconds |
-| 3. Check somebody else's | under 60 seconds, reading only |
+| 1. Price a new deal, numbers to hand | 5 minutes |
+| 2. Re-price and take a version | 2 minutes |
+| 3. Read someone else's deal and form a view | 2 minutes |
+
+**Set by:** the business, 2026-08-29.
+**Basis:** commercial judgement. No measurement of the current tab exists.
+**What replaces them:** the business's own timed walk of the three tasks, once
+there is something to walk.
+
+**The switch count stays the PRIMARY measure**, because it is countable now and
+countable after, and it is falsifiable in a way a stopwatch held by the person
+who wanted the change is not.
+
+**And the ceilings are a check ON the switch count, not a decoration.** If the
+built thing beats all three ceilings and still takes five sub-tab switches, then
+the switch count was the wrong measure, and that is a thing to find out rather
+than to defend.
+
+---
+
+## The second measure: how many fields must actually be touched
+
+**Switch count does not capture the other half of the problem.** One screen with
+59 fields is not obviously better than five tabs with twelve each, and a reshape
+that only removes the tabs could make the tab worse while scoring well.
+
+So the second measure is: **of the 59 inputs, how many must a salesperson touch
+to price a typical deal?**
+
+Counted on the three entry sub-tabs as they stand (Hw / Hosting Setup,
+Installation, Structural Terms), which carry 20 of the 59:
+
+| | Count | |
+|---|---|---|
+| **Read-only rate displays** | 10 | `ssUnitCost`, `aqUnitCost`, `hemirUnitCost`, `hoSafesight`, `hoAqm`, `hoHemir`, `inSsExisting`, `inSsNew`, `inAqm`, `inHemir`. Written from the catalog, not typed. These become the reference panel. |
+| **Editable** | 10 | `ssExisting`, `ssNew`, `aqm`, `hemir`, `lumpCost`, `targetMargin`, `warrantyPct`, `fxContingency`, `whtPct`, `gstPct` |
+| **Of those, defaulted** | 5 | `targetMargin` 30, `warrantyPct` 2, `whtPct` 0, `gstPct` 0, `fxContingency` 0. A typical deal accepts them. |
+| **Must be touched for a typical deal** | **4 to 6** | the unit counts that are non-zero, plus the installation type and the term |
+
+**The other 39 inputs are on Payment Terms**, which a typical deal does not open
+at all: 28 inputs, 7 selects and 19 buttons behind a structure most deals take
+the default of.
+
+**So the shape of the answer is already visible: roughly five fields matter for a
+typical deal and fifty do not.** That is a progressive-disclosure problem, not a
+layout problem, and it is the hidden-until-asked model already identified at the
+Margins card. **A reshape that puts all 59 on one scrolling page has removed the
+switches and kept the density.**
+
+**The target, stated so it is checkable:** a typical deal is priced without the
+person seeing more than roughly a dozen controls, and everything else is reachable
+when asked for rather than present by default.
+
+**Confirm the count before building.** "4 to 6" is derived from which inputs carry
+defaults, not from watching anybody price a deal. The business walking task 1 once
+and naming what they actually touched replaces it.
 
 ---
 

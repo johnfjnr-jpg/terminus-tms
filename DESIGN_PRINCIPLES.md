@@ -825,6 +825,56 @@ today's existing behaviour.
 
 Explicitly deferred, not forgotten, not a section number of its own since this is a running list, not a build phase. Add to it as new deferrals come up rather than letting them live only in conversation.
 
+- **ONE SUPABASE PROJECT SERVES LOCAL DEVELOPMENT AND THE DEPLOYED APP. Raised
+  2026-08-29, Round 38. Trigger: SEPARATE ENVIRONMENTS BEFORE THE SYSTEM HOLDS
+  ANY REAL CUSTOMER DATA.**
+
+  Every test run, every probe and every fixture in this repository writes to the
+  same project the deployed application reads. Round 38 alone created and tore
+  down records across five suites and three HTTP probes, and left 10,579
+  soft-deleted `harness_*` rows behind.
+
+  **Teardown discipline has been compensating for this every round, and it should
+  not have to be load-bearing.** `Fixtures.teardown()`, the tag-based enumeration,
+  the re-query afterwards, the owner-scoped sweep: all of it is good and all of it
+  is the only thing standing between a test script and live data. The first real
+  customer record makes "I tore the fixtures down carefully" a control rather than
+  a courtesy, and controls that depend on care are the ones this project keeps
+  replacing.
+
+  **The trigger is deliberately the first real record, not a date.** Today the
+  system holds test data only, so the risk is theoretical and separating
+  environments would cost a round for nothing. The moment it holds something a
+  customer would recognise, the cost of not having separated is unbounded.
+
+  **What it needs:** a second Supabase project, `SUPABASE_URL` and the keys
+  coming from environment rather than one `.env`, and the migration path run
+  against both. `MERGE_GATE.md` already records what the CI-secret option would
+  need, and that scratch project is the same project this asks for.
+
+- **THE DEPLOYED APP AND THE SCHEMA CAN BE OUT OF STEP FOR A WHOLE ROUND, and
+  nothing says so. Raised 2026-08-29, Round 38.**
+
+  Migrations are applied to the live project as each phase lands. The deployed
+  application is whatever was last pushed. **Round 38 applied nine migrations over
+  two days while the deployed app ran Round 37 code**, and the only reason that
+  was harmless is that nobody was using it: measured, the business account's last
+  write of any kind was 2026-08-28T02:15Z and the first Round 38 migration was
+  applied roughly 22 hours later.
+
+  **Measured, not assumed, and the caveat stated: a read-only visit leaves no
+  trace.** Writes can be proven; visits cannot.
+
+  **What the mismatch would have done, checked rather than guessed.** Old code
+  meeting the new schema fails CLOSED in the two places it differs: a
+  `scope: 'version'` rule is unknown to Round 37's `approvalSatisfiesRule`, so it
+  falls to the revision branch, which is stricter; and taking a version without
+  `revision_number` is refused by the constraint rather than accepted wrongly.
+  That is luck rather than design.
+
+  **The fix is the same one as the item above**, plus applying migrations as part
+  of the deploy rather than ahead of it.
+
 - **PROPOSAL ISSUANCE IS NOT AN EVENT IN THIS SYSTEM. Raised 2026-08-29, Round
   38. AFTER THE RESHAPE. Trigger: BEFORE THE FIRST PROPOSAL GOES TO A REAL
   CUSTOMER.**
