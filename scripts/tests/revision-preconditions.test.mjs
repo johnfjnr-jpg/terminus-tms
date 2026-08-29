@@ -9,17 +9,31 @@
 // appendRecordRevision now THROWS when the precondition argument is omitted,
 // which is the right shape: a forgotten argument is a bug in the caller, not a
 // database error to be logged and swallowed. But a throw only fires on a path
-// that runs, and this repository has revision writers that cannot be exercised
-// from the test account at all - every Test Bed and every Account belongs to a
-// different owner, so those routes answer 403 before reaching the write.
+// that runs, and `npm run test:db` reaches no route at all: every test in it
+// talks to Postgres through the service key, so it never makes an HTTP request.
 //
-// One such call site was in fact left without a precondition during this round
-// and the whole database suite still passed 69/69, because nothing the suite
-// runs touches PATCH /test-beds/:id. It would have thrown the first time the
+// One call site was in fact left without a precondition during this round and
+// the whole database suite still passed 69/69, because nothing the suite runs
+// touches PATCH /test-beds/:id. It would have thrown the first time the
 // business opened a Test Bed.
 //
-// So the guarantee is made at the source rather than at runtime: every call is
-// checked for a sixth argument whether or not any test can reach it.
+// A CORRECTION, RECORDED RATHER THAN QUIETLY EDITED. This comment previously
+// justified itself with "every Test Bed and every Account belongs to a
+// different owner, so those routes answer 403 before reaching the write". That
+// was a description of the DATA phrased as a permission boundary, and it was
+// wrong: scripts/fixtures.mjs freshTestBed() now has the test account create
+// its own Account and Test Bed, own both, and drive every one of those routes
+// two-sided. Nothing stopped it. There was no fixture that made one.
+//
+// The source scan still earns its place, because a scan is cheap and standing
+// where a probe is neither. But it is no longer the ONLY instrument, and the
+// probe found within a minute a 500 on every PATCH /accounts/:id that this scan
+// passed cleanly: the call had its six arguments and the identifier they named
+// had never been imported.
+//
+// So the guarantee here is narrow and stated as such: every call is checked for
+// a sixth argument whether or not any test can reach it. Whether the route
+// WORKS is scripts/probe-preconditions.mjs's question.
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
