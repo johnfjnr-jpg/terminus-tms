@@ -94,6 +94,55 @@ test('every class the markup references has a rule, or is a declared hook', () =
     'these class names have no rule in style.css and are not declared hooks:\n  ' + missing.join('\n  '))
 })
 
+test('no comment swallows a tag, and the five sections are siblings', () => {
+  // ── THE MEASURE THAT COULD NOT SEE IT. CLAUDE.md rule 33 ────────────
+  //
+  // Round 40 Phase 2 rebuilt the tab by slicing and reassembling markup, and
+  // the slice cut a comment in half. The opener was left at the end of one
+  // section and its `-->` landed inside the next, so the comment SWALLOWED
+  // section 3's closing tag and sections 4 and 5 became CHILDREN of section 3.
+  //
+  // Nothing caught it. The div-balance check counted <div> and </div> inside
+  // comments and reported zero. Every element was in the DOM, so an id probe
+  // passed. The layout measurement passed too, because nested sections still
+  // have increasing tops and still stack. It was found by reading the raw
+  // markup while moving something else.
+  //
+  // Two assertions, because the first alone would not have caught it either:
+  // the comment structure, and the resulting PARENTAGE.
+  const html = readFileSync(ROOT + 'index.html', 'utf8')
+
+  let pos = 0
+  const swallowed = []
+  for (;;) {
+    const a = html.indexOf('<!--', pos)
+    if (a < 0) break
+    const b = html.indexOf('-->', a)
+    if (b < 0) { swallowed.push('an unterminated comment'); break }
+    const body = html.slice(a, b)
+    if (/<\/?(section|div|table|tbody|tr|td)\b/.test(body)) {
+      swallowed.push(`a comment at offset ${a} contains a tag: ${body.slice(0, 60).replace(/\s+/g, ' ')}`)
+    }
+    pos = b + 3
+  }
+  assert.deepEqual(swallowed, [], 'a comment is swallowing markup:\n  ' + swallowed.join('\n  '))
+
+  // Calibration: the scan can see one. Verification 17.
+  const planted = '<!-- oops </section> -->'
+  assert.ok(/<\/?(section|div)\b/.test(planted.slice(0, planted.indexOf('-->'))),
+    'the scan cannot detect the thing it is scanning for')
+
+  // The five sections are SIBLINGS, in order, directly inside the tab. This is
+  // the property the comment fault actually broke, and it is asserted on the
+  // markup rather than inferred from the comment check above.
+  const tab = html.slice(html.indexOf('id="opp-tab-commercial"'))
+  const ids = [...tab.matchAll(/<section class="deal-section[^"]*" id="(deal-section-\d)"/g)].map((m) => m[1])
+  assert.deepEqual(ids, ['deal-section-1', 'deal-section-2', 'deal-section-3', 'deal-section-4', 'deal-section-5'])
+  const opens = (tab.match(/<section\b/g) ?? []).length
+  const closes = (tab.slice(0, tab.indexOf('<!-- Assessment')).match(/<\/section>/g) ?? []).length
+  assert.equal(closes, opens, 'a section is not closed, so the next one nests inside it')
+})
+
 test('the scan can SEE a class with no rule', () => {
   // Verification 17: a probe that cannot distinguish two states reports the
   // answer you wanted for a reason unrelated to the truth. Calibrated against

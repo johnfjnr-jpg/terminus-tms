@@ -2117,9 +2117,6 @@
 
         <p id="deal-sheet-provenance" style="margin:0 0 14px;font-family:var(--mono);font-size:10.5px;color:var(--muted-2)"></p>
 
-        <!-- Versions (Round 37 Phase 3). Save is a deliberate act, so it is a
-             button and never a side effect of editing.
-
       </section>
 
       <!-- ── SECTION 4: Deal Sheet Summary ─────────────────────────────────── -->
@@ -2134,35 +2131,6 @@
       <p class="msg-error hidden" id="deal-cashflow-warn"></p>
       <p class="msg-error hidden" id="deal-milestone-warn"></p>
 
-
-             THE REASON IS A TEXTAREA, NOT THE ONE-LINE-GROWING CONTROL the
-             assessment panel uses. That control is right for a sentence
-             explaining one score; a version reason explains what changed across
-             a whole sheet and why, which the business called "the thinking
-             about why things have been adjusted". Three rows at rest says a
-             paragraph is expected without forcing one, and it is the only
-             editable control on this otherwise read-only tab. -->
-        <div class="pg-card" id="deal-version-panel" style="max-width:460px;margin-bottom:20px">
-          <p class="pg-card-title">Versions</p>
-          <div id="deal-version-list"></div>
-          <div style="margin-top:12px">
-            <!-- Set by applyReasonPrompt() from src/lib/version-reason.js: a first version
-                 asks what the price is based on, a later one asks what changed. This is the
-                 pre-load text and is replaced as soon as the version list is known. -->
-            <label class="label" for="deal-version-reason" style="margin-bottom:6px">Reason for this version</label>
-            <textarea id="deal-version-reason" rows="3" placeholder="What changed, and why."></textarea>
-            <p class="msg-error hidden" id="deal-version-feedback" style="margin-top:8px"></p>
-            <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px">
-              <button class="btn-primary" id="btn-save-version">Save version</button>
-              <button class="btn-secondary" id="btn-issue-version" disabled>Issue latest draft</button>
-              <!-- Round 38: the way in to the commercial approval page. It is a
-                   separate surface rather than a panel on this tab, because it
-                   shows the same numbers under the opposite convention: this tab
-                   shows what WILL happen, that page shows what DID. -->
-              <button class="btn-secondary" id="btn-open-approval">Approval view</button>
-            </div>
-          </div>
-        </div>
         <p class="label" style="margin:24px 0 10px">Result (USD) &middot; <span id="deal-sheet-units">0</span> units</p>
         <div class="deal-sheet-cards">
           <div class="deal-sheet" id="deal-sheet"></div>
@@ -2299,6 +2267,57 @@
 
 
       <!-- Submit Deal removed (Round 3 Phase 4, 2026-08-17) - confirmed
+      <!-- ── VERSIONS AND SAVE, AT THE END ─────────────────────────────────
+           Round 40 Phase 2, on the business's instruction, and it corrects my
+           own placement: I had put Versions in section 4 with the summary.
+
+           TWO REASONS, AND THE FIRST IS A CONTROL. Round 38 made save-then-
+           version a SINGLE ACT deliberately and recorded why: splitting them
+           breaks approval with nothing failing at the moment of the split.
+           Version controls at position 4 with Save Changes at the bottom of
+           section 5 put two sections of scrolling between the two halves of
+           one act.
+
+           AND IT INVITED VERSIONING BEFORE THE DEAL WAS FINISHED, because you
+           meet the version controls on the way down and carry on editing after
+           them.
+
+           A version is an act on the FINISHED deal, not a property of the
+           summary. The relationship to the summary is carried by the words
+           rather than by adjacency. -->
+
+        <!-- Versions (Round 37 Phase 3). Save is a deliberate act, so it is a
+             button and never a side effect of editing.
+
+             THE REASON IS A TEXTAREA, NOT THE ONE-LINE-GROWING CONTROL the
+             assessment panel uses. That control is right for a sentence
+             explaining one score; a version reason explains what changed across
+             a whole sheet and why, which the business called "the thinking
+             about why things have been adjusted". Three rows at rest says a
+             paragraph is expected without forcing one, and it is the only
+             editable control on this otherwise read-only tab. -->
+        <div class="pg-card" id="deal-version-panel" style="max-width:460px;margin-bottom:20px">
+          <p class="pg-card-title">Versions</p>
+          <div id="deal-version-list"></div>
+          <div style="margin-top:12px">
+            <!-- Set by applyReasonPrompt() from src/lib/version-reason.js: a first version
+                 asks what the price is based on, a later one asks what changed. This is the
+                 pre-load text and is replaced as soon as the version list is known. -->
+            <label class="label" for="deal-version-reason" style="margin-bottom:6px">Reason for this version</label>
+            <textarea id="deal-version-reason" rows="3" placeholder="What changed, and why."></textarea>
+            <p class="msg-error hidden" id="deal-version-feedback" style="margin-top:8px"></p>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px">
+              <button class="btn-primary" id="btn-save-version">Save version</button>
+              <button class="btn-secondary" id="btn-issue-version" disabled>Issue latest draft</button>
+              <!-- Round 38: the way in to the commercial approval page. It is a
+                   separate surface rather than a panel on this tab, because it
+                   shows the same numbers under the opposite convention: this tab
+                   shows what WILL happen, that page shows what DID. -->
+              <button class="btn-secondary" id="btn-open-approval">Approval view</button>
+            </div>
+          </div>
+        </div>
+
            safe first (opportunity-deal.js's own header comment has the
            full dependency-check writeup). Save Changes now starts
            disabled, activated by markDealFormDirty() the moment any
