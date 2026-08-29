@@ -6511,7 +6511,6 @@ window.revealFieldControl = function (input, fromUserGesture, seedChar) {
 
 // Expose navigate globally for inline onclick handlers
 window.navigate = navigate
-
 // Leaving the page IS a loss, and nothing in this app warned about one before.
 // Reads oppAssessDirtyKeys() for the same reason the navigation guard does.
 //

@@ -129,3 +129,24 @@ markup. Confirm rather than assume.
    came from one walk by one person and has not been measured.
 
 **Then stop.**
+
+---
+
+## Round-close tasks, set by the business 2026-08-29
+
+**Reorganise the deferred list BY TRIGGER, into work packages.**
+
+It is roughly a dozen items and most carry one of two triggers, and **those
+moments arrive together**:
+
+| Trigger | Fires |
+|---|---|
+| **A second person holds an approval track** | segregation of duties, per-field approval scoping for Technical and Legal, the notifier, half the approving surface |
+| **The system holds real customer data** | environment separation, proposal issuance, migration-on-deploy |
+
+**So it is not twelve independent items, it is two or three work packages
+attached to business events.** Organise it that way before the list grows
+further. When a trigger fires the business should pick up a package, not
+rediscover a dozen entries and work out which of them just became due.
+
+Recorded here rather than done mid-round, on instruction.

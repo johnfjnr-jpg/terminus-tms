@@ -4380,3 +4380,24 @@ input.input-invalid {
    Same bands and same words as the approval page, from src/lib/cost-basis.js. */
 .deal-catalog-ageing { color: var(--white) !important; }
 .deal-catalog-stale  { color: var(--green) !important; }
+
+/* Round 39: a field note is a SENTENCE, and .data-row-label uppercases.
+   That class was built for short labels; the entry copy this round added is
+   prose meant to be read by somebody who has not priced a deal before, and
+   uppercase prose is materially harder to read. Found by looking at the
+   rendered page: every note was present, correct and one line, and every one
+   of them was shouting. Same size and colour, sentence case, wider measure. */
+.field-note {
+  font-family: var(--body);
+  font-size: 11.5px;
+  line-height: 1.5;
+  /* --muted, not --muted-2. The tertiary tone is right for a computed caption
+     nobody needs to read; this is copy that exists to teach somebody who has
+     not priced a deal before, and at 0.32 opacity it was present and not
+     readable. Looking at the capture is the only instrument that catches that. */
+  color: var(--muted);
+  display: block;
+  max-width: 62ch;
+  text-transform: none;
+  letter-spacing: 0;
+}

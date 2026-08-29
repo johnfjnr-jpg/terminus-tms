@@ -1889,13 +1889,13 @@
               <option value="Terminus Contractor - Lump Sum">Terminus Contractor - Lump Sum</option>
               <option value="Terminus - Reseller Installation">Terminus - Reseller Installation</option>
             </select>
-            <p class="data-row-label" style="margin-top:6px">Who installs, and therefore whether installation cost sits in this deal at all.</p>
-            <p class="data-row-label" id="deal-installResp-note" style="margin-top:4px"></p>
+            <p class="field-note" style="margin-top:6px">Who installs, and therefore whether installation cost sits in this deal at all.</p>
+            <p class="field-note" id="deal-installResp-note" style="margin-top:4px"></p>
           </div>
           <div class="form-group hidden" id="deal-lumpCost-group">
             <label>Lump sum contractor price (USD)</label>
             <input type="text" inputmode="numeric" id="deal-lumpCost">
-            <p class="data-row-label" style="margin-top:6px">The contractor's fixed price for the whole installation. Used only when responsibility is Terminus Contractor, Lump Sum.</p>
+            <p class="field-note" style="margin-top:6px">The contractor's fixed price for the whole installation. Used only when responsibility is Terminus Contractor, Lump Sum.</p>
             <p class="data-row-label" id="deal-lump-summary" style="margin-top:8px">--</p>
           </div>
           <div class="form-group hidden" id="deal-install-seetable">
@@ -1939,7 +1939,7 @@
              install cost for all three. See the Phase 1 report. Whether that is
              a domain fact or an incomplete build is the business's to say, and
              a note asserting either would be a claim nobody has checked. -->
-        <p class="data-row-label" style="margin:0 0 10px">Existing infrastructure means mounting on poles, columns or buildings already in place. New infrastructure means we supply and erect the mount, which costs more and takes longer.</p>
+        <p class="field-note" style="margin:0 0 10px">Existing infrastructure means mounting on poles, columns or buildings already in place. New infrastructure means we supply and erect the mount, which costs more and takes longer.</p>
         <table class="doc-table hidden" id="deal-install-table">
           <thead><tr><th>Installation (per unit)</th><th>Units</th><th>Rate (USD, from Base Cost Data)</th><th>Cost (USD)</th><th title="Margin on this product's installation line. Leave blank to price at the target margin.">Margin % (blank = target)</th><th>Price (USD)</th></tr></thead>
           <tbody>
@@ -1966,7 +1966,7 @@
              Terminus) - opposite party, opposite direction of money. -->
         <div id="deal-contractor-group" class="hidden" style="margin-top:24px">
           <p class="label" style="margin-bottom:4px">Contractor payment milestones</p>
-          <p class="data-row-label" style="margin-bottom:10px">When we pay the contractor. Paying earlier costs working capital. It does not change margin, it changes cash flow. Max 5 milestones.</p>
+          <p class="field-note" style="margin-bottom:10px">When we pay the contractor. Paying earlier costs working capital. It does not change margin, it changes cash flow. Max 5 milestones.</p>
           <table class="doc-table">
             <thead><tr><th>Month</th><th>Contractor milestone</th><th>USD</th><th>% of lump sum</th></tr></thead>
             <tbody id="deal-contractor-tbody"></tbody>
@@ -2213,7 +2213,7 @@
             <div class="form-group" id="deal-recovery-group" style="width:150px;flex:0 0 150px">
               <label>Recovery period (months)</label>
               <input type="text" inputmode="numeric" id="deal-recoveryMonths" min="0">
-              <p class="data-row-label" style="margin-top:6px">The number of months over which the upfront capital is recovered from contract revenue.</p>
+              <p class="field-note" style="margin-top:6px">The number of months over which the upfront capital is recovered from contract revenue.</p>
             </div>
             <div id="deal-recovery-readonly" class="hidden" style="width:150px;flex:0 0 150px">
               <span class="label" style="display:block;margin-bottom:6px">Recovery period</span>
@@ -2230,7 +2230,7 @@
         <div id="deal-hybrid-group" class="hidden" style="display:grid;grid-template-columns:minmax(365px,1fr) minmax(0,280px);gap:20px;margin-top:22px;align-items:start">
           <div style="min-width:0;overflow-x:auto">
             <p class="label" style="margin-bottom:4px">Customer payment milestones (hardware)</p>
-            <p class="data-row-label" style="margin-bottom:10px">When the customer pays us. Later payments increase the working capital we fund.</p>
+            <p class="field-note" style="margin-bottom:10px">When the customer pays us. Later payments increase the working capital we fund.</p>
             <table class="doc-table">
               <thead><tr><th>Month</th><th>Milestone</th><th>USD</th><th>% of hardware</th></tr></thead>
               <tbody id="deal-milestones-tbody"></tbody>
@@ -2264,11 +2264,17 @@
                  totalDealCostAll, which achievedMargin is computed against
                  (margin down). The business's words describe that correctly, so
                  they are used unchanged rather than reworded to prove a check
-                 happened. -->
+                 happened.
+
+                 ONE WORD CHANGED, AND BY THE BUSINESS. "Purchase order" became
+                 "hardware and installation spend", because principal is
+                 hardwareCostAll and not the contract value. A reader who assumes
+                 the whole contract is financed has the wrong size of number in
+                 their head before reaching the second sentence. -->
             <div class="form-group"><label>Rate % (monthly)</label><input type="text" inputmode="numeric" id="deal-factoring-ratePct">
-              <p class="data-row-label" style="margin-top:6px">The monthly cost of factoring the purchase order. It both reduces margin and brings cash in earlier.</p></div>
+              <p class="field-note" style="margin-top:6px">The monthly cost of factoring the hardware and installation spend. It both reduces margin and brings cash in earlier.</p></div>
             <div class="form-group"><label>Term (months)</label><input type="text" inputmode="numeric" id="deal-factoring-termMonths">
-              <p class="data-row-label" style="margin-top:6px">How long the factoring runs. Rate multiplied by term is the total financing cost.</p></div>
+              <p class="field-note" style="margin-top:6px">How long the factoring runs. Rate multiplied by term is the total financing cost.</p></div>
             <div class="form-group">
               <label>Repayment method</label>
               <div class="view-toggle" id="deal-factoring-method-toggle">
