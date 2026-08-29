@@ -227,12 +227,16 @@ test('a version with NO catalog rate is REFUSED by the database', async () => {
   const { error } = await db.from('deal_sheet_versions').insert({
     record_id: recordId, major: 0, minor: 96, status: 'draft',
     reason: 'no cost basis', revision_number: 1,
-    inputs: { targetMargin: 30, duration: 36 }, rates: {}, sections: [],
+    // Round 40 Phase 1b: the floor moved from inputs to rates, because that is
+    // where the cost basis now lives. The RULE is unchanged and so is this
+    // test's purpose: the approval page detecting a rate-less baseline is right
+    // and is not enough, because it leaves non-comparable versions creatable.
+    inputs: { targetMargin: 30, duration: 36 }, rates: { rates: {} }, sections: [],
     created_by: ownerId,
   }).select('id').single()
 
   assert.ok(error, 'a version with no rates must not be insertable')
-  assert.match(error.message, /deal_sheet_versions_has_cost_basis/)
+  assert.match(error.message, /deal_sheet_versions_rates_have_cost_basis/)
 })
 
 test('and ONE rate is enough for the database floor', async () => {
@@ -244,7 +248,11 @@ test('and ONE rate is enough for the database floor', async () => {
   const { data, error } = await db.from('deal_sheet_versions').insert({
     record_id: recordId, major: 0, minor: 95, status: 'draft',
     reason: 'one rate', revision_number: 1,
-    inputs: { ssUnitCost: 1200 }, rates: {}, sections: [], created_by: ownerId,
+    // The calibration, and the boundary, now on the rates column: catalogToRates
+    // emits keys only for products with a current batch, so requiring all ten
+    // would refuse a version the business can legitimately take when a batch is
+    // missing.
+    inputs: { targetMargin: 30 }, rates: { rates: { ssUnitCost: 1200 } }, sections: [], created_by: ownerId,
   }).select('id').single()
   assert.equal(error, null, error?.message)
   fixtures.versions.push(data.id)

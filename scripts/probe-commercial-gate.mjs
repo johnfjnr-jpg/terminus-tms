@@ -11,6 +11,7 @@
 // against the state immediately before the thing that is supposed to change it.
 
 import { api } from './api-client.mjs'
+import { resolveRates, frozenRates } from '../src/lib/rate-resolution.js'
 import { freshOpportunity, tearDown } from './fixtures.mjs'
 import { catalogToRates } from '../src/lib/base-costs.js'
 

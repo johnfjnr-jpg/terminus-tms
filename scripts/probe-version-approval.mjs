@@ -152,7 +152,9 @@ record('and the page can say how far it has moved',
 // ── The remedy the state names: a new version, approved ────────────────────
 const nowRev = await rev()
 const v2 = await api('POST', `/opportunities/${oppId}/deal-sheet-versions`,
-  { inputs: { ...LIVE_RATES, targetMargin: 24, duration: 36 }, reason: 'repriced after approval', expected_revision: nowRev })
+  { inputs: { ...BASE, targetMargin: 24, duration: 36 },
+    rates: priced({ ...BASE, targetMargin: 24, duration: 36 }),
+    reason: 'repriced after approval', expected_revision: nowRev })
 await api('POST', `/records/${oppId}/approvals`, { track: 'Commercial', decision: 'approved', comment: 'probe 2' })
 record('a new version approved at the current revision reads approved',
   (await stateOf(v2.data?.id)) === 'approved', `state=${await stateOf(v2.data?.id)}`)
