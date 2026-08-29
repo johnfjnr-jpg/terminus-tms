@@ -1,4 +1,5 @@
 import { createUserClient } from '../supabase.js'
+import { liveVersionApproval, VERSION_SCOPE } from '../lib/version-approval.js'
 import { sendWriteError, sendRefusal } from '../lib/write-errors.js'
 
 // Round 5 Phase 5 (2026-08-17): extracted from POST /records/:id/transition
@@ -62,14 +63,69 @@ export function ruleScope(rule) {
   return rule?.requirement_detail?.scope ?? 'revision'
 }
 
-export function approvalSatisfiesRule(approval, rule, { from_stage, currentRevision }) {
+export function approvalSatisfiesRule(approval, rule, { from_stage, currentRevision, versionApproval }) {
   if (!approval || approval.decision !== 'approved') return false
   const track = rule?.requirement_detail?.track
   if (!track || approval.track !== track) return false
 
-  return ruleScope(rule) === 'stage'
+  const scope = ruleScope(rule)
+
+  // ── scope 'version': THIS FUNCTION DOES NOT DECIDE ───────────────────────
+  //
+  // Verification 23. Round 7 ruled that an Opportunity approval survives every
+  // revision; Round 38 ruled that any revision after an approval voids it. Both
+  // were right where they were made and nothing detected the conflict, and the
+  // live data carried three Commercial approvals describing prices that had
+  // already moved while the gate read green.
+  //
+  // The fix is deletion rather than reconciliation: this branch does not
+  // reimplement the version rule, it ASKS the evaluator the approval page
+  // renders from. Changing this to `approval.revision_number === currentRevision`
+  // would give two mechanisms that agree today and drift later, which is exactly
+  // what produced the conflict in the first place.
+  if (scope === VERSION_SCOPE) {
+    if (versionApproval === undefined) {
+      // Loudly, not falsely. A missing context here would otherwise read as
+      // "not approved" and block a gate for the wrong reason, or as "approved"
+      // and pass one, depending on which way the caller happened to write it.
+      throw new Error(
+        `approvalSatisfiesRule: rule for track ${track} is version-scoped and no versionApproval was supplied. `
+        + 'Load it with loadVersionApproval() and pass it in the context.')
+    }
+    return versionApproval.live === true
+  }
+
+  return scope === 'stage'
     ? approval.stage === from_stage
     : approval.revision_number === currentRevision
+}
+
+/**
+ * Loads what a version-scoped rule needs, for the callers that judge one.
+ *
+ * Server-side and async, because the pure evaluator takes rows and this fetches
+ * them. Both call sites use THIS, so neither assembles its own view of what a
+ * version approval means.
+ */
+export async function loadVersionApproval(db, recordId, track, currentRevision) {
+  const { data: versions, error: vErr } = await db
+    .from('deal_sheet_versions')
+    .select('id, major, minor, revision_number')
+    .eq('record_id', recordId)
+  if (vErr) return { error: vErr }
+
+  const { data: approvals, error: aErr } = await db
+    .from('approvals')
+    .select('track, decision, revision_number, approver_id, decided_at')
+    .eq('record_id', recordId)
+    .eq('track', track)
+  if (aErr) return { error: aErr }
+
+  return {
+    versionApproval: liveVersionApproval({
+      track, versions: versions ?? [], approvals: approvals ?? [], latestRevision: currentRevision,
+    }),
+  }
 }
 
 /**
@@ -126,6 +182,16 @@ export async function computeBlocking(db, record, from_stage, to_stage, currentR
       // to agree, and their disagreeing is a real defect that shipped once.
       const scope = ruleScope(rule)
 
+      // A version-scoped rule asks the approval page's own evaluator. Loaded
+      // here rather than inside the predicate so the predicate stays pure and
+      // both call sites reach the same answer through the same loader.
+      let versionApproval
+      if (scope === VERSION_SCOPE) {
+        const loaded = await loadVersionApproval(db, record.id, track, currentRevision)
+        if (loaded.error) return { error: loaded.error }
+        versionApproval = loaded.versionApproval
+      }
+
       const { data: candidates, error: approvalErr } = await db
         .from('approvals')
         .select('track, decision, stage, revision_number')
@@ -134,7 +200,7 @@ export async function computeBlocking(db, record, from_stage, to_stage, currentR
         .eq('decision', 'approved')
 
       const approval = (candidates ?? []).some(
-        a => approvalSatisfiesRule(a, rule, { from_stage, currentRevision }))
+        a => approvalSatisfiesRule(a, rule, { from_stage, currentRevision, versionApproval }))
 
       // Round 7 step 3.0: an unchecked error here is indistinguishable
       // from "no approval exists", which this branch would read as
@@ -146,7 +212,12 @@ export async function computeBlocking(db, record, from_stage, to_stage, currentR
         requirement_type: 'approval_obtained',
         track,
         scope,
-        message: scope === 'stage'
+        // The version-scoped message carries the evaluator's own reason, because
+        // "no version approved" and "the deal moved since it was approved" need
+        // different actions from the person reading a blocked gate.
+        message: scope === VERSION_SCOPE
+          ? versionApproval.reason
+          : scope === 'stage'
           ? `Requires an approved ${track} decision at stage ${from_stage}`
           : `Requires an approved ${track} decision on revision ${currentRevision}`,
         met: approval

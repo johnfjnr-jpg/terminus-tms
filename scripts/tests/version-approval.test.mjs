@@ -3,14 +3,14 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { versionApprovalState, lastApprovedVersion, APPROVAL_TRACK }
+import { versionApprovalState, lastApprovedVersion, liveVersionApproval, APPROVAL_TRACK }
   from '../../src/lib/version-approval.js'
 
 const approvedAt = (n, extra = {}) => ({
   revision_number: n, track: APPROVAL_TRACK, decision: 'approved',
   approver_id: 'u1', decided_at: '2026-08-29T10:00:00Z', ...extra,
 })
-const V = (n) => ({ revision_number: n })
+const V = (n) => ({ revision_number: n, major: 0, minor: 1 })
 
 test('a version nobody has decided on is not approved', () => {
   assert.equal(versionApprovalState(V(4), [], 4).state, 'none')
@@ -108,4 +108,60 @@ test('nothing ever approved means no baseline, not a substitute', () => {
 test('a rejected version is not a baseline', () => {
   const rejected = approvedAt(2, { decision: 'rejected' })
   assert.equal(lastApprovedVersion([V(2)], [rejected], 4), null)
+})
+
+// ─────────────────────────────────────────────────────────────
+// The gate's answer and the page's answer are ONE function
+// ─────────────────────────────────────────────────────────────
+//
+// CLAUDE.md Verification 23. Round 7 ruled that an approval survives every
+// revision; Round 38 ruled that any revision voids it. Both shipped, both read
+// the same table, and the live data carried three Commercial approvals
+// describing prices that had already moved while the gate read green.
+//
+// The fix was deletion rather than reconciliation, so these lock the property
+// that makes it a deletion: there is one function, and the gate calls it.
+
+test('live when a version is approved and nothing has moved', () => {
+  const r = liveVersionApproval({
+    track: APPROVAL_TRACK, versions: [V(4)], approvals: [approvedAt(4)], latestRevision: 4,
+  })
+  assert.equal(r.live, true)
+  assert.equal(r.state, 'approved')
+  assert.match(r.reason, /nothing has changed since/)
+})
+
+test('NOT live the moment the record moves', () => {
+  const r = liveVersionApproval({
+    track: APPROVAL_TRACK, versions: [V(4)], approvals: [approvedAt(4)], latestRevision: 5,
+  })
+  assert.equal(r.live, false)
+  assert.equal(r.state, 'superseded')
+  assert.match(r.reason, /moved on 1 save since/)
+  assert.match(r.reason, /Take a new version/)
+})
+
+test('"nobody approved a version" and "the deal moved" are DIFFERENT answers', () => {
+  // They need different actions from the person reading a blocked gate, and a
+  // single "not approved" message would send them to the wrong one.
+  const none = liveVersionApproval({ track: APPROVAL_TRACK, versions: [], approvals: [approvedAt(4)], latestRevision: 4 })
+  const superseded = liveVersionApproval({ track: APPROVAL_TRACK, versions: [V(4)], approvals: [approvedAt(4)], latestRevision: 9 })
+  assert.equal(none.state, 'none')
+  assert.equal(superseded.state, 'superseded')
+  assert.notEqual(none.reason, superseded.reason)
+  assert.match(none.reason, /Take a version on Commercials/)
+})
+
+test('an approval on another track cannot make this one live', () => {
+  const legal = approvedAt(4, { track: 'Legal' })
+  assert.equal(liveVersionApproval({
+    track: 'Commercial', versions: [V(4)], approvals: [legal], latestRevision: 4,
+  }).live, false)
+})
+
+test('the track is honoured, so one evaluator serves every track', () => {
+  const legal = approvedAt(4, { track: 'Legal' })
+  assert.equal(liveVersionApproval({
+    track: 'Legal', versions: [V(4)], approvals: [legal], latestRevision: 4,
+  }).live, true)
 })

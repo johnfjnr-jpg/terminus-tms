@@ -117,6 +117,28 @@ out to be a surface, not a paragraph.
 
 ---
 
+## 5a. SEQUENCING, confirmed 2026-08-29
+
+**The Commercial scope fix lands BEFORE the reshape, and it has.**
+
+The reshape rebuilds the panel that carries the approval entry point and the
+save-then-version flow. A control failure does not wait behind a layout change:
+while the gate read stage-scoped, an Opportunity could reach Proposal carrying a
+Commercial approval against a price nobody saw, and the only thing containing it
+was that one person held every approval track.
+
+Order, as built:
+
+1. **Done.** The Commercial gate asks the approval page's evaluator
+   (`20260829000005`, `liveVersionApproval`).
+2. **Next.** Where approving happens, per
+   `ROUND_39_PHASE_OPENER_WHERE_APPROVAL_HAPPENS.md`. The gate is now correct
+   and the approver still reads the page beside the control rather than in
+   front of it.
+3. **Then.** The reshape and its four items.
+
+---
+
 ## 6. The phase split, and the general rule it produces
 
 **Taken 2026-08-29.** Phase 2 is the reshape and its four items. The approval

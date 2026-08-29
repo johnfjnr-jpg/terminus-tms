@@ -743,7 +743,44 @@ not resolve it quietly.
     one is a message that stopped being true, this is a field that never had
     to be.
 
----
+23. **TWO CORRECT DECISIONS ABOUT THE SAME QUESTION, TAKEN IN DIFFERENT
+    ROUNDS, PRODUCE A CONFLICT NOTHING DETECTS.** Round 38, 2026-08-29.
+
+    Rule 20 is two readers of a value. **This is two rulings on a rule**, and
+    it is worse, because each ruling is defensible on its own terms and the
+    disagreement lives in the space between them where no file sits.
+
+    **The instance.** Round 7 made Opportunity approval rules `scope:
+    'stage'`, so an approval survives every revision. That was a correct fix
+    to a real defect: revision-scoped approvals were invalidated by editing
+    any field, which re-enabled the control and recorded a duplicate approval
+    per edit. Round 38 then decided that an approval is of a VERSION and any
+    revision after it voids it, because otherwise an approval means
+    "something was once approved", which looks like control and is not.
+
+    **Both shipped. Both read the same `approvals` table. Neither knows the
+    other exists.** Measured on the live data: one Opportunity carried four
+    Commercial approvals and three of them described prices that had already
+    moved, while the gate read green. A green gate is a positive claim in the
+    record that a named person accepted this price, which is worse than no
+    gate, because no gate is an absence people work around.
+
+    **Nothing could have caught it.** No test failed. Neither decision is
+    wrong where it was made. The conflict is only visible to somebody holding
+    both at once, and the two were written a round apart by people who never
+    met.
+
+    **The check, and it is cheap: BEFORE DECIDING HOW SOMETHING BEHAVES,
+    SEARCH FOR AN EXISTING DECISION ABOUT THE SAME BEHAVIOUR.** Grep the
+    configuration and `DESIGN_PRINCIPLES.md` for the concept, not for the
+    word you are about to use: `scope`, `expires`, `valid`, `supersede`,
+    `stale`, `required` are all places a previous round may already have
+    ruled.
+
+    **And the fix is deletion, not reconciliation.** Changing one decision to
+    agree with the other leaves two mechanisms that agree today and drift
+    later, which is rule 20 arriving at design level. One of them has to
+    become a caller of the other.
 
 ## `CURRENT_STATE.md`
 

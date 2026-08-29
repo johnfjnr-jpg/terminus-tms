@@ -1,6 +1,7 @@
 import { createUserClient } from '../supabase.js'
 import { sendWriteError } from '../lib/write-errors.js'
-import { computeBlocking, approvalSatisfiesRule , GATE_RECORD_SELECT } from './transitions.js'
+import { computeBlocking, approvalSatisfiesRule, ruleScope, loadVersionApproval, GATE_RECORD_SELECT } from './transitions.js'
+import { VERSION_SCOPE } from '../lib/version-approval.js'
 
 /**
  * Builds the stage-approvals panel's per-track state for one stage.
@@ -17,7 +18,7 @@ import { computeBlocking, approvalSatisfiesRule , GATE_RECORD_SELECT } from './t
  * each row answers "what would it take to exit THIS stage", the same
  * question the gate asks with from_stage.
  */
-export function buildStageTracks(stageRules, approvals, stageName, currentRevision) {
+export function buildStageTracks(stageRules, approvals, stageName, currentRevision, versionApprovals = {}) {
   const seen = new Set()
   return (stageRules ?? [])
     .filter(r => r.requirement_type === 'approval_obtained' && r.requirement_detail?.track)
@@ -28,13 +29,22 @@ export function buildStageTracks(stageRules, approvals, stageName, currentRevisi
       return true
     })
     .map(rule => {
+      const track = rule.requirement_detail.track
+      // Verification 23: this panel and computeBlocking answered the same
+      // question by different rules once already, which is why
+      // approvalSatisfiesRule exists at all. A version-scoped rule adds a third
+      // possible divergence, so the panel is handed the SAME loaded answer the
+      // gate uses rather than deriving one.
+      const versionApproval = versionApprovals[track]
       const decision = (approvals ?? []).find(a =>
-        approvalSatisfiesRule(a, rule, { from_stage: stageName, currentRevision }))
+        approvalSatisfiesRule(a, rule, { from_stage: stageName, currentRevision, versionApproval }))
       return {
-        track: rule.requirement_detail.track,
+        track,
         approved: !!decision,
         approver_id: decision?.approver_id ?? null,
         decided_at: decision?.decided_at ?? null,
+        // Why it is not approved, when the reason is not simply "nobody has".
+        reason: decision ? null : (versionApproval && !versionApproval.live ? versionApproval.reason : null),
       }
     })
 }
@@ -190,6 +200,20 @@ export default async function recordsRoutes(app) {
     if (rulesResult.error) return reply.code(500).send({ error: rulesResult.error.message })
     if (approvalsResult.error) return reply.code(500).send({ error: approvalsResult.error.message })
 
+    // Version-scoped tracks, loaded ONCE per track through the same loader
+    // computeBlocking uses. This panel covers every stage of the record, and a
+    // version-scoped answer is a property of the record rather than of a stage,
+    // so one load serves them all.
+    const versionApprovals = {}
+    for (const track of new Set((rulesResult.data ?? [])
+      .filter((r) => r.requirement_type === 'approval_obtained' && ruleScope(r) === VERSION_SCOPE)
+      .map((r) => r.requirement_detail?.track)
+      .filter(Boolean))) {
+      const loaded = await loadVersionApproval(db, record.id, track, currentRevision)
+      if (loaded.error) return reply.code(500).send({ error: loaded.error.message })
+      versionApprovals[track] = loaded.versionApproval
+    }
+
     const stages = stagesResult.data ?? []
     const rules = rulesResult.data ?? []
     const approvals = approvalsResult.data ?? []
@@ -222,7 +246,8 @@ export default async function recordsRoutes(app) {
         return null
       }).filter(Boolean)
 
-      const tracks = buildStageTracks(stageRules, approvals, stage.stage_name, currentRevision)
+      const tracks = buildStageTracks(
+        stageRules, approvals, stage.stage_name, currentRevision, versionApprovals)
 
       return { stage_name: stage.stage_name, sort_order: stage.sort_order, phase: stage.phase, state, criteria, tracks }
     })

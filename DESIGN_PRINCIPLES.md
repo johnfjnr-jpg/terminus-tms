@@ -5258,3 +5258,104 @@ and a diff, not new arithmetic.
 
 Two things it must not become: a block on changing costs, and a stored
 recalculation. Costs change; the system's job is to say so.
+
+---
+
+## Round 38: a Commercial approval is of a price, and the gate asks one reader
+
+2026-08-29. Recorded because the conflict it resolves was invisible to everyone
+who created it, and because the part left undone has a trigger that is a person
+rather than a date.
+
+### What was wrong, and it was not carelessness
+
+Two correct decisions about the same question, taken in different rounds:
+
+- **Round 7** introduced `requirement_detail.scope` and named this exact pairing
+  in its own migration comment: `{"track": "Legal", "scope": "stage"}` for Test
+  Bed stage gates, `{"track": "Commercial", "scope": "revision"}` for the Deal
+  Sheet and proposal. It was fixing a real defect, and it anticipated the
+  distinction being drawn here.
+- **Round 9** established the convention that every new approval rule carries
+  `scope: "stage"`, and that a rule missing scope "is a defect on the day it is
+  written". **Correct for a Test Bed**, which is edited for weeks and where
+  revision-scoped approvals were being voided by any field edit.
+- **Round 20** wrote Opportunity's first gate rules following that convention,
+  uniformly stage-scoped, Commercial included. The convention was right for the
+  record type it came from, and Round 7's Deal Sheet distinction was three rounds
+  behind and not in front of anyone.
+- **Round 38** decided that an approval is of a VERSION and that any revision
+  after it voids it.
+
+**Round 7 was not sloppy. Stage scope was a correct fix to a real nuisance.** It
+traded a nuisance for a control failure, which is the wrong direction for a gate,
+but the decision was sound for what it was solving.
+
+**The failure is what both shipped together meant.** Measured on the live data
+before the fix: one Opportunity carried four Commercial approvals, **three of
+which described prices the record had already moved past**, and the gate read
+green for all four. In business terms: an approver approves a price, the owner
+then drops margin, extends terms and adds discounted units, and the Opportunity
+reaches Proposal carrying a Commercial approval against a price nobody saw.
+
+**That is worse than no gate.** No gate is an absence people work around. A green
+gate is a positive claim in the record that a named person accepted this price.
+The only thing containing it was that one person held every approval, and that
+expires the moment a second person clicks Commercial.
+
+### The fix is deletion, not reconciliation
+
+**Setting the rules to `scope: "revision"` was rejected.** It would make the gate
+agree with the approval page today through a SECOND mechanism, by reimplementing
+the rule as `approval.revision_number = current`. Two mechanisms that agree today
+drift later, which is Verification 20 arriving at design level and is how this
+conflict was produced in the first place.
+
+**So `scope: "version"` is a ROUTER, not a third rule.** `approvalSatisfiesRule`
+sees it and asks `liveVersionApproval()` in `src/lib/version-approval.js`, which
+is the same function the approval page renders from. One mechanism, two callers,
+and the predicate THROWS if a caller judges a version-scoped rule without loading
+the answer, so a forgotten load cannot read as either verdict.
+
+Proven end to end: approve, re-price, and the gate closes with a reason naming
+what happened; take a new version, approve it, and it re-opens. The stage-gate
+requirement and the stage-approvals panel flip together, which is the property
+that makes it one reader rather than two that agree.
+
+### Technical and Legal stay stage-scoped, and that is also wrong
+
+Stated plainly rather than left as an implied endorsement: **stage scope is wrong
+for them too, just less dangerously.**
+
+- **Technical** is invalidated when the SOLUTION changes.
+- **Legal** is invalidated when the TERMS change.
+
+Neither is about reaching a stage. Both currently survive any change at all.
+
+**The destination is scoping each track to the fields it governs**, so a
+Technical approval is voided by a change to the solution and untouched by a
+change to the payment structure.
+
+**What has to exist first: a field-to-track map**, and this repository holds four
+separate rules about why such lists drift - `RECORD_COLUMN_FIELDS` blocking a
+gate unsatisfiably when two hardcoded select lists were not updated with it,
+`stage_reference_docs` and `stage_gate_rules` holding document names as
+independent free strings, the relabel guard that was complete for the columns
+existing when it was written, and Verification 20 itself. A map from payload keys
+to approval tracks is exactly that shape, and building it carelessly would trade
+one silent control failure for another.
+
+**The trigger to build it is a person, not a date: BEFORE A SECOND INDIVIDUAL
+HOLDS ANY APPROVAL TRACK.** While one person holds every track, a stale Technical
+approval is that person's own and they know what changed. The moment a second
+person can give one, it becomes a claim about somebody else's judgement, and the
+containment is gone.
+
+### Approvals already given
+
+Nothing deleted, nothing rewritten. `approvals` is history and history is not
+edited, the same rule that refused to backfill `record_revisions`. What changed
+is how they are read: the four Commercial approvals on the one live Opportunity
+all stop satisfying the gate, three of them because they provably describe prices
+that moved and the fourth because it names a revision no version records. The
+remedy is the ordinary workflow, available today: take a version, then approve it.

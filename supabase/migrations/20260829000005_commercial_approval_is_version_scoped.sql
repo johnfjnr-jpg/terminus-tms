@@ -1,0 +1,101 @@
+-- Terminus TMS: the Commercial gate on an Opportunity asks the approval page.
+-- Round 38, 2026-08-29. CLAUDE.md Verification 23.
+--
+-- ─────────────────────────────────────────────────────────────
+-- TWO CORRECT DECISIONS, TAKEN IN DIFFERENT ROUNDS
+-- ─────────────────────────────────────────────────────────────
+--
+-- ROUND 7 introduced requirement_detail.scope and named this exact pairing in
+-- its own migration comment:
+--
+--     {"track": "Legal",      "scope": "stage"}     <- Test Bed stage gates
+--     {"track": "Commercial", "scope": "revision"}  <- Deal Sheet / proposal
+--
+-- It was fixing a real defect: revision-scoped approvals were voided by editing
+-- any field, which re-blocked the gate and let a duplicate approval be recorded
+-- per edit. Sound, and it anticipated the distinction being drawn here.
+--
+-- ROUND 9 then established a convention for Test Bed stage gates - every new
+-- approval rule carries scope "stage", and a rule missing scope "is a defect on
+-- the day it is written". Correct for a Test Bed, which is edited for weeks.
+--
+-- ROUND 20 wrote Opportunity's first gate rules following that convention,
+-- uniformly stage-scoped, Commercial included. Nothing was careless: the
+-- convention was right for the record type it came from, and the Deal Sheet
+-- distinction Round 7 had named three rounds earlier was not in front of anyone.
+--
+-- ROUND 38 then decided that a Commercial approval is of a VERSION and that any
+-- revision after it voids it, because otherwise an approval means "something was
+-- once approved", which looks like control and is not.
+--
+-- BOTH SHIPPED. BOTH READ THE SAME TABLE. NOTHING DETECTED THE CONFLICT.
+-- Measured on the live data before this ran: one Opportunity carried four
+-- Commercial approvals, THREE of which described prices that had already moved
+-- (approved at revisions 10, 14 and 17 while the record stood at 22), and the
+-- gate read green for all four.
+--
+-- ─────────────────────────────────────────────────────────────
+-- WHY 'version' AND NOT 'revision'
+-- ─────────────────────────────────────────────────────────────
+--
+-- Setting these rules to scope "revision" would make the gate agree with the
+-- approval page today through a SECOND mechanism, by reimplementing the rule as
+-- `approval.revision_number = current`. Two mechanisms that agree today drift
+-- later, which is Verification 20 arriving at design level and is how this
+-- conflict was produced in the first place.
+--
+-- So "version" is not a third rule. It is a ROUTER: approvalSatisfiesRule sees
+-- it and asks liveVersionApproval() in src/lib/version-approval.js, which is the
+-- same function the approval page renders from. One mechanism, two callers.
+--
+-- ─────────────────────────────────────────────────────────────
+-- WHAT HAPPENS TO APPROVALS ALREADY GIVEN, STATED RATHER THAN LEFT
+-- ─────────────────────────────────────────────────────────────
+--
+-- Nothing is deleted and nothing is rewritten. approvals is history and history
+-- is not edited; the same rule that refused to backfill record_revisions applies
+-- here.
+--
+-- What changes is how they are READ. Measured before this migration, on the one
+-- live Opportunity holding Commercial approvals:
+--
+--   * four Commercial approvals, at revisions 10, 14, 17 and 22
+--   * three of the four describe prices the record has moved past
+--   * NONE of the four names a revision that has a Deal Sheet version
+--
+-- So after this change all four stop satisfying the Commercial gate, and that
+-- Opportunity's Commercial requirement reads unmet with the reason "No Deal
+-- Sheet version has been approved". That is the correct answer: three of them
+-- provably describe prices that moved, and the fourth was given against a
+-- revision no version records, so there is nothing an approver could have been
+-- shown.
+--
+-- The remedy is the ordinary workflow: take a version on Commercials, then
+-- approve it. It is available today and needs nothing built.
+--
+-- This is test data - one approver across every approval on every live
+-- Opportunity - so the practical impact is nil. The reasoning is recorded
+-- because it would apply to any environment that did have history.
+--
+-- ─────────────────────────────────────────────────────────────
+-- REPLAY HAZARD, AND WHAT CATCHES IT
+-- ─────────────────────────────────────────────────────────────
+--
+-- 20260822000003 inserts these rules guarded on
+-- requirement_detail = {"scope":"stage","track":...}. Once this migration has
+-- changed them, that guard no longer matches, so REPLAYING that migration would
+-- insert a second, stage-scoped Commercial rule beside the version-scoped one -
+-- two rules answering the same question opposite ways. The ledger has been
+-- observed drifting from the schema, so this is not hypothetical.
+--
+-- The UPDATE below matches on track rather than on the current scope, so it
+-- converges if re-run. And config-invariants.test.mjs now asserts that no
+-- opportunity Commercial approval rule carries scope 'stage', which is what
+-- catches a replay the next time the suite runs.
+
+update public.stage_gate_rules
+   set requirement_detail = jsonb_build_object('scope', 'version', 'track', 'Commercial')
+ where record_type = 'opportunity'
+   and requirement_type = 'approval_obtained'
+   and requirement_detail->>'track' = 'Commercial'
+   and requirement_detail->>'scope' is distinct from 'version';

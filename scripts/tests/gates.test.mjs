@@ -696,3 +696,58 @@ test('gate and approvals panel agree: an approval from another stage counts for 
   assert.equal(gateSatisfied, false)
   assert.equal(panelSaysApproved(approvals, rule, FROM, 1), gateSatisfied)
 })
+
+// ─────────────────────────────────────────────────────────────
+// A version-scoped rule cannot be judged without the version answer
+// ─────────────────────────────────────────────────────────────
+//
+// Round 38, CLAUDE.md Verification 23. scope 'version' is a ROUTER, not a third
+// rule: approvalSatisfiesRule does not decide whether an approval survived a
+// re-price, it asks the evaluator the approval page renders from.
+//
+// The danger in a router is a caller that forgets to load what it routes to. A
+// missing context would otherwise read as "not approved" and block a gate for
+// the wrong reason, or as "approved" and pass one, depending on which way the
+// caller happened to write it. So it throws, and this proves the throw fires.
+
+test('a version-scoped rule with no versionApproval THROWS rather than guessing', () => {
+  const rule = {
+    requirement_type: 'approval_obtained',
+    requirement_detail: { track: 'Commercial', scope: 'version' },
+  }
+  const approval = { track: 'Commercial', decision: 'approved', revision_number: 4, stage: 'Solution Alignment' }
+
+  assert.throws(
+    () => approvalSatisfiesRule(approval, rule, { from_stage: 'Solution Alignment', currentRevision: 4 }),
+    /version-scoped and no versionApproval was supplied/)
+})
+
+test('and with the answer supplied it simply reports it', () => {
+  // The calibration. A predicate that threw unconditionally would pass the test
+  // above while making every version-scoped gate unevaluable.
+  const rule = {
+    requirement_type: 'approval_obtained',
+    requirement_detail: { track: 'Commercial', scope: 'version' },
+  }
+  const approval = { track: 'Commercial', decision: 'approved', revision_number: 4, stage: 'Solution Alignment' }
+  const ctx = { from_stage: 'Solution Alignment', currentRevision: 4 }
+
+  assert.equal(approvalSatisfiesRule(approval, rule, { ...ctx, versionApproval: { live: true } }), true)
+  assert.equal(approvalSatisfiesRule(approval, rule, { ...ctx, versionApproval: { live: false } }), false)
+})
+
+test('a version-scoped rule ignores stage and revision, which is the point', () => {
+  // If it still consulted either, there would be two mechanisms again.
+  const rule = {
+    requirement_type: 'approval_obtained',
+    requirement_detail: { track: 'Commercial', scope: 'version' },
+  }
+  const wrongStageWrongRevision = {
+    track: 'Commercial', decision: 'approved', revision_number: 1, stage: 'Some Other Stage',
+  }
+  assert.equal(
+    approvalSatisfiesRule(wrongStageWrongRevision, rule,
+      { from_stage: 'Solution Alignment', currentRevision: 99, versionApproval: { live: true } }),
+    true,
+    'the version evaluator is the only authority for a version-scoped rule')
+})

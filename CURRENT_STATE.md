@@ -12,8 +12,8 @@ Contains no environment variable, key or token, and no client data. Records
 appear as counts by status only, never by name or reference code, because
 this file is uploaded into chat sessions.
 
-- Generated at: `2026-08-29T03:29:46.249Z`
-- Git commit: `60df7ed36809caac0e2c26a088c9a89a4eaf8645`
+- Generated at: `2026-08-29T03:46:56.427Z`
+- Git commit: `1bc3bdfd7663021d6d636d4c48caf18211369410`
 - Working tree at generation: `dirty (uncommitted changes present)`
 
 Staleness has two parts, and both must hold for this file to be current:
@@ -77,32 +77,32 @@ already reflects them. Regenerate and diff rather than assuming.
 | contact | (null) | Unqualified | Qualified | payload_field_required | `{"field":"source"}` |
 | contact | (null) | Unqualified | Qualified | payload_field_required | `{"field":"summary"}` |
 | opportunity | (null) | Evaluation | Negotiating | approval_obtained | `{"scope":"stage","track":"Technical"}` |
-| opportunity | (null) | Evaluation | Negotiating | approval_obtained | `{"scope":"stage","track":"Commercial"}` |
 | opportunity | (null) | Evaluation | Negotiating | approval_obtained | `{"scope":"stage","track":"Legal"}` |
+| opportunity | (null) | Evaluation | Negotiating | approval_obtained | `{"scope":"version","track":"Commercial"}` |
 | opportunity | (null) | Evaluation | Negotiating | payload_field_required | `{"field":"exitEvalClarificationsResponded","label":"Clarifications responded to"}` |
 | opportunity | (null) | Evaluation | Negotiating | payload_field_required | `{"field":"exitEvalRevisedPricing","label":"Revised pricing submitted if required"}` |
 | opportunity | (null) | Evaluation | Negotiating | payload_field_required | `{"field":"exitEvalTechnicalClarifications","label":"Technical clarifications completed"}` |
 | opportunity | (null) | Negotiating | Closed Won | approval_obtained | `{"scope":"stage","track":"Legal"}` |
-| opportunity | (null) | Negotiating | Closed Won | approval_obtained | `{"scope":"stage","track":"Commercial"}` |
 | opportunity | (null) | Negotiating | Closed Won | approval_obtained | `{"scope":"stage","track":"Technical"}` |
+| opportunity | (null) | Negotiating | Closed Won | approval_obtained | `{"scope":"version","track":"Commercial"}` |
 | opportunity | (null) | Negotiating | Closed Won | payload_field_required | `{"field":"exitNegPricingAgreed","label":"Pricing agreed"}` |
 | opportunity | (null) | Negotiating | Closed Won | payload_field_required | `{"field":"exitNegCommercialsApproved","label":"Commercials approved"}` |
 | opportunity | (null) | Negotiating | Closed Won | payload_field_required | `{"field":"exitNegScopeAgreed","label":"Scope agreed"}` |
 | opportunity | (null) | Negotiating | Closed Won | payload_field_required | `{"field":"exitNegContractExecuted","label":"Contract executed"}` |
 | opportunity | (null) | Negotiating | Closed Won | payload_field_required | `{"field":"exitNegLegalResolved","label":"Legal issues resolved"}` |
 | opportunity | (null) | Negotiating | Closed Won | payload_field_required | `{"entry_stage_at_or_after":"Negotiating","field":"assessmentReviewed","label":"Assessment reviewed","min_length":1,"verb":""}` |
-| opportunity | (null) | Proposal | Evaluation | approval_obtained | `{"scope":"stage","track":"Commercial"}` |
 | opportunity | (null) | Proposal | Evaluation | approval_obtained | `{"scope":"stage","track":"Technical"}` |
 | opportunity | (null) | Proposal | Evaluation | approval_obtained | `{"scope":"stage","track":"Legal"}` |
+| opportunity | (null) | Proposal | Evaluation | approval_obtained | `{"scope":"version","track":"Commercial"}` |
 | opportunity | (null) | Proposal | Evaluation | payload_field_required | `{"field":"exitPropImplSchedule","label":"Implementation schedule agreed"}` |
 | opportunity | (null) | Proposal | Evaluation | payload_field_required | `{"field":"exitPropDocumentation","label":"Proposal documentation approved"}` |
 | opportunity | (null) | Proposal | Evaluation | payload_field_required | `{"field":"exitPropContractTerms","label":"Contract terms and variations approved"}` |
 | opportunity | (null) | Proposal | Evaluation | payload_field_required | `{"field":"exitPropPricingApproved","label":"Pricing approved"}` |
 | opportunity | (null) | Proposal | Evaluation | payload_field_required | `{"entry_stage_at_or_after":"Proposal","field":"assessmentReviewed","label":"Assessment reviewed","min_length":1,"verb":""}` |
 | opportunity | (null) | Qualification | Solution Alignment | payload_field_required | `{"entry_stage_at_or_after":"Qualification","field":"assessmentReviewed","label":"Assessment reviewed","min_length":1,"verb":""}` |
-| opportunity | (null) | Solution Alignment | Proposal | approval_obtained | `{"scope":"stage","track":"Commercial"}` |
 | opportunity | (null) | Solution Alignment | Proposal | approval_obtained | `{"scope":"stage","track":"Technical"}` |
 | opportunity | (null) | Solution Alignment | Proposal | approval_obtained | `{"scope":"stage","track":"Legal"}` |
+| opportunity | (null) | Solution Alignment | Proposal | approval_obtained | `{"scope":"version","track":"Commercial"}` |
 | opportunity | (null) | Solution Alignment | Proposal | payload_field_required | `{"field":"exitSolKeyStakeholders","label":"Key stakeholders"}` |
 | opportunity | (null) | Solution Alignment | Proposal | payload_field_required | `{"field":"exitSolBuyersKnown","label":"Buyers known"}` |
 | opportunity | (null) | Solution Alignment | Proposal | payload_field_required | `{"field":"exitSolTechnicalSolution","label":"Technical solution understood"}` |
@@ -320,34 +320,34 @@ _None._
 
 ## Record counts by type and status
 
-95 live, 16459 soft deleted, 16554 rows in total.
+95 live, 16679 soft deleted, 16774 rows in total.
 
 | record_type | status | live | soft deleted |
 |---|---|---|---|
 | account | Active | 0 | 6 |
-| account | active | 4 | 393 |
-| contact | Active | 0 | 138 |
+| account | active | 4 | 394 |
+| contact | Active | 0 | 147 |
 | contact | Parked | 0 | 2 |
-| contact | Qualified | 8 | 435 |
+| contact | Qualified | 8 | 441 |
 | contact | Unqualified | 1 | 55 |
-| document | approved | 61 | 1329 |
+| document | approved | 61 | 1341 |
 | document | received | 1 | 74 |
 | opportunity | Closed Lost | 0 | 19 |
 | opportunity | Closed Won | 1 | 7 |
 | opportunity | Evaluation | 0 | 4 |
 | opportunity | Negotiating | 0 | 15 |
 | opportunity | Proposal | 0 | 108 |
-| opportunity | Qualification | 0 | 216 |
-| opportunity | Solution Alignment | 3 | 25 |
+| opportunity | Qualification | 0 | 226 |
+| opportunity | Solution Alignment | 3 | 27 |
 | test_bed | Closed | 5 | 9 |
 | test_bed | Installation and Commissioning | 1 | 29 |
 | test_bed | Monitoring and Analysis | 0 | 1 |
 | test_bed | Pre-Site Assessment | 0 | 8 |
-| test_bed | Qualification | 1 | 317 |
+| test_bed | Qualification | 1 | 318 |
 | test_bed | Review and Completion | 1 | 0 |
 | test_bed | Site Assessment | 1 | 17 |
 | unit | Installed | 4 | 3 |
-| unit | Planned | 3 | 2879 |
+| unit | Planned | 3 | 2932 |
 | unit | Removed | 0 | 1 |
 
 ### Test fixture record types
@@ -358,17 +358,17 @@ row by row, and are included in the totals above.
 
 | distinct `harness_*` record types | live rows | soft deleted rows |
 |---|---|---|
-| 1129 | 0 | 10369 |
+| 1147 | 0 | 10495 |
 
 No harness record type holds a live row; every fixture row is soft deleted.
 
 ## `approvals`
 
-668 rows, of which 0 carry a null `stage`.
+676 rows, of which 0 carry a null `stage`.
 
 | decision | track | rows | null stage |
 |---|---|---|---|
-| approved | Commercial | 259 | 0 |
+| approved | Commercial | 267 | 0 |
 | approved | Legal | 199 | 0 |
 | approved | Technical | 210 | 0 |
 
@@ -489,7 +489,7 @@ than written as a literal list, so its members are not enumerable here.
 
 ## Migrations, in filename order
 
-95 files in `supabase/migrations/`.
+96 files in `supabase/migrations/`.
 
 1. `20260801000000_initial_schema.sql`
 2. `20260802000000_lead_opportunity.sql`
@@ -586,6 +586,7 @@ than written as a literal list, so its members are not enumerable here.
 93. `20260829000002_atomic_version_insert.sql`
 94. `20260829000003_version_revision_must_exist.sql`
 95. `20260829000004_version_must_carry_a_cost_basis.sql`
+96. `20260829000005_commercial_approval_is_version_scoped.sql`
 
 ## Seed files, in application order
 

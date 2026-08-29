@@ -620,3 +620,75 @@ test('INVARIANT 14: one batch per product per date, so "current" has exactly one
       `base_cost_batches holds product "${b.product}", which this suite and the Commercials tab know nothing about`)
   }
 })
+
+// ─────────────────────────────────────────────────────────────
+// The Commercial gate on an Opportunity is version-scoped
+// ─────────────────────────────────────────────────────────────
+//
+// Round 38, CLAUDE.md Verification 23. Round 20 wrote Opportunity's approval
+// rules stage-scoped, following a convention established for Test Beds, and a
+// stage-scoped Commercial approval survives every revision: the owner drops
+// margin, extends terms and adds discounted units, and the gate stays green.
+//
+// THIS ALSO CATCHES A REPLAY. 20260822000003 inserts those rules guarded on
+// requirement_detail = {"scope":"stage","track":...}. Once 20260829000005 has
+// changed them that guard no longer matches, so replaying it would insert a
+// SECOND, stage-scoped Commercial rule beside the version-scoped one - two rules
+// answering the same question opposite ways. The ledger has been observed
+// drifting from the schema, so this is the thing that notices.
+
+test('no Opportunity Commercial approval rule is stage-scoped', async () => {
+  const { data, error } = await db
+    .from('stage_gate_rules')
+    .select('from_stage, to_stage, requirement_detail')
+    .eq('record_type', 'opportunity')
+    .eq('requirement_type', 'approval_obtained')
+  assert.equal(error, null, error?.message)
+
+  const commercial = data.filter((r) => r.requirement_detail?.track === 'Commercial')
+  assert.ok(commercial.length > 0, 'no Commercial rules found at all, so this scan measures nothing')
+
+  const wrong = commercial
+    .filter((r) => r.requirement_detail?.scope !== 'version')
+    .map((r) => `${r.from_stage} -> ${r.to_stage}: ${JSON.stringify(r.requirement_detail)}`)
+  assert.deepEqual(wrong, [],
+    'these Commercial rules survive a re-price, so a green gate can describe a price nobody saw:\n  '
+    + wrong.join('\n  '))
+})
+
+test('and every Commercial rule is version-scoped exactly once per transition', async () => {
+  // The replay would produce a duplicate rather than a wrong scope, so counting
+  // is the half that catches it.
+  const { data } = await db
+    .from('stage_gate_rules')
+    .select('from_stage, to_stage, requirement_detail')
+    .eq('record_type', 'opportunity')
+    .eq('requirement_type', 'approval_obtained')
+  const commercial = data.filter((r) => r.requirement_detail?.track === 'Commercial')
+  const perTransition = {}
+  for (const r of commercial) {
+    const k = `${r.from_stage} -> ${r.to_stage}`
+    perTransition[k] = (perTransition[k] ?? 0) + 1
+  }
+  const duplicated = Object.entries(perTransition).filter(([, n]) => n > 1)
+  assert.deepEqual(duplicated, [],
+    'a transition carries more than one Commercial rule, which is a replay of 20260822000003')
+})
+
+test('Technical and Legal remain stage-scoped, deliberately', async () => {
+  // Recorded honestly in DESIGN_PRINCIPLES.md: stage scope is wrong for them
+  // too, just less dangerously. This pins the CURRENT state so that changing it
+  // is a visible decision rather than a drift, exactly as ownership.test.mjs
+  // pins the write boundary it disagrees with.
+  const { data } = await db
+    .from('stage_gate_rules')
+    .select('requirement_detail')
+    .eq('record_type', 'opportunity')
+    .eq('requirement_type', 'approval_obtained')
+  for (const track of ['Technical', 'Legal']) {
+    const rows = data.filter((r) => r.requirement_detail?.track === track)
+    assert.ok(rows.length > 0, `no ${track} rules found`)
+    assert.ok(rows.every((r) => r.requirement_detail?.scope === 'stage'),
+      `${track} is no longer stage-scoped; if that is intended, this test is the decision point`)
+  }
+})
