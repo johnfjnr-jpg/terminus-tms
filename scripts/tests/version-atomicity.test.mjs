@@ -22,6 +22,11 @@ import { adminClient, newRunTag, Fixtures, resolveOwnerId } from '../verify-harn
 
 let db, fixtures, ownerId, recordId
 
+// The minimum a version must carry. deal_sheet_versions_has_cost_basis refuses
+// one with no catalog rate at all, so `{}` is no longer a valid version and the
+// fixtures in this file say so rather than working around it.
+const COST_BASIS = { ssUnitCost: 1200 }
+
 before(async () => {
   db = adminClient()
   fixtures = new Fixtures(db, newRunTag())
@@ -46,7 +51,7 @@ after(async () => { await fixtures.teardown() })
 test('a direct insert with no revision_number is REFUSED', async () => {
   const { error } = await db.from('deal_sheet_versions').insert({
     record_id: recordId, major: 0, minor: 99, status: 'draft',
-    reason: 'no revision named', inputs: {}, rates: {}, sections: [],
+    reason: 'no revision named', inputs: COST_BASIS, rates: {}, sections: [],
     created_by: ownerId,
   }).select('id').single()
 
@@ -60,7 +65,7 @@ test('the SAME insert carrying a revision succeeds', async () => {
   // a bad column, a policy, a typo - and proves nothing about the constraint.
   const { data, error } = await db.from('deal_sheet_versions').insert({
     record_id: recordId, major: 0, minor: 98, status: 'draft',
-    reason: 'revision named', revision_number: 1, inputs: {}, rates: {}, sections: [],
+    reason: 'revision named', revision_number: 1, inputs: COST_BASIS, rates: {}, sections: [],
     created_by: ownerId,
   }).select('id').single()
 
@@ -87,7 +92,7 @@ test('NOT VALID left history alone: the pre-existing null row is still there', a
 test('insert_deal_sheet_version refuses a revision the record is not at', async () => {
   const { error } = await db.rpc('insert_deal_sheet_version', {
     p_record_id: recordId, p_expected_revision: 999, p_reason: 'stale',
-    p_inputs: {}, p_rates: {}, p_sections: [], p_batch_id: null,
+    p_inputs: COST_BASIS, p_rates: {}, p_sections: [], p_batch_id: null,
     p_created_by: ownerId, p_created_by_email: null,
   })
   assert.ok(error, 'a stale expectation must be refused')
@@ -114,7 +119,7 @@ test('CONCURRENT versions get distinct numbers', async () => {
   const results = await Promise.all(Array.from({ length: 6 }, (_, i) =>
     db.rpc('insert_deal_sheet_version', {
       p_record_id: recordId, p_expected_revision: 1, p_reason: `concurrent ${i}`,
-      p_inputs: {}, p_rates: {}, p_sections: [], p_batch_id: null,
+      p_inputs: COST_BASIS, p_rates: {}, p_sections: [], p_batch_id: null,
       p_created_by: ownerId, p_created_by_email: null,
     })))
 
@@ -149,7 +154,7 @@ test('CALIBRATION: the same six done the OLD way collide', async () => {
     const minor = (latest?.minor ?? 0) + 1
     return db.from('deal_sheet_versions').insert({
       record_id: recordId, major, minor, status: 'draft',
-      reason: `old way ${i}`, revision_number: 1, inputs: {}, rates: {}, sections: [],
+      reason: `old way ${i}`, revision_number: 1, inputs: COST_BASIS, rates: {}, sections: [],
       created_by: ownerId,
     }).select('id').single()
   }
@@ -175,7 +180,7 @@ test('a version naming a revision that does not exist is REFUSED', async () => {
   const { error } = await db.from('deal_sheet_versions').insert({
     record_id: recordId, major: 0, minor: 97, status: 'draft',
     reason: 'names a revision that never happened', revision_number: 9999,
-    inputs: {}, rates: {}, sections: [], created_by: ownerId,
+    inputs: COST_BASIS, rates: {}, sections: [], created_by: ownerId,
   }).select('id').single()
 
   assert.ok(error, 'a version naming a nonexistent revision must not be insertable')
@@ -192,7 +197,7 @@ test('a version naming ANOTHER record\'s revision is refused too', async () => {
   const { error } = await db.from('deal_sheet_versions').insert({
     record_id: other.id, major: 0, minor: 1, status: 'draft',
     reason: 'revision 1 exists, but not on this record', revision_number: 1,
-    inputs: {}, rates: {}, sections: [], created_by: ownerId,
+    inputs: COST_BASIS, rates: {}, sections: [], created_by: ownerId,
   }).select('id').single()
 
   assert.ok(error, 'a revision number that exists elsewhere must not satisfy this key')
@@ -208,4 +213,46 @@ test('and the revision a version names cannot then be deleted', async () => {
     .delete().eq('record_id', recordId).eq('revision_number', 1)
   assert.ok(error, 'a revision cited by a version must not be deletable')
   assert.match(error.message, /deal_sheet_versions_revision_exists/)
+})
+
+// ─────────────────────────────────────────────────────────────
+// A version cannot be created without the costs it was priced at
+// ─────────────────────────────────────────────────────────────
+
+test('a version with NO catalog rate is REFUSED by the database', async () => {
+  // The approval page detects a rate-less baseline and refuses the comparison,
+  // which is right and is not enough: it left non-comparable versions creatable
+  // by ordinary mistake, so the caveat path would have been permanent rather
+  // than a legacy accommodation. Named debt is fine; creatable debt is not.
+  const { error } = await db.from('deal_sheet_versions').insert({
+    record_id: recordId, major: 0, minor: 96, status: 'draft',
+    reason: 'no cost basis', revision_number: 1,
+    inputs: { targetMargin: 30, duration: 36 }, rates: {}, sections: [],
+    created_by: ownerId,
+  }).select('id').single()
+
+  assert.ok(error, 'a version with no rates must not be insertable')
+  assert.match(error.message, /deal_sheet_versions_has_cost_basis/)
+})
+
+test('and ONE rate is enough for the database floor', async () => {
+  // The calibration, and the boundary. catalogToRates emits keys only for
+  // products with a current batch, so requiring all ten would refuse a version
+  // the business can legitimately take when a batch is missing. The exact rule -
+  // every key the catalog actually resolved - lives in the route, which is the
+  // only place that knows which products resolved.
+  const { data, error } = await db.from('deal_sheet_versions').insert({
+    record_id: recordId, major: 0, minor: 95, status: 'draft',
+    reason: 'one rate', revision_number: 1,
+    inputs: { ssUnitCost: 1200 }, rates: {}, sections: [], created_by: ownerId,
+  }).select('id').single()
+  assert.equal(error, null, error?.message)
+  fixtures.versions.push(data.id)
+})
+
+test('NOT VALID left the rate-less legacy version alone', async () => {
+  const { data, error } = await db.from('deal_sheet_versions')
+    .select('id, inputs').is('revision_number', null)
+  assert.equal(error, null, error?.message)
+  assert.ok(data.length >= 1, 'the legacy version must still be readable')
 })

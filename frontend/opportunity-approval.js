@@ -40,6 +40,11 @@ const KEY_LABELS = {
 }
 const label = (k) => KEY_LABELS[k] ?? k
 
+// Catalog product identifiers are database values. An approver reads
+// "SafeSight", not "safesight".
+const PRODUCT_LABELS = { safesight: 'SafeSight', air_quality: 'Air Quality', hemir: 'HEMIR' }
+const productLabel = (k) => PRODUCT_LABELS[k] ?? k
+
 // The opening and closing rows FRAME the bridge, and framing is the whole
 // reason it is a bridge rather than a list: an approver gets from one to the
 // other by reading down. Bold alone did not carry that at 1240 - checked by
@@ -60,7 +65,10 @@ function renderAsk(page) {
     <p style="font-size:1.05rem;margin-bottom:14px">${esc(a.sentence)}</p>
     ${v ? row('Version', `${esc(v.label)} <span class="pg-item-note" style="display:inline">${esc(v.status)}</span>`,
       `Taken from revision ${v.revisionNumber} by ${esc(v.author ?? 'unknown author')}`) : ''}
-    ${v?.reason ? row('Stated reason', '', esc(v.reason)) : ''}
+    ${v?.reason ? `<div style="margin:14px 0 18px">
+      <p class="label" style="margin-bottom:6px">Stated reason for this version</p>
+      <p style="max-width:70ch">${esc(v.reason)}</p>
+    </div>` : ''}
     ${row('Contract net', `$${money(a.contractNet)}`)}
     ${row('Total cost', `$${money(a.totalCost)}`)}
     ${row('Achieved margin', `${a.achievedMargin.toFixed(2)}%`)}
@@ -104,6 +112,10 @@ function renderMoved(page) {
     ${row('<strong>Opening</strong>', `<strong>${b.opening.marginPoints.toFixed(2)}%</strong> &nbsp; $${money(b.opening.contractNet)}`,
       `${esc(m.baseline.label)}, as approved`, 'appr-frame')}
     ${steps}
+    ${b.displayRounding
+      ? row('Rounding', `${b.displayRounding >= 0 ? '+' : ''}${b.displayRounding.toFixed(2)} pts`,
+        'The figures above are shown to two decimals and the exact ones are not. This is that difference, not a change in the deal.')
+      : ''}
     ${row('<strong>Closing</strong>', `<strong>${b.closing.marginPoints.toFixed(2)}%</strong> &nbsp; $${money(b.closing.contractNet)}`,
       `Total movement ${pts(b.total.marginPoints)}`, 'appr-frame appr-frame-close')}
     ${Math.abs(b.unexplained) > 1e-6
@@ -153,7 +165,7 @@ function renderCostBasis(page) {
   document.getElementById('appr-costbasis').innerHTML = `
     <p class="pg-item-note" style="margin-bottom:10px">Resolved as at ${esc(c.asOf)}.
       A deal is only as current as its stalest input, so the oldest is first.</p>
-    ${c.products.map((p) => row(esc(p.product), `${p.ageDays == null ? 'undated' : `${p.ageDays} days old`}`,
+    ${c.products.map((p) => row(esc(productLabel(p.product)), `${p.ageDays == null ? 'undated' : `${p.ageDays} days old`}`,
       `${esc(p.batchLabel ?? 'unlabelled batch')}, effective ${esc(String(p.effectiveFrom ?? '').slice(0, 10) || 'unknown')}`)).join('')}
     ${c.missing.length
       ? `<p class="msg-error">No current Base Cost batch for: ${c.missing.map(esc).join(', ')}.

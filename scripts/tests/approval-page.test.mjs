@@ -413,3 +413,36 @@ test('but a PRICED key no step claims still is', () => {
   assert.deepEqual(unclaimed, [],
     'every key the calculation reads must belong to a bridge step: ' + unclaimed.join(', '))
 })
+
+// ─────────────────────────────────────────────────────────────
+// Found by reading the rendered page
+// ─────────────────────────────────────────────────────────────
+
+test('a default that lives NESTED is read where it lives', () => {
+  // factoringRatePct is payload.factoring.ratePct. Reading it flat meant the
+  // page told every approver "nobody entered a value" for a deal that had set
+  // it - a false statement on a page whose job is to show what is being
+  // accepted.
+  const set = buildNotRecorded({ ...NOW, factoring: { enabled: true, ratePct: 2.5 } }, { versionReason: 'x' })
+  assert.ok(!set.some((r) => r.key === 'factoringRatePct'),
+    'a deal that sets its factoring rate is not running on the default')
+
+  const unset = buildNotRecorded({ ...NOW, factoring: { enabled: false } }, { versionReason: 'x' })
+  assert.ok(unset.some((r) => r.key === 'factoringRatePct'),
+    'and a deal that does not set it still is')
+})
+
+test('the bridge reconciles AS DISPLAYED, or names the rounding', () => {
+  // Exact arithmetic is not the claim the page makes. It shows two decimals, and
+  // an approver adding up what they can see must arrive at the closing figure.
+  const b = buildBridge(APPROVED, NOW, { testBedCost: 25000 })
+  const at = (n) => Number(n.toFixed(2))
+  const shown = b.steps.reduce((s, r) => s + at(r.marginPoints), 0) + b.displayRounding
+  assert.equal(Number(shown.toFixed(2)), Number((at(b.closing.marginPoints) - at(b.opening.marginPoints)).toFixed(2)),
+    'displayed steps plus the rounding line must equal the displayed movement')
+})
+
+test('and the rounding line is absent when it is not needed', () => {
+  const b = buildBridge(APPROVED, { ...APPROVED }, { testBedCost: 25000 })
+  assert.equal(b.displayRounding, 0, 'nothing moved, so there is nothing to round')
+})

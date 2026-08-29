@@ -270,6 +270,29 @@ export default async function dealSheetVersionsRoutes(app) {
       return reply.code(500).send({ error: err.message })
     }
 
+    // ── THE VERSION MUST CARRY THE COSTS IT WAS PRICED AT ────────────────
+    //
+    // The database floor (deal_sheet_versions_has_cost_basis) refuses a version
+    // with NO rate at all. This is the exact rule, and it lives here because
+    // only this point knows which products actually resolved: every key the
+    // catalog produced must be in inputs.
+    //
+    // WHY IT IS CHECKED RATHER THAN FILLED IN. Overwriting inputs with the
+    // catalog read here would make every version reproducible by construction
+    // and mean nothing: the version would record what the SERVER resolved at
+    // save time, not what the screen priced against, and the two can differ
+    // whenever a batch turns over mid-session. A version that silently disagrees
+    // with what the salesperson saw is the fault versions exist to prevent.
+    const resolvedRateKeys = Object.keys(catalog.rates ?? {})
+    const missingRates = resolvedRateKeys.filter((k) => !(k in inputs))
+    if (missingRates.length) {
+      return reply.code(400).send({
+        error: 'inputs must carry the catalog rates this deal was priced at. '
+          + `Missing: ${missingRates.join(', ')}. Reload the Commercials tab and take the version again.`,
+        missing_rates: missingRates,
+      })
+    }
+
     // ── ONE STATEMENT, UNDER THE RECORD'S OWN LOCK ───────────────────────
     //
     // The numbering rule has moved with the numbering: major carries forward,

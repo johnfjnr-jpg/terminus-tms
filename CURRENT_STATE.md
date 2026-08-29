@@ -12,8 +12,8 @@ Contains no environment variable, key or token, and no client data. Records
 appear as counts by status only, never by name or reference code, because
 this file is uploaded into chat sessions.
 
-- Generated at: `2026-08-29T02:38:09.293Z`
-- Git commit: `48e238a20beb16b3923e5e59728e8583e97d4c12`
+- Generated at: `2026-08-29T02:58:58.586Z`
+- Git commit: `fa906dd4209bd4254e76f2ab9d01381b4ee57792`
 - Working tree at generation: `dirty (uncommitted changes present)`
 
 Staleness has two parts, and both must hold for this file to be current:
@@ -320,34 +320,34 @@ _None._
 
 ## Record counts by type and status
 
-95 live, 15931 soft deleted, 16026 rows in total.
+95 live, 16231 soft deleted, 16326 rows in total.
 
 | record_type | status | live | soft deleted |
 |---|---|---|---|
 | account | Active | 0 | 6 |
-| account | active | 4 | 386 |
-| contact | Active | 0 | 117 |
+| account | active | 4 | 390 |
+| contact | Active | 0 | 129 |
 | contact | Parked | 0 | 2 |
-| contact | Qualified | 8 | 422 |
+| contact | Qualified | 8 | 429 |
 | contact | Unqualified | 1 | 55 |
-| document | approved | 61 | 1301 |
+| document | approved | 61 | 1317 |
 | document | received | 1 | 74 |
 | opportunity | Closed Lost | 0 | 19 |
 | opportunity | Closed Won | 1 | 7 |
 | opportunity | Evaluation | 0 | 4 |
 | opportunity | Negotiating | 0 | 15 |
 | opportunity | Proposal | 0 | 108 |
-| opportunity | Qualification | 0 | 189 |
+| opportunity | Qualification | 0 | 204 |
 | opportunity | Solution Alignment | 3 | 25 |
 | test_bed | Closed | 5 | 9 |
 | test_bed | Installation and Commissioning | 1 | 29 |
 | test_bed | Monitoring and Analysis | 0 | 1 |
 | test_bed | Pre-Site Assessment | 0 | 8 |
-| test_bed | Qualification | 1 | 310 |
+| test_bed | Qualification | 1 | 314 |
 | test_bed | Review and Completion | 1 | 0 |
 | test_bed | Site Assessment | 1 | 17 |
 | unit | Installed | 4 | 3 |
-| unit | Planned | 3 | 2748 |
+| unit | Planned | 3 | 2822 |
 | unit | Removed | 0 | 1 |
 
 ### Test fixture record types
@@ -358,17 +358,17 @@ row by row, and are included in the totals above.
 
 | distinct `harness_*` record types | live rows | soft deleted rows |
 |---|---|---|
-| 1087 | 0 | 10075 |
+| 1111 | 0 | 10243 |
 
 No harness record type holds a live row; every fixture row is soft deleted.
 
 ## `approvals`
 
-655 rows, of which 0 carry a null `stage`.
+662 rows, of which 0 carry a null `stage`.
 
 | decision | track | rows | null stage |
 |---|---|---|---|
-| approved | Commercial | 246 | 0 |
+| approved | Commercial | 253 | 0 |
 | approved | Legal | 199 | 0 |
 | approved | Technical | 210 | 0 |
 
@@ -489,7 +489,7 @@ than written as a literal list, so its members are not enumerable here.
 
 ## Migrations, in filename order
 
-94 files in `supabase/migrations/`.
+95 files in `supabase/migrations/`.
 
 1. `20260801000000_initial_schema.sql`
 2. `20260802000000_lead_opportunity.sql`
@@ -585,6 +585,7 @@ than written as a literal list, so its members are not enumerable here.
 92. `20260829000001_version_carries_its_revision.sql`
 93. `20260829000002_atomic_version_insert.sql`
 94. `20260829000003_version_revision_must_exist.sql`
+95. `20260829000004_version_must_carry_a_cost_basis.sql`
 
 ## Seed files, in application order
 

@@ -206,10 +206,16 @@ export function buildBridge(basePayload, nowPayload, { testBedCost = 0 } = {}) {
   // value of the deal - $1.7m of contract net - as though the catalog had moved.
   // It had not. The baseline simply had no catalog in it.
   //
-  // Every version the Commercials tab takes carries rates, because readPayload()
-  // writes them. A version taken any other way, and the one version that
-  // predates all of this, may not. That is not a fault to fix in the store; it
-  // is a comparison that cannot be made, and the page must say which.
+  // NOW UNCREATABLE, AND THE CHECK STAYS. deal_sheet_versions_has_cost_basis
+  // refuses a version with no rate at all, and the version route requires every
+  // key the catalog resolved, so the only versions that can reach this branch
+  // are the ones taken before those existed. That makes the caveat path finite
+  // rather than a permanent feature.
+  //
+  // The branch is not deleted along with the way of reaching it. It fails
+  // closed: reaching it now means a constraint was dropped or history holds a
+  // row from before, and in both cases refusing the comparison is right and
+  // showing a $1.7m catalog movement that never happened is not.
   const costBasisKeys = BRIDGE_STEPS.find((s) => s.step === 'cost basis').keys;
   const baselineHasCostBasis = costBasisKeys.some(
     (k) => basePayload?.[k] !== undefined && basePayload[k] !== null);
@@ -217,6 +223,24 @@ export function buildBridge(basePayload, nowPayload, { testBedCost = 0 } = {}) {
   const closing = M(nowPayload);
   const total = closing.achievedMargin - opening.achievedMargin;
   const summed = steps.reduce((s, r) => s + r.marginPoints, 0);
+
+  // RECONCILES AS DISPLAYED, not only in the arithmetic.
+  //
+  // The figures are shown to two decimals. Opening 15.7449 and closing 17.5352
+  // render as 15.74 and 17.54, a displayed movement of 1.80, while the steps
+  // rendered to the same precision sum to 1.79. The bridge was exact and READ as
+  // though it were not, which on a page whose entire claim is "these add up" is
+  // the same failure as not adding up.
+  //
+  // Standard treatment in any P&L pack: a rounding line, shown only when it is
+  // non-zero, carrying the difference between the displayed figures. The
+  // alternative, quietly adjusting a step to absorb it, would make one step
+  // wrong to make the column look right.
+  const DP = 2;
+  const at = (n) => Number(n.toFixed(DP));
+  const displayedTotal = at(closing.achievedMargin) - at(opening.achievedMargin);
+  const displayedSteps = steps.reduce((s, r) => s + at(r.marginPoints), 0);
+  const displayRounding = Number((displayedTotal - displayedSteps).toFixed(DP));
 
   return {
     opening: { marginPoints: opening.achievedMargin, contractNet: opening.totals.contractNet },
@@ -228,6 +252,9 @@ export function buildBridge(basePayload, nowPayload, { testBedCost = 0 } = {}) {
     // rather than assumed, because a bridge that does not reconcile is the one
     // thing this shape exists to make impossible.
     unexplained: total - summed,
+    // Non-zero only when two-decimal display cannot show the exact figures. It
+    // is a presentation artefact, named as one, and never folded into a step.
+    displayRounding,
     unassignedKeys,
     baselineHasCostBasis,
     comparable: baselineHasCostBasis,
@@ -359,8 +386,15 @@ export function buildCostBasis(batches, missing, asOfISO) {
 export function buildNotRecorded(payload, { missingProducts = [], versionReason = null } = {}) {
   const out = [];
 
+  // WHERE EACH DEFAULT ACTUALLY LIVES. factoringRatePct is not a top-level key:
+  // it is payload.factoring.ratePct. Reading it flat meant this block reported
+  // "nobody entered a value" on every deal, including deals that had set it,
+  // which is a false statement on a page whose whole job is to show an approver
+  // what they are accepting. Found by reading the rendered page.
+  const NESTED = { factoringRatePct: (p) => p?.factoring?.ratePct };
+
   for (const key of Object.keys(NUMERIC_DEFAULTS)) {
-    const raw = payload?.[key];
+    const raw = NESTED[key] ? NESTED[key](payload) : payload?.[key];
     if (raw !== undefined && raw !== null && raw !== '') continue;
     out.push({
       kind: 'default',

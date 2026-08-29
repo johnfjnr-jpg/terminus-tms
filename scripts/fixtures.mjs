@@ -32,13 +32,13 @@
 // typed into a comment is not derived from anything, so nothing can falsify it.
 // It sat one commit before being read.
 import { createClient } from '@supabase/supabase-js'
+import { api as apiCall } from './api-client.mjs'
 import { readFileSync, writeFileSync } from 'fs'
 
 const ENV = Object.fromEntries(readFileSync('/Users/johnfryatt/terminus-tms/.env', 'utf8')
   .split('\n').filter(l => l.includes('=') && !l.trim().startsWith('#'))
   .map(l => { const i = l.indexOf('='); return [l.slice(0, i).trim(), l.slice(i + 1).trim()] }))
 const SESSION = JSON.parse(readFileSync('/Users/johnfryatt/terminus-tms/session-ref.json', 'utf8'))
-const BASE = 'http://localhost:3000'
 const TB_IDS = '/private/tmp/claude-501/-Users-johnfryatt-terminus-tms/2199d6a8-d1e7-4e46-89a0-2df47e6eac14/scratchpad/tb-ids.json'
 const IDS = '/private/tmp/claude-501/-Users-johnfryatt-terminus-tms/2199d6a8-d1e7-4e46-89a0-2df47e6eac14/scratchpad/walk-ids.json'
 
@@ -50,15 +50,11 @@ if (!TEST_USER_ID) throw new Error('session-ref.json carries no user id; sign in
 
 const admin = () => createClient(ENV.SUPABASE_URL, ENV.SUPABASE_SECRET_KEY, { auth: { persistSession: false } })
 
+// Round 38: through the one throwing client. This file already threw on !ok,
+// which is why its own fixtures were never the silent kind; api-client.mjs makes
+// that the default for every script rather than this file's private discipline.
 async function api(method, path, body) {
-  const res = await fetch(`${BASE}/api${path}`, {
-    method,
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${SESSION.access_token}` },
-    body: body ? JSON.stringify(body) : undefined,
-  })
-  const data = await res.json().catch(() => null)
-  if (!res.ok) throw new Error(`${method} ${path} -> ${res.status} ${JSON.stringify(data)}`)
-  return data
+  return (await apiCall(method, path, body)).data
 }
 
 // The Commercials keys a fresh fixture must NOT already hold. If any is

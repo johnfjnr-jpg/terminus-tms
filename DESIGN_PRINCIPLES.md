@@ -825,6 +825,15 @@ today's existing behaviour.
 
 Explicitly deferred, not forgotten, not a section number of its own since this is a running list, not a build phase. Add to it as new deferrals come up rather than letting them live only in conversation.
 
+- **A catalog change silently re-prices every live deal, and nobody is told.
+  Raised 2026-08-29, Round 38. PHASE 3, on the list the day it was created.**
+
+  The record holds no rates, so a live deal sheet prices against the current
+  catalog. That is the right default and it is invisible: no revision, no audit
+  entry, no notice. Full reasoning in the "Where a field belongs" section at the
+  end of this file. The control is that the system knows which deals moved, by
+  how much, and tells their owners.
+
 - **`state-dump.mjs` covers no version and no approval detail, so a table
   central to approvals is invisible in `CURRENT_STATE.md`. Raised 2026-08-29.
   SCHEDULED, not open-ended.**
@@ -5183,3 +5192,69 @@ a data error must never be reachable as an approval.
   happened once here, with `created_by_email`.
   `scripts/tests/version-guard.test.mjs` now fails if any future column is
   neither guarded nor explicitly exempted with a reason.
+
+---
+
+## Where a field belongs: the record, the catalog, and a version
+
+2026-08-29, Round 38. Stated as a principle because it settles the placement of
+every future field, and because the asymmetry it describes was found as a defect
+report before it was recognised as a design.
+
+> **The record holds what the deal decided.**
+> **The catalog holds what things cost.**
+> **A version holds both, frozen.**
+
+### What it explains
+
+`PATCH /opportunities/:id` refuses the ten catalog rate keys - `ssUnitCost`,
+`aqUnitCost`, `hemirUnitCost`, `inSsExisting`, `inSsNew`, `inAqm`, `inHemir`,
+`hoSafesight`, `hoAqm`, `hoHemir` - and the Commercials tab strips them through
+`COMMERCIALS_OWNED_KEYS` before saving. **A record therefore never stores a
+rate.** That reads as an artefact when you meet it in an error message. It is
+policy.
+
+An unapproved deal sheet should price at today's costs, because it is a live
+quote and the business's costs are what they are today. An approved version
+should price at the costs it was approved against, because an approval is of a
+document and a document does not move.
+
+**A version's self-sufficiency is a consequence of this, not a coincidence.**
+`inputs` carries the decision and the costs together, so
+`buildDealInputs(version.inputs)` reproduces exactly what was signed, with no
+lookup and no assumption. That is what makes block 2's cost-basis step a real
+number rather than a definitional zero, and it is why
+`deal_sheet_versions_has_cost_basis` refuses a version with no rates: a version
+carrying only half the pair is not the thing this principle describes.
+
+### Where a new field goes
+
+- **Something a person decided about this deal** - a quantity, a term, a margin,
+  a structure: the record's payload, and it appears in a bridge step.
+- **Something that is true of the world and priced into every deal** - a unit
+  cost, an install rate, a hosting rate: the catalog, never the payload.
+- **Both, at a moment** - the version, and only ever written at creation.
+
+### THE CONSEQUENCE, NAMED AND OWNED. Phase 3.
+
+**A catalog change is an unannounced re-price of every live deal.**
+
+Change a unit cost in Base Cost Data and every unapproved deal in the system
+prices differently from that moment. There is no revision, no `audit_log` entry
+against any Opportunity, and nothing said to any owner. A salesperson who saw
+30% last week opens the deal and sees 27%, and **no explanation is available
+anywhere on the screen** - not in Notes, not in the version list, not in the
+revision history, because nothing about that deal changed.
+
+The default is right. The invisibility is the fault, and this round created it by
+making the pricing path correct: before Round 36 the rates were never read at
+all, so nothing moved because nothing worked.
+
+**The control, for Phase 3:** when a batch turns over, the system knows which
+live deals it moves and by how much, and tells their owners. It has everything it
+needs to compute that already - every unapproved Opportunity's payload, the old
+batch and the new one, and one shared translation - so this is a notification
+and a diff, not new arithmetic.
+
+Two things it must not become: a block on changing costs, and a stored
+recalculation. Costs change; the system's job is to say so.

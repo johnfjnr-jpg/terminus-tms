@@ -181,7 +181,10 @@ export class Fixtures {
     return data
   }
 
-  async createVersion({ record_id, expected_revision, reason = 'fixture', inputs = {}, created_by }) {
+  // inputs defaults to a cost basis, not to {}. deal_sheet_versions_has_cost_basis
+  // refuses a version with no rate, which is the point of it: a version records
+  // the costs it was priced at or it is not reproducible.
+  async createVersion({ record_id, expected_revision, reason = 'fixture', inputs = { ssUnitCost: 1200 }, created_by }) {
     const { data, error } = await this.db.rpc('insert_deal_sheet_version', {
       p_record_id: record_id,
       p_expected_revision: expected_revision,
