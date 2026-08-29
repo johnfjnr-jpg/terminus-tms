@@ -1305,9 +1305,10 @@ function applyCommercialNumericInputModes() {
 // option loses its note rather than silently showing the wrong one. That is the
 // direction to fail in: a missing sentence is visible, a wrong one is not.
 //
-// "Terminus - Reseller Installation" is DELIBERATELY ABSENT. The business marked
-// it pending and has not written it. An invented line here would be a plausible
-// sentence nobody can falsify, which is the shape this project keeps removing.
+// All four options carry a line, written by the business. The reseller line was
+// pending for one phase and is now here; it was left blank rather than invented,
+// because a plausible sentence nobody can falsify is the shape this project keeps
+// removing.
 const INSTALL_RESP_NOTES = {
   'Client Own Installation Team':
     'No installation cost to us. We keep hardware and hosting margin and carry the schedule risk if their team is slow.',
@@ -1315,6 +1316,8 @@ const INSTALL_RESP_NOTES = {
     'Installation cost rises with every unit. Use when the unit count may still move.',
   'Terminus Contractor - Lump Sum':
     'Installation cost is fixed whatever the unit count. Better on large deployments, worse on small ones.',
+  'Terminus - Reseller Installation':
+    'We discount the hardware and the reseller installs. No installation cost to us, and the discount comes off hardware margin.',
 }
 
 function updateInstallRespNote() {

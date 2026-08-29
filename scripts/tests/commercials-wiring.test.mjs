@@ -341,10 +341,14 @@ test('every installResp option the business wrote copy for has exactly one line'
   // /lib imports and window.api and cannot be loaded in this harness.
   const src = readFileSync(new URL('../../frontend/opportunity-deal.js', import.meta.url), 'utf8')
   const block = src.slice(src.indexOf('const INSTALL_RESP_NOTES'), src.indexOf('function updateInstallRespNote'))
-  for (const opt of ['Client Own Installation Team', 'Terminus Contractor - Per Unit', 'Terminus Contractor - Lump Sum']) {
-    assert.ok(block.includes(`'${opt}':`), `${opt} has no note`)
+  // EVERY option the picklist offers, read from index.html rather than listed
+  // here, so a fifth option added to the markup fails this test instead of
+  // shipping without a note.
+  const html = readFileSync(new URL('../../frontend/index.html', import.meta.url), 'utf8')
+  const sel = html.slice(html.indexOf('id="deal-installResp"'))
+  const options = [...sel.slice(0, sel.indexOf('</select>')).matchAll(/<option value="([^"]+)"/g)].map((m) => m[1])
+  assert.equal(options.length, 4, `the picklist offers ${options.length} options`)
+  for (const opt of options) {
+    assert.ok(block.includes(`'${opt}':`), `${opt} is offered by the picklist and has no note`)
   }
-  assert.ok(!block.includes('Terminus - Reseller Installation'),
-    'the reseller option is marked pending by the business; an invented line would be '
-    + 'a plausible sentence nobody can falsify')
 })

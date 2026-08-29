@@ -2213,6 +2213,7 @@
             <div class="form-group" id="deal-recovery-group" style="width:150px;flex:0 0 150px">
               <label>Recovery period (months)</label>
               <input type="text" inputmode="numeric" id="deal-recoveryMonths" min="0">
+              <p class="data-row-label" style="margin-top:6px">The number of months over which the upfront capital is recovered from contract revenue.</p>
             </div>
             <div id="deal-recovery-readonly" class="hidden" style="width:150px;flex:0 0 150px">
               <span class="label" style="display:block;margin-bottom:6px">Recovery period</span>
@@ -2255,12 +2256,17 @@
           <label class="label" style="margin-bottom:10px;display:block">PO factoring</label>
           <button class="btn-ghost" id="deal-factoring-toggle" type="button">Factoring: Off</button>
           <div class="form-grid hidden" id="deal-factoring-fields" style="margin-top:16px">
-            <!-- Round 39. The rate's note is DELIBERATELY INCOMPLETE: the
-                 business gave one clause and marked the second pending, and
-                 inventing it would be exactly the kind of plausible sentence
-                 nobody can falsify. It lands when they write it. -->
+            <!-- Round 39. The second clause was written FROM THE CALCULATOR
+                 rather than from the sentence, on the business's own
+                 instruction. src/lib/deal-calculator.js: principal is
+                 hardwareCostAll, the advance lands in full at month 1 (cash in
+                 earlier), and financeCost = round(facInterest) is added into
+                 totalDealCostAll, which achievedMargin is computed against
+                 (margin down). The business's words describe that correctly, so
+                 they are used unchanged rather than reworded to prove a check
+                 happened. -->
             <div class="form-group"><label>Rate % (monthly)</label><input type="text" inputmode="numeric" id="deal-factoring-ratePct">
-              <p class="data-row-label" style="margin-top:6px">The monthly cost of factoring the purchase order.</p></div>
+              <p class="data-row-label" style="margin-top:6px">The monthly cost of factoring the purchase order. It both reduces margin and brings cash in earlier.</p></div>
             <div class="form-group"><label>Term (months)</label><input type="text" inputmode="numeric" id="deal-factoring-termMonths">
               <p class="data-row-label" style="margin-top:6px">How long the factoring runs. Rate multiplied by term is the total financing cost.</p></div>
             <div class="form-group">

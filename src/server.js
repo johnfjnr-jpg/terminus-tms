@@ -1,7 +1,7 @@
 import Fastify from 'fastify'
 import FastifyStatic from '@fastify/static'
 import { fileURLToPath } from 'url'
-import { dirname, join } from 'path'
+import { dirname, join, resolve, sep } from 'path'
 import { requireAuth } from './middleware/auth.js'
 import recordsRoutes from './routes/records.js'
 import transitionsRoutes from './routes/transitions.js'
@@ -42,6 +42,44 @@ await fastify.register(FastifyStatic, {
   prefix: '/lib/',
   decorateReply: false
 })
+
+// ── THE DEV SESSION MOUNT, AND WHY IT IS OUTSIDE THE REPOSITORY ──────────────
+//
+// Round 39. A browser harness needs a signed-in session, and the way it got one
+// was a copy of session-ref.json written into frontend/ so the page could fetch
+// it. That file was committed once, with an access token and a refresh token in
+// it, by an ordinary `git add -A`.
+//
+// The first fix was a .gitignore rule. THAT IS A SECOND LINE OF DEFENCE, NOT THE
+// FIX: a credential inside the working tree is one `git add -A` away from the
+// same commit every time, and this project has recorded four separate times that
+// controls depending on care are the ones it keeps replacing.
+//
+// So the file lives OUTSIDE the repository and is mounted from there. No ignore
+// rule is load-bearing, because there is nothing in the tree to ignore.
+//
+// GATED ON AN ENVIRONMENT VARIABLE THAT PRODUCTION NEVER SETS. Absent, the route
+// does not exist at all - not 403, not empty: unregistered. The variable names an
+// absolute path outside this repository, and the server refuses to mount it if it
+// points inside, because that would put the file back where it started.
+const devSessionDir = process.env.TMS_DEV_SESSION_DIR
+if (devSessionDir) {
+  const repoRoot = join(__dirname, '..')
+  const resolved = resolve(devSessionDir)
+  if (resolved.startsWith(repoRoot + sep)) {
+    throw new Error(
+      `TMS_DEV_SESSION_DIR must be OUTSIDE the repository. Got ${resolved}, which is inside ${repoRoot}. ` +
+      'The whole point of this mount is that no credential sits in the working tree.')
+  }
+  await fastify.register(FastifyStatic, {
+    root: resolved,
+    prefix: '/__dev-session/',
+    decorateReply: false
+  })
+  fastify.log.warn(
+    { dir: resolved },
+    'DEV SESSION MOUNT ENABLED at /__dev-session/. Never set TMS_DEV_SESSION_DIR in production.')
+}
 
 // ── Public routes (no auth) ───────────────────────────────────────────────────
 
