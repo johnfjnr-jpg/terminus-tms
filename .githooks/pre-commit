@@ -1,0 +1,44 @@
+#!/bin/sh
+# Refuse a commit when a scripted edit batch did not fully land.
+#
+# Round 39 close. Twice in one round a scripted edit reported success while the
+# file was unchanged, and the commit went ahead describing a correction the file
+# did not contain. The message was truthful about the intent and false about the
+# result, which is the signature of the class this hook closes.
+#
+# scripts/lib/edit.mjs writes .edit-journal.json before each edit and updates it
+# after. A crashed script leaves a `pending` entry; a failed anchor leaves
+# `failed`. Either blocks the commit. endBatch() removes the file when every
+# edit landed, so a clean batch leaves nothing here to check.
+#
+# Reported through node rather than sed: the journal is JSON and a line-based
+# reader mangles it, which would make the refusal message itself untrustworthy.
+JOURNAL=".edit-journal.json"
+[ -f "$JOURNAL" ] || exit 0
+exec node -e '
+const fs = require("fs");
+let j;
+try { j = JSON.parse(fs.readFileSync(".edit-journal.json", "utf8")); }
+catch (e) {
+  console.error("COMMIT REFUSED: .edit-journal.json is present and unreadable.");
+  console.error("  " + e.message);
+  process.exit(1);
+}
+const bad = (j.edits || []).filter((e) => e.status !== "landed");
+if (!bad.length) {
+  console.error("pre-commit: every edit in batch \"" + j.label + "\" landed, but endBatch() was not called.");
+  console.error("  Call endBatch(), or remove .edit-journal.json once you have checked the tree.");
+  process.exit(1);
+}
+console.error("COMMIT REFUSED: " + bad.length + " scripted edit(s) in batch \"" + j.label + "\" did not land.");
+console.error("");
+for (const e of bad) {
+  console.error("  " + e.file);
+  console.error("      status: " + e.status);
+  if (e.why) console.error("      why:    " + e.why);
+}
+console.error("");
+console.error("The commit message would have described a change the files do not contain.");
+console.error("Fix the edit, or delete .edit-journal.json if you have verified the tree by hand.");
+process.exit(1);
+'

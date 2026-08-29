@@ -825,6 +825,60 @@ today's existing behaviour.
 
 Explicitly deferred, not forgotten, not a section number of its own since this is a running list, not a build phase. Add to it as new deferrals come up rather than letting them live only in conversation.
 
+### An operation that reports success without verifying it did anything
+
+**Closed structurally at the Round 39 close, on the business's instruction, after
+the third instance of one shape.**
+
+| when | what reported success | what had happened |
+|---|---|---|
+| Milestone 5 | `PATCH /contacts/:id`, `PATCH /test-beds/:id` | unchecked Supabase writes, nothing stored |
+| Round 39 | a scripted edit and the commit after it | the anchor had moved, the file was unchanged |
+| Round 39 | the same again, an hour later | caught on the next check, not at the moment |
+
+**The signature is identical every time: the message is truthful about the INTENT
+and false about the RESULT.** Vigilance failed at it twice in one round, by
+somebody who had just written the rule about it, which is what makes it a class
+rather than three mistakes.
+
+**The HTTP half was closed by `scripts/api-client.mjs`**, which throws unless a
+call names the status it expects and why. **The edit half is now closed the same
+way**: `scripts/lib/edit.mjs` re-reads the file from disk and refuses unless the
+bytes changed and carry the replacement, and `.githooks/pre-commit` refuses any
+commit whose edit batch did not fully land.
+
+**AND THE FOURTH AND FIFTH INSTANCES HAPPENED WHILE BUILDING THE GUARD.** Round
+39 close, minutes apart.
+
+**The fourth.** The commit adding `edit.mjs` and the hook also needed one line in
+`package.json` to put the new tests into the suite. That edit was made with a raw
+script rather than through the helper, it did not land, and the commit message
+claimed "217 pass" on the strength of it. The true number was 216, because the
+six new tests were not being run at all.
+
+**The fifth, and it names a real limit of the guard.** The script recording the
+fourth instance had a quoting error and failed to PARSE, so `beginBatch()` never
+ran, so no journal existed, so the hook had nothing to refuse. The commit went
+ahead describing a record the file did not contain.
+
+**So the hook catches an edit that ran and failed. It cannot catch an edit script
+that never started**, and nothing inside the repository can, because there is no
+trace of an intention that was never expressed. The backstop for that is not a
+guard, it is a habit with teeth: **a claim quoting a number reads it from a run
+made AFTER the edits landed**, which is what caught both of these.
+
+**A guard nobody routes through is exactly rule 30's shape**: it exists as an
+intention while the reasoning proceeds as though it were a fact. Scripted edits
+to tracked files go through `scripts/lib/edit.mjs`, from a FILE rather than an
+inline `-e`, because inline quoting is what broke the fifth one.
+
+**Two independent failures, two guards, because one cannot catch the other.** An
+edit that did nothing is caught in the helper. A script that DIED PART-WAY cannot
+be caught there, because it is not running any more, so the journal is written
+before each edit and a crash leaves a `pending` entry the hook refuses on.
+
+---
+
 ### The list by trigger, not by date
 
 **Added at the Round 39 close on the business's instruction: two or three work
