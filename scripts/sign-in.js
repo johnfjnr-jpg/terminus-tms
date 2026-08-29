@@ -46,14 +46,16 @@ import { readPassword, refuseArgvPassword } from './lib/prompt-password.js'
 
 const USAGE = 'node --env-file=.env scripts/sign-in.js <email>'
 const args = process.argv.slice(2)
-const [email] = args
+// Flags are not a password. refuseArgvPassword counts POSITIONAL arguments only.
+const positional = args.filter((a) => !a.startsWith('--'))
+const [email] = positional
 
 if (!email) {
   console.error(`Usage: ${USAGE}`)
   process.exit(1)
 }
 
-refuseArgvPassword(args, USAGE)
+refuseArgvPassword(positional, USAGE)
 
 let password
 try {
@@ -78,4 +80,20 @@ writeFileSync(PATH, JSON.stringify(data.session, null, 2))
 console.error(`session-ref.json written for ${data.session.user?.email}, expires `
   + `${new Date(data.session.expires_at * 1000).toISOString()}`)
 
-console.log(data.session.access_token)
+// ── THE TOKEN ONLY WHERE SOMETHING CONSUMES IT ────────────────────────────
+//
+// Round 39, and the same two-paths distinction as the password. The token on
+// stdout exists for the curl pipeline; a person running this interactively has
+// no use for it, and printing it puts a live credential in scrollback where it
+// gets pasted into a chat window without thinking. That happened.
+//
+// So: piped or redirected, print it, because something is reading it. A
+// terminal, say where the session went and nothing else. --print-token forces
+// it for the case where somebody genuinely wants it on screen.
+const wantsToken = args.includes('--print-token') || !process.stdout.isTTY
+if (wantsToken) {
+  console.log(data.session.access_token)
+} else {
+  console.error('Access token not printed. It is in session-ref.json, and every '
+    + 'probe reads it from there. Pipe this command or pass --print-token if you need it.')
+}
