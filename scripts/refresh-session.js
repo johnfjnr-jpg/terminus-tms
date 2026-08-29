@@ -26,6 +26,7 @@ const { data, error } = await supabase.auth.refreshSession({ refresh_token: sess
 if (error || !data?.session) {
   console.error(`refresh failed: ${error?.message ?? 'no session returned'}`)
   console.error('The refresh token has expired too. Use: node --env-file=.env scripts/sign-in.js <email> <password>')
+  console.error('That command rewrites session-ref.json, so the probes and the gate recover from it directly.')
   process.exit(1)
 }
 
