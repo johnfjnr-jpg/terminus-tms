@@ -27,6 +27,7 @@ import { changedKeys } from '/lib/payload-diff.js'
 // exactly what readPayload() puts there.
 import { buildDealInputs, gstPresentation, whtPresentation, durationPresentation } from '/lib/deal-inputs.js'
 import { reasonPromptFor } from '/lib/version-reason.js'
+import { scheduleReconciliation, refusalStatement } from '/lib/milestone-schedule.js'
 
 let opportunityId = null
 let wired = false
@@ -224,7 +225,11 @@ function readContractorMilestones() {
     const month = num(`deal-cm-${i}-month`)
     const label = document.getElementById(`deal-cm-${i}-label`)?.value ?? ''
     const usd = num(`deal-cm-${i}-usd`)
-    if (month > 0 && usd > 0) rows.push({ month, label, usd })
+    // The percentage is stored alongside, because it is what was NEGOTIATED and
+    // the dollars are what it computed. A version reading the schedule back
+    // should see the term that was agreed, not only its arithmetic.
+    const pct = toNumberOrNull(document.getElementById(`deal-cm-${i}-pct`)?.value)
+    if (month > 0 && usd > 0) rows.push({ month, label, usd, pct })
   }
   return rows
 }
@@ -527,6 +532,29 @@ async function saveVersion() {
   if (!reason) {
     versionFeedback(reasonPrompt().refusal, false)
     reasonEl?.focus()
+    return false
+  }
+
+  // ── A VERSION REFUSES A SCHEDULE THAT DOES NOT RECONCILE ─────────────
+  //
+  // Round 39, the business's split, and the two halves are deliberately
+  // different because saving and versioning are different acts:
+  //
+  //   SAVE warns and does not block. A part-built schedule mid-drafting is
+  //   legitimate and a save is not a commitment.
+  //
+  //   TAKING A VERSION REFUSES. A version is a commercial commitment and must
+  //   not carry a payment schedule that does not match the contractor's price.
+  //
+  // Scoped to a schedule that EXISTS and does not sum: every installation type
+  // except Lump Sum has no contractor schedule at all, and a refusal that fired
+  // on those would fire on almost every deal.
+  //
+  // The server refuses this too. A client check tells somebody early; it is not
+  // the control, because a control that only exists in a browser is not one.
+  const contractorRec = scheduleReconciliation(readContractorMilestones(), num('deal-lumpCost'))
+  if (contractorRec.hasSchedule && !contractorRec.reconciles) {
+    versionFeedback(refusalStatement(contractorRec, 'The contractor payment schedule'), false)
     return false
   }
 
@@ -994,10 +1022,20 @@ function renderResults(result, payload) {
 
   const msWarn = document.getElementById('deal-milestone-warn')
   if (uiState.structure === 'hybrid') {
-    const msUsdTotal = (payload.milestones ?? []).reduce((s, m) => s + (m.usd || 0), 0)
-    const pctOfHw = result.totals.oneOffPrice ? (msUsdTotal / result.totals.oneOffPrice) * 100 : 0
-    if (Math.abs(pctOfHw - 100) > 0.5) {
-      msWarn.textContent = `Milestones total ${pctOfHw.toFixed(1)}% of hardware + install price (need 100%).`
+    // ── THE SAME EVALUATOR AS THE CONTRACTOR GRID ─────────────────────
+    //
+    // Round 39. The business asked whether the contractor grid was the only
+    // place a set of parts must sum to a stated total. It was not: this grid
+    // had the identical shape and the identical defect, a 0.5-percent-of-base
+    // tolerance and a `.toFixed(1)` that rounds a discrepancy shut. At a
+    // $1,000,000 one-off price that is $5,000 of silent drift.
+    //
+    // Build-discipline rule 6: a fix built for the surface that reported the
+    // fault is not a fix for the one beside it. One evaluator, both grids.
+    const msRec = scheduleReconciliation(payload.milestones, result.totals.oneOffPrice)
+    if (msRec.hasSchedule && !msRec.exact) {
+      msWarn.textContent = `Customer milestones total $${money(msRec.totalUsd)} against a `
+        + `hardware and installation price of $${money(msRec.base)}. ${msRec.statement}`
       msWarn.classList.remove('hidden')
     } else {
       msWarn.classList.add('hidden')
@@ -1130,25 +1168,91 @@ function renderMilestoneRows(milestones) {
 // Contractor milestones - deliberately its own render function, own tbody
 // (deal-contractor-tbody vs deal-milestones-tbody), never merged with the
 // customer-facing hardware milestones above.
+// ── THE MILESTONE IS A LIST, NOT A SENTENCE ────────────────────────────
+//
+// Free text meant every deal named the same six events differently, so nothing
+// could ever group or compare them, and a schedule could not be read across
+// deals at all. The list is the business's, in the order the events happen.
+//
+// "Select milestone" is a real option with an empty value rather than a
+// placeholder attribute, so an unfilled row reads as unfilled rather than as
+// the first milestone.
+const CONTRACTOR_MILESTONES = [
+  'Contract start',
+  'Hardware delivered to site',
+  'Installation complete',
+  'Commissioning',
+  'Go live',
+  'Final acceptance',
+]
+
+function milestoneOptions(selected) {
+  const chosen = selected ?? ''
+  // An unrecognised stored value keeps its own option rather than being
+  // silently reset to blank: existing deals hold free text, and a dropdown that
+  // quietly discarded it would lose what somebody entered.
+  const known = CONTRACTOR_MILESTONES.includes(chosen)
+  const extra = chosen && !known ? [chosen] : []
+  return [`<option value="">Select milestone</option>`]
+    .concat(CONTRACTOR_MILESTONES.concat(extra).map((m) =>
+      `<option value="${escapeSheet(m)}"${m === chosen ? ' selected' : ''}>${escapeSheet(m)}${extra.includes(m) ? ' (not in the list)' : ''}</option>`))
+    .join('')
+}
+
 function renderContractorMilestoneRows(contractorMilestones) {
   const tbody = document.getElementById('deal-contractor-tbody')
   tbody.innerHTML = Array.from({ length: MILESTONE_ROWS }).map((_, i) => `
     <tr>
       <td><input type="text" inputmode="numeric" id="deal-cm-${i}-month" style="width:64px"></td>
-      <td><input type="text" id="deal-cm-${i}-label" placeholder="e.g. Site handover"></td>
+      <td><select id="deal-cm-${i}-label">${milestoneOptions(contractorMilestones[i]?.label)}</select></td>
+      <td><input type="text" inputmode="decimal" id="deal-cm-${i}-pct" style="width:80px"></td>
       <td><input type="text" inputmode="decimal" id="deal-cm-${i}-usd"></td>
-      <td class="col-mono" id="deal-cm-${i}-pct">--</td>
     </tr>
   `).join('')
 
   contractorMilestones.forEach((m, i) => {
     if (i >= MILESTONE_ROWS) return
     setVal(`deal-cm-${i}-month`, m.month)
-    setVal(`deal-cm-${i}-label`, m.label)
     setVal(`deal-cm-${i}-usd`, m.usd)
   })
 
-  tbody.querySelectorAll('input').forEach(el => el.addEventListener('input', recompute))
+  // ── BIDIRECTIONAL, AND ONE COMPUTATION ───────────────────────────────
+  //
+  // Type a percentage and the dollars follow; adjust the dollars and the
+  // percentage recalculates. Verification 20 applies: there is ONE conversion,
+  // `pctToUsd`, and the other direction is its inverse in the same function.
+  // Two independent formulas would agree today and drift the first time
+  // rounding changed.
+  //
+  // The field being typed in is never rewritten while it has focus, or a
+  // half-typed "1" becomes "1" -> $2,500 -> "1.0" and the caret jumps.
+  tbody.querySelectorAll('input, select').forEach((el) => {
+    el.addEventListener('input', () => {
+      const m = el.id.match(/^deal-cm-(\d+)-(pct|usd)$/)
+      if (m) syncContractorRow(Number(m[1]), m[2])
+      recompute()
+    })
+  })
+}
+
+/** The one conversion. Both directions, so neither can drift from the other. */
+function pctToUsd(pct, base) { return Math.round((pct / 100) * base) }
+function usdToPct(usd, base) { return base ? (usd / base) * 100 : null }
+
+// Which side of the row the person is typing on decides which side follows.
+function syncContractorRow(i, typed) {
+  const base = num('deal-lumpCost')
+  if (!base) return
+  if (typed === 'pct') {
+    const pct = toNumberOrNull(document.getElementById(`deal-cm-${i}-pct`)?.value)
+    setVal(`deal-cm-${i}-usd`, pct === null ? '' : pctToUsd(pct, base))
+  } else {
+    const usd = toNumberOrNull(document.getElementById(`deal-cm-${i}-usd`)?.value)
+    const pct = usd === null ? null : usdToPct(usd, base)
+    // Enough places that 100.008% cannot print as 100.0%. Trailing zeroes
+    // trimmed so an exact 25% reads as "25" rather than "25.0000".
+    setVal(`deal-cm-${i}-pct`, pct === null ? '' : String(Number(pct.toFixed(4))))
+  }
 }
 
 // Contractor milestone totals: %/USD sum and the "should total 100%"
@@ -1157,23 +1261,32 @@ function renderContractorMilestoneRows(contractorMilestones) {
 // is the raw lumpCost input, since a contractor milestone table only
 // ever appears for a Lump Sum deal.
 function renderContractorMilestoneTotals(lumpCost) {
-  let totalUsd = 0
-  for (let i = 0; i < MILESTONE_ROWS; i++) {
-    const cell = document.getElementById(`deal-cm-${i}-pct`)
-    if (!cell) continue
-    const usd = num(`deal-cm-${i}-usd`)
-    totalUsd += usd
-    cell.textContent = lumpCost ? `${((usd / lumpCost) * 100).toFixed(1)}%` : '--'
+  const rec = scheduleReconciliation(readContractorMilestones(), lumpCost)
+
+  document.getElementById('deal-contractor-base').textContent = `Lump sum contractor price, $${money(lumpCost)}`
+  document.getElementById('deal-contractor-total-usd').textContent = `$${money(rec.totalUsd)}`
+
+  // ── THE TOTAL PERCENTAGE MAY NOT ROUND ITSELF INTO AGREEMENT ─────────
+  //
+  // `.toFixed(1)` printed 100.008% as "100.0%". The one number whose job is to
+  // say the schedule does not add up had been rounded until it said it did, and
+  // a $20 overrun saved without a word. Verification 21.
+  const totalPct = rec.base ? (rec.totalUsd / rec.base) * 100 : 0
+  document.getElementById('deal-contractor-total-pct').textContent =
+    rec.exact ? '100%' : `${Number(totalPct.toFixed(4))}%`
+
+  // The difference is STATED whenever it is not exactly 100%, over or under,
+  // in dollars first, because dollars cannot be rounded into agreement.
+  const diff = document.getElementById('deal-contractor-diff')
+  if (diff) {
+    diff.textContent = rec.statement ?? ''
+    diff.classList.toggle('hidden', !rec.statement)
+    diff.classList.toggle('deal-schedule-off', !rec.reconciles)
   }
 
-  const totalPct = lumpCost ? (totalUsd / lumpCost) * 100 : 0
-  document.getElementById('deal-contractor-base').textContent = `Lump sum contractor price, $${money(lumpCost)}`
-  document.getElementById('deal-contractor-total-usd').textContent = `$${money(totalUsd)}`
-  document.getElementById('deal-contractor-total-pct').textContent = `${totalPct.toFixed(1)}%`
-
   const warn = document.getElementById('deal-contractor-warn')
-  if (totalUsd > 0 && Math.abs(totalPct - 100) > 0.5) {
-    warn.textContent = `Contractor milestones total ${totalPct.toFixed(1)}% of the contractor price. They should total 100%.`
+  if (rec.hasSchedule && !rec.reconciles) {
+    warn.textContent = `${rec.statement} A version cannot be taken until the schedule matches the contractor price.`
     warn.classList.remove('hidden')
   } else {
     warn.classList.add('hidden')
@@ -1715,8 +1828,22 @@ async function saveDeal() {
   }
   captureSavedBaseline()
 
-  feedback.textContent = `Saved (revision ${result.data.revision_number}).`
-  feedback.className = 'msg-success'
+  // ── SAVE WARNS AND DOES NOT BLOCK ────────────────────────────────────
+  //
+  // The business's split: a part-built schedule mid-drafting is legitimate, so
+  // a save must not refuse it. It must also not say "Saved" and nothing else,
+  // which is what it did while a $250,020 schedule went into a $250,000 lump
+  // sum. The difference is named in the same breath as the confirmation.
+  const rec = scheduleReconciliation(readContractorMilestones(), num('deal-lumpCost'))
+  const note = rec.hasSchedule && !rec.exact
+    ? ` Contractor schedule does not total the lump sum: ${rec.statement}`
+    : ''
+  feedback.textContent = `Saved (revision ${result.data.revision_number}).${note}`
+  // .msg-warning, not .msg-warn. The stylesheet has the former and no rule for
+  // the latter, which is how .btn-secondary rendered as a native browser button
+  // for a whole round: a class name asserting a style that does not exist
+  // cannot be falsified by anything. Checked rather than assumed.
+  feedback.className = note ? 'msg-warning' : 'msg-success'
   return true
 }
 

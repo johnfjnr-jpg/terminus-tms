@@ -1976,17 +1976,24 @@
           <p class="label" style="margin-bottom:4px">Contractor payment milestones</p>
           <p class="field-note" style="margin-bottom:10px">When we pay the contractor. Paying earlier costs working capital. It does not change margin, it changes cash flow. Max 5 milestones.</p>
           <table class="doc-table">
-            <thead><tr><th>Month</th><th>Contractor milestone</th><th>USD</th><th>% of lump sum</th></tr></thead>
+            <!-- Month, milestone, PERCENTAGE, then the USD it computes. The
+                 percentage is what a contractor schedule is negotiated in, and
+                 it was the read-only output while the dollar figure was typed. -->
+            <thead><tr><th>Month</th><th>Contractor milestone</th><th>% of lump sum</th><th>USD</th></tr></thead>
             <tbody id="deal-contractor-tbody"></tbody>
             <tbody>
               <tr>
                 <td></td>
                 <td class="data-row-label" id="deal-contractor-base">Lump sum contractor price, $0</td>
-                <td class="col-mono" id="deal-contractor-total-usd">$0</td>
                 <td class="col-mono" id="deal-contractor-total-pct">0%</td>
+                <td class="col-mono" id="deal-contractor-total-usd">$0</td>
               </tr>
             </tbody>
           </table>
+          <!-- Stated whenever the schedule is not EXACTLY 100%, over or under,
+               in dollars first because dollars cannot be rounded into
+               agreement. See src/lib/milestone-schedule.js. -->
+          <p class="field-note hidden" id="deal-contractor-diff" style="margin-top:8px"></p>
           <p class="msg-error hidden" id="deal-contractor-warn"></p>
         </div>
       </div>

@@ -98,7 +98,17 @@ export function edit(file, oldText, newText) {
   if (count > 1) fail(`anchor appears ${count} times, so the edit is ambiguous`)
   if (oldText === newText) fail('replacement is identical to the anchor')
 
-  writeFileSync(path, before.replace(oldText, newText))
+  // ── A FUNCTION REPLACEMENT, NEVER A STRING ONE ──────────────────────────
+  //
+  // String.prototype.replace treats `$` specially in a STRING replacement:
+  // `$$` becomes a literal `$`, and `` $` ``, `$'`, `$&` and `$1` all expand.
+  // Round 39: replacing text containing `${money(x)}` in a template literal
+  // silently ate the leading dollar sign and wrote `${money(x)}` instead, so a
+  // price rendered without its currency symbol.
+  //
+  // The guard below caught it, which is the whole point of the guard, and the
+  // fix is to pass a function so the replacement is taken literally.
+  writeFileSync(path, before.replace(oldText, () => newText))
 
   // THE POINT OF THE WHOLE FILE. Not "we called writeFileSync and it did not
   // throw": read it back and confirm the bytes on disk differ and carry the

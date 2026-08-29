@@ -1,6 +1,7 @@
 import { createUserClient } from '../supabase.js'
 import { versionApprovalState, liveVersionApproval, APPROVAL_TRACK } from '../lib/version-approval.js'
 import { buildApprovalPage } from '../lib/approval-page.js'
+import { scheduleReconciliation, refusalStatement } from '../lib/milestone-schedule.js';
 import { toNumberOrNull } from '../lib/numeric-payload.js'
 import { resolveCurrentBatches, catalogToRates } from '../lib/base-costs.js'
 
@@ -261,6 +262,23 @@ export default async function dealSheetVersionsRoutes(app) {
     if (!Number.isInteger(expectedRevision)) {
       return reply.code(400).send({
         error: 'expected_revision is required: a version records the revision it was taken from.',
+      })
+    }
+
+    // ── A VERSION MAY NOT CARRY A SCHEDULE THAT DOES NOT RECONCILE ──────
+    //
+    // Round 39. The client refuses this too, earlier and with better wording,
+    // and that is not the control: a control that only exists in a browser is
+    // not one. Same evaluator as the screen, imported rather than restated,
+    // because two implementations of "does this add up" would agree today.
+    //
+    // Scoped to a schedule that EXISTS. Only Lump Sum deals have a contractor
+    // schedule at all, so an unconditional check would refuse almost every
+    // version for a table that was never meant to be filled in.
+    const contractorRec = scheduleReconciliation(inputs.contractorMilestones, inputs.lumpSumCost)
+    if (contractorRec.hasSchedule && !contractorRec.reconciles) {
+      return reply.code(400).send({
+        error: refusalStatement(contractorRec, 'The contractor payment schedule'),
       })
     }
 

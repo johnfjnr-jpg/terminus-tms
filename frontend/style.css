@@ -4424,6 +4424,7 @@ input.input-invalid {
 /* Round 39: an ageing or stale cost basis, said where the rates are entered.
    Same bands and same words as the approval page, from src/lib/cost-basis.js. */
 .deal-catalog-ageing { color: var(--white) !important; }
+.deal-schedule-off { color: var(--amber, #E0A33E); }
 .deal-catalog-stale  { color: var(--green) !important; }
 
 /* Round 39: a field note is a SENTENCE, and .data-row-label uppercases.
