@@ -153,6 +153,39 @@ not resolve it quietly.
 
     **The next finding will be tempting, and the answer is still the list.**
 
+11. **AN UNANSWERABLE PRECONDITION IS A STOP, NOT A PROCEED-WITH-JUSTIFICATION.**
+    Round 38 close, 2026-08-29. Recorded from a real instance, with both
+    halves of the fault, because only one of them was mine.
+
+    The business said: *"Answer both, then push."* One question - does a push
+    to main trigger a Render deploy - **could not be answered from the
+    repository at all**, because the setting lives in a hosting dashboard.
+    The reasoning that followed was sound, the direction was the safer one,
+    and no harm came of it. **It was still the wrong move.**
+
+    **A precondition that cannot be satisfied has not been satisfied.** When
+    the gate on an outward-facing act is a question you cannot answer,
+    the answer is to say so and stop, not to answer the ones you can and
+    proceed on the strength of them. The reasoning being good is exactly what
+    makes this tempting: a bad argument would have stopped itself.
+
+    **Scope: outward-facing acts.** Pushing, deploying, sending, publishing,
+    anything that leaves the machine. For ordinary read-and-build work,
+    proceeding under a stated assumption remains right and is the standing
+    instruction.
+
+    **THE OTHER HALF, and it is the business's own note: the instruction was
+    badly formed.** It asked for something visible only in a dashboard nobody
+    in the session could see. **A precondition has to be answerable by
+    whoever it is set for**, and one that is not will be either guessed at or
+    quietly dropped. Both parties own this: ask for what can be measured
+    where the work happens, and refuse to proceed when what was asked cannot
+    be.
+
+    **Standing consequence while it is unresolved: assume Render auto-deploy
+    is ON.** A push to `main` is therefore a deploy until the business
+    confirms otherwise, and is treated as one.
+
 ---
 
 ## Architecture

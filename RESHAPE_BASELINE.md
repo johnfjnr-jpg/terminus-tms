@@ -22,19 +22,70 @@ whether it looks better.**
 
 ## The three tasks the tab exists to support
 
-1. **Price a new deal from scratch.** Nothing entered. The salesperson has unit
-   counts, an installation arrangement and a term, and needs a number they trust.
-2. **Re-price an existing deal and take a version.** Something changed. Find the
-   inputs that moved, change them, satisfy yourself the new number is right, and
-   record why.
-3. **Check a deal somebody else priced.** Not editing. Understand what was
-   assumed and whether the number is defensible.
+**Tasks 1 and 3 were WALKED by the business on 2026-08-29 and are recorded in
+their steps, not in mine.** The earlier version of this document derived a
+"4 to 6 fields" figure from which inputs carry defaults. That was a reasonable
+guess and it missed the shape of the work entirely.
 
-Task 3 is the one the current tab supports worst and the one the approval page
-already answers for an approver. It is on this list because a salesperson doing
-it is not an approver, and has no reason to open that page.
+### Task 1: price a new deal from scratch
 
----
+1. Customer, SafeSight count, AQ count
+2. **Mounting: existing infrastructure or new.** A choice, not a number, and it
+   drives install cost
+3. Contract term
+4. **LOOK AT THE MARGIN.** Acceptable?
+5. If not, move something. **Almost always discount, occasionally term**
+6. Back to 4. Repeat until it lands
+7. Save, version, reason
+
+**Steps 1 to 3 happen once. STEPS 4 TO 6 ARE A LOOP, AND THE LOOP IS THE
+PRODUCT.** That is where every second is paid, and it is invisible in any count
+of fields or sub-tabs.
+
+**What that changes about the design.** It is not one screen with everything on
+it. It is:
+
+- **entry that reaches a number quickly** - three things, then a margin
+- **then a tight adjust-and-see loop**, with the two or three controls that move
+  margin sitting **beside the margin itself**. Discount and term next to the
+  number.
+- **the other fifty fields behind disclosure and off screen during the loop.**
+  Payment Terms is a section the person goes to deliberately, never one they
+  scroll past.
+
+**A single scrolling page with all 59 fields would remove the switches and keep
+the density, and it would make the loop worse, not better** - the number and the
+control that moves it would be further apart than they are today, not closer.
+
+### Task 2: re-price an existing deal and take a version
+
+The same loop, entered from an existing state rather than an empty one. Steps 4
+to 6, then 7.
+
+### Task 3: check a deal somebody else priced
+
+**Walked, in the order the business actually looks:**
+
+1. **Margin**
+2. **Units and term** - to know whether this is a large deal or a small one. *"A
+   thin margin on a small deal is a different conversation."*
+3. **What is NON-STANDARD**: overrides, payment structure, warranty treatment.
+   **The exceptions are the risk.**
+4. **Why it was last re-priced, in the author's own words**
+
+**That is close to the approval page's block order, and it is to be made
+deliberately the same**, so somebody who learns one surface can read the other:
+
+| Task 3 step | Approval page |
+|---|---|
+| 1. Margin | Block 1, the ask |
+| 2. Units and term | Block 1, beneath it |
+| 3. What is non-standard | Blocks 2 and 3: what moved, and risk terms as exposures |
+| 4. Why, in their words | The stated reason, block 1 |
+
+The one difference is deliberate: the approval page opens with a version being
+approved, and a salesperson reading a colleague's deal has no version in front of
+them. **Same order, same words, no approval.**
 
 ## The baseline, measured on the tab as it stands
 
@@ -131,7 +182,7 @@ Installation, Structural Terms), which carry 20 of the 59:
 | **Read-only rate displays** | 10 | `ssUnitCost`, `aqUnitCost`, `hemirUnitCost`, `hoSafesight`, `hoAqm`, `hoHemir`, `inSsExisting`, `inSsNew`, `inAqm`, `inHemir`. Written from the catalog, not typed. These become the reference panel. |
 | **Editable** | 10 | `ssExisting`, `ssNew`, `aqm`, `hemir`, `lumpCost`, `targetMargin`, `warrantyPct`, `fxContingency`, `whtPct`, `gstPct` |
 | **Of those, defaulted** | 5 | `targetMargin` 30, `warrantyPct` 2, `whtPct` 0, `gstPct` 0, `fxContingency` 0. A typical deal accepts them. |
-| **Must be touched for a typical deal** | **4 to 6** | the unit counts that are non-zero, plus the installation type and the term |
+| **Must be touched for a typical deal** | **4 to 6** | SUPERSEDED by the walk above. Derived from which fields carry defaults, which counted the entry and missed the loop |
 
 **The other 39 inputs are on Payment Terms**, which a typical deal does not open
 at all: 28 inputs, 7 selects and 19 buttons behind a structure most deals take
@@ -147,9 +198,15 @@ switches and kept the density.**
 person seeing more than roughly a dozen controls, and everything else is reachable
 when asked for rather than present by default.
 
-**Confirm the count before building.** "4 to 6" is derived from which inputs carry
-defaults, not from watching anybody price a deal. The business walking task 1 once
-and naming what they actually touched replaces it.
+**The count was confirmed and it was the wrong question.** The business walked
+task 1, and the entry really is three things: units, mounting, term. But the
+fields touched during the LOOP - discount, occasionally term, repeatedly - are
+where the time goes, and a count of fields-touched-once does not see them.
+
+**So the density target is stated against the loop rather than against the page:**
+during steps 4 to 6, the margin and the controls that move it are visible
+together, and nothing else needs to be. Everything counted above is still true
+about the entry; it is simply not the measure that decides whether this worked.
 
 ---
 
