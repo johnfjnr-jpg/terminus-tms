@@ -940,7 +940,22 @@ function renderYearSchedule(result, payload) {
 
 function renderResults(result, payload) {
   document.getElementById('deal-contract-net').textContent = `$${money(result.totals.contractNet)}`
-  document.getElementById('deal-achieved-margin').textContent = `${result.achievedMargin.toFixed(1)}%`
+  // TWO RENDERINGS, ONE COMPUTATION. The strip above the sub-tabs serves the
+  // always-visible read and task 3; the local figure inside the Margin card is
+  // the prototype's line 1489, restored, so the loop reads the number where the
+  // hand already is. Both are written from THIS `result`, and neither recomputes
+  // anything: a second computation would be Verification 20, and
+  // commercials-wiring.test.mjs asserts the two strings agree.
+  const marginText = `${result.achievedMargin.toFixed(1)}%`
+  document.getElementById('deal-achieved-margin').textContent = marginText
+  const localMargin = document.getElementById('deal-terms-achieved-margin')
+  if (localMargin) localMargin.textContent = marginText
+  const localNote = document.getElementById('deal-terms-achieved-note')
+  if (localNote) {
+    const target = numericOrDefault(payload, 'targetMargin')
+    const delta = result.achievedMargin - target
+    localNote.textContent = `against target ${target}%, ${delta >= 0 ? 'up' : 'down'} ${Math.abs(delta).toFixed(1)} pts`
+  }
   document.getElementById('deal-total-cost').textContent = `$${money(result.totalDealCostAll)}`
   document.getElementById('deal-finance-cost').textContent = `$${money(result.financeCost)}`
 
@@ -1343,7 +1358,33 @@ function applyCommercialNumericInputModes() {
 // cell: Lump Sum (editable price + summary), per-unit (see table below),
 // anything else (not applicable) - matches the prototype's
 // installPriceEditable / installPerUnitNote / installPriceReadOnly.
+// What each installation option does to the number. Written by the business,
+// one line each, saying what the choice costs rather than what it is called.
+//
+// KEYED BY THE PICKLIST VALUE, and the value is the display text, so a renamed
+// option loses its note rather than silently showing the wrong one. That is the
+// direction to fail in: a missing sentence is visible, a wrong one is not.
+//
+// "Terminus - Reseller Installation" is DELIBERATELY ABSENT. The business marked
+// it pending and has not written it. An invented line here would be a plausible
+// sentence nobody can falsify, which is the shape this project keeps removing.
+const INSTALL_RESP_NOTES = {
+  'Client Own Installation Team':
+    'No installation cost to us. We keep hardware and hosting margin and carry the schedule risk if their team is slow.',
+  'Terminus Contractor - Per Unit':
+    'Installation cost rises with every unit. Use when the unit count may still move.',
+  'Terminus Contractor - Lump Sum':
+    'Installation cost is fixed whatever the unit count. Better on large deployments, worse on small ones.',
+}
+
+function updateInstallRespNote() {
+  const el = document.getElementById('deal-installResp-note')
+  if (!el) return
+  el.textContent = INSTALL_RESP_NOTES[uiState.installResp] ?? ''
+}
+
 function updateInstallVisibility() {
+  updateInstallRespNote()
   const isPerUnit = uiState.installResp.includes('Per Unit')
   const isLumpSum = uiState.installResp.includes('Lump Sum')
   document.getElementById('deal-install-table').classList.toggle('hidden', !isPerUnit)

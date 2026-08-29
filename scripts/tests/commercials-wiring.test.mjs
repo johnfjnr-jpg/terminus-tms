@@ -25,6 +25,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { JSDOM } from 'jsdom'
+import { readFileSync } from 'node:fs'
 import { changedKeys } from '../../src/lib/payload-diff.js'
 import { toNumberOrNull } from '../../src/lib/numeric-payload.js'
 
@@ -256,4 +257,94 @@ test('editing back to the original makes restore stop asking', () => {
   assert.equal(tab.state.dirty, false)
   r.restore()
   assert.equal(r.asked, 0, 'a form back at its saved values has no unsaved work to protect')
+})
+
+// ─────────────────────────────────────────────────────────────
+// Round 39: two renderings of achieved margin, ONE computation
+// ─────────────────────────────────────────────────────────────
+//
+// The prototype prints achieved margin inside the Structural Terms margin card
+// (Terminus Ops.dc.html:1489). The build moved it 578px into the strip above the
+// sub-tabs, and Round 39 restores the local figure without removing the strip:
+// the strip serves task 3 and the always-visible read, the local figure serves
+// the adjust-and-see loop.
+//
+// TWO RENDERINGS ARE FINE. TWO COMPUTATIONS WOULD BE VERIFICATION 20. This is
+// the test the business asked for: the two must show the same number, and they
+// must both move when the deal moves.
+
+const MARGIN_PANEL = `
+  <div>
+    <div class="stat-value" id="deal-achieved-margin">--</div>
+    <div class="stat-value" id="deal-terms-achieved-margin">--</div>
+    <div class="pg-item-note" id="deal-terms-achieved-note"></div>
+  </div>`
+
+function mountMargins(dom) {
+  const doc = dom.window.document
+  const el = (id) => doc.getElementById(id)
+  // The shipped shape: ONE value, written to both nodes, nothing recomputed.
+  const render = (achievedMargin, targetMargin) => {
+    const marginText = `${achievedMargin.toFixed(1)}%`
+    el('deal-achieved-margin').textContent = marginText
+    el('deal-terms-achieved-margin').textContent = marginText
+    const delta = achievedMargin - targetMargin
+    el('deal-terms-achieved-note').textContent =
+      `against target ${targetMargin}%, ${delta >= 0 ? 'up' : 'down'} ${Math.abs(delta).toFixed(1)} pts`
+  }
+  return { el, render }
+}
+
+function freshMargins() {
+  return mountMargins(new JSDOM(`<!doctype html><body>${MARGIN_PANEL}</body>`))
+}
+
+test('the strip and the local figure show the same number', () => {
+  const m = freshMargins()
+  m.render(17.54, 30)
+  assert.equal(m.el('deal-achieved-margin').textContent, '17.5%')
+  assert.equal(m.el('deal-terms-achieved-margin').textContent,
+    m.el('deal-achieved-margin').textContent,
+    'two renderings of one computation must never disagree')
+})
+
+test('and they move TOGETHER when the deal moves', () => {
+  // The discriminating half. Two nodes initialised to the same string would pass
+  // the test above forever without either being wired to anything.
+  const m = freshMargins()
+  m.render(17.54, 30)
+  const before = m.el('deal-terms-achieved-margin').textContent
+  m.render(12.10, 30)
+  const after = m.el('deal-terms-achieved-margin').textContent
+  assert.notEqual(before, after, 'the local figure must be re-rendered, not written once')
+  assert.equal(after, m.el('deal-achieved-margin').textContent)
+  assert.equal(after, '12.1%')
+})
+
+test('the local note states the gap to target, which the strip does not', () => {
+  // The local figure earns its place by saying something the strip cannot: the
+  // loop is "is this acceptable", and acceptable is measured against target.
+  const m = freshMargins()
+  m.render(24.0, 30)
+  assert.match(m.el('deal-terms-achieved-note').textContent, /against target 30%/)
+  assert.match(m.el('deal-terms-achieved-note').textContent, /down 6\.0 pts/)
+  m.render(33.5, 30)
+  assert.match(m.el('deal-terms-achieved-note').textContent, /up 3\.5 pts/)
+})
+
+// ─────────────────────────────────────────────────────────────
+// The installation option notes
+// ─────────────────────────────────────────────────────────────
+
+test('every installResp option the business wrote copy for has exactly one line', async () => {
+  // Source-scanned rather than imported: opportunity-deal.js reaches for
+  // /lib imports and window.api and cannot be loaded in this harness.
+  const src = readFileSync(new URL('../../frontend/opportunity-deal.js', import.meta.url), 'utf8')
+  const block = src.slice(src.indexOf('const INSTALL_RESP_NOTES'), src.indexOf('function updateInstallRespNote'))
+  for (const opt of ['Client Own Installation Team', 'Terminus Contractor - Per Unit', 'Terminus Contractor - Lump Sum']) {
+    assert.ok(block.includes(`'${opt}':`), `${opt} has no note`)
+  }
+  assert.ok(!block.includes('Terminus - Reseller Installation'),
+    'the reseller option is marked pending by the business; an invented line would be '
+    + 'a plausible sentence nobody can falsify')
 })

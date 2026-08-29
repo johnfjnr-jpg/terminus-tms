@@ -4369,3 +4369,9 @@ input.input-invalid {
    alone did not carry that at 1240 when looked at. */
 .appr-frame { background: rgba(242, 242, 240, 0.03); }
 .appr-frame-close { border-top: 1px solid var(--hairline-strong); }
+
+/* Round 39: the achieved-margin figure inside the Margin card. It is the loop's
+   readout, so it is the one row in the card that is not an input, and it is
+   weighted to read first. The strip above the sub-tabs is unchanged. */
+.terms-field-row.terms-achieved { border-top: 1px solid var(--hairline-strong); margin-top: 4px; padding-top: 12px; }
+.terms-field-row.terms-achieved .stat-value { font-family: var(--mono); font-size: 20px; color: var(--green); text-align: right; }

@@ -1870,6 +1870,18 @@
       <!-- Installation -->
       <div class="deal-tab-panel hidden" id="deal-tab-install">
         <div class="form-grid">
+          <!-- Round 39: entry explains itself. Phase 0 measured this control as
+               the sharpest instance of the gap - four options, nothing on screen
+               saying what any of them does to the number, on the choice the
+               business names as driving install cost.
+
+               THE PER-OPTION NOTE IS RENDERED, NOT STATIC. It changes with the
+               selection, so it lives in opportunity-deal.js beside the branch
+               that already reads installResp. A static list of four sentences
+               would be four claims nobody re-reads when the picklist changes.
+
+               Copy written by the business. One line each, saying what the
+               choice does to the number rather than what the field is called. -->
           <div class="form-group">
             <label>Installation responsibility</label>
             <select id="deal-installResp">
@@ -1878,10 +1890,13 @@
               <option value="Terminus Contractor - Lump Sum">Terminus Contractor - Lump Sum</option>
               <option value="Terminus - Reseller Installation">Terminus - Reseller Installation</option>
             </select>
+            <p class="data-row-label" style="margin-top:6px">Who installs, and therefore whether installation cost sits in this deal at all.</p>
+            <p class="data-row-label" id="deal-installResp-note" style="margin-top:4px"></p>
           </div>
           <div class="form-group hidden" id="deal-lumpCost-group">
             <label>Lump sum contractor price (USD)</label>
             <input type="text" inputmode="numeric" id="deal-lumpCost">
+            <p class="data-row-label" style="margin-top:6px">The contractor's fixed price for the whole installation. Used only when responsibility is Terminus Contractor, Lump Sum.</p>
             <p class="data-row-label" id="deal-lump-summary" style="margin-top:8px">--</p>
           </div>
           <div class="form-group hidden" id="deal-install-seetable">
@@ -1916,8 +1931,18 @@
              than leaving the basis to be inferred. Their new-infrastructure
              figures, $1,000 and $10,000, reach no row and are unresolved. -->
         <p id="deal-install-basis" style="margin:0 0 10px;font-family:var(--mono);font-size:10.5px;color:var(--muted-2)"></p>
+        <!-- Round 39: the group note explains the one distinction a person new
+             to this cannot infer from the row labels. Written by the business.
+
+             AN ASYMMETRY IS REPORTED SEPARATELY AND NOT EXPLAINED AWAY HERE:
+             SafeSight has existing and new rows, AQ Sensor and HEMIR have only
+             existing, and the catalog nonetheless holds a new-infrastructure
+             install cost for all three. See the Phase 1 report. Whether that is
+             a domain fact or an incomplete build is the business's to say, and
+             a note asserting either would be a claim nobody has checked. -->
+        <p class="data-row-label" style="margin:0 0 10px">Existing infrastructure means mounting on poles, columns or buildings already in place. New infrastructure means we supply and erect the mount, which costs more and takes longer.</p>
         <table class="doc-table hidden" id="deal-install-table">
-          <thead><tr><th>Installation (per unit)</th><th>Units</th><th>Rate (USD, from Base Cost Data)</th><th>Cost (USD)</th><th>Margin % (blank = target)</th><th>Price (USD)</th></tr></thead>
+          <thead><tr><th>Installation (per unit)</th><th>Units</th><th>Rate (USD, from Base Cost Data)</th><th>Cost (USD)</th><th title="Margin on this product's installation line. Leave blank to price at the target margin.">Margin % (blank = target)</th><th>Price (USD)</th></tr></thead>
           <tbody>
             <tr><td>SafeSight, existing infra</td><td class="col-mono" id="deal-install-units-inSsEx">0</td><td><input type="text" inputmode="numeric" id="deal-inSsExisting" readonly></td><td class="col-mono" id="deal-install-cost-inSsEx">$0</td><td><input type="text" inputmode="numeric" id="deal-margin-inSsEx" placeholder="target"></td><td class="col-mono" id="deal-install-price-inSsEx">$0</td></tr>
             <tr><td>SafeSight, new infra</td><td class="col-mono" id="deal-install-units-inSsNew">0</td><td><input type="text" inputmode="numeric" id="deal-inSsNew" readonly></td><td class="col-mono" id="deal-install-cost-inSsNew">$0</td><td><input type="text" inputmode="numeric" id="deal-margin-inSsNew" placeholder="target"></td><td class="col-mono" id="deal-install-price-inSsNew">$0</td></tr>
@@ -1942,7 +1967,7 @@
              Terminus) - opposite party, opposite direction of money. -->
         <div id="deal-contractor-group" class="hidden" style="margin-top:24px">
           <p class="label" style="margin-bottom:4px">Contractor payment milestones</p>
-          <p class="data-row-label" style="margin-bottom:10px">What Terminus pays the contractor, and when. Max 5 milestones.</p>
+          <p class="data-row-label" style="margin-bottom:10px">When we pay the contractor. Paying earlier costs working capital. It does not change margin, it changes cash flow. Max 5 milestones.</p>
           <table class="doc-table">
             <thead><tr><th>Month</th><th>Contractor milestone</th><th>USD</th><th>% of lump sum</th></tr></thead>
             <tbody id="deal-contractor-tbody"></tbody>
@@ -1986,6 +2011,35 @@
                 <div class="pg-item-note">Replacement unit provision, applied across total units.</div>
               </div>
               <input type="text" inputmode="numeric" id="deal-warrantyPct">
+            </div>
+            <div class="terms-field-row">
+              <div>
+                <div class="pg-item-name">Contract duration (months)</div>
+                <div class="pg-item-note">The contract term. A longer term spreads fixed costs and usually lifts margin, but we carry the hosting cost for longer.</div>
+              </div>
+              <input type="text" inputmode="numeric" id="deal-duration" min="0">
+            </div>
+
+            <!-- ROUND 39 ITEM 1: THE LOCAL MARGIN FIGURE, RESTORED.
+                 Terminus Ops.dc.html line 1489 prints achieved margin inside
+                 this card, directly beneath the margin inputs. The build moved
+                 it 578px away into the strip above the sub-tabs and this is the
+                 lost specification returning, not new design.
+
+                 THE STRIP STAYS. It serves task 3 and the always-visible read,
+                 and Phase 0 measured it as reachable at minimum scroll at every
+                 viewport. This is not a replacement, it is the figure arriving
+                 where the hand already is.
+
+                 TWO RENDERINGS, ONE COMPUTATION. renderResults() writes both
+                 from the same `result.achievedMargin`; nothing here recomputes.
+                 Verification 20, and there is a test asserting the two agree. -->
+            <div class="terms-field-row terms-achieved">
+              <div>
+                <div class="pg-item-name">Achieved margin</div>
+                <div class="pg-item-note" id="deal-terms-achieved-note">against target</div>
+              </div>
+              <div class="stat-value" id="deal-terms-achieved-margin">--</div>
             </div>
           </div>
 
@@ -2101,9 +2155,11 @@
 
       <!-- Payment Terms -->
       <div class="deal-tab-panel hidden" id="deal-tab-payment">
-        <div class="form-grid">
-          <div class="form-group"><label>Contract duration (months)</label><input type="text" inputmode="numeric" id="deal-duration" min="0"></div>
-        </div>
+        <!-- Round 39 item 2: Contract duration MOVED to Structural Terms, beside
+             the margin controls. It is a commercial lever, not a payment term:
+             the business names it as the second thing they reach for when margin
+             is short, and it was living in the one section they never open.
+             Payment Terms keeps payment structure, factoring and the rest. -->
 
         <div class="payment-card">
           <div class="ring-radio-group" id="deal-structure-toggle">
@@ -2146,8 +2202,14 @@
           </div>
         </div>
 
+        <!-- Round 39: these had NO LABEL AT ALL, measured in Phase 0. The
+             contractor milestones on Installation are what Terminus PAYS; these
+             are what the customer pays Terminus. Opposite party, opposite
+             direction of money, and until now only one of the two said so. -->
         <div id="deal-hybrid-group" class="hidden" style="display:grid;grid-template-columns:minmax(365px,1fr) minmax(0,280px);gap:20px;margin-top:22px;align-items:start">
           <div style="min-width:0;overflow-x:auto">
+            <p class="label" style="margin-bottom:4px">Customer payment milestones (hardware)</p>
+            <p class="data-row-label" style="margin-bottom:10px">When the customer pays us. Later payments increase the working capital we fund.</p>
             <table class="doc-table">
               <thead><tr><th>Month</th><th>Milestone</th><th>USD</th><th>% of hardware</th></tr></thead>
               <tbody id="deal-milestones-tbody"></tbody>
@@ -2173,8 +2235,14 @@
           <label class="label" style="margin-bottom:10px;display:block">PO factoring</label>
           <button class="btn-ghost" id="deal-factoring-toggle" type="button">Factoring: Off</button>
           <div class="form-grid hidden" id="deal-factoring-fields" style="margin-top:16px">
-            <div class="form-group"><label>Rate % (monthly)</label><input type="text" inputmode="numeric" id="deal-factoring-ratePct"></div>
-            <div class="form-group"><label>Term (months)</label><input type="text" inputmode="numeric" id="deal-factoring-termMonths"></div>
+            <!-- Round 39. The rate's note is DELIBERATELY INCOMPLETE: the
+                 business gave one clause and marked the second pending, and
+                 inventing it would be exactly the kind of plausible sentence
+                 nobody can falsify. It lands when they write it. -->
+            <div class="form-group"><label>Rate % (monthly)</label><input type="text" inputmode="numeric" id="deal-factoring-ratePct">
+              <p class="data-row-label" style="margin-top:6px">The monthly cost of factoring the purchase order.</p></div>
+            <div class="form-group"><label>Term (months)</label><input type="text" inputmode="numeric" id="deal-factoring-termMonths">
+              <p class="data-row-label" style="margin-top:6px">How long the factoring runs. Rate multiplied by term is the total financing cost.</p></div>
             <div class="form-group">
               <label>Repayment method</label>
               <div class="view-toggle" id="deal-factoring-method-toggle">
