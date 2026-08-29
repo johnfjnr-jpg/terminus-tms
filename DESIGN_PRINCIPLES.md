@@ -825,6 +825,66 @@ today's existing behaviour.
 
 Explicitly deferred, not forgotten, not a section number of its own since this is a running list, not a build phase. Add to it as new deferrals come up rather than letting them live only in conversation.
 
+### The list by trigger, not by date
+
+**Added at the Round 39 close on the business's instruction: two or three work
+packages attached to business events, rather than a flat list of items nobody
+can sequence.** The items themselves stay below in the order they were raised,
+because rounds cite them. This is an index over them.
+
+**A trigger is an event somebody will notice happening.** A date is not a
+trigger, and "when we get to it" is not a trigger.
+
+---
+
+**PACKAGE A: THE FIRST REAL CUSTOMER RECORD.**
+The last moment several of these are free, and the first moment they are
+expensive. Everything here is about test machinery touching data a customer
+would recognise.
+
+- One Supabase project serves local development and the deployed app
+- Exercise every recovery path, constructing each failure deliberately
+- The deployed app and the schema can be out of step for a whole round
+
+**Already pulled forward out of this package**, on a second and unrelated
+driver: the scratch project and its throwaway test account, because the merge
+gate cannot run without a person at a keyboard. That half is not waiting for
+this trigger.
+
+---
+
+**PACKAGE B: THE SECOND PERSON WHO CAN APPROVE OR MERGE.**
+Every item here is invisible with one user and immediate with two.
+
+- An owner must not approve their own price
+- The deal moved and its owner should be told
+- The staff dropdowns constrain input but create no reference
+- Proposal issuance is not an event in this system
+
+---
+
+**PACKAGE C: CONFIGURABLE SYSTEM DEFAULTS.**
+One build, because they are the same mechanism: a value that is currently typed
+per deal or hardcoded, moved into configuration with provenance and an age.
+
+- Tax rates have neither an age nor a policy, and cost basis has both
+- Were those two numbers ever quoted (AQ and HEMIR new-infrastructure)
+- `state-dump.mjs` covers no version and no approval detail
+
+---
+
+**NOT IN A PACKAGE, and deliberately so.** These have no trigger and no
+sequence: they are single decisions the business takes when it wants to.
+
+- Track count and alignment at wide viewports
+- The Opportunity detail tab row mixes two kinds of thing
+- The model cannot express a GST-inclusive price. **This one has a trigger and
+  it is neither a date nor a package: the first contract that comes back from a
+  customer's procurement written GST-inclusive.**
+
+---
+
+
 - **TRACK COUNT AND ALIGNMENT AT WIDE VIEWPORTS. Raised 2026-08-29, Round 39.
   NOT a width cap, and the earlier framing of this item was wrong.**
 
@@ -869,6 +929,27 @@ Explicitly deferred, not forgotten, not a section number of its own since this i
   Exercising one means running it and confirming it produced the state it
   claims, not reading it. **Trigger: before the first real customer data
   exists**, which is the last moment the exercise is free.
+
+  **AND THE HARD PART IS THE SETUP, NOT THE RUN. Added 2026-08-29 by the
+  business, from the first path in this list to actually work.**
+  `refresh-session.js` succeeded only because a rotation had forced a fresh
+  sign-in and minted a live refresh token. Before that the path was reached
+  only in the failure state, and in the failure state its prerequisite was
+  already gone.
+
+  **So each item below needs a constructed failure that preserves what the
+  recovery needs**, and that construction is the work:
+
+  | path | the failure to construct | what must survive it |
+  |---|---|---|
+  | Session refresh | expire the access token | the refresh token |
+  | Fixture teardown after a killed run | kill a run mid-flight | the tag its fixtures carry |
+  | Migration rollback | apply then roll back | the ledger and the seed reconciliation |
+  | Restore a soft-deleted record | soft delete one | its revisions and approvals |
+  | Rebuild from migrations | an empty project | nothing, which is the point |
+
+  **Waiting for the real failure tests nothing**, because the real failure is
+  usually what destroyed the prerequisite.
 
 - **TAX RATES HAVE NEITHER AN AGE NOR A POLICY, AND COST BASIS HAS BOTH. Raised
   2026-08-29, Round 39. Same package as the configurable system defaults.**

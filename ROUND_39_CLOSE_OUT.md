@@ -76,3 +76,50 @@ makes it answerable.
 3. **The push is an outward-facing act**, so it does not happen until the
    Render answer exists. Not "answer the ones you can and proceed on the
    strength of them".
+
+
+---
+
+## The phase count, enumerated from sign-offs
+
+**Build-discipline rule 7, run rather than recalled.** The grep instrument was
+calibrated first: injecting `### Phase 99` into the brief moved the count from 1
+to 2 and back on removal, so the instrument works.
+
+**It returns 1 from both briefs, which is the dangerous result rule 7 names.**
+A zero is obviously broken; a plausible number is not. A round trusting it
+would have declared itself complete after Phase 0.
+
+**So the count comes from the sign-offs, and this round has an unusual shape
+that has to be recorded rather than inferred.** It ran as numbered phases to
+Phase 2 and then as business-directed items, each signed off in conversation:
+
+| # | signed off | commit |
+|---|---|---|
+| Phase 0 | the reshape opened, brief's central sentence found false | `b5fb6c4`, `2a38dee` |
+| I6 | the before-capture, taken before anything changed | `449a216` |
+| Phase 1 | local margin figure, duration moved, entry copy | `84e718c` |
+| Phase 2 | Deal Sheet sub-tab removed, reference panel refused | `541370a`, `192fd19` |
+
+Then, item by item rather than by phase number: the committed credential
+(`1c7f5bb`), entry copy as prose (`7818d73`), the accent and the summary's
+bottom line (`cd6d994`), GST measured (`d747535`), GST absence (`3075613`), the
+broken recovery path (`8447931`, `1c09b27`), the gate needing a person
+(`60760d8`), the secret scan's blind spot (`316a33d`), the prompt and two
+credential paths (`5eeb152`), the rule index and the collapse (`11a752f`,
+`ea385ee`, `3a27042`), this checklist (`e4ea9f3`), create-or-update
+(`2a23b67`), the access token (`2329725`), the card and the button (`aac9e23`),
+and duration (`3776016`).
+
+**24 commits, every one accounted for, none without a sign-off preceding it.**
+
+## `CURRENT_STATE.md` reconciled
+
+Staleness test before regenerating: the recorded SHA is an ancestor of `HEAD`,
+and no tracked configuration source changed between them. Correct for a reshape
+round, which added no migrations.
+
+Regenerated diff: **30 changed lines, every one a soft-deleted count growing**
+from the round's gate runs. **Live record counts are identical at 95**, all owned
+by the business's own account. No configuration section moved. **No change that
+a phase does not account for.**

@@ -373,6 +373,64 @@ not resolve it quietly.
 
 ## Verification
 
+### The index: when each check fires
+
+**Added at the Round 39 close, on the business's instruction. Grouping sits
+ABOVE the numbers, not instead of them, because rounds cite the numbers.**
+
+Read the group whose moment you are at. The collapse measurement that produced
+the first group is recorded in full further down, under the index task.
+
+**BEFORE WRITING** - Architecture 8, 9; Verification 20, 22, 23
+Correct for every caller that exists is not correct for the caller about to be
+built. A destructuring parameter list silently discards what it does not name.
+Read through the accessor the authoritative consumer uses. Name what reads a
+required field. Search for an existing decision about the same behaviour before
+taking a new one.
+
+**BEFORE TRUSTING A NULL OR A GREEN READING** - Verification 12, 13, 17, 25
+collapse into one:
+
+> Before trusting a null reading, make the instrument produce a non-null one on
+> the system under test, ON THE SAME POPULATION you are about to make the claim
+> about.
+
+Two that do NOT collapse into it and fire at the same moment: **Verification 14**,
+require both sides to exist before comparing them; and **Verification 18**, do not
+stop at the first fix, because a calibration that does not move the number has
+failed to run rather than passed.
+
+**BEFORE MAKING A CLAIM** - Verification 19, 24, 26. One trigger, three actions,
+and they stay three rules: enumerate every member of a category and check it
+against the name (19); write one test passing a value different from the default
+(24); treat the clause after "so" or "which means" as a separate claim (26).
+
+**BEFORE MEASURING A LAYOUT** - Verification 4, 6, 7, 10, 15, 27, 28
+Wait on real state, never a fixed delay, and state the counterfactual first.
+Three widths, before and after. Open the screenshot and confirm the element is
+in it. State the measure as something the PERSON experiences. Measure two
+changes to one surface alone AND together.
+
+**BEFORE CHANGING WHAT A MISSING VALUE DISPLAYS** - Verification 20's addendum
+Find what WRITES it and confirm the two agree. A form default, a prefill, an
+`?? 0`, a `COALESCE` and a column default are all writers.
+
+**BEFORE DELETING OR TEARING DOWN** - Build discipline 8; Verification 11
+Fix the class, not the instance the failure named: enumerate everything the
+responsible actor writes. Soft delete, enumerate from a tag in the database
+rather than a file the harness wrote, and re-query afterwards.
+
+**BEFORE SUPERSEDING A DECISION** - Verification 29, 23
+Record what each option's stated advantage DEPENDS ON. A premise that fails
+means the decision is re-taken, not re-weighed, and the superseded reasoning
+stays visible.
+
+**BEFORE AN OUTWARD-FACING ACT** - Build discipline 9, 10, 11
+Commit at every phase boundary. A control finding goes on the list unless it is
+destroying live data, and its limit: a finding your own change created is part
+of the change. An unanswerable precondition is a stop.
+
+
 1. **Layout: measure the container, not the element.** A card can report a
    healthy width inside a container that can never fit it.
 2. Assert a minimum usable width, not mere presence.
@@ -975,6 +1033,23 @@ not resolve it quietly.
     project. **Each of those currently exists as an intention.** A zero is
     evidence only once the instrument has produced a non-zero, and a recovery
     is a procedure only once it has recovered something.
+
+    **AND "RUN EACH ONE ONCE" UNDERSELLS IT. Set by the business 2026-08-29,
+    after the path above finally worked.** `refresh-session.js` succeeded for
+    the first time in its life only because a credential rotation had forced a
+    fresh sign-in, which minted a live refresh token. **Before that the path was
+    only ever reached in the failure state, and in the failure state its own
+    prerequisite was already gone.**
+
+    **That is the general reason recovery paths stay untested, and it is not
+    neglect.** Waiting for the real failure tests nothing, because the real
+    failure is usually the thing that destroyed what the recovery needs.
+
+    **So exercising a recovery path means CONSTRUCTING THE FAILURE DELIBERATELY
+    WHILE PRESERVING WHAT THE RECOVERY NEEDS.** Expire the access token but keep
+    the refresh token. Kill a run mid-flight but keep the tag its fixtures carry.
+    Drop a table on a copy, not on the one holding the migration ledger. The
+    construction is the work; running the script afterwards is the easy part.
 
 26. **A STRUCTURAL FACT STATED AS A BEHAVIOURAL CLAIM.** Round 39 Phase 0,
     2026-08-29. The brief for a whole round rested on one sentence, and half
