@@ -397,6 +397,51 @@ export function buildExposures(payload, result) {
 // ─────────────────────────────────────────────────────────────
 
 /**
+ * HOW OLD A COST BASIS MAY BE BEFORE IT IS A RISK BEING ACCEPTED.
+ *
+ * Set by the business 2026-08-29. `base_cost_batches` carries effective_from and
+ * NO end date, so a batch never lapses and cost data ages indefinitely while the
+ * system treats that as normal. Showing the date, which block 4 already did, is
+ * necessary and not sufficient: an approver signing 36 months against a basis
+ * nobody has revisited since last year is taking that risk silently.
+ *
+ * NO EVIDENCE WAS AVAILABLE TO ARGUE WITH, AND THAT IS STATED RATHER THAN
+ * DRESSED UP. The catalog holds exactly one batch per product, all dated
+ * 2026-08-27, so there is no price history in this system to measure how fast
+ * hardware or hosting costs actually move. These thresholds are the business's
+ * judgement, recorded as theirs, and the first real batch turnover is the moment
+ * to check them against something.
+ *
+ * THEY BELONG IN CONFIGURATION, not here. Architecture rule 2: approval routing
+ * and gate rules are database rows. There is no configuration surface for
+ * Commercials yet, so this is the interim single point, dated like
+ * NUMERIC_DEFAULTS and locked by a golden test so changing a threshold without
+ * moving its date fails.
+ */
+export const COST_BASIS_STALENESS = {
+  setOn: '2026-08-29',
+  bands: [
+    { band: 'current', maxDays: 182, meaning: 'Under six months. Normal.' },
+    {
+      band: 'ageing',
+      maxDays: 365,
+      meaning: 'Six to twelve months. Shown as an assumption being accepted.',
+    },
+    {
+      band: 'stale',
+      maxDays: Infinity,
+      meaning: 'Over twelve months. Approval requires explicit acknowledgement that the basis is stale.',
+    },
+  ],
+};
+
+/** Which band an age in days falls in. Null age is its own answer, not a band. */
+export function stalenessBand(ageDays) {
+  if (!Number.isFinite(ageDays)) return { band: 'undated', meaning: 'This batch carries no effective date.' };
+  return COST_BASIS_STALENESS.bands.find((b) => ageDays <= b.maxDays);
+}
+
+/**
  * @param {object} batches - catalogToRates().batches, product -> { batch_label, effective_from }
  * @param {string[]} missing - products with no batch at all
  * @param {string} asOfISO - the date the catalog was resolved for
@@ -406,7 +451,11 @@ export function buildCostBasis(batches, missing, asOfISO, payload = {}) {
   const products = Object.entries(batches ?? {}).map(([product, b]) => {
     const from = b.effective_from ? new Date(`${String(b.effective_from).slice(0, 10)}T00:00:00Z`) : null;
     const ageDays = from ? Math.round((asOf - from) / 86400000) : null;
-    return { product, batchLabel: b.batch_label ?? null, effectiveFrom: b.effective_from ?? null, ageDays };
+    const { band, meaning } = stalenessBand(ageDays);
+    return {
+      product, batchLabel: b.batch_label ?? null, effectiveFrom: b.effective_from ?? null,
+      ageDays, band, bandMeaning: meaning,
+    };
   }).sort((a, b) => (b.ageDays ?? -1) - (a.ageDays ?? -1));
 
   // ── A PRODUCT WITH NO CURRENT COST BASIS ──────────────────────────────
@@ -432,9 +481,29 @@ export function buildCostBasis(batches, missing, asOfISO, payload = {}) {
     .map((product) => ({ product, units: PRODUCT_UNITS[product] ? PRODUCT_UNITS[product](payload) : null }))
     .filter((m) => m.units === null || m.units > 0);
 
+  const stale = products.filter((p) => p.band === 'stale');
+  const ageing = products.filter((p) => p.band === 'ageing');
+
   return {
     asOf: asOfISO,
+    // WHAT as_of MEANS, stated rather than inherited. GET /api/base-costs takes
+    // an as_of query parameter and DEFAULTS TO TODAY, and measured across the
+    // whole repository nothing passes it: not the Commercials tab, not the
+    // submit route, not this page. So in every path that exists, a live deal
+    // sheet and this page price at TODAY'S catalog, and the parameter is a
+    // read-only lever for asking the catalog a historical question, settable
+    // only by hand against the API.
+    //
+    // This is NOT deal-start-date pricing and does not become it by accident: a
+    // deal starting in six months still prices at today's costs, and the date
+    // the costs came from is printed here so an approver can see which day they
+    // are signing against.
+    asOfRule: 'Costs resolved as at this date. It defaults to today and nothing in the '
+      + 'application sets it to anything else.',
     products,
+    stale,
+    ageing,
+    staleness: COST_BASIS_STALENESS,
     // The oldest is the one that dates the whole quote: a deal is only as
     // current as its stalest input.
     oldest: products[0] ?? null,
@@ -633,6 +702,23 @@ export function buildApprovalPage({
     // Raised to block 1 because it changes what the headline margin MEANS. An
     // approver reading 17.5% on a deal containing a product with no cost basis
     // is reading a number inflated by a cost nobody has entered.
+    // OVER TWELVE MONTHS IS NOT A FOOTNOTE. The business's rule is that approval
+    // then requires explicit acknowledgement that the basis is stale, so it is
+    // stated where the margin is rather than in block 4.
+    //
+    // The acknowledgement itself cannot be built here: there is no approve
+    // control on this page, and gating an approval needs one. Recorded as the
+    // requirement it is, and the control is the phase that adds approving.
+    staleBasisWarning: costBasis.stale.length
+      ? `The cost basis for ${costBasis.stale.map((p) => p.product).join(' and ')} is over twelve months old `
+        + `(${costBasis.stale.map((p) => `${p.product} ${p.ageDays} days`).join(', ')}). `
+        + 'Approving this deal accepts prices nobody has revisited in that time. '
+        + 'It requires explicit acknowledgement that the basis is stale.'
+      : null,
+    ageingBasisNote: costBasis.ageing.length
+      ? `The cost basis for ${costBasis.ageing.map((p) => p.product).join(' and ')} is between six and `
+        + 'twelve months old. That is an assumption being accepted, not a current price.'
+      : null,
     unpricedWarning: costBasis.unpricedInUse.length
       ? `This deal contains ${costBasis.unpricedInUse.map((m) => `${m.units} ${m.product}`).join(' and ')} `
         + 'with no current Base Cost batch. Those units price at ZERO cost, so the margin above is '

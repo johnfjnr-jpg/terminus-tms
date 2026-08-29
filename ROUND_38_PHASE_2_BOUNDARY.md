@@ -167,40 +167,58 @@ units and watching the number move. Nobody opens the approval page mid-entry,
 and it would be wrong if they did - it deliberately shows what DID happen, under
 the opposite convention to an input screen.
 
-### One of the four items has changed, and it is item 2
+### Item 2: DECIDED 2026-08-29. Three cards go, one becomes a reference panel.
 
-**Item 2 was "report what each Deal Sheet card still earns."** That question was
-asked when those four cards - Margins, Base cost data per unit, Terms, Units
-required (`opportunity-deal.js:389-419`) - were the ONLY consolidated view of a
-deal. Their job was "check what you are about to freeze before you take a
-version".
+The four cards were Margins, Base cost data per unit, Terms and Units required
+(`opportunity-deal.js:389-419`). They were the only consolidated view of a deal
+when they were built, and their job was "check what you are about to freeze".
+**That job is the approval page's now**, and it does it better on all four:
+margins as lines below target with the gap, base cost data with its age and a
+warning when a product has none, terms as dollar exposures rather than
+percentages, units in the ask.
 
-**That job now belongs to the approval page**, which does it better on all four:
-margins appear as lines below target with the gap, base cost data appears with
-its age and a warning when a product has none, terms appear as dollar exposures
-rather than percentages, and units appear in the ask.
+**Margins, Terms and Units required are removed.** They restate values visible on
+the same screen, and the reshape puts the computed answer live beneath the form.
 
-So the question is not "what does each card earn" any more. It is narrower and
-easier: **what does each card earn DURING ENTRY**, when the answer is already
-live beneath the form. On a first read, three of the four restate values visible
-on the same screen; "Base cost data, per unit" is the one showing something a
-salesperson genuinely cannot otherwise see, because the catalog rates are
-read-only and not on the input surface at all. **That is a report, not a
-decision, and the decision is the business's.**
+**Base cost data, per unit stays, and stops being a card that summarises the
+deal.** It is the only place a salesperson sees the rates they are pricing
+against, because those rates are read-only, written from the catalog at save and
+absent from the input surface entirely.
 
-### Item 3 has also changed, in both halves
+It becomes a **reference panel**:
 
-- **"A reason is required on a first version, where there is nothing to
-  explain."** The reason now has a job it did not have when that was written: it
-  is the ONLY prose anywhere explaining a re-price, and the approval page renders
-  it beside the bridge that shows what moved. On a first version, block 2 says
-  "First approval. No prior approved version" and the reason says why this
-  pricing. **The finding is arguably answered rather than open**, and the
-  business should be asked whether it still wants it raised.
-- **"Restore overwrites current pricing with no undo."** Still true, and **no
-  longer silent**: restore writes a revision, any revision after an approval
-  supersedes it, and the version list now says so in a sentence. The data loss
-  is unchanged; the invisibility is not.
+- visible DURING entry, not a block of restated numbers below the form
+- carrying each rate's batch label and effective date, because a rate without its
+  date is the thing the staleness policy exists to stop being invisible
+- read-only and clearly so, since nothing on it is editable and it must not read
+  as a set of inputs somebody forgot to fill
+
+**It lands with the reshape**, not before: the panel needs the reshaped entry
+surface to sit beside, and removing three cards from a tab that is about to be
+rebuilt is churn.
+
+### Item 3: HALF CLOSED 2026-08-29
+
+**The reason is answered, with one change.** It has a reader - the approval page
+renders it as prose beside the bridge - and that is what justifies requiring it.
+But a required field decays into boilerplate the moment it has nothing to say,
+so **the prompt changes by context**: a first version asks what the price is
+based on, a subsequent one asks what changed and why. Same field, two questions,
+because they are two questions. Built, and written up as `CLAUDE.md`
+Verification 22.
+
+**Restore is nearly closed, and the residual is measured rather than assumed.**
+It does not refuse; it WARNS, through the same discard dialogue the assessment
+panel uses, and only when the form is dirty. What was worth checking is what the
+check read: a cached boolean that `updateDirtyState()` kept in step with the real
+comparison, which is Verification 20 in miniature. It now asks
+`dealDirtyKeys()` directly, and three wiring tests lock warn-when-dirty,
+do-not-ask-when-clean, and stop-asking-when-edited-back.
+
+The data loss on restore is unchanged and is accepted: it is what makes restore
+useful during a negotiation, it now supersedes any approval visibly, and forcing
+a save first would write a revision nobody asked for at the moment they are
+trying to go back.
 
 ### Items 1 and 4 are unchanged
 

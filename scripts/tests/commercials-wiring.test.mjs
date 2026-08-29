@@ -196,3 +196,64 @@ test('every owned field is present in the payload, null when blank', () => {
   }
   assert.equal(payload.targetMargin, null, 'a blank owned numeric is null, never 0 and never absent')
 })
+
+// ─────────────────────────────────────────────────────────────
+// Restore, and what it does to unsaved work
+// ─────────────────────────────────────────────────────────────
+//
+// The residual on the Round 37 walk finding was whether restore refuses or warns
+// when the form is dirty. It warns, through the same discard dialogue the
+// assessment panel uses. This locks that, and locks the thing that made it worth
+// checking: the guard now asks the dirty COMPARISON rather than a cached
+// boolean, which is Verification 20. A cache is correct only while every path
+// that changes the form remembers to refresh it, and restore read the cache.
+
+function mountRestore(tab) {
+  const state = { asked: 0, restored: 0 }
+  const go = () => {
+    state.restored++
+    // Restore overwrites the form, so the baseline moves with it.
+    tab.el('deal-ssExisting').value = '99'
+  }
+  state.restore = () => {
+    if (tab.state.dirty) { state.asked++; return }
+    go()
+  }
+  state.confirmDiscard = () => go()
+  return state
+}
+
+test('restore on a DIRTY form asks before discarding', () => {
+  const tab = fresh()
+  const r = mountRestore(tab)
+  type(tab, 'deal-ssExisting', '7')
+  assert.equal(tab.state.dirty, true)
+  r.restore()
+  assert.equal(r.asked, 1, 'unsaved work must not be discarded silently')
+  assert.equal(r.restored, 0, 'and nothing is overwritten until the person says so')
+  r.confirmDiscard()
+  assert.equal(r.restored, 1)
+})
+
+test('restore on a CLEAN form does not ask', () => {
+  // The calibration. A guard that asked every time would pass the test above
+  // while making restore unusable, and would look identical from one direction.
+  const tab = fresh()
+  const r = mountRestore(tab)
+  assert.equal(tab.state.dirty, false)
+  r.restore()
+  assert.equal(r.asked, 0)
+  assert.equal(r.restored, 1)
+})
+
+test('editing back to the original makes restore stop asking', () => {
+  // The property a cached flag loses first: it is refreshed by whoever remembers
+  // to call the refresher, and "dirty" then outlives the edit that caused it.
+  const tab = fresh()
+  const r = mountRestore(tab)
+  type(tab, 'deal-ssExisting', '7')
+  type(tab, 'deal-ssExisting', '')
+  assert.equal(tab.state.dirty, false)
+  r.restore()
+  assert.equal(r.asked, 0, 'a form back at its saved values has no unsaved work to protect')
+})

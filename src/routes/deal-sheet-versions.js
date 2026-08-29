@@ -233,7 +233,12 @@ export default async function dealSheetVersionsRoutes(app) {
     // is what makes it true; this is what makes it a sentence the user reads
     // rather than a constraint-violation string.
     if (typeof reason !== 'string' || !reason.trim()) {
-      return reply.code(400).send({ error: 'A reason is required: what changed in this version, and why.' })
+      // NEUTRAL HERE, SPECIFIC ON THE SCREEN. The client asks a different
+      // question on a first version than on a later one (src/lib/version-reason.js)
+      // and refuses with the matching sentence before any request is made. This
+      // is the fallback for a caller that is not that screen, and it must not
+      // assert "what changed" at somebody pricing a deal for the first time.
+      return reply.code(400).send({ error: 'A reason is required for every version.' })
     }
     if (!inputs || typeof inputs !== 'object') {
       return reply.code(400).send({ error: 'inputs is required' })

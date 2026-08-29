@@ -3,9 +3,11 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import {
   buildApprovalPage, buildBridge, buildExposures, buildTarget, buildCostBasis,
-  buildNotRecorded, pricedKeys, checkReconciliation, BRIDGE_STEPS, bridgeKeys,
+  buildNotRecorded, pricedKeys, checkReconciliation, stalenessBand, COST_BASIS_STALENESS,
+  BRIDGE_STEPS, bridgeKeys,
 } from '../../src/lib/approval-page.js'
 import { buildDealInputs, isSet, RAW_READERS, PRODUCT_UNITS } from '../../src/lib/deal-inputs.js'
 import { calculateDeal } from '../../src/lib/deal-calculator.js'
@@ -596,4 +598,80 @@ test('nothing missing produces no warning at all', () => {
   const page = buildApprovalPage({ payload: NOW, testBedCost: 25000, version: VERSION, catalog: CATALOG })
   assert.equal(page.ask.unpricedWarning, null)
   assert.deepEqual(page.costBasis.missingDetail, [])
+})
+
+// ─────────────────────────────────────────────────────────────
+// Cost basis staleness, and what as_of means
+// ─────────────────────────────────────────────────────────────
+
+test('the staleness bands are the ones the business set', () => {
+  // A threshold is a policy claim with a shelf life. The golden records every
+  // (band, maxDays) with the date they were set, so moving one without moving
+  // the date fails here rather than drifting silently.
+  const golden = JSON.parse(readFileSync(
+    new URL('./fixtures/staleness-golden.json', import.meta.url), 'utf8'))
+  assert.equal(COST_BASIS_STALENESS.setOn, golden.setOn)
+  assert.deepEqual(
+    COST_BASIS_STALENESS.bands.map((b) => ({ band: b.band, maxDays: b.maxDays === Infinity ? 'Infinity' : b.maxDays })),
+    golden.bands)
+})
+
+test('under six months is current, six to twelve ageing, over twelve stale', () => {
+  assert.equal(stalenessBand(0).band, 'current')
+  assert.equal(stalenessBand(182).band, 'current')
+  assert.equal(stalenessBand(183).band, 'ageing')
+  assert.equal(stalenessBand(365).band, 'ageing')
+  assert.equal(stalenessBand(366).band, 'stale')
+  assert.equal(stalenessBand(5000).band, 'stale')
+})
+
+test('an undated batch is its own answer, not quietly current', () => {
+  // The zero-versus-missing shape again. A batch with no effective date must not
+  // fall into the band that needs no action.
+  assert.equal(stalenessBand(null).band, 'undated')
+  assert.equal(stalenessBand(undefined).band, 'undated')
+})
+
+test('a stale basis is raised to the ask with the acknowledgement requirement', () => {
+  const page = buildApprovalPage({
+    payload: NOW, testBedCost: 25000, version: VERSION,
+    catalog: {
+      batches: { safesight: { batch_label: 'Old', effective_from: '2025-01-01' } },
+      missing: [], asOf: '2026-08-29',
+    },
+  })
+  assert.match(page.ask.staleBasisWarning, /over twelve months old/)
+  assert.match(page.ask.staleBasisWarning, /explicit acknowledgement/)
+  assert.equal(page.costBasis.stale.length, 1)
+})
+
+test('an ageing basis is noted, and does not claim to need acknowledgement', () => {
+  // The discriminating half. If both bands produced the same sentence, the
+  // three-band policy would be two bands wearing three names.
+  const page = buildApprovalPage({
+    payload: NOW, testBedCost: 25000, version: VERSION,
+    catalog: {
+      batches: { safesight: { batch_label: 'Q1', effective_from: '2026-02-01' } },
+      missing: [], asOf: '2026-08-29',
+    },
+  })
+  assert.equal(page.ask.staleBasisWarning, null)
+  assert.match(page.ask.ageingBasisNote, /between six and/)
+  assert.match(page.ask.ageingBasisNote, /assumption being accepted/)
+})
+
+test('a current basis raises nothing at all', () => {
+  const page = buildApprovalPage({ payload: NOW, testBedCost: 25000, version: VERSION, catalog: CATALOG })
+  assert.equal(page.ask.staleBasisWarning, null)
+  assert.equal(page.ask.ageingBasisNote, null)
+})
+
+test('as_of has a stated rule and it is on the page', () => {
+  // It is a parameter nobody was setting and nobody had written down. Measured
+  // across the repository: GET /api/base-costs defaults it to today and no
+  // caller passes it, so every path prices at today's catalog.
+  const page = buildApprovalPage({ payload: NOW, testBedCost: 25000, version: VERSION, catalog: CATALOG })
+  assert.match(page.costBasis.asOfRule, /defaults to today/)
+  assert.match(page.costBasis.asOfRule, /nothing in the application sets it/)
+  assert.equal(page.costBasis.asOf, CATALOG.asOf)
 })

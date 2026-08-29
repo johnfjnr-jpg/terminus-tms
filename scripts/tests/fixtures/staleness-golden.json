@@ -1,0 +1,17 @@
+{
+  "setOn": "2026-08-29",
+  "bands": [
+    {
+      "band": "current",
+      "maxDays": 182
+    },
+    {
+      "band": "ageing",
+      "maxDays": 365
+    },
+    {
+      "band": "stale",
+      "maxDays": "Infinity"
+    }
+  ]
+}

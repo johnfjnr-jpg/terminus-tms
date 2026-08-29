@@ -711,6 +711,38 @@ not resolve it quietly.
     is not evidence. This is the case where the invariant is arithmetic that
     was constructed to hold.
 
+22. **A REQUIRED FIELD WITH NO READER BECOMES CEREMONY.** Round 38,
+    2026-08-29, on the Deal Sheet version reason.
+
+    The reason was required at three layers - a `not null` with a length
+    check, a route returning 400, and a client refusal that focuses the box -
+    and read in exactly ONE place: a caption under a row in a list. Nothing in
+    `approvals` read it. Nothing else read it at all.
+
+    **That is not a harmless imbalance. A field that must be filled and is
+    never read teaches the person filling it that the content does not
+    matter**, and the content is what the requirement was for. Somebody types
+    "initial pricing" on the first version and "update" on the tenth, and the
+    field goes on passing every check it has.
+
+    **Two halves, and both are needed.** Giving it a reader is what makes the
+    requirement honest: the approval page now renders the reason as prose
+    beside the bridge showing what moved, so a reason that disagrees with the
+    figures is visible to the person signing. And the PROMPT CHANGES BY
+    CONTEXT, because a question with one answer gets a rote answer: a first
+    version asks what the price is based on, a subsequent one asks what
+    changed and why. Same field, two questions, because they are two
+    questions.
+
+    **The check: for every required field, name what reads it.** If the
+    answer is a list view or nothing, either give it a reader or stop
+    requiring it. And where the same field is required in genuinely different
+    situations, ask the question that situation actually poses.
+
+    Related to Architecture rule 9's fourth variant from the other side: that
+    one is a message that stopped being true, this is a field that never had
+    to be.
+
 ---
 
 ## `CURRENT_STATE.md`

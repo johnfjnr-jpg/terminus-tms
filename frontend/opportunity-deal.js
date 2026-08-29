@@ -25,6 +25,7 @@ import { changedKeys } from '/lib/payload-diff.js'
 // approval page. It reads catalog rates as ordinary payload keys, which is
 // exactly what readPayload() puts there.
 import { buildDealInputs } from '/lib/deal-inputs.js'
+import { reasonPromptFor } from '/lib/version-reason.js'
 
 let opportunityId = null
 let wired = false
@@ -40,7 +41,6 @@ let wired = false
 // tab had actually changed, confirmed by direct inspection, not
 // scoped to one specific field's own freshness-check needs, not a
 // general "has this tab changed" signal.
-let dealFormDirty = false
 // Milestone 5: opportunity_details.test_bed_cost, not part of
 // record_revisions.payload - set once at conversion, read-only here,
 // carried into buildDealInputs() so live preview matches the server's
@@ -457,6 +457,9 @@ async function loadVersions() {
   const r = await window.api('GET', `/api/opportunities/${opportunityId}/deal-sheet-versions`)
   dealVersions = r.ok && Array.isArray(r.data) ? r.data : []
   renderVersionList()
+  // The prompt depends on whether any version exists, so it is set from the
+  // same load that answers that, not guessed at wiring time.
+  applyReasonPrompt()
 }
 
 function renderVersionList() {
@@ -539,6 +542,33 @@ function versionApprovalLine(v) {
   }
 }
 
+// ── THE REASON ASKS A DIFFERENT QUESTION ON A FIRST VERSION ──────────────
+//
+// CLAUDE.md Verification 22. The reason is required and now has a reader: the
+// approval page renders it as prose beside the bridge showing what moved. That
+// is what makes requiring it honest.
+//
+// It is still one field asking one question, and on a first version that
+// question has no answer. "What changed, and why" against a deal that has never
+// been priced invites "initial pricing", and somebody who types that on V0.1
+// types "update" on V0.10. A required field decays into ceremony the moment it
+// has nothing to say.
+//
+// So the prompt changes by context. A first version asks what the price is
+// BASED ON, which is a real question with a real answer an approver needs; every
+// later one asks what changed and why, which is what block 2 is measuring.
+function reasonPrompt() {
+  return reasonPromptFor(dealVersions.length)
+}
+
+function applyReasonPrompt() {
+  const prompt = reasonPrompt()
+  const label = document.querySelector('label[for="deal-version-reason"]')
+  const box = document.getElementById('deal-version-reason')
+  if (label) label.textContent = prompt.label
+  if (box) box.placeholder = prompt.placeholder
+}
+
 function versionFeedback(msg, ok) {
   const el = document.getElementById('deal-version-feedback')
   if (!el) return
@@ -554,7 +584,7 @@ async function saveVersion() {
   // The schema's NOT NULL and length CHECK are what make it true; this is what
   // makes it readable.
   if (!reason) {
-    versionFeedback('A reason is required: what changed in this version, and why.', false)
+    versionFeedback(reasonPrompt().refusal, false)
     reasonEl?.focus()
     return false
   }
@@ -582,7 +612,7 @@ async function saveVersion() {
   // and writing one anyway would put an empty revision in the history every
   // time somebody versioned twice.
   let alsoSaved = false
-  if (dealFormDirty) {
+  if (isDealFormDirty()) {
     const saved = await saveDeal()
     if (!saved) {
       // saveDeal() has already written its own reason into #deal-feedback, which
@@ -673,7 +703,10 @@ async function restoreVersion(versionId) {
     versionFeedback(`Restored ${r.data.label}. Nothing is saved until you press Save Changes.`, true)
   }
 
-  if (dealFormDirty) {
+  // MEASURED, NOT ASSUMED, because the residual on restore was whether it warns
+  // at all: it does, through the same discard dialogue the assessment panel
+  // uses, and it now asks the comparison rather than a cached flag.
+  if (isDealFormDirty()) {
     window.openDiscardConfirm(go)
     return
   }
@@ -1358,11 +1391,10 @@ function updateFactoringButtons() {
   })
 }
 
-// Round 3 Phase 4 (2026-08-17): see the dealFormDirty declaration above
 // ── DIRTY BY COMPARISON, NOT BY EVENT. Round 38. ─────────────────────────
 //
-// dealFormDirty used to be set by an 'input'/'change' listener on the whole
-// panel, which gave it two properties that were defects rather than details:
+// A boolean `dealFormDirty` used to be set by an 'input'/'change' listener on
+// the whole panel, which gave it two properties that were defects rather than details:
 // every control inside the panel marked the tab dirty whether or not it changed
 // the deal, and each exception needed its own guard PER EVENT TYPE. The version
 // reason box needed such a guard, the guard covered 'input' and not 'change',
@@ -1391,10 +1423,18 @@ function dealDirtyKeys() {
   return changedKeys(pickSalespersonWritable(readPayload()), lastSavedPayload)
 }
 
+// Round 38, Verification 20: `dealFormDirty` was a cached boolean that
+// updateDirtyState() kept in step with dealDirtyKeys(). It was correct today and
+// it was a second reader of the same value, and the two can only agree for as
+// long as every path that changes the form remembers to refresh the cache.
+// Restore read the cache. Everything now asks the comparison.
+function isDealFormDirty() {
+  return dealDirtyKeys().length > 0
+}
+
 function updateDirtyState() {
-  dealFormDirty = dealDirtyKeys().length > 0
   const btn = document.getElementById('btn-save-deal')
-  if (btn) btn.disabled = !dealFormDirty
+  if (btn) btn.disabled = !isDealFormDirty()
 }
 
 // ── Wiring (once per page load) ───────────────────────────────────────────

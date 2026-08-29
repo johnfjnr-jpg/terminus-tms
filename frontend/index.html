@@ -2075,6 +2075,9 @@
           <p class="pg-card-title">Versions</p>
           <div id="deal-version-list"></div>
           <div style="margin-top:12px">
+            <!-- Set by applyReasonPrompt() from src/lib/version-reason.js: a first version
+                 asks what the price is based on, a later one asks what changed. This is the
+                 pre-load text and is replaced as soon as the version list is known. -->
             <label class="label" for="deal-version-reason" style="margin-bottom:6px">Reason for this version</label>
             <textarea id="deal-version-reason" rows="3" placeholder="What changed, and why."></textarea>
             <p class="msg-error hidden" id="deal-version-feedback" style="margin-top:8px"></p>

@@ -170,10 +170,12 @@ function renderExposures(page) {
 function renderCostBasis(page) {
   const c = page.costBasis
   document.getElementById('appr-costbasis').innerHTML = `
-    <p class="pg-item-note" style="margin-bottom:10px">Resolved as at ${esc(c.asOf)}.
+    <p class="pg-item-note" style="margin-bottom:10px">Resolved as at ${esc(c.asOf)}. ${esc(c.asOfRule)}
       A deal is only as current as its stalest input, so the oldest is first.</p>
-    ${c.products.map((p) => row(esc(productLabel(p.product)), `${p.ageDays == null ? 'undated' : `${p.ageDays} days old`}`,
-      `${esc(p.batchLabel ?? 'unlabelled batch')}, effective ${esc(String(p.effectiveFrom ?? '').slice(0, 10) || 'unknown')}`)).join('')}
+    ${c.products.map((p) => row(
+      `${esc(productLabel(p.product))}${p.band === 'stale' ? ' <span class="tag">stale</span>' : p.band === 'ageing' ? ' <span class="tag">ageing</span>' : ''}`,
+      `${p.ageDays == null ? 'undated' : `${p.ageDays} days old`}`,
+      `${esc(p.batchLabel ?? 'unlabelled batch')}, effective ${esc(String(p.effectiveFrom ?? '').slice(0, 10) || 'unknown')}. ${esc(p.bandMeaning ?? '')}`)).join('')}
     ${c.missingDetail.length
       ? c.missingDetail.map((m) => `<p class="${m.inUse ? 'msg-error' : 'pg-item-note'}">
           No current Base Cost batch for ${esc(productLabel(m.product))}.
