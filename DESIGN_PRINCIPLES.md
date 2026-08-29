@@ -991,6 +991,36 @@ prerequisite, not because it is the next task.
 - **A host.** There is none. Render was planned and never set up.
 - **A deploy pipeline**, so that what is running is a known commit rather than
   whatever a laptop last had open.
+- **THE MIGRATION LEDGER NEEDS TWO HALVES, NOT ONE. Raised 2026-08-29 by the
+  business, Round 40 Phase 1b, when a migration was applied by hand through the
+  dashboard.**
+
+  **FORWARD: `CURRENT_STATE.md` reports APPLIED versus PRESENT.** It reports
+  present alone today. `parseMigrations()` is a `readdirSync` of
+  `supabase/migrations/`, so "97 files in supabase/migrations/" is a directory
+  listing wearing a ledger's name, and it says nothing about what the database
+  has run. That needs the ledger reachable:
+  `supabase_migrations.schema_migrations` is not in `public`, so PostgREST does
+  not expose it and nothing in this project has ever read it.
+
+  **AND ONCE, WHEN THE LEDGER FIRST BECOMES REACHABLE: RECONCILE THE
+  NINETY-SEVEN.** The business's addition, and it is the half that would
+  otherwise be missed. **Every migration to date was applied by hand and nothing
+  has ever compared the directory to the database.** A session that wrote a
+  migration and did not apply it, or an apply that failed quietly, is invisible
+  today, and **the forward guard tells you nothing about that**: it starts
+  measuring from the day it is built.
+
+  **THIS EXACT DRIFT IS RECORDED AS HAVING HAPPENED**, in this file, and it was
+  found by accident. Round 9 Phase 2 discovered two Round 7 migrations applied to
+  the database but absent from the ledger, so a `db push` re-ran both; no damage
+  only because both were written idempotently. The ledger and directory were
+  reconciled to 37 entries then. **There are 97 files now and sixty of them have
+  never been compared to anything.**
+
+  Trigger: whichever comes first, the deploy pipeline or somebody making the
+  ledger readable. The reconciliation is a one-off and is not the forward guard.
+
 - **Migrations applied as PART of the deploy rather than ahead of it.** This is
   the surviving half of the app-and-schema item below, which was itself
   falsified for the same reason: there was no deployed app.
