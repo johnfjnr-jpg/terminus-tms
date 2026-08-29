@@ -60,6 +60,13 @@ fails.
 **Paste the summary block into the merge.** It names the commit it ran at, so a
 gate run against a different tree is visible rather than assumed.
 
+**On a fast-forward there is no merge commit to paste into**, learned the first
+time this gate ran against a real merge. Put the summary in an ANNOTATED TAG on
+the merged commit instead: `git tag -a <name> -F -`. The tag is durable, it is in
+the repository, and it marks the boundary as well as carrying the evidence. A
+`--no-ff` merge purely to create somewhere to write would make the history worse
+to buy nothing.
+
 ```
 MERGE GATE  round-38-commercials-reshape  <commit>
   PASS  pure suite                    exit 0
