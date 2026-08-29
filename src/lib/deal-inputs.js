@@ -130,6 +130,31 @@ export function isSet(payload, key) {
 // the calculator's own reader. An explicit 0 is a recorded decision, a
 // zero-rated supply, and reads as "GST at 0%" - only a missing value reads as
 // not recorded.
+// ── WHERE A ZERO IS NOT A VALUE A PERSON WOULD DELIBERATELY ENTER ─────────
+//
+// Set by the business, Round 39, correcting my own split. I had bucketed these
+// as RATES versus COUNTS, which put `duration` on the wrong side: it is a count,
+// so it stayed with the unit counts and kept its prefilled zero.
+//
+// The real test is not what kind of number it is. It is whether a person would
+// ever mean zero:
+//
+//   zero AQ sensors is a deal          -> a zero is a value, prefill it
+//   zero SafeSight units is a deal     -> a zero is a value, prefill it
+//   ZERO CONTRACT MONTHS IS NOT A DEAL -> a zero is an unset field
+//
+// And duration is worse than a display fault, because hosting revenue over a
+// zero term is zero, so a prefilled 0 does not only erase the absence, it
+// prices the deal.
+//
+// Membership is by that question, so adding a key here is answering it rather
+// than matching a type. The test in commercials-wiring reads THIS list, not a
+// second one written beside it.
+export const ZERO_IS_NOT_A_VALUE = [
+  'targetMargin', 'warrantyPct', 'whtPct', 'gstPct', 'fxContingency', 'factoringRatePct',
+  'duration',
+];
+
 // ONE DECISION FOR EVERY RATE, and the wording per rate on top of it.
 //
 // Round 39 shipped this for GST alone, and the business's own reading of the
@@ -160,6 +185,20 @@ export function gstPresentation(payload) {
     ...r,
     rowLabel: r.recorded ? `GST at ${r.pct}%, added to the invoice` : 'GST, not recorded',
     priceLabel: r.recorded ? 'Price to customer, contract price plus GST' : 'Price to customer, excludes GST',
+  };
+}
+
+// Duration is not a rate and gets no percentage, but it takes the same
+// recorded-or-not decision: the hosting lines say what term they cover, and
+// with no term recorded they say that rather than naming a zero-month contract.
+export function durationPresentation(payload) {
+  const r = ratePresentation(payload, 'duration');
+  const months = r.recorded ? r.pct : null;
+  return {
+    ...r,
+    months,
+    priceLabel: r.recorded ? `Hosting price over ${months} months` : 'Hosting price, contract duration not recorded',
+    costLabel: r.recorded ? `Hosting cost over ${months} months` : 'Hosting cost, contract duration not recorded',
   };
 }
 

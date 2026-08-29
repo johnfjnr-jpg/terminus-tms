@@ -25,7 +25,7 @@ import { changedKeys } from '/lib/payload-diff.js'
 // Round 38: the ONE translation, shared with the submit route and the
 // approval page. It reads catalog rates as ordinary payload keys, which is
 // exactly what readPayload() puts there.
-import { buildDealInputs, gstPresentation, whtPresentation } from '/lib/deal-inputs.js'
+import { buildDealInputs, gstPresentation, whtPresentation, durationPresentation } from '/lib/deal-inputs.js'
 import { reasonPromptFor } from '/lib/version-reason.js'
 
 let opportunityId = null
@@ -796,7 +796,8 @@ function renderDealMatrix(result, payload) {
 // running totals). `rollup.rows` in the prototype is dead code (never
 // rendered by its own template), so it isn't reproduced here.
 function renderDealSheet(result, payload) {
-  const months = payload.duration || 0
+  const dur = durationPresentation(payload)
+  const months = dur.months ?? 0
   const { hardwareGroup, installGroup, hostingGroup } = result.groups
   const hostingTermCost = hostingGroup.rawTotalCost * months
   const grossUp = uiState.grossUp
@@ -809,11 +810,13 @@ function renderDealSheet(result, payload) {
 
   const rows = [
     { label: 'One-off price, hardware, warranty and installation', value: `$${money(oneOffPrice)}`, color: 'var(--muted)' },
-    { label: months ? `Hosting price over ${months} months` : 'Hosting price over contract', value: months ? `$${money(hostingTermPrice)}` : '-', color: 'var(--muted)' },
+    // "over contract" read as a term nobody needed to state. With no duration
+    // recorded, hosting revenue is zero and the row said so confidently.
+    { label: dur.priceLabel, value: dur.recorded ? `$${money(hostingTermPrice)}` : dur.value, color: 'var(--muted)' },
     { label: 'Revenue, contract value net', value: `$${money(contractNet)}`, color: 'var(--green)' },
     { label: 'Hardware and warranty cost', value: `- $${money(hardwareGroup.rawTotalCost)}`, color: 'var(--muted)' },
     { label: 'Installation cost', value: `- $${money(installGroup.rawTotalCost)}`, color: 'var(--muted)' },
-    { label: months ? `Hosting cost over ${months} months` : 'Hosting cost over contract', value: `- $${money(hostingTermCost)}`, color: 'var(--muted)' },
+    { label: dur.costLabel, value: dur.recorded ? `- $${money(hostingTermCost)}` : dur.value, color: 'var(--muted)' },
     { label: 'PO factoring interest', value: financeCost ? `- $${money(financeCost)}` : '-', color: 'var(--muted)' },
     {
       label: grossUp ? 'Withholding tax, grossed up and recovered from the customer' : 'Withholding tax absorbed by Terminus',
@@ -1305,7 +1308,10 @@ function populateForm(payload) {
   const fxBox = document.getElementById('deal-fxContingency')
   if (fxBox) fxBox.placeholder = String(NUMERIC_DEFAULTS.fxContingency)
 
-  setVal('deal-duration', p.duration ?? 0)
+  // Zero contract months is not a deal, it is an unset field, and a prefilled 0
+  // both erases the absence and prices the deal, because hosting revenue over a
+  // zero term is zero. See ZERO_IS_NOT_A_VALUE in deal-inputs.js.
+  setVal('deal-duration', toNumberOrNull(p.duration) ?? '')
   uiState.structure = p.structure || 'twoPhase'
   updateStructureButtons()
   setVal('deal-recoveryMonths', p.recoveryMonths ?? '')

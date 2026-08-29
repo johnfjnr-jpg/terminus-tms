@@ -25,7 +25,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { JSDOM } from 'jsdom'
-import { gstPresentation, whtPresentation, ratePresentation } from '../../src/lib/deal-inputs.js'
+import { gstPresentation, whtPresentation, ratePresentation, durationPresentation, ZERO_IS_NOT_A_VALUE } from '../../src/lib/deal-inputs.js'
 import { readFileSync } from 'node:fs'
 import { changedKeys } from '../../src/lib/payload-diff.js'
 import { toNumberOrNull } from '../../src/lib/numeric-payload.js'
@@ -510,6 +510,29 @@ test('withholding tax gets the same absence treatment as GST', () => {
   assert.notEqual(whtPresentation({ whtPct: 15 }).deductedLabel, zero.deductedLabel)
 })
 
+test('zero contract months is an unset field, not a zero-month contract', () => {
+  // The business's correction to my scoping. duration is a COUNT and belongs
+  // with the rates, because nobody enters zero months on purpose, and hosting
+  // revenue over a zero term is zero - so a prefilled 0 prices the deal.
+  const absent = durationPresentation({})
+  assert.equal(absent.recorded, false)
+  assert.equal(absent.months, null)
+  assert.match(absent.priceLabel, /contract duration not recorded/)
+  assert.match(absent.costLabel, /contract duration not recorded/)
+  assert.equal(absent.value, 'not recorded')
+
+  const set = durationPresentation({ duration: 36 })
+  assert.equal(set.priceLabel, 'Hosting price over 36 months')
+  assert.equal(set.costLabel, 'Hosting cost over 36 months')
+  assert.notEqual(set.priceLabel, absent.priceLabel)
+
+  // And the unit counts are deliberately NOT here.
+  for (const k of ['ssExisting', 'ssNew', 'aqm', 'hemir']) {
+    assert.ok(!ZERO_IS_NOT_A_VALUE.includes(k), `${k} must stay prefillable: a deal with none of them is a real deal`)
+  }
+  assert.ok(ZERO_IS_NOT_A_VALUE.includes('duration'))
+})
+
 test('one reader decides for every rate, and it is the same one', () => {
   // Verification 20 at the level of the mechanism rather than one value: gst
   // and wht must not be two implementations of "is this recorded".
@@ -529,26 +552,27 @@ test('no rate box prefills a value nobody entered', () => {
   // Class-level, not three instance checks: the next RATE key added to this
   // screen is the one nobody would think to check.
   //
-  // SCOPED TO RATES, and the scope is read from the screen's own
-  // PERCENT_FIELD_IDS rather than a second list written here, which would drift
-  // (Verification 20). A rate of 0 prices the deal wrongly and silently. A unit
-  // COUNT of 0 is a different question - a deal with no AQ sensors is a real
-  // deal and its zero is not a lie - so the five non-rate boxes that still
-  // prefill are reported to the business rather than swept in under this rule.
+  // SCOPED BY THE BUSINESS'S TEST, not by type: whether zero is a value a
+  // person would deliberately enter. That question is answered once, in
+  // ZERO_IS_NOT_A_VALUE, and read from there rather than restated here
+  // (Verification 20). My own first split was rates versus counts, which put
+  // duration on the wrong side: it is a count, and zero contract months is not
+  // a deal.
+  //
+  // ssExisting, ssNew, aqm and hemir still prefill 0 and are deliberately NOT
+  // in the list: a deal with no AQ sensors is a real deal and its zero is not
+  // a lie.
   const src = readFileSync(new URL('../../frontend/opportunity-deal.js', import.meta.url), 'utf8')
-  const rateIds = new Set(
-    (src.match(/const PERCENT_FIELD_IDS = new Set\(\[([^\]]*)\]/)?.[1] ?? '')
-      .split(',').map((t) => t.trim().replace(/^'|'$/g, '')).filter(Boolean),
-  )
-  assert.ok(rateIds.size >= 5, 'PERCENT_FIELD_IDS did not parse, so this test is measuring nothing')
+  assert.ok(ZERO_IS_NOT_A_VALUE.length >= 7, 'the list did not import, so this test is measuring nothing')
+  const guarded = new Set(ZERO_IS_NOT_A_VALUE.map((k) => `deal-${k}`))
 
   const bad = [...src.matchAll(/setVal\('(deal-[A-Za-z]+)',\s*p\.[A-Za-z.]+\s*\?\?\s*0\)/g)]
-    .map((m) => m[1]).filter((id) => rateIds.has(id))
-  assert.deepEqual(bad, [], `these rate boxes prefill a manufactured zero: ${bad.join(', ')}`)
+    .map((m) => m[1]).filter((id) => guarded.has(id))
+  assert.deepEqual(bad, [], `these boxes prefill a zero nobody would have entered: ${bad.join(', ')}`)
 
   // Calibration: the scan must be able to see one. Verification 17.
-  const planted = [...("setVal('deal-whtPct', p.whtPct ?? 0)")
+  const planted = [...("setVal('deal-duration', p.duration ?? 0)")
     .matchAll(/setVal\('(deal-[A-Za-z]+)',\s*p\.[A-Za-z.]+\s*\?\?\s*0\)/g)]
-    .map((m) => m[1]).filter((id) => rateIds.has(id))
-  assert.deepEqual(planted, ['deal-whtPct'], 'the scan cannot detect the thing it is scanning for')
+    .map((m) => m[1]).filter((id) => guarded.has(id))
+  assert.deepEqual(planted, ['deal-duration'], 'the scan cannot detect the thing it is scanning for')
 })
