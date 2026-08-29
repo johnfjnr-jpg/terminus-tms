@@ -825,6 +825,46 @@ today's existing behaviour.
 
 Explicitly deferred, not forgotten, not a section number of its own since this is a running list, not a build phase. Add to it as new deferrals come up rather than letting them live only in conversation.
 
+- **TAX RATES HAVE NEITHER AN AGE NOR A POLICY, AND COST BASIS HAS BOTH. Raised
+  2026-08-29, Round 39. Same package as the configurable system defaults.**
+
+  Round 38 gave the cost basis an effective date, an age and a three-band
+  staleness policy, because costs drift quietly. **Tax rates do not drift. They
+  change by statute on an announced date**, and the change is public and knowable
+  in advance, which arguably makes an unnoticed one worse rather than better.
+
+  **Measured on the live data.** `gstPct` is a per-deal payload key with a system
+  default of 0. Across 467 opportunities' latest revisions: 406 absent, 19 at 7,
+  12 at 0, 2 at 8, one at 8.75 and one at the string "12.75". **Of the four LIVE
+  opportunities, three carry no GST rate at all and one carries 8** - Singapore's
+  rate through 2023, superseded on 1 January 2024. Nothing in the system would
+  ever notice.
+
+  **What it would take:** the same shape the cost basis already has. A rate
+  carries the date it took effect, the page says how old it is, and a rate whose
+  successor has already been announced is flagged before it bites. Rates belong
+  in configuration alongside the other system defaults rather than being typed
+  per deal, which is the item this joins.
+
+  **NOT BACKFILLED, and not to be.** The one live deal carrying 8 is history; a
+  version records what was priced, and rewriting it would be the same fault as
+  backfilling a revision. The correction belongs on the next version of that
+  deal, taken by a person.
+
+- **THE MODEL CANNOT EXPRESS A GST-INCLUSIVE PRICE. Raised 2026-08-29, Round 39.**
+
+  Measured: `gstAmount = round(invoiceBase * gstPct / 100)` and price to customer
+  is `invoiceBase + gstAmount`, so **GST is strictly additive**. `contractNet`
+  excludes it and `achievedMargin` is computed on `contractNet`, so the GST rate
+  cannot affect margin. The word "inclusive" does not appear anywhere in `src/`
+  or `frontend/`.
+
+  **So a wrong GST rate is a presentation error in this model, and only in this
+  model.** If any real contract is ever written at a GST-inclusive price, the
+  system cannot represent it: the tax would come out of revenue and every margin
+  on the screen would be overstated, with nothing to indicate it. That is a
+  question for the business before it is a build.
+
 - **THE OPPORTUNITY DETAIL TAB ROW MIXES TWO KINDS OF THING. Raised 2026-08-29,
   Round 39, from looking at a capture. Not this round.**
 
