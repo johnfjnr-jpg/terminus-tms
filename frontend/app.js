@@ -68,7 +68,7 @@ document.getElementById('btn-signout').addEventListener('click', async () => {
 })
 
 // ── Navigation ────────────────────────────────────────────────────────────────
-const ALL_VIEWS = ['leads', 'leads-legacy', 'contacts', 'contact-detail', 'accounts', 'account-detail', 'test-beds', 'test-bed-detail', 'opportunities', 'opportunity-detail']
+const ALL_VIEWS = ['leads', 'leads-legacy', 'contacts', 'contact-detail', 'accounts', 'account-detail', 'test-beds', 'test-bed-detail', 'opportunities', 'opportunity-detail', 'opportunity-approval']
 
 function showAuth() {
   document.getElementById('view-auth').classList.remove('hidden')
@@ -144,6 +144,7 @@ function navigate(view, id) {
     tbUserPickedTab = false
     loadTestBedDetail(id)
   }
+  else if (view === 'opportunity-approval' && id) window.loadApprovalPage?.(id)
   else if (view === 'opportunity-detail' && id) {
     // Arriving at a record: the default-to-Reference is wanted.
     oppUserPickedTab = false

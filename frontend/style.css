@@ -4361,3 +4361,11 @@ input.input-invalid {
 .kc-add-row #kc-add-contact { flex: 1 1 240px; max-width: 320px; }
 .kc-add-row #kc-add-role    { flex: 0 1 220px; }
 .kc-add-row #kc-add-other   { flex: 1 1 220px; max-width: 300px; }
+
+
+/* ── Commercial approval page (Round 38) ──────────────────────────────────
+   The opening and closing rows frame the bridge. A bridge is a bridge because
+   you can get from the first figure to the last by reading down, and bold text
+   alone did not carry that at 1240 when looked at. */
+.appr-frame { background: rgba(242, 242, 240, 0.03); }
+.appr-frame-close { border-top: 1px solid var(--hairline-strong); }

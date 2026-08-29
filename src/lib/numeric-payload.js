@@ -161,6 +161,50 @@ export const NUMERIC_DEFAULTS = {
 };
 
 /**
+ * WHERE EACH DEFAULT CAME FROM, AND WHEN.
+ *
+ * Round 38, and it exists because of a decision about the approval page: an
+ * input screen shows what WILL happen if you do nothing, so a default is a
+ * placeholder; an approval page shows what DID happen, so a default is a VALUE
+ * WITH ITS PROVENANCE and never an absence. An approver is accepting an
+ * assumption somebody else made and cannot accept what they cannot see, so the
+ * page renders "30% (system default, set 29 August 2026)" and never a bare 30%
+ * and never a blank.
+ *
+ * ONE DATE, NOT A DATE PER KEY, and that is deliberate. These values come from
+ * the prototype and were consolidated into NUMERIC_DEFAULTS in one commit;
+ * inventing a separate history for each would be a provenance story rather than
+ * a fact. `since` is the date the constant was set, confirmed from git
+ * (`git log --diff-filter=A -- src/lib/numeric-payload.js`), not from memory.
+ *
+ * A LITERAL DATE IS A CLAIM WITH A SHELF LIFE (CLAUDE.md Verification 19), so it
+ * is not left to rot: scripts/tests/fixtures/numeric-defaults-golden.json records
+ * every (key, value, since) triple, and changing a default without moving its
+ * date fails the suite. The literal is falsifiable rather than merely written
+ * down.
+ */
+export const NUMERIC_DEFAULTS_SET_ON = '2026-08-29';
+
+export const NUMERIC_DEFAULT_SOURCE = 'system default';
+
+/**
+ * A default, rendered for a surface that must show provenance.
+ * @param {string} key
+ * @param {(n: number) => string} [format]
+ * @returns {{ key, value, source, since, sentence }}
+ */
+export function defaultProvenance(key, format = (n) => String(n)) {
+  const value = NUMERIC_DEFAULTS[key];
+  return {
+    key,
+    value,
+    source: NUMERIC_DEFAULT_SOURCE,
+    since: NUMERIC_DEFAULTS_SET_ON,
+    sentence: `${format(value)} (${NUMERIC_DEFAULT_SOURCE}, set ${NUMERIC_DEFAULTS_SET_ON})`,
+  };
+}
+
+/**
  * Reads a numeric payload key through the read boundary and applies the
  * configured default when it is absent.
  *

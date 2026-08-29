@@ -1412,6 +1412,57 @@
   </div>
 
   <!-- ── Opportunity detail ─────────────────────────────────────────────── -->
+  <!-- ── COMMERCIAL APPROVAL PAGE (Round 38) ──────────────────────────────
+       Five blocks, in the order the business set, derived from what approval
+       exists to CATCH rather than from the order the calculation runs in.
+
+       READ ONLY, AND DEFAULTS ARE SHOWN THE OPPOSITE WAY TO THE INPUT SCREEN.
+       The Commercials tab shows what WILL happen if you do nothing, so an unset
+       field renders as a grey placeholder. This page shows what DID happen, so a
+       default is a value with its provenance and never a blank. An approver is
+       accepting an assumption somebody else made and cannot accept what they
+       cannot see. Every block here is filled by opportunity-approval.js from one
+       endpoint; nothing is written inline, because a sentence typed into markup
+       is a claim nothing can falsify. -->
+  <div id="view-opportunity-approval" class="wrap hidden">
+    <div class="detail-head">
+      <div>
+        <button class="btn-text" id="btn-back-from-approval">Back to the Opportunity</button>
+        <p class="eyebrow" style="margin-top:16px">Commercial approval</p>
+        <h1 id="appr-title"></h1>
+        <p class="sub" id="appr-subtitle"></p>
+      </div>
+      <div id="appr-state-tag"></div>
+    </div>
+
+    <p id="appr-error" class="msg-error hidden"></p>
+
+    <div class="card" id="appr-block-ask">
+      <p class="eyebrow">1. The ask</p>
+      <div id="appr-ask"></div>
+    </div>
+
+    <div class="card" id="appr-block-moved">
+      <p class="eyebrow">2. What moved it</p>
+      <div id="appr-moved"></div>
+    </div>
+
+    <div class="card" id="appr-block-exposures">
+      <p class="eyebrow">3. Risk terms, as exposures</p>
+      <div id="appr-exposures"></div>
+    </div>
+
+    <div class="card" id="appr-block-costbasis">
+      <p class="eyebrow">4. Cost basis, and its age</p>
+      <div id="appr-costbasis"></div>
+    </div>
+
+    <div class="card" id="appr-block-notrecorded">
+      <p class="eyebrow">5. What is not recorded</p>
+      <div id="appr-notrecorded"></div>
+    </div>
+  </div>
+
   <div id="view-opportunity-detail" class="wrap hidden">
     <div class="detail-head">
       <div>
@@ -2030,6 +2081,11 @@
             <div style="display:flex;gap:8px;margin-top:10px">
               <button class="btn-primary" id="btn-save-version">Save version</button>
               <button class="btn-secondary" id="btn-issue-version" disabled>Issue latest draft</button>
+              <!-- Round 38: the way in to the commercial approval page. It is a
+                   separate surface rather than a panel on this tab, because it
+                   shows the same numbers under the opposite convention: this tab
+                   shows what WILL happen, that page shows what DID. -->
+              <button class="btn-secondary" id="btn-open-approval">Approval view</button>
             </div>
           </div>
         </div>
@@ -2577,5 +2633,6 @@ opened it. -->
   window.WRITABLE_NUMERIC_KEYS = WRITABLE_NUMERIC_KEYS
 </script>
 <script type="module" src="/opportunity-deal.js"></script>
+<script src="/opportunity-approval.js"></script>
 </body>
 </html>

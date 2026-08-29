@@ -1,5 +1,7 @@
 import { createUserClient } from '../supabase.js'
-import { versionApprovalState, APPROVAL_TRACK } from '../lib/version-approval.js'
+import { versionApprovalState, lastApprovedVersion, APPROVAL_TRACK } from '../lib/version-approval.js'
+import { buildApprovalPage } from '../lib/approval-page.js'
+import { toNumberOrNull } from '../lib/numeric-payload.js'
 import { resolveCurrentBatches, catalogToRates } from '../lib/base-costs.js'
 
 // Deal Sheet versions. Round 37 Phase 3.
@@ -88,6 +90,121 @@ export default async function dealSheetVersionsRoutes(app) {
       // Derived on every read, never stored. See src/lib/version-approval.js.
       approval: versionApprovalState(v, approvals ?? [], latest),
     }))
+  })
+
+  // ── GET /api/opportunities/:id/approval-page ─────────────────────────────
+  //
+  // Everything a commercial approver needs on one page, derived from what
+  // approval exists to CATCH rather than from the order the calculation runs in.
+  // The five blocks and the reasoning are in src/lib/approval-page.js; this
+  // route only reads.
+  //
+  // READ-ONLY AND DERIVED ON EVERY REQUEST. Nothing here is stored, because
+  // every input to it already is: the record's payload, the approved version's
+  // own inputs and rates, the catalog, the approvals. A stored approval page
+  // would be a sixth thing to keep true.
+  app.get('/opportunities/:id/approval-page', async (request, reply) => {
+    const db = createUserClient(request.jwt)
+
+    const { data: record, error: recErr } = await db
+      .from('records')
+      .select('id, reference_code, status')
+      .eq('id', request.params.id).eq('record_type', 'opportunity')
+      .is('deleted_at', null).maybeSingle()
+    if (recErr) return reply.code(500).send({ error: recErr.message })
+    if (!record) return reply.code(404).send({ error: 'opportunity not found' })
+
+    // The revision history, newest first. Used for the payload AND for dating
+    // the last target change, so it is read once.
+    //
+    // THE WINDOW IS 200 AND IT IS STATED. A paged read that silently stops is
+    // indistinguishable from one that found nothing (Verification 17), so when
+    // the walk below exhausts this window without finding a different target,
+    // it reports "not found in the last 200 revisions" rather than a date it
+    // does not have.
+    const REVISION_WINDOW = 200
+    const { data: revisions, error: revErr } = await db
+      .from('record_revisions')
+      .select('revision_number, payload, created_at')
+      .eq('record_id', record.id)
+      .order('revision_number', { ascending: false })
+      .limit(REVISION_WINDOW)
+    if (revErr) return reply.code(500).send({ error: revErr.message })
+    if (!revisions?.length) return reply.code(409).send({ error: 'this Opportunity has no revisions' })
+
+    const latest = revisions[0]
+    const payload = latest.payload ?? {}
+
+    const { data: details } = await db
+      .from('opportunity_details').select('test_bed_cost')
+      .eq('record_id', record.id).maybeSingle()
+
+    let catalog
+    try { catalog = await currentRates(db) } catch (err) {
+      return reply.code(500).send({ error: err.message })
+    }
+
+    const { data: versions, error: vErr } = await db
+      .from('deal_sheet_versions')
+      .select('id, major, minor, status, reason, revision_number, inputs, rates, created_by_email, created_at')
+      .eq('record_id', record.id)
+      .order('major', { ascending: false }).order('minor', { ascending: false })
+    if (vErr) return reply.code(500).send({ error: vErr.message })
+
+    const { data: approvals, error: aErr } = await db
+      .from('approvals')
+      .select('revision_number, track, decision, approver_id, decided_at')
+      .eq('record_id', record.id).eq('track', APPROVAL_TRACK)
+    if (aErr) return reply.code(500).send({ error: aErr.message })
+
+    const latestNumber = latest.revision_number
+    const version = (versions ?? [])[0] ?? null
+    const baselineRaw = lastApprovedVersion(versions ?? [], approvals ?? [], latestNumber)
+    const baseline = baselineRaw
+      ? { ...baselineRaw, approval: versionApprovalState(baselineRaw, approvals ?? [], latestNumber) }
+      : null
+
+    // WHEN THE TARGET LAST MOVED. Walking newest to oldest, the first revision
+    // holding a different target is the one before the change, so the change
+    // landed on the revision after it.
+    const currentTarget = toNumberOrNull(payload.targetMargin)
+    let targetChangedAt = null
+    let targetChangedWindowExhausted = false
+    for (let i = 1; i < revisions.length; i++) {
+      if (toNumberOrNull(revisions[i].payload?.targetMargin) !== currentTarget) {
+        targetChangedAt = String(revisions[i - 1].created_at).slice(0, 10)
+        break
+      }
+      if (i === revisions.length - 1 && revisions.length === REVISION_WINDOW) {
+        targetChangedWindowExhausted = true
+      }
+    }
+
+    const page = buildApprovalPage({
+      // The catalog is merged in exactly as the tab and the submit route do it,
+      // so the page prices the CURRENT deal at current rates. The baseline is
+      // deliberately NOT re-rated: a version carries the rates it was priced at,
+      // which is what makes the bridge's cost-basis step a real number.
+      payload: { ...payload, ...catalog.rates },
+      testBedCost: details?.test_bed_cost ?? 0,
+      version: version
+        ? { ...version, approval: versionApprovalState(version, approvals ?? [], latestNumber) }
+        : null,
+      baseline,
+      targetChangedAt,
+      catalog: { batches: catalog.batches, missing: catalog.missing, asOf: catalog.asOf },
+      record: { reference_code: record.reference_code, status: record.status },
+    })
+
+    return {
+      ...page,
+      meta: {
+        revisionNumber: latestNumber,
+        revisionsRead: revisions.length,
+        targetChangedAt,
+        targetChangeNotFoundWithin: targetChangedWindowExhausted ? REVISION_WINDOW : null,
+      },
+    }
   })
 
   // One version's full contents, for restore and for reading an old one.

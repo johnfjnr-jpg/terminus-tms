@@ -629,6 +629,15 @@ async function saveVersion() {
   return true
 }
 
+function wireApprovalLink() {
+  const btn = document.getElementById('btn-open-approval')
+  if (!btn || btn.dataset.wired) return
+  btn.dataset.wired = '1'
+  btn.addEventListener('click', () => {
+    if (opportunityId) window.navigate('opportunity-approval', opportunityId)
+  })
+}
+
 async function issueLatestDraft() {
   const draft = dealVersions.find(v => v.status === 'draft')
   if (!draft) return
@@ -1644,4 +1653,5 @@ window.initOpportunityDealPanel = async function (opp) {
   recompute()
   // After the first render, so a slow list never delays the figures.
   loadVersions()
+  wireApprovalLink()
 }
