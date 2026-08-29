@@ -1,4 +1,5 @@
 import { createUserClient } from '../supabase.js'
+import { versionApprovalState, APPROVAL_TRACK } from '../lib/version-approval.js'
 import { resolveCurrentBatches, catalogToRates } from '../lib/base-costs.js'
 
 // Deal Sheet versions. Round 37 Phase 3.
@@ -44,7 +45,7 @@ export default async function dealSheetVersionsRoutes(app) {
     const db = createUserClient(request.jwt)
     const { data, error } = await db
       .from('deal_sheet_versions')
-      .select('id, major, minor, status, reason, sections, batch_id, created_by, created_by_email, created_at, issued_by, issued_by_email, issued_at')
+      .select('id, major, minor, status, reason, sections, batch_id, revision_number, created_by, created_by_email, created_at, issued_by, issued_by_email, issued_at')
       .eq('record_id', request.params.id)
       .order('major', { ascending: false })
       .order('minor', { ascending: false })
@@ -53,7 +54,40 @@ export default async function dealSheetVersionsRoutes(app) {
       request.log.error({ err: error }, 'failed to list deal sheet versions')
       return reply.code(500).send({ error: error.message })
     }
-    return data ?? []
+    const versions = data ?? []
+    if (!versions.length) return []
+
+    // The two facts the approval state is derived from. Both reads are checked:
+    // an unchecked read here would make "no approvals" and "the query failed"
+    // the same answer, and the second one renders as an unapproved deal.
+    const { data: latestRev, error: revErr } = await db
+      .from('record_revisions')
+      .select('revision_number')
+      .eq('record_id', request.params.id)
+      .order('revision_number', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (revErr) {
+      request.log.error({ err: revErr }, 'failed to read the current revision for version approval state')
+      return reply.code(500).send({ error: revErr.message })
+    }
+
+    const { data: approvals, error: apprErr } = await db
+      .from('approvals')
+      .select('revision_number, track, decision, approver_id, decided_at')
+      .eq('record_id', request.params.id)
+      .eq('track', APPROVAL_TRACK)
+    if (apprErr) {
+      request.log.error({ err: apprErr }, 'failed to read approvals for version approval state')
+      return reply.code(500).send({ error: apprErr.message })
+    }
+
+    const latest = latestRev?.revision_number ?? null
+    return versions.map((v) => ({
+      ...v,
+      // Derived on every read, never stored. See src/lib/version-approval.js.
+      approval: versionApprovalState(v, approvals ?? [], latest),
+    }))
   })
 
   // One version's full contents, for restore and for reading an old one.
@@ -76,7 +110,7 @@ export default async function dealSheetVersionsRoutes(app) {
   })
 
   app.post('/opportunities/:id/deal-sheet-versions', async (request, reply) => {
-    const { inputs, reason } = request.body ?? {}
+    const { inputs, reason, expected_revision: expectedRevision } = request.body ?? {}
 
     // Refused here as well as by the NOT NULL and the length CHECK. The schema
     // is what makes it true; this is what makes it a sentence the user reads
@@ -86,6 +120,18 @@ export default async function dealSheetVersionsRoutes(app) {
     }
     if (!inputs || typeof inputs !== 'object') {
       return reply.code(400).send({ error: 'inputs is required' })
+    }
+
+    // THE REVISION THIS VERSION IS TAKEN FROM. Required, not optional, because
+    // an approval of a version is an approval of the revision it names and a
+    // version naming nothing cannot be approved at all.
+    //
+    // The client has this number without a read: taking a version saves the
+    // record first, and that save returns the revision it wrote.
+    if (!Number.isInteger(expectedRevision)) {
+      return reply.code(400).send({
+        error: 'expected_revision is required: a version records the revision it was taken from.',
+      })
     }
 
     const db = createUserClient(request.jwt)
@@ -110,6 +156,38 @@ export default async function dealSheetVersionsRoutes(app) {
     // The number. major carries forward; minor increments. major = 0 until
     // something is issued, which is the business's own reading of the scheme:
     // "major is issued, and zero means nothing has been".
+    // The record must still be where the client left it. Without this the
+    // version would name a revision whose payload it does not hold, and every
+    // guarantee downstream of the column is a guess.
+    //
+    // A WINDOW REMAINS AND IT IS STATED RATHER THAN CLAIMED CLOSED: a revision
+    // landing between this read and the insert below would leave the version
+    // naming the revision the client saw while the record has moved on. It is
+    // not a lock, and calling it one would be the kind of label CLAUDE.md
+    // Verification 19 was written about. What makes it small is that every
+    // Opportunity payload writer now carries its own precondition, so a
+    // concurrent write is itself a deliberate, guarded act rather than a stray
+    // save. Closing it properly means inserting the version inside the same
+    // advisory lock append_record_revision takes, which is a Postgres function
+    // this change does not need and the next one may.
+    const { data: recordRev, error: recordRevErr } = await db
+      .from('record_revisions')
+      .select('revision_number')
+      .eq('record_id', request.params.id)
+      .order('revision_number', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (recordRevErr) return reply.code(500).send({ error: recordRevErr.message })
+
+    const currentRevision = recordRev?.revision_number ?? null
+    if (currentRevision !== expectedRevision) {
+      return reply.code(409).send({
+        error: `This Opportunity moved to revision ${currentRevision} while the version was being prepared, `
+          + `and the version would have recorded revision ${expectedRevision}. Reload and take it again.`,
+        stale: true,
+      })
+    }
+
     const { data: latest, error: latestErr } = await db
       .from('deal_sheet_versions')
       .select('major, minor')
@@ -138,6 +216,7 @@ export default async function dealSheetVersionsRoutes(app) {
         minor,
         status: 'draft',
         reason: reason.trim(),
+        revision_number: expectedRevision,
         inputs,
         rates: { rates: catalog.rates, batches: catalog.batches, missing: catalog.missing, as_of: catalog.asOf },
         sections: SECTIONS,

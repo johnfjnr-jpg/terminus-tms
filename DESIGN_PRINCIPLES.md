@@ -5060,3 +5060,96 @@ print row content for tables it covers.
 
 Pre-existing, not created by this round, and reported rather than fixed: it
 touches six tables and belongs to whoever picks up the generator.
+
+---
+
+## Round 38: approval is of a version, and what that makes load-bearing
+
+2026-08-29. Decided by the business, recorded here because two consequences of
+it are structural and must not be unpicked by a later round that reads only the
+code.
+
+### The decision
+
+**A Commercial approval is of a VERSION, not of a revision.**
+
+A revision is a save. Thirty of them can mean nothing, and a person cannot sign
+a save. A version is the commercial object: self-sufficient, reproducible,
+carrying its own catalog rates and a mandatory reason, and it is the thing that
+goes to the customer.
+
+**The engine is not forked to say so.** `approvals` stays keyed to
+`(record_id, revision_number, track, approver_id)`, which is deliberate and
+record-type agnostic: Test Beds, Contacts and Opportunities all approve through
+one mechanism, and a second approvals table keyed to a Commercials-only concept
+would be exactly the parallel structure Architecture rule 1 forbids.
+
+The **version** carries the link instead:
+`deal_sheet_versions.revision_number`, added in
+`20260829000001_version_carries_its_revision.sql`. Approving V1.2 is approving
+the revision V1.2 names, and those are the same act rather than two that must be
+kept in step.
+
+### Consequence 1: SAVE-THEN-VERSION IS NOW LOAD-BEARING. Do not unpick it.
+
+Round 38 Phase 1 made taking a version save the record first. At the time the
+argument was traceability: Phase 0 had measured a version capturing unsaved
+input, so a version could cite figures the record never held, and a traceability
+record that cannot be checked against anything is not one.
+
+**That is no longer the only argument, and the new one is stronger.** The
+version's `revision_number` is meaningful **only** because save-then-version
+guarantees the version was taken from the record as saved. Separate the two and
+the version holds the payload that was on screen while naming a revision holding
+something else, and every approval downstream is an approval of a document
+nobody can reproduce.
+
+So the reasons now stack, and the weaker one is the one that reads as optional:
+
+- **Traceability** (Round 38 Phase 1): a version must cite figures the record
+  actually held.
+- **Approval** (Round 38, here): a version must NAME the revision that holds
+  them, and the name is only true because of the rule above.
+
+A future round finding save-then-version inconvenient - it makes taking a
+version write a revision, which looks like noise in the history - is looking at
+the cost without the second reason. **Splitting them silently breaks approval,
+and nothing would fail at the moment of the split.** The version would still
+save, still carry a number, still render; only the correspondence between the
+number and the contents would stop being true, and no test can see a number that
+is merely wrong rather than absent.
+
+### Consequence 2: ANY REVISION AFTER APPROVAL VOIDS IT
+
+An approval given at revision N stops describing the deal the moment revision
+N+1 exists. It is **superseded**, and a new version must be taken and approved.
+
+**Without this rule an approval means "something was once approved", which is
+worse than no approval at all, because it looks like control.** A page showing
+an approved badge over pricing that has moved since is a stronger claim than a
+page showing nothing, and it is false.
+
+**Derived, never stored.** `src/lib/version-approval.js` computes the state from
+three facts that are already immutable: the version's revision, the approval
+rows, and the record's current revision. Architecture rule 2 - computed values
+are computed. A stored `superseded` flag would be a fourth thing to keep true,
+and it would be the one people read.
+
+The states are `unapprovable`, `none`, `rejected`, `approved`, `superseded` and
+`inconsistent`. `inconsistent` exists so a version naming a revision the record
+has not reached surfaces as a fault rather than folding into one of the others:
+a data error must never be reachable as an approval.
+
+### What is deliberately NOT changed
+
+- Versions taken before this column exists carry `revision_number` null and
+  **cannot be approved**. Not backfilled. The store is append-only and the one
+  such row is `issued`, which the immutability trigger refuses to alter at all;
+  the variance is absorbed at the read boundary, which is the same principle the
+  numeric payload work settled in this round.
+- The relabel guard `deal_sheet_versions_immutable()` gained `revision_number`
+  in the same migration that added the column, because a guard that is complete
+  for the columns existing when it was written is the fault that already
+  happened once here, with `created_by_email`.
+  `scripts/tests/version-guard.test.mjs` now fails if any future column is
+  neither guarded nor explicitly exempted with a reason.

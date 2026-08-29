@@ -567,6 +567,7 @@ function renderVersionList() {
           </div>
           <div class="pg-item-note">${escapeSheet(v.reason)}</div>
           <div class="pg-item-note">${escapeSheet(who)} &middot; ${escapeSheet(when.toISOString().slice(0, 16).replace('T', ' '))}</div>
+          <div class="pg-item-note">${versionApprovalLine(v)}</div>
           <div class="pg-item-note" title="${escapeSheet(sections.join(', '))}">${sections.length} section${sections.length === 1 ? '' : 's'} recorded</div>
         </div>
         <div class="ds-value">
@@ -584,6 +585,36 @@ function renderVersionList() {
   if (btn) {
     btn.disabled = !draft
     btn.textContent = draft ? `Issue ${versionLabel(draft)} as V${draft.major + 1}` : 'Issue latest draft'
+  }
+}
+
+// The approval state, derived server-side and rendered as a sentence rather
+// than a badge, because "approved at revision 12, superseded by 3 saves since"
+// is the whole of what an approver needs and a coloured dot is not.
+//
+// APPROVED AND SUPERSEDED ARE DELIBERATELY NOT THE SAME SENTENCE. An approval
+// that no longer describes the deal on screen is the one thing this display
+// exists to stop being mistaken for control.
+function versionApprovalLine(v) {
+  const a = v.approval ?? {}
+  const at = a.revisionApproved
+  switch (a.state) {
+    case 'approved':
+      return `Approved at revision ${at}, and nothing has changed since.`
+    case 'superseded':
+      return `SUPERSEDED. Approved at revision ${at}, and the record has moved on `
+        + `${a.revisionsSince} save${a.revisionsSince === 1 ? '' : 's'} since. `
+        + `Take a new version and have it approved.`
+    case 'rejected':
+      return `Rejected at revision ${at}.`
+    case 'none':
+      return 'Not yet approved.'
+    case 'unapprovable':
+      return 'Taken before versions recorded their revision, so it cannot be approved.'
+    case 'inconsistent':
+      return `Names revision ${at}, which this record has not reached. Report this.`
+    default:
+      return ''
   }
 }
 
@@ -647,8 +678,13 @@ async function saveVersion() {
   // rates, which the server resolves again on its own rather than trusting
   // these. readPayload() is the same function the save path uses, so a version
   // and a save cannot disagree about what the inputs are.
+  //
+  // Round 38: it also names the REVISION it was taken from, which is what makes
+  // approving a version the same act as approving a revision. The number comes
+  // from the page's one shared holder, updated by the save immediately above,
+  // so a version can only ever name the revision its own inputs came from.
   const r = await window.api('POST', `/api/opportunities/${opportunityId}/deal-sheet-versions`,
-    { inputs: readPayload(), reason })
+    { inputs: readPayload(), reason, expected_revision: window.getOppLoadedRevision() })
 
   if (!r.ok) {
     // The save and the version are two sequential writes, not one transaction.

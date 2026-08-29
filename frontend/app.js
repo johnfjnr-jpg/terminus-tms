@@ -5816,6 +5816,12 @@ window.setOppLoadedRevision = function (n) {
   oppLoadedRevision = Number.isInteger(n) ? n : null
 }
 
+// Read by the version writer, which is not a PATCH and so cannot go through
+// oppPatch, but must name the same revision every save on this page names.
+window.getOppLoadedRevision = function () {
+  return oppLoadedRevision
+}
+
 // Every PATCH of an Opportunity payload goes through here, for the same reason
 // tbPatch exists on Test Bed: sending the revision and re-reading it from the
 // response are two halves of one rule, and a call site doing only the first

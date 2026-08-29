@@ -24,6 +24,7 @@ One job, `.github/workflows/test.yml`, on every push and every pull request:
 |---|---|---|
 | `npm run test:db` | 8 files, 70 tests | `.env` with `SUPABASE_URL` and `SUPABASE_SECRET_KEY` |
 | `node scripts/probe-preconditions.mjs` | 23 checks | the same credentials, **plus** a dev server on `:3000`, **plus** a live `session-ref.json` access token |
+| `node scripts/probe-version-approval.mjs` | 13 checks | the same three |
 
 ### Why this mattered, concretely
 
@@ -51,7 +52,7 @@ today beats a CI job that cannot run.
 npm run verify
 ```
 
-It runs all three stages in order, captures **every stage's whole output** to
+It runs all four stages in order, captures **every stage's whole output** to
 `.verify/verify-<stamp>.txt` before anything is filtered, prints the branch, the
 commit and whether the working tree was dirty, and exits non-zero if any stage
 fails.
@@ -60,15 +61,16 @@ fails.
 gate run against a different tree is visible rather than assumed.
 
 ```
-MERGE GATE  round-38-commercials-reshape  38c5089...
-  PASS  pure suite                 exit 0  849ms
-  PASS  database suite             exit 0  32723ms
-  PASS  HTTP precondition probe    exit 0  13009ms
+MERGE GATE  round-38-commercials-reshape  <commit>
+  PASS  pure suite                    exit 0
+  PASS  database suite                exit 0
+  PASS  HTTP precondition probe       exit 0
+  PASS  HTTP version-approval probe   exit 0
 ```
 
 Calibrated in both directions: an injected failing assertion in
-`payload-diff.test.mjs` produced `FAIL  pure suite  exit 1` and
-`1 of 3 stages FAILED. Do not merge.`, and the gate exited 1. A gate never seen
+`payload-diff.test.mjs` produced `FAIL  pure suite  exit 1` and a
+`N of M stages FAILED. Do not merge.` line, and the gate exited 1. A gate never seen
 refusing is not a gate.
 
 ### Prerequisites the gate does not install for you

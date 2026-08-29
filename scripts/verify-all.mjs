@@ -37,6 +37,11 @@ const STAGES = [
     cmd: ['node', ['scripts/probe-preconditions.mjs', 'GATE']],
     needs: 'the dev server on :3000 AND a live session-ref.json',
   },
+  {
+    name: 'HTTP version-approval probe',
+    cmd: ['node', ['scripts/probe-version-approval.mjs', 'GATE']],
+    needs: 'the dev server on :3000 AND a live session-ref.json',
+  },
 ]
 
 const transcript = []
