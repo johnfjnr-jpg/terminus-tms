@@ -825,6 +825,36 @@ today's existing behaviour.
 
 Explicitly deferred, not forgotten, not a section number of its own since this is a running list, not a build phase. Add to it as new deferrals come up rather than letting them live only in conversation.
 
+- **`state-dump.mjs` covers no version and no approval detail, so a table
+  central to approvals is invisible in `CURRENT_STATE.md`. Raised 2026-08-29.
+  SCHEDULED, not open-ended.**
+
+  Measured: `grep -ac deal_sheet_versions scripts/state-dump.mjs` returns 0, with
+  the search calibrated by confirming the generator does print row content for
+  tables it covers. So `deal_sheet_versions` and its new `revision_number`
+  column, the two constraints added in Round 38, and the version-to-approval
+  link do not appear at all.
+
+  **Why it is not a defect and is still a problem.** The generator was written
+  before versions existed and records what it was told to record, so nothing is
+  wrong with it. But `CURRENT_STATE.md` is how the next session orients, it is
+  uploaded into chat, and a session reading it would conclude the system has
+  approvals keyed to revisions and nothing else. Approval is now OF A VERSION,
+  and the object that carries that is the one the file cannot see.
+
+  **The trigger, so this does not become permanent.** Closed before the next
+  round that touches approvals, versions, or the Commercials approval page,
+  whichever comes first. That round cannot honestly reconcile its own
+  `CURRENT_STATE.md` diff without it, which is the forcing function rather than
+  a date nobody is holding.
+
+  **Scope when it is done:** a `deal_sheet_versions` section printing counts by
+  status, how many carry a `revision_number` and how many do not, and the count
+  whose named revision is the record's current one. Counts only, never a
+  reference code or a name, per the file's own rules. The wider gap the
+  2026-08-28 entry records - eleven configuration sections and no vocabulary
+  tables - is a bigger job and stays separate.
+
 - **The staff dropdowns constrain input but create no reference: the payload
   holds a name as text. Raised 2026-08-22 while scoping Bid Review routing
   for Opportunity. ANSWERED the same day by direct query.**

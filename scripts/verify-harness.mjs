@@ -148,6 +148,11 @@ export class Fixtures {
     this.records = []
     this.rules = []
     this.approvals = []
+    // Round 38: a fixture version references a record with ON DELETE RESTRICT,
+    // so an untracked one keeps a soft-deleted record alive and sits in the
+    // business's own version list. Tracked and hard deleted like approvals: a
+    // fixture version is not a record that a decision was made.
+    this.versions = []
     this.contactLinks = []
     // Deliberately absent: reference_number_counters. See teardown().
   }
@@ -173,6 +178,23 @@ export class Fixtures {
       .select('id').single()
     if (error) throw new Error(`fixture createRule failed: ${error.message}`)
     this.rules.push(data.id)
+    return data
+  }
+
+  async createVersion({ record_id, expected_revision, reason = 'fixture', inputs = {}, created_by }) {
+    const { data, error } = await this.db.rpc('insert_deal_sheet_version', {
+      p_record_id: record_id,
+      p_expected_revision: expected_revision,
+      p_reason: reason,
+      p_inputs: inputs,
+      p_rates: {},
+      p_sections: [],
+      p_batch_id: null,
+      p_created_by: created_by,
+      p_created_by_email: null,
+    })
+    if (error) throw new Error(`fixture createVersion failed: ${error.message}`)
+    this.versions.push(data.id)
     return data
   }
 
@@ -225,6 +247,7 @@ export class Fixtures {
     const problems = []
 
     await this.#hardDelete('record_contacts', this.contactLinks, problems)
+    await this.#hardDelete('deal_sheet_versions', this.versions, problems)
     await this.#hardDelete('approvals', this.approvals, problems)
     await this.#hardDelete('stage_gate_rules', this.rules, problems)
 
@@ -249,6 +272,7 @@ export class Fixtures {
       if (expectGone && found.length) problems.push(`${table}: still present after delete: ${found.join(', ')}`)
     }
     await verify('record_contacts', this.contactLinks, true)
+    await verify('deal_sheet_versions', this.versions, true)
     await verify('approvals', this.approvals, true)
     await verify('stage_gate_rules', this.rules, true)
 

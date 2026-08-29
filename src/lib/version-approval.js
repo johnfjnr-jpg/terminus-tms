@@ -60,9 +60,24 @@ export const VERSION_APPROVAL_STATES = [
   // Approved, and the record HAS moved. The approval describes a deal that is
   // no longer on screen.
   'superseded',
-  // The version names a revision the record has not reached. Not reachable by
-  // any normal path; surfaced rather than folded into another state so a data
-  // fault can never be read as an approval.
+  // The version names a revision the record has not reached.
+  //
+  // UNREACHABLE BY CONSTRUCTION, and that was checked rather than assumed. The
+  // version is stamped with a revision verified as current inside the advisory
+  // lock, and revision numbers only increase, so nothing the writer produces can
+  // land here and a version cannot be born stale either. Everything that does
+  // NOT go through the writer is closed by
+  // deal_sheet_versions_revision_exists, a composite foreign key onto
+  // (record_id, revision_number): a version can only name a revision of its own
+  // record that has actually been written.
+  //
+  // IT STAYS ANYWAY, and the reason is that it fails closed. Reaching it now
+  // requires the foreign key to have been dropped or this evaluator to be reused
+  // somewhere without one, and in both cases the difference between this state
+  // and 'approved' is the difference between surfacing a fault and rendering an
+  // approval nobody gave. A defensive branch is not the same as a claim: it
+  // asserts nothing about the world, it refuses to guess when the world is
+  // wrong.
   'inconsistent',
 ]
 

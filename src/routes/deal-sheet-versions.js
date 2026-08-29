@@ -153,83 +153,50 @@ export default async function dealSheetVersionsRoutes(app) {
       return reply.code(500).send({ error: err.message })
     }
 
-    // The number. major carries forward; minor increments. major = 0 until
-    // something is issued, which is the business's own reading of the scheme:
-    // "major is issued, and zero means nothing has been".
-    // The record must still be where the client left it. Without this the
-    // version would name a revision whose payload it does not hold, and every
-    // guarantee downstream of the column is a guess.
+    // ── ONE STATEMENT, UNDER THE RECORD'S OWN LOCK ───────────────────────
     //
-    // A WINDOW REMAINS AND IT IS STATED RATHER THAN CLAIMED CLOSED: a revision
-    // landing between this read and the insert below would leave the version
-    // naming the revision the client saw while the record has moved on. It is
-    // not a lock, and calling it one would be the kind of label CLAUDE.md
-    // Verification 19 was written about. What makes it small is that every
-    // Opportunity payload writer now carries its own precondition, so a
-    // concurrent write is itself a deliberate, guarded act rather than a stray
-    // save. Closing it properly means inserting the version inside the same
-    // advisory lock append_record_revision takes, which is a Postgres function
-    // this change does not need and the next one may.
-    const { data: recordRev, error: recordRevErr } = await db
-      .from('record_revisions')
-      .select('revision_number')
-      .eq('record_id', request.params.id)
-      .order('revision_number', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-    if (recordRevErr) return reply.code(500).send({ error: recordRevErr.message })
-
-    const currentRevision = recordRev?.revision_number ?? null
-    if (currentRevision !== expectedRevision) {
-      return reply.code(409).send({
-        error: `This Opportunity moved to revision ${currentRevision} while the version was being prepared, `
-          + `and the version would have recorded revision ${expectedRevision}. Reload and take it again.`,
-        stale: true,
-      })
-    }
-
-    const { data: latest, error: latestErr } = await db
-      .from('deal_sheet_versions')
-      .select('major, minor')
-      .eq('record_id', request.params.id)
-      .order('major', { ascending: false })
-      .order('minor', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-    if (latestErr) return reply.code(500).send({ error: latestErr.message })
-
-    const major = latest?.major ?? 0
-    const minor = (latest?.minor ?? 0) + 1
-
-    // batch_id: every product currently resolves to one batch, and the schema
-    // holds a single pointer. Where products come from different batches the
-    // pointer records the SafeSight one and `rates` carries all of them, which
-    // is stated rather than left to be discovered - the alternative is a join
-    // table this round does not need.
+    // The numbering rule has moved with the numbering: major carries forward,
+    // minor increments, and major = 0 until something is issued, which is the
+    // business's own reading of the scheme - "major is issued, and zero means
+    // nothing has been". It now lives in insert_deal_sheet_version because that
+    // is where the read it depends on happens.
+    //
+    // The revision check, the version numbering and the insert all happen inside
+    // insert_deal_sheet_version, which takes the same advisory lock
+    // append_record_revision takes. Two things follow that the route could not
+    // give on its own:
+    //
+    //   No revision can land between the check and the insert, so a version
+    //   cannot be born naming a revision the record has already left.
+    //
+    //   Two concurrent versions cannot read the same highest number. That race
+    //   was previously caught by the unique constraint and surfaced as a raw
+    //   23505, which is a collision handled rather than removed.
+    //
+    // The route no longer reads the record's revision or the latest version
+    // number at all. Both reads existed only to supply values the function now
+    // computes inside the lock, and keeping them would be a second path that
+    // agrees today.
     const batchId = catalog.batches.safesight?.batch_id ?? Object.values(catalog.batches)[0]?.batch_id ?? null
 
-    const { data: created, error: insErr } = await db
-      .from('deal_sheet_versions')
-      .insert({
-        record_id: request.params.id,
-        major,
-        minor,
-        status: 'draft',
-        reason: reason.trim(),
-        revision_number: expectedRevision,
-        inputs,
-        rates: { rates: catalog.rates, batches: catalog.batches, missing: catalog.missing, as_of: catalog.asOf },
-        sections: SECTIONS,
-        batch_id: batchId,
-        created_by: request.user.id,
-        // The email beside the uuid, the same convention assessment entries and
-        // Notes History already use, because auth.users is not readable from
-        // the client and a version's author has to be legible in the list.
-        created_by_email: request.user.email ?? null,
-      })
-      .select()
-      .single()
+    const { data: created, error: insErr } = await db.rpc('insert_deal_sheet_version', {
+      p_record_id: request.params.id,
+      p_expected_revision: expectedRevision,
+      p_reason: reason.trim(),
+      p_inputs: inputs,
+      p_rates: { rates: catalog.rates, batches: catalog.batches, missing: catalog.missing, as_of: catalog.asOf },
+      p_sections: SECTIONS,
+      p_batch_id: batchId,
+      p_created_by: request.user.id,
+      // The email beside the uuid, the same convention assessment entries and
+      // Notes History already use, because auth.users is not readable from the
+      // client and a version's author has to be legible in the list.
+      p_created_by_email: request.user.email ?? null,
+    })
 
+    if (insErr?.code === 'PT409') {
+      return reply.code(409).send({ error: insErr.message, stale: true })
+    }
     if (insErr) {
       request.log.error({ err: insErr }, 'failed to save deal sheet version')
       return reply.code(500).send({ error: insErr.message })
@@ -238,7 +205,7 @@ export default async function dealSheetVersionsRoutes(app) {
     await db.from('audit_log').insert({
       record_id: request.params.id, record_type: 'opportunity',
       action: 'deal_sheet_version_saved', actor_id: request.user.id,
-      detail: { version_id: created.id, label: `V${major}.${minor}` },
+      detail: { version_id: created.id, label: `V${created.major}.${created.minor}`, revision_number: created.revision_number },
     })
 
     return reply.code(201).send(created)
