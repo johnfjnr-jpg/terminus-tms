@@ -21,7 +21,7 @@ import { createUserClient } from '../supabase.js';
 import { resolveCurrentBatches, catalogToRates } from '../lib/base-costs.js';
 import { numericOrDefault } from '../lib/numeric-payload.js';
 import { sendWriteError } from '../lib/write-errors.js'
-import { appendRecordRevision, APPEND_ONLY, CLIENT_UNWIRED } from '../lib/record-revision.js';
+import { appendRecordRevision, SINGLE_KEY_RMW, CLIENT_UNWIRED } from '../lib/record-revision.js';
 import { calculateDeal } from '../lib/deal-calculator.js';
 
 /**
@@ -291,9 +291,9 @@ export default async function dealsRoutes(app) {
     const { opportunityId, clientReportedTotals } = request.body;
     const db = createUserClient(request.jwt);
 
-    let dealInputs, payload;
+    let dealInputs, payload, revisionNumber;
     try {
-      ({ dealInputs, payload } = await loadDealInputsFromOpportunity(db, opportunityId));
+      ({ dealInputs, payload, revisionNumber } = await loadDealInputsFromOpportunity(db, opportunityId));
     } catch (err) {
       request.log.warn({ err, opportunityId }, 'Deal submit: could not load Opportunity');
       return reply.code(404).send({ error: err.message });
@@ -338,11 +338,24 @@ export default async function dealsRoutes(app) {
     // other caller.
     const { data: newRevision, error: revErr } = await appendRecordRevision(
       db, opportunityId, payload, request.user.id, [],
-      // Server-recomputed snapshot, not a form: there is no screen holding a
-      // revision for this to be conditional on. POST /deals/submit is also
-      // unreachable from the UI, so it has no client to wire.
-      APPEND_ONLY);
+      // NOT a single-key write and NOT append-only: `payload` is the record's
+      // WHOLE payload as read by loadDealInputsFromOpportunity, re-stamped as a
+      // new revision. Writing it back merges old values over every key, so a
+      // concurrent write landing between that read and this one is lost
+      // entirely - the worst shape of the six that carried the APPEND_ONLY
+      // label.
+      //
+      // The revision it read is right there in the same return, so this is
+      // conditional on it. Nothing about "no screen holds a revision" made this
+      // safe; the server held one and was not using it.
+      revisionNumber);
 
+    if (revErr?.code === 'PT409') {
+      return reply.code(409).send({
+        error: 'The Opportunity changed while this submit was being prepared. Refresh and try again.',
+        stale: true,
+      });
+    }
     if (revErr) {
       request.log.error({ err: revErr }, 'failed to persist deal submit snapshot');
       return sendWriteError(reply, revErr);

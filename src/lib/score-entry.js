@@ -32,7 +32,7 @@
  * acquires a second purpose nobody asked for.
  */
 
-import { appendRecordRevision, APPEND_ONLY, CLIENT_UNWIRED } from './record-revision.js'
+import { appendRecordRevision, SINGLE_KEY_RMW, CLIENT_UNWIRED } from './record-revision.js'
 import { resolveLevels } from './scoring-levels.js'
 import { writeErrorStatus } from './write-errors.js'
 
@@ -223,7 +223,7 @@ export async function recordScoreEntry({ db, recordType, recordId, body, user, m
     db, record.id, { [crit.criterion_key]: [...existing, entry] }, user.id, [],
     // Additive: one criterion's series. A conflict elsewhere on the record must
     // not lose a score somebody just entered.
-    APPEND_ONLY)
+    SINGLE_KEY_RMW)
   if (revErr) {
     log(revErr, 'failed to save score revision')
     const mapped = writeErrorStatus(revErr)

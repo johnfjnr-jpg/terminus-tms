@@ -1,7 +1,7 @@
 import { createUserClient } from '../supabase.js'
 import { recordScoreEntry } from '../lib/score-entry.js'
 import { sendWriteError, sendRefusal } from '../lib/write-errors.js'
-import { appendRecordRevision, APPEND_ONLY, CLIENT_UNWIRED } from '../lib/record-revision.js'
+import { appendRecordRevision, SINGLE_KEY_RMW, CLIENT_UNWIRED } from '../lib/record-revision.js'
 import { isValidIsoDate, isValidNonNegativeInteger, isValidNonNegativePercent, isNotPastIsoDate } from '../lib/field-validation.js'
 import { WRITABLE_NUMERIC_KEYS, isStorableNumeric } from '../lib/numeric-payload.js'
 
@@ -711,7 +711,7 @@ export default async function opportunitiesRoutes(app) {
     const { data: newRevision, error: revErr } = await appendRecordRevision(
       db, request.params.id, { closeMoves, notes: [note, ...(payload.notes ?? [])] }, request.user.id, [],
       // Additive: a counter increment and a note prepend, two keys wide.
-      APPEND_ONLY)
+      SINGLE_KEY_RMW)
 
     if (revErr) {
       // record_revisions_select is team-wide, so the existence check
@@ -941,7 +941,7 @@ export default async function opportunitiesRoutes(app) {
     const { error: revErr } = await appendRecordRevision(
       db, record.id, { assessmentReviewed: [...existing, entry] }, request.user.id, [],
       // Additive: one entry onto assessmentReviewed.
-      APPEND_ONLY)
+      SINGLE_KEY_RMW)
     if (revErr) {
       request.log.error({ err: revErr }, 'failed to record assessment review')
       return sendWriteError(reply, revErr)

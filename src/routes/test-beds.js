@@ -1,6 +1,6 @@
 import { createUserClient } from '../supabase.js'
 import { sendWriteError, writeErrorStatus, sendRefusal } from '../lib/write-errors.js'
-import { appendRecordRevision, APPEND_ONLY, CLIENT_UNWIRED } from '../lib/record-revision.js'
+import { appendRecordRevision, SINGLE_KEY_RMW, CLIENT_UNWIRED } from '../lib/record-revision.js'
 import { issueReferenceNumber } from '../lib/reference-number.js'
 import { isValidIsoDate, isNotPastIsoDate, isValidNonNegativeInteger, isValidNonNegativePercent, isValidIsoTimestamp, isValidLatitude, isValidLongitude } from '../lib/field-validation.js'
 import { calculateTestBedCost } from '../lib/deal-calculator.js'
@@ -1584,7 +1584,7 @@ export default async function testBedsRoutes(app) {
     const { error: revErr } = await appendRecordRevision(
       db, recordId, { [key]: [...existing, entry] }, actorId, [],
       // Additive: one series' own key.
-      APPEND_ONLY)
+      SINGLE_KEY_RMW)
     if (revErr) {
       return writeErrorStatus(revErr)
     }

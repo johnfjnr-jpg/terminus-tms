@@ -19,13 +19,13 @@
 // business opened a Test Bed.
 //
 // So the guarantee is made at the source rather than at runtime: every call is
-// checked for a precondition token whether or not any test can reach it.
+// checked for a sixth argument whether or not any test can reach it.
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
-import { appendRecordRevision, APPEND_ONLY, CLIENT_UNWIRED } from '../../src/lib/record-revision.js'
+import { appendRecordRevision, SINGLE_KEY_RMW, CLIENT_UNWIRED } from '../../src/lib/record-revision.js'
 
 const ROOT = new URL('../../', import.meta.url).pathname
 
@@ -38,42 +38,95 @@ function sourceFiles(dir) {
   return out
 }
 
-// The tokens that count as stating a precondition: one of the two named
-// escapes, or something that resolves to a revision number.
-const STATES_A_PRECONDITION = /APPEND_ONLY|CLIENT_UNWIRED|expectedRevision/
+// ─────────────────────────────────────────────────────────────
+// WHAT COUNTS AS STATING A PRECONDITION
+// ─────────────────────────────────────────────────────────────
+//
+// Not "an accepted token appears near the call". That was this scan's first
+// shape and it was wrong in two directions at once, both found the first time
+// it met a call it had not been written against:
+//
+//   IT HELD A LIST OF VARIABLE NAMES. deals.js passes `revisionNumber`, which
+//   was not on the list, so a correctly guarded call read as unguarded.
+//
+//   IT SEARCHED A TEN-LINE WINDOW. That call's sixth argument sits below a
+//   ten-line comment, so widening the name list would not have fixed it either.
+//
+// Both are false alarms, and a scan that cries wolf gets widened until it stops
+// asking anything. The token list was in fact widened before it was measured,
+// which is the failure mode arriving on schedule.
+//
+// The real property is structural rather than lexical: appendRecordRevision
+// takes the precondition as its SIXTH argument, so a call states one exactly
+// when it has six. Count them by balancing brackets from the opening paren,
+// ignoring comments and string literals. No name list, no window, and a new
+// caller inventing a seventh variable name needs no edit here.
 
-test('every appendRecordRevision call states a precondition', () => {
+/**
+ * Top-level argument count of a call whose '(' is at openParenIndex.
+ * Returns 0 for an empty argument list.
+ */
+function countArguments(text, openParenIndex) {
+  let depth = 0
+  let args = 1
+  let sawContent = false
+  for (let i = openParenIndex; i < text.length; i++) {
+    const c = text[i]
+    const two = text.slice(i, i + 2)
+    if (two === '//') { const nl = text.indexOf('\n', i); if (nl < 0) break; i = nl; continue }
+    if (two === '/*') { const end = text.indexOf('*/', i + 2); i = end < 0 ? text.length : end + 1; continue }
+    if (c === '"' || c === "'" || c === '`') {
+      i++
+      while (i < text.length && text[i] !== c) { if (text[i] === '\\') i++; i++ }
+      sawContent = true
+      continue
+    }
+    if (c === '(' || c === '[' || c === '{') { depth++; if (depth > 1) sawContent = true; continue }
+    if (c === ')' || c === ']' || c === '}') { depth--; if (depth === 0) break; sawContent = true; continue }
+    if (c === ',' && depth === 1) { args++; continue }
+    if (!/\s/.test(c)) sawContent = true
+  }
+  return sawContent ? args : 0
+}
+
+test('every appendRecordRevision call passes a precondition argument', () => {
   const files = sourceFiles('src').filter((f) => !f.endsWith('record-revision.js'))
   let calls = 0
-  const unstated = []
+  const understated = []
 
   for (const file of files) {
     const text = readFileSync(join(ROOT, file), 'utf8')
-    const lines = text.split('\n')
-    lines.forEach((line, i) => {
-      if (!line.includes('await appendRecordRevision(')) return
+    const CALL = /await appendRecordRevision\s*\(/g
+    let m
+    while ((m = CALL.exec(text)) !== null) {
       calls++
-      // The call may span several lines; read to its closing paren.
-      const window = lines.slice(i, i + 10).join('\n')
-      const upToClose = window.slice(0, window.indexOf(')\n') + 1 || window.length)
-      if (!STATES_A_PRECONDITION.test(upToClose)) {
-        unstated.push(`${file}:${i + 1}`)
+      const open = text.indexOf('(', m.index)
+      const args = countArguments(text, open)
+      if (args < 6) {
+        const line = text.slice(0, m.index).split('\n').length
+        understated.push(`${file}:${line} passes ${args} arguments; the precondition is the sixth`)
       }
-    })
+    }
   }
 
   assert.ok(calls > 0, 'the scan found no calls at all, so it is measuring nothing')
-  assert.deepEqual(unstated, [],
-    'these revision writers pass no precondition and will throw when they run:\n  ' + unstated.join('\n  '))
+  assert.deepEqual(understated, [],
+    'these revision writers pass no precondition and will throw when they run:\n  ' + understated.join('\n  '))
 })
 
-test('the scan can SEE an unstated call, or the test above proves nothing', () => {
-  // Calibration. The same regex against a call that states nothing must fail to
-  // match, otherwise the assertion above would pass over a real omission.
-  const bad = '  const { error } = await appendRecordRevision(\n    db, id, patch, userId)\n'
-  const good = '  const { error } = await appendRecordRevision(\n    db, id, patch, userId, [], APPEND_ONLY)\n'
-  assert.equal(STATES_A_PRECONDITION.test(bad), false, 'an unstated call must not match')
-  assert.equal(STATES_A_PRECONDITION.test(good), true, 'a stated call must match')
+test('the argument count can SEE a call that omits the precondition', () => {
+  // Calibration in both directions, and against the two shapes that broke the
+  // token scan: a comment carrying a comma, and commas nested inside literals.
+  const four = 'await appendRecordRevision(db, id, patch, userId)'
+  const six = 'await appendRecordRevision(db, id, patch, userId, [], SINGLE_KEY_RMW)'
+  const commented = 'await appendRecordRevision(\n  db, id, patch, userId, [],\n  // a note, with a comma, below which the argument sits\n  revisionNumber)'
+  const nested = 'await appendRecordRevision(db, id, { a: 1, b: 2 }, userId, [k, j], 7)'
+  const empty = 'await appendRecordRevision()'
+  assert.equal(countArguments(four, four.indexOf('(')), 4, 'an unstated call must count four')
+  assert.equal(countArguments(six, six.indexOf('(')), 6, 'a stated call must count six')
+  assert.equal(countArguments(commented, commented.indexOf('(')), 6, 'a comma in a comment is not an argument')
+  assert.equal(countArguments(nested, nested.indexOf('(')), 6, 'a comma inside a literal is not top level')
+  assert.equal(countArguments(empty, empty.indexOf('(')), 0, 'no arguments counts zero, not one')
 })
 
 test('omitting the precondition throws rather than defaulting to unprotected', async () => {
@@ -87,7 +140,7 @@ test('omitting the precondition throws rather than defaulting to unprotected', a
 test('the named escapes and a revision number are all accepted', async () => {
   const seen = []
   const db = { rpc: async (_fn, args) => { seen.push(args.p_expected_revision); return { data: {}, error: null } } }
-  await appendRecordRevision(db, 'id', {}, 'user', [], APPEND_ONLY)
+  await appendRecordRevision(db, 'id', {}, 'user', [], SINGLE_KEY_RMW)
   await appendRecordRevision(db, 'id', {}, 'user', [], CLIENT_UNWIRED)
   await appendRecordRevision(db, 'id', {}, 'user', [], 7)
   assert.deepEqual(seen, [null, null, 7],

@@ -1,6 +1,6 @@
 import { createUserClient } from '../supabase.js'
 import { sendWriteError, sendRefusal } from '../lib/write-errors.js'
-import { appendRecordRevision, APPEND_ONLY, CLIENT_UNWIRED } from '../lib/record-revision.js'
+import { appendRecordRevision, SINGLE_KEY_RMW, CLIENT_UNWIRED } from '../lib/record-revision.js'
 import { issueAccountNumber } from '../lib/reference-number.js'
 import { countryToCode } from '../lib/country-code.js'
 

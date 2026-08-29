@@ -56,18 +56,38 @@
  */
 
 /**
- * This write APPENDS to a series and must not fail because an unrelated key
- * moved. Score entries, assessment reviews and notes are additive: the merge is
- * one key wide and losing the write to a conflict elsewhere on the record would
- * be a worse outcome than the concurrency it would prevent.
+ * SINGLE_KEY_RMW: this write reads a value, recomputes it in JavaScript, and
+ * writes the whole new value back, one payload key wide.
+ *
+ * IT WAS CALLED APPEND_ONLY AND THAT WAS A CLAIM I DID NOT CHECK. Round 38.
+ * Every one of the six sites so labelled reads a prior array or counter from an
+ * EARLIER, SEPARATE read, builds the new value in JavaScript, and writes it:
+ *
+ *   score-entry.js          [...existing, entry]   existing from a prior read
+ *   assessment-reviewed     [...existing, entry]   existing from a prior read
+ *   test-bed score series   [...existing, entry]   existing from a prior read
+ *   contact link-account    [note, ...notes]       notes from a prior read
+ *   close-date-move         closeMoves + 1, and a note prepend
+ *
+ * None of them is an append in the database's sense. The advisory-locked merge
+ * protects OTHER keys; it does not protect the key being written, because the
+ * value being written was computed before the lock was taken. TWO CONCURRENT
+ * WRITES TO THE SAME KEY STILL LOSE ONE - which record-revision.js has said
+ * since Round 17A and which the APPEND_ONLY name quietly contradicted.
+ *
+ * THE REAL FIX IS AN ATOMIC APPEND inside append_record_revision: a patch that
+ * says "add this element to this array key" rather than "set this key to this
+ * array", evaluated under the lock against the current value. That removes the
+ * read-modify-write instead of guarding it, and it is the right shape for all
+ * five array sites. Not built here; named so it is a design with an owner
+ * rather than a comment.
+ *
+ * Using this symbol means: a lost update on THIS ONE KEY is understood and
+ * accepted for now, and failing the write because an unrelated key moved would
+ * be the worse outcome.
  */
-export const APPEND_ONLY = Symbol('append-only write: no precondition by design')
+export const SINGLE_KEY_RMW = Symbol('single-key read-modify-write: same-key lost update accepted')
 
-/**
- * A whole-form write whose CLIENT does not send a revision yet. Named debt
- * rather than silence: this is not a design decision, it is a screen that has
- * not been wired, and it is greppable so it cannot hide.
- */
 export const CLIENT_UNWIRED = Symbol('whole-form write: client not yet sending a revision')
 
 /**
@@ -79,7 +99,7 @@ export const CLIENT_UNWIRED = Symbol('whole-form write: client not yet sending a
  * @param {string} createdBy - request.user.id
  * @param {string[]} remove - payload keys to DELETE
  * @param {number|symbol} precondition - the revision this write expects the
- *   record to be at, or APPEND_ONLY, or CLIENT_UNWIRED. REQUIRED.
+ *   record to be at, or SINGLE_KEY_RMW, or CLIENT_UNWIRED. REQUIRED.
  * @returns {Promise<{ data?: { revision_number: number, payload: object }, error?: object }>}
  */
 export async function appendRecordRevision(db, recordId, patch, createdBy, remove, precondition) {
@@ -89,13 +109,13 @@ export async function appendRecordRevision(db, recordId, patch, createdBy, remov
     // exactly like a database failure.
     throw new Error(
       'appendRecordRevision: a precondition is required. Pass the expected revision number, ' +
-      'or APPEND_ONLY for an additive write, or CLIENT_UNWIRED for a screen not yet sending one.')
+      'or SINGLE_KEY_RMW for a single-key read-modify-write, or CLIENT_UNWIRED for a screen not yet sending one.')
   }
   const expected =
-    (precondition === APPEND_ONLY || precondition === CLIENT_UNWIRED) ? null : precondition
+    (precondition === SINGLE_KEY_RMW || precondition === CLIENT_UNWIRED) ? null : precondition
 
   if (expected !== null && !Number.isInteger(expected)) {
-    throw new Error(`appendRecordRevision: precondition must be a whole number, APPEND_ONLY or CLIENT_UNWIRED, got ${String(precondition)}`)
+    throw new Error(`appendRecordRevision: precondition must be a whole number, SINGLE_KEY_RMW or CLIENT_UNWIRED, got ${String(precondition)}`)
   }
 
   const { data, error } = await db.rpc('append_record_revision', {

@@ -1,6 +1,6 @@
 import { createUserClient } from '../supabase.js'
 import { sendWriteError, sendRefusal } from '../lib/write-errors.js'
-import { appendRecordRevision, APPEND_ONLY, CLIENT_UNWIRED } from '../lib/record-revision.js'
+import { appendRecordRevision, SINGLE_KEY_RMW, CLIENT_UNWIRED } from '../lib/record-revision.js'
 import { isValidMobile } from '../lib/field-validation.js'
 import { issueReferenceNumber, issueAccountNumber } from '../lib/reference-number.js'
 import { countryToCode } from '../lib/country-code.js'
@@ -524,7 +524,7 @@ export default async function contactsRoutes(app) {
     const { error: revErr } = await appendRecordRevision(
       db, contact.id, { notes: [note, ...(revRow?.payload?.notes ?? [])] }, request.user.id, [],
       // Additive: a note prepend.
-      APPEND_ONLY)
+      SINGLE_KEY_RMW)
 
     if (revErr) return sendWriteError(reply, revErr)
 
