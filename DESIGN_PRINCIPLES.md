@@ -995,6 +995,34 @@ Explicitly deferred, not forgotten, not a section number of its own since this i
   against both. `MERGE_GATE.md` already records what the CI-secret option would
   need, and that scratch project is the same project this asks for.
 
+  **THE TRIGGER SPLITS, 2026-08-29, Round 39, set by the business. The scratch
+  project is needed NOW, on a second and unrelated driver, and it no longer
+  waits behind the first real record.**
+
+  Safety from live data is still triggered by the first real record, and that
+  reasoning above is unchanged. **The new driver is that THE MERGE GATE CANNOT
+  RUN WITHOUT A PERSON AT A KEYBOARD.** Three of five stages need an
+  authenticated session, the session needs a password, and the password belongs
+  to one person. Round 39 stalled on it twice in one day.
+
+  **That is correct behaviour for a password and wrong behaviour for a gate.**
+  The thing meant to be routine before every merge has a human in the middle of
+  it, it gets worse the moment that person travels, and it changes character
+  entirely the moment a second person can merge, when the only ways to keep the
+  gate are shared credentials or no gate.
+
+  **So the first increment is smaller than full separation and is worth taking
+  on its own: a dedicated test account in a scratch project, credentials in the
+  environment, and `scripts/sign-in.js` reading a password from
+  `TMS_TEST_PASSWORD` rather than `argv[2]`.** That makes the gate self-serve
+  without waiting for the migration path to run against both projects, and it is
+  the same scratch project the rest of this item needs, so nothing is built
+  twice.
+
+  **It is blocking day-to-day work now rather than being a future
+  convenience**, which is why it moved here out of `MERGE_GATE.md`'s
+  "recorded for later" section.
+
 - **THE DEPLOYED APP AND THE SCHEMA CAN BE OUT OF STEP FOR A WHOLE ROUND, and
   nothing says so. Raised 2026-08-29, Round 38.**
 

@@ -46,6 +46,24 @@ runs in CI.** Chosen over the CI-secret option because a scratch Supabase
 project has to be created by a person with the account, and an enforced gate
 today beats a CI job that cannot run.
 
+> **SUPERSEDED IN PART, 2026-08-29, Round 39, by the business, on measurement
+> rather than argument.** The reasoning above weighed "a gate that runs today"
+> against "a CI job that cannot run", and the premise it rests on has been
+> falsified: **the gate does not run today either, not without a person at a
+> keyboard.**
+>
+> Three of the five stages need an authenticated session, the session needs a
+> password, and the password belongs to one person. **The round stalled on this
+> twice in one day.** It is worse when that person travels and different again
+> the moment a second person can merge, at which point the gate is either shared
+> credentials or no gate.
+>
+> The command and its five stages stand. What changes is the standing of the
+> section below: **the CI-secret path is no longer a CI nicety awaiting a
+> trigger. It is the fix for a thing blocking day-to-day work now**, and it has
+> moved into the environment-separation package in `DESIGN_PRINCIPLES.md` rather
+> than waiting behind that package's own trigger.
+
 ### Before any merge to `main`
 
 ```bash
@@ -93,12 +111,22 @@ skip reads exactly like a pass, which is the failure this whole file is about.
 
 ## What the CI-secret option would need
 
-Recorded so it is a decision that can be taken later rather than a thing nobody
-wrote down. It is fully automatable; nothing about it is blocked on design.
+**Promoted 2026-08-29: this is the fix for the gate needing a human, not only
+the fix for CI.** It is fully automatable; nothing about it is blocked on
+design. The one part needing a person is creating the scratch project, once.
+
+**A DEDICATED TEST ACCOUNT IN A SCRATCH PROJECT, CREDENTIALS IN THE
+ENVIRONMENT, SO THE GATE IS SELF-SERVE.** That is the whole requirement, and it
+is the same scratch project environment separation already asks for.
 
 1. A **scratch Supabase project**, separate from the live one. `npm run test:db`
    writes real rows and the probe creates and soft-deletes real records.
-2. Two repository secrets: `SUPABASE_URL`, `SUPABASE_SECRET_KEY`.
+2. Two repository secrets: `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, and a test
+   account whose password is an environment variable rather than a thing typed
+   at a prompt. **`scripts/sign-in.js` takes the password as `argv[2]` today**,
+   which is what makes the gate need a keyboard: it should read
+   `TMS_TEST_PASSWORD` from the environment and fail loudly when it is absent,
+   the same way a missing prerequisite fails a stage rather than skipping it.
 3. A CI job that runs `npx supabase db push`, `npm run db:seed`,
    `node scripts/create-test-user.js`, `node scripts/sign-in.js`,
    `npm start &`, then `npm run verify`.
