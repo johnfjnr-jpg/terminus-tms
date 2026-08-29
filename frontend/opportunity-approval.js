@@ -112,10 +112,17 @@ function renderMoved(page) {
     ${row('<strong>Opening</strong>', `<strong>${b.opening.marginPoints.toFixed(2)}%</strong> &nbsp; $${money(b.opening.contractNet)}`,
       `${esc(m.baseline.label)}, as approved`, 'appr-frame')}
     ${steps}
-    ${b.displayRounding
-      ? row('Rounding', `${b.displayRounding >= 0 ? '+' : ''}${b.displayRounding.toFixed(2)} pts`,
-        'The figures above are shown to two decimals and the exact ones are not. This is that difference, not a change in the deal.')
-      : ''}
+    ${b.reconciliation.reconciles
+      ? (b.displayRounding
+        ? row('Rounding', `${b.displayRounding >= 0 ? '+' : ''}${b.displayRounding.toFixed(2)} pts`,
+          'The figures above are shown to two decimals and the exact ones are not. This is that difference, not a change in the deal.')
+        : '')
+      // NOT PRINTED AS ROUNDING. A leftover bigger than two-decimal display can
+      // produce is an error wearing rounding's label, and a bridge that always
+      // adds up is telling an approver nothing about whether it should.
+      : `<p class="msg-error">This bridge does not reconcile. The steps leave
+         ${b.displayRounding.toFixed(2)} points unaccounted for, against a rounding tolerance of
+         ${b.reconciliation.tolerance}. Do not rely on the figures below; report this.</p>`}
     ${row('<strong>Closing</strong>', `<strong>${b.closing.marginPoints.toFixed(2)}%</strong> &nbsp; $${money(b.closing.contractNet)}`,
       `Total movement ${pts(b.total.marginPoints)}`, 'appr-frame appr-frame-close')}
     ${Math.abs(b.unexplained) > 1e-6
@@ -167,10 +174,14 @@ function renderCostBasis(page) {
       A deal is only as current as its stalest input, so the oldest is first.</p>
     ${c.products.map((p) => row(esc(productLabel(p.product)), `${p.ageDays == null ? 'undated' : `${p.ageDays} days old`}`,
       `${esc(p.batchLabel ?? 'unlabelled batch')}, effective ${esc(String(p.effectiveFrom ?? '').slice(0, 10) || 'unknown')}`)).join('')}
-    ${c.missing.length
-      ? `<p class="msg-error">No current Base Cost batch for: ${c.missing.map(esc).join(', ')}.
-         Those lines priced at zero, which is an absent cost and not a free product.</p>`
-      : ''}`
+    ${c.missingDetail.length
+      ? c.missingDetail.map((m) => `<p class="${m.inUse ? 'msg-error' : 'pg-item-note'}">
+          No current Base Cost batch for ${esc(productLabel(m.product))}.
+          ${m.inUse
+            ? `This deal carries ${m.units} of them, so those lines priced at ZERO cost. That is an absent cost, not a free product, and the margin on this page is higher than the deal will achieve.`
+            : 'This deal carries none of them, so nothing on this page is affected by it.'}
+        </p>`).join('')
+      : '<p class="pg-item-note">Every product this deal uses has a current cost basis.</p>'}`
 }
 
 // ── 5. What is not recorded ────────────────────────────────────────────────

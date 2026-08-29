@@ -5,9 +5,9 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   buildApprovalPage, buildBridge, buildExposures, buildTarget, buildCostBasis,
-  buildNotRecorded, pricedKeys, BRIDGE_STEPS, bridgeKeys,
+  buildNotRecorded, pricedKeys, checkReconciliation, BRIDGE_STEPS, bridgeKeys,
 } from '../../src/lib/approval-page.js'
-import { buildDealInputs } from '../../src/lib/deal-inputs.js'
+import { buildDealInputs, isSet, RAW_READERS, PRODUCT_UNITS } from '../../src/lib/deal-inputs.js'
 import { calculateDeal } from '../../src/lib/deal-calculator.js'
 import { NUMERIC_DEFAULTS } from '../../src/lib/numeric-payload.js'
 
@@ -51,19 +51,32 @@ test('and the opening and closing are the real margins, not restatements', () =>
   assert.equal(b.closing.marginPoints, M(NOW))
 })
 
-test('the steps come out in the documented order', () => {
+test('every step appears, in the documented order', () => {
   const b = buildBridge(APPROVED, NOW, { testBedCost: 25000 })
-  assert.deepEqual(b.steps.map((s) => s.step), ['term', 'cost basis', 'discount or override'])
+  assert.deepEqual(b.steps.map((s) => s.step),
+    ['units', 'term', 'cost basis', 'discount or override', 'risk terms'])
 })
 
-test('a step that did not move is omitted, not shown as zero', () => {
+test('A STEP THAT DID NOT MOVE SAYS SO, it is not omitted', () => {
+  // The no-baseline decision applied one level down. "Cost basis: no change" is
+  // the answer to a question the approver cannot ask anywhere else - did the
+  // catalog reprice underneath this deal - and omitting the row leaves it
+  // unanswered rather than answered no.
   const b = buildBridge(APPROVED, NOW, { testBedCost: 25000 })
-  assert.ok(!b.steps.some((s) => s.step === 'units'), 'units did not move and must not appear')
+  const units = b.steps.find((s) => s.step === 'units')
+  assert.equal(units.moved, false)
+  assert.equal(units.marginPoints, 0)
+  assert.deepEqual(units.keys, [])
+
+  const term = b.steps.find((s) => s.step === 'term')
+  assert.equal(term.moved, true)
+  assert.notEqual(term.marginPoints, 0)
 })
 
-test('nothing changed means no steps and a zero total', () => {
+test('nothing changed means five unmoved steps and a zero total', () => {
   const b = buildBridge(APPROVED, { ...APPROVED }, { testBedCost: 25000 })
-  assert.deepEqual(b.steps, [])
+  assert.equal(b.steps.length, 5)
+  assert.ok(b.steps.every((s) => s.moved === false))
   assert.equal(b.total.marginPoints, 0)
 })
 
@@ -445,4 +458,142 @@ test('the bridge reconciles AS DISPLAYED, or names the rounding', () => {
 test('and the rounding line is absent when it is not needed', () => {
   const b = buildBridge(APPROVED, { ...APPROVED }, { testBedCost: 25000 })
   assert.equal(b.displayRounding, 0, 'nothing moved, so there is nothing to round')
+})
+
+// ─────────────────────────────────────────────────────────────
+// Block 5's higher bar, checked over EVERY key rather than a sample
+// ─────────────────────────────────────────────────────────────
+
+test('EVERY default: set it and it is not reported, unset it and it is', () => {
+  // A wrong "not recorded" is a false statement to the person accepting the
+  // risk, and it reads as authoritative. Hand-picked cases would have missed
+  // factoringRatePct exactly as the original code did, so this drives the whole
+  // key set through the calculator's own reader and checks both directions.
+  const distinct = 7.25
+  for (const key of Object.keys(NUMERIC_DEFAULTS)) {
+    // Set it where it actually lives, which RAW_READERS is the authority on.
+    const set = key === 'factoringRatePct'
+      ? { ...NOW, factoring: { enabled: true, ratePct: distinct } }
+      : { ...NOW, [key]: distinct }
+    assert.equal(RAW_READERS[key](set), distinct, `${key}: the reader must see a value set at its real location`)
+    // Scoped to kind 'default', which is the claim that can be FALSE. A set
+    // fxContingency is still reported, as 'captured, not applied', and that is a
+    // different and true statement: it is recorded and no figure reads it.
+    assert.ok(!buildNotRecorded(set, { versionReason: 'x' })
+      .some((r) => r.key === key && r.kind === 'default'),
+      `${key} IS set and must not be reported as an assumption nobody made`)
+
+    const unset = key === 'factoringRatePct'
+      ? { ...NOW, factoring: { enabled: true } }
+      : { ...NOW }
+    if (key !== 'factoringRatePct') delete unset[key]
+    assert.ok(buildNotRecorded(unset, { versionReason: 'x' })
+      .some((r) => r.key === key && r.kind === 'default'),
+      `${key} is NOT set and must be reported as running on a default`)
+  }
+})
+
+test('a key with no reader is a loud failure, not a silent flat read', () => {
+  // The trap that produced the false claim was that reading a missing key
+  // returns undefined and looks exactly like an unset value.
+  assert.throws(() => isSet({}, 'somethingNobodyMapped'), /no reader for/)
+})
+
+test('every default has a reader, so none can be read flat by accident', () => {
+  for (const key of Object.keys(NUMERIC_DEFAULTS)) {
+    assert.ok(RAW_READERS[key], `${key} has a default and no reader, so block 5 would guess where it lives`)
+  }
+})
+
+// ─────────────────────────────────────────────────────────────
+// The rounding line must be able to fail
+// ─────────────────────────────────────────────────────────────
+
+test('a leftover within two-decimal rounding reconciles', () => {
+  const r = checkReconciliation(15.7449, 17.5352, [0.4712, 1.3241, 0.0001])
+  assert.equal(r.rounding, 0.01)
+  assert.equal(r.reconciles, true)
+  assert.ok(r.tolerance >= 0.02 && r.tolerance <= 0.03, `tolerance ${r.tolerance}`)
+})
+
+test('AND A LEFTOVER THAT IS NOT ROUNDING REFUSES TO RECONCILE', () => {
+  // The calibration that makes the line above evidence. Computed as a plug, this
+  // would print "+1.50 pts rounding" and the column would still balance.
+  const r = checkReconciliation(15.00, 17.00, [0.50])
+  assert.equal(r.rounding, 1.5)
+  assert.equal(r.reconciles, false,
+    'a plug that cannot fail is how a reconciliation lies')
+})
+
+test('the tolerance grows with the number of steps, and only that far', () => {
+  // Each displayed figure can be half a unit out: opening, closing, and one per
+  // step. More steps means more legitimate rounding and nothing else.
+  assert.equal(checkReconciliation(0, 0, []).tolerance, 0.01)
+  assert.equal(checkReconciliation(0, 0, [0, 0, 0]).tolerance, 0.025)
+  assert.equal(checkReconciliation(0, 0, [0, 0, 0, 0, 0, 0, 0, 0]).tolerance, 0.05)
+})
+
+test('a real bridge reconciles and says so', () => {
+  const b = buildBridge(APPROVED, NOW, { testBedCost: 25000 })
+  assert.equal(b.reconciliation.reconciles, true)
+  assert.ok(Math.abs(b.displayRounding) <= b.reconciliation.tolerance)
+})
+
+// ─────────────────────────────────────────────────────────────
+// A product with no current cost basis
+// ─────────────────────────────────────────────────────────────
+
+test('base_cost_batches has no end date, so a batch never expires', () => {
+  // Measured before designing against it. A batch is current from effective_from
+  // until a later one starts; the endpoint takes the latest at or before today.
+  // "Expired" does not exist. What exists is a product with NO current batch:
+  // none entered, or every batch for it dated in the future.
+  const cb = buildCostBasis({ safesight: { batch_label: 'Q1', effective_from: '2020-01-01' } }, [], '2026-08-29')
+  assert.equal(cb.products[0].ageDays > 2000, true,
+    'a six-year-old batch is still the current one, and the page dates it rather than voiding it')
+})
+
+test('a missing product the deal DOES use is escalated to the ask', () => {
+  const page = buildApprovalPage({
+    payload: NOW, testBedCost: 25000, version: VERSION,
+    catalog: { batches: {}, missing: ['hemir'], asOf: '2026-08-29' },
+  })
+  assert.match(page.ask.unpricedWarning, /2 hemir/)
+  assert.match(page.ask.unpricedWarning, /ZERO cost/)
+  assert.match(page.ask.unpricedWarning, /higher than the deal will achieve/)
+  assert.equal(page.costBasis.unpricedInUse.length, 1)
+})
+
+test('and one the deal does NOT use is reported without alarm', () => {
+  // The zero-versus-missing discriminator. A missing HEMIR batch on a deal with
+  // no HEMIR units changes nothing, and flagging it would be noise that trains
+  // an approver to skip the block.
+  const noHemir = { ...NOW, hemir: 0 }
+  const page = buildApprovalPage({
+    payload: noHemir, testBedCost: 25000, version: VERSION,
+    catalog: { batches: {}, missing: ['hemir'], asOf: '2026-08-29' },
+  })
+  assert.equal(page.ask.unpricedWarning, null)
+  assert.equal(page.costBasis.missingDetail[0].inUse, false)
+  assert.equal(page.costBasis.missingDetail[0].units, 0)
+})
+
+test('the units come from the calculator mapping, not a second one', () => {
+  // Verification 20. A private product-to-units map here would drift from the
+  // one that prices the deal.
+  assert.equal(PRODUCT_UNITS.safesight({ ssExisting: 40, ssNew: 10 }), 50)
+  assert.equal(PRODUCT_UNITS.air_quality({ aqm: 6 }), 6)
+  assert.equal(PRODUCT_UNITS.hemir({ hemir: 2 }), 2)
+  const page = buildApprovalPage({
+    payload: NOW, testBedCost: 25000, version: VERSION,
+    catalog: { batches: {}, missing: ['safesight'], asOf: '2026-08-29' },
+  })
+  assert.match(page.ask.unpricedWarning, /50 safesight/,
+    'ssExisting + ssNew, exactly as buildDealInputs sums them')
+})
+
+test('nothing missing produces no warning at all', () => {
+  const page = buildApprovalPage({ payload: NOW, testBedCost: 25000, version: VERSION, catalog: CATALOG })
+  assert.equal(page.ask.unpricedWarning, null)
+  assert.deepEqual(page.costBasis.missingDetail, [])
 })

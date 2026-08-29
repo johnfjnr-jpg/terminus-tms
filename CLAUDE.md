@@ -650,6 +650,67 @@ not resolve it quietly.
     took one pass of reading the actual call sites, and all three had
     survived multiple rounds of people reading the label instead.
 
+20. **A SECOND READER OF THE SAME VALUE ALWAYS DRIFTS.** Round 38,
+    2026-08-29. Sibling to rule 19: that one is a claim written into a name,
+    this one is a claim written into an access path. Five instances, all in
+    one round, all found by measurement rather than by reading:
+
+    - **Three modules each held a private revision number** for one
+      Opportunity. `loadOpportunityDetail` does ONE GET and hands the same
+      record to all three tabs, so they were the same number written down
+      three times, and an exit-criterion tick left Commercials holding a
+      number the record had already left.
+    - **Five copies of `warrantyPct` and three of `targetMargin`** across the
+      tab, each reading the DOM or the payload its own way.
+    - **`BRIDGE_KEYS` was a `Set` built at module load** from a definition
+      that can change, so a calibration that changed the definition could not
+      move it and the check it fed reported a clean result.
+    - **Two goldens that both claimed to agree.** The server's copy of
+      `buildDealInputs` carried a comment saying it was "kept identical" to
+      the client's. They were, on all eight shapes measured, which is the
+      benign end of the same shape and is not a reason to keep two.
+    - **`factoringRatePct` read flat where it lives nested.** The approval
+      page read `payload.factoringRatePct`; the calculator reads
+      `payload.factoring.ratePct`. The page therefore told every approver
+      "nobody entered a value" for a deal that had set it.
+
+    **The last one is the worst and the least visible**, because both readers
+    were correct in isolation. Nothing was broken; two paths simply disagreed
+    about where a value lives, and only one of them was ever exercised
+    against real data.
+
+    **The rule: read through the accessor the authoritative consumer uses,
+    never a second one written alongside it.** Where a second path is
+    genuinely needed, it names why in the code and is PROVEN equal to the
+    first by a test, not asserted equal by a comment. "Kept identical to" is
+    the phrase that marks an unproven one.
+
+    **A display surface never invents its own read.** The approval page
+    reads every deal value through the same readers `buildDealInputs` uses,
+    so a value it reports as unset is unset by the calculator's own
+    definition.
+
+21. **A RECONCILIATION THAT CANNOT FAIL IS NOT A RECONCILIATION.** Round 38,
+    2026-08-29, on the approval page's bridge.
+
+    A displayed bridge shows figures rounded for reading, so the parts do not
+    quite sum to the whole and a "rounding" line carries the difference.
+    Computed as closing minus the sum of the steps, **that line is a plug: it
+    absorbs whatever does not fit, including a real defect, and the column
+    still balances.** A page that always adds up is telling you nothing about
+    whether it should.
+
+    **The check: state the tolerance the rounding can legitimately reach, and
+    refuse to reconcile above it.** With figures at two decimals and N steps
+    plus an opening and a closing, no more than `(N + 2) x 0.005` can come
+    from rounding. A larger number is not rounding; it is an error wearing
+    its label, and the page must say the bridge does not reconcile rather
+    than printing it.
+
+    Same family as Verification 9: an invariant not proven capable of failing
+    is not evidence. This is the case where the invariant is arithmetic that
+    was constructed to hold.
+
 ---
 
 ## `CURRENT_STATE.md`

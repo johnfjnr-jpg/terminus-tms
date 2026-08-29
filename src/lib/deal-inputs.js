@@ -40,6 +40,72 @@ import { numericOrDefault } from './numeric-payload.js';
  *   opportunity_details, not from the payload, so it is passed rather than read.
  * @returns {object} the calculateDeal() input shape
  */
+/**
+ * WHERE EACH DEAL VALUE LIVES, in one place, read by everything.
+ *
+ * CLAUDE.md Verification 20: a second reader of the same value always drifts.
+ * The approval page reported `factoringRatePct` as an unset default on every
+ * deal, because it read `payload.factoringRatePct` while the calculator reads
+ * `payload.factoring.ratePct`. Both readers were correct in isolation and they
+ * disagreed about where the value is, which is the whole failure.
+ *
+ * So a display surface never invents its own read. `RAW_READERS` is what
+ * buildDealInputs itself uses below, and it is what the approval page uses to
+ * decide whether a person set a value or a default is standing in for one. A
+ * value it reports as unset is unset by the calculator's own definition.
+ *
+ * RAW, deliberately: these return what the payload holds, before any default is
+ * applied, because "is this set" and "what does it come to" are different
+ * questions and only the first one can be answered after a default has been
+ * substituted.
+ */
+export const RAW_READERS = {
+  ssExisting: (p) => p?.ssExisting,
+  ssNew: (p) => p?.ssNew,
+  aqm: (p) => p?.aqm,
+  hemir: (p) => p?.hemir,
+  targetMargin: (p) => p?.targetMargin,
+  warrantyPct: (p) => p?.warrantyPct,
+  whtPct: (p) => p?.whtPct,
+  gstPct: (p) => p?.gstPct,
+  fxContingency: (p) => p?.fxContingency,
+  duration: (p) => p?.duration,
+  recoveryMonths: (p) => p?.recoveryMonths,
+  lumpSumCost: (p) => p?.lumpSumCost,
+  // The one that started this rule. Nested, and nothing about the key name says so.
+  factoringRatePct: (p) => p?.factoring?.ratePct,
+};
+
+/**
+ * How many units of each catalog product this deal carries.
+ *
+ * ONE MAPPING, for the same reason RAW_READERS exists. The approval page needs
+ * it to answer "does a product with no cost basis actually appear in this
+ * deal", and inventing a second product-to-units mapping there is precisely
+ * Verification 20. These read through numericOrDefault exactly as
+ * buildDealInputs does below.
+ *
+ * Keyed by base_cost_batches.product, so it lines up with PRODUCT_RATE_KEYS
+ * rather than with anything the UI calls things.
+ */
+export const PRODUCT_UNITS = {
+  safesight: (p) => numericOrDefault(p ?? {}, 'ssExisting') + numericOrDefault(p ?? {}, 'ssNew'),
+  air_quality: (p) => numericOrDefault(p ?? {}, 'aqm'),
+  hemir: (p) => numericOrDefault(p ?? {}, 'hemir'),
+};
+
+/**
+ * Is this value set by a person, or is a default standing in for it?
+ * @param {object} payload
+ * @param {string} key - a key of RAW_READERS
+ */
+export function isSet(payload, key) {
+  const reader = RAW_READERS[key];
+  if (!reader) throw new Error(`isSet: no reader for ${key}. Add it to RAW_READERS rather than reading the payload directly.`);
+  const v = reader(payload);
+  return v !== undefined && v !== null && v !== '';
+}
+
 export function buildDealInputs(payload, { testBedCost = 0 } = {}) {
   const targetMargin = numericOrDefault(payload, 'targetMargin')
   const overrides = payload.marginOverrides ?? {}
@@ -113,7 +179,9 @@ export function buildDealInputs(payload, { testBedCost = 0 } = {}) {
     lumpCost: numericOrDefault(payload, 'lumpSumCost'),
     contractorMilestones: payload.contractorMilestones ?? [],
     factoringEnabled: factoring.enabled ?? false,
-    factoringRatePct: factoring.ratePct ?? 1.5,
+    // Through RAW_READERS, so the calculator and the approval page cannot
+    // disagree about where this lives. See the note above.
+    factoringRatePct: RAW_READERS.factoringRatePct(payload) ?? 1.5,
     factoringTermMonths: factoring.termMonths,
     factoringMethod: factoring.method ?? 'straight',
     whtPct: numericOrDefault(payload, 'whtPct'),

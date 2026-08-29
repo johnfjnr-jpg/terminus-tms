@@ -35,7 +35,7 @@
  * caller passes. The route reads; this decides what the page says.
  */
 
-import { buildDealInputs } from './deal-inputs.js';
+import { buildDealInputs, isSet, RAW_READERS, PRODUCT_UNITS } from './deal-inputs.js';
 import { calculateDeal } from './deal-calculator.js';
 import { NUMERIC_DEFAULTS, defaultProvenance, toNumberOrNull } from './numeric-payload.js';
 
@@ -140,6 +140,41 @@ export function pricedKeys() {
   return PRICED_KEYS;
 }
 
+/**
+ * Does the bridge reconcile AS DISPLAYED, and is the leftover really rounding?
+ *
+ * CLAUDE.md Verification 21. Computed as closing minus the sum of the steps, a
+ * "rounding" line is a PLUG: it absorbs whatever does not fit, including a real
+ * defect, and the column still balances. A page that always adds up is telling
+ * you nothing about whether it should.
+ *
+ * So the leftover is checked against what rounding can legitimately reach. Every
+ * figure shown at DP decimals can be off by at most half a unit in the last
+ * place, and the displayed movement involves the opening, the closing and one
+ * figure per step. Anything beyond `(steps + 2) x 0.5ulp` is not rounding, and
+ * the page must say the bridge does not reconcile rather than printing a large
+ * number wearing rounding's label.
+ *
+ * @param {number} opening
+ * @param {number} closing
+ * @param {number[]} stepEffects
+ * @param {number} [dp] display precision
+ */
+export function checkReconciliation(opening, closing, stepEffects, dp = 2) {
+  const half = 0.5 * (10 ** -dp);
+  const at = (n) => Number(n.toFixed(dp));
+  const displayedTotal = at(closing) - at(opening);
+  const displayedSteps = (stepEffects ?? []).reduce((s, n) => s + at(n), 0);
+  const rounding = Number((displayedTotal - displayedSteps).toFixed(dp));
+  const tolerance = Number((((stepEffects ?? []).length + 2) * half).toFixed(dp + 2));
+  return {
+    rounding,
+    tolerance,
+    reconciles: Math.abs(rounding) <= tolerance + Number.EPSILON,
+    dp,
+  };
+}
+
 function sameValue(a, b) {
   if (a === undefined || a === null || a === '') a = null;
   if (b === undefined || b === null || b === '') b = null;
@@ -166,14 +201,27 @@ export function buildBridge(basePayload, nowPayload, { testBedCost = 0 } = {}) {
   let prev = opening;
   const steps = [];
 
+  // EVERY STEP RENDERS, INCLUDING THE ONES THAT DID NOT MOVE.
+  //
+  // This is the no-baseline decision applied one level down. A blank reads as a
+  // rendering failure; a stated absence reads as information, and the two are
+  // not the same on a page an approver is signing.
+  //
+  // "Cost basis: no change" is the answer to a question the approver cannot ask
+  // anywhere else - did the catalog reprice underneath this deal since it was
+  // approved - and omitting the row leaves that question unanswered rather than
+  // answered no. It is the same fault as leaving block 2 blank when nothing was
+  // ever approved, at the scale of one line.
+  //
+  // A step that did not move contributes zero, so the bridge still telescopes.
   for (const def of BRIDGE_STEPS) {
     const moved = def.keys.filter((k) => !sameValue(nowPayload[k], basePayload[k]));
-    if (!moved.length) continue;
     for (const k of moved) state = { ...state, [k]: nowPayload[k] };
-    const after = M(state);
+    const after = moved.length ? M(state) : prev;
     steps.push({
       step: def.step,
       label: def.label,
+      moved: moved.length > 0,
       keys: moved,
       changes: moved.map((k) => ({ key: k, from: basePayload[k] ?? null, to: nowPayload[k] ?? null })),
       marginPoints: after.achievedMargin - prev.achievedMargin,
@@ -224,6 +272,9 @@ export function buildBridge(basePayload, nowPayload, { testBedCost = 0 } = {}) {
   const total = closing.achievedMargin - opening.achievedMargin;
   const summed = steps.reduce((s, r) => s + r.marginPoints, 0);
 
+  const reconciliation = checkReconciliation(
+    opening.achievedMargin, closing.achievedMargin, steps.map((r) => r.marginPoints));
+
   // RECONCILES AS DISPLAYED, not only in the arithmetic.
   //
   // The figures are shown to two decimals. Opening 15.7449 and closing 17.5352
@@ -236,12 +287,6 @@ export function buildBridge(basePayload, nowPayload, { testBedCost = 0 } = {}) {
   // non-zero, carrying the difference between the displayed figures. The
   // alternative, quietly adjusting a step to absorb it, would make one step
   // wrong to make the column look right.
-  const DP = 2;
-  const at = (n) => Number(n.toFixed(DP));
-  const displayedTotal = at(closing.achievedMargin) - at(opening.achievedMargin);
-  const displayedSteps = steps.reduce((s, r) => s + at(r.marginPoints), 0);
-  const displayRounding = Number((displayedTotal - displayedSteps).toFixed(DP));
-
   return {
     opening: { marginPoints: opening.achievedMargin, contractNet: opening.totals.contractNet },
     closing: { marginPoints: closing.achievedMargin, contractNet: closing.totals.contractNet },
@@ -254,7 +299,9 @@ export function buildBridge(basePayload, nowPayload, { testBedCost = 0 } = {}) {
     unexplained: total - summed,
     // Non-zero only when two-decimal display cannot show the exact figures. It
     // is a presentation artefact, named as one, and never folded into a step.
-    displayRounding,
+    // `reconciles` is false when it is too large to be one.
+    displayRounding: reconciliation.rounding,
+    reconciliation,
     unassignedKeys,
     baselineHasCostBasis,
     comparable: baselineHasCostBasis,
@@ -354,13 +401,36 @@ export function buildExposures(payload, result) {
  * @param {string[]} missing - products with no batch at all
  * @param {string} asOfISO - the date the catalog was resolved for
  */
-export function buildCostBasis(batches, missing, asOfISO) {
+export function buildCostBasis(batches, missing, asOfISO, payload = {}) {
   const asOf = new Date(`${asOfISO}T00:00:00Z`);
   const products = Object.entries(batches ?? {}).map(([product, b]) => {
     const from = b.effective_from ? new Date(`${String(b.effective_from).slice(0, 10)}T00:00:00Z`) : null;
     const ageDays = from ? Math.round((asOf - from) / 86400000) : null;
     return { product, batchLabel: b.batch_label ?? null, effectiveFrom: b.effective_from ?? null, ageDays };
   }).sort((a, b) => (b.ageDays ?? -1) - (a.ageDays ?? -1));
+
+  // ── A PRODUCT WITH NO CURRENT COST BASIS ──────────────────────────────
+  //
+  // MEASURED, because "expired" turned out not to exist: base_cost_batches has
+  // effective_from and no end date, so a batch never lapses. It stays current
+  // until a later one starts, and GET /base-costs takes the latest
+  // effective_from at or before today.
+  //
+  // What DOES happen is a product with no CURRENT batch: none entered, or every
+  // batch for it dated in the future. catalogToRates then emits no keys for it,
+  // buildDealInputs reads `payload.ssUnitCost ?? 0`, and the product prices at
+  // ZERO COST. Its lines carry price with no cost against them, so the deal's
+  // achieved margin is inflated by exactly the amount nobody knows.
+  //
+  // THE ZERO-VERSUS-MISSING SHAPE AGAIN, and the discriminator is whether the
+  // deal actually contains that product. A missing HEMIR batch on a deal with no
+  // HEMIR units changes nothing and flagging it is noise. On a deal with two
+  // HEMIR units it means the approver is signing a price built on a cost nobody
+  // has entered, and that belongs at the top of the page rather than in a
+  // footnote here.
+  const unpricedInUse = (missing ?? [])
+    .map((product) => ({ product, units: PRODUCT_UNITS[product] ? PRODUCT_UNITS[product](payload) : null }))
+    .filter((m) => m.units === null || m.units > 0);
 
   return {
     asOf: asOfISO,
@@ -369,6 +439,14 @@ export function buildCostBasis(batches, missing, asOfISO) {
     // current as its stalest input.
     oldest: products[0] ?? null,
     missing: missing ?? [],
+    unpricedInUse,
+    // Every missing product, with whether this deal uses it, so block 4 can
+    // report a harmless gap differently from a live one.
+    missingDetail: (missing ?? []).map((product) => ({
+      product,
+      units: PRODUCT_UNITS[product] ? PRODUCT_UNITS[product](payload) : null,
+      inUse: PRODUCT_UNITS[product] ? PRODUCT_UNITS[product](payload) > 0 : true,
+    })),
   };
 }
 
@@ -386,16 +464,20 @@ export function buildCostBasis(batches, missing, asOfISO) {
 export function buildNotRecorded(payload, { missingProducts = [], versionReason = null } = {}) {
   const out = [];
 
-  // WHERE EACH DEFAULT ACTUALLY LIVES. factoringRatePct is not a top-level key:
-  // it is payload.factoring.ratePct. Reading it flat meant this block reported
-  // "nobody entered a value" on every deal, including deals that had set it,
-  // which is a false statement on a page whose whole job is to show an approver
-  // what they are accepting. Found by reading the rendered page.
-  const NESTED = { factoringRatePct: (p) => p?.factoring?.ratePct };
-
+  // ── BLOCK 5 CARRIES A HIGHER BAR THAN THE REST OF THE PAGE ────────────
+  //
+  // A missing row here is a gap. A WRONG "not recorded" is a false statement to
+  // the person accepting the risk, and it reads as authoritative: they are being
+  // told nobody decided something, and acting on it.
+  //
+  // So this block does not read the payload. It asks isSet(), which is the
+  // calculator's own reader, so a value reported as unset is unset by the
+  // definition that actually prices the deal. Reading it here independently is
+  // what produced the false claim on every deal in the system:
+  // `payload.factoringRatePct` is always undefined because the value lives at
+  // `payload.factoring.ratePct`.
   for (const key of Object.keys(NUMERIC_DEFAULTS)) {
-    const raw = NESTED[key] ? NESTED[key](payload) : payload?.[key];
-    if (raw !== undefined && raw !== null && raw !== '') continue;
+    if (isSet(payload, key)) continue;
     out.push({
       kind: 'default',
       key,
@@ -508,7 +590,7 @@ export function buildApprovalPage({
   targetChangedAt = null, catalog = {}, record = {},
 }) {
   const result = calculateDeal(buildDealInputs(payload, { testBedCost }));
-  const costBasis = buildCostBasis(catalog.batches, catalog.missing, catalog.asOf);
+  const costBasis = buildCostBasis(catalog.batches, catalog.missing, catalog.asOf, payload);
   const target = buildTarget(payload, result, {
     baselinePayload: baseline?.inputs ?? null,
     changedAt: targetChangedAt,
@@ -548,6 +630,14 @@ export function buildApprovalPage({
     sentence: version
       ? `Approve ${versionLabel} at ${result.achievedMargin.toFixed(1)}% margin on a contract net of $${grouped(result.totals.contractNet)}.`
       : `No version has been taken. There is nothing to approve yet.`,
+    // Raised to block 1 because it changes what the headline margin MEANS. An
+    // approver reading 17.5% on a deal containing a product with no cost basis
+    // is reading a number inflated by a cost nobody has entered.
+    unpricedWarning: costBasis.unpricedInUse.length
+      ? `This deal contains ${costBasis.unpricedInUse.map((m) => `${m.units} ${m.product}`).join(' and ')} `
+        + 'with no current Base Cost batch. Those units price at ZERO cost, so the margin above is '
+        + 'higher than the deal will achieve. Enter the missing costs before approving.'
+      : null,
   };
 
   // ── 2. WHAT MOVED IT ──────────────────────────────────────────────────
