@@ -21,7 +21,6 @@
 let refOpportunityId = null
 let refPayload = {}
 // The revision this tab loaded, sent as the precondition on every save.
-let refLoadedRevision = null
 let refOppDetails = {}
 let refStatus = ''
 let refWired = false
@@ -555,7 +554,6 @@ async function ensureKcVocabularies() {
 function renderReferenceTab(opp) {
   refOpportunityId = opp.id
   refPayload = opp.payload ?? {}
-  refLoadedRevision = Number.isInteger(opp.latest_revision_number) ? opp.latest_revision_number : null
   refOppDetails = opp.opportunity_details ?? {}
   refStatus = opp.status ?? ''
   refEdits = {}
@@ -833,10 +831,11 @@ async function performGenericRefSave(dirtyEntries) {
   })
   payloadUpdate.notes = [...newNotes, ...(refPayload.notes ?? [])]
 
-  const result = await api('PATCH', `/api/opportunities/${refOpportunityId}`,
-    { payload: payloadUpdate, expected_revision: refLoadedRevision })
+  const result = await window.oppPatch(refOpportunityId, { payload: payloadUpdate })
   if (!result.ok) {
-    feedback.textContent = result.data?.error ?? 'Failed to save.'
+    feedback.textContent = result.status === 409
+      ? (result.data?.error ?? 'This Opportunity changed since the screen loaded. Reload before saving.')
+      : (result.data?.error ?? 'Failed to save.')
     feedback.className = 'msg-error'
     return
   }

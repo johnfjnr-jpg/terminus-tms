@@ -55,6 +55,10 @@ export async function loadUnits(db, bedId) {
       index: p.unitIndex ?? null, serialNumber: p.serialNumber ?? null,
       latitude: p.latitude ?? null, longitude: p.longitude ?? null,
       stateSource: p.stateSource ?? null, created_at: u.created_at,
+      // Round 38: each unit carries its own revision, because each unit row in
+      // the table is edited independently and the precondition is per record,
+      // not per Test Bed. The read already had this number and dropped it.
+      revision_number: latest?.revision_number ?? null,
     }
   })
   shaped.sort((a, b) => a.type.localeCompare(b.type) || (a.index ?? 0) - (b.index ?? 0))

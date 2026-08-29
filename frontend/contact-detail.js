@@ -10,6 +10,11 @@
 let cdContactId = null
 let cdContact = null
 let cdPayload = {}
+// Round 38: the revision this screen is looking at. Every write from this page
+// merges into a payload it read, and the Notes History prepend rebuilds the
+// whole array in the browser, so a write from here against a Contact that moved
+// must be refused rather than landing on top of whoever moved it.
+let cdLoadedRevision = null
 let cdReturnView = 'leads'
 let cdEdits = {} // same shape as opportunity-reference.js's refEdits
 let cdWired = false
@@ -559,6 +564,7 @@ function renderContactDetail(contact) {
   cdContactId = contact.id
   cdContact = contact
   cdPayload = contact.payload ?? {}
+  cdLoadedRevision = Number.isInteger(contact.latest_revision_number) ? contact.latest_revision_number : null
   cdReturnView = contact.status === 'Qualified' ? 'contacts' : 'leads'
   cdEdits = {}
 
@@ -765,9 +771,12 @@ async function saveCdFields() {
   payloadUpdate.notes = [...newNotes, ...(cdPayload.notes ?? [])]
   body.payload = payloadUpdate
 
-  const result = await api('PATCH', `/api/contacts/${cdContactId}`, body)
+  const result = await api('PATCH', `/api/contacts/${cdContactId}`,
+    { ...body, expected_revision: cdLoadedRevision })
   if (!result.ok) {
-    feedback.textContent = result.data?.error ?? 'Failed to save.'
+    feedback.textContent = result.status === 409
+      ? (result.data?.error ?? 'This Contact changed since the screen loaded. Reload before saving.')
+      : (result.data?.error ?? 'Failed to save.')
     feedback.className = 'msg-error'
     return
   }
@@ -841,8 +850,16 @@ window.onCdAddNoteClick = async function () {
 }
 
 async function performCdAddNote(text) {
-  const result = await addContactNote(cdContactId, text, cdPayload.notes)
-  if (!result.ok) return
+  const result = await addContactNote(cdContactId, text, {
+    notes: cdPayload.notes,
+    expectedRevision: cdLoadedRevision,
+  })
+  if (!result.ok) {
+    // Reloading shows the note that beat this one and re-arms the screen with a
+    // current revision, so a second click lands. The typed text stays put.
+    if (result.status === 409) await loadContactDetail(cdContactId)
+    return
+  }
 
   resetCdNoteInput()
   await loadContactDetail(cdContactId)
@@ -1169,10 +1186,13 @@ async function performSaveCdParkForm(date, reason) {
     by: currentSession?.user?.email ?? '',
   }
   const patchResult = await api('PATCH', `/api/contacts/${cdContactId}`, {
-    payload: { followUpDate: date, notes: [note, ...(cdPayload.notes ?? [])] }
+    payload: { followUpDate: date, notes: [note, ...(cdPayload.notes ?? [])] },
+    expected_revision: cdLoadedRevision,
   })
   if (!patchResult.ok) {
-    errEl.textContent = patchResult.data?.error ?? 'Failed to save.'
+    errEl.textContent = patchResult.status === 409
+      ? (patchResult.data?.error ?? 'This Contact changed since the screen loaded. Reload before parking.')
+      : (patchResult.data?.error ?? 'Failed to save.')
     errEl.classList.remove('hidden')
     return
   }

@@ -15,6 +15,11 @@
 // from app.js, which is loaded immediately before this file.
 
 let acctDetailId = null
+// Round 38: the revision this screen is looking at. Sent with every save, so a
+// save against an Account that moved since the page loaded is refused rather
+// than silently overwriting whoever moved it. Refreshed from the save's own
+// response, otherwise the second save from one sitting would always conflict.
+let acctLoadedRevision = null
 let acctRecord = {}
 let acctPayload = {}
 let acctEdits = {} // key -> { draft, orig }, same convention as tbEdits/cdEdits
@@ -75,6 +80,7 @@ async function loadAccountDetail(id) {
 function renderAccountDetail(account) {
   wireAcctOnce()
   acctDetailId = account.id
+  acctLoadedRevision = Number.isInteger(account.latest_revision_number) ? account.latest_revision_number : null
   acctRecord = account
   acctPayload = account.payload ?? {}
   acctEdits = {}
@@ -272,12 +278,16 @@ async function saveAcctFields() {
   const payloadUpdate = {}
   for (const [key, e] of dirtyEntries) payloadUpdate[key] = e.draft
 
-  const result = await api('PATCH', `/api/accounts/${acctDetailId}`, { payload: payloadUpdate })
+  const result = await api('PATCH', `/api/accounts/${acctDetailId}`,
+    { payload: payloadUpdate, expected_revision: acctLoadedRevision })
   if (!result.ok) {
-    feedback.textContent = result.data?.error ?? 'Failed to save.'
+    feedback.textContent = result.status === 409
+      ? (result.data?.error ?? 'This Account changed since the screen loaded. Reload before saving.')
+      : (result.data?.error ?? 'Failed to save.')
     feedback.className = 'msg-error'
     return
   }
+  if (Number.isInteger(result.data?.revision_number)) acctLoadedRevision = result.data.revision_number
   acctEdits = {}
   await loadAccountDetail(acctDetailId)
   await loadAccountsList()

@@ -31,7 +31,6 @@ let wired = false
 // still being at the revision this screen loaded.
 // The revision this screen loaded, and the precondition every save carries.
 // Updated after a successful save, because that save IS the new revision.
-let loadedRevision = null
 // Save Changes activation (Round 3 Phase 4, 2026-08-17) - btn-save-deal
 // was previously always enabled regardless of whether anything on this
 // tab had actually changed, confirmed by direct inspection, not
@@ -1622,8 +1621,12 @@ async function saveDeal() {
   // recorded one field's history in a place nothing reads for that purpose,
   // and record_revisions already holds every value this field has ever had.
 
-  const result = await window.api('PATCH', `/api/opportunities/${opportunityId}`,
-    { payload, expected_revision: loadedRevision })
+  // Round 38: through the shared writer, which holds the ONE revision this
+  // page's three tabs share and refreshes it from the response. Holding a
+  // private copy here meant an exit-criterion tick on another tab left this
+  // one stale, and the next save from Commercials would have been refused
+  // with nothing actually wrong.
+  const result = await window.oppPatch(opportunityId, { payload })
 
   if (!result.ok) {
     // A stale write is answered 409 and says what to do about it. Shown, never
@@ -1636,9 +1639,6 @@ async function saveDeal() {
   }
   captureSavedBaseline()
 
-  // The save IS the new revision, so the screen now holds it. Without this the
-  // second save from one page load would be refused as stale.
-  loadedRevision = result.data.revision_number
   feedback.textContent = `Saved (revision ${result.data.revision_number}).`
   feedback.className = 'msg-success'
   return true
@@ -1682,9 +1682,6 @@ window.initOpportunityDealPanel = async function (opp) {
   // figures and then replaces them, which is the same indistinguishable zero
   // this round exists to remove, shown for however long the request takes.
   await loadCatalog()
-
-  // The precondition every save from this screen will carry.
-  loadedRevision = Number.isInteger(opp.latest_revision_number) ? opp.latest_revision_number : null
 
   populateForm(opp.payload)
   recompute()

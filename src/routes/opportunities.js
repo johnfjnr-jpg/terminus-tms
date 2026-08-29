@@ -1,7 +1,7 @@
 import { createUserClient } from '../supabase.js'
 import { recordScoreEntry } from '../lib/score-entry.js'
 import { sendWriteError, sendRefusal } from '../lib/write-errors.js'
-import { appendRecordRevision, SINGLE_KEY_RMW, CLIENT_UNWIRED } from '../lib/record-revision.js'
+import { appendRecordRevision, SINGLE_KEY_RMW, readExpectedRevision } from '../lib/record-revision.js'
 import { isValidIsoDate, isValidNonNegativeInteger, isValidNonNegativePercent, isNotPastIsoDate } from '../lib/field-validation.js'
 import { WRITABLE_NUMERIC_KEYS, isStorableNumeric } from '../lib/numeric-payload.js'
 
@@ -592,17 +592,14 @@ export default async function opportunitiesRoutes(app) {
     //
     // OPTIONAL. A caller that does not send it keeps today's behaviour exactly,
     // so this route change breaks no existing screen.
-    const expectedRevision = request.body?.expected_revision
-    if (expectedRevision !== undefined && expectedRevision !== null
-        && !Number.isInteger(expectedRevision)) {
-      return reply.code(400).send({ error: 'expected_revision must be a whole number' })
-    }
+    const expected = readExpectedRevision(request.body)
+    if (expected.error) return reply.code(400).send({ error: expected.error })
 
     const { data: newRevision, error: revErr } = await appendRecordRevision(
       db, record.id, payload, request.user.id, [],
-      // The only writer sending a real precondition today. When the client omits
-      // it this is named debt rather than a silent blind write.
-      expectedRevision === undefined || expectedRevision === null ? CLIENT_UNWIRED : expectedRevision)
+      // Read and validated by the one shared parser, which is also what makes
+      // "did the client send one" answerable in the same shape everywhere.
+      expected.precondition)
 
     if (revErr) {
       // A stale write is a conflict the user resolves by reloading, not a

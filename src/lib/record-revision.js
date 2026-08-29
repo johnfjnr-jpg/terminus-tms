@@ -128,3 +128,43 @@ export async function appendRecordRevision(db, recordId, patch, createdBy, remov
   if (error) return { error }
   return { data }
 }
+
+/**
+ * The precondition as it arrives from a client, read and validated once.
+ *
+ * Round 38. Written because three routes were about to grow a fourth and fifth
+ * copy of the same eight lines, and the two copies that already existed had
+ * already drifted apart in shape: opportunities.js validates then branches on
+ * undefined-or-null at the call, test-beds.js branches on Number.isInteger at
+ * the call and never validates at all, so a client sending
+ * expected_revision: "7" got a silent blind write from one route and a 400
+ * from the other. One computation path per concern.
+ *
+ * ABSENT IS STILL CLIENT_UNWIRED RATHER THAN A REFUSAL, and that is the
+ * remaining debt rather than the design. Making it required is a refusal, and
+ * a refusal is a write-path decision: every caller that does not send one
+ * starts failing the moment it lands. The callers are enumerated and wired in
+ * this same change, and `wired` is returned so a route can tell the two apart
+ * without re-deriving it.
+ *
+ * @param {object} body - request.body
+ * @returns {{ precondition?: number|symbol, wired?: boolean, error?: string }}
+ */
+export function readExpectedRevision(body) {
+  const raw = body?.expected_revision
+  if (raw === undefined || raw === null) return { precondition: CLIENT_UNWIRED, wired: false }
+  if (!Number.isInteger(raw)) return { error: 'expected_revision must be a whole number' }
+  return { precondition: raw, wired: true }
+}
+
+/**
+ * Did this write fail because the record moved under the screen?
+ *
+ * PT409 is the SQLSTATE append_record_revision raises for a failed
+ * compare-and-swap. It must never reach sendWriteError, which answers 500: a
+ * stale write is a conflict the person resolves by reloading, not a server
+ * fault, and a 500 tells them to give up rather than to refresh.
+ */
+export function isStaleWrite(error) {
+  return error?.code === 'PT409'
+}

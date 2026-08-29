@@ -1,6 +1,6 @@
 import { createUserClient } from '../supabase.js'
 import { sendWriteError, sendRefusal } from '../lib/write-errors.js'
-import { appendRecordRevision, SINGLE_KEY_RMW, CLIENT_UNWIRED } from '../lib/record-revision.js'
+import { appendRecordRevision, SINGLE_KEY_RMW, readExpectedRevision, isStaleWrite } from '../lib/record-revision.js'
 import { isValidMobile } from '../lib/field-validation.js'
 import { issueReferenceNumber, issueAccountNumber } from '../lib/reference-number.js'
 import { countryToCode } from '../lib/country-code.js'
@@ -43,13 +43,20 @@ export default async function contactsRoutes(app) {
     const ids = contacts.map(c => c.id)
     const { data: revs } = await db
       .from('record_revisions')
-      .select('record_id, payload')
+      .select('record_id, revision_number, payload')
       .in('record_id', ids)
       .order('revision_number', { ascending: false })
 
+    // Round 38: the number travels with the payload. The Contacts list card
+    // adds notes, which is a prepend of the whole array read from here, so the
+    // card writing it back has to say which revision it read.
+    const latestRevision = {}
     const latestPayload = {}
     for (const rev of revs ?? []) {
-      if (!latestPayload[rev.record_id]) latestPayload[rev.record_id] = rev.payload
+      if (!latestPayload[rev.record_id]) {
+        latestPayload[rev.record_id] = rev.payload
+        latestRevision[rev.record_id] = rev.revision_number
+      }
     }
 
     // Linked Test Beds/Opportunities (2026-08-15, Contacts list count
@@ -117,6 +124,7 @@ export default async function contactsRoutes(app) {
     return contacts.map(c => ({
       ...c,
       payload: latestPayload[c.id] ?? {},
+      latest_revision_number: latestRevision[c.id] ?? null,
       linked_test_beds: byContact[c.id] ? [...byContact[c.id].test_bed.values()] : [],
       linked_opportunities: byContact[c.id] ? [...byContact[c.id].opportunity.values()] : [],
     }))
@@ -241,13 +249,17 @@ export default async function contactsRoutes(app) {
 
     const { data: rev } = await db
       .from('record_revisions')
-      .select('payload')
+      .select('revision_number, payload')
       .eq('record_id', contact.id)
       .order('revision_number', { ascending: false })
       .limit(1)
       .maybeSingle()
 
-    return { ...contact, payload: rev?.payload ?? {} }
+    return {
+      ...contact,
+      payload: rev?.payload ?? {},
+      latest_revision_number: rev?.revision_number ?? null,
+    }
   })
 
   // PATCH /api/contacts/:id — ordinary field edits only. Stage changes go
@@ -266,6 +278,9 @@ export default async function contactsRoutes(app) {
   // See POST /contacts/:id/link-account below, the only way to set
   // parent_record_id post-creation now.
   app.patch('/contacts/:id', async (request, reply) => {
+    const expected = readExpectedRevision(request.body)
+    if (expected.error) return reply.code(400).send({ error: expected.error })
+    let writtenRevision = null
     const { payload, industry_id } = request.body ?? {}
 
     // Round 7 Phase 2 (2026-08-18): reject a body this endpoint cannot
@@ -346,14 +361,22 @@ export default async function contactsRoutes(app) {
       // append_record_revision does the lookup and the insert in one
       // statement, so it cannot see "no prior revision" for a record that
       // has one.
-      const { error: revErr } = await appendRecordRevision(db, record.id, payload, request.user.id, [],
-        // DEBT: whole-form PATCH, Contact screen not yet sending a revision.
-        CLIENT_UNWIRED)
+      const { data: newRevision, error: revErr } = await appendRecordRevision(
+        db, record.id, payload, request.user.id, [],
+        // Round 38: the Contact screen now sends the revision it loaded. This
+        // PATCH also carries the Notes History prepend, which is a whole-array
+        // read-modify-write built in the browser: without a precondition two
+        // notes added at the same moment silently keep one.
+        expected.precondition)
 
+      if (isStaleWrite(revErr)) {
+        return reply.code(409).send({ error: revErr.message, stale: true })
+      }
       if (revErr) return sendWriteError(reply, revErr)
+      writtenRevision = newRevision?.revision_number ?? null
     }
 
-    return reply.send({ ok: true })
+    return reply.send({ ok: true, revision_number: writtenRevision })
   })
 
   // POST /api/contacts/:id/link-account

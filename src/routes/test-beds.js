@@ -1,6 +1,6 @@
 import { createUserClient } from '../supabase.js'
 import { sendWriteError, writeErrorStatus, sendRefusal } from '../lib/write-errors.js'
-import { appendRecordRevision, SINGLE_KEY_RMW, CLIENT_UNWIRED } from '../lib/record-revision.js'
+import { appendRecordRevision, SINGLE_KEY_RMW, readExpectedRevision, isStaleWrite } from '../lib/record-revision.js'
 import { issueReferenceNumber } from '../lib/reference-number.js'
 import { isValidIsoDate, isNotPastIsoDate, isValidNonNegativeInteger, isValidNonNegativePercent, isValidIsoTimestamp, isValidLatitude, isValidLongitude } from '../lib/field-validation.js'
 import { calculateTestBedCost } from '../lib/deal-calculator.js'
@@ -528,7 +528,15 @@ export default async function testBedsRoutes(app) {
   ])
 
   app.patch('/test-beds/:id', async (request, reply) => {
-    const { payload, industry_id, countCorrectionReason, expected_revision: expectedRevision } = request.body ?? {}
+    const { payload, industry_id, countCorrectionReason } = request.body ?? {}
+
+    // Round 38: read through the shared parser. This route previously took
+    // expected_revision straight from the body and used it only if it happened
+    // to be an integer, so a client sending "7" got a silent blind write here
+    // and a 400 from the Opportunity route for the same mistake.
+    const expected = readExpectedRevision(request.body)
+    if (expected.error) return reply.code(400).send({ error: expected.error })
+    let writtenRevision = null
 
     // Round 7 Phase 2 (2026-08-18): see contacts.js for the full note.
     // A body this endpoint cannot act on is now a 400, not a silent
@@ -907,8 +915,8 @@ export default async function testBedsRoutes(app) {
         request.user.id, removeKeys,
         // The Test Bed detail form sends the revision it loaded. The other PATCH
         // call sites on this route (notes, install notes, use cases) send none
-        // and are named debt at their own call sites.
-        Number.isInteger(expectedRevision) ? expectedRevision : CLIENT_UNWIRED)
+        // and fall through to CLIENT_UNWIRED inside the shared parser.
+        expected.precondition)
 
       if (revErr?.code === 'PT409') {
         return reply.code(409).send({ error: revErr.message, stale: true })
@@ -928,9 +936,15 @@ export default async function testBedsRoutes(app) {
           db, record.id, written.payload, request.user.id)
         if (deriveErr) return reply.code(500).send({ error: deriveErr.message })
       }
+
+      writtenRevision = written?.revision_number ?? null
     }
 
-    return reply.send({ ok: true })
+    // Round 38: the number goes back so a screen with several independent
+    // controls on one record (notes, install notes, use cases, exit criteria,
+    // count corrections, the field form) can each write and stay current
+    // without a full reload between them.
+    return reply.send({ ok: true, revision_number: writtenRevision })
   })
 
   // GET /api/test-beds/:id/document-requirements
@@ -1774,6 +1788,11 @@ export default async function testBedsRoutes(app) {
     const body = request.body ?? {}
     const db = createUserClient(request.jwt)
 
+    const expectedUnitRevision = readExpectedRevision(body)
+    if (expectedUnitRevision.error) {
+      return reply.code(400).send({ error: expectedUnitRevision.error })
+    }
+
     if ('state' in body && !VALID_UNIT_STATES.includes(body.state)) {
       return reply.code(400).send({ error: `state must be one of: ${VALID_UNIT_STATES.join(', ')}` })
     }
@@ -1805,10 +1824,18 @@ export default async function testBedsRoutes(app) {
     for (const key of ['serialNumber', 'latitude', 'longitude', 'stateSource']) {
       if (key in body) unitPatch[key] = body[key]
     }
-    const { error: insErr } = await appendRecordRevision(db, unit.id, unitPatch, request.user.id, [],
-      // DEBT: unit field PATCH, unit row editor not yet sending a revision.
-      CLIENT_UNWIRED)
+    // Round 38: the units table now sends the revision of the unit row it is
+    // editing. This is the site Round 17A Phase 0 reproduced against, and the
+    // atomic merge only ever fixed half of it: three fields entered at paste
+    // speed no longer overwrite one another, but a second person editing the
+    // SAME field still silently won. Now the loser is told.
+    const { data: unitRevision, error: insErr } = await appendRecordRevision(
+      db, unit.id, unitPatch, request.user.id, [], expectedUnitRevision.precondition)
+    if (isStaleWrite(insErr)) {
+      return reply.code(409).send({ error: insErr.message, stale: true })
+    }
     if (insErr) return sendWriteError(reply, insErr)
+    void unitRevision
 
     if ('state' in body && body.state !== unit.status) {
       const { error: stErr } = await db.from('records').update({ status: body.state }).eq('id', unit.id)

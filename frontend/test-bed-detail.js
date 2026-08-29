@@ -13,6 +13,39 @@ let tbDetailId = null
 let tbPayload = {}
 // The revision this screen loaded, sent as the precondition on the whole-form save.
 let tbLoadedRevision = null
+
+// Round 38: EVERY PATCH of the Test Bed record goes through here.
+//
+// This screen has six independent controls that write to one record: the field
+// form, notes, install notes, use cases, exit-criterion ticks and count
+// corrections. Only the field form sent a precondition, so the other five could
+// each land on top of a record that had moved, and three of them rebuild a
+// whole array in the browser first, which is a lost update rather than a
+// last-writer-wins on one key.
+//
+// The helper is the point rather than the plumbing. Sending the revision and
+// re-reading it from the response are two halves of one rule, and a call site
+// that did the first without the second would 409 on its own second save. With
+// one function neither half can be forgotten, which is the same reason dirty
+// became a comparison instead of a flag each new control had to remember.
+async function tbPatch(body) {
+  const result = await api('PATCH', `/api/test-beds/${tbDetailId}`,
+    { ...body, expected_revision: tbLoadedRevision })
+  if (result.ok && Number.isInteger(result.data?.revision_number)) {
+    tbLoadedRevision = result.data.revision_number
+  }
+  return result
+}
+
+// What to show when a write is refused because the record moved. The server's
+// own message names both revisions; this is the fallback when it does not
+// reach the client.
+function tbStaleMessage(result, fallback) {
+  if (result.status === 409) {
+    return result.data?.error ?? 'This Test Bed changed since the screen loaded. Reload before saving.'
+  }
+  return result.data?.error ?? fallback
+}
 let tbBed = {}
 let tbEdits = {} // key -> { draft, orig }, same "only present entries are open" convention as opportunity-reference.js
 
@@ -562,7 +595,7 @@ window.addTbNote = async function () {
   if (!text) return
   const existing = Array.isArray(tbPayload.notes) ? tbPayload.notes : []
   const notes = [tbNewNote(text), ...existing]
-  const result = await api('PATCH', `/api/test-beds/${tbDetailId}`, { payload: { notes } })
+  const result = await tbPatch({ payload: { notes } })
   if (result.ok) {
     input.value = ''
     await loadTestBedDetail(tbDetailId)
@@ -1272,7 +1305,7 @@ window.addTbInstallNote = async function () {
   if (!text) return
   const existing = Array.isArray(tbPayload.installNotes) ? tbPayload.installNotes : []
   const installNotes = [tbNewNote(text), ...existing]
-  const result = await api('PATCH', `/api/test-beds/${tbDetailId}`, { payload: { installNotes } })
+  const result = await tbPatch({ payload: { installNotes } })
   if (result.ok) {
     input.value = ''
     await loadTestBedDetail(tbDetailId)
@@ -1298,7 +1331,7 @@ window.addTbUseCase = async function () {
   const text = input.value.trim()
   if (!text) return
   const useCases = [...(Array.isArray(tbPayload.useCases) ? tbPayload.useCases : []), text]
-  const result = await api('PATCH', `/api/test-beds/${tbDetailId}`, { payload: { useCases } })
+  const result = await tbPatch({ payload: { useCases } })
   if (result.ok) {
     input.value = ''
     await loadTestBedDetail(tbDetailId)
@@ -1307,7 +1340,7 @@ window.addTbUseCase = async function () {
 
 window.removeTbUseCase = async function (idx) {
   const useCases = (Array.isArray(tbPayload.useCases) ? tbPayload.useCases : []).filter((_, i) => i !== idx)
-  const result = await api('PATCH', `/api/test-beds/${tbDetailId}`, { payload: { useCases } })
+  const result = await tbPatch({ payload: { useCases } })
   if (result.ok) await loadTestBedDetail(tbDetailId)
 }
 
@@ -2356,8 +2389,8 @@ window.toggleExitCriterion = (field, isMet) => {
     if (fb) { fb.textContent = ''; fb.className = '' }
     const stageAtClick = currentTbStageTab
     const recordId = tbDetailId
-    const result = await api('PATCH', `/api/test-beds/${recordId}`, {
-      payload: { [field]: isMet ? null : new Date().toISOString() }
+    const result = await tbPatch({
+      payload: { [field]: isMet ? null : new Date().toISOString() },
     })
     if (!result.ok) {
       const el = document.getElementById('tb-crit-feedback')
@@ -2696,10 +2729,9 @@ async function saveTbDirtyEntries(dirtyEntries) {
   // compare-and-swap, and one key wide while every other field on this screen
   // merged unchecked. Replaced by the record-level precondition below.
 
-  const result = await api('PATCH', `/api/test-beds/${tbDetailId}`,
-    { payload: payloadUpdate, expected_revision: tbLoadedRevision })
+  const result = await tbPatch({ payload: payloadUpdate })
   if (!result.ok) {
-    feedback.textContent = result.data?.error ?? 'Failed to save.'
+    feedback.textContent = tbStaleMessage(result, 'Failed to save.')
     feedback.className = 'msg-error'
     return
   }
@@ -2991,9 +3023,21 @@ function onTbUnitFieldChange(e) {
   cell.className = 'tb-unit-feedback'
 
   q.chain = q.chain.then(async () => {
-    const result = await api('PATCH', `/api/test-beds/${tbDetailId}/units/${unitId}`, { [field]: value })
+    // Round 38: the revision is read HERE, inside the queued link, not when the
+    // event fired. Three fields entered at paste speed queue three writes, and
+    // each must expect the revision the one before it produced. Reading it at
+    // event time would give all three the same number and refuse two of them,
+    // which is the failure this queue was built to remove, arriving from the
+    // other direction.
+    const held = tbUnits.find(u => u.id === unitId)
+    const result = await api('PATCH', `/api/test-beds/${tbDetailId}/units/${unitId}`, {
+      [field]: value,
+      expected_revision: Number.isInteger(held?.revision_number) ? held.revision_number : null,
+    })
     if (!result.ok) {
-      q.failures.set(field, result.data?.error ?? 'Save failed')
+      q.failures.set(field, result.status === 409
+        ? 'Someone else changed this unit. Reload before saving.'
+        : (result.data?.error ?? 'Save failed'))
       return
     }
     // This field is good again, so its outstanding refusal is resolved.
@@ -3201,10 +3245,12 @@ function renderTbCountCorrection(type) {
     apply.disabled = true
     fb.className = 'tb-doc-feedback'
     fb.textContent = 'Applying'
-    const result = await api('PATCH', `/api/test-beds/${tbDetailId}`,
-      { payload: { [key]: count.value.trim() }, countCorrectionReason: reason.value.trim() })
+    const result = await tbPatch({
+      payload: { [key]: count.value.trim() },
+      countCorrectionReason: reason.value.trim(),
+    })
     if (!result.ok) {
-      fb.textContent = result.data?.error ?? 'Could not apply the correction.'
+      fb.textContent = tbStaleMessage(result, 'Could not apply the correction.')
       fb.className = 'tb-doc-feedback msg-error'
       apply.disabled = false
       return

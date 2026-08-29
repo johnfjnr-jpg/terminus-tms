@@ -3441,8 +3441,8 @@ window.toggleOppExitCriterion = (recordId, stageName, field, isMet) => {
     const fb = panel?.querySelector('.opp-crit-feedback')
     if (fb) { fb.textContent = ''; fb.className = 'tb-doc-feedback opp-crit-feedback' }
 
-    const result = await api('PATCH', `/api/opportunities/${recordId}`, {
-      payload: { [field]: isMet ? null : new Date().toISOString() }
+    const result = await window.oppPatch(recordId, {
+      payload: { [field]: isMet ? null : new Date().toISOString() },
     })
 
     if (!result.ok) {
@@ -3774,14 +3774,23 @@ document.getElementById('btn-back-account-detail').addEventListener('click', () 
 // refreshes via loadContactDetail) run in genuinely different DOM
 // contexts and need different refresh targets, so each keeps its own
 // thin wrapper around this one real write.
-async function addContactNote(contactId, text, existingNotes) {
+//
+// Round 38: THE THIRD ARGUMENT IS THE RECORD THE NOTES WERE READ FROM, not the
+// notes. A note is added by prepending to the whole array and writing the whole
+// array back, which is a read-modify-write performed in the browser: two people
+// adding a note at the same moment both prepend to the array they read, and the
+// second write keeps only its own note. The revision the array was read at is
+// what makes that refusable, so it travels WITH the array rather than as a
+// fourth positional argument a caller can quietly omit.
+async function addContactNote(contactId, text, source) {
   const note = {
     text,
     at: new Date().toISOString(),
     by: currentSession?.user?.email ?? '',
   }
   return api('PATCH', `/api/contacts/${contactId}`, {
-    payload: { notes: [note, ...(existingNotes ?? [])] }
+    payload: { notes: [note, ...(source?.notes ?? [])] },
+    expected_revision: source?.expectedRevision ?? null,
   })
 }
 
@@ -3878,8 +3887,23 @@ window.onLeadAddNoteClick = async function (btn, contactId) {
   if (!text) return
 
   const contact = contactsCache.find(c => c.id === contactId)
-  const result = await addContactNote(contactId, text, contact?.payload?.notes)
-  if (!result.ok) return
+  const result = await addContactNote(contactId, text, {
+    notes: contact?.payload?.notes,
+    expectedRevision: contact?.latest_revision_number ?? null,
+  })
+  if (!result.ok) {
+    // A stale write means somebody else wrote to this Contact between this card
+    // being rendered and Add Note being clicked. Reloading makes their change
+    // visible and re-renders this card against a current revision, so clicking
+    // Add Note again lands. The typed text is deliberately left in the box.
+    //
+    // LIMITATION, STATED RATHER THAN HIDDEN: a list card has no notice surface,
+    // so this is a silent refusal followed by a visible refresh. Every other
+    // failure on this path was already silent before this change; a 409 is the
+    // first one where the person needs to know why nothing happened.
+    if (result.status === 409) await loadContactsData()
+    return
+  }
 
   await loadContactsData()
 }
@@ -5770,6 +5794,41 @@ document.getElementById('opp-btn-grid').addEventListener('click', () => {
 })
 
 // ── Opportunity detail ────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
+// The Opportunity's revision, held ONCE for the whole detail page
+// ─────────────────────────────────────────────────────────────
+//
+// Round 38. Three modules write to one Opportunity record: this file (exit
+// criterion ticks), opportunity-reference.js (the Reference tab's fields) and
+// opportunity-deal.js (Commercials). Each held its own copy of the revision it
+// had loaded, and two of them refreshed that copy only after their OWN save. A
+// tick from this file therefore left the Commercials tab holding a number the
+// record had already left, and the next save from Commercials would have been
+// refused as stale when nothing was wrong.
+//
+// One holder rather than three, and it is not a weakening: loadOpportunityDetail
+// performs ONE GET and renderOppDetail hands the same `opp` object to all three,
+// so the three copies were always the same number written down three times.
+// Measured before relying on it, not assumed.
+let oppLoadedRevision = null
+
+window.setOppLoadedRevision = function (n) {
+  oppLoadedRevision = Number.isInteger(n) ? n : null
+}
+
+// Every PATCH of an Opportunity payload goes through here, for the same reason
+// tbPatch exists on Test Bed: sending the revision and re-reading it from the
+// response are two halves of one rule, and a call site doing only the first
+// would refuse its own second save.
+window.oppPatch = async function (recordId, body) {
+  const result = await api('PATCH', `/api/opportunities/${recordId}`,
+    { ...body, expected_revision: oppLoadedRevision })
+  if (result.ok && Number.isInteger(result.data?.revision_number)) {
+    oppLoadedRevision = result.data.revision_number
+  }
+  return result
+}
+
 async function loadOpportunityDetail(id) {
   const result = await api('GET', `/api/opportunities/${id}`)
   if (!result.ok) {
@@ -5787,6 +5846,9 @@ async function loadOpportunityDetail(id) {
 async function renderOppDetail(opp) {
   const p = opp.payload ?? {}
   const det = opp.opportunity_details ?? {}
+
+  // Set here, before any tab renders, so all three writers share one number.
+  window.setOppLoadedRevision(opp.latest_revision_number)
 
   // ref-display-name is set below by opportunity-reference.js's
   // renderReferenceTab (Round 3 Phase 3, 2026-08-17) - it's now the

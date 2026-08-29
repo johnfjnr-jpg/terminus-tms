@@ -132,16 +132,23 @@ export default async function accountsRoutes(app) {
     const ids = accounts.map(a => a.id)
     const { data: revs } = await db
       .from('record_revisions')
-      .select('record_id, payload')
+      .select('record_id, revision_number, payload')
       .in('record_id', ids)
       .order('revision_number', { ascending: false })
 
-    const latestPayload = {}
+    // Round 38: the number travels with the payload it belongs to. A screen
+    // that shows a payload and then writes it back needs to say which revision
+    // it was looking at, and it can only do that if the read told it.
+    const latest = {}
     for (const rev of revs ?? []) {
-      if (!latestPayload[rev.record_id]) latestPayload[rev.record_id] = rev.payload
+      if (!latest[rev.record_id]) latest[rev.record_id] = rev
     }
 
-    return accounts.map(a => ({ ...a, payload: latestPayload[a.id] ?? {} }))
+    return accounts.map(a => ({
+      ...a,
+      payload: latest[a.id]?.payload ?? {},
+      latest_revision_number: latest[a.id]?.revision_number ?? null,
+    }))
   })
 
   // POST /api/accounts — the full creation form. Contact's own
@@ -260,7 +267,7 @@ export default async function accountsRoutes(app) {
 
     const { data: rev } = await db
       .from('record_revisions')
-      .select('payload')
+      .select('revision_number, payload')
       .eq('record_id', account.id)
       .order('revision_number', { ascending: false })
       .limit(1)
@@ -313,7 +320,13 @@ export default async function accountsRoutes(app) {
       }
     }
 
-    return { ...account, payload: rev?.payload ?? {}, contacts: contactsWithPayload, parent }
+    return {
+      ...account,
+      payload: rev?.payload ?? {},
+      latest_revision_number: rev?.revision_number ?? null,
+      contacts: contactsWithPayload,
+      parent,
+    }
   })
 
   // PATCH /api/accounts/:id
@@ -328,6 +341,10 @@ export default async function accountsRoutes(app) {
 
   app.patch('/accounts/:id', async (request, reply) => {
     const { payload, industry_id, parent_account_id } = request.body ?? {}
+
+    const expected = readExpectedRevision(request.body)
+    if (expected.error) return reply.code(400).send({ error: expected.error })
+    let writtenRevision = null
 
     // Round 7 Phase 2 (2026-08-18): see contacts.js for the full note.
     // parent_account_id is a third legitimate top-level key here, so it
@@ -441,12 +458,18 @@ export default async function accountsRoutes(app) {
       // but only to decide the lazy Account Number - it is no longer what
       // gets written, because a payload assembled from the read above would
       // merge against data that may have moved since.
-      const { error: revErr } = await appendRecordRevision(db, record.id, payload, request.user.id, [],
-        // DEBT: a whole-form PATCH that should carry the revision the Account
-        // screen loaded. The screen does not send one yet.
-        CLIENT_UNWIRED)
+      const { data: newRevision, error: revErr } = await appendRecordRevision(
+        db, record.id, payload, request.user.id, [],
+        // Round 38: the Account screen now sends the revision it loaded. Two
+        // people editing the same Account is the most ordinary concurrent edit
+        // in this system and it was the least guarded write in it.
+        expected.precondition)
 
+      if (isStaleWrite(revErr)) {
+        return reply.code(409).send({ error: revErr.message, stale: true })
+      }
       if (revErr) return sendWriteError(reply, revErr)
+      writtenRevision = newRevision?.revision_number ?? null
 
       if (reference_code) {
         const { error: refErr } = await db.from('records').update({ reference_code }).eq('id', record.id)
@@ -454,6 +477,10 @@ export default async function accountsRoutes(app) {
       }
     }
 
-    return reply.send({ ok: true })
+    // The new revision number goes back so the screen can hold a current one
+    // without a second read. Without this the very next save from the same
+    // screen would send a revision the record has already left, and every
+    // second save would 409.
+    return reply.send({ ok: true, revision_number: writtenRevision })
   })
 }
