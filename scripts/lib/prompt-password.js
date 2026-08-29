@@ -9,16 +9,24 @@
 //
 // ── WHY A PROMPT AND NOT AN ARGUMENT ──────────────────────────────────────
 //
-// A password on a command line lands in ~/.zsh_history in plaintext, and that
-// file is backed up, synced, and readable by anything with filesystem access to
-// the machine. It is also visible in `ps` output to any other process on the
-// box for the lifetime of the call. Neither of those is recoverable by deleting
-// the process afterwards.
+// A password on a command line lands in FOUR places, and clearing the first is
+// the only one most people think of:
+//
+//   ~/.zsh_history   plaintext, backed up and synced. Note that a live shell
+//                    holds history in memory and rewrites the file on exit, so
+//                    editing it under a running session can put the lines back.
+//   `ps` output      visible to every other process on the box while it runs
+//   scrollback       the terminal's own buffer, and any saved window state
+//   session logs     whatever the terminal or a multiplexer is recording
+//
+// NEITHER PARTY CAN ENUMERATE EVERYWHERE IT WENT, which is why the answer is to
+// rotate rather than to clean up and then reason about coverage. Same
+// discipline as the committed token: rotate, do not reason about whether it
+// mattered.
 //
 // Round 39 had a real password typed on a command line three times before
-// anybody said so. The cost was small because it was a test account, and the
-// discipline is the same one applied to the committed token: rotate, do not
-// reason about whether it mattered.
+// anybody said so.
+
 const ENTER_CODES = [10, 13, 4] // newline, carriage return, Ctrl-D
 const CTRL_C_CODE = 3
 const BACKSPACE_CODE = 127

@@ -1097,8 +1097,26 @@ rules here record their own author being caught by them within the hour of
 writing them down. Knowing a rule confers no ability to spot its instances;
 being prompted at the right moment does.
 
+**AND ASK ONE QUESTION OF THE GROUPS: DO THEY COLLAPSE?** Added by the
+business the same day, and it is the point of the exercise rather than a
+refinement of it.
+
+Rules 19 to 29 came out of two rounds, each from an incident. That is the right
+way to acquire a rule. **It also means the set is shaped by what went wrong
+rather than by what matters**, and incidents cluster.
+
+**If nine of the last eleven land in "a claim made without measuring it", that
+is not nine rules. It is one rule with nine instances**, and it should read that
+way, with the instances kept underneath as the evidence. The instances are what
+make the rule believable and what let a reader recognise the shape in the wild;
+they are not nine separate things to remember.
+
+**An index that reveals the set is smaller than its numbering is worth more than
+an index that files it neatly.**
+
 Nothing is removed and nothing is reworded by the index pass. The current
-numbering is load-bearing, because rounds cite it.
+numbering is load-bearing, because rounds cite it: **the grouping sits above the
+numbers, not instead of them.**
 
 ---
 
