@@ -53,19 +53,42 @@ export function promptHiddenPassword(query) {
     stdin.setEncoding('utf8')
 
     let password = ''
+    let done = false
     const finish = (fn, arg) => {
+      if (done) return
+      done = true
       stdin.setRawMode(false)
       stdin.pause()
       stdin.removeListener('data', onData)
       stdout.write('\n')
       fn(arg)
     }
-    const onData = (char) => {
-      const code = char.charCodeAt(0)
-      if (ENTER_CODES.includes(code)) finish(resolve, password)
-      else if (code === CTRL_C_CODE) finish(process.exit, 1)
-      else if (code === BACKSPACE_CODE) password = password.slice(0, -1)
-      else password += char
+
+    // ── EVERY CHARACTER IN THE CHUNK, NOT THE FIRST ONE ───────────────────
+    //
+    // This read `char.charCodeAt(0)` on the whole data event until Round 39.
+    // A human typing delivers one keystroke per event, so the first character
+    // IS the event and it worked for every caller it had. A PASTED password
+    // arrives as ONE chunk: the code read only its first letter, found no
+    // Enter, appended the entire chunk including the trailing carriage return
+    // to the password, and waited forever for a submit that had already
+    // happened.
+    //
+    // Nothing failed visibly. The prompt simply sat there, which reads as the
+    // terminal ignoring you rather than as a bug. Found by driving it from a
+    // pty, and it matters immediately: a rotated password comes out of a
+    // password manager, and a password manager pastes.
+    //
+    // Architecture rule 8, exactly: correct for every caller that existed, and
+    // wrong for the caller about to arrive.
+    const onData = (chunk) => {
+      for (const char of chunk) {
+        const code = char.charCodeAt(0)
+        if (ENTER_CODES.includes(code)) { finish(resolve, password); return }
+        if (code === CTRL_C_CODE) { finish(() => process.exit(1)); return }
+        if (code === BACKSPACE_CODE) password = password.slice(0, -1)
+        else password += char
+      }
     }
     stdin.on('data', onData)
   })
