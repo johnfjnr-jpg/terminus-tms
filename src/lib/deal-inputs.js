@@ -216,7 +216,25 @@ export function whtPresentation(payload) {
   };
 }
 
-export function buildDealInputs(payload, { testBedCost = 0 } = {}) {
+// ── RATES COME IN RESOLVED. Round 40 Phase 1b ──────────────────────────────
+//
+// The business's ruling: "where does this rate come from" is POLICY, not
+// arithmetic, and policy in here would mean every caller must supply a catalog
+// AND the right catalog for that deal's as_of. So resolveRates() answers it
+// once, before this, and this function is handed numbers.
+//
+// REQUIRED, not defaulted. A default would let a caller forget and silently get
+// the old behaviour, which is exactly the shape Verification 24 names: the
+// parameter and the constant agree on every path that runs, and the omission is
+// invisible until somebody wants the other value. Two call sites were merging
+// { ...payload, ...catalogRates } by hand before this existed, which is the
+// second-reader risk this deletes.
+export function buildDealInputs(payload, { testBedCost = 0, rates } = {}) {
+  if (!rates) {
+    throw new Error(
+      'buildDealInputs requires resolved rates. Call resolveRates(payload, catalog) '
+      + 'and pass its .rates, rather than merging catalog figures into the payload.')
+  }
   const targetMargin = numericOrDefault(payload, 'targetMargin')
   const overrides = payload.marginOverrides ?? {}
   const marginFor = (key) => overrides[key] ?? targetMargin
@@ -248,28 +266,31 @@ export function buildDealInputs(payload, { testBedCost = 0 } = {}) {
   const installLineItems = lumpSumDeal ? [
     { key: 'inLump', cost: numericOrDefault(payload, 'lumpSumCost'), marginPct: marginFor('inLump') },
   ] : isPerUnit ? [
-    { key: 'inSsEx', cost: (payload.inSsExisting ?? 0) * ssExisting, marginPct: marginFor('inSsEx') },
-    { key: 'inSsNew', cost: (payload.inSsNew ?? 0) * ssNew, marginPct: marginFor('inSsNew') },
-    { key: 'inAqm', cost: (payload.inAqm ?? 0) * aqmUnits, marginPct: marginFor('inAqm') },
-    { key: 'inHemir', cost: (payload.inHemir ?? 0) * hemirUnits, marginPct: marginFor('inHemir') },
+    // rates[...] and no ?? 0: an absent rate is absent, and resolveRates omits
+    // the key entirely rather than inventing a zero. A line whose rate is
+    // missing prices at nothing and the missing-batch warning says so.
+    { key: 'inSsEx', cost: (rates.inSsExisting ?? 0) * ssExisting, marginPct: marginFor('inSsEx') },
+    { key: 'inSsNew', cost: (rates.inSsNew ?? 0) * ssNew, marginPct: marginFor('inSsNew') },
+    { key: 'inAqm', cost: (rates.inAqm ?? 0) * aqmUnits, marginPct: marginFor('inAqm') },
+    { key: 'inHemir', cost: (rates.inHemir ?? 0) * hemirUnits, marginPct: marginFor('inHemir') },
   ] : [
     { key: 'inNone', cost: 0, marginPct: marginFor('inNone') },
   ]
 
   const hostingLineItems = [
-    { key: 'hoSs', cost: (payload.hoSafesight ?? 0) * (ssExisting + ssNew), marginPct: marginFor('hoSs') },
-    { key: 'hoAqm', cost: (payload.hoAqm ?? 0) * aqmUnits, marginPct: marginFor('hoAqm') },
-    { key: 'hoHemir', cost: (payload.hoHemir ?? 0) * hemirUnits, marginPct: marginFor('hoHemir') },
+    { key: 'hoSs', cost: (rates.hoSafesight ?? 0) * (ssExisting + ssNew), marginPct: marginFor('hoSs') },
+    { key: 'hoAqm', cost: (rates.hoAqm ?? 0) * aqmUnits, marginPct: marginFor('hoAqm') },
+    { key: 'hoHemir', cost: (rates.hoHemir ?? 0) * hemirUnits, marginPct: marginFor('hoHemir') },
   ]
 
   const factoring = payload.factoring ?? {}
 
   return {
-    ssUnitCost: payload.ssUnitCost ?? 0,
+    ssUnitCost: rates.ssUnitCost ?? 0,
     ssUnits: ssExisting + ssNew,
-    aqUnitCost: payload.aqUnitCost ?? 0,
+    aqUnitCost: rates.aqUnitCost ?? 0,
     aqUnits: aqmUnits,
-    hemirUnitCost: payload.hemirUnitCost ?? 0,
+    hemirUnitCost: rates.hemirUnitCost ?? 0,
     hemirUnits,
     warrantyPct: numericOrDefault(payload, 'warrantyPct'),
     installLineItems,

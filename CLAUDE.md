@@ -899,6 +899,26 @@ of the change. An unanswerable precondition is a stop.
     both shows and edits a value, the round that teaches it to say "not
     recorded" is the round that has to stop it quietly recording something.
 
+    **AND AFTER REMOVING A CONTROL, FIND WHAT IT WROTE.** Round 40 Phase 1,
+    2026-08-29, and it is the sharpest instance of this corollary because it is
+    the one that would have cost DATA rather than credibility.
+
+    **A control that edits a value is also what SUPPLIES it on save.** Deleting
+    the control therefore turns "unchanged" into "empty" wherever the payload is
+    rebuilt from the screen, and the record reads empty as deletion.
+
+    The instance. Phase 1 removed the eleven per-line margin inputs, correctly
+    and on the business's instruction. `marginOverrides` is in
+    `COMMERCIALS_OWNED_KEYS`, so it is sent on EVERY save, and `readPayload`
+    built it by reading those eleven boxes. **With the boxes gone it would have
+    sent `{}` and deleted the overrides on 33 opportunities at their first
+    save.** Nothing would have errored. The screen would have looked right.
+
+    **The screen's absence became the payload's absence**, which is this
+    corollary exactly, arriving from the direction nobody watches: not a default
+    filling in a value nobody entered, but a removal emptying a value somebody
+    did.
+
 21. **A RECONCILIATION THAT CANNOT FAIL IS NOT A RECONCILIATION.** Round 38,
     2026-08-29, on the approval page's bridge.
 

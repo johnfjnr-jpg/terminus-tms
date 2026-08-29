@@ -10,6 +10,7 @@ import {
   BRIDGE_STEPS, bridgeKeys,
 } from '../../src/lib/approval-page.js'
 import { buildDealInputs, isSet, RAW_READERS, PRODUCT_UNITS } from '../../src/lib/deal-inputs.js'
+import { resolveRates } from '../../src/lib/rate-resolution.js'
 import { calculateDeal } from '../../src/lib/deal-calculator.js'
 import { NUMERIC_DEFAULTS } from '../../src/lib/numeric-payload.js'
 
@@ -33,14 +34,14 @@ const NOW = {
   ssUnitCost: 1380,                               // cost basis
   marginOverrides: { hwSs: 22 },                  // discount
 }
-const M = (p) => calculateDeal(buildDealInputs(p, { testBedCost: 25000 })).achievedMargin
+const M = (p) => calculateDeal(buildDealInputs(p, { rates: resolveRates(p, RATES).rates, testBedCost: 25000 })).achievedMargin
 
 // ─────────────────────────────────────────────────────────────
 // Block 2: the bridge reconciles. This is the whole point of it.
 // ─────────────────────────────────────────────────────────────
 
 test('the bridge sums EXACTLY to the total movement', () => {
-  const b = buildBridge(APPROVED, NOW, { testBedCost: 25000 })
+  const b = buildBridge(APPROVED, NOW, { catalog: RATES, testBedCost: 25000 })
   const summed = b.steps.reduce((s, r) => s + r.marginPoints, 0)
   assert.ok(Math.abs(b.total.marginPoints - summed) < 1e-9,
     `steps summed to ${summed}, total is ${b.total.marginPoints}`)
@@ -48,13 +49,13 @@ test('the bridge sums EXACTLY to the total movement', () => {
 })
 
 test('and the opening and closing are the real margins, not restatements', () => {
-  const b = buildBridge(APPROVED, NOW, { testBedCost: 25000 })
+  const b = buildBridge(APPROVED, NOW, { catalog: RATES, testBedCost: 25000 })
   assert.equal(b.opening.marginPoints, M(APPROVED))
   assert.equal(b.closing.marginPoints, M(NOW))
 })
 
 test('every step appears, in the documented order', () => {
-  const b = buildBridge(APPROVED, NOW, { testBedCost: 25000 })
+  const b = buildBridge(APPROVED, NOW, { catalog: RATES, testBedCost: 25000 })
   assert.deepEqual(b.steps.map((s) => s.step),
     ['units', 'term', 'cost basis', 'discount or override', 'risk terms'])
 })
@@ -64,7 +65,7 @@ test('A STEP THAT DID NOT MOVE SAYS SO, it is not omitted', () => {
   // the answer to a question the approver cannot ask anywhere else - did the
   // catalog reprice underneath this deal - and omitting the row leaves it
   // unanswered rather than answered no.
-  const b = buildBridge(APPROVED, NOW, { testBedCost: 25000 })
+  const b = buildBridge(APPROVED, NOW, { catalog: RATES, testBedCost: 25000 })
   const units = b.steps.find((s) => s.step === 'units')
   assert.equal(units.moved, false)
   assert.equal(units.marginPoints, 0)
@@ -76,7 +77,7 @@ test('A STEP THAT DID NOT MOVE SAYS SO, it is not omitted', () => {
 })
 
 test('nothing changed means five unmoved steps and a zero total', () => {
-  const b = buildBridge(APPROVED, { ...APPROVED }, { testBedCost: 25000 })
+  const b = buildBridge(APPROVED, { ...APPROVED }, { catalog: RATES, testBedCost: 25000 })
   assert.equal(b.steps.length, 5)
   assert.ok(b.steps.every((s) => s.moved === false))
   assert.equal(b.total.marginPoints, 0)
@@ -87,10 +88,16 @@ test('ORDER-DEPENDENCE IS REAL, and the total is not', () => {
   // the order changes; the total does not. If the steps were identical under
   // reversal, the sequential shape would be doing nothing and one-at-a-time
   // would have been the better choice after all.
-  const forward = buildBridge(APPROVED, NOW, { testBedCost: 25000 })
+  // baseRates differs from the catalog, so the CATALOG MOVED between approval
+  // and now and the cost basis step carries a real figure. Without that the
+  // step is legitimately zero for this fixture and the reversal proves nothing,
+  // which is how this test caught the step going inert in the first place.
+  const MOVED = { ...RATES, ssUnitCost: 1000 }
+  const opts = { catalog: RATES, baseRates: MOVED, testBedCost: 25000 }
+  const forward = buildBridge(APPROVED, NOW, opts)
   const originalOrder = BRIDGE_STEPS.slice()
   BRIDGE_STEPS.reverse()
-  const backward = buildBridge(APPROVED, NOW, { testBedCost: 25000 })
+  const backward = buildBridge(APPROVED, NOW, opts)
   BRIDGE_STEPS.length = 0
   BRIDGE_STEPS.push(...originalOrder)
 
@@ -114,13 +121,13 @@ test('a PRICED key no step claims is REPORTED, not silently dropped', () => {
   const original = term.keys.slice()
   term.keys = original.filter((k) => k !== 'duration')
   try {
-    const b = buildBridge(APPROVED, NOW, { testBedCost: 25000 })
+    const b = buildBridge(APPROVED, NOW, { catalog: RATES, testBedCost: 25000 })
     assert.deepEqual(b.unassignedKeys, ['duration'],
       'a priced key belonging to no step must be named')
   } finally {
     term.keys = original
   }
-  assert.deepEqual(buildBridge(APPROVED, NOW, { testBedCost: 25000 }).unassignedKeys, [],
+  assert.deepEqual(buildBridge(APPROVED, NOW, { catalog: RATES, testBedCost: 25000 }).unassignedKeys, [],
     'and restoring the step must clear it, or the check is stuck on')
 })
 
@@ -143,7 +150,7 @@ test('every writable numeric key is claimed by exactly one step', () => {
 // ─────────────────────────────────────────────────────────────
 
 test('target is targetMargin as it stands NOW', () => {
-  const r = calculateDeal(buildDealInputs(NOW, { testBedCost: 25000 }))
+  const r = calculateDeal(buildDealInputs(NOW, { rates: resolveRates(NOW, RATES).rates, testBedCost: 25000 }))
   const t = buildTarget({ ...NOW, targetMargin: 35 }, r, { baselinePayload: APPROVED })
   assert.equal(t.target, 35)
   assert.equal(t.was, 30)
@@ -151,20 +158,20 @@ test('target is targetMargin as it stands NOW', () => {
 })
 
 test('a moved target gets its own sentence naming both figures', () => {
-  const r = calculateDeal(buildDealInputs(NOW, { testBedCost: 25000 }))
+  const r = calculateDeal(buildDealInputs(NOW, { rates: resolveRates(NOW, RATES).rates, testBedCost: 25000 }))
   const t = buildTarget({ ...NOW, targetMargin: 35 }, r,
     { baselinePayload: APPROVED, changedAt: '4 August 2026' })
   assert.equal(t.movedSentence, 'Target 35% (was 30% at last approval, changed 4 August 2026).')
 })
 
 test('an unmoved target produces no sentence at all', () => {
-  const r = calculateDeal(buildDealInputs(NOW, { testBedCost: 25000 }))
+  const r = calculateDeal(buildDealInputs(NOW, { rates: resolveRates(NOW, RATES).rates, testBedCost: 25000 }))
   assert.equal(buildTarget(NOW, r, { baselinePayload: APPROVED }).movedSentence, null)
 })
 
 test('per-line overrides below target are listed, worst gap first', () => {
   const p = { ...NOW, targetMargin: 30, marginOverrides: { hwSs: 22, hwAqm: 12, hwHemir: 35 } }
-  const r = calculateDeal(buildDealInputs(p, { testBedCost: 25000 }))
+  const r = calculateDeal(buildDealInputs(p, { rates: resolveRates(p, RATES).rates, testBedCost: 25000 }))
   const t = buildTarget(p, r, {})
   assert.deepEqual(t.linesBelowTarget.map((l) => l.key), ['hwAqm', 'hwSs'],
     'above-target lines are not discounts and must not be listed')
@@ -174,7 +181,7 @@ test('per-line overrides below target are listed, worst gap first', () => {
 test('an unset target uses the system default AND says so', () => {
   const p = { ...NOW }
   delete p.targetMargin
-  const r = calculateDeal(buildDealInputs(p, { testBedCost: 25000 }))
+  const r = calculateDeal(buildDealInputs(p, { rates: resolveRates(p, RATES).rates, testBedCost: 25000 }))
   const t = buildTarget(p, r, {})
   assert.equal(t.target, NUMERIC_DEFAULTS.targetMargin)
   assert.equal(t.provenance.source, 'system default')
@@ -186,7 +193,7 @@ test('an unset target uses the system default AND says so', () => {
 // ─────────────────────────────────────────────────────────────
 
 test('exposures are money, and say who bears each', () => {
-  const r = calculateDeal(buildDealInputs(NOW, { testBedCost: 25000 }))
+  const r = calculateDeal(buildDealInputs(NOW, { rates: resolveRates(NOW, RATES).rates, testBedCost: 25000 }))
   const ex = buildExposures(NOW, r)
   const by = Object.fromEntries(ex.map((e) => [e.key, e]))
   assert.equal(by.gst.bornByTerminus, false, 'GST is collected, not borne')
@@ -198,7 +205,7 @@ test('exposures are money, and say who bears each', () => {
 test('a grossed-up deal shows zero borne AND the number if the client refuses', () => {
   // The exposure an input screen cannot show: grossUp makes whtBorne zero, which
   // reads as no risk, and the risk is that the client declines the gross-up.
-  const r = calculateDeal(buildDealInputs(NOW, { testBedCost: 25000 }))
+  const r = calculateDeal(buildDealInputs(NOW, { rates: resolveRates(NOW, RATES).rates, testBedCost: 25000 }))
   const wht = buildExposures(NOW, r).find((e) => e.key === 'wht')
   assert.equal(wht.amount, 0)
   assert.equal(wht.bornByTerminus, false)
@@ -208,7 +215,7 @@ test('a grossed-up deal shows zero borne AND the number if the client refuses', 
 
 test('not grossed up, the withholding is borne and shown as borne', () => {
   const p = { ...NOW, grossUp: false }
-  const r = calculateDeal(buildDealInputs(p, { testBedCost: 25000 }))
+  const r = calculateDeal(buildDealInputs(p, { rates: resolveRates(p, RATES).rates, testBedCost: 25000 }))
   const wht = buildExposures(p, r).find((e) => e.key === 'wht')
   assert.ok(wht.amount > 0)
   assert.equal(wht.bornByTerminus, true)
@@ -277,6 +284,12 @@ test('and a zero contingency is not called out, because it changes nothing anywa
 const CATALOG = {
   batches: { safesight: { batch_label: 'Q1', effective_from: '2026-03-12' } },
   missing: [], asOf: '2026-08-29',
+  // Round 40 Phase 1b: the page resolves rates rather than reading them out of
+  // the payload, so the fixture catalog has to carry them. Before this the
+  // rates were in the payload and the page priced a deal at -6% margin without
+  // any test noticing, because every figure was internally consistent and
+  // wrong together.
+  rates: RATES,
 }
 const VERSION = {
   major: 0, minor: 3, status: 'draft', revision_number: 12,
@@ -352,7 +365,7 @@ test('a baseline with NO cost basis is flagged as not comparable', () => {
 
 test('and a baseline WITH a cost basis is comparable', () => {
   // The calibration. Without it the flag could be false for any reason at all.
-  const b = buildBridge(APPROVED, NOW, { testBedCost: 25000 })
+  const b = buildBridge(APPROVED, NOW, { catalog: RATES, testBedCost: 25000 })
   assert.equal(b.comparable, true)
 })
 
@@ -377,7 +390,7 @@ test('a comparable baseline carries no caveat', () => {
 
 test('a self-funding deal reports no cash exposure rather than a worst month', () => {
   const p = { ...NOW, factoring: { enabled: false } }
-  const r = calculateDeal(buildDealInputs(p, { testBedCost: 25000 }))
+  const r = calculateDeal(buildDealInputs(p, { rates: resolveRates(p, RATES).rates, testBedCost: 25000 }))
   const cash = buildExposures(p, r).find((e) => e.key === 'cash')
   if (cash.amount === 0) {
     assert.equal(cash.basis, 'No month goes cash negative')
@@ -397,11 +410,22 @@ test('pricedKeys is DERIVED and covers every branch of the translation', () => {
   // never touches the four per-unit install rates. Measured before fixing: 25
   // keys from one pass, 29 from the union.
   const keys = pricedKeys()
+  // The four OVERRIDABLE install rates are payload keys and price the deal, so
+  // they stay derived. Round 40 Phase 1b moved them out of buildDealInputs and
+  // into resolveRates, and pricedKeys covers every payload key that reaches a
+  // figure whichever function reads it.
   for (const k of ['inSsExisting', 'inSsNew', 'inAqm', 'inHemir']) {
-    assert.ok(keys.has(k), `${k} is only read on the per-unit branch and must still be derived`)
+    assert.ok(keys.has(k), `${k} is an override on the record and must still be derived`)
   }
-  for (const k of ['ssUnitCost', 'targetMargin', 'duration', 'factoring', 'grossUp']) {
+  for (const k of ['targetMargin', 'duration', 'factoring', 'grossUp']) {
     assert.ok(keys.has(k), `${k} prices the deal and must be derived`)
+  }
+  // AND THE SIX CATALOG-ONLY RATES LEAVE THE SET, which is the contract change
+  // rather than a gap: a payload carrying ssUnitCost cannot price anything,
+  // because the resolver refuses to read it. Asserted, so a later round cannot
+  // quietly put them back in the payload and have nothing notice.
+  for (const k of ['ssUnitCost', 'aqUnitCost', 'hemirUnitCost', 'hoSafesight', 'hoAqm', 'hoHemir']) {
+    assert.ok(!keys.has(k), `${k} is a catalog fact and must not be a priced payload key`)
   }
   assert.ok(!keys.has('name'), 'a Reference tab field is not a priced key')
   assert.ok(!keys.has('bidCurrency'), 'captured-but-unread fields do not price anything')
@@ -421,7 +445,7 @@ test('a Reference tab field changing is NOT flagged as unaccounted for', () => {
 test('but a PRICED key no step claims still is', () => {
   // The calibration. If the filter were simply dropping everything, the test
   // above would pass for the wrong reason.
-  const b = buildBridge(APPROVED, NOW, { testBedCost: 25000 })
+  const b = buildBridge(APPROVED, NOW, { catalog: RATES, testBedCost: 25000 })
   assert.deepEqual(b.unassignedKeys, [], 'the real key set is fully assigned today')
   const everyPriced = [...pricedKeys()]
   const unclaimed = everyPriced.filter((k) => !bridgeKeys().has(k))
@@ -450,7 +474,7 @@ test('a default that lives NESTED is read where it lives', () => {
 test('the bridge reconciles AS DISPLAYED, or names the rounding', () => {
   // Exact arithmetic is not the claim the page makes. It shows two decimals, and
   // an approver adding up what they can see must arrive at the closing figure.
-  const b = buildBridge(APPROVED, NOW, { testBedCost: 25000 })
+  const b = buildBridge(APPROVED, NOW, { catalog: RATES, testBedCost: 25000 })
   const at = (n) => Number(n.toFixed(2))
   const shown = b.steps.reduce((s, r) => s + at(r.marginPoints), 0) + b.displayRounding
   assert.equal(Number(shown.toFixed(2)), Number((at(b.closing.marginPoints) - at(b.opening.marginPoints)).toFixed(2)),
@@ -458,7 +482,7 @@ test('the bridge reconciles AS DISPLAYED, or names the rounding', () => {
 })
 
 test('and the rounding line is absent when it is not needed', () => {
-  const b = buildBridge(APPROVED, { ...APPROVED }, { testBedCost: 25000 })
+  const b = buildBridge(APPROVED, { ...APPROVED }, { catalog: RATES, testBedCost: 25000 })
   assert.equal(b.displayRounding, 0, 'nothing moved, so there is nothing to round')
 })
 
@@ -536,7 +560,7 @@ test('the tolerance grows with the number of steps, and only that far', () => {
 })
 
 test('a real bridge reconciles and says so', () => {
-  const b = buildBridge(APPROVED, NOW, { testBedCost: 25000 })
+  const b = buildBridge(APPROVED, NOW, { catalog: RATES, testBedCost: 25000 })
   assert.equal(b.reconciliation.reconciles, true)
   assert.ok(Math.abs(b.displayRounding) <= b.reconciliation.tolerance)
 })

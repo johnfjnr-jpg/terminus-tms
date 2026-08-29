@@ -64,10 +64,16 @@ record('with nothing approved it is unmet, and says a version is needed',
   req?.met === false && /No Deal Sheet version has been approved/.test(req?.message ?? ''),
   `met=${req?.met} :: ${req?.message}`)
 
+// Round 40 Phase 1b: a version records the rates its screen priced against, so
+// the server can confirm they still agree with the catalog. Asked of the live
+// catalog rather than written down, for the same reason the old probe did.
+const LIVE = catalogToRates((await api('GET', '/base-costs')).data?.products ?? []).rates
+const pricedWith = (inputs) => frozenRates(resolveRates(inputs, LIVE))
+
 // ── 2. Price it, version it, approve it ────────────────────────────────────
 await api('PATCH', `/opportunities/${id}`, { payload: owned(priced), expected_revision: await rev() })
 await api('POST', `/opportunities/${id}/deal-sheet-versions`,
-  { inputs: priced, reason: 'Initial pricing at list', expected_revision: await rev() })
+  { inputs: priced, rates: pricedWith(priced), reason: 'Initial pricing at list', expected_revision: await rev() })
 await api('POST', `/records/${id}/approvals`, { track: 'Commercial', decision: 'approved' })
 
 req = await commercialRequirement()
@@ -90,7 +96,7 @@ record('and the reason names what happened rather than saying nothing is approve
 
 // ── 4. The remedy works ────────────────────────────────────────────────────
 await api('POST', `/opportunities/${id}/deal-sheet-versions`,
-  { inputs: repriced, reason: 'Repriced: margin conceded and term extended', expected_revision: await rev() })
+  { inputs: repriced, rates: pricedWith(repriced), reason: 'Repriced: margin conceded and term extended', expected_revision: await rev() })
 await api('POST', `/records/${id}/approvals`, { track: 'Commercial', decision: 'approved' })
 req = await commercialRequirement()
 record('a new version, approved, re-opens the gate', req?.met === true, `met=${req?.met}`)

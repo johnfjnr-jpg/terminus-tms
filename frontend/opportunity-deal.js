@@ -28,6 +28,7 @@ import { changedKeys } from '/lib/payload-diff.js'
 import { buildDealInputs, gstPresentation, whtPresentation, durationPresentation } from '/lib/deal-inputs.js'
 import { reasonPromptFor } from '/lib/version-reason.js'
 import { scheduleReconciliation, refusalStatement } from '/lib/milestone-schedule.js'
+import { resolveRates, frozenRates } from '/lib/rate-resolution.js'
 
 let opportunityId = null
 let wired = false
@@ -203,10 +204,23 @@ function readPayload() {
     // payload nothing has ever written, so per-unit installation priced at $0
     // on every deal. Measured at two mixes before the fix: $0 against $96,500
     // and $0 against $295,000.
-    inSsExisting: catalogRates.inSsExisting ?? 0,
-    inSsNew: catalogRates.inSsNew ?? 0,
-    inAqm: catalogRates.inAqm ?? 0,
-    inHemir: catalogRates.inHemir ?? 0,
+    // ── THE OVERRIDE, NEVER THE CATALOG FIGURE ───────────────────────
+    //
+    // THE RISK OF THIS WHOLE PHASE, and it is the mirror of the Phase 1 fault.
+    // These four are now salesperson-writable. If readPayload kept copying the
+    // catalog rate onto them, EVERY SAVE WOULD RECORD A PER-DEAL OVERRIDE OF
+    // THE CATALOG ON EVERY DEAL, silently, on all four keys, for deals nobody
+    // meant to override. The strip in pickSalespersonWritable used to be what
+    // stopped that, and making the keys writable removes exactly that
+    // protection.
+    //
+    // So they are read from the BOX, and an empty box is null: no override, use
+    // the catalog. The screen shows the catalog figure as a placeholder rather
+    // than as a value, the same shape as gstPct and duration.
+    inSsExisting: numOrNull('deal-inSsExisting'),
+    inSsNew: numOrNull('deal-inSsNew'),
+    inAqm: numOrNull('deal-inAqm'),
+    inHemir: numOrNull('deal-inHemir'),
 
     hoSafesight: catalogRates.hoSafesight ?? 0,
     hoAqm: catalogRates.hoAqm ?? 0,
@@ -666,8 +680,12 @@ async function saveVersion() {
   // approving a version the same act as approving a revision. The number comes
   // from the page's one shared holder, updated by the save immediately above,
   // so a version can only ever name the revision its own inputs came from.
+  // The rates this screen priced against, so the server can confirm they still
+  // agree with the catalog rather than freezing whatever it resolves a moment
+  // later. A batch turning over mid-session is the case this catches.
+  const pricedWith = frozenRates(resolveRates(readPayload(), catalogRates))
   const r = await window.api('POST', `/api/opportunities/${opportunityId}/deal-sheet-versions`,
-    { inputs: readPayload(), reason, expected_revision: window.getOppLoadedRevision() })
+    { inputs: readPayload(), reason, rates: pricedWith, expected_revision: window.getOppLoadedRevision() })
 
   if (!r.ok) {
     // The save and the version are two sequential writes, not one transaction.
@@ -748,7 +766,10 @@ async function restoreVersion(versionId) {
 // ── Recompute + render ────────────────────────────────────────────────────
 function recompute() {
   const payload = readPayload()
-  const dealInputs = buildDealInputs(payload, { testBedCost })
+  // The same resolution the server will perform, from the same catalog, so the
+  // preview and the recompute cannot disagree about where a rate came from.
+  const resolution = resolveRates(payload, catalogRates)
+  const dealInputs = buildDealInputs(payload, { testBedCost, rates: resolution.rates })
   const result = calculateDeal(dealInputs)
   renderResults(result, payload)
   return result
@@ -1438,10 +1459,18 @@ function populateForm(payload) {
   // From the catalog, not from `p`, same correction the unit and hosting rates
   // took in Round 36 Phase 2. `p` never carried these: they are refused by
   // SALESPERSON_WRITABLE_KEYS and no writer has ever existed.
-  setVal('deal-inSsExisting', catalogRates.inSsExisting ?? '')
-  setVal('deal-inSsNew', catalogRates.inSsNew ?? '')
-  setVal('deal-inAqm', catalogRates.inAqm ?? '')
-  setVal('deal-inHemir', catalogRates.inHemir ?? '')
+  // Absent means the catalog default, present means this job's quoted rate, and
+  // the box says which: a value is an override, a placeholder is the catalog.
+  for (const [id, key] of [['deal-inSsExisting', 'inSsExisting'], ['deal-inSsNew', 'inSsNew'],
+    ['deal-inAqm', 'inAqm'], ['deal-inHemir', 'inHemir']]) {
+    const el = document.getElementById(id)
+    if (!el) continue
+    setVal(id, toNumberOrNull(p[key]) ?? '')
+    el.placeholder = catalogRates[key] === undefined ? 'no catalog rate' : String(catalogRates[key])
+    el.title = toNumberOrNull(p[key]) === null
+      ? 'From Base Cost Data. Enter a figure to record this job\'s quoted rate.'
+      : `Quoted for this job. Base Cost Data says ${catalogRates[key] ?? 'nothing'}.`
+  }
   updateInstallVisibility()
 
   // A blank box stays blank rather than being filled with the default, because
@@ -1834,6 +1863,11 @@ const COMMERCIALS_OWNED_KEYS = [
   'ssExisting', 'ssNew', 'aqm', 'hemir',
   'installResp', 'lumpSumCost',
   'targetMargin', 'marginOverrides',
+  // Round 40 Phase 1b: the FOUR installation per-unit rates, and only those
+  // four. An installation price is quoted for this job; a camera costs what it
+  // costs everywhere. The other six rate keys stay out and the resolver refuses
+  // to read them even if a payload carries one.
+  'inSsExisting', 'inSsNew', 'inAqm', 'inHemir',
   'warrantyPct', 'whtPct', 'gstPct', 'grossUp',
   'bidCurrency', 'proposalCurrency', 'fxContingency',
   'duration', 'structure', 'recoveryMonths', 'invoicing',

@@ -928,6 +928,23 @@ before each edit and a crash leaves a `pending` entry the hook refuses on.
 
 ---
 
+- **THE TEN DIVERGENT TEST BED RATES ARE STILL THERE. Raised 2026-08-29 by the
+  business, Round 40. Package C, with the configurable defaults.**
+
+  Ten of 39 hand-typed Test Bed values disagree with the catalog and nothing on
+  screen says so. **They were the EVIDENCE for Round 36's rule** that a rate in
+  the payload is a per-deal cost basis, and nobody has reconciled them since.
+
+  **They are now a silent divergence the new rule would forbid.** The ruling
+  above allows an override that is recorded, attributed and visible; these are
+  none of those things, they are values somebody typed that quietly disagree
+  with the catalog.
+
+  **Reconcile or mark them.** Either bring each into line with the catalog, or
+  record it as a deliberate per-job figure under the test above and show it as
+  one. What is not acceptable is leaving them as the thing the rule was written
+  about.
+
 ### The list by trigger, not by date
 
 **Added at the Round 39 close on the business's instruction: two or three work
@@ -5769,6 +5786,58 @@ every future field, and because the asymmetry it describes was found as a defect
 report before it was recognised as a design.
 
 > **The record holds what the deal decided.**
+### Is this cost the same wherever the deal happens, or quoted for this job?
+
+**Ruled by the business 2026-08-29 at the Round 40 Phase 1 close, resolving a
+Verification 23 conflict: two correct decisions about the same behaviour, taken
+four rounds apart, with the disagreement living where no file sat.**
+
+**Round 36** made every cost key non-editable, because a rate in the payload is
+a per-deal cost basis and Test Bed showed what that looks like: ten of 39
+hand-typed values disagreeing with the catalog and nothing saying so.
+**The Round 39 layout** asks for the four installation per-unit rates to be
+editable. Both are right about different things and neither simply wins.
+
+**STATED AS A TEST RATHER THAN A LIST OF KEYS**, at the business's instruction,
+so the next cost key does not have to be argued from scratch:
+
+> **Is this cost the same wherever the deal happens, or is it quoted for this
+> job?**
+>
+> **Same everywhere** -> a catalog fact. Non-editable. Round 36's rule applies.
+>
+> **Quoted per job** -> a per-deal figure. Overridable, with the override
+> recorded, attributed, and visible on the approval page.
+
+**Hardware and hosting pass the first test.** A SafeSight camera costs what it
+costs everywhere.
+
+**Installation fails it.** A city-centre deployment with traffic management
+costs more per camera than a business park. The catalog figure is a planning
+default, not the truth for this job, and a salesperson pricing against a real
+contractor quote needs the quoted number.
+
+**So Round 36's rule SURVIVES, SCOPED to keys that are genuinely catalog
+facts**, and the installation per-unit rates leave that set. That is the
+deletion Verification 23 asks for rather than a reconciliation: one decision
+becomes a caller of the other, and the question above is the caller.
+
+**WHY IT IS SAFE NOW AND WAS NOT THEN, and this is the whole justification.**
+Round 36's measured harm was **SILENT** divergence. **The approval page did not
+exist when that decision was taken**, and its entire job is to state what is
+being accepted. So the premise Round 36 rested on, that a divergent rate goes
+unseen, was falsified by a control built two rounds later. That is
+`CLAUDE.md` rule 29: the decision is **re-taken, not re-weighed**, and Round
+36's reasoning stays visible above so a reader can tell which happened.
+
+**THE OVERRIDE IS EXPLICIT OR IT DOES NOT HAPPEN:**
+
+- absent means the catalog default, present means this job's quoted rate
+- the screen says which, the same shape as the rest of the absence work
+- the approval page shows every overridden line **and how far it sits from the
+  default**, because an approver accepting a non-catalog install cost is
+  accepting a risk somebody else assessed
+
 > **The catalog holds what things cost.**
 > **A version holds both, frozen.**
 

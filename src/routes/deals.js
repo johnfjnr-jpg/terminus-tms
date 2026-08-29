@@ -23,6 +23,7 @@ import { sendWriteError } from '../lib/write-errors.js'
 import { appendRecordRevision, SINGLE_KEY_RMW, CLIENT_UNWIRED } from '../lib/record-revision.js';
 import { calculateDeal } from '../lib/deal-calculator.js';
 import { buildDealInputs } from '../lib/deal-inputs.js';
+import { resolveRates } from '../lib/rate-resolution.js';
 
 /**
  * Loads an Opportunity's complete pricing state from Supabase and
@@ -141,7 +142,12 @@ async function loadDealInputsFromOpportunity(db, opportunityId) {
   // catalogToRates already keys its output by the payload's own rate names
   // (PRODUCT_RATE_KEYS), so the spread IS the merge. No adapter, and no second
   // place where a rate key could be renamed on one side only.
-  const dealInputs = buildDealInputs({ ...payload, ...catalogRates }, { testBedCost });
+  // WAS { ...payload, ...catalogRates }: a merge at the call site, in one of
+  // two places doing it, which is Verification 20 waiting to happen. The
+  // resolver answers "where does this rate come from" once and the payload
+  // never carries a catalog figure again.
+  const resolution = resolveRates(payload, catalogRates);
+  const dealInputs = buildDealInputs(payload, { testBedCost, rates: resolution.rates });
 
   // catalogMissing travels with the inputs rather than being swallowed. A
   // product with no batch prices at 0, and a caller that cannot see the

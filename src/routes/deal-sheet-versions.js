@@ -2,6 +2,7 @@ import { createUserClient } from '../supabase.js'
 import { versionApprovalState, liveVersionApproval, APPROVAL_TRACK } from '../lib/version-approval.js'
 import { buildApprovalPage } from '../lib/approval-page.js'
 import { scheduleReconciliation, refusalStatement } from '../lib/milestone-schedule.js';
+import { resolveRates, frozenRates, frozenRatesAgree } from '../lib/rate-resolution.js';
 import { toNumberOrNull } from '../lib/numeric-payload.js'
 import { resolveCurrentBatches, catalogToRates } from '../lib/base-costs.js'
 
@@ -194,7 +195,9 @@ export default async function dealSheetVersionsRoutes(app) {
       // so the page prices the CURRENT deal at current rates. The baseline is
       // deliberately NOT re-rated: a version carries the rates it was priced at,
       // which is what makes the bridge's cost-basis step a real number.
-      payload: { ...payload, ...catalog.rates },
+      // The payload alone. The approval page resolves rates itself now, so
+      // this stops being the second place that merges a catalog into a record.
+      payload,
       testBedCost: details?.test_bed_cost ?? 0,
       version: version
         ? { ...version, approval: versionApprovalState(version, approvals ?? [], latestNumber) }
@@ -236,7 +239,7 @@ export default async function dealSheetVersionsRoutes(app) {
   })
 
   app.post('/opportunities/:id/deal-sheet-versions', async (request, reply) => {
-    const { inputs, reason, expected_revision: expectedRevision } = request.body ?? {}
+    const { inputs, reason, rates: clientRates, expected_revision: expectedRevision } = request.body ?? {}
 
     // Refused here as well as by the NOT NULL and the length CHECK. The schema
     // is what makes it true; this is what makes it a sentence the user reads
@@ -314,13 +317,36 @@ export default async function dealSheetVersionsRoutes(app) {
     // save time, not what the screen priced against, and the two can differ
     // whenever a batch turns over mid-session. A version that silently disagrees
     // with what the salesperson saw is the fault versions exist to prevent.
-    const resolvedRateKeys = Object.keys(catalog.rates ?? {})
-    const missingRates = resolvedRateKeys.filter((k) => !(k in inputs))
-    if (missingRates.length) {
+    // ── THE HONESTY TEST, RUN AT VERSION TIME ────────────────────────────
+    //
+    // SUPERSEDES the check that required inputs to carry every catalog rate.
+    // That was correct while rates lived in the payload; Round 40 Phase 1b took
+    // them out, so the same check would now refuse every version. The REASON it
+    // existed is unchanged and is preserved above: a version must record what
+    // the salesperson's screen priced against, not what the server resolved a
+    // moment later, and the two differ whenever a batch turns over mid-session.
+    //
+    // So the client sends the rates it priced with, and the server resolves the
+    // same record against the same catalog and refuses if they disagree. The
+    // business's own words: a version's stored rates equal what the resolver
+    // produces from that record and that catalog at that moment.
+    //
+    // Absent client rates is not a pass. A caller that sends none is refused
+    // rather than trusted, because "no disagreement" and "nothing to compare"
+    // are the two states Verification 14 exists to separate.
+    const resolution = resolveRates(inputs, catalog.rates ?? {})
+    if (!clientRates || typeof clientRates !== 'object') {
       return reply.code(400).send({
-        error: 'inputs must carry the catalog rates this deal was priced at. '
-          + `Missing: ${missingRates.join(', ')}. Reload the Commercials tab and take the version again.`,
-        missing_rates: missingRates,
+        error: 'rates is required: a version records the rates its screen priced against, '
+          + 'so the server can confirm they still agree with the catalog.',
+      })
+    }
+    const agreement = frozenRatesAgree(clientRates, resolution)
+    if (!agreement.agree) {
+      return reply.code(409).send({
+        error: 'The Base Cost Data changed while this deal was open, so the screen and the server '
+          + 'disagree about what it costs. Reload the Commercials tab and take the version again.',
+        differing: agreement.differing,
       })
     }
 
@@ -355,7 +381,29 @@ export default async function dealSheetVersionsRoutes(app) {
       p_expected_revision: expectedRevision,
       p_reason: reason.trim(),
       p_inputs: inputs,
-      p_rates: { rates: catalog.rates, batches: catalog.batches, missing: catalog.missing, as_of: catalog.asOf },
+      // ── THE RECORD STORES THE INPUT, THE VERSION STORES THE OUTPUT ────
+      //
+      // The business's ruling, Round 40 Phase 1b. The two artefacts hold
+      // different facts and neither is a copy of the other:
+      //
+      //   the record  -> the DECISION: overridden, or not. It changes when
+      //                  somebody decides differently.
+      //   the version -> the PRICE: priced at these rates. It never changes.
+      //
+      // "The record holds what the deal decided, the catalog holds what things
+      // cost, a version holds both, frozen."
+      //
+      // AND IT RECORDS WHICH WERE OVERRIDDEN, not only the effective numbers.
+      // Once the catalog moves, an approver reading an old version cannot
+      // otherwise tell whether $4,000 was a quotation somebody obtained or the
+      // catalog figure of the day. The approval page needs that distinction and
+      // the version is the only place it survives.
+      p_rates: {
+        ...frozenRates(resolution),
+        batches: catalog.batches,
+        missing: catalog.missing,
+        as_of: catalog.asOf,
+      },
       p_sections: SECTIONS,
       p_batch_id: batchId,
       p_created_by: request.user.id,

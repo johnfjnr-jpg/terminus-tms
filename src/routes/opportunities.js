@@ -276,6 +276,13 @@ export default async function opportunitiesRoutes(app) {
     'ssExisting', 'ssNew', 'aqm', 'hemir',
     'installResp', 'lumpSumCost',
     'targetMargin', 'marginOverrides',
+    // Round 40 Phase 1b. FOUR rate keys become writable and only four, because
+    // an installation price is quoted per job while a camera costs what it
+    // costs everywhere (DESIGN_PRINCIPLES.md, "Is this cost the same wherever
+    // the deal happens"). The other six stay refused, and a test asserts that
+    // rather than trusting this comment: "we only added four" is exactly the
+    // claim Verification 19 catches.
+    'inSsExisting', 'inSsNew', 'inAqm', 'inHemir',
     'warrantyPct', 'whtPct', 'gstPct', 'grossUp',
     'duration', 'structure', 'recoveryMonths', 'invoicing', 'milestones',
     'contractorMilestones',
@@ -454,6 +461,20 @@ export default async function opportunitiesRoutes(app) {
     // "Margin %" columns, all 11 line keys) - every entry is a percentage,
     // none are counts, so unlike the two lists above this object has no
     // integer members to split out.
+    // A quoted installation rate is money, so it takes the same shape as the
+    // other numeric payload values: a number or null, never a string, never
+    // negative. Null is the absence that means "use the catalog".
+    for (const key of ['inSsExisting', 'inSsNew', 'inAqm', 'inHemir']) {
+      if (!(key in payload)) continue
+      const v = payload[key]
+      if (v === null) continue
+      if (typeof v !== 'number' || !Number.isFinite(v) || v < 0) {
+        return reply.code(400).send({
+          error: `${key} must be a non-negative number or null. Null means the Base Cost Data rate applies.`,
+        })
+      }
+    }
+
     if (payload.marginOverrides && typeof payload.marginOverrides === 'object') {
       for (const [key, value] of Object.entries(payload.marginOverrides)) {
         if (!isValidNonNegativePercent(value)) {

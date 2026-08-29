@@ -36,6 +36,7 @@
  */
 
 import { buildDealInputs, isSet, RAW_READERS, PRODUCT_UNITS, gstPresentation, ratePresentation } from './deal-inputs.js';
+import { resolveRates, OVERRIDABLE_RATE_KEYS } from './rate-resolution.js';
 import { calculateDeal } from './deal-calculator.js';
 import { NUMERIC_DEFAULTS, defaultProvenance, toNumberOrNull } from './numeric-payload.js';
 // The bands, the thresholds and the words all live in one place, because the
@@ -139,8 +140,21 @@ export function pricedKeys() {
       },
       has(_t, prop) { if (typeof prop === 'string') touched.add(prop); return false; },
     });
-    try { buildDealInputs(probe); } catch { /* the shape is what matters, not the result */ }
+    // rates: {} because the probe measures which PAYLOAD keys are read, and a
+    // rate now arrives resolved rather than through the payload at all.
+    try { buildDealInputs(probe, { rates: {} }); } catch { /* the shape is what matters, not the result */ }
   }
+  // ── AND THE KEYS THE RESOLVER READS ──────────────────────────────────
+  //
+  // Round 40 Phase 1b moved rates out of the payload, so the probe stopped
+  // seeing them and the four OVERRIDABLE ones stopped being counted as priced
+  // even though a value on the record still changes the price. They are read by
+  // resolveRates rather than by buildDealInputs, and pricedKeys must cover
+  // every payload key that reaches a figure, whichever function reads it.
+  //
+  // Taken from the resolver's own exported list rather than typed here, so it
+  // cannot drift from what the resolver actually honours.
+  for (const key of OVERRIDABLE_RATE_KEYS) touched.add(key);
   PRICED_KEYS = touched;
   return PRICED_KEYS;
 }
@@ -194,13 +208,37 @@ function sameValue(a, b) {
 /**
  * The bridge from a baseline payload to the current one.
  *
+ * ── THE COST BASIS STEP MEASURES THE CATALOG NOW, NOT THE PAYLOAD ────────
+ *
+ * Round 40 Phase 1b. The ten rate keys used to live in the payload, so the
+ * cost-basis step was an ordinary key diff like every other step. Rates now
+ * arrive resolved, and the payload carries at most an OVERRIDE, so a key diff
+ * over those names measures almost nothing.
+ *
+ * THE STEP'S QUESTION IS UNCHANGED and is the one an approver cannot ask
+ * anywhere else: did the cost of the thing move underneath this deal since it
+ * was approved? So it is now measured where the answer actually lives - the
+ * rates the baseline was FROZEN at, against the rates this deal resolves to
+ * today. A baseline with no frozen rates falls back to today's, which reports
+ * "no change" rather than inventing one.
+ *
+ * Caught by a test asserting the steps differ under reversal. With the step
+ * inert, nothing differed, and order-dependence is the property that makes
+ * sequential attribution worth having at all. The step would have rendered
+ * "Cost basis: no change" on every page for ever and looked like good news.
+ *
  * @param {object} basePayload
  * @param {object} nowPayload
- * @param {{ testBedCost?: number }} opts
+ * @param {{ testBedCost?: number, catalog?: object, baseRates?: object }} opts
  * @returns {{ opening, closing, total, steps, unexplained, unassignedKeys }}
  */
-export function buildBridge(basePayload, nowPayload, { testBedCost = 0 } = {}) {
-  const M = (p) => calculateDeal(buildDealInputs(p, { testBedCost }));
+export function buildBridge(basePayload, nowPayload, { testBedCost = 0, catalog = {}, baseRates = null } = {}) {
+  const nowRates = resolveRates(nowPayload, catalog).rates;
+  const openingRates = baseRates ?? resolveRates(basePayload, catalog).rates;
+  // Which rate set prices this measurement. It switches once, at the cost basis
+  // step, which is what makes that step carry the catalog movement.
+  let rates = openingRates;
+  const M = (p) => calculateDeal(buildDealInputs(p, { testBedCost, rates }));
   const opening = M(basePayload);
   let state = { ...basePayload };
   let prev = opening;
@@ -222,6 +260,11 @@ export function buildBridge(basePayload, nowPayload, { testBedCost = 0 } = {}) {
   for (const def of BRIDGE_STEPS) {
     const moved = def.keys.filter((k) => !sameValue(nowPayload[k], basePayload[k]));
     for (const k of moved) state = { ...state, [k]: nowPayload[k] };
+    // The rate set moves with its own step, so everything before it is priced
+    // at what the deal was approved on and everything after at what it costs
+    // now. Doing it anywhere else would attribute a catalog move to whichever
+    // step happened to run first.
+    if (def.step === 'cost basis') rates = nowRates;
     const after = moved.length ? M(state) : prev;
     steps.push({
       step: def.step,
@@ -624,7 +667,8 @@ export function buildApprovalPage({
   payload, testBedCost = 0, version = null, baseline = null,
   targetChangedAt = null, catalog = {}, record = {},
 }) {
-  const result = calculateDeal(buildDealInputs(payload, { testBedCost }));
+  const resolution = resolveRates(payload, catalog.rates ?? {});
+  const result = calculateDeal(buildDealInputs(payload, { testBedCost, rates: resolution.rates }));
   const costBasis = buildCostBasis(catalog.batches, catalog.missing, catalog.asOf, payload);
   const target = buildTarget(payload, result, {
     baselinePayload: baseline?.inputs ?? null,
@@ -711,7 +755,7 @@ export function buildApprovalPage({
         reason: baseline.reason ?? null,
       },
       order: BRIDGE_ORDER_SENTENCE,
-      bridge: buildBridge(baseline.inputs ?? {}, payload, { testBedCost }),
+      bridge: buildBridge(baseline.inputs ?? {}, payload, { testBedCost, catalog: catalog.rates ?? {} }),
       absence: null,
       caveat: null,
     }

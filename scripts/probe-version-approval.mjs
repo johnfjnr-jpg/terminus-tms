@@ -18,6 +18,7 @@ import { freshOpportunity, tearDown } from './fixtures.mjs'
 
 import { api, ApiError } from './api-client.mjs'
 import { catalogToRates } from '../src/lib/base-costs.js'
+import { resolveRates, frozenRates } from '../src/lib/rate-resolution.js'
 
 // Every call goes through the throwing client. A probe that asserts a refusal
 // says which status and why, in the call, so an unexpected 500 cannot be read
@@ -56,14 +57,20 @@ const LIVE_RATES = catalogToRates(
   (await api('GET', '/base-costs')).data?.products ?? []).rates
 
 // ── A version must name a revision ─────────────────────────────────────────
+// Round 40 Phase 1b: rates no longer live in inputs. The record holds the
+// DECISION, the version holds the PRICE, and the client sends what it priced
+// with so the server can confirm the two still agree.
+const priced = (inputs) => frozenRates(resolveRates(inputs, LIVE_RATES))
+const BASE = { targetMargin: 30 }
+
 const noRev = await api('POST', `/opportunities/${oppId}/deal-sheet-versions`,
-  { inputs: { ...LIVE_RATES, targetMargin: 30 }, reason: 'no revision named' },
+  { inputs: BASE, rates: priced(BASE), reason: 'no revision named' },
   { expect: 400, because: 'a version must name the revision it was taken from' })
 record('a version with no expected_revision is refused', noRev.status === 400,
   `-> ${noRev.status} ${noRev.data?.error ?? ''}`)
 
 const stale = await api('POST', `/opportunities/${oppId}/deal-sheet-versions`,
-  { inputs: { ...LIVE_RATES, targetMargin: 30 }, reason: 'stale', expected_revision: (await rev()) - 1 },
+  { inputs: BASE, rates: priced(BASE), reason: 'stale', expected_revision: (await rev()) - 1 },
   { expect: 409, because: 'the record is not at the revision this version would record' })
 record('a version naming a revision the record has left is refused', stale.status === 409,
   `-> ${stale.status} ${stale.data?.error ?? ''}`)
@@ -72,19 +79,31 @@ record('a version naming a revision the record has left is refused', stale.statu
 // inputs carried no rates priced every line at zero and made the approval page's
 // bridge report the whole deal as a catalog movement. The page refused the
 // comparison, which was right and was not enough: it stayed creatable.
+// FAIL CLOSED ON A VERSION THAT CANNOT BE SHOWN TO AGREE WITH THE CATALOG.
+// The old check required inputs to carry every catalog rate, which was right
+// while rates lived in the payload. The REASON survives: a version must record
+// what the salesperson's screen priced against, not what the server resolved a
+// moment later, and the two differ whenever a batch turns over mid-session.
 const noRates = await api('POST', `/opportunities/${oppId}/deal-sheet-versions`,
-  { inputs: { targetMargin: 30 }, reason: 'no cost basis', expected_revision: await rev() },
-  { expect: 400, because: 'a version must carry the costs it was priced at' })
-record('a version with NO catalog rates is refused', noRates.status === 400,
+  { inputs: BASE, reason: 'no rates sent', expected_revision: await rev() },
+  { expect: 400, because: 'sending no rates leaves nothing to compare, which is not agreement' })
+record('a version sending NO rates is refused', noRates.status === 400,
   `-> ${noRates.status} ${noRates.data?.error ?? ''}`)
-record('and the refusal names what is missing', Array.isArray(noRates.data?.missing_rates) && noRates.data.missing_rates.length > 0,
-  `missing_rates=${JSON.stringify(noRates.data?.missing_rates)}`)
 
-const partial = await api('POST', `/opportunities/${oppId}/deal-sheet-versions`,
-  { inputs: { ssUnitCost: 1200, targetMargin: 30 }, reason: 'one rate only', expected_revision: await rev() },
-  { expect: 400, because: 'one rate is not the cost basis the catalog resolved' })
-record('a version carrying SOME rates but not all is refused too', partial.status === 400,
-  `-> ${partial.status} missing ${partial.data?.missing_rates?.length ?? 0}`)
+// Verification 14: "no disagreement" and "nothing to compare" are different,
+// and a check that passed on the second would pass on an empty request.
+const disagree = await api('POST', `/opportunities/${oppId}/deal-sheet-versions`,
+  {
+    inputs: BASE,
+    rates: { rates: { ...LIVE_RATES, ssUnitCost: (LIVE_RATES.ssUnitCost ?? 0) + 1 }, overridden: [], absent: [] },
+    reason: 'catalog moved under it',
+    expected_revision: await rev(),
+  },
+  { expect: 409, because: 'the screen priced at a rate the catalog no longer holds' })
+record('a version whose rates DISAGREE with the catalog is refused', disagree.status === 409,
+  `-> ${disagree.status} ${JSON.stringify(disagree.data?.differing ?? null)}`)
+record('and the refusal names which rate differs', Array.isArray(disagree.data?.differing) && disagree.data.differing.length > 0,
+  `differing=${JSON.stringify(disagree.data?.differing)}`)
 
 // ── Take one properly ──────────────────────────────────────────────────────
 //
@@ -93,7 +112,7 @@ record('a version carrying SOME rates but not all is refused too', partial.statu
 // would break the moment a product's batch changes.
 const atRev = await rev()
 const made = await api('POST', `/opportunities/${oppId}/deal-sheet-versions`,
-  { inputs: { ...LIVE_RATES, targetMargin: 30, duration: 36 }, reason: 'first pricing', expected_revision: atRev })
+  { inputs: { ...BASE, duration: 36 }, rates: priced({ ...BASE, duration: 36 }), reason: 'first pricing', expected_revision: atRev })
 record('a version naming the current revision is accepted', made.status === 200 || made.status === 201,
   `-> ${made.status}`)
 const vid = made.data?.id

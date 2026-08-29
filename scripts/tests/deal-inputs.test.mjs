@@ -60,7 +60,7 @@ test('the golden file covers every installResp branch and the empty payload', ()
 
 for (const c of GOLDEN) {
   test(`the shared translation reproduces the old output: ${c.label}`, () => {
-    const got = buildDealInputs(c.payload, { testBedCost: c.testBedCost })
+    const got = buildDealInputs(c.payload, { rates: c.payload, testBedCost: c.testBedCost })
     assert.deepEqual(got, c.expected)
   })
 }
@@ -83,7 +83,7 @@ test('the golden test can SEE a drift', () => {
   // a changed input produces a changed output the golden would reject.
   const c = GOLDEN.find((c) => c.label === 'per unit')
   const drifted = buildDealInputs({ ...c.payload, duration: (c.payload.duration ?? 0) + 1 },
-    { testBedCost: c.testBedCost })
+    { rates: c.payload, testBedCost: c.testBedCost })
   assert.notDeepEqual(drifted, c.expected,
     'if this passes, the comparison is not discriminating and the tests above prove nothing')
 })
@@ -92,21 +92,28 @@ test('the golden test can SEE a drift', () => {
 // The property the third caller depends on
 // ─────────────────────────────────────────────────────────────
 
-test('rates come from the payload, so a historical version prices at its own rates', () => {
-  // The approval page recomputes an approved version from version.inputs, which
-  // carries the rates it was priced at. If this function reached for a catalog
-  // instead, every historical recompute would silently reprice at today's costs
-  // and block 2's "cost basis" step would always read zero.
-  const then = { ssExisting: 10, ssNew: 0, aqm: 0, hemir: 0, ssUnitCost: 1000, duration: 12 }
-  const now = { ...then, ssUnitCost: 1400 }
-  assert.equal(buildDealInputs(then).ssUnitCost, 1000)
-  assert.equal(buildDealInputs(now).ssUnitCost, 1400,
-    'the same function must give a different answer for a different stored rate')
+test('a historical version prices at the rates IT was frozen with', () => {
+  // SAME INTENT, NEW MECHANISM. Round 40 Phase 1b. The rates used to arrive
+  // inside the payload; they now arrive resolved, and a version stores the
+  // resolver's OUTPUT. The property that matters is unchanged and is the reason
+  // the approval page can recompute an old version at all: recomputing must not
+  // silently reprice at today's costs, or block 2's cost-basis step reads zero.
+  const deal = { ssExisting: 10, ssNew: 0, aqm: 0, hemir: 0, duration: 12 }
+  const then = { ssUnitCost: 1000 }
+  const now = { ssUnitCost: 1400 }
+  assert.equal(buildDealInputs(deal, { rates: then }).ssUnitCost, 1000)
+  assert.equal(buildDealInputs(deal, { rates: now }).ssUnitCost, 1400,
+    'the same function must give a different answer for a different frozen rate')
+
+  // AND A RATE IN THE PAYLOAD CANNOT PRICE ANYTHING. That is the enforcement
+  // the allowlist alone never gave: even a payload carrying ssUnitCost prices
+  // at the resolved rate, because the calculator no longer looks there.
+  assert.equal(buildDealInputs({ ...deal, ssUnitCost: 999999 }, { rates: then }).ssUnitCost, 1000)
 })
 
 test('testBedCost is a parameter, not a payload key', () => {
   // It lives in opportunity_details. A payload carrying a testBedCost key must
   // not be able to set it, or a client could price its own sunk cost away.
-  assert.equal(buildDealInputs({ testBedCost: 999999 }).testBedCost, 0)
-  assert.equal(buildDealInputs({}, { testBedCost: 25000 }).testBedCost, 25000)
+  assert.equal(buildDealInputs({ testBedCost: 999999 }, { rates: {} }).testBedCost, 0)
+  assert.equal(buildDealInputs({}, { rates: {}, testBedCost: 25000 }).testBedCost, 25000)
 })
