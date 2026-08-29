@@ -825,6 +825,27 @@ today's existing behaviour.
 
 Explicitly deferred, not forgotten, not a section number of its own since this is a running list, not a build phase. Add to it as new deferrals come up rather than letting them live only in conversation.
 
+**A DECISION THAT LIVES ONLY IN A CONVERSATION IS NOT RECORDED. Written by the
+business 2026-08-29, Round 40, from an instance an hour old.**
+
+**This list exists because a conversation is not a store.** That is the whole
+reason for it, and it is worth stating at the top rather than being implied by
+the list's existence.
+
+**The instance, and it is mine.** I said I would note what the migration-ledger
+item needs "rather than start it", and then did not write it down at all. It
+survived as a sentence in a chat message and nothing else. **What retrieved it
+was the business pasting the wrong message and then the right one**, which is an
+accident rather than a process, and an accident is not a mechanism you can rely
+on twice.
+
+**An intention stated in conversation feels recorded to both parties**, because
+both have just read it, and that feeling is what stops it being written down.
+Same family as `CLAUDE.md` rule 30, where an intention and a fact are recorded
+in the same voice: here an intention and a RECORD sound the same in the moment
+they are spoken.
+
+
 ### CI HAD BEEN RED FOR THREE ROUNDS AND NOBODY LOOKED
 
 **Round 39, after the push. The business read the CI notification rather than
