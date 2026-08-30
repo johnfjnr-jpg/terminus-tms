@@ -219,3 +219,160 @@ about conditional fields, not about lump sums, and it is the business's.
 
 `DESIGN_PRINCIPLES.md` gained the walk pass criterion, verbatim, beside the
 stopping condition. `scripts/query-hybrid-recovery.mjs` was added. Nothing else.
+
+---
+
+# Follow-up 1: every reader of `recov`, enumerated
+
+**The Phase 1 claim "read by nothing on hybrid" was a searched absence with no
+stated method.** Restated with one.
+
+## How the enumeration was built
+
+**Two directions, because either alone misses a class of reader.**
+
+**Direction A, from the symbol outward.** `grep -rn "\brecov\b"` across every
+`.js`, `.mjs` and `.html` in the tree, excluding `node_modules`. Word-boundary
+anchored so `recovery`, `recoveryMonths` and `recoveryPerMonth` do not
+masquerade as hits.
+
+**Direction B, from the producer outward.** Every call site of `calculateDeal`,
+then every read of the `cashFlow` object it returns, then every property taken
+off that object. This catches a reader that destructures or spreads without ever
+naming `recov`, which direction A cannot see.
+
+**Files reached: all of `src/`, `frontend/`, `scripts/`, plus the two prototype
+copies.** Deal sheet renders, version storage, the approval page and the HTTP
+routes are all inside that set. **There is no PDF or document export path in
+this repository** — `grep` for one returns the `document_details` record type,
+which stores a URL and does not render a deal.
+
+## Direction A: every occurrence of `recov`
+
+| file | line | what it is |
+|---|---|---|
+| `src/lib/deal-calculator.js` | 201 | the assignment |
+| | 206 | `defaultTerm`, **hybrid substitutes a literal 12** |
+| | 218 | `recoveryPerMonth`, feeds only line 223 |
+| | 223 | accrual, **guarded `structure !== 'hybrid'`** |
+| | 284 | **exported on the cashFlow object** |
+| `scripts/query-hybrid-recovery.mjs` | 11, 19 | comments in this round's own query |
+| `Terminus Ops.dc.html`, `Prototype-110826/…` | 6535–6610 | **the prototype, not shipped code** |
+
+**No other file in the repository contains the symbol.**
+
+## Direction B: every consumer of the returned object
+
+| consumer | what it takes off `cashFlow` |
+|---|---|
+| `src/lib/deal-calculator.js:412` | `.facInterest` |
+| `src/lib/approval-page.js:422, 428` | `.minCash`, `.minCashMonth` |
+| `frontend/opportunity-deal.js:1008` | `.rows` (year buckets) |
+| `frontend/opportunity-deal.js:1102` | `.minCash`, `.minCashMonth`, `.rows` |
+| `scripts/query-hybrid-recovery.mjs:46` | `.rows` (this round's query) |
+
+**`grep -rn "\.recov\b"` across `frontend/`, `src/` and `scripts/` returns
+nothing.** No property access to `recov` exists outside the calculator.
+
+## The one path that does export it, named
+
+```js
+// src/routes/deals.js:212
+app.post('/calculate', { schema: { body: dealInputSchema } }, async (request, reply) => {
+  const result = calculateDeal(request.body);
+  return reply.send(result);
+});
+```
+
+**`POST /api/deals/calculate` returns the whole result object, so `recov` does
+cross the wire on it, for hybrid as for every structure.** That is a genuine
+export and the Phase 1 wording did not cover it.
+
+**Its reachability, measured rather than assumed:** `grep` for `deals/calculate`
+or `/api/deals` across `frontend/` and `scripts/` returns **one hit, and it is a
+comment** in `opportunity-deal.js:9` recording that Submit Deal was removed in
+Round 3 Phase 4. **No caller exists in this repository.** The route is
+authenticated and live on the server, and nothing in the product calls it.
+
+## Confirmed
+
+**No render, no version, no report and no client-side path reads `recov` for a
+hybrid deal, or for any structure.** The single export is an HTTP response body
+on a route with no caller.
+
+**The correction to the Phase 1 wording:** "read by nothing" was right about
+readers and wrong about exports. `recov` is *exported* by one route and *read*
+by nobody.
+
+---
+
+# Follow-up 2: does "not recorded" fire only for visible fields?
+
+## The mechanism
+
+**There are two disclosure paths and neither consults visibility.**
+
+**Path 1, the Deal Summary and Result rows, client side.** `gstPresentation`,
+`whtPresentation` and `durationPresentation` in `src/lib/deal-inputs.js` each
+call `ratePresentation`, which is:
+
+```js
+const recorded = isSet(payload, key);
+```
+
+`isSet` reads the payload through `RAW_READERS` and returns false for
+`undefined`, `null` and `''`. **It takes the payload and a key. It has no
+access to the DOM, so it cannot know whether a field is on screen.** The row
+renders because `renderDealMatrix` puts it in the row list unconditionally.
+
+**Path 2, the approval page block 5, server side.**
+
+```js
+// src/lib/approval-page.js, buildNotRecorded
+for (const key of Object.keys(NUMERIC_DEFAULTS)) {
+  if (isSet(payload, key)) continue;
+  out.push({ kind: 'default', key, ...defaultProvenance(key),
+    note: 'Nobody entered a value. This is the assumption being approved.' });
+}
+```
+
+**It iterates `NUMERIC_DEFAULTS` — a constant — and reports every key the payload
+does not set.** It runs on the server, from a stored payload, with no screen in
+existence at all. **`lumpSumCost` is one of the thirteen keys in
+`NUMERIC_DEFAULTS`.**
+
+## Measured
+
+`buildNotRecorded` called with a complete two-phase payload, varying only
+`installResp`:
+
+| installResp | not-recorded defaults reported |
+|---|---|
+| Client Own Installation Team | `factoringRatePct`, **`lumpSumCost`** |
+| Terminus Contractor - Per Unit | `factoringRatePct`, **`lumpSumCost`** |
+| Terminus - Reseller Installation | `factoringRatePct`, **`lumpSumCost`** |
+| Terminus Contractor - Lump Sum | `factoringRatePct`, `lumpSumCost` |
+
+## The answer, and it inverts my exclusion
+
+**No. The disclosure does not fire only for visible fields, and it never has.**
+
+**The approval page already tells an approver "Nobody entered a value" for
+`lumpSumCost` on every deal that is not a Lump Sum deal** — three of the four
+installation types, where the field is hidden and blank is the only correct
+state. That is live today, on a control surface, and it is not a consequence of
+anything this round proposes.
+
+**So the Phase 1 exclusion of `lumpSumCost` rested on a premise that is false.**
+I ruled it out because "the field is hidden on four of five installation types
+and putting it IN would make the sheet say not recorded on four of five deals".
+The sheet already does, on the page where it matters most.
+
+**What follows for the ruling, stated without taking it.** The question is no
+longer whether `lumpSumCost` joins `ZERO_IS_NOT_A_VALUE`. It is whether a
+disclosure should be **conditional on the field applying to this deal** — which
+is a decision about `buildNotRecorded` and about `factoringRatePct` too, since
+that one reports on every deal with factoring switched off.
+
+**Both are existing behaviour and neither is in this round's scope.** Reported,
+not touched.
