@@ -215,38 +215,166 @@ the merge a merge rather than a relocation.
 
 ---
 
-## The two things this census cannot settle, and they are the business's
+## RULED 2026-08-30. Both are recorded here so the census carries its own defence
 
-### 1. The matrix's Cost row and the Result's cost lines are DIFFERENT DECOMPOSITIONS
+### RULING 1: UNFOLD. One arithmetic story, disjoint rows summing to Total cost
 
-`computeDealMatrixCols` folds **finance cost, test bed cost and WHT absorbed**
-into the Cost row before computing Total and Margin. The Result list shows those
-three as **their own rows**, below the raw hardware, installation and hosting
-costs.
+**Ruled by the business.** Finance cost, test bed carried and absorbed WHT become
+**their own unsplit full-width rows below the product-split rows**. Total cost is
+the **visible sum of everything above it**. No "of which" memo lines that also
+live inside the total.
 
-So `Total cost` in the merged panel has a group split whose Hardware column
-already contains the finance and test bed costs that appear as separate rows two
-lines above it. **Both are correct and they are not the same cut.** The merged
-panel needs to say so, or somebody will add the rows up and get the wrong total.
+**The reason, recorded with the decision:** on an approval surface **a column an
+approver can sum and match beats a compact fold**, and the census named the cost
+of the alternative precisely: *somebody will add them up.*
 
-**Proposed:** the expansion of `Total cost` is labelled as the split **of the
-total**, and the itemised rows above it stay ungrouped. **Not built, and it is a
-design ruling.**
+**THREE FOLDED FACTS END WITH THE FOLD, and none of them may go quietly.** Each
+is a consequence of the ruling rather than an oversight, and each is named with
+what replaces it.
 
-### 2. "SHOW DETAIL expanding the breakdown INSIDE that panel" may collide with a Round 40 decision
+| what ends | what it was | why it ends |
+|---|---|---|
+| **the WHT-absorbed apportionment across Hardware / Hosting / Installation** | `whtBorne` split pro-rata by price share, remainder to the last column | It is an **apportionment computed for display**, not a measured allocation of anything. Ruling 1 makes absorbed WHT a full-width row, so the split has nowhere to sit and nothing to reconcile against. |
+| **finance cost and test bed cost sitting inside the Hardware column** | both added to `cols[0].cost` before Total and Margin | Neither is a hardware cost. They were folded there so the matrix's Total and Margin matched `achievedMargin`; unfolding is what ruling 1 asks for, and the sum stays visible instead. |
+| **the per-column Margin as currently defined** | `price − cost` where cost includes the three folded items | The figure changes meaning once the fold goes. **It is not deleted: it becomes a per-column margin BEFORE the three deductions**, with a label that says so, and the three full-width rows below reconcile it to Gross margin. |
 
-The brief says the breakdown expands **inside** the panel "rather than beside
-it". Round 40 Phase 3 built `#btn-toggle-detail` / `#deal-detail-panel` to open
-**beside** the summary, quoting the business's own layout words:
+**The last one is a row whose LABEL must change, not a row that disappears.**
+Called `Margin` after the unfold it would name a different number from the one it
+names today, which is the shape `CLAUDE.md` Architecture 9's fourth variant
+warns about: a string that stopped being true when the thing under it moved.
+
+**The merged shape ruling 1 produces**, and every line sums:
+
+```
+                                        Hardware   Hosting   Installation   Total
+  One-off price, hardware, warranty and installation
+                                            H          -           I          T
+  Hosting price over N months                -         Ho          -          T
+  Revenue, contract value net                H         Ho          I          T
+  Hardware and warranty cost                 H          -          -          T
+  Installation cost                          -          -          I          T
+  Hosting cost over N months                 -         Ho          -          T
+  Margin before financing, test bed and withholding
+                                             H         Ho          I          T
+  PO factoring interest                   ─────────── full width ─────────    T
+  Test Bed cost, carried from conversion  ─────────── full width ─────────    T
+  Withholding tax absorbed by Terminus    ─────────── full width ─────────    T
+  Total cost                                                                  T   = the six cost rows
+  Gross margin                                                                T   = Revenue − Total cost
+```
+
+### RULING 2: the hardcoded dash cells are NOT FACTS
+
+**Ruled by the business.** The `of which financing` row's **Hosting and
+Installation** cells are the literal string `'-'` in the source, in both columns,
+under every condition. **No deal state can put a figure there.**
+
+They are **empty by construction**, so they may cease to exist in the merge
+**without amending this census**, and **Part C's "no fact disappears" stands
+unqualified.**
+
+**The distinction the ruling draws, and it is worth keeping:** a cell that
+renders `-` because a value is zero is a fact about the deal. A cell that renders
+`-` because the code has no expression for it is a **hole in a grid**, and
+counting it would inflate the census with cells that report nothing. This is the
+same test `CLAUDE.md` Architecture 9's fourth variant applies to a hardcoded
+claim: a literal is not derived from anything, so it cannot be falsified by
+anything, and it is not evidence.
+
+---
+
+## STILL OPEN, REPORT ONLY: the two breakdowns
+
+**The question.** The brief says the breakdown expands **inside** the panel
+"rather than beside it". Round 40 Phase 3 built `#btn-toggle-detail` /
+`#deal-detail-panel` to open **beside** the summary, quoting the business's own
+layout words:
 
 > "the option to select to open the detailed revenue and costs per unit /
 > summary totals etc horizontally next to the deal sheet summary panel"
 
-These may be **two different breakdowns** — the per-line pricing detail beside,
-and the group split inside — or **one decision superseding the other**.
 `CLAUDE.md` Verification 23: two correct decisions about the same behaviour, taken
-in different rounds, produce a conflict nothing detects. **Reported rather than
-resolved.**
+in different rounds, produce a conflict nothing detects. **Are these two
+different breakdowns, or one superseding the other?**
+
+### The answer the enumeration gives: TWO BREAKDOWNS, DIFFERENT IN KIND
+
+They differ on **three axes at once**, which is what makes neither a candidate to
+supersede the other.
+
+| | (a) the detail panel, BESIDE | (b) the matrix columns, the merge's split |
+|---|---|---|
+| **grain** | per PRODUCT LINE, 11 lines | per PRODUCT GROUP, 3 columns |
+| **editable** | **yes.** Eleven `deal-margin-*` inputs | **no.** Read-only figures |
+| **period** | hosting is **per month** | hosting is **over the term** |
+| **covers** | cost, margin %, price | revenue, cost, margin, and today the WHT apportionment |
+| **opened by** | `#btn-toggle-detail` | would be the merged panel's own expansion |
+
+### (a) enumerated in full, and it is NOT all in one place
+
+**This is the finding of the enumeration.** "The detail panel" holds seven of the
+eleven lines. **The four installation lines live in section 2, in
+`#deal-install-table`**, under a different heading, behind a different
+condition.
+
+**In `#deal-detail-panel`, beside the summary** (`frontend/index.html`
+2099-2185, rendered by `renderPricingCards`):
+
+| card | lines | per line | card total |
+|---|---|---|---|
+| **Unit cost and warranty** | hwSs, hwAqm, hwHemir, hwWarranty | name, basis note (`N units x $C`), cost, **margin % input**, price | cost, price |
+| **Hosting (per month)** | hoSs, hoAqm, hoHemir | same | cost, price |
+
+plus `#deal-catalog-notice` (batch and effective date, or a product with no
+current batch, or a non-USD bid currency) and `#deal-catalog-warn`, and the
+heading `Detail, per line` with `Computed pricing (USD) · costs mirrored from
+Base Cost Data`.
+
+**In `#deal-install-table`, section 2 Installation** (`frontend/index.html`
+1888-1900), and **hidden unless per-unit installation is chosen**:
+
+| lines | per line | total |
+|---|---|---|
+| inSsEx, inSsNew, inAqm, inHemir | label, **units**, **rate input**, cost, **margin % input**, price | cost, price |
+
+**So (a) is complete only when read across two sections**, and its installation
+third is conditional on the installation responsibility while the other two
+thirds are not.
+
+### The overlap, measured on TT-SGP-SMARTC-003 rather than reasoned
+
+**(a)'s per-line figures sum EXACTLY to (b)'s columns.** Not approximately, and
+not by construction of the display: both read the same `result.groups`.
+
+| group | (a), summed from its lines | (b), the column |
+|---|---|---|
+| hardware | cost $382,154 · price $545,934 | cost $382,154 · price $545,934 |
+| hosting | cost **$5,400/mo** · price **$7,714/mo** | cost **$194,400** · price **$277,704** *(× 36 months)* |
+| installation | cost $232,000 · price $331,428 | cost $232,000 · price $331,428 |
+
+**The hosting row is the one that would mislead.** (a) and (b) show the same
+group in different periods, and nothing on either says so beyond the card title's
+`(per month)`. If the two are ever shown together, that is the line to label.
+
+### What this means for the ruling, stated as options rather than as a recommendation
+
+1. **Both, unchanged in kind.** The merged panel expands to the group split
+   inside; `Show detail` keeps opening the per-line pricing beside. Two buttons,
+   two breakdowns, no fact moves. **The layout words are satisfied by both**,
+   because they describe (a) and the brief describes (b).
+2. **Both, with the installation third brought home.** As above, and (a) stops
+   being split across two sections. That is a change to section 2 and outside the
+   merge.
+3. **One breakdown.** (b) becomes the expansion and (a) folds into it as a second
+   level. **This is the only option that touches editing**: the eleven margin
+   inputs live in (a), and `CLAUDE.md` Verification 20's addendum applies with
+   force, because a control that edits a value is also what supplies it on save.
+   Round 40 already met that exact failure with these exact eleven inputs.
+
+**No recommendation, and the reason is that this is a layout ruling.** What the
+enumeration establishes is that **nothing is forced**: no fact is duplicated
+between (a) and (b) except the group totals, which (b) derives from the same
+source (a) itemises.
 
 ---
 

@@ -1279,6 +1279,42 @@ one thing, not two.
 been running since Round 39 and the defect had never been seen, because nobody
 had put a deal on the boundary.
 
+### The merged Deal Sheet panel unfolds: disjoint rows summing to Total cost
+
+**Ruled by the business 2026-08-30, Round 41, on the item 4 fact census.**
+
+**The merged panel tells ONE arithmetic story.** Finance cost, test bed carried
+and absorbed WHT become **their own unsplit full-width rows** below the
+product-split rows. **Total cost is the visible sum of everything above it.** No
+"of which" memo lines that also live inside the total.
+
+**The reason, recorded with the decision:** on an approval surface **a column an
+approver can sum and match beats a compact fold**, and the census had named the
+cost of the alternative precisely - *somebody will add them up.*
+
+**Three folded facts end with the fold**, and each is a consequence of the ruling
+rather than an oversight:
+
+- **The WHT-absorbed apportionment across Hardware / Hosting / Installation
+  goes.** It was `whtBorne` split pro-rata by price share, an apportionment
+  computed for display rather than a measured allocation, and with absorbed WHT
+  as a full-width row it has nowhere to sit.
+- **Finance cost and test bed cost stop sitting inside the Hardware column.**
+  Neither is a hardware cost; they were folded there so the matrix's Total and
+  Margin matched `achievedMargin`, and the visible sum replaces that.
+- **The per-column Margin changes meaning and therefore changes LABEL.** It
+  becomes margin *before* the three deductions, with the three full-width rows
+  below reconciling it to Gross margin. Left called `Margin` it would name a
+  different number from the one it names today, which is a string that stopped
+  being true when the thing under it moved.
+
+**And the hardcoded dash cells are ruled NOT FACTS.** The `of which financing`
+row's Hosting and Installation cells are the literal `'-'` under every condition,
+so no deal state can fill them. **Empty by construction**, they may cease to exist
+without amending the census. The distinction is worth keeping: a `-` because a
+value is zero is a fact about the deal; a `-` because the code has no expression
+for it is a hole in a grid.
+
 ### A negative closing cash position gets no treatment
 
 **Ruled by the business 2026-08-30.** The palette **introduces no red**, and the
