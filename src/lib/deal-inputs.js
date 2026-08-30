@@ -74,6 +74,12 @@ export const RAW_READERS = {
   lumpSumCost: (p) => p?.lumpSumCost,
   // The one that started this rule. Nested, and nothing about the key name says so.
   factoringRatePct: (p) => p?.factoring?.ratePct,
+  // NESTED, like the rate beside it. Round 41 ruling 4 put factoringTermMonths
+  // in ZERO_IS_NOT_A_VALUE and isSet THROWS for a key with no reader, so the
+  // list and this map have to move together. That throw is the guard working:
+  // it refused the key rather than silently reporting it as absent on every
+  // deal, which is what a permissive lookup would have done.
+  factoringTermMonths: (p) => p?.factoring?.termMonths,
 };
 
 /**
@@ -153,6 +159,26 @@ export function isSet(payload, key) {
 export const ZERO_IS_NOT_A_VALUE = [
   'targetMargin', 'warrantyPct', 'whtPct', 'gstPct', 'fxContingency', 'factoringRatePct',
   'duration',
+  // ── ADDED ROUND 41, on the business's rulings from the Phase 1 enumeration ──
+  //
+  // recoveryMonths. Zero recovery months on a structure whose purpose is
+  // recovering hardware is a contradiction, not an aggressive position. It was
+  // missed in Round 40 Phase 1b, and the miss is finding 1: NUMERIC_DEFAULTS
+  // held 0 and the calculator read `recoveryMonths || 0`, so a blank field
+  // priced a two-phase deal at zero months and never invoiced $492,858.
+  'recoveryMonths',
+  // factoring.termMonths. A facility with a zero-month term is not a facility.
+  // Ruling 5 makes it an editable field with an admin default; until then a
+  // blank falls back to defaultTerm, which is the same fallback shape.
+  'factoringTermMonths',
+  // lumpSumCost. Ruled in AFTER the Phase 1 exclusion was found to rest on a
+  // false premise. I ruled it out because the field is hidden on three of four
+  // installation types and including it would make the sheet say "not
+  // recorded" on those; measured, buildNotRecorded ALREADY reports it on all
+  // four, so the premise was wrong. With applicability handled separately, the
+  // ruling is on the one installation type where the field exists, and there
+  // zero is not a value anybody deliberately enters.
+  'lumpSumCost',
 ];
 
 // ONE DECISION FOR EVERY RATE, and the wording per rate on top of it.

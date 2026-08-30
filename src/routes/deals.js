@@ -160,6 +160,10 @@ async function loadDealInputsFromOpportunity(db, opportunityId) {
 // you already have, or a few lines using jose directly.
 // import { verifyRequestToken } from '../lib/auth.js';
 
+// Kept with /calculate's removal rather than deleted with it: this is the
+// documented shape of a calculateDeal input, and deleting it would remove the
+// only place that shape is written down. Unused by any route today, which is
+// stated here so a reader does not go looking for the caller.
 const dealInputSchema = {
   type: 'object',
   required: [
@@ -208,10 +212,23 @@ export default async function dealsRoutes(app) {
   // Live preview, no persistence, no server-authoritative claim.
   // Auth is enforced by the requireAuth onRequest hook this module is
   // registered under in server.js, not per-route here.
-  app.post('/calculate', { schema: { body: dealInputSchema } }, async (request, reply) => {
-    const result = calculateDeal(request.body);
-    return reply.send(result);
-  });
+  // ── POST /calculate REMOVED. Round 41, ruled by the business ─────────────
+  //
+  // A live-preview route with no persistence and no server-authoritative
+  // claim. It had NO CALLER: measured across frontend/ and scripts/, the only
+  // hit for the path was a comment recording that Submit Deal was removed in
+  // Round 3 Phase 4.
+  //
+  // It mattered because it returned the WHOLE calculateDeal result with
+  // reply.send(result), so every internal of the cash flow model crossed the
+  // wire, including `recov`, which nothing reads. An unreachable route that
+  // exports a calculator's internals is a surface with no purpose and no
+  // reader to notice if its shape changes.
+  //
+  // /submit is untouched. It is also uncalled today, and it is the
+  // authoritative recompute-and-snapshot path that a real submit workflow
+  // would use, so it is dormant rather than orphaned. That distinction is the
+  // reason one goes and the other stays.
 
   // Authoritative recompute on submit. This is the one that actually
   // protects the integrity principle. The client sends only the

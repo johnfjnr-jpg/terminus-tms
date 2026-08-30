@@ -198,12 +198,35 @@ export function buildCashFlowModel({
   factoringTermMonths,
   factoringMethod = 'straight',
 }) {
-  const recov = structure === 'single' ? months : (recoveryMonths || 0);
+  // ── RECOVERY PERIOD IS TWO-PHASE ONLY. Round 41, ruled by the business ────
+  //
+  // The previous expression was `structure === 'single' ? months : (recoveryMonths || 0)`,
+  // which computed recov for hybrid as well. Every consumer then excluded
+  // hybrid: the accrual was guarded `structure !== 'hybrid'`, the cash-in used
+  // milestones, and the factoring default substituted a literal 12. So hybrid
+  // carried a number that reached no arithmetic and was exported on the cash
+  // flow object.
+  //
+  // THE HYBRID STRUCTURE IS UNCHANGED. What goes is the recovery computation
+  // inside it: hybrid recovers hardware through its MILESTONE schedule, which
+  // is the recovery schedule for that structure, so a second one was never
+  // meaningful.
+  //
+  // null, not 0. A structure that has no recovery period has no recovery
+  // period, and 0 would say "recovers over zero months", which is the exact
+  // confident-zero the round is removing elsewhere. Consumers below read it
+  // only where it exists.
+  const recov = structure === 'single' ? months
+    : structure === 'twoPhase' ? (recoveryMonths || 0)
+    : null;
   const msPctTotal = milestones.reduce((s, m) => s + m.pct, 0);
   const due = milestones.filter((m) => m.month > 0 && m.usd > 0);
 
   const facRate = (factoringRatePct || 0) / 100;
-  const defaultTerm = structure === 'hybrid' ? 12 : Math.max(1, recov);
+  // The hybrid 12 is unchanged here and is a business number written into a
+  // calculator, reported in Round 41 Phase 1 and addressed by ruling 5, which
+  // makes the factoring term an editable field with an admin default.
+  const defaultTerm = structure === 'hybrid' ? 12 : Math.max(1, recov ?? 0);
   const facTerm = Math.max(1, factoringTermMonths || defaultTerm);
 
   const principal = hardwareCostAll;
@@ -215,6 +238,8 @@ export function buildCashFlowModel({
 
   const schedule = buildLoanSchedule(principal, facRate, facTerm, factoringMethod);
 
+  // recov is null on hybrid, and null > 0 is false, so this is 0 there without
+  // needing to name the structure a second time.
   const recoveryPerMonth = recov > 0 ? hardwarePriceAll / recov : 0;
 
   const accrHw = [];

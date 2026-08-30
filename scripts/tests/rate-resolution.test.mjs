@@ -2,6 +2,8 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'fs'
+import { calculateDeal } from '../../src/lib/deal-calculator.js'
+import { buildDealInputs, ZERO_IS_NOT_A_VALUE, RAW_READERS, isSet } from '../../src/lib/deal-inputs.js'
 import {
   resolveRates, frozenRates, frozenRatesAgree,
   OVERRIDABLE_RATE_KEYS, CATALOG_ONLY_RATE_KEYS, ALL_RATE_KEYS,
@@ -38,6 +40,69 @@ test('a catalog-only rate in the payload cannot price anything', () => {
 
   // Calibration: the same shape on an overridable key DOES take.
   assert.equal(resolveRates({ inAqm: 999 }, CAT).rates.inAqm, 999)
+})
+
+test('recovery period is two-phase only, and hybrid is otherwise unchanged', () => {
+  // Round 41 ruling 1. A REMOVAL, so it carries two claims: the thing is gone,
+  // and everything that still works is shown still working.
+  const CAT = { ssUnitCost: 8000, aqUnitCost: 2000, hemirUnitCost: 100000,
+    hoSafesight: 200, hoAqm: 100, hoHemir: 500,
+    inSsExisting: 2000, inSsNew: 20000, inAqm: 500, inHemir: 5000 }
+  const base = { ssExisting: 12, ssNew: 3, aqm: 5, hemir: 2, duration: 36,
+    targetMargin: 30, warrantyPct: 2, invoicing: 'annual',
+    installResp: 'Client Own Installation Team',
+    milestones: [{ month: 1, usd: 200000, pct: 0 }, { month: 6, usd: 292858, pct: 0 }] }
+  const cf = (structure, recoveryMonths, extra = {}) => {
+    const p = { ...base, structure, ...extra, ...(recoveryMonths === undefined ? {} : { recoveryMonths }) }
+    return calculateDeal(buildDealInputs(p, { rates: resolveRates(p, CAT).rates }))
+  }
+
+  // GONE: hybrid computes no recovery period, at any input.
+  for (const rm of [undefined, 0, 12, 36]) {
+    assert.equal(cf('hybrid', rm).cashFlow.recov, null,
+      `hybrid must not compute a recovery period, saw one at recoveryMonths=${rm}`)
+  }
+  // null and not 0, because 0 would say "recovers over zero months", which is
+  // the confident zero this round is removing everywhere else.
+  assert.notEqual(cf('hybrid', 12).cashFlow.recov, 0)
+
+  // STILL WORKING: hybrid's own figures are untouched by the removal.
+  const h = cf('hybrid', 12).cashFlow
+  assert.equal(Math.round(h.rows.reduce((s, x) => s + x.hardwareIn, 0)), 492858,
+    'hybrid still recovers hardware through its milestone schedule')
+  assert.equal(Math.round(h.rows.at(-1).cum), 217302)
+
+  // STILL WORKING: factoring on hybrid, which reads defaultTerm and would have
+  // been the first casualty of a careless null.
+  assert.equal(cf('hybrid', 12, { factoring: { enabled: true, ratePct: 1.5, termMonths: null, method: 'straight' } }).financeCost,
+    33638, 'hybrid factoring still prices at its 12-month default term')
+
+  // STILL WORKING: the two structures that DO have a recovery period.
+  assert.equal(cf('twoPhase', 12).cashFlow.recov, 12)
+  assert.equal(cf('single', undefined).cashFlow.recov, 36, 'single recovers over the full term')
+  assert.equal(Math.round(cf('twoPhase', undefined).cashFlow.rows.at(-1).cum), -275556,
+    'a blank two-phase recovery still produces finding 1, which item 3 fixes')
+})
+
+test('the orphaned calculate route is gone and submit is not', () => {
+  // Round 41 ruling 2. Two claims again. POST /calculate returned the WHOLE
+  // calculateDeal result, so every internal crossed the wire, and it had no
+  // caller anywhere in frontend/ or scripts/.
+  const route = readFileSync(new URL('../../src/routes/deals.js', import.meta.url), 'utf8')
+  assert.ok(!/app\.post\('\/calculate'/.test(route), 'the calculate route survives')
+  // A comment MENTIONING reply.send(result) is prose, not a call. The first
+  // version of this assertion fired on the comment recording the removal,
+  // which is the same fault the fetch scan in api-client.test.mjs already
+  // names: a source scan that cannot tell code from the note explaining it.
+  const code = route.split('\n').filter((l) => !l.trim().startsWith('//')).join('\n')
+  assert.ok(!/reply\.send\(result\)/.test(code), 'the whole-result send survives')
+  // Calibration: the filter keeps real code. Verification 17.
+  assert.match(code, /return reply\.code\(|return reply\.send\(/)
+
+  // STILL WORKING: /submit is dormant rather than orphaned, and stays.
+  assert.match(route, /app\.post\('\/submit'/)
+  // And the input shape stays documented, which is why the schema was kept.
+  assert.match(route, /const dealInputSchema = \{/)
 })
 
 test('the two sets are disjoint and cover every rate key', () => {
