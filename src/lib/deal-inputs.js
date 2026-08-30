@@ -105,6 +105,81 @@ export const PRODUCT_UNITS = {
  * @param {object} payload
  * @param {string} key - a key of RAW_READERS
  */
+/**
+ * ONE VALUE, ONE RULE, TWO INSTANCES. Round 41, ruled by the business.
+ *
+ * Achieved margin is rendered twice on the Commercials tab: in the top strip and
+ * inside the Margin and Warranty card. Round 39 gave the accent a meaning, AT OR
+ * ABOVE TARGET, and wrote it as a class toggled at ONE of the two call sites,
+ * scoped in the stylesheet to that card. So the strip carried no rule and showed
+ * a deal 22 points under target in exactly the treatment of one on target.
+ *
+ * This is the rule. Both instances read it; neither restates it. A third
+ * rendering would read it too.
+ *
+ * NO RED, and that decision stands: the brand carries one accent and the fix is
+ * to spend it rather than to add to it. Under target is the ordinary foreground
+ * colour, and the ABSENCE of green is the signal.
+ *
+ * @param {number} achievedMargin
+ * @param {object} payload
+ */
+export function marginPresentation(achievedMargin, payload) {
+  const target = numericOrDefault(payload ?? {}, 'targetMargin');
+
+  // ── THE COMPARISON IS MADE ON WHAT THE PERSON SEES ──────────────────────
+  //
+  // FOUND BY THE CALIBRATION THAT PROVED THE ACCENT, and it is the reason to
+  // run one. Switching factoring off on TT-SGP-SMARTC-003 takes the achieved
+  // margin to 29.9963%, and the screen then said, in three places at once:
+  //
+  //     30.0%        against target 30%, down 0.0 pts        and no green
+  //
+  // Comparing the raw figures made a deal that DISPLAYS exactly at target
+  // display as under it, with a delta of "down 0.0 pts" saying so in words. The
+  // rounding is not a rendering detail here: one decimal place is the precision
+  // the decision is taken at, and a rule that reads more precision than the
+  // screen shows produces a state a person cannot account for.
+  //
+  // So both sides are rounded to the displayed precision before comparing, and
+  // the note's direction comes from the SAME rounded delta, which is what makes
+  // "down 0.0 pts" unreachable rather than merely unlikely. If a finer
+  // distinction is ever wanted, the display gains a decimal and this follows it.
+  const shown = Number(achievedMargin.toFixed(1));
+  const shownTarget = Number(Number(target).toFixed(1));
+  const delta = Number((shown - shownTarget).toFixed(1));
+  const onTarget = shown >= shownTarget;
+  return {
+    text: `${shown.toFixed(1)}%`,
+    target,
+    delta,
+    state: onTarget ? 'on-target' : 'under-target',
+    // "up 0.0 pts" is what the rounded delta produces at the boundary, and it
+    // is the same non-sentence as the "down 0.0 pts" this rule exists to
+    // remove. At the boundary the note says the state rather than a movement.
+    note: delta === 0
+      ? `at target ${target}%`
+      : `against target ${target}%, ${delta > 0 ? 'up' : 'down'} ${Math.abs(delta).toFixed(1)} pts`,
+  };
+}
+
+/**
+ * THE CLOSING CASH POSITION, which is a different question from margin.
+ *
+ * The last month's cumulative cash. Null when the model produced no months at
+ * all, which is a deal with no duration rather than a deal that ends at zero.
+ *
+ * NO TREATMENT FOR A NEGATIVE. Ruled by the business 2026-08-30: the palette
+ * introduces no red, and the absence of green already carries below target. A
+ * minus sign in front of a seven-figure number is not a subtle signal.
+ */
+export function closingCashPresentation(cashFlow) {
+  const rows = cashFlow?.rows ?? [];
+  if (!rows.length) return { value: null, text: 'not recorded' };
+  const value = Math.round(rows[rows.length - 1].cum);
+  return { value, text: value < 0 ? `-$${Math.abs(value).toLocaleString('en-US')}` : `$${value.toLocaleString('en-US')}` };
+}
+
 export function isSet(payload, key) {
   const reader = RAW_READERS[key];
   if (!reader) throw new Error(`isSet: no reader for ${key}. Add it to RAW_READERS rather than reading the payload directly.`);

@@ -74,7 +74,12 @@ const measure = async (width, label) => {
   // does not exist, including its sidebar, its scroll container and the panel
   // below the strip that the space cost is paid out of.
   await page.evaluate((option) => {
-    if (option === 'before') return
+    // ONLY the candidate labels inject. Anything else measures the page as it
+    // is, which is what "before" and "built" both need. The first run with
+    // LABEL=built fell through this guard, appended a sixth cell to a strip
+    // that already had five, and reported two rows: the probe measuring its own
+    // injection on top of the shipped layout.
+    if (!['A', 'B', 'C', 'Bstress'].includes(option)) return
     const strip = document.querySelector('#opp-tab-commercial .stats-grid')
     const cell = (label, value, id) => {
       const d = document.createElement('div')
@@ -201,11 +206,11 @@ const measure = async (width, label) => {
       return { left: Math.round(b.left), right: Math.round(b.right), width: Math.round(b.width), top: Math.round(b.top) }
     }
     const gm = glyphs('deal-achieved-margin')
-    const gc = glyphs('deal-closing-cash-strip')
+    const gc = glyphs('deal-closing-cash') || glyphs('deal-closing-cash-strip')
     const pairTravel = gm && gc
       ? Math.round(Math.max(gm.left, gc.left) - Math.min(gm.right, gc.right))
       : null
-    const allGlyphs = ['deal-contract-net', 'deal-achieved-margin', 'deal-total-cost', 'deal-finance-cost', 'deal-closing-cash-strip']
+    const allGlyphs = ['deal-contract-net', 'deal-achieved-margin', 'deal-total-cost', 'deal-finance-cost', 'deal-closing-cash', 'deal-closing-cash-strip']
       .map((id) => ({ id, g: glyphs(id) })).filter((x) => x.g)
     const lefts = allGlyphs.map((x) => x.g.left)
     const rights = allGlyphs.map((x) => x.g.right)
@@ -235,6 +240,41 @@ const measure = async (width, label) => {
     }
   })
 
+  // ── THE ACCENT IS SHOWN FIRING, ON BOTH INSTANCES ───────────────────────
+  //
+  // Verification 9: a de-scoped stylesheet rule nobody has watched apply is an
+  // assertion, not a control. This deal is 8.1% against a 30% target, so both
+  // renderings are white and a screenshot proves nothing about the green.
+  //
+  // THE FIRST LEVER WAS THE WRONG ONE AND IT LOOKED RIGHT. Driving the target
+  // box down to 2% should have put the achieved margin above target; instead
+  // the margin fell to -28.6%, because TARGET MARGIN PRICES THE DEAL. Every
+  // line prices at target, so lowering it lowers the price and the achieved
+  // margin with it. The calibration ran and moved nothing in the direction it
+  // was aimed, which Verification 18 says is a failure to run rather than a
+  // pass, and quoting the unchanged colour as "no green here" would have been
+  // a clean reading of nothing.
+  //
+  // Factoring is the lever that moves achieved margin ALONE: switching it off
+  // removes $252,794 of real cost from a deal that is under target because of
+  // its financing.
+  const accent = await page.evaluate(async () => {
+    const toggle = document.getElementById('deal-factoring-toggle')
+    const ids = ['deal-achieved-margin', 'deal-terms-achieved-margin']
+    const read = () => Object.fromEntries([...ids.map((id) => {
+      const el = document.getElementById(id)
+      return [id, el ? { colour: getComputedStyle(el).color, cls: el.className, text: el.textContent.trim() } : null]
+    }), ['note', { text: document.getElementById('deal-terms-achieved-note')?.textContent?.trim() ?? null }]])
+    const before = read()
+    if (!toggle) return { before, after: null, error: 'no factoring toggle' }
+    toggle.click()
+    await new Promise((r) => setTimeout(r, 300))
+    const after = read()
+    toggle.click()
+    await new Promise((r) => setTimeout(r, 300))
+    return { before, after, restored: read() }
+  })
+
   // Verification 4's refinement: confirm the element is inside the capture
   // before the image is treated as evidence.
   const el = await page.$('#opp-tab-commercial .stats-grid')
@@ -243,7 +283,7 @@ const measure = async (width, label) => {
   const file = `${OUT}strip-${label}-${width}.png`
   await page.screenshot({ path: file, clip: { x: 0, y: Math.max(0, box.y - 20), width, height: Math.min(box.height + 60, 900) } })
   const bytes = readFileSync(file).length
-  return { ...m, capture: file, captureBytes: bytes, captureCoversElement: box.height > 10 }
+  return { ...m, accent, capture: file, captureBytes: bytes, captureCoversElement: box.height > 10 }
 }
 
 const out = {}
@@ -264,5 +304,11 @@ for (const [w, m] of Object.entries(out)) {
   }
   console.log(`  eye travel between the promoted pair: ${m.pairTravel === null ? 'n/a (pair not present)' : m.pairTravel + 'px'}   all five on one baseline: ${m.sameBaseline}`)
   console.log(`  ink spans ${m.inkSpan}px:  ` + m.ink.map((i) => `${i.id.replace('deal-', '')} ${i.left}-${i.right}@${i.top}`).join('  '))
+  if (m.accent) {
+    const row = (label, s) => s ? Object.entries(s).map(([id, v]) => `${id.replace('deal-', '')}=${v ? (v.colour ?? '') + (v.cls ? ' [' + v.cls.replace('stat-value ', '') + ']' : '') + ' "' + v.text + '"' : 'absent'}`).join('   ') : m.accent.error
+    console.log(`  accent under target : ${row('before', m.accent.before)}`)
+    console.log(`  accent at target    : ${row('after', m.accent.after)}`)
+    console.log(`  accent restored     : ${row('restored', m.accent.restored)}`)
+  }
   console.log(`  capture ${m.capture} (${m.captureBytes} bytes, covers element: ${m.captureCoversElement})`)
 }

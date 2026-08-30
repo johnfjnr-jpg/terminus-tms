@@ -25,7 +25,7 @@ import { changedKeys } from '/lib/payload-diff.js'
 // Round 38: the ONE translation, shared with the submit route and the
 // approval page. It reads catalog rates as ordinary payload keys, which is
 // exactly what readPayload() puts there.
-import { buildDealInputs, gstPresentation, whtPresentation, durationPresentation } from '/lib/deal-inputs.js'
+import { buildDealInputs, gstPresentation, whtPresentation, durationPresentation, marginPresentation, closingCashPresentation } from '/lib/deal-inputs.js'
 import { reasonPromptFor } from '/lib/version-reason.js'
 import { scheduleReconciliation, refusalStatement } from '/lib/milestone-schedule.js'
 import { resolveRates, frozenRates } from '/lib/rate-resolution.js'
@@ -1092,32 +1092,29 @@ function renderResults(result, payload) {
   // hand already is. Both are written from THIS `result`, and neither recomputes
   // anything: a second computation would be Verification 20, and
   // commercials-wiring.test.mjs asserts the two strings agree.
-  const marginText = `${result.achievedMargin.toFixed(1)}%`
-  document.getElementById('deal-achieved-margin').textContent = marginText
-  const localMargin = document.getElementById('deal-terms-achieved-margin')
-  if (localMargin) {
-    localMargin.textContent = marginText
-    // ── THE ACCENT CARRIES INFORMATION, NOT DECORATION ────────────────────
-    //
-    // Round 39. A deal 17.5 points BELOW its target rendered in the same large
-    // green as one on target, so the most important signal on the screen said
-    // nothing and the only thing separating the two states was a line of grey
-    // text a reader had to stop and parse.
-    //
-    // No red is introduced: the brand carries one accent, and the fix is to
-    // spend it rather than to add to it. Green now means AT OR ABOVE TARGET and
-    // anything under target is the ordinary foreground colour. That is what a
-    // single-accent palette is for, and it costs one class.
-    const target = numericOrDefault(payload, 'targetMargin')
-    localMargin.classList.toggle('on-target', result.achievedMargin >= target)
-    localMargin.classList.toggle('under-target', result.achievedMargin < target)
+  // ── ONE VALUE, ONE RULE, TWO INSTANCES. Round 41 ───────────────────────
+  //
+  // The accent's meaning is marginPresentation's, not this file's. Round 39
+  // wrote the rule inline here and toggled it on ONE of the two renderings, so
+  // the strip showed a deal 22 points under target in the treatment of one on
+  // target. Both instances now read the same object.
+  const mp = marginPresentation(result.achievedMargin, payload)
+  const paint = (el) => {
+    if (!el) return
+    el.textContent = mp.text
+    el.classList.toggle('on-target', mp.state === 'on-target')
+    el.classList.toggle('under-target', mp.state === 'under-target')
   }
+  paint(document.getElementById('deal-achieved-margin'))
+  paint(document.getElementById('deal-terms-achieved-margin'))
   const localNote = document.getElementById('deal-terms-achieved-note')
-  if (localNote) {
-    const target = numericOrDefault(payload, 'targetMargin')
-    const delta = result.achievedMargin - target
-    localNote.textContent = `against target ${target}%, ${delta >= 0 ? 'up' : 'down'} ${Math.abs(delta).toFixed(1)} pts`
-  }
+  if (localNote) localNote.textContent = mp.note
+
+  // Closing cash position, the strip's second lead. Margin and cash recovery
+  // are two different questions and the screen answered the first loudly and
+  // the second in a footnote.
+  const closing = document.getElementById('deal-closing-cash')
+  if (closing) closing.textContent = closingCashPresentation(result.cashFlow).text
   document.getElementById('deal-total-cost').textContent = `$${money(result.totalDealCostAll)}`
   // money(null) is $NaN. The absence has a wording of its own, because the
   // figure it replaces is one somebody prices against.

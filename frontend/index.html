@@ -1708,14 +1708,38 @@
     </div>
 
     <div class="detail-tab-panel hidden" id="opp-tab-commercial">
-      <div class="stats-grid" style="margin-bottom:28px">
+      <!-- ── THE TOP STRIP. Round 41, shape B, ruled by the business ────────
+           Margin and cash recovery are two different questions and the screen
+           answered the first loudly and the second in a footnote. Closing cash
+           position joins achieved margin at the head of the row.
+
+           MEASURED, not asserted, at 1920 and 1240 against the finished screen,
+           and the measure is EYE TRAVEL BETWEEN THE PROMOTED PAIR rather than a
+           column width: a 15px number in a 365px cell leaves 275px of nothing,
+           so a column measurement describes the document and not the reading.
+           Five equal columns put the pair 904px apart at 1920 and wrapped the
+           cash label at 1240; two tiers cost 76px of height and still spread the
+           pair 732px. This shape holds one row at both widths and was stressed
+           with the longest strings that can occur, including a negative seven
+           figure cash position and the "not recorded" finance cost.
+
+           FINANCE COST CARRIES FULL WEIGHT. An earlier ruling demoted it
+           because it "reads $0"; measured on live data it reads $252,794,
+           21.9% of contract net, on the only deal with units. The supersession
+           and its reason are in DESIGN_PRINCIPLES.md so the demotion cannot
+           return as precedent. -->
+      <div class="stats-grid stats-grid--deal" style="margin-bottom:28px">
+        <div>
+          <span class="label">Achieved margin</span>
+          <div class="stat-value stat-value--lead" id="deal-achieved-margin">--</div>
+        </div>
+        <div>
+          <span class="label">Closing cash position</span>
+          <div class="stat-value stat-value--lead" id="deal-closing-cash">--</div>
+        </div>
         <div>
           <span class="label">Contract net</span>
           <div class="stat-value" id="deal-contract-net">--</div>
-        </div>
-        <div>
-          <span class="label">Achieved margin</span>
-          <div class="stat-value" id="deal-achieved-margin">--</div>
         </div>
         <div>
           <span class="label">Total deal cost</span>

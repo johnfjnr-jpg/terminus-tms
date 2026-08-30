@@ -1575,6 +1575,26 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
   margin-bottom: 44px;
 }
 
+/* ── THE DEAL STRIP, SHAPE B. Round 41 ─────────────────────────────────────
+   A MODIFIER, not a change to .stats-grid, which the Test Bed detail also uses.
+   Architecture: extend, never fork, and a shared class edited for one screen is
+   the fork in its quietest form.
+
+   The pair the business wants read together leads the row and is wider; the
+   three supporting figures follow at the muted size. FINANCE COST IS NOT
+   DEMOTED: it sits with the supporting three because it is a component of total
+   cost, not because it is small. Measured at $252,794 on the only live deal
+   carrying units. */
+.stats-grid--deal {
+  grid-template-columns: 1.6fr 1.6fr 1fr 1fr 1fr;
+  gap: 28px;
+}
+/* 20px, the size the other rendering of achieved margin already uses, so the
+   two instances match. The strip was 15px and was the WEAKER of the two, which
+   is the wrong way round for the figure a person reads first. */
+.stats-grid--deal .stat-value--lead { font-size: 20px; }
+.stats-grid--deal .stat-value:not(.stat-value--lead) { font-size: 13px; color: var(--muted); }
+
 /* ── Row lists (contacts, docs, approvals) ──────────────────── */
 .data-row {
   display: flex;
@@ -4415,11 +4435,21 @@ input.input-invalid {
    weighted to read first. The strip above the sub-tabs is unchanged. */
 .terms-field-row.terms-achieved { border-top: 1px solid var(--hairline-strong); margin-top: 4px; padding-top: 12px; }
 .terms-field-row.terms-achieved .stat-value { font-family: var(--mono); font-size: 20px; text-align: right; }
-/* Round 39: the accent means AT OR ABOVE TARGET. A figure below target takes the
+
+/* ── ONE VALUE, ONE RULE, TWO INSTANCES. Round 41, ruled by the business ────
+   Round 39: the accent means AT OR ABOVE TARGET. A figure below target takes the
    ordinary foreground colour, so the green is a statement rather than a style.
-   No red: one accent, spent on the thing that matters. */
-.terms-field-row.terms-achieved .stat-value.on-target { color: var(--green); }
-.terms-field-row.terms-achieved .stat-value.under-target { color: var(--white); }
+   No red: one accent, spent on the thing that matters.
+
+   DE-SCOPED IN ROUND 41. The rule was written inside
+   `.terms-field-row.terms-achieved`, so it governed one of the two renderings of
+   achieved margin and the strip carried no rule at all. Measured: the strip's
+   figure was 15px plain white whatever the deal was doing, while the same number
+   twelve hundred pixels below it was 20px and green when on target. Two readers
+   of one value, CLAUDE.md Verification 20, and the fix is one rule rather than a
+   second one. */
+.stat-value.on-target { color: var(--green); }
+.stat-value.under-target { color: var(--white); }
 
 /* Round 39: an ageing or stale cost basis, said where the rates are entered.
    Same bands and same words as the approval page, from src/lib/cost-basis.js. */

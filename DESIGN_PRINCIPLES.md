@@ -1180,6 +1180,85 @@ forgotten.
 
 ---
 
+## The top strip: shape B, and finance cost keeps its weight
+
+**Ruled by the business 2026-08-30, Round 41, on a measured proposal.**
+
+**Closing cash position joins achieved margin at the head of the strip.** The
+commercial reason is the business's: **margin and cash recovery are two
+different questions, and the screen answered the first loudly and the second in
+a footnote.**
+
+Five figures on one row: **Achieved margin, Closing cash position, Contract net,
+Total deal cost, Finance cost.** The first two lead at 20px; the other three
+follow at the muted size.
+
+**Chosen on a measured comparison of three shapes**, and the measure is **the
+eye travel between the promoted pair, glyph edge to glyph edge**, because a
+column width is a property of the document and the distance a person's eye
+covers is a property of reading it (`CLAUDE.md` Verification 27).
+
+| shape | travel at 1240 | travel at 1920 | height | rows |
+|---|---|---|---|---|
+| five equal columns | 496px | 904px | 66 / 50 | 1 |
+| **asymmetric, pair first** | **167px** | **343px** | **50** | **1** |
+| two tiers | 392px | 732px | 118 | 2 |
+
+Five equal columns wrapped the cash label at 1240 and put the pair 904px apart
+at 1920, promoting the two figures and then separating them. Two tiers cost 76px
+of height on a screen whose point is one scroll, and still spread the pair 732px.
+
+### SUPERSEDED: the demotion of finance cost
+
+**The earlier ruling was that finance cost stays in the strip with its weight
+reduced, and the reason given was that it reads `$0`.**
+
+> Closing cash position joins the top strip beside achieved margin. **Finance
+> cost reads `$0` and earns its place less.** Finance cost stays in the strip.
+> The demotion is in weight, not membership.
+
+**That premise was measured false on live data and the business re-took the
+reading 2026-08-30.** Finance cost is **$252,794** on TT-SGP-SMARTC-003, which is
+**21.9% of contract net** and the second-largest figure on the strip. The three
+opportunities reading `$0` have **no units at all**, so their contract net is
+`$0` too: the observation was taken where every figure reads zero and does not
+distinguish finance cost from anything else.
+
+**Full weight is restored.** Finance cost sits with the supporting three because
+it is a component of total cost, not because it is small.
+
+**Recorded as a supersession rather than dropped, so it cannot return as
+precedent**, and the superseded reasoning is left visible so a later reader can
+tell that **a premise failed rather than a preference changing** (`CLAUDE.md`
+Verification 29).
+
+### One value, one rule, two instances
+
+Achieved margin is rendered twice on the tab. Round 39 gave the accent a meaning,
+**green means at or above target**, and wrote it as a class toggled at one of the
+two call sites and scoped in the stylesheet to that card. **So the strip carried
+no rule**, showed a deal 21.9 points under target in exactly the treatment of one
+on target, and was the *weaker* of the two renderings at 15px against 20px.
+
+The rule now lives in `marginPresentation`. Both instances read it and neither
+restates it. The strip is normalised to 20px, so the two instances match.
+
+**The comparison is made on what the person sees.** Found by the calibration
+that proved the accent: at 29.9963% the screen said `30.0%`, `down 0.0 pts` and
+showed no green, all at once. One decimal place is the precision the decision is
+taken at, and a rule reading more precision than the screen shows produces a
+state nobody can account for. If a finer distinction is wanted, the display gains
+a decimal and the rule follows it.
+
+### A negative closing cash position gets no treatment
+
+**Ruled by the business 2026-08-30.** The palette **introduces no red**, and the
+**absence of green already carries below-target**. Single-accent discipline
+holds: the accent is spent on one thing, and a minus sign in front of a
+seven-figure number is not a subtle signal.
+
+---
+
 ## Refused, with reasons, so it does not come back
 
 **The Deal Summary does not move up under the stage tab line.** Refused by the

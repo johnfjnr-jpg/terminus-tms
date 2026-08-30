@@ -25,7 +25,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { JSDOM } from 'jsdom'
-import { gstPresentation, whtPresentation, ratePresentation, durationPresentation, ZERO_IS_NOT_A_VALUE } from '../../src/lib/deal-inputs.js'
+import { gstPresentation, whtPresentation, ratePresentation, durationPresentation, ZERO_IS_NOT_A_VALUE, marginPresentation, closingCashPresentation } from '../../src/lib/deal-inputs.js'
 
 // The eleven lines that carry a per-line margin. Named here so the markup and
 // the screen's own MARGIN_KEYS are checked against one list rather than each
@@ -509,6 +509,130 @@ test('the three payload consumers are untouched', () => {
   assert.match(inputs, /overrides\[key\] \?\? targetMargin/)
   assert.match(appr, /payload\?\.marginOverrides \?\? \{\}/)
   assert.match(route, /payload\.marginOverrides && typeof payload\.marginOverrides === 'object'/)
+})
+
+// ─────────────────────────────────────────────────────────────
+// The top strip: one value, one rule, two instances
+// ─────────────────────────────────────────────────────────────
+
+test('the accent means at or above target, and it is ONE rule', () => {
+  // Round 39 gave the accent a meaning. Round 41 makes it a rule both
+  // renderings read, because Round 39 wrote it inline at one of the two call
+  // sites and scoped it in the stylesheet to that card.
+  assert.equal(marginPresentation(30, { targetMargin: 30 }).state, 'on-target', 'equal is at target')
+  assert.equal(marginPresentation(30.1, { targetMargin: 30 }).state, 'on-target')
+  assert.equal(marginPresentation(29.9, { targetMargin: 30 }).state, 'under-target')
+  assert.equal(marginPresentation(8.1, {}).state, 'under-target', 'against the default target when none is set')
+  assert.equal(marginPresentation(8.1, {}).target, 30)
+
+  // The note names both figures and the direction, so the state is legible
+  // without the colour. A colour nobody can distinguish is not a signal.
+  assert.equal(marginPresentation(8.1, { targetMargin: 30 }).note, 'against target 30%, down 21.9 pts')
+  assert.equal(marginPresentation(34.5, { targetMargin: 30 }).note, 'against target 30%, up 4.5 pts')
+  assert.equal(marginPresentation(8.14, { targetMargin: 30 }).text, '8.1%')
+})
+
+test('THE BOUNDARY: a deal that DISPLAYS at target is at target', () => {
+  // Found by the calibration that proved the accent, which is the reason to run
+  // one. Switching factoring off on the live deal takes the achieved margin to
+  // 29.9963%, and comparing the raw figures put the screen in three-way
+  // disagreement with itself: "30.0%", "down 0.0 pts", and no green.
+  //
+  // One decimal place is the precision the decision is taken at. A rule reading
+  // more precision than the screen shows produces a state nobody can account
+  // for.
+  const boundary = marginPresentation(29.9963, { targetMargin: 30 })
+  assert.equal(boundary.text, '30.0%')
+  assert.equal(boundary.state, 'on-target', 'a displayed 30.0% against a 30% target is at target')
+  assert.equal(boundary.note, 'at target 30%', 'and "up 0.0 pts" is the same non-sentence as "down 0.0 pts"')
+
+  // The rule still bites one displayed step below, or rounding would have
+  // become a licence rather than a precision.
+  const under = marginPresentation(29.94, { targetMargin: 30 })
+  assert.equal(under.text, '29.9%')
+  assert.equal(under.state, 'under-target')
+  assert.equal(under.note, 'against target 30%, down 0.1 pts')
+
+  // NO DELTA MAY EVER READ 0.0 WITH A DIRECTION. That is the defect stated as
+  // the property rather than as the one case that produced it, swept across
+  // every hundredth of a point around the boundary.
+  for (let i = -200; i <= 200; i++) {
+    const p = marginPresentation(30 + i / 100, { targetMargin: 30 })
+    assert.ok(!/(up|down) 0\.0 pts/.test(p.note), `${30 + i / 100}: ${p.note}`)
+    assert.equal(p.state === 'on-target', Number(p.text.replace('%', '')) >= 30,
+      `${30 + i / 100}: the accent must agree with the number on screen`)
+  }
+})
+
+test('both renderings of achieved margin are painted from that one rule', () => {
+  const src = readCode(new URL('../../frontend/opportunity-deal.js', import.meta.url))
+  // One call, one painter, both ids through it.
+  assert.equal((src.match(/marginPresentation\(/g) || []).length, 1,
+    'a second call would be a second reading of the same value')
+  assert.match(src, /paint\(document\.getElementById\('deal-achieved-margin'\)\)/)
+  assert.match(src, /paint\(document\.getElementById\('deal-terms-achieved-margin'\)\)/)
+  // AND THE OLD INLINE RULE IS GONE, which is the claim that can be false: a
+  // moved rule that leaves its original behind is two rules again.
+  //
+  // ASSERTED ON THE EFFECT, NOT ON THE OLD SPELLING. The first version of this
+  // matched the literal `achievedMargin >= target`, and a calibration injecting
+  // the same comparison written any other way sailed past it. CLAUDE.md
+  // Verification 37: a rule that names a mechanism polices the mechanism. What
+  // matters is that ONE place decides the class.
+  assert.equal((src.match(/classList\.toggle\('on-target'/g) || []).length, 1,
+    'exactly one site may decide the accent, or the rule has been copied again')
+  assert.equal((src.match(/classList\.toggle\('under-target'/g) || []).length, 1)
+  assert.ok(!/achievedMargin >= /.test(src),
+    'the comparison must live in marginPresentation, not at a call site')
+
+  // The stylesheet rule is de-scoped, or the strip would carry the class and
+  // no colour. Read through the stripper, so a comment about the selector
+  // cannot satisfy this.
+  const css = readCode(new URL('../../frontend/style.css', import.meta.url))
+  assert.match(css, /^\.stat-value\.on-target \{ color: var\(--green\); \}$/m)
+  assert.match(css, /^\.stat-value\.under-target \{ color: var\(--white\); \}$/m)
+  assert.ok(!/\.terms-achieved \.stat-value\.on-target/.test(css),
+    'the scoped rule must be gone, not shadowed by the de-scoped one')
+})
+
+test('the closing cash position says a negative plainly, and no red', () => {
+  // Ruled by the business: no treatment for a negative. The palette introduces
+  // no red, and the absence of green already carries below target.
+  assert.equal(closingCashPresentation({ rows: [{ cum: 117341 }] }).text, '$117,341')
+  assert.equal(closingCashPresentation({ rows: [{ cum: -275556 }] }).text, '-$275,556')
+  assert.equal(closingCashPresentation({ rows: [{ cum: 0 }] }).text, '$0')
+  // The LAST month, not the first or the worst. Peak exposure is a different
+  // figure and it is on the page elsewhere.
+  assert.equal(closingCashPresentation({ rows: [{ cum: -900 }, { cum: 500 }] }).value, 500)
+  // No months is not a deal that ends at zero.
+  assert.equal(closingCashPresentation({ rows: [] }).text, 'not recorded')
+  assert.equal(closingCashPresentation(null).value, null)
+
+  const css = readCode(new URL('../../frontend/style.css', import.meta.url))
+  assert.ok(!/#deal-closing-cash[^{]*\{[^}]*(--red|#[a-f0-9]*[89a-f][0-9a-f]{2}[0-3][0-9a-f]{2})/i.test(css),
+    'no accent is introduced for a negative closing cash')
+})
+
+test('the strip is shape B: five figures, the pair first', () => {
+  const html = readCode(new URL('../../frontend/index.html', import.meta.url))
+  const strip = html.slice(html.indexOf('stats-grid stats-grid--deal'))
+    .slice(0, html.slice(html.indexOf('stats-grid stats-grid--deal')).indexOf('</div>\n\n'))
+  const labels = [...strip.matchAll(/<span class="label">([^<]+)<\/span>/g)].map((m) => m[1])
+  assert.deepEqual(labels, ['Achieved margin', 'Closing cash position', 'Contract net', 'Total deal cost', 'Finance cost'],
+    'the order IS the ruling: the pair the business reads together leads the row')
+  // The pair is promoted and the three are not. Asserted on the markup rather
+  // than on the rendered size, because the class is what the stylesheet reads.
+  assert.match(strip, /stat-value stat-value--lead" id="deal-achieved-margin"/)
+  assert.match(strip, /stat-value stat-value--lead" id="deal-closing-cash"/)
+  assert.ok(!/stat-value--lead" id="deal-finance-cost"/.test(strip))
+
+  // A MODIFIER, not an edit to .stats-grid, which the Test Bed detail also
+  // uses. Architecture: extend, never fork.
+  const css = readCode(new URL('../../frontend/style.css', import.meta.url))
+  assert.match(css, /\.stats-grid--deal \{/)
+  assert.match(css, /grid-template-columns: repeat\(4, 1fr\)/, '.stats-grid itself is unchanged')
+  assert.equal((html.match(/class="stats-grid"/g) || []).length, 1,
+    'the other stats-grid must not have picked up the deal modifier')
 })
 
 // ─────────────────────────────────────────────────────────────
