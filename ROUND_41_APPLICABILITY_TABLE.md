@@ -1,7 +1,78 @@
 # Applicability rules for `buildNotRecorded`
 
-**Ruling 3 of the Phase 1 rulings. REPORT ONLY. `buildNotRecorded` is
-unchanged until this table is approved.**
+**APPROVED 2026-08-30 with four amendments, recorded below and folded into the
+table. `buildNotRecorded` builds against this file.**
+
+## Amendment 1: an absent governing input fails LOUD
+
+**If the input deciding a conditional key's applicability is itself unset, the
+key is treated as APPLICABLE and the disclosure fires.**
+
+`structure`, `installResp` and `factoring.enabled` are the three deciding
+inputs. Any of them missing from the payload means the deal has not said what
+shape it is, and **the mechanism must never convert "nobody entered the deciding
+field" into silence.**
+
+**This is the common case, not an edge.** Measured: `structure` is absent on
+**502 of 562** opportunities' latest revisions. A rule that read an absent
+`structure` as "not two-phase, so recovery does not apply" would suppress the
+recovery disclosure on almost every deal in the system, which is finding 1
+arriving through the applicability rule instead of through `|| 0`.
+
+**Tests:** every conditional key fires when its governing input is absent,
+calibrated by injection.
+
+## Amendment 2: the population is shown, not asserted
+
+`NUMERIC_DEFAULTS`, verbatim from `src/lib/numeric-payload.js`, so the row set
+below can be checked against the key set rather than trusted:
+
+```js
+export const NUMERIC_DEFAULTS = {
+  // Percentages: absent means "use the house default".
+  targetMargin: 30,
+  warrantyPct: 2,
+  whtPct: 0,
+  gstPct: 0,
+  fxContingency: 0,
+  factoringRatePct: 1.5,
+  // Counts and money: absent means none.
+  ssExisting: 0,
+  ssNew: 0,
+  aqm: 0,
+  hemir: 0,
+  lumpSumCost: 0,
+  duration: 0,
+  recoveryMonths: 0,
+};
+```
+
+**Thirteen keys.** The table carries thirteen rows plus `factoring.termMonths`,
+which ruling 5 adds and which is not in the constant yet.
+
+## Amendment 3: predicates match the exact enumerated value
+
+`installResp` rules compare against the **exact** picklist value,
+`'Terminus Contractor - Lump Sum'`, **not a substring**. `buildDealInputs`
+elsewhere uses `.includes('Lump Sum')`, which is a different and looser test;
+an applicability rule that governs whether an approver is told something is not
+the place for a loose match.
+
+## Amendment 4: `warrantyPct`'s reason was false and is rewritten
+
+The recorded reason was "every deal carries hardware". **That is false: a
+software-only deal, such as a hosting renewal, is a real Terminus deal shape.**
+
+**The true reason it stays unconditional:** the calculator today prices every
+deal as potentially carrying hardware and **has no software-only shape at all**,
+so warranty applicability cannot be decided against a shape that does not exist
+in it. The ruling is unchanged; the justification is.
+
+Recorded on the deferred list in `DESIGN_PRINCIPLES.md`: when the software-only
+shape is designed, `warrantyPct` applicability is revisited along with the unit
+counts, recovery, and the rest of the hardware-shaped shell.
+
+---
 
 ## What is being decided
 
@@ -37,7 +108,7 @@ today.
 | key | applies when | proposed rule | reason |
 |---|---|---|---|
 | `targetMargin` | always | **unconditional** | every deal is priced against a margin. There is no deal shape where a target does not apply. |
-| `warrantyPct` | always | **unconditional** | warranty is provisioned on hardware, and every deal carries hardware. |
+| `warrantyPct` | always | **unconditional** | amendment 4. The calculator has no software-only deal shape, so warranty applicability cannot be decided against a shape that does not exist in it. Revisited when that shape is designed. |
 | `whtPct` | always | **unconditional** | withholding is a property of the customer's jurisdiction, not of the deal's shape. Absent means nobody asked, on any deal. |
 | `gstPct` | always | **unconditional** | same. Measured in Round 39: 406 of 467 carry none, and that absence is exactly what the disclosure exists to report. |
 | `ssExisting` | always | **unconditional** | a unit count. Zero is a real answer, so this key is *ruled out of* `ZERO_IS_NOT_A_VALUE` and its disclosure is moot, but the applicability answer is still "always". |
@@ -46,7 +117,7 @@ today.
 | `hemir` | always | **unconditional** | same. |
 | `duration` | always | **unconditional** | every deal has a term. |
 | **`recoveryMonths`** | **`structure === 'twoPhase'`** | **conditional** | ruling 1: recovery period is two-phase only. On single the term is the duration; on hybrid, after ruling 1, the concept does not exist. |
-| **`lumpSumCost`** | **`installResp` includes `Lump Sum`** | **conditional** | on the other three types Terminus pays no contractor lump sum, so there is no value to record and no absence to report. |
+| **`lumpSumCost`** | **`installResp === 'Terminus Contractor - Lump Sum'`** | **conditional** | exact match, amendment 3. On the other three types Terminus pays no contractor lump sum, so there is no value to record and no absence to report. |
 | **`factoringRatePct`** | **`factoring.enabled === true`** | **conditional** | a rate on a facility nobody is using is not a missing value. |
 | **`factoring.termMonths`** | **`factoring.enabled === true`** | **conditional** | same. New key, per ruling 5. |
 | `fxContingency` | **see the open question below** | **unconditional, provisionally** | proposed unconditional, and flagged rather than assumed. |

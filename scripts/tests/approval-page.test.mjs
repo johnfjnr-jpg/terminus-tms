@@ -10,6 +10,7 @@ import {
   BRIDGE_STEPS, bridgeKeys,
 } from '../../src/lib/approval-page.js'
 import { buildDealInputs, isSet, RAW_READERS, PRODUCT_UNITS } from '../../src/lib/deal-inputs.js'
+import { appliesToDeal } from '../../src/lib/approval-page.js'
 import { resolveRates } from '../../src/lib/rate-resolution.js'
 import { calculateDeal } from '../../src/lib/deal-calculator.js'
 import { NUMERIC_DEFAULTS } from '../../src/lib/numeric-payload.js'
@@ -457,6 +458,98 @@ test('but a PRICED key no step claims still is', () => {
 // Found by reading the rendered page
 // ─────────────────────────────────────────────────────────────
 
+// ─────────────────────────────────────────────────────────────
+// Applicability: a disclosure fires only where the field applies
+// ─────────────────────────────────────────────────────────────
+
+// The four conditional keys, their governing input, and a payload fragment that
+// makes each APPLY and NOT APPLY. Driven from one table so a key added to
+// APPLICABILITY without tests is visible as a missing row rather than absent.
+const CONDITIONAL = [
+  { key: 'recoveryMonths', input: 'structure',
+    applies: { structure: 'twoPhase' }, doesNot: { structure: 'hybrid' }, absent: {} },
+  { key: 'lumpSumCost', input: 'installResp',
+    applies: { installResp: 'Terminus Contractor - Lump Sum' },
+    doesNot: { installResp: 'Client Own Installation Team' }, absent: {} },
+  { key: 'factoringRatePct', input: 'factoring.enabled',
+    applies: { factoring: { enabled: true } }, doesNot: { factoring: { enabled: false } }, absent: {} },
+]
+
+// A payload with none of the conditional keys set, so every row below turns on
+// applicability alone rather than on whether the value happens to be present.
+const BARE = { ssExisting: 10, duration: 36, targetMargin: 30, warrantyPct: 2,
+  whtPct: 5, gstPct: 9, fxContingency: 0 }
+const fired = (p) => buildNotRecorded(p, { versionReason: 'x' })
+  .filter((r) => r.kind === 'default').map((r) => r.key)
+
+test('a conditional disclosure fires when the field applies', () => {
+  for (const c of CONDITIONAL) {
+    assert.ok(fired({ ...BARE, ...c.applies }).includes(c.key),
+      `${c.key} must be disclosed when ${c.input} says it applies`)
+  }
+})
+
+test('and does NOT fire when the field cannot apply to this deal', () => {
+  // The half that was wrong before Round 41: the page told an approver "nobody
+  // entered a value" for lumpSumCost on three installation types where the
+  // field cannot exist, and for factoringRatePct on every deal with factoring
+  // off. A disclosure that fires where the field could never exist teaches the
+  // approver to skim the block that matters most.
+  for (const c of CONDITIONAL) {
+    assert.ok(!fired({ ...BARE, ...c.doesNot }).includes(c.key),
+      `${c.key} must NOT be disclosed when ${c.input} says it does not apply`)
+  }
+})
+
+test('AN ABSENT GOVERNING INPUT FAILS LOUD: the disclosure fires', () => {
+  // Amendment 1, and it is the common case rather than an edge. Measured:
+  // `structure` is absent on 502 of 562 opportunities. A rule reading an absent
+  // structure as "not two-phase, so recovery does not apply" would suppress the
+  // recovery disclosure on almost every deal in the system, which is finding 1
+  // arriving through the applicability rule instead of through `|| 0`.
+  for (const c of CONDITIONAL) {
+    const keys = fired({ ...BARE, ...c.absent })
+    assert.ok(keys.includes(c.key),
+      `${c.key} must be disclosed when ${c.input} is absent, not silently suppressed`)
+  }
+  // Explicit null is the same as absent: a field somebody cleared has not told
+  // us the deal's shape either.
+  assert.ok(fired({ ...BARE, structure: null }).includes('recoveryMonths'))
+  assert.ok(fired({ ...BARE, installResp: '' }).includes('lumpSumCost'))
+  assert.ok(fired({ ...BARE, factoring: { enabled: null } }).includes('factoringRatePct'))
+})
+
+test('the predicate matches the exact enumerated value, not a substring', () => {
+  // Amendment 3. buildDealInputs uses .includes('Lump Sum') for PRICING; a rule
+  // governing whether an approver is TOLD something is not the place for a
+  // loose match.
+  assert.equal(appliesToDeal('lumpSumCost', { installResp: 'Terminus Contractor - Lump Sum' }), true)
+  assert.equal(appliesToDeal('lumpSumCost', { installResp: 'Some Other Lump Sum Arrangement' }), false,
+    'a substring match would wrongly make this applicable')
+})
+
+test('an unlisted key is unconditional, which is the safe direction', () => {
+  // A key nobody has ruled on DISCLOSES rather than hides. The dangerous
+  // default would be the other way round.
+  assert.equal(appliesToDeal('gstPct', {}), true)
+  assert.equal(appliesToDeal('targetMargin', { structure: 'hybrid', factoring: { enabled: false } }), true)
+  // fxContingency is unconditional by ruling, not by omission: the conditional
+  // reading would need bidCurrency !== proposalCurrency, a fourth governing
+  // input, and widening that list is a decision rather than a side effect.
+  assert.equal(appliesToDeal('fxContingency', { bidCurrency: 'USD', proposalCurrency: 'USD' }), true)
+})
+
+test('every conditional key in APPLICABILITY has tests here', () => {
+  // Verification 19: the CONDITIONAL table above is a claim about coverage.
+  // Measured against the module's own rules rather than trusted.
+  const src = readFileSync(new URL('../../src/lib/approval-page.js', import.meta.url), 'utf8')
+  const block = src.slice(src.indexOf('const APPLICABILITY = {'), src.indexOf('};', src.indexOf('const APPLICABILITY = {')))
+  const declared = [...block.matchAll(/^\s{2}([A-Za-z]+):/gm)].map((m) => m[1]).sort()
+  const tested = CONDITIONAL.map((c) => c.key).concat('factoringTermMonths').sort()
+  assert.deepEqual(declared, tested,
+    'a conditional key exists with no test, or a test names a key that is not conditional')
+})
+
 test('a default that lives NESTED is read where it lives', () => {
   // factoringRatePct is payload.factoring.ratePct. Reading it flat meant the
   // page told every approver "nobody entered a value" for a deal that had set
@@ -466,7 +559,12 @@ test('a default that lives NESTED is read where it lives', () => {
   assert.ok(!set.some((r) => r.key === 'factoringRatePct'),
     'a deal that sets its factoring rate is not running on the default')
 
-  const unset = buildNotRecorded({ ...NOW, factoring: { enabled: false } }, { versionReason: 'x' })
+  // ENABLED, not disabled. Round 41 made the disclosure applicability-aware, so
+  // a rate on a facility nobody is using is no longer a missing value. This
+  // test's purpose is the NESTED READ, not the applicability rule, so the
+  // fixture moves to the case where the field applies and the purpose survives
+  // intact.
+  const unset = buildNotRecorded({ ...NOW, factoring: { enabled: true } }, { versionReason: 'x' })
   assert.ok(unset.some((r) => r.key === 'factoringRatePct'),
     'and a deal that does not set it still is')
 })

@@ -1173,6 +1173,29 @@ Not Commercials, and recorded so they are not lost:
 
 ---
 
+- **SOFTWARE-ONLY DEALS ARE A REAL TERMINUS SHAPE THE CALCULATOR DOES NOT
+  SUPPORT. Raised 2026-08-30 by the business, Round 41, from a false
+  justification rather than from a defect.**
+
+  The applicability table justified `warrantyPct` as unconditional because
+  "every deal carries hardware". **That is false.** A hosting renewal or a
+  licence-only deal carries no hardware, and both are real.
+
+  **The ruling did not change and the reason did.** `warrantyPct` stays
+  unconditional because **the Commercials calculator has no software-only shape
+  at all**, so warranty applicability cannot be decided against a shape that
+  does not exist in it. The rule is honest about its own limit rather than
+  resting on a claim about the business.
+
+  **What the shape would touch, so the revisit is scoped rather than open:**
+  `warrantyPct`, the four unit counts, `recoveryMonths` and the whole recovery
+  concept, the installation section, and the hardware-shaped shell of the Deal
+  Summary. A software-only deal has revenue, cost, margin and a term, and
+  almost nothing else the screen currently asks for.
+
+  Trigger: when the first software-only deal needs pricing, or when the shape is
+  designed, whichever comes first.
+
 ### The list by trigger, not by date
 
 **Added at the Round 39 close on the business's instruction: two or three work

@@ -539,6 +539,67 @@ export function buildCostBasis(batches, missing, asOfISO, payload = {}) {
  * carries the default's value and where the default came from, per the
  * surface rule at the top of this file.
  */
+// ── DOES THIS FIELD APPLY TO THIS DEAL? Round 41, ruling 3 ─────────────────
+//
+// A disclosure used to fire for every NUMERIC_DEFAULTS key the payload did not
+// set. Measured before the change: the approval page told an approver "Nobody
+// entered a value" for `lumpSumCost` on THREE INSTALLATION TYPES WHERE THE
+// FIELD CANNOT APPLY, and for `factoringRatePct` on every deal with factoring
+// switched off. A disclosure that fires where the field could never exist
+// teaches the approver to skim block 5, which is the block that matters most.
+//
+// Decided from DEAL DATA, never from DOM visibility. This runs on the server
+// from a stored payload with no screen in existence, so deal data is the only
+// decidable form, and it is also the right one: a version approved months later
+// must disclose what THAT deal's shape required.
+//
+// THE INPUTS ARE A CLOSED LIST of three: `structure`, `installResp`,
+// `factoring.enabled`. A key needing a fourth is a finding, not a licence.
+// `fxContingency` is unconditional for exactly that reason: the conditional
+// reading would need `bidCurrency !== proposalCurrency`, and widening the list
+// is a decision rather than a side effect.
+//
+// ── AN ABSENT GOVERNING INPUT FAILS LOUD ──────────────────────────────────
+//
+// If the input deciding applicability is itself unset, the key is APPLICABLE
+// and the disclosure fires. The mechanism must never turn "nobody entered the
+// deciding field" into silence.
+//
+// This is the common case rather than an edge: `structure` is absent on 502 of
+// 562 opportunities. A rule reading an absent `structure` as "not two-phase, so
+// recovery does not apply" would suppress the recovery disclosure on almost
+// every deal in the system, which is finding 1 arriving through the
+// applicability rule instead of through `|| 0`.
+//
+// Exact enumerated values, not substrings. `buildDealInputs` uses
+// `.includes('Lump Sum')` for pricing; a rule governing whether an approver is
+// TOLD something is not the place for a loose match.
+const LUMP_SUM = 'Terminus Contractor - Lump Sum';
+
+const APPLICABILITY = {
+  // Conditional. Each returns false ONLY when the governing input is present
+  // and says the field does not apply.
+  recoveryMonths: (p) => p?.structure === undefined || p?.structure === null || p?.structure === 'twoPhase',
+  lumpSumCost: (p) => p?.installResp === undefined || p?.installResp === null || p?.installResp === ''
+    || p.installResp === LUMP_SUM,
+  factoringRatePct: (p) => p?.factoring?.enabled === undefined || p?.factoring?.enabled === null
+    || p.factoring.enabled === true,
+  factoringTermMonths: (p) => p?.factoring?.enabled === undefined || p?.factoring?.enabled === null
+    || p.factoring.enabled === true,
+};
+
+/**
+ * Whether a key's absence is worth disclosing on THIS deal.
+ *
+ * Unlisted keys are unconditional, which is the safe direction: a key nobody
+ * has ruled on discloses rather than hides. Adding a key here is a decision
+ * recorded in ROUND_41_APPLICABILITY_TABLE.md, not a convenience.
+ */
+export function appliesToDeal(key, payload) {
+  const rule = APPLICABILITY[key];
+  return rule ? rule(payload) : true;
+}
+
 export function buildNotRecorded(payload, { missingProducts = [], versionReason = null } = {}) {
   const out = [];
 
@@ -556,6 +617,7 @@ export function buildNotRecorded(payload, { missingProducts = [], versionReason 
   // `payload.factoring.ratePct`.
   for (const key of Object.keys(NUMERIC_DEFAULTS)) {
     if (isSet(payload, key)) continue;
+    if (!appliesToDeal(key, payload)) continue;
     out.push({
       kind: 'default',
       key,
