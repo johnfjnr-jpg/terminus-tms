@@ -966,6 +966,29 @@ before each edit and a crash leaves a `pending` entry the hook refuses on.
   one. What is not acceptable is leaving them as the thing the rule was written
   about.
 
+- **A JSDOM ROUND TRIP FOR THE MARGIN BOX READ, replacing five source scans with
+  a behavioural measure. Raised 2026-08-30 by the business, Round 40. THIRD of
+  three queued items.**
+
+  `a margin box is read from the screen, and a blank one is not a zero` asserts
+  five patterns in `frontend/opportunity-deal.js`. All five were calibrated and
+  all five fire, so the detector works as designed. **What it is designed to do
+  is narrower than it looks.**
+
+  **The expensive direction is a FALSE PASS.** Behaviour can break while those
+  five lines stay byte-identical: `numOrUndefined` changed to return null,
+  `setVal` changed so `populateForm` writes nothing, `MARGIN_KEYS` changed so
+  the loops cover different keys, `loadedMarginOverrides` populated from the
+  wrong source, an early return added above the populate loop. Each silently
+  drops or invents per-line margin overrides and the scan reports clean.
+
+  **The measure that catches those is behavioural**: populate the form from a
+  record, read the payload back, assert equality; and separately, leave every
+  box untouched and assert the payload carries no override key. The file already
+  runs jsdom, so the harness exists.
+
+  Trigger: after the walks and the scratch project, with the other two items.
+
 - **RULES PHRASED AROUND A MECHANISM RATHER THAN AN EFFECT. Raised 2026-08-30 by
   the business, Round 40. FIRST of the two queued items, and the order is
   theirs: THIS ONE CAN INVALIDATE RULES CURRENTLY BELIEVED TO BE WORKING.**

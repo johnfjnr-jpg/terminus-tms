@@ -1562,8 +1562,24 @@ of the change. An unanswerable precondition is a stop.
     Both unproved detectors guard the same thing: a margin input lost in a
     rearrangement, which drops its key and reads as deletion. **They are the two
     guarding the most expensive failure in the round and the two nobody has
-    watched fire.** Not calibrated now, on the business's instruction; recorded so
-    the next round knows exactly what is and is not evidence.
+    watched fire.**
+
+    **BOTH WERE THEN CALIBRATED, 2026-08-30, and the business reversed their own
+    instruction to do it.** Their reasoning is the reusable part: Round 40 WAS a
+    rearrangement of the screen those eleven inputs sit on, so this was the
+    failure the round could plausibly have caused, and **one absent field among
+    eleven is what an eye slides past** - a walk-through would not have found it.
+
+    **Eight injections, all fired, all reverted, and NO DEFECT FOUND.** Recorded
+    as a cost that returned confidence rather than one that returned a bug,
+    because that is what most calibration buys and a record that only shows the
+    calibrations which found something misrepresents the practice. The business's
+    own note: they would call the reversal the same way again.
+
+    **The sharpest of the eight is worth keeping.** Renaming one input leaves the
+    COUNT at eleven and the test fails anyway, because it asserts the eleven
+    NAMES rather than the number. A count would have passed it. Rule 33's
+    companion, arriving inside a calibration.
 
 ### At round close: index these by when they apply
 

@@ -446,6 +446,34 @@ test('all eleven per-line margin inputs exist, and exactly eleven', () => {
   assert.equal((html.match(/class="pg-margin"/g) ?? []).length, 0)
 })
 
+// ── WHAT THESE FIVE ASSERTIONS DO AND DO NOT PROVE ────────────────────────
+//
+// They are SOURCE SCANS. They prove the file says the right thing. They do not
+// prove the round trip works, and the two directions of error are not
+// symmetric.
+//
+// THE CHEAP DIRECTION: a refactor preserves the behaviour and changes the
+// wording, and these fail on a working system. Noisy, obvious, fixed in
+// minutes.
+//
+// THE EXPENSIVE DIRECTION, AND IT IS THE ONE THAT MATTERS: behaviour breaks
+// somewhere else while these five lines stay exactly as written, and the scan
+// PASSES OVER A BROKEN ROUND TRIP. A source scan cannot see that, by
+// construction. Every one of these leaves the scanned lines byte-identical:
+//
+//   numOrUndefined itself changed to return null for a blank box
+//   setVal changed, so populateForm writes nothing
+//   MARGIN_KEYS changed, so the loops cover a different set of keys
+//   loadedMarginOverrides populated from the wrong source on load
+//   an early return added above the populateForm loop
+//
+// Each of those silently drops or invents overrides, and all five assertions
+// below still pass. The behavioural measure that would catch them is a jsdom
+// round trip - populate from a record, read back, assert equality - which this
+// file already has the harness for and which is queued rather than built.
+//
+// Calibrated 2026-08-30, five injections, each fired and reverted. The
+// calibration proved the detector; it did not widen it.
 test('a margin box is read from the screen, and a blank one is not a zero', () => {
   const src = readFileSync(new URL('../../frontend/opportunity-deal.js', import.meta.url), 'utf8')
   const fn = src.slice(src.indexOf('function readPayload()'), src.indexOf('function readMilestones'))
