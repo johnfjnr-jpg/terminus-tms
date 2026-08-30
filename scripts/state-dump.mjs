@@ -354,6 +354,39 @@ w('source files from disk, so a run made with uncommitted changes present')
 w('already reflects them. Regenerate and diff rather than assuming.')
 w('')
 
+// ── TAGS, AS FACTS ─────────────────────────────────────────────────────────
+//
+// Round 40. Each tag, the commit it points at, and how far that commit is from
+// HEAD. A tag is a claim about a commit, so which commit it names is a fact
+// this file can carry; whether the claim is TRUE is a judgement and lives in
+// DESIGN_PRINCIPLES.md, per this file's own rule that it records what is and
+// never why.
+//
+// It exists because `reshape-complete` names a property its commit does not
+// have: the reshape was completed a round later. Nothing showed that, because
+// nothing recorded where the tags were.
+w('## Tags')
+w('')
+try {
+  const tags = execFileSync('git', ['tag', '--sort=creatordate'], { encoding: 'utf8' })
+    .split('\n').map((t) => t.trim()).filter(Boolean)
+  if (!tags.length) {
+    w('No tags.')
+  } else {
+    w('| tag | commit | date | commits from `HEAD` |')
+    w('|---|---|---|---|')
+    for (const t of tags) {
+      const sha = execFileSync('git', ['rev-list', '-n', '1', t], { encoding: 'utf8' }).trim()
+      const date = execFileSync('git', ['log', '-1', '--format=%ad', '--date=short', sha], { encoding: 'utf8' }).trim()
+      const ahead = execFileSync('git', ['rev-list', '--count', `${sha}..HEAD`], { encoding: 'utf8' }).trim()
+      w(`| \`${t}\` | \`${sha.slice(0, 7)}\` | ${date} | ${ahead} |`)
+    }
+  }
+} catch (e) {
+  w(`Tags could not be read: ${e.message}`)
+}
+w('')
+
 // ── stage_definitions ────────────────────────────────────────
 {
   const rows = (await fetchAll(db, 'stage_definitions', 'record_type, variant, stage_name, sort_order'))

@@ -966,6 +966,42 @@ before each edit and a crash leaves a `pending` entry the hook refuses on.
   one. What is not acceptable is leaving them as the thing the rule was written
   about.
 
+### What `reshape-complete` covers, and what it does not
+
+**Recorded 2026-08-30 at the Round 40 close, on the business's instruction.
+THE NOTE IS THE CORRECTION, NOT A MOVED TAG.** `CLAUDE.md` rule 32: a tag that
+has been published is an identifier, and it can be superseded but never moved.
+
+`reshape-complete` names commit `3499884`, the Round 39 close.
+
+**It covers:** the removal of ONE sub-tab of five, the Deal Sheet sub-tab, with
+its content folded into Structural Terms. Also that round's screen-content work,
+which is true under any layout: the local margin figure, absence rendering
+across `gstPct`, `whtPct`, `fxContingency` and `duration`, the entry copy, the
+secondary button, and the milestone schedule reconciliation.
+
+**It does not cover:** the other four sub-tabs, the five sections on one
+scrolling screen, Payment Terms and Cash Flow side by side, or the horizontal
+detail panel. All four landed in Round 40.
+
+**WHY THE MISNOMER HAPPENED, because that is the part worth keeping.** The tag
+was applied when CODE LANDED rather than when the round's measure was met.
+Round 39 believed it had done the reshape because it had removed a sub-tab; the
+decided layout said no sub-tabs at all, and that layout was in the same brief,
+unread (`CLAUDE.md` rule 31).
+
+**And it is the reason Round 40 is not tagged on completion of its code.** The
+round's actual measure is the business's finished-screen read and three task
+walks, and a tag claiming completion before them would be the same fault a round
+later. Recorded here rather than repeated.
+
+**Where the tags point is in `CURRENT_STATE.md`, generated.** Which commit a tag
+names is a fact and belongs in the generated file; whether the tag's NAME is
+true is a judgement and belongs here. That is that file's own rule: it records
+what is, never why.
+
+---
+
 ### The list by trigger, not by date
 
 **Added at the Round 39 close on the business's instruction: two or three work
