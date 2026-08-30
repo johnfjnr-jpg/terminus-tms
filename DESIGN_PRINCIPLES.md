@@ -846,6 +846,28 @@ in the same voice: here an intention and a RECORD sound the same in the moment
 they are spoken.
 
 
+### SECTION-2 CONSOLIDATION: bring the four installation lines into the detail panel
+
+**Deferred by the business 2026-08-30, Round 41. Deferred, not refused.** It is
+option 2 of the breakdown ruling, and option 1 was built instead because a
+structural change and a control move must not share a phase.
+
+**What it is.** The detail panel holds seven of the eleven priced lines. The
+four installation lines sit in section 2's `#deal-install-table`, under a
+different heading and behind an installation-responsibility condition. A person
+who opens `Show detail` sees seven of eleven; the signpost now says where the
+rest are, and consolidating removes the need for it.
+
+- **Gate:** the eleven-name test in `commercials-wiring.test.mjs`. It asserts the
+  eleven NAMES rather than the count, so renaming one input leaves the count at
+  eleven and the test still fails. Calibrated by injection at the Round 40 close.
+- **Method:** **preserve the ids, move the rows.** The controls are the ids, not
+  the markup, and both control families in those rows fail differently if one
+  does not land: a missing `deal-margin-in*` DROPS its key from
+  `marginOverrides`, and a missing rate input WRITES NULL, which erases rather
+  than omits.
+- **Precondition:** the merge shipped, and the three task walks run.
+
 ### CI HAD BEEN RED FOR THREE ROUNDS AND NOBODY LOOKED
 
 **Round 39, after the push. The business read the CI notification rather than
@@ -1352,6 +1374,45 @@ controls, and both control families in those four rows fail differently if an
 input does not land: a missing margin box DROPS its key from `marginOverrides`,
 and a missing rate box WRITES NULL. Both are deletions; one is silent and the
 other is explicit.
+
+### Option 1 is built: two breakdowns, two buttons, no control moves
+
+**Ruled by the business 2026-08-30, Round 41.** The merged panel expands to the
+group split inside; `Show detail` keeps opening the per-line pricing beside.
+
+**The reason, recorded with the decision.** Options 2 and 3 both **move live
+controls**, and option 3 collapses either into option 1 or into re-litigating
+Round 40 Phase 3's return of per-line editing. **Option 1 moves none.**
+
+> **A structural change and a control move must not share a phase.**
+
+That is the general rule the choice rests on, and it is worth more than the
+choice: the merge rewrites a whole panel, and a control lost in a rewrite reads
+as deletion on the next save. The enumeration had measured exactly how, and the
+two failures in the four installation rows are not the same failure:
+
+| control | if it does not land | what happens |
+|---|---|---|
+| `deal-margin-in*` | `numOrUndefined` returns undefined | the key is **dropped** from `marginOverrides`, which is rebuilt on every save, so the override is deleted silently |
+| `deal-inSsExisting` and the other three rates | `numOrNull` returns **null** | `null` is a storable value meaning cleared, so the rate override is **erased** |
+
+**The second is the worse of the two**, because it overwrites rather than omits.
+
+**THE SIGNPOST, ruled in.** The detail panel holds seven of the eleven priced
+lines and the other four are in section 2, so when `isPerUnit` the panel carries
+a one-line note saying where they are. **A note, not a control**: the sections are
+one scrolling screen and a control would be a second way to do what scrolling
+already does. **No new condition** either: it appears exactly when those four
+rows do, read at the same site.
+
+**DEFERRED, NOT REFUSED: section-2 consolidation.** Bringing the four
+installation lines into the detail panel is a named candidate on the list.
+
+- **Gate:** the eleven-name test, which asserts the eleven NAMES rather than the
+  count, so renaming one leaves the count at eleven and the test still fails.
+- **Method:** **preserve the ids, move the rows.** The controls are the ids, not
+  the markup; re-authoring the rows is what loses one.
+- **Precondition:** the merge shipped and the three task walks run.
 
 ### A negative closing cash position gets no treatment
 

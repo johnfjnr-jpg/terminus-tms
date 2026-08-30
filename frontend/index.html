@@ -2082,18 +2082,22 @@
              layout's phrase, and ON REQUEST is this panel. -->
         <div class="deal-summary-row" id="deal-summary-row">
           <div class="deal-summary-col">
-      <p class="label" style="margin-bottom:10px">Deal Summary (USD)</p>
-      <div class="deal-matrix" id="deal-matrix"></div>
-      <span class="field-note">Contract prices are quoted exclusive of GST. GST is added to the invoice and passed straight through, so the rate never touches margin.</span>
+            <!-- ── ONE PANEL. Round 41 item 4 ─────────────────────────────
+                 The Deal Summary matrix and the Result list are merged. Revenue,
+                 total cost and margin appeared in both, forty rows apart, and
+                 this is a merge rather than a relocation because each is now one
+                 row with a per-group split.
 
-      <p class="msg-success hidden" id="deal-cashflow-ok">Cash position stays positive throughout the term.</p>
-      <p class="msg-error hidden" id="deal-cashflow-warn"></p>
-      <p class="msg-error hidden" id="deal-milestone-warn"></p>
+                 The heading carries the unit count the Result heading used to
+                 carry, because a panel of money should say how many units it is
+                 money for. -->
+            <p class="label" style="margin-bottom:10px">Deal Sheet (USD) &middot; <span id="deal-sheet-units">0</span> units</p>
+            <div class="deal-panel" id="deal-panel"></div>
+            <span class="field-note">Contract prices are quoted exclusive of GST. GST is added to the invoice and passed straight through, so the rate never touches margin.</span>
 
-        <p class="label" style="margin:24px 0 10px">Result (USD) &middot; <span id="deal-sheet-units">0</span> units</p>
-        <div class="deal-sheet-cards">
-          <div class="deal-sheet" id="deal-sheet"></div>
-        </div>
+            <p class="msg-success hidden" id="deal-cashflow-ok">Cash position stays positive throughout the term.</p>
+            <p class="msg-error hidden" id="deal-cashflow-warn"></p>
+            <p class="msg-error hidden" id="deal-milestone-warn"></p>
           </div>
 
           <aside class="deal-detail-col hidden" id="deal-detail-panel" aria-labelledby="deal-detail-heading">
@@ -2151,6 +2155,22 @@
             </div>
             </div>
 
+            <!-- ── THE SIGNPOST. Round 41, ruled by the business ────────────
+                 This panel holds seven of the eleven priced lines. The four
+                 INSTALLATION lines live in section 2's table, under a different
+                 heading and behind the same isPerUnit condition those rows
+                 already carry, so a person opening Show detail sees seven of
+                 eleven and nothing tells them where the rest are.
+
+                 A NOTE, NOT A CONTROL. It carries no link and no button: the
+                 sections are one scrolling screen and a control would be a
+                 second way to do what scrolling already does. And no new
+                 condition: it appears exactly when those four rows do.
+
+                 Moving the rows here is the alternative and it is DEFERRED
+                 rather than refused, because a structural change and a control
+                 move must not share a phase. See DESIGN_PRINCIPLES.md. -->
+            <p class="field-note hidden" id="deal-detail-signpost" style="margin:12px 0 0">The four installation lines are priced in the Installation section above.</p>
             <div class="pg-card">
             <p class="pg-card-title">Hosting (per month)</p>
             <div class="pg-head"><span>Item</span><span>Cost (USD)</span><span>Margin %</span><span>Price (USD)</span></div>

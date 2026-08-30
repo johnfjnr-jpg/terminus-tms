@@ -25,7 +25,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { JSDOM } from 'jsdom'
-import { gstPresentation, whtPresentation, ratePresentation, durationPresentation, ZERO_IS_NOT_A_VALUE, marginPresentation, closingCashPresentation, buildDealInputs } from '../../src/lib/deal-inputs.js'
+import { gstPresentation, whtPresentation, ratePresentation, durationPresentation, ZERO_IS_NOT_A_VALUE, marginPresentation, closingCashPresentation, buildDealInputs, perMonthFigure } from '../../src/lib/deal-inputs.js'
 import { calculateDeal } from '../../src/lib/deal-calculator.js'
 
 // The eleven lines that carry a per-line margin. Named here so the markup and
@@ -410,12 +410,22 @@ test('price to customer is contract net plus GST, and GST has a row', () => {
   assert.equal(gstAmount, 127268)
   assert.equal(contractNet + gstAmount, 1945379, 'the figure on screen')
 
-  const src = readCode(new URL('../../frontend/opportunity-deal.js', import.meta.url))
-  const matrix = src.slice(src.indexOf('const rows = ['), src.indexOf('const headRow'))
-  assert.match(matrix, /label: gst\.rowLabel/,
-    'the summary must carry the row its bottom line depends on')
-  assert.match(matrix, /label: gst\.priceLabel/)
+  // The slice is the MERGED panel's rows now. `const rows = [` appears in more
+  // than one function in this file, so the slice is anchored on
+  // renderDealPanel rather than on the first occurrence, which after the merge
+  // was the milestone builder and matched nothing.
+  const panel = panelRows()
+  assert.match(panel, /gst\.rowLabel/, 'the panel must carry the row its bottom line depends on')
+  assert.match(panel, /gst\.priceLabel/)
 })
+
+// The one place the merged panel's row array is read, so a test cannot drift
+// onto a different function's rows.
+function panelRows() {
+  const src = readCode(new URL('../../frontend/opportunity-deal.js', import.meta.url))
+  const fn = src.slice(src.indexOf('function renderDealPanel('))
+  return fn.slice(fn.indexOf('const rows = ['), fn.indexOf('const headRow'))
+}
 
 // ─────────────────────────────────────────────────────────────
 // The per-line margin model is superseded, and removing a control
@@ -510,6 +520,183 @@ test('the three payload consumers are untouched', () => {
   assert.match(inputs, /overrides\[key\] \?\? targetMargin/)
   assert.match(appr, /payload\?\.marginOverrides \?\? \{\}/)
   assert.match(route, /payload\.marginOverrides && typeof payload\.marginOverrides === 'object'/)
+})
+
+// ─────────────────────────────────────────────────────────────
+// The merged Deal Sheet panel. Round 41 item 4
+// ─────────────────────────────────────────────────────────────
+
+test('TOTAL COST IS THE VISIBLE SUM of the six rows above it', () => {
+  // The whole point of the unfold, and the one claim a reader of the panel will
+  // actually test by adding a column up. Asserted on the arithmetic rather than
+  // on the markup, because a panel that LOOKS additive and is not is worse than
+  // the fold it replaced.
+  const CAT = { ssUnitCost: 8000, aqUnitCost: 2000, hemirUnitCost: 100000,
+    hoSafesight: 200, hoAqm: 100, hoHemir: 500,
+    inSsExisting: 2000, inSsNew: 20000, inAqm: 500, inHemir: 5000 }
+  const p = { ssExisting: 10, ssNew: 10, aqm: 4, hemir: 2, duration: 36, targetMargin: 30,
+    warrantyPct: 2, whtPct: 15, gstPct: 8, grossUp: false, structure: 'single', invoicing: 'annual',
+    installResp: 'Terminus Contractor - Per Unit',
+    factoring: { enabled: true, ratePct: 1.5, termMonths: 12, method: 'straight' } }
+  const r = calculateDeal(buildDealInputs(p, { rates: CAT, testBedCost: 25000 }))
+  const g = r.groups
+  const months = 36
+
+  // Every cost figure the panel renders, in the order it renders them.
+  const sixRows = [
+    g.hardwareGroup.rawTotalCost,
+    g.installGroup.rawTotalCost,
+    g.hostingGroup.rawTotalCost * months,
+    r.financeCost ?? 0,
+    r.testBedCost,
+    r.tax.whtBorne,
+  ]
+  assert.ok(sixRows.every((v) => v > 0), 'every one of the six must carry a figure, or this proves nothing')
+  assert.equal(Math.round(sixRows.reduce((a, b) => a + b, 0)), Math.round(r.totalDealCostAll),
+    'Total cost must be the sum of the rows shown above it')
+
+  // And Revenue is the sum of its own three group columns.
+  const rev = g.hardwareGroup.rawTotalPrice + g.installGroup.rawTotalPrice + g.hostingGroup.rawTotalPrice * months
+  assert.equal(Math.round(rev), Math.round(r.totals.contractNet))
+
+  // Gross margin closes the walk.
+  assert.equal(Math.round(r.totals.contractNet - r.totalDealCostAll),
+    Math.round(r.totals.contractNet - sixRows.reduce((a, b) => a + b, 0)))
+})
+
+test('the panel is ONE panel: the Result block and the matrix are gone', () => {
+  const html = readCode(new URL('../../frontend/index.html', import.meta.url))
+  const src = readCode(new URL('../../frontend/opportunity-deal.js', import.meta.url))
+  const css = readCode(new URL('../../frontend/style.css', import.meta.url))
+
+  assert.match(html, /<div class="deal-panel" id="deal-panel">/)
+  assert.ok(!/id="deal-matrix"/.test(html), 'the matrix container is gone')
+  assert.ok(!/id="deal-sheet"/.test(html), 'the Result container is gone')
+  assert.equal((html.match(/id="deal-sheet-units"/g) || []).length, 1,
+    'the unit count survives the merge, exactly once')
+
+  // ONE render function, and the two it replaced are not left behind as dead
+  // code that a later reader would take for a live surface.
+  assert.equal((src.match(/function renderDealPanel\(/g) || []).length, 1)
+  assert.ok(!/function renderDealMatrix\(/.test(src))
+  assert.ok(!/function renderDealSheet\(/.test(src))
+  assert.ok(!/function computeDealMatrixCols\(/.test(src),
+    'the folding helper goes with the fold it existed to perform')
+
+  // The removed containers take their rules with them, or the stylesheet grows
+  // a dead selector for every merge.
+  assert.ok(!/^\.deal-sheet \{/m.test(css))
+  assert.ok(!/^\.deal-sheet-cards \{/m.test(css))
+  assert.ok(!/^\.deal-matrix \{/m.test(css))
+  // .ds-row and friends STAY: the approval page renders with them.
+  const approval = readCode(new URL('../../frontend/opportunity-approval.js', import.meta.url))
+  assert.match(approval, /class="ds-row/, 'the approval page still uses these, so the rules stay')
+  assert.match(css, /^\.ds-row \{/m)
+})
+
+test('a full-width row carries no group cells, and the dead cells are gone', () => {
+  const panel = panelRows()
+  // The three deal-level cost rows and the totals are full(), which emits one
+  // spanning cell. The old shape hardcoded '-' into two columns under every
+  // condition, which the business ruled are not facts: a dash because a value
+  // is zero is a fact about the deal, a dash because the code has no expression
+  // for it is a hole in a grid.
+  for (const label of ['PO factoring interest', 'Test Bed cost, carried from conversion', 'Total cost']) {
+    assert.ok(panel.includes(`full('${label}'`), `${label} must be a full-width row`)
+  }
+  const css = readCode(new URL('../../frontend/style.css', import.meta.url))
+  assert.match(css, /\.dm-row--full \.dm-cell--span \{\s*grid-column: 2 \/ -1;/,
+    'the spanning cell needs its rule, or a full-width row renders in one narrow column')
+})
+
+test('the merged panel renders every fact the census listed', () => {
+  // The census's BOTH-LISTS discipline, applied to the shipped panel: each fact
+  // the merged-panel list named must be reachable in the row array. Labels that
+  // come from a presentation helper are matched by the helper name, because the
+  // wording is that helper's decision and is asserted where it lives.
+  const panel = panelRows()
+  const MUST = [
+    'One-off price, hardware, warranty and installation',
+    'dur.priceLabel',
+    'Revenue, contract value net',
+    'Hardware and warranty cost',
+    'Installation cost',
+    'dur.costLabel',
+    'PO factoring interest',
+    'Test Bed cost, carried from conversion',
+    'Withholding tax absorbed by Terminus',
+    'Withholding tax, grossed up and recovered from the customer',
+    'Total cost',
+    'Gross margin',
+    'Margin before financing, test bed and withholding',
+    'Invoice reconciliation, from revenue',
+    'wht.grossUpLabel',
+    'No gross up, WHT absorbed',
+    'gst.rowLabel',
+    'gst.priceLabel',
+    'wht.deductedLabel',
+    'Net receipt after WHT',
+  ]
+  for (const fact of MUST) assert.ok(panel.includes(fact), `the census listed ${fact} and the panel does not render it`)
+  // The four column names.
+  const src = readCode(new URL('../../frontend/opportunity-deal.js', import.meta.url))
+  for (const c of ['Hardware (USD)', 'Hosting (USD)', 'Installation (USD)', 'Total (USD)']) {
+    assert.ok(src.includes(c), `the ${c} column name must survive`)
+  }
+})
+
+test('the per-column margin is RELABELLED, not left naming a different number', () => {
+  // Architecture 9's fourth variant. Before the unfold the row was price minus
+  // a cost that already contained financing, test bed and absorbed withholding.
+  // After it, a row still called "Margin" would name a different figure with the
+  // same word.
+  const panel = panelRows()
+  assert.match(panel, /Margin before financing, test bed and withholding/)
+  assert.ok(!/split\('Margin'/.test(panel) && !/label: 'Margin'/.test(panel),
+    'the bare label is what would silently change meaning')
+})
+
+test('THE SIGNPOST: it appears exactly when the rows it points at do', () => {
+  const html = readCode(new URL('../../frontend/index.html', import.meta.url))
+  const src = readCode(new URL('../../frontend/opportunity-deal.js', import.meta.url))
+  assert.match(html, /id="deal-detail-signpost"/)
+  assert.match(html, /The four installation lines are priced in the Installation section above\./)
+  // A NOTE, NOT A CONTROL: no button, no anchor, no click handler.
+  // The whole LINE, not a slice starting at the id: the class attribute is
+  // written before the id, so slicing forward from the id could never see it
+  // and the first version of this assertion failed on correct markup.
+  const line = html.split('\n').find((l) => l.includes('id="deal-detail-signpost"'))
+  assert.match(line, /class="field-note hidden"/, 'a note, and hidden until its rows are shown')
+  assert.ok(!/<button|<a /.test(line), 'a note, not a control')
+  assert.ok(!/deal-detail-signpost[^>]*onclick/.test(html))
+  assert.ok(!/getElementById\('deal-detail-signpost'\)[^\n]*addEventListener/.test(src))
+  // ONE condition, read where isPerUnit is already read, not a second test.
+  assert.match(src, /deal-detail-signpost'\)\?\.classList\.toggle\('hidden', !isPerUnit\)/)
+  assert.equal((src.match(/deal-detail-signpost/g) || []).length, 1,
+    'a second read of the same condition is a second condition waiting to drift')
+})
+
+test('THE HOSTING PERIOD travels with the figure, by one rule on both surfaces', () => {
+  // Ruled: a per-month figure says per month ON THE FIGURE OR ITS LABEL, not
+  // only on a card title. $5,400 and $194,400 are the same hosting cost one
+  // scroll apart, and nothing on either said which period it was in.
+  assert.equal(perMonthFigure('$5,400'), '$5,400 / mo')
+  const src = readCode(new URL('../../frontend/opportunity-deal.js', import.meta.url))
+
+  // All five per-month figures: three lines and two card totals.
+  assert.equal((src.match(/perMonthFigure/g) || []).length, 6,
+    'three hosting lines, two card totals, and the import')
+  assert.match(src, /pg-total-cost-ho'\)\.textContent = perMonthFigure/)
+  assert.match(src, /pg-total-price-ho'\)\.textContent = perMonthFigure/)
+  // The hardware card must NOT take it: those are one-off figures.
+  assert.ok(!/setRow\(hardwareGroup, '[a-zA-Z]+', [^\n]*perMonthFigure/.test(src))
+
+  // The other surface states the term in the label, and it is the same module's
+  // decision rather than a second convention invented at the call site.
+  assert.equal(durationPresentation({ duration: 36 }).priceLabel, 'Hosting price over 36 months')
+  assert.equal(durationPresentation({}).priceLabel, 'Hosting price, contract duration not recorded')
+  assert.match(panelRows(), /dur\.priceLabel/)
+  assert.match(panelRows(), /dur\.costLabel/)
 })
 
 // ─────────────────────────────────────────────────────────────
@@ -609,9 +796,12 @@ test('every surface says the same thing about an unrecorded factoring term', () 
   // The matrix row and the Result row both branch on the SAME flag. Asserted on
   // the flag rather than on the wording, because two surfaces can carry the same
   // sentence from two different conditions and drift the moment one changes.
-  assert.equal((src.match(/result\.costIncomplete/g) || []).length, 3,
-    'the matrix pair and the Result row read costIncomplete, and nothing else invents its own test')
-  assert.match(src, /label: 'PO factoring interest',\s*\n\s*value: result\.costIncomplete \? 'not recorded'/)
+  // ONE reader now, not three: the merge collapsed the matrix pair and the
+  // Result row into a single panel row. The count is asserted rather than the
+  // presence, so a second surface inventing its own absence test fails here.
+  assert.equal((src.match(/result\.costIncomplete/g) || []).length, 1,
+    'the merged panel reads costIncomplete once, and nothing else invents its own test')
+  assert.match(panelRows(), /full\('PO factoring interest', result\.costIncomplete \? 'not recorded'/)
 
   // The cash flow grid does not print a term of zeros for a facility that is on.
   assert.match(src, /cf\.factoringEnabled && cf\.factoringTermMissing/)
@@ -745,11 +935,15 @@ test('the two withholding lines are labelled as different money', () => {
   // They are equal when gross up is off, which read as deducted twice. With
   // gross up ON they genuinely differ, so they are two rows and the labels have
   // to say which is which.
-  const src = readCode(new URL('../../frontend/opportunity-deal.js', import.meta.url))
-  const matrix = src.slice(src.indexOf('const rows = ['), src.indexOf('const headRow'))
-  assert.match(matrix, /of which withholding tax absorbed by Terminus/)
-  assert.match(matrix, /label: wht\.deductedLabel/)
-  assert.ok(!/label: 'WHT'/.test(matrix), 'the bare "WHT" label is what made them look like one number twice')
+  const panel = panelRows()
+  // "of which" IS GONE, and deliberately: ruling 1 unfolded the memo lines, so
+  // absorbed withholding is a full-width row of its own rather than a line
+  // living inside the Cost total. The two rows still exist and are still
+  // labelled by what they are.
+  assert.ok(!/of which/.test(panel), 'the unfold removes the memo lines, not the rows')
+  assert.match(panel, /Withholding tax absorbed by Terminus/)
+  assert.match(panel, /wht\.deductedLabel/)
+  assert.ok(!/'WHT'/.test(panel), 'the bare "WHT" label is what made them look like one number twice')
 
   // The label still names the rate when there IS one, which the indirection
   // above could otherwise have quietly dropped.

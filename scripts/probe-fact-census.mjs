@@ -39,16 +39,19 @@ const slice = (fn) => {
   const j = src.indexOf('\n}\n', i)
   return src.slice(i, j)
 }
-const labelsIn = (body) => {
-  const out = []
-  for (const m of body.matchAll(/label:\s*([^\n]+?),\s*(?:\n|value:|color:)/g)) out.push(m[1].trim())
-  return out
-}
-const matrixSrc = slice('renderDealMatrix')
-const sheetSrc = slice('renderDealSheet')
+
+// ONE function now. The merge replaced renderDealMatrix and renderDealSheet
+// with renderDealPanel, and the row array is built by split()/full() helpers
+// rather than by object literals with a `label:` key, so the extractor reads
+// the first argument of each.
+const panelSrc = slice('renderDealPanel')
 const fromSource = {
-  matrix: labelsIn(matrixSrc),
-  sheet: labelsIn(sheetSrc),
+  // Quote-aware, not comma-aware. The first version cut every label at its
+  // first comma, so "One-off price, hardware, warranty and installation" was
+  // reported as "One-off price" and the census's source list read like a set of
+  // shorter rows than the panel actually has.
+  panel: [...panelSrc.matchAll(/\b(?:split|full)\(\s*('(?:[^'\\]|\\.)*'|`(?:[^`\\]|\\.)*`|[^,]+)/g)]
+    .map((m) => m[1].trim()),
 }
 
 // ── DIRECTION TWO: the screen ───────────────────────────────────────────────
@@ -152,14 +155,13 @@ for (const [name] of CONDITIONS) {
     }
     apply[condName]()
     await new Promise((r) => setTimeout(r, 250))
-    const matrix = [...document.querySelectorAll('#deal-matrix .dm-row')].map((row) => {
+    const matrix = [...document.querySelectorAll('#deal-panel .dm-row')].map((row) => {
       const c = [...row.children].map((x) => x.textContent.trim())
-      return { label: c[0], hardware: c[1], hosting: c[2], installation: c[3], total: c[4] }
+      return row.classList.contains('dm-row--full')
+        ? { label: c[0], hardware: '', hosting: '', installation: '', total: c[1], full: true }
+        : { label: c[0], hardware: c[1], hosting: c[2], installation: c[3], total: c[4] }
     })
-    const sheet = [...document.querySelectorAll('#deal-sheet .ds-row')].map((row) => ({
-      label: row.querySelector('.ds-label').textContent.trim(),
-      value: row.querySelector('.ds-value').textContent.trim(),
-    }))
+    const sheet = []
     const msg = (id) => { const el = document.getElementById(id); return el && !el.classList.contains('hidden') ? el.textContent.trim() : null }
     return {
       matrix, sheet,
@@ -184,6 +186,29 @@ for (const [name] of CONDITIONS) {
     observed.messages.get(k).add(v)
   }
 }
+// ── AND LOOK AT IT. Verification 4 ─────────────────────────────────────────
+//
+// Every assertion above is about labels and values. None of them can see
+// whether the panel READS as one arithmetic story, which is the thing the merge
+// was for. The capture is taken of the section's own rect after scrolling it
+// into view, and the image is checked for not being empty before it is treated
+// as evidence.
+const CAPS = ROOT + '.verify/census/'
+for (const w of [1920, 1240]) {
+  await page.setViewport({ width: w, height: 1400 })
+  await page.evaluate(() => {
+    const s = document.getElementById('deal-section-4')
+    if (s) s.scrollIntoView()
+  })
+  await new Promise((r) => setTimeout(r, 400))
+  const el = await page.$('#deal-section-4')
+  const box = await el.boundingBox()
+  const file = `${CAPS}panel-${w}.png`
+  await page.screenshot({ path: file, clip: { x: 0, y: Math.max(0, box.y), width: w, height: Math.min(box.height, 1400) } })
+  const bytes = readFileSync(file).length
+  console.log(`  capture ${file} (${bytes} bytes, element ${Math.round(box.width)}x${Math.round(box.height)})`)
+}
+
 await browser.close()
 
 const dump = {
@@ -197,10 +222,8 @@ const dump = {
 writeFileSync(OUT + 'census.json', JSON.stringify(dump, null, 2) + '\n')
 
 console.log('\n── FROM SOURCE ───────────────────────────────────────────────')
-console.log(`  matrix rows in the source array: ${fromSource.matrix.length}`)
-for (const l of fromSource.matrix) console.log(`    ${l}`)
-console.log(`  result rows in the source array: ${fromSource.sheet.length}`)
-for (const l of fromSource.sheet) console.log(`    ${l}`)
+console.log(`  panel rows in the source array: ${fromSource.panel.length}`)
+for (const l of fromSource.panel) console.log(`    ${l}`)
 
 console.log('\n── FROM THE SCREEN ───────────────────────────────────────────')
 console.log(`  matrix labels observed: ${observed.matrix.size}`)

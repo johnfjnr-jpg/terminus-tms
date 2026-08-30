@@ -1098,10 +1098,21 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
    Hardware/Hosting/Installation/Total — orientation matched to the
    prototype's dealMatrix (Terminus Ops.dc.html lines 6946-6963), not
    the Cost/Price/Margin-as-columns layout this used to have. */
-.deal-matrix {
+/* ── THE MERGED DEAL SHEET PANEL. Round 41 item 4 ──────────────────────────
+   Was .deal-matrix, renamed with the merge because the panel is no longer a
+   matrix of one thing: it is the whole P&L walk, with three product-group
+   columns where a row has them and none where it does not.
+
+   CAPPED, and this is the Result cards' reasoning surviving their removal.
+   .deal-sheet-cards existed because the label-to-amount travel on an uncapped
+   minmax(150px,1fr) grid was measured at 628px at 1240, 1308px at 1920 and
+   2828px at 3440: it grows with every pixel of viewport. Deleting those cards
+   without the cap would have shipped their defect back. */
+.deal-panel {
   border: 1px solid var(--hairline-strong);
   padding: 14px;
   margin-bottom: 24px;
+  max-width: 940px;
 }
 
 /* Value columns widened 92px -> 116px (Round 3 Phase 4, 2026-08-17) - a
@@ -1158,6 +1169,52 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
   font-size: 13px;
   text-align: right;
   white-space: nowrap;
+}
+
+/* ── ROW KINDS IN THE MERGED PANEL. Round 41 item 4 ────────────────────────
+   A FULL-WIDTH row is one that is about the deal rather than about a product
+   group: PO factoring interest, test bed carried, absorbed withholding, and the
+   totals. It carries ONE cell spanning the four value columns rather than three
+   dashes and a figure, which is the dead-cell ruling applied in the stylesheet:
+   a dash because a value is zero is a fact, a dash because the code has no
+   expression for it is a hole in a grid. */
+.dm-row--full .dm-cell--span {
+  grid-column: 2 / -1;
+}
+
+/* THE SUM. Total cost is the visible sum of the six cost rows directly above
+   it, so it is separated from them by a rule rather than by being remembered. */
+.dm-row--sum {
+  border-top: 1px solid var(--hairline-strong);
+  margin-top: 2px;
+}
+.dm-row--sum .dm-label, .dm-row--sum .dm-cell { color: var(--white); }
+
+/* The figures a person reads first: revenue, gross margin, price to customer,
+   net receipt. Same accent rule as everywhere else on this tab. */
+.dm-row--lead .dm-cell--span, .dm-row--lead .dm-cell--total { color: var(--green); }
+.dm-row--lead .dm-label { color: var(--white); }
+
+/* A memo row is derived from rows above rather than being a step in the walk.
+   Dimmed so the arithmetic reads as the arithmetic. */
+.dm-row--memo .dm-label, .dm-row--memo .dm-cell { color: var(--muted-2); }
+
+/* ── A TRUNCATED LABEL IS A FACT THE PANEL SILENTLY DROPS ──────────────────
+   .dm-label is nowrap with an ellipsis, which was right for the old matrix's
+   one-word labels and wrong the moment the merge brought the Result list's
+   sentences into the same grid. Caught by looking at the 1240 capture:
+   "Margin before financing, test bed and withholding" rendered as
+   "...test bed and..." and no assertion could have seen it, because every
+   assertion in the suite reads the SOURCE label rather than the rendered box.
+
+   Wrapping rather than a wider column, because the column is capped on purpose:
+   the label-to-amount travel is what .deal-sheet-cards existed to bound. A row
+   that needs two lines takes two lines. */
+.deal-panel .dm-label {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  line-height: 1.35;
 }
 
 /* ── Units Required cards (Hw / Hosting Setup) ──────────────────
@@ -1439,11 +1496,6 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
    lines 6971-6986). Costs carry a literal "- " prefix baked into the
    value string, not a colour-only convention, so it reads correctly
    even without colour. */
-.deal-sheet {
-  border: 1px solid var(--hairline-strong);
-  padding: 14px;
-}
-
 .ds-row {
   display: flex;
   justify-content: space-between;
@@ -1465,43 +1517,6 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
   white-space: nowrap;
 }
 
-/* Deal Sheet sub-tab cards (Round 37 Phase 2).
-   
-   Narrower than .pg-cards' 620px cap, and the difference is the point. This is
-   the screen built for READING, and the business's complaint about the Deal
-   Summary is a reading complaint: "too wide, you need to be able to keep the
-   line label and the amount in view."
-   
-   Measured on the Deal Summary, whose label column is minmax(150px,1fr), the
-   whitespace between the end of a row's label text and the start of its amount
-   is 628px at 1240, 1308px at 1920 and 2828px at 3440 - it grows with every
-   pixel of extra viewport. At 620px cards that becomes a constant 549px, which
-   no longer scales but is still a long travel for a three-character label like
-   "GST". At 460px it is under 400, which is one comfortable fixation.
-   
-   auto-fit rather than a fixed count, so the width is still used: one card per
-   row at 1240, two at 1920, four at 3440, instead of four stretched columns. */
-.deal-sheet-cards {
-  /* Fixed 460px tracks, not minmax, and not CSS columns. Both alternatives were
-     measured on this panel and both lost the thing the panel is for.
-
-     minmax(360px, 460px) reads correctly at 460 but is the same family as the
-     Deal Summary's own defect: a track that can stretch will.
-
-     column-width: 460px was worse. Columns DISTRIBUTE the available width among
-     however many columns fit, they do not cap it, so at 1240 the container's
-     876px became one 876px column and the whitespace between a label and its
-     amount went from 389px to 805px - past where it started.
-
-     Fixed tracks keep the reading cap at every width: the measured worst gap is
-     389px at 1240, 1920 and 3440 alike, against 628 / 1308 / 2828 on the Deal
-     Summary panel the business complained about. */
-  display: grid;
-  grid-template-columns: repeat(auto-fit, 460px);
-  justify-content: start;
-  align-items: start;
-  gap: 12px;
-}
 
 /* ── Cash flow detail (Payment Terms) ──────────────────────────
    Months run across as columns, cash-flow categories run down as

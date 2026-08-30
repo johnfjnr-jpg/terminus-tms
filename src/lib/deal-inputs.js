@@ -303,6 +303,34 @@ export function durationPresentation(payload) {
   };
 }
 
+// ── ONE WORDING RULE FOR THE HOSTING PERIOD, ON BOTH SURFACES ──────────────
+//
+// Ruled by the business 2026-08-30, Round 41: a per-month figure must say per
+// month ON THE FIGURE OR ITS LABEL, not only on a card title.
+//
+// The tab shows hosting in two periods, in two breakdowns that the business has
+// ruled must not be conflated: the detail panel prices hosting PER MONTH, and
+// the merged Deal Sheet panel prices it OVER THE TERM. Until this, the only
+// statement of either was the card title "Hosting (per month)", and Verification
+// 27's corollary is exactly that shape: a note nobody reads is functionally
+// absent, and a period stated once at the top of a card does not travel with the
+// figure somebody is comparing.
+//
+// ONE RULE, TWO SURFACES, so they cannot drift into two conventions:
+//   over the term  ->  durationPresentation's labels, "Hosting price over N
+//                      months", already carried on the row
+//   per month      ->  perMonthFigure(), carried on the figure itself
+//
+// The suffix is on the FIGURE rather than the label because the detail card's
+// rows are a four-column grid whose label column already carries the product
+// name and its basis note, and a period appended there would sit two columns
+// away from the number it qualifies.
+export const PER_MONTH_SUFFIX = ' / mo';
+
+export function perMonthFigure(text) {
+  return `${text}${PER_MONTH_SUFFIX}`;
+}
+
 // WHT is not GST-shaped and does not get GST's words. It reaches MARGIN through
 // whtBorne rather than only the price line, so an absent rate is understating a
 // cost rather than only understating an invoice.

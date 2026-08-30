@@ -25,7 +25,7 @@ import { changedKeys } from '/lib/payload-diff.js'
 // Round 38: the ONE translation, shared with the submit route and the
 // approval page. It reads catalog rates as ordinary payload keys, which is
 // exactly what readPayload() puts there.
-import { buildDealInputs, gstPresentation, whtPresentation, durationPresentation, marginPresentation, closingCashPresentation } from '/lib/deal-inputs.js'
+import { buildDealInputs, gstPresentation, whtPresentation, durationPresentation, marginPresentation, closingCashPresentation, perMonthFigure } from '/lib/deal-inputs.js'
 import { reasonPromptFor } from '/lib/version-reason.js'
 import { scheduleReconciliation, refusalStatement } from '/lib/milestone-schedule.js'
 import { resolveRates, frozenRates } from '/lib/rate-resolution.js'
@@ -333,10 +333,10 @@ function renderPricingCards(result, payload) {
   const { totalUnits, warrantyUnits } = result.hardware
   const warrantyPct = numericOrDefault(payload, 'warrantyPct')
 
-  const setRow = (group, key, note) => {
+  const setRow = (group, key, note, period = (s) => s) => {
     const row = group.rows.find(r => r.key === key)
-    document.getElementById(`pg-cost-${key}`).textContent = `$${money(row.rawCost)}`
-    document.getElementById(`pg-price-${key}`).textContent = `$${money(row.rawPrice)}`
+    document.getElementById(`pg-cost-${key}`).textContent = period(`$${money(row.rawCost)}`)
+    document.getElementById(`pg-price-${key}`).textContent = period(`$${money(row.rawPrice)}`)
     document.getElementById(`pg-note-${key}`).textContent = note
   }
 
@@ -374,11 +374,22 @@ function renderPricingCards(result, payload) {
   document.getElementById('pg-total-cost-hw').textContent = `$${money(hardwareGroup.rawTotalCost)}`
   document.getElementById('pg-total-price-hw').textContent = `$${money(hardwareGroup.rawTotalPrice)}`
 
-  setRow(hostingGroup, 'hoSs', `${ssUnits} units x $${money(payload.hoSafesight ?? 0)}`)
-  setRow(hostingGroup, 'hoAqm', `${aqUnits} units x $${money(payload.hoAqm ?? 0)}`)
-  setRow(hostingGroup, 'hoHemir', `${hemirUnits} units x $${money(payload.hoHemir ?? 0)}`)
-  document.getElementById('pg-total-cost-ho').textContent = `$${money(hostingGroup.rawTotalCost)}`
-  document.getElementById('pg-total-price-ho').textContent = `$${money(hostingGroup.rawTotalPrice)}`
+  // ── THE PERIOD TRAVELS WITH THE FIGURE. Round 41, ruled ─────────────────
+  //
+  // Five hosting figures, all per month, and until this the only thing saying
+  // so was the card title. The merged panel three sections below prices the
+  // same hosting OVER THE TERM, and the two are within one scroll of each
+  // other: $5,400 and $194,400 are the same hosting cost and nothing on either
+  // said which period it was in.
+  //
+  // perMonthFigure is the one wording rule, shared with the over-the-term
+  // labels durationPresentation produces, so the two surfaces cannot drift into
+  // two conventions.
+  setRow(hostingGroup, 'hoSs', `${ssUnits} units x $${money(payload.hoSafesight ?? 0)}`, perMonthFigure)
+  setRow(hostingGroup, 'hoAqm', `${aqUnits} units x $${money(payload.hoAqm ?? 0)}`, perMonthFigure)
+  setRow(hostingGroup, 'hoHemir', `${hemirUnits} units x $${money(payload.hoHemir ?? 0)}`, perMonthFigure)
+  document.getElementById('pg-total-cost-ho').textContent = perMonthFigure(`$${money(hostingGroup.rawTotalCost)}`)
+  document.getElementById('pg-total-price-ho').textContent = perMonthFigure(`$${money(hostingGroup.rawTotalPrice)}`)
 }
 
 // Where the costs came from, and anything wrong with them. Round 36 Phase 2.
@@ -806,118 +817,118 @@ function recompute() {
   return result
 }
 
-// Deal Summary matrix: rows are line items, columns are Hardware / Hosting
-// (over the contract term) / Installation / Total. Mirrors the prototype's
-// dealMatrix builder exactly (Terminus Ops.dc.html lines 6946-6963): finance
-// cost is folded into the Hardware column's cost, WHT-borne is apportioned
-// pro-rata across all three columns by price share (remainder to the last
-// column) BEFORE Total and Margin are computed — so the Total column's
-// Margin cell is the same dollar figure achievedMargin is a percentage of,
-// not a fresh recalculation that could drift from it (confirmed before
-// building this).
-function computeDealMatrixCols(result, payload) {
+// ── ONE PANEL, ONE ARITHMETIC STORY. Round 41 item 4, ruled by the business ─
+//
+// This replaces renderDealMatrix + computeDealMatrixCols + renderDealSheet. The
+// Deal Summary matrix and the Result list showed revenue, total cost and margin
+// twice, forty rows apart, and the merge is a merge rather than a relocation
+// because each of those is now ONE row with a per-group split.
+//
+// THE RULING THAT SHAPES IT: UNFOLD. Finance cost, test bed carried and absorbed
+// WHT are their own unsplit full-width rows, and Total cost is the VISIBLE SUM
+// of the six cost rows directly above it. The old matrix folded all three into
+// the Hardware column before computing Total and Margin, so the panel footed
+// without an approver being able to follow it. The business's reason: on an
+// approval surface a column an approver can sum and match beats a compact fold,
+// and the census had named the cost of the alternative precisely, that somebody
+// will add them up.
+//
+// WHAT THAT COSTS, and all three were named in the census before being spent:
+// the WHT-absorbed apportionment across the three groups goes, because it was an
+// apportionment computed for display rather than a measured allocation; finance
+// and test bed stop sitting inside Hardware, which is not where either belongs;
+// and the per-column margin CHANGES MEANING, so it changes label. Left called
+// "Margin" it would name a different number from the one it named before the
+// unfold, which is Architecture 9's fourth variant, a string that stopped being
+// true when the thing under it moved.
+//
+// THE DEAD CELLS CEASE TO EXIST. The old financing row hardcoded '-' in its
+// Hosting and Installation columns under every condition, so no deal state could
+// fill them. Ruled not-facts: a dash because a value is zero is a fact about the
+// deal, a dash because the code has no expression for it is a hole in a grid.
+// PO factoring interest is a full-width row now and the holes are gone with it.
+function renderDealPanel(result, payload) {
+  const dur = durationPresentation(payload)
+  const months = dur.months ?? 0
   const { hardwareGroup, installGroup, hostingGroup } = result.groups
-  const months = payload.duration || 0
-  const cols = [
-    { cost: hardwareGroup.rawTotalCost, price: hardwareGroup.rawTotalPrice },
-    { cost: hostingGroup.rawTotalCost * months, price: hostingGroup.rawTotalPrice * months },
-    { cost: installGroup.rawTotalCost, price: installGroup.rawTotalPrice },
-  ]
-  // ?? 0, and the null it guards is NOT a zero: financeCost is null when
-  // factoring is on and its term is not recorded, so the matrix total omits a
-  // cost that exists. result.costIncomplete carries that, and the surfaces
-  // below say so rather than the matrix quietly footing.
-  cols[0].cost += (result.financeCost ?? 0)
-  // Milestone 5: same treatment as financeCost immediately above - folded
-  // into Hardware rather than given its own column, so the matrix's own
-  // Total/Margin cells stay the exact figure achievedMargin is a
-  // percentage of (this function's own top comment). Without this, the
-  // matrix's independently-computed total would silently disagree with
-  // achievedMargin/the Deal Sheet's "Gross margin" row the moment
-  // testBedCost is nonzero - found while wiring testBedCost in, not a
-  // pre-existing bug.
-  cols[0].cost += result.testBedCost || 0
-
-  const whtBorne = result.tax.whtBorne
-  const priceSum = cols.reduce((s, c) => s + c.price, 0)
-  const whtShare = cols.map(c => (priceSum ? Math.round(whtBorne * c.price / priceSum) : 0))
-  whtShare[whtShare.length - 1] += whtBorne - whtShare.reduce((s, v) => s + v, 0)
-  cols.forEach((c, i) => { c.cost += whtShare[i] })
-
-  const tot = { cost: cols.reduce((s, c) => s + c.cost, 0), price: cols.reduce((s, c) => s + c.price, 0) }
-  return { cols, whtShare, all: cols.concat([tot]) }
-}
-
-function renderDealMatrix(result, payload) {
-  const { whtShare, all } = computeDealMatrixCols(result, payload)
   const wht = whtPresentation(payload)
   const whtPct = wht.pct ?? 0
   const gst = gstPresentation(payload)
-  const grossOf = (p) => (uiState.grossUp && whtPct < 100) ? Math.round(p / (1 - whtPct / 100)) : p
-  const cells = (fn) => ({ hardware: `$${money(fn(all[0]))}`, hosting: `$${money(fn(all[1]))}`, installation: `$${money(fn(all[2]))}`, total: `$${money(fn(all[3]))}` })
-  const dash = (v) => (v ? `$${money(v)}` : '-')
+  const grossUp = uiState.grossUp
+  const { invoiceBase, whtAmount, gstAmount, whtBorne } = result.tax
+  const { contractNet } = result.totals
+  const { totalDealCostAll, financeCost } = result
+
+  // THE THREE GROUPS, RAW. No folding: what each group prices and what it costs,
+  // and hosting over the term rather than per month, which is the period this
+  // panel works in and says so in every hosting label.
+  const hwPrice = hardwareGroup.rawTotalPrice
+  const hwCost = hardwareGroup.rawTotalCost
+  const inPrice = installGroup.rawTotalPrice
+  const inCost = installGroup.rawTotalCost
+  const hoPrice = hostingGroup.rawTotalPrice * months
+  const hoCost = hostingGroup.rawTotalCost * months
+
+  const m = (v) => `$${money(v)}`
+  const neg = (v) => `- $${money(v)}`
+  const dash = (v) => (v ? m(v) : '-')
+  const D = '-'
+  // A row with figures in the three group columns and a total.
+  const split = (label, h, ho, i, t, opts = {}) => ({ label, hardware: h, hosting: ho, installation: i, total: t, ...opts })
+  // A row that is about the deal rather than about a product group. It carries
+  // no group cells at all rather than three dashes, which is the ruling on dead
+  // cells applied at the point a row is built.
+  const full = (label, t, opts = {}) => ({ label, total: t, fullWidth: true, ...opts })
+
+  const grossOf = (p) => (grossUp && whtPct < 100) ? Math.round(p / (1 - whtPct / 100)) : p
 
   const rows = [
-    { label: 'Revenue', color: 'var(--white)', totalColor: 'var(--green)', ...cells(c => c.price) },
-    { label: 'Cost', color: 'var(--muted)', totalColor: 'var(--white)', ...cells(c => c.cost) },
-    {
-      label: 'of which financing', color: 'var(--muted-2)', totalColor: 'var(--muted-2)',
-      // A dash on this row means zero financing. Null means the facility is on
-      // and nobody recorded its term, which is a different fact and must not
-      // borrow the dash.
-      hardware: result.costIncomplete ? 'not recorded' : dash(result.financeCost),
-      hosting: '-', installation: '-',
-      total: result.costIncomplete ? 'not recorded' : dash(result.financeCost),
-    },
-    {
-      label: 'of which withholding tax absorbed by Terminus', color: 'var(--muted-2)', totalColor: 'var(--muted-2)',
-      hardware: dash(whtShare[0]), hosting: dash(whtShare[1]), installation: dash(whtShare[2]), total: dash(result.tax.whtBorne),
-    },
-    { label: 'Margin', color: 'var(--muted)', totalColor: 'var(--green)', ...cells(c => c.price - c.cost) },
+    split('One-off price, hardware, warranty and installation', m(hwPrice), D, m(inPrice), m(hwPrice + inPrice)),
+    split(dur.priceLabel, D, dur.recorded ? m(hoPrice) : dur.value, D, dur.recorded ? m(hoPrice) : dur.value),
+    split('Revenue, contract value net', m(hwPrice), m(hoPrice), m(inPrice), m(contractNet), { emphasis: 'revenue' }),
 
-    // ── THE BOTTOM LINE MUST DERIVE FROM THE ROWS ABOVE IT ─────────────────
-    //
-    // Round 39. The business could not reconcile Price to customer from this
-    // table, and they were right: the difference between contract net and price
-    // to customer is ENTIRELY GST, and there was no GST row. Measured on the
-    // capture that prompted it: 1,818,111 + 127,268 = 1,945,379, and
-    // 127,268 is 7% of 1,818,111 to the dollar.
-    //
-    // Price to customer is invoiceBase + gstAmount. The itemised Deal Sheet
-    // below has carried a GST line since it was built; this summary, which is
-    // the one always on screen, did not. A summary whose bottom line cannot be
-    // followed from its own rows is not doing its job.
-    //
-    // AND THE TWO WHT LINES ARE THE SAME MONEY WHEN GROSS UP IS OFF, which made
-    // it read as deducted twice. They are now labelled by what they are rather
-    // than both being called WHT: one is the share Terminus absorbs inside Cost,
-    // the other is the amount the customer deducts from the invoice. With gross
-    // up ON they genuinely differ - absorbed becomes zero while the deduction
-    // stays - so they are two rows, not one, and the labels have to say so.
-    // Same treatment as GST below, for the same reason. An unrecorded rate used
-    // to render $0 in all four columns, which is a confident figure for a tax
-    // nobody entered.
-    {
-      label: wht.deductedLabel, color: 'var(--muted)', totalColor: 'var(--muted)',
-      ...(wht.recorded
-        ? cells(c => Math.round(grossOf(c.price) * whtPct / 100))
-        : { hardware: '-', hosting: '-', installation: '-', total: wht.value }),
-    },
-    // AND AN ABSENT RATE IS NOT A ZERO. See gstPresentation() in deal-inputs.js:
-    // with no rate recorded this row used to read "GST at 0%" and dash out, and
-    // the line under it presented the contract net as the finished price to
-    // read to a customer. The figure still shows; the label stops claiming a
-    // rate was chosen, and the price line says which side of GST it sits on.
-    {
-      label: gst.rowLabel, color: 'var(--muted)', totalColor: 'var(--muted)',
-      hardware: '-', hosting: '-', installation: '-',
-      total: gst.recorded ? dash(result.tax.gstAmount) : 'not recorded',
-    },
-    {
-      label: gst.priceLabel, color: 'var(--white)', totalColor: 'var(--green)',
-      hardware: '-', hosting: '-', installation: '-', total: `$${money(result.tax.invoiceBase + result.tax.gstAmount)}`,
-    },
+    // ── THE SIX COST ROWS, CONTIGUOUS, SUMMING TO THE ROW BELOW THEM ───────
+    split('Hardware and warranty cost', neg(hwCost), D, D, neg(hwCost)),
+    split('Installation cost', D, D, neg(inCost), neg(inCost)),
+    split(dur.costLabel, D, dur.recorded ? neg(hoCost) : dur.value, D, dur.recorded ? neg(hoCost) : dur.value),
+    // A dash here means zero financing. "not recorded" means the facility is on
+    // and nobody recorded its term, which is a different fact and must not
+    // borrow the dash. All three surfaces branch on the one flag.
+    full('PO factoring interest', result.costIncomplete ? 'not recorded' : (financeCost ? neg(financeCost) : '-')),
+    full('Test Bed cost, carried from conversion', result.testBedCost ? neg(result.testBedCost) : '-'),
+    full(grossUp ? 'Withholding tax, grossed up and recovered from the customer' : 'Withholding tax absorbed by Terminus',
+      whtBorne ? neg(whtBorne) : '-'),
+    full('Total cost', neg(totalDealCostAll), { emphasis: 'sum' }),
+
+    full('Gross margin', m(contractNet - totalDealCostAll), { emphasis: 'margin' }),
+    // RELABELLED, not deleted. Before the unfold this row was price minus a cost
+    // that already contained the three rows above; after it, the only honest
+    // name says which deductions it is before. Placed AFTER the total so it
+    // cannot be read as part of the sum.
+    split('Margin before financing, test bed and withholding',
+      m(hwPrice - hwCost), m(hoPrice - hoCost), m(inPrice - inCost), m(contractNet - (hwCost + hoCost + inCost)),
+      { memo: true }),
+
+    // ── THE INVOICE WALK ──────────────────────────────────────────────────
+    full('Invoice reconciliation, from revenue', m(contractNet), { memo: true }),
+    full(grossUp ? wht.grossUpLabel : 'No gross up, WHT absorbed',
+      grossUp ? `+ ${m(invoiceBase - contractNet)}` : '-'),
+    full(gst.recorded ? `GST at ${gst.pct}%, passed through` : gst.rowLabel,
+      gst.recorded ? (gstAmount ? `+ ${m(gstAmount)}` : '-') : 'not recorded'),
+    full(`${gst.priceLabel}${grossUp ? ', grossed up for WHT' : ''}`, m(invoiceBase + gstAmount), { emphasis: 'price' }),
+    // The one row in this block with a real per-group figure: each group's own
+    // price times the rate, not an apportionment of a total.
+    wht.recorded
+      ? split(wht.deductedLabel,
+        neg(Math.round(grossOf(hwPrice) * whtPct / 100)),
+        neg(Math.round(grossOf(hoPrice) * whtPct / 100)),
+        neg(Math.round(grossOf(inPrice) * whtPct / 100)),
+        whtAmount ? neg(whtAmount) : '-')
+      : full(wht.deductedLabel, wht.value),
+    full('Net receipt after WHT', m(invoiceBase - whtAmount), { emphasis: 'receipt' }),
   ]
+
+  document.getElementById('deal-sheet-units').textContent = result.hardware.totalUnits
 
   const headRow = `
     <div class="dm-row head">
@@ -928,98 +939,26 @@ function renderDealMatrix(result, payload) {
       <div class="dm-cell">Total (USD)</div>
     </div>`
 
-  const dataRows = rows.map(r => `
-    <div class="dm-row">
-      <div class="dm-label" style="color:${r.color}">${r.label}</div>
-      <div class="dm-cell" style="color:${r.color}">${r.hardware}</div>
-      <div class="dm-cell" style="color:${r.color}">${r.hosting}</div>
-      <div class="dm-cell" style="color:${r.color}">${r.installation}</div>
-      <div class="dm-cell" style="color:${r.totalColor}">${r.total}</div>
-    </div>`).join('')
+  const dataRows = rows.map((r) => {
+    const cls = ['dm-row']
+    if (r.fullWidth) cls.push('dm-row--full')
+    if (r.memo) cls.push('dm-row--memo')
+    if (r.emphasis === 'sum') cls.push('dm-row--sum')
+    if (r.emphasis && r.emphasis !== 'sum') cls.push('dm-row--lead')
+    const cells = r.fullWidth
+      ? `<div class="dm-cell dm-cell--span">${r.total}</div>`
+      : `<div class="dm-cell">${r.hardware}</div>
+         <div class="dm-cell">${r.hosting}</div>
+         <div class="dm-cell">${r.installation}</div>
+         <div class="dm-cell dm-cell--total">${r.total}</div>`
+    return `
+    <div class="${cls.join(' ')}">
+      <div class="dm-label">${r.label}</div>
+      ${cells}
+    </div>`
+  }).join('')
 
-  document.getElementById('deal-matrix').innerHTML = headRow + dataRows
-}
-
-// Deal sheet: the full P&L walk from revenue to net receipt after WHT, a
-// flat 16-row label/value list, not a table. Mirrors the prototype's
-// `deal.rows` exactly (Terminus Ops.dc.html lines 6971-6986) — including
-// which rows dash out to '-' when zero/not applicable (PO factoring
-// interest, WHT rows, GST) versus which always show a figure (the
-// running totals). `rollup.rows` in the prototype is dead code (never
-// rendered by its own template), so it isn't reproduced here.
-function renderDealSheet(result, payload) {
-  const dur = durationPresentation(payload)
-  const months = dur.months ?? 0
-  const { hardwareGroup, installGroup, hostingGroup } = result.groups
-  const hostingTermCost = hostingGroup.rawTotalCost * months
-  const grossUp = uiState.grossUp
-  const wht = whtPresentation(payload)
-  const whtPct = wht.pct ?? 0
-  const gst = gstPresentation(payload)
-  const { invoiceBase, whtAmount, gstAmount, whtBorne } = result.tax
-  const { contractNet, oneOffPrice, hostingTermPrice } = result.totals
-  const { totalDealCostAll, financeCost } = result
-
-  const rows = [
-    { label: 'One-off price, hardware, warranty and installation', value: `$${money(oneOffPrice)}`, color: 'var(--muted)' },
-    // "over contract" read as a term nobody needed to state. With no duration
-    // recorded, hosting revenue is zero and the row said so confidently.
-    { label: dur.priceLabel, value: dur.recorded ? `$${money(hostingTermPrice)}` : dur.value, color: 'var(--muted)' },
-    { label: 'Revenue, contract value net', value: `$${money(contractNet)}`, color: 'var(--green)' },
-    { label: 'Hardware and warranty cost', value: `- $${money(hardwareGroup.rawTotalCost)}`, color: 'var(--muted)' },
-    { label: 'Installation cost', value: `- $${money(installGroup.rawTotalCost)}`, color: 'var(--muted)' },
-    { label: dur.costLabel, value: dur.recorded ? `- $${money(hostingTermCost)}` : dur.value, color: 'var(--muted)' },
-    // ── THE TWO BLOCKS MUST AGREE ABOUT THIS ONE FACT ─────────────────────
-    //
-    // Found by the item 4 census, and created by ruling 5 in this same round.
-    // The matrix beside this list was taught to say "not recorded" when the
-    // facility is on with no term; this row still said "-", which everywhere
-    // else on this list means zero. Two blocks about to be merged, disagreeing
-    // about the same fact, which is Round 39's GST fault reintroduced.
-    {
-      label: 'PO factoring interest',
-      value: result.costIncomplete ? 'not recorded' : (financeCost ? `- $${money(financeCost)}` : '-'),
-      color: 'var(--muted)',
-    },
-    {
-      label: grossUp ? 'Withholding tax, grossed up and recovered from the customer' : 'Withholding tax absorbed by Terminus',
-      value: whtBorne ? `- $${money(whtBorne)}` : '-', color: 'var(--muted)',
-    },
-    // Milestone 5: carried from the source Test Bed's accumulated_cost on
-    // conversion (opportunity_details.test_bed_cost). A pure cost, not
-    // priced to the customer - added straight to totalDealCostAll in
-    // deal-calculator.js, so it reduces margin here without ever
-    // touching contractNet (revenue, above, is unaffected).
-    { label: 'Test Bed cost, carried from conversion', value: result.testBedCost ? `- $${money(result.testBedCost)}` : '-', color: 'var(--muted)' },
-    { label: 'Total cost', value: `- $${money(totalDealCostAll)}`, color: 'var(--white)' },
-    { label: 'Gross margin', value: `$${money(contractNet - totalDealCostAll)}`, color: 'var(--green)' },
-    { label: 'Invoice reconciliation, from revenue', value: `$${money(contractNet)}`, color: 'var(--muted-2)' },
-    {
-      label: grossUp ? wht.grossUpLabel : 'No gross up, WHT absorbed',
-      value: grossUp ? `+ $${money(invoiceBase - contractNet)}` : '-', color: 'var(--muted)',
-    },
-    {
-      label: gst.recorded ? `GST at ${gst.pct}%, passed through` : gst.rowLabel,
-      value: gst.recorded ? (gstAmount ? `+ $${money(gstAmount)}` : '-') : 'not recorded', color: 'var(--muted)',
-    },
-    {
-      label: `${gst.priceLabel}${grossUp ? ', grossed up for WHT' : ''}`,
-      value: `$${money(invoiceBase + gstAmount)}`, color: 'var(--green)',
-    },
-    {
-      label: wht.deductedLabel,
-      value: wht.recorded ? (whtAmount ? `- $${money(whtAmount)}` : '-') : wht.value, color: 'var(--muted)',
-    },
-    { label: 'Net receipt after WHT', value: `$${money(invoiceBase - whtAmount)}`, color: 'var(--green)' },
-  ]
-
-  document.getElementById('deal-sheet-units').textContent = result.hardware.totalUnits
-
-  document.getElementById('deal-sheet').innerHTML = rows.map(r => `
-    <div class="ds-row">
-      <span class="ds-label">${r.label}</span>
-      <span class="ds-value" style="color:${r.color}">${r.value}</span>
-    </div>`).join('')
+  document.getElementById('deal-panel').innerHTML = headRow + dataRows
 }
 
 // Sums the cash flow's already-computed monthly rows into 12-month
@@ -1132,8 +1071,7 @@ function renderResults(result, payload) {
   document.getElementById('deal-finance-cost').textContent =
     result.financeCost === null ? 'not recorded' : `$${money(result.financeCost)}`
 
-  renderDealMatrix(result, payload)
-  renderDealSheet(result, payload)
+  renderDealPanel(result, payload)
   renderYearSchedule(result, payload)
   renderPricingCards(result, payload)
   renderCatalogNotice(payload)
@@ -1699,6 +1637,9 @@ function updateInstallVisibility() {
   const isPerUnit = uiState.installResp.includes('Per Unit')
   const isLumpSum = uiState.installResp.includes('Lump Sum')
   document.getElementById('deal-install-table').classList.toggle('hidden', !isPerUnit)
+  // The signpost appears exactly when the rows it points at do. One condition,
+  // read once, rather than a second test that could drift from this one.
+  document.getElementById('deal-detail-signpost')?.classList.toggle('hidden', !isPerUnit)
   document.getElementById('deal-install-seetable').classList.toggle('hidden', !isPerUnit)
   document.getElementById('deal-lumpCost-group').classList.toggle('hidden', !isLumpSum)
   document.getElementById('deal-contractor-group').classList.toggle('hidden', !isLumpSum)
