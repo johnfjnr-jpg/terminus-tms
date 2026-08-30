@@ -1482,6 +1482,33 @@ decoration on top.
    Implemented by CLEARING rather than restoring, so there is no remembered set
    in the code to return to by mistake.
 
+### The catalog signal rides Show detail, and that resolves a contradiction
+
+**Ratified by the business 2026-08-30, Round 41, as the resolution of two rulings
+issued in the same message that could not both stand.**
+
+**Ruling 2** put the catalog flag on section 4's latch button. **Ruling 1** made
+section 4 never-latchable. **There is no such button.**
+
+> **The concern was that the only admission of an absent catalog rate must not be
+> hideable without a trace, and `Show detail` is the control that does the
+> hiding.**
+
+The notice lives inside the detail panel, which is closed by default. So it CAN
+be silenced, just not by a latch, and the flag belongs on the control that
+silences it. **One flag, panel level, no dependency map, exactly as ruled. Only
+its host changed.**
+
+**The seven-becomes-five count is accepted with it.** Ruling 1 said seven
+latchable becomes six; the item 7 enumeration's seven had counted the DETAIL
+PANEL as its own panel, and making `Show detail` the summary's only collapse
+mechanism removes both the summary and its detail. **Five latch buttons.**
+
+**The sentence on that button is the notice's own text**, not a fixed one.
+`renderCatalogNotice` reports three different problems - an unreadable catalog, a
+product with no current batch, and a bid currency the catalog is not held in -
+and a fixed sentence named one and appeared over another.
+
 **Two panels can never signal, and they are named rather than discovered.** Units
 Required and Cash flow hold nothing that can be missing or overridden: unit
 counts sit outside `ZERO_IS_NOT_A_VALUE` on purpose, because zero is a real
