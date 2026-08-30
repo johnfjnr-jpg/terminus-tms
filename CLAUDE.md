@@ -235,6 +235,22 @@ not resolve it quietly.
     that `main` is not a deploy target today, and the item that makes it one is
     at the head of package B in `DESIGN_PRINCIPLES.md`.
 
+12. **A STANDING RULE ON PUSHING, so neither party spends a round trip on it.**
+    Set by the business 2026-08-30, Round 40.
+
+    **When the gate is green and the change is DOCUMENTATION OR RULES ONLY,
+    push without asking.** Ask only for schema, calculator, or anything that
+    changes what a user sees.
+
+    The reasoning is the business's and it is about risk rather than ceremony:
+    green work sitting unpushed is itself a condition to avoid, and treating a
+    documentation commit like a migration manufactures that condition and calls
+    it discipline.
+
+    **This does not soften build-discipline rule 11.** An unanswerable
+    precondition is still a stop, and a push is still an outward-facing act. What
+    this settles is which pushes need a fresh decision and which do not.
+
 ---
 
 ## Architecture
@@ -367,6 +383,7 @@ not resolve it quietly.
    around it will not be, because it was written when the data said
    something else. `reason_required`, `is_terminal`, `required`, and any
    enum a message names in words are where this lives.
+
 
 9. **A destructuring parameter list is an allowlist that gives no feedback
    when it excludes something.** `function f({ a, b })` accepts a call
@@ -574,7 +591,12 @@ of the change. An unanswerable precondition is a stop.
    in Round 9 Phase 6. A read whose error is unchecked is at least
    visibly empty; a write whose error is unchecked looks like it worked.
 
-9. An invariant not proven capable of failing is not evidence. Inject a
+9. **An invariant not proven capable of failing is not evidence**, and
+   "invariant" means EVERY DETECTOR: a test assertion, a probe, a scan, a
+   generated column, a hook. Anything whose job is to notice. Broadened at the
+   Round 40 close, where the business put it as **a detector that has never
+   fired is an assertion, not a control**, and the register of which of this
+   project's detectors are unproved is under rule 38. Inject
    real violating case, watch it fail, then revert.
 
 10. **Layout is checked at 1240px, 1920px and 3440px, before and after.**
@@ -1479,6 +1501,69 @@ of the change. An unanswerable precondition is a stop.
     is about the EFFECT: after a tag is published, nothing may change which
     commit it names, by any spelling. Supersede it with a new name instead, and
     record what the old one covers (`DESIGN_PRINCIPLES.md`).
+
+37. **A RULE THAT NAMES A MECHANISM POLICES THE MECHANISM, NOT THE EFFECT.**
+    Round 40 close, 2026-08-30, set by the business, and it is the round's
+    sharpest finding. It is not about tags.
+
+    > **Where a rule names a command, a flag or a tool, it is describing ONE
+    > ROUTE to an effect, and is presumed incomplete until the other routes are
+    > named.** Rules are written about outcomes.
+
+    **The instance.** "Never force-move a published tag" reads as complete. The
+    operation has two spellings and only one contains the word "force":
+    `git tag -f <name>`, and `git tag -d <name>` followed by `git tag -a <name>`.
+    Counted across one session: **eight force moves and ELEVEN
+    delete-and-recreates.**
+
+    **The obvious guard would have caught the minority case and reported clean.**
+    A grep for `-f` finds eight of nineteen. The delete-and-recreate form needs
+    no flag, reads as housekeeping, and moves a published identifier just as
+    completely - and it is the one used MORE often, precisely because it does not
+    look dangerous.
+
+    **The check: read every rule for a noun that is a tool.** `git tag -f`,
+    `??`, `grep`, `db push`, `setVal`, `readdirSync`. Then ask what else produces
+    the same effect, and rewrite the rule around the effect with the routes named
+    underneath as instances. The routes are evidence; the effect is the rule.
+
+    Related to Verification 19 from the other side: 19 is a name asserting a
+    property nobody measured. **This is a rule asserting a COVERAGE nobody
+    measured**, and it is worse, because a rule believed to be working stops
+    anybody looking.
+
+38. **A DETECTOR THAT HAS NEVER FIRED IS AN ASSERTION, NOT A CONTROL.** Raised
+    by the business at the Round 40 close. **CHECKED FIRST, AND IT IS ALREADY
+    VERIFICATION 9**, which says an invariant not proven capable of failing is
+    not evidence: inject a real violating case, watch it fail, then revert. Same
+    remedy, so by this file's own collapse test it is the same rule and does not
+    get a second number.
+
+    **What the business's phrasing adds is SCOPE, and 9's wording is now broader
+    for it.** "Invariant" reads as a test assertion. The same discipline applies
+    to a probe, a generated column, a hook, a scan: anything whose job is to
+    notice. Read rule 9 as covering every detector.
+
+    **AND THE REGISTER OF WHAT IS UNPROVED, kept rather than left implicit,
+    because "we calibrate here" is exactly the coverage claim rule 37 is about.**
+    Round 40 built these detectors; the unproved ones are named, not swept:
+
+    | detector | proved by |
+    |---|---|
+    | `probe-dead-selectors.mjs` | an injected dead rule, a live rule, and the real `.pg-margin` instance |
+    | tags `local agrees` column | force-moving the local tag, watching it read NO, reverting |
+    | comment swallows a tag | reintroducing the runaway comment |
+    | stray `-->` outside a pairing | recreating the stolen-closer fault |
+    | `scripts/edit.mjs` refusals | seven separate refusal paths |
+    | rate resolution | letting the resolver read a catalog-only key; adding a key to the server allowlist |
+    | **all eleven margin inputs exist** | **NOTHING. Rewritten in Phase 3 and never made to fail.** |
+    | **a margin box is read from the screen** | **NOTHING. Same rewrite, same gap.** |
+
+    Both unproved detectors guard the same thing: a margin input lost in a
+    rearrangement, which drops its key and reads as deletion. **They are the two
+    guarding the most expensive failure in the round and the two nobody has
+    watched fire.** Not calibrated now, on the business's instruction; recorded so
+    the next round knows exactly what is and is not evidence.
 
 ### At round close: index these by when they apply
 

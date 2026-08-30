@@ -966,9 +966,29 @@ before each edit and a crash leaves a `pending` entry the hook refuses on.
   one. What is not acceptable is leaving them as the thing the rule was written
   about.
 
+- **RULES PHRASED AROUND A MECHANISM RATHER THAN AN EFFECT. Raised 2026-08-30 by
+  the business, Round 40. FIRST of the two queued items, and the order is
+  theirs: THIS ONE CAN INVALIDATE RULES CURRENTLY BELIEVED TO BE WORKING.**
+
+  Sweep `CLAUDE.md` for every rule that names a command, a flag or a tool, and
+  ask what else produces the same effect. `CLAUDE.md` rule 37 is the rule; this
+  is the sweep it implies and it was deliberately not run in the round that
+  found it.
+
+  The instance that produced it: "never force-move a tag" names `-f` and misses
+  `git tag -d` followed by `git tag -a`, which was used ELEVEN times against the
+  force form's eight. A guard built from the rule would have reported clean.
+
+  Candidates visible without looking hard: rules naming `grep`, `?? 0`,
+  `setVal`, `readdirSync`, `db push`, `NOT VALID`. Each is one route to an
+  effect and none of them says so.
+
+  Trigger: after the Round 40 walks and the scratch project, not before.
+
 - **WHAT ELSE DOES THE REPOSITORY ASSERT THAT NOTHING REGENERATES FROM A
-  PUBLISHED SOURCE OF TRUTH? Raised 2026-08-30 by the business, Round 40, and
-  deliberately NOT answered in the round that raised it.**
+  PUBLISHED SOURCE OF TRUTH? SECOND of the two queued items. Raised 2026-08-30
+  by the business, Round 40, and deliberately NOT answered in the round that
+  raised it.**
 
   The tags section was one generation from publishing a wrong fact, because it
   read local state and called it fact. **That is a class, and the class was
