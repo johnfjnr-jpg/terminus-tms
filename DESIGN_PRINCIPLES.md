@@ -1062,6 +1062,108 @@ what is, never why.
 
 ---
 
+## The Commercials screen is done when the walks run clean
+
+**Set by the business 2026-08-30, Round 41. It is the stopping condition and it
+is why Round 40 stays untagged.**
+
+> The Commercials screen is done when the three task walks run clean with no
+> hesitation: **price a new deal from cold; re-price and version; read someone
+> else's deal without pricing it.**
+
+**Not when it looks right. Not when the gate is green.** Both of those have been
+true of screens that failed a walk. The gate measures whether the code does what
+it was written to do; the walk measures whether a person can do the job.
+
+`reshape-complete` is the standing example of the alternative: it was applied
+when code landed rather than when a measure was met, and it names a property its
+commit does not have. Round 40 is untagged for that reason and stays untagged
+until the walks pass.
+
+---
+
+## Contract duration and recovery period take Admin defaults
+
+**Decided by the business 2026-08-30, Round 41.**
+
+Both take **Admin-configured defaults, using the same mechanism as target
+margin**: applied into the deal, overridable per deal, override recorded and
+attributed. **One mechanism, not a second one.**
+
+The governing rule is `CLAUDE.md` Architecture 11, **a default is an initial
+value, not a fallback**, and it is the permanent closure of the recovery-period
+finding rather than a fix for it.
+
+### The consequences, all decided rather than discovered
+
+**The Admin default does not reach the 95 existing records.** A default applies
+at creation. **Existing drafts stay blank and say so. They are not backfilled**,
+and the business's reasoning is why this is a decision rather than an omission:
+**they are the population that proves the not-recorded path works.** A backfill
+would delete the only evidence that the empty state renders correctly.
+
+**Changing an Admin default does not touch an approved version.** Versions
+already freeze effective rates and which of them were overridden. Contract
+duration and recovery period **join that freeze, each with a flag for whether it
+was the default or an override**. A live draft may pick up a new default; a
+saved version never does.
+
+**Recovery period is validated as less than or equal to contract duration.**
+
+### Recovery period states, on two-phase and hybrid
+
+| value | on screen | at version save |
+|---|---|---|
+| empty | the sheet says not recorded | **blocked** |
+| zero | highlighted as an error | **blocked** |
+| 1 to 11 | warning, acknowledged | allowed |
+| 12 or more | normal | allowed |
+
+**Zero is a contradiction, not an aggressive position.** A structure whose
+purpose is recovering hardware, recovering it over zero months, produces exactly
+the closing position the coercion produced: reached by hand rather than by
+`|| 0`.
+
+**Empty blocks for a different reason.** A two-phase deal with no recovery
+period has no cash flow at all, so an approver would be signing a commercial
+position with a material fact missing. **Warn while drafting, block at the
+version**, using the version-scoped gate that already exists.
+
+### The sub-12 warning names the exposure, not the number
+
+**Short recovery is good for us and hard on the customer.** Recovering the
+hardware inside a year means a large upfront invoice, and **the risk is
+deliverability rather than arithmetic**: the customer may refuse the payment
+profile, and the deal was priced as though they had accepted it.
+
+So the warning says that, not "recovery period is under 12 months". It also
+appears **on the approval page as an exposure beside the other risk terms**, and
+**the acknowledgement is recorded on the version** rather than dismissed and
+forgotten.
+
+---
+
+## Refused, with reasons, so it does not come back
+
+**The Deal Summary does not move up under the stage tab line.** Refused by the
+business 2026-08-30, Round 41.
+
+Pricing needs **the input beside the number it moves**, which is the
+both-visible property Phase 0 measured and passed. Moving the P&L up separates
+them again. **And the top strip already answers the reader at zero scroll**, so
+moving the summary up duplicates it rather than adding anything.
+
+---
+
+## Parked for a later round: the Opportunities screen
+
+Not Commercials, and recorded so they are not lost:
+
+- Summary text beside the title, as on Test Beds.
+- Customer Details, then Key Customer Contacts, on a second row of panels.
+
+---
+
 ### The list by trigger, not by date
 
 **Added at the Round 39 close on the business's instruction: two or three work

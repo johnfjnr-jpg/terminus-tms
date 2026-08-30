@@ -431,6 +431,38 @@ not resolve it quietly.
    the single mismatch was the migration written that hour, which drifted while
    both parties were reading about drift.
 
+11. **A DEFAULT IS AN INITIAL VALUE, NOT A FALLBACK.** Set by the business
+    2026-08-30, Round 41, and it is the permanent closure of the recovery-period
+    finding.
+
+    > A default is **written into the field when the deal is created** and never
+    > consulted again. If the user clears the field, **the field is empty and the
+    > sheet says the value is not recorded**. It does not quietly reappear.
+
+    **Without this rule a default is a coercion with better manners.** The
+    instance: `recoveryMonths` had a `NUMERIC_DEFAULTS` entry of 0 and the
+    calculator read `recoveryMonths || 0`, so a blank field priced a two-phase
+    deal at zero months of hardware recovery. `$492,858` of hardware revenue was
+    never invoiced, closing cash was `-$275,556`, and achieved margin still read
+    30.0% because margin is computed on `contractNet` and never asks whether a
+    penny of it is collected.
+
+    **The two readings of "default" are not variants of one idea.** An initial
+    value is a fact about creation and is visible in the field; a fallback is a
+    fact about every read and is invisible everywhere. A field carrying an
+    initial value can be cleared and stay cleared, which is what makes the
+    not-recorded path reachable at all.
+
+    **Consequences, and each is part of the rule rather than a detail of it.** A
+    default does not reach records created before it. Changing a default does not
+    touch a saved version, which freezes the value and whether it was default or
+    override. And a cleared field is a state the screen must be able to SAY, not
+    merely tolerate.
+
+    Same family as Verification 20's addendum, read and write must agree about
+    absence, from the configuration side: here the writer is a default and the
+    disagreement is with the field's own emptiness.
+
 ---
 
 ## Verification
