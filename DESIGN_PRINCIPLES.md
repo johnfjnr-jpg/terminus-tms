@@ -1243,12 +1243,41 @@ on target, and was the *weaker* of the two renderings at 15px against 20px.
 The rule now lives in `marginPresentation`. Both instances read it and neither
 restates it. The strip is normalised to 20px, so the two instances match.
 
-**The comparison is made on what the person sees.** Found by the calibration
-that proved the accent: at 29.9963% the screen said `30.0%`, `down 0.0 pts` and
-showed no green, all at once. One decimal place is the precision the decision is
-taken at, and a rule reading more precision than the screen shows produces a
-state nobody can account for. If a finer distinction is wanted, the display gains
-a decimal and the rule follows it.
+### Green means at target TO ONE DECIMAL, and that tolerance is a ruling
+
+**Ratified by the business 2026-08-30, Round 41, as a display-semantics decision
+on a control surface rather than a rounding convenience.** It is recorded as a
+decision because it sets a TOLERANCE on what counts as meeting target, and a
+tolerance nobody ruled on is one somebody chose.
+
+**The rule.** Both sides are rounded to one decimal before comparing. The accent
+and the note are both driven from that rounded delta. At the boundary the note
+says **`at target 30%`** rather than a movement of zero.
+
+**The reason, and it is the case that produced it.** Switching factoring off on
+TT-SGP-SMARTC-003 takes the achieved margin to **29.9963%**. Comparing the raw
+figures, the screen said three things at once:
+
+> `30.0%`  ·  `against target 30%, down 0.0 pts`  ·  and no green
+
+**A deal that DISPLAYS at target displayed as under it**, with a delta of zero
+saying so in words and the accent withheld. **One decimal place is the precision
+the decision is taken at.** A rule reading more precision than the screen shows
+produces a state a person cannot account for, and the note's direction now comes
+from the same rounded delta, which is what makes `down 0.0 pts` unreachable
+rather than merely unlikely.
+
+**Swept across every hundredth of a point from 28.0 to 32.0**: no delta reads
+`0.0` with a direction, and the accent agrees with the number on screen at every
+step.
+
+**If a finer distinction is ever wanted, the display gains a decimal and the rule
+follows it.** The precision of the decision and the precision of the display are
+one thing, not two.
+
+**Found by the calibration that proved the accent**, not by review. The rule had
+been running since Round 39 and the defect had never been seen, because nobody
+had put a deal on the boundary.
 
 ### A negative closing cash position gets no treatment
 
