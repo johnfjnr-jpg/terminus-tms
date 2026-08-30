@@ -7,6 +7,8 @@ import {
   DEFAULT_KEYS, initialPayload, validateRecoveryAgainstDuration, recoveryState,
   defaultsForConditionalFields,
   CONDITIONAL_KEYS,
+  frozenTerms,
+  frozenTermsSentences,
 } from '../../src/lib/system-defaults.js'
 
 const ROOT = new URL('../../', import.meta.url).pathname
@@ -139,12 +141,21 @@ test('the defaults are read only at SANCTIONED call sites, named here', () => {
   // AMENDED, NOT WIDENED. The substance is unchanged: an initial value is
   // written when a field COMES INTO EXISTENCE, and for a conditional field that
   // is when its governing input selects it. So the sanctioned sites are the two
-  // creation paths plus the structure transition, NAMED, and a fourth fails
-  // this test.
+  // creation paths plus the conditional-field transition, NAMED.
   //
-  // The danger the original property guarded is unchanged too: a read from a
-  // render or a recompute would turn this back into a fallback and nothing else
-  // in the suite would notice, because the numbers would look right.
+  // AMENDED A SECOND TIME, AND THE SECOND CLASS IS NOT A WRITE AT ALL. The
+  // version freeze reads the defaults to RECORD WHICH ONE WAS IN FORCE, and
+  // applies nothing. Without it, an admin changing a default silently rewrites
+  // the provenance of every version already taken: a frozen 12 becomes an
+  // override, or a typed 24 starts reading as the default.
+  //
+  // The two classes are listed separately below rather than merged into one
+  // allowlist, because the property they satisfy is different and a merged list
+  // would let a genuine fallback in under the wrong justification.
+  //
+  // The danger the original property guarded is unchanged: a read from a render
+  // or a recompute would turn this back into a fallback and nothing else in the
+  // suite would notice, because the numbers would look right.
   const callers = []
   const walk = (dir) => {
     for (const f of readdirSync(ROOT + dir, { withFileTypes: true })) {
@@ -157,13 +168,30 @@ test('the defaults are read only at SANCTIONED call sites, named here', () => {
   }
   walk('src/')
   callers.sort()
+  // CLASS 1: sites that WRITE an initial value into a record.
+  const WRITES_AN_INITIAL_VALUE = [
+    'src/routes/contacts.js',       // creation path A: qualify a contact
+    'src/routes/opportunities.js',  // the conditional-field transition, PATCH
+    'src/routes/test-beds.js',      // creation path B: convert a test bed
+  ]
+  // CLASS 2: sites that RECORD which default was in force, and apply nothing.
+  const RECORDS_THE_DEFAULT_IN_FORCE = [
+    'src/routes/deal-sheet-versions.js',  // the version freeze
+  ]
   assert.deepEqual(callers, [
     'src/lib/system-defaults.js',   // where it is defined
-    'src/routes/contacts.js',       // creation path A: qualify a contact
-    'src/routes/opportunities.js',  // the structure transition, PATCH
-    'src/routes/test-beds.js',      // creation path B: convert a test bed
-  ], 'readSystemDefaults is called somewhere new. Adding a site is an amendment to '
-   + 'the property recorded in system-defaults.js, not a convenience.')
+    ...[...WRITES_AN_INITIAL_VALUE, ...RECORDS_THE_DEFAULT_IN_FORCE].sort(),
+  ].sort(), 'readSystemDefaults is called somewhere new. Adding a site is an amendment to '
+   + 'the property recorded in system-defaults.js, naming which of the two classes it '
+   + 'belongs to, not a convenience.')
+
+  // The recording site applies nothing, which is what makes it a different
+  // class rather than a fourth write. Asserted on the route.
+  const ver = readCode(ROOT + 'src/routes/deal-sheet-versions.js')
+  assert.match(ver, /terms: frozenTerms\(inputs, await readSystemDefaults\(db\)\)/,
+    'the version freeze must pass the defaults to frozenTerms and nowhere else')
+  assert.equal((ver.match(/readSystemDefaults\(/g) || []).length, 1,
+    'exactly one call: a second one in this route would be a fallback wearing the freeze')
 
   // The transition site is a SAVE path, so its narrowness is what keeps it an
   // initial value. Asserted on the route rather than trusted.
@@ -246,6 +274,63 @@ test('THE CONSEQUENCE: switching away and back re-applies the default', () => {
   const away = { ...p, structure: 'hybrid' }
   const back = defaultsForConditionalFields(away, { ...away, structure: 'twoPhase' }, D2)
   assert.equal(back.recoveryMonths, 12, 'and returns on the way back, by design')
+})
+
+test('a version freezes the term AND the default it was measured against', () => {
+  // Round 41. The value is already in the version's inputs; what cannot be
+  // recovered later is which default was in force, because an admin changing it
+  // would silently rewrite the provenance of every version already taken.
+  const D3 = { duration: 36, recoveryMonths: 12 }
+
+  const dflt = frozenTerms({ duration: 36, recoveryMonths: 12 }, D3)
+  assert.deepEqual(dflt.duration, { value: 36, default: 36, source: 'default' })
+  assert.deepEqual(dflt.recoveryMonths, { value: 12, default: 12, source: 'default' })
+
+  const over = frozenTerms({ duration: 48, recoveryMonths: 6 }, D3)
+  assert.deepEqual(over.duration, { value: 48, default: 36, source: 'override' })
+  assert.deepEqual(over.recoveryMonths, { value: 6, default: 12, source: 'override' })
+
+  // Absent is its own state, not an override of nothing and not a zero.
+  const none = frozenTerms({}, D3)
+  assert.deepEqual(none.recoveryMonths, { value: null, default: 12, source: 'absent' })
+  assert.deepEqual(frozenTerms({ recoveryMonths: '' }, D3).recoveryMonths.source, 'absent')
+  assert.deepEqual(frozenTerms({ recoveryMonths: null }, D3).recoveryMonths.source, 'absent')
+
+  // A term entered before any default was configured is an override with
+  // nothing to compare against, and says so rather than reading as a default.
+  assert.deepEqual(frozenTerms({ duration: 36 }, {}).duration, { value: 36, default: null, source: 'override' })
+
+  // THE FREEZE IS OF THE MOMENT. The same deal against a moved default reads
+  // differently, which is the whole reason the default is stored beside the
+  // value rather than looked up later.
+  assert.equal(frozenTerms({ duration: 36 }, { duration: 24 }).duration.source, 'override')
+  assert.equal(frozenTerms({ duration: 36 }, { duration: 36 }).duration.source, 'default')
+})
+
+test('the frozen terms have a reader, and it says which is which', () => {
+  // Verification 22: a field required of every version and read by nothing
+  // teaches everybody that the content does not matter.
+  const s = (frozen) => Object.fromEntries(frozenTermsSentences(frozen).map((x) => [x.key, x.sentence]))
+
+  const d = s(frozenTerms({ duration: 36, recoveryMonths: 12 }, { duration: 36, recoveryMonths: 12 }))
+  assert.match(d.duration, /36 months, the system default in force when this version was taken/)
+
+  const o = s(frozenTerms({ duration: 48, recoveryMonths: 6 }, { duration: 36, recoveryMonths: 12 }))
+  assert.match(o.duration, /48 months, entered on the deal in place of the system default of 36/)
+  assert.match(o.recoveryMonths, /6 months, entered on the deal in place of the system default of 12/)
+
+  const a = s(frozenTerms({ duration: 36 }, { duration: 36, recoveryMonths: 12 }))
+  assert.match(a.recoveryMonths, /Recovery period was not recorded when this version was taken/)
+
+  const n = s(frozenTerms({ duration: 36 }, {}))
+  assert.match(n.duration, /No system default was configured at the time/)
+
+  // One month is one month, not "1 months".
+  assert.match(s(frozenTerms({ recoveryMonths: 1 }, { recoveryMonths: 12 })).recoveryMonths, /1 month,/)
+
+  // Nothing frozen yields nothing, rather than a sentence about a freeze that
+  // did not happen.
+  assert.deepEqual(frozenTermsSentences(null), [])
 })
 
 test('the migration carries its own ledger row', () => {

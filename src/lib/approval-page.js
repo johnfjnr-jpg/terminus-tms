@@ -39,6 +39,7 @@ import { buildDealInputs, isSet, RAW_READERS, PRODUCT_UNITS, gstPresentation, ra
 import { resolveRates, OVERRIDABLE_RATE_KEYS } from './rate-resolution.js';
 import { calculateDeal } from './deal-calculator.js';
 import { NUMERIC_DEFAULTS, defaultProvenance, toNumberOrNull } from './numeric-payload.js';
+import { frozenTermsSentences } from './system-defaults.js';
 // The bands, the thresholds and the words all live in one place, because the
 // Commercials reference panel shows a salesperson the same thing earlier.
 // Verification 20: same bands, same words, one source.
@@ -610,6 +611,21 @@ export function appliesToDeal(key, payload) {
   return rule ? rule(payload) : true;
 }
 
+/**
+ * The keys whose absence is NOT filled in by anything, with what the approver is
+ * actually looking at as a result.
+ *
+ * Exported so the tests read this list rather than a copy of it: two readers of
+ * one rule is Verification 20, and a test carrying its own copy would go on
+ * passing after the rule changed.
+ */
+export const ABSENCE_NOT_SUBSTITUTED = {
+  recoveryMonths: 'The deal recovers no hardware and the cash flow shows none. '
+    + 'Nothing is assumed in its place.',
+  factoringTermMonths: 'The facility is on and no interest is computed, so total cost '
+    + 'and achieved margin are both missing that amount. Nothing is assumed in its place.',
+};
+
 export function buildNotRecorded(payload, { missingProducts = [], versionReason = null } = {}) {
   const out = [];
 
@@ -625,9 +641,29 @@ export function buildNotRecorded(payload, { missingProducts = [], versionReason 
   // what produced the false claim on every deal in the system:
   // `payload.factoringRatePct` is always undefined because the value lives at
   // `payload.factoring.ratePct`.
-  for (const key of Object.keys(NUMERIC_DEFAULTS)) {
+  // ── AND NOT EVERY ABSENCE IS AN ASSUMPTION. Round 41 ruling 5 ──────────
+  //
+  // "This is the assumption being approved" is true only where something is
+  // actually substituted. Ruling 5 removed the substitution behind two keys, so
+  // for those the sentence would name a default that no longer reaches any
+  // figure, which is a worse row than no row: it tells the approver a number was
+  // assumed when in fact an amount is simply missing from the total.
+  //
+  // recoveryMonths is read through toNumberOrNull and no longer takes its
+  // NUMERIC_DEFAULTS entry of 0. factoringTermMonths is not in NUMERIC_DEFAULTS
+  // at all, so the loop below could never reach it, and the applicability rule
+  // written for it had nothing to govern.
+  const NOT_SUBSTITUTED = ABSENCE_NOT_SUBSTITUTED;
+
+
+  // The union, so a key that is not in NUMERIC_DEFAULTS is still reachable.
+  for (const key of [...new Set([...Object.keys(NUMERIC_DEFAULTS), ...Object.keys(NOT_SUBSTITUTED)])]) {
     if (isSet(payload, key)) continue;
     if (!appliesToDeal(key, payload)) continue;
+    if (NOT_SUBSTITUTED[key]) {
+      out.push({ kind: 'absent', key, note: NOT_SUBSTITUTED[key] });
+      continue;
+    }
     out.push({
       kind: 'default',
       key,
@@ -856,6 +892,18 @@ export function buildApprovalPage({
     target,
     exposures: buildExposures(payload, result),
     costBasis,
+    // ── THE FROZEN TERMS, AND THIS IS THEIR READER ───────────────────────
+    //
+    // Verification 22: a version records duration and recovery period with the
+    // default that was in force, and a field that must be written and is never
+    // read teaches everybody that the content does not matter. This is what
+    // reads it.
+    //
+    // Empty when there is no version, because the flag is a fact about a freeze
+    // and a live draft has not frozen anything. It is NOT recomputed against
+    // today's defaults in that case: doing so would answer a different question
+    // in the same words.
+    frozenTerms: frozenTermsSentences(version?.rates?.terms ?? null),
     notRecorded: buildNotRecorded(payload, {
       missingProducts: catalog.missing ?? [],
       versionReason: version?.reason ?? null,

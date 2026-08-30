@@ -194,6 +194,77 @@ export function defaultsForConditionalFields(before, after, defaults) {
 }
 
 /**
+ * THE TERMS A VERSION FREEZES, beside the rates it already freezes.
+ *
+ * Decided by the business 2026-08-30, Round 41: contract duration and recovery
+ * period join the version freeze, each with a flag for whether it was the
+ * default or an override.
+ *
+ * ── WHY THE VALUE ALONE IS NOT ENOUGH ────────────────────────────────────
+ *
+ * The value is already frozen: it is in the version's `inputs`. What is not,
+ * and cannot be recovered later, is WHICH DEFAULT WAS IN FORCE. An admin
+ * changes the default from 12 to 24 and every past version's 12 silently
+ * becomes an override in the eyes of anybody comparing, or worse, a 24 that
+ * somebody typed reads as the default.
+ *
+ * So the default in force is recorded ALONGSIDE the value rather than the flag
+ * being derived at read time from whatever the table says today.
+ *
+ * ── AND THE FLAG IS HONEST ABOUT WHAT IT CAN KNOW ────────────────────────
+ *
+ * `source` is derived by comparing the two, so a value somebody deliberately
+ * typed that happens to equal the default reads as 'default'. That is not
+ * distinguishable without recording the keystroke, and pretending otherwise
+ * would be worse than saying so: BOTH numbers are in the frozen object, so a
+ * reader who needs more than the flag has it.
+ *
+ * @param {object} payload the deal as versioned
+ * @param {Record<string, number>} defaults the admin defaults in force NOW
+ */
+export function frozenTerms(payload, defaults = {}) {
+  const out = {};
+  for (const key of ['duration', 'recoveryMonths']) {
+    const raw = payload?.[key];
+    const value = raw === undefined || raw === null || raw === '' ? null : Number(raw);
+    const dflt = defaults[key] === undefined ? null : Number(defaults[key]);
+    const source = value === null ? 'absent'
+      : dflt !== null && value === dflt ? 'default'
+      : 'override';
+    out[key] = { value: Number.isFinite(value) ? value : null, default: dflt, source };
+  }
+  return out;
+}
+
+/**
+ * One sentence per frozen term, for a surface that has to show provenance.
+ *
+ * Verification 22: the flag above is required of every version, so something
+ * reads it. This is that reader, and it is used by the approval page.
+ */
+export function frozenTermsSentences(frozen, labels = { duration: 'Contract duration', recoveryMonths: 'Recovery period' }) {
+  const out = [];
+  for (const [key, t] of Object.entries(frozen ?? {})) {
+    const label = labels[key] ?? key;
+    if (t.source === 'absent') {
+      out.push({ key, source: t.source, sentence: `${label} was not recorded when this version was taken.` });
+      continue;
+    }
+    const months = `${t.value} month${t.value === 1 ? '' : 's'}`;
+    out.push({
+      key,
+      source: t.source,
+      sentence: t.source === 'default'
+        ? `${label} ${months}, the system default in force when this version was taken.`
+        : t.default === null
+          ? `${label} ${months}, entered on the deal. No system default was configured at the time.`
+          : `${label} ${months}, entered on the deal in place of the system default of ${t.default}.`,
+    });
+  }
+  return out;
+}
+
+/**
  * Recovery period must be less than or equal to contract duration.
  *
  * Returns null when the pair is acceptable, or a sentence when it is not.

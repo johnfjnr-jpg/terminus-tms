@@ -3,6 +3,7 @@ import { versionApprovalState, liveVersionApproval, APPROVAL_TRACK } from '../li
 import { buildApprovalPage } from '../lib/approval-page.js'
 import { scheduleReconciliation, refusalStatement } from '../lib/milestone-schedule.js';
 import { resolveRates, frozenRates, frozenRatesAgree } from '../lib/rate-resolution.js';
+import { frozenTerms, readSystemDefaults } from '../lib/system-defaults.js';
 import { toNumberOrNull } from '../lib/numeric-payload.js'
 import { resolveCurrentBatches, catalogToRates } from '../lib/base-costs.js'
 
@@ -398,8 +399,19 @@ export default async function dealSheetVersionsRoutes(app) {
       // otherwise tell whether $4,000 was a quotation somebody obtained or the
       // catalog figure of the day. The approval page needs that distinction and
       // the version is the only place it survives.
+      // AND THE TERMS, Round 41. Contract duration and recovery period join the
+      // freeze, each carrying the system default that was in force at the time.
+      // The values themselves are already in p_inputs; what cannot be recovered
+      // later is which default they were measured against, because an admin
+      // changing it would silently rewrite the provenance of every past version.
+      //
+      // Carried in p_rates because that column is already the priced-with blob
+      // rather than literally a rate map: it holds batches, missing and as_of
+      // too. Noted rather than migrated, and the key is named `terms` so a
+      // reader is not misled by the column's name.
       p_rates: {
         ...frozenRates(resolution),
+        terms: frozenTerms(inputs, await readSystemDefaults(db)),
         batches: catalog.batches,
         missing: catalog.missing,
         as_of: catalog.asOf,

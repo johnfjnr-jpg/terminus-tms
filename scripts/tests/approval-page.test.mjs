@@ -11,7 +11,7 @@ import {
   BRIDGE_STEPS, bridgeKeys,
 } from '../../src/lib/approval-page.js'
 import { buildDealInputs, isSet, RAW_READERS, PRODUCT_UNITS } from '../../src/lib/deal-inputs.js'
-import { appliesToDeal } from '../../src/lib/approval-page.js'
+import { appliesToDeal, ABSENCE_NOT_SUBSTITUTED } from '../../src/lib/approval-page.js'
 import { resolveRates } from '../../src/lib/rate-resolution.js'
 import { calculateDeal } from '../../src/lib/deal-calculator.js'
 import { NUMERIC_DEFAULTS } from '../../src/lib/numeric-payload.js'
@@ -511,8 +511,11 @@ const CONDITIONAL = [
 // applicability alone rather than on whether the value happens to be present.
 const BARE = { ssExisting: 10, duration: 36, targetMargin: 30, warrantyPct: 2,
   whtPct: 5, gstPct: 9, fxContingency: 0 }
+// Both kinds are the disclosure firing. 'default' says a number was assumed in
+// place of the absence; 'absent' says nothing was, and the figure is simply
+// missing. The applicability question is the same for both.
 const fired = (p) => buildNotRecorded(p, { versionReason: 'x' })
-  .filter((r) => r.kind === 'default').map((r) => r.key)
+  .filter((r) => r.kind === 'default' || r.kind === 'absent').map((r) => r.key)
 
 test('a conditional disclosure fires when the field applies', () => {
   for (const c of CONDITIONAL) {
@@ -658,26 +661,44 @@ test('EVERY default: set it and it is not reported, unset it and it is', () => {
   // factoringRatePct exactly as the original code did, so this drives the whole
   // key set through the calculator's own reader and checks both directions.
   const distinct = 7.25
-  for (const key of Object.keys(NUMERIC_DEFAULTS)) {
+  // THE POPULATION IS THE UNION, not NUMERIC_DEFAULTS alone. factoringTermMonths
+  // has no entry in that constant, so a loop over it could never reach the key
+  // and the applicability rule written for it governed nothing.
+  const POPULATION = [...new Set([...Object.keys(NUMERIC_DEFAULTS), ...Object.keys(ABSENCE_NOT_SUBSTITUTED)])]
+  assert.ok(POPULATION.includes('factoringTermMonths'), 'the union must reach the key the constant omits')
+  for (const key of POPULATION) {
     // Set it where it actually lives, which RAW_READERS is the authority on.
-    const set = key === 'factoringRatePct'
-      ? { ...NOW, factoring: { enabled: true, ratePct: distinct } }
+    const nested = key === 'factoringRatePct' || key === 'factoringTermMonths'
+    const at = key === 'factoringRatePct' ? 'ratePct' : 'termMonths'
+    const set = nested
+      ? { ...NOW, factoring: { enabled: true, [at]: distinct } }
       : { ...NOW, [key]: distinct }
     assert.equal(RAW_READERS[key](set), distinct, `${key}: the reader must see a value set at its real location`)
-    // Scoped to kind 'default', which is the claim that can be FALSE. A set
+    // Scoped to the two kinds that make a claim about the absence. A set
     // fxContingency is still reported, as 'captured, not applied', and that is a
     // different and true statement: it is recorded and no figure reads it.
     assert.ok(!buildNotRecorded(set, { versionReason: 'x' })
-      .some((r) => r.key === key && r.kind === 'default'),
+      .some((r) => r.key === key && (r.kind === 'default' || r.kind === 'absent')),
       `${key} IS set and must not be reported as an assumption nobody made`)
 
-    const unset = key === 'factoringRatePct'
-      ? { ...NOW, factoring: { enabled: true } }
-      : { ...NOW }
-    if (key !== 'factoringRatePct') delete unset[key]
-    assert.ok(buildNotRecorded(unset, { versionReason: 'x' })
-      .some((r) => r.key === key && r.kind === 'default'),
-      `${key} is NOT set and must be reported as running on a default`)
+    const unset = nested ? { ...NOW, factoring: { enabled: true } } : { ...NOW }
+    if (!nested) delete unset[key]
+    // ── AND THE KIND IS ASSERTED, NOT ONLY THE PRESENCE OF A ROW ─────────
+    //
+    // "Nobody entered a value, this is the assumption being approved" is true
+    // only where something is substituted. Ruling 5 removed the substitution
+    // behind two keys, and a row still calling those an assumption would tell
+    // the approver a number was assumed when an amount is simply missing from
+    // the total. The kind is the difference and it is checked per key.
+    const expected = ABSENCE_NOT_SUBSTITUTED[key] ? 'absent' : 'default'
+    const row = buildNotRecorded(unset, { versionReason: 'x' }).find((r) => r.key === key
+      && (r.kind === 'default' || r.kind === 'absent'))
+    assert.ok(row, `${key} is NOT set and must be disclosed`)
+    assert.equal(row.kind, expected, `${key} is disclosed with the wrong kind`)
+    if (expected === 'absent') {
+      assert.match(row.note, /Nothing is assumed in its place/)
+      assert.ok(!('value' in row), 'an absent row must not carry a default value to read as the assumption')
+    }
   }
 })
 
