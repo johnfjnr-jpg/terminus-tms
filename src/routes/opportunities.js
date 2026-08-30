@@ -1,4 +1,5 @@
 import { createUserClient } from '../supabase.js'
+import { readSystemDefaults, defaultsForStructureChange } from '../lib/system-defaults.js'
 import { recordScoreEntry } from '../lib/score-entry.js'
 import { sendWriteError, sendRefusal } from '../lib/write-errors.js'
 import { appendRecordRevision, SINGLE_KEY_RMW, readExpectedRevision } from '../lib/record-revision.js'
@@ -625,8 +626,36 @@ export default async function opportunitiesRoutes(app) {
     const expected = readExpectedRevision(request.body)
     if (expected.error) return reply.code(400).send({ error: expected.error })
 
+    // ── A CONDITIONAL FIELD'S INITIAL VALUE, ON THE TRANSITION ────────────
+    //
+    // Round 41 item 3. recoveryMonths applies only to two-phase and structure is
+    // not known at creation, so a field that exists only on two-phase deals can
+    // never get an initial value there. Without this the deal reaches two-phase
+    // with a blank recovery period, which is finding 1 surviving the round that
+    // exists to close it.
+    //
+    // A SANCTIONED CALL SITE, named in system-defaults.js and asserted by the
+    // pin test. It is a save path, which is exactly what the one-caller property
+    // forbade, and the property is amended rather than quietly widened: an
+    // initial value is written when a field COMES INTO EXISTENCE, which for a
+    // conditional field is when its governing input selects it.
+    //
+    // Only on a CHANGE of structure, and only when the field is absent, so a
+    // save that leaves the structure alone writes nothing and a cleared recovery
+    // period stays cleared.
+    let payloadToWrite = payload
+    if ('structure' in payload) {
+      const { data: currentRev } = await db
+        .from('record_revisions').select('payload')
+        .eq('record_id', record.id).order('revision_number', { ascending: false })
+        .limit(1).maybeSingle()
+      const before = currentRev?.payload ?? {}
+      const seeded = defaultsForStructureChange(before, { ...before, ...payload }, await readSystemDefaults(db))
+      if (Object.keys(seeded).length) payloadToWrite = { ...payload, ...seeded }
+    }
+
     const { data: newRevision, error: revErr } = await appendRecordRevision(
-      db, record.id, payload, request.user.id, [],
+      db, record.id, payloadToWrite, request.user.id, [],
       // Read and validated by the one shared parser, which is also what makes
       // "did the client send one" answerable in the same shape everywhere.
       expected.precondition)

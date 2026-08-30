@@ -40,9 +40,25 @@ comment on table public.system_defaults is
 alter table public.system_defaults enable row level security;
 
 -- Readable by any authenticated user, because every deal creation reads it.
--- Writable by nobody through PostgREST: changing a default is an admin act and
--- there is no admin surface yet, so the absence of a write policy is the
--- control rather than an oversight.
+--
+-- ── WHAT THE ABSENT WRITE POLICY DOES AND DOES NOT CONTROL ──────────────────
+--
+-- It controls AUTHENTICATED CLIENTS. It does not control the service role,
+-- which bypasses RLS entirely, so a select-only policy is not an enforcement
+-- against a server-side write.
+--
+-- What controls a server-side write today is that NO ROUTE PERFORMS ONE, and
+-- that rests on a measured property of this codebase rather than on a policy:
+-- `supabaseAdmin` is imported by ZERO routes, every route builds its client
+-- through `createUserClient(request.jwt)` and runs as the authenticated user,
+-- so a route written against this table gets 42501 rather than quietly working.
+-- Re-measured 2026-08-30; the claim was first established in Round 36 Phase 2
+-- and is recorded in DESIGN_PRINCIPLES.md, which also names the residual risk.
+--
+-- WHEN THE ADMIN SURFACE IS BUILT, ITS AUTHORIZATION LIVES IN THE ROUTE. Adding
+-- a write policy here would not authorize anything the service role could not
+-- already do, and reading this comment as "RLS protects the defaults" is the
+-- fail-open this wording exists to prevent.
 do $$
 begin
   if not exists (

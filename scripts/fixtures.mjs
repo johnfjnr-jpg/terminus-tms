@@ -32,6 +32,7 @@
 // typed into a comment is not derived from anything, so nothing can falsify it.
 // It sat one commit before being read.
 import { createClient } from '@supabase/supabase-js'
+import { readSystemDefaults, initialPayload } from '../src/lib/system-defaults.js'
 import { api as apiCall } from './api-client.mjs'
 import { readFileSync, writeFileSync } from 'fs'
 
@@ -57,11 +58,26 @@ async function api(method, path, body) {
   return (await apiCall(method, path, body)).data
 }
 
-// The Commercials keys a fresh fixture must NOT already hold. If any is
-// present the fixture is not fresh, whatever the file says.
+// ── WHAT "FRESH" MEANS NOW. Round 41 item 3 ────────────────────────────────
+//
+// It used to mean "holds none of the Commercials keys", which was right while a
+// new opportunity was genuinely blank. Creation now writes the ADMIN DEFAULTS
+// into the record as initial values, so `duration`, `targetMargin` and
+// `warrantyPct` are present on every new deal by design and the old assertion
+// refused every fixture.
+//
+// The purpose is unchanged: catch a reused record carrying somebody's data. The
+// definition is now EXACTLY the creation defaults and nothing else, which is a
+// STRONGER assertion than the old one rather than a relaxation of it: a fixture
+// carrying an unexpected default, or missing one it should have, now fails too.
+//
+// SEEDED_AT_CREATION is derived from the defaults table itself, not typed here,
+// so a default the business adds does not silently break every probe.
 const MUST_BE_ABSENT = [
-  'ssExisting', 'ssNew', 'aqm', 'hemir', 'duration', 'targetMargin',
-  'warrantyPct', 'installResp', 'lumpSumCost', 'recoveryMonths',
+  'ssExisting', 'ssNew', 'aqm', 'hemir', 'installResp', 'lumpSumCost',
+  // recoveryMonths is written only on the two-phase transition, never at
+  // creation, so a fresh fixture must not hold one.
+  'recoveryMonths',
 ]
 
 // Exported so it can be shown FIRING against a record that is not fresh. An
@@ -73,9 +89,24 @@ export async function assertFresh(oppId, tag) {
   if (revs.length !== 1) {
     throw new Error(`fixture ${tag} is not fresh: ${revs.length} revisions, expected 1`)
   }
-  const present = MUST_BE_ABSENT.filter((k) => k in (revs[0].payload ?? {}))
+  const payload = revs[0].payload ?? {}
+  const present = MUST_BE_ABSENT.filter((k) => k in payload)
   if (present.length) {
     throw new Error(`fixture ${tag} is not fresh: already holds ${present.join(', ')}`)
+  }
+
+  // And it must hold EXACTLY the creation defaults: a missing one means the
+  // creation path stopped applying them, which is a defect this probe should
+  // catch rather than tolerate.
+  const seeded = await readSystemDefaults(db)
+  const expected = initialPayload(seeded)
+  const missing = Object.keys(expected).filter((k) => !(k in payload))
+  if (missing.length) {
+    throw new Error(`fixture ${tag} is not fresh: creation did not apply ${missing.join(', ')}`)
+  }
+  const wrong = Object.keys(expected).filter((k) => Number(payload[k]) !== Number(expected[k]))
+  if (wrong.length) {
+    throw new Error(`fixture ${tag} carries a default that is not the configured one: ${wrong.join(', ')}`)
   }
   const versions = (await db.from('deal_sheet_versions').select('id').eq('record_id', oppId)).data
   if (versions.length !== 0) {

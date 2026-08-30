@@ -20,6 +20,19 @@
 // not recorded. It does not reappear on the next load, because nothing consults
 // this module again.
 //
+// ── WHO MAY CHANGE A DEFAULT ───────────────────────────────────────────────
+//
+// Nothing here writes to system_defaults. The table has a select policy and no
+// write policy, and that controls AUTHENTICATED CLIENTS ONLY: the service role
+// bypasses RLS, so an absent policy is not an enforcement against a server-side
+// write.
+//
+// What prevents one today is that no route performs one, and that rests on a
+// measured property rather than a declared policy: zero routes import
+// `supabaseAdmin`, and every route runs as the authenticated user through
+// `createUserClient`. Re-measured 2026-08-30. When an admin surface is built,
+// ITS AUTHORIZATION LIVES IN THE ROUTE.
+//
 // ── TWO-PHASE RECOVERY FOLLOWS THE RECOVERY PERIOD ─────────────────────────
 //
 // Ruling 5: the factoring term's initial value is 12 for hybrid, and for
@@ -80,6 +93,69 @@ export function initialPayload(defaults, { structure } = {}) {
     : structure === 'twoPhase' ? out.recoveryMonths
     : undefined;
   if (term !== undefined) out.factoring = { termMonths: term };
+
+  return out;
+}
+
+/**
+ * A CONDITIONAL field's initial value, applied when the field first comes into
+ * existence on a deal.
+ *
+ * ── THE TENSION THIS RESOLVES, AND IT IS REAL ─────────────────────────────
+ *
+ * `recoveryMonths` applies only to two-phase, and structure is not known at
+ * creation: it is absent on 502 of 562 opportunities. So a field that only
+ * exists on two-phase deals can never receive an initial value at creation, and
+ * without this the deal reaches two-phase with a blank recovery period, which is
+ * finding 1 surviving the round that exists to close it.
+ *
+ * ── CREATION IS NOT THE ONLY MOMENT A FIELD COMES INTO EXISTENCE ──────────
+ *
+ * For an unconditional field it is. For a conditional one, the field comes into
+ * being when its governing input selects it, and THAT is the moment its initial
+ * value is written. The rule is unchanged in substance: an initial value is
+ * written once, when the field starts to exist, and never consulted again.
+ *
+ * ── WRITTEN ON THE TRANSITION, NOT ON EVERY SAVE ─────────────────────────
+ *
+ * Only when the structure CHANGES into one the field applies to, and only when
+ * the field is absent. A save that leaves the structure alone writes nothing,
+ * so a cleared recovery period stays cleared for as long as the deal stays
+ * two-phase. That is what keeps this an initial value rather than a fallback.
+ *
+ * THE CONSEQUENCE, STATED RATHER THAN DISCOVERED: switching away from two-phase
+ * and back re-applies the default. The field genuinely left the deal and
+ * returned, so it is coming into existence again. Anyone who cleared it and
+ * then toggled the structure twice gets 12 back, and that is the honest reading
+ * of "when the field starts to exist" rather than an oversight.
+ *
+ * @param {object} before the payload as stored
+ * @param {object} after  the payload after the client's changes are merged
+ * @param {Record<string, number>} defaults from readSystemDefaults
+ * @returns {object} keys to write, empty when the transition does not apply
+ */
+export function defaultsForStructureChange(before, after, defaults) {
+  const was = before?.structure ?? null;
+  const now = after?.structure ?? null;
+  if (was === now) return {};
+
+  const out = {};
+  const absent = (v) => v === undefined || v === null || v === '';
+
+  if (now === 'twoPhase' && absent(after?.recoveryMonths) && defaults.recoveryMonths !== undefined) {
+    out.recoveryMonths = defaults.recoveryMonths;
+  }
+
+  // The factoring term follows the same rule, and the same split as at
+  // creation: 12 for hybrid from the table, and for two-phase the recovery
+  // period, which is what the old hardcoded Math.max(1, recov) intended.
+  const termNow = after?.factoring?.termMonths;
+  if (absent(termNow)) {
+    const term = now === 'hybrid' ? defaults.factoringTermMonths
+      : now === 'twoPhase' ? (out.recoveryMonths ?? after?.recoveryMonths)
+      : undefined;
+    if (!absent(term)) out.factoring = { ...(after?.factoring ?? {}), termMonths: term };
+  }
 
   return out;
 }

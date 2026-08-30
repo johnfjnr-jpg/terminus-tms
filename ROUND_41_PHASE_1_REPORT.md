@@ -376,3 +376,98 @@ that one reports on every deal with factoring switched off.
 
 **Both are existing behaviour and neither is in this round's scope.** Reported,
 not touched.
+
+---
+
+# Item 3 follow-ups
+
+## Follow-up 1: the no-write-policy wording, corrected
+
+**The original wording invited a fail-open** and is replaced in both its homes,
+the migration comment and `src/lib/system-defaults.js`.
+
+**What the absent write policy controls: authenticated clients only.** The
+service role bypasses RLS, so a select-only policy is not an enforcement against
+a server-side write.
+
+**What actually prevents one today is that no route performs one**, and that
+rests on a measured property rather than a declared policy. **Re-measured
+2026-08-30 rather than quoted:** `supabaseAdmin` is imported by **zero routes**;
+every route builds its client through `createUserClient(request.jwt)` and runs
+as the authenticated user, so a route written against this table gets `42501`
+rather than quietly working. The claim was first established in Round 36 Phase 2
+and is recorded in `DESIGN_PRINCIPLES.md`, which also names the residual risk.
+
+**When the admin surface is built, its authorization lives in the route.** Adding
+a write policy would not authorize anything the service role could not already
+do.
+
+## Follow-up 2: the nine keys not seeded, each reasoned
+
+`NUMERIC_DEFAULTS` holds **thirteen** keys; the migration seeds **five**, of
+which `factoringTermMonths` is not in the constant. So **four of thirteen are
+seeded and nine are not**, and the union is fourteen.
+
+| key | why it is NOT seeded |
+|---|---|
+| `whtPct` | Withholding is a property of the customer's jurisdiction, not a house policy. A seeded rate would be the system asserting a tax position for a customer nobody has looked up. Absent is the honest starting state and the sheet says so. |
+| `gstPct` | Same, and measured: 406 of 467 carry none, one live deal carries 8 which is a statutory step out of date, and the round that surfaced it decided the rate is per deal. Seeding one would re-create the confident-GST-free price from the other direction. |
+| `fxContingency` | Read by nothing: `buildDealInputs` does not consult it and `calculateDeal` has no currency handling. Seeding a default for a field that reaches no figure would put a number in the record with no consequence, which is worse than absent because it looks decided. |
+| `factoringRatePct` | Factoring is off by default and the rate applies only when it is on. Seeding it would prefill a field for a facility nobody is using, which is the same fault the applicability work just removed from the approval page. |
+| **`ssExisting`** | **Zero is a real value for a unit count, so a blank at creation is a claim and it is this: nobody has said how many yet.** A seeded 0 would say "this deal has no SafeSight on existing infrastructure", which is a priced statement, not an empty form. The two are different and the screen must be able to hold both. |
+| **`ssNew`** | Same, and it is the commoner half: most deals are existing-infrastructure or new, not both, so a seeded 0 on one of them would be right by luck about half the time. |
+| **`aqm`** | Same. A deal with no AQ sensors is ordinary, which is exactly why a seeded 0 is indistinguishable from an unanswered question. |
+| **`hemir`** | Same, and the sharpest case: HEMIR is the least common product, so a seeded 0 would be correct on most deals and would still be a statement nobody made. Being usually right is what would make it invisible. |
+| `lumpSumCost` | Applies only to `Terminus Contractor - Lump Sum`, and a lump sum of zero is not a value anybody enters, which is why it was ruled into `ZERO_IS_NOT_A_VALUE`. Seeding it would prefill a field that does not apply on three of four installation types. |
+
+**The unit counts are the four that deserved the care.** For every other key,
+absence and zero are distinguishable by argument. For these, **zero is a real
+answer**, so the claim being made by not seeding them is specific and worth
+stating: **a blank unit count means nobody has said how many, and a zero means
+somebody said none.** The screen must be able to hold both, and a seeded zero
+would delete one of the two states permanently.
+
+## Follow-up 3: the one-caller tension, resolved by amending the property
+
+**The tension is real.** `recoveryMonths` applies only to two-phase, structure is
+absent on 502 of 562 opportunities, and a field that exists only on two-phase
+deals can therefore never receive an initial value at creation. Left there,
+every two-phase deal reaches the screen with a blank recovery period, which is
+**finding 1 surviving the round that exists to close it.**
+
+**Structure selection IS a write site, and the property is amended rather than
+widened.** The substance is unchanged: **an initial value is written when a
+field comes into existence.** Creation is that moment for an unconditional
+field; for a conditional one it is when its governing input selects it.
+
+**By what path, exactly.** `PATCH /api/opportunities/:id`, when `structure` is
+in the sent payload, reads the current revision, and calls
+`defaultsForStructureChange(before, merged, defaults)`. It writes only when the
+structure **changes** into one the field applies to **and** the field is absent.
+
+| event | recovery period |
+|---|---|
+| deal created, no structure | absent |
+| structure set to `twoPhase` | **12 written** |
+| any later save, structure unchanged | untouched |
+| user clears it, stays two-phase | **stays cleared** |
+| structure set to `hybrid` | untouched, field no longer applies |
+| user sets 6 themselves, then changes structure | untouched, never overwritten |
+
+**The sanctioned sites are named and pinned:** `contacts.js`, `test-beds.js`,
+`opportunities.js`, plus the module that defines the reader. A fourth fails the
+test. Adding one is an amendment to the property recorded in
+`system-defaults.js`, not a convenience.
+
+**One consequence, stated rather than discovered.** Switching away from
+two-phase and back **re-applies the default**. The field genuinely left the deal
+and returned, so it is coming into existence again. Somebody who clears it and
+toggles the structure twice gets 12 back. That is the honest reading of "when
+the field starts to exist", and there is a test named for it, so if it is ever
+judged wrong the fix is to record that the field was cleared and that test is
+where the change announces itself.
+
+**Finding 1 residue does not survive.** A two-phase deal now receives its
+recovery period at the moment it becomes two-phase, and the blank state remains
+reachable only by somebody deliberately clearing it, which the state table then
+blocks at the version.
