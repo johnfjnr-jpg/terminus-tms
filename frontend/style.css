@@ -4571,6 +4571,34 @@ input.input-invalid {
 }
 .deal-pair-col { min-width: 0; }
 
+/* ── SECTIONS 1 AND 2, SIDE BY SIDE. Round 41 item 5 ───────────────────────
+   ASYMMETRIC ON PURPOSE. The brief's own warning is that the installation text
+   is three paragraphs and two narrow columns will crowd it. The left column is
+   sized to the Units box it holds, 340px, and the right column takes the rest,
+   so the prose gets ~500px at 1240 rather than the ~420px an even split would
+   leave it.
+
+   It collapses to one column below 1100px on the same threshold the other pair
+   used, because two columns of anything in half a laptop width is worse than
+   scrolling. */
+.deal-section--intake {
+  display: grid;
+  grid-template-columns: minmax(0, 340px) minmax(0, 1fr);
+  gap: 32px;
+  align-items: start;
+}
+@media (max-width: 1100px) {
+  .deal-section--intake { grid-template-columns: minmax(0, 1fr); }
+}
+.deal-intake-col { min-width: 0; display: block; }
+.deal-intake-col + .deal-intake-col { padding-top: 0; }
+
+/* Cash flow, below and on the left. Capped rather than full-bleed: the grid
+   scrolls horizontally whatever width it is given, so extra width buys nothing
+   and costs the distance between a row label and its figures. */
+.deal-cashflow-col { max-width: 940px; }
+.deal-payment-col { min-width: 0; }
+
 /* A line priced away from target margin. Round 40 Phase 1: the eleven inputs
    are gone and the column now displays the effective margin, so the one thing
    it must still distinguish is a default from a decision. */

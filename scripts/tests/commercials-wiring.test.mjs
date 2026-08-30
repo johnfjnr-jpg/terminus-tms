@@ -537,6 +537,36 @@ test('Units Required is one box of four rows with four-figure inputs', () => {
   assert.equal((box.match(/class="unit-card"/g) || []).length, 4, 'four rows')
 })
 
+test('the ruled layout: two side-by-sides, and cash flow is its own section', () => {
+  // Round 41 item 5, on the business's ruling superseding the Phase 0 brief.
+  // Asserted on the STRUCTURE rather than on the presence of classes, because
+  // "the sections exist" was true before the change and after it.
+  const html = readCode(new URL('../../frontend/index.html', import.meta.url))
+  const css = readCode(new URL('../../frontend/style.css', import.meta.url))
+
+  assert.match(html, /<div class="deal-section deal-section--intake" id="deal-sections-1-2">/)
+  assert.match(html, /<section class="deal-intake-col" id="deal-section-1">/)
+  assert.match(html, /<section class="deal-intake-col" id="deal-section-2">/)
+  assert.match(html, /<section class="deal-section" id="deal-section-6">/)
+  // Section 5 is no longer a pair, and cash flow is not inside it.
+  assert.match(html, /<section class="deal-section" id="deal-section-5">/)
+  assert.ok(html.indexOf('id="deal-cashflow-grid"') > html.indexOf('id="deal-section-6"'),
+    'the grid must be inside section 6, not left behind in the payment terms pair')
+
+  // ASYMMETRIC ON PURPOSE, which is the brief's own warning made into a rule:
+  // the installation text is three paragraphs and two narrow columns crowd it.
+  assert.match(css, /\.deal-section--intake \{[^}]*grid-template-columns: minmax\(0, 340px\) minmax\(0, 1fr\)/,
+    'equal halves would give the prose ~420px at 1240 to save nothing')
+  assert.match(css, /\.deal-cashflow-col \{ max-width: 940px; \}/,
+    'on the left means capped: the grid scrolls whatever width it is given')
+
+  // The supersession is recorded where the superseded decision lives, or a
+  // later reader finds the old one and relives the conflict.
+  const phase0 = readFileSync(new URL('../../COMMERCIALS_RESHAPE_PHASE_0_BRIEF.md', import.meta.url), 'utf8')
+  assert.match(phase0, /~~\*\*Payment Terms and Cash Flow, side by side\*\*~~/)
+  assert.match(phase0, /SUPERSEDED 2026-08-30 BY THE BUSINESS, Round 41/)
+})
+
 test('FINDING 3: a year cell may not be given less room than its own glyphs', () => {
   // Measured at 1240 before the fix: `flex: 1 1 0` gave four nowrap numeric
   // columns 216px between them, the three year figures overlapped by 27px each

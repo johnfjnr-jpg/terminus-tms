@@ -18,6 +18,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync, readdirSync } from 'fs'
+import { JSDOM } from 'jsdom'
 import { readCode } from '../lib/strip-comments.mjs'
 
 const ROOT = new URL('../../frontend/', import.meta.url).pathname
@@ -182,15 +183,41 @@ test('no comment swallows a tag, and the five sections are siblings', () => {
   assert.ok(/<\/?(section|div)\b/.test(planted.slice(0, planted.indexOf('-->'))),
     'the scan cannot detect the thing it is scanning for')
 
-  // The five sections are SIBLINGS, in order, directly inside the tab. This is
-  // the property the comment fault actually broke, and it is asserted on the
-  // markup rather than inferred from the comment check above.
-  const tab = html.slice(html.indexOf('id="opp-tab-commercial"'))
-  const ids = [...tab.matchAll(/<section class="deal-section[^"]*" id="(deal-section-\d)"/g)].map((m) => m[1])
-  assert.deepEqual(ids, ['deal-section-1', 'deal-section-2', 'deal-section-3', 'deal-section-4', 'deal-section-5'])
-  const opens = (tab.match(/<section\b/g) ?? []).length
-  const closes = (tab.slice(0, tab.indexOf('<!-- Assessment')).match(/<\/section>/g) ?? []).length
-  assert.equal(closes, opens, 'a section is not closed, so the next one nests inside it')
+  // ── THE PARENTAGE, WALKED RATHER THAN COUNTED ────────────────────────
+  //
+  // This was a regex listing section ids in document order, which is a COUNT
+  // dressed as a structure: it would have reported the same list whether the
+  // sections were siblings or nested one inside another, which is the exact
+  // fault it exists to catch (CLAUDE.md rule 33, a count is not a structure).
+  //
+  // It survived only because the flat list happened to change when the ruled
+  // layout changed. Rewritten in Round 41 to ask the DOM who each section's
+  // parent is.
+  //
+  // The ruled structure after Round 41 item 5: sections 1 and 2 are side by
+  // side inside an intake wrapper, and 3, 4, 5 and 6 are siblings of it.
+  const doc = new JSDOM(html).window.document
+  const tab = doc.getElementById('opp-tab-commercial')
+  assert.ok(tab, 'the Commercials panel must exist for its structure to be checked')
+
+  const parentOf = (id) => doc.getElementById(id)?.parentElement?.id || null
+  assert.equal(parentOf('deal-sections-1-2'), 'opp-tab-commercial')
+  assert.equal(parentOf('deal-section-1'), 'deal-sections-1-2', 'Units Required is the left intake column')
+  assert.equal(parentOf('deal-section-2'), 'deal-sections-1-2', 'Installation is the right intake column')
+  for (const id of ['deal-section-3', 'deal-section-4', 'deal-section-5', 'deal-section-6']) {
+    assert.equal(parentOf(id), 'opp-tab-commercial', `${id} must be a direct child of the tab, not nested in its neighbour`)
+  }
+
+  // In order, and directly under the tab: the wrapper then the four sections.
+  const top = [...tab.children].filter((el) => el.id && /^deal-section/.test(el.id)).map((el) => el.id)
+  assert.deepEqual(top, ['deal-sections-1-2', 'deal-section-3', 'deal-section-4', 'deal-section-5', 'deal-section-6'])
+
+  // CALIBRATION, because a parentage walk that cannot see nesting is the same
+  // count wearing a better name. Verification 9.
+  const broken = new JSDOM(html.replace('</div>\n\n      <section class="deal-section" id="deal-section-3">',
+    '<section class="deal-section" id="deal-section-3">')).window.document
+  assert.notEqual(broken.getElementById('deal-section-3')?.parentElement?.id, 'opp-tab-commercial',
+    'the walk must be able to SEE a section that has nested inside its neighbour')
 })
 
 test('the scan can SEE a class with no rule', () => {

@@ -1762,7 +1762,19 @@
            by side. The detail panel beside the summary is Phase 3. -->
       <!-- ── SECTION 1: Units Required ─────────────────────────────────── -->
       <!-- Computed pricing stays here in Phase 2. It is the detail the layout moves beside the summary in Phase 3, and moving it now would be doing that phase. -->
-      <section class="deal-section" id="deal-section-1">
+      <!-- ── SECTIONS 1 AND 2, SIDE BY SIDE ────────────────────────────
+           Round 41 item 5, on the business's ruling, superseding the Phase 0
+           brief's numbered order of separate sections. Recorded in place in
+           COMMERCIALS_RESHAPE_PHASE_0_BRIEF.md.
+
+           NOT TWO EQUAL COLUMNS. The brief warned that the installation text
+           is three paragraphs and two narrow columns would crowd it, so the
+           left column is sized to the Units box it holds and the right column
+           takes everything else. Equal halves would have given the prose 420px
+           at 1240 to save nothing: a four-row box of two-digit counts does not
+           want half the screen. -->
+      <div class="deal-section deal-section--intake" id="deal-sections-1-2">
+      <section class="deal-intake-col" id="deal-section-1">
         <p class="section-title">Units Required</p>
         <div class="unit-cards">
           <div class="unit-card">
@@ -1810,7 +1822,7 @@
       </section>
 
       <!-- ── SECTION 2: Installation ─────────────────────────────────── -->
-      <section class="deal-section" id="deal-section-2">
+      <section class="deal-intake-col" id="deal-section-2">
         <p class="section-title">Installation</p>
         <div class="form-grid">
           <!-- Round 39: entry explains itself. Phase 0 measured this control as
@@ -1935,6 +1947,8 @@
       </section>
 
       <!-- ── SECTION 3: Structural Terms ─────────────────────────────────── -->
+      </div>
+
       <section class="deal-section" id="deal-section-3">
         <p class="section-title">Structural Terms</p>
         <div class="terms-cards">
@@ -2207,8 +2221,8 @@
       </section>
 
       <!-- ── SECTION 5: Payment Terms and Cash Flow, SIDE BY SIDE ──────── -->
-      <section class="deal-section deal-section--pair" id="deal-section-5">
-        <div class="deal-pair-col">
+      <section class="deal-section" id="deal-section-5">
+        <div class="deal-payment-col">
           <p class="section-title">Payment Terms</p>
         <!-- Round 39 item 2: Contract duration MOVED to Structural Terms, beside
              the margin controls. It is a commercial lever, not a payment term:
@@ -2340,16 +2354,28 @@
         </div>
 
         </div>
-        <div class="deal-pair-col">
-        <div style="margin-top:28px">
-          <p class="section-title">Cash flow (USD)</p>
+      </section>
+
+      <!-- ── SECTION 6: Cash flow, BELOW AND ON THE LEFT ─────────────────
+           Round 41 item 5, on the business's ruling, superseding the Phase 0
+           brief's "Payment Terms and Cash Flow, side by side". The supersession
+           is recorded in place in COMMERCIALS_RESHAPE_PHASE_0_BRIEF.md rather
+           than only here, so a reader of that document is not left holding the
+           decision it replaced.
+
+           ON THE LEFT means capped, not full-bleed: the grid scrolls
+           horizontally whatever width it is given, so extra width buys nothing
+           and costs the reading distance between a row label and its figures.
+           Same reasoning as the merged panel's own cap. -->
+      <section class="deal-section" id="deal-section-6">
+        <p class="section-title">Cash flow (USD)</p>
+        <div class="deal-cashflow-col">
           <div class="cashflow-scroll" id="deal-cashflow-grid"></div>
           <p class="empty-state hidden" id="deal-cashflow-empty" style="text-align:left;padding:16px 0">Set the Contract Duration to model the monthly cash flow.</p>
           <div style="display:flex;justify-content:space-between;gap:12px;padding-top:14px">
             <span class="label">Closing position over contract</span>
             <span class="stat-value" id="deal-cashflow-closing" style="color:var(--green)">--</span>
           </div>
-        </div>
         </div>
       </section>
 

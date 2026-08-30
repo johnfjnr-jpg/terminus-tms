@@ -92,7 +92,32 @@ reshape of empty sections rather than a rewrite of working ones.
 3. **Structural Terms**
 4. **Deal Sheet Summary**, live, with detail expandable **horizontally beside
    it** on request
-5. **Payment Terms and Cash Flow, side by side**
+5. ~~**Payment Terms and Cash Flow, side by side**~~
+
+> **SUPERSEDED 2026-08-30 BY THE BUSINESS, Round 41, and the wording above is
+> struck through rather than deleted so this conflict cannot be relived.**
+>
+> `ROUND_41_BRIEF.md` item 5 asks for a layout this section did not anticipate,
+> and Round 41's items 5 and 6 report raised the contradiction rather than
+> building past it:
+>
+> - **Units Required and Installation become a SECOND side-by-side**, sections 1
+>   and 2 paired, Units on the left and Installation on the right.
+> - **Cash Flow leaves the pair** and sits below Payment Terms, on the left.
+>
+> **Conditional on the installation text surviving 1240.** The business's own
+> condition: if the three paragraphs wrap mid-word, clip, or fall below readable
+> width, the build stops and reports with the capture rather than shipping.
+>
+> **The numbered order of the sections is otherwise unchanged**, and everything
+> else in this section still stands: no sub-tabs, one scrolling screen, the
+> detail expandable horizontally beside the summary.
+>
+> A later reader looking for "the decided layout" should read this brief AND
+> `ROUND_41_BRIEF.md` item 5 together. `CLAUDE.md` Verification 23 is why this
+> note exists: two correct decisions about the same behaviour, taken in different
+> rounds, produce a conflict nothing detects, and Round 39 already lost its
+> structural half to reading past this very section.
 
 ### The detail panel
 

@@ -118,16 +118,99 @@ const measure = async (width) => {
     const style = (el) => { if (!el) return null; const c = getComputedStyle(el); return { text: el.textContent.trim(), fontSize: c.fontSize, fontWeight: c.fontWeight, color: c.color, cls: el.className, top: rect(el).y } }
     const margin = { strip: style(one), card: style(two) }
 
-    return { ysData, cashflow, order, margin, viewportH: window.innerHeight }
+    // ── THE CONDITION ON THE SUPERSESSION. Round 41 item 5 ─────────────
+    //
+    // The business's own condition: the second side-by-side ships ONLY if the
+    // installation text survives 1240. If the three paragraphs wrap mid-word,
+    // clip, or fall below readable width, the build stops.
+    //
+    // READABLE WIDTH is stated as a measure rather than assumed: typography's
+    // working range for a line of prose is roughly 45 to 90 characters, and the
+    // measure here is the characters that fit on a line at the rendered font
+    // size, computed from a measured average glyph advance rather than a guess.
+    const col2 = document.getElementById('deal-section-2')
+    // HIDDEN IS NOT CRUSHED, and the first version of this could not tell them
+    // apart: a hidden paragraph has a zero box, which the readable-width test
+    // reported as "below readable width". Two of six read as failures on both
+    // widths for a reason that had nothing to do with the layout. Verification
+    // 14: a comparison reached with nothing on either side is not a comparison.
+    // They are measured separately, in the installation state that shows them.
+    const notes = col2
+      ? [...col2.querySelectorAll('.field-note')]
+        .filter((p) => p.textContent.trim().length > 60 && p.getBoundingClientRect().width > 0)
+      : []
+    const probeEl = document.createElement('span')
+    const install = notes.map((p) => {
+      const cs = getComputedStyle(p)
+      const r = p.getBoundingClientRect()
+      // Average advance for this font at this size, measured on the paragraph's
+      // own text rather than assumed from the font size.
+      probeEl.style.cssText = `position:absolute;visibility:hidden;white-space:pre;font:${cs.font}`
+      probeEl.textContent = p.textContent.trim()
+      document.body.appendChild(probeEl)
+      const advance = probeEl.getBoundingClientRect().width / Math.max(1, probeEl.textContent.length)
+      probeEl.remove()
+      const lineHeight = parseFloat(cs.lineHeight) || (parseFloat(cs.fontSize) * 1.4)
+      return {
+        text: p.textContent.trim().slice(0, 44) + '…',
+        chars: p.textContent.trim().length,
+        boxW: Math.round(r.width),
+        charsPerLine: Math.round(r.width / advance),
+        lines: Math.round(r.height / lineHeight),
+        // A word wider than its box is what "wrap mid-word" looks like in CSS:
+        // the browser either overflows it or breaks it. Both are failures.
+        overflows: p.scrollWidth > p.clientWidth + 1,
+        wordBreak: cs.overflowWrap === 'break-word' || cs.wordBreak === 'break-all',
+      }
+    })
+    const colW = col2 ? Math.round(col2.getBoundingClientRect().width) : null
+
+    return { ysData, cashflow, order, margin, install, colW, viewportH: window.innerHeight }
   })
 }
 
 const out = {}
 for (const w of [1240, 1920]) out[w] = await measure(w)
 
+// THE OTHER INSTALLATION STATE, so the two paragraphs hidden under per-unit are
+// measured in the state that shows them rather than reported as unmeasurable.
+// The condition is about the column, and the column holds different prose
+// depending on who installs.
+const lumpSum = {}
+for (const w of [1240, 1920]) {
+  await page.setViewport({ width: w, height: 1000 })
+  await page.evaluate(() => {
+    const sel = document.getElementById('deal-installResp')
+    if (!sel) return
+    sel.value = [...sel.options].find((o) => /lump sum/i.test(o.value))?.value ?? sel.value
+    sel.dispatchEvent(new Event('change', { bubbles: true }))
+  })
+  await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))))
+  lumpSum[w] = await page.evaluate(() => {
+    const col2 = document.getElementById('deal-section-2')
+    const probeEl = document.createElement('span')
+    return [...col2.querySelectorAll('.field-note')]
+      .filter((p) => p.textContent.trim().length > 60 && p.getBoundingClientRect().width > 0)
+      .map((p) => {
+        const cs = getComputedStyle(p)
+        const r = p.getBoundingClientRect()
+        probeEl.style.cssText = `position:absolute;visibility:hidden;white-space:pre;font:${cs.font}`
+        probeEl.textContent = p.textContent.trim()
+        document.body.appendChild(probeEl)
+        const advance = probeEl.getBoundingClientRect().width / Math.max(1, probeEl.textContent.length)
+        probeEl.remove()
+        const lineHeight = parseFloat(cs.lineHeight) || (parseFloat(cs.fontSize) * 1.4)
+        return { text: p.textContent.trim().slice(0, 44) + '…', boxW: Math.round(r.width),
+          charsPerLine: Math.round(r.width / advance), lines: Math.round(r.height / lineHeight),
+          overflows: p.scrollWidth > p.clientWidth + 1 }
+      })
+  })
+}
+
 // Captures, of the regions the findings are in, after scrolling them into view.
 for (const [w, sel, name] of [[1240, '#deal-section-5', 'section5'], [1920, '#deal-section-5', 'section5'],
-  [1240, '#deal-section-1', 'section1'], [1920, '#deal-section-1', 'section1']]) {
+  [1240, '#deal-sections-1-2', 'intake'], [1920, '#deal-sections-1-2', 'intake'],
+  [1240, '#deal-section-6', 'cashflow'], [1920, '#deal-section-6', 'cashflow']]) {
   await page.setViewport({ width: w, height: 1200 })
   await page.evaluate((s) => document.querySelector(s)?.scrollIntoView(), sel)
   await new Promise((r) => setTimeout(r, 400))
@@ -155,6 +238,16 @@ for (const [w, m] of Object.entries(out)) {
   console.log(`    overflow announced: class ${m.cashflow.hasFade}, mask applied ${m.cashflow.maskApplied}`)
   console.log('  FINDING 5, save order:')
   console.log(`    Save version at y=${m.order.saveVersionTop}, Save changes at y=${m.order.saveChangesTop}, version above: ${m.order.versionIsAbove} (${m.order.documentOrder})`)
+  console.log(`  ITEM 5 CONDITION, the installation column is ${m.colW}px:`)
+  for (const p of m.install) {
+    const verdict = p.overflows ? 'OVERFLOWS' : p.charsPerLine < 45 ? 'BELOW READABLE WIDTH' : 'ok'
+    console.log(`    ${String(p.charsPerLine).padStart(3)} chars/line, ${p.lines} lines, box ${p.boxW}px  ${verdict}  "${p.text}"`)
+  }
+  console.log(`  ITEM 5 CONDITION, lump sum installation, same column:`)
+  for (const p of (lumpSum[w] ?? [])) {
+    const verdict = p.overflows ? 'OVERFLOWS' : p.charsPerLine < 45 ? 'BELOW READABLE WIDTH' : 'ok'
+    console.log(`    ${String(p.charsPerLine).padStart(3)} chars/line, ${p.lines} lines, box ${p.boxW}px  ${verdict}  "${p.text}"`)
+  }
   console.log('  FINDING 6, the achieved margin renderings:')
   console.log(`    strip: ${JSON.stringify(m.margin.strip)}`)
   console.log(`    card : ${JSON.stringify(m.margin.card)}`)
