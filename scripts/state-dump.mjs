@@ -365,6 +365,22 @@ w('')
 // It exists because `reshape-complete` names a property its commit does not
 // have: the reshape was completed a round later. Nothing showed that, because
 // nothing recorded where the tags were.
+//
+// ── AND IT READS ORIGIN, NOT LOCAL. CLAUDE.md rule 35 ─────────────────────
+//
+// On its FIRST generation this section would have published a wrong fact with
+// full confidence: local `reshape-complete` pointed at 46f3fdf and origin at
+// 3499884, because the tag had been force-moved after being pushed.
+//
+// A generated file is read as authoritative, so it reports the PUBLISHED
+// position, and a local tag disagreeing with it is stated as a disagreement
+// rather than resolved silently in either direction. Silently preferring either
+// one is the fault; the disagreement is the finding.
+//
+// `git ls-remote` needs the network. When it is unavailable the row says so
+// rather than falling back to local and calling it fact, because a fallback
+// that changes the MEANING of a column without changing its heading is how the
+// wrong fact gets published in the first place.
 w('## Tags')
 w('')
 try {
@@ -373,13 +389,28 @@ try {
   if (!tags.length) {
     w('No tags.')
   } else {
-    w('| tag | commit | date | commits from `HEAD` |')
-    w('|---|---|---|---|')
+    let remote = null
+    try {
+      remote = new Map(execFileSync('git', ['ls-remote', '--tags', 'origin'], { encoding: 'utf8', timeout: 15000 })
+        .split('\n').filter(Boolean).map((l) => l.split('\t'))
+        .filter(([, ref]) => ref.endsWith('^{}'))
+        .map(([sha, ref]) => [ref.replace('refs/tags/', '').replace('^{}', ''), sha]))
+    } catch { /* offline: say so below rather than substituting local */ }
+
+    w('| tag | published commit | date | commits from `HEAD` | local agrees |')
+    w('|---|---|---|---|---|')
     for (const t of tags) {
-      const sha = execFileSync('git', ['rev-list', '-n', '1', t], { encoding: 'utf8' }).trim()
-      const date = execFileSync('git', ['log', '-1', '--format=%ad', '--date=short', sha], { encoding: 'utf8' }).trim()
-      const ahead = execFileSync('git', ['rev-list', '--count', `${sha}..HEAD`], { encoding: 'utf8' }).trim()
-      w(`| \`${t}\` | \`${sha.slice(0, 7)}\` | ${date} | ${ahead} |`)
+      const local = execFileSync('git', ['rev-list', '-n', '1', t], { encoding: 'utf8' }).trim()
+      const published = remote?.get(t) ?? null
+      const shown = published ?? local
+      const date = execFileSync('git', ['log', '-1', '--format=%ad', '--date=short', shown], { encoding: 'utf8' }).trim()
+      let ahead = ''
+      try { ahead = execFileSync('git', ['rev-list', '--count', `${shown}..HEAD`], { encoding: 'utf8' }).trim() } catch { ahead = 'unknown' }
+      const agrees = remote === null ? 'origin unreachable, local shown'
+        : published === null ? 'not on origin'
+        : published === local ? 'yes'
+        : `NO, local is \`${local.slice(0, 7)}\``
+      w(`| \`${t}\` | \`${shown.slice(0, 7)}\` | ${date} | ${ahead} | ${agrees} |`)
     }
   }
 } catch (e) {

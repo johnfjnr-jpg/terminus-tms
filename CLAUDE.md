@@ -1436,6 +1436,50 @@ of the change. An unanswerable precondition is a stop.
     the moving is done with the code open rather than by a script that does not
     read what it carries.
 
+35. **FOR ANYTHING PUBLISHED, ORIGIN IS THE SOURCE OF TRUTH, NOT LOCAL.**
+    Round 40 close, 2026-08-30, set by the business.
+
+    **A generated section that reads LOCAL state and calls it fact will publish
+    a wrong fact with full confidence.** `CURRENT_STATE.md` gained a tags table
+    and was one generation away from doing exactly that: local
+    `reshape-complete` pointed at `46f3fdf`, origin at `3499884`, and the
+    generator read local.
+
+    **The check: where a generated fact has a published counterpart, generate it
+    from the PUBLISHED side, or generate both and let a disagreement FAIL rather
+    than resolve silently.** Silently preferring either one is the fault; the
+    disagreement is the finding.
+
+    It is the same shape as Verification 20, two readers of one value, with the
+    twist that one reader is a machine writing a document other people will
+    quote. **A file that says "generated" is read as authoritative**, which is
+    what makes a wrong fact in it worse than a wrong sentence anywhere else.
+
+36. **RULE 32 BINDS THE TOOLING AND THE AGENT, NOT JUST THE FILE.** Round 40
+    close, 2026-08-30, set by the business.
+
+    A cited identifier cannot be reordered, **and it cannot be force-moved
+    either**. Rule 32 was written about renumbering rules in a document. The same
+    week, its author force-moved a published git tag five times.
+
+    **THE MECHANISM, ESTABLISHED FROM THE RECORD RATHER THAN RECALLED, and it is
+    the part that generalises.** No script and no helper: a hand-written
+    `git tag -f -a reshape-complete` in an ordinary command, issued after the tag
+    had already been pushed, without checking whether it had been. Nothing in
+    `scripts/`, `.githooks/` or `package.json` touches tags at all.
+
+    **AND THE OPERATION HAS TWO SPELLINGS, ONLY ONE OF WHICH CONTAINS THE WORD
+    "FORCE".** Counted across the session: `git tag -f` eight times, and
+    `git tag -d <name>` followed by `git tag -a <name>` eleven times. The
+    delete-and-recreate form needs no flag, reads as housekeeping, and moves a
+    published identifier just as completely.
+
+    **So a rule phrased as "never force-move a tag" leaves the more common route
+    open**, and a guard grepping for `-f` would catch the minority case. The rule
+    is about the EFFECT: after a tag is published, nothing may change which
+    commit it names, by any spelling. Supersede it with a new name instead, and
+    record what the old one covers (`DESIGN_PRINCIPLES.md`).
+
 ### At round close: index these by when they apply
 
 **Raised by the business 2026-08-29, Round 39. Not a trim, an index.**

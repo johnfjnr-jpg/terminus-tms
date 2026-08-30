@@ -966,6 +966,23 @@ before each edit and a crash leaves a `pending` entry the hook refuses on.
   one. What is not acceptable is leaving them as the thing the rule was written
   about.
 
+- **WHAT ELSE DOES THE REPOSITORY ASSERT THAT NOTHING REGENERATES FROM A
+  PUBLISHED SOURCE OF TRUTH? Raised 2026-08-30 by the business, Round 40, and
+  deliberately NOT answered in the round that raised it.**
+
+  The tags section was one generation from publishing a wrong fact, because it
+  read local state and called it fact. **That is a class, and the class was
+  recorded and stopped there rather than becoming a wider audit mid-round.**
+
+  The question for a later round: which other assertions in this repository
+  describe something whose authoritative copy lives elsewhere - origin, the
+  database, a hosting environment - and are generated or written from the local
+  copy instead. `CURRENT_STATE.md`'s migration list is one candidate, since it
+  reads the directory rather than the ledger and that gap is already on this
+  list. There will be others.
+
+  Trigger: after the Round 40 walks and the scratch project, not before.
+
 ### What `reshape-complete` covers, and what it does not
 
 **Recorded 2026-08-30 at the Round 40 close, on the business's instruction.
