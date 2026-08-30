@@ -1,5 +1,5 @@
 import { createUserClient } from '../supabase.js'
-import { readSystemDefaults, defaultsForStructureChange } from '../lib/system-defaults.js'
+import { readSystemDefaults, defaultsForConditionalFields } from '../lib/system-defaults.js'
 import { recordScoreEntry } from '../lib/score-entry.js'
 import { sendWriteError, sendRefusal } from '../lib/write-errors.js'
 import { appendRecordRevision, SINGLE_KEY_RMW, readExpectedRevision } from '../lib/record-revision.js'
@@ -640,17 +640,22 @@ export default async function opportunitiesRoutes(app) {
     // initial value is written when a field COMES INTO EXISTENCE, which for a
     // conditional field is when its governing input selects it.
     //
-    // Only on a CHANGE of structure, and only when the field is absent, so a
-    // save that leaves the structure alone writes nothing and a cleared recovery
-    // period stays cleared.
+    // Only on a CHANGE of the governing input, and only when the field is
+    // absent, so a save that leaves it alone writes nothing and a cleared field
+    // stays cleared.
+    //
+    // TWO GOVERNING INPUTS, NOT ONE. The recovery period's is `structure`; the
+    // factoring term's is `factoring.enabled`. The first version of this block
+    // gated on `structure` alone, which meant the factoring term was written by
+    // a structure change and never by switching factoring on.
     let payloadToWrite = payload
-    if ('structure' in payload) {
+    if ('structure' in payload || 'factoring' in payload) {
       const { data: currentRev } = await db
         .from('record_revisions').select('payload')
         .eq('record_id', record.id).order('revision_number', { ascending: false })
         .limit(1).maybeSingle()
       const before = currentRev?.payload ?? {}
-      const seeded = defaultsForStructureChange(before, { ...before, ...payload }, await readSystemDefaults(db))
+      const seeded = defaultsForConditionalFields(before, { ...before, ...payload }, await readSystemDefaults(db))
       if (Object.keys(seeded).length) payloadToWrite = { ...payload, ...seeded }
     }
 

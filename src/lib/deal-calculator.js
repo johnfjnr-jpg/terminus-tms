@@ -216,18 +216,44 @@ export function buildCashFlowModel({
   // period, and 0 would say "recovers over zero months", which is the exact
   // confident-zero the round is removing elsewhere. Consumers below read it
   // only where it exists.
+  //
+  // AND THE `|| 0` GOES WITH THE OTHER FALLBACK, Round 41 ruling 5's neighbour.
+  // A blank recovery period on two-phase read as 0 here, which is the same
+  // confident zero: "recovers over zero months" is a value, and nobody entered
+  // it. The arithmetic below is unchanged, because `null > 0` and `m <= null`
+  // are both false exactly where `0` was, but `recov` now REPORTS an absence
+  // instead of reporting a number nobody chose.
+  // Number(null) is 0 and Number.isFinite(0) is true, so absence has to be
+  // tested for BEFORE the conversion or the coercion comes straight back in
+  // through the guard meant to remove it.
+  const recovAbsent = recoveryMonths === null || recoveryMonths === undefined || recoveryMonths === '';
+  const recovRaw = recovAbsent ? null : Number(recoveryMonths);
   const recov = structure === 'single' ? months
-    : structure === 'twoPhase' ? (recoveryMonths || 0)
+    : structure === 'twoPhase' ? (recovRaw !== null && Number.isFinite(recovRaw) ? recovRaw : null)
     : null;
   const msPctTotal = milestones.reduce((s, m) => s + m.pct, 0);
   const due = milestones.filter((m) => m.month > 0 && m.usd > 0);
 
   const facRate = (factoringRatePct || 0) / 100;
-  // The hybrid 12 is unchanged here and is a business number written into a
-  // calculator, reported in Round 41 Phase 1 and addressed by ruling 5, which
-  // makes the factoring term an editable field with an admin default.
-  const defaultTerm = structure === 'hybrid' ? 12 : Math.max(1, recov ?? 0);
-  const facTerm = Math.max(1, factoringTermMonths || defaultTerm);
+
+  // ── THE FACTORING TERM IS READ, NEVER SUBSTITUTED. Round 41 ruling 5 ─────
+  //
+  // This line was `Math.max(1, factoringTermMonths || defaultTerm)` with
+  // `defaultTerm = structure === 'hybrid' ? 12 : Math.max(1, recov ?? 0)`. The
+  // 12 was a business number written into a calculator, reported in Phase 1,
+  // and the `||` was Architecture 11's fallback: a value the user never chose,
+  // reaching a price, from inside the calculation.
+  //
+  // The default now lives where a default belongs, as an initial value written
+  // into the record when factoring is switched on. What is left here is a read.
+  //
+  // ABSENT IS NOT ONE. A facility whose term nobody recorded is not a one-month
+  // facility, so no schedule is built and nothing is advanced. The absence is
+  // reported rather than priced, and `financeCost` becomes null rather than a
+  // confident zero, which is what stops it being folded silently into cost.
+  const facTermRaw = Number(factoringTermMonths);
+  const facTerm = Number.isFinite(facTermRaw) && facTermRaw > 0 ? facTermRaw : null;
+  const factoringTermMissing = !!factoringEnabled && facTerm === null;
 
   const principal = hardwareCostAll;
   const contractorBase = lumpSumDeal ? lumpCost : hardwareCostAll; // matches original: groups[1].rawTotalCost when not lump sum
@@ -236,7 +262,9 @@ export function buildCashFlowModel({
   const contractorTotal = contractorMs.reduce((s, x) => s + x.usd, 0);
   const upfrontCost = contractorStaged ? principal - contractorTotal : principal;
 
-  const schedule = buildLoanSchedule(principal, facRate, facTerm, factoringMethod);
+  const schedule = factoringEnabled && facTerm !== null
+    ? buildLoanSchedule(principal, facRate, facTerm, factoringMethod)
+    : [];
 
   // recov is null on hybrid, and null > 0 is false, so this is 0 there without
   // needing to name the structure a second time.
@@ -278,12 +306,14 @@ export function buildCashFlowModel({
       : due.filter((x) => x.month === m).reduce((s, x) => s + x.usd, 0);
     const hostingIn = hostBilled[m - 1];
     const plRevenue = hardwareIn + hostingIn;
-    const advance = (factoringEnabled && m === 1) ? principal : 0;
+    // No term, no facility: advancing the principal without ever repaying it
+    // would report a cash position nobody has arranged.
+    const advance = (factoringEnabled && !factoringTermMissing && m === 1) ? principal : 0;
     const cashIn = plRevenue + advance;
 
     const hwOut = m === 1 ? upfrontCost : 0;
     const contractorOut = contractorMs.filter((x) => x.month === m).reduce((s, x) => s + x.usd, 0);
-    const se = (factoringEnabled && m > 1 && m <= facTerm + 1) ? schedule[m - 2] : null;
+    const se = (factoringEnabled && facTerm !== null && m > 1 && m <= facTerm + 1) ? schedule[m - 2] : null;
     const facP = se ? se.principal : 0;
     const facI = se ? se.interest : 0;
     const plCost = hwOut + contractorOut + hostingMonthCost + facI;
@@ -308,7 +338,8 @@ export function buildCashFlowModel({
   return {
     structure, recov, rows, totRev, totCost, totNet: totRev - totCost, annualInvoicing,
     marginAchieved: totRev ? ((totRev - totCost) / totRev) * 100 : 0,
-    minCash: minCash ?? 0, minCashMonth, factoringEnabled, facTerm, factoringMethod, principal, contractorStaged,
+    minCash: minCash ?? 0, minCashMonth, factoringEnabled, facTerm, factoringTermMissing,
+    factoringMethod, principal, contractorStaged,
     facInterest, msPctTotal,
   };
 }
@@ -434,9 +465,13 @@ export function calculateDeal(input) {
     factoringEnabled, factoringRatePct, factoringTermMonths, factoringMethod,
   });
 
-  const financeCost = Math.round(cashFlow.facInterest || 0);
+  // null, not 0, when the facility is on and its term is not recorded. A zero
+  // here would say the facility costs nothing, and it would be folded into
+  // total cost and into achieved margin without a mark, which is the recovery
+  // period finding arriving through the other conditional field.
+  const financeCost = cashFlow.factoringTermMissing ? null : Math.round(cashFlow.facInterest || 0);
   const testBedCostAmount = testBedCost || 0;
-  const totalDealCostAll = totals.totalDealCost + financeCost + tax.whtBorne + testBedCostAmount;
+  const totalDealCostAll = totals.totalDealCost + (financeCost ?? 0) + tax.whtBorne + testBedCostAmount;
   const achievedMargin = totals.contractNet
     ? ((totals.contractNet - totalDealCostAll) / totals.contractNet) * 100
     : 0;
@@ -451,5 +486,9 @@ export function calculateDeal(input) {
     testBedCost: testBedCostAmount,
     totalDealCostAll,
     achievedMargin,
+    // The total and the margin above are computed WITHOUT the finance cost when
+    // this is true, so a surface showing either must say the figure is
+    // incomplete rather than presenting it as the achieved position.
+    costIncomplete: cashFlow.factoringTermMissing,
   };
 }

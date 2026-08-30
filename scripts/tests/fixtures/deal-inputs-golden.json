@@ -592,7 +592,7 @@
       },
       "months": 0,
       "structure": "twoPhase",
-      "recoveryMonths": 0,
+      "recoveryMonths": null,
       "annualInvoicing": true,
       "milestones": [],
       "lumpSumDeal": false,
@@ -709,7 +709,7 @@
       },
       "months": 0,
       "structure": "twoPhase",
-      "recoveryMonths": 0,
+      "recoveryMonths": null,
       "annualInvoicing": true,
       "milestones": [
         {

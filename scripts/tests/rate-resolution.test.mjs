@@ -73,16 +73,39 @@ test('recovery period is two-phase only, and hybrid is otherwise unchanged', () 
     'hybrid still recovers hardware through its milestone schedule')
   assert.equal(Math.round(h.rows.at(-1).cum), 217302)
 
-  // STILL WORKING: factoring on hybrid, which reads defaultTerm and would have
-  // been the first casualty of a careless null.
-  assert.equal(cf('hybrid', 12, { factoring: { enabled: true, ratePct: 1.5, termMonths: null, method: 'straight' } }).financeCost,
-    33638, 'hybrid factoring still prices at its 12-month default term')
+  // SUPERSEDED BY RULING 5, and left visible rather than deleted, because the
+  // superseded reasoning is what tells a later reader that a premise changed
+  // rather than a preference (Verification 29).
+  //
+  // This assertion read `financeCost === 33638` with the comment "hybrid
+  // factoring still prices at its 12-month default term". That was TRUE and it
+  // was the thing ruling 5 then removed: the 12 was a business number written
+  // into a calculator, and pricing a facility whose term nobody recorded is
+  // the fallback Architecture 11 forbids.
+  const noTerm = cf('hybrid', 12, { factoring: { enabled: true, ratePct: 1.5, termMonths: null, method: 'straight' } })
+  assert.equal(noTerm.financeCost, null,
+    'a factoring facility with no recorded term must not be priced at an invented one')
+  assert.equal(noTerm.costIncomplete, true,
+    'and the total that omits it must say so, or the margin reads as achieved')
+  assert.equal(noTerm.cashFlow.rows[0].advance, 0,
+    'nothing is advanced on a facility that has no term to repay it over')
+
+  // AND THE TERM IS STILL READ WHEN IT IS THERE, which is the other half: a
+  // change that removes a substitution has to show the real value arriving.
+  const withTerm = cf('hybrid', 12, { factoring: { enabled: true, ratePct: 1.5, termMonths: 12, method: 'straight' } })
+  assert.equal(withTerm.financeCost, 33638, 'a recorded 12-month term prices exactly as the old default did')
+  assert.equal(withTerm.costIncomplete, false)
+  assert.equal(cf('hybrid', 12, { factoring: { enabled: true, ratePct: 1.5, termMonths: 24, method: 'straight' } }).financeCost,
+    64688, 'and a different term prices differently, so the parameter is read rather than decorative')
 
   // STILL WORKING: the two structures that DO have a recovery period.
   assert.equal(cf('twoPhase', 12).cashFlow.recov, 12)
   assert.equal(cf('single', undefined).cashFlow.recov, 36, 'single recovers over the full term')
+  assert.equal(cf('twoPhase', undefined).cashFlow.recov, null,
+    'a blank recovery period is an absence, not a deal that recovers over zero months')
   assert.equal(Math.round(cf('twoPhase', undefined).cashFlow.rows.at(-1).cum), -275556,
-    'a blank two-phase recovery still produces finding 1, which item 3 fixes')
+    'the arithmetic is unchanged by that: null and 0 bill the same nothing, and finding 1 '
+    + 'is closed by the default being written into the record, not by the calculator guessing')
 })
 
 test('the orphaned calculate route is gone and submit is not', () => {

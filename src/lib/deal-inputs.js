@@ -32,7 +32,7 @@
  * this function's job and it is the same every time.
  */
 
-import { numericOrDefault } from './numeric-payload.js';
+import { numericOrDefault, toNumberOrNull } from './numeric-payload.js';
 
 /**
  * @param {object} payload - a record payload, with catalog rates merged in
@@ -329,7 +329,15 @@ export function buildDealInputs(payload, { testBedCost = 0, rates } = {}) {
     },
     months: numericOrDefault(payload, 'duration'),
     structure: payload.structure ?? 'twoPhase',
-    recoveryMonths: numericOrDefault(payload, 'recoveryMonths'),
+    // toNumberOrNull, NOT numericOrDefault. Architecture 11's own instance:
+    // NUMERIC_DEFAULTS holds 0 for this key, and numericOrDefault returns 0 for
+    // an absent value in any case, so a blank recovery period arrived at the
+    // calculator as a deal that recovers hardware over zero months. The key
+    // stays in NUMERIC_DEFAULTS because buildNotRecorded iterates that constant
+    // and dropping it would silently delete the disclosure; what changes is
+    // that the CALCULATION no longer substitutes. The default now lives in the
+    // record, written when the deal becomes two-phase.
+    recoveryMonths: toNumberOrNull(payload.recoveryMonths),
     annualInvoicing: (payload.invoicing ?? 'annual') === 'annual',
     milestones: payload.milestones ?? [],
     lumpSumDeal,

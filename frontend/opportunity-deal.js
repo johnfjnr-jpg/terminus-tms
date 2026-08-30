@@ -823,7 +823,11 @@ function computeDealMatrixCols(result, payload) {
     { cost: hostingGroup.rawTotalCost * months, price: hostingGroup.rawTotalPrice * months },
     { cost: installGroup.rawTotalCost, price: installGroup.rawTotalPrice },
   ]
-  cols[0].cost += result.financeCost
+  // ?? 0, and the null it guards is NOT a zero: financeCost is null when
+  // factoring is on and its term is not recorded, so the matrix total omits a
+  // cost that exists. result.costIncomplete carries that, and the surfaces
+  // below say so rather than the matrix quietly footing.
+  cols[0].cost += (result.financeCost ?? 0)
   // Milestone 5: same treatment as financeCost immediately above - folded
   // into Hardware rather than given its own column, so the matrix's own
   // Total/Margin cells stay the exact figure achievedMargin is a
@@ -858,7 +862,12 @@ function renderDealMatrix(result, payload) {
     { label: 'Cost', color: 'var(--muted)', totalColor: 'var(--white)', ...cells(c => c.cost) },
     {
       label: 'of which financing', color: 'var(--muted-2)', totalColor: 'var(--muted-2)',
-      hardware: dash(result.financeCost), hosting: '-', installation: '-', total: dash(result.financeCost),
+      // A dash on this row means zero financing. Null means the facility is on
+      // and nobody recorded its term, which is a different fact and must not
+      // borrow the dash.
+      hardware: result.costIncomplete ? 'not recorded' : dash(result.financeCost),
+      hosting: '-', installation: '-',
+      total: result.costIncomplete ? 'not recorded' : dash(result.financeCost),
     },
     {
       label: 'of which withholding tax absorbed by Terminus', color: 'var(--muted-2)', totalColor: 'var(--muted-2)',
@@ -1110,7 +1119,10 @@ function renderResults(result, payload) {
     localNote.textContent = `against target ${target}%, ${delta >= 0 ? 'up' : 'down'} ${Math.abs(delta).toFixed(1)} pts`
   }
   document.getElementById('deal-total-cost').textContent = `$${money(result.totalDealCostAll)}`
-  document.getElementById('deal-finance-cost').textContent = `$${money(result.financeCost)}`
+  // money(null) is $NaN. The absence has a wording of its own, because the
+  // figure it replaces is one somebody prices against.
+  document.getElementById('deal-finance-cost').textContent =
+    result.financeCost === null ? 'not recorded' : `$${money(result.financeCost)}`
 
   renderDealMatrix(result, payload)
   renderDealSheet(result, payload)

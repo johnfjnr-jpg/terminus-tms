@@ -5,7 +5,8 @@ import { readFileSync, readdirSync } from 'fs'
 import { readCode } from '../lib/strip-comments.mjs'
 import {
   DEFAULT_KEYS, initialPayload, validateRecoveryAgainstDuration, recoveryState,
-  defaultsForStructureChange,
+  defaultsForConditionalFields,
+  CONDITIONAL_KEYS,
 } from '../../src/lib/system-defaults.js'
 
 const ROOT = new URL('../../', import.meta.url).pathname
@@ -30,14 +31,43 @@ test('a field that does not yet apply is ABSENT, not prefilled', () => {
   assert.equal(initialPayload(D, { structure: 'twoPhase' }).recoveryMonths, 12)
 })
 
-test('the factoring term is 12 on hybrid and follows recovery on two-phase', () => {
-  // Ruling 5, and the two-phase half is what the old hardcoded Math.max(1, recov)
-  // intended.
-  assert.equal(initialPayload(D, { structure: 'hybrid' }).factoring?.termMonths, 12)
-  assert.equal(initialPayload(D, { structure: 'twoPhase' }).factoring?.termMonths, 12)
-  assert.equal(initialPayload({ ...D, recoveryMonths: 6 }, { structure: 'twoPhase' }).factoring?.termMonths, 6,
-    'two-phase follows the recovery period, not the table')
-  assert.ok(!('factoring' in initialPayload(D)), 'no structure known: the term is absent, not guessed')
+test('the factoring term is never written at creation, whatever the structure', () => {
+  // SUPERSEDED WITHIN THE ROUND, and the superseded version is named because
+  // the premise failed rather than a preference changing (Verification 29).
+  //
+  // This test read "the factoring term is 12 on hybrid and follows recovery on
+  // two-phase", asserting that creation wrote the term from the STRUCTURE. That
+  // reproduced the old calculator fallback as a default instead of removing it,
+  // and it used the wrong governing input: the approved applicability table
+  // makes the term conditional on `factoring.enabled`, and a new opportunity
+  // has no factoring block at all.
+  //
+  // So creation writes nothing for it, at any structure, and the transition
+  // into enabled writes the admin default. Asserted at all four structures,
+  // because "no structure known" alone would pass on a version that still
+  // branched on structure.
+  for (const structure of [undefined, 'single', 'twoPhase', 'hybrid']) {
+    assert.ok(!('factoring' in initialPayload(D, { structure })),
+      `creation wrote a factoring term at structure=${structure}`)
+  }
+  // And the recovery period, whose governing input IS the structure, is
+  // unaffected: the two conditional fields must not have been collapsed into
+  // one rule by the correction.
+  assert.equal(initialPayload(D, { structure: 'twoPhase' }).recoveryMonths, 12)
+  assert.ok(!('recoveryMonths' in initialPayload(D, { structure: 'hybrid' })))
+})
+
+test('every conditional key is excluded from the creation write', () => {
+  // Verification 19: CONDITIONAL_KEYS is a name asserting a property, so the
+  // property is measured. A key added to DEFAULT_KEYS and forgotten in
+  // CONDITIONAL_KEYS would be silently prefilled onto every deal.
+  const all = initialPayload(D)
+  for (const key of CONDITIONAL_KEYS) {
+    assert.ok(!(key in all), `${key} is listed as conditional and creation still writes it`)
+  }
+  const unconditional = DEFAULT_KEYS.filter((k) => !CONDITIONAL_KEYS.includes(k))
+  assert.deepEqual(Object.keys(all).sort(), unconditional.sort(),
+    'creation writes exactly the unconditional keys, no more and no fewer')
 })
 
 test('an unconfigured key produces an absent field, not a stand-in', () => {
@@ -138,9 +168,9 @@ test('the defaults are read only at SANCTIONED call sites, named here', () => {
   // The transition site is a SAVE path, so its narrowness is what keeps it an
   // initial value. Asserted on the route rather than trusted.
   const opp = readCode(ROOT + 'src/routes/opportunities.js')
-  assert.match(opp, /if \('structure' in payload\) \{/,
-    'the transition read must be gated on structure being sent at all')
-  assert.match(opp, /defaultsForStructureChange\(before, \{ \.\.\.before, \.\.\.payload \}/)
+  assert.match(opp, /if \('structure' in payload \|\| 'factoring' in payload\) \{/,
+    'the transition read must be gated on a governing input being sent at all')
+  assert.match(opp, /defaultsForConditionalFields\(before, \{ \.\.\.before, \.\.\.payload \}/)
 
   // BOTH creation paths, not one. A deal's starting state must not depend on
   // how it was made.
@@ -151,9 +181,9 @@ test('the defaults are read only at SANCTIONED call sites, named here', () => {
   }
 })
 
-test('a conditional field gets its initial value on the structure transition', () => {
-  const D2 = { recoveryMonths: 12, factoringTermMonths: 12 }
-  const on = (before, after) => defaultsForStructureChange(before, { ...before, ...after }, D2)
+test('a conditional field gets its initial value on its own governing transition', () => {
+  const D2 = { recoveryMonths: 12, factoringTermMonths: 24 }
+  const on = (before, after) => defaultsForConditionalFields(before, { ...before, ...after }, D2)
 
   // The transition into two-phase is when the field starts to exist.
   assert.equal(on({}, { structure: 'twoPhase' }).recoveryMonths, 12)
@@ -172,12 +202,32 @@ test('a conditional field gets its initial value on the structure transition', (
   assert.ok(!('recoveryMonths' in on({}, { structure: 'hybrid' })))
   assert.ok(!('recoveryMonths' in on({}, { structure: 'single' })))
 
-  // The factoring term follows the same rule and the same split.
-  assert.equal(on({}, { structure: 'hybrid' }).factoring?.termMonths, 12)
-  assert.equal(on({}, { structure: 'twoPhase' }).factoring?.termMonths, 12, 'two-phase follows recovery')
-  assert.equal(on({ recoveryMonths: 6 }, { structure: 'twoPhase' }).factoring?.termMonths, 6)
-  assert.ok(!('factoring' in on({ factoring: { termMonths: 3 } }, { structure: 'hybrid' })),
-    'a term somebody set is not overwritten')
+  // ── AND THE FACTORING TERM'S GOVERNING INPUT IS A DIFFERENT ONE ─────────
+  //
+  // Verification 24: the two defaults are 12 and 24 above, deliberately unequal,
+  // so an assertion cannot pass by reading the wrong key.
+  //
+  // NOT the structure. The first version of this function keyed the term off
+  // structure too, which wrote the term of a facility nobody had switched on.
+  assert.ok(!('factoring' in on({}, { structure: 'hybrid' })),
+    'a structure change must not write the term of a facility that is off')
+  assert.ok(!('factoring' in on({}, { structure: 'twoPhase' })))
+
+  // The transition into enabled is when the field starts to exist.
+  assert.equal(on({}, { factoring: { enabled: true } }).factoring?.termMonths, 24)
+  assert.equal(on({ factoring: { enabled: false } }, { factoring: { enabled: true } }).factoring?.termMonths, 24)
+  assert.deepEqual(on({ factoring: { enabled: true } }, { factoring: { enabled: true, ratePct: 2 } }), {},
+    'a save that leaves factoring on writes nothing')
+
+  // The rest of the factoring block survives the write, or switching factoring
+  // on would drop the rate and the method the same save carried.
+  const kept = on({}, { factoring: { enabled: true, ratePct: 2, method: 'declining' } }).factoring
+  assert.deepEqual(kept, { enabled: true, ratePct: 2, method: 'declining', termMonths: 24 })
+
+  // NOT over a value somebody already set, and NOT on the way off.
+  assert.ok(!('factoring' in on({}, { factoring: { enabled: true, termMonths: 3 } })))
+  assert.deepEqual(on({ factoring: { enabled: true, termMonths: 6 } }, { factoring: { enabled: false, termMonths: 6 } }), {},
+    'switching factoring off writes nothing, and must not clear the term somebody entered')
 })
 
 test('THE CONSEQUENCE: switching away and back re-applies the default', () => {
@@ -192,9 +242,9 @@ test('THE CONSEQUENCE: switching away and back re-applies the default', () => {
   const D2 = { recoveryMonths: 12, factoringTermMonths: 12 }
   let p = { structure: 'twoPhase', recoveryMonths: 12 }
   p = { ...p, recoveryMonths: null }                                    // cleared
-  assert.deepEqual(defaultsForStructureChange(p, { ...p, targetMargin: 1 }, D2), {}, 'stays cleared')
+  assert.deepEqual(defaultsForConditionalFields(p, { ...p, targetMargin: 1 }, D2), {}, 'stays cleared')
   const away = { ...p, structure: 'hybrid' }
-  const back = defaultsForStructureChange(away, { ...away, structure: 'twoPhase' }, D2)
+  const back = defaultsForConditionalFields(away, { ...away, structure: 'twoPhase' }, D2)
   assert.equal(back.recoveryMonths, 12, 'and returns on the way back, by design')
 })
 

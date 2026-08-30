@@ -201,6 +201,10 @@ test('exposures are money, and say who bears each', () => {
   assert.equal(by.gst.bornByTerminus, false, 'GST is collected, not borne')
   assert.equal(by.warranty.bornByTerminus, true)
   assert.equal(by.testBed.amount, 25000)
+  // Every exposure on THIS deal is a number. Not a general claim: finance is
+  // null when the facility is on with no recorded term, which the test below
+  // asserts, so the population here is the deal rather than the shape.
+  assert.ok(NOW.factoring?.termMonths > 0, 'population check: NOW records a factoring term')
   for (const e of ex) assert.equal(typeof e.amount, 'number', `${e.key} must be an amount`)
 })
 
@@ -213,6 +217,33 @@ test('a grossed-up deal shows zero borne AND the number if the client refuses', 
   assert.equal(wht.bornByTerminus, false)
   assert.match(wht.note, /refuses the gross-up/)
   assert.ok(r.tax.whtAmount > 0, 'and there must be a real number behind that sentence')
+})
+
+test('a factoring facility with no recorded term is not priced at an invented one', () => {
+  // Round 41 ruling 5. The calculator stopped substituting a term, so the
+  // approval page has to say what the approver is looking at: a total cost and
+  // an achieved margin that are both missing an amount nobody has computed.
+  const p = { ...NOW, factoring: { enabled: true, ratePct: 1.5, method: 'straight' } }
+  const r = calculateDeal(buildDealInputs(p, { rates: resolveRates(p, RATES).rates, testBedCost: 25000 }))
+  assert.equal(r.financeCost, null, 'a term nobody recorded must not produce a figure')
+  assert.equal(r.costIncomplete, true)
+
+  const fin = buildExposures(p, r).find((e) => e.key === 'finance')
+  assert.equal(fin.amount, null, 'null, not 0: zero would say the facility costs nothing')
+  assert.match(fin.basis, /over a term nobody has recorded/)
+  assert.match(fin.note, /Total cost and achieved margin are both missing this amount/)
+
+  // AND THE SAME DEAL WITH A TERM, so the absence is shown to be about the
+  // term rather than about the facility. Verification 24's shape: the second
+  // value is what proves the first was read.
+  const q = { ...NOW, factoring: { enabled: true, ratePct: 1.5, method: 'straight', termMonths: 12 } }
+  const rq = calculateDeal(buildDealInputs(q, { rates: resolveRates(q, RATES).rates, testBedCost: 25000 }))
+  const finq = buildExposures(q, rq).find((e) => e.key === 'finance')
+  assert.ok(finq.amount > 0)
+  assert.equal(rq.costIncomplete, false)
+  assert.match(finq.basis, /for 12 months/)
+  assert.ok(rq.totalDealCostAll > r.totalDealCostAll,
+    'the recorded term adds a real cost, which is exactly what the absent one omits')
 })
 
 test('not grossed up, the withholding is borne and shown as borne', () => {

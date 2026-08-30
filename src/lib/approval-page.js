@@ -412,10 +412,20 @@ export function buildExposures(payload, result) {
     key: 'finance',
     label: 'Finance cost',
     amount: result.financeCost,
-    basis: (payload.factoring?.enabled ?? false)
-      ? `PO factoring at ${payload.factoring?.ratePct ?? NUMERIC_DEFAULTS.factoringRatePct}% per month`
-      : 'No factoring',
-    note: 'Interest on financed working capital, already inside total cost.',
+    basis: !(payload.factoring?.enabled ?? false) ? 'No factoring'
+      : result.costIncomplete
+        ? `PO factoring at ${payload.factoring?.ratePct ?? NUMERIC_DEFAULTS.factoringRatePct}% per month, `
+          + 'over a term nobody has recorded'
+        : `PO factoring at ${payload.factoring?.ratePct ?? NUMERIC_DEFAULTS.factoringRatePct}% per month `
+          + `for ${result.cashFlow.facTerm} months`,
+    // The note is the approver's, so it says what the figure they are reading
+    // actually is. An unrecorded term means the cost is absent from total cost
+    // and therefore from achieved margin, which is the same inflation the
+    // unpriced-product block below exists to report.
+    note: result.costIncomplete
+      ? 'The facility is on and its term is not recorded, so no interest is computed. '
+        + 'Total cost and achieved margin are both missing this amount.'
+      : 'Interest on financed working capital, already inside total cost.',
     bornByTerminus: true,
   });
 

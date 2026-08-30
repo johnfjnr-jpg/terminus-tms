@@ -44,6 +44,18 @@
 export const DEFAULT_KEYS = ['targetMargin', 'warrantyPct', 'duration', 'recoveryMonths', 'factoringTermMonths'];
 
 /**
+ * The keys whose field only exists on some deals, so their initial value cannot
+ * be written at creation. Named here rather than tested for inline, because a
+ * key added to DEFAULT_KEYS and forgotten here would be silently prefilled onto
+ * every deal including the ones it does not apply to.
+ *
+ * Each names its GOVERNING INPUT, which is the same one the approval page's
+ * applicability table uses. Two readers of one rule, so they are checked
+ * against each other by a test rather than kept in step by hand.
+ */
+export const CONDITIONAL_KEYS = ['recoveryMonths', 'factoringTermMonths'];
+
+/**
  * Reads the admin-configured defaults.
  *
  * @param {{from: (t: string) => any}} db a Supabase client
@@ -74,7 +86,7 @@ export async function readSystemDefaults(db) {
 export function initialPayload(defaults, { structure } = {}) {
   const out = {};
   for (const key of DEFAULT_KEYS) {
-    if (key === 'factoringTermMonths' || key === 'recoveryMonths') continue;
+    if (CONDITIONAL_KEYS.includes(key)) continue;
     if (defaults[key] !== undefined) out[key] = defaults[key];
   }
 
@@ -86,13 +98,18 @@ export function initialPayload(defaults, { structure } = {}) {
     out.recoveryMonths = defaults.recoveryMonths;
   }
 
-  // The factoring term: 12 for hybrid from the table, and for two-phase it
-  // follows the recovery period rather than the table, per ruling 5. Absent
-  // when neither is known.
-  const term = structure === 'hybrid' ? defaults.factoringTermMonths
-    : structure === 'twoPhase' ? out.recoveryMonths
-    : undefined;
-  if (term !== undefined) out.factoring = { termMonths: term };
+  // ── THE FACTORING TERM IS NEVER WRITTEN AT CREATION ──────────────────────
+  //
+  // CORRECTED within Round 41, and the correction is the round's own defect
+  // rather than an inherited one. The first version wrote the term from the
+  // STRUCTURE, which is the wrong governing input: the approved applicability
+  // table makes `factoring.termMonths` conditional on `factoring.enabled`, and
+  // a new opportunity has no factoring block at all.
+  //
+  // Writing it here would prefill the term of a facility nobody is using, which
+  // is precisely what the recoveryMonths note four lines above forbids. It comes
+  // into existence when factoring is switched on, and that is where it is
+  // written: see defaultsForConditionalFields below.
 
   return out;
 }
@@ -134,27 +151,43 @@ export function initialPayload(defaults, { structure } = {}) {
  * @param {Record<string, number>} defaults from readSystemDefaults
  * @returns {object} keys to write, empty when the transition does not apply
  */
-export function defaultsForStructureChange(before, after, defaults) {
-  const was = before?.structure ?? null;
-  const now = after?.structure ?? null;
-  if (was === now) return {};
-
+export function defaultsForConditionalFields(before, after, defaults) {
   const out = {};
   const absent = (v) => v === undefined || v === null || v === '';
 
-  if (now === 'twoPhase' && absent(after?.recoveryMonths) && defaults.recoveryMonths !== undefined) {
+  // ── ONE GOVERNING INPUT PER FIELD, AND THEY ARE NOT THE SAME ONE ────────
+  //
+  // The first version of this function keyed BOTH fields off the structure
+  // change, which was right for the recovery period and wrong for the factoring
+  // term: the term's governing input is `factoring.enabled`. Keying it off
+  // structure wrote the term of a facility nobody had switched on.
+
+  const wasStructure = before?.structure ?? null;
+  const nowStructure = after?.structure ?? null;
+  if (wasStructure !== nowStructure
+    && nowStructure === 'twoPhase'
+    && absent(after?.recoveryMonths)
+    && defaults.recoveryMonths !== undefined) {
     out.recoveryMonths = defaults.recoveryMonths;
   }
 
-  // The factoring term follows the same rule, and the same split as at
-  // creation: 12 for hybrid from the table, and for two-phase the recovery
-  // period, which is what the old hardcoded Math.max(1, recov) intended.
-  const termNow = after?.factoring?.termMonths;
-  if (absent(termNow)) {
-    const term = now === 'hybrid' ? defaults.factoringTermMonths
-      : now === 'twoPhase' ? (out.recoveryMonths ?? after?.recoveryMonths)
-      : undefined;
-    if (!absent(term)) out.factoring = { ...(after?.factoring ?? {}), termMonths: term };
+  // ── THE FACTORING TERM, ON THE TRANSITION INTO ENABLED ──────────────────
+  //
+  // The initial value is the ADMIN DEFAULT, not a figure derived from the
+  // structure. The old calculator computed 12 for hybrid and the recovery
+  // period otherwise; that was a fallback, and reproducing it here as a default
+  // would move the same substitution rather than remove it. A term the admin
+  // configured is a value a person chose, visible in the field and editable.
+  //
+  // Switching factoring OFF does not clear the term. Clearing it would destroy
+  // a value somebody entered, and applicability already stops a disabled
+  // facility's term being reported as a missing one. Switching back on then
+  // finds it present and writes nothing, which is what an initial value does.
+  const wasOn = before?.factoring?.enabled === true;
+  const nowOn = after?.factoring?.enabled === true;
+  if (!wasOn && nowOn && absent(after?.factoring?.termMonths)
+    && defaults.factoringTermMonths !== undefined) {
+    out.factoring = { ...(after?.factoring ?? {}), termMonths: defaults.factoringTermMonths };
   }
 
   return out;
