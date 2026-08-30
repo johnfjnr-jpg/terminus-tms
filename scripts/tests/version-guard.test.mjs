@@ -28,6 +28,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync, readdirSync } from 'node:fs'
+import { readCode } from '../lib/strip-comments.mjs'
 import { join } from 'node:path'
 
 const ROOT = new URL('../../', import.meta.url).pathname
@@ -41,7 +42,7 @@ function migrations() {
 function declaredColumns() {
   const cols = new Set()
   for (const file of migrations()) {
-    const sql = readFileSync(join(ROOT, DIR, file), 'utf8')
+    const sql = readCode(join(ROOT, DIR, file))
 
     const create = sql.match(/create table if not exists public\.deal_sheet_versions\s*\(([\s\S]*?)\n\);/)
     if (create) {
@@ -63,7 +64,7 @@ function declaredColumns() {
 function guardedColumns() {
   let latest = null
   for (const file of migrations()) {
-    const sql = readFileSync(join(ROOT, DIR, file), 'utf8')
+    const sql = readCode(join(ROOT, DIR, file))
     if (/create or replace function public\.deal_sheet_versions_immutable\(\)/.test(sql)) latest = sql
   }
   assert.ok(latest, 'no definition of deal_sheet_versions_immutable() found, so this scan measures nothing')

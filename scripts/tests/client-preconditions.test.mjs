@@ -25,6 +25,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync, readdirSync } from 'node:fs'
+import { readCode } from '../lib/strip-comments.mjs'
 import { join } from 'node:path'
 
 const ROOT = new URL('../../', import.meta.url).pathname
@@ -71,7 +72,7 @@ function scan() {
   const offenders = []
   let checked = 0
   for (const file of files()) {
-    const text = readFileSync(join(ROOT, file), 'utf8')
+    const text = readCode(join(ROOT, file))
     const CALL = /\bapi\('PATCH',\s*/g
     let m
     while ((m = CALL.exec(text)) !== null) {
@@ -119,8 +120,8 @@ test('the two wrappers that PATCH on behalf of a caller supply it themselves', (
   // the write. The scan above reads their bodies like any other call site, so
   // this asserts the ONE property the scan cannot: that a caller reaching the
   // network through them cannot end up without a precondition.
-  const tb = readFileSync(join(ROOT, 'frontend/test-bed-detail.js'), 'utf8')
-  const app = readFileSync(join(ROOT, 'frontend/app.js'), 'utf8')
+  const tb = readCode(join(ROOT, 'frontend/test-bed-detail.js'))
+  const app = readCode(join(ROOT, 'frontend/app.js'))
   const tbPatch = tb.slice(tb.indexOf('async function tbPatch('))
   const addNote = app.slice(app.indexOf('async function addContactNote('))
   assert.match(tbPatch.slice(0, 500), /expected_revision: tbLoadedRevision/)

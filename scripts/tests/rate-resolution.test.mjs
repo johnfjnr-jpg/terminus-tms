@@ -2,6 +2,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'fs'
+import { readCode } from '../lib/strip-comments.mjs'
 import { calculateDeal } from '../../src/lib/deal-calculator.js'
 import { buildDealInputs, ZERO_IS_NOT_A_VALUE, RAW_READERS, isSet } from '../../src/lib/deal-inputs.js'
 import {
@@ -88,7 +89,7 @@ test('the orphaned calculate route is gone and submit is not', () => {
   // Round 41 ruling 2. Two claims again. POST /calculate returned the WHOLE
   // calculateDeal result, so every internal crossed the wire, and it had no
   // caller anywhere in frontend/ or scripts/.
-  const route = readFileSync(new URL('../../src/routes/deals.js', import.meta.url), 'utf8')
+  const route = readCode(new URL('../../src/routes/deals.js', import.meta.url))
   assert.ok(!/app\.post\('\/calculate'/.test(route), 'the calculate route survives')
   // A comment MENTIONING reply.send(result) is prose, not a call. The first
   // version of this assertion fired on the comment recording the removal,
@@ -159,7 +160,7 @@ test('the honesty test: a version agrees with the resolver, or it does not', () 
 test('the server allowlist admits exactly the four, and refuses the six', () => {
   // "We only added four" is the claim Verification 19 catches, so it is
   // measured against the route's own list rather than read.
-  const route = readFileSync(new URL('../../src/routes/opportunities.js', import.meta.url), 'utf8')
+  const route = readCode(new URL('../../src/routes/opportunities.js', import.meta.url))
   const block = route.slice(route.indexOf('const SALESPERSON_WRITABLE_KEYS'), route.indexOf('])', route.indexOf('const SALESPERSON_WRITABLE_KEYS')))
   for (const k of OVERRIDABLE_RATE_KEYS) {
     assert.ok(block.includes(`'${k}'`), `${k} is overridable and the server must accept it`)
@@ -168,7 +169,7 @@ test('the server allowlist admits exactly the four, and refuses the six', () => 
     assert.ok(!block.includes(`'${k}'`), `${k} is a catalog fact and the server must refuse it`)
   }
   // And the client's owned list agrees with the server's.
-  const client = readFileSync(new URL('../../frontend/opportunity-deal.js', import.meta.url), 'utf8')
+  const client = readCode(new URL('../../frontend/opportunity-deal.js', import.meta.url))
   const owned = client.slice(client.indexOf('const COMMERCIALS_OWNED_KEYS'), client.indexOf(']', client.indexOf('const COMMERCIALS_OWNED_KEYS')))
   for (const k of OVERRIDABLE_RATE_KEYS) assert.ok(owned.includes(`'${k}'`), `${k} missing from COMMERCIALS_OWNED_KEYS`)
   for (const k of CATALOG_ONLY_RATE_KEYS) assert.ok(!owned.includes(`'${k}'`), `${k} must not be client-owned`)
@@ -178,7 +179,7 @@ test('readPayload sends the box, never the catalog figure', () => {
   // THE RISK OF THE PHASE. These four are now writable, so a readPayload still
   // copying the catalog onto them would record a per-deal override of the
   // catalog on EVERY deal at every save, silently, on all four keys.
-  const client = readFileSync(new URL('../../frontend/opportunity-deal.js', import.meta.url), 'utf8')
+  const client = readCode(new URL('../../frontend/opportunity-deal.js', import.meta.url))
   const fn = client.slice(client.indexOf('function readPayload()'), client.indexOf('function readMilestones'))
   for (const [key, id] of [['inSsExisting', 'deal-inSsExisting'], ['inSsNew', 'deal-inSsNew'],
     ['inAqm', 'deal-inAqm'], ['inHemir', 'deal-inHemir']]) {
@@ -191,7 +192,7 @@ test('readPayload sends the box, never the catalog figure', () => {
 test('the calculator refuses to price without resolved rates', () => {
   // Required rather than defaulted: a default would let a caller forget and
   // silently get the old behaviour, which is Verification 24 exactly.
-  const inputs = readFileSync(new URL('../../src/lib/deal-inputs.js', import.meta.url), 'utf8')
+  const inputs = readCode(new URL('../../src/lib/deal-inputs.js', import.meta.url))
   assert.match(inputs, /if \(!rates\) \{/)
   assert.ok(!/payload\.(ssUnitCost|inSsExisting|hoSafesight)/.test(inputs),
     'a rate is still being read from the payload inside the calculator')

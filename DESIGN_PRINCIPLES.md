@@ -1119,6 +1119,34 @@ saved version never does.
 
 **Recovery period is validated as less than or equal to contract duration.**
 
+### A structure round-trip re-applies the default, and that is the ruling
+
+**Ruled by the business 2026-08-30, Round 41, on the report rather than
+discovered afterwards.**
+
+A conditional field comes into existence when its governing input selects it, so
+selecting two-phase writes the recovery period default. **The consequence: clear
+the field, switch the structure away, switch it back, and the 12 returns.**
+
+**Ruled correct and it stays as built.** Three reasons, and the first is the one
+that decides it:
+
+- **Preserving cleared-ness across a round-trip would require remembering a
+  preference about a field that does not exist.** That is hidden state, of
+  exactly the kind this round removes. The alternative to a visible re-applied
+  default is an invisible remembered absence.
+- **The exposure requires a deliberate clear AND a structure round-trip.** Not a
+  save, not a reload, not an ordinary edit.
+- **The re-application happens at the structure selector, in front of the
+  user**, rather than silently inside a save path. It is an initial value being
+  written where a field is being brought into existence, which is what
+  `CLAUDE.md` Architecture 11 says a default is.
+
+**The designated place a reversal announces itself is the existing test**, which
+asserts the round-trip behaviour on purpose rather than by accident. A future
+round that decides differently changes that test, and the change is visible as a
+decision rather than as a diff nobody reads.
+
 ### Recovery period states, on two-phase and hybrid
 
 | value | on screen | at version save |

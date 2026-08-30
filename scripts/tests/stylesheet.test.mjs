@@ -26,12 +26,13 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
+import { readCode } from '../lib/strip-comments.mjs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const cssPath = join(here, '..', '..', 'frontend', 'style.css')
-const css = readFileSync(cssPath, 'utf8')
+const css = readCode(cssPath)
 
 // Definitions: a custom property declared anywhere, at any indentation, in
 // any selector block. Deliberately not scoped to `:root`, since a token

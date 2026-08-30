@@ -5,10 +5,11 @@
 // Every guard below is exercised by making it fire, not by asserting it exists.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { writeFileSync, readFileSync, existsSync, mkdtempSync, rmSync, statSync } from 'fs'
+import { writeFileSync, readFileSync, existsSync, mkdtempSync, rmSync, statSync, readdirSync } from 'fs'
 import { tmpdir } from 'os'
 import { join, relative } from 'path'
 import { edit, beginBatch, endBatch, JOURNAL } from '../lib/edit.mjs'
+import { readCode } from '../lib/strip-comments.mjs'
 
 const ROOT = new URL('../../', import.meta.url).pathname
 
@@ -92,7 +93,7 @@ test('the CLI is a shorter path than a raw heredoc, or it loses to one', () => {
   // So the CLI form is the guard for the category that holds the reasons, and
   // it only works if it stays the shorter path. This asserts the shape rather
   // than the speed: one command, stdin, no import, no temp file.
-  const cli = readFileSync(join(ROOT, 'scripts/edit.mjs'), 'utf8')
+  const cli = readCode(join(ROOT, 'scripts/edit.mjs'))
   assert.match(cli, /readFileSync\(0, 'utf8'\)/, 'it must read the edit from stdin')
   assert.match(cli, /from '\.\/lib\/edit\.mjs'/, 'it must reuse the one implementation, not a second')
   assert.ok(!/mkdtemp|tmpdir/.test(cli), 'a temp file would make it the slower path again')
@@ -112,7 +113,10 @@ test('the hook and its installer are in the repository', () => {
   // hook exists, is executable, says what it should, and something in the repo
   // installs it. Whether a given machine has run that installer is a property
   // of the machine.
-  const hook = readFileSync(join(ROOT, '.githooks/pre-commit'), 'utf8')
+  // Read through the stripper as SHELL. A hook whose real check had been
+  // commented out would otherwise still satisfy a scan for it, which is the
+  // same fault in a language the stripper had to learn.
+  const hook = readCode(join(ROOT, '.githooks/pre-commit'))
   assert.match(hook, /COMMIT REFUSED/)
   assert.match(hook, /edit-journal\.json/)
   assert.ok(statSync(join(ROOT, '.githooks/pre-commit')).mode & 0o111, 'the hook is not executable')
@@ -121,4 +125,23 @@ test('the hook and its installer are in the repository', () => {
   const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'))
   assert.match(pkg.scripts.prepare ?? '', /hooksPath/,
     'npm has no prepare script installing the hook, so a clone would not have it')
+})
+
+test('every test file is named by a suite, so none can sit unrun', () => {
+  // ROUND 39's INSTANCE, ARRIVING AGAIN IN ROUND 41 and caught the same way,
+  // by a count. Nine new assertions were written, the suite went from 270 to
+  // 271, and the file holding them was not in package.json at all. Round 39's
+  // remedy was that any number describing a run is emitted by the run, which is
+  // done and did not help: the run was honest about a population that was one
+  // file short.
+  //
+  // The scripts are read rather than a list being maintained here, so a suite
+  // renamed or split needs no edit and cannot rot.
+  const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'))
+  const named = Object.values(pkg.scripts).join(' ')
+  const files = readdirSync(join(ROOT, 'scripts/tests')).filter((f) => f.endsWith('.test.mjs'))
+  assert.ok(files.length > 20, `population check: expected the test directory to hold the suite, saw ${files.length}`)
+  const orphans = files.filter((f) => !named.includes(`scripts/tests/${f}`)).sort()
+  assert.deepEqual(orphans, [],
+    'these test files are in no npm script, so nothing runs them:\n  ' + orphans.join('\n  '))
 })

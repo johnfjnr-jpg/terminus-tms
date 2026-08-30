@@ -19,6 +19,7 @@
 import { test, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
+import { readCode } from '../lib/strip-comments.mjs'
 import { adminClient, newRunTag, resolveOwnerId, Fixtures } from '../verify-harness.mjs'
 
 let db, fixtures, ownerId, runTag
@@ -169,9 +170,8 @@ test('the migration declares no SECURITY DEFINER, so record_revisions_insert sti
   // that these words never appear here. Same shape as this suite's existing
   // stylesheet invariant: parse the real source file and assert a property
   // of it.
-  const sql = readFileSync(
-    new URL('../../supabase/migrations/20260821000001_atomic_record_revision_key_removal.sql', import.meta.url),
-    'utf8')
+  const sql = readCode(
+    new URL('../../supabase/migrations/20260821000001_atomic_record_revision_key_removal.sql', import.meta.url))
 
   // Calibration, per Verification 13: prove the reader can see this file and
   // that the pattern can match something, so a clean result is a measurement

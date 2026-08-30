@@ -2,6 +2,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync, readdirSync } from 'fs'
+import { readCode } from '../lib/strip-comments.mjs'
 import {
   DEFAULT_KEYS, initialPayload, validateRecoveryAgainstDuration, recoveryState,
   defaultsForStructureChange,
@@ -119,7 +120,7 @@ test('the defaults are read only at SANCTIONED call sites, named here', () => {
     for (const f of readdirSync(ROOT + dir, { withFileTypes: true })) {
       if (f.isDirectory()) { walk(dir + f.name + '/'); continue }
       if (!f.name.endsWith('.js')) continue
-      const text = readFileSync(ROOT + dir + f.name, 'utf8')
+      const text = readCode(ROOT + dir + f.name)
       const code = text.split('\n').filter((l) => !l.trim().startsWith('//')).join('\n')
       if (/readSystemDefaults\s*\(/.test(code)) callers.push(dir + f.name)
     }
@@ -136,7 +137,7 @@ test('the defaults are read only at SANCTIONED call sites, named here', () => {
 
   // The transition site is a SAVE path, so its narrowness is what keeps it an
   // initial value. Asserted on the route rather than trusted.
-  const opp = readFileSync(ROOT + 'src/routes/opportunities.js', 'utf8')
+  const opp = readCode(ROOT + 'src/routes/opportunities.js')
   assert.match(opp, /if \('structure' in payload\) \{/,
     'the transition read must be gated on structure being sent at all')
   assert.match(opp, /defaultsForStructureChange\(before, \{ \.\.\.before, \.\.\.payload \}/)
@@ -144,7 +145,7 @@ test('the defaults are read only at SANCTIONED call sites, named here', () => {
   // BOTH creation paths, not one. A deal's starting state must not depend on
   // how it was made.
   for (const f of ['src/routes/contacts.js', 'src/routes/test-beds.js']) {
-    const text = readFileSync(ROOT + f, 'utf8')
+    const text = readCode(ROOT + f)
     assert.match(text, /const defaults = initialPayload\(await readSystemDefaults\(db\)\)/, `${f} does not read defaults`)
     assert.match(text, /\.\.\.defaults,/, `${f} does not write them into the first revision`)
   }
@@ -201,7 +202,7 @@ test('the migration carries its own ledger row', () => {
   // Architecture 10. One paste, two statements.
   const files = readdirSync(ROOT + 'supabase/migrations').filter((f) => f.includes('system_defaults'))
   assert.equal(files.length, 1)
-  const sql = readFileSync(ROOT + 'supabase/migrations/' + files[0], 'utf8')
+  const sql = readCode(ROOT + 'supabase/migrations/' + files[0])
   assert.match(sql, /insert into supabase_migrations\.schema_migrations \(version\)/)
   assert.match(sql, /on conflict \(version\) do nothing/)
   // Idempotent per Architecture 7.

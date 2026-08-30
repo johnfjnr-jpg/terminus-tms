@@ -38,6 +38,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync, readdirSync } from 'node:fs'
+import { readCode } from '../lib/strip-comments.mjs'
 import { join } from 'node:path'
 import { appendRecordRevision, SINGLE_KEY_RMW, CLIENT_UNWIRED } from '../../src/lib/record-revision.js'
 
@@ -109,7 +110,7 @@ test('every appendRecordRevision call passes a precondition argument', () => {
   const understated = []
 
   for (const file of files) {
-    const text = readFileSync(join(ROOT, file), 'utf8')
+    const text = readCode(join(ROOT, file))
     const CALL = /await appendRecordRevision\s*\(/g
     let m
     while ((m = CALL.exec(text)) !== null) {
@@ -192,7 +193,7 @@ test('a migration that adds a parameter to a function also drops the old signatu
   const dropped = new Set()   // explicit "drop function name(args)" seen
 
   for (const file of files) {
-    const sql = readFileSync(join(ROOT, dir, file), 'utf8').toLowerCase()
+    const sql = readCode(join(ROOT, dir, file)).toLowerCase()
     for (const m of sql.matchAll(/create or replace function\s+([a-z_.]+)\s*\(([^)]*)\)/g)) {
       const name = m[1]
       const params = m[2].split(',').filter((x) => x.trim()).length
@@ -228,7 +229,7 @@ test('the overload scan can SEE an undropped overload', () => {
   let counts = new Set()
   let sawDrop = false
   for (const file of files) {
-    const sql = readFileSync(join(ROOT, dir, file), 'utf8').toLowerCase()
+    const sql = readCode(join(ROOT, dir, file)).toLowerCase()
     for (const m of sql.matchAll(/create or replace function\s+(public\.append_record_revision)\s*\(([^)]*)\)/g)) {
       counts.add(m[2].split(',').filter((x) => x.trim()).length)
     }

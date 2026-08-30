@@ -123,6 +123,13 @@ test('no tracked file carries a token-shaped string', () => {
     let st
     try { st = statSync(full) } catch { continue }
     if (st.size > 4_000_000) continue
+    // ── THE ONE INSTRUMENT THAT MUST NOT STRIP COMMENTS ──────────────────
+    //
+    // CLAUDE.md Verification 39 requires a scan for EVIDENCE ABOUT CODE to read
+    // through the stripper, because a sentence mentioning a call is not a call.
+    // This scan is the opposite kind: it looks for a HAZARD, and a key pasted
+    // into a comment is committed exactly as hard as one pasted into a string.
+    // Stripping here would build the hole rather than close it.
     const hits = scanText(readFileSync(full, 'utf8'))
     if (hits.length) findings.push(`${file}: ${hits.join(', ')}`)
   }

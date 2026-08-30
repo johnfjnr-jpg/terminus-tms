@@ -18,6 +18,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync, readdirSync } from 'fs'
+import { readCode } from '../lib/strip-comments.mjs'
 
 const ROOT = new URL('../../frontend/', import.meta.url).pathname
 const NAME = /^-?[A-Za-z_][A-Za-z0-9_-]*$/
@@ -39,6 +40,25 @@ const HOOKS = {
   'opp-tab-current-dot': 'app.js, the current-stage dot on the Opportunity tabs',
   'tb-tab-current-dot': 'app.js, the current-stage dot on the Test Bed tabs',
   'tb-unit-field': 'test-bed-detail.js, the per-unit edit fields',
+  // ADDED ROUND 41, and it had never been declared because it never had to be.
+  // The scan read style.css raw, and a comment four lines long at 3323 saying
+  // "deliberately NOT a .detail-tab-panel" was enough to make the class look
+  // defined. Reading through the stripper is what asked the question.
+  'detail-tab-panel': 'app.js, the pane sweeps at 406, 477 and 1098',
+}
+
+// ── AND A STATE CLASS IS NEITHER ──────────────────────────────────────────
+//
+// A third category, and it is separate for the same reason WRAPPERS is: HOOKS
+// claims "a selector queries this", and these are never queried. They are
+// toggled onto an element by JavaScript to mark a state, and carry no styling
+// on purpose. .field-editing's own revert is recorded in style.css at 2070.
+//
+// Filing one under HOOKS would pass the exemption check by luck or fail it by
+// truth, and either way would put a false claim in a list whose value is that
+// its claims are checked.
+const STATE_CLASSES = {
+  'field-editing': 'account-detail.js and contact-detail.js, toggled while a field is dirty',
 }
 
 // ── AND A STRUCTURAL WRAPPER IS NOT A HOOK ────────────────────────────────
@@ -53,7 +73,7 @@ const WRAPPERS = {
 }
 
 export function scanClasses(root = ROOT) {
-  const css = readFileSync(root + 'style.css', 'utf8')
+  const css = readCode(root + 'style.css')
   const defined = new Set([...css.matchAll(/\.(-?[A-Za-z_][A-Za-z0-9_-]*)/g)].map((m) => m[1]))
   const used = new Map()
   let dynamic = 0
@@ -64,7 +84,7 @@ export function scanClasses(root = ROOT) {
   const addList = (s, w) => { if (s.includes('${')) { dynamic++; return } for (const c of s.split(/\s+/)) if (c) add(c, w) }
 
   for (const f of readdirSync(root).filter((x) => /\.(html|js)$/.test(x))) {
-    readFileSync(root + f, 'utf8').split('\n').forEach((line, i) => {
+    readCode(root + f).split('\n').forEach((line, i) => {
       const w = `${f}:${i + 1}`
       for (const m of line.matchAll(/\bclass="([^"]*)"/g)) addList(m[1], w)
       for (const m of line.matchAll(/\bclassName\s*=\s*(?:[^;]*?\?\s*)?['"`]([^'"`$]*)['"`]\s*(?::\s*['"`]([^'"`$]*)['"`])?/g)) {
@@ -87,7 +107,7 @@ test('every class the markup references has a rule, or is a declared hook', () =
   const isPrefix = (c) => [...defined].some((d) => d.startsWith(c + '-'))
 
   const missing = [...used.entries()]
-    .filter(([c]) => !defined.has(c) && !(c in HOOKS) && !(c in WRAPPERS) && !isPrefix(c))
+    .filter(([c]) => !defined.has(c) && !(c in HOOKS) && !(c in WRAPPERS) && !(c in STATE_CLASSES) && !isPrefix(c))
     .map(([c, where]) => `.${c}  (${[...where].slice(0, 2).join(', ')})`)
     .sort()
   assert.deepEqual(missing, [],
@@ -110,7 +130,7 @@ test('no comment swallows a tag, and the five sections are siblings', () => {
   //
   // Two assertions, because the first alone would not have caught it either:
   // the comment structure, and the resulting PARENTAGE.
-  const html = readFileSync(ROOT + 'index.html', 'utf8')
+  const html = readCode(ROOT + 'index.html')
 
   let pos = 0
   const swallowed = []
@@ -200,9 +220,24 @@ test('every declared hook is actually queried, or the exemption is dead', () => 
   // The same shape as api-client's exempt-file check: an exemption nobody uses
   // is a claim that has stopped being true, and nothing else would notice.
   let js = ''
-  for (const f of readdirSync(ROOT).filter((x) => x.endsWith('.js'))) js += readFileSync(ROOT + f, 'utf8')
+  for (const f of readdirSync(ROOT).filter((x) => x.endsWith('.js'))) js += readCode(ROOT + f)
   for (const c of Object.keys(HOOKS)) {
     assert.match(js, new RegExp(`['"\`][^'"\`]*\\.${c}\\b`),
       `.${c} is exempted as a JS hook and nothing queries it`)
+  }
+})
+
+test('every declared state class is actually toggled, and carries no rule', () => {
+  // Both halves, because the exemption makes two claims. A state class nothing
+  // toggles is dead; a state class that has since acquired a rule is no longer
+  // an exemption at all and should be removed from the list rather than left
+  // shadowing a real definition.
+  let js = ''
+  for (const f of readdirSync(ROOT).filter((x) => x.endsWith('.js'))) js += readCode(ROOT + f)
+  const { defined } = scanClasses()
+  for (const c of Object.keys(STATE_CLASSES)) {
+    assert.match(js, new RegExp(`classList\\.(?:add|remove|toggle)\\(\\s*['"\`]${c}['"\`]`),
+      `.${c} is exempted as a state class and nothing toggles it`)
+    assert.ok(!defined.has(c), `.${c} now has a rule in style.css, so the exemption is stale`)
   }
 })

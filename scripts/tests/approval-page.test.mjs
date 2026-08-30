@@ -4,6 +4,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
+import { readCode } from '../lib/strip-comments.mjs'
 import {
   buildApprovalPage, buildBridge, buildExposures, buildTarget, buildCostBasis,
   buildNotRecorded, pricedKeys, checkReconciliation, stalenessBand, COST_BASIS_STALENESS,
@@ -540,7 +541,7 @@ test('a NUMERIC_DEFAULTS key with no APPLICABILITY entry is applicable', () => {
   //
   // Driven from NUMERIC_DEFAULTS itself rather than a list here, so a key added
   // to the constant is covered without anybody remembering.
-  const src = readFileSync(new URL('../../src/lib/approval-page.js', import.meta.url), 'utf8')
+  const src = readCode(new URL('../../src/lib/approval-page.js', import.meta.url))
   const block = src.slice(src.indexOf('const APPLICABILITY = {'), src.indexOf('};', src.indexOf('const APPLICABILITY = {')))
   const ruled = new Set([...block.matchAll(/^\s{2}([A-Za-z]+):/gm)].map((m) => m[1]))
 
@@ -574,7 +575,7 @@ test('an unlisted key is unconditional, which is the safe direction', () => {
 test('every conditional key in APPLICABILITY has tests here', () => {
   // Verification 19: the CONDITIONAL table above is a claim about coverage.
   // Measured against the module's own rules rather than trusted.
-  const src = readFileSync(new URL('../../src/lib/approval-page.js', import.meta.url), 'utf8')
+  const src = readCode(new URL('../../src/lib/approval-page.js', import.meta.url))
   const block = src.slice(src.indexOf('const APPLICABILITY = {'), src.indexOf('};', src.indexOf('const APPLICABILITY = {')))
   const declared = [...block.matchAll(/^\s{2}([A-Za-z]+):/gm)].map((m) => m[1]).sort()
   const tested = CONDITIONAL.map((c) => c.key).concat('factoringTermMonths').sort()

@@ -7,6 +7,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'fs'
+import { readCode } from '../lib/strip-comments.mjs'
 import {
   scheduleReconciliation, roundingAllowance, differenceStatement, refusalStatement,
 } from '../../src/lib/milestone-schedule.js'
@@ -95,8 +96,8 @@ test('the refusal names the numbers, not the rule', () => {
 test('both grids and the server ask the same evaluator', () => {
   // Verification 20. Two implementations of "does this add up" would agree
   // today and diverge the first time one was corrected.
-  const client = readFileSync(new URL('../../frontend/opportunity-deal.js', import.meta.url), 'utf8')
-  const route = readFileSync(new URL('../../src/routes/deal-sheet-versions.js', import.meta.url), 'utf8')
+  const client = readCode(new URL('../../frontend/opportunity-deal.js', import.meta.url))
+  const route = readCode(new URL('../../src/routes/deal-sheet-versions.js', import.meta.url))
 
   assert.match(client, /import \{[^}]*scheduleReconciliation[^}]*\} from '\/lib\/milestone-schedule\.js'/)
   assert.match(route, /import \{[^}]*scheduleReconciliation[^}]*\} from '\.\.\/lib\/milestone-schedule\.js'/)
@@ -114,7 +115,7 @@ test('both grids and the server ask the same evaluator', () => {
 })
 
 test('the milestone list is the one the business gave', () => {
-  const client = readFileSync(new URL('../../frontend/opportunity-deal.js', import.meta.url), 'utf8')
+  const client = readCode(new URL('../../frontend/opportunity-deal.js', import.meta.url))
   const block = client.slice(client.indexOf('const CONTRACTOR_MILESTONES'), client.indexOf('function milestoneOptions'))
   for (const m of ['Contract start', 'Hardware delivered to site', 'Installation complete',
     'Commissioning', 'Go live', 'Final acceptance']) {
@@ -127,7 +128,7 @@ test('the milestone list is the one the business gave', () => {
 })
 
 test('the percentage is an input and the dollars are computed from it', () => {
-  const client = readFileSync(new URL('../../frontend/opportunity-deal.js', import.meta.url), 'utf8')
+  const client = readCode(new URL('../../frontend/opportunity-deal.js', import.meta.url))
   assert.match(client, /id="deal-cm-\$\{i\}-pct" style/, 'the percentage cell must be an input')
   assert.ok(!/<td class="col-mono" id="deal-cm-\$\{i\}-pct">/.test(client),
     'the percentage is still a read-only output cell')

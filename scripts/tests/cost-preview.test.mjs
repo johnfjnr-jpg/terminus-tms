@@ -17,8 +17,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
+import { readCode } from '../lib/strip-comments.mjs'
 
-const read = p => readFileSync(new URL(p, import.meta.url), 'utf8')
+const read = p => readCode(new URL(p, import.meta.url))
 
 // The engine's own inputs, from the function that maps a payload onto it.
 // If a cost key is ever added there, the two lists below must both grow, and

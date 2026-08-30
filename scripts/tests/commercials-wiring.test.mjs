@@ -33,6 +33,7 @@ import { gstPresentation, whtPresentation, ratePresentation, durationPresentatio
 const MARGIN_KEYS_EXPECTED = ['hwSs', 'hwAqm', 'hwHemir', 'hwWarranty',
   'inSsEx', 'inSsNew', 'inAqm', 'inHemir', 'hoSs', 'hoAqm', 'hoHemir']
 import { readFileSync } from 'node:fs'
+import { readCode } from '../lib/strip-comments.mjs'
 import { changedKeys } from '../../src/lib/payload-diff.js'
 import { toNumberOrNull } from '../../src/lib/numeric-payload.js'
 
@@ -346,12 +347,12 @@ test('the local note states the gap to target, which the strip does not', () => 
 test('every installResp option the business wrote copy for has exactly one line', async () => {
   // Source-scanned rather than imported: opportunity-deal.js reaches for
   // /lib imports and window.api and cannot be loaded in this harness.
-  const src = readFileSync(new URL('../../frontend/opportunity-deal.js', import.meta.url), 'utf8')
+  const src = readCode(new URL('../../frontend/opportunity-deal.js', import.meta.url))
   const block = src.slice(src.indexOf('const INSTALL_RESP_NOTES'), src.indexOf('function updateInstallRespNote'))
   // EVERY option the picklist offers, read from index.html rather than listed
   // here, so a fifth option added to the markup fails this test instead of
   // shipping without a note.
-  const html = readFileSync(new URL('../../frontend/index.html', import.meta.url), 'utf8')
+  const html = readCode(new URL('../../frontend/index.html', import.meta.url))
   const sel = html.slice(html.indexOf('id="deal-installResp"'))
   const options = [...sel.slice(0, sel.indexOf('</select>')).matchAll(/<option value="([^"]+)"/g)].map((m) => m[1])
   assert.equal(options.length, 4, `the picklist offers ${options.length} options`)
@@ -408,7 +409,7 @@ test('price to customer is contract net plus GST, and GST has a row', () => {
   assert.equal(gstAmount, 127268)
   assert.equal(contractNet + gstAmount, 1945379, 'the figure on screen')
 
-  const src = readFileSync(new URL('../../frontend/opportunity-deal.js', import.meta.url), 'utf8')
+  const src = readCode(new URL('../../frontend/opportunity-deal.js', import.meta.url))
   const matrix = src.slice(src.indexOf('const rows = ['), src.indexOf('const headRow'))
   assert.match(matrix, /label: gst\.rowLabel/,
     'the summary must carry the row its bottom line depends on')
@@ -435,7 +436,7 @@ test('all eleven per-line margin inputs exist, and exactly eleven', () => {
   //
   // Eleven, not seven. Seven is the number that was visible on one sub-tab,
   // which is why both parties said seven twice without counting.
-  const html = readFileSync(new URL('../../frontend/index.html', import.meta.url), 'utf8')
+  const html = readCode(new URL('../../frontend/index.html', import.meta.url))
   const inputs = [...html.matchAll(/id="deal-margin-([A-Za-z]+)"/g)].map((m) => m[1]).sort()
   assert.equal(inputs.length, 11, `expected 11 margin inputs, found ${inputs.length}: ${inputs.join(', ')}`)
   assert.deepEqual(inputs, [...MARGIN_KEYS_EXPECTED].sort(),
@@ -475,7 +476,7 @@ test('all eleven per-line margin inputs exist, and exactly eleven', () => {
 // Calibrated 2026-08-30, five injections, each fired and reverted. The
 // calibration proved the detector; it did not widen it.
 test('a margin box is read from the screen, and a blank one is not a zero', () => {
-  const src = readFileSync(new URL('../../frontend/opportunity-deal.js', import.meta.url), 'utf8')
+  const src = readCode(new URL('../../frontend/opportunity-deal.js', import.meta.url))
   const fn = src.slice(src.indexOf('function readPayload()'), src.indexOf('function readMilestones'))
 
   // numOrUndefined, not numOrNull: an untouched box must DROP its key rather
@@ -500,9 +501,9 @@ test('the three payload consumers are untouched', () => {
   // The controls go, the key stays, and everything that reads the PAYLOAD keeps
   // working. Named individually because "nothing else uses it" is the kind of
   // claim this project has been wrong about before.
-  const inputs = readFileSync(new URL('../../src/lib/deal-inputs.js', import.meta.url), 'utf8')
-  const appr = readFileSync(new URL('../../src/lib/approval-page.js', import.meta.url), 'utf8')
-  const route = readFileSync(new URL('../../src/routes/opportunities.js', import.meta.url), 'utf8')
+  const inputs = readCode(new URL('../../src/lib/deal-inputs.js', import.meta.url))
+  const appr = readCode(new URL('../../src/lib/approval-page.js', import.meta.url))
+  const route = readCode(new URL('../../src/routes/opportunities.js', import.meta.url))
 
   assert.match(inputs, /const overrides = payload\.marginOverrides \?\? \{\}/)
   assert.match(inputs, /overrides\[key\] \?\? targetMargin/)
@@ -557,8 +558,8 @@ test('the price to customer label always says which side of GST it sits on', () 
 test('nothing renders GST from a second read of the payload', () => {
   // Verification 20. Two readers of one value drift, and the drift here is
   // invisible: both are correct in isolation and only one is ever exercised.
-  const src = readFileSync(new URL('../../frontend/opportunity-deal.js', import.meta.url), 'utf8')
-  const appr = readFileSync(new URL('../../src/lib/approval-page.js', import.meta.url), 'utf8')
+  const src = readCode(new URL('../../frontend/opportunity-deal.js', import.meta.url))
+  const appr = readCode(new URL('../../src/lib/approval-page.js', import.meta.url))
 
   for (const [name, text] of [['opportunity-deal.js', src], ['approval-page.js', appr]]) {
     const stray = text.split('\n')
@@ -578,7 +579,7 @@ test('the two withholding lines are labelled as different money', () => {
   // They are equal when gross up is off, which read as deducted twice. With
   // gross up ON they genuinely differ, so they are two rows and the labels have
   // to say which is which.
-  const src = readFileSync(new URL('../../frontend/opportunity-deal.js', import.meta.url), 'utf8')
+  const src = readCode(new URL('../../frontend/opportunity-deal.js', import.meta.url))
   const matrix = src.slice(src.indexOf('const rows = ['), src.indexOf('const headRow'))
   assert.match(matrix, /of which withholding tax absorbed by Terminus/)
   assert.match(matrix, /label: wht\.deductedLabel/)
@@ -663,7 +664,7 @@ test('no rate box prefills a value nobody entered', () => {
   // ssExisting, ssNew, aqm and hemir still prefill 0 and are deliberately NOT
   // in the list: a deal with no AQ sensors is a real deal and its zero is not
   // a lie.
-  const src = readFileSync(new URL('../../frontend/opportunity-deal.js', import.meta.url), 'utf8')
+  const src = readCode(new URL('../../frontend/opportunity-deal.js', import.meta.url))
   assert.ok(ZERO_IS_NOT_A_VALUE.length >= 7, 'the list did not import, so this test is measuring nothing')
   const guarded = new Set(ZERO_IS_NOT_A_VALUE.map((k) => `deal-${k}`))
 

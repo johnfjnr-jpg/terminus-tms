@@ -24,6 +24,7 @@ process.env.TMS_ACCESS_TOKEN = 'test-token-not-a-real-credential'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync, readdirSync } from 'node:fs'
+import { readCode } from '../lib/strip-comments.mjs'
 import { join } from 'node:path'
 import { api, ApiError } from '../../scripts/api-client.mjs'
 
@@ -60,7 +61,7 @@ test('no script calls fetch directly except the two that are allowed to', () => 
   const offenders = []
   for (const file of scriptFiles()) {
     if (Object.keys(MAY_CALL_FETCH).some((f) => file.endsWith(f))) continue
-    const text = readFileSync(join(ROOT, file), 'utf8')
+    const text = readCode(join(ROOT, file))
     text.split('\n').forEach((line, i) => {
       // A comment mentioning fetch is prose, not a call.
       const code = line.replace(/\/\/.*$/, '')
@@ -85,7 +86,7 @@ test('and each exempt file ACTUALLY calls fetch, or the exemption is dead', () =
   // a hole standing open for the next thing written into it.
   for (const name of Object.keys(MAY_CALL_FETCH)) {
     const file = scriptFiles().find((f) => f.endsWith(name))
-    const text = readFileSync(join(ROOT, file), 'utf8')
+    const text = readCode(join(ROOT, file))
     const calls = text.split('\n').some((l) => /\bfetch\s*\(/.test(l.replace(/\/\/.*$/, '')))
     assert.ok(calls, `${name} is exempt from the fetch scan and does not call fetch`)
   }

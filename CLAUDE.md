@@ -499,17 +499,18 @@ Read through the accessor the authoritative consumer uses. Name what reads a
 required field. Search for an existing decision about the same behaviour before
 taking a new one.
 
-**BEFORE TRUSTING A NULL OR A GREEN READING** - Verification 12, 13, 17, 25
+**BEFORE TRUSTING A NULL OR A GREEN READING** - Verification 12, 13, 17, 25, 39
 collapse into one:
 
 > Before trusting a null reading, make the instrument produce a non-null one on
 > the system under test, ON THE SAME POPULATION you are about to make the claim
 > about.
 
-Two that do NOT collapse into it and fire at the same moment: **Verification 14**,
-require both sides to exist before comparing them; and **Verification 18**, do not
+Three that do NOT collapse into it and fire at the same moment: **Verification 14**,
+require both sides to exist before comparing them; **Verification 18**, do not
 stop at the first fix, because a calibration that does not move the number has
-failed to run rather than passed.
+failed to run rather than passed; and **Verification 39**, strip comments before
+matching, because a green reading from a source scan can be supplied by prose.
 
 **BEFORE MAKING A CLAIM** - Verification 19, 24, 26. One trigger, three actions,
 and they stay three rules: enumerate every member of a category and check it
@@ -1639,6 +1640,57 @@ of the change. An unanswerable precondition is a stop.
     COUNT at eleven and the test fails anyway, because it asserts the eleven
     NAMES rather than the number. A count would have passed it. Rule 33's
     companion, arriving inside a calibration.
+
+39. **PROSE SATISFIES A CHECK MEANT FOR CODE.** Set by the business 2026-08-30,
+    Round 41, after the same fault fired three times in one round in three
+    instruments written independently by somebody who had already been caught by
+    it twice.
+
+    > **A guard or probe that scans source code for evidence STRIPS COMMENTS
+    > BEFORE MATCHING, and calibrates that the stripping keeps real code.**
+
+    **The three instances, and none of them was a careless grep.**
+
+    - **A route assertion matching a comment.** The scan asked whether a route
+      performed a write; a comment describing the write satisfied it.
+    - **The fetch scan guard**, satisfied by a sentence about wrapping `fetch`.
+    - **An import check matching its own comment.** A guard tested whether the
+      file contained `system-defaults.js` before adding the import, and matched
+      the comment written four lines earlier that mentioned the filename. **The
+      guard printed a true reading of a false thing**, the import never landed,
+      and the gate found it as `defaultsForStructureChange is not defined`.
+
+    **The third is the shape to remember: the prose that satisfied the check had
+    been written by the same hand, in the same minute, as the check.** Nothing
+    adversarial and nothing stale. A file that talks about its own code will
+    contain every string a scan of that code looks for.
+
+    **THE SECOND HALF IS NOT OPTIONAL AND IS THE EASIER ONE TO SKIP.** A
+    stripper that eats real code turns every scan built on it into a silent
+    false negative, which is this same fault wearing the other hat and is worse,
+    because the first version at least fails loudly when the code is missing.
+    `'https://x'` is not a comment. `/[^/]*/` is not a comment. A `/*` inside a
+    template literal is not a comment. `$$ -- inside a plpgsql body $$` is not a
+    comment. `${VAR#prefix}` is not a comment. **Calibrate in both directions:
+    show a comment failing to satisfy the scan, and show the stripped source
+    still parsing.**
+
+    **AND ONE KIND OF SCAN MUST NOT STRIP, which is why the rule names EVIDENCE
+    rather than scanning.** A scan looking for a HAZARD reads the file raw: a
+    key pasted into a comment is committed exactly as hard as one pasted into a
+    string, so stripping in `scripts/tests/no-secrets.test.mjs` would build the
+    hole rather than close it. The exception is recorded at that scan, not here.
+
+    **The first instrument to adopt it found something within the minute**,
+    which is the argument for the rule rather than for the tidiness: reading
+    `style.css` through the stripper showed `.detail-tab-panel` and
+    `.field-editing` had no rule at all. Both are applied by live JavaScript.
+    The scan had been reporting them styled because two comments mentioned
+    them, one of which says the class deliberately carries no styling.
+
+    Nearest neighbour is Architecture 9's fourth variant, a literal that cannot
+    be falsified. **This is the reverse: a literal that falsifies a measurement
+    of something else**, and the measurement is the one reporting green.
 
 ### At round close: index these by when they apply
 
