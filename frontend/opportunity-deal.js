@@ -137,6 +137,23 @@ function num(id) {
 // The read boundary, shared with the server through /lib/numeric-payload.js.
 // Accepts a number, a numeric string (which the Reference tab wrote for
 // duration until this change), null or ''. Returns a number or null.
+// A select's unchosen state is the empty string, which is not absence to
+// anything downstream: `'' ?? x` is `''`, and `'bidCurrency' in payload` is
+// true. Null is the absence the rest of the module already understands.
+function emptyToNull(id) {
+  const v = document.getElementById(id)?.value
+  return v === '' || v === undefined ? null : v
+}
+
+// Sets a select from a stored value, leaving it on the empty option when there
+// is none. `el.value = undefined` would silently select nothing in some engines
+// and the first option in others, so the absent case is written out.
+function setCurrencySelect(id, stored) {
+  const el = document.getElementById(id)
+  if (!el) return
+  el.value = (stored === undefined || stored === null) ? '' : stored
+}
+
 function numOrNull(id) {
   return toNumberOrNull(document.getElementById(id)?.value)
 }
@@ -244,8 +261,11 @@ function readPayload() {
     // Currency (Round 3 Phase 6, 2026-08-17): data entry only, confirmed
     // scope - captured and saved, never read by buildDealInputs() below
     // or by calculateDeal(), same as this section's own comment states.
-    bidCurrency: document.getElementById('deal-bidCurrency').value,
-    proposalCurrency: document.getElementById('deal-proposalCurrency').value,
+    // '' is not a currency. An unchosen select sends null, so the record keeps
+    // its absence rather than acquiring an empty string that reads as a value
+    // to every ?? and every `key in payload` check downstream.
+    bidCurrency: emptyToNull('deal-bidCurrency'),
+    proposalCurrency: emptyToNull('deal-proposalCurrency'),
     fxContingency: numOrNull('deal-fxContingency'),
 
     duration: numOrNull('deal-duration'),
@@ -1521,8 +1541,22 @@ function populateForm(payload) {
   // scope - deliberately not read anywhere in buildDealInputs() below,
   // not wired into the calculation. Defaults match the prototype's own
   // (Terminus Ops.dc.html:6800-6801, both 'USD').
-  document.getElementById('deal-bidCurrency').value = p.bidCurrency || 'USD'
-  document.getElementById('deal-proposalCurrency').value = p.proposalCurrency || 'USD'
+  // ── THE || 'USD' LOAD FALLBACK IS GONE. Round 41 item 3 ──────────────────
+  //
+  // It filled the control with USD when the record held nothing, and the next
+  // save then WROTE 'USD' — a currency nobody chose, recorded because a screen
+  // needed something to show. Architecture 11: a default is an initial value in
+  // the record, not a fallback in the read.
+  //
+  // Measured: bidCurrency and proposalCurrency are absent on 561 of 570
+  // opportunities. Those stay absent and render as absent. USD is written at
+  // CREATION for new records, and the next save of an old one writes nothing.
+  //
+  // The empty option is a real option, so a <select> with no stored value lands
+  // on it rather than on the first currency in the list, which is the same
+  // reason "Select milestone" is an option rather than a placeholder.
+  setCurrencySelect('deal-bidCurrency', p.bidCurrency)
+  setCurrencySelect('deal-proposalCurrency', p.proposalCurrency)
   setVal('deal-fxContingency', toNumberOrNull(p.fxContingency) ?? '')
   const fxBox = document.getElementById('deal-fxContingency')
   if (fxBox) fxBox.placeholder = String(NUMERIC_DEFAULTS.fxContingency)

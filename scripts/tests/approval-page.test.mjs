@@ -528,6 +528,38 @@ test('the predicate matches the exact enumerated value, not a substring', () => 
     'a substring match would wrongly make this applicable')
 })
 
+test('a NUMERIC_DEFAULTS key with no APPLICABILITY entry is applicable', () => {
+  // PINNING AN EXISTING PROPERTY, on the business's instruction, so a future key
+  // fails toward OVER-DISCLOSURE and never toward silence.
+  //
+  // The property is `APPLICABILITY[key] ?? (() => true)`. It is one `??` and it
+  // would survive any careless edit that replaced it with a lookup returning
+  // undefined, which is falsy, which would silently hide every unruled key.
+  // Nothing else in the suite would notice: the ruled keys would still behave,
+  // and only keys nobody had thought about would go quiet.
+  //
+  // Driven from NUMERIC_DEFAULTS itself rather than a list here, so a key added
+  // to the constant is covered without anybody remembering.
+  const src = readFileSync(new URL('../../src/lib/approval-page.js', import.meta.url), 'utf8')
+  const block = src.slice(src.indexOf('const APPLICABILITY = {'), src.indexOf('};', src.indexOf('const APPLICABILITY = {')))
+  const ruled = new Set([...block.matchAll(/^\s{2}([A-Za-z]+):/gm)].map((m) => m[1]))
+
+  const unruled = Object.keys(NUMERIC_DEFAULTS).filter((k) => !ruled.has(k))
+  assert.ok(unruled.length >= 1, 'the pin measures nothing if every key is ruled')
+  for (const key of unruled) {
+    // The empty payload is the hardest case: no governing input is present, so
+    // a rule that read absence as "does not apply" would hide it.
+    assert.equal(appliesToDeal(key, {}), true,
+      `${key} has no applicability rule and must therefore be applicable`)
+    assert.equal(appliesToDeal(key, { structure: 'hybrid', installResp: 'Client Own Installation Team', factoring: { enabled: false } }), true,
+      `${key} must stay applicable whatever the governing inputs say, since none of them govern it`)
+  }
+
+  // And a key that exists nowhere at all is applicable, which is what makes the
+  // fallback a policy rather than an accident of the constant's contents.
+  assert.equal(appliesToDeal('aKeyNobodyHasEverDefined', {}), true)
+})
+
 test('an unlisted key is unconditional, which is the safe direction', () => {
   // A key nobody has ruled on DISCLOSES rather than hides. The dangerous
   // default would be the other way round.

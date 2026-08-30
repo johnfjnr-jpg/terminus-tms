@@ -1,4 +1,5 @@
 import { createUserClient } from '../supabase.js'
+import { readSystemDefaults, initialPayload } from '../lib/system-defaults.js';
 import { sendWriteError, writeErrorStatus, sendRefusal } from '../lib/write-errors.js'
 import { appendRecordRevision, SINGLE_KEY_RMW, readExpectedRevision, isStaleWrite } from '../lib/record-revision.js'
 import { issueReferenceNumber } from '../lib/reference-number.js'
@@ -1475,6 +1476,18 @@ export default async function testBedsRoutes(app) {
       .eq('stage', 'Qualification')
       .maybeSingle()
 
+    // ── DEFAULTS AT CREATION, THE SECOND PATH. Round 41 item 1 ────────────
+    //
+    // Test Bed conversion and contact qualification are the only two ways an
+    // opportunity comes into existence, and both write the defaults. Wiring one
+    // and not the other would make a deal's starting state depend on how it was
+    // made, and a blank deal from this path would be indistinguishable from one
+    // somebody deliberately cleared.
+    //
+    // Build-discipline rule 6: a fix built for the path that prompted it is not
+    // a fix for the one beside it.
+    const defaults = initialPayload(await readSystemDefaults(db))
+
     const { data: opp, error: oppErr } = await db
       .from('records')
       .insert({
@@ -1498,6 +1511,7 @@ export default async function testBedsRoutes(app) {
         record_id: opp.id,
         revision_number: 1,
         payload: {
+          ...defaults,
           name: opportunity_name.trim(),
           company_name: bedPayload.client_organisation ?? '',
           // customerLead (Round 2 Phase 1, 2026-08-16): carries the Test

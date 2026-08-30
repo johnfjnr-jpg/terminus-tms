@@ -1,4 +1,5 @@
 import { createUserClient } from '../supabase.js'
+import { readSystemDefaults, initialPayload } from '../lib/system-defaults.js';
 import { sendWriteError, sendRefusal } from '../lib/write-errors.js'
 import { appendRecordRevision, SINGLE_KEY_RMW, readExpectedRevision, isStaleWrite } from '../lib/record-revision.js'
 import { isValidMobile } from '../lib/field-validation.js'
@@ -774,6 +775,10 @@ export default async function contactsRoutes(app) {
       }
     }
 
+    // Read before the insert so a defaults table that cannot be read fails the
+    // creation rather than silently producing a blank deal.
+    const defaults = initialPayload(await readSystemDefaults(db))
+
     const { data: opp, error: oppErr } = await db
       .from('records')
       .insert({
@@ -801,7 +806,18 @@ export default async function contactsRoutes(app) {
         // initialLead above - set once, here, at creation, protected from
         // a later silent overwrite by PATCH /opportunities/:id's own
         // freshness check (saveRefFields), not by this insert.
-        payload: { name, company_name: accountName ?? '', customerLead: contactPayload.name ?? null },
+        // ── DEFAULTS ARE WRITTEN AT CREATION. Round 41 item 1 ────────────
+        //
+        // Architecture 11: a default is an initial value in the RECORD, not a
+        // fallback in the calculation. This is one of TWO creation paths, the
+        // other being Test Bed conversion, and both apply them: a deal that
+        // started blank because of how it was made would be indistinguishable
+        // from one somebody deliberately cleared.
+        //
+        // No structure is known here, so recoveryMonths and the factoring term
+        // are deliberately ABSENT rather than guessed. A field that does not yet
+        // apply must not be prefilled, or its not-recorded path is unreachable.
+        payload: { ...defaults, name, company_name: accountName ?? '', customerLead: contactPayload.name ?? null },
         created_by: request.user.id
       })
     if (revErr) return sendWriteError(reply, revErr)

@@ -515,6 +515,11 @@ export default async function opportunitiesRoutes(app) {
     // rate/percentage field.
     const VALID_CURRENCIES = ['USD', 'GBP', 'EUR', 'AED', 'SAR', 'SGD', 'AUD', 'CAD', 'JPY', 'INR']
     for (const key of ['bidCurrency', 'proposalCurrency']) {
+      // null is the absence Round 41 item 3 introduced: the load fallback that
+      // filled the control with USD is gone, so an unchosen select now sends
+      // null rather than a currency nobody picked. Absent and null are the same
+      // fact and both are valid; '' is neither and stays refused.
+      if (payload[key] === null) continue
       if (key in payload && !VALID_CURRENCIES.includes(payload[key])) {
         return reply.code(400).send({ error: `${key} must be one of: ${VALID_CURRENCIES.join(', ')}` })
       }

@@ -3085,7 +3085,18 @@ const CURRENCY_CODES = ['USD', 'GBP', 'EUR', 'AED', 'SAR', 'SGD', 'AUD', 'CAD', 
 
 function fillCurrencySelect(el) {
   if (!el || el.options.length) return
-  el.innerHTML = CURRENCY_CODES.map(c => `<option value="${c}">${c}</option>`).join('')
+  // ── AN EMPTY OPTION, FIRST. Round 41 item 3 ──────────────────────────────
+  //
+  // Without one, a select whose record holds no currency lands on the first
+  // code in the list, and the next save writes that code. The screen would be
+  // choosing a currency because a control has to show something, which is the
+  // fallback-in-the-read shape Architecture 11 forbids.
+  //
+  // A real option rather than a placeholder attribute, so "no currency chosen"
+  // is a state the control can hold and report, the same reason "Select
+  // milestone" is an option.
+  el.innerHTML = '<option value="">Not recorded</option>'
+    + CURRENCY_CODES.map(c => `<option value="${c}">${c}</option>`).join('')
 }
 
 // The two static selects are markup that exists for the life of the page, so
