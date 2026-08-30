@@ -87,8 +87,16 @@ footnote.
 
 ### 4. The merge: Deal Sheet Summary and Result become one panel
 
-One panel showing the P&L, with **SHOW DETAIL expanding the breakdown inside
-that panel** rather than beside it. The Result panel goes.
+One panel showing the P&L, with ~~**SHOW DETAIL expanding the breakdown inside
+that panel** rather than beside it~~. The Result panel goes.
+
+> **SUPERSEDED 2026-08-30 ON A MEASURED PREMISE, and the wording above is left
+> visible rather than deleted.** The instruction assumed ONE breakdown. The item
+> 4 enumeration found TWO, different in grain, in editability and in period, and
+> the business has ruled that neither supersedes the other and the merge must not
+> conflate them. Round 40 Phase 3's decision to open the detail BESIDE was never
+> in conflict with this: its layout words describe the per-line breakdown and
+> this sentence describes the group split. See `DESIGN_PRINCIPLES.md`.
 
 **Verified duplication:** revenue `$724,302`, total cost `$507,000` and margin
 `$217,302` each appear twice, forty rows apart.

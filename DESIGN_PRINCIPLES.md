@@ -1315,6 +1315,44 @@ without amending the census. The distinction is worth keeping: a `-` because a
 value is zero is a fact about the deal; a `-` because the code has no expression
 for it is a hole in a grid.
 
+### Two breakdowns, neither supersedes the other, and the merge must not conflate them
+
+**Ruled by the business 2026-08-30, Round 41, on the item 4 enumeration.** This
+is the STRUCTURAL half; which option is built is a separate ruling.
+
+The Commercials tab carries **two per-line breakdowns and they are different in
+kind**, differing on three axes at once:
+
+| | (a) the detail panel | (b) the group split |
+|---|---|---|
+| grain | per PRODUCT LINE, eleven | per PRODUCT GROUP, three |
+| editable | **yes**, eleven margin inputs | no, read-only |
+| period | hosting **per month** | hosting **over the term** |
+
+**Neither supersedes the other, and the merge must not conflate them.**
+
+**SUPERSEDED ON A MEASURED PREMISE: the brief's inside-expansion instruction.**
+`ROUND_41_BRIEF.md` item 4 said the breakdown expands "inside that panel rather
+than beside it", which reads as a correction to Round 40 Phase 3's decision to
+open the detail BESIDE the summary.
+
+> **The instruction assumed ONE breakdown. The enumeration found two.**
+
+So the two decisions were never in conflict: Phase 3's layout words describe (a),
+and the brief describes (b). The instruction is superseded because **its premise
+was measured false**, not because a preference changed, and the superseded
+wording is left in the brief so a reader can tell which happened (`CLAUDE.md`
+Verification 29).
+
+**The enumeration also found that (a) IS NOT IN ONE PLACE.** Seven of its eleven
+lines sit in the detail panel; the four INSTALLATION lines sit in section 2's
+`#deal-install-table`, under a different heading and behind an
+installation-responsibility condition. Any option that moves them is moving live
+controls, and both control families in those four rows fail differently if an
+input does not land: a missing margin box DROPS its key from `marginOverrides`,
+and a missing rate box WRITES NULL. Both are deletions; one is silent and the
+other is explicit.
+
 ### A negative closing cash position gets no treatment
 
 **Ruled by the business 2026-08-30.** The palette **introduces no red**, and the

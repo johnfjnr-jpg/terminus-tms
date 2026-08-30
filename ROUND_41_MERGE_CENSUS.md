@@ -356,7 +356,38 @@ not by construction of the display: both read the same `result.groups`.
 group in different periods, and nothing on either says so beyond the card title's
 `(per month)`. If the two are ever shown together, that is the line to label.
 
-### What this means for the ruling, stated as options rather than as a recommendation
+### STRUCTURAL HALF RULED 2026-08-30
+
+**Two breakdowns, neither supersedes the other, and the merge must not conflate
+them.** The brief's inside-expansion instruction is **superseded on a measured
+premise**: it assumed one breakdown and the enumeration found two. Recorded in
+`DESIGN_PRINCIPLES.md`, and the superseded wording is left visible in
+`ROUND_41_BRIEF.md`.
+
+### THE HOSTING PERIOD FIX IS RULED IN FOR THIS ROUND, UNDER EVERY OPTION
+
+**A per-month figure must say per month on the figure or its label, not only on
+a card title.** Today the only statement of the period is the card title
+`Hosting (per month)`, and `CLAUDE.md` Verification 27's corollary is exactly
+this shape: a note nobody reads is functionally absent, and a period stated once
+at the top of a card does not travel with the figure a person is comparing.
+
+The figures needing it, measured on TT-SGP-SMARTC-003:
+
+| where | today | period |
+|---|---|---|
+| `pg-cost-hoSs` / `hoAqm` / `hoHemir` and their prices | `$4,000`, `$400`, `$1,000` | **per month** |
+| `pg-total-cost-ho` / `pg-total-price-ho` | `$5,400` / `$7,714` | **per month** |
+| matrix Hosting column, Revenue and Cost | `$277,704` / `$194,400` | **over 36 months** |
+| Result `Hosting price over N months` | `$277,704` | already says it |
+
+**The Result rows already carry the period in the label**, through
+`durationPresentation`, and they are the model: `Hosting price over 36 months`,
+and `Hosting price, contract duration not recorded` when there is no term. The
+fix is to give the per-month figures the same treatment rather than to invent a
+second convention.
+
+### What this means for the option ruling, stated as options rather than as a recommendation
 
 1. **Both, unchanged in kind.** The merged panel expands to the group split
    inside; `Show detail` keeps opening the per-line pricing beside. Two buttons,
