@@ -2254,7 +2254,25 @@
               <span class="label" style="display:block;margin-bottom:6px">Recovery period</span>
               <div id="deal-recovery-readonly-value" style="font-family:var(--mono);font-size:13px;color:var(--muted);padding:7px 0">--</div>
             </div>
-            <div style="flex:1 1 0;min-width:0" id="deal-year-schedule"></div>
+            <!-- ── THE FACTORING SELECTION, ON THE PAYMENT TERMS LINE ──────
+                 Round 41 item 5. It sat in a block of its own below the
+                 milestone grid, which is a long way from the structure and
+                 invoicing choices it belongs with: factoring is a payment term,
+                 and choosing it is the same kind of decision as choosing the
+                 structure. The FIELDS stay where they are and open below when
+                 it is on; only the selection moves. -->
+            <div style="width:170px;flex:0 0 170px">
+              <span class="label" style="display:block;margin-bottom:6px">PO factoring</span>
+              <button class="btn-ghost" id="deal-factoring-toggle" type="button">Factoring: Off</button>
+            </div>
+            <!-- MIN-WIDTH, not min-width:0. Round 41 item 6, finding 3.
+                 `flex: 1 1 0; min-width: 0` never wraps: it shrinks to whatever
+                 is left, and at 1240 what was left was 216px for four nowrap
+                 numeric columns. Measured, the three year figures overlapped by
+                 27px each and the head row read "YEAR 1YEAR 2YEAR 3". A basis
+                 that cannot fit must take its own line rather than compress into
+                 an unreadable one. -->
+            <div style="flex:1 1 340px;min-width:340px" id="deal-year-schedule"></div>
           </div>
         </div>
 
@@ -2288,8 +2306,9 @@
         </div>
 
         <div style="margin-top:24px">
-          <label class="label" style="margin-bottom:10px;display:block">PO factoring</label>
-          <button class="btn-ghost" id="deal-factoring-toggle" type="button">Factoring: Off</button>
+          <!-- The selection moved onto the Payment Terms line (Round 41 item 5).
+               These are the fields it reveals, and they stay here because they
+               are three paragraphs of explanation rather than a choice. -->
           <div class="form-grid hidden" id="deal-factoring-fields" style="margin-top:16px">
             <!-- Round 39. The second clause was written FROM THE CALCULATOR
                  rather than from the sentence, on the business's own
@@ -2388,6 +2407,20 @@
                    shows what WILL happen, that page shows what DID. -->
               <button class="btn-secondary" id="btn-open-approval">Approval view</button>
             </div>
+            <!-- ── THE SCREEN SAYS THE ORDER. Round 41 item 6, finding 5 ─────
+                 The finding was that Save version sits above Save changes,
+                 against the decided save-then-version order. MEASURED, the
+                 order is already enforced in behaviour: saveVersion() calls
+                 saveDeal() first when the form is dirty, and refuses the
+                 version if that save fails, because a version citing figures
+                 the record never held cannot be checked against anything.
+
+                 So the gap was never the button positions, it was that nothing
+                 SAID so. Reordering the buttons would have moved the tab's one
+                 primary save out of .form-actions, where every other detail
+                 page in this application keeps it, to express a sequence the
+                 user does not have to follow. -->
+            <p class="field-note" style="margin-top:10px">Taking a version saves the pricing first, so a version and the record can never disagree.</p>
           </div>
         </div>
 

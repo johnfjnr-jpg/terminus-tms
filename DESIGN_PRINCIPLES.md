@@ -1330,6 +1330,27 @@ rather than an oversight:
   different number from the one it names today, which is a string that stopped
   being true when the thing under it moved.
 
+  **THE SHIPPED WORDING, VERBATIM, recorded beside the ruling because a ruled
+  wording is a ruling:**
+
+  > `Margin before financing, test bed and withholding`
+
+  **It does not differ from the ruled wording, and the variance question is
+  worth answering rather than waving away.** The census's merged shape carried
+  exactly this sentence, and the shipped label is character-for-character the
+  same.
+
+  **What happened is the opposite of a ruled wording drifting.** The first
+  implementation invented a longer variant, `Margin by product group, before
+  financing, test bed and withholding`, which is what the 1240 capture rendered
+  as `…test bed and…`. The truncation fix **restored the census wording**. The
+  longer variant exists in no committed source file: checked across every commit
+  of this round, it appears only in the merge report, quoted as the defect.
+
+  **The report described that intermediate state without saying it had never
+  been the ruled wording**, which is what made a restoration read as a change.
+  Recorded so the next reader of that paragraph is not misled by it.
+
 **And the hardcoded dash cells are ruled NOT FACTS.** The `of which financing`
 row's Hosting and Installation cells are the literal `'-'` under every condition,
 so no deal state can fill them. **Empty by construction**, they may cease to exist

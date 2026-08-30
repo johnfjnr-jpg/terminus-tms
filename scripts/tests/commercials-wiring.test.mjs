@@ -523,6 +523,80 @@ test('the three payload consumers are untouched', () => {
 })
 
 // ─────────────────────────────────────────────────────────────
+// Layout and the screen-read findings. Round 41 items 5 and 6
+// ─────────────────────────────────────────────────────────────
+
+test('Units Required is one box of four rows with four-figure inputs', () => {
+  const css = readCode(new URL('../../frontend/style.css', import.meta.url))
+  const html = readCode(new URL('../../frontend/index.html', import.meta.url))
+  assert.match(css, /\.unit-cards \{[^}]*grid-template-columns: minmax\(0, 320px\)/,
+    'one column, so the four counts read as a set rather than as four cards')
+  assert.match(css, /\.unit-cards \.unit-card input \{[^}]*width: 72px/,
+    'four figures, not a full-width box for a two-digit number')
+  const box = html.slice(html.indexOf('<div class="unit-cards">'), html.indexOf('</div>', html.indexOf('id="deal-hemir"')))
+  assert.equal((box.match(/class="unit-card"/g) || []).length, 4, 'four rows')
+})
+
+test('FINDING 3: a year cell may not be given less room than its own glyphs', () => {
+  // Measured at 1240 before the fix: `flex: 1 1 0` gave four nowrap numeric
+  // columns 216px between them, the three year figures overlapped by 27px each
+  // and the head row read "YEAR 1YEAR 2YEAR 3".
+  const css = readCode(new URL('../../frontend/style.css', import.meta.url))
+  assert.match(css, /\.ys-cell, \.ys-total \{ flex-shrink: 0; \}/)
+  const html = readCode(new URL('../../frontend/index.html', import.meta.url))
+  // And the row it sits on must be able to wrap it away, which needs a real
+  // min-width rather than the min-width:0 that let it shrink to nothing.
+  assert.match(html, /flex:1 1 340px;min-width:340px" id="deal-year-schedule"/)
+  assert.match(html, /id="deal-top-schedule-row"[^>]*flex-wrap:wrap/)
+})
+
+test('FINDING 4: the scroll boundary announces itself, and only when there is one', () => {
+  const css = readCode(new URL('../../frontend/style.css', import.meta.url))
+  const src = readCode(new URL('../../frontend/opportunity-deal.js', import.meta.url))
+  assert.match(css, /\.cashflow-scroll\.is-scrollable \{/,
+    'the fade is on a class, so a grid that fits is not dimmed for nothing')
+  assert.match(css, /mask-image: linear-gradient\(to right/)
+  // A RESIZE OBSERVER, not a check at render time. recompute() runs while the
+  // panel is hidden, where clientWidth and scrollWidth are both 0, so the
+  // render-time check never fired on the one path a person takes.
+  assert.match(src, /new ResizeObserver\(mark\)/)
+  assert.match(src, /el\.classList\.toggle\('is-scrollable', el\.scrollWidth > el\.clientWidth \+ 1\)/)
+  assert.equal((src.match(/is-scrollable/g) || []).length, 1, 'one site decides it')
+})
+
+test('FINDING 5: the note says what the code does, and the code does it', () => {
+  // The finding was that Save version sits above Save changes, against the
+  // decided save-then-version order. Measured, the order is already enforced:
+  // saveVersion() saves first and refuses the version if that save fails.
+  //
+  // BOTH HALVES, because a note nobody checked is exactly the claim this
+  // project keeps removing. The sentence is asserted AND so is the behaviour it
+  // describes, so the note cannot outlive the code it reports.
+  const html = readCode(new URL('../../frontend/index.html', import.meta.url))
+  const src = readCode(new URL('../../frontend/opportunity-deal.js', import.meta.url))
+  assert.match(html, /Taking a version saves the pricing first, so a version and the record can never disagree\./)
+
+  const fn = src.slice(src.indexOf('async function saveVersion()'))
+  const body = fn.slice(0, fn.indexOf('\n}\n'))
+  assert.match(body, /if \(isDealFormDirty\(\)\) \{/, 'it saves when there is something to save')
+  assert.match(body, /const saved = await saveDeal\(\)/)
+  assert.match(body, /if \(!saved\) \{/, 'and refuses the version when that save fails')
+  assert.ok(body.indexOf('await saveDeal()') < body.indexOf('deal-sheet-versions'),
+    'the save must happen BEFORE the version request, or the note is false')
+})
+
+test('the factoring selection is on the Payment Terms line', () => {
+  const html = readCode(new URL('../../frontend/index.html', import.meta.url))
+  const row = html.slice(html.indexOf('id="deal-top-schedule-row"'), html.indexOf('id="deal-year-schedule"'))
+  assert.match(row, /id="deal-factoring-toggle"/,
+    'the selection belongs with the structure and invoicing choices, not below the milestone grid')
+  // The FIELDS stay where they are: three paragraphs of explanation are not a
+  // choice and do not belong on a line of selectors.
+  assert.ok(html.indexOf('id="deal-factoring-fields"') > html.indexOf('id="deal-year-schedule"'))
+  assert.equal((html.match(/id="deal-factoring-toggle"/g) || []).length, 1)
+})
+
+// ─────────────────────────────────────────────────────────────
 // The merged Deal Sheet panel. Round 41 item 4
 // ─────────────────────────────────────────────────────────────
 

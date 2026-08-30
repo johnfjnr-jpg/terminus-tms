@@ -1228,11 +1228,36 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
    panel width, each one just a bordered box around a single 1-3 digit
    number - confirmed live at 2400px (each card ~530px wide). 260px is
    comfortable for the label plus a real value, no stretch. */
+/* ── FOUR ROWS, NOT FOUR CARDS. Round 41 item 5 ────────────────────────────
+   A count is one integer. Four bordered cards spread across the width gave each
+   of them a full-width input for a two-digit number, and put the four labels a
+   long way apart when the whole point is reading them as a set.
+
+   ONE BOX, four rows, on the left. The section is unchanged in the order of
+   sections: this is the shape of the box, not a new side-by-side. */
 .unit-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 260px));
+  grid-template-columns: minmax(0, 320px);
   justify-content: start;
+  gap: 0;
+  border: 1px solid var(--hairline-strong);
+}
+.unit-cards .unit-card {
+  border: none;
+  border-bottom: 1px solid var(--hairline);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 72px;
+  align-items: center;
   gap: 12px;
+  padding: 10px 12px;
+}
+.unit-cards .unit-card:last-child { border-bottom: none; }
+.unit-cards .unit-card label { margin-bottom: 0; }
+/* FOUR FIGURES. The widest realistic count is four digits, and an input sized
+   for a paragraph invites one. */
+.unit-cards .unit-card input {
+  width: 72px;
+  text-align: right;
 }
 .unit-card {
   border: 1px solid var(--hairline-strong);
@@ -1450,6 +1475,11 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
   border-bottom: 1px solid var(--hairline);
   align-items: center;
 }
+/* Round 41 item 6, finding 3. `flex: 1 1 0` let a nowrap figure be given less
+   room than its own glyphs, so three year figures overlapped by 27px each at
+   1240 and the head row read "YEAR 1YEAR 2YEAR 3". A cell may shrink to its
+   content and no further; the row's container wraps instead. */
+.ys-cell, .ys-total { flex-shrink: 0; }
 .ys-row.head {
   padding-bottom: 8px;
   border-bottom: 1px solid var(--hairline-strong);
@@ -1527,6 +1557,21 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
 .cashflow-scroll {
   border: 1px solid var(--hairline-strong);
   overflow-x: auto;
+}
+
+/* ── A CUT NUMBER READS AS A VALUE, NOT AS A BOUNDARY. Round 41, finding 4 ──
+   Measured at 1240: the grid is 3,244px of content in a 422px column, and the
+   Cumulative cash position row ended "379,622  350,127  3". A figure sliced
+   mid-glyph at a hard edge does not say "there is more to the right"; it says
+   350,127 and then a three.
+
+   The fade is applied ONLY when the content actually overflows, set by the
+   renderer, so a grid that fits is not dimmed for nothing. It introduces no
+   colour: it is the page background taking the last few pixels, which is the
+   one thing on the page guaranteed not to be mistaken for data. */
+.cashflow-scroll.is-scrollable {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent 100%);
+  mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent 100%);
 }
 
 .cf-row {

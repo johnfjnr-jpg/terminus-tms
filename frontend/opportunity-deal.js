@@ -961,6 +961,34 @@ function renderDealPanel(result, payload) {
   document.getElementById('deal-panel').innerHTML = headRow + dataRows
 }
 
+// ── FINDING 4: THE BOUNDARY HAS TO ANNOUNCE ITSELF ─────────────────────────
+//
+// Measured at 1240: 3,244px of grid in a 422px column, and the Cumulative cash
+// position row ended "379,622  350,127  3". A figure sliced mid-glyph at a hard
+// edge does not read as "there is more to the right", it reads as 350,127 and
+// then a three.
+//
+// A RESIZE OBSERVER, NOT A CHECK AT RENDER TIME. The first version toggled the
+// class immediately after the grid was built and it never fired: recompute()
+// runs while the Commercials panel is still hidden, so clientWidth and
+// scrollWidth are both 0 and 0 > 1 is false. Nothing re-renders when the tab is
+// then shown, so the class was never applied on the one path a person takes.
+//
+// The observer fires when the element gets a width, which covers being revealed,
+// the window being resized, and the detail panel opening beside it. Called once
+// per render as well, for the case where the panel is already visible.
+let cashFlowResizeObserver = null
+function markCashFlowScrollable() {
+  const el = document.getElementById('deal-cashflow-grid')
+  if (!el) return
+  const mark = () => el.classList.toggle('is-scrollable', el.scrollWidth > el.clientWidth + 1)
+  mark()
+  if (!cashFlowResizeObserver && typeof ResizeObserver !== 'undefined') {
+    cashFlowResizeObserver = new ResizeObserver(mark)
+    cashFlowResizeObserver.observe(el)
+  }
+}
+
 // Sums the cash flow's already-computed monthly rows into 12-month
 // buckets - the year-by-year schedule is a re-grouping of cashFlow.rows,
 // never a fresh accrual/billing calculation. (The prototype's own
@@ -1092,6 +1120,7 @@ function renderResults(result, payload) {
   }
 
   renderCashFlowGrid(cf)
+  markCashFlowScrollable()
 
   const msWarn = document.getElementById('deal-milestone-warn')
   if (uiState.structure === 'hybrid') {
