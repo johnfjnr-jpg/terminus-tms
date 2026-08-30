@@ -447,11 +447,28 @@ not resolve it quietly.
     30.0% because margin is computed on `contractNet` and never asks whether a
     penny of it is collected.
 
-    **The two readings of "default" are not variants of one idea.** An initial
-    value is a fact about creation and is visible in the field; a fallback is a
-    fact about every read and is invisible everywhere. A field carrying an
-    initial value can be cleared and stay cleared, which is what makes the
-    not-recorded path reachable at all.
+    **THE TWO READINGS OF "DEFAULT" DIFFER BY LOCATION.** Corrected by the
+    business 2026-08-30 from a first draft that rested on visibility, which is
+    the wrong property:
+
+    > **An initial value lives in the RECORD. A fallback lives in the
+    > CALCULATION.**
+
+    **And it is a fact about creation rather than about every read**, which is
+    the half that makes it testable: an initial value is written once and can be
+    cleared and stay cleared, so the not-recorded path is reachable at all.
+
+    **Visibility follows from location rather than defining it.** Something in
+    the record is on the screen and in the version because that is what a record
+    IS. Something in the calculation can be shown or hidden and is wrong either
+    way.
+
+    **The counter-example that settles it: a VISIBLE fallback is possible and
+    still wrong.** Leave the field empty and render "not set, using 24 months"
+    beside it. Honest, readable, and the calculation still runs on a value the
+    user did not choose. **A version would then freeze an empty field alongside a
+    computed 24**, which is ambiguous at exactly the point where somebody
+    approves a price.
 
     **Consequences, and each is part of the rule rather than a detail of it.** A
     default does not reach records created before it. Changing a default does not
@@ -624,6 +641,16 @@ of the change. An unanswerable precondition is a stop.
    visibly empty; a write whose error is unchecked looks like it worked.
 
 9. **An invariant not proven capable of failing is not evidence**, and
+   **AN OPERATION'S OWN SUCCESS LINE IS NOT CONFIRMATION EITHER.** Round 40,
+   2026-08-30, and it is kept for what has teeth rather than for what happened.
+   `SendUserFile` returned "2 files delivered to user", nothing arrived, and I
+   quoted that line back to the business as confirmation. **The author of the
+   rule about operations reporting success without verification did exactly
+   that, in the same session as writing it, and neither party checked.** As "a
+   send failed" it is worth nothing; as "the person who knew the rule best was
+   the one it caught" it is worth keeping. **`SendUserFile` is not repository
+   tooling** - the class is general, the instance is external, and there is no
+   bug in this codebase to go looking for.
    "invariant" means EVERY DETECTOR: a test assertion, a probe, a scan, a
    generated column, a hook. Anything whose job is to notice. Broadened at the
    Round 40 close, where the business put it as **a detector that has never
