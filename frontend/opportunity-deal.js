@@ -969,7 +969,18 @@ function renderDealSheet(result, payload) {
     { label: 'Hardware and warranty cost', value: `- $${money(hardwareGroup.rawTotalCost)}`, color: 'var(--muted)' },
     { label: 'Installation cost', value: `- $${money(installGroup.rawTotalCost)}`, color: 'var(--muted)' },
     { label: dur.costLabel, value: dur.recorded ? `- $${money(hostingTermCost)}` : dur.value, color: 'var(--muted)' },
-    { label: 'PO factoring interest', value: financeCost ? `- $${money(financeCost)}` : '-', color: 'var(--muted)' },
+    // ── THE TWO BLOCKS MUST AGREE ABOUT THIS ONE FACT ─────────────────────
+    //
+    // Found by the item 4 census, and created by ruling 5 in this same round.
+    // The matrix beside this list was taught to say "not recorded" when the
+    // facility is on with no term; this row still said "-", which everywhere
+    // else on this list means zero. Two blocks about to be merged, disagreeing
+    // about the same fact, which is Round 39's GST fault reintroduced.
+    {
+      label: 'PO factoring interest',
+      value: result.costIncomplete ? 'not recorded' : (financeCost ? `- $${money(financeCost)}` : '-'),
+      color: 'var(--muted)',
+    },
     {
       label: grossUp ? 'Withholding tax, grossed up and recovered from the customer' : 'Withholding tax absorbed by Terminus',
       value: whtBorne ? `- $${money(whtBorne)}` : '-', color: 'var(--muted)',
@@ -1227,7 +1238,13 @@ function renderCashFlowGrid(cf) {
   )
   if (cf.contractorStaged) push('Contractor milestone payment', cells(r => r.contractorOut, true))
   push('Hosting cost', cells(r => r.hostOut, true))
-  if (cf.factoringEnabled) {
+  if (cf.factoringEnabled && cf.factoringTermMissing) {
+    // THE THIRD SURFACE, and ruling 5 created this state too. With no term the
+    // schedule is empty, so both rows would print a full run of zeros for a
+    // facility that is switched on: a confident zero across the whole term,
+    // which is what the ruling exists to remove. One row that says so instead.
+    push('Factoring, term not recorded', cf.rows.map(() => ({ value: '', color: 'var(--muted-2)' })))
+  } else if (cf.factoringEnabled) {
     push('Factoring principal repayment', cells(r => r.facP, true))
     push('Factoring interest', cells(r => r.facI, true))
   }

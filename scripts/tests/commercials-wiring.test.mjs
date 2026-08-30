@@ -25,7 +25,8 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { JSDOM } from 'jsdom'
-import { gstPresentation, whtPresentation, ratePresentation, durationPresentation, ZERO_IS_NOT_A_VALUE, marginPresentation, closingCashPresentation } from '../../src/lib/deal-inputs.js'
+import { gstPresentation, whtPresentation, ratePresentation, durationPresentation, ZERO_IS_NOT_A_VALUE, marginPresentation, closingCashPresentation, buildDealInputs } from '../../src/lib/deal-inputs.js'
+import { calculateDeal } from '../../src/lib/deal-calculator.js'
 
 // The eleven lines that carry a per-line margin. Named here so the markup and
 // the screen's own MARGIN_KEYS are checked against one list rather than each
@@ -593,6 +594,47 @@ test('both renderings of achieved margin are painted from that one rule', () => 
   assert.match(css, /^\.stat-value\.under-target \{ color: var\(--white\); \}$/m)
   assert.ok(!/\.terms-achieved \.stat-value\.on-target/.test(css),
     'the scoped rule must be gone, not shadowed by the de-scoped one')
+})
+
+test('every surface says the same thing about an unrecorded factoring term', () => {
+  // FOUND BY THE ITEM 4 CENSUS, and created by ruling 5 in the same round. The
+  // matrix was taught to say "not recorded"; the Result list beside it still
+  // said "-", which everywhere else on that list means zero; and the cash flow
+  // grid printed a full run of zeros across the term for a facility that is on.
+  //
+  // Three surfaces, one fact. This is Round 39's GST fault reintroduced by the
+  // round that was removing it, and it would have been merged into one panel.
+  const src = readCode(new URL('../../frontend/opportunity-deal.js', import.meta.url))
+
+  // The matrix row and the Result row both branch on the SAME flag. Asserted on
+  // the flag rather than on the wording, because two surfaces can carry the same
+  // sentence from two different conditions and drift the moment one changes.
+  assert.equal((src.match(/result\.costIncomplete/g) || []).length, 3,
+    'the matrix pair and the Result row read costIncomplete, and nothing else invents its own test')
+  assert.match(src, /label: 'PO factoring interest',\s*\n\s*value: result\.costIncomplete \? 'not recorded'/)
+
+  // The cash flow grid does not print a term of zeros for a facility that is on.
+  assert.match(src, /cf\.factoringEnabled && cf\.factoringTermMissing/)
+  assert.match(src, /'Factoring, term not recorded'/)
+  // Asserted on the ORDER rather than on the absence of a spelling: my first
+  // version excluded the unguarded branch with a regex that also matched the
+  // `else if`, so it failed on correct code. What matters structurally is that
+  // the missing-term guard is reached FIRST and that the schedule rows have
+  // exactly one site.
+  assert.equal((src.match(/push\('Factoring principal repayment'/g) || []).length, 1)
+  assert.ok(src.indexOf("'Factoring, term not recorded'") < src.indexOf("push('Factoring principal repayment'"),
+    'the missing-term guard must come first, or the zero rows are printed anyway')
+
+  // AND THE FLAG IS REACHABLE, or all four assertions above guard a state that
+  // never happens. Verification 9.
+  const p = { ssExisting: 10, duration: 36, targetMargin: 30, structure: 'single',
+    installResp: 'Client Own Installation Team',
+    factoring: { enabled: true, ratePct: 1.5, method: 'straight' } }
+  const r = calculateDeal(buildDealInputs(p, { rates: { ssUnitCost: 8000, hoSafesight: 200 } }))
+  assert.equal(r.costIncomplete, true)
+  assert.equal(r.cashFlow.factoringTermMissing, true)
+  const q = { ...p, factoring: { ...p.factoring, termMonths: 12 } }
+  assert.equal(calculateDeal(buildDealInputs(q, { rates: { ssUnitCost: 8000, hoSafesight: 200 } })).costIncomplete, false)
 })
 
 test('the closing cash position says a negative plainly, and no red', () => {
