@@ -1080,6 +1080,15 @@ when code landed rather than when a measure was met, and it names a property its
 commit does not have. Round 40 is untagged for that reason and stays untagged
 until the walks pass.
 
+### The pass criterion
+
+**Set by the business 2026-08-30, Round 41, and recorded verbatim.**
+
+> The pass criterion for the three task walks is no hesitation: the walker
+> completes the task without stopping to work out what the screen means or where
+> to act. There is no separate checklist. This is deliberate, so the tag decision
+> later is made against the criterion that was actually set.
+
 ---
 
 ## Contract duration and recovery period take Admin defaults
