@@ -26,6 +26,7 @@ import { changedKeys } from '/lib/payload-diff.js'
 // approval page. It reads catalog rates as ordinary payload keys, which is
 // exactly what readPayload() puts there.
 import { buildDealInputs, gstPresentation, whtPresentation, durationPresentation, marginPresentation, closingCashPresentation, perMonthFigure } from '/lib/deal-inputs.js'
+import { LATCH_PANELS, panelSignal, signalSentence } from '/lib/latches.js'
 import { reasonPromptFor } from '/lib/version-reason.js'
 import { scheduleReconciliation, refusalStatement } from '/lib/milestone-schedule.js'
 import { resolveRates, frozenRates } from '/lib/rate-resolution.js'
@@ -961,6 +962,89 @@ function renderDealPanel(result, payload) {
   document.getElementById('deal-panel').innerHTML = headRow + dataRows
 }
 
+// ── THE LATCHES. Round 41 item 7 ───────────────────────────────────────────
+//
+// SESSION ONLY, IN MEMORY, GONE ON RELOAD. A Set in a module variable, and
+// deliberately not localStorage: latching is a working instrument for reaching a
+// defensible commercial position, not a display preference, and a preference
+// that survives a reload is a state somebody INHERITS rather than one they made.
+// Rule 1 says latching is a subtraction the user makes and never a state they
+// inherit, and the storage choice is what makes that true rather than intended.
+const latched = new Set()
+
+function applyLatches(payload) {
+  const catalogProblem = !document.getElementById('deal-catalog-warn')?.classList.contains('hidden')
+  const marginOverrides = {}
+  MARGIN_KEYS.forEach((k) => { marginOverrides[k] = document.getElementById(`deal-margin-${k}`)?.value })
+  const rateValues = {}
+  for (const [id, key] of [['deal-inSsExisting', 'inSsExisting'], ['deal-inSsNew', 'inSsNew'],
+    ['deal-inAqm', 'inAqm'], ['deal-inHemir', 'inHemir']]) {
+    rateValues[key] = document.getElementById(id)?.value
+  }
+
+  for (const panel of LATCH_PANELS) {
+    const el = document.getElementById(panel.id)
+    const btn = document.getElementById(`latch-${panel.id}`)
+    if (!el || !btn) continue
+    const off = latched.has(panel.id)
+    el.classList.toggle('is-latched', off)
+    btn.textContent = off ? 'Show' : 'Hide'
+    btn.setAttribute('aria-expanded', String(!off))
+
+    // RULE 3 IS ONLY ABOUT A LATCHED-OFF PANEL. An open panel shows its own
+    // gaps, so a marker on its button would be noise competing with the thing
+    // it is pointing at.
+    const signal = off ? panelSignal(panel, payload, { marginOverrides, rateValues, catalogProblem }) : null
+    btn.classList.toggle('is-signalled', !!signal?.signalled)
+    btn.title = signal ? signalSentence(signal, panel) : `Hide ${panel.label}`
+  }
+
+  const all = document.getElementById('latch-all')
+  if (all) {
+    // Rule 4: it returns to EVERYTHING VISIBLE, never to a remembered set. With
+    // anything hidden it offers the way back; only from all-shown does it hide.
+    const anyHidden = latched.size > 0
+    all.textContent = anyHidden ? 'Show all' : 'Hide all'
+    all.classList.toggle('is-signalled', anyHidden && LATCH_PANELS.some((p) => latched.has(p.id)
+      && panelSignal(p, payload, { marginOverrides, rateValues, catalogProblem }).signalled))
+  }
+
+  markDetailCatalogFlag()
+}
+
+// ── THE CATALOG FLAG. Round 41 item 7, the business's ruling 2 ─────────────
+//
+// It has no latch button to sit on: ruling 2 put it on section 4's latch, and
+// ruling 1, in the same message, made section 4 never-latchable. Its CONCERN is
+// unchanged and still live, so it rides `Show detail`, which ruling 1 names as
+// that panel's only collapse mechanism. Latching is not what can hide the
+// notice; closing the detail is. Reported at the phase boundary rather than
+// resolved silently.
+//
+// THE SENTENCE IS THE NOTICE'S OWN. A fixed sentence here would name one of the
+// three problems renderCatalogNotice can report - an unreadable catalog, a
+// product with no current batch, or a bid currency the catalog is not held in -
+// and be wrong about the other two. The first version said "a product is
+// pricing against a rate that does not exist" and appeared over a CURRENCY
+// mismatch, which is Architecture 9's fourth variant: a literal that cannot be
+// falsified by anything.
+//
+// CALLED FROM THE TOGGLE AS WELL AS FROM THE RENDER, because opening the detail
+// does not recompute anything. The first version read the panel's state inside
+// applyLatches only, so the flag stayed lit with the detail open.
+function markDetailCatalogFlag() {
+  const btn = document.getElementById('btn-toggle-detail')
+  const warn = document.getElementById('deal-catalog-warn')
+  const panel = document.getElementById('deal-detail-panel')
+  if (!btn || !warn || !panel) return
+  const problem = !warn.classList.contains('hidden') && warn.textContent.trim() !== ''
+  const hidden = panel.classList.contains('hidden')
+  const lit = problem && hidden
+  btn.classList.toggle('is-signalled', lit)
+  if (lit) btn.title = `The detail is hidden and holds a problem: ${warn.textContent.trim()}`
+  else btn.removeAttribute('title')
+}
+
 // ── FINDING 4: THE BOUNDARY HAS TO ANNOUNCE ITSELF ─────────────────────────
 //
 // Measured at 1240: 3,244px of grid in a 422px column, and the Cumulative cash
@@ -1121,6 +1205,8 @@ function renderResults(result, payload) {
 
   renderCashFlowGrid(cf)
   markCashFlowScrollable()
+  // After renderCatalogNotice, because the catalog flag reads its output.
+  applyLatches(payload)
 
   const msWarn = document.getElementById('deal-milestone-warn')
   if (uiState.structure === 'hybrid') {
@@ -1775,6 +1861,28 @@ function wireOnce() {
   // gross-up, factoring) use click, not input/change, so those mark
   // dirty explicitly in their own handlers further down.
   document.getElementById('opp-tab-commercial').addEventListener('input', updateDirtyState)
+
+  // ── THE LATCH BUTTONS. Round 41 item 7 ────────────────────────────────
+  //
+  // Delegated, so a latch button is wired whether or not its panel has been
+  // rendered yet, and so adding a sixth panel needs no second wiring site.
+  document.getElementById('opp-tab-commercial').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-latch]')
+    if (btn) {
+      const id = btn.dataset.latch
+      if (latched.has(id)) latched.delete(id); else latched.add(id)
+      applyLatches(readPayload())
+      return
+    }
+    if (e.target.closest('#latch-all')) {
+      // RULE 4: it returns to EVERYTHING VISIBLE, never to a remembered set.
+      // Clearing rather than restoring is what makes that structural: there is
+      // no remembered set in the code to return to by mistake.
+      if (latched.size > 0) latched.clear()
+      else for (const p of LATCH_PANELS) latched.add(p.id)
+      applyLatches(readPayload())
+    }
+  })
   document.getElementById('opp-tab-commercial').addEventListener('change', updateDirtyState)
 
   // ── THE SUB-TAB WIRING IS GONE WITH THE SUB-TABS. Round 40 Phase 2 ────
@@ -1799,6 +1907,9 @@ function wireOnce() {
       row.classList.toggle('detail-open', open)
       detailBtn.setAttribute('aria-expanded', String(open))
       detailBtn.textContent = open ? 'Hide detail' : 'Show detail'
+      // Opening the detail does not recompute anything, so the catalog flag has
+      // to be re-read here or it stays lit over an open panel.
+      markDetailCatalogFlag()
     })
   }
 

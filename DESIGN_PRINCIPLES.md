@@ -846,6 +846,26 @@ in the same voice: here an intention and a RECORD sound the same in the moment
 they are spoken.
 
 
+### THE ABSENT-CATALOG-RATE SILENCE, and its home is Asset Management
+
+**Named by the business 2026-08-30, Round 41, from the item 7 enumeration.
+Deferred with its home attached, not refused.**
+
+A product with no current Base Cost batch prices at **zero cost**, so its lines
+carry price with no cost against them and the deal's achieved margin is inflated
+by exactly the amount nobody knows. The screen's only admission of this is
+`renderCatalogNotice`, which lives **inside the Deal Sheet Summary's detail
+panel**, closed by default.
+
+**The write side belongs to Asset Management**, and that is why this is a
+deferral rather than a fix: **batch receipts supply hardware unit costs, and
+contractor per-unit agreements supply installation rates.** The read-side
+disclosure integration follows when that module's data exists.
+
+**What Round 41 ships is the signal only**: `Show detail` lights when the notice
+is active and the detail is closed, so the one admission the screen makes cannot
+be hidden without the control that hides it saying so.
+
 ### SECTION-2 CONSOLIDATION: bring the four installation lines into the detail panel
 
 **Deferred by the business 2026-08-30, Round 41. Deferred, not refused.** It is
@@ -1434,6 +1454,41 @@ installation lines into the detail panel is a named candidate on the list.
 - **Method:** **preserve the ids, move the rows.** The controls are the ids, not
   the markup; re-authoring the rows is what loses one.
 - **Precondition:** the merge shipped and the three task walks run.
+
+### The latches: what may be hidden, and what a hidden panel must still admit
+
+**Ruled by the business 2026-08-30, Round 41.** Session only, in memory, gone on
+reload. **A working instrument for reaching a defensible commercial position, not
+a display preference**, which is why it is in scope for the walks rather than
+decoration on top.
+
+1. **On load everything is visible.** Latching is a subtraction the user makes
+   and never a state they inherit. The storage choice is what makes that true
+   rather than intended: a `Set` in a module variable, deliberately not
+   `localStorage`.
+2. **The top strip AND the P&L summary are never latchable.** Rule 2 widened on
+   the item 7 enumeration. The strip is the always-visible read. **The P&L is the
+   position the latches exist to help reach, and a screen showing four
+   conclusions with the working hidden is not a subtraction, it is abdication.**
+   `Show detail` remains the summary's only collapse mechanism, so its detail is
+   not separately latchable either. Seven latchable became **five**.
+3. **A latched-off panel holding a missing or overridden input is signalled on
+   its own latch button.** Panel level, not input-to-number tracing: on this
+   screen nearly every input feeds a visible number, so the panel-level rule
+   gives the same protection without a dependency map that would outlive the
+   feature's session-only scope. Missing asks **both halves** - the key is unset
+   AND it applies to this deal.
+4. **Show/Hide All returns to everything visible**, never to a remembered set.
+   Implemented by CLEARING rather than restoring, so there is no remembered set
+   in the code to return to by mistake.
+
+**Two panels can never signal, and they are named rather than discovered.** Units
+Required and Cash flow hold nothing that can be missing or overridden: unit
+counts sit outside `ZERO_IS_NOT_A_VALUE` on purpose, because zero is a real
+answer to "how many", and Cash flow holds no inputs at all. **A latch button that
+cannot carry a signal is not a defect, but it IS a claim**: a reader infers a
+silent button means nothing is missing, and on those two it is silent by
+construction.
 
 ### A negative closing cash position gets no treatment
 

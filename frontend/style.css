@@ -4632,3 +4632,63 @@ input.input-invalid {
   text-transform: none;
   letter-spacing: 0;
 }
+
+/* ── THE LATCHES. Round 41 item 7 ──────────────────────────────────────────
+   A latch hides everything in its panel EXCEPT the row carrying its own title
+   and button, so the panel never disappears: what disappears is its content,
+   and the way back is always on screen. Rule 1 is that on load everything is
+   visible, so there is no styling for a default-hidden state.
+
+   The strip and the Deal Sheet Summary have no latch at all rather than a
+   disabled one. A disabled control is a thing you might enable. */
+.latch-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+.latch-all-row {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+.latch {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted-2);
+  background: none;
+  border: 1px solid var(--hairline);
+  padding: 4px 10px;
+  cursor: pointer;
+}
+.latch:hover, .latch:focus-visible { color: var(--white); border-color: var(--hairline-strong); }
+
+.deal-section.is-latched > *:not(.latch-row),
+.deal-intake-col.is-latched > *:not(.latch-row) { display: none; }
+
+/* ── RULE 3: A LATCHED PANEL ADMITS WHAT IT IS HIDING ──────────────────────
+   The marker is a dot before the word, in the one accent the palette carries,
+   because a latched panel holding a missing or overridden input is the case the
+   rule exists for: otherwise the screen hides the cause of a number it still
+   shows, which is finding 1 with the user's hand on the switch.
+
+   NO RED. The accent means "look at this", the same way green means at or above
+   target: the palette spends one accent and does not grow a second. */
+.latch.is-signalled {
+  color: var(--white);
+  border-color: var(--hairline-strong);
+}
+.latch.is-signalled::before {
+  content: '';
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--green);
+  margin-right: 7px;
+  vertical-align: middle;
+}

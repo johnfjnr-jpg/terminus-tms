@@ -1762,6 +1762,16 @@
            by side. The detail panel beside the summary is Phase 3. -->
       <!-- ── SECTION 1: Units Required ─────────────────────────────────── -->
       <!-- Computed pricing stays here in Phase 2. It is the detail the layout moves beside the summary in Phase 3, and moving it now would be doing that phase. -->
+      <!-- ── SHOW / HIDE ALL. Round 41 item 7, rule 4 ────────────────────
+           It RETURNS TO EVERYTHING VISIBLE, never to a remembered set. There
+           is no remembered set to return to: latching is session only, in
+           memory, and gone on reload, so the only two states this control has
+           to name are "all shown" and "all hidden". -->
+      <div class="latch-all-row">
+        <button class="latch latch-all" type="button" id="latch-all">Hide all</button>
+        <span class="field-note" id="latch-all-note">Hiding is for this session only. Nothing is saved and a reload brings everything back.</span>
+      </div>
+
       <!-- ── SECTIONS 1 AND 2, SIDE BY SIDE ────────────────────────────
            Round 41 item 5, on the business's ruling, superseding the Phase 0
            brief's numbered order of separate sections. Recorded in place in
@@ -1775,7 +1785,10 @@
            want half the screen. -->
       <div class="deal-section deal-section--intake" id="deal-sections-1-2">
       <section class="deal-intake-col" id="deal-section-1">
+        <div class="latch-row">
         <p class="section-title">Units Required</p>
+        <button class="latch" type="button" id="latch-deal-section-1" data-latch="deal-section-1" aria-expanded="true" aria-controls="deal-section-1">Hide</button>
+      </div>
         <div class="unit-cards">
           <div class="unit-card">
             <label for="deal-ssExisting">SafeSight, existing infra</label>
@@ -1823,7 +1836,10 @@
 
       <!-- ── SECTION 2: Installation ─────────────────────────────────── -->
       <section class="deal-intake-col" id="deal-section-2">
+        <div class="latch-row">
         <p class="section-title">Installation</p>
+        <button class="latch" type="button" id="latch-deal-section-2" data-latch="deal-section-2" aria-expanded="true" aria-controls="deal-section-2">Hide</button>
+      </div>
         <div class="form-grid">
           <!-- Round 39: entry explains itself. Phase 0 measured this control as
                the sharpest instance of the gap - four options, nothing on screen
@@ -1950,7 +1966,10 @@
       </div>
 
       <section class="deal-section" id="deal-section-3">
+        <div class="latch-row">
         <p class="section-title">Structural Terms</p>
+        <button class="latch" type="button" id="latch-deal-section-3" data-latch="deal-section-3" aria-expanded="true" aria-controls="deal-section-3">Hide</button>
+      </div>
         <div class="terms-cards">
           <div class="pg-card">
             <p class="pg-card-title">Margin and Warranty</p>
@@ -2222,8 +2241,11 @@
 
       <!-- ── SECTION 5: Payment Terms and Cash Flow, SIDE BY SIDE ──────── -->
       <section class="deal-section" id="deal-section-5">
+        <div class="latch-row">
+        <p class="section-title">Payment Terms</p>
+        <button class="latch" type="button" id="latch-deal-section-5" data-latch="deal-section-5" aria-expanded="true" aria-controls="deal-section-5">Hide</button>
+      </div>
         <div class="deal-payment-col">
-          <p class="section-title">Payment Terms</p>
         <!-- Round 39 item 2: Contract duration MOVED to Structural Terms, beside
              the margin controls. It is a commercial lever, not a payment term:
              the business names it as the second thing they reach for when margin
@@ -2368,7 +2390,10 @@
            and costs the reading distance between a row label and its figures.
            Same reasoning as the merged panel's own cap. -->
       <section class="deal-section" id="deal-section-6">
+        <div class="latch-row">
         <p class="section-title">Cash flow (USD)</p>
+        <button class="latch" type="button" id="latch-deal-section-6" data-latch="deal-section-6" aria-expanded="true" aria-controls="deal-section-6">Hide</button>
+      </div>
         <div class="deal-cashflow-col">
           <div class="cashflow-scroll" id="deal-cashflow-grid"></div>
           <p class="empty-state hidden" id="deal-cashflow-empty" style="text-align:left;padding:16px 0">Set the Contract Duration to model the monthly cash flow.</p>
