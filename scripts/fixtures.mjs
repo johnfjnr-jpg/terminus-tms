@@ -230,6 +230,34 @@ export async function tearDown() {
   if (error) throw error
 
   if (live.length) {
+    // ── A FROZEN RECORD CANNOT BE TORN DOWN. Round 41 ────────────────────
+    //
+    // refuse_write_while_frozen() refuses every write to a record with an open
+    // transition request, INCLUDING the soft delete, and for every role. A
+    // probe that dies between raising a request and withdrawing it therefore
+    // leaves a record teardown cannot remove, and the next run fails on the
+    // residue rather than on its own work.
+    //
+    // Found by exactly that: a crashed run of probe-commercial-gate left an
+    // open request, and the next teardown threw PT423 with the trigger's
+    // message and no explanation of what a teardown was doing hitting it.
+    //
+    // THE REQUEST IS CLOSED, NOT DELETED. It is the audit trail of what the
+    // probe did, and Verification 11 is that fixtures are soft deleted.
+    const ids = live.map((r) => r.id)
+    const { data: open, error: openErr } = await db.from('transition_requests')
+      .select('id').in('record_id', ids).eq('status', 'open')
+    if (openErr) throw openErr
+    if (open?.length) {
+      const { error: closeErr } = await db.from('transition_requests').update({
+        status: 'withdrawn',
+        closed_by: TEST_USER_ID,
+        closed_at: new Date().toISOString(),
+        close_reason: 'teardown: the fixture this request froze is being removed',
+      }).in('id', open.map((r) => r.id))
+      if (closeErr) throw closeErr
+    }
+
     const { error: delErr } = await db.from('records')
       .update({ deleted_at: new Date().toISOString() })
       .in('id', live.map((r) => r.id))

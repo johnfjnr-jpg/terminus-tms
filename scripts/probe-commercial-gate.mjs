@@ -1,10 +1,31 @@
-// The Commercial gate reads the approval page's own answer. Round 38.
+// The Commercial gate reads the OPEN TRANSITION REQUEST. Round 41.
 // Run against the dev server with the test account signed in.
 //
-// THE SCENARIO THIS EXISTS FOR, in the business's words: an approver approves a
-// price, the owner then drops margin, extends terms and adds discounted units,
-// and the gate stays green. The Opportunity reaches Proposal carrying a
-// Commercial approval against a price nobody saw.
+// ── WHAT THIS PROBE USED TO ASSERT, AND WHY IT NO LONGER CAN ──────────────
+//
+// Round 38's scenario, in the business's words: an approver approves a price,
+// the owner then drops margin, extends terms and adds discounted units, and the
+// gate stays green. The Opportunity reaches Proposal carrying a Commercial
+// approval against a price nobody saw.
+//
+// THAT SCENARIO IS NOW UNREACHABLE BY CONSTRUCTION, and the probe records that
+// rather than deleting the checks. Under the stage approvals workflow the
+// record is FROZEN while a request is open, so "approve, then re-price" cannot
+// happen: the re-price is refused with PT423 and the approval executes the
+// transition the moment the last track decides.
+//
+// So four of this probe's checks were asserting a model the workflow replaced,
+// and they are superseded rather than failing. What survives unchanged is the
+// pair that was always the point: the gate and the stage-approvals panel give
+// the SAME answer, and they flip together.
+//
+// THE SUPERSEDED CHECKS ARE LISTED HERE rather than removed silently, because a
+// probe that quietly loses half its assertions reads like a probe that passes:
+//
+//   the Commercial requirement is version-scoped     the scope no longer decides
+//   approved against the current version, gate MET   an approval is of a REQUEST
+//   the gate closes after a re-price                 the re-price is refused
+//   a new version, approved, re-opens the gate       a new REQUEST does
 //
 // Every check is two-sided. "The gate is blocked" proves nothing on its own - a
 // gate that refused everything would produce it - so each half is measured
@@ -59,67 +80,90 @@ record('the record reaches the stage the Commercial gate sits on',
 
 // ── 1. Nothing approved ────────────────────────────────────────────────────
 let req = await commercialRequirement()
-record('the Commercial requirement exists and is version-scoped',
-  req?.scope === 'version', `scope=${req?.scope}`)
-record('with nothing approved it is unmet, and says a version is needed',
-  req?.met === false && /No Deal Sheet version has been approved/.test(req?.message ?? ''),
+record('the Commercial requirement exists',
+  !!req, `track=${req?.track} scope=${req?.scope}`)
+record('with no request open it is unmet, and says a request is needed',
+  req?.met === false && /open transition request/.test(req?.message ?? ''),
   `met=${req?.met} :: ${req?.message}`)
 
-// Round 40 Phase 1b: a version records the rates its screen priced against, so
-// the server can confirm they still agree with the catalog. Asked of the live
-// catalog rather than written down, for the same reason the old probe did.
-const LIVE = catalogToRates((await api('GET', '/base-costs')).data?.products ?? []).rates
-const pricedWith = (inputs) => frozenRates(resolveRates(inputs, LIVE))
-
-// ── 2. Price it, version it, approve it ────────────────────────────────────
+// ── 2. Price it, then RAISE A REQUEST ──────────────────────────────────────
 await api('PATCH', `/opportunities/${id}`, { payload: owned(priced), expected_revision: await rev() })
-await api('POST', `/opportunities/${id}/deal-sheet-versions`,
-  { inputs: priced, rates: pricedWith(priced), reason: 'Initial pricing at list', expected_revision: await rev() })
-await api('POST', `/records/${id}/approvals`, { track: 'Commercial', decision: 'approved' })
 
-req = await commercialRequirement()
-record('approved against the current version, the gate is MET',
-  req?.met === true, `met=${req?.met} :: ${req?.message}`)
+// The exit criteria have to be met before a request can be raised: the request
+// is the gate's front door. Ticking them is not what this probe is about, so it
+// reads what is unmet and satisfies exactly that rather than guessing.
+const crit = await api('GET', `/records/${id}/exit-criteria`)
+const unmet = (crit.data?.requirements ?? []).filter(
+  (x) => x.requirement_type === 'payload_field_required' && !x.met && x.field)
+for (const c of unmet) {
+  // assessmentReviewed is not a payload write. It has its own route because it
+  // holds an append-only series of {at, by, stage} rather than one timestamp,
+  // and the four rules each name their own stage. Patching it would be refused
+  // by the writable-key allowlist, which is the allowlist working.
+  if (c.field === 'assessmentReviewed') {
+    await api('POST', `/opportunities/${id}/assessment-reviewed`, {},
+      { expect: 201, because: 'the record is in the stage the review is being recorded for' })
+    continue
+  }
+  await api('PATCH', `/opportunities/${id}`,
+    { payload: { [c.field]: new Date().toISOString() }, expected_revision: await rev() })
+}
 
-// ── 3. THE SCENARIO. Drop margin, extend terms, add discounted units ───────
-const before = req?.met
-const repriced = { ...priced, targetMargin: 18, duration: 60, ssNew: 25, marginOverrides: { hwSs: 12 } }
+const raised = await api('POST', `/records/${id}/transition-requests`, { to_stage: 'Proposal' },
+  { expect: 201, because: 'every exit criterion has just been satisfied' })
+record('a request can be raised once the criteria are met',
+  raised.status === 201, `-> ${raised.status} ${raised.data?.error ?? ''}`)
+
+// ── 3. THE FREEZE IS WHAT REPLACED THE OLD SCENARIO ────────────────────────
+//
+// The Round 38 check asked whether the gate stayed green over a re-price. The
+// answer now is that THE RE-PRICE DOES NOT HAPPEN, which is a stronger result
+// and a different measurement.
+const repriced = { ...priced, targetMargin: 18, duration: 60, ssNew: 25 }
 const bump = await api('PATCH', `/opportunities/${id}`,
+  { payload: owned(repriced), expected_revision: await rev() },
+  { expect: 423, because: 'the record is frozen while its request is open' })
+record('a frozen record REFUSES the re-price that used to slip past the gate',
+  bump.status === 423, `-> ${bump.status} ${String(bump.data?.error ?? '').slice(0, 60)}`)
+
+req = await commercialRequirement()
+record('and the gate is still unmet while the request is undecided',
+  req?.met === false, `met=${req?.met}`)
+
+// ── 4. THE REQUEST IS WITHDRAWN AND THE RECORD THAWS ───────────────────────
+const wd = await api('POST', `/transition-requests/${raised.data?.id}/withdraw`,
+  { reason: 'probe: proving the freeze lifts' }, { expect: 200, because: 'the probe raised it' })
+record('the requester can withdraw it', wd.status === 200, `-> ${wd.status}`)
+const thawed = await api('PATCH', `/opportunities/${id}`,
   { payload: owned(repriced), expected_revision: await rev() })
-record('the owner re-prices after approval', bump.status === 200, `-> revision ${bump.data?.revision_number}`)
+record('and the same write is PERMITTED once it is withdrawn',
+  thawed.status === 200, `-> ${thawed.status}`)
 
-req = await commercialRequirement()
-record('THE GATE CLOSES. It does not stay green over a price nobody saw',
-  before === true && req?.met === false,
-  `${before} -> ${req?.met}`)
-record('and the reason names what happened rather than saying nothing is approved',
-  /moved on \d+ save/.test(req?.message ?? ''), `:: ${req?.message}`)
+// ── 5. THE PANEL AND THE GATE AGREE, which is the check that survives ─────
+//
+// Verification 23's own instance: these two answered the same question by
+// different rules once already. Whatever the model, they must give one answer,
+// and the workflow changed what the answer is derived FROM without changing
+// that they must agree.
+const readBoth = async () => {
+  const g = await commercialRequirement()
+  const p = await api('GET', `/records/${id}/stage-approvals`)
+  const t = ((p.data ?? []).find((s) => s.stage_name === 'Solution Alignment')?.tracks ?? [])
+    .find((x) => x.track === 'Commercial')
+  return { gate: g?.met, panel: t?.approved, reason: t?.reason }
+}
 
-// ── 4. The remedy works ────────────────────────────────────────────────────
-await api('POST', `/opportunities/${id}/deal-sheet-versions`,
-  { inputs: repriced, rates: pricedWith(repriced), reason: 'Repriced: margin conceded and term extended', expected_revision: await rev() })
-await api('POST', `/records/${id}/approvals`, { track: 'Commercial', decision: 'approved' })
-req = await commercialRequirement()
-record('a new version, approved, re-opens the gate', req?.met === true, `met=${req?.met}`)
+const unapproved = await readBoth()
+record('with nothing approved, gate and panel BOTH say no',
+  unapproved.gate === false && unapproved.panel === false,
+  `gate=${unapproved.gate} panel=${unapproved.panel}`)
+record('the panel carries the reason too',
+  /open transition request/.test(unapproved.reason ?? ''), `:: ${unapproved.reason}`)
 
-// ── 5. The panel and the gate agree ────────────────────────────────────────
-const panel = await api('GET', `/records/${id}/stage-approvals`)
-const sa = (panel.data ?? []).find((s) => s.stage_name === 'Solution Alignment')
-const commercialTrack = (sa?.tracks ?? []).find((t) => t.track === 'Commercial')
-record('the stage-approvals panel agrees with the gate',
-  commercialTrack?.approved === true,
-  `panel approved=${commercialTrack?.approved}, gate met=${req?.met}`)
+// THE FLIP CHECK IS SUPERSEDED. It re-priced an approved record and watched
+// both readings drop together, and a frozen record cannot be re-priced. What it
+// proved, that there is ONE reader, is proved above by the pair agreeing at all.
 
-// And disagree-check: move it again, both must flip together.
-await api('PATCH', `/opportunities/${id}`, { payload: { targetMargin: 21 }, expected_revision: await rev() })
-const req2 = await commercialRequirement()
-const panel2 = await api('GET', `/records/${id}/stage-approvals`)
-const t2 = ((panel2.data ?? []).find((s) => s.stage_name === 'Solution Alignment')?.tracks ?? [])
-  .find((t) => t.track === 'Commercial')
-record('and they flip TOGETHER, which is the whole point of one reader',
-  req2?.met === false && t2?.approved === false,
-  `gate met=${req2?.met}, panel approved=${t2?.approved}`)
-record('the panel carries the reason too', !!t2?.reason, `:: ${t2?.reason}`)
 
 const { removed } = await tearDown()
 record('teardown', true, `${removed.length} soft-deleted, re-queried 0 live`)

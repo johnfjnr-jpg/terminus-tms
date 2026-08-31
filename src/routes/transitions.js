@@ -1,5 +1,6 @@
 import { createUserClient } from '../supabase.js'
 import { liveVersionApproval, VERSION_SCOPE } from '../lib/version-approval.js'
+import { usesWorkflow } from '../lib/transition-requests.js'
 import { sendWriteError, sendRefusal } from '../lib/write-errors.js'
 
 // Round 5 Phase 5 (2026-08-17): extracted from POST /records/:id/transition
@@ -197,11 +198,44 @@ export async function computeBlocking(db, record, from_stage, to_stage, currentR
       // to agree, and their disagreeing is a real defect that shipped once.
       const scope = ruleScope(rule)
 
+      // ── A WORKFLOW TYPE READS THE OPEN REQUEST, AND NOTHING ELSE ────────
+      //
+      // Round 41. Both scopes collapse: the record cannot change while a request
+      // is open, so an approval ON THE REQUEST is current by construction.
+      //
+      // THIS WIRING WAS MISSING AND THE BRANCH WAS DEAD. approvalSatisfiesRule
+      // gained its requestApprovals parameter at the routes boundary and NO
+      // CALLER EVER SUPPLIED IT, so every opportunity gate went on reading the
+      // version-derived state it was supposed to have replaced. Found by the
+      // item 4 confirmation, which is what that confirmation was for.
+      let requestApprovals
+      if (usesWorkflow(record.record_type)) {
+        const { data: open, error: reqErr } = await db
+          .from('transition_requests')
+          .select('id')
+          .eq('record_id', record.id).eq('status', 'open').eq('kind', 'transition')
+          .maybeSingle()
+        if (reqErr) return { error: reqErr }
+        if (open) {
+          const { data: decided, error: decErr } = await db
+            .from('approvals').select('track, decision').eq('request_id', open.id)
+          if (decErr) return { error: decErr }
+          requestApprovals = new Set((decided ?? [])
+            .filter((d) => d.decision === 'approved').map((d) => d.track))
+        } else {
+          // NO OPEN REQUEST MEANS NO APPROVAL, and an empty Set says so rather
+          // than falling through to the old reading. A workflow record's gate is
+          // satisfied by a request or not at all.
+          requestApprovals = new Set()
+        }
+      }
+
       // A version-scoped rule asks the approval page's own evaluator. Loaded
       // here rather than inside the predicate so the predicate stays pure and
-      // both call sites reach the same answer through the same loader.
+      // both call sites reach the same answer through the same loader. Skipped
+      // entirely for a workflow type: the request has already answered.
       let versionApproval
-      if (scope === VERSION_SCOPE) {
+      if (scope === VERSION_SCOPE && requestApprovals === undefined) {
         const loaded = await loadVersionApproval(db, record.id, track, currentRevision)
         if (loaded.error) return { error: loaded.error }
         versionApproval = loaded.versionApproval
@@ -214,8 +248,15 @@ export async function computeBlocking(db, record, from_stage, to_stage, currentR
         .eq('track', track)
         .eq('decision', 'approved')
 
-      const approval = (candidates ?? []).some(
-        a => approvalSatisfiesRule(a, rule, { from_stage, currentRevision, versionApproval }))
+      // A workflow type's answer does not depend on the candidate rows at all,
+      // so it is asked once rather than once per row: `some` over an empty list
+      // is false, and an opportunity with no pre-workflow approvals would have
+      // read "not approved" however many requests had approved it.
+      const approval = requestApprovals !== undefined
+        ? approvalSatisfiesRule({ decision: 'approved', track }, rule,
+          { from_stage, currentRevision, requestApprovals })
+        : (candidates ?? []).some(
+          a => approvalSatisfiesRule(a, rule, { from_stage, currentRevision, versionApproval }))
 
       // Round 7 step 3.0: an unchecked error here is indistinguishable
       // from "no approval exists", which this branch would read as
@@ -230,7 +271,18 @@ export async function computeBlocking(db, record, from_stage, to_stage, currentR
         // The version-scoped message carries the evaluator's own reason, because
         // "no version approved" and "the deal moved since it was approved" need
         // different actions from the person reading a blocked gate.
-        message: scope === VERSION_SCOPE
+        //
+        // A WORKFLOW TYPE HAS NO versionApproval TO ASK, and this line read it
+        // unconditionally for a version-scoped rule: the first run after wiring
+        // the request in threw "Cannot read properties of undefined" on every
+        // exit-criteria call. The workflow's own message comes first because for
+        // those records the version evaluator was never loaded.
+        message: requestApprovals !== undefined
+          ? (approval
+            ? `${track} has approved the open request`
+            : 'Requires an approved decision on the open transition request. '
+              + `Raise one from the stage panel if there is none.`)
+          : scope === VERSION_SCOPE
           ? versionApproval.reason
           : scope === 'stage'
           ? `Requires an approved ${track} decision at stage ${from_stage}`

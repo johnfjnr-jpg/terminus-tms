@@ -1,6 +1,7 @@
 import { createUserClient } from '../supabase.js'
 import { sendWriteError } from '../lib/write-errors.js'
 import { computeBlocking, approvalSatisfiesRule, ruleScope, loadVersionApproval, GATE_RECORD_SELECT } from './transitions.js'
+import { usesWorkflow } from '../lib/transition-requests.js'
 import { VERSION_SCOPE } from '../lib/version-approval.js'
 
 /**
@@ -18,7 +19,11 @@ import { VERSION_SCOPE } from '../lib/version-approval.js'
  * each row answers "what would it take to exit THIS stage", the same
  * question the gate asks with from_stage.
  */
-export function buildStageTracks(stageRules, approvals, stageName, currentRevision, versionApprovals = {}) {
+// requestApprovals is a PARAMETER, not a closure read. The first version read it
+// from the route's scope and this function is exported and called by the suite,
+// so it threw ReferenceError in three gate tests. A function that reaches
+// outside itself for a value is a function its callers cannot satisfy.
+export function buildStageTracks(stageRules, approvals, stageName, currentRevision, versionApprovals = {}, requestApprovals) {
   const seen = new Set()
   return (stageRules ?? [])
     .filter(r => r.requirement_type === 'approval_obtained' && r.requirement_detail?.track)
@@ -36,15 +41,29 @@ export function buildStageTracks(stageRules, approvals, stageName, currentRevisi
       // possible divergence, so the panel is handed the SAME loaded answer the
       // gate uses rather than deriving one.
       const versionApproval = versionApprovals[track]
-      const decision = (approvals ?? []).find(a =>
-        approvalSatisfiesRule(a, rule, { from_stage: stageName, currentRevision, versionApproval }))
+      // A WORKFLOW TYPE'S ANSWER DOES NOT DEPEND ON THE CANDIDATE ROWS, so it is
+      // asked once rather than once per row. `.find` over an empty list never
+      // calls the predicate, so a record with no pre-workflow approvals would
+      // have read "not approved" however many requests had approved it. The
+      // same shape was in computeBlocking and is fixed there too.
+      const workflowApproved = requestApprovals !== undefined
+        ? approvalSatisfiesRule({ decision: 'approved', track }, rule,
+          { from_stage: stageName, currentRevision, requestApprovals })
+        : null
+      const decision = workflowApproved !== null
+        ? (workflowApproved ? (approvals ?? []).find(a => a.track === track && a.decision === 'approved') ?? true : null)
+        : (approvals ?? []).find(a =>
+          approvalSatisfiesRule(a, rule, { from_stage: stageName, currentRevision, versionApproval }))
       return {
         track,
         approved: !!decision,
-        approver_id: decision?.approver_id ?? null,
-        decided_at: decision?.decided_at ?? null,
+        approver_id: (typeof decision === 'object' && decision?.approver_id) || null,
+        decided_at: (typeof decision === 'object' && decision?.decided_at) || null,
         // Why it is not approved, when the reason is not simply "nobody has".
-        reason: decision ? null : (versionApproval && !versionApproval.live ? versionApproval.reason : null),
+        reason: decision ? null
+          : workflowApproved !== null
+            ? 'No open transition request carries an approval on this track.'
+            : (versionApproval && !versionApproval.live ? versionApproval.reason : null),
       }
     })
 }
@@ -204,6 +223,23 @@ export default async function recordsRoutes(app) {
     // computeBlocking uses. This panel covers every stage of the record, and a
     // version-scoped answer is a property of the record rather than of a stage,
     // so one load serves them all.
+    // ── A WORKFLOW TYPE'S PANEL READS THE REQUEST TOO ──────────────────────
+    //
+    // Round 41. The stage-approvals panel and computeBlocking disagreeing is a
+    // defect that shipped once already, which is why this loads the same thing
+    // the gate does rather than a second view of it.
+    let requestApprovals
+    if (usesWorkflow(record.record_type)) {
+      const { data: open } = await db.from('transition_requests')
+        .select('id').eq('record_id', record.id)
+        .eq('status', 'open').eq('kind', 'transition').maybeSingle()
+      const { data: decided } = open
+        ? await db.from('approvals').select('track, decision').eq('request_id', open.id)
+        : { data: [] }
+      requestApprovals = new Set((decided ?? [])
+        .filter((d) => d.decision === 'approved').map((d) => d.track))
+    }
+
     const versionApprovals = {}
     for (const track of new Set((rulesResult.data ?? [])
       .filter((r) => r.requirement_type === 'approval_obtained' && ruleScope(r) === VERSION_SCOPE)
@@ -247,7 +283,7 @@ export default async function recordsRoutes(app) {
       }).filter(Boolean)
 
       const tracks = buildStageTracks(
-        stageRules, approvals, stage.stage_name, currentRevision, versionApprovals)
+        stageRules, approvals, stage.stage_name, currentRevision, versionApprovals, requestApprovals)
 
       return { stage_name: stage.stage_name, sort_order: stage.sort_order, phase: stage.phase, state, criteria, tracks }
     })

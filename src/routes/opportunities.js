@@ -813,7 +813,12 @@ export default async function opportunitiesRoutes(app) {
     // Round 17A Phase 1: the number and the merged payload now come back from
     // the write itself rather than from figures computed before it, which is
     // the only way the response can describe what was actually stored.
-    return reply.send({ revision_number: newRevision.revision_number, payload: newRevision.payload, forecast_close_date: date.trim() })
+    return reply.send({
+      record_id: request.params.id,
+      revision_number: newRevision.revision_number,
+      payload: newRevision.payload,
+      forecast_close_date: date.trim(),
+    })
   })
 
   // PUT /api/opportunities/:id/probability-override (Round 20 Phase 4)
@@ -999,7 +1004,7 @@ export default async function opportunitiesRoutes(app) {
     }
 
     const entry = { at: new Date().toISOString(), by: request.user.email, stage: record.status }
-    const { error: revErr } = await appendRecordRevision(
+    const { data: newRevision, error: revErr } = await appendRecordRevision(
       db, record.id, { assessmentReviewed: [...existing, entry] }, request.user.id, [],
       // Additive: one entry onto assessmentReviewed.
       SINGLE_KEY_RMW)
@@ -1016,7 +1021,14 @@ export default async function opportunitiesRoutes(app) {
       detail: { stage: entry.stage },
     })
 
-    return reply.code(201).send({ entry, entries: existing.length + 1 })
+    // The new revision, for the same reason the score route returns it: this
+    // write moves the record and a client that cannot learn the new number
+    // refuses its own next save. Walk finding 1.
+    return reply.code(201).send({
+      entry, entries: existing.length + 1,
+      record_id: record.id,
+      revision_number: newRevision?.revision_number ?? null,
+    })
   })
 
   // POST /api/opportunities/:id/scores

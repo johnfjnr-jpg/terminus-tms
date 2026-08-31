@@ -1361,7 +1361,33 @@ async function api(method, path, body) {
   } catch {
     data = { error: `Unexpected response from the server (HTTP ${res.status}).` }
   }
+  // ── THE REVISION HANDSHAKE, IN ONE PLACE. Round 41, walk finding 1 ──────
+  //
+  // Every response that carries a new revision updates the number the client
+  // sends with its next write. HERE rather than at each call site, and that is
+  // the whole fix: oppPatch did it correctly and nineteen other call sites did
+  // not, so the record advanced under the user's own hand while the Commercials
+  // tab kept a number from before and refused its own save.
+  //
+  // A PER-CALL-SITE RULE IS ONE A NEW ROUTE CAN BE ADDED WITHOUT. This cannot
+  // be forgotten by the next route, because the next route does not have to
+  // remember anything.
+  if (res.ok) noteRevisionFromResponse(path, data)
   return { ok: res.ok, status: res.status, data }
+}
+
+// Scoped to the opportunity currently on screen, because that is the only
+// record whose revision this client tracks. A response about another record is
+// not this record's revision, and matching on the path is what tells them apart.
+function noteRevisionFromResponse(path, data) {
+  const rev = data?.revision_number
+  if (!Number.isInteger(rev)) return
+  if (!currentOppDetailId) return
+  // The response may name its own record. When it does, trust that; when it
+  // does not, the path has to mention the record we are tracking.
+  const named = data?.record_id
+  if (named ? named !== currentOppDetailId : !String(path).includes(currentOppDetailId)) return
+  window.setOppLoadedRevision(rev)
 }
 
 // ── "Mine" toggle ─────────────────────────────────────────────────────────────

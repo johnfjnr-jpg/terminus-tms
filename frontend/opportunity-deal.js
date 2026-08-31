@@ -635,6 +635,26 @@ function applyReasonPrompt() {
   if (box) box.placeholder = prompt.placeholder
 }
 
+// ── FEEDBACK IS CLEARED ON LOAD AND ON THE NEXT ACTION. Round 41, finding 2 ─
+//
+// Neither element was ever cleared. "Saved (revision 24)." sat on screen for
+// SEVEN HOURS AND THIRTY-EIGHT MINUTES through eight later writes, and the
+// version error survived navigating away and back, because navigating in this
+// application re-renders a panel's contents rather than rebuilding the DOM.
+// Only a browser refresh cleared them, which is the one thing a person does not
+// do when a message is telling them something.
+//
+// TWO MOMENTS, AND BOTH ARE NEEDED. On load, because a message about the last
+// record is not about this one. Before the next action, because a message about
+// the last attempt is not about this one either, and the second is what makes a
+// failure legible: the screen goes quiet, then says what happened.
+export function clearDealFeedback() {
+  const fb = document.getElementById('deal-feedback')
+  if (fb) { fb.textContent = ''; fb.className = '' }
+  const vf = document.getElementById('deal-version-feedback')
+  if (vf) { vf.textContent = ''; vf.className = 'hidden' }
+}
+
 function versionFeedback(msg, ok) {
   const el = document.getElementById('deal-version-feedback')
   if (!el) return
@@ -643,6 +663,7 @@ function versionFeedback(msg, ok) {
 }
 
 async function saveVersion() {
+  clearDealFeedback()
   const reasonEl = document.getElementById('deal-version-reason')
   const reason = (reasonEl?.value ?? '').trim()
 
@@ -1539,6 +1560,9 @@ function renderInstallationTab(result, payload) {
 
 // ── Populate form from a saved payload ────────────────────────────────────
 function populateForm(payload) {
+  // ON LOAD. A message about the last record is not about this one, and
+  // populateForm is the one thing that runs for every record that opens.
+  clearDealFeedback()
   const p = payload ?? {}
 
   setVal('deal-ssExisting', p.ssExisting ?? 0)
@@ -2061,6 +2085,7 @@ function pickSalespersonWritable(payload) {
 
 // ── Save / submit ──────────────────────────────────────────────────────
 async function saveDeal() {
+  clearDealFeedback()
   const feedback = document.getElementById('deal-feedback')
   feedback.textContent = ''
   feedback.className = ''

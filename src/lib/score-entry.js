@@ -240,6 +240,10 @@ export async function recordScoreEntry({ db, recordType, recordId, body, user, m
 
   return {
     status: 201,
-    body: { criterion: crit.criterion_key, entry, entries: existing.length + 1 },
+    body: {
+      criterion: crit.criterion_key, entry, entries: existing.length + 1,
+      record_id: record.id,
+      revision_number: newRevision?.revision_number ?? null,
+    },
   }
 }

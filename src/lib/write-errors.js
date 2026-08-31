@@ -36,11 +36,34 @@ export function isRefusal(error) {
 }
 
 /**
+ * A WRITE REFUSED BY THE FREEZE. Round 41.
+ *
+ * PT423 is raised by refuse_write_while_frozen() on every table that carries a
+ * record's state, for every role, whenever a transition request is open on it.
+ *
+ * MAPPED HERE RATHER THAN IN EACH ROUTE, and the reason is the measurement that
+ * found it missing: the plan said "every frozen endpoint catches PT423 and
+ * returns 423" and NOT ONE OF THEM DID, so the first real freeze produced a 500
+ * with the trigger's careful sentence buried in it. Sixteen endpoints can hit
+ * this. Sixteen chances to forget is not a design.
+ *
+ * 423 rather than 409: a conflict says "reload and try again", a freeze says
+ * "this is waiting for somebody else", and the two need different words on the
+ * screen.
+ */
+export function isFrozen(error) {
+  return error?.code === 'PT423'
+}
+
+export const FROZEN_STATUS = 423
+
+/**
  * For a route that replies directly. Replaces
  *   return reply.code(500).send({ error: err.message })
  * and preserves that behaviour for every error that is not a refusal.
  */
 export function sendWriteError(reply, error) {
+  if (isFrozen(error)) return reply.code(FROZEN_STATUS).send({ error: error.message, frozen: true })
   return isRefusal(error)
     ? reply.code(403).send({ error: OWNERSHIP_REFUSAL })
     : reply.code(500).send({ error: error?.message ?? 'write failed' })
@@ -51,6 +74,7 @@ export function sendWriteError(reply, error) {
  * is the shape appendPayloadSeriesEntry already used.
  */
 export function writeErrorStatus(error) {
+  if (isFrozen(error)) return { status: FROZEN_STATUS, error: error.message, frozen: true }
   return isRefusal(error)
     ? { status: 403, error: OWNERSHIP_REFUSAL }
     : { status: 500, error: error?.message ?? 'write failed' }
