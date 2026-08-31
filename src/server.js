@@ -20,6 +20,7 @@ import contactsRoutes from './routes/contacts.js'
 import contactVocabulariesRoutes from './routes/contact-vocabularies.js'
 import baseCostsRoutes from './routes/base-costs.js'
 import dealSheetVersionsRoutes from './routes/deal-sheet-versions.js'
+import transitionRequestRoutes from './routes/transition-requests.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -117,6 +118,7 @@ await fastify.register(async function authenticatedRoutes(app) {
   app.register(contactVocabulariesRoutes, { prefix: '/api' })
   app.register(baseCostsRoutes, { prefix: '/api' })
   app.register(dealSheetVersionsRoutes, { prefix: '/api' })
+  app.register(transitionRequestRoutes, { prefix: '/api' })
 })
 
 const port = parseInt(process.env.PORT ?? '3000', 10)

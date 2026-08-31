@@ -63,7 +63,7 @@ export function ruleScope(rule) {
   return rule?.requirement_detail?.scope ?? 'revision'
 }
 
-export function approvalSatisfiesRule(approval, rule, { from_stage, currentRevision, versionApproval }) {
+export function approvalSatisfiesRule(approval, rule, { from_stage, currentRevision, versionApproval, requestApprovals }) {
   if (!approval || approval.decision !== 'approved') return false
   const track = rule?.requirement_detail?.track
   if (!track || approval.track !== track) return false
@@ -83,6 +83,21 @@ export function approvalSatisfiesRule(approval, rule, { from_stage, currentRevis
   // renders from. Changing this to `approval.revision_number === currentRevision`
   // would give two mechanisms that agree today and drift later, which is exactly
   // what produced the conflict in the first place.
+  // ── THE WORKFLOW ANSWERS THIS FOR THE TYPES THAT USE IT. Round 41 ────────
+  //
+  // For a workflow record type the question is not "does this approval still
+  // describe the deal": the record cannot change while a request is open, so an
+  // approval ON THE REQUEST is current by construction. Both scopes collapse
+  // into one reading and neither branch below is reached.
+  //
+  // Scoped by record type rather than replaced outright, because Test Bed keeps
+  // the old path by ruling. That is a conditional on configuration, not a fork:
+  // one function, one list, and WORKFLOW_RECORD_TYPES is measured by the suite
+  // rather than trusted.
+  if (requestApprovals !== undefined) {
+    return requestApprovals.has(track)
+  }
+
   if (scope === VERSION_SCOPE) {
     if (versionApproval === undefined) {
       // Loudly, not falsely. A missing context here would otherwise read as
