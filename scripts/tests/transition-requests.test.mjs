@@ -194,6 +194,49 @@ test('the decide function is atomic, and says why in its own file', () => {
   assert.match(sql, /insert into supabase_migrations\.schema_migrations/, 'Architecture 10')
 })
 
+test('RAISING IS A FUNCTION TOO, and it derives what it could have been told', () => {
+  // Measured before migration 5: a direct insert to transition_requests was
+  // PERMITTED, so a caller could name any from_stage and any frozen_revision.
+  // The threat was not a self-inflicted freeze, which is what I first recorded:
+  // a fabricated request is HONEST-LOOKING to an approver, so three people
+  // approve in good faith and the record transitions WITHOUT its criteria.
+  const sql = readCode(ROOT + 'supabase/migrations/20260831000005_raise_is_a_function_too.sql')
+
+  assert.match(sql, /drop policy if exists transition_requests_insert/,
+    'direct inserts are refused; the function is the only writer')
+  assert.match(sql, /create or replace function public\.raise_transition_request/)
+  // DERIVED, NOT TAKEN. The second time in two migrations that removing a
+  // parameter closed a hole.
+  assert.match(sql, /select r\.id, r\.record_type, r\.status into v_rec/)
+  assert.match(sql, /select max\(rr\.revision_number\) into v_rev/)
+  assert.match(sql, /v_caller uuid := auth\.uid\(\)/)
+  for (const p of ['p_from_stage', 'p_record_type', 'p_frozen_revision', 'p_requested_by']) {
+    assert.ok(!sql.includes(p), `${p} must not be a parameter: a parameter is an assertion by the caller`)
+  }
+
+  // And the route stops sending them, so it cannot get them wrong either.
+  assert.match(ROUTES, /db\.rpc\('raise_transition_request'/)
+  assert.ok(!/from\('transition_requests'\)[\s\S]{0,80}\.insert\(/.test(ROUTES),
+    'the route must not insert a request directly')
+})
+
+test('A REQUEST MUST STILL DESCRIBE THE RECORD when it executes', () => {
+  // The control that makes a fabricated request fail AT EXECUTION. For a
+  // transition request the freeze holds both values still, so in ordinary
+  // operation it can never fire, and THAT IS THE POINT: it fires only when a row
+  // got in by a route the migration does not know about.
+  const sql = readCode(ROOT + 'supabase/migrations/20260831000005_raise_is_a_function_too.sql')
+  assert.match(sql, /if v_req\.from_stage is distinct from v_stage then/)
+  assert.match(sql, /if v_req\.frozen_revision is distinct from v_rev then/)
+  assert.match(sql, /errcode = 'PT412'/)
+  // Checked BEFORE the approval is written, or a stale request would collect
+  // decisions it can never act on.
+  assert.ok(sql.indexOf("errcode = 'PT412'") < sql.indexOf('insert into public.approvals'),
+    'the staleness check must precede the approval insert')
+  assert.match(ROUTES, /rpcErr\.code === 'PT412'/)
+  assert.match(ROUTES, /reply\.code\(412\)/)
+})
+
 test('THE FUNCTION IS THE ENFORCEMENT, not the route', () => {
   // MEASURED, not assumed. As an ordinary user with the publishable key and no
   // Fastify: inserting an approval bound to an open request was PERMITTED, and

@@ -104,22 +104,25 @@ export default async function transitionRequestRoutes(app) {
       }
     }
 
-    const { data: created, error: insErr } = await db.from('transition_requests').insert({
-      record_id: record.id,
-      record_type: record.record_type,
-      from_stage: record.status,
-      to_stage,
-      kind,
-      status: 'open',
-      frozen_revision: rev.revision_number,
-      frozen_version_id: frozenVersionId,
-      requested_by: request.user.id,
-    }).select().single()
+    // THE FUNCTION IS THE ONLY WRITER, and it derives record_type, from_stage
+    // and frozen_revision from the record rather than being told them. Measured
+    // before migration 5: a direct insert was permitted, so a caller could name
+    // any stage and any revision. This route no longer sends any of the three,
+    // which is why it cannot get them wrong either.
+    const { data: created, error: insErr } = await db.rpc('raise_transition_request', {
+      p_record_id: record.id,
+      p_to_stage: to_stage,
+      p_kind: kind,
+      p_frozen_version_id: frozenVersionId,
+    })
 
     if (insErr) {
       if (insErr.code === '23505') {
         return reply.code(409).send({ error: 'A request is already open on this record.' })
       }
+      if (insErr.code === 'PT400') return reply.code(400).send({ error: insErr.message })
+      if (insErr.code === 'PT401') return reply.code(401).send({ error: insErr.message })
+      if (insErr.code === 'PT404') return reply.code(404).send({ error: insErr.message })
       request.log.error({ err: insErr }, 'failed to open a transition request')
       return reply.code(500).send({ error: insErr.message })
     }
@@ -128,7 +131,7 @@ export default async function transitionRequestRoutes(app) {
       record_id: record.id, record_type: record.record_type,
       action: kind === 'review' ? 'review_requested' : 'transition_requested',
       actor_id: request.user.id,
-      detail: { to_stage, from_stage: record.status, frozen_revision: rev.revision_number, request_id: created.id },
+      detail: { to_stage, from_stage: created.from_stage, frozen_revision: created.frozen_revision, request_id: created.id },
     })
 
     return reply.code(201).send(created)
@@ -196,6 +199,10 @@ export default async function transitionRequestRoutes(app) {
       // status rather than a 500.
       if (rpcErr.code === 'PT403') return reply.code(403).send({ error: rpcErr.message })
       if (rpcErr.code === 'PT401') return reply.code(401).send({ error: rpcErr.message })
+      // The request no longer describes the record. Its own status, because it
+      // is neither a conflict nor a permission problem: the request is stale in
+      // a way only withdrawing and re-raising can fix.
+      if (rpcErr.code === 'PT412') return reply.code(412).send({ error: rpcErr.message })
       request.log.error({ err: rpcErr }, 'failed to decide a transition request')
       return reply.code(500).send({ error: rpcErr.message })
     }
