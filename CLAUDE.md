@@ -612,6 +612,12 @@ Record what each option's stated advantage DEPENDS ON. A premise that fails
 means the decision is re-taken, not re-weighed, and the superseded reasoning
 stays visible.
 
+**BEFORE CALLING A BOUNDARY GREEN** - Verification 40
+Every route the boundary added OR MODIFIED is exercised from outside over HTTP,
+as the signed-in user, on the SUCCESS path, asserting the new behaviour rather
+than the status. A gate made of refusals is satisfied by a route that refuses
+everything.
+
 **BEFORE AN OUTWARD-FACING ACT** - Build discipline 9, 10, 11
 Commit at every phase boundary. A control finding goes on the list unless it is
 destroying live data, and its limit: a finding your own change created is part
@@ -1766,6 +1772,56 @@ of the change. An unanswerable precondition is a stop.
     Nearest neighbour is Architecture 9's fourth variant, a literal that cannot
     be falsified. **This is the reverse: a literal that falsifies a measurement
     of something else**, and the measurement is the one reporting green.
+
+40. **A BOUNDARY IS NOT GREEN UNTIL EVERY ROUTE IT TOUCHES HAS BEEN EXERCISED
+    FROM OUTSIDE, ON THE SUCCESS PATH.** Set by the business 2026-08-31, Round 41,
+    from walk finding W4.
+
+    > **Every route a boundary ADDS OR MODIFIES is exercised from outside over
+    > HTTP, as the signed-in user, observing the NEW BEHAVIOUR on the SUCCESS
+    > PATH.**
+
+    Each clause is load-bearing and each was absent in the instance.
+
+    **OR MODIFIES is the half that was missing.** A new route gets attention
+    because it is new. `fe073b5` did not add a route: it modified an existing,
+    working one to return the new revision number, and nothing exercised it
+    afterwards because nothing ever had.
+
+    **FROM OUTSIDE OVER HTTP.** Everything in `npm run test:db` reaches Postgres
+    through the service key, which has BYPASSRLS and never enters a route.
+    A route's behaviour is only measurable through a route.
+
+    **ON THE SUCCESS PATH**, and this is where the existing gate was weakest.
+    All three HTTP probes measured REFUSALS: a stale write rejected, an approval
+    refused, a gate held shut. **Not one exercised a write that is supposed to
+    work.** A suite made entirely of refusals is satisfied by a route that
+    refuses everything.
+
+    **THE INSTANCE.** `fe073b5`, the revision-handshake commit, destructured
+    `{ error: revErr }` from `appendRecordRevision` and named an undeclared
+    `newRevision` on the response line. A `ReferenceError` **thrown while
+    building the 201 for a write that had already committed**, so both score
+    routes answered 500 to every criterion on every lens.
+
+    It reached `main`, was pushed, and was found four hours later **by a person
+    on a walk**. The gate was five stages green: 354 pure tests, 91 database
+    tests, three HTTP probes. **No test imported `recordScoreEntry` and nothing
+    in the repository had ever POSTed a score**, so the only scoring write in
+    the system had never been executed by anything but a human being.
+
+    **AND THE ASSERTION IS ABOUT THE NEW BEHAVIOUR, NOT THE STATUS.** A 201 was
+    what the route returned once the ReferenceError was fixed; a probe checking
+    only the status would then pass while `revision_number` came back `null`,
+    which is the same commit's other failure mode and the reason the handshake
+    existed at all. `probe-score-success.mjs` was calibrated against both shapes
+    and fires on each.
+
+    **Nearest neighbour is Architecture 8**, correct for every caller that
+    exists is not correct for the caller about to be built, and the difference
+    is the direction: rule 8 is an unchanged path meeting a new demand. **This is
+    a CHANGED path meeting its existing demand**, with nothing outside the
+    process to notice that it had stopped meeting it.
 
 ### At round close: index these by when they apply
 

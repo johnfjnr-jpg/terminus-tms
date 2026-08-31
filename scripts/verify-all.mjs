@@ -47,6 +47,16 @@ const STAGES = [
     cmd: ['node', ['scripts/probe-commercial-gate.mjs', 'GATE']],
     needs: 'the dev server on :3000 AND a live session-ref.json',
   },
+  {
+    // Round 41 W4. The three probes above all measure REFUSALS: a stale write
+    // rejected, an approval refused, a gate held shut. Not one of them
+    // exercises a write that is supposed to WORK, which is how a
+    // ReferenceError on a 201 response line reached main and was found by a
+    // walk rather than by the gate. CLAUDE.md Verification 40.
+    name: 'HTTP score success probe',
+    cmd: ['node', ['scripts/probe-score-success.mjs']],
+    needs: 'the dev server on :3000 AND a live session-ref.json',
+  },
 ]
 
 const transcript = []

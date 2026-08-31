@@ -219,7 +219,13 @@ export async function recordScoreEntry({ db, recordType, recordId, body, user, m
     entry.answer = { amount, currency }
   }
 
-  const { error: revErr } = await appendRecordRevision(
+  // `data` IS read, four lines below, for the revision number the response
+  // carries. Round 41 W4: it was destructured as `{ error: revErr }` alone and
+  // the response line named an undeclared `newRevision`, which is a
+  // ReferenceError thrown while building a 201 for a write that had already
+  // succeeded. Both score routes answered 500 on every criterion for four
+  // hours, on main, published.
+  const { data: newRevision, error: revErr } = await appendRecordRevision(
     db, record.id, { [crit.criterion_key]: [...existing, entry] }, user.id, [],
     // Additive: one criterion's series. A conflict elsewhere on the record must
     // not lose a score somebody just entered.
