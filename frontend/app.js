@@ -566,9 +566,14 @@ function renderOppStageTabs(stages, currentStage) {
     //
     // REMOVED RATHER THAN WIRED, which is the business's decision and the
     // reason is the one this project has recorded more often than any other:
-    // the Assessment tab already holds the instrument, at 461px for seven
-    // criteria across four lens sub-tabs, and a second surface showing the
-    // same criteria is a second thing to drift.
+    // the Assessment tab already holds the instrument, measured at 461px over
+    // the seven criteria configured at the time, across four lens sub-tabs, and
+    // a second surface showing the same criteria is a second thing to drift.
+    //
+    // Round 41 added an eighth criterion. The number above is left as the
+    // measurement it was rather than re-stated, per CLAUDE.md Architecture 9's
+    // fourth variant: a migration can falsify a string, so a count in prose is
+    // pinned to when it was taken.
     //
     // TERMINUS DOCUMENTS STAYS. It is the same shape, an unwired placeholder
     // carrying its own text, and it is deliberately kept: it is a slot for
@@ -2093,9 +2098,15 @@ function renderOppAssessCriterion(c) {
 
   // Round 28 Phase 3: DISPLAY PRECEDENCE. A per-criterion anchor at this
   // criterion's current version wins; the scale's generic description is the
-  // fallback. The seven Commercial criteria all carry anchors today, so this
-  // renders exactly what it rendered before until an override is retired, and
-  // retiring one is a decision the business has not yet taken.
+  // fallback. Every Commercial criterion carries anchors today, so this renders
+  // exactly what it rendered before until an override is retired, and retiring
+  // one is a decision the business has not yet taken.
+  //
+  // NO COUNT IN THIS SENTENCE, deliberately. It read "the seven Commercial
+  // criteria" until Round 41 configured an eighth, at which point the sentence
+  // was false about the count while still true about the claim that matters.
+  // The claim is policed: INVARIANT 8 asserts anchors on any criterion a gate
+  // rule names, and score-entry refuses a score against a criterion with none.
   //
   // ONLY FOR THE CURRENT DEFINITION BLOCK. Never for a historical entry: the
   // description is not versioned, so a later edit to it would silently restate
@@ -2160,7 +2171,7 @@ function renderOppAssessCriterion(c) {
     <div class="opp-assess-levels" role="radiogroup" aria-label="${escHtml(c.name)}"${unanchored ? ' data-unanchored="1"' : ''}${
       // Round 32 Phase 1: the wrapper declares whether the LEVEL hover is wired
       // on this row. hideOppAssessDefn falls back to a focused segment, and now
-      // that the popup exists on all seven rows that fallback would have
+      // that the popup exists on every row that fallback would have
       // generalised the level definitions to rows Round 31 Phase 6 deliberately
       // left without them. The gate has to be readable from the DOM because the
       // fallback runs from the element, not from this closure.
