@@ -269,37 +269,26 @@ export default async function transitionRequestRoutes(app) {
     // approvals on one, and the function is SECURITY DEFINER, so it had the
     // privilege to do it. required_tracks_for() reads stage_gate_rules inside
     // the function now.
-    // ── FAIL CLOSED IF THE MIGRATION IS NOT IN. Round 41 W6 ───────────────
+    // ── THE TEMPORARY FAIL-CLOSED GUARD IS GONE, and this is its record ────
     //
-    // A REAL WINDOW, not a theoretical one, and build discipline 9 is exactly
-    // about it: the dev server serves this file from disk, so between this
-    // commit and 20260831000008 being applied the two are out of step.
+    // Between the previous commit and 20260831000008 being applied there was a
+    // real window, not a theoretical one: the old function's fifth parameter is
+    // `p_required text[] default '{}'`, so a four-argument call RESOLVED TO IT
+    // with an empty required list, and the first approval would have moved a
+    // record needing three. Nothing would have errored and the gate would have
+    // been green. The route refused to decide at all until the derivation
+    // existed.
     //
-    // The old function's signature is (uuid, text, text, text, text[]) with
-    // `p_required text[] default '{}'`. A four-argument call RESOLVES TO IT and
-    // defaults the list to empty, so every stage would look like it required
-    // nothing and the first approval would move a record needing three. Nothing
-    // would error. The gate would be green.
+    // REMOVED BECAUSE ITS CONDITION IS MET AND ITS HAZARD IS NOW STRUCTURALLY
+    // IMPOSSIBLE, both measured rather than assumed: required_tracks_for
+    // answers, and the five-argument overload is GONE - a call passing
+    // p_required now fails to resolve. A four-argument call can only reach the
+    // new function.
     //
-    // So the route asks whether the derivation exists before it decides
-    // anything. It cannot be checked after the RPC: by then the approval is
-    // written and the record has moved.
-    //
-    // TEMPORARY, AND ITS REMOVAL CONDITION IS NAMED: delete this once
-    // 20260831000008 is applied everywhere this code runs. It costs one round
-    // trip on an action a person takes a handful of times a day, and it is here
-    // rather than in a comment because a comment does not fail closed.
-    const { error: derivationErr } = await db.rpc('required_tracks_for', {
-      p_record_type: req.record_type, p_from_stage: req.from_stage,
-    })
-    if (derivationErr) {
-      request.log.error({ err: derivationErr }, 'required_tracks_for is missing; refusing to decide')
-      return reply.code(503).send({
-        error: 'Approvals are unavailable: migration 20260831000008 has not been applied. '
-          + 'Deciding now would move the record without checking which tracks the stage requires.',
-      })
-    }
-
+    // Deleted on the condition its own comment named, rather than left in place
+    // as scaffolding that outlives its reason. That is the "plan recorded in the
+    // same voice as a fact" family, and the way out of it is to write the
+    // removal condition down and then honour it.
     const { data: outcome, error: rpcErr } = await db.rpc('decide_transition_request', {
       p_request_id: req.id, p_track: track,
       p_decision: decision, p_reason: reason ?? null,

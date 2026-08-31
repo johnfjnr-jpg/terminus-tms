@@ -51,6 +51,13 @@ if (!TEST_USER_ID) throw new Error('session-ref.json carries no user id; sign in
 
 const admin = () => createClient(ENV.SUPABASE_URL, ENV.SUPABASE_SECRET_KEY, { auth: { persistSession: false } })
 
+// EXPORTED, Round 41 W6. A probe that built its own client from process.env
+// worked under `node --env-file=.env` and died under the gate, which spawns
+// probes with a bare `node`. The env is read from the file HERE, once, and
+// every probe that needs the service role now asks for the same client rather
+// than each discovering its own way to find the key.
+export { admin }
+
 // Round 38: through the one throwing client. This file already threw on !ok,
 // which is why its own fixtures were never the silent kind; api-client.mjs makes
 // that the default for every script rather than this file's private discipline.

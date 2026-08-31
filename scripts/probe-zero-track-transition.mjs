@@ -24,8 +24,12 @@
 // the discriminating half, Verification 17: a build that had simply stopped
 // opening requests at all would pass 1, 2 and 3.
 import { api, ApiError } from './api-client.mjs'
-import { freshOpportunity, tearDown } from './fixtures.mjs'
-import { createClient } from '@supabase/supabase-js'
+// admin() comes from fixtures, which reads .env from the file. Building a
+// client from process.env here worked under `node --env-file=.env` and died
+// under the gate, which spawns probes with a bare `node`: "supabaseUrl is
+// required", at line 36, before a single check ran. The gate is the caller that
+// matters and it was the one not exercised.
+import { freshOpportunity, tearDown, admin as adminClient } from './fixtures.mjs'
 
 const results = []
 function record(label, pass, detail) {
@@ -33,8 +37,7 @@ function record(label, pass, detail) {
   console.log(`${pass ? 'PASS' : 'FAIL'}  ${label}  ${detail}`)
 }
 
-const admin = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SECRET_KEY,
-  { auth: { persistSession: false } })
+const admin = adminClient()
 
 // ── The derivation itself, before any request is raised ──────────────────
 const q = await admin.rpc('required_tracks_for', { p_record_type: 'opportunity', p_from_stage: 'Qualification' })
@@ -94,8 +97,31 @@ if (status === 201) {
   record('3. the record is NOT frozen afterwards', editStatus === 200,
     `-> ${editStatus} ${editStatus === 200 ? '' : JSON.stringify(edited)}`)
 
-  // 4. THE DISCRIMINATING CASE. Solution Alignment requires three tracks, so
-  // the same call from the stage the record is now in must OPEN and WAIT.
+  // 4. THE DISCRIMINATING CASE, and the probe has to WORK to reach it.
+  //
+  // Solution Alignment requires three tracks, so the same call from the stage
+  // the record is now in must OPEN and WAIT. Without this the whole probe is
+  // satisfied by a build that had simply stopped opening requests at all.
+  //
+  // THE FIRST VERSION STOPPED AT A 409, refused by Solution Alignment's exit
+  // criteria before the tracks were ever consulted, and reported that as a pass
+  // "because the gate was working". It was working, and the claim went
+  // unmeasured: a 409 from criteria is the same answer a build with no approval
+  // model at all would give. Verification 17 - a probe that fires correctly and
+  // measures the wrong thing.
+  //
+  // The criteria are satisfied here rather than worked around: these are the
+  // four exit fields plus the assessment review, set the way a person would.
+  const cur = (await api('GET', `/opportunities/${oppId}`)).data
+  await api('PATCH', `/opportunities/${oppId}`, {
+    payload: {
+      exitSolKeyStakeholders: true, exitSolBuyersKnown: true,
+      exitSolTechnicalSolution: true, exitSolTermsReviewed: true,
+    },
+    expected_revision: cur.latest_revision_number,
+  })
+  await api('POST', `/opportunities/${oppId}/assessment-reviewed`, {})
+
   let second, secondStatus
   try {
     second = (await api('POST', `/records/${oppId}/transition-requests`,
@@ -105,14 +131,28 @@ if (status === 201) {
     if (!(e instanceof ApiError)) throw e
     secondStatus = e.status; second = e.body
   }
-  // A 409 here is the exit criteria refusing, which is the gate working and not
-  // this claim. Reported as its own outcome rather than counted as a pass.
-  if (secondStatus === 409) {
-    record('4. a three-track transition is not auto-executed', true,
-      `-> 409, refused by its exit criteria before reaching the tracks: ${JSON.stringify((second?.error ?? '').slice(0, 60))}`)
-  } else {
-    record('4. a three-track transition OPENS and waits', secondStatus === 201 && second.status === 'open',
-      `-> ${secondStatus} status "${second?.status}"`)
+  record('4. a three-track transition OPENS and waits, it does not execute',
+    secondStatus === 201 && second?.status === 'open',
+    `-> ${secondStatus} status "${second?.status ?? JSON.stringify((second?.error ?? '').slice(0, 70))}"`)
+
+  // AND THE RECORD IS FROZEN THIS TIME, which is the other side of claim 3.
+  // The freeze is correct behaviour when something really is waiting, and a
+  // build that had lost the freeze entirely would pass claim 3 for the wrong
+  // reason.
+  if (secondStatus === 201) {
+    const after = (await api('GET', `/opportunities/${oppId}`)).data
+    let frozenStatus
+    try {
+      await api('PATCH', `/opportunities/${oppId}`,
+        { payload: { summary: 'should be refused' }, expected_revision: after.latest_revision_number })
+      frozenStatus = 200
+    } catch (e) {
+      if (!(e instanceof ApiError)) throw e
+      frozenStatus = e.status
+    }
+    record('4b. and an open request DOES freeze the record', frozenStatus === 423,
+      `-> ${frozenStatus} (423 is the freeze; 200 would mean the freeze is gone)`)
+    await api('POST', `/transition-requests/${second.id}/withdraw`, { reason: 'probe teardown' })
   }
 }
 
