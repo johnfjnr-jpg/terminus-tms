@@ -406,10 +406,29 @@ is entirely outside this repository.
 |---|---|
 | **local only.** TMS runs on John's machine and is not published | not hosted |
 | Supabase endpoints reachable **only with the anon key** | the deployment |
-| OAuth consent screen **External**, publishing status **Testing**, test users list contains only John | Google Cloud console |
+| OAuth consent screen **External**, publishing status **Testing**, test users list of **two**: John and the walk identity | Google Cloud console |
 
-**Internal is not available**, because the Google Cloud project is not Workspace
-owned. So the consent screen cannot be the control even in principle.
+**UPDATED 2026-08-31.** The real project, **TMS SANDOX**, was set to **External**
+and `terminus.walk65@gmail.com` added as a test user, **because creating a
+Workspace user needs admin access John does not have.** The walk requester is a
+Gmail address by necessity rather than by choice.
+
+**`CLAUDE.md` build discipline 13 is unchanged by any of this.** These are
+console settings, and rule 13's whole point is that console settings are
+mitigations rather than the control. Returning the project to Internal does not
+satisfy it and does not retire it.
+
+**AND THE RETURN IS AN OPEN STEP, carried where it cannot be forgotten.**
+`OPEN_SECURITY_STEPS.json` holds it and `scripts/state-dump.mjs` prints it into
+`CURRENT_STATE.md` on every generation, so it appears in the file uploaded into
+every session until it is closed.
+
+> **It closes on John's word, not on the walks finishing.** Two actions: TMS
+> SANDOX returns to **Internal**, and the Gmail comes off the test users list.
+
+**Closing it means deleting the entry from `OPEN_SECURITY_STEPS.json` and
+regenerating**, which is why the step lives in a tracked source rather than being
+typed into a generated file.
 
 **What the repository contributes to that list is nothing**, and that is the
 finding: `requireAuth` verifies a JWT and checks nothing else, and
@@ -429,9 +448,13 @@ forgotten. The precondition it must satisfy is `CLAUDE.md` build discipline 13.
   `auth.uid() = approver_id`, which it will not use
 - **NOT in `track_approvers`**, deliberately. It is the REQUESTER, and the rule
   ruled and kept is that a requester may never approve their own request
-- **it must be on the sign-in allowlist when that is built**, alongside the staff
-  domain, which is the concrete reason build discipline 13 says the allowlist is
-  data and admits individual addresses as well as a domain
+- **it must be on the sign-in allowlist when that is built** IF THE IDENTITY IS
+  RETAINED FOR WALKS AFTER THE SIGN-IN FIX. Reinstated 2026-08-31 with that
+  condition attached, because the two outcomes need different things: retire the
+  identity and the allowlist needs only the staff domain; keep it for walks and
+  the allowlist must admit an individual address that is not on that domain.
+  **That is the concrete reason build discipline 13 says the allowlist is data
+  rather than a constant**, and it is not hypothetical: it is this address.
 
 ---
 

@@ -381,6 +381,50 @@ w('')
 // rather than falling back to local and calling it fact, because a fallback
 // that changes the MEANING of a column without changing its heading is how the
 // wrong fact gets published in the first place.
+// ── OPEN STEPS, READ FROM A TRACKED FILE ─────────────────────────────────
+//
+// The business asked for an open step to be CARRIED IN CURRENT_STATE.md until
+// it is closed, and this file is generated and must never be hand edited. Both
+// are satisfied by generating it from a source: OPEN_SECURITY_STEPS.json is the
+// record, this prints it, and closing a step is deleting its entry there.
+//
+// It is "what is" rather than "why": an open step is a fact about the system's
+// current state, in the same way a stage rule is.
+try {
+  const openSteps = JSON.parse(readFileSync(join(REPO_ROOT, 'OPEN_SECURITY_STEPS.json'), 'utf8'))
+  if ((openSteps.steps ?? []).length) {
+    w('## Open steps')
+    w('')
+    w('From `OPEN_SECURITY_STEPS.json`. Each is closed by deleting its entry there,')
+    w('on the business\'s word, and regenerating this file.')
+    w('')
+    for (const s of openSteps.steps) {
+      w(`### ${s.title}`)
+      w('')
+      w(`Opened ${s.opened} by ${s.opened_by}.`)
+      w('')
+      w(`**Why it is open:** ${s.why_open}`)
+      w('')
+      w(`**It closes when:** ${s.closes_when}`)
+      w('')
+      for (const a of s.actions ?? []) w(`- ${a}`)
+      w('')
+      w('**Exposure while it is open:**')
+      w('')
+      for (const e of s.exposure_while_open ?? []) w(`- ${e}`)
+      w('')
+      if (s.related) { w(s.related); w('') }
+    }
+  }
+} catch (e) {
+  w('## Open steps')
+  w('')
+  w(`**OPEN_SECURITY_STEPS.json could not be read: ${e.message}.** That is reported`)
+  w('rather than omitted: a section that disappears when something goes wrong is')
+  w('read as "nothing open" by whoever it was for.')
+  w('')
+}
+
 w('## Tags')
 w('')
 try {

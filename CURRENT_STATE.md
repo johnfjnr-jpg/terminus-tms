@@ -12,8 +12,8 @@ Contains no environment variable, key or token, and no client data. Records
 appear as counts by status only, never by name or reference code, because
 this file is uploaded into chat sessions.
 
-- Generated at: `2026-08-30T00:20:15.582Z`
-- Git commit: `4f1d3f35baf8b71f08537bf2b0564a3845210f40`
+- Generated at: `2026-08-31T03:36:13.261Z`
+- Git commit: `ffcfca6e0602d7b4f8666309c48b1503e7cfa134`
 - Working tree at generation: `dirty (uncommitted changes present)`
 
 Staleness has two parts, and both must hold for this file to be current:
@@ -28,12 +28,37 @@ A changed source is not automatically staleness: the generator parses
 source files from disk, so a run made with uncommitted changes present
 already reflects them. Regenerate and diff rather than assuming.
 
+## Open steps
+
+From `OPEN_SECURITY_STEPS.json`. Each is closed by deleting its entry there,
+on the business's word, and regenerating this file.
+
+### TMS SANDOX returns to Internal and the walk Gmail leaves the test users list
+
+Opened 2026-08-31 by the business.
+
+**Why it is open:** Creating a Workspace user needs admin access John does not have, so the walk requester identity is a Gmail address on an External OAuth app in Testing status.
+
+**It closes when:** The two-session walk is finished AND John says so. Not on the walk finishing alone.
+
+- Set the TMS SANDOX OAuth consent screen back to Internal
+- Remove terminus.walk65@gmail.com from the test users list
+
+**Exposure while it is open:**
+
+- Publishing status: Testing
+- User type: External
+- Test users: two, John and the walk identity
+- Hosting: local only, not published
+
+CLAUDE.md build discipline 13. These console settings are MITIGATIONS, not the control; rule 13 is unchanged by this step and is not satisfied by closing it.
+
 ## Tags
 
 | tag | published commit | date | commits from `HEAD` | local agrees |
 |---|---|---|---|---|
-| `controls-complete` | `56b516e` | 2026-08-29 | 46 | yes |
-| `reshape-complete` | `3499884` | 2026-08-29 | 17 | yes |
+| `controls-complete` | `56b516e` | 2026-08-29 | 85 | yes |
+| `reshape-complete` | `3499884` | 2026-08-29 | 56 | yes |
 
 ## `stage_definitions`
 
@@ -326,34 +351,34 @@ _None._
 
 ## Record counts by type and status
 
-95 live, 19888 soft deleted, 19983 rows in total.
+95 live, 22193 soft deleted, 22288 rows in total.
 
 | record_type | status | live | soft deleted |
 |---|---|---|---|
 | account | Active | 0 | 6 |
-| account | active | 4 | 428 |
-| contact | Active | 0 | 273 |
+| account | active | 4 | 455 |
+| contact | Active | 0 | 363 |
 | contact | Parked | 0 | 2 |
-| contact | Qualified | 8 | 548 |
+| contact | Qualified | 8 | 628 |
 | contact | Unqualified | 1 | 56 |
-| document | approved | 61 | 1509 |
+| document | approved | 61 | 1629 |
 | document | received | 1 | 74 |
 | opportunity | Closed Lost | 0 | 19 |
 | opportunity | Closed Won | 1 | 7 |
 | opportunity | Evaluation | 0 | 4 |
 | opportunity | Negotiating | 0 | 15 |
 | opportunity | Proposal | 0 | 108 |
-| opportunity | Qualification | 0 | 386 |
-| opportunity | Solution Alignment | 3 | 60 |
+| opportunity | Qualification | 0 | 498 |
+| opportunity | Solution Alignment | 3 | 85 |
 | test_bed | Closed | 5 | 9 |
 | test_bed | Installation and Commissioning | 1 | 29 |
 | test_bed | Monitoring and Analysis | 0 | 1 |
 | test_bed | Pre-Site Assessment | 0 | 8 |
-| test_bed | Qualification | 1 | 352 |
+| test_bed | Qualification | 1 | 379 |
 | test_bed | Review and Completion | 1 | 0 |
 | test_bed | Site Assessment | 1 | 17 |
 | unit | Installed | 4 | 3 |
-| unit | Planned | 3 | 3714 |
+| unit | Planned | 3 | 4278 |
 | unit | Removed | 0 | 1 |
 
 ### Test fixture record types
@@ -364,19 +389,19 @@ row by row, and are included in the totals above.
 
 | distinct `harness_*` record types | live rows | soft deleted rows |
 |---|---|---|
-| 1399 | 0 | 12259 |
+| 1579 | 0 | 13519 |
 
 No harness record type holds a live row; every fixture row is soft deleted.
 
 ## `approvals`
 
-803 rows, of which 0 carry a null `stage`.
+902 rows, of which 0 carry a null `stage`.
 
 | decision | track | rows | null stage |
 |---|---|---|---|
-| approved | Commercial | 394 | 0 |
-| approved | Legal | 199 | 0 |
-| approved | Technical | 210 | 0 |
+| approved | Commercial | 491 | 0 |
+| approved | Legal | 200 | 0 |
+| approved | Technical | 211 | 0 |
 
 ## Writable-key allowlists
 
@@ -415,7 +440,7 @@ than written as a literal list, so its members are not enumerable here.
 
 ## Registered routes
 
-73 routes. Prefixes parsed from `src/server.js`, paths from each route module.
+77 routes. Prefixes parsed from `src/server.js`, paths from each route module.
 
 | method | path | auth | source |
 |---|---|---|---|
@@ -440,7 +465,6 @@ than written as a literal list, so its members are not enumerable here.
 | GET | `/api/deal-sheet-versions/:vid` | authenticated | `src/routes/deal-sheet-versions.js` |
 | POST | `/api/deal-sheet-versions/:vid/issue` | authenticated | `src/routes/deal-sheet-versions.js` |
 | POST | `/api/deal-sheet-versions/:vid/restore` | authenticated | `src/routes/deal-sheet-versions.js` |
-| POST | `/api/deals/calculate` | authenticated | `src/routes/deals.js` |
 | POST | `/api/deals/submit` | authenticated | `src/routes/deals.js` |
 | GET | `/api/industries` | authenticated | `src/routes/industries.js` |
 | GET | `/api/leads` | authenticated | `src/routes/leads.js` |
@@ -467,6 +491,8 @@ than written as a literal list, so its members are not enumerable here.
 | GET | `/api/records/:id/history` | authenticated | `src/routes/records.js` |
 | GET | `/api/records/:id/stage-approvals` | authenticated | `src/routes/records.js` |
 | POST | `/api/records/:id/transition` | authenticated | `src/routes/transitions.js` |
+| GET | `/api/records/:id/transition-requests` | authenticated | `src/routes/transition-requests.js` |
+| POST | `/api/records/:id/transition-requests` | authenticated | `src/routes/transition-requests.js` |
 | GET | `/api/scoring-criteria` | authenticated | `src/routes/scoring.js` |
 | GET | `/api/scoring-lenses` | authenticated | `src/routes/scoring.js` |
 | GET | `/api/stage-definitions` | authenticated | `src/routes/stage-definitions.js` |
@@ -491,11 +517,14 @@ than written as a literal list, so its members are not enumerable here.
 | PATCH | `/api/test-beds/:id/units/:unitId` | authenticated | `src/routes/test-beds.js` |
 | POST | `/api/test-beds/:id/units/derive` | authenticated | `src/routes/test-beds.js` |
 | POST | `/api/test-beds/calculate` | authenticated | `src/routes/test-beds.js` |
+| GET | `/api/transition-requests` | authenticated | `src/routes/transition-requests.js` |
+| POST | `/api/transition-requests/:id/approvals` | authenticated | `src/routes/transition-requests.js` |
+| POST | `/api/transition-requests/:id/withdraw` | authenticated | `src/routes/transition-requests.js` |
 | GET | `/health` | public | `src/server.js` |
 
 ## Migrations, in filename order
 
-98 files in `supabase/migrations/`.
+104 files in `supabase/migrations/`.
 
 1. `20260801000000_initial_schema.sql`
 2. `20260802000000_lead_opportunity.sql`
@@ -595,6 +624,12 @@ than written as a literal list, so its members are not enumerable here.
 96. `20260829000005_commercial_approval_is_version_scoped.sql`
 97. `20260829000006_delete_false_pricing_approved_tick.sql`
 98. `20260829000007_cost_basis_moves_to_the_rates_column.sql`
+99. `20260830000001_system_defaults.sql`
+100. `20260831000001_transition_requests.sql`
+101. `20260831000002_request_approvals_have_their_own_uniqueness.sql`
+102. `20260831000003_decide_transition_request.sql`
+103. `20260831000004_the_function_is_the_enforcement.sql`
+104. `20260831000005_raise_is_a_function_too.sql`
 
 ## Seed files, in application order
 

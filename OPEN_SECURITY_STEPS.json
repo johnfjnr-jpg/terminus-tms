@@ -1,0 +1,24 @@
+{
+  "note": "Open steps that must remain visible in the generated CURRENT_STATE.md until the business closes them. This file is the SOURCE; scripts/state-dump.mjs reads it, so the generated file carries the item without anyone hand editing a generated file. Closing a step means deleting its entry here, on John's word, and regenerating.",
+  "steps": [
+    {
+      "id": "tms-sandox-back-to-internal",
+      "opened": "2026-08-31",
+      "opened_by": "the business",
+      "title": "TMS SANDOX returns to Internal and the walk Gmail leaves the test users list",
+      "why_open": "Creating a Workspace user needs admin access John does not have, so the walk requester identity is a Gmail address on an External OAuth app in Testing status.",
+      "closes_when": "The two-session walk is finished AND John says so. Not on the walk finishing alone.",
+      "actions": [
+        "Set the TMS SANDOX OAuth consent screen back to Internal",
+        "Remove terminus.walk65@gmail.com from the test users list"
+      ],
+      "exposure_while_open": [
+        "Publishing status: Testing",
+        "User type: External",
+        "Test users: two, John and the walk identity",
+        "Hosting: local only, not published"
+      ],
+      "related": "CLAUDE.md build discipline 13. These console settings are MITIGATIONS, not the control; rule 13 is unchanged by this step and is not satisfied by closing it."
+    }
+  ]
+}
