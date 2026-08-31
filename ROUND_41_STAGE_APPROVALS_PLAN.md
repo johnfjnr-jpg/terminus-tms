@@ -395,6 +395,46 @@ than a second kind of row in it.
 
 ---
 
+## RULED 2026-08-31, third panel: exposure, the precondition, and the walk account
+
+### The sign-in exposure, measured and bounded
+
+**Recorded as a state rather than as a defect**, because what makes it safe today
+is entirely outside this repository.
+
+| what bounds it | where it lives |
+|---|---|
+| **local only.** TMS runs on John's machine and is not published | not hosted |
+| Supabase endpoints reachable **only with the anon key** | the deployment |
+| OAuth consent screen **External**, publishing status **Testing**, test users list contains only John | Google Cloud console |
+
+**Internal is not available**, because the Google Cloud project is not Workspace
+owned. So the consent screen cannot be the control even in principle.
+
+**What the repository contributes to that list is nothing**, and that is the
+finding: `requireAuth` verifies a JWT and checks nothing else, and
+`terminus_staff` carries no email and no `user_id` so it cannot gate an identity.
+
+**The fix is scheduled immediately after this phase.** An interim instruction to
+build it before the routes was **withdrawn** by the business, and the ordering is
+recorded here so the withdrawal is not mistaken later for it having been
+forgotten. The precondition it must satisfy is `CLAUDE.md` build discipline 13.
+
+### The walk requester account
+
+**`terminus.walk65@gmail.com`**, on the Google test users list.
+
+- **no row in TMS**, and none is needed: `records_select` is
+  `auth.uid() is not null`, so it reads everything, and `approvals_insert` is
+  `auth.uid() = approver_id`, which it will not use
+- **NOT in `track_approvers`**, deliberately. It is the REQUESTER, and the rule
+  ruled and kept is that a requester may never approve their own request
+- **it must be on the sign-in allowlist when that is built**, alongside the staff
+  domain, which is the concrete reason build discipline 13 says the allowlist is
+  data and admits individual addresses as well as a domain
+
+---
+
 ## Build order, as authorized
 
 1. **the migration**, for John to apply, ask first
@@ -406,6 +446,42 @@ than a second kind of row in it.
 **Freeze coverage proven by the sixteen-endpoint test.** Commit and report at
 each boundary. **This phase gets its own walk: two sessions, requester and
 approver.**
+
+### Boundary 2 result: the freeze and both migrations, calibrated
+
+**Migration 2 was shown applied by measurement rather than waited on**, using a
+`kind = 'review'` insert with a deliberately wrong `record_type`. A review request
+does not freeze, so the failure mode of that probe was a harmless row and a
+delete; it was refused with **23503 on the composite foreign key**, which is the
+`record_type` assertion firing.
+
+**The freeze, as the SERVICE ROLE**, across two records because one lacked a
+linked contact to hang a stance on:
+
+| probe | result |
+|---|---|
+| `record_revisions` insert | **PT423** |
+| `opportunity_details` update | **PT423** |
+| `records` status update *(correction 2)* | **PT423** |
+| `record_contact_stances` insert *(correction 1)* | **PT423** |
+| `approvals` insert | **PERMITTED** |
+| a second open transition request | **23505** |
+
+**Migration 2, calibrated on the exact collision it fixes.** The record already
+carries a Commercial approval at revision 34 in stage Solution Alignment, which
+is the row migration 1 would have collided with:
+
+```
+request-bound Commercial approval, same revision, same stage, same approver
+  PERMITTED                       <- refused before migration 2
+a SECOND Commercial on the same request
+  REFUSED 23505                   <- the new uniqueness still bites
+```
+
+**Both halves, because a fix that permits everything is not a fix.**
+
+Cleanup re-queried both times: **zero open transition requests, five approvals on
+the record**, which is what John left there.
 
 ---
 

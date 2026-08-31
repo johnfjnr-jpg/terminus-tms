@@ -251,6 +251,42 @@ not resolve it quietly.
     precondition is still a stop, and a push is still an outward-facing act. What
     this settles is which pushes need a fresh decision and which do not.
 
+13. **NO PUBLIC HOSTING OF TMS UNTIL SIGN-IN IS RESTRICTED IN THE APPLICATION.**
+    Set by the business 2026-08-31, from a finding in the stage approvals phase.
+
+    **The precondition, and every clause is required:**
+
+    > An allowlist or domain check exists **in `requireAuth`**, is **mirrored in
+    > RLS via the JWT email claim**, and is **proven by test**.
+
+    **The finding it comes from.** `signInWithOAuth` passes no hosted-domain
+    parameter, `requireAuth` verifies the JWT against the JWKS and checks nothing
+    else, and `terminus_staff` has columns `id, name, title, created_at`: **no
+    email and no `user_id`, so it does not link to `auth.users` at all** and
+    cannot be an identity gate. `records_select` is `auth.uid() is not null`.
+    **Any Google identity Supabase accepts would sign in and see everything.**
+
+    **THE CONSOLE SETTINGS ARE MITIGATIONS, NOT THE CONTROL.** Today the exposure
+    is bounded by three things that are all outside this repository: TMS runs on
+    one laptop and is not published, the Supabase endpoints are reachable only
+    with the anon key, and the Google OAuth consent screen is **External,
+    publishing status Testing, with only the named test users**. Every one of
+    those is a setting somebody can change in a dashboard without touching a line
+    of code, and none of them is visible to a reviewer reading this repository.
+
+    **`hd` on the OAuth call is a HINT ONLY.** It steers the account chooser and
+    is not enforced on the token, so it is worth adding and worth nothing on its
+    own.
+
+    **THE ALLOWLIST LIVES AS DATA, NOT AS A CONSTANT.** The same reasoning as
+    `track_approvers`: the moment a second address needs access the answer must
+    change without a deploy. It has to admit both the staff domain and named
+    individual addresses, because the walk accounts are neither.
+
+    **Related to rule 11 and distinct from it.** Rule 11 is about a precondition
+    you cannot answer. This is a precondition that CAN be answered, has been, and
+    the answer is no.
+
 ---
 
 ## Architecture

@@ -118,3 +118,14 @@ console.log(`  a write after the withdrawal: ${after.error ? 'REFUSED ' + after.
 const failed = results.filter((r) => !r.pass)
 console.log(`\n${results.length - failed.length}/${results.length} calibrations passed`)
 if (failed.length) { console.log('FAILED:', failed.map((f) => f.name).join(', ')); process.exit(1) }
+
+// ── MIGRATION 2's OWN CALIBRATION, run with CAL_MIGRATION2=1 ───────────────
+//
+// Migration 1's defect: the pre-workflow uniqueness still governed request-bound
+// approvals, so on a record already carrying an approval at the frozen revision
+// the FIRST approval through a request was refused with the walk's own error
+// message. Migration 2 scopes that uniqueness to `request_id is null`.
+//
+// The calibration is the collision itself: freeze the record whose revision 34
+// already has a Commercial approval, approve Commercial through the request, and
+// watch it be PERMITTED where it was refused.
