@@ -13,15 +13,8 @@
 // Verification 4: the capture is taken of the strip's own rect after scrolling
 // it into view, and the image is checked for not being empty before it is
 // treated as evidence.
-let puppeteer
-try {
-  puppeteer = (await import(process.env.PUPPETEER_PATH ?? 'puppeteer')).default
-} catch {
-  console.error('puppeteer is not available, and it is not a dependency of this repository.')
-  console.error('  npm i puppeteer --prefix /tmp/tms-probe')
-  console.error('  PUPPETEER_PATH=/tmp/tms-probe/node_modules/puppeteer node scripts/probe-strip-layout.mjs')
-  process.exit(1)
-}
+import { loadPuppeteer } from './lib/puppeteer.mjs'
+const puppeteer = await loadPuppeteer('probe-strip-layout.mjs')
 import { readFileSync, mkdirSync, writeFileSync } from 'fs'
 
 const session = JSON.parse(readFileSync(new URL('../session-ref.json', import.meta.url).pathname, 'utf8'))

@@ -15,23 +15,8 @@
 // call and its own class assignment, so what is captured is the real rendering
 // path. Verification 20 - the probe must not become a second reader that agrees
 // with the first by construction.
-let puppeteer
-try {
-  puppeteer = (await import(process.env.PUPPETEER_PATH ?? 'puppeteer')).default
-} catch {
-  const { existsSync, readFileSync: rf } = await import('fs')
-  const dir = process.env.PUPPETEER_PATH
-  if (dir && existsSync(`${dir}/package.json`)) {
-    const entry = JSON.parse(rf(`${dir}/package.json`, 'utf8')).exports?.['.']?.import
-    if (entry) puppeteer = (await import(new URL(entry, `file://${dir}/`).href)).default
-  }
-  if (!puppeteer) {
-    console.error('puppeteer is not available, and it is not a dependency of this repository.')
-    console.error('  npm i puppeteer --prefix /tmp/tms-probe')
-    console.error('  PUPPETEER_PATH=/tmp/tms-probe/node_modules/puppeteer node scripts/probe-cost-basis-line.mjs')
-    process.exit(1)
-  }
-}
+import { loadPuppeteer } from './lib/puppeteer.mjs'
+const puppeteer = await loadPuppeteer('probe-cost-basis-line.mjs')
 import { readFileSync, mkdirSync, statSync } from 'fs'
 
 const session = JSON.parse(readFileSync(new URL('../session-ref.json', import.meta.url).pathname, 'utf8'))

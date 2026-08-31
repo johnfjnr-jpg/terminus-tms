@@ -50,25 +50,8 @@
 //
 // Resolved to the package's own `exports.import` entry, so it survives a
 // puppeteer version bump rather than hardcoding a lib path that may move.
-let puppeteer
-try {
-  puppeteer = (await import(process.env.PUPPETEER_PATH ?? 'puppeteer')).default
-} catch {
-  const { existsSync, readFileSync: rf } = await import('fs')
-  const dir = process.env.PUPPETEER_PATH
-  // The one recovery this can perform itself: given a directory, read where its
-  // package.json says the entry point is and import that.
-  if (dir && existsSync(`${dir}/package.json`)) {
-    const entry = JSON.parse(rf(`${dir}/package.json`, 'utf8')).exports?.['.']?.import
-    if (entry) puppeteer = (await import(new URL(entry, `file://${dir}/`).href)).default
-  }
-  if (!puppeteer) {
-    console.error('puppeteer is not available, and it is not a dependency of this repository.')
-    console.error('  npm i puppeteer --prefix /tmp/tms-probe')
-    console.error('  PUPPETEER_PATH=/tmp/tms-probe/node_modules/puppeteer node scripts/probe-dead-selectors.mjs')
-    process.exit(1)
-  }
-}
+import { loadPuppeteer } from './lib/puppeteer.mjs'
+const puppeteer = await loadPuppeteer('probe-dead-selectors.mjs')
 import { readFileSync } from 'fs'
 
 const session = JSON.parse(readFileSync(new URL('../session-ref.json', import.meta.url).pathname, 'utf8'))

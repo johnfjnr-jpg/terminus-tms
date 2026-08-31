@@ -17,13 +17,8 @@
 // A census taken one way only is a census of one deal (CLAUDE.md rule 33: every
 // measure has a shape, and what falls outside it is found by looking or not at
 // all).
-let puppeteer
-try {
-  puppeteer = (await import(process.env.PUPPETEER_PATH ?? 'puppeteer')).default
-} catch {
-  console.error('puppeteer is not available. See scripts/probe-strip-layout.mjs for the path.')
-  process.exit(1)
-}
+import { loadPuppeteer } from './lib/puppeteer.mjs'
+const puppeteer = await loadPuppeteer('probe-fact-census.mjs')
 import { readFileSync, mkdirSync, writeFileSync } from 'fs'
 import { readCode } from './lib/strip-comments.mjs'
 

@@ -7,13 +7,8 @@
 // answer needs the number now rather than the number in the report that raised
 // them. CLAUDE.md Verification 15: a criterion expressed as a measurement at one
 // viewport stops describing the thing it was written about.
-let puppeteer
-try {
-  puppeteer = (await import(process.env.PUPPETEER_PATH ?? 'puppeteer')).default
-} catch {
-  console.error('puppeteer is not available. See scripts/probe-strip-layout.mjs for the path.')
-  process.exit(1)
-}
+import { loadPuppeteer } from './lib/puppeteer.mjs'
+const puppeteer = await loadPuppeteer('probe-screen-findings.mjs')
 import { readFileSync, mkdirSync } from 'fs'
 
 const ROOT = new URL('../', import.meta.url).pathname
