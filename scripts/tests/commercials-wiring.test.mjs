@@ -342,24 +342,58 @@ test('the local note states the gap to target, which the strip does not', () => 
 })
 
 // ─────────────────────────────────────────────────────────────
-// The installation option notes
+// The installation option LABELS
 // ─────────────────────────────────────────────────────────────
+//
+// Round 41 removed the four per-option notes and three static paragraphs from
+// the Installation section, on the business's ruling. The predecessor of this
+// test asserted that every option the picklist offers carries a note. That test
+// was correct and is gone with the thing it guarded.
+//
+// IT IS REPLACED RATHER THAN DELETED, and the reason is the ruling itself: the
+// four labels now carry the meaning ALONE. That promotes them from identifiers
+// to the only prose on the control, and prose with no test is prose somebody
+// rewords in a later round without noticing what it was carrying.
+//
+// VERBATIM, not a count. CLAUDE.md Verification 33's companion, learned in
+// Round 40's calibration: renaming one option leaves the count at four and a
+// count-based test passes. These are the four sentences the screen now relies
+// on, so the test names them.
 
-test('every installResp option the business wrote copy for has exactly one line', async () => {
-  // Source-scanned rather than imported: opportunity-deal.js reaches for
-  // /lib imports and window.api and cannot be loaded in this harness.
-  const src = readCode(new URL('../../frontend/opportunity-deal.js', import.meta.url))
-  const block = src.slice(src.indexOf('const INSTALL_RESP_NOTES'), src.indexOf('function updateInstallRespNote'))
-  // EVERY option the picklist offers, read from index.html rather than listed
-  // here, so a fifth option added to the markup fails this test instead of
-  // shipping without a note.
+const INSTALL_RESP_LABELS = [
+  'Client Own Installation Team',
+  'Terminus Contractor - Per Unit',
+  'Terminus Contractor - Lump Sum',
+  'Terminus - Reseller Installation',
+]
+
+test('the four installResp labels are exactly as shipped, because they now carry the meaning alone', () => {
   const html = readCode(new URL('../../frontend/index.html', import.meta.url))
   const sel = html.slice(html.indexOf('id="deal-installResp"'))
-  const options = [...sel.slice(0, sel.indexOf('</select>')).matchAll(/<option value="([^"]+)"/g)].map((m) => m[1])
-  assert.equal(options.length, 4, `the picklist offers ${options.length} options`)
-  for (const opt of options) {
-    assert.ok(block.includes(`'${opt}':`), `${opt} is offered by the picklist and has no note`)
+  const block = sel.slice(0, sel.indexOf('</select>'))
+  const options = [...block.matchAll(/<option value="([^"]+)">([^<]*)<\/option>/g)]
+  assert.deepEqual(options.map(m => m[1]), INSTALL_RESP_LABELS,
+    'the installResp picklist values are the four labels the Round 41 removal left carrying the meaning')
+  // The VALUE and the TEXT are the same string on this control, which is what
+  // lets a label be both the stored value and the explanation. Asserted so a
+  // round that reworded the visible text while keeping the value - which would
+  // preserve every payload and silently change what the screen says - fails.
+  for (const m of options) {
+    assert.equal(m[2], m[1], `option value "${m[1]}" and its visible text have diverged`)
   }
+})
+
+test('no per-option note mechanism survives the removal', () => {
+  // The other half of the ruling. A removal that leaves the renderer behind
+  // ships a container written by nothing, which is CLAUDE.md Architecture 9's
+  // fourth-variant signature read in reverse.
+  const src = readCode(new URL('../../frontend/opportunity-deal.js', import.meta.url))
+  const html = readCode(new URL('../../frontend/index.html', import.meta.url))
+  assert.ok(!src.includes('INSTALL_RESP_NOTES'), 'INSTALL_RESP_NOTES is still defined')
+  assert.ok(!src.includes('deal-installResp-note'), 'the per-option note element is still read')
+  assert.ok(!html.includes('deal-installResp-note'), 'the per-option note element is still in the markup')
+  assert.ok(!src.includes('deal-install-basis'), 'the catalog rates line is still rendered')
+  assert.ok(!html.includes('deal-install-basis'), 'the catalog rates line is still in the markup')
 })
 
 // ─────────────────────────────────────────────────────────────

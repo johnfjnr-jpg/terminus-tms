@@ -1540,18 +1540,13 @@ function renderInstallationTab(result, payload) {
   setInstallRow('inSsNew')
   setInstallRow('inAqm')
   setInstallRow('inHemir')
-  // Round 37 Phase 1: name the basis and the batch, for the same reason the
-  // Hw/Hosting cards carry a provenance line. An installation figure is now a
-  // claim about a specific batch, and the two products whose new-infrastructure
-  // figure has no row should say so where the number is read, not only in a
-  // migration comment nobody opens while pricing a deal.
-  const basis = document.getElementById('deal-install-basis')
-  if (basis) {
-    const b = Object.values(catalogBatches)[0]
-    basis.textContent = b
-      ? `Rates from batch "${b.batch_label}", effective ${b.effective_from}. AQ Sensor and HEMIR use the existing-infrastructure figure; their new-infrastructure rates are held in the catalog and have no row on this tab.`
-      : ''
-  }
+  // Round 41: the basis line is removed with the rest of the Installation
+  // prose, on the business's ruling. Its reader goes with its element, so
+  // probe-dead-selectors has nothing left pointing at #deal-install-basis.
+  //
+  // catalogBatches is NOT now unused: the Hardware and Hosting provenance
+  // lines still read it. Checked rather than assumed, because a removal that
+  // strands state is how dead code starts.
   document.getElementById('deal-install-total-cost').textContent = `$${money(result.groups.installGroup.rawTotalCost)}`
   document.getElementById('deal-install-total-price').textContent = `$${money(result.groups.installGroup.rawTotalPrice)}`
 
@@ -1743,36 +1738,28 @@ function applyCommercialNumericInputModes() {
 // cell: Lump Sum (editable price + summary), per-unit (see table below),
 // anything else (not applicable) - matches the prototype's
 // installPriceEditable / installPerUnitNote / installPriceReadOnly.
-// What each installation option does to the number. Written by the business,
-// one line each, saying what the choice costs rather than what it is called.
+// Round 41: INSTALL_RESP_NOTES and updateInstallRespNote are removed on the
+// business's ruling, with the other four pieces of Installation prose.
 //
-// KEYED BY THE PICKLIST VALUE, and the value is the display text, so a renamed
-// option loses its note rather than silently showing the wrong one. That is the
-// direction to fail in: a missing sentence is visible, a wrong one is not.
+// THE FOUR PICKLIST LABELS NOW CARRY THE MEANING ALONE, which makes them prose
+// rather than identifiers, and they are asserted verbatim in
+// commercials-wiring.test.mjs so a rename fails a test. The four:
 //
-// All four options carry a line, written by the business. The reseller line was
-// pending for one phase and is now here; it was left blank rather than invented,
-// because a plausible sentence nobody can falsify is the shape this project keeps
-// removing.
-const INSTALL_RESP_NOTES = {
-  'Client Own Installation Team':
-    'No installation cost to us. We keep hardware and hosting margin and carry the schedule risk if their team is slow.',
-  'Terminus Contractor - Per Unit':
-    'Installation cost rises with every unit. Use when the unit count may still move.',
-  'Terminus Contractor - Lump Sum':
-    'Installation cost is fixed whatever the unit count. Better on large deployments, worse on small ones.',
-  'Terminus - Reseller Installation':
-    'We discount the hardware and the reseller installs. No installation cost to us, and the discount comes off hardware margin.',
-}
-
-function updateInstallRespNote() {
-  const el = document.getElementById('deal-installResp-note')
-  if (!el) return
-  el.textContent = INSTALL_RESP_NOTES[uiState.installResp] ?? ''
-}
+//   Client Own Installation Team
+//   Terminus Contractor - Per Unit
+//   Terminus Contractor - Lump Sum
+//   Terminus - Reseller Installation
+//
+// WHAT THE LABELS DO NOT SAY, recorded rather than glossed: the notes named the
+// consequence to margin - that the reseller discount comes off hardware margin,
+// that lump sum is better on large deployments and worse on small ones. The
+// labels say who installs and on what basis; they do not say which way the
+// number moves. The business has ruled that the visible switch of the table,
+// the lump-sum group and the not-applicable cell shows the consequence better
+// than a sentence describing it. That is the trade, stated so a later round can
+// re-take it rather than rediscover it.
 
 function updateInstallVisibility() {
-  updateInstallRespNote()
   const isPerUnit = uiState.installResp.includes('Per Unit')
   const isLumpSum = uiState.installResp.includes('Lump Sum')
   document.getElementById('deal-install-table').classList.toggle('hidden', !isPerUnit)

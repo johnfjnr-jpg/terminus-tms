@@ -1811,11 +1811,15 @@
            at 1240 to save nothing: a four-row box of two-digit counts does not
            want half the screen. -->
       <div class="deal-section deal-section--intake" id="deal-sections-1-2">
-      <section class="deal-intake-col" id="deal-section-1">
-        <div class="latch-row">
-        <p class="section-title">Units Required</p>
-        <button class="latch" type="button" id="latch-deal-section-1" data-latch="deal-section-1" aria-expanded="true" aria-controls="deal-section-1">Hide</button>
+      <!-- ONE LATCH FOR THE PAIR. Round 41: the button sits on the wrapper, not
+           on either column, because the two are latched together and a button on
+           one of them would say it hides only that one. -->
+      <div class="latch-row latch-row--intake">
+        <p class="section-title">Units Required and Installation</p>
+        <button class="latch" type="button" id="latch-deal-sections-1-2" data-latch="deal-sections-1-2" aria-expanded="true" aria-controls="deal-sections-1-2">Hide</button>
       </div>
+      <section class="deal-intake-col" id="deal-section-1">
+        <p class="section-title">Units Required</p>
         <div class="unit-cards">
           <div class="unit-card">
             <label for="deal-ssExisting">SafeSight, existing infra</label>
@@ -1863,23 +1867,26 @@
 
       <!-- ── SECTION 2: Installation ─────────────────────────────────── -->
       <section class="deal-intake-col" id="deal-section-2">
-        <div class="latch-row">
         <p class="section-title">Installation</p>
-        <button class="latch" type="button" id="latch-deal-section-2" data-latch="deal-section-2" aria-expanded="true" aria-controls="deal-section-2">Hide</button>
-      </div>
         <div class="form-grid">
-          <!-- Round 39: entry explains itself. Phase 0 measured this control as
-               the sharpest instance of the gap - four options, nothing on screen
-               saying what any of them does to the number, on the choice the
-               business names as driving install cost.
+          <!-- Round 41: THE OPTION LABELS CARRY THE MEANING ALONE, and the
+               five explanatory notes that used to sit around this control are
+               gone. The business's ruling, and the reasoning is theirs: the
+               labels already say who installs and on what basis, so a sentence
+               under each one was restating the label in more words.
 
-               THE PER-OPTION NOTE IS RENDERED, NOT STATIC. It changes with the
-               selection, so it lives in opportunity-deal.js beside the branch
-               that already reads installResp. A static list of four sentences
-               would be four claims nobody re-reads when the picklist changes.
+               Round 39 added them for a measured reason - Phase 0 found four
+               options with nothing on screen saying what any of them did to the
+               number. That premise held while the notes were the only thing on
+               the screen carrying the consequence. It stopped holding once the
+               table, the lump-sum group and the not-applicable cell all switch
+               visibly on the same selection, which is the consequence shown
+               rather than described. Recorded as SUPERSEDED rather than
+               reversed: see DESIGN_PRINCIPLES.md.
 
-               Copy written by the business. One line each, saying what the
-               choice does to the number rather than what the field is called. -->
+               The four labels are now load-bearing prose. commercials-wiring
+               asserts them verbatim, so renaming one fails a test rather than
+               quietly changing what this control says. -->
           <div class="form-group">
             <label>Installation responsibility</label>
             <select id="deal-installResp">
@@ -1888,13 +1895,14 @@
               <option value="Terminus Contractor - Lump Sum">Terminus Contractor - Lump Sum</option>
               <option value="Terminus - Reseller Installation">Terminus - Reseller Installation</option>
             </select>
-            <p class="field-note" style="margin-top:6px">Who installs, and therefore whether installation cost sits in this deal at all.</p>
-            <p class="field-note" id="deal-installResp-note" style="margin-top:4px"></p>
           </div>
           <div class="form-group hidden" id="deal-lumpCost-group">
             <label>Lump sum contractor price (USD)</label>
             <input type="text" inputmode="numeric" id="deal-lumpCost">
-            <p class="field-note" style="margin-top:6px">The contractor's fixed price for the whole installation. Used only when responsibility is Terminus Contractor, Lump Sum.</p>
+            <!-- Round 41: the note under this box is gone with the rest. The
+                 group is hidden unless responsibility IS Terminus Contractor,
+                 Lump Sum, so its second sentence was describing the condition
+                 that had already been met to make it visible. -->
             <p class="data-row-label" id="deal-lump-summary" style="margin-top:8px">--</p>
           </div>
           <div class="form-group hidden" id="deal-install-seetable">
@@ -1918,27 +1926,24 @@
              rendering was ever missing. Total row matches the prototype's
              own Total line and the Hw/Hosting cards' existing pg-total
              convention. -->
-        <!-- Round 37 Phase 1: the four rates now come from Base Cost Data.
-             They read empty before this, because nothing had ever written the
-             payload keys behind them, so per-unit installation priced at $0 on
-             every deal - reported by the business on first use.
+        <!-- Round 41: the catalog rates line and the group note are both gone,
+             on the business's ruling. The row labels say "existing infra" and
+             "new infra" themselves, and the column header already says the
+             rate comes from Base Cost Data.
 
-             AQ Sensor and HEMIR say "existing infra" because the catalog holds
-             an existing AND a new figure for each, and this tab has one row
-             each. The label states which of the two is in the number rather
-             than leaving the basis to be inferred. Their new-infrastructure
-             figures, $1,000 and $10,000, reach no row and are unresolved. -->
-        <p id="deal-install-basis" class="field-note" style="margin:0 0 10px"></p>
-        <!-- Round 39: the group note explains the one distinction a person new
-             to this cannot infer from the row labels. Written by the business.
+             WHAT WENT WITH THEM, recorded because it is a real loss and not a
+             tidy-up. The basis line was the only place on this screen naming
+             the batch and its effective date, and the only place saying that AQ
+             Sensor and HEMIR have a new-infrastructure rate in the catalog that
+             reaches no row here. Neither fact is now stated anywhere a person
+             pricing a deal will see.
 
-             AN ASYMMETRY IS REPORTED SEPARATELY AND NOT EXPLAINED AWAY HERE:
-             SafeSight has existing and new rows, AQ Sensor and HEMIR have only
-             existing, and the catalog nonetheless holds a new-infrastructure
-             install cost for all three. See the Phase 1 report. Whether that is
-             a domain fact or an incomplete build is the business's to say, and
-             a note asserting either would be a claim nobody has checked. -->
-        <p class="field-note" style="margin:0 0 10px">Existing infrastructure means mounting on poles, columns or buildings already in place. New infrastructure means we supply and erect the mount, which costs more and takes longer.</p>
+             THE ASYMMETRY REMAINS OPEN AND IS NOT CLOSED BY THIS REMOVAL. It is
+             on the list as an Asset Management item: SafeSight has existing and
+             new rows, AQ Sensor and HEMIR have only existing, and the catalog
+             holds a new-infrastructure install cost for all three. Removing the
+             sentence that mentioned it does not answer it. See the Round 39
+             Phase 1 report and DESIGN_PRINCIPLES.md. -->
         <table class="doc-table hidden" id="deal-install-table">
           <thead><tr><th>Installation (per unit)</th><th>Units</th><th>Rate (USD, from Base Cost Data)</th><th>Cost (USD)</th><th>Margin %</th><th>Price (USD)</th></tr></thead>
           <tbody>

@@ -31,7 +31,14 @@ test('the strip and the P&L summary are never latchable', () => {
   // conclusions with the working hidden is abdication rather than subtraction.
   assert.ok('deal-section-4' in NEVER_LATCHABLE)
   assert.ok(!LATCH_PANELS.some((p) => p.id === 'deal-section-4'))
-  assert.equal(LATCH_PANELS.length, 5)
+  // FIVE BECAME FOUR: Units Required and Installation are one group with one
+  // button, ruled by the business. They are side by side and latching one
+  // without the other would leave half a row.
+  assert.equal(LATCH_PANELS.length, 4)
+  assert.ok(!LATCH_PANELS.some((p) => p.id === 'deal-section-1'),
+    'Units Required has no button of its own')
+  assert.ok(!LATCH_PANELS.some((p) => p.id === 'deal-section-2'))
+  assert.ok(LATCH_PANELS.some((p) => p.id === 'deal-sections-1-2'))
 
   const html = readCode(HTML)
   const buttons = [...html.matchAll(/data-latch="([^"]+)"/g)].map((m) => m[1])
@@ -71,7 +78,7 @@ test('RULE 3 FIRES: a missing key, and only where it applies', () => {
 })
 
 test('RULE 3 FIRES: an override, on the panel that holds the control', () => {
-  const install = LATCH_PANELS.find((p) => p.id === 'deal-section-2')
+  const install = LATCH_PANELS.find((p) => p.id === 'deal-sections-1-2')
   const p = { installResp: 'Terminus Contractor - Per Unit' }
   assert.equal(panelSignal(install, p).signalled, false)
   assert.equal(panelSignal(install, p, { marginOverrides: { inSsEx: '' } }).signalled, false,
@@ -94,7 +101,13 @@ test('TWO PANELS ARE SILENT BY CONSTRUCTION, and that is measured', () => {
     assert.deepEqual([...p.keys, ...p.marginKeys, ...p.rateKeys], [],
       `${id} is named as silent by construction and holds something that can signal`)
   }
-  // And every OTHER panel can signal, or the list is naming the wrong two.
+  // THE LIST IS ONE NOW, and that is a consequence of the merge rather than of
+  // Units Required gaining anything: its own contribution is still nothing, and
+  // what changed is that it no longer has a button of its own to be silently
+  // clean on.
+  assert.deepEqual([...NO_SIGNAL_POSSIBLE], ['deal-section-6'])
+
+  // And every OTHER panel can signal, or the list is naming the wrong ones.
   for (const p of LATCH_PANELS.filter((x) => !NO_SIGNAL_POSSIBLE.includes(x.id))) {
     assert.ok([...p.keys, ...p.marginKeys, ...p.rateKeys].length > 0,
       `${p.id} is not named as silent and holds nothing that can signal`)

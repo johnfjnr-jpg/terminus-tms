@@ -4670,6 +4670,11 @@ input.input-invalid {
 .deal-section.is-latched > *:not(.latch-row),
 .deal-intake-col.is-latched > *:not(.latch-row) { display: none; }
 
+/* The intake PAIR latches as one: its button is on the wrapper, so hiding it
+   hides both columns. Round 41. */
+.deal-section--intake.is-latched > *:not(.latch-row) { display: none; }
+.latch-row--intake { grid-column: 1 / -1; }
+
 /* ── RULE 3: A LATCHED PANEL ADMITS WHAT IT IS HIDING ──────────────────────
    The marker is a dot before the word, in the one accent the palette carries,
    because a latched panel holding a missing or overridden input is the case the

@@ -35,14 +35,39 @@
 //
 //   npm i puppeteer --prefix /tmp/tms-probe
 //   NODE_PATH=/tmp/tms-probe/node_modules node scripts/probe-dead-selectors.mjs
+//
+// ROUND 41: THE PRINTED REMEDIATION DID NOT WORK, AND HAD NEVER BEEN RUN.
+//
+// It named the package DIRECTORY. A dynamic import of a directory is
+// ERR_UNSUPPORTED_DIR_IMPORT in ESM, so following the instruction exactly
+// produced the same failure it was written to resolve, twice in a row, which
+// reads as a broken tool rather than a wrong instruction.
+//
+// Verification 25's corollary at its smallest: a recovery path that has never
+// been exercised is a plan. Nothing was lost here beyond two minutes, and it is
+// worth the comment because the line looked right, was committed with the
+// probe, and had sat unrun since.
+//
+// Resolved to the package's own `exports.import` entry, so it survives a
+// puppeteer version bump rather than hardcoding a lib path that may move.
 let puppeteer
 try {
   puppeteer = (await import(process.env.PUPPETEER_PATH ?? 'puppeteer')).default
 } catch {
-  console.error('puppeteer is not available, and it is not a dependency of this repository.')
-  console.error('  npm i puppeteer --prefix /tmp/tms-probe')
-  console.error('  PUPPETEER_PATH=/tmp/tms-probe/node_modules/puppeteer node scripts/probe-dead-selectors.mjs')
-  process.exit(1)
+  const { existsSync, readFileSync: rf } = await import('fs')
+  const dir = process.env.PUPPETEER_PATH
+  // The one recovery this can perform itself: given a directory, read where its
+  // package.json says the entry point is and import that.
+  if (dir && existsSync(`${dir}/package.json`)) {
+    const entry = JSON.parse(rf(`${dir}/package.json`, 'utf8')).exports?.['.']?.import
+    if (entry) puppeteer = (await import(new URL(entry, `file://${dir}/`).href)).default
+  }
+  if (!puppeteer) {
+    console.error('puppeteer is not available, and it is not a dependency of this repository.')
+    console.error('  npm i puppeteer --prefix /tmp/tms-probe')
+    console.error('  PUPPETEER_PATH=/tmp/tms-probe/node_modules/puppeteer node scripts/probe-dead-selectors.mjs')
+    process.exit(1)
+  }
 }
 import { readFileSync } from 'fs'
 

@@ -44,10 +44,18 @@ export const NEVER_LATCHABLE = Object.freeze({
  * `rateKeys`    installation rate boxes, where blank takes the catalog figure
  */
 export const LATCH_PANELS = Object.freeze([
-  { id: 'deal-section-1', label: 'Units Required', keys: [], marginKeys: [], rateKeys: [] },
+  // ── ONE GROUP, ONE BUTTON. Round 41, ruled by the business ──────────────
+  //
+  // Units Required and Installation are side by side and are latched together.
+  // The combined button carries INSTALLATION'S signal capability; Units Required
+  // contributes none, which was already measured rather than assumed: unit
+  // counts sit outside ZERO_IS_NOT_A_VALUE on purpose, because zero is a real
+  // answer to "how many".
+  //
+  // Five latchable became FOUR, and NO_SIGNAL_POSSIBLE became a list of one.
   {
-    id: 'deal-section-2',
-    label: 'Installation',
+    id: 'deal-sections-1-2',
+    label: 'Units Required and Installation',
     keys: ['lumpSumCost'],
     marginKeys: ['inSsEx', 'inSsNew', 'inAqm', 'inHemir'],
     rateKeys: ['inSsExisting', 'inSsNew', 'inAqm', 'inHemir'],
@@ -75,8 +83,14 @@ export const LATCH_PANELS = Object.freeze([
  * and on these two it is silent by construction. Unit counts are deliberately
  * outside ZERO_IS_NOT_A_VALUE, each reasoned individually, because zero is a
  * real answer to "how many"; Cash flow holds no inputs at all.
+ *
+ * ROUND 41: Units Required left this list by being MERGED rather than by gaining
+ * a signal. Its own contribution is still nothing; what changed is that it no
+ * longer has a button of its own, so there is no silent button to misread. Cash
+ * flow is the last one, and it is the only panel on the tab that holds no
+ * inputs at all.
  */
-export const NO_SIGNAL_POSSIBLE = Object.freeze(['deal-section-1', 'deal-section-6']);
+export const NO_SIGNAL_POSSIBLE = Object.freeze(['deal-section-6']);
 
 /**
  * Whether a panel must signal, and what for.

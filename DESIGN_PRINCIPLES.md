@@ -846,6 +846,29 @@ in the same voice: here an intention and a RECORD sound the same in the moment
 they are spoken.
 
 
+### A FULL ASSESSMENT CRITERIA REVIEW, as its own session after Round 41
+
+**Scheduled by the business 2026-08-31, Round 41, as fix-panel item 5.**
+
+**Its own session, after Round 41 closes, with REAL-USE FINDINGS AS ITS INPUT.**
+That last clause is the reason it is a session rather than a task: the criteria
+have never been used in anger, and a review conducted before they have been is a
+review of what somebody imagined a salesperson would need.
+
+**In scope, and the second half is the part that would otherwise be missed:**
+
+- **the thirty Opportunity criteria**, across four lenses: Commercial 7,
+  Organisational 8, Technical 7, Legal 8, plus whatever Round 41 adds
+- **the Test Bed scoring anchors simplified in earlier rounds.** They were
+  trimmed for a reason at the time and nobody has looked at them since with a
+  real Test Bed in front of them. **Named explicitly so the review is not
+  quietly scoped to the Opportunity**, which is the module that has had all the
+  attention.
+
+**What it is NOT.** Not a rewrite, and not a chance to add criteria because a
+deal was awkward once. The input is what real use showed, and the output may
+legitimately be that most of them are right.
+
 ### THE ABSENT-CATALOG-RATE SILENCE, and its home is Asset Management
 
 **Named by the business 2026-08-30, Round 41, from the item 7 enumeration.
@@ -6650,3 +6673,86 @@ is how they are read: the four Commercial approvals on the one live Opportunity
 all stop satisfying the gate, three of them because they provably describe prices
 that moved and the fourth because it names a revision no version records. The
 remedy is the ordinary workflow, available today: take a version, then approve it.
+
+### THE INSTALLATION PROSE, removed. Round 41 fix-panel item 1
+
+**Ruled by the business 2026-08-31. Five things removed, and the ruling was
+explicit that `INSTALL_RESP_NOTES` goes with the rest rather than being held
+back as the useful one.**
+
+| removed | what it said | added by |
+|---|---|---|
+| static note under the responsibility picklist | who installs, and therefore whether installation cost sits in this deal at all | Round 39 |
+| the four per-option notes, `INSTALL_RESP_NOTES` | one line per option, what the choice does to the number | Round 39 |
+| static note under the lump sum price box | the contractor's fixed price, used only when responsibility is Terminus Contractor, Lump Sum | earlier |
+| the catalog rates line, `#deal-install-basis` | the batch label, its effective date, and that AQ Sensor and HEMIR have new-infrastructure rates reaching no row | Round 37 Phase 1 |
+| the infrastructure group note | what existing and new infrastructure mean | Round 39 |
+
+**THE FOUR OPTION LABELS NOW CARRY THE MEANING ALONE**, and they are listed here
+because they became the load-bearing prose on that control the moment the notes
+went:
+
+- `Client Own Installation Team`
+- `Terminus Contractor - Per Unit`
+- `Terminus Contractor - Lump Sum`
+- `Terminus - Reseller Installation`
+
+They are asserted verbatim in `commercials-wiring.test.mjs`, value against
+visible text, so a round rewording one fails a test rather than quietly changing
+what the control says. **A count would not do it**: renaming one option leaves
+the count at four, which is Round 40's own calibration finding applied on
+purpose.
+
+#### The Round 39 premise, recorded as SUPERSEDED rather than reversed
+
+Round 39 Phase 0 measured this control as the sharpest instance of the
+explain-itself gap: four options, and nothing on screen saying what any of them
+did to the number. **That measurement was true and is not being disputed.**
+
+**What it depended on**, in the form Verification 29 asks for and which nobody
+wrote down at the time: that the notes were the only thing on the screen
+carrying the consequence of the choice. That premise has failed. The table, the
+lump-sum group and the not-applicable cell all switch visibly on the same
+selection, so the consequence is shown rather than described.
+
+**What the labels do not say, stated so the trade is legible.** The notes named
+the direction of the effect on margin: that the reseller discount comes off
+hardware margin, that lump sum is better on large deployments and worse on small
+ones. The labels say who installs and on what basis. They do not say which way
+the number moves. The business has ruled that the visible switch is the better
+instrument; a later round re-taking this is re-taking a decision, not
+discovering an oversight.
+
+#### What the catalog rates line was the only carrier of
+
+**A real loss, recorded rather than glossed.** It was the only place on the
+pricing screen naming the batch and its effective date, and the only place
+saying that AQ Sensor and HEMIR hold a new-infrastructure rate in the catalog
+that reaches no row on this tab. **Neither fact is now stated anywhere a person
+pricing a deal will see.**
+
+**The asymmetry itself is untouched by this removal and stays on the list**, as
+an Asset Management item: SafeSight has existing and new rows, AQ Sensor and
+HEMIR have only existing, and the catalog holds a new-infrastructure install
+cost for all three. Removing the sentence that mentioned it does not answer it.
+
+#### Measured, and the instrument had to be fixed twice first
+
+The measure is the **both-visible window**: the pixels of scroll travel from
+which the responsibility picklist and the first row of the installation pricing
+table are on screen together. Verification 27, stated as something the person
+experiences rather than as a section height, and it is the business's own
+argument made checkable: if the visible switch is what carries the consequence,
+the control and the table have to be seeable at once.
+
+| width | before | after |
+|---|---|---|
+| 1240 | 430px | 660px |
+| 1920 | 550px | 750px |
+
+At 1920 the window now starts at scroll position 0. **Two instrument faults were
+caught before those numbers, both by refusing a reading rather than by reading
+it**, and both are recorded in `scripts/probe-install-prose.mjs`: a
+stale-satisfiable wait that resolved on the pre-load screen, and a named scroll
+container that does not exist on this screen, which made every window reading
+0px and looked like a result.
