@@ -981,19 +981,57 @@ test('the closing cash position says a negative plainly, and no red', () => {
   const css = readCode(new URL('../../frontend/style.css', import.meta.url))
   assert.ok(!/#deal-closing-cash[^{]*\{[^}]*(--red|#[a-f0-9]*[89a-f][0-9a-f]{2}[0-3][0-9a-f]{2})/i.test(css),
     'no accent is introduced for a negative closing cash')
+
+  // ── ROUND 41 W5: AND THE SURVIVING RENDERING CARRIES NO ACCENT EITHER ──
+  //
+  // The strip cell is gone, so #deal-cashflow-closing is now the ONLY place
+  // closing cash appears. It carried `style="color:var(--green)"` inline, which
+  // said "good" for every value including -$275,556, and green on this screen
+  // means at or above target. An unconditional accent is a treatment, and the
+  // ruling was NO treatment.
+  //
+  // Read from the markup, because the colour was inline rather than in a rule
+  // and a stylesheet scan could not have seen it.
+  const html = readCode(new URL('../../frontend/index.html', import.meta.url))
+  const el = html.match(/<span[^>]*id="deal-cashflow-closing"[^>]*>/)
+  assert.ok(el, 'the cash flow section no longer renders a closing position')
+  assert.ok(!/--green|color:/.test(el[0]),
+    `the surviving closing-cash rendering carries a colour: ${el[0]}`)
 })
 
-test('the strip is shape B: five figures, the pair first', () => {
+test('closing cash is rendered through ONE reader, wherever it appears', () => {
+  // Verification 20, and it was live: renderCashFlow computed its own with
+  // money(), which produces no currency symbol at all. Measured before the fix -
+  // "117,341" against "$117,341", "-275,556" against "-$275,556", and "--"
+  // against "not recorded". Both were invisible while a correctly formatted copy
+  // sat in the strip twelve hundred pixels above, and W5 removed that copy.
+  const src = readCode(new URL('../../frontend/opportunity-deal.js', import.meta.url))
+  assert.match(src, /closingEl\.textContent = closingCashPresentation\(cf\)\.text/,
+    'the cash flow section computes its own closing figure')
+  // And nothing else formats it by hand.
+  assert.ok(!/closingEl\.textContent = money\(/.test(src),
+    'a second formatting of closing cash survives')
+  assert.equal((src.match(/closingCashPresentation\(/g) || []).length, 1,
+    'closing cash is presented in more than one place')
+})
+
+test('the strip is FOUR figures, achieved margin promoted alone', () => {
+  // Round 41 W5, a REVERSAL of the item 3 ruling that put closing cash here.
+  // The business's reason: cash position is a payment-terms question and the
+  // strip answers profitability. The superseded assertion is left in the git
+  // history rather than in a second test nobody deletes.
   const html = readCode(new URL('../../frontend/index.html', import.meta.url))
   const strip = html.slice(html.indexOf('stats-grid stats-grid--deal'))
     .slice(0, html.slice(html.indexOf('stats-grid stats-grid--deal')).indexOf('</div>\n\n'))
   const labels = [...strip.matchAll(/<span class="label">([^<]+)<\/span>/g)].map((m) => m[1])
-  assert.deepEqual(labels, ['Achieved margin', 'Closing cash position', 'Contract net', 'Total deal cost', 'Finance cost'],
-    'the order IS the ruling: the pair the business reads together leads the row')
-  // The pair is promoted and the three are not. Asserted on the markup rather
-  // than on the rendered size, because the class is what the stylesheet reads.
+  assert.deepEqual(labels, ['Achieved margin', 'Contract net', 'Total deal cost', 'Finance cost'],
+    'the strip answers profitability, and closing cash is not one of its questions')
+  // Promoted ALONE. Asserted on the markup rather than the rendered size,
+  // because the class is what the stylesheet reads.
   assert.match(strip, /stat-value stat-value--lead" id="deal-achieved-margin"/)
-  assert.match(strip, /stat-value stat-value--lead" id="deal-closing-cash"/)
+  assert.equal((strip.match(/stat-value--lead/g) || []).length, 1,
+    'exactly one figure carries the lead treatment')
+  assert.ok(!/deal-closing-cash/.test(strip), 'the closing cash cell is still in the strip')
   assert.ok(!/stat-value--lead" id="deal-finance-cost"/.test(strip))
 
   // A MODIFIER, not an edit to .stats-grid, which the Test Bed detail also
@@ -1317,4 +1355,53 @@ test('the SHIPPED renderCatalogNotice writes the two spans and paints only the a
   assert.match(fn, /age\.textContent = band\.band === 'current' \? '' :/,
     'a current basis no longer renders an empty age')
   assert.ok(fn.includes("value.textContent = 'not recorded'"), 'the no-batch path no longer says so')
+})
+
+// ─────────────────────────────────────────────────────────────
+// ANOTHER USER'S RECORD IS READ ONLY AT LOAD. Round 41 W1
+// ─────────────────────────────────────────────────────────────
+//
+// A non-owner selected seven assessment scores, typed seven reasons, and was
+// refused per row at Record with "This record belongs to another user."
+// Ownership was known at load the whole time and nothing on the screen used it.
+
+test('the read-only banner quotes the server refusal WORD FOR WORD', () => {
+  // Two copies of one sentence, and the client cannot import from src/. So the
+  // duplication is proven equal rather than asserted equal by a comment, which
+  // is what CLAUDE.md Verification 20 says the phrase "kept identical to" marks.
+  const server = readCode(new URL('../../src/lib/write-errors.js', import.meta.url))
+  const client = readCode(new URL('../../frontend/app.js', import.meta.url))
+  const m = server.match(/OWNERSHIP_REFUSAL\s*=\s*\n?\s*'([^']+)'/)
+  assert.ok(m, 'OWNERSHIP_REFUSAL was not found in write-errors.js')
+  assert.ok(client.includes(`'${m[1]}'`),
+    `the client banner does not carry the server's exact refusal:\n  server: ${m[1]}`)
+})
+
+test('the read-only class is applied from ONE value, the way the freeze is', () => {
+  // The shape is the claim. Eleven controls each testing for themselves is the
+  // second-reader shape, and the control that forgot to ask is the editable
+  // field on a record you do not own.
+  const src = readCode(new URL('../../frontend/app.js', import.meta.url))
+  assert.match(src, /classList\.toggle\('is-not-mine',\s*notMine\)/,
+    'the view does not carry a single is-not-mine toggle')
+  assert.match(src, /const notMine = [^\n]*owner_id[^\n]*\n?[^\n]*currentSession/,
+    'notMine is not derived from the record owner and the current session')
+  // Read through the stripper, Verification 39: the comment above that line
+  // discusses owner_id and currentSession at length.
+  const occurrences = (src.match(/is-not-mine/g) || []).length
+  assert.equal(occurrences, 1, `is-not-mine is set in ${occurrences} places, and one value means one place`)
+})
+
+test('the stylesheet makes an unowned record non-interactive, not merely dim', () => {
+  // Dimming alone is what the walk already had: everything looked slightly grey
+  // and every control still accepted input. pointer-events is the part that
+  // stops the work being done.
+  const css = readCode(new URL('../../frontend/style.css', import.meta.url))
+  const rule = css.match(/\.is-not-mine input[^{]*\{([^}]*)\}/)
+  assert.ok(rule, 'no .is-not-mine rule covers inputs')
+  assert.match(rule[1], /pointer-events:\s*none/,
+    'inputs on an unowned record are dimmed but still accept input')
+  for (const el of ['input', 'textarea', 'select']) {
+    assert.match(css, new RegExp(`\\.is-not-mine ${el}[ ,]`), `${el} is not covered by the read-only rule`)
+  }
 })

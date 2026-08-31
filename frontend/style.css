@@ -1645,8 +1645,11 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
    DEMOTED: it sits with the supporting three because it is a component of total
    cost, not because it is small. Measured at $252,794 on the only live deal
    carrying units. */
+/* Round 41 W5: four figures, not five. Achieved margin is promoted ALONE now
+   that closing cash has gone to the Cash flow section, so the lead column keeps
+   its 1.6 and there is one of it rather than a pair. */
 .stats-grid--deal {
-  grid-template-columns: 1.6fr 1.6fr 1fr 1fr 1fr;
+  grid-template-columns: 1.6fr 1fr 1fr 1fr;
   gap: 28px;
 }
 /* 20px, the size the other rendering of achieved margin already uses, so the
@@ -4805,6 +4808,19 @@ input.input-invalid {
 .is-frozen input, .is-frozen textarea, .is-frozen select { pointer-events: none; opacity: 0.45; }
 .is-frozen .btn-primary, .is-frozen .btn-secondary, .is-frozen .btn-ghost, .is-frozen .btn-sm { opacity: 0.45; }
 .is-frozen .freeze-banner, .is-frozen .freeze-banner * { pointer-events: auto; opacity: 1; }
+
+/* ── ANOTHER USER'S RECORD. Round 41 W1 ────────────────────────────────────
+   The same treatment as the freeze and deliberately not a new one: both mean
+   "you cannot change this", they are never both true in a way a person needs
+   to tell apart, and a second visual language for one meaning is a thing to
+   learn twice. The BANNERS differ, because the reasons differ and the reason is
+   what a person needs.
+
+   NO EXEMPTION CLAUSE, unlike the freeze. The freeze exempts its own banner
+   because the controls that END the freeze live inside it. Nothing a viewer can
+   do ends this one, so the banner carries no controls and needs no escape. */
+.is-not-mine input, .is-not-mine textarea, .is-not-mine select { pointer-events: none; opacity: 0.45; }
+.is-not-mine .btn-primary, .is-not-mine .btn-secondary, .is-not-mine .btn-ghost, .is-not-mine .btn-sm { opacity: 0.45; }
 
 /* ── THE APPROVER QUEUE. Round 41 ──────────────────────────────────────────
    A row per open request, carrying what it is waiting for and what the gate

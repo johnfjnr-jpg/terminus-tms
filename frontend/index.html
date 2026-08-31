@@ -1490,6 +1490,12 @@
 
          A freeze is a property of the RECORD, so it is stated where the record
          is named rather than on the one tab that happens to be about stages. -->
+    <!-- Round 41 W1: ONE STATEMENT OF WHY, above everything, in the same slot
+         as the freeze banner and for the same reason. A non-owner opened this
+         record, selected seven assessment scores, typed seven reasons, and was
+         refused per row on the way to Record. The refusal was correct and it
+         arrived seven times, after the work. -->
+    <div id="opp-readonly-banner"></div>
     <div id="opp-freeze-banner"></div>
     <div class="detail-head">
       <div>
@@ -1760,10 +1766,25 @@
           <span class="label">Achieved margin</span>
           <div class="stat-value stat-value--lead" id="deal-achieved-margin">--</div>
         </div>
-        <div>
-          <span class="label">Closing cash position</span>
-          <div class="stat-value stat-value--lead" id="deal-closing-cash">--</div>
-        </div>
+        <!-- ── CLOSING CASH POSITION LEFT THE STRIP. Round 41 W5 ──────────
+             A REVERSAL of the Round 41 item 3 ruling, recorded as one rather
+             than quietly undone, with the business's own reason:
+
+               cash position is a payment-terms question and lives with Payment
+               Terms and the cash flow section, where it already renders; the
+               strip answers profitability.
+
+             What item 3 rested on is not disputed and is in DESIGN_PRINCIPLES:
+             margin and cash recovery are two different questions and the screen
+             answered the first loudly and the second in a footnote. The
+             disagreement is about WHERE the second question belongs, not about
+             whether it was under-served.
+
+             CONFIRMED BEFORE REMOVING, because "where it already renders" is a
+             claim about the screen: #deal-cashflow-closing, "Closing position
+             over contract", in the Cash flow section. It rendered three things
+             differently from this cell and now reads through the same function.
+             See renderCashFlow. -->
         <div>
           <span class="label">Contract net</span>
           <div class="stat-value" id="deal-contract-net">--</div>
@@ -2455,7 +2476,14 @@
           <p class="empty-state hidden" id="deal-cashflow-empty" style="text-align:left;padding:16px 0">Set the Contract Duration to model the monthly cash flow.</p>
           <div style="display:flex;justify-content:space-between;gap:12px;padding-top:14px">
             <span class="label">Closing position over contract</span>
-            <span class="stat-value" id="deal-cashflow-closing" style="color:var(--green)">--</span>
+            <!-- Round 41 W5: the hardcoded green is gone. Green is this screen's
+                 accent and means AT OR ABOVE TARGET, so painting closing cash
+                 with it said "good" whatever the number was, including
+                 -$275,556. The business ruled in item 3 that a negative closing
+                 cash gets NO TREATMENT; an unconditional accent is a treatment,
+                 and the wrong one. It reads as an ordinary value now, which is
+                 what no treatment means. -->
+            <span class="stat-value" id="deal-cashflow-closing">--</span>
           </div>
         </div>
       </section>
@@ -2964,6 +2992,12 @@ opened it. -->
   import { toNumberOrNull, WRITABLE_NUMERIC_KEYS } from '/lib/numeric-payload.js'
   window.toNumberOrNull = toNumberOrNull
   window.WRITABLE_NUMERIC_KEYS = WRITABLE_NUMERIC_KEYS
+  // Round 41 W2: the same file the ROUTE decides with. If the screen decided
+  // for itself whether a date change is a move, a person would be asked for a
+  // reason the server does not want or refused for one the screen never asked
+  // for. Published on the same bridge and for the same reason as the two above.
+  const { closeDateNeedsReason } = await import('/lib/opportunity-dates.js')
+  window.closeDateNeedsReason = closeDateNeedsReason
 </script>
 <script type="module" src="/opportunity-deal.js"></script>
 <script src="/opportunity-approval.js"></script>

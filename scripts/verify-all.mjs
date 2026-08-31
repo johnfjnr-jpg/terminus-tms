@@ -53,11 +53,37 @@ const STAGES = [
     // exercises a write that is supposed to WORK, which is how a
     // ReferenceError on a 201 response line reached main and was found by a
     // walk rather than by the gate. CLAUDE.md Verification 40.
-    name: 'HTTP score success probe',
-    cmd: ['node', ['scripts/probe-score-success.mjs']],
+    name: 'HTTP write success probe',
+    cmd: ['node', ['scripts/probe-write-success.mjs']],
+    needs: 'the dev server on :3000 AND a live session-ref.json',
+  },
+  {
+    // Round 41 W6. A transition needing no approval used to raise a request
+    // nothing could close, and an open request freezes the record: a walk
+    // record was unmovable and uneditable from the moment it was raised. The
+    // fourth claim in this probe is the discriminating one - a build that had
+    // simply stopped opening requests would satisfy the other three.
+    name: 'HTTP zero-track transition probe',
+    cmd: ['node', ['scripts/probe-zero-track-transition.mjs']],
     needs: 'the dev server on :3000 AND a live session-ref.json',
   },
 ]
+
+// ── WHAT IS DELIBERATELY NOT A STAGE, AND WHY ─────────────────────────────
+//
+// The BROWSER probes - probe-readonly-view, probe-dead-selectors,
+// probe-strip-layout, probe-install-prose, probe-cost-basis-line - are run by
+// the round and reported, not run by the gate. puppeteer is deliberately not a
+// dependency of this repository, so a stage needing it would be red on any
+// machine that had not scratch-installed a browser, and a gate that is red for
+// a missing optional tool is a gate people learn to ignore.
+//
+// Round 41 W1 wanted probe-readonly-view here and it is not, for that reason.
+// Its claim - every control on another user's record non-interactive, every
+// control on your own still typeable - is measured by that probe and reported at
+// the boundary. The part of W1 that CAN run unattended is asserted in the pure
+// suite instead: the class is set once, from the record owner and the session,
+// and the stylesheet makes it non-interactive rather than merely dim.
 
 const transcript = []
 const summary = []

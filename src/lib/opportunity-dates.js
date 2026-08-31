@@ -142,3 +142,48 @@ export function closedWonGoLive(after) {
   d.setUTCMonth(d.getUTCMonth() + 1);
   return { estGoLive: d.toISOString().slice(0, 10) };
 }
+
+/**
+ * Is setting the estimated close date a MOVE, or the first recording of it?
+ *
+ * ── ROUND 41 W2, AND IT IS ARCHITECTURE 11 FROM THE VALIDATION SIDE ───────
+ *
+ * A new opportunity has no forecast close date. Setting one for the first time
+ * opened a dialogue headed "Move Est. Close Date" and refused to save without a
+ * reason for the move. The walk typed "First Recording", which is what a person
+ * writes when a form insists on an answer to a question that has none, and the
+ * audit row now says `close_date_moved from "not set"`.
+ *
+ * A reason for a move explains why a commitment CHANGED. There is no such reason
+ * for a first value, so requiring one produces the shape Verification 22 names:
+ * a required field with nothing useful to put in it teaches the person filling
+ * it that the content does not matter.
+ *
+ * ── ONE DEFINITION, TWO CALLERS, AND THAT IS THE POINT ────────────────────
+ *
+ * The route decides whether to demand a reason and the screen decides whether to
+ * ask for one, and if they disagree the person is either asked for something the
+ * server will not require or refused for something the screen never requested.
+ * Verification 20: this is the accessor both read through, and src/lib is served
+ * at /lib so the browser imports this same file rather than a copy.
+ *
+ * `unchanged` is its own answer rather than folded into `move`, because the
+ * route already refuses it with a different message and a caller that treated it
+ * as a move would ask for a reason before finding that out.
+ *
+ * @param {string|null|undefined} stored the date currently on the record
+ * @param {string|null|undefined} next the date being set
+ * @returns {'initial'|'move'|'unchanged'}
+ */
+export function closeDateChangeKind(stored, next) {
+  const from = blank(stored) ? null : String(stored).trim();
+  const to = blank(next) ? null : String(next).trim();
+  if (from !== null && to !== null && from === to) return 'unchanged';
+  if (from === null) return 'initial';
+  return 'move';
+}
+
+/** True when a reason must be given. The single expression of W2's ruling. */
+export function closeDateNeedsReason(stored, next) {
+  return closeDateChangeKind(stored, next) === 'move';
+}

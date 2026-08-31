@@ -1,7 +1,9 @@
 // The Opportunity's dates, one rule set. Round 41, walk finding 5. PURE.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { validateDates, closedWonGoLive, DATE_FIELDS, isIsoDate } from '../../src/lib/opportunity-dates.js'
+import { validateDates, closedWonGoLive, DATE_FIELDS, isIsoDate,
+  closeDateChangeKind, closeDateNeedsReason } from '../../src/lib/opportunity-dates.js'
+import { readCode } from '../lib/strip-comments.mjs'
 
 const NOW = '2026-08-31'
 const v = (before, after, opts = {}) => validateDates(before, after, { now: NOW, ...opts })
@@ -134,4 +136,68 @@ test('THE THREE STORED VIOLATIONS are what these rules would have refused', () =
   const three = validateDates({ status: 'Closed Won' },
     { status: 'Closed Won', actualClose: '2026-10-14', actualGoLive: '2026-08-30' }, { now })
   assert.ok(three.errors.some(e => /cannot be before Actual Close Date/.test(e)))
+})
+
+// ─────────────────────────────────────────────────────────────
+// A FIRST DATE IS NOT A MOVE. Round 41 W2
+// ─────────────────────────────────────────────────────────────
+//
+// A new opportunity has no forecast close date. Setting one opened a dialogue
+// headed "Move Est. Close Date" and refused to save without a reason for the
+// move; the walk typed "First Recording", and the audit row it produced says
+// `close_date_moved from "not set"`, which is a contradiction in the record.
+//
+// Architecture 11 from the validation side: the first value is an initial value.
+// Verification 22 too - a required field with nothing useful to put in it
+// teaches the person filling it that the content does not matter.
+
+test('the close-date change table, every row', () => {
+  const k = closeDateChangeKind
+  // ABSENCE IN ALL FOUR SPELLINGS, because the stored value reaches this from a
+  // database column, from a payload, and from a DOM value, and those produce
+  // null, undefined and '' respectively. A predicate that only knew null would
+  // have called an empty string a move and asked for a reason.
+  for (const empty of [null, undefined, '', '   ']) {
+    assert.equal(k(empty, '2026-10-27'), 'initial', `${JSON.stringify(empty)} stored is not a move`)
+    assert.equal(closeDateNeedsReason(empty, '2026-10-27'), false)
+  }
+  assert.equal(k('2026-10-27', '2026-11-30'), 'move')
+  assert.equal(closeDateNeedsReason('2026-10-27', '2026-11-30'), true)
+  // UNCHANGED IS ITS OWN ANSWER, not folded into move: the route refuses it
+  // with a different message, and a caller treating it as a move would ask for
+  // a reason before finding that out.
+  assert.equal(k('2026-10-27', '2026-10-27'), 'unchanged')
+  assert.equal(closeDateNeedsReason('2026-10-27', '2026-10-27'), false)
+  assert.equal(k('2026-10-27', ' 2026-10-27 '), 'unchanged', 'whitespace is not a change')
+})
+
+test('the ROUTE and the SCREEN ask the same question, from the same file', () => {
+  // Verification 20 stated as an assertion rather than a comment. If these two
+  // drifted, a person would be asked for a reason the server does not want, or
+  // refused for one the screen never asked for.
+  const route = readCode(new URL('../../src/routes/opportunities.js', import.meta.url))
+  assert.match(route, /import \{[^}]*closeDateNeedsReason[^}]*\} from '\.\.\/lib\/opportunity-dates\.js'/,
+    'the route does not import the shared predicate')
+  assert.match(route, /closeDateNeedsReason\(stored, date\)/, 'the route does not use it to gate the reason')
+
+  const html = readCode(new URL('../../frontend/index.html', import.meta.url))
+  assert.match(html, /import\('\/lib\/opportunity-dates\.js'\)/,
+    'the client bridge does not publish the shared predicate')
+
+  const ref = readCode(new URL('../../frontend/opportunity-reference.js', import.meta.url))
+  assert.match(ref, /window\.closeDateNeedsReason\(stored, estCloseEntry\[1\]\.draft\)/,
+    'the screen decides for itself whether a date change is a move')
+  // And it must not have grown its own copy of the rule.
+  assert.ok(!/forecast_close_date\s*(===|!==|==|!=)\s*(null|undefined|'')/.test(ref),
+    'the screen carries its own test for a stored date beside the shared one')
+})
+
+test('a first recording does not increment the moves counter or claim a move', () => {
+  // The ruling in the DATA, not only in the dialogue. Source-scanned: this
+  // harness cannot run the route, and the alternative was asserting nothing.
+  const route = readCode(new URL('../../src/routes/opportunities.js', import.meta.url))
+  assert.match(route, /const closeMoves = kind === 'move'/,
+    'the moves counter still increments on a first recording')
+  assert.match(route, /action: kind === 'move' \? 'close_date_moved' : 'close_date_set'/,
+    "a first recording is still audited as close_date_moved from 'not set'")
 })

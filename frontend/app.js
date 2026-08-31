@@ -900,6 +900,28 @@ window.decideRequest = async (requestId, track, decision, recordId) => {
 // RENDERED AT THE TOP OF THE RECORD. The first version put it inside the stage
 // panel, and the capture showed why that is wrong: somebody landing on Reference
 // saw an ordinary record with every field greyed and nothing saying why.
+// ── Round 41 W1: one statement, at the top, saying why nothing can be changed ──
+//
+// THE SAME SENTENCE THE SERVER SENDS. src/lib/write-errors.js OWNERSHIP_REFUSAL
+// is the wording of every refusal this screen would have produced, so a person
+// who sees the banner and a person who sees a 403 read the same words. Kept as a
+// literal here because the client cannot import from src/, and named as a
+// deliberate second copy rather than left to look like a coincidence: if one
+// changes the other has to, and commercials-wiring asserts they match.
+const OWNERSHIP_REFUSAL_TEXT =
+  'This record belongs to another user. You can view it, but only its owner can change it.'
+
+function renderOppReadOnlyBanner(notMine) {
+  const el = document.getElementById('opp-readonly-banner')
+  if (!el) return
+  if (!notMine) { el.innerHTML = ''; return }
+  el.innerHTML = `
+    <div class="freeze-banner">
+      <p class="label" style="margin-bottom:6px">Read only &middot; another user's record</p>
+      <p style="font-size:14px;margin:0">${escHtml(OWNERSHIP_REFUSAL_TEXT)}</p>
+    </div>`
+}
+
 function renderOppFreezeBanner(recordId) {
   const el = document.getElementById('opp-freeze-banner')
   if (!el) return
@@ -6051,6 +6073,31 @@ async function renderOppDetail(opp) {
   // that end the freeze live inside it.
   document.getElementById('view-opportunity-detail')?.classList.toggle('is-frozen', !!oppOpenRequest)
   renderOppFreezeBanner(opp.id)
+
+  // ── NOT YOURS, ON THE WHOLE VIEW, FROM ONE VALUE. Round 41 W1 ───────────
+  //
+  // Ownership is known HERE, at load, from the record the GET already returned.
+  // It was known before this change too, and nothing on the screen used it: a
+  // non-owner could select seven assessment scores and type seven reasons, and
+  // find out per row, at Record, seven times, after the work.
+  //
+  // Deliberately the same mechanism as the freeze one line above rather than a
+  // parallel one. One value, one class on the view, CSS does the rest. Eleven
+  // controls each testing for themselves is the second-reader shape, and the
+  // control that forgot to ask is the editable field on a record you do not own.
+  //
+  // NOT A SECURITY BOUNDARY, and the comment on filterMine says the same thing
+  // about the Mine toggle. RLS is the boundary and it held: every one of those
+  // seven refusals came from the database. This stops a person doing work the
+  // database will refuse; it does not stop anybody who means to.
+  //
+  // `owner_id` is on the record. currentSession is the same object filterMine
+  // reads for the Mine toggle, so there is one answer to "who am I" on this
+  // client rather than two.
+  const notMine = !!opp.owner_id && !!currentSession?.user?.id
+    && opp.owner_id !== currentSession.user.id
+  document.getElementById('view-opportunity-detail')?.classList.toggle('is-not-mine', notMine)
+  renderOppReadOnlyBanner(notMine)
 
   // ref-display-name is set below by opportunity-reference.js's
   // renderReferenceTab (Round 3 Phase 3, 2026-08-17) - it's now the

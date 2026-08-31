@@ -1230,11 +1230,9 @@ function renderResults(result, payload) {
   const localNote = document.getElementById('deal-terms-achieved-note')
   if (localNote) localNote.textContent = mp.note
 
-  // Closing cash position, the strip's second lead. Margin and cash recovery
-  // are two different questions and the screen answered the first loudly and
-  // the second in a footnote.
-  const closing = document.getElementById('deal-closing-cash')
-  if (closing) closing.textContent = closingCashPresentation(result.cashFlow).text
+  // Round 41 W5: the strip's closing-cash writer went with its cell. The figure
+  // is rendered once, in the Cash flow section, by renderCashFlow, through the
+  // same closingCashPresentation this used to call.
   document.getElementById('deal-total-cost').textContent = `$${money(result.totalDealCostAll)}`
   // money(null) is $NaN. The absence has a wording of its own, because the
   // figure it replaces is one somebody prices against.
@@ -1384,7 +1382,22 @@ function renderCashFlowGrid(cf) {
   }).join('')
 
   grid.innerHTML = headRow + dataRows
-  closingEl.textContent = money(Math.round(cf.rows[cf.rows.length - 1].cum))
+  // ── ONE READER FOR CLOSING CASH. Round 41 W5 ────────────────────────────
+  //
+  // This computed its own, and the two disagreed in three ways that only
+  // mattered once W5 made this the sole rendering. Measured before changing it:
+  //
+  //           here (money)   the strip (closingCashPresentation)
+  //   117341   "117,341"      "$117,341"
+  //  -275556   "-275,556"     "-$275,556"
+  //        0   "0"            "$0"
+  //   no rows  "--"           "not recorded"
+  //
+  // No currency symbol at all, and an absence rendered as a dash rather than
+  // said. Both were invisible while a correctly-formatted copy sat in the strip
+  // twelve hundred pixels above, which is Verification 20's whole shape: two
+  // readers of one value, one of them never exercised against the other.
+  closingEl.textContent = closingCashPresentation(cf).text
 }
 
 function renderMilestonePcts(hardwarePriceAll) {

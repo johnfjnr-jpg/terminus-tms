@@ -768,7 +768,30 @@ async function saveRefFields() {
   // what triggers the dialogue, not a change to anything else.
   const estCloseEntry = dirtyEntries.find(([key]) => key === 'estClose')
   if (estCloseEntry) {
-    openCloseDateMovePrompt(estCloseEntry[1].draft, dirtyEntries.filter(([key]) => key !== 'estClose'))
+    // ── A FIRST DATE IS NOT A MOVE. Round 41 W2 ──────────────────────────
+    //
+    // A new opportunity has no forecast close date, and setting one opened a
+    // dialogue headed "Move Est. Close Date" demanding a reason for the move.
+    // The walk typed "First Recording", which is the sentence a person writes
+    // when a form insists on answering a question that has none.
+    //
+    // THE PREDICATE IS THE ROUTE'S OWN, imported from /lib rather than restated
+    // here: src/lib/opportunity-dates.js closeDateNeedsReason, published on the
+    // window bridge in index.html beside toNumberOrNull. Verification 20 - the
+    // screen must not hold its own opinion about a rule the server enforces.
+    //
+    // The stored value comes from refOppDetails, which is the same object the
+    // field renders from, so "what is on the record" has one answer here too.
+    const stored = refOppDetails?.forecast_close_date ?? null
+    if (window.closeDateNeedsReason(stored, estCloseEntry[1].draft)) {
+      openCloseDateMovePrompt(estCloseEntry[1].draft, dirtyEntries.filter(([key]) => key !== 'estClose'))
+      return
+    }
+    // First recording: saved with the rest of the Save click, no dialogue and
+    // no reason. It still goes through the close-date-move route, because that
+    // route is the only thing that writes forecast_close_date and a second
+    // write path would be the fork Architecture 1 forbids.
+    await confirmFirstCloseDate(estCloseEntry[1].draft, dirtyEntries.filter(([key]) => key !== 'estClose'))
     return
   }
 
@@ -917,6 +940,34 @@ function openCloseDateMovePrompt(newDate, remainingDirtyEntries) {
     },
     onCancel: () => { refPendingRemainingEntries = [] },
   })
+}
+
+// ── The first recording of an Est. Close Date. Round 41 W2 ────────────────
+//
+// No dialogue, because there is nothing to ask. Everything else about the save
+// is the move path's: the same route, the same feedback element, the same
+// "whatever else was dirty goes in the same action" behaviour. Written out
+// rather than folded into openCloseDateMovePrompt with a flag, because a
+// dialogue helper whose main job is sometimes not to open is harder to read
+// than two paths that each do one thing.
+async function confirmFirstCloseDate(newDate, remainingDirtyEntries) {
+  const feedback = document.getElementById('ref-save-feedback')
+  const result = await api('POST', `/api/opportunities/${refOpportunityId}/close-date-move`, { date: newDate })
+  if (!result.ok) {
+    // The failure branch is exercised rather than assumed, Architecture 8: this
+    // route answers 400 for a past date and for a go-live conflict, and 403 for
+    // a record somebody else owns, and every one of those has to land somewhere
+    // a person can see. The move path shows them inside the dialogue, which is
+    // not open here.
+    if (feedback) {
+      feedback.className = 'msg-error'
+      feedback.textContent = result.data?.error ?? 'The date could not be saved.'
+    }
+    return
+  }
+  delete refEdits.estClose
+  if (remainingDirtyEntries.length) await performGenericRefSave(remainingDirtyEntries)
+  else await loadOpportunityDetail(refOpportunityId)
 }
 
 function wireRefOnce() {

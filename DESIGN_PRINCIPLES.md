@@ -6860,3 +6860,141 @@ inline. Two grains of the same fact, both derived from `catalogToRates().batches
 and only one of them going through a shared builder. **On the list**, not fixed
 here: the grains genuinely differ, and collapsing them is a decision rather than
 a tidy-up.
+
+## Round 41, the second walk: W1, W2, W5 and W6
+
+### W5: CLOSING CASH POSITION LEAVES THE STRIP, and this is a REVERSAL
+
+**Ruled by the business 2026-08-31, reversing the Round 41 item 3 ruling.** Their
+reason, in their words:
+
+> Cash position is a payment-terms question and lives with Payment Terms and the
+> cash flow section, where it already renders; the strip answers profitability.
+
+**What item 3 rested on is not disputed and stays visible above:** margin and
+cash recovery are two different questions, and the screen answered the first
+loudly and the second in a footnote. **The disagreement is about WHERE the second
+question belongs, not about whether it was under-served.** Verification 29's
+distinction: this is the decision re-taken on a different premise, not the
+measurement being withdrawn.
+
+**"Where it already renders" is a claim about the screen, so it was checked
+before anything was removed.** `#deal-cashflow-closing`, "Closing position over
+contract", in the Cash flow section. It exists.
+
+**AND IT RENDERED THREE THINGS DIFFERENTLY**, which only mattered once the strip
+cell stopped being the correct copy sitting above it:
+
+| | Cash flow section | Strip |
+|---|---|---|
+| 117341 | `117,341` | `$117,341` |
+| -275556 | `-275,556` | `-$275,556` |
+| 0 | `0` | `$0` |
+| no months | `--` | `not recorded` |
+
+**No currency symbol at all**, and an absence shown as a dash rather than said.
+Verification 20 exactly: two readers of one value, one of them never exercised
+against the other because a correct copy sat twelve hundred pixels above it. It
+reads through `closingCashPresentation` now, and there is one call site.
+
+**And the surviving rendering carried `style="color:var(--green)"` inline.** Green
+is this screen's accent and means at or above target, so closing cash was painted
+"good" at every value including `-$275,556`. **Item 3 ruled that a negative gets
+NO treatment; an unconditional accent is a treatment and the wrong one.** Removed.
+A stylesheet scan could not have found it, because the colour was inline.
+
+**Measured, four figures, both widths:** achieved margin promoted alone at 20px
+full weight, three at 13px and 50%, one row, fully on screen at zero scroll at
+1240 and 1920.
+
+### W1: ANOTHER USER'S RECORD IS READ ONLY AT LOAD
+
+A non-owner opened a record, selected seven assessment scores, typed seven
+reasons, and was refused per row at Record. **The refusal was correct and it
+arrived seven times, after the work.**
+
+**Ownership was known at load the whole time and nothing on the screen used it.**
+
+Built as the ruling asked and as the freeze already works: one value, one class
+on the view, the stylesheet does the rest. Eleven controls each testing for
+themselves is the second-reader shape, and the control that forgot to ask is the
+editable field on somebody else's record.
+
+**NOT A SECURITY BOUNDARY, and that is stated in the code.** RLS is the boundary
+and it held: every one of those seven refusals came from the database. This stops
+a person doing work the database will refuse. It does not stop anybody who means
+to.
+
+**The banner quotes the server's own refusal word for word**, and a test proves
+the two copies equal rather than a comment asserting it.
+
+**Measured as what a person can DO**, not as what is on the page: on another
+user's record 55 of 55 controls are non-interactive; on your own, 61 of 61 remain
+interactive. Both widths. The second half is the discriminating one - a build
+that locked everything would pass the first.
+
+### W2: THE FIRST CLOSE DATE IS NOT A MOVE
+
+Setting an estimated close date on a new opportunity opened a dialogue headed
+**"Move Est. Close Date"** and refused to save without a reason for the move. The
+walk typed **"First Recording"**, and the audit row it produced says
+`close_date_moved from "not set"`, **which is a contradiction in the record.**
+
+**Architecture 11 from the validation side**, and Verification 22 beside it: a
+required field with nothing useful to put in it teaches the person filling it
+that the content does not matter.
+
+**ONE DEFINITION, TWO CALLERS.** `closeDateChangeKind` in
+`src/lib/opportunity-dates.js` returns `initial`, `move` or `unchanged`. The
+route gates the reason on it and the screen gates the dialogue on it, **importing
+the same file** through the `/lib` bridge rather than holding an opinion of its
+own. If they disagreed, a person would be asked for something the server does not
+want, or refused for something the screen never asked.
+
+`unchanged` is its own answer rather than folded into `move`, because the route
+refuses it with a different message.
+
+**The counter and the audit follow the ruling too**: a first recording does not
+increment `closeMoves` and is audited as `close_date_set`, not
+`close_date_moved from "not set"`.
+
+### W6: THE GATE DATA ALREADY HELD, AND THE RULING NOW MATCHES IT
+
+**Recorded on the business's instruction.** The 31 August ruling said the first
+three-track approval gate should MOVE from Qualification exit to Solution
+Alignment exit. Measured, that was already the configuration:
+
+| stage | tracks required to leave |
+|---|---|
+| Qualification | **none** |
+| Solution Alignment | Commercial, Legal, Technical |
+| Proposal, Evaluation, Negotiating | Commercial, Legal, Technical |
+
+**The ruling described a model the data did not hold, and it now matches it.** No
+data change was made.
+
+**The live defect was the other half, and it was real.** `raise_transition_request`
+always inserted `status = 'open'`, and `decide_transition_request` is the only
+thing that closes a request and needs a track to do it. **With no tracks there is
+nothing to decide**, so a Qualification exit request stayed open for ever - and an
+open request **freezes the record**. `TT-SGP-SMARTC-108` was raised at 08:07 and
+was unmovable and uneditable from that moment.
+
+**Fixed inside the path, not beside it**, per the ruling: no separate route. A
+transition needing no approval is still raised, still recorded and still
+auditable; it completes in the same transaction and keeps its request row.
+
+**Architecture 12, third instance: `p_required` is gone.** `decide_transition_request`
+derived the record's stage and revision for itself and then took **which tracks
+must approve** as an argument, moving the record when that list was exhausted. A
+caller passing `'{}'` moved a record needing three approvals on one, and the
+function is `SECURITY DEFINER`, so it had the privilege to do it.
+
+`required_tracks_for()` is the single derivation, called by both functions, so
+raise and decide cannot disagree. The JavaScript `requiredTracks()` stays for
+**display and for the better error message**, and the decide result now returns
+`required` so a screen can show what the database used rather than recomputing it.
+
+**A new refusal the old shape could not express:** an approval on a track the
+stage does not require is now rejected. It was impossible to state before,
+because the list of required tracks was the caller's own.

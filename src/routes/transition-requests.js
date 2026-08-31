@@ -183,11 +183,25 @@ export default async function transitionRequestRoutes(app) {
       return reply.code(500).send({ error: insErr.message })
     }
 
+    // ── A ZERO-TRACK TRANSITION HAS ALREADY MOVED BY NOW. Round 41 W6 ─────
+    //
+    // raise_transition_request executes a transition that needs no approval in
+    // the same transaction and returns the row already `approved`, so the audit
+    // says what actually happened rather than "requested" for something that
+    // completed. Read from the returned ROW rather than recomputed here: the
+    // function decided it, and a second opinion about whether the record moved
+    // is Verification 20 in the one place it would be least visible.
+    const executed = created.status === 'approved'
     await db.from('audit_log').insert({
       record_id: record.id, record_type: record.record_type,
-      action: kind === 'review' ? 'review_requested' : 'transition_requested',
+      action: kind === 'review' ? 'review_requested'
+        : executed ? 'transitioned_no_approval_required' : 'transition_requested',
       actor_id: request.user.id,
-      detail: { to_stage, from_stage: created.from_stage, frozen_revision: created.frozen_revision, request_id: created.id },
+      detail: {
+        to_stage, from_stage: created.from_stage,
+        frozen_revision: created.frozen_revision, request_id: created.id,
+        ...(executed ? { executed_on_raise: true, reason: created.close_reason } : {}),
+      },
     })
 
     return reply.code(201).send(created)
@@ -220,6 +234,14 @@ export default async function transitionRequestRoutes(app) {
     const may = mayDecide(req, request.user.id, approvers, track, req.record_id)
     if (!may.allowed) return reply.code(403).send({ error: may.reason })
 
+    // ── THE ROUTE'S CHECK IS FOR THE MESSAGE, NOT FOR THE OUTCOME ─────────
+    //
+    // Round 41 W6: p_required is gone from the function, so this read no longer
+    // decides anything. It stays, and it stays for the same reason mayDecide()
+    // does: the database's refusal is `The X track is not required to leave Y`,
+    // and a route that could name the destination gives the better sentence.
+    // The two agree because they read the same rows; if they ever disagree, the
+    // database wins and the route's 400 was simply the earlier of the two.
     const { data: rules, error: rulesErr } = await db
       .from('stage_gate_rules').select('requirement_type, requirement_detail')
       .eq('record_type', req.record_type)
@@ -239,9 +261,48 @@ export default async function transitionRequestRoutes(app) {
     // message: measured, both this RPC and a direct approvals insert were open
     // to any authenticated user with the publishable key, so the route's check
     // was a declared policy rather than an enforcement.
+    //
+    // AND p_required IS GONE TOO, Round 41 W6, Architecture 12's third instance.
+    // The function derived the record's stage and revision for itself and then
+    // took WHICH TRACKS MUST APPROVE as an argument, moving the record when that
+    // list was exhausted. A caller passing '{}' moved a record needing three
+    // approvals on one, and the function is SECURITY DEFINER, so it had the
+    // privilege to do it. required_tracks_for() reads stage_gate_rules inside
+    // the function now.
+    // ── FAIL CLOSED IF THE MIGRATION IS NOT IN. Round 41 W6 ───────────────
+    //
+    // A REAL WINDOW, not a theoretical one, and build discipline 9 is exactly
+    // about it: the dev server serves this file from disk, so between this
+    // commit and 20260831000008 being applied the two are out of step.
+    //
+    // The old function's signature is (uuid, text, text, text, text[]) with
+    // `p_required text[] default '{}'`. A four-argument call RESOLVES TO IT and
+    // defaults the list to empty, so every stage would look like it required
+    // nothing and the first approval would move a record needing three. Nothing
+    // would error. The gate would be green.
+    //
+    // So the route asks whether the derivation exists before it decides
+    // anything. It cannot be checked after the RPC: by then the approval is
+    // written and the record has moved.
+    //
+    // TEMPORARY, AND ITS REMOVAL CONDITION IS NAMED: delete this once
+    // 20260831000008 is applied everywhere this code runs. It costs one round
+    // trip on an action a person takes a handful of times a day, and it is here
+    // rather than in a comment because a comment does not fail closed.
+    const { error: derivationErr } = await db.rpc('required_tracks_for', {
+      p_record_type: req.record_type, p_from_stage: req.from_stage,
+    })
+    if (derivationErr) {
+      request.log.error({ err: derivationErr }, 'required_tracks_for is missing; refusing to decide')
+      return reply.code(503).send({
+        error: 'Approvals are unavailable: migration 20260831000008 has not been applied. '
+          + 'Deciding now would move the record without checking which tracks the stage requires.',
+      })
+    }
+
     const { data: outcome, error: rpcErr } = await db.rpc('decide_transition_request', {
       p_request_id: req.id, p_track: track,
-      p_decision: decision, p_reason: reason ?? null, p_required: required,
+      p_decision: decision, p_reason: reason ?? null,
     })
     if (rpcErr) {
       if (rpcErr.code === '23505') {

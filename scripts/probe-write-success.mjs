@@ -1,4 +1,13 @@
-// Does recording a score actually SUCCEED, on both routes, over HTTP?
+// The writes that are supposed to WORK, exercised over HTTP. CLAUDE.md
+// Verification 40.
+//
+// Renamed from probe-score-success in Round 41 W2, when the second route
+// arrived. The name is the rule: this is where a route that a boundary added or
+// modified gets exercised from outside, as the signed-in user, on the success
+// path. One probe rather than one per route, so the next boundary extends it
+// instead of adding a stage nobody remembers to write.
+//
+// ── ROUTE 1: recording a score ────────────────────────────────────────────
 //
 // ── WHY THIS EXISTS, AND IT IS NOT A REGRESSION TEST FOR ONE TYPO ─────────
 //
@@ -109,6 +118,72 @@ for (const c of CASES) {
   record(`${c.type}: the score is in the payload`,
     Array.isArray(series) && series.length > 0 && series[series.length - 1].value === 3,
     Array.isArray(series) ? `${series.length} entr${series.length === 1 ? 'y' : 'ies'}, last value ${series[series.length - 1]?.value}` : 'absent')
+}
+
+// ═════════════════════════════════════════════════════════════
+// ROUTE 2: setting and then moving the estimated close date. Round 41 W2
+// ═════════════════════════════════════════════════════════════
+//
+// TWO-SIDED, and the two sides are the whole ruling: the FIRST value saves with
+// no reason, and a MOVE still refuses without one. Either half alone would pass
+// against a route that had simply stopped requiring reasons.
+{
+  const id = idFor.opportunity
+  const path = `/opportunities/${id}/close-date-move`
+  const payloadOf = async () => (await api('GET', `/opportunities/${id}`)).data?.payload ?? {}
+  const before = await payloadOf()
+
+  // A fresh opportunity has no forecast close date, which is the state the walk
+  // was in. Asserted rather than assumed: if creation ever starts writing one,
+  // this whole case would be measuring a move and still passing.
+  const det = (await api('GET', `/opportunities/${id}`)).data
+  record('close date: a fresh opportunity has none stored',
+    !det?.opportunity_details?.forecast_close_date && !det?.forecast_close_date,
+    `stored: ${JSON.stringify(det?.opportunity_details?.forecast_close_date ?? det?.forecast_close_date ?? null)}`)
+
+  let first
+  try {
+    first = { status: 200, data: (await api('POST', path, { date: '2027-06-30' })).data }
+  } catch (e) {
+    if (!(e instanceof ApiError)) throw e
+    first = { status: e.status, data: e.body }
+  }
+  record('close date: the FIRST value saves with no reason', first.status === 200,
+    `-> ${first.status} ${first.status === 200 ? '' : JSON.stringify(first.data)}`)
+
+  const afterFirst = await payloadOf()
+  record('close date: a first recording does not increment the moves counter',
+    (afterFirst.closeMoves ?? 0) === (before.closeMoves ?? 0),
+    `closeMoves ${before.closeMoves ?? 0} -> ${afterFirst.closeMoves ?? 0}`)
+  const note = (afterFirst.notes ?? [])[0]?.text ?? ''
+  record('close date: the note says SET, not moved from "not set"',
+    /^Est\. Close Date set to 2027-06-30\.$/.test(note.trim()), JSON.stringify(note))
+
+  // THE OTHER SIDE. Now that a value is stored, the same call must refuse.
+  let second
+  try {
+    second = { status: 200, data: (await api('POST', path, { date: '2027-09-30' })).data }
+  } catch (e) {
+    if (!(e instanceof ApiError)) throw e
+    second = { status: e.status, data: e.body }
+  }
+  record('close date: a MOVE is still refused without a reason', second.status === 400,
+    `-> ${second.status} ${second.data?.error ?? ''}`)
+
+  let third
+  try {
+    third = { status: 200, data: (await api('POST', path, { date: '2027-09-30', reason: 'client pushed the award' })).data }
+  } catch (e) {
+    if (!(e instanceof ApiError)) throw e
+    third = { status: e.status, data: e.body }
+  }
+  record('close date: a move WITH a reason succeeds', third.status === 200,
+    `-> ${third.status} ${third.status === 200 ? '' : JSON.stringify(third.data)}`)
+
+  const afterMove = await payloadOf()
+  record('close date: a move DOES increment the moves counter',
+    (afterMove.closeMoves ?? 0) === (afterFirst.closeMoves ?? 0) + 1,
+    `closeMoves ${afterFirst.closeMoves ?? 0} -> ${afterMove.closeMoves ?? 0}`)
 }
 
 const { removed } = await tearDown()

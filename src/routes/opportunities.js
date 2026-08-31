@@ -4,6 +4,7 @@ import { recordScoreEntry } from '../lib/score-entry.js'
 import { sendWriteError, sendRefusal } from '../lib/write-errors.js'
 import { appendRecordRevision, SINGLE_KEY_RMW, readExpectedRevision } from '../lib/record-revision.js'
 import { isValidIsoDate, isValidNonNegativeInteger, isValidNonNegativePercent, isNotPastIsoDate } from '../lib/field-validation.js'
+import { closeDateChangeKind, closeDateNeedsReason } from '../lib/opportunity-dates.js'
 import { WRITABLE_NUMERIC_KEYS, isStorableNumeric } from '../lib/numeric-payload.js'
 
 export default async function opportunitiesRoutes(app) {
@@ -716,10 +717,17 @@ export default async function opportunitiesRoutes(app) {
     if (!isNotPastIsoDate(date)) {
       return reply.code(400).send({ error: 'date cannot be in the past' })
     }
-    if (!reason || typeof reason !== 'string' || !reason.trim()) {
-      return reply.code(400).send({ error: 'reason is required' })
-    }
-
+    // THE REASON CHECK MOVED BELOW THE READ. Round 41 W2.
+    //
+    // It stood here, before anything had been read, and refused every request
+    // with no reason. That is correct for a MOVE and wrong for the first
+    // recording of a date, which is what a new opportunity always has: the walk
+    // set an estimated close date on a fresh deal, was asked why it was being
+    // moved, and typed "First Recording" - the sentence a person writes when a
+    // form demands an answer to a question that has none.
+    //
+    // It cannot be decided here because deciding it needs the stored value, so
+    // it is decided after the read, through closeDateNeedsReason.
     const db = createUserClient(request.jwt)
 
     const [oppDetailsResult, revRowResult] = await Promise.all([
@@ -753,15 +761,34 @@ export default async function opportunitiesRoutes(app) {
       return reply.code(400).send({ error: 'Est. Go Live cannot be before Est. Close Date' })
     }
 
-    const oldDate = oppDetailsResult.data?.forecast_close_date ?? 'not set'
-    if (oldDate === date.trim()) {
+    const stored = oppDetailsResult.data?.forecast_close_date ?? null
+    const kind = closeDateChangeKind(stored, date)
+    if (kind === 'unchanged') {
       return reply.code(400).send({ error: 'date is unchanged' })
     }
+    // ── A REASON EXPLAINS A CHANGE, SO ONLY A CHANGE REQUIRES ONE ─────────
+    //
+    // Round 41 W2. closeDateNeedsReason is the one definition, in
+    // src/lib/opportunity-dates.js, and the screen imports the SAME FILE from
+    // /lib rather than deciding for itself. Verification 20: if the two
+    // disagreed a person would be asked for something the server does not want,
+    // or refused for something the screen never asked.
+    if (closeDateNeedsReason(stored, date) && (!reason || typeof reason !== 'string' || !reason.trim())) {
+      return reply.code(400).send({ error: 'reason is required' })
+    }
 
+    const oldDate = stored ?? 'not set'
     const payload = revRowResult.data.payload ?? {}
-    const closeMoves = (payload.closeMoves ?? 0) + 1
+    // THE COUNTER COUNTS MOVES. A first recording is not one, so it does not
+    // increment, which is the whole of the business's ruling stated in the
+    // data rather than only in the dialogue: the first value is an initial
+    // value, not a move.
+    const closeMoves = kind === 'move' ? (payload.closeMoves ?? 0) + 1 : (payload.closeMoves ?? 0)
+    const given = String(reason ?? '').trim()
     const note = {
-      text: `Est. Close Date moved from ${oldDate} to ${date.trim()}. ${reason.trim()}`,
+      text: kind === 'move'
+        ? `Est. Close Date moved from ${oldDate} to ${date.trim()}. ${given}`
+        : `Est. Close Date set to ${date.trim()}.${given ? ` ${given}` : ''}`,
       at: new Date().toISOString(),
       by: request.user.email,
     }
@@ -805,9 +832,14 @@ export default async function opportunitiesRoutes(app) {
     await db.from('audit_log').insert({
       record_id: request.params.id,
       record_type: 'opportunity',
-      action: 'close_date_moved',
+      // The action names what happened. `close_date_moved from "not set"` is
+      // the audit row the walk produced, and it is a contradiction in the
+      // record: nothing moved, a date was recorded for the first time.
+      action: kind === 'move' ? 'close_date_moved' : 'close_date_set',
       actor_id: request.user.id,
-      detail: { from: oldDate, to: date.trim(), reason: reason.trim() },
+      detail: kind === 'move'
+        ? { from: oldDate, to: date.trim(), reason: given }
+        : { to: date.trim() },
     })
 
     // Round 17A Phase 1: the number and the merged payload now come back from
