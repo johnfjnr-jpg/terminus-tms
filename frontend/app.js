@@ -795,7 +795,12 @@ function refreshOppNextStageButton() {
     return
   }
 
-  btn.textContent = `Move to ${nextStage}`
+  // ── THE VERB CHANGED, AND SO DID THE OUTCOME. Round 41 ─────────────────
+  //
+  // "Move to X" moved the record. "Request X" raises a transition request and
+  // FREEZES the record until every required track has decided. Same position,
+  // different act, so the label has to say which.
+  btn.textContent = `Request ${nextStage}`
   // Compared on data-opp-stage-tab, which carries the RAW stage name, rather
   // than on data-opp-tab, which carries the sanitised key. Both are set on a
   // stage tab (app.js:521-522); the raw name needs no round trip through
@@ -808,11 +813,134 @@ function refreshOppNextStageButton() {
     btn.onclick = null
     return
   }
+  // A record with a request open cannot have another raised on it, and the
+  // button says so rather than being silently inert.
+  if (oppOpenRequest) {
+    btn.textContent = 'Awaiting approval'
+    btn.disabled = true
+    btn.onclick = null
+    return
+  }
   btn.disabled = false
-  btn.onclick = () => attemptTransition(recordId, nextStage, 'opp-next-stage-feedback', 'opportunity', currentStage)
+  btn.onclick = () => requestTransition(recordId, nextStage)
+}
+
+// ── THE STAGE APPROVALS WORKFLOW, CLIENT SIDE. Round 41 ────────────────────
+//
+// ONE LOADED VALUE, read by everything. Verification 20: a second reader of the
+// same value always drifts, and eleven controls depend on this one fact.
+let oppOpenRequest = null
+
+async function loadOppOpenRequest(recordId) {
+  oppOpenRequest = null
+  const r = await api('GET', `/api/records/${recordId}/transition-requests`)
+  if (!r.ok) return
+  oppOpenRequest = (r.data ?? []).find(x => x.status === 'open' && x.kind === 'transition') ?? null
+}
+
+window.requestTransition = async (recordId, toStage) => {
+  const fb = document.getElementById('opp-next-stage-feedback')
+  if (fb) fb.innerHTML = ''
+  const r = await api('POST', `/api/records/${recordId}/transition-requests`, { to_stage: toStage })
+  if (!r.ok) {
+    // THE BLOCKERS ARE THE ANSWER, not a sentence about them. The request is the
+    // gate's front door, so a refusal has to say what is unmet.
+    const list = (r.data?.blocking ?? []).map(b =>
+      `<li>${escHtml(b.label ?? b.field ?? b.requirement_detail?.track ?? b.requirement_type)}</li>`).join('')
+    if (fb) {
+      fb.innerHTML = `<p class="msg-error">${escHtml(r.data?.error ?? 'The request could not be raised.')}</p>`
+        + (list ? `<ul class="msg-error" style="margin-top:6px;padding-left:18px">${list}</ul>` : '')
+    }
+    return
+  }
+  await loadOpportunityDetail(recordId)
+}
+
+window.withdrawRequest = async (requestId, recordId) => {
+  const reason = window.prompt('Why are you withdrawing this request?')
+  if (reason === null || !reason.trim()) return
+  const r = await api('POST', `/api/transition-requests/${requestId}/withdraw`, { reason })
+  if (!r.ok) {
+    const fb = document.getElementById('opp-request-feedback')
+    if (fb) fb.innerHTML = `<p class="msg-error">${escHtml(r.data?.error ?? 'It could not be withdrawn.')}</p>`
+    return
+  }
+  await loadOpportunityDetail(recordId)
+}
+
+window.decideRequest = async (requestId, track, decision, recordId) => {
+  let reason = null
+  if (decision === 'rejected') {
+    reason = window.prompt(`Why are you rejecting on the ${track} track?`)
+    if (reason === null || !reason.trim()) return
+  }
+  const r = await api('POST', `/api/transition-requests/${requestId}/approvals`,
+    { track, decision, ...(reason ? { reason } : {}) })
+  if (!r.ok) {
+    const fb = document.getElementById('opp-request-feedback')
+    if (fb) fb.innerHTML = `<p class="msg-error">${escHtml(r.data?.error ?? 'The decision could not be recorded.')}</p>`
+    return
+  }
+  await loadOpportunityDetail(recordId)
+}
+
+// ── THE OPEN REQUEST, AND WHAT IT IS WAITING FOR. Round 41 ───────────────
+//
+// THE CRITERIA STATE IS NEVER ABSENT, and it is the resolution of the raise-path
+// residual: a request raised by calling the function directly looks entirely
+// normal to an approver, so the banner says what the gate says about it RIGHT
+// NOW rather than leaving the approver to assume.
+//
+// RENDERED AT THE TOP OF THE RECORD. The first version put it inside the stage
+// panel, and the capture showed why that is wrong: somebody landing on Reference
+// saw an ordinary record with every field greyed and nothing saying why.
+function renderOppFreezeBanner(recordId) {
+  const el = document.getElementById('opp-freeze-banner')
+  if (!el) return
+  if (!oppOpenRequest) { el.innerHTML = ''; return }
+  const req = oppOpenRequest
+  const decided = new Map((req.decisions ?? []).map(d => [d.track, d]))
+  const rows = (req.required ?? []).map((t) => {
+    const d = decided.get(t)
+    const state = d ? (d.decision === 'approved' ? 'Approved' : 'Rejected') : 'Waiting'
+    const buttons = d ? '' : `
+      <button class="btn-sm btn-primary" onclick="decideRequest('${req.id}','${escHtml(t)}','approved','${recordId}')">Approve</button>
+      <button class="btn-sm btn-ghost" onclick="decideRequest('${req.id}','${escHtml(t)}','rejected','${recordId}')">Reject</button>`
+    return `<div class="data-row"><span>${escHtml(t)}</span><span class="sa-approval-meta">${state}</span>${buttons}</div>`
+  }).join('')
+  const met = req.criteria === 'met'
+  el.innerHTML = `
+    <div class="freeze-banner">
+      <p class="label" style="margin-bottom:6px">Frozen &middot; awaiting approval</p>
+      <p style="font-size:14px;margin:0 0 10px">A move to <strong>${escHtml(req.to_stage)}</strong> is
+        waiting on approvals. Nothing on this record can be edited until every track has approved,
+        someone rejects, or the request is withdrawn.</p>
+      <p class="${met ? 'msg-success' : 'msg-error'}" style="margin:0 0 10px">
+        ${met ? 'Exit criteria met.' : 'Exit criteria NOT EVALUATED.'}
+        ${escHtml(req.criteria_note ?? '')}</p>
+      ${(req.criteria_blockers ?? []).length
+        ? `<ul class="msg-error" style="margin:0 0 10px;padding-left:18px">${
+          req.criteria_blockers.map(b => `<li>${escHtml(b.label ?? b.field ?? b.requirement_type)}</li>`).join('')}</ul>`
+        : ''}
+      ${rows}
+      <div id="opp-request-feedback" style="margin-top:10px"></div>
+      <button class="btn-sm btn-ghost" style="margin-top:10px"
+        onclick="withdrawRequest('${req.id}','${recordId}')">Withdraw request</button>
+    </div>`
 }
 
 function renderOppAdvanceControl(el, recordId, currentStage, stages) {
+  // The banner is at the top of the record; the stage panel points at it rather
+  // than rendering a second copy, which would be two readers of one request.
+  if (oppOpenRequest) {
+    const req = oppOpenRequest
+    el.innerHTML = `
+      <p class="muted" style="font-size:14px">This record is frozen while a move to
+        <strong>${escHtml(req.to_stage)}</strong> is decided. The request, its exit-criteria state
+        and the approve controls are at the top of this record.</p>`
+    return
+  }
+
   const next = nextStageAfter(stages, currentStage)
   if (!next) {
     const row = (stages ?? []).find(s => s.stage_name === currentStage)
@@ -835,7 +963,7 @@ function renderOppAdvanceControl(el, recordId, currentStage, stages) {
   // was wrong, and leaving it written here would have the next round re-derive
   // the same conclusion from it.
   el.innerHTML = `
-    <p class="muted" style="font-size:14px;margin-bottom:16px">Advance to <strong>${escHtml(next)}</strong> from the control on the tab row.</p>`
+    <p class="muted" style="font-size:14px;margin-bottom:16px">Request <strong>${escHtml(next)}</strong> from the control on the tab row. The record freezes until every track has decided.</p>`
 }
 
 // Losing a deal, Round 21 Phase 7.
@@ -5873,6 +6001,18 @@ async function renderOppDetail(opp) {
 
   // Set here, before any tab renders, so all three writers share one number.
   window.setOppLoadedRevision(opp.latest_revision_number)
+  // Loaded ONCE per record load, and read by every control whose enabled state
+  // depends on it. A control that fetched its own copy would be the second
+  // reader Verification 20 is about.
+  await loadOppOpenRequest(opp.id)
+  // THE FREEZE, ON THE WHOLE VIEW, FROM ONE VALUE. Not eleven controls each
+  // testing for themselves: that is the second-reader shape, and a control that
+  // forgot to ask would be an editable field on a frozen record.
+  //
+  // The banner is exempted in CSS rather than by markup, because the controls
+  // that end the freeze live inside it.
+  document.getElementById('view-opportunity-detail')?.classList.toggle('is-frozen', !!oppOpenRequest)
+  renderOppFreezeBanner(opp.id)
 
   // ref-display-name is set below by opportunity-reference.js's
   // renderReferenceTab (Round 3 Phase 3, 2026-08-17) - it's now the

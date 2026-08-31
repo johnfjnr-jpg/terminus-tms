@@ -15,6 +15,62 @@ import {
 
 const OPEN_TRANSITION = { status: 'open', kind: 'transition' }
 
+/**
+ * THE CRITERIA STATE, AND IT IS NEVER ABSENT. Round 41, ruled by the business.
+ *
+ * A request raised through the route has passed computeBlocking. A request
+ * raised by calling raise_transition_request directly has not, and it looks
+ * ENTIRELY NORMAL to an approver: correct stage, correct revision, three tracks
+ * waiting. Three people approve in good faith and the record moves without its
+ * exit criteria ever having been asked.
+ *
+ * That gap cannot be closed in SQL without a second gate computation path, which
+ * Architecture rule 3 forbids. So it is closed HERE, on the way to the approver:
+ * every request carries what the gate says about it RIGHT NOW, computed on the
+ * frozen record.
+ *
+ * TWO STATES, AND NEITHER IS SILENCE.
+ *
+ *   'met'            the gate passes on this record, everything but the
+ *                    approvals themselves
+ *   'not evaluated'  it does not, which means nobody asked: a request cannot be
+ *                    raised through the route with unmet criteria, so a request
+ *                    that has them was raised another way
+ *
+ * An error computing it is ALSO 'not evaluated', never an omission. A field that
+ * disappears when something goes wrong is read as "fine" by the person the
+ * warning was for.
+ */
+export async function criteriaState(db, req) {
+  const fallback = (why) => ({ criteria: 'not evaluated', criteria_blockers: [], criteria_note: why })
+  try {
+    const { data: record, error: recErr } = await db
+      .from('records').select(GATE_RECORD_SELECT).eq('id', req.record_id).maybeSingle()
+    if (recErr || !record) return fallback('the record could not be read')
+
+    const { data: rev, error: revErr } = await db
+      .from('record_revisions').select('revision_number, payload')
+      .eq('record_id', req.record_id).eq('revision_number', req.frozen_revision).maybeSingle()
+    if (revErr || !rev) return fallback('the frozen revision could not be read')
+
+    const result = await computeBlocking(
+      db, record, req.from_stage, req.to_stage, rev.revision_number, rev.payload)
+    if (result.error) return fallback('the gate could not be evaluated')
+
+    const blockers = (result.blocking ?? []).filter((b) => b.requirement_type !== 'approval_obtained')
+    return blockers.length
+      ? {
+        criteria: 'not evaluated',
+        criteria_blockers: blockers,
+        criteria_note: 'This request has unmet exit criteria, which means it was not raised '
+          + 'through the stage panel. Do not approve it without checking why.',
+      }
+      : { criteria: 'met', criteria_blockers: [], criteria_note: null }
+  } catch (e) {
+    return fallback('the gate raised: ' + String(e?.message ?? e))
+  }
+}
+
 /** The one place a PT423 becomes an HTTP status, so no route invents its own. */
 export function sendFrozen(reply, err) {
   return reply.code(423).send({ error: err.message, frozen: true })
@@ -281,7 +337,13 @@ export default async function transitionRequestRoutes(app) {
       const { data: decisions } = await db.from('approvals')
         .select('track, decision, approver_id, decided_at').eq('request_id', req.id)
       const required = requiredTracks(rules)
-      out.push({ ...req, required, decisions: decisions ?? [], ...requestState(required, decisions) })
+      // Only OPEN requests carry a criteria state: a closed one is history, and
+      // re-evaluating the gate against a record that has since moved would print
+      // a judgement about a decision nobody is being asked to make.
+      const criteria = req.status === 'open' && req.kind === 'transition'
+        ? await criteriaState(db, req)
+        : { criteria: 'not applicable', criteria_blockers: [], criteria_note: null }
+      out.push({ ...req, required, decisions: decisions ?? [], ...requestState(required, decisions), ...criteria })
     }
     return reply.send(out)
   })
@@ -303,7 +365,10 @@ export default async function transitionRequestRoutes(app) {
       const { data: decisions } = await db.from('approvals')
         .select('track, decision, approver_id, decided_at, comment').eq('request_id', req.id)
       const required = requiredTracks(rules)
-      out.push({ ...req, required, decisions: decisions ?? [], ...requestState(required, decisions) })
+      const criteria = req.status === 'open' && req.kind === 'transition'
+        ? await criteriaState(db, req)
+        : { criteria: 'not applicable', criteria_blockers: [], criteria_note: null }
+      out.push({ ...req, required, decisions: decisions ?? [], ...requestState(required, decisions), ...criteria })
     }
     return reply.send(out)
   })

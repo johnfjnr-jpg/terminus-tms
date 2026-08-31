@@ -184,6 +184,63 @@ test('the gate reads the request for a workflow type, and neither scope branch',
   assert.match(t, /scope === 'stage'/)
 })
 
+test('THE CRITERIA STATE IS NEVER ABSENT, which is the residual resolved', () => {
+  // The raise-path residual cannot be closed in SQL without a second gate
+  // computation path. It is closed on the way to the approver instead: every
+  // OPEN transition request carries what the gate says about it right now.
+  assert.match(ROUTES, /export async function criteriaState\(db, req\)/)
+  assert.match(ROUTES, /criteria: 'met'/)
+  assert.match(ROUTES, /criteria: 'not evaluated'/)
+
+  // AN ERROR IS ALSO 'not evaluated', never an omission. A field that vanishes
+  // when something goes wrong is read as "fine" by the person it was for.
+  assert.match(ROUTES, /const fallback = \(why\) => \(\{ criteria: 'not evaluated'/)
+  assert.equal((ROUTES.match(/return fallback\(/g) || []).length, 4,
+    'every failure path returns the state, none of them omits it')
+  assert.match(ROUTES, /catch \(e\) \{\s*\n\s*return fallback\(/, 'a throw is a state too')
+
+  // It uses computeBlocking rather than reimplementing the gate.
+  assert.match(ROUTES, /const result = await computeBlocking\(/)
+  // Both GET routes carry it, or an approver reads one screen and not the other.
+  assert.equal((ROUTES.match(/await criteriaState\(db, req\)/g) || []).length, 2)
+
+  // The CLIENT states it in words rather than a colour, and says the note.
+  const app = readCode(ROOT + 'frontend/app.js')
+  assert.match(app, /Exit criteria met\./)
+  assert.match(app, /Exit criteria NOT EVALUATED\./)
+  assert.match(app, /req\.criteria_note/)
+})
+
+test('the client reads ONE loaded value for the freeze', () => {
+  const app = readCode(ROOT + 'frontend/app.js')
+  assert.match(app, /let oppOpenRequest = null/)
+  assert.match(app, /async function loadOppOpenRequest\(recordId\)/)
+  // Loaded once per record load, and the whole view is marked from it. Eleven
+  // controls testing for themselves is the second-reader shape, and one that
+  // forgot to ask would be an editable field on a frozen record.
+  assert.equal((app.match(/await loadOppOpenRequest\(/g) || []).length, 1)
+  assert.match(app, /classList\.toggle\('is-frozen', !!oppOpenRequest\)/)
+  const css = readCode(ROOT + 'frontend/style.css')
+  assert.match(css, /\.is-frozen input, \.is-frozen textarea, \.is-frozen select/)
+  // The controls that END the freeze live inside the banner, so it is exempt.
+  assert.match(css, /\.is-frozen \.freeze-banner, \.is-frozen \.freeze-banner \* \{ pointer-events: auto/)
+})
+
+test('the tab-row control says what it now does', () => {
+  const app = readCode(ROOT + 'frontend/app.js')
+  // "Move to X" moved the record; "Request X" freezes it until three tracks
+  // decide. Same position, different act.
+  assert.match(app, /btn\.textContent = `Request \$\{nextStage\}`/)
+  assert.ok(!/btn\.textContent = `Move to \$\{nextStage\}`/.test(app),
+    'the old verb must be gone, not shadowed')
+  assert.match(app, /btn\.onclick = \(\) => requestTransition\(recordId, nextStage\)/)
+  // A record already awaiting approval says so rather than being inert.
+  assert.match(app, /btn\.textContent = 'Awaiting approval'/)
+  // AND THE BLOCKERS ARE THE ANSWER when a request is refused, not a sentence
+  // about them: the request is the gate's front door.
+  assert.match(app, /r\.data\?\.blocking \?\? \[\]/)
+})
+
 test('the decide function is atomic, and says why in its own file', () => {
   const sql = readCode(ROOT + 'supabase/migrations/20260831000004_the_function_is_the_enforcement.sql')
   assert.match(sql, /for update/, 'the request row is locked, or two last approvals race')

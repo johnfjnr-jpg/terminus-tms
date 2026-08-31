@@ -4692,3 +4692,24 @@ input.input-invalid {
   margin-right: 7px;
   vertical-align: middle;
 }
+
+/* ── THE FREEZE BANNER. Round 41 ───────────────────────────────────────────
+   A record with a transition request open is read-only for everyone, and the
+   banner is where that is said. It carries the criteria state, because a
+   request raised outside the stage panel skipped the exit-criteria check and
+   looks entirely normal without it.
+
+   NO RED. The palette carries one accent and the existing .msg-error class is
+   what states a problem; this is a container, not a second signal. */
+.freeze-banner {
+  border: 1px solid var(--hairline-strong);
+  padding: 16px;
+  margin-bottom: 16px;
+}
+.freeze-banner .data-row { padding: 8px 0; gap: 10px; }
+
+/* A frozen record's write controls. Applied to the whole detail view from ONE
+   loaded value, so no control decides for itself whether it is editable. */
+.is-frozen input, .is-frozen textarea, .is-frozen select { pointer-events: none; opacity: 0.45; }
+.is-frozen .btn-primary, .is-frozen .btn-secondary, .is-frozen .btn-ghost, .is-frozen .btn-sm { opacity: 0.45; }
+.is-frozen .freeze-banner, .is-frozen .freeze-banner * { pointer-events: auto; opacity: 1; }

@@ -516,6 +516,45 @@ not resolve it quietly.
     absence, from the configuration side: here the writer is a default and the
     disagreement is with the field's own emptiness.
 
+12. **A DEFINER FUNCTION DERIVES; IT DOES NOT ACCEPT.** Set by the business
+    2026-08-31, Round 41, from two migrations in the same afternoon.
+
+    > **A `SECURITY DEFINER` function derives IDENTITY and RECORD STATE for
+    > itself - `auth.uid()`, the record's own stage, its own current revision -
+    > and never takes them as parameters. A parameter is the CALLER'S CLAIM, and
+    > the caller is who the rule constrains.**
+
+    **Two origins, and the second only became visible because the first had
+    already been fixed.**
+
+    **`p_approver`, in `20260831000004`.** `decide_transition_request` took who
+    was approving as an argument, and enforced "the requester may never approve
+    their own request" against it. Measured with the publishable key and a real
+    user's JWT: the function was callable directly, so the argument was whatever
+    the caller said it was, and the rule was decoration. It now reads
+    `auth.uid()` and the parameter is gone rather than merely ignored.
+
+    **`from_stage` and `frozen_revision`, in `20260831000005`.** A transition
+    request carried the stage it was raised from and the revision it froze, both
+    supplied by the caller. A fabricated pair produced a request that **looked
+    entirely normal to an approver**, so three people approved in good faith and
+    the record moved without its exit criteria ever being asked. The raise
+    function now reads both from the record.
+
+    **THE TEST IS WHETHER THE PARAMETER IS ABOUT THE CALLER OR ABOUT THE WORLD.**
+    `p_track` and `p_decision` are the caller's business and are correctly
+    parameters: they say what the caller wants. `p_approver`, `p_from_stage` and
+    `p_frozen_revision` were the caller ASSERTING FACTS the database already
+    holds, and a fact the database holds must be read, not accepted.
+
+    **AND A DEFINER FUNCTION IS EXACTLY WHERE THIS BITES**, which is why the rule
+    names them. A function running as its owner has the privilege to act on what
+    it is told; a route running as the user is bounded by RLS whatever it
+    believes. **The more powerful the executor, the less it may take on trust.**
+
+    Same family as Verification 20, two readers of one value, with the twist that
+    one of the two readers is the person the rule is about.
+
 ---
 
 ## Verification
