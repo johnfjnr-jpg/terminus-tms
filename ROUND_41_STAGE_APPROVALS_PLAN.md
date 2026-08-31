@@ -47,7 +47,7 @@ must do with each:
 | `POST /opportunities/:id/close-lost` | **frozen** |
 | `POST /opportunities/:id/deal-sheet-versions` | **frozen** |
 | `POST /deal-sheet-versions/:vid/issue` | **frozen**, except see 3d |
-| `POST /deal-sheet-versions/:vid/restore` | **frozen** |
+| ~~`POST /deal-sheet-versions/:vid/restore`~~ | **CORRECTED: it writes nothing.** See the freeze-coverage measurement below |
 | `POST /records/:id/transition` | **replaced**, see section 3 |
 | `POST /records/:id/approvals` | **replaced**, keyed to the request |
 | `POST /deals/submit` | read-only already; unaffected |
@@ -336,18 +336,112 @@ foreclosed it.
 
 ---
 
-## What the plan does NOT settle, and needs a ruling with it
+## RULED 2026-08-31 by the business
 
-1. **Do Test Bed and Contact keep the old transition route?** The plan says yes.
-   The alternative is one workflow for every record type, which is more
-   consistent and is a much larger change.
-2. **Who may approve a track?** Today any authenticated user may. The workflow
-   makes that visible in a way it currently is not, because the request names the
-   outstanding tracks by name.
-3. **Does a rejection on one track close the request immediately**, as ruled, or
-   after all tracks have decided? The ruling says immediately, and this plan
-   follows it; the cost is that a single early rejection discards the other two
-   tracks' work.
-4. **Withdrawal reason: required or optional?** The ruling requires one for
-   rejection and is silent on withdrawal. The schema above makes it required for
-   both.
+1. **Opportunity-only scope now.** Test Bed and Contact keep
+   `POST /records/:id/transition` and `POST /records/:id/approvals`. **The request
+   object stays GENERIC**, keyed to a record rather than to an opportunity, so
+   adoption by another record type later is configuration and routing rather than
+   a second table. `transition_requests.record_type` is denormalised for the
+   trigger and is not a scoping constraint.
+2. **The requester may never approve their own request, on any track.** Route
+   enforced and asserted. Not a database constraint: `requested_by` and
+   `approver_id` are both on rows the route already holds, and a check constraint
+   across two tables would need a trigger to express something the route can
+   refuse plainly. **The assertion is the control**, and it is calibrated by
+   attempting it.
+3. **A rejection closes the request.** Approvals already given on other tracks
+   are **kept on the closed request as audit** and **do not carry over** to a new
+   request. Nothing is deleted; a new request starts with no approvals.
+4. **A withdrawal requires a reason**, as a rejection does. `close_reason` is
+   required whenever `status` becomes `rejected` or `withdrawn`, and that is a
+   table check rather than a route rule.
+
+**Still with John:** the track approver names, and what happens to the 882
+pre-workflow approval rows beyond "the gate does not read them".
+
+---
+
+## FREEZE COVERAGE, MEASURED. And it corrects this plan in three places
+
+**Not a reading of the plan. Every write endpoint's handler body was parsed
+through the comment stripper and its actual table writes extracted**, so a
+sentence naming a table cannot be counted as a write and a delegated write
+through a helper or an RPC is not missed.
+
+| endpoint | tables it actually writes |
+|---|---|
+| `PATCH /opportunities/:id` | `record_revisions` |
+| `POST /opportunities/:id/close-date-move` | `opportunity_details`, `record_revisions`, `audit_log` |
+| `PUT /opportunities/:id/probability-override` | `opportunity_details`, `audit_log` |
+| `POST /opportunities/:id/assessment-reviewed` | `record_revisions`, `audit_log` |
+| `POST /opportunities/:id/scores` | `record_revisions` |
+| `POST /opportunities/:id/key-contacts` | `record_contacts`, **`record_contact_stances`**, `audit_log` |
+| `POST /opportunities/:id/key-contacts/:linkId/stance` | **`record_contact_stances`**, `audit_log` |
+| `DELETE /opportunities/:id/key-contacts/:linkId` | `record_contacts`, `audit_log` |
+| `POST /opportunities/:id/close-lost` | **`records`**, `opportunity_details`, `audit_log` |
+| `POST /records/:id/transition` | **`records`**, `opportunity_details`, `audit_log` |
+| `POST /records/:id/approvals` | `approvals`, `audit_log` |
+| `POST /opportunities/:id/deal-sheet-versions` | **`rpc: insert_deal_sheet_version`**, `audit_log` |
+| `POST /deal-sheet-versions/:vid/issue` | `deal_sheet_versions`, `audit_log` |
+| `POST /deal-sheet-versions/:vid/restore` | **NOTHING** |
+| `POST /deals/submit` | `record_revisions`, `audit_log` |
+| `POST /records` | `records`, `record_revisions`, `audit_log` |
+
+### Correction 1: the proposed trigger function has a hole, and it fails OPEN
+
+`record_contact_stances` **has no `record_id` column.** Its columns are
+`id, record_contact_id, stance_id, note, created_by, created_at`, and the record
+is two joins away through `record_contacts`.
+
+The function in section 2c reads `coalesce(new.record_id, old.record_id)` and
+**returns early when that is null**, so on this table it would permit every write
+the freeze exists to refuse. **A stance change on a frozen record would go
+through and nothing would say so.**
+
+**It fails open, which is the wrong direction**, and it was reachable from two of
+the sixteen endpoints. The trigger needs a **per-table resolver** naming how each
+table reaches its record, and a table whose resolver is missing must **refuse**
+rather than permit.
+
+### Correction 2: `records` has no `record_id` either
+
+Its key is `id`. The same early return applies, so the generic function attached
+to `records` would permit `close-lost` to change the status of a frozen record.
+**Two of sixteen endpoints, again, and the same fail-open direction.**
+
+### Correction 3: `restore` is a READ and comes off the frozen list
+
+`POST /deal-sheet-versions/:vid/restore` selects a version and returns its
+inputs. **It writes nothing**, and the client's own message says so: *"Restored
+V1.2. Nothing is saved until you press Save Changes."* Section 3a listed it as
+frozen. **What needs freezing is the save it leads to**, which `record_revisions`
+already covers.
+
+### And one thing the measurement CONFIRMS rather than corrects
+
+**The version insert goes through an RPC**, `insert_deal_sheet_version`, not a
+direct table write. **A trigger on `deal_sheet_versions` fires inside a function
+body**, so the coverage holds. **A route-guard approach would have had to know
+about the RPC by name**, which is the concrete form of "a route guard is a
+declared policy, not an enforcement".
+
+### The revised coverage statement
+
+**Six tables carry opportunity state and each needs its own resolver:**
+
+| table | reaches its record by |
+|---|---|
+| `record_revisions` | `record_id` |
+| `opportunity_details` | `record_id` |
+| `deal_sheet_versions` | `record_id` |
+| `record_contacts` | `record_id` |
+| **`record_contact_stances`** | **`record_contact_id` → `record_contacts.record_id`** |
+| **`records`** | **`id`** |
+
+**`approvals` and `audit_log` carry no trigger**, deliberately: they are the
+writes the freeze permits.
+
+**The calibration list grows to five**, and the two new ones are the corrections
+above: refuse a `record_contact_stances` insert on a frozen record, and refuse a
+`records` status update on one.
