@@ -2180,7 +2180,31 @@
             new notes into shouting. A note nobody can read is functionally
             absent. It teaches rather than reports, so it belongs with the
             explanations; the computed status lines keep the old style. -->
-            <p id="deal-catalog-notice" class="field-note" style="margin:-4px 0 12px"></p>
+            <!-- ── THE COST BASIS AS A DATA LINE. Round 41, decision 3 ──────
+                 Ruled by the business: batch name and effective date as ONE
+                 DATA LINE beside the rates, inside Show detail.
+
+                 IT IS A RESHAPE, NOT A RESTORE, and that correction is the
+                 business's to know about. My item 1 report said the removed
+                 Installation line was "the only place on the pricing screen
+                 naming the batch and its effective date". THAT WAS FALSE. This
+                 element has carried both since Round 36, and a comment four
+                 lines from the function that renders it says so. What the
+                 removal deleted was a SECOND reader of the same two facts.
+
+                 So nothing is restored. The one reader stays one reader, and
+                 what changes is that it stops being a dim sentence and becomes
+                 a data line, which is what the ruling asked for and what makes
+                 the fact readable at the moment somebody is pricing.
+
+                 THE VALUE READS AT FULL WEIGHT AND THE AGE DOES NOT. Two
+                 different things: the basis is a fact about this deal, the age
+                 is a warning that only sometimes applies. -->
+            <p class="deal-basis" id="deal-catalog-notice">
+              <span class="deal-basis-label">Cost basis</span>
+              <span class="deal-basis-value" id="deal-catalog-basis"></span>
+              <span class="deal-basis-age" id="deal-catalog-age"></span>
+            </p>
             <p class="msg-error hidden" id="deal-catalog-warn" style="margin:-4px 0 12px"></p>
             <div class="pg-cards">
             <div class="pg-card">

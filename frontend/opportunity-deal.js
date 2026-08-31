@@ -417,8 +417,10 @@ function renderPricingCards(result, payload) {
 // option, which is to show a number in the wrong currency and say nothing.
 function renderCatalogNotice(payload) {
   const notice = document.getElementById('deal-catalog-notice')
+  const value = document.getElementById('deal-catalog-basis')
+  const age = document.getElementById('deal-catalog-age')
   const warn = document.getElementById('deal-catalog-warn')
-  if (!notice || !warn) return
+  if (!notice || !value || !age || !warn) return
 
   const labels = { safesight: 'SafeSight', air_quality: 'AQ Sensor', hemir: 'HEMIR' }
   const problems = []
@@ -451,14 +453,42 @@ function renderCatalogNotice(payload) {
   // manufacturing run is per product and runs arrive at different times.
   const batches = Object.values(catalogBatches)
   if (!batches.length) {
-    notice.textContent = ''
+    // ABSENCE IS SAID, NOT LEFT BLANK. Verification 20's addendum: a reader and
+    // a writer must agree about absence, and an empty line reads as a line that
+    // has not loaded yet. No batch means every cost below is $0, which the warn
+    // row above already says loudly; this says what the basis IS, which is
+    // nothing.
+    value.textContent = 'not recorded'
+    value.classList.add('deal-basis-absent')
+    age.textContent = ''
+    age.className = 'deal-basis-age'
     return
   }
+  value.classList.remove('deal-basis-absent')
   const dates = [...new Set(batches.map(b => b.effective_from))]
   const names = [...new Set(batches.map(b => b.batch_label))]
+  // ONE DATA LINE, ruled by the business. The sentence form read
+  // `Rates from batch "X", effective YYYY-MM-DD.` and is now a value beside a
+  // label, because the two facts are data about this deal rather than prose
+  // explaining something. The middot is the separator this screen already uses
+  // between a name and its qualifier.
+  //
+  // AN ABSENT DATE IS SAID, NOT INTERPOLATED. Found by the probe's own
+  // calibration, which required the basis VALUE to be identical across all four
+  // bands and reported that it moved: the undated capture read
+  // `Initial catalog · effective null`. The old sentence form had the same
+  // shape, so the fault is older than this round - but `undated` had no colour
+  // rule and no capture before now, so nobody had ever looked at it.
+  //
+  // Verification 20's addendum, from the display side: the writer records no
+  // date and the reader must not print the word for it.
+  const said = (d) => (d ? d : 'date not recorded')
+  const sorted = dates.slice().filter(Boolean).sort()
   const provenance = dates.length === 1 && names.length === 1
-    ? `Rates from batch "${names[0]}", effective ${dates[0]}.`
-    : `Rates from ${batches.length} current batches, effective ${dates.sort()[0]} to ${dates.sort()[dates.length - 1]}.`
+    ? `${names[0]} · effective ${said(dates[0])}`
+    : sorted.length
+      ? `${batches.length} current batches · effective ${sorted[0]} to ${sorted[sorted.length - 1]}`
+      : `${batches.length} current batches · effective date not recorded`
 
   // ── STALENESS, SAME BANDS AND SAME WORDS AS THE APPROVAL PAGE ───────────
   //
@@ -478,11 +508,18 @@ function renderCatalogNotice(payload) {
     .filter((d) => Number.isFinite(d))
   const oldest = ages.length ? Math.max(...ages) : null
   const band = stalenessBand(oldest)
-  notice.textContent = band.band === 'current'
-    ? provenance
-    : `${provenance} ${band.statement}`
-  notice.classList.toggle('deal-catalog-stale', band.band === 'stale')
-  notice.classList.toggle('deal-catalog-ageing', band.band === 'ageing')
+  value.textContent = provenance
+  // THE AGE IS ITS OWN SPAN, not appended to the provenance. It has a different
+  // job and a different treatment: the basis is always a fact, the age is
+  // sometimes a warning. Merged into one string they had to share a colour, and
+  // sharing a colour is how the batch name ended up painted by the band.
+  //
+  // `current` says nothing rather than saying "this is current". A line that
+  // reassures on every normal deal is a line people stop reading, and the band
+  // only earns space when it is asking for something.
+  age.textContent = band.band === 'current' ? '' : band.statement
+  age.className = 'deal-basis-age'
+  if (band.band !== 'current') age.classList.add(`deal-catalog-${band.band}`)
 }
 
 // ── The four Deal Sheet summary cards are GONE, Round 39 ────────────────

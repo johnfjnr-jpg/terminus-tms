@@ -4512,8 +4512,91 @@ input.input-invalid {
 .stat-value.under-target { color: var(--white); }
 
 /* Round 39: an ageing or stale cost basis, said where the rates are entered.
-   Same bands and same words as the approval page, from src/lib/cost-basis.js. */
-.deal-catalog-ageing { color: var(--white) !important; }
+   Same bands and same words as the approval page, from src/lib/cost-basis.js.
+
+   ── ROUND 41, DECISION 3: THE BAND COLOURS MOVED AND ONE OF THEM WAS WRONG ──
+
+   The two rules used to sit 97 lines apart and paint the WHOLE notice, batch
+   name included. They now paint only `.deal-basis-age`, because the basis and
+   its age are two things and only one of them is ever a warning.
+
+   AND `.deal-catalog-stale` WAS `var(--green)`. Green is this screen's accent
+   and means AT OR ABOVE TARGET, so the worst of the three bands - the one
+   cost-basis.js says "requires explicit acknowledgement" - rendered in the
+   good-news colour. There is no comment defending it and it sat one line below
+   `.deal-schedule-off { color: var(--amber) }`, which is where amber already
+   lives on this screen for exactly this job.
+
+   IN SCOPE FOR THIS ROUND UNDER RULE 10'S LIMIT, not walked past. Decision 3
+   makes this line legible; leaving the band green would ship one line carrying
+   a bright correct value beside a good-news warning, which is the Round 39
+   GST-and-withholding shape the limit was written from. The mechanism already
+   existed one line away, so applying it is not new design.
+
+   UNDATED GETS A COLOUR AT ALL, which it did not have. stalenessBand returns
+   four bands and only two had a rule, so an undated batch rendered QUIETER than
+   an ageing one while cost-basis.js says "an unknown age is not a current one".
+   Amber, like stale: both mean do not treat this as current, and the sentences
+   carry the difference between them. */
+/* GRID, NOT FLEX, AND THE FLEX VERSION FAILED FOR A REASON WORTH KEEPING.
+   `flex: 0 0 100%` on the statement did not put it on its own line, because
+   `max-width: 62ch` clamps the item AFTER flex-basis is resolved. The clamped
+   460px then fits beside the value in an 876px panel and does not fit in the
+   narrower one, so ONE ELEMENT LAID OUT TWO WAYS AT TWO WIDTHS and both
+   readings were "correct" on every property the probe measured.
+
+   A grid places by track rather than by fit, so the row break is stated rather
+   than inferred from available space, and max-width goes back to doing only
+   what it is for: capping the reading measure. */
+.deal-basis {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: baseline;
+  gap: 4px 10px;
+  margin: -4px 0 12px;
+}
+.deal-basis-label {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted-2);
+}
+/* The value reads at full weight. It is a fact about the deal, and the whole
+   point of decision 3 is that it stops being a dim sentence. */
+.deal-basis-value {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--white);
+}
+.deal-basis-value.deal-basis-absent { color: var(--muted); }
+/* THE STATEMENT ALWAYS TAKES ITS OWN LINE, and `flex-basis: 100%` alone did
+   not do it. A flex item still has flex-shrink: 1, so it shrinks to sit beside
+   the value when the row is wide enough, and the 1240 capture showed exactly
+   that while 1920 wrapped: ONE ELEMENT LAYING OUT TWO WAYS AT TWO WIDTHS.
+   Found by opening the screenshots, Verification 4, after every programmatic
+   reading in the probe had passed - the class, the colour and the text were all
+   correct at both widths and the arrangement was not. `flex: 0 0 100%` refuses
+   the shrink; max-width still caps the reading measure. */
+.deal-basis-age {
+  font-family: var(--body);
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--muted);
+  grid-column: 1 / -1;
+  max-width: 62ch;
+}
+/* THESE FOUR APPEAR IN probe-dead-selectors' CANDIDATE LIST AND ARE NOT DEAD,
+   which is worth saying here because that list is 260 long and a reader
+   sweeping it has no way to tell. Every batch in the live catalog is four days
+   old and dated, so `current` is the only band the data can produce and no run
+   of the application reaches the other three. They are exercised by
+   scripts/probe-cost-basis-line.mjs, which forces each band by rewriting the
+   catalog response and captures all four at both widths. That probe is where
+   their coverage lives; the sweep cannot see it. */
+.deal-basis-age.deal-catalog-ageing { color: var(--white); }
+.deal-basis-age.deal-catalog-stale { color: var(--amber, #E0A33E); }
+.deal-basis-age.deal-catalog-undated { color: var(--amber, #E0A33E); }
 /* ── THE DETAIL OPENS BESIDE THE SUMMARY. Round 40 Phase 3 ─────────────────
    The layout's word is HORIZONTALLY: the summary and the lines it summarises
    are readable together, which is what removes the duplication rather than
@@ -4610,7 +4693,11 @@ input.input-invalid {
    specific kind of the .btn-secondary fault, and the scan cannot see this one. */
 .pg-margin-input.pg-margin-override { color: var(--white); border-color: var(--hairline-strong); }
 .deal-schedule-off { color: var(--amber, #E0A33E); }
-.deal-catalog-stale  { color: var(--green) !important; }
+/* Round 41 decision 3: `.deal-catalog-stale` moved to the block beside
+   `.deal-catalog-ageing`, where its reasoning is, and changed from --green to
+   --amber. It lived here, 97 lines from its sibling and one line from the amber
+   rule it should always have used, which is most of the explanation for how it
+   got the accent colour in the first place. */
 
 /* Round 39: a field note is a SENTENCE, and .data-row-label uppercases.
    That class was built for short labels; the entry copy this round added is

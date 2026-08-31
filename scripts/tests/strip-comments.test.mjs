@@ -184,9 +184,27 @@ test('stripped css loses exactly the braces that were inside comments', () => {
   const inComments = [...src.matchAll(/\/\*[\s\S]*?\*\//g)].map((m) => m[0]).join('')
   const count = (s, re) => (s.match(re) || []).length
   assert.ok(count(src, /\{/g) > 500, 'population check: style.css should hold hundreds of rules')
-  assert.equal(count(inComments, /\{/g), 1, 'population check: one commented-out brace is expected')
-  assert.equal(count(out, /\{/g), count(src, /\{/g) - 1, 'braces lost beyond the commented one')
-  assert.equal(count(out, /\}/g), count(src, /\}/g) - 1, 'braces lost beyond the commented one')
+  // ── THE EXPECTED COUNT IS DERIVED, NOT TYPED ──────────────────────────
+  //
+  // It read `assert.equal(count(inComments, /\{/g), 1)`. Round 41 wrote a CSS
+  // comment quoting a one-line rule, the count became 2, and the suite failed
+  // on the POPULATION CHECK rather than on anything about stripping. The
+  // stripper was working perfectly.
+  //
+  // Architecture 9's fourth variant arriving from the test side: a literal
+  // describing the file's contents, true when typed, falsified by an ordinary
+  // edit to a different file. A hardcoded 1 makes "somebody quoted a rule in a
+  // comment" indistinguishable from "the stripper ate a brace".
+  //
+  // Derived, the test asks its real question - stripping loses exactly the
+  // braces that were inside comments and no others - and the population check
+  // keeps its job by asserting there is at least one to lose, so the assertion
+  // below can still fail.
+  const openInComments = count(inComments, /\{/g)
+  const closeInComments = count(inComments, /\}/g)
+  assert.ok(openInComments >= 1, 'population check: style.css must hold a commented-out brace, or this test cannot fail')
+  assert.equal(count(out, /\{/g), count(src, /\{/g) - openInComments, 'braces lost beyond the commented ones')
+  assert.equal(count(out, /\}/g), count(src, /\}/g) - closeInComments, 'braces lost beyond the commented ones')
 })
 
 test('stripped html loses exactly the tags that were inside comments', () => {
@@ -196,6 +214,11 @@ test('stripped html loses exactly the tags that were inside comments', () => {
   const inComments = [...src.matchAll(/<!--[\s\S]*?-->/g)].map((m) => m[0]).join('')
   const count = (s) => (s.match(TAG) || []).length
   assert.ok(count(src) > 500, 'population check: index.html should hold hundreds of tags')
-  assert.equal(count(inComments), 2, 'population check: two commented-out tags are expected')
-  assert.equal(count(out), count(src) - 2, 'elements lost beyond the commented ones')
+  // Derived for the same reason as the CSS case above, and pre-emptively: this
+  // one still passed, because Round 41's markup comments happen to quote no
+  // tags. It is the same literal waiting for the same edit. Build discipline 8,
+  // fix the class rather than the instance the failure named.
+  const tagsInComments = count(inComments)
+  assert.ok(tagsInComments >= 1, 'population check: index.html must hold a commented-out tag, or this test cannot fail')
+  assert.equal(count(out), count(src) - tagsInComments, 'elements lost beyond the commented ones')
 })

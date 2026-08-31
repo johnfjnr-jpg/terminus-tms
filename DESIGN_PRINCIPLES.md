@@ -6756,3 +6756,107 @@ it**, and both are recorded in `scripts/probe-install-prose.mjs`: a
 stale-satisfiable wait that resolved on the pre-load screen, and a named scroll
 container that does not exist on this screen, which made every window reading
 0px and looked like a result.
+
+### THE COST BASIS DATA LINE, and a claim of mine that was false
+
+**Decision 3, ruled by the business 2026-08-31, Round 41: restore batch name and
+effective date as one data line beside the rates inside Show detail.**
+
+#### The correction first, because the instruction rests on it
+
+**The instruction says RESTORE. Nothing was lost.**
+
+My item 1 report said the removed Installation line was *"the only place on the
+pricing screen naming the batch and its effective date"*. **That was false.**
+`#deal-catalog-notice` has rendered `Rates from batch "X", effective YYYY-MM-DD.`
+inside Show detail since Round 36, and **a comment four lines from the function
+that renders it says exactly that**: "the batch and its effective date have been
+in renderCatalogNotice since Round 36."
+
+Measured on the live screen before building: the line reads
+`Rates from batch "Initial catalog", effective 2026-08-27.`
+
+**What the Installation line actually was is a SECOND READER of the same two
+facts**, which is Verification 20, and its removal deleted a duplicate rather
+than a fact.
+
+**Verification 26 is the rule I broke and it is the one about "so".** I had
+measured that the sentence was removed, and inferred that the fact was gone.
+Structure is cheap to establish and inference from it is not evidence.
+
+**AND THE INSTRUCTION WAS STILL POINTING AT SOMETHING REAL**, which is why this
+is a reshape and not a refusal. The line is `.field-note`, **11.5px at 50%
+opacity**, measured. That is the treatment Round 39 recorded as making a note
+"functionally absent", and it is the most likely reason the business believed
+the fact had gone: **it was on the screen and could not be read.** The wrong
+premise and the right instinct arrived together.
+
+#### What was built
+
+One reader, kept as one reader. The prose sentence becomes a **data line**: a
+mono uppercase `Cost basis` label and a full-weight value,
+`Initial catalog · effective 2026-08-27`, directly above the pricing cards.
+
+**The staleness statement moved to its own span**, and that is the substantive
+half. Merged into one string, the band's colour was applied to the batch name
+too. Separated, the basis is always a fact and the age is only sometimes a
+warning. **A `current` basis now says nothing about its age**: a line that
+reassures on every normal deal is a line people stop reading.
+
+#### Two band faults, in scope under rule 10's limit rather than on the list
+
+- **`.deal-catalog-stale` was `var(--green)`.** Green is this screen's accent and
+  means at or above target, so the worst of the three bands rendered in the
+  good-news colour. No comment defended it; it sat one line below
+  `.deal-schedule-off { color: var(--amber) }`, which is where amber already
+  lives for this job. **Now amber.**
+- **`undated` had no colour rule at all**, so an undated batch rendered quieter
+  than an ageing one, while `cost-basis.js` says "an unknown age is not a current
+  one". **Now amber, like stale.**
+
+**Both are this round's to fix rather than the list's.** Decision 3 makes this
+line legible; leaving the band green would ship one line carrying a bright
+correct value beside a good-news warning, which is the Round 39
+GST-and-withholding shape rule 10's limit was written from. The mechanism
+existed one line away, so applying it is not new design.
+
+#### `effective null`, found by a calibration rather than by a reading
+
+The probe required the basis VALUE to be identical across all four bands and
+reported that it moved: the undated capture read
+`Initial catalog · effective null`. **The old sentence form had the same shape**,
+so the fault predates this round - but `undated` had no colour rule and no
+capture, so **nobody had ever looked at that state**. It now says
+`effective date not recorded`.
+
+#### The instrument, and it was wrong three times before it was right
+
+Each fault was caught by a refusal, never by reading a number:
+
+1. **The bands were produced by writing the element**, through a `window` hook
+   that does not exist because `renderCatalogNotice` is module-scoped. Four
+   IDENTICAL rows at each width, which would have read as "all four bands render
+   the same". Caught by the probe reporting whether its own hook was reachable.
+   They are now produced by **rewriting the catalog response**, so the page runs
+   its own resolver, its own `stalenessBand` call and its own paint.
+2. **`flex: 0 0 100%` did not put the statement on its own line**, because
+   `max-width: 62ch` clamps the item after flex-basis resolves. The clamped
+   460px fits beside the value in an 876px panel and not in a narrower one, so
+   **one element laid out two ways at two widths** and every programmatic
+   reading passed at both. Found by opening the screenshots. It is a grid now,
+   where the row break is stated rather than inferred from available space.
+3. **A hardcoded population count in `strip-comments.test.mjs`.** It asserted
+   "one commented-out brace is expected" in `style.css`; a comment quoting a
+   one-line rule made it two and the suite failed on the population check rather
+   than on anything about stripping. **Derived now**, in both the CSS and the
+   HTML case, and the HTML one was fixed pre-emptively because it is the same
+   literal waiting for the same edit.
+
+#### Still open, and deliberately not touched
+
+The approval page renders the same provenance **per product** through
+`src/lib/approval-page.js`, while this panel renders one collapsed line built
+inline. Two grains of the same fact, both derived from `catalogToRates().batches`
+and only one of them going through a shared builder. **On the list**, not fixed
+here: the grains genuinely differ, and collapsing them is a decision rather than
+a tidy-up.

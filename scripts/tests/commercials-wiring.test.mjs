@@ -1176,3 +1176,145 @@ test('no rate box prefills a value nobody entered', () => {
     .map((m) => m[1]).filter((id) => guarded.has(id))
   assert.deepEqual(planted, ['deal-duration'], 'the scan cannot detect the thing it is scanning for')
 })
+
+// ─────────────────────────────────────────────────────────────
+// THE COST BASIS DATA LINE. Round 41, decision 3
+// ─────────────────────────────────────────────────────────────
+//
+// The line naming the batch and its effective date has been on this screen
+// since Round 36 and HAD NO DETECTOR OF ANY KIND. Round 41 reshaped it into a
+// data line, moved the staleness bands onto their own span and corrected one of
+// the band colours, and none of that could have failed a test.
+//
+// CLAUDE.md Verification 9, broadened at the Round 40 close: a detector that has
+// never fired is an assertion, not a control. This one is written to fire, and
+// the calibration is in the round report.
+//
+// THE BANDS ARE EXERCISED WITH FOUR DIFFERENT AGES, which is Verification 24
+// stated for a band rather than a parameter: every batch in the live catalog is
+// four days old, so `current` is the only band any run has ever produced. A
+// display tested only at its default is a display nobody has seen.
+//
+// The logic under test is the shipped logic: stalenessBand and ageInDays are
+// imported from src/lib/cost-basis.js, and only the DOM writing is rebuilt here,
+// in the same shape renderCatalogNotice applies it.
+
+import { stalenessBand, ageInDays } from '../../src/lib/cost-basis.js'
+
+function basisLine(batches, asOf) {
+  const dom = new JSDOM(`<!doctype html><p class="deal-basis" id="n">
+    <span class="deal-basis-label">Cost basis</span>
+    <span class="deal-basis-value" id="v"></span>
+    <span class="deal-basis-age" id="a"></span></p>`)
+  const d = dom.window.document
+  const value = d.getElementById('v'), age = d.getElementById('a')
+  const list = Object.values(batches)
+  if (!list.length) {
+    value.textContent = 'not recorded'
+    value.classList.add('deal-basis-absent')
+    age.textContent = ''
+    age.className = 'deal-basis-age'
+    return { value, age }
+  }
+  value.classList.remove('deal-basis-absent')
+  const dates = [...new Set(list.map(b => b.effective_from))]
+  const names = [...new Set(list.map(b => b.batch_label))]
+  value.textContent = dates.length === 1 && names.length === 1
+    ? `${names[0]} · effective ${dates[0]}`
+    : `${list.length} current batches · effective ${dates.slice().sort()[0]} to ${dates.slice().sort()[dates.length - 1]}`
+  const ages = list.map(b => ageInDays(b.effective_from, asOf)).filter(n => Number.isFinite(n))
+  const band = stalenessBand(ages.length ? Math.max(...ages) : null)
+  age.textContent = band.band === 'current' ? '' : band.statement
+  age.className = 'deal-basis-age'
+  if (band.band !== 'current') age.classList.add(`deal-catalog-${band.band}`)
+  return { value, age, band: band.band }
+}
+
+const ONE = { safesight: { batch_label: 'Initial catalog', effective_from: '2026-08-27' } }
+
+test('the cost basis names the batch and its effective date as one value', () => {
+  const { value } = basisLine(ONE, '2026-08-31')
+  assert.equal(value.textContent, 'Initial catalog · effective 2026-08-27')
+  assert.ok(!value.classList.contains('deal-basis-absent'))
+})
+
+test('a current basis says nothing about its age, and the value still reads', () => {
+  // A line that reassures on every normal deal is a line people stop reading.
+  const { value, age, band } = basisLine(ONE, '2026-08-31')
+  assert.equal(band, 'current')
+  assert.equal(age.textContent, '')
+  assert.equal(age.className, 'deal-basis-age', 'no band class on a current basis')
+  assert.match(value.textContent, /Initial catalog/, 'the basis is stated whatever the band')
+})
+
+test('each staleness band paints its OWN span, never the batch name', () => {
+  // The defect this replaces: one string carried both facts, so the band's
+  // colour was applied to the batch name too. Verification 20 at display level.
+  // Ages derived, not guessed. 2026-08-27 + 217 days is ageing, + 492 is stale.
+  // The first draft used 2027-01-01 for ageing, which is 127 days and lands in
+  // `current`: the test failed loudly rather than passing on the wrong band,
+  // which is the only reason it is worth naming here.
+  for (const [asOf, expected] of [['2027-04-01', 'ageing'], ['2028-01-01', 'stale']]) {
+    const { value, age, band } = basisLine(ONE, asOf)
+    assert.equal(band, expected)
+    assert.ok(age.classList.contains(`deal-catalog-${expected}`), `${expected} band class is on the age span`)
+    assert.equal(value.className, 'deal-basis-value', `the ${expected} band did not touch the value`)
+    assert.match(age.textContent, /cost basis/i, `the ${expected} band states itself in words`)
+  }
+})
+
+test('an undated batch is not treated as current', () => {
+  // cost-basis.js: "an unknown age is not a current one". It had no colour rule
+  // at all before this round, so it rendered quieter than an ageing basis.
+  const { age, band } = basisLine({ safesight: { batch_label: 'Unlabelled', effective_from: null } }, '2026-08-31')
+  assert.equal(band, 'undated')
+  assert.ok(age.classList.contains('deal-catalog-undated'))
+  assert.match(age.textContent, /age is unknown/)
+})
+
+test('no batch at all SAYS so, rather than rendering an empty line', () => {
+  // Verification 20's addendum. An empty line reads as one that has not loaded.
+  const { value, age } = basisLine({}, '2026-08-31')
+  assert.equal(value.textContent, 'not recorded')
+  assert.ok(value.classList.contains('deal-basis-absent'))
+  assert.equal(age.textContent, '')
+})
+
+test('the shipped stylesheet gives every band a rule, and none of them is the accent', () => {
+  // Read through the comment stripper, CLAUDE.md Verification 39: the block
+  // above these rules discusses --green at length, and a raw scan for it would
+  // be satisfied by the prose explaining why it is gone.
+  const css = readCode(new URL('../../frontend/style.css', import.meta.url))
+  for (const band of ['ageing', 'stale', 'undated']) {
+    assert.match(css, new RegExp(`\\.deal-basis-age\\.deal-catalog-${band}\\s*\\{[^}]*color:`),
+      `the ${band} band has no colour rule`)
+  }
+  const stale = css.match(/\.deal-basis-age\.deal-catalog-stale\s*\{([^}]*)\}/)[1]
+  assert.ok(!/--green/.test(stale),
+    'stale is painted in the accent, which on this screen means at or above target')
+  assert.ok(!/\.deal-catalog-stale\s*\{[^}]*--green/.test(css),
+    'a rule somewhere still paints a stale basis green')
+})
+
+test('the SHIPPED renderCatalogNotice writes the two spans and paints only the age', () => {
+  // THE GAP THIS CLOSES, stated because it is Verification 20 inside a test
+  // file. Every assertion above runs against a local rebuild of the DOM writing,
+  // so the harness and renderCatalogNotice are two readers of one design and
+  // the harness could go on passing after the shipped function changed.
+  //
+  // This one reads the shipped function. It is a source scan and therefore
+  // weaker than executing it, which this harness cannot do; what it can do is
+  // refuse the specific drifts that would make the tests above meaningless.
+  const src = readCode(new URL('../../frontend/opportunity-deal.js', import.meta.url))
+  const fn = src.slice(src.indexOf('function renderCatalogNotice'), src.indexOf('function escapeSheet'))
+  assert.ok(fn.length > 200, 'renderCatalogNotice was not located in the source')
+  assert.ok(fn.includes("getElementById('deal-catalog-basis')"), 'the value span is not read')
+  assert.ok(fn.includes("getElementById('deal-catalog-age')"), 'the age span is not read')
+  assert.match(fn, /age\.classList\.add\(`deal-catalog-\$\{band\.band\}`\)/,
+    'the band class is not added to the age span')
+  assert.ok(!/notice\.classList\.toggle\('deal-catalog/.test(fn),
+    'a band class is still painted onto the whole notice, which would colour the batch name')
+  assert.match(fn, /age\.textContent = band\.band === 'current' \? '' :/,
+    'a current basis no longer renders an empty age')
+  assert.ok(fn.includes("value.textContent = 'not recorded'"), 'the no-batch path no longer says so')
+})
