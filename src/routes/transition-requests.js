@@ -174,8 +174,14 @@ export default async function transitionRequestRoutes(app) {
       })
     }
 
+    // p_approver is GONE. The function reads auth.uid(): a parameter is an
+    // assertion by the caller, and the caller is exactly who the rule
+    // constrains. The mayDecide() call above stays, and it is now purely for the
+    // message: measured, both this RPC and a direct approvals insert were open
+    // to any authenticated user with the publishable key, so the route's check
+    // was a declared policy rather than an enforcement.
     const { data: outcome, error: rpcErr } = await db.rpc('decide_transition_request', {
-      p_request_id: req.id, p_track: track, p_approver: request.user.id,
+      p_request_id: req.id, p_track: track,
       p_decision: decision, p_reason: reason ?? null, p_required: required,
     })
     if (rpcErr) {
@@ -185,6 +191,11 @@ export default async function transitionRequestRoutes(app) {
       if (rpcErr.code === 'PT409') return reply.code(409).send({ error: rpcErr.message })
       if (rpcErr.code === 'PT400') return reply.code(400).send({ error: rpcErr.message })
       if (rpcErr.code === 'PT404') return reply.code(404).send({ error: rpcErr.message })
+      // The function's own copy of the two rules. Reaching this means the
+      // route's check disagreed with the database's, which is worth a distinct
+      // status rather than a 500.
+      if (rpcErr.code === 'PT403') return reply.code(403).send({ error: rpcErr.message })
+      if (rpcErr.code === 'PT401') return reply.code(401).send({ error: rpcErr.message })
       request.log.error({ err: rpcErr }, 'failed to decide a transition request')
       return reply.code(500).send({ error: rpcErr.message })
     }

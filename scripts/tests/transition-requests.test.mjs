@@ -185,11 +185,44 @@ test('the gate reads the request for a workflow type, and neither scope branch',
 })
 
 test('the decide function is atomic, and says why in its own file', () => {
-  const sql = readCode(ROOT + 'supabase/migrations/20260831000003_decide_transition_request.sql')
+  const sql = readCode(ROOT + 'supabase/migrations/20260831000004_the_function_is_the_enforcement.sql')
   assert.match(sql, /for update/, 'the request row is locked, or two last approvals race')
   // CLOSE FIRST, THEN MOVE: the freeze refuses the status update while the
   // request is open, so the order is forced rather than chosen.
   assert.ok(sql.indexOf("set status = 'approved'") < sql.indexOf('update public.records'),
     'the request must close before the record moves, or the freeze refuses the move')
   assert.match(sql, /insert into supabase_migrations\.schema_migrations/, 'Architecture 10')
+})
+
+test('THE FUNCTION IS THE ENFORCEMENT, not the route', () => {
+  // MEASURED, not assumed. As an ordinary user with the publishable key and no
+  // Fastify: inserting an approval bound to an open request was PERMITTED, and
+  // calling the decide function directly was PERMITTED, both while
+  // self-approving on a track the caller holds no role on.
+  const sql = readCode(ROOT + 'supabase/migrations/20260831000004_the_function_is_the_enforcement.sql')
+
+  // It reads auth.uid() rather than trusting a parameter. A parameter is an
+  // assertion by the caller, and the caller is who the rule constrains.
+  assert.match(sql, /v_caller\s+uuid := auth\.uid\(\)/)
+  assert.ok(!/p_approver/.test(sql), 'the trusted parameter must be gone, not merely unused')
+  assert.match(sql, /drop function if exists public\.decide_transition_request\(uuid, text, uuid, text, text, text\[\]\)/,
+    'the old signature goes in the same migration, or the unguarded one stays callable')
+
+  // Both rules, inside.
+  assert.match(sql, /if v_req\.requested_by = v_caller then/)
+  assert.match(sql, /from public\.track_approvers ta/)
+  assert.match(sql, /errcode = 'PT403'/)
+
+  // Path (a) closed: a request-bound approval comes from the function or nowhere.
+  assert.match(sql, /with check \(auth\.uid\(\) = approver_id and request_id is null\)/)
+
+  // And the raise route could not have worked at all: no INSERT policy existed.
+  assert.match(sql, /create policy transition_requests_insert/)
+  assert.match(sql, /with check \(requested_by = auth\.uid\(\)\)/)
+
+  // The route keeps its check FOR THE MESSAGE, and maps the function's refusal
+  // to a status rather than a 500.
+  assert.match(ROUTES, /const may = mayDecide\(/)
+  assert.match(ROUTES, /rpcErr\.code === 'PT403'/)
+  assert.ok(!/p_approver/.test(ROUTES), 'the route must stop passing who is asking')
 })
