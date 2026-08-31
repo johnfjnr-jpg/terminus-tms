@@ -4713,3 +4713,40 @@ input.input-invalid {
 .is-frozen input, .is-frozen textarea, .is-frozen select { pointer-events: none; opacity: 0.45; }
 .is-frozen .btn-primary, .is-frozen .btn-secondary, .is-frozen .btn-ghost, .is-frozen .btn-sm { opacity: 0.45; }
 .is-frozen .freeze-banner, .is-frozen .freeze-banner * { pointer-events: auto; opacity: 1; }
+
+/* ── THE APPROVER QUEUE. Round 41 ──────────────────────────────────────────
+   A row per open request, carrying what it is waiting for and what the gate
+   says about it. NO NEW ACCENT: green is at-or-above-target everywhere else on
+   this build and it means "nothing to look at" here too; the warning takes the
+   ordinary foreground, which is the same absence-of-green the margin rule uses. */
+.queue-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--hairline);
+}
+.queue-row:last-child { border-bottom: none; }
+.queue-title { font-size: 14px; color: var(--white); }
+.queue-track {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border: 1px solid var(--hairline);
+  padding: 3px 8px;
+  margin-right: 6px;
+  white-space: nowrap;
+  color: var(--muted-2);
+}
+.queue-track--approved { color: var(--green); border-color: var(--hairline-strong); }
+.queue-track--rejected { color: var(--white); border-color: var(--hairline-strong); }
+.queue-ok, .queue-warn, .queue-kind {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+}
+.queue-ok { color: var(--green); }
+.queue-warn { color: var(--white); }
+.queue-kind { color: var(--muted-2); }

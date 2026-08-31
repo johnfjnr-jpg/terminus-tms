@@ -68,7 +68,7 @@ document.getElementById('btn-signout').addEventListener('click', async () => {
 })
 
 // ── Navigation ────────────────────────────────────────────────────────────────
-const ALL_VIEWS = ['leads', 'leads-legacy', 'contacts', 'contact-detail', 'accounts', 'account-detail', 'test-beds', 'test-bed-detail', 'opportunities', 'opportunity-detail', 'opportunity-approval']
+const ALL_VIEWS = ['leads', 'leads-legacy', 'contacts', 'contact-detail', 'accounts', 'account-detail', 'test-beds', 'test-bed-detail', 'opportunities', 'opportunity-detail', 'opportunity-approval', 'approvals']
 
 function showAuth() {
   document.getElementById('view-auth').classList.remove('hidden')
@@ -129,7 +129,8 @@ function navigate(view, id) {
   document.getElementById(`view-${view}`)?.classList.remove('hidden')
   document.querySelector(`.nav-link[data-view="${view}"]`)?.classList.add('active')
 
-  if (view === 'leads') loadContactsData()
+  if (view === 'approvals') loadApprovalsQueue()
+  else if (view === 'leads') loadContactsData()
   else if (view === 'leads-legacy') loadLegacyLeads()
   else if (view === 'contacts') loadContactsData()
   else if (view === 'contact-detail' && id) loadContactDetail(id)
@@ -6678,3 +6679,60 @@ window.addEventListener('beforeunload', e => {
   // in Chrome. The string is never displayed; browsers show their own wording.
   e.returnValue = ''
 })
+
+// ── THE APPROVER QUEUE. Round 41 ──────────────────────────────────────────
+//
+// Every open request with what it is WAITING FOR and what the gate says about
+// it. The criteria state is the same field the freeze banner reads, from the
+// same route, so the queue and the record cannot disagree about whether a
+// request was ever evaluated.
+//
+// NO DECIDE CONTROLS HERE, deliberately. They live on the record, and one
+// implementation is the point twice over: a second set would be two readers of
+// one request, and an approver deciding from a list is deciding without the
+// deal in front of them.
+async function loadApprovalsQueue() {
+  const el = document.getElementById('approvals-queue')
+  if (!el) return
+  el.innerHTML = '<p class="empty-state">Loading…</p>'
+  const r = await api('GET', '/api/transition-requests?status=open')
+  if (!r.ok) {
+    el.innerHTML = '<p class="msg-error">The approval queue could not be loaded.</p>'
+    return
+  }
+  const rows = r.data ?? []
+  if (!rows.length) {
+    el.innerHTML = '<p class="empty-state">Nothing is waiting on a decision.</p>'
+    return
+  }
+
+  // Reference codes come from the records the requests point at. One fetch,
+  // not one per row.
+  const recs = await api('GET', '/api/records?record_type=opportunity')
+  const byId = new Map((recs.ok ? recs.data ?? [] : []).map(x => [x.id, x]))
+
+  el.innerHTML = rows.map((req) => {
+    const rec = byId.get(req.record_id)
+    const decided = new Map((req.decisions ?? []).map(d => [d.track, d]))
+    const tracks = (req.required ?? []).map((t) => {
+      const d = decided.get(t)
+      const state = d ? (d.decision === 'approved' ? 'approved' : 'rejected') : 'waiting'
+      return `<span class="queue-track queue-track--${state}">${escHtml(t)} ${state}</span>`
+    }).join(' ')
+    const met = req.criteria === 'met'
+    const criteria = req.kind === 'review'
+      ? '<span class="queue-kind">Review only, nothing is blocked</span>'
+      : `<span class="${met ? 'queue-ok' : 'queue-warn'}">${met ? 'Exit criteria met' : 'Exit criteria NOT EVALUATED'}</span>`
+    return `
+      <div class="queue-row">
+        <div style="min-width:0">
+          <div class="queue-title">${escHtml(rec?.reference_code ?? req.record_id.slice(0, 8))}
+            &middot; ${escHtml(req.from_stage)} &rarr; ${escHtml(req.to_stage)}</div>
+          <div class="sa-approval-meta">Raised ${formatDate(req.requested_at)}</div>
+          <div style="margin-top:8px">${criteria}</div>
+          <div style="margin-top:8px">${tracks}</div>
+        </div>
+        <button class="btn-sm btn-secondary" onclick="navigate('opportunity-detail','${req.record_id}')">Open the record</button>
+      </div>`
+  }).join('')
+}

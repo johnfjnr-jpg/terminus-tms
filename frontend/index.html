@@ -61,6 +61,7 @@
       <button class="nav-link" data-view="accounts">Accounts</button>
       <button class="nav-link" data-view="test-beds">Test Beds</button>
       <button class="nav-link" data-view="opportunities">Opportunities</button>
+      <button class="nav-link" data-view="approvals">Approvals</button>
       <button class="nav-link-disabled" disabled>Product Management</button>
       <button class="nav-link-disabled" disabled>Asset Management</button>
       <button class="nav-link-disabled" disabled>Contractor Management</button>
@@ -1461,6 +1462,23 @@
       <p class="eyebrow">5. What is not recorded</p>
       <div id="appr-notrecorded"></div>
     </div>
+  </div>
+
+  <!-- ── THE APPROVER QUEUE. Round 41 ──────────────────────────────────────
+       Every open request, across every record, with what each is WAITING FOR
+       and what the gate says about it. A queue that lists requests without
+       saying either makes the approver open each one to find out.
+
+       THE DECIDE CONTROLS ARE NOT HERE. They live in the freeze banner on the
+       record, and one implementation is the point: a second set here would be
+       two readers of one request, and the approver would be deciding without
+       the record in front of them. -->
+  <div id="view-approvals" class="wrap hidden">
+    <div class="page-head">
+      <h1>Approvals</h1>
+      <p class="field-note">Transition requests waiting on a decision. A review request does not block anything; a transition request has frozen its record.</p>
+    </div>
+    <div id="approvals-queue" style="margin-top:24px"></div>
   </div>
 
   <div id="view-opportunity-detail" class="wrap hidden">

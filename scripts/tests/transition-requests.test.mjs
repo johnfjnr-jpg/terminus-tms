@@ -241,6 +241,40 @@ test('the tab-row control says what it now does', () => {
   assert.match(app, /r\.data\?\.blocking \?\? \[\]/)
 })
 
+test('THE QUEUE says what each request is waiting for, and carries no decide controls', () => {
+  const app = readCode(ROOT + 'frontend/app.js')
+  const html = readCode(ROOT + 'frontend/index.html')
+  const css = readCode(ROOT + 'frontend/style.css')
+
+  assert.match(html, /<button class="nav-link" data-view="approvals">Approvals<\/button>/)
+  assert.match(html, /<div id="view-approvals" class="wrap hidden">/)
+  assert.match(app, /'opportunity-approval', 'approvals'\]/, 'the view must be in ALL_VIEWS or it never hides')
+  assert.match(app, /if \(view === 'approvals'\) loadApprovalsQueue\(\)/)
+
+  // WHAT IT IS WAITING FOR and WHAT THE GATE SAYS, or the approver opens each
+  // one to find out.
+  assert.match(app, /Exit criteria NOT EVALUATED/)
+  assert.match(app, /queue-track--\$\{state\}/)
+  assert.match(app, /Review only, nothing is blocked/)
+
+  // NO DECIDE CONTROLS HERE. One implementation, on the record, so the queue and
+  // the banner cannot disagree, and nobody decides without the deal in front of
+  // them.
+  const queue = app.slice(app.indexOf('async function loadApprovalsQueue'))
+  assert.ok(!/decideRequest\(/.test(queue), 'the queue must not carry decide controls')
+  assert.match(queue, /navigate\('opportunity-detail'/)
+
+  // ONE FETCH FOR THE RECORDS, not one per row.
+  assert.match(queue, /const recs = await api\('GET', '\/api\/records\?record_type=opportunity'\)/)
+  assert.equal((queue.match(/await api\(/g) || []).length, 2)
+
+  // No new accent: green still means "nothing to look at" and the warning takes
+  // the ordinary foreground, the same absence-of-green the margin rule uses.
+  assert.match(css, /\.queue-ok \{ color: var\(--green\); \}/)
+  assert.match(css, /\.queue-warn \{ color: var\(--white\); \}/)
+  assert.ok(!/queue-warn[^}]*red/i.test(css))
+})
+
 test('the decide function is atomic, and says why in its own file', () => {
   const sql = readCode(ROOT + 'supabase/migrations/20260831000004_the_function_is_the_enforcement.sql')
   assert.match(sql, /for update/, 'the request row is locked, or two last approvals race')
