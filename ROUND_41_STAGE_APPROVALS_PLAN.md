@@ -357,8 +357,55 @@ foreclosed it.
    required whenever `status` becomes `rejected` or `withdrawn`, and that is a
    table check rather than a route rule.
 
-**Still with John:** the track approver names, and what happens to the 882
-pre-workflow approval rows beyond "the gate does not read them".
+## RULED 2026-08-31, second panel: BUILD AUTHORIZED
+
+5. **Track approvers are data.** A `track_approvers` table, seeded with John on
+   Commercial, Technical and Legal for every opportunity. **Roles per opportunity
+   are later work and populate the same table**, which is why `record_id` exists
+   on it now and is nullable: null means every record of that type, a value
+   scopes the approver to one.
+6. **The requester may never approve their own request, on any track. Kept.** The
+   walks use a second account as requester; John names it, or the probe account
+   is used.
+7. **The 882 pre-workflow approvals are history only.** No gate reads them. Open
+   opportunities re-approve through a request.
+8. **Withdraw is requester-only.** No admin concept is introduced, and the plan's
+   earlier "requester or an admin" is superseded by this.
+9. **Review requests** record responses with a reason, do not block, are visible
+   on the record and in the queue, and are **surfaced to approvers at the next
+   transition request**.
+10. **The request is the gate's front door.** Unmet exit criteria refuse the
+    REQUEST with the blockers list, exactly as Advance does today.
+
+### DEFERRED, NAMED NOW: Delegation of Responsibility
+
+**Recorded before the build starts, on the business's instruction, so it is not
+rediscovered as a gap.**
+
+DOR is built **with roles per opportunity, not now**. Its shape when it comes:
+**delegation as data** - from track, to person, reason, optional expiry -
+with approvals taken under it stamped **"under DOR from X"** in the queue, in the
+freeze banner and in the audit trail. **The self-approval rule applies under
+delegation**: a delegate who is also the requester still cannot approve.
+
+**The reason for deferring is the reason it is cheap to defer**: with one
+approver seeded on all three tracks there is no distinction for the data to
+express yet. `track_approvers` is shaped so DOR is a table pointing at it rather
+than a second kind of row in it.
+
+---
+
+## Build order, as authorized
+
+1. **the migration**, for John to apply, ask first
+2. **the triggers**, with the five-way calibration
+3. **the routes**
+4. **the client**
+5. **the approver seed** (in the migration, verified after it is applied)
+
+**Freeze coverage proven by the sixteen-endpoint test.** Commit and report at
+each boundary. **This phase gets its own walk: two sessions, requester and
+approver.**
 
 ---
 
