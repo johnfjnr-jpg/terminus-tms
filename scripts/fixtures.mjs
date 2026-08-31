@@ -104,7 +104,21 @@ export async function assertFresh(oppId, tag) {
   if (missing.length) {
     throw new Error(`fixture ${tag} is not fresh: creation did not apply ${missing.join(', ')}`)
   }
-  const wrong = Object.keys(expected).filter((k) => Number(payload[k]) !== Number(expected[k]))
+  // COMPARED BY TYPE, not by Number(). Round 41 W3: this read
+  // `Number(payload[k]) !== Number(expected[k])`, which was right while every
+  // default was numeric and BREAKS ON THE FIRST ONE THAT IS NOT - Number('USD')
+  // is NaN, NaN !== NaN is true, and every currency key would report as "a
+  // default that is not the configured one" on every fixture in the suite.
+  //
+  // A false failure rather than a false pass, so it would have been noticed
+  // immediately, but it is the same assumption the reader carried one layer
+  // down and it is worth fixing in the same change rather than after the gate
+  // goes red. Architecture 8: correct for every caller that exists.
+  const same = (a, b) => {
+    const na = Number(a), nb = Number(b);
+    return (Number.isFinite(na) && Number.isFinite(nb)) ? na === nb : String(a) === String(b);
+  };
+  const wrong = Object.keys(expected).filter((k) => !same(payload[k], expected[k]))
   if (wrong.length) {
     throw new Error(`fixture ${tag} carries a default that is not the configured one: ${wrong.join(', ')}`)
   }

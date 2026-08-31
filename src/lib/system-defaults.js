@@ -41,7 +41,17 @@
 // caller supplies it; when it is not, the term is left ABSENT rather than
 // guessed, because guessing here would be a fallback wearing an initial value's
 // clothes.
-export const DEFAULT_KEYS = ['targetMargin', 'warrantyPct', 'duration', 'recoveryMonths', 'factoringTermMonths'];
+// ── A DEFAULT IS NOT ALWAYS A NUMBER. Round 41 W3 ──────────────────────────
+//
+// Every key here was a number until bidCurrency and proposalCurrency arrived,
+// and `system_defaults.value` was `numeric not null` to match. It is `text` now,
+// which holds '36' and 'USD' alike, and readSystemDefaults decides per row.
+//
+// THE CURRENCY KEYS ARE UNCONDITIONAL. Every deal is priced in some currency,
+// unlike a recovery period, which exists only on a two-phase deal. So they are
+// deliberately NOT in CONDITIONAL_KEYS, and the test asserting that creation
+// writes exactly the unconditional keys is what holds the two lists in step.
+export const DEFAULT_KEYS = ['targetMargin', 'warrantyPct', 'duration', 'recoveryMonths', 'factoringTermMonths', 'bidCurrency', 'proposalCurrency'];
 
 /**
  * The keys whose field only exists on some deals, so their initial value cannot
@@ -66,8 +76,22 @@ export async function readSystemDefaults(db) {
   if (error) throw new Error(`system_defaults unreadable: ${error.message}`);
   const out = {};
   for (const row of data ?? []) {
-    const n = Number(row.value);
-    if (Number.isFinite(n)) out[row.key] = n;
+    // A NUMBER WHEN IT IS ONE, THE STRING OTHERWISE. Round 41 W3.
+    //
+    // This read `if (Number.isFinite(n)) out[row.key] = n` and DROPPED anything
+    // else, which was correct while every default was a number and would have
+    // silently discarded 'USD' the moment one was not. The drop is the part
+    // that mattered: a currency default would have been configured, stored, and
+    // absent from every new deal, with nothing anywhere reporting a problem.
+    //
+    // The empty guard is not decoration: Number('') is 0 and Number(null) is 0,
+    // so without it a blank default would arrive as a confident zero. That is
+    // Architecture 11's own fault shape, a fallback wearing an initial value's
+    // clothes, arriving through the coercion rather than through the read.
+    const raw = row.value;
+    const blank = raw === null || raw === undefined || String(raw).trim() === '';
+    const n = Number(raw);
+    out[row.key] = (!blank && Number.isFinite(n)) ? n : raw;
   }
   return out;
 }

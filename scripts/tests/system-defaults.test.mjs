@@ -9,10 +9,14 @@ import {
   CONDITIONAL_KEYS,
   frozenTerms,
   frozenTermsSentences,
+  readSystemDefaults,
 } from '../../src/lib/system-defaults.js'
 
 const ROOT = new URL('../../', import.meta.url).pathname
-const D = { targetMargin: 30, warrantyPct: 2, duration: 36, recoveryMonths: 12, factoringTermMonths: 12 }
+// Round 41 W3: the currency keys are here because the table holds them, and
+// they are NOT numbers, which is the first time this fixture has carried one.
+const D = { targetMargin: 30, warrantyPct: 2, duration: 36, recoveryMonths: 12, factoringTermMonths: 12,
+  bidCurrency: 'USD', proposalCurrency: 'USD' }
 
 test('a new deal carries the defaults in its own payload', () => {
   // The whole point of Architecture 11: after this, the numbers are ORDINARY
@@ -343,4 +347,65 @@ test('the migration carries its own ledger row', () => {
   // Idempotent per Architecture 7.
   assert.match(sql, /create table if not exists/)
   assert.match(sql, /on conflict \(key\) do nothing/)
+})
+
+// ─────────────────────────────────────────────────────────────
+// A DEFAULT THAT IS NOT A NUMBER. Round 41 W3
+// ─────────────────────────────────────────────────────────────
+//
+// CLAUDE.md Verification 24: a default makes a parameter invisible, so exercise
+// it with a second value. Stated for a TYPE rather than a parameter here, and it
+// is the same fault. Every key this table has ever held was a number, and
+// readSystemDefaults coerced with `if (Number.isFinite(n)) out[key] = n` and
+// DROPPED anything else. That was correct for every key that existed and would
+// have silently discarded 'USD' the moment one did not.
+//
+// The drop is what made it dangerous rather than merely wrong: a currency
+// default would have been configured by an admin, stored in the table, and
+// absent from every new deal, with nothing anywhere reporting a problem. The
+// same shape as the one this round is fixing, arriving one layer lower.
+
+test('a non-numeric default survives the reader, and a numeric one is still a number', async () => {
+  // The shipped reader, over a stub client. No database: the claim is about the
+  // coercion, and reaching for Postgres would test PostgREST's serialisation.
+  const stub = (rows) => ({ from: () => ({ select: async () => ({ data: rows, error: null }) }) })
+  const out = await readSystemDefaults(stub([
+    { key: 'duration', value: '36' },
+    { key: 'bidCurrency', value: 'USD' },
+  ]))
+  assert.equal(out.duration, 36, 'a numeric default must still arrive as a number')
+  assert.equal(typeof out.duration, 'number')
+  assert.equal(out.bidCurrency, 'USD', 'a currency default must survive the coercion')
+  assert.equal(typeof out.bidCurrency, 'string')
+})
+
+test('a blank default does not arrive as a confident zero', () => {
+  // Number('') is 0 and Number(null) is 0, so a guard-free coercion turns an
+  // empty default into a real value. Architecture 11's own fault shape - a
+  // fallback wearing an initial value's clothes - arriving through the coercion
+  // rather than through the read.
+  const stub = (rows) => ({ from: () => ({ select: async () => ({ data: rows, error: null }) }) })
+  return readSystemDefaults(stub([
+    { key: 'a', value: '' }, { key: 'b', value: '   ' }, { key: 'c', value: null },
+  ])).then((out) => {
+    for (const k of ['a', 'b', 'c']) {
+      assert.notEqual(out[k], 0, `a blank default arrived as the number 0 under key ${k}`)
+    }
+  })
+})
+
+test('creation writes both currencies, and they are ordinary values afterwards', () => {
+  // The W3 finding, as an assertion. An opportunity created on the walk carried
+  // six keys and neither currency, so the person chose the bid currency by hand
+  // and never chose a proposal currency, which recorded as an explicit null.
+  const p = initialPayload(D)
+  assert.equal(p.bidCurrency, 'USD')
+  assert.equal(p.proposalCurrency, 'USD')
+
+  // AND CLEARING STILL CLEARS. Architecture 11's second half: after creation the
+  // value is an ordinary recorded figure, so a deal that has had its currency
+  // removed must not have it written back. Nothing here is consulted at read,
+  // which is what the call-site count test above holds in place.
+  assert.deepEqual(initialPayload({ targetMargin: 25 }), { targetMargin: 25 },
+    'an unconfigured currency must not be substituted from anywhere')
 })

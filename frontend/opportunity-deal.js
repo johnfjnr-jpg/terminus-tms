@@ -1684,8 +1684,32 @@ function populateForm(payload) {
   // the record, not a fallback in the read.
   //
   // Measured: bidCurrency and proposalCurrency are absent on 561 of 570
-  // opportunities. Those stay absent and render as absent. USD is written at
-  // CREATION for new records, and the next save of an old one writes nothing.
+  // opportunities. Those stay absent and render as absent, and the next save of
+  // an old one writes nothing.
+  //
+  // ── THE SENTENCE THAT USED TO SIT HERE WAS FALSE FOR A DAY. Round 41 W3 ──
+  //
+  // It said "USD is written at CREATION for new records". Round 41 item 3 wrote
+  // that while removing the fallback above AND DID NOT ADD THE WRITE:
+  // DEFAULT_KEYS held five keys, none of them a currency, and
+  // system_defaults.value was `numeric not null`, so the table could not have
+  // held 'USD' even if the key had been listed.
+  //
+  // So the round removed the read-side fallback, left the write side unbuilt,
+  // and documented the gap as closed. A walk created an opportunity, found no
+  // currency on it, picked the bid currency by hand and never picked a proposal
+  // currency, which then recorded as an explicit null.
+  //
+  // Architecture 9's fourth variant with the sharpest provenance available: a
+  // plan recorded in the same voice as a fact, in the same commit that created
+  // the need for it. The build discipline 11 shape, "hosted on Render", at
+  // function scope.
+  //
+  // It is now TRUE, and the thing that makes it true is a row in a table rather
+  // than this sentence: system_defaults carries bidCurrency and
+  // proposalCurrency, DEFAULT_KEYS lists them, and initialPayload writes them at
+  // creation. If somebody deletes those rows the claim goes false again, which
+  // is why the assertion lives in system-defaults.test.mjs and not here.
   //
   // The empty option is a real option, so a <select> with no stored value lands
   // on it rather than on the first currency in the list, which is the same
