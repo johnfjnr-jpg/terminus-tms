@@ -14,7 +14,8 @@
 // the state immediately before the thing that is supposed to change it.
 
 import { readFileSync } from 'fs'
-import { freshOpportunity, tearDown } from './fixtures.mjs'
+const SESSION = JSON.parse(readFileSync(new URL('../session-ref.json', import.meta.url).pathname, 'utf8'))
+import { freshOpportunity, tearDown, admin } from './fixtures.mjs'
 
 import { api, ApiError } from './api-client.mjs'
 import { catalogToRates } from '../src/lib/base-costs.js'
@@ -124,10 +125,29 @@ record('and it is not approved yet', listed?.approval?.state === 'none',
   `state=${listed?.approval?.state}`)
 
 // ── Approve it, at the revision it names ───────────────────────────────────
-const appr = await api('POST', `/records/${oppId}/approvals`,
-  { track: 'Commercial', decision: 'approved', comment: 'probe' })
-record('an approval is recorded', appr.status === 200 || appr.status === 201,
-  `-> ${appr.status} ${appr.ok ? `at revision ${appr.data?.revision_number}` : JSON.stringify(appr.data)}`)
+//
+// WRITTEN AS A FIXTURE, NOT THROUGH A ROUTE. Round 41 item A: this used
+// POST /records/:id/approvals, which the stage approvals workflow superseded for
+// Opportunity and which now answers 409. The probe found out by failing the
+// gate, which is rule 41's census arriving from the direction the rule did not
+// name - the callers of a superseded route are not only in the frontend.
+//
+// THE WORKFLOW PATH CANNOT REPLACE IT HERE, and that is the reason for the
+// fixture rather than a preference: deciding a request requires an approver who
+// is NOT the requester, and this probe has one identity. What it is testing is
+// versionApprovalState - whether a revision after an approval voids it - and how
+// the row got into `approvals` is setup, not the claim.
+//
+// The shape mirrors exactly what the route used to write, so the evaluator sees
+// what it has always seen.
+const stageNow = (await api('GET', `/opportunities/${oppId}`)).data?.status
+const apprIns = await admin().from('approvals').insert({
+  record_id: oppId, stage: stageNow, revision_number: atRev, track: 'Commercial',
+  tier: null, approver_id: SESSION.user.id, decision: 'approved', comment: 'probe fixture',
+  decided_at: new Date().toISOString(),
+}).select('revision_number').single()
+record('an approval is recorded', !apprIns.error,
+  apprIns.error ? apprIns.error.message : `at revision ${apprIns.data.revision_number}`)
 
 const approvedState = await stateOf(vid)
 record('approving that revision approves the version', approvedState === 'approved',
@@ -155,7 +175,12 @@ const v2 = await api('POST', `/opportunities/${oppId}/deal-sheet-versions`,
   { inputs: { ...BASE, targetMargin: 24, duration: 36 },
     rates: priced({ ...BASE, targetMargin: 24, duration: 36 }),
     reason: 'repriced after approval', expected_revision: nowRev })
-await api('POST', `/records/${oppId}/approvals`, { track: 'Commercial', decision: 'approved', comment: 'probe 2' })
+// Same fixture write as above, and for the same reason.
+await admin().from('approvals').insert({
+  record_id: oppId, stage: stageNow, revision_number: nowRev, track: 'Commercial',
+  tier: null, approver_id: SESSION.user.id, decision: 'approved', comment: 'probe fixture 2',
+  decided_at: new Date().toISOString(),
+})
 record('a new version approved at the current revision reads approved',
   (await stateOf(v2.data?.id)) === 'approved', `state=${await stateOf(v2.data?.id)}`)
 record('and the superseded one STAYS superseded',

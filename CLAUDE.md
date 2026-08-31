@@ -612,6 +612,11 @@ Record what each option's stated advantage DEPENDS ON. A premise that fails
 means the decision is re-taken, not re-weighed, and the superseded reasoning
 stays visible.
 
+**BEFORE SUPERSEDING A ROUTE** - Verification 41
+List every frontend caller of the old route in the report, with a disposition
+each: removed, refused, or kept-and-why. And make the old route refuse, because
+callers are found by looking and a refusal is found by testing.
+
 **BEFORE CALLING A BOUNDARY GREEN** - Verification 40
 Every route the boundary added OR MODIFIED is exercised from outside over HTTP,
 as the signed-in user, on the SUCCESS path, asserting the new behaviour rather
@@ -1822,6 +1827,64 @@ of the change. An unanswerable precondition is a stop.
     is the direction: rule 8 is an unchanged path meeting a new demand. **This is
     a CHANGED path meeting its existing demand**, with nothing outside the
     process to notice that it had stopped meeting it.
+
+41. **WHEN A ROUTE IS SUPERSEDED FOR A RECORD TYPE, THE ROUND REPORT LISTS EVERY
+    FRONTEND CALLER OF THAT ROUTE AND STATES ITS DISPOSITION.** Set by the
+    business 2026-08-31, Round 41, from walk finding A.
+
+    > Superseding a route is not finished when the new route works. It is
+    > finished when every caller of the old one has been found and each has been
+    > **removed, refused, or deliberately kept with the reason written down.**
+
+    **THE INSTANCE.** The stage approvals workflow replaced
+    `POST /records/:id/approvals` for Opportunity across five migrations and
+    three phases. **The old route was never touched, and a live control on the
+    Opportunity stage panel kept calling it.**
+
+    What that cost, and none of it announced itself:
+
+    - The walk's approve click returned *"An approval decision from you already
+      exists for this revision and track"* - the OLD route's 23505 message,
+      refusing a duplicate of its own earlier row. Three plausible causes were
+      proposed and **all three were wrong**, because everybody was looking at the
+      workflow.
+    - **Every row it wrote satisfied no gate.** For a workflow record type
+      `approvalSatisfiesRule` returns `requestApprovals.has(track)` and never
+      reaches the stage or revision branches. The rows looked like approvals,
+      were stored as approvals, and did nothing.
+    - **It had no identity check beyond being signed in**, so the record's owner
+      approved their own transitions through it five times - the single rule the
+      workflow exists to enforce.
+
+    **A SUPERSEDED ROUTE DOES NOT GO QUIET. It goes on working**, which is worse
+    than breaking: a route that 500s is found in a minute, and one that returns
+    201 for a write nothing reads is found by a walk, or not at all.
+
+    **The check is a list, in the report, with a disposition per row.** Not "the
+    callers were updated": the enumeration itself is the instrument, the same way
+    Round 40's control census was. Grep for the path, and for every hit say
+    removed, refused, or kept-and-why.
+
+    **AND "FRONTEND" IS TOO NARROW, corrected within the hour of writing this.**
+    The rule was set as "every frontend caller" and the frontend census came back
+    complete. The gate then went red on `probe-version-approval.mjs`, which had
+    been calling the superseded route twice to set up its fixtures - **a caller
+    the rule as phrased did not ask about.** Verification 37 exactly: a rule that
+    names a mechanism polices the mechanism, and "frontend" was one route to the
+    effect. **Grep the whole repository**, and the disposition list covers probes,
+    tests and scripts as well as screens.
+
+    **AND THE OLD ROUTE ITSELF REFUSES**, rather than relying on no caller
+    reaching it. Callers are found by looking; a refusal is found by testing.
+    Round 41 made it a 409 conditional on the same `WORKFLOW_RECORD_TYPES` list
+    the evaluator branches on, so the screen and the route cannot disagree, and
+    an HTTP probe proves it refuses for one record type and still works for the
+    other.
+
+    Nearest neighbour is Verification 23, two correct decisions about the same
+    question taken in different rounds. **This is two correct ROUTES for the same
+    action**, and the same signature: each is defensible on its own terms, and
+    nothing in either one knows the other exists.
 
 ### At round close: index these by when they apply
 

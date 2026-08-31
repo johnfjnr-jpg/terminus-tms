@@ -692,7 +692,7 @@ async function renderOppStageApprovals(recordId, stageName, isStillCurrent = () 
   }
   const entry = (result.data ?? []).find(st => st.stage_name === stageName)
   el.innerHTML = entry
-    ? buildStageTrackListHtml(recordId, entry)
+    ? buildStageTrackListHtml(recordId, entry, 'opportunity')
     : '<p class="empty-state">Unknown stage.</p>'
 }
 
@@ -5634,7 +5634,7 @@ async function renderTbStageApprovals(stageName, isStillCurrent = () => true) {
     // shows exactly one stage and sits next to a dedicated Exit Criteria
     // panel repeating the same text. The tracks are rendered directly.
     row.innerHTML = stageEntry
-      ? buildStageTrackListHtml(currentTestBed.id, stageEntry)
+      ? buildStageTrackListHtml(currentTestBed.id, stageEntry, 'test_bed')
       : '<p class="empty-state">Unknown stage.</p>'
   }
   markStagePanelSettled(row, stageName)
@@ -6253,7 +6253,7 @@ async function renderOppDetail(opp) {
 // second, parallel implementation of it.
 const stageApprovalsContainerByRecord = {}
 
-async function loadStageApprovals(id, containerId = 'opp-stage-approvals-rows') {
+async function loadStageApprovals(id, containerId = 'opp-stage-approvals-rows', recordType = 'test_bed') {
   stageApprovalsContainerByRecord[id] = containerId
   const container = document.getElementById(containerId)
   // Round 21 Phase 5: the default names Opportunity's all-stages table,
@@ -6268,7 +6268,7 @@ async function loadStageApprovals(id, containerId = 'opp-stage-approvals-rows') 
     container.innerHTML = '<p class="empty-state">Failed to load stage approvals.</p>'
     return
   }
-  renderStageApprovalsRows(id, result.data, containerId)
+  renderStageApprovalsRows(id, result.data, containerId, recordType)
 }
 
 // Round 5 Phase 7 (2026-08-17): the single-stage row markup extracted
@@ -6286,7 +6286,16 @@ async function loadStageApprovals(id, containerId = 'opp-stage-approvals-rows') 
 // this app to gate WHO specifically may click one - restricted to the
 // current stage only, a UX judgment call on real data (record.status),
 // not a fabricated permission system.
-function buildStageApprovalRowHtml(recordId, st) {
+// The all-stages table's row. Round 41 item A: it takes recordType for the same
+// reason buildStageTrackListHtml does, and required for the same reason. This
+// one reaches Test Bed today through loadStageApprovals; if a workflow record
+// type ever routes here, the control must be inert rather than inherited.
+function buildStageApprovalRowHtml(recordId, st, recordType) {
+  if (recordType === undefined) {
+    throw new Error('buildStageApprovalRowHtml: recordType is required, for the same reason '
+      + 'buildStageTrackListHtml requires it.')
+  }
+  const superseded = window.usesWorkflow(recordType)
   const dotColor = st.state === 'current' ? 'var(--green)' : st.state === 'completed' ? 'var(--muted)' : 'var(--muted-2)'
   const rowOpacity = st.state === 'upcoming' ? '0.55' : '1'
 
@@ -6296,11 +6305,12 @@ function buildStageApprovalRowHtml(recordId, st) {
 
   const approversHtml = st.tracks.length
     ? st.tracks.map(t => {
-        const clickable = st.state === 'current' && !t.approved
+        const clickable = !superseded && st.state === 'current' && !t.approved
         const rowClass = `sa-approval-row${t.approved ? ' approved' : ''}${clickable ? ' clickable' : ''}`
         const onclick = clickable ? `onclick="submitStageApproval('${recordId}','${escHtml(t.track)}')"` : ''
         const meta = t.approved
           ? `Approved ${formatDate(t.decided_at)}`
+          : superseded ? 'Decided on the transition request'
           : (st.state === 'current' ? 'Click to approve' : '')
         return `
         <div class="${rowClass}" ${onclick}>
@@ -6332,13 +6342,39 @@ function buildStageApprovalRowHtml(recordId, st) {
 // Both still read the same GET /records/:id/stage-approvals data and the
 // same clickable rule - a track is only tickable at the record's real
 // current stage.
-function buildStageTrackListHtml(recordId, st) {
+// ── THE PRE-WORKFLOW APPROVE CONTROL, Round 41 item A ─────────────────────
+//
+// `recordType` is a required parameter now, and it is required rather than
+// defaulted deliberately. This control posts to POST /records/:id/approvals,
+// which the stage approvals workflow SUPERSEDED for Opportunity, and the third
+// walk found it still live: an approve click returned "An approval decision from
+// you already exists for this revision and track", which is that route's 23505
+// message refusing a duplicate of its own earlier row.
+//
+// Every row it wrote on an Opportunity satisfied NO gate, because
+// approvalSatisfiesRule reads requestApprovals for a workflow record type and
+// never reaches the stage or revision branches. And it had no identity check, so
+// the record's owner approved their own transitions through it five times.
+//
+// A DEFAULT WOULD HAVE HIDDEN THE INCOMPLETE CHANGE. Verification 24: with
+// `recordType = 'test_bed'` as a default, a caller that forgot to pass it would
+// keep the clickable control on an Opportunity and nothing would say so.
+function buildStageTrackListHtml(recordId, st, recordType) {
+  if (recordType === undefined) {
+    throw new Error('buildStageTrackListHtml: recordType is required. It decides whether the '
+      + 'pre-workflow approve control may be clicked, and a default would hide a missed call site.')
+  }
   if (!st.tracks.length) return '<p class="empty-state">No approvals required for this stage.</p>'
+  const superseded = window.usesWorkflow(recordType)
   return st.tracks.map(t => {
-    const clickable = st.state === 'current' && !t.approved
+    const clickable = !superseded && st.state === 'current' && !t.approved
     const onclick = clickable ? `onclick="submitStageApproval('${recordId}','${escHtml(t.track)}')"` : ''
+    // WHAT IT SAYS INSTEAD OF "Click to approve". Not a blank: a row that reads
+    // approved-or-nothing on a record whose approvals live somewhere else is the
+    // shape that sent a person clicking in the first place.
     const meta = t.approved
       ? `Approved ${formatDate(t.decided_at)}`
+      : superseded ? 'Decided on the transition request'
       : (st.state === 'current' ? 'Click to approve' : 'Not yet at this stage')
     return `
     <div class="sa-approval-row${t.approved ? ' approved' : ''}${clickable ? ' clickable' : ''}" ${onclick}>
@@ -6351,7 +6387,7 @@ function buildStageTrackListHtml(recordId, st) {
   }).join('')
 }
 
-function renderStageApprovalsRows(recordId, stages, containerId = 'opp-stage-approvals-rows') {
+function renderStageApprovalsRows(recordId, stages, containerId = 'opp-stage-approvals-rows', recordType = 'test_bed') {
   const container = document.getElementById(containerId)
   if (!container) return
   if (!stages.length) {
@@ -6359,7 +6395,7 @@ function renderStageApprovalsRows(recordId, stages, containerId = 'opp-stage-app
     return
   }
 
-  container.innerHTML = stages.map(st => buildStageApprovalRowHtml(recordId, st)).join('')
+  container.innerHTML = stages.map(st => buildStageApprovalRowHtml(recordId, st, recordType)).join('')
 }
 
 // Round 5 Phase 7 (2026-08-17): a real bug caught before it shipped, not

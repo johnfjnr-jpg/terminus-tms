@@ -2998,6 +2998,11 @@ opened it. -->
   // for. Published on the same bridge and for the same reason as the two above.
   const { closeDateNeedsReason } = await import('/lib/opportunity-dates.js')
   window.closeDateNeedsReason = closeDateNeedsReason
+  // Round 41 item A: the same list the SERVER branches on, so the screen and
+  // the route cannot disagree about which record types the pre-workflow
+  // approve control still applies to.
+  const { usesWorkflow } = await import('/lib/transition-requests.js')
+  window.usesWorkflow = usesWorkflow
 </script>
 <script type="module" src="/opportunity-deal.js"></script>
 <script src="/opportunity-approval.js"></script>

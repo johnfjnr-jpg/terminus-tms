@@ -22,6 +22,8 @@
 import { test, before } from 'node:test'
 import assert from 'node:assert/strict'
 import { adminClient } from '../verify-harness.mjs'
+import { readdirSync } from 'node:fs'
+import { readCode } from '../lib/strip-comments.mjs'
 
 let db
 let rules, stages, refDocs, tracks
@@ -730,4 +732,40 @@ test('and the real control still sits on that transition', async () => {
   assert.ok(commercial, 'Proposal -> Evaluation has no Commercial approval rule')
   assert.equal(commercial.requirement_detail.scope, 'version',
     'the Commercial rule that replaced the tick must be the one that reads live approval state')
+})
+
+// ─────────────────────────────────────────────────────────────
+// INVARIANT: nothing branches on approvals.inert_reason. Round 41 item A
+// ─────────────────────────────────────────────────────────────
+//
+// The column is DOCUMENTARY. It says why an approval decides nothing; it is not
+// what makes it decide nothing. What makes it inert is approvalSatisfiesRule,
+// which returns requestApprovals.has(track) for a workflow record type and never
+// reaches the stage or revision branches.
+//
+// A nullable "does this count" field beside an approval is one refactor away
+// from becoming a SECOND mechanism for deciding whether an approval counts,
+// sitting beside the evaluator and drifting from it. Verification 20 at design
+// level, and Verification 23's remedy applies: one would have to become a caller
+// of the other, and the answer here is that there is only ever one.
+//
+// This is the condition of the column existing, so it is asserted rather than
+// promised in a comment.
+
+test('INVARIANT: no evaluator reads approvals.inert_reason', () => {
+  const roots = ['src/lib/', 'src/routes/', 'frontend/']
+  const offenders = []
+  for (const dir of roots) {
+    for (const f of readdirSync(new URL(`../../${dir}`, import.meta.url).pathname)) {
+      if (!/\.(js|mjs)$/.test(f)) continue
+      // Read through the comment stripper, Verification 39: this rule is
+      // discussed at length in prose, and a raw scan would report every file
+      // that explains the rule as a file that breaks it.
+      const code = readCode(new URL(`../../${dir}${f}`, import.meta.url))
+      if (code.includes('inert_reason')) offenders.push(dir + f)
+    }
+  }
+  assert.deepEqual(offenders, [],
+    'inert_reason is documentary. A file that reads it is a second mechanism for deciding '
+    + 'whether an approval counts, beside approvalSatisfiesRule:\n  ' + offenders.join('\n  '))
 })

@@ -43,7 +43,10 @@
 // moment the destructure is wrong again.
 
 import { api, ApiError } from './api-client.mjs'
-import { freshOpportunity, freshTestBed, tearDown } from './fixtures.mjs'
+import { freshOpportunity, freshTestBed, tearDown, admin } from './fixtures.mjs'
+import { readFileSync } from 'fs'
+const SESSION_USER_ID = JSON.parse(
+  readFileSync(new URL('../session-ref.json', import.meta.url).pathname, 'utf8')).user?.id
 
 const results = []
 function record(label, pass, detail) {
@@ -184,6 +187,67 @@ for (const c of CASES) {
   record('close date: a move DOES increment the moves counter',
     (afterMove.closeMoves ?? 0) === (afterFirst.closeMoves ?? 0) + 1,
     `closeMoves ${afterFirst.closeMoves ?? 0} -> ${afterMove.closeMoves ?? 0}`)
+}
+
+// ═════════════════════════════════════════════════════════════
+// ROUTE 3: the SUPERSEDED approvals route. Round 41 item A
+// ═════════════════════════════════════════════════════════════
+//
+// POST /records/:id/approvals predates the stage approvals workflow and stayed
+// wired to a live control on the Opportunity stage panel. It must now refuse for
+// a record type that uses the workflow, and must still work for one that does
+// not - the second half is what stops this passing against a route that simply
+// stopped accepting anything. Verification 17.
+//
+// AND THE OWNER MAY NOT APPROVE, on either type. That check is measured
+// separately because it fires FIRST for a Test Bed the probe owns, which is the
+// only kind it can create.
+{
+  const cases = [
+    { type: 'opportunity', id: idFor.opportunity, expect: 409, why: 'superseded by the workflow' },
+    { type: 'test_bed', id: idFor.test_bed, expect: 403, why: 'the probe owns the record it created' },
+  ]
+  for (const c of cases) {
+    let status, body
+    try {
+      body = (await api('POST', `/records/${c.id}/approvals`, { track: 'Commercial', decision: 'approved' })).data
+      status = 201
+    } catch (e) {
+      if (!(e instanceof ApiError)) throw e
+      status = e.status; body = e.body
+    }
+    record(`superseded approvals route: ${c.type} -> ${c.expect} (${c.why})`, status === c.expect,
+      `-> ${status} ${JSON.stringify((body?.error ?? '').slice(0, 64))}`)
+  }
+
+  // THE DISCRIMINATING HALF. A Test Bed the probe does NOT own must reach the
+  // insert, which proves the route is alive rather than universally refusing.
+  // Ownership is the only thing separating this call from the 403 above.
+  const notMine = (await api('GET', '/test-beds')).data
+    ?.find((r) => r.owner_id && r.owner_id !== SESSION_USER_ID)
+  if (!notMine) {
+    record('superseded approvals route: a test bed owned by somebody else exists to try', false,
+      'none found, so the alive-half of this check could not run')
+  } else {
+    let status, body
+    try {
+      body = (await api('POST', `/records/${notMine.id}/approvals`, { track: 'Commercial', decision: 'approved' })).data
+      status = 201
+    } catch (e) {
+      if (!(e instanceof ApiError)) throw e
+      status = e.status; body = e.body
+    }
+    // 201 is the route working. A 403 from RLS is also acceptable evidence that
+    // it got past the two checks above and reached the database, and is reported
+    // as such rather than counted as the same thing.
+    record('superseded approvals route: test_bed is still ALIVE, not universally refused',
+      status === 201 || (status === 403 && !/you own this record/i.test(body?.error ?? '')),
+      `-> ${status} ${JSON.stringify((body?.error ?? '').slice(0, 64))}`)
+    if (status === 201 && body?.id) {
+      await admin().from('approvals').delete().eq('id', body.id)
+      record('superseded approvals route: the probe row is removed again', true, `approval ${body.id.slice(0, 8)} deleted`)
+    }
+  }
 }
 
 const { removed } = await tearDown()
