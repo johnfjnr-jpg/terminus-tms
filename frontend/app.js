@@ -524,6 +524,20 @@ function renderOppStageTabs(stages, currentStage) {
   const host = document.getElementById('view-opportunity-detail')
   if (!strip || !host) return
 
+  // ── CAPTURED BEFORE THE REBUILD, AND THE POSITION IS THE FIX ────────────
+  //
+  // Round 41, X1. This line must sit ABOVE the two removals below, and the
+  // first attempt at this correction put it at the BOTTOM of the function -
+  // after the rebuild it exists to survive. It read undefined every time and
+  // behaved identically to the version it was replacing.
+  //
+  // Caught by the widened probe still failing all four cases with the "fix"
+  // applied, which is the argument for writing the probe first: an unchanged
+  // failure after a change that looks correct is evidence the change never
+  // reached the code path. Architecture 9's diagnostic signature, and it fired
+  // against the person who wrote that sentence into this file.
+  const selectedBeforeRebuild = oppTabStrip.current()
+
   const stageTabs = (stages ?? []).filter(s => !s.reachable_from_any_stage)
 
   // Remove the previous record's generated tabs and panels before adding
@@ -668,6 +682,8 @@ function renderOppStageTabs(stages, currentStage) {
   wireOppNextStageButton(currentStage, stages)
   markOppCurrentStageTab(currentStage)
 
+
+
   // ── A RE-RENDER MUST LEAVE A TAB SELECTED. Round 41 walk item D ─────────
   //
   // THE MEASUREMENT. Before a transition: six panels, one visible. After a
@@ -694,10 +710,26 @@ function renderOppStageTabs(stages, currentStage) {
   //
   // GUARDED ON current(), so it never overrides a selection a caller has
   // already made. It restores a lost one; it does not impose one.
-  if (!oppTabStrip.current()) {
+  //
+  // THREE OUTCOMES, IN ORDER OF WHOSE INTENT THEY HONOUR:
+  //
+  //   the tab the person had open, if it still exists after the rebuild
+  //   the record's current stage, when nothing was open or the tab is gone
+  //   Reference, when even that has no tab (a stage list that changed)
+  //
+  // The middle case is what a stage list changing under a person produces: the
+  // tab they were on no longer exists, so there is nothing to preserve and the
+  // record's own stage is the only defensible landing place.
+  const stillExists = (key) => !!key && !!document.querySelector(`[data-opp-tab="${key}"]`)
+  if (stillExists(selectedBeforeRebuild)) {
+    // Re-selected even though a static tab may still carry .active from before
+    // the rebuild: select() is idempotent, and re-running it re-reveals the
+    // pane, which a generated tab needs because its panel was just recreated
+    // hidden.
+    oppTabStrip.select(selectedBeforeRebuild)
+  } else {
     const stageKey = oppStageTabKey(currentStage)
-    const hasStageTab = !!document.querySelector(`[data-opp-tab="${stageKey}"]`)
-    oppTabStrip.select(hasStageTab ? stageKey : 'reference')
+    oppTabStrip.select(stillExists(stageKey) ? stageKey : 'reference')
   }
 }
 
@@ -1144,7 +1176,7 @@ function renderOppFreezeBanner(recordId) {
     const d = decided.get(t)
     const state = d ? (d.decision === 'approved' ? 'Approved' : 'Rejected') : 'Waiting'
     const buttons = d || !mayDecide.has(t) ? '' : `
-      <button class="btn-sm btn-primary" onclick="decideRequest('${req.id}','${escHtml(t)}','approved','${recordId}')">Approve</button>
+      <button class="btn-sm btn-primary btn-accept" onclick="decideRequest('${req.id}','${escHtml(t)}','approved','${recordId}')">Approve</button>
       <button class="btn-sm btn-ghost" onclick="decideRequest('${req.id}','${escHtml(t)}','rejected','${recordId}')">Reject</button>`
     // A WAITING TRACK YOU CANNOT DECIDE STILL SAYS SO, rather than showing a
     // bare "Waiting" beside three tracks that have buttons. Silence there reads
@@ -1639,14 +1671,34 @@ function noteRevisionFromResponse(path, data) {
   // at", rather than by giving the approval page its own tracker. Verification
   // 20: a second reader of the loaded revision is the thing this function exists
   // to prevent.
-  const rev = data?.revision_number ?? data?.meta?.revisionNumber
+  // ── THE THIRD KEY. Round 41, fourth walk X3 ─────────────────────────────
+  //
+  // `latest_revision_number` is what every GET carries, and this function read
+  // neither it nor meta.revisionNumber. So the holder was written ONCE at record
+  // load and thereafter only by this session's own writes: a record advanced by
+  // anybody else left it frozen, and issuing a version was refused against a
+  // number 18 revisions old. Record at 24, version would have recorded 6.
+  //
+  // The version path was never a second reader. It sends
+  // window.getOppLoadedRevision() like every other write. The gap was that a
+  // READ could not update the one holder, which is why the fix is one line in
+  // one reader rather than another route added to a list.
+  //
+  // THREE SPELLINGS OF ONE FACT, and naming all three here is the point: a write
+  // answers `revision_number`, the approval page answers `meta.revisionNumber`,
+  // and a read answers `latest_revision_number`. Each was correct in its own
+  // route and none of them agreed.
+  const rev = data?.revision_number ?? data?.meta?.revisionNumber ?? data?.latest_revision_number
   if (!Number.isInteger(rev)) return
   if (!currentOppDetailId) return
   // The response may name its own record. When it does, trust that; when it
   // does not, the path has to mention the record we are tracking.
   const named = data?.record_id
   if (named ? named !== currentOppDetailId : !String(path).includes(currentOppDetailId)) return
-  window.setOppLoadedRevision(rev)
+  // 'read' when the response carries no revision_number of its own: that is a
+  // GET reporting where the record actually is, which is the case that must
+  // warn. A write's own response is this session catching up with itself.
+  window.setOppLoadedRevision(rev, { source: data?.revision_number === undefined ? 'read' : 'write' })
 }
 
 // ── "Mine" toggle ─────────────────────────────────────────────────────────────
@@ -6315,8 +6367,46 @@ document.getElementById('opp-btn-grid').addEventListener('click', () => {
 // Measured before relying on it, not assumed.
 let oppLoadedRevision = null
 
-window.setOppLoadedRevision = function (n) {
-  oppLoadedRevision = Number.isInteger(n) ? n : null
+// ── ADOPT AND WARN, NEVER SILENT-ADOPT. Round 41, X3, ruled ──────────────
+//
+// A read that finds the record has MOVED updates the holder, so the next write
+// is not refused against a number 18 revisions old. But adopting silently is
+// the worse half: the inputs on screen are still the ones loaded at the old
+// revision, and a version taken then would record a revision the screen was
+// never showing.
+//
+// So the holder moves AND the screen says so. Same shape as the approval page's
+// "the record has since moved, reload before deciding", and the same reasoning:
+// a number with no claim about currency is one somebody assumes is current.
+//
+// FORWARD ONLY. A lower number is a response that raced a newer one, not the
+// record going backwards, and adopting it would re-introduce the staleness this
+// exists to remove.
+window.setOppLoadedRevision = function (n, { source = 'load' } = {}) {
+  const next = Number.isInteger(n) ? n : null
+  const moved = source === 'read' && Number.isInteger(oppLoadedRevision)
+    && Number.isInteger(next) && next > oppLoadedRevision
+  if (source === 'read' && Number.isInteger(oppLoadedRevision) && Number.isInteger(next) && next < oppLoadedRevision) {
+    return
+  }
+  oppLoadedRevision = next
+  if (moved) renderOppMovedNotice(next)
+}
+
+// The notice, and it is deliberately NOT a modal. Nothing is blocked: the
+// person may still read the record, and the only act it affects is taking a
+// version, which the server refuses on its own. This says why before they hit
+// that refusal rather than after.
+function renderOppMovedNotice(rev) {
+  const el = document.getElementById('opp-moved-banner')
+  if (!el) return
+  el.innerHTML = `
+    <div class="freeze-banner">
+      <p class="label" style="margin-bottom:6px">This record has moved on</p>
+      <p style="font-size:14px;margin:0">Somebody else has saved changes since this screen loaded.
+      It is now at revision ${escHtml(String(rev))}. Reload before taking a version, or the version
+      would record a price this screen is not showing.</p>
+    </div>`
 }
 
 // Read by the version writer, which is not a PATCH and so cannot go through
@@ -6359,7 +6449,12 @@ async function renderOppDetail(opp) {
   const det = opp.opportunity_details ?? {}
 
   // Set here, before any tab renders, so all three writers share one number.
-  window.setOppLoadedRevision(opp.latest_revision_number)
+  // source 'load': a full record render is the screen catching up, not the
+  // record moving under it, so it must not raise the moved notice against
+  // itself. The notice is cleared here for the same reason.
+  window.setOppLoadedRevision(opp.latest_revision_number, { source: 'load' })
+  const movedEl = document.getElementById('opp-moved-banner')
+  if (movedEl) movedEl.innerHTML = ''
   // Loaded ONCE per record load, and read by every control whose enabled state
   // depends on it. A control that fetched its own copy would be the second
   // reader Verification 20 is about.

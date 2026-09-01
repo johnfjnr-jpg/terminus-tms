@@ -1788,6 +1788,29 @@ textarea::placeholder { color: var(--muted-2); }
 /* Unsaved-changes guard on New Lead's backdrop-click (2026-08-13) -
    amber reused from .field-editing's own convention (edited, not yet
    saved), not a new ad-hoc color. */
+/* ── THE ACCEPTING ACTION IS FILLED. Round 41, X4 ──────────────────────────
+   Approve and Reject were both outlines - .btn-primary a green outline,
+   .btn-ghost a muted one - so the pair read as two equal options and the
+   accepting one had to be found by reading its label.
+
+   ONE ACCENT, NO NEW COLOUR, which is the ruling and is also the only move
+   available: --green already means "at or above target" and "current stage",
+   and it now means "the action that accepts". Filling it rather than tinting
+   it is what makes approve read first without introducing a second hue.
+
+   --dark for the text, the same pairing .chevron-item.current already uses for
+   green-on-dark. Not white: white on #66CC99 is under 2:1 and unreadable.
+
+   A MODIFIER ON .btn-primary, not a replacement of it. Every other primary in
+   the app stays an outline; this says "this particular primary is the one
+   accepting something", and the reject beside it is untouched. */
+.btn-accept {
+  background: var(--green);
+  color: var(--dark);
+  border-color: var(--green);
+}
+.btn-accept:hover { background: #7ad4a6; border-color: #7ad4a6; }
+
 .btn-attention {
   border-color: rgba(224,130,74,0.9);
   color: rgba(224,130,74,0.9);

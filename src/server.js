@@ -28,9 +28,35 @@ const fastify = Fastify({ logger: { level: process.env.LOG_LEVEL ?? 'info' } })
 
 // Serve the frontend from /frontend at the site root.
 // API routes registered below take priority over static files.
+// ── NO-STORE ON THE FRONTEND. Round 41, after the fourth walk ─────────────
+//
+// THE FINDING THIS COMES FROM. The fourth walk reported two defects that had
+// already been fixed: the stage area blank after a transition, and three
+// approval rows in the exit-criteria list. Neither reproduced on current code,
+// and a hard reload settled both - the browser was running a cached app.js.
+//
+// The default was `cache-control: public, max-age=0` with a weak ETag. That is
+// revalidate-do-not-cache, and it is CORRECT for an ordinary reload: the
+// browser asks, gets a 304 or a new file, and is current. It does not cover the
+// two cases a walk actually runs in - a tab left open across a deploy, and a
+// bfcache restore - and in both the walk reports defects that no longer exist.
+//
+// THE COST OF THAT IS NOT A WASTED HALF HOUR. It is a report that cannot be
+// trusted: two of the fourth walk's three findings were fixed code, and the one
+// real defect had to be separated from them by measurement. A walk is this
+// project's stopping condition, so a walk that can run pre-fix code is a broken
+// instrument.
+//
+// no-store rather than a cache-busting query or a content hash, because this is
+// a single-machine dev server with one user and no build step: there is nothing
+// to optimise and one thing to guarantee. A build pipeline would make hashed
+// filenames the right answer instead, and that is the moment to revisit it.
+//
+// The API is unaffected: routes are registered after this and never reach the
+// static handler.
 await fastify.register(FastifyStatic, {
   root: join(__dirname, '..', 'frontend'),
-  prefix: '/'
+  prefix: '/',
 })
 
 // Serve src/lib at /lib so the browser can import the exact same
@@ -41,7 +67,25 @@ await fastify.register(FastifyStatic, {
 await fastify.register(FastifyStatic, {
   root: join(__dirname, 'lib'),
   prefix: '/lib/',
-  decorateReply: false
+  decorateReply: false,
+})
+
+// ── APPLIED AS A HOOK, NOT AS THE PLUGIN'S setHeaders ────────────────────
+//
+// The first attempt passed `setHeaders` to @fastify/static and the server threw
+// `res.setHeader is not a function` on the first request: this version hands
+// that callback something other than a Node ServerResponse. Found by starting
+// the server and asking for the header, not by reading the option's docs.
+//
+// An onSend hook is the plugin-independent place, and it covers BOTH static
+// mounts from one line rather than two callbacks that could drift.
+//
+// SCOPED TO WHAT THE BROWSER CACHES AND EXECUTES. The API is not touched:
+// /api responses are already dynamic and adding no-store to them would be a
+// claim about caching nobody has made.
+fastify.addHook('onSend', async (request, reply) => {
+  if (request.raw.url?.startsWith('/api/')) return
+  reply.header('cache-control', 'no-store, must-revalidate')
 })
 
 // ── THE DEV SESSION MOUNT, AND WHY IT IS OUTSIDE THE REPOSITORY ──────────────

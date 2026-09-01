@@ -612,6 +612,10 @@ Record what each option's stated advantage DEPENDS ON. A premise that fails
 means the decision is re-taken, not re-weighed, and the superseded reasoning
 stays visible.
 
+**BEFORE TREATING A WALK DEFECT AS LIVE** - Verification 42
+Hard reload, then re-observe, and say so in the report. Two of the fourth walk's
+three findings were code that had already been fixed.
+
 **BEFORE SUPERSEDING A ROUTE** - Verification 41
 List every frontend caller of the old route in the report, with a disposition
 each: removed, refused, or kept-and-why. And make the old route refuse, because
@@ -1885,6 +1889,43 @@ of the change. An unanswerable precondition is a stop.
     question taken in different rounds. **This is two correct ROUTES for the same
     action**, and the same signature: each is defensible on its own terms, and
     nothing in either one knows the other exists.
+
+42. **A WALK ON A CACHED BUNDLE REPORTS DEFECTS THAT ARE ALREADY FIXED.** Set by
+    the business 2026-09-01, Round 41, from the fourth walk.
+
+    > **Before a walk defect is treated as live, the stale-bundle possibility is
+    > checked: hard reload, then re-observe.**
+
+    **THE INSTANCE, and the cost was not the half hour.** The fourth walk reported
+    three defects. **Two of them did not exist.** The stage area blank after a
+    transition and three approval rows in the exit-criteria list had both been
+    fixed and pushed; neither reproduced on current code. A hard reload settled
+    both.
+
+    **What made it expensive is that the third defect WAS real**, and separating
+    it from the two phantoms took a full diagnostic pass over paths, renderers
+    and routes - enumerating thirteen re-render triggers and measuring the
+    exit-criteria route on three stages - to establish that two of the three
+    findings were about code that no longer existed.
+
+    **A REPORT THAT MIXES FIXED AND LIVE DEFECTS IS WORSE THAN A WRONG REPORT**,
+    because every item in it has to be re-measured before any of it can be
+    trusted, and the real one arrives with the same authority as the phantoms.
+
+    **THE FIRST QUESTION IS NOW MECHANICAL, and it is cheap.** Hard reload, then
+    re-observe, and say in the report that it was done. It costs one keystroke
+    and it removes the one failure mode that makes a walk unfalsifiable.
+
+    **AND THE SERVER WAS CHANGED SO IT CANNOT HAPPEN AGAIN**, which is the half
+    that does not depend on anybody remembering. `cache-control: no-store` on
+    everything except `/api`. The previous default, `public, max-age=0` with a
+    weak ETag, is correct for an ordinary reload and does not cover the two cases
+    a walk runs in: a tab left open across a fix, and a bfcache restore.
+
+    **A walk is this project's stopping condition.** A walk that can run pre-fix
+    code is a broken instrument, and this is the same argument as Verification
+    12: a tool that returns the wrong answer for a reason unrelated to the truth
+    is worse than one that returns nothing.
 
 ### At round close: index these by when they apply
 

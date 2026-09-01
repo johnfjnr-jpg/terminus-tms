@@ -7112,3 +7112,91 @@ needed before anything changes.
 
 **J was struck by the business for the same reason**, and the two are probably
 one thing: a surface neither party has identified yet.
+
+## Round 41, the fourth walk: X1, X3, X4, and two findings that were not defects
+
+### THE FIRST FINDING IS THAT TWO OF THREE WERE ALREADY FIXED
+
+The walk reported the stage area blank after a transition and three approval rows
+in the exit-criteria list. **Neither reproduced on current code.** A hard reload
+settled both: the browser was running a cached `app.js`.
+
+**The cost was not the half hour.** The third defect WAS real, and separating it
+from the two phantoms took a full diagnostic pass - enumerating thirteen
+re-render triggers, measuring the exit-criteria route on three stages, and
+proving the filter has no stage dependence - to establish that two of three
+findings were about code that no longer existed.
+
+**A report that mixes fixed and live defects is worse than a wrong report**,
+because every item has to be re-measured before any of it can be trusted, and the
+real one arrives with the same authority as the phantoms.
+
+Recorded as `CLAUDE.md` Verification 42, and **the server was changed so it
+cannot happen again**: `cache-control: no-store` on everything except `/api`. The
+previous default, `public, max-age=0` with a weak ETag, is correct for an
+ordinary reload and does not cover the two cases a walk runs in - a tab left open
+across a fix, and a bfcache restore.
+
+### X1: the D fix was discarding the person's selection
+
+**The defect was POSITION, not logic.** The guard read `oppTabStrip.current()` at
+the BOTTOM of `renderOppStageTabs`, after the rebuild had removed every generated
+button, so it read `undefined` on every re-render and the "restore a lost
+selection" branch ran every time - selecting the record's current stage over
+whatever the person had deliberately opened.
+
+**The probe passed 6/6 on it**, because it asserted that A PANEL was visible.
+Verification 27: that is a property of the document, and "the tab I opened is
+still open" is the task.
+
+**AND THE CORRECTION MADE THE SAME MISTAKE ONCE MORE.** The first attempt at this
+fix put the capture at the bottom of the function - after the rebuild it exists
+to survive - and behaved identically. It was caught by the widened probe still
+failing all four cases with the fix applied, which is Architecture 9's diagnostic
+signature: an unchanged failure after a change that looks correct is evidence the
+change never reached the code path.
+
+The probe now drives four re-render paths rather than one, and **opens a tab that
+is NOT the record's current stage**, which is the whole discriminator: selecting
+the current stage would pass against a build that ignores the selection entirely.
+
+**One assertion was restated rather than weakened quietly.** D's "the visible
+panel names the stage the record is NOW in" was its proxy for "not blank", and X1
+supersedes it: a person on Qualification when the record moves to Solution
+Alignment now stays on Qualification, which is correct. The transition case
+asserts a POPULATED panel instead.
+
+`oppLandOnTabAfterLoad` exists and would outrank the restore, and
+`requestTransition` does not set it - only the assessment panel's `land:` hook
+does. **Whether raising a transition should land the person on the new stage is a
+decision, not a defect**, and it is recorded rather than assumed either way.
+
+### X3: three spellings of one fact
+
+A write answers `revision_number`, the approval page answers
+`meta.revisionNumber`, and a read answers `latest_revision_number`. **Each was
+correct in its own route and none of them agreed**, so the holder was written
+once at load and thereafter only by this session's own writes. A record advanced
+by anybody else left it frozen: record at 24, a version would have recorded 6.
+
+**The version path was never a second reader.** It sends
+`window.getOppLoadedRevision()` like every other write. The gap was that a READ
+could not update the one holder, which is why the fix is one line in one reader.
+
+**ADOPT AND WARN, ruled, and the warning is the half that matters.** Adopting
+silently would let a version record a revision the screen was never showing: the
+inputs on screen are still the ones loaded at the old number. The holder moves
+AND a banner says the record has moved and to reload before versioning. Forward
+only - a lower number is a raced response, not the record going backwards.
+
+### X4: the accepting action is filled
+
+Approve and Reject were both outlines, so the pair read as two equal options.
+Approve now takes the filled accent and Reject stays an outline. **One accent, no
+new colour**: `--green` already means at-or-above-target and current-stage, and
+it now also means the action that accepts.
+
+`--dark` for the text, measured rather than assumed: **8.70:1**, against **1.76:1**
+for `--white` on the same green, which is why white is not an option. A modifier
+on `.btn-primary` rather than a replacement, so every other primary stays an
+outline.

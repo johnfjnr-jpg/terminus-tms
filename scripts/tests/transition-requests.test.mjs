@@ -370,3 +370,92 @@ test('THE FUNCTION IS THE ENFORCEMENT, not the route', () => {
   assert.match(ROUTES, /rpcErr\.code === 'PT403'/)
   assert.ok(!/p_approver/.test(ROUTES), 'the route must stop passing who is asking')
 })
+
+// ─────────────────────────────────────────────────────────────
+// Round 41, fourth walk: X1, X3, X4
+// ─────────────────────────────────────────────────────────────
+
+test('X1: the selection is captured BEFORE the rebuild, not after', () => {
+  // The whole defect was position. The first version of this fix read
+  // oppTabStrip.current() at the BOTTOM of renderOppStageTabs, after the two
+  // removals had erased every generated button, so it read undefined every time
+  // and re-selected the record's stage over the person's own choice.
+  //
+  // Asserted as an ORDERING, because that is the claim. A test for "the line
+  // exists" would have passed against the broken version.
+  const app = readCode(ROOT + 'frontend/app.js')
+  const fn = app.slice(app.indexOf('function renderOppStageTabs'))
+  const capture = fn.indexOf('const selectedBeforeRebuild = oppTabStrip.current()')
+  const removal = fn.indexOf("querySelectorAll('.detail-tab[data-opp-stage-tab]')")
+  assert.ok(capture >= 0, 'the selection is not captured at all')
+  assert.ok(removal >= 0, 'the rebuild removal was not found, so the ordering cannot be checked')
+  assert.ok(capture < removal,
+    `the capture is at ${capture} and the rebuild that erases the buttons is at ${removal}: `
+    + 'reading the selection after the rebuild always yields undefined')
+  // And the restore prefers it over the record's stage.
+  assert.match(fn, /if \(stillExists\(selectedBeforeRebuild\)\)/,
+    'the restore does not prefer the tab the person had open')
+})
+
+test('X3: all three spellings of the revision reach the one holder', () => {
+  // A write answers revision_number, the approval page answers
+  // meta.revisionNumber, a read answers latest_revision_number. Each was correct
+  // in its own route and none of them agreed, so a read never updated the holder
+  // and issuing a version was refused against a number 18 revisions old.
+  const app = readCode(ROOT + 'frontend/app.js')
+  // BOUNDED TO THE FUNCTION. The first version sliced from the function name to
+  // the END OF THE FILE, so it matched latest_revision_number at
+  // setOppLoadedRevision(opp.latest_revision_number) six thousand lines later
+  // and passed with the key removed from the reader. Verification 17: a probe
+  // that fires correctly and measures the wrong thing. Caught by calibrating.
+  // MATCHED ON THE EXPRESSION, not on a slice. Two attempts got this wrong and
+  // both are worth the four lines:
+  //
+  //   slicing to the end of the FILE matched latest_revision_number six
+  //   thousand lines later and passed with the key removed;
+  //   slicing to the next `function ` gave 3187 characters, because readCode
+  //   replaces comments with whitespace of the same length, so a "sanity bound"
+  //   on the slice length was measuring comment volume.
+  //
+  // The claim is about ONE expression, so the assertion reads that expression.
+  const line = app.match(/const rev = [^\n]*/)
+  assert.ok(line, 'the reader no longer has a single revision expression')
+  for (const key of ['data?.revision_number', 'data?.meta?.revisionNumber', 'data?.latest_revision_number']) {
+    assert.ok(line[0].includes(key), `the reader does not normalise ${key}: ${line[0]}`)
+  }
+  // ADOPT AND WARN, never silent-adopt. Ruled.
+  assert.match(app, /window\.setOppLoadedRevision = function \(n, \{ source = 'load' \} = \{\}\)/,
+    'setOppLoadedRevision does not distinguish a read from a load')
+  assert.match(app, /if \(moved\) renderOppMovedNotice\(next\)/,
+    'a read that finds the record has moved does not say so')
+  // FORWARD ONLY: a lower number is a raced response, not the record going back.
+  assert.match(app, /next < oppLoadedRevision\)\s*\{\s*\n?\s*return/,
+    'a lower revision from a raced response would be adopted')
+})
+
+test('X4: approve is filled, reject is not, and no new colour is introduced', () => {
+  const app = readCode(ROOT + 'frontend/app.js')
+  const css = readCode(ROOT + 'frontend/style.css')
+  assert.match(app, /btn-sm btn-primary btn-accept" onclick="decideRequest\('\$\{req\.id\}','\$\{escHtml\(t\)\}','approved'/,
+    'the approve control does not carry the filled treatment')
+  assert.ok(!/btn-accept" onclick="decideRequest\([^)]*'rejected'/.test(app),
+    'reject must stay an outline')
+  const rule = css.match(/\.btn-accept \{([^}]*)\}/)
+  assert.ok(rule, 'no .btn-accept rule')
+  assert.match(rule[1], /background:\s*var\(--green\)/, 'the fill is not the accent')
+  assert.match(rule[1], /color:\s*var\(--dark\)/,
+    'text on the accent must be --dark: --white on #66CC99 measures 1.76:1 and is unreadable')
+  // ONE ACCENT. A new hue would show up as a hex literal in this rule.
+  assert.ok(!/#(?!7ad4a6)[0-9a-f]{6}/i.test(rule[1]),
+    `.btn-accept introduces a colour that is not the accent: ${rule[1].trim()}`)
+})
+
+test('X4/42: the dev server cannot serve a stale bundle to a walk', () => {
+  // Verification 42. Two of the fourth walk's three findings were code that had
+  // already been fixed, reported from a cached app.js.
+  const server = readCode(ROOT + 'src/server.js')
+  assert.match(server, /reply\.header\('cache-control', 'no-store, must-revalidate'\)/,
+    'the frontend is not served no-store')
+  assert.match(server, /if \(request\.raw\.url\?\.startsWith\('\/api\/'\)\) return/,
+    'the API should be left alone by that hook')
+})
