@@ -524,9 +524,19 @@ test('V1/V2/V4: the next major comes from the record, not from the draft', () =>
   assert.ok(!/as V\$\{draft\.major \+ 1\}/.test(app), 'the label still derives from the draft')
   assert.ok(!/to: `V\$\{version\.major \+ 1\}`/.test(route), 'the audit still records the old derivation')
   assert.match(route, /major: highestIssued \+ 1/, 'the server does not use the highest issued major')
-  assert.match(app, /const nextMajor = \(issued\?\.major \?\? 0\) \+ 1/, 'the label does not use it either')
+  // The seventh-walk ruling introduced `highestIssued` as a named value, because
+  // it is now used twice - for the next major AND to pick the target draft. The
+  // claim is unchanged: the next major comes from what has been ISSUED.
+  assert.match(app, /const highestIssued = issued\?\.major \?\? 0/,
+    'the label does not read the highest issued major')
+  assert.match(app, /const nextMajor = highestIssued \+ 1/, 'the label does not use it either')
   // ONLY THE LATEST DRAFT, enforced server-side. Hiding the control is not a rule.
-  assert.match(route, /is the latest draft, so it is the one that can be issued/,
+  // The seventh-walk ruling sharpened this sentence: "the latest draft" became
+  // "the newest draft", because the sixth-walk rule was not enough on its own -
+  // a stranded draft is still the latest once every newer one has been issued.
+  // The claim the sixth walk was protecting is unchanged and is asserted below
+  // in its own test.
+  assert.match(route, /is the newest draft, so it is the one that can be issued/,
     'an earlier draft can still be issued')
 })
 
@@ -686,4 +696,28 @@ test('W-K: a precondition doing its job is a notice, and the kind is decided onc
   // NOT RED AND NOT GREEN: red is a failure, green is at-or-above-target.
   const rule = css.match(/\.msg-notice \{([^}]*)\}/)[1]
   assert.ok(!/--green|--red|#[0-9a-f]{6}/i.test(rule), `the notice introduces a colour: ${rule.trim()}`)
+})
+
+test('the issue control targets a draft NEWER than the last issue, and says so when there is none', () => {
+  // Ruled after the seventh walk. "The latest draft" was not enough: a stranded
+  // draft is still the latest once every newer one has been issued, and the
+  // control offered "Issue V2.1 as V6" on a record whose pricing was nowhere
+  // near V2.1.
+  const app = readCode(ROOT + 'frontend/opportunity-deal.js')
+  const route = readCode(ROOT + 'src/routes/deal-sheet-versions.js')
+  assert.match(app, /const draft = dealVersions\.find\(v => v\.status === 'draft' && v\.major === highestIssued\)/,
+    'the label still targets the latest draft overall')
+  assert.match(route, /\.eq\('major', highestIssued\)/,
+    'the route still accepts a stranded draft')
+  // THE EMPTY STATE IS A REAL STATE and names the act that fixes it, because a
+  // SAVE does not create a draft and nothing else on the screen says so.
+  assert.match(app, /'Save a new version to issue'/, 'the empty control does not say what to do')
+  assert.ok(!/'Issue latest draft'/.test(app), 'the old empty label survives')
+  assert.match(route, /There is no draft newer than the last issued version/,
+    'the route has no sentence for the empty case')
+  // Two refusals, because a stranded draft and a superseded one need different acts.
+  assert.match(route, /const stranded = version\.major < highestIssued/,
+    'the route cannot tell a stranded draft from a merely older one')
+  assert.match(route, /Restore it if you want its pricing back/,
+    'the stranded refusal does not name the act that would work')
 })

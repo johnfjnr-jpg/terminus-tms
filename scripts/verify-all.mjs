@@ -58,6 +58,14 @@ const STAGES = [
     needs: 'the dev server on :3000 AND a live session-ref.json',
   },
   {
+    // Round 41, after the seventh walk. The whole ruled sequence: a save creates
+    // no draft, a stranded draft is refused, an empty control is a real state,
+    // and saving from current pricing creates the target.
+    name: 'HTTP issue-target probe',
+    cmd: ['node', ['scripts/probe-issue-target.mjs']],
+    needs: 'the dev server on :3000 AND a live session-ref.json',
+  },
+  {
     // Round 41 W-J. The criterion the migration added must be satisfiable by
     // issuing and by nothing else, or it is the "criterion nobody can tick" the
     // migration named as its own risk.

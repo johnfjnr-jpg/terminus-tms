@@ -7464,3 +7464,47 @@ while `issuedProposal` still refuses. **That is a display saying less than the
 enforcement knows** - the direction that under-claims - and W-K's notice says the
 rest. Closing it properly needs a requirement type that compares a payload value
 with the record's revision, which is a gate-engine change and its own decision.
+
+### The issue target: a draft newer than the last issue
+
+**Ruled by the business 2026-09-01, and it sharpens the sixth-walk rule rather
+than replacing it.**
+
+**THE PREMISE, CONFIRMED BY MEASUREMENT.** A save does not create a draft:
+`PATCH /opportunities/:id` never touches `deal_sheet_versions`. So moving the
+record past an issued version leaves nothing to issue until somebody saves a
+version from the current pricing. **That is why the control can legitimately be
+empty**, and the probe asserts it directly rather than the code implying it.
+
+**WHY "THE LATEST DRAFT" WAS NOT ENOUGH.** A STRANDED draft - saved before the
+last issue and never issued - is still the latest draft once every newer one has
+been issued. The control offered `Issue V2.1 as V6` on a record whose pricing was
+nowhere near V2.1.
+
+**The numbering makes the test exact and needs no timestamp.**
+`insert_deal_sheet_version` takes the highest `(major, minor)` and increments
+minor, so a draft saved after V5 was issued is **V5.1** and carries major 5, and
+a draft from before that issue carries a lower major. "Newer than the last issue"
+is `major === the highest issued major`.
+
+**TWO REFUSALS, because they call for two different acts.** A stranded draft is
+told to restore first; a merely-older one is told which draft is the newest; and
+an empty target says to save the current pricing as a version. The old empty
+label, "Issue latest draft" on a disabled button, said what the control does and
+not why it cannot - and the one thing the person needed to know is that **saving
+the record does not create a version**, which nothing else on the screen says.
+
+**The whole ruled sequence is a gate stage**, and it reproduces the walk's shape:
+V0.1 stranded, V1 issued, the record moves on, no target, save creates V1.1,
+issue as V2.
+
+**A CALIBRATION THAT DID NOT FIRE, AND WHY.** Removing the new filter and
+re-running the probe reported 8/8. The dev server was not in watch mode, so the
+mutation never reached the running process - Architecture 9's signature, an
+unchanged result after a change that looks correct. Restarted between mutations,
+it fired.
+
+**And it surfaced a guard nobody had cited:** the failure came back as
+`deal_sheet_versions: issuing V0.1 must produce V1.0, not V2.0`, a database
+trigger from Round 27. The route's 409 is the readable refusal; that trigger is
+the one that would have caught this if nothing else had.

@@ -559,30 +559,48 @@ export default async function dealSheetVersionsRoutes(app) {
     if (issuedErr) return reply.code(500).send({ error: issuedErr.message })
     const highestIssued = issuedRows?.[0]?.major ?? 0
 
-    // ── ONLY THE LATEST DRAFT IS ISSUABLE. Ruled by the business ───────────
+    // ── THE ISSUE TARGET IS A DRAFT NEWER THAN THE LAST ISSUE ─────────────
     //
-    // Once anything has been issued, an earlier draft must not become the next
-    // version: issuing V0.3 after V0.4 would publish superseded pricing as the
-    // NEWER version, which is the opposite of what a version number means.
-    // Earlier drafts remain restorable - restore-to-branch - which is how you
-    // go back to one deliberately.
+    // Ruled by the business after the seventh walk, and it sharpens the
+    // sixth-walk rule rather than replacing it.
     //
-    // Enforced HERE rather than only by hiding the control, because the control
-    // being right is a property of one screen and this is a property of the
-    // record.
+    // THE SIXTH-WALK RULE was "only the latest draft is issuable", which stops
+    // V0.3 being published as a newer version than V0.4. It is not enough on its
+    // own: a STRANDED draft - one created before the last issue and never
+    // issued - is still "the latest draft" once every newer one has been issued,
+    // and the control offered "Issue V2.1 as V6" on a record whose current
+    // pricing was nowhere near V2.1.
+    //
+    // THE NUMBERING MAKES THE TEST EXACT. insert_deal_sheet_version takes the
+    // highest (major, minor) and increments minor, so a draft saved after V5 was
+    // issued is V5.1 and carries major 5. A draft from before that issue carries
+    // a LOWER major. So "newer than the last issue" is major = the highest
+    // issued major, and it needs no timestamp.
+    //
+    // A SAVE DOES NOT CREATE A DRAFT, which is why the control can be empty at
+    // all: PATCH /opportunities/:id never touches deal_sheet_versions, so moving
+    // the record past an issued version leaves nothing to issue until somebody
+    // saves a version from the current pricing. Confirmed by measurement, and it
+    // is the premise the ruling rests on.
     const { data: drafts, error: draftErr } = await db
       .from('deal_sheet_versions')
       .select('id, major, minor')
       .eq('record_id', version.record_id)
       .eq('status', 'draft')
-      .order('major', { ascending: false })
+      .eq('major', highestIssued)
       .order('minor', { ascending: false })
       .limit(1)
     if (draftErr) return reply.code(500).send({ error: draftErr.message })
-    if (drafts?.[0] && drafts[0].id !== version.id) {
+    if (!drafts?.length || drafts[0].id !== version.id) {
+      // Two different refusals, because they call for two different acts.
+      const stranded = version.major < highestIssued
       return reply.code(409).send({
-        error: `V${drafts[0].major}.${drafts[0].minor} is the latest draft, so it is the one that can be issued. `
-          + 'To issue an earlier draft, restore it first: that makes it the latest.',
+        error: stranded
+          ? `V${version.major}.${version.minor} was drafted before V${highestIssued} was issued, so it is `
+            + 'not the next version. Restore it if you want its pricing back, then save that as a new draft.'
+          : drafts?.length
+            ? `V${drafts[0].major}.${drafts[0].minor} is the newest draft, so it is the one that can be issued.`
+            : 'There is no draft newer than the last issued version. Save the current pricing as a version first.',
       })
     }
 

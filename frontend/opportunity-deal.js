@@ -633,20 +633,37 @@ function renderVersionList() {
   // why the stale-reader diagnosis did not fit: the two readers agreed and were
   // both wrong. The next major is a fact about the RECORD, not about the row.
   //
-  // The list is ordered major DESC, minor DESC, so [0] is the highest of each.
-  const draft = dealVersions.find(v => v.status === 'draft')
+  // ── THE TARGET IS A DRAFT NEWER THAN THE LAST ISSUE ────────────────────
+  //
+  // Ruled after the seventh walk. "The latest draft" was not enough: a STRANDED
+  // draft, saved before the last issue and never issued, is still the latest
+  // once every newer one has been issued, and the control offered
+  // "Issue V2.1 as V6" on a record whose pricing was nowhere near V2.1.
+  //
+  // A draft saved after V5 was issued is V5.1 - insert_deal_sheet_version takes
+  // the highest (major, minor) and increments minor - so "newer than the last
+  // issue" is major = the highest issued major. No timestamp needed.
+  //
+  // The list is ordered major DESC, minor DESC, so [0] of each is the highest.
   const issued = dealVersions.find(v => v.status === 'issued')
-  const nextMajor = (issued?.major ?? 0) + 1
+  const highestIssued = issued?.major ?? 0
+  const draft = dealVersions.find(v => v.status === 'draft' && v.major === highestIssued)
+  const nextMajor = highestIssued + 1
   const btn = document.getElementById('btn-issue-version')
   if (btn) {
-    // ONLY THE LATEST DRAFT IS ISSUABLE, and `find` on a DESC-ordered list is
-    // exactly that. The server enforces it too: this hides a control that would
-    // be refused, and the refusal is what makes it a rule.
+    // NOTHING TO ISSUE IS ITS OWN STATE, and it names the act that fixes it.
+    // "Issue latest draft" on a disabled button said what the control does and
+    // not why it cannot; a person whose record has moved past V5 needs to be
+    // told to save, because A SAVE DOES NOT CREATE A DRAFT and nothing else on
+    // the screen says so.
     btn.disabled = !draft
-    btn.textContent = draft ? `Issue ${versionLabel(draft)} as V${nextMajor}` : 'Issue latest draft'
+    btn.textContent = draft ? `Issue ${versionLabel(draft)} as V${nextMajor}` : 'Save a new version to issue'
     btn.title = draft
       ? `Issues ${versionLabel(draft)} as V${nextMajor}. Earlier drafts can be restored, not issued.`
-      : ''
+      : issued
+        ? `V${highestIssued} is issued and there is no newer draft. Save the current pricing as a version, `
+          + 'then issue it. Saving the record alone does not create a version.'
+        : 'Save a version first. Saving the record alone does not create one.'
   }
 }
 
