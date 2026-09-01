@@ -36,6 +36,51 @@ export function isRefusal(error) {
 }
 
 /**
+ * A UNIQUE CONSTRAINT, SAID IN WORDS. Round 41, sixth walk V1/V2/V4.
+ *
+ * The walk pressed Issue and got
+ *
+ *   duplicate key value violates unique constraint
+ *   deal_sheet_versions_record_id_major_minor_key
+ *
+ * on screen. 23505 was mapped nowhere in this file, so every duplicate-key
+ * collision in the application surfaces its constraint name to whoever hit it.
+ *
+ * MAPPED BY CONSTRAINT NAME, not by a generic "that already exists". A unique
+ * index encodes a business rule, and the rule is what the person needs: the
+ * version one means a version with that number has already been issued, which
+ * tells them to reload rather than to try again.
+ *
+ * THE FALLBACK IS DELIBERATELY VAGUE AND SAYS SO. An unrecognised constraint
+ * gets a sentence that admits it does not know which value collided, because
+ * inventing a specific one would be worse than admitting the gap - and the gap
+ * is the named raw-error sweep, not something to paper over here.
+ *
+ * 409, because a duplicate key IS a conflict: the state moved under the caller
+ * and reloading is the remedy.
+ */
+const UNIQUE_MESSAGES = {
+  deal_sheet_versions_record_id_major_minor_key:
+    'A version with that number has already been issued. Reload the record to see the current versions.',
+};
+
+export const DUPLICATE_STATUS = 409;
+
+/** True for a write refused by a unique index, and nothing else. */
+export function isDuplicate(error) {
+  return error?.code === '23505';
+}
+
+/** The sentence for a duplicate, by constraint name where one is known. */
+export function duplicateMessage(error) {
+  const raw = `${error?.message ?? ''} ${error?.details ?? ''}`;
+  for (const [constraint, message] of Object.entries(UNIQUE_MESSAGES)) {
+    if (raw.includes(constraint)) return message;
+  }
+  return 'That would duplicate a value this record already has. Reload and try again.';
+}
+
+/**
  * A WRITE REFUSED BY THE FREEZE. Round 41.
  *
  * PT423 is raised by refuse_write_while_frozen() on every table that carries a
@@ -64,6 +109,12 @@ export const FROZEN_STATUS = 423
  */
 export function sendWriteError(reply, error) {
   if (isFrozen(error)) return reply.code(FROZEN_STATUS).send({ error: error.message, frozen: true })
+  // BOTH MAPPERS, ALWAYS. These two functions answer the same question for two
+  // caller shapes, and the round that added PT423 to one and not the other is
+  // the reason that is written down here: a mapper that knows a code and a twin
+  // that does not is worse than neither, because the route that happens to use
+  // the second one looks covered.
+  if (isDuplicate(error)) return reply.code(DUPLICATE_STATUS).send({ error: duplicateMessage(error) })
   return isRefusal(error)
     ? reply.code(403).send({ error: OWNERSHIP_REFUSAL })
     : reply.code(500).send({ error: error?.message ?? 'write failed' })
@@ -75,6 +126,7 @@ export function sendWriteError(reply, error) {
  */
 export function writeErrorStatus(error) {
   if (isFrozen(error)) return { status: FROZEN_STATUS, error: error.message, frozen: true }
+  if (isDuplicate(error)) return { status: DUPLICATE_STATUS, error: duplicateMessage(error) }
   return isRefusal(error)
     ? { status: 403, error: OWNERSHIP_REFUSAL }
     : { status: 500, error: error?.message ?? 'write failed' }

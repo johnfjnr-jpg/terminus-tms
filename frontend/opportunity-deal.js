@@ -607,11 +607,31 @@ function renderVersionList() {
   // Issue acts on the latest DRAFT. Disabled when there is none, rather than
   // offered and then refused, because a control that is always clickable and
   // sometimes errors teaches people to ignore its message.
+  // ── THE TARGET COMES FROM WHAT HAS BEEN ISSUED. Round 41, V1/V2/V4 ──────
+  //
+  // It read `draft.major + 1`. Every draft has major 0, so every draft was
+  // labelled "as V1", and after issuing one the button offered the NEXT
+  // remaining draft as V1 again - which collided and surfaced the raw
+  // constraint name.
+  //
+  // The label was never stale. It reported a wrong rule accurately, which is
+  // why the stale-reader diagnosis did not fit: the two readers agreed and were
+  // both wrong. The next major is a fact about the RECORD, not about the row.
+  //
+  // The list is ordered major DESC, minor DESC, so [0] is the highest of each.
   const draft = dealVersions.find(v => v.status === 'draft')
+  const issued = dealVersions.find(v => v.status === 'issued')
+  const nextMajor = (issued?.major ?? 0) + 1
   const btn = document.getElementById('btn-issue-version')
   if (btn) {
+    // ONLY THE LATEST DRAFT IS ISSUABLE, and `find` on a DESC-ordered list is
+    // exactly that. The server enforces it too: this hides a control that would
+    // be refused, and the refusal is what makes it a rule.
     btn.disabled = !draft
-    btn.textContent = draft ? `Issue ${versionLabel(draft)} as V${draft.major + 1}` : 'Issue latest draft'
+    btn.textContent = draft ? `Issue ${versionLabel(draft)} as V${nextMajor}` : 'Issue latest draft'
+    btn.title = draft
+      ? `Issues ${versionLabel(draft)} as V${nextMajor}. Earlier drafts can be restored, not issued.`
+      : ''
   }
 }
 
@@ -804,9 +824,20 @@ async function saveVersion() {
   await loadVersions()
   // Names both writes when both happened, because "Saved V0.1" alone would hide
   // a revision the user did not ask for and would be surprised to find later.
+  //
+  // ── "THE PRICING WAS ALREADY SAVED" IS GONE. Round 41, sixth walk V3 ────
+  //
+  // It was true and it read as an excuse. On the path where nothing was dirty,
+  // that sentence was the only thing distinguishing the message from the other
+  // branch, and a person who had just been told "no change since V0.3" by the
+  // route and "the pricing was already saved" by a successful save had two
+  // sentences about the same fact that appeared to disagree.
+  //
+  // What the second branch actually means is that the version was taken from
+  // pricing already on the record, which is not news and does not need saying.
   versionFeedback(alsoSaved
     ? `Pricing saved, and ${versionLabel(r.data)} taken from it.`
-    : `Saved ${versionLabel(r.data)}. The pricing was already saved.`, true)
+    : `${versionLabel(r.data)} taken.`, true)
   return true
 }
 
@@ -1877,7 +1908,30 @@ function updateInvoicingButtons() {
 }
 
 function updateFactoringButtons() {
-  document.getElementById('deal-factoring-toggle').textContent = `Factoring: ${uiState.factoringEnabled ? 'On' : 'Off'}`
+  // ── THE LABEL STATES THE STATE, AND THE CONTROL LOOKS LIKE A SWITCH ─────
+  //
+  // Round 41, sixth walk V5. It read "Factoring: On" / "Factoring: Off" in a
+  // .btn-ghost, which is the same muted outline as every other secondary
+  // control on the screen. Two problems in one control: the state was legible
+  // only by reading the word after the colon, and nothing about it said it
+  // could be clicked to change that.
+  //
+  // ENABLED IS HIGHLIGHTED, DISABLED IS FADED, so the state is carried by
+  // WEIGHT rather than by a word, and the switch glyph says the click flips it.
+  // Ruled by the business: "the toggle affordance must be unmistakable, not a
+  // passive indicator."
+  //
+  // ONE ACCENT. --green is this screen's only accent and already means "on" in
+  // the current-stage dot and the at-target margin. Enabled borrows it; disabled
+  // is the ordinary muted outline, which is the absence of the accent rather
+  // than a second colour.
+  const fx = document.getElementById('deal-factoring-toggle')
+  const on = uiState.factoringEnabled
+  fx.textContent = on ? 'Factoring enabled' : 'Factoring disabled'
+  fx.classList.toggle('is-on', on)
+  fx.setAttribute('role', 'switch')
+  fx.setAttribute('aria-checked', on ? 'true' : 'false')
+  fx.title = on ? 'Factoring is on. Click to turn it off.' : 'Factoring is off. Click to turn it on.'
   document.getElementById('deal-factoring-fields').classList.toggle('hidden', !uiState.factoringEnabled)
   document.querySelectorAll('#deal-factoring-method-toggle button').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.method === uiState.factoringMethod)

@@ -1065,24 +1065,39 @@ window.decideRequest = async (requestId, track, decision, recordId) => {
   // leaves them clickable for its whole duration, which is exactly the window a
   // person clicks in when nothing has visibly happened.
   //
-  // Removed rather than disabled: a disabled button is still in the DOM with its
-  // onclick, and re-enabling it is a second thing to get right. The banner is
-  // rebuilt by the reload on both paths.
+  // ── DISABLED, NOT REMOVED. Round 41, sixth walk V6 ─────────────────────
+  //
+  // The first version REMOVED every button in the banner. It closed the
+  // double-click window and opened a worse one: clicking Approve on Commercial
+  // made the Technical and Legal controls VANISH until the write returned, so
+  // the screen answered a click by deleting three unrelated controls.
+  //
+  // Ruled: disable with a pending state, never remove and restore. Disabled is
+  // the honest state - the control still exists, still says what it does, and
+  // says it cannot be used yet - and it is what a person can reason about. The
+  // "re-enabling is a second thing to get right" argument was real and is
+  // answered by the reload rebuilding the banner on BOTH paths, which was
+  // already true when it was used to justify removal.
+  //
+  // THE ONE CLICKED SAYS WHAT IT IS DOING. The others say nothing new: they are
+  // dimmed and inert, which is a state a person reads as "wait", where a
+  // disappearance is one they read as "what did I just break".
   const banner = document.getElementById('opp-freeze-banner')
   const fb = document.getElementById('opp-request-feedback')
   if (fb) fb.innerHTML = ''
-  banner?.querySelectorAll('button').forEach((b) => b.remove())
+  const buttons = [...(banner?.querySelectorAll('button') ?? [])]
+  const clicked = buttons.find((b) => (b.getAttribute('onclick') ?? '')
+    .includes(`'${track}','${decision}'`))
+  for (const b of buttons) {
+    b.disabled = true
+    b.classList.add('is-pending')
+  }
   const pending = (text) => {
-    if (!banner || !banner.textContent.trim()) return
-    const p = document.createElement('p')
-    p.className = 'muted'
-    p.style.cssText = 'font-size:14px;margin:10px 0 0'
-    p.textContent = text
-    banner.querySelector('.freeze-banner')?.appendChild(p)
+    if (clicked) { clicked.dataset.label = clicked.textContent; clicked.textContent = text }
   }
 
   const send = async (reason) => {
-    pending(`Recording the ${track} ${decision === 'approved' ? 'approval' : 'rejection'}...`)
+    pending(decision === 'approved' ? 'Approving...' : 'Rejecting...')
     const r = await api('POST', `/api/transition-requests/${requestId}/approvals`,
       { track, decision, ...(reason ? { reason } : {}) })
     return { ok: r.ok, error: r.data?.error }

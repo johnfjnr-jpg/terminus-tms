@@ -228,16 +228,57 @@ export default async function recordsRoutes(app) {
     // Round 41. The stage-approvals panel and computeBlocking disagreeing is a
     // defect that shipped once already, which is why this loads the same thing
     // the gate does rather than a second view of it.
-    let requestApprovals
+    // ── EACH STAGE READS ITS OWN REQUEST. Round 41, sixth walk V8 ──────────
+    //
+    // THE DEFECT THIS REPLACES. This built ONE Set from the record's single OPEN
+    // request and handed the same Set to every stage. On a record with no open
+    // request the Set was empty, so every track on every stage read "waiting" -
+    // including two stages whose approvals were sitting on closed requests. The
+    // walk saw Solution Alignment on a record at Proposal showing Commercial,
+    // Technical and Legal all undecided, on a record that could not have reached
+    // Proposal without all three.
+    //
+    // Six approvals existed on that record, on two closed requests, and the
+    // panel could see none of them. The pre-workflow rows were unreachable too:
+    // approvalSatisfiesRule returns requestApprovals.has(track) for a workflow
+    // type and never reaches the stage or revision branches, so both sources
+    // were live and both were invisible.
+    //
+    // TWO QUESTIONS, ONE PANEL, and that is why the binding is per stage:
+    //
+    //   the CURRENT stage answers "what is outstanding NOW" -> the open request
+    //   a PAST stage answers "what was decided THEN"        -> its own request
+    //
+    // APPROVED REQUESTS ONLY, for a past stage. A withdrawn request carried no
+    // decision that stood, and a rejected one was superseded by the request that
+    // followed it: this record's Proposal exit was rejected once and approved
+    // afterwards, and showing the rejection would say a stage was refused when it
+    // was subsequently passed. Most recent first, for the same reason.
+    //
+    // A STAGE WITH NO APPROVED REQUEST READS EMPTY, and that is correct rather
+    // than a gap: it was never approved. A zero-track stage renders empty as it
+    // always did, because it has no track rows at all.
+    let requestApprovalsByStage = null
     if (usesWorkflow(record.record_type)) {
-      const { data: open } = await db.from('transition_requests')
-        .select('id').eq('record_id', record.id)
-        .eq('status', 'open').eq('kind', 'transition').maybeSingle()
-      const { data: decided } = open
-        ? await db.from('approvals').select('track, decision').eq('request_id', open.id)
+      const { data: reqs } = await db.from('transition_requests')
+        .select('id, from_stage, status, kind, requested_at')
+        .eq('record_id', record.id).eq('kind', 'transition')
+        .order('requested_at', { ascending: false })
+      const ids = (reqs ?? []).map((r) => r.id)
+      const { data: allApprovals } = ids.length
+        ? await db.from('approvals').select('request_id, track, decision').in('request_id', ids)
         : { data: [] }
-      requestApprovals = new Set((decided ?? [])
-        .filter((d) => d.decision === 'approved').map((d) => d.track))
+      const byRequest = new Map()
+      for (const a of allApprovals ?? []) {
+        if (a.decision !== 'approved') continue
+        if (!byRequest.has(a.request_id)) byRequest.set(a.request_id, new Set())
+        byRequest.get(a.request_id).add(a.track)
+      }
+      requestApprovalsByStage = (stageName) => {
+        const wanted = stageName === record.status ? 'open' : 'approved'
+        const req = (reqs ?? []).find((r) => r.from_stage === stageName && r.status === wanted)
+        return req ? (byRequest.get(req.id) ?? new Set()) : new Set()
+      }
     }
 
     const versionApprovals = {}
@@ -282,8 +323,12 @@ export default async function recordsRoutes(app) {
         return null
       }).filter(Boolean)
 
+      // The signature is unchanged: the sixth argument is still one Set or
+      // undefined. What changed is that the caller computes it per stage rather
+      // than once for the record.
       const tracks = buildStageTracks(
-        stageRules, approvals, stage.stage_name, currentRevision, versionApprovals, requestApprovals)
+        stageRules, approvals, stage.stage_name, currentRevision, versionApprovals,
+        requestApprovalsByStage ? requestApprovalsByStage(stage.stage_name) : undefined)
 
       return { stage_name: stage.stage_name, sort_order: stage.sort_order, phase: stage.phase, state, criteria, tracks }
     })

@@ -208,24 +208,46 @@ export async function computeBlocking(db, record, from_stage, to_stage, currentR
       // CALLER EVER SUPPLIED IT, so every opportunity gate went on reading the
       // version-derived state it was supposed to have replaced. Found by the
       // item 4 confirmation, which is what that confirmation was for.
+      // ── THE REQUEST FOR THIS from_stage, NOT THE RECORD'S OPEN ONE ────────
+      //
+      // Round 41, sixth walk V8, SECOND LOCATION. The stage-approvals panel had
+      // exactly this defect and was fixed first; the capture of that fix then
+      // showed this one on the same screen, because the two panels sit side by
+      // side. Exit Criteria read "3 approvals still outstanding" beside an
+      // Approvals panel showing all three approved.
+      //
+      // Rule 43's own point arriving immediately: the display and the gate
+      // answered one question from two queries, and fixing one made the
+      // disagreement visible rather than creating it.
+      //
+      // THE GATE IS NOT WEAKENED BY THIS. computeBlocking is called with a
+      // from_stage, and for the TRANSITION endpoint that is always the record's
+      // current stage, which still reads the open request exactly as before.
+      // What changes is only the display case: asking about a stage the record
+      // has already left now answers from the request that carried it.
       let requestApprovals
       if (usesWorkflow(record.record_type)) {
-        const { data: open, error: reqErr } = await db
+        const wantOpen = from_stage === record.status
+        const { data: reqs, error: reqErr } = await db
           .from('transition_requests')
-          .select('id')
-          .eq('record_id', record.id).eq('status', 'open').eq('kind', 'transition')
-          .maybeSingle()
+          .select('id, from_stage, status, requested_at')
+          .eq('record_id', record.id).eq('kind', 'transition')
+          .eq('from_stage', from_stage)
+          .eq('status', wantOpen ? 'open' : 'approved')
+          .order('requested_at', { ascending: false })
+          .limit(1)
         if (reqErr) return { error: reqErr }
-        if (open) {
+        const req = reqs?.[0]
+        if (req) {
           const { data: decided, error: decErr } = await db
-            .from('approvals').select('track, decision').eq('request_id', open.id)
+            .from('approvals').select('track, decision').eq('request_id', req.id)
           if (decErr) return { error: decErr }
           requestApprovals = new Set((decided ?? [])
             .filter((d) => d.decision === 'approved').map((d) => d.track))
         } else {
-          // NO OPEN REQUEST MEANS NO APPROVAL, and an empty Set says so rather
-          // than falling through to the old reading. A workflow record's gate is
-          // satisfied by a request or not at all.
+          // NO REQUEST FOR THIS STAGE MEANS NO APPROVAL, and an empty Set says
+          // so rather than falling through to the old reading. A workflow
+          // record's gate is satisfied by a request or not at all.
           requestApprovals = new Set()
         }
       }

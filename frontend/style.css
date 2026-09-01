@@ -1811,6 +1811,88 @@ textarea::placeholder { color: var(--muted-2); }
 }
 .btn-accept:hover { background: #7ad4a6; border-color: #7ad4a6; }
 
+/* ── A TOGGLE THAT LOOKS LIKE ONE. Round 41, sixth walk V5 ─────────────────
+   The factoring control was a .btn-ghost reading "Factoring: On/Off": the state
+   was one word deep in a label and nothing said it could be flipped.
+
+   THE TRACK AND KNOB ARE DRAWN IN CSS, no image and no new element, so the
+   button keeps its identity, its wiring and its keyboard behaviour. ::before is
+   the track, ::after the knob, and the knob travels on .is-on.
+
+   ONE ACCENT: --green already means "on" in the current-stage dot and the
+   at-target margin, so enabled borrows it and disabled is the ordinary muted
+   outline - the absence of the accent rather than a second colour. */
+/* ── A CONTROL WAITING ON A WRITE. Round 41, sixth walk V6 ─────────────────
+   The decide controls were REMOVED during the write, so clicking Approve on one
+   track made the other two vanish. Disabled is the honest state: the control
+   still exists, still says what it does, and says it cannot be used yet.
+
+   Dimmer than .is-frozen's 0.45, deliberately: this is momentary and the
+   difference from the surrounding text is what says "wait" rather than
+   "unavailable". The cursor is the second half of the affordance. */
+.btn-sm.is-pending, .is-pending {
+  opacity: 0.55;
+  cursor: progress;
+  pointer-events: none;
+}
+
+/* THE KNOB IS POSITIONED, NOT MARGIN-NUDGED. The first version pulled ::after
+   back over the track with a negative margin, and the capture showed it sitting
+   OUTSIDE the track to the right of the text: a flex gap and a negative margin
+   do not compose into a position. Verification 4 - the rule read correctly and
+   the picture did not.
+
+   nowrap because the label is two words and the control is in a narrow column,
+   so it wrapped and the track sat beside a two-line label. */
+.deal-toggle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  white-space: nowrap;
+}
+/* ── THE PADDING NEEDS THE COMPOUND SELECTOR, and this is why ──────────────
+   `.deal-toggle { padding-left: 48px }` computed to 20px. Equal specificity,
+   and .btn-ghost is declared LATER in this file, so its `padding` shorthand
+   wins on source order and resets the longhand.
+   Measured, not guessed: getComputedStyle reported paddingLeft "20px" against a
+   track ending at 36px, which is exactly the overlap the capture showed. */
+.btn-ghost.deal-toggle { padding-left: 48px; }
+.deal-toggle::before {
+  content: "";
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 26px;
+  height: 14px;
+  border-radius: 7px;
+  border: 1px solid var(--hairline-strong);
+  background: rgba(242,242,240,0.06);
+  transition: background 120ms ease, border-color 120ms ease;
+}
+.deal-toggle::after {
+  content: "";
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--muted);
+  transform: translateY(-50%);
+  transition: transform 120ms ease, background 120ms ease;
+}
+.deal-toggle.is-on {
+  border-color: var(--green);
+  color: var(--green);
+}
+.deal-toggle.is-on::before { background: rgba(102,204,153,0.25); border-color: var(--green); }
+.deal-toggle.is-on::after { background: var(--green); transform: translate(12px, -50%); }
+@media (prefers-reduced-motion: reduce) {
+  .deal-toggle::before, .deal-toggle::after { transition: none; }
+}
+
 .btn-attention {
   border-color: rgba(224,130,74,0.9);
   color: rgba(224,130,74,0.9);
@@ -4829,6 +4911,37 @@ input.input-invalid {
 /* A frozen record's write controls. Applied to the whole detail view from ONE
    loaded value, so no control decides for itself whether it is editable. */
 .is-frozen input, .is-frozen textarea, .is-frozen select { pointer-events: none; opacity: 0.45; }
+
+/* ── A SET VALUE MUST READ AS SET WHEN FROZEN. Round 41, sixth walk V7 ─────
+   The walk reported the proposal-address "Same as account" tick as UNCHECKED
+   after a transition. It was checked, and it had been true in the payload since
+   revision 19 and stayed true - measured on both walk records, never absent,
+   never false.
+
+   THE 45% OPACITY IS WHAT MADE IT READ AS EMPTY. A checkbox has one bit of
+   visual state and dimming halves the only signal it has, so a ticked box at
+   0.45 is indistinguishable from an untouched one. Verification 4: presence is
+   not legibility, and no assertion can tell them apart.
+
+   THE FLOOR APPLIES TO SET CONTROLS ONLY, which is the whole point. An empty
+   input stays at 0.45 because "you cannot type here" is the correct message and
+   there is no value for the dimming to hide. A CHECKED box, a filled input and a
+   chosen select carry a value somebody recorded, and a frozen record is
+   precisely when that value is being read rather than changed.
+
+   :checked and :not(:placeholder-shown) are the only two ways CSS can ask "does
+   this hold a value", and neither reaches a <select>, so selects are lifted
+   wholesale: a select with no choice shows its own "--" option and reads as
+   unset by its text. */
+.is-frozen input:checked,
+.is-frozen input:not(:placeholder-shown),
+.is-frozen select,
+.is-frozen textarea:not(:placeholder-shown) { opacity: 0.82; }
+
+/* The label beside a checked box travels with it, or the tick brightens and the
+   words beside it stay dim, which reads as a control half-disabled. */
+.is-frozen label:has(input:checked) { opacity: 0.82; }
+.is-frozen label:has(input:checked) input { opacity: 1; }
 .is-frozen .btn-primary, .is-frozen .btn-secondary, .is-frozen .btn-ghost, .is-frozen .btn-sm { opacity: 0.45; }
 .is-frozen .freeze-banner, .is-frozen .freeze-banner * { pointer-events: auto; opacity: 1; }
 

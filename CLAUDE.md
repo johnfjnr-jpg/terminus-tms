@@ -612,6 +612,10 @@ Record what each option's stated advantage DEPENDS ON. A premise that fails
 means the decision is re-taken, not re-weighed, and the superseded reasoning
 stays visible.
 
+**BEFORE SHOWING AN APPROVAL OR GATE STATE** - Verification 43
+Name the function the enforcement calls, and confirm the panel calls it too.
+Three instances: the exit-criteria gate, the version bridge, the stage panel.
+
 **BEFORE TREATING A WALK DEFECT AS LIVE** - Verification 42
 Hard reload, then re-observe, and say so in the report. Two of the fourth walk's
 three findings were code that had already been fixed.
@@ -1926,6 +1930,55 @@ of the change. An unanswerable precondition is a stop.
     code is a broken instrument, and this is the same argument as Verification
     12: a tool that returns the wrong answer for a reason unrelated to the truth
     is worse than one that returns nothing.
+
+43. **A SURFACE THAT DISPLAYS AN APPROVAL OR A GATE STATE READS FROM THE SAME
+    SOURCE THE ENFORCEMENT READS.** Set by the business 2026-09-01, Round 41,
+    from the sixth walk. **The third instance of one defect, which is why it is a
+    rule rather than a fix.**
+
+    > Never a parallel query. Where a display genuinely cannot share the
+    > enforcement's read, it is **tested against the enforcement's own outcome**,
+    > not against a second derivation of it.
+
+    **THE THREE INSTANCES, and they are the argument:**
+
+    - **The exit-criteria gate, Round 38.** The panel and `computeBlocking`
+      answered the same question by different rules. Live data carried three
+      Commercial approvals describing prices that had already moved while the
+      gate read green. `approvalSatisfiesRule` exists because of this one.
+    - **The version bridge**, Verification 20's own instance. The approval page
+      read `payload.factoringRatePct`; the calculator reads
+      `payload.factoring.ratePct`. The page told every approver "nobody entered a
+      value" for a deal that had set it. **Both readers were correct in
+      isolation.**
+    - **The stage panel, sixth walk V8.** `GET /records/:id/stage-approvals`
+      built ONE set of approvals from the record's single OPEN request and handed
+      it to every stage. On a record with no open request every track on every
+      stage read "waiting" - including two stages whose approvals sat on closed
+      requests. Six approvals existed and the panel could see none of them, on a
+      record that could not have advanced without them.
+
+    **WHAT MAKES THIS FAMILY DANGEROUS is that the enforcement is right every
+    time.** `decide_transition_request` has never let a record move without its
+    approvals. Every one of these was a READER beside a correct rule, and each
+    was defensible on its own terms until somebody compared it with the gate.
+
+    **A GREEN DISPLAY IS A POSITIVE CLAIM.** "Approved" on screen says a named
+    person accepted this, and "waiting" says nobody has. Round 38 recorded that a
+    wrong green is worse than no gate, because no gate is an absence people work
+    around. V8 is the same sentence inverted: a wrong EMPTY tells somebody the
+    approvals they gave were never recorded.
+
+    **The check: for any panel showing approval or gate state, name the function
+    the enforcement calls and confirm the panel calls it too.** Where it cannot -
+    a different grain, a different transport - the test asserts the panel against
+    the enforcement's OUTCOME on the same record, which is what
+    `buildStageTracks` being exported for the agreement test already does and
+    what V8 slipped past by feeding that exported function the wrong argument.
+
+    Nearest neighbour is Verification 20, two readers of one value. **This is
+    narrower and has a remedy 20 does not: there is a specific function to
+    share**, and sharing it is cheaper than proving two readers equal.
 
 ### At round close: index these by when they apply
 

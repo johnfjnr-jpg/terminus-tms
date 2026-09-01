@@ -459,3 +459,132 @@ test('X4/42: the dev server cannot serve a stale bundle to a walk', () => {
   assert.match(server, /if \(request\.raw\.url\?\.startsWith\('\/api\/'\)\) return/,
     'the API should be left alone by that hook')
 })
+
+// ─────────────────────────────────────────────────────────────
+// Round 41, sixth walk: V8, V1/V2/V4, V3, V5, V6, V7
+// ─────────────────────────────────────────────────────────────
+
+test('V8: each stage binds to its OWN request, not to one shared Set', () => {
+  // The defect: one Set from the record's single OPEN request, handed to every
+  // stage. With no open request every track on every stage read "waiting",
+  // including stages whose approvals sat on closed requests.
+  const src = readCode(ROOT + 'src/routes/records.js')
+  assert.ok(!/const \{ data: open \} = await db\.from\('transition_requests'\)/.test(src),
+    'the single-open-request read survives')
+  assert.match(src, /requestApprovalsByStage = \(stageName\) =>/,
+    'the per-stage binding is not there')
+  // THE CURRENT STAGE ASKS A DIFFERENT QUESTION, and that is the whole design.
+  assert.match(src, /stageName === record\.status \? 'open' : 'approved'/,
+    'the current stage must read the open request and a past stage its own approved one')
+  // A withdrawn or rejected request carried no decision that stood.
+  assert.ok(!/status === 'rejected'|'withdrawn'/.test(src.slice(src.indexOf('requestApprovalsByStage'), src.indexOf('requestApprovalsByStage') + 400)),
+    'a withdrawn or rejected request must not supply a stage its approvals')
+  assert.match(src, /requestApprovalsByStage \? requestApprovalsByStage\(stage\.stage_name\) : undefined/,
+    'the caller does not pass the per-stage set')
+
+  // ── THE SECOND LOCATION, found by the capture of the first fix ──────────
+  //
+  // computeBlocking had the identical defect, and the two panels sit side by
+  // side: Exit Criteria said "3 approvals still outstanding" beside an Approvals
+  // panel showing all three approved. Rule 43 arriving within the hour of being
+  // written.
+  const gate = readCode(ROOT + 'src/routes/transitions.js')
+  assert.ok(!/\.eq\('record_id', record\.id\)\.eq\('status', 'open'\)\.eq\('kind', 'transition'\)/.test(gate),
+    'computeBlocking still reads the record-wide open request')
+  assert.match(gate, /const wantOpen = from_stage === record\.status/,
+    'computeBlocking does not distinguish the current stage from a past one')
+  assert.match(gate, /\.eq\('from_stage', from_stage\)/,
+    'computeBlocking does not scope the request to the stage it was asked about')
+})
+
+test('V1/V2/V4: the next major comes from the record, not from the draft', () => {
+  const route = readCode(ROOT + 'src/routes/deal-sheet-versions.js')
+  const app = readCode(ROOT + 'frontend/opportunity-deal.js')
+  // The wrong derivation, in all three places it lived.
+  assert.ok(!/major: version\.major \+ 1/.test(route), 'the server still derives from the draft')
+  assert.ok(!/as V\$\{draft\.major \+ 1\}/.test(app), 'the label still derives from the draft')
+  assert.ok(!/to: `V\$\{version\.major \+ 1\}`/.test(route), 'the audit still records the old derivation')
+  assert.match(route, /major: highestIssued \+ 1/, 'the server does not use the highest issued major')
+  assert.match(app, /const nextMajor = \(issued\?\.major \?\? 0\) \+ 1/, 'the label does not use it either')
+  // ONLY THE LATEST DRAFT, enforced server-side. Hiding the control is not a rule.
+  assert.match(route, /is the latest draft, so it is the one that can be issued/,
+    'an earlier draft can still be issued')
+})
+
+test('V1: 23505 is mapped in ONE place, and both mappers know it', () => {
+  const we = readCode(ROOT + 'src/lib/write-errors.js')
+  assert.match(we, /export function isDuplicate\(error\) \{\s*return error\?\.code === '23505'/,
+    '23505 is not recognised')
+  assert.match(we, /deal_sheet_versions_record_id_major_minor_key:/,
+    'the version constraint has no sentence')
+  // BOTH mappers. The round that added PT423 to one and not the other is why.
+  const send = we.slice(we.indexOf('export function sendWriteError'), we.indexOf('export function writeErrorStatus'))
+  const status = we.slice(we.indexOf('export function writeErrorStatus'))
+  assert.match(send, /isDuplicate\(error\)/, 'sendWriteError does not map it')
+  assert.match(status, /isDuplicate\(error\)/, 'writeErrorStatus does not map it')
+  // And the issue route reaches the mapper rather than sending err.message.
+  const route = readCode(ROOT + 'src/routes/deal-sheet-versions.js')
+  const issue = route.slice(route.indexOf("'/deal-sheet-versions/:vid/issue'"))
+  assert.ok(!/failed to issue deal sheet version'\)\s*\n\s*return reply\.code\(500\)/.test(issue),
+    'the issue route still sends the raw database message')
+})
+
+test('V3: a version with no delta is refused, and the excuse wording is gone', () => {
+  const route = readCode(ROOT + 'src/routes/deal-sheet-versions.js')
+  const app = readCode(ROOT + 'frontend/opportunity-deal.js')
+  assert.match(route, /!payloadsDiffer\(inputs, prior\.inputs \?\? \{\}\)/,
+    'the route does not compare against the previous version')
+  assert.match(route, /No change since V\$\{prior\.major\}\.\$\{prior\.minor\}/,
+    'the refusal does not name what it is comparing against')
+  assert.ok(!/The pricing was already saved/.test(app),
+    'the "already saved" wording survives')
+})
+
+test('V5: the factoring control is a switch, and states which state it is in', () => {
+  const app = readCode(ROOT + 'frontend/opportunity-deal.js')
+  const css = readCode(ROOT + 'frontend/style.css')
+  assert.ok(!/Factoring: \$\{uiState\.factoringEnabled \? 'On' : 'Off'\}/.test(app),
+    'the old colon-and-word label survives')
+  assert.match(app, /on \? 'Factoring enabled' : 'Factoring disabled'/, 'the label does not state the state')
+  assert.match(app, /fx\.setAttribute\('role', 'switch'\)/, 'it is not announced as a switch')
+  assert.match(app, /aria-checked/, 'its state is not announced')
+  // The affordance is drawn, not implied.
+  assert.match(css, /\.deal-toggle::before \{/, 'no track is drawn')
+  // translate(x, -50%) rather than translateX: the knob is absolutely
+  // positioned and centred vertically, so its resting transform already carries
+  // -50% and translateX alone would drop it. The first version of this
+  // assertion pinned translateX and failed when the capture forced the
+  // positioning fix, which is the assertion doing its job on my own change.
+  assert.match(css, /\.deal-toggle\.is-on::after \{[^}]*transform: translate\(/, 'the knob does not travel')
+  // ONE ACCENT.
+  const block = css.slice(css.indexOf('.deal-toggle {'), css.indexOf('.btn-attention'))
+  assert.ok(!/#(?!fff)[0-9a-f]{6}/i.test(block.replace(/rgba?\([^)]*\)/g, '')),
+    `the toggle introduces a colour outside the palette: ${block.match(/#[0-9a-f]{6}/i)}`)
+})
+
+test('V6: decide controls are DISABLED during the write, never removed', () => {
+  const app = readCode(ROOT + 'frontend/app.js')
+  const decide = app.slice(app.indexOf('window.decideRequest ='))
+  assert.ok(!/banner\?\.querySelectorAll\('button'\)\.forEach\(\(b\) => b\.remove\(\)\)/.test(decide),
+    'the controls are still removed, which makes the other tracks vanish mid-write')
+  assert.match(decide, /b\.disabled = true/, 'they are not disabled')
+  assert.match(decide, /b\.classList\.add\('is-pending'\)/, 'there is no pending state')
+  const css = readCode(ROOT + 'frontend/style.css')
+  assert.match(css, /\.is-pending \{[^}]*pointer-events: none/, 'a pending control still accepts clicks')
+})
+
+test('V7: a SET control stays legible on a frozen record', () => {
+  // The tick persisted true throughout; 45% opacity made it read as empty. A
+  // checkbox has one bit of visual state and dimming halves the only signal it
+  // has. Verification 4: presence is not legibility.
+  const css = readCode(ROOT + 'frontend/style.css')
+  assert.match(css, /\.is-frozen input:checked/, 'a checked box is not lifted')
+  assert.match(css, /\.is-frozen input:not\(:placeholder-shown\)/, 'a filled input is not lifted')
+  const rule = css.match(/\.is-frozen input:checked[^{]*\{([^}]*)\}/)
+  const lifted = parseFloat(rule[1].match(/opacity:\s*([\d.]+)/)[1])
+  assert.ok(lifted > 0.45, `a set control is lifted to ${lifted}, which is not above the frozen 0.45`)
+  // AND AN EMPTY ONE IS NOT. "You cannot type here" is the correct message when
+  // there is no value for the dimming to hide.
+  assert.match(css, /\.is-frozen input, \.is-frozen textarea, \.is-frozen select \{ pointer-events: none; opacity: 0\.45; \}/,
+    'the base frozen rule must still dim an empty control')
+})

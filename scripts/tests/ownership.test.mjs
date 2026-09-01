@@ -187,5 +187,28 @@ test('A GENUINE FAILURE is not dressed up as a refusal', async () => {
 
   assert.notEqual(error, null, 'expected a duplicate-key violation')
   assert.equal(isRefusal(error), false, `a ${error.code} was treated as an ownership refusal`)
-  assert.equal(writeErrorStatus(error).status, 500)
+
+  // ── THE NUMBER CHANGED AND THE PROPERTY DID NOT. Round 41, sixth walk ───
+  //
+  // This asserted 500, correctly, while 23505 was mapped nowhere. V1 mapped it,
+  // because the walk had a raw constraint name on screen, and this test failed -
+  // which is it working: a mapping change reached a status somebody had pinned.
+  //
+  // 409 IS NOT DRESSING UP, and that distinction is the whole of this test. A
+  // duplicate revision_number is two writers racing for one number, which is
+  // precisely a conflict, and "reload and try again" is the true remedy. What
+  // this test forbids is a failure wearing a status that implies the caller did
+  // something wrong they can fix by asking differently - a 403, or a 200.
+  assert.equal(writeErrorStatus(error).status, 409,
+    'a duplicate key is a conflict, and the mapper should say so')
+  assert.match(writeErrorStatus(error).error, /duplicate|already/i,
+    'the message must still say what happened rather than a generic failure')
+
+  // AND AN ERROR THE MAPPER DOES NOT RECOGNISE IS STILL A 500. That is the half
+  // that keeps this honest: mapping known codes must not become mapping
+  // everything to something reassuring.
+  const unknown = { code: '22003', message: 'numeric field overflow' }
+  assert.equal(writeErrorStatus(unknown).status, 500,
+    'an unrecognised database error must stay a 500')
+  assert.equal(writeErrorStatus(unknown).error, 'numeric field overflow')
 })

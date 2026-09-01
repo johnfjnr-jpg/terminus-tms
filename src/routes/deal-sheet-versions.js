@@ -1,4 +1,6 @@
 import { createUserClient } from '../supabase.js'
+import { sendWriteError } from '../lib/write-errors.js'
+import { payloadsDiffer } from '../lib/payload-diff.js'
 import { versionApprovalState, liveVersionApproval, APPROVAL_TRACK } from '../lib/version-approval.js'
 import { buildApprovalPage } from '../lib/approval-page.js'
 import { scheduleReconciliation, refusalStatement } from '../lib/milestone-schedule.js';
@@ -375,6 +377,41 @@ export default async function dealSheetVersionsRoutes(app) {
     // number at all. Both reads existed only to supply values the function now
     // computes inside the lock, and keeping them would be a second path that
     // agrees today.
+    // ── A VERSION WITH NO DELTA IS REFUSED. Round 41, sixth walk V3 ────────
+    //
+    // Taking a version that is byte-identical to the last one writes an
+    // immutable row saying nothing changed, and the walk's screen then said
+    // "Saved V0.4. The pricing was already saved", which reads as success for an
+    // act that recorded nothing.
+    //
+    // Compared with payloadsDiffer, the same comparison the dirty state uses, so
+    // "no change" means the same thing to the screen and to the route.
+    //
+    // AGAINST THE LATEST VERSION, not the latest ISSUED one: the question is
+    // whether this differs from the last thing recorded, and a draft is a thing
+    // recorded.
+    //
+    // THE LIMIT, STATED. This read is not inside insert_deal_sheet_version's
+    // advisory lock, so two identical versions submitted concurrently could both
+    // pass it. That is not a data hazard - the worst case is the duplicate row
+    // this refuses, arriving by a route nobody takes - and moving the check into
+    // the function is a migration, which this ruling did not authorise. Named
+    // rather than left as an unstated gap.
+    const { data: priorVersions, error: priorErr } = await db
+      .from('deal_sheet_versions')
+      .select('inputs, major, minor')
+      .eq('record_id', request.params.id)
+      .order('major', { ascending: false }).order('minor', { ascending: false })
+      .limit(1)
+    if (priorErr) return reply.code(500).send({ error: priorErr.message })
+    const prior = priorVersions?.[0]
+    if (prior && !payloadsDiffer(inputs, prior.inputs ?? {})) {
+      return reply.code(409).send({
+        error: `No change since V${prior.major}.${prior.minor}. A version records a decision, `
+          + 'so there is nothing to record until something differs.',
+      })
+    }
+
     const batchId = catalog.batches.safesight?.batch_id ?? Object.values(catalog.batches)[0]?.batch_id ?? null
 
     const { data: created, error: insErr } = await db.rpc('insert_deal_sheet_version', {
@@ -459,11 +496,61 @@ export default async function dealSheetVersionsRoutes(app) {
       return reply.code(409).send({ error: 'This version has already been issued. An issued version cannot be changed.' })
     }
 
-    // V0.4 becomes V1: the next major, minor back to zero.
+    // ── THE NEXT MAJOR COMES FROM WHAT HAS BEEN ISSUED. Round 41, V1/V2/V4 ─
+    //
+    // It read `version.major + 1`, from the DRAFT being issued. Every draft has
+    // major 0, so every draft targeted V1, and the second issue collided:
+    //
+    //   duplicate key value violates unique constraint
+    //   deal_sheet_versions_record_id_major_minor_key
+    //
+    // which reached the user verbatim, because 23505 was mapped nowhere.
+    //
+    // The rule was not stale and the client label was not stale either. Both
+    // read the same value from the same fresh cache and both applied a
+    // derivation that was simply wrong: the next major is a fact about the
+    // RECORD's issued history, not about the row being issued.
+    const { data: issuedRows, error: issuedErr } = await db
+      .from('deal_sheet_versions')
+      .select('major, minor, status')
+      .eq('record_id', version.record_id)
+      .eq('status', 'issued')
+      .order('major', { ascending: false })
+      .limit(1)
+    if (issuedErr) return reply.code(500).send({ error: issuedErr.message })
+    const highestIssued = issuedRows?.[0]?.major ?? 0
+
+    // ── ONLY THE LATEST DRAFT IS ISSUABLE. Ruled by the business ───────────
+    //
+    // Once anything has been issued, an earlier draft must not become the next
+    // version: issuing V0.3 after V0.4 would publish superseded pricing as the
+    // NEWER version, which is the opposite of what a version number means.
+    // Earlier drafts remain restorable - restore-to-branch - which is how you
+    // go back to one deliberately.
+    //
+    // Enforced HERE rather than only by hiding the control, because the control
+    // being right is a property of one screen and this is a property of the
+    // record.
+    const { data: drafts, error: draftErr } = await db
+      .from('deal_sheet_versions')
+      .select('id, major, minor')
+      .eq('record_id', version.record_id)
+      .eq('status', 'draft')
+      .order('major', { ascending: false })
+      .order('minor', { ascending: false })
+      .limit(1)
+    if (draftErr) return reply.code(500).send({ error: draftErr.message })
+    if (drafts?.[0] && drafts[0].id !== version.id) {
+      return reply.code(409).send({
+        error: `V${drafts[0].major}.${drafts[0].minor} is the latest draft, so it is the one that can be issued. `
+          + 'To issue an earlier draft, restore it first: that makes it the latest.',
+      })
+    }
+
     const { data: updated, error: updErr } = await db
       .from('deal_sheet_versions')
       .update({
-        major: version.major + 1,
+        major: highestIssued + 1,
         minor: 0,
         status: 'issued',
         issued_by: request.user.id,
@@ -475,7 +562,11 @@ export default async function dealSheetVersionsRoutes(app) {
 
     if (updErr) {
       request.log.error({ err: updErr }, 'failed to issue deal sheet version')
-      return reply.code(500).send({ error: updErr.message })
+      // Through the shared mapper, so a 23505 arrives as a sentence rather than
+      // as a constraint name. The derivation above should make it unreachable;
+      // it is mapped anyway, because "unreachable" is a claim about today's
+      // code and a raw Postgres message on screen is what the walk actually saw.
+      return sendWriteError(reply, updErr)
     }
     // An update refused by RLS returns success with an empty set rather than an
     // error, which is the Verification 8 shape. The row count is the signal.
@@ -486,7 +577,10 @@ export default async function dealSheetVersionsRoutes(app) {
     await db.from('audit_log').insert({
       record_id: version.record_id, record_type: 'opportunity',
       action: 'deal_sheet_version_issued', actor_id: request.user.id,
-      detail: { version_id: version.id, from: `V${version.major}.${version.minor}`, to: `V${version.major + 1}` },
+      // The audit says what was actually written, not what the old rule would
+      // have produced. It read `V${version.major + 1}`, which was the same wrong
+      // derivation in a third place and would have recorded V1 for every issue.
+      detail: { version_id: version.id, from: `V${version.major}.${version.minor}`, to: `V${highestIssued + 1}` },
     })
 
     return updated[0]

@@ -7221,3 +7221,109 @@ it now also means the action that accepts.
 for `--white` on the same green, which is why white is not an option. A modifier
 on `.btn-primary` rather than a replacement, so every other primary stays an
 outline.
+
+### THE RAW-ERROR SWEEP, named as its own later pass
+
+**Named by the business 2026-09-01, Round 41, from the sixth walk's V1.**
+
+**117 route sites send a Postgres message straight to the user**, against 57 that
+go through `sendWriteError` and 3 through `writeErrorStatus`:
+
+| file | sites | | file | sites |
+|---|---|---|---|---|
+| test-beds.js | 31 | | records.js | 5 |
+| opportunities.js | 19 | | scoring.js | 5 |
+| transition-requests.js | 19 | | accounts.js | 3 |
+| deal-sheet-versions.js | 15 | | transitions.js | 3 |
+| contacts.js | 6 | | eight others | 1-2 each |
+
+The walk hit one of them: `duplicate key value violates unique constraint
+deal_sheet_versions_record_id_major_minor_key`, on screen, in front of a person
+issuing a version.
+
+**23505 IS NOW MAPPED IN ONE PLACE** and covers every site that goes through the
+shared mapper. **That is the fix for the class, not for the 117**: a route that
+sends `err.message` itself never reaches the mapper, whatever the mapper knows.
+
+**Its own pass, deliberately.** Converting 117 sites is mechanical and the
+judgement is not: each one has to be read for whether the raw message was
+carrying information the caller needs, and a sweep that replaces them all with a
+generic sentence would lose that. The sweep also wants a rule about which errors
+a user should ever see, which is a decision rather than an edit.
+
+## Round 41, the sixth walk: V8, V1/V2/V4, V3, V5, V6, V7
+
+### V8: the third instance of one defect, and it had a fourth location
+
+`GET /records/:id/stage-approvals` built ONE set of approvals from the record's
+single OPEN request and handed it to every stage. On a record with no open
+request every track on every stage read "waiting" - including two stages whose
+approvals sat on closed requests. **Six approvals existed and the panel could see
+none of them, on a record that could not have advanced without them.**
+
+Bound per stage now: the current stage reads the open request (what is
+outstanding NOW), a past stage reads the most recent APPROVED request whose
+`from_stage` is that stage (what was decided THEN). Withdrawn and rejected
+requests are ignored - this record's Proposal exit was rejected once and approved
+afterwards, and showing the rejection would say a stage was refused when it was
+subsequently passed.
+
+**AND THE CAPTURE OF THAT FIX SHOWED THE SAME DEFECT NEXT TO IT.** `computeBlocking`
+had it identically, and the two panels sit side by side: Exit Criteria read
+**"3 approvals still outstanding"** beside an Approvals panel showing all three
+approved. Rule 43 arriving within the hour of being written, and rule 10's limit
+applying - a defect made visible by making its neighbour correct is part of the
+change.
+
+**The gate is not weakened.** `computeBlocking` is called with a `from_stage`, and
+for the transition endpoint that is always the record's current stage, which
+still reads the open request exactly as before. Only the display case changed.
+
+### V1/V2/V4: not a stale reader. A wrong derivation in three places.
+
+`major: version.major + 1`, from the DRAFT being issued. Every draft has major 0,
+so **every draft targeted V1** and the second issue collided.
+
+The label was never stale and neither was the cache: both readers read the same
+fresh value and applied the same wrong rule. **The next major is a fact about the
+RECORD's issued history**, and it now comes from the highest issued major - in
+the route, in the label, and in the audit detail, which was a third copy.
+
+**Only the latest draft is issuable**, enforced server-side rather than by hiding
+the control: issuing V0.3 after V0.4 would publish superseded pricing as the
+newer version. Earlier drafts stay restorable, which is how you go back on
+purpose.
+
+**23505 is mapped in ONE place**, by constraint name, in both `sendWriteError` and
+`writeErrorStatus` - the round that added PT423 to one and not the other is why
+both are named. A test that pinned a duplicate key to 500 failed and was
+restated rather than the mapping weakened: 409 is not dressing up, because a
+duplicate revision number IS two writers racing, and an unrecognised code still
+gets its 500.
+
+**The 117-site raw-error sweep is recorded above as its own later pass.**
+
+### V3, V5, V6, V7
+
+**V3.** A version identical to the last one is refused with the version it
+matches named. The "already saved" wording is gone: it was true and read as an
+excuse, and it collided with the route's own "no change" message.
+
+**V5.** The factoring control was a `.btn-ghost` reading "Factoring: On/Off" -
+the state was one word deep in a label and nothing said it could be flipped. It
+is a switch now, drawn in CSS on the existing button so it keeps its wiring and
+its keyboard behaviour, with the state carried by weight and colour rather than
+by a word. **Three attempts, each corrected by opening the capture:** a negative
+margin that put the knob outside the track, a label that wrapped to two lines,
+and a `padding-left` that computed to 20px because `.btn-ghost` is declared later
+in the file and its shorthand won on source order.
+
+**V6.** The decide controls are disabled with a pending state, never removed. The
+first version removed them, which closed the double-click window and opened a
+worse one: clicking Approve on Commercial made Technical and Legal **vanish**.
+
+**V7.** A set control stays legible on a frozen record. The proposal-address tick
+was `true` in the payload throughout and 45% opacity made it read as empty: a
+checkbox has one bit of visual state and dimming halves the only signal it has.
+An EMPTY control still dims, because "you cannot type here" is the correct
+message when there is no value for the dimming to hide.

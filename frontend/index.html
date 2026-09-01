@@ -2385,7 +2385,11 @@
                  it is on; only the selection moves. -->
             <div style="width:170px;flex:0 0 170px">
               <span class="label" style="display:block;margin-bottom:6px">PO factoring</span>
-              <button class="btn-ghost" id="deal-factoring-toggle" type="button">Factoring: Off</button>
+              <!-- Round 41 V5: a switch, not an indicator. The class carries the
+                   affordance and updateFactoringButtons carries the state; the
+                   text here is replaced on first render and is the off state so
+                   a paint before the record loads is not a claim. -->
+              <button class="btn-ghost deal-toggle" id="deal-factoring-toggle" type="button" role="switch" aria-checked="false">Factoring disabled</button>
             </div>
             <!-- MIN-WIDTH, not min-width:0. Round 41 item 6, finding 3.
                  `flex: 1 1 0; min-width: 0` never wraps: it shrinks to whatever
