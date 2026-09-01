@@ -197,6 +197,13 @@ function renderNotRecorded(page) {
 }
 
 window.loadApprovalPage = async function (oppId) {
+  // Round 41 item K: whatever this function does or returns, the view stops
+  // hiding its body. try/finally rather than a line at the end, because this
+  // one has several early returns.
+  try { return await loadApprovalPageInner(oppId) } finally { window.detailLoaded('opportunity-approval') }
+}
+
+async function loadApprovalPageInner(oppId) {
   apprOppId = oppId
   const err = document.getElementById('appr-error')
   err.classList.add('hidden')
@@ -208,8 +215,27 @@ window.loadApprovalPage = async function (oppId) {
   }
   const page = r.data
   document.getElementById('appr-title').textContent = page.ask.record.name ?? page.ask.record.reference ?? 'Opportunity'
+  // ── AND IT SAYS IF THE RECORD HAS MOVED. Round 41 walk item F ───────────
+  //
+  // meta.revisionNumber is the revision this page was BUILT at, and it is
+  // correct: the route reads the latest at request time. What the walk saw was
+  // 26 against a record at 54, on a page rendered once and never told.
+  //
+  // The handshake in app.js now learns from this response, which fixes the app's
+  // one loaded revision. This line fixes the SENTENCE, which is the half a
+  // person reads: a number with no claim about currency is one somebody assumes
+  // is current.
+  // getOppLoadedRevision already exists and returns this exact value, read by
+  // the version writer. I added a second accessor for it and removed it again
+  // in the same pass: two readers of one value is the thing this file's
+  // neighbours keep recording, and adding one while fixing a staleness bug
+  // would have been a poor joke.
+  const known = window.getOppLoadedRevision?.()
+  const moved = Number.isInteger(known) && known > page.meta.revisionNumber
   document.getElementById('appr-subtitle').textContent =
-    `${page.ask.record.reference ?? 'no reference'} · ${page.ask.record.stage ?? ''} · at revision ${page.meta.revisionNumber}`
+    `${page.ask.record.reference ?? 'no reference'} · ${page.ask.record.stage ?? ''} · `
+    + `priced at revision ${page.meta.revisionNumber}`
+    + (moved ? ` · the record has since moved to revision ${known}, so reload before deciding` : '')
 
   const state = page.ask.version?.approval?.state
   document.getElementById('appr-state-tag').innerHTML = state

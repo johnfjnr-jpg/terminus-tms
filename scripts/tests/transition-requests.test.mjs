@@ -228,11 +228,21 @@ test('the client reads ONE loaded value for the freeze', () => {
 
 test('the tab-row control says what it now does', () => {
   const app = readCode(ROOT + 'frontend/app.js')
-  // "Move to X" moved the record; "Request X" freezes it until three tracks
-  // decide. Same position, different act.
-  assert.match(app, /btn\.textContent = `Request \$\{nextStage\}`/)
+  // "Move to X" moved the record; requesting freezes it until three tracks
+  // decide. Same position, different act, and the VERB is the property this
+  // assertion has always been protecting.
+  //
+  // Round 41 ruling I changed the wording from `Request ${nextStage}` to a
+  // fixed "Request next stage": the label was different on every stage and the
+  // panel already names the target. This test failed on the old literal, which
+  // is it working - but the literal was never the claim, so it now asserts the
+  // verb and the destination's new home rather than the exact string it had.
+  assert.match(app, /btn\.textContent = 'Request next stage'/)
   assert.ok(!/btn\.textContent = `Move to \$\{nextStage\}`/.test(app),
     'the old verb must be gone, not shadowed')
+  // The destination is not lost, it moves to the title where a confirmation
+  // belongs rather than into the label a person scans.
+  assert.match(app, /btn\.title = `Raise a request to move this record to \$\{nextStage\}`/)
   assert.match(app, /btn\.onclick = \(\) => requestTransition\(recordId, nextStage\)/)
   // A record already awaiting approval says so rather than being inert.
   assert.match(app, /btn\.textContent = 'Awaiting approval'/)

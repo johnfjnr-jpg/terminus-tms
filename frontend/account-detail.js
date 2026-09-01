@@ -73,8 +73,11 @@ function acctReadonlyRow(label, value) {
 async function loadAccountDetail(id) {
   await loadTerminusStaffIfNeeded()
   const result = await api('GET', `/api/accounts/${id}`)
-  if (!result.ok) return
+  // Round 41 item K: cleared on both paths, so a record that could not be
+  // fetched shows whatever it shows rather than the loading line for ever.
+  if (!result.ok) { window.detailLoaded('account-detail'); return }
   renderAccountDetail(result.data)
+  window.detailLoaded('account-detail')
 }
 
 function renderAccountDetail(account) {

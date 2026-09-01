@@ -539,6 +539,17 @@ function cdFieldRow(key, label, value, opts = {}) {
 }
 
 async function loadContactDetail(id) {
+  // Round 41 item K: every exit clears the loading flag, including the two
+  // early returns, which is why it is a try/finally rather than a line at the
+  // end. An early return that forgets it hides the view permanently.
+  try {
+    await loadContactDetailInner(id)
+  } finally {
+    window.detailLoaded('contact-detail')
+  }
+}
+
+async function loadContactDetailInner(id) {
   const result = await api('GET', '/api/contacts')
   if (!result.ok) return
   const contact = result.data.find(c => c.id === id)

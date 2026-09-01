@@ -297,7 +297,27 @@ export default async function transitionRequestRoutes(app) {
       if (rpcErr.code === '23505') {
         return reply.code(409).send({ error: `The ${track} track has already been decided on this request.` })
       }
-      if (rpcErr.code === 'PT409') return reply.code(409).send({ error: rpcErr.message })
+      // ── AN ALREADY-DECIDED REQUEST SAYS SO. Round 41 walk item A2 ──────
+      //
+      // The function's own message is 'this request is approved and cannot be
+      // decided', which is a state machine describing itself. What reached the
+      // walk was a raw conflict on a request that had COMPLETED, after a
+      // double-click the screen gave no reason not to make, and "conflict" is
+      // the wrong word for "this already worked".
+      //
+      // Read from the request's own status rather than parsed out of the
+      // message: a sentence is not a status, and matching on it would break the
+      // first time the function's wording changed.
+      if (rpcErr.code === 'PT409') {
+        const { data: now } = await db.from('transition_requests')
+          .select('status').eq('id', req.id).maybeSingle()
+        const decided = now?.status === 'approved' || now?.status === 'rejected'
+        return reply.code(409).send({
+          error: decided
+            ? `This request has already been decided: it was ${now.status}. Nothing further is needed.`
+            : rpcErr.message,
+        })
+      }
       if (rpcErr.code === 'PT400') return reply.code(400).send({ error: rpcErr.message })
       if (rpcErr.code === 'PT404') return reply.code(404).send({ error: rpcErr.message })
       // The function's own copy of the two rules. Reaching this means the
@@ -393,7 +413,16 @@ export default async function transitionRequestRoutes(app) {
       const criteria = req.status === 'open' && req.kind === 'transition'
         ? await criteriaState(db, req)
         : { criteria: 'not applicable', criteria_blockers: [], criteria_note: null }
-      out.push({ ...req, required, decisions: decisions ?? [], ...requestState(required, decisions), ...criteria })
+      // may_decide on this route too, so the queue and the record carry the same
+      // shape. The queue has no decide controls by design, and giving it a
+      // different payload from the record is how one of them ends up with a
+      // control the other says is not allowed.
+      const { data: qApprovers } = await db.from('track_approvers')
+        .select('track, user_id, record_id').eq('record_type', req.record_type)
+      const qMayDecide = required.filter((t) =>
+        mayDecide(req, request.user.id, qApprovers ?? [], t, req.record_id).allowed)
+      out.push({ ...req, required, decisions: decisions ?? [], may_decide: qMayDecide,
+        ...requestState(required, decisions), ...criteria })
     }
     return reply.send(out)
   })
@@ -418,7 +447,30 @@ export default async function transitionRequestRoutes(app) {
       const criteria = req.status === 'open' && req.kind === 'transition'
         ? await criteriaState(db, req)
         : { criteria: 'not applicable', criteria_blockers: [], criteria_note: null }
-      out.push({ ...req, required, decisions: decisions ?? [], ...requestState(required, decisions), ...criteria })
+      // ── WHO MAY DECIDE, ANSWERED HERE. Round 41 walk item B ──────────────
+      //
+      // The walk found Approve and Reject rendered for the REQUESTER, who can
+      // never decide their own request. The refusal was correct and arrived
+      // after the click.
+      //
+      // Computed server-side and sent as ONE LOADED VALUE, which is the W1
+      // mechanism the ruling names. The alternative is the client fetching
+      // track_approvers and re-implementing mayDecide, which is Verification 20
+      // by construction: two readers of one rule, and the screen's copy is the
+      // one nobody tests against a real refusal.
+      //
+      // mayDecide is the SAME function the decide route calls, so a track the
+      // screen offers is a track the route will accept, and a track it hides is
+      // one the route would have refused.
+      const { data: approvers } = await db.from('track_approvers')
+        .select('track, user_id, record_id').eq('record_type', req.record_type)
+      const mayDecideTracks = required.filter((t) =>
+        mayDecide(req, request.user.id, approvers ?? [], t, req.record_id).allowed)
+      out.push({ ...req, required, decisions: decisions ?? [], may_decide: mayDecideTracks,
+        // Which of the two reasons a track is undecidable, so the screen can say
+        // it without re-deriving anything.
+        requested_by_is_me: req.requested_by === request.user.id,
+        ...requestState(required, decisions), ...criteria })
     }
     return reply.send(out)
   })

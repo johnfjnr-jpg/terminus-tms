@@ -1388,8 +1388,21 @@ test('the read-only class is applied from ONE value, the way the freeze is', () 
     'notMine is not derived from the record owner and the current session')
   // Read through the stripper, Verification 39: the comment above that line
   // discusses owner_id and currentSession at length.
-  const occurrences = (src.match(/is-not-mine/g) || []).length
-  assert.equal(occurrences, 1, `is-not-mine is set in ${occurrences} places, and one value means one place`)
+  // ONE PLACE PER VIEW, which is what "one value" means here and is what the
+  // first version of this assertion got wrong. It required exactly one
+  // occurrence in the file; ruling G then applied the same mechanism to Test
+  // Bed and it failed - correctly reporting a change, incorrectly describing
+  // the rule. The property is that a VIEW's read-only state is decided once,
+  // not that only one view can have one.
+  const toggles = [...src.matchAll(/classList\.toggle\('is-not-mine',\s*(\w+)\)/g)]
+  assert.equal(toggles.length, 2,
+    `expected one is-not-mine toggle for the Opportunity and one for the Test Bed, found ${toggles.length}`)
+  // And each is driven by a variable, not by an inline expression repeated at
+  // the call site, which is how a second reader gets in.
+  for (const m of toggles) {
+    assert.match(src, new RegExp(`const ${m[1]} = [^\\n]*owner_id`),
+      `the is-not-mine toggle reads ${m[1]}, which is not derived from a record owner`)
+  }
 })
 
 test('the stylesheet makes an unowned record non-interactive, not merely dim', () => {

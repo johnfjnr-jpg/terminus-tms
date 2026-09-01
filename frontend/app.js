@@ -111,6 +111,22 @@ function oppAssessNavigationDiscards(view, id) {
   return view === 'opportunity-detail'
 }
 
+// The views that render ONE record and therefore carry its identity in their
+// markup. A list view holds no record state, so revealing it early shows an old
+// list rather than a wrong record, and re-rendering it is the load.
+const DETAIL_VIEWS = new Set([
+  'opportunity-detail', 'test-bed-detail', 'contact-detail', 'account-detail', 'opportunity-approval',
+])
+
+// Cleared by whichever loader finishes, and by a single helper so a view that
+// gains a loader later cannot be left permanently hidden by a flag nobody
+// removes. Called unconditionally at the end of every detail load, including
+// the failure paths: a record that could not be fetched must still show its
+// error rather than the loading line for ever.
+window.detailLoaded = function (view) {
+  document.getElementById(`view-${view}`)?.classList.remove('is-loading')
+}
+
 function navigate(view, id) {
   // The guard runs BEFORE anything is hidden or loaded, so Keep editing
   // returns to a screen that never moved.
@@ -126,7 +142,29 @@ function navigate(view, id) {
   ALL_VIEWS.forEach(v => document.getElementById(`view-${v}`)?.classList.add('hidden'))
   document.querySelectorAll('.nav-link').forEach(el => el.classList.remove('active'))
 
-  document.getElementById(`view-${view}`)?.classList.remove('hidden')
+  // ── NO STALE RECORD ON SCREEN WHILE THE NEXT ONE LOADS. Round 41 item K ─
+  //
+  // Selecting a record from the list revealed the detail view immediately, still
+  // holding the PREVIOUS record's rendered content, and the loader then
+  // overwrote it a fetch later. What a person saw was the last record's stage,
+  // name and figures under the new record's heading, for as long as the request
+  // took.
+  //
+  // It is not a race the loader can win. The reveal is synchronous and the data
+  // is not, so the only correct state between them is "nothing yet".
+  //
+  // MARKED, NOT WIPED. Emptying the containers would destroy the elements every
+  // renderer holds ids to, and rebuilding them is the load itself. `is-loading`
+  // hides the stale body in CSS and shows one line saying so; the loaders clear
+  // it when the record they fetched is the record on screen.
+  //
+  // ONE PLACE, in navigate, because arriving is the only moment stale content
+  // can be revealed. A save refreshing the record you are already looking at
+  // does not come through here, and must not flash.
+  const target = document.getElementById(`view-${view}`)
+  if (target && DETAIL_VIEWS.has(view)) target.classList.add('is-loading')
+
+  target?.classList.remove('hidden')
   document.querySelector(`.nav-link[data-view="${view}"]`)?.classList.add('active')
 
   if (view === 'approvals') loadApprovalsQueue()
@@ -294,7 +332,24 @@ window.createTabStrip = function ({ strip, keyAttr, dataAttr, tabs, tabClass, pa
     if (pane && initial.id) pane.setAttribute('aria-labelledby', initial.id)
   }
 
-  return { select, adopt: wireButtons, current: () => keyOf(buttons().find(b => b.classList.contains('active'))) }
+  // ── current() SURVIVES HAVING NO SELECTION. Round 41 walk item D ────────
+  //
+  // It read `keyOf(buttons().find(...))`, and keyOf is `btn => btn.dataset[k]`,
+  // so with no active button it threw a TypeError on `undefined.dataset`.
+  //
+  // Architecture 8, and an unusually clean instance: correct for every caller
+  // that existed, because all of them asked while a tab was selected. Item D's
+  // fix is the first caller to ask "is anything selected" - the one question the
+  // function could not answer, because the state it reports is the state it
+  // crashed in.
+  //
+  // Fixed here rather than in keyOf: keyOf's other callers pass a real button
+  // and making it tolerant would hide a genuinely missing one.
+  return {
+    select,
+    adopt: wireButtons,
+    current: () => { const b = buttons().find(x => x.classList.contains('active')); return b ? keyOf(b) : undefined },
+  }
 }
 
 // The sub-tab consumer. Builds the strip and its panes into a mount point and
@@ -612,6 +667,38 @@ function renderOppStageTabs(stages, currentStage) {
   if (tabActions) strip.appendChild(tabActions)
   wireOppNextStageButton(currentStage, stages)
   markOppCurrentStageTab(currentStage)
+
+  // ── A RE-RENDER MUST LEAVE A TAB SELECTED. Round 41 walk item D ─────────
+  //
+  // THE MEASUREMENT. Before a transition: six panels, one visible. After a
+  // SUCCESSFUL one: six panels, ZERO visible. No throw, every call 200, the
+  // record correctly moved. The view as a whole even GREW, 27,955 characters to
+  // 54,722 - what emptied was the region the person was reading.
+  //
+  // The cause is three lines above: this function removes every generated tab
+  // and panel and rebuilds them, so whatever was selected is gone. On a first
+  // load the caller selects a tab afterwards; on a RE-RENDER nothing did, and
+  // the strip came back with nothing active and all six panels hidden.
+  //
+  // ONE PLACE, NOT PER CALLER, and that is the business's ruling and the right
+  // shape besides. Four paths re-render after a stage change -
+  // requestTransition, decideRequest, withdrawRequest and submitStageApproval's
+  // Opportunity branch - and a fix in each is four readers of one rule, three of
+  // which would be correct until somebody adds a fifth path. This runs wherever
+  // the strip is rebuilt, which is the only moment a selection can be lost.
+  //
+  // THE NEW STAGE'S TAB, THEN REFERENCE. Ruled by the business. A person who
+  // moved a record wants the stage they moved it to; a record whose current
+  // stage has no tab - a terminal stage reached from elsewhere, or a stage list
+  // that changed - still lands somewhere real rather than nowhere.
+  //
+  // GUARDED ON current(), so it never overrides a selection a caller has
+  // already made. It restores a lost one; it does not impose one.
+  if (!oppTabStrip.current()) {
+    const stageKey = oppStageTabKey(currentStage)
+    const hasStageTab = !!document.querySelector(`[data-opp-tab="${stageKey}"]`)
+    oppTabStrip.select(hasStageTab ? stageKey : 'reference')
+  }
 }
 
 // One token per stage-tab load, mirroring tbStageTabLoadToken. Clicking
@@ -806,7 +893,17 @@ function refreshOppNextStageButton() {
   // "Move to X" moved the record. "Request X" raises a transition request and
   // FREEZES the record until every required track has decided. Same position,
   // different act, so the label has to say which.
-  btn.textContent = `Request ${nextStage}`
+  // ── Round 41 ruling I: "Request next stage", on every stage ─────────────
+  //
+  // It read `Request ${nextStage}` - "Request Solution Alignment", "Request
+  // Proposal" - so the label changed on every stage and the button was a
+  // different-looking control each time. The business ruled one wording: the
+  // panel already names the target, so the button does not have to.
+  //
+  // The destination is not lost, it moves to the title attribute, which is where
+  // a confirmation belongs rather than in the label a person scans for.
+  btn.textContent = 'Request next stage'
+  btn.title = `Raise a request to move this record to ${nextStage}`
   // Compared on data-opp-stage-tab, which carries the RAW stage name, rather
   // than on data-opp-tab, which carries the sanitised key. Both are set on a
   // stage tab (app.js:521-522); the raw name needs no round trip through
@@ -863,31 +960,133 @@ window.requestTransition = async (recordId, toStage) => {
 }
 
 window.withdrawRequest = async (requestId, recordId) => {
-  const reason = window.prompt('Why are you withdrawing this request?')
-  if (reason === null || !reason.trim()) return
-  const r = await api('POST', `/api/transition-requests/${requestId}/withdraw`, { reason })
-  if (!r.ok) {
-    const fb = document.getElementById('opp-request-feedback')
-    if (fb) fb.innerHTML = `<p class="msg-error">${escHtml(r.data?.error ?? 'It could not be withdrawn.')}</p>`
-    return
-  }
+  // Item C: the same in-page dialogue as the rejection, and the write happens
+  // inside it so a refusal keeps the typed reason.
+  const { confirmed } = await decisionDialogue({
+    heading: 'Withdraw this request',
+    contextLabel: 'Request', contextValue: 'Awaiting approval',
+    promptLabel: 'Why are you withdrawing it (required)',
+    confirmLabel: 'Withdraw the request',
+    emptyReasonError: 'A reason is required to withdraw a request.',
+    warning: 'Withdrawing releases the record so it can be edited again. Any decisions already '
+      + 'made on this request stay as a record and a new request starts from nothing.',
+    returnFocusTo: 'opp-freeze-banner',
+    action: async (reason) => {
+      const r = await api('POST', `/api/transition-requests/${requestId}/withdraw`, { reason })
+      return { ok: r.ok, error: r.data?.error ?? 'It could not be withdrawn.' }
+    },
+  })
+  if (!confirmed) return
   await loadOpportunityDetail(recordId)
 }
 
+// ── NO NATIVE DIALOGUES ON THE RECORD SURFACE. Round 41 walk item C ───────
+//
+// Three survived: the reject reason and the withdraw reason on window.prompt,
+// and the key-contact removal on a bare confirm(). All three render as
+// "localhost:3000 says", carry none of the product's type or spacing, cannot
+// validate anything, and are the one control on the screen a person cannot tell
+// from a browser warning.
+//
+// REUSED, NOT REBUILT. window.requestChangeReason already owns the focus trap,
+// the single Escape owner, the focus return and the stays-open-on-failure
+// behaviour INTERACTION_STANDARDS.md Section 4 requires, and it is the
+// save-with-reason discipline the ruling names. A second modal would be a second
+// place for all four of those to drift.
+//
+// THE WRAPPER PRESERVES THE PROPERTY THAT MATTERS. requestChangeReason is
+// callback-shaped because the WRITE happens inside onConfirm: a failed write
+// leaves the dialogue open with the typed reason intact, rather than closing and
+// losing it. A naive promise wrapper that resolved with the text and closed
+// would throw that away, so `action` runs inside onConfirm and its {ok, error}
+// decides whether the dialogue closes.
+window.decisionDialogue = decisionDialogue
+function decisionDialogue({ heading, contextLabel, contextValue, promptLabel, confirmLabel,
+  emptyReasonError, warning, returnFocusTo, action }) {
+  return new Promise((resolve) => {
+    let settled = false
+    window.requestChangeReason({
+      heading, contextLabel, contextValue, promptLabel, confirmLabel, emptyReasonError,
+      ...(warning ? { warning } : {}),
+      ...(returnFocusTo ? { returnFocusTo } : {}),
+      onConfirm: async (reason) => { const r = await action(reason); if (r.ok) settled = true; return r },
+      onDone: () => resolve({ confirmed: true }),
+      onCancel: () => { if (!settled) resolve({ confirmed: false }) },
+    })
+  })
+}
+
+// ── A DECISION IN FLIGHT CANNOT BE MADE TWICE. Round 41 walk item A2 ──────
+//
+// The walk hit "an approval decision from you already exists" and then a raw
+// 409 on a request that had already completed. Diagnosed: the write is correct
+// and the 409 is decide_transition_request refusing a request that is no longer
+// open. What made it reachable is that the buttons stayed live while the
+// decision was in flight, and item D meant the screen said nothing afterwards -
+// so there was no signal that the first click had landed.
+//
+// THE CONTROLS GO BEFORE THE AWAIT, not after it. A guard that clears them once
+// the reload finishes leaves them clickable for the whole round trip, which is
+// exactly the window a person clicks in when nothing has visibly happened.
 window.decideRequest = async (requestId, track, decision, recordId) => {
-  let reason = null
-  if (decision === 'rejected') {
-    reason = window.prompt(`Why are you rejecting on the ${track} track?`)
-    if (reason === null || !reason.trim()) return
+  // THE CONTROLS GO BEFORE ANYTHING AWAITS. A guard applied after the round trip
+  // leaves them clickable for its whole duration, which is exactly the window a
+  // person clicks in when nothing has visibly happened.
+  //
+  // Removed rather than disabled: a disabled button is still in the DOM with its
+  // onclick, and re-enabling it is a second thing to get right. The banner is
+  // rebuilt by the reload on both paths.
+  const banner = document.getElementById('opp-freeze-banner')
+  const fb = document.getElementById('opp-request-feedback')
+  if (fb) fb.innerHTML = ''
+  banner?.querySelectorAll('button').forEach((b) => b.remove())
+  const pending = (text) => {
+    if (!banner || !banner.textContent.trim()) return
+    const p = document.createElement('p')
+    p.className = 'muted'
+    p.style.cssText = 'font-size:14px;margin:10px 0 0'
+    p.textContent = text
+    banner.querySelector('.freeze-banner')?.appendChild(p)
   }
-  const r = await api('POST', `/api/transition-requests/${requestId}/approvals`,
-    { track, decision, ...(reason ? { reason } : {}) })
-  if (!r.ok) {
-    const fb = document.getElementById('opp-request-feedback')
-    if (fb) fb.innerHTML = `<p class="msg-error">${escHtml(r.data?.error ?? 'The decision could not be recorded.')}</p>`
+
+  const send = async (reason) => {
+    pending(`Recording the ${track} ${decision === 'approved' ? 'approval' : 'rejection'}...`)
+    const r = await api('POST', `/api/transition-requests/${requestId}/approvals`,
+      { track, decision, ...(reason ? { reason } : {}) })
+    return { ok: r.ok, error: r.data?.error }
+  }
+
+  const done = async (failure) => {
+    // THE RELOAD RUNS ON FAILURE TOO. Without it the banner stays stripped of
+    // its controls and the person is left with a message and no way to act on
+    // it, which is the same dead end from the other direction.
+    await loadOpportunityDetail(recordId)
+    if (!failure) return
+    const el = document.getElementById('opp-request-feedback')
+    if (el) el.innerHTML = `<p class="msg-error">${escHtml(failure)}</p>`
+  }
+
+  if (decision === 'rejected') {
+    // The write happens INSIDE the dialogue, so a refusal leaves it open with
+    // the typed reason intact. Item C.
+    const { confirmed } = await decisionDialogue({
+      heading: `Reject on the ${track} track`,
+      contextLabel: 'Track', contextValue: track,
+      promptLabel: 'Why are you rejecting (required)',
+      confirmLabel: 'Record the rejection',
+      emptyReasonError: 'A reason is required to reject a transition request.',
+      warning: 'A rejection closes the request. The other tracks keep their decisions as a record, '
+        + 'and a new request has to be raised to move the deal.',
+      returnFocusTo: 'opp-freeze-banner',
+      action: send,
+    })
+    if (!confirmed) { await loadOpportunityDetail(recordId); return }
+    await done(null)
     return
   }
-  await loadOpportunityDetail(recordId)
+
+  const r = await send(null)
+  await done(r.ok ? null : (r.error ?? 'The decision could not be recorded.'))
 }
 
 // ── THE OPEN REQUEST, AND WHAT IT IS WAITING FOR. Round 41 ───────────────
@@ -928,13 +1127,31 @@ function renderOppFreezeBanner(recordId) {
   if (!oppOpenRequest) { el.innerHTML = ''; return }
   const req = oppOpenRequest
   const decided = new Map((req.decisions ?? []).map(d => [d.track, d]))
+  // ── DECISION CONTROLS ONLY WHERE A DECISION IS POSSIBLE. Round 41 item B ─
+  //
+  // The walk saw Approve and Reject rendered for the REQUESTER, who can never
+  // decide their own request. The refusal was correct and it arrived after the
+  // click, which is the same shape as W1 one screen along.
+  //
+  // ONE LOADED VALUE, and it is the server's. `may_decide` is computed by the
+  // route with mayDecide - the SAME function the decide route enforces with - so
+  // a track offered here is a track that route will accept, and a track hidden
+  // here is one it would have refused. The client tests nothing: fetching
+  // track_approvers and re-deriving the rule would be two readers of it, and the
+  // screen's copy is the one nobody exercises against a real refusal.
+  const mayDecide = new Set(req.may_decide ?? [])
   const rows = (req.required ?? []).map((t) => {
     const d = decided.get(t)
     const state = d ? (d.decision === 'approved' ? 'Approved' : 'Rejected') : 'Waiting'
-    const buttons = d ? '' : `
+    const buttons = d || !mayDecide.has(t) ? '' : `
       <button class="btn-sm btn-primary" onclick="decideRequest('${req.id}','${escHtml(t)}','approved','${recordId}')">Approve</button>
       <button class="btn-sm btn-ghost" onclick="decideRequest('${req.id}','${escHtml(t)}','rejected','${recordId}')">Reject</button>`
-    return `<div class="data-row"><span>${escHtml(t)}</span><span class="sa-approval-meta">${state}</span>${buttons}</div>`
+    // A WAITING TRACK YOU CANNOT DECIDE STILL SAYS SO, rather than showing a
+    // bare "Waiting" beside three tracks that have buttons. Silence there reads
+    // as a screen that has not loaded.
+    const why = d || mayDecide.has(t) ? ''
+      : `<span class="sa-approval-meta">${escHtml(req.requested_by_is_me ? 'You raised this request' : 'Not yours to decide')}</span>`
+    return `<div class="data-row"><span>${escHtml(t)}</span><span class="sa-approval-meta">${state}</span>${why}${buttons}</div>`
   }).join('')
   const met = req.criteria === 'met'
   el.innerHTML = `
@@ -1407,7 +1624,22 @@ async function api(method, path, body) {
 // record whose revision this client tracks. A response about another record is
 // not this record's revision, and matching on the path is what tells them apart.
 function noteRevisionFromResponse(path, data) {
-  const rev = data?.revision_number
+  // ── THE APPROVAL PAGE JOINS THE HANDSHAKE. Round 41 walk item F ─────────
+  //
+  // It reports the revision under `meta.revisionNumber` rather than
+  // `revision_number`, so every response it ever returned fell out of the guard
+  // below and the one loaded revision this app keeps was never told. The walk
+  // saw 26 against a record at 54.
+  //
+  // The ROUTE is not stale: it reads the latest revision at request time. What
+  // was stale is a page rendered once and never told the record had moved, and
+  // the mechanism for being told already existed and did not cover this shape.
+  //
+  // Normalised HERE, in the one function that already owns "what revision are we
+  // at", rather than by giving the approval page its own tracker. Verification
+  // 20: a second reader of the loaded revision is the thing this function exists
+  // to prevent.
+  const rev = data?.revision_number ?? data?.meta?.revisionNumber
   if (!Number.isInteger(rev)) return
   if (!currentOppDetailId) return
   // The response may name its own record. When it does, trust that; when it
@@ -3450,9 +3682,29 @@ async function renderOppExitCriteria(containerId, recordId, fromStage, toStage, 
     el.innerHTML = '<p class="empty-state">Unable to load exit criteria.</p>'
     return
   }
-  const requirements = result.data?.requirements ?? []
+  // ── APPROVAL TRACKS ARE NOT EXIT CRITERIA. Round 41 walk item E ─────────
+  //
+  // The walk found three rows reading "Requires an approved decision on the open
+  // transition request", rendered as exit-criteria checkboxes beside the
+  // Approvals panel showing the same three tracks. Two surfaces for one fact,
+  // and the criteria one is a checkbox nobody can tick: an approval is earned in
+  // the Approvals panel and this list is what a person completes themselves.
+  //
+  // Ruled by the business: approval-track requirements live only in the
+  // Approvals panel. Filtered HERE rather than in the route, because the route's
+  // requirement list is the gate's own answer and three callers read it - the
+  // transition endpoint's blocking list among them, where an approval
+  // requirement absolutely belongs. This is a rendering decision about one
+  // panel, so it is made in that panel.
+  const all = result.data?.requirements ?? []
+  const requirements = all.filter((r) => r.requirement_type !== 'approval_obtained')
   if (!requirements.length) {
-    el.innerHTML = `<p class="muted" style="font-size:14px">No exit criteria configured for ${escHtml(toStage)}.</p>`
+    el.innerHTML = all.length
+      // Not "none configured" when three were filtered out: that sentence would
+      // be false, and Architecture 9's fourth variant is what a false sentence
+      // in an empty state becomes.
+      ? `<p class="muted" style="font-size:14px">Nothing to complete here. Moving to ${escHtml(toStage)} needs approvals, which are in the Approvals panel.</p>`
+      : `<p class="muted" style="font-size:14px">No exit criteria configured for ${escHtml(toStage)}.</p>`
     return
   }
 
@@ -3531,8 +3783,21 @@ async function renderOppExitCriteria(containerId, recordId, fromStage, toStage, 
   }).join('')
 
   const outstanding = requirements.filter(r => !r.met).length
+  // ── "READY TO MOVE" MUST NOT LIE NOW THAT APPROVALS ARE FILTERED OUT ────
+  //
+  // Item E removes the approval rows from this list, so `outstanding === 0`
+  // stopped meaning "the gate is open" and started meaning "the part of the gate
+  // this panel shows is done". The old sentence would have said "ready to move"
+  // over three unmet approvals.
+  //
+  // Architecture 9's fourth variant caught in the act rather than a round later:
+  // the sentence was true when written and this change is what falsifies it. It
+  // is corrected in the same edit that causes it, which is rule 10's limit.
+  const unmetApprovals = all.filter((r) => r.requirement_type === 'approval_obtained' && !r.met).length
   const summary = outstanding === 0
-    ? `<p class="sub" style="margin-bottom:10px">All criteria met - ready to move to ${escHtml(toStage)}.</p>`
+    ? (unmetApprovals === 0
+      ? `<p class="sub" style="margin-bottom:10px">All criteria met - ready to move to ${escHtml(toStage)}.</p>`
+      : `<p class="sub" style="margin-bottom:10px">All criteria met. ${unmetApprovals} approval${unmetApprovals === 1 ? '' : 's'} still outstanding, in the Approvals panel.</p>`)
     : `<p class="sub" style="margin-bottom:10px">${outstanding} of ${requirements.length} outstanding to move to ${escHtml(toStage)}:</p>`
   const [criteria, lenses] = await Promise.all([criteriaPromise, lensesPromise])
   // RE-CHECKED AFTER THE SECOND AWAIT. The guard above covered the only await
@@ -5200,16 +5465,48 @@ async function loadTestBedDetail(id) {
   if (tbArrivingFresh && typeof clearTbSaveFeedback === 'function') clearTbSaveFeedback()
   const result = await api('GET', `/api/test-beds/${id}`)
   if (!result.ok) {
+    // The flag is cleared on the FAILURE path too, or a record that could not be
+    // fetched shows the loading line for ever instead of its error.
+    window.detailLoaded('test-bed-detail')
     document.getElementById('tb-detail-name').textContent = 'Not found'
     return
   }
   currentTestBed = result.data
+
+  // ── ANOTHER USER'S TEST BED IS READ ONLY. Round 41 ruling G ─────────────
+  //
+  // The walk found the split: a non-owner could edit some Reference fields and
+  // not others. Ruled by the business: fully read-only, the SAME W1 mechanism as
+  // the Opportunity, not a Test-Bed-specific answer.
+  //
+  // Same one value, same class, same stylesheet rule. The only thing that is
+  // per-view is the banner element, because the banners sit in different
+  // documents; the behaviour is shared by construction rather than by matching.
+  //
+  // NOT A SECURITY BOUNDARY here either. RLS is the boundary, and the split the
+  // walk found was the database refusing the writes it should and permitting the
+  // ones it was configured to. This stops a person doing work that will be
+  // refused; it does not stop anybody who means to.
+  {
+    const notMine = !!currentTestBed.owner_id && !!currentSession?.user?.id
+      && currentTestBed.owner_id !== currentSession.user.id
+    document.getElementById('view-test-bed-detail')?.classList.toggle('is-not-mine', notMine)
+    const b = document.getElementById('tb-readonly-banner')
+    if (b) {
+      b.innerHTML = notMine ? `
+        <div class="freeze-banner">
+          <p class="label" style="margin-bottom:6px">Read only &middot; another user's record</p>
+          <p style="font-size:14px;margin:0">${escHtml(OWNERSHIP_REFUSAL_TEXT)}</p>
+        </div>` : ''
+    }
+  }
   // Round 17 Phase 4: unit counts are loaded once per detail load and used by
   // both tabs, Commercials to know which counts are locked and the units view
   // to render them. A READ, deliberately: the derive control is the only
   // thing that writes.
   if (typeof window.loadTbUnitCounts === 'function') await window.loadTbUnitCounts(id)
   await renderTestBedDetail(currentTestBed)
+  window.detailLoaded('test-bed-detail')
 }
 
 // Round 7 Phase 5: Summary and the last 2 notes, latest first, filling
@@ -6049,10 +6346,12 @@ async function loadOpportunityDetail(id) {
     // by opportunity-reference.js's renderReferenceTab for the real render
     // path; this not-found path never reaches that, so it's set directly
     // here, same as before.
+    window.detailLoaded('opportunity-detail')
     document.getElementById('ref-display-name').textContent = 'Not found'
     return
   }
   await renderOppDetail(result.data)
+  window.detailLoaded('opportunity-detail')
 }
 
 async function renderOppDetail(opp) {

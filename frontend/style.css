@@ -4822,6 +4822,24 @@ input.input-invalid {
 .is-not-mine input, .is-not-mine textarea, .is-not-mine select { pointer-events: none; opacity: 0.45; }
 .is-not-mine .btn-primary, .is-not-mine .btn-secondary, .is-not-mine .btn-ghost, .is-not-mine .btn-sm { opacity: 0.45; }
 
+/* ── ARRIVING AT A RECORD. Round 41 walk item K ────────────────────────────
+   Selecting a record revealed the detail view still holding the PREVIOUS
+   record's content, because the reveal is synchronous and the fetch is not.
+   The stale body is hidden until the loader clears the flag, and one line says
+   what is happening rather than an empty frame that reads as broken.
+
+   VISIBILITY, NOT display:none. The renderers hold ids into this subtree and
+   measure it; removing it from layout would change what they measure. */
+.is-loading > * { visibility: hidden; }
+.is-loading::before {
+  content: "Loading the record...";
+  display: block;
+  font-family: var(--body);
+  font-size: 14px;
+  color: var(--muted);
+  padding: 28px 0;
+}
+
 /* ── THE APPROVER QUEUE. Round 41 ──────────────────────────────────────────
    A row per open request, carrying what it is waiting for and what the gate
    says about it. NO NEW ACCENT: green is at-or-above-target everywhere else on

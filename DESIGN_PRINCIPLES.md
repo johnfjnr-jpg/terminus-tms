@@ -6998,3 +6998,117 @@ raise and decide cannot disagree. The JavaScript `requiredTracks()` stays for
 **A new refusal the old shape could not express:** an approval on a track the
 stage does not require is now rejected. It was impossible to state before,
 because the list of required tracks was the caller's own.
+
+## Round 41, the third walk: D, A2, B, C, E, F, G, K and three rulings
+
+### D, and it was the root of A2
+
+**A successful transition left the stage area empty.** Measured: before, six
+panels and one visible; after a transition that succeeded completely, **six
+panels and zero visible.** No throw, every call 200, the record correctly moved.
+The view as a whole GREW, 27,955 characters to 54,722; what emptied was the
+region the person was reading.
+
+`renderOppStageTabs` removes every generated tab and panel and rebuilds them. On
+a first load the caller selects a tab afterwards; on a **re-render** nothing did.
+
+**Fixed in one place, on the business's ruling**, at the only moment a selection
+can be lost. Four paths re-render after a stage change and a fix in each would be
+four readers of one rule, three of them correct until somebody adds a fifth.
+
+**AND `current()` COULD NOT SURVIVE THE STATE IT REPORTS.** The guard needed
+`oppTabStrip.current()`, which was `keyOf(buttons().find(...))` and threw a
+TypeError on `undefined.dataset` when nothing was selected. Architecture 8 at its
+cleanest: correct for every caller that existed, because all of them asked while
+a tab WAS selected, and item D's fix is the first caller to ask the one question
+the function could not answer.
+
+### A2: a stale-button double-click, and the fix is upstream of the button
+
+Diagnosed before any change, and **all three proposed causes were wrong**. The
+uniqueness is correctly request-scoped, identity is correct on every row, and the
+open request carried no approvals. The write is correct and the 409 is
+`decide_transition_request` refusing a request that is no longer open.
+
+**What made it reachable is D:** the screen said nothing after the first click,
+so there was nothing to say the decision had landed.
+
+Two changes. The decide controls are **removed before anything awaits**, not
+after the round trip, because a guard applied afterwards leaves them clickable
+for exactly the window a person clicks in. And PT409 on an already-decided
+request now says so in words, **read from the request's own status** rather than
+parsed out of the function's message: a sentence is not a status.
+
+### B: decision controls only where a decision is possible
+
+`may_decide` is computed by the route with **the same `mayDecide` the decide
+route enforces with**, so a track offered is a track that route will accept. The
+client tests nothing. A waiting track you cannot decide says which of the two
+reasons applies, rather than showing a bare "Waiting" beside three tracks that
+have buttons.
+
+### C: no native dialogues on the record surface
+
+Three survived: the reject reason and the withdraw reason on `window.prompt`, and
+key-contact removal on a bare `confirm()`. All three now use
+`requestChangeReason`, which already owns the focus trap, the single Escape
+owner, the focus return and stays-open-on-failure.
+
+**The wrapper preserves the property that matters.** That dialogue is
+callback-shaped because the WRITE happens inside `onConfirm`: a failed write
+leaves it open with the typed reason intact. A promise wrapper that resolved with
+the text and closed would have thrown that away, so the action runs inside
+`onConfirm` and its result decides whether the dialogue closes.
+
+Contact removal now **requires a reason**, which it did not: Verification 22
+applied forwards, giving the field a reader before requiring it.
+
+### E: approval tracks are not exit criteria
+
+Filtered in the panel rather than the route, because the route's list is the
+gate's own answer and three callers read it, one of which is the transition
+endpoint's blocking list where an approval requirement belongs.
+
+**AND THE "READY TO MOVE" SENTENCE WAS CORRECTED IN THE SAME EDIT.** With the
+approval rows filtered out, `outstanding === 0` stopped meaning "the gate is
+open" and the old sentence would have said "ready to move" over three unmet
+approvals. Architecture 9's fourth variant caught in the act rather than a round
+later, which is rule 10's limit.
+
+### F: the approval page joins the handshake
+
+The route was never stale: it reads the latest revision at request time. What was
+stale is a page rendered once and never told the record had moved.
+
+**The mechanism existed and did not cover this shape.** `noteRevisionFromResponse`
+reads `revision_number`; the approval page reports `meta.revisionNumber`, so
+every response it ever returned fell out of the guard. Normalised in that one
+function rather than by giving the page its own tracker.
+
+And the SENTENCE now says whether it is current, because a number with no claim
+about currency is one somebody assumes is current.
+
+### G, I, K, and the two that did not reproduce
+
+**G:** Test Bed non-owner read-only, the same one value, class and stylesheet
+rule as W1. The walk's split - some Reference fields editable and not others -
+was the database refusing what it should and permitting what it was configured
+to; a screen that refuses inconsistently teaches nothing.
+
+**I:** "Request next stage" on every stage-request control. The destination moves
+to the title attribute, where a confirmation belongs rather than in the label a
+person scans.
+
+**K:** the detail view is marked loading on arrival and cleared by whichever
+loader finishes, **including every failure path**. Marked rather than wiped: the
+renderers hold ids into that subtree, and rebuilding it is the load itself.
+
+**H DID NOT REPRODUCE, and is reported rather than guessed at.** Measured on the
+Opportunity Reference tab: 25 field displays visible, **20 Tab-reachable, and the
+five that are not have no editor at all** - Terminus Reference, Stage, Account,
+Date Created, Est. Close Date Moves. Nothing carries `tabindex="-1"`. Tab already
+reaches every editable field in document order on that surface, so a pointer is
+needed before anything changes.
+
+**J was struck by the business for the same reason**, and the two are probably
+one thing: a surface neither party has identified yet.

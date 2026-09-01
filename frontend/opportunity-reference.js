@@ -444,10 +444,32 @@ window.kcRecord = async function (linkId) {
   await loadOpportunityDetail(kcContext.oppId)
 }
 
+// Round 41 walk item C: the last native dialogue on the record surface. It was a
+// bare confirm(), which renders as "localhost:3000 says" and carries none of the
+// product's type or spacing.
+//
+// THE SHARED DIALOGUE, and a reason is now required rather than the action being
+// a bare yes. Removing somebody from a deal is a decision another person will
+// read later, and the audit row already has a place to put it: this is
+// Verification 22 applied forwards, giving the field a reader before requiring
+// it rather than after somebody notices it is ceremony.
 window.kcRemove = async function (linkId, name) {
-  if (!confirm(`Remove ${name || 'this contact'} from this Opportunity? Their stance history is kept in the audit log.`)) return
-  const result = await api('DELETE', `/api/opportunities/${kcContext.oppId}/key-contacts/${linkId}`)
-  if (!result.ok) { kcFeedback(result.data?.error ?? 'Failed to remove.'); return }
+  const { confirmed } = await window.decisionDialogue({
+    heading: `Remove ${name || 'this contact'} from this Opportunity`,
+    contextLabel: 'Contact', contextValue: name || 'this contact',
+    promptLabel: 'Why are they being removed (required)',
+    confirmLabel: 'Remove from this deal',
+    emptyReasonError: 'A reason is required to remove somebody from a deal.',
+    warning: 'Their stance history is kept in the audit log. Removing them takes them off this '
+      + 'deal, not out of Contacts.',
+    returnFocusTo: 'kc-add-btn',
+    action: async (reason) => {
+      const result = await api('DELETE', `/api/opportunities/${kcContext.oppId}/key-contacts/${linkId}`,
+        { reason })
+      return { ok: result.ok, error: result.data?.error ?? 'Failed to remove.' }
+    },
+  })
+  if (!confirmed) return
   await loadOpportunityDetail(kcContext.oppId)
 }
 
