@@ -155,7 +155,11 @@ export default async function transitionRequestRoutes(app) {
           .eq('record_id', record.id)
         if (vErr) return reply.code(500).send({ error: vErr.message })
         const issued = issuedProposal(versions, rev.revision_number)
-        if (!issued.ok) return reply.code(409).send({ error: issued.reason })
+        // W-K: `notice` travels with the refusal so the screen can style it as
+        // one. It is still a 409 and still refuses; what changes is that the
+        // client stops rendering a precondition doing its job in the same red as
+        // a failure.
+        if (!issued.ok) return reply.code(409).send({ error: issued.reason, notice: !!issued.notice })
         frozenVersionId = issued.version.id
       }
     }

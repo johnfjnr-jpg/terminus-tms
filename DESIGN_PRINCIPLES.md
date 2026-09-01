@@ -7327,3 +7327,86 @@ was `true` in the payload throughout and 45% opacity made it read as empty: a
 checkbox has one bit of visual state and dimming halves the only signal it has.
 An EMPTY control still dims, because "you cannot type here" is the correct
 message when there is no value for the dimming to hide.
+
+## Round 41, the seventh walk
+
+### W-A: the 1 September tab ruling is REVERSED, narrowly
+
+**Ruled by the business 2026-09-01 and reversed 2026-09-01, and both are kept
+here because the second only makes sense beside the first.**
+
+The 1 September ruling: a re-render never moves the screen, because *"your
+selection always survives" is worth more than one stage's convenience* and a rule
+with no exceptions is one a person can hold.
+
+**The reversal, and its reason:** people following a record want to follow it.
+**The consistency argument lost to three walks of evidence.**
+
+**THE SCOPE IS THE WHOLE OF THE REVERSAL.** It fires when a transition
+EXECUTES - requester and approver both - and never on a re-render. A person
+reading a tab while somebody else moves the record still keeps their tab, because
+that is a re-render and this is not. The general selection-restore in
+`renderOppStageTabs` is untouched, and a test asserts it, **so the tab-yank the 1
+September ruling fixed cannot return by widening**.
+
+The existing `land:` hook, not a new mechanism: it is what the assessment panel
+already sets and it outranks the restore by design.
+
+### W-B: a refresh control, not a poll
+
+Two sessions on one record with no live channel between them, so walk65 saw a
+stale banner after the approver decided. **A control rather than a timer, ruled.**
+Polling would hide the staleness rather than remove it, put a request every few
+seconds against every open record, and still be stale between ticks. One control
+that says what it does is honest about the fact that this screen does not know.
+
+**Polling is a named later item if this grates.**
+
+### W-E, W-F, W-G, W-H, W-I, W-K
+
+**W-E.** Gross up takes the factoring toggle's treatment. They are the same
+control in every way that matters - a boolean that changes the pricing - and two
+controls one section apart that behave identically and look different is a thing
+to learn twice.
+
+**W-F.** Cash Flow renders full width. The 940px cap was written when it sat
+beside something; Round 40's reshape gave it its own row and **the cap survived
+the layout it was measured against.** Verification 15 at the stylesheet. The
+superseded reasoning is left beside it so a later reader can tell a premise
+failed rather than a preference changing.
+
+**W-G.** One control, one indicator, beside the title it acts on. The chevron
+ROTATES rather than swapping glyph: a glyph swap is two symbols to learn, a
+rotation is one symbol whose direction IS the state.
+
+**W-H.** The contractor-milestone guidance is removed, as the Installation prose
+was. **What went with it, recorded:** "Max 5 milestones" was the only statement
+of the row limit, which is now visible by counting rather than by being told.
+That is weaker, and it is the trade the ruling accepts. The computed lines stay -
+a figure, a measurement and a refusal are not guidance.
+
+**W-I.** ", in the Approvals panel" dropped: it pointed at a panel sitting beside
+the sentence.
+
+**W-K.** The moved-on message is a NOTICE and it names the action. It read as a
+failure and recurred, and it is neither - it is a precondition doing its job and
+will say the same thing until somebody issues a version. **"Taking a version is
+not enough: it has to be issued"** is the sentence that was missing. The kind is
+decided where the rule is, and the screen reads it rather than matching on the
+wording, which is Verification 43's shape.
+
+### A self-inflicted fault worth recording: a basename collision in a harness
+
+The calibration harness backed six files up by `basename`, and
+`src/lib/transition-requests.js` and `src/routes/transition-requests.js` share
+one. The backup loop overwrote the lib copy with the routes copy, and the restore
+loop then wrote **the routes file over the lib file**.
+
+**Caught because the revert did not return to green**, which is the one thing a
+calibration harness reliably tells you. Recovered from `HEAD` and the two W-K
+edits re-applied; the missed calibration was then run with distinct filenames and
+fired.
+
+**The lesson is small and general: a scratch directory keyed by basename is a
+namespace collision waiting for two files to share a name**, and in a repository
+that deliberately mirrors names between `lib` and `routes`, they will.

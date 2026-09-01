@@ -1844,6 +1844,61 @@ textarea::placeholder { color: var(--muted-2); }
 
    nowrap because the label is two words and the control is in a narrow column,
    so it wrapped and the track sat beside a two-line label. */
+/* ── W-K: a notice is not an error. Round 41, seventh walk ─────────────────
+   "The record has moved on N saves since the issued version" read as a failure
+   and recurred, and it is neither: it is a precondition doing its job, and it
+   says the same thing every time until somebody issues a version.
+
+   NOT RED AND NOT GREEN. Red is a failure and green is this screen's accent for
+   at-or-above-target; a notice is neither. Ordinary foreground on a quiet rule,
+   which is the treatment for something that is simply true and worth reading.
+   The rule on the left is what separates it from body copy. */
+.msg-notice {
+  color: var(--white);
+  font-size: 14px;
+  border-left: 2px solid var(--hairline-strong);
+  padding-left: 12px;
+  margin: 0;
+}
+
+/* ── W-G: a disclosure control, beside its title ───────────────────────────
+   The chevron is the indicator and it ROTATES rather than swapping glyph: a
+   glyph swap is two symbols to learn, a rotation is one symbol whose direction
+   IS the state. Right when collapsed, down when open, and the text says which
+   action the click performs.
+
+   aria-expanded is already on the button and is what a screen reader uses; the
+   chevron is the sighted half of the same fact. */
+.section-title-row {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+.disclose {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 7px;
+}
+.disclose-chevron {
+  display: inline-block;
+  font-size: 15px;
+  line-height: 1;
+  transition: transform 120ms ease;
+}
+.disclose[aria-expanded="true"] .disclose-chevron { transform: rotate(90deg); }
+@media (prefers-reduced-motion: reduce) { .disclose-chevron { transition: none; } }
+
+/* W-B: a refresh sits with the thing it refreshes, and is quiet. It is not an
+   action a person should feel they must take - it is there for when they
+   suspect the screen is behind. */
+.appr-refresh {
+  margin-left: 10px;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+}
+#approvals-refresh { font-size: 10px; letter-spacing: 0.08em; }
+
 .deal-toggle {
   position: relative;
   display: inline-flex;
@@ -4787,7 +4842,17 @@ input.input-invalid {
 /* Cash flow, below and on the left. Capped rather than full-bleed: the grid
    scrolls horizontally whatever width it is given, so extra width buys nothing
    and costs the distance between a row label and its figures. */
-.deal-cashflow-col { max-width: 940px; }
+/* ── W-F: Cash Flow renders full width. Round 41, seventh walk ─────────────
+   The 940px cap dates from the panel layout this section no longer has: it was
+   sized to sit beside something. Round 40's reshape put Cash Flow on its own
+   row across the screen, and the cap survived the thing it was measured
+   against - a number that stopped describing the layout it was written for,
+   which is Verification 15's shape at the stylesheet.
+
+   The table scrolls inside .cashflow-scroll, so removing the cap gives the
+   months more room before that scroll starts rather than letting anything
+   overflow the page. */
+.deal-cashflow-col { max-width: none; }
 .deal-payment-col { min-width: 0; }
 
 /* A line priced away from target margin. Round 40 Phase 1: the eleven inputs

@@ -982,13 +982,54 @@ window.requestTransition = async (recordId, toStage) => {
     // gate's front door, so a refusal has to say what is unmet.
     const list = (r.data?.blocking ?? []).map(b =>
       `<li>${escHtml(b.label ?? b.field ?? b.requirement_detail?.track ?? b.requirement_type)}</li>`).join('')
+    // W-K: a precondition doing its job is not an error. The route says which
+    // this is; the screen does not guess from the wording.
+    const cls = r.data?.notice ? 'msg-notice' : 'msg-error'
     if (fb) {
-      fb.innerHTML = `<p class="msg-error">${escHtml(r.data?.error ?? 'The request could not be raised.')}</p>`
-        + (list ? `<ul class="msg-error" style="margin-top:6px;padding-left:18px">${list}</ul>` : '')
+      fb.innerHTML = `<p class="${cls}">${escHtml(r.data?.error ?? 'The request could not be raised.')}</p>`
+        + (list ? `<ul class="${cls}" style="margin-top:6px;padding-left:18px">${list}</ul>` : '')
     }
     return
   }
+  // ── A TRANSITION THAT EXECUTED LANDS ON THE NEW STAGE. Round 41, W-A ────
+  //
+  // REVERSES the 1 September ruling, NARROWLY, and the scope is the whole of
+  // the reversal: this fires when a transition COMPLETES, not on any re-render.
+  //
+  // The 1 September ruling was that a re-render never moves the screen, on the
+  // reasoning that "your selection always survives" is a rule a person can hold
+  // where one that is usually true is one they have to check. Three walks then
+  // showed people following a record wanting to follow it, and the business has
+  // reversed it for this one trigger.
+  //
+  // WHAT MUST NOT COME BACK is the tab-yank the 1 September ruling fixed: a
+  // person reading a tab while somebody ELSE moves the record still keeps their
+  // tab, because that path is a re-render and this is not. The general
+  // selection-restore in renderOppStageTabs is untouched.
+  //
+  // The existing hook, not a new mechanism. oppLandOnTabAfterLoad is what the
+  // assessment panel already sets, and it outranks the restore by design.
+  if (r.data?.status === 'approved') {
+    window.landOppOnStage?.(r.data.to_stage)
+  }
   await loadOpportunityDetail(recordId)
+}
+
+// W-B: re-read the request state on demand, on both surfaces that show it.
+// Deliberately the SAME loader the page already uses rather than a narrower
+// fetch: a partial refresh that updated the banner and not the criteria beside
+// it would be a second reader of the request, which is the defect this round
+// has now fixed three times.
+window.refreshOppRequestState = async function (recordId) {
+  const el = document.querySelector('#opp-freeze-banner .appr-refresh')
+  if (el) { el.textContent = 'Refreshing...'; el.disabled = true }
+  await loadOpportunityDetail(recordId)
+}
+
+window.refreshApprovalsQueue = async function () {
+  const el = document.getElementById('approvals-refresh')
+  if (el) { el.textContent = 'Refreshing...'; el.disabled = true }
+  await loadApprovalsQueue()
 }
 
 window.withdrawRequest = async (requestId, recordId) => {
@@ -1100,6 +1141,15 @@ window.decideRequest = async (requestId, track, decision, recordId) => {
     pending(decision === 'approved' ? 'Approving...' : 'Rejecting...')
     const r = await api('POST', `/api/transition-requests/${requestId}/approvals`,
       { track, decision, ...(reason ? { reason } : {}) })
+    // W-A applies to the APPROVER too, and the ruling says so: "requester and
+    // approver both". The decide route answers `transitioned` when the last
+    // outstanding track closes the request and the record moves, so the hook
+    // fires on the same fact the database acted on rather than on a guess about
+    // which approval was the last one.
+    if (r.ok && r.data?.transitioned) {
+      const req = (oppOpenRequest && oppOpenRequest.id === requestId) ? oppOpenRequest : null
+      if (req?.to_stage) window.landOppOnStage?.(req.to_stage)
+    }
     return { ok: r.ok, error: r.data?.error }
   }
 
@@ -1203,7 +1253,19 @@ function renderOppFreezeBanner(recordId) {
   const met = req.criteria === 'met'
   el.innerHTML = `
     <div class="freeze-banner">
-      <p class="label" style="margin-bottom:6px">Frozen &middot; awaiting approval</p>
+      <!-- ── W-B: a refresh, not a poll. Round 41, seventh walk ────────────
+           walk65 saw a stale banner after the approver decided, until a manual
+           refresh. Two sessions on one record and no live channel between them.
+
+           A CONTROL RATHER THAN A TIMER, ruled. Polling would hide the staleness
+           instead of removing it, put a request every few seconds against every
+           open record, and still be stale between ticks. One control that says
+           what it does is honest about the fact that this screen does not know.
+           Polling is a named later item if this grates. -->
+      <p class="label" style="margin-bottom:6px">Frozen &middot; awaiting approval
+        <button class="btn-text appr-refresh" type="button"
+          onclick="refreshOppRequestState('${recordId}')"
+          title="Re-read this request. Another person may have decided since this screen loaded.">Refresh</button></p>
       <p style="font-size:14px;margin:0 0 10px">A move to <strong>${escHtml(req.to_stage)}</strong> is
         waiting on approvals. Nothing on this record can be edited until every track has approved,
         someone rejects, or the request is withdrawn.</p>
@@ -3559,6 +3621,14 @@ async function mountOppAssessmentLenses() {
 // The business hit this four times in two and a half minutes on 2026-08-22.
 let oppLandOnTabAfterLoad = null
 
+// Round 41 W-A: the one writer outside the assessment panel, published so
+// requestTransition can set it without reaching into module scope. Named rather
+// than assigned inline, so `git grep landOppOnStage` finds every caller of a
+// behaviour the business has now reversed once.
+window.landOppOnStage = function (stage) {
+  if (stage) oppLandOnTabAfterLoad = oppStageTabKey(stage)
+}
+
 // Round 26 Phase 3: ONE currency list.
 //
 // These ten codes were written twice as static <option> markup, on
@@ -3864,7 +3934,10 @@ async function renderOppExitCriteria(containerId, recordId, fromStage, toStage, 
   const summary = outstanding === 0
     ? (unmetApprovals === 0
       ? `<p class="sub" style="margin-bottom:10px">All criteria met - ready to move to ${escHtml(toStage)}.</p>`
-      : `<p class="sub" style="margin-bottom:10px">All criteria met. ${unmetApprovals} approval${unmetApprovals === 1 ? '' : 's'} still outstanding, in the Approvals panel.</p>`)
+      // W-I: ", in the Approvals panel" dropped. The panel is beside this one
+      // and named; pointing at it from here was the sentence telling somebody
+      // where to look at the moment they can already see it.
+      : `<p class="sub" style="margin-bottom:10px">All criteria met. ${unmetApprovals} approval${unmetApprovals === 1 ? '' : 's'} still outstanding.</p>`)
     : `<p class="sub" style="margin-bottom:10px">${outstanding} of ${requirements.length} outstanding to move to ${escHtml(toStage)}:</p>`
   const [criteria, lenses] = await Promise.all([criteriaPromise, lensesPromise])
   // RE-CHECKED AFTER THE SECOND AWAIT. The guard above covered the only await
@@ -7223,6 +7296,11 @@ window.addEventListener('beforeunload', e => {
 async function loadApprovalsQueue() {
   const el = document.getElementById('approvals-queue')
   if (!el) return
+  // W-B: restore the control whatever this load does, including its failure
+  // branch, or a refresh that fails leaves a button reading "Refreshing..."
+  // for ever - which is the same dead end the K loading flag was about.
+  const btn = document.getElementById('approvals-refresh')
+  if (btn) { btn.textContent = 'Refresh'; btn.disabled = false }
   el.innerHTML = '<p class="empty-state">Loading…</p>'
   const r = await api('GET', '/api/transition-requests?status=open')
   if (!r.ok) {

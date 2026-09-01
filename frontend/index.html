@@ -1483,6 +1483,12 @@
       <h1>Approvals</h1>
       <p class="field-note">Transition requests waiting on a decision. A review request does not block anything; a transition request has frozen its record.</p>
     </div>
+    <!-- W-B: the same affordance on the queue. An approver reading this list
+         has the same problem the requester has on the record: somebody else
+         may have decided since it loaded, and nothing tells them. -->
+    <button class="btn-text" type="button" id="approvals-refresh"
+      onclick="refreshApprovalsQueue()"
+      title="Re-read the queue. Requests may have been raised or decided since this loaded.">Refresh</button>
     <div id="approvals-queue" style="margin-top:24px"></div>
   </div>
 
@@ -2000,7 +2006,24 @@
              Terminus) - opposite party, opposite direction of money. -->
         <div id="deal-contractor-group" class="hidden" style="margin-top:24px">
           <p class="label" style="margin-bottom:4px">Contractor payment milestones</p>
-          <p class="field-note" style="margin-bottom:10px">When we pay the contractor. Paying earlier costs working capital. It does not change margin, it changes cash flow. Max 5 milestones.</p>
+          <!-- ── W-H: the guidance is gone, as the Installation prose went ────
+               Ruled by the business, and the same reasoning as item 1: the
+               column headings say Month, Contractor milestone, % of lump sum
+               and USD, and the section is headed "Contractor payment
+               milestones". The sentence restated that and added a working
+               capital observation nobody re-reads.
+
+               WHAT WENT WITH IT, recorded rather than glossed: "Max 5
+               milestones" was the only place the row limit was stated. The
+               table renders exactly five rows, so the limit is now visible by
+               counting rather than by being told - which is weaker, and is the
+               trade the ruling accepts.
+
+               THE COMPUTED LINES STAY. deal-contractor-base is a figure,
+               deal-contractor-diff is a measurement of this schedule, and
+               deal-contractor-warn is a refusal. None of them is guidance.
+
+               Helpful hover text is a named later item. -->
           <table class="doc-table">
             <!-- Month, milestone, PERCENTAGE, then the USD it computes. The
                  percentage is what a contractor schedule is negotiated in, and
@@ -2111,7 +2134,9 @@
               <div>
                 <div class="pg-item-name">Withholding Tax %</div>
                 <div class="pg-item-note">Deducted by the customer from the invoice.</div>
-                <button class="btn-ghost" id="deal-grossUp-toggle" type="button" style="margin-top:8px">Gross up: Off</button>
+                <!-- W-E: the factoring toggle's treatment, ruled. Same shape of
+                     control, same affordance. -->
+                <button class="btn-ghost deal-toggle" id="deal-grossUp-toggle" type="button" role="switch" aria-checked="false" style="margin-top:8px">Gross up disabled</button>
               </div>
               <input type="text" inputmode="numeric" id="deal-whtPct">
             </div>
@@ -2157,8 +2182,21 @@
       <!-- ── SECTION 4: Deal Sheet Summary ─────────────────────────────────── -->
       <!-- The summary, its itemised result and the versions taken of it, together. The matrix was above the sub-tab row; the layout puts it here, after the terms that produce it. -->
       <section class="deal-section" id="deal-section-4">
-        <p class="section-title">Deal Sheet Summary</p>
-        <button class="btn-secondary" id="btn-toggle-detail" aria-expanded="false" aria-controls="deal-detail-panel" style="margin-bottom:14px">Show detail</button>
+        <!-- ── W-G: the control sits WITH the title it acts on ──────────────
+             It was a full-width secondary button on its own line below the
+             heading, which read as an action about the section rather than a
+             disclosure of one part of it, and nothing about it said the panel
+             could be opened at all until you read the word "Show".
+
+             ONE CONTROL, ONE INDICATOR, and the indicator states which action
+             is on offer: the chevron points right when collapsed and rotates
+             down when open, and the text follows it. Ruled. -->
+        <div class="section-title-row">
+          <p class="section-title" style="margin:0">Deal Sheet Summary</p>
+          <button class="btn-text disclose" id="btn-toggle-detail" aria-expanded="false" aria-controls="deal-detail-panel">
+            <span class="disclose-chevron" aria-hidden="true">&rsaquo;</span><span id="btn-toggle-detail-text">Show detail</span>
+          </button>
+        </div>
         <!-- ── THE DETAIL OPENS BESIDE THE SUMMARY, ON REQUEST ─────────────
              Round 40 Phase 3, and it is the layout's own words:
 

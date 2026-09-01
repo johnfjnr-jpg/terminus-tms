@@ -1877,8 +1877,20 @@ function updateInstallVisibility() {
   document.getElementById('deal-install-notapplicable').classList.toggle('hidden', isPerUnit || isLumpSum)
 }
 
+// W-E: the same treatment as the factoring toggle, and it is the same control
+// in every way that matters - a boolean the person flips that changes the
+// pricing. Two controls one section apart that behave identically and look
+// different is a thing to learn twice.
 function updateGrossUpButton() {
-  document.getElementById('deal-grossUp-toggle').textContent = `Gross up: ${uiState.grossUp ? 'On' : 'Off'}`
+  const gu = document.getElementById('deal-grossUp-toggle')
+  const on = uiState.grossUp
+  gu.textContent = on ? 'Gross up enabled' : 'Gross up disabled'
+  gu.classList.toggle('is-on', on)
+  gu.setAttribute('role', 'switch')
+  gu.setAttribute('aria-checked', on ? 'true' : 'false')
+  gu.title = on
+    ? 'Withholding tax is grossed up and recovered from the customer. Click to turn it off.'
+    : 'Withholding tax is absorbed by Terminus. Click to turn it on.'
 }
 
 function updateStructureButtons() {
@@ -2045,7 +2057,11 @@ function wireOnce() {
       const open = panel.classList.toggle('hidden') === false
       row.classList.toggle('detail-open', open)
       detailBtn.setAttribute('aria-expanded', String(open))
-      detailBtn.textContent = open ? 'Hide detail' : 'Show detail'
+      // W-G: the TEXT node, not the button's textContent. Writing textContent
+      // would delete the chevron span the CSS rotates, so the indicator would
+      // work exactly once.
+      const label = document.getElementById('btn-toggle-detail-text')
+      if (label) label.textContent = open ? 'Hide detail' : 'Show detail'
       // Opening the detail does not recompute anything, so the catalog flag has
       // to be re-read here or it stays lit over an open panel.
       markDetailCatalogFlag()

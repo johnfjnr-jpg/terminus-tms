@@ -112,22 +112,44 @@ export function issuedProposal(versions, currentRevision) {
   if (!issued) {
     return {
       ok: false, version: null,
+      notice: true,
       reason: 'No Deal Sheet version has been issued. Take a version on Commercials and issue it '
         + 'before requesting this transition.',
     };
   }
+  // ── W-K: A NOTICE, NOT AN ERROR, AND IT NAMES THE ACTION ────────────────
+  //
+  // Round 41, seventh walk. This read as a failure and recurred, and it is
+  // neither: it is the precondition doing its job, and it will say the same
+  // thing every time until somebody issues a version.
+  //
+  // THE ACTION IS TO ISSUE, and the old wording did not make that unmissable.
+  // "Issue a new one" sat at the end of a sentence about revisions, and a person
+  // who had just TAKEN a version reasonably read it as done. A draft does not
+  // clear this. Only issuing does, and the sentence now leads with that.
+  //
+  // `notice: true` marks it for the screen, which styles it as a notice rather
+  // than an error. The kind is decided here rather than by the caller matching
+  // on the text, which is Verification 43's shape: the surface reads the state
+  // the rule produced instead of re-deriving it from a sentence.
   if (currentRevision > issued.revision_number) {
+    const moves = currentRevision - issued.revision_number;
     return {
-      ok: false, version: issued,
-      reason: `The record has moved on ${currentRevision - issued.revision_number} `
-        + `save${currentRevision - issued.revision_number === 1 ? '' : 's'} since the issued version. `
-        + 'Issue a new one, or the request would freeze a state nobody has issued.',
+      ok: false, notice: true, version: issued,
+      reason: `Issue the latest draft before requesting this transition. `
+        + `${moves} save${moves === 1 ? ' has' : 's have'} landed since `
+        + `${issued.major ? `V${issued.major}` : 'the issued version'} was issued, and a request freezes `
+        + 'what was issued rather than what is on screen. Taking a version is not enough: it has to be issued.',
     };
   }
   const laterDraft = (versions ?? []).some((v) =>
     v.status === 'draft' && Number.isInteger(v.revision_number) && v.revision_number >= issued.revision_number);
   if (laterDraft) {
-    return { ok: false, version: issued, reason: 'There is an unissued draft version. Issue it or discard it first.' };
+    return {
+      ok: false, notice: true, version: issued,
+      reason: 'There is a draft version that has not been issued. Issue it, or discard it, before '
+        + 'requesting this transition. A draft is not what a request freezes.',
+    };
   }
   return { ok: true, version: issued, reason: null };
 }

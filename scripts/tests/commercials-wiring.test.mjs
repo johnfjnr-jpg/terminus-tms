@@ -591,8 +591,20 @@ test('the ruled layout: two side-by-sides, and cash flow is its own section', ()
   // the installation text is three paragraphs and two narrow columns crowd it.
   assert.match(css, /\.deal-section--intake \{[^}]*grid-template-columns: minmax\(0, 340px\) minmax\(0, 1fr\)/,
     'equal halves would give the prose ~420px at 1240 to save nothing')
-  assert.match(css, /\.deal-cashflow-col \{ max-width: 940px; \}/,
-    'on the left means capped: the grid scrolls whatever width it is given')
+  // ── W-F REVERSED THIS. Round 41, seventh walk ──────────────────────────
+  //
+  // The 940px cap was written when Cash Flow sat beside something, and the
+  // reasoning recorded here was that extra width buys nothing because the grid
+  // scrolls. Round 40's reshape put Cash Flow on its own row across the screen
+  // and the cap survived the layout it was measured against - Verification 15
+  // at the stylesheet, a number that stopped describing the thing it was
+  // written for.
+  //
+  // The superseded reasoning is left in the comment above rather than deleted,
+  // so a later reader can tell a premise failed rather than a preference
+  // changing.
+  assert.match(css, /\.deal-cashflow-col \{ max-width: none; \}/,
+    'W-F: Cash Flow renders full width now that it is its own row')
 
   // The supersession is recorded where the superseded decision lives, or a
   // later reader finds the old one and relives the conflict.

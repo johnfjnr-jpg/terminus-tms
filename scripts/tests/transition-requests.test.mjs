@@ -128,13 +128,32 @@ test('Proposal to Evaluation wants an ISSUED version and nothing since', () => {
   // means the request would freeze a state nobody issued.
   const moved = issuedProposal(issued, 12)
   assert.equal(moved.ok, false)
-  assert.match(moved.reason, /moved on 2 saves since the issued version/)
-  assert.match(issuedProposal(issued, 11).reason, /moved on 1 save since/)
+  // ── W-K RESTATED THIS, and the count is no longer the claim ─────────────
+  //
+  // It pinned "moved on 2 saves since the issued version". The walk read that
+  // sentence as an error and could not tell what to DO about it: "issue a new
+  // one" sat at the end of a sentence about revisions, and somebody who had
+  // just taken a version read it as done.
+  //
+  // The claim was never the wording. It is that the refusal names the ACTION,
+  // says a draft is not enough, still counts the saves, and is marked as a
+  // notice rather than a failure.
+  assert.match(moved.reason, /^Issue the latest draft/, 'the action is not the first thing said')
+  assert.match(moved.reason, /2 saves have landed/, 'it no longer says how far the record has moved')
+  assert.match(moved.reason, /has to be issued/, 'it does not say a draft is insufficient')
+  assert.equal(moved.notice, true, 'a precondition doing its job is not an error')
+  assert.match(issuedProposal(issued, 11).reason, /1 save has landed/, 'the singular is wrong')
+  // AND AN UNISSUED DRAFT SAYS THE SAME THING, because it is the same confusion:
+  // taking a version is not issuing one.
+  assert.equal(issuedProposal([...issued, { status: 'draft', revision_number: 12 }], 10).notice, true)
 
   // And an unissued draft after it is a change too.
   const withDraft = [...issued, { id: 'v2', status: 'draft', revision_number: 10 }]
   assert.equal(issuedProposal(withDraft, 10).ok, false)
-  assert.match(issuedProposal(withDraft, 10).reason, /unissued draft/)
+  // W-K rewrote this sentence too, and for the same reason: "unissued draft"
+  // named a STATE where the person needed an ACT.
+  assert.match(issuedProposal(withDraft, 10).reason, /draft version that has not been issued/)
+  assert.match(issuedProposal(withDraft, 10).reason, /Issue it, or discard it/)
 })
 
 test('the raise route drops ONLY the approval requirements from the gate', () => {
@@ -587,4 +606,84 @@ test('V7: a SET control stays legible on a frozen record', () => {
   // there is no value for the dimming to hide.
   assert.match(css, /\.is-frozen input, \.is-frozen textarea, \.is-frozen select \{ pointer-events: none; opacity: 0\.45; \}/,
     'the base frozen rule must still dim an empty control')
+})
+
+// ─────────────────────────────────────────────────────────────
+// Round 41, seventh walk: W-A, W-B, W-E, W-F, W-G, W-I, W-K
+// ─────────────────────────────────────────────────────────────
+
+test('W-A: a transition that EXECUTED lands on the new stage, and nothing else does', () => {
+  // REVERSES the 1 September ruling narrowly. The scope IS the ruling: this
+  // fires on a transition completing, never on a re-render, so the tab-yank the
+  // 1 September ruling fixed cannot come back.
+  const app = readCode(ROOT + 'frontend/app.js')
+  assert.match(app, /if \(r\.data\?\.status === 'approved'\) \{\s*\n\s*window\.landOppOnStage\?\.\(r\.data\.to_stage\)/,
+    'requestTransition does not land on an executed transition')
+  assert.match(app, /if \(r\.ok && r\.data\?\.transitioned\)/,
+    'the approver side does not land when the last approval completes the move')
+  // THE GENERAL RESTORE IS UNTOUCHED. This is the assertion that stops the
+  // reversal widening: renderOppStageTabs still prefers the tab the person had.
+  assert.match(app, /if \(stillExists\(selectedBeforeRebuild\)\)/,
+    'the selection-restore was weakened, which is the thing the 1 Sep ruling fixed')
+  // And the hook has exactly one definition.
+  assert.equal((app.match(/window\.landOppOnStage = function/g) || []).length, 1)
+})
+
+test('W-B: a refresh control on both surfaces, and no polling', () => {
+  const app = readCode(ROOT + 'frontend/app.js')
+  const html = readCode(ROOT + 'frontend/index.html')
+  assert.match(app, /window\.refreshOppRequestState = async function/, 'the banner has no refresh')
+  assert.match(app, /window\.refreshApprovalsQueue = async function/, 'the queue has no refresh')
+  assert.match(html, /id="approvals-refresh"/, 'the queue control is not in the markup')
+  // NOT POLLING, ruled. A timer would hide the staleness rather than remove it.
+  assert.ok(!/setInterval\(/.test(app), 'a polling timer was introduced')
+  // The control restores itself on every load, including the failure branch.
+  assert.match(app, /btn\.textContent = 'Refresh'; btn\.disabled = false/,
+    'a failed refresh would leave the button reading "Refreshing..." for ever')
+})
+
+test('W-E: gross up takes the factoring treatment, and they are the same control', () => {
+  const app = readCode(ROOT + 'frontend/opportunity-deal.js')
+  assert.ok(!/Gross up: \$\{uiState\.grossUp \? 'On' : 'Off'\}/.test(app), 'the old label survives')
+  assert.match(app, /on \? 'Gross up enabled' : 'Gross up disabled'/, 'the label does not state the state')
+  const html = readCode(ROOT + 'frontend/index.html')
+  // BOTH carry the same class, which is the claim: one treatment, not two that
+  // look alike today.
+  for (const id of ['deal-factoring-toggle', 'deal-grossUp-toggle']) {
+    assert.match(html, new RegExp(`class="btn-ghost deal-toggle" id="${id}"`), `${id} is not a deal-toggle`)
+  }
+})
+
+test('W-G: one control, one indicator, and it says which action it offers', () => {
+  const html = readCode(ROOT + 'frontend/index.html')
+  const css = readCode(ROOT + 'frontend/style.css')
+  const app = readCode(ROOT + 'frontend/opportunity-deal.js')
+  assert.match(html, /<div class="section-title-row">/, 'the control does not sit beside the title')
+  assert.match(html, /class="disclose-chevron"/, 'there is no chevron')
+  assert.match(css, /\.disclose\[aria-expanded="true"\] \.disclose-chevron \{ transform: rotate/,
+    'the chevron does not rotate on expand')
+  // THE LABEL IS A CHILD, not the button's textContent: writing textContent
+  // would delete the chevron and the indicator would work exactly once.
+  assert.match(app, /getElementById\('btn-toggle-detail-text'\)/,
+    'the label is written in a way that would destroy the chevron')
+  assert.ok(!/detailBtn\.textContent = open \? 'Hide detail'/.test(app),
+    'the old textContent write survives and would remove the chevron')
+})
+
+test('W-K: a precondition doing its job is a notice, and the kind is decided once', () => {
+  const lib = readCode(ROOT + 'src/lib/transition-requests.js')
+  const route = readCode(ROOT + 'src/routes/transition-requests.js')
+  const app = readCode(ROOT + 'frontend/app.js')
+  const css = readCode(ROOT + 'frontend/style.css')
+  // All three refusals from issuedProposal are notices.
+  assert.equal((lib.match(/notice: true/g) || []).length, 3,
+    'not every issued-version refusal is marked as a notice')
+  assert.match(route, /notice: !!issued\.notice/, 'the route drops the kind')
+  // THE SCREEN READS THE KIND, it does not match on the wording. Verification 43.
+  assert.match(app, /const cls = r\.data\?\.notice \? 'msg-notice' : 'msg-error'/,
+    'the screen decides the treatment itself')
+  assert.match(css, /\.msg-notice \{/, 'there is no notice treatment')
+  // NOT RED AND NOT GREEN: red is a failure, green is at-or-above-target.
+  const rule = css.match(/\.msg-notice \{([^}]*)\}/)[1]
+  assert.ok(!/--green|--red|#[0-9a-f]{6}/i.test(rule), `the notice introduces a colour: ${rule.trim()}`)
 })
