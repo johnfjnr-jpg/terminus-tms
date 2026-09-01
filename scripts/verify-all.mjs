@@ -58,6 +58,14 @@ const STAGES = [
     needs: 'the dev server on :3000 AND a live session-ref.json',
   },
   {
+    // Round 41 W-J. The criterion the migration added must be satisfiable by
+    // issuing and by nothing else, or it is the "criterion nobody can tick" the
+    // migration named as its own risk.
+    name: 'HTTP proposal-issued probe',
+    cmd: ['node', ['scripts/probe-proposal-issued.mjs']],
+    needs: 'the dev server on :3000 AND a live session-ref.json',
+  },
+  {
     // Round 41 W6. A transition needing no approval used to raise a request
     // nothing could close, and an open request freezes the record: a walk
     // record was unmovable and uneditable from the moment it was raised. The

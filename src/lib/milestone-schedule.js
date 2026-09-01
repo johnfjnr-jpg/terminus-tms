@@ -52,6 +52,23 @@ export function roundingAllowance(rows) {
  */
 export function scheduleReconciliation(rows, base) {
   const filled = (rows ?? []).filter((r) => Number(r?.usd) > 0);
+  // ── W-C: A DATELESS PAYMENT COUNTS AND CANNOT BE ISSUED ────────────────
+  //
+  // Round 41, seventh walk. A row with money and no month used to be dropped by
+  // the CLIENT before this function saw it, so this filter never had to think
+  // about it. The drop is gone - it was discarding entered money - and the
+  // question arrives here instead.
+  //
+  // IT COUNTS TOWARD THE TOTAL, because the money is committed whatever the
+  // date says, and a total that excluded it would report a schedule as short by
+  // exactly the amount somebody had just typed.
+  //
+  // AND IT BLOCKS A VERSION, because a version is a commercial commitment and a
+  // payment with no date cannot be one. It does NOT block a save: the work must
+  // not be lost while the date is found. That split is the business's ruling and
+  // it is the reason `incomplete` is separate from `reconciles` rather than
+  // folded into it - the two block different things.
+  const incomplete = filled.filter((r) => !(Number(r?.month) > 0));
   const totalUsd = filled.reduce((s, r) => s + Number(r.usd), 0);
   const hasSchedule = filled.length > 0;
   const hasBase = Number(base) > 0;
@@ -62,6 +79,7 @@ export function scheduleReconciliation(rows, base) {
   if (!hasSchedule || !hasBase) {
     return {
       hasSchedule, base: Number(base) || 0, totalUsd, rows: filled.length,
+      incomplete: incomplete.length, issuable: incomplete.length === 0,
       diffUsd: 0, diffPct: 0, exact: true, reconciles: true, statement: null,
     };
   }
@@ -72,6 +90,15 @@ export function scheduleReconciliation(rows, base) {
 
   return {
     hasSchedule, base: Number(base), totalUsd, rows: filled.length,
+    // Two separate answers, deliberately. `reconciles` is about the ARITHMETIC
+    // and `issuable` is about COMPLETENESS, and a schedule can fail either
+    // without the other: 100% of the price across rows one of which has no
+    // month reconciles perfectly and still cannot be issued.
+    incomplete: incomplete.length,
+    issuable: incomplete.length === 0,
+    incompleteStatement: incomplete.length === 0 ? null
+      : `${incomplete.length} milestone${incomplete.length === 1 ? ' has' : 's have'} an amount but no month. `
+        + 'The schedule is saved, and a version cannot be taken until every payment has a date.',
     diffUsd,
     diffPct,
     exact: diffUsd === 0,

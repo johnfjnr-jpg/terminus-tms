@@ -7410,3 +7410,57 @@ fired.
 **The lesson is small and general: a scratch directory keyed by basename is a
 namespace collision waiting for two files to share a name**, and in a repository
 that deliberately mirrors names between `lib` and `routes`, they will.
+
+### W-C and W-D: the same fourteen lines, and one of them lost data
+
+**W-C.** `if (month > 0 && usd > 0)` dropped a valued row at the READ, before
+`scheduleReconciliation` saw it - and the reconciler filters on `usd` alone, so
+it would have counted it.
+
+**The wrong total was the small half.** That same function feeds `readPayload`,
+so a $50,000 milestone with no month **was not saved**. No error, no warning, and
+the reconciliation refusal that followed blamed the schedule for missing a price
+it would have matched.
+
+The business's ruling and the whole of it: **no ruling makes discarding entered
+money acceptable.** The row counts, it is flagged, and it saves.
+
+**`incomplete` is separate from `reconciles` because they block different
+things.** A dateless payment blocks a VERSION - a commercial commitment cannot
+carry an undated payment - and never blocks a save, because the work must not be
+lost while the date is found. A schedule can be 100% of the price and still
+unissuable, which one flag could not have said.
+
+**W-D.** `pct` is captured deliberately, is in the payload on every record that
+has one, and was **never written back on render**. The % column was blank on
+every load and appeared only if somebody typed in it. Nothing was recomputed and
+nothing was cleared by a price change; the column was never populated.
+
+**The percentage is the term and the dollars are its arithmetic**, which is the
+position the read already took. So the percentages hold when the base moves and
+the dollars follow, through the one `pctToUsd` both directions share. A row with
+no percentage is left alone rather than guessed at.
+
+### W-J: satisfiable, and the limit of it
+
+The migration named its own risk - a criterion nobody can tick - and measured
+after applying, **nothing wrote `proposalIssued`.** It is written by the issue
+route and by nothing else: not in `OPP_EXIT_CRITERION_KEYS`, so it cannot be
+ticked by hand, and not in the PATCH allowlist, so no save can set it. Proven
+end to end: unmet, a save cannot set it, taking a version does not, **issuing
+does**.
+
+**AND THE FIRST ATTEMPT AT THE OTHER HALF BROKE SOMETHING ELSE.** Clearing it
+when a new draft superseded the issued one appended a revision - and a version
+records the revision it was taken from, so **every new version was superseded at
+birth.** `probe-version-approval` caught it at `revisionsSince=2`: an existing
+probe finding a defect in a fix for something unrelated, which is the argument
+for running the whole gate rather than the tests for what you changed.
+
+**The clear is removed and the limit is stated in the code and asserted in the
+probe:** `proposalIssued` means "a proposal has been issued", not "the CURRENT
+proposal is issued". A record repriced after issuing shows the criterion met
+while `issuedProposal` still refuses. **That is a display saying less than the
+enforcement knows** - the direction that under-claims - and W-K's notice says the
+rest. Closing it properly needs a requirement type that compares a payload value
+with the record's revision, which is a gate-engine change and its own decision.

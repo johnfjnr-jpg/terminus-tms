@@ -612,6 +612,11 @@ Record what each option's stated advantage DEPENDS ON. A premise that fails
 means the decision is re-taken, not re-weighed, and the superseded reasoning
 stays visible.
 
+**BEFORE WRITING A SCRATCH OR BACKUP ARTEFACT** - Verification 44
+Key on the full path, not the basename. This repository mirrors names across
+src/lib and src/routes on purpose, and a harness restored the routes file over
+the lib file.
+
 **BEFORE SHOWING AN APPROVAL OR GATE STATE** - Verification 43
 Name the function the enforcement calls, and confirm the panel calls it too.
 Three instances: the exit-criteria gate, the version bridge, the stage panel.
@@ -1979,6 +1984,37 @@ of the change. An unanswerable precondition is a stop.
     Nearest neighbour is Verification 20, two readers of one value. **This is
     narrower and has a remedy 20 does not: there is a specific function to
     share**, and sharing it is cheaper than proving two readers equal.
+
+44. **A BACKUP OR TEMP ARTEFACT KEYS ON THE FULL PATH, NEVER THE BASENAME.** Set
+    by the business 2026-09-01, Round 41, from a fault in a calibration harness.
+
+    **THE INSTANCE.** A harness backed six files into a scratch directory with
+    `cp $f $SP/dir/$(basename $f)` and restored them the same way.
+    `src/lib/transition-requests.js` and `src/routes/transition-requests.js`
+    share a basename, so **the backup loop overwrote the lib copy with the routes
+    copy, and the restore loop then wrote the routes file over the lib file.**
+
+    **THIS REPOSITORY MAKES THE COLLISION LIKELY RATHER THAN UNLUCKY.** It
+    deliberately mirrors names across `src/lib` and `src/routes` - the module
+    holds the decisions and the route holds the wiring, and they are named for
+    the same thing on purpose. `transition-requests`, `deal-sheet-versions`,
+    `approvals`, `records`, `scoring`, `transitions`: six pairs, and any harness
+    touching one of each hits this.
+
+    **CAUGHT BY THE REVERT NOT RETURNING TO GREEN**, which is the one thing a
+    calibration harness reliably reports and the reason to run the final
+    "reverted" pass rather than assuming it. Recovered from `HEAD` and the lost
+    edits re-applied; the calibration that had been skipped was then re-run with
+    distinct filenames and fired.
+
+    **The remedy is one substitution:** key on the path with separators
+    replaced, `${f//\//_}`, or mirror the directory structure under the scratch
+    root. Either makes the collision impossible rather than unlikely.
+
+    **AND IT IS NOT ONLY BACKUPS.** Any scratch artefact named after a source
+    file has this shape: capture files, diff outputs, per-file logs, the
+    `.verify` transcripts. A name that is unique in one directory is not unique
+    across a tree.
 
 ### At round close: index these by when they apply
 

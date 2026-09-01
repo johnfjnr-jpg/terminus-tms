@@ -311,7 +311,22 @@ function readContractorMilestones() {
     // the dollars are what it computed. A version reading the schedule back
     // should see the term that was agreed, not only its arithmetic.
     const pct = toNumberOrNull(document.getElementById(`deal-cm-${i}-pct`)?.value)
-    if (month > 0 && usd > 0) rows.push({ month, label, usd, pct })
+    // ── W-C: A ROW WITH MONEY AND NO MONTH IS INCOMPLETE, NOT ABSENT ──────
+    //
+    // Round 41, seventh walk. `month > 0 && usd > 0` dropped the row HERE, at
+    // the read, before scheduleReconciliation ever saw it - and the reconciler
+    // filters on usd alone, so it would have counted it.
+    //
+    // THE TOTAL WAS THE SMALL HALF. This function also feeds readPayload, so a
+    // $50,000 milestone with no month was NOT SAVED. No error, no warning, and
+    // the reconciliation warning that followed blamed the schedule for missing a
+    // price it would have matched.
+    //
+    // The business's ruling, and it is the whole of it: no ruling makes
+    // discarding entered money acceptable. The row counts, it is flagged, and it
+    // saves. `incomplete` travels with it so the screen and the version check
+    // can both read one answer rather than each re-deriving "has it a month".
+    if (usd > 0) rows.push({ month, label, usd, pct, incomplete: !(month > 0) })
   }
   return rows
 }
@@ -751,6 +766,13 @@ async function saveVersion() {
   // The server refuses this too. A client check tells somebody early; it is not
   // the control, because a control that only exists in a browser is not one.
   const contractorRec = scheduleReconciliation(readContractorMilestones(), num('deal-lumpCost'))
+  // W-C: incomplete FIRST, because a dateless row also makes the arithmetic
+  // look wrong and "the schedule does not sum" would be the less useful of two
+  // true sentences. The server checks both in the same order.
+  if (contractorRec.hasSchedule && !contractorRec.issuable) {
+    versionFeedback(contractorRec.incompleteStatement, false)
+    return false
+  }
   if (contractorRec.hasSchedule && !contractorRec.reconciles) {
     versionFeedback(refusalStatement(contractorRec, 'The contractor payment schedule'), false)
     return false
@@ -1510,6 +1532,18 @@ function renderContractorMilestoneRows(contractorMilestones) {
     if (i >= MILESTONE_ROWS) return
     setVal(`deal-cm-${i}-month`, m.month)
     setVal(`deal-cm-${i}-usd`, m.usd)
+    // ── W-D: pct IS STORED AND WAS NEVER WRITTEN BACK ────────────────────
+    //
+    // Round 41, seventh walk. readContractorMilestones captures the percentage
+    // deliberately - the comment there says it is what was NEGOTIATED - and it
+    // is in the payload on every record that has one. This loop restored month
+    // and usd and not pct, so the % column rendered BLANK on every load and only
+    // appeared if somebody typed in it.
+    //
+    // That is the whole of "changing the lump sum blanked the %": nothing was
+    // recomputed and nothing was cleared. The table re-rendered and the column
+    // was never populated in the first place.
+    setVal(`deal-cm-${i}-pct`, m.pct ?? '')
   })
 
   // ── BIDIRECTIONAL, AND ONE COMPUTATION ───────────────────────────────
@@ -1580,8 +1614,15 @@ function renderContractorMilestoneTotals(lumpCost) {
     diff.classList.toggle('deal-schedule-off', !rec.reconciles)
   }
 
+  // W-C: two reasons a version is blocked, and they are said separately because
+  // they are fixed differently - one wants a date, the other wants the numbers
+  // to add up. Incomplete leads, because a dateless row also skews the sum and
+  // reporting only the arithmetic would send somebody to the wrong column.
   const warn = document.getElementById('deal-contractor-warn')
-  if (rec.hasSchedule && !rec.reconciles) {
+  if (rec.hasSchedule && !rec.issuable) {
+    warn.textContent = rec.incompleteStatement
+    warn.classList.remove('hidden')
+  } else if (rec.hasSchedule && !rec.reconciles) {
     warn.textContent = `${rec.statement} A version cannot be taken until the schedule matches the contractor price.`
     warn.classList.remove('hidden')
   } else {
@@ -2012,6 +2053,34 @@ function wireOnce() {
   // gross-up, factoring) use click, not input/change, so those mark
   // dirty explicitly in their own handlers further down.
   document.getElementById('opp-tab-commercial').addEventListener('input', updateDirtyState)
+
+  // ── W-D: THE PERCENTAGES HOLD WHEN THE BASE MOVES ──────────────────────
+  //
+  // Round 41, seventh walk. Changing the lump-sum price left the DOLLARS at
+  // their old absolute figures against the new price, so a 40/40/20 schedule
+  // silently became something else and the reconciliation refused a version for
+  // a schedule the person had not changed.
+  //
+  // THE PERCENTAGE IS THE TERM AND THE DOLLARS ARE ITS ARITHMETIC, which is the
+  // position readContractorMilestones already takes: it stores pct because that
+  // is "what was NEGOTIATED". So the percentages hold and the dollars follow.
+  //
+  // A ROW WITH NO PERCENTAGE CANNOT FOLLOW, and is left alone rather than
+  // guessed at: dollars typed directly are a figure somebody chose, and deriving
+  // a percentage for them and then re-deriving the dollars would move a number
+  // nobody asked to move. Those rows keep their dollars and stop reconciling,
+  // which the existing warning already reports.
+  //
+  // pctToUsd is the ONE conversion, the same function the per-row sync uses.
+  document.getElementById('deal-lumpCost').addEventListener('input', () => {
+    const base = num('deal-lumpCost')
+    if (!base) return
+    for (let i = 0; i < MILESTONE_ROWS; i++) {
+      const pct = toNumberOrNull(document.getElementById(`deal-cm-${i}-pct`)?.value)
+      if (pct === null) continue
+      setVal(`deal-cm-${i}-usd`, pctToUsd(pct, base))
+    }
+  })
 
   // ── THE LATCH BUTTONS. Round 41 item 7 ────────────────────────────────
   //

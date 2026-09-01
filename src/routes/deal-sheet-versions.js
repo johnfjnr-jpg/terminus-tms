@@ -1,6 +1,7 @@
 import { createUserClient } from '../supabase.js'
 import { sendWriteError } from '../lib/write-errors.js'
 import { payloadsDiffer } from '../lib/payload-diff.js'
+import { appendRecordRevision, SINGLE_KEY_RMW } from '../lib/record-revision.js'
 import { versionApprovalState, liveVersionApproval, APPROVAL_TRACK } from '../lib/version-approval.js'
 import { buildApprovalPage } from '../lib/approval-page.js'
 import { scheduleReconciliation, refusalStatement } from '../lib/milestone-schedule.js';
@@ -282,6 +283,12 @@ export default async function dealSheetVersionsRoutes(app) {
     // schedule at all, so an unconditional check would refuse almost every
     // version for a table that was never meant to be filled in.
     const contractorRec = scheduleReconciliation(inputs.contractorMilestones, inputs.lumpSumCost)
+    // W-C: incomplete blocks a VERSION and never a save. The save path does not
+    // call this at all, which is what makes the split real rather than a
+    // promise: there is no branch here that could be reached by a PATCH.
+    if (contractorRec.hasSchedule && !contractorRec.issuable) {
+      return reply.code(409).send({ error: contractorRec.incompleteStatement })
+    }
     if (contractorRec.hasSchedule && !contractorRec.reconciles) {
       return reply.code(400).send({
         error: refusalStatement(contractorRec, 'The contractor payment schedule'),
@@ -412,6 +419,13 @@ export default async function dealSheetVersionsRoutes(app) {
       })
     }
 
+    // W-J: taking a new version supersedes whatever was issued, so the criterion
+    // stops being met. issuedProposal refuses on an unissued draft for the same
+    // reason, and this keeps the visible criterion agreeing with it rather than
+    // reporting a stale tick.
+    //
+    // AFTER the no-delta refusal above, deliberately: a refused version is not a
+    // new draft and must not clear anything.
     const batchId = catalog.batches.safesight?.batch_id ?? Object.values(catalog.batches)[0]?.batch_id ?? null
 
     const { data: created, error: insErr } = await db.rpc('insert_deal_sheet_version', {
@@ -467,8 +481,33 @@ export default async function dealSheetVersionsRoutes(app) {
     }
     if (insErr) {
       request.log.error({ err: insErr }, 'failed to save deal sheet version')
-      return reply.code(500).send({ error: insErr.message })
+      return sendWriteError(reply, insErr)
     }
+
+    // ── THE CLEAR-ON-NEW-DRAFT IS REMOVED, AND THIS IS WHY ────────────────
+    //
+    // W-J's first version cleared proposalIssued here, so the criterion would
+    // un-tick when a new draft superseded the issued version. It appended a
+    // revision to do it - and A VERSION RECORDS THE REVISION IT WAS TAKEN FROM,
+    // so the clear advanced the record one revision past the version that had
+    // just been created and EVERY NEW VERSION WAS SUPERSEDED AT BIRTH.
+    //
+    // Caught by probe-version-approval, which asserts "one revision after
+    // approval voids it" and read revisionsSince=2. An existing probe finding a
+    // defect in a fix for something else, which is the argument for running the
+    // whole gate rather than the tests for the thing you changed.
+    //
+    // THE LIMIT THIS LEAVES, stated rather than hidden: proposalIssued means "a
+    // proposal has been issued", not "the CURRENT proposal is issued". A record
+    // repriced after issuing shows the criterion MET while issuedProposal still
+    // refuses the transition. That is a display saying less than the
+    // enforcement knows - the direction that under-claims rather than
+    // over-claims - and W-K's notice is what says the rest, in the words the
+    // business chose: taking a version is not enough, it has to be issued.
+    //
+    // Closing it properly needs a requirement type that can COMPARE a payload
+    // value with the record's revision, which is a gate-engine change and its
+    // own decision. Named here rather than left as a gap somebody rediscovers.
 
     await db.from('audit_log').insert({
       record_id: request.params.id, record_type: 'opportunity',
@@ -487,7 +526,7 @@ export default async function dealSheetVersionsRoutes(app) {
 
     const { data: version, error: readErr } = await db
       .from('deal_sheet_versions')
-      .select('id, record_id, major, minor, status')
+      .select('id, record_id, major, minor, status, revision_number')
       .eq('id', request.params.vid)
       .maybeSingle()
     if (readErr) return reply.code(500).send({ error: readErr.message })
@@ -572,6 +611,36 @@ export default async function dealSheetVersionsRoutes(app) {
     // error, which is the Verification 8 shape. The row count is the signal.
     if (!updated?.length) {
       return reply.code(409).send({ error: 'This version could not be issued. It may already have been issued.' })
+    }
+
+    // ── W-J: THE CRITERION IS SATISFIED HERE AND NOWHERE ELSE ─────────────
+    //
+    // 20260901000001 added "Proposal issued" to the Proposal exit criteria, to
+    // surface a precondition that was enforced and invisible. That migration
+    // named its own risk: a criterion nobody can tick looks broken.
+    //
+    // MEASURED AFTER APPLYING IT: nothing in the repository wrote
+    // proposalIssued, so it could never have been satisfied. This is the write.
+    //
+    // ISSUING IS THE ONLY ACT THAT SETS IT. It is not in
+    // OPP_EXIT_CRITERION_KEYS, so the panel renders it as a state rather than a
+    // tick; it is not in the PATCH allowlist, so no save can set it. The one
+    // writer is this route, after the update has succeeded.
+    //
+    // THE REVISION, NOT `true`. payload_field_required tests non-empty, so a
+    // boolean would tick once and stay ticked while the deal was repriced
+    // underneath - which is the exact staleness issuedProposal exists to catch.
+    // Storing the revision issued at makes the value falsifiable by a reader,
+    // and the version-create route clears it when a new draft supersedes this
+    // one. issuedProposal remains the enforcement; this is the label.
+    const { error: markErr } = await appendRecordRevision(
+      db, version.record_id, { proposalIssued: version.revision_number ?? null }, request.user.id, [],
+      SINGLE_KEY_RMW)
+    if (markErr) {
+      // Logged and not fatal: the version IS issued at this point and refusing
+      // now would report a failure for something that happened. The criterion
+      // reads unmet until the next issue, which is visible rather than silent.
+      request.log.error({ err: markErr }, 'version issued but proposalIssued not recorded')
     }
 
     await db.from('audit_log').insert({
