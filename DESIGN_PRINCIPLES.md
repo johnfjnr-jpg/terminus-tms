@@ -7168,8 +7168,29 @@ asserts a POPULATED panel instead.
 
 `oppLandOnTabAfterLoad` exists and would outrank the restore, and
 `requestTransition` does not set it - only the assessment panel's `land:` hook
-does. **Whether raising a transition should land the person on the new stage is a
-decision, not a defect**, and it is recorded rather than assumed either way.
+does. Whether raising a transition should land the person on the new stage was
+recorded as a decision rather than assumed either way.
+
+#### RULED 2026-09-01: raising a transition KEEPS the person's current tab
+
+**Set by the business, and the reason is theirs:**
+
+> The freeze banner announces the new state loudly, and "your selection always
+> survives" is worth more than one stage's convenience.
+
+**The requester is not special-cased onto the new stage.** The restore stays
+exactly as built and `requestTransition` does not set `oppLandOnTabAfterLoad`.
+
+**What makes this the right trade rather than a close call**, in the business's
+terms: a rule with no exceptions is a rule a person can hold, and one that is
+usually true is one they have to check. The convenience being given up is one
+click on one transition; the thing being bought is that no re-render on any path
+ever moves the screen out from under somebody.
+
+**The `land:` hook is left in place and unused by this path.** It is not dead:
+the assessment panel still sets it, and that caller has a different claim - it
+moves the person because THEY asked to be moved. Deleting it would remove a
+working mechanism to make a point about a caller that never used it.
 
 ### X3: three spellings of one fact
 
