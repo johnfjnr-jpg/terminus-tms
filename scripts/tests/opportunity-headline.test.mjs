@@ -85,13 +85,39 @@ test('the banner shows the six ruled figures', () => {
 
 test('the table has the eight ruled columns, each sortable', () => {
   const app = code('frontend/app.js', 'js')
-  for (const label of ['Opportunity name', 'Opportunity owner', 'TCV', 'Probability',
+  // T1: Account is its own column, not a caption under the name. It is a thing
+  // you sort and scan by, which a sub-line is not.
+  for (const label of ['Opportunity name', 'Account', 'Opportunity owner', 'TCV', 'Probability',
     'Weighted value', 'Stage', 'Est. close date', 'Actual close date']) {
     assert.ok(app.includes(label), `the table has no "${label}" column`)
   }
   assert.match(app, /onclick="sortOppsBy\('\$\{c\.key\}'\)"/, 'the headers are not sortable')
   assert.match(app, /oppSort\.dir === 'asc' \? '&#9650;' : '&#9660;'/,
     'there are no ascending/descending arrow indicators')
+  // The Account column reads the ACCOUNT, never payload.company_name, which is
+  // the Opportunity's own copy and can differ from the account it is linked to.
+  assert.match(app, /value: \(o\) => o\.account_name \?\? null/,
+    'the Account column reads a payload copy rather than the account')
+  assert.ok(!/ot-sub">\$\{escHtml\(o\.payload\?\.company_name/.test(app),
+    'the company name is still a caption under the name as well as a column')
+})
+
+test('T2: every column is allocated, and content is clipped rather than overflowed', () => {
+  const css = code('frontend/style.css', 'css')
+  // `table-layout: fixed` plus `nowrap` OVERFLOWS rather than clipping, which
+  // is what put Stage on top of Est. close date. Neither column was too narrow;
+  // the text simply ran out of its own box.
+  assert.match(css, /\.opp-table th, \.opp-table td \{[^}]*overflow: hidden/,
+    'a cell can overflow onto its neighbour again')
+  assert.match(css, /\.opp-table th, \.opp-table td \{[^}]*text-overflow: ellipsis/)
+  // ALL NINE sized, not the first two. Leaving the rest to share what is left
+  // means adding a column silently re-allocates every other one.
+  for (let i = 1; i <= 9; i++) {
+    assert.match(css, new RegExp(`\\.opp-table th:nth-child\\(${i}\\), \\.opp-table td:nth-child\\(${i}\\) \\{ width:`),
+      `column ${i} has no width of its own`)
+  }
+  assert.match(css, /\.opp-table \.tag \{ max-width: 100%/,
+    'the stage tag can set its column width again')
 })
 
 test('"Terminus Lead" is renamed on the OPPORTUNITY and nowhere else', () => {

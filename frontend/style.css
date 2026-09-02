@@ -5114,18 +5114,49 @@ input.input-invalid {
 /* The name is the only column that can afford to lose characters, so it is the
    one that absorbs the shortfall. Everything else is a figure, a date or a
    short label, and truncating those would make them wrong rather than shorter. */
-.opp-table th:first-child, .opp-table td:first-child { width: 26%; }
-.opp-table th:nth-child(2), .opp-table td:nth-child(2) { width: 13%; }
-.ot-title, .ot-sub, .opp-table td:nth-child(2) {
+/* ── EVERY COLUMN IS ALLOCATED, NOT JUST THE FIRST TWO ────────────────────
+   The first version sized columns 1 and 2 and left the other six to share what
+   was left equally. Adding the Account column changed that share, and the
+   figures and dates - which have a natural width - were given the same space as
+   Stage, whose tag is wide. Sizing all nine states the intent instead of
+   leaving it to arithmetic that changes whenever a column is added.
+
+   Percentages rather than pixels so the allocation holds at every width, which
+   is what the three-width measurement is for. */
+.opp-table th:nth-child(1), .opp-table td:nth-child(1) { width: 19%; }  /* name */
+.opp-table th:nth-child(2), .opp-table td:nth-child(2) { width: 15%; }  /* account */
+.opp-table th:nth-child(3), .opp-table td:nth-child(3) { width: 12%; }  /* owner */
+.opp-table th:nth-child(4), .opp-table td:nth-child(4) { width: 10%; }  /* TCV */
+.opp-table th:nth-child(5), .opp-table td:nth-child(5) { width: 9%; }   /* probability */
+.opp-table th:nth-child(6), .opp-table td:nth-child(6) { width: 11%; }  /* weighted */
+.opp-table th:nth-child(7), .opp-table td:nth-child(7) { width: 12%; }  /* stage */
+.opp-table th:nth-child(8), .opp-table td:nth-child(8) { width: 11%; }  /* est close */
+.opp-table th:nth-child(9), .opp-table td:nth-child(9) { width: 11%; }  /* actual close */
+.ot-title, .ot-sub {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* The stage tag is the widest short label in the table and was the thing that
+   overflowed onto its neighbour. It truncates with its cell rather than setting
+   the column's width. */
+.opp-table .tag { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
 .opp-table th, .opp-table td {
   padding: 12px 14px;
   border-bottom: 1px solid var(--hairline);
   vertical-align: middle;
+  /* ── T2: TRUNCATE, DO NOT OVERFLOW ─────────────────────────────────────
+     `table-layout: fixed` allocates the width and `nowrap` refuses to wrap, so
+     content longer than its cell OVERFLOWED it rather than being clipped. That
+     is what put Stage on top of Est. close date: neither column was too narrow,
+     the text simply ran out of its own box.
+
+     One property fixes it for every column at once, which is the point: a
+     per-column width tweak would fix the pair that happened to collide and
+     leave the next one to be found by eye. */
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .ot-left { text-align: left; }
 /* Figures right-align and share a digit width, which is what lets a column of

@@ -8642,3 +8642,106 @@ at the time - with the sting that the PROBE was built for them too.**
 
 Nearest neighbour is Verification 33: when several measures pass, ask what
 question they SHARE. Here there were only two, and they shared everything.
+
+---
+
+## T1, T2 and the T3/T4 finding, 2026-09-02
+
+### T1: Account is its own column
+
+Not a caption under the Opportunity name. It is a thing you sort and scan by,
+which a sub-line is not.
+
+**It reads the ACCOUNT, never `payload.company_name`.** That key is the
+Opportunity's own copy and can differ from the account it is linked to, and a
+list column disagreeing with the record it opens is Verification 20 on screen.
+Resolved server-side in two queries for the whole list rather than two per row.
+
+### T2: the overlap was not a width problem
+
+Stage sat on top of Est. close date, and neither column was too narrow.
+**`table-layout: fixed` plus `white-space: nowrap` OVERFLOWS rather than
+clipping**, so the text simply ran out of its own box. One `overflow: hidden`
+fixes every column at once, where a per-column width tweak would have fixed the
+pair that happened to collide and left the next one to be found by eye.
+
+All nine columns now carry an explicit width. The first version sized two and
+left the rest to share what remained, so **adding the Account column silently
+re-allocated every other one** - which is how the collision arrived.
+
+### AND THE FIRST OVERLAP DETECTOR WAS BLIND
+
+It used `cell.scrollWidth > cell.clientWidth` and reported no overlaps.
+**`scrollWidth` does not grow for VISIBLE overflow**, which is precisely the case
+being looked for, so an INJECTED overflow still read `[]`. The clean reading of
+the real table meant nothing.
+
+The replacement measures the content's own `Range` rect against the cell's, and
+asks whether the cell is clipping: content wider than a cell that HIDES it is
+the fix working, not a defect. Calibrated by forcing `overflow: visible` on one
+cell and watching it fire. Verification 13, and the zero was quoted in a report
+before the calibration was run.
+
+### T3: the revision was written by the record's owner, in the same session
+
+The question was what advanced the record from 8 to 9 under an editing screen,
+given the approver can only read and approve.
+
+**Measured from the rows:** revision 9 was written by the owner 3.4 seconds after
+revision 8, changing one key, `assessmentReviewed`. Revisions 6, 7 and 8 were
+exit-criteria ticks at one-to-three second intervals. It was one person clicking
+through a checklist.
+
+**The approver could not have written it.** `record_revisions_insert` is
+`auth.uid() = created_by AND auth.uid() = (select owner_id ...)`, so only the
+owner may insert; `decide_transition_request` and `raise_transition_request` only
+READ `max(revision_number)`. Across all six live opportunities, **zero revisions
+were written by a non-owner.**
+
+**So the premise was the thing that was wrong.** It is same-session, cross-panel
+staleness, not a second actor.
+
+### T4: ONE FIELD NAME MEANING TWO DIFFERENT THINGS
+
+`POST /deal-sheet-versions/:vid/issue` appends a revision to the RECORD
+(`proposalIssued`) and returns `updated[0]`, the `deal_sheet_versions` row, via
+`.select()` with no arguments - every column.
+
+That row carries **both** fields the client's adoption hook keys on:
+
+- `record_id`, so the hook's guard passes and it believes the response is about
+  this record
+- `revision_number`, which is **the VERSION's own revision** - the one it was
+  TAKEN at, not the record's new one
+
+The hook therefore adopts a number lower than or equal to the current revision,
+X3's forward-only rule correctly rejects it, and **the holder is left exactly one
+revision behind.** The next save of either kind sends the stale number and is
+refused.
+
+**Measured, driven through the screen's own calls:**
+
+```
+on load        held=1  record=1
+after taking   held=1  record=1
+ISSUE returned revision_number=1  carries record_id=true
+after ISSUING  held=1  record=2   <-- the gap
+next record save -> 409 "This record changed since the screen loaded.
+                         It is now at revision 2, the screen holds revision 1."
+```
+
+**This is Verification 20 with a twist. Not two readers of one value: one FIELD
+NAME meaning two different things.** `revision_number` on a version is not
+`revision_number` on a record, and the hook cannot tell them apart because it
+matches on spelling. The X3 comment already warns that one fact has three
+spellings; this is the same hazard from the direction where a spelling is
+correct and belongs to a DIFFERENT OBJECT.
+
+`POST /deal-sheet-versions/:vid/restore` returns the same shape and has the same
+defect wherever it writes.
+
+**The remedy is two halves and the first is the real fix**: stop the staleness at
+the route, which removes the refusal rather than rewording it; then reword what
+remains, because "this record changed since the screen loaded" is false when the
+change was the user's own click four seconds earlier, and "reload" discards work
+that was never in conflict. Held for the business.

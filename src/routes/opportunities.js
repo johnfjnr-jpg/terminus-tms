@@ -68,6 +68,35 @@ export default async function opportunitiesRoutes(app) {
     let catalog = null
     try { catalog = (await currentRates(db)).rates } catch { catalog = null }
 
+    // ── THE ACCOUNT NAME, FROM THE ACCOUNT. T1, 2026-09-02 ───────────────
+    //
+    // NOT `payload.company_name`, which is the Opportunity's own copy and can
+    // differ from the account it is linked to. The detail route already
+    // resolves the real one through the account's latest revision, and a list
+    // column showing a different name from the record it opens would be two
+    // readers of one thing (Verification 20).
+    //
+    // Resolved in TWO queries for the whole list rather than two per row.
+    const accountIds = [...new Set(opps.map((o) => o.account_id).filter(Boolean))]
+    const accountName = {}
+    if (accountIds.length) {
+      const { data: acctRecs, error: arErr } = await db.from('records')
+        .select('id').in('id', accountIds).is('deleted_at', null)
+      if (arErr) return reply.code(500).send({ error: arErr.message })
+      const liveIds = (acctRecs ?? []).map((r) => r.id)
+      if (liveIds.length) {
+        const { data: acctRevs, error: avErr } = await db.from('record_revisions')
+          .select('record_id, revision_number, payload')
+          .in('record_id', liveIds)
+          .order('revision_number', { ascending: false })
+        if (avErr) return reply.code(500).send({ error: avErr.message })
+        // Ordered newest first, so the first sighting of each id is its latest.
+        for (const rev of acctRevs ?? []) {
+          if (!(rev.record_id in accountName)) accountName[rev.record_id] = rev.payload?.name ?? null
+        }
+      }
+    }
+
     return opps.map(opp => {
       const payload = latestPayload[opp.id] ?? {}
       const det = opp.opportunity_details ?? {}
@@ -76,6 +105,7 @@ export default async function opportunitiesRoutes(app) {
       return {
         ...opp,
         payload,
+        account_name: opp.account_id ? (accountName[opp.account_id] ?? null) : null,
         total_contract_value: tcv,
         weighted_value: weightedValue(tcv, prob),
       }

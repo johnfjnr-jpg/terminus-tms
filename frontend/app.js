@@ -6509,7 +6509,7 @@ async function loadOpportunities() {
   const result = await api('GET', '/api/opportunities')
   if (!result.ok) {
     document.getElementById('opps-rows').innerHTML =
-      '<tr><td colspan="8"><p class="empty-state">Failed to load opportunities.</p></td></tr>'
+      '<tr><td colspan="9"><p class="empty-state">Failed to load opportunities.</p></td></tr>'
     return
   }
   oppsCache = result.data
@@ -6542,10 +6542,20 @@ document.getElementById('opps-mine-toggle').addEventListener('click', () => {
 // `lead`. Architecture 6: a display rename stays a display rename, so the key,
 // the column and every write path are untouched.
 const OPP_COLUMNS = [
+  // T1: the Account is its own column, not a sub-line under the name. It is a
+  // thing you sort and scan by, which a caption under another column is not.
+  //
+  // `account_name` comes from the ACCOUNT, resolved server-side, never from
+  // `payload.company_name` - that is the Opportunity's own copy and can differ
+  // from the account it is linked to. A list column disagreeing with the record
+  // it opens is Verification 20 on screen.
   { key: 'name', label: 'Opportunity name', align: 'left',
     value: (o) => o.payload?.name ?? null,
-    cell: (o) => `<div class="ot-title">${escHtml(o.payload?.name ?? '--')}</div>`
-      + `<div class="ot-sub">${escHtml(o.payload?.company_name ?? '--')}</div>` },
+    cell: (o) => `<div class="ot-title">${escHtml(o.payload?.name ?? '--')}</div>` },
+  { key: 'account', label: 'Account', align: 'left',
+    value: (o) => o.account_name ?? null,
+    cell: (o) => o.account_name
+      ? escHtml(o.account_name) : '<span class="ot-absent">--</span>' },
   { key: 'owner', label: 'Opportunity owner', align: 'left',
     value: (o) => o.payload?.lead ?? null,
     cell: (o) => escHtml(o.payload?.lead ?? '--') },
