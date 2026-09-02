@@ -723,6 +723,21 @@ function refFieldOrigValue(key) {
 // fromUserGesture (Round 10 Phase 0A): see window.revealFieldControl in app.js.
 window.openRefField = function (key, fromUserGesture, seedChar) {
   if (refEdits[key]) return
+  // ── ONE DOOR, GUARDED. 2026-09-02 ───────────────────────────────────────
+  //
+  // Every click-to-edit field on this tab opens through here, so guarding the
+  // door covers every field that exists and every field added later. That is
+  // the difference between a rule about a control TYPE and a rule about the
+  // controls that happened to exist when it was written, which is what W1's
+  // enumeration of `input, textarea, select` turned out to be.
+  //
+  // It also has no timing dependency, which the CSS and the disabled-flag
+  // sweep both do: those run at render, and this runs at the moment somebody
+  // tries. On a non-owned record the display div was still clickable, opened
+  // the editor, and revealed a select that was pointer-events: none but NOT
+  // disabled - so it stayed operable by keyboard, which is how an owner change
+  // could be chosen and then refused on save.
+  if (document.getElementById('view-opportunity-detail')?.classList.contains('is-not-mine')) return
   const orig = String(refFieldOrigValue(key))
   refEdits[key] = { draft: orig, orig }
   document.getElementById(`ref-display-${key}`).classList.add('hidden')

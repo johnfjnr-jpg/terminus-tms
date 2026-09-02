@@ -5267,6 +5267,20 @@ input.input-invalid {
    because the controls that END the freeze live inside it. Nothing a viewer can
    do ends this one, so the banner carries no controls and needs no escape. */
 .is-not-mine input, .is-not-mine textarea, .is-not-mine select { pointer-events: none; opacity: 0.45; }
+/* ── AND THE CONTROLS THAT ARE NOT FORM CONTROLS. 2026-09-02 ───────────────
+   W1's rule and W1's probe both enumerated `input, textarea, select`, so they
+   shared a blind spot and confirmed each other. Measured on a non-owned record:
+   every form control was inert and eighteen elements that BEHAVE as controls
+   were live, including the display div of every click-to-edit field. Clicking
+   one opened an editor whose select was still keyboard-operable.
+
+   A div with an onclick is a control however it is spelled. Navigation is
+   deliberately not covered: tabs and disclosures are controls too, and a
+   read-only record still has to be readable. */
+.is-not-mine .ref-field-display,
+.is-not-mine .cd-name-display,
+.is-not-mine .deal-toggle,
+.is-not-mine [role="switch"] { pointer-events: none; opacity: 0.45; cursor: default; }
 .is-not-mine .btn-primary, .is-not-mine .btn-secondary, .is-not-mine .btn-ghost, .is-not-mine .btn-sm { opacity: 0.45; }
 
 /* ── ARRIVING AT A RECORD. Round 41 walk item K ────────────────────────────

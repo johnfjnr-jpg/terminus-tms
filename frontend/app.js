@@ -1224,6 +1224,59 @@ window.decideRequest = async (requestId, track, decision, recordId) => {
 const OWNERSHIP_REFUSAL_TEXT =
   'This record belongs to another user. You can view it, but only its owner can change it.'
 
+// ── READ-ONLY BY CONTROL TYPE, NOT BY ENUMERATION ─────────────────────────
+//
+// W1 made another user's record non-interactive and it was measured and green.
+// It was measured against `input, textarea, select` - the CSS says that, and
+// W1's own probe enumerated the same three tags, so the rule and the instrument
+// shared one blind spot and agreed with each other.
+//
+// MEASURED ON A NON-OWNED RECORD, 2026-09-02: all 55 form controls were
+// correctly inert, and EIGHTEEN elements that behave as controls without being
+// one were all still live - the record-name `h1`, and the display div of every
+// click-to-edit field including Opportunity owner. Clicking one opened its
+// editor, revealing a `<select>` that was `pointer-events: none` and NOT
+// disabled, so it was still operable by keyboard. That is how a person could
+// choose a new owner and then be refused on save.
+//
+// TWO LAYERS, because each covers what the other cannot:
+//
+//   1. The EDIT-OPENING elements are neutralised by class in CSS, and made
+//      unreachable by keyboard here. A div with onclick is a control however it
+//      is spelled.
+//   2. Every form control is `disabled`, not merely pointer-events: none.
+//      pointer-events is a MOUSE guard; disabled is what stops a focused select
+//      responding to arrow keys, which is the path actually taken.
+//
+// NAVIGATION IS DELIBERATELY UNTOUCHED. Tabs, disclosure chevrons and the back
+// button are controls too, and a read-only record still has to be readable. The
+// rule is about controls that EDIT, which is why it targets the edit-opening
+// classes rather than every `[onclick]` in the view.
+const EDIT_OPENING_SELECTOR = [
+  '.ref-field-display',   // every click-to-edit Reference row, staff dropdowns included
+  '.cd-name-display',     // the record-name header
+  '.deal-toggle',         // factoring and gross-up
+  '[role="switch"]',
+].join(', ')
+
+function applyReadOnlyControls(viewId, notMine) {
+  const view = document.getElementById(viewId)
+  if (!view) return
+  // BY TYPE. Every form control in the view, whatever it is called and whenever
+  // it was added, so a control built after this rule is covered by it.
+  for (const c of view.querySelectorAll('input, textarea, select')) {
+    c.disabled = notMine
+  }
+  for (const el of view.querySelectorAll(EDIT_OPENING_SELECTOR)) {
+    // Removed from the tab order rather than left focusable-but-dead: a control
+    // you can Tab to and press Enter on is not read-only, it is a slower dead
+    // end. Restored to 0 rather than removed, because that is what these
+    // elements carry when they are live.
+    el.setAttribute('tabindex', notMine ? '-1' : '0')
+    el.setAttribute('aria-disabled', notMine ? 'true' : 'false')
+  }
+}
+
 function renderOppReadOnlyBanner(notMine) {
   const el = document.getElementById('opp-readonly-banner')
   if (!el) return
@@ -7057,6 +7110,11 @@ async function renderOppDetail(opp) {
   currentOppStage = opp.status
   currentOppStages = stages ?? []
   renderOppHeadline(opp)
+  // AFTER the tabs and cards have rendered, or it sweeps a view that is still
+  // half empty. The CSS covers whatever appears later regardless, and
+  // openRefField's own guard covers the moment somebody tries; this is the
+  // third layer and the one with the timing dependency, so it runs last.
+  applyReadOnlyControls('view-opportunity-detail', notMine)
   // The baseline the poll compares against, taken from the SAME response that
   // rendered the screen, so the two can never describe different moments.
   oppFreshnessAt = opp.freshness_at ?? null

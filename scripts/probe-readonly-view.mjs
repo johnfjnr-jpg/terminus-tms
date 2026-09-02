@@ -49,15 +49,38 @@ for (const width of [1240, 1920]) {
     const state = await page.evaluate(() => {
       const view = document.getElementById('view-opportunity-detail')
       const banner = document.getElementById('opp-readonly-banner')
-      const controls = [...view.querySelectorAll('input, textarea, select')]
-      // The property a PERSON experiences: can this be typed into.
-      const interactive = controls.filter((el) => getComputedStyle(el).pointerEvents !== 'none')
+      // ── ENUMERATED BY BEHAVIOUR, NOT BY TAG. 2026-09-02 ─────────────────
+      //
+      // This read `input, textarea, select` - THE SAME THREE TAGS THE CSS RULE
+      // NAMES. The rule and the instrument that checks it shared one blind
+      // spot, so the probe confirmed the rule against the rule's own
+      // assumptions and reported green while eighteen elements that behave as
+      // controls stayed live on another user's record.
+      //
+      // A div with an onclick that opens an editor is a control. It is now
+      // counted as one, so a control added later in a shape nobody has thought
+      // of yet is measured rather than missed.
+      const formControls = [...view.querySelectorAll('input, textarea, select')]
+      const editOpeners = [...view.querySelectorAll(
+        '.ref-field-display, .cd-name-display, .deal-toggle, [role="switch"]')]
+      const controls = [...formControls, ...editOpeners]
+      // THE PROPERTY A PERSON EXPERIENCES, and it takes two questions now:
+      // pointer-events stops a mouse, `disabled` and tabindex stop a keyboard,
+      // and the reported defect went through the keyboard on a select that had
+      // only the first.
+      const interactive = controls.filter((el) => {
+        if (getComputedStyle(el).pointerEvents === 'none'
+          && (el.disabled === true || el.getAttribute('tabindex') === '-1')) return false
+        return true
+      })
       return {
         klass: view.classList.contains('is-not-mine'),
         bannerText: (banner?.textContent ?? '').trim(),
         controls: controls.length,
+        formControls: formControls.length,
+        editOpeners: editOpeners.length,
         interactive: interactive.length,
-        firstInteractive: interactive[0]?.id || interactive[0]?.tagName || null,
+        firstInteractive: interactive[0]?.id || interactive[0]?.className || interactive[0]?.tagName || null,
       }
     })
 

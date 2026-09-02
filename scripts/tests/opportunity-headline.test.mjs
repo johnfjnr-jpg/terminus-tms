@@ -128,3 +128,53 @@ test('the sort puts absent values last in BOTH directions', () => {
   assert.ok(!/if \(yn\) return [^\n]*dir/.test(app),
     'reversing the sort would promote a column of blanks to the top')
 })
+
+// ── THE READ-ONLY RULE TARGETS CONTROL TYPES, NOT ENUMERATED CONTROLS ─────
+//
+// W1 made another user's record non-interactive and was measured green. The CSS
+// named `input, textarea, select`, AND W1'S PROBE ENUMERATED THE SAME THREE
+// TAGS, so the rule and its instrument shared one blind spot and confirmed each
+// other. Measured 2026-09-02 on a non-owned record: all 55 form controls inert,
+// and 18 elements that behave as controls still live.
+//
+// Three layers now, and each covers what the others cannot: CSS (applies
+// whenever an element appears), the openRefField guard (no timing dependency at
+// all), and the disabled sweep (stops the keyboard). Each is asserted, because
+// losing any one of them silently restores a different half of the defect.
+test('read-only covers the elements that BEHAVE as controls', () => {
+  const css = code('frontend/style.css', 'css')
+  assert.match(css, /\.is-not-mine \.ref-field-display/,
+    'the click-to-edit display divs are not covered, so they still open editors')
+  assert.match(css, /\.is-not-mine \.cd-name-display/, 'the record-name header is not covered')
+  assert.match(css, /\.is-not-mine \[role="switch"\]/, 'switch-role controls are not covered')
+})
+
+test('and the keyboard path is closed, not just the mouse one', () => {
+  const app = code('frontend/app.js', 'js')
+  // pointer-events is a MOUSE guard. The reported defect went through a select
+  // that was pointer-events: none and NOT disabled, so it stayed operable by
+  // arrow keys once focused.
+  assert.match(app, /function applyReadOnlyControls\(viewId, notMine\)/)
+  assert.match(app, /c\.disabled = notMine/, 'form controls are not disabled, so the keyboard still reaches them')
+  assert.match(app, /el\.setAttribute\('tabindex', notMine \? '-1' : '0'\)/,
+    'edit-opening elements stay in the tab order, so Enter still opens them')
+  // BOTH DIRECTIONS. Restoring is what makes it a toggle rather than a one-way
+  // trip: W1's other half is that your own record stays fully typeable.
+  assert.ok(!/c\.disabled = true\b/.test(app), 'the sweep disables unconditionally and never restores')
+})
+
+test('the one door every click-to-edit field opens through is guarded', () => {
+  const ref = code('frontend/opportunity-reference.js', 'js')
+  // The layer with NO timing dependency: CSS and the sweep both run at render,
+  // this runs at the moment somebody tries.
+  assert.match(ref, /if \(document\.getElementById\('view-opportunity-detail'\)\?\.classList\.contains\('is-not-mine'\)\) return/,
+    'openRefField opens an editor on a record the server will refuse to save')
+})
+
+test('W1\'s probe enumerates by behaviour, so it cannot share the rule\'s blind spot', () => {
+  const probe = code('scripts/probe-readonly-view.mjs', 'js')
+  assert.match(probe, /const editOpeners = \[\.\.\.view\.querySelectorAll\(/,
+    'the probe counts only form controls again, which is the blind spot it had')
+  assert.match(probe, /el\.disabled === true \|\| el\.getAttribute\('tabindex'\) === '-1'/,
+    'the probe treats pointer-events alone as read-only, which the defect disproved')
+})

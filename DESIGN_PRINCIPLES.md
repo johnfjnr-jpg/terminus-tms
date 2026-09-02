@@ -8546,3 +8546,99 @@ correctly scoped and the gate two-thirds of what was ruled.
 
 Calibrated by putting Proposal's Commercial rule back to `stage`: the matrix
 fails, and reverting returns it to green.
+
+---
+
+## THE READ-ONLY RULE AND ITS OWN PROBE SHARED ONE BLIND SPOT
+
+**2026-09-02. Reported by the business as a UI defect after they established the
+server half: the Opportunity Owner dropdown could be SELECTED on another user's
+record, and the save was correctly refused. RLS holds; this was never an
+authorization hole. A control that lets you choose and then refuses is a silent
+dead end.**
+
+### The measurement
+
+W1 made another user's record non-interactive and was measured green. The CSS
+rule named `input, textarea, select` - **and W1's own probe enumerated the same
+three tags.** The rule and the instrument that checks it shared one assumption,
+so the probe confirmed the rule against the rule's own terms.
+
+Measured on a non-owned record:
+
+| | |
+|---|---|
+| form controls | **55, all correctly inert** |
+| elements that BEHAVE as controls | **18, all still live** |
+
+The eighteen included the record-name `h1` and the display div of every
+click-to-edit field. Clicking one **opened its editor**, revealing a `<select>`
+that was `pointer-events: none` and **not disabled** - so it stayed operable by
+keyboard. That is the path the business took.
+
+### Two mistakes, not one
+
+**A `div` with an `onclick` is a control however it is spelled**, and neither the
+rule nor the probe counted it.
+
+**`pointer-events: none` is a MOUSE guard.** Even had the div been covered, the
+select underneath was reachable by focus and arrow keys. The rule had been
+written as though the only way to operate a control were to click it.
+
+### The fix is three layers, because each covers what the others cannot
+
+1. **CSS on the edit-opening classes** - applies whenever an element appears, so
+   there is no render-order dependency.
+2. **`openRefField`'s own guard** - every click-to-edit field on the tab opens
+   through that one function, so guarding the door covers every field that
+   exists AND every field added later. **No timing dependency at all**: the
+   others run at render, this runs at the moment somebody tries.
+3. **A `disabled` sweep plus `tabindex="-1"`** - what actually closes the
+   keyboard path, run last because it is the layer that needs the DOM complete.
+
+**Navigation is deliberately untouched.** Tabs, disclosures and the back button
+are controls too, and a read-only record still has to be readable. The rule is
+about controls that EDIT.
+
+### Measured after, in both directions
+
+| | not mine | mine |
+|---|---|---|
+| form controls disabled | **55 / 55** | 0 / 61 |
+| edit-openers in the tab order | **0 / 22** | 28 / 28 |
+| clicking Owner opens its editor | **no** | **yes** |
+
+The second column is the half that matters as much as the first: W1's property
+was "every control on another user's record non-interactive, **every control on
+your own still typeable**".
+
+### And the instrument was widened, or it keeps the blind spot
+
+`probe-readonly-view` now enumerates by BEHAVIOUR, and its
+"still interactive" test asks two questions rather than one: pointer-events
+stops a mouse, `disabled` or `tabindex="-1"` stops a keyboard. It counts 77
+controls where it counted 55.
+
+**Deliberately stricter than the old rule**: a page carrying only the CSS guard
+now FAILS, because the defect proved that guard insufficient on its own.
+
+Calibrated by removing the fix: 77 of 77 read as still typeable, first
+`ref-input-name`. Restored, 0 of 77.
+
+### THE LESSON, set by the business 2026-09-02
+
+> **A rule about control TYPES cannot be verified by an instrument that
+> enumerates control TAGS. The probe must enumerate by BEHAVIOUR - has an
+> onclick, opens an editor - not by tag.**
+
+**Origin: W1's rule and W1's probe shared the `input, textarea, select`
+assumption, so the probe confirmed the rule against its own terms.** Both were
+written in the same hour by the same hand, and neither could see the thing the
+other missed. That is the shape to look for: not a wrong instrument, but an
+instrument built from the same idea as the thing it measures.
+
+**This is `CLAUDE.md` build discipline 6 - a fix built for the pages that existed
+at the time - with the sting that the PROBE was built for them too.**
+
+Nearest neighbour is Verification 33: when several measures pass, ask what
+question they SHARE. Here there were only two, and they shared everything.
