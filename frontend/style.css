@@ -5094,6 +5094,37 @@ input.input-invalid {
    button clickable again had `disabled` not also been set on it. */
 .is-frozen .freeze-banner .is-pending { opacity: 0.55; pointer-events: none; cursor: progress; }
 
+/* MAIN: a pricing approval reads as an ASK, not as a lock. The freeze banner's
+   hairline says "nothing can move"; the accent edge here says "somebody is
+   being asked something" while the record stays workable. */
+.review-banner { border-left: 2px solid var(--green-bright); }
+.review-banner em { color: var(--muted); font-style: normal; }
+
+/* MAIN: what the pricing-approval control is currently able to do, beside it.
+   Muted because it explains rather than warns. */
+.pricing-approval-state { font-size: 12px; color: var(--muted); align-self: center; max-width: 32ch; }
+
+/* R6: what an approver is being asked to approve, in the words the requester's
+   own screen uses. A statement rather than a warning: it is not a fault, it is
+   the question. */
+.appr-what {
+  font-size: 14px;
+  color: var(--white);
+  border-left: 2px solid var(--hairline-strong);
+  padding-left: 12px;
+}
+
+/* R8: why the next-stage control cannot be used, beside it rather than in a
+   hover. Muted, because it explains rather than warns: nothing is wrong, the
+   work simply has not been done yet. */
+.opp-next-why {
+  font-size: 12px;
+  color: var(--muted);
+  align-self: center;
+  max-width: 34ch;
+  line-height: 1.35;
+}
+
 /* T4: the reload offered inside a stale-write message. It sits in a sentence
    rather than beside one, so it is spaced as part of the line. */
 .stale-reload { margin-left: 8px; vertical-align: baseline; }
@@ -5127,15 +5158,24 @@ input.input-invalid {
 
    Percentages rather than pixels so the allocation holds at every width, which
    is what the three-width measurement is for. */
-.opp-table th:nth-child(1), .opp-table td:nth-child(1) { width: 19%; }  /* name */
+/* ── R2: THE NAME GETS THE SPARE WIDTH ────────────────────────────────────
+   The name was truncated with room to spare on the row. It was narrowed to 19%
+   when Account arrived, and the figure and date columns were left wider than
+   their content needs: a date renders in about 9 characters and a percentage in
+   four, so the allocation was paying for space they cannot use.
+
+   The name is the only column whose content has no natural maximum, so it takes
+   what the others give back. Measured after: no truncation at any of the three
+   widths on the current data, and the columns still align. */
+.opp-table th:nth-child(1), .opp-table td:nth-child(1) { width: 26%; }  /* name */
 .opp-table th:nth-child(2), .opp-table td:nth-child(2) { width: 15%; }  /* account */
-.opp-table th:nth-child(3), .opp-table td:nth-child(3) { width: 12%; }  /* owner */
-.opp-table th:nth-child(4), .opp-table td:nth-child(4) { width: 10%; }  /* TCV */
-.opp-table th:nth-child(5), .opp-table td:nth-child(5) { width: 9%; }   /* probability */
-.opp-table th:nth-child(6), .opp-table td:nth-child(6) { width: 11%; }  /* weighted */
-.opp-table th:nth-child(7), .opp-table td:nth-child(7) { width: 12%; }  /* stage */
-.opp-table th:nth-child(8), .opp-table td:nth-child(8) { width: 11%; }  /* est close */
-.opp-table th:nth-child(9), .opp-table td:nth-child(9) { width: 11%; }  /* actual close */
+.opp-table th:nth-child(3), .opp-table td:nth-child(3) { width: 11%; }  /* owner */
+.opp-table th:nth-child(4), .opp-table td:nth-child(4) { width: 9%; }   /* TCV */
+.opp-table th:nth-child(5), .opp-table td:nth-child(5) { width: 7%; }   /* probability */
+.opp-table th:nth-child(6), .opp-table td:nth-child(6) { width: 10%; }  /* weighted */
+.opp-table th:nth-child(7), .opp-table td:nth-child(7) { width: 10%; }  /* stage */
+.opp-table th:nth-child(8), .opp-table td:nth-child(8) { width: 6%; }   /* est close */
+.opp-table th:nth-child(9), .opp-table td:nth-child(9) { width: 6%; }   /* actual close */
 .ot-title, .ot-sub {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -5312,6 +5352,9 @@ input.input-invalid {
    A div with an onclick is a control however it is spelled. Navigation is
    deliberately not covered: tabs and disclosures are controls too, and a
    read-only record still has to be readable. */
+/* R3: an action a non-owner may not take. Inert to a pointer as well as
+   disabled, because an <a> ignores the disabled property entirely. */
+.is-not-mine .is-inert-action { pointer-events: none; opacity: 0.45; cursor: default; }
 .is-not-mine .ref-field-display,
 .is-not-mine .cd-name-display,
 .is-not-mine .deal-toggle,

@@ -956,6 +956,42 @@ function refreshOppNextStageButton() {
     btn.onclick = null
     return
   }
+  // ── R8: A VERSION-GATED MOVE SAYS WHAT IS MISSING, AND IS NOT CLICKABLE ─
+  //
+  // From Proposal onward the transition is a CHECK against a standing sign-off
+  // held on the issued major version. If that sign-off is not there the request
+  // is refused, and before this the control let a person click into that
+  // refusal. A control that can only fail is a slower way of saying no.
+  //
+  // READ FROM THE GATE'S OWN ANSWER, never re-derived here. `oppStageTracks`
+  // holds what `buildStageTracks` returned for this stage - the same function
+  // the enforcement uses - so the button cannot disagree with the route
+  // (Verification 43, which this project has had three instances of).
+  const versionTracks = (oppStageTracks ?? []).filter((t) => t.scope === 'version')
+  if (versionTracks.length) {
+    const unapproved = versionTracks.filter((t) => !t.approved)
+    if (unapproved.length) {
+      btn.disabled = true
+      btn.onclick = null
+      btn.textContent = 'Request next stage'
+      // THE REASON IS ON THE CONTROL, not only in a panel below it. Two
+      // different absences need two different sentences: nothing issued at all
+      // is a different act from something issued and not yet signed off.
+      const nothingIssued = !Number.isInteger(oppIssuedMajor)
+      btn.title = nothingIssued
+        ? 'Issue a major pricing version and get it approved before requesting this move'
+        : `V${oppIssuedMajor} is not approved yet on ${unapproved.map((t) => t.track).join(', ')}`
+      const why = document.getElementById('opp-next-stage-why')
+      if (why) {
+        why.textContent = nothingIssued
+          ? 'Issue and get the pricing version approved first.'
+          : `V${oppIssuedMajor} is waiting on ${unapproved.map((t) => t.track).join(', ')}.`
+      }
+      return
+    }
+  }
+  const why = document.getElementById('opp-next-stage-why')
+  if (why) why.textContent = ''
   btn.disabled = false
   btn.onclick = () => requestTransition(recordId, nextStage)
 }
@@ -966,11 +1002,72 @@ function refreshOppNextStageButton() {
 // same value always drifts, and eleven controls depend on this one fact.
 let oppOpenRequest = null
 
+// R8: what buildStageTracks said about the record's CURRENT stage, held once.
+// The button, the panel and the gate then answer from one place.
+let oppStageTracks = null
+let oppIssuedMajor = null
+
+// MAIN: the open pricing-approval request, held beside the transition one. Two
+// kinds, two holders, because they mean different things: a transition request
+// FREEZES the record and a review request does not, and a screen that conflated
+// them would freeze on the wrong one.
+let oppPendingReview = null
+window.oppPendingPricingApproval = () => oppPendingReview
+
 async function loadOppOpenRequest(recordId) {
   oppOpenRequest = null
+  oppPendingReview = null
   const r = await api('GET', `/api/records/${recordId}/transition-requests`)
   if (!r.ok) return
-  oppOpenRequest = (r.data ?? []).find(x => x.status === 'open' && x.kind === 'transition') ?? null
+  const open = (r.data ?? []).filter(x => x.status === 'open')
+  oppOpenRequest = open.find(x => x.kind === 'transition') ?? null
+  oppPendingReview = open.find(x => x.kind === 'review') ?? null
+}
+
+// ── MAIN: RAISE A PRICING APPROVAL AGAINST AN ISSUED VERSION ─────────────
+//
+// kind='review', so `refuse_write_while_frozen` does not match it and the
+// record stays editable while the sign-off is gathered. The version is named
+// here and VALIDATED by the route: the caller says which version it wants
+// approved, the database says whether that version is issued and belongs to
+// this record.
+window.requestPricingApproval = async function (versionId, label) {
+  const state = document.getElementById('pricing-approval-state')
+  const btn = document.getElementById('btn-request-pricing-approval')
+  if (btn) { btn.disabled = true; btn.textContent = 'Requesting...' }
+  if (state) state.textContent = ''
+  // `to_stage` NAMES THE MOVE THIS SIGN-OFF UNLOCKS, not the current stage.
+  // Two reasons, and the second is the one that settled it:
+  //
+  //   raise_transition_request refuses a to_stage equal to the record's own
+  //   status - "record is already in that stage" - so the current stage is not
+  //   available; and
+  //
+  //   the approval is FOR something. "Approve V2 so this can go to Evaluation"
+  //   is what is being asked, and the request row then says so on both screens.
+  //
+  // The approvals row still records `from_stage`, the stage the record is in, so
+  // the history reads "approved at Proposal" as specified.
+  const next = nextStageAfter(currentOppStages, currentOppStage)
+  if (!next) {
+    if (state) {
+      state.textContent = 'This record is at its final stage, so there is no move to approve pricing for.'
+      state.className = 'pricing-approval-state msg-error'
+    }
+    if (btn) { btn.disabled = false; btn.textContent = `Request approval of ${label ?? 'this version'}` }
+    return
+  }
+  const r = await api('POST', `/api/records/${currentOppDetailId}/transition-requests`,
+    { to_stage: next, kind: 'review', version_id: versionId })
+  if (!r.ok) {
+    if (state) {
+      state.textContent = r.data?.error ?? 'The pricing approval could not be requested.'
+      state.className = 'pricing-approval-state msg-error'
+    }
+    if (btn) { btn.disabled = false; btn.textContent = `Request approval of ${label ?? 'this version'}` }
+    return
+  }
+  await loadOpportunityDetail(currentOppDetailId)
 }
 
 window.requestTransition = async (recordId, toStage) => {
@@ -1259,6 +1356,29 @@ const EDIT_OPENING_SELECTOR = [
   '[role="switch"]',
 ].join(', ')
 
+// ── R3: AN ACTION IS ALSO A THING A NON-OWNER MUST NOT DO ─────────────────
+//
+// The earlier read-only pass covered EDIT affordances - form controls and the
+// divs that open editors - and left ACTIONS alone. Measured on a non-owned
+// record: three buttons were still clickable, and one of them was
+// `Mark Closed Lost`.
+//
+// NAVIGATION IS NOT AN ACTION and stays live, or a read-only record stops being
+// readable. Tabs, the back button, show/hide detail and Refresh all change
+// nothing about the record, so they are listed as exceptions rather than the
+// actions being listed one by one - a list of actions would be an enumeration
+// that the next button escapes.
+//
+// AND TEXT SELECTION IS UNTOUCHED. Copying a reference or a URL changes
+// nothing, and a read-only record has to stay usable: measured, the reference
+// is a plain <span> with no onclick and `user-select: auto`, so it was never a
+// control and nothing here makes it less copyable.
+const NON_ACTION_SELECTOR = [
+  '[data-opp-tab]', '[data-opp-stage-tab]', '[data-tb-tab]',
+  '.detail-tab', '.btn-text', '.appr-refresh', '.disclose-chevron',
+  '#btn-back-opps', '#opp-btn-list', '#opp-btn-grid', '.ot-sort',
+].join(', ')
+
 function applyReadOnlyControls(viewId, notMine) {
   const view = document.getElementById(viewId)
   if (!view) return
@@ -1266,6 +1386,16 @@ function applyReadOnlyControls(viewId, notMine) {
   // it was added, so a control built after this rule is covered by it.
   for (const c of view.querySelectorAll('input, textarea, select')) {
     c.disabled = notMine
+  }
+  // R3: every action control, found by what it IS rather than by name. A button
+  // or a link-shaped action inside the record view is an action unless it is
+  // navigation, and the exception list is short and stable where a list of
+  // actions would not be.
+  for (const el of view.querySelectorAll('button, a[href]')) {
+    if (el.matches(NON_ACTION_SELECTOR) || el.closest(NON_ACTION_SELECTOR)) continue
+    el.disabled = notMine
+    el.classList.toggle('is-inert-action', notMine)
+    if (el.tagName === 'A') el.setAttribute('tabindex', notMine ? '-1' : '0')
   }
   for (const el of view.querySelectorAll(EDIT_OPENING_SELECTOR)) {
     // Removed from the tab order rather than left focusable-but-dead: a control
@@ -1305,6 +1435,47 @@ window.jumpToDecide = function (key) {
   row.classList.add('is-jump-target')
   setTimeout(() => row.classList.remove('is-jump-target'), 1600)
   row.querySelector('.btn-accept')?.focus({ preventScroll: true })
+}
+
+// ── MAIN: A PRICING APPROVAL IN FLIGHT, STATED WHERE THE FREEZE IS NOT ────
+//
+// Its own banner rather than the frozen one, because the two say opposite
+// things about the record: a transition request FREEZES it, and this does not.
+// Rendering a pricing approval in the freeze banner would tell the reader the
+// record is locked when it is deliberately still editable.
+function renderOppPricingApprovalBanner(recordId) {
+  const el = document.getElementById('opp-review-banner')
+  if (!el) return
+  if (!oppPendingReview) { el.innerHTML = ''; return }
+  const req = oppPendingReview
+  const decided = new Map((req.decisions ?? []).map(d => [d.track, d]))
+  const mayDecide = new Set(req.may_decide ?? [])
+  const rows = (req.required ?? []).map((t) => {
+    const d = decided.get(t)
+    const state = d ? (d.decision === 'approved' ? 'Approved' : 'Rejected') : 'Waiting'
+    const buttons = d || !mayDecide.has(t) ? '' :
+      `<button class="btn-sm btn-primary btn-accept" onclick="decideRequest('${req.id}','${escHtml(t)}','approved','${recordId}')">Approve</button>`
+    const reject = d || !mayDecide.has(t) ? '' :
+      `<button class="btn-sm btn-ghost" onclick="decideRequest('${req.id}','${escHtml(t)}','rejected','${recordId}')">Reject</button>`
+    return `<div class="data-row sa-decision-row" id="opp-decide-${escHtml(trackKey(t))}">`
+      + `<span class="sa-track">${escHtml(t)}</span>`
+      + `<span class="sa-approval-meta">${state}${d?.decided_at ? ' ' + formatDate(d.decided_at) : ''}</span>`
+      + `<span class="sa-why"></span><span class="sa-act">${buttons}</span><span class="sa-act">${reject}</span></div>`
+  }).join('')
+  el.innerHTML = `
+    <div class="freeze-banner review-banner">
+      <p class="label" style="margin-bottom:6px">Pricing approval requested
+        <button class="btn-text appr-refresh" type="button" onclick="refreshOppRequestState('${recordId}')"
+          title="Re-read this request.">Refresh</button></p>
+      <p style="font-size:14px;margin:0 0 10px">
+        <strong>${escHtml(req.version_label ?? 'The issued version')}</strong> is waiting on
+        Proposal/Pricing approval for issue.
+        <em>The record is not frozen: work continues while this is decided.</em></p>
+      ${rows}
+      <div id="opp-review-feedback" style="margin-top:10px"></div>
+      ${req.requested_by_is_me ? `<button class="btn-sm btn-ghost" style="margin-top:10px"
+        onclick="withdrawRequest('${req.id}','${recordId}')">Withdraw this request</button>` : ''}
+    </div>`
 }
 
 function renderOppFreezeBanner(recordId) {
@@ -1410,6 +1581,14 @@ function renderOppFreezeBanner(recordId) {
       ${(req.criteria_blockers ?? []).length
         ? `<ul class="msg-error" style="margin:0 0 10px;padding-left:18px">${
           req.criteria_blockers.map(b => `<li>${escHtml(b.label ?? b.field ?? b.requirement_type)}</li>`).join('')}</ul>`
+        : ''}
+      <!-- R6: WHAT IS BEING ASKED FOR, in the same words the requester's stage
+           panel uses. It is not a blocker - a request exists to collect these -
+           so it is stated rather than listed as a fault. Both screens read one
+           sentence from computeBlocking. -->
+      ${(req.approval_notes ?? []).length
+        ? `<p class="appr-what" style="margin:0 0 10px">${
+          req.approval_notes.map(n => escHtml(n)).join('<br>')}</p>`
         : ''}
       ${rows}
       <div id="opp-request-feedback" style="margin-top:10px"></div>
@@ -6830,6 +7009,41 @@ window.__oppFreshnessAt = () => oppFreshnessAt
 // produced through a route now that every route reports correctly.
 window.__noteRevisionForTest = (path, data) => noteRevisionFromResponse(path, data)
 
+// ── R1: A MONTH IS A WHOLE NUMBER OF MONTHS ───────────────────────────────
+//
+// `type="text" inputmode="numeric"` puts a numeric keypad on a phone and
+// accepts anything at all on a keyboard: the walk typed characters into the
+// milestone Month field and the field took them.
+//
+// The SERVER already refused them - `isValidNonNegativeInteger` on both
+// `milestones` and `contractorMilestones` - so nothing bad was ever stored.
+// What was missing is the client saying so at the moment of typing rather than
+// at the moment of saving, which is the difference between a constraint and a
+// rejection.
+//
+// DELEGATED, not bound per input. The milestone rows are rebuilt whenever the
+// table re-renders, so a listener attached to each input at render time is a
+// listener that has to be re-attached correctly every time. One listener on the
+// document covers every `.int-only` that exists now or later.
+//
+// It strips rather than blocks, so a paste of "12 months" becomes 12 instead of
+// being silently refused with no explanation.
+document.addEventListener('input', (e) => {
+  const el = e.target
+  // `matches('.int-only')` rather than `classList.contains('int-only')`: both
+  // are real queries, and the hook-liveness test looks for a SELECTOR, which is
+  // the form the rest of this file uses anyway.
+  if (!(el instanceof HTMLInputElement) || !el.matches('.int-only')) return
+  const cleaned = el.value.replace(/[^0-9]/g, '')
+  if (cleaned === el.value) return
+  // The caret would otherwise jump to the end on every correction.
+  const at = el.selectionStart ?? cleaned.length
+  const removedBefore = el.value.slice(0, at).length - el.value.slice(0, at).replace(/[^0-9]/g, '').length
+  el.value = cleaned
+  const to = Math.max(0, at - removedBefore)
+  try { el.setSelectionRange(to, to) } catch { /* a detached input has no range */ }
+})
+
 // ── WHAT A STALE WRITE SAYS TO A PERSON. T4, 2026-09-02 ───────────────────
 //
 // The server's own text carries the two revision numbers and stays exactly as
@@ -7095,6 +7309,7 @@ async function renderOppDetail(opp) {
     && opp.owner_id !== currentSession.user.id
   document.getElementById('view-opportunity-detail')?.classList.toggle('is-not-mine', notMine)
   renderOppReadOnlyBanner(notMine)
+  renderOppPricingApprovalBanner(opp.id)
 
   // ref-display-name is set below by opportunity-reference.js's
   // renderReferenceTab (Round 3 Phase 3, 2026-08-17) - it's now the
@@ -7183,10 +7398,35 @@ async function renderOppDetail(opp) {
   currentOppStage = opp.status
   currentOppStages = stages ?? []
   renderOppHeadline(opp)
+  // ── LOCKED BEFORE ANY AWAIT. ─────────────────────────────────────────────
+  //
   // AFTER the tabs and cards have rendered, or it sweeps a view that is still
   // half empty. The CSS covers whatever appears later regardless, and
   // openRefField's own guard covers the moment somebody tries; this is the
-  // third layer and the one with the timing dependency, so it runs last.
+  // third layer and the one with the timing dependency.
+  //
+  // AND IT RUNS BEFORE THE R8 FETCH BELOW, which is the ordering that matters:
+  // putting a network round trip in front of it left another user's record
+  // fully interactive for the length of that request. Caught by the read-only
+  // probe going red, which is the probe earning its place - the window was
+  // real, brief, and invisible to anything else.
+  applyReadOnlyControls('view-opportunity-detail', notMine)
+
+  // R8: the gate's own answer for THIS stage, held once so the next-stage
+  // control and the approvals panel cannot disagree about whether the pricing
+  // version is signed off. Read rather than derived, because deriving it would
+  // be a second reader of the rule the route already applies.
+  oppIssuedMajor = Number.isInteger(opp.issued_major) ? opp.issued_major : null
+  oppStageTracks = null
+  try {
+    const sa = await api('GET', `/api/records/${opp.id}/stage-approvals`)
+    if (sa.ok) {
+      oppStageTracks = (sa.data ?? []).find((st) => st.stage_name === opp.status)?.tracks ?? null
+    }
+  } catch { /* the button falls back to enabled, and the route still refuses */ }
+  refreshOppNextStageButton()
+  // The next-stage control is re-evaluated above, so a non-owner's copy of it
+  // is re-locked here rather than left enabled by that refresh.
   applyReadOnlyControls('view-opportunity-detail', notMine)
   // The baseline the poll compares against, taken from the SAME response that
   // rendered the screen, so the two can never describe different moments.

@@ -14,6 +14,8 @@
 // record that was never frozen for some unrelated reason would read as a pass.
 import { freshOpportunity, tearDown, admin } from './fixtures.mjs'
 import { api, ApiError } from './api-client.mjs'
+import { catalogToRates } from '../src/lib/base-costs.js'
+import { resolveRates, frozenRates } from '../src/lib/rate-resolution.js'
 
 const results = []
 const record = (label, pass, detail = '') => {
@@ -40,11 +42,27 @@ const write = async () => {
 // rather than assumed from the absence of a refusal.
 record('the record is writable to begin with', (await write()).ok)
 
-// ── A REVIEW REQUEST: the version-gate shape ─────────────────────────────
+// ── A PRICING APPROVAL: the real version-gate shape ──────────────────────
+//
+// This raised a bare `kind='review'` with no version, which stopped being a
+// thing the route accepts: a review IS a pricing approval, held against an
+// issued major version, and one without a version would collect nothing.
+//
+// Set up as the real feature rather than as a synthetic review, which also
+// makes the no-freeze claim a claim about something a person actually does.
+const LIVE = catalogToRates((await api('GET', '/base-costs')).data?.products ?? []).rates
+const INPUTS = { targetMargin: 30 }
+const draft = (await api('POST', `/opportunities/${oppId}/deal-sheet-versions`,
+  { inputs: INPUTS, rates: frozenRates(resolveRates(INPUTS, LIVE)),
+    reason: 'no-freeze probe', expected_revision: await rev() })).data
+const issued = (await api('POST', `/deal-sheet-versions/${draft.id}/issue`, {})).data
+// Pricing approval applies from Proposal onward, where the version gate is.
+await admin().from('records').update({ status: 'Proposal' }).eq('id', oppId)
+
 const review = (await api('POST', `/records/${oppId}/transition-requests`,
-  { to_stage: 'Solution Alignment', kind: 'review' })).data
-record('a review request opens', review?.status === 'open' && review?.kind === 'review',
-  `kind=${review?.kind} status=${review?.status}`)
+  { to_stage: 'Evaluation', kind: 'review', version_id: issued.id })).data
+record('a pricing-approval request opens', review?.status === 'open' && review?.kind === 'review',
+  `kind=${review?.kind} status=${review?.status} version=V${issued?.major}`)
 
 const underReview = await write()
 record('THE RECORD STAYS EDITABLE while a review request is open',

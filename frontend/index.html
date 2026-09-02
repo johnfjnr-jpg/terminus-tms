@@ -1523,6 +1523,10 @@
     <div id="opp-moved-banner"></div>
     <div id="opp-readonly-banner"></div>
     <div id="opp-freeze-banner"></div>
+    <!-- MAIN: a pricing approval in flight. Its own slot beside the freeze
+         banner, because the two say opposite things about the record: one
+         locks it, this one deliberately does not. -->
+    <div id="opp-review-banner"></div>
     <div class="detail-head">
       <div>
         <button class="btn-text" id="btn-back-opps">Back to opportunities</button>
@@ -1631,6 +1635,10 @@
         <button class="btn-sm btn-ghost tab-action-idle" id="ref-cancel-all">Cancel</button>
         <button class="btn-sm btn-primary tab-action-idle" id="ref-save-all">Save changes</button>
         <button class="btn-sm btn-primary" id="opp-next-stage-btn">Next Stage</button>
+        <!-- R8: the reason the control above is disabled, stated where the
+             control is. A title attribute is a hover, and a person who cannot
+             click a button needs to be told why without discovering it. -->
+        <span class="opp-next-why" id="opp-next-stage-why"></span>
         <button class="btn-sm btn-ghost" id="opp-close-lost-btn">Mark Closed Lost</button>
       </div>
     </div>
@@ -2609,6 +2617,14 @@
             <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px">
               <button class="btn-primary" id="btn-save-version">Save version</button>
               <button class="btn-secondary" id="btn-issue-version" disabled>Issue latest draft</button>
+              <!-- MAIN: requesting pricing approval is a SEPARATE act from
+                   issuing. Beside the issue control because that is where a
+                   person is when they decide the price is ready to be signed
+                   off, and deliberately its own button: issuing locks the
+                   pricing, asking for approval pulls three people in, and one
+                   click must not do both. -->
+              <button class="btn-secondary" id="btn-request-pricing-approval" disabled>Request pricing approval</button>
+              <span class="pricing-approval-state" id="pricing-approval-state"></span>
               <!-- Round 38: the way in to the commercial approval page. It is a
                    separate surface rather than a panel on this tab, because it
                    shows the same numbers under the opposite convention: this tab

@@ -43,6 +43,13 @@ const STAGES = [
     needs: 'the dev server on :3000 AND a live session-ref.json',
   },
   {
+    // The manual pricing-approval request: raised against an ISSUED version,
+    // non-freezing, refused before Proposal where nothing is version-gated.
+    name: 'HTTP pricing-approval probe',
+    cmd: ['node', ['scripts/probe-pricing-approval.mjs', 'GATE']],
+    needs: 'the dev server on :3000 AND a live session-ref.json',
+  },
+  {
     // Item 4. Both halves of the from-Proposal check-and-go on one record, with
     // the stage-gated half proven unchanged on the same walk.
     name: 'HTTP version-gate probe',

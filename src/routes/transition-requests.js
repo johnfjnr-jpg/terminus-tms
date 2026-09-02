@@ -45,7 +45,7 @@ const OPEN_TRANSITION = { status: 'open', kind: 'transition' }
  * warning was for.
  */
 export async function criteriaState(db, req) {
-  const fallback = (why) => ({ criteria: 'not evaluated', criteria_blockers: [], criteria_note: why })
+  const fallback = (why) => ({ criteria: 'not evaluated', criteria_blockers: [], approval_notes: [], criteria_note: why })
   try {
     const { data: record, error: recErr } = await db
       .from('records').select(GATE_RECORD_SELECT).eq('id', req.record_id).maybeSingle()
@@ -61,14 +61,35 @@ export async function criteriaState(db, req) {
     if (result.error) return fallback('the gate could not be evaluated')
 
     const blockers = (result.blocking ?? []).filter((b) => b.requirement_type !== 'approval_obtained')
+    // ── R6: THE APPROVER READS THE SAME SENTENCE THE REQUESTER DOES ───────
+    //
+    // The approval requirements are filtered OUT of the blockers above, and
+    // correctly: a request exists to collect them, so listing them as blockers
+    // would tell an approver the request should not have been raised.
+    //
+    // But they were dropped entirely, so the sentence naming what is being
+    // asked for - "Bid/No Bid Approval required to move to Proposal" - reached
+    // the REQUESTER's stage panel and never the approver's banner. The two
+    // people in one workflow read different words for one decision.
+    //
+    // Carried separately from the blockers, so the banner can state what the
+    // approval IS without claiming the request is faulty. One source, from
+    // computeBlocking, so the two screens cannot word it differently.
+    const approvalNotes = [...new Set((result.requirements ?? [])
+      .filter((r) => r.requirement_type === 'approval_obtained' && !r.met && r.message)
+      .map((r) => r.message))]
     return blockers.length
       ? {
         criteria: 'not evaluated',
         criteria_blockers: blockers,
+        approval_notes: approvalNotes,
         criteria_note: 'This request has unmet exit criteria, which means it was not raised '
           + 'through the stage panel. Do not approve it without checking why.',
       }
-      : { criteria: 'met', criteria_blockers: [], criteria_note: null }
+      // The note travels on the MET path too: the exit criteria being satisfied
+      // is exactly when an approver is looking at this, and it is the moment
+      // they most need to know what they are being asked to approve.
+      : { criteria: 'met', criteria_blockers: [], approval_notes: approvalNotes, criteria_note: null }
   } catch (e) {
     return fallback('the gate raised: ' + String(e?.message ?? e))
   }
@@ -87,7 +108,7 @@ export default async function transitionRequestRoutes(app) {
   // today, so the person who has to fix them is told at the moment they ask
   // rather than after three approvers have looked at it.
   app.post('/records/:id/transition-requests', async (request, reply) => {
-    const { to_stage, kind = 'transition' } = request.body ?? {}
+    const { to_stage, kind = 'transition', version_id: bodyVersionId } = request.body ?? {}
     if (!to_stage || typeof to_stage !== 'string') {
       return reply.code(400).send({ error: 'to_stage is required' })
     }
@@ -151,6 +172,88 @@ export default async function transitionRequestRoutes(app) {
     // statement of where the model changes, and the rules already say it.
     let blocking = []
     let frozenVersionId = null
+
+    // ── THE PRICING-APPROVAL REQUEST. Latest walk, MAIN, ruled 2026-09-02 ──
+    //
+    // A review request against a specific ISSUED major version. It does not
+    // freeze the record - the freeze trigger matches `kind = 'transition'` and
+    // this is not one - so work continues while the sign-off is gathered, which
+    // is the whole point of the version-gate model.
+    //
+    // SEPARATE FROM ISSUING, and the business's reason is recorded because it
+    // is not a technical one: the requester may issue a major version and keep
+    // refining before asking anyone to sign it off. Auto-requesting on issue
+    // would pull three approvers onto work in progress.
+    //
+    // THE VERSION IS VALIDATED HERE, not taken on trust. Architecture 12's
+    // shape: a caller may say WHICH version it wants approved - that is the
+    // caller's business - but whether that version exists, belongs to this
+    // record, and is actually ISSUED is a fact the database holds and must be
+    // read rather than accepted.
+    if (kind === 'review') {
+      if (!bodyVersionId || typeof bodyVersionId !== 'string') {
+        return reply.code(400).send({
+          error: 'version_id is required: a pricing approval is requested against a specific issued version.',
+        })
+      }
+      const { data: ver, error: verErr } = await db
+        .from('deal_sheet_versions')
+        .select('id, record_id, status, major, minor')
+        .eq('id', bodyVersionId).maybeSingle()
+      if (verErr) return reply.code(500).send({ error: verErr.message })
+      if (!ver || ver.record_id !== record.id) {
+        return reply.code(404).send({ error: 'That version does not belong to this Opportunity.' })
+      }
+      if (ver.status !== 'issued') {
+        return reply.code(409).send({
+          error: `V${ver.major}.${ver.minor} is a draft. Issue it before requesting approval: `
+            + 'an approval is held against an issued major version.',
+        })
+      }
+      // One open pricing-approval request at a time, per version, or approvers
+      // see the same version twice and the panel cannot say which is current.
+      const { data: already, error: openErr } = await db
+        .from('transition_requests')
+        .select('id, frozen_version_id')
+        .eq('record_id', record.id).eq('kind', 'review').eq('status', 'open')
+      if (openErr) return reply.code(500).send({ error: openErr.message })
+      if ((already ?? []).length) {
+        return reply.code(409).send({
+          error: 'A pricing approval is already open on this Opportunity. '
+            + 'Withdraw it before requesting another.',
+          request_id: already[0].id,
+        })
+      }
+      // ── AND THERE MUST BE SOMEBODY TO ASK ──────────────────────────────
+      //
+      // The tracks a pricing approval collects are the VERSION-SCOPED rules on
+      // the move it names. Before Proposal exit there are none - that half of
+      // the lifecycle is stage-gated by ruling - so a request raised there would
+      // open, collect nothing, and be decidable by no one.
+      //
+      // Found by this route's own probe returning `required: []`: a request that
+      // looks normal and can never complete is the shape the superseded-route
+      // finding warned about, so it is refused with the reason rather than
+      // created.
+      const { data: vRules, error: vrErr } = await db
+        .from('stage_gate_rules')
+        .select('requirement_detail')
+        .eq('record_type', record.record_type)
+        .eq('requirement_type', 'approval_obtained')
+        .eq('from_stage', record.status)
+        .eq('to_stage', to_stage)
+      if (vrErr) return reply.code(500).send({ error: vrErr.message })
+      const versionTracks = (vRules ?? [])
+        .filter((r) => (r.requirement_detail?.scope ?? '') === VERSION_SCOPE)
+      if (!versionTracks.length) {
+        return reply.code(409).send({
+          error: `Moving from ${record.status} to ${to_stage} is not gated on a pricing version, `
+            + 'so there is nobody to ask. Pricing approval applies from Proposal onward.',
+        })
+      }
+      frozenVersionId = ver.id
+    }
+
     if (kind === 'transition') {
       const result = await computeBlocking(
         db, record, record.status, to_stage, rev.revision_number, rev.payload)
@@ -475,10 +578,34 @@ export default async function transitionRequestRoutes(app) {
         .eq('from_stage', req.from_stage).eq('to_stage', req.to_stage)
       const { data: decisions } = await db.from('approvals')
         .select('track, decision, approver_id, decided_at, comment').eq('request_id', req.id)
-      const required = requiredTracks(rules)
+      // ── A PRICING APPROVAL COLLECTS THE VERSION-SCOPED TRACKS ────────────
+      //
+      // `requiredTracks` excludes version-scoped rules, because a transition
+      // request does not collect them - that is what makes the from-Proposal
+      // move a check rather than a wait. A REVIEW request is the other side of
+      // that same coin: it exists precisely to collect them, so it asks for the
+      // tracks the transition will later check.
+      //
+      // Read from the same rules rather than named here, so adding a track to
+      // the configuration reaches both without a second edit.
+      const required = req.kind === 'review'
+        ? [...new Set((rules ?? [])
+          .filter((r) => r.requirement_type === 'approval_obtained'
+            && (r.requirement_detail?.scope ?? '') === VERSION_SCOPE
+            && r.requirement_detail?.track)
+          .map((r) => r.requirement_detail.track))].sort()
+        : requiredTracks(rules)
       const criteria = req.status === 'open' && req.kind === 'transition'
         ? await criteriaState(db, req)
         : { criteria: 'not applicable', criteria_blockers: [], criteria_note: null }
+      // The version this approval is held against, named so the banner and the
+      // history can say WHICH version was approved rather than "a version".
+      let versionLabel = null
+      if (req.frozen_version_id) {
+        const { data: v } = await db.from('deal_sheet_versions')
+          .select('major, minor').eq('id', req.frozen_version_id).maybeSingle()
+        if (v) versionLabel = v.minor === 0 ? `V${v.major}` : `V${v.major}.${v.minor}`
+      }
       // ── WHO MAY DECIDE, ANSWERED HERE. Round 41 walk item B ──────────────
       //
       // The walk found Approve and Reject rendered for the REQUESTER, who can
@@ -498,7 +625,8 @@ export default async function transitionRequestRoutes(app) {
         .select('track, user_id, record_id').eq('record_type', req.record_type)
       const mayDecideTracks = required.filter((t) =>
         mayDecide(req, request.user.id, approvers ?? [], t, req.record_id).allowed)
-      out.push({ ...req, required, decisions: decisions ?? [], may_decide: mayDecideTracks,
+      out.push({ ...req, required, version_label: versionLabel,
+        decisions: decisions ?? [], may_decide: mayDecideTracks,
         // Which of the two reasons a track is undecidable, so the screen can say
         // it without re-deriving anything.
         requested_by_is_me: req.requested_by === request.user.id,

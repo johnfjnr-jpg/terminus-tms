@@ -8844,3 +8844,135 @@ descriptions of one event, only one of which would ever have been updated.
 **The server's own message is unchanged and carries the revision numbers.** It is
 the precise record for a log or an API consumer; the sentence above is what a
 person reads. No migration.
+
+---
+
+## Latest walk: the pricing-approval request, and six smaller items
+
+2026-09-02.
+
+### MAIN: asking for sign-off is its own act
+
+A requester raises a `kind='review'` request against a specific ISSUED major
+version. It does not freeze the record - the freeze trigger matches
+`kind = 'transition'` - so work continues while the sign-off is gathered.
+
+**SEPARATE FROM ISSUING, and the business's reason is recorded because it is not
+a technical one:** a requester may issue a major version and keep refining
+before asking anyone to sign it off. **Auto-requesting on issue would pull three
+approvers onto work in progress.** The probe asserts it: issuing alone raises no
+request.
+
+**THE VERSION IS VALIDATED, NOT ACCEPTED.** Architecture 12's shape: the caller
+may say WHICH version it wants approved - that is the caller's business - but
+whether it exists, belongs to this record and is ISSUED is a fact the database
+holds. A draft is refused with the act that fixes it.
+
+**TWO FINDINGS CAME OUT OF THE PROBE, not out of review:**
+
+- **A pricing approval before Proposal would collect nothing.** The tracks it
+  gathers are the version-scoped rules on the move it names, and before Proposal
+  exit there are none. It would have opened, looked normal, and been decidable
+  by no one - the superseded-route shape. Now refused: *"Moving from X to Y is
+  not gated on a pricing version, so there is nobody to ask."*
+- **`to_stage` names the move the sign-off UNLOCKS**, not the current stage.
+  `raise_transition_request` refuses the record's own status, and "approve V2 so
+  this can go to Evaluation" is the truer sentence anyway.
+
+**A NARROWING, stated rather than left implicit:** `kind='review'` now REQUIRES a
+version, so it means "pricing approval" rather than a generic request for
+comment. Measured before doing it: zero review rows existed and the only caller
+was a probe of mine. That probe now exercises the real feature, which is a better
+test of the same claim.
+
+### R8: a control that can only fail is a slower way of saying no
+
+From Proposal onward the next-stage control is disabled with the reason beside
+it, not in a hover. It reads the gate's own answer through `buildStageTracks` -
+the function the enforcement uses - rather than re-deriving readiness
+(Verification 43). Two absences get two sentences, because *nothing issued* and
+*issued but unsigned* need different acts.
+
+### R3: the read-only rule covered EDITS and not ACTIONS
+
+The reference was reported as possibly clickable-to-edit. **Measured: it is a
+plain `<span>`** with no onclick and `user-select: auto` - not an anchor, not an
+editor, and there is no URL field on the screen at all. Nothing to disable, and
+copying stays untouched.
+
+**The sweep found the real gap.** Three buttons were still clickable on another
+user's record, including **`Mark Closed Lost`**, plus one `href="#"` anchor that
+is an action.
+
+Fixed by TYPE: every `button` and `a[href]` in the record view is inert for a
+non-owner **unless it is navigation**, which is a short and stable exception
+list. **Listing the actions instead would be an enumeration the next button
+escapes** - the same mistake the tag-based read-only rule already made once.
+
+**AND A WINDOW I OPENED MYSELF.** R8's fetch was placed before the read-only
+sweep, leaving another user's record fully interactive for the length of a round
+trip. The read-only probe went red and found it; the sweep now runs before any
+await.
+
+### R5/R6: two people in one workflow read different words
+
+The gate said *"Requires an approved Commercial decision at stage Solution
+Alignment"* - accurate, and a description of a mechanism. It now reads **"Bid/No
+Bid Approval required to move to Proposal"**, which is what the business calls
+the decision.
+
+**The label is derived, and the derivation had to be narrowed within the
+minute.** Written as "any stage-scoped rule", it labelled a synthetic
+`harness_*` test stage as a Bid/No Bid gate and the database suite went red. It
+is now scoped to stage-scoped rules ON AN OPPORTUNITY, which after the
+version-gate work is exactly one transition, pinned by the config matrix.
+
+**R6 was not a copy problem, it was an omission.** Approval requirements are
+filtered OUT of the approver's banner - correctly, since a request exists to
+collect them - so the sentence reached the requester's stage panel and never the
+approver. It is now carried separately as `approval_notes`, from one source, so
+the two screens cannot word it differently.
+
+### R1, R2
+
+A month is a whole number of months. The server already refused a non-integer;
+what was missing was the client saying so while typing. **One DELEGATED listener
+on `.int-only`**, because the milestone rows are rebuilt on every render and a
+per-input listener is one that has to be re-attached correctly every time. It
+strips rather than blocks, so pasting "12 months" gives 12.
+
+The name column takes the width the figure and date columns were not using: a
+date needs about nine characters and a percentage four, and the name is the only
+column whose content has no natural maximum.
+
+### R4/R7: reported, not fixed
+
+**The panel is not destroyed; its CONTENTS are.** Sampled every 40ms across a
+poll tick, the exit-criteria content goes **207 characters -> 0 -> 207**, while
+the panel count never drops.
+
+`renderOppStageTabs` removes and recreates the stage panels, then
+`loadOppStageTab` refetches the criteria asynchronously and refills them. Between
+those two the panel is empty. **That is the flicker, and it fires on every poll
+tick that detects a change.**
+
+**On "felt slow": the interval is 7000ms**, so a change made in the other session
+waits up to seven seconds before this one asks, then pays a re-read and a full
+re-render. Both sessions did move; the delay is the interval, not a failure.
+
+The fix is to reconcile rather than remove-and-recreate, which is a real change
+to the tab renderer and is held for the business.
+
+### AND ONE MORE PROBE THAT WAITED ON THE WRONG THING
+
+`probe-pulse` waited on `__oppCurrentStage() === target` and then immediately
+read the active TAB. Those are two claims: `currentOppStage` is assigned near the
+top of the render and the landing tab is applied about twenty lines later.
+
+**It passed only because the gap was too small to observe.** Adding one request
+to the render widened it, and the probe began reporting a working feature as
+broken - the same direction as the earlier `rereads` counter fault, and the third
+instance of Verification 7 in this round.
+
+The tab now has its own wait, on the tab. Calibrated by disabling the landing:
+the check fails and names what it read.

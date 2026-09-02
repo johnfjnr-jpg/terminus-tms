@@ -668,6 +668,33 @@ function renderVersionList() {
           + 'then issue it. Saving the record alone does not create a version.'
         : 'Save a version first. Saving the record alone does not create one.'
   }
+
+  // ── MAIN: ASKING FOR SIGN-OFF IS ITS OWN ACT ──────────────────────────
+  //
+  // It needs an ISSUED version to point at, because an approval is held against
+  // a major version rather than against the screen. The three states are
+  // distinct and each names what to do next: nothing issued, one already
+  // pending, or ready to ask.
+  const ask = document.getElementById('btn-request-pricing-approval')
+  const state = document.getElementById('pricing-approval-state')
+  if (ask) {
+    const pending = window.oppPendingPricingApproval?.()
+    if (pending) {
+      ask.disabled = true
+      ask.title = 'A pricing approval is already open on this Opportunity.'
+      if (state) state.textContent = `${pending.label ?? 'A version'} is awaiting approval.`
+    } else if (!issued) {
+      ask.disabled = true
+      ask.title = 'Issue a major version first: an approval is held against an issued version.'
+      if (state) state.textContent = 'Issue a version before requesting approval.'
+    } else {
+      ask.disabled = false
+      ask.title = `Ask Commercial, Technical and Legal to approve V${highestIssued} for issue.`
+      ask.textContent = `Request approval of V${highestIssued}`
+      if (state) state.textContent = ''
+      ask.onclick = () => window.requestPricingApproval?.(issued.id, versionLabel(issued))
+    }
+  }
 }
 
 // The approval state, derived server-side and rendered as a sentence rather
@@ -1494,7 +1521,7 @@ function renderMilestoneRows(milestones) {
   const tbody = document.getElementById('deal-milestones-tbody')
   tbody.innerHTML = Array.from({ length: MILESTONE_ROWS }).map((_, i) => `
     <tr>
-      <td><input type="text" inputmode="numeric" id="deal-ms-${i}-month" style="width:64px"></td>
+      <td><input type="text" inputmode="numeric" class="int-only" id="deal-ms-${i}-month" style="width:64px"></td>
       <td><input type="text" id="deal-ms-${i}-label" placeholder="e.g. Installation complete"></td>
       <td><input type="text" inputmode="decimal" id="deal-ms-${i}-usd"></td>
       <td class="col-mono" id="deal-ms-${i}-pct">--</td>
@@ -1549,7 +1576,7 @@ function renderContractorMilestoneRows(contractorMilestones) {
   const tbody = document.getElementById('deal-contractor-tbody')
   tbody.innerHTML = Array.from({ length: MILESTONE_ROWS }).map((_, i) => `
     <tr>
-      <td><input type="text" inputmode="numeric" id="deal-cm-${i}-month" style="width:64px"></td>
+      <td><input type="text" inputmode="numeric" class="int-only" id="deal-cm-${i}-month" style="width:64px"></td>
       <td><select id="deal-cm-${i}-label">${milestoneOptions(contractorMilestones[i]?.label)}</select></td>
       <td><input type="text" inputmode="decimal" id="deal-cm-${i}-pct" style="width:80px"></td>
       <td><input type="text" inputmode="decimal" id="deal-cm-${i}-usd"></td>

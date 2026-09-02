@@ -41,6 +41,10 @@ const HOOKS = {
   'opp-tab-current-dot': 'app.js, the current-stage dot on the Opportunity tabs',
   'tb-tab-current-dot': 'app.js, the current-stage dot on the Test Bed tabs',
   'tb-unit-field': 'test-bed-detail.js, the per-unit edit fields',
+  // R1: a BEHAVIOUR hook with nothing to style. One delegated listener strips
+  // non-digits from anything carrying it, so the class exists to be queried and
+  // deliberately carries no rule: a month is a whole number of months.
+  'int-only': 'app.js, the delegated digits-only input listener',
   // ADDED ROUND 41, and it had never been declared because it never had to be.
   // The scan read style.css raw, and a comment four lines long at 3323 saying
   // "deliberately NOT a .detail-tab-panel" was enough to make the class look

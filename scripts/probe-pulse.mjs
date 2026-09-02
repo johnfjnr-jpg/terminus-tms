@@ -129,6 +129,21 @@ try {
   await page.waitForFunction((want) => window.__oppCurrentStage() === want, { timeout: 30000 }, target)
 } catch { followed = false }
 const after = await held()
+// ── THE TAB IS A SEPARATE CLAIM AND NEEDS ITS OWN WAIT ──────────────────
+//
+// `currentOppStage` is assigned near the top of the render and the landing tab
+// is applied about twenty lines later, so the stage wait above is satisfied
+// while the tab is still the old one. It passed only because the gap used to be
+// too small to observe; adding one request to the render widened it and the
+// probe started reporting a working feature as broken.
+//
+// Verification 7: a condition the unfinished state also satisfies is not a wait.
+const targetKeyWanted = `stage-${target.replace(/[^a-zA-Z0-9_-]+/g, '-')}`
+try {
+  await page.waitForFunction((k) =>
+    document.querySelector('[data-opp-tab].active')?.dataset.oppTab === k,
+  { timeout: 15000 }, targetKeyWanted)
+} catch { /* reported by the assertion below, with what it actually reads */ }
 const tabAfter = await page.evaluate(() => document.querySelector('[data-opp-tab].active')?.dataset.oppTab ?? null)
 record('the held stage follows the record, with NO manual refresh', followed && after.stage === target,
   followed ? `${stageBefore} -> ${after.stage}`

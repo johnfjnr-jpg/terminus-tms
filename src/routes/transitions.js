@@ -362,6 +362,30 @@ export async function computeBlocking(db, record, from_stage, to_stage, currentR
               + `Raise one from the stage panel if there is none.`)
           : scope === VERSION_SCOPE
           ? versionApproval.reason
+          // ── R5: THE BID/NO BID GATE SAYS WHAT IT IS ────────────────────
+          //
+          // "Requires an approved Commercial decision at stage Solution
+          // Alignment" is accurate and describes a mechanism. The business calls
+          // this decision Bid/No Bid, and that is what a person is being asked
+          // for.
+          //
+          // DERIVED, NOT HARDCODED TO A STAGE NAME. After the version-gate work
+          // a stage-scoped approval is the ONLY stage-gated approval left - every
+          // transition from Proposal onward is version-scoped - so `scope ===
+          // 'stage'` identifies the Bid/No Bid gate without naming Solution
+          // Alignment. A config test pins that matrix.
+          //
+          // THE LIMIT WAS REAL AND ARRIVED IMMEDIATELY. Written as "any
+          // stage-scoped rule", this labelled a synthetic `harness_*` test stage
+          // as a Bid/No Bid gate and the database suite went red within the
+          // minute. Bid/No Bid is an OPPORTUNITY concept, so the label is scoped
+          // to that record type as well as to the stage scope.
+          //
+          // Still derived rather than naming Solution Alignment: after the
+          // version-gate work an Opportunity has exactly one stage-scoped
+          // approval transition, and the config-invariants matrix pins it.
+          : scope === 'stage' && record.record_type === 'opportunity'
+          ? `Bid/No Bid Approval required to move to ${to_stage}`
           : scope === 'stage'
           ? `Requires an approved ${track} decision at stage ${from_stage}`
           : `Requires an approved ${track} decision on revision ${currentRevision}`,
