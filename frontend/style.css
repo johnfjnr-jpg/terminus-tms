@@ -17,6 +17,18 @@
   --black:           #15161C;
   --white:           #F2F2F0;
   --green:           #66CC99;
+  /* ── THE SAME ACCENT, BRIGHTER. Internal review item 2(b) ───────────────
+     NOT a second accent. #66CC99 is hsl(150 52% 60%); this is hsl(150 75% 72%),
+     the identical hue at higher saturation and lightness. The single-accent
+     discipline is about not introducing a second MEANING, and this carries the
+     same one.
+
+     For the decision controls only, where the business read the outline
+     treatment as still too muted. Measured on the banner ground rgb(26,27,35):
+     #66CC99 is 8.70:1, this is 12.05:1. Brighter candidates were measured and
+     declined - hsl(150 85% 76%) reaches 13.15:1 and reads pastel, which trades
+     one legibility complaint for another. */
+  --green-bright:    #82EDB8;
   --hairline:        rgba(242,242,240,0.12);
   --hairline-strong: rgba(242,242,240,0.22);
   --muted:           rgba(242,242,240,0.5);
@@ -1828,10 +1840,10 @@ textarea::placeholder { color: var(--muted-2); }
 .btn-sm.btn-accept,
 .btn-sm.btn-accept:hover {
   background: none;
-  color: var(--green);
-  border-color: var(--green);
+  color: var(--green-bright);
+  border-color: var(--green-bright);
 }
-.btn-sm.btn-accept:hover { background: rgba(102, 204, 153, 0.08); }
+.btn-sm.btn-accept:hover { background: rgba(130, 237, 184, 0.10); }
 
 /* ── THE REJECT SIDE IS NEUTRAL. G1 refinement, ruled 2026-09-02 ───────────
 
@@ -5081,6 +5093,149 @@ input.input-invalid {
    the floor sets `auto` on every descendant, which would have made a pending
    button clickable again had `disabled` not also been set on it. */
 .is-frozen .freeze-banner .is-pending { opacity: 0.55; pointer-events: none; cursor: progress; }
+
+/* ── THE OPPORTUNITY TABLE. Internal review item 3 ─────────────────────────
+   One line per opportunity, columns aligned across every row. The scroll
+   container is on the table's wrapper rather than the page, so eight columns at
+   1240 scroll sideways inside their own box instead of pushing the whole
+   screen. */
+.opp-table-scroll { overflow-x: auto; }
+.opp-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  /* Fixed layout so the columns are shared rather than negotiated per row, and
+     so the name column can be told to give way. Measured before adding it: with
+     auto layout and nowrap everywhere the table wanted more than the 1224px
+     content cap at EVERY width, so Actual Close Date sat behind a sideways
+     scroll even at 3440. */
+  table-layout: fixed;
+}
+/* The name is the only column that can afford to lose characters, so it is the
+   one that absorbs the shortfall. Everything else is a figure, a date or a
+   short label, and truncating those would make them wrong rather than shorter. */
+.opp-table th:first-child, .opp-table td:first-child { width: 26%; }
+.opp-table th:nth-child(2), .opp-table td:nth-child(2) { width: 13%; }
+.ot-title, .ot-sub, .opp-table td:nth-child(2) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.opp-table th, .opp-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--hairline);
+  vertical-align: middle;
+  white-space: nowrap;
+}
+.ot-left { text-align: left; }
+/* Figures right-align and share a digit width, which is what lets a column of
+   money be compared by eye rather than read. */
+.ot-right { text-align: right; font-variant-numeric: tabular-nums; }
+.opp-table thead th {
+  border-bottom: 1px solid var(--hairline-strong);
+  padding: 0;
+}
+.ot-sort {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  padding: 12px 14px;
+  cursor: pointer;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.ot-right .ot-sort { justify-content: flex-end; }
+.ot-sort:hover { color: var(--white); }
+.ot-th.is-sorted .ot-sort { color: var(--green-bright); }
+/* The arrow reserves its width on every header, so activating a sort does not
+   shift the column headings sideways. */
+.ot-arrow { font-size: 9px; min-width: 8px; display: inline-block; }
+.ot-row { cursor: pointer; }
+.ot-row:hover td { background: rgba(242, 242, 240, 0.03); }
+.ot-title { color: var(--white); }
+.ot-sub { color: var(--muted); font-size: 12px; margin-top: 2px; }
+/* An absent figure is dim, so a column of real numbers is not visually
+   interrupted by placeholders that read as data. */
+.ot-absent { color: var(--hairline-strong); }
+
+/* ── THE DECISION ROWS ARE COLUMNS, NOT FLEX. Internal review item 2(a) ────
+   `.data-row` is flex with space-between, so each row laid itself out
+   independently and every Approve landed at whatever x the text before it
+   ended at. Down one short list the buttons sat at three different positions.
+
+   Five explicit columns, so every Approve is at one x and every Reject at
+   another, on every row including the rows that have neither. The two action
+   columns keep their width when empty, which is what stops a decided row's
+   neighbour sliding left. */
+.freeze-banner .sa-decision-row {
+  display: grid;
+  grid-template-columns: minmax(90px, 1fr) auto minmax(0, 1.4fr) minmax(84px, auto) minmax(74px, auto);
+  align-items: center;
+  gap: 12px;
+  justify-content: unset;
+}
+.sa-decision-row .sa-track { font-weight: 500; }
+.sa-decision-row .sa-why { min-width: 0; }
+.sa-decision-row .sa-act { display: flex; justify-content: flex-end; }
+.sa-decision-row .sa-act > button { width: 100%; }
+/* At 1240 five columns plus two buttons crowd the track name to nothing. The
+   actions keep their own row rather than shrinking, which keeps them aligned
+   with each other, which is the whole point of the change. */
+@media (max-width: 1100px) {
+  .freeze-banner .sa-decision-row {
+    grid-template-columns: minmax(90px, 1fr) auto minmax(84px, auto) minmax(74px, auto);
+  }
+  .sa-decision-row .sa-why { grid-column: 1 / -1; }
+}
+
+/* ── THE OPPORTUNITY HEADLINE STRIP. Internal review item 1 ────────────────
+   Six figures above the tabs. A grid rather than a flex row so the labels line
+   up in columns at every width instead of drifting with the length of the
+   value above them, which is the same fault item 2 fixes on the decision rows.
+
+   `auto-fit` with a floor rather than a fixed six: at 1240 six money figures do
+   not fit on one line, and wrapping to two rows of three is legible where
+   shrinking to fit is not. */
+.opp-headline {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 1px;
+  background: var(--hairline-strong);
+  border: 1px solid var(--hairline-strong);
+  margin: 20px 0 4px;
+}
+.ohl-figure {
+  background: var(--dark);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.ohl-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.ohl-value {
+  font-size: 18px;
+  color: var(--white);
+  /* Money and percentages line up across the row, which is most of why a strip
+     of figures reads as a strip rather than as six unrelated labels. */
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+/* A figure nobody has recorded says so, quietly. It must not read as a zero and
+   it must not read as a value that failed to load. */
+.ohl-missing { color: var(--muted); font-size: 14px; font-style: italic; }
 
 /* ── F2: the prompt, and the row it moves you to ───────────────────────────
    The prompt is the one line in the banner addressed to a PERSON rather than

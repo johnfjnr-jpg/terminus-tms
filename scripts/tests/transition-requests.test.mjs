@@ -568,10 +568,29 @@ test('G1: approve and reject are the accent outline, with no fill', () => {
   const rule = css.match(/\.btn-sm\.btn-accept,\s*\n\.btn-sm\.btn-accept:hover \{([^}]*)\}/)
   assert.ok(rule, 'no .btn-sm.btn-accept rule')
   assert.match(rule[1], /background:\s*none/, 'the accepting control is still filled')
-  assert.match(rule[1], /color:\s*var\(--green\)/, 'the text is not the accent')
-  // ONE ACCENT still. A new hue would show up as a hex literal.
+  // BRIGHTENED 2026-09-02, internal review item 2(b): the outline was read as
+  // still too muted. `--green-bright` is the SAME hue - #66CC99 is
+  // hsl(150 52% 60%), #82EDB8 is hsl(150 75% 72%) - so this is one accent at
+  // two weights, not two accents. Measured on the banner: 8.70:1 -> 12.05:1.
+  assert.match(rule[1], /color:\s*var\(--green-bright\)/, 'the text is not the accent')
+  // ONE ACCENT still. A new hue would show up as a hex literal here rather than
+  // as a token, and the token itself is asserted to be the same hue below.
   assert.ok(!/#[0-9a-f]{6}/i.test(rule[1]),
     `.btn-sm.btn-accept introduces a colour that is not the accent: ${rule[1].trim()}`)
+  const bright = css.match(/--green-bright:\s*(#[0-9a-fA-F]{6})/)
+  assert.ok(bright, '--green-bright is not defined')
+  // Same hue as --green, measured rather than asserted: a "brighter accent"
+  // that drifted in hue would be a second accent wearing the first one's name.
+  const toHsl = (h) => {
+    const [r, g, b] = [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255)
+    const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn
+    if (!d) return 0
+    const hue = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4
+    return Math.round(((hue * 60) + 360) % 360)
+  }
+  const base = css.match(/--green:\s*(#[0-9a-fA-F]{6})/)
+  assert.equal(toHsl(bright[1]), toHsl(base[1]),
+    `--green-bright ${bright[1]} is a different hue from --green ${base[1]}`)
 
   // ── AND F3'S FINDING SURVIVES THE REVERSAL, which is why this is not just
   // a deletion. `.btn-sm:disabled` is class + pseudo-class and outranks a

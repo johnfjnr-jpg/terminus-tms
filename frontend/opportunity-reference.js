@@ -69,7 +69,14 @@ let refEdits = {}
 // that is worth knowing.
 const REF_REGION_OPTIONS = ['Americas', 'Europe & UK', 'Middle East', 'APAC', 'Africa']
 const TERMINUS_FIELDS = [
-  { key: 'lead', label: 'Terminus Lead', staffField: true },
+  // RENAMED 2026-09-02, internal review item 3: "Terminus Lead" is
+  // "Opportunity owner" everywhere it names the OPPORTUNITY's owner.
+  // Architecture 6, a display rename stays a display rename: the payload key is
+  // still `lead`, the allowlist still names `lead`, and no write path moved.
+  //
+  // Test Bed, Account and Contact keep "Terminus Lead", because theirs is not
+  // an opportunity owner and renaming it would make the label false.
+  { key: 'lead', label: 'Opportunity owner', staffField: true },
   { key: 'commercial', label: 'Comm. Auth', staffField: true },
   { key: 'technical', label: 'Tech. Auth', staffField: true },
   { key: 'legal', label: 'Legal Auth', staffField: true },

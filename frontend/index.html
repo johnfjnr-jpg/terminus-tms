@@ -1403,14 +1403,25 @@
       <button class="btn-sm" id="opps-mine-toggle" type="button">Mine: Off</button>
     </div>
 
+    <!-- ── A REAL TABLE. Internal review item 3, 2026-09-02 ────────────────
+         One line per opportunity on an aligned grid, replacing the three-column
+         card-ish row that packed probability, age and close date into one
+         string. A <table> rather than a CSS grid because the shared column
+         width IS the requirement: a grid would need every row to agree about
+         its template, which is the arrangement item 2 just had to repair on the
+         decision rows.
+
+         The headers are buttons inside the cells rather than click handlers on
+         the cells, so sorting is reachable from a keyboard and announces itself
+         as an action. -->
     <div id="opp-list">
-      <div class="record-grid-head">
-        <span>Opportunity</span>
-        <span>Stage</span>
-        <span>Probability · Age · Close</span>
-      </div>
-      <div class="record-list" id="opps-rows">
-        <p class="empty-state">Loading...</p>
+      <div class="opp-table-scroll">
+        <table class="opp-table">
+          <thead><tr id="opp-table-head"></tr></thead>
+          <tbody id="opps-rows">
+            <tr><td colspan="8"><p class="empty-state">Loading...</p></td></tr>
+          </tbody>
+        </table>
       </div>
     </div>
 
@@ -1534,6 +1545,17 @@
       </div>
       <div id="detail-origin-tag"></div>
     </div>
+
+    <!-- ── THE HEADLINE FIGURES. Internal review item 1, 2026-09-02 ────────
+         The six numbers an Opportunity is judged by, above the tabs so they are
+         on every one of them rather than on whichever tab happens to hold the
+         pricing. Same reasoning as the freeze banner directly above: a figure
+         that describes the RECORD is stated where the record is named.
+
+         Weighted Amount is COMPUTED (TCV x probability) and never stored, per
+         Architecture 2, and it is computed server-side beside the list's own
+         column so the banner and the table cannot disagree. -->
+    <div id="opp-headline" class="opp-headline"></div>
 
     <!-- Chevron strip (2026-08-16), replacing the old dot-and-line
          .tracker - same component Test Bed uses (renderChevronStrip,

@@ -6,6 +6,20 @@ import { appendRecordRevision, SINGLE_KEY_RMW, readExpectedRevision } from '../l
 import { isValidIsoDate, isValidNonNegativeInteger, isValidNonNegativePercent, isNotPastIsoDate } from '../lib/field-validation.js'
 import { closeDateChangeKind, closeDateNeedsReason } from '../lib/opportunity-dates.js'
 import { WRITABLE_NUMERIC_KEYS, isStorableNumeric } from '../lib/numeric-payload.js'
+import { totalContractValue, weightedValue, issuedMajor } from '../lib/opportunity-headline.js'
+import { resolveCurrentBatches, catalogToRates } from '../lib/base-costs.js'
+
+// The catalog, resolved the way deal-sheet-versions.js and deals.js resolve it,
+// through the one shared file. A second reading of base_cost_batches here would
+// be a second reader of the prices the whole system quotes against.
+async function currentRates(db) {
+  const { data, error } = await db
+    .from('base_cost_batches')
+    .select('id, product, batch_label, effective_from, unit_cost, install_cost_existing, install_cost_new, hosting_cost_month')
+  if (error) throw new Error(`Base Cost Data could not be read: ${error.message}`)
+  const asOf = new Date().toISOString().slice(0, 10)
+  return catalogToRates(resolveCurrentBatches(data ?? [], asOf))
+}
 
 export default async function opportunitiesRoutes(app) {
   // GET /api/opportunities
@@ -42,7 +56,30 @@ export default async function opportunitiesRoutes(app) {
       if (!latestPayload[rev.record_id]) latestPayload[rev.record_id] = rev.payload
     }
 
-    return opps.map(opp => ({ ...opp, payload: latestPayload[opp.id] ?? {} }))
+    // ── THE HEADLINE FIGURES, COMPUTED ONCE ──────────────────────────────
+    //
+    // The list table and the record banner show the same numbers, so they are
+    // computed in one place and read by both. The catalog is resolved ONCE for
+    // the whole list rather than per row.
+    //
+    // A failure to read the catalog is not a failure to list opportunities: the
+    // figures come back null and the table says so, where a 500 would take the
+    // whole screen away over a derived column.
+    let catalog = null
+    try { catalog = (await currentRates(db)).rates } catch { catalog = null }
+
+    return opps.map(opp => {
+      const payload = latestPayload[opp.id] ?? {}
+      const det = opp.opportunity_details ?? {}
+      const tcv = catalog ? totalContractValue(payload, catalog, det.test_bed_cost ?? 0) : null
+      const prob = det.probability_override_pct ?? det.probability_pct ?? null
+      return {
+        ...opp,
+        payload,
+        total_contract_value: tcv,
+        weighted_value: weightedValue(tcv, prob),
+      }
+    })
   })
 
   // GET /api/opportunities/:id
@@ -263,11 +300,34 @@ export default async function opportunitiesRoutes(app) {
       return reply.code(500).send({ error: freshErr.message })
     }
 
+    // ── THE BANNER'S FIGURES, from the same functions the list uses ──────
+    //
+    // The proposal version is the highest ISSUED major, ordered by (major,
+    // minor) inside issuedMajor rather than by revision_number. Null here is
+    // rendered as "none" by the screen, never as a blank.
+    const [{ data: verRows, error: verErr }, catalogResult] = await Promise.all([
+      db.from('deal_sheet_versions').select('status, major, minor').eq('record_id', request.params.id),
+      currentRates(db).catch(() => null),
+    ])
+    if (verErr) {
+      request.log.error({ err: verErr }, 'failed to read versions for the headline')
+      return reply.code(500).send({ error: verErr.message })
+    }
+    const headlinePayload = revResult.data?.payload ?? {}
+    const det = opp.opportunity_details ?? {}
+    const tcv = catalogResult
+      ? totalContractValue(headlinePayload, catalogResult.rates, det.test_bed_cost ?? 0)
+      : null
+    const prob = det.probability_override_pct ?? det.probability_pct ?? null
+
     return {
       ...opp,
-      payload: revResult.data?.payload ?? {},
+      payload: headlinePayload,
       latest_revision_number: revResult.data?.revision_number ?? 1,
       freshness_at: freshRow?.freshness_at ?? null,
+      total_contract_value: tcv,
+      weighted_value: weightedValue(tcv, prob),
+      issued_major: issuedMajor(verRows ?? []),
       account,
       key_contacts
     }

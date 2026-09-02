@@ -8208,3 +8208,209 @@ adopt the new value without re-reading.
 the old mechanism is gone (`records.freshness_at` no longer exists) AND the new
 one works (25,944 backfilled rows, one per record), and the three previously red
 stages are green with the three-track transition returning **201 "open"** again.
+
+---
+
+## Internal review, 2026-09-02: the headline figures, the decision rows, the table
+
+### 1. The Opportunity headline strip
+
+Six figures above the tabs, so they are on every tab rather than on whichever
+one happens to hold the pricing. Same reasoning as the freeze banner directly
+above it: a figure describing the RECORD is stated where the record is named.
+
+**Total Contract Value is `contractNet`**, which is what the Deal Sheet already
+prints as "Revenue, contract value net" and what achieved margin is computed
+against. Naming a different number "Total Contract Value" would put two contract
+values on one record.
+
+**Weighted Amount is computed and never stored** (Architecture 2), server-side
+beside the list's own column, so the banner and the table cannot disagree.
+
+**ZERO IS NOT A CONTRACT VALUE, IT IS AN UNPRICED DEAL.** The calculator returns
+0 for a payload with no units, no lump sum and no hosting - every opportunity
+nobody has priced. Rendering that as "$0" puts a confident figure where there is
+none, which is `CLAUDE.md` rule 10's instance exactly: one card carrying a bright
+zero and a dim zero, meaning a value and a placeholder. Measured on the live
+data, 6 of 10 are priced and the other 4 now read `not recorded`.
+
+**A probability of 0 still produces a weighted 0**, and that is the opposite
+case: somebody deliberately setting 0% has said something, where an absent
+probability has not. Both directions are asserted.
+
+**Proposal Version reads "none", not blank**, when nothing is issued. Ruled, and
+the reason is that a blank reads as a figure that failed to load.
+
+### 2. The decision rows: alignment was a layout fault, not a spacing one
+
+`.data-row` is flex with `space-between`, so **every row laid itself out
+independently and each Approve landed at whatever x the text before it ended
+at.** Five explicit grid columns now, and emitting the EMPTY cells matters as
+much as the grid: a decided row with no buttons would otherwise let its
+neighbour's Approve slide left into the empty space.
+
+Measured: every Approve at one x, every Reject at one x, across all rows.
+
+**And the accent got brighter, as one accent at two weights.** `--green` is
+`hsl(150 52% 60%)`; `--green-bright` is `hsl(150 75% 72%)` - **the identical
+hue**. On the banner ground that is **#66CC99 at 8.70:1 to #82EDB8 at 12.05:1**.
+
+Brighter candidates were measured and declined: `hsl(150 85% 76%)` reaches
+13.15:1 and reads pastel, which trades one legibility complaint for another. A
+test asserts the two tokens share a hue, computed rather than eyeballed, so a
+"brighter accent" cannot drift into being a second accent wearing the first
+one's name.
+
+### 3. The Opportunity list is a table
+
+Eight sortable columns, defined once so the accessor and the cell come from the
+same entry: a column cannot sort on one value and display another.
+
+**Absent sorts last in BOTH directions.** Reversing must not promote a column of
+blanks to the top, which is what a plain comparison does to nulls and is read as
+"these are the biggest".
+
+**`table-layout: fixed`, and it was added on a measurement.** With auto layout
+and `nowrap` the table wanted more than the 1224px content cap **at every width,
+so Actual Close Date sat behind a sideways scroll even at 3440**. The name is the
+only column that can afford to lose characters; every other one is a figure, a
+date or a short label, where truncating makes it wrong rather than shorter.
+
+Measured at 1240, 1920 and 3440: columns aligned, last column visible, no
+page-level sideways scroll.
+
+**"Terminus Lead" becomes "Opportunity owner" ON THE OPPORTUNITY ONLY.**
+Architecture 6, a display rename stays a display rename: the payload key is still
+`lead` and no write path moved. **Test Bed, Account and Contact keep the old
+label**, because theirs is not an opportunity owner and the rename would make
+those labels false. A test asserts both halves, so neither the rename nor its
+limit can be undone silently.
+
+### An assertion that ran and could not discriminate
+
+The absent-sorts-last test first read
+`/if \(xn\) return 1[\s\S]{0,40}if \(yn\) return -1/`. The calibration meant to
+break it - changing `return 1` to `return 1 * dir`, which is the actual defect -
+**still matched**, because the ` * dir` sat inside the wildcard. It ran, it
+passed, and it could not tell the two states apart.
+
+Verification 17, found the only way it is ever found: by injecting the defect and
+watching the test stay green. The rewritten assertion refuses any `dir` on either
+absent branch, and fires.
+
+---
+
+## THE VERSION-GATE MODEL: PLAN ONLY, NO CODE
+
+**Internal review item 4, 2026-09-02. Reported for the business to rule on.
+Nothing here is built.**
+
+### THE FINDING THAT RESHAPES THE PLAN
+
+**`scope: 'version'` already exists, in the configuration AND in the code, and
+is switched off for Opportunity.** Measured from `stage_gate_rules` rather than
+recalled:
+
+| transition | tracks |
+|---|---|
+| Solution Alignment -> Proposal | **Commercial(version)**, Technical(stage), Legal(stage) |
+| Proposal -> Evaluation | **Commercial(version)**, Technical(stage), Legal(stage) |
+| Evaluation -> Negotiating | **Commercial(version)**, Technical(stage), Legal(stage) |
+| Negotiating -> Closed Won | **Commercial(version)**, Technical(stage), Legal(stage) |
+
+`approvalSatisfiesRule` carries a `VERSION_SCOPE` branch delegating to
+`liveVersionApproval`, and Round 41 decoupled that evaluator to compare PRICING.
+**It is unreachable for Opportunity**: `usesWorkflow('opportunity')` is true, so
+`requestApprovals` is always defined and the function short-circuits on
+`requestApprovals.has(track)` before the version branch. The machinery is built,
+correct, and dead.
+
+**TWO DISAGREEMENTS WITH THE STATED MODEL, reported rather than resolved**, per
+this project's standing rule that a disagreement between a document and the
+generated truth is a finding:
+
+1. The model says Solution Alignment -> Proposal stays stage-gate unchanged. **Its
+   Commercial rule is already `scope=version`.**
+2. The model says three tracks become version-gated from Proposal. **Only
+   Commercial is configured that way anywhere; Technical and Legal are
+   `scope=stage` on every transition.**
+
+### (a) Coexistence without forking
+
+The extension point is already data and already per-RULE rather than per-stage:
+`ruleScope(rule)`. `computeBlocking` loops the rules and asks
+`approvalSatisfiesRule`, which already branches. From Proposal onward the three
+rows become `scope=version`; nothing in code learns a stage list.
+
+**The one code change is the short-circuit**: `requestApprovals` must stop
+answering for a version-scoped rule. That is a condition on the RULE, not on the
+record type, which keeps one function and one list.
+
+### (b) Schema: no new object, and `kind` is the lever
+
+- **`kind = 'review'` already exists**, is accepted by the raise route, and has
+  0 rows. **The freeze trigger filters `kind = 'transition'`**, so a review
+  request collects approvals WITHOUT freezing. That is the no-freeze path,
+  already present and unused.
+- **`transition_requests.frozen_version_id` already exists**, so a review
+  request names the version it is about.
+- `approvals` already carries `request_id`, `track`, `stage`, `decided_at` and
+  `inert_reason`.
+
+**Supersession needs no stored state.** Issuing a new major changes what
+`issuedMajor()` returns; the gate asks whether THE CURRENT ISSUED MAJOR has its
+three approvals; prior rows remain as history and stop satisfying anything.
+Derived, not stored (Architecture 2), and the same shape as the pricing
+comparison.
+
+**An `approvals.version_id` column is NOT recommended**: the link already exists
+through the request, and a second path to one fact is Verification 20.
+
+### (c) Reuse vs replace, and every control that changes meaning
+
+**Reused unchanged:** `computeBlocking`, `approvalSatisfiesRule`,
+`liveVersionApproval` / `versionApprovalState`, `loadVersionApproval`,
+`track_approvers`, `mayDecide`, and `decide_transition_request`'s identity and
+self-approval rules.
+
+| control | today | from Proposal |
+|---|---|---|
+| `requestApprovals.has(track)` short-circuit | answers every scope | must not answer a version-scoped rule |
+| `refuse_write_while_frozen` | fires on any open `kind='transition'` | never fires: review requests do not match its `where` |
+| `issuedProposal` moved-on refusal | blocks a raise when pricing moved | unchanged, and becomes the only pre-check |
+| the freeze banner | "frozen, awaiting approval" | must not appear |
+| `decide_transition_request` auto-transition | the last approval MOVES the record | must not move it: approval is standing, the transition is a separate check |
+
+**THE NO-FREEZE PATH DIFFERS IN EXACTLY ONE FIELD: `kind`.** Solution Alignment
+freezes because its request is `kind='transition'` and the trigger matches on
+that. A version approval is `kind='review'`, the trigger's `where` does not
+match, and the record stays editable. **No trigger change and no new mechanism**,
+which also makes it directly testable.
+
+### (d) Cutover
+
+Measured: **5 live opportunities at or past Proposal**, 1 open request
+(Negotiating -> Closed Won), 1,066 `approvals` rows, 90 issued versions, all test
+data. On the business's ruling that test data may be deleted rather than
+migrated, the question closes: the 1,066 rows are what would otherwise need
+`inert_reason` marking, and that column exists for exactly this.
+
+### (e) The Approvals panel history
+
+**Sourced from what the enforcement reads, Verification 43**, which this project
+has now had three instances of. `GET /records/:id/stage-approvals` already builds
+per-request tracks after V8. History is every review request for the record with
+its `frozen_version_id`, its stage and its approvals rows: "V2 · Commercial ·
+approved by X · at Proposal". **The panel calls `buildStageTracks`, never a
+parallel query.**
+
+Label from Proposal onward: **"Proposal/Pricing approved for issue"**.
+
+### Held for the business before any code
+
+1. Solution Alignment -> Proposal already has `Commercial(version)`. Leave it,
+   contradicting "unchanged", or set it to `stage`?
+2. Technical and Legal are `scope=stage` everywhere. Confirm the config change
+   to version from Proposal onward.
+3. Auto-transition must stop from Proposal onward: today the last approval moves
+   the record, and a standing sign-off makes the transition a separate act.

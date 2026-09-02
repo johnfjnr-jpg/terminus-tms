@@ -1276,18 +1276,34 @@ function renderOppFreezeBanner(recordId) {
   const rows = (req.required ?? []).map((t) => {
     const d = decided.get(t)
     const state = d ? (d.decision === 'approved' ? 'Approved' : 'Rejected') : 'Waiting'
-    const buttons = d || !mayDecide.has(t) ? '' : `
-      <button class="btn-sm btn-primary btn-accept" onclick="decideRequest('${req.id}','${escHtml(t)}','approved','${recordId}')">Approve</button>
-      <button class="btn-sm btn-ghost" onclick="decideRequest('${req.id}','${escHtml(t)}','rejected','${recordId}')">Reject</button>`
+    const approveBtn = `<button class="btn-sm btn-primary btn-accept" onclick="decideRequest('${req.id}','${escHtml(t)}','approved','${recordId}')">Approve</button>`
+    const rejectBtn = `<button class="btn-sm btn-ghost" onclick="decideRequest('${req.id}','${escHtml(t)}','rejected','${recordId}')">Reject</button>`
     // A WAITING TRACK YOU CANNOT DECIDE STILL SAYS SO, rather than showing a
     // bare "Waiting" beside three tracks that have buttons. Silence there reads
     // as a screen that has not loaded.
     const why = d || mayDecide.has(t) ? ''
       : `<span class="sa-approval-meta">${escHtml(req.requested_by_is_me ? 'You raised this request' : 'Not yours to decide')}</span>`
-    // F2: the row carries an id so the prompt above can move to it. Keyed off
-    // the track through the same helper the rest of the strip uses, so a track
-    // named with a space cannot produce a broken selector.
-    return `<div class="data-row" id="opp-decide-${escHtml(trackKey(t))}"><span>${escHtml(t)}</span><span class="sa-approval-meta">${state}</span>${why}${buttons}</div>`
+    // ── FIVE CELLS, ALWAYS, SO THE COLUMNS LINE UP ───────────────────────
+    //
+    // Internal review item 2(a). The rows were `.data-row`, which is flex with
+    // space-between, so every row laid itself out independently and each
+    // Approve landed at whatever x the text before it happened to end at. The
+    // buttons were at three different positions down one short list.
+    //
+    // Emitting the empty cells matters as much as the grid: a row whose track
+    // is already decided has no buttons, and skipping its cells would let the
+    // NEXT row's Approve slide left into column 4's space.
+    //
+    // F2: the row keeps its id so the prompt above can move to it, keyed
+    // through the same helper so a track named with a space cannot produce a
+    // broken selector.
+    return `<div class="data-row sa-decision-row" id="opp-decide-${escHtml(trackKey(t))}">`
+      + `<span class="sa-track">${escHtml(t)}</span>`
+      + `<span class="sa-approval-meta">${state}</span>`
+      + `<span class="sa-why">${why}</span>`
+      + `<span class="sa-act">${d || !mayDecide.has(t) ? '' : approveBtn}</span>`
+      + `<span class="sa-act">${d || !mayDecide.has(t) ? '' : rejectBtn}</span>`
+      + `</div>`
   }).join('')
 
   // ── F2: AN APPROVAL IS WAITING FOR YOU ─────────────────────────────────
@@ -6440,7 +6456,7 @@ async function loadOpportunities() {
   const result = await api('GET', '/api/opportunities')
   if (!result.ok) {
     document.getElementById('opps-rows').innerHTML =
-      '<p class="empty-state">Failed to load opportunities.</p>'
+      '<tr><td colspan="8"><p class="empty-state">Failed to load opportunities.</p></td></tr>'
     return
   }
   oppsCache = result.data
@@ -6459,28 +6475,166 @@ document.getElementById('opps-mine-toggle').addEventListener('click', () => {
   renderOpps()
 })
 
+// ── THE OPPORTUNITY TABLE. Internal review item 3 ─────────────────────────
+//
+// EIGHT COLUMNS, EACH SORTABLE, defined once. The accessor and the cell come
+// from the same entry, so a column cannot sort on one value and display
+// another - which is the failure a parallel "sort keys" list invites, and is
+// Verification 20 in miniature.
+//
+// The two derived figures arrive computed from the server, the same ones the
+// record banner shows. The browser formats and sorts; it does not calculate.
+//
+// "OPPORTUNITY OWNER" is the ruled label for what the payload still calls
+// `lead`. Architecture 6: a display rename stays a display rename, so the key,
+// the column and every write path are untouched.
+const OPP_COLUMNS = [
+  { key: 'name', label: 'Opportunity name', align: 'left',
+    value: (o) => o.payload?.name ?? null,
+    cell: (o) => `<div class="ot-title">${escHtml(o.payload?.name ?? '--')}</div>`
+      + `<div class="ot-sub">${escHtml(o.payload?.company_name ?? '--')}</div>` },
+  { key: 'owner', label: 'Opportunity owner', align: 'left',
+    value: (o) => o.payload?.lead ?? null,
+    cell: (o) => escHtml(o.payload?.lead ?? '--') },
+  { key: 'tcv', label: 'TCV', align: 'right', numeric: true,
+    value: (o) => o.total_contract_value ?? null,
+    cell: (o) => oppMoney(o.total_contract_value) ?? '<span class="ot-absent">--</span>' },
+  { key: 'probability', label: 'Probability', align: 'right', numeric: true,
+    value: (o) => oppProbability(o),
+    cell: (o) => { const v = oppProbability(o)
+      return Number.isFinite(v) ? `${v}%` : '<span class="ot-absent">--</span>' } },
+  { key: 'weighted', label: 'Weighted value', align: 'right', numeric: true,
+    value: (o) => o.weighted_value ?? null,
+    cell: (o) => oppMoney(o.weighted_value) ?? '<span class="ot-absent">--</span>' },
+  { key: 'stage', label: 'Stage', align: 'left',
+    value: (o) => o.status ?? null,
+    cell: (o) => `<span class="tag">${escHtml(o.status ?? '--')}</span>` },
+  // The two date labels are the ones opportunity-dates.js already publishes, so
+  // the table and the record cannot call the same field different things.
+  { key: 'estClose', label: 'Est. close date', align: 'left',
+    value: (o) => o.opportunity_details?.forecast_close_date ?? null,
+    cell: (o) => o.opportunity_details?.forecast_close_date
+      ? formatDate(o.opportunity_details.forecast_close_date) : '<span class="ot-absent">--</span>' },
+  { key: 'actualClose', label: 'Actual close date', align: 'left',
+    value: (o) => o.payload?.actualClose ?? null,
+    cell: (o) => o.payload?.actualClose
+      ? formatDate(o.payload.actualClose) : '<span class="ot-absent">--</span>' },
+]
+
+// One precedence for probability, matching the server's when it computes the
+// weighted value. Two precedences would put a percentage beside a weighted
+// figure that disagrees with it.
+function oppProbability(o) {
+  const det = o.opportunity_details ?? {}
+  const v = det.probability_override_pct ?? det.probability_pct
+  return Number.isFinite(v) ? v : null
+}
+
+let oppSort = { key: 'name', dir: 'asc' }
+
+function sortOpps(opps) {
+  const col = OPP_COLUMNS.find((c) => c.key === oppSort.key) ?? OPP_COLUMNS[0]
+  const dir = oppSort.dir === 'desc' ? -1 : 1
+  return [...opps].sort((a, b) => {
+    const x = col.value(a), y = col.value(b)
+    // ABSENT SORTS LAST IN BOTH DIRECTIONS. Reversing the order must not
+    // promote a column of blanks to the top, which is what a plain comparison
+    // does to nulls and is read as "these are the biggest".
+    const xn = x === null || x === undefined || x === ''
+    const yn = y === null || y === undefined || y === ''
+    if (xn && yn) return 0
+    if (xn) return 1
+    if (yn) return -1
+    if (col.numeric) return (Number(x) - Number(y)) * dir
+    return String(x).localeCompare(String(y), undefined, { numeric: true, sensitivity: 'base' }) * dir
+  })
+}
+
+window.sortOppsBy = function (key) {
+  // A second click on the same column reverses it; a first click on a new one
+  // starts ascending, which is what every table people have used does.
+  oppSort = oppSort.key === key
+    ? { key, dir: oppSort.dir === 'asc' ? 'desc' : 'asc' }
+    : { key, dir: 'asc' }
+  renderOpps()
+}
+
+function renderOppTableHead() {
+  const head = document.getElementById('opp-table-head')
+  if (!head) return
+  head.innerHTML = OPP_COLUMNS.map((c) => {
+    const active = oppSort.key === c.key
+    // The arrow is on the sorted column only. An arrow on every header says
+    // nothing about which one is in force.
+    const arrow = active ? (oppSort.dir === 'asc' ? '&#9650;' : '&#9660;') : ''
+    return `<th class="ot-th ot-${c.align}${active ? ' is-sorted' : ''}"
+      aria-sort="${active ? (oppSort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}">
+      <button type="button" class="ot-sort" onclick="sortOppsBy('${c.key}')">
+        <span>${escHtml(c.label)}</span><span class="ot-arrow">${arrow}</span>
+      </button></th>`
+  }).join('')
+}
+
 function renderOppList(opps) {
+  renderOppTableHead()
   const container = document.getElementById('opps-rows')
+  if (!container) return
   if (!opps.length) {
-    container.innerHTML = `<p class="empty-state">${oppsMineOnly ? 'No opportunities owned by you.' : 'No opportunities yet.'}</p>`
+    container.innerHTML = `<tr><td colspan="${OPP_COLUMNS.length}"><p class="empty-state">${
+      oppsMineOnly ? 'No opportunities owned by you.' : 'No opportunities yet.'}</p></td></tr>`
     return
   }
 
-  container.innerHTML = opps.map(o => {
-    const p = o.payload ?? {}
-    const det = o.opportunity_details ?? {}
-    const prob = det.probability_pct != null ? `${det.probability_pct}%` : '--'
-    const close = det.forecast_close_date ? formatDate(det.forecast_close_date) : '--'
-    return `
-    <div class="record-grid-row" onclick="navigate('opportunity-detail', '${o.id}')">
-      <div class="rg-name">
-        <div class="rg-title">${escHtml(p.name ?? '--')}</div>
-        <div class="rg-meta">${escHtml(p.company_name ?? '--')}</div>
-      </div>
-      <span class="tag rg-stage">${escHtml(o.status)}</span>
-      <span class="rg-combined">${prob} · ${daysAgo(o.created_at)} · ${close}</span>
-    </div>`
-  }).join('')
+  container.innerHTML = sortOpps(opps).map((o) => `
+    <tr class="ot-row" onclick="navigate('opportunity-detail', '${o.id}')">
+      ${OPP_COLUMNS.map((c) => `<td class="ot-${c.align}">${c.cell(o)}</td>`).join('')}
+    </tr>`).join('')
+}
+
+// ── THE HEADLINE STRIP. Internal review item 1 ────────────────────────────
+//
+// Every figure arrives computed from the server, including the two derived
+// ones, because the LIST shows the same numbers and Verification 20 is explicit
+// that a second reader drifts. The browser formats; it does not calculate.
+//
+// A MISSING FIGURE SAYS SO. Architecture 11's shape: a blank reads as "not
+// loaded" and a zero reads as a value somebody entered, and neither is true of
+// a deal nobody has priced. Proposal Version is the ruled instance - "none"
+// rather than blank when nothing has been issued.
+function oppHeadlineFigure(label, value, opts = {}) {
+  const missing = value === null || value === undefined || value === ''
+  return `<div class="ohl-figure${opts.wide ? ' ohl-wide' : ''}">
+    <span class="ohl-label">${escHtml(label)}</span>
+    <span class="ohl-value${missing ? ' ohl-missing' : ''}">${escHtml(missing ? (opts.absent ?? 'not recorded') : String(value))}</span>
+  </div>`
+}
+
+function oppMoney(n) {
+  if (!Number.isFinite(n)) return null
+  return n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
+}
+
+function renderOppHeadline(opp) {
+  const el = document.getElementById('opp-headline')
+  if (!el) return
+  const det = opp.opportunity_details ?? {}
+  const p = opp.payload ?? {}
+  // The override wins where one is set, which is the same precedence the server
+  // uses to compute the weighted value. Two precedences would be two answers.
+  const prob = det.probability_override_pct ?? det.probability_pct ?? null
+  el.innerHTML = [
+    oppHeadlineFigure('Total contract value', oppMoney(opp.total_contract_value)),
+    oppHeadlineFigure('Probability', Number.isFinite(prob) ? `${prob}%` : null),
+    oppHeadlineFigure('Weighted amount', oppMoney(opp.weighted_value)),
+    oppHeadlineFigure('Est. close date',
+      det.forecast_close_date ? formatDate(det.forecast_close_date) : null),
+    oppHeadlineFigure('Age', opp.created_at ? daysAgo(opp.created_at) : null),
+    // RULED: "none", not blank, when nothing has been issued. A blank here
+    // would read as a figure that failed to load rather than as a deal with no
+    // issued proposal.
+    oppHeadlineFigure('Proposal version',
+      Number.isInteger(opp.issued_major) ? `V${opp.issued_major}` : null, { absent: 'none' }),
+  ].join('')
 }
 
 function renderOppCards(opps) {
@@ -6902,6 +7056,7 @@ async function renderOppDetail(opp) {
   currentOppDetailId = opp.id
   currentOppStage = opp.status
   currentOppStages = stages ?? []
+  renderOppHeadline(opp)
   // The baseline the poll compares against, taken from the SAME response that
   // rendered the screen, so the two can never describe different moments.
   oppFreshnessAt = opp.freshness_at ?? null
