@@ -114,9 +114,39 @@ export function mayDecide(request, userId, approvers, track, recordId) {
  *   a pricing decision and a frozen rate.
  */
 export function issuedProposal(versions, currentPayload) {
+  // ── ORDERED BY THE VERSION'S OWN SEQUENCE. Round 41 ─────────────────────
+  //
+  // This sorted by `revision_number`, the OPPORTUNITY's sequence, to decide
+  // which issued version is the latest. That is the same conflation the
+  // staleness comparison had, one instance smaller: a version-to-version
+  // question answered with the record's counter.
+  //
+  // The version's own sequence is `(major, minor)`, and the issue route is the
+  // authority on it: issuing sets `major = highestIssued + 1, minor = 0` and
+  // NEVER touches revision_number, so a version keeps the revision it was
+  // created at and two versions routinely share one.
+  //
+  // The `revision_number` filter stays: it is the approval PAIRING, and a
+  // version that names no revision cannot carry an approval. It is no longer
+  // what ORDERS them.
+  //
+  // ── AND THIS HALF IS DEFENSIVE, NOT A FIX. Measured, not assumed ────────
+  //
+  // Driven through the real routes, two ISSUED versions came out V1.0@rev1 and
+  // V2.0@rev2: no inversion and not even a tie. Issuing writes `proposalIssued`,
+  // which bumps the record, so the next draft is always created at a strictly
+  // higher revision, and among ISSUED versions the two orders agree strictly.
+  //
+  // So there is no case to calibrate this against, and it is recorded as
+  // unprovable rather than claimed as a fix. It is kept because it removes the
+  // conflation and costs nothing, and because the select feeding it carries no
+  // ORDER BY, so a tie would be resolved by whatever Postgres returned.
+  //
+  // The later-draft check below is the opposite: its disagreement IS
+  // constructible, and it was live.
   const issued = (versions ?? [])
     .filter((v) => v.status === 'issued' && Number.isInteger(v.revision_number))
-    .sort((a, b) => b.revision_number - a.revision_number)[0];
+    .sort((a, b) => (b.major - a.major) || (b.minor - a.minor))[0];
 
   if (!issued) {
     return {
@@ -174,8 +204,19 @@ export function issuedProposal(versions, currentPayload) {
         + 'what is on screen. Taking a version is not enough, it has to be issued.',
     };
   }
+  // ── A DRAFT IS NEWER THAN THE ISSUE IFF IT SHARES ITS MAJOR ─────────────
+  //
+  // The sixth-walk rule, and the issue route enforces exactly this: a draft
+  // saved after V5 was issued is V5.1 and carries major 5; one from before
+  // carries a LOWER major and is STRANDED.
+  //
+  // Read through `revision_number` this refused a transition and told the
+  // person to issue a stranded draft, which the issue route refuses as "not the
+  // next version". Measured on a constructed record, not inferred: a
+  // BLOCKED TRANSITION WITH AN INSTRUCTION THE SYSTEM WILL NOT LET YOU FOLLOW.
+  // scripts/probe-version-order.mjs holds the construction.
   const laterDraft = (versions ?? []).some((v) =>
-    v.status === 'draft' && Number.isInteger(v.revision_number) && v.revision_number >= issued.revision_number);
+    v.status === 'draft' && Number.isInteger(v.major) && v.major >= issued.major);
   if (laterDraft) {
     return {
       ok: false, notice: true, version: issued,

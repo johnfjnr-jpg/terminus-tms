@@ -43,6 +43,14 @@ const STAGES = [
     needs: 'the dev server on :3000 AND a live session-ref.json',
   },
   {
+    // Round 41. Constructs the state where a version's own (major, minor)
+    // sequence disagrees with the opportunity's revision sequence, which is the
+    // only way to test that the later-draft check follows the right one.
+    name: 'HTTP version-order probe',
+    cmd: ['node', ['scripts/probe-version-order.mjs', 'GATE']],
+    needs: 'the dev server on :3000 AND a live session-ref.json',
+  },
+  {
     name: 'HTTP commercial-gate probe',
     cmd: ['node', ['scripts/probe-commercial-gate.mjs', 'GATE']],
     needs: 'the dev server on :3000 AND a live session-ref.json',

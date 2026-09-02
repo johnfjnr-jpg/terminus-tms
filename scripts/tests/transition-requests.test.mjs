@@ -131,7 +131,13 @@ test('Proposal to Evaluation wants an ISSUED version and nothing since', () => {
   // longer the staleness measure.
   assert.equal(issuedProposal([{ status: 'issued', revision_number: null }], SAME).ok, false)
 
-  const issued = [{ id: 'v1', status: 'issued', revision_number: 10, inputs: SAME }]
+  // ── ROUND 41: THE FIXTURES CARRY (major, minor) ────────────────────────
+  //
+  // They did not, and the ordering change exposed that: a fixture omitting the
+  // field the code orders by cannot exercise the ordering. V1.0 is an issued
+  // version; a draft saved after it is V1.1; one saved before it is V0.x and is
+  // STRANDED.
+  const issued = [{ id: 'v1', status: 'issued', major: 1, minor: 0, revision_number: 10, inputs: SAME }]
   assert.equal(issuedProposal(issued, SAME).ok, true)
   assert.equal(issuedProposal(issued, SAME).version.id, 'v1')
 
@@ -169,29 +175,53 @@ test('Proposal to Evaluation wants an ISSUED version and nothing since', () => {
   // AND A FROZEN CATALOG RATE IS NOT A DECISION either. The record never stores
   // these six keys, so comparing them would refuse every transition on every
   // record - Verification 14 with nothing on one side.
-  const withRates = [{ id: 'v1', status: 'issued', revision_number: 10,
+  const withRates = [{ id: 'v1', status: 'issued', major: 1, minor: 0, revision_number: 10,
     inputs: { ...SAME, ssUnitCost: 900, hoAqm: 12 } }]
   assert.equal(issuedProposal(withRates, SAME).ok, true)
 
   // AND A VERSION WITH NO PRICING SNAPSHOT REFUSES rather than passing silently.
   // A request freezes a price, so "I cannot tell" must not read as "it is fine".
-  const noSnapshot = [{ id: 'v1', status: 'issued', revision_number: 10, inputs: {} }]
+  const noSnapshot = [{ id: 'v1', status: 'issued', major: 1, minor: 0, revision_number: 10, inputs: {} }]
   const blind = issuedProposal(noSnapshot, SAME)
   assert.equal(blind.ok, false, 'an uncomparable version must not pass the gate')
   assert.match(blind.reason, /records no pricing/)
   assert.equal(blind.notice, true)
 
   // AND AN UNISSUED DRAFT SAYS THE SAME THING, because it is the same confusion:
-  // taking a version is not issuing one.
-  assert.equal(issuedProposal([...issued, { status: 'draft', revision_number: 12 }], SAME).notice, true)
+  // taking a version is not issuing one. V1.1 shares the issued major, so it IS
+  // newer, and the issue route will accept it.
+  assert.equal(issuedProposal([...issued, { status: 'draft', major: 1, minor: 1, revision_number: 12 }], SAME).notice, true)
 
   // And an unissued draft after it is a change too.
-  const withDraft = [...issued, { id: 'v2', status: 'draft', revision_number: 10 }]
+  const withDraft = [...issued, { id: 'v2', status: 'draft', major: 1, minor: 1, revision_number: 10 }]
   assert.equal(issuedProposal(withDraft, SAME).ok, false)
   // W-K rewrote this sentence too, and for the same reason: "unissued draft"
   // named a STATE where the person needed an ACT.
   assert.match(issuedProposal(withDraft, SAME).reason, /draft version that has not been issued/)
   assert.match(issuedProposal(withDraft, SAME).reason, /Issue it, or discard it/)
+
+  // ── A STRANDED DRAFT IS NOT A NEWER DRAFT ──────────────────────────────
+  //
+  // Round 41. This check ordered two VERSIONS by the OPPORTUNITY's revision
+  // number, and issuing never touches revision_number, so a draft created at
+  // the same revision as the version later issued compared EQUAL and counted as
+  // "later". The transition was then refused with "Issue it, or discard it" for
+  // a draft the issue route refuses as "not the next version": A BLOCKED
+  // TRANSITION WITH AN INSTRUCTION THE SYSTEM WILL NOT LET YOU FOLLOW.
+  //
+  // Constructed and measured on a real record, both halves, in
+  // scripts/probe-version-order.mjs. Not latent: reachable by saving two
+  // versions without editing the record between them, then issuing the later.
+  const stranded = [...issued, { id: 'v0', status: 'draft', major: 0, minor: 1, revision_number: 10 }]
+  assert.equal(issuedProposal(stranded, SAME).ok, true,
+    'a draft from BEFORE the issue is stranded, and demanding it be issued is a dead end')
+
+  // And the same pair read the OLD way would have blocked, which is what makes
+  // the assertion above a test rather than a restatement of the new code.
+  assert.equal(stranded[1].revision_number >= issued[0].revision_number, true,
+    'the fixture no longer reproduces the disagreement the fix is about')
+  assert.equal(stranded[1].major >= issued[0].major, false,
+    'and (major, minor) is what disagrees with it')
 })
 
 test('the raise route drops ONLY the approval requirements from the gate', () => {

@@ -7717,3 +7717,77 @@ nine stages green. It was also reading `version-pricing.js` and
 not evidence about the committed tree in either direction. Re-run on a quiet
 tree. Cheap, and a green reading taken over a moving file is Verification 6's
 agreement-is-not-a-result in a different costume.
+
+---
+
+## THE LAST THREAD: A VERSION-TO-VERSION QUESTION READ THE OPPORTUNITY'S COUNTER
+
+**Round 41, 2026-09-02, on the business's instruction to fold it while the code
+was open. The same conflation as the staleness coupling, one instance smaller.**
+
+`issuedProposal`'s later-draft check asked "is there a draft newer than the
+issued version" by comparing `revision_number`, the OPPORTUNITY's sequence. The
+version's own sequence is `(major, minor)`, and the issue route is the authority:
+issuing sets `major = highestIssued + 1, minor = 0` and **never touches
+`revision_number`**, so a version keeps the revision it was created at.
+
+### It was not latent. It was a dead end
+
+Constructed on a real record through the real routes, and both halves measured
+rather than one inferred from the other (Verification 26):
+
+- Save two versions without editing the record between them. **Both carry
+  revision 1**: `V0.1@rev1 V0.2@rev1`. Taking a version does not move the record.
+- Issue the later one. It becomes `V1.0`, still at rev 1. `V0.1` is now
+  **stranded**, `major 0 < 1`.
+- **The two orders disagree**: `revision_number` says the draft is later,
+  `(major, minor)` says it is not.
+- `issuedProposal` therefore refused the transition with *"There is a draft
+  version that has not been issued. Issue it, or discard it."*
+- **The issue route refuses that same draft**: *"V0.1 was drafted before V1 was
+  issued, so it is not the next version."*
+
+**A blocked transition with an instruction the system will not let you follow.**
+Discarding is not offered as an act anywhere; restoring is, and the refusal does
+not mention it.
+
+### Both directions asserted, because a check that only ever holds is not a check
+
+A draft saved AFTER the issue is `V1.1`, shares the issued major, and **still
+blocks** - and `scripts/probe-version-order.mjs` then asks the issue route to
+accept it, so the refusal is proven to name an act that works. That last
+assertion is the one that distinguishes the fix from simply switching the check
+off.
+
+**Calibrated**: reverting the predicate to `revision_number` fails the unit
+assertion and takes the probe to 9/10, on the stranded case alone. The server was
+restarted between mutations, since it is not in watch mode.
+
+### AND THE OTHER HALF IS DEFENSIVE, WHICH IS SAID RATHER THAN GLOSSED
+
+The same function ALSO chose WHICH issued version was the latest by sorting on
+`revision_number`. That is the same conflation, and it was changed to
+`(major, minor)` for the same reason.
+
+**But it cannot be calibrated, because the state it guards against cannot be
+constructed.** Driven through the real routes, two issued versions came out
+`V1.0@rev1` and `V2.0@rev2`: no inversion, and not even a tie. Issuing writes
+`proposalIssued`, which bumps the record, so the next draft is always created at
+a strictly higher revision, and among ISSUED versions the two orders agree
+strictly. `restore` is read-only and creates nothing, so it cannot reorder them
+either.
+
+**Recorded as unprovable rather than claimed as a fix**, on the business's own
+instruction: say so and why, rather than asserting a fix against a case that
+cannot occur. It is kept because it removes the conflation, costs nothing, and
+the select feeding it carries no `ORDER BY`, so a tie would be settled by
+whatever Postgres happened to return.
+
+### The fixtures could not have caught this
+
+The unit fixtures carried `revision_number` and no `major`/`minor`. **A fixture
+that omits the field the code orders by cannot exercise the ordering**, and the
+ordering change is what exposed that. They now carry real version numbers, and
+the stranded case asserts the disagreement itself - that `revision_number` order
+and `(major, minor)` order give opposite answers on that pair - so the test
+cannot quietly stop being about the fix.
