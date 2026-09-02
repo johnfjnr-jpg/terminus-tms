@@ -113,20 +113,31 @@ test('Proposal to Evaluation wants an ISSUED version and nothing since', () => {
   assert.equal(needsIssuedVersion('test_bed', 'Proposal', 'Evaluation'), false)
   assert.equal(ISSUED_VERSION_REQUIRED.length, 1)
 
-  assert.equal(issuedProposal([], 10).ok, false)
-  assert.match(issuedProposal([], 10).reason, /No Deal Sheet version has been issued/)
+  // ── ROUND 41: THE SECOND ARGUMENT IS THE PRICE, NOT THE REVISION ────────
+  //
+  // Every `issuedProposal(versions, 10)` below read a revision NUMBER. It now
+  // takes the record's current payload, because the question is whether the
+  // price on screen is the price that was issued.
+  const SAME = { contractValue: 100, targetMargin: 30 }
+  const MOVED = { contractValue: 250, targetMargin: 30 }
+  const NON_PRICING = { contractValue: 100, targetMargin: 30, estCloseDate: '2026-12-01' }
+
+  assert.equal(issuedProposal([], SAME).ok, false)
+  assert.match(issuedProposal([], SAME).reason, /No Deal Sheet version has been issued/)
 
   // A version with a NULL revision_number is not an issued proposal. That is the
   // exact row that made walk finding 3 unfixable on the record it sat on.
-  assert.equal(issuedProposal([{ status: 'issued', revision_number: null }], 10).ok, false)
+  // Still true: revision_number remains the approval PAIRING, it is simply no
+  // longer the staleness measure.
+  assert.equal(issuedProposal([{ status: 'issued', revision_number: null }], SAME).ok, false)
 
-  const issued = [{ id: 'v1', status: 'issued', revision_number: 10 }]
-  assert.equal(issuedProposal(issued, 10).ok, true)
-  assert.equal(issuedProposal(issued, 10).version.id, 'v1')
+  const issued = [{ id: 'v1', status: 'issued', revision_number: 10, inputs: SAME }]
+  assert.equal(issuedProposal(issued, SAME).ok, true)
+  assert.equal(issuedProposal(issued, SAME).version.id, 'v1')
 
-  // THE SECOND CHECK, and it is the one worth stating: a save after the issue
-  // means the request would freeze a state nobody issued.
-  const moved = issuedProposal(issued, 12)
+  // THE SECOND CHECK, and it is the one worth stating: a PRICING CHANGE after
+  // the issue means the request would freeze a price nobody issued.
+  const moved = issuedProposal(issued, MOVED)
   assert.equal(moved.ok, false)
   // ── W-K RESTATED THIS, and the count is no longer the claim ─────────────
   //
@@ -136,24 +147,51 @@ test('Proposal to Evaluation wants an ISSUED version and nothing since', () => {
   // just taken a version read it as done.
   //
   // The claim was never the wording. It is that the refusal names the ACTION,
-  // says a draft is not enough, still counts the saves, and is marked as a
-  // notice rather than a failure.
+  // says a draft is not enough, and is marked as a notice rather than a failure.
+  //
+  // ── ROUND 41 RESTATED THE SAVE COUNT OUT OF IT, and W-K's own ruling is
+  // kept: the action is STILL the first thing said. What replaces "2 saves have
+  // landed" is what actually moved, because the count was never the reason.
   assert.match(moved.reason, /^Issue the latest draft/, 'the action is not the first thing said')
-  assert.match(moved.reason, /2 saves have landed/, 'it no longer says how far the record has moved')
+  assert.match(moved.reason, /the pricing has changed since the issued version \(contractValue\)/,
+    'it does not name WHICH pricing decision moved')
   assert.match(moved.reason, /has to be issued/, 'it does not say a draft is insufficient')
   assert.equal(moved.notice, true, 'a precondition doing its job is not an error')
-  assert.match(issuedProposal(issued, 11).reason, /1 save has landed/, 'the singular is wrong')
+
+  // ── THE CALIBRATION THAT MAKES THE RULE A RULE ─────────────────────────
+  //
+  // On TT-SGP-SMARTC-112 eleven revisions had landed since V1 was issued and
+  // NONE of them touched a pricing field, so the transition was refused for a
+  // price that had not moved. A non-pricing save must not refuse.
+  assert.equal(issuedProposal(issued, NON_PRICING).ok, true,
+    'an exit tick, a contact or a date is not a re-price')
+
+  // AND A FROZEN CATALOG RATE IS NOT A DECISION either. The record never stores
+  // these six keys, so comparing them would refuse every transition on every
+  // record - Verification 14 with nothing on one side.
+  const withRates = [{ id: 'v1', status: 'issued', revision_number: 10,
+    inputs: { ...SAME, ssUnitCost: 900, hoAqm: 12 } }]
+  assert.equal(issuedProposal(withRates, SAME).ok, true)
+
+  // AND A VERSION WITH NO PRICING SNAPSHOT REFUSES rather than passing silently.
+  // A request freezes a price, so "I cannot tell" must not read as "it is fine".
+  const noSnapshot = [{ id: 'v1', status: 'issued', revision_number: 10, inputs: {} }]
+  const blind = issuedProposal(noSnapshot, SAME)
+  assert.equal(blind.ok, false, 'an uncomparable version must not pass the gate')
+  assert.match(blind.reason, /records no pricing/)
+  assert.equal(blind.notice, true)
+
   // AND AN UNISSUED DRAFT SAYS THE SAME THING, because it is the same confusion:
   // taking a version is not issuing one.
-  assert.equal(issuedProposal([...issued, { status: 'draft', revision_number: 12 }], 10).notice, true)
+  assert.equal(issuedProposal([...issued, { status: 'draft', revision_number: 12 }], SAME).notice, true)
 
   // And an unissued draft after it is a change too.
   const withDraft = [...issued, { id: 'v2', status: 'draft', revision_number: 10 }]
-  assert.equal(issuedProposal(withDraft, 10).ok, false)
+  assert.equal(issuedProposal(withDraft, SAME).ok, false)
   // W-K rewrote this sentence too, and for the same reason: "unissued draft"
   // named a STATE where the person needed an ACT.
-  assert.match(issuedProposal(withDraft, 10).reason, /draft version that has not been issued/)
-  assert.match(issuedProposal(withDraft, 10).reason, /Issue it, or discard it/)
+  assert.match(issuedProposal(withDraft, SAME).reason, /draft version that has not been issued/)
+  assert.match(issuedProposal(withDraft, SAME).reason, /Issue it, or discard it/)
 })
 
 test('the raise route drops ONLY the approval requirements from the gate', () => {
@@ -685,9 +723,21 @@ test('W-K: a precondition doing its job is a notice, and the kind is decided onc
   const route = readCode(ROOT + 'src/routes/transition-requests.js')
   const app = readCode(ROOT + 'frontend/app.js')
   const css = readCode(ROOT + 'frontend/style.css')
-  // All three refusals from issuedProposal are notices.
-  assert.equal((lib.match(/notice: true/g) || []).length, 3,
-    'not every issued-version refusal is marked as a notice')
+  // ── RESTATED, ROUND 41: THE PROPERTY, NOT THE COUNT ────────────────────
+  //
+  // This read `=== 3`. The property it protects is that EVERY refusal from
+  // issuedProposal is a notice, and a literal 3 is a second reader of the branch
+  // count: it fails on a fourth branch that is correctly marked, and it would
+  // also pass a fourth branch that is wrongly marked if a third were deleted.
+  // CLAUDE.md rule 33 - a count is not a structure.
+  //
+  // Round 41 added the fourth: a version carrying no pricing snapshot cannot be
+  // compared, and a transition request freezes a price, so it refuses.
+  const refusals = (lib.match(/ok: false/g) || []).length
+  const notices = (lib.match(/notice: true/g) || []).length
+  assert.equal(notices, refusals,
+    `not every issued-version refusal is marked as a notice: ${refusals} refusals, ${notices} notices`)
+  assert.ok(refusals >= 3, 'the refusal branches have gone missing, so this asserts nothing')
   assert.match(route, /notice: !!issued\.notice/, 'the route drops the kind')
   // THE SCREEN READS THE KIND, it does not match on the wording. Verification 43.
   assert.match(app, /const cls = r\.data\?\.notice \? 'msg-notice' : 'msg-error'/,

@@ -7508,3 +7508,212 @@ it fired.
 `deal_sheet_versions: issuing V0.1 must produce V1.0, not V2.0`, a database
 trigger from Round 27. The route's 409 is the readable refusal; that trigger is
 the one that would have caught this if nothing else had.
+
+---
+
+## A DEAL SHEET VERSION IS ITS OWN OBJECT, AND ITS STALENESS IS A PRICING QUESTION
+
+**Round 41, 2026-09-02. Raised by the business as an architectural point that
+stopped a queue of version fixes, and it was the right call: every one of those
+fixes was a symptom.**
+
+> The deal sheet version has its own lifecycle, and its "has this changed since
+> issue" question must be answered against **pricing state alone**, never against
+> the opportunity record's revision number.
+
+### What was coupled, measured rather than asserted
+
+Two places asked "has this moved since the version", and both asked it of the
+revision number: `issuedProposal`, which gates raising a transition request, and
+`versionApprovalState`, which decides whether an approval still describes the
+deal.
+
+**An opportunity revision bumps on a contact, an exit criterion tick, a score, a
+date.** None of those is a price. On the walk record TT-SGP-SMARTC-112, eleven
+revisions had landed since V1 was issued, **none of them touched a pricing
+field**, and the transition was refused with "11 saves have landed since the
+issued version".
+
+**One of the eleven was the version's own issue, 674ms later.** Issuing writes a
+revision carrying `proposalIssued`, so under the revision rule **a version
+superseded itself at birth**. That is measured, not inferred: the issue wrote
+revision 15, the version was taken at revision 4.
+
+### The ruling
+
+Both now diff the issued version's own pricing snapshot against the record's
+current pricing, **through the instrument the no-delta version refusal already
+uses** (`payloadsDiffer` on `inputs`) rather than a second one built alongside it.
+
+### THE LINE, STATED RATHER THAN IMPLIED
+
+A version snapshot carries 32 keys. The business ruled that "changed" means a
+pricing **decision** changed, and that catalog batch rates are a default applied
+at opportunity creation: after that the opportunity owns its price, and a later
+batch turnover does not supersede an issued version.
+
+**26 keys are decision state and are IN the comparison:**
+`aqm`, `bidCurrency`, `contractorMilestones`, `duration`, `factoring`,
+`fxContingency`, `grossUp`, `gstPct`, `hemir`, `inAqm`, `inHemir`,
+`inSsExisting`, `inSsNew`, `installResp`, `invoicing`, `lumpSumCost`,
+`marginOverrides`, `milestones`, `proposalCurrency`, `recoveryMonths`,
+`ssExisting`, `ssNew`, `structure`, `targetMargin`, `warrantyPct`, `whtPct`.
+
+**6 are frozen catalog rates and are OUT:** `ssUnitCost`, `aqUnitCost`,
+`hemirUnitCost`, `hoSafesight`, `hoAqm`, `hoHemir`.
+
+**The four installation rates are IN, and that is the interesting half of the
+line.** `inSsExisting`, `inSsNew`, `inAqm` and `inHemir` look like rates and are
+`OVERRIDABLE_RATE_KEYS`: the opportunity may set them, so a value on the record
+is a price somebody chose, and changing it must supersede.
+
+**`sections` is out entirely.** It is a rendering of the inputs, so a difference
+in it is either a difference in the inputs, already caught, or a change in how
+the calculator presents them, which is not a decision anybody took on this deal.
+
+**The line is drawn by the resolver's own lists, not by a copy of them.**
+`FROZEN_RATE_KEYS` is `CATALOG_ONLY_RATE_KEYS`; the first draft of this work
+retyped the same six keys into a second array, which is Verification 20 committed
+one round after the rule was written down. A test asserts every rate key is
+exactly one of frozen or decision, so a new catalog rate cannot arrive
+unclassified.
+
+**AND IT IS AN OUT-SET, NOT AN IN-SET, DELIBERATELY.** A pricing key added later
+is automatically inside the comparison. The failure mode is therefore a false
+supersede, which somebody notices and reports, rather than a silent miss, which
+nobody does.
+
+### What stays uncaught, named rather than left implicit
+
+A catalog batch turnover that changes a **decision-derived output** while every
+decision key stays identical is not detected. That follows directly from the
+ruling and is the cost of it: the rates are excluded because the deal owns its
+price, and the consequence is that a version issued against last quarter's costs
+still reads as current. The business ruled this the right trade.
+
+### What did NOT change
+
+**The versions table, the snapshots, the major/minor sequence, sub-version
+drafts, immutability and the governance trail are untouched. No migration.** The
+comparison is computed at read time, so it works identically for the 882
+pre-workflow rows, whose `revision_number` is simply no longer the thing read.
+
+`revision_number` still pairs an approval with the version it was given for.
+That pairing is the audit trail and is unchanged; what it stopped deciding is
+whether the version is stale.
+
+### `revisionsSince` became `changedKeys`, and the rename is the point
+
+The field could have kept its name and reported 0. **Renaming it makes every
+stale reader fail loudly**, which is how the frontend banner was found. The
+sentence changed with it: "the record has moved on 11 saves since" told an
+approver nothing, and "the pricing has changed since: targetMargin" tells them
+what to look at.
+
+**W-K's ruling is preserved inside the new wording**: the transition refusal
+still LEADS with the action. What moved is named after it, because a person who
+has just taken a version needs to be told to issue it before they are told why.
+
+### A state that refuses to guess
+
+A caller that supplies no current pricing gets `state: 'unknown'`, not a default
+in either direction. Reading it as approved would claim currency nobody checked;
+reading it as superseded would reinstate the false alarm this work removes. The
+first draft passed `?? {}` at three call sites, which would have compared against
+an empty payload and produced exactly those two wrong answers depending on which
+side was empty.
+
+### Verified
+
+**The claim.** On TT-SGP-SMARTC-112, pricing identical to issued V1: the refusal
+does not fire, and `POST /records/:id/transition-requests` returned **201** for
+Proposal to Evaluation, the request the old rule blocked. Withdrawn immediately;
+no open request left on the record.
+
+**The self-supersede.** At the issuing revision itself and at the current
+revision, the version reads not superseded. `versionApprovalState` returns
+`approved` with `changedKeys: []` across the eleven revisions.
+
+**Calibrated in both directions, on the live record.** `targetMargin`, `duration`,
+`warrantyPct` and `structure` each refuse when changed. `estCloseDate`,
+`primaryContactId` and `assessCommBudgetConfirmed` each do not. All six catalog
+rates moved by 500 each: no refusal, `keys: []`.
+
+**A calibration that did not fire, and it was the probe.** The first pass bumped
+`contractValue`, which is not one of the 32 keys, and reported no supersede on a
+change that should have caused one. Verification 18: a calibration that does not
+move the number has failed to run. The code was correct; the probe was measuring
+a key the comparison never sees.
+
+### AND IT REFUSES TO ANSWER WITH NOTHING ON ONE SIDE
+
+**Found inside this round's own change, so it is part of it rather than a new
+item (`CLAUDE.md` build discipline 10's limit).**
+
+The comparison runs over the SNAPSHOT's keys. A version carrying no snapshot has
+none, `payloadsDiffer({}, {})` is false, and the answer reads **"the price has
+not moved"** - a confident all-clear derived from an empty comparison, on exactly
+the screen where somebody approves a price. **The rule this replaces would have
+answered for those rows badly; this one would have answered silently, which is
+worse.**
+
+`pricingChanged` now returns `comparable`. `versionApprovalState` maps it to
+`unknown`, and `issuedProposal` refuses the transition and says the version
+records no pricing. **Both sides of the trap in one flag**: no snapshot, and no
+current pricing supplied.
+
+**Measured before building the guard: 400 of 400 `deal_sheet_versions` rows carry
+a snapshot, and 0 have `inputs` null or `{}`.** So this is a guard, not a fix, and
+it is recorded as one. The subtle case is a snapshot holding only frozen rates:
+six keys present, no decisions, still nothing to compare.
+
+**Calibrated in the direction that matters for a flag like this**: `comparable`
+is asserted TRUE on a real pair. A flag that never reads true would make every
+version uncomparable and every gate refuse, which is a different silent failure
+wearing the same green.
+
+### A count that was standing in for a property
+
+The W-K guard asserting every `issuedProposal` refusal is a notice did it by
+pinning `notice: true` at exactly **3**. Adding a fourth, correctly marked,
+failed it. **The literal was a second reader of the branch count** and would also
+have passed a wrongly-marked fourth had a third been deleted. It now compares
+notices to refusals, with a floor so a suite that lost the branches cannot pass by
+asserting `0 === 0`. `CLAUDE.md` rule 33: a count is not a structure.
+
+### Left on the list, not fixed here
+
+`issuedProposal`'s later-draft check still orders two VERSIONS by
+`revision_number` (`src/lib/transition-requests.js:167`). That is version-to-
+version rather than version-to-record, so it is outside this ruling, and the
+sixth-walk rule established that version ordering is `(major, minor)`. **Recorded
+and queued rather than taken**, per `CLAUDE.md` rule 10.
+
+### The detectors this change added, and what proved each
+
+`CLAUDE.md` Verification 9, broadened at the Round 40 close: **a detector that
+has never fired is an assertion, not a control.** Four were added here and all
+four were made to fail and then reverted.
+
+| detector | proved by |
+|---|---|
+| every rate key is classified as frozen or decision | injecting `zzInjectedRate` into `ALL_RATE_KEYS`; the guard failed, reverted clean |
+| the frozen set IS the resolver's list, not a copy | shortening it to five keys; **nine** tests failed, which is the measure of how load-bearing that line is |
+| an uncomparable pair refuses rather than reads unchanged | flipping `comparable` to `true`; four tests failed across two files |
+| a non-pricing save does NOT void an approval (HTTP) | making any `customerLead` difference count as a change; the probe went 13/18 |
+
+**The fourth needed the server restarted between mutations**, because the dev
+server is not in watch mode and a mutation that never reaches the running process
+produces an unchanged result that reads exactly like a passing calibration
+(Architecture 9's signature, recorded here once already in the issue-target work).
+
+**The revert was verified by re-running to green each time**, not assumed. That
+step is what caught the basename collision earlier in this round, and it is the
+only thing a calibration harness reliably reports.
+
+**A GATE RUN THAT OVERLAPPED THE CALIBRATIONS WAS DISCARDED.** It reported all
+nine stages green. It was also reading `version-pricing.js` and
+`rate-resolution.js` while those files were being mutated and restored, so it is
+not evidence about the committed tree in either direction. Re-run on a quiet
+tree. Cheap, and a green reading taken over a moving file is Verification 6's
+agreement-is-not-a-result in a different costume.

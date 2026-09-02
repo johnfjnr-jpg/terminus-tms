@@ -1,3 +1,5 @@
+import { pricingChanged, namedChangedKeys } from './version-pricing.js';
+
 /**
  * Is this version approved, and does that approval still describe the screen?
  *
@@ -89,11 +91,40 @@ export const VERSION_APPROVAL_STATES = [
  *   caller, so a caller that forgets the track filter cannot widen the answer.
  * @param {number} latestRevision - the record's current highest revision number
  * @returns {{ state: string, decidedAt: string|null, approverId: string|null,
- *             revisionApproved: number|null, revisionsSince: number }}
+ *             revisionApproved: number|null, changedKeys: string[] }}
  */
-export function versionApprovalState(version, approvals, latestRevision, track = APPROVAL_TRACK) {
+/**
+ * @param {object} version
+ * @param {Array}  approvals
+ * @param {number} latestRevision - still taken, and still used to find the
+ *   approvals that belong to this version: an approval is recorded AT a
+ *   revision, and that pairing is the audit trail. What it no longer decides is
+ *   whether the version is SUPERSEDED.
+ * @param {string} [track]
+ * @param {object} [currentPayload] - the record's pricing now. When supplied,
+ *   supersession is decided by comparing the version's own snapshot against it.
+ *
+ * ── WHY THE PAYLOAD IS OPTIONAL, AND WHAT HAPPENS WITHOUT IT ─────────────
+ *
+ * Round 41. `latestRevision > at` marked a version superseded whenever the
+ * OPPORTUNITY moved, and the opportunity moves on contacts, criteria, scores and
+ * dates. On TT-SGP-SMARTC-112 that read "superseded, 11 saves since" over
+ * pricing identical to what was issued - and one of the eleven was the issue
+ * itself, 674ms later.
+ *
+ * A caller that cannot supply the payload gets `state: 'unknown'` rather than a
+ * guess in either direction. Not 'approved', which would claim currency nobody
+ * checked; not 'superseded', which is the false alarm being removed. Verification
+ * 14's shape: a comparison reached with nothing on one side is not a comparison,
+ * and it should say so rather than pick a side.
+ */
+export function versionApprovalState(version, approvals, latestRevision, track = APPROVAL_TRACK, currentPayload) {
   const at = version?.revision_number
-  const blank = { state: 'unapprovable', decidedAt: null, approverId: null, revisionApproved: null, revisionsSince: 0 }
+  // `changedKeys` replaces `revisionsSince`, and the RENAME is deliberate.
+  // Round 41. Dropping the field rather than keeping it at 0 makes every stale
+  // reader fail loudly; leaving the name in place would have let the banner go
+  // on printing "0 saves since" and reading like a working sentence.
+  const blank = { state: 'unapprovable', decidedAt: null, approverId: null, revisionApproved: null, changedKeys: [] }
   if (!Number.isInteger(at)) return blank
 
   if (!Number.isInteger(latestRevision) || latestRevision < at) {
@@ -110,7 +141,7 @@ export function versionApprovalState(version, approvals, latestRevision, track =
       decidedAt: rejected.decided_at ?? null,
       approverId: rejected.approver_id ?? null,
       revisionApproved: at,
-      revisionsSince: latestRevision - at,
+      changedKeys: [],
     }
   }
 
@@ -121,15 +152,21 @@ export function versionApprovalState(version, approvals, latestRevision, track =
     .sort((a, b) => String(b.decided_at ?? '').localeCompare(String(a.decided_at ?? '')))[0]
 
   if (!approved) {
-    return { state: 'none', decidedAt: null, approverId: null, revisionApproved: at, revisionsSince: latestRevision - at }
+    return { state: 'none', decidedAt: null, approverId: null, revisionApproved: at, changedKeys: [] }
   }
 
+  // ── SUPERSESSION IS A PRICING QUESTION. Round 41 ───────────────────────
+  //
+  // The same instrument the no-delta refusal uses, not a second one.
+  // `comparable: false` covers both sides of the Verification 14 trap in one
+  // place: no current pricing supplied, and a version carrying no snapshot.
+  const moved = pricingChanged(version.inputs, currentPayload)
   return {
-    state: latestRevision > at ? 'superseded' : 'approved',
+    state: !moved.comparable ? 'unknown' : moved.changed ? 'superseded' : 'approved',
     decidedAt: approved.decided_at ?? null,
     approverId: approved.approver_id ?? null,
     revisionApproved: at,
-    revisionsSince: latestRevision - at,
+    changedKeys: moved?.keys ?? [],
   }
 }
 
@@ -146,10 +183,10 @@ export function versionApprovalState(version, approvals, latestRevision, track =
  * @param {number} latestRevision
  * @returns {object|null} the version, or null when nothing was ever approved
  */
-export function lastApprovedVersion(versions, approvals, latestRevision, track = APPROVAL_TRACK) {
+export function lastApprovedVersion(versions, approvals, latestRevision, track = APPROVAL_TRACK, currentPayload) {
   const approvedOnes = (versions ?? [])
-    .map((v) => ({ v, s: versionApprovalState(v, approvals, latestRevision, track) }))
-    .filter(({ s }) => s.state === 'approved' || s.state === 'superseded')
+    .map((v) => ({ v, s: versionApprovalState(v, approvals, latestRevision, track, currentPayload) }))
+    .filter(({ s }) => s.state === 'approved' || s.state === 'superseded' || s.state === 'unknown')
   if (!approvedOnes.length) return null
   return approvedOnes.sort((a, b) => b.v.revision_number - a.v.revision_number)[0].v
 }
@@ -198,8 +235,8 @@ export const VERSION_SCOPE = 'version';
  * @param {number} p.latestRevision
  * @returns {{ live: boolean, state: string, version: object|null, reason: string }}
  */
-export function liveVersionApproval({ track, versions, approvals, latestRevision }) {
-  const version = lastApprovedVersion(versions, approvals, latestRevision, track);
+export function liveVersionApproval({ track, versions, approvals, latestRevision, currentPayload }) {
+  const version = lastApprovedVersion(versions, approvals, latestRevision, track, currentPayload);
 
   if (!version) {
     // NOT THE SAME AS SUPERSEDED, and the message has to say which. "Nobody has
@@ -214,7 +251,7 @@ export function liveVersionApproval({ track, versions, approvals, latestRevision
     };
   }
 
-  const detail = versionApprovalState(version, approvals, latestRevision, track);
+  const detail = versionApprovalState(version, approvals, latestRevision, track, currentPayload);
   const label = version.major === 0 ? `V0.${version.minor}` : (version.minor === 0 ? `V${version.major}` : `V${version.major}.${version.minor}`);
 
   if (detail.state === 'approved') {
@@ -226,10 +263,20 @@ export function liveVersionApproval({ track, versions, approvals, latestRevision
     state: detail.state,
     version,
     detail,
+    // ── THE SENTENCE NAMES THE PRICE, NOT THE SAVE COUNT. Round 41 ────────
+    //
+    // It used to read "the record has moved on 11 saves since", which on
+    // TT-SGP-SMARTC-112 was true and told the reader nothing: none of the
+    // eleven touched the price, and one of them was the issue itself. What an
+    // approver needs is WHICH pricing decision moved.
     reason: detail.state === 'superseded'
-      ? `${label} was approved at revision ${detail.revisionApproved}, and the record has moved on `
-        + `${detail.revisionsSince} save${detail.revisionsSince === 1 ? '' : 's'} since. `
-        + 'That approval no longer describes this deal. Take a new version and have it approved.'
-      : `${label} is ${detail.state}.`,
+      ? `${label} was approved, and the pricing has changed since: `
+        + `${namedChangedKeys(detail.changedKeys)}. `
+        + 'That approval no longer describes this price. Take a new version and have it approved.'
+      : detail.state === 'unknown'
+        ? `${label} was approved, and whether the pricing has moved since could not be `
+          + 'determined: the record\'s current pricing was not supplied to the evaluator. '
+          + 'Treating that as approved would claim currency nobody checked.'
+        : `${label} is ${detail.state}.`,
   };
 }

@@ -22,6 +22,9 @@ import { catalogToRates } from '/lib/base-costs.js'
 import { stalenessBand, ageInDays } from '/lib/cost-basis.js'
 import { toNumberOrNull, numericOrDefault, NUMERIC_DEFAULTS, WRITABLE_NUMERIC_KEYS } from '/lib/numeric-payload.js'
 import { changedKeys } from '/lib/payload-diff.js'
+// The SAME formatter the server's refusal and the approval evaluator use.
+// Verification 20: a fourth hand-rolled slice-and-join would agree today.
+import { namedChangedKeys } from '/lib/version-pricing.js'
 // Round 38: the ONE translation, shared with the submit route and the
 // approval page. It reads catalog rates as ordinary payload keys, which is
 // exactly what readPayload() puts there.
@@ -678,12 +681,20 @@ function versionApprovalLine(v) {
   const a = v.approval ?? {}
   const at = a.revisionApproved
   switch (a.state) {
+    // ── APPROVED MEANS THE PRICE HAS NOT MOVED. Round 41 ──────────────────
+    //
+    // "nothing has changed since" used to mean "no save has landed", which is
+    // a claim about the record, not about the price. Ticking an exit criterion
+    // broke an approval; the wording now says what is actually being asserted.
     case 'approved':
-      return `Approved at revision ${at}, and nothing has changed since.`
+      return `Approved at revision ${at}, and the pricing has not changed since.`
     case 'superseded':
-      return `SUPERSEDED. Approved at revision ${at}, and the record has moved on `
-        + `${a.revisionsSince} save${a.revisionsSince === 1 ? '' : 's'} since. `
+      return `SUPERSEDED. Approved at revision ${at}, and the pricing has changed since: `
+        + `${namedChangedKeys(a.changedKeys)}. `
         + `Take a new version and have it approved.`
+    case 'unknown':
+      return `Approved at revision ${at}, but whether the pricing has moved since could `
+        + `not be determined. Report this rather than reading it as approved.`
     case 'rejected':
       return `Rejected at revision ${at}.`
     case 'none':

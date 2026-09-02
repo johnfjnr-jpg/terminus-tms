@@ -123,10 +123,13 @@ export function approvalSatisfiesRule(approval, rule, { from_stage, currentRevis
  * them. Both call sites use THIS, so neither assembles its own view of what a
  * version approval means.
  */
-export async function loadVersionApproval(db, recordId, track, currentRevision) {
+export async function loadVersionApproval(db, recordId, track, currentRevision, currentPayload) {
+  // `inputs` joins the select: Round 41 decides supersession by diffing the
+  // version's own pricing snapshot against the record's current pricing, so the
+  // snapshot has to come back with the row.
   const { data: versions, error: vErr } = await db
     .from('deal_sheet_versions')
-    .select('id, major, minor, revision_number')
+    .select('id, major, minor, revision_number, inputs')
     .eq('record_id', recordId)
   if (vErr) return { error: vErr }
 
@@ -139,7 +142,7 @@ export async function loadVersionApproval(db, recordId, track, currentRevision) 
 
   return {
     versionApproval: liveVersionApproval({
-      track, versions: versions ?? [], approvals: approvals ?? [], latestRevision: currentRevision,
+      track, versions: versions ?? [], approvals: approvals ?? [], latestRevision: currentRevision, currentPayload,
     }),
   }
 }
@@ -258,7 +261,7 @@ export async function computeBlocking(db, record, from_stage, to_stage, currentR
       // entirely for a workflow type: the request has already answered.
       let versionApproval
       if (scope === VERSION_SCOPE && requestApprovals === undefined) {
-        const loaded = await loadVersionApproval(db, record.id, track, currentRevision)
+        const loaded = await loadVersionApproval(db, record.id, track, currentRevision, revPayload)
         if (loaded.error) return { error: loaded.error }
         versionApproval = loaded.versionApproval
       }

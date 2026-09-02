@@ -150,11 +150,16 @@ export default async function transitionRequestRoutes(app) {
       }
 
       if (needsIssuedVersion(record.record_type, record.status, to_stage)) {
+        // `inputs` is now part of the select, because the staleness question is
+        // answered against the version's own pricing snapshot rather than
+        // against a revision number. Round 41.
         const { data: versions, error: vErr } = await db
-          .from('deal_sheet_versions').select('id, status, revision_number, major, minor')
+          .from('deal_sheet_versions').select('id, status, revision_number, major, minor, inputs')
           .eq('record_id', record.id)
         if (vErr) return reply.code(500).send({ error: vErr.message })
-        const issued = issuedProposal(versions, rev.revision_number)
+        // rev.payload, not rev.revision_number. The route already loaded the
+        // record's current revision row for the freeze, so this costs no read.
+        const issued = issuedProposal(versions, rev.payload)
         // W-K: `notice` travels with the refusal so the screen can style it as
         // one. It is still a 409 and still refuses; what changes is that the
         // client stops rendering a precondition doing its job in the same red as

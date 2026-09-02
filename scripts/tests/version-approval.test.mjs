@@ -10,17 +10,29 @@ const approvedAt = (n, extra = {}) => ({
   revision_number: n, track: APPROVAL_TRACK, decision: 'approved',
   approver_id: 'u1', decided_at: '2026-08-29T10:00:00Z', ...extra,
 })
-const V = (n) => ({ revision_number: n, major: 0, minor: 1 })
+// ── ROUND 41: THE MEASURE IS THE PRICE, NOT THE REVISION NUMBER ──────────
+//
+// A version now carries the pricing snapshot it froze, because that snapshot is
+// what supersession is decided against. `SAME` is a record whose pricing still
+// matches what V() froze; `MOVED` is one where a pricing DECISION changed.
+const V = (n, inputs = { contractValue: 100, targetMargin: 30 }) =>
+  ({ revision_number: n, major: 0, minor: 1, inputs })
+
+const SAME = Object.freeze({ contractValue: 100, targetMargin: 30 })
+const MOVED = Object.freeze({ contractValue: 250, targetMargin: 30 })
+
+// A save that is not a pricing decision: the record moves, the price does not.
+const NON_PRICING = Object.freeze({ contractValue: 100, targetMargin: 30, estCloseDate: '2026-12-01' })
 
 test('a version nobody has decided on is not approved', () => {
-  assert.equal(versionApprovalState(V(4), [], 4).state, 'none')
+  assert.equal(versionApprovalState(V(4), [], 4, APPROVAL_TRACK, SAME).state, 'none')
 })
 
-test('approved, and the record has not moved', () => {
-  const s = versionApprovalState(V(4), [approvedAt(4)], 4)
+test('approved, and the PRICE has not moved', () => {
+  const s = versionApprovalState(V(4), [approvedAt(4)], 4, APPROVAL_TRACK, SAME)
   assert.equal(s.state, 'approved')
   assert.equal(s.revisionApproved, 4)
-  assert.equal(s.revisionsSince, 0)
+  assert.deepEqual(s.changedKeys, [])
   assert.equal(s.approverId, 'u1')
 })
 
@@ -28,21 +40,62 @@ test('approved, and the record has not moved', () => {
 // The rule the whole column exists for
 // ─────────────────────────────────────────────────────────────
 
-test('ONE revision after approval voids it', () => {
-  const s = versionApprovalState(V(4), [approvedAt(4)], 5)
+// ── SUPERSEDED 2026-09-02, ROUND 41, AND THE OLD WORDING IS LEFT VISIBLE ──
+//
+// These two read "ONE revision after approval voids it" and "it stays void
+// however far the record moves", asserting `revisionsSince` of 1 and 36.
+//
+// THE PROPERTY THEY PROTECTED SURVIVES INTACT: an approval that no longer
+// describes the screen must never read as approved. What changed is what "the
+// screen" means. A revision bumps on a contact, an exit tick, a score or a
+// date, none of which touch the price, so the old measure voided approvals over
+// edits an approver would not have cared about - and on TT-SGP-SMARTC-112 the
+// eleven revisions since V1 included the version's OWN issue, 674ms later, so a
+// version superseded itself at birth.
+//
+// The measure is now the pricing snapshot the version froze. Both directions are
+// asserted below, because a rule that can only fire one way is not a rule.
+
+test('ONE pricing decision changed after approval voids it', () => {
+  const s = versionApprovalState(V(4), [approvedAt(4)], 5, APPROVAL_TRACK, MOVED)
   assert.equal(s.state, 'superseded',
-    'an approval that no longer describes the screen must never read as approved')
-  assert.equal(s.revisionsSince, 1)
+    'an approval that no longer describes the price must never read as approved')
+  assert.deepEqual(s.changedKeys, ['contractValue'],
+    'and it names WHICH decision moved, because that is what an approver needs')
 })
 
 test('and it stays void however far the record moves', () => {
-  assert.equal(versionApprovalState(V(4), [approvedAt(4)], 40).state, 'superseded')
-  assert.equal(versionApprovalState(V(4), [approvedAt(4)], 40).revisionsSince, 36)
+  assert.equal(versionApprovalState(V(4), [approvedAt(4)], 40, APPROVAL_TRACK, MOVED).state, 'superseded')
+})
+
+test('a NON-PRICING save does not void an approval, however many land', () => {
+  // The calibration that makes the rule above a rule rather than a constant.
+  // Ticking an exit criterion is a revision, and it is not a price.
+  assert.equal(versionApprovalState(V(4), [approvedAt(4)], 40, APPROVAL_TRACK, NON_PRICING).state, 'approved',
+    'the record moving is not the deal being re-priced')
+})
+
+test('a FROZEN CATALOG RATE is not a pricing decision', () => {
+  // Ruled 2026-09-02: catalog batch rates are a default applied at creation.
+  // After that the opportunity owns its price, and a batch turnover does not
+  // supersede an issued version. The record never stores these six keys, so
+  // without the exclusion every version would read superseded against every
+  // record - Verification 14, a comparison with nothing on one side.
+  const withRates = V(4, { contractValue: 100, targetMargin: 30, ssUnitCost: 900, hoAqm: 12 })
+  assert.equal(versionApprovalState(withRates, [approvedAt(4)], 40, APPROVAL_TRACK, SAME).state, 'approved')
+})
+
+test('no current pricing means UNKNOWN, never a guess in either direction', () => {
+  // Verification 14. A comparison reached with nothing on one side says so.
+  const s = versionApprovalState(V(4), [approvedAt(4)], 5)
+  assert.equal(s.state, 'unknown',
+    'reading it as approved would claim currency nobody checked; as superseded '
+    + 'would reinstate the false alarm this change removes')
 })
 
 test('a later approval at the CURRENT revision is a fresh approval', () => {
   // The remedy the superseded state names: take a new version, approve it.
-  const s = versionApprovalState(V(9), [approvedAt(4), approvedAt(9)], 9)
+  const s = versionApprovalState(V(9), [approvedAt(4), approvedAt(9)], 9, APPROVAL_TRACK, SAME)
   assert.equal(s.state, 'approved')
 })
 
@@ -122,30 +175,43 @@ test('a rejected version is not a baseline', () => {
 // The fix was deletion rather than reconciliation, so these lock the property
 // that makes it a deletion: there is one function, and the gate calls it.
 
-test('live when a version is approved and nothing has moved', () => {
+test('live when a version is approved and the price has not moved', () => {
   const r = liveVersionApproval({
-    track: APPROVAL_TRACK, versions: [V(4)], approvals: [approvedAt(4)], latestRevision: 4,
+    track: APPROVAL_TRACK, versions: [V(4)], approvals: [approvedAt(4)], latestRevision: 4, currentPayload: SAME,
   })
   assert.equal(r.live, true)
   assert.equal(r.state, 'approved')
   assert.match(r.reason, /nothing has changed since/)
 })
 
-test('NOT live the moment the record moves', () => {
+test('NOT live the moment the PRICE moves', () => {
+  // Superseded wording, Round 41: this asserted /moved on 1 save since/. The
+  // property it protected is that the gate closes and the sentence tells the
+  // reader what to do; the save count was never the thing that mattered.
   const r = liveVersionApproval({
-    track: APPROVAL_TRACK, versions: [V(4)], approvals: [approvedAt(4)], latestRevision: 5,
+    track: APPROVAL_TRACK, versions: [V(4)], approvals: [approvedAt(4)], latestRevision: 5, currentPayload: MOVED,
   })
   assert.equal(r.live, false)
   assert.equal(r.state, 'superseded')
-  assert.match(r.reason, /moved on 1 save since/)
+  assert.match(r.reason, /the pricing has changed since: contractValue/)
   assert.match(r.reason, /Take a new version/)
+})
+
+test('a save that is not a price leaves the gate OPEN', () => {
+  // The direction that was wrong before this round, and the reason for it: an
+  // exit tick used to close a Commercial gate.
+  const r = liveVersionApproval({
+    track: APPROVAL_TRACK, versions: [V(4)], approvals: [approvedAt(4)], latestRevision: 40, currentPayload: NON_PRICING,
+  })
+  assert.equal(r.live, true)
+  assert.equal(r.state, 'approved')
 })
 
 test('"nobody approved a version" and "the deal moved" are DIFFERENT answers', () => {
   // They need different actions from the person reading a blocked gate, and a
   // single "not approved" message would send them to the wrong one.
-  const none = liveVersionApproval({ track: APPROVAL_TRACK, versions: [], approvals: [approvedAt(4)], latestRevision: 4 })
-  const superseded = liveVersionApproval({ track: APPROVAL_TRACK, versions: [V(4)], approvals: [approvedAt(4)], latestRevision: 9 })
+  const none = liveVersionApproval({ track: APPROVAL_TRACK, versions: [], approvals: [approvedAt(4)], latestRevision: 4, currentPayload: SAME })
+  const superseded = liveVersionApproval({ track: APPROVAL_TRACK, versions: [V(4)], approvals: [approvedAt(4)], latestRevision: 9, currentPayload: MOVED })
   assert.equal(none.state, 'none')
   assert.equal(superseded.state, 'superseded')
   assert.notEqual(none.reason, superseded.reason)
@@ -155,13 +221,13 @@ test('"nobody approved a version" and "the deal moved" are DIFFERENT answers', (
 test('an approval on another track cannot make this one live', () => {
   const legal = approvedAt(4, { track: 'Legal' })
   assert.equal(liveVersionApproval({
-    track: 'Commercial', versions: [V(4)], approvals: [legal], latestRevision: 4,
+    track: 'Commercial', versions: [V(4)], approvals: [legal], latestRevision: 4, currentPayload: SAME,
   }).live, false)
 })
 
 test('the track is honoured, so one evaluator serves every track', () => {
   const legal = approvedAt(4, { track: 'Legal' })
   assert.equal(liveVersionApproval({
-    track: 'Legal', versions: [V(4)], approvals: [legal], latestRevision: 4,
+    track: 'Legal', versions: [V(4)], approvals: [legal], latestRevision: 4, currentPayload: SAME,
   }).live, true)
 })

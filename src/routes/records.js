@@ -190,9 +190,11 @@ export default async function recordsRoutes(app) {
       ? rulesQuery.or(`variant.is.null,variant.eq.${record.variant}`)
       : rulesQuery.is('variant', null)
 
+    // `payload` joins the select for the version-scoped approval evaluator:
+    // Round 41 decides supersession by comparing pricing, not revision numbers.
     const { data: revRow } = await db
       .from('record_revisions')
-      .select('revision_number')
+      .select('revision_number, payload')
       .eq('record_id', record.id)
       .order('revision_number', { ascending: false })
       .limit(1)
@@ -286,7 +288,7 @@ export default async function recordsRoutes(app) {
       .filter((r) => r.requirement_type === 'approval_obtained' && ruleScope(r) === VERSION_SCOPE)
       .map((r) => r.requirement_detail?.track)
       .filter(Boolean))) {
-      const loaded = await loadVersionApproval(db, record.id, track, currentRevision)
+      const loaded = await loadVersionApproval(db, record.id, track, currentRevision, revRow?.payload)
       if (loaded.error) return reply.code(500).send({ error: loaded.error.message })
       versionApprovals[track] = loaded.versionApproval
     }

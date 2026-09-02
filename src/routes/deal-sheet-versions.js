@@ -53,7 +53,7 @@ export default async function dealSheetVersionsRoutes(app) {
     const db = createUserClient(request.jwt)
     const { data, error } = await db
       .from('deal_sheet_versions')
-      .select('id, major, minor, status, reason, sections, batch_id, revision_number, created_by, created_by_email, created_at, issued_by, issued_by_email, issued_at')
+      .select('id, major, minor, status, reason, sections, batch_id, revision_number, inputs, created_by, created_by_email, created_at, issued_by, issued_by_email, issued_at')
       .eq('record_id', request.params.id)
       .order('major', { ascending: false })
       .order('minor', { ascending: false })
@@ -68,9 +68,13 @@ export default async function dealSheetVersionsRoutes(app) {
     // The two facts the approval state is derived from. Both reads are checked:
     // an unchecked read here would make "no approvals" and "the query failed"
     // the same answer, and the second one renders as an unapproved deal.
+    // `payload` joins the select: Round 41 decoupled supersession from the
+    // revision number, so the state is derived by comparing the version's own
+    // pricing snapshot against the record's current pricing. Same read, one more
+    // column.
     const { data: latestRev, error: revErr } = await db
       .from('record_revisions')
-      .select('revision_number')
+      .select('revision_number, payload')
       .eq('record_id', request.params.id)
       .order('revision_number', { ascending: false })
       .limit(1)
@@ -94,7 +98,11 @@ export default async function dealSheetVersionsRoutes(app) {
     return versions.map((v) => ({
       ...v,
       // Derived on every read, never stored. See src/lib/version-approval.js.
-      approval: versionApprovalState(v, approvals ?? [], latest),
+      // NOT `?? {}`. An empty payload is not "no pricing recorded", it is a
+      // comparison with nothing on one side, and it would read as either a
+      // false supersede or a false all-clear depending on which side is empty.
+      // Absent means absent: versionApprovalState answers 'unknown'.
+      approval: versionApprovalState(v, approvals ?? [], latest, APPROVAL_TRACK, latestRev?.payload),
     }))
   })
 
@@ -172,10 +180,10 @@ export default async function dealSheetVersionsRoutes(app) {
     // functions underneath it. Two paths, agreeing today. The page takes the
     // version it returns as block 2's baseline and its detail as the state.
     const live = liveVersionApproval({
-      track: APPROVAL_TRACK, versions: versions ?? [], approvals: approvals ?? [], latestRevision: latestNumber,
+      track: APPROVAL_TRACK, versions: versions ?? [], approvals: approvals ?? [], latestRevision: latestNumber, currentPayload: latest.payload,
     })
     const baseline = live.version
-      ? { ...live.version, approval: live.detail ?? versionApprovalState(live.version, approvals ?? [], latestNumber) }
+      ? { ...live.version, approval: live.detail ?? versionApprovalState(live.version, approvals ?? [], latestNumber, APPROVAL_TRACK, latest.payload) }
       : null
 
     // WHEN THE TARGET LAST MOVED. Walking newest to oldest, the first revision
@@ -204,7 +212,7 @@ export default async function dealSheetVersionsRoutes(app) {
       payload,
       testBedCost: details?.test_bed_cost ?? 0,
       version: version
-        ? { ...version, approval: versionApprovalState(version, approvals ?? [], latestNumber) }
+        ? { ...version, approval: versionApprovalState(version, approvals ?? [], latestNumber, APPROVAL_TRACK, latest.payload) }
         : null,
       baseline,
       targetChangedAt,

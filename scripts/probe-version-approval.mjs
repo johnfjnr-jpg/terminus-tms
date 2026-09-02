@@ -153,21 +153,45 @@ const approvedState = await stateOf(vid)
 record('approving that revision approves the version', approvedState === 'approved',
   `state=${approvedState}`)
 
-// ── The rule: ONE revision after approval voids it ─────────────────────────
+// ── THE CALIBRATION THAT WAS MISSING, and it is the direction Round 41 fixed.
+//
+// A save that is not a pricing decision must NOT void an approval. Before this
+// round it did, and nothing here asked: the probe only ever saved targetMargin,
+// so it exercised the supersede and never the hold. Verification 24's shape -
+// a rule only ever run in the direction that fires.
+const holdBefore = await stateOf(vid)
+const nonPricing = await api('PATCH', `/opportunities/${oppId}`,
+  // `customerLead` is free text on the Reference tab: writable through this
+  // PATCH, and not one of the 32 keys a version snapshot carries.
+  { payload: { customerLead: 'a name, not a price' }, expected_revision: await rev() })
+record('a NON-pricing save lands', nonPricing.status === 200,
+  `-> ${nonPricing.status} revision ${nonPricing.data?.revision_number}`)
+const holdAfter = await stateOf(vid)
+record('a non-pricing save does NOT void the approval',
+  holdBefore === 'approved' && holdAfter === 'approved',
+  `${holdBefore} -> ${holdAfter} (an exit tick or a date is not a re-price)`)
+
+// ── The rule: ONE PRICING DECISION after approval voids it ─────────────────
 const before = await stateOf(vid)
 const bump = await api('PATCH', `/opportunities/${oppId}`,
   { payload: { targetMargin: 24 }, expected_revision: await rev() })
 record('a save lands', bump.status === 200, `-> ${bump.status} revision ${bump.data?.revision_number}`)
 const after = await stateOf(vid)
 
-record('ONE revision after approval voids it',
+record('ONE pricing decision after approval voids it',
   before === 'approved' && after === 'superseded',
   `${before} -> ${after}`)
 
+// ── RESTATED, ROUND 41. This asserted `revisionsSince === 1`.
+//
+// The property it protected was that the page can tell the reader why the
+// approval no longer holds. The save count never did that: on the walk record it
+// said "11 saves" for a price that had not moved at all. The page now names WHAT
+// moved, which is the same property answered honestly.
 const supersededRow = (await versions()).find((v) => v.id === vid)
-record('and the page can say how far it has moved',
-  supersededRow?.approval?.revisionsSince === 1,
-  `revisionsSince=${supersededRow?.approval?.revisionsSince}`)
+record('and the page can say WHAT moved',
+  JSON.stringify(supersededRow?.approval?.changedKeys) === JSON.stringify(['targetMargin']),
+  `changedKeys=${JSON.stringify(supersededRow?.approval?.changedKeys)}`)
 
 // ── The remedy the state names: a new version, approved ────────────────────
 const nowRev = await rev()

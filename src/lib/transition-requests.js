@@ -1,3 +1,5 @@
+import { pricingChanged, namedChangedKeys } from './version-pricing.js';
+
 /**
  * The stage approvals workflow, as decisions rather than as queries.
  *
@@ -104,7 +106,14 @@ export function mayDecide(request, userId, approvers, track, recordId) {
  * @param {Array} versions every deal_sheet_version for the record
  * @param {number} currentRevision
  */
-export function issuedProposal(versions, currentRevision) {
+/**
+ * @param {Array}  versions
+ * @param {object} currentPayload - the record's payload NOW. Round 41: this was
+ *   `currentRevision`, a number, and subtracting revisions is the coupling the
+ *   business has ruled out. See src/lib/version-pricing.js for the line between
+ *   a pricing decision and a frozen rate.
+ */
+export function issuedProposal(versions, currentPayload) {
   const issued = (versions ?? [])
     .filter((v) => v.status === 'issued' && Number.isInteger(v.revision_number))
     .sort((a, b) => b.revision_number - a.revision_number)[0];
@@ -132,14 +141,37 @@ export function issuedProposal(versions, currentRevision) {
   // than an error. The kind is decided here rather than by the caller matching
   // on the text, which is Verification 43's shape: the surface reads the state
   // the rule produced instead of re-deriving it from a sentence.
-  if (currentRevision > issued.revision_number) {
-    const moves = currentRevision - issued.revision_number;
+  // ── COMPARED ON PRICING, NOT ON REVISIONS. Round 41 ────────────────────
+  //
+  // This read `currentRevision > issued.revision_number`, and on
+  // TT-SGP-SMARTC-112 that counted ELEVEN saves - none of which touched a
+  // pricing field, and one of which was the issue itself, 674ms later.
+  //
+  // The sentence changes with the question. It no longer counts saves, because
+  // the number of saves is not the reason: it names what moved.
+  //
+  // W-K'S RULING IS PRESERVED: the sentence still LEADS with the action. Naming
+  // what moved is added after it, not in front of it, because a person who has
+  // just taken a version needs to be told to issue it before they are told why.
+  const moved = pricingChanged(issued.inputs, currentPayload);
+  if (!moved.comparable) {
+    // NOT a silent pass. A version with no snapshot, or a caller with no current
+    // pricing, cannot answer "is this still the price" - and a transition
+    // request freezes a price, so the honest move is to refuse and say why.
     return {
       ok: false, notice: true, version: issued,
-      reason: `Issue the latest draft before requesting this transition. `
-        + `${moves} save${moves === 1 ? ' has' : 's have'} landed since `
-        + `${issued.major ? `V${issued.major}` : 'the issued version'} was issued, and a request freezes `
-        + 'what was issued rather than what is on screen. Taking a version is not enough: it has to be issued.',
+      reason: 'This deal sheet version records no pricing, so there is no way to tell whether the '
+        + 'price on screen is the one that was issued. Take a fresh version from current pricing '
+        + 'and issue it before requesting this transition.',
+    };
+  }
+  if (moved.changed) {
+    const named = namedChangedKeys(moved.keys);
+    return {
+      ok: false, notice: true, version: issued,
+      reason: 'Issue the latest draft before requesting this transition: the pricing has changed '
+        + `since the issued version (${named}), and a request freezes what was issued rather than `
+        + 'what is on screen. Taking a version is not enough, it has to be issued.',
     };
   }
   const laterDraft = (versions ?? []).some((v) =>
