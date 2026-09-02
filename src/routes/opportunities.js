@@ -786,7 +786,17 @@ export default async function opportunitiesRoutes(app) {
       return sendWriteError(reply, revErr)
     }
 
-    return reply.send({ record_id: record.id, revision_number: newRevision.revision_number, payload: newRevision.payload })
+    // `record_revision_number` is the key the client's adoption hook reads, and
+    // ONLY a response that advanced the record may set it. `revision_number` is
+    // kept beside it for the callers that already read it, but it is no longer
+    // what the hook trusts: a deal_sheet_versions row carries that name too and
+    // means something else by it. T4, 2026-09-02.
+    return reply.send({
+      record_id: record.id,
+      revision_number: newRevision.revision_number,
+      record_revision_number: newRevision.revision_number,
+      payload: newRevision.payload,
+    })
   })
 
   // POST /api/opportunities/:id/link-account removed entirely
@@ -957,6 +967,7 @@ export default async function opportunitiesRoutes(app) {
     return reply.send({
       record_id: request.params.id,
       revision_number: newRevision.revision_number,
+      record_revision_number: newRevision.revision_number,
       payload: newRevision.payload,
       forecast_close_date: date.trim(),
     })
@@ -1169,6 +1180,7 @@ export default async function opportunitiesRoutes(app) {
       entry, entries: existing.length + 1,
       record_id: record.id,
       revision_number: newRevision?.revision_number ?? null,
+      record_revision_number: newRevision?.revision_number ?? null,
     })
   })
 

@@ -5094,6 +5094,10 @@ input.input-invalid {
    button clickable again had `disabled` not also been set on it. */
 .is-frozen .freeze-banner .is-pending { opacity: 0.55; pointer-events: none; cursor: progress; }
 
+/* T4: the reload offered inside a stale-write message. It sits in a sentence
+   rather than beside one, so it is spaced as part of the line. */
+.stale-reload { margin-left: 8px; vertical-align: baseline; }
+
 /* ── THE OPPORTUNITY TABLE. Internal review item 3 ─────────────────────────
    One line per opportunity, columns aligned across every row. The scroll
    container is on the table's wrapper rather than the page, so eight columns at

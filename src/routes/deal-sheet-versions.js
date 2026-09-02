@@ -659,7 +659,7 @@ export default async function dealSheetVersionsRoutes(app) {
     // Storing the revision issued at makes the value falsifiable by a reader,
     // and the version-create route clears it when a new draft supersedes this
     // one. issuedProposal remains the enforcement; this is the label.
-    const { error: markErr } = await appendRecordRevision(
+    const { data: markRevision, error: markErr } = await appendRecordRevision(
       db, version.record_id, { proposalIssued: version.revision_number ?? null }, request.user.id, [],
       SINGLE_KEY_RMW)
     if (markErr) {
@@ -678,7 +678,18 @@ export default async function dealSheetVersionsRoutes(app) {
       detail: { version_id: version.id, from: `V${version.major}.${version.minor}`, to: `V${highestIssued + 1}` },
     })
 
-    return updated[0]
+    // ── THE ROW IS A VERSION, AND THE RECORD ALSO MOVED. T4 ───────────────
+    //
+    // `updated[0]` is a deal_sheet_versions row and carries its own
+    // `revision_number`, meaning the revision the version was TAKEN at. The
+    // client's hook used to read that name and was left one revision behind on
+    // every issue, which refused the next save of either kind.
+    //
+    // The hook now reads `record_revision_number` and a version row cannot
+    // carry it, so this response is already safe. It is set here anyway,
+    // because this route DID advance the record and the screen should follow
+    // it: safe and stale is still stale.
+    return { ...updated[0], record_revision_number: markRevision?.revision_number ?? null }
   })
 
   // RESTORE, not a read-only view. It overwrites the current pricing, which is

@@ -250,6 +250,9 @@ export async function recordScoreEntry({ db, recordType, recordId, body, user, m
       criterion: crit.criterion_key, entry, entries: existing.length + 1,
       record_id: record.id,
       revision_number: newRevision?.revision_number ?? null,
+      // T4: the key the adoption hook trusts. Only a response that ADVANCED the
+      // record may set it, which a version-shaped row never can.
+      record_revision_number: newRevision?.revision_number ?? null,
     },
   }
 }

@@ -332,6 +332,10 @@ export default async function dealsRoutes(app) {
       },
     });
 
-    return reply.send({ ...serverResult, revision_number: newRevision.revision_number });
+    return reply.send({
+      ...serverResult,
+      revision_number: newRevision.revision_number,
+      record_revision_number: newRevision.revision_number,
+    });
   });
 }

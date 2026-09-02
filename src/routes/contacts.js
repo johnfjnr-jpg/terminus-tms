@@ -377,7 +377,9 @@ export default async function contactsRoutes(app) {
       writtenRevision = newRevision?.revision_number ?? null
     }
 
-    return reply.send({ ok: true, revision_number: writtenRevision })
+    // T4: `record_revision_number` is the name the client's adoption hook
+    // trusts, set only by a response that advanced the record.
+    return reply.send({ ok: true, revision_number: writtenRevision, record_revision_number: writtenRevision })
   })
 
   // POST /api/contacts/:id/link-account
@@ -545,7 +547,7 @@ export default async function contactsRoutes(app) {
     // this read. Two writers prepending a note to the SAME record can still
     // lose one, which is same-key last-writer-wins and is Phase 2's concern,
     // not this one.
-    const { error: revErr } = await appendRecordRevision(
+    const { data: noteRevision, error: revErr } = await appendRecordRevision(
       db, contact.id, { notes: [note, ...(revRow?.payload?.notes ?? [])] }, request.user.id, [],
       // Additive: a note prepend.
       SINGLE_KEY_RMW)
@@ -560,7 +562,10 @@ export default async function contactsRoutes(app) {
       detail: { account_id: resolvedAccountId, account_name: accountName }
     })
 
-    return reply.send({ ok: true, account_id: resolvedAccountId, account_name: accountName })
+    // T4: this route appends a revision, so it says so with the one key the
+    // client's adoption hook trusts.
+    return reply.send({ ok: true, account_id: resolvedAccountId, account_name: accountName,
+      record_revision_number: noteRevision?.revision_number ?? null })
   })
 
   // DELETE /api/contacts/:id — soft delete only. record_revisions and

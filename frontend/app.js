@@ -1920,17 +1920,42 @@ function noteRevisionFromResponse(path, data) {
   // answers `revision_number`, the approval page answers `meta.revisionNumber`,
   // and a read answers `latest_revision_number`. Each was correct in its own
   // route and none of them agreed.
-  const rev = data?.revision_number ?? data?.meta?.revisionNumber ?? data?.latest_revision_number
+  //
+  // ── AND `revision_number` IS NO LONGER ONE OF THEM. T4, 2026-09-02 ──────
+  //
+  // A bare `revision_number` is AMBIGUOUS: a `deal_sheet_versions` row has one
+  // too, and it means the revision the version was TAKEN at. Measured:
+  // `POST /deal-sheet-versions/:vid/issue` appends a revision to the RECORD and
+  // returns the version row via `.select()`, so the response carried
+  // `record_id` - passing the guard below - AND a `revision_number` at or below
+  // the current one. The forward-only rule correctly rejected it, and the
+  // holder was left exactly one revision behind. The next save of either kind
+  // was refused with "This record changed since the screen loaded".
+  //
+  // THE CORRECTNESS IS AT THE READER, NOT THE N WRITERS. Ruled by the business,
+  // and it is the round's recurring shape one more time: a rule that every
+  // route must remember to omit or translate a field is a rule that will be
+  // broken by the next route. So the hook DEMANDS a name that means only one
+  // thing, and a version-shaped response simply does not match.
+  //
+  //   record_revision_number   only a record-ADVANCING response sets it
+  //   latest_revision_number   only a record READ sets it
+  //   meta.revisionNumber      the approval page's read, same fact
+  //
+  // A version row can carry none of the three.
+  const advanced = data?.record_revision_number
+  const read = data?.latest_revision_number ?? data?.meta?.revisionNumber
+  const rev = Number.isInteger(advanced) ? advanced : read
   if (!Number.isInteger(rev)) return
   if (!currentOppDetailId) return
   // The response may name its own record. When it does, trust that; when it
   // does not, the path has to mention the record we are tracking.
   const named = data?.record_id
   if (named ? named !== currentOppDetailId : !String(path).includes(currentOppDetailId)) return
-  // 'read' when the response carries no revision_number of its own: that is a
-  // GET reporting where the record actually is, which is the case that must
-  // warn. A write's own response is this session catching up with itself.
-  window.setOppLoadedRevision(rev, { source: data?.revision_number === undefined ? 'read' : 'write' })
+  // 'read' when nothing ADVANCED the record: that is a GET reporting where the
+  // record actually is, which is the case that must warn. A write's own
+  // response is this session catching up with itself.
+  window.setOppLoadedRevision(rev, { source: Number.isInteger(advanced) ? 'write' : 'read' })
 }
 
 // ── "Mine" toggle ─────────────────────────────────────────────────────────────
@@ -6800,6 +6825,44 @@ window.OPP_PULSE_INTERVAL_MS = OPP_PULSE_INTERVAL_MS
 window.__oppLoadedRevision = () => oppLoadedRevision
 window.__oppCurrentStage = () => currentOppStage
 window.__oppFreshnessAt = () => oppFreshnessAt
+// A read-only seam for the adoption calibration: it feeds the hook a
+// version-shaped response directly, which is the one case that cannot be
+// produced through a route now that every route reports correctly.
+window.__noteRevisionForTest = (path, data) => noteRevisionFromResponse(path, data)
+
+// ── WHAT A STALE WRITE SAYS TO A PERSON. T4, 2026-09-02 ───────────────────
+//
+// The server's own text carries the two revision numbers and stays exactly as
+// it is: it is the precise record, and it is what a log or an API consumer
+// needs. This is the sentence a PERSON reads, and after the class fix it is
+// only ever true of a genuine second editor.
+//
+// IT USED TO BE SAID FOR THE USER'S OWN EDIT. Issuing a version advanced the
+// record and left this screen's held revision behind, so the next save was
+// refused with "this record changed since the screen loaded" four seconds after
+// the person had changed it themselves. That is fixed at the adoption hook, not
+// worded around: the message is now reserved for the case it describes.
+//
+// AND IT DOES NOT SAY "reload and try again". Reload is what the person must
+// do, but "try again" is advice for a transient failure and this is not one -
+// their typed work is still on screen and a reload discards it. The sentence
+// says what happened, what to do, and that their own entry has to be re-made.
+const STALE_WRITE_MESSAGE =
+  'This record changed since you loaded it. Reload to see the change, then re-enter yours.'
+
+window.reloadAfterStaleWrite = async function (recordId) {
+  const btn = document.querySelector('.stale-reload')
+  if (btn) { btn.textContent = 'Reloading...'; btn.disabled = true }
+  await loadOpportunityDetail(recordId)
+}
+
+// One renderer, so the two surfaces that can hit a stale write cannot word it
+// differently or offer the control on only one of them.
+window.staleWriteHtml = function (recordId) {
+  return `${escHtml(STALE_WRITE_MESSAGE)} `
+    + `<button class="btn-sm stale-reload" type="button" `
+    + `onclick="reloadAfterStaleWrite('${recordId}')">Reload this record</button>`
+}
 
 function stopOppPulse() {
   if (oppPulseTimer) clearInterval(oppPulseTimer)

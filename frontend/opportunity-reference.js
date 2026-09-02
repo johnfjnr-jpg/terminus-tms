@@ -900,9 +900,16 @@ async function performGenericRefSave(dirtyEntries) {
 
   const result = await window.oppPatch(refOpportunityId, { payload: payloadUpdate })
   if (!result.ok) {
-    feedback.textContent = result.status === 409
-      ? (result.data?.error ?? 'This Opportunity changed since the screen loaded. Reload before saving.')
-      : (result.data?.error ?? 'Failed to save.')
+    // T4: THE SAME SENTENCE AND THE SAME CONTROL as the Commercials save, from
+    // the one renderer. This surface carried its own copy of the wording -
+    // "This Opportunity changed since the screen loaded. Reload before saving."
+    // - which is Verification 20 in a string: two surfaces describing one event
+    // in two ways, and only one of them would ever have been updated.
+    if (result.status === 409) {
+      feedback.innerHTML = window.staleWriteHtml(refOpportunityId)
+    } else {
+      feedback.textContent = result.data?.error ?? 'Failed to save.'
+    }
     feedback.className = 'msg-error'
     return
   }

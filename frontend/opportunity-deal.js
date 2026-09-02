@@ -2348,9 +2348,15 @@ async function saveDeal() {
   if (!result.ok) {
     // A stale write is answered 409 and says what to do about it. Shown, never
     // silently merged, which is the whole point of the precondition.
-    feedback.textContent = result.data?.stale
-      ? result.data.error
-      : (result.data?.error ?? 'Failed to save.')
+    //
+    // T4: the SERVER's sentence carries the revision numbers and is right for a
+    // log. This is what a person reads, through the one renderer both surfaces
+    // use, and it offers the reload rather than describing it.
+    if (result.data?.stale) {
+      feedback.innerHTML = window.staleWriteHtml(opportunityId)
+    } else {
+      feedback.textContent = result.data?.error ?? 'Failed to save.'
+    }
     feedback.className = 'msg-error'
     return false
   }

@@ -481,6 +481,8 @@ export default async function accountsRoutes(app) {
     // without a second read. Without this the very next save from the same
     // screen would send a revision the record has already left, and every
     // second save would 409.
-    return reply.send({ ok: true, revision_number: writtenRevision })
+    // T4: `record_revision_number` is the name the client's adoption hook
+    // trusts, set only by a response that advanced the record.
+    return reply.send({ ok: true, revision_number: writtenRevision, record_revision_number: writtenRevision })
   })
 }

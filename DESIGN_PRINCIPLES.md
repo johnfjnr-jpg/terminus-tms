@@ -8745,3 +8745,102 @@ the route, which removes the refusal rather than rewording it; then reword what
 remains, because "this record changed since the screen loaded" is false when the
 change was the user's own click four seconds earlier, and "reload" discards work
 that was never in conflict. Held for the business.
+
+---
+
+## T4: ONE FIELD NAME MEANING TWO THINGS, CLOSED AT THE READER
+
+**Ruled by the business 2026-09-02: fix the class at the hook, not the
+instance.**
+
+### The defect
+
+`POST /deal-sheet-versions/:vid/issue` appends a revision to the RECORD
+(`proposalIssued`) and returns `updated[0]`, the `deal_sheet_versions` row, via
+`.select()` with no arguments. That row carries **both** keys the client's
+adoption hook read:
+
+- `record_id`, so the hook's guard passed and it believed the response described
+  this record
+- `revision_number`, which on a version means **the revision it was TAKEN at**
+
+The hook adopted a number at or below the current revision, X3's forward-only
+rule correctly rejected it, and the holder was left exactly one revision behind.
+The next save of either kind was refused.
+
+**Not two readers of one value. ONE NAME MEANING TWO THINGS**, which is worse,
+because both readers were correct about their own object.
+
+### THE CORRECTNESS GOES AT THE SINGLE READER
+
+The business's reasoning, and it is the round's recurring shape one more time:
+
+> **A rule that every route must remember to omit or translate a field is a rule
+> the next route will break. Make the hook demand the name that means only one
+> thing.**
+
+The hook now reads:
+
+| key | set by |
+|---|---|
+| `record_revision_number` | only a response that ADVANCED the record |
+| `latest_revision_number` | only a record READ |
+| `meta.revisionNumber` | the approval page's read, same fact |
+
+**A version row can carry none of the three.** Bare `revision_number` is refused
+outright, and is kept in responses only for the callers that already read it.
+
+### THE AUDIT IS THE WORK, and it ran both directions
+
+Twelve sites append a record revision. **All twelve were missing the key.** All
+twelve now report it, and nothing reports it without appending:
+
+```
+opportunities.js  appends 3  reports 3     contacts.js   appends 2  reports 2
+deals.js          appends 1  reports 1     accounts.js   appends 1  reports 1
+score-entry.js    appends 1  reports 1     test-beds.js  appends 3  reports 3
+deal-sheet-versions.js  appends 1  reports 1
+```
+
+Three of the twelve returned no revision at all and needed the value carried out
+first: `link-account` discarded it, the test-bed series helper never returned it,
+and the units route had `void unitRevision` - **the value was being deliberately
+thrown away.**
+
+**The audit is a TEST, not a one-off pass**, comparing appends to reports per
+file. A route added later that advances a record and forgets the key is the
+defect returning, and it would rot silently otherwise.
+
+### Calibrated both directions
+
+| injection | result |
+|---|---|
+| hook trusts bare `revision_number` again | *a version-shaped response does NOT move the holder* FAILS: held 2 -> 1 |
+| issue route stops reporting the record revision | 3 checks fail, **reproducing the original defect**: held stuck at 2, record at 3, next save 409 |
+
+And green: a record-advancing write advances the holder; a version-shaped
+response leaves it alone; issuing reports `record_revision_number=3` beside the
+version's own `revision_number=2`; the next save returns **200**.
+
+### The message, now that the false case is gone
+
+The refusal used to say *"This record changed since the screen loaded"* **four
+seconds after the person changed it themselves.** That is fixed at the hook
+rather than worded around, so the sentence is now reserved for the case it
+describes: a genuine second editor.
+
+> **This record changed since you loaded it. Reload to see the change, then
+> re-enter yours.**
+
+With a one-click reload in the message. **It does not say "reload and try
+again"**: their typed work is still on screen, a reload discards it, and "try
+again" is advice for a transient failure, which this is not.
+
+**One renderer, used by both surfaces.** Commercials showed the server's text and
+Reference carried its own copy - *"This Opportunity changed since the screen
+loaded. Reload before saving."* - which is Verification 20 in a string: two
+descriptions of one event, only one of which would ever have been updated.
+
+**The server's own message is unchanged and carries the revision numbers.** It is
+the precise record for a log or an API consumer; the sentence above is what a
+person reads. No migration.

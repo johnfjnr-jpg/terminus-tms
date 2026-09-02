@@ -204,3 +204,47 @@ test('W1\'s probe enumerates by behaviour, so it cannot share the rule\'s blind 
   assert.match(probe, /el\.disabled === true \|\| el\.getAttribute\('tabindex'\) === '-1'/,
     'the probe treats pointer-events alone as read-only, which the defect disproved')
 })
+
+// ── T4: THE CORRECTNESS IS AT THE READER, NOT THE N WRITERS ───────────────
+test('every route that appends a record revision reports it, and nothing else does', () => {
+  // THE AUDIT, BOTH DIRECTIONS, as a test rather than as a one-off pass. A
+  // route added later that appends a revision and forgets the key would leave
+  // the screen one revision behind and refuse its next save, which is the
+  // defect this closed.
+  const files = ['src/routes/opportunities.js', 'src/routes/deals.js', 'src/lib/score-entry.js',
+    'src/routes/deal-sheet-versions.js', 'src/routes/contacts.js', 'src/routes/accounts.js',
+    'src/routes/test-beds.js']
+  const gaps = []
+  for (const f of files) {
+    const src = code(f, 'js')
+    const appends = (src.match(/appendRecordRevision\(/g) || []).length
+    const emits = (src.match(/record_revision_number/g) || []).length
+    if (emits < appends) gaps.push(`${f}: appends ${appends}, reports ${emits}`)
+  }
+  assert.deepEqual(gaps, [], 'these files advance a record without reporting the new revision:\n  ' + gaps.join('\n  '))
+})
+
+test('the hook refuses the ambiguous key a version row also carries', () => {
+  const app = code('frontend/app.js', 'js')
+  assert.match(app, /const advanced = data\?\.record_revision_number/)
+  assert.ok(!/const rev = data\?\.revision_number/.test(app),
+    'a bare revision_number is trusted again, and a deal_sheet_versions row carries one')
+})
+
+test('the stale-write message is one sentence, on both surfaces, with a control', () => {
+  const app = code('frontend/app.js', 'js')
+  const deal = code('frontend/opportunity-deal.js', 'js')
+  const ref = code('frontend/opportunity-reference.js', 'js')
+  // RULED wording. It must not say "reload and try again": their work is still
+  // on screen and a reload discards it, and "try again" is advice for a
+  // transient failure, which this is not.
+  assert.match(app, /This record changed since you loaded it\. Reload to see the change, then re-enter yours\./)
+  assert.match(app, /window\.reloadAfterStaleWrite = async function/, 'there is no one-click reload')
+  // ONE RENDERER. Both surfaces had their own wording, which is Verification 20
+  // in a string: two descriptions of one event, only one ever updated.
+  for (const [name, src] of [['Commercials', deal], ['Reference', ref]]) {
+    assert.match(src, /window\.staleWriteHtml\(/, `${name} words the stale refusal itself`)
+  }
+  assert.ok(!/This Opportunity changed since the screen loaded/.test(ref),
+    'the Reference tab still carries its own copy of the wording')
+})

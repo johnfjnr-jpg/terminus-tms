@@ -629,12 +629,34 @@ test('X3: all three spellings of the revision reach the one holder', () => {
   //   replaces comments with whitespace of the same length, so a "sanity bound"
   //   on the slice length was measuring comment volume.
   //
-  // The claim is about ONE expression, so the assertion reads that expression.
-  const line = app.match(/const rev = [^\n]*/)
-  assert.ok(line, 'the reader no longer has a single revision expression')
-  for (const key of ['data?.revision_number', 'data?.meta?.revisionNumber', 'data?.latest_revision_number']) {
-    assert.ok(line[0].includes(key), `the reader does not normalise ${key}: ${line[0]}`)
+  // ── SUPERSEDED BY T4, 2026-09-02, AND `revision_number` IS NOW REFUSED ──
+  //
+  // X3's reasoning is left visible and was right about the problem: one fact
+  // had three spellings and no reader normalised them, so a read never updated
+  // the holder. Its solution was to accept all three.
+  //
+  // MEASURED SINCE: `revision_number` is not a spelling of that fact. A
+  // `deal_sheet_versions` row carries the same NAME and means the revision the
+  // version was TAKEN at, so `POST /deal-sheet-versions/:vid/issue` fed the
+  // reader a plausible, lower, wrong number and left the holder one revision
+  // behind - refusing the next save with "this record changed since the screen
+  // loaded" moments after the person changed it themselves.
+  //
+  // The reader now demands a name that means only one thing. X3's property
+  // survives: one holder, fed by every source, normalised in one expression.
+  const advancedLine = app.match(/const advanced = [^\n]*/)
+  const readLine = app.match(/const read = [^\n]*/)
+  assert.ok(advancedLine && readLine, 'the reader no longer has a single revision expression')
+  assert.ok(advancedLine[0].includes('data?.record_revision_number'),
+    `the write trigger is not the unambiguous key: ${advancedLine[0]}`)
+  for (const key of ['data?.latest_revision_number', 'data?.meta?.revisionNumber']) {
+    assert.ok(readLine[0].includes(key), `the reader does not normalise ${key}: ${readLine[0]}`)
   }
+  // THE AMBIGUOUS ONE IS GONE, which is the whole change. A version row carries
+  // `revision_number`, so accepting it is accepting a number about another
+  // object entirely.
+  assert.ok(!/data\?\.revision_number/.test(advancedLine[0] + readLine[0]),
+    'the reader still accepts a bare revision_number, which a version row also carries')
   // ADOPT AND WARN, never silent-adopt. Ruled.
   assert.match(app, /window\.setOppLoadedRevision = function \(n, \{ source = 'load' \} = \{\}\)/,
     'setOppLoadedRevision does not distinguish a read from a load')

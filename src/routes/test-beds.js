@@ -945,7 +945,9 @@ export default async function testBedsRoutes(app) {
     // controls on one record (notes, install notes, use cases, exit criteria,
     // count corrections, the field form) can each write and stay current
     // without a full reload between them.
-    return reply.send({ ok: true, revision_number: writtenRevision })
+    // T4: `record_revision_number` is the name the client's adoption hook
+    // trusts, set only by a response that advanced the record.
+    return reply.send({ ok: true, revision_number: writtenRevision, record_revision_number: writtenRevision })
   })
 
   // GET /api/test-beds/:id/document-requirements
@@ -1609,14 +1611,16 @@ export default async function testBedsRoutes(app) {
     // Round 17A Phase 1: written through the one atomic writer. Only this
     // series' own key travels, so a concurrent write to a different key of the
     // same record no longer loses either one.
-    const { error: revErr } = await appendRecordRevision(
+    const { data: seriesRevision, error: revErr } = await appendRecordRevision(
       db, recordId, { [key]: [...existing, entry] }, actorId, [],
       // Additive: one series' own key.
       SINGLE_KEY_RMW)
     if (revErr) {
       return writeErrorStatus(revErr)
     }
-    return { ok: true, entries: existing.length + 1, existingCount: existing.length }
+    // T4: carried out so the caller can report it under the trusted key.
+    return { ok: true, entries: existing.length + 1, existingCount: existing.length,
+      revision_number: seriesRevision?.revision_number ?? null }
   }
 
   // POST /api/test-beds/:id/measurability
@@ -1661,7 +1665,9 @@ export default async function testBedsRoutes(app) {
       action: 'measurability_confirmed', actor_id: request.user.id,
       detail: { value: confirmed, stage: entry.stage },
     })
-    return reply.code(201).send({ entry, entries: result.entries })
+    // T4: appends a revision, so it reports the new one under the trusted key.
+    return reply.code(201).send({ entry, entries: result.entries,
+      record_revision_number: result.revision_number ?? null })
   })
 
   // POST /api/test-beds/:id/scores
@@ -1849,7 +1855,7 @@ export default async function testBedsRoutes(app) {
       return reply.code(409).send({ error: insErr.message, stale: true })
     }
     if (insErr) return sendWriteError(reply, insErr)
-    void unitRevision
+
 
     if ('state' in body && body.state !== unit.status) {
       const { error: stErr } = await db.from('records').update({ status: body.state }).eq('id', unit.id)
@@ -1857,7 +1863,10 @@ export default async function testBedsRoutes(app) {
     }
     const { units, error: reErr } = await loadUnits(db, request.params.id)
     if (reErr) return reply.code(500).send({ error: reErr.message })
-    return units.find(u => u.id === unit.id)
+    // T4: the revision advanced belongs to the UNIT record, not the test bed,
+    // and it is reported as such. `void unitRevision` above discarded it.
+    return { ...units.find(u => u.id === unit.id),
+      record_revision_number: unitRevision?.revision_number ?? null }
   })
 
   // GET  /api/test-beds/:id/customer-documents
