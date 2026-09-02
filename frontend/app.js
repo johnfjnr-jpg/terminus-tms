@@ -6575,9 +6575,14 @@ window.__oppPulseStats = { polls: 0, rereads: 0, skippedHidden: 0 }
 // the two values that claim rests on without reaching into module scope or
 // scraping the DOM for them. They expose nothing a signed-in user cannot
 // already see on the page.
+// The freshness the screen was rendered at, held once, beside the revision it
+// is the companion of. Verification 20: one holder, not one per reader.
+let oppFreshnessAt = null
+
 window.OPP_PULSE_INTERVAL_MS = OPP_PULSE_INTERVAL_MS
 window.__oppLoadedRevision = () => oppLoadedRevision
 window.__oppCurrentStage = () => currentOppStage
+window.__oppFreshnessAt = () => oppFreshnessAt
 
 function stopOppPulse() {
   if (oppPulseTimer) clearInterval(oppPulseTimer)
@@ -6609,19 +6614,18 @@ async function oppPulseTick() {
     // poll asked. Same shape as X1's capture-before-rebuild, and it is here for
     // the same reason - the first version of this compared against a value that
     // had already been updated underneath it.
-    const heldWhenAsked = oppLoadedRevision
-    // ── AND THE STAGE, BECAUSE A TRANSITION DOES NOT BUMP THE REVISION ────
+    // ── ONE FACT NOW, AND IT IS THE RECORD'S FRESHNESS ───────────────────
     //
-    // Measured, and it is the finding that would have made this whole feature
-    // useless: POST /records/:id/transition changes `records.status` and writes
-    // NO record_revision. Before / after on a real record, both revision 2,
-    // status Qualification -> Solution Alignment.
+    // This compared the revision and the stage, and that PAIR was a claim about
+    // which events matter. It was wrong three times in one feature: a
+    // transition writes no revision; the pulse's own response was adopted as
+    // one; and an approval, a raise and a withdrawal touch neither.
     //
-    // A poll keyed only on the revision therefore could not see A TRANSITION -
-    // the exact event F4 exists to follow. It would have detected every payload
-    // edit correctly and missed the one thing it was built for, and the tests
-    // would all have passed, because nothing else in the system asks this
-    // question. Found by the calibration timing out, not by review.
+    // `freshness_at` is maintained by a database trigger on the record and on
+    // every satellite table, so it answers "did anything about this record
+    // change" without anybody enumerating event types. The stage is still read,
+    // for WHICH stage to land on, which is a different question.
+    const heldWhenAsked = oppFreshnessAt
     const stageWhenAsked = currentOppStage
     window.__oppPulseStats.polls++
     const r = await api('GET', `/api/records/${id}/pulse`)
@@ -6631,11 +6635,17 @@ async function oppPulseTick() {
     if (!r.ok) return
     // Still the same record after the round trip.
     if (currentOppDetailId !== id) return
-    const seen = r.data?.revision_number
+    const seen = r.data?.freshness_at
     const stage = r.data?.status
-    const revisionMoved = Number.isInteger(seen) && seen !== heldWhenAsked
+    // A null freshness is NO ANSWER, not "unchanged". Every record was
+    // backfilled a row, so a null means the read found nothing, and re-reading
+    // on it would repaint on every tick while claiming to be change-driven.
+    const freshnessMoved = !!seen && !!heldWhenAsked && seen !== heldWhenAsked
+    // The stage is kept in the comparison as a belt to the trigger's braces:
+    // it costs nothing, it is already in the response, and it is the one change
+    // a person notices instantly if the poll ever misses it.
     const stageMoved = !!stage && stage !== stageWhenAsked
-    if (!revisionMoved && !stageMoved) return
+    if (!freshnessMoved && !stageMoved) return
 
     // ── A CHANGE. Round-trip once, and follow the record ──────────────────
     //
@@ -6892,6 +6902,9 @@ async function renderOppDetail(opp) {
   currentOppDetailId = opp.id
   currentOppStage = opp.status
   currentOppStages = stages ?? []
+  // The baseline the poll compares against, taken from the SAME response that
+  // rendered the screen, so the two can never describe different moments.
+  oppFreshnessAt = opp.freshness_at ?? null
   // F4: (re)armed on every render, so it always polls the record actually on
   // screen. startOppPulse clears any previous timer first, which is what stops
   // a second record inheriting the first one's poll.

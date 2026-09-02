@@ -590,10 +590,20 @@ test('G1: approve and reject are the accent outline, with no fill', () => {
   assert.ok(disabledAt > -1 && acceptAt > disabledAt,
     'the accept rule no longer sits after .btn-sm:disabled, so a pending Approve '
     + 'drops to --muted and reads as removed')
-  // 2. WEIGHT. The reject override is banner-scoped, which is three units and
-  //    beats `.btn-sm:disabled` outright.
-  assert.match(css, /\.freeze-banner \.btn-sm\.btn-ghost,/,
-    'the reject override is not banner-scoped, so a pending Reject drops to --muted')
+  // 2. REJECT IS NEUTRAL, ruled in the G1 refinement: the two controls must be
+  //    visually distinct, and the distinction is colour weight. Reject takes the
+  //    secondary treatment the rest of the app uses and needs no rule of its
+  //    own, so what is asserted is the ABSENCE of the accent override that the
+  //    first pass added.
+  assert.ok(!/\.freeze-banner \.btn-sm\.btn-ghost/.test(css),
+    'Reject carries the accent again, so the pair is indistinguishable by colour')
+  // AND NOT RED. A second accent is what the single-accent discipline exists to
+  // prevent, and it would arrive as a hex or rgb literal in a banner rule.
+  const banner = css.match(/\.freeze-banner[^{]*\{[^}]*\}/g) ?? []
+  for (const rule of banner) {
+    assert.ok(!/#(e|f|c|d)[0-9a-f]{2}[0-3][0-9a-f]{3}|rgb\(\s*2[0-9]{2},\s*[0-7]?[0-9],/i.test(rule),
+      `a second accent appears in a banner rule: ${rule.slice(0, 80)}`)
+  }
 })
 
 test('X4/42: the dev server cannot serve a stale bundle to a walk', () => {
@@ -806,14 +816,26 @@ test('W-B/F4: a refresh control on both surfaces, and a poll that is cheap and s
   assert.match(app, /if \(document\.hidden\).*\{[\s\S]{0,120}return \}/,
     'a hidden tab is not guarded, so a record left open keeps polling')
   assert.match(app, /visibilitychange/, 'nothing pauses the poll when the tab is hidden')
-  assert.match(app, /if \(!revisionMoved && !stageMoved\) return/,
+  assert.match(app, /if \(!freshnessMoved && !stageMoved\) return/,
     'an unchanged record does not short-circuit, so it repaints on every tick')
-  // A TRANSITION CHANGES status AND NOT revision_number. Measured: before and
-  // after a real transition, both revision 2, Qualification -> Solution
-  // Alignment. A poll keyed only on the revision would miss the one event F4
-  // exists to follow, and every other case would still work.
+
+  // ── THE COMPARISON IS ONE TRIGGER-MAINTAINED FACT. G2/G3 ───────────────
+  //
+  // It was the revision and the stage, and that PAIR was a claim about which
+  // events matter. Wrong three times in one feature: a transition writes no
+  // revision, the pulse's own response was adopted as one, and an approval, a
+  // raise and a withdrawal touch neither. `freshness_at` is maintained by a
+  // trigger on the record and on every satellite, so the question has one
+  // source and cannot go blind to an event class.
+  assert.match(app, /const freshnessMoved = !!seen && !!heldWhenAsked && seen !== heldWhenAsked/,
+    'the poll no longer compares the trigger-maintained freshness')
   assert.match(app, /const stageMoved = !!stage && stage !== stageWhenAsked/,
-    'the poll cannot see a transition: it keys on the revision alone')
+    'the stage comparison is gone, so a transition depends on the trigger alone')
+  // THE BASELINE COMES WITH THE RECORD. Establishing it on the first tick
+  // instead would swallow, permanently, any change between the load and that
+  // tick: the tick would adopt the new value without re-reading.
+  assert.match(app, /oppFreshnessAt = opp\.freshness_at \?\? null/,
+    'the screen does not hold the freshness it was rendered at')
   // The pulse must not feed the revision-adoption hook. Without this the hook
   // advances the held revision from the poll's OWN response and the comparison
   // above can never be false: measured, the held revision moved 1 -> 2 with

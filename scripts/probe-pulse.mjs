@@ -16,10 +16,11 @@
 import { loadPuppeteer } from './lib/puppeteer.mjs'
 const puppeteer = await loadPuppeteer('probe-pulse.mjs')
 import { readFileSync } from 'fs'
-import { freshOpportunity, tearDown } from './fixtures.mjs'
+import { freshOpportunity, tearDown, admin } from './fixtures.mjs'
 import { api } from './api-client.mjs'
 
 const session = JSON.parse(readFileSync(new URL('../session-ref.json', import.meta.url).pathname, 'utf8'))
+const SESSION_USER_ID = session.user.id
 const results = []
 const record = (label, pass, detail = '') => {
   results.push({ label, pass })
@@ -46,6 +47,7 @@ await page.waitForFunction(() => document.querySelectorAll('[data-opp-stage-tab]
 
 const interval = await page.evaluate(() => window.OPP_PULSE_INTERVAL_MS ?? null)
 const stats = () => page.evaluate(() => ({ ...window.__oppPulseStats }))
+const freshOf = () => page.evaluate(() => window.__oppFreshnessAt())
 const held = () => page.evaluate(() => ({
   stage: window.__oppCurrentStage?.() ?? null,
   revision: window.__oppLoadedRevision?.() ?? null,
@@ -72,9 +74,16 @@ await api('PATCH', `/opportunities/${oppId}`, {
   payload: { targetMargin: 41 },
   expected_revision: (await api('GET', `/opportunities/${oppId}`)).data?.latest_revision_number,
 })
-await page.waitForFunction((n) => window.__oppPulseStats.rereads > n, { timeout: 30000 }, atChange.rereads)
-record('a change made OUTSIDE this session re-reads, with no manual refresh', true,
-  `rereads ${atChange.rereads} -> ${(await stats()).rereads}`)
+// Wrapped, so a failure reads as a named FAIL rather than a puppeteer stack.
+// `record(..., true)` was also wrong on its own terms: it asserted nothing, and
+// would have reported a pass for any outcome the wait did not throw on.
+let sawChange = true
+try {
+  await page.waitForFunction((n) => window.__oppPulseStats.rereads > n, { timeout: 30000 }, atChange.rereads)
+} catch { sawChange = false }
+record('a change made OUTSIDE this session re-reads, with no manual refresh', sawChange,
+  sawChange ? `rereads ${atChange.rereads} -> ${(await stats()).rereads}`
+    : 'no re-read in 30s: the poll cannot see a payload write')
 
 // ── CLAIM 1b: a STAGE move makes the screen follow the record ─────────────
 await page.evaluate(() => {
@@ -156,6 +165,35 @@ await page.evaluate(() => {
 await page.waitForFunction((n) => window.__oppPulseStats.polls > n, { timeout: 20000 }, hidden.polls)
 record('and it resumes immediately when the tab comes back', true,
   `polls ${hidden.polls} -> ${(await stats()).polls}`)
+
+// ── THE EVENT THE OLD POLL WAS BLIND TO. G2/G3 ───────────────────────────
+//
+// An approval touches neither the stage nor the revision, so the previous
+// comparison could not see it: measured on a live approver screen, an approval
+// landed and the screen re-read 0 times in 16 seconds. This is that exact case,
+// now driven against the trigger-maintained freshness.
+await page.evaluate(() => {
+  Object.defineProperty(document, 'hidden', { get: () => false, configurable: true })
+  document.dispatchEvent(new Event('visibilitychange'))
+})
+const baselineFresh = await freshOf()
+record('the screen holds the freshness it was rendered at', !!baselineFresh, String(baselineFresh))
+
+const atAppr = await stats()
+const { error: apprErr } = await admin().from('approvals').insert({
+  record_id: oppId, revision_number: 1, stage: (await held()).stage, track: 'Commercial',
+  approver_id: SESSION_USER_ID, decision: 'approved', comment: 'pulse calibration',
+  decided_at: new Date().toISOString(),
+})
+let sawApproval = true
+try {
+  await page.waitForFunction((n) => window.__oppPulseStats.rereads > n, { timeout: 30000 }, atAppr.rereads)
+} catch { sawApproval = false }
+record('an APPROVAL landing re-reads the screen, with no manual refresh',
+  sawApproval && !apprErr,
+  apprErr ? `(the approval write failed: ${apprErr.message.slice(0, 50)})`
+    : sawApproval ? `rereads ${atAppr.rereads} -> ${(await stats()).rereads}`
+      : 'no re-read in 30s; the poll is blind to an approval again')
 
 record('no page errors', errors.length === 0, errors.join(' | ') || 'none')
 

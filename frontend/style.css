@@ -1833,18 +1833,22 @@ textarea::placeholder { color: var(--muted-2); }
 }
 .btn-sm.btn-accept:hover { background: rgba(102, 204, 153, 0.08); }
 
-/* THE REJECT SIDE, ruled the same. It was `.btn-ghost`: muted grey text on the
-   banner, legible by ratio and dim to read beside a green control. Both are now
-   the accent outline, so the two are told apart by their LABELS. Recorded as
-   the business's call: X4's concern that a pair of identical outlines reads as
-   two equal options is answered by the wording rather than by weight. */
-.freeze-banner .btn-sm.btn-ghost,
-.freeze-banner .btn-sm.btn-ghost:hover {
-  color: var(--green);
-  border-color: var(--green);
-  background: none;
-}
-.freeze-banner .btn-sm.btn-ghost:hover { background: rgba(102, 204, 153, 0.08); }
+/* ── THE REJECT SIDE IS NEUTRAL. G1 refinement, ruled 2026-09-02 ───────────
+
+   The first pass made BOTH controls the accent outline, and the business ruled
+   against it within the hour: Approve and Reject must be visually distinct, and
+   two identical outlines told apart only by their labels is not distinct enough
+   at a glance.
+
+   Approve keeps the accent. Reject takes the NEUTRAL secondary outline the rest
+   of the app already uses - `--muted` on `--hairline-strong`, which is
+   `.btn-secondary`'s treatment and `.btn-sm`'s own default - so there is no rule
+   here at all and the override that was here is gone.
+
+   NOT RED. Red would introduce a second accent this palette does not carry, and
+   the single-accent discipline is the reason `--green` reads as meaning
+   something. Distinction now comes from colour WEIGHT: one control carries the
+   accent, the other is quiet. */
 
 /* ── THE DISABLED STATE IS ALREADY CARRIED, AND THAT WAS MEASURED ──────────
    F3's finding still applies: `.btn-sm:disabled` is class + pseudo-class and

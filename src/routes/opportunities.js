@@ -245,10 +245,29 @@ export default async function opportunitiesRoutes(app) {
       }
     })
 
+    // ── THE FRESHNESS THE SCREEN IS RENDERED AT. Round 41 G2/G3 ──────────
+    //
+    // The background poll compares this against what /pulse reports. It has to
+    // come back WITH the record: establishing the baseline on the poll's first
+    // tick instead would silently swallow any change that landed between the
+    // load and that tick, and swallow it permanently, because the tick would
+    // adopt the new value without re-reading.
+    //
+    // Its own read, checked, because an unchecked one here would hand the
+    // screen a null baseline and the poll treats null as "no answer".
+    const { data: freshRow, error: freshErr } = await db
+      .from('record_freshness').select('freshness_at')
+      .eq('record_id', request.params.id).maybeSingle()
+    if (freshErr) {
+      request.log.error({ err: freshErr }, 'failed to read record freshness for the detail view')
+      return reply.code(500).send({ error: freshErr.message })
+    }
+
     return {
       ...opp,
       payload: revResult.data?.payload ?? {},
       latest_revision_number: revResult.data?.revision_number ?? 1,
+      freshness_at: freshRow?.freshness_at ?? null,
       account,
       key_contacts
     }

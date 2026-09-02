@@ -153,6 +153,27 @@ export default async function recordsRoutes(app) {
 
   // ── GET /api/records/:id/pulse ─────────────────────────────────────────
   //
+  // ── IT READS ONE TIMESTAMP NOW. Round 41 G2/G3 ────────────────────────
+  //
+  // The first version read `records.status` and the max revision number, and
+  // that pair was a CLAIM about which events matter. It was wrong three times
+  // in one feature: a transition writes no revision, the pulse's own response
+  // was adopted as one, and approvals, raises and withdrawals touch neither.
+  //
+  // `record_freshness.freshness_at` is maintained by a trigger on the record and
+  // on every satellite, so "did anything about this record change" is ONE
+  // QUESTION WITH ONE SOURCE and cannot be blind to an event class again. That
+  // is Verification 43 - read from the same source the enforcement writes -
+  // applied to freshness.
+  //
+  // `status` STAYS in the response and is no longer part of the comparison: the
+  // client needs to know WHICH stage to land on, which is a different question
+  // from whether anything changed. The revision stays for the same reason - the
+  // client holds one and a re-read has to agree with it.
+  //
+  // AND THIS ROUTE WRITES NOTHING, which is what keeps the self-adoption trap
+  // shut by construction rather than by an exclusion somebody has to remember.
+  //
   // F4, 2026-09-02. The cheapest possible answer to "has anything happened to
   // this record", for the background poll that keeps a second session current.
   //
@@ -171,12 +192,14 @@ export default async function recordsRoutes(app) {
   app.get('/records/:id/pulse', async (request, reply) => {
     const db = createUserClient(request.jwt)
 
-    const [recordResult, revResult] = await Promise.all([
+    const [recordResult, revResult, freshResult] = await Promise.all([
       db.from('records').select('id, status').eq('id', request.params.id)
         .is('deleted_at', null).maybeSingle(),
       db.from('record_revisions').select('revision_number')
         .eq('record_id', request.params.id)
         .order('revision_number', { ascending: false }).limit(1).maybeSingle(),
+      db.from('record_freshness').select('freshness_at')
+        .eq('record_id', request.params.id).maybeSingle(),
     ])
 
     // Both errors checked. Verification 8: an unchecked read here would make
@@ -190,12 +213,21 @@ export default async function recordsRoutes(app) {
       request.log.error({ err: revResult.error }, 'pulse: failed to read the revision')
       return reply.code(500).send({ error: revResult.error.message })
     }
+    if (freshResult.error) {
+      request.log.error({ err: freshResult.error }, 'pulse: failed to read the freshness')
+      return reply.code(500).send({ error: freshResult.error.message })
+    }
     if (!recordResult.data) return reply.code(404).send({ error: 'not found' })
 
     return {
       id: recordResult.data.id,
       status: recordResult.data.status,
       revision_number: revResult.data?.revision_number ?? null,
+      // Every record was backfilled a row, so a null here means the read found
+      // nothing rather than "never touched". The client treats a null as "no
+      // answer" and does not re-read on it, which is the same refusal-to-guess
+      // the version comparison makes.
+      freshness_at: freshResult.data?.freshness_at ?? null,
     }
   })
 

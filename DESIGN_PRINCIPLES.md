@@ -8054,3 +8054,157 @@ person, which is what the walks are for.
 events the pulse CAN see.** It was built from the same assumption as the feature,
 so it inherited its blind spot exactly - Verification 33: when several measures
 pass, ask what question they SHARE.
+
+### G1 refinement: distinct by colour weight, and still one accent
+
+**Ruled within the hour of the first pass, 2026-09-02.** Making BOTH controls the
+accent outline was wrong: Approve and Reject must be visually distinct, and two
+identical outlines told apart only by their labels is not distinct at a glance.
+
+**Approve keeps the accent. Reject takes the neutral secondary outline the app
+already uses** - `--muted` on `--hairline-strong`, which is `.btn-secondary`'s
+treatment and `.btn-sm`'s own default. So the refinement REMOVED a rule rather
+than adding one.
+
+**Not red**, ruled: a second accent is what the single-accent discipline exists to
+prevent, and it is why `--green` reads as meaning something.
+
+**Measured, composited over the dark banner** (an alpha colour has no ratio until
+it is composited, which is why the raw values are not the answer):
+
+| control | text | edge |
+|---|---|---|
+| Approve | `--green` **8.70:1** | **8.70:1** |
+| Reject | `--muted` **4.77:1** | `--hairline-strong` **1.95:1** |
+
+Neither is filled, and the pending state keeps each control's own colour.
+
+**The Reject edge at 1.95:1 is faint and it is the app's existing convention for
+every secondary control**, so it is recorded rather than quietly changed here: a
+one-off exception on this banner would be a second treatment for secondary
+buttons, which is the thing the ruling is about.
+
+### The freshness timestamp: the class closed at its source
+
+**Ruled by the business 2026-09-02, and the migration is written and awaiting
+application.**
+
+The poll's two facts were a CLAIM about which events matter, and it was wrong
+three times in one feature: a transition writes no revision, the pulse's own
+response was adopted as one, and approvals, raises and withdrawals touch neither.
+
+**A single trigger-maintained `records.freshness_at`, bumped by a trigger on the
+record AND on every satellite table, makes "did anything about this record
+change" ONE QUESTION WITH ONE SOURCE**, so the poll cannot be blind to an event
+class again. Verification 43 - read from the same source the enforcement writes -
+applied to freshness.
+
+**The trigger is the enforcement, not application code.** Same reasoning as the
+immutability and freeze triggers already in this schema: a trigger fires for
+every role including BYPASSRLS and for every writer including a route nobody has
+written yet. **Bumping the column from the application would be correct for every
+caller that exists and wrong for the one about to be built**, which is
+Architecture 8 and is the exact failure being repaired.
+
+**Seven satellites, enumerated from the schema rather than from memory** by
+querying for `record_id`: `record_revisions`, `approvals`, `transition_requests`,
+`audit_log`, `deal_sheet_versions`, `record_contacts`, `document_details`.
+
+**A new column rather than `records.updated_at`.** That column exists and nothing
+reads it - measured, zero references across `src/` and `frontend/`. It was still
+the wrong one to reuse, because the two answer different questions: `updated_at`
+means "this row changed", `freshness_at` means "anything about this record
+changed", and an approval must bump the second without bumping the first.
+
+**The pulse cannot fire on its own response, and needs no exclusion to be safe:**
+the route is a SELECT and writes nothing, so no trigger fires. The self-adoption
+trap was a CLIENT hook adopting the response, already fixed in `app.js` and
+unrelated to this.
+
+**Calibration is pending application** and is the G2/G3 blind-spot table
+inverted: every event that read "pulse moves: false" - request raised, approval
+landed, second approval, withdrawn - must read true on the running app with the
+poll ticking, and a control payload write must still move it.
+
+---
+
+## A TRIGGER WRITING TO A GUARDED TABLE INHERITS EVERY GUARD ON IT
+
+**Round 41, 2026-09-02. Architecture 8 arriving from the schema side, and it
+broke the live workflow for the length of one gate run. Origin:
+`20260902000001_record_freshness.sql`, corrected by
+`20260902000002_record_freshness_off_the_record.sql`.**
+
+The freshness bump was written as a column on `public.records`, updated by a
+trigger on the record and on each satellite. It was the obvious place to put it
+and it was wrong, for a reason that is invisible until the trigger runs.
+
+**`records` is the most heavily guarded table in this schema.** It carries
+`refuse_write_while_frozen`, immutability triggers, and an advisory-lock protocol
+in `append_record_revision`. **A freshness bump has business with none of them,
+and inherited all of them.**
+
+**Two symptoms, one cause, both caught by the gate rather than by review:**
+
+- **Raising a transition request became impossible.** The insert fired the
+  freshness bump, the bump was an update to `records`, and the freeze guard saw
+  the open request THAT HAD JUST BEEN INSERTED and refused - taking the insert
+  down with it. `a three-track transition OPENS and waits` returned **500 "This
+  record is frozen"**. The feature disabled the workflow through a control that
+  was working exactly as designed.
+- **One of forty concurrent appends failed.** `append_record_revision` holds an
+  advisory lock and then inserts; adding an update of the same `records` row put
+  forty transactions in a queue for one row, in an order the advisory lock does
+  not govern.
+
+**THE FIX IS LOCATION, NOT LOGIC.** `record_freshness` is its own table: nothing
+else writes it, nothing guards it, and it cannot collide with a protocol it is
+not part of. The trigger body is unchanged in substance.
+
+**AND THE SELF-ADOPTION TRAP IS NOW SHUT BY CONSTRUCTION.** The pulse route is a
+SELECT and writes nothing, so no trigger fires - measured, three consecutive
+pulse reads move the timestamp not at all. That is better than the exclusion it
+replaces, because an exclusion is a thing somebody has to remember and a SELECT
+is a thing that cannot forget.
+
+**The check, and it generalises past this schema: before a trigger writes to a
+table, enumerate what already guards that table.** A guard that refuses the
+trigger is not a bug in the guard.
+
+### The blind-spot table, inverted and measured
+
+Every row that read "pulse moves: false" in the G2/G3 report, re-measured against
+`record_freshness` with the events driven through the real routes, and with the
+control shown moving first:
+
+| event | freshness moves |
+|---|---|
+| control: a payload write | **yes** |
+| a transition request is raised | **yes** |
+| a three-track request is raised and waits | **yes** |
+| an approval lands (Commercial) | **yes** |
+| an approval lands (Technical) | **yes** |
+| the request is withdrawn | **yes** |
+| an audit_log row | **yes** |
+| a deal_sheet_versions row | **yes** |
+| **three pulse reads** | **no** - a SELECT fires no trigger |
+
+**The two rows that had never been proven are the two the poll was blind to**,
+and both were driven through the routes rather than by direct insert, because the
+earlier attempts were refused for setup reasons and reported a STILL that was
+about the setup rather than about the trigger.
+
+**End to end in a browser: an approval landing now re-reads the screen with no
+manual refresh** (rereads 2 -> 3), which is the exact case that measured 0 -> 0
+across 16 seconds before this. Calibrated by removing the comparison: the probe
+then reports *"the poll is blind to an approval again"*.
+
+**And the baseline comes back WITH the record.** `GET /opportunities/:id` returns
+`freshness_at`, because establishing it on the poll's first tick would swallow -
+permanently - any change landing between the load and that tick: the tick would
+adopt the new value without re-reading.
+
+**The correction was verified as two claims**, because a removal is two claims:
+the old mechanism is gone (`records.freshness_at` no longer exists) AND the new
+one works (25,944 backfilled rows, one per record), and the three previously red
+stages are green with the three-track transition returning **201 "open"** again.
