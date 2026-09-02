@@ -8,10 +8,12 @@
 // Separate from issuing on purpose: a requester may issue and keep refining
 // before asking three people to sign off.
 import { freshOpportunity, tearDown, admin } from './fixtures.mjs'
+import { readFileSync } from 'fs'
 import { api, ApiError } from './api-client.mjs'
 import { catalogToRates } from '../src/lib/base-costs.js'
 import { resolveRates, frozenRates } from '../src/lib/rate-resolution.js'
 
+const session = JSON.parse(readFileSync('session-ref.json', 'utf8'))
 const results = []
 const record = (label, pass, detail = '') => {
   results.push({ label, pass })
@@ -96,6 +98,127 @@ const second = await attempt(() => api('POST', `/records/${oppId}/transition-req
   { to_stage: 'Evaluation', kind: 'review', version_id: issued.id }))
 record('a SECOND pricing approval is refused while one is open', second.status === 409,
   `-> ${second.status}`)
+
+// ── DECIDING IT, AT PROPOSAL ──────────────────────────────────────────────
+//
+// Verification 40 on its own success clause: this probe raised a pricing
+// approval and never decided one, so the only write the feature exists for was
+// never exercised. Verification 25's population clause is the other half -
+// probe-direct-paths DOES decide review requests, all three at Solution
+// Alignment, the single stage whose tracks are still stage-scoped. The version
+// tracks live from Proposal onward and no decide had ever run there.
+//
+// The defect that hid behind both: decide_transition_request validated the
+// track against required_tracks_for regardless of kind, and 20260902000004
+// correctly emptied that set from Proposal onward, so every pricing approval
+// was refused 400 and wrote nothing.
+const db = admin()
+const { data: seats } = await db.from('track_approvers')
+  .select('user_id').eq('record_type', 'opportunity')
+// A GENUINELY DIFFERENT IDENTITY. Taking the first row is not enough: the
+// session user is himself seeded on these tracks, and a fixture that made him
+// the requester would measure the self-approval refusal instead.
+const otherUser = (seats ?? []).map((r) => r.user_id).find((u) => u !== session.user.id)
+if (!otherUser) throw new Error('no second identity in track_approvers')
+const openReq = ((await api('GET', `/records/${oppId}/transition-requests`)).data ?? [])
+  .find((r) => r.kind === 'review' && r.status === 'open')
+
+// THE SESSION USER MUST NOT BE THE REQUESTER, which is the rule the feature
+// enforces and not the one under test here. frozen_revision is re-synced in the
+// same write because the editability check above deliberately bumped it: this
+// models a request raised and not yet edited against, which is the state an
+// approver normally opens.
+const currentRev = await rev()
+await db.from('transition_requests')
+  .update({ requested_by: otherUser, frozen_revision: currentRev }).eq('id', openReq.id)
+
+// A TRACK THE REQUEST DOES NOT COLLECT is still refused. Seeded as a
+// record-scoped approver on a track no rule names, because the approver check
+// fires before the track check and would otherwise answer first.
+// RECORD-SCOPED SEATS for the session user. Finance is the track no rule
+// names; Commercial and Legal are the ones under test. Seeded here rather than
+// assumed, because a global seat is a configuration fact this probe must not
+// depend on: without them the approver check answers first and every result
+// below would be a 403 measuring the wrong rule.
+const { data: fixtureSeats } = await db.from('track_approvers').insert(
+  ['Finance', 'Commercial', 'Legal'].map((track) => ({
+    record_type: 'opportunity', track, user_id: session.user.id, record_id: oppId,
+  }))).select('id')
+const wrongTrack = await attempt(() => api('POST', `/transition-requests/${openReq.id}/approvals`,
+  { track: 'Finance', decision: 'approved' }))
+record('a track the pricing approval does NOT collect is refused',
+  wrongTrack.status === 400 && /decide nothing/.test(wrongTrack.data?.error ?? ''),
+  `-> ${wrongTrack.status} "${String(wrongTrack.data?.error ?? '').slice(0, 62)}"`)
+
+// THE CALIBRATION TARGET. Fails against pre-20260902000005 code with
+// "The Commercial track is not required to leave Proposal".
+const decided = await attempt(() => api('POST', `/transition-requests/${openReq.id}/approvals`,
+  { track: 'Commercial', decision: 'approved' }))
+record('an authorised approver CAN approve a pricing approval at Proposal',
+  decided.status === 201 || decided.status === 200,
+  `-> ${decided.status} "${String(decided.data?.error ?? '').slice(0, 68)}"`)
+
+const rows = await db.from('approvals').select('track, decision')
+  .eq('request_id', openReq.id).eq('decision', 'approved')
+record('the approval is RECORDED, not merely accepted',
+  (rows.data ?? []).some((r) => r.track === 'Commercial'),
+  `${(rows.data ?? []).length} approved row(s)`)
+
+// SYMMETRY. The check this migration replaced was guarded by
+// p_decision = 'approved', so a rejection skipped it entirely: an approver
+// could reject a pricing approval and not approve one. Both halves are checked
+// now, so a rejection on an uncollected track is refused the same way.
+const wrongReject = await attempt(() => api('POST', `/transition-requests/${openReq.id}/approvals`,
+  { track: 'Finance', decision: 'rejected', reason: 'symmetry probe' }))
+record('a REJECTION on an uncollected track is refused too',
+  wrongReject.status === 400 && /decide nothing/.test(wrongReject.data?.error ?? ''),
+  `-> ${wrongReject.status} "${String(wrongReject.data?.error ?? '').slice(0, 62)}"`)
+
+// ── NO FREEZE MEETS THE STALENESS CHECK ──────────────────────────────────
+//
+// Found while calibrating this probe and ruled in the same breath: the decide
+// function's frozen_revision check was not kind-aware either, so with the track
+// check corrected the FIRST ORDINARY EDIT made a pricing approval undecidable.
+// A feature whose point is that it does not freeze must not go stale on the
+// record's revision.
+await api('PATCH', `/opportunities/${oppId}`,
+  { payload: { warrantyPct: 4 }, expected_revision: await rev() })
+const afterEdit = await attempt(() => api('POST', `/transition-requests/${openReq.id}/approvals`,
+  { track: 'Legal', decision: 'approved' }))
+record('a pricing approval survives an ordinary edit to the deal',
+  afterEdit.status === 201 || afterEdit.status === 200,
+  `-> ${afterEdit.status} "${String(afterEdit.data?.error ?? '').slice(0, 62)}"`)
+
+// AND THE CLAUSE MUST DISCRIMINATE ON KIND, not simply be gone. Verification
+// 24: without this, deleting the staleness check outright would pass every
+// assertion above. A TRANSITION request still goes stale on the same edit.
+const { oppId: txId } = await freshOpportunity(`${TAG}TX`)
+await db.from('records').update({ status: 'Solution Alignment' }).eq('id', txId)
+// THE EDIT COMES FIRST. A transition request FREEZES the record, so the state
+// cannot be built by raising and then editing: the PATCH answers 423. Edit,
+// then raise against the revision the record has already left, which is the
+// same stale pair from the approver's side.
+const txRev = (await api('GET', `/opportunities/${txId}`)).data?.latest_revision_number
+await api('PATCH', `/opportunities/${txId}`,
+  { payload: { warrantyPct: 5 }, expected_revision: txRev })
+const { data: txReq } = await db.from('transition_requests').insert({
+  record_id: txId, record_type: 'opportunity', from_stage: 'Solution Alignment',
+  to_stage: 'Proposal', kind: 'transition', status: 'open',
+  frozen_revision: txRev, requested_by: otherUser,
+}).select('id').single()
+const { data: txSeat } = await db.from('track_approvers').insert({
+  record_type: 'opportunity', track: 'Commercial', user_id: session.user.id, record_id: txId,
+}).select('id').single()
+const txStale = await attempt(() => api('POST', `/transition-requests/${txReq.id}/approvals`,
+  { track: 'Commercial', decision: 'approved' }))
+record('a TRANSITION request still goes stale on the same edit',
+  txStale.status === 412 && /froze revision/.test(txStale.data?.error ?? ''),
+  `-> ${txStale.status} "${String(txStale.data?.error ?? '').slice(0, 58)}"`)
+await db.from('track_approvers').delete().eq('id', txSeat.id)
+
+// Teardown: a track_approvers seat is not a record, so the fixture tag cannot
+// see it and tearDown() will not remove it.
+await db.from('track_approvers').delete().in('id', (fixtureSeats ?? []).map((r) => r.id))
 
 await tearDown()
 const failed = results.filter((r) => !r.pass)

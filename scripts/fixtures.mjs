@@ -279,6 +279,21 @@ export async function tearDown() {
       if (closeErr) throw closeErr
     }
 
+    // ── A RECORD-SCOPED APPROVER SEAT IS NOT A RECORD ────────────────────
+    //
+    // Round 41, 2026-09-03. track_approvers rows scoped to a fixture record are
+    // written by three probes and were invisible to this teardown, which
+    // enumerates records by owner. A crashed run left four of them pointing at
+    // torn-down fixtures, granting approval rights on records that no longer
+    // exist.
+    //
+    // Build discipline 8: enumerate everything the actor writes, not the one
+    // thing the failing check named. Scoped to the ids being torn down, so a
+    // real configuration seat is never touched.
+    const { error: seatErr } = await db.from('track_approvers')
+      .delete().in('record_id', ids)
+    if (seatErr) throw seatErr
+
     const { error: delErr } = await db.from('records')
       .update({ deleted_at: new Date().toISOString() })
       .in('id', live.map((r) => r.id))

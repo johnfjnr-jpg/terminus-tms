@@ -9062,3 +9062,214 @@ this same file has already produced:
   change opened, asserted from source because it is a property of ordering
 
 All three calibrated by injection; each fails alone and reverts to green.
+
+---
+
+## READ-ONLY HAS A THIRD CATEGORY: DECISIONS
+
+**Ruled by the business 2026-09-02, from a walk finding on the pricing-approval
+decide surface. The defect was mine, introduced by R3 two commits earlier.**
+
+### The diagnosis, measured at the server
+
+The report was that a seeded approver could not approve a pricing-approval
+request raised by somebody else. **The server was correct on every count:**
+
+| question | measured |
+|---|---|
+| `may_decide` for the approver, per track | `Commercial/Technical/Legal` all **allowed=true**, on the real open review request |
+| does the review path compute it like a transition | **yes** - one `mayDecide` call per required track, nothing special-cased on `kind` |
+| track-approver resolution | names match exactly; the seat is `record_id = ALL` on all three |
+| the self-approval check's field | compares `request.requested_by`; the raiser is refused, the approver is not |
+
+**The client disabled the button regardless.** R3's sweep disables every
+`button` and `a[href]` for a non-owner unless it is navigation - and **an
+approver is ALWAYS a non-owner.** Measured on a non-owned record: an Approve
+control shaped as the banner renders it went from enabled to
+`disabled, pointer-events: none` when the sweep ran.
+
+### THE RULE HAD TWO CATEGORIES AND NEEDED THREE
+
+R3 knew *navigation* (allowed) and *actions* (blocked). Approving is an action a
+non-owner is **supposed** to take, and it fell in the gap.
+
+> **A non-owner may act on a decision control only where the server's
+> `may_decide` includes that track for that identity.**
+
+**Exempted by SERVER AUTHORISATION, not by CSS class or container.**
+`data-decision-track` is written only inside the `mayDecide.has(track)` branch of
+the two banner renderers, so the exemption IS the server's answer. A class-based
+exemption, or exempting `.freeze-banner` wholesale, would be **an enumeration the
+next control escapes** - which is the mistake R3 itself was fixing.
+
+**Withdraw stays blocked**: it carries no such attribute, because it is the
+requester's control and not the approver's.
+
+**Both surfaces, one fix.** The stage-approval freeze banner had the identical
+defect; it was never reported because no walk had reached that state with the
+sweep in place.
+
+### THE OLD PROBE'S PASS WAS THE DEFECT
+
+`probe-readonly-view` reported **"0 actions clickable on another user's record"**
+and called it a pass. **A zero there is also the state where nobody can approve.**
+The measure could not tell a correctly locked record from a broken one.
+
+It now measures three categories and a pass needs all three at once: blocked
+(Mark Closed Lost, Withdraw), allowed (a server-authorised decision control), and
+navigation still working.
+
+**And the decision half needed a fixture built for it.** With no open request the
+check read `0 of 0` and passed silently - **the same false-pass shape it was
+written to remove.** An absent control is now a FAILURE. The fixture is an
+opportunity handed to another owner, a review request raised by that owner, and
+this session seated as a Commercial approver on that record alone.
+
+**The first version of that fixture measured nothing too**: raised on
+Qualification -> Solution Alignment, which is stage-gated, so the request carried
+no version tracks and rendered no controls. Moved to Proposal -> Evaluation,
+where the version gate is.
+
+**Calibrated in BOTH directions, which the old probe could not do at all:**
+
+| injection | result |
+|---|---|
+| remove the decision exemption | `0/2 authorised controls usable` - FAILS |
+| let Mark Closed Lost through | `a non-owner can click Mark Closed Lost` - FAILS |
+
+### The asymmetry, verified
+
+**Requester on their own record:** 0 approve controls (self-approval refused),
+Withdraw present and enabled. **Approver on somebody else's:** 2 of 2 decision
+controls usable, everything else blocked.
+
+The probe's `track_approvers` seat is deleted and re-queried at teardown: it is
+not a record, so the fixture tag cannot see it, and **a stray approver seat would
+silently widen who may decide on a live record.**
+
+---
+
+## A REVIEW COLLECTS THE VERSION TRACKS: one question asked of two kinds
+
+**Round 41, 2026-09-03.** The pricing-approval banner rendered, its controls
+were enabled and authorised, the click fired, and the server answered 400:
+*"The Commercial track is not required to leave Proposal, so an approval on it
+would decide nothing."* Measured at the server, not inferred: one non-GET call,
+correct route, correct body, zero rows written, no page errors.
+
+### The origin is this round's own migration
+
+`20260902000004` taught `required_tracks_for` to exclude version-scoped rules.
+That was correct and it stays: a version-scoped approval is a standing sign-off
+held against an issued major version, not a track a **transition** request
+collects.
+
+`decide_transition_request` then validated the submitted track against that
+function **regardless of kind**. From Proposal onward every rule is
+version-scoped, so the set is empty, so every track is "not required", so an
+authorised approver could not approve a pricing approval at all.
+
+| stage | transition | review |
+|---|---|---|
+| Solution Alignment | Commercial, Legal, Technical | none |
+| Proposal | none | Commercial, Legal, Technical |
+
+**Four readers of "which tracks does this request collect".** Three branch on
+kind or scope: `transition-requests.js:591`, `transition-requests.js:247`,
+`records.js:390`. The SQL did not. Verification 20 from the schema side.
+
+### A MIGRATION ASSERTING AN EMPTY ARRAY AS SUCCESS NEVER ASKED WHO ELSE READS IT
+
+`20260902000004` carried a self-check: *"Proposal must collect no tracks under
+the version gate."* **It was true, it passed, and it was the defect.** The empty
+array it asserted as correct is the same array the decide function reads as
+"no track may be approved".
+
+**An assertion about a value is not an assertion about its readers.** The
+migration proved the number and nobody asked what the number would mean to
+somebody else holding it. This is Architecture 8 arriving from the schema side:
+`decide_transition_request` was correct for every caller that existed, and this
+round added a caller without exercising the branch it would rely on.
+
+The replacement self-check asserts the two sets are **different**, across all
+four combinations of kind and stage, which is what the previous one could not
+see.
+
+### The asymmetry, and it was worse than a clean failure
+
+The check was guarded by `p_decision = 'approved'`, so a **rejection skipped it
+entirely**. Measured live: a rejection on a track the request does not collect
+returned **200 and closed the request**. An approver could reject a pricing
+approval and not approve one, and rejecting works, which reads as the feature
+functioning. The check now applies to both decisions.
+
+### AND THE STALENESS CHECK WAS NOT KIND-AWARE EITHER
+
+Found while calibrating the probe, ruled by the business, and folded into the
+same migration **before it was applied** rather than chased with a sixth.
+
+```
+decide with revision UNCHANGED : 400 (the track refusal)
+decide after ONE ordinary edit : 412 "This request froze revision 1, and the
+                                      record is at revision 2. Withdraw it and
+                                      raise a new one."
+```
+
+It was the **next barrier on the same click**: with the track check corrected an
+approver could approve, and the first ordinary edit made the pricing approval
+undecidable. A feature whose entire point is that it does **not** freeze the
+record cannot go stale on the record's revision. `kind <> 'review'` now guards
+it. `from_stage` is still checked for both kinds, because a request raised at
+one stage is not evidence about another.
+
+**The same conflation this round removed everywhere else**, surviving in the one
+place nothing had exercised.
+
+### Why nothing caught it, and it is Verification 25's population clause
+
+Review-request decides **were** covered. `probe-direct-paths` decides three of
+them, all at **Solution Alignment**, the single stage whose tracks are still
+stage-scoped and whose array is therefore non-empty. The version tracks live
+from Proposal onward and no decide had ever run there. The instrument produced a
+non-null reading on a population that is not the one the claim covers.
+
+`probe-pricing-approval`, the probe for this feature, **raised and never
+decided**: Verification 40 failing on its own success clause, in the round that
+wrote it.
+
+### The probe now discriminates, and two checks hold in both directions
+
+| check | before the migration | after |
+|---|---|---|
+| approver CAN approve at Proposal | FAIL | PASS |
+| the approval is RECORDED | FAIL (0 rows) | PASS (1 row) |
+| rejection on an uncollected track refused | FAIL (200) | PASS (400) |
+| pricing approval survives an ordinary edit | FAIL (412) | PASS |
+| invalid track still refused | PASS | PASS |
+| TRANSITION still goes stale | PASS | PASS |
+
+The last two are the controls. Without them, deleting either check outright
+would have passed every other assertion, which is Verification 24: a change is
+invisible until something exercises the value it does not default to.
+
+### Residue: a record-scoped approver seat is not a record
+
+Three probes write `track_approvers` rows scoped to a fixture record. `tearDown`
+enumerates **records** by owner, so it could not see them, and crashed
+calibration runs left four seats pointing at torn-down fixtures. `tearDown` now
+deletes seats for the ids it is tearing down, scoped so a real configuration
+seat is never touched. Calibrated 1 to 0, not assumed. Build discipline 8.
+
+### Two measurement faults of my own, recorded because both read as clean
+
+1. A residue query used `records.name`, **a column that does not exist**. The
+   error was unchecked, so `data: null` read as "NO SUCH RECORD" and produced a
+   confident wrong finding about orphaned seats.
+2. **The same bad column made the residue check itself a false clean reading.**
+   `.like('name', '%R41%')` returned "0 live fixture records" without ever
+   running. Re-run against `owner_id`: records genuinely clean, four real seats
+   sitting on dead fixtures.
+
+Verification 8 and Verification 12 in one query: an unchecked read is
+indistinguishable from a true negative, and a search that did not run looks
+exactly like a search that found nothing.

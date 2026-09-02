@@ -568,6 +568,8 @@ Read the group whose moment you are at. The collapse measurement that produced
 the first group is recorded in full further down, under the index task.
 
 **BEFORE WRITING** - Architecture 8, 9; Verification 20, 22, 23
+A migration asserting a derived value names every reader of it and says what the
+asserted value tells each one (20).
 Correct for every caller that exists is not correct for the caller about to be
 built. A destructuring parameter list silently discards what it does not name.
 Read through the accessor the authoritative consumer uses. Name what reads a
@@ -1127,6 +1129,34 @@ of the change. An unanswerable precondition is a stop.
     corollary exactly, arriving from the direction nobody watches: not a default
     filling in a value nobody entered, but a removal emptying a value somebody
     did.
+
+    **AND AN ASSERTION ABOUT A VALUE IS NOT AN ASSERTION ABOUT ITS READERS.**
+    Round 41, 2026-09-03, and it is rule 20 arriving from the SCHEMA side.
+
+    `20260902000004` taught `required_tracks_for` to exclude version-scoped
+    rules, correctly, and carried a self-check proving it: *"Proposal must
+    collect no tracks under the version gate."* **The assertion was true, it
+    passed, and it was the defect.** `decide_transition_request` reads that same
+    array and treats it as the set of tracks a decision may name, regardless of
+    the request's kind, so an empty set meant NO TRACK MAY BE APPROVED and no
+    authorised approver could approve a pricing approval at all.
+
+    **Four readers of one derived value. Three branched on kind or scope and the
+    SQL did not.** The migration proved the number and nobody asked what the
+    number would MEAN to somebody else holding it.
+
+    **The check: when a migration asserts a derived value, name every reader of
+    that value and state what the asserted value tells each one.** A self-check
+    that proves a set is empty has proved nothing about whether empty is
+    survivable. The replacement asserts the two sets are DIFFERENT across all
+    four combinations of kind and stage, which is what the first could not see.
+
+    **AND THE SECOND HALF WAS THE SAME FAULT ONE LAYER DOWN.** The staleness
+    check in the same function was not kind-aware either, so with the track
+    check corrected the FIRST ORDINARY EDIT made a pricing approval undecidable
+    - on a feature whose entire point is that it does not freeze the record.
+    Found only because the probe for the fix was calibrated on the real
+    population, and folded into the same migration before it was applied.
 
 21. **A RECONCILIATION THAT CANNOT FAIL IS NOT A RECONCILIATION.** Round 38,
     2026-08-29, on the approval page's bridge.
