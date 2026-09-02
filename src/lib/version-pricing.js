@@ -144,21 +144,88 @@ export function pricingChanged(versionInputs, recordPayload) {
 }
 
 /**
- * The changed keys as a phrase, capped at three and counting the rest.
+ * What each pricing decision key is CALLED, in the business's words.
  *
- * ONE FORMATTER, THREE CALLERS. Verification 20: the transition refusal, the
+ * ── DERIVED FROM THE SCREEN WHERE THE SCREEN HAD A NAME ──────────────────
+ *
+ * F1, 2026-09-02. Fourteen of these were read out of the Commercials markup
+ * rather than invented, because the field the person edits is already named
+ * there and a second set of names is a second reader of one thing
+ * (Verification 20). The other twelve were named by the business, because the
+ * screen genuinely had no name for them: four are tables or panels rather than
+ * labelled fields, and eight are controls carrying no name of their own.
+ *
+ * A NEAREST-LABEL DERIVATION WAS TRIED FIRST AND REJECTED. It returned
+ * `grossUp` -> "Withholding Tax %", because the gross-up toggle sits inside the
+ * Withholding Tax row and inherited its neighbour's name. Constraining the
+ * search to the field's own row killed it. An unconstrained derivation produces
+ * PLAUSIBLE WRONG NAMES, which is worse than none on a list whose whole purpose
+ * is to read in business terms.
+ */
+export const PRICING_KEY_LABELS = Object.freeze({
+  // Derived from the screen, row-constrained.
+  aqm: 'AQ Sensor',
+  bidCurrency: 'Bid Currency',
+  duration: 'Contract duration (months)',
+  fxContingency: '% Currency Contingency',
+  gstPct: 'GST %',
+  hemir: 'HEMIR',
+  installResp: 'Installation responsibility',
+  proposalCurrency: 'Proposal Currency',
+  recoveryMonths: 'Recovery period (months)',
+  ssExisting: 'SafeSight, existing infra',
+  ssNew: 'SafeSight, new infra',
+  targetMargin: 'Target margin %',
+  warrantyPct: 'Warranty %',
+  whtPct: 'Withholding Tax %',
+  // Named by the business, because the screen had no name to inherit.
+  factoring: 'PO factoring',
+  grossUp: 'WHT gross-up',
+  invoicing: 'Invoicing basis',
+  structure: 'Payment structure',
+  inSsExisting: 'SafeSight install rate, existing infra',
+  inSsNew: 'SafeSight install rate, new infra',
+  inAqm: 'AQ Sensor install rate',
+  inHemir: 'HEMIR install rate',
+  contractorMilestones: 'Contractor milestone schedule',
+  milestones: 'Payment milestones',
+  marginOverrides: 'Per-line margin overrides',
+  lumpSumCost: 'Lump sum installation cost',
+});
+
+/** What an unlabelled key reads as. NEVER the raw key. F1, ruled. */
+export const UNLABELLED_PRICING_FIELD = 'an unlabelled pricing field';
+
+/**
+ * One key, in business terms.
+ *
+ * A key with no label is FLAGGED rather than leaked. The user-facing half is
+ * the phrase above; the developer-facing half is a test asserting every
+ * decision key has an entry, so the gate is what notices rather than a person
+ * reading a screen. A console warning would only fire on the one deal that
+ * happened to change that key.
+ */
+export function pricingKeyLabel(key) {
+  return PRICING_KEY_LABELS[key] ?? UNLABELLED_PRICING_FIELD;
+}
+
+/**
+ * The changed keys as a phrase, in business terms, capped at three.
+ *
+ * ONE FORMATTER, FOUR CALLERS. Verification 20: the transition refusal, the
  * approval evaluator's reason and the browser's version line all name the same
- * list, and three hand-rolled slice-and-join expressions would agree today and
- * drift the first time the cap changes. The phrase is a fragment rather than a
- * sentence because its three callers put it in three different places: W-K
- * ruled the transition refusal must LEAD with the action, so nothing here may
- * assume it comes first.
+ * list, and hand-rolled slice-and-joins would agree today and drift the first
+ * time the cap changes.
+ *
+ * THE CAP IS KEPT AND IS NOT NEW. F1 did not rule on it, and the labels are
+ * longer than the keys were ("SafeSight install rate, existing infra"), so an
+ * uncapped list would run to a paragraph on a deal that moved eight fields.
  *
  * @param {string[]} keys
- * @returns {string} e.g. "contractValue, targetMargin and 2 more"
+ * @returns {string} e.g. "Target margin %, Contract duration (months) and 2 more"
  */
 export function namedChangedKeys(keys) {
-  const list = keys ?? [];
+  const list = (keys ?? []).map(pricingKeyLabel);
   const named = list.slice(0, 3).join(', ');
   return list.length > 3 ? `${named} and ${list.length - 3} more` : named;
 }

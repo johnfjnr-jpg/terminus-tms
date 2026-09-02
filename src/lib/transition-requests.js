@@ -113,7 +113,7 @@ export function mayDecide(request, userId, approvers, track, recordId) {
  *   business has ruled out. See src/lib/version-pricing.js for the line between
  *   a pricing decision and a frozen rate.
  */
-export function issuedProposal(versions, currentPayload) {
+export function issuedProposal(versions, currentPayload, fromStage) {
   // ── ORDERED BY THE VERSION'S OWN SEQUENCE. Round 41 ─────────────────────
   //
   // This sorted by `revision_number`, the OPPORTUNITY's sequence, to decide
@@ -180,9 +180,18 @@ export function issuedProposal(versions, currentPayload) {
   // The sentence changes with the question. It no longer counts saves, because
   // the number of saves is not the reason: it names what moved.
   //
-  // W-K'S RULING IS PRESERVED: the sentence still LEADS with the action. Naming
-  // what moved is added after it, not in front of it, because a person who has
-  // just taken a version needs to be told to issue it before they are told why.
+  // ── W-K'S ACTION-FIRST RULING IS SUPERSEDED HERE. F1, 2026-09-02 ────────
+  //
+  // W-K ruled the refusal must LEAD with the action, because "issue a new one"
+  // sat at the end of a sentence about revisions and a person who had just
+  // TAKEN a version read it as done. That reasoning is left visible rather than
+  // deleted: it was correct about the sentence it was ruling on.
+  //
+  // F1 rules the exact wording, and it opens with the STATE rather than the
+  // act. What answers W-K's concern is no longer word order but vocabulary:
+  // "minor (draft) version" and "Issue major version" name the two things that
+  // were being confused, so the sentence distinguishes taking from issuing in
+  // its own terms instead of relying on which clause comes first.
   const moved = pricingChanged(issued.inputs, currentPayload);
   if (!moved.comparable) {
     // NOT a silent pass. A version with no snapshot, or a caller with no current
@@ -196,12 +205,15 @@ export function issuedProposal(versions, currentPayload) {
     };
   }
   if (moved.changed) {
-    const named = namedChangedKeys(moved.keys);
+    // THE STAGE IS PASSED IN, NOT TYPED HERE. F1's wording names the stage the
+    // record is leaving. ISSUED_VERSION_REQUIRED holds exactly one entry today
+    // and it is Proposal, so a literal would be true and would rot the moment a
+    // second entry is added: Architecture 9's fourth variant, a sentence that
+    // cannot be falsified by anything.
     return {
       ok: false, notice: true, version: issued,
-      reason: 'Issue the latest draft before requesting this transition: the pricing has changed '
-        + `since the issued version (${named}), and a request freezes what was issued rather than `
-        + 'what is on screen. Taking a version is not enough, it has to be issued.',
+      reason: `Pricing at minor (draft) version. Changes since last major version: `
+        + `${namedChangedKeys(moved.keys)}. Issue major version for ${fromStage} stage exit.`,
     };
   }
   // ── A DRAFT IS NEWER THAN THE ISSUE IFF IT SHARES ITS MAJOR ─────────────

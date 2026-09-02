@@ -250,6 +250,40 @@ for (const c of CASES) {
   }
 }
 
+// ── F4: THE PULSE ROUTE, FROM OUTSIDE, ON THE SUCCESS PATH ───────────────
+//
+// Verification 40: every route a boundary ADDS is exercised over HTTP as the
+// signed-in user, observing the NEW BEHAVIOUR rather than the status. The
+// browser probe covers what a screen does with it; this covers the route.
+//
+// Two assertions, because the route answers two facts and the poll compares
+// BOTH: a payload write moves the revision, and a transition moves the stage
+// WITHOUT moving the revision. That second one is the whole reason `status` is
+// in the response, and asserting only the status code would pass while the
+// route returned nothing useful.
+{
+  const before = await api('GET', `/records/${opp.oppId}/pulse`)
+  record('pulse: answers 200 with a revision and a stage for a record you can read',
+    before.status === 200 && Number.isInteger(before.data?.revision_number) && !!before.data?.status,
+    JSON.stringify(before.data))
+
+  await api('PATCH', `/opportunities/${opp.oppId}`,
+    { payload: { targetMargin: 43 }, expected_revision: before.data.revision_number })
+  const afterWrite = await api('GET', `/records/${opp.oppId}/pulse`)
+  record('pulse: a payload write MOVES the revision',
+    afterWrite.data?.revision_number > before.data.revision_number,
+    `${before.data.revision_number} -> ${afterWrite.data?.revision_number}`)
+
+  await api('POST', `/opportunities/${opp.oppId}/assessment-reviewed`, {}).catch(() => {})
+  const preMove = await api('GET', `/records/${opp.oppId}/pulse`)
+  await api('POST', `/records/${opp.oppId}/transition`, { to_stage: 'Solution Alignment' })
+  const afterMove = await api('GET', `/records/${opp.oppId}/pulse`)
+  record('pulse: a transition moves the STAGE and not the revision',
+    afterMove.data?.status !== preMove.data?.status
+      && afterMove.data?.revision_number === preMove.data?.revision_number,
+    `${preMove.data?.status}@${preMove.data?.revision_number} -> ${afterMove.data?.status}@${afterMove.data?.revision_number}`)
+}
+
 const { removed } = await tearDown()
 record('teardown removed every record the test account owns', true,
   `${removed.length} soft-deleted, re-queried 0 live`)

@@ -159,7 +159,9 @@ export default async function transitionRequestRoutes(app) {
         if (vErr) return reply.code(500).send({ error: vErr.message })
         // rev.payload, not rev.revision_number. The route already loaded the
         // record's current revision row for the freeze, so this costs no read.
-        const issued = issuedProposal(versions, rev.payload)
+        // `record.status` is the stage being LEFT, which is what F1's wording
+        // names. Derived here rather than typed into the sentence.
+        const issued = issuedProposal(versions, rev.payload, record.status)
         // W-K: `notice` travels with the refusal so the screen can style it as
         // one. It is still a 409 and still refuses; what changes is that the
         // client stops rendering a precondition doing its job in the same red as

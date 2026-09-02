@@ -7791,3 +7791,154 @@ ordering change is what exposed that. They now carry real version numbers, and
 the stranded case asserts the disagreement itself - that `revision_number` order
 and `(major, minor)` order give opposite answers on that pair - so the test
 cannot quietly stop being about the fix.
+
+---
+
+## F1 to F4: THE WALK ITEMS, AND ONE SUPERSESSION
+
+Round 41, 2026-09-02.
+
+### F1. The moved-on notice reads in business terms
+
+Ruled wording, exact: `Pricing at minor (draft) version. Changes since last major
+version: [items]. Issue major version for <stage> stage exit.`
+
+**W-K'S ACTION-FIRST RULING IS SUPERSEDED, and its reasoning is left visible.**
+W-K required the refusal to LEAD with the action, because "issue a new one" had
+sat at the end of a sentence about revisions and somebody who had just TAKEN a
+version read it as done. That was right about the sentence it ruled on. F1's
+wording opens with the STATE instead, and what now answers W-K's concern is
+vocabulary rather than word order: "minor (draft) version" against "Issue major
+version" names the two things being confused, so the sentence distinguishes
+taking from issuing in its own terms.
+
+**THE LABEL MAP IS DERIVED WHERE THE SCREEN HAD A NAME.** Fourteen of the
+twenty-six were read out of the Commercials markup; the business named the other
+twelve, because four are tables or panels rather than labelled fields and eight
+are controls with no name of their own.
+
+**A nearest-label derivation was tried first and rejected.** It returned
+`grossUp` -> "Withholding Tax %", because the gross-up toggle sits inside the
+Withholding Tax row and inherited its neighbour's name. Constraining the search
+to the field's own row killed it. **An unconstrained derivation produces
+PLAUSIBLE WRONG NAMES**, which is worse than none on a list whose only purpose is
+to read in business terms.
+
+An unlabelled key reads "an unlabelled pricing field" and never the raw key. The
+flag is a test asserting all 26 have an entry, so the GATE notices rather than a
+person reading the one deal that changed that key.
+
+### F2. An approval waiting for you
+
+In the existing frozen banner, shown only to somebody with an outstanding track
+they may decide, with a jump that scrolls to the row and focuses its Approve
+button. `may_decide` is the server's, from the same function the decide route
+enforces with (Verification 43).
+
+**In the existing banner rather than a new one**, so it inherits what that banner
+already gets right: it sits above the tab strip, so it is on every tab with no
+second render, and it is rebuilt by every load, so a refresh shows or stops
+showing it with no special case.
+
+### F3. Two cascade collisions, and neither was what the walk saw
+
+The walk reported faint buttons that vanish on click. **Measured in a real engine
+against the real stylesheet:**
+
+| state | colour | background | contrast |
+|---|---|---|---|
+| Approve, idle | `rgb(102,204,153)` | `rgb(102,204,153)` | **1.00:1** |
+| Approve, clicked | `rgba(242,242,240,.5)` | transparent | 15.29:1 |
+
+**The label was invisible, not faint.** `.btn-sm.btn-primary` sets
+`color: var(--green)` at two-class weight and outranked `.btn-accept` at one, so
+X4's "filled accent" ruling was written and never reached the screen.
+
+**And the disappearance was not a removal.** The green fill was the button's only
+visible feature; `disabled` engaged `.btn-sm:disabled`, also two units, which set
+`background: none`. Measured, the fill went `rgb(102,204,153)` -> `rgba(0,0,0,0)`.
+**V6 ruled disabled-not-removed, and a disabled state that erases the control is
+exactly what V6 refused, arriving through the cascade instead of the DOM.**
+
+**A third finding nothing had named.** `.is-pending`'s 0.55 opacity did not apply
+inside the frozen banner at all: `.is-frozen .freeze-banner *`, the floor added so
+the banner stays readable, is equal weight and later, so computed opacity was 1.
+**The visible half of V6 was silently cancelled on the only surface it was built
+for.**
+
+After: **8.70:1**, the fill survives the click, and the pending dim applies.
+
+### F4. W-B's "no polling" is SUPERSEDED
+
+**W-B's reasoning is left visible and was right about the question it answered.**
+It ruled a Refresh control over a timer because a poll would put a request every
+few seconds against every open record, would still be stale between ticks, and
+would HIDE staleness rather than remove it. A control that says what it does is
+honest about a screen that cannot know.
+
+**The requirement changed, and that is the supersession rather than a change of
+taste.** W-B was answering "how does somebody catch up". F4 measured what that
+costs in a two-session workflow: after the approver's transition executed, the
+requester sat on the pre-transition stage, **no signal of any kind reached their
+session** (no WebSocket, no EventSource, no timer, no realtime subscription
+anywhere in the frontend), and clicking stage tabs could not discover it because
+tab activation re-reads nothing. The requirement is now "the screen stays
+current", which a manual control cannot meet.
+
+**W-B's cost objections are answered by the SHAPE rather than dismissed.** The
+tick asks `/records/:id/pulse`, which returns a revision, a stage and nothing
+else; a full re-read fires only when one of those differs. An unchanged record
+costs one small request and repaints nothing. It runs only while a record is open
+and the tab is visible, and the pause is free because the resume ticks
+immediately.
+
+**THE FINDING THAT WOULD HAVE MADE THE WHOLE FEATURE USELESS.** A poll keyed on
+the revision alone **cannot see a transition**: measured before and after a real
+transition, `revision_number` stayed 2 while `status` went Qualification ->
+Solution Alignment. `POST /records/:id/transition` changes the stage and writes no
+revision. **It would have detected every payload edit correctly and missed the one
+event it was built to follow, and every test would have passed**, because nothing
+else in the system asks that question. Found by the calibration timing out.
+
+**AND THE POLL'S OWN RESPONSE DEFEATED IT.** Architecture 8: the tick builds on
+X3's adopt-and-warn hook, which runs on every response and adopts any
+`revision_number` it sees. The pulse answers that key, so the held revision
+advanced from the poll's OWN response before the comparison ran, and
+`seen === oppLoadedRevision` was true on every tick. Measured: the held revision
+went 1 -> 2 with **zero re-reads**. The pulse is now excluded from adoption, and
+the held value is captured before the round trip. Excluding it is right on its own
+terms: a liveness probe reads nothing the screen renders, and adopting from it
+would leave the page holding a revision it never loaded.
+
+**ONE RE-READ PATH.** The manual Refresh and the poll now both go through
+`oppRereadFollowingStage`. They already differed before this, and the difference
+WAS most of F4: Refresh re-read but did not follow a stage change, so the X1
+restore put the person back on the pre-transition tab. **X1 is not wrong** -
+restoring the tab is right for an ordinary re-render and wrong for one that
+crossed a stage change, and that is the distinction it had no way to make.
+
+**This folds F4's tab half in.** Tab selection needs no fetch of its own, because
+the poll keeps the screen current, so selecting any tab already shows the true
+stage.
+
+**Calibrated, three claims, each made to fail and reverted:**
+
+| claim | measured | proved by |
+|---|---|---|
+| a change outside this session reaches the screen with no manual refresh | rereads 0 -> 1; stage Qualification -> Solution Alignment; tab followed | dropping `stageMoved`: the stage claim fails |
+| a record in a hidden tab issues no polls | polls 4 -> 4 across 15.5s, then resumes 4 -> 5 | removing the visibility pause: polls 4 -> 6 |
+| an unchanged record triggers no re-render | polls 0 -> 2, rereads 0 -> 0 | forcing the re-read: rereads 0 -> 2 |
+
+**And a probe fault worth keeping.** The first version waited on
+`rereads > n`. That counter increments BEFORE the reload it counts, so the wait
+resolved mid-flight and the probe read the stage the screen was still showing:
+**it reported a working feature as broken.** Verification 7 from the other
+direction. It now waits on `__oppCurrentStage() === target`, which only the new
+state can satisfy.
+
+**probe-pulse is NOT a gate stage**, on the existing decision recorded in
+`verify-all.mjs`: browser probes are run by the round and reported, because
+puppeteer is deliberately not a dependency and a gate red for a missing optional
+tool is a gate people learn to ignore. What can run unattended is asserted in the
+pure suite, and the new route is exercised over HTTP in `probe-write-success`,
+including that a transition moves the stage and not the revision.

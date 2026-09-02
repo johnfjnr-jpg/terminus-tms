@@ -1804,12 +1804,43 @@ textarea::placeholder { color: var(--muted-2); }
    A MODIFIER ON .btn-primary, not a replacement of it. Every other primary in
    the app stays an outline; this says "this particular primary is the one
    accepting something", and the reject beside it is untouched. */
-.btn-accept {
+/* ── F3: THE FILLED ACCENT NEEDED THE WEIGHT TO WIN, 2026-09-02 ────────────
+   X4 ruled the approve action takes the filled accent. It was written as a
+   single class and never reached the screen: `.btn-sm.btn-primary` above sets
+   `color: var(--green)` at two-class weight, and this rule sets `color:
+   var(--dark)` at one. MEASURED in a real engine: the Approve button rendered
+   rgb(102,204,153) text on rgb(102,204,153) background, a contrast ratio of
+   1.00:1. The label was not faint, it was invisible; only the green block was
+   visible at all.
+
+   `.btn-sm.btn-accept` matches the weight of the rule it has to beat. The bare
+   `.btn-accept` is kept for any use outside a small button. */
+.btn-accept,
+.btn-sm.btn-accept {
   background: var(--green);
   color: var(--dark);
   border-color: var(--green);
 }
-.btn-accept:hover { background: #7ad4a6; border-color: #7ad4a6; }
+.btn-accept:hover,
+.btn-sm.btn-accept:hover { background: #7ad4a6; border-color: #7ad4a6; color: var(--dark); }
+
+/* ── AND THE DISABLED STATE KEEPS ITS SHAPE. F3 ────────────────────────────
+   The walk read "click Commercial, all three disappear, two return" as the
+   controls being removed. They were not: `.btn-sm:disabled` is class +
+   pseudo-class, so it beat `.btn-accept` and set `background: none`, and the
+   green fill was the button's ONLY visible feature. Measured, the fill went
+   rgb(102,204,153) -> rgba(0,0,0,0) on click.
+
+   V6 ruled disabled-not-removed. A disabled state that erases the control is
+   the thing V6 was ruling against, arriving through the cascade instead of
+   through the DOM. This keeps the fill and dims it, so the button still reads
+   as a button that cannot be used yet. */
+.btn-sm.btn-accept:disabled,
+.btn-sm.btn-accept:disabled:hover {
+  background: var(--green);
+  color: var(--dark);
+  border-color: var(--green);
+}
 
 /* ── A TOGGLE THAT LOOKS LIKE ONE. Round 41, sixth walk V5 ─────────────────
    The factoring control was a .btn-ghost reading "Factoring: On/Off": the state
@@ -1830,6 +1861,12 @@ textarea::placeholder { color: var(--muted-2); }
    Dimmer than .is-frozen's 0.45, deliberately: this is momentary and the
    difference from the surrounding text is what says "wait" rather than
    "unavailable". The cursor is the second half of the affordance. */
+/* F3 found this cancelled on the only surface it was built for: the frozen
+   banner's opacity floor, `.is-frozen .freeze-banner *`, is equal weight and
+   comes later in the file, so the computed opacity of a pending button inside
+   the banner was 1. The floor is right - the banner must stay readable while
+   everything around it is dimmed - so the pending state is restated below it
+   rather than fought here. */
 .btn-sm.is-pending, .is-pending {
   opacity: 0.55;
   cursor: progress;
@@ -5009,6 +5046,36 @@ input.input-invalid {
 .is-frozen label:has(input:checked) input { opacity: 1; }
 .is-frozen .btn-primary, .is-frozen .btn-secondary, .is-frozen .btn-ghost, .is-frozen .btn-sm { opacity: 0.45; }
 .is-frozen .freeze-banner, .is-frozen .freeze-banner * { pointer-events: auto; opacity: 1; }
+/* ── THE PENDING STATE, RESTATED BELOW THE FLOOR. F3, 2026-09-02 ───────────
+   The floor above exists so the banner stays readable while the rest of the
+   record is dimmed to 0.45, and it is right. It also silently cancelled
+   `.is-pending`'s 0.55 for every button inside the banner, which is the only
+   place V6's pending state is ever used. Measured: computed opacity 1.
+
+   Stated after the floor and at the same weight, so the dim applies where it
+   was designed to and nowhere else. `pointer-events: none` is restated too:
+   the floor sets `auto` on every descendant, which would have made a pending
+   button clickable again had `disabled` not also been set on it. */
+.is-frozen .freeze-banner .is-pending { opacity: 0.55; pointer-events: none; cursor: progress; }
+
+/* ── F2: the prompt, and the row it moves you to ───────────────────────────
+   The prompt is the one line in the banner addressed to a PERSON rather than
+   describing the record, so it carries the accent edge. It is only ever
+   rendered to somebody with an outstanding track, so it cannot become
+   decoration everybody learns to skip. */
+.appr-waiting {
+  font-size: 14px;
+  border-left: 2px solid var(--green);
+  padding: 8px 0 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+/* A jump that lands silently leaves you wondering whether it moved. This is the
+   confirmation, and it removes itself. */
+.is-jump-target { outline: 1px solid var(--green); outline-offset: 4px; }
+@media (prefers-reduced-motion: reduce) { .is-jump-target { outline-width: 2px; } }
 
 /* ── ANOTHER USER'S RECORD. Round 41 W1 ────────────────────────────────────
    The same treatment as the freeze and deliberately not a new one: both mean

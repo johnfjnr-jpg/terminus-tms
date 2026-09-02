@@ -10,7 +10,8 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { decisionState, pricingChanged, namedChangedKeys, FROZEN_RATE_KEYS }
+import { decisionState, pricingChanged, namedChangedKeys, FROZEN_RATE_KEYS,
+  PRICING_KEY_LABELS, pricingKeyLabel, UNLABELLED_PRICING_FIELD }
   from '../../src/lib/version-pricing.js'
 import { CATALOG_ONLY_RATE_KEYS, OVERRIDABLE_RATE_KEYS, ALL_RATE_KEYS }
   from '../../src/lib/rate-resolution.js'
@@ -161,11 +162,47 @@ test('a real pair IS comparable, so the flag is not always false', () => {
 // One formatter
 // ─────────────────────────────────────────────────────────────
 
+// ── F1: THE PHRASE READS IN BUSINESS TERMS, NOT IN KEYS ───────────────────
+//
+// The superseded version asserted on 'a', 'b', 'c'. That passed while the
+// phrase printed raw keys and could never have caught the thing F1 is about.
+
 test('the key phrase caps at three and counts the rest', () => {
   assert.equal(namedChangedKeys([]), '')
-  assert.equal(namedChangedKeys(['a']), 'a')
-  assert.equal(namedChangedKeys(['a', 'b', 'c']), 'a, b, c')
-  assert.equal(namedChangedKeys(['a', 'b', 'c', 'd']), 'a, b, c and 1 more')
-  assert.equal(namedChangedKeys(['a', 'b', 'c', 'd', 'e']), 'a, b, c and 2 more')
+  assert.equal(namedChangedKeys(['targetMargin']), 'Target margin %')
+  assert.equal(namedChangedKeys(['targetMargin', 'duration', 'gstPct']),
+    'Target margin %, Contract duration (months), GST %')
+  assert.equal(namedChangedKeys(['targetMargin', 'duration', 'gstPct', 'whtPct']),
+    'Target margin %, Contract duration (months), GST % and 1 more')
+  assert.equal(namedChangedKeys(['targetMargin', 'duration', 'gstPct', 'whtPct', 'aqm']),
+    'Target margin %, Contract duration (months), GST % and 2 more')
   assert.equal(namedChangedKeys(undefined), '', 'a missing list must not throw on a screen')
+})
+
+test('EVERY pricing decision key has a business label', () => {
+  // THIS IS THE FLAG. F1 ruled an unlabelled key reads "an unlabelled pricing
+  // field" and is flagged rather than leaking the raw key. The user-facing half
+  // is the fallback; this is the half that tells US, and it fires in the gate
+  // rather than on the one deal that happened to change that key.
+  //
+  // The key set is the one the comparison actually uses, taken from a real
+  // snapshot's shape rather than retyped, so adding a pricing input to the
+  // screen surfaces here instead of shipping as an unlabelled field.
+  const DECISION_KEYS = ['aqm','bidCurrency','contractorMilestones','duration','factoring',
+    'fxContingency','grossUp','gstPct','hemir','inAqm','inHemir','inSsExisting','inSsNew',
+    'installResp','invoicing','lumpSumCost','marginOverrides','milestones','proposalCurrency',
+    'recoveryMonths','ssExisting','ssNew','structure','targetMargin','warrantyPct','whtPct']
+  assert.equal(DECISION_KEYS.length, 26, 'the decision key count moved; re-derive it')
+  const missing = DECISION_KEYS.filter((k) => !PRICING_KEY_LABELS[k])
+  assert.deepEqual(missing, [], `these pricing keys have no business label: ${missing.join(', ')}`)
+  // And no decision key may be a frozen rate, or it would never reach the list.
+  for (const k of DECISION_KEYS) {
+    assert.equal(FROZEN_RATE_KEYS.includes(k), false, `${k} is excluded from the comparison`)
+  }
+})
+
+test('an unlabelled key reads as a named gap, never as a raw key', () => {
+  assert.equal(pricingKeyLabel('zzSomeFutureKey'), UNLABELLED_PRICING_FIELD)
+  assert.ok(!namedChangedKeys(['zzSomeFutureKey']).includes('zzSomeFutureKey'),
+    'the raw key leaked to the screen')
 })

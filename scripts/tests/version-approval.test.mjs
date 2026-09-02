@@ -15,14 +15,17 @@ const approvedAt = (n, extra = {}) => ({
 // A version now carries the pricing snapshot it froze, because that snapshot is
 // what supersession is decided against. `SAME` is a record whose pricing still
 // matches what V() froze; `MOVED` is one where a pricing DECISION changed.
-const V = (n, inputs = { contractValue: 100, targetMargin: 30 }) =>
+// F1: REAL pricing keys, because the reason now renders LABELS. `contractValue`
+// is not one of the 32 a snapshot carries, so it rendered as "an unlabelled
+// pricing field" and the assertion below was testing the fallback.
+const V = (n, inputs = { duration: 60, targetMargin: 30 }) =>
   ({ revision_number: n, major: 0, minor: 1, inputs })
 
-const SAME = Object.freeze({ contractValue: 100, targetMargin: 30 })
-const MOVED = Object.freeze({ contractValue: 250, targetMargin: 30 })
+const SAME = Object.freeze({ duration: 60, targetMargin: 30 })
+const MOVED = Object.freeze({ duration: 72, targetMargin: 30 })
 
 // A save that is not a pricing decision: the record moves, the price does not.
-const NON_PRICING = Object.freeze({ contractValue: 100, targetMargin: 30, estCloseDate: '2026-12-01' })
+const NON_PRICING = Object.freeze({ duration: 60, targetMargin: 30, estCloseDate: '2026-12-01' })
 
 test('a version nobody has decided on is not approved', () => {
   assert.equal(versionApprovalState(V(4), [], 4, APPROVAL_TRACK, SAME).state, 'none')
@@ -60,7 +63,7 @@ test('ONE pricing decision changed after approval voids it', () => {
   const s = versionApprovalState(V(4), [approvedAt(4)], 5, APPROVAL_TRACK, MOVED)
   assert.equal(s.state, 'superseded',
     'an approval that no longer describes the price must never read as approved')
-  assert.deepEqual(s.changedKeys, ['contractValue'],
+  assert.deepEqual(s.changedKeys, ['duration'],
     'and it names WHICH decision moved, because that is what an approver needs')
 })
 
@@ -81,7 +84,7 @@ test('a FROZEN CATALOG RATE is not a pricing decision', () => {
   // supersede an issued version. The record never stores these six keys, so
   // without the exclusion every version would read superseded against every
   // record - Verification 14, a comparison with nothing on one side.
-  const withRates = V(4, { contractValue: 100, targetMargin: 30, ssUnitCost: 900, hoAqm: 12 })
+  const withRates = V(4, { duration: 60, targetMargin: 30, ssUnitCost: 900, hoAqm: 12 })
   assert.equal(versionApprovalState(withRates, [approvedAt(4)], 40, APPROVAL_TRACK, SAME).state, 'approved')
 })
 
@@ -193,7 +196,8 @@ test('NOT live the moment the PRICE moves', () => {
   })
   assert.equal(r.live, false)
   assert.equal(r.state, 'superseded')
-  assert.match(r.reason, /the pricing has changed since: contractValue/)
+  assert.match(r.reason, /the pricing has changed since: Contract duration \(months\)/)
+  assert.ok(!/duration[,.]/.test(r.reason), 'a raw key leaked into the approver-facing sentence')
   assert.match(r.reason, /Take a new version/)
 })
 

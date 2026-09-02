@@ -1020,10 +1020,27 @@ window.requestTransition = async (recordId, toStage) => {
 // fetch: a partial refresh that updated the banner and not the criteria beside
 // it would be a second reader of the request, which is the defect this round
 // has now fixed three times.
+// ── ONE RE-READ PATH, USED BY THE POLL AND BY THE BUTTON. F4 ──────────────
+//
+// Verification 20: the manual Refresh and the background poll answer the same
+// question, and a second path that agrees today will disagree later. Before
+// this they already differed - Refresh re-read but did NOT follow a stage
+// change, so a person who pressed it after a transition landed back on the
+// pre-transition tab via the X1 restore, which is most of what F4 reported.
+async function oppRereadFollowingStage(recordId, newStage) {
+  // Set BEFORE the reload: loadOpportunityDetail reads oppLandOnTabAfterLoad,
+  // and that intent outranks the X1 selection restore.
+  if (newStage && newStage !== currentOppStage) window.landOppOnStage?.(newStage)
+  await loadOpportunityDetail(recordId)
+}
+
 window.refreshOppRequestState = async function (recordId) {
   const el = document.querySelector('#opp-freeze-banner .appr-refresh')
   if (el) { el.textContent = 'Refreshing...'; el.disabled = true }
-  await loadOpportunityDetail(recordId)
+  // The same cheap read the poll uses, so the button follows a stage change the
+  // same way the poll does rather than being the one path that does not.
+  const r = await api('GET', `/api/records/${recordId}/pulse`)
+  await oppRereadFollowingStage(recordId, r.ok ? r.data?.status : null)
 }
 
 window.refreshApprovalsQueue = async function () {
@@ -1218,6 +1235,25 @@ function renderOppReadOnlyBanner(notMine) {
     </div>`
 }
 
+// A track name is free text on a configuration row, so it is not safe in an id
+// or a selector as written. One helper, used by the row and by the jump, so the
+// two cannot disagree about what the id is.
+function trackKey(track) {
+  return String(track ?? '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+}
+
+// F2's jump-to-decide. Moves to the row and puts focus on its Approve button,
+// so the affordance works for a keyboard as well as a pointer: scrolling
+// somebody to a control they then have to hunt for is half an answer.
+window.jumpToDecide = function (key) {
+  const row = document.getElementById(`opp-decide-${key}`)
+  if (!row) return
+  row.scrollIntoView({ block: 'center', behavior: 'smooth' })
+  row.classList.add('is-jump-target')
+  setTimeout(() => row.classList.remove('is-jump-target'), 1600)
+  row.querySelector('.btn-accept')?.focus({ preventScroll: true })
+}
+
 function renderOppFreezeBanner(recordId) {
   const el = document.getElementById('opp-freeze-banner')
   if (!el) return
@@ -1248,8 +1284,37 @@ function renderOppFreezeBanner(recordId) {
     // as a screen that has not loaded.
     const why = d || mayDecide.has(t) ? ''
       : `<span class="sa-approval-meta">${escHtml(req.requested_by_is_me ? 'You raised this request' : 'Not yours to decide')}</span>`
-    return `<div class="data-row"><span>${escHtml(t)}</span><span class="sa-approval-meta">${state}</span>${why}${buttons}</div>`
+    // F2: the row carries an id so the prompt above can move to it. Keyed off
+    // the track through the same helper the rest of the strip uses, so a track
+    // named with a space cannot produce a broken selector.
+    return `<div class="data-row" id="opp-decide-${escHtml(trackKey(t))}"><span>${escHtml(t)}</span><span class="sa-approval-meta">${state}</span>${why}${buttons}</div>`
   }).join('')
+
+  // ── F2: AN APPROVAL IS WAITING FOR YOU ─────────────────────────────────
+  //
+  // Shown ONLY to somebody who can actually decide a track that is still
+  // outstanding on THIS request. Ruled: not to non-approvers, and not for
+  // tracks already decided.
+  //
+  // `may_decide` is the server's, computed by the route with mayDecide, the
+  // same function the decide route enforces with. The client tests nothing:
+  // re-deriving the rule here would be a second reader of it, and the screen's
+  // copy is the one nobody exercises against a real refusal (Verification 43).
+  //
+  // In the EXISTING banner rather than a new one, so it inherits what the
+  // banner already gets right: it sits above the tab strip, so it is on every
+  // tab without a second render, and it is rebuilt by every load, so a refresh
+  // shows it or stops showing it without a special case.
+  const outstanding = (req.required ?? []).filter((t) => !decided.has(t) && mayDecide.has(t))
+  const waitingForYou = outstanding.length ? `
+    <p class="appr-waiting" style="margin:0 0 10px">
+      <strong>An approval is waiting for you.</strong>
+      ${escHtml(outstanding.length === 1
+        ? `The ${outstanding[0]} track is yours to decide.`
+        : `${outstanding.length} tracks are yours to decide: ${outstanding.join(', ')}.`)}
+      <button class="btn-sm btn-primary btn-accept" type="button"
+        onclick="jumpToDecide('${escHtml(trackKey(outstanding[0]))}')">Go to decide</button>
+    </p>` : ''
   const met = req.criteria === 'met'
   el.innerHTML = `
     <div class="freeze-banner">
@@ -1266,6 +1331,7 @@ function renderOppFreezeBanner(recordId) {
         <button class="btn-text appr-refresh" type="button"
           onclick="refreshOppRequestState('${recordId}')"
           title="Re-read this request. Another person may have decided since this screen loaded.">Refresh</button></p>
+      ${waitingForYou}
       <p style="font-size:14px;margin:0 0 10px">A move to <strong>${escHtml(req.to_stage)}</strong> is
         waiting on approvals. Nothing on this record can be edited until every track has approved,
         someone rejects, or the request is withdrawn.</p>
@@ -1732,7 +1798,27 @@ async function api(method, path, body) {
 // Scoped to the opportunity currently on screen, because that is the only
 // record whose revision this client tracks. A response about another record is
 // not this record's revision, and matching on the path is what tells them apart.
+// ── THE PULSE IS NOT A READ OF THE RECORD. F4, 2026-09-02 ─────────────────
+//
+// Found by the calibration failing, not by review, and it is Architecture 8:
+// the poll builds on this hook and did not exercise the branch it relies on.
+//
+// /records/:id/pulse answers `revision_number`, so this hook ADOPTED it - and
+// as a 'write', because a write's response is what carries that spelling. The
+// held revision therefore advanced to the new number before the poll compared
+// against it, so `seen === oppLoadedRevision` was true on every tick and THE
+// POLL COULD NEVER FIRE. Measured: the held revision went 1 -> 2 with zero
+// re-reads.
+//
+// Excluding it is the fix rather than renaming the field, because the reason is
+// a fact about what the pulse IS: a liveness probe that reads nothing the screen
+// renders. Adopting from it would mean the page holds a revision it never
+// loaded, which is worse than the poll not firing - the next save would be sent
+// against a number the screen has never seen.
+const PULSE_PATH = /\/records\/[^/]+\/pulse$/
+
 function noteRevisionFromResponse(path, data) {
+  if (PULSE_PATH.test(String(path).split('?')[0])) return
   // ── THE APPROVAL PAGE JOINS THE HANDSHAKE. Round 41 walk item F ─────────
   //
   // It reports the revision under `meta.revisionNumber` rather than
@@ -6455,6 +6541,145 @@ document.getElementById('opp-btn-grid').addEventListener('click', () => {
 // Measured before relying on it, not assumed.
 let oppLoadedRevision = null
 
+// ─────────────────────────────────────────────────────────────
+// F4: THE SCREEN STAYS CURRENT IN A TWO-SESSION WORKFLOW
+// ─────────────────────────────────────────────────────────────
+//
+// W-B ruled a Refresh control rather than a poll, and that ruling is superseded
+// rather than reversed on taste. Its reasoning is left visible in
+// DESIGN_PRINCIPLES.md: it was answering "how does somebody catch up", and a
+// control that says what it does beats a timer that hides staleness. The
+// REQUIREMENT then changed. F4 measured what the old one cost: after the
+// approver's transition executed, the requester sat on the pre-transition stage
+// with no signal of any kind reaching their session, and clicking stage tabs
+// could not discover it because tab activation re-reads nothing. The
+// requirement is now "the screen stays current", and a poll answers that
+// directly where a manual control cannot.
+//
+// WHAT MAKES IT CHEAP IS THE SHAPE, NOT THE INTERVAL. The tick asks
+// /records/:id/pulse, which returns a revision number and a stage and nothing
+// else. A full re-read and re-render happen ONLY when that revision differs
+// from the one on screen, so an unchanged record costs one small request and
+// repaints nothing.
+const OPP_PULSE_INTERVAL_MS = 7000
+
+let oppPulseTimer = null
+let oppPulseRecordId = null
+let oppPulseInFlight = false
+// Counters, so the calibration can assert "issued no polls" and "did not
+// repaint" rather than a person watching a network tab. A detector nobody can
+// read is an assertion (Verification 9).
+window.__oppPulseStats = { polls: 0, rereads: 0, skippedHidden: 0 }
+// READ-ONLY SEAMS FOR THE CALIBRATION, named as such. The probe asserts what a
+// person experiences - the screen followed the record - and these let it read
+// the two values that claim rests on without reaching into module scope or
+// scraping the DOM for them. They expose nothing a signed-in user cannot
+// already see on the page.
+window.OPP_PULSE_INTERVAL_MS = OPP_PULSE_INTERVAL_MS
+window.__oppLoadedRevision = () => oppLoadedRevision
+window.__oppCurrentStage = () => currentOppStage
+
+function stopOppPulse() {
+  if (oppPulseTimer) clearInterval(oppPulseTimer)
+  oppPulseTimer = null
+  oppPulseRecordId = null
+}
+
+function oppPulseShouldRun() {
+  // A record is open, it is the one this poll was started for, and its view is
+  // actually on screen. Checked every tick rather than only at navigation,
+  // because there are several ways to leave a record and a poll that outlives
+  // one of them polls a record nobody is looking at.
+  if (!oppPulseRecordId || currentOppDetailId !== oppPulseRecordId) return false
+  return !document.getElementById('view-opportunity-detail')?.classList.contains('hidden')
+}
+
+async function oppPulseTick() {
+  // THE TIMER IS CLEARED WHEN HIDDEN, and this guard is the second line for the
+  // race where the tab is hidden between the timer firing and the fetch.
+  if (document.hidden) { window.__oppPulseStats.skippedHidden++; return }
+  if (!oppPulseShouldRun()) { stopOppPulse(); return }
+  if (oppPulseInFlight) return
+  oppPulseInFlight = true
+  try {
+    const id = oppPulseRecordId
+    // CAPTURED BEFORE THE ROUND TRIP. Belt to the exclusion's braces: whatever
+    // any other reader does to the held revision while this request is in
+    // flight, the comparison is against what the SCREEN was showing when the
+    // poll asked. Same shape as X1's capture-before-rebuild, and it is here for
+    // the same reason - the first version of this compared against a value that
+    // had already been updated underneath it.
+    const heldWhenAsked = oppLoadedRevision
+    // ── AND THE STAGE, BECAUSE A TRANSITION DOES NOT BUMP THE REVISION ────
+    //
+    // Measured, and it is the finding that would have made this whole feature
+    // useless: POST /records/:id/transition changes `records.status` and writes
+    // NO record_revision. Before / after on a real record, both revision 2,
+    // status Qualification -> Solution Alignment.
+    //
+    // A poll keyed only on the revision therefore could not see A TRANSITION -
+    // the exact event F4 exists to follow. It would have detected every payload
+    // edit correctly and missed the one thing it was built for, and the tests
+    // would all have passed, because nothing else in the system asks this
+    // question. Found by the calibration timing out, not by review.
+    const stageWhenAsked = currentOppStage
+    window.__oppPulseStats.polls++
+    const r = await api('GET', `/api/records/${id}/pulse`)
+    // A failed poll says nothing and does nothing. It must not paint an error
+    // over a screen the person is working on: the manual Refresh is still there
+    // and the next tick will try again.
+    if (!r.ok) return
+    // Still the same record after the round trip.
+    if (currentOppDetailId !== id) return
+    const seen = r.data?.revision_number
+    const stage = r.data?.status
+    const revisionMoved = Number.isInteger(seen) && seen !== heldWhenAsked
+    const stageMoved = !!stage && stage !== stageWhenAsked
+    if (!revisionMoved && !stageMoved) return
+
+    // ── A CHANGE. Round-trip once, and follow the record ──────────────────
+    //
+    // The stage is set BEFORE the reload, because loadOpportunityDetail reads
+    // oppLandOnTabAfterLoad and that intent OUTRANKS the X1 selection restore.
+    // X1 is right for an ordinary re-render and wrong for one that crossed a
+    // stage change, and this is the distinction it had no way to make.
+    //
+    // Any change of stage lands, not only a forward one: a record that moved
+    // BACK has still moved, and leaving somebody on a stage the record has left
+    // is the defect either way.
+    window.__oppPulseStats.rereads++
+    await oppRereadFollowingStage(id, r.data?.status)
+  } finally {
+    oppPulseInFlight = false
+  }
+}
+
+function startOppPulse(recordId) {
+  stopOppPulse()
+  oppPulseRecordId = recordId
+  if (document.hidden) return
+  oppPulseTimer = setInterval(oppPulseTick, OPP_PULSE_INTERVAL_MS)
+}
+
+// PAUSE AND RESUME. The pause is free because the resume ticks IMMEDIATELY:
+// coming back to the tab is the moment somebody most needs the screen to be
+// true, and waiting a whole interval for it would be the staleness this
+// removes, arriving at the worst point.
+function oppPulseResume() {
+  if (!oppPulseShouldRun() || document.hidden) return
+  if (!oppPulseTimer) oppPulseTimer = setInterval(oppPulseTick, OPP_PULSE_INTERVAL_MS)
+  oppPulseTick()
+}
+function oppPulsePause() {
+  if (oppPulseTimer) clearInterval(oppPulseTimer)
+  oppPulseTimer = null
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) oppPulsePause(); else oppPulseResume()
+})
+window.addEventListener('focus', oppPulseResume)
+window.addEventListener('blur', oppPulsePause)
+
 // ── ADOPT AND WARN, NEVER SILENT-ADOPT. Round 41, X3, ruled ──────────────
 //
 // A read that finds the record has MOVED updates the holder, so the next write
@@ -6667,6 +6892,10 @@ async function renderOppDetail(opp) {
   currentOppDetailId = opp.id
   currentOppStage = opp.status
   currentOppStages = stages ?? []
+  // F4: (re)armed on every render, so it always polls the record actually on
+  // screen. startOppPulse clears any previous timer first, which is what stops
+  // a second record inheriting the first one's poll.
+  startOppPulse(opp.id)
   // Round 25 Phase 6: the record's own scores travel in the payload this
   // response already carries, so the panel needs no fetch of its own.
   currentOppPayload = opp.payload ?? {}

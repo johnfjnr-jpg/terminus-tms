@@ -118,9 +118,17 @@ test('Proposal to Evaluation wants an ISSUED version and nothing since', () => {
   // Every `issuedProposal(versions, 10)` below read a revision NUMBER. It now
   // takes the record's current payload, because the question is whether the
   // price on screen is the price that was issued.
-  const SAME = { contractValue: 100, targetMargin: 30 }
-  const MOVED = { contractValue: 250, targetMargin: 30 }
-  const NON_PRICING = { contractValue: 100, targetMargin: 30, estCloseDate: '2026-12-01' }
+  // ── REAL PRICING KEYS, NOT INVENTED ONES. F1, 2026-09-02 ───────────────
+  //
+  // These were `contractValue`, which is not one of the 32 keys a version
+  // snapshot carries. It worked while the sentence printed raw keys and stopped
+  // the moment F1 made it print LABELS: an invented key has no label, so the
+  // fixture rendered "an unlabelled pricing field" and the test was asserting
+  // the fallback rather than the feature. A fixture outside the real key set
+  // cannot test a map keyed on it.
+  const SAME = { duration: 60, targetMargin: 30 }
+  const MOVED = { duration: 72, targetMargin: 30 }
+  const NON_PRICING = { duration: 60, targetMargin: 30, estCloseDate: '2026-12-01' }
 
   assert.equal(issuedProposal([], SAME).ok, false)
   assert.match(issuedProposal([], SAME).reason, /No Deal Sheet version has been issued/)
@@ -143,7 +151,10 @@ test('Proposal to Evaluation wants an ISSUED version and nothing since', () => {
 
   // THE SECOND CHECK, and it is the one worth stating: a PRICING CHANGE after
   // the issue means the request would freeze a price nobody issued.
-  const moved = issuedProposal(issued, MOVED)
+  // The stage is passed in rather than typed into the sentence, so F1's
+  // "Proposal stage exit" cannot go stale when a second stage requires a
+  // version.
+  const moved = issuedProposal(issued, MOVED, 'Proposal')
   assert.equal(moved.ok, false)
   // ── W-K RESTATED THIS, and the count is no longer the claim ─────────────
   //
@@ -158,10 +169,24 @@ test('Proposal to Evaluation wants an ISSUED version and nothing since', () => {
   // ── ROUND 41 RESTATED THE SAVE COUNT OUT OF IT, and W-K's own ruling is
   // kept: the action is STILL the first thing said. What replaces "2 saves have
   // landed" is what actually moved, because the count was never the reason.
-  assert.match(moved.reason, /^Issue the latest draft/, 'the action is not the first thing said')
-  assert.match(moved.reason, /the pricing has changed since the issued version \(contractValue\)/,
-    'it does not name WHICH pricing decision moved')
-  assert.match(moved.reason, /has to be issued/, 'it does not say a draft is insufficient')
+  // ── W-K'S ACTION-FIRST IS SUPERSEDED BY F1'S EXACT WORDING ─────────────
+  //
+  // The superseded assertions were `/^Issue the latest draft/` ("the action is
+  // not the first thing said") and `/has to be issued/`. W-K's reasoning is
+  // left visible: "issue a new one" had sat at the end of a sentence about
+  // revisions and a person who had just TAKEN a version read it as done.
+  //
+  // F1 rules the wording and it opens with the STATE. What answers W-K's
+  // concern is now vocabulary rather than word order - "minor (draft) version"
+  // against "Issue major version" names the two things being confused - so the
+  // property is re-asserted in its new form rather than dropped.
+  assert.match(moved.reason, /^Pricing at minor \(draft\) version\./,
+    'the ruled wording does not open the sentence')
+  assert.match(moved.reason, /Changes since last major version: Contract duration \(months\)\./,
+    'the changed item is not named in BUSINESS terms')
+  assert.ok(!/duration[,.]/.test(moved.reason), 'a raw key leaked into the sentence')
+  assert.match(moved.reason, /Issue major version for Proposal stage exit\./,
+    'W-K\'s property is lost: the sentence no longer says it must be ISSUED')
   assert.equal(moved.notice, true, 'a precondition doing its job is not an error')
 
   // ── THE CALIBRATION THAT MAKES THE RULE A RULE ─────────────────────────
@@ -707,17 +732,69 @@ test('W-A: a transition that EXECUTED lands on the new stage, and nothing else d
   assert.equal((app.match(/window\.landOppOnStage = function/g) || []).length, 1)
 })
 
-test('W-B: a refresh control on both surfaces, and no polling', () => {
+// ── W-B's "NO POLLING" IS SUPERSEDED BY F4, 2026-09-02 ────────────────────
+//
+// The superseded assertion was `assert.ok(!/setInterval\(/.test(app), 'a
+// polling timer was introduced')`, and its reasoning is left visible because it
+// was right about the question it answered: a timer HIDES staleness where a
+// control that says what it does is honest about it.
+//
+// What changed is the requirement, not the taste. W-B was answering "how does
+// somebody catch up". F4 measured what that costs in a two-session workflow:
+// after the approver's transition executed, the requester's session received no
+// signal of any kind, and clicking stage tabs could not discover it because tab
+// activation re-reads nothing. The requirement is now "the screen stays
+// current", which a manual control cannot meet.
+//
+// THE REFRESH CONTROL SURVIVES, so this test still asserts it: it is the
+// catch-up, and F4 ruled it stays.
+test('W-B/F4: a refresh control on both surfaces, and a poll that is cheap and scoped', () => {
   const app = readCode(ROOT + 'frontend/app.js')
   const html = readCode(ROOT + 'frontend/index.html')
   assert.match(app, /window\.refreshOppRequestState = async function/, 'the banner has no refresh')
   assert.match(app, /window\.refreshApprovalsQueue = async function/, 'the queue has no refresh')
   assert.match(html, /id="approvals-refresh"/, 'the queue control is not in the markup')
-  // NOT POLLING, ruled. A timer would hide the staleness rather than remove it.
-  assert.ok(!/setInterval\(/.test(app), 'a polling timer was introduced')
   // The control restores itself on every load, including the failure branch.
   assert.match(app, /btn\.textContent = 'Refresh'; btn\.disabled = false/,
     'a failed refresh would leave the button reading "Refreshing..." for ever')
+
+  // ── AND THE PROPERTIES THAT MAKE THE POLL ACCEPTABLE, each asserted ────
+  //
+  // "No polling" was one line and easy to check. Its replacement is not "some
+  // polling"; it is a poll with four named limits, and each is worth a line
+  // because dropping any one of them turns it back into the thing W-B refused.
+  assert.match(app, /const OPP_PULSE_INTERVAL_MS = \d+/,
+    'the interval is not a single named constant, so it cannot be tuned in one place')
+  assert.match(app, /records\/\$\{id\}\/pulse|records\/\$\{recordId\}\/pulse/,
+    'the poll does not use the cheap endpoint, so every tick is a full re-read')
+  assert.ok(!/setInterval\(oppPulseTick[\s\S]{0,200}loadOpportunityDetail\(id\)\s*\)/.test(app),
+    'the tick re-reads unconditionally')
+  assert.match(app, /if \(document\.hidden\).*\{[\s\S]{0,120}return \}/,
+    'a hidden tab is not guarded, so a record left open keeps polling')
+  assert.match(app, /visibilitychange/, 'nothing pauses the poll when the tab is hidden')
+  assert.match(app, /if \(!revisionMoved && !stageMoved\) return/,
+    'an unchanged record does not short-circuit, so it repaints on every tick')
+  // A TRANSITION CHANGES status AND NOT revision_number. Measured: before and
+  // after a real transition, both revision 2, Qualification -> Solution
+  // Alignment. A poll keyed only on the revision would miss the one event F4
+  // exists to follow, and every other case would still work.
+  assert.match(app, /const stageMoved = !!stage && stage !== stageWhenAsked/,
+    'the poll cannot see a transition: it keys on the revision alone')
+  // The pulse must not feed the revision-adoption hook. Without this the hook
+  // advances the held revision from the poll's OWN response and the comparison
+  // above can never be false: measured, the held revision moved 1 -> 2 with
+  // zero re-reads.
+  assert.match(app, /const PULSE_PATH = /, 'the pulse is not excluded from revision adoption')
+  assert.match(app, /if \(PULSE_PATH\.test\(String\(path\)/,
+    'the exclusion is declared but not applied in noteRevisionFromResponse')
+
+  // ONE RE-READ PATH. Verification 20: before F4 the button and the poll
+  // differed, and the difference WAS the defect - Refresh re-read but did not
+  // follow a stage change, so it landed you back on the old tab.
+  assert.match(app, /async function oppRereadFollowingStage/, 'there is no shared re-read path')
+  const refresh = app.slice(app.indexOf('window.refreshOppRequestState'))
+  assert.match(refresh.slice(0, 600), /oppRereadFollowingStage/,
+    'the manual control does not go through the shared path')
 })
 
 test('W-E: gross up takes the factoring treatment, and they are the same control', () => {

@@ -151,6 +151,54 @@ export default async function recordsRoutes(app) {
     return { record: recordResult.data, latest_revision: revResult.data }
   })
 
+  // ── GET /api/records/:id/pulse ─────────────────────────────────────────
+  //
+  // F4, 2026-09-02. The cheapest possible answer to "has anything happened to
+  // this record", for the background poll that keeps a second session current.
+  //
+  // TWO COLUMNS AND NOTHING ELSE, DELIBERATELY. The poll runs every few seconds
+  // on an open record, so a full re-read here would be the poll's cost rather
+  // than the change's: the whole design is that an unchanged record is nearly
+  // free and only a CHANGED one pays for a re-render.
+  //
+  // `status` travels with the revision because a transition is exactly the
+  // event this exists to notice, and the client needs to know the stage MOVED
+  // rather than merely that a revision landed. Fetching the stage separately
+  // would be a second request on the cheap path.
+  //
+  // RLS is the boundary, as everywhere: this runs as the user, so a record they
+  // cannot read answers 404 rather than leaking that it changed.
+  app.get('/records/:id/pulse', async (request, reply) => {
+    const db = createUserClient(request.jwt)
+
+    const [recordResult, revResult] = await Promise.all([
+      db.from('records').select('id, status').eq('id', request.params.id)
+        .is('deleted_at', null).maybeSingle(),
+      db.from('record_revisions').select('revision_number')
+        .eq('record_id', request.params.id)
+        .order('revision_number', { ascending: false }).limit(1).maybeSingle(),
+    ])
+
+    // Both errors checked. Verification 8: an unchecked read here would make
+    // "no revisions" and "the query failed" the same answer, and the poll reads
+    // that answer as "nothing has changed" - a staleness that looks like calm.
+    if (recordResult.error) {
+      request.log.error({ err: recordResult.error }, 'pulse: failed to read the record')
+      return reply.code(500).send({ error: recordResult.error.message })
+    }
+    if (revResult.error) {
+      request.log.error({ err: revResult.error }, 'pulse: failed to read the revision')
+      return reply.code(500).send({ error: revResult.error.message })
+    }
+    if (!recordResult.data) return reply.code(404).send({ error: 'not found' })
+
+    return {
+      id: recordResult.data.id,
+      status: recordResult.data.status,
+      revision_number: revResult.data?.revision_number ?? null,
+    }
+  })
+
   // GET /api/records/:id/stage-approvals
   // Read-only view for the Stage & Approvals tab: every stage in the
   // record's lifecycle (not just the current one), with its dot state,

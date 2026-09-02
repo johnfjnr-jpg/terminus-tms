@@ -96,8 +96,8 @@ const STAGES = [
 // ── WHAT IS DELIBERATELY NOT A STAGE, AND WHY ─────────────────────────────
 //
 // The BROWSER probes - probe-readonly-view, probe-dead-selectors,
-// probe-strip-layout, probe-install-prose, probe-cost-basis-line - are run by
-// the round and reported, not run by the gate. puppeteer is deliberately not a
+// probe-strip-layout, probe-install-prose, probe-cost-basis-line, probe-pulse -
+// are run by the round and reported, not run by the gate. puppeteer is deliberately not a
 // dependency of this repository, so a stage needing it would be red on any
 // machine that had not scratch-installed a browser, and a gate that is red for
 // a missing optional tool is a gate people learn to ignore.
@@ -108,6 +108,15 @@ const STAGES = [
 // the boundary. The part of W1 that CAN run unattended is asserted in the pure
 // suite instead: the class is set once, from the record owner and the session,
 // and the stylesheet makes it non-interactive rather than merely dim.
+//
+// Round 41 F4 adds probe-pulse on the same terms, and the split is the same.
+// Its claim - a screen follows a record somebody else changed, within one poll
+// interval and with no manual refresh - is a property of a BROWSER and cannot
+// be asserted anywhere else. What can run unattended is asserted in the pure
+// suite instead: the interval is one named constant, the tick uses the cheap
+// endpoint, an unchanged record short-circuits before any re-read, the pulse is
+// excluded from revision adoption, a hidden tab is guarded, and the manual
+// control goes through the same re-read path as the poll.
 
 const transcript = []
 const summary = []
