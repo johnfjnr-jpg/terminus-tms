@@ -1804,43 +1804,63 @@ textarea::placeholder { color: var(--muted-2); }
    A MODIFIER ON .btn-primary, not a replacement of it. Every other primary in
    the app stays an outline; this says "this particular primary is the one
    accepting something", and the reject beside it is untouched. */
-/* ── F3: THE FILLED ACCENT NEEDED THE WEIGHT TO WIN, 2026-09-02 ────────────
-   X4 ruled the approve action takes the filled accent. It was written as a
-   single class and never reached the screen: `.btn-sm.btn-primary` above sets
-   `color: var(--green)` at two-class weight, and this rule sets `color:
-   var(--dark)` at one. MEASURED in a real engine: the Approve button rendered
-   rgb(102,204,153) text on rgb(102,204,153) background, a contrast ratio of
-   1.00:1. The label was not faint, it was invisible; only the green block was
-   visible at all.
+/* ── X4 IS REVERSED. G1, tenth walk, 2026-09-02 ────────────────────────────
 
-   `.btn-sm.btn-accept` matches the weight of the rule it has to beat. The bare
-   `.btn-accept` is kept for any use outside a small button. */
-.btn-accept,
-.btn-sm.btn-accept {
-  background: var(--green);
-  color: var(--dark);
+   X4's reasoning, kept visible: Approve and Reject were both outlines, so the
+   pair read as two equal options, and Approve took the filled accent to say
+   which one accepts. `--dark` on `--green` measured 8.70:1 against 1.76:1 for
+   white, so the arithmetic was right.
+
+   WHAT THE ARITHMETIC COULD NOT SEE is that a filled swatch fights a dark
+   palette. Every other control in this app is an outline; a solid block of
+   accent reads as heavier and LESS legible in place, whatever its ratio against
+   its own fill. The business read the built screen and reversed it.
+
+   RULED: Approve and Reject are both bright green OUTLINE with bright green
+   text and no fill. That is `.btn-sm.btn-primary`, which the app already has,
+   so the accepting pair now uses the convention rather than an exception to it.
+
+   F3's finding survives the reversal and is the reason this is three lines
+   rather than a deletion: `.btn-sm:disabled` outranks a single class, so the
+   pending state must be stated at matching weight or the button loses its
+   colour on click and reads as removed. That was the "all three disappear"
+   the walk saw, and it would come straight back. */
+.btn-sm.btn-accept,
+.btn-sm.btn-accept:hover {
+  background: none;
+  color: var(--green);
   border-color: var(--green);
 }
-.btn-accept:hover,
-.btn-sm.btn-accept:hover { background: #7ad4a6; border-color: #7ad4a6; color: var(--dark); }
+.btn-sm.btn-accept:hover { background: rgba(102, 204, 153, 0.08); }
 
-/* ── AND THE DISABLED STATE KEEPS ITS SHAPE. F3 ────────────────────────────
-   The walk read "click Commercial, all three disappear, two return" as the
-   controls being removed. They were not: `.btn-sm:disabled` is class +
-   pseudo-class, so it beat `.btn-accept` and set `background: none`, and the
-   green fill was the button's ONLY visible feature. Measured, the fill went
-   rgb(102,204,153) -> rgba(0,0,0,0) on click.
-
-   V6 ruled disabled-not-removed. A disabled state that erases the control is
-   the thing V6 was ruling against, arriving through the cascade instead of
-   through the DOM. This keeps the fill and dims it, so the button still reads
-   as a button that cannot be used yet. */
-.btn-sm.btn-accept:disabled,
-.btn-sm.btn-accept:disabled:hover {
-  background: var(--green);
-  color: var(--dark);
+/* THE REJECT SIDE, ruled the same. It was `.btn-ghost`: muted grey text on the
+   banner, legible by ratio and dim to read beside a green control. Both are now
+   the accent outline, so the two are told apart by their LABELS. Recorded as
+   the business's call: X4's concern that a pair of identical outlines reads as
+   two equal options is answered by the wording rather than by weight. */
+.freeze-banner .btn-sm.btn-ghost,
+.freeze-banner .btn-sm.btn-ghost:hover {
+  color: var(--green);
   border-color: var(--green);
+  background: none;
 }
+.freeze-banner .btn-sm.btn-ghost:hover { background: rgba(102, 204, 153, 0.08); }
+
+/* ── THE DISABLED STATE IS ALREADY CARRIED, AND THAT WAS MEASURED ──────────
+   F3's finding still applies: `.btn-sm:disabled` is class + pseudo-class and
+   would repaint a decision control in `--muted`, which on this banner reads as
+   the control having gone. It is what "all three disappear" was.
+
+   A banner-scoped `:disabled` rule was written here to answer it and then
+   MEASURED, and it changed nothing: both controls already keep the accent while
+   disabled. `.btn-sm.btn-accept` is two units and sits after `.btn-sm:disabled`,
+   so it wins on order; the ghost override below is three units and wins on
+   weight. Every `.btn-sm` in this banner is one or the other.
+
+   Removed rather than kept as insurance. A rule that cannot change the output
+   is dead however good its intention, and leaving it would have put a test
+   around CSS that does nothing (Verification 22). The two rules that DO carry
+   it are asserted instead. */
 
 /* ── A TOGGLE THAT LOOKS LIKE ONE. Round 41, sixth walk V5 ─────────────────
    The factoring control was a .btn-ghost reading "Factoring: On/Off": the state

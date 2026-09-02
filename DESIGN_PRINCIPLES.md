@@ -7942,3 +7942,115 @@ puppeteer is deliberately not a dependency and a gate red for a missing optional
 tool is a gate people learn to ignore. What can run unattended is asserted in the
 pure suite, and the new route is exercised over HTTP in `probe-write-success`,
 including that a transition moves the stage and not the revision.
+
+---
+
+## Tenth walk: G1 reverses X4, and G2/G3 finds the poll blind to the workflow
+
+Round 41, 2026-09-02.
+
+### G1. X4 IS SUPERSEDED. Approve and Reject are the accent outline
+
+**X4's reasoning is left visible and its arithmetic was right.** Approve and
+Reject were both outlines, so the pair read as two equal options; Approve took
+the filled accent to say which one accepts, with `--dark` text measured at
+8.70:1 against 1.76:1 for white.
+
+**What the arithmetic could not see is that a solid swatch fights a dark
+palette.** Every other control in this app is an outline. A block of accent reads
+as heavier and less legible IN PLACE whatever its ratio against its own fill, and
+a contrast measurement taken against the button's own background cannot detect
+that. The business read the built screen and reversed it.
+
+**Ruled: both controls are bright green outline, green text, no fill.** That is
+`.btn-sm.btn-primary`, which the app already has, so the accepting pair now uses
+the convention rather than an exception to it.
+
+Measured on the dark banner ground after the change: **8.70:1 for text and for
+border, on both controls, filled: none.**
+
+**X4's own concern is answered by the labels rather than by weight**, and that is
+the business's call recorded as theirs: two identical outlines are told apart by
+the words on them.
+
+**F3's finding survives the reversal**, which is why this was not a deletion.
+`.btn-sm:disabled` is class plus pseudo-class and would repaint a decision
+control in `--muted`, which on this banner reads as the control having gone: it
+is exactly what "all three disappear" was.
+
+**AND THE RULE WRITTEN TO ANSWER THAT WAS MEASURED AND REMOVED.** A banner-scoped
+`:disabled` rule was added, then measured with and without: **identical output**.
+Both controls already keep the accent, because `.btn-sm.btn-accept` is two units
+and sits AFTER `.btn-sm:disabled` so it wins on order, and the ghost override is
+banner-scoped at three units so it wins on weight. Every `.btn-sm` in the banner
+is one or the other.
+
+**A rule that cannot change the output is dead however good its intention**, and
+keeping it would have put a test around CSS that does nothing (Verification 22).
+The two rules that DO carry it are asserted instead, including the ORDER
+dependency, which is the fragile half and would otherwise be invisible.
+
+### G2/G3. THE POLL IS RUNNING, ON THE RIGHT SCREEN, AND BLIND TO THE EVENT
+
+**Reported before any fix, on the running app, as instructed.**
+
+**All four of the business's questions, answered by measurement:**
+
+**1. Is the poll started and ticking on the approver's record view?** **Yes.**
+Driven in a browser against a frozen record with an open request: `is-frozen`
+true, the freeze banner rendered, and **polls 0 -> 2 across 16 seconds.** There is
+no approver-specific path; `startOppPulse` runs in `renderOppDetail` for any
+Opportunity detail view, and nothing in `oppPulseShouldRun` excludes a frozen
+record.
+
+**2. Does it compare BOTH status and revision on that surface?** **Yes.** One code
+path, not per-role, and the served bundle carries it.
+
+**3. Is the session on a cached bundle?** **Not from the server.** `cache-control:
+no-store, must-revalidate` is sent for `app.js`, and the served bytes, the working
+tree and `HEAD` are byte-identical. A browser holding pre-fix code from before
+`no-store` landed is still possible, which is what the hard reload settles.
+
+**4. On a detected change, does it re-render the approvals panel and stage?**
+**Yes, and for either party.** The poll calls `oppRereadFollowingStage` ->
+`loadOpportunityDetail`, which rebuilds the freeze banner with its approval rows
+and the stage tabs. Nothing there is requester-specific.
+
+**SO THE GAP IS DETECTION, AND IT IS TOTAL.** The pulse reads `records.status` and
+`max(record_revisions.revision_number)`. **An approval decision writes neither.**
+`decide_transition_request` inserts into `approvals`, and only when the LAST
+outstanding track closes does it touch `records.status`.
+
+**Measured, with the instrument shown able to move first:**
+
+| event | pulse moves |
+|---|---|
+| **control: a payload write** | **true** (revision 1 -> 2) |
+| a transition request is raised | false |
+| an approval lands on a track | false |
+| a second approval lands | false |
+| the request is withdrawn | false |
+
+And on the live approver screen, with the poll confirmed ticking: an approval
+landed, **the pulse did not move and the screen did not re-read** (rereads 0 -> 0
+across 16 seconds, polls 2 -> 4).
+
+**THIS IS THE THIRD TIME THE SAME SHAPE HAS APPEARED IN ONE FEATURE**, and that is
+the finding rather than the individual gap. The poll was designed around "has the
+RECORD changed", and the workflow's events do not live in `records` or
+`record_revisions`:
+
+- a transition changes `status` and writes no revision (found by calibration)
+- the pulse's own response was adopted as a revision (found by calibration)
+- **approvals, raises and withdrawals touch neither** (found by a walk)
+
+**A poll's cheap fact set is a claim about which events matter, and it needs the
+same enumeration a category name does (Verification 19): name every event the
+screen must follow, and check each against what the poll can see.** Two of the
+three were caught only because a calibration was built; the third reached a
+person, which is what the walks are for.
+
+**The probe passed while the screen did not because the probe exercised the two
+events the pulse CAN see.** It was built from the same assumption as the feature,
+so it inherited its blind spot exactly - Verification 33: when several measures
+pass, ask what question they SHARE.

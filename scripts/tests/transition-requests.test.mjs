@@ -545,21 +545,55 @@ test('X3: all three spellings of the revision reach the one holder', () => {
     'a lower revision from a raced response would be adopted')
 })
 
-test('X4: approve is filled, reject is not, and no new colour is introduced', () => {
+// ── X4 IS REVERSED BY G1, tenth walk, 2026-09-02 ─────────────────────────
+//
+// The superseded assertions were that `.btn-accept` sets
+// `background: var(--green)` and `color: var(--dark)`. X4's reasoning is left
+// visible and its arithmetic was right: --dark on --green measures 8.70:1
+// against 1.76:1 for white.
+//
+// WHAT THE ARITHMETIC COULD NOT SEE is that a solid swatch fights a dark
+// palette. The business read the built screen and reversed it: Approve and
+// Reject are both the accent OUTLINE, which is the convention every other
+// control in the app already follows.
+//
+// X4's own concern - that two identical outlines read as two equal options - is
+// answered by the LABELS rather than by weight, and that is the business's call
+// recorded as theirs.
+test('G1: approve and reject are the accent outline, with no fill', () => {
   const app = readCode(ROOT + 'frontend/app.js')
   const css = readCode(ROOT + 'frontend/style.css')
   assert.match(app, /btn-sm btn-primary btn-accept" onclick="decideRequest\('\$\{req\.id\}','\$\{escHtml\(t\)\}','approved'/,
-    'the approve control does not carry the filled treatment')
-  assert.ok(!/btn-accept" onclick="decideRequest\([^)]*'rejected'/.test(app),
-    'reject must stay an outline')
-  const rule = css.match(/\.btn-accept \{([^}]*)\}/)
-  assert.ok(rule, 'no .btn-accept rule')
-  assert.match(rule[1], /background:\s*var\(--green\)/, 'the fill is not the accent')
-  assert.match(rule[1], /color:\s*var\(--dark\)/,
-    'text on the accent must be --dark: --white on #66CC99 measures 1.76:1 and is unreadable')
-  // ONE ACCENT. A new hue would show up as a hex literal in this rule.
-  assert.ok(!/#(?!7ad4a6)[0-9a-f]{6}/i.test(rule[1]),
-    `.btn-accept introduces a colour that is not the accent: ${rule[1].trim()}`)
+    'the approve control lost its class')
+  const rule = css.match(/\.btn-sm\.btn-accept,\s*\n\.btn-sm\.btn-accept:hover \{([^}]*)\}/)
+  assert.ok(rule, 'no .btn-sm.btn-accept rule')
+  assert.match(rule[1], /background:\s*none/, 'the accepting control is still filled')
+  assert.match(rule[1], /color:\s*var\(--green\)/, 'the text is not the accent')
+  // ONE ACCENT still. A new hue would show up as a hex literal.
+  assert.ok(!/#[0-9a-f]{6}/i.test(rule[1]),
+    `.btn-sm.btn-accept introduces a colour that is not the accent: ${rule[1].trim()}`)
+
+  // ── AND F3'S FINDING SURVIVES THE REVERSAL, which is why this is not just
+  // a deletion. `.btn-sm:disabled` is class + pseudo-class and outranks a
+  // single class, so without a matching-weight rule the pending button loses
+  // its colour on click and reads as REMOVED - the "all three disappear" the
+  // walk reported, arriving straight back through the cascade.
+  // Measured rather than assumed: a banner-scoped `:disabled` rule was written
+  // to answer this and changed nothing, so it was removed. These are the two
+  // rules that actually carry it, and both are asserted because losing either
+  // brings the defect back.
+  //
+  // 1. ORDER. `.btn-sm.btn-accept` and `.btn-sm:disabled` are both two units,
+  //    so the accept rule wins only by sitting later in the file.
+  const disabledAt = css.indexOf('.btn-sm:disabled')
+  const acceptAt = css.indexOf('.btn-sm.btn-accept')
+  assert.ok(disabledAt > -1 && acceptAt > disabledAt,
+    'the accept rule no longer sits after .btn-sm:disabled, so a pending Approve '
+    + 'drops to --muted and reads as removed')
+  // 2. WEIGHT. The reject override is banner-scoped, which is three units and
+  //    beats `.btn-sm:disabled` outright.
+  assert.match(css, /\.freeze-banner \.btn-sm\.btn-ghost,/,
+    'the reject override is not banner-scoped, so a pending Reject drops to --muted')
 })
 
 test('X4/42: the dev server cannot serve a stale bundle to a walk', () => {
