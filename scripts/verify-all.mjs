@@ -118,8 +118,8 @@ const STAGES = [
 //
 // The BROWSER probes - probe-readonly-view, probe-dead-selectors,
 // probe-strip-layout, probe-install-prose, probe-cost-basis-line, probe-pulse,
-// probe-revision-adoption - are run by the round and reported, not run by the
-// gate. puppeteer is deliberately not a
+// probe-revision-adoption, probe-panel-stability - are run by the round and
+// reported, not run by the gate. puppeteer is deliberately not a
 // dependency of this repository, so a stage needing it would be red on any
 // machine that had not scratch-installed a browser, and a gate that is red for
 // a missing optional tool is a gate people learn to ignore.

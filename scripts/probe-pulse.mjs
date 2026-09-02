@@ -54,7 +54,16 @@ const held = () => page.evaluate(() => ({
 }))
 
 record('the interval is exposed as one constant', Number.isInteger(interval), `${interval}ms`)
-record('it is in the ruled 5-10s band', interval >= 5000 && interval <= 10000, `${interval}ms`)
+// ── THE BAND WAS RE-RULED. R4/R7, 2026-09-02 ────────────────────────────
+//
+// F4 ruled 5-10s and this asserted it. The walk then reported the two-session
+// move as feeling slow, and the measurement agreed: the interval is what a
+// person waits, because a tick is one small request and only a CHANGED record
+// costs a re-read. Re-ruled to 3-4s.
+//
+// The property is unchanged and is what this line protects: the interval is ONE
+// NAMED CONSTANT in a deliberate band, not a number somebody tuned in place.
+record('it is in the ruled 3-4s band', interval >= 3000 && interval <= 4000, `${interval}ms`)
 
 // ── CLAIM 3: an UNCHANGED record triggers no re-render ────────────────────
 const before = await stats()

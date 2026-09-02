@@ -540,6 +540,35 @@ function renderOppStageTabs(stages, currentStage) {
 
   const stageTabs = (stages ?? []).filter(s => !s.reachable_from_any_stage)
 
+  // ── R4/R7: RECONCILE, DO NOT TEAR DOWN AND REFILL ──────────────────────
+  //
+  // This removed and recreated every stage tab and panel on every render. A
+  // recreated panel is an EMPTY panel, and the criteria arrive one round trip
+  // later, so the exit criteria vanished and came back on every poll tick that
+  // detected a change. Measured before the fix, sampling every 40ms across a
+  // tick: the panel's content went 207 characters -> 0 -> 207 while the panel
+  // COUNT never dropped, which is why it read as a flicker rather than as a
+  // missing panel.
+  //
+  // The rebuild exists for a real reason - switching between records with
+  // different stage lists would otherwise accumulate tabs from both - so it is
+  // kept and made CONDITIONAL rather than removed. The signature is the thing
+  // the rebuild actually depends on: the stage names in order, and each one's
+  // terminal flag, because a terminal stage gets a different panel body.
+  //
+  // WHAT THIS DELIBERATELY DOES NOT TOUCH on the reconcile path: the selection.
+  // X1's restore below exists because a rebuild steals the open tab; nothing is
+  // rebuilt here, so there is nothing to restore and the tab simply stays. The
+  // record's own stage moving is handled by oppLandOnTabAfterLoad in
+  // renderOppDetail, which is read after this function either way.
+  const signature = stageTabs.map((s) => `${s.stage_name}|${s.is_terminal ? 1 : 0}`).join('\n')
+  const existing = [...strip.querySelectorAll('.detail-tab[data-opp-stage-tab]')]
+  if (host.dataset.oppStageSignature === signature && existing.length === stageTabs.length) {
+    wireOppNextStageButton(currentStage, stages)
+    return
+  }
+  host.dataset.oppStageSignature = signature
+
   // Remove the previous record's generated tabs and panels before adding
   // this record's. Without this, switching between records with different
   // stage lists would accumulate tabs from both.
@@ -6982,7 +7011,10 @@ let oppLoadedRevision = null
 // else. A full re-read and re-render happen ONLY when that revision differs
 // from the one on screen, so an unchanged record costs one small request and
 // repaints nothing.
-const OPP_PULSE_INTERVAL_MS = 7000
+// R4/R7: shortened from 7000. The tick is one small request against one record
+// and only a CHANGED record costs a re-read, so the interval is what the
+// two-session workflow feels rather than what it costs. Ruled 3000-4000.
+const OPP_PULSE_INTERVAL_MS = 3500
 
 let oppPulseTimer = null
 let oppPulseRecordId = null

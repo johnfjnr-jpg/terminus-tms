@@ -8963,6 +8963,32 @@ re-render. Both sessions did move; the delay is the interval, not a failure.
 The fix is to reconcile rather than remove-and-recreate, which is a real change
 to the tab renderer and is held for the business.
 
+### A PROBE WAIT MUST BE ON THE EXACT STATE THE ASSERTION READS
+
+**Set by the business 2026-09-02, from the third instance in one round.**
+
+> **Wait on the exact state the assertion reads, never on a proxy set earlier in
+> the same render.**
+
+A render assigns many things, in order. A wait on any of them is satisfied the
+moment THAT one is assigned, and an assertion about a LATER one then reads an
+unfinished screen. The two look identical while the gap is small.
+
+**THE THREE INSTANCES, and the pattern is the same each time:**
+
+| probe | waited on | asserted | why it passed anyway |
+|---|---|---|---|
+| version-gate | `rereads` counter | the held stage | the counter increments BEFORE the reload it counts |
+| pulse (first) | `rereads` counter | the held stage | same |
+| pulse (this one) | `currentOppStage` | the active TAB | the stage is set ~16 lines before the tab lands |
+
+**All three reported a WORKING feature as broken**, which is the direction that
+wastes a session rather than shipping a defect - and the third only appeared
+because an added `await` widened a gap that had always been there. **The race was
+not introduced by that change; it was revealed by it.**
+
+The remedy is one line each time: wait on the thing the next assertion reads.
+
 ### AND ONE MORE PROBE THAT WAITED ON THE WRONG THING
 
 `probe-pulse` waited on `__oppCurrentStage() === target` and then immediately
@@ -8976,3 +9002,63 @@ instance of Verification 7 in this round.
 
 The tab now has its own wait, on the tab. Calibrated by disabling the landing:
 the check fails and names what it read.
+
+---
+
+## R4/R7 BUILT: reconcile in place, and a sampler that could not see it
+
+2026-09-02.
+
+### The fix
+
+`renderOppStageTabs` removed and recreated every stage tab and panel on every
+render. A recreated panel is an EMPTY panel and the criteria arrive one round
+trip later, so the exit criteria vanished and came back on every poll tick that
+detected a change.
+
+The rebuild exists for a real reason - switching between records with different
+stage lists would otherwise accumulate tabs from both - so it is **made
+conditional rather than removed**. The signature is what the rebuild actually
+depends on: the stage names in order, and each one's terminal flag, because a
+terminal stage gets a different panel body.
+
+`OPP_PULSE_INTERVAL_MS` 7000 -> **3500**, as ruled.
+
+### THE SAMPLER COULD NOT SEE THE DEFECT IT WAS WRITTEN FOR
+
+The first check sampled the panel's content every 30ms across a poll tick and
+reported **no blank and no replacement - with the reconcile DISABLED.** It could
+not distinguish the fixed state from the broken one.
+
+**Why: the criteria and lens helpers CACHE.** On the first load the refill is a
+real round trip and the blank is visible, which is how the original 207 -> 0 ->
+207 was measured. On a re-render everything is warm, the refill lands in a
+microtask, and the empty window is shorter than any sampler.
+
+**Measured synchronously instead, immediately after an awaited re-render, there
+is nothing to race:**
+
+| | node identity | content |
+|---|---|---|
+| reconcile ON | same | 207 -> 207 |
+| reconcile OFF | **different** | **207 -> 0** |
+
+**The defect is real and the fix is real; the first instrument simply could not
+see either.** Verification 18's shape - a calibration that does not move the
+number has failed to run - arriving as a green reading that meant nothing.
+
+**And node identity is the better measure on its own terms**, beyond this
+flicker: a replaced node loses scroll position, focus, and any selection inside
+it, none of which a content-length sampler would ever notice.
+
+### Three properties, asserted together, because this file has broken each
+
+`probe-panel-stability` asserts all three in one run, and each guards a fault
+this same file has already produced:
+
+- **the panel is not destroyed** - the flicker
+- **the selected tab survives** - X1's property, which the rebuild used to steal
+- **the read-only sweep runs before the awaited gate fetch** - the window R8's
+  change opened, asserted from source because it is a property of ordering
+
+All three calibrated by injection; each fails alone and reverts to green.
