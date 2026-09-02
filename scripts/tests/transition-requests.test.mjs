@@ -685,8 +685,12 @@ test('X3: all three spellings of the revision reach the one holder', () => {
 test('G1: approve and reject are the accent outline, with no fill', () => {
   const app = readCode(ROOT + 'frontend/app.js')
   const css = readCode(ROOT + 'frontend/style.css')
-  assert.match(app, /btn-sm btn-primary btn-accept" onclick="decideRequest\('\$\{req\.id\}','\$\{escHtml\(t\)\}','approved'/,
-    'the approve control lost its class')
+  // The attribute between the class and the handler is `data-decision-track`,
+  // which carries the server's authorisation so the read-only sweep can let an
+  // approver through. The class claim is unchanged; the pattern simply no
+  // longer assumes the two are adjacent.
+  assert.match(app, /btn-sm btn-primary btn-accept" data-decision-track="\$\{escHtml\(t\)\}" onclick="decideRequest\('\$\{req\.id\}','\$\{escHtml\(t\)\}','approved'/,
+    'the approve control lost its class or its authorisation marker')
   const rule = css.match(/\.btn-sm\.btn-accept,\s*\n\.btn-sm\.btn-accept:hover \{([^}]*)\}/)
   assert.ok(rule, 'no .btn-sm.btn-accept rule')
   assert.match(rule[1], /background:\s*none/, 'the accepting control is still filled')

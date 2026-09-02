@@ -1406,6 +1406,21 @@ const NON_ACTION_SELECTOR = [
   '[data-opp-tab]', '[data-opp-stage-tab]', '[data-tb-tab]',
   '.detail-tab', '.btn-text', '.appr-refresh', '.disclose-chevron',
   '#btn-back-opps', '#opp-btn-list', '#opp-btn-grid', '.ot-sort',
+  // ── THE THIRD CATEGORY: DECISIONS. Ruled 2026-09-02 ──────────────────
+  //
+  // R3 knew two kinds of control - navigation, allowed, and actions, blocked -
+  // and an approver fell in the gap: they are ALWAYS a non-owner, and approving
+  // is the one action they exist to take. The pricing-approval and
+  // stage-approval banners both had their Approve and Reject controls disabled
+  // by the sweep, and the read-only probe reported "0 actions clickable" as a
+  // PASS because it could not tell the two apart.
+  //
+  // `data-decision-track` is written only inside the `mayDecide.has(track)`
+  // branch of the two banner renderers, so this exemption IS the server's
+  // authorisation rather than a class somebody can add. Withdraw carries no
+  // such attribute and stays blocked: it is the requester's control, not the
+  // approver's.
+  '[data-decision-track]',
 ].join(', ')
 
 function applyReadOnlyControls(viewId, notMine) {
@@ -1482,10 +1497,13 @@ function renderOppPricingApprovalBanner(recordId) {
   const rows = (req.required ?? []).map((t) => {
     const d = decided.get(t)
     const state = d ? (d.decision === 'approved' ? 'Approved' : 'Rejected') : 'Waiting'
+    // Same authorisation marker as the stage banner, for the same reason: an
+    // approver is a non-owner, and the sweep must let through exactly what the
+    // server authorised and nothing else in this banner.
     const buttons = d || !mayDecide.has(t) ? '' :
-      `<button class="btn-sm btn-primary btn-accept" onclick="decideRequest('${req.id}','${escHtml(t)}','approved','${recordId}')">Approve</button>`
+      `<button class="btn-sm btn-primary btn-accept" data-decision-track="${escHtml(t)}" onclick="decideRequest('${req.id}','${escHtml(t)}','approved','${recordId}')">Approve</button>`
     const reject = d || !mayDecide.has(t) ? '' :
-      `<button class="btn-sm btn-ghost" onclick="decideRequest('${req.id}','${escHtml(t)}','rejected','${recordId}')">Reject</button>`
+      `<button class="btn-sm btn-ghost" data-decision-track="${escHtml(t)}" onclick="decideRequest('${req.id}','${escHtml(t)}','rejected','${recordId}')">Reject</button>`
     return `<div class="data-row sa-decision-row" id="opp-decide-${escHtml(trackKey(t))}">`
       + `<span class="sa-track">${escHtml(t)}</span>`
       + `<span class="sa-approval-meta">${state}${d?.decided_at ? ' ' + formatDate(d.decided_at) : ''}</span>`
@@ -1529,8 +1547,21 @@ function renderOppFreezeBanner(recordId) {
   const rows = (req.required ?? []).map((t) => {
     const d = decided.get(t)
     const state = d ? (d.decision === 'approved' ? 'Approved' : 'Rejected') : 'Waiting'
-    const approveBtn = `<button class="btn-sm btn-primary btn-accept" onclick="decideRequest('${req.id}','${escHtml(t)}','approved','${recordId}')">Approve</button>`
-    const rejectBtn = `<button class="btn-sm btn-ghost" onclick="decideRequest('${req.id}','${escHtml(t)}','rejected','${recordId}')">Reject</button>`
+    // ── `data-decision-track` IS THE SERVER'S ANSWER, CARRIED ─────────────
+    //
+    // These two strings are only ever inserted inside the `mayDecide.has(t)`
+    // branch below, so the attribute exists exactly when the server said this
+    // identity may decide this track - it is not a style, a class, or a
+    // property of the banner.
+    //
+    // The read-only sweep exempts it. That matters because an APPROVER IS
+    // ALWAYS A NON-OWNER: R3 blocked every action for a non-owner, which is
+    // right for Mark Closed Lost and wrong for the one action an approver
+    // exists to take. Keyed to the authorisation rather than to a CSS class,
+    // because a class-based exemption is an enumeration the next control
+    // escapes - which is the mistake R3 itself was fixing.
+    const approveBtn = `<button class="btn-sm btn-primary btn-accept" data-decision-track="${escHtml(t)}" onclick="decideRequest('${req.id}','${escHtml(t)}','approved','${recordId}')">Approve</button>`
+    const rejectBtn = `<button class="btn-sm btn-ghost" data-decision-track="${escHtml(t)}" onclick="decideRequest('${req.id}','${escHtml(t)}','rejected','${recordId}')">Reject</button>`
     // A WAITING TRACK YOU CANNOT DECIDE STILL SAYS SO, rather than showing a
     // bare "Waiting" beside three tracks that have buttons. Silence there reads
     // as a screen that has not loaded.
