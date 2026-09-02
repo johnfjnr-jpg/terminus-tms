@@ -95,7 +95,20 @@ export function approvalSatisfiesRule(approval, rule, { from_stage, currentRevis
   // the old path by ruling. That is a conditional on configuration, not a fork:
   // one function, one list, and WORKFLOW_RECORD_TYPES is measured by the suite
   // rather than trusted.
-  if (requestApprovals !== undefined) {
+  //
+  // ── AND IT DOES NOT ANSWER FOR A VERSION-SCOPED RULE. Item 4, 2026-09-02 ─
+  //
+  // The condition is on the RULE, not on the record type, which is what keeps
+  // this one function with one list rather than forking a second engine for the
+  // from-Proposal path. Up to Solution Alignment -> Proposal every rule is
+  // stage-scoped, so the workflow still answers all of them and that half of the
+  // model is untouched. From Proposal onward every rule is version-scoped, so
+  // the branch below is reached and the standing sign-off decides.
+  //
+  // Before this, the short-circuit answered EVERY scope, so the version branch
+  // was unreachable for an Opportunity and `scope: 'version'` was decoration on
+  // four transitions. Nothing detected it because both readings agreed.
+  if (requestApprovals !== undefined && scope !== VERSION_SCOPE) {
     return requestApprovals.has(track)
   }
 
@@ -257,10 +270,20 @@ export async function computeBlocking(db, record, from_stage, to_stage, currentR
 
       // A version-scoped rule asks the approval page's own evaluator. Loaded
       // here rather than inside the predicate so the predicate stays pure and
-      // both call sites reach the same answer through the same loader. Skipped
-      // entirely for a workflow type: the request has already answered.
+      // both call sites reach the same answer through the same loader.
+      //
+      // ── LOADED FOR A WORKFLOW TYPE TOO, NOW. Item 4 ─────────────────────
+      //
+      // This read `&& requestApprovals === undefined`, on the reasoning that a
+      // workflow request had already answered. That is true of a stage-scoped
+      // rule and false of a version-scoped one: the predicate no longer lets the
+      // request answer those, so it needs the evaluator and would otherwise
+      // throw the "no versionApproval was supplied" error by construction.
+      //
+      // The condition matches the predicate's exactly, which is the point: two
+      // conditions that must agree are one condition written twice.
       let versionApproval
-      if (scope === VERSION_SCOPE && requestApprovals === undefined) {
+      if (scope === VERSION_SCOPE) {
         const loaded = await loadVersionApproval(db, record.id, track, currentRevision, revPayload)
         if (loaded.error) return { error: loaded.error }
         versionApproval = loaded.versionApproval
@@ -277,7 +300,24 @@ export async function computeBlocking(db, record, from_stage, to_stage, currentR
       // so it is asked once rather than once per row: `some` over an empty list
       // is false, and an opportunity with no pre-workflow approvals would have
       // read "not approved" however many requests had approved it.
-      const approval = requestApprovals !== undefined
+      // ── THE THIRD PLACE THE SAME CONDITION LIVES. Item 4 ────────────────
+      //
+      // The predicate's short-circuit and the loader's guard were both changed
+      // to exclude a version-scoped rule; THIS ONE WAS MISSED, and it is the
+      // caller that decides which context to build. It took the workflow branch
+      // for a version-scoped rule and passed no `versionApproval`, so the
+      // predicate threw "no versionApproval was supplied" on every from-Proposal
+      // transition - by construction, not intermittently.
+      //
+      // Found by the probe returning 500 where it expected a 409, which is the
+      // only reason it was found at all: nothing else exercises this path.
+      //
+      // The comment two changes ago said "two conditions that must agree are one
+      // condition written twice". There were three. All three now read the same
+      // way, and the test asserts each of them, because the next one to drift
+      // will be whichever is not pinned.
+      const useRequest = requestApprovals !== undefined && scope !== VERSION_SCOPE
+      const approval = useRequest
         ? approvalSatisfiesRule({ decision: 'approved', track }, rule,
           { from_stage, currentRevision, requestApprovals })
         : (candidates ?? []).some(
@@ -300,9 +340,22 @@ export async function computeBlocking(db, record, from_stage, to_stage, currentR
         // A WORKFLOW TYPE HAS NO versionApproval TO ASK, and this line read it
         // unconditionally for a version-scoped rule: the first run after wiring
         // the request in threw "Cannot read properties of undefined" on every
-        // exit-criteria call. The workflow's own message comes first because for
+        // exit-criteria call. The workflow's own message came first because for
         // those records the version evaluator was never loaded.
-        message: requestApprovals !== undefined
+        //
+        // ── THE FIFTH INSTANCE. Item 4, 2026-09-02 ─────────────────────────
+        //
+        // That reasoning expired with the loader guard: the evaluator is now
+        // loaded for every version-scoped rule, workflow type or not. Left
+        // as it was, a from-Proposal blocker would have told the person to
+        // "raise one from the stage panel", which under the version gate is a
+        // request that is never opened and a control that is not there.
+        //
+        // A MESSAGE RATHER THAN A GATE, and it still had to move: a refusal
+        // that names the wrong remedy sends somebody to do a thing that cannot
+        // work, which is the dead end the stranded-draft fix removed earlier in
+        // this round.
+        message: useRequest
           ? (approval
             ? `${track} has approved the open request`
             : 'Requires an approved decision on the open transition request. '

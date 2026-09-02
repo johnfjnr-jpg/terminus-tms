@@ -43,6 +43,20 @@ const STAGES = [
     needs: 'the dev server on :3000 AND a live session-ref.json',
   },
   {
+    // Item 4. Both halves of the from-Proposal check-and-go on one record, with
+    // the stage-gated half proven unchanged on the same walk.
+    name: 'HTTP version-gate probe',
+    cmd: ['node', ['scripts/probe-version-gate.mjs', 'GATE']],
+    needs: 'the dev server on :3000 AND a live session-ref.json',
+  },
+  {
+    // Item 4. The no-freeze guarantee rests on one WHERE clause, so it is
+    // exercised in both directions rather than read.
+    name: 'HTTP no-freeze probe',
+    cmd: ['node', ['scripts/probe-no-freeze.mjs', 'GATE']],
+    needs: 'the dev server on :3000 AND a live session-ref.json',
+  },
+  {
     // Round 41. Constructs the state where a version's own (major, minor)
     // sequence disagrees with the opportunity's revision sequence, which is the
     // only way to test that the later-draft check follows the right one.

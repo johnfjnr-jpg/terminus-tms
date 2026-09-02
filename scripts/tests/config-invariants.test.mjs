@@ -639,23 +639,65 @@ test('INVARIANT 14: one batch per product per date, so "current" has exactly one
 // answering the same question opposite ways. The ledger has been observed
 // drifting from the schema, so this is the thing that notices.
 
-test('no Opportunity Commercial approval rule is stage-scoped', async () => {
+// ── SUPERSEDED BY INTERNAL REVIEW ITEM 4, 2026-09-02 ─────────────────────
+//
+// Two assertions stood here and are replaced by one that pins the whole model:
+//
+//   'no Opportunity Commercial approval rule is stage-scoped'
+//   'Technical and Legal remain stage-scoped, deliberately'
+//
+// BOTH WERE RIGHT WHEN WRITTEN and their reasoning is left visible. Round 39
+// made Commercial version-scoped everywhere because a stage-scoped Commercial
+// approval survives a re-price, so a green gate could describe a price nobody
+// saw. The second pinned Technical and Legal so that changing them would be a
+// visible decision rather than a drift.
+//
+// IT WORKED EXACTLY AS DESIGNED. The change is visible, this is the decision
+// point, and the decision was taken: the model is now stage-gated up to and
+// including Solution Alignment -> Proposal, and version-gated from Proposal
+// exit onward, for ALL THREE TRACKS.
+//
+// Asserted as the full matrix rather than per track, because the previous shape
+// - one rule per track, spanning every transition - is what made the two halves
+// disagree with each other and with the documents. The model is a property of
+// the (transition, track) pair and is now written that way.
+test('the approval scope matrix is the ruled one, transition by transition', async () => {
   const { data, error } = await db
     .from('stage_gate_rules')
     .select('from_stage, to_stage, requirement_detail')
     .eq('record_type', 'opportunity')
     .eq('requirement_type', 'approval_obtained')
   assert.equal(error, null, error?.message)
+  assert.ok(data.length > 0, 'no approval rules found at all, so this scan measures nothing')
 
-  const commercial = data.filter((r) => r.requirement_detail?.track === 'Commercial')
-  assert.ok(commercial.length > 0, 'no Commercial rules found at all, so this scan measures nothing')
-
-  const wrong = commercial
-    .filter((r) => r.requirement_detail?.scope !== 'version')
-    .map((r) => `${r.from_stage} -> ${r.to_stage}: ${JSON.stringify(r.requirement_detail)}`)
-  assert.deepEqual(wrong, [],
-    'these Commercial rules survive a re-price, so a green gate can describe a price nobody saw:\n  '
-    + wrong.join('\n  '))
+  // STAGE-GATED: the Bid/No Bid decision, which freezes and waits.
+  // VERSION-GATED: a standing sign-off against the issued major, checked.
+  const EXPECTED = {
+    'Solution Alignment -> Proposal': 'stage',
+    'Proposal -> Evaluation': 'version',
+    'Evaluation -> Negotiating': 'version',
+    'Negotiating -> Closed Won': 'version',
+  }
+  const wrong = []
+  const seen = new Set()
+  for (const r of data) {
+    const key = `${r.from_stage} -> ${r.to_stage}`
+    seen.add(key)
+    const want = EXPECTED[key]
+    if (!want) {
+      wrong.push(`${key}: has approval rules but the matrix does not describe it`)
+      continue
+    }
+    if (r.requirement_detail?.scope !== want) {
+      wrong.push(`${key} ${r.requirement_detail?.track}: expected ${want}, found ${r.requirement_detail?.scope}`)
+    }
+  }
+  // BOTH DIRECTIONS. A transition that lost its rules entirely would otherwise
+  // pass, because there would be nothing left to find wrong.
+  for (const key of Object.keys(EXPECTED)) {
+    if (!seen.has(key)) wrong.push(`${key}: has no approval rules at all`)
+  }
+  assert.deepEqual(wrong, [], 'the approval model has drifted from the ruling:\n  ' + wrong.join('\n  '))
 })
 
 test('and every Commercial rule is version-scoped exactly once per transition', async () => {
@@ -677,21 +719,23 @@ test('and every Commercial rule is version-scoped exactly once per transition', 
     'a transition carries more than one Commercial rule, which is a replay of 20260822000003')
 })
 
-test('Technical and Legal remain stage-scoped, deliberately', async () => {
-  // Recorded honestly in DESIGN_PRINCIPLES.md: stage scope is wrong for them
-  // too, just less dangerously. This pins the CURRENT state so that changing it
-  // is a visible decision rather than a drift, exactly as ownership.test.mjs
-  // pins the write boundary it disagrees with.
+test('all three tracks are present on every gated transition', async () => {
+  // The matrix above checks the SCOPE of the rules that exist. This checks that
+  // they exist: a transition silently losing a track would leave the remaining
+  // ones correctly scoped and the gate two-thirds of what was ruled.
   const { data } = await db
     .from('stage_gate_rules')
-    .select('requirement_detail')
+    .select('from_stage, to_stage, requirement_detail')
     .eq('record_type', 'opportunity')
     .eq('requirement_type', 'approval_obtained')
-  for (const track of ['Technical', 'Legal']) {
-    const rows = data.filter((r) => r.requirement_detail?.track === track)
-    assert.ok(rows.length > 0, `no ${track} rules found`)
-    assert.ok(rows.every((r) => r.requirement_detail?.scope === 'stage'),
-      `${track} is no longer stage-scoped; if that is intended, this test is the decision point`)
+  const byTransition = {}
+  for (const r of data) {
+    const key = `${r.from_stage} -> ${r.to_stage}`
+    ;(byTransition[key] ??= new Set()).add(r.requirement_detail?.track)
+  }
+  for (const [key, tracks] of Object.entries(byTransition)) {
+    assert.deepEqual([...tracks].sort(), ['Commercial', 'Legal', 'Technical'],
+      `${key} does not carry all three tracks: ${[...tracks].join(', ')}`)
   }
 })
 

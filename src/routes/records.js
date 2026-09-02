@@ -46,7 +46,18 @@ export function buildStageTracks(stageRules, approvals, stageName, currentRevisi
       // calls the predicate, so a record with no pre-workflow approvals would
       // have read "not approved" however many requests had approved it. The
       // same shape was in computeBlocking and is fixed there too.
-      const workflowApproved = requestApprovals !== undefined
+      //
+      // ── AND NOT FOR A VERSION-SCOPED TRACK. Item 4, 2026-09-02 ──────────
+      //
+      // The FOURTH place this same condition lives, and the one it would have
+      // hurt most: the panel would have reported a version-scoped track by the
+      // workflow's reading while the gate used the version evaluator, which is
+      // Verification 43's divergence in the function written to prevent it. A
+      // green "approved" here against a gate that refuses is the wrong-green
+      // this project has now had three instances of.
+      const useRequest = requestApprovals !== undefined
+        && (rule.requirement_detail?.scope ?? '') !== VERSION_SCOPE
+      const workflowApproved = useRequest
         ? approvalSatisfiesRule({ decision: 'approved', track }, rule,
           { from_stage: stageName, currentRevision, requestApprovals })
         : null
@@ -56,6 +67,17 @@ export function buildStageTracks(stageRules, approvals, stageName, currentRevisi
           approvalSatisfiesRule(a, rule, { from_stage: stageName, currentRevision, versionApproval }))
       return {
         track,
+        // The scope travels with the row so the panel can SAY which model this
+        // track is under. Without it the screen would have to infer it from the
+        // stage name, which is the model stated in a second place.
+        scope: rule.requirement_detail?.scope ?? 'revision',
+        // The version the sign-off is held against, for the running history.
+        // Read off the evaluator the gate uses, never re-derived.
+        version_label: versionApproval?.version
+          ? (versionApproval.version.minor === 0
+            ? `V${versionApproval.version.major}`
+            : `V${versionApproval.version.major}.${versionApproval.version.minor}`)
+          : null,
         approved: !!decision,
         approver_id: (typeof decision === 'object' && decision?.approver_id) || null,
         decided_at: (typeof decision === 'object' && decision?.decided_at) || null,

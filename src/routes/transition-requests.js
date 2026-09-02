@@ -8,6 +8,9 @@
  */
 import { createUserClient } from '../supabase.js'
 import { computeBlocking, GATE_RECORD_SELECT } from './transitions.js'
+// From the one file that owns it, not re-declared here: a second 'version'
+// literal is a second reader of the same decision (Verification 20).
+import { VERSION_SCOPE } from '../lib/version-approval.js'
 import {
   usesWorkflow, requiredTracks, requestState, mayDecide,
   issuedProposal, needsIssuedVersion,
@@ -129,22 +132,40 @@ export default async function transitionRequestRoutes(app) {
       }
     }
 
-    // ── THE BLOCKERS, MINUS THE APPROVALS ──────────────────────────────────
+    // ── THE BLOCKERS, MINUS THE APPROVALS THIS REQUEST COLLECTS ────────────
     //
     // computeBlocking is the ONE gate computation path and it stays. What is
-    // dropped here is the approval requirements, and only those: a request
-    // exists precisely to collect them, so refusing it for their absence would
-    // refuse every request ever made.
+    // dropped is the approval requirements a request exists to COLLECT, because
+    // refusing it for their absence would refuse every request ever made.
+    //
+    // ── AND A VERSION-SCOPED APPROVAL IS NOT ONE OF THOSE. Item 4 ─────────
+    //
+    // From Proposal onward the approval is a STANDING SIGN-OFF held against the
+    // issued major version. It is not collected by this request and it either
+    // exists already or does not, so it is a genuine blocker and stays in the
+    // list. That is what makes the from-Proposal path a CHECK rather than a
+    // wait: the gate is asked, and the answer decides then and there.
+    //
+    // Filtered on the blocker's own `scope`, which computeBlocking already
+    // reports, rather than on a stage list here. A stage list would be a second
+    // statement of where the model changes, and the rules already say it.
     let blocking = []
     let frozenVersionId = null
     if (kind === 'transition') {
       const result = await computeBlocking(
         db, record, record.status, to_stage, rev.revision_number, rev.payload)
       if (result.error) return reply.code(500).send({ error: result.error.message })
-      blocking = (result.blocking ?? []).filter((b) => b.requirement_type !== 'approval_obtained')
+      blocking = (result.blocking ?? [])
+        .filter((b) => b.requirement_type !== 'approval_obtained' || b.scope === VERSION_SCOPE)
       if (blocking.length) {
+        // The version-scoped refusal says what to do about it. computeBlocking
+        // carries the evaluator's own reason, so "no version approved" and "the
+        // pricing moved since it was approved" stay different sentences.
+        const unapproved = blocking.some((b) => b.requirement_type === 'approval_obtained')
         return reply.code(409).send({
-          error: 'This transition is not ready to be requested.',
+          error: unapproved
+            ? 'The current pricing version is not approved for issue yet.'
+            : 'This transition is not ready to be requested.',
           blocking,
         })
       }

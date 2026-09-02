@@ -7246,21 +7246,45 @@ function buildStageTrackListHtml(recordId, st, recordType) {
   if (!st.tracks.length) return '<p class="empty-state">No approvals required for this stage.</p>'
   const superseded = window.usesWorkflow(recordType)
   return st.tracks.map(t => {
+    // A VERSION-SCOPED TRACK IS NEVER CLICKABLE HERE. Its sign-off is collected
+    // against a version, not by clicking a stage row, and offering the control
+    // would send somebody to a route that cannot record what they meant.
     const clickable = !superseded && st.state === 'current' && !t.approved
+      && t.scope !== 'version'
     const onclick = clickable ? `onclick="submitStageApproval('${recordId}','${escHtml(t.track)}')"` : ''
     // WHAT IT SAYS INSTEAD OF "Click to approve". Not a blank: a row that reads
     // approved-or-nothing on a record whose approvals live somewhere else is the
     // shape that sent a person clicking in the first place.
-    const meta = t.approved
-      ? `Approved ${formatDate(t.decided_at)}`
-      : superseded ? 'Decided on the transition request'
-      : (st.state === 'current' ? 'Click to approve' : 'Not yet at this stage')
+    // ── A VERSION-SCOPED TRACK IS A DIFFERENT STATEMENT. Item 4 ──────────
+    //
+    // From Proposal onward the sign-off is held against an ISSUED MAJOR
+    // VERSION, not against this stage and not against a transition request. The
+    // row says which version, because "approved" without naming what was
+    // approved is the claim this model exists to make precise: issuing a new
+    // major supersedes it, and a reader has to be able to see which one is
+    // standing.
+    //
+    // `t.scope` comes from the rule the GATE reads. Inferring it from the stage
+    // name here would state the model in a second place.
+    const versionScoped = t.scope === 'version'
+    const meta = versionScoped
+      ? (t.approved
+        ? `${t.version_label ?? 'Version'} · approved ${formatDate(t.decided_at)} · at ${escHtml(st.stage_name)}`
+        : (t.reason ?? `${t.version_label ?? 'The current version'} is not approved for issue yet`))
+      : t.approved
+        ? `Approved ${formatDate(t.decided_at)}`
+        : superseded ? 'Decided on the transition request'
+        : (st.state === 'current' ? 'Click to approve' : 'Not yet at this stage')
+    // RULED LABEL from Proposal onward.
+    const roleLabel = versionScoped
+      ? `${escHtml(t.track)} · Proposal/Pricing approved for issue`
+      : escHtml(t.track)
     return `
     <div class="sa-approval-row${t.approved ? ' approved' : ''}${clickable ? ' clickable' : ''}" ${onclick}>
       <span class="ring-radio-ring"><span class="ring-radio-dot"></span></span>
       <div>
-        <div class="sa-approval-role">${escHtml(t.track)}</div>
-        <div class="sa-approval-meta">${meta}</div>
+        <div class="sa-approval-role">${roleLabel}</div>
+        <div class="sa-approval-meta">${escHtml(meta)}</div>
       </div>
     </div>`
   }).join('')

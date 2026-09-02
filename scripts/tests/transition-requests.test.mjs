@@ -249,14 +249,36 @@ test('Proposal to Evaluation wants an ISSUED version and nothing since', () => {
     'and (major, minor) is what disagrees with it')
 })
 
-test('the raise route drops ONLY the approval requirements from the gate', () => {
-  // A request exists to collect approvals, so refusing it for their absence
-  // would refuse every request ever made. Everything else still blocks, which
-  // is the ruling that the request is the gate's front door.
+// ── RESTATED BY ITEM 4, 2026-09-02 ────────────────────────────────────────
+//
+// The superseded assertion was
+// `.filter((b) => b.requirement_type !== 'approval_obtained')`, and its
+// reasoning is left visible and still holds for the stage-gated half: a request
+// exists to COLLECT those approvals, so refusing it for their absence would
+// refuse every request ever made.
+//
+// A version-scoped approval is not one this request collects. It is a standing
+// sign-off held against the issued major, it either exists or does not, and so
+// it is a genuine blocker. That is what makes the from-Proposal path a CHECK
+// rather than a wait.
+test('the raise route drops the approvals it COLLECTS, and keeps the ones it CHECKS', () => {
   assert.match(ROUTES, /computeBlocking\(/, 'the one gate computation path is still the one used')
-  assert.match(ROUTES, /\.filter\(\(b\) => b\.requirement_type !== 'approval_obtained'\)/)
-  assert.match(ROUTES, /error: 'This transition is not ready to be requested\.'/)
+  assert.match(ROUTES, /b\.requirement_type !== 'approval_obtained' \|\| b\.scope === VERSION_SCOPE/,
+    'a version-scoped approval is dropped from the gate, so an unapproved price would raise')
+  // The two refusals are now a ternary, so the literals are asserted alone
+  // rather than with the `error:` key they no longer sit beside.
+  assert.match(ROUTES, /'This transition is not ready to be requested\.'/)
+  assert.match(ROUTES, /'The current pricing version is not approved for issue yet\.'/,
+    'the version-gate refusal does not say what is wrong')
   assert.match(ROUTES, /blocking,/)
+  // FILTERED ON THE BLOCKER'S OWN SCOPE, not on a stage list. A stage list here
+  // would be a second statement of where the model changes, and the rules
+  // already say it.
+  assert.ok(!/from_stage === 'Proposal'|\['Proposal', 'Evaluation'/.test(ROUTES),
+    'the raise route names stages, so the model is stated in two places')
+  // VERSION_SCOPE comes from the module that owns it, never a re-declared
+  // literal (Verification 20).
+  assert.match(ROUTES, /import \{ VERSION_SCOPE \} from '\.\.\/lib\/version-approval\.js'/)
 })
 
 test('the decision route enforces the rules it must, and delegates the rest', () => {
@@ -287,13 +309,91 @@ test('PT423 has ONE place it becomes an HTTP status', () => {
   assert.match(ROUTES, /reply\.code\(423\)\.send\(\{ error: err\.message, frozen: true \}\)/)
 })
 
-test('the gate reads the request for a workflow type, and neither scope branch', () => {
+// ── RESTATED BY ITEM 4, 2026-09-02 ────────────────────────────────────────
+//
+// The superseded assertion was `if (requestApprovals !== undefined) { return
+// requestApprovals.has(track) }`, and its reasoning is left visible: for a
+// workflow record type the request had already answered, because the record
+// cannot change while a request is open.
+//
+// That is true of a STAGE-scoped rule and false of a version-scoped one. The
+// short-circuit answered every scope, so the version branch was unreachable for
+// an Opportunity and `scope: 'version'` was decoration on four transitions.
+// Nothing detected it because both readings agreed.
+//
+// THE PROPERTY THE OLD ASSERTION PROTECTED SURVIVES: it is still a conditional
+// on configuration rather than a fork, and both scope branches still exist.
+test('the workflow answers a STAGE rule and never a VERSION one', () => {
   const t = readCode(ROOT + 'src/routes/transitions.js')
-  assert.match(t, /if \(requestApprovals !== undefined\) \{\s*\n\s*return requestApprovals\.has\(track\)/)
-  // It is a conditional on configuration, not a replacement: Test Bed keeps the
-  // old path by ruling, so both scope branches must still be there.
+  assert.match(t, /if \(requestApprovals !== undefined && scope !== VERSION_SCOPE\) \{\s*\n\s*return requestApprovals\.has\(track\)/,
+    'the workflow short-circuit still answers version-scoped rules, so the version gate is unreachable')
+  // One function, one list: the condition is on the RULE, not on the record
+  // type, so no second engine exists for the from-Proposal path.
+  assert.ok(!/usesWorkflow\([^)]*\)[\s\S]{0,80}VERSION_SCOPE/.test(t),
+    'the version path branches on record type rather than on the rule')
   assert.match(t, /if \(scope === VERSION_SCOPE\)/)
   assert.match(t, /scope === 'stage'/)
+
+  // THE LOADER'S CONDITION MUST MATCH THE PREDICATE'S. Two conditions that have
+  // to agree are one condition written twice: if the predicate stops letting the
+  // request answer a version rule and the loader still skips it for a workflow
+  // type, the predicate throws "no versionApproval was supplied" by
+  // construction, on every from-Proposal transition.
+  assert.ok(!/if \(scope === VERSION_SCOPE && requestApprovals === undefined\)/.test(t),
+    'the loader still skips a workflow type, so the predicate will throw for want of context')
+})
+
+// ── ALL FOUR PLACES THE SAME CONDITION LIVES ──────────────────────────────
+//
+// "Two conditions that must agree are one condition written twice" was written
+// into this file when the first two were changed. THERE WERE FOUR, and the
+// remaining two were found the hard way:
+//
+//   1. approvalSatisfiesRule's short-circuit          fixed with the first change
+//   2. computeBlocking's loader guard                 fixed with the first change
+//   3. computeBlocking's CALLER, which builds the context  found by a probe
+//      returning 500 where it expected 409, because nothing else exercises it
+//   4. buildStageTracks, the approvals PANEL          found by reading, and the
+//      worst of the four: the panel would have reported a version track by the
+//      workflow's reading while the gate used the evaluator, which is
+//      Verification 43's divergence inside the function written to prevent it
+//
+// Each is asserted separately. Collapsing them into one assertion would hide
+// exactly the drift that produced two of them.
+test('every place that shortcuts to the workflow excludes a version-scoped rule', () => {
+  const t = readCode(ROOT + 'src/routes/transitions.js')
+  const r = readCode(ROOT + 'src/routes/records.js')
+
+  assert.match(t, /if \(requestApprovals !== undefined && scope !== VERSION_SCOPE\)/,
+    '1. the predicate short-circuit')
+  assert.match(t, /if \(scope === VERSION_SCOPE\) \{\s*\n\s*const loaded = await loadVersionApproval/,
+    '2. the loader guard')
+  assert.match(t, /const useRequest = requestApprovals !== undefined && scope !== VERSION_SCOPE/,
+    '3. computeBlocking\'s caller, which decides which context to build')
+  assert.match(r, /const useRequest = requestApprovals !== undefined\s*\n\s*&& \(rule\.requirement_detail\?\.scope \?\? ''\) !== VERSION_SCOPE/,
+    '4. buildStageTracks, the panel: it must not answer by the workflow reading '
+    + 'while the gate answers by the evaluator')
+
+  // AND NOWHERE ELSE. A bare `requestApprovals !== undefined` that is not
+  // followed by the scope exclusion is a fifth instance waiting to drift.
+  const bare = [...t.matchAll(/requestApprovals !== undefined(?! && scope !== VERSION_SCOPE)/g)]
+  assert.equal(bare.length, 0,
+    `an unguarded workflow shortcut survives in transitions.js (${bare.length} found)`)
+})
+
+test('the panel says which VERSION a from-Proposal sign-off is held against', () => {
+  const r = readCode(ROOT + 'src/routes/records.js')
+  const app = readCode(ROOT + 'frontend/app.js')
+  // The scope travels with the row, so the screen does not infer the model from
+  // the stage name and state it in a second place.
+  assert.match(r, /scope: rule\.requirement_detail\?\.scope \?\? 'revision'/)
+  assert.match(r, /version_label: versionApproval\?\.version/)
+  assert.match(app, /Proposal\/Pricing approved for issue/, 'the ruled label is missing')
+  assert.match(app, /const versionScoped = t\.scope === 'version'/)
+  // A version-scoped track must not offer the pre-workflow approve control: it
+  // would record against a model this track is not under.
+  assert.match(app, /&& t\.scope !== 'version'/,
+    'a version-scoped row is clickable, so it offers a control that cannot record it')
 })
 
 test('THE CRITERIA STATE IS NEVER ABSENT, which is the residual resolved', () => {

@@ -8414,3 +8414,135 @@ Label from Proposal onward: **"Proposal/Pricing approved for issue"**.
    to version from Proposal onward.
 3. Auto-transition must stop from Proposal onward: today the last approval moves
    the record, and a standing sign-off makes the transition a separate act.
+
+---
+
+## THE VERSION GATE, BUILT. Internal review item 4, 2026-09-02
+
+**Approvals from Proposal exit onward attach to a major pricing version, do not
+freeze the record, and are CHECKED by the transition rather than waited for.**
+
+### It was mostly already there
+
+`scope: 'version'` existed in the configuration and in `approvalSatisfiesRule`,
+and was **unreachable for Opportunity**: the workflow short-circuit answered
+every scope before the version branch. Two config rows and one condition stood
+between the model and the machinery.
+
+### THE SAME CONDITION LIVED IN FIVE PLACES
+
+The change is "the workflow shortcut must not answer a version-scoped rule". A
+comment written after fixing the first two said *"two conditions that must agree
+are one condition written twice"*. **There were five**, and how each was found is
+the part worth keeping:
+
+| # | site | found by |
+|---|---|---|
+| 1 | `approvalSatisfiesRule`'s short-circuit | the change itself |
+| 2 | `computeBlocking`'s loader guard | reasoning, immediately after 1 |
+| 3 | `computeBlocking`'s CALLER, which builds the context | **a probe returning 500 where it expected 409** |
+| 4 | `buildStageTracks`, the approvals panel | reading, after 3 taught me to look |
+| 5 | the blocker MESSAGE | **the test's own "and nowhere else" clause** |
+
+**Three is the one that would have shipped.** Nothing else exercises that path,
+and it threw `no versionApproval was supplied` on every from-Proposal transition
+BY CONSTRUCTION rather than intermittently.
+
+**Four is the worst.** The panel would have reported a version track by the
+workflow's reading while the gate used the evaluator: Verification 43's
+divergence, inside the function written to prevent it.
+
+**Five is a message rather than a gate and still had to move.** It would have
+told a from-Proposal user to "raise one from the stage panel" - a request the
+version gate never opens and a control that is not there. A refusal naming the
+wrong remedy is the dead end the stranded-draft fix removed earlier this round.
+
+**The test asserts all five separately, plus "and nowhere else".** Collapsing
+them into one assertion would hide exactly the drift that produced two of them,
+and the catch-all is what found the fifth.
+
+### Check-and-go needed no new mechanism
+
+`raise_transition_request` already executes immediately when a transition
+requires no approval tracks. **A standing sign-off held against a version is not
+a track the REQUEST collects**, so `required_tracks_for` excludes version-scoped
+rules and the existing zero-track path does the rest.
+
+That one clause also turns auto-transition off from Proposal onward:
+`decide_transition_request` calls the same function, so there are no tracks to
+collect, no last approval, and nothing that moves the record.
+
+**The business's reason, recorded as theirs:** this puts the salesperson in
+control of pace, subject to pricing sign-off. The deal no longer stops dead
+waiting for three people once the price is agreed; it stops only when the price
+on the table is not approved.
+
+### The no-freeze guarantee, proven rather than inferred
+
+The whole behaviour rests on `refuse_write_while_frozen`'s `and kind =
+'transition'`. **One word in one WHERE clause carries the model**, so it is
+exercised in both directions on one record: a review request leaves the record
+writable, flipping that single field to `transition` brings the freeze back
+(`423 ... is frozen`), and flipping it back releases it. 5/5.
+
+### Both halves of the gate, on one record
+
+12/12. `SA -> Proposal` still opens, waits and **freezes** - unchanged. From
+Proposal: an unapproved version is refused **409 "The current pricing version is
+not approved for issue yet"** with the record not moved and nothing left open;
+an approved version **transitions immediately, status `approved`, no wait**; and
+the record is editable before, during and after.
+
+A refusal only means something once the go half is shown on the same setup: a
+gate that always refuses is as useless as one that always passes.
+
+### The panel
+
+`scope` and `version_label` travel with each track from the rule the GATE reads,
+so the screen does not infer the model from a stage name and state it in a second
+place. A version-scoped row reads
+`Commercial · Proposal/Pricing approved for issue` with
+`V2 · approved <date> · at Proposal`, and **is never clickable**: its sign-off is
+collected against a version, and offering the pre-workflow control would send
+somebody to a route that cannot record what they meant.
+
+### Cutover, and where it was NARROWED
+
+The five at-or-past-Proposal records are soft deleted (Verification 11, never
+hard) and their **34** approvals removed, re-queried to confirm.
+
+**The ruling said 1,066 approval rows and that number is the whole table.** Of
+those, **29 sit on other LIVE opportunities - three at Solution Alignment, whose
+stage-gate model is explicitly unchanged.** Deleting them would remove data the
+same ruling says to keep working, so they were left, along with the ~1,000
+historical rows on already-deleted records. **Reported rather than assumed.**
+
+**And the first count was wrong in a way worth recording.** A bare `select()`
+capped at 1000 rows, so 1,000 of 1,066 approvals were read against 1,000 of
+25,944 records, and most `record_id`s looked orphaned. Verification 17's
+paged-API species: the query discriminated perfectly over a population it could
+not see all of. Re-measured with exact counts.
+
+### Two config invariants superseded, and one of them worked as designed
+
+The gate caught two database assertions that the ruling makes false:
+
+- **`no Opportunity Commercial approval rule is stage-scoped`** - Round 39 made
+  Commercial version-scoped everywhere, because a stage-scoped Commercial
+  approval survives a re-price and a green gate could then describe a price
+  nobody saw. Solution Alignment -> Proposal is now deliberately `stage`.
+- **`Technical and Legal remain stage-scoped, deliberately`** - whose own
+  comment said it existed to make a change here **"a visible decision rather
+  than a drift"**. It did exactly that. This was the decision point, and the
+  decision was taken.
+
+**Replaced by one assertion of the whole matrix**, transition by transition,
+rather than one rule per track spanning every transition. **The old shape is
+what let the two halves disagree with each other and with the documents**: the
+model is a property of the (transition, track) pair and is now written that way.
+A second assertion checks all three tracks are present on every gated
+transition, because a transition silently losing one would leave the rest
+correctly scoped and the gate two-thirds of what was ruled.
+
+Calibrated by putting Proposal's Commercial rule back to `stage`: the matrix
+fails, and reverting returns it to green.
