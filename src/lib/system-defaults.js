@@ -197,21 +197,46 @@ export function defaultsForConditionalFields(before, after, defaults) {
 
   // ── THE FACTORING TERM, ON THE TRANSITION INTO ENABLED ──────────────────
   //
-  // The initial value is the ADMIN DEFAULT, not a figure derived from the
-  // structure. The old calculator computed 12 for hybrid and the recovery
-  // period otherwise; that was a fallback, and reproducing it here as a default
-  // would move the same substitution rather than remove it. A term the admin
-  // configured is a value a person chose, visible in the field and editable.
-  //
   // Switching factoring OFF does not clear the term. Clearing it would destroy
   // a value somebody entered, and applicability already stops a disabled
   // facility's term being reported as a missing one. Switching back on then
   // finds it present and writes nothing, which is what an initial value does.
+  //
+  // ── THE INITIAL VALUE IS STRUCTURE-DEPENDENT. Ruled 2026-09-03, W5 ──────
+  //
+  // SUPERSEDES the reasoning this block carried, and that reasoning is left
+  // above in the git history rather than paraphrased: it read "the initial value
+  // is the ADMIN DEFAULT, not a figure derived from the structure... reproducing
+  // [the old calculator's split] here as a default would move the same
+  // substitution rather than remove it."
+  //
+  // WHAT THAT MISSED IS WHERE THE VALUE LIVES, which is Architecture 11's own
+  // test. The old calculator's split was a fallback because it lived in the
+  // CALCULATION and no field ever held it. The same split applied HERE, once, at
+  // the moment the field starts to exist, is an initial value: it is written
+  // into the record, it is on screen, it is editable, and clearing it leaves it
+  // cleared. Same numbers, different location, opposite verdict.
+  //
+  // IT ALSO RECONCILES TWO DECISIONS THAT WERE NEVER IN CONFLICT. The
+  // 2026-08-30 default carries the note "Hybrid factoring term. Two-phase
+  // follows the recovery period", and W5 ruled that the term follows the
+  // recovery period. They are one rule at two structures, and only the hybrid
+  // half had been built. Verification 23, resolved by reading the note rather
+  // than by taking a second decision.
+  //
+  // A TWO-PHASE DEAL WITH NO RECOVERY PERIOD WRITES NOTHING, deliberately.
+  // There is no value to follow, and inventing one would be the fallback this
+  // block exists to avoid. The field stays empty, the sheet says the term is not
+  // recorded, and entering a recovery period later fills it from the client.
   const wasOn = before?.factoring?.enabled === true;
   const nowOn = after?.factoring?.enabled === true;
-  if (!wasOn && nowOn && absent(after?.factoring?.termMonths)
-    && defaults.factoringTermMonths !== undefined) {
-    out.factoring = { ...(after?.factoring ?? {}), termMonths: defaults.factoringTermMonths };
+  if (!wasOn && nowOn && absent(after?.factoring?.termMonths)) {
+    const initial = (after?.structure ?? null) === 'twoPhase'
+      ? (absent(after?.recoveryMonths) ? undefined : Number(after.recoveryMonths))
+      : defaults.factoringTermMonths;
+    if (initial !== undefined) {
+      out.factoring = { ...(after?.factoring ?? {}), termMonths: initial };
+    }
   }
 
   return out;

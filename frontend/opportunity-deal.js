@@ -2270,6 +2270,13 @@ function wireOnce() {
     // because the field was no longer empty by the second digit. A settled value
     // is what the term should follow, and change gives it on blur or Enter.
     recoveryInput.addEventListener('change', () => {
+      // TWO-PHASE ONLY, which is the same rule the server applies at the moment
+      // factoring is switched on. The 2026-08-30 default carries the note
+      // "Hybrid factoring term. Two-phase follows the recovery period": a hybrid
+      // deal's term is 12 and does not follow anything, so filling it from the
+      // recovery period here would make this client the second reader of one
+      // value, disagreeing with the server about which structure gets what.
+      if (uiState.structure !== 'twoPhase') return
       if (uiState.termTouched) return
       if (termInput.value.trim() !== '') return
       const months = recoveryInput.value.trim()

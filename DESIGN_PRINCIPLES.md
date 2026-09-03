@@ -9609,3 +9609,80 @@ the clause not met literally is which line the method sits on.
 Verification 15 is why this is a departure rather than a preference: a criterion
 measured at one viewport stops describing the thing it was written about, and
 the walk runs at 1240.
+
+---
+
+## THE FACTORING TERM: two decisions that were never in conflict
+
+**Round 41, 2026-09-03.** The reconciliation the business asked for, and it is
+shorter than the argument that produced it: **W5 (two-phase follows the recovery
+period) and the 2026-08-30 term decision (hybrid takes 12) are ONE RULE AT TWO
+STRUCTURES.** Both are initial values, written once when the field starts to
+exist. Neither is a write fallback.
+
+Only the hybrid half had ever been built. Verification 23's check - search for an
+existing decision about the same behaviour before taking a new one - was
+satisfied by reading the note already sitting on the default row:
+
+> `factoringTermMonths = 12` - *"Hybrid factoring term. Two-phase follows the
+> recovery period."*
+
+### THE RULING RESTED ON A PREMISE I SUPPLIED, AND IT WAS WRONG
+
+Recorded because it is Verification 26 arriving from the direction that rule
+warns about: a measurement of mine became an instruction without either party
+re-checking the clause underneath it.
+
+The report said **"the server applies that default on EVERY write"**, from one
+PATCH where `termMonths: null` came back `12`. In that PATCH factoring turned on
+in the same write. Measured properly:
+
+```
+enabled with term 9      -> 9
+cleared while still ON   -> null      <- stays cleared
+off then on, term absent -> 12        <- the only case
+```
+
+**The rule fires on the TRANSITION into enabled with the term absent.** It was
+already an initial value, and the ruling's instruction to remove a `|| 12`
+fallback would have **deleted the hybrid default outright** rather than fixing
+anything.
+
+**Two clauses of the ruling therefore did not survive contact**, and both were
+consequences of that premise: there was no fallback to remove, and W5's "default
+when empty" was never unreachable, because a deal CAN arrive with the term
+cleared.
+
+### WHAT THE SUPERSEDED REASONING GOT RIGHT AND WHERE IT WENT WRONG
+
+The block being replaced said the initial value is the admin default and **not**
+a figure derived from the structure, because *"the old calculator computed 12 for
+hybrid and the recovery period otherwise; that was a fallback, and reproducing it
+here as a default would move the same substitution rather than remove it."*
+
+**That is Architecture 11's own test applied to the wrong property.** The old
+split was a fallback because it lived in the CALCULATION and no field ever held
+it. The same split applied once, at the moment the field comes into existence, is
+an initial value: written into the record, on screen, editable, and cleared stays
+cleared. **Same numbers, different location, opposite verdict** - which is
+exactly the distinction the business drew when setting Architecture 11.
+
+### A two-phase deal with nothing to follow writes nothing
+
+Deliberate. There is no value to take, and inventing one is the fallback this
+change exists to avoid. Measured, that branch turns out to be unreachable from
+outside: moving to two-phase applies the recovery-period default in the same
+transition, so the recovery period is never absent at the moment factoring is
+switched on. The probe **says so and skips** rather than passing - its first
+version asserted `!noRecovery || ...` and reported PASS without testing anything.
+
+### The client half is scoped to match
+
+The recovery-to-term default on the Commercials screen now applies **only to
+two-phase**, because a hybrid term is 12 and follows nothing. Without that scope
+the client would be a second reader of one value, disagreeing with the server
+about which structure gets what. Verification 20.
+
+**Calibrated 6/8 red against the pre-change module**, failing exactly the two
+two-phase assertions while hybrid, both overrides and cleared-stays-cleared held
+- which is what shows the existing behaviour was added to rather than replaced.

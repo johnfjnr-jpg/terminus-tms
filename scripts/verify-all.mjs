@@ -59,6 +59,15 @@ const STAGES = [
     needs: 'the dev server on :3000 AND a live session-ref.json',
   },
   {
+    // W5. The factoring term is an INITIAL VALUE and structure-dependent:
+    // two-phase follows the recovery period, hybrid takes the admin default,
+    // an override is never overwritten, and a cleared term stays cleared.
+    // Architecture 11 proven on the field that was thought to be breaking it.
+    name: 'HTTP term initial-value probe',
+    cmd: ['node', ['scripts/probe-term-initial-value.mjs', 'GATE']],
+    needs: 'the dev server on :3000 AND a live session-ref.json',
+  },
+  {
     // W1. Probability is re-derived on every stage change, by whichever mover
     // writes records.status. It used to live in the transition route, which the
     // workflow does not go through: seven live opportunities had drifted to the
