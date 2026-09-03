@@ -593,6 +593,11 @@ async function loadVersions() {
 // deal rather than a setting about all of them.
 let versionRange = 5
 
+// Exposed so app.js can re-run the actions once stage-approvals resolve: the
+// approval control's visibility depends on oppStageTracks, which is loaded
+// after this module first renders.
+window.oppRefreshVersionActions = () => renderVersionList()
+
 function renderVersionList() {
   const list = document.getElementById('deal-version-list')
   if (!list) return
@@ -709,7 +714,23 @@ function renderVersionList() {
   // pending, or ready to ask.
   const ask = document.getElementById('btn-request-pricing-approval')
   const state = document.getElementById('pricing-approval-state')
-  if (ask) {
+
+  // ── HIDDEN BEFORE THE VERSION GATE BEGINS. Walk, 2026-09-03 ────────────
+  //
+  // A pricing approval can never succeed before Proposal, so the control and
+  // its explanation are absent rather than disabled. Ruled: a control that
+  // cannot act AT THIS STAGE is clutter, unlike one temporarily disabled for a
+  // reason that clears where you stand.
+  //
+  // SAVE VERSION AND ISSUE STAY, at every stage. Pricing work early is
+  // legitimate and only the approval request is Proposal-onward.
+  //
+  // The predicate is the gate's own answer via oppVersionGateApplies, not a
+  // stage-name test, so this follows the configuration if the gate ever moves.
+  const gateApplies = window.oppVersionGateApplies?.() !== false
+  if (ask) ask.classList.toggle('hidden', !gateApplies)
+  if (state) state.classList.toggle('hidden', !gateApplies)
+  if (ask && gateApplies) {
     const pending = window.oppPendingPricingApproval?.()
     if (pending) {
       ask.disabled = true

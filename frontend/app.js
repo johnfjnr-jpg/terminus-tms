@@ -1060,6 +1060,27 @@ let oppIssuedMajor = null
 let oppPendingReview = null
 window.oppPendingPricingApproval = () => oppPendingReview
 
+// ── DOES A PRICING APPROVAL APPLY AT ALL AT THIS STAGE? ──────────────────
+//
+// Walk, 2026-09-03. Asking for one before Proposal is refused, correctly: the
+// version gate begins at Proposal exit and there is nobody to ask before it. A
+// control that can NEVER act at the current stage is clutter, which is a
+// different thing from one disabled for a reason that clears where you stand.
+//
+// READ FROM THE GATE'S OWN ANSWER, exactly as the next-stage button does.
+// oppStageTracks holds what buildStageTracks returned for this stage, the same
+// function the enforcement uses, so the control cannot disagree with the route
+// (Verification 43). Testing the stage NAME here would be a second reader that
+// agrees today and stops agreeing the moment the gate moves stage.
+// NULL WHEN NOT KNOWN, which is not the same as "no version tracks here". The
+// stage-approvals fetch can fail, and hiding the control on a failed read would
+// remove a working affordance for a reason the person cannot see. The caller
+// treats null as "show", matching the next-stage button's own fall back to
+// enabled: the route still refuses if the answer turns out to be no.
+window.oppVersionGateApplies = () => (oppStageTracks === null
+  ? null
+  : oppStageTracks.some((t) => t.scope === 'version'))
+
 async function loadOppOpenRequest(recordId) {
   oppOpenRequest = null
   oppPendingReview = null
@@ -7548,6 +7569,10 @@ async function renderOppDetail(opp) {
     }
   } catch { /* the button falls back to enabled, and the route still refuses */ }
   refreshOppNextStageButton()
+  // The version panel's actions depend on oppStageTracks too, and the deal
+  // module renders before this resolves. Without this the approval control
+  // would be hidden on every load and only reappear on the next render.
+  window.oppRefreshVersionActions?.()
   // The next-stage control is re-evaluated above, so a non-owner's copy of it
   // is re-locked here rather than left enabled by that refresh.
   applyReadOnlyControls('view-opportunity-detail', notMine)

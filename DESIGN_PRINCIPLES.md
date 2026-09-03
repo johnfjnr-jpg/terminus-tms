@@ -9686,3 +9686,58 @@ about which structure gets what. Verification 20.
 **Calibrated 6/8 red against the pre-change module**, failing exactly the two
 two-phase assertions while hybrid, both overrides and cleared-stays-cleared held
 - which is what shows the existing behaviour was added to rather than replaced.
+
+---
+
+## The approval control appears where it can act, and nowhere else
+
+**Walk, 2026-09-03. Not a defect report: the walk confirmed the version-gate
+model refusing a pricing approval at Qualification, correctly.** The two items
+are about what the screen offers, not about what it enforces.
+
+### 1. Hidden before the gate begins, not disabled
+
+A pricing approval can never succeed before Proposal. Ruled: **a control that
+cannot act AT THIS STAGE is clutter, unlike one temporarily disabled for a reason
+that clears where you stand.** The control and its explanation are absent until
+the record reaches Proposal. **Save version and Issue stay at every stage**,
+because early pricing work is legitimate and only the request is Proposal-onward.
+
+**The predicate is the gate's own answer, not the stage name.**
+`oppVersionGateApplies()` reads `oppStageTracks` for a version-scoped track - the
+same `buildStageTracks` output the enforcement uses, and the same source the
+next-stage button reads. A stage-name test would agree today and stop agreeing
+the moment the gate moves stage. Verification 43, which this project has had
+three instances of.
+
+**Unknown is distinct from no.** The stage-approvals fetch can fail, leaving
+`oppStageTracks` null. That returns `null` rather than `false`, and the caller
+treats null as "show", matching the next-stage button's own fall back to enabled:
+the route still refuses if the answer turns out to be no. Hiding a working
+affordance because a read failed would be worse than offering one that refuses.
+
+### 2. The sentence leaves the button row
+
+The state sentence sat BETWEEN "Request pricing approval" and "Approval view",
+so with text in it the last button was pushed onto a second line and the row grew
+a line's height for a piece of prose. It now sits below the row.
+
+**AT 1440 THE ROW WAS ALREADY ONE LINE, BEFORE THE CHANGE.** A check at that
+width alone would have passed on the defect and reported the item done. Measured
+at 1240, with the sentence present, which is the state and the width that
+exhibit it:
+
+| 1240, "A version is awaiting approval." present | |
+|---|---|
+| before | 4 buttons on **two lines**, row **76px** |
+| after | 4 buttons on **one line**, row **34px** |
+
+Verification 15: a criterion measured at one viewport stops describing the thing
+it was written about, and the walk runs narrow.
+
+**The row's membership changes by stage**, three buttons before Proposal and four
+after, so the layout is asserted at both counts rather than at a fixed one.
+
+**Calibrated 7/12 red against the pre-change frontend**, failing exactly the
+three Qualification-visibility assertions, the sentence's placement and the 1240
+row - with Save version, Issue and the Proposal behaviour holding throughout.

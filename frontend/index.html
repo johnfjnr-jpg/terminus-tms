@@ -2659,13 +2659,20 @@
                    pricing, asking for approval pulls three people in, and one
                    click must not do both. -->
               <button class="btn-secondary" id="btn-request-pricing-approval" disabled>Request pricing approval</button>
-              <span class="pricing-approval-state" id="pricing-approval-state"></span>
               <!-- Round 38: the way in to the commercial approval page. It is a
                    separate surface rather than a panel on this tab, because it
                    shows the same numbers under the opposite convention: this tab
                    shows what WILL happen, that page shows what DID. -->
               <button class="btn-secondary" id="btn-open-approval">Approval view</button>
             </div>
+            <!-- ── THE SENTENCE LEAVES THE BUTTON ROW. Walk, 2026-09-03 ─────
+                 It sat between "Request pricing approval" and "Approval view",
+                 so a sentence like "V1 is awaiting approval." pushed the last
+                 button onto a second line and the row grew a whole line's
+                 height for a piece of prose. The row is now buttons only and
+                 sits on one line with either THREE or FOUR of them, since the
+                 approval request hides before Proposal. -->
+            <p class="pricing-approval-state" id="pricing-approval-state" style="margin-top:8px"></p>
             <!-- ── THE SCREEN SAYS THE ORDER. Round 41 item 6, finding 5 ─────
                  The finding was that Save version sits above Save changes,
                  against the decided save-then-version order. MEASURED, the

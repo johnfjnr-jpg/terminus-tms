@@ -186,6 +186,10 @@ const STAGES = [
 // cannot ARRIVE with the term not recorded, and a check that cannot reach its
 // state is not evidence either way.
 //
+// Walk 2026-09-03 adds probe-version-actions on the same terms: whether a
+// control is on screen at a given stage, and whether four buttons and a
+// sentence share one line at 1240, are properties of a browser.
+//
 // Round 41 F4 adds probe-pulse on the same terms, and the split is the same.
 // Its claim - a screen follows a record somebody else changed, within one poll
 // interval and with no manual refresh - is a property of a BROWSER and cannot
