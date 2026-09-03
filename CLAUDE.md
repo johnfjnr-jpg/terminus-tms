@@ -287,6 +287,39 @@ not resolve it quietly.
     you cannot answer. This is a precondition that CAN be answered, has been, and
     the answer is no.
 
+14. **A MIGRATION REACHES THE BUSINESS UNVERIFIED, AND THE DASHBOARD IS THE
+    FIRST PARSER IT MEETS.** Set by the business 2026-09-03, Round 41, after a
+    handed-over migration failed on a `LATERAL` in an `UPDATE`'s own `FROM`
+    clause referencing the update target.
+
+    **The environment fact, and it is not going to change by being careful.**
+    This session reaches Postgres only through PostgREST: no `psql`, no `pg`
+    module, no connection string. **A migration therefore cannot be
+    parse-checked before it is handed over.** Every migration written here
+    carries that, and saying so is part of handing one over.
+
+    **(a) PREFER A CONSTRUCT THAT CANNOT CARRY THE ERROR OVER ONE THAT IS MERELY
+    LEGAL IF TYPED RIGHT.** The fix was not to rewrite the statement as a legal
+    `UPDATE ... FROM`. It was to drop the `FROM` clause entirely and use a
+    correlated `EXISTS`, which can reference the target unambiguously and leaves
+    no `FROM` item to scope wrongly. **Make the construct unable to have the
+    bug**, because the usual compensating control - run it and see - is exactly
+    what is unavailable here.
+
+    **(b) A CORRECTION TO AN ALREADY-PUSHED BROKEN MIGRATION NEEDS NO FRESH
+    ASK.** The file is inert until applied, so pushing the fix over a broken
+    file is recovery rather than a new outward act, and leaving the broken one
+    on origin is the worse state.
+
+    **THE DISTINCTION THAT MAKES RULE 12 EXACT, and it is the business's own
+    phrasing: THE GATE ON SCHEMA IS APPLYING, NOT PUSHING THE TEXT.** Rule 12
+    reads "ask for schema", which had been taken to mean the push. It means the
+    apply. A migration file in the repository changes nothing until somebody
+    runs it.
+
+    Same family as Verification 37, a rule that names a mechanism polices the
+    mechanism rather than the effect: "ask for schema" named the wrong act.
+
 ---
 
 ## Architecture
