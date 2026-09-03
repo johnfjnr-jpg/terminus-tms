@@ -266,15 +266,27 @@ grant execute on function public.decide_transition_request(uuid, text, text, tex
 --
 -- Closed under the rule that now exists, rather than left as the one row the
 -- new behaviour does not reach. Guarded so a replay is a no-op, Architecture 7.
+-- NO FROM CLAUSE AT ALL, which removes the fault rather than working around it.
+-- The first version put a LATERAL in the UPDATE's FROM clause and referenced the
+-- target table from it: "there is an entry for table tr, but it cannot be
+-- referenced from this part of the query". Rewriting it as UPDATE ... FROM would
+-- have been legal, and this is simpler still: a correlated EXISTS in the WHERE
+-- clause can reference the target unambiguously, and there is no FROM item left
+-- to get the scoping wrong. The self-check below already had this shape.
 update public.transition_requests tr
    set status = 'superseded', closed_at = now(),
        close_reason = 'Superseded by a later major version issued before this rule existed.'
-  from public.deal_sheet_versions frozen,
-       lateral (select max(v.major) as top from public.deal_sheet_versions v
-                 where v.record_id = tr.record_id and v.status = 'issued') newest
- where tr.kind = 'review' and tr.status = 'open'
-   and frozen.id = tr.frozen_version_id
-   and newest.top > frozen.major;
+ where tr.kind = 'review'
+   and tr.status = 'open'
+   and tr.frozen_version_id is not null
+   and exists (
+     select 1
+       from public.deal_sheet_versions frozen
+       join public.deal_sheet_versions newer
+         on newer.record_id = frozen.record_id
+        and newer.status = 'issued'
+        and newer.major > frozen.major
+      where frozen.id = tr.frozen_version_id);
 
 do $$
 declare v_stuck integer;
