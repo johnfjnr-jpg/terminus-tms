@@ -77,6 +77,18 @@
     </div>
   </nav>
 
+  <!-- ── THE CLOCK. Walk, 2026-09-03, the business's own instrument ───────
+       A screenshot with no time on it cannot answer "how long did that take",
+       and P1 has now cost three rounds partly because "it did not update" and
+       "it updated after I stopped looking" are indistinguishable without one.
+       An approver approves at T, a screenshot at T+30 shows the state, and the
+       timing becomes evidence instead of recollection.
+
+       FIXED TO THE VIEWPORT, not in the scroll container, so it is in every
+       screenshot at every scroll position. aria-hidden because it is an
+       instrument for the people building this, not information a screen reader
+       user needs read out every second. -->
+  <div id="app-clock" aria-hidden="true" title="Local time, for timing what you see"></div>
   <div class="app-content-scroll">
 
   <!-- ── Leads (live: Contact records where status is Unqualified or

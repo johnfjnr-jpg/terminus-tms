@@ -358,8 +358,19 @@ export async function computeBlocking(db, record, from_stage, to_stage, currentR
         message: useRequest
           ? (approval
             ? `${track} has approved the open request`
-            : 'Requires an approved decision on the open transition request. '
-              + `Raise one from the stage panel if there is none.`)
+            // ── IT SAYS WHAT IS TRUE OF THIS RECORD, NOT OF BOTH BRANCHES ──
+            //
+            // Walk, 2026-09-03. It read "...Raise one from the stage panel if
+            // there is none", rendered on a record that HAS one - the same
+            // banner lists the request's three tracks underneath it. This
+            // message is only reached when `useRequest` is true, which is
+            // exactly when an open request exists, so the second sentence was
+            // instructions for a state the reader is never in.
+            //
+            // Architecture 9's fourth variant: a literal that was true when
+            // typed, covering a branch it is no longer reached from, and which
+            // nothing can falsify because it is derived from nothing.
+            : `The open transition request is waiting for a ${track} decision.`)
           : scope === VERSION_SCOPE
           ? versionApproval.reason
           // ── R5: THE BID/NO BID GATE SAYS WHAT IT IS ────────────────────

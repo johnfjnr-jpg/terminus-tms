@@ -486,15 +486,86 @@ test('THE QUEUE says what each request is waiting for, and carries no decide con
   assert.ok(!/decideRequest\(/.test(queue), 'the queue must not carry decide controls')
   assert.match(queue, /navigate\('opportunity-detail'/)
 
-  // ONE FETCH FOR THE RECORDS, not one per row.
-  assert.match(queue, /const recs = await api\('GET', '\/api\/records\?record_type=opportunity'\)/)
+  // ONE FETCH FOR THE RECORDS, not one per row. The COUNT is the claim; the
+  // URL is which endpoint happens to carry what the row needs.
+  //
+  // /api/opportunities, not /api/records, walk 2026-09-03. The records list
+  // carries no payload - measured, fifteen columns and no name - so the
+  // name-first row read "Unnamed opportunity" on every line until this moved.
+  assert.match(queue, /const recs = await api\('GET', '\/api\/opportunities'\)/)
   assert.equal((queue.match(/await api\(/g) || []).length, 2)
+
+  // THE NAME LEADS AND THE REFERENCE FOLLOWS. An approval queue is read by
+  // people deciding whether to sign something, and a reference code identifies
+  // a record to the system rather than to them.
+  assert.match(queue, /queue-title">\$\{escHtml\(rec\?\.payload\?\.name/)
+  assert.match(queue, /sa-approval-meta">\$\{escHtml\(rec\?\.reference_code/)
 
   // No new accent: green still means "nothing to look at" and the warning takes
   // the ordinary foreground, the same absence-of-green the margin rule uses.
   assert.match(css, /\.queue-ok \{ color: var\(--green\); \}/)
   assert.match(css, /\.queue-warn \{ color: var\(--white\); \}/)
   assert.ok(!/queue-warn[^}]*red/i.test(css))
+})
+
+test('ONE TRACK AT A TIME: a decide disables its own track, not the banner', () => {
+  const app = readCode(ROOT + 'frontend/app.js')
+  const decide = app.slice(app.indexOf('window.decideRequest'))
+
+  // MEASURED BEFORE THIS EXISTED: three quick Approve clicks recorded ONE
+  // approval and the transition never fired, because the guard disabled every
+  // button in the banner for each round trip. An approver seated on three
+  // tracks clicking each in turn is the ordinary case, not an edge one.
+  assert.ok(!/for \(const b of buttons\) \{\s*b\.disabled = true/.test(decide),
+    'the guard must not disable every button in the banner')
+  assert.match(decide, /const sameTrack = buttons\.filter/,
+    'the pending state is scoped to the clicked TRACK')
+
+  // A SECOND CLICK ON AN IN-FLIGHT TRACK IS TOLD, not swallowed. The whole
+  // finding was that a silent no-op reads as a success.
+  assert.match(decide, /decisionsInFlight\.has\(flightKey\)/)
+  assert.match(decide, /is still being `/)
+  assert.match(decide, /decisionsInFlight\.delete\(flightKey\)/)
+
+  // V6 STILL HOLDS: disabled, never removed.
+  assert.ok(!/\.remove\(\)/.test(decide.slice(0, decide.indexOf('const send'))),
+    'controls are disabled for the round trip, never removed')
+})
+
+test('THE CLOCK is on every screen, so a screenshot carries its time', () => {
+  const html = readCode(ROOT + 'frontend/index.html')
+  const css = readCode(ROOT + 'frontend/style.css')
+  const app = readCode(ROOT + 'frontend/app.js')
+
+  // OUTSIDE the scroll container, so it is in every screenshot at every scroll
+  // position rather than only at the top of the page.
+  const clockAt = html.indexOf('id="app-clock"')
+  const scrollAt = html.indexOf('<div class="app-content-scroll">')
+  assert.ok(clockAt > 0 && scrollAt > 0 && clockAt < scrollAt,
+    'the clock must sit outside the scrolling content')
+  assert.match(css, /#app-clock \{[^}]*position: fixed/)
+  // It must never intercept a click on what is under it.
+  assert.match(css, /#app-clock \{[^}]*pointer-events: none/)
+  assert.match(app, /setInterval\(renderAppClock, 1000\)/)
+  // Read from the clock each tick rather than counted, so a throttled or
+  // skipped tick shows the right time late instead of the wrong time on time.
+  assert.match(app, /const d = new Date\(\)/)
+  assert.match(app, /visibilitychange', \(\) => \{ if \(!document\.hidden\) renderAppClock\(\) \}/)
+})
+
+test('the blocker names what is TRUE of this record, not of both branches', () => {
+  const routes = readCode(ROOT + 'src/routes/transitions.js')
+  const app = readCode(ROOT + 'frontend/app.js')
+
+  // It read "...Raise one from the stage panel if there is none" on a record
+  // that HAS one - this message is only reached when an open request exists.
+  assert.ok(!/Raise one from the stage panel if there is none/.test(routes),
+    'the message must not instruct a state the reader is never in')
+  assert.match(routes, /The open transition request is waiting for a \$\{track\} decision/)
+
+  // And the control's title must not contradict its own label.
+  assert.match(app, /btn\.textContent = 'Awaiting approval'/)
+  assert.match(app, /already open and waiting on its approvals/)
 })
 
 test('the decide function is atomic, and says why in its own file', () => {

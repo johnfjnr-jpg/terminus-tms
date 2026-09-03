@@ -1000,6 +1000,11 @@ function refreshOppNextStageButton() {
     btn.textContent = 'Awaiting approval'
     btn.disabled = true
     btn.onclick = null
+    // THE TITLE MUST NOT CONTRADICT THE LABEL. Walk, 2026-09-03: the title is
+    // set to "Raise a request to move this record to X" further up, before this
+    // branch is known, so a control reading "Awaiting approval" carried a
+    // tooltip telling the reader to raise the request they are waiting on.
+    btn.title = 'A request to move this record is already open and waiting on its approvals'
     return
   }
   // ── R8: A VERSION-GATED MOVE SAYS WHAT IS MISSING, AND IS NOT CLICKABLE ─
@@ -1282,7 +1287,14 @@ function decisionDialogue({ heading, contextLabel, contextValue, promptLabel, co
 // THE CONTROLS GO BEFORE THE AWAIT, not after it. A guard that clears them once
 // the reload finishes leaves them clickable for the whole round trip, which is
 // exactly the window a person clicks in when nothing has visibly happened.
+// Which (request, track) pairs are mid-flight. A click on one of them must be
+// answered, not swallowed: the whole finding was that a silent no-op reads as a
+// success. Keyed by track rather than by request, so an approver decides three
+// tracks concurrently if they click that fast.
+const decisionsInFlight = new Set()
+
 window.decideRequest = async (requestId, track, decision, recordId) => {
+  const flightKey = `${requestId}|${track}`
   // THE CONTROLS GO BEFORE ANYTHING AWAITS. A guard applied after the round trip
   // leaves them clickable for its whole duration, which is exactly the window a
   // person clicks in when nothing has visibly happened.
@@ -1342,12 +1354,50 @@ window.decideRequest = async (requestId, track, decision, recordId) => {
     ?.querySelector('[data-decision-feedback]'))
     ?? document.getElementById('opp-decision-feedback')
     ?? null
+  // A SECOND CLICK ON A TRACK ALREADY IN FLIGHT IS TOLD SO.
+  if (decisionsInFlight.has(flightKey)) {
+    const busy = feedbackEl()
+    if (busy) {
+      busy.innerHTML = `<p class="msg-error">The ${escHtml(track)} decision is still being `
+        + 'recorded. Wait for it to finish before deciding it again.</p>'
+    }
+    return
+  }
+  decisionsInFlight.add(flightKey)
+
   const fb = feedbackEl()
   if (fb) fb.innerHTML = ''
   const floor = document.getElementById('opp-decision-feedback')
   if (floor) floor.innerHTML = ''
   const buttons = [...(banner?.querySelectorAll('button') ?? [])]
-  for (const b of buttons) {
+  // ── ONE TRACK AT A TIME, NOT ONE BANNER AT A TIME ─────────────────────
+  //
+  // Walk, 2026-09-03, and this is a defect this session introduced. The guard
+  // disabled EVERY button in the banner for the round trip, which is right for
+  // a double-click on one control and wrong for the ordinary case it did not
+  // have: an approver seated on three tracks, clicking each in turn.
+  //
+  // MEASURED, two fixtures differing only in clicking speed: three quick clicks
+  // recorded ONE approval and the transition never fired; the same three with a
+  // wait between recorded all three and the record moved. Two decisions were
+  // swallowed in silence, and the screen gave no sign - the clicked control read
+  // "Approving...", the others dimmed and came back enabled and un-ticked, which
+  // a person reads as done.
+  //
+  // THIS REFINES V6'S SCOPE RATHER THAN REVERSING IT. The sixth walk ruled
+  // "disable with a pending state, never remove and restore", against a version
+  // that made three unrelated controls VANISH. Both still hold: nothing is
+  // removed, and the same control cannot be double-clicked. What changes is
+  // that "the same control" means the same TRACK, not the same banner.
+  //
+  // The clicked control stays ENABLED so a second click reaches the guard above
+  // and is TOLD, rather than being absorbed by a disabled button that says
+  // nothing. Its opposite decision on the same track is disabled, because
+  // approving and rejecting one track at once is a conflict rather than a queue.
+  const sameTrack = buttons.filter((b) => (b.getAttribute('onclick') ?? '')
+    .includes(`'${requestId}','${track}','`))
+  for (const b of sameTrack) {
+    if (b === clicked) { b.classList.add('is-pending'); continue }
     b.disabled = true
     b.classList.add('is-pending')
   }
@@ -1395,13 +1445,22 @@ window.decideRequest = async (requestId, track, decision, recordId) => {
       returnFocusTo: bannerId,
       action: send,
     })
-    if (!confirmed) { await loadOpportunityDetail(recordId); return }
+    if (!confirmed) {
+      decisionsInFlight.delete(flightKey)
+      await loadOpportunityDetail(recordId)
+      return
+    }
     await done(null)
+    decisionsInFlight.delete(flightKey)
     return
   }
 
-  const r = await send(null)
-  await done(r.ok ? null : (r.error ?? 'The decision could not be recorded.'))
+  try {
+    const r = await send(null)
+    await done(r.ok ? null : (r.error ?? 'The decision could not be recorded.'))
+  } finally {
+    decisionsInFlight.delete(flightKey)
+  }
 }
 
 // ── THE OPEN REQUEST, AND WHAT IT IS WAITING FOR. Round 41 ───────────────
@@ -7129,6 +7188,31 @@ let oppPulseInFlight = false
 // repaint" rather than a person watching a network tab. A detector nobody can
 // read is an assertion (Verification 9).
 window.__oppPulseStats = { polls: 0, rereads: 0, skippedHidden: 0 }
+
+// ── THE CLOCK, SECOND RESOLUTION ──────────────────────────────────────────
+//
+// Walk 2026-09-03, the business's instrument for P1. Every screenshot carries
+// the time it was taken, so "the approver approved at T and this is T+30" is a
+// measurement rather than a recollection.
+//
+// setInterval at 1000ms drifts and can skip a second under load; the displayed
+// value is read from the clock on every tick rather than counted, so a skipped
+// tick shows the right time late instead of the wrong time on time. What this
+// instrument must never do is disagree with the wall clock it is standing in
+// for.
+function renderAppClock() {
+  const el = document.getElementById('app-clock')
+  if (!el) return
+  const d = new Date()
+  const pad = (n) => String(n).padStart(2, '0')
+  el.textContent = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+}
+renderAppClock()
+setInterval(renderAppClock, 1000)
+// Coming back to a backgrounded tab must not show the time it was hidden at:
+// browsers throttle timers in background tabs, so the first thing a returning
+// person sees would otherwise be a stale clock claiming to be current.
+document.addEventListener('visibilitychange', () => { if (!document.hidden) renderAppClock() })
 // READ-ONLY SEAMS FOR THE CALIBRATION, named as such. The probe asserts what a
 // person experiences - the screen followed the record - and these let it read
 // the two values that claim rests on without reaching into module scope or
@@ -8253,9 +8337,15 @@ async function loadApprovalsQueue() {
     return
   }
 
-  // Reference codes come from the records the requests point at. One fetch,
-  // not one per row.
-  const recs = await api('GET', '/api/records?record_type=opportunity')
+  // NAMES AND reference codes come from the records the requests point at. One
+  // fetch, not one per row.
+  //
+  // /api/opportunities RATHER THAN /api/records, walk 2026-09-03. The records
+  // list carries no payload at all - measured, fifteen columns and no name - so
+  // the first version of the name-first row read "Unnamed opportunity" on every
+  // single line. A fallback that fires for every row is not a fallback, it is
+  // the display.
+  const recs = await api('GET', '/api/opportunities')
   const byId = new Map((recs.ok ? recs.data ?? [] : []).map(x => [x.id, x]))
 
   el.innerHTML = rows.map((req) => {
@@ -8273,9 +8363,24 @@ async function loadApprovalsQueue() {
     return `
       <div class="queue-row">
         <div style="min-width:0">
-          <div class="queue-title">${escHtml(rec?.reference_code ?? req.record_id.slice(0, 8))}
-            &middot; ${escHtml(req.from_stage)} &rarr; ${escHtml(req.to_stage)}</div>
-          <div class="sa-approval-meta">Raised ${formatDate(req.requested_at)}</div>
+          <!-- ── THE NAME LEADS, THE REFERENCE FOLLOWS. Walk 2026-09-03 ────
+               This row is where an approver decides which deal they are being
+               asked about, and it led with "TT-SGP-SMARTC-115". A reference
+               code identifies a record to the SYSTEM; a name identifies it to
+               the person, and an approval queue is read by people deciding
+               whether to sign something.
+
+               The same shape the Accounts grid already uses: rg-title carries
+               the name and rg-meta the code. Copied rather than invented, so
+               the two lists do not drift apart.
+
+               THE REFERENCE IS NOT DROPPED. It is how a deal is cited in an
+               email and searched for here, so it stays one line below rather
+               than being traded away for the name. -->
+          <div class="queue-title">${escHtml(rec?.payload?.name || 'Unnamed opportunity')}</div>
+          <div class="sa-approval-meta">${escHtml(rec?.reference_code ?? req.record_id.slice(0, 8))}
+            &middot; ${escHtml(req.from_stage)} &rarr; ${escHtml(req.to_stage)}
+            &middot; raised ${formatDate(req.requested_at)}</div>
           <div style="margin-top:8px">${criteria}</div>
           <div style="margin-top:8px">${tracks}</div>
         </div>

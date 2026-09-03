@@ -5415,3 +5415,25 @@ input.input-invalid {
 .queue-ok { color: var(--green); }
 .queue-warn { color: var(--white); }
 .queue-kind { color: var(--muted-2); }
+
+/* ── THE CLOCK ─────────────────────────────────────────────────────────────
+   Walk 2026-09-03. Always visible so every screenshot carries its time.
+   Unobtrusive by weight rather than by hiding: dim, monospaced, small, and
+   out of the way in the bottom-right, where nothing in this app puts content.
+   pointer-events:none so it can never intercept a click on what is under it. */
+#app-clock {
+  position: fixed;
+  right: 10px;
+  bottom: 8px;
+  z-index: 60;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  opacity: 0.72;
+  background: var(--black);
+  padding: 2px 7px;
+  border-radius: 3px;
+  pointer-events: none;
+  font-variant-numeric: tabular-nums;
+}

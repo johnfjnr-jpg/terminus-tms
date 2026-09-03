@@ -9741,3 +9741,99 @@ after, so the layout is asserted at both counts rather than at a fixed one.
 **Calibrated 7/12 red against the pre-change frontend**, failing exactly the
 three Qualification-visibility assertions, the sentence's placement and the 1240
 row - with Save version, Issue and the Proposal behaviour holding throughout.
+
+---
+
+## The clock, the swallowed approvals, and P1 still unfound
+
+**Walk, 2026-09-03.**
+
+### THE CLOCK, and it is the business's instrument
+
+A screenshot with no time on it cannot answer "how long did that take", and P1
+has now cost three rounds partly because *"it did not update"* and *"it updated
+after I stopped looking"* are indistinguishable without one. Second resolution,
+fixed to the viewport rather than inside the scroll container, so it is in every
+screenshot at every scroll position.
+
+Read from the clock on every tick rather than counted, because a throttled or
+skipped tick must show the right time late rather than the wrong time on time.
+An instrument that disagrees with the wall clock it stands in for is worse than
+none.
+
+### The swallowed approvals: a defect this session created
+
+`decideRequest` disabled **every button in the banner** for the round trip.
+Correct for a double-click on one control; wrong for the ordinary case it did
+not have - an approver seated on three tracks, clicking each in turn.
+
+**Measured, two fixtures differing only in clicking speed:**
+
+| | approvals recorded | stage |
+|---|---|---|
+| three quick clicks | **Commercial only** | Solution Alignment |
+| waiting between each | Commercial, Legal, Technical | **Proposal** |
+
+Two decisions vanished in silence. The clicked control read "Approving...", the
+others dimmed and came back enabled and un-ticked, which a person reads as done.
+
+**This refines V6's scope rather than reversing it.** The sixth walk ruled
+"disable with a pending state, never remove and restore", against a version that
+made three unrelated controls VANISH. Both still hold: nothing is removed, and
+the same control cannot be double-clicked. What changes is that "the same
+control" means the same TRACK, not the same banner. The clicked control stays
+ENABLED so a second click reaches the guard and is TOLD, rather than being
+absorbed by a disabled button that says nothing.
+
+### P1: four candidate mechanisms tested, none reproduces it
+
+| candidate | result |
+|---|---|
+| the mover does not touch `record_freshness` | **refuted** - freshness advances, the pulse reports the new stage |
+| stale bundle (Verification 42) | refuted by the business: a whole new session |
+| rapid clicking | **a real defect, found and fixed** - but the business paused between all three |
+| the watcher's window blurred | tested, still polled and reached Proposal |
+
+**The patient path, two screens, measured with the clock:**
+
+```
+23:25:05  at rest, dot Solution Alignment, polls 0
+23:25:16  after Commercial   db=[Commercial]              polls 1, rereads 1
+23:25:27  after Legal        db=[Commercial,Legal]        polls 2, rereads 2
+23:25:37  after Technical    db=[all three]  dot PROPOSAL polls 3, rereads 3
+```
+
+It works, and **one poll per ~10 seconds while changes are landing**, not the
+configured 3.5: a poll that finds a change runs a full `loadOpportunityDetail`
+and `oppPulseInFlight` blocks the next tick for its duration. At rest it is
+3.5s, measured in the final window.
+
+**So the honest position is that P1 is not reproduced and not explained**, and
+the one variable I cannot test from here is the walk's actual second identity:
+every reproduction uses one account in two tabs. What the clock now settles is
+the question that has made this slippery three times - whether the screen never
+updated, or updated after the person stopped watching.
+
+### Identification: the name leads
+
+The approval queue led with `TT-SGP-SMARTC-115`. A reference code identifies a
+record to the SYSTEM; a name identifies it to the person, and an approval queue
+is read by people deciding whether to sign something. The Accounts grid's shape
+was copied rather than a new one invented, so the two lists cannot drift.
+
+**The first version read "Unnamed opportunity" on every row**, because
+`/api/records` carries no payload at all - fifteen columns and no name. A
+fallback that fires for every row is not a fallback, it is the display. The
+queue reads `/api/opportunities`, and the test now pins the fetch COUNT as its
+claim with the URL as a detail, which is what it always meant.
+
+### The blocker copy
+
+*"Requires an approved decision on the open transition request. Raise one from
+the stage panel if there is none."* rendered on a record that HAS one - the same
+banner lists its three tracks underneath. That message is only reached when an
+open request exists, so the second sentence was instructions for a state the
+reader is never in. Architecture 9's fourth variant.
+
+The next-stage control had the mirror image: a title reading "Raise a request to
+move this record to Proposal" on a button labelled "Awaiting approval".
