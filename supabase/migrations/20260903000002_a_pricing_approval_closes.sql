@@ -208,6 +208,44 @@ comment on function public.decide_transition_request is
   'the stage and revision from the record, and the approvable tracks from the '
   'request''s own kind. Architecture 12.';
 
+-- ── 'superseded' MUST BE AN ALLOWED STATUS BEFORE ANYTHING WRITES IT ────
+--
+-- The status check permits open, approved, rejected and withdrawn only. A
+-- superseded review is none of those, and 'withdrawn' would be a LIE with a
+-- reader: it says the requester withdrew, and nobody did. Verification 19, a
+-- name asserting a property that is not true of what it names.
+--
+-- THE CONSTRAINT NAME IS DISCOVERED, NOT ASSUMED. It was declared inline, so it
+-- carries whatever Postgres auto-named it. Dropping a guessed name is a silent
+-- no-op that would leave the OLD check in place beside the new one, still
+-- rejecting every superseded row - and the failure would look like this
+-- migration not having run.
+do $$
+declare v_name text;
+begin
+  select con.conname into v_name
+  from pg_constraint con
+  where con.conrelid = 'public.transition_requests'::regclass
+    and con.contype = 'c'
+    and pg_get_constraintdef(con.oid) like '%withdrawn%'
+    and pg_get_constraintdef(con.oid) not like '%superseded%'
+  limit 1;
+
+  if v_name is not null then
+    execute format('alter table public.transition_requests drop constraint %I', v_name);
+  end if;
+
+  if not exists (
+    select 1 from pg_constraint
+    where conrelid = 'public.transition_requests'::regclass
+      and conname = 'transition_requests_status_allowed'
+  ) then
+    alter table public.transition_requests
+      add constraint transition_requests_status_allowed
+      check (status in ('open', 'approved', 'rejected', 'withdrawn', 'superseded'));
+  end if;
+end $$;
+
 -- ── CAUSE 2: ISSUING A NEW MAJOR SUPERSEDES THE PRIOR MAJOR'S REVIEW ─────
 --
 -- Ruling A's re-arming, applied to the REQUEST rather than to the approvals.
@@ -231,11 +269,25 @@ set search_path = public
 as $$
 begin
   if new.status <> 'issued' then return new; end if;
-  if tg_op = 'UPDATE' and old.status = 'issued' then return new; end if;
 
+  -- NESTED, not `tg_op = 'UPDATE' and old.status = ...`. OLD is unassigned on
+  -- INSERT and plpgsql raises on touching it, and SQL's AND is not guaranteed
+  -- to short-circuit, so the one-line form can fail on the insert path. This is
+  -- the class of fault that cannot be caught from this environment at all
+  -- (build discipline 14), so it is written the way that cannot have it.
+  if tg_op = 'UPDATE' then
+    if old.status = 'issued' then return new; end if;
+  end if;
+
+  -- closed_by IS REQUIRED, and it is derived rather than invented.
+  -- transition_requests_close_complete: "A closed request records who closed it
+  -- and when, or it is not evidence of anything." The person who issued the
+  -- superseding version is who closed this, and deal_sheet_versions_issued_complete
+  -- guarantees an issued row carries issued_by.
   update public.transition_requests tr
      set status = 'superseded',
          closed_at = now(),
+         closed_by = new.issued_by,
          close_reason = format(
            'Superseded by V%s. The approvals on it stand as the record of what '
            'was signed off; the price on the table has moved.', new.major)
@@ -274,7 +326,13 @@ grant execute on function public.decide_transition_request(uuid, text, text, tex
 -- clause can reference the target unambiguously, and there is no FROM item left
 -- to get the scoping wrong. The self-check below already had this shape.
 update public.transition_requests tr
-   set status = 'superseded', closed_at = now(),
+   set status = 'superseded',
+       closed_at = now(),
+       -- A correlated scalar subquery, so the no-FROM-clause property holds.
+       closed_by = (
+         select v.issued_by from public.deal_sheet_versions v
+          where v.record_id = tr.record_id and v.status = 'issued'
+          order by v.major desc, v.minor desc limit 1),
        close_reason = 'Superseded by a later major version issued before this rule existed.'
  where tr.kind = 'review'
    and tr.status = 'open'
