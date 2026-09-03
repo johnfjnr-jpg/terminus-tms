@@ -532,6 +532,34 @@ test('ONE TRACK AT A TIME: a decide disables its own track, not the banner', () 
     'controls are disabled for the round trip, never removed')
 })
 
+test('THE POLL HAS A FAILURE SURFACE: silence is no longer possible', () => {
+  const app = readCode(ROOT + 'frontend/app.js')
+  const html = readCode(ROOT + 'frontend/index.html')
+  const tick = app.slice(app.indexOf('async function oppPulseTick'))
+
+  // It read `if (!r.ok) return` and that was the whole of it: not counted, not
+  // logged, not shown, so a screen that had stopped following the record looked
+  // exactly like a record nobody had touched. Four investigations into P1 found
+  // no mechanism because the failure erased its own evidence.
+  assert.ok(!/if \(!r\.ok\) return\s*$/m.test(tick),
+    'a failed poll must not return silently')
+  assert.match(tick, /if \(!r\.ok\) \{ notePulseFailure\(id\); return \}/)
+  assert.match(tick, /notePulseSuccess\(id\)/)
+
+  // A THROW IS A FAILURE TOO, or a bug in the tick reads as silence again.
+  assert.match(tick, /\} catch \(err\) \{[\s\S]*notePulseFailure/)
+
+  // TWO, NOT ONE: a blip must not train people to ignore the message.
+  assert.match(app, /if \(oppPulseFailures < 2\)/)
+  // The time is the point, and it is the clock's own instrument.
+  assert.match(app, /Not updating since \$\{escHtml\(oppPulseFirstFailureAt/)
+  // The remedy that already exists, not a new one.
+  assert.match(app, /onclick="reloadAfterStaleWrite\(/)
+  // A stall belongs to the record it was measured on.
+  assert.match(app, /oppPulseFailures = 0\s*\n\s*oppPulseFirstFailureAt = null\s*\n\s*window\.__oppPulseStats\.failures = 0\s*\n\s*renderPulseStall\(recordId\)/)
+  assert.match(html, /<div id="opp-pulse-stall" class="hidden"><\/div>/)
+})
+
 test('THE CLOCK is on every screen, so a screenshot carries its time', () => {
   const html = readCode(ROOT + 'frontend/index.html')
   const css = readCode(ROOT + 'frontend/style.css')

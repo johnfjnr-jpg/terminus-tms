@@ -9837,3 +9837,57 @@ reader is never in. Architecture 9's fourth variant.
 
 The next-stage control had the mirror image: a title reading "Raise a request to
 move this record to Proposal" on a button labelled "Awaiting approval".
+
+---
+
+## THE POLL HAS A FAILURE SURFACE
+
+**Walk, 2026-09-04, ruled by the business, and the reasoning is theirs: this is a
+property, not a cause.**
+
+> `if (!r.ok) return` - a failed poll was indistinguishable from "nothing
+> changed": uncounted, unlogged, silent. **That is why P1 has no mechanism after
+> four investigations: the failure erases its own evidence.**
+
+**A defect in itself, regardless of what triggers it.** Every candidate cause has
+now been measured and eliminated - the mover not touching `record_freshness`, a
+stale bundle, rapid clicking, a blurred window, and finally RLS on
+`record_freshness` refuted at four levels with a real non-owner token. What
+survives is that whatever stops the poll, the symptom is silence.
+
+**Two, not one.** A single failure is a blip, and surfacing it would train people
+to ignore the message - the same fault as a control that cannot act. Two
+consecutive means the screen is genuinely not following any more.
+
+**It does not auto-retry or suppress.** The next tick tries again on its own; the
+person is told meanwhile, and offered the Refresh that already exists rather than
+a new control.
+
+**The time is the point**, and it is the clock's own instrument: *"Not updating
+since 07:28:15 (2 checks failed)"* is a measurement a screenshot carries, where
+"it didn't update" is a recollection.
+
+**A throw counts too.** `api()` converts a network drop into `{ok:false}`, but a
+bug inside the tick would throw past the counter and read as silence again -
+which is the exact fault being removed. The catch counts it.
+
+**A stall belongs to the record it was measured on**, and is reset by
+`startOppPulse`, or the next record would carry a false claim about itself.
+
+**Calibrated on all three states**, which is what makes it evidence: one failure
+does NOT surface, two consecutive do, and one success clears it. Injected 503s
+on the pulse route, with the assertions waiting on the failure COUNT rather than
+on a delay.
+
+### The stylesheet invariant caught the same mistake from me twice
+
+`--bg` on the clock and `--amber` on this banner: neither is defined in
+`style.css`. An undefined custom property fails at computed-value time and the
+**whole declaration is silently dropped**, so both would have rendered with no
+background and no border while every behavioural test passed. `--amber` is used
+four times in the file and defined nowhere; the convention is that each use
+carries the literal fallback, and this one now does.
+
+**A detector earning its keep in the round that needed it**, and worth recording
+as the answer to "why assert something a person would see": nobody looks at a
+banner that only appears when a poll has failed twice.

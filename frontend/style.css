@@ -5437,3 +5437,22 @@ input.input-invalid {
   pointer-events: none;
   font-variant-numeric: tabular-nums;
 }
+
+/* ── THE POLL'S FAILURE SURFACE ────────────────────────────────────────────
+   Walk 2026-09-04. It states that the SCREEN cannot be trusted, so it takes the
+   amber warning treatment rather than the green accent, and sits above the
+   banners that describe the record itself. */
+.pulse-stall {
+  /* THE FALLBACK IS THE CONVENTION HERE, not belt and braces: --amber is used
+     four times in this file and DEFINED nowhere, so every use carries the
+     literal. An undefined custom property drops the whole declaration at
+     computed-value time, which is what the stylesheet invariant exists to
+     catch - and it caught this. */
+  border: 1px solid var(--amber, #E0A33E);
+  border-left-width: 3px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  color: var(--white);
+}
+.pulse-stall-title { color: var(--amber, #E0A33E); font-weight: 600; }

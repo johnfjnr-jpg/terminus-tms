@@ -190,6 +190,11 @@ const STAGES = [
 // control is on screen at a given stage, and whether four buttons and a
 // sentence share one line at 1240, are properties of a browser.
 //
+// Walk 2026-09-04 adds probe-pulse-stall on the same terms. Whether a failing
+// poll SAYS SO after two consecutive failures, stays quiet after one, and clears
+// on the next success is a property of a browser and of injected responses.
+// What runs unattended is in transition-requests.test.mjs.
+//
 // Round 41 F4 adds probe-pulse on the same terms, and the split is the same.
 // Its claim - a screen follows a record somebody else changed, within one poll
 // interval and with no manual refresh - is a property of a BROWSER and cannot

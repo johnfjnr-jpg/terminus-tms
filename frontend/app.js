@@ -7187,7 +7187,7 @@ let oppPulseInFlight = false
 // Counters, so the calibration can assert "issued no polls" and "did not
 // repaint" rather than a person watching a network tab. A detector nobody can
 // read is an assertion (Verification 9).
-window.__oppPulseStats = { polls: 0, rereads: 0, skippedHidden: 0 }
+window.__oppPulseStats = { polls: 0, rereads: 0, skippedHidden: 0, failures: 0 }
 
 // ── THE CLOCK, SECOND RESOLUTION ──────────────────────────────────────────
 //
@@ -7315,6 +7315,60 @@ function oppPulseShouldRun() {
   return !document.getElementById('view-opportunity-detail')?.classList.contains('hidden')
 }
 
+// ── THE POLL SAYS WHEN IT HAS STOPPED WORKING ────────────────────────────
+//
+// Walk 2026-09-04, ruled. A failed poll used to `return` and that was the whole
+// of it: not counted, not logged, not shown. A screen that has stopped
+// following the record looked exactly like a record nobody had touched, which
+// is why four investigations into P1 found no mechanism - whatever stops the
+// poll, the symptom is silence.
+//
+// TWO, NOT ONE. A single failure is a blip and surfacing it would train people
+// to ignore the message, which is the same fault the queue's dead controls had.
+// Two consecutive means the screen is genuinely not following any more.
+//
+// AND IT DOES NOT AUTO-RETRY OR SUPPRESS. The point is to make silence
+// impossible, not to paper over it: the next tick tries again on its own, and
+// the person is told meanwhile so they can use the Refresh that already exists.
+let oppPulseFailures = 0
+let oppPulseFirstFailureAt = null
+
+function renderPulseStall(recordId) {
+  const el = document.getElementById('opp-pulse-stall')
+  if (!el) return
+  if (oppPulseFailures < 2) { el.classList.add('hidden'); el.innerHTML = ''; return }
+  // THE TIME IS THE POINT, and it is the same instrument as the clock: "not
+  // updating since 14:32:07" is a measurement a screenshot carries, where "not
+  // updating" is a feeling.
+  el.classList.remove('hidden')
+  el.innerHTML = `<div class="pulse-stall">`
+    + `<span class="pulse-stall-title">This screen has stopped following the record.</span> `
+    + `Not updating since ${escHtml(oppPulseFirstFailureAt ?? 'unknown')}`
+    + ` (${oppPulseFailures} checks failed). Anything below may be out of date.`
+    + ` <button class="btn-sm" type="button" onclick="reloadAfterStaleWrite('${recordId}')">Refresh now</button>`
+    + `</div>`
+}
+
+function notePulseFailure(recordId) {
+  oppPulseFailures += 1
+  if (oppPulseFailures === 1) {
+    const d = new Date()
+    const pad = (n) => String(n).padStart(2, '0')
+    oppPulseFirstFailureAt = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+  }
+  window.__oppPulseStats.failures = oppPulseFailures
+  renderPulseStall(recordId)
+}
+
+function notePulseSuccess(recordId) {
+  if (oppPulseFailures === 0) return
+  oppPulseFailures = 0
+  oppPulseFirstFailureAt = null
+  window.__oppPulseStats.failures = 0
+  renderPulseStall(recordId)
+}
+window.__oppPulseFailures = () => oppPulseFailures
+
 async function oppPulseTick() {
   // THE TIMER IS CLEARED WHEN HIDDEN, and this guard is the second line for the
   // race where the tab is hidden between the timer firing and the fetch.
@@ -7344,11 +7398,16 @@ async function oppPulseTick() {
     const heldWhenAsked = oppFreshnessAt
     const stageWhenAsked = currentOppStage
     window.__oppPulseStats.polls++
+    // A THROW IS A FAILURE TOO. api() converts a network drop into {ok:false},
+    // but a bug in this function would throw past the counter and read as
+    // silence again, which is the fault being fixed. The catch is below.
     const r = await api('GET', `/api/records/${id}/pulse`)
-    // A failed poll says nothing and does nothing. It must not paint an error
-    // over a screen the person is working on: the manual Refresh is still there
-    // and the next tick will try again.
-    if (!r.ok) return
+    // A failed poll no longer says nothing. It still does not paint an error
+    // over the work in progress on the FIRST failure - the next tick tries
+    // again - but two consecutive say so, because a screen that has stopped
+    // following the record must not look like a record nobody has touched.
+    if (!r.ok) { notePulseFailure(id); return }
+    notePulseSuccess(id)
     // Still the same record after the round trip.
     if (currentOppDetailId !== id) return
     const seen = r.data?.freshness_at
@@ -7375,6 +7434,10 @@ async function oppPulseTick() {
     // is the defect either way.
     window.__oppPulseStats.rereads++
     await oppRereadFollowingStage(id, r.data?.status)
+  } catch (err) {
+    // Counted, not swallowed. Without this a throw inside the tick is the exact
+    // silence this whole surface exists to remove.
+    notePulseFailure(oppPulseRecordId)
   } finally {
     oppPulseInFlight = false
   }
@@ -7383,6 +7446,12 @@ async function oppPulseTick() {
 function startOppPulse(recordId) {
   stopOppPulse()
   oppPulseRecordId = recordId
+  // A stall belongs to the record it was measured on. Carrying it to the next
+  // one would put a false claim on a screen that is following perfectly.
+  oppPulseFailures = 0
+  oppPulseFirstFailureAt = null
+  window.__oppPulseStats.failures = 0
+  renderPulseStall(recordId)
   if (document.hidden) return
   oppPulseTimer = setInterval(oppPulseTick, OPP_PULSE_INTERVAL_MS)
 }

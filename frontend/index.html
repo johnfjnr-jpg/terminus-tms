@@ -1532,6 +1532,15 @@
     <!-- Round 41 X3: the record moved under an open screen. Its own slot beside
          the other two, because the three reasons a record is not editable right
          now are different reasons and a person needs to know which. -->
+    <!-- ── THE POLL'S FAILURE SURFACE. Walk, 2026-09-04, ruled ───────────
+         `if (!r.ok) return` made a failed poll indistinguishable from a record
+         where nothing changed: uncounted, unlogged, silent. That is why P1
+         survived four investigations without a mechanism - the failure erases
+         its own evidence.
+
+         Above the other banners because it is a statement about whether the
+         SCREEN can be trusted, which outranks anything the screen is saying. -->
+    <div id="opp-pulse-stall" class="hidden"></div>
     <div id="opp-moved-banner"></div>
     <div id="opp-readonly-banner"></div>
     <div id="opp-freeze-banner" data-decision-banner></div>
