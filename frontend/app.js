@@ -1266,12 +1266,49 @@ window.decideRequest = async (requestId, track, decision, recordId) => {
   // THE ONE CLICKED SAYS WHAT IT IS DOING. The others say nothing new: they are
   // dimmed and inert, which is a state a person reads as "wait", where a
   // disappearance is one they read as "what did I just break".
-  const banner = document.getElementById('opp-freeze-banner')
-  const fb = document.getElementById('opp-request-feedback')
+  // ── THE HANDLER RESOLVES ITS OWN SURFACE ──────────────────────────────
+  //
+  // Round 41, 2026-09-03. This was bound to the STAGE banner's ids -
+  // opp-freeze-banner and opp-request-feedback - and the pricing-approval
+  // banner calls the same handler. On that surface `buttons` was EMPTY,
+  // `clicked` was undefined, and every refusal was written to an element that
+  // is not on the banner the person is looking at.
+  //
+  // SO A REFUSED PRICING DECIDE SAID NOTHING AT ALL, and that silence is very
+  // likely why the version-gate defect presented as "clicking does nothing"
+  // and cost several walks to find. opp-review-feedback was created in e721611
+  // and never written to: one occurrence, one commit, the
+  // container-written-and-never-read signature.
+  //
+  // RESOLVED FROM THE CLICKED CONTROL, not from a second hardcoded id. Walk up
+  // to the nearest [data-decision-banner] and take that banner's own feedback
+  // slot, so a future banner inherits the pending state, the double-click
+  // guard and the visible refusal by carrying the two attributes.
+  const banners = [...document.querySelectorAll('[data-decision-banner]')]
+  const clicked = banners
+    .flatMap((b) => [...b.querySelectorAll('button')])
+    .find((b) => (b.getAttribute('onclick') ?? '')
+      .includes(`'${requestId}','${track}','${decision}'`))
+  const banner = clicked?.closest('[data-decision-banner]')
+    ?? banners.find((b) => b.innerHTML.includes(requestId))
+    ?? null
+  // The id is captured rather than the element, because done() re-resolves
+  // AFTER loadOpportunityDetail has rebuilt the banner and the old node is gone.
+  const bannerId = banner?.id ?? null
+  //
+  // THE BANNER'S OWN SLOT FIRST, AND A FLOOR UNDER IT. A refusal that has gone
+  // stale removes the banner it came from, so writing only there means the
+  // person sees nothing in exactly the case they most need telling. Measured on
+  // both surfaces before this fallback existed: NOTHING RENDERED.
+  const feedbackEl = () => ((bannerId ? document.getElementById(bannerId) : banner)
+    ?.querySelector('[data-decision-feedback]'))
+    ?? document.getElementById('opp-decision-feedback')
+    ?? null
+  const fb = feedbackEl()
   if (fb) fb.innerHTML = ''
+  const floor = document.getElementById('opp-decision-feedback')
+  if (floor) floor.innerHTML = ''
   const buttons = [...(banner?.querySelectorAll('button') ?? [])]
-  const clicked = buttons.find((b) => (b.getAttribute('onclick') ?? '')
-    .includes(`'${track}','${decision}'`))
   for (const b of buttons) {
     b.disabled = true
     b.classList.add('is-pending')
@@ -1302,7 +1339,7 @@ window.decideRequest = async (requestId, track, decision, recordId) => {
     // it, which is the same dead end from the other direction.
     await loadOpportunityDetail(recordId)
     if (!failure) return
-    const el = document.getElementById('opp-request-feedback')
+    const el = feedbackEl()
     if (el) el.innerHTML = `<p class="msg-error">${escHtml(failure)}</p>`
   }
 
@@ -1317,7 +1354,7 @@ window.decideRequest = async (requestId, track, decision, recordId) => {
       emptyReasonError: 'A reason is required to reject a transition request.',
       warning: 'A rejection closes the request. The other tracks keep their decisions as a record, '
         + 'and a new request has to be raised to move the deal.',
-      returnFocusTo: 'opp-freeze-banner',
+      returnFocusTo: bannerId,
       action: send,
     })
     if (!confirmed) { await loadOpportunityDetail(recordId); return }
@@ -1519,7 +1556,7 @@ function renderOppPricingApprovalBanner(recordId) {
         Proposal/Pricing approval for issue.
         <em>The record is not frozen: work continues while this is decided.</em></p>
       ${rows}
-      <div id="opp-review-feedback" style="margin-top:10px"></div>
+      <div id="opp-review-feedback" data-decision-feedback style="margin-top:10px"></div>
       ${req.requested_by_is_me ? `<button class="btn-sm btn-ghost" style="margin-top:10px"
         onclick="withdrawRequest('${req.id}','${recordId}')">Withdraw this request</button>` : ''}
     </div>`
@@ -1651,7 +1688,7 @@ function renderOppFreezeBanner(recordId) {
           req.approval_notes.map(n => escHtml(n)).join('<br>')}</p>`
         : ''}
       ${rows}
-      <div id="opp-request-feedback" style="margin-top:10px"></div>
+      <div id="opp-request-feedback" data-decision-feedback style="margin-top:10px"></div>
       <button class="btn-sm btn-ghost" style="margin-top:10px"
         onclick="withdrawRequest('${req.id}','${recordId}')">Withdraw request</button>
     </div>`
@@ -7309,6 +7346,12 @@ window.oppPatch = async function (recordId, body) {
 }
 
 async function loadOpportunityDetail(id) {
+  // The decision floor is cleared on every load, so a refusal from one record
+  // cannot follow the reader to the next. decideRequest writes its message
+  // AFTER awaiting this, so the clear never eats the message it is about to
+  // put there.
+  const decisionFloor = document.getElementById('opp-decision-feedback')
+  if (decisionFloor) decisionFloor.innerHTML = ''
   const result = await api('GET', `/api/opportunities/${id}`)
   if (!result.ok) {
     // ref-display-name (Round 3 Phase 3, 2026-08-17) - renamed from

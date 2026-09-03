@@ -9273,3 +9273,99 @@ seat is never touched. Calibrated 1 to 0, not assumed. Build discipline 8.
 Verification 8 and Verification 12 in one query: an unchecked read is
 indistinguishable from a true negative, and a search that did not run looks
 exactly like a search that found nothing.
+
+---
+
+## ONE HANDLER, WHICHEVER BANNER THE CLICK CAME FROM
+
+**Round 41, 2026-09-03.** `decideRequest` was bound to the **stage** banner's
+ids - `opp-freeze-banner`, `opp-request-feedback`, and a `returnFocusTo` naming
+the same element - and the pricing-approval banner calls the same handler. On
+that surface `buttons` was empty, `clicked` was undefined, and every refusal was
+written to an element that is not on the banner the person is looking at.
+
+`opp-review-feedback` was created in `e721611` and never written to: one
+occurrence in the repository, one commit, **the container-written-and-never-read
+signature** Architecture 9 names.
+
+**Ruled as authorship rather than a passing finding**, and the business's reason
+is the one that matters: the invisible refusal is very likely why the version-gate
+defect presented as *"clicking does nothing"* and cost several walks.
+
+### The fix is a resolution, not a second id
+
+The handler finds the clicked control, walks up to the nearest
+`[data-decision-banner]`, and takes that banner's own `[data-decision-feedback]`
+slot. Both banners carry the markers; a future banner inherits the pending state,
+the double-click guard and the visible refusal by carrying them too.
+
+### AND A REFUSAL CAN DISSOLVE ITS OWN BANNER, WHICH THE RULING DID NOT ANTICIPATE
+
+`done()` reloads the panel **before** writing the failure, and the realistic
+refusals are exactly the ones that change what renders. Measured: a `PT412`
+stale-request refusal removes the pricing banner entirely, so the message was
+written into a slot that no longer existed.
+
+**A departure from the instruction, stated plainly:** a persistent
+`opp-decision-feedback` floor sits below the two banners. The banner's own slot
+still wins whenever it survives, which is the common case and the one the ruling
+describes. The floor is the case where the banner does not, and without it the
+person sees nothing in exactly the situation they most need telling. It is
+cleared on every panel load, so a refusal cannot follow the reader to the next
+record.
+
+### Three constructions of one refusal, and the two discarded ones are the record
+
+A refusal had to be reachable **through the screen** and leave the surface
+standing. Measured, not reasoned:
+
+- **Flip the request to one the session user raised.** Refuses, and empties
+  `may_decide`: the banner returns with **0 decision controls** and there is
+  nothing left to click.
+- **Move the request's `from_stage`.** Refuses, and the banner hides its controls
+  for a request that no longer matches the record: **0 controls** again, so no
+  refusal is reachable through the screen at all.
+- **Revoke the approver's seat while the screen is open.** The controls were
+  rendered when the seat existed, the request stays open and matching, the click
+  reaches the server and is refused there. This is also what actually happens to
+  a person.
+
+### THE FOURTH INSTANCE OF A WAIT ON A PROXY, and it reported a working feature as broken
+
+The probe waited for the **recorded row** before moving to the refusal step. The
+row appears *before* `done()` finishes reloading the panel, so the refusal click
+landed on controls still reading `Approving...`, disabled, `pointer-events: none`,
+and **did nothing at all**: `POST none`.
+
+**The probe then reported that as the missing message it was written to catch.**
+Four iterations were spent rebuilding a refusal that was never reaching the
+server, because the diagnostic said "nothing rendered" and the cause was "nothing
+was sent". Adding the decide's own answer to the failure detail is what ended it:
+Verification 14's shape, where a check reporting a failure with nothing on either
+side is not a finding.
+
+The wait is now on the panel having settled, with its counterfactual stated: a
+control mid-reload does read `Approving...`, so the condition is not already true
+in the state being waited out.
+
+### Calibrated in both directions, on both surfaces
+
+Reverting only the two frontend files, the probe goes **9/9 to 5/9**:
+
+| pre-fix | |
+|---|---|
+| pricing: the clicked control says what it is doing | FAIL |
+| pricing: the double-click window is guarded | FAIL |
+| pricing: a refused decide is visible | FAIL, `POST 403` fired and nothing rendered |
+| **stage: a refused decide is visible** | **FAIL**, `POST 403` fired and nothing rendered |
+
+**The refusal was silent on BOTH banners, not only the pricing one.** The stage
+banner's pending state and double-click guard passed pre-fix, correctly, because
+that is the surface the handler was bound to.
+
+`scripts/tests/decision-surface.test.mjs` carries what can run unattended and is
+calibrated four-of-five red against the pre-fix frontend. Every scan in it reads
+**stripped** source: the comments in `decideRequest` necessarily quote the old
+ids while explaining why they are no longer read, so a raw scan is satisfied by
+the prose describing the fix. Verification 39, and the stripper is calibrated in
+both directions in the same file.

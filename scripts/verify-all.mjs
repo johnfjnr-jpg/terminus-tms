@@ -131,6 +131,16 @@ const STAGES = [
 // suite instead: the class is set once, from the record owner and the session,
 // and the stylesheet makes it non-interactive rather than merely dim.
 //
+// Round 41, 2026-09-03 adds probe-decision-feedback on the same terms. Its
+// claim - the pending state, the double-click guard and a VISIBLE refusal on
+// whichever banner the click came from - is a property of a browser and of a
+// person reading a screen, and is reported at the boundary. What runs
+// unattended is scripts/tests/decision-surface.test.mjs: the handler resolves
+// its surface from the clicked control rather than naming one, both banners
+// carry the markers that let it, and a refusal has a floor when the refusal
+// dissolves its own banner. Calibrated four-of-five red against the pre-fix
+// frontend.
+//
 // Round 41 F4 adds probe-pulse on the same terms, and the split is the same.
 // Its claim - a screen follows a record somebody else changed, within one poll
 // interval and with no manual refresh - is a property of a BROWSER and cannot

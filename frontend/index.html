@@ -1522,11 +1522,22 @@
          now are different reasons and a person needs to know which. -->
     <div id="opp-moved-banner"></div>
     <div id="opp-readonly-banner"></div>
-    <div id="opp-freeze-banner"></div>
+    <div id="opp-freeze-banner" data-decision-banner></div>
     <!-- MAIN: a pricing approval in flight. Its own slot beside the freeze
          banner, because the two say opposite things about the record: one
          locks it, this one deliberately does not. -->
-    <div id="opp-review-banner"></div>
+    <div id="opp-review-banner" data-decision-banner></div>
+    <!-- ── WHERE A REFUSAL LANDS WHEN ITS OWN BANNER IS GONE ──────────────
+         Round 41, 2026-09-03. decideRequest reloads the panel before writing a
+         failure, and the realistic refusals are exactly the ones that change
+         what renders: a request that has gone stale, or one somebody else has
+         already closed. Measured: a PT412 refusal removes the pricing banner,
+         so the message was written into a slot that no longer existed and the
+         person saw nothing at all.
+
+         The banner's OWN slot still wins when it survives. This is the floor,
+         not the default, and it is empty unless something failed. -->
+    <div id="opp-decision-feedback" data-decision-feedback></div>
     <div class="detail-head">
       <div>
         <button class="btn-text" id="btn-back-opps">Back to opportunities</button>

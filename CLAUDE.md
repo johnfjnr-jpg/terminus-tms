@@ -863,6 +863,30 @@ of the change. An unanswerable precondition is a stop.
     compare: two empty arrays, two undefined fields, two zero counts.
     **Compare presence first, then value.**
 
+    **AND THE SAME RULE FOR A FAILURE: A CHECK THAT FAILS WITH NOTHING ON
+    EITHER SIDE IS NOT A FINDING.** Round 41, 2026-09-03. Rule 14 is a
+    comparison that PASSES with both sides absent; this is the same emptiness
+    reported as a defect, and it is more expensive because a failure is acted
+    on.
+
+    A probe asserted that a refused decide shows its message on the banner the
+    click came from, and reported `NOTHING RENDERED` on both surfaces. **Four
+    rebuilds of the refusal followed**, each a real attempt to construct a
+    refusal that leaves the surface standing, and each measuring the same
+    nothing. The message was absent because **the click never reached the
+    server**: the controls were still mid-reload, disabled, and the click did
+    nothing at all.
+
+    **The diagnostic said "the message did not appear" and the truth was
+    "nothing was sent".** Those are different failures with different fixes, and
+    the probe could not tell them apart because it only measured the message.
+
+    **The check: when an assertion about an EFFECT fails, the failure detail
+    carries the CAUSE's own answer.** One field - the decide's HTTP status, the
+    write's returned row, the count before and after - separates "it happened
+    and produced nothing" from "it never happened". Adding the POST status to
+    the failure line ended the four iterations in one run.
+
 15. **A criterion expressed as a measurement at one viewport stops describing
     the thing it was written about.** Round 15 Phase 0, 2026-08-20. Round 8
     recorded Total Cost sitting 306px below the fold **at 1920**, named its
