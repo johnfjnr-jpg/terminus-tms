@@ -141,6 +141,13 @@ const STAGES = [
 // dissolves its own banner. Calibrated four-of-five red against the pre-fix
 // frontend.
 //
+// Round 41 W3, 2026-09-03 adds probe-stage-tab-identity on the same terms. Its
+// three claims - the current-stage dot follows the record, a deliberate tab
+// selection survives a re-render, and a transition lands on the new stage - are
+// properties of a browser. Calibrated red on the dot against the pre-fix
+// frontend, with the other seven holding, which is what shows X1 and the
+// transition landing were not traded for it.
+//
 // Round 41 F4 adds probe-pulse on the same terms, and the split is the same.
 // Its claim - a screen follows a record somebody else changed, within one poll
 // interval and with no manual refresh - is a property of a BROWSER and cannot

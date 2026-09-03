@@ -759,7 +759,8 @@ export async function computeBlocking(db, record, from_stage, to_stage, currentR
 export default async function transitionsRoutes(app) {
   // POST /api/records/:id/transition
   // Validates to_stage against stage_definitions, checks all gate rules,
-  // then performs the transition and auto-updates probability_pct for opportunities.
+  // then performs the transition. Probability is re-derived by
+  // records_stage_probability_trg on the stage change itself, not here.
   app.post('/records/:id/transition', async (request, reply) => {
     const { to_stage } = request.body ?? {}
 
@@ -1002,98 +1003,26 @@ export default async function transitionsRoutes(app) {
         : { from: from_stage, to: to_stage, revision: currentRevision }
     })
 
-    // Auto-update probability_pct from stage defaults after a successful transition.
-    // Opportunities have null variant; the lookup uses IS NULL to match the correct defaults row.
-    // Test Beds have no probability concept, so this block is scoped to opportunity only.
-    if (record.record_type === 'opportunity') {
-      let probQuery = db
-        .from('stage_probability_defaults')
-        .select('default_probability_pct')
-        .eq('record_type', record.record_type)
-        .eq('stage', to_stage)
-
-      probQuery = record.variant
-        ? probQuery.eq('variant', record.variant)
-        : probQuery.is('variant', null)
-
-      // .maybeSingle() (Round 7, 2026-08-18): without it this query
-      // resolves to an ARRAY, so `if (probDefault)` was truthy even for
-      // zero rows and `probDefault.default_probability_pct` was always
-      // undefined. The update below therefore sent {probability_pct:
-      // undefined}, which supabase-js drops on serialisation, so it
-      // matched no rows and changed nothing - confirmed live: 0 rows
-      // affected, no error, value unchanged. The documented
-      // reset-on-stage-change (DESIGN_PRINCIPLES.md Section 2) has never
-      // once fired since this mechanism was written.
-      //
-      // The warn branch below did fire every time, but blamed a
-      // "missing opportunity_details row", pointing at the wrong cause
-      // entirely - the same misdiagnosis class as the line 192 fix in
-      // step 3.0. contacts.js and test-beds.js both call this same table
-      // with .maybeSingle() correctly; only this site omitted it.
-      const { data: probDefault, error: probDefaultErr } = await probQuery.maybeSingle()
-
-      // Round 20 Phase 4: a person's override outranks the stage default.
-      //
-      // Read BEFORE the write below rather than folded into its WHERE
-      // clause, so the skip is visible in the log and so a read failure
-      // cannot be mistaken for "no override set". An unchecked read here
-      // would silently overwrite the very value this exists to protect.
-      const { data: overrideRow, error: overrideErr } = await db
-        .from('opportunity_details')
-        .select('probability_override_pct')
-        .eq('record_id', record.id)
-        .maybeSingle()
-
-      if (overrideErr) {
-        request.log.error({ err: overrideErr }, 'failed to read probability_override_pct after transition')
-      }
-
-      // Null is the only value that lets the default through, and null is
-      // what every record held before this column existed, so the
-      // unoverridden path is byte for byte what it was.
-      const hasOverride = overrideRow?.probability_override_pct !== null
-        && overrideRow?.probability_override_pct !== undefined
-
-      // Round 7 step 3.0. Unlike the five above, this sits AFTER the
-      // transition has already succeeded, so an error here must not
-      // become a 500 on an otherwise-successful response - it is logged,
-      // matching how the update below already treats its own failures.
-      if (probDefaultErr) {
-        request.log.error({ err: probDefaultErr }, 'failed to load stage_probability_defaults after transition')
-      }
-
-      if (hasOverride) {
-        // Deliberately a log line and not a warning. This is the feature
-        // working, not a fault, and the reset-affected-no-rows warning
-        // below already taught this codebase what a misdirected warning
-        // costs to diagnose.
-        request.log.info(
-          { record_id: record.id, to_stage, override_pct: overrideRow.probability_override_pct },
-          'probability_pct left at the record override; stage default not applied'
-        )
-      } else if (probDefault) {
-        // Reached only after the owner-gated update above genuinely
-        // succeeded, so a zero-row result here isn't an authorization
-        // failure (the caller IS the owner) - it would mean the
-        // opportunity_details row is missing, a data-integrity issue,
-        // not a permissions one. The primary transition already
-        // succeeded, so this stays a logged warning, not a 403 on an
-        // otherwise-successful response - but it's still checked rather
-        // than assumed, same discipline as the other five fixes.
-        const { data: probUpdated, error: probErr } = await db
-          .from('opportunity_details')
-          .update({ probability_pct: probDefault.default_probability_pct })
-          .eq('record_id', record.id)
-          .select('record_id')
-
-        if (probErr) {
-          request.log.error({ err: probErr }, 'failed to reset probability_pct after transition')
-        } else if (!probUpdated?.length) {
-          request.log.warn({ record_id: record.id }, 'probability_pct reset affected no rows - missing opportunity_details row?')
-        }
-      }
-    }
+    // ── PROBABILITY IS RE-DERIVED BY A TRIGGER, NOT HERE ──────────────────
+    //
+    // Round 41, 2026-09-03. This route used to look up stage_probability_defaults
+    // and write opportunity_details.probability_pct after a successful
+    // transition. It was removed rather than corrected, because it had stopped
+    // being the only mover: the stage-approval workflow moves the record inside
+    // decide_transition_request and raise_transition_request, and neither
+    // mentions probability. Measured: seven live opportunities sat at the
+    // Qualification default of 10 after moving, including all five at Proposal.
+    //
+    // records_stage_probability_trg fires on the FACT - a change to
+    // records.status - so every mover re-derives, including the next one.
+    // Keeping this block as well would be a second writer of one value, which
+    // is Verification 20 and the thing that produced the drift in the first
+    // place.
+    //
+    // The Round 20 Phase 4 override guard went with it. The business ruled on
+    // 2026-09-03 that an override holds within a stage and is re-derived at the
+    // next transition, which is the opposite of what that guard enforced.
+    // Verification 23: the fix is deletion, not two mechanisms agreeing today.
 
     return { record_id: record.id, from: from_stage, to: to_stage }
   })

@@ -9369,3 +9369,84 @@ calibrated four-of-five red against the pre-fix frontend. Every scan in it reads
 ids while explaining why they are no longer read, so a raw scan is satisfied by
 the prose describing the fix. Verification 39, and the stripper is calibrated in
 both directions in the same file.
+
+---
+
+## W1: probability is derived at every transition, by whichever mover
+
+**Round 41, 2026-09-03.** The walk saw 10% on a Proposal deal. Measured across
+every live opportunity: **seven** carried a probability that was not their
+stage's default, all of them 10, the Qualification value written at creation.
+All five Proposal records and one Closed Won among them.
+
+**It was not the override guard.** `probability_override_pct` was **null on
+every record**, so Round 20 Phase 4's guard never fired once. The re-derivation
+was not being skipped, it was not being **reached**: it lived in the transition
+route, and the workflow moves records inside `decide_transition_request` and
+`raise_transition_request`, neither of which mentions probability at all.
+Architecture 8 from the mover's side.
+
+**So it became a trigger on the fact.** A stage change is a fact about
+`records.status`, and every mover writes it there. The route's copy was
+**deleted** rather than corrected: keeping it would be a second writer of one
+value, which is Verification 20 and the thing that produced the drift.
+
+**Supersedes Round 20 Phase 4**, whose reasoning is left visible: "a person's
+override outranks the stage default" was a correct answer to a different
+question. The business ruled that an override holds within a stage and is
+re-derived at the next transition. Verification 23, and the fix is deletion
+rather than two mechanisms agreeing today.
+
+**A defect in the migration, caught by calibrating the probe before anything was
+applied.** The override is a **four-column all-or-nothing set** - pct, reason,
+by, at - guarded by `opportunity_details_probability_override_complete`. Clearing
+only the pct violates it, so every transition of an overridden record would have
+failed with 23514.
+
+**Probe: 4 of 8 red before, 9 of 9 after.** Weighted amount moved with it,
+`228567 x 0.40 = 91426.80`, on a deliberately priced fixture: the first version
+compared a null TCV with a null weighted value and reported PASS, which is
+Verification 14 exactly.
+
+---
+
+## W3: the tab strip's dot belonged to the previous record
+
+**Round 41, 2026-09-03, and the defect was this session's own.**
+
+The walk saw a Qualification record whose progress chevron read Qualification
+while the tab strip's current-stage dot sat on **Proposal**. Two hypotheses were
+measured and **both were wrong**, which is worth recording because each was
+plausible enough to have been built on:
+
+- **Creation leaking state.** Server-side, the newest opportunities are
+  Qualification with 0 approvals and 0 requests. Nothing leaked.
+- **Cross-record carry-over of the SELECTED tab.** Measured directly: select
+  Proposal on record A, navigate to record B, and the strip lands on
+  `reference`. No carry-over.
+
+**The actual cause was the reconcile added earlier in this same session** for the
+R4/R7 flicker fix. Its signature is the stage **LIST**, which is identical for
+every opportunity, so navigating between records **always** takes the reconcile
+path - and that path returned before `markOppCurrentStageTab` ran. The dot was
+therefore never re-marked and kept pointing at the previously viewed record.
+
+Measured in the mirror image of the walk's report: open a Qualification record,
+then a Proposal record, and the dot still reads Qualification.
+
+**The reconcile's own comment says it deliberately does not touch the
+SELECTION, and that is still right. A dot is not a selection**: it is the
+record's own stage, and the record changed. The comment named what it was
+protecting and did not name what it was skipping.
+
+**Three properties asserted together**, because in this project fixing one of
+these has twice broken another: the dot follows the record, a deliberate
+selection survives a re-render (X1), and a transition lands on the new stage.
+Calibrated red on the dot alone against the pre-fix frontend, with the other
+seven holding.
+
+**One probe fault worth keeping.** The transition-landing check failed against
+working code because it called `landOppOnStage` without the render that consumes
+it. The landing is recorded by that call and applied by the next
+`loadOpportunityDetail`, so the assertion was reading a state the mechanism had
+not been asked to produce yet.

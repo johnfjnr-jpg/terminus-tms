@@ -565,6 +565,23 @@ function renderOppStageTabs(stages, currentStage) {
   const existing = [...strip.querySelectorAll('.detail-tab[data-opp-stage-tab]')]
   if (host.dataset.oppStageSignature === signature && existing.length === stageTabs.length) {
     wireOppNextStageButton(currentStage, stages)
+    // ── THE DOT IS A FUNCTION OF THE STAGE, NOT OF THE STAGE LIST ───────
+    //
+    // Round 41, W3, 2026-09-03, and it is a defect this session's own
+    // reconcile introduced. The signature above is the stage LIST, which is
+    // identical for every opportunity, so moving between records always takes
+    // this path - and it returned before the current-stage dot was re-marked.
+    // The dot therefore kept pointing at the PREVIOUSLY VIEWED record's stage.
+    //
+    // Measured: open a Qualification record, then a Proposal record, and the
+    // dot still sits on Qualification. The walk saw the mirror image, a
+    // Qualification record showing the dot on Proposal, and read it as the
+    // record having come in at the wrong stage.
+    //
+    // The comment below says this path deliberately does not touch the
+    // SELECTION, and that is still right. A dot is not a selection: it is the
+    // record's own stage, and the record changed.
+    markOppCurrentStageTab(currentStage)
     return
   }
   host.dataset.oppStageSignature = signature
