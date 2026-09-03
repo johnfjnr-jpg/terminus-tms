@@ -2514,7 +2514,12 @@
           <!-- The selection moved onto the Payment Terms line (Round 41 item 5).
                These are the fields it reveals, and they stay here because they
                are three paragraphs of explanation rather than a choice. -->
-          <div class="form-grid hidden" id="deal-factoring-fields" style="margin-top:16px">
+          <!-- SMALL NUMBER FIELDS, CAPPED. W5: the grid is 1fr 1fr of the whole
+               panel, so at 3440 a monthly rate got 1530px of input. A field
+               takes the width its content needs to be read, not the width
+               that is going spare. -->
+          <div class="form-grid hidden" id="deal-factoring-fields"
+               style="margin-top:16px;max-width:860px;grid-template-columns:1fr 1fr auto">
             <!-- Round 39. The second clause was written FROM THE CALCULATOR
                  rather than from the sentence, on the business's own
                  instruction. src/lib/deal-calculator.js: principal is
@@ -2534,7 +2539,7 @@
               <p class="field-note" style="margin-top:6px">The monthly cost of factoring the hardware and installation spend. It both reduces margin and brings cash in earlier.</p></div>
             <div class="form-group"><label>Term (months)</label><input type="text" inputmode="numeric" id="deal-factoring-termMonths">
               <p class="field-note" style="margin-top:6px">How long the factoring runs. Rate multiplied by term is the total financing cost.</p></div>
-            <div class="form-group">
+            <div class="form-group" id="deal-factoring-method-group">
               <label>Repayment method</label>
               <div class="view-toggle" id="deal-factoring-method-toggle">
                 <button data-method="straight" class="active">Straight-line</button>
@@ -2615,9 +2620,28 @@
              about why things have been adjusted". Three rows at rest says a
              paragraph is expected without forcing one, and it is the only
              editable control on this otherwise read-only tab. -->
-        <div class="pg-card" id="deal-version-panel" style="max-width:460px;margin-bottom:20px">
-          <p class="pg-card-title">Versions</p>
-          <div id="deal-version-list"></div>
+        <!-- ── W4: FULL WIDTH, AND A RANGE. 2026-09-03 ──────────────────────
+             The panel was capped at 460px and listed every version, which is
+             fine for three and unusable for thirty: a deal re-priced through a
+             negotiation accumulates minor versions faster than anything else on
+             this screen, and each row carries a reason, an author, a timestamp
+             and an approval line. Capped narrow, those five lines wrap into a
+             column of text nobody reads.
+
+             THE RANGE DEFAULTS TO THE LAST 5, not to all. The question at a bid
+             review is almost always "what changed recently", and the full
+             history is one click away for the times it is not. -->
+        <div class="pg-card" id="deal-version-panel" style="margin-bottom:20px">
+          <div style="display:flex;align-items:baseline;justify-content:space-between;gap:16px;flex-wrap:wrap">
+            <p class="pg-card-title" style="margin-bottom:0">Versions</p>
+            <div class="view-toggle hidden" id="deal-version-range">
+              <button data-range="5" class="active">Last 5</button>
+              <button data-range="10">Last 10</button>
+              <button data-range="all">All</button>
+            </div>
+          </div>
+          <p class="pg-item-note hidden" id="deal-version-range-note" style="margin-top:6px"></p>
+          <div id="deal-version-list" style="margin-top:10px"></div>
           <div style="margin-top:12px">
             <!-- Set by applyReasonPrompt() from src/lib/version-reason.js: a first version
                  asks what the price is based on, a later one asks what changed. This is the

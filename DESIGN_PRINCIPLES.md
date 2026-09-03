@@ -9526,3 +9526,86 @@ Raised by the business's own account, one minute apart on 2026-09-02.
 
 **Left alone deliberately.** They name no major, so cause 2's rule cannot reach
 them, and closing somebody's records is a ruling rather than a cleanup.
+
+---
+
+## W4 and W5: the version history, and a term that is an initial value
+
+**Round 41, 2026-09-03.**
+
+### The orphaned reviews, deleted
+
+Five open pricing-approval requests carrying **no `frozen_version_id`**, which
+the current raise route cannot create because it refuses a request with no
+version. Raised by the business's own account one minute apart on 2026-09-02, so
+they predate that requirement. Verified to reference **zero approvals**, so
+deleting them orphans no history. Deleted, re-queried at zero, and confirmed on
+screen: three records, review banner empty, no "waiting on approval" anywhere.
+
+**Hard deleted rather than soft**, on the business's ruling, and the check that
+made it safe was the approvals count rather than the ruling itself.
+
+### W4: a version list that admits what it is not showing
+
+The panel was capped at 460px and listed every version. Now full width, opening
+on the **last 5**, with Last 10 and All beside it.
+
+Two properties beyond the ask, both from rules this project already holds. The
+control **does not appear at five versions or fewer**, because a range picker
+that cannot change what is on screen is a control teaching people to ignore
+controls. And the panel **says what it is not listing** - *"Showing 5 of 12
+versions. 7 older versions are not listed."* - because a silently truncated list
+reads as the whole history, which is the same fault as a silent cap in a scan.
+
+### W5: the term is an initial value, and probability is not
+
+**Ruled deliberately opposite to W1, and the business's reason is the part worth
+keeping:** probability is derived from an EXTERNAL FACT, the stage, so it
+re-derives whenever that fact changes; the term is a STARTING POINT the
+salesperson tunes against cash flow, so it is an initial value that respects the
+override. Two questions that look alike and are not.
+
+**It fires on `change`, not on `input`.** Measured: an input listener defaulted
+on the FIRST KEYSTROKE, so typing "48" wrote a term of 4 and then stopped,
+because the field was no longer empty by the second digit.
+
+**Touching the field ends the defaulting, including emptying it**, which is what
+makes "cleared stays cleared" true rather than asserted.
+
+### AND ONE CLAUSE OF THE RULING CANNOT BE REACHED, WHICH IS A FINDING
+
+`system_defaults` carries `factoringTermMonths = 12` with the note **"Hybrid
+factoring term. Two-phase follows the recovery period."** - a decision about this
+exact behaviour, recorded on 2026-08-30, and more specific than W5's ruling
+because it makes the answer depend on the structure. Verification 23: the check
+is to search for an existing decision before taking a new one, and there was one.
+
+**The server applies that default on EVERY write.** Measured: PATCHing
+`factoring.termMonths: null` comes back as `12`. So no deal can arrive with the
+term not recorded while factoring is on, the only route to an empty field is
+clearing it, and clearing is the person having their say.
+
+**Two consequences, and the second is the serious one.** W5's "written when the
+term is EMPTY" is unreachable from outside; and a cleared term does **not** stay
+cleared once saved, because the server puts 12 back. That is Architecture 11
+being broken by a fallback in the writer - the rule this same round set - and it
+is reported rather than fixed, because the fix is a ruling about which of the
+two recorded intentions wins.
+
+### W5 layout: the ruling's letter cost 73px at 1240
+
+Ruled: the repayment method joins the recovery line. Built and measured, that
+puts four items on a row that already held three and **wrapped raggedly into
+three lines**: the block grew from 387px to **460px at 1240**, worse than before
+the change, while improving to 334px at 1920 and 3440. Giving the year schedule
+its own line was measured too and was worse still, 460px everywhere.
+
+**Built instead with the method joining rate and term on their shared line:
+334px at all three widths**, a 53px saving with no regression, the number fields
+at 260px instead of stretching to 1530px at 3440. The ruling's PURPOSE - reduce
+the wasted vertical space, rate and term on one line - is met at every width;
+the clause not met literally is which line the method sits on.
+
+Verification 15 is why this is a departure rather than a preference: a criterion
+measured at one viewport stops describing the thing it was written about, and
+the walk runs at 1240.

@@ -89,6 +89,11 @@ const uiState = {
   grossUp: false,
   factoringEnabled: false,
   factoringMethod: 'straight',
+  // W5, 2026-09-03. Whether the salesperson has touched the factoring term on
+  // THIS record since it loaded. The term defaults from the recovery period as
+  // an INITIAL VALUE, and an initial value must not come back once the person
+  // has had their say - including when what they said was to empty it.
+  termTouched: false,
 }
 
 const MARGIN_KEYS = ['hwSs', 'hwAqm', 'hwHemir', 'hwWarranty', 'inSsEx', 'inSsNew', 'inAqm', 'inHemir', 'hoSs', 'hoAqm', 'hoHemir']
@@ -583,9 +588,36 @@ async function loadVersions() {
   applyReasonPrompt()
 }
 
+// W4: how much of the history is on screen. Session state, not a preference:
+// it resets per load like the latches, because it is a way of looking at THIS
+// deal rather than a setting about all of them.
+let versionRange = 5
+
 function renderVersionList() {
   const list = document.getElementById('deal-version-list')
   if (!list) return
+
+  // THE CONTROL ONLY APPEARS WHEN IT WOULD DO SOMETHING. A range picker over
+  // three versions is a control that cannot change what is on screen, and this
+  // screen has enough of those.
+  const rangeEl = document.getElementById('deal-version-range')
+  const noteEl = document.getElementById('deal-version-range-note')
+  const total = dealVersions.length
+  rangeEl?.classList.toggle('hidden', total <= 5)
+  rangeEl?.querySelectorAll('button').forEach(b => {
+    b.classList.toggle('active', String(versionRange) === b.dataset.range)
+  })
+
+  const shown = versionRange === 'all' ? dealVersions : dealVersions.slice(0, Number(versionRange))
+  // SAY WHAT IS NOT SHOWN. A truncated list that does not admit it reads as the
+  // whole history, which is the same fault as a silent cap in a scan.
+  const hiddenCount = total - shown.length
+  if (noteEl) {
+    noteEl.textContent = hiddenCount > 0
+      ? `Showing ${shown.length} of ${total} versions. ${hiddenCount} older ${hiddenCount === 1 ? 'version is' : 'versions are'} not listed.`
+      : (total > 5 ? `Showing all ${total} versions.` : '')
+    noteEl.classList.toggle('hidden', !noteEl.textContent)
+  }
 
   if (!dealVersions.length) {
     list.innerHTML = '<p class="pg-item-note">No versions saved yet. V0.1 is the first.</p>'
@@ -600,7 +632,7 @@ function renderVersionList() {
     // business said matters most. It is shown at all because a version taken
     // before a tab existed and one taken after it where the operator left that
     // tab blank are otherwise indistinguishable.
-    list.innerHTML = dealVersions.map(v => {
+    list.innerHTML = shown.map(v => {
       const when = new Date(v.issued_at ?? v.created_at)
       const who = (v.status === 'issued' ? v.issued_by_email : v.created_by_email) || 'unknown author'
       const sections = Array.isArray(v.sections) ? v.sections : []
@@ -1875,6 +1907,11 @@ function populateForm(payload) {
   renderContractorMilestoneRows(p.contractorMilestones ?? [])
 
   const factoring = p.factoring ?? {}
+  // Reset per record: "touched" is a fact about this editing session, and
+  // carrying it across records would silence the default on the next deal.
+  uiState.termTouched = false
+  // W4: the range is a way of looking at THIS deal, so it resets with the deal.
+  versionRange = 5
   uiState.factoringEnabled = !!factoring.enabled
   uiState.factoringMethod = factoring.method || 'straight'
   // 2, not 1.5 (Round 3 Phase 4, 2026-08-17): this is what actually
@@ -2041,6 +2078,10 @@ function updateFactoringButtons() {
   fx.setAttribute('aria-checked', on ? 'true' : 'false')
   fx.title = on ? 'Factoring is on. Click to turn it off.' : 'Factoring is off. Click to turn it on.'
   document.getElementById('deal-factoring-fields').classList.toggle('hidden', !uiState.factoringEnabled)
+  // W5: the repayment method moved onto the factoring line and hides with the
+  // fields it belongs to, not with the row it now sits in.
+  document.getElementById('deal-factoring-method-group')
+    ?.classList.toggle('hidden', !uiState.factoringEnabled)
   document.querySelectorAll('#deal-factoring-method-toggle button').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.method === uiState.factoringMethod)
   })
@@ -2200,6 +2241,45 @@ function wireOnce() {
   // the list: an input added to Payment Terms without being named here would
   // silently not recompute. Scoping to the tab removes the class of fault
   // rather than renaming its members.
+  // ── THE FACTORING TERM DEFAULTS FROM THE RECOVERY PERIOD ──────────────
+  //
+  // W5, ruled 2026-09-03, and ruled DELIBERATELY OPPOSITE to W1's probability,
+  // which re-derives at every transition and discards any override. The
+  // business's reason, recorded because the two look alike and are not:
+  //
+  //   probability is derived from an EXTERNAL FACT, the stage, so it re-derives
+  //   whenever that fact changes; the term is a STARTING POINT the salesperson
+  //   tunes against cash flow, so it is an initial value that respects the
+  //   override.
+  //
+  // Architecture 11: an initial value lives in the RECORD, so this writes into
+  // the field and is saved and versioned like anything typed there. It is not a
+  // fallback in the calculation, and a term left empty stays empty and is
+  // reported as not recorded.
+  //
+  // THREE CLAUSES, ALL REQUIRED. It writes when the term is empty; it never
+  // overwrites a term already set; and cleared stays cleared, which is why
+  // touching the field at all - including emptying it - ends the defaulting for
+  // this record rather than only a non-empty value doing so.
+  const termInput = document.getElementById('deal-factoring-termMonths')
+  const recoveryInput = document.getElementById('deal-recoveryMonths')
+  if (termInput) termInput.addEventListener('input', () => { uiState.termTouched = true })
+  if (recoveryInput && termInput) {
+    // ON change, NOT input. Measured: with an input listener the default fired
+    // on the FIRST KEYSTROKE, so typing "48" wrote a term of 4 and then stopped,
+    // because the field was no longer empty by the second digit. A settled value
+    // is what the term should follow, and change gives it on blur or Enter.
+    recoveryInput.addEventListener('change', () => {
+      if (uiState.termTouched) return
+      if (termInput.value.trim() !== '') return
+      const months = recoveryInput.value.trim()
+      if (months === '') return
+      termInput.value = months
+      updateDirtyState()
+      recompute()
+    })
+  }
+
   document.querySelectorAll('#opp-tab-commercial input').forEach(el => el.addEventListener('input', recompute))
 
   // The currency selects, Round 36 Phase 2. The selector above matches the
@@ -2278,6 +2358,13 @@ function wireOnce() {
   // at the panel rather than per input.
   document.getElementById('btn-save-version').addEventListener('click', saveVersion)
   document.getElementById('btn-issue-version').addEventListener('click', issueLatestDraft)
+  document.getElementById('deal-version-range')?.addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-range]')
+    if (!btn) return
+    versionRange = btn.dataset.range === 'all' ? 'all' : Number(btn.dataset.range)
+    renderVersionList()
+  })
+
   document.getElementById('deal-version-list').addEventListener('click', (e) => {
     const id = e.target?.dataset?.restoreVersion
     if (id) restoreVersion(id)

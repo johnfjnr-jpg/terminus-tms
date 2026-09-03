@@ -166,6 +166,17 @@ const STAGES = [
 // frontend, with the other seven holding, which is what shows X1 and the
 // transition landing were not traded for it.
 //
+// Round 41 W4/W5, 2026-09-03 add probe-version-range and
+// probe-term-from-recovery on the same terms. Their claims - a version history
+// that stays readable as minor versions accumulate, and a factoring term that
+// takes the recovery period as an INITIAL value without ever overwriting one a
+// person set - are properties of a browser and of typing into a field.
+//
+// probe-term-from-recovery SKIPS one of its three clauses and says so: the
+// server applies system_defaults.factoringTermMonths on every write, so a deal
+// cannot ARRIVE with the term not recorded, and a check that cannot reach its
+// state is not evidence either way.
+//
 // Round 41 F4 adds probe-pulse on the same terms, and the split is the same.
 // Its claim - a screen follows a record somebody else changed, within one poll
 // interval and with no manual refresh - is a property of a BROWSER and cannot
