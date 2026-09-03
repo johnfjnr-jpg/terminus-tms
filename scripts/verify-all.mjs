@@ -50,6 +50,24 @@ const STAGES = [
     needs: 'the dev server on :3000 AND a live session-ref.json',
   },
   {
+    // W2. A pricing approval closes by BOTH routes it can close by: its last
+    // required track approving, and a newer major superseding it. Either fault
+    // alone reproduced the walk's stuck "V1 is waiting on approval" banner on a
+    // record whose V1 was fully approved, so both are exercised separately.
+    name: 'HTTP review-closes probe',
+    cmd: ['node', ['scripts/probe-review-closes.mjs', 'GATE']],
+    needs: 'the dev server on :3000 AND a live session-ref.json',
+  },
+  {
+    // W1. Probability is re-derived on every stage change, by whichever mover
+    // writes records.status. It used to live in the transition route, which the
+    // workflow does not go through: seven live opportunities had drifted to the
+    // Qualification default, five of them at Proposal.
+    name: 'HTTP stage-probability probe',
+    cmd: ['node', ['scripts/probe-stage-probability.mjs', 'GATE']],
+    needs: 'the dev server on :3000 AND a live session-ref.json',
+  },
+  {
     // Item 4. Both halves of the from-Proposal check-and-go on one record, with
     // the stage-gated half proven unchanged on the same walk.
     name: 'HTTP version-gate probe',

@@ -9450,3 +9450,79 @@ working code because it called `landOppOnStage` without the render that consumes
 it. The landing is recorded by that call and applied by the next
 `loadOpportunityDetail`, so the assertion was reading a state the mechanism had
 not been asked to produce yet.
+
+---
+
+## W2: a pricing approval closes, by both routes it can close by
+
+**Round 41, 2026-09-03.** The walk saw *"V1 is waiting on approval"* on a record
+whose V1 had every track approved and whose pricing had reached V3, and
+refreshing did not clear it.
+
+**Refresh was not the problem, and neither was caching.** The row genuinely was
+open, so the server kept returning it and the banner faithfully reported a true
+fact about a request that nothing ever closed.
+
+**Two independent causes, and either alone reproduces the banner.**
+
+1. `decide_transition_request` returned `'open'` **unconditionally** for a
+   review, so approving the last track never closed anything.
+2. Issuing a new major did not touch the prior major's review.
+   `deal-sheet-versions.js` mentions `transition_requests` **zero times**: not a
+   failed attempt, no attempt.
+
+**The calibration showed the ruling was necessary rather than tidy.** Before the
+fix, V2 could not raise its own request at all: `409 A pricing approval is
+already open on this Opportunity`. The stuck V1 request was blocking the very
+thing that would have replaced it.
+
+**A review closes without transitioning.** Ruling B stands: the sign-off is
+standing, and the from-Proposal transition checks it synchronously. The
+approvals remain after the close, which is what makes a closed request readable
+as *approved* rather than as *gone*.
+
+### THE MIGRATION FAILED TWICE, AND BOTH WERE CONSTRAINTS ALREADY READ THAT DAY
+
+Recorded as a pattern rather than as two slips, because that is what it was.
+
+- **`LATERAL` in an `UPDATE`'s own `FROM` clause**, referencing the update
+  target. Rewritten with **no `FROM` clause at all** rather than as a legal
+  `UPDATE ... FROM`: build discipline 14, prefer the construct that cannot carry
+  the error over the one that is merely legal if typed right.
+- **`transition_requests_close_complete`** - `closed_at` and `close_reason` set,
+  `closed_by` null. **The identical all-or-nothing shape as W1's four-column
+  probability override, hit an hour earlier in the same session**, and the
+  lesson was not carried across.
+- **`superseded` was not an allowed status**, which would have failed next.
+  Postgres reports one violation at a time, so each fix revealed the next.
+
+**The general form: before a migration writes a row, enumerate every constraint
+on that table and check the row against each.** One violation is reported at a
+time, so a fix that looks complete is only the first layer.
+
+**Two decisions inside that, both about not lying in data.** `closed_by` is
+**derived** - the issuer of the superseding version is who closed it - rather
+than invented, and `deal_sheet_versions_issued_complete` guarantees an issued
+row carries it. And the status check was **widened** rather than `withdrawn`
+reused: withdrawn says the requester withdrew, and nobody did. Verification 19,
+a name asserting a property untrue of what it names.
+
+**The constraint name is discovered from `pg_constraint`, not assumed.** It was
+declared inline, so dropping a guessed name is a silent no-op that leaves the
+old check in place beside the new one, still rejecting every superseded row -
+and that failure would look like the migration not having run.
+
+**One hazard found by reading, which nothing here could have reported.** `OLD`
+is unassigned on INSERT and plpgsql raises on touching it, so
+`tg_op = 'UPDATE' and old.status = ...` can fail on the insert path rather than
+short-circuit. Nested instead.
+
+### Five open reviews that the current route could not create
+
+Measured after the fix: `0` reviews held against a superseded major, and **5
+still open on live records, none carrying a `frozen_version_id`**. The raise
+route refuses a request with no version, so these predate that requirement.
+Raised by the business's own account, one minute apart on 2026-09-02.
+
+**Left alone deliberately.** They name no major, so cause 2's rule cannot reach
+them, and closing somebody's records is a ruling rather than a cleanup.
