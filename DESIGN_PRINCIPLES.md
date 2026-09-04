@@ -9891,3 +9891,79 @@ carries the literal fallback, and this one now does.
 **A detector earning its keep in the round that needed it**, and worth recording
 as the answer to "why assert something a person would see": nobody looks at a
 banner that only appears when a poll has failed twice.
+
+---
+
+## The usability batch, and the sweep that owned too much
+
+**2026-09-04.**
+
+### U1: why "numeric fields accept text" kept coming back
+
+**Measured, and the measurement is the finding.** `index.html` carries **31**
+inputs declared `inputmode="numeric"` or `"decimal"`, and **not one** carried
+`.int-only`. The guard was real, correct, delegated and OPT-IN, so it covered
+exactly the two milestone-month fields whose author remembered the class. Every
+other numeric field on the screen accepted "srg".
+
+**A per-field constraint is a to-do list that has to be completed again on every
+new field**, which is why each previous report fixed the fields it named and the
+next field shipped without it.
+
+Now keyed on `inputmode`, so the behaviour follows the DECLARATION: a field that
+says it takes numbers gets the guard without anybody remembering, including
+fields that do not exist yet. A decimal field keeps one point, because stripping
+to digits would turn 1.5 into 15 - a correction worse than the text it removes.
+
+### U3/U4 and U11: the official acts begin together
+
+Issuing a major and requesting approval both begin at Proposal, from the gate's
+own answer rather than a stage name, so they cannot disagree and both follow the
+configuration if the gate moves. Saving drafts stays available throughout.
+
+U11's control is blocked while a draft newer than the issued major exists:
+approving V1 with V1.1 on screen signs off a price that is not the one on the
+table, which is the superseded-approval fault arriving BEFORE the approval.
+
+### THE SWEEP OWNED TOO MUCH, and two correct rulings met
+
+`applyReadOnlyControls` did `el.disabled = notMine` for every control. On
+somebody else's record that disables, which is the rule. **On your own it writes
+`false` over every control a render had deliberately disabled moments earlier**,
+and it runs inside that render, after it.
+
+**Measured**: the pricing-approval request correctly disabled itself because a
+newer draft existed, printed the sentence saying so, and was re-enabled by the
+sweep. The screen said *"issue it first"* on a live button.
+
+**The first fix was wrong and a test caught it.** Making the sweep never enable
+broke W1's other half, and the numbers say why: a fresh visit to your own record
+shows **98 of 98** inputs enabled; after visiting somebody else's first, only
+**35 of 96**. The panels are not all rebuilt, so the sweep genuinely owns form
+fields.
+
+> **The split is by who writes `disabled` the rest of the time.** Form fields:
+> nothing else manages them, so the sweep owns them and restores both ways.
+> Buttons: a render sets each one from the record's situation, so the sweep may
+> only ADD to that and never subtract.
+
+Verification 23 - two correct decisions about one behaviour - resolved by
+finding the axis they actually differ on rather than by picking a winner.
+
+### U2, U5, U6, U12, U13
+
+A section's own Save appears on its title line when that section is dirty, from
+the same baseline the global control uses, and saves the whole sheet: the deal is
+one payload and a partial save would be a second write path with its own revision
+semantics. The per-section part is WHERE the control is and WHICH section is
+flagged, and the button says so.
+
+U12 is the rejection's own propagation: a rejection closed the request and
+unfroze the record, so every banner describing it disappeared and both screens
+went quiet. It now says who rejected what, when, why, and what the record's state
+is - suppressed once a new request of the same kind is open, because then the
+live request is the state and the rejection is history.
+
+U6 replaces "Waiting - you raised this request", which tells the requester what
+they already know, with when it was raised - the fact the clock makes usable.
+"Not yours to decide" stays, because that one explains an absence.

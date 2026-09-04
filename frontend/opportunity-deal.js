@@ -650,6 +650,7 @@ function renderVersionList() {
           <div class="pg-item-note">${escapeSheet(v.reason)}</div>
           <div class="pg-item-note">${escapeSheet(who)} &middot; ${escapeSheet(when.toISOString().slice(0, 16).replace('T', ' '))}</div>
           <div class="pg-item-note">${versionApprovalLine(v)}</div>
+          <div class="pg-item-note">${versionTrackLine(v)}</div>
           <div class="pg-item-note" title="${escapeSheet(sections.join(', '))}">${sections.length} section${sections.length === 1 ? '' : 's'} recorded</div>
         </div>
         <div class="ds-value">
@@ -712,6 +713,20 @@ function renderVersionList() {
   // a major version rather than against the screen. The three states are
   // distinct and each names what to do next: nothing issued, one already
   // pending, or ready to ask.
+  // ── U3/U4: ISSUING A MAJOR IS PROPOSAL-ONWARD ─────────────────────────
+  //
+  // Ruled 2026-09-04. Pricing stays a minor DRAFT until Proposal: a salesperson
+  // saves V0.1, V0.2 freely, and V1 is an OFFICIAL act. Both official acts -
+  // issue a major, request approval - begin at the same place, which is what
+  // makes the rule one rule rather than two coincidences.
+  //
+  // The same predicate as the approval control, deliberately: the gate's own
+  // answer rather than a stage name, so if the version gate ever moves stage
+  // both controls follow it together and cannot disagree.
+  const gateApplies = window.oppVersionGateApplies?.() !== false
+  const issueBtn = document.getElementById('btn-issue-version')
+  if (issueBtn) issueBtn.classList.toggle('hidden', !gateApplies)
+
   const ask = document.getElementById('btn-request-pricing-approval')
   const state = document.getElementById('pricing-approval-state')
 
@@ -727,7 +742,6 @@ function renderVersionList() {
   //
   // The predicate is the gate's own answer via oppVersionGateApplies, not a
   // stage-name test, so this follows the configuration if the gate ever moves.
-  const gateApplies = window.oppVersionGateApplies?.() !== false
   if (ask) ask.classList.toggle('hidden', !gateApplies)
   if (state) state.classList.toggle('hidden', !gateApplies)
   if (ask && gateApplies) {
@@ -740,6 +754,22 @@ function renderVersionList() {
       ask.disabled = true
       ask.title = 'Issue a major version first: an approval is held against an issued version.'
       if (state) state.textContent = 'Issue a version before requesting approval.'
+    } else if (draft) {
+      // ── U11: NOT WHILE THE PRICE HAS MOVED PAST THE ISSUED MAJOR ──────
+      //
+      // The walk found this control live on a record whose latest version was
+      // the DRAFT V1.1. An approval attaches to an issued major, so the click
+      // would have asked three people to sign off V1 while the screen showed
+      // V1.1 - approving a price that is not the one on the table, which is the
+      // exact fault the superseded-approval work exists to prevent, arriving
+      // before the approval rather than after it.
+      ask.disabled = true
+      ask.title = `${versionLabel(draft)} is a draft newer than V${highestIssued}. `
+        + 'Issue it, then ask for approval of the version people will be looking at.'
+      if (state) {
+        state.textContent = `${versionLabel(draft)} is a draft. Issue it before requesting approval, `
+          + `or the approval would be of V${highestIssued} and not of the price on screen.`
+      }
     } else {
       ask.disabled = false
       ask.title = `Ask Commercial, Technical and Legal to approve V${highestIssued} for issue.`
@@ -757,6 +787,39 @@ function renderVersionList() {
 // APPROVED AND SUPERSEDED ARE DELIBERATELY NOT THE SAME SENTENCE. An approval
 // that no longer describes the deal on screen is the one thing this display
 // exists to stop being mistaken for control.
+// ── U13: WHICH TRACKS, ON THE VERSION ITSELF ─────────────────────────────
+//
+// Ruled 2026-09-04. The approval state lived only in the banner, which shows
+// the ONE request that is open. A version list that says "Not yet approved"
+// beside four versions cannot tell anybody which of them three people are
+// currently looking at, or which two tracks have already signed.
+//
+// READ FROM THE OPEN REQUEST, not from a second query. Same source the banner
+// renders from, so the panel and the banner cannot disagree about a version's
+// state - Verification 43, which this project has three instances of.
+function versionTrackLine(v) {
+  const pending = window.oppPendingPricingApproval?.()
+  if (!pending || pending.frozen_version_id !== v.id) return ''
+  const decided = new Map((pending.decisions ?? []).map((d) => [d.track, d]))
+  const parts = (pending.required ?? []).map((t) => {
+    const d = decided.get(t)
+    const state = d ? (d.decision === 'approved' ? 'approved' : 'REJECTED') : 'waiting'
+    return `${escapeSheet(t)} ${state}`
+  })
+  if (!parts.length) return ''
+  return `Under approval since ${escapeSheet(formatDealDateTime(pending.requested_at))}`
+    + ` &middot; ${parts.join(' &middot; ')}`
+}
+
+// The list's own formatter, so a timestamp here reads the same as one in the
+// banner. Kept local rather than reaching into app.js, which does not export it.
+function formatDealDateTime(dateStr) {
+  if (!dateStr) return 'an unknown time'
+  const d = new Date(dateStr)
+  return `${d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' })}, `
+    + `${d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`
+}
+
 function versionApprovalLine(v) {
   const a = v.approval ?? {}
   const at = a.revisionApproved
@@ -2149,9 +2212,66 @@ function isDealFormDirty() {
   return dealDirtyKeys().length > 0
 }
 
+// ── U2: SAVE WHERE YOU ARE ───────────────────────────────────────────────
+//
+// Ruled 2026-09-04. This screen is one long scroll and the only Save was at the
+// bottom, so editing Structural Terms meant scrolling past three sections to a
+// button, with nothing on the way saying which section held the change.
+//
+// A SECTION'S OWN SAVE APPEARS ON ITS TITLE LINE when that section is dirty. It
+// calls the SAME saveDeal as the global control and saves everything, because
+// the deal is one payload and a partial save would be a second write path with
+// its own revision semantics - Verification 20 at the worst possible place. The
+// per-section part is WHERE the control is and WHICH section is flagged, not a
+// different scope, and the button says so.
+//
+// The baseline is the same one dealDirtyKeys uses, so a section can never
+// disagree with the global control about whether anything changed.
+function sectionOfInput(el) {
+  return el?.closest?.('.deal-section') ?? null
+}
+
+function dirtySections() {
+  const dirty = new Set()
+  for (const key of dealDirtyKeys()) {
+    // A key maps to its input by the id convention this screen already uses.
+    // Where a key has no single input - a milestone list, a nested group - the
+    // section is found from any input carrying the key as a prefix.
+    const el = document.getElementById(`deal-${key}`)
+      ?? document.querySelector(`[id^="deal-${key}"]`)
+    const sec = sectionOfInput(el)
+    if (sec?.id) dirty.add(sec.id)
+  }
+  return dirty
+}
+
+function renderSectionSaves() {
+  const dirty = dirtySections()
+  for (const sec of document.querySelectorAll('.deal-section')) {
+    const row = sec.querySelector('.latch-row')
+    if (!row) continue
+    let btn = row.querySelector('.section-save')
+    const wants = dirty.has(sec.id)
+    if (wants && !btn) {
+      btn = document.createElement('button')
+      btn.type = 'button'
+      btn.className = 'btn-sm btn-primary section-save'
+      btn.textContent = 'Save changes'
+      btn.title = 'Saves the whole deal sheet, from here, so you do not have to scroll to the bottom'
+      btn.addEventListener('click', () => saveDeal())
+      // Before the latch, so the order reads title / save / hide rather than
+      // putting a destructive-looking control between the two.
+      row.insertBefore(btn, row.querySelector('.latch'))
+    } else if (!wants && btn) {
+      btn.remove()
+    }
+  }
+}
+
 function updateDirtyState() {
   const btn = document.getElementById('btn-save-deal')
   if (btn) btn.disabled = !isDealFormDirty()
+  renderSectionSaves()
 }
 
 // ── Wiring (once per page load) ───────────────────────────────────────────

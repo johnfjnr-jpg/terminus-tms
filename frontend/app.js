@@ -1063,7 +1063,41 @@ let oppIssuedMajor = null
 // FREEZES the record and a review request does not, and a screen that conflated
 // them would freeze on the wrong one.
 let oppPendingReview = null
+let oppLastRejected = null
 window.oppPendingPricingApproval = () => oppPendingReview
+window.oppLastRejectedRequest = () => oppLastRejected
+
+// ── U12: THE REJECTION'S OWN PROPAGATION ─────────────────────────────────
+//
+// Distinct from the approve path's refusal surface, which says a DECISION could
+// not be recorded. This says a decision WAS recorded and what it means for the
+// record: the request is closed, nobody is waiting, and the deal is editable
+// again. Both screens render it from the same request row.
+function renderOppRejectedBanner() {
+  const el = document.getElementById('opp-rejected-banner')
+  if (!el) return
+  const req = oppLastRejected
+  if (!req) { el.classList.add('hidden'); el.innerHTML = ''; return }
+  const rej = (req.decisions ?? []).find(d => d.decision === 'rejected')
+  const who = rej?.track ? `${rej.track}` : 'An approver'
+  const when = req.closed_at ? formatDateTime(req.closed_at) : 'an unknown time'
+  const reason = (req.close_reason ?? '').trim()
+  const what = req.kind === 'review'
+    ? `the pricing approval for ${escHtml(req.version_label ?? 'the issued version')}`
+    : `the move to ${escHtml(req.to_stage)}`
+  el.classList.remove('hidden')
+  el.innerHTML = `<div class="rejected-banner">`
+    + `<p class="label" style="margin-bottom:6px">Rejected</p>`
+    + `<p style="font-size:14px;margin:0 0 8px"><strong>${escHtml(who)}</strong> rejected `
+    + `${what} on ${escHtml(when)}.</p>`
+    + (reason ? `<p style="margin:0 0 8px"><em>${escHtml(reason)}</em></p>`
+      : '<p style="margin:0 0 8px"><em>No reason was recorded.</em></p>')
+    + `<p class="sa-approval-meta" style="margin:0">`
+    + (req.kind === 'transition'
+      ? 'The request is closed and the record is editable again. Raise a new one when the point is addressed.'
+      : 'The request is closed. Issue a new major version or raise a new approval when the point is addressed.')
+    + `</p></div>`
+}
 
 // ── DOES A PRICING APPROVAL APPLY AT ALL AT THIS STAGE? ──────────────────
 //
@@ -1089,11 +1123,28 @@ window.oppVersionGateApplies = () => (oppStageTracks === null
 async function loadOppOpenRequest(recordId) {
   oppOpenRequest = null
   oppPendingReview = null
+  oppLastRejected = null
   const r = await api('GET', `/api/records/${recordId}/transition-requests`)
   if (!r.ok) return
-  const open = (r.data ?? []).filter(x => x.status === 'open')
+  const all = r.data ?? []
+  const open = all.filter(x => x.status === 'open')
   oppOpenRequest = open.find(x => x.kind === 'transition') ?? null
   oppPendingReview = open.find(x => x.kind === 'review') ?? null
+  // ── U12: THE MOST RECENT REJECTION, WHILE NOTHING SUPERSEDES IT ────────
+  //
+  // A rejection closes the request and unfreezes the record, so every banner
+  // describing it disappeared and the screen went quiet on both sides. The
+  // requester saw the freeze lift with no reason and the approver saw the
+  // request leave the list.
+  //
+  // Suppressed once a NEW request of the same kind is open, because then the
+  // live request is the state and the rejection is history.
+  const rejected = all.filter(x => x.status === 'rejected')
+    .sort((a, b) => String(b.closed_at ?? '').localeCompare(String(a.closed_at ?? '')))
+  const latest = rejected[0] ?? null
+  const supersededByOpen = latest
+    && open.some(x => x.kind === latest.kind)
+  oppLastRejected = supersededByOpen ? null : latest
 }
 
 // ── MAIN: RAISE A PRICING APPROVAL AGAINST AN ISSUED VERSION ─────────────
@@ -1562,6 +1613,18 @@ function applyReadOnlyControls(viewId, notMine) {
   if (!view) return
   // BY TYPE. Every form control in the view, whatever it is called and whenever
   // it was added, so a control built after this rule is covered by it.
+  // ── WHO OWNS `disabled`: THE SWEEP FOR FIELDS, THE RENDER FOR BUTTONS ──
+  //
+  // U11, 2026-09-04, and it is two correct rulings meeting. W1 ruled that this
+  // sweep RESTORES, because your own record must stay fully typeable; the U11
+  // work found it clobbering controls disabled moments earlier for a business
+  // reason. Both are right about different controls, and the split is which
+  // thing writes `disabled` the rest of the time.
+  //
+  // FORM FIELDS: nothing else manages them. Measured - a fresh visit to your
+  // own record shows 98 of 98 inputs enabled, and after visiting somebody
+  // else's first, only 35 of 96, because the panels are not all rebuilt. So the
+  // sweep owns them and must restore both ways, exactly as W1 ruled.
   for (const c of view.querySelectorAll('input, textarea, select')) {
     c.disabled = notMine
   }
@@ -1571,7 +1634,19 @@ function applyReadOnlyControls(viewId, notMine) {
   // actions would not be.
   for (const el of view.querySelectorAll('button, a[href]')) {
     if (el.matches(NON_ACTION_SELECTOR) || el.closest(NON_ACTION_SELECTOR)) continue
-    el.disabled = notMine
+    // BUTTONS: a render sets each one's disabled state from the record's own
+    // situation - no draft to issue, criteria unmet, a draft newer than the
+    // issued major - and this sweep runs inside that render, after it. Writing
+    // `false` here undid all of it.
+    //
+    // MEASURED: the pricing-approval request correctly disabled itself because
+    // a newer draft existed, printed the sentence saying so, and was re-enabled
+    // by this line. The screen said "issue it first" on a live button.
+    // Verification 20: two writers of one property, and this one ran last.
+    //
+    // The inert CLASS still toggles both ways, because that is purely this
+    // sweep's own marker and nothing else writes it.
+    if (notMine) el.disabled = true
     el.classList.toggle('is-inert-action', notMine)
     if (el.tagName === 'A') el.setAttribute('tabindex', notMine ? '-1' : '0')
   }
@@ -1652,6 +1727,13 @@ function renderOppPricingApprovalBanner(recordId) {
         <strong>${escHtml(req.version_label ?? 'The issued version')}</strong> is waiting on
         Proposal/Pricing approval for issue.
         <em>The record is not frozen: work continues while this is decided.</em></p>
+      <!-- ── U5: WHEN IT WAS RAISED ──────────────────────────────────────
+           2026-09-04. "Waiting" with no timestamp cannot answer the only
+           question a person waiting actually has, which is whether to chase.
+           Read against the clock in the corner it becomes one: raised at 09:14,
+           screen says 11:40. -->
+      <p class="sa-approval-meta" style="margin:0 0 10px">Request raised
+        ${escHtml(formatDateTime(req.requested_at))}</p>
       ${rows}
       <div id="opp-review-feedback" data-decision-feedback style="margin-top:10px"></div>
       ${req.requested_by_is_me ? `<button class="btn-sm btn-ghost" style="margin-top:10px"
@@ -1699,8 +1781,20 @@ function renderOppFreezeBanner(recordId) {
     // A WAITING TRACK YOU CANNOT DECIDE STILL SAYS SO, rather than showing a
     // bare "Waiting" beside three tracks that have buttons. Silence there reads
     // as a screen that has not loaded.
+    // ── U6: THE USEFUL FACT, NOT A DEAD-END STATUS ───────────────────────
+    //
+    // Ruled 2026-09-04. "Waiting - you raised this request" tells the requester
+    // something they already know and nothing they can act on. WHEN it was
+    // raised is the fact a person actually wants while waiting, and it is the
+    // one the clock makes usable: "raised at 09:14" against a screen reading
+    // 11:40 is an answer about whether to chase.
+    //
+    // "Not yours to decide" STAYS for a non-approver, because that one explains
+    // an absence: it says why there is no button, which is not a dead end.
     const why = d || mayDecide.has(t) ? ''
-      : `<span class="sa-approval-meta">${escHtml(req.requested_by_is_me ? 'You raised this request' : 'Not yours to decide')}</span>`
+      : `<span class="sa-approval-meta">${escHtml(req.requested_by_is_me
+        ? `Request raised ${formatDateTime(req.requested_at)}`
+        : 'Not yours to decide')}</span>`
     // ── FIVE CELLS, ALWAYS, SO THE COLUMNS LINE UP ───────────────────────
     //
     // Internal review item 2(a). The rows were `.data-row`, which is flex with
@@ -7250,17 +7344,48 @@ window.__noteRevisionForTest = (path, data) => noteRevisionFromResponse(path, da
 //
 // It strips rather than blocks, so a paste of "12 months" becomes 12 instead of
 // being silently refused with no explanation.
+// ── KEYED ON THE CONTROL TYPE, NOT ON AN OPT-IN CLASS. U1, 2026-09-04 ────
+//
+// WHY THIS KEPT COMING BACK, measured rather than guessed: index.html carries
+// THIRTY-ONE inputs declared `inputmode="numeric"` or `"decimal"`, and NOT ONE
+// of them carried `.int-only`. The guard was real, correct and delegated - and
+// opt-in, so it covered exactly the two milestone-month fields whose author
+// remembered the class. Every other numeric field on the screen accepted "srg".
+//
+// A per-field constraint is a to-do list that has to be completed again on
+// every new field, and it has been reported at least three times because each
+// report fixed the fields it named. Keying on inputmode makes the behaviour
+// follow the DECLARATION: a field that says it takes numbers gets the guard
+// without anybody remembering, including fields that do not exist yet.
+//
+// `.int-only` is kept as an explicit opt-in for controls that are numeric
+// without saying so in markup, and because the milestone rows already use it.
+const NUMERIC_INPUT_SELECTOR = 'input[inputmode="numeric"], input[inputmode="decimal"], input.int-only'
+
 document.addEventListener('input', (e) => {
   const el = e.target
-  // `matches('.int-only')` rather than `classList.contains('int-only')`: both
-  // are real queries, and the hook-liveness test looks for a SELECTOR, which is
-  // the form the rest of this file uses anyway.
-  if (!(el instanceof HTMLInputElement) || !el.matches('.int-only')) return
-  const cleaned = el.value.replace(/[^0-9]/g, '')
+  // `matches(...)` rather than `classList.contains('int-only')`: both are real
+  // queries, and the hook-liveness test looks for a SELECTOR, which is the form
+  // the rest of this file uses anyway.
+  if (!(el instanceof HTMLInputElement) || !el.matches(NUMERIC_INPUT_SELECTOR)) return
+  // A DECIMAL FIELD KEEPS ITS POINT, and only the first one: a rate is 1.5 and
+  // a percentage is 12.5, so stripping to digits would silently turn 1.5 into
+  // 15 - a correction far worse than the text it was written to remove.
+  const decimal = el.matches('input[inputmode="decimal"]') && !el.matches('.int-only')
+  const cleaned = decimal
+    ? (() => {
+      const digitsAndDots = el.value.replace(/[^0-9.]/g, '')
+      const first = digitsAndDots.indexOf('.')
+      return first === -1
+        ? digitsAndDots
+        : digitsAndDots.slice(0, first + 1) + digitsAndDots.slice(first + 1).replace(/\./g, '')
+    })()
+    : el.value.replace(/[^0-9]/g, '')
   if (cleaned === el.value) return
   // The caret would otherwise jump to the end on every correction.
   const at = el.selectionStart ?? cleaned.length
-  const removedBefore = el.value.slice(0, at).length - el.value.slice(0, at).replace(/[^0-9]/g, '').length
+  const keep = decimal ? /[^0-9.]/g : /[^0-9]/g
+  const removedBefore = el.value.slice(0, at).length - el.value.slice(0, at).replace(keep, '').length
   el.value = cleaned
   const to = Math.max(0, at - removedBefore)
   try { el.setSelectionRange(to, to) } catch { /* a detached input has no range */ }
@@ -7581,6 +7706,7 @@ async function renderOppDetail(opp) {
   // that end the freeze live inside it.
   document.getElementById('view-opportunity-detail')?.classList.toggle('is-frozen', !!oppOpenRequest)
   renderOppFreezeBanner(opp.id)
+  renderOppRejectedBanner()
 
   // ── NOT YOURS, ON THE WHOLE VIEW, FROM ONE VALUE. Round 41 W1 ───────────
   //

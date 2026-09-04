@@ -5456,3 +5456,21 @@ input.input-invalid {
   color: var(--white);
 }
 .pulse-stall-title { color: var(--amber, #E0A33E); font-weight: 600; }
+
+/* ── U12: THE REJECTION OUTCOME ────────────────────────────────────────────
+   2026-09-04. It is not a warning about the screen, it is a decision about the
+   deal, so it takes the ordinary panel treatment with the amber rule the other
+   attention states use rather than shouting. */
+.rejected-banner {
+  border: 1px solid var(--amber, #E0A33E);
+  border-left-width: 3px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+}
+.rejected-banner .label { color: var(--amber, #E0A33E); }
+
+/* ── U2: the section's own save, on its title line ─────────────────────────
+   Appears only when that section is dirty, so it is a signal as well as a
+   control: it says WHERE the unsaved change is. margin-left:auto pushes it to
+   sit beside the latch rather than against the title. */
+.latch-row .section-save { margin-left: auto; margin-right: 10px; }

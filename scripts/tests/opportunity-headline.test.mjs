@@ -187,6 +187,23 @@ test('and the keyboard path is closed, not just the mouse one', () => {
   // BOTH DIRECTIONS. Restoring is what makes it a toggle rather than a one-way
   // trip: W1's other half is that your own record stays fully typeable.
   assert.ok(!/c\.disabled = true\b/.test(app), 'the sweep disables unconditionally and never restores')
+
+  // ── AND BUTTONS ARE THE OTHER WAY ROUND. U11, 2026-09-04 ───────────────
+  //
+  // Two correct rulings meeting. W1 ruled the sweep RESTORES, because your own
+  // record must stay fully typeable - measured, a fresh visit shows 98 of 98
+  // inputs enabled and after visiting somebody else's only 35 of 96, so the
+  // sweep genuinely owns form fields.
+  //
+  // A BUTTON's disabled state is set by a render from the record's situation:
+  // no draft to issue, criteria unmet, a draft newer than the issued major.
+  // This sweep runs inside that render and AFTER it, so writing `false` here
+  // undid all of it - measured, the pricing-approval request disabled itself
+  // for a real reason, printed the sentence, and was re-enabled by this line.
+  assert.match(app, /if \(notMine\) el\.disabled = true/,
+    'the sweep must not re-enable buttons a render deliberately disabled')
+  assert.ok(!/\bel\.disabled = notMine\b/.test(app),
+    'a button is disabled by its render, and this sweep may only add to that')
 })
 
 test('the one door every click-to-edit field opens through is guarded', () => {
