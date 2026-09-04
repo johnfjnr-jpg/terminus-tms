@@ -2463,7 +2463,13 @@
         <p class="section-title">Payment Terms</p>
         <button class="latch" type="button" id="latch-deal-section-5" data-latch="deal-section-5" aria-expanded="true" aria-controls="deal-section-5">Hide</button>
       </div>
-        <div class="deal-payment-col">
+        <!-- ── L2/L4: PAYMENT TERMS LEFTMOST, FACTORING BESIDE IT ────────
+             2026-09-04. Two panels rather than one column with an appendix.
+             Payment Terms carries the structure, the schedule and the
+             milestones; PO Factoring is a separate decision with its own terms
+             and its own quarter-width panel. -->
+        <div class="deal-payment-region">
+        <div class="deal-payment-col payment-terms-panel">
         <!-- Round 39 item 2: Contract duration MOVED to Structural Terms, beside
              the margin controls. It is a commercial lever, not a payment term:
              the business names it as the second thing they reach for when margin
@@ -2500,28 +2506,23 @@
 
           <div id="deal-top-schedule-row" style="display:flex;gap:24px;align-items:flex-end;margin-top:18px;flex-wrap:wrap">
             <div class="form-group" id="deal-recovery-group" style="width:150px;flex:0 0 150px">
-              <label>Recovery period (months)</label>
+              <!-- ── L1: GUIDANCE IS ONE HOVER AWAY, NOT PERMANENT SPACE ──
+                   2026-09-04. The note is kept word for word, in a title, so it
+                   is not removed and not occupying three lines of the densest
+                   region on the screen. The affordance is a real control - it
+                   is focusable and carries the same text to a screen reader
+                   through aria-label - rather than a decorative glyph that only
+                   a mouse can reach. -->
+              <label>Recovery period (months)
+                <span class="help-dot" tabindex="0" role="note"
+                  aria-label="The number of months over which the upfront capital is recovered from contract revenue."
+                  title="The number of months over which the upfront capital is recovered from contract revenue.">?</span>
+              </label>
               <input type="text" inputmode="numeric" id="deal-recoveryMonths" min="0">
-              <p class="field-note" style="margin-top:6px">The number of months over which the upfront capital is recovered from contract revenue.</p>
             </div>
             <div id="deal-recovery-readonly" class="hidden" style="width:150px;flex:0 0 150px">
               <span class="label" style="display:block;margin-bottom:6px">Recovery period</span>
               <div id="deal-recovery-readonly-value" style="font-family:var(--mono);font-size:13px;color:var(--muted);padding:7px 0">--</div>
-            </div>
-            <!-- ── THE FACTORING SELECTION, ON THE PAYMENT TERMS LINE ──────
-                 Round 41 item 5. It sat in a block of its own below the
-                 milestone grid, which is a long way from the structure and
-                 invoicing choices it belongs with: factoring is a payment term,
-                 and choosing it is the same kind of decision as choosing the
-                 structure. The FIELDS stay where they are and open below when
-                 it is on; only the selection moves. -->
-            <div style="width:170px;flex:0 0 170px">
-              <span class="label" style="display:block;margin-bottom:6px">PO factoring</span>
-              <!-- Round 41 V5: a switch, not an indicator. The class carries the
-                   affordance and updateFactoringButtons carries the state; the
-                   text here is replaced on first render and is the off state so
-                   a paint before the record loads is not a claim. -->
-              <button class="btn-ghost deal-toggle" id="deal-factoring-toggle" type="button" role="switch" aria-checked="false">Factoring disabled</button>
             </div>
             <!-- MIN-WIDTH, not min-width:0. Round 41 item 6, finding 3.
                  `flex: 1 1 0; min-width: 0` never wraps: it shrinks to whatever
@@ -2543,7 +2544,7 @@
             <p class="label" style="margin-bottom:4px">Customer payment milestones (hardware)</p>
             <p class="field-note" style="margin-bottom:10px">When the customer pays us. Later payments increase the working capital we fund.</p>
             <table class="doc-table">
-              <thead><tr><th>Month</th><th>Milestone</th><th>USD</th><th>% of hardware</th></tr></thead>
+              <thead><tr><th>Month</th><th>Milestone</th><th>% of hardware</th><th>USD</th></tr></thead>
               <tbody id="deal-milestones-tbody"></tbody>
             </table>
           </div>
@@ -2563,46 +2564,55 @@
           </div>
         </div>
 
-        <div style="margin-top:24px">
-          <!-- The selection moved onto the Payment Terms line (Round 41 item 5).
-               These are the fields it reveals, and they stay here because they
-               are three paragraphs of explanation rather than a choice. -->
-          <!-- SMALL NUMBER FIELDS, CAPPED. W5: the grid is 1fr 1fr of the whole
-               panel, so at 3440 a monthly rate got 1530px of input. A field
-               takes the width its content needs to be read, not the width
-               that is going spare. -->
-          <div class="form-grid hidden" id="deal-factoring-fields"
-               style="margin-top:16px;max-width:860px;grid-template-columns:1fr 1fr auto">
-            <!-- Round 39. The second clause was written FROM THE CALCULATOR
-                 rather than from the sentence, on the business's own
-                 instruction. src/lib/deal-calculator.js: principal is
-                 hardwareCostAll, the advance lands in full at month 1 (cash in
-                 earlier), and financeCost = round(facInterest) is added into
-                 totalDealCostAll, which achievedMargin is computed against
-                 (margin down). The business's words describe that correctly, so
-                 they are used unchanged rather than reworded to prove a check
-                 happened.
+        </div><!-- /payment-terms-panel -->
 
-                 ONE WORD CHANGED, AND BY THE BUSINESS. "Purchase order" became
-                 "hardware and installation spend", because principal is
-                 hardwareCostAll and not the contract value. A reader who assumes
-                 the whole contract is financed has the wrong size of number in
-                 their head before reaching the second sentence. -->
-            <div class="form-group"><label>Rate % (monthly)</label><input type="text" inputmode="numeric" id="deal-factoring-ratePct">
-              <p class="field-note" style="margin-top:6px">The monthly cost of factoring the hardware and installation spend. It both reduces margin and brings cash in earlier.</p></div>
-            <div class="form-group"><label>Term (months)</label><input type="text" inputmode="numeric" id="deal-factoring-termMonths">
-              <p class="field-note" style="margin-top:6px">How long the factoring runs. Rate multiplied by term is the total financing cost.</p></div>
-            <div class="form-group" id="deal-factoring-method-group">
-              <label>Repayment method</label>
-              <div class="view-toggle" id="deal-factoring-method-toggle">
-                <button data-method="straight" class="active">Straight-line</button>
-                <button data-method="declining">Declining balance</button>
-              </div>
+        <!-- ── L2/L3/L7: PO FACTORING IS ITS OWN PANEL ───────────────────
+             2026-09-04. Factoring was three things in three places: the switch
+             on the recovery line, the rate and term in a grid below it, and the
+             repayment method beside those. It is ONE decision with one set of
+             terms, so it is one panel.
+
+             CAPPED AT A QUARTER, and vertical inside. Every field here is a
+             short number or a two-option choice - a monthly rate is four
+             characters, a term is three - so width beyond that is width taken
+             from Payment Terms, which is the panel with a schedule in it.
+
+             THE THREE PARAGRAPHS OF EXPLANATION became hover affordances (L1).
+             They are kept word for word in the title and the aria-label; what
+             is removed is their permanent claim on the densest region of the
+             screen. -->
+        <aside class="po-factoring-panel" id="deal-po-factoring">
+          <p class="label" style="margin-bottom:10px">PO factoring</p>
+
+          <div class="po-field">
+            <button class="btn-ghost deal-toggle" id="deal-factoring-toggle" type="button"
+              role="switch" aria-checked="false">Factoring disabled</button>
+          </div>
+
+          <div class="po-field hidden" id="deal-factoring-fields">
+            <label for="deal-factoring-ratePct">Rate % (monthly)
+              <span class="help-dot" tabindex="0" role="note"
+                aria-label="The monthly cost of factoring the hardware and installation spend. It both reduces margin and brings cash in earlier."
+                title="The monthly cost of factoring the hardware and installation spend. It both reduces margin and brings cash in earlier.">?</span>
+            </label>
+            <input type="text" inputmode="decimal" id="deal-factoring-ratePct" maxlength="4">
+
+            <label for="deal-factoring-termMonths" style="margin-top:12px">Term (months)
+              <span class="help-dot" tabindex="0" role="note"
+                aria-label="How long the factoring runs. Rate multiplied by term is the total financing cost."
+                title="How long the factoring runs. Rate multiplied by term is the total financing cost.">?</span>
+            </label>
+            <input type="text" inputmode="numeric" id="deal-factoring-termMonths" maxlength="3">
+
+            <label style="margin-top:12px">Repayment method</label>
+            <div class="view-toggle view-toggle--stacked" id="deal-factoring-method-toggle">
+              <button data-method="straight" class="active">Straight-line</button>
+              <button data-method="declining">Declining balance</button>
             </div>
           </div>
-        </div>
+        </aside>
+        </div><!-- /deal-payment-region -->
 
-        </div>
       </section>
 
       <!-- ── SECTION 6: Cash flow, BELOW AND ON THE LEFT ─────────────────

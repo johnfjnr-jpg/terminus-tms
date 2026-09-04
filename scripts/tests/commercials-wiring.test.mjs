@@ -663,13 +663,29 @@ test('FINDING 5: the note says what the code does, and the code does it', () => 
 
 test('the factoring selection is on the Payment Terms line', () => {
   const html = readCode(new URL('../../frontend/index.html', import.meta.url))
-  const row = html.slice(html.indexOf('id="deal-top-schedule-row"'), html.indexOf('id="deal-year-schedule"'))
-  assert.match(row, /id="deal-factoring-toggle"/,
-    'the selection belongs with the structure and invoicing choices, not below the milestone grid')
-  // The FIELDS stay where they are: three paragraphs of explanation are not a
-  // choice and do not belong on a line of selectors.
-  assert.ok(html.indexOf('id="deal-factoring-fields"') > html.indexOf('id="deal-year-schedule"'))
+  // ── SUPERSEDED BY L3/L7, 2026-09-04, and the reasoning is kept ─────────
+  //
+  // Round 41 item 5 put the SELECTION on the Payment Terms line and left the
+  // fields below, because "three paragraphs of explanation are not a choice and
+  // do not belong on a line of selectors". That was right while the fields
+  // carried three paragraphs.
+  //
+  // L1 moved the paragraphs into hover affordances, which removed the premise:
+  // what is left is a switch, two short numbers and a two-option choice, and
+  // those ARE one decision. So factoring is one panel with all of it, beside
+  // Payment Terms rather than threaded through it. Verification 29 - the
+  // decision is re-taken because its premise changed, not re-weighed.
+  const panel = html.slice(html.indexOf('id="deal-po-factoring"'), html.indexOf('/deal-payment-region'))
+  assert.match(panel, /id="deal-factoring-toggle"/,
+    'the switch belongs in the factoring panel with the terms it governs')
+  assert.match(panel, /id="deal-factoring-ratePct"/)
+  assert.match(panel, /id="deal-factoring-termMonths"/)
+  assert.match(panel, /id="deal-factoring-method-toggle"/,
+    'all of one decision in one panel, or it is threaded through the screen again')
   assert.equal((html.match(/id="deal-factoring-toggle"/g) || []).length, 1)
+  // AND THE GUIDANCE IS KEPT, not dropped: the same words, one hover away.
+  assert.match(panel, /reduces margin and brings cash in earlier/)
+  assert.match(panel, /Rate multiplied by term is the total financing cost/)
 })
 
 // ─────────────────────────────────────────────────────────────

@@ -204,6 +204,12 @@ const STAGES = [
 // against, so it is run by the round and reported. Calibrated 1/8 against the
 // pre-fix code, reproducing the walk's own screen.
 //
+// L1-L7, 2026-09-04, adds probe-payment-layout on the same terms. Panel
+// parentage, three widths, hover affordances and typed-not-assigned keystrokes
+// are all properties of a browser. Its calc half is the exception in kind but
+// not in venue: the milestone USD is read from the rendered field, because the
+// claim is what the screen computes.
+//
 // Round 41 F4 adds probe-pulse on the same terms, and the split is the same.
 // Its claim - a screen follows a record somebody else changed, within one poll
 // interval and with no manual refresh - is a property of a BROWSER and cannot

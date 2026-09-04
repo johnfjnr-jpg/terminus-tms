@@ -5487,3 +5487,75 @@ input.input-invalid {
   margin-bottom: 12px;
 }
 .write-refused .label { color: var(--amber, #E0A33E); }
+
+/* ── L1/L2/L4/L7: the payment-terms region ────────────────────────────────
+   2026-09-04, built as ONE pass because these fight over the same horizontal
+   space if they are built separately. */
+
+/* Payment Terms leftmost and flexible; PO Factoring beside it and capped. The
+   cap is a MAXIMUM, not a fixed width: at 1240 a quarter is 200px and a rate
+   field needs about that, so the minmax floor stops it collapsing under the
+   figures it holds. */
+.deal-payment-region {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(190px, 25%);
+  gap: 20px;
+  align-items: start;
+}
+/* The left panel of the region. It carries the schedule and the milestone
+   tables, so its job is to take the space the capped panel beside it does not. */
+.payment-terms-panel { min-width: 0; }
+.po-factoring-panel {
+  min-width: 0;
+  border: 1px solid var(--hairline-strong);
+  padding: 14px 16px;
+}
+.po-field { display: flex; flex-direction: column; }
+.po-field label { margin-bottom: 6px; }
+.po-field input { width: 100%; }
+/* Stacked, because a quarter-width panel cannot hold two buttons side by side
+   and the labels are "Straight-line" and "Declining balance". */
+.view-toggle--stacked { display: flex; flex-direction: column; align-items: stretch; }
+.view-toggle--stacked button { width: 100%; }
+
+/* L4: the yearly figures read down. Each line is a label and a right-aligned
+   figure, tabular so the digits line up between years. */
+.ys-stack { display: flex; flex-direction: column; gap: 2px; }
+.ys-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--hairline);
+}
+.ys-line--total { border-bottom: none; border-top: 1px solid var(--hairline-strong); margin-top: 4px; }
+.ys-year { color: var(--muted); font-size: 12px; }
+.ys-amount { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+/* L1: guidance one hover away. A real control - focusable, and carrying the
+   same words to a screen reader through aria-label - not a decorative glyph
+   only a mouse can reach. */
+.help-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px; height: 14px;
+  margin-left: 6px;
+  border: 1px solid var(--hairline-strong);
+  border-radius: 50%;
+  font-size: 9px;
+  color: var(--muted);
+  cursor: help;
+  vertical-align: middle;
+}
+.help-dot:hover, .help-dot:focus { color: var(--white); border-color: var(--green); outline: none; }
+
+/* L6: a field whose value is COMPUTED, not typed. It keeps the field shape so
+   the column reads as a column, and says it is not an input by being dimmer and
+   not focusable - readonly plus tabindex -1 does the behaviour, this does the
+   telling. */
+.is-computed {
+  color: var(--muted);
+  background: transparent;
+  cursor: default;
+}

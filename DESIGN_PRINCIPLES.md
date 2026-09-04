@@ -10212,3 +10212,72 @@ Recorded because it cost a diagnostic pass. A gate run reported **15 of 16
 stages FAILED**, every HTTP stage in ~130ms. Nothing had run: the token had
 expired. **A stage that fails faster than it could do its work has not run**, and
 the shape is worth recognising before reading the list as findings.
+
+---
+
+## L1-L7: the payment-terms region, built as one pass
+
+**2026-09-04, and the business's instruction to build it as ONE pass is the
+reason it works.** L2, L4 and L7 share the same horizontal space and L1 and L3
+touch the same panels: built separately, each one's measurement would have been
+taken against a layout the next one changed - which is Verification 28 exactly,
+and this round has already shipped one regression that way.
+
+**L2/L3/L4/L7.** Payment Terms is the leftmost panel and PO Factoring is a
+sibling beside it, capped at a quarter and vertical inside. Measured at all
+three widths: **25% of the region at 1240, 1920 and 3440**, side by side, no
+overflow and no wrap. The cap is a `minmax(190px, 25%)` rather than a fixed
+width, because a quarter at 1240 is 219px and a rate field needs about that.
+
+Factoring was three things in three places - the switch on the recovery line,
+the rate and term in a grid below, the method beside those. **It is one decision,
+so it is one panel.**
+
+**L1.** The guidance is kept word for word in a `title` and an `aria-label`,
+on a focusable affordance rather than a glyph only a mouse can reach. What is
+removed is its permanent claim on the densest region of the screen.
+
+**AND IT SUPERSEDED A RULING, WHICH IS WHY IT COULD MOVE.** Round 41 item 5 put
+the factoring SELECTION on the Payment Terms line and left the fields below,
+because *"three paragraphs of explanation are not a choice and do not belong on
+a line of selectors"*. L1 moved the paragraphs into hovers, which removed the
+premise: what is left is a switch, two short numbers and a two-option choice,
+and those ARE one decision. Verification 29 - re-taken because the premise
+changed, not re-weighed.
+
+**L5/L6.** The two milestone tables were the same idea in two shapes: the
+contractor one takes a percentage and computes dollars, and the hybrid one took
+dollars and displayed a percentage in a dead cell. Both now read
+`Month | Milestone | % | USD`, and the USD is computed from the hardware and
+installation total - **the same base the percentage was previously derived FROM**,
+so the two readings of one schedule cannot disagree about what it is a
+percentage of.
+
+### Three faults in my own measurement, each caught before it counted
+
+**A regex that matched the wrong region.** The first attempt at moving the
+factoring block matched a `margin-top:24px` wrapper eleven hundred lines away.
+Nothing was written because the script asserted before saving - and rule 33's
+caveat is exactly this: slicing markup by pattern treats structured text as
+lines. The edit was redone by line number, with the boundaries read first.
+
+**Balanced tags are not a structure.** The region came out 26 `<div>` and 27
+`</div>`; corrected, 26/26 - and that count still proves nothing about
+parentage. The probe asserts the parentage: the panel and the aside are
+SIBLINGS inside the region, the aside is not inside the panel, and section 6 is
+not nested inside section 5.
+
+**`el.value += ch` bypasses `maxlength`.** The length caps read as broken while
+they were working, because maxlength constrains what a person TYPES and is
+ignored by assignment. Two constraints on one field - the inherited inputmode
+guard strips non-digits, maxlength bounds the length - and only one of them is
+visible to a script that sets `.value`. The checks now type with real
+keystrokes.
+
+**And the calc check's precondition was wrong before the calc was.**
+`oneOffPrice` is hardware PLUS installation, so asserting against the hardware
+total needs installation to be zero. The first version proved that with
+`tcv === hardware + hosting`, and `pg-total-price-ho` renders a PER-MONTH figure,
+so it could never balance. Proven from the fixture's own inputs instead. Without
+it the check would have passed by coincidence here and misled on any deal with
+installation in it.

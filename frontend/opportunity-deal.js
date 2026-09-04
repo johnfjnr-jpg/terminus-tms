@@ -299,8 +299,13 @@ function readMilestones() {
   for (let i = 0; i < MILESTONE_ROWS; i++) {
     const month = num(`deal-ms-${i}-month`)
     const label = document.getElementById(`deal-ms-${i}-label`)?.value ?? ''
+    // The USD is computed and READ BACK from the field, so the payload carries
+    // the same number the screen shows and the calculator is not handed a
+    // second derivation of it. The percentage is stored too: it is what was
+    // negotiated, and without it the schedule cannot be re-rendered.
     const usd = num(`deal-ms-${i}-usd`)
-    if (month > 0 && usd > 0) rows.push({ month, label, usd, pct: 0 })
+    const pct = toNumberOrNull(document.getElementById(`deal-ms-${i}-pct`)?.value) ?? 0
+    if (month > 0 && usd > 0) rows.push({ month, label, usd, pct })
   }
   return rows
 }
@@ -1443,15 +1448,20 @@ function renderYearSchedule(result, payload) {
       nonHybridEl.innerHTML = ''
     } else {
       const totalAll = years.reduce((s, y) => s + y.value, 0)
+      // ── L4: THE YEARLY PAYMENTS READ DOWN, NOT ACROSS ─────────────────
+      //
+      // 2026-09-04. Laid out across, the three year figures and the total
+      // competed with the milestone table for the same horizontal space, and at
+      // 1240 they were the pair that collided - the finding this screen already
+      // carries from Round 41 item 6. Read down, each year is a labelled line
+      // and the width it needs is the width of one figure.
       nonHybridEl.innerHTML = `
         <p class="label" style="margin-bottom:6px;color:var(--green)">${scheduleLabel} (USD)</p>
-        <div class="ys-row head">
-          ${years.map(y => `<div class="ys-cell">${y.label}</div>`).join('')}
-          <div class="ys-total">Total (USD)</div>
-        </div>
-        <div class="ys-row">
-          ${years.map(y => `<div class="ys-cell">$${money(val(y))}</div>`).join('')}
-          <div class="ys-total">$${money(totalAll)}</div>
+        <div class="ys-stack">
+          ${years.map(y => `<div class="ys-line"><span class="ys-year">${y.label}</span>`
+            + `<span class="ys-amount">$${money(val(y))}</span></div>`).join('')}
+          <div class="ys-line ys-line--total"><span class="ys-year">Total (USD)</span>`
+            + `<span class="ys-amount">$${money(totalAll)}</span></div>
         </div>`
     }
   } else {
@@ -1555,7 +1565,7 @@ function renderResults(result, payload) {
     } else {
       msWarn.classList.add('hidden')
     }
-    renderMilestonePcts(result.totals.oneOffPrice)
+    renderMilestoneUsd(result.totals.oneOffPrice)
   } else {
     msWarn.classList.add('hidden')
   }
@@ -1671,23 +1681,47 @@ function renderCashFlowGrid(cf) {
   closingEl.textContent = closingCashPresentation(cf).text
 }
 
-function renderMilestonePcts(hardwarePriceAll) {
+// L6: the percentage is typed and the dollars follow, from the hardware and
+// installation total. Two decimals, because a percentage of a six-figure total
+// lands on cents and rounding it away would make the column not sum.
+function renderMilestoneUsd(oneOffPrice) {
   for (let i = 0; i < MILESTONE_ROWS; i++) {
-    const cell = document.getElementById(`deal-ms-${i}-pct`)
-    if (!cell) continue
-    const usd = num(`deal-ms-${i}-usd`)
-    cell.textContent = hardwarePriceAll ? `${((usd / hardwarePriceAll) * 100).toFixed(1)}%` : '--'
+    const usdEl = document.getElementById(`deal-ms-${i}-usd`)
+    if (!usdEl) continue
+    const pct = toNumberOrNull(document.getElementById(`deal-ms-${i}-pct`)?.value)
+    usdEl.value = (pct === null || !oneOffPrice) ? '' : ((pct / 100) * oneOffPrice).toFixed(2)
   }
 }
 
+// ── L5 + L6: THE SAME COMPONENT AS THE CONTRACTOR SCHEDULE ───────────────
+//
+// 2026-09-04. The two milestone tables were the same idea in two shapes: the
+// contractor one takes a PERCENTAGE and computes the dollars, and this one took
+// dollars and displayed a percentage in a dead cell. A schedule is negotiated in
+// percentages on both sides of the deal, so both now read
+// Month | Milestone | % | USD, and the USD is computed.
+//
+// L6: THE USD IS CALCULATED from the hardware and installation total, which is
+// `result.totals.oneOffPrice` - the same base the percentage was previously
+// derived FROM. The direction is inverted, not the base, so the two readings of
+// this schedule cannot disagree about what it is a percentage of.
+//
+// L5: the month is a two-character integer. A milestone month beyond 99 is not a
+// payment schedule, and maxlength stops the typing rather than a validator
+// refusing it afterwards.
+//
+// maxlength ON TOP OF THE CLASS GUARD, not instead of it: the U1 guard keys on
+// inputmode and strips non-digits on every numeric input, and maxlength bounds
+// the LENGTH. Two different constraints, and the class one is inherited rather
+// than re-added here.
 function renderMilestoneRows(milestones) {
   const tbody = document.getElementById('deal-milestones-tbody')
   tbody.innerHTML = Array.from({ length: MILESTONE_ROWS }).map((_, i) => `
     <tr>
-      <td><input type="text" inputmode="numeric" class="int-only" id="deal-ms-${i}-month" style="width:64px"></td>
+      <td><input type="text" inputmode="numeric" maxlength="2" id="deal-ms-${i}-month" style="width:64px"></td>
       <td><input type="text" id="deal-ms-${i}-label" placeholder="e.g. Installation complete"></td>
-      <td><input type="text" inputmode="decimal" id="deal-ms-${i}-usd"></td>
-      <td class="col-mono" id="deal-ms-${i}-pct">--</td>
+      <td><input type="text" inputmode="numeric" maxlength="3" id="deal-ms-${i}-pct" style="width:80px"></td>
+      <td><input type="text" id="deal-ms-${i}-usd" class="is-computed" readonly tabindex="-1"></td>
     </tr>
   `).join('')
 
@@ -1695,7 +1729,10 @@ function renderMilestoneRows(milestones) {
     if (i >= MILESTONE_ROWS) return
     setVal(`deal-ms-${i}-month`, m.month)
     setVal(`deal-ms-${i}-label`, m.label)
-    setVal(`deal-ms-${i}-usd`, m.usd)
+    // The stored percentage is written back. A schedule that renders its own
+    // saved percentages blank and only shows them once somebody types is the
+    // W-D fault the contractor table already had and had fixed.
+    setVal(`deal-ms-${i}-pct`, m.pct === null || m.pct === undefined ? '' : String(m.pct))
   })
 
   tbody.querySelectorAll('input').forEach(el => el.addEventListener('input', recompute))
