@@ -10034,3 +10034,54 @@ The approver has no notification surface - the queue is a view they navigate to.
 A real feature gap rather than a defect, and it joins the deferred list beside
 the owner-manager override, roles-per-opportunity, DOR, the raw-error sweep and
 the sign-in allowlist.
+
+---
+
+## WATCH LIST: the unrecoverable refusal has not been proven to surface
+
+**Named 2026-09-04 at the walk close, on the business's instruction, so the next
+occurrence is not a fresh multi-walk mystery.**
+
+**What was observed.** In two reproductions of a refused criteria write, the
+panel showed **no message at all** - `.opp-crit-feedback` empty, no `.msg-error`
+anywhere on the page - even though the feedback element resolves correctly:
+measured, `opp-stage-criteria-stage-Qualification` exists, the feedback element
+is inside it, and the id the handler computes matches.
+
+**Why it does not bite today.** U9's auto-recover re-reads and retries once, so
+the stale-holder case - which is every refusal seen so far, and is U10's root -
+now succeeds rather than failing. The path that showed nothing is a path that no
+longer fails.
+
+**What is NOT proven, and this is the point of recording it.** A genuinely
+UNRECOVERABLE refusal - a real conflict where the retry is also refused, a 403,
+a 500 - has not been shown to put a message on that panel. The reproductions
+that would have proven it are exactly the ones the fix removed.
+
+**Same class as the pulse's silent failure**, and recorded for the same reason:
+a write that fails without saying so is indistinguishable from a write that did
+nothing, and the walk's own words for that were *"not sure why"*. Verification 9
+applied to a message rather than to a detector: **a surface never shown
+displaying an error is an assertion that it would.**
+
+**The check when this is picked up:** construct a refusal the retry cannot clear
+- the simplest is a permission refusal on somebody else's record - and confirm
+the panel says so. Not a fix on the list; a claim on the list, waiting to be
+measured.
+
+---
+
+## Deferred features, as at 2026-09-04
+
+Not defects. Named here so they are a list rather than a memory.
+
+- **The approver notification surface** - an approver is told a decision awaits,
+  rather than having a queue they must remember to visit. U7, deferred by the
+  business 2026-09-04.
+- **The owner-manager override** for non-owner edits.
+- **Roles per opportunity.**
+- **DOR.**
+- **The 117-site raw-error sweep.**
+- **The sign-in allowlist**, which is `CLAUDE.md` build discipline 13's
+  precondition for any public hosting and is the one item on this list that is a
+  gate rather than a feature.

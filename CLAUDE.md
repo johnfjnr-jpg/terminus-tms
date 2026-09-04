@@ -628,6 +628,8 @@ against the name (19); write one test passing a value different from the default
 (24); treat the clause after "so" or "which means" as a separate claim (26).
 
 **BEFORE MEASURING A LAYOUT** - Verification 4, 6, 7, 10, 15, 27, 28
+And 45 when the claim is about a FIRST paint or an initial state: attach the
+sampler with evaluateOnNewDocument, or it starts at the second state.
 Wait on real state, never a fixed delay, and state the counterfactual first.
 Three widths, before and after. Open the screenshot and confirm the element is
 in it. State the measure as something the PERSON experiences. Measure two
@@ -2102,6 +2104,35 @@ of the change. An unanswerable precondition is a stop.
     file has this shape: capture files, diff outputs, per-file logs, the
     `.verify` transcripts. A name that is unique in one directory is not unique
     across a tree.
+
+45. **A PROBE FOR A FIRST-PAINT DEFECT SAMPLES FROM THE FIRST FRAME.** Set by
+    the business 2026-09-04, U8, and the instrument's ATTACHMENT POINT was the
+    whole finding.
+
+    > A probe measuring an initial state, a first paint, or a
+    > paint-then-correct flicker installs its sampler with
+    > `evaluateOnNewDocument` - before the document exists - never after load.
+
+    **THE INSTANCE.** The next-stage button flickered enabled then grey. The
+    cause was diagnosed as the async gate answer arriving late, which was real
+    and was half of it. A sampler attached after the record loaded showed one
+    clean state and the fix looked complete.
+
+    **Re-attached before the document, the first frame was
+    `{disabled:false, "Next Stage"}`** - the STATIC MARKUP shipped the button
+    enabled, so the very first paint offered an action before any JavaScript had
+    read the record at all. No guard inside the render could have caught it,
+    because the render had not run yet.
+
+    **A sampler attached after load starts at the second state and reports the
+    defect fixed.** It is not a weaker reading, it is a reading of a different
+    population - Verification 25's clause arriving in the time dimension rather
+    than the row dimension.
+
+    **The check: ask what the screen looked like BEFORE your instrument existed.**
+    If the answer matters to the claim, the instrument has to predate the
+    document. Markup ships a state, and that state is a paint nobody wrote code
+    for and nobody looks at.
 
 ### At round close: index these by when they apply
 
