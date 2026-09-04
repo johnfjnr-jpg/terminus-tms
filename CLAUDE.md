@@ -601,6 +601,9 @@ Read the group whose moment you are at. The collapse measurement that produced
 the first group is recorded in full further down, under the index task.
 
 **BEFORE WRITING** - Architecture 8, 9; Verification 20, 22, 23
+And 46 before adding a write to an existing table: enumerate the triggers,
+constraints and locks already on it, because the new writer inherits all of them.
+And 47 before building a fixture: construct the state the way the SYSTEM would.
 A migration asserting a derived value names every reader of it and says what the
 asserted value tells each one (20).
 Correct for every caller that exists is not correct for the caller about to be
@@ -610,6 +613,8 @@ required field. Search for an existing decision about the same behaviour before
 taking a new one.
 
 **BEFORE TRUSTING A NULL OR A GREEN READING** - Verification 12, 13, 17, 25, 39
+And 48 before reading a failure: compare its duration with the stage's own
+normal duration. A stage that fails faster than it could run has not run.
 collapse into one:
 
 > Before trusting a null reading, make the instrument produce a non-null one on
@@ -2133,6 +2138,72 @@ of the change. An unanswerable precondition is a stop.
     If the answer matters to the claim, the instrument has to predate the
     document. Markup ships a state, and that state is a paint nobody wrote code
     for and nobody looks at.
+
+46. **A WRITE ADDED TO A HEAVILY-GUARDED TABLE INHERITS EVERY GUARD ON IT.**
+    Round 41 G2/G3, 2026-09-02. Recorded here at the Round 41 close because it
+    had lived only in the migration's own comment and in the incident
+    narrative - which is the one-way-promotion fault the Documentation section
+    of this file warns about, caught by auditing for it.
+
+    > Before adding a write to an existing table, enumerate the triggers,
+    > constraints and locks already on it. A new writer is bound by all of them,
+    > including the ones written for a different purpose.
+
+    **THE INSTANCE.** Record freshness was first implemented as a COLUMN on
+    `records`. `records` carries `refuse_write_while_frozen` and the append
+    advisory lock, so bumping the column meant every freshness update was a
+    write to a frozen-guarded table: raising a transition request 500'd, and one
+    of forty concurrent appends failed. **Both guards were doing exactly their
+    job** - the new write simply had no business being subject to them.
+
+    **THE REMEDY IS A TABLE OF ITS OWN**, not an exemption. `record_freshness`
+    is its own table with its own triggers, so the guards on `records` are
+    neither weakened nor worked around, and the freeze still refuses what it was
+    built to refuse.
+
+    **The check: a table is not a place to put a value, it is a set of rules the
+    value must then live under.** The busiest tables have the most rules, and
+    they are the ones a new feature reaches for first.
+
+47. **A FIXTURE SHAPED TO THE IMPLEMENTATION TESTS THE IMPLEMENTATION.** Round
+    41, 2026-09-04. Two instances in one round, and the second is the sharper.
+
+    **The version probes** inserted approvals carrying a revision and no request,
+    commented as "the way the evaluator reads them". That was true, and it was
+    the defect: the evaluator paired an approval to a version by revision
+    number. The fixture had been built to satisfy the broken join, so it went on
+    passing while every real version read "not approved" - **a state no live
+    path could even produce**, because `decide_transition_request` always sets
+    `request_id`.
+
+    **The milestone probe** asserted the three columns a change had touched and
+    not the fourth it had left alone, so it could not falsify the claim that the
+    shared component was in use.
+
+    **The check: build the fixture the way the SYSTEM would produce the state,
+    not the way the code under test happens to read it.** If a fixture is
+    constructing a row the application cannot construct, it is testing a shape
+    that does not exist. And a probe written after the change tests the change:
+    ask what it would catch if the change had been done wrong in a DIFFERENT
+    way.
+
+48. **A STAGE THAT FAILS FASTER THAN IT COULD DO ITS WORK HAS NOT RUN.** Round
+    41, 2026-09-03 and 2026-09-04, twice in two days, and it cost a diagnostic
+    pass both times.
+
+    A gate run reported **15 of 16 stages FAILED**, every HTTP stage in ~130ms
+    against timings of 12,000 to 30,000ms. Nothing had run: the session token
+    had expired. An earlier run reported 3 failures the same way.
+
+    **The list reads as findings, and the first instinct is to read it as
+    findings.** Fifteen simultaneous failures across unrelated surfaces is not a
+    plausible defect, and the timing says so before any of them is opened.
+
+    **The check: compare the failure's duration against the stage's own normal
+    duration before reading the failure.** Same family as Verification 12 - an
+    instrument that did not run reports the same shape as one that found
+    nothing - with the twist that here it reports the shape of finding
+    EVERYTHING.
 
 ### At round close: index these by when they apply
 

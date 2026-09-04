@@ -10037,7 +10037,7 @@ the sign-in allowlist.
 
 ---
 
-## WATCH LIST: the unrecoverable refusal has not been proven to surface
+## WATCH LIST, CLOSED 2026-09-04: the unrecoverable refusal now surfaces
 
 **Named 2026-09-04 at the walk close, on the business's instruction, so the next
 occurrence is not a fresh multi-walk mystery.**
@@ -10069,6 +10069,32 @@ displaying an error is an assertion that it would.**
 the panel says so. Not a fix on the list; a claim on the list, waiting to be
 measured.
 
+### CLOSED, 2026-09-04, and this is the evidence
+
+**It bit within a day of being named**, which is the argument for naming things
+rather than assuming them working: a reject submitted on an already-decided
+request was correctly refused `403`, the screen said nothing, and a correct
+refusal was read as corrupted state across four surfaces.
+
+Fixed as a CLASS at `oppPatch`, so every write on the screen surfaces its own
+refusal rather than each caller remembering a feedback element. Verified on the
+unrecoverable case the entry names - a write to another user's record, which no
+retry can clear:
+
+```
+a write that cannot be recovered is REFUSED        -> 403
+and the screen SAYS SO, in words a person can read
+  "THAT CHANGE WAS NOT SAVED  This record belongs to another user..."
+```
+
+**And the first assertion for it was a false pass**, caught before it shipped: it
+tested `innerHTML.length > 0` and went green on a banner with real markup, real
+geometry and `visibility: hidden`. The check now waits on visible `innerText`.
+
+**The entry is kept rather than deleted.** A watch-list item that was named,
+bit, and was closed is a better record than one that quietly disappears, and the
+gap between naming and biting is the part worth remembering.
+
 ---
 
 ## Deferred features, as at 2026-09-04
@@ -10085,6 +10111,37 @@ Not defects. Named here so they are a list rather than a memory.
 - **The sign-in allowlist**, which is `CLAUDE.md` build discipline 13's
   precondition for any public hosting and is the one item on this list that is a
   gate rather than a feature.
+
+**CLOSED since this list was written**, recorded here so the list reconciles
+rather than silently shrinking:
+
+- ~~The unrecoverable-refusal surface~~ - **closed 2026-09-04**, see the watch
+  list above. Every write on the opportunity screen now surfaces its own
+  refusal, verified on a refusal no retry can clear.
+
+### THE OPEN SECURITY STEP, AND ITS REVERT
+
+**Recorded here at the Round 41 close because it was in neither document**, and
+it is the half of build discipline 13 that has an action attached rather than a
+prohibition.
+
+The Google OAuth consent screen for **TMS SANDOX** is **External**, publishing
+status **Testing**, with named test users including a **Gmail** account added for
+the walks. Rule 13 records that state as a MITIGATION and correctly says the
+control must be in the application. What was not recorded is the step that
+closes the temporary part of it:
+
+> **When the walks are finished: TMS SANDOX goes back to Internal, and the walk
+> account comes off the test-user list.**
+
+**It is not a deployment precondition and must not be mistaken for one.** Rule 13
+is the deployment gate and is unchanged: an allowlist in `requireAuth`, mirrored
+in RLS, proven by test. This is the smaller, immediate step - reverting a setting
+that was widened for testing - and it is still open because the walks are still
+running locally.
+
+**Both are outside this repository**, which is exactly why they are written down
+in it.
 
 ---
 
@@ -10376,3 +10433,88 @@ Asserted as a SET rather than as four numbers: the probe checks that every group
 gap is the same value, that none is zero, and that the label-to-field gap is
 smaller than the group gap. A future change that moves the rhythm to 16 passes;
 one that reintroduces a squash does not.
+
+---
+
+# THE APPROVAL MODEL AS IT SETTLED, 2026-09-05
+
+**This section is the FINAL shape and supersedes every earlier statement of it in
+this document.** The model changed several times across Round 41 - the plan, the
+first build, the version gate, the supersession rule, the join - and each change
+was recorded where it happened, so a reader arriving at any one of those sections
+finds a shape that was true when written and is no longer whole. Those sections
+stay as the history. **This one is the answer.**
+
+Every clause below was verified against the running system on 2026-09-05, not
+restated from memory.
+
+## Where each gate applies
+
+Measured from `stage_gate_rules`:
+
+| move | approval scope |
+|---|---|
+| Solution Alignment → Proposal | **stage** |
+| Proposal → Evaluation | **version** |
+| Evaluation → Negotiating | **version** |
+| Negotiating → Closed Won | **version** |
+
+**Stage-gated up to Proposal; version-gated from Proposal exit onward.** The
+boundary is data, not code: every surface reads the scope from these rows, so
+moving the boundary is a configuration change.
+
+## The two kinds of request
+
+**`kind = 'transition'`** collects the stage-scoped tracks, **freezes the
+record** while it is open, and moves the record when the last required track
+approves. The freeze is a partial index and a trigger, both filtered
+`kind = 'transition'`.
+
+**`kind = 'review'`** is the manual pricing-approval request. It is raised
+deliberately against a specific **issued major version**, it does **not freeze**
+the record - work continues while it is decided - and it **never transitions**.
+It closes as `approved` when the last required track signs.
+
+**Issuing and asking are separate acts.** A person may issue V2 and keep
+refining before asking three people to sign it off.
+
+## What each act refuses, and where
+
+- **Issuing a major** is available from Proposal onward only. Before that,
+  pricing stays a minor draft.
+- **Requesting approval** is available only when the current issued major is
+  issued, **not already approved**, and has no open request. All three are
+  enforced in the ROUTE; the button is a convenience in front of it.
+- **A draft newer than the issued major blocks the request**, because approving
+  V1 while V1.1 is on screen signs off a price nobody is looking at.
+- **Deciding a track the request does not collect** is refused, for both approve
+  and reject, with the message naming the kind of request.
+- **A reject on an already-decided request** is refused: `this request is
+  approved and cannot be decided`.
+- **A review does not go stale on the record's revision**, because it does not
+  freeze; a transition still does.
+
+## Supersession
+
+**Issuing a new major closes any open review held against a prior major**, by
+trigger on `deal_sheet_versions`, with the approvals kept as history. Without it
+the stuck V1 request blocked V2 from ever being asked about.
+
+## One evaluator, four readers
+
+`versionApprovalState` answers "is this version approved", over approvals linked
+to versions through **`transition_requests.frozen_version_id`** - the request
+NAMES the version - and never by revision coincidence.
+
+It is shared by `src/lib/version-approval.js` and read through the same helper by
+**the panel** (`deal-sheet-versions.js`), **the gate** (`transitions.js`) and
+**the raise route** (`transition-requests.js`). The button reads the panel's
+answer.
+
+**This is the round's sharpest lesson in one line.** The previous join paired an
+approval to a version when their revision numbers happened to be equal. A
+version's revision is where the record stood when it was ISSUED; an approval is
+recorded at the request's FROZEN revision. They coincide only when nothing
+changed in between - and when they stopped coinciding, **no version had ever read
+as approved**, the gate was deciding from a numeric accident, and four screens
+told four different stories about one coherent set of rows.
