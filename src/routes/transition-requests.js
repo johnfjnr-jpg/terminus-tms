@@ -10,7 +10,7 @@ import { createUserClient } from '../supabase.js'
 import { computeBlocking, GATE_RECORD_SELECT } from './transitions.js'
 // From the one file that owns it, not re-declared here: a second 'version'
 // literal is a second reader of the same decision (Verification 20).
-import { VERSION_SCOPE } from '../lib/version-approval.js'
+import { linkApprovalsToVersions, versionApprovalState, VERSION_SCOPE } from '../lib/version-approval.js'
 import {
   usesWorkflow, requiredTracks, requestState, mayDecide,
   issuedProposal, needsIssuedVersion,
@@ -251,6 +251,53 @@ export default async function transitionRequestRoutes(app) {
             + 'so there is nobody to ask. Pricing approval applies from Proposal onward.',
         })
       }
+      // ── AN APPROVED VERSION CANNOT BE ASKED ABOUT AGAIN ────────────────
+      //
+      // 2026-09-04. The control offered "Request approval of V3" on a version
+      // that was already approved, and the earlier walk took it: a SECOND
+      // request was raised on an already-approved V3, which is where the four
+      // disagreeing screens came from. The button let a person do it and the
+      // route made the request.
+      //
+      // THE ROUTE IS THE ENFORCEMENT, and the button is a convenience. Hiding a
+      // control is not a rule - Verification 41's lesson from the superseded
+      // route, which went on working because nothing ever refused it.
+      //
+      // Read through the SAME evaluator the panel and the gate use, joined via
+      // the request rather than by revision coincidence, so the three cannot
+      // disagree about whether a version is approved.
+      //
+      // EVERY REQUIRED TRACK, not one: a version is approved when the tracks
+      // this move asks for have all signed, and asking about a PARTLY approved
+      // version is a legitimate act that must not be refused.
+      const { data: allVersions, error: avErr } = await db
+        .from('deal_sheet_versions')
+        .select('id, major, minor, revision_number, inputs')
+        .eq('record_id', record.id)
+      if (avErr) return reply.code(500).send({ error: avErr.message })
+      const { data: allApprovals, error: aaErr } = await db
+        .from('approvals')
+        .select('track, decision, revision_number, approver_id, decided_at, request_id')
+        .eq('record_id', record.id)
+      if (aaErr) return reply.code(500).send({ error: aaErr.message })
+      const { data: allRequests, error: arErr } = await db
+        .from('transition_requests').select('id, frozen_version_id').eq('record_id', record.id)
+      if (arErr) return reply.code(500).send({ error: arErr.message })
+
+      const linkedApprovals = linkApprovalsToVersions(allApprovals, allRequests)
+      const thisVersion = (allVersions ?? []).find((v) => v.id === ver.id) ?? null
+      const wantTracks = versionTracks
+        .map((r) => r.requirement_detail?.track)
+        .filter((t) => typeof t === 'string' && t.length)
+      const signed = wantTracks.filter((t) => versionApprovalState(
+        thisVersion, linkedApprovals, rev.revision_number, t, rev.payload).state === 'approved')
+      if (wantTracks.length && signed.length === wantTracks.length) {
+        return reply.code(409).send({
+          error: `V${ver.major} is already approved on ${signed.join(', ')}. `
+            + 'Issue a new major version if the price has changed, and ask about that one.',
+        })
+      }
+
       frozenVersionId = ver.id
     }
 

@@ -63,6 +63,46 @@ record('at V3, the V1 rejection is NOT narrated in a banner',
 record('and the current version is not itself rejected',
   banner.currentRejection === null, `${JSON.stringify(banner.currentRejection)}`)
 
+// ── AN APPROVED VERSION CANNOT BE ASKED ABOUT AGAIN ──────────────────────
+//
+// The control offered "Request approval of V3" on an already-approved V3, and
+// the earlier walk took it: a SECOND request was raised, which is where the
+// four disagreeing screens began.
+await page.evaluate(() => document.querySelector('[data-opp-tab="commercial"]')?.click())
+await page.waitForFunction(() => {
+  const p = document.getElementById('opp-tab-commercial')
+  return p && !p.classList.contains('hidden') && getComputedStyle(p).visibility === 'visible'
+}, { timeout: 20000 })
+await page.waitForFunction(() => window.oppVersionGateApplies?.() !== null, { timeout: 20000 })
+await new Promise((r) => setTimeout(r, 800))
+const askState = await page.evaluate(() => {
+  const b = document.getElementById('btn-request-pricing-approval')
+  return { present: !!b, disabled: b?.disabled, title: b?.title ?? '',
+    state: (document.getElementById('pricing-approval-state')?.innerText ?? '').trim() }
+})
+record('with V3 approved, Request Approval is DISABLED', askState.disabled === true,
+  `present=${askState.present} disabled=${askState.disabled}`)
+record('and it says why, rather than going quiet',
+  /already approved/i.test(askState.title) || /already approved/i.test(askState.state),
+  `"${(askState.state || askState.title).slice(0, 70)}"`)
+
+// THE ROUTE IS THE ENFORCEMENT. A disabled button is a convenience; the walk's
+// second request proves a control is not a rule.
+const { data: gateRules } = await db.from('stage_gate_rules')
+  .select('to_stage, requirement_detail').eq('record_type', 'opportunity')
+  .eq('requirement_type', 'approval_obtained').eq('from_stage', 'Proposal')
+const gatedTo = [...new Set((gateRules ?? [])
+  .filter((r) => r.requirement_detail?.scope === 'version').map((r) => r.to_stage))][0]
+let raise = null
+try {
+  const r = await api('POST', `/records/${rec.id}/transition-requests`,
+    { to_stage: gatedTo, kind: 'review', version_id: by(3, 0)?.id })
+  raise = { status: r.status, error: null }
+} catch (e) { raise = { status: e.status, error: e.body?.error ?? '' } }
+record('and the ROUTE refuses it too, not just the button',
+  raise.status === 409 && /already approved/i.test(raise.error ?? ''),
+  `-> ${raise.status} "${String(raise.error ?? '').slice(0, 62)}"`)
+
 // ── FIX 3: A REFUSED WRITE SAYS SO ───────────────────────────────────────
 // A write to somebody else's record is refused by RLS and cannot be recovered
 // by any retry, which is the unrecoverable case the watch list named.

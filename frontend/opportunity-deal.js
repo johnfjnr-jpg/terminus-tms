@@ -781,6 +781,26 @@ function renderVersionList() {
       ask.disabled = true
       ask.title = 'Issue a major version first: an approval is held against an issued version.'
       if (state) state.textContent = 'Issue a version before requesting approval.'
+    } else if (issued.approval?.state === 'approved') {
+      // ── ALREADY APPROVED. 2026-09-04 ─────────────────────────────────
+      //
+      // The control offered "Request approval of V3" on a version that was
+      // already approved, and the earlier walk took it: a SECOND request was
+      // raised on the approved V3, and the four disagreeing screens followed.
+      //
+      // DISABLED WITH THE REASON, not hidden. Ruled: an approved version is not
+      // a stage where the act is meaningless - it is a state the person needs
+      // to SEE, because "already approved" is the answer they came for.
+      // Contrast the pre-Proposal case, which is hidden precisely because
+      // nothing about the stage explains itself.
+      //
+      // The route refuses this too. The button is a convenience and the route
+      // is the enforcement, which is Verification 41's lesson: hiding a control
+      // is not a rule.
+      ask.disabled = true
+      ask.textContent = `Request approval of V${highestIssued}`
+      ask.title = `V${highestIssued} is already approved. Issue a new major version if the price has changed.`
+      if (state) state.textContent = `V${highestIssued} is already approved.`
     } else if (draft) {
       // ── U11: NOT WHILE THE PRICE HAS MOVED PAST THE ISSUED MAJOR ──────
       //

@@ -10166,3 +10166,49 @@ tested `innerHTML.length > 0` and went green on a banner with real markup, real
 geometry and `visibility: hidden` from the loading state. A message nobody could
 read, asserted as present. Verification 4's rule inside an assertion: presence is
 not legibility, and the check now waits on visible `innerText`.
+
+---
+
+## An approved version cannot be asked about again
+
+**2026-09-04.** The last thread of the TT-SGP-SMARTC-118 finding, and the one
+that caused it.
+
+`Request approval of V3` stayed enabled on a version that was **already
+approved**, and the earlier walk took it: a **second** review request was raised
+against the approved V3. Both requests then read as legitimate open work, and the
+four disagreeing screens followed from there. The button let a person do it and
+the route made the request.
+
+**THE ROUTE IS THE ENFORCEMENT, AND THE WALK IS THE PROOF.** A disabled button
+would have stopped that click and nothing else - Verification 41's lesson from
+the superseded route, which went on working precisely because nothing ever
+refused it. The check lives in `POST /records/:id/transition-requests` and the
+button is a convenience in front of it.
+
+**DISABLED WITH THE REASON, NOT HIDDEN**, and the contrast with the pre-Proposal
+case is the rule rather than an inconsistency:
+
+- Before Proposal the control is **hidden**, because nothing about the stage
+  explains why the act is unavailable and a dead control is clutter.
+- On an approved version it is **disabled and says so**, because *"V3 is already
+  approved"* is the answer the person came for. Hiding it would remove the
+  information they wanted.
+
+**EVERY REQUIRED TRACK, NOT ONE.** A version is approved when the tracks the
+move asks for have all signed. Asking about a **partly** approved version is
+legitimate, and refusing that would have been a new dead end in place of the old
+one.
+
+**Read through the same evaluator, joined the same way.** The route, the panel
+and the gate now answer "is this version approved" from `versionApprovalState`
+over approvals linked by `frozen_version_id`. Three readers of one fact, sharing
+the read rather than each deriving it - which is what Verification 43 asks, and
+what the revision-coincidence join had quietly prevented.
+
+### The session expiring reads as fifteen defects
+
+Recorded because it cost a diagnostic pass. A gate run reported **15 of 16
+stages FAILED**, every HTTP stage in ~130ms. Nothing had run: the token had
+expired. **A stage that fails faster than it could do its work has not run**, and
+the shape is worth recognising before reading the list as findings.

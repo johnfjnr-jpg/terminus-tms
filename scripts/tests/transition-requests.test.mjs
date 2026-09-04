@@ -261,6 +261,26 @@ test('Proposal to Evaluation wants an ISSUED version and nothing since', () => {
 // sign-off held against the issued major, it either exists or does not, and so
 // it is a genuine blocker. That is what makes the from-Proposal path a CHECK
 // rather than a wait.
+test('an ALREADY-APPROVED version cannot be asked about again, at the ROUTE', () => {
+  // 2026-09-04. The control offered "Request approval of V3" on an approved V3
+  // and the walk took it: a SECOND request was raised on the approved version,
+  // and four disagreeing screens followed.
+  //
+  // THE ROUTE IS THE ENFORCEMENT. A disabled button is a convenience, and the
+  // walk itself is the proof that a control is not a rule - Verification 41's
+  // lesson from the superseded route, which went on working because nothing
+  // ever refused it.
+  assert.match(ROUTES, /is already approved on \$\{signed\.join\(', '\)\}/,
+    'the route must refuse a request against an approved version')
+  // EVERY REQUIRED TRACK, not one: a partly approved version is a legitimate
+  // thing to ask about, and refusing that would be a new dead end.
+  assert.match(ROUTES, /wantTracks\.length && signed\.length === wantTracks\.length/)
+  // Through the SAME evaluator, joined via the request rather than by revision
+  // coincidence, so the route, the panel and the gate cannot disagree about
+  // whether a version is approved.
+  assert.match(ROUTES, /linkApprovalsToVersions\(allApprovals, allRequests\)/)
+})
+
 test('the raise route drops the approvals it COLLECTS, and keeps the ones it CHECKS', () => {
   assert.match(ROUTES, /computeBlocking\(/, 'the one gate computation path is still the one used')
   assert.match(ROUTES, /b\.requirement_type !== 'approval_obtained' \|\| b\.scope === VERSION_SCOPE/,
@@ -278,7 +298,10 @@ test('the raise route drops the approvals it COLLECTS, and keeps the ones it CHE
     'the raise route names stages, so the model is stated in two places')
   // VERSION_SCOPE comes from the module that owns it, never a re-declared
   // literal (Verification 20).
-  assert.match(ROUTES, /import \{ VERSION_SCOPE \} from '\.\.\/lib\/version-approval\.js'/)
+  // The import gained two names on 2026-09-04: the raise route now refuses an
+  // already-approved version, and it reads that through the SAME evaluator the
+  // panel and the gate use rather than deciding it a third way.
+  assert.match(ROUTES, /import \{ linkApprovalsToVersions, versionApprovalState, VERSION_SCOPE \} from '\.\.\/lib\/version-approval\.js'/)
 })
 
 test('the decision route enforces the rules it must, and delegates the rest', () => {
