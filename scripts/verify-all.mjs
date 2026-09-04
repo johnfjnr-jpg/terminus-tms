@@ -199,6 +199,11 @@ const STAGES = [
 // on one record, and whether the second one's write recovers itself, is a
 // property of a browser. Calibrated 1/4 against the pre-fix client.
 //
+// 2026-09-04 adds probe-version-join on the same terms: it reads the browser's
+// banner and needs the real TT-SGP-SMARTC-118 history to assert the join
+// against, so it is run by the round and reported. Calibrated 1/8 against the
+// pre-fix code, reproducing the walk's own screen.
+//
 // Round 41 F4 adds probe-pulse on the same terms, and the split is the same.
 // Its claim - a screen follows a record somebody else changed, within one poll
 // interval and with no manual refresh - is a property of a BROWSER and cannot

@@ -5474,3 +5474,16 @@ input.input-invalid {
    control: it says WHERE the unsaved change is. margin-left:auto pushes it to
    sit beside the latch rather than against the title. */
 .latch-row .section-save { margin-left: auto; margin-right: 10px; }
+
+/* ── FIX 3: a refused write ────────────────────────────────────────────────
+   2026-09-04. It states that something the person did did NOT happen, which is
+   the one thing a screen must never leave to inference. Same amber attention
+   treatment as the other states that are about the record rather than the
+   chrome. */
+.write-refused {
+  border: 1px solid var(--amber, #E0A33E);
+  border-left-width: 3px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+}
+.write-refused .label { color: var(--amber, #E0A33E); }

@@ -118,6 +118,29 @@ export const VERSION_APPROVAL_STATES = [
  * 14's shape: a comparison reached with nothing on one side is not a comparison,
  * and it should say so rather than pick a side.
  */
+/**
+ * Annotate approvals with the VERSION their request was about.
+ *
+ * ONE PLACE, because every surface that shows a version's approval state must
+ * derive the link the same way. Two callers building this map separately is
+ * Verification 20, and the join it replaces was itself a second reader of
+ * "which revision is this" pretending to be a version link.
+ *
+ * @param {Array<{ request_id?: string|null }>} approvals
+ * @param {Array<{ id: string, frozen_version_id?: string|null }>} requests
+ * @returns {Array} the same approvals, each carrying `version_id`
+ */
+export function linkApprovalsToVersions(approvals, requests) {
+  const versionOf = new Map()
+  for (const r of requests ?? []) {
+    if (r?.id && r.frozen_version_id) versionOf.set(r.id, r.frozen_version_id)
+  }
+  return (approvals ?? []).map((a) => ({
+    ...a,
+    version_id: a?.request_id ? (versionOf.get(a.request_id) ?? null) : null,
+  }))
+}
+
 export function versionApprovalState(version, approvals, latestRevision, track = APPROVAL_TRACK, currentPayload) {
   const at = version?.revision_number
   // `changedKeys` replaces `revisionsSince`, and the RENAME is deliberate.
@@ -131,8 +154,34 @@ export function versionApprovalState(version, approvals, latestRevision, track =
     return { ...blank, state: 'inconsistent', revisionApproved: at }
   }
 
+  // ── MATCHED THROUGH THE REQUEST, NOT BY REVISION COINCIDENCE ─────────
+  //
+  // 2026-09-04. This filtered on `a.revision_number === at`, pairing an approval
+  // with a version because the two numbers happened to be equal. They are not
+  // the same fact: a version's revision_number is where the RECORD stood when
+  // the version was issued, and an approval is recorded at the request's FROZEN
+  // revision, which is where the record stood when the request was raised.
+  // They coincide only when nothing changed in between.
+  //
+  // MEASURED ON TT-SGP-SMARTC-118, and every symptom came from this one line.
+  // V3.0 sits at revision 24 and its six approvals are at 25, so a version with
+  // TWO fully-approved requests read `state: none`. V1.1 is a DRAFT that was
+  // never the subject of any request, sits at revision 19, and inherited V1.0's
+  // rejection because that rejection was recorded at 19. No version had ever
+  // shown as approved.
+  //
+  // The link that actually exists is transition_requests.frozen_version_id: the
+  // request NAMES the version it is about. Callers annotate each approval with
+  // the version its request froze, via linkApprovalsToVersions below, so this
+  // reads a stated fact rather than a numeric collision.
+  //
+  // AN APPROVAL WITH NO version_id BELONGS TO NO VERSION. A stage-transition
+  // approval is not a pricing sign-off, and before this round's version gate
+  // there were no version-scoped approvals at all. Those correctly match
+  // nothing rather than falling back to the revision, which would reinstate the
+  // defect for exactly the rows most likely to collide.
   const here = (approvals ?? []).filter(
-    (a) => a.track === track && a.revision_number === at)
+    (a) => a.track === track && a.version_id != null && a.version_id === version?.id)
 
   const rejected = here.find((a) => a.decision === 'rejected')
   if (rejected) {

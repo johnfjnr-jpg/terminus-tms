@@ -1547,6 +1547,17 @@
          The approve path got its refusal surface; the rejection's own outcome
          had none. Shown to approver and requester alike, from the same data, so
          the two cannot tell different stories about it. -->
+    <!-- ── FIX 3: A REFUSED WRITE SAYS SO, WHEREVER IT CAME FROM ─────────
+         2026-09-04. Named on the watch list at the last walk close and it bit
+         within a day: a reject submitted on an already-decided request was
+         correctly refused 403, the screen said NOTHING, and a correct refusal
+         was read as corrupted state across three surfaces.
+
+         AS A CLASS, not per handler. Every write on this screen goes through
+         oppPatch, so the refusal surfaces once here rather than each caller
+         remembering its own feedback element - which is exactly the opt-in
+         pattern that left the criteria panel silent. -->
+    <div id="opp-write-refused" class="hidden"></div>
     <div id="opp-rejected-banner" class="hidden"></div>
     <div id="opp-moved-banner"></div>
     <div id="opp-readonly-banner"></div>

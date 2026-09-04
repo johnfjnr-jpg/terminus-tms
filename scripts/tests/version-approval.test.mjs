@@ -6,7 +6,20 @@ import assert from 'node:assert/strict'
 import { versionApprovalState, lastApprovedVersion, liveVersionApproval, APPROVAL_TRACK }
   from '../../src/lib/version-approval.js'
 
+// ── 2026-09-04: AN APPROVAL NAMES ITS VERSION ────────────────────────────
+//
+// These fixtures paired an approval with a version by giving both the same
+// revision_number, which is what the code did too - and that pairing was the
+// defect. A version's revision is where the RECORD stood when it was issued; an
+// approval is recorded at the request's frozen revision. They coincide only
+// when nothing changed in between, and on TT-SGP-SMARTC-118 nothing did for
+// long enough that no version had ever read as approved.
+//
+// The link that exists is the request naming the version, carried here as
+// `version_id`. The revision stays on the row because it is the audit trail of
+// WHEN the decision was taken; it is simply no longer the join.
 const approvedAt = (n, extra = {}) => ({
+  version_id: `ver-${n}`,
   revision_number: n, track: APPROVAL_TRACK, decision: 'approved',
   approver_id: 'u1', decided_at: '2026-08-29T10:00:00Z', ...extra,
 })
@@ -19,7 +32,7 @@ const approvedAt = (n, extra = {}) => ({
 // is not one of the 32 a snapshot carries, so it rendered as "an unlabelled
 // pricing field" and the assertion below was testing the fallback.
 const V = (n, inputs = { duration: 60, targetMargin: 30 }) =>
-  ({ revision_number: n, major: 0, minor: 1, inputs })
+  ({ id: `ver-${n}`, revision_number: n, major: 0, minor: 1, inputs })
 
 const SAME = Object.freeze({ duration: 60, targetMargin: 30 })
 const MOVED = Object.freeze({ duration: 72, targetMargin: 30 })

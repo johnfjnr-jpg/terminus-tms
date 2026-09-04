@@ -141,10 +141,34 @@ record('and it is not approved yet', listed?.approval?.state === 'none',
 // The shape mirrors exactly what the route used to write, so the evaluator sees
 // what it has always seen.
 const stageNow = (await api('GET', `/opportunities/${oppId}`)).data?.status
+
+// ── THE APPROVAL NAMES ITS VERSION, THROUGH A REQUEST ────────────────────
+//
+// 2026-09-04. This fixture wrote an approval with a revision_number and no
+// request, because that is what the route used to write. It is now a state no
+// live path can produce: decide_transition_request always sets request_id, and
+// the superseded route refuses opportunities outright.
+//
+// It mattered because the evaluator used to pair an approval with a version by
+// REVISION NUMBER, and this fixture was built to satisfy that pairing. The join
+// is now the request's frozen_version_id, so a fixture without one is testing a
+// shape the system cannot reach - and would have gone on passing while every
+// real version read "not approved", which is exactly what happened on
+// TT-SGP-SMARTC-118.
+const mkRequest = async (versionId, frozenRev) => {
+  const { data, error } = await admin().from('transition_requests').insert({
+    record_id: oppId, record_type: 'opportunity', from_stage: stageNow,
+    to_stage: 'Evaluation', kind: 'review', status: 'open',
+    frozen_revision: frozenRev, frozen_version_id: versionId, requested_by: SESSION.user.id,
+  }).select('id').single()
+  if (error) throw error
+  return data.id
+}
+const req1 = await mkRequest(vid, atRev)
 const apprIns = await admin().from('approvals').insert({
   record_id: oppId, stage: stageNow, revision_number: atRev, track: 'Commercial',
   tier: null, approver_id: SESSION.user.id, decision: 'approved', comment: 'probe fixture',
-  decided_at: new Date().toISOString(),
+  decided_at: new Date().toISOString(), request_id: req1,
 }).select('revision_number').single()
 record('an approval is recorded', !apprIns.error,
   apprIns.error ? apprIns.error.message : `at revision ${apprIns.data.revision_number}`)
@@ -200,10 +224,11 @@ const v2 = await api('POST', `/opportunities/${oppId}/deal-sheet-versions`,
     rates: priced({ ...BASE, targetMargin: 24, duration: 36 }),
     reason: 'repriced after approval', expected_revision: nowRev })
 // Same fixture write as above, and for the same reason.
+const req2 = await mkRequest(v2.data?.id, nowRev)
 await admin().from('approvals').insert({
   record_id: oppId, stage: stageNow, revision_number: nowRev, track: 'Commercial',
   tier: null, approver_id: SESSION.user.id, decision: 'approved', comment: 'probe fixture 2',
-  decided_at: new Date().toISOString(),
+  decided_at: new Date().toISOString(), request_id: req2,
 })
 record('a new version approved at the current revision reads approved',
   (await stateOf(v2.data?.id)) === 'approved', `state=${await stateOf(v2.data?.id)}`)

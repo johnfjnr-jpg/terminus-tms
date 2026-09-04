@@ -596,6 +596,33 @@ let versionRange = 5
 // Exposed so app.js can re-run the actions once stage-approvals resolve: the
 // approval control's visibility depends on oppStageTracks, which is loaded
 // after this module first renders.
+// ── THE CURRENT ISSUED MAJOR'S OWN STATE, FOR THE BANNER ─────────────────
+//
+// Fix 2, ruled 2026-09-04. A banner is a LIVE-STATUS surface: it says what is
+// true NOW about the CURRENT version, and never narrates an event from a
+// superseded one. At V3 a banner about V1's rejection is wrong by construction.
+//
+// So there is no recency window and no "most recent rejection". There is one
+// question - is the version people are looking at rejected and unaddressed -
+// and it is answered from the SAME approval state the Versions panel renders,
+// which is now joined through the request rather than by revision coincidence.
+//
+// A rejection that has been responded to, by issuing or approving anything
+// newer, is HISTORY. It belongs in the Versions panel and nowhere else.
+window.oppCurrentVersionRejection = () => {
+  const issued = (dealVersions ?? []).filter((v) => v.status === 'issued')
+  if (!issued.length) return null
+  // dealVersions is ordered major DESC, minor DESC, so the first issued row is
+  // the current major - the same ordering every other reader here relies on.
+  const current = issued[0]
+  if (current?.approval?.state !== 'rejected') return null
+  return {
+    label: versionLabel(current),
+    decidedAt: current.approval.decidedAt ?? null,
+    revision: current.approval.revisionApproved ?? null,
+  }
+}
+
 window.oppRefreshVersionActions = () => renderVersionList()
 
 function renderVersionList() {

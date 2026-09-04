@@ -10085,3 +10085,84 @@ Not defects. Named here so they are a list rather than a memory.
 - **The sign-in allowlist**, which is `CLAUDE.md` build discipline 13's
   precondition for any public hosting and is the one item on this list that is a
   gate rather than a feature.
+
+---
+
+## THE VERSION/APPROVAL JOIN: one wrong line, four screens
+
+**2026-09-04, TT-SGP-SMARTC-118.** Reported as V3 being requested, approved on
+all three tracks, then rejected - with four surfaces disagreeing and V3's
+rejection leaving no trace.
+
+### What the data actually said
+
+**The data was coherent and complete.** V3 had TWO review requests, both fully
+approved, both closed `approved`. **There was no rejection of V3 anywhere.** The
+reject was submitted against an already-closed request and **refused** -
+measured directly: `403 "This request is approved and cannot be decided."`
+
+The rule the business wanted established was already enforced: the last approval
+closes the request, and a later reject cannot reopen it.
+
+### The defect was the opposite of the report, and it was one line
+
+```
+V3.0 issued  approval.state=none      revApproved=24   <- two approved requests
+V2.0 issued  approval.state=none      revApproved=20
+V1.0 issued  approval.state=none      revApproved=17   <- the one actually rejected
+V1.1 draft   approval.state=rejected  revApproved=19   <- never had a request at all
+```
+
+**No version had ever read as approved.** `versionApprovalState` matched
+`a.revision_number === version.revision_number`. Those are two different facts: a
+version's revision is where the RECORD stood when it was issued, and an approval
+is recorded at the request's FROZEN revision. They coincide only when nothing
+changed in between. V3 sits at 24 and its approvals are at 25; V1.1 sits at 19
+and inherited V1.0's rejection because that rejection was recorded at 19.
+
+**The link that exists is `transition_requests.frozen_version_id` - the request
+NAMES the version.** Corrected, every version reads correctly: V3 approved, V2
+superseded, V1.0 rejected, V1.1 none.
+
+**THE GATE READ IT TOO.** `loadVersionApproval` carried the same join, so the
+ENFORCEMENT was deciding whether a version was approved from a numeric
+coincidence. Fixed through the same helper, because Verification 43's remedy is
+sharing the read - and here the panel and the gate had been sharing a defect.
+
+### The probes were built to satisfy the broken join
+
+Both version probes inserted approvals with a revision and **no request**,
+described as "the way the evaluator reads them". That is a state **no live path
+can produce**: `decide_transition_request` always sets `request_id` and the
+superseded route refuses opportunities. The fixtures encoded the defect, so they
+would have gone on passing while every real version read "not approved" - which
+is exactly what happened.
+
+**A fixture shaped to the implementation tests the implementation.**
+
+### The banner is a live-status surface
+
+Restated by the business, and it is cleaner than the recency bound it replaced:
+**a banner reflects the CURRENT version's CURRENT state and only that.** At V3, a
+banner narrating a V1 rejection is wrong by construction - the banner's job is
+"what is true now", not an event log. No recency window, because "recent" was
+never the question. A rejection that has been responded to is history and belongs
+in the Versions panel.
+
+### And the silent refusal bit within a day of being named
+
+The watch-list item recorded at the previous walk's close - *the unrecoverable
+refusal has not been proven to surface a message* - is what turned a correctly
+refused action into an apparent corruption. A 403 with a silent screen reads as
+"it worked and broke something".
+
+Fixed as a CLASS: every write on the screen goes through `oppPatch`, so the
+refusal surfaces once there rather than each caller remembering its own feedback
+element - the same opt-in shape as the numeric guard that covered two fields of
+thirty-one.
+
+**AND THE FIRST ASSERTION FOR IT WAS A FALSE PASS**, caught before it shipped: it
+tested `innerHTML.length > 0` and went green on a banner with real markup, real
+geometry and `visibility: hidden` from the loading state. A message nobody could
+read, asserted as present. Verification 4's rule inside an assertion: presence is
+not legibility, and the check now waits on visible `innerText`.

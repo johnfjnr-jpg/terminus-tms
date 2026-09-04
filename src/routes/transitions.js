@@ -1,5 +1,5 @@
 import { createUserClient } from '../supabase.js'
-import { liveVersionApproval, VERSION_SCOPE } from '../lib/version-approval.js'
+import { linkApprovalsToVersions, liveVersionApproval, VERSION_SCOPE } from '../lib/version-approval.js'
 import { usesWorkflow } from '../lib/transition-requests.js'
 import { sendWriteError, sendRefusal } from '../lib/write-errors.js'
 
@@ -146,16 +146,35 @@ export async function loadVersionApproval(db, recordId, track, currentRevision, 
     .eq('record_id', recordId)
   if (vErr) return { error: vErr }
 
-  const { data: approvals, error: aErr } = await db
+  // ── THE GATE USES THE SAME CORRECTED JOIN AS THE DISPLAY ──────────────
+  //
+  // 2026-09-04. This matched an approval to a version by revision_number, which
+  // pairs them only when nothing changed between issuing the version and
+  // raising the request. THE ENFORCEMENT read it too, not just the panel, so
+  // this is not a display fix applied in two places: the gate was deciding
+  // whether a version was approved from a numeric coincidence.
+  //
+  // Verification 43 is why it is fixed HERE as well and through the same
+  // helper: a panel that shares the enforcement's read cannot disagree with it,
+  // and the previous arrangement had them sharing a defect instead.
+  const { data: approvalRows, error: aErr } = await db
     .from('approvals')
-    .select('track, decision, revision_number, approver_id, decided_at')
+    .select('track, decision, revision_number, approver_id, decided_at, request_id')
     .eq('record_id', recordId)
     .eq('track', track)
   if (aErr) return { error: aErr }
 
+  const { data: reqRows, error: rErr } = await db
+    .from('transition_requests')
+    .select('id, frozen_version_id')
+    .eq('record_id', recordId)
+  if (rErr) return { error: rErr }
+
+  const approvals = linkApprovalsToVersions(approvalRows, reqRows)
+
   return {
     versionApproval: liveVersionApproval({
-      track, versions: versions ?? [], approvals: approvals ?? [], latestRevision: currentRevision, currentPayload,
+      track, versions: versions ?? [], approvals, latestRevision: currentRevision, currentPayload,
     }),
   }
 }

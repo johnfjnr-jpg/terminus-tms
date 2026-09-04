@@ -1086,6 +1086,7 @@ let oppIssuedMajor = null
 // them would freeze on the wrong one.
 let oppPendingReview = null
 let oppLastRejected = null
+let oppReviewRejection = null
 window.oppPendingPricingApproval = () => oppPendingReview
 window.oppLastRejectedRequest = () => oppLastRejected
 
@@ -1098,8 +1099,24 @@ window.oppLastRejectedRequest = () => oppLastRejected
 function renderOppRejectedBanner() {
   const el = document.getElementById('opp-rejected-banner')
   if (!el) return
+  // THE REVIEW HALF ASKS THE CURRENT VERSION, not the request history. Read at
+  // render time rather than cached, because the versions load after this first
+  // runs and the answer changes when they arrive.
+  const versionRejection = window.oppCurrentVersionRejection?.() ?? null
   const req = oppLastRejected
-  if (!req) { el.classList.add('hidden'); el.innerHTML = ''; return }
+  if (!req && !versionRejection) { el.classList.add('hidden'); el.innerHTML = ''; return }
+
+  if (!req && versionRejection) {
+    el.classList.remove('hidden')
+    el.innerHTML = `<div class="rejected-banner">`
+      + `<p class="label" style="margin-bottom:6px">Rejected</p>`
+      + `<p style="font-size:14px;margin:0 0 8px">`
+      + `<strong>${escHtml(versionRejection.label)}</strong> is the current issued version and it was `
+      + `rejected${versionRejection.decidedAt ? ' on ' + escHtml(formatDateTime(versionRejection.decidedAt)) : ''}.</p>`
+      + `<p class="sa-approval-meta" style="margin:0">Issue a new major version with the point `
+      + `addressed, then ask for approval of that.</p></div>`
+    return
+  }
   const rej = (req.decisions ?? []).find(d => d.decision === 'rejected')
   const who = rej?.track ? `${rej.track}` : 'An approver'
   const when = req.closed_at ? formatDateTime(req.closed_at) : 'an unknown time'
@@ -1152,21 +1169,35 @@ async function loadOppOpenRequest(recordId) {
   const open = all.filter(x => x.status === 'open')
   oppOpenRequest = open.find(x => x.kind === 'transition') ?? null
   oppPendingReview = open.find(x => x.kind === 'review') ?? null
-  // ── U12: THE MOST RECENT REJECTION, WHILE NOTHING SUPERSEDES IT ────────
+  // ── A BANNER IS A LIVE-STATUS SURFACE ─────────────────────────────────
   //
-  // A rejection closes the request and unfreezes the record, so every banner
-  // describing it disappeared and the screen went quiet on both sides. The
-  // requester saw the freeze lift with no reason and the approver saw the
-  // request leave the list.
+  // Restated by the business 2026-09-04, and it is a cleaner rule than the
+  // recency bound it replaces: a banner reflects the CURRENT version's CURRENT
+  // state and only that. It must never assert a state from a superseded
+  // version. At V3, a banner narrating a V1 rejection from two majors ago is
+  // wrong BY CONSTRUCTION - the banner's job is "what is true now", not an
+  // event log.
   //
-  // Suppressed once a NEW request of the same kind is open, because then the
-  // live request is the state and the rejection is history.
-  const rejected = all.filter(x => x.status === 'rejected')
-    .sort((a, b) => String(b.closed_at ?? '').localeCompare(String(a.closed_at ?? '')))
-  const latest = rejected[0] ?? null
-  const supersededByOpen = latest
-    && open.some(x => x.kind === latest.kind)
-  oppLastRejected = supersededByOpen ? null : latest
+  // THE SUPERSEDED RULE, kept visible: it showed the most recent rejection,
+  // suppressed only by a newer OPEN request of the same kind. That let V1's
+  // rejection from 02:25 sit on a record whose pricing had reached V3 and been
+  // approved twice since. No recency window replaces it, because "recent" was
+  // never the question.
+  //
+  // A REVIEW rejection is now shown only when the CURRENT ISSUED MAJOR is
+  // itself rejected, read from the same approval state the Versions panel
+  // renders. A rejection that has been responded to is history and lives there.
+  //
+  // A TRANSITION rejection is a fact about the RECORD rather than a version, so
+  // its own supersession test is the record having left the stage the request
+  // was raised from - once it has moved, the refusal is history too.
+  const rejectedTransition = all
+    .filter(x => x.status === 'rejected' && x.kind === 'transition'
+      && x.from_stage === currentOppStage
+      && !open.some(o => o.kind === 'transition'))
+    .sort((a, b) => String(b.closed_at ?? '').localeCompare(String(a.closed_at ?? '')))[0] ?? null
+  oppLastRejected = rejectedTransition
+  oppReviewRejection = null
 }
 
 // ── MAIN: RAISE A PRICING APPROVAL AGAINST AN ISSUED VERSION ─────────────
@@ -7698,6 +7729,33 @@ window.getOppLoadedRevision = function () {
 //
 // ONE retry, never a loop: two editors racing must not become two clients
 // racing, and a second failure is a real conflict that deserves the sentence.
+// ── EVERY REFUSED WRITE ON THIS SCREEN SAYS SO ───────────────────────────
+//
+// Fix 3, 2026-09-04. Recorded on the watch list at the previous walk's close as
+// "the unrecoverable refusal has not been proven to surface a message", and it
+// bit within a day: a reject on an already-decided request was correctly
+// refused with 403, nothing appeared, and a correct refusal was read as
+// corrupted state across three screens.
+//
+// A CLASS, not a handler. Each caller having its own feedback element is the
+// opt-in pattern that left the criteria panel silent - the same shape as the
+// numeric guard that covered two fields out of thirty-one. Every write on this
+// screen goes through oppPatch, so this is the one place that covers them all,
+// including callers that do not exist yet.
+//
+// It says the SERVER'S OWN SENTENCE. The route already words its refusals for a
+// person, and paraphrasing here would be a second reader of the same event.
+function showOppWriteRefusal(message) {
+  const el = document.getElementById('opp-write-refused')
+  if (!el) return
+  if (!message) { el.classList.add('hidden'); el.innerHTML = ''; return }
+  el.classList.remove('hidden')
+  el.innerHTML = `<div class="write-refused">`
+    + `<p class="label" style="margin-bottom:6px">That change was not saved</p>`
+    + `<p style="font-size:14px;margin:0">${escHtml(message)}</p></div>`
+}
+window.showOppWriteRefusal = showOppWriteRefusal
+
 window.oppPatch = async function (recordId, body) {
   const send = () => api('PATCH', `/api/opportunities/${recordId}`,
     { ...body, expected_revision: oppLoadedRevision })
@@ -7706,7 +7764,15 @@ window.oppPatch = async function (recordId, body) {
   }
   let result = await send()
   adopt(result)
-  if (result.ok || result.status !== 409) return result
+  if (result.ok) { showOppWriteRefusal(null); return result }
+  if (result.status !== 409) {
+    // Not a stale holder: a real refusal - permission, a closed request, a
+    // validation the client did not catch. Nothing here can recover it, so the
+    // person is told rather than left to infer it from a screen that did not
+    // change.
+    showOppWriteRefusal(result.data?.error ?? 'The change could not be saved.')
+    return result
+  }
 
   // Catch the holder up from the record itself, which is the same fact the poll
   // would have brought a few seconds later.
@@ -7715,6 +7781,8 @@ window.oppPatch = async function (recordId, body) {
   oppLoadedRevision = fresh.data.latest_revision_number
   const retried = await send()
   adopt(retried)
+  showOppWriteRefusal(retried.ok ? null
+    : (retried.data?.error ?? 'The change could not be saved.'))
   // The retry's own answer is what the caller sees. If it succeeded the person
   // never learns there was a race, which is the point: nothing was lost and
   // nothing needs doing.
@@ -7767,6 +7835,7 @@ async function renderOppDetail(opp) {
   document.getElementById('view-opportunity-detail')?.classList.toggle('is-frozen', !!oppOpenRequest)
   renderOppFreezeBanner(opp.id)
   renderOppRejectedBanner()
+  showOppWriteRefusal(null)
 
   // ── NOT YOURS, ON THE WHOLE VIEW, FROM ONE VALUE. Round 41 W1 ───────────
   //
@@ -7912,6 +7981,10 @@ async function renderOppDetail(opp) {
   // module renders before this resolves. Without this the approval control
   // would be hidden on every load and only reappear on the next render.
   window.oppRefreshVersionActions?.()
+  // The rejection banner's review half reads the CURRENT version's state, which
+  // the deal module loads after this. Re-rendered here for the same reason the
+  // version actions are.
+  renderOppRejectedBanner()
   // The next-stage control is re-evaluated above, so a non-owner's copy of it
   // is re-locked here rather than left enabled by that refresh.
   applyReadOnlyControls('view-opportunity-detail', notMine)

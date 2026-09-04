@@ -95,15 +95,28 @@ record('a major version is issued', issued?.status === 'issued' && issued?.minor
 await api('PATCH', `/opportunities/${oppId}`,
   { payload: { targetMargin: 30 }, expected_revision: await rev() })
 
-// The three version-track sign-offs, recorded against the issued version's
-// revision the way the evaluator reads them.
+// ── THE SIGN-OFFS NAME THE VERSION, THROUGH A REQUEST ────────────────────
+//
+// 2026-09-04. These were recorded against the issued version's REVISION,
+// "the way the evaluator reads them" - and that was the defect: the evaluator
+// paired an approval with a version by revision number, which holds only while
+// nothing changes in between. The link is the request's frozen_version_id, and
+// a fixture without one now models a state no live path can produce.
+const { data: pricingReq, error: prErr } = await admin().from('transition_requests').insert({
+  record_id: oppId, record_type: 'opportunity', from_stage: 'Proposal',
+  to_stage: 'Evaluation', kind: 'review', status: 'open',
+  frozen_revision: issued.revision_number, frozen_version_id: issued.id, requested_by: uid,
+}).select('id').single()
+if (prErr) record('the pricing-approval request records', false, prErr.message)
 for (const track of ['Commercial', 'Legal', 'Technical']) {
   const { error } = await admin().from('approvals').insert({
-    record_id: oppId, revision_number: issued.revision_number, stage: 'Proposal',
-    track, approver_id: uid, decision: 'approved',
+    record_id: oppId, request_id: pricingReq?.id, revision_number: issued.revision_number,
+    stage: 'Proposal', track, approver_id: uid, decision: 'approved',
     comment: 'Proposal/Pricing approved for issue', decided_at: new Date().toISOString() })
   if (error) record(`the ${track} sign-off records`, false, error.message)
 }
+await admin().from('transition_requests').update({
+  status: 'approved', closed_by: uid, closed_at: new Date().toISOString() }).eq('id', pricingReq?.id)
 
 // A write BEFORE the transition, proving the record was never frozen while the
 // sign-offs were gathered. That is the whole no-freeze claim, on this record.

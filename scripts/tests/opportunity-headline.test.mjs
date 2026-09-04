@@ -271,8 +271,23 @@ test('the stale-write message is one sentence, on both surfaces, with a control'
     'the superseded wording must not survive beside its replacement')
 
   // AND THE RECOVERY IS AUTOMATIC, which is what makes the new sentence honest.
-  assert.match(app, /if \(result\.ok \|\| result\.status !== 409\) return result/,
+  assert.match(app, /if \(result\.ok\) \{ showOppWriteRefusal\(null\); return result \}/,
+    'a successful write must clear any standing refusal')
+  assert.match(app, /if \(result\.status !== 409\) \{/,
     'a stale write must re-read and retry rather than stopping at the refusal')
+
+  // ── FIX 3: A REFUSED WRITE SAYS SO, AS A CLASS ─────────────────────────
+  //
+  // Recorded on the watch list at the previous walk's close and it bit within a
+  // day: a reject on an already-decided request was correctly refused 403, the
+  // screen said nothing, and a correct refusal read as corrupted state on three
+  // surfaces. Per-handler feedback is the opt-in pattern that left the criteria
+  // panel silent - the same shape as a numeric guard covering two fields of 31.
+  assert.match(app, /function showOppWriteRefusal\(message\)/)
+  assert.match(app, /showOppWriteRefusal\(result\.data\?\.error/,
+    'a non-recoverable refusal must surface the server\'s own sentence')
+  assert.match(app, /showOppWriteRefusal\(retried\.ok \? null/,
+    'a refused RETRY must surface too, or the recovery hides the failure')
   assert.match(app, /const retried = await send\(\)/, 'exactly one retry, never a loop')
   assert.match(app, /window\.reloadAfterStaleWrite = async function/, 'there is no one-click reload')
   // ONE RENDERER. Both surfaces had their own wording, which is Verification 20

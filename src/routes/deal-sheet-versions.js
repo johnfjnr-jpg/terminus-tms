@@ -2,7 +2,7 @@ import { createUserClient } from '../supabase.js'
 import { sendWriteError } from '../lib/write-errors.js'
 import { payloadsDiffer } from '../lib/payload-diff.js'
 import { appendRecordRevision, SINGLE_KEY_RMW } from '../lib/record-revision.js'
-import { versionApprovalState, liveVersionApproval, APPROVAL_TRACK } from '../lib/version-approval.js'
+import { linkApprovalsToVersions, versionApprovalState, liveVersionApproval, APPROVAL_TRACK } from '../lib/version-approval.js'
 import { buildApprovalPage } from '../lib/approval-page.js'
 import { scheduleReconciliation, refusalStatement } from '../lib/milestone-schedule.js';
 import { resolveRates, frozenRates, frozenRatesAgree } from '../lib/rate-resolution.js';
@@ -84,15 +84,27 @@ export default async function dealSheetVersionsRoutes(app) {
       return reply.code(500).send({ error: revErr.message })
     }
 
-    const { data: approvals, error: apprErr } = await db
+    // request_id JOINS THE SELECT. A version's approvals are the ones whose
+    // REQUEST named that version; matching on revision_number paired them by
+    // coincidence and got every version on this record wrong.
+    const { data: approvalRows, error: apprErr } = await db
       .from('approvals')
-      .select('revision_number, track, decision, approver_id, decided_at')
+      .select('revision_number, track, decision, approver_id, decided_at, request_id')
       .eq('record_id', request.params.id)
       .eq('track', APPROVAL_TRACK)
     if (apprErr) {
       request.log.error({ err: apprErr }, 'failed to read approvals for version approval state')
       return reply.code(500).send({ error: apprErr.message })
     }
+    const { data: reqRows, error: reqErr } = await db
+      .from('transition_requests')
+      .select('id, frozen_version_id')
+      .eq('record_id', request.params.id)
+    if (reqErr) {
+      request.log.error({ err: reqErr }, 'failed to read requests for version approval state')
+      return reply.code(500).send({ error: reqErr.message })
+    }
+    const approvals = linkApprovalsToVersions(approvalRows, reqRows)
 
     const latest = latestRev?.revision_number ?? null
     return versions.map((v) => ({
@@ -165,11 +177,15 @@ export default async function dealSheetVersionsRoutes(app) {
       .order('major', { ascending: false }).order('minor', { ascending: false })
     if (vErr) return reply.code(500).send({ error: vErr.message })
 
-    const { data: approvals, error: aErr } = await db
+    const { data: approvalRows2, error: aErr } = await db
       .from('approvals')
-      .select('revision_number, track, decision, approver_id, decided_at')
+      .select('revision_number, track, decision, approver_id, decided_at, request_id')
       .eq('record_id', record.id).eq('track', APPROVAL_TRACK)
     if (aErr) return reply.code(500).send({ error: aErr.message })
+    const { data: reqRows2, error: rErr2 } = await db
+      .from('transition_requests').select('id, frozen_version_id').eq('record_id', record.id)
+    if (rErr2) return reply.code(500).send({ error: rErr2.message })
+    const approvals = linkApprovalsToVersions(approvalRows2, reqRows2)
 
     const latestNumber = latest.revision_number
     const version = (versions ?? [])[0] ?? null
