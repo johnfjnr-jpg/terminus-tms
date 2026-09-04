@@ -95,6 +95,51 @@ record('L1: the notes became hover affordances that keep their words',
 record('L1: and they are reachable by keyboard, not mouse-only', help.focusable)
 record('L1: no permanent note is left in the factoring panel', help.strayNotes === 0)
 
+// ── M2: THE MILESTONE FIELD IS THE CONTRACTOR'S OWN SELECTOR ────────────
+//
+// L6 asked for "the same milestone component as the Contractor lump sum" and
+// three of four columns were reshaped while this one stayed a free-text box -
+// then reported as the shared component. The probe could not catch it because
+// it asserted the three columns that had changed. It asserts this one now, and
+// asserts it against the CONTRACTOR's options rather than against a list
+// written here, so the two cannot drift apart.
+const opts = await page.evaluate(() => {
+  const read = (el) => el && el.tagName === 'SELECT'
+    ? [...el.options].map((o) => o.value) : null
+  return {
+    hybridTag: document.getElementById('deal-ms-0-label')?.tagName,
+    contractorTag: document.getElementById('deal-cm-0-label')?.tagName,
+    hybrid: read(document.getElementById('deal-ms-0-label')),
+    contractor: read(document.getElementById('deal-cm-0-label')),
+  }
+})
+const usdFieldWidth = await page.evaluate(() =>
+  Math.round(document.getElementById('deal-ms-0-usd')?.getBoundingClientRect().width ?? 0))
+record('M2: the hybrid milestone field is a SELECT, not a text box',
+  opts.hybridTag === 'SELECT', `<${String(opts.hybridTag).toLowerCase()}>`)
+record('M2: and it offers exactly the contractor\'s options, from one source',
+  !!opts.hybrid && !!opts.contractor
+    && JSON.stringify(opts.hybrid) === JSON.stringify(opts.contractor),
+  `${opts.hybrid?.length ?? 0} options vs ${opts.contractor?.length ?? 0}`)
+
+// ── M1/M4/M5: read as peers, and figures near their labels ──────────────
+const m145 = await page.evaluate(() => {
+  const fs = (el) => el ? parseFloat(getComputedStyle(el).fontSize) : null
+  const po = document.getElementById('deal-po-factoring')
+  const pay = document.querySelector('.payment-terms-panel')
+  return {
+    poLabel: fs(po?.querySelector('label')), payLabel: fs(pay?.querySelector('.form-group label')),
+    poBtn: fs(po?.querySelector('.view-toggle button')), radio: fs(pay?.querySelector('.ring-radio-label')),
+    usdWidth: Math.round(document.getElementById('deal-ms-0-usd')?.getBoundingClientRect().width ?? 0),
+  }
+})
+record('M1: the two panels use one label scale',
+  m145.poLabel === m145.payLabel, `po=${m145.poLabel}px pay=${m145.payLabel}px`)
+record('M1: and the choice controls match their peers',
+  m145.poBtn === m145.radio, `toggle=${m145.poBtn}px radio=${m145.radio}px`)
+record('M5: the computed USD field is the width of the figure',
+  usdFieldWidth > 0 && usdFieldWidth <= 130, `${usdFieldWidth}px`)
+
 // ── L4/L7: THE REGION HOLDS AT THREE WIDTHS ──────────────────────────────
 for (const w of [1240, 1920, 3440]) {
   await openAt(w)
@@ -211,6 +256,42 @@ record('L7: the factoring rate keeps ONE decimal point and drops letters',
 record('and none of these re-adds the guard per field',
   !(readFileSync('frontend/index.html', 'utf8').includes('class="int-only"')),
   'the inputmode guard is inherited')
+
+// ── M3 AND M4 ARE TWO-PHASE SURFACES ────────────────────────────────────
+//
+// The fixture above is HYBRID, where the year schedule does not render at all
+// and the invoicing choice is the hybrid group's own. Measured there, M3 read
+// "invoicing is not left" and M4 read a null gap - both true of a screen
+// neither item is about. The structure is switched rather than the assertions
+// loosened.
+await api('PATCH', `/opportunities/${oppId}`,
+  { payload: { structure: 'twoPhase', recoveryMonths: 24 }, expected_revision: await rev() })
+await openAt(1920)
+await page.waitForFunction(() => document.querySelectorAll('.ys-line').length > 0, { timeout: 20000 })
+
+// ── M3: INVOICING AND RECOVERY SHARE A LINE, INVOICING LEFT ─────────────
+const m3 = await page.evaluate(() => {
+  const inv = document.getElementById('deal-invoicing-toggle')
+  const rec = document.getElementById('deal-recovery-group')
+  if (!inv || !rec) return null
+  const a = inv.getBoundingClientRect(), b = rec.getBoundingClientRect()
+  // VERTICAL OVERLAP, not equal tops. The row is align-items:flex-end, so a
+  // tall radio group and a short field on the SAME line have different y by
+  // the height difference - the first version of this read "not on one line"
+  // about a layout that was correct.
+  const overlap = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top)
+  return { sameLine: overlap > 0, overlap: Math.round(overlap), invoicingLeft: a.x < b.x }
+})
+record('M3: invoicing and the recovery term share a line, invoicing left',
+  !!m3 && m3.sameLine && m3.invoicingLeft, JSON.stringify(m3))
+const m4gap = await page.evaluate(() => {
+  const line = document.querySelector('.ys-line')
+  const yr = line?.querySelector('.ys-year'), amt = line?.querySelector('.ys-amount')
+  return yr && amt ? Math.round(amt.getBoundingClientRect().left - yr.getBoundingClientRect().right) : null
+})
+
+record('M4: the figure sits near its label, not across the panel',
+  m4gap !== null && m4gap < 220, `${m4gap}px from label to figure (was 491)`)
 
 await browser.close()
 await tearDown()

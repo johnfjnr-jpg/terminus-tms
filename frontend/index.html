@@ -2492,19 +2492,26 @@
             </div>
           </div>
 
-          <div class="ring-radio-group" id="deal-invoicing-toggle" style="margin-top:16px;padding-top:16px;border-top:1px solid var(--hairline)">
-            <span class="label">Invoicing</span>
-            <div class="ring-radio" data-invoicing="annual">
-              <span class="ring-radio-ring"><span class="ring-radio-dot"></span></span>
-              <span class="ring-radio-label">Annual in advance</span>
-            </div>
-            <div class="ring-radio" data-invoicing="monthly">
-              <span class="ring-radio-ring"><span class="ring-radio-dot"></span></span>
-              <span class="ring-radio-label">Monthly</span>
-            </div>
-          </div>
 
           <div id="deal-top-schedule-row" style="display:flex;gap:24px;align-items:flex-end;margin-top:18px;flex-wrap:wrap">
+            <!-- ── M3: INVOICING AND RECOVERY ON ONE LINE ─────────────────
+                 2026-09-05. Invoicing sat in a block of its own and the
+                 recovery period was stranded below it with empty space above,
+                 which is what the walk saw. They are one sentence about how
+                 the money arrives - what the customer is invoiced, and over how
+                 long the capital comes back - so they read left to right on one
+                 line, invoicing first. -->
+            <div class="ring-radio-group" id="deal-invoicing-toggle" style="flex:0 0 auto;margin:0">
+            <span class="label">Invoicing</span>
+            <div class="ring-radio" data-invoicing="annual">
+            <span class="ring-radio-ring"><span class="ring-radio-dot"></span></span>
+            <span class="ring-radio-label">Annual in advance</span>
+            </div>
+            <div class="ring-radio" data-invoicing="monthly">
+            <span class="ring-radio-ring"><span class="ring-radio-dot"></span></span>
+            <span class="ring-radio-label">Monthly</span>
+            </div>
+            </div>
             <div class="form-group" id="deal-recovery-group" style="width:150px;flex:0 0 150px">
               <!-- ── L1: GUIDANCE IS ONE HOVER AWAY, NOT PERMANENT SPACE ──
                    2026-09-04. The note is kept word for word, in a title, so it

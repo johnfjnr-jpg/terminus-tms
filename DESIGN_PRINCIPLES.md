@@ -10281,3 +10281,65 @@ total needs installation to be zero. The first version proved that with
 so it could never balance. Proven from the fixture's own inputs instead. Without
 it the check would have passed by coincidence here and misled on any deal with
 installation in it.
+
+---
+
+## M1-M5: the refinements, and a claim my own probe could not falsify
+
+**2026-09-05.**
+
+### M2: the shared-component claim was false, and I reported it as true
+
+L6 asked for *"the same milestone component as the Contractor lump sum"*. I
+reshaped three of the four columns - month, percentage, USD - and left the
+fourth exactly as it was: a free-text box where the contractor has a dropdown.
+The report then said the shared component was in use.
+
+**That is a claim about the WHOLE ROW made from having changed most of it.**
+Verification 19: a category name is a finding and needs the same evidence as
+one, and "the same component" is a category.
+
+**AND MY OWN PROBE COULD NOT CATCH IT.** It asserted the month, the percentage
+and the computed USD - the three columns I had changed - and never the label
+control. **A probe written from what was built tests what was built**, which is
+the same shape as the version probes whose fixtures were built to satisfy the
+broken join. The probe now asserts the hybrid field against the CONTRACTOR's own
+options rather than a list written beside it, so the two cannot drift.
+
+`milestoneOptions` keeps an unrecognised stored value as its own option, which
+is what makes the change safe on existing hybrid deals: they hold free text, and
+a dropdown that silently discarded it would lose what somebody typed.
+
+### M1: the measurement corrected the report's direction
+
+Reported as the factoring panel's text being SMALLER. Measured, its labels were
+**16px against Payment Terms' 10.5px** - the browser default for a bare
+`<label>`, and larger. What read as smaller was the 11px repayment toggle beside
+13px radio labels.
+
+Both were matched by taking Payment Terms' own declarations rather than picking
+numbers that look close, so the two panels move together if that scale changes.
+**The report was right that they did not read as peers and wrong about which way
+round**, which is worth recording: "looks smaller" is a judgement about contrast
+and weight, not about size.
+
+### M4: space-between in a wide panel is not a layout
+
+Measured: the stack was 593px wide and the eye travelled **491px** from "Year 1"
+to its figure. Capped at 300px, the gap is 198px. The cap is on the STACK rather
+than the panel, so the schedule narrows and everything beside it keeps its width.
+
+### Two measurement faults, both about measuring the wrong screen
+
+**M3 and M4 are two-phase surfaces and the fixture was hybrid.** The year
+schedule does not render for hybrid at all, so M4 measured a null gap and M3
+measured the hybrid group's own invoicing control. Both readings were true of a
+screen neither item is about. The structure is switched for those checks rather
+than the assertions loosened - and the hybrid-dependent checks now run before
+the switch, because the first attempt broke five of them by reordering.
+
+**`align-items: flex-end` means equal tops is the wrong test for "same line".**
+A tall radio group and a short field on one flex line have different `y` by the
+height difference, so the first version reported "not on one line" about a
+layout that was correct. The test is vertical OVERLAP, which is what sharing a
+line actually means.

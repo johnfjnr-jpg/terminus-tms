@@ -5511,8 +5511,25 @@ input.input-invalid {
   padding: 14px 16px;
 }
 .po-field { display: flex; flex-direction: column; }
-.po-field label { margin-bottom: 6px; }
+/* ── M1: THE TWO PANELS READ AS PEERS ─────────────────────────────────────
+   2026-09-05. Measured rather than eyeballed, and the measurement corrected the
+   direction: these labels were 16px, the browser default for a bare <label>,
+   against 10.5px in Payment Terms - LARGER, not smaller. What read as smaller
+   was the 11px repayment toggle beside 13px radio labels.
+   Both matched to Payment Terms' own scale by taking its declarations rather
+   than picking numbers that look close: .form-group label for the labels and
+   .ring-radio-label's size for the choice, so the two panels move together if
+   that scale ever changes. */
+.po-field label {
+  margin-bottom: 6px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted-2);
+}
 .po-field input { width: 100%; }
+.po-factoring-panel .view-toggle--stacked button { font-size: 13px; font-family: var(--body); }
 /* Stacked, because a quarter-width panel cannot hold two buttons side by side
    and the labels are "Straight-line" and "Declining balance". */
 .view-toggle--stacked { display: flex; flex-direction: column; align-items: stretch; }
@@ -5520,7 +5537,13 @@ input.input-invalid {
 
 /* L4: the yearly figures read down. Each line is a label and a right-aligned
    figure, tabular so the digits line up between years. */
-.ys-stack { display: flex; flex-direction: column; gap: 2px; }
+/* ── M4: THE FIGURE STAYS NEXT TO ITS LABEL ───────────────────────────────
+   2026-09-05. Measured: the stack was 593px wide and the eye travelled 491px
+   from "Year 1" to its figure. space-between in a panel that wide is not a
+   layout, it is two columns with a void between them.
+   Capped so the pair reads as a pair. The cap is on the STACK, not on the
+   panel, so the schedule narrows and everything beside it keeps its width. */
+.ys-stack { display: flex; flex-direction: column; gap: 2px; max-width: 300px; }
 .ys-line {
   display: flex;
   justify-content: space-between;

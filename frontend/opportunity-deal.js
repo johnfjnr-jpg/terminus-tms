@@ -1719,16 +1719,34 @@ function renderMilestoneRows(milestones) {
   tbody.innerHTML = Array.from({ length: MILESTONE_ROWS }).map((_, i) => `
     <tr>
       <td><input type="text" inputmode="numeric" maxlength="2" id="deal-ms-${i}-month" style="width:64px"></td>
-      <td><input type="text" id="deal-ms-${i}-label" placeholder="e.g. Installation complete"></td>
+      <!-- ── M2: THE CONTRACTOR'S OWN SELECTOR, FROM THE SAME SOURCE ────
+           2026-09-05, and the defect was in my report as much as the code. L6
+           asked for "the same milestone component as the Contractor lump sum".
+           I reshaped three of the four columns - month, %, USD - and left this
+           one exactly as it was, a free-text box, then reported that the shared
+           component was in use. That is a claim about the WHOLE ROW made from
+           having changed most of it: Verification 19, a category asserted
+           rather than measured.
+           MY OWN PROBE COULD NOT CATCH IT, because it asserted the three
+           columns I had changed and never the one I had not. A probe shaped to
+           what was built tests what was built.
+           milestoneOptions keeps an unrecognised stored value as its own
+           option, which is what makes this safe on existing hybrid deals: they
+           hold free text, and a dropdown that silently discarded it would lose
+           what somebody entered. -->
+      <td><select id="deal-ms-${i}-label">${milestoneOptions(milestones[i]?.label)}</select></td>
       <td><input type="text" inputmode="numeric" maxlength="3" id="deal-ms-${i}-pct" style="width:80px"></td>
-      <td><input type="text" id="deal-ms-${i}-usd" class="is-computed" readonly tabindex="-1"></td>
+      <!-- M5: a computed figure needs the width of the figure, not the width
+           going spare. Six digits and two decimals is eleven characters. -->
+      <td><input type="text" id="deal-ms-${i}-usd" class="is-computed" readonly tabindex="-1" style="width:120px"></td>
     </tr>
   `).join('')
 
   milestones.forEach((m, i) => {
     if (i >= MILESTONE_ROWS) return
     setVal(`deal-ms-${i}-month`, m.month)
-    setVal(`deal-ms-${i}-label`, m.label)
+    // The label is rendered WITH its value, like the contractor's, so it is not
+    // set twice by two mechanisms.
     // The stored percentage is written back. A schedule that renders its own
     // saved percentages blank and only shows them once somebody types is the
     // W-D fault the contractor table already had and had fixed.
