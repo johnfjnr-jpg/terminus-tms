@@ -1673,7 +1673,21 @@
       <div class="opp-tab-actions" id="opp-tab-actions">
         <button class="btn-sm btn-ghost tab-action-idle" id="ref-cancel-all">Cancel</button>
         <button class="btn-sm btn-primary tab-action-idle" id="ref-save-all">Save changes</button>
-        <button class="btn-sm btn-primary" id="opp-next-stage-btn">Next Stage</button>
+        <!-- ── U8: THE FIRST PAINT IS NEVER AN OFFER. 2026-09-04 ──────────
+             It shipped ENABLED and labelled "Next Stage", so the very first
+             frame - before any JavaScript has read the record, let alone the
+             stage-approvals answer - showed a live control, which then greyed.
+             Measured from the first paint: {disabled:false,"Next Stage"} then
+             {disabled:true,"Request next stage"}.
+
+             The flicker was NOT only the async gate answer, which is where the
+             fix was first aimed. Half of it was here, in markup nobody had
+             looked at, offering an action before anything was known.
+
+             Disabled with the neutral label the refresh also uses while it
+             waits, so the control only ever goes inert -> real, never
+             offered -> withdrawn. -->
+        <button class="btn-sm btn-primary" id="opp-next-stage-btn" disabled>Checking...</button>
         <!-- R8: the reason the control above is disabled, stated where the
              control is. A title attribute is a hover, and a person who cannot
              click a button needs to be told why without discovering it. -->

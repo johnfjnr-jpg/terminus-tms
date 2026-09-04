@@ -195,6 +195,10 @@ const STAGES = [
 // on the next success is a property of a browser and of injected responses.
 // What runs unattended is in transition-requests.test.mjs.
 //
+// U9/U10, 2026-09-04 add probe-stale-recover on the same terms: two tabs racing
+// on one record, and whether the second one's write recovers itself, is a
+// property of a browser. Calibrated 1/4 against the pre-fix client.
+//
 // Round 41 F4 adds probe-pulse on the same terms, and the split is the same.
 // Its claim - a screen follows a record somebody else changed, within one poll
 // interval and with no manual refresh - is a property of a BROWSER and cannot

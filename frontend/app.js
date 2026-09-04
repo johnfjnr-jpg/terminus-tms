@@ -947,6 +947,28 @@ function refreshOppNextStageButton() {
   if (!btn || !oppNextStageState) return
   const { recordId, currentStage, nextStage, isTerminal } = oppNextStageState
 
+  // ── U8: PAINT ONCE, WHEN THE GATE'S ANSWER IS KNOWN ───────────────────
+  //
+  // Ruled 2026-09-04. This runs on tab activation, before the stage-approvals
+  // fetch resolves, so it painted an ENABLED button from an absent
+  // oppStageTracks and then greyed it when the answer arrived. The walk saw the
+  // button highlight and then go dead as criteria were ticked.
+  //
+  // A null oppStageTracks is NOT KNOWN, which is a different state from "no
+  // version tracks here" - the same distinction oppVersionGateApplies draws, and
+  // for the same reason. Held in a neutral, inert state until the fetch lands,
+  // then painted once from the real answer.
+  //
+  // Same principle as U11: do not render a control's state before the data it
+  // depends on has arrived. No paint-then-correct.
+  if (oppStageTracks === null && nextStage) {
+    btn.disabled = true
+    btn.textContent = 'Checking...'
+    btn.title = 'Reading what this stage requires'
+    btn.onclick = null
+    return
+  }
+
   if (lost) {
     lost.disabled = isTerminal
     lost.onclick = isTerminal ? null : () => openCloseLostPrompt(recordId, currentStage)
@@ -7408,8 +7430,12 @@ document.addEventListener('input', (e) => {
 // do, but "try again" is advice for a transient failure and this is not one -
 // their typed work is still on screen and a reload discards it. The sentence
 // says what happened, what to do, and that their own entry has to be re-made.
+// U9: it no longer demands a manual reload. oppPatch re-reads and retries once,
+// so by the time anybody sees this sentence the retry has ALSO been refused -
+// which is a real conflict rather than a stale holder. It says what happened and
+// that the screen is catching up, because the poll is doing exactly that.
 const STALE_WRITE_MESSAGE =
-  'This record changed since you loaded it. Reload to see the change, then re-enter yours.'
+  'This record was just changed in another session. The screen is catching up - try again in a moment.'
 
 window.reloadAfterStaleWrite = async function (recordId) {
   const btn = document.querySelector('.stale-reload')
@@ -7652,13 +7678,47 @@ window.getOppLoadedRevision = function () {
 // tbPatch exists on Test Bed: sending the revision and re-reading it from the
 // response are two halves of one rule, and a call site doing only the first
 // would refuse its own second save.
+// ── U9: A SELF-HEALING REFUSAL RECOVERS ITSELF ───────────────────────────
+//
+// Ruled 2026-09-04. The revision holder is SOUND and a 409 here is a genuine
+// second editor - measured with two tabs, and the un-tick path produces the
+// identical refusal, which is U10's root as well.
+//
+// What was wrong is what happened next. The poll re-reads within a poll
+// interval, so the condition clears on its own within seconds, and the message
+// told the person to "reload before saving" - demanding a manual recovery for
+// something already recovering. The walk's own note was "had to go back,
+// restore, then come back - not sure why", which is what a dead end produces.
+//
+// SO IT RE-READS AND RETRIES ONCE, rather than waiting for the poll. The retry
+// carries only the fields THIS patch names, so a concurrent change to a
+// different field survives it - a PATCH merges. A concurrent change to the SAME
+// field is overwritten, which is what a deliberate second act means and is the
+// behaviour the person is asking for by clicking again.
+//
+// ONE retry, never a loop: two editors racing must not become two clients
+// racing, and a second failure is a real conflict that deserves the sentence.
 window.oppPatch = async function (recordId, body) {
-  const result = await api('PATCH', `/api/opportunities/${recordId}`,
+  const send = () => api('PATCH', `/api/opportunities/${recordId}`,
     { ...body, expected_revision: oppLoadedRevision })
-  if (result.ok && Number.isInteger(result.data?.revision_number)) {
-    oppLoadedRevision = result.data.revision_number
+  const adopt = (r) => {
+    if (r.ok && Number.isInteger(r.data?.revision_number)) oppLoadedRevision = r.data.revision_number
   }
-  return result
+  let result = await send()
+  adopt(result)
+  if (result.ok || result.status !== 409) return result
+
+  // Catch the holder up from the record itself, which is the same fact the poll
+  // would have brought a few seconds later.
+  const fresh = await api('GET', `/api/opportunities/${recordId}`)
+  if (!fresh.ok || !Number.isInteger(fresh.data?.latest_revision_number)) return result
+  oppLoadedRevision = fresh.data.latest_revision_number
+  const retried = await send()
+  adopt(retried)
+  // The retry's own answer is what the caller sees. If it succeeded the person
+  // never learns there was a race, which is the point: nothing was lost and
+  // nothing needs doing.
+  return retried
 }
 
 async function loadOpportunityDetail(id) {

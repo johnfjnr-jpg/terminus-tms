@@ -9967,3 +9967,70 @@ live request is the state and the rejection is history.
 U6 replaces "Waiting - you raised this request", which tells the requester what
 they already know, with when it was raised - the fact the clock makes usable.
 "Not yours to decide" stays, because that one explains an absence.
+
+---
+
+## U8, U9, U10: paint once, and recover instead of instructing
+
+**2026-09-04.**
+
+### U10 is U9's root, confirmed rather than assumed
+
+Measured on the UN-TICK path specifically, because the ruling asked for
+confirmation and not inference: two tabs on one record, one ticks, the other
+un-ticks holding the old revision, and the refusal is the identical
+`409 ... It is now at revision 2, the screen holds revision 1`. The revision
+holder is SOUND - `oppPatch` adopts, and the PATCH returns both field names -
+so this is a genuine second editor, not the wrong-reader family.
+
+*"Had to go back, restore, then come back - not sure why"* is what a dead end
+produces when the message names a manual recovery for something already
+recovering.
+
+### U9: THE PREMISE OF THE OLD WORDING FAILED
+
+The superseded sentence was *"Reload to see the change, then re-enter yours"*,
+ruled on the grounds that **"try again" is advice for a transient failure, which
+this is not**. Measured, it IS transient: the poll re-reads within a poll
+interval and the condition clears on its own.
+
+**Verification 29: the decision is re-taken because its premise failed, not
+re-weighed**, and the superseded reasoning is left beside it in the test.
+
+`oppPatch` now re-reads and retries **once**, so the ordinary case never reaches
+a message at all. The retry carries only the fields that patch names - a PATCH
+merges - so a concurrent change to a different field survives it, which is
+asserted rather than assumed. One retry, never a loop: two editors racing must
+not become two clients racing.
+
+### U8: HALF THE FLICKER WAS IN THE MARKUP
+
+The fix was first aimed at the async gate answer, and that half was real:
+`refreshOppNextStageButton` ran on tab activation, before the stage-approvals
+fetch resolved, painting from an absent `oppStageTracks`.
+
+**Measuring from the first paint found the other half, in markup nobody had
+looked at:**
+
+```
+{disabled:false, "Next Stage"}  ->  {disabled:true, "Request next stage"}
+```
+
+The static button shipped **enabled**, so the very first frame offered an action
+before any JavaScript had read the record at all. A guard inside the refresh
+could never have caught that, because the refresh had not run yet.
+
+**The instrument is what found it**: sampling installed with
+`evaluateOnNewDocument` so the first paint is captured. A sampler attached after
+load would have started at the second state and reported the flicker fixed.
+
+Both halves now hold one neutral, inert state and paint once:
+`Checking...` then the real answer, disabled throughout. **A control only ever
+goes inert to real, never offered to withdrawn.**
+
+### U7: deferred, on the business's ruling
+
+The approver has no notification surface - the queue is a view they navigate to.
+A real feature gap rather than a defect, and it joins the deferred list beside
+the owner-manager override, roles-per-opportunity, DOR, the raw-error sweep and
+the sign-in allowlist.

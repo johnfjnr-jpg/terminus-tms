@@ -560,6 +560,25 @@ test('THE POLL HAS A FAILURE SURFACE: silence is no longer possible', () => {
   assert.match(html, /<div id="opp-pulse-stall" class="hidden"><\/div>/)
 })
 
+test('U8: the next-stage control is never offered before the gate answers', () => {
+  const app = readCode(ROOT + 'frontend/app.js')
+  const html = readCode(ROOT + 'frontend/index.html')
+
+  // HALF THE FLICKER WAS IN THE MARKUP, which is where the fix was NOT first
+  // aimed. Measured from the first paint: {disabled:false,"Next Stage"} then
+  // {disabled:true,"Request next stage"} - the static button offered an action
+  // before any JavaScript had read the record at all.
+  assert.match(html, /id="opp-next-stage-btn" disabled>Checking\.\.\.<\/button>/,
+    'the static button must ship inert, or the first frame is an offer')
+
+  // AND THE OTHER HALF is the async gate answer. A null oppStageTracks is NOT
+  // KNOWN, which is a different state from "no version tracks here" - the same
+  // distinction oppVersionGateApplies draws.
+  assert.match(app, /if \(oppStageTracks === null && nextStage\)/,
+    'the button must hold a neutral state until the gate answer arrives')
+  assert.match(app, /btn\.textContent = 'Checking\.\.\.'/)
+})
+
 test('THE CLOCK is on every screen, so a screenshot carries its time', () => {
   const html = readCode(ROOT + 'frontend/index.html')
   const css = readCode(ROOT + 'frontend/style.css')

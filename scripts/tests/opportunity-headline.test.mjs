@@ -252,10 +252,28 @@ test('the stale-write message is one sentence, on both surfaces, with a control'
   const app = code('frontend/app.js', 'js')
   const deal = code('frontend/opportunity-deal.js', 'js')
   const ref = code('frontend/opportunity-reference.js', 'js')
-  // RULED wording. It must not say "reload and try again": their work is still
-  // on screen and a reload discards it, and "try again" is advice for a
-  // transient failure, which this is not.
-  assert.match(app, /This record changed since you loaded it\. Reload to see the change, then re-enter yours\./)
+  // ── SUPERSEDED WORDING, and the reason is recorded rather than replaced ─
+  //
+  // It read "This record changed since you loaded it. Reload to see the change,
+  // then re-enter yours." That was ruled on the premise that the refusal is NOT
+  // transient - "try again" is advice for a transient failure, which this is
+  // not.
+  //
+  // THE PREMISE CHANGED, measured: the poll re-reads within a poll interval, so
+  // the condition clears on its own within seconds, and oppPatch now re-reads
+  // and retries once itself. A person who sees this sentence has already had a
+  // retry refused, so it IS worth trying again - and demanding a manual reload
+  // for something already recovering is what produced the walk's "had to go
+  // back, restore, then come back - not sure why". Verification 29: the
+  // decision is re-taken because its premise failed, not re-weighed.
+  assert.match(app, /This record was just changed in another session\. The screen is catching up - try again in a moment\./)
+  assert.ok(!/Reload to see the change, then re-enter yours/.test(app),
+    'the superseded wording must not survive beside its replacement')
+
+  // AND THE RECOVERY IS AUTOMATIC, which is what makes the new sentence honest.
+  assert.match(app, /if \(result\.ok \|\| result\.status !== 409\) return result/,
+    'a stale write must re-read and retry rather than stopping at the refusal')
+  assert.match(app, /const retried = await send\(\)/, 'exactly one retry, never a loop')
   assert.match(app, /window\.reloadAfterStaleWrite = async function/, 'there is no one-click reload')
   // ONE RENDERER. Both surfaces had their own wording, which is Verification 20
   // in a string: two descriptions of one event, only one ever updated.
