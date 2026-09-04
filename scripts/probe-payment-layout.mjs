@@ -133,6 +133,45 @@ const m145 = await page.evaluate(() => {
     usdWidth: Math.round(document.getElementById('deal-ms-0-usd')?.getBoundingClientRect().width ?? 0),
   }
 })
+// ── ONE RHYTHM DOWN THE PANEL ────────────────────────────────────────────
+//
+// Measured before the fix: 0 / 12 / 12, so the rate label sat flush against the
+// toggle's bottom border. The ask was the RHYTHM, not that one gap - nudging
+// the offender alone would have left a third number beside two twelves.
+//
+// The label-to-its-own-field gap is asserted separately and deliberately
+// SMALLER: it says the two belong together, and flattening it to the group
+// rhythm would separate a label from its input as much as from its neighbour.
+await page.waitForFunction(() =>
+  !document.getElementById('deal-factoring-fields')?.classList.contains('hidden'), { timeout: 20000 })
+const rhythm = await page.evaluate(() => {
+  const q = (id) => document.getElementById(id)?.getBoundingClientRect()
+  const lab = (sel) => document.querySelector(sel)?.getBoundingClientRect()
+  const g = (a, b) => (a && b) ? Math.round(b.top - a.bottom) : null
+  const rateLabel = lab('label[for="deal-factoring-ratePct"]')
+  const termLabel = lab('label[for="deal-factoring-termMonths"]')
+  const methodLabel = [...document.querySelectorAll('#deal-po-factoring label')]
+    .find((l) => /Repayment/i.test(l.textContent))?.getBoundingClientRect()
+  return {
+    groups: [
+      g(lab('#deal-po-factoring .label'), q('deal-factoring-toggle')),
+      g(q('deal-factoring-toggle'), rateLabel),
+      g(q('deal-factoring-ratePct'), termLabel),
+      g(q('deal-factoring-termMonths'), methodLabel),
+    ],
+    labelToField: [g(rateLabel, q('deal-factoring-ratePct')),
+      g(termLabel, q('deal-factoring-termMonths'))],
+  }
+})
+record('the panel has ONE rhythm between its stacked groups',
+  rhythm.groups.every((g) => g !== null) && new Set(rhythm.groups).size === 1,
+  `gaps ${JSON.stringify(rhythm.groups)} (were 0/12/12)`)
+record('and no gap is zero, which is what made the rate label unreadable',
+  rhythm.groups.every((g) => g >= 10), `min ${Math.min(...rhythm.groups)}px`)
+record('a label still sits closer to its own field than to its neighbour',
+  rhythm.labelToField.every((g) => g !== null && g < Math.min(...rhythm.groups)),
+  `label->field ${JSON.stringify(rhythm.labelToField)}`)
+
 record('M1: the two panels use one label scale',
   m145.poLabel === m145.payLabel, `po=${m145.poLabel}px pay=${m145.payLabel}px`)
 record('M1: and the choice controls match their peers',

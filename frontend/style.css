@@ -5510,6 +5510,22 @@ input.input-invalid {
   border: 1px solid var(--hairline-strong);
   padding: 14px 16px;
 }
+/* ── ONE VERTICAL RHYTHM DOWN THE PANEL ───────────────────────────────────
+   2026-09-05. Measured before touching it: the gaps down the panel were
+   0 / 12 / 12, so "RATE % (MONTHLY)" sat flush against the toggle's bottom
+   border with nothing between them. The reported offender is the 0, and the
+   fix is the rhythm rather than that one gap - nudging the rate label alone
+   would have left 12 / 12 beside a new number and made the panel less even,
+   not more.
+   TWO SPACINGS, DELIBERATELY, because they mean different things: between
+   GROUPS the rhythm below, and between a label and the field it names the
+   tighter 6px that says they belong together. Flattening both to one number
+   would separate a label from its own input as much as from its neighbour,
+   which is Payment Terms' own convention read the wrong way. */
+.po-factoring-panel { --po-rhythm: 14px; }
+.po-factoring-panel > * + * { margin-top: var(--po-rhythm); }
+#deal-factoring-fields > label + * { margin-top: 0; }
+#deal-factoring-fields > *:not(label) + label { margin-top: var(--po-rhythm); }
 .po-field { display: flex; flex-direction: column; }
 /* ── M1: THE TWO PANELS READ AS PEERS ─────────────────────────────────────
    2026-09-05. Measured rather than eyeballed, and the measurement corrected the

@@ -10343,3 +10343,36 @@ A tall radio group and a short field on one flex line have different `y` by the
 height difference, so the first version reported "not on one line" about a
 layout that was correct. The test is vertical OVERLAP, which is what sharing a
 line actually means.
+
+---
+
+## The PO Factoring panel's vertical rhythm
+
+**2026-09-05.** Reported as "RATE % (MONTHLY) is squashed against the toggle's
+bottom border". Measured before touching it, the gaps down the panel were:
+
+```
+title -> toggle   10
+toggle -> rate     0     <- the reported offender
+rate  -> term     12
+term  -> method   12
+```
+
+**The ask was the rhythm, not that one gap**, and the measurement is why that
+matters: nudging the rate label alone would have put a third number beside two
+twelves and made the panel less even than it was. One value, 14px, between every
+stacked group, and the inline `margin-top:12px` one-offs are gone - the rhythm
+now lives in one rule rather than in three places that have to be kept equal by
+hand.
+
+**TWO SPACINGS, DELIBERATELY.** The group rhythm is 14px and a label sits 6px
+from the field it names. Flattening both to one number would separate a label
+from its own input as much as from its neighbour, which reads as four unrelated
+things rather than three labelled fields. Payment Terms already uses 6px for the
+same pairing, so this follows the screen's own convention rather than inventing
+one.
+
+Asserted as a SET rather than as four numbers: the probe checks that every group
+gap is the same value, that none is zero, and that the label-to-field gap is
+smaller than the group gap. A future change that moves the rhythm to 16 passes;
+one that reintroduces a squash does not.
