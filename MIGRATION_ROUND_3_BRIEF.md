@@ -1,8 +1,8 @@
 # Migration Round 3: the Commercials deal form
 
-**Drafted 2026-09-05. DECISION-GATED: [DA] this round migrates the deal
-FORM only; the version machinery (version list, save/issue/restore,
-approval lines, freeze feed) is Round 4. Final when ruled.**
+**Final, 2026-09-05. Ruled by John: this round migrates the deal FORM only;
+the version machinery is Round 4. Ground: a 2,797-line surface moved in one
+round produces a revert nobody can attribute.**
 
 First partial-view migration: React takes one panel inside the
 opportunity-detail view while vanilla keeps the view shell, the Reference
@@ -53,8 +53,18 @@ this, and it is exact or it is a defect.
    different empty-state contract), and which inputs are
    salesperson-writable versus latched. The census is the corpus
    generator for the parity proof.
-4. **The one click-to-edit row**: locate it, confirm it is a contract
-   row, and record which editor it needs.
+
+   **MEASURED 2026-09-05, and the figures below replace any earlier count.**
+   **39 controls on the default tab** (35 text, 3 select, 1 textarea), before
+   the detail panel's margin inputs. **`readPayload` reads 31 ids directly.**
+   **Four empty-state contracts, which the corpus must CROSS rather than
+   average:** `numOrNull` x16 (empty -> `null`), `emptyToNull` x2,
+   `num` x2 (empty -> `0`, a value), `numOrUndefined` x11 (empty -> the key is
+   ABSENT, which the record reads as deletion).
+4. ~~**The one click-to-edit row**: locate it, confirm it is a contract
+   row, and record which editor it needs.~~ **STRUCK 2026-09-05: the row does
+   not exist.** Measured zero in the source, the markup region and the live
+   panel; see `MIGRATION_ROUND_3_PHASE_0_REPORT.md` D1.
 5. **Sectioned dirty tracking, measured.** `dealDirtyKeys`,
    `dirtySections`, `renderSectionSaves`, `captureSavedBaseline`: the
    form's dirty model is baseline-comparison at form level, not

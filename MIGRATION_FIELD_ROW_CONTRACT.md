@@ -20,11 +20,30 @@ Measured by counting rendered rows on one record per surface, default tab:
 | surface | click-to-edit rows | read-only display rows | direct inputs |
 |---|---|---|---|
 | Opportunity / Reference | 21 | 5 | 3 |
-| Opportunity / Commercials | 1 | 0 | 15 |
+| Opportunity / Commercials | **0** | **0** | **39** |
 | Test Bed | 16 | 6 | 5 |
 | Contact | 15 | 0 | 0 |
 | Account | 15 | 2 | 0 |
 | **total** | **68** | **13** | **23** |
+
+> **THE COMMERCIALS ROW WAS CORRECTED 2026-09-05, at Migration Round 3 Phase 0.**
+> It read `1 | 0 | 15`. **Re-run instrument, the same one this table names -
+> counting rendered rows on one record, default tab - plus two source scans:**
+> `.ref-field-display[tabindex]` and `.ref-field-display.readonly` both return
+> **0** on the live Commercials panel, and `ref-field`, `fieldDisplayKeydown`
+> and `data-key` return 0 in `opportunity-deal.js` and in the panel's own
+> markup region. **There is no click-to-edit row on Commercials and there is no
+> read-only row.**
+>
+> The direct-input figure is now the **live control count on the default tab**:
+> 39, being 35 text inputs, 3 selects and 1 textarea, every one carrying an id.
+> It excludes the detail panel's 11 margin inputs, which are on the same panel
+> and not on that tab. The previous 15 has no recorded instrument and is not
+> reconcilable with it.
+>
+> **The 81 total below is left as it was measured** and is not re-derived here:
+> re-running it across all five surfaces is its own exercise, and a number
+> half-corrected is worse than one wholly stale.
 
 **81 display rows on default tabs.** The "~89 touch points" figure from the
 earlier assessment is consistent once non-default tabs are counted; 81 is what
