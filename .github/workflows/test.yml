@@ -71,6 +71,11 @@ jobs:
           node-version: '>=22.12 <23'
       - name: Install the React workspace
         run: npm --prefix frontend-react ci
+      # The typecheck runs BEFORE the suite: a type error is cheaper to read
+      # than a runtime failure it may have caused, and vitest would transpile
+      # straight past it.
+      - name: Typecheck the React tree
+        run: npm --prefix frontend-react run typecheck
       - name: Run the React suite
         run: npm --prefix frontend-react run test
       # THE COMMITTED BUNDLE IS A SECOND READER OF THE SOURCE (Verification 20).

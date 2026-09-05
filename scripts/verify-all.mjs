@@ -75,6 +75,21 @@ const STAGES = [
   // BOTH ARE HERE RATHER THAN ONLY IN CI, because a gate that skips them reads
   // as complete. The whole point of the merge gate is that it is the thing
   // quoted at people.
+  // ── THE TYPECHECK, ADDED ROUND 3 SESSION B ─────────────────────────────
+  //
+  // A NAMED GAP CLOSED. Session A found four type errors in the React tree that
+  // the gate could not see, and the reason is structural rather than an
+  // oversight: `vitest` transpiles without typechecking, and `vite build` only
+  // compiles what the ENTRY GRAPH reaches. A module nothing imports yet - which
+  // is every module built behind the line, on purpose - is invisible to both.
+  //
+  // So the migration's own working method, building a surface before wiring it,
+  // is exactly the condition under which the other two stages stop covering it.
+  {
+    name: 'react typecheck',
+    cmd: ['npm', ['run', 'typecheck:react']],
+    needs: 'frontend-react/node_modules. Run: npm --prefix frontend-react ci',
+  },
   {
     name: 'react suite',
     cmd: ['npm', ['run', 'test:react']],
