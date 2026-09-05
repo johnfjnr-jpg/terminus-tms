@@ -648,17 +648,50 @@ test('FINDING 5: the note says what the code does, and the code does it', () => 
   // BOTH HALVES, because a note nobody checked is exactly the claim this
   // project keeps removing. The sentence is asserted AND so is the behaviour it
   // describes, so the note cannot outlive the code it reports.
+  // ── RE-POINTED, Round 3 Session D2c ───────────────────────────────────
+  //
+  // The claim is UNCHANGED. What moved is that its two halves now sit either
+  // side of the form/version seam, so no single file can carry it.
+  //
+  // 1. OFF THE OLD FILE. saveVersion() left opportunity-deal.js in the split.
+  //    indexOf() would return -1 and slice(-1) is the LAST CHARACTER, so every
+  //    match below would have run against a one-character string. Here that
+  //    fails loudly; the same shape passes silently whenever a slice anchor is
+  //    absent, so presence is asserted BEFORE slicing on both sides.
+  //
+  // 2. THE PREMISE, MEASURED WHILE HERE. The order is no longer visible inside
+  //    one function. saveVersion() freezes through the seam before it POSTs,
+  //    and the SAVE itself lives in the vanilla's adapter. Neither file alone
+  //    proves "saved first", which is why this test now reads two.
+  //
+  // 3. BOTH SIDES ASSERTED INDIVIDUALLY, never "some file saves first". The
+  //    version side proves the freeze precedes the request and that a refused
+  //    freeze refuses the version; the form side proves the freeze IS a save
+  //    and that it refuses by throwing. When the vanilla adapter goes, the
+  //    second half FAILS, and that failure is the instruction to re-point it
+  //    at the React seam rather than a defect.
   const html = readCode(new URL('../../frontend/index.html', import.meta.url))
-  const src = readCode(new URL('../../frontend/opportunity-deal.js', import.meta.url))
+  const ver = readCode(new URL('../../frontend/opportunity-deal-versions.js', import.meta.url))
+  const form = readCode(new URL('../../frontend/opportunity-deal.js', import.meta.url))
   assert.match(html, /Taking a version saves the pricing first, so a version and the record can never disagree\./)
 
-  const fn = src.slice(src.indexOf('async function saveVersion()'))
+  // THE VERSION SIDE: it freezes, and it freezes BEFORE the request.
+  assert.ok(ver.includes('async function saveVersion()'), 'saveVersion is not in the version file')
+  const fn = ver.slice(ver.indexOf('async function saveVersion()'))
   const body = fn.slice(0, fn.indexOf('\n}\n'))
-  assert.match(body, /if \(isDealFormDirty\(\)\) \{/, 'it saves when there is something to save')
-  assert.match(body, /const saved = await saveDeal\(\)/)
-  assert.match(body, /if \(!saved\) \{/, 'and refuses the version when that save fails')
-  assert.ok(body.indexOf('await saveDeal()') < body.indexOf('deal-sheet-versions'),
-    'the save must happen BEFORE the version request, or the note is false')
+  assert.match(body, /frozen = await seam\.freezeCurrentState\(\)/, 'it does not freeze through the seam')
+  assert.ok(body.indexOf('seam.freezeCurrentState()') < body.indexOf('deal-sheet-versions'),
+    'the freeze must happen BEFORE the version request, or the note is false')
+  assert.match(body, /versionFeedback\('The pricing could not be saved, so no version was taken\.'/,
+    'a refused freeze does not refuse the version')
+
+  // THE FORM SIDE: the freeze IS a save, and it refuses by throwing.
+  assert.ok(form.includes('async freezeCurrentState()'), 'the vanilla no longer implements the seam')
+  const adapter = form.slice(form.indexOf('async freezeCurrentState()'))
+  const abody = adapter.slice(0, adapter.indexOf('\n  },'))
+  assert.match(abody, /if \(isDealFormDirty\(\)\) \{/, 'it saves when there is something to save')
+  assert.match(abody, /const saved = await saveDeal\(\)/)
+  assert.match(abody, /if \(!saved\) throw new Error/, 'and refuses the version when that save fails')
 })
 
 test('the factoring selection is on the Payment Terms line', () => {

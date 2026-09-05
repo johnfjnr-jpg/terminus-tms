@@ -941,7 +941,21 @@ test('V8: each stage binds to its OWN request, not to one shared Set', () => {
 
 test('V1/V2/V4: the next major comes from the record, not from the draft', () => {
   const route = readCode(ROOT + 'src/routes/deal-sheet-versions.js')
-  const app = readCode(ROOT + 'frontend/opportunity-deal.js')
+  // ── RE-POINTED, Round 3 Session D2c. The claim is unchanged. ──────────
+  //
+  // 1. OFF THE OLD FILE. The version machinery left opportunity-deal.js in the
+  //    split. Every `app` assertion below is a MATCH, so reading the form file
+  //    would have failed loudly; the two NEGATIVE assertions on `app` would
+  //    have gone on PASSING for the rest of the file's life, because a string
+  //    is absent from a file that no longer contains any version code at all.
+  //    That is the half a re-point exists to catch.
+  //
+  // 2. THE PREMISE, MEASURED WHILE HERE: `highestIssued` and `nextMajor` are
+  //    in frontend/opportunity-deal-versions.js, once each.
+  //
+  // 3. BOTH SIDES ASSERTED INDIVIDUALLY. The route half is untouched by the
+  //    split and stays pointed at the route.
+  const app = readCode(ROOT + 'frontend/opportunity-deal-versions.js')
   // The wrong derivation, in all three places it lived.
   assert.ok(!/major: version\.major \+ 1/.test(route), 'the server still derives from the draft')
   assert.ok(!/as V\$\{draft\.major \+ 1\}/.test(app), 'the label still derives from the draft')
@@ -1202,7 +1216,11 @@ test('the issue control targets a draft NEWER than the last issue, and says so w
   // draft is still the latest once every newer one has been issued, and the
   // control offered "Issue V2.1 as V6" on a record whose pricing was nowhere
   // near V2.1.
-  const app = readCode(ROOT + 'frontend/opportunity-deal.js')
+  // ── RE-POINTED, Round 3 Session D2c. The claim is unchanged; the issue
+  // control and its empty state moved to the version file in the split. The
+  // negative assertion on the old empty label is the one that would have gone
+  // on passing against a file with no version code in it.
+  const app = readCode(ROOT + 'frontend/opportunity-deal-versions.js')
   const route = readCode(ROOT + 'src/routes/deal-sheet-versions.js')
   assert.match(app, /const draft = dealVersions\.find\(v => v\.status === 'draft' && v\.major === highestIssued\)/,
     'the label still targets the latest draft overall')

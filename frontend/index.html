@@ -3242,6 +3242,12 @@ opened it. -->
   window.usesWorkflow = usesWorkflow
 </script>
 <script type="module" src="/opportunity-deal.js"></script>
+<!-- ── THE VERSION MACHINERY, SPLIT OUT. Round 3 D2c ───────────────────────
+     Loaded AFTER the form so window.dealFormSeam exists before this module's
+     init could be called; the form's own init is what calls it, so the order
+     is belt and braces rather than load-bearing. It talks to the form only
+     through the seam, so the swap replaces the form under it unchanged. -->
+<script type="module" src="/opportunity-deal-versions.js"></script>
 <!-- ── THE APPROVAL VIEW IS REACT FROM HERE. Round 1, Phase 1 ──────────
      The vanilla frontend/opportunity-approval.js STAYS IN TREE, unloaded,
      until the Round 2 entry gate confirms the pilot. The revert is restoring
