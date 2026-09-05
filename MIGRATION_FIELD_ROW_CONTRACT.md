@@ -269,3 +269,68 @@ initial value, and a field must be clearable and stay cleared.
 through it**, byte-identical file, sha256 `9d3e5d6f…`. They were not edited to
 fit the new shape. Had one failed, the refactor would have moved behaviour, and
 that would have been the finding.
+
+---
+
+# Addendum, 2026-09-05 (third entry): first contact, verdicts
+
+**The Account surface consumed the component.** Each of the eleven positions in
+the first addendum now carries a verdict from behaviour rather than from
+reasoning. Evidence: 23 surface tests, 24 slot tests, a live walk of 18 checks
+on a real record, and a visual comparison against the vanilla at three widths.
+
+| # | position | verdict |
+|---|---|---|
+| 1 | `value` is always a string | **CONFIRMED.** Every Account field is text or a select over strings |
+| 2 | drafts live at the surface | **CONFIRMED, and load-bearing.** The name header ALREADY shared `acctEdits` in the vanilla; a row-owned store could not have expressed that |
+| 3 | `orig` is never stored | **CONFIRMED.** After a save the record re-fetches and dirty recomputes to clean with no reconciliation step |
+| 4 | the seed REPLACES | **CONFIRMED for text.** See 4b |
+| 5 | which keys are seeds | **CONFIRMED**, unchanged |
+| 6 | a rejected seed does not open the row | **AMENDED.** See below |
+| 7 | closing does not clear a draft | **CONFIRMED**, walked live |
+| 8 | discard leaves the row open | **CONFIRMED**, text and select alike |
+| 9 | `canEditFields()`, no argument, silent refusal | **CONFIRMED**, and made concrete: true for `account-detail`, false for anything not yet ruled |
+| 10 | the guard fails closed | **CONFIRMED, and it shaped the wiring.** A global `() => true` would fail OPEN on the two surfaces that have doors |
+| 11 | no vanilla class names copied | **CONFIRMED with one carve-out.** The name header is not a `FieldRow`; it is a rebuild of a specific vanilla element and keeps `cd-name-display`, `cd-name-input`, `ref-field-edit`, `ref-field-discard`, because those are what style it |
+
+## FINDING 4b (new): whether a seed reaches an editor is the EDITOR's property
+
+`revealFieldControl` seeds only a `TEXTAREA` or a text/number `INPUT`. A
+`<select>` is excluded and its own comment says why. So the row opens, the
+select focuses, and the character is discarded to the browser's type-ahead.
+**Ported, not improved.** `editorTakesSeed(field)` is where this lives.
+
+## FINDING 6, AMENDED: two different rejections, and only one refuses to open
+
+The original read *"a rejected seed does not open the row"*, written about the
+`inputMode` guard: opening on a character the field will refuse shows an editor
+that discarded the keystroke that summoned it.
+
+**A select rejects EVERY seed**, so applied literally that sentence would make
+three of the Account surface's rows keyboard-inaccessible - the opposite of
+behaviour 4's purpose. Split:
+
+- **the field's GUARD rejects it** (`inputMode`) - the row does NOT open. The
+  original sentence, unchanged.
+- **the EDITOR cannot hold it** (a select) - the row DOES open, focused, without
+  a seed.
+
+## The editor slot: LANDED
+
+The interface in the second addendum entry is in production on the Account
+surface. Three of its fourteen rows use the select editor. The 49 tests written
+against the seven behaviours passed **byte-unchanged** through the refactor.
+
+## And a note the contract did not have: the REVERT is a load-order property
+
+Not about the row, but about how a migrated surface goes back, and it was found
+by rehearsing rather than by reading.
+
+**A bundle serving more than one surface cannot be reverted per-surface by
+removing its script tag** - that would revert every surface it serves. And
+restoring a vanilla tag is a no-op if the bundle loads afterwards, because both
+write the same `window` name and the last one wins.
+
+**Measured on a rehearsal branch: 69 React markers and ZERO vanilla rows on a
+tree whose revert had been applied.** With the bundle loaded FIRST, restoring
+one vanilla tag reverts exactly that surface, proven both ways.
