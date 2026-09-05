@@ -127,6 +127,44 @@ window.detailLoaded = function (view) {
   document.getElementById(`view-${view}`)?.classList.remove('is-loading')
 }
 
+// ── THE MISSING REGISTRATION IS VISIBLE, NOT A SILENT NO-OP ──────────────
+//
+// Migration Round 1, Phase 2. The approval navigation used to call
+// `window.loadApprovalPage?.(id)`. The optional call is correct JavaScript and
+// it was correct while the vanilla file defined that function unconditionally:
+// the file either loaded or the page was broken in ways nobody could miss.
+//
+// THE MIGRATION CHANGED WHAT ABSENCE MEANS. The function is now registered by a
+// BUILT BUNDLE, and a bundle can be absent for ordinary reasons: a clean
+// checkout with no build, a failed build, a wrong path, a `git clean`. Measured
+// in Phase 1: the server starts, serves / at 200, answers 404 for the bundle,
+// and `?.()` then does NOTHING AT ALL. The nav highlights the view, the
+// previous screen stays on display, and no error appears anywhere.
+//
+// `?.` is the operator that turns a missing dependency into silence, and this
+// is the one call site where the dependency is a separate build artefact.
+//
+// The server logs the same condition at startup. That covers the operator; this
+// covers the PERSON, who is not reading the server log.
+function loadApprovalPageOrSayWhyNot(id) {
+  if (typeof window.loadApprovalPage === 'function') { window.loadApprovalPage(id); return }
+
+  const container = document.getElementById('view-opportunity-approval')
+  if (container) {
+    container.innerHTML = ''
+    const p = document.createElement('p')
+    p.className = 'msg-error'
+    p.id = 'appr-missing-bundle'
+    p.textContent = 'The approval view did not load. Its script is not on the page, '
+      + 'so this is a build or deployment fault rather than anything wrong with the deal. '
+      + 'Reload; if it persists the frontend bundle is missing and needs rebuilding.'
+    container.appendChild(p)
+  }
+  // The view still stops hiding its body. Round 41 item K applies to this path
+  // exactly as it applies to the ones inside the view.
+  window.detailLoaded?.('opportunity-approval')
+}
+
 function navigate(view, id) {
   // The guard runs BEFORE anything is hidden or loaded, so Keep editing
   // returns to a screen that never moved.
@@ -183,7 +221,7 @@ function navigate(view, id) {
     tbUserPickedTab = false
     loadTestBedDetail(id)
   }
-  else if (view === 'opportunity-approval' && id) window.loadApprovalPage?.(id)
+  else if (view === 'opportunity-approval' && id) loadApprovalPageOrSayWhyNot(id)
   else if (view === 'opportunity-detail' && id) {
     // Arriving at a record: the default-to-Reference is wanted.
     oppUserPickedTab = false

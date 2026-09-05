@@ -323,7 +323,27 @@ export function stripComments(src, kind) {
 
 export function kindOf(path) {
   const p = String(path)
-  if (/\.(m?js|cjs)$/.test(p)) return 'js'
+  // ── TS AND TSX READ AS JS, AND THAT IS A CLAIM, NOT A CONVENIENCE ──────
+  //
+  // Migration Round 1 Phase 2. The stripper had no kind for the file types the
+  // migration introduces, so every Verification 39 scan was UNABLE TO READ the
+  // React tree - it threw rather than returning a wrong answer, which is the
+  // good failure, but it meant an evidence scan over frontend-react/src could
+  // not be written at all.
+  //
+  // WHAT MAKES js CORRECT FOR THEM: stripJs's job is to remove `//` and `/* */`
+  // while preserving strings, template literals and regex literals. TypeScript
+  // adds no comment syntax and no new literal syntax that changes where a
+  // comment can start. JSX is the one thing worth naming, and it is safe for a
+  // sharp reason: `{/* ... */}` inside JSX is a JS comment inside a JS
+  // expression container, which is exactly what stripJs already handles. What
+  // JSX does NOT have is HTML comments; `<!-- -->` is a syntax error in JSX,
+  // so there is nothing html-shaped to miss.
+  //
+  // Calibrated in both directions in scripts/tests/strip-comments.test.mjs:
+  // a comment in a .tsx fails to satisfy a scan, and stripped .tsx source still
+  // parses and keeps its real code.
+  if (/\.(m?js|cjs|m?ts|tsx|jsx)$/.test(p)) return 'js'
   if (/\.css$/.test(p)) return 'css'
   if (/\.html?$/.test(p)) return 'html'
   if (/\.sql$/.test(p)) return 'sql'

@@ -32,6 +32,26 @@ const STAGES = [
     cmd: ['npm', ['run', 'test:db']],
     needs: '.env with SUPABASE_URL and SUPABASE_SECRET_KEY',
   },
+  // ── THE REACT TREE. Migration Round 1, Phase 3 ─────────────────────────
+  //
+  // Two stages, and they are two because they fail for different reasons and a
+  // reader needs to know which. The suite says the components render what the
+  // brief's twelve points require; the freshness stage says the bundle the
+  // server actually serves is the one this source builds.
+  //
+  // BOTH ARE HERE RATHER THAN ONLY IN CI, because a gate that skips them reads
+  // as complete. The whole point of the merge gate is that it is the thing
+  // quoted at people.
+  {
+    name: 'react suite',
+    cmd: ['npm', ['run', 'test:react']],
+    needs: 'frontend-react/node_modules. Run: npm --prefix frontend-react ci',
+  },
+  {
+    name: 'react bundle freshness',
+    cmd: ['node', ['scripts/check-dist-fresh.mjs']],
+    needs: 'frontend-react/node_modules, and it rebuilds then restores dist',
+  },
   {
     name: 'HTTP precondition probe',
     cmd: ['node', ['scripts/probe-preconditions.mjs', 'GATE']],
@@ -257,7 +277,23 @@ for (const stage of STAGES) {
   // claim a green suite that did not include the tests it was adding.
   const counts = output.match(/^. (tests|pass|fail) (\d+)$/gm) ?? []
   const n = (k) => counts.find((l) => l.includes(` ${k} `))?.match(/(\d+)$/)?.[1]
-  const tally = n('tests') ? `  ${n('pass')}/${n('tests')} pass, ${n('fail')} fail` : ''
+  let tally = n('tests') ? `  ${n('pass')}/${n('tests')} pass, ${n('fail')} fail` : ''
+
+  // ── AND THE SAME FOR VITEST, WHICH COUNTS IN ITS OWN WORDS ─────────────
+  //
+  // Migration Round 1 Phase 3. node:test prints `# pass 440`; vitest prints
+  // `Tests  37 passed (37)`, or `Tests  2 failed | 35 passed (37)`. The parser
+  // above matched neither, so the React stage reported PASS with NO NUMBER -
+  // and a report quoting "37/37" would then have been a hand-typed second
+  // reader, which is the exact fault the paragraph above exists to prevent.
+  //
+  // Read from the run rather than added to it, both halves, so a stage that
+  // ran zero tests cannot read as a stage that passed.
+  if (!tally) {
+    const v = output.match(/^\s*Tests\s+(?:(\d+) failed \| )?(\d+) passed(?: \| \d+ skipped)? \((\d+)\)/m)
+    if (v) tally = `  ${v[2]}/${v[3]} pass, ${v[1] ?? 0} fail`
+    else if (/^\s*Tests\s+no tests/m.test(output)) tally = '  0/0 pass, 0 fail'
+  }
   summary.push(`${ok ? 'PASS' : 'FAIL'}  ${stage.name.padEnd(26)} exit ${run.status ?? 'n/a'}  ${ms}ms${tally}`)
 }
 

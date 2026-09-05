@@ -754,33 +754,37 @@ test('the panel is ONE panel: the Result block and the matrix are gone', () => {
   assert.ok(!/^\.deal-sheet \{/m.test(css))
   assert.ok(!/^\.deal-sheet-cards \{/m.test(css))
   assert.ok(!/^\.deal-matrix \{/m.test(css))
-  // ── RE-POINTED OFF DEAD CODE. Migration Round 1, Phase 1 ──────────────
+  // ── THE RULE'S CONSUMERS, NAMED. Migration Round 1, Phase 2 ───────────
   //
-  // This read `frontend/opportunity-approval.js` and asserted the approval page
-  // still used `.ds-row`. That file is now UNLOADED - its script tag is
-  // commented out in index.html and the view is served by the React bundle - so
-  // the assertion would have gone on passing by reading a file the browser
-  // never fetches. The first of the 106 rewritten, and the template: a test
-  // that reads a file is only as live as the file.
+  // HISTORY, because the shape of this assertion is the point of it. It used to
+  // read `frontend/opportunity-approval.js` and assert the approval page still
+  // used `.ds-row`. Phase 1 unloaded that file, so the assertion would have gone
+  // on passing by reading a file the browser never fetches - green, unchanged,
+  // and measuring dead code. It was re-pointed at the live vanilla consumers,
+  // with a comment promising to name the React tree once the React tree rendered
+  // ds-row.
   //
-  // WHAT THE MEASUREMENT CHANGED. The original premise was that the approval
-  // page is why the rule stays. Measured with comments stripped, `.ds-row` has
-  // FIVE live uses in app.js, THREE in opportunity-deal.js and TWO in
-  // index.html. The approval view's single use was never load-bearing for this
-  // rule, so re-pointing at the React tree alone would assert a weaker fact
-  // than the one that is true.
+  // IT DOES NOW. Phase 2's ApprovalRow.tsx is the migrated `row()`, so the
+  // React tree is named here and the promise is closed rather than left
+  // describing a tightening that has already happened.
   //
-  // PHASE 1 CANNOT ASSERT THE REACT TREE YET, and that is stated rather than
-  // worked around: the migrated view renders a placeholder this phase and the
-  // five blocks arrive in Phase 2. When they do, this assertion tightens to
-  // name frontend-react/src as a consumer. Until then it asserts what is true -
-  // the rule has live consumers, and the dead file is not one of them.
-  const liveConsumers = [
+  // BOTH SIDES ARE ASSERTED INDIVIDUALLY, not as "some consumer exists".
+  // Verification 14: a check satisfied by either side alone cannot tell you
+  // which one went away, and the whole migration is the vanilla side going away
+  // one file at a time. When the last vanilla consumer goes, THIS LINE FAILS,
+  // and that failure is the instruction to delete it rather than a defect.
+  const vanillaConsumers = [
     '../../frontend/app.js',
     '../../frontend/opportunity-deal.js',
   ].map((rel) => readCode(new URL(rel, import.meta.url)))
-  assert.ok(liveConsumers.some((src) => /ds-row/.test(src)),
-    'nothing loaded uses .ds-row, so the rule below is dead')
+  assert.ok(vanillaConsumers.some((src) => /ds-row/.test(src)),
+    'no loaded vanilla file uses .ds-row any more; if that is deliberate, delete this half')
+
+  const reactConsumers = ['../../frontend-react/src/ApprovalRow.tsx']
+    .map((rel) => readCode(new URL(rel, import.meta.url)))
+  assert.ok(reactConsumers.some((src) => /ds-row/.test(src)),
+    'the React approval view no longer renders .ds-row, so the rule below has lost its new consumer')
+
   assert.match(css, /^\.ds-row \{/m)
 
   // AND THE DEAD FILE IS NOT LOADED, so nobody re-points at it by habit.

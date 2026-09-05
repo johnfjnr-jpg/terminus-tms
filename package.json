@@ -16,7 +16,8 @@
     "verify": "node scripts/verify-all.mjs",
     "state:dump": "node --env-file-if-exists=.env scripts/state-dump.mjs",
     "prepare": "git config core.hooksPath .githooks 2>/dev/null || true",
-    "build:react": "cd frontend-react && npm run build"
+    "build:react": "cd frontend-react && npm run build",
+    "test:react": "npm --prefix frontend-react run test"
   },
   "dependencies": {
     "@fastify/static": "^10.1.2",

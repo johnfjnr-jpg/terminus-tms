@@ -49,3 +49,36 @@ jobs:
         run: npm ci
       - name: Run pure suite
         run: npm test
+
+  # ── THE REACT TREE. Migration Round 1, Phase 3 ─────────────────────────────
+  #
+  # A SEPARATE JOB, not extra steps on the one above, because the two have
+  # different install needs and a shared job hides which half failed. The note
+  # at the top of this file still holds: a green tick here means these suites
+  # passed, not that the gate did.
+  #
+  # `npm run verify` runs both of these as stages too. That is deliberate
+  # duplication rather than an oversight: CI catches them on every push, and the
+  # gate is what gets quoted at a merge. A stage that exists in only one of the
+  # two can be skipped by whichever path somebody happens to use.
+  react:
+    name: react suite and bundle freshness
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '>=22.12 <23'
+      - name: Install the React workspace
+        run: npm --prefix frontend-react ci
+      - name: Run the React suite
+        run: npm --prefix frontend-react run test
+      # THE COMMITTED BUNDLE IS A SECOND READER OF THE SOURCE (Verification 20).
+      # frontend-react/dist is committed so a checkout serves a working approval
+      # view with no build step, which means it can silently fall behind the
+      # components it was built from. This rebuilds and fails on any difference.
+      #
+      # It restores dist afterwards, so it is safe to run anywhere, and it needs
+      # no root install: it only builds the React workspace.
+      - name: The committed bundle matches its source
+        run: node scripts/check-dist-fresh.mjs

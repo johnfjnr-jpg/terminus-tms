@@ -222,3 +222,48 @@ test('stripped html loses exactly the tags that were inside comments', () => {
   assert.ok(tagsInComments >= 1, 'population check: index.html must hold a commented-out tag, or this test cannot fail')
   assert.equal(count(out), count(src) - tagsInComments, 'elements lost beyond the commented ones')
 })
+
+// ── TS AND TSX, ADDED BY MIGRATION ROUND 1 PHASE 2 ───────────────────────
+//
+// Calibrated in BOTH directions, which is Verification 39's second half and
+// the easier one to skip: a stripper that eats real code turns every scan
+// built on it into a silent false negative.
+//
+// The instance that forced this: a scan for `dangerouslySetInnerHTML` in the
+// React tree matched the COMMENT saying there is none, written by the same
+// hand in the same minute as the scan. Verification 39's third shape exactly.
+
+test('kindOf reads ts and tsx as javascript', () => {
+  for (const p of ['a.ts', 'a.tsx', 'a.mts', 'a.jsx', 'src/x/y.tsx']) {
+    assert.equal(kindOf(p), 'js', `${p} must strip as js`)
+  }
+})
+
+test('a comment in a tsx does not satisfy a scan, and the real code still does', () => {
+  const tsx = [
+    '// there is no dangerouslySetInnerHTML anywhere in this view.',
+    'export function A() {',
+    '  return <div className="ds-row" title={"/* not a comment */"}>{/* a jsx comment */}</div>',
+    '}',
+  ].join('\n')
+  const out = stripComments(tsx, 'js')
+
+  // THE COMMENT MUST NOT SATISFY THE SCAN.
+  assert.ok(/dangerouslySetInnerHTML/.test(tsx), 'the raw source does mention it')
+  assert.ok(!/dangerouslySetInnerHTML/.test(out), 'stripped, the comment must not satisfy a scan for it')
+  assert.ok(!/a jsx comment/.test(out), 'a {/* */} JSX comment is a JS comment and strips')
+
+  // AND THE REAL CODE MUST SURVIVE. A stripper that eats this is worse than
+  // one that leaves comments in, because it fails silently and green.
+  assert.match(out, /ds-row/, 'a class name in real code survives')
+  assert.match(out, /export function A/, 'the declaration survives')
+  assert.match(out, /\/\* not a comment \*\//, 'comment syntax inside a string literal is not a comment')
+})
+
+test('stripped tsx keeps its type syntax intact', () => {
+  const tsx = 'const x: Record<string, number> = {} // trailing\nexport type T = { a?: string | null }\n'
+  const out = stripComments(tsx, 'js')
+  assert.ok(!/trailing/.test(out), 'the trailing comment goes')
+  assert.match(out, /Record<string, number>/, 'a generic survives')
+  assert.match(out, /a\?: string \| null/, 'an optional union survives')
+})
