@@ -34,7 +34,7 @@ import { calculateDeal } from '../../src/lib/deal-calculator.js'
 const MARGIN_KEYS_EXPECTED = ['hwSs', 'hwAqm', 'hwHemir', 'hwWarranty',
   'inSsEx', 'inSsNew', 'inAqm', 'inHemir', 'hoSs', 'hoAqm', 'hoHemir']
 import { readFileSync } from 'node:fs'
-import { readCode } from '../lib/strip-comments.mjs'
+import { readCode, stripHtml } from '../lib/strip-comments.mjs'
 import { changedKeys } from '../../src/lib/payload-diff.js'
 import { toNumberOrNull } from '../../src/lib/numeric-payload.js'
 
@@ -754,10 +754,39 @@ test('the panel is ONE panel: the Result block and the matrix are gone', () => {
   assert.ok(!/^\.deal-sheet \{/m.test(css))
   assert.ok(!/^\.deal-sheet-cards \{/m.test(css))
   assert.ok(!/^\.deal-matrix \{/m.test(css))
-  // .ds-row and friends STAY: the approval page renders with them.
-  const approval = readCode(new URL('../../frontend/opportunity-approval.js', import.meta.url))
-  assert.match(approval, /class="ds-row/, 'the approval page still uses these, so the rules stay')
+  // ── RE-POINTED OFF DEAD CODE. Migration Round 1, Phase 1 ──────────────
+  //
+  // This read `frontend/opportunity-approval.js` and asserted the approval page
+  // still used `.ds-row`. That file is now UNLOADED - its script tag is
+  // commented out in index.html and the view is served by the React bundle - so
+  // the assertion would have gone on passing by reading a file the browser
+  // never fetches. The first of the 106 rewritten, and the template: a test
+  // that reads a file is only as live as the file.
+  //
+  // WHAT THE MEASUREMENT CHANGED. The original premise was that the approval
+  // page is why the rule stays. Measured with comments stripped, `.ds-row` has
+  // FIVE live uses in app.js, THREE in opportunity-deal.js and TWO in
+  // index.html. The approval view's single use was never load-bearing for this
+  // rule, so re-pointing at the React tree alone would assert a weaker fact
+  // than the one that is true.
+  //
+  // PHASE 1 CANNOT ASSERT THE REACT TREE YET, and that is stated rather than
+  // worked around: the migrated view renders a placeholder this phase and the
+  // five blocks arrive in Phase 2. When they do, this assertion tightens to
+  // name frontend-react/src as a consumer. Until then it asserts what is true -
+  // the rule has live consumers, and the dead file is not one of them.
+  const liveConsumers = [
+    '../../frontend/app.js',
+    '../../frontend/opportunity-deal.js',
+  ].map((rel) => readCode(new URL(rel, import.meta.url)))
+  assert.ok(liveConsumers.some((src) => /ds-row/.test(src)),
+    'nothing loaded uses .ds-row, so the rule below is dead')
   assert.match(css, /^\.ds-row \{/m)
+
+  // AND THE DEAD FILE IS NOT LOADED, so nobody re-points at it by habit.
+  const indexLive = stripHtml(readFileSync(new URL('../../frontend/index.html', import.meta.url), 'utf8'))
+  assert.ok(!/opportunity-approval\.js/.test(indexLive),
+    'the vanilla approval view is unloaded; a live script tag would make the dead file live again')
 })
 
 test('a full-width row carries no group cells, and the dead cells are gone', () => {

@@ -3206,6 +3206,14 @@ opened it. -->
   window.usesWorkflow = usesWorkflow
 </script>
 <script type="module" src="/opportunity-deal.js"></script>
-<script src="/opportunity-approval.js"></script>
+<!-- ── THE APPROVAL VIEW IS REACT FROM HERE. Round 1, Phase 1 ──────────
+     The vanilla frontend/opportunity-approval.js STAYS IN TREE, unloaded,
+     until the Round 2 entry gate confirms the pilot. The revert is restoring
+     the tag below and removing the bundle tag - one commit, nothing else,
+     because nothing else is allowed to depend on the React tree this round.
+
+     <script src="/opportunity-approval.js"></script>
+-->
+<script src="/app/terminus-react.js"></script>
 </body>
 </html>

@@ -4,7 +4,7 @@
   "description": "Terminus Management System",
   "type": "module",
   "engines": {
-    "node": ">=20.6"
+    "node": "^20.19.0 || >=22.12.0"
   },
   "scripts": {
     "start": "node src/server.js",
@@ -15,7 +15,8 @@
     "test:db": "node --test --env-file-if-exists=.env scripts/tests/reference-number.test.mjs scripts/tests/gates.test.mjs scripts/tests/config-invariants.test.mjs scripts/tests/record-revision.test.mjs scripts/tests/unit-slots.test.mjs scripts/tests/ownership.test.mjs scripts/tests/contact-links.test.mjs scripts/tests/clock-skew-budget.test.mjs scripts/tests/version-atomicity.test.mjs",
     "verify": "node scripts/verify-all.mjs",
     "state:dump": "node --env-file-if-exists=.env scripts/state-dump.mjs",
-    "prepare": "git config core.hooksPath .githooks 2>/dev/null || true"
+    "prepare": "git config core.hooksPath .githooks 2>/dev/null || true",
+    "build:react": "cd frontend-react && npm run build"
   },
   "dependencies": {
     "@fastify/static": "^10.1.2",

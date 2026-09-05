@@ -2,6 +2,7 @@ import Fastify from 'fastify'
 import FastifyStatic from '@fastify/static'
 import { fileURLToPath } from 'url'
 import { dirname, join, resolve, sep } from 'path'
+import { existsSync } from 'fs'
 import { requireAuth } from './middleware/auth.js'
 import recordsRoutes from './routes/records.js'
 import transitionsRoutes from './routes/transitions.js'
@@ -67,6 +68,39 @@ await fastify.register(FastifyStatic, {
 await fastify.register(FastifyStatic, {
   root: join(__dirname, 'lib'),
   prefix: '/lib/',
+  decorateReply: false,
+})
+
+// ── THE REACT BUNDLE, MOUNTED AT /app/ ───────────────────────────────────
+//
+// Migration Round 1, Phase 1. A second static registration rather than a second
+// server: API routes keep priority, and the onSend hook below covers this
+// prefix without knowing it exists, which Phase 0 item 1 proved empirically
+// against a mount registered AFTER the hook rather than reasoned from Fastify's
+// encapsulation rules.
+//
+// decorateReply: false, because the first registration already decorated the
+// reply and a second decoration is an error rather than an override.
+const reactDist = join(__dirname, '..', 'frontend-react', 'dist')
+
+// ── THE MISSING BUNDLE IS LOUD ───────────────────────────────────────────
+// MEASURED, not assumed, before this guard was written: with the directory
+// absent the server starts cleanly, serves / at 200, and answers 404 for
+// /app/terminus-react.js. The approval view then renders NOTHING, with no
+// error anywhere, because the vanilla view that used to fill that container is
+// unloaded. A blank screen and a working screen are told apart by nobody.
+//
+// This is Migration Round 1's own doing, so it is fixed here rather than
+// listed: build discipline 10's limit, a defect the change created is part of
+// the change. Calibrated by moving dist aside and watching it fire.
+if (!existsSync(join(reactDist, 'terminus-react.js'))) {
+  fastify.log.error(
+    'frontend-react/dist/terminus-react.js is missing. The approval view will be blank. Run: npm run build:react')
+}
+
+await fastify.register(FastifyStatic, {
+  root: reactDist,
+  prefix: '/app/',
   decorateReply: false,
 })
 
