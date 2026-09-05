@@ -2,9 +2,25 @@ import { useQuery } from '@tanstack/react-query'
 import { useShell } from '../ShellContext'
 import { useDealForm } from './useDealForm'
 import { buildDealRows, money } from './rows'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { CENSUS, CATALOG_DISPLAYS, MILESTONE_INPUTS, CONTRACTOR_INPUTS, DEAL_SECTIONS } from './census'
 import type { CensusInput } from './census'
 import type { CatalogRates, Values, UiState } from './payload'
+import { buildCashFlowRows, closingCashText } from './cashflow'
+import type { CashFlow } from './cashflow'
+import { buildYearSchedule } from './schedule'
+import {
+  milestoneOptions, milestoneUsdFor, syncContractorRow,
+  contractorReconciliation, customerScheduleWarning,
+} from './milestones'
+import {
+  installVisibility, structureVisibility, grossUpToggle, factoringToggle,
+} from './installation'
+import {
+  CashFlowGrid, YearScheduleView, MilestoneGrid, ContractorGrid,
+  InstallationTab, SwitchButton, StructureVisibilityRegions,
+} from './panelParts'
+import { dirtySections, captureSavedBaseline, SECTION_SAVE_TITLE } from './dirty'
 
 // ── THE PANEL, BEHIND THE LINE ───────────────────────────────────────────
 //
@@ -69,15 +85,41 @@ function CensusField({ field, value, rates, onChange }: {
   )
 }
 
-export function DealPanel({ initialValues, testBedCost = 0, initialUi }: {
+export function DealPanel({ initialValues, testBedCost = 0, initialUi, onSave }: {
   initialValues: Values
   testBedCost?: number
   initialUi?: UiState
+  /** B6: a section save saves the WHOLE sheet, so there is one handler. */
+  onSave?: (payload: Record<string, unknown>) => void
 }) {
+  const cashFlowRef = useRef<HTMLDivElement | null>(null)
+
+  // ── markCashFlowScrollable, PORTED ──────────────────────────────────
+  //
+  // The class says whether the grid actually overflows, and the ResizeObserver
+  // is what makes the answer keep up: the element gets its width when it is
+  // REVEALED, when the window resizes, and when the detail panel opens beside
+  // it. Measuring once at render would be right only on the first of those.
+  useEffect(() => {
+    const el = cashFlowRef.current
+    if (!el) return
+    const mark = () => el.classList.toggle('is-scrollable', el.scrollWidth > el.clientWidth + 1)
+    mark()
+    if (typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(mark)
+    ro.observe(el)
+    return () => ro.disconnect()
+  })
   const catalog = useCatalogRates()
   const rates = ((catalog.data as { rates?: CatalogRates } | undefined)?.rates ?? {}) as CatalogRates
   const form = useDealForm(initialValues, rates, testBedCost, initialUi)
   const { values, ui, setValue, setUi, payload, result, computeError } = form
+
+  // B7: the baseline is captured at mount and re-captured on save. It is the
+  // ONLY thing that clears dirty.
+  const [baseline, setBaseline] = useState<Record<string, unknown> | null>(null)
+  useEffect(() => { if (!baseline && result) setBaseline(captureSavedBaseline(payload)) },
+    [baseline, result, payload])
 
   if (catalog.isPending) return <p className="pg-item-note">Loading the cost catalog…</p>
   if (catalog.isError) {
@@ -86,7 +128,36 @@ export function DealPanel({ initialValues, testBedCost = 0, initialUi }: {
     </p>
   }
 
+  // ── B5 AND B6: SECTION SAVES ────────────────────────────────────────
+  //
+  // Created and destroyed BY NEED - a section save exists exactly when that
+  // section holds a dirty key - and it saves the WHOLE deal sheet. It is a
+  // scroll affordance so somebody editing one section does not have to travel
+  // to the bottom, not a partial write, and its title says so.
+  const dirty = dirtySections(payload, baseline)
+  const sectionSave = (section: string) => (dirty.has(section)
+    ? (
+      <button type="button" className="btn-sm btn-primary section-save"
+        data-testid={`section-save-${section}`} title={SECTION_SAVE_TITLE}
+        onClick={() => onSave?.(payload)}>Save changes</button>
+    )
+    : null)
+
+  // THE CONTRACTOR ROUND TRIP. Whichever side the person typed on decides which
+  // one follows, and the sync runs against the value just entered rather than
+  // the one in state, which has not been committed yet.
+  const onContractorTyped = (i: number, side: 'pct' | 'usd', id: string, v: string) => {
+    setValue(id, v)
+    if (!id.endsWith('-pct') && !id.endsWith('-usd')) return
+    const typed: 'pct' | 'usd' = id.endsWith('-pct') ? 'pct' : 'usd'
+    const next = syncContractorRow({ ...values, [id]: v }, i, typed, lumpCost)
+    if (next) setValue(next.id, next.value)
+  }
+
   const rows = result ? buildDealRows(result as never, payload, ui.grossUp) : []
+  const cashFlow = (result as { cashFlow?: CashFlow } | null)?.cashFlow ?? null
+  const oneOffPrice = (result as { totals?: { oneOffPrice: number } } | null)?.totals?.oneOffPrice ?? 0
+  const lumpCost = Number(payload.lumpSumCost ?? 0)
 
   return (
     <div data-testid="deal-panel">
@@ -94,6 +165,7 @@ export function DealPanel({ initialValues, testBedCost = 0, initialUi }: {
         <div className="deal-section" id={`deal-section-${section}`} key={section}>
           <div className="latch-row" data-testid={`latch-${section}`}>
             <span className="deal-section-title">{section}</span>
+            {sectionSave(section)}
           </div>
           {CENSUS.filter((f) => f.section === section).map((f) => (
             <CensusField key={f.id} field={f} rates={rates}
@@ -113,42 +185,70 @@ export function DealPanel({ initialValues, testBedCost = 0, initialUi }: {
         ))}
       </div>
 
+      {/* ── THE TWO MILESTONE GRIDS ─────────────────────────────────────── */}
       <div className="deal-section" id="deal-section-milestones">
-        {MILESTONE_INPUTS.map((m) => (
-          <div className="deal-ms-row" key={m.row}>
-            {[m.month, m.label, m.usd, m.pct].map((id) => (
-              <input key={id} id={id} data-testid={id}
-                value={values[id] ?? ''} onChange={(e) => setValue(id, e.target.value)} />
-            ))}
-          </div>
-        ))}
-      </div>
-      <div className="deal-section" id="deal-section-contractor">
-        {CONTRACTOR_INPUTS.map((m) => (
-          <div className="deal-cm-row" key={m.row}>
-            {[m.month, m.label, m.usd, m.pct].map((id) => (
-              <input key={id} id={id} data-testid={id}
-                value={values[id] ?? ''} onChange={(e) => setValue(id, e.target.value)} />
-            ))}
-          </div>
-        ))}
+        <div className="latch-row" data-testid="latch-milestones">
+          <span className="deal-section-title">Payment milestones</span>
+          {sectionSave('milestones')}
+        </div>
+        <MilestoneGrid rows={MILESTONE_INPUTS} values={values}
+          usdFor={(i) => milestoneUsdFor(values[`deal-ms-${i}-pct`], oneOffPrice)}
+          onChange={setValue}
+          warning={customerScheduleWarning(
+            (payload.milestones ?? []) as { month?: number; usd?: number }[], oneOffPrice)} />
       </div>
 
-      {/* The latched choices the payload reads from uiState rather than a box. */}
+      <div className="deal-section" id="deal-section-contractor">
+        <div className="latch-row" data-testid="latch-contractor">
+          <span className="deal-section-title">Contractor milestones</span>
+          {sectionSave('contractor')}
+        </div>
+        <ContractorGrid rows={CONTRACTOR_INPUTS} values={values}
+          options={(i) => milestoneOptions(values[`deal-cm-${i}-label`])}
+          onTyped={onContractorTyped}
+          view={contractorReconciliation(values, lumpCost)} />
+      </div>
+
+      {/* ── THE INSTALLATION TAB ─────────────────────────────────────────── */}
+      <InstallationTab vis={installVisibility(ui)} />
+      <StructureVisibilityRegions vis={structureVisibility(ui)} />
+
+      {/* The two switches, which are the same control and must look it. */}
+      <div className="deal-section" id="deal-section-toggles">
+        <SwitchButton id="deal-grossUp-toggle" state={grossUpToggle(ui)}
+          onToggle={() => setUi({ grossUp: !ui.grossUp })} />
+        <SwitchButton id="deal-factoring-toggle" state={factoringToggle(ui)}
+          onToggle={() => setUi({ factoringEnabled: !ui.factoringEnabled })} />
+      </div>
+
       <div className="deal-section" id="deal-section-ui">
         <select data-testid="ui-structure" value={ui.structure}
           onChange={(e) => setUi({ structure: e.target.value })}>
-          <option value="twoPhase">Two phase</option><option value="single">Single</option>
+          <option value="twoPhase">Two phase</option>
+          <option value="single">Single</option>
+          <option value="hybrid">Hybrid</option>
         </select>
         <select data-testid="ui-invoicing" value={ui.invoicing}
           onChange={(e) => setUi({ invoicing: e.target.value })}>
-          <option value="annual">Annual</option><option value="milestones">Milestones</option>
+          <option value="annual">Annual</option><option value="monthly">Monthly</option>
         </select>
-        <label><input type="checkbox" data-testid="ui-grossUp" checked={ui.grossUp}
-          onChange={(e) => setUi({ grossUp: e.target.checked })} /> Gross up</label>
-        <label><input type="checkbox" data-testid="ui-factoringEnabled" checked={ui.factoringEnabled}
-          onChange={(e) => setUi({ factoringEnabled: e.target.checked })} /> PO factoring</label>
+        <select data-testid="ui-installResp" value={ui.installResp}
+          onChange={(e) => setUi({ installResp: e.target.value })}>
+          <option>Client Own Installation Team</option>
+          <option>Terminus Contractor - Per Unit</option>
+          <option>Terminus Contractor - Lump Sum</option>
+        </select>
       </div>
+
+      {/* ── THE CASH-FLOW GRID AND THE YEAR SCHEDULE ─────────────────────── */}
+      {cashFlow ? (
+        <div className="deal-section" id="deal-section-cashflow">
+          <CashFlowGrid months={cashFlow.rows.map((r) => r.m)}
+            rows={buildCashFlowRows(cashFlow)} closing={closingCashText(cashFlow)}
+            scrollRef={cashFlowRef} />
+          <YearScheduleView schedule={buildYearSchedule(cashFlow, payload, ui.structure, ui.invoicing)} />
+        </div>
+      ) : null}
 
       {/* ── THE RESULTS, UNDER THE UNFOLD RULING ────────────────────────── */}
       {computeError
