@@ -674,10 +674,12 @@ Three instances: the exit-criteria gate, the version bridge, the stage panel.
 Hard reload, then re-observe, and say so in the report. Two of the fourth walk's
 three findings were code that had already been fixed.
 
-**BEFORE SUPERSEDING A ROUTE** - Verification 41
-List every frontend caller of the old route in the report, with a disposition
-each: removed, refused, or kept-and-why. And make the old route refuse, because
-callers are found by looking and a refusal is found by testing.
+**BEFORE SUPERSEDING A ROUTE OR A SURFACE** - Verification 41
+List every caller of the old route in the report, with a disposition each:
+removed, refused, or kept-and-why. And make the old route refuse, because
+callers are found by looking and a refusal is found by testing. Grep the whole
+repository, and grep for the name as a STRING as well as a path: a claim inside
+a data structure used as documentation cannot fail and cannot be re-pointed.
 
 **BEFORE CALLING A BOUNDARY GREEN** - Verification 40
 Every route the boundary added OR MODIFIED is exercised from outside over HTTP,
@@ -747,6 +749,30 @@ of the change. An unanswerable precondition is a stop.
    same unchanged tree twice and confirm the two agree.** An instrument
    that cannot reproduce itself cannot compare anything, and this costs
    one extra capture.
+
+   **AND A FRAMEWORK'S RENDER IS REAL STATE TOO: NEVER ASSERT INSIDE THE SAME
+   SYNCHRONOUS EVALUATION AS THE INTERACTION.** Migration Round 2, 2026-09-05.
+
+   A probe clicked all fourteen rows of a surface and asserted each one had
+   opened, **inside one `page.evaluate`**. It reported **twelve of fourteen
+   refusing to open**, which reads as an ownership-door defect on a surface whose
+   door had just been ruled always-open.
+
+   **The door was open the whole time.** React re-renders asynchronously, so
+   every assertion in that synchronous loop read the DOM **as it was before the
+   click it had just made**. The probe was measuring the previous frame.
+
+   This is rule 6 arriving from a direction the fixed-delay wording does not
+   cover: there was no delay at all, and no delay would have helped, because the
+   loop never yielded. **A synchronous read after a synchronous dispatch is not
+   a fast measurement, it is a measurement of the old state.**
+
+   **The check: one interaction, then yield, then assert.** In a browser probe
+   that means leaving `page.evaluate` between the two, or awaiting a
+   `waitForFunction` on the state the interaction produces. In a component test
+   it means the framework's own settling helper. The tell is a result that is
+   uniformly wrong for every item except the one that was already in the target
+   state before the loop began.
 
 7. **Before waiting on a condition, state what it would look like if the
    action had NOT happened, and check it differs.** This is the operative
@@ -1187,6 +1213,34 @@ of the change. An unanswerable precondition is a stop.
     reads every deal value through the same readers `buildDealInputs` uses,
     so a value it reports as unset is unset by the calculator's own
     definition.
+
+    **AND A SHELL-GLOBAL INVENTORY DISTINGUISHES TWO KINDS, BECAUSE ONLY ONE OF
+    THEM WORKS TODAY.** Migration Round 2, 2026-09-05. A queued note for the
+    `app.js` round's Phase 0, recorded here because that round will need it
+    before it starts.
+
+    A classic script's top-level declarations do not all reach `window`:
+
+    | declared as | on `window`? | what it means for the migration |
+    |---|---|---|
+    | `function` / `async function` / `var` | **YES** | reachable from a bundle today. **Breaks the day `app.js` becomes a module**, silently at runtime rather than loudly at build |
+    | `let` / `const` | **NO** | **already unreachable** from a bundle. The vanilla reads it as a LEXICAL name from the same script scope, which no separate script can do |
+
+    **Measured in the browser, not inferred from the rule.** `api`, `navigate`,
+    `detailLoaded`, `escHtml`, `formatDate`, `loadTerminusStaffIfNeeded` and
+    `loadAccountsList` are all functions and all present. `terminusStaffCache`
+    and `accountsCache` are `let` and both read `undefined`.
+
+    **The two need different plans and the difference is one keyword.** The
+    reachable set is a deprecation: it works, and every use is a debt that comes
+    due at modularisation. The unreachable set is a REDESIGN: a migrated surface
+    cannot read it at all, and the answer is usually that the React tree fetches
+    the data itself - which is what the Account surface did, removing two
+    couplings rather than adding two accessors.
+
+    **The check: before migrating a surface, inventory what it reads from the
+    shell and split the list by declaration keyword.** A name that is `let` is
+    not a coupling to carry over; it is a coupling that was never possible.
 
     **AND READ AND WRITE MUST AGREE ABOUT ABSENCE, OR MAKING IT VISIBLE ONLY
     MAKES IT VISIBLE ONCE.** Round 39, 2026-08-29, set by the business. Rule 20
@@ -2012,6 +2066,33 @@ of the change. An unanswerable precondition is a stop.
     names a mechanism polices the mechanism, and "frontend" was one route to the
     effect. **Grep the whole repository**, and the disposition list covers probes,
     tests and scripts as well as screens.
+
+    **AND THE ENUMERATION COVERS STRINGS, NOT ONLY ASSERTED CODE.** Migration
+    Round 2, 2026-09-05. The census of what was coupled to
+    `frontend/account-detail.js` found two files. One read the file and asserted
+    against it; **the other named it inside a DATA STRUCTURE used as
+    documentation**:
+
+    ```js
+    const STATE_CLASSES = {
+      'field-editing': 'account-detail.js and contact-detail.js, toggled while a field is dirty',
+    }
+    ```
+
+    Half that sentence became false the moment the script tag went, and **nothing
+    could have caught it**. It is not asserted, so no test fails. It is not read
+    as a path, so the re-point template does not reach it. It is not code, so a
+    scan for callers steps over it.
+
+    **A claim living in a data structure has the failure mode of a comment and
+    the authority of code**, because it sits inside a test file and reads as
+    something the suite maintains. Architecture 9's fourth variant with a better
+    disguise.
+
+    **The check: grep the surface's name across the repository as a STRING, not
+    only as an import or a path**, and give each hit a disposition. Where the hit
+    is documentation, correcting it is the disposition - there is nothing to
+    re-point.
 
     **AND THE OLD ROUTE ITSELF REFUSES**, rather than relying on no caller
     reaching it. Callers are found by looking; a refusal is found by testing.
