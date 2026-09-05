@@ -22,6 +22,7 @@
 // access. One authenticated round trip answers the question actually being
 // asked, which is whether the probes' first call will work.
 import { readFileSync, existsSync } from 'node:fs'
+import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
 // ── THROUGH THE PROBES' OWN TRANSPORT ────────────────────────────────────
@@ -66,6 +67,42 @@ try {
 
 const token = session?.access_token
 if (typeof token !== 'string' || !token) die('session-ref.json carries no access_token.')
+
+// ── AND IT EXTENDS THE SESSION RATHER THAN ONLY VALIDATING IT ────────────
+//
+// Round 2 Phase 0 item 3. The pre-stage validated once, at the start, and a
+// gate can outlive its token: on 2026-09-05 this stage PASSED at 0s and the
+// HTTP stages 401'd anyway, which is the exact failure the stage exists to
+// prevent, arriving through a door it did not cover.
+//
+// MEASURED, both halves. A token is issued for 3600s. The last four gate runs
+// took 356, 361, 365 and 375 seconds of stage time. So a gate cannot outlive a
+// FRESH token; it only dies when the token was already near expiry at the
+// start.
+//
+// THE POSITION, of the two the brief offered: EXTEND AT GATE START, not
+// re-validate before the HTTP block. Re-validating only labels the failure -
+// the pure and database suites have already run and the HTTP block still does
+// not execute. Extending PREVENTS it, for about one second, and turns a
+// 6-minute gate against a 60-minute token into a 10x margin.
+//
+// The threshold is 15 minutes: 2.5x the longest observed gate. Below it the
+// token is refreshed; above it nothing is touched, so an ordinary run does not
+// churn credentials.
+const REFRESH_BELOW_SECONDS = 15 * 60
+const expiresAt = Number(session.expires_at) || 0
+const secondsLeft = expiresAt ? expiresAt - Math.floor(Date.now() / 1000) : 0
+if (expiresAt && secondsLeft < REFRESH_BELOW_SECONDS) {
+  console.log(`      session has ${Math.max(0, Math.round(secondsLeft / 60))} minutes left, under the ${REFRESH_BELOW_SECONDS / 60} minute floor. Extending.`)
+  const r = spawnSync('node', ['--env-file=.env', 'scripts/refresh-session.js'],
+    { cwd: ROOT, encoding: 'utf8' })
+  // A failed refresh is NOT fatal here. The existing token may still have
+  // minutes on it, and the validation below is the authority on whether the
+  // probes' first call will work. What must not happen is this stage inventing
+  // a diagnosis; refresh-session.js prints its own, honestly, since item 2.
+  console.log((r.stdout ?? '').trim() || (r.stderr ?? '').trim().split('\n')[0] || '      refresh produced no output')
+  if (r.status === 0) session = JSON.parse(readFileSync(REF, 'utf8'))
+}
 
 // ── AND IT MUST BE A ROUTE THAT ACTUALLY REQUIRES AUTH ─────────────────
 //

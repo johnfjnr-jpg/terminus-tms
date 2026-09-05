@@ -22,6 +22,23 @@ const OUT_DIR = join(ROOT, '.verify')
 if (!existsSync(OUT_DIR)) mkdirSync(OUT_DIR, { recursive: true })
 
 const STAGES = [
+  // ── REACHABILITY, FIRST OF ALL. Round 2 Phase 0 item 4 ─────────────────
+  //
+  // On 2026-09-05 a gate reported the database suite failing 91 of 92 over 821
+  // SECONDS, plus every HTTP stage. It read as findings. It was a stuck DNS
+  // entry on a VPN resolver, and separating it from a real defect cost a full
+  // diagnostic pass.
+  //
+  // This runs before the database suite and before the session, because a dead
+  // network makes both of those report nonsense. On failure everything that
+  // needs the network is SKIPPED, and the stage says "environment, not
+  // findings" in those words.
+  {
+    name: 'reachability',
+    cmd: ['node', ['--env-file=.env', 'scripts/check-reachable.mjs']],
+    needs: '.env with SUPABASE_URL. Checks DNS and TCP as separate steps.',
+    gate: true,
+  },
   // ── THE PRE-STAGE. Migration Round 1, Phase 5 ──────────────────────────
   //
   // FIRST, and every HTTP stage below is marked `needsSession`. When this fails
@@ -43,6 +60,10 @@ const STAGES = [
     name: 'database suite',
     cmd: ['npm', ['run', 'test:db']],
     needs: '.env with SUPABASE_URL and SUPABASE_SECRET_KEY',
+    // Round 2 Phase 0 item 4: this is the stage that reported 91 failures over
+    // 821 seconds when the network was down. It never runs against a dead one
+    // again.
+    needsSession: true,
   },
   // ── THE REACT TREE. Migration Round 1, Phase 3 ─────────────────────────
   //
@@ -275,15 +296,21 @@ const transcript = []
 const summary = []
 let failed = 0
 
-// Set when the pre-stage fails. Everything downstream of it is SKIPPED rather
-// than run, so the summary cannot be read as a list of findings.
-let sessionDead = false
+// Set to the NAME of the first gate stage that failed. Everything downstream is
+// SKIPPED rather than run, so the summary cannot be read as a list of findings.
+//
+// It holds the name rather than a boolean because there are now two gate
+// stages, reachability and the session, and a skip line that names the wrong
+// one is a label asserting something nobody checked. Round 2 Phase 0 caught
+// exactly that: every skip read "the session precondition failed" on a run
+// where reachability was what failed.
+let blockedBy = null
 
 for (const stage of STAGES) {
-  if (stage.needsSession && sessionDead) {
-    summary.push(`SKIP  ${stage.name.padEnd(26)} not run: the session precondition failed`)
+  if (stage.needsSession && blockedBy) {
+    summary.push(`SKIP  ${stage.name.padEnd(26)} not run: ${blockedBy} failed`)
     transcript.push(
-      `${'='.repeat(72)}\n${stage.name}\nSKIPPED. The session precondition failed, so this stage was not run.\n` +
+      `${'='.repeat(72)}\n${stage.name}\nSKIPPED. The ${blockedBy} stage failed, so this stage was not run.\n` +
       `This is not a finding about ${stage.name}. Nothing was measured.\n${'='.repeat(72)}\n`)
     continue
   }
@@ -296,7 +323,7 @@ for (const stage of STAGES) {
   // different failure from a failing suite and must not read as one.
   const ok = run.status === 0
   if (!ok) failed++
-  if (!ok && stage.gate) sessionDead = true
+  if (!ok && stage.gate && !blockedBy) blockedBy = stage.name
 
   transcript.push(
     `${'='.repeat(72)}\n${stage.name}  (${bin} ${args.join(' ')})\nneeds: ${stage.needs}\n` +
