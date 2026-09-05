@@ -95,7 +95,7 @@ const KNOWN_MISSING_CLASSES: readonly string[] = [
   'deal-basis-value', 'deal-cashflow-col', 'deal-detail-col', 'deal-intake-col',
   'deal-panel', 'deal-payment-col', 'deal-payment-region', 'deal-section--intake',
   'deal-summary-col', 'deal-summary-row', 'deal-toggle', 'detail-open',
-  'detail-tab-panel', 'disclose', 'disclose-chevron', 'doc-table', 'empty-state',
+  'disclose', 'disclose-chevron', 'doc-table', 'empty-state',
   'field-note', 'form-grid', 'form-group', 'help-dot', 'hidden', 'int-only',
   'is-computed', 'is-scrollable', 'latch', 'latch-all-row', 'latch-row--intake',
   'msg-error', 'msg-success', 'payment-card', 'payment-terms-panel', 'pg-card',
@@ -103,9 +103,8 @@ const KNOWN_MISSING_CLASSES: readonly string[] = [
   'pg-item-note', 'pg-margin-input', 'pg-price', 'pg-row', 'pg-total',
   'po-factoring-panel', 'po-field', 'ring-radio', 'ring-radio-dot',
   'ring-radio-group', 'ring-radio-label', 'ring-radio-ring', 'section-save',
-  'section-title', 'section-title-row', 'stat-value', 'stat-value--lead',
-  'stats-grid', 'stats-grid--deal', 'terms-achieved', 'terms-cards',
-  'terms-field-row', 'under-target', 'unit-card', 'unit-cards', 'view-toggle',
+  'section-title', 'section-title-row',   'terms-achieved', 'terms-cards',
+  'terms-field-row', 'unit-card', 'unit-cards', 'view-toggle',
   'view-toggle--stacked',
 ]
 

@@ -3,6 +3,8 @@ import type { YearSchedule } from './schedule'
 import type { ReconciliationView, MilestoneOption } from './milestones'
 import type { InstallVisibility, StructureVisibility, ToggleState } from './installation'
 import { money } from './rows'
+// The SAME reader the vanilla paints the accent from. Verification 20.
+import { marginPresentation } from '../../../src/lib/deal-inputs.js'
 
 // ── THE RENDER HALVES OF THE SESSION C MODELS ────────────────────────────
 //
@@ -203,5 +205,47 @@ export function StructureVisibilityRegions({ vis }: { vis: StructureVisibility }
       <div data-testid="recovery-readonly" hidden={!vis.recoveryReadonly} />
       <div data-testid="hybrid-group" hidden={!vis.hybridGroup} />
     </>
+  )
+}
+
+// ── THE STRIP ABOVE THE SECTIONS ─────────────────────────────────────────
+//
+// D2d identity adoption. Four always-visible figures, and the accent on the
+// margin is NOT this component's rule: it reads `marginPresentation`, the same
+// function the vanilla paints from, because Round 41 recorded the cost of
+// having two. Round 39 wrote the rule inline and toggled it on ONE of the two
+// renderings, so the strip showed a deal 22 points under target in the
+// treatment of one on target.
+//
+// The ids are carried even though nothing outside the form reads them: they
+// are what the vanilla's own agreement test names, and a figure with no
+// identity cannot be pointed at when the next disagreement appears.
+export function StatsStrip({ result, payload }: {
+  result: { totals?: { contractNet?: number }, totalDealCostAll?: number,
+    financeCost?: number | null, achievedMargin?: number } | null
+  payload: Record<string, unknown>
+}) {
+  const mp = result
+    ? (marginPresentation(result.achievedMargin ?? 0, payload) as { text: string, state: string })
+    : { text: '--', state: '' }
+  const cell = (label: string, id: string, text: string, lead = false, state = '') => (
+    <div>
+      <span className="label">{label}</span>
+      <div id={id} data-testid={id}
+        className={['stat-value', lead ? 'stat-value--lead' : '', state].filter(Boolean).join(' ')}>{text}</div>
+    </div>
+  )
+  const money0 = (n: number | null | undefined) =>
+    n === null || n === undefined ? '--' : `$${money(n)}`
+  return (
+    <div className="stats-grid stats-grid--deal" data-testid="deal-stats-strip">
+      {cell('Achieved margin', 'deal-achieved-margin', mp.text, true, mp.state)}
+      {cell('Contract net', 'deal-contract-net', money0(result?.totals?.contractNet))}
+      {cell('Total deal cost', 'deal-total-cost', money0(result?.totalDealCostAll))}
+      {/* money(null) is $NaN, and the absence has a wording of its own because
+          the figure it replaces is one somebody prices against. */}
+      {cell('Finance cost', 'deal-finance-cost',
+        result && result.financeCost === null ? 'not recorded' : money0(result?.financeCost))}
+    </div>
   )
 }

@@ -45,7 +45,13 @@ const panelSrc = subtree(html, 'id="opp-tab-commercial"')
 // The FORM is the panel minus the two regions that stay vanilla.
 const versionSrc = subtree(panelSrc, 'id="deal-version-panel"')
 const actionsSrc = subtree(panelSrc, 'class="form-actions"')
-const formSrc = panelSrc.replace(versionSrc, '').replace(actionsSrc, '')
+// DESCENDANTS ONLY, matching instrument B. React mounts INSIDE the panel, so
+// the panel's own id and class are the container's and can never be adopted.
+// The two instruments disagreed on exactly this and the disagreement was the
+// correct answer: `opp-tab-commercial` and `detail-tab-panel` belong to the
+// mount point, not to the render.
+const formSrc = panelSrc.slice(panelSrc.indexOf('>') + 1)
+  .replace(versionSrc, '').replace(actionsSrc, '')
 
 const idsA = new Set(), clsA = new Set()
 for (const m of formSrc.matchAll(/\sid="([^"]+)"/g)) idsA.add(m[1])

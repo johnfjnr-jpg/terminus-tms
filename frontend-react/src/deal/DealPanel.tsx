@@ -18,7 +18,7 @@ import {
 } from './installation'
 import {
   CashFlowGrid, YearScheduleView, MilestoneGrid, ContractorGrid,
-  InstallationTab, SwitchButton, StructureVisibilityRegions,
+  InstallationTab, SwitchButton, StructureVisibilityRegions, StatsStrip,
 } from './panelParts'
 import { dirtySections, captureSavedBaseline, SECTION_SAVE_TITLE } from './dirty'
 import { makeSeam } from './seam'
@@ -222,6 +222,7 @@ export function DealPanel({
 
   return (
     <div data-testid="deal-panel">
+      <StatsStrip result={result as never} payload={payload} />
       {DEAL_SECTIONS.map((section) => (
         <div className="deal-section" id={`deal-section-${section}`} key={section}>
           <div className="latch-row" data-testid={`latch-${section}`}>

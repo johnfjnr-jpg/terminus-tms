@@ -68,7 +68,6 @@ export const ADOPTED_CLASSES: readonly string[] = [
   "deal-summary-row",
   "deal-toggle",
   "detail-open",
-  "detail-tab-panel",
   "disclose",
   "disclose-chevron",
   "dm-cell",
