@@ -33,6 +33,23 @@ export interface FieldDescriptor {
    */
   inputMode?: 'text' | 'numeric' | 'decimal' | 'tel' | 'email' | 'url' | 'search' | 'none'
   /**
+   * The options a select offers. Round 2: three of the Account surface's
+   * fourteen rows are selects, and DECLARING the options is what selects the
+   * editor - a caller states data, never wiring.
+   *
+   * The editor renders an empty option ahead of these so a set field can be
+   * CLEARED. Without it a select is a one-way door and "not recorded" stops
+   * being reachable from the screen.
+   */
+  options?: string[]
+  /**
+   * Explicit editor choice, for the case where the descriptor's shape does not
+   * imply it. Omitted, `options` present means select and its absence means
+   * text. Round 3's dates and currency add members here without touching the
+   * row.
+   */
+  editor?: 'text' | 'select'
+  /**
    * Behaviour 7. A read-only row is the same row WITHOUT a door and WITHOUT a
    * tab stop. It is not an editable row that has been disabled, because that
    * gets the tab order wrong.

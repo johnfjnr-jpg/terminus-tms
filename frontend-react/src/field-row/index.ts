@@ -1,4 +1,6 @@
 export type { FieldDescriptor, FieldRowsController } from './types'
 export { useFieldRows } from './useFieldRows'
 export { FieldRow, acceptsValue } from './FieldRow'
+export { TextEditor, SelectEditor, editorFor, editorTakesSeed } from './editors'
+export type { FieldEditor, FieldEditorProps } from './editors'
 export { EditBar } from './EditBar'

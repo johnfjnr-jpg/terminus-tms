@@ -171,3 +171,101 @@ structural decision (findings 8 and 2).
 **Working from the contract without the source made it sharper to work from,
 not vaguer**, which is worth knowing before Round 2 rules on whether to keep
 that constraint.
+
+---
+
+# Addendum, 2026-09-05 (second entry): the editor slot
+
+**Added at Migration Round 2, Phase 0 close, on first contact with the Account
+surface.** Ruled by John as route 3 of three offered.
+
+## What forced it
+
+Three of the Account surface's fourteen click-to-edit rows are `<select>`s:
+`terminusLead` (a staff picker, options from `terminusStaffCache`),
+`billingRegion` and `shippingRegion` (five fixed options each).
+
+The Round 1 component rendered an `<input>` and nothing else, and its
+`FieldDescriptor` had no `options`. **So the first surface to consume the
+component could not render 3 of its 14 rows** - and this document excludes the
+missing piece in writing:
+
+> *"Field-specific editors. Dates, staff pickers, currency and the numeric
+> guard are per-field concerns layered on the row, not part of it."*
+
+`terminusLead` is a staff picker. Named, and excluded.
+
+## The ruling: the slot IS that sentence, implemented
+
+Not a departure from the contract. **"Layered on the row, not part of it" is a
+description of an interface**, and until Round 2 nothing implemented it.
+
+> **The row owns state, the door, dirty and keyboard. Editors are pluggable.
+> Text and select are the first two.**
+
+```ts
+interface FieldEditorProps {
+  field: FieldDescriptor
+  value: string                  // the draft if there is one, else the original
+  onChange(next: string): void   // a CANDIDATE; the row applies its own guard
+  onRequestClose(): void         // Escape. The row closes; it does NOT discard
+  focusRef: RefObject<HTMLElement | null>
+  testId: string
+}
+```
+
+The descriptor gains `options?: string[]` and `editor?: 'text' | 'select'`.
+**`options` present selects the select editor**, so a caller declares DATA
+rather than wiring - the same reasoning that keyed the numeric guard on
+`inputMode` rather than on a list of field names.
+
+## What an editor structurally cannot do, each asserted
+
+- **Bypass the door.** It is only ever mounted inside the row's edit half, and
+  the row opens that half through `requestOpen`. An editor holds no controller
+  reference and cannot open anything.
+- **Own dirty.** It receives `value` and `onChange`. It cannot read the
+  original, cannot see another field, and cannot set a flag. An editor
+  reporting the value it was given produces no dirt.
+- **Smuggle a value past the declared guard.** `acceptsValue` runs in the ROW's
+  `onChange`, on the whole candidate. There is nowhere for an editor to skip it.
+- **Be operated while the row is closed.** The edit half carries `hidden`, and a
+  hidden subtree is out of the tab order by specification.
+
+## Behaviour 4 and a select: MEASURED, not chosen
+
+`window.revealFieldControl` in `frontend/app.js` computes
+
+```js
+const takesText = input.tagName === 'TEXTAREA'
+  || (input.tagName === 'INPUT' && (input.type === 'text' || input.type === 'number'))
+```
+
+**A `<select>` is not in that set**, and the function's own comment says why:
+*"Only a free-text control can take a character. A date input and a select
+cannot hold an arbitrary first character."*
+
+**So on the vanilla surface today, typing a character at a closed select row
+opens the row, focuses the select, and DISCARDS the character.** That is ported
+exactly rather than improved. The keystroke is not wasted: once the select has
+focus the browser's own type-ahead takes it.
+
+**Behaviour 4 is therefore amended, not overturned.** "The seed character is
+kept" is true of every editor that can hold one, and whether an editor can hold
+one is a property of the editor. `editorTakesSeed(field)` is where that lives.
+
+## The empty option, and why it is not cosmetic
+
+The select editor renders an empty option ahead of the declared ones.
+
+**Without it a select is a one-way door**: once a value is chosen there is no
+way back to unset, and "not recorded" stops being reachable from the screen.
+That is `CLAUDE.md` Architecture 11 arriving through an editor - a default is an
+initial value, and a field must be clearable and stay cleared.
+
+## The proof the refactor was a MOVE and not a rewrite
+
+**The 49 tests written against the seven behaviours in Round 1 pass UNCHANGED
+through it**, byte-identical file, sha256 `9d3e5d6f…`. They were not edited to
+fit the new shape. Had one failed, the refactor would have moved behaviour, and
+that would have been the finding.
