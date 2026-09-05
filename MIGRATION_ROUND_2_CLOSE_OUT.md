@@ -205,6 +205,23 @@ list.
 
 ---
 
+## 7. Gate, and one transient recorded rather than hidden
+
+**All 20 stages passed on the exact closing tree `d3718b4`**, working tree
+clean: pure 440/440, database 92/92, react 133/133, bundle freshness, 14 HTTP
+probes.
+
+**The first run of that same tree failed 1 of 20**, and it is recorded because a
+green re-run is not a reason to delete the red one. `reference-number.test.mjs`
+lost **one of 50 genuinely concurrent connections** to `TypeError: fetch
+failed`, in 34ms. Not a uniform stage failure and not a stage that never ran, so
+Verification 48's timing tell does not apply; it is a single dropped connection
+inside an otherwise healthy run, on the same VPN resolver that produced this
+session's earlier outage.
+
+**Re-run on the identical tree: 92/92.** Reported as transient with its
+evidence, not as an absence.
+
 ## Standing at the close
 
 Not pushed. `frontend/account-detail.js` is in tree and unloaded. **The revert
