@@ -21,6 +21,8 @@ import {
   InstallationTab, SwitchButton, StructureVisibilityRegions,
 } from './panelParts'
 import { dirtySections, captureSavedBaseline, SECTION_SAVE_TITLE } from './dirty'
+import { makeSeam } from './seam'
+import type { DealFormSeam } from './seam'
 
 // ── THE PANEL, BEHIND THE LINE ───────────────────────────────────────────
 //
@@ -85,12 +87,24 @@ function CensusField({ field, value, rates, onChange }: {
   )
 }
 
-export function DealPanel({ initialValues, testBedCost = 0, initialUi, onSave }: {
+export function DealPanel({
+  initialValues, testBedCost = 0, initialUi, onSave,
+  onPersist, onSeamReady, currentVersionRejection, refreshVersionActions,
+}: {
   initialValues: Values
   testBedCost?: number
   initialUi?: UiState
   /** B6: a section save saves the WHOLE sheet, so there is one handler. */
   onSave?: (payload: Record<string, unknown>) => void
+  /**
+   * The write the seam performs when a version is taken from a dirty form.
+   * Rejects with the refusal, which `freezeCurrentState` then throws.
+   */
+  onPersist?: (payload: Record<string, unknown>) => Promise<void>
+  /** Handed the seam once it exists, so the version machinery can hold it. */
+  onSeamReady?: (seam: DealFormSeam) => void
+  currentVersionRejection?: () => unknown
+  refreshVersionActions?: () => void
 }) {
   const cashFlowRef = useRef<HTMLDivElement | null>(null)
 
@@ -113,13 +127,60 @@ export function DealPanel({ initialValues, testBedCost = 0, initialUi, onSave }:
   const catalog = useCatalogRates()
   const rates = ((catalog.data as { rates?: CatalogRates } | undefined)?.rates ?? {}) as CatalogRates
   const form = useDealForm(initialValues, rates, testBedCost, initialUi)
-  const { values, ui, setValue, setUi, payload, result, computeError } = form
+  const { values, ui, setValue, setUi, setValues, payload, result, computeError } = form
 
   // B7: the baseline is captured at mount and re-captured on save. It is the
   // ONLY thing that clears dirty.
   const [baseline, setBaseline] = useState<Record<string, unknown> | null>(null)
   useEffect(() => { if (!baseline && result) setBaseline(captureSavedBaseline(payload)) },
     [baseline, result, payload])
+
+  // ── EVERY HOOK ABOVE THE EARLY RETURNS ──────────────────────────────
+  //
+  // The seam's useRef/useEffect were first placed below them, where the
+  // catalog's pending branch skipped them and React reported a change in hook
+  // order across renders. Hooks run unconditionally or not at all.
+  // ── THE SEAM, BUILT FROM LIVE READERS ─────────────────────────────────
+  //
+  // Every source is a function rather than a captured value, so the version
+  // machinery holding this object cannot hold a stale form. `getBaseline` is
+  // what makes hasUnsavedChanges answer about NOW rather than about the moment
+  // the seam was made.
+  const latest = useRef({ values, ui, rates, baseline, payload })
+  latest.current = { values, ui, rates, baseline, payload }
+
+  const seamRef = useRef<DealFormSeam | null>(null)
+  if (!seamRef.current) {
+    seamRef.current = makeSeam({
+      getValues: () => latest.current.values,
+      getUi: () => latest.current.ui,
+      getRates: () => latest.current.rates,
+      getBaseline: () => latest.current.baseline,
+      save: async (p) => {
+        if (!onPersist) return
+        await onPersist(p)
+        // B7: the save re-baselines, which is the only thing that clears dirty.
+        setBaseline(captureSavedBaseline(latest.current.payload))
+      },
+      populate: (p) => {
+        // RESTORE WRITES THE FORM AND RE-BASELINES IT. `updateDirtyState` has
+        // no successor: dirty is computed against the baseline, so moving the
+        // baseline with the values IS the whole of what the vanilla pushed.
+        const next: Values = { ...latest.current.values }
+        for (const f of CENSUS) {
+          const key = f.id.replace(/^deal-/, '')
+          const v = (p as Record<string, unknown>)[key]
+          if (v !== undefined) next[f.id] = v === null ? '' : String(v)
+        }
+        setValues(next)
+      },
+      recompute: () => latest.current.payload,
+      currentVersionRejection: () => currentVersionRejection?.() ?? null,
+      refreshVersionActions: () => refreshVersionActions?.(),
+    })
+  }
+  useEffect(() => { if (seamRef.current) onSeamReady?.(seamRef.current) }, [onSeamReady])
+
 
   if (catalog.isPending) return <p className="pg-item-note">Loading the cost catalog…</p>
   if (catalog.isError) {

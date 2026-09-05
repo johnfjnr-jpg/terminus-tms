@@ -27,6 +27,8 @@ export interface DealFormState {
   values: Values
   ui: UiState
   setValue(id: string, next: string): void
+  /** Whole-map replacement, for a restore writing a payload into the form. */
+  setValues(next: Values): void
   setUi(patch: Partial<UiState>): void
   payload: Record<string, unknown>
   writable: Record<string, unknown>
@@ -82,5 +84,5 @@ export function useDealForm(
     }
   }, [payload, catalogRates, testBedCost])
 
-  return { values, ui, setValue, setUi, payload, writable, result, computeError }
+  return { values, ui, setValue, setValues, setUi, payload, writable, result, computeError }
 }
