@@ -161,6 +161,31 @@ commit. Nothing else changes, because nothing else is allowed to depend on
 the React tree this round. The procedure is rehearsed in Phase 5, not merely
 written down.
 
+> **REHEARSED 2026-09-05, AND THE PROCEDURE ABOVE IS INCOMPLETE BY ONE EDIT.**
+> Executed on a branch, it works: the vanilla view renders in full against the
+> real server, all five blocks filled, zero React markers, the bundle never
+> requested, and the tree was byte-identical afterwards.
+>
+> **But the gate goes red**, 1 of 19 stages, on `commercials-wiring.test.mjs`'s
+> assertion *"the vanilla approval view is unloaded; a live script tag would
+> make the dead file live again"*.
+>
+> **That failure is the assertion doing exactly its job**, and it must not be
+> softened: it exists to catch a live tag on the file the migration unloaded,
+> and a revert is a live tag on that file, on purpose.
+>
+> **So the revert is TWO edits in one commit**, and the second is: invert that
+> assertion to "is loaded", and drop the React consumer from the `ds-row` check
+> beside it.
+>
+> Everything else held. **Both React stages still PASS on the reverted state** -
+> the suite and the bundle-freshness check - which is correct rather than a
+> hole: the React source is still in the repository and still builds, it is
+> simply not served. Nothing in the gate exists only to be deleted on a revert.
+>
+> **This is what a rehearsal is for.** The procedure read as complete to both
+> parties and was one line short, and the only way to find that was to run it.
+
 ---
 
 ## Phase 2: the approval view, migrated
