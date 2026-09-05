@@ -127,3 +127,47 @@ Verification 47: a fixture shaped to the implementation tests the
 implementation. These behaviours are written from the CURRENT code, so a React
 test derived from the new component will agree with itself. **The tests for the
 replacement are derived from this document, not from the component.**
+
+---
+
+# Addendum, 2026-09-05: eleven findings from the first derivation
+
+**Added at the Round 1 Phase 4 close.** The React field-row component was built
+from the document above and nothing else - the five vanilla implementations were
+not opened, for either the component or its tests, which is `CLAUDE.md`
+Verification 47 applied at the component level.
+
+**That derivation found eleven places this contract is silent or
+underdetermined.** Each carries the position taken and the reasoning. **All
+eleven are revisitable on first contact**, when Round 2's first row-bearing
+surface consumes the component: that contact is the real proof, and this is the
+checklist to run it against.
+
+The component is `frontend-react/src/field-row/`; its tests are
+`frontend-react/src/__tests__/field-row.test.tsx`, 49 of them, nine injections
+calibrated.
+
+| # | the silence | position taken |
+|---|---|---|
+| 1 | Behaviour 1 says `draft !== orig` strictly, but not what type `orig` is | **`value` is always a string.** A numeric `orig` would make every numeric field permanently dirty against an input's string, and behaviour 1 exists so that typing a value and typing it back reads clean |
+| 2 | Where the draft store lives is implied, never stated | **At the SURFACE**, not in the row. Forced by behaviour 6: a row that owned its draft could not be counted by anything above it |
+| 3 | Nothing says what happens if the record reloads under an open editor | **`orig` is never stored** - read from the descriptor on every comparison. No second copy to drift, and a reload that brings the record to what somebody typed reads CLEAN rather than dirty against a value nobody holds |
+| 4 | The seed character: replace or append? | **Replace.** A closed row receiving a keystroke is somebody starting to type; appending gives `Acme LtdX`. Nothing is lost, because discard restores |
+| 5 | Which keys are seeds | A single printable character with **no Ctrl, Meta or Alt**. Enter and Space open WITHOUT a seed. Navigation and editing keys are not seeds |
+| 6 | Behaviour 4 and the `inputmode` keying are never put together | **A rejected seed does not open the row.** Opening on a character the field will refuse shows an editor that discarded the keystroke that summoned it |
+| 7 | Does closing a row clear its draft? | **No.** If closing cleared it, close and discard would be one operation, and behaviour 5 exists to say they are two |
+| 8 | "Discard is not close" says what discard is NOT | **The row stays OPEN.** Restoring the original into the input is pointless if the input is then hidden |
+| 9 | The guard's signature, and what refusal looks like | **`canEditFields(): boolean`, no argument, silent refusal.** A field-name parameter nothing uses would be a defaulted parameter hiding an incomplete change (Verification 24). Round 2's Phase 0 decides what the shell's implementation reads |
+| 10 | What if the shell provides no guard at all? Cannot arise in the vanilla | **FAIL CLOSED.** Failing open makes an absent ownership door look exactly like a present one, on the surface whose purpose is stopping somebody editing a record that is not theirs |
+| 11 | Class names and the DOM contract | **No vanilla class names are copied.** Visibility uses the `hidden` ATTRIBUTE, which is load-bearing: a hidden subtree is out of the tab order by specification, so a closed row's input cannot be reached by keyboard - the second half of behaviour 2's own recorded defect |
+
+**One observation about this document rather than about the component.**
+Behaviours 5 and 6 are both stated as **negatives** - "discard is not close",
+"the bar is a property of the surface, not of a row". With the vanilla source
+open, a negative reads as a note about how the existing code happens to work.
+With only this document, a negative IS the specification, and both forced a
+structural decision (findings 8 and 2).
+
+**Working from the contract without the source made it sharper to work from,
+not vaguer**, which is worth knowing before Round 2 rules on whether to keep
+that constraint.

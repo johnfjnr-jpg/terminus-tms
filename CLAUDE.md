@@ -603,7 +603,9 @@ the first group is recorded in full further down, under the index task.
 **BEFORE WRITING** - Architecture 8, 9; Verification 20, 22, 23
 And 46 before adding a write to an existing table: enumerate the triggers,
 constraints and locks already on it, because the new writer inherits all of them.
-And 47 before building a fixture: construct the state the way the SYSTEM would.
+And 47 before building a fixture: construct the state the way the SYSTEM would,
+and before building a MIGRATION REPLACEMENT: derive it from the contract
+document alone, never from the source being replaced.
 A migration asserting a derived value names every reader of it and says what the
 asserted value tells each one (20).
 Correct for every caller that exists is not correct for the caller about to be
@@ -632,7 +634,10 @@ and they stay three rules: enumerate every member of a category and check it
 against the name (19); write one test passing a value different from the default
 (24); treat the clause after "so" or "which means" as a separate claim (26).
 
-**BEFORE MEASURING A LAYOUT** - Verification 4, 6, 7, 10, 15, 27, 28
+**BEFORE MEASURING A LAYOUT, OR A REPLACED SURFACE** - Verification 4, 6, 7, 10, 15, 27, 28
+And 7 when new markup replaces old: assert what must REMAIN by name, not only
+what must appear. A container's new content reads the same whether or not its
+old content survived.
 And 45 when the claim is about a FIRST paint or an initial state: attach the
 sampler with evaluateOnNewDocument, or it starts at the second state.
 Wait on real state, never a fixed delay, and state the counterfactual first.
@@ -657,7 +662,9 @@ stays visible.
 **BEFORE WRITING A SCRATCH OR BACKUP ARTEFACT** - Verification 44
 Key on the full path, not the basename. This repository mirrors names across
 src/lib and src/routes on purpose, and a harness restored the routes file over
-the lib file.
+the lib file. And before INJECTING a fault: verify the snapshot exists first and
+the restore matched afterwards, stopping dead on a mismatch. Two harnesses
+destroyed the work they were calibrating, in consecutive phases.
 
 **BEFORE SHOWING AN APPROVAL OR GATE STATE** - Verification 43
 Name the function the enforcement calls, and confirm the panel calls it too.
@@ -773,6 +780,31 @@ of the change. An unanswerable precondition is a stop.
    that it appeared in its new place, and shipped a duplicate that the
    business found - the first fault in this project to reach anyone other
    than the person who wrote it.
+
+   **AND A REPLACEMENT IS TWO CLAIMS WITH THE POLARITY FLIPPED: WHAT YOU PUT
+   THERE ARRIVED, AND WHAT WAS ALREADY THERE IS STILL THERE.** Migration
+   Round 1, 2026-09-05. A move asserts the thing is GONE from its old place;
+   a replacement asserts everything else is NOT.
+
+   **The instance.** `createRoot` CLEARS its container on first render, so
+   mounting the React approval view destroyed the static markup already inside
+   it - the back button, the eyebrow, the title and all five card headings.
+   The Phase 1 probe read the container's `innerText`, found the placeholder
+   it was looking for, and reported a clean mount.
+
+   **The probe asserted the PAYLOAD and could not see the FRAME.** It shipped,
+   and was found a phase later by someone rebuilding the same view.
+
+   **What made it invisible is that the expected output was deliberately
+   minimal.** A placeholder is meant to look bare, so "everything around it is
+   gone" and "the placeholder rendered" produce the same reading. The more
+   provisional the thing you are asserting, the less its presence tells you.
+
+   **The check: on any surface where new markup replaces old, assert what must
+   REMAIN, by name, alongside what must appear.** Capture the container before
+   and diff it, or list the elements that are not yours and assert each. Same
+   family as rule 33, a measure that cannot see the thing that broke, with a
+   specific remedy 33's general one does not give.
 
 8. **Every Supabase call has its `error` checked, including upserts and
    any write whose result is not otherwise read.** An unchecked write
@@ -2110,6 +2142,38 @@ of the change. An unanswerable precondition is a stop.
     `.verify` transcripts. A name that is unique in one directory is not unique
     across a tree.
 
+    **AND THE HARNESS VERIFIES ITS OWN SNAPSHOT BEFORE INJECTING, AND ITS OWN
+    RESTORE AFTER EVERY INJECTION, STOPPING DEAD ON A MISMATCH.** Migration
+    Round 1, 2026-09-05, after a calibration harness destroyed the work it was
+    calibrating **in two consecutive phases, by two unrelated mechanisms**.
+
+    - **Phase 3 reverted with `git checkout <file>`**, which restores the last
+      COMMIT rather than the pre-injection bytes. On a mid-phase tree those are
+      different things, and it wiped an entire phase's rewrite of a file that
+      had last been committed one phase earlier. For the untracked files in the
+      same run it reverted nothing at all.
+    - **Phase 4 snapshotted with `cp` in a shell script**, and **zsh does not
+      word-split an unquoted variable**, so `snapshot $FILES` passed all four
+      paths as ONE argument. Every `cp` failed with "No such file or directory"
+      and the harness carried on. No snapshot existed, restores failed the same
+      way, and **nine injections landed cumulatively on three files.** The third
+      broke the syntax, so every run after it said `no tests` - which reads like
+      a harness problem rather than like source destruction.
+
+    **The full-path keying above was followed in the second case and was not the
+    problem.** What the two share is that **neither verified its own snapshot or
+    its own restore**, and a fault-injection harness is the one piece of tooling
+    guaranteed to be pointed at uncommitted work and the one piece nobody tests.
+
+    **Three things it must do:** assert the snapshot file EXISTS before injecting
+    anything; compare the restored bytes to the original after EVERY injection
+    and stop rather than compound; and refuse an anchor that is not unique.
+    Prefer a language with no word-splitting to a shell.
+
+    **Both times it was the final "reverted" pass that caught it**, which is the
+    one thing a calibration reliably reports. It costs one run and it has now
+    paid for itself twice.
+
 45. **A PROBE FOR A FIRST-PAINT DEFECT SAMPLES FROM THE FIRST FRAME.** Set by
     the business 2026-09-04, U8, and the instrument's ATTACHMENT POINT was the
     whole finding.
@@ -2186,6 +2250,39 @@ of the change. An unanswerable precondition is a stop.
     that does not exist. And a probe written after the change tests the change:
     ask what it would catch if the change had been done wrong in a DIFFERENT
     way.
+
+    **AND THE SAME RULE ONE LEVEL UP: A COMPONENT DERIVED FROM AN
+    IMPLEMENTATION TESTS THAT IMPLEMENTATION.** Set for the migration,
+    2026-09-05, Round 1 Phase 4.
+
+    > **In this migration a replacement component and its tests are derived from
+    > the CONTRACT DOCUMENT alone. The vanilla source is consulted only after a
+    > derived test disagrees with measured behaviour, and the disagreement is
+    > then recorded as a contract finding rather than fixed silently.**
+
+    The contract documents exist for this. `MIGRATION_FIELD_ROW_CONTRACT.md`
+    closes by saying so: the behaviours were written from the CURRENT code, so a
+    test derived from the new component will agree with itself.
+
+    **MEASURED, and the result was the opposite of the expected cost.** The
+    field-row component was built from the contract with the five vanilla
+    implementations unopened. It found **eleven places the contract was silent**,
+    each now an addendum with the position taken and revisitable on first
+    contact.
+
+    **Two clauses read DIFFERENTLY without the source, and both forced a
+    structural decision.** Behaviours 5 and 6 are stated as negatives - "discard
+    is not close", "the bar is a property of the surface, not of a row". With the
+    vanilla open a negative reads as a note about how existing code happens to
+    work. **With only the contract, a negative IS the specification.**
+
+    **So the prohibition made the contract sharper to work from, not vaguer**,
+    which is the argument for keeping it rather than a cost to be borne.
+
+    **The tell that a derivation has gone wrong is a suite that is green on its
+    first run.** 49 tests passed with no red-green cycle, which is exactly the
+    signature of tests written to agree with the component. Nine injections, one
+    per behaviour, are what turned that into evidence.
 
 48. **A STAGE THAT FAILS FASTER THAN IT COULD DO ITS WORK HAS NOT RUN.** Round
     41, 2026-09-03 and 2026-09-04, twice in two days, and it cost a diagnostic

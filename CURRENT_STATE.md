@@ -12,9 +12,9 @@ Contains no environment variable, key or token, and no client data. Records
 appear as counts by status only, never by name or reference code, because
 this file is uploaded into chat sessions.
 
-- Generated at: `2026-09-04T16:50:31.835Z`
-- Git commit: `aca2df90c765d8849a0d93c949757173cc777b62`
-- Working tree at generation: `clean`
+- Generated at: `2026-09-05T03:36:51.495Z`
+- Git commit: `6ebba000a20066128136feea3c146d8f362a25d7`
+- Working tree at generation: `dirty (uncommitted changes present)`
 
 Staleness has two parts, and both must hold for this file to be current:
 the recorded commit is an ancestor of `HEAD`, AND no tracked configuration
@@ -57,8 +57,8 @@ CLAUDE.md build discipline 13. These console settings are MITIGATIONS, not the c
 
 | tag | published commit | date | commits from `HEAD` | local agrees |
 |---|---|---|---|---|
-| `controls-complete` | `56b516e` | 2026-08-29 | 138 | yes |
-| `reshape-complete` | `3499884` | 2026-08-29 | 109 | yes |
+| `controls-complete` | `56b516e` | 2026-08-29 | 147 | yes |
+| `reshape-complete` | `3499884` | 2026-08-29 | 118 | yes |
 
 ## `stage_definitions`
 
@@ -354,34 +354,34 @@ _None._
 
 ## Record counts by type and status
 
-113 live, 30604 soft deleted, 30717 rows in total.
+113 live, 31924 soft deleted, 32037 rows in total.
 
 | record_type | status | live | soft deleted |
 |---|---|---|---|
 | account | Active | 0 | 6 |
-| account | active | 4 | 611 |
-| contact | Active | 0 | 609 |
+| account | active | 4 | 628 |
+| contact | Active | 0 | 648 |
 | contact | Parked | 0 | 2 |
-| contact | Qualified | 8 | 1781 |
+| contact | Qualified | 8 | 1973 |
 | contact | Unqualified | 1 | 56 |
-| document | approved | 61 | 1965 |
+| document | approved | 61 | 2017 |
 | document | received | 1 | 74 |
 | opportunity | Closed Lost | 0 | 19 |
 | opportunity | Closed Won | 2 | 7 |
-| opportunity | Evaluation | 0 | 41 |
+| opportunity | Evaluation | 0 | 49 |
 | opportunity | Negotiating | 1 | 16 |
-| opportunity | Proposal | 8 | 291 |
-| opportunity | Qualification | 4 | 1312 |
-| opportunity | Solution Alignment | 7 | 362 |
+| opportunity | Proposal | 8 | 334 |
+| opportunity | Qualification | 4 | 1446 |
+| opportunity | Solution Alignment | 7 | 395 |
 | test_bed | Closed | 5 | 9 |
 | test_bed | Installation and Commissioning | 1 | 29 |
 | test_bed | Monitoring and Analysis | 0 | 1 |
 | test_bed | Pre-Site Assessment | 0 | 8 |
-| test_bed | Qualification | 1 | 535 |
+| test_bed | Qualification | 1 | 552 |
 | test_bed | Review and Completion | 1 | 0 |
 | test_bed | Site Assessment | 1 | 17 |
 | unit | Installed | 4 | 3 |
-| unit | Planned | 3 | 5822 |
+| unit | Planned | 3 | 6061 |
 | unit | Removed | 0 | 1 |
 
 ### Test fixture record types
@@ -392,19 +392,19 @@ row by row, and are included in the totals above.
 
 | distinct `harness_*` record types | live rows | soft deleted rows |
 |---|---|---|
-| 2076 | 0 | 17027 |
+| 2154 | 0 | 17573 |
 
 No harness record type holds a live row; every fixture row is soft deleted.
 
 ## `approvals`
 
-1555 rows, of which 0 carry a null `stage`.
+1666 rows, of which 0 carry a null `stage`.
 
 | decision | track | rows | null stage |
 |---|---|---|---|
-| approved | Commercial | 854 | 0 |
-| approved | Legal | 350 | 0 |
-| approved | Technical | 346 | 0 |
+| approved | Commercial | 906 | 0 |
+| approved | Legal | 384 | 0 |
+| approved | Technical | 371 | 0 |
 | rejected | Commercial | 1 | 0 |
 | rejected | Finance | 4 | 0 |
 
