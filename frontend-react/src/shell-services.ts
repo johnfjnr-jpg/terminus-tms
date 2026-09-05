@@ -35,6 +35,23 @@ export interface ShellServices {
   navigate(view: string, id?: string): void
   detailLoaded(view: string): void
   getOppLoadedRevision(): number | null
+  /**
+   * ── THE OWNERSHIP DOOR, INJECTED ─────────────────────────────────────
+   *
+   * Migration Round 1, Phase 4. The field-row contract's behaviour 2: one
+   * guarded edit-entry hook, and the guard lives HERE rather than as a
+   * getElementById inside a component, so the React tree does not couple to
+   * the vanilla DOM's ownership class.
+   *
+   * Called at EVERY entry attempt, never read at render. The contract's own
+   * note is that the door has no timing dependency, unlike the CSS treatment
+   * and the disabled-flag sweep it replaced, and a value captured at render
+   * would reintroduce one.
+   *
+   * Round 2's Phase 0 decides what the shell's implementation reads once the
+   * consuming surface is known.
+   */
+  canEditFields(): boolean
 }
 
 type ShellWindow = Window & {
@@ -42,6 +59,7 @@ type ShellWindow = Window & {
   navigate?: (view: string, id?: string) => void
   detailLoaded?: (view: string) => void
   getOppLoadedRevision?: () => number | null
+  canEditFields?: () => boolean
 }
 
 const w = (): ShellWindow => window as ShellWindow
@@ -72,5 +90,18 @@ export const shellServices: ShellServices = {
   getOppLoadedRevision(): number | null {
     const fn = w().getOppLoadedRevision
     return typeof fn === 'function' ? fn() : null
+  },
+  // ── FAILS CLOSED, AND THAT IS THE WHOLE POINT ────────────────────────
+  //
+  // A shell that has not provided this guard yields a surface whose fields do
+  // not open. That is visible in the first second of use and safe.
+  //
+  // Failing OPEN would make a missing ownership door look exactly like a
+  // present one, on a surface where the defect being guarded against is
+  // somebody editing a record that is not theirs. An absent control that
+  // reads as a working control is the failure this project keeps recording.
+  canEditFields(): boolean {
+    const fn = w().canEditFields
+    return typeof fn === 'function' ? fn() === true : false
   },
 }
