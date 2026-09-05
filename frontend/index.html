@@ -380,11 +380,17 @@
         <!-- Name is click-to-edit directly in the header, same pattern as
              Contact's cd-display-name/cd-edit-name (contact-detail.js). -->
         <div data-key="name" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-          <h1 id="acct-detail-name" class="cd-name-display" onclick="openAcctField('name')">--</h1>
-          <div class="ref-field-edit hidden" id="acct-edit-name">
-            <input type="text" id="acct-input-name" class="cd-name-input">
-            <span class="ref-field-discard" onclick="discardAcctField('name')">&times;</span>
-          </div>
+          <!-- ── THE NAME HEADER IS REACT FROM HERE. Round 2 ─────────────
+               The two inline onclick attributes are REMOVED, not neutered:
+               they named vanilla globals that are no longer loaded. The markup
+               below is what the revert restores, alongside the script tag.
+
+               <h1 id="acct-detail-name" class="cd-name-display" onclick="openAcctField('name')">--</h1>
+               <div class="ref-field-edit hidden" id="acct-edit-name">
+                 <input type="text" id="acct-input-name" class="cd-name-input">
+                 <span class="ref-field-discard" onclick="discardAcctField('name')">&times;</span>
+               </div>
+          -->
         </div>
         <p class="sub" id="acct-detail-number">--</p>
       </div>
@@ -3183,7 +3189,14 @@ opened it. -->
 <script src="/opportunity-reference.js"></script>
 <script src="/test-bed-detail.js"></script>
 <script src="/contact-detail.js"></script>
-<script src="/account-detail.js"></script>
+<!-- ── THE ACCOUNT VIEW IS REACT FROM HERE. Round 2, Step C ────────────
+     frontend/account-detail.js STAYS IN TREE, unloaded, until the Round 3
+     entry gate confirms the surface. The revert is this tag plus the name
+     header markup above: three edits in index.html, enumerated in the Phase 0
+     report, plus the re-points it names.
+
+     <script src="/account-detail.js"></script>
+-->
 <!-- The numeric payload boundary, published for the classic scripts.
      opportunity-reference.js is a classic <script> and cannot import, and the
      alternative to this is a second copy of toNumberOrNull living in it - which

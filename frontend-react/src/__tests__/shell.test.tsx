@@ -33,17 +33,31 @@ beforeEach(() => {
 })
 afterEach(() => { vi.resetModules() })
 
-describe('the bundle registers exactly one global', () => {
-  test('window.loadApprovalPage is a function after import, and nothing else is added', async () => {
+describe('the bundle registers exactly the loaders it declares', () => {
+  // ── UPDATED, Round 2 Step C, and the distinction matters ──────────────
+  //
+  // This read `expect(added).toEqual(['loadApprovalPage'])` and failed when the
+  // Account surface migrated. That is the assertion doing its job: the bundle
+  // now registers TWO loaders because TWO surfaces are migrated, and the claim
+  // it encodes genuinely changed BY INSTRUCTION.
+  //
+  // Distinct from the 49 field-row tests, which had to pass UNCHANGED through
+  // the editor-slot refactor: that refactor was meant to move nothing, so a
+  // failure there would have been a finding. Here the behaviour was deliberately
+  // extended, and the test follows it.
+  //
+  // WHAT IS PRESERVED IS THE EXACTNESS. It is still a set equality, not a
+  // "contains", so an accidental third global still fails it - and the revert
+  // story is still readable off this line: one loader, one script tag.
+  test('the loaders are registered after import, and NOTHING else is added', async () => {
     installShell(async () => ({ ok: true, data: null }))
     const before = new Set(Object.keys(window))
     await import('../main')
     expect(typeof window.loadApprovalPage).toBe('function')
+    expect(typeof window.loadAccountDetail).toBe('function')
 
-    // ONE global. The revert story is "restore one script tag", and it stays
-    // true only while this bundle adds one name.
-    const added = Object.keys(window).filter((k) => !before.has(k))
-    expect(added).toEqual(['loadApprovalPage'])
+    const added = Object.keys(window).filter((k) => !before.has(k)).sort()
+    expect(added).toEqual(['loadAccountDetail', 'loadApprovalPage'])
   })
 })
 
@@ -135,5 +149,6 @@ declare global {
     navigate?: (v: string, id?: string) => void
     detailLoaded?: (v: string) => void
     getOppLoadedRevision?: () => number | null
+    loadAccountDetail?: (id: string) => void
   }
 }

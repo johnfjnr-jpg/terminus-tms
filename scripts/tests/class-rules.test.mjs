@@ -63,7 +63,16 @@ const HOOKS = {
 // truth, and either way would put a false claim in a list whose value is that
 // its claims are checked.
 const STATE_CLASSES = {
-  'field-editing': 'account-detail.js and contact-detail.js, toggled while a field is dirty',
+  // CORRECTED, Round 2 Step C. This said "account-detail.js and
+  // contact-detail.js". The Account surface is React as of Round 2, so half of
+  // that sentence became false the moment the script tag went.
+  //
+  // NOTHING WOULD HAVE FAILED. It is a description inside a data structure,
+  // used as documentation rather than asserted, so no test could catch it going
+  // stale - the shape Phase 0 named as entry 5 and distinct from the ds-row
+  // shape, which at least reads a file. Architecture 9's fourth variant living
+  // inside a test.
+  'field-editing': 'contact-detail.js, toggled while a field is dirty. The Account surface used to toggle it too and is React from Round 2; the React field row expresses the same state as data-dirty on .field-row.',
 }
 
 // ── AND A STRUCTURAL WRAPPER IS NOT A HOOK ────────────────────────────────

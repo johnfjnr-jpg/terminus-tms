@@ -68,7 +68,7 @@ test('a payload the calculator cannot price reads as no value, not as an error',
 
 // ── THE SURFACES, asserted from source ────────────────────────────────────
 import { readFileSync } from 'node:fs'
-import { stripComments } from '../lib/strip-comments.mjs'
+import { stripComments, stripHtml } from '../lib/strip-comments.mjs'
 const ROOT = new URL('../../', import.meta.url).pathname
 const code = (p, kind) => stripComments(readFileSync(ROOT + p, 'utf8'), kind)
 
@@ -127,12 +127,36 @@ test('"Terminus Lead" is renamed on the OPPORTUNITY and nowhere else', () => {
   assert.match(ref, /\{ key: 'lead', label: 'Opportunity owner', staffField: true \}/,
     'the Opportunity still labels its owner "Terminus Lead"')
   assert.ok(!/label: 'Terminus Lead'/.test(ref), 'a Terminus Lead label survives on the Opportunity')
-  // AND NOT ON THE OTHERS, because a Test Bed's lead is not an opportunity
-  // owner and the rename would make those labels false.
-  for (const f of ['frontend/test-bed-detail.js', 'frontend/account-detail.js']) {
-    assert.match(code(f, 'js'), /label: 'Terminus Lead'/,
-      `${f} lost its Terminus Lead label, which is not an opportunity owner`)
-  }
+  // ── AND NOT ON THE OTHERS. RE-POINTED, Round 2 Step C ─────────────────
+  //
+  // A Test Bed's lead is not an opportunity owner and the rename would make
+  // those labels false. That claim is unchanged; WHERE it is measured is not.
+  //
+  // 1. OFF THE DEAD FILE. frontend/account-detail.js is unloaded as of Round 2:
+  //    its script tag is commented out and the surface is served by the React
+  //    bundle. Left as it was, this assertion would have gone on PASSING by
+  //    reading a file the browser never fetches. Second instance of the Round 1
+  //    ds-row shape, and the template is now three parts rather than one.
+  //
+  // 2. THE PREMISE, MEASURED WHILE HERE. The sentence says "the others", and
+  //    Phase 0 measured what those are: Test Bed still labels its lead in
+  //    vanilla, and the Account surface now labels it in the React descriptors.
+  //    Two files, two languages, one claim.
+  //
+  // 3. BOTH SIDES ASSERTED INDIVIDUALLY, never "some file still says it". When
+  //    the last vanilla consumer goes, the first assertion FAILS, and that
+  //    failure is the instruction to delete it rather than a defect.
+  assert.match(code('frontend/test-bed-detail.js', 'js'), /label: 'Terminus Lead'/,
+    'the vanilla Test Bed lost its Terminus Lead label, which is not an opportunity owner')
+
+  // The Account surface, now React. Same claim, measured where the label lives.
+  assert.match(code('frontend-react/src/account/descriptors.ts', 'js'), /label: 'Terminus Lead'/,
+    'the migrated Account surface lost its Terminus Lead label, which is not an opportunity owner')
+
+  // AND THE DEAD FILE IS NOT LOADED, so nobody re-points at it by habit.
+  const indexLive = stripHtml(readFileSync(new URL('../../frontend/index.html', import.meta.url), 'utf8'))
+  assert.ok(!/account-detail\.js/.test(indexLive),
+    'the vanilla Account view is unloaded; a live script tag would make the dead file live again')
 })
 
 test('the sort puts absent values last in BOTH directions', () => {

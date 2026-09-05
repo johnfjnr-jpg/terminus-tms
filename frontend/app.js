@@ -146,6 +146,54 @@ window.detailLoaded = function (view) {
 //
 // The server logs the same condition at startup. That covers the operator; this
 // covers the PERSON, who is not reading the server log.
+// ── canEditFields: THE OWNERSHIP DOOR THE REACT TREE ASKS ────────────────
+//
+// Migration Round 2, ruled at the Phase 0 close. MEASURED first, both halves:
+// openAcctField carries no ownership check beyond a reentrancy guard, and
+// `is-not-mine` is set on view-test-bed-detail and view-opportunity-detail and
+// NEVER on view-account-detail. So Accounts are editable by any user who can
+// see them, and that is now a deliberate ruling rather than an unexamined
+// default, revisitable if account content becomes commercially sensitive.
+//
+// TRUE FOR account-detail, FALSE FOR ANYTHING NOT YET RULED, and the asymmetry
+// is the point. A global `() => true` would be a claim about EVERY surface,
+// including the two that do have doors and which Round 3 migrates. An unwired
+// guard fails closed by the seam's own default; a wrongly-wired one fails OPEN,
+// which is worse. One line per surface as each is ruled.
+const CAN_EDIT_BY_VIEW = {
+  'account-detail': () => true,
+}
+window.canEditFields = function () {
+  const view = [...document.querySelectorAll('.wrap:not(.hidden)')]
+    .map((el) => el.id?.replace(/^view-/, ''))
+    .find((v) => v && v in CAN_EDIT_BY_VIEW)
+  return view ? CAN_EDIT_BY_VIEW[view]() : false
+}
+
+// ── THE MISSING REGISTRATION IS VISIBLE, NOT A ReferenceError ────────────
+//
+// This called `loadAccountDetail(id)` BARE - not even an optional call - so
+// with the vanilla file unloaded and the bundle absent it would throw a
+// ReferenceError out of navigate() and take the whole navigation with it.
+// Same reasoning as the approval view's guard: the dependency is now a built
+// artefact, and a build artefact can be absent for ordinary reasons.
+function loadAccountDetailOrSayWhyNot(id) {
+  if (typeof window.loadAccountDetail === 'function') { window.loadAccountDetail(id); return }
+
+  const container = document.getElementById('view-account-detail')
+  if (container) {
+    container.innerHTML = ''
+    const p = document.createElement('p')
+    p.className = 'msg-error'
+    p.id = 'acct-missing-bundle'
+    p.textContent = 'The Account view did not load. Its script is not on the page, '
+      + 'so this is a build or deployment fault rather than anything wrong with the record. '
+      + 'Reload; if it persists the frontend bundle is missing and needs rebuilding.'
+    container.appendChild(p)
+  }
+  window.detailLoaded?.('account-detail')
+}
+
 function loadApprovalPageOrSayWhyNot(id) {
   if (typeof window.loadApprovalPage === 'function') { window.loadApprovalPage(id); return }
 
@@ -211,7 +259,7 @@ function navigate(view, id) {
   else if (view === 'contacts') loadContactsData()
   else if (view === 'contact-detail' && id) loadContactDetail(id)
   else if (view === 'accounts') loadAccountsList()
-  else if (view === 'account-detail' && id) loadAccountDetail(id)
+  else if (view === 'account-detail' && id) loadAccountDetailOrSayWhyNot(id)
   else if (view === 'test-beds') loadTestBeds()
   else if (view === 'opportunities') loadOpportunities()
   else if (view === 'test-bed-detail' && id) {
