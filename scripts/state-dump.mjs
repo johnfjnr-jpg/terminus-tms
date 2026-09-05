@@ -46,9 +46,10 @@
 // loader the database test suite already uses). Never a hardcoded path.
 
 import { writeFileSync, readFileSync, readdirSync } from 'node:fs'
+import { createHash } from 'node:crypto'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { execFileSync } from 'node:child_process'
+import { execFileSync, spawnSync } from 'node:child_process'
 
 // Reuses the harness's environment loader rather than writing a second
 // one. Same concern, one implementation - a second copy is how two paths
@@ -424,6 +425,44 @@ try {
   w('read as "nothing open" by whoever it was for.')
   w('')
 }
+
+// ── THE REACT WORKSPACE ──────────────────────────────────────────────────
+//
+// Round 2, ruled at the Phase 0 close. This document is the SERVER-AND-CONFIG
+// state document and frontend-react is deliberately not on its staleness watch
+// list: the generator does not read that tree, so a change there cannot make
+// this file out of date, and watching it would report false staleness.
+//
+// But the document must not be SILENT about a whole workspace. Two facts,
+// enough that a reader knows it exists and which bundle is committed, and not
+// so much that this file starts describing a build it does not own.
+//
+// BOTH RUN-EMITTED, NEVER TYPED. Verification 20's addendum: a hand-typed
+// count is a second reader of a computed value, and one has already been caught
+// wrong. The sha256 is read off the committed file; the suite count is parsed
+// from the suite's own output.
+w('## React workspace')
+w('')
+try {
+  const bundlePath = join(REPO_ROOT, 'frontend-react', 'dist', 'terminus-react.js')
+  const sha = createHash('sha256').update(readFileSync(bundlePath)).digest('hex')
+  const bytes = readFileSync(bundlePath).length
+  w(`- Committed bundle: \`frontend-react/dist/terminus-react.js\`, ${bytes.toLocaleString('en-US')} bytes`)
+  w(`- sha256: \`${sha}\``)
+
+  const run = spawnSync('npm', ['--prefix', 'frontend-react', 'run', 'test'],
+    { cwd: REPO_ROOT, encoding: 'utf8' })
+  const out = `${run.stdout ?? ''}${run.stderr ?? ''}`
+  const m = out.match(/^\s*Tests\s+(?:(\d+) failed \| )?(\d+) passed(?: \| \d+ skipped)? \((\d+)\)/m)
+  w(m
+    ? `- React suite: ${m[2]}/${m[3]} pass, ${m[1] ?? 0} fail`
+    : '- React suite: **could not be parsed from the run**, which is reported rather than omitted')
+} catch (e) {
+  w(`**The React workspace could not be read: ${e.message}.** Reported rather than`)
+  w('omitted: a section that disappears when something goes wrong is read as')
+  w('"there is no React tree" by whoever it was for.')
+}
+w('')
 
 w('## Tags')
 w('')
