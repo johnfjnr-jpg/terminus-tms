@@ -2,7 +2,7 @@
 
 **Final, 2026-09-05.** Decisions ruled by John this date: the first surface
 is Account, deviating from Round 0's Commercials-next order on measurement
-(fifteen rows in 308 lines against Commercials' one; the inbound-reference
+(fourteen rows in 308 lines against Commercials' one; the inbound-reference
 count that ordered Commercials first was inflated by self-generated
 strings). Commercials moves to Round 3 and migrates with a row primitive
 proven in production. And Accounts remain editable by any user who can see
@@ -11,8 +11,13 @@ ruling rather than an unexamined default, revisitable if account content
 becomes commercially sensitive.
 
 This round is the field-row component's first contact with production: the
-Account surface, 308 lines, fifteen click-to-edit rows, two read-only rows,
-a parent-account link widget and the record-name header editor. The eleven
+Account surface, 308 lines. **The structure is the measured one, corrected at
+the Phase 0 close: 14 click-to-edit rows, 2 read-only rows (the parent-account
+link widget IS one of them), and 1 name-header editor that is NOT a row - it is
+an `<h1>` outside any `.ref-field`, with no tab stop. 17 elements in total.**
+The earlier "fifteen rows and two read-only rows" folded the header into the row
+count and listed the parent widget separately from the read-only row it is. The
+eleven
 findings in `MIGRATION_FIELD_ROW_CONTRACT.md`'s addendum are the
 first-contact checklist, revisitable on evidence from this round. Commercials
 follows in Round 3 with a row primitive already proven.
@@ -31,6 +36,57 @@ disagreement is recorded as a contract finding.
    untracked method file is one clean from gone. Verify the skill loads in
    this session and say so in the Phase 0 report.
 2. The 19-stage gate is green on `origin/main` HEAD before any work.
+
+---
+
+## Rulings taken at the Phase 0 close, 2026-09-05
+
+Recorded here so Phase 1 builds against them rather than against the brief as
+first written.
+
+### D3. `CURRENT_STATE.md` is the SERVER-AND-CONFIG state document
+
+Phase 0 measured that `scripts/state-dump.mjs` does not read `frontend-react/`
+at all, so putting it on the staleness watch list would report FALSE staleness:
+a change there cannot make the document out of date, because the document does
+not describe it.
+
+**`frontend-react/` is deliberately NOT watched.** The watch list stays the
+generator's own inputs.
+
+**But the document must not be SILENT about a whole workspace.** The generator
+gains a minimal React section: the bundle's **sha256** and the **React suite
+count**, both **run-emitted, never typed**. Enough that a reader knows the
+workspace exists and which bundle is committed; not so much that the document
+starts describing a build it does not own.
+
+### D-BLOCK. Route 3: the descriptor-declared editor slot
+
+Three of the 14 rows are `<select>`s and the contract excludes field-specific
+editors in writing. Ruled: **route 3**, and it is the implementation of the
+contract's own sentence rather than a departure from it.
+
+> *"Field-specific editors. Dates, staff pickers, currency and the numeric guard
+> are per-field concerns LAYERED ON the row, not part of it."*
+
+**The row owns state, the door, dirty and keyboard. Editors are pluggable. Text
+and select are the first two.** Dates and currency arrive in Round 3 without
+another refactor, which is why this is cheaper than a sibling component even
+though it is more work today.
+
+**The 49 existing field-row tests must pass UNCHANGED through the refactor.**
+They are not edited to fit it. A failure means the refactor moved behaviour, and
+that is a finding, not a test to adjust.
+
+### Item 9. The guard's wiring
+
+`canEditFields()` returns **true for `account-detail`** and **false for any
+surface not yet ruled**.
+
+A global `() => true` would be a claim about every surface, including Opportunity
+and Test Bed, which DO have doors and which Round 3 migrates. Addendum finding 10
+makes an unwired guard fail closed; a wrongly-wired one fails **open**, which is
+worse. One line per surface as each is ruled.
 
 ---
 
@@ -58,7 +114,8 @@ disagreement is recorded as a contract finding.
 5. **Two numbering schemes shared a range** (brief points vs Phase 0
    shapes) and produced a false coverage claim in the Round 1 close-out.
    Rename one scheme in this and future briefs: brief points are P1..Pn,
-   enumerated shapes are S1..Sn. Applied in this document.
+   enumerated shapes are S1..Sn. Declared here, applied from Phase 1's
+   outputs onward.
 6. **Commit the method skill** if precondition 1 found it untracked.
 
 ### This round's own investigation
@@ -96,8 +153,11 @@ Phase 0 output: numbered report. Discrepancies stop the round.
   markup onclick attributes are removed in the same commit, the vanilla
   file stays in tree unloaded, and the revert is enumerated in item 8's
   terms before the work starts.
-- The fifteen rows and two read-only rows render through `FieldRow` and
-  `useFieldRows`, descriptors from Phase 0 item 10. No vanilla class
+- The 14 click-to-edit rows and 2 read-only rows render through `FieldRow` and
+  `useFieldRows`, descriptors from Phase 0 item 10; the name-header editor
+  renders as itself and shares the surface draft store, as measured. Three of
+  the 14 use the SELECT editor (`terminusLead`, `billingRegion`,
+  `shippingRegion`). No vanilla class
   names copied (addendum finding 11); the consuming surface decides
   styling, and this one styles to match the current rendering because
   pixel parity remains the default.
@@ -123,7 +183,7 @@ entry, not a quiet code change.
 1. Component and surface tests derived from the contract plus Phase 0's
    enumeration, per the standing rule. The walk recipe from the
    contract's closing section is the verification: for each of the
-   seventeen rows - open, type, discard, reopen, type, save - plus
+   seventeen elements - open, type, discard, reopen, type, save - plus
    confirmation that no row refuses, the always-open door acting as
    ruled.
 2. Every coupled assertion from Phase 0 item 8 is rewritten with the
@@ -138,7 +198,7 @@ entry, not a quiet code change.
 
 ## Phase 3: walk, revert rehearsal, close-out
 
-1. The walk on a real record: all seventeen rows by the contract recipe,
+1. The walk on a real record: all seventeen elements by the contract recipe,
    the parent link, the name header, the save round-trip, on the live
    server. Fixture torn down, residue check across record types.
 2. Revert rehearsed on a branch: script tag restored, markup onclick
@@ -149,14 +209,14 @@ entry, not a quiet code change.
    check. `CURRENT_STATE.md` regenerated with the extended watcher, and
    the staleness check run and stated.
 4. Close-out report carrying the Round 3 (Commercials) entry evidence:
-   the seventeen-row walk, the checklist verdict on all eleven findings,
+   the seventeen-element walk, the checklist verdict on all eleven findings,
    and the re-pointing count against the remaining coupled assertions.
 
 ---
 
 ## Exit gate for Round 3 (Commercials)
 
-1. All seventeen Account rows pass the contract recipe on the live
+1. All seventeen Account elements pass the contract recipe on the live
    server, and the revert is rehearsed.
 2. Every one of the eleven findings has a written first-contact verdict:
    confirmed, amended (with the addendum entry), or overturned (with the
