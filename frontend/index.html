@@ -3185,6 +3185,29 @@ opened it. -->
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<!-- ── THE REACT BUNDLE LOADS BEFORE THE VANILLA VIEW SCRIPTS ──────────
+     AND THE ORDER IS THE REVERT MECHANISM, not a preference. Found by
+     rehearsing the Round 2 revert and watching it revert NOTHING.
+
+     The bundle registers window.loadApprovalPage and window.loadAccountDetail.
+     A vanilla view file declares the same name at classic-script top level,
+     which also writes it to window. Whichever runs LAST wins.
+
+     With the bundle last, restoring a vanilla script tag was a no-op: both
+     files loaded, the bundle overwrote the vanilla registration, and React
+     still rendered. Measured on the rehearsal branch: 69 React testids, 16
+     React rows, ZERO vanilla .ref-field elements, on a tree whose "revert" had
+     supposedly been applied.
+
+     Round 1's revert worked because the bundle served ONE surface, so removing
+     its tag was safe. It now serves TWO, and removing the tag would revert both
+     - over-reverting a surface nobody asked to revert.
+
+     With the bundle FIRST, restoring one vanilla tag reverts exactly that one
+     surface, and the procedure stays "restore the tag" for every surface the
+     migration adds. Nothing in the bundle reads window.* at load time; the seam
+     resolves lazily at call time, so loading it earlier is safe. -->
+<script src="/app/terminus-react.js"></script>
 <script src="/app.js"></script>
 <script src="/opportunity-reference.js"></script>
 <script src="/test-bed-detail.js"></script>
@@ -3227,6 +3250,5 @@ opened it. -->
 
      <script src="/opportunity-approval.js"></script>
 -->
-<script src="/app/terminus-react.js"></script>
 </body>
 </html>
