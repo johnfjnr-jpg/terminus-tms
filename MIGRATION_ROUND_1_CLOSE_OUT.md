@@ -24,11 +24,11 @@ the real server, on the migrated state. Points covered live:
 | 5 error state | the server's own sentence in the slot, the five blocks absent, the way back surviving |
 | 6 bridge honesty states | one of four live: stated absence |
 | 7 stated absence | the sentence renders, not an empty block |
-| 9 version absent / present | present, with the approve sentence and its provenance |
+| ~~9~~ **see the correction below** | the row that sat here was mislabelled |
 | 11 escaping | markup on a version reason renders as literal text, `window.__pwned` false, zero `<img>` |
 | 12 back button | present, correct text, and it survives an error |
 
-**Two points the sandbox cannot reach and why.** Points **1** (nothing computed
+**Points the sandbox cannot reach, and why.** Points **1** (nothing computed
 client-side, asserted against a bridge's own figures) and **10** (opening and
 closing FRAME the bridge, with the rule above the closing row) both require a
 bridge, and a bridge requires an APPROVED prior version. Producing one through
@@ -38,6 +38,53 @@ different feature's test.
 **Both are covered in the Phase 3 fixture suite**, against page objects produced
 by the real `buildApprovalPage`. Three of the four honesty states are covered
 there too.
+
+### THE RECONCILIATION WAS TWO POINTS SHORT, AND ONE OF THEM WAS MISLABELLED
+
+Raised at the close. Both points ARE evidenced; the table above was not saying so
+and, on point 9, was saying something else.
+
+**POINT 8 - missing cost basis: the zero-cost warning in use, the not-affected
+note when not.**
+
+| where | evidence |
+|---|---|
+| live | **NOT EVIDENCED, and the table above overstated it.** The walk's point-8 check reported `no missing basis`: the fixture Opportunity's catalog was complete, so what rendered was *"Every product this deal uses has a current cost basis."* That is a definite state, and it is **not point 8's claim**. Producing the warning needs a catalog with a product missing, which the sandbox cannot arrange |
+| fixture | **EVIDENCED, both directions.** `approval-shapes.test.tsx`, `shape 6 and 7`: *"point 8: in use renders the zero-cost warning WITH the unit count"* asserts the `msg-error` class, `No current Base Cost batch for SafeSight.`, the unit count read back from `missingDetail`, `priced at ZERO cost` and `higher than the deal will achieve`. Its twin, *"point 8: not in use renders the not-affected note, and NOT the warning"*, asserts the note, the ABSENCE of the zero-cost sentence, and that no `msg-error` is emitted |
+
+**POINT 9 - the change-note cap: three named, then a count, the full list in the
+title attribute.**
+
+| where | evidence |
+|---|---|
+| live | **NOT EVIDENCED.** It needs a step carrying more than three changes, which needs a bridge, which needs an approved prior version - the same wall as points 1 and 10 |
+| fixture | **EVIDENCED.** `approval-shapes.test.tsx`, `point 9: the change-note cap`: *"a step with more than three changes names three, then counts the rest"* builds a five-change `risk terms` step through `buildApprovalPage` and asserts `and 2 more`; *"and the full list survives in the title attribute"* asserts a `title` whose pipe-separated length equals the step's own change count |
+
+**AND THE MISLABEL, WHICH IS THE FINDING RATHER THAN THE OMISSION.** The table
+above carried a row reading *"9 version absent / present"*. That check is real
+and it passes, but it is **Phase 0 SHAPE 9**, version absent. The brief's
+**POINT 9** is the change-note cap. Two independent numbering schemes - the Phase
+0 thirteen-shape enumeration and the brief's twelve-point list - were both in the
+walk probe, and the probe tagged that check with the shape number into a field
+the close-out then read as a point number.
+
+**So the table reported point 9 as covered live when nothing had measured it**,
+and the reading was confident because a real passing check sat under the label.
+`CLAUDE.md` Verification 19: a category name is a finding and needs the same
+evidence as one. **A number is a name**, and two schemes sharing a range is
+exactly where one gets read as the other.
+
+**CORRECTED COUNT, COMPUTED FROM THE WALK OUTPUT RATHER THAN READ OFF THE
+TABLE: EIGHT of twelve points evidenced live - 2, 3, 4, 5, 6, 7, 11, 12 - and
+FOUR by fixture only - 1, 8, 9, 10.**
+
+A first draft of this correction said "nine live, three by fixture (1, 9, 10)",
+typed while reasoning about the table. **That is the second hand-typed count in
+this document to be wrong, in the paragraph correcting the first**, and it was
+caught the same way: by making the run emit it. Verification 20's addendum, and
+the honest lesson is that knowing the rule is not the same as not needing it.
+
+The probe's `point` field carries the scheme as well as the number in Round 2.
 
 **The revert, rehearsed on a branch and then discarded.** The vanilla view
 renders in full against the real server: five blocks filled, back button,
@@ -201,15 +248,35 @@ It works today and **breaks silently at runtime, not loudly at build, the day
 `app.js` round. Recorded at the seam, which is the one place it will need
 fixing.
 
-### 4. Smaller, and recorded where they live
+### 4. The `CURRENT_STATE.md` staleness watcher is blind to the React tree
+
+**Round 2 Phase 0 scope.** The staleness test named in `CLAUDE.md` watches
+`supabase/migrations`, `supabase/seeds` and `src/routes`. **That list predates
+`frontend-react/` and cannot see it.**
+
+Run at this close, the test said the file was NOT stale: the recorded SHA is an
+ancestor of HEAD and no watched source had changed. **Both halves were true and
+the conclusion was uninformative**, because this round added an entire frontend
+workspace, a build output the server serves, two gate stages and a change to
+`src/server.js` - and not one of those is on the list.
+
+**It is not wrong, it is narrow**, which is the harder failure: a staleness
+check that answers "not stale" for a round that changed the front half of the
+application will be believed. Same family as Architecture 9's rule-built-for-a-
+state-that-changed, from the configuration side.
+
+**The extension is Round 2 Phase 0's**, because Round 2 is what decides which
+React paths are configuration-bearing. At minimum `frontend-react/src`,
+`frontend-react/dist`, `frontend-react/package.json` and `src/server.js`.
+
+### 5. Smaller, and recorded where it lives
 
 - **`dist` is committed**, so it is a second reader of the React source. The
   freshness stage covers staleness and the server's startup guard covers
   absence. No action pending; named so it is not rediscovered.
-- **The `CURRENT_STATE.md` staleness test watches `supabase/migrations`,
-  `supabase/seeds` and `src/routes` only.** This round added an entire frontend
-  workspace and the test reads "not stale", correctly by its own definition and
-  blind to the round. Regenerated anyway.
+
+  The `CURRENT_STATE.md` watcher was here in the first draft and is now item 4
+  above, because it is scoped work rather than a note.
 
 ---
 
