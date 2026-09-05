@@ -22,6 +22,18 @@ const OUT_DIR = join(ROOT, '.verify')
 if (!existsSync(OUT_DIR)) mkdirSync(OUT_DIR, { recursive: true })
 
 const STAGES = [
+  // ── THE PRE-STAGE. Migration Round 1, Phase 5 ──────────────────────────
+  //
+  // FIRST, and every HTTP stage below is marked `needsSession`. When this fails
+  // those stages are not run at all and are reported as SKIPPED, because the
+  // failure mode being removed is a run that reports fourteen findings when
+  // nothing ran. See scripts/check-session.mjs for why it validates by use.
+  {
+    name: 'session precondition',
+    cmd: ['node', ['scripts/check-session.mjs']],
+    needs: 'the dev server on :3000 AND a live session-ref.json',
+    gate: true,
+  },
   {
     name: 'pure suite',
     cmd: ['npm', ['test']],
@@ -56,11 +68,13 @@ const STAGES = [
     name: 'HTTP precondition probe',
     cmd: ['node', ['scripts/probe-preconditions.mjs', 'GATE']],
     needs: 'the dev server on :3000 AND a live session-ref.json',
+    needsSession: true,
   },
   {
     name: 'HTTP version-approval probe',
     cmd: ['node', ['scripts/probe-version-approval.mjs', 'GATE']],
     needs: 'the dev server on :3000 AND a live session-ref.json',
+    needsSession: true,
   },
   {
     // The manual pricing-approval request: raised against an ISSUED version,
@@ -68,6 +82,7 @@ const STAGES = [
     name: 'HTTP pricing-approval probe',
     cmd: ['node', ['scripts/probe-pricing-approval.mjs', 'GATE']],
     needs: 'the dev server on :3000 AND a live session-ref.json',
+    needsSession: true,
   },
   {
     // W2. A pricing approval closes by BOTH routes it can close by: its last
@@ -77,6 +92,7 @@ const STAGES = [
     name: 'HTTP review-closes probe',
     cmd: ['node', ['scripts/probe-review-closes.mjs', 'GATE']],
     needs: 'the dev server on :3000 AND a live session-ref.json',
+    needsSession: true,
   },
   {
     // W5. The factoring term is an INITIAL VALUE and structure-dependent:
@@ -86,6 +102,7 @@ const STAGES = [
     name: 'HTTP term initial-value probe',
     cmd: ['node', ['scripts/probe-term-initial-value.mjs', 'GATE']],
     needs: 'the dev server on :3000 AND a live session-ref.json',
+    needsSession: true,
   },
   {
     // W1. Probability is re-derived on every stage change, by whichever mover
@@ -95,6 +112,7 @@ const STAGES = [
     name: 'HTTP stage-probability probe',
     cmd: ['node', ['scripts/probe-stage-probability.mjs', 'GATE']],
     needs: 'the dev server on :3000 AND a live session-ref.json',
+    needsSession: true,
   },
   {
     // Item 4. Both halves of the from-Proposal check-and-go on one record, with
@@ -102,6 +120,7 @@ const STAGES = [
     name: 'HTTP version-gate probe',
     cmd: ['node', ['scripts/probe-version-gate.mjs', 'GATE']],
     needs: 'the dev server on :3000 AND a live session-ref.json',
+    needsSession: true,
   },
   {
     // Item 4. The no-freeze guarantee rests on one WHERE clause, so it is
@@ -109,6 +128,7 @@ const STAGES = [
     name: 'HTTP no-freeze probe',
     cmd: ['node', ['scripts/probe-no-freeze.mjs', 'GATE']],
     needs: 'the dev server on :3000 AND a live session-ref.json',
+    needsSession: true,
   },
   {
     // Round 41. Constructs the state where a version's own (major, minor)
@@ -117,11 +137,13 @@ const STAGES = [
     name: 'HTTP version-order probe',
     cmd: ['node', ['scripts/probe-version-order.mjs', 'GATE']],
     needs: 'the dev server on :3000 AND a live session-ref.json',
+    needsSession: true,
   },
   {
     name: 'HTTP commercial-gate probe',
     cmd: ['node', ['scripts/probe-commercial-gate.mjs', 'GATE']],
     needs: 'the dev server on :3000 AND a live session-ref.json',
+    needsSession: true,
   },
   {
     // Round 41 W4. The three probes above all measure REFUSALS: a stale write
@@ -132,6 +154,7 @@ const STAGES = [
     name: 'HTTP write success probe',
     cmd: ['node', ['scripts/probe-write-success.mjs']],
     needs: 'the dev server on :3000 AND a live session-ref.json',
+    needsSession: true,
   },
   {
     // Round 41, after the seventh walk. The whole ruled sequence: a save creates
@@ -140,6 +163,7 @@ const STAGES = [
     name: 'HTTP issue-target probe',
     cmd: ['node', ['scripts/probe-issue-target.mjs']],
     needs: 'the dev server on :3000 AND a live session-ref.json',
+    needsSession: true,
   },
   {
     // Round 41 W-J. The criterion the migration added must be satisfiable by
@@ -148,6 +172,7 @@ const STAGES = [
     name: 'HTTP proposal-issued probe',
     cmd: ['node', ['scripts/probe-proposal-issued.mjs']],
     needs: 'the dev server on :3000 AND a live session-ref.json',
+    needsSession: true,
   },
   {
     // Round 41 W6. A transition needing no approval used to raise a request
@@ -158,6 +183,7 @@ const STAGES = [
     name: 'HTTP zero-track transition probe',
     cmd: ['node', ['scripts/probe-zero-track-transition.mjs']],
     needs: 'the dev server on :3000 AND a live session-ref.json',
+    needsSession: true,
   },
 ]
 
@@ -249,7 +275,18 @@ const transcript = []
 const summary = []
 let failed = 0
 
+// Set when the pre-stage fails. Everything downstream of it is SKIPPED rather
+// than run, so the summary cannot be read as a list of findings.
+let sessionDead = false
+
 for (const stage of STAGES) {
+  if (stage.needsSession && sessionDead) {
+    summary.push(`SKIP  ${stage.name.padEnd(26)} not run: the session precondition failed`)
+    transcript.push(
+      `${'='.repeat(72)}\n${stage.name}\nSKIPPED. The session precondition failed, so this stage was not run.\n` +
+      `This is not a finding about ${stage.name}. Nothing was measured.\n${'='.repeat(72)}\n`)
+    continue
+  }
   const [bin, args] = stage.cmd
   const started = process.hrtime.bigint()
   const run = spawnSync(bin, args, { cwd: ROOT, encoding: 'utf8', shell: false })
@@ -259,6 +296,7 @@ for (const stage of STAGES) {
   // different failure from a failing suite and must not read as one.
   const ok = run.status === 0
   if (!ok) failed++
+  if (!ok && stage.gate) sessionDead = true
 
   transcript.push(
     `${'='.repeat(72)}\n${stage.name}  (${bin} ${args.join(' ')})\nneeds: ${stage.needs}\n` +
@@ -308,7 +346,14 @@ const dirty = spawnSync('git', ['status', '--porcelain'], { cwd: ROOT, encoding:
 console.log(`\nMERGE GATE  ${branch}  ${head}${dirty ? '  (WORKING TREE DIRTY)' : ''}`)
 console.log(summary.map((l) => `  ${l}`).join('\n'))
 console.log(`\nfull output: ${file}`)
+// A SKIPPED stage is not a passed one and not a failed one, and saying so is
+// the whole point of the pre-stage: "1 of 19 stages FAILED" beside fourteen
+// skips reads correctly, where fourteen failures did not.
+const skipped = summary.filter((l) => l.startsWith('SKIP')).length
 console.log(failed
-  ? `\n${failed} of ${STAGES.length} stages FAILED. Do not merge.`
+  ? `\n${failed} of ${STAGES.length} stages FAILED${skipped ? `, ${skipped} NOT RUN` : ''}. Do not merge.`
   : `\nAll ${STAGES.length} stages passed.`)
+if (skipped) {
+  console.log('\nNothing was measured by the skipped stages. They are not findings.')
+}
 process.exit(failed ? 1 : 0)
