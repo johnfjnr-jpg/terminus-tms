@@ -6,6 +6,17 @@ the React tree is TypeScript; the vanilla view file is kept unloaded until
 the Round 2 gate; the dev workflow is build-watch on one origin. Recorded
 here so they are revisitable, not re-litigated.
 
+**STANDING DELEGATION RULE, 2026-09-05.** Implementation decisions (tooling,
+guards, test mechanics, code structure) go with the advisor's recommendation by
+default, recorded in the round report with reasoning, revisitable. John rules
+only on: scope beyond the brief, anything touching live data, auth, security
+posture or deployment, new dependencies with commercial implications, and the
+round exit gates. **Under this rule: the click-time guard is IN (Phase 2 item 7);
+the dist staleness gate stage is IN (Phase 3).**
+
+**PHASES 2 AND 3 EXECUTE AS ONE SESSION WITH ONE REPORT**, by John's ruling of
+2026-09-05. Checkpoints are unchanged: the report is reviewed before Phase 4.
+
 **Item 6 rulings, 2026-09-05:** root `engines` to `^20.19.0 || >=22.12.0`
 (matching Vite exactly, no wider than the constraint that exists); CI
 `node-version` to `'>=22.12 <23'` (the pin says what is required). Render
