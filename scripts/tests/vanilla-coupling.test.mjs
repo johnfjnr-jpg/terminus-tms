@@ -72,10 +72,6 @@ const COUPLED = [
   'commercials-wiring.test.mjs :: the panel is ONE panel: the Result block and the matrix are gone',
   'milestone-schedule.test.mjs :: the percentage is an input and the dollars are computed from it',
   'opportunity-headline.test.mjs :: the stale-write message is one sentence, on both surfaces, with a control',
-  'transition-requests.test.mjs :: V3: a version with no delta is refused, and the excuse wording is gone',
-  'transition-requests.test.mjs :: V5: the factoring control is a switch, and states which state it is in',
-  'transition-requests.test.mjs :: W-E: gross up takes the factoring treatment, and they are the same control',
-  'transition-requests.test.mjs :: W-G: one control, one indicator, and it says which action it offers',
 ]
 
 test('the instrument can see a coupling at all', () => {

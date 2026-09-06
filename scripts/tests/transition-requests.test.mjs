@@ -1011,7 +1011,13 @@ test('V1: 23505 is mapped in ONE place, and both mappers know it', () => {
 
 test('V3: a version with no delta is refused, and the excuse wording is gone', () => {
   const route = readCode(ROOT + 'src/routes/deal-sheet-versions.js')
-  const app = readCode(ROOT + 'frontend/opportunity-deal.js')
+  // RE-POINTED, Round 6 Phase R: the Commercials controls are the React tree.
+  const app = [
+    'frontend-react/src/deal/panelParts.tsx',
+    'frontend-react/src/deal/section5.tsx',
+    'frontend-react/src/deal/DealPanel.tsx',
+    'frontend-react/src/deal/installation.ts',
+  ].map((f) => readCode(ROOT + f)).join('\n')
   assert.match(route, /!payloadsDiffer\(inputs, prior\.inputs \?\? \{\}\)/,
     'the route does not compare against the previous version')
   assert.match(route, /No change since V\$\{prior\.major\}\.\$\{prior\.minor\}/,
@@ -1021,12 +1027,20 @@ test('V3: a version with no delta is refused, and the excuse wording is gone', (
 })
 
 test('V5: the factoring control is a switch, and states which state it is in', () => {
-  const app = readCode(ROOT + 'frontend/opportunity-deal.js')
+  // RE-POINTED, Round 6 Phase R: the Commercials controls are the React tree.
+  const app = [
+    'frontend-react/src/deal/panelParts.tsx',
+    'frontend-react/src/deal/section5.tsx',
+    'frontend-react/src/deal/DealPanel.tsx',
+    'frontend-react/src/deal/installation.ts',
+  ].map((f) => readCode(ROOT + f)).join('\n')
   const css = readCode(ROOT + 'frontend/style.css')
   assert.ok(!/Factoring: \$\{uiState\.factoringEnabled \? 'On' : 'Off'\}/.test(app),
     'the old colon-and-word label survives')
   assert.match(app, /on \? 'Factoring enabled' : 'Factoring disabled'/, 'the label does not state the state')
-  assert.match(app, /fx\.setAttribute\('role', 'switch'\)/, 'it is not announced as a switch')
+  // The vanilla announced the role with an imperative setAttribute; JSX
+  // declares it. The claim is unchanged: the control IS announced as a switch.
+  assert.match(app, /role="switch"/, 'it is not announced as a switch')
   assert.match(app, /aria-checked/, 'its state is not announced')
   // The affordance is drawn, not implied.
   assert.match(css, /\.deal-toggle::before \{/, 'no track is drawn')
@@ -1168,7 +1182,13 @@ test('W-B/F4: a refresh control on both surfaces, and a poll that is cheap and s
 })
 
 test('W-E: gross up takes the factoring treatment, and they are the same control', () => {
-  const app = readCode(ROOT + 'frontend/opportunity-deal.js')
+  // RE-POINTED, Round 6 Phase R: the Commercials controls are the React tree.
+  const app = [
+    'frontend-react/src/deal/panelParts.tsx',
+    'frontend-react/src/deal/section5.tsx',
+    'frontend-react/src/deal/DealPanel.tsx',
+    'frontend-react/src/deal/installation.ts',
+  ].map((f) => readCode(ROOT + f)).join('\n')
   assert.ok(!/Gross up: \$\{uiState\.grossUp \? 'On' : 'Off'\}/.test(app), 'the old label survives')
   assert.match(app, /on \? 'Gross up enabled' : 'Gross up disabled'/, 'the label does not state the state')
   const html = readCode(ROOT + 'frontend/index.html')
@@ -1182,17 +1202,32 @@ test('W-E: gross up takes the factoring treatment, and they are the same control
 test('W-G: one control, one indicator, and it says which action it offers', () => {
   const html = readCode(ROOT + 'frontend/index.html')
   const css = readCode(ROOT + 'frontend/style.css')
-  const app = readCode(ROOT + 'frontend/opportunity-deal.js')
+  // RE-POINTED, Round 6 Phase R: the Commercials controls are the React tree.
+  const app = [
+    'frontend-react/src/deal/panelParts.tsx',
+    'frontend-react/src/deal/section5.tsx',
+    'frontend-react/src/deal/DealPanel.tsx',
+    'frontend-react/src/deal/installation.ts',
+  ].map((f) => readCode(ROOT + f)).join('\n')
   assert.match(html, /<div class="section-title-row">/, 'the control does not sit beside the title')
   assert.match(html, /class="disclose-chevron"/, 'there is no chevron')
   assert.match(css, /\.disclose\[aria-expanded="true"\] \.disclose-chevron \{ transform: rotate/,
     'the chevron does not rotate on expand')
-  // THE LABEL IS A CHILD, not the button's textContent: writing textContent
-  // would delete the chevron and the indicator would work exactly once.
-  assert.match(app, /getElementById\('btn-toggle-detail-text'\)/,
-    'the label is written in a way that would destroy the chevron')
-  assert.ok(!/detailBtn\.textContent = open \? 'Hide detail'/.test(app),
-    'the old textContent write survives and would remove the chevron')
+  // ── THIS HALF DIED WITH THE FILE, Round 6 Phase R ────────────────────
+  //
+  // The claim was: the label must be a CHILD element rather than the button's
+  // textContent, because writing textContent would delete the chevron beside
+  // it and the indicator would work exactly once.
+  //
+  // That is a guard against a DOM-mutation mistake, and the mutation is gone.
+  // A JSX child cannot be written over its siblings: React renders the button's
+  // children as a list, so "the label replaced the chevron" is not a state the
+  // implementation can reach. Asserting it against the React tree would be a
+  // detector for a fault that cannot occur - CLAUDE.md Verification 9's inert
+  // guard, built deliberately.
+  //
+  // The chevron's own rule above is what still carries the visible claim, and
+  // deal-render exercises the disclosure behaviourally.
 })
 
 test('W-K: a precondition doing its job is a notice, and the kind is decided once', () => {

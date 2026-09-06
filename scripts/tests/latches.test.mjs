@@ -6,7 +6,10 @@ import { LATCH_PANELS, NEVER_LATCHABLE, NO_SIGNAL_POSSIBLE, panelSignal, signalS
 import { ZERO_IS_NOT_A_VALUE } from '../../src/lib/deal-inputs.js'
 
 const HTML = new URL('../../frontend/index.html', import.meta.url)
-const JS = new URL('../../frontend/opportunity-deal.js', import.meta.url)
+// RE-POINTED, Round 6 Phase R. The latch machinery moved to the React tree
+// with the Commercials swap; the claims below are unchanged and only their
+// subject has.
+const JS = new URL('../../frontend-react/src/deal/latch.ts', import.meta.url)
 const CSS = new URL('../../frontend/style.css', import.meta.url)
 
 test('every key that can be missing is claimed by exactly one panel', () => {
@@ -115,27 +118,36 @@ test('TWO PANELS ARE SILENT BY CONSTRUCTION, and that is measured', () => {
 })
 
 test('the latches are session only, in memory, and gone on reload', () => {
-  const src = readCode(JS)
-  assert.match(src, /const latched = new Set\(\)/)
   // NOT storage. A preference that survives a reload is a state somebody
   // INHERITS, and rule 1 says latching is a subtraction the user makes.
-  const block = src.slice(src.indexOf('const latched = new Set()'), src.indexOf('function markDetailCatalogFlag'))
-  assert.ok(!/localStorage|sessionStorage|indexedDB/i.test(block))
-  assert.ok(!/latch/i.test(src.match(/localStorage\.[a-zA-Z]+\([^)]*\)/g)?.join(' ') ?? ''))
+  //
+  // The vanilla held the set in a module-scope `new Set()` and the assertion
+  // named that shape. The React tree passes a ReadonlySet through the view, so
+  // the shape is gone and the CLAIM - nothing about a latch is persisted - is
+  // asserted directly and across the whole latch surface rather than one block.
+  const src = [
+    'frontend-react/src/deal/latch.ts',
+    'frontend-react/src/deal/DealPanel.tsx',
+    'frontend-react/src/deal/useDealForm.ts',
+  ].map((f) => readCode(new URL('../../' + f, import.meta.url))).join('\n')
+  assert.ok(!/localStorage|sessionStorage|indexedDB/i.test(src),
+    'a latch reaches persistent storage, so it would survive a reload')
+  assert.match(src, /ReadonlySet<string>|Set<string>/,
+    'the latched set is not held in memory as a set at all')
 })
 
-test('RULE 4: Show all clears, it does not restore a remembered set', () => {
-  const src = readCode(JS)
-  const handler = src.slice(src.indexOf("e.target.closest('#latch-all')"))
-  const body = handler.slice(0, handler.indexOf('applyLatches'))
-  assert.match(body, /latched\.clear\(\)/,
-    'clearing rather than restoring is what makes rule 4 structural: there is no remembered set to return to')
-  assert.ok(!/remembered|previous|restore/i.test(body))
-})
+// RULE 4 IS RETIRED HERE AND COVERED BETTER ELSEWHERE. It asserted the
+// vanilla's click handler called `latched.clear()`, which is a code shape.
+// deal-latch.test.tsx asserts the BEHAVIOUR on the rendered surface - "L6b:
+// with ONE panel latched, show-all clears rather than latching" and "L6: hide
+// all, then show all, and it returns to EVERYTHING visible" - which is the
+// same claim proved by doing it rather than by reading for it.
 
 test('RULE 3 is only about a LATCHED-OFF panel', () => {
   // An open panel shows its own gaps, so a marker on its button would be noise
   // competing with the thing it points at.
+  // RE-POINTED. The gate is unchanged and still one expression: a signal is
+  // computed only for a panel that is OFF.
   const src = readCode(JS)
   assert.match(src, /const signal = off \? panelSignal\(/)
 })
