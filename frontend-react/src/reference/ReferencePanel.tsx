@@ -54,6 +54,41 @@ function SameAsAccountToggle({ rows, disabled, value, onSet }: {
   )
 }
 
+/**
+ * A titled card.
+ *
+ * DEFINED AT MODULE SCOPE, and that is load-bearing rather than style. It was
+ * declared INSIDE ReferencePanel's body, which gives it a NEW COMPONENT TYPE
+ * on every render - React cannot reconcile two different types, so it
+ * unmounted and remounted the whole card subtree on every keystroke.
+ *
+ * MEASURED, typing "abcd" into the Executive Summary:
+ *
+ *   value  caret  sameDOMnode  editorMounts  editorUnmounts
+ *   a      0      false        1             1
+ *   ba     0      false        2             2
+ *   cba    0      false        3             3
+ *   dcba   0      false        4             4
+ *
+ * A fresh DOM node starts with its caret at 0, so every character landed in
+ * front of the last and the text came out reversed.
+ *
+ * AN <input> HID IT COMPLETELY. FieldRow's focus effect restores the caret to
+ * the end for an HTMLInputElement and not for a textarea, so text rows looked
+ * perfect while being remounted just as hard. The textarea did not hide it,
+ * which is the only reason this was found at all.
+ */
+function Card({ title, testId, children }: {
+  title: string, testId: string, children: React.ReactNode
+}) {
+  return (
+    <section className="pg-card" data-testid={testId}>
+      <p className="pg-card-title">{title}</p>
+      {children}
+    </section>
+  )
+}
+
 export function ReferencePanel({ source, links, closeMoves, oppId, onSave, onChanged }: {
   source: ReferenceSource
   links: KcLink[]
@@ -105,15 +140,6 @@ export function ReferencePanel({ source, links, closeMoves, oppId, onSave, onCha
     return <FieldRow key={f.name} field={f} rows={rows} />
   }
   const canEdit = shell.canEditFields()
-
-  const Card = ({ title, testId, children }: {
-    title: string, testId: string, children: React.ReactNode
-  }) => (
-    <section className="pg-card" data-testid={testId}>
-      <p className="pg-card-title">{title}</p>
-      {children}
-    </section>
-  )
 
   return (
     <div className="ref-panel" data-testid="reference-panel">

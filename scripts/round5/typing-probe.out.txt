@@ -1,0 +1,18 @@
+
+TYPING: 16/16
+  ok   country: the text arrives IN ORDER  | typed "Malaysia", holds "Malaysia"
+  ok   country: and the caret ADVANCES  | carets 1,2,3,4,5,6,7,8
+  ok   country: and the editor is the SAME DOM node throughout
+  ok   summary: the text arrives IN ORDER  | typed "the exec summary", holds "the exec summary"
+  ok   summary: and the caret ADVANCES  | carets 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16
+  ok   summary: and the editor is the SAME DOM node throughout
+  ok   customerLead: the text arrives IN ORDER  | typed "Wei Lin", holds "Wei Lin"
+  ok   customerLead: and the caret ADVANCES  | carets 1,2,3,4,5,6,7
+  ok   customerLead: and the editor is the SAME DOM node throughout
+  ok   duration: the text arrives IN ORDER  | typed "48", holds "48"
+  ok   duration: and the caret ADVANCES  | carets 1,2
+  ok   duration: and the editor is the SAME DOM node throughout
+  ok   lead (select): survives a change as the same DOM node
+  ok   actualClose (date): survives a change as the same DOM node
+  ok   no page errors
+  ok   RESIDUE: no live records  | 0
