@@ -14,7 +14,8 @@ import { DealPanel } from '../deal/DealPanel'
 import { catalogApi } from './fixtures'
 import { buildDealRows } from '../deal/rows'
 import { CENSUS, CATALOG_DISPLAYS, ALL_INPUT_IDS } from '../deal/census'
-import { MARGIN_KEYS, readDealPayload } from '../deal/payload'
+import { MARGIN_KEYS, readDealPayload, valuesFromPayload } from '../deal/payload'
+import { ZERO_IS_NOT_A_VALUE } from '../../../src/lib/deal-inputs.js'
 import type { UiState, Values } from '../deal/payload'
 
 declare global {
@@ -342,5 +343,123 @@ describe('the panel is registered, and the swap is what registers it', () => {
     await import('../main')
     expect(typeof (window as unknown as Record<string, unknown>).initOpportunityDealPanel)
       .toBe('function')
+  })
+})
+
+// ─────────────────────────────────────────────────────────────────────────
+// THE ROW CLAIMS THE VANILLA SUITE CARRIED
+// ─────────────────────────────────────────────────────────────────────────
+//
+// Round 6 Phase R. Four claims lived in commercials-wiring.test.mjs as
+// SOURCE-TEXT matches against renderDealPanel's row array - `gst.rowLabel`,
+// `dur.priceLabel`, `wht.deductedLabel`. The CLAIMS survive the vanilla's
+// retirement. The INSTRUMENT does not, and should not: matching a source
+// expression asserts that one phrase was typed, where every one of these
+// rulings is about what an approver can READ OFF THE SCREEN.
+//
+// Verification 47. Derived from the rulings as the business stated them when
+// each defect was found, never from rows.ts. Written before rows.ts was opened,
+// and any disagreement is recorded as a finding rather than fixed silently.
+describe('the panel rows an approver reads', () => {
+  test('GST HAS A ROW, because the summary did not reconcile without one', async () => {
+    // The business could not reconcile the summary and was right: the entire
+    // difference between contract net and price to customer was GST, and there
+    // was no GST row on the panel to account for it.
+    //
+    // THE ANCHOR IS THE START OF THE LABEL, and calibration is what forced it.
+    // A bare /GST/ over the joined labels came back SILENT when the GST row's
+    // own label was removed, because the PRICE row also names GST - so the
+    // assertion could not tell "GST has a row" from "something mentions GST",
+    // which is the whole of the defect it exists for. Verification 51: the
+    // silence named the weakness rather than clearing it.
+    await mount()
+    const gstRows = rowLabels().filter((l) => /^GST/.test(l ?? ''))
+    expect(gstRows.length, 'no row of its own accounts for GST').toBe(1)
+  })
+
+  test('THE HOSTING PERIOD travels with the figure', async () => {
+    // A hosting price with no period is a number nobody can check. The period
+    // belongs to the figure, so it rides the label rather than sitting in a
+    // caption somewhere else on the screen.
+    await mount()
+    const hosting = rowLabels().filter((l) => /hosting/i.test(l ?? ''))
+    expect(hosting.length, 'no hosting row at all').toBeGreaterThan(0)
+    for (const l of hosting) expect(l, 'a hosting label with no period').toMatch(/month/i)
+  })
+
+  test('the two withholding lines are labelled as DIFFERENT money', async () => {
+    // They are equal when gross up is off, which read as one number deducted
+    // twice. The labels have to say which is which, so a bare "WHT" on both is
+    // the defect rather than a shorthand.
+    await mount()
+    const labels = rowLabels().map((l) => l ?? '')
+    // The filter anchors on the START of the label, and that is the probe
+    // working rather than a nicety. A bare /withholding/ also matched
+    // "Margin before financing, test bed and withholding" - the per-column
+    // margin, relabelled by the same unfold ruling - and reported three
+    // withholding lines where there are two. Verification 17: the probe fired
+    // and measured the wrong thing, on a substring shared with another row.
+    const wht = labels.filter((l) => /^Withholding tax/i.test(l))
+    expect(wht.length, 'expected two distinct withholding lines').toBe(2)
+    expect(new Set(wht).size, 'the two withholding lines carry the SAME label').toBe(2)
+    expect(labels.filter((l) => l.trim() === 'WHT')).toEqual([])
+  })
+})
+
+// ─────────────────────────────────────────────────────────────────────────
+// NO RATE BOX PREFILLS A VALUE NOBODY ENTERED
+// ─────────────────────────────────────────────────────────────────────────
+//
+// Round 6 Phase R. The vanilla carried this as a scan for
+// `setVal('deal-x', p.y ?? 0)` - an idiom React does not have, so the PATTERN
+// died with the file. The CLAIM is Architecture 11 and is untouched by the
+// migration: a default is an initial value written into the record, never a
+// fallback supplied at read time, and a box showing a 0 nobody typed is the
+// fallback wearing the initial value's clothes.
+//
+// CLASS-LEVEL, and that is the vanilla's own insistence rather than a
+// flourish: the next rate key added to this screen is the one nobody would
+// think to check. The scoped list is read from ZERO_IS_NOT_A_VALUE rather than
+// restated here (Verification 20), so the question "is zero a value a person
+// would deliberately enter?" is answered in exactly one place.
+describe('no rate box prefills a value nobody entered', () => {
+  // THE ID IS NOT THE KEY, and guessing `deal-${key}` silently drops three of
+  // the ten. Taken from the census and from readDealPayload's own mapping
+  // rather than derived by a rule: `deal-lumpCost` carries `lumpSumCost`, and
+  // the two factoring boxes are nested. Verification 20 - read through the
+  // accessor the authoritative consumer uses.
+  const ID_FOR: Record<string, string> = {
+    factoringRatePct: 'deal-factoring-ratePct',
+    factoringTermMonths: 'deal-factoring-termMonths',
+    lumpSumCost: 'deal-lumpCost',
+  }
+
+  test('every ZERO_IS_NOT_A_VALUE box is EMPTY on a record that never held it', async () => {
+    expect(ZERO_IS_NOT_A_VALUE.length, 'the list did not import, so this asserts nothing')
+      .toBeGreaterThanOrEqual(7)
+    // THE VALUES COME FROM THE CODE, NOT FROM THE FIXTURE, and that is the
+    // whole of what makes this a measurement. Mounting with a hand-written
+    // Values object asserted that I had not typed a zero into my own fixture:
+    // calibration caught it, because injecting a real prefill into
+    // valuesFromPayload's own str() left the test GREEN. Verification 47 - a
+    // fixture shaped to the assertion tests the fixture.
+    //
+    // A record that holds two counts and none of the guarded keys, put through
+    // the same payload-to-form path a loaded record takes.
+    await mount(valuesFromPayload({ ssExisting: 10, aqm: 4 }))
+    const missing: string[] = []
+    const prefilled: string[] = []
+    for (const key of ZERO_IS_NOT_A_VALUE) {
+      const el = $(ID_FOR[key] ?? `deal-${key}`) as HTMLInputElement | null
+      if (!el) { missing.push(key); continue }
+      if (el.value !== '') prefilled.push(`${ID_FOR[key] ?? `deal-${key}`}=${el.value}`)
+    }
+    expect(prefilled, 'these boxes prefill a value nobody entered').toEqual([])
+    // AND EVERY BOX WAS ACTUALLY REACHED, or the assertion above is true by
+    // absence for whichever ones were not. Verification 14: pair every "not in"
+    // with one asserting the thing is there. A key that stops resolving fails
+    // HERE rather than quietly shrinking the population being scanned.
+    expect(missing, 'not rendered at all, so nothing above was asserted about them')
+      .toEqual([])
   })
 })

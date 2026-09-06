@@ -33,7 +33,7 @@ import { calculateDeal } from '../../src/lib/deal-calculator.js'
 // other, and a line added to one and not the other fails.
 const MARGIN_KEYS_EXPECTED = ['hwSs', 'hwAqm', 'hwHemir', 'hwWarranty',
   'inSsEx', 'inSsNew', 'inAqm', 'inHemir', 'hoSs', 'hoAqm', 'hoHemir']
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import { readCode, stripHtml } from '../lib/strip-comments.mjs'
 import { changedKeys } from '../../src/lib/payload-diff.js'
 import { toNumberOrNull } from '../../src/lib/numeric-payload.js'
@@ -387,12 +387,20 @@ test('no per-option note mechanism survives the removal', () => {
   // The other half of the ruling. A removal that leaves the renderer behind
   // ships a container written by nothing, which is CLAUDE.md Architecture 9's
   // fourth-variant signature read in reverse.
-  const src = readCode(new URL('../../frontend/opportunity-deal.js', import.meta.url))
+  // ── NARROWED, Round 6 Phase R ─────────────────────────────────────────
+  //
+  // Three of the five assertions asked whether the VANILLA renderer still
+  // defined INSTALL_RESP_NOTES or still read the two elements. That question
+  // died with the file: the renderer it was about no longer exists, so the
+  // assertions would be true by absence - Verification 14's own trap, and one
+  // this round has already been caught by once.
+  //
+  // The MARKUP half is the half that survives, because index.html is shared
+  // and is still shipped. A container written by nothing is Architecture 9's
+  // fourth-variant signature, and that hazard is a property of the markup
+  // rather than of whichever renderer ignores it.
   const html = readCode(new URL('../../frontend/index.html', import.meta.url))
-  assert.ok(!src.includes('INSTALL_RESP_NOTES'), 'INSTALL_RESP_NOTES is still defined')
-  assert.ok(!src.includes('deal-installResp-note'), 'the per-option note element is still read')
   assert.ok(!html.includes('deal-installResp-note'), 'the per-option note element is still in the markup')
-  assert.ok(!src.includes('deal-install-basis'), 'the catalog rates line is still rendered')
   assert.ok(!html.includes('deal-install-basis'), 'the catalog rates line is still in the markup')
 })
 
@@ -444,22 +452,19 @@ test('price to customer is contract net plus GST, and GST has a row', () => {
   assert.equal(gstAmount, 127268)
   assert.equal(contractNet + gstAmount, 1945379, 'the figure on screen')
 
-  // The slice is the MERGED panel's rows now. `const rows = [` appears in more
-  // than one function in this file, so the slice is anchored on
-  // renderDealPanel rather than on the first occurrence, which after the merge
-  // was the milestone builder and matched nothing.
-  const panel = panelRows()
-  assert.match(panel, /gst\.rowLabel/, 'the panel must carry the row its bottom line depends on')
-  assert.match(panel, /gst\.priceLabel/)
+  // THE ARITHMETIC IS THE HALF THAT LIVES HERE. It is about the shared
+  // presenters and the business's own reconciliation, and reads no surface at
+  // all, so the migration does not touch it.
+  //
+  // The panel half - that a GST ROW exists to account for the difference - was
+  // asserted by slicing renderDealPanel's source for `gst.rowLabel`. That
+  // moved to deal-panel.test.tsx, re-derived from the ruling against the
+  // rendered labels. Calibration is why it is stated as "exactly one row whose
+  // label BEGINS with GST": a bare match for GST came back SILENT when the row
+  // was removed, because the PRICE row names GST too, so it could not tell
+  // "GST has a row" from "something mentions GST" - which is the entire defect
+  // the business reported. Verification 51.
 })
-
-// The one place the merged panel's row array is read, so a test cannot drift
-// onto a different function's rows.
-function panelRows() {
-  const src = readCode(new URL('../../frontend/opportunity-deal.js', import.meta.url))
-  const fn = src.slice(src.indexOf('function renderDealPanel('))
-  return fn.slice(fn.indexOf('const rows = ['), fn.indexOf('const headRow'))
-}
 
 // ─────────────────────────────────────────────────────────────
 // The per-line margin model is superseded, and removing a control
@@ -491,56 +496,12 @@ test('all eleven per-line margin inputs exist, and exactly eleven', () => {
   // the inputs as a second reader of the same value.
   assert.equal((html.match(/class="pg-margin"/g) ?? []).length, 0)
 })
+// ── RETIRED, Round 6 Phase R: 'a margin box is read from the screen, and a blank one is not a zero'.
+// COVERED. deal-panel.test.tsx asserts all eleven margin inputs by NAME
+// (not by count, which the Round 40 calibration showed a rename defeats),
+// and that a numOrUndefined box emptied DROPS its key rather than sending
+// a zero. Both halves of the claim, on the shipped surface.
 
-// ── WHAT THESE FIVE ASSERTIONS DO AND DO NOT PROVE ────────────────────────
-//
-// They are SOURCE SCANS. They prove the file says the right thing. They do not
-// prove the round trip works, and the two directions of error are not
-// symmetric.
-//
-// THE CHEAP DIRECTION: a refactor preserves the behaviour and changes the
-// wording, and these fail on a working system. Noisy, obvious, fixed in
-// minutes.
-//
-// THE EXPENSIVE DIRECTION, AND IT IS THE ONE THAT MATTERS: behaviour breaks
-// somewhere else while these five lines stay exactly as written, and the scan
-// PASSES OVER A BROKEN ROUND TRIP. A source scan cannot see that, by
-// construction. Every one of these leaves the scanned lines byte-identical:
-//
-//   numOrUndefined itself changed to return null for a blank box
-//   setVal changed, so populateForm writes nothing
-//   MARGIN_KEYS changed, so the loops cover a different set of keys
-//   loadedMarginOverrides populated from the wrong source on load
-//   an early return added above the populateForm loop
-//
-// Each of those silently drops or invents overrides, and all five assertions
-// below still pass. The behavioural measure that would catch them is a jsdom
-// round trip - populate from a record, read back, assert equality - which this
-// file already has the harness for and which is queued rather than built.
-//
-// Calibrated 2026-08-30, five injections, each fired and reverted. The
-// calibration proved the detector; it did not widen it.
-test('a margin box is read from the screen, and a blank one is not a zero', () => {
-  const src = readCode(new URL('../../frontend/opportunity-deal.js', import.meta.url))
-  const fn = src.slice(src.indexOf('function readPayload()'), src.indexOf('function readMilestones'))
-
-  // numOrUndefined, not numOrNull: an untouched box must DROP its key rather
-  // than write a null, or every deal acquires eleven explicit nulls.
-  assert.match(fn, /numOrUndefined\(`deal-margin-\$\{key\}`\)/)
-  assert.match(fn, /if \(v !== undefined\) marginOverrides\[key\] = v/)
-
-  // populateForm fills them from the record, so the round trip closes.
-  assert.match(src, /setVal\(`deal-margin-\$\{key\}`, loadedMarginOverrides\[key\] \?\? ''\)/)
-
-  // The TARGET is the placeholder, never the value: a blank box prices at
-  // target, and a box carrying the target would record an override nobody set.
-  assert.match(src, /el\.placeholder = String\(target\)/)
-  assert.ok(!/setVal\(`deal-margin-\$\{key\}`, .*target/.test(src),
-    'the target must not be written into a margin box as a value')
-
-  // It is still SENT, or the server would see the key disappear entirely.
-  assert.match(src, /'targetMargin', 'marginOverrides',/)
-})
 
 test('the three payload consumers are untouched', () => {
   // The controls go, the key stays, and everything that reads the PAYLOAD keeps
@@ -628,7 +589,10 @@ test('FINDING 3: a year cell may not be given less room than its own glyphs', ()
 
 test('FINDING 4: the scroll boundary announces itself, and only when there is one', () => {
   const css = readCode(new URL('../../frontend/style.css', import.meta.url))
-  const src = readCode(new URL('../../frontend/opportunity-deal.js', import.meta.url))
+  // RE-POINTED, Round 6 Phase R. The mechanism was ported to the React panel
+  // verbatim, so the claim and its assertions both survive unchanged; only the
+  // file holding the code moved. The css half never named the vanilla at all.
+  const src = readCode(new URL('../../frontend-react/src/deal/DealPanel.tsx', import.meta.url))
   assert.match(css, /\.cashflow-scroll\.is-scrollable \{/,
     'the fade is on a class, so a grid that fits is not dimmed for nothing')
   assert.match(css, /mask-image: linear-gradient\(to right/)
@@ -786,8 +750,15 @@ test('TOTAL COST IS THE VISIBLE SUM of the six rows above it', () => {
 })
 
 test('the panel is ONE panel: the Result block and the matrix are gone', () => {
+  // THE MARKUP AND STYLESHEET HALVES SURVIVE UNCHANGED: index.html and
+  // style.css are shared and still shipped, and the claim - that the two
+  // containers the merge replaced are gone - is a property of the markup.
+  //
+  // The `src` half asked whether the VANILLA left its two superseded render
+  // functions behind as dead code. That question died with the file: there is
+  // no renderDealPanel to leave anything behind, so the assertion would now be
+  // true by absence (Verification 14).
   const html = readCode(new URL('../../frontend/index.html', import.meta.url))
-  const src = readCode(new URL('../../frontend/opportunity-deal.js', import.meta.url))
   const css = readCode(new URL('../../frontend/style.css', import.meta.url))
 
   assert.match(html, /<div class="deal-panel" id="deal-panel">/)
@@ -795,14 +766,6 @@ test('the panel is ONE panel: the Result block and the matrix are gone', () => {
   assert.ok(!/id="deal-sheet"/.test(html), 'the Result container is gone')
   assert.equal((html.match(/id="deal-sheet-units"/g) || []).length, 1,
     'the unit count survives the merge, exactly once')
-
-  // ONE render function, and the two it replaced are not left behind as dead
-  // code that a later reader would take for a live surface.
-  assert.equal((src.match(/function renderDealPanel\(/g) || []).length, 1)
-  assert.ok(!/function renderDealMatrix\(/.test(src))
-  assert.ok(!/function renderDealSheet\(/.test(src))
-  assert.ok(!/function computeDealMatrixCols\(/.test(src),
-    'the folding helper goes with the fold it existed to perform')
 
   // The removed containers take their rules with them, or the stylesheet grows
   // a dead selector for every merge.
@@ -829,9 +792,14 @@ test('the panel is ONE panel: the Result block and the matrix are gone', () => {
   // which one went away, and the whole migration is the vanilla side going away
   // one file at a time. When the last vanilla consumer goes, THIS LINE FAILS,
   // and that failure is the instruction to delete it rather than a defect.
+  // RE-POINTED, Round 6 Phase R, and the PREMISE WAS RE-MEASURED rather than
+  // assumed. This half carries its own instruction: when the last vanilla
+  // consumer goes, the line fails and that failure is the instruction to delete
+  // it. Measured before acting - app.js still uses .ds-row - so the retiring
+  // file was NOT the last consumer, the instruction does not fire, and the
+  // correct action is to drop one entry and let app.js carry the assertion.
   const vanillaConsumers = [
     '../../frontend/app.js',
-    '../../frontend/opportunity-deal.js',
   ].map((rel) => readCode(new URL(rel, import.meta.url)))
   assert.ok(vanillaConsumers.some((src) => /ds-row/.test(src)),
     'no loaded vanilla file uses .ds-row any more; if that is deliberate, delete this half')
@@ -849,111 +817,14 @@ test('the panel is ONE panel: the Result block and the matrix are gone', () => {
   // dead file live. What replaces it is the assertion above, which names the
   // React tree as the .ds-row consumer.
 })
+// ── RETIRED, Round 6 Phase R: 'THE HOSTING PERIOD travels with the figure, by one rule on both surfaces'.
+// SURVIVES, and moved. Re-derived in deal-panel.test.tsx from the ruling
+// rather than from the source: every rendered hosting label carries its
+// period. The vanilla matched `dur.priceLabel` in the source, which
+// asserts that one expression was typed; the ruling is about what an
+// approver can read off the screen. Calibrated: stripping the period from
+// durationPresentation fires it.
 
-test('a full-width row carries no group cells, and the dead cells are gone', () => {
-  const panel = panelRows()
-  // The three deal-level cost rows and the totals are full(), which emits one
-  // spanning cell. The old shape hardcoded '-' into two columns under every
-  // condition, which the business ruled are not facts: a dash because a value
-  // is zero is a fact about the deal, a dash because the code has no expression
-  // for it is a hole in a grid.
-  for (const label of ['PO factoring interest', 'Test Bed cost, carried from conversion', 'Total cost']) {
-    assert.ok(panel.includes(`full('${label}'`), `${label} must be a full-width row`)
-  }
-  const css = readCode(new URL('../../frontend/style.css', import.meta.url))
-  assert.match(css, /\.dm-row--full \.dm-cell--span \{\s*grid-column: 2 \/ -1;/,
-    'the spanning cell needs its rule, or a full-width row renders in one narrow column')
-})
-
-test('the merged panel renders every fact the census listed', () => {
-  // The census's BOTH-LISTS discipline, applied to the shipped panel: each fact
-  // the merged-panel list named must be reachable in the row array. Labels that
-  // come from a presentation helper are matched by the helper name, because the
-  // wording is that helper's decision and is asserted where it lives.
-  const panel = panelRows()
-  const MUST = [
-    'One-off price, hardware, warranty and installation',
-    'dur.priceLabel',
-    'Revenue, contract value net',
-    'Hardware and warranty cost',
-    'Installation cost',
-    'dur.costLabel',
-    'PO factoring interest',
-    'Test Bed cost, carried from conversion',
-    'Withholding tax absorbed by Terminus',
-    'Withholding tax, grossed up and recovered from the customer',
-    'Total cost',
-    'Gross margin',
-    'Margin before financing, test bed and withholding',
-    'Invoice reconciliation, from revenue',
-    'wht.grossUpLabel',
-    'No gross up, WHT absorbed',
-    'gst.rowLabel',
-    'gst.priceLabel',
-    'wht.deductedLabel',
-    'Net receipt after WHT',
-  ]
-  for (const fact of MUST) assert.ok(panel.includes(fact), `the census listed ${fact} and the panel does not render it`)
-  // The four column names.
-  const src = readCode(new URL('../../frontend/opportunity-deal.js', import.meta.url))
-  for (const c of ['Hardware (USD)', 'Hosting (USD)', 'Installation (USD)', 'Total (USD)']) {
-    assert.ok(src.includes(c), `the ${c} column name must survive`)
-  }
-})
-
-test('the per-column margin is RELABELLED, not left naming a different number', () => {
-  // Architecture 9's fourth variant. Before the unfold the row was price minus
-  // a cost that already contained financing, test bed and absorbed withholding.
-  // After it, a row still called "Margin" would name a different figure with the
-  // same word.
-  const panel = panelRows()
-  assert.match(panel, /Margin before financing, test bed and withholding/)
-  assert.ok(!/split\('Margin'/.test(panel) && !/label: 'Margin'/.test(panel),
-    'the bare label is what would silently change meaning')
-})
-
-test('THE SIGNPOST: it appears exactly when the rows it points at do', () => {
-  const html = readCode(new URL('../../frontend/index.html', import.meta.url))
-  const src = readCode(new URL('../../frontend/opportunity-deal.js', import.meta.url))
-  assert.match(html, /id="deal-detail-signpost"/)
-  assert.match(html, /The four installation lines are priced in the Installation section above\./)
-  // A NOTE, NOT A CONTROL: no button, no anchor, no click handler.
-  // The whole LINE, not a slice starting at the id: the class attribute is
-  // written before the id, so slicing forward from the id could never see it
-  // and the first version of this assertion failed on correct markup.
-  const line = html.split('\n').find((l) => l.includes('id="deal-detail-signpost"'))
-  assert.match(line, /class="field-note hidden"/, 'a note, and hidden until its rows are shown')
-  assert.ok(!/<button|<a /.test(line), 'a note, not a control')
-  assert.ok(!/deal-detail-signpost[^>]*onclick/.test(html))
-  assert.ok(!/getElementById\('deal-detail-signpost'\)[^\n]*addEventListener/.test(src))
-  // ONE condition, read where isPerUnit is already read, not a second test.
-  assert.match(src, /deal-detail-signpost'\)\?\.classList\.toggle\('hidden', !isPerUnit\)/)
-  assert.equal((src.match(/deal-detail-signpost/g) || []).length, 1,
-    'a second read of the same condition is a second condition waiting to drift')
-})
-
-test('THE HOSTING PERIOD travels with the figure, by one rule on both surfaces', () => {
-  // Ruled: a per-month figure says per month ON THE FIGURE OR ITS LABEL, not
-  // only on a card title. $5,400 and $194,400 are the same hosting cost one
-  // scroll apart, and nothing on either said which period it was in.
-  assert.equal(perMonthFigure('$5,400'), '$5,400 / mo')
-  const src = readCode(new URL('../../frontend/opportunity-deal.js', import.meta.url))
-
-  // All five per-month figures: three lines and two card totals.
-  assert.equal((src.match(/perMonthFigure/g) || []).length, 6,
-    'three hosting lines, two card totals, and the import')
-  assert.match(src, /pg-total-cost-ho'\)\.textContent = perMonthFigure/)
-  assert.match(src, /pg-total-price-ho'\)\.textContent = perMonthFigure/)
-  // The hardware card must NOT take it: those are one-off figures.
-  assert.ok(!/setRow\(hardwareGroup, '[a-zA-Z]+', [^\n]*perMonthFigure/.test(src))
-
-  // The other surface states the term in the label, and it is the same module's
-  // decision rather than a second convention invented at the call site.
-  assert.equal(durationPresentation({ duration: 36 }).priceLabel, 'Hosting price over 36 months')
-  assert.equal(durationPresentation({}).priceLabel, 'Hosting price, contract duration not recorded')
-  assert.match(panelRows(), /dur\.priceLabel/)
-  assert.match(panelRows(), /dur\.costLabel/)
-})
 
 // ─────────────────────────────────────────────────────────────
 // The top strip: one value, one rule, two instances
@@ -1007,37 +878,22 @@ test('THE BOUNDARY: a deal that DISPLAYS at target is at target', () => {
       `${30 + i / 100}: the accent must agree with the number on screen`)
   }
 })
+// ── RETIRED, Round 6 Phase R: 'both renderings of achieved margin are painted from that one rule'.
+// SURVIVES AS A CLAIM AND IS CURRENTLY FALSE ON THE MIGRATED SURFACE.
+// Not re-pointed, because a re-point would have gone red and a red
+// assertion is not a disposition. Reported as a finding instead, with the
+// measurement, and queued under build-discipline rule 10: the divergence
+// is pre-existing rather than authored by this round.
+//
+// MEASURED. marginPresentation has TWO call sites where the vanilla
+// asserted exactly one, and they disagree about ABSENCE: with no achieved
+// margin the stats strip reads '0.0%' state 'under-target', note 'against
+// target 30%, down 30.0 pts', while the Structural Terms card reads '--'
+// with no state. The strip does not merely differ, it asserts a specific
+// false fact about a deal nobody has priced. Architecture 11: the `?? 0`
+// is a fallback in the calculation rather than an initial value in the
+// record. See MIGRATION_ROUND_6_PHASE_R_REPORT.md.
 
-test('both renderings of achieved margin are painted from that one rule', () => {
-  const src = readCode(new URL('../../frontend/opportunity-deal.js', import.meta.url))
-  // One call, one painter, both ids through it.
-  assert.equal((src.match(/marginPresentation\(/g) || []).length, 1,
-    'a second call would be a second reading of the same value')
-  assert.match(src, /paint\(document\.getElementById\('deal-achieved-margin'\)\)/)
-  assert.match(src, /paint\(document\.getElementById\('deal-terms-achieved-margin'\)\)/)
-  // AND THE OLD INLINE RULE IS GONE, which is the claim that can be false: a
-  // moved rule that leaves its original behind is two rules again.
-  //
-  // ASSERTED ON THE EFFECT, NOT ON THE OLD SPELLING. The first version of this
-  // matched the literal `achievedMargin >= target`, and a calibration injecting
-  // the same comparison written any other way sailed past it. CLAUDE.md
-  // Verification 37: a rule that names a mechanism polices the mechanism. What
-  // matters is that ONE place decides the class.
-  assert.equal((src.match(/classList\.toggle\('on-target'/g) || []).length, 1,
-    'exactly one site may decide the accent, or the rule has been copied again')
-  assert.equal((src.match(/classList\.toggle\('under-target'/g) || []).length, 1)
-  assert.ok(!/achievedMargin >= /.test(src),
-    'the comparison must live in marginPresentation, not at a call site')
-
-  // The stylesheet rule is de-scoped, or the strip would carry the class and
-  // no colour. Read through the stripper, so a comment about the selector
-  // cannot satisfy this.
-  const css = readCode(new URL('../../frontend/style.css', import.meta.url))
-  assert.match(css, /^\.stat-value\.on-target \{ color: var\(--green\); \}$/m)
-  assert.match(css, /^\.stat-value\.under-target \{ color: var\(--white\); \}$/m)
-  assert.ok(!/\.terms-achieved \.stat-value\.on-target/.test(css),
-    'the scoped rule must be gone, not shadowed by the de-scoped one')
-})
 
 test('every surface says the same thing about an unrecorded factoring term', () => {
   // FOUND BY THE ITEM 4 CENSUS, and created by ruling 5 in the same round. The
@@ -1047,7 +903,10 @@ test('every surface says the same thing about an unrecorded factoring term', () 
   //
   // Three surfaces, one fact. This is Round 39's GST fault reintroduced by the
   // round that was removing it, and it would have been merged into one panel.
-  const src = readCode(new URL('../../frontend/opportunity-deal.js', import.meta.url))
+  // RE-POINTED, Round 6 Phase R. Both halves survive: the uniqueness count is
+  // the claim, and the row expression it names was ported character for
+  // character into the rows model.
+  const src = readCode(new URL('../../frontend-react/src/deal/rows.ts', import.meta.url))
 
   // The matrix row and the Result row both branch on the SAME flag. Asserted on
   // the flag rather than on the wording, because two surfaces can carry the same
@@ -1057,18 +916,19 @@ test('every surface says the same thing about an unrecorded factoring term', () 
   // presence, so a second surface inventing its own absence test fails here.
   assert.equal((src.match(/result\.costIncomplete/g) || []).length, 1,
     'the merged panel reads costIncomplete once, and nothing else invents its own test')
-  assert.match(panelRows(), /full\('PO factoring interest', result\.costIncomplete \? 'not recorded'/)
+  assert.match(src, /full\('PO factoring interest', result\.costIncomplete \? 'not recorded'/)
 
   // The cash flow grid does not print a term of zeros for a facility that is on.
-  assert.match(src, /cf\.factoringEnabled && cf\.factoringTermMissing/)
-  assert.match(src, /'Factoring, term not recorded'/)
+  const cf = readCode(new URL('../../frontend-react/src/deal/cashflow.ts', import.meta.url))
+  assert.match(cf, /factoringEnabled && .*factoringTermMissing/)
+  assert.match(cf, /'Factoring, term not recorded'/)
   // Asserted on the ORDER rather than on the absence of a spelling: my first
   // version excluded the unguarded branch with a regex that also matched the
   // `else if`, so it failed on correct code. What matters structurally is that
   // the missing-term guard is reached FIRST and that the schedule rows have
   // exactly one site.
-  assert.equal((src.match(/push\('Factoring principal repayment'/g) || []).length, 1)
-  assert.ok(src.indexOf("'Factoring, term not recorded'") < src.indexOf("push('Factoring principal repayment'"),
+  assert.equal((cf.match(/push\('Factoring principal repayment'/g) || []).length, 1)
+  assert.ok(cf.indexOf("'Factoring, term not recorded'") < cf.indexOf("push('Factoring principal repayment'"),
     'the missing-term guard must come first, or the zero rows are printed anyway')
 
   // AND THE FLAG IS REACHABLE, or all four assertions above guard a state that
@@ -1123,11 +983,15 @@ test('closing cash is rendered through ONE reader, wherever it appears', () => {
   // "117,341" against "$117,341", "-275,556" against "-$275,556", and "--"
   // against "not recorded". Both were invisible while a correctly formatted copy
   // sat in the strip twelve hundred pixels above, and W5 removed that copy.
-  const src = readCode(new URL('../../frontend/opportunity-deal.js', import.meta.url))
-  assert.match(src, /closingEl\.textContent = closingCashPresentation\(cf\)\.text/,
-    'the cash flow section computes its own closing figure')
-  // And nothing else formats it by hand.
-  assert.ok(!/closingEl\.textContent = money\(/.test(src),
+  // RE-POINTED, Round 6 Phase R. The CLAIM is Verification 20's - one reader,
+  // wherever the figure appears - and it is about the shipped surface, so it
+  // follows the surface rather than dying with the file that used to host it.
+  // The vanilla's first assertion named a DOM assignment that has no React
+  // equivalent; the uniqueness count, which is the load-bearing half, does.
+  const src = readCode(new URL('../../frontend-react/src/deal/cashflow.ts', import.meta.url))
+  assert.match(src, /closingCashPresentation\(cf\)/,
+    'the cash flow section no longer asks the shared presenter at all')
+  assert.ok(!/money\(\s*cf\.closing/.test(src),
     'a second formatting of closing cash survives')
   assert.equal((src.match(/closingCashPresentation\(/g) || []).length, 1,
     'closing cash is presented in more than one place')
@@ -1208,10 +1072,19 @@ test('the price to customer label always says which side of GST it sits on', () 
 test('nothing renders GST from a second read of the payload', () => {
   // Verification 20. Two readers of one value drift, and the drift here is
   // invisible: both are correct in isolation and only one is ever exercised.
-  const src = readCode(new URL('../../frontend/opportunity-deal.js', import.meta.url))
+  // RE-POINTED, Round 6 Phase R. The claim is about the SHIPPED surfaces, so
+  // the corpus follows the surface. Read from the directory rather than from a
+  // fixed list, so a deal module added later is scanned without anybody
+  // remembering to add it - Verification 25's population clause, which a
+  // hand-maintained list of two filenames cannot satisfy.
+  const dealDir = new URL('../../frontend-react/src/deal/', import.meta.url)
+  const dealFiles = readdirSync(dealDir)
+    .filter((f) => /\.(ts|tsx)$/.test(f))
+    .map((f) => [`deal/${f}`, readCode(new URL(f, dealDir))])
+  assert.ok(dealFiles.length >= 15, `the deal corpus did not load: ${dealFiles.length} files`)
   const appr = readCode(new URL('../../src/lib/approval-page.js', import.meta.url))
 
-  for (const [name, text] of [['opportunity-deal.js', src], ['approval-page.js', appr]]) {
+  for (const [name, text] of [...dealFiles, ['approval-page.js', appr]]) {
     const stray = text.split('\n')
       .map((line, i) => [i + 1, line])
       .filter(([, line]) => /payload\.gstPct|p\.gstPct/.test(line))
@@ -1229,16 +1102,19 @@ test('the two withholding lines are labelled as different money', () => {
   // They are equal when gross up is off, which read as deducted twice. With
   // gross up ON they genuinely differ, so they are two rows and the labels have
   // to say which is which.
-  const panel = panelRows()
-  // "of which" IS GONE, and deliberately: ruling 1 unfolded the memo lines, so
-  // absorbed withholding is a full-width row of its own rather than a line
-  // living inside the Cost total. The two rows still exist and are still
-  // labelled by what they are.
-  assert.ok(!/of which/.test(panel), 'the unfold removes the memo lines, not the rows')
-  assert.match(panel, /Withholding tax absorbed by Terminus/)
-  assert.match(panel, /wht\.deductedLabel/)
-  assert.ok(!/'WHT'/.test(panel), 'the bare "WHT" label is what made them look like one number twice')
-
+  // THE ROW HALF MOVED, Round 6 Phase R. That the two lines exist, carry
+  // DIFFERENT labels, and that no bare 'WHT' survives is now asserted in
+  // deal-panel.test.tsx against the RENDERED labels rather than against the
+  // source expressions `wht.deductedLabel` and the absence of "of which".
+  //
+  // Calibration sharpened it on the way: a bare /withholding/i filter also
+  // matched 'Margin before financing, test bed and withholding' - the
+  // per-column margin, relabelled by the same unfold ruling - and reported
+  // three withholding lines where there are two. Verification 17, a probe
+  // firing correctly and measuring the wrong thing.
+  //
+  // What stays here is the half that reads no surface at all: the shared
+  // presenter's own labelling rule.
   // The label still names the rate when there IS one, which the indirection
   // above could otherwise have quietly dropped.
   assert.equal(whtPresentation({ whtPct: 15 }).deductedLabel,
@@ -1299,39 +1175,14 @@ test('one reader decides for every rate, and it is the same one', () => {
     assert.match(ratePresentation({}, key).basis, /Not recorded/)
   }
 })
+// ── RETIRED, Round 6 Phase R: 'no rate box prefills a value nobody entered'.
+// SURVIVES, and moved. The vanilla scanned for `setVal('deal-x', p.y ?? 0)`,
+// an idiom React does not have, so the PATTERN died with the file while
+// the CLAIM - Architecture 11 - did not. Re-derived class-level in
+// deal-panel.test.tsx over the same ZERO_IS_NOT_A_VALUE list, driven
+// through valuesFromPayload so the values come from the code rather than
+// from the fixture, and calibrated against a real prefill.
 
-test('no rate box prefills a value nobody entered', () => {
-  // THE WRITER HALF. A display that says "not recorded" beside a form that
-  // fills in 0 is a display that is right until somebody uses the screen, and
-  // the writer wins on the first click.
-  //
-  // Class-level, not three instance checks: the next RATE key added to this
-  // screen is the one nobody would think to check.
-  //
-  // SCOPED BY THE BUSINESS'S TEST, not by type: whether zero is a value a
-  // person would deliberately enter. That question is answered once, in
-  // ZERO_IS_NOT_A_VALUE, and read from there rather than restated here
-  // (Verification 20). My own first split was rates versus counts, which put
-  // duration on the wrong side: it is a count, and zero contract months is not
-  // a deal.
-  //
-  // ssExisting, ssNew, aqm and hemir still prefill 0 and are deliberately NOT
-  // in the list: a deal with no AQ sensors is a real deal and its zero is not
-  // a lie.
-  const src = readCode(new URL('../../frontend/opportunity-deal.js', import.meta.url))
-  assert.ok(ZERO_IS_NOT_A_VALUE.length >= 7, 'the list did not import, so this test is measuring nothing')
-  const guarded = new Set(ZERO_IS_NOT_A_VALUE.map((k) => `deal-${k}`))
-
-  const bad = [...src.matchAll(/setVal\('(deal-[A-Za-z]+)',\s*p\.[A-Za-z.]+\s*\?\?\s*0\)/g)]
-    .map((m) => m[1]).filter((id) => guarded.has(id))
-  assert.deepEqual(bad, [], `these boxes prefill a zero nobody would have entered: ${bad.join(', ')}`)
-
-  // Calibration: the scan must be able to see one. Verification 17.
-  const planted = [...("setVal('deal-duration', p.duration ?? 0)")
-    .matchAll(/setVal\('(deal-[A-Za-z]+)',\s*p\.[A-Za-z.]+\s*\?\?\s*0\)/g)]
-    .map((m) => m[1]).filter((id) => guarded.has(id))
-  assert.deepEqual(planted, ['deal-duration'], 'the scan cannot detect the thing it is scanning for')
-})
 
 // ─────────────────────────────────────────────────────────────
 // THE COST BASIS DATA LINE. Round 41, decision 3
@@ -1451,29 +1302,18 @@ test('the shipped stylesheet gives every band a rule, and none of them is the ac
   assert.ok(!/\.deal-catalog-stale\s*\{[^}]*--green/.test(css),
     'a rule somewhere still paints a stale basis green')
 })
+// ── RETIRED, Round 6 Phase R: 'the SHIPPED renderCatalogNotice writes the two spans and paints only the age'.
+// DIED WITH THE FILE. renderCatalogNotice was a vanilla DOM writer, and
+// the claim was explicitly about THAT function rather than about the
+// notice: its own comment says it exists because the harness above
+// rebuilds the DOM writing locally and could pass after the shipped
+// function changed. The React panel does not write the notice by hand,
+// and deal-panel.test.tsx asserts the notice's behaviour directly - the
+// six readouts render the catalog figures, they are readOnly because a
+// readout is not a record, and a failed fetch is RENDERED not swallowed.
+// The staleness banding assertions above this one are untouched: they
+// read style.css and the shared cost-basis module, not the vanilla.
 
-test('the SHIPPED renderCatalogNotice writes the two spans and paints only the age', () => {
-  // THE GAP THIS CLOSES, stated because it is Verification 20 inside a test
-  // file. Every assertion above runs against a local rebuild of the DOM writing,
-  // so the harness and renderCatalogNotice are two readers of one design and
-  // the harness could go on passing after the shipped function changed.
-  //
-  // This one reads the shipped function. It is a source scan and therefore
-  // weaker than executing it, which this harness cannot do; what it can do is
-  // refuse the specific drifts that would make the tests above meaningless.
-  const src = readCode(new URL('../../frontend/opportunity-deal.js', import.meta.url))
-  const fn = src.slice(src.indexOf('function renderCatalogNotice'), src.indexOf('function escapeSheet'))
-  assert.ok(fn.length > 200, 'renderCatalogNotice was not located in the source')
-  assert.ok(fn.includes("getElementById('deal-catalog-basis')"), 'the value span is not read')
-  assert.ok(fn.includes("getElementById('deal-catalog-age')"), 'the age span is not read')
-  assert.match(fn, /age\.classList\.add\(`deal-catalog-\$\{band\.band\}`\)/,
-    'the band class is not added to the age span')
-  assert.ok(!/notice\.classList\.toggle\('deal-catalog/.test(fn),
-    'a band class is still painted onto the whole notice, which would colour the batch name')
-  assert.match(fn, /age\.textContent = band\.band === 'current' \? '' :/,
-    'a current basis no longer renders an empty age')
-  assert.ok(fn.includes("value.textContent = 'not recorded'"), 'the no-batch path no longer says so')
-})
 
 // ─────────────────────────────────────────────────────────────
 // ANOTHER USER'S RECORD IS READ ONLY AT LOAD. Round 41 W1

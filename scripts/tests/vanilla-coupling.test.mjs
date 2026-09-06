@@ -56,20 +56,6 @@ function coupledBlocks() {
 // four came off because their tests were RE-POINTED at the React corpus rather
 // than deleted - the claims survived the move, only their subject changed.
 const COUPLED = [
-  'commercials-wiring.test.mjs :: FINDING 4: the scroll boundary announces itself, and only when there is one',
-  'commercials-wiring.test.mjs :: THE HOSTING PERIOD travels with the figure, by one rule on both surfaces',
-  'commercials-wiring.test.mjs :: THE SIGNPOST: it appears exactly when the rows it points at do',
-  'commercials-wiring.test.mjs :: a margin box is read from the screen, and a blank one is not a zero',
-  'commercials-wiring.test.mjs :: both renderings of achieved margin are painted from that one rule',
-  'commercials-wiring.test.mjs :: closing cash is rendered through ONE reader, wherever it appears',
-  'commercials-wiring.test.mjs :: every surface says the same thing about an unrecorded factoring term',
-  'commercials-wiring.test.mjs :: no per-option note mechanism survives the removal',
-  'commercials-wiring.test.mjs :: no rate box prefills a value nobody entered',
-  'commercials-wiring.test.mjs :: nothing renders GST from a second read of the payload',
-  'commercials-wiring.test.mjs :: price to customer is contract net plus GST, and GST has a row',
-  'commercials-wiring.test.mjs :: the SHIPPED renderCatalogNotice writes the two spans and paints only the age',
-  'commercials-wiring.test.mjs :: the merged panel renders every fact the census listed',
-  'commercials-wiring.test.mjs :: the panel is ONE panel: the Result block and the matrix are gone',
   'milestone-schedule.test.mjs :: the percentage is an input and the dollars are computed from it',
 ]
 
