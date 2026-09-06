@@ -91,6 +91,25 @@ Numbering schemes must not share a range in one document: a brief's points
 and an enumeration's shapes colliding produced a false coverage claim.
 Prefix or rename.
 
+## Running a session
+
+**One session is one whole.** Where the instruction groups items - a swap, its
+verification, its re-points - they land together or not at all, and a partial
+report says what is NOT built in its first section about that item, before any
+account of what was done. A carried item mentioned only in a closing paragraph
+reads as a delivery to the session writing it and as an oversight to the one
+after.
+
+**A scope discovery is the deliverable.** When an item turns out to be far
+larger than the instruction assumed, measure it precisely and stop. That beats
+a fifth of it.
+
+**Never refresh the session by hand before `npm run verify`.** The gate extends
+the session itself, a refresh token is single use, and doing both spends it:
+the gate then fails with `Invalid Refresh Token: Already Used` and recovery
+needs a password no agent session holds. Refresh freely before probes; never
+before the gate.
+
 ## Closing a round
 
 - Reconcile every list against its source by counting, not by reading:

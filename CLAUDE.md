@@ -320,6 +320,46 @@ not resolve it quietly.
     Same family as Verification 37, a rule that names a mechanism polices the
     mechanism rather than the effect: "ask for schema" named the wrong act.
 
+15. **ONE SESSION IS ONE WHOLE, AND A PARTIAL REPORTS WHAT IS NOT BUILT
+    FIRST.** Round 3 of the migration, 2026-09-06.
+
+    A session's instruction names a set of items. **Landing some of them and
+    reporting the rest as done-adjacent is the failure mode**, and it is
+    tempting precisely when the finished parts are good.
+
+    **Two rules, and the second is the one that gets skipped:**
+
+    - **Items the instruction groups as a whole do not land partial.** Where a
+      swap, its verification and its re-points are named together, a swap
+      without the others is not "most of it".
+    - **The report's FIRST section about an unfinished item says it is
+      unfinished**, item by item, before any account of what was done. A
+      carried item mentioned only in a closing paragraph reads as an oversight
+      to the next session and as a delivery to this one.
+
+    **AND A SCOPE DISCOVERY IS A REPORT, NOT A QUIET RESHAPE.** When an item
+    turns out to be much larger than the instruction assumed - as identity
+    adoption did, being the remaining half of a screen build rather than a
+    renaming pass - the finding is the deliverable for that session. Measuring
+    it precisely and stopping beats delivering a fifth of it.
+
+16. **NEVER REFRESH THE SESSION BY HAND BEFORE `npm run verify`.** Round 3 of
+    the migration, 2026-09-06, and it is one line because the failure is one
+    action.
+
+    **The gate extends the session ITSELF** when it is under its fifteen-minute
+    floor. A refresh token is SINGLE USE, so a manual refresh immediately before
+    the gate spends it, and the gate's own extend then fails with `Invalid
+    Refresh Token: Already Used` - turning a live session into a dead one and
+    costing every HTTP stage.
+
+    Recovery needs `scripts/sign-in.js <email> <password>`, and a password is
+    exactly what an agent session does not have. **So the cheap habit produces
+    the one condition this environment cannot recover from**, which is
+    Verification 25's corollary arriving by way of a convenience.
+
+    Refresh freely before PROBES. Never before the gate.
+
 ---
 
 ## Architecture
@@ -767,6 +807,18 @@ of the change. An unanswerable precondition is a stop.
    loop never yielded. **A synchronous read after a synchronous dispatch is not
    a fast measurement, it is a measurement of the old state.**
 
+   **AND A WAIT CAN BE SATISFIED BY THE THING YOU ARE REPLACING.** Round 3 of
+   the migration, 2026-09-06. A swap hid the old markup rather than deleting it,
+   so the old form's 56 inputs were still in the DOM. Every probe waiting on
+   "more than 20 controls" returned BEFORE the new panel had mounted, and the
+   screenshots that followed were of a surface mid-render: 17 captures of pure
+   background, all comparing cleanly.
+
+   The counterfactual test catches it and is worth stating in this shape:
+   **when a surface is being replaced, the old one is the state your wait must
+   not accept.** Waiting on RENDERED TEXT, which is what a screenshot
+   photographs, was the fix.
+
    **The check: one interaction, then yield, then assert.** In a browser probe
    that means leaving `page.evaluate` between the two, or awaiting a
    `waitForFunction` on the state the interaction produces. In a component test
@@ -852,7 +904,9 @@ of the change. An unanswerable precondition is a stop.
    tooling** - the class is general, the instance is external, and there is no
    bug in this codebase to go looking for.
    "invariant" means EVERY DETECTOR: a test assertion, a probe, a scan, a
-   generated column, a hook. Anything whose job is to notice. Broadened at the
+   generated column, a hook. Anything whose job is to notice. **And read
+   Verification 51 beside this one: in a calibration sweep, the injection that
+   comes back SILENT is naming a claim nothing asserts.** Broadened at the
    Round 40 close, where the business put it as **a detector that has never
    fired is an assertion, not a control**, and the register of which of this
    project's detectors are unproved is under rule 38. Inject
@@ -1197,6 +1251,18 @@ of the change. An unanswerable precondition is a stop.
     argument for this rule rather than tidiness: had the two numbers agreed by
     luck, six tests would have sat unrun indefinitely with every message saying
     the suite was green.
+
+    **AND A NUMBER A TEST EXPECTS IS A SECOND READER OF THE CALCULATION.**
+    Round 3 of the migration. A test asserted a warranty note read `10 units`,
+    computed by hand as `Math.round(85 x 12%)`; the calculator ceilings 10.2 to
+    11. The test was wrong and the code was right, which is the good case - the
+    bad one is a hand-computed expectation that happens to agree today.
+
+    **Express the expectation, never restate it.** `40 + 25 + 12 + 8` beats
+    `85`; reading the count back out of the rendered sentence and asserting the
+    sentence around it beats recomputing the calculator's rule. Where a fixture
+    value IS the thing under test, derive it from the same shared function the
+    code calls.
 
     **The remedy is rule 20's, not a new guard: ANY NUMBER DESCRIBING A RUN IS
     EMITTED BY THE RUN, NEVER TYPED.** Test counts, timings, row counts.
@@ -2332,6 +2398,19 @@ of the change. An unanswerable precondition is a stop.
     ask what it would catch if the change had been done wrong in a DIFFERENT
     way.
 
+    **AND A RESPONSE FIXTURE IS SHAPED BY THE ROUTE, NOT BY THE READER.**
+    Round 3 of the migration, and it would have shipped. A React query read
+    `data.rates`; `GET /api/base-costs` answers `{ as_of, products }` and the
+    rates are DERIVED from the products by `catalogToRates`. Against the real
+    server every rate was `{}` and every cost on the screen $0 - the
+    indistinguishable zero that round existed to remove. **All five test files
+    supplied `{ rates: ... }`**, so nothing failed anywhere, and the type
+    annotation on the call even said `products`.
+
+    **The check: a fixture for a response is built from what the ROUTE returns,
+    once, in one shared place.** Five copies of a wrong shape agree with each
+    other perfectly.
+
     **AND THE SAME RULE ONE LEVEL UP: A COMPONENT DERIVED FROM AN
     IMPLEMENTATION TESTS THAT IMPLEMENTATION.** Set for the migration,
     2026-09-05, Round 1 Phase 4.
@@ -2377,11 +2456,103 @@ of the change. An unanswerable precondition is a stop.
     findings.** Fifteen simultaneous failures across unrelated surfaces is not a
     plausible defect, and the timing says so before any of them is opened.
 
+    **AND A HARNESS MUST STOP ON A RUN THAT PRODUCED NO RESULT, NEVER SCORE
+    IT.** Round 3 of the migration. A calibration harness treated "no parseable
+    result" as "failed, therefore the injection was caught", so an expired token
+    read exactly like three successful calibrations. It now stops dead and
+    prints each run's duration beside its verdict.
+
     **The check: compare the failure's duration against the stage's own normal
     duration before reading the failure.** Same family as Verification 12 - an
     instrument that did not run reports the same shape as one that found
     nothing - with the twist that here it reports the shape of finding
     EVERYTHING.
+
+
+49. **A CENSUS OF A RENDERED SURFACE IS TAKEN AFTER INITIALISE, COMPUTE AND
+    EXERCISE.** Round 3 of the migration, 2026-09-06, from four readings of one
+    census that were each wrong in a different way.
+
+    > A census of what a surface renders is taken on a surface that has
+    > **initialised, computed and been exercised**, and its coverage is asserted
+    > against a **second instrument** rather than assumed.
+
+    **The four readings, and each was clean.**
+
+    - **A form that had never initialised.** The probe wrote the session to the
+      wrong key, so the app sat on the sign-in view; and `app.js` calls the
+      panel init as `window.initOpportunityDealPanel?.(opp)` - an OPTIONAL call
+      - which reports nothing when it does nothing. It read 143 ids and 71
+      classes of pure static markup.
+    - **A form that had never computed.** 40 ids and 30 classes are built by
+      `innerHTML` and exist only once the calculator has run.
+    - **A still surface.** `detail-open`, `section-save`, `btn-primary` and
+      `btn-sm` do not exist until somebody has opened a disclosure or edited a
+      field. They were reported as gaps in the render when the gap was in the
+      instrument.
+    - **A single branch.** Sampling one deal shape misses every class behind a
+      visibility switch.
+
+    **EXACT AGREEMENT BETWEEN THE SOURCE AND THE DOM IS A TELL, NOT A RESULT.**
+    The first reading's two instruments agreed perfectly, which read as
+    confirmation and was the evidence something was wrong: **a surface that has
+    run adds rows the source cannot contain.**
+
+    **AND THE CRITERION HAS A SHAPE.** "Carries a stylesheet rule or is read by
+    a script" cannot see an id that OTHER MARKUP points at. Twelve were missing,
+    six of them `label[for]` targets, and not one was on the list. An input that
+    loses its id stops being focused by its label, silently, and no stylesheet
+    or reader scan can see it. **Include `label[for]`, `aria-labelledby`,
+    `aria-controls` and `aria-describedby` targets.**
+
+    Same family as Verification 33, every measure has a shape, with a specific
+    remedy 33's general one does not give.
+
+50. **A SEAM CENSUS RUNS IN BOTH DIRECTIONS AND COVERS BEHAVIOUR, NOT ONLY
+    DATA.** Round 3 of the migration, from the form/version split.
+
+    > Before splitting one file into two, enumerate what crosses the boundary
+    > **each way**, and count a CALL that changes the other side's state as
+    > crossing it even when no value moves.
+
+    **The one-way census found five names. The real number was eleven**, and
+    two of the six it missed were behavioural rather than data: `saveVersion`
+    called the form's `saveDeal`, and `restoreVersion` reached the form's
+    discard prompt. Those are not values passed; they are one side driving the
+    other, and a census that lists variables cannot see them.
+
+    **AND THE OTHER DIRECTION IS THE ONE NOBODY LOOKS AT.** `populateForm` reset
+    the version machinery's `versionRange`: the FORM reaching into VERSION
+    state. A census asking only "what does the moving code need?" is blind to
+    it by construction.
+
+    **AND A DECLARATION FORM CAN HIDE A MEMBER FROM EVERY SCAN.** The census
+    regex matched `function|const|let|var` at line start. `clearDealFeedback`
+    was declared `export function`, so it was invisible to every census ever
+    taken of that file, and the split carried it out silently. The browser found
+    it. **Enumerate by parsing declarations, not by matching one shape of them.**
+
+51. **A CLAIM WITH NO DETECTOR IS THE ONE INJECTION THAT COMES BACK SILENT.**
+    Round 3 of the migration, and it is Verification 9 pointed at the calibration
+    run itself rather than at a single assertion.
+
+    > When a calibration sweep reports one injection SILENT among many that
+    > fired, the silence is the finding. Something is TRUE, is relied on, and is
+    > asserted nowhere.
+
+    **The instance.** A field-to-section map carried one deliberate exception:
+    `deal-recoveryMonths` is a `structural` key the screen renders in Payment
+    Terms. Deleting the exception changed nothing observable, because nothing
+    asserted where that field renders. Every other injection in the same sweep
+    fired.
+
+    **The silent one is not a weaker result than a firing one. It is a different
+    result**, and it names a claim that was carried in prose and in nobody's
+    test. Two assertions closed it and the injection then fired.
+
+    **The check: a sweep is not finished when the injections fire. It is
+    finished when the SILENT ones have been explained**, and "that is not worth
+    asserting" is an answer only after it has been said out loud.
 
 ### At round close: index these by when they apply
 
