@@ -356,7 +356,8 @@ green reverted run and four files byte-identical.
 reproduction committed, and it should be the first thing Phase 3 takes.
 
 **Gate: all 21 stages passed** on `3bb8b2b`, the tree being reported.
-463/463 pure, 92/92 database, 476/476 react, and thirteen HTTP probes.
+463/463 pure, 92/92 database, 476/476 react, and 14 HTTP probes, every
+number taken from the run rather than typed.
 Transcript at `.verify/verify-1136774023795500.txt`.
 
 **Not pushed.** Phase 3 follows on sign-off.
