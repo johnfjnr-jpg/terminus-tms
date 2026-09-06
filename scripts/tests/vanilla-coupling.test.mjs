@@ -52,6 +52,9 @@ function coupledBlocks() {
 
 // The set as it stands at the swap. Every entry asserts something about the
 // Commercials screen by reading the file the browser no longer loads.
+// FOUR ENTRIES RETIRED, Round 6 Phase R. The list can only SHRINK, and these
+// four came off because their tests were RE-POINTED at the React corpus rather
+// than deleted - the claims survived the move, only their subject changed.
 const COUPLED = [
   'commercials-wiring.test.mjs :: FINDING 4: the scroll boundary announces itself, and only when there is one',
   'commercials-wiring.test.mjs :: THE HOSTING PERIOD travels with the figure, by one rule on both surfaces',
@@ -67,12 +70,8 @@ const COUPLED = [
   'commercials-wiring.test.mjs :: the SHIPPED renderCatalogNotice writes the two spans and paints only the age',
   'commercials-wiring.test.mjs :: the merged panel renders every fact the census listed',
   'commercials-wiring.test.mjs :: the panel is ONE panel: the Result block and the matrix are gone',
-  'milestone-schedule.test.mjs :: both grids and the server ask the same evaluator',
-  'milestone-schedule.test.mjs :: the milestone list is the one the business gave',
   'milestone-schedule.test.mjs :: the percentage is an input and the dollars are computed from it',
   'opportunity-headline.test.mjs :: the stale-write message is one sentence, on both surfaces, with a control',
-  'rate-resolution.test.mjs :: readPayload sends the box, never the catalog figure',
-  'rate-resolution.test.mjs :: the server allowlist admits exactly the four, and refuses the six',
   'transition-requests.test.mjs :: V3: a version with no delta is refused, and the excuse wording is gone',
   'transition-requests.test.mjs :: V5: the factoring control is a switch, and states which state it is in',
   'transition-requests.test.mjs :: W-E: gross up takes the factoring treatment, and they are the same control',
