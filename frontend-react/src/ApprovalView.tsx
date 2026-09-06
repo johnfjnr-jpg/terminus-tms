@@ -22,7 +22,8 @@ const VIEW = 'opportunity-approval'
 // same ids, same headings, same order. The markup STAYS in index.html
 // untouched, dead while the bundle is loaded, because that is what makes the
 // Phase 5 revert one script tag rather than two changes. Same arrangement as
-// frontend/opportunity-approval.js staying in tree unloaded, and it is a
+// frontend/opportunity-approval.js staying in tree unloaded until the
+// Round 4 close deleted it, and it is a
 // deliberate second copy with a named reason.
 function Frame({ oppId, children, title, subtitle, stateTag }: {
   oppId: string

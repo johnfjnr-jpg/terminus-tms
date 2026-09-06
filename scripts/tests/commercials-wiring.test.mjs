@@ -813,9 +813,10 @@ test('the panel is ONE panel: the Result block and the matrix are gone', () => {
   //
   // HISTORY, because the shape of this assertion is the point of it. It used to
   // read `frontend/opportunity-approval.js` and assert the approval page still
-  // used `.ds-row`. Phase 1 unloaded that file, so the assertion would have gone
-  // on passing by reading a file the browser never fetches - green, unchanged,
-  // and measuring dead code. It was re-pointed at the live vanilla consumers,
+  // used `.ds-row`. Phase 1 unloaded that file (deleted at the Round 4 close),
+  // so the assertion would have gone on passing by reading a file the browser
+  // never fetches - green, unchanged, and measuring dead code. It was
+  // re-pointed at the live vanilla consumers,
   // with a comment promising to name the React tree once the React tree rendered
   // ds-row.
   //
@@ -842,10 +843,11 @@ test('the panel is ONE panel: the Result block and the matrix are gone', () => {
 
   assert.match(css, /^\.ds-row \{/m)
 
-  // AND THE DEAD FILE IS NOT LOADED, so nobody re-points at it by habit.
-  const indexLive = stripHtml(readFileSync(new URL('../../frontend/index.html', import.meta.url), 'utf8'))
-  assert.ok(!/opportunity-approval\.js/.test(indexLive),
-    'the vanilla approval view is unloaded; a live script tag would make the dead file live again')
+  // THE UNLOADED-FILE ASSERTION IS RETIRED WITH ITS FILE. Round 4 close.
+  // frontend/opportunity-approval.js is deleted, so "it must not be loaded" is
+  // a claim about nothing: a script tag naming it would 404 rather than make a
+  // dead file live. What replaces it is the assertion above, which names the
+  // React tree as the .ds-row consumer.
 })
 
 test('a full-width row carries no group cells, and the dead cells are gone', () => {

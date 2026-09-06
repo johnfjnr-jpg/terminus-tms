@@ -2,7 +2,8 @@
 //
 // Derived from the brief's Phase 2 twelve-point list and the Phase 0 report's
 // shape enumeration. NOT from ApprovalBlocks.tsx and NOT from the vanilla
-// frontend/opportunity-approval.js: Verification 47 governs every test in this
+// frontend/opportunity-approval.js, deleted at the Round 4 close:
+// Verification 47 governs every test in this
 // round, and a test written by reading the component is a test of the
 // component's opinion of itself.
 //

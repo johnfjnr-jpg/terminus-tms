@@ -17,7 +17,8 @@
 // as a CLASSIC SCRIPT - there is no build step and no `type="module"`, so its
 // top-level declarations are globals.
 //
-// Three vanilla modules already depend on that: opportunity-approval.js:210 and
+// Three vanilla modules depended on that when this was written:
+// opportunity-approval.js:210 (deleted at the Round 4 close) and
 // opportunity-deal.js in two places. It works today and it is not this round's
 // to fix. It is recorded because the day app.js becomes a module - which the
 // migration ends in - `window.api` disappears and those callers break silently

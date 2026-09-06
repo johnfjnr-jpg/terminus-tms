@@ -1456,7 +1456,7 @@
        field renders as a grey placeholder. This page shows what DID happen, so a
        default is a value with its provenance and never a blank. An approver is
        accepting an assumption somebody else made and cannot accept what they
-       cannot see. Every block here is filled by opportunity-approval.js from one
+       cannot see. Every block here is filled by ApprovalView.tsx from one
        endpoint; nothing is written inline, because a sentence typed into markup
        is a claim nothing can falsify. -->
   <div id="view-opportunity-approval" class="wrap hidden">
@@ -3279,13 +3279,12 @@ opened it. -->
      the React mount never does, and #deal-version-vanilla is never hidden.
 <script type="module" src="/opportunity-deal-versions.js"></script>
      ────────────────────────────────────────────────────────────────────── -->
-<!-- ── THE APPROVAL VIEW IS REACT FROM HERE. Round 1, Phase 1 ──────────
-     The vanilla frontend/opportunity-approval.js STAYS IN TREE, unloaded,
-     until the Round 2 entry gate confirms the pilot. The revert is restoring
-     the tag below and removing the bundle tag - one commit, nothing else,
-     because nothing else is allowed to depend on the React tree this round.
-
-     <script src="/opportunity-approval.js"></script>
--->
+<!-- ── THE APPROVAL VIEW IS REACT, AND THE VANILLA IS GONE ────────────
+     Round 4 close, under the one-round confidence window: a superseded file is
+     deleted after the next full round completes with no revert needed. The
+     approval view was swapped in Round 1 and has stood through Rounds 2, 3 and
+     4, so frontend/opportunity-approval.js is deleted and its revert with it.
+     Reverting the approval view now means restoring the file from git history
+     first, which is the point: it is no longer a one-line escape hatch. -->
 </body>
 </html>
