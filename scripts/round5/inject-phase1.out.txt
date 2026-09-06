@@ -1,0 +1,100 @@
+snapshot verified  frontend-react/src/field-row/EditBar.tsx  1129B
+snapshot verified  frontend-react/src/field-row/FieldRow.tsx  6168B
+snapshot verified  frontend-react/src/reference/descriptors.ts  6389B
+snapshot verified  frontend-react/src/field-row/editors.tsx  10903B
+snapshot verified  frontend-react/src/reference/ReferencePanel.tsx  6271B
+snapshot verified  frontend-react/src/reference/KeyContacts.tsx  8381B
+
+BASELINE
+  GREEN  Tests  550 passed (550)  7243ms
+
+FINAL REVERTED RUN
+  GREEN  Tests  550 passed (550)
+  identical  frontend-react/src/field-row/EditBar.tsx
+  identical  frontend-react/src/field-row/FieldRow.tsx
+  identical  frontend-react/src/reference/descriptors.ts
+  identical  frontend-react/src/field-row/editors.tsx
+  identical  frontend-react/src/reference/ReferencePanel.tsx
+  identical  frontend-react/src/reference/KeyContacts.tsx
+
+── SWEEP ───────────────────────────────────────────────────────
+  baseline 7243ms; a run far under that has not run
+
+DETECTED             THE BAR STOPS SHOWING ITS COUNT
+  family  finding 3
+  claim   the bar shows a count aggregated across the surface
+  suite   Tests  17 failed | 533 passed (550)  6952ms
+  caught  the NAME HEADER: open, type, discard, reopen, type, save - sharing the surface store
+  caught  the 409 sentence is shown and the drafts are NOT cleared
+  caught  and it does NOT touch the field drafts or the bar
+
+DETECTED             A READ-ONLY ROW GAINS A TAB STOP
+  family  behaviour 7
+  claim   a read-only row has no opener and NO TAB STOP
+  suite   Tests  4 failed | 546 passed (550)  7017ms
+  caught  a read-only select field renders no select and no tab stop
+  caught  it has NO tab stop, not a negative one and not a disabled one
+  caught  tab order is correct by construction: only editable rows are tab stops
+
+DETECTED             SAME-AS-ACCOUNT LEAVES A COPIED VALUE EDITABLE
+  family  item 5, B5
+  claim   with the flag on the six address rows are READ-ONLY
+  suite   Tests  5 failed | 545 passed (550)  6815ms
+  caught  S2 ticking it re-renders the six rows READ-ONLY with the ACCOUNT's values
+  caught  S3 and a copied value is NOT editable - clicking it opens nothing
+  caught  C2 same-as-account ON: 15 editable and 6 of them turn read-only
+
+DETECTED             the seed rule names SelectEditor again (A1 reverted)
+  family  behaviour 4 / A1
+  claim   a date editor is refused a seed it cannot hold
+  suite   Tests  3 failed | 547 passed (550)  6935ms
+  caught  A1.2 select and date CANNOT
+  caught  A1.3 a checkbox cannot hold a seed either
+  caught  A1.4 the rule is a DECLARATION, not a list of editor identities
+
+DETECTED             the date editor drops its min
+  family  A4 / finding 1
+  claim   a date field that declares min renders it
+  suite   Tests  2 failed | 548 passed (550)  7144ms
+  caught  D2 A4: `min` comes from the DESCRIPTOR, so a field that declares it gets it
+  caught  R4 A4: both no-past dates carry min; the actuals carry none
+
+DETECTED             estGoLive loses its min, exactly as the vanilla does
+  family  A4 / finding 1
+  claim   EVERY field that declares no-past gets the constraint
+  suite   Tests  2 failed | 548 passed (550)  7037ms
+  caught  R4 A4: both no-past dates carry min; the actuals carry none
+  caught  M1 BOTH no-past dates carry min, which is Phase 0 finding 1 inverted
+
+DETECTED             the door is captured at render instead of consulted
+  family  behaviour 2
+  claim   the guard is consulted at EVERY entry attempt
+  suite   Tests  1 failed | 549 passed (550)  6942ms
+  caught  D4 NOT MINE: the direct-input checkbox is refused too, not just the rows
+
+DETECTED             the checkbox reports a boolean instead of a string
+  family  finding 1
+  claim   a value is always a string, so dirty by comparison works
+  suite   Tests  2 failed | 548 passed (550)  7046ms
+  caught  S4 B2: the flag rides the batched save, and B3 its dirty is by comparison
+  caught  C3 toggling reports a string candidate both ways
+
+DETECTED             a key-contact edit joins the batched save
+  family  item 4
+  claim   key-contact writes are immediate and never ride the bar
+  suite   Tests  1 failed | 549 passed (550)  7081ms
+  caught  K3 a stance change ARMS the row rather than making the surface dirty
+
+DETECTED             the suffix REACHES THE VALUE
+  family  A3
+  claim   the suffix is display-only and never reaches the value
+  suite   Tests  1 failed | 549 passed (550)  7090ms
+  caught  R7 A3: and typing never carries the suffix into the draft
+
+DETECTED             the suffix stops being displayed at all
+  family  A3
+  claim   the suffix IS shown in the display half
+  suite   Tests  1 failed | 549 passed (550)  6988ms
+  caught  R6 A3: the suffix IS shown, and never reaches the value
+
+11/11 detected

@@ -53,7 +53,9 @@ export function FieldRow({ field, rows }: { field: FieldDescriptor; rows: FieldR
       <div className="field-row" data-field={field.name} data-readonly="true">
         <div className="field-row-label">{field.label}</div>
         <div className="field-row-display" data-testid={`display-${field.name}`}>
-          {field.value || <span className="field-row-placeholder">{field.placeholder ?? ''}</span>}
+          {field.value
+            ? <>{field.value}{field.suffix ? <span className="field-row-suffix"> {field.suffix}</span> : null}</>
+            : <span className="field-row-placeholder">{field.placeholder ?? ''}</span>}
         </div>
       </div>
     )
@@ -98,7 +100,15 @@ export function FieldRow({ field, rows }: { field: FieldDescriptor; rows: FieldR
         onClick={() => tryOpen()}
         onKeyDown={onKeyDown}
       >
-        {rows.valueOf(field.name) || <span className="field-row-placeholder">{field.placeholder ?? ''}</span>}
+        {rows.valueOf(field.name)
+          ? <>
+              {rows.valueOf(field.name)}
+              {/* A3: DISPLAY ONLY. It is appended here and never by an editor,
+                  because a suffix that reached the value would make
+                  `draft !== orig` wrong on the first save. */}
+              {field.suffix ? <span className="field-row-suffix"> {field.suffix}</span> : null}
+            </>
+          : <span className="field-row-placeholder">{field.placeholder ?? ''}</span>}
       </div>
 
       <div className="field-row-edit" data-testid={`edit-${field.name}`} hidden={!open}>

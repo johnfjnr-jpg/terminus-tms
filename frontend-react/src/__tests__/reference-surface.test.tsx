@@ -153,12 +153,37 @@ describe('R: the rows render per the census', () => {
       + 'bar aggregates, and this surface shows what it aggregated').toBe('1 change')
   })
 
-  test('R6 A3: the suffix is display-only and never reaches the value', async () => {
+  test('R6 A3: the suffix IS shown, and never reaches the value', async () => {
+    // Verification 51 wrote this test. The sweep's suffix injection came back
+    // SILENT because nothing rendered the suffix at all, so "it never reaches
+    // the value" was true by absence. Both halves of the claim are asserted now.
     await mount()
-    expect(display('duration').textContent).toContain('36')
+    expect(display('duration').textContent, 'the suffix is not shown at all')
+      .toBe('36 months')
     await click(display('duration'))
-    expect((must('[data-testid="input-duration"]') as HTMLInputElement).value).toBe('36')
+    expect((must('[data-testid="input-duration"]') as HTMLInputElement).value,
+      'the suffix reached the editor').toBe('36')
     expect(editHalf('duration').textContent, 'the suffix leaked into the edit half')
+      .not.toContain('months')
+  })
+
+  test('R7 A3: and typing never carries the suffix into the draft', async () => {
+    const onSave = vi.fn()
+    await mount({ onSave })
+    await click(display('duration'))
+    await act(async () => {
+      const i = must('[data-testid="input-duration"]') as HTMLInputElement
+      Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!
+        .set!.call(i, '48')
+      i.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+    await click(must('[data-testid="save-all"]'))
+    expect(onSave, 'THE SUFFIX WAS SAVED INTO THE VALUE').toHaveBeenCalledWith({ duration: '48' })
+  })
+
+  test('R8 A3: an empty suffixed field shows its placeholder, not a bare suffix', async () => {
+    await mount({ src: source({ payload: { duration: '' } }) })
+    expect(display('duration').textContent, 'an unset duration read as " months"')
       .not.toContain('months')
   })
 })
