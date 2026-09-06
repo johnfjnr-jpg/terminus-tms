@@ -15,7 +15,9 @@ import { catalogApi } from './fixtures'
 import { buildDealRows } from '../deal/rows'
 import { CENSUS, CATALOG_DISPLAYS, ALL_INPUT_IDS } from '../deal/census'
 import { MARGIN_KEYS, readDealPayload, valuesFromPayload } from '../deal/payload'
-import { ZERO_IS_NOT_A_VALUE } from '../../../src/lib/deal-inputs.js'
+import { ZERO_IS_NOT_A_VALUE, buildDealInputs } from '../../../src/lib/deal-inputs.js'
+import { resolveRates } from '../../../src/lib/rate-resolution.js'
+import { calculateDeal } from '../../../src/lib/deal-calculator.js'
 import type { UiState, Values } from '../deal/payload'
 
 declare global {
@@ -225,11 +227,24 @@ describe('the UNFOLD ruling', () => {
   const rowsFor = (values = VALUES, ui = UI, testBedCost = 0) => {
     const payload = readDealPayload(values, ui, RATES)
     // Built through the same chain the panel uses.
-    const { resolveRates } = require('../../../src/lib/rate-resolution.js')
-    const { buildDealInputs } = require('../../../src/lib/deal-inputs.js')
-    const { calculateDeal } = require('../../../src/lib/deal-calculator.js')
+    //
+    // STATIC IMPORTS, and the retirement is why. These were three `require`
+    // calls, which typechecked only because the deal-payload-parity suite
+    // imported node:fs and node:path and so pulled @types/node into the whole
+    // react program. Retiring that suite took the global `require` with it and
+    // the typecheck went red - a failure this round's own change created, so it
+    // is finished here rather than listed (build-discipline rule 10's limit).
+    // AND THE CASTS ARE A FINDING, not noise. `require` returns `any`, so it
+    // was hiding two real gaps in the shared libs' declarations: buildDealInputs
+    // is declared without its `rates` option though every caller passes one, and
+    // calculateDeal's Result declares financeCost as `number` where it returns
+    // `number | null`. Both are declaration bugs rather than call-site bugs -
+    // the 472 tests pass either way - so they are named here and left for the
+    // round that owns those files. Verification 19: a type is a claim.
     const res = resolveRates(payload, RATES)
-    const result = calculateDeal(buildDealInputs(payload, { testBedCost, rates: res.rates }))
+    const result = calculateDeal(
+      buildDealInputs(payload, { testBedCost, rates: res.rates } as { testBedCost?: number })
+    ) as Parameters<typeof buildDealRows>[0]
     return { rows: buildDealRows(result, payload, ui.grossUp), result, payload }
   }
 
