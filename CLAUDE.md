@@ -826,6 +826,29 @@ of the change. An unanswerable precondition is a stop.
    uniformly wrong for every item except the one that was already in the target
    state before the loop began.
 
+   **AND THE WRITE SIDE: A CONTROLLED INPUT IS NOT WRITTEN BY WRITING ITS DOM
+   VALUE.** Round 4 of the migration, 2026-09-06. The clauses above are about
+   READING too early; this is about a write that never lands at all, and it
+   reports the same shape as a product defect.
+
+   The standard trick - set `.value` through the prototype descriptor, then
+   dispatch `input` - is **deduped by React's per-input value tracker** once
+   the component has persisted across renders. The DOM then shows the typed
+   text while the component's state never received it. A probe reading
+   `el.value` back reports the box as FILLED, and the card correctly refuses
+   the save because its state is empty.
+
+   **That reads exactly like a controlled input diverging from its own render**,
+   which is impossible, and cost several measurement cycles chasing it: a DOM
+   census, an element-identity census and a mount counter, all of which agreed
+   the DOM was fine because the DOM WAS fine.
+
+   **The check: drive a framework-controlled input with real keyboard events**
+   (`page.type`, `page.keyboard`), and where the claim is about the
+   component's state, read it from BEHAVIOUR rather than from `el.value`. A
+   synthetic write and a real one are indistinguishable in the DOM and are not
+   the same event to the framework.
+
 7. **Before waiting on a condition, state what it would look like if the
    action had NOT happened, and check it differs.** This is the operative
    test; "wait on something only the new state can satisfy" is the
@@ -911,6 +934,32 @@ of the change. An unanswerable precondition is a stop.
    fired is an assertion, not a control**, and the register of which of this
    project's detectors are unproved is under rule 38. Inject
    real violating case, watch it fail, then revert.
+
+   **AND IT REACHES THE GUARD, NOT ONLY THE DETECTOR.** Round 4 of the
+   migration, 2026-09-06, and it is the same broadening the Round 40 close
+   made, one step further: from "anything whose job is to notice" to
+   **anything whose job is to prevent**. The remedy is unchanged - remove it
+   and watch something fail - which is why it stays inside rule 9.
+
+   **Two inert guards in one session, both written by me, both believed
+   correct on review, both killed by calibration rather than by reading.**
+
+   - **A disabled input.** The version card's reason box was disabled for the
+     duration of a save. Removing the disable, the only assertion that could
+     fail was **the one asserting the box was disabled**: a tautology. The
+     guard also dropped a person's keystrokes rather than protecting them, so
+     it was worse than nothing while reading green.
+   - **A re-entrancy check that could not fire in either direction.**
+     `if (saving) return` guarding a save. Two clicks in one tick both read
+     the same stale `saving === false` from their own closure, and any later
+     click is already refused by `disabled={saving}`. Present, reassuring,
+     and unreachable. A ref made it real, and the test then failed when it was
+     removed.
+
+   **The tell is a SILENT injection on a line you added deliberately.** A
+   guard whose removal changes nothing observable is either dead or
+   redundant, and both are worth knowing before it becomes the thing somebody
+   else trusts.
 
 10. **Layout is checked at 1240px, 1920px and 3440px, before and after.**
     Promoted here Round 10 after appearing in seven briefs and no
