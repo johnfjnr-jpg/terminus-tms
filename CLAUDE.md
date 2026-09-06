@@ -761,6 +761,31 @@ of the change. An unanswerable precondition is a stop.
    rect after scrolling, and sanity-check that the capture is not empty.
    Same family as Verification 12 and 13: an instrument that reports
    nothing reads exactly like a clean result.
+
+   **AND AN ATTRIBUTE ASSERTION IS NOT A VISIBILITY ASSERTION.** Round 5 of
+   the migration, 2026-09-06, three instances in two days and one of them
+   two rounds old.
+
+   `display: flex` on an element the application hides with the `hidden`
+   ATTRIBUTE **overrides the user-agent's `[hidden] { display: none }`**. The
+   element renders. Every test that reads the attribute passes, because the
+   attribute is set and correct: the defect is entirely in the cascade, and no
+   assertion about the DOM can see it.
+
+   Found by looking at a screenshot, and it cost two contract behaviours at
+   once - the display/edit swap, and the tab order, since a hidden subtree is
+   out of the tab order by specification and a rendered one is not.
+
+   **The three: the row's edit half (every closed editor rendered), the shared
+   edit bar (0 CHANGES on every load), and an Account name editor that had sat
+   open beside the account name SINCE ROUND 2.**
+
+   **The check, and unlike rule 4's own remedy it is automatable: assert the
+   COMPUTED property, or forbid the cascade that can win.** This project takes
+   the second - `scripts/tests/hidden-not-overridden.test.mjs` refuses any rule
+   that gives a `display` to a class the application hides by attribute unless
+   it is scoped `:not([hidden])`. Rule 4 says look; this says what to assert
+   once looking has told you what to look for.
 5. When a control matters, the assertion belongs in the automated suite,
    where it passes or fails, not in prose.
 
@@ -961,6 +986,22 @@ of the change. An unanswerable precondition is a stop.
    redundant, and both are worth knowing before it becomes the thing somebody
    else trusts.
 
+   **AND IT REACHES A FIX, WHICH IS WORSE THAN A DEAD GUARD.** Round 5 of the
+   migration, 2026-09-06. A dead guard protects nothing. **A fix that looks
+   applied and does nothing STOPS THE NEXT PERSON LOOKING**, which is the
+   damage a plain absence does not do.
+
+   The instance. A textarea reversed its own text, and a layout effect was
+   written to restore the caret. It typechecked, it read correctly, it changed
+   nothing - the mechanism was elsewhere entirely. **Left in place it would
+   have been the first thing a later reader found and the last place they
+   searched.**
+
+   **Removing it was the more important half of the session's work on that
+   defect**, and the site was left carrying a comment saying the defect was
+   open and what had been tried. Same remedy as the rest of rule 9: take it
+   out and watch something fail. If nothing does, it was never a fix.
+
 10. **Layout is checked at 1240px, 1920px and 3440px, before and after.**
     Promoted here Round 10 after appearing in seven briefs and no
     permanent document. 1240 is where things break, 3440 is where a cap
@@ -1087,6 +1128,26 @@ of the change. An unanswerable precondition is a stop.
     write's returned row, the count before and after - separates "it happened
     and produced nothing" from "it never happened". Adding the POST status to
     the failure line ended the four iterations in one run.
+
+    **AND A CLAIM CAN BE TRUE BY ABSENCE, WHICH IS NOT THE SAME AS TRUE.**
+    Round 5 of the migration, 2026-09-06. Rule 14 is a comparison reached with
+    nothing on either side; this is an assertion satisfied because the thing it
+    is about does not exist at all.
+
+    The contract said a display suffix is **display-only and never reaches the
+    value**. A test asserted the edit half did not contain `months`, and it
+    passed. **The suffix was rendered NOWHERE** - declared on the descriptor and
+    displayed by neither half - so "it never reaches the value" was true the way
+    "no unicorn is in this room" is true.
+
+    **It was found by an INJECTION coming back silent**, not by reading the
+    test. Nothing in the assertion looked wrong, because nothing was wrong with
+    it: it was measuring an absence and reporting a presence-free result.
+
+    **The check: an assertion of the form "X is not in Y" is paired with one
+    that X EXISTS somewhere.** Both halves, always. Here that is R6 (the suffix
+    IS shown in the display half) beside R7 (and never in the value), and the
+    injection then fires on each.
 
 15. **A criterion expressed as a measurement at one viewport stops describing
     the thing it was written about.** Round 15 Phase 0, 2026-08-20. Round 8
@@ -2459,6 +2520,27 @@ of the change. An unanswerable precondition is a stop.
     **The check: a fixture for a response is built from what the ROUTE returns,
     once, in one shared place.** Five copies of a wrong shape agree with each
     other perfectly.
+
+    **AND WHERE THE SYSTEM CANNOT REACH THE STATE WITH ONE ACCOUNT, BUILD IT
+    DIRECTLY AND SAY SO.** Rounds 4 and 5 of the migration.
+
+    Rule 47 says build the fixture the way the SYSTEM would. Some states one
+    account cannot reach at all: `decide_transition_request` refuses the
+    requester approving their own request, so a stage past Proposal is
+    unreachable; and a record the user does not OWN cannot be produced by a
+    user who owns everything they create.
+
+    **Both were built by admin write** - `status` in Round 4, `owner_id` in
+    Round 5 - and the justification is the same in each case: **the surface
+    reads the state and nothing about how the record arrived at it.** The door
+    reads `owner_id` against the session; it has no opinion on who set it.
+
+    **Two things make this safe rather than a shortcut.** The value written is
+    one the system itself produces (a real second `auth.users` id, not a
+    fabricated uuid - `owner_id` carries a foreign key and refuses one). And
+    the record stays VISIBLE, because `records_select` is
+    `auth.uid() is not null` - so the fixture is a record the user can SEE and
+    must not EDIT, which is the state the door is actually about.
 
     **AND THE SAME RULE ONE LEVEL UP: A COMPONENT DERIVED FROM AN
     IMPLEMENTATION TESTS THAT IMPLEMENTATION.** Set for the migration,
