@@ -113,14 +113,47 @@ export function censusBySection(): Record<string, typeof CENSUS> {
 // deal-recoveryMonths exception: it is a 'structural' key rendered in Payment
 // Terms, and a save button that appeared over Structural Terms for it would
 // point at a section the changed field is not in.
+// ── THE KEYS NO ID LOOKUP CAN REACH ──────────────────────────────────────
+//
+// `sectionOfKey` resolves a payload key by looking for `deal-<key>` and then by
+// prefix. Eight of the twenty-six owned keys answer to neither, because their
+// key and their control are named differently or the value has no single
+// control at all:
+//
+//   lumpSumCost lives in #deal-lumpCost · structure, invoicing and grossUp are
+//   ring radios and a switch named `-toggle` · marginOverrides, milestones and
+//   contractorMilestones are collections, not fields · installResp is a select
+//   whose id carries no `deal-installResp` payload key.
+//
+// FOUND BY THE WALK: editing any of them raised NO section save, so the lump
+// sum cost, every margin override, the payment structure and every milestone
+// row had no save button. The vanilla resolved four of them by prefix against
+// ids this map did not carry.
+const SECTION_BY_PAYLOAD_KEY: Record<string, string> = {
+  installResp: 'deal-sections-1-2',
+  lumpSumCost: 'deal-sections-1-2',
+  contractorMilestones: 'deal-sections-1-2',
+  marginOverrides: 'deal-section-4',
+  structure: 'deal-section-5',
+  invoicing: 'deal-section-5',
+  milestones: 'deal-section-5',
+  grossUp: 'deal-section-3',
+}
+
+/** The section a payload key belongs to, or null if nothing can place it. */
+export function sectionForPayloadKey(key: string): string | null {
+  const direct = SECTION_BY_PAYLOAD_KEY[key]
+  if (direct) return direct
+  const census = sectionOfKey(key)
+  return census ? vanillaSectionOf(`deal-${key}`, census) : null
+}
+
 export function dirtyVanillaSections(
   payload: Record<string, unknown>, lastSavedPayload: Record<string, unknown> | null,
 ): Set<string> {
   const out = new Set<string>()
   for (const key of dealDirtyKeys(payload, lastSavedPayload)) {
-    const census = sectionOfKey(key)
-    if (!census) continue
-    const sec = vanillaSectionOf(`deal-${key}`, census)
+    const sec = sectionForPayloadKey(key)
     if (sec) out.add(sec)
   }
   return out

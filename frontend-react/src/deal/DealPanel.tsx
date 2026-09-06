@@ -7,7 +7,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { CENSUS, CATALOG_DISPLAYS, MILESTONE_INPUTS, CONTRACTOR_INPUTS, DEAL_SECTIONS } from './census'
 import type { CensusInput } from './census'
 import type { CatalogRates, Values, UiState } from './payload'
-import { MARGIN_KEYS, valuesFromPayload, uiFromPayload } from './payload'
+import { MARGIN_KEYS, valuesFromPayload, uiFromPayload, pickSalespersonWritable } from './payload'
 import { buildCashFlowRows, closingCashText } from './cashflow'
 import type { CashFlow } from './cashflow'
 import { buildYearSchedule } from './schedule'
@@ -182,6 +182,21 @@ export function DealPanel({
     ro.observe(el)
     return () => ro.disconnect()
   })
+  // ── #btn-save-deal LIVES OUTSIDE THE REACT ROOT ────────────────────────
+  //
+  // It is in .form-actions, which the swap deliberately left as static markup
+  // so the revert stays one line. React therefore reaches it the way the
+  // vanilla did - by id - and the effect owns both halves the vanilla owned:
+  // the disabled state, which is the only thing telling a person there is
+  // anything to save, and the click.
+  useEffect(() => {
+    const btn = document.getElementById('btn-save-deal') as HTMLButtonElement | null
+    if (!btn) return
+    const onClick = () => { void saveRef.current() }
+    btn.addEventListener('click', onClick)
+    return () => btn.removeEventListener('click', onClick)
+  }, [])
+
   const catalog = useCatalogRates()
   const catalogData = catalog.data as {
     rates?: CatalogRates, missing?: string[],
@@ -210,6 +225,20 @@ export function DealPanel({
   // the seam was made.
   const latest = useRef({ values, ui, rates, baseline, payload })
   latest.current = { values, ui, rates, baseline, payload }
+
+  // ONE SAVE PATH FOR ALL THREE ROUTES. The section buttons called an `onSave`
+  // prop the mount never passed, so every one of them was inert; and
+  // #btn-save-deal, which lives in .form-actions OUTSIDE the React root, was
+  // wired by the vanilla and by nothing here. Both now go through the same save
+  // the seam uses, so every route re-baselines identically.
+  const saveNow = async () => {
+    if (!onPersist) { onSave?.(latest.current.payload); return }
+    await onPersist(pickSalespersonWritable(latest.current.payload))
+    setBaseline(captureSavedBaseline(latest.current.payload))
+    onSave?.(latest.current.payload)
+  }
+  const saveRef = useRef(saveNow)
+  saveRef.current = saveNow
 
   const seamRef = useRef<DealFormSeam | null>(null)
   if (!seamRef.current) {
@@ -245,6 +274,23 @@ export function DealPanel({
   }
   useEffect(() => { if (seamRef.current) onSeamReady?.(seamRef.current) }, [onSeamReady])
 
+  // ── ABOVE THE EARLY RETURN, WITH EVERY OTHER HOOK ──────────────────────
+  //
+  // Placed below it first, and the catalog's pending render then ran one hook
+  // fewer than the settled one: React error #310, and the panel did not mount
+  // at all. The suite did not catch it, because no test renders the pending
+  // state - which is the same fault this file's own comment records from
+  // Session A, arriving a second time.
+  //
+  // THE DISABLED STATE IS THE ONLY THING SAYING THERE IS ANYTHING TO SAVE, and
+  // the vanilla drove it on every recompute. Written in an EFFECT rather than
+  // during render: a render-phase DOM write runs twice under StrictMode.
+  const isDirty = dirtyVanillaSections(payload, baseline).size > 0
+  useEffect(() => {
+    const btn = document.getElementById('btn-save-deal') as HTMLButtonElement | null
+    if (btn) btn.disabled = !isDirty
+  }, [isDirty])
+
 
   if (catalog.isPending) return <p className="pg-item-note">Loading the cost catalog…</p>
   if (catalog.isError) {
@@ -264,7 +310,7 @@ export function DealPanel({
     ? (
       <button type="button" className="btn-sm btn-primary section-save"
         data-testid={`section-save-${section}`} title={SECTION_SAVE_TITLE}
-        onClick={() => onSave?.(payload)}>Save changes</button>
+        onClick={() => { void saveRef.current() }}>Save changes</button>
     )
     : null)
 
@@ -277,6 +323,25 @@ export function DealPanel({
     const typed: 'pct' | 'usd' = id.endsWith('-pct') ? 'pct' : 'usd'
     const next = syncContractorRow({ ...values, [id]: v }, i, typed, lumpCost)
     if (next) setValue(next.id, next.value)
+  }
+
+  // ── THE CUSTOMER USD MUST REACH THE STATE, NOT ONLY THE SCREEN ─────────
+  //
+  // Found by the Phase 3 walk's restore-fidelity check. `readMilestones` keeps
+  // a row only when `usd > 0`, and it reads usd from VALUES. The customer USD
+  // cell is computed for DISPLAY - `usdFor(i)` - and never entered the state,
+  // so every customer milestone was dropped from the payload: a month and a
+  // percentage typed in, and nothing recorded.
+  //
+  // The vanilla has no such gap because its JS WRITES the readonly input's
+  // value, which its reader then reads back out of the DOM. Here the display
+  // and the reader are two readers of one value, and this is what makes them
+  // one: typing a percentage writes the dollars, exactly as the contractor
+  // grid's round trip already did.
+  const onMilestoneTyped = (id: string, v: string) => {
+    setValue(id, v)
+    const m = id.match(/^deal-ms-(\d+)-pct$/)
+    if (m) setValue(`deal-ms-${m[1]}-usd`, milestoneUsdFor(v, oneOffPrice))
   }
 
   const rows = result ? buildDealRows(result as never, payload, ui.grossUp) : []
@@ -471,7 +536,7 @@ export function DealPanel({
             milestoneGrid={
               <MilestoneGrid rows={MILESTONE_INPUTS} values={values}
                 usdFor={(i) => milestoneUsdFor(values[`deal-ms-${i}-pct`], oneOffPrice)}
-                onChange={setValue}
+                onChange={onMilestoneTyped}
                 warning={customerScheduleWarning(
                   (payload.milestones ?? []) as { month?: number; usd?: number }[], oneOffPrice)} />
             }
