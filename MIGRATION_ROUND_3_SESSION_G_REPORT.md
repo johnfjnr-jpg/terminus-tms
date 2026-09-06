@@ -1,9 +1,12 @@
 # Migration Round 3, Session G: the carried items
 
-**Gate: 5 of 21 stages green, 16 NOT RUN.** The dev session's refresh token
-expired mid-session and its recovery path needs a password I do not have. This
-is an environment condition, not a finding, and section 6 says exactly what it
-blocks. Not pushed.
+**Gate: all 21 stages pass**, measured on `a68340e`, the commit this report
+describes. Not pushed.
+
+The gate was initially blocked, not failed: the dev session's refresh token
+expired mid-session and its recovery needs a password this session does not
+hold. John signed in and it ran clean. Section 6 keeps the record, because the
+blocked state is the more useful half.
 
 ---
 
@@ -144,25 +147,30 @@ comparison is what found them.
 
 ---
 
-## 6. What the expired session blocks
+## 6. The session, blocked and then cleared
 
-**Ran, and green:** pure suite 448/448 · database suite 92/92 · react typecheck ·
-react suite 429/429 · react bundle freshness.
+**RESOLVED.** John signed in and the full gate ran on `a68340e`: **all 21 stages
+pass** - pure 448/448, database 92/92, react 429/429, typecheck, bundle
+freshness, and all fourteen HTTP probes including the version-workflow and
+`is-scrollable` ones.
 
-**Not run:** the 16 HTTP stages, including the version-workflow and
-`is-scrollable` probes this round's earlier sessions passed. They need a live
-`session-ref.json`; the refresh token is spent and `scripts/sign-in.js` needs a
-password I do not have.
+**The record of the block is kept, because it is Verification 25's corollary
+exercised for real.** The recovery path for an expired session is
+`scripts/sign-in.js <email> <password>`, and the thing it needs - a password -
+is exactly what an agent session does not have. So the recovery path exists,
+is correct, and is unavailable to the party most likely to need it.
 
-**This is Verification 25's corollary, exercised for real**: the recovery path's
-own prerequisite is the thing that has expired. Nothing in this session's work is
-known to have broken them - they were green at Session F on the same probes -
-but I have not re-run them and am not claiming they pass.
+**And I made it worse before it broke.** I called `refresh-session.js` by hand
+immediately before starting the gate. The gate extends the session ITSELF when
+it is under the fifteen-minute floor, so my call consumed the refresh token and
+the gate's own extend then failed with `Invalid Refresh Token: Already Used`.
+A single-use token has one consumer, and running the manual refresh beside a
+harness that also refreshes is what spends it twice.
 
-**To clear it:**
+**Worth carrying:** do not refresh by hand before `npm run verify`. The gate
+does it, and doing both is what turns a live session into a dead one.
 
-```bash
-node --env-file=.env scripts/sign-in.js <email> <password>
-```
-
-then `npm run verify`.
+**The three-failure run in between was Verification 48**, and the durations said
+so before any output was read: `proposal-issued` failed in 165ms against a
+normal of ~30,000ms and `zero-track` in 428ms against ~11,000ms. Nothing had
+run; the token had expired mid-gate.
