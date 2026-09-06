@@ -97,6 +97,18 @@ describe('R: the rows render per the census', () => {
     expect(host.querySelectorAll('[data-dirty]'), 'expected 21 editable rows').toHaveLength(21)
   })
 
+  test('R1b BEHAVIOUR 3: a closed row carries hidden on its edit half', async () => {
+    // The attribute alone is what every test read, and a stylesheet rule that
+    // set `display: flex` unconditionally overrode the user-agent's
+    // `[hidden] { display: none }` - so every closed editor rendered visible
+    // while this assertion passed. The attribute is asserted here; the CSS
+    // that must not fight it is asserted in class-rules.
+    await mount()
+    for (const n of EDITABLE) {
+      expect(editHalf(n).hasAttribute('hidden'), `${n} opened by itself`).toBe(true)
+    }
+  })
+
   test('R2 and the five read-only rows, WITHOUT a tab stop (behaviour 7)', async () => {
     await mount()
     const ro = [...host.querySelectorAll('[data-readonly="true"]')]

@@ -48,6 +48,11 @@ const LEDGER = {
     + 'SECOND instrument. Evidence about the file, not a dependency on it.',
   'scripts/round5/seam-census.mjs':
     'KEPT. Phase 0 instrument: the boundary census reads the file by path.',
+  'scripts/round5/visual-reference.mjs':
+    'KEPT. Phase 2 instrument: it loads the vanilla module in the browser to '
+    + 'capture it beside the React surface at three widths. It reads the file '
+    + 'over HTTP rather than importing it, which is what the load-order revert '
+    + 'does. Retires with the file.',
   'frontend/test-bed-detail.js':
     'KEPT, AND IT IS PROSE THAT LOOKS LIKE CODE. The mention is inside an HTML '
     + 'comment embedded in a JS template literal, so readCode - which strips JS '
@@ -131,6 +136,9 @@ const STRING_LEDGER = {
   'scripts/tests/opportunity-dates.test.mjs':
     'KEPT. It reads the vanilla file by path for its date handling. Retires '
     + 'with the file.',
+  'scripts/round5/visual-reference.mjs':
+    'KEPT. Phase 2 instrument: the vanilla path is fetched by name so the '
+    + 'comparison can render it.',
   'scripts/round5/inbound-and-coupled.mjs':
     'KEPT. Phase 0 instrument: the name IS its subject, so it appears as data '
     + 'by design. This is the one entry that looks like the fault it screens '

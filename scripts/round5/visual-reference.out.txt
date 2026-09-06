@@ -1,0 +1,24 @@
+
+VISUAL: 22/22
+  ok   the bar counts at 1240  | 1 change
+  ok   same-as-account ON swaps six rows at 1240  | 11
+  ok   the VANILLA rendered for comparison at 1240  | ok
+  ok   DIVERGENCE 1 at 1240: the vanilla read-only rows DO carry tab stops  | 5 of them
+  ok   DIVERGENCE 2 at 1240: the vanilla bar shows NO count  | false
+  ok   the bar counts at 1920  | 1 change
+  ok   same-as-account ON swaps six rows at 1920  | 11
+  ok   the VANILLA rendered for comparison at 1920  | ok
+  ok   DIVERGENCE 1 at 1920: the vanilla read-only rows DO carry tab stops  | 5 of them
+  ok   DIVERGENCE 2 at 1920: the vanilla bar shows NO count  | false
+  ok   the bar counts at 3440  | 1 change
+  ok   same-as-account ON swaps six rows at 3440  | 11
+  ok   the VANILLA rendered for comparison at 3440  | ok
+  ok   DIVERGENCE 1 at 3440: the vanilla read-only rows DO carry tab stops  | 5 of them
+  ok   DIVERGENCE 2 at 3440: the vanilla bar shows NO count  | false
+  ok   react-rest@1240 has a usable width  | 876
+  ok   vanilla-rest@1240 has a usable width  | 876
+  ok   react-rest@1920 has a usable width  | 1556
+  ok   vanilla-rest@1920 has a usable width  | 1556
+  ok   react-rest@3440 has a usable width  | 3076
+  ok   vanilla-rest@3440 has a usable width  | 3076
+  ok   no page errors across the capture

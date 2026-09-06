@@ -5599,3 +5599,145 @@ input.input-invalid {
   background: transparent;
   cursor: default;
 }
+
+/* ── THE MIGRATED FIELD ROW. Round 5 Phase 2 ──────────────────────────────
+
+   FOUND BY LOOKING, not by an assertion. Every programmatic check on the
+   React Reference surface passed - 21 rows present, the door working, the
+   bar counting - and the screenshot showed labels and values stacked as
+   plain text with no rows, no cards and no alignment. `.field-row` and its
+   children had NO RULES AT ALL.
+
+   THAT WAS TRUE OF THE ACCOUNT SURFACE TOO, live since Round 2. The
+   component has never been styled; it took a side-by-side capture against
+   the vanilla to see it, which is Verification 4's whole point.
+
+   THE NAMES ARE THE REACT ONES, deliberately. Contract finding 11: no
+   vanilla class names are copied, so a reverted surface and a migrated one
+   cannot cross-style each other. The MEASUREMENTS are the vanilla's,
+   because the two surfaces must look the same while both exist. */
+.field-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--hairline);
+}
+.field-row:last-child { border-bottom: none; }
+.field-row-label {
+  flex: 0 0 170px;
+  padding-top: 3px;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.field-row-display, .field-row-edit { flex: 1; min-width: 0; }
+.field-row-display {
+  font-family: var(--body);
+  font-size: 13px;
+  color: var(--white);
+  cursor: text;
+  padding: 2px 4px;
+  border-radius: 2px;
+}
+.field-row-display:hover { background: rgba(242, 242, 240, 0.04); }
+/* A read-only row is not a disabled editable one: no pointer affordance and
+   no hover, matching the vanilla's own .readonly treatment. The absent tab
+   stop is in the component, not here, because it is structure and not
+   styling. */
+.field-row[data-readonly="true"] .field-row-display {
+  cursor: default;
+  color: var(--muted);
+}
+.field-row[data-readonly="true"] .field-row-display:hover { background: none; }
+/* The suffix is display-only (A3): dimmed so the value reads first. */
+.field-row-suffix { color: var(--muted); }
+.field-row-placeholder { color: var(--muted); }
+/* ── :not([hidden]) IS LOAD-BEARING, NOT TIDINESS ──────────────────────
+   A bare `display: flex` OVERRIDES the user-agent's `[hidden] { display:
+   none }`, so every closed row's editor rendered visible - inputs, selects
+   and Discard buttons all down the page. Found by looking at the capture;
+   every assertion passed, because the attribute WAS set and the tests read
+   the attribute.
+
+   It breaks two contract behaviours at once: behaviour 3, the swap by
+   visibility, and behaviour 2's second half - a hidden subtree is out of the
+   tab order by specification, which is what stops a closed row's input being
+   reached by keyboard on a record somebody does not own. */
+.field-row-edit:not([hidden]) { display: flex; align-items: center; gap: 8px; }
+.field-row-edit input,
+.field-row-edit select,
+.field-row-edit textarea { flex: 1; min-width: 0; }
+/* Dirty is COMPUTED, never flagged, so the marker keys on the row's own
+   data attribute rather than on a class somebody has to remember to set. */
+.field-row[data-dirty="true"] .field-row-edit input,
+.field-row[data-dirty="true"] .field-row-edit select,
+.field-row[data-dirty="true"] .field-row-edit textarea {
+  border-bottom-color: var(--green);
+}
+
+/* The shared edit bar. Behaviour 6: a property of the surface, not a row. */
+.field-edit-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--hairline-strong);
+  margin-top: 8px;
+}
+.field-edit-bar [data-testid="dirty-count"] {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* The Reference panel's own sections and the key-contacts sub-panel. */
+.ref-panel section { margin-bottom: 28px; }
+.ref-panel .ref-field {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--hairline);
+}
+.kc-table { width: 100%; border-collapse: collapse; }
+.kc-table th {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  text-align: left;
+  padding: 6px 8px 6px 0;
+  border-bottom: 1px solid var(--hairline);
+}
+.kc-table td { padding: 6px 8px 6px 0; border-bottom: 1px solid var(--hairline); font-size: 13px; }
+.kc-add { display: flex; align-items: center; gap: 8px; padding: 10px 0; }
+.kc-feedback { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+/* ── THE OWNERSHIP TREATMENT REACHES THE MIGRATED ROWS. Round 5 Phase 2 ───
+
+   IDENTITY ADOPTION, item 5. The census criterion is a name something ELSE
+   reads, and `.is-not-mine .ref-field-display` is exactly that: app.js's own
+   read-only treatment, keyed on the vanilla's class. The React rows do not
+   carry it (contract finding 11, deliberately), so on a record somebody does
+   not own they LOOKED fully editable while the door correctly refused every
+   one of them.
+
+   That is worse than either half alone: a row that reads as live and does
+   nothing is the "what did I just break" the contract's behaviour 3 is about,
+   and the walk measured the refusal working while the screen said otherwise.
+
+   The DOOR is still the guard - this is the visual half catching up with it,
+   the same split the vanilla has between openRefField and this rule. */
+.is-not-mine .field-row-display,
+.is-not-mine .field-edit-bar,
+.is-not-mine .ref-same-as-account {
+  pointer-events: none;
+  opacity: 0.45;
+  cursor: default;
+}

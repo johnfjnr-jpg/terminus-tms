@@ -42,6 +42,23 @@ export interface ReferenceSource {
 
 const str = (v: unknown): string => (v == null ? '' : String(v))
 
+/**
+ * A stored timestamp is not a date a person reads. The vanilla runs
+ * `formatDate(opp.created_at)` here; rendering the raw column gave
+ * "2026-09-06T14:12:05.80658+00:00" on the Date Created row, which the
+ * capture showed and no assertion could.
+ */
+export const asDate = (v: unknown): string => {
+  const s = str(v)
+  if (!s) return ''
+  const t = Date.parse(s)
+  // The shell's own format, so the two surfaces read the same while both
+  // exist: app.js formatDate uses en-GB day / short month / 2-digit year.
+  return Number.isNaN(t)
+    ? s
+    : new Date(t).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' })
+}
+
 /** Today, as the native `min` for a field that declares no past. A4. */
 export const todayIso = (now: Date): string => now.toISOString().slice(0, 10)
 
@@ -121,7 +138,7 @@ export function referenceReadOnly(src: ReferenceSource, closeMoves: unknown): Fi
     { name: 'ro-reference', label: 'Terminus Reference', value: str(src.reference), readOnly: true },
     { name: 'ro-stage', label: 'Stage', value: str(src.status), readOnly: true },
     { name: 'ro-account', label: 'Account', value: src.account?.name || 'Not linked', readOnly: true },
-    { name: 'ro-created', label: 'Date Created', value: str(src.createdAt), readOnly: true },
+    { name: 'ro-created', label: 'Date Created', value: asDate(src.createdAt), readOnly: true },
     { name: 'ro-moves', label: 'Est. Close Date Moves', value: str(closeMoves ?? 0), readOnly: true },
   ]
 }

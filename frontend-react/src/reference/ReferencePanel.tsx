@@ -103,17 +103,27 @@ export function ReferencePanel({ source, links, closeMoves, oppId, onSave, onCha
   }
   const canEdit = shell.canEditFields()
 
+  const Card = ({ title, testId, children }: {
+    title: string, testId: string, children: React.ReactNode
+  }) => (
+    <section className="pg-card" data-testid={testId}>
+      <p className="pg-card-title">{title}</p>
+      {children}
+    </section>
+  )
+
   return (
     <div className="ref-panel" data-testid="reference-panel">
       {row('name')}
 
-      <section data-testid="ref-terminus">
+      <div className="ref-cards">
+      <Card title="Terminus Details" testId="ref-terminus">
         {ro('Terminus Reference')}
         {['lead', 'commercial', 'technical', 'legal', 'region', 'country'].map(row)}
         {ro('Stage')}
-      </section>
+      </Card>
 
-      <section data-testid="ref-customer">
+      <Card title="Customer Details" testId="ref-customer">
         {ro('Account')}
         {row('customerLead')}
         <SameAsAccountToggle rows={rows} disabled={!canEdit}
@@ -132,23 +142,24 @@ export function ReferencePanel({ source, links, closeMoves, oppId, onSave, onCha
           )
           : ['commAddress', 'commAddress2', 'commCity', 'commPostcode',
              'commCountry', 'commRegion'].map(row)}
-      </section>
+      </Card>
 
-      <section data-testid="ref-key-contacts">
-        <KeyContacts oppId={oppId} links={links} onChanged={onChanged} />
-      </section>
-
-      <section data-testid="ref-dates">
+      <Card title="Key Dates" testId="ref-dates">
         {ro('Date Created')}
         {row('estClose')}
         {ro('Est. Close Date Moves')}
         {['actualClose', 'estGoLive', 'actualGoLive', 'duration'].map(row)}
-      </section>
+      </Card>
+      </div>
 
-      <section data-testid="ref-summary">
+      <Card title="Key Customer Contacts" testId="ref-key-contacts">
+        <KeyContacts oppId={oppId} links={links} onChanged={onChanged} />
+      </Card>
+
+      <Card title="Executive Summary" testId="ref-summary">
         {row('oppType')}
         {row('summary')}
-      </section>
+      </Card>
 
       <EditBar rows={rows} onSave={onSave} />
     </div>

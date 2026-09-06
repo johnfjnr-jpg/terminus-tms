@@ -55,6 +55,11 @@ function scriptFiles(dir = 'scripts') {
 const MAY_CALL_FETCH = {
   'api-client.mjs': 'the HTTP API client, and the one that throws',
   'verify-harness.mjs': 'the transport under supabase-js, which retries clock skew and must not throw',
+  'round5/visual-reference.mjs':
+    'The fetch is inside page.evaluate, so it runs in the BROWSER and never '
+    + 'touches the Node client this guard protects. It loads the vanilla '
+    + 'module the way the restored script tag would, which is how the visual '
+    + 'comparison reaches a reverted surface without editing the tree.',
 }
 
 test('no script calls fetch directly except the two that are allowed to', () => {

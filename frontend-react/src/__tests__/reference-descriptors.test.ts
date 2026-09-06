@@ -156,6 +156,20 @@ describe('S: item 5, same-as-account', () => {
   })
 })
 
+describe('D: dates a person reads', () => {
+  test('D1 Date Created renders a date, not a stored timestamp', () => {
+    const r = referenceReadOnly(src({ createdAt: '2026-09-06T14:12:05.80658+00:00' }), 0)
+    expect(r.find((x) => x.label === 'Date Created')!.value,
+      'the raw column reached the screen').toBe('06 Sept 26')
+  })
+  test('D2 an unparseable value is shown as it is, never as "Invalid Date"', () => {
+    // '01/01/27' is NOT the example to use here: Date.parse accepts it. A value
+    // the parser genuinely refuses is what tests the fallback.
+    const r = referenceReadOnly(src({ createdAt: 'sometime last spring' }), 0)
+    expect(r.find((x) => x.label === 'Date Created')!.value).toBe('sometime last spring')
+  })
+})
+
 describe('V: values are always strings, per finding 1', () => {
   test('V1 a numeric payload value arrives as a string', () => {
     const f = referenceFields(src({ payload: { duration: 36 } }), false, NOW)
