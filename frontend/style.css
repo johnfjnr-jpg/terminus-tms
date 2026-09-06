@@ -2300,7 +2300,8 @@ textarea::placeholder { color: var(--muted-2); }
    bug, the card was free to shrink to the shared .ref-cards floor
    (280px), leaving too little room in the value column for "Link Parent
    Account" to render on one line even after stacking it under the
-   value (see renderAcctParentRow, account-detail.js). Same 280-420px
+   value (see renderAcctParentRow, account-detail.js, deleted at the
+   Round 4 close). Same 280-420px
    cap every other Reference-style page (Contact, Test Bed, Opportunity)
    already uses, not a new value invented for this page. */
 /* Round 8 Phase 6 (2026-08-18): the wide-layout treatment Contact, Test Bed

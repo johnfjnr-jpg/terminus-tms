@@ -53,7 +53,8 @@ let refEdits = {}
 // the allowlist. Region takes the same fixed option list Test Bed uses, so the
 // two record types cannot drift into different vocabularies for one field.
 // COPIED VERBATIM, not written from the same idea. There are already four
-// identical copies of this list: test-bed-detail.js:23, account-detail.js:23,
+// identical copies of this list: test-bed-detail.js:23, account-detail.js:23
+// (that file deleted at the Round 4 close, its copy now in the React tree),
 // contact-detail.js:61 inline, and app.js:4711 as TB_MATRIX_REGIONS. They have
 // stayed consistent only because nobody had written a fifth from memory.
 //
@@ -108,7 +109,8 @@ const TERMINUS_FIELDS = [
 // "consistent with Test Bed" here and the reasoning is theirs.
 //
 // The suffixes and their order match ACCT_ADDRESS_SUFFIXES in
-// account-detail.js exactly, because the whole point is that one can stand in
+// account-detail.js exactly - the file is gone as of the Round 4 close, and
+// the React Account surface carries it now - because the point is that one can stand in
 // for the other. Region reuses the same option list.
 //
 // commAddress keeps its key and becomes line 1, so the one live record

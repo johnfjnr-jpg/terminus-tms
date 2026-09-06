@@ -368,10 +368,10 @@
        those concepts, unlike Test Bed/Opportunity. One .ref-cards row
        (the same shared grid every other detail page uses) plus a
        read-only linked-Contacts roll-up below, matching the review
-       capability the brief asks for. account-detail.js drives the real
-       click-to-edit logic, same generic mechanism as every other detail
-       page in this app (tbFieldRow/refFieldRow's own pattern), not a
-       new one. -->
+       capability the brief asks for. The React AccountView drives the real
+       click-to-edit logic through the shared FieldRow, the migrated form
+       of the same generic mechanism every other detail page uses
+       (tbFieldRow/refFieldRow's own pattern), not a new one. -->
   <div id="view-account-detail" class="wrap hidden">
     <div class="detail-head">
       <div>
@@ -3229,14 +3229,13 @@ opened it. -->
 <script src="/opportunity-reference.js"></script>
 <script src="/test-bed-detail.js"></script>
 <script src="/contact-detail.js"></script>
-<!-- ── THE ACCOUNT VIEW IS REACT FROM HERE. Round 2, Step C ────────────
-     frontend/account-detail.js STAYS IN TREE, unloaded, until the Round 3
-     entry gate confirms the surface. The revert is this tag plus the name
-     header markup above: three edits in index.html, enumerated in the Phase 0
-     report, plus the re-points it names.
-
-     <script src="/account-detail.js"></script>
--->
+<!-- ── THE ACCOUNT VIEW IS REACT, AND THE VANILLA IS GONE ─────────────
+     Round 4 close, under the one-round confidence window: a superseded file is
+     deleted after the next full round completes with no revert needed. The
+     Account surface was swapped in Round 2 and has stood through Rounds 3 and
+     4. frontend/account-detail.js is deleted and its revert with it, so
+     reverting the Account view now begins with restoring the file from git
+     history rather than uncommenting a tag. -->
 <!-- The numeric payload boundary, published for the classic scripts.
      opportunity-reference.js is a classic <script> and cannot import, and the
      alternative to this is a second copy of toNumberOrNull living in it - which

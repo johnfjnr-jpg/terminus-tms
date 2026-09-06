@@ -132,8 +132,8 @@ test('"Terminus Lead" is renamed on the OPPORTUNITY and nowhere else', () => {
   // A Test Bed's lead is not an opportunity owner and the rename would make
   // those labels false. That claim is unchanged; WHERE it is measured is not.
   //
-  // 1. OFF THE DEAD FILE. frontend/account-detail.js is unloaded as of Round 2:
-  //    its script tag is commented out and the surface is served by the React
+  // 1. OFF THE DEAD FILE. frontend/account-detail.js was unloaded in Round 2
+  //    and deleted at the Round 4 close; the surface is served by the React
   //    bundle. Left as it was, this assertion would have gone on PASSING by
   //    reading a file the browser never fetches. Second instance of the Round 1
   //    ds-row shape, and the template is now three parts rather than one.
@@ -153,10 +153,11 @@ test('"Terminus Lead" is renamed on the OPPORTUNITY and nowhere else', () => {
   assert.match(code('frontend-react/src/account/descriptors.ts', 'js'), /label: 'Terminus Lead'/,
     'the migrated Account surface lost its Terminus Lead label, which is not an opportunity owner')
 
-  // AND THE DEAD FILE IS NOT LOADED, so nobody re-points at it by habit.
-  const indexLive = stripHtml(readFileSync(new URL('../../frontend/index.html', import.meta.url), 'utf8'))
-  assert.ok(!/account-detail\.js/.test(indexLive),
-    'the vanilla Account view is unloaded; a live script tag would make the dead file live again')
+  // THE UNLOADED-FILE ASSERTION IS RETIRED WITH ITS FILE. Round 4 close.
+  // frontend/account-detail.js is deleted, so "it must not be loaded" is a
+  // claim about nothing: a script tag naming it would 404 rather than make a
+  // dead file live. The two assertions above carry the meaning now, and the
+  // second of them is the one that names where the Account label really lives.
 })
 
 test('the sort puts absent values last in BOTH directions', () => {
