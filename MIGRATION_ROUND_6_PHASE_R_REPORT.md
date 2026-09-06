@@ -293,6 +293,33 @@ the surface migrated last round.
 
 ## Gate
 
-See the closing section below, written from the run.
+**All 21 stages passed** on `54edd8b`, the closing tree, clean.
+Pure 456/456, database 92/92, react 472/472, all 0 fail, typecheck clean, and
+14 HTTP probes. Every figure parsed from the run rather than typed.
+
+Transcript: `.verify/verify-1161196039692791.txt`
+
+**The first run was RED, on the react typecheck, and the cause was this
+session's own retirement.** `deal-payload-parity.test.ts` imported `node:fs` and
+`node:path` and was **the only thing pulling `@types/node` into the react
+program**; deleting it took the global `require` with it, and
+`deal-panel.test.tsx` had three. Fixed here rather than listed, under rule 10's
+limit: a finding the round's own change created is part of the change.
+
+**And it exposed two more.** `require` returns `any`, so it had been hiding a
+declaration for `buildDealInputs` with no `rates` option though every caller
+passes one, and a `Result` declaring `financeCost` as `number` where the
+function returns `number | null`. Both are declaration bugs rather than
+call-site bugs - the 472 tests pass either way - so they are named at the site
+and left for the round that owns those files.
+
+**Nothing failed faster than it could run.** Every stage's duration is in its
+normal band (Verification 48), including the 554ms typecheck, which is a
+typecheck's own speed rather than a stage that did not execute.
+
+**What a green gate does not mean here.** The estClose gap at the head of this
+report is live on the migrated Reference tab and no stage can see it: the write
+path does not exist, so there is nothing to fail. It was found by asking what
+held a file in tree, not by any check in this run.
 
 **Not pushed. Phase 0 not started.**
