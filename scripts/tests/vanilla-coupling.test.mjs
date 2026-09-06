@@ -30,6 +30,10 @@ const CORPUS_READERS = new Set([
   // reads as a coupling. A scan that counts itself reports one finding it
   // created.
   'vanilla-coupling.test.mjs',
+  // It names the tag to assert the file is NOT LOADED, which is the opposite
+  // of a coupling. Caught here within minutes of being written, which is the
+  // ledger doing its job - the exemption is the disposition, not a softening.
+  'live-form.test.mjs',
 ])
 
 function coupledBlocks() {
