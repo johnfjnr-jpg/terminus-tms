@@ -1,0 +1,42 @@
+
+REFERENCE WALK: 40/40
+  ok   THE REACT REFERENCE PANEL IS MOUNTED, and the vanilla is hidden
+  ok   all 21 editable rows rendered  | 21
+  ok   and the 5 read-only rows carry NO tab stop on the live server
+  ok   TEXT opens
+  ok   SELECT opens
+  ok   and the staff picker fetched its own options  | ,Brad Kerr,Chris Diak
+  ok   DATE opens
+  ok   estClose carries its min on the live server  | 2026-09-06
+  ok   AND SO DOES estGoLive, which the vanilla does not (Phase 0 finding 1)  | 2026-09-06
+  ok   while an actual date carries none
+  ok   TEXTAREA opens
+  ok   THE BAR COUNTS ACROSS ROWS, which the vanilla does not  | {"hidden":false,"count":"4 changes"}
+  ok   THE SAVE ROUND-TRIPPED: country reached the record  | Malaysia
+  ok   and duration was sent as a NUMBER, not a string  | 48
+  ok   and the summary reached it
+  ok   ONLY DIRTY KEYS MOVED: an untouched key is unchanged
+  ok   the display shows the suffix after the save  | 48 months
+  ok   the concurrent write landed, or the 409 below tests nothing  | 200
+  ok   THE STALE-WRITE PATH IS ABSORBED BY oppPatch, and the edit still lands  | "Saved." customerLead=a stale write
+  ok   and the concurrent write was NOT lost by the retry  | APAC
+  ok   FLIP ON: the six address rows go read-only  | 5 -> 11
+  ok   FLIP OFF: they are editable again  | 11 -> 5
+  ok   and flipping back to the original left NO draft (dirty by comparison)  | {"hidden":true,"count":"0 changes"} dirty rows: none
+  ok   PAYLOAD SEMANTICS: a boolean FLAG is stored  | true
+  ok   and NO account address was copied into the payload  | undefined vs undefined
+  ok   the key-contacts sub-panel rendered
+  ok   and it contains no field rows
+  ok   RE-ENTERING THE SAME RECORD KEEPS AN OPEN ROW OPEN, rather than rebuilding it
+  ok   a real second owner exists to hand the record to  | 75425a02-4750-470b-bcdc-fe83d0b01ac2
+  ok   the not-owned fixture was created by admin write  | ok
+  ok   the view carries is-not-mine on a record the user does not own
+  ok   NOT MINE: every one of the 21 rows refuses a CLICK  | 21/21
+  ok   and every row was actually REACHABLE to be refused, not merely absent  | all reachable
+  ok   NOT MINE: and refuses Enter, Space and a seed character  | 21/21
+  ok   NOT MINE: the same-as-account direct input is refused too (D4)
+  ok   NOT MINE: the read-only rows still carry no tab stop
+  ok   the six address rows are editable again before the owned pass  | 5
+  ok   MINE AGAIN: every one of the 21 rows opens  | 21/21
+  ok   no page errors or 5xx across the walk
+  ok   RESIDUE: no live records owned by the test account  | 0

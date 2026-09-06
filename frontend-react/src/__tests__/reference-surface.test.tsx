@@ -181,6 +181,21 @@ describe('R: the rows render per the census', () => {
     expect(onSave, 'THE SUFFIX WAS SAVED INTO THE VALUE').toHaveBeenCalledWith({ duration: '48' })
   })
 
+  test('R7b AN EMPTY ROW IS STILL A TARGET, or the door cannot be reached', async () => {
+    // Found by the Phase 2 live walk: an empty row with no declared placeholder
+    // rendered an empty span and collapsed to HEIGHT 0, so it could not be
+    // clicked at all. jsdom has no layout, so this asserts the CONTENT that
+    // gives the row its height rather than the height itself - which is the
+    // honest limit of what a unit test can see here.
+    await mount({ src: source({ payload: { country: '' } }) })
+    expect(display('country').textContent,
+      'an empty row rendered nothing, so it has no height and no click target')
+      .toBe('--')
+    // And it still opens, which is the point of having a target at all.
+    await click(display('country'))
+    expect(isOpen('country')).toBe(true)
+  })
+
   test('R8 A3: an empty suffixed field shows its placeholder, not a bare suffix', async () => {
     await mount({ src: source({ payload: { duration: '' } }) })
     expect(display('duration').textContent, 'an unset duration read as " months"')

@@ -19,6 +19,11 @@ function seedFrom(e: KeyboardEvent): string | null {
 // responsible for, and the 49 tests written against those behaviours pass
 // unchanged through the refactor, which is how the move is shown to have been
 // a move rather than a rewrite.
+// The display half of an EMPTY row must still have height, or the row cannot
+// be clicked. The vanilla renders this for every empty field; a row whose
+// descriptor declares its own placeholder overrides it.
+const EMPTY_DISPLAY = '--'
+
 export function FieldRow({ field, rows }: { field: FieldDescriptor; rows: FieldRowsController }) {
   const open = rows.isOpen(field.name)
   const dirty = rows.isDirty(field.name)
@@ -55,7 +60,7 @@ export function FieldRow({ field, rows }: { field: FieldDescriptor; rows: FieldR
         <div className="field-row-display" data-testid={`display-${field.name}`}>
           {field.value
             ? <>{field.value}{field.suffix ? <span className="field-row-suffix"> {field.suffix}</span> : null}</>
-            : <span className="field-row-placeholder">{field.placeholder ?? ''}</span>}
+            : <span className="field-row-placeholder">{field.placeholder ?? EMPTY_DISPLAY}</span>}
         </div>
       </div>
     )
@@ -108,7 +113,7 @@ export function FieldRow({ field, rows }: { field: FieldDescriptor; rows: FieldR
                   `draft !== orig` wrong on the first save. */}
               {field.suffix ? <span className="field-row-suffix"> {field.suffix}</span> : null}
             </>
-          : <span className="field-row-placeholder">{field.placeholder ?? ''}</span>}
+          : <span className="field-row-placeholder">{field.placeholder ?? EMPTY_DISPLAY}</span>}
       </div>
 
       <div className="field-row-edit" data-testid={`edit-${field.name}`} hidden={!open}>
