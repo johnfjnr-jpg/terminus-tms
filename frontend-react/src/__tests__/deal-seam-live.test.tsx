@@ -12,6 +12,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ShellProvider } from '../ShellContext'
 import { shellServices } from '../shell-services'
 import { DealPanel } from '../deal/DealPanel'
+import { catalogApi, CATALOG_PRODUCTS } from './fixtures'
+import { catalogToRates } from '../../../src/lib/base-costs.js'
 import type { DealFormSeam } from '../deal/seam'
 import type { UiState, Values } from '../deal/payload'
 
@@ -37,8 +39,7 @@ let persistError: Error | null
 
 const mount = async () => {
   persisted = []; persistError = null
-  window.api = async (_m: string, p: string) =>
-    p === '/api/base-costs' ? { ok: true, data: { rates: RATES } } : { ok: false }
+  window.api = catalogApi()
   document.body.innerHTML = '<div id="host"></div>'
   host = document.getElementById('host')!
   const root: Root = createRoot(host)
@@ -74,7 +75,9 @@ describe('freezeCurrentState against the real form', () => {
     const frozen = await act(async () => seam.freezeCurrentState())
     expect(persisted).toHaveLength(0)
     expect(frozen.payload.gstPct).toBe(9)
-    expect(frozen.catalogRates).toEqual(RATES)
+    // ONE SOURCE for the expectation: the rates the shared fixture's products
+    // actually derive to, rather than a second hand-kept copy of them.
+    expect(frozen.catalogRates).toEqual(catalogToRates(CATALOG_PRODUCTS).rates)
   })
 
   test('A DIRTY FORM IS SAVED FIRST, and what is returned is what was saved', async () => {

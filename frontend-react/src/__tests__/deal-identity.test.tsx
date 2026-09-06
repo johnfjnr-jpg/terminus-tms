@@ -16,6 +16,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ShellProvider } from '../ShellContext'
 import { shellServices } from '../shell-services'
 import { DealPanel } from '../deal/DealPanel'
+import { catalogApi } from './fixtures'
 import { ADOPTED_IDS, ADOPTED_CLASSES } from '../deal/adopted-identity'
 import type { UiState, Values } from '../deal/payload'
 
@@ -45,8 +46,7 @@ const SHAPES: { name: string, ui: UiState, values: Values }[] = [
 ]
 
 async function renderShape(values: Values, ui: UiState): Promise<HTMLElement> {
-  window.api = async (_m: string, path: string) =>
-    path === '/api/base-costs' ? { ok: true, data: { rates: RATES } } : { ok: false, status: 404, data: {} }
+  window.api = catalogApi()
   document.body.innerHTML = '<div id="host"></div>'
   const host = document.getElementById('host')!
   const root: Root = createRoot(host)
@@ -86,24 +86,20 @@ async function seen(): Promise<{ ids: Set<string>, cls: Set<string> }> {
 // When both lists are empty the two `toEqual([])` assertions below become the
 // real coverage test and this comment goes with them.
 const KNOWN_MISSING_IDS: readonly string[] = [
-  'deal-detail-heading', 'deal-detail-panel', 'deal-factoring-fields',
+  'deal-factoring-fields',
   'deal-section-3', 'deal-section-5', 'deal-section-6', 'deal-sections-1-2',
 ]
 const KNOWN_MISSING_CLASSES: readonly string[] = [
-  'active', 'btn-ghost', 'btn-primary', 'btn-sm', 'btn-text', 'cashflow-scroll',
-  'col-mono', 'data-row-label', 'deal-basis', 'deal-basis-age', 'deal-basis-label',
-  'deal-basis-value', 'deal-cashflow-col', 'deal-detail-col', 'deal-intake-col',
-  'deal-panel', 'deal-payment-col', 'deal-payment-region', 'deal-section--intake',
-  'deal-summary-col', 'deal-summary-row', 'deal-toggle', 'detail-open',
-  'disclose', 'disclose-chevron', 'doc-table', 'empty-state',
-  'field-note', 'form-grid', 'form-group', 'help-dot', 'hidden', 'int-only',
+  'active', 'btn-ghost', 'btn-primary', 'btn-sm', 'cashflow-scroll',
+  'col-mono', 'data-row-label', 'deal-cashflow-col', 'deal-intake-col',
+  'deal-payment-col', 'deal-payment-region', 'deal-section--intake',
+  'deal-toggle', 'detail-open',
+  'doc-table', 'empty-state',
+  'form-grid', 'form-group', 'help-dot', 'int-only',
   'is-computed', 'is-scrollable', 'latch', 'latch-all-row', 'latch-row--intake',
-  'msg-error', 'msg-success', 'payment-card', 'payment-terms-panel', 'pg-card',
-  'pg-card-title', 'pg-cards', 'pg-cost', 'pg-head', 'pg-item-name',
-  'pg-item-note', 'pg-margin-input', 'pg-price', 'pg-row', 'pg-total',
-  'po-factoring-panel', 'po-field', 'ring-radio', 'ring-radio-dot',
+  'msg-success', 'payment-card', 'payment-terms-panel', 'po-factoring-panel', 'po-field', 'ring-radio', 'ring-radio-dot',
   'ring-radio-group', 'ring-radio-label', 'ring-radio-ring', 'section-save',
-  'section-title', 'section-title-row',   'terms-achieved', 'terms-cards',
+  'terms-achieved', 'terms-cards',
   'terms-field-row', 'unit-card', 'unit-cards', 'view-toggle',
   'view-toggle--stacked',
 ]
@@ -129,6 +125,23 @@ describe('the render adopts the vanilla identity', () => {
     const missing = ADOPTED_CLASSES.filter((c) => !cls.has(c))
     const regressed = missing.filter((c) => !KNOWN_MISSING_CLASSES.includes(c))
     expect(regressed, `classes the render used to carry and no longer does: ${regressed.join(', ')}`).toEqual([])
+  })
+
+  test('EXACTLY ONE element per id: an id is an identity, not a class', async () => {
+    // Verification 7: assert the count, not mere presence. Moving the seven
+    // margin inputs into the pricing cards left the generic census loop
+    // rendering them too, so `deal-margin-hwSs` named two elements and
+    // readPayload would have read whichever the DOM returned first. Nothing
+    // fails on a duplicate id; the browser just picks one.
+    for (const shape of SHAPES) {
+      const host = await renderShape(shape.values, shape.ui)
+      const counts = new Map<string, number>()
+      for (const el of host.querySelectorAll('[id]')) {
+        counts.set(el.id, (counts.get(el.id) ?? 0) + 1)
+      }
+      const dupes = [...counts.entries()].filter(([, n]) => n > 1).map(([id, n]) => `${id} x${n}`)
+      expect(dupes, `duplicate ids in "${shape.name}"`).toEqual([])
+    }
   })
 
   test('the outstanding list does not rot: nothing on it is already rendered', async () => {

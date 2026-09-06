@@ -81,3 +81,40 @@ export function build(args: {
     },
   } as unknown as ApprovalPage
 }
+
+// ── THE BASE-COST CATALOG, IN THE SHAPE THE SERVER ACTUALLY RETURNS ──────
+//
+// D2d/E finding. `useCatalogRates` read `data.rates`, which the route does not
+// return: GET /api/base-costs answers `{ as_of, products }` and the vanilla
+// runs those products through `catalogToRates`. Every React test supplied
+// `{ rates: {...} }`, so the panel passed everywhere and would have priced
+// every line at $0 the moment it went live - the indistinguishable zero the
+// vanilla's own comments say this round exists to remove.
+//
+// Verification 47: a fixture shaped to the implementation tests the
+// implementation. This one is shaped the way the SERVER produces the state, so
+// it goes through the same `catalogToRates` the vanilla uses.
+//
+// ONE definition, imported by every test, so the five copies cannot drift.
+export const CATALOG_PRODUCTS = [
+  {
+    product: 'safesight', batch_id: 'b-ss', batch_label: '2026 H1', effective_from: '2026-01-01',
+    unit_cost: 1000, hosting_cost_month: 10, install_cost_existing: 100, install_cost_new: 200,
+  },
+  {
+    product: 'air_quality', batch_id: 'b-aq', batch_label: '2026 H1', effective_from: '2026-01-01',
+    unit_cost: 800, hosting_cost_month: 8, install_cost_existing: 90, install_cost_new: null,
+  },
+  {
+    product: 'hemir', batch_id: 'b-he', batch_label: '2026 H1', effective_from: '2026-01-01',
+    unit_cost: 1200, hosting_cost_month: 12, install_cost_existing: 110, install_cost_new: null,
+  },
+]
+
+export const BASE_COSTS_RESPONSE = { as_of: '2026-01-01', products: CATALOG_PRODUCTS }
+
+/** The api() stub every deal test uses: the real response shape, nothing else. */
+export const catalogApi = (products: unknown[] = CATALOG_PRODUCTS) =>
+  async (_m: string, path: string) => path === '/api/base-costs'
+    ? { ok: true, data: { as_of: '2026-01-01', products } }
+    : { ok: false, status: 404, data: {} }

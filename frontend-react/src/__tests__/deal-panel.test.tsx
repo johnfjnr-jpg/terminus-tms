@@ -11,6 +11,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ShellProvider } from '../ShellContext'
 import { shellServices } from '../shell-services'
 import { DealPanel } from '../deal/DealPanel'
+import { catalogApi } from './fixtures'
 import { buildDealRows } from '../deal/rows'
 import { CENSUS, CATALOG_DISPLAYS, ALL_INPUT_IDS } from '../deal/census'
 import { MARGIN_KEYS, readDealPayload } from '../deal/payload'
@@ -52,8 +53,7 @@ const FOLD_VALUES: Values = { ...VALUES, 'deal-factoring-ratePct': '8', 'deal-fa
 const FOLD_TEST_BED = 25000
 
 const mount = async (values: Values = VALUES, ui: UiState = UI, testBedCost = 0) => {
-  window.api = async (_m: string, path: string) =>
-    path === '/api/base-costs' ? { ok: true, data: { rates: RATES } } : { ok: false, status: 404, data: {} }
+  window.api = catalogApi()
   document.body.innerHTML = '<div id="host"></div>'
   host = document.getElementById('host')!
   root = createRoot(host)

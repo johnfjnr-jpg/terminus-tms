@@ -2,8 +2,17 @@ import { useQuery } from '@tanstack/react-query'
 import { useShell } from '../ShellContext'
 import { useDealForm } from './useDealForm'
 import { buildDealRows, money } from './rows'
+import { catalogToRates } from '../../../src/lib/base-costs.js'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { CENSUS, CATALOG_DISPLAYS, MILESTONE_INPUTS, CONTRACTOR_INPUTS, DEAL_SECTIONS } from './census'
+// ONLY the seven the pricing cards render. MARGIN_KEYS has eleven: the four
+// installation lines are priced in the Installation section, which is what the
+// per-unit signpost in section 4 points at. Excluding all eleven from the
+// generic loop dropped four inputs nothing else rendered - and the census count
+// test caught it, which is what that test is for.
+const PRICING_CARD_MARGIN_IDS = new Set(
+  ['hwSs', 'hwAqm', 'hwHemir', 'hwWarranty', 'hoSs', 'hoAqm', 'hoHemir']
+    .map((k) => `deal-margin-${k}`))
 import type { CensusInput } from './census'
 import type { CatalogRates, Values, UiState } from './payload'
 import { buildCashFlowRows, closingCashText } from './cashflow'
@@ -22,6 +31,8 @@ import {
 } from './panelParts'
 import { dirtySections, captureSavedBaseline, SECTION_SAVE_TITLE } from './dirty'
 import { makeSeam } from './seam'
+import { DealSummarySection } from './section4'
+import { buildBasis } from './basis'
 import type { DealFormSeam } from './seam'
 
 // ── THE PANEL, BEHIND THE LINE ───────────────────────────────────────────
@@ -42,9 +53,15 @@ export function useCatalogRates() {
   return useQuery({
     queryKey: ['base-costs'],
     queryFn: async () => {
-      const r = await shell.api<{ products?: unknown[] }>('GET', '/api/base-costs')
+      const r = await shell.api<{ products?: object[], as_of?: string }>('GET', '/api/base-costs')
       if (!r.ok) throw new Error('The base cost catalog could not be loaded.')
-      return r.data
+      // THROUGH THE SAME READER THE VANILLA USES. The route returns
+      // `{ as_of, products }` and the rates are DERIVED from the products by
+      // catalogToRates; it does not return a `rates` key at all. Reading
+      // `data.rates` gave {} against the real server, which prices every line
+      // at $0 and says nothing about why. Verification 20.
+      const { rates, missing, batches } = catalogToRates(r.data?.products ?? [])
+      return { rates, missing, batches, asOf: r.data?.as_of ?? null }
     },
     staleTime: Infinity, retry: false,
   })
@@ -125,7 +142,11 @@ export function DealPanel({
     return () => ro.disconnect()
   })
   const catalog = useCatalogRates()
-  const rates = ((catalog.data as { rates?: CatalogRates } | undefined)?.rates ?? {}) as CatalogRates
+  const catalogData = catalog.data as {
+    rates?: CatalogRates, missing?: string[],
+    batches?: Record<string, { batch_label?: string, effective_from?: string }>, asOf?: string | null
+  } | undefined
+  const rates = (catalogData?.rates ?? {}) as CatalogRates
   const form = useDealForm(initialValues, rates, testBedCost, initialUi)
   const { values, ui, setValue, setUi, setValues, payload, result, computeError } = form
 
@@ -229,7 +250,12 @@ export function DealPanel({
             <span className="deal-section-title">{section}</span>
             {sectionSave(section)}
           </div>
-          {CENSUS.filter((f) => f.section === section).map((f) => (
+          {/* THE MARGIN INPUTS ARE NOT RENDERED HERE. Section 4's pricing
+              cards own them, as the vanilla does, and rendering them in both
+              places gives one id two elements: readPayload would read
+              whichever the DOM returned first. Verification 7 - assert exactly
+              one instance renders, not at least one. */}
+          {CENSUS.filter((f) => f.section === section && !PRICING_CARD_MARGIN_IDS.has(f.id)).map((f) => (
             <CensusField key={f.id} field={f} rates={rates}
               value={values[f.id] ?? ''} onChange={(v) => setValue(f.id, v)} />
           ))}
@@ -312,38 +338,53 @@ export function DealPanel({
         </div>
       ) : null}
 
-      {/* ── THE RESULTS, UNDER THE UNFOLD RULING ────────────────────────── */}
-      {computeError
-        ? <p className="msg-error" data-testid="compute-error">{computeError}</p>
-        : (
-          <div className="deal-matrix" data-testid="deal-results">
-            <div className="dm-row head">
-              <div className="dm-label" />
-              <div className="dm-cell">Hardware (USD)</div>
-              <div className="dm-cell">Hosting (USD)</div>
-              <div className="dm-cell">Installation (USD)</div>
-              <div className="dm-cell">Total (USD)</div>
-            </div>
-            {rows.map((r, i) => (
-              <div key={`${r.label}-${i}`} data-testid={`dm-row-${i}`}
-                className={['dm-row',
-                  r.fullWidth ? 'dm-row--full' : '',
-                  r.memo ? 'dm-row--memo' : '',
-                  r.emphasis === 'sum' ? 'dm-row--sum' : '',
-                  r.emphasis && r.emphasis !== 'sum' ? 'dm-row--lead' : ''].filter(Boolean).join(' ')}>
-                <div className="dm-label">{r.label}</div>
-                {r.fullWidth
-                  ? <div className="dm-cell dm-cell--span">{r.total}</div>
-                  : (<>
-                    <div className="dm-cell">{r.hardware}</div>
-                    <div className="dm-cell">{r.hosting}</div>
-                    <div className="dm-cell">{r.installation}</div>
-                    <div className="dm-cell dm-cell--total">{r.total}</div>
-                  </>)}
+      {/* ── SECTION 4: DEAL SHEET SUMMARY ───────────────────────────────── */}
+      {/* The matrix is the summary column's content, inside #deal-panel, which
+          is the container the stylesheet targets. `deal-matrix` was a React
+          invention with no rule anywhere in style.css. */}
+      <DealSummarySection
+        result={result as never}
+        payload={payload}
+        values={values}
+        onMargin={setValue}
+        install={installVisibility(ui)}
+        basis={buildBasis(catalogData?.batches ?? {}, catalogData?.missing ?? [],
+          catalogData?.asOf ?? null, catalog.isError ? 'Base Cost Data could not be loaded.' : null,
+          payload.bidCurrency)}
+        notices={null}
+        matrix={
+          computeError
+            ? <p className="msg-error" data-testid="compute-error">{computeError}</p>
+            : (
+              <div data-testid="deal-results">
+                <div className="dm-row head">
+                  <div className="dm-label" />
+                  <div className="dm-cell">Hardware (USD)</div>
+                  <div className="dm-cell">Hosting (USD)</div>
+                  <div className="dm-cell">Installation (USD)</div>
+                  <div className="dm-cell">Total (USD)</div>
+                </div>
+                {rows.map((r, i) => (
+                  <div key={`${r.label}-${i}`} data-testid={`dm-row-${i}`}
+                    className={['dm-row',
+                      r.fullWidth ? 'dm-row--full' : '',
+                      r.memo ? 'dm-row--memo' : '',
+                      r.emphasis === 'sum' ? 'dm-row--sum' : '',
+                      r.emphasis && r.emphasis !== 'sum' ? 'dm-row--lead' : ''].filter(Boolean).join(' ')}>
+                    <div className="dm-label">{r.label}</div>
+                    {r.fullWidth
+                      ? <div className="dm-cell dm-cell--span">{r.total}</div>
+                      : (<>
+                        <div className="dm-cell">{r.hardware}</div>
+                        <div className="dm-cell">{r.hosting}</div>
+                        <div className="dm-cell">{r.installation}</div>
+                        <div className="dm-cell dm-cell--total">{r.total}</div>
+                      </>)}
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        )}
+            )
+        } />
     </div>
   )
 }

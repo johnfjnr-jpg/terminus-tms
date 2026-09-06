@@ -15,6 +15,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ShellProvider } from '../ShellContext'
 import { shellServices } from '../shell-services'
 import { DealPanel } from '../deal/DealPanel'
+import { catalogApi } from './fixtures'
 import { MARGIN_KEYS } from '../deal/payload'
 import type { UiState, Values } from '../deal/payload'
 
@@ -61,8 +62,7 @@ const saved: unknown[] = []
 
 const mount = async (values: Values = V, ui: UiState = UI, testBedCost = 25000) => {
   saved.length = 0
-  window.api = async (_m: string, p: string) =>
-    p === '/api/base-costs' ? { ok: true, data: { rates: RATES } } : { ok: false, status: 404, data: {} }
+  window.api = catalogApi()
   document.body.innerHTML = '<div id="host"></div>'
   host = document.getElementById('host')!
   root = createRoot(host)
@@ -281,7 +281,18 @@ describe('B5 and B6 at render level: section saves by need', () => {
 describe('the empty-state contracts at render level', () => {
   test('a numOrUndefined box shows "no override" and holds no value', async () => {
     await mount()
-    for (const k of MARGIN_KEYS.slice(0, 3)) {
+    // ── RE-POINTED, Session E ─────────────────────────────────────────
+    //
+    // The claim is unchanged: a numOrUndefined box holds no value and says so
+    // in its placeholder. WHERE it is measured moved, because the seven
+    // pricing-card margins now carry the vanilla's own treatment - the TARGET
+    // as the placeholder, since a blank box prices at target
+    // (opportunity-deal.js:382). 'no override' was a React invention.
+    //
+    // The four installation margins keep the generic treatment, so they are
+    // where the generic contract is asserted. Both are covered: the card
+    // treatment is asserted in deal-section4.test.tsx B8.
+    for (const k of ['inSsEx', 'inSsNew', 'inAqm']) {
       const el = must(`deal-margin-${k}`) as HTMLInputElement
       expect(el.value).toBe('')
       expect(el.placeholder).toBe('no override')
