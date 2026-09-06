@@ -3295,12 +3295,12 @@ opened it. -->
      init could be called; the form's own init is what calls it, so the order
      is belt and braces rather than load-bearing. It talks to the form only
      through the seam, so the swap replaces the form under it unchanged. -->
-<!-- ── SUPERSEDED BY THE REACT VERSION CARD. Round 4, Phase 2 ─────────
-     Restoring this one line reverts the card alone: the vanilla re-registers
-     window.initOpportunityDealVersions after the bundle has, so its card runs,
-     the React mount never does, and #deal-version-vanilla is never hidden.
-<script type="module" src="/opportunity-deal-versions.js"></script>
-     ────────────────────────────────────────────────────────────────────── -->
+<!-- ── THE VERSION CARD IS REACT, AND THE VANILLA IS GONE ──────────────
+     Round 5 close, under the one-round confidence window. The card was
+     swapped in Round 4 and has stood through Round 5, so
+     frontend/opportunity-deal-versions.js is deleted and its revert with it.
+     Reverting the card now begins with restoring the file from git history
+     rather than uncommenting a tag. -->
 <!-- ── THE APPROVAL VIEW IS REACT, AND THE VANILLA IS GONE ────────────
      Round 4 close, under the one-round confidence window: a superseded file is
      deleted after the next full round completes with no revert needed. The

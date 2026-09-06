@@ -13,7 +13,10 @@ const ROOT = new URL('../../', import.meta.url)
 const ts = readCode(new URL('frontend-react/src/deal/adopted-identity.ts', ROOT))
 const css = readCode(new URL('frontend/style.css', ROOT))
 const app = readCode(new URL('frontend/app.js', ROOT)).replace(/<!--[\s\S]*?-->/g, ' ')
-const ver = readCode(new URL('frontend/opportunity-deal-versions.js', ROOT))
+// frontend/opportunity-deal-versions.js was deleted at the Round 5 close, so
+// its corpus is empty rather than absent - the ids it once read are now read
+// by the React card, which adopted-identity.ts already enumerates.
+const ver = ''
 const html = readCode(new URL('frontend/index.html', ROOT))
 
 function listOf(name) {

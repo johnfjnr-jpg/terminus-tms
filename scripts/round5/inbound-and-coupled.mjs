@@ -88,7 +88,10 @@ console.log(`  ${coupled.length} coupled files`)
 
 // ── ITEM 9: RETIREMENT PRECONDITIONS ────────────────────────────────────
 console.log('\n── ITEM 9: RETIREMENT PRECONDITIONS ────────────────────────────')
-for (const target of ['opportunity-deal.js', 'opportunity-deal-versions.js', 'deal-feedback.js']) {
+// opportunity-deal-versions.js retired at the Round 5 close and is off this
+// list. deal-feedback.js is imported only by opportunity-deal.js now, so it
+// retires with it.
+for (const target of ['opportunity-deal.js', 'deal-feedback.js']) {
   const name = target.replace('.js', '')
   const hits = sh(`grep -rn "${target}" --include="*.js" --include="*.mjs" --include="*.html" --include="*.css" --include="*.ts" --include="*.tsx" --include="*.json" frontend/ src/ scripts/ frontend-react/src/ package.json 2>/dev/null`)
     .split('\n').filter(Boolean).filter((l) => !l.startsWith(`frontend/${target}:`))

@@ -45,14 +45,6 @@ test('THE REACT PANEL IS THE LIVE COMMERCIALS FORM', () => {
 // rather than deleted because the replacement has to say what it now protects:
 // the React card is live, and restoring the tag is a deliberate revert rather
 // than a drift.
-test('THE REACT VERSION CARD IS THE LIVE ONE', () => {
-  const TAG = '<script type="module" src="/opportunity-deal-versions.js"></script>'
-  assert.ok(RAW.includes(TAG),
-    'the version card tag is GONE, so the card has no one-line revert')
-  assert.ok(!LIVE.includes(TAG),
-    'the vanilla version card is loaded again: the card swap has been reverted, deliberately or not')
-})
-
 test('and the card has its own mount and its own revert target', () => {
   // The two reverts are INDEPENDENT: each surface has its own container and its
   // own hidden markup, so reverting one does not revert the other.
