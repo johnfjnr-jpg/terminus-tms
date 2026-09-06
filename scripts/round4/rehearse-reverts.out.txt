@@ -1,0 +1,43 @@
+snapshot verified  frontend/index.html  193186B
+
+BASELINE
+  ledger GREEN   live tags: {"form":false,"card":false}
+  running against: card=REACT  form=REACT
+  WORKS UNDER: 9/9
+  parser calibration: the runner counts 1 failure(s), the parser names 1
+
+THE CARD ALONE reverted (vanilla card, React form)
+  live tags        {"form":false,"card":true}  as intended
+  ledger           RED
+  expected to fail THE REACT VERSION CARD IS THE LIVE ONE
+  actually failed  THE REACT VERSION CARD IS THE LIVE ONE
+  verdict          exactly the declared failures, and nothing else
+  running against: card=VANILLA  form=REACT
+  WORKS UNDER: 9/9
+  restored         byte-identical  live tags {"form":false,"card":false}
+
+THE FORM ALONE reverted (React card, vanilla form)
+  live tags        {"form":true,"card":false}  as intended
+  ledger           RED
+  expected to fail THE REACT PANEL IS THE LIVE COMMERCIALS FORM
+  actually failed  THE REACT PANEL IS THE LIVE COMMERCIALS FORM
+  verdict          exactly the declared failures, and nothing else
+  running against: card=REACT  form=VANILLA
+  WORKS UNDER: 9/9
+  restored         byte-identical  live tags {"form":false,"card":false}
+
+BOTH reverted (everything vanilla)
+  live tags        {"form":true,"card":true}  as intended
+  ledger           RED
+  expected to fail THE REACT VERSION CARD IS THE LIVE ONE | THE REACT PANEL IS THE LIVE COMMERCIALS FORM
+  actually failed  THE REACT PANEL IS THE LIVE COMMERCIALS FORM | THE REACT VERSION CARD IS THE LIVE ONE
+  verdict          exactly the declared failures, and nothing else
+  running against: card=VANILLA  form=VANILLA
+  WORKS UNDER: 9/9
+  restored         byte-identical  live tags {"form":false,"card":false}
+
+FINAL
+  ledger GREEN
+  frontend/index.html byte-identical to the snapshot
+
+All three reverts behaved exactly as their ledger declares.

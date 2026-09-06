@@ -1,5 +1,5 @@
 
-CARD WALK: 37/37
+CARD WALK: 39/39
   ok   THE REACT CARD IS MOUNTED, and the vanilla card is hidden
   ok   the empty state names the act and the label it produces
   ok   a blank reason refuses, and says what is wanted  | A reason is required: what is this price based on?
@@ -35,5 +35,7 @@ CARD WALK: 37/37
   ok   RESTORE FIDELITY: deal-cm-0-pct came back  | 100 (wanted 100)
   ok   RESTORE FIDELITY: the UI state came back  | hybrid
   ok   A NEWER DRAFT DISABLES THE ASK, and the card says why rather than going quiet  | disabled=true state="V1.1 is a draft. Issue it before requesting approval, or the approval would be of V1 and not of the price on screen."
+  ok   THE FORM STILL SAVES: the record holds what the form sent  | 58
+  ok   and the form reports itself clean after its own save
   ok   no page errors across the walk
   ok   RESIDUE: no live records  | 0

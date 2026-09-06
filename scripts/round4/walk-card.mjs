@@ -236,6 +236,25 @@ try {
     reAsk.disabled === true && /is a draft\. Issue it before requesting approval/.test(reAsk.line ?? ''),
     `disabled=${reAsk.disabled} state="${reAsk.line}"`)
 
+  // ── AND THE FORM ITSELF STILL SAVES. Phase 3 item 2 ────────────────────
+  // Finding 1 changed the CARD. This is the spot check that it changed
+  // nothing on the form beside it: an edit, its own Save changes, and the
+  // value read back from the SERVER rather than from the screen that wrote it.
+  await type('deal-ssExisting', '58')
+  await page.waitForFunction(() =>
+    document.getElementById('btn-save-deal')?.disabled === false, { timeout: 15000 })
+  await click('#btn-save-deal')
+  let savedSs = null
+  for (let i = 0; i < 40; i++) {
+    savedSs = Number((await rec()).payload.ssExisting)
+    if (savedSs === 58) break
+    await new Promise((r) => setTimeout(r, 500))
+  }
+  check('THE FORM STILL SAVES: the record holds what the form sent',
+    savedSs === 58, String(savedSs))
+  check('and the form reports itself clean after its own save',
+    await page.evaluate(() => window.dealFormSeam.hasUnsavedChanges() === false))
+
   check('no page errors across the walk',
     errs.filter((e) => !e.includes('favicon')).length === 0,
     errs.filter((e) => !e.includes('favicon')).slice(0, 2).join(' | '))
