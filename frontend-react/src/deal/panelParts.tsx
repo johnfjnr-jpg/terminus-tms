@@ -162,21 +162,6 @@ export function ContractorGrid({ rows, values, options, onTyped, view }: {
   )
 }
 
-export function InstallationTab({ vis, children }: { vis: InstallVisibility; children?: React.ReactNode }) {
-  return (
-    <div data-testid="installation-tab">
-      <div data-testid="install-table" hidden={!vis.table}>{children}</div>
-      {/* The signpost appears EXACTLY when the rows it points at do. */}
-      <p data-testid="install-signpost" hidden={!vis.signpost}>The per-unit rows are in the detail panel.</p>
-      <p data-testid="install-seetable" hidden={!vis.seeTable}>See the installation table</p>
-      <div data-testid="install-lumpCost-group" hidden={!vis.lumpCostGroup} />
-      <div data-testid="install-contractor-group" hidden={!vis.contractorGroup} />
-      <p data-testid="install-notapplicable" hidden={!vis.notApplicable}>
-        Installation is not priced by Terminus for this deal.
-      </p>
-    </div>
-  )
-}
 
 export function SwitchButton({ id, state, onToggle }: {
   id: string; state: ToggleState; onToggle(): void
@@ -184,23 +169,12 @@ export function SwitchButton({ id, state, onToggle }: {
   return (
     <button type="button" id={id} data-testid={id} role="switch"
       aria-checked={state.ariaChecked} title={state.title}
-      className={state.on ? 'is-on' : ''} onClick={onToggle}>
+      className={`btn-ghost deal-toggle${state.on ? ' is-on' : ''}`} onClick={onToggle}>
       {state.label}
     </button>
   )
 }
 
-export function StructureVisibilityRegions({ vis }: { vis: StructureVisibility }) {
-  return (
-    <>
-      <div data-testid="top-schedule-row" hidden={!vis.topScheduleRow} />
-      <div data-testid="invoicing-toggle-region" hidden={!vis.invoicingToggle} />
-      <div data-testid="recovery-group" hidden={!vis.recoveryGroup} />
-      <div data-testid="recovery-readonly" hidden={!vis.recoveryReadonly} />
-      <div data-testid="hybrid-group" hidden={!vis.hybridGroup} />
-    </>
-  )
-}
 
 // ── THE STRIP ABOVE THE SECTIONS ─────────────────────────────────────────
 //

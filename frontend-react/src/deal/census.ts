@@ -24,14 +24,22 @@ export const DEAL_SECTIONS = [
   'units', 'structural', 'installation', 'risk', 'payment',
 ] as const
 
+// ── THE LABELS ARE THE SCREEN'S OWN WORDS ────────────────────────────────
+//
+// Nine of these were written for the migration rather than taken from the
+// vanilla, so the swapped screen quietly renamed nine fields: "Air Quality
+// units" for "AQ Sensor", "FX contingency %" for "% Currency Contingency",
+// "Recovery months" for "Recovery period (months)". Nothing failed - a label is
+// not asserted anywhere - and the comparison against the vanilla is what found
+// them. A display rename is a decision, and this round was not making one.
 export const CENSUS: CensusInput[] = [
-  { id: 'deal-ssExisting', label: 'SafeSight, existing infrastructure', contract: 'numOrNull', section: 'units' },
-  { id: 'deal-ssNew', label: 'SafeSight, new infrastructure', contract: 'numOrNull', section: 'units' },
-  { id: 'deal-aqm', label: 'Air Quality units', contract: 'numOrNull', section: 'units' },
-  { id: 'deal-hemir', label: 'HEMIR units', contract: 'numOrNull', section: 'units' },
+  { id: 'deal-ssExisting', label: 'SafeSight, existing infra', contract: 'numOrNull', section: 'units' },
+  { id: 'deal-ssNew', label: 'SafeSight, new infra', contract: 'numOrNull', section: 'units' },
+  { id: 'deal-aqm', label: 'AQ Sensor', contract: 'numOrNull', section: 'units' },
+  { id: 'deal-hemir', label: 'HEMIR', contract: 'numOrNull', section: 'units' },
 
   { id: 'deal-duration', label: 'Contract duration (months)', contract: 'numOrNull', section: 'structural' },
-  { id: 'deal-recoveryMonths', label: 'Recovery months', contract: 'numOrNull', section: 'structural' },
+  { id: 'deal-recoveryMonths', label: 'Recovery period (months)', contract: 'numOrNull', section: 'structural' },
   { id: 'deal-targetMargin', label: 'Target margin %', contract: 'numOrNull', section: 'structural' },
 
   { id: 'deal-lumpCost', label: 'Lump sum cost', contract: 'numOrNull', section: 'installation' },
@@ -41,11 +49,11 @@ export const CENSUS: CensusInput[] = [
   { id: 'deal-inHemir', label: 'HEMIR install', contract: 'numOrNull', section: 'installation', placeholderFromCatalog: 'inHemir' },
 
   { id: 'deal-warrantyPct', label: 'Warranty %', contract: 'numOrNull', section: 'risk' },
-  { id: 'deal-whtPct', label: 'Withholding tax %', contract: 'numOrNull', section: 'risk' },
+  { id: 'deal-whtPct', label: 'Withholding Tax %', contract: 'numOrNull', section: 'risk' },
   { id: 'deal-gstPct', label: 'GST %', contract: 'numOrNull', section: 'risk' },
-  { id: 'deal-fxContingency', label: 'FX contingency %', contract: 'numOrNull', section: 'risk' },
-  { id: 'deal-bidCurrency', label: 'Bid currency', contract: 'emptyToNull', section: 'risk' },
-  { id: 'deal-proposalCurrency', label: 'Proposal currency', contract: 'emptyToNull', section: 'risk' },
+  { id: 'deal-fxContingency', label: '% Currency Contingency', contract: 'numOrNull', section: 'risk' },
+  { id: 'deal-bidCurrency', label: 'Bid Currency', contract: 'emptyToNull', section: 'risk' },
+  { id: 'deal-proposalCurrency', label: 'Proposal Currency', contract: 'emptyToNull', section: 'risk' },
 
   // `num`: an empty box is a VALUE, zero. Not "not recorded".
   { id: 'deal-factoring-ratePct', label: 'Factoring rate %', contract: 'num', section: 'payment' },

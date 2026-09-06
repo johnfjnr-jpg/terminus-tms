@@ -20,10 +20,11 @@ import {
 } from './installation'
 import {
   CashFlowGrid, YearScheduleView, MilestoneGrid, ContractorGrid,
-  InstallationTab, SwitchButton, StructureVisibilityRegions, StatsStrip,
+  SwitchButton, StatsStrip,
 } from './panelParts'
 import { dirtySections, captureSavedBaseline, SECTION_SAVE_TITLE } from './dirty'
 import { makeSeam } from './seam'
+import { CURRENCY_OPTIONS } from './currencies'
 import { VANILLA_SECTIONS, censusBySection, dirtyVanillaSections } from './sections'
 import { PaymentTermsSection } from './section5'
 import { UnitCards, InstallationSection } from './intake'
@@ -73,7 +74,9 @@ export function useCatalogRates() {
 // Each contract gets its own input treatment, and the differences are the
 // point rather than styling: what a person sees when a box is empty must match
 // what the reader will do with it.
-function CensusField({ field, value, rates, onChange, help, bare }: {
+function CensusField({ field, value, rates, onChange, help, bare, options }: {
+  /** A fixed list makes the control a select, as the vanilla's currencies are. */
+  options?: readonly { value: string, label: string }[]
   field: CensusInput
   value: string
   /** The vanilla's own help text, rendered as the dot INSIDE the label. */
@@ -106,10 +109,20 @@ function CensusField({ field, value, rates, onChange, help, bare }: {
     <label className="deal-field" htmlFor={field.id}
       data-contract={field.contract} data-section={field.section}>
       {bare ? null : (
-        <span className="deal-field-label">{field.label}
-          {help ? <span className="help-dot" tabIndex={0} role="note" title={help} /> : null}
+        <span className="deal-field-label">{field.label}{help ? ' ' : ''}
+          {help ? (
+            <span className="help-dot" tabIndex={0} role="note"
+              aria-label={help} title={help}>?</span>
+          ) : null}
         </span>
       )}
+      {options ? (
+        <select id={field.id} data-testid={field.id} value={value}
+          aria-label={bare ? field.label : undefined}
+          onChange={(e) => onChange(e.target.value)}>
+          {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
+      ) : (
       <input
         id={field.id}
         data-testid={field.id}
@@ -123,6 +136,7 @@ function CensusField({ field, value, rates, onChange, help, bare }: {
         // contracts into one.
         onChange={(e) => onChange(e.target.value)}
       />
+      )}
     </label>
   )
 }
@@ -321,7 +335,12 @@ export function DealPanel({
   const renderField = (id: string, bare = false) => {
     const f = CENSUS.find((c) => c.id === id)
     if (!f) return null
+    // The two currency fields are a FIXED LIST on the vanilla and were free
+    // text here, which let a deal record a currency the shell does not know.
+    const options = (id === 'deal-bidCurrency' || id === 'deal-proposalCurrency')
+      ? CURRENCY_OPTIONS : undefined
     return <CensusField key={f.id} field={f} rates={rates} help={HELP[f.id]} bare={bare}
+      options={options}
       value={values[f.id] ?? ''} onChange={(v) => setValue(f.id, v)} />
   }
   const censusFields = (sectionId: string) => (bySection[sectionId] ?? []).map((f) => (
@@ -367,8 +386,11 @@ export function DealPanel({
               a rate, not a record of one, and the vanilla says so in those
               words. They sit in the intake section, where the vanilla keeps
               them. */}
+          {/* HIDDEN, as the vanilla holds them: these are the catalog figures
+              the calculator reads, not fields anybody fills. Six extra boxes on
+              screen is what the comparison against the vanilla found. */}
           {CATALOG_DISPLAYS.map((d) => (
-            <label className="deal-field" key={d.id}>
+            <label className="deal-field hidden" key={d.id}>
               <span className="deal-field-label">{d.label}</span>
               <input id={d.id} data-testid={d.id} readOnly value={money(rates[d.rate])} />
             </label>
@@ -379,17 +401,12 @@ export function DealPanel({
       {sectionFrame(SECTION['deal-section-3'], (
         <>
           <StructuralTermsSection renderField={renderField} payload={payload}
-            achievedMargin={(result as { achievedMargin?: number } | null)?.achievedMargin} />
+            achievedMargin={(result as { achievedMargin?: number } | null)?.achievedMargin}
+            grossUpToggle={
+              <SwitchButton id="deal-grossUp-toggle" state={grossUpToggle(ui)}
+                onToggle={() => setUi({ grossUp: !ui.grossUp })} />
+            } />
           {censusFields('deal-section-3')}
-          <StructureVisibilityRegions vis={structureVisibility(ui)} />
-          <SwitchButton id="deal-grossUp-toggle" state={grossUpToggle(ui)}
-            onToggle={() => setUi({ grossUp: !ui.grossUp })} />
-          <select data-testid="ui-structure" value={ui.structure}
-            onChange={(e) => setUi({ structure: e.target.value })}>
-            <option value="twoPhase">Two phase</option>
-            <option value="single">Single</option>
-            <option value="hybrid">Hybrid</option>
-          </select>
         </>
       ))}
 
