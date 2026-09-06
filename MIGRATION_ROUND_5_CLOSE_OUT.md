@@ -228,6 +228,17 @@ Four extensions, **no new numbers**, numbering byte-identical.
 
 ## Gate
 
-Recorded below once measured.
+**All 21 stages passed** on `2e70829`, the closing tree
+(clean).
+Pure 470/470, database 92/92, react 565/565, all 0 fail,
+and 14 HTTP probes. Every figure parsed from the run rather than typed.
+
+**And what a green gate still does not mean here.** Five of this round's
+defects were invisible to every automated stage and were found by opening a
+screenshot. The hidden-versus-display detector closes three of them; the
+other two — an unstyled row and a zero-height click target — are layout, and
+nothing in this gate has layout.
+
+Transcript: `.verify/verify-1156137971937208.txt`
 
 **Not pushed. The round closes on John's word.**
