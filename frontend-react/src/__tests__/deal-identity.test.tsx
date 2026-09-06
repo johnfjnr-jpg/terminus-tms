@@ -63,14 +63,46 @@ async function renderShape(values: Values, ui: UiState): Promise<HTMLElement> {
   return host
 }
 
+// ── THE STATES A STILL SCREEN NEVER ENTERS ───────────────────────────────
+//
+// A census taken on a freshly-rendered panel misses every class that only
+// exists once somebody has DONE something: the disclosure opened, a field
+// edited. Those are not unreachable, they are just past the first frame, and
+// leaving them out reports them as gaps in the render when the gap is in the
+// instrument. Same fault as the census that measured a form which had never
+// initialised, one layer in.
+async function exercise(host: HTMLElement): Promise<void> {
+  const click = async (sel: string) => {
+    const el = host.querySelector(sel) as HTMLElement | null
+    if (el) await act(async () => { el.click() })
+  }
+  // The detail disclosure: `detail-open` lives on the summary row only while
+  // the panel is open.
+  await click('#btn-toggle-detail')
+  // A dirty field: the section-save button does not exist until one is.
+  const input = host.querySelector('[data-testid="deal-duration"]') as HTMLInputElement | null
+  if (input) {
+    const set = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!
+    await act(async () => {
+      set.call(input, String(Number(input.value || '24') + 12))
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+  }
+}
+
 async function seen(): Promise<{ ids: Set<string>, cls: Set<string> }> {
   const ids = new Set<string>(), cls = new Set<string>()
-  for (const shape of SHAPES) {
-    const host = await renderShape(shape.values, shape.ui)
+  const collect = (host: HTMLElement) => {
     for (const el of host.querySelectorAll('*')) {
       if (el.id) ids.add(el.id)
       for (const c of el.classList) cls.add(c)
     }
+  }
+  for (const shape of SHAPES) {
+    const host = await renderShape(shape.values, shape.ui)
+    collect(host)
+    await exercise(host)
+    collect(host)
   }
   return { ids, cls }
 }
@@ -87,19 +119,13 @@ async function seen(): Promise<{ ids: Set<string>, cls: Set<string> }> {
 // real coverage test and this comment goes with them.
 const KNOWN_MISSING_IDS: readonly string[] = [
   'deal-factoring-fields',
-  'deal-section-3', 'deal-section-5', 'deal-section-6', 'deal-sections-1-2',
-]
+  ]
 const KNOWN_MISSING_CLASSES: readonly string[] = [
-  'active', 'btn-ghost', 'btn-primary', 'btn-sm', 'cashflow-scroll',
-  'col-mono', 'data-row-label', 'deal-cashflow-col', 'deal-intake-col',
-  'deal-payment-col', 'deal-payment-region', 'deal-section--intake',
-  'deal-toggle', 'detail-open',
-  'doc-table', 'empty-state',
+  'active', 'btn-ghost', 'cashflow-scroll',
+  'col-mono', 'data-row-label', 'deal-cashflow-col', 'deal-payment-col', 'deal-payment-region', 'deal-toggle', 'doc-table', 'empty-state',
   'form-grid', 'form-group', 'help-dot', 'int-only',
-  'is-computed', 'is-scrollable', 'latch', 'latch-all-row', 'latch-row--intake',
-  'msg-success', 'payment-card', 'payment-terms-panel', 'po-factoring-panel', 'po-field', 'ring-radio', 'ring-radio-dot',
-  'ring-radio-group', 'ring-radio-label', 'ring-radio-ring', 'section-save',
-  'terms-achieved', 'terms-cards',
+  'is-computed', 'is-scrollable', 'msg-success', 'payment-card', 'payment-terms-panel', 'po-factoring-panel', 'po-field', 'ring-radio', 'ring-radio-dot',
+  'ring-radio-group', 'ring-radio-label', 'ring-radio-ring', 'terms-achieved', 'terms-cards',
   'terms-field-row', 'unit-card', 'unit-cards', 'view-toggle',
   'view-toggle--stacked',
 ]

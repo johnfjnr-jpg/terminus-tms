@@ -251,25 +251,32 @@ describe('B5 and B6 at render level: section saves by need', () => {
     expect(host.querySelectorAll('[data-testid^="section-save-"]')).toHaveLength(0)
   })
 
+  // ── RE-POINTED, Session E ─────────────────────────────────────────────
+  //
+  // The claim is unchanged. The SECTION NAMES became the screen's own:
+  // `deal-gstPct` is a census 'risk' key and the vanilla renders it in
+  // Structural Terms, #deal-section-3. The census label is still what
+  // sectionOfKey answers; what changed is that the save button belongs to the
+  // section the input SITS IN, which is what the vanilla groups by.
   test('editing a section CREATES its save, and only its own', async () => {
     await mount()
     type('deal-gstPct', '7')
-    expect($('section-save-risk'), 'the edited section has no save').not.toBeNull()
-    expect($('section-save-units'), 'an untouched section grew a save').toBeNull()
+    expect($('section-save-deal-section-3'), 'the edited section has no save').not.toBeNull()
+    expect($('section-save-deal-sections-1-2'), 'an untouched section grew a save').toBeNull()
   })
 
   test('and editing back DESTROYS it again', async () => {
     await mount()
     type('deal-gstPct', '7')
-    expect($('section-save-risk')).not.toBeNull()
+    expect($('section-save-deal-section-3')).not.toBeNull()
     type('deal-gstPct', '9')
-    expect($('section-save-risk')).toBeNull()
+    expect($('section-save-deal-section-3')).toBeNull()
   })
 
   test('B6: a section save saves the WHOLE sheet, and says so', async () => {
     await mount()
     type('deal-gstPct', '7')
-    const btn = must('section-save-risk')
+    const btn = must('section-save-deal-section-3')
     expect(btn.title).toContain('whole deal sheet')
     act(() => { btn.dispatchEvent(new MouseEvent('click', { bubbles: true })) })
     expect(saved).toHaveLength(1)

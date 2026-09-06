@@ -5,16 +5,9 @@ import { buildDealRows, money } from './rows'
 import { catalogToRates } from '../../../src/lib/base-costs.js'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { CENSUS, CATALOG_DISPLAYS, MILESTONE_INPUTS, CONTRACTOR_INPUTS, DEAL_SECTIONS } from './census'
-// ONLY the seven the pricing cards render. MARGIN_KEYS has eleven: the four
-// installation lines are priced in the Installation section, which is what the
-// per-unit signpost in section 4 points at. Excluding all eleven from the
-// generic loop dropped four inputs nothing else rendered - and the census count
-// test caught it, which is what that test is for.
-const PRICING_CARD_MARGIN_IDS = new Set(
-  ['hwSs', 'hwAqm', 'hwHemir', 'hwWarranty', 'hoSs', 'hoAqm', 'hoHemir']
-    .map((k) => `deal-margin-${k}`))
 import type { CensusInput } from './census'
 import type { CatalogRates, Values, UiState } from './payload'
+import { MARGIN_KEYS } from './payload'
 import { buildCashFlowRows, closingCashText } from './cashflow'
 import type { CashFlow } from './cashflow'
 import { buildYearSchedule } from './schedule'
@@ -31,6 +24,8 @@ import {
 } from './panelParts'
 import { dirtySections, captureSavedBaseline, SECTION_SAVE_TITLE } from './dirty'
 import { makeSeam } from './seam'
+import { VANILLA_SECTIONS, censusBySection, dirtyVanillaSections } from './sections'
+import { PANELS, latchView, latchAllView, toggleAll, toggleOne } from './latch'
 import { DealSummarySection } from './section4'
 import { buildBasis } from './basis'
 import type { DealFormSeam } from './seam'
@@ -124,6 +119,10 @@ export function DealPanel({
   refreshVersionActions?: () => void
 }) {
   const cashFlowRef = useRef<HTMLDivElement | null>(null)
+  // SESSION ONLY, and that is the whole design: nothing about a latch reaches
+  // the payload, so a reload brings everything back and there is no remembered
+  // set for "show all" to return to.
+  const [latched, setLatched] = useState<ReadonlySet<string>>(() => new Set<string>())
 
   // ── markCashFlowScrollable, PORTED ──────────────────────────────────
   //
@@ -216,7 +215,7 @@ export function DealPanel({
   // section holds a dirty key - and it saves the WHOLE deal sheet. It is a
   // scroll affordance so somebody editing one section does not have to travel
   // to the bottom, not a partial write, and its title says so.
-  const dirty = dirtySections(payload, baseline)
+  const dirty = dirtyVanillaSections(payload, baseline)
   const sectionSave = (section: string) => (dirty.has(section)
     ? (
       <button type="button" className="btn-sm btn-primary section-save"
@@ -241,102 +240,107 @@ export function DealPanel({
   const oneOffPrice = (result as { totals?: { oneOffPrice: number } } | null)?.totals?.oneOffPrice ?? 0
   const lumpCost = Number(payload.lumpSumCost ?? 0)
 
+  // ── THE LATCH VIEWS, through src/lib/latches.js ────────────────────────
+  // ONE derivation, shared by the latch signal and by section 4. Two readers of
+  // the same value drift; the catalog problem the latch warns about must be the
+  // same one the panel shows.
+  const basisView = buildBasis(catalogData?.batches ?? {}, catalogData?.missing ?? [],
+    catalogData?.asOf ?? null, catalog.isError ? 'Base Cost Data could not be loaded.' : null,
+    payload.bidCurrency)
+  const latchInputs = {
+    marginOverrides: Object.fromEntries(MARGIN_KEYS.map((k: string) => [k, values[`deal-margin-${k}`]])),
+    rateValues: Object.fromEntries((['inSsExisting', 'inSsNew', 'inAqm', 'inHemir'])
+      .map((k) => [k, values[`deal-${k}`]])),
+    catalogProblem: !!basisView.warning,
+  }
+  const allView = latchAllView(latched, payload, latchInputs)
+  const bySection = censusBySection()
+
+  // A section's frame: the latch row, its title, the save that appears when the
+  // section is dirty, and the latch button LAST, which is what keeps it at the
+  // right-hand end of the row.
+  const sectionFrame = (sec: { id: string, title: string, intake?: boolean, latchable: boolean },
+    body: React.ReactNode) => {
+    const v = sec.latchable
+      ? latchView(PANELS.find((p) => p.id === sec.id)!, latched, payload, latchInputs)
+      : null
+    return (
+      <section className={`deal-section${sec.intake ? ' deal-section--intake' : ''}${v?.latched ? ' is-latched' : ''}`}
+        id={sec.id} key={sec.id} data-testid={sec.id}>
+        <div className={`latch-row${sec.intake ? ' latch-row--intake' : ''}`}>
+          <p className="section-title">{sec.title}</p>
+          {sectionSave(sec.id)}
+          {v ? (
+            <button type="button" id={`latch-${sec.id}`} data-testid={`latch-${sec.id}`}
+              className={`latch${v.signalled ? ' is-signalled' : ''}`}
+              data-latch={sec.id} aria-controls={sec.id} aria-expanded={v.ariaExpanded}
+              title={v.title} onClick={() => setLatched(toggleOne(latched, sec.id))}>{v.buttonText}</button>
+          ) : null}
+        </div>
+        {body}
+      </section>
+    )
+  }
+  const censusFields = (sectionId: string) => (bySection[sectionId] ?? []).map((f) => (
+    <CensusField key={f.id} field={f} rates={rates}
+      value={values[f.id] ?? ''} onChange={(v) => setValue(f.id, v)} />
+  ))
+  const SECTION = Object.fromEntries(VANILLA_SECTIONS.map((s) => [s.id, s]))
+
   return (
     <div data-testid="deal-panel">
       <StatsStrip result={result as never} payload={payload} />
-      {DEAL_SECTIONS.map((section) => (
-        <div className="deal-section" id={`deal-section-${section}`} key={section}>
-          <div className="latch-row" data-testid={`latch-${section}`}>
-            <span className="deal-section-title">{section}</span>
-            {sectionSave(section)}
-          </div>
-          {/* THE MARGIN INPUTS ARE NOT RENDERED HERE. Section 4's pricing
-              cards own them, as the vanilla does, and rendering them in both
-              places gives one id two elements: readPayload would read
-              whichever the DOM returned first. Verification 7 - assert exactly
-              one instance renders, not at least one. */}
-          {CENSUS.filter((f) => f.section === section && !PRICING_CARD_MARGIN_IDS.has(f.id)).map((f) => (
-            <CensusField key={f.id} field={f} rates={rates}
-              value={values[f.id] ?? ''} onChange={(v) => setValue(f.id, v)} />
+
+      {/* HIDING IS FOR THIS SESSION ONLY, and the note says so because a
+          control that hides work has to say whether the hiding is saved. */}
+      <div className="latch-all-row">
+        <button type="button" id="latch-all" data-testid="latch-all"
+          className={`latch latch-all${allView.signalled ? ' is-signalled' : ''}`}
+          onClick={() => setLatched(toggleAll(latched))}>{allView.text}</button>
+        <span className="field-note" id="latch-all-note">Hiding is for this session only. Nothing is saved and a reload brings everything back.</span>
+      </div>
+
+      {sectionFrame(SECTION['deal-sections-1-2'], (
+        <>
+          <div className="deal-intake-col">{censusFields('deal-sections-1-2')}</div>
+          {/* The seven catalog readouts. A readonly input here is a DISPLAY of
+              a rate, not a record of one, and the vanilla says so in those
+              words. They sit in the intake section, where the vanilla keeps
+              them. */}
+          {CATALOG_DISPLAYS.map((d) => (
+            <label className="deal-field" key={d.id}>
+              <span className="deal-field-label">{d.label}</span>
+              <input id={d.id} data-testid={d.id} readOnly value={money(rates[d.rate])} />
+            </label>
           ))}
-        </div>
+          <InstallationTab vis={installVisibility(ui)} />
+          <ContractorGrid rows={CONTRACTOR_INPUTS} values={values}
+            options={(i) => milestoneOptions(values[`deal-cm-${i}-label`])}
+            onTyped={onContractorTyped}
+            view={contractorReconciliation(values, lumpCost)} />
+        </>
       ))}
 
-      {/* The seven catalog readouts. A readonly input here is a DISPLAY of a
-          rate, not a record of one, and the vanilla says so in those words. */}
-      <div className="deal-section" id="deal-section-catalog">
-        {CATALOG_DISPLAYS.map((d) => (
-          <label className="deal-field" key={d.id}>
-            <span className="deal-field-label">{d.label}</span>
-            <input id={d.id} data-testid={d.id} readOnly value={money(rates[d.rate])} />
-          </label>
-        ))}
-      </div>
-
-      {/* ── THE TWO MILESTONE GRIDS ─────────────────────────────────────── */}
-      <div className="deal-section" id="deal-section-milestones">
-        <div className="latch-row" data-testid="latch-milestones">
-          <span className="deal-section-title">Payment milestones</span>
-          {sectionSave('milestones')}
-        </div>
-        <MilestoneGrid rows={MILESTONE_INPUTS} values={values}
-          usdFor={(i) => milestoneUsdFor(values[`deal-ms-${i}-pct`], oneOffPrice)}
-          onChange={setValue}
-          warning={customerScheduleWarning(
-            (payload.milestones ?? []) as { month?: number; usd?: number }[], oneOffPrice)} />
-      </div>
-
-      <div className="deal-section" id="deal-section-contractor">
-        <div className="latch-row" data-testid="latch-contractor">
-          <span className="deal-section-title">Contractor milestones</span>
-          {sectionSave('contractor')}
-        </div>
-        <ContractorGrid rows={CONTRACTOR_INPUTS} values={values}
-          options={(i) => milestoneOptions(values[`deal-cm-${i}-label`])}
-          onTyped={onContractorTyped}
-          view={contractorReconciliation(values, lumpCost)} />
-      </div>
-
-      {/* ── THE INSTALLATION TAB ─────────────────────────────────────────── */}
-      <InstallationTab vis={installVisibility(ui)} />
-      <StructureVisibilityRegions vis={structureVisibility(ui)} />
-
-      {/* The two switches, which are the same control and must look it. */}
-      <div className="deal-section" id="deal-section-toggles">
-        <SwitchButton id="deal-grossUp-toggle" state={grossUpToggle(ui)}
-          onToggle={() => setUi({ grossUp: !ui.grossUp })} />
-        <SwitchButton id="deal-factoring-toggle" state={factoringToggle(ui)}
-          onToggle={() => setUi({ factoringEnabled: !ui.factoringEnabled })} />
-      </div>
-
-      <div className="deal-section" id="deal-section-ui">
-        <select data-testid="ui-structure" value={ui.structure}
-          onChange={(e) => setUi({ structure: e.target.value })}>
-          <option value="twoPhase">Two phase</option>
-          <option value="single">Single</option>
-          <option value="hybrid">Hybrid</option>
-        </select>
-        <select data-testid="ui-invoicing" value={ui.invoicing}
-          onChange={(e) => setUi({ invoicing: e.target.value })}>
-          <option value="annual">Annual</option><option value="monthly">Monthly</option>
-        </select>
-        <select data-testid="ui-installResp" value={ui.installResp}
-          onChange={(e) => setUi({ installResp: e.target.value })}>
-          <option>Client Own Installation Team</option>
-          <option>Terminus Contractor - Per Unit</option>
-          <option>Terminus Contractor - Lump Sum</option>
-        </select>
-      </div>
-
-      {/* ── THE CASH-FLOW GRID AND THE YEAR SCHEDULE ─────────────────────── */}
-      {cashFlow ? (
-        <div className="deal-section" id="deal-section-cashflow">
-          <CashFlowGrid months={cashFlow.rows.map((r) => r.m)}
-            rows={buildCashFlowRows(cashFlow)} closing={closingCashText(cashFlow)}
-            scrollRef={cashFlowRef} />
-          <YearScheduleView schedule={buildYearSchedule(cashFlow, payload, ui.structure, ui.invoicing)} />
-        </div>
-      ) : null}
+      {sectionFrame(SECTION['deal-section-3'], (
+        <>
+          {censusFields('deal-section-3')}
+          <StructureVisibilityRegions vis={structureVisibility(ui)} />
+          <SwitchButton id="deal-grossUp-toggle" state={grossUpToggle(ui)}
+            onToggle={() => setUi({ grossUp: !ui.grossUp })} />
+          <select data-testid="ui-structure" value={ui.structure}
+            onChange={(e) => setUi({ structure: e.target.value })}>
+            <option value="twoPhase">Two phase</option>
+            <option value="single">Single</option>
+            <option value="hybrid">Hybrid</option>
+          </select>
+          <select data-testid="ui-installResp" value={ui.installResp}
+            onChange={(e) => setUi({ installResp: e.target.value })}>
+            <option>Client Own Installation Team</option>
+            <option>Terminus Contractor - Per Unit</option>
+            <option>Terminus Contractor - Lump Sum</option>
+          </select>
+        </>
+      ))}
 
       {/* ── SECTION 4: DEAL SHEET SUMMARY ───────────────────────────────── */}
       {/* The matrix is the summary column's content, inside #deal-panel, which
@@ -348,9 +352,7 @@ export function DealPanel({
         values={values}
         onMargin={setValue}
         install={installVisibility(ui)}
-        basis={buildBasis(catalogData?.batches ?? {}, catalogData?.missing ?? [],
-          catalogData?.asOf ?? null, catalog.isError ? 'Base Cost Data could not be loaded.' : null,
-          payload.bidCurrency)}
+        basis={basisView}
         notices={null}
         matrix={
           computeError
@@ -385,6 +387,34 @@ export function DealPanel({
               </div>
             )
         } />
+
+      {sectionFrame(SECTION['deal-section-5'], (
+        <>
+          {censusFields('deal-section-5')}
+          <SwitchButton id="deal-factoring-toggle" state={factoringToggle(ui)}
+            onToggle={() => setUi({ factoringEnabled: !ui.factoringEnabled })} />
+          <select data-testid="ui-invoicing" value={ui.invoicing}
+            onChange={(e) => setUi({ invoicing: e.target.value })}>
+            <option value="annual">Annual</option><option value="monthly">Monthly</option>
+          </select>
+          <MilestoneGrid rows={MILESTONE_INPUTS} values={values}
+            usdFor={(i) => milestoneUsdFor(values[`deal-ms-${i}-pct`], oneOffPrice)}
+            onChange={setValue}
+            warning={customerScheduleWarning(
+              (payload.milestones ?? []) as { month?: number; usd?: number }[], oneOffPrice)} />
+          {cashFlow
+            ? <YearScheduleView schedule={buildYearSchedule(cashFlow, payload, ui.structure, ui.invoicing)} />
+            : null}
+        </>
+      ))}
+
+      {sectionFrame(SECTION['deal-section-6'], (
+        cashFlow ? (
+          <CashFlowGrid months={cashFlow.rows.map((r) => r.m)}
+            rows={buildCashFlowRows(cashFlow)} closing={closingCashText(cashFlow)}
+            scrollRef={cashFlowRef} />
+        ) : null
+      ))}
     </div>
   )
 }
