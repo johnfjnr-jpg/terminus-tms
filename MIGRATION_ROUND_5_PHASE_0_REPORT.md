@@ -496,6 +496,15 @@ Any count taken from `refFieldRow`'s call sites alone would read 19, not 21.
 
 ## Gate
 
-Recorded below once the closing tree has been measured.
+**All 21 stages passed** on `031a6fa`, the tree this report is
+committed on, clean. Pure 463/463, database
+92/92, react 485/485, all 0 fail, and 14 HTTP probes.
+Every figure parsed from the run rather than typed.
+
+The precondition gate earlier in this session ran on `21c3841` and its header
+read WORKING TREE DIRTY: this round's untracked investigation scripts, which
+no gate stage reads. This one is the clean re-run.
+
+Transcript: `.verify/verify-1149240346473166.txt`
 
 **Not pushed. Phase 1 not started.**
