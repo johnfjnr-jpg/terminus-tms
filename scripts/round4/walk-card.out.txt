@@ -1,0 +1,39 @@
+
+CARD WALK: 37/37
+  ok   THE REACT CARD IS MOUNTED, and the vanilla card is hidden
+  ok   the empty state names the act and the label it produces
+  ok   a blank reason refuses, and says what is wanted  | A reason is required: what is this price based on?
+  ok   and the class is the error one
+  ok   AND IT WROTE NOTHING
+  ok   a version was taken from a clean form  | 1
+  ok   and NO deal revision was written  | 1 -> 1
+  ok   the reason box cleared on success
+  ok   and the feedback is the success one
+  ok   the form is dirty, so the freeze must save first
+  ok   a second version exists  | 2
+  ok   THE DEAL WAS SAVED FIRST: a revision was written  | 1 -> 2
+  ok   and the record holds the edited value  | 31
+  ok   the version froze the SAVED value, not the screen  | 31
+  ok   the issue control is VISIBLE, not merely present
+  ok   the issue control names both versions  | Issue V0.2 as V1
+  ok   the latest draft issued  | issued,draft
+  ok   the ask control is VISIBLE at a stage the version gate applies to
+  ok   the ask is offered once a version is issued and nothing is in the way  | Request approval of V1 disabled=false state=""
+  ok   REQUESTING: the reporter disabled the control and relabelled it  | Requesting... disabled=true
+  ok   AND A RE-RENDER MID-REQUEST DOES NOT RE-ENABLE IT  | Requesting... disabled=true
+  ok   A NON-RECONCILING SCHEDULE REFUSES THE VERSION, and the card says why  | The contractor payment schedule totals $62,500 against $250,000. Under by $187,500, 75.00 points. A version records a commercial commitment and cannot
+  ok   and the refusal wrote nothing
+  ok   the reason survived the refusal, so it can be tried again
+  ok   the fidelity version was taken  | 2 -> 3; card said "Version taken."
+  ok   the form was moved OFF the frozen state, or a restore proves nothing
+  ok   RESTORE OVER A DIRTY FORM ASKS BEFORE DISCARDING
+  ok   RESTORE FIDELITY: deal-lumpCost came back  | 250000 (wanted 250000)
+  ok   RESTORE FIDELITY: deal-margin-hwSs came back  | 42 (wanted 42)
+  ok   RESTORE FIDELITY: deal-ms-0-month came back  | 3 (wanted 3)
+  ok   RESTORE FIDELITY: deal-ms-0-pct came back  | 30 (wanted 30)
+  ok   RESTORE FIDELITY: deal-cm-0-month came back  | 2 (wanted 2)
+  ok   RESTORE FIDELITY: deal-cm-0-pct came back  | 100 (wanted 100)
+  ok   RESTORE FIDELITY: the UI state came back  | hybrid
+  ok   A NEWER DRAFT DISABLES THE ASK, and the card says why rather than going quiet  | disabled=true state="V1.1 is a draft. Issue it before requesting approval, or the approval would be of V1 and not of the price on screen."
+  ok   no page errors across the walk
+  ok   RESIDUE: no live records  | 0

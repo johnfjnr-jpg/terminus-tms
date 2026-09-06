@@ -1,0 +1,17 @@
+
+TWO FORMS: 15/15
+  ok   THE VANILLA FORM TAG IS RESTORED on this branch
+  ok   and the vanilla CARD tag stays out, or this measures nothing
+  ok   THE REACT CARD MOUNTED over the vanilla form
+  ok   the FORM on screen is the vanilla one, not React
+  ok   and it is the vanilla form that published the seam  | freezeCurrentState,hasUnsavedChanges,populateForm,readContractorMilestones,recompute
+  ok   the card refuses a blank reason under the vanilla form
+  ok   the vanilla form reports itself dirty through the seam
+  ok   A VERSION WAS TAKEN through the vanilla seam  | Version taken.
+  ok   and THE FREEZE SAVED FIRST: the version holds the edited value  | 27
+  ok   THE DISCARD PROMPT APPEARED, so the card asked the vanilla form first
+  ok   AND THE VANILLA FORM WAS REPOPULATED through the seam
+  ok   the card still publishes oppRefreshVersionActions
+  ok   and oppCurrentVersionRejection
+  ok   no page errors under the vanilla form
+  ok   RESIDUE: no live records  | 0

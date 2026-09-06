@@ -1,0 +1,22 @@
+
+VISUAL: 20/20
+  ok   THE INTERCEPT IS LIVE, or every capture below is of the same real data
+  ok   RANGE TOGGLE CHANGES THE LIST BOTH WAYS at 1240  | 5 -> 9 -> 5
+  ok   THE DEAL IS GENUINELY DIRTY at 1240  | ssExisting  -> 7
+  ok   THE REASON BOX HOLDS WHAT WAS TYPED at 1240
+  ok   THE SUCCESS FEEDBACK RENDERS at 1240  | saveDisabled=false dirty=true reasonLen=80 deal-version-reason=[ROOT*:80 VANILLA:0] btn-save-version=[ROOT*:0 VANILLA:0] deal-version-feedback=[ROOT* VANILLA] deal-version-panel=[ROOT* VANILLA] || msg-success: Version taken.
+  ok   FEEDBACK ERROR RENDERS at 1240  | msg-error: A reason is required: what changed in this version, and why.
+  ok   RANGE TOGGLE CHANGES THE LIST BOTH WAYS at 1920  | 5 -> 9 -> 5
+  ok   THE DEAL IS GENUINELY DIRTY at 1920  | ssExisting 7 -> 147
+  ok   THE REASON BOX HOLDS WHAT WAS TYPED at 1920
+  ok   THE SUCCESS FEEDBACK RENDERS at 1920  | saveDisabled=false dirty=true reasonLen=80 deal-version-reason=[ROOT*:80 VANILLA:0] btn-save-version=[ROOT*:0 VANILLA:0] deal-version-feedback=[ROOT* VANILLA] deal-version-panel=[ROOT* VANILLA] || msg-success: Version taken.
+  ok   FEEDBACK ERROR RENDERS at 1920  | msg-error: A reason is required: what changed in this version, and why.
+  ok   RANGE TOGGLE CHANGES THE LIST BOTH WAYS at 3440  | 5 -> 9 -> 5
+  ok   THE DEAL IS GENUINELY DIRTY at 3440  | ssExisting 147 -> 154147
+  ok   THE REASON BOX HOLDS WHAT WAS TYPED at 3440
+  ok   THE SUCCESS FEEDBACK RENDERS at 3440  | saveDisabled=false dirty=true reasonLen=80 deal-version-reason=[ROOT*:80 VANILLA:0] btn-save-version=[ROOT*:0 VANILLA:0] deal-version-feedback=[ROOT* VANILLA] deal-version-panel=[ROOT* VANILLA] || msg-success: Version taken.
+  ok   FEEDBACK ERROR RENDERS at 3440  | msg-error: A reason is required: what changed in this version, and why.
+  ok   the long list has a usable width at 1240  | 876
+  ok   the long list has a usable width at 1920  | 1556
+  ok   the long list has a usable width at 3440  | 3076
+  ok   no page errors across the capture
