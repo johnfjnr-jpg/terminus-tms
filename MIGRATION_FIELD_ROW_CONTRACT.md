@@ -20,6 +20,7 @@ Measured by counting rendered rows on one record per surface, default tab:
 | surface | click-to-edit rows | read-only display rows | direct inputs |
 |---|---|---|---|
 | Opportunity / Reference | 21 | 5 | 3 |
+| | \u2191 amended 2026-09-06: **per-branch**. Same-as-account ON reads **15 / 11**. See the Round 5 addendum | | |
 | Opportunity / Commercials | **0** | **0** | **39** |
 | Test Bed | 16 | 6 | 5 |
 | Contact | 15 | 0 | 0 |
@@ -353,3 +354,142 @@ write the same `window` name and the last one wins.
 **Measured on a rehearsal branch: 69 React markers and ZERO vanilla rows on a
 tree whose revert had been applied.** With the bundle loaded FIRST, restoring
 one vanilla tag reverts exactly that surface, proven both ways.
+
+---
+
+# Addendum, 2026-09-06: the Reference tab's census, and six editor layers
+
+**Added at Migration Round 5, Phase 0 close, before Phase 1 built anything.**
+The Reference tab is the contract's birthplace: the seven behaviours were
+taken from `openRefField` and its siblings. This is the first time the
+document has been measured against the surface it came from.
+
+## The census: the table's counts are per-BRANCH, and it did not say so
+
+`scripts/round5/field-census.mjs`, on an initialised, exercised record, with a
+second instrument (the source's own `ALL_EDITABLE_FIELDS`) agreeing exactly:
+21 source keys, 21 rendered rows, none in either direction alone.
+
+**The 21 / 5 in the table above is CONFIRMED, and it describes ONE BRANCH.**
+
+| branch | click-to-edit | read-only |
+|---|---|---|
+| same-as-account OFF (the default) | **21** | **5** |
+| same-as-account ON | **15** | **11** |
+
+The six proposal-address rows swap from `refFieldRow` to `refReadonlyRow` when
+the flag is ticked. The table's row for this surface is amended to read
+`21 / 5 (15 / 11 with same-as-account on)`, and the totals stay as they are,
+because the default branch is what they were counted from.
+
+**Two of the 21 do not go through the row renderer at all.** `name` renders
+from its own header markup and `summary` from static markup in `index.html`.
+Both still open through the same generic `openRefField`, which is why they are
+rows for the contract's purposes and not for a count taken from `refFieldRow`'s
+call sites. A census of call sites reads 19.
+
+## The editor slot's next four layers, and one that is not a row
+
+Measured editor kinds across the 21: **8 text, 7 select, 4 date, 1
+numeric-text, 1 textarea.** Text and select are in production since Round 2.
+
+### A1. `editorTakesSeed` is generalised off `SelectEditor`'s NAME
+
+It reads `editorFor(field) !== SelectEditor`, which names one editor rather
+than the property. The vanilla's rule is `revealFieldControl`'s own:
+
+```js
+const takesText = input.tagName === 'TEXTAREA'
+  || (input.tagName === 'INPUT' && (input.type === 'text' || input.type === 'number'))
+```
+
+and its comment says **"A date input and a select cannot hold an arbitrary
+first character."** A date editor added under the current implementation would
+seed a character the input discards, which is FINDING 6's original defect
+arriving through a new editor.
+
+**Ruled: an editor DECLARES whether it can hold a seed**, and
+`editorTakesSeed` reads that declaration. Select and date declare that they
+cannot; text and textarea declare that they can. `CLAUDE.md` Verification 37:
+a rule that names a mechanism polices the mechanism, not the effect.
+
+### A2. `showPicker` is a vanilla behaviour the React tree does not have
+
+`revealFieldControl` calls `input.showPicker()` for a select or a date input
+when the open came from a user gesture. **`showPicker` appears nowhere in the
+React tree**, so the select editor already diverges silently and a date editor
+would inherit it.
+
+**Ruled: ported.** The row already knows whether an open came from a gesture,
+and an editor that wants the picker asks for it on focus. Recorded as a
+divergence closed rather than a feature added.
+
+### A3. A display suffix
+
+`duration` displays `12 months`. The suffix is display-only, appended in the
+display half, and never part of the value. **Ruled: `suffix?: string` on the
+descriptor, rendered by the display half only**, never by an editor and never
+in the draft. A suffix that reached the value would make dirty wrong.
+
+### A4. `min` on a date is DESCRIPTOR DATA, not a call-site argument
+
+Round 5 Phase 0 FINDING 1: `DATE_FIELDS` declares `noPast: true` on both
+`estClose` and `estGoLive`, and the render passes
+`{ date, number, integer, suffix }` - `noPast` is not in the list. Measured:
+`estClose` renders `min="2026-09-06"` because a separate call site hardcodes
+it, and **`estGoLive` renders no `min` at all**.
+
+Not a data-integrity hole: `isNotPastIsoDate` on the server rejects the same
+thing independently. It is a declared property with no reader.
+
+**Ruled: `min?: string` is descriptor data and the date editor reads it**, so
+a field that declares the constraint gets it. The same keying as `inputMode`,
+and for the same reason: a per-call-site argument is a to-do list that has to
+be completed again on every new field.
+
+### A5. A row whose original does not come from the payload
+
+`estClose` reads `opportunity_details.forecast_close_date` through
+`refFieldOrigValue`'s special case, and saves through the close-date-move
+route. Save semantics are excluded from this contract deliberately and stay
+excluded. **What the DESCRIPTOR must express is only that `value` is supplied
+by the caller**, which it already does: the descriptor carries `value`, not a
+payload key. **No change. Recorded so the next reader does not add one.**
+
+### A6. The textarea editor takes a seed
+
+`revealFieldControl` includes `TEXTAREA` in `takesText` explicitly, and its
+comment says why: it is "the single field on each of those screens that a
+person is most likely to tab to and start typing into". **Ruled: the textarea
+editor declares that it CAN hold a seed**, unlike select and date.
+
+### A7. The checkbox is NOT a field row
+
+`commAddressSameAsAccount` is a `<input type="checkbox">` with an `onchange`,
+rendered inside the proposal-address block. It writes into the same draft
+store and rides the same batched save, and its dirty is by COMPARISON - the
+handler deletes the draft when the new value equals the original, which is
+behaviour 1 applied to a boolean.
+
+**Ruled: it is a DIRECT INPUT on the surface, not a row**, and it is the
+contract's `direct inputs` column rather than its `click-to-edit` column. It
+has no display half, no door, no seed and no discard. What it shares with the
+rows is the draft store and the bar, which are surface-level by behaviour 2
+and behaviour 6.
+
+## And a finding against behaviour 7, on this surface, today
+
+**Behaviour 7 says the read-only variant has "no opener and no tab stop".
+`refReadonlyRow` emits neither. The rendered rows carry `tabindex="0"`
+anyway.**
+
+The author is `app.js`, not the row: `EDIT_OPENING_SELECTOR` lists
+`.ref-field-display` with no `:not(.readonly)`, and the ownership sweep sets
+`tabindex` and `aria-disabled` on every match. `aria-disabled="false"` on a
+read-only row is the fingerprint, because nothing else on that surface writes
+it.
+
+**Ruled: the contract is right and the vanilla is wrong.** A React read-only
+row has no tab stop. This is a deliberate, recorded divergence from the
+vanilla in the owned case, and the reason is that the vanilla's behaviour is
+an unintended side effect of a selector written about editable rows.
