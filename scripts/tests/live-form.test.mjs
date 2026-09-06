@@ -35,6 +35,15 @@ test('THE REACT PANEL IS THE LIVE COMMERCIALS FORM', () => {
     'frontend/opportunity-deal.js is loaded again: the swap has been reverted, deliberately or not')
 })
 
+test('THE VANILLA VERSION CARD IS THE LIVE ONE, until Round 4 swaps it', () => {
+  // Round 4 Phase 1 builds a React card BEHIND THE LINE. This is the guard that
+  // keeps it there: the vanilla tag must still be loaded, and the assertion
+  // inverts at the swap exactly as the form's did.
+  const TAG = '<script type="module" src="/opportunity-deal-versions.js"></script>'
+  assert.ok(RAW.includes(TAG), 'the version card tag is gone entirely')
+  assert.ok(LIVE.includes(TAG), 'the vanilla version card is commented out: the swap has happened')
+})
+
 test('and the version machinery is live under BOTH forms', () => {
   // It is handed its seam by whichever panel mounts, so it is never commented.
   assert.ok(LIVE.includes('opportunity-deal-versions.js'),
