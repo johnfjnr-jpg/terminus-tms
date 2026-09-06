@@ -1,6 +1,7 @@
 # Migration Round 5 close-out: the Reference tab
 
-Closed 2026-09-06. Phases 0, 1, 2 and 3, 18 commits.
+Closed 2026-09-06. Phases 0, 1, 2 and 3, 20 commits (counted, not typed:
+`git log --oneline 13981a8..HEAD`).
 
 ---
 
