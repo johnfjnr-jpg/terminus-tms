@@ -1,0 +1,47 @@
+snapshot verified  frontend-react/src/versions/VersionCard.tsx  10855B
+snapshot verified  frontend-react/src/main.tsx  9507B
+
+BASELINE
+  suite  GREEN  Tests  485 passed (485)
+  probe  GREEN  REASON SURVIVES: 51/51  43281ms
+
+FINAL REVERTED RUN
+  suite  GREEN  Tests  485 passed (485)
+  probe  GREEN  REASON SURVIVES: 51/51
+  identical  frontend-react/src/versions/VersionCard.tsx
+  identical  frontend-react/src/main.tsx
+
+── CALIBRATION ────────────────────────────────────────────────
+  baseline ran in 43281ms; a run far under that has not run
+
+DETECTED             the clear moves back to the END of the chain  [caught by: react suite + browser probe]
+  claim   the box is cleared at SUBMIT, so nothing late wipes what was typed since
+  probe   suite Tests  4 failed | 481 passed (485) | probe REASON SURVIVES: 39/51  42358ms
+          FAIL  src/__tests__/version-save-inflight.test.tsx > S: a save in flight > S1: THE BOX IS EMPTY THE MOMEN
+          FAIL  src/__tests__/version-save-inflight.test.tsx > S: a save in flight > S2: TEXT TYPED DURING THE SAVE
+          FAIL  src/__tests__/version-save-inflight.test.tsx > S: a save in flight > S5b: and the box is cleared on
+
+DETECTED             the refusal restores the reason unconditionally  [caught by: react suite]
+  claim   a refusal gives the reason back only into a box nobody has started using
+  probe   suite Tests  1 failed | 484 passed (485) | probe REASON SURVIVES: 51/51  44882ms
+          FAIL  src/__tests__/version-save-inflight.test.tsx > S: a save in flight > S7: a refusal does NOT restore
+
+DETECTED             the re-entrancy ref is removed  [caught by: react suite]
+  claim   two clicks in one tick take no second version
+  probe   suite Tests  2 failed | 483 passed (485) | probe REASON SURVIVES: 51/51  44923ms
+          FAIL  src/__tests__/version-save-inflight.test.tsx > S: a save in flight > S5: TWO CLICKS IN ONE TICK tak
+          FAIL  src/__tests__/version-save-inflight.test.tsx > S: a save in flight > S5b: and the box is cleared on
+
+DETECTED             the button is never disabled during the save  [caught by: react suite + browser probe]
+  claim   the button is held for the whole save chain
+  probe   suite Tests  1 failed | 484 passed (485) | probe REASON SURVIVES: 44/51  38597ms
+          FAIL  src/__tests__/version-save-inflight.test.tsx > S: a save in flight > S4: the button is held, and sa
+
+SILENT               init re-renders the tree for a record already on screen
+  claim   init is idempotent when the opportunity has not changed
+  probe   suite Tests  485 passed (485) | probe REASON SURVIVES: 51/51  43564ms
+
+4/5 detected
+
+NOT DETECTED - each names a claim with no detector (Verification 51):
+  SILENT: init is idempotent when the opportunity has not changed

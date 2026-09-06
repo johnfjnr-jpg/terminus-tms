@@ -161,6 +161,19 @@ window.initOpportunityDealPanel = function (opp: OppRecord): void {
 const VERSION_CONTAINER = 'deal-version-root'
 const VANILLA_CARD = 'deal-version-vanilla'
 let versionRoot: Root | null = null
+// ── INIT IS IDEMPOTENT FOR ONE OPPORTUNITY. Round 4, Phase 3 ─────────────
+//
+// app.js calls this on every loadOpportunityDetail, and a save triggers one,
+// so the card was re-rendering for a record it was already showing. MEASURED:
+// five init calls across six saves, and 37 on a page driven for a while.
+//
+// The vanilla's init is called just as often and does far less: it resets the
+// range, wires once, and calls loadVersions(). It never rebuilds the reason
+// box, which is why the vanilla cannot lose typed text. Matching that shape
+// here means re-rendering the tree only when the RECORD changes, and
+// refreshing an unchanged one through the feed the card already publishes.
+let versionOppId: string | null = null
+let versionReload: (() => void) | null = null
 
 window.initOpportunityDealVersions = function (
   { opportunityId, seam }: { opportunityId: string, seam: DealFormSeam },
@@ -168,12 +181,22 @@ window.initOpportunityDealVersions = function (
   const container = document.getElementById(VERSION_CONTAINER)
   if (!container) return
   document.getElementById(VANILLA_CARD)?.classList.add('hidden')
+  // Same record, already mounted: refresh through the published feed, which is
+  // the vanilla's renderVersionList() and touches the list, not the controls.
+  if (versionRoot && versionOppId === opportunityId) {
+    // The vanilla's init calls loadVersions(), so an idempotent init has to
+    // refetch too or the list goes stale after a change made elsewhere.
+    versionReload?.()
+    return
+  }
+  versionOppId = opportunityId
   if (!versionRoot) versionRoot = createRoot(container)
   versionRoot.render(
     <StrictMode>
       <QueryClientProvider client={queryClient}>
         <ShellProvider services={shellServices}>
           <VersionCardHost
+            registerReload={(reload) => { versionReload = reload }}
             opportunityId={opportunityId}
             seam={seam as unknown as VersionSeam}
             api={(m, p, b) => window.api!(m, p, b) as Promise<{ ok: boolean, status?: number, data?: unknown }>} />

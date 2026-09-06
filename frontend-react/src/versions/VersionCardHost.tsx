@@ -46,10 +46,20 @@ declare global {
   }
 }
 
-export function VersionCardHost({ opportunityId, seam, api }: {
+export function VersionCardHost({ opportunityId, seam, api, registerReload }: {
   opportunityId: string
   seam: VersionSeam
   api: Api
+  /**
+   * Hands the list's own reload to whoever mounted this, so an init for a
+   * record already on screen can refresh WITHOUT re-rendering the tree.
+   *
+   * A prop rather than a window global on purpose: the shell surface is
+   * exactly four names and this is not one of them. It is also not the same
+   * thing as `oppRefreshVersionActions`, which re-reads what is already held
+   * and never refetches - in this card and in the vanilla alike.
+   */
+  registerReload?: (reload: () => void) => void
 }) {
   const [versions, setVersions] = useState<DealVersion[]>([])
   // A render tick, so the two outward feeds can force a re-read the way the
@@ -64,6 +74,7 @@ export function VersionCardHost({ opportunityId, seam, api }: {
   }, [api, opportunityId])
 
   useEffect(() => { void load() }, [load])
+  useEffect(() => { registerReload?.(() => { void load() }) }, [registerReload, load])
 
   // ── THE TWO OUTWARD FEEDS, with the vanilla's semantics exactly ────────
   //
