@@ -1,0 +1,15 @@
+
+captured: {"account@1240":{"w":1000,"h":1070},"account@1920":{"w":1680,"h":752},"account@3440":{"w":3200,"h":752}}
+
+ACCOUNT VISUAL: 11/11
+  ok   an Account exists to capture  | 2fb6b343-6556-4084-8b71-3a6394e47717
+  ok   at 1240: the capture knows it is the REACT surface  | {"reactRows":16,"vanillaRows":0,"vanillaScript":false}
+  ok   at 1240: the Account rows are STYLED - flex, a label column, a rule  | {"row":true,"label":true,"display":"flex","borderBottom":"1px","labelFlexBasis":"170px","labelTransform":"uppercase","labelMono":true}
+  ok   at 1240: and the label carries the mono uppercase treatment  | uppercase mono=true
+  ok   at 1920: the capture knows it is the REACT surface  | {"reactRows":16,"vanillaRows":0,"vanillaScript":false}
+  ok   at 1920: the Account rows are STYLED - flex, a label column, a rule  | {"row":true,"label":true,"display":"flex","borderBottom":"1px","labelFlexBasis":"170px","labelTransform":"uppercase","labelMono":true}
+  ok   at 1920: and the label carries the mono uppercase treatment  | uppercase mono=true
+  ok   at 3440: the capture knows it is the REACT surface  | {"reactRows":16,"vanillaRows":0,"vanillaScript":false}
+  ok   at 3440: the Account rows are STYLED - flex, a label column, a rule  | {"row":true,"label":true,"display":"flex","borderBottom":"1px","labelFlexBasis":"170px","labelTransform":"uppercase","labelMono":true}
+  ok   at 3440: and the label carries the mono uppercase treatment  | uppercase mono=true
+  ok   no page errors

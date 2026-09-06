@@ -2449,7 +2449,14 @@ textarea::placeholder { color: var(--muted-2); }
   padding: 0;
 }
 
-.ref-field-edit {
+/* :not([hidden]) added Round 5 Phase 3. The React Account name header uses
+   this class with the hidden ATTRIBUTE (AccountView.tsx:203), and a bare
+   `display: flex` overrode it - so that editor has been PERMANENTLY VISIBLE
+   since Round 2, sitting open beside the account name on every load.
+
+   SAFE FOR THE VANILLA, which hides this class with the hidden CLASS and not
+   the attribute: `.hidden` carries !important, so it still wins. */
+.ref-field-edit:not([hidden]) {
   display: flex;
   align-items: flex-start;
   gap: 8px;
@@ -5679,7 +5686,7 @@ input.input-invalid {
 }
 
 /* The shared edit bar. Behaviour 6: a property of the surface, not a row. */
-.field-edit-bar {
+.field-edit-bar:not([hidden]) {
   display: flex;
   align-items: center;
   gap: 12px;
