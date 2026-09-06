@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { readFileSync, existsSync } from 'node:fs'
 import { readCode } from '../lib/strip-comments.mjs'
 
 // ── WHICH FORM IS LIVE, ASSERTED ─────────────────────────────────────────
@@ -22,17 +22,38 @@ const RAW = readFileSync(new URL('frontend/index.html', ROOT), 'utf8')
 const LIVE = readCode(new URL('frontend/index.html', ROOT))
 const TAG = '<script type="module" src="/opportunity-deal.js"></script>'
 
+// ── REWRITTEN BY THE RETIREMENT, Round 6 Phase R ────────────────────────
+//
+// These two read: the vanilla tag is present but COMMENTED, so the swap holds
+// and a one-line revert exists. Both halves were right for as long as the file
+// did, and the calibration - `RAW.includes(TAG)`, "the vanilla tag is GONE, so
+// the one-line revert has nothing to restore" - is what FIRED when the file
+// was deleted. That failure is the instruction to rewrite, not a defect: the
+// guard correctly refused to keep asserting a revert that no longer exists.
+//
+// THE CLAIM IS NOW STRONGER AND SIMPLER. The file is deleted, so the question
+// is no longer whether its tag is live but whether anything reintroduces it.
 test('the scan can tell a live tag from a commented one', () => {
   // Verification 13: the assertions below are absences, and an absence is only
-  // evidence once the instrument has been shown reaching a presence.
+  // evidence once the instrument has been shown reaching a presence. The
+  // vanilla tag can no longer serve as that presence, so the version card's
+  // revert target does - it is still a real commented tag in this markup.
   assert.ok(LIVE.includes('src="/terminus-react.js"') || LIVE.includes('terminus-react'),
     'the stripper ate the script tags, so neither assertion below measures anything')
-  assert.ok(RAW.includes(TAG), 'the vanilla tag is GONE, so the one-line revert has nothing to restore')
+  assert.ok(RAW.includes('opportunity-deal-versions.js'),
+    'no commented tag survives anywhere, so the stripper cannot be shown to hide one')
+  assert.ok(!readCode(new URL('frontend/index.html', ROOT)).includes('opportunity-deal-versions.js'),
+    'the stripper is not hiding commented tags at all, so the absences below prove nothing')
 })
 
-test('THE REACT PANEL IS THE LIVE COMMERCIALS FORM', () => {
-  assert.ok(!LIVE.includes(TAG),
-    'frontend/opportunity-deal.js is loaded again: the swap has been reverted, deliberately or not')
+test('THE REACT PANEL IS THE LIVE COMMERCIALS FORM, and the vanilla is GONE', () => {
+  // Not "commented out" any more. The file is deleted, so a tag naming it
+  // would 404 rather than revert, and the markup must not carry one in any
+  // form - live OR commented, which is why this reads RAW.
+  assert.ok(!RAW.includes(TAG),
+    'a script tag for the retired opportunity-deal.js is back in the markup')
+  assert.ok(!existsSync(new URL('frontend/opportunity-deal.js', ROOT)),
+    'frontend/opportunity-deal.js exists again: the retirement has been reverted')
 })
 
 // ── INVERTED BY THE SWAP, Round 4 Phase 2. Claim changed by instruction ──

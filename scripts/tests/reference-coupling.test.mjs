@@ -48,6 +48,11 @@ const LEDGER = {
     + 'SECOND instrument. Evidence about the file, not a dependency on it.',
   'scripts/round5/seam-census.mjs':
     'KEPT. Phase 0 instrument: the boundary census reads the file by path.',
+  'scripts/round5/inbound-and-coupled.mjs':
+    'RE-POINTED, Round 6 Phase R. It sized the deal form\'s retirement and '
+    + 'named that file plus deal-feedback.js; both are now deleted, so its '
+    + 'target list would have measured two absences. Pointed at the Reference '
+    + 'file, which is the next one due. Retires with the file.',
   'scripts/round5/inject-phase2.mjs':
     'KEPT. Phase 2 calibration: it INJECTS the vanilla script tag back into '
     + 'index.html to prove the swap has a detector, so it names the file as '

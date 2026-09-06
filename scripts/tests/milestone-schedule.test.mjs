@@ -136,13 +136,14 @@ test('the milestone list is the one the business gave', () => {
   assert.ok(!/<input[^>]*type="text"[^>]*milestone/i.test(rows), 'free text survives')
 })
 
-test('the percentage is an input and the dollars are computed from it', () => {
-  const client = readCode(new URL('../../frontend/opportunity-deal.js', import.meta.url))
-  assert.match(client, /id="deal-cm-\$\{i\}-pct" style/, 'the percentage cell must be an input')
-  assert.ok(!/<td class="col-mono" id="deal-cm-\$\{i\}-pct">/.test(client),
-    'the percentage is still a read-only output cell')
-  // One conversion, both directions.
-  assert.match(client, /function pctToUsd/)
-  assert.match(client, /function usdToPct/)
-  assert.match(client, /function syncContractorRow/)
-})
+// ── RETIRED, Round 6 Phase R: 'the percentage is an input and the dollars are
+// computed from it'.
+//
+// COVERED, and by a better instrument. This matched four source shapes - an
+// id template, the absence of a read-only cell, and the names of three
+// functions - which together assert that a particular implementation was
+// typed. The claim underneath is a ROUND TRIP, and deal-render.test.tsx
+// asserts it as one: typing a contractor percentage fills its dollars, typing
+// dollars fills the percentage, and the customer USD cell is read-only and
+// computed from the percentage. Behaviour in both directions, where this
+// asserted the existence of pctToUsd and usdToPct by name.

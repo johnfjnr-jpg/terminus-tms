@@ -3280,16 +3280,15 @@ opened it. -->
   const { usesWorkflow } = await import('/lib/transition-requests.js')
   window.usesWorkflow = usesWorkflow
 </script>
-<!-- ── SUPERSEDED BY THE REACT BUNDLE. Round 3, Session F ──────────────
-     Restoring this one line reverts the swap: the vanilla re-assigns
-     window.initOpportunityDealPanel after the bundle has, so its panel runs,
-     the React mount never does, and #deal-form-vanilla is never hidden.
-     The version machinery is the REACT card as of Round 4, and it is still
-     handed its seam by whichever panel mounts: reverting this form hands it a
-     vanilla adapter and it works against that too. Its own revert is a
-     separate line, below.
-<script type="module" src="/opportunity-deal.js"></script>
-     ────────────────────────────────────────────────────────────────────── -->
+<!-- ── RETIRED, Round 6 Phase R ────────────────────────────────
+     frontend/opportunity-deal.js is DELETED. The commented tag that used to
+     sit here was the one-line revert, and it is removed with the file rather
+     than left behind: a restore instruction pointing at a file that does not
+     exist is worse than none, because it reads as an escape route somebody
+     might reach for. Verification 25's corollary - a recovery path that
+     cannot recover is a plan.
+     The history is the revert now: git show <the retirement commit>.
+     ────────────────────────────────────────────── -->
 <!-- ── THE VERSION MACHINERY, SPLIT OUT. Round 3 D2c ───────────────────────
      Loaded AFTER the form so window.dealFormSeam exists before this module's
      init could be called; the form's own init is what calls it, so the order

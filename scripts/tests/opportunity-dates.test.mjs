@@ -184,6 +184,26 @@ test('the ROUTE and the SCREEN ask the same question, from the same file', () =>
   assert.match(html, /import\('\/lib\/opportunity-dates\.js'\)/,
     'the client bridge does not publish the shared predicate')
 
+  // ── THE SCREEN HALF STILL READS AN UNLOADED FILE, and that is recorded
+  // here rather than repaired, because repairing it would mean asserting
+  // against something that does not exist. Round 6 Phase R.
+  //
+  // Round 5 swapped the Reference tab to React, so this reads a file the
+  // browser no longer loads. The obvious fix is to re-point it at the React
+  // panel. MEASURED, and there is nothing to point at: `closeDateNeedsReason`
+  // appears nowhere in frontend-react/, and ReferenceHost.tsx drops the key on
+  // save with `if (k === 'estClose') continue`. There is no close-date route
+  // call in the React reference code at all.
+  //
+  // So the claim - route and screen ask the same question - is currently
+  // TRUE OF THE ROUTE AND OF NOBODY ELSE. Deleting this half would delete the
+  // only assertion a real rule has; re-pointing it would be Verification 14's
+  // true-by-absence. It stays, pointing at the vanilla, until the React panel
+  // grows the write path.
+  //
+  // AND IT IS WHAT HOLDS frontend/opportunity-reference.js IN TREE. That file
+  // is otherwise ready to retire: it has exactly one asserter and this is it.
+  // See MIGRATION_ROUND_6_PHASE_R_REPORT.md.
   const ref = readCode(new URL('../../frontend/opportunity-reference.js', import.meta.url))
   assert.match(ref, /window\.closeDateNeedsReason\(stored, estCloseEntry\[1\]\.draft\)/,
     'the screen decides for itself whether a date change is a move')

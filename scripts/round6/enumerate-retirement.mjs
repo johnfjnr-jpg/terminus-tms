@@ -19,7 +19,7 @@ const key = (rel) => SNAP + '/' + rel.replaceAll('/', '_')
 
 const TARGETS = process.env.TARGETS
   ? process.env.TARGETS.split(',')
-  : ['frontend/opportunity-deal.js']
+  : ['frontend/contact-detail.js']
 
 // ── SNAPSHOT, VERIFIED ──────────────────────────────────────────────────
 const original = new Map()
