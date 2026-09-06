@@ -190,7 +190,9 @@ export function ReferencePanel({ source, links, closeMoves, oppId, onSave, onCha
         {row('summary')}
       </Card>
 
-      <EditBar rows={rows} onSave={onSave} />
+      {/* ref-save-all: the id the shell dialogue returns focus to, matching
+          the vanilla it replaces. */}
+      <EditBar rows={rows} onSave={onSave} saveId="ref-save-all" />
     </div>
   )
 }

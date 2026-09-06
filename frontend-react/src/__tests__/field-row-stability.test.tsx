@@ -55,6 +55,7 @@ const services: ShellServices = {
   api: (async () => ({ ok: true, status: 200, data: [] })) as ShellServices['api'],
   navigate: () => {}, detailLoaded: () => {},
   getOppLoadedRevision: () => 1, canEditFields: () => true,
+  requestChangeReason: () => {},
 }
 
 const mount = async () => {

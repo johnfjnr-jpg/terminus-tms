@@ -180,32 +180,36 @@ test('the ROUTE and the SCREEN ask the same question, from the same file', () =>
     'the route does not import the shared predicate')
   assert.match(route, /closeDateNeedsReason\(stored, date\)/, 'the route does not use it to gate the reason')
 
+  // ── THE WINDOW BRIDGE IS GONE, AND THAT IS THE IMPROVEMENT ────────────
+  //
+  // Round 6 Phase 0. This asserted index.html published closeDateNeedsReason
+  // on window, because the vanilla was a classic script and could not import.
+  // The React host imports the shared module directly, so the bridge had one
+  // reader and lost it: measured, nothing else on the page ever read the name.
+  // Publishing it now would be a container written and never read.
+  //
+  // The claim the bridge served - screen and route decide by the same rule -
+  // is asserted below, and more directly than before: there is no third party
+  // between them to check.
   const html = readCode(new URL('../../frontend/index.html', import.meta.url))
-  assert.match(html, /import\('\/lib\/opportunity-dates\.js'\)/,
-    'the client bridge does not publish the shared predicate')
+  assert.ok(!/window\.closeDateNeedsReason\s*=/.test(html),
+    'the dead window bridge is back; the screen imports the module directly')
 
-  // ── THE SCREEN HALF STILL READS AN UNLOADED FILE, and that is recorded
-  // here rather than repaired, because repairing it would mean asserting
-  // against something that does not exist. Round 6 Phase R.
+  // ── RE-POINTED TO THE LIVE SCREEN, Round 6 Phase 0 ────────────────────
   //
-  // Round 5 swapped the Reference tab to React, so this reads a file the
-  // browser no longer loads. The obvious fix is to re-point it at the React
-  // panel. MEASURED, and there is nothing to point at: `closeDateNeedsReason`
-  // appears nowhere in frontend-react/, and ReferenceHost.tsx drops the key on
-  // save with `if (k === 'estClose') continue`. There is no close-date route
-  // call in the React reference code at all.
+  // This read frontend/opportunity-reference.js, which Round 5's swap
+  // unloaded, so it had been asserting against a file the browser does not
+  // run. Phase R found it and could not fix it: the React panel had NO close
+  // date write path at all, so re-pointing would have been Verification 14's
+  // true-by-absence. Phase 0 built the path, and this now reads it.
   //
-  // So the claim - route and screen ask the same question - is currently
-  // TRUE OF THE ROUTE AND OF NOBODY ELSE. Deleting this half would delete the
-  // only assertion a real rule has; re-pointing it would be Verification 14's
-  // true-by-absence. It stays, pointing at the vanilla, until the React panel
-  // grows the write path.
-  //
-  // AND IT IS WHAT HOLDS frontend/opportunity-reference.js IN TREE. That file
-  // is otherwise ready to retire: it has exactly one asserter and this is it.
-  // See MIGRATION_ROUND_6_PHASE_R_REPORT.md.
-  const ref = readCode(new URL('../../frontend/opportunity-reference.js', import.meta.url))
-  assert.match(ref, /window\.closeDateNeedsReason\(stored, estCloseEntry\[1\]\.draft\)/,
+  // AND THE COUPLING IS ONE STEP SHORTER THAN THE VANILLA'S. The vanilla read
+  // the predicate off a window bridge; the React host imports the same shared
+  // module the route imports, so there is no third party between them.
+  const ref = readCode(new URL('../../frontend-react/src/reference/ReferenceHost.tsx', import.meta.url))
+  assert.match(ref, /import \{[^}]*closeDateNeedsReason[^}]*\} from '[^']*opportunity-dates\.js'/,
+    'the screen does not import the shared predicate')
+  assert.match(ref, /closeDateNeedsReason\(stored, date\)/,
     'the screen decides for itself whether a date change is a move')
   // And it must not have grown its own copy of the rule.
   assert.ok(!/forecast_close_date\s*(===|!==|==|!=)\s*(null|undefined|'')/.test(ref),

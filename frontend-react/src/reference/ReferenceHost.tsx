@@ -8,6 +8,12 @@ import { SAME_AS_ACCOUNT } from './descriptors'
 import type { ReferenceSource } from './descriptors'
 import type { KcLink } from './KeyContacts'
 import { useShell } from '../ShellContext'
+// THE PREDICATE IS THE ROUTE'S OWN, imported from the shared module rather
+// than restated here or read off a window bridge. src/lib is served at /lib
+// and this is the same file the route imports, so the screen and the server
+// cannot hold different opinions about when a reason is required.
+// Verification 20, and one better than the vanilla: no bridge in between.
+import { closeDateNeedsReason } from '../../../src/lib/opportunity-dates.js'
 
 interface OppLike {
   id: string
@@ -80,15 +86,31 @@ export function ReferenceHost({ opp, registerReload }: {
   // The 409 is the record-level precondition the whole app shares, and its
   // SENTENCE comes from the shell's own renderer rather than being restated
   // here - Verification 20, one event described one way.
-  const onSave = async (changes: Record<string, string>) => {
-    setFeedback(null)
+  // ── THE PAYLOAD HALF ────────────────────────────────────────────────────
+  //
+  // estClose is not here and never was: A5, it is a real indexed column on
+  // opportunity_details and moves only through its own route. What CHANGED in
+  // Round 6 Phase 0 is that it is now handled before this runs rather than
+  // dropped - see saveEstClose below. The `continue` that used to sit in this
+  // loop discarded what a person had typed, silently, on a row that looked
+  // fully editable.
+  //
+  // `reloadOnly` is what the close-date path needs when nothing else was
+  // dirty: the date is already written, so the surface must refresh even
+  // though this half has nothing to send.
+  const savePayload = async (changes: Record<string, string>, reloadOnly = false) => {
     const payloadUpdate: Record<string, unknown> = {}
     for (const [k, v] of Object.entries(changes)) {
       if (k === SAME_AS_ACCOUNT) { payloadUpdate[k] = v === 'true'; continue }
-      if (k === 'estClose') continue // A5: its own route, not this payload.
       payloadUpdate[k] = NUMERIC_KEYS.has(k) ? (v === '' ? null : Number(v)) : v
     }
-    if (!Object.keys(payloadUpdate).length) return
+    if (!Object.keys(payloadUpdate).length) {
+      if (reloadOnly) {
+        setFeedback({ text: 'Saved.', html: null, ok: true })
+        window.loadOpportunityDetail?.(opp.id)
+      }
+      return
+    }
     const r = await window.oppPatch!(opp.id, { payload: payloadUpdate })
     if (!r.ok) {
       // ONE RENDERER, and the shell owns it. Wording the refusal here would be
@@ -104,6 +126,77 @@ export function ReferenceHost({ opp, registerReload }: {
     }
     setFeedback({ text: 'Saved.', html: null, ok: true })
     window.loadOpportunityDetail?.(opp.id)
+  }
+
+  // ── THE EST. CLOSE DATE WRITE PATH ──────────────────────────────────────
+  //
+  // Round 6 Phase 0. Built from the route's measured contract, not from the
+  // vanilla's shape: POST /api/opportunities/:id/close-date-move with
+  // {date, reason?}, which is the ONLY writer of forecast_close_date. A second
+  // write path would be the fork Architecture 1 forbids.
+  //
+  // The route refuses seven ways - date required, not a real date, in the
+  // past, no such record, go-live conflict, unchanged, and reason required -
+  // and every one of them has to land somewhere a person can see. A move shows
+  // them inside the dialogue, which stays open; a first recording has no
+  // dialogue, so they go to the surface feedback.
+  const postCloseDate = (date: string, reason?: string) =>
+    shell.api<{ error?: string }>('POST', `/api/opportunities/${opp.id}/close-date-move`,
+      reason === undefined ? { date } : { date, reason })
+
+  const saveEstClose = async (date: string, rest: Record<string, string>) => {
+    // THE STORED VALUE COMES FROM THE SAME OBJECT THE FIELD RENDERS FROM, so
+    // "what is on the record" has one answer on this screen too.
+    const stored = (record.opportunity_details?.forecast_close_date as string | null | undefined) ?? null
+
+    if (!closeDateNeedsReason(stored, date)) {
+      // A FIRST RECORDING ASKS NOTHING. There is no reason for a first value,
+      // and demanding one produces the shape Verification 22 names: the walk
+      // that met this typed "First Recording", which is what a person writes
+      // when a form insists on answering a question that has none.
+      const r = await postCloseDate(date)
+      if (!r.ok) {
+        setFeedback({ text: r.data?.error ?? 'The date could not be saved.', html: null, ok: false })
+        return
+      }
+      await savePayload(rest, true)
+      return
+    }
+
+    shell.requestChangeReason({
+      heading: 'Move Est. Close Date',
+      contextLabel: 'New Est. Close Date',
+      contextValue: date || '--',
+      promptLabel: 'Reason for moving (required)',
+      confirmLabel: 'Save move',
+      emptyReasonError: 'A reason for the move is required.',
+      // Opens from Save rather than a named button, so Save is what focus
+      // returns to. INTERACTION_STANDARDS section 4.
+      returnFocusTo: 'ref-save-all',
+      onConfirm: async (reason: string) => {
+        const r = await postCloseDate(date, reason)
+        return { ok: r.ok, error: r.data?.error }
+      },
+      // WHATEVER ELSE WAS DIRTY GOES IN THE SAME ACTION. A person pressed Save
+      // once and must not have to press it again for the fields that were not
+      // the date.
+      onDone: async () => { await savePayload(rest, true) },
+      // CANCEL TOUCHES NOTHING. The edit bar still shows what it showed before
+      // Save was pressed, so the person can correct the date, retry, or
+      // discard that one field through its own control. Discarding here would
+      // take unrelated edits with it.
+      onCancel: () => {},
+    })
+  }
+
+  // ── THE BATCHED SAVE, WITH THE DATE TAKEN OUT FIRST ─────────────────────
+  const onSave = async (changes: Record<string, string>) => {
+    setFeedback(null)
+    const rest = { ...changes }
+    const estClose = Object.prototype.hasOwnProperty.call(rest, 'estClose') ? rest.estClose : undefined
+    delete rest.estClose
+    if (estClose !== undefined) { await saveEstClose(estClose, rest); return }
+    await savePayload(rest)
   }
 
   return (

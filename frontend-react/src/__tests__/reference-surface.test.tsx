@@ -44,6 +44,7 @@ const shell = (canEdit: boolean | 'absent'): ShellServices => ({
   // 'absent' models a shell that never registered the guard: the seam's own
   // default is what must decide, and the contract says FAIL CLOSED.
   canEditFields: () => (canEdit === 'absent' ? false : canEdit),
+  requestChangeReason: () => {},
 })
 
 const mount = async (opts: {

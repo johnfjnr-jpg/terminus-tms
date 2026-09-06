@@ -110,12 +110,21 @@ test('the mount container and the hidden vanilla markup both survive', () => {
 // what the revert restores - does not count as loaded.
 const REF_TAG = '<script src="/opportunity-reference.js"></script>'
 
-test('THE REACT REFERENCE PANEL IS THE LIVE ONE', () => {
-  assert.ok(RAW.includes(REF_TAG),
-    'the vanilla Reference tag is GONE, so the one-line revert has nothing to restore')
-  assert.ok(!LIVE.includes(REF_TAG),
-    'frontend/opportunity-reference.js is loaded again: the swap has been reverted, '
-    + 'deliberately or otherwise')
+// ── REWRITTEN BY THE RETIREMENT, Round 6 Phase 0 ────────────────────────
+//
+// It read: the tag is present but COMMENTED, so the swap holds and a one-line
+// revert exists. Both halves were right for as long as the file was. The RAW
+// half is the calibration, and it FIRED when the file was deleted - which is
+// the instruction to rewrite rather than a defect, the same sequence the deal
+// form's equivalent went through in Phase R.
+test('THE REACT REFERENCE PANEL IS THE LIVE ONE, and the vanilla is GONE', () => {
+  // Not "commented out" any more. A tag naming it would 404 rather than
+  // revert, so the markup must not carry one in any form - which is why this
+  // reads RAW rather than the stripped copy.
+  assert.ok(!RAW.includes(REF_TAG),
+    'a script tag for the retired opportunity-reference.js is back in the markup')
+  assert.ok(!existsSync(new URL('frontend/opportunity-reference.js', ROOT)),
+    'frontend/opportunity-reference.js exists again: the retirement has been reverted')
 })
 
 test('and the Reference panel has its own mount and its own revert target', () => {

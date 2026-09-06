@@ -53,6 +53,35 @@ export interface ShellServices {
    * consuming surface is known.
    */
   canEditFields(): boolean
+  /**
+   * ── THE SHARED REASON DIALOGUE, REUSED RATHER THAN REBUILT ───────────
+   *
+   * Round 6 Phase 0. The shell's dialogue owns the focus trap, the single
+   * Escape owner, the backdrop-click cancel and the stays-open-on-failure
+   * behaviour INTERACTION_STANDARDS section 4 requires. A React copy would be
+   * a second place for all four to drift, and the vanilla recorded the same
+   * decision when IT stopped owning one: "REUSED, NOT REBUILT".
+   *
+   * `onConfirm` returns `{ok, error}` rather than throwing, because the
+   * dialogue stays open and renders `error` in place on a refusal. `onCancel`
+   * must touch no caller state: cancelling the reason for one field may not
+   * discard an unrelated edit.
+   */
+  requestChangeReason(opts: ChangeReasonOptions): void
+}
+
+export interface ChangeReasonOptions {
+  heading: string
+  contextLabel: string
+  contextValue?: string
+  promptLabel: string
+  confirmLabel: string
+  emptyReasonError?: string
+  /** An element ID. The shell focuses it when the dialogue closes. */
+  returnFocusTo?: string
+  onConfirm(reason: string): Promise<{ ok: boolean, error?: string }>
+  onDone?: () => void | Promise<void>
+  onCancel?: () => void
 }
 
 type ShellWindow = Window & {
@@ -61,6 +90,7 @@ type ShellWindow = Window & {
   detailLoaded?: (view: string) => void
   getOppLoadedRevision?: () => number | null
   canEditFields?: () => boolean
+  requestChangeReason?: (opts: ChangeReasonOptions) => void
 }
 
 const w = (): ShellWindow => window as ShellWindow
@@ -104,5 +134,18 @@ export const shellServices: ShellServices = {
   canEditFields(): boolean {
     const fn = w().canEditFields
     return typeof fn === 'function' ? fn() === true : false
+  },
+  // GUARDED WITH A THROW, unlike detailLoaded. This one is called INSTEAD of
+  // writing, not while reporting a failure: a missing dialogue means the
+  // person is never asked for the reason the route will then demand, and the
+  // save fails with "reason is required" for no visible cause. Failing here
+  // names the actual fault.
+  requestChangeReason(opts: ChangeReasonOptions): void {
+    const fn = w().requestChangeReason
+    if (typeof fn !== 'function') {
+      throw new Error('shell-services: window.requestChangeReason is not available. '
+        + 'The React tree cannot ask for a change reason without the shell dialogue.')
+    }
+    fn(opts)
   },
 }
