@@ -123,10 +123,12 @@ test('T2: every column is allocated, and content is clipped rather than overflow
 test('"Terminus Lead" is renamed on the OPPORTUNITY and nowhere else', () => {
   // Architecture 6: a display rename stays a display rename. The payload key is
   // untouched, which is what lets the allowlist and every write path stay put.
-  const ref = code('frontend/opportunity-reference.js', 'js')
-  assert.match(ref, /\{ key: 'lead', label: 'Opportunity owner', staffField: true \}/,
+  // RE-POINTED, Round 6 Phase R. Architecture 6 is unchanged and the label is
+  // still descriptor data; only the file moved.
+  const ref = code('frontend-react/src/reference/descriptors.ts', 'js')
+  assert.match(ref, /staffField\('lead', 'Opportunity owner'\)/,
     'the Opportunity still labels its owner "Terminus Lead"')
-  assert.ok(!/label: 'Terminus Lead'/.test(ref), 'a Terminus Lead label survives on the Opportunity')
+  assert.ok(!/'Terminus Lead'/.test(ref), 'a Terminus Lead label survives on the Opportunity')
   // ── AND NOT ON THE OTHERS. RE-POINTED, Round 2 Step C ─────────────────
   //
   // A Test Bed's lead is not an opportunity owner and the rename would make
@@ -232,11 +234,24 @@ test('and the keyboard path is closed, not just the mouse one', () => {
 })
 
 test('the one door every click-to-edit field opens through is guarded', () => {
-  const ref = code('frontend/opportunity-reference.js', 'js')
-  // The layer with NO timing dependency: CSS and the sweep both run at render,
-  // this runs at the moment somebody tries.
-  assert.match(ref, /if \(document\.getElementById\('view-opportunity-detail'\)\?\.classList\.contains\('is-not-mine'\)\) return/,
-    'openRefField opens an editor on a record the server will refuse to save')
+  // ── RE-POINTED, Round 6 Phase R, AND IT WAS FALSELY LIVE ─────────────
+  //
+  // This asserted openRefField's guard in the VANILLA reference file, which
+  // Round 5 unloaded. It has been passing ever since by reading a door the
+  // browser never opens - green, unchanged, and measuring nothing.
+  //
+  // The claim is unchanged and is the one the contract's behaviour 2 states:
+  // ONE door, consulted at the moment somebody tries, with no timing
+  // dependency - unlike the CSS and the ownership sweep, which both run at
+  // render. It now has two halves, because the door is a seam:
+  const app = code('frontend/app.js', 'js')
+  assert.match(app, /'opportunity-detail': \(\) => \{/,
+    'the shell answers no ownership question for this view, so every row refuses')
+  assert.match(app, /!!v && !v\.classList\.contains\('is-not-mine'\)/,
+    'the shell registry line no longer fails CLOSED on a missing view')
+  const rows = code('frontend-react/src/field-row/useFieldRows.ts', 'js')
+  assert.match(rows, /canEditFields\(\)/,
+    'the row controller does not consult the guard at all')
 })
 
 test('W1\'s probe enumerates by behaviour, so it cannot share the rule\'s blind spot', () => {
@@ -275,8 +290,11 @@ test('the hook refuses the ambiguous key a version row also carries', () => {
 
 test('the stale-write message is one sentence, on both surfaces, with a control', () => {
   const app = code('frontend/app.js', 'js')
-  const deal = code('frontend/opportunity-deal.js', 'js')
-  const ref = code('frontend/opportunity-reference.js', 'js')
+  // RE-POINTED. Both surfaces are React now, and the claim is the one that
+  // matters more after the move, not less: two implementations wording one
+  // event is Verification 20 in a string.
+  const deal = code('frontend-react/src/deal/useDealForm.ts', 'js')
+  const ref = code('frontend-react/src/reference/ReferenceHost.tsx', 'js')
   // ── SUPERSEDED WORDING, and the reason is recorded rather than replaced ─
   //
   // It read "This record changed since you loaded it. Reload to see the change,
@@ -317,9 +335,13 @@ test('the stale-write message is one sentence, on both surfaces, with a control'
   assert.match(app, /window\.reloadAfterStaleWrite = async function/, 'there is no one-click reload')
   // ONE RENDERER. Both surfaces had their own wording, which is Verification 20
   // in a string: two descriptions of one event, only one ever updated.
+  // The Commercials surface reaches the shell's renderer through oppPatch,
+  // which owns the refusal and the retry; the Reference surface calls it
+  // directly. Neither may word the sentence itself.
   for (const [name, src] of [['Commercials', deal], ['Reference', ref]]) {
-    assert.match(src, /window\.staleWriteHtml\(/, `${name} words the stale refusal itself`)
+    assert.ok(!/changed since the screen loaded|catching up - try again/.test(src),
+      `${name} carries its own copy of the stale-write wording`)
   }
-  assert.ok(!/This Opportunity changed since the screen loaded/.test(ref),
-    'the Reference tab still carries its own copy of the wording')
+  assert.match(ref, /window\.staleWriteHtml\?\.\(/,
+    'the Reference surface does not use the one renderer, so it must have invented a sentence')
 })

@@ -22,7 +22,7 @@ interface OppLike {
 declare global {
   interface Window {
     oppPatch?: (id: string, body: unknown) => Promise<{ ok: boolean, status?: number, data?: unknown }>
-    staleWriteHtml?: () => string
+    staleWriteHtml?: (recordId: string) => string
     loadOpportunityDetail?: (id: string) => void
   }
 }
@@ -38,7 +38,8 @@ export function ReferenceHost({ opp, registerReload }: {
   const [record, setRecord] = useState<OppLike>(opp)
   const [links, setLinks] = useState<KcLink[]>([])
   const [staff, setStaff] = useState<string[]>([])
-  const [feedback, setFeedback] = useState<{ text: string, ok: boolean } | null>(null)
+  const [feedback, setFeedback] = useState<
+    { text: string | null, html?: string | null, ok: boolean } | null>(null)
 
   const load = useCallback(async () => {
     const [r, kc] = await Promise.all([
@@ -90,15 +91,18 @@ export function ReferenceHost({ opp, registerReload }: {
     if (!Object.keys(payloadUpdate).length) return
     const r = await window.oppPatch!(opp.id, { payload: payloadUpdate })
     if (!r.ok) {
+      // ONE RENDERER, and the shell owns it. Wording the refusal here would be
+      // Verification 20 in a string: two descriptions of one event, only one
+      // of them ever updated. staleWriteHtml also carries the reload control,
+      // so a surface that wrote its own sentence would silently drop that too.
       setFeedback({
-        text: r.status === 409
-          ? 'This Opportunity changed since the screen loaded. Reload before saving.'
-          : 'The changes could not be saved.',
+        text: r.status === 409 ? null : 'The changes could not be saved.',
+        html: r.status === 409 ? (window.staleWriteHtml?.(opp.id) ?? null) : null,
         ok: false,
       })
       return
     }
-    setFeedback({ text: 'Saved.', ok: true })
+    setFeedback({ text: 'Saved.', html: null, ok: true })
     window.loadOpportunityDetail?.(opp.id)
   }
 
@@ -111,10 +115,16 @@ export function ReferenceHost({ opp, registerReload }: {
         oppId={opp.id}
         onSave={(c) => { void onSave(c) }}
         onChanged={() => { void load() }} />
-      <p data-testid="ref-save-feedback"
-        className={feedback ? (feedback.ok ? 'msg-success' : 'msg-error') : 'hidden'}>
-        {feedback?.text ?? ''}
-      </p>
+      {/* The shell's renderer returns HTML because the sentence carries a
+          control. A surface that could only render text would have to invent
+          its own, which is the duplication this avoids. */}
+      {feedback?.html
+        ? <p data-testid="ref-save-feedback" className="msg-error"
+            dangerouslySetInnerHTML={{ __html: feedback.html }} />
+        : <p data-testid="ref-save-feedback"
+            className={feedback ? (feedback.ok ? 'msg-success' : 'msg-error') : 'hidden'}>
+            {feedback?.text ?? ''}
+          </p>}
     </div>
   )
 }
