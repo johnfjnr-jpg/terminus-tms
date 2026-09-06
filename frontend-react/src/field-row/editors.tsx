@@ -71,6 +71,22 @@ export function TextEditor({ field, value, onChange, onRequestClose, focusRef, t
   )
 }
 
+// ── A2, 2026-09-06: showPicker, PORTED ──────────────────────────────────
+//
+// `window.revealFieldControl` calls `input.showPicker()` for a select or a
+// date input when the open came from a user gesture. It appears nowhere in the
+// React tree, so the select editor has been diverging silently since Round 2
+// and a date editor would have inherited that.
+//
+// Never rethrow: NotAllowedError (no user activation) or InvalidStateError
+// (detached) must leave the field open and usable, which is the vanilla's own
+// recorded floor. Focus is already set by the row.
+function offerPicker(el: HTMLElement | null): void {
+  const withPicker = el as (HTMLElement & { showPicker?: () => void }) | null
+  if (typeof withPicker?.showPicker !== 'function') return
+  try { withPicker.showPicker() } catch { /* the field is open and usable */ }
+}
+
 export function SelectEditor({ field, value, onChange, onRequestClose, focusRef, testId }: FieldEditorProps) {
   // The empty option is what lets a set field be CLEARED. Without it a select
   // is a one-way door: once a value is chosen there is no way back to unset,
@@ -82,6 +98,7 @@ export function SelectEditor({ field, value, onChange, onRequestClose, focusRef,
       value={value}
       onChange={(e) => onChange(e.target.value)}
       onKeyDown={(e) => { if (e.key === 'Escape') { e.preventDefault(); onRequestClose() } }}
+      onFocus={(e) => offerPicker(e.currentTarget)}
     >
       <option value="">--</option>
       {(field.options ?? []).map((o) => <option key={o} value={o}>{o}</option>)}
@@ -89,11 +106,82 @@ export function SelectEditor({ field, value, onChange, onRequestClose, focusRef,
   )
 }
 
+// ── THE DATE EDITOR ─────────────────────────────────────────────────────
+//
+// `min` comes from the descriptor (A4). The vanilla's own split is kept: the
+// native attribute catches most, and `isNotPastIsoDate` on the server is what
+// actually rejects. Nothing here is authoritative.
+export function DateEditor({ field, value, onChange, onRequestClose, focusRef, testId }: FieldEditorProps) {
+  return (
+    <input
+      type="date"
+      ref={focusRef as RefObject<HTMLInputElement | null>}
+      data-testid={testId}
+      value={value}
+      min={field.min}
+      onChange={(e) => onChange(e.target.value)}
+      onFocus={(e) => offerPicker(e.currentTarget)}
+      onKeyDown={(e) => { if (e.key === 'Escape') { e.preventDefault(); onRequestClose() } }}
+    />
+  )
+}
+
+// ── THE TEXTAREA EDITOR ─────────────────────────────────────────────────
+// A6: it CAN hold a seed. revealFieldControl includes TEXTAREA explicitly,
+// and its comment says why - the summary is the field a person is most likely
+// to tab to and start typing into.
+export function TextareaEditor({ field, value, onChange, onRequestClose, focusRef, testId }: FieldEditorProps) {
+  return (
+    <textarea
+      ref={focusRef as RefObject<HTMLTextAreaElement | null>}
+      data-testid={testId}
+      rows={field.rows ?? 3}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      onKeyDown={(e) => { if (e.key === 'Escape') { e.preventDefault(); onRequestClose() } }}
+    />
+  )
+}
+
+// ── THE CHECKBOX EDITOR ─────────────────────────────────────────────────
+//
+// A7: used as a DIRECT INPUT on the surface rather than inside a row, but it
+// is an editor because it reports a candidate the same way and the surface
+// stores its draft in the same place.
+//
+// THE VALUE IS A STRING, and that is finding 1 rather than a style choice.
+// Behaviour 1 compares `draft !== orig` strictly, so a boolean draft against a
+// string original would read dirty forever. 'true' and '' are the two states,
+// and '' is chosen for false because it is what an unset field already carries
+// everywhere else on the surface.
+export function CheckboxEditor({ value, onChange, onRequestClose, focusRef, testId }: FieldEditorProps) {
+  return (
+    <input
+      type="checkbox"
+      ref={focusRef as RefObject<HTMLInputElement | null>}
+      data-testid={testId}
+      checked={value === 'true'}
+      onChange={(e) => onChange(e.target.checked ? 'true' : '')}
+      onKeyDown={(e) => { if (e.key === 'Escape') { e.preventDefault(); onRequestClose() } }}
+    />
+  )
+}
+
 // The descriptor selects the editor. `options` present means a select unless
 // the descriptor says otherwise, so a caller declares data rather than wiring.
+const BY_KIND: Record<string, FieldEditor> = {
+  text: TextEditor,
+  select: SelectEditor,
+  date: DateEditor,
+  textarea: TextareaEditor,
+  checkbox: CheckboxEditor,
+}
+
 export function editorFor(field: FieldDescriptor): FieldEditor {
-  if (field.editor === 'select' || (!field.editor && field.options)) return SelectEditor
-  return TextEditor
+  if (field.editor) return BY_KIND[field.editor] ?? TextEditor
+  // Round 2's rule, untouched: declaring `options` declares a select, so a
+  // caller states DATA rather than wiring.
+  return field.options ? SelectEditor : TextEditor
 }
 
 // ── DOES A SEED CHARACTER REACH THIS EDITOR? ─────────────────────────────
@@ -114,6 +202,29 @@ export function editorFor(field: FieldDescriptor): FieldEditor {
 // contract note rather than improved: the browser's own type-ahead takes over
 // once the select has focus, so the keystroke is not wasted, it is handed to
 // the control that knows what to do with it.
+// ── A1, 2026-09-06: GENERALISED OFF SelectEditor's NAME ─────────────────
+//
+// This read `editorFor(field) !== SelectEditor`, which polices ONE MECHANISM
+// rather than the effect (CLAUDE.md Verification 37). The vanilla's rule is
+// `revealFieldControl`'s `takesText`, which excludes a date input as well as a
+// select, and says so in its own comment: "A date input and a select cannot
+// hold an arbitrary first character."
+//
+// A date editor added under the old condition would have opened its row on a
+// character the input then discarded - FINDING 6's original defect, arriving
+// through a new editor rather than a new field.
+//
+// So the PROPERTY is declared per editor kind, and a new editor answers the
+// question by joining this table rather than by being named in a condition.
+const TAKES_SEED: Record<string, boolean> = {
+  text: true,       // an <input type="text"> keeps the character
+  textarea: true,   // A6, and revealFieldControl includes TEXTAREA explicitly
+  select: false,    // the browser's own type-ahead takes it once focused
+  date: false,      // a date input cannot hold an arbitrary first character
+  checkbox: false,  // it has no text to hold
+}
+
 export function editorTakesSeed(field: FieldDescriptor): boolean {
-  return editorFor(field) !== SelectEditor
+  const kind = field.editor ?? (field.options ? 'select' : 'text')
+  return TAKES_SEED[kind] ?? true
 }

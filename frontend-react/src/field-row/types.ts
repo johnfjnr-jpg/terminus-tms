@@ -48,7 +48,24 @@ export interface FieldDescriptor {
    * text. Round 3's dates and currency add members here without touching the
    * row.
    */
-  editor?: 'text' | 'select'
+  editor?: 'text' | 'select' | 'date' | 'textarea' | 'checkbox'
+  /**
+   * A3, 2026-09-06. Display-only, appended in the DISPLAY half and never by an
+   * editor. `duration` reads `12 months`; the value is `12`. A suffix that
+   * reached the value would make `draft !== orig` wrong on every save.
+   */
+  suffix?: string
+  /**
+   * A4, 2026-09-06. The date editor's native lower bound, as DESCRIPTOR DATA.
+   *
+   * Round 5 Phase 0 finding 1: the vanilla declares `noPast` on two date
+   * fields and passes it at one call site, so `estGoLive` renders no `min` at
+   * all. Keyed here for the same reason `inputMode` is: a per-call-site
+   * argument is a to-do list that has to be completed again on every new field.
+   */
+  min?: string
+  /** The textarea editor's height. Display only. */
+  rows?: number
   /**
    * Behaviour 7. A read-only row is the same row WITHOUT a door and WITHOUT a
    * tab stop. It is not an editable row that has been disabled, because that
