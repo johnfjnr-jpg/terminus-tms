@@ -246,6 +246,12 @@ Three carried items restated so they are not rediscovered:
 
 ## Gate
 
-Recorded below once the closing tree has been measured.
+**All 21 stages passed** on `0496fa3`, the closing tree.
+Pure 463/463, database 92/92, react 485/485, all with 0 fail, and 14 HTTP
+probes. Every figure here is parsed from the run's own transcript rather
+than typed, after last round typed "thirteen" where the gate had run
+fourteen.
+
+Transcript: `.verify/verify-1142975260771875.txt`
 
 **Not pushed. The round closes on John's word.**
