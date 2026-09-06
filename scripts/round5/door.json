@@ -1,0 +1,129 @@
+{
+  "readonlyRows": [
+    {
+      "label": "Terminus Reference",
+      "tabindex": "0",
+      "ariaDisabled": "false",
+      "onclick": null
+    },
+    {
+      "label": "Stage",
+      "tabindex": "0",
+      "ariaDisabled": "false",
+      "onclick": null
+    },
+    {
+      "label": "Account",
+      "tabindex": "0",
+      "ariaDisabled": "false",
+      "onclick": null
+    },
+    {
+      "label": "Date Created",
+      "tabindex": "0",
+      "ariaDisabled": "false",
+      "onclick": null
+    },
+    {
+      "label": "Est. Close Date Moves",
+      "tabindex": "0",
+      "ariaDisabled": "false",
+      "onclick": null
+    }
+  ],
+  "door": {
+    "classOnView": "wrap",
+    "notMine": false,
+    "editOpeners": 20,
+    "withTabindex0": 25,
+    "withTabindexMinus1": 0
+  },
+  "kc": {
+    "present": true,
+    "html": 4433,
+    "text": "ContactRoleStanceLinked\n       \n    \n      R5DOOR Contact\n      commercial buyer\n      \n        \n          ChampionSupporterNeutralScepticBlockerUnknownPain Own",
+    "ids": [
+      "kc-stance-634e4eb0-c482-4c98-abcb-13f2e6d53e66",
+      "kc-record-634e4eb0-c482-4c98-abcb-13f2e6d53e66",
+      "kc-note-634e4eb0-c482-4c98-abcb-13f2e6d53e66",
+      "kc-add",
+      "kc-add-contact",
+      "kc-add-role",
+      "kc-add-other",
+      "kc-feedback"
+    ],
+    "inputs": [
+      {
+        "id": "kc-stance-634e4eb0-c482-4c98-abcb-13f2e6d53e66",
+        "tag": "select",
+        "type": "select-one"
+      },
+      {
+        "id": "kc-note-634e4eb0-c482-4c98-abcb-13f2e6d53e66",
+        "tag": "input",
+        "type": "text"
+      },
+      {
+        "id": "kc-add-contact",
+        "tag": "select",
+        "type": "select-one"
+      },
+      {
+        "id": "kc-add-role",
+        "tag": "select",
+        "type": "select-one"
+      },
+      {
+        "id": "kc-add-other",
+        "tag": "input",
+        "type": "text"
+      }
+    ],
+    "clickables": [
+      {
+        "tag": "span",
+        "cls": "kc-name",
+        "onclick": "navigate('contact-detail','0a017f25-f296-4ab3-8f04-6c7367fbc"
+      },
+      {
+        "tag": "button",
+        "cls": "btn-sm kc-record hidden",
+        "onclick": "kcRecord('634e4eb0-c482-4c98-abcb-13f2e6d53e66')"
+      },
+      {
+        "tag": "span",
+        "cls": "kc-remove",
+        "onclick": "kcRemove('634e4eb0-c482-4c98-abcb-13f2e6d53e66','R5DOOR Cont"
+      },
+      {
+        "tag": "button",
+        "cls": "btn-sm",
+        "onclick": "kcAdd()"
+      },
+      {
+        "tag": "button",
+        "cls": "btn-sm btn-ghost",
+        "onclick": "kcNewContact()"
+      }
+    ],
+    "fieldRows": 0
+  },
+  "saa": {
+    "before": {
+      "checked": false,
+      "editable": 7,
+      "readonly": 1
+    },
+    "afterOn": {
+      "checked": true,
+      "editable": 1,
+      "readonly": 7,
+      "saveIdle": false,
+      "emptyNote": null
+    },
+    "afterOff": {
+      "checked": false,
+      "saveIdle": true
+    }
+  }
+}

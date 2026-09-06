@@ -1,0 +1,1356 @@
+{
+  "b1": {
+    "rows": [
+      {
+        "branch": "as-loaded",
+        "key": "name",
+        "label": null,
+        "editor": "text",
+        "options": null,
+        "min": null,
+        "suffix": null,
+        "displayText": "R5CENSUS Opportunity",
+        "hasDoor": true,
+        "tabindex": "0",
+        "readonly": false,
+        "editHidden": true,
+        "section": null
+      },
+      {
+        "branch": "as-loaded",
+        "key": "lead",
+        "label": "Opportunity owner",
+        "editor": "select",
+        "options": [
+          "",
+          "Brad Kerr",
+          "Chris Diak",
+          "John Fryatt",
+          "Josh Ward",
+          "Matous Kundrik",
+          "Michael Quane",
+          "Neil Baynham"
+        ],
+        "min": null,
+        "suffix": null,
+        "displayText": "--",
+        "hasDoor": true,
+        "tabindex": "0",
+        "readonly": false,
+        "editHidden": true,
+        "section": "ref-terminus-rows"
+      },
+      {
+        "branch": "as-loaded",
+        "key": "commercial",
+        "label": "Comm. Auth",
+        "editor": "select",
+        "options": [
+          "",
+          "Brad Kerr",
+          "Chris Diak",
+          "John Fryatt",
+          "Josh Ward",
+          "Matous Kundrik",
+          "Michael Quane",
+          "Neil Baynham"
+        ],
+        "min": null,
+        "suffix": null,
+        "displayText": "--",
+        "hasDoor": true,
+        "tabindex": "0",
+        "readonly": false,
+        "editHidden": true,
+        "section": "ref-terminus-rows"
+      },
+      {
+        "branch": "as-loaded",
+        "key": "technical",
+        "label": "Tech. Auth",
+        "editor": "select",
+        "options": [
+          "",
+          "Brad Kerr",
+          "Chris Diak",
+          "John Fryatt",
+          "Josh Ward",
+          "Matous Kundrik",
+          "Michael Quane",
+          "Neil Baynham"
+        ],
+        "min": null,
+        "suffix": null,
+        "displayText": "--",
+        "hasDoor": true,
+        "tabindex": "0",
+        "readonly": false,
+        "editHidden": true,
+        "section": "ref-terminus-rows"
+      },
+      {
+        "branch": "as-loaded",
+        "key": "legal",
+        "label": "Legal Auth",
+        "editor": "select",
+        "options": [
+          "",
+          "Brad Kerr",
+          "Chris Diak",
+          "John Fryatt",
+          "Josh Ward",
+          "Matous Kundrik",
+          "Michael Quane",
+          "Neil Baynham"
+        ],
+        "min": null,
+        "suffix": null,
+        "displayText": "--",
+        "hasDoor": true,
+        "tabindex": "0",
+        "readonly": false,
+        "editHidden": true,
+        "section": "ref-terminus-rows"
+      },
+      {
+        "branch": "as-loaded",
+        "key": "region",
+        "label": "Region",
+        "editor": "select",
+        "options": [
+          "",
+          "Americas",
+          "Europe & UK",
+          "Middle East",
+          "APAC",
+          "Africa"
+        ],
+        "min": null,
+        "suffix": null,
+        "displayText": "--",
+        "hasDoor": true,
+        "tabindex": "0",
+        "readonly": false,
+        "editHidden": true,
+        "section": "ref-terminus-rows"
+      },
+      {
+        "branch": "as-loaded",
+        "key": "country",
+        "label": "Country",
+        "editor": "text",
+        "options": null,
+        "min": null,
+        "suffix": null,
+        "displayText": "--",
+        "hasDoor": true,
+        "tabindex": "0",
+        "readonly": false,
+        "editHidden": true,
+        "section": "ref-terminus-rows"
+      },
+      {
+        "branch": "as-loaded",
+        "key": "customerLead",
+        "label": "Client Lead",
+        "editor": "text",
+        "options": null,
+        "min": null,
+        "suffix": null,
+        "displayText": "R5CENSUS Contact",
+        "hasDoor": true,
+        "tabindex": "0",
+        "readonly": false,
+        "editHidden": true,
+        "section": "ref-customer-rows"
+      },
+      {
+        "branch": "as-loaded",
+        "key": "commAddress",
+        "label": "Address Line 1",
+        "editor": "text",
+        "options": null,
+        "min": null,
+        "suffix": null,
+        "displayText": "--",
+        "hasDoor": true,
+        "tabindex": "0",
+        "readonly": false,
+        "editHidden": true,
+        "section": "ref-customer-rows"
+      },
+      {
+        "branch": "as-loaded",
+        "key": "commAddress2",
+        "label": "Address Line 2",
+        "editor": "text",
+        "options": null,
+        "min": null,
+        "suffix": null,
+        "displayText": "--",
+        "hasDoor": true,
+        "tabindex": "0",
+        "readonly": false,
+        "editHidden": true,
+        "section": "ref-customer-rows"
+      },
+      {
+        "branch": "as-loaded",
+        "key": "commCity",
+        "label": "City",
+        "editor": "text",
+        "options": null,
+        "min": null,
+        "suffix": null,
+        "displayText": "--",
+        "hasDoor": true,
+        "tabindex": "0",
+        "readonly": false,
+        "editHidden": true,
+        "section": "ref-customer-rows"
+      },
+      {
+        "branch": "as-loaded",
+        "key": "commPostcode",
+        "label": "Postcode / Zip",
+        "editor": "text",
+        "options": null,
+        "min": null,
+        "suffix": null,
+        "displayText": "--",
+        "hasDoor": true,
+        "tabindex": "0",
+        "readonly": false,
+        "editHidden": true,
+        "section": "ref-customer-rows"
+      },
+      {
+        "branch": "as-loaded",
+        "key": "commCountry",
+        "label": "Country",
+        "editor": "text",
+        "options": null,
+        "min": null,
+        "suffix": null,
+        "displayText": "--",
+        "hasDoor": true,
+        "tabindex": "0",
+        "readonly": false,
+        "editHidden": true,
+        "section": "ref-customer-rows"
+      },
+      {
+        "branch": "as-loaded",
+        "key": "commRegion",
+        "label": "Region",
+        "editor": "select",
+        "options": [
+          "",
+          "Americas",
+          "Europe & UK",
+          "Middle East",
+          "APAC",
+          "Africa"
+        ],
+        "min": null,
+        "suffix": null,
+        "displayText": "--",
+        "hasDoor": true,
+        "tabindex": "0",
+        "readonly": false,
+        "editHidden": true,
+        "section": "ref-customer-rows"
+      },
+      {
+        "branch": "as-loaded",
+        "key": "estClose",
+        "label": "Est. Close Date",
+        "editor": "date",
+        "options": null,
+        "min": "2026-09-06",
+        "suffix": null,
+        "displayText": "--",
+        "hasDoor": true,
+        "tabindex": "0",
+        "readonly": false,
+        "editHidden": true,
+        "section": "ref-dates-rows"
+      },
+      {
+        "branch": "as-loaded",
+        "key": "actualClose",
+        "label": "Actual Close Date",
+        "editor": "date",
+        "options": null,
+        "min": null,
+        "suffix": null,
+        "displayText": "--",
+        "hasDoor": true,
+        "tabindex": "0",
+        "readonly": false,
+        "editHidden": true,
+        "section": "ref-dates-rows"
+      },
+      {
+        "branch": "as-loaded",
+        "key": "estGoLive",
+        "label": "Est. Go Live",
+        "editor": "date",
+        "options": null,
+        "min": null,
+        "suffix": null,
+        "displayText": "--",
+        "hasDoor": true,
+        "tabindex": "0",
+        "readonly": false,
+        "editHidden": true,
+        "section": "ref-dates-rows"
+      },
+      {
+        "branch": "as-loaded",
+        "key": "actualGoLive",
+        "label": "Actual Go Live",
+        "editor": "date",
+        "options": null,
+        "min": null,
+        "suffix": null,
+        "displayText": "--",
+        "hasDoor": true,
+        "tabindex": "0",
+        "readonly": false,
+        "editHidden": true,
+        "section": "ref-dates-rows"
+      },
+      {
+        "branch": "as-loaded",
+        "key": "duration",
+        "label": "Contract Duration (months)",
+        "editor": "text[inputmode=numeric]",
+        "options": null,
+        "min": null,
+        "suffix": "months",
+        "displayText": "36 months",
+        "hasDoor": true,
+        "tabindex": "0",
+        "readonly": false,
+        "editHidden": true,
+        "section": "ref-dates-rows"
+      },
+      {
+        "branch": "as-loaded",
+        "key": "oppType",
+        "label": "Opportunity Type",
+        "editor": "select",
+        "options": [
+          "",
+          "Terminus Led",
+          "Tender"
+        ],
+        "min": null,
+        "suffix": null,
+        "displayText": "--",
+        "hasDoor": true,
+        "tabindex": "0",
+        "readonly": false,
+        "editHidden": true,
+        "section": "ref-opptype-row"
+      },
+      {
+        "branch": "as-loaded",
+        "key": "summary",
+        "label": null,
+        "editor": "textarea",
+        "options": null,
+        "min": null,
+        "suffix": null,
+        "displayText": "No summary captured yet.",
+        "hasDoor": true,
+        "tabindex": "0",
+        "readonly": false,
+        "editHidden": true,
+        "section": null
+      }
+    ],
+    "ro": [
+      {
+        "branch": "as-loaded",
+        "label": "Terminus Reference",
+        "value": "TT-SGP-AIRPRT-2610",
+        "tabindex": "0",
+        "hasOnclick": false,
+        "section": "ref-terminus-rows"
+      },
+      {
+        "branch": "as-loaded",
+        "label": "Stage",
+        "value": "Qualification",
+        "tabindex": "0",
+        "hasOnclick": false,
+        "section": "ref-terminus-rows"
+      },
+      {
+        "branch": "as-loaded",
+        "label": "Account",
+        "value": "21st Century Boy",
+        "tabindex": "0",
+        "hasOnclick": false,
+        "section": "ref-customer-rows"
+      },
+      {
+        "branch": "as-loaded",
+        "label": "Date Created",
+        "value": "06 Sept 26",
+        "tabindex": "0",
+        "hasOnclick": false,
+        "section": "ref-dates-rows"
+      },
+      {
+        "branch": "as-loaded",
+        "label": "Est. Close Date Moves",
+        "value": "0",
+        "tabindex": "0",
+        "hasOnclick": false,
+        "section": "ref-dates-rows"
+      }
+    ],
+    "sameAsAccount": null,
+    "kc": {
+      "present": true,
+      "rows": 0,
+      "inputs": 5,
+      "buttons": 3,
+      "text": "ContactRoleStanceLinked\n       \n    \n      R5CENSUS Contact\n      commercial buyer\n      \n        \n          ChampionSup"
+    },
+    "directInputs": [
+      {
+        "id": "ref-input-commAddressSameAsAccount",
+        "tag": "input",
+        "type": "checkbox"
+      },
+      {
+        "id": "kc-stance-04f6cc21-6cd6-4983-bd23-2d33e1aabf4e",
+        "tag": "select",
+        "type": "select-one"
+      },
+      {
+        "id": "kc-note-04f6cc21-6cd6-4983-bd23-2d33e1aabf4e",
+        "tag": "input",
+        "type": "text"
+      },
+      {
+        "id": "kc-add-contact",
+        "tag": "select",
+        "type": "select-one"
+      },
+      {
+        "id": "kc-add-role",
+        "tag": "select",
+        "type": "select-one"
+      },
+      {
+        "id": "kc-add-other",
+        "tag": "input",
+        "type": "text"
+      }
+    ]
+  },
+  "b2": {
+    "rows": [
+      {
+        "branch": "exercised",
+        "key": "name",
+        "label": null,
+        "editor": "text",
+        "options": null,
+        "min": null,
+        "suffix": null,
+        "displayText": "R5CENSUS Opportunity",
+        "hasDoor": true,
+        "tabindex": "0",
+        "readonly": false,
+        "editHidden": true,
+        "section": null
+      },
+      {
+        "branch": "exercised",
+        "key": "lead",
+        "label": "Opportunity owner",
+        "editor": "select",
+        "options": [
+          "",
+          "Brad Kerr",
+          "Chris Diak",
+          "John Fryatt",
+          "Josh Ward",
+          "Matous Kundrik",
+          "Michael Quane",
+          "Neil Baynham"
+        ],
+        "min": null,
+        "suffix": null,
+        "displayText": "--",
+        "hasDoor": true,
+        "tabindex": "0",
+        "readonly": false,
+        "editHidden": true,
+        "section": "ref-terminus-rows"
+      },
+      {
+        "branch": "exercised",
+        "key": "commercial",
+        "label": "Comm. Auth",
+        "editor": "select",
+        "options": [
+          "",
+          "Brad Kerr",
+          "Chris Diak",
+          "John Fryatt",
+          "Josh Ward",
+          "Matous Kundrik",
+          "Michael Quane",
+          "Neil Baynham"
+        ],
+        "min": null,
+        "suffix": null,
+        "displayText": "--",
+        "hasDoor": true,
+        "tabindex": "0",
+        "readonly": false,
+        "editHidden": true,
+        "section": "ref-terminus-rows"
+      },
+      {
+        "branch": "exercised",
+        "key": "technical",
+        "label": "Tech. Auth",
+        "editor": "select",
+        "options": [
+          "",
+          "Brad Kerr",
+          "Chris Diak",
+          "John Fryatt",
+          "Josh Ward",
+          "Matous Kundrik",
+          "Michael Quane",
+          "Neil Baynham"
+        ],
+        "min": null,
+        "suffix": null,
+        "displayText": "--",
+        "hasDoor": true,
+        "tabindex": "0",
+        "readonly": false,
+        "editHidden": true,
+        "section": "ref-terminus-rows"
+      },
+      {
+        "branch": "exercised",
+        "key": "legal",
+        "label": "Legal Auth",
+        "editor": "select",
+        "options": [
+          "",
+          "Brad Kerr",
+          "Chris Diak",
+          "John Fryatt",
+          "Josh Ward",
+          "Matous Kundrik",
+          "Michael Quane",
+          "Neil Baynham"
+        ],
+        "min": null,
+        "suffix": null,
+        "displayText": "--",
+        "hasDoor": true,
+        "tabindex": "0",
+        "readonly": false,
+        "editHidden": true,
+        "section": "ref-terminus-rows"
+      },
+      {
+        "branch": "exercised",
+        "key": "region",
+        "label": "Region",
+        "editor": "select",
+        "options": [
+          "",
+          "Americas",
+          "Europe & UK",
+          "Middle East",
+          "APAC",
+          "Africa"
+        ],
+        "min": null,
+        "suffix": null,
+        "displayText": "--",
+        "hasDoor": true,
+        "tabindex": "0",
+        "readonly": false,
+        "editHidden": true,
+        "section": "ref-terminus-rows"
+      },
+      {
+        "branch": "exercised",
+        "key": "country",
+        "label": "Country",
+        "editor": "text",
+        "options": null,
+        "min": null,
+        "suffix": null,
+        "displayText": "--",
+        "hasDoor": true,
+        "tabindex": "0",
+        "readonly": false,
+        "editHidden": false,
+        "section": "ref-terminus-rows"
+      },
+      {
+        "branch": "exercised",
+        "key": "customerLead",
+        "label": "Client Lead",
+        "editor": "text",
+        "options": null,
+        "min": null,
+        "suffix": null,
+        "displayText": "R5CENSUS Contact",
+        "hasDoor": true,
+        "tabindex": "0",
+        "readonly": false,
+        "editHidden": true,
+        "section": "ref-customer-rows"
+      },
+      {
+        "branch": "exercised",
+        "key": "commAddress",
+        "label": "Address Line 1",
+        "editor": "text",
+        "options": null,
+        "min": null,
+        "suffix": null,
+        "displayText": "--",
+        "hasDoor": true,
+        "tabindex": "0",
+        "readonly": false,
+        "editHidden": true,
+        "section": "ref-customer-rows"
+      },
+      {
+        "branch": "exercised",
+        "key": "commAddress2",
+        "label": "Address Line 2",
+        "editor": "text",
+        "options": null,
+        "min": null,
+        "suffix": null,
+        "displayText": "--",
+        "hasDoor": true,
+        "tabindex": "0",
+        "readonly": false,
+        "editHidden": true,
+        "section": "ref-customer-rows"
+      },
+      {
+        "branch": "exercised",
+        "key": "commCity",
+        "label": "City",
+        "editor": "text",
+        "options": null,
+        "min": null,
+        "suffix": null,
+        "displayText": "--",
+        "hasDoor": true,
+        "tabindex": "0",
+        "readonly": false,
+        "editHidden": true,
+        "section": "ref-customer-rows"
+      },
+      {
+        "branch": "exercised",
+        "key": "commPostcode",
+        "label": "Postcode / Zip",
+        "editor": "text",
+        "options": null,
+        "min": null,
+        "suffix": null,
+        "displayText": "--",
+        "hasDoor": true,
+        "tabindex": "0",
+        "readonly": false,
+        "editHidden": true,
+        "section": "ref-customer-rows"
+      },
+      {
+        "branch": "exercised",
+        "key": "commCountry",
+        "label": "Country",
+        "editor": "text",
+        "options": null,
+        "min": null,
+        "suffix": null,
+        "displayText": "--",
+        "hasDoor": true,
+        "tabindex": "0",
+        "readonly": false,
+        "editHidden": true,
+        "section": "ref-customer-rows"
+      },
+      {
+        "branch": "exercised",
+        "key": "commRegion",
+        "label": "Region",
+        "editor": "select",
+        "options": [
+          "",
+          "Americas",
+          "Europe & UK",
+          "Middle East",
+          "APAC",
+          "Africa"
+        ],
+        "min": null,
+        "suffix": null,
+        "displayText": "--",
+        "hasDoor": true,
+        "tabindex": "0",
+        "readonly": false,
+        "editHidden": true,
+        "section": "ref-customer-rows"
+      },
+      {
+        "branch": "exercised",
+        "key": "estClose",
+        "label": "Est. Close Date",
+        "editor": "date",
+        "options": null,
+        "min": "2026-09-06",
+        "suffix": null,
+        "displayText": "--",
+        "hasDoor": true,
+        "tabindex": "0",
+        "readonly": false,
+        "editHidden": true,
+        "section": "ref-dates-rows"
+      },
+      {
+        "branch": "exercised",
+        "key": "actualClose",
+        "label": "Actual Close Date",
+        "editor": "date",
+        "options": null,
+        "min": null,
+        "suffix": null,
+        "displayText": "--",
+        "hasDoor": true,
+        "tabindex": "0",
+        "readonly": false,
+        "editHidden": true,
+        "section": "ref-dates-rows"
+      },
+      {
+        "branch": "exercised",
+        "key": "estGoLive",
+        "label": "Est. Go Live",
+        "editor": "date",
+        "options": null,
+        "min": null,
+        "suffix": null,
+        "displayText": "--",
+        "hasDoor": true,
+        "tabindex": "0",
+        "readonly": false,
+        "editHidden": true,
+        "section": "ref-dates-rows"
+      },
+      {
+        "branch": "exercised",
+        "key": "actualGoLive",
+        "label": "Actual Go Live",
+        "editor": "date",
+        "options": null,
+        "min": null,
+        "suffix": null,
+        "displayText": "--",
+        "hasDoor": true,
+        "tabindex": "0",
+        "readonly": false,
+        "editHidden": true,
+        "section": "ref-dates-rows"
+      },
+      {
+        "branch": "exercised",
+        "key": "duration",
+        "label": "Contract Duration (months)",
+        "editor": "text[inputmode=numeric]",
+        "options": null,
+        "min": null,
+        "suffix": "months",
+        "displayText": "36 months",
+        "hasDoor": true,
+        "tabindex": "0",
+        "readonly": false,
+        "editHidden": true,
+        "section": "ref-dates-rows"
+      },
+      {
+        "branch": "exercised",
+        "key": "oppType",
+        "label": "Opportunity Type",
+        "editor": "select",
+        "options": [
+          "",
+          "Terminus Led",
+          "Tender"
+        ],
+        "min": null,
+        "suffix": null,
+        "displayText": "--",
+        "hasDoor": true,
+        "tabindex": "0",
+        "readonly": false,
+        "editHidden": true,
+        "section": "ref-opptype-row"
+      },
+      {
+        "branch": "exercised",
+        "key": "summary",
+        "label": null,
+        "editor": "textarea",
+        "options": null,
+        "min": null,
+        "suffix": null,
+        "displayText": "No summary captured yet.",
+        "hasDoor": true,
+        "tabindex": "0",
+        "readonly": false,
+        "editHidden": true,
+        "section": null
+      }
+    ],
+    "ro": [
+      {
+        "branch": "exercised",
+        "label": "Terminus Reference",
+        "value": "TT-SGP-AIRPRT-2610",
+        "tabindex": "0",
+        "hasOnclick": false,
+        "section": "ref-terminus-rows"
+      },
+      {
+        "branch": "exercised",
+        "label": "Stage",
+        "value": "Qualification",
+        "tabindex": "0",
+        "hasOnclick": false,
+        "section": "ref-terminus-rows"
+      },
+      {
+        "branch": "exercised",
+        "label": "Account",
+        "value": "21st Century Boy",
+        "tabindex": "0",
+        "hasOnclick": false,
+        "section": "ref-customer-rows"
+      },
+      {
+        "branch": "exercised",
+        "label": "Date Created",
+        "value": "06 Sept 26",
+        "tabindex": "0",
+        "hasOnclick": false,
+        "section": "ref-dates-rows"
+      },
+      {
+        "branch": "exercised",
+        "label": "Est. Close Date Moves",
+        "value": "0",
+        "tabindex": "0",
+        "hasOnclick": false,
+        "section": "ref-dates-rows"
+      }
+    ],
+    "sameAsAccount": null,
+    "kc": {
+      "present": true,
+      "rows": 0,
+      "inputs": 5,
+      "buttons": 3,
+      "text": "ContactRoleStanceLinked\n       \n    \n      R5CENSUS Contact\n      commercial buyer\n      \n        \n          ChampionSup"
+    },
+    "directInputs": [
+      {
+        "id": "ref-input-commAddressSameAsAccount",
+        "tag": "input",
+        "type": "checkbox"
+      },
+      {
+        "id": "kc-stance-04f6cc21-6cd6-4983-bd23-2d33e1aabf4e",
+        "tag": "select",
+        "type": "select-one"
+      },
+      {
+        "id": "kc-note-04f6cc21-6cd6-4983-bd23-2d33e1aabf4e",
+        "tag": "input",
+        "type": "text"
+      },
+      {
+        "id": "kc-add-contact",
+        "tag": "select",
+        "type": "select-one"
+      },
+      {
+        "id": "kc-add-role",
+        "tag": "select",
+        "type": "select-one"
+      },
+      {
+        "id": "kc-add-other",
+        "tag": "input",
+        "type": "text"
+      }
+    ]
+  },
+  "b3": {
+    "rows": [
+      {
+        "branch": "same-as-account-on",
+        "key": "name",
+        "label": null,
+        "editor": "text",
+        "options": null,
+        "min": null,
+        "suffix": null,
+        "displayText": "R5CENSUS Opportunity",
+        "hasDoor": true,
+        "tabindex": "0",
+        "readonly": false,
+        "editHidden": true,
+        "section": null
+      },
+      {
+        "branch": "same-as-account-on",
+        "key": "lead",
+        "label": "Opportunity owner",
+        "editor": "select",
+        "options": [
+          "",
+          "Brad Kerr",
+          "Chris Diak",
+          "John Fryatt",
+          "Josh Ward",
+          "Matous Kundrik",
+          "Michael Quane",
+          "Neil Baynham"
+        ],
+        "min": null,
+        "suffix": null,
+        "displayText": "--",
+        "hasDoor": true,
+        "tabindex": "0",
+        "readonly": false,
+        "editHidden": true,
+        "section": "ref-terminus-rows"
+      },
+      {
+        "branch": "same-as-account-on",
+        "key": "commercial",
+        "label": "Comm. Auth",
+        "editor": "select",
+        "options": [
+          "",
+          "Brad Kerr",
+          "Chris Diak",
+          "John Fryatt",
+          "Josh Ward",
+          "Matous Kundrik",
+          "Michael Quane",
+          "Neil Baynham"
+        ],
+        "min": null,
+        "suffix": null,
+        "displayText": "--",
+        "hasDoor": true,
+        "tabindex": "0",
+        "readonly": false,
+        "editHidden": true,
+        "section": "ref-terminus-rows"
+      },
+      {
+        "branch": "same-as-account-on",
+        "key": "technical",
+        "label": "Tech. Auth",
+        "editor": "select",
+        "options": [
+          "",
+          "Brad Kerr",
+          "Chris Diak",
+          "John Fryatt",
+          "Josh Ward",
+          "Matous Kundrik",
+          "Michael Quane",
+          "Neil Baynham"
+        ],
+        "min": null,
+        "suffix": null,
+        "displayText": "--",
+        "hasDoor": true,
+        "tabindex": "0",
+        "readonly": false,
+        "editHidden": true,
+        "section": "ref-terminus-rows"
+      },
+      {
+        "branch": "same-as-account-on",
+        "key": "legal",
+        "label": "Legal Auth",
+        "editor": "select",
+        "options": [
+          "",
+          "Brad Kerr",
+          "Chris Diak",
+          "John Fryatt",
+          "Josh Ward",
+          "Matous Kundrik",
+          "Michael Quane",
+          "Neil Baynham"
+        ],
+        "min": null,
+        "suffix": null,
+        "displayText": "--",
+        "hasDoor": true,
+        "tabindex": "0",
+        "readonly": false,
+        "editHidden": true,
+        "section": "ref-terminus-rows"
+      },
+      {
+        "branch": "same-as-account-on",
+        "key": "region",
+        "label": "Region",
+        "editor": "select",
+        "options": [
+          "",
+          "Americas",
+          "Europe & UK",
+          "Middle East",
+          "APAC",
+          "Africa"
+        ],
+        "min": null,
+        "suffix": null,
+        "displayText": "--",
+        "hasDoor": true,
+        "tabindex": "0",
+        "readonly": false,
+        "editHidden": true,
+        "section": "ref-terminus-rows"
+      },
+      {
+        "branch": "same-as-account-on",
+        "key": "country",
+        "label": "Country",
+        "editor": "text",
+        "options": null,
+        "min": null,
+        "suffix": null,
+        "displayText": "--",
+        "hasDoor": true,
+        "tabindex": "0",
+        "readonly": false,
+        "editHidden": true,
+        "section": "ref-terminus-rows"
+      },
+      {
+        "branch": "same-as-account-on",
+        "key": "customerLead",
+        "label": "Client Lead",
+        "editor": "text",
+        "options": null,
+        "min": null,
+        "suffix": null,
+        "displayText": "R5CENSUS Contact",
+        "hasDoor": true,
+        "tabindex": "0",
+        "readonly": false,
+        "editHidden": true,
+        "section": "ref-customer-rows"
+      },
+      {
+        "branch": "same-as-account-on",
+        "key": "estClose",
+        "label": "Est. Close Date",
+        "editor": "date",
+        "options": null,
+        "min": "2026-09-06",
+        "suffix": null,
+        "displayText": "--",
+        "hasDoor": true,
+        "tabindex": "0",
+        "readonly": false,
+        "editHidden": true,
+        "section": "ref-dates-rows"
+      },
+      {
+        "branch": "same-as-account-on",
+        "key": "actualClose",
+        "label": "Actual Close Date",
+        "editor": "date",
+        "options": null,
+        "min": null,
+        "suffix": null,
+        "displayText": "--",
+        "hasDoor": true,
+        "tabindex": "0",
+        "readonly": false,
+        "editHidden": true,
+        "section": "ref-dates-rows"
+      },
+      {
+        "branch": "same-as-account-on",
+        "key": "estGoLive",
+        "label": "Est. Go Live",
+        "editor": "date",
+        "options": null,
+        "min": null,
+        "suffix": null,
+        "displayText": "--",
+        "hasDoor": true,
+        "tabindex": "0",
+        "readonly": false,
+        "editHidden": true,
+        "section": "ref-dates-rows"
+      },
+      {
+        "branch": "same-as-account-on",
+        "key": "actualGoLive",
+        "label": "Actual Go Live",
+        "editor": "date",
+        "options": null,
+        "min": null,
+        "suffix": null,
+        "displayText": "--",
+        "hasDoor": true,
+        "tabindex": "0",
+        "readonly": false,
+        "editHidden": true,
+        "section": "ref-dates-rows"
+      },
+      {
+        "branch": "same-as-account-on",
+        "key": "duration",
+        "label": "Contract Duration (months)",
+        "editor": "text[inputmode=numeric]",
+        "options": null,
+        "min": null,
+        "suffix": "months",
+        "displayText": "36 months",
+        "hasDoor": true,
+        "tabindex": "0",
+        "readonly": false,
+        "editHidden": true,
+        "section": "ref-dates-rows"
+      },
+      {
+        "branch": "same-as-account-on",
+        "key": "oppType",
+        "label": "Opportunity Type",
+        "editor": "select",
+        "options": [
+          "",
+          "Terminus Led",
+          "Tender"
+        ],
+        "min": null,
+        "suffix": null,
+        "displayText": "--",
+        "hasDoor": true,
+        "tabindex": "0",
+        "readonly": false,
+        "editHidden": true,
+        "section": "ref-opptype-row"
+      },
+      {
+        "branch": "same-as-account-on",
+        "key": "summary",
+        "label": null,
+        "editor": "textarea",
+        "options": null,
+        "min": null,
+        "suffix": null,
+        "displayText": "No summary captured yet.",
+        "hasDoor": true,
+        "tabindex": "0",
+        "readonly": false,
+        "editHidden": true,
+        "section": null
+      }
+    ],
+    "ro": [
+      {
+        "branch": "same-as-account-on",
+        "label": "Terminus Reference",
+        "value": "TT-SGP-AIRPRT-2610",
+        "tabindex": "0",
+        "hasOnclick": false,
+        "section": "ref-terminus-rows"
+      },
+      {
+        "branch": "same-as-account-on",
+        "label": "Stage",
+        "value": "Qualification",
+        "tabindex": "0",
+        "hasOnclick": false,
+        "section": "ref-terminus-rows"
+      },
+      {
+        "branch": "same-as-account-on",
+        "label": "Account",
+        "value": "21st Century Boy",
+        "tabindex": null,
+        "hasOnclick": false,
+        "section": "ref-customer-rows"
+      },
+      {
+        "branch": "same-as-account-on",
+        "label": "Address Line 1",
+        "value": "11 Riviera Drive",
+        "tabindex": null,
+        "hasOnclick": false,
+        "section": "ref-customer-rows"
+      },
+      {
+        "branch": "same-as-account-on",
+        "label": "Address Line 2",
+        "value": "04-12",
+        "tabindex": null,
+        "hasOnclick": false,
+        "section": "ref-customer-rows"
+      },
+      {
+        "branch": "same-as-account-on",
+        "label": "City",
+        "value": "Singapore",
+        "tabindex": null,
+        "hasOnclick": false,
+        "section": "ref-customer-rows"
+      },
+      {
+        "branch": "same-as-account-on",
+        "label": "Postcode / Zip",
+        "value": "467203",
+        "tabindex": null,
+        "hasOnclick": false,
+        "section": "ref-customer-rows"
+      },
+      {
+        "branch": "same-as-account-on",
+        "label": "Country",
+        "value": "Singapore",
+        "tabindex": null,
+        "hasOnclick": false,
+        "section": "ref-customer-rows"
+      },
+      {
+        "branch": "same-as-account-on",
+        "label": "Region",
+        "value": "APAC",
+        "tabindex": null,
+        "hasOnclick": false,
+        "section": "ref-customer-rows"
+      },
+      {
+        "branch": "same-as-account-on",
+        "label": "Date Created",
+        "value": "06 Sept 26",
+        "tabindex": "0",
+        "hasOnclick": false,
+        "section": "ref-dates-rows"
+      },
+      {
+        "branch": "same-as-account-on",
+        "label": "Est. Close Date Moves",
+        "value": "0",
+        "tabindex": "0",
+        "hasOnclick": false,
+        "section": "ref-dates-rows"
+      }
+    ],
+    "sameAsAccount": null,
+    "kc": {
+      "present": true,
+      "rows": 0,
+      "inputs": 5,
+      "buttons": 3,
+      "text": "ContactRoleStanceLinked\n       \n    \n      R5CENSUS Contact\n      commercial buyer\n      \n        \n          ChampionSup"
+    },
+    "directInputs": [
+      {
+        "id": "ref-input-commAddressSameAsAccount",
+        "tag": "input",
+        "type": "checkbox"
+      },
+      {
+        "id": "kc-stance-04f6cc21-6cd6-4983-bd23-2d33e1aabf4e",
+        "tag": "select",
+        "type": "select-one"
+      },
+      {
+        "id": "kc-note-04f6cc21-6cd6-4983-bd23-2d33e1aabf4e",
+        "tag": "input",
+        "type": "text"
+      },
+      {
+        "id": "kc-add-contact",
+        "tag": "select",
+        "type": "select-one"
+      },
+      {
+        "id": "kc-add-role",
+        "tag": "select",
+        "type": "select-one"
+      },
+      {
+        "id": "kc-add-other",
+        "tag": "input",
+        "type": "text"
+      }
+    ]
+  },
+  "exercised": {
+    "editShown": true,
+    "displayHidden": true,
+    "barExists": true,
+    "barVisible": false
+  },
+  "dirty": {
+    "saveIdle": false,
+    "cancelIdle": false,
+    "saveText": "Save changes",
+    "showsACount": false,
+    "dirtyMarked": 1
+  },
+  "srcKeys": [
+    "lead",
+    "commercial",
+    "technical",
+    "legal",
+    "region",
+    "country",
+    "customerLead",
+    "commAddress",
+    "commAddress2",
+    "commCity",
+    "commPostcode",
+    "commCountry",
+    "commRegion",
+    "estClose",
+    "actualClose",
+    "estGoLive",
+    "actualGoLive",
+    "duration",
+    "oppType",
+    "summary",
+    "name"
+  ],
+  "onlySrc": [],
+  "onlyDom": []
+}
