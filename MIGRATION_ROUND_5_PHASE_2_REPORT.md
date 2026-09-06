@@ -195,7 +195,17 @@ than useless — it read as a fix. Removing it was the more important half.
 
 ## Gate
 
-Recorded below once measured.
+**All 21 stages passed** on `5151543`, the tree this
+report is committed on, clean.
+Pure 472/472, database 92/92, react 561/561, all 0 fail, and
+14 HTTP probes. Every figure parsed from the run rather than typed.
+
+**A green gate is not a green surface here.** The open defect above is live
+and no automated stage can see it: jsdom has no caret, and the walk that
+found it is not a gate stage. That is stated rather than left for a reader
+to infer from a passing run.
+
+Transcript: `.verify/verify-1154131491545375.txt`
 
 **Not pushed. Phase 3 follows on sign-off — and the open defect above should
 be the first thing it takes.**
