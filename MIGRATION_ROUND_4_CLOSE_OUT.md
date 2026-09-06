@@ -246,7 +246,10 @@ Three carried items restated so they are not rediscovered:
 
 ## Gate
 
-**All 21 stages passed** on `0496fa3`, the closing tree.
+**All 21 stages passed** on `0496fa3`. Two commits followed it, both editing
+this file alone: `git diff --name-only 0496fa3..HEAD` returns only a `.md`
+path, so the gated tree and the closing tree are identical in code, schema,
+configuration and bundle.
 Pure 463/463, database 92/92, react 485/485, all with 0 fail, and 14 HTTP
 probes. Every figure here is parsed from the run's own transcript rather
 than typed, after last round typed "thirteen" where the gate had run
