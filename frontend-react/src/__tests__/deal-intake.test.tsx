@@ -231,3 +231,32 @@ describe('the strip and the local figure are one value', () => {
     }
   })
 })
+
+// ── A BARE CELL INPUT STILL HAS A NAME ───────────────────────────────────
+//
+// Found by Verification 51, an hour after that rule was written: the injection
+// dropping `aria-label` from bare inputs came back SILENT in a sweep where
+// everything else fired. The eight per-unit rate and margin boxes carry no
+// visible label - their COLUMN HEADER is the label - so aria-label is the only
+// accessible name they have, and nothing asserted it.
+describe('the bare inputs keep an accessible name', () => {
+  test('every input with no visible label carries one in aria', async () => {
+    await mount({ installResp: 'Terminus Contractor - Per Unit' })
+    const bare = ['deal-inSsExisting', 'deal-inSsNew', 'deal-inAqm', 'deal-inHemir',
+      'deal-margin-inSsEx', 'deal-margin-inSsNew', 'deal-margin-inAqm', 'deal-margin-inHemir']
+    for (const id of bare) {
+      const el = must(id)
+      expect(el.closest('#deal-install-table'), `${id} is not in the table`).not.toBeNull()
+      const name = el.getAttribute('aria-label')
+      expect(name, `${id} has no accessible name at all`).toBeTruthy()
+      expect(name!.length, `${id}'s name is too short to say what it is`).toBeGreaterThan(3)
+    }
+  })
+
+  test('and a LABELLED input does not carry one, because its label is the name', async () => {
+    // The counterfactual: if every input carried aria-label the check above
+    // would pass on a render that had stopped distinguishing the two cases.
+    await mount()
+    expect(must('deal-ssExisting').getAttribute('aria-label')).toBeNull()
+  })
+})
