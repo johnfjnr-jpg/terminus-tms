@@ -100,7 +100,18 @@ test('the React Reference surface reaches for exactly the shell names it declare
   // oppPatch is the shared write path (its 409 retry and revision handshake);
   // loadOpportunityDetail is how the surface asks the shell to re-render.
   // Everything else goes through the ShellServices seam, never through window.
-  assert.deepEqual([...reached].sort(), ['loadOpportunityDetail', 'oppPatch'],
+  // THREE, as of Round 6 Phase R, and the third is deliberate. oppPatch owns
+  // the write route with its precondition and retry; loadOpportunityDetail is
+  // how the surface asks the shell to re-render; and staleWriteHtml is the ONE
+  // RENDERER of the stale-write refusal.
+  //
+  // That last one was ADDED to fix a defect rather than as a convenience. This
+  // surface hardcoded its own copy of the sentence, which is Verification 20 in
+  // a string, and a surface wording it as text also silently drops the reload
+  // CONTROL the renderer returns. Reaching for the shell's renderer is the
+  // smaller coupling of the two.
+  assert.deepEqual([...reached].sort(),
+    ['loadOpportunityDetail', 'oppPatch', 'staleWriteHtml'],
     'the React Reference surface reaches for a shell global it has not declared')
 })
 

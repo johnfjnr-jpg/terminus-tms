@@ -71,7 +71,6 @@ const COUPLED = [
   'commercials-wiring.test.mjs :: the merged panel renders every fact the census listed',
   'commercials-wiring.test.mjs :: the panel is ONE panel: the Result block and the matrix are gone',
   'milestone-schedule.test.mjs :: the percentage is an input and the dollars are computed from it',
-  'opportunity-headline.test.mjs :: the stale-write message is one sentence, on both surfaces, with a control',
 ]
 
 test('the instrument can see a coupling at all', () => {
