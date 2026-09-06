@@ -219,6 +219,14 @@ SEE and must not EDIT, which is the state the door is about.
 
 ## Gate
 
-Recorded below once measured.
+**All 21 stages passed** on `c65d1d1`, the tree this
+report is committed on, clean.
+Pure 463/463, database 92/92, react 550/550, all 0 fail,
+and 14 HTTP probes. Every figure parsed from the run rather than typed.
+
+The react suite grew from 485 to 550 across this phase: 21 editor tests,
+18 descriptor tests and 24 surface tests.
+
+Transcript: `.verify/verify-1150779544563333.txt`
 
 **Not pushed. Phase 2 not started.**
