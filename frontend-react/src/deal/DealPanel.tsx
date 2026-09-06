@@ -7,7 +7,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { CENSUS, CATALOG_DISPLAYS, MILESTONE_INPUTS, CONTRACTOR_INPUTS, DEAL_SECTIONS } from './census'
 import type { CensusInput } from './census'
 import type { CatalogRates, Values, UiState } from './payload'
-import { MARGIN_KEYS } from './payload'
+import { MARGIN_KEYS, valuesFromPayload, uiFromPayload } from './payload'
 import { buildCashFlowRows, closingCashText } from './cashflow'
 import type { CashFlow } from './cashflow'
 import { buildYearSchedule } from './schedule'
@@ -33,18 +33,23 @@ import { DealSummarySection, SummaryNotices } from './section4'
 import { buildBasis } from './basis'
 import type { DealFormSeam } from './seam'
 
-// ── THE PANEL, BEHIND THE LINE ───────────────────────────────────────────
+// ── THE PANEL, LIVE AS OF SESSION F ──────────────────────────────────────
 //
-// Session A. NOTHING REGISTERS THIS IN PRODUCTION: the bundle does not expose
-// `initOpportunityDealPanel`, no script tag moved, and `frontend/opportunity-deal.js`
-// is untouched and still live. The panel exists in the tree with tests only, so
-// the calculator core can be built and proved against a screen nobody is using
-// yet.
+// SUPERSEDED, and the old note is kept because it says what the method was.
+// Sessions A to E built this BEHIND THE LINE: the bundle registered nothing,
+// no script tag had moved, and `frontend/opportunity-deal.js` was untouched
+// and live, so the calculator could be proved against a screen nobody used.
 //
-// WHAT IT IS FOR: the census controls hold form state, the state feeds the
-// PROVED reader, and the reader feeds the same three src/lib functions the
-// vanilla calls. The rows model carries the unfold ruling. Everything the panel
-// still lacks - the grids, the schedules, dirty tracking, saving - is Session B.
+// Session F swapped it. `main.tsx` registers `initOpportunityDealPanel`,
+// `app.js` calls it during the record load exactly as it called the vanilla's,
+// and the vanilla markup is hidden rather than deleted so restoring one script
+// tag is the whole of the revert.
+//
+// WHAT IT IS: the census controls hold form state, the state feeds the PROVED
+// reader, and the reader feeds the same src/lib functions the vanilla calls.
+// The rows model carries the unfold ruling. The identity - every id and class
+// anything outside the form depends on - is in `adopted-identity.ts` and is
+// asserted against this render.
 
 export function useCatalogRates() {
   const shell = useShell()
@@ -209,13 +214,15 @@ export function DealPanel({
         // RESTORE WRITES THE FORM AND RE-BASELINES IT. `updateDirtyState` has
         // no successor: dirty is computed against the baseline, so moving the
         // baseline with the values IS the whole of what the vanilla pushed.
-        const next: Values = { ...latest.current.values }
-        for (const f of CENSUS) {
-          const key = f.id.replace(/^deal-/, '')
-          const v = (p as Record<string, unknown>)[key]
-          if (v !== undefined) next[f.id] = v === null ? '' : String(v)
-        }
-        setValues(next)
+          //
+          // THROUGH THE SHARED READER. This was an inline loop over CENSUS ids
+          // keyed by `id.replace(/^deal-/, '')`, which restored neither the
+          // milestone rows, the contractor rows, the margin overrides nor the
+          // UI state - and mis-keyed `deal-lumpCost`, whose payload key is
+          // `lumpSumCost`. A restore that quietly leaves the schedule behind
+          // is the version machinery's whole point undone.
+          setValues(valuesFromPayload(p as Record<string, unknown>))
+          setUi(uiFromPayload(p as Record<string, unknown>))
       },
       recompute: () => latest.current.payload,
       currentVersionRejection: () => currentVersionRejection?.() ?? null,

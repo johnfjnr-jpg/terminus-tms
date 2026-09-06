@@ -119,18 +119,28 @@ async function seen(): Promise<{ ids: Set<string>, cls: Set<string> }> {
 // real coverage test and this comment goes with them.
 const KNOWN_MISSING_IDS: readonly string[] = [
   ]
-// ── ONE CLASS LEFT, AND IT IS NOT A GAP IN THE RENDER ────────────────────
+// ── THE RATCHET IS CLOSED ────────────────────────────────────────────────
+//
+// Every id and every class in the adoption list renders. Nothing outstanding.
+const KNOWN_MISSING_CLASSES: readonly string[] = []
+
+// ── AND ONE NAME IS NOT MISSING, IT IS UNOBSERVABLE HERE ─────────────────
 //
 // `is-scrollable` is applied by a ResizeObserver comparing scrollWidth against
-// clientWidth (opportunity-deal.js:875, and the same effect in DealPanel).
-// jsdom performs no layout, so both are 0, the condition is false for every
-// possible markup, and NO render could put this class on screen here.
+// clientWidth. jsdom performs no layout - both read 0 - and has no
+// ResizeObserver at all, so the class is false for every possible markup and
+// no render could make this suite see it.
 //
-// It is therefore not a ratchet item: it is a measurement that belongs in a
-// browser, and Session F's visual comparison is where it gets taken. Recorded
-// here rather than deleted, because a name quietly dropped from a list is
-// indistinguishable from one that was never needed.
-const KNOWN_MISSING_CLASSES: readonly string[] = ['is-scrollable']
+// It is not on the outstanding list, because it is not outstanding. It was
+// measured in a browser at Session F, BOTH DIRECTIONS, by
+// scripts/probe-scrollable.mjs:
+//
+//   overflowing: scrollWidth 5260 vs clientWidth 874  -> class present
+//   fitting:     scrollWidth  874 vs clientWidth 874  -> class absent
+//
+// Named here rather than deleted so the next reader knows why one adopted
+// class is exempt from the render check below, and where its evidence lives.
+const NOT_OBSERVABLE_IN_JSDOM: readonly string[] = ['is-scrollable']
 
 describe('the render adopts the vanilla identity', () => {
   test('the instrument can see the render at all', async () => {
@@ -150,7 +160,7 @@ describe('the render adopts the vanilla identity', () => {
 
   test('no adopted CLASS the render already carries is lost', async () => {
     const { cls } = await seen()
-    const missing = ADOPTED_CLASSES.filter((c) => !cls.has(c))
+    const missing = ADOPTED_CLASSES.filter((c) => !cls.has(c) && !NOT_OBSERVABLE_IN_JSDOM.includes(c))
     const regressed = missing.filter((c) => !KNOWN_MISSING_CLASSES.includes(c))
     expect(regressed, `classes the render used to carry and no longer does: ${regressed.join(', ')}`).toEqual([])
   })

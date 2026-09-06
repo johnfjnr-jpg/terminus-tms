@@ -327,9 +327,20 @@ describe('the UNFOLD ruling', () => {
   })
 })
 
-describe('the panel is behind the line', () => {
-  test('the bundle does NOT register initOpportunityDealPanel', async () => {
+// ── SUPERSEDED BY THE SWAP, Round 3 Session F. Claim changed by adoption ──
+//
+// This asserted the panel was BEHIND THE LINE: the bundle registered nothing,
+// no script tag had moved, and the vanilla was still live. That was true for
+// Sessions A to E and was the guard that kept it true.
+//
+// The swap is the moment it stops being the claim. The reasoning is kept
+// rather than deleted, because the guard's replacement has to say what it now
+// protects: the bundle registers the panel, and `app.js` calls that name
+// during the record load exactly as it called the vanilla's.
+describe('the panel is registered, and the swap is what registers it', () => {
+  test('the bundle registers initOpportunityDealPanel', async () => {
     await import('../main')
-    expect((window as unknown as Record<string, unknown>).initOpportunityDealPanel).toBeUndefined()
+    expect(typeof (window as unknown as Record<string, unknown>).initOpportunityDealPanel)
+      .toBe('function')
   })
 })

@@ -213,23 +213,39 @@ test('no comment swallows a tag, and the five sections are siblings', () => {
   const tab = doc.getElementById('opp-tab-commercial')
   assert.ok(tab, 'the Commercials panel must exist for its structure to be checked')
 
+  // ── RE-POINTED, Round 3 Session F ─────────────────────────────────────
+  //
+  // The claim is unchanged and its VALUE has gone up. The swap wraps the
+  // vanilla markup in #deal-form-vanilla and hides it rather than deleting it,
+  // because that is what makes the revert one line. So this markup is no
+  // longer the live screen: it is THE REVERT TARGET, and a comment that
+  // swallowed a tag in it would not show up anywhere until the day somebody
+  // needed to fall back to it.
+  //
+  // The container therefore moves from the tab to the wrapper. Everything
+  // below - the sibling walk, the nesting check and its calibration - is
+  // measuring the same structure in the same way.
+  const FORM_PARENT = 'deal-form-vanilla'
   const parentOf = (id) => doc.getElementById(id)?.parentElement?.id || null
-  assert.equal(parentOf('deal-sections-1-2'), 'opp-tab-commercial')
+  assert.equal(parentOf('deal-sections-1-2'), FORM_PARENT)
   assert.equal(parentOf('deal-section-1'), 'deal-sections-1-2', 'Units Required is the left intake column')
   assert.equal(parentOf('deal-section-2'), 'deal-sections-1-2', 'Installation is the right intake column')
   for (const id of ['deal-section-3', 'deal-section-4', 'deal-section-5', 'deal-section-6']) {
-    assert.equal(parentOf(id), 'opp-tab-commercial', `${id} must be a direct child of the tab, not nested in its neighbour`)
+    assert.equal(parentOf(id), FORM_PARENT, `${id} must be a direct child of the form wrapper, not nested in its neighbour`)
   }
 
   // In order, and directly under the tab: the wrapper then the four sections.
-  const top = [...tab.children].filter((el) => el.id && /^deal-section/.test(el.id)).map((el) => el.id)
+  const formWrap = doc.getElementById(FORM_PARENT)
+  assert.ok(formWrap, 'the vanilla form wrapper is gone, so the revert has no target')
+  assert.ok(tab.contains(formWrap), 'the wrapper must still sit inside the Commercials tab')
+  const top = [...formWrap.children].filter((el) => el.id && /^deal-section/.test(el.id)).map((el) => el.id)
   assert.deepEqual(top, ['deal-sections-1-2', 'deal-section-3', 'deal-section-4', 'deal-section-5', 'deal-section-6'])
 
   // CALIBRATION, because a parentage walk that cannot see nesting is the same
   // count wearing a better name. Verification 9.
   const broken = new JSDOM(html.replace('</div>\n\n      <section class="deal-section" id="deal-section-3">',
     '<section class="deal-section" id="deal-section-3">')).window.document
-  assert.notEqual(broken.getElementById('deal-section-3')?.parentElement?.id, 'opp-tab-commercial',
+  assert.notEqual(broken.getElementById('deal-section-3')?.parentElement?.id, FORM_PARENT,
     'the walk must be able to SEE a section that has nested inside its neighbour')
 })
 

@@ -197,3 +197,70 @@ export function pickSalespersonWritable(payload: Record<string, unknown>): Recor
   }
   return owned
 }
+
+// ── THE REVERSE READER: A SAVED PAYLOAD BACK INTO FORM VALUES ────────────
+//
+// The mount and `populateForm` both need this, and the panel had it inline in
+// one of them, over CENSUS ids only. That version could not restore the
+// milestone rows, the contractor rows, the margin overrides or the UI state,
+// which is most of what the vanilla's populateForm does.
+//
+// THE KEY MAP IS THE INVERSE OF readDealPayload's, taken from it line by line
+// rather than guessed from the id: `deal-lumpCost` carries `lumpSumCost`, and
+// the four install rates carry `inSsExisting`-style keys, so a rule like
+// "strip deal-" would have silently dropped five values.
+const VALUE_KEYS: [string, string][] = [
+  ['deal-ssExisting', 'ssExisting'], ['deal-ssNew', 'ssNew'],
+  ['deal-aqm', 'aqm'], ['deal-hemir', 'hemir'],
+  ['deal-lumpCost', 'lumpSumCost'],
+  ['deal-inSsExisting', 'inSsExisting'], ['deal-inSsNew', 'inSsNew'],
+  ['deal-inAqm', 'inAqm'], ['deal-inHemir', 'inHemir'],
+  ['deal-targetMargin', 'targetMargin'], ['deal-warrantyPct', 'warrantyPct'],
+  ['deal-whtPct', 'whtPct'], ['deal-gstPct', 'gstPct'],
+  ['deal-bidCurrency', 'bidCurrency'], ['deal-proposalCurrency', 'proposalCurrency'],
+  ['deal-fxContingency', 'fxContingency'],
+  ['deal-duration', 'duration'], ['deal-recoveryMonths', 'recoveryMonths'],
+]
+
+const str = (v: unknown): string => (v === null || v === undefined ? '' : String(v))
+
+export function valuesFromPayload(payload: Record<string, unknown> | null | undefined): Values {
+  const p = payload ?? {}
+  const out: Values = {}
+  for (const [id, key] of VALUE_KEYS) out[id] = str(p[key])
+
+  const overrides = (p.marginOverrides ?? {}) as Record<string, unknown>
+  for (const k of MARGIN_KEYS) out[`deal-margin-${k}`] = str(overrides[k])
+
+  const rows = (p.milestones ?? []) as Record<string, unknown>[]
+  const crows = (p.contractorMilestones ?? []) as Record<string, unknown>[]
+  for (let i = 0; i < MILESTONE_ROWS; i++) {
+    for (const [prefix, src] of [['ms', rows], ['cm', crows]] as const) {
+      const r = (src[i] ?? {}) as Record<string, unknown>
+      out[`deal-${prefix}-${i}-month`] = str(r.month)
+      out[`deal-${prefix}-${i}-label`] = str(r.label)
+      out[`deal-${prefix}-${i}-pct`] = str(r.pct)
+      out[`deal-${prefix}-${i}-usd`] = str(r.usd)
+    }
+  }
+
+  const f = (p.factoring ?? {}) as Record<string, unknown>
+  out['deal-factoring-ratePct'] = str(f.ratePct)
+  out['deal-factoring-termMonths'] = str(f.termMonths)
+  return out
+}
+
+/** The UI half, which lives outside `values` and is not derivable from it. */
+export function uiFromPayload(payload: Record<string, unknown> | null | undefined): UiState {
+  const p = payload ?? {}
+  const f = (p.factoring ?? {}) as Record<string, unknown>
+  // The vanilla's own fallbacks, at the same three places it applies them.
+  return {
+    installResp: (p.installResp as string) || 'Client Own Installation Team',
+    structure: (p.structure as string) || 'twoPhase',
+    invoicing: (p.invoicing as string) || 'annual',
+    grossUp: !!p.grossUp,
+    factoringEnabled: !!f.enabled,
+    factoringMethod: (f.method as string) || 'straight',
+  }
+}

@@ -55,9 +55,18 @@ describe('the bundle registers exactly the loaders it declares', () => {
     await import('../main')
     expect(typeof window.loadApprovalPage).toBe('function')
     expect(typeof window.loadAccountDetail).toBe('function')
+    expect(typeof window.initOpportunityDealPanel).toBe('function')
 
+    // ── UPDATED BY THE SWAP, Session F. The claim is unchanged and it is
+    // the REVERT'S FOUNDATION: the bundle's whole global surface is this
+    // list, so restoring one script tag is the whole of the undo.
+    //
+    // `initOpportunityDealPanel` joins it. `dealFormSeam` does NOT: it is
+    // published when the panel has a seam, which is after a mount, not at
+    // import - and asserting it here would quietly turn this into a test that
+    // an import mounts something.
     const added = Object.keys(window).filter((k) => !before.has(k)).sort()
-    expect(added).toEqual(['loadAccountDetail', 'loadApprovalPage'])
+    expect(added).toEqual(['initOpportunityDealPanel', 'loadAccountDetail', 'loadApprovalPage'])
   })
 })
 

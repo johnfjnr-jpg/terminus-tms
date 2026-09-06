@@ -1876,6 +1876,14 @@
            21.9% of contract net, on the only deal with units. The supersession
            and its reason are in DESIGN_PRINCIPLES.md so the demotion cannot
            return as precedent. -->
+      <!-- ── THE REACT COMMERCIALS PANEL MOUNTS HERE. Round 3, Session F ──
+           The bundle registers window.initOpportunityDealPanel and renders into
+           this container. The vanilla markup below is HIDDEN by that mount
+           rather than deleted, which is what makes the revert one line: restore
+           the opportunity-deal.js script tag and the vanilla's own assignment
+           wins, this mount never runs, and nothing hides the markup. -->
+      <div id="deal-form-root"></div>
+      <div id="deal-form-vanilla">
       <div class="stats-grid stats-grid--deal" style="margin-bottom:28px">
         <div>
           <span class="label">Achieved margin</span>
@@ -2660,6 +2668,7 @@
           </div>
         </div>
       </section>
+      </div>
 
 
       <!-- Submit Deal removed (Round 3 Phase 4, 2026-08-17) - confirmed safe
@@ -3241,7 +3250,14 @@ opened it. -->
   const { usesWorkflow } = await import('/lib/transition-requests.js')
   window.usesWorkflow = usesWorkflow
 </script>
+<!-- ── SUPERSEDED BY THE REACT BUNDLE. Round 3, Session F ──────────────
+     Restoring this one line reverts the swap: the vanilla re-assigns
+     window.initOpportunityDealPanel after the bundle has, so its panel runs,
+     the React mount never does, and #deal-form-vanilla is never hidden.
+     opportunity-deal-versions.js below stays live under BOTH forms: it is
+     handed its seam by whichever panel mounts.
 <script type="module" src="/opportunity-deal.js"></script>
+     ────────────────────────────────────────────────────────────────────── -->
 <!-- ── THE VERSION MACHINERY, SPLIT OUT. Round 3 D2c ───────────────────────
      Loaded AFTER the form so window.dealFormSeam exists before this module's
      init could be called; the form's own init is what calls it, so the order

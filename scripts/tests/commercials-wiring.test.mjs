@@ -672,7 +672,6 @@ test('FINDING 5: the note says what the code does, and the code does it', () => 
   //    at the React seam rather than a defect.
   const html = readCode(new URL('../../frontend/index.html', import.meta.url))
   const ver = readCode(new URL('../../frontend/opportunity-deal-versions.js', import.meta.url))
-  const form = readCode(new URL('../../frontend/opportunity-deal.js', import.meta.url))
   assert.match(html, /Taking a version saves the pricing first, so a version and the record can never disagree\./)
 
   // THE VERSION SIDE: it freezes, and it freezes BEFORE the request.
@@ -685,13 +684,29 @@ test('FINDING 5: the note says what the code does, and the code does it', () => 
   assert.match(body, /versionFeedback\('The pricing could not be saved, so no version was taken\.'/,
     'a refused freeze does not refuse the version')
 
-  // THE FORM SIDE: the freeze IS a save, and it refuses by throwing.
-  assert.ok(form.includes('async freezeCurrentState()'), 'the vanilla no longer implements the seam')
-  const adapter = form.slice(form.indexOf('async freezeCurrentState()'))
-  const abody = adapter.slice(0, adapter.indexOf('\n  },'))
-  assert.match(abody, /if \(isDealFormDirty\(\)\) \{/, 'it saves when there is something to save')
-  assert.match(abody, /const saved = await saveDeal\(\)/)
-  assert.match(abody, /if \(!saved\) throw new Error/, 'and refuses the version when that save fails')
+  // ── RE-POINTED AGAIN BY THE SWAP, Session F ───────────────────────────
+  //
+  // D2c split this claim across the two files and pointed the form half at
+  // the VANILLA ADAPTER. Session F superseded that adapter: the bundle
+  // registers the panel, the `opportunity-deal.js` script tag is gone, and the
+  // seam the version machinery is handed is the React one.
+  //
+  // Left as it was, this half would have gone on passing while asserting the
+  // save order of an implementation the browser never loads - which is the
+  // whole reason the coupling ledger exists.
+  const seam = readCode(new URL('../../frontend-react/src/deal/seam.ts', import.meta.url))
+  assert.ok(seam.includes('async freezeCurrentState(): Promise<FrozenState>'),
+    'the live seam no longer implements freezeCurrentState')
+  const sbody = seam.slice(seam.indexOf('async freezeCurrentState(): Promise<FrozenState>'))
+  const abody = sbody.slice(0, sbody.indexOf('\n    },'))
+  assert.match(abody, /if \(hasUnsavedChanges\(\)\) await src\.save\(/,
+    'it saves when there is something to save')
+  // THE REFUSAL IS A REJECTION, not a flag: `save` returns a promise that
+  // rejects, and freezeCurrentState awaits it without catching, so the throw
+  // reaches saveVersion. That is the same contract the vanilla's `throw` had.
+  assert.ok(!/catch/.test(abody), 'the freeze swallows the save\'s refusal')
+  assert.ok(abody.indexOf('src.save(') < abody.indexOf('payload: payloadNow()'),
+    'the save must happen BEFORE the read, or the version freezes an unsaved form')
 })
 
 test('the factoring selection is on the Payment Terms line', () => {

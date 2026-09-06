@@ -174,7 +174,19 @@ describe('the restore path: updateDirtyState has no successor', () => {
 
   test('and restoring the SAME values leaves it clean, with nothing told', async () => {
     await mount()
-    act(() => { seam.populateForm({ gstPct: 9 }) })
+    // ── THE PAYLOAD IS COMPLETE, as a real restore's is ──────────────────
+    //
+    // This passed `{ gstPct: 9 }`, and only passed because populate MERGED
+    // into the existing values. The vanilla's populateForm writes every field
+    // from the payload, and so does the shared reader, so a partial object
+    // now clears everything it omits - correctly. No caller sends one:
+    // restoreVersion posts the version's `inputs`, which is whole.
+    //
+    // Verification 47: a fixture shaped to the implementation tests the
+    // implementation. This restores the form's OWN current payload, which is
+    // what "the same values" means.
+    const same = seam.recompute() as Record<string, unknown>
+    act(() => { seam.populateForm(same) })
     expect(seam.hasUnsavedChanges()).toBe(false)
     expect(sectionSaves()).toBe(0)
   })
