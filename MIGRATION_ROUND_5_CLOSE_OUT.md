@@ -7,15 +7,44 @@ Closed 2026-09-06. Phases 0, 1, 2 and 3, 20 commits (counted, not typed:
 
 ## What is NOT done, first
 
-**`frontend/opportunity-deal.js` is not retired.** Triage stated rather than
-discovered, as the brief allowed.
+**`frontend/opportunity-deal.js` is not retired.** It was ATTEMPTED in
+Phase 3b, measured, and reverted byte-identical. Full account in
+`MIGRATION_ROUND_5_PHASE_3B_REPORT.md`; the two findings that matter here:
 
-Measured: **44 code mentions across 14 files**, of which **16 are distinct
-source-shape assertions inside `commercials-wiring.test.mjs`**. Each is a
-judgement, not a deletion — does the claim still hold on the React tree and
-re-point, or was it about the vanilla only and retire? That is its own
-session. `deal-feedback.js` retires with it, and the Phase 0 instrument's
-target list now says so.
+**The blast radius is 31 failing tests across 8 files, not 16 in one.** Phase 0
+counted MENTIONS — 44 across 14 files — and a mention count is the wrong
+instrument for sizing a retirement. What matters is what the deletion BREAKS:
+17 in `commercials-wiring.test.mjs` and **14 more in six other files that the
+mention count never surfaced as judgements at all**.
+
+**And a re-point is not available.** The standing template needs an equivalent
+assertion to exist on the new side. Measured on one test's four assertions
+against the whole `frontend-react/src/deal/` corpus, **three of four have no
+equivalent form** — they are vanilla idioms (`setVal`, `numOrUndefined`, a
+named `function` declaration) and the React implementation expresses the same
+behaviour in a different language with a different structure. Each is
+therefore a NEW assertion derived from behaviour, and by Verification 47 it
+must be derived from the contract rather than from the code it tests.
+
+**That is designing roughly 31 tests, which is a build and not a retirement.**
+
+**THE POLICY EXCEPTION, RECORDED RATHER THAN TAKEN QUIETLY.** The one-round
+confidence window says the deal form retires at this close. It does not, and
+this is the first time the policy has been missed. The reason is that the
+policy sizes a retirement by how long a file has been unloaded, and this one
+is bounded by **what still asserts against it** — a quantity the policy does
+not measure and Phase 0's instrument did not either. Deferred to **a designed
+session early in Round 6**, with the 31-failure list as its work list rather
+than the mention count.
+
+`deal-feedback.js` retires with it; its only remaining code mention is from
+inside it.
+
+**A third file is entangled and was not on any list.**
+`opportunity-headline.test.mjs` asserts the stale-write message "on both
+surfaces" by reading `app.js`, `opportunity-deal.js` **and
+`opportunity-reference.js`** — which this round's own swap unloaded. Retiring
+the two together may be cheaper than either alone.
 
 The version card retirement DID land, verified as two claims.
 
@@ -161,8 +190,11 @@ Down from 14,472 at Round 4's close: the Reference tab's 1,055 lines are
 unloaded.
 
 **In tree, unloaded:** `opportunity-reference.js` 1,055 (due at Round 6's
-close), `opportunity-deal.js` 2,255 and `deal-feedback.js` 36 (both overdue,
-triaged above).
+close, and entangled with the deal form through
+`opportunity-headline.test.mjs`), `opportunity-deal.js` 2,255 and
+`deal-feedback.js` 36 — **both overdue under the one-round window, with the
+exception recorded above and a 31-failure work list rather than a
+44-mention one**.
 
 **Deleted this round:** `opportunity-deal-versions.js`, plus five instruments
 and harnesses that retired with it.
@@ -215,9 +247,11 @@ Four extensions, **no new numbers**, numbering byte-identical.
 
 **Three carried items so they are not rediscovered:**
 
-1. **`opportunity-deal.js` and `deal-feedback.js` are overdue**, with the
-   44-mention list as the work list and 16 judgements in
-   `commercials-wiring.test.mjs`.
+1. **`opportunity-deal.js` and `deal-feedback.js` are overdue**, and the
+   work list is **31 failing tests across 8 files**, not the 44 mentions —
+   measured in Phase 3b by deleting the file and reading what broke. Each
+   judgement derives its replacement assertion from the contract, never from
+   `frontend-react/src/deal/`.
 2. **`opportunity-reference.js` falls due at Round 6's close** under the
    one-round window.
 3. **The version gate applies from `Proposal` onward**, and one account cannot
