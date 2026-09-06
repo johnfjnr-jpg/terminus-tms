@@ -88,3 +88,34 @@ test('the mount container and the hidden vanilla markup both survive', () => {
   assert.match(LIVE, /id="deal-form-root"/, 'React has no container to mount into')
   assert.match(LIVE, /id="deal-form-vanilla"/, 'the revert target markup is gone')
 })
+
+// ── WHICH REFERENCE SURFACE IS LIVE. Round 5, Phase 2 ───────────────────
+//
+// The gate could not tell the swapped tree from the reverted one until this
+// existed, which is the same gap Round 3 found for the deal form. The scan
+// reads index.html with comments STRIPPED, so a commented-out tag - which is
+// what the revert restores - does not count as loaded.
+const REF_TAG = '<script src="/opportunity-reference.js"></script>'
+
+test('THE REACT REFERENCE PANEL IS THE LIVE ONE', () => {
+  assert.ok(RAW.includes(REF_TAG),
+    'the vanilla Reference tag is GONE, so the one-line revert has nothing to restore')
+  assert.ok(!LIVE.includes(REF_TAG),
+    'frontend/opportunity-reference.js is loaded again: the swap has been reverted, '
+    + 'deliberately or otherwise')
+})
+
+test('and the Reference panel has its own mount and its own revert target', () => {
+  assert.match(LIVE, /id="ref-root"/, 'the React Reference panel has no container to mount into')
+  assert.match(LIVE, /id="ref-vanilla"/, "the Reference tab's revert target markup is gone")
+})
+
+test('the door is OPEN for the Reference tab, in the shell registry', () => {
+  // The swap and this line land together: the seam fails closed, so a
+  // registered surface without it refuses every row.
+  const app = readCode(new URL('../../frontend/app.js', import.meta.url))
+  assert.match(app, /'opportunity-detail':\s*\(\)\s*=>/,
+    'CAN_EDIT_BY_VIEW has no opportunity-detail line, so every Reference row refuses')
+  assert.match(app, /!!v && !v\.classList\.contains\('is-not-mine'\)/,
+    'the registry line no longer fails CLOSED on a missing view element')
+})

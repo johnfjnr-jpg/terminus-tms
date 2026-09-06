@@ -1737,6 +1737,18 @@
          the generic click-to-edit, since moving it is a business event, not
          a plain value change. -->
     <div class="detail-tab-panel" id="opp-tab-reference">
+      <!-- ── THE REACT REFERENCE PANEL MOUNTS HERE. Round 5, Phase 2 ──────
+           The bundle registers window.initOpportunityReferencePanel and renders
+           into this container. The vanilla markup below is HIDDEN by that mount
+           rather than deleted, which is what makes the revert one line: restore
+           the opportunity-reference.js script tag and the vanilla's own
+           assignment wins, this mount never runs, and nothing hides the markup.
+
+           The stats strip stays OUTSIDE both, because app.js writes it directly
+           (#detail-probability and its four siblings) and it is not part of the
+           surface being migrated. -->
+      <div id="ref-root"></div>
+      <div id="ref-vanilla">
       <div class="stats-grid" style="margin-bottom:28px">
         <div>
           <span class="label">Probability</span>
@@ -1853,6 +1865,7 @@
         <p class="label" style="margin:24px 0 10px">Notes &middot; latest first</p>
         <div id="ref-notes-list"></div>
       </div>
+    </div>
     </div>
 
     <div class="detail-tab-panel hidden" id="opp-tab-commercial">
@@ -3226,7 +3239,17 @@ opened it. -->
      resolves lazily at call time, so loading it earlier is safe. -->
 <script src="/app/terminus-react.js"></script>
 <script src="/app.js"></script>
-<script src="/opportunity-reference.js"></script>
+<!-- ── SUPERSEDED BY THE REACT REFERENCE PANEL. Round 5, Phase 2 ─────
+     Restoring this one line reverts the surface: the vanilla re-assigns
+     window.initOpportunityReferencePanel AFTER the bundle has, so its panel
+     runs, the React mount never does, and #ref-vanilla is never hidden.
+
+     THE BUNDLE MUST STAY LOADED FIRST for that to hold - it is the load-order
+     property the Round 2 rehearsal measured, and it is why this is one line
+     rather than three.
+
+     <script src="/opportunity-reference.js"></script>
+     ────────────────────────────────────────────────────────────────────── -->
 <script src="/test-bed-detail.js"></script>
 <script src="/contact-detail.js"></script>
 <!-- ── THE ACCOUNT VIEW IS REACT, AND THE VANILLA IS GONE ─────────────

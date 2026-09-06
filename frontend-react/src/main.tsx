@@ -1,4 +1,5 @@
 import { StrictMode } from 'react'
+import { ReferenceHost } from './reference/ReferenceHost'
 import { createRoot } from 'react-dom/client'
 import type { Root } from 'react-dom/client'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -51,6 +52,7 @@ declare global {
     loadApprovalPage?: (oppId: string) => void
     loadAccountDetail?: (accountId: string) => void
     initOpportunityDealPanel?: (opp: OppRecord) => void
+    initOpportunityReferencePanel?: (opp: OppRecord) => void
     initOpportunityDealVersions?: (o: { opportunityId: string, seam: DealFormSeam }) => void
     oppPatch?: (id: string, body: unknown) => Promise<{ ok: boolean, status?: number, data?: unknown }>
     dealFormSeam?: DealFormSeam
@@ -158,6 +160,37 @@ window.initOpportunityDealPanel = function (opp: OppRecord): void {
 // `initOpportunityDealVersions` after this module has run, so the vanilla wins,
 // this mount never fires, and nothing hides the markup. Reverting the card does
 // not revert the form, and reverting the form does not revert the card.
+// ── THE REFERENCE PANEL. Round 5, Phase 2 ───────────────────────────────
+//
+// Idempotent for one opportunity, the Round 4 shape: app.js calls this on
+// every loadOpportunityDetail, and a save triggers one. Round 4 measured that
+// a trailing CLEAR is what loses typed text rather than the re-render itself,
+// but the rows here hold drafts, so an unnecessary remount is a worse risk on
+// this surface than it was there, not a better one.
+const REF_CONTAINER = 'ref-root'
+const REF_VANILLA = 'ref-vanilla'
+let refRoot: Root | null = null
+let refOppId: string | null = null
+let refReload: (() => void) | null = null
+
+window.initOpportunityReferencePanel = function (opp: OppRecord): void {
+  const container = document.getElementById(REF_CONTAINER)
+  if (!container) return
+  document.getElementById(REF_VANILLA)?.classList.add('hidden')
+  if (refRoot && refOppId === opp.id) { refReload?.(); return }
+  refOppId = opp.id
+  if (!refRoot) refRoot = createRoot(container)
+  refRoot.render(
+    <StrictMode>
+      <QueryClientProvider client={queryClient}>
+        <ShellProvider services={shellServices}>
+          <ReferenceHost opp={opp} registerReload={(fn) => { refReload = fn }} />
+        </ShellProvider>
+      </QueryClientProvider>
+    </StrictMode>,
+  )
+}
+
 const VERSION_CONTAINER = 'deal-version-root'
 const VANILLA_CARD = 'deal-version-vanilla'
 let versionRoot: Root | null = null

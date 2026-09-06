@@ -57,6 +57,7 @@ describe('the bundle registers exactly the loaders it declares', () => {
     expect(typeof window.loadAccountDetail).toBe('function')
     expect(typeof window.initOpportunityDealPanel).toBe('function')
     expect(typeof window.initOpportunityDealVersions).toBe('function')
+    expect(typeof window.initOpportunityReferencePanel).toBe('function')
 
     // ── UPDATED BY THE SWAP, Session F. The claim is unchanged and it is
     // the REVERT'S FOUNDATION: the bundle's whole global surface is this
@@ -67,12 +68,18 @@ describe('the bundle registers exactly the loaders it declares', () => {
     // import - and asserting it here would quietly turn this into a test that
     // an import mounts something.
     const added = Object.keys(window).filter((k) => !before.has(k)).sort()
-    // Round 4 Phase 2 adds the version card's entry. The list is the REVERT'S
-    // FOUNDATION: the bundle's whole global surface is these four names, so each
-    // surface's revert stays one script tag.
+    // Round 4 Phase 2 added the version card's entry; Round 5 Phase 2 adds the
+    // Reference panel's. The list is the REVERT'S FOUNDATION: the bundle's whole
+    // global surface is these FIVE names, so each surface's revert stays one
+    // script tag.
+    //
+    // The Reference panel adds exactly ONE name and no accessor. Its staff
+    // pickers fetch /api/terminus-staff for themselves rather than reading
+    // app.js's terminusStaffCache, which is a module-scope `let` a bundle
+    // cannot reach anyway - Round 2's ruling, applied again.
     expect(added).toEqual([
       'initOpportunityDealPanel', 'initOpportunityDealVersions',
-      'loadAccountDetail', 'loadApprovalPage'])
+      'initOpportunityReferencePanel', 'loadAccountDetail', 'loadApprovalPage'])
   })
 })
 

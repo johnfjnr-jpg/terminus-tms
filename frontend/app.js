@@ -162,6 +162,27 @@ window.detailLoaded = function (view) {
 // which is worse. One line per surface as each is ruled.
 const CAN_EDIT_BY_VIEW = {
   'account-detail': () => true,
+  // ── THE REFERENCE TAB'S DOOR. Round 5, Phase 2 ────────────────────────
+  //
+  // Added in the SAME COMMIT as the swap, deliberately. The React surface
+  // refuses every row while this line is absent, because the seam fails
+  // closed - so adding it earlier would open a door on a surface nobody can
+  // see, and adding it later would ship a live surface nobody can edit.
+  //
+  // IT READS THE CLASS app.js ITSELF MAINTAINS rather than deriving ownership
+  // a second time. There is one writer, renderOppDetail's toggle, computed
+  // from opp.owner_id against currentSession.user.id, and a second derivation
+  // in the React tree would be Verification 20 exactly.
+  //
+  // The !!v is a DELIBERATE DIVERGENCE from the vanilla door, which reads
+  // getElementById(...)?.classList.contains(...) and so yields undefined when
+  // the element is missing, opening the row. That fails OPEN. Contract
+  // finding 10 says fail CLOSED, and a missing view means the surface is not
+  // mounted at all.
+  'opportunity-detail': () => {
+    const v = document.getElementById('view-opportunity-detail')
+    return !!v && !v.classList.contains('is-not-mine')
+  },
 }
 window.canEditFields = function () {
   const view = [...document.querySelectorAll('.wrap:not(.hidden)')]
