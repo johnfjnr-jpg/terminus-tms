@@ -1,5 +1,35 @@
 import { useState } from 'react'
 import { money } from './rows'
+
+// The vanilla's own sign rule (opportunity-deal.js moneySigned): a negative
+// cash position reads -$n, not $-n, because the minus belongs to the amount
+// rather than to the currency.
+const moneySigned = (v: number) => {
+  const n = Math.round(v || 0)
+  return n < 0 ? `-$${money(Math.abs(n))}` : `$${money(n)}`
+}
+
+export interface Notices { minCash: number | null, minCashMonth: number, milestoneWarning: string | null }
+
+// CASH POSITION IS ONE STATEMENT IN TWO MOODS, not two independent lines: the
+// trough sentence is the same either way and only the verdict changes, so a
+// deal that goes negative says so in the same words it would have used to say
+// it did not.
+export function SummaryNotices({ n }: { n: Notices }) {
+  const trough = n.minCash === null ? '' :
+    `Lowest cash position: ${moneySigned(n.minCash)} in month ${n.minCashMonth || 1}.`
+  const positive = n.minCash !== null && n.minCash >= 0
+  return (
+    <>
+      <p className={`msg-success${positive ? '' : ' hidden'}`} id="deal-cashflow-ok"
+        data-testid="deal-cashflow-ok">{positive ? `Cash position stays positive throughout the term. ${trough}` : ''}</p>
+      <p className={`msg-error${n.minCash !== null && !positive ? '' : ' hidden'}`} id="deal-cashflow-warn"
+        data-testid="deal-cashflow-warn">{n.minCash !== null && !positive ? `Cash position goes negative. ${trough}` : ''}</p>
+      <p className={`msg-error${n.milestoneWarning ? '' : ' hidden'}`} id="deal-milestone-warn"
+        data-testid="deal-milestone-warn">{n.milestoneWarning ?? ''}</p>
+    </>
+  )
+}
 import type { InstallVisibility } from './installation'
 // THE SAME PRESENTERS THE VANILLA USES, never a second expression of the rule.
 // perMonthFigure is the one wording rule and it is shared with the

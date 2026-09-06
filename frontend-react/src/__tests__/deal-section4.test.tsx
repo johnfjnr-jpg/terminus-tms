@@ -27,6 +27,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ShellProvider } from '../ShellContext'
 import { shellServices } from '../shell-services'
 import { DealPanel } from '../deal/DealPanel'
+import { SummaryNotices } from '../deal/section4'
 import { perMonthFigure } from '../../../src/lib/deal-inputs.js'
 import type { UiState, Values } from '../deal/payload'
 import { catalogApi } from './fixtures'
@@ -175,6 +176,71 @@ describe('the pricing cards', () => {
     const blank = must('deal-margin-hwAqm') as HTMLInputElement
     expect(blank.classList.contains('pg-margin-override')).toBe(false)
     expect(blank.title).not.toBe(box.title)
+  })
+})
+
+describe('the summary notices', () => {
+  test('whichever mood is showing carries the SAME trough sentence', async () => {
+    // The sign is the calculator's business and is not guessed here: an earlier
+    // draft asserted "stays positive" on a fixture whose cash goes negative,
+    // which tested my expectation rather than the panel. What the panel claims
+    // is that the two moods share one trough sentence and differ only in the
+    // verdict, so a reader compares like with like.
+    await mount()
+    const ok = must('deal-cashflow-ok'), warn = must('deal-cashflow-warn')
+    const shownEl = ok.classList.contains('hidden') ? warn : ok
+    expect(shownEl.classList.contains(shownEl === ok ? 'msg-success' : 'msg-error')).toBe(true)
+    expect(shownEl.textContent).toMatch(
+      shownEl === ok ? /^Cash position stays positive throughout the term\. / : /^Cash position goes negative\. /)
+    expect(shownEl.textContent).toMatch(/Lowest cash position: -?\$[\d,]+ in month \d+\.$/)
+  })
+
+  // ── BOTH MOODS, DRIVEN DIRECTLY ───────────────────────────────────────
+  //
+  // Found by calibration: making the warning permanently visible changed
+  // nothing, because this deal's cash goes negative, so the positive line was
+  // hidden anyway and exactly one was still showing. The panel fixture cannot
+  // exhibit the fault, so the component is driven with both signs instead.
+  // Verification 25: the reading has to be taken on a population that can show
+  // the thing.
+  const renderNotices = async (minCash: number | null) => {
+    document.body.innerHTML = '<div id="host"></div>'
+    const h = document.getElementById('host')!
+    const r: Root = createRoot(h)
+    await act(async () => {
+      r.render(<SummaryNotices n={{ minCash, minCashMonth: 7, milestoneWarning: null }} />)
+    })
+    return h
+  }
+
+  test('exactly one mood shows, for POSITIVE cash', async () => {
+    const h = await renderNotices(1234)
+    const shown = ['deal-cashflow-ok', 'deal-cashflow-warn']
+      .filter((id) => !h.querySelector(`#${id}`)!.classList.contains('hidden'))
+    expect(shown).toEqual(['deal-cashflow-ok'])
+    expect(h.querySelector('#deal-cashflow-ok')!.textContent).toContain('in month 7.')
+  })
+
+  test('and exactly one for NEGATIVE cash', async () => {
+    const h = await renderNotices(-5000)
+    const shown = ['deal-cashflow-ok', 'deal-cashflow-warn']
+      .filter((id) => !h.querySelector(`#${id}`)!.classList.contains('hidden'))
+    expect(shown).toEqual(['deal-cashflow-warn'])
+    expect(h.querySelector('#deal-cashflow-warn')!.textContent).toContain('-$5,000')
+  })
+
+  test('and NEITHER before there is a cash flow to describe', async () => {
+    const h = await renderNotices(null)
+    for (const id of ['deal-cashflow-ok', 'deal-cashflow-warn']) {
+      expect(h.querySelector(`#${id}`)!.classList.contains('hidden'), id).toBe(true)
+    }
+  })
+
+  test('and only ONE of the two is ever showing', async () => {
+    await mount()
+    const shown = ['deal-cashflow-ok', 'deal-cashflow-warn']
+      .filter((id) => !must(id).classList.contains('hidden'))
+    expect(shown).toHaveLength(1)
   })
 })
 

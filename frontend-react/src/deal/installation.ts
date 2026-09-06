@@ -72,11 +72,21 @@ export function factoringToggle(ui: UiState): ToggleState {
   const on = ui.factoringEnabled
   return {
     on,
-    label: on ? 'PO factoring enabled' : 'PO factoring disabled',
+    // ── CORRECTED against the live screen, Session E ────────────────────
+    //
+    // These read 'PO factoring enabled' and a pair of invented titles. The
+    // vanilla says 'Factoring enabled' and 'Factoring is on. Click to turn it
+    // off.' The switch sits inside a panel already headed "PO factoring", so
+    // the longer label repeated the heading on every render.
+    //
+    // Nothing caught it because deal-surfaces.test.ts asserted the React
+    // wording: a test written to agree with the implementation rather than
+    // with the screen it is replacing.
+    label: on ? 'Factoring enabled' : 'Factoring disabled',
     ariaChecked: on ? 'true' : 'false',
     title: on
-      ? 'The facility is on and its cost is priced in. Click to turn it off.'
-      : 'No factoring facility. Click to turn it on.',
+      ? 'Factoring is on. Click to turn it off.'
+      : 'Factoring is off. Click to turn it on.',
   }
 }
 

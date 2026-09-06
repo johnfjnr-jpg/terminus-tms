@@ -17,6 +17,11 @@ export interface CashFlow {
   rows: { m: number; hardwareIn: number; hostingIn: number; advance: number; cashIn: number
     hwOut: number; contractorOut: number; hostOut: number; facP: number; facI: number
     cashOut: number; cashNet: number; cum: number }[]
+  // The trough the calculator already computes (deal-calculator.js:300). It was
+  // undeclared here, so the summary notice had nothing to read and the panel
+  // could not say whether cash goes negative - which is the one thing that
+  // section is for.
+  minCash?: number | null; minCashMonth?: number
   structure: string; annualInvoicing: boolean; factoringEnabled: boolean
   contractorStaged: boolean; factoringTermMissing: boolean
 }

@@ -324,7 +324,9 @@ describe('surface 4: the installation tab and the button machinery', () => {
   test('gross up and factoring are the same SWITCH, state carried by the label', () => {
     for (const [get, on, off] of [
       [grossUpToggle, 'Gross up enabled', 'Gross up disabled'],
-      [factoringToggle, 'PO factoring enabled', 'PO factoring disabled'],
+      // RE-POINTED: the vanilla's own wording, measured at
+        // opportunity-deal.js:1732, not the React helper's invention.
+        [factoringToggle, 'Factoring enabled', 'Factoring disabled'],
     ] as const) {
       const key = get === grossUpToggle ? 'grossUp' : 'factoringEnabled'
       const onState = get({ ...UI, [key]: true } as UiState)

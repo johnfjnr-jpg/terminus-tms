@@ -67,10 +67,16 @@ export const PRICING_CARD_MARGIN_IDS = new Set(
   ['hwSs', 'hwAqm', 'hwHemir', 'hwWarranty', 'hoSs', 'hoAqm', 'hoHemir']
     .map((k) => `deal-margin-${k}`))
 
+// Section 5 renders these three itself, inside the payment card and the
+// factoring panel, where the vanilla puts them. Same rule as the pricing-card
+// margins: the exclusion lives here so one place decides it.
+export const SECTION5_OWNED_IDS = new Set(
+  ['deal-recoveryMonths', 'deal-factoring-ratePct', 'deal-factoring-termMonths'])
+
 export function censusBySection(): Record<string, typeof CENSUS> {
   const out: Record<string, typeof CENSUS> = {}
   for (const f of CENSUS) {
-    if (PRICING_CARD_MARGIN_IDS.has(f.id)) continue
+    if (PRICING_CARD_MARGIN_IDS.has(f.id) || SECTION5_OWNED_IDS.has(f.id)) continue
     const s = vanillaSectionOf(f.id, f.section)
     if (!s) continue
     ;(out[s] ??= [] as unknown as typeof CENSUS).push(f as never)

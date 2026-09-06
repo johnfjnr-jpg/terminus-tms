@@ -25,8 +25,9 @@ import {
 import { dirtySections, captureSavedBaseline, SECTION_SAVE_TITLE } from './dirty'
 import { makeSeam } from './seam'
 import { VANILLA_SECTIONS, censusBySection, dirtyVanillaSections } from './sections'
+import { PaymentTermsSection } from './section5'
 import { PANELS, latchView, latchAllView, toggleAll, toggleOne } from './latch'
-import { DealSummarySection } from './section4'
+import { DealSummarySection, SummaryNotices } from './section4'
 import { buildBasis } from './basis'
 import type { DealFormSeam } from './seam'
 
@@ -65,9 +66,11 @@ export function useCatalogRates() {
 // Each contract gets its own input treatment, and the differences are the
 // point rather than styling: what a person sees when a box is empty must match
 // what the reader will do with it.
-function CensusField({ field, value, rates, onChange }: {
+function CensusField({ field, value, rates, onChange, help }: {
   field: CensusInput
   value: string
+  /** The vanilla's own help text, rendered as the dot INSIDE the label. */
+  help?: string
   rates: CatalogRates
   onChange(next: string): void
 }) {
@@ -81,8 +84,16 @@ function CensusField({ field, value, rates, onChange }: {
     : 'not recorded'
 
   return (
-    <label className="deal-field" data-contract={field.contract} data-section={field.section}>
-      <span className="deal-field-label">{field.label}</span>
+    // htmlFor, not merely a wrapping label. The vanilla writes
+    // `<label for="deal-factoring-ratePct">`, and those ids are in the adoption
+    // list BECAUSE they are label[for] targets: with implicit labelling only,
+    // the id stops being load-bearing and the next rename breaks nothing
+    // visibly while breaking click-to-focus.
+    <label className="deal-field" htmlFor={field.id}
+      data-contract={field.contract} data-section={field.section}>
+      <span className="deal-field-label">{field.label}
+        {help ? <span className="help-dot" tabIndex={0} role="note" title={help} /> : null}
+      </span>
       <input
         id={field.id}
         data-testid={field.id}
@@ -281,6 +292,19 @@ export function DealPanel({
       </section>
     )
   }
+  // THE VANILLA'S OWN HELP TEXT, not a paraphrase. It sits inside the label as
+  // a dot, which is why it belongs to the field rather than to the section.
+  const HELP: Record<string, string> = {
+    'deal-recoveryMonths': 'The number of months over which the upfront capital is recovered from contract revenue.',
+    'deal-factoring-ratePct': 'The monthly cost of factoring the hardware and installation spend. It both reduces margin and brings cash in earlier.',
+    'deal-factoring-termMonths': 'How long the factoring runs. Rate multiplied by term is the total financing cost.',
+  }
+  const renderField = (id: string) => {
+    const f = CENSUS.find((c) => c.id === id)
+    if (!f) return null
+    return <CensusField key={f.id} field={f} rates={rates} help={HELP[f.id]}
+      value={values[f.id] ?? ''} onChange={(v) => setValue(f.id, v)} />
+  }
   const censusFields = (sectionId: string) => (bySection[sectionId] ?? []).map((f) => (
     <CensusField key={f.id} field={f} rates={rates}
       value={values[f.id] ?? ''} onChange={(v) => setValue(f.id, v)} />
@@ -353,7 +377,12 @@ export function DealPanel({
         onMargin={setValue}
         install={installVisibility(ui)}
         basis={basisView}
-        notices={null}
+        notices={<SummaryNotices n={{
+          minCash: cashFlow ? (cashFlow.minCash ?? null) : null,
+          minCashMonth: cashFlow ? (cashFlow.minCashMonth ?? 1) : 1,
+          milestoneWarning: customerScheduleWarning(
+            (payload.milestones ?? []) as { month?: number; usd?: number }[], oneOffPrice),
+        }} />}
         matrix={
           computeError
             ? <p className="msg-error" data-testid="compute-error">{computeError}</p>
@@ -391,20 +420,21 @@ export function DealPanel({
       {sectionFrame(SECTION['deal-section-5'], (
         <>
           {censusFields('deal-section-5')}
-          <SwitchButton id="deal-factoring-toggle" state={factoringToggle(ui)}
-            onToggle={() => setUi({ factoringEnabled: !ui.factoringEnabled })} />
-          <select data-testid="ui-invoicing" value={ui.invoicing}
-            onChange={(e) => setUi({ invoicing: e.target.value })}>
-            <option value="annual">Annual</option><option value="monthly">Monthly</option>
-          </select>
-          <MilestoneGrid rows={MILESTONE_INPUTS} values={values}
-            usdFor={(i) => milestoneUsdFor(values[`deal-ms-${i}-pct`], oneOffPrice)}
-            onChange={setValue}
-            warning={customerScheduleWarning(
-              (payload.milestones ?? []) as { month?: number; usd?: number }[], oneOffPrice)} />
-          {cashFlow
-            ? <YearScheduleView schedule={buildYearSchedule(cashFlow, payload, ui.structure, ui.invoicing)} />
-            : null}
+          <PaymentTermsSection
+            ui={ui} setUi={setUi} vis={structureVisibility(ui)}
+            duration={payload.duration}
+            renderField={renderField}
+            milestoneGrid={
+              <MilestoneGrid rows={MILESTONE_INPUTS} values={values}
+                usdFor={(i) => milestoneUsdFor(values[`deal-ms-${i}-pct`], oneOffPrice)}
+                onChange={setValue}
+                warning={customerScheduleWarning(
+                  (payload.milestones ?? []) as { month?: number; usd?: number }[], oneOffPrice)} />
+            }
+            yearSchedule={cashFlow
+              ? <YearScheduleView schedule={buildYearSchedule(cashFlow, payload, ui.structure, ui.invoicing)} />
+              : null}
+            hybridSchedule={null} />
         </>
       ))}
 

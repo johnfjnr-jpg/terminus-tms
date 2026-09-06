@@ -118,17 +118,13 @@ async function seen(): Promise<{ ids: Set<string>, cls: Set<string> }> {
 // When both lists are empty the two `toEqual([])` assertions below become the
 // real coverage test and this comment goes with them.
 const KNOWN_MISSING_IDS: readonly string[] = [
-  'deal-factoring-fields',
   ]
 const KNOWN_MISSING_CLASSES: readonly string[] = [
-  'active', 'btn-ghost', 'cashflow-scroll',
-  'col-mono', 'data-row-label', 'deal-cashflow-col', 'deal-payment-col', 'deal-payment-region', 'deal-toggle', 'doc-table', 'empty-state',
-  'form-grid', 'form-group', 'help-dot', 'int-only',
-  'is-computed', 'is-scrollable', 'msg-success', 'payment-card', 'payment-terms-panel', 'po-factoring-panel', 'po-field', 'ring-radio', 'ring-radio-dot',
-  'ring-radio-group', 'ring-radio-label', 'ring-radio-ring', 'terms-achieved', 'terms-cards',
-  'terms-field-row', 'unit-card', 'unit-cards', 'view-toggle',
-  'view-toggle--stacked',
-]
+  'cashflow-scroll',
+  'col-mono', 'data-row-label', 'deal-cashflow-col', 'empty-state',
+  'form-grid', 'int-only',
+  'is-computed', 'is-scrollable', 'terms-achieved', 'terms-cards',
+  'terms-field-row', 'unit-card', 'unit-cards', ]
 
 describe('the render adopts the vanilla identity', () => {
   test('the instrument can see the render at all', async () => {
