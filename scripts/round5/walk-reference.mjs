@@ -87,6 +87,7 @@ try {
   }, n)
   const typeInto = async (n, text) => {
     const sel = `#ref-root [data-testid="input-${n}"]`
+    await scrollTo(sel)
     await page.click(sel)
     await page.evaluate((s) => {
       const el = document.querySelector(s)
@@ -95,6 +96,11 @@ try {
     await page.keyboard.press('Backspace')
     await page.keyboard.type(text, { delay: 8 })
     await settle()
+    const got = await page.evaluate((s2) => document.querySelector(s2)?.value ?? null, sel)
+    if (got !== text) {
+      check(`the keystrokes reached #input-${n}, or nothing below means anything`,
+        false, `typed "${text}", input holds "${got}"`)
+    }
   }
   const setSelect = async (n, value) => {
     await page.evaluate(([x, v]) => {

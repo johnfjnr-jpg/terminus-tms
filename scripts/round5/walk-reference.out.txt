@@ -1,5 +1,5 @@
 
-REFERENCE WALK: 40/40
+REFERENCE WALK: 36/40
   ok   THE REACT REFERENCE PANEL IS MOUNTED, and the vanilla is hidden
   ok   all 21 editable rows rendered  | 21
   ok   and the 5 read-only rows carry NO tab stop on the live server
@@ -13,12 +13,12 @@ REFERENCE WALK: 40/40
   ok   TEXTAREA opens
   ok   THE BAR COUNTS ACROSS ROWS, which the vanilla does not  | {"hidden":false,"count":"4 changes"}
   ok   THE SAVE ROUND-TRIPPED: country reached the record  | Malaysia
-  ok   and duration was sent as a NUMBER, not a string  | 48
-  ok   and the summary reached it
+  FAIL and duration was sent as a NUMBER, not a string  | null
+  FAIL and the summary reached it
   ok   ONLY DIRTY KEYS MOVED: an untouched key is unchanged
-  ok   the display shows the suffix after the save  | 48 months
+  FAIL the display shows the suffix after the save  | --
   ok   the concurrent write landed, or the 409 below tests nothing  | 200
-  ok   THE STALE-WRITE PATH IS ABSORBED BY oppPatch, and the edit still lands  | "Saved." customerLead=a stale write
+  FAIL THE STALE-WRITE PATH IS ABSORBED BY oppPatch, and the edit still lands  | "Saved." customerLead=
   ok   and the concurrent write was NOT lost by the retry  | APAC
   ok   FLIP ON: the six address rows go read-only  | 5 -> 11
   ok   FLIP OFF: they are editable again  | 11 -> 5

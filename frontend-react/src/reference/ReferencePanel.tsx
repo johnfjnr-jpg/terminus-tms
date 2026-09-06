@@ -72,6 +72,9 @@ export function ReferencePanel({ source, links, closeMoves, oppId, onSave, onCha
   const flagOrig = source.payload[SAME_AS_ACCOUNT] ? 'true' : ''
   const flagOn = (flagDraft ?? flagOrig) === 'true'
 
+  // Only `source`, the branch and the flag's ORIGINAL change the shape. The
+  // flag's DRAFT must not be in here: it changes on every tick of the toggle
+  // and would rebuild all 21 descriptors with it.
   const fields = useMemo(() => [
     ...referenceFields(source, flagOn, now),
     { name: SAME_AS_ACCOUNT, label: 'Same as account', value: flagOrig, editor: 'checkbox' as const },

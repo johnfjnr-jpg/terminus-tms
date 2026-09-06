@@ -130,6 +130,25 @@ export function DateEditor({ field, value, onChange, onRequestClose, focusRef, t
 // A6: it CAN hold a seed. revealFieldControl includes TEXTAREA explicitly,
 // and its comment says why - the summary is the field a person is most likely
 // to tab to and start typing into.
+// ── AN OPEN DEFECT LIVES HERE. Round 5 Phase 2, NOT FIXED ──────────────
+//
+// MEASURED: typing "abcd" into a textarea row produces "dcba". selectionStart
+// reads 0 after every keystroke, while an <input> in the same run reads
+// 1, 2, 3, 4. Reproduction: scripts/round5/walk-reference.mjs, and the
+// tightest form is in the Phase 2 report.
+//
+// Assigning `.value` to a TEXTAREA resets its selection to 0 where the same
+// assignment on an <input> is a no-op, and React's controlled update assigns
+// on every commit.
+//
+// TWO FIXES WERE TRIED AND NEITHER WORKED: memoising the descriptor identity
+// so the row is not rebuilt mid-keystroke (kept, because it is right on its
+// own terms), and a layout effect restoring the caret from onChange's
+// selectionStart. The second is REMOVED rather than left in place: a fix that
+// looks applied and does nothing is worse than the defect, because the next
+// reader stops looking.
+//
+// The mechanism is not established. It is reported rather than guessed at.
 export function TextareaEditor({ field, value, onChange, onRequestClose, focusRef, testId }: FieldEditorProps) {
   return (
     <textarea

@@ -2,7 +2,7 @@
 //
 // What the panel does not do: fetch, save, or know about routes. This holds
 // those, the same split the version card uses.
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ReferencePanel } from './ReferencePanel'
 import { SAME_AS_ACCOUNT } from './descriptors'
 import type { ReferenceSource } from './descriptors'
@@ -60,7 +60,10 @@ export function ReferenceHost({ opp, registerReload }: {
     return () => { live = false }
   }, [shell])
 
-  const source: ReferenceSource = {
+  // STABLE IDENTITY, and it is load-bearing rather than an optimisation: a
+  // fresh object here rebuilds every descriptor on every render, which
+  // re-assigns the open editor's value mid-keystroke and resets its caret.
+  const source: ReferenceSource = useMemo(() => ({
     payload: record.payload ?? {},
     details: record.opportunity_details ?? {},
     account: record.account ?? null,
@@ -68,7 +71,7 @@ export function ReferenceHost({ opp, registerReload }: {
     reference: record.reference_code ?? null,
     status: record.status ?? null,
     createdAt: record.created_at ?? null,
-  }
+  }), [record, staff])
 
   // ── THE BATCHED SAVE: ONLY WHAT MOVED ───────────────────────────────────
   //
