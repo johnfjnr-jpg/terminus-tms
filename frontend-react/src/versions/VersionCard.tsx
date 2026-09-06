@@ -31,6 +31,7 @@ import type { DealVersion, PendingApproval } from './model'
  */
 export interface AskReporter {
   onStart(): void
+  /** An empty message means "done, and I have nothing to add". */
   onResult(message: string, ok: boolean): void
 }
 
@@ -84,7 +85,11 @@ export function VersionCard({
       onStart: () => { setAsking(true); setAskState('') },
       onResult: (message, ok) => {
         setAsking(false)
-        setAskState(message)
+        // A RESULT WITH NO MESSAGE OF ITS OWN releases the control and hands the
+        // line back to the computed state. On the success path the requester has
+        // nothing to say that the reloaded card will not say better: the request
+        // is now open, and `askView` says which version is waiting.
+        setAskState(message ? message : null)
         if (message) setFeedback({ text: message, ok })
       },
     })

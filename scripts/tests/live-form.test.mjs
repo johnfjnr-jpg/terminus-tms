@@ -35,19 +35,51 @@ test('THE REACT PANEL IS THE LIVE COMMERCIALS FORM', () => {
     'frontend/opportunity-deal.js is loaded again: the swap has been reverted, deliberately or not')
 })
 
-test('THE VANILLA VERSION CARD IS THE LIVE ONE, until Round 4 swaps it', () => {
-  // Round 4 Phase 1 builds a React card BEHIND THE LINE. This is the guard that
-  // keeps it there: the vanilla tag must still be loaded, and the assertion
-  // inverts at the swap exactly as the form's did.
+// ── INVERTED BY THE SWAP, Round 4 Phase 2. Claim changed by instruction ──
+//
+// It read: THE VANILLA VERSION CARD IS THE LIVE ONE, until Round 4 swaps it -
+// asserting the tag was still loaded while Phase 1 built the React card behind
+// the line. That was correct for Phase 1 and is the guard that kept it true.
+//
+// Phase 2 is the moment it stops being the claim, and the reasoning is kept
+// rather than deleted because the replacement has to say what it now protects:
+// the React card is live, and restoring the tag is a deliberate revert rather
+// than a drift.
+test('THE REACT VERSION CARD IS THE LIVE ONE', () => {
   const TAG = '<script type="module" src="/opportunity-deal-versions.js"></script>'
-  assert.ok(RAW.includes(TAG), 'the version card tag is gone entirely')
-  assert.ok(LIVE.includes(TAG), 'the vanilla version card is commented out: the swap has happened')
+  assert.ok(RAW.includes(TAG),
+    'the version card tag is GONE, so the card has no one-line revert')
+  assert.ok(!LIVE.includes(TAG),
+    'the vanilla version card is loaded again: the card swap has been reverted, deliberately or not')
 })
 
-test('and the version machinery is live under BOTH forms', () => {
-  // It is handed its seam by whichever panel mounts, so it is never commented.
-  assert.ok(LIVE.includes('opportunity-deal-versions.js'),
-    'the version machinery is not loaded at all')
+test('and the card has its own mount and its own revert target', () => {
+  // The two reverts are INDEPENDENT: each surface has its own container and its
+  // own hidden markup, so reverting one does not revert the other.
+  assert.match(LIVE, /id="deal-version-root"/, 'the React card has no container to mount into')
+  assert.match(LIVE, /id="deal-version-vanilla"/, 'the card\'s revert target markup is gone')
+})
+
+// ── SUPERSEDED BY THE SAME SWAP ─────────────────────────────────────────
+//
+// It read: the version machinery is live under BOTH forms, and asserted the
+// vanilla card's tag was loaded, because that file was handed its seam by
+// whichever panel mounted.
+//
+// THE CLAIM SURVIVES AND ITS EVIDENCE MOVED. The version machinery is now the
+// React card, and "works under both forms" is no longer a fact about a script
+// tag: it is a fact about the seam, proven on a branch by reverting the FORM
+// and taking a version against the vanilla adapter. That proof lives in the
+// Phase 2 report and in scripts/rehearse-card-two-forms.mjs, because it needs a
+// browser and this file reads text.
+test('the card consumes a seam rather than reaching for a form', () => {
+  const host = readCode(new URL('frontend-react/src/versions/VersionCardHost.tsx', ROOT))
+  // It must never name the React form's internals: the form's revert hands it a
+  // vanilla adapter, and a card that reached around the interface would break.
+  assert.ok(!/DealPanel|useDealForm|readDealPayload/.test(host),
+    'the card reaches around the seam into the React form')
+  assert.match(host, /seam\.(freezeCurrentState|hasUnsavedChanges|populateForm|recompute)/,
+    'the card does not talk to the seam at all')
 })
 
 test('the mount container and the hidden vanilla markup both survive', () => {

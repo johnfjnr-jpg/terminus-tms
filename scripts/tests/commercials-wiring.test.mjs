@@ -671,18 +671,25 @@ test('FINDING 5: the note says what the code does, and the code does it', () => 
   //    second half FAILS, and that failure is the instruction to re-point it
   //    at the React seam rather than a defect.
   const html = readCode(new URL('../../frontend/index.html', import.meta.url))
-  const ver = readCode(new URL('../../frontend/opportunity-deal-versions.js', import.meta.url))
+  // ── RE-POINTED AGAIN BY THE CARD SWAP, Round 4 Phase 2 ────────────────
+  //
+  // D2c split this claim across the form and the version file. Round 4
+  // supersedes the version file, so the version half moves to the React card's
+  // host, where the same order is enforced for the same reason.
+  const ver = readCode(new URL('../../frontend-react/src/versions/VersionCardHost.tsx', import.meta.url))
   assert.match(html, /Taking a version saves the pricing first, so a version and the record can never disagree\./)
 
   // THE VERSION SIDE: it freezes, and it freezes BEFORE the request.
-  assert.ok(ver.includes('async function saveVersion()'), 'saveVersion is not in the version file')
-  const fn = ver.slice(ver.indexOf('async function saveVersion()'))
-  const body = fn.slice(0, fn.indexOf('\n}\n'))
+  assert.ok(ver.includes('const onSave = async'), 'the card no longer owns the save')
+  const body = ver.slice(ver.indexOf('const onSave = async'), ver.indexOf('const onIssue = async'))
   assert.match(body, /frozen = await seam\.freezeCurrentState\(\)/, 'it does not freeze through the seam')
   assert.ok(body.indexOf('seam.freezeCurrentState()') < body.indexOf('deal-sheet-versions'),
     'the freeze must happen BEFORE the version request, or the note is false')
-  assert.match(body, /versionFeedback\('The pricing could not be saved, so no version was taken\.'/,
+  assert.match(body, /The pricing could not be saved, so no version was taken\./,
     'a refused freeze does not refuse the version')
+  // AND THE REFUSALS RUN BEFORE THE FREEZE, so a refused version writes nothing.
+  assert.ok(body.indexOf('scheduleReconciliation') < body.indexOf('freezeCurrentState'),
+    'the reconciliation refusal now runs after the save, so refusing writes a revision')
 
   // ── RE-POINTED AGAIN BY THE SWAP, Session F ───────────────────────────
   //

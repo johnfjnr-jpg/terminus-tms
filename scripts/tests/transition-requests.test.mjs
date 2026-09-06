@@ -953,9 +953,23 @@ test('V1/V2/V4: the next major comes from the record, not from the draft', () =>
   // 2. THE PREMISE, MEASURED WHILE HERE: `highestIssued` and `nextMajor` are
   //    in frontend/opportunity-deal-versions.js, once each.
   //
+  // ── RE-POINTED AGAIN, Round 4 Phase 2 ─────────────────────────────────
+  //
+  // The claim is unchanged and this is its SECOND move: D2c moved it from the
+  // form to the version file, and the card swap supersedes that file. Left
+  // alone it would assert the derivation of a file the browser no longer loads.
+  //
+  // 1. OFF THE UNLOADED FILE. Both assertions below are MATCHES, so reading the
+  //    superseded file would fail loudly; the two NEGATIVE ones would have gone
+  //    on passing forever against a file with no version code left in it.
+  // 2. THE PREMISE, MEASURED WHILE HERE: `highestIssued` and `nextMajor` are in
+  //    frontend-react/src/versions/model.ts, once each, inside issueView.
+  // 3. BOTH SIDES ASSERTED INDIVIDUALLY. The route half is untouched by the
+  //    swap and stays pointed at the route.
+  //
   // 3. BOTH SIDES ASSERTED INDIVIDUALLY. The route half is untouched by the
   //    split and stays pointed at the route.
-  const app = readCode(ROOT + 'frontend/opportunity-deal-versions.js')
+  const app = readCode(ROOT + 'frontend-react/src/versions/model.ts')
   // The wrong derivation, in all three places it lived.
   assert.ok(!/major: version\.major \+ 1/.test(route), 'the server still derives from the draft')
   assert.ok(!/as V\$\{draft\.major \+ 1\}/.test(app), 'the label still derives from the draft')
@@ -1220,9 +1234,14 @@ test('the issue control targets a draft NEWER than the last issue, and says so w
   // control and its empty state moved to the version file in the split. The
   // negative assertion on the old empty label is the one that would have gone
   // on passing against a file with no version code in it.
-  const app = readCode(ROOT + 'frontend/opportunity-deal-versions.js')
+  const app = readCode(ROOT + 'frontend-react/src/versions/model.ts')
   const route = readCode(ROOT + 'src/routes/deal-sheet-versions.js')
-  assert.match(app, /const draft = dealVersions\.find\(v => v\.status === 'draft' && v\.major === highestIssued\)/,
+  // ── RE-POINTED AGAIN, Round 4 Phase 2. The claim is unchanged; the
+  // expression carrying it moved to the React card's model, where the same
+  // condition reads `all.find(...)` over the loaded versions. The negative
+  // assertion below is the one that would have gone on passing against a file
+  // the browser no longer loads.
+  assert.match(app, /all\.find\(\(v\) => v\.status === 'draft' && v\.major === highestIssued\)/,
     'the label still targets the latest draft overall')
   assert.match(route, /\.eq\('major', highestIssued\)/,
     'the route still accepts a stranded draft')

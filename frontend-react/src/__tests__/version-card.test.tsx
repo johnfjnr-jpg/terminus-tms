@@ -397,20 +397,21 @@ describe('P: the pricing-approval control, against the reporter interface', () =
   })
 })
 
-// ── THE CARD IS BEHIND THE LINE ──────────────────────────────────────────
+// ── SUPERSEDED BY THE SWAP, Round 4 Phase 2. Claim changed by instruction ─
 //
-// Phase 1 builds it and registers NOTHING. The vanilla card is still live, its
-// script tag is still loaded, and the bundle's global surface is unchanged.
-// This is the guard that keeps that true until Phase 2 deliberately changes it,
-// and it is the same shape as the one Round 3 used for the deal panel.
-describe('Phase 1 is behind the line', () => {
-  test('the bundle does not register initOpportunityDealVersions', async () => {
+// It read: Phase 1 builds it and registers NOTHING, and asserted the bundle did
+// not expose `initOpportunityDealVersions`. That was correct for Phase 1 and is
+// the guard that kept the card behind the line while it was built.
+//
+// Phase 2 registers it deliberately. The reasoning is kept because the
+// replacement has to say what it now protects: the ENTRY IS UNCHANGED, so the
+// form's init hands the card its seam exactly as it handed the vanilla one.
+describe('the card is registered, and the entry is unchanged', () => {
+  test('the bundle registers initOpportunityDealVersions', async () => {
     await import('../main')
     const w = window as unknown as Record<string, unknown>
-    // The VANILLA registers this name at runtime; the bundle must not, or the
-    // load order decides which card runs and the swap has happened by accident.
-    expect(w.initOpportunityDealVersions,
-      'the bundle registered the card: the swap has happened early').toBeUndefined()
+    expect(typeof w.initOpportunityDealVersions,
+      'the bundle does not register the card, so the form hands its seam to nothing')
+      .toBe('function')
   })
-
 })

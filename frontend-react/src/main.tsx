@@ -9,6 +9,8 @@ import { AccountView } from './account/AccountView'
 import { DealPanel } from './deal/DealPanel'
 import { valuesFromPayload, uiFromPayload } from './deal/payload'
 import { saveDeal } from './deal/seam'
+import { VersionCardHost } from './versions/VersionCardHost'
+import type { VersionSeam } from './versions/VersionCardHost'
 import type { DealFormSeam } from './deal/seam'
 
 // ── WHAT THIS BUNDLE DOES THIS ROUND, AND NOTHING ELSE ───────────────────
@@ -138,6 +140,43 @@ window.initOpportunityDealPanel = function (opp: OppRecord): void {
             }}
             currentVersionRejection={() => null}
             refreshVersionActions={() => {}} />
+        </ShellProvider>
+      </QueryClientProvider>
+    </StrictMode>,
+  )
+}
+
+// ── THE VERSION CARD ─────────────────────────────────────────────────────
+//
+// Round 4 Phase 2. The form's init hands this its seam, exactly as it handed
+// the vanilla card one, so the ENTRY IS UNCHANGED and the card consumes
+// whichever seam arrives.
+//
+// THE CARD GETS ITS OWN LOAD-ORDER REVERT, independent of the form's. The
+// vanilla card's markup is hidden rather than deleted and its script tag sits
+// commented in place: restoring that one line re-registers
+// `initOpportunityDealVersions` after this module has run, so the vanilla wins,
+// this mount never fires, and nothing hides the markup. Reverting the card does
+// not revert the form, and reverting the form does not revert the card.
+const VERSION_CONTAINER = 'deal-version-root'
+const VANILLA_CARD = 'deal-version-vanilla'
+let versionRoot: Root | null = null
+
+window.initOpportunityDealVersions = function (
+  { opportunityId, seam }: { opportunityId: string, seam: DealFormSeam },
+): void {
+  const container = document.getElementById(VERSION_CONTAINER)
+  if (!container) return
+  document.getElementById(VANILLA_CARD)?.classList.add('hidden')
+  if (!versionRoot) versionRoot = createRoot(container)
+  versionRoot.render(
+    <StrictMode>
+      <QueryClientProvider client={queryClient}>
+        <ShellProvider services={shellServices}>
+          <VersionCardHost
+            opportunityId={opportunityId}
+            seam={seam as unknown as VersionSeam}
+            api={(m, p, b) => window.api!(m, p, b) as Promise<{ ok: boolean, status?: number, data?: unknown }>} />
         </ShellProvider>
       </QueryClientProvider>
     </StrictMode>,

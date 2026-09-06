@@ -2716,6 +2716,13 @@
              THE RANGE DEFAULTS TO THE LAST 5, not to all. The question at a bid
              review is almost always "what changed recently", and the full
              history is one click away for the times it is not. -->
+        <!-- ── THE REACT VERSION CARD MOUNTS HERE. Round 4, Phase 2 ──────
+             Its own load-order revert, independent of the form's: restore the
+             opportunity-deal-versions.js script tag and the vanilla card's own
+             registration wins, this mount never runs, and the markup below is
+             never hidden. Reverting the card does not revert the form. -->
+        <div id="deal-version-root"></div>
+        <div id="deal-version-vanilla">
         <div class="pg-card" id="deal-version-panel" style="margin-bottom:20px">
           <div style="display:flex;align-items:baseline;justify-content:space-between;gap:16px;flex-wrap:wrap">
             <p class="pg-card-title" style="margin-bottom:0">Versions</p>
@@ -2773,6 +2780,7 @@
                  user does not have to follow. -->
             <p class="field-note" style="margin-top:10px">Taking a version saves the pricing first, so a version and the record can never disagree.</p>
           </div>
+        </div>
         </div>
 
       <div class="form-actions" style="margin-top:28px">
@@ -3254,8 +3262,10 @@ opened it. -->
      Restoring this one line reverts the swap: the vanilla re-assigns
      window.initOpportunityDealPanel after the bundle has, so its panel runs,
      the React mount never does, and #deal-form-vanilla is never hidden.
-     opportunity-deal-versions.js below stays live under BOTH forms: it is
-     handed its seam by whichever panel mounts.
+     The version machinery is the REACT card as of Round 4, and it is still
+     handed its seam by whichever panel mounts: reverting this form hands it a
+     vanilla adapter and it works against that too. Its own revert is a
+     separate line, below.
 <script type="module" src="/opportunity-deal.js"></script>
      ────────────────────────────────────────────────────────────────────── -->
 <!-- ── THE VERSION MACHINERY, SPLIT OUT. Round 3 D2c ───────────────────────
@@ -3263,7 +3273,12 @@ opened it. -->
      init could be called; the form's own init is what calls it, so the order
      is belt and braces rather than load-bearing. It talks to the form only
      through the seam, so the swap replaces the form under it unchanged. -->
+<!-- ── SUPERSEDED BY THE REACT VERSION CARD. Round 4, Phase 2 ─────────
+     Restoring this one line reverts the card alone: the vanilla re-registers
+     window.initOpportunityDealVersions after the bundle has, so its card runs,
+     the React mount never does, and #deal-version-vanilla is never hidden.
 <script type="module" src="/opportunity-deal-versions.js"></script>
+     ────────────────────────────────────────────────────────────────────── -->
 <!-- ── THE APPROVAL VIEW IS REACT FROM HERE. Round 1, Phase 1 ──────────
      The vanilla frontend/opportunity-approval.js STAYS IN TREE, unloaded,
      until the Round 2 entry gate confirms the pilot. The revert is restoring

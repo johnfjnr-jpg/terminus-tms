@@ -1293,11 +1293,38 @@ async function loadOppOpenRequest(recordId) {
 // here and VALIDATED by the route: the caller says which version it wants
 // approved, the database says whether that version is issued and belongs to
 // this record.
-window.requestPricingApproval = async function (versionId, label) {
+// ── DUAL MODE. Round 4 Phase 2 ───────────────────────────────────────────
+//
+// CALLED BARE it behaves exactly as it always has, writing
+// #pricing-approval-state and #btn-request-pricing-approval directly. That is
+// the vanilla card's path and it is also the FORM'S REVERT PATH: restoring one
+// script tag brings the vanilla card back, and it must find this function
+// unchanged.
+//
+// CALLED WITH A REPORTER it performs NO DOM WRITES AT ALL and reports instead.
+// A React card owns those two elements, and an imperative write into them is
+// overwritten by the next render - silently, and with the button re-enabling
+// itself mid-request. Round 4 Phase 0 measured the four write sites; this is
+// the interface that replaces them.
+//
+// The two modes are calibrated against each other rather than asserted equal.
+window.requestPricingApproval = async function (versionId, label, reporter) {
   const state = document.getElementById('pricing-approval-state')
   const btn = document.getElementById('btn-request-pricing-approval')
-  if (btn) { btn.disabled = true; btn.textContent = 'Requesting...' }
-  if (state) state.textContent = ''
+  const started = () => {
+    if (reporter) { reporter.onStart(); return }
+    if (btn) { btn.disabled = true; btn.textContent = 'Requesting...' }
+    if (state) state.textContent = ''
+  }
+  const failed = (message) => {
+    if (reporter) { reporter.onResult(message, false); return }
+    if (state) {
+      state.textContent = message
+      state.className = 'pricing-approval-state msg-error'
+    }
+    if (btn) { btn.disabled = false; btn.textContent = `Request approval of ${label ?? 'this version'}` }
+  }
+  started()
   // `to_stage` NAMES THE MOVE THIS SIGN-OFF UNLOCKS, not the current stage.
   // Two reasons, and the second is the one that settled it:
   //
@@ -1312,23 +1339,18 @@ window.requestPricingApproval = async function (versionId, label) {
   // the history reads "approved at Proposal" as specified.
   const next = nextStageAfter(currentOppStages, currentOppStage)
   if (!next) {
-    if (state) {
-      state.textContent = 'This record is at its final stage, so there is no move to approve pricing for.'
-      state.className = 'pricing-approval-state msg-error'
-    }
-    if (btn) { btn.disabled = false; btn.textContent = `Request approval of ${label ?? 'this version'}` }
+    failed('This record is at its final stage, so there is no move to approve pricing for.')
     return
   }
   const r = await api('POST', `/api/records/${currentOppDetailId}/transition-requests`,
     { to_stage: next, kind: 'review', version_id: versionId })
   if (!r.ok) {
-    if (state) {
-      state.textContent = r.data?.error ?? 'The pricing approval could not be requested.'
-      state.className = 'pricing-approval-state msg-error'
-    }
-    if (btn) { btn.disabled = false; btn.textContent = `Request approval of ${label ?? 'this version'}` }
+    failed(r.data?.error ?? 'The pricing approval could not be requested.')
     return
   }
+  // SUCCESS. The reporter is released with nothing to say: the reload re-renders
+  // the card, and its own view says which version is now awaiting approval.
+  if (reporter) reporter.onResult('', true)
   await loadOpportunityDetail(currentOppDetailId)
 }
 
