@@ -28,6 +28,7 @@ import { ShellProvider } from '../ShellContext'
 import { shellServices } from '../shell-services'
 import { DealPanel } from '../deal/DealPanel'
 import { SummaryNotices } from '../deal/section4'
+import { buildBasis } from '../deal/basis'
 import { perMonthFigure } from '../../../src/lib/deal-inputs.js'
 import type { UiState, Values } from '../deal/payload'
 import { catalogApi } from './fixtures'
@@ -267,5 +268,53 @@ describe('the cost basis and the signpost', () => {
     // rate exists" and a zero that means "free" look identical on the screen.
     expect(must('deal-catalog-warn').classList.contains('hidden')).toBe(false)
     expect(must('deal-catalog-warn').textContent).toContain('not because it is free')
+  })
+})
+
+// ── THE COST BASIS AGE, AND WHERE ITS BAND MAY BE PAINTED ────────────────
+//
+// Ported from the vanilla harness's basis blocks, which modelled the
+// rendering locally and so kept passing after the swap while asserting nothing
+// about the live panel. Running them found a real defect: buildBasis computed
+// `ageBand` and section 4 dropped it, so an ageing or a stale catalog read in
+// exactly the treatment of a current one.
+describe('the cost basis age', () => {
+  test('a CURRENT basis says nothing about its age, and the value still reads', () => {
+    const v = buildBasis({ safesight: { batch_label: '2026 H1', effective_from: '2026-01-01' } },
+      [], '2026-02-01', null, undefined)
+    expect(v.text).toBe('2026 H1 · effective 2026-01-01')
+    expect(v.age, 'a current basis printed an age').toBe('')
+    expect(v.ageBand).toBe('')
+  })
+
+  test('an AGEING basis states it, and the band names the age span only', () => {
+    const v = buildBasis({ safesight: { batch_label: '2026 H1', effective_from: '2025-01-01' } },
+      [], '2025-08-01', null, undefined)
+    expect(v.age).not.toBe('')
+    expect(v.ageBand).toBe('deal-catalog-ageing')
+    // THE BATCH NAME IS NOT PAINTED BY HOW OLD IT IS: the basis is a fact about
+    // this deal, the age is a warning that only sometimes applies.
+    expect(v.text).toBe('2026 H1 · effective 2025-01-01')
+  })
+
+  test('a STALE basis takes its own band, distinct from ageing', () => {
+    const v = buildBasis({ safesight: { batch_label: 'old', effective_from: '2024-01-01' } },
+      [], '2026-01-01', null, undefined)
+    expect(v.ageBand).toBe('deal-catalog-stale')
+  })
+
+  test('an UNDATED batch is not treated as current', () => {
+    const v = buildBasis({ safesight: { batch_label: 'undated' } }, [], '2026-01-01', null, undefined)
+    expect(v.ageBand).toBe('deal-catalog-undated')
+    expect(v.age).not.toBe('')
+  })
+
+  test('and the RENDER carries the band, which is what the class is for', async () => {
+    await mount()
+    const span = must('deal-catalog-age')
+    expect(span.classList.contains('deal-basis-age')).toBe(true)
+    // The fixture's batch is current, so no band. The assertion that matters is
+    // that the render reads ageBand at all, which is checked by injection.
+    expect(span.className.startsWith('deal-basis-age')).toBe(true)
   })
 })

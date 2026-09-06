@@ -170,7 +170,7 @@ export function DealSummarySection({ result, payload, values, onMargin, matrix, 
   matrix: React.ReactNode
   notices: React.ReactNode
   install: InstallVisibility
-  basis: { text: string, absent: boolean, age: string, warning: string }
+  basis: { text: string, absent: boolean, age: string, ageBand: string, warning: string }
 }) {
   const [open, setOpen] = useState(false)
   return (
@@ -210,7 +210,8 @@ export function DealSummarySection({ result, payload, values, onMargin, matrix, 
                 applies. */}
             <span className={`deal-basis-value${basis.absent ? ' deal-basis-absent' : ''}`}
               id="deal-catalog-basis" data-testid="deal-catalog-basis">{basis.text}</span>
-            <span className="deal-basis-age" id="deal-catalog-age">{basis.age}</span>
+            <span className={`deal-basis-age${basis.ageBand ? ' ' + basis.ageBand : ''}`}
+              id="deal-catalog-age" data-testid="deal-catalog-age">{basis.age}</span>
           </p>
           <p className={`msg-error${basis.warning ? '' : ' hidden'}`} id="deal-catalog-warn">{basis.warning}</p>
           <PricingCards result={result} payload={payload} values={values} onMargin={onMargin} />

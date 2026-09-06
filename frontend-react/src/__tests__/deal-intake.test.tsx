@@ -187,3 +187,47 @@ describe('section 6: the empty state is a real state', () => {
     expect(empty.textContent).toBe('Set the Contract Duration to model the monthly cash flow.')
   })
 })
+
+// ── THE TWO RENDERINGS MOVE TOGETHER ─────────────────────────────────────
+//
+// Ported from the vanilla harness, which asserted this against a local model.
+// It is the claim Round 39 broke: the rule was written inline and toggled on
+// ONE of the two renderings, so a deal 22 points under target displayed in the
+// treatment of one on target. Equality at a single state cannot catch that -
+// both renderings start equal - so the deal has to MOVE.
+describe('the strip and the local figure are one value', () => {
+  const both = () => ({
+    strip: must('deal-achieved-margin'),
+    local: must('deal-terms-achieved-margin'),
+  })
+  const state = (el: HTMLElement) =>
+    ['on-target', 'under-target'].filter((c) => el.classList.contains(c)).join(',')
+
+  test('they agree, and they MOVE together when the deal moves', async () => {
+    await mount()
+    const before = both()
+    expect(before.local.textContent).toBe(before.strip.textContent)
+    const beforeText = before.strip.textContent
+
+    // Move the TARGET, which is what the accent compares against, so both the
+    // figure and the state can change.
+    const box = host.querySelector('[data-testid="deal-targetMargin"]') as HTMLInputElement
+    const set = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!
+    await act(async () => { set.call(box, '95'); box.dispatchEvent(new Event('input', { bubbles: true })) })
+
+    const after = both()
+    expect(after.strip.textContent, 'the deal did not move, so this proves nothing')
+      .not.toBe(beforeText)
+    expect(after.local.textContent).toBe(after.strip.textContent)
+    expect(state(after.local), 'the accent moved on one rendering and not the other')
+      .toBe(state(after.strip))
+  })
+
+  test('and exactly one accent state applies, on both', async () => {
+    await mount()
+    for (const el of [must('deal-achieved-margin'), must('deal-terms-achieved-margin')]) {
+      const on = el.classList.contains('on-target'), under = el.classList.contains('under-target')
+      expect(on !== under, `neither or both states on ${el.id}`).toBe(true)
+    }
+  })
+})
