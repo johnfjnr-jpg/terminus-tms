@@ -81,7 +81,9 @@ const JS_FILES = [
   'src/lib/numeric-payload.js',
   'src/routes/opportunities.js', 'src/routes/deals.js', 'src/routes/deal-sheet-versions.js',
   'src/routes/contacts.js', 'src/routes/test-beds.js',
-  'frontend/opportunity-deal.js', 'frontend/app.js',
+  // opportunity-deal.js retired at the Round 6 Phase R; the claim is about
+  // the STRIPPER, so one corpus fewer leaves it untouched.
+  'frontend/app.js',
 ]
 
 test('stripped javascript still parses', () => {

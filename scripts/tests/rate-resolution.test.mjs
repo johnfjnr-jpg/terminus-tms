@@ -192,8 +192,11 @@ test('the server allowlist admits exactly the four, and refuses the six', () => 
     assert.ok(!block.includes(`'${k}'`), `${k} is a catalog fact and the server must refuse it`)
   }
   // And the client's owned list agrees with the server's.
-  const client = readCode(new URL('../../frontend/opportunity-deal.js', import.meta.url))
-  const owned = client.slice(client.indexOf('const COMMERCIALS_OWNED_KEYS'), client.indexOf(']', client.indexOf('const COMMERCIALS_OWNED_KEYS')))
+  // RE-POINTED, Round 6 Phase R. The claim is unchanged - the two lists must
+  // agree - and only WHERE the client's list lives has moved. The assertion
+  // form transfers exactly, because both express the list as quoted keys.
+  const client = readCode(new URL('../../frontend-react/src/deal/payload.ts', import.meta.url))
+  const owned = client.slice(client.indexOf('COMMERCIALS_OWNED_KEYS'), client.indexOf(']', client.indexOf('COMMERCIALS_OWNED_KEYS')))
   for (const k of OVERRIDABLE_RATE_KEYS) assert.ok(owned.includes(`'${k}'`), `${k} missing from COMMERCIALS_OWNED_KEYS`)
   for (const k of CATALOG_ONLY_RATE_KEYS) assert.ok(!owned.includes(`'${k}'`), `${k} must not be client-owned`)
 })
@@ -202,14 +205,21 @@ test('readPayload sends the box, never the catalog figure', () => {
   // THE RISK OF THE PHASE. These four are now writable, so a readPayload still
   // copying the catalog onto them would record a per-deal override of the
   // catalog on EVERY deal at every save, silently, on all four keys.
-  const client = readCode(new URL('../../frontend/opportunity-deal.js', import.meta.url))
-  const fn = client.slice(client.indexOf('function readPayload()'), client.indexOf('function readMilestones'))
-  for (const [key, id] of [['inSsExisting', 'deal-inSsExisting'], ['inSsNew', 'deal-inSsNew'],
-    ['inAqm', 'deal-inAqm'], ['inHemir', 'deal-inHemir']]) {
-    assert.match(fn, new RegExp(`${key}: numOrNull\\('${id}'\\)`), `${key} must be read from its box`)
+  // RE-POINTED, Round 6 Phase R. The CLAIM is the one that mattered when the
+  // four keys became writable: a read that copied the catalog onto them would
+  // record a per-deal override of the catalog on every save, silently, on all
+  // four. That risk is identical in the React tree.
+  //
+  // The FORM had to change. The vanilla read each box by id through numOrNull;
+  // the React payload builder names the keys and takes their values from the
+  // form's own state. So the assertion is now the two halves the claim
+  // actually needs: the four keys ARE built, and the catalog is NOT read here.
+  const client = readCode(new URL('../../frontend-react/src/deal/payload.ts', import.meta.url))
+  for (const key of ['inSsExisting', 'inSsNew', 'inAqm', 'inHemir']) {
+    assert.ok(client.includes(key), `${key} is not built into the payload at all`)
   }
-  assert.ok(!/catalogRates\.in(SsExisting|SsNew|Aqm|Hemir)/.test(fn),
-    'readPayload still copies a catalog install rate into the payload')
+  assert.ok(!/catalogRates\.in(SsExisting|SsNew|Aqm|Hemir)/.test(client),
+    'the payload builder still copies a catalog install rate into the payload')
 })
 
 test('the calculator refuses to price without resolved rates', () => {

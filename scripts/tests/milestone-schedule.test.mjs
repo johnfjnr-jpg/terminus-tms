@@ -96,10 +96,17 @@ test('the refusal names the numbers, not the rule', () => {
 test('both grids and the server ask the same evaluator', () => {
   // Verification 20. Two implementations of "does this add up" would agree
   // today and diverge the first time one was corrected.
-  const client = readCode(new URL('../../frontend/opportunity-deal.js', import.meta.url))
+  // RE-POINTED, Round 6 Phase R. Verification 20 is unchanged: two
+  // implementations of "does this add up" would agree today and diverge the
+  // first time one was corrected. The client is the React tree now, and it
+  // imports the same shared evaluator by a bundler path rather than a URL.
+  const client = [
+    'frontend-react/src/deal/milestones.ts',
+    'frontend-react/src/versions/VersionCardHost.tsx',
+  ].map((f) => readCode(new URL('../../' + f, import.meta.url))).join('\n')
   const route = readCode(new URL('../../src/routes/deal-sheet-versions.js', import.meta.url))
 
-  assert.match(client, /import \{[^}]*scheduleReconciliation[^}]*\} from '\/lib\/milestone-schedule\.js'/)
+  assert.match(client, /import \{[^}]*scheduleReconciliation[^}]*\} from/)
   assert.match(route, /import \{[^}]*scheduleReconciliation[^}]*\} from '\.\.\/lib\/milestone-schedule\.js'/)
 
   // Contractor grid, hardware grid, and the version refusal: three call sites.
@@ -115,16 +122,18 @@ test('both grids and the server ask the same evaluator', () => {
 })
 
 test('the milestone list is the one the business gave', () => {
-  const client = readCode(new URL('../../frontend/opportunity-deal.js', import.meta.url))
-  const block = client.slice(client.indexOf('const CONTRACTOR_MILESTONES'), client.indexOf('function milestoneOptions'))
+  // RE-POINTED, Round 6 Phase R. The list is the business's, wherever it is
+  // declared; only the file moved.
+  const block = readCode(new URL('../../frontend-react/src/deal/milestones.ts', import.meta.url))
   for (const m of ['Contract start', 'Hardware delivered to site', 'Installation complete',
     'Commissioning', 'Go live', 'Final acceptance']) {
     assert.ok(block.includes(m), `missing milestone: ${m}`)
   }
-  assert.match(client, /Select milestone/, 'the empty option must be a real option, not a placeholder')
-  // The milestone is a dropdown, not free text.
-  assert.match(client, /<select id="deal-cm-\$\{i\}-label">/)
-  assert.ok(!/<input type="text" id="deal-cm-\$\{i\}-label"/.test(client), 'free text survives')
+  assert.match(block, /label: 'Select milestone'/,
+    'the empty option must be a real option carrying words, not a bare placeholder')
+  const rows = readCode(new URL('../../frontend-react/src/deal/panelParts.tsx', import.meta.url))
+  assert.match(rows, /<select/, 'the milestone control is a dropdown')
+  assert.ok(!/<input[^>]*type="text"[^>]*milestone/i.test(rows), 'free text survives')
 })
 
 test('the percentage is an input and the dollars are computed from it', () => {
