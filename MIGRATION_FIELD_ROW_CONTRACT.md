@@ -493,3 +493,59 @@ it.
 row has no tab stop. This is a deliberate, recorded divergence from the
 vanilla in the owned case, and the reason is that the vanilla's behaviour is
 an unintended side effect of a selector written about editable rows.
+
+---
+
+# Addendum, 2026-09-06 (second entry): SECOND contact, the Reference tab
+
+**The surface the contract was TAKEN FROM has now consumed the component.**
+Round 2's verdicts came from the Account surface, which has 15 rows, no
+ownership door, and one editor kind beyond text. The Reference tab has 21
+rows, the door the contract quotes, four editor kinds, a two-shape branch and
+a sub-panel - so the eleven positions are tested here harder than anywhere.
+
+Evidence: 24 surface tests, 18 descriptor tests, 21 editor tests, and an
+11-injection sweep with a verified-snapshot harness, all in jsdom. Phase 2
+walks it live.
+
+| # | position | Round 2 verdict | verdict HERE |
+|---|---|---|---|
+| 1 | `value` is always a string | CONFIRMED | **CONFIRMED, and it decided the checkbox.** A boolean draft against a string original reads dirty forever under behaviour 1. `'true'` and `''` are the two states |
+| 2 | drafts live at the SURFACE | CONFIRMED, load-bearing | **CONFIRMED, and load-bearing a second way.** The same-as-account flag is not a row, and it still shares the store - which is the only reason it can ride the batched save |
+| 3 | `orig` is never stored | CONFIRMED | **CONFIRMED** |
+| 4 | the seed REPLACES | CONFIRMED for text | **CONFIRMED**, unchanged |
+| 4b | whether a seed reaches an editor is the EDITOR's property | new in Round 2 | **CONFIRMED AND GENERALISED. See A1.** It was implemented as `editorFor(field) !== SelectEditor`, which names one editor. A date editor added under that would have seeded a character the input discards |
+| 5 | which keys are seeds | CONFIRMED | **CONFIRMED** |
+| 6 | a rejected seed does not open the row | AMENDED in Round 2 | **CONFIRMED as amended.** Both halves now have three members each rather than two: the guard refuses and does not open; select, date and checkbox open without a seed |
+| 7 | closing does not clear a draft | CONFIRMED | **CONFIRMED** |
+| 8 | discard leaves the row open | CONFIRMED | **CONFIRMED** |
+| 9 | `canEditFields()`, no argument, silent refusal | CONFIRMED | **CONFIRMED, and it reached a surface that HAS a door.** Round 2's Account surface had none, so this is the first real exercise: 21 rows refuse by click, by Enter, by Space and by seed |
+| 10 | the guard fails CLOSED | CONFIRMED | **CONFIRMED, and it is not academic here.** `CAN_EDIT_BY_VIEW` has no `opportunity-detail` line today, so an unwired Reference tab refuses every row - which is the safe direction and is what the seam's default already does |
+| 11 | no vanilla class names copied | CONFIRMED with one carve-out | **CONFIRMED, no carve-out needed.** The name header is a `FieldRow` here, not a rebuilt element |
+
+## What the second contact changed in the document
+
+**Behaviour 6's wording.** *"Dirty count is computed across all open drafts"*
+was read as describing the vanilla. Measured: the vanilla COMPUTES the count
+and shows none - `updateRefEditBar` uses it as a boolean. The React bar shows
+it. The contract says the bar aggregates; this surface shows what it
+aggregated, and that is a deliberate improvement recorded rather than a silent
+one.
+
+**Behaviour 7 is right and the vanilla is wrong**, ruled in the previous
+addendum: the five read-only rows carry `tabindex="0"` because `app.js`'s
+ownership sweep matches `.ref-field-display` with no `:not(.readonly)`.
+
+**Behaviour 2 gained a second kind of consumer.** The door has always been
+about ROWS. The same-as-account flag is a direct input with no row around it,
+so the guard has to reach it separately - it is disabled rather than refused
+at a door it does not have. **A surface's door covers its direct inputs too,
+and that is not derivable from behaviour 2 as written.**
+
+## And one thing the contract still does not cover, named rather than fixed
+
+`estClose` reads `opportunity_details.forecast_close_date` and saves through a
+different route with a mandatory reason. The descriptor expresses the read
+(it carries `value`, not a payload key) and says nothing about the write,
+because save semantics are excluded deliberately. **Phase 2 is where that
+lands**, and it is the one row whose write path is not the batched save.
