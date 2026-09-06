@@ -73,10 +73,28 @@ export const PRICING_CARD_MARGIN_IDS = new Set(
 export const SECTION5_OWNED_IDS = new Set(
   ['deal-recoveryMonths', 'deal-factoring-ratePct', 'deal-factoring-termMonths'])
 
+// Sections 1 and 2 render these themselves: the four unit cards, the
+// installation controls, and the four per-unit RATE inputs which belong in the
+// table rows where a column header names them.
+// Section 3 renders its eight fields itself, in the vanilla's order with the
+// achieved-margin row among them rather than after them.
+export const TERMS_OWNED_IDS = new Set([
+  'deal-targetMargin', 'deal-warrantyPct', 'deal-duration', 'deal-bidCurrency',
+  'deal-proposalCurrency', 'deal-fxContingency', 'deal-whtPct', 'deal-gstPct',
+])
+
+export const INTAKE_OWNED_IDS = new Set([
+  'deal-ssExisting', 'deal-ssNew', 'deal-aqm', 'deal-hemir',
+  'deal-lumpCost',
+  'deal-inSsExisting', 'deal-inSsNew', 'deal-inAqm', 'deal-inHemir',
+  'deal-margin-inSsEx', 'deal-margin-inSsNew', 'deal-margin-inAqm', 'deal-margin-inHemir',
+])
+
 export function censusBySection(): Record<string, typeof CENSUS> {
   const out: Record<string, typeof CENSUS> = {}
   for (const f of CENSUS) {
-    if (PRICING_CARD_MARGIN_IDS.has(f.id) || SECTION5_OWNED_IDS.has(f.id)) continue
+    if (PRICING_CARD_MARGIN_IDS.has(f.id) || SECTION5_OWNED_IDS.has(f.id)
+      || INTAKE_OWNED_IDS.has(f.id) || TERMS_OWNED_IDS.has(f.id)) continue
     const s = vanillaSectionOf(f.id, f.section)
     if (!s) continue
     ;(out[s] ??= [] as unknown as typeof CENSUS).push(f as never)

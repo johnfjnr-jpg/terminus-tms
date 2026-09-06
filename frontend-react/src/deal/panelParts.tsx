@@ -13,25 +13,18 @@ import { marginPresentation } from '../../../src/lib/deal-inputs.js'
 // left here is the visual half of those same facts - a dash instead of a zero,
 // a colour on a negative, a signpost appearing with its rows.
 
-export function CashFlowGrid({ months, rows, closing, scrollRef }: {
+export function CashFlowGrid({ months, rows, scrollRef }: {
   months: number[]
   rows: CFRow[]
-  closing: string
   scrollRef: React.RefObject<HTMLDivElement | null>
 }) {
-  if (!months.length) {
-    return (
-      <>
-        <p className="empty-state" data-testid="cashflow-empty">No cash flow to show yet.</p>
-        <p data-testid="cashflow-closing">--</p>
-      </>
-    )
-  }
+  if (!months.length) return null
+
   return (
     <>
       {/* The scroll container is the element the scrollable mark is applied to,
           so the ref and the class live on the same node. */}
-      <div className="cf-grid" id="deal-cashflow-grid" data-testid="cashflow-grid" ref={scrollRef}>
+      <div className="cf-grid cashflow-scroll" id="deal-cashflow-grid" data-testid="cashflow-grid" ref={scrollRef}>
         <div className="cf-row head">
           <div className="cf-label">Month</div>
           {months.map((m) => <div className="cf-cell" key={m}>{m}</div>)}
@@ -50,7 +43,6 @@ export function CashFlowGrid({ months, rows, closing, scrollRef }: {
           )
         })}
       </div>
-      <p data-testid="cashflow-closing">{closing}</p>
     </>
   )
 }
@@ -119,7 +111,8 @@ export function MilestoneGrid({ rows, values, usdFor, onChange, warning }: {
               value={values[r.pct] ?? ''} onChange={(e) => onChange(r.pct, e.target.value)} /></td>
             {/* L6: THE USD IS COMPUTED and shown read-only, so the two readings
                 of this schedule cannot disagree about what it is a percentage of. */}
-            <td><input id={r.usd} data-testid={r.usd} readOnly value={usdFor(r.row)} /></td>
+            <td><input id={r.usd} data-testid={r.usd} className="is-computed"
+              readOnly tabIndex={-1} value={usdFor(r.row)} /></td>
           </tr>
         ))}
       </tbody></table>
@@ -141,6 +134,7 @@ export function ContractorGrid({ rows, values, options, onTyped, view }: {
         {rows.map((r) => (
           <tr key={r.row}>
             <td><input id={r.month} data-testid={r.month} inputMode="numeric" maxLength={2}
+              className="int-only"
               value={values[r.month] ?? ''} onChange={(e) => onTyped(r.row, 'pct', r.month, e.target.value)} /></td>
             <td>
               <select id={r.label} data-testid={r.label} value={values[r.label] ?? ''}

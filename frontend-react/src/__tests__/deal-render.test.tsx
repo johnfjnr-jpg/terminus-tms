@@ -152,7 +152,11 @@ describe('the cash-flow grid renders its model', () => {
 
   test('closing cash renders through the shared presenter, symbol included', async () => {
     await mount()
-    expect(must('cashflow-closing').textContent).toMatch(/\$|not recorded/)
+    // RE-POINTED, Session E: the closing figure is a sibling of the grid in
+    // the vanilla, not part of it, so it moved out of CashFlowGrid and into
+    // the section. The claim - it reads through closingCashText, symbol
+    // included - is unchanged.
+    expect(must('deal-cashflow-closing').textContent).toMatch(/\$|not recorded/)
   })
 })
 
@@ -213,26 +217,34 @@ describe('the milestone grids render', () => {
   })
 })
 
+// ── RE-POINTED, Session E ─────────────────────────────────────────────────
+//
+// The claim is unchanged: the signpost appears EXACTLY when the rows it points
+// at do. What moved is that both are now real elements rather than the empty
+// scaffold divs `install-table` / `install-signpost`, which carried a `hidden`
+// ATTRIBUTE where the vanilla uses a `hidden` CLASS. Reading the attribute on
+// the real markup would have returned false for every state.
+const hiddenClass = (id: string) => must(id).classList.contains('hidden')
+
 describe('the installation tab: the signpost co-appears with its rows', () => {
   test('per unit shows both', async () => {
     await mount(V, { ...UI, installResp: 'Terminus Contractor - Per Unit' })
-    expect(must('install-table').hasAttribute('hidden')).toBe(false)
-    expect(must('install-signpost').hasAttribute('hidden')).toBe(false)
+    expect(hiddenClass('deal-install-table')).toBe(false)
+    expect(hiddenClass('deal-detail-signpost')).toBe(false)
   })
 
   test('lump sum hides both and shows the contractor group', async () => {
     await mount(V, { ...UI, installResp: 'Terminus Contractor - Lump Sum' })
-    expect(must('install-table').hasAttribute('hidden')).toBe(true)
-    expect(must('install-signpost').hasAttribute('hidden')).toBe(true)
-    expect(must('install-contractor-group').hasAttribute('hidden')).toBe(false)
+    expect(hiddenClass('deal-install-table')).toBe(true)
+    expect(hiddenClass('deal-detail-signpost')).toBe(true)
+    expect(hiddenClass('deal-contractor-group')).toBe(false)
   })
 
   test('THEY ARE NEVER OUT OF STEP, across every responsibility', async () => {
     for (const r of ['Terminus Contractor - Per Unit', 'Terminus Contractor - Lump Sum',
       'Client Own Installation Team']) {
       await mount(V, { ...UI, installResp: r })
-      expect(must('install-signpost').hasAttribute('hidden'), r)
-        .toBe(must('install-table').hasAttribute('hidden'))
+        expect(hiddenClass('deal-detail-signpost'), r).toBe(hiddenClass('deal-install-table'))
     }
   })
 

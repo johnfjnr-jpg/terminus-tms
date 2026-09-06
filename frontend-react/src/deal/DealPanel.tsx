@@ -26,6 +26,8 @@ import { dirtySections, captureSavedBaseline, SECTION_SAVE_TITLE } from './dirty
 import { makeSeam } from './seam'
 import { VANILLA_SECTIONS, censusBySection, dirtyVanillaSections } from './sections'
 import { PaymentTermsSection } from './section5'
+import { UnitCards, InstallationSection } from './intake'
+import { StructuralTermsSection, CashFlowSection } from './section36'
 import { PANELS, latchView, latchAllView, toggleAll, toggleOne } from './latch'
 import { DealSummarySection, SummaryNotices } from './section4'
 import { buildBasis } from './basis'
@@ -66,11 +68,18 @@ export function useCatalogRates() {
 // Each contract gets its own input treatment, and the differences are the
 // point rather than styling: what a person sees when a box is empty must match
 // what the reader will do with it.
-function CensusField({ field, value, rates, onChange, help }: {
+function CensusField({ field, value, rates, onChange, help, bare }: {
   field: CensusInput
   value: string
   /** The vanilla's own help text, rendered as the dot INSIDE the label. */
   help?: string
+  /**
+   * A table cell whose COLUMN HEADER is the label, as the per-unit install
+   * rows are. The visible text is dropped and the accessible name moves to
+   * aria-label, so the input keeps a name without repeating the header in
+   * every row.
+   */
+  bare?: boolean
   rates: CatalogRates
   onChange(next: string): void
 }) {
@@ -91,12 +100,15 @@ function CensusField({ field, value, rates, onChange, help }: {
     // visibly while breaking click-to-focus.
     <label className="deal-field" htmlFor={field.id}
       data-contract={field.contract} data-section={field.section}>
-      <span className="deal-field-label">{field.label}
-        {help ? <span className="help-dot" tabIndex={0} role="note" title={help} /> : null}
-      </span>
+      {bare ? null : (
+        <span className="deal-field-label">{field.label}
+          {help ? <span className="help-dot" tabIndex={0} role="note" title={help} /> : null}
+        </span>
+      )}
       <input
         id={field.id}
         data-testid={field.id}
+        aria-label={bare ? field.label : undefined}
         value={value}
         placeholder={placeholder}
         inputMode={field.contract === 'emptyToNull' ? undefined : 'decimal'}
@@ -299,10 +311,10 @@ export function DealPanel({
     'deal-factoring-ratePct': 'The monthly cost of factoring the hardware and installation spend. It both reduces margin and brings cash in earlier.',
     'deal-factoring-termMonths': 'How long the factoring runs. Rate multiplied by term is the total financing cost.',
   }
-  const renderField = (id: string) => {
+  const renderField = (id: string, bare = false) => {
     const f = CENSUS.find((c) => c.id === id)
     if (!f) return null
-    return <CensusField key={f.id} field={f} rates={rates} help={HELP[f.id]}
+    return <CensusField key={f.id} field={f} rates={rates} help={HELP[f.id]} bare={bare}
       value={values[f.id] ?? ''} onChange={(v) => setValue(f.id, v)} />
   }
   const censusFields = (sectionId: string) => (bySection[sectionId] ?? []).map((f) => (
@@ -326,7 +338,24 @@ export function DealPanel({
 
       {sectionFrame(SECTION['deal-sections-1-2'], (
         <>
-          <div className="deal-intake-col">{censusFields('deal-sections-1-2')}</div>
+          <section className="deal-intake-col" id="deal-section-1">
+            <p className="section-title">Units Required</p>
+            <UnitCards renderField={renderField} />
+            {censusFields('deal-sections-1-2')}
+          </section>
+          <InstallationSection
+            vis={installVisibility(ui)}
+            group={(result as { groups?: { installGroup?: never } } | null)?.groups?.installGroup}
+            payload={payload}
+            renderField={renderField}
+            installResp={ui.installResp}
+            onInstallResp={(v) => setUi({ installResp: v })}
+            contractorGrid={
+              <ContractorGrid rows={CONTRACTOR_INPUTS} values={values}
+                options={(i) => milestoneOptions(values[`deal-cm-${i}-label`])}
+                onTyped={onContractorTyped}
+                view={contractorReconciliation(values, lumpCost)} />
+            } />
           {/* The seven catalog readouts. A readonly input here is a DISPLAY of
               a rate, not a record of one, and the vanilla says so in those
               words. They sit in the intake section, where the vanilla keeps
@@ -337,16 +366,13 @@ export function DealPanel({
               <input id={d.id} data-testid={d.id} readOnly value={money(rates[d.rate])} />
             </label>
           ))}
-          <InstallationTab vis={installVisibility(ui)} />
-          <ContractorGrid rows={CONTRACTOR_INPUTS} values={values}
-            options={(i) => milestoneOptions(values[`deal-cm-${i}-label`])}
-            onTyped={onContractorTyped}
-            view={contractorReconciliation(values, lumpCost)} />
         </>
       ))}
 
       {sectionFrame(SECTION['deal-section-3'], (
         <>
+          <StructuralTermsSection renderField={renderField} payload={payload}
+            achievedMargin={(result as { achievedMargin?: number } | null)?.achievedMargin} />
           {censusFields('deal-section-3')}
           <StructureVisibilityRegions vis={structureVisibility(ui)} />
           <SwitchButton id="deal-grossUp-toggle" state={grossUpToggle(ui)}
@@ -356,12 +382,6 @@ export function DealPanel({
             <option value="twoPhase">Two phase</option>
             <option value="single">Single</option>
             <option value="hybrid">Hybrid</option>
-          </select>
-          <select data-testid="ui-installResp" value={ui.installResp}
-            onChange={(e) => setUi({ installResp: e.target.value })}>
-            <option>Client Own Installation Team</option>
-            <option>Terminus Contractor - Per Unit</option>
-            <option>Terminus Contractor - Lump Sum</option>
           </select>
         </>
       ))}
@@ -439,11 +459,13 @@ export function DealPanel({
       ))}
 
       {sectionFrame(SECTION['deal-section-6'], (
-        cashFlow ? (
-          <CashFlowGrid months={cashFlow.rows.map((r) => r.m)}
-            rows={buildCashFlowRows(cashFlow)} closing={closingCashText(cashFlow)}
-            scrollRef={cashFlowRef} />
-        ) : null
+        <CashFlowSection
+          hasFlow={!!cashFlow && cashFlow.rows.length > 0}
+          closing={cashFlow ? closingCashText(cashFlow) : '--'}
+          grid={cashFlow
+            ? <CashFlowGrid months={cashFlow.rows.map((r) => r.m)}
+                rows={buildCashFlowRows(cashFlow)} scrollRef={cashFlowRef} />
+            : null} />
       ))}
     </div>
   )
