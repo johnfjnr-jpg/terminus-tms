@@ -1,0 +1,72 @@
+snapshot verified  frontend/index.html  194926B
+snapshot verified  frontend/app.js  467519B
+snapshot verified  frontend-react/src/main.tsx  10961B
+snapshot verified  frontend-react/src/reference/ReferenceHost.tsx  4431B
+snapshot verified  frontend/style.css  229191B
+snapshot verified  frontend-react/src/reference/descriptors.ts  7048B
+snapshot verified  frontend-react/src/reference/ReferencePanel.tsx  6644B
+
+BASELINE
+  GREEN  12297ms
+
+FINAL REVERTED RUN
+  GREEN
+  identical  frontend/index.html
+  identical  frontend/app.js
+  identical  frontend-react/src/main.tsx
+  identical  frontend-react/src/reference/ReferenceHost.tsx
+  identical  frontend/style.css
+  identical  frontend-react/src/reference/descriptors.ts
+  identical  frontend-react/src/reference/ReferencePanel.tsx
+
+── SWEEP ───────────────────────────────────────────────────────
+
+DETECTED             the vanilla Reference tag is restored, undoing the swap
+  claim   THE REACT REFERENCE PANEL IS THE LIVE ONE
+  caught  THE REACT REFERENCE PANEL IS THE LIVE ONE
+
+DETECTED             the mount container is removed
+  claim   the React Reference panel has a container to mount into
+  caught  and the Reference panel has its own mount and its own revert target
+
+DETECTED             the revert target markup is removed
+  claim   the Reference tab's revert target survives
+  caught  and the Reference panel has its own mount and its own revert target
+
+DETECTED             the door registry line is dropped
+  claim   CAN_EDIT_BY_VIEW carries opportunity-detail, or every row refuses
+  caught  the door is OPEN for the Reference tab, in the shell registry
+
+DETECTED             the door fails OPEN on a missing view, as the vanilla does
+  claim   the registry line fails CLOSED, per contract finding 10
+  caught  the door is OPEN for the Reference tab, in the shell registry
+
+DETECTED             the bundle stops registering the panel
+  claim   the shell global surface is exactly the five registered names
+  caught  the loaders are registered after import, and NOTHING else is added
+
+DETECTED             the panel reads the vanilla module's lexical state
+  claim   the React surface names none of the vanilla's unreachable state
+  caught  and it does NOT read the vanilla module's lexical state
+
+DETECTED             display:flex overrides [hidden] again (behaviour 3)
+  claim   a closed row keeps its editor hidden and out of the tab order
+  caught  a closed row's editor is not forced visible by the stylesheet
+
+DETECTED             the ownership treatment stops reaching the migrated rows
+  claim   a not-owned record dims the React rows as well as refusing them
+  caught  the ownership treatment reaches the MIGRATED rows, not only the vanilla
+
+DETECTED             Date Created renders the raw stored timestamp
+  claim   a date row reads as a date
+  caught  D1 Date Created renders a date, not a stored timestamp
+
+DETECTED             the cards lose their titles
+  claim   each section is NAMED, which no control census can see
+  caught  R1c EVERY SECTION IS NAMED, which no control census can see
+
+DETECTED             the save sends every key rather than only the dirty ones
+  claim   only what moved is sent
+  caught  H1 ONLY WHAT MOVED. An untouched key is never in the payload
+
+12/12 detected

@@ -48,6 +48,10 @@ const LEDGER = {
     + 'SECOND instrument. Evidence about the file, not a dependency on it.',
   'scripts/round5/seam-census.mjs':
     'KEPT. Phase 0 instrument: the boundary census reads the file by path.',
+  'scripts/round5/inject-phase2.mjs':
+    'KEPT. Phase 2 calibration: it INJECTS the vanilla script tag back into '
+    + 'index.html to prove the swap has a detector, so it names the file as '
+    + 'the fault it is constructing. Retires with the file.',
   'scripts/round5/visual-reference.mjs':
     'KEPT. Phase 2 instrument: it loads the vanilla module in the browser to '
     + 'capture it beside the React surface at three widths. It reads the file '
@@ -136,6 +140,10 @@ const STRING_LEDGER = {
   'scripts/tests/opportunity-dates.test.mjs':
     'KEPT. It reads the vanilla file by path for its date handling. Retires '
     + 'with the file.',
+  'scripts/round5/inject-phase2.mjs':
+    'KEPT. Phase 2 calibration: it INJECTS the vanilla script tag back into '
+    + 'index.html to prove the swap has a detector, so it names the file as '
+    + 'the fault it is constructing. Retires with the file.',
   'scripts/round5/visual-reference.mjs':
     'KEPT. Phase 2 instrument: the vanilla path is fetched by name so the '
     + 'comparison can render it.',

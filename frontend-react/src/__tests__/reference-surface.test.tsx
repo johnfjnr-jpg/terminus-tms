@@ -109,6 +109,17 @@ describe('R: the rows render per the census', () => {
     }
   })
 
+  test('R1c EVERY SECTION IS NAMED, which no control census can see', async () => {
+    // Round 40's finding, and the Phase 2 sweep's third silence: removing the
+    // card titles changed no control, no id and no geometry, so nothing
+    // failed. The names ARE the information.
+    await mount()
+    const titles = [...host.querySelectorAll('.pg-card-title')].map((e) => e.textContent)
+    expect(titles).toEqual([
+      'Terminus Details', 'Customer Details', 'Key Dates',
+      'Key Customer Contacts', 'Executive Summary'])
+  })
+
   test('R2 and the five read-only rows, WITHOUT a tab stop (behaviour 7)', async () => {
     await mount()
     const ro = [...host.querySelectorAll('[data-readonly="true"]')]

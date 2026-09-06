@@ -297,3 +297,38 @@ test('every declared state class is actually toggled, and carries no rule', () =
     assert.ok(!defined.has(c), `.${c} now has a rule in style.css, so the exemption is stale`)
   }
 })
+
+// ── THE MIGRATED ROW'S TWO STYLESHEET CLAIMS. Round 5 Phase 2 ───────────
+//
+// Both were SILENT in the Phase 2 injection sweep, which is Verification 51
+// doing its job: the injections falsified something true, relied on, and
+// asserted nowhere.
+
+test('a closed row\'s editor is not forced visible by the stylesheet', () => {
+  // The defect this exists for: a bare `display: flex` on .field-row-edit
+  // OVERRIDES the user-agent's `[hidden] { display: none }`, so every closed
+  // editor renders while the hidden ATTRIBUTE is correctly set - and every
+  // test that reads the attribute passes. It breaks behaviour 3 and the tab
+  // order behaviour 2 depends on.
+  const css = readCode(new URL('../../frontend/style.css', import.meta.url))
+  const rules = [...css.matchAll(/^\.field-row-edit([^{]*)\{([^}]*)\}/gm)]
+  assert.ok(rules.length > 0, 'no .field-row-edit rule at all; the row is unstyled')
+  for (const [, selectorTail, body] of rules) {
+    if (!/display\s*:/.test(body)) continue
+    assert.match(selectorTail, /:not\(\[hidden\]\)/,
+      'a .field-row-edit rule sets display without excluding [hidden], so a '
+      + 'closed row renders its editor and the tab order is wrong')
+  }
+})
+
+test('the ownership treatment reaches the MIGRATED rows, not only the vanilla', () => {
+  // app.js dims a non-owner's editable affordances through .is-not-mine. The
+  // React rows carry their own class names by contract finding 11, so the
+  // rule has to name them too - otherwise a not-owned record shows rows that
+  // read as live while the door silently refuses every one.
+  const css = readCode(new URL('../../frontend/style.css', import.meta.url))
+  assert.match(css, /\.is-not-mine \.field-row-display/,
+    'the migrated field rows are not covered by the read-only treatment')
+  assert.match(css, /\.is-not-mine \.ref-same-as-account/,
+    'the same-as-account direct input is not covered by the read-only treatment')
+})
