@@ -772,3 +772,65 @@ VANILLA in Phase 0b; the React door has not been.
 
 **Scoring and units**, which are Phase 1b and are 35 of this surface's 136
 names.
+
+---
+
+# Addendum, 2026-09-07 (eighth entry): A12. A REFUSED ROW DROPS ITS TAB STOP
+
+**RULED BY THE BUSINESS.** The seventh contact recorded this as a
+recommendation it would not take, on the grounds that it changes the shared
+component across four surfaces and is therefore a contract decision rather than
+a phase's. It has now been taken.
+
+## A12. On a surface whose door refuses, a row has no tab stop
+
+**The rule, and it is behaviour 7's own logic rather than a new one.**
+Behaviour 7 says a read-only row has "no opener and no tab stop", and the
+reason is that a stop which cannot be acted on is a stop that lies. **A row the
+door refuses is in exactly that state**, so it gets exactly that treatment.
+
+The two are one rule stated for two causes of the same condition:
+
+| the row cannot be opened because | tab stop |
+|---|---|
+| the DESCRIPTOR says it is read-only (behaviour 7) | none |
+| the DOOR refuses this viewer (A12) | none |
+
+## What was measured, and it is why this is worth a ruling
+
+**Phase 0b measured the vanilla Test Bed's door and found it PRESENTATIONAL:
+the mouse was blocked and the keyboard was not.** A refused row carried
+`tabIndex="0"`, took focus, and then refused. The React door already improves
+on that - it refuses on both paths - but a refused React row still carries the
+stop, so a keyboard user tabs onto a control that does nothing and gets no
+signal that the reason is ownership rather than a bug.
+
+**Distinct from the vanilla's fault.** The vanilla's is a HOLE: focus, then
+open, then edit. This is not a hole; the row refuses correctly. It is a stop
+that means nothing, which is Verification 27's distinction between a property
+of the document and a property of the person doing the task.
+
+## Scope, and it is deliberately the shared component
+
+Four surfaces carry the shared row today. **The rule is the component's, not
+each surface's**, because the alternative is four implementations that agree
+now (Verification 20). A surface whose door always opens is unaffected: the
+condition is the door refusing, not the door existing.
+
+## Implementation is DEFERRED to Round 7 Phase 2, as ruled
+
+Not built in Phase 1b. **Phase 1b is behind the line and Test Bed's vanilla is
+still the live surface**, so a change to the shared component reaches three
+already-swapped surfaces the moment it lands, and it should land in the commit
+that is being walked rather than in one that is not.
+
+**What Phase 2 owes this entry:**
+
+1. The shared row drops `tabIndex` when the door refuses, by the same branch
+   behaviour 7 already uses for `readOnly`.
+2. An injection proving it: restore the stop, watch a test fail. The two causes
+   are asserted SEPARATELY, because one branch serving both is exactly the
+   arrangement where a later edit satisfies one and quietly drops the other.
+3. The refused row still READS. Dropping the stop must not drop the row's
+   display half, and the assertion says so by name - Verification 7, what must
+   REMAIN as well as what must change.

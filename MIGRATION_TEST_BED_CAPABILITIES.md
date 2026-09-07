@@ -151,3 +151,118 @@ execution order must be re-proven in the new runtime.
 **Whether scoring migrates in this round at all.** 24 names against Contact's
 whole surface of 76 is a scale question, and it is the business's rather than
 this document's.
+
+---
+
+# Addendum, 2026-09-07: the four load-bearing behaviours, exactly
+
+**Round 7 Phase 1b.** The Phase 0b enumeration named these four in outline. This
+is them read line by line before any of it is built, and **one of them turned out
+not to exist**.
+
+## Q. THE PER-ROW UNIT WRITE QUEUE
+
+**Q1. One queue PER UNIT ROW**, keyed by unit id, so two rows do not serialise
+against each other.
+
+**Q2. Nothing is dropped or coalesced.** Writes chain. *"A user cannot outrun
+this guard; they can only lengthen the queue, and the cost of lengthening it is
+latency rather than a lost write."*
+
+**Q3. THE REVISION IS READ INSIDE THE QUEUED LINK, not when the event fired.**
+Three fields entered at paste speed queue three writes, and each must expect the
+revision the one before it produced. **Reading it at event time would give all
+three the same number and refuse two** - the failure the queue exists to remove,
+arriving from the other direction.
+
+**Q4.** On success the local unit is REPLACED by the response, which is what
+makes Q3 true for the next link.
+
+**Q5. FAILURES ARE KEYED BY FIELD and outlive the burst**, cleared only by a
+later successful write to that same field.
+
+**Q6. The row settles ONCE PER DRAIN**, and shows the FIRST unresolved failure
+rather than the most recent - *"the earliest thing that went wrong is the one to
+fix first."*
+
+**Q7. A THROWN LINK MUST NOT BREAK THE CHAIN.** A rejected link would silently
+stop every later write for that row.
+
+**Q8.** The cell says `Saving` at enqueue, and `Saved` only when every field's
+most recent write succeeded.
+
+### Why Q5 and Q6 are two rules and not one
+
+Measured in the vanilla's own history: settling once per drain fixes the
+CONCURRENT case and leaves the SEQUENTIAL one, *"which is the commoner one"* - an
+invalid latitude refused in ~40ms, well before the operator finishes typing the
+longitude, so the two writes never overlap and a later success replaces the
+error while the latitude sits unsaved.
+
+## U. THE USE-CASE WHOLE-LIST READ-MODIFY-WRITE
+
+**U1.** Add appends to `tbPayload.useCases` and writes **the whole array**.
+Remove filters by index and writes the whole array.
+
+**U2. THAT IS A READ-MODIFY-WRITE IN THE BROWSER**, and the record PATCH's
+revision precondition is the only thing making it safe.
+
+**U3. THE CONCURRENT SHAPE, named: two people adding a use case at the same time
+would otherwise LOSE ONE.** Both read `["a"]`, both write `["a", "mine"]`, and
+the second overwrites the first. With the precondition the second is **refused**
+rather than silently winning.
+
+**U4.** Remove-by-INDEX is the same hazard sharpened: if the list changed
+between render and click, index 1 is no longer the row the person clicked. The
+precondition catches the record having moved; **it does not make the index
+right**, and that is a limit rather than a fix.
+
+**U5.** On success the record is re-read; on refusal nothing local changes.
+
+## B. THE EXIT-CRITERION TICK
+
+**B1. A tick writes an ISO TIMESTAMP; an untick writes `null`.** Never a
+boolean.
+
+**B2. WHY, and it is load-bearing:** `payload_field_required` blocks only on
+`undefined`, `null` and `''`. **A stored `false` reads as PRESENT and opens the
+gate.** Storing a timestamp on tick and deleting the key on untick makes
+"present and non-empty" structurally equivalent to "ticked".
+
+**B3.** A failed write leaves the control **untouched** - *"a failed write must
+not look like a success."*
+
+**B4.** The stage at click is captured, and the confirmed tick is applied only
+if the person is still on that stage.
+
+**B5.** It goes through `tbPatch`, so it carries the precondition like every
+other write on this screen.
+
+## R. THE SCORE REASON - AND THE ONE THAT DOES NOT EXIST
+
+**R1.** A reason is required when the LEVEL declares `reason_required`, read
+from the level's own data rather than a hardcoded list of levels.
+
+**R2.** A reason is ALSO required on any REVISION - `tbScoreSeries(key).length > 0`
+on the client, `existing.length > 0` on the server.
+
+**R3.** Save refuses locally and focuses the box, so the requirement is enforced
+at entry rather than asked again at save.
+
+### R4. MUST-DIFFER IS NOT IMPLEMENTED ANYWHERE, and the Phase 0b enumeration was wrong to state it as a behaviour
+
+**Measured**: `src/lib/score-entry.js` refuses an EMPTY reason twice - once for a
+`reason_required` level and once for a revision - and **compares the reason to
+nothing**. The client checks non-empty only. Neither side has ever compared a
+reason to the one already recorded.
+
+**The Phase 0b enumeration said it did**, citing Round 30. Round 30's ruling is
+real and is in `CLAUDE.md`, but it was made about the **Opportunity assessment
+panel**, and I asserted it of this surface without reading for it. That is a
+behaviour enumerated from a RULE rather than from the SOURCE, which is the thing
+these documents exist to prevent.
+
+**So building it is an IMPROVEMENT, not a port**, and it is recorded as one.
+The rule is worth applying: on a revision the box starts empty, so non-empty is
+a real check - but a person can retype the same sentence and a new level is then
+recorded carrying the reasoning given for a different one.

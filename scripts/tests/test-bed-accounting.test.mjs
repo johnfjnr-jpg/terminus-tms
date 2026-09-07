@@ -8,20 +8,24 @@
 // THE CAPABILITY LIST, NOT THE FIELD LIST, IS THIS SURFACE'S SCOPE.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { readFileSync, existsSync } from 'node:fs'
 import { topLevelNames, reachability } from '../lib/top-level-names.mjs'
 
 const ROOT = new URL('../../', import.meta.url)
 const SOURCE = () => readFileSync(new URL('frontend/test-bed-detail.js', ROOT), 'utf8')
 
-// `migrated` is this round's own bookkeeping; the report carries the evidence.
+// `migrated` HAS A READER, which is what stops it being bookkeeping prose that
+// rots (Verification 22, and Architecture 9's fourth variant). Every capability
+// names the React modules that implement it, and the flag is asserted to AGREE
+// with whether those files exist on disk. A flag flipped without a module, or a
+// module deleted under a flag, fails.
 const CAPABILITIES = {
-  'view-lifecycle': { migrated: false, names: [
+  'view-lifecycle': { migrated: false, modules: [], names: [
     'tbDetailId', 'tbBed', 'tbPayload', 'tbLoadedRevision', 'tbWired',
     'initTestBedDetailPanel', 'wireTbOnce', 'renderTbReference',
     'mountTbReferenceSubTabs', 'captureTbOpenEdits', 'restoreTbOpenEdits'] },
 
-  'field-rows': { migrated: false, names: [
+  'field-rows': { migrated: true, modules: ['descriptors.ts', 'TestBedPanel.tsx'], names: [
     'tbEdits', 'REGION_OPTIONS', 'INSTALLATION_ENVIRONMENT_OPTIONS',
     'SITE_OWNERSHIP_OPTIONS', 'TB_NAME_FIELD', 'TB_TERMINUS_FIELDS',
     'TB_CUSTOMER_FIELDS', 'TB_SUMMARY_FIELD', 'TB_SITE_FIELDS',
@@ -30,61 +34,61 @@ const CAPABILITIES = {
     'tbReadonlyRow', 'tbEffectiveValue', 'wireTbFieldInputs', 'openTbField',
     'discardTbField', 'onTbFieldInput', 'updateTbSaveBar', 'clearTbSaveFeedback'] },
 
-  'save-path': { migrated: false, names: [
+  'save-path': { migrated: true, modules: ['TestBedHost.tsx'], names: [
     'tbPatch', 'tbStaleMessage', 'saveTbFields', 'saveTbDirtyEntries'] },
 
-  'cost-preview': { migrated: false, names: [
+  'cost-preview': { migrated: true, modules: ['costPreview.ts'], names: [
     'TB_COST_INPUT_KEYS', 'tbCostPreview', 'tbCostPreviewTimer',
     'tbCostFieldsDirty', 'scheduleTbCostPreview', 'runTbCostPreview',
     'renderTbCostBreakdown'] },
 
-  'date-bounds': { migrated: false, names: ['refreshTbDateBounds'] },
+  'date-bounds': { migrated: true, modules: ['dateBounds.ts'], names: ['refreshTbDateBounds'] },
 
-  validation: { migrated: false, names: [
+  validation: { migrated: false, modules: [], names: [
     'tbInvalidFields', 'tbValidateNumeric', 'tbMarkFieldValidity',
     'renderTbValidationFeedback', 'guardNumericEntry'] },
 
-  'notes-history': { migrated: false, names: [
+  'notes-history': { migrated: false, modules: [], names: [
     'tbNotesExpanded', 'toggleTbNotes', 'tbNoteStageChip', 'tbNewNote',
     'renderTbNotes', 'addTbNote'] },
 
-  'revision-history': { migrated: false, names: ['renderTbHistory'] },
+  'revision-history': { migrated: false, modules: [], names: ['renderTbHistory'] },
 
-  'site-details': { migrated: false, names: ['TB_SITE_PANEL_KEYS', 'renderTbSiteDetails'] },
+  'site-details': { migrated: false, modules: [], names: ['TB_SITE_PANEL_KEYS', 'renderTbSiteDetails'] },
 
-  commercials: { migrated: false, names: ['renderTbCommercials'] },
+  commercials: { migrated: false, modules: [], names: ['renderTbCommercials'] },
 
-  'install-section': { migrated: false, names: [
+  'install-section': { migrated: false, modules: [], names: [
     'renderTbInstallSection', 'renderTbInstallNotes', 'addTbInstallNote'] },
 
-  installer: { migrated: false, names: [
+  installer: { migrated: false, modules: [], names: [
     'tbInstallerSearching', 'tbInstallerContacts', 'tbInstallerFeedback',
     'renderTbInstallerRow', 'openTbInstallerSearch', 'closeTbInstallerSearch',
     'renderTbInstallerResults', 'setTbInstaller'] },
 
-  'tech-team': { migrated: false, names: ['renderTbTechTeamRow', 'setTbTechTeam'] },
+  'tech-team': { migrated: false, modules: [], names: ['renderTbTechTeamRow', 'setTbTechTeam'] },
 
-  'customer-documents': { migrated: false, names: [
+  'customer-documents': { migrated: false, modules: [], names: [
     'tbCustomerDocs', 'tbCustDocFeedback', 'renderTbCustomerDocuments',
     'addTbCustomerDocument', 'removeTbCustomerDocument'] },
 
-  'sensor-counts': { migrated: false, names: [
+  'sensor-counts': { migrated: true, modules: ['units.ts'], names: [
     'tbUnitCounts', 'loadTbUnitCounts', 'COUNT_KEY_TO_UNIT_TYPE',
     'COUNT_KEY_FOR_UNIT_TYPE', 'tbLockedCountRow', 'renderTbSensorCounts',
     'tbUnitShortfall', 'renderTbCountCorrection'] },
 
-  'use-cases': { migrated: false, names: [
+  'use-cases': { migrated: true, modules: ['useCases.ts'], names: [
     'renderTbUseCases', 'addTbUseCase', 'removeTbUseCase'] },
 
-  'buyer-roles': { migrated: false, names: [
+  'buyer-roles': { migrated: true, modules: ['descriptors.ts'], names: [
     'tbAccountContacts', 'CLIENT_BUYER_ROLES', 'CLIENT_BUYER_ROLE_LABELS',
     'renderTbBuyerRows', 'linkTbBuyer'] },
 
-  'exit-criteria': { migrated: false, names: [
+  'exit-criteria': { migrated: true, modules: ['exitCriteria.ts'], names: [
     'TB_EXIT_CRITERION_KEYS', 'renderTbStageExitCriteria', 'toggleExitCriterion',
     'tbCriterionQueue', 'applyConfirmedCriterionTick'] },
 
-  scoring: { migrated: false, names: [
+  scoring: { migrated: true, modules: ['scoring.ts', 'scoreReason.ts'], names: [
     'tbScoringCriteria', 'tbScoresExpanded', 'tbScoreReasons', 'tbScoreAnchorsOpen',
     'applyTbPendingMarks', 'tbScoreReasonRequired', 'tbScoreAwaitingReason',
     'applyTbScoreEntryLock', 'setTbScoreDraft', 'setTbMeasurability',
@@ -93,7 +97,7 @@ const CAPABILITIES = {
     'recordTbScores', 'renderTbScoreSummary', 'ensureTbScoringCriteria',
     'tbScoreVisible', 'renderTbStageScoring', 'renderTbScores'] },
 
-  units: { migrated: false, names: [
+  units: { migrated: true, modules: ['unitQueue.ts', 'units.ts'], names: [
     'UNIT_TYPES', 'UNIT_TYPE_FOR_TAB_KEY', 'UNIT_STATES', 'tbUnits', 'tbUnitRow',
     'renderTbUnitPane', 'tbUnitWriteQueues', 'tbUnitWriteQueue', 'tbUnitSettleRow',
     'onTbUnitFieldChange', 'renderTbUnits'] },
@@ -150,4 +154,27 @@ test('the reachability split is recorded, for the shell round', () => {
   const { reachable, lexical } = reachability(topLevelNames(SOURCE()))
   assert.ok(reachable.length > 0 && lexical.length > 0,
     'the split produced nothing, so it did not run')
+})
+
+test('the migrated flag AGREES with the modules on disk, so it cannot be prose', () => {
+  const disagreements = []
+  for (const [cap, v] of Object.entries(CAPABILITIES)) {
+    assert.ok(Array.isArray(v.modules), `${cap} declares no module list`)
+    const built = v.modules.length > 0
+      && v.modules.every((m) => existsSync(new URL(`frontend-react/src/testbed/${m}`, ROOT)))
+    if (built !== v.migrated) {
+      disagreements.push(`${cap}: flag says ${v.migrated}, modules on disk say ${built}`)
+    }
+  }
+  assert.deepEqual(disagreements, [], disagreements.join('; '))
+})
+
+test('and a migrated capability names at least one module', () => {
+  // Otherwise the agreement above is satisfied by declaring nothing on both
+  // sides, which is Verification 14: true by absence.
+  const migrated = Object.entries(CAPABILITIES).filter(([, v]) => v.migrated)
+  assert.ok(migrated.length > 0, 'no capability is migrated, so this asserts nothing')
+  for (const [cap, v] of migrated) {
+    assert.ok(v.modules.length > 0, `${cap} is migrated and names no module`)
+  }
 })
