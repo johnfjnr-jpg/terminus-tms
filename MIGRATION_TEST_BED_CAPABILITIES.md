@@ -294,3 +294,137 @@ decision stays visible so a reader can tell a failed premise from a changed
 preference), and the Phase 1b injection sweep now REINSTATES must-differ as an
 injection - so the strip is a change something watches rather than an absence
 nothing asserts.
+
+---
+
+# Addendum, 2026-09-07 (fifth entry): THE STAGE-TAB SHELL, enumerated before build
+
+**Round 7 Phase 2b, session 1.** The five LOGIC-ONLY capabilities have no
+rendering surface because the thing that would render them does not exist. This
+enumerates it.
+
+**Enumerated from the vanilla by instruction** (`app.js`, the tab strip at
+`:2419`, `loadTbStageDetailTab` at `:6816`, the panel-state helpers at
+`:6787-6812`), which is the exception Phase 2b's instruction names to
+Verification 47's contract-only rule: there is no contract document for the
+stage tabs, and the Phase 0 enumeration recorded only Q1-Q3.
+
+---
+
+## T. THE TAB STRIP
+
+**T1. TEN TABS, and only eight of them are stages.** Measured from
+`data-tb-tab` in `index.html`: `reference`, `commercials`, and eight
+`stage-<name>` - Qualification, Pre-Site Assessment, Site Assessment,
+Installation and Commissioning, Monitoring and Analysis, Review and Completion,
+Decommissioning, Closed.
+
+**T2. THE EIGHT STAGE TABS SHARE ONE PHYSICAL PANEL**, `#tb-tab-stage-detail`.
+`reference` and `commercials` have panes of their own. This is why the strip
+supplies an `activate` hook rather than the default one-tab-one-pane mapping,
+and why every stage switch is a LOAD rather than a reveal.
+
+**T3. THE OPEN TAB AND THE CURRENT STAGE ARE DIFFERENT THINGS.** `.active`
+marks whichever tab is open; any of the ten can be opened at any time,
+including peeking at a future or past stage. `markTbCurrentStageTab` separately
+marks the ONE stage tab matching the record's own `status`, with the same green
+dot the chevron strip uses. **A green dot is not a selection.**
+
+**T4. THE USER'S CLICK OUTRANKS THE LOAD'S DEFAULT.** `tbUserPickedTab` exists
+because the tab bar is static markup and clickable before the record's own
+`switchTbTab('reference')` runs, and a real click in that window was silently
+overwritten. Confirmed live in Round 5 Phase 7.
+
+**T5. THE LANDING TAB, in precedence order** and it is four branches, not two:
+
+| condition | tab |
+|---|---|
+| a transition just landed | `stage-<the stage just entered>` |
+| a fresh arrival and the user has not clicked | `reference` |
+| a reload with a tab already open | that same tab, RE-LOADED |
+| otherwise | `reference` |
+
+The third branch re-runs the load rather than leaving the tab alone: it
+preserves the tab AND refreshes it. Leaving the switch out keeps the tab and
+shows stale content, which trades one fault for a worse one.
+
+**T6. THE SAVE FEEDBACK CLEARS ON A TAB CHANGE, NOT ON A RE-APPLY.** Every
+reload calls `switchTbTab`, including the branch that re-selects the open tab,
+so clearing on any activation would erase the message `recordTbScores`
+deliberately writes before reloading - the one case where a failure must
+survive a reload, because the reload is part of reporting it.
+
+**T7. NEXT STAGE IS GATED ON THE OPEN TAB**, and the tab can change with no
+re-render, so the button is refreshed from the activate hook. Disabled unless
+the open tab is `stage-<the record's current stage>`; label becomes `Final
+stage` with no next stage.
+
+---
+
+## P. THE STAGE PANEL'S LOAD
+
+**P1. A LOAD TOKEN, TAKEN AT THE TOP AND CHECKED AFTER EVERY AWAIT.** Fast tab
+switches leave two loads in flight, and without the check the OLDER response
+resolves last and writes the wrong stage into the shared panel. Confirmed live
+on two panels; a third had no guard at all and was safe only because it ran
+last, until the fetches were parallelised (Architecture 8's own recorded
+instance).
+
+**P2. THREE FETCHES CONCURRENTLY, EACH RENDERING ON ITS OWN RESPONSE**:
+documents, exit criteria, approvals. Measured sequentially at 654 + 310 + 1070
+= 2034ms, which was exactly how long the criteria panel took to stop showing
+the previous stage's content. **Each panel renders when ITS request lands**, so
+the slowest no longer sets the floor.
+
+**P3. THE PENDING/SETTLED CONTRACT, and it is what makes the panel testable.**
+
+| attribute | meaning |
+|---|---|
+| `dataset.pending` | the stage being loaded, present only in flight |
+| `dataset.stage` | the stage whose DATA is displayed, set only when real data rendered |
+
+Marked **synchronously at the click, before any await**, so there is no window
+where stale content is presented as current. A failure clears BOTH, so a check
+waiting on `dataset.stage` cannot pass against an error message.
+
+**P4. THE TERMINAL STAGE RENDERS THE COMPLETED RECORD, NOT THE PANELS.** Closed
+has no exit gate, no documents and no approvals, so the ordinary panels would
+be permanently empty. **Decided by the DATA - no next stage in
+`stage_definitions` - not by matching the string `Closed`**, so a record type
+whose last stage is named otherwise behaves the same.
+
+**P5. THE TERMINAL BRANCH STILL STAMPS THE SCORING CARD'S STAGE.** It returns
+before the three fetches, so the card would carry no `dataset.stage` at all.
+Stamping it completes the attribute's contract on all eight tabs rather than
+seven.
+
+**P6. THE INSTALL SECTION IS A VISIBILITY TOGGLE, NOT A RE-RENDER.** Installer,
+Tech Team and Install Notes apply only to Installation and Commissioning. The
+fields are rendered once and stay mounted, so switching away and back cannot
+lose an in-progress edit.
+
+**P7. UNITS RENDER ONLY FOR THE STAGE THAT OWNS THEM.** Deriving against a
+hidden section would create records for a tab nobody opened.
+
+**P8. THE SCORING CARD IS HIDDEN UNTIL ITS OWN CRITERIA ARE DERIVED**, so
+Pre-Site Assessment can never show Qualification's five while its fetch is in
+flight.
+
+**P9. AN UNEXPECTED THROW MUST NOT LEAVE A PANEL PENDING.** The `catch` writes
+a real error into every panel still carrying `dataset.pending`, and **only the
+current load may clear it** - a stale failure clearing a newer load's state is
+the same race P1 guards.
+
+---
+
+## What this enumeration does NOT decide
+
+**The door's interaction with the tabs.** Q3 records `markStagePanelFailed` /
+`markStagePanelSettled` as SHELL functions this file calls, so the panel's
+loading state is the shell's contract, and the shell is a later round. **The
+React shell for the tabs is built here; the shell's own ownership sweep at
+`:6520` is not touched.**
+
+**Which tabs a non-owner may open.** Measured in Phase 0b: the door is about
+FIELDS, not navigation. No tab is gated on ownership in the vanilla, and this
+enumeration does not add one.

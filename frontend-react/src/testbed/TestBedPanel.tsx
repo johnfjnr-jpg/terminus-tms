@@ -26,7 +26,7 @@ function Card({ title, testId, children }: { title: string, testId: string, chil
   )
 }
 
-export function TestBedPanel({ source, contacts, buyers, onSave, onDirtyChange, onDraftsChange, notes, costBreakdown, controls }: {
+export function TestBedPanel({ source, contacts, buyers, onSave, onDirtyChange, onDraftsChange, notes, costBreakdown, controls, useCases }: {
   source: TestBedSource
   /** The Account's contacts, for the buyer lookups. */
   contacts: LookupOption[]
@@ -40,6 +40,8 @@ export function TestBedPanel({ source, contacts, buyers, onSave, onDirtyChange, 
   costBreakdown?: ReactNode
   /** installer, tech team - direct-write controls the host owns. */
   controls?: ReactNode
+  /** The use-case list. Its writes are whole-list, so the host owns them. */
+  useCases?: ReactNode
 }) {
   const base = testBedDescriptors(source)
 
@@ -126,6 +128,8 @@ export function TestBedPanel({ source, contacts, buyers, onSave, onDirtyChange, 
       <Card title="Summary" testId="tb-card-summary">
         {row('summary')}
       </Card>
+
+      {useCases ? <Card title="Use Cases" testId="tb-card-usecases">{useCases}</Card> : null}
 
       {controls}
       {notes}

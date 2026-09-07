@@ -196,11 +196,15 @@ test('every declared module EXISTS, so a state cannot rest on a typo', () => {
  * stops it becoming a stale list nobody updates (Architecture 9's fourth
  * variant).
  *
- * Measured 2026-09-07, Round 7 Phase 2, and it is why the swap did not happen
- * in that phase. `logic-only` is the one worth reading twice: five capabilities
- * have modules, tests and injection sweeps, and NOTHING IMPORTS THEM. Phase 1b
- * built scoring, units, exit criteria, use cases and sensor counts as logic
- * with no rendering surface, and the flag it used said migrated.
+ * THE RATCHET. Phase 2 recorded ELEVEN, five of them `logic-only`: capabilities
+ * with modules, tests and injection sweeps that NOTHING IMPORTED. Phase 2b
+ * session 1 built the stage-tab shell they render through, and logic-only is
+ * now empty.
+ *
+ * | session | capabilities | vanilla lines a swap would take |
+ * |---|---|---|
+ * | Phase 2 | 11 (5 logic-only, 6 absent) | 1838 |
+ * | Phase 2b session 1 | 6 (0 logic-only, 6 absent) | 362 |
  */
 const NOT_RENDERED = [
   { cap: 'validation', state: 'absent' },
@@ -209,11 +213,6 @@ const NOT_RENDERED = [
   { cap: 'installer', state: 'absent' },
   { cap: 'tech-team', state: 'absent' },
   { cap: 'customer-documents', state: 'absent' },
-  { cap: 'sensor-counts', state: 'logic-only' },
-  { cap: 'use-cases', state: 'logic-only' },
-  { cap: 'exit-criteria', state: 'logic-only' },
-  { cap: 'scoring', state: 'logic-only' },
-  { cap: 'units', state: 'logic-only' },
 ]
 
 test('the capabilities the React surface does not render are EXACTLY the recorded ones', () => {

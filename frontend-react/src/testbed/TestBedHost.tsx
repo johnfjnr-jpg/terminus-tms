@@ -9,9 +9,16 @@ import { useShell } from '../ShellContext'
 import type { LookupOption } from '../field-row/types'
 import { NotesHistory } from '../contact/NotesHistory'
 import { note, prepend, type Note } from '../contact/notes'
+import { StageTabs, type StageTabsDeps } from './StageTabs'
+import { UseCasesList } from './UseCasesList'
+import { DERIVE_ROUTE, UNITS_ROUTE, type Unit } from './units'
+import { SCORE_ROUTE, type Criterion } from './scoring'
+import type { ScoreEntry } from './scoreReason'
+import type { Stage } from './stageLoad'
 
 interface BedLike {
   id: string
+  status?: string
   payload?: Record<string, unknown>
   buyer_contacts?: Array<{ role?: string, contact_id?: string, name?: string }>
   account?: { id?: string } | null
@@ -49,8 +56,29 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
   const [preview, setPreview] = useState<unknown | null>(null)
   const [feedback, setFeedback] = useState<{ text: string | null, html?: string | null, ok: boolean } | null>(null)
   const [dirty, setDirty] = useState(false)
+  const [units, setUnits] = useState<Unit[]>([])
+  const [stages, setStages] = useState<Stage[]>([])
+  const [scoring, setScoring] = useState<Record<string, Criterion[]>>({})
+  const [seriesByKey, setSeriesByKey] = useState<Record<string, ScoreEntry[]>>({})
 
   useEffect(() => { setRecord(bed) }, [bed])
+
+  // The stage list and the units, both of which the tab shell needs before a
+  // stage tab can decide whether it is terminal (P4).
+  useEffect(() => {
+    let live = true
+    void shell.api<Stage[]>('GET', '/api/stages?record_type=test_bed').then((r) => {
+      if (live && r.ok && Array.isArray(r.data)) setStages(r.data)
+    })
+    return () => { live = false }
+  }, [shell])
+
+  const loadUnits = useCallback(async () => {
+    const r = await shell.api<Unit[]>('GET', UNITS_ROUTE(bed.id))
+    if (r.ok && Array.isArray(r.data)) setUnits(r.data)
+  }, [shell, bed.id])
+
+  useEffect(() => { void loadUnits() }, [loadUnits])
 
   // The surface fetches its own staff: `terminusStaffCache` is a module-scope
   // `let` in app.js that no bundle can read. Round 5's ruling, applied again.
@@ -133,9 +161,87 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
 
   const notes = (record.payload?.notes as Note[] | undefined) ?? []
 
+  /**
+   * The whole-list write the use cases and the exit tick both need.
+   *
+   * ONE writer, because both are a record PATCH carrying the revision as the
+   * precondition, and two would be Verification 20's shape on the save path.
+   */
+  const patchPayload = useCallback(async (payload: Record<string, unknown>) => {
+    const r = await shell.api<{ error?: string }>('PATCH', `/api/test-beds/${bed.id}`, {
+      payload,
+      expected_revision: Number.isInteger(record.latest_revision_number)
+        ? record.latest_revision_number : null,
+    })
+    if (!r.ok) {
+      setFeedback({
+        text: r.status === 409
+          ? 'This Test Bed changed since the screen loaded. Reload before saving.'
+          : (r.data?.error ?? 'Failed to save.'),
+        html: null, ok: false,
+      })
+      if (r.status === 409) await load()
+      return false
+    }
+    await load()
+    return true
+  }, [shell, bed.id, record.latest_revision_number, load])
+
+  const stageDeps: StageTabsDeps = useMemo(() => ({
+    stages,
+    documents: (stage) => shell.api(
+      'GET', `/api/test-beds/${bed.id}/document-requirements?stage=${encodeURIComponent(stage)}`),
+    criteria: (stage) => shell.api(
+      'GET', `/api/records/${bed.id}/exit-criteria?stage=${encodeURIComponent(stage)}`),
+    approvals: () => shell.api('GET', `/api/records/${bed.id}/stage-approvals`),
+    scoringCriteria: (stage) => scoring[stage] ?? [],
+    series: (key) => seriesByKey[key] ?? [],
+    onTick: (payload) => { void patchPayload(payload) },
+    onRecordScores: (drafts, reasons) => {
+      void (async () => {
+        const entries = Object.entries(drafts).map(([criterion_key, score]) => ({
+          criterion_key, score: Number(score), reason: reasons[criterion_key] ?? null,
+        }))
+        const r = await shell.api<{ error?: string, series?: Record<string, ScoreEntry[]> }>(
+          'POST', SCORE_ROUTE(bed.id), { entries })
+        if (!r.ok) {
+          setFeedback({ text: r.data?.error ?? 'Failed to record scores.', html: null, ok: false })
+          return
+        }
+        if (r.data?.series) setSeriesByKey(r.data.series)
+        await load()
+      })()
+    },
+    onDeriveUnits: async () => {
+      const r = await shell.api('POST', DERIVE_ROUTE(bed.id), {})
+      if (r.ok) await loadUnits()
+    },
+    unitDeps: {
+      patch: (unitId, field, value, expectedRevision) => shell.api(
+        'PATCH', `/api/units/${unitId}`,
+        { payload: { [field]: value }, expected_revision: expectedRevision }),
+      unitById: (unitId) => units.find((u) => u.id === unitId),
+      onUnit: (unit) => setUnits((us) => us.map(
+        (u) => (u.id === (unit as Unit).id ? (unit as Unit) : u))),
+    },
+  }), [shell, bed.id, stages, scoring, seriesByKey, units, patchPayload, load, loadUnits])
+
+  const useCasesNode = (
+    <UseCasesList useCases={record.payload?.useCases as string[] | undefined}
+      onWrite={(next) => patchPayload({ useCases: next })} />)
+
   return (
     <div data-testid="testbed-host">
-      <TestBedPanel
+      <StageTabs
+        payload={record.payload ?? {}}
+        units={units}
+        landing={null}
+        fresh
+        currentStage={record.status ?? ''}
+        nextStage={null}
+        deps={stageDeps}
+        commercials={null}
+        reference={<TestBedPanel
         source={source}
         contacts={contacts}
         buyers={buyers}
@@ -166,7 +272,8 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
               if (!r.ok) { if (r.status === 409) await load(); return false }
               await load()
               return true
-            }} />} />
+            }} />}
+          useCases={useCasesNode} />} />
       {feedback
         ? (feedback.html
           ? <div data-testid="tb-save-feedback" className="msg-error"
