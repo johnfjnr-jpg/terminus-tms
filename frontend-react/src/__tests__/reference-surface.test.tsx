@@ -48,6 +48,7 @@ const shell = (canEdit: boolean | 'absent'): ShellServices => ({
   currentUserEmail: () => 'probe@example.invalid',
   staleWriteHtml: () => null,
   setContactReturnView: () => {},
+  confirmDiscard: (p: () => void) => { p() },
 })
 
 const mount = async (opts: {

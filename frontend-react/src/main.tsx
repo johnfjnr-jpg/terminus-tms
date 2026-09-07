@@ -65,17 +65,38 @@ declare global {
 // The registration shape both surfaces share. `detailLoaded` fires on the two
 // paths the component itself can never reach - no container, and a mount that
 // throws - which is Round 41 item K at the layer above the view.
-function register(view: string, render: (id: string) => React.ReactElement) {
+// ── A NAVIGATION TOKEN, BECAUSE A RE-RENDER IS NOT A REMOUNT ─────────────
+//
+// Round 6 Phase 2, from a defect the live walk found. Navigating to a record
+// the view is ALREADY showing calls this again, and root.render() re-renders
+// the same component instance rather than mounting a new one. So every
+// mount-shaped assumption silently stops holding:
+//
+//   - an effect with unchanged deps does not re-run, which left `is-loading`
+//     on the view permanently
+//   - useQuery sees no new observer, so it serves CACHED data and never
+//     refetches - and the walk measured a contact still reading "Unqualified"
+//     after it had been qualified
+//
+// The vanilla re-read the record on every load. This token is how a view can
+// too: it changes on every navigation, including a repeat one, and a view that
+// wants per-navigation behaviour depends on it. Views that do not are
+// unchanged.
+const navTokens = new Map<string, number>()
+
+function register(view: string, render: (id: string, navToken: number) => React.ReactElement) {
   return function (id: string): void {
     try {
       const container = document.getElementById(`view-${view}`)
       if (!container) { shellServices.detailLoaded(view); return }
+      const navToken = (navTokens.get(view) ?? 0) + 1
+      navTokens.set(view, navToken)
       let root = roots.get(view)
       if (!root) { root = createRoot(container); roots.set(view, root) }
       root.render(
         <StrictMode>
           <QueryClientProvider client={queryClient}>
-            <ShellProvider services={shellServices}>{render(id)}</ShellProvider>
+            <ShellProvider services={shellServices}>{render(id, navToken)}</ShellProvider>
           </QueryClientProvider>
         </StrictMode>,
       )
@@ -92,7 +113,8 @@ window.loadAccountDetail = register(ACCOUNT_VIEW, (id) => <AccountView accountId
 //
 // A whole-view migration like the two above, so createRoot owns
 // #view-contact-detail and clears the static markup on first render.
-window.loadContactDetail = register(CONTACT_VIEW, (id) => <ContactView contactId={id} />)
+window.loadContactDetail = register(CONTACT_VIEW,
+  (id, navToken) => <ContactView contactId={id} navToken={navToken} />)
 
 // ── THE COMMERCIALS PANEL ────────────────────────────────────────────────
 //

@@ -59,6 +59,7 @@ const services: ShellServices = {
   currentUserEmail: () => 'probe@example.invalid',
   staleWriteHtml: () => null,
   setContactReturnView: () => {},
+  confirmDiscard: (p: () => void) => { p() },
 }
 
 const mount = async () => {

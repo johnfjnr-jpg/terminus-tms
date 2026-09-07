@@ -8,6 +8,7 @@ import type { ContactSource } from './descriptors'
 import { contactDescriptors } from './descriptors'
 import { clearResolved, forRecord, unplaceable, type BlockingState, type Blocker } from './blocking'
 import { useShell } from '../ShellContext'
+import { LinkAccountPanel, type AccountOption } from './LinkAccountPanel'
 import type { LookupOption } from '../field-row/types'
 
 interface ContactLike {
@@ -68,8 +69,20 @@ export function ContactHost({ contact, registerReload }: {
   registerReload?: (reload: () => void) => void
 }) {
   const shell = useShell()
+  // ── THE PROP IS THE SOURCE, AND useState ONLY TAKES ITS FIRST VALUE ────
+  //
+  // `useState(contact)` seeds once and ignores every later prop. The view
+  // refetches on each navigation (main.tsx's navToken), so without this sync
+  // the host goes on holding the record it was FIRST given - and the walk
+  // measured exactly that: after qualifying, Back still went to leads because
+  // `record.status` was the pre-qualify value while the view had the new one.
+  //
+  // Two readers of one record, and the stale one was making the decision.
   const [record, setRecord] = useState<ContactLike>(contact)
+  useEffect(() => { setRecord(contact) }, [contact])
   const [industries, setIndustries] = useState<LookupOption[]>([])
+  const [accounts, setAccounts] = useState<AccountOption[]>([])
+  const [dirty, setDirty] = useState(false)
   const [blocking, setBlocking] = useState<BlockingState | null>(null)
   const [feedback, setFeedback] = useState<{ text: string | null, html?: string | null, ok: boolean } | null>(null)
 
@@ -80,6 +93,20 @@ export function ContactHost({ contact, registerReload }: {
     void shell.api<Array<{ id: string, name: string }>>('GET', '/api/industries').then((r) => {
       if (live && r.ok && Array.isArray(r.data)) {
         setIndustries(r.data.map((i) => ({ id: i.id, name: i.name })))
+      }
+    })
+    return () => { live = false }
+  }, [shell])
+
+  // The Accounts the link panel searches. Fetched here for the same reason as
+  // the industries: app.js's accountsCache is a module-scope `let`, and Round
+  // 2's inventory measured it as unreachable from a bundle.
+  useEffect(() => {
+    let live = true
+    void shell.api<Array<{ id: string, payload?: { name?: string }, name?: string }>>(
+      'GET', '/api/accounts').then((r) => {
+      if (live && r.ok && Array.isArray(r.data)) {
+        setAccounts(r.data.map((a) => ({ id: a.id, name: a.payload?.name ?? a.name ?? '--' })))
       }
     })
     return () => { live = false }
@@ -210,6 +237,21 @@ export function ContactHost({ contact, registerReload }: {
         blocking={blocking}
         accountName={record.account?.name ?? null}
         onSave={(c) => { void onSave(c) }}
+        onDirtyChange={setDirty}
+        // THE SAME RULE THE SEAM PUBLISHES, read from the same place, so the
+        // button and the shell's accessor cannot disagree about where Back
+        // goes. Verification 20: one definition, two consumers.
+        onBack={() => { shell.navigate(returnViewFor(record.status ?? null)) }}
+        linkPanel={
+          <LinkAccountPanel
+            contactId={contact.id}
+            accounts={accounts}
+            hasDirtyEdits={dirty}
+            // THE SHARED DISCARD DIALOGUE, through the seam. Linking may lose
+            // unsaved edits, and the vanilla asks first - so this does too,
+            // and asks with the same modal rather than a second one.
+            onConfirmDiscard={(proceed) => { shell.confirmDiscard(proceed) }}
+            onLinked={() => { void load() }} />}
         actions={
           <div className="cd-actions" data-testid="cd-actions">
             <button type="button" id="cd-btn-qualify" data-testid="cd-btn-qualify"

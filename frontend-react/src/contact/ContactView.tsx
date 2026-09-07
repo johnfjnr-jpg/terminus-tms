@@ -23,7 +23,7 @@ interface ContactRecord {
   latest_revision_number?: number | null
 }
 
-export function ContactView({ contactId }: { contactId: string }) {
+export function ContactView({ contactId, navToken }: { contactId: string, navToken?: number }) {
   const shell = useShell()
 
   const contact = useQuery({
@@ -36,6 +36,20 @@ export function ContactView({ contactId }: { contactId: string }) {
       return found
     },
   })
+
+  // ── EVERY NAVIGATION RE-READS THE RECORD ──────────────────────────────
+  //
+  // The vanilla did, and parity needs it: navigating back to a contact whose
+  // status changed elsewhere - or whose status THIS SCREEN changed by
+  // qualifying it - must not serve the cached row. Measured by the walk: after
+  // a successful qualify the record read "Unqualified" on the next visit, and
+  // the back button therefore went to leads instead of contacts.
+  //
+  // Keyed on navToken rather than on mount, because root.render() re-renders
+  // this instance instead of remounting it, so useQuery sees no new observer
+  // and refetchOnMount never fires.
+  const refetch = contact.refetch
+  useEffect(() => { if (navToken !== undefined) void refetch() }, [navToken, refetch])
 
   // ── C1: THE RETURN VIEW IS PUBLISHED FROM HERE ─────────────────────────
   //
@@ -51,10 +65,27 @@ export function ContactView({ contactId }: { contactId: string }) {
     shell.setContactReturnView(returnViewFor(status))
   }, [shell, status])
 
-  // detailLoaded on EVERY exit path, Round 41 item K: an early return that
-  // forgets it hides the view permanently.
+  // ── detailLoaded ON EVERY NAVIGATION, NOT EVERY STATE CHANGE ──────────
+  //
+  // Round 41 item K, and NO DEPENDENCY ARRAY, which is the whole fix.
+  //
+  // Written as `useEffect(..., [settled, shell])` this fires when `settled`
+  // CHANGES. Navigating to a record whose query is already cached leaves
+  // `settled` true from the first render, so the dependency never changes, the
+  // effect never re-runs, and `detailLoaded` is never called for that
+  // navigation - while app.js has just set `is-loading` on the view expecting
+  // it to be cleared.
+  //
+  // MEASURED BY THE LIVE WALK: re-opening the same contact left the view at
+  // `class="wrap is-loading"` with the panel fully rendered underneath it,
+  // permanently. Item K's own failure - an exit that forgets the flag - through
+  // a memoised effect rather than an early return.
+  //
+  // Running on every render is right and cheap: detailLoaded removes a class,
+  // and "the view has painted and is not pending" is a per-render fact rather
+  // than a per-transition one.
   const settled = !contact.isPending
-  useEffect(() => { if (settled) shell.detailLoaded(VIEW) }, [settled, shell])
+  useEffect(() => { if (settled) shell.detailLoaded(VIEW) })
 
   if (contact.isPending) {
     return <p className="pg-item-note" data-testid="contact-loading">Loading the Contact…</p>

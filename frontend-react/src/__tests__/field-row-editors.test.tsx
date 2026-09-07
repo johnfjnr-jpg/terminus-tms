@@ -367,3 +367,28 @@ describe('A8-A11: options as {id, name} pairs', () => {
     expect(editorTakesSeed(field({ name: 'industry', options: INDUSTRIES }))).toBe(false)
   })
 })
+
+// ─────────────────────────────────────────────────────────────────────────
+// A10's BOUNDARY, found by the live walk. Round 6 Phase 2
+// ─────────────────────────────────────────────────────────────────────────
+describe('A10 applies only once there IS an option list', () => {
+  test('an empty list is NOT the same as an unrecognised id', () => {
+    // The surface fetches its options (A11), so a row can render before they
+    // arrive. Falling back to the id there put a raw UUID on the screen, which
+    // the walk caught. Two different states, and only one is A10's.
+    expect(displayValueFor({ name: 'industry', label: 'Industry', value: 'i-1', options: [] }))
+      .toBe('')
+  })
+
+  test('and with a list present the A10 fallback still holds', () => {
+    expect(displayValueFor({
+      name: 'industry', label: 'Industry', value: 'i-GONE',
+      options: [{ id: 'i-1', name: 'Aviation' }],
+    })).toBe('i-GONE')
+  })
+
+  test('a field with NO options declared is untouched by either rule', () => {
+    expect(displayValueFor({ name: 'city', label: 'City', value: 'Singapore' }))
+      .toBe('Singapore')
+  })
+})

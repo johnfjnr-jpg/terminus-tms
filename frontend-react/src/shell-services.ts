@@ -109,6 +109,19 @@ export interface ShellServices {
    * contact is what a record with no status is.
    */
   setContactReturnView(view: 'contacts' | 'leads'): void
+  /**
+   * The shell's shared "you have unsaved changes" dialogue.
+   *
+   * REUSED, NOT REBUILT, for the same reason as the change-reason dialogue: it
+   * owns its focus trap and its single Escape owner, and a React copy would be
+   * a second place for both to drift. `proceed` runs only if the person
+   * accepts losing the edits.
+   *
+   * Falls THROUGH rather than throwing when the shell has none: refusing to
+   * link because a dialogue is missing would be worse than linking, and the
+   * caller has already decided the action is wanted.
+   */
+  confirmDiscard(proceed: () => void): void
 }
 
 export interface ChangeReasonOptions {
@@ -135,6 +148,7 @@ type ShellWindow = Window & {
   currentSession?: { user?: { email?: string } } | null
   staleWriteHtml?: (recordId: string) => string
   contactReturnView?: () => 'contacts' | 'leads'
+  openDiscardConfirm?: (proceed: () => void) => void
 }
 
 const w = (): ShellWindow => window as ShellWindow
@@ -204,5 +218,10 @@ export const shellServices: ShellServices = {
   // button still works.
   setContactReturnView(view: 'contacts' | 'leads'): void {
     w().contactReturnView = () => view
+  },
+  confirmDiscard(proceed: () => void): void {
+    const fn = w().openDiscardConfirm
+    if (typeof fn === 'function') { fn(proceed); return }
+    proceed()
   },
 }

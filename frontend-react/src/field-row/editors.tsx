@@ -108,7 +108,20 @@ export function normaliseOptions(options: FieldDescriptor['options']): LookupOpt
 export function displayValueFor(field: FieldDescriptor): string {
   const value = field.value ?? ''
   if (!value || !field.options) return value
-  return normaliseOptions(field.options).find((o) => o.id === value)?.name ?? value
+  const list = normaliseOptions(field.options)
+  // ── A10 APPLIES ONLY ONCE THERE IS A LIST. Round 6 Phase 2 ────────────
+  //
+  // An EMPTY options list means the choices are not known yet - the surface
+  // fetches them (A11) and a row can render before they arrive. Falling back
+  // to the id there puts a raw UUID on the screen during the load, which the
+  // live walk caught: `display="c1160c2d-31fb-..."` where a name was expected.
+  //
+  // "The id is not among the choices I know" and "I do not know the choices"
+  // are different states, and only the first is what A10 was written about.
+  // With no list at all nothing has been established, so the row shows its
+  // placeholder - the same thing it shows for any value it cannot render.
+  if (!list.length) return ''
+  return list.find((o) => o.id === value)?.name ?? value
 }
 
 /**

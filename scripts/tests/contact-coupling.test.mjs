@@ -68,7 +68,7 @@ test('the ledger accounts for every file that reads the vanilla Contact view', (
 // The direction a one-way census cannot see. Verification 50's own instance
 // was a form reaching into version state; here it is the shell.
 const DECLARED_SEAM = [
-  'api', 'currentUserEmail', 'detailLoaded', 'navigate',
+  'api', 'confirmDiscard', 'currentUserEmail', 'detailLoaded', 'navigate',
   'setContactReturnView', 'staleWriteHtml',
 ]
 
