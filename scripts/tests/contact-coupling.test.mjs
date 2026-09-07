@@ -39,6 +39,13 @@ const LEDGER = {
     + 'capture it beside the React surface at three widths - which IS the '
     + 'load-order revert at runtime, and is what lets the comparison prove its '
     + 'two captures are of different implementations. Retires with the file.',
+  'scripts/tests/surface-accounting.test.mjs':
+    'KEPT, AND IT IS THE CENSUS-COMPLETENESS DETECTOR. It parses the vanilla '
+    + 'for its top-level names and asserts every one is claimed by an '
+    + 'enumerated capability - evidence ABOUT the file rather than a dependency '
+    + 'on it. It is what would have caught the Phase 2 scope gap before the '
+    + 'swap. Retires with the file, and its map moves to whichever surface is '
+    + 'being censused next.',
   'scripts/tests/contact-coupling.test.mjs':
     'THIS FILE. It names the surface because it is the ledger.',
 }
