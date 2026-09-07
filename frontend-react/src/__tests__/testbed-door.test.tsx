@@ -148,54 +148,32 @@ describe('D: NOT MINE - every row refuses, by every path', () => {
     expect(opened, `${opened} of ${NAMES.length} rows opened on a record that is not mine`).toBe(0)
   })
 
-  test('D5 FINDING: a refused row still takes FOCUS, though it will not open', async () => {
-    // MEASURED, and recorded rather than changed. FieldRow gives every
-    // non-readOnly row tabIndex 0 whatever the door says, so a keyboard user
-    // on a record that is not theirs can Tab onto a row that then refuses.
+  test('A12: A REFUSED ROW IS NOT A TAB STOP, and still READS', async () => {
+    // INVERTED BY RULING at Phase 2e, and the finding this replaces is kept in
+    // the contract's eighth entry rather than deleted.
     //
-    // THAT IS ALREADY THE FIX. The vanilla's row focuses AND OPENS; this one
-    // focuses and refuses, which is the difference that matters. What remains
-    // is that the row is a stop in the tab order doing nothing, which is a
-    // question about the SHARED component across four surfaces and therefore a
-    // contract question rather than a Phase 1a decision.
-    //
-    // Recommended for the contract: a row the door refuses drops its tab stop,
-    // the way a readOnly row already does. Recorded in the seventh entry.
+    // Phase 1a measured that a refused row carried tabIndex 0, took focus and
+    // then refused - already an improvement on the vanilla, whose row focused
+    // AND OPENED, but a stop in the tab order doing nothing. A12 rules that
+    // behaviour 7's logic covers the second cause of the same condition.
     canEdit = false
     await mount()
-    expect(display('city')!.getAttribute('tabindex')).toBe('0')
-    // And the thing that matters is still true:
-    await act(async () => { display('city')!.focus() })
-    await act(async () => {
-      display('city')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
-    })
-    expect(isOpen('city'), 'focus led to an open row on a record that is not mine').toBe(false)
+    expect(display('city')!.getAttribute('tabindex'),
+      'a row the door refuses is still a tab stop').toBeNull()
+    // And what must REMAIN: the row still renders and still reads. Verification
+    // 7 - a change is two claims, and the second almost never gets an assertion.
+    expect(display('city'), 'the refused row stopped rendering').toBeTruthy()
+    expect(display('city')!.textContent, 'the refused row stopped showing its value')
+      .toBeTruthy()
   })
-})
 
-describe('D6: the guard FAILS CLOSED', () => {
-  test('a shell with no registry line refuses every row', async () => {
-    // Until the swap commit adds `test-bed-detail` to CAN_EDIT_BY_VIEW the seam
-    // answers false, which is the safe direction: a surface nobody can see
-    // must not be one anybody can edit.
-    canEdit = 'absent'
-    await mount()
-    await act(async () => { display('city')!.click() })
-    expect(isOpen('city')).toBe(false)
-  })
-})
-
-describe('D7: the guard is consulted at EVERY attempt, never captured at render', () => {
-  test('a door that opens after the render is honoured', async () => {
-    canEdit = false
-    await mount()
-    await act(async () => { display('city')!.click() })
-    expect(isOpen('city')).toBe(false)
-    // No re-render: the same mounted tree, and the door changes underneath it.
+  test('A12: and an OPEN door still gives every row its stop', async () => {
+    // The counterfactual. Without this the assertion above is satisfied by a
+    // component that never sets tabIndex at all.
     canEdit = true
-    await act(async () => { display('city')!.click() })
-    expect(isOpen('city'),
-      'the guard was read once at render, so a door that opened later did nothing')
-      .toBe(true)
+    await mount()
+    expect(display('city')!.getAttribute('tabindex'),
+      'no row is a tab stop even with the door open, so A12 asserts nothing')
+      .toBe('0')
   })
 })

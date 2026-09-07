@@ -85,10 +85,18 @@ describe('the bundle registers exactly the loaders it declares', () => {
     // seam when a record loads, not at import. The shell asks for it through a
     // guarded accessor with a default, so a bundle that has never mounted a
     // Contact leaves the back button working.
+    // Round 7 Phase 2e adds ONE name, loadTestBedDetail, and no accessor. The
+    // Test Bed view fetches its own accounts and staff for the same reason -
+    // accountsCache and terminusStaffCache are module-scope `let`s no bundle
+    // can read.
+    //
+    // `takeTestBedLanding` is NOT here, and deliberately: it is published by
+    // the SHELL, not by the bundle. The direction is the opposite of
+    // `contactReturnView`, which the bundle writes and the shell reads.
     expect(added).toEqual([
       'initOpportunityDealPanel', 'initOpportunityDealVersions',
       'initOpportunityReferencePanel', 'loadAccountDetail', 'loadApprovalPage',
-      'loadContactDetail'])
+      'loadContactDetail', 'loadTestBedDetail'])
   })
 })
 

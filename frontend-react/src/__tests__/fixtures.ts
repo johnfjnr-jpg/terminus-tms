@@ -143,6 +143,7 @@ export function shellServices(
     requestChangeReason: () => {},
     currentUserEmail: () => 'test@example.com',
     currentUserId: () => 'user-1',
+    takeTestBedLanding: () => null,
     staleWriteHtml: () => null,
     usesWorkflow: () => false,
     attemptTransition: () => {},

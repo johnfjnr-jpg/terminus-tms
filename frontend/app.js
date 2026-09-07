@@ -192,6 +192,26 @@ const CAN_EDIT_BY_VIEW = {
   // the element is missing, opening the row. That fails OPEN. Contract
   // finding 10 says fail CLOSED, and a missing view means the surface is not
   // mounted at all.
+  // ── THE TEST BED VIEW'S DOOR. Round 7, Phase 2e ──────────────────────
+  //
+  // Added in the SAME COMMIT as the swap, deliberately and for the same reason
+  // the Reference tab's line was: the seam FAILS CLOSED, so adding it earlier
+  // opens a door on a surface nobody can see, and adding it later ships a live
+  // surface nobody can edit.
+  //
+  // IT READS THE CLASS app.js ITSELF MAINTAINS rather than deriving ownership a
+  // second time - the same one value, the same class, the same stylesheet rule
+  // the Opportunity uses. The React view renders its own read-only BANNER,
+  // because the banners sit in different documents; the behaviour is shared by
+  // construction rather than by matching.
+  //
+  // The !!v is the same DELIBERATE DIVERGENCE from the vanilla door recorded on
+  // the Opportunity line: a missing view means the surface is not mounted, and
+  // reading `?.classList.contains()` there yields undefined, which fails OPEN.
+  'test-bed-detail': () => {
+    const v = document.getElementById('view-test-bed-detail')
+    return !!v && !v.classList.contains('is-not-mine')
+  },
   'opportunity-detail': () => {
     const v = document.getElementById('view-opportunity-detail')
     return !!v && !v.classList.contains('is-not-mine')
@@ -217,6 +237,42 @@ window.canEditFields = function () {
 // registration is VISIBLE and specific, not a ReferenceError in the console
 // and a blank panel. It says the fault is a build or deployment one, because
 // that is the only way this branch is reached.
+// ── THE TEST BED VIEW'S GUARDED ENTRY. Round 7 Phase 2e ──────────────────
+//
+// Same shape and same reason as the Contact and Account entries: a missing
+// registration is VISIBLE and specific, not a ReferenceError in the console and
+// a blank panel. It says the fault is a build or deployment one, because that
+// is the only way this branch is reached.
+function loadTestBedDetailOrSayWhyNot(id) {
+  if (typeof window.loadTestBedDetail === 'function') { window.loadTestBedDetail(id); return }
+
+  const container = document.getElementById('view-test-bed-detail')
+  if (container) {
+    container.innerHTML = ''
+    const p = document.createElement('p')
+    p.className = 'msg-error'
+    p.id = 'tb-missing-bundle'
+    p.textContent = 'The Test Bed view did not load. Its script is not on the page, '
+      + 'so this is a build or deployment fault rather than anything wrong with the record.'
+    container.appendChild(p)
+  }
+  window.detailLoaded('test-bed-detail')
+}
+
+// ── C1: THE LANDING STAGE IS READ THROUGH A GUARDED ACCESSOR ─────────────
+//
+// `tbLandOnStageAfterLoad` is a `let` at the top level of this classic script,
+// so a bundle cannot read the name at all - the same shape as `cdReturnView`
+// before the Contact swap. TRANSITION_LANDING remains its ONE writer; this is
+// the one reader, and it CLEARS on read so a later unrelated load cannot
+// inherit it. That clearing is the vanilla's own R5 behaviour, moved rather
+// than reimplemented.
+window.takeTestBedLanding = function () {
+  const stage = tbLandOnStageAfterLoad
+  tbLandOnStageAfterLoad = null
+  return stage
+}
+
 function loadContactDetailOrSayWhyNot(id) {
   if (typeof window.loadContactDetail === 'function') { window.loadContactDetail(id); return }
 
@@ -324,7 +380,7 @@ function navigate(view, id) {
     // is a save refreshing the record the user is already looking at.
     tbFreshNavigation = true
     tbUserPickedTab = false
-    loadTestBedDetail(id)
+    loadTestBedDetailOrSayWhyNot(id)
   }
   else if (view === 'opportunity-approval' && id) loadApprovalPageOrSayWhyNot(id)
   else if (view === 'opportunity-detail' && id) {
@@ -2950,7 +3006,7 @@ window.saveInlineBuyerContact = async function () {
     const { recordType, recordId } = ibcContext
     closeInlineBuyerContactModal()
     if (recordType === 'test_bed') {
-      await loadTestBedDetail(recordId)
+      loadTestBedDetailOrSayWhyNot(recordId)
     } else {
       await loadOpportunityDetail(recordId)
     }
@@ -4985,7 +5041,7 @@ window.toggleOppExitCriterion = (recordId, stageName, field, isMet) => {
 const TRANSITION_LANDING = {
   test_bed: {
     land: stage => { tbLandOnStageAfterLoad = stage },
-    reload: id => loadTestBedDetail(id),
+    reload: id => loadTestBedDetailOrSayWhyNot(id),
   },
   opportunity: {
     // Converted to a tab key here, at the one point a transition sets it.
@@ -6480,7 +6536,21 @@ function renderTestBedsTable(unfilteredBeds) {
 // ── Test Bed detail ───────────────────────────────────────────────────────────
 let currentTestBed = null
 
+// ── SUPERSEDED BY THE REACT TEST BED VIEW. Round 7 Phase 2e ──────────────
+//
+// IT REFUSES RATHER THAN GOING QUIET, because Verification 41's instance is
+// exactly this: a superseded path that goes on working is worse than one that
+// breaks. Callers are found by looking; a refusal is found by testing.
+//
+// Every caller was re-pointed to loadTestBedDetailOrSayWhyNot in the swap
+// commit and the round report carries the list with a disposition each. This
+// body is unreachable and is kept rather than deleted for one round, so the
+// revert is the script tag alone.
 async function loadTestBedDetail(id) {
+  throw new Error('loadTestBedDetail is superseded by the React Test Bed view. '
+    + 'Call loadTestBedDetailOrSayWhyNot(id) instead; this path no longer '
+    + 'renders anything, because React owns #view-test-bed-detail.')
+  // eslint-disable-next-line no-unreachable
   // Round 12 Phase 1: no longer resets tbUserPickedTab. Twelve of this
   // function's thirteen call sites are in-app saves and only navigate() is an
   // arrival. The flag is consumed HERE, before the GET can fail.

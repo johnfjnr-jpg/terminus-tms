@@ -48,6 +48,11 @@ const LEDGER = {
     + 'being censused next.',
   'scripts/tests/contact-coupling.test.mjs':
     'THIS FILE. It names the surface because it is the ledger.',
+  'scripts/tests/testbed-coupling.test.mjs':
+    'PROSE. The Test Bed\'s own ledger cites this one as the precedent its '
+    + 'dispositions follow. Nothing asserted, nothing to re-point - and it is '
+    + 'here because BOTH ledgers scan by filename as a STRING, which is exactly '
+    + 'the Verification 41 correction that put them in this shape.',
 }
 
 test('the instrument can see a coupling at all', () => {

@@ -91,6 +91,18 @@ export interface ShellServices {
    */
   currentUserId(): string | null
   /**
+   * ── C1: THE TRANSITION LANDING, READ AND CLEARED ─────────────────────
+   *
+   * `tbLandOnStageAfterLoad` is a `let` at app.js's top level, so a bundle
+   * cannot read the name. TRANSITION_LANDING stays its one writer and this is
+   * the one reader; the shell's accessor clears on read, which is the
+   * vanilla's own behaviour moved rather than reimplemented - so a later
+   * unrelated load cannot inherit a stage.
+   *
+   * Null when the shell has none, which is an ordinary arrival.
+   */
+  takeTestBedLanding(): string | null
+  /**
    * The shell's own sentence for a stale write, HTML because it carries a
    * reload control.
    *
@@ -189,6 +201,7 @@ type ShellWindow = Window & {
   ) => void
   requestChangeReason?: (opts: ChangeReasonOptions) => void
   currentSession?: { user?: { email?: string, id?: string } } | null
+  takeTestBedLanding?: () => string | null
   staleWriteHtml?: (recordId: string) => string
   contactReturnView?: () => 'contacts' | 'leads'
   openDiscardConfirm?: (proceed: () => void) => void
@@ -251,6 +264,10 @@ export const shellServices: ShellServices = {
   },
   currentUserEmail(): string {
     return w().currentSession?.user?.email ?? ''
+  },
+  takeTestBedLanding(): string | null {
+    const fn = w().takeTestBedLanding
+    return typeof fn === 'function' ? (fn() ?? null) : null
   },
   currentUserId(): string | null {
     // Same reachable global as the email, and read the same way rather than

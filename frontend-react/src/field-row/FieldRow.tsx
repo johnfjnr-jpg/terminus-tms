@@ -96,11 +96,21 @@ export function FieldRow({ field, rows }: { field: FieldDescriptor; rows: FieldR
           reached by keyboard. That is the second half of the very defect
           behaviour 2 exists for - an editor that refused the mouse and stayed
           operable by keyboard. */}
+      {/* ── A12: A REFUSED ROW DROPS ITS TAB STOP ───────────────────────
+          Behaviour 7's own logic, for the second cause of the same condition:
+          a stop that cannot be acted on is a stop that lies. The read-only
+          variant above has no tabIndex at all; here the row still RENDERS and
+          still reads, it simply stops being a stop.
+
+          Measured on the vanilla in Phase 0b: its door was PRESENTATIONAL -
+          the mouse was blocked and the keyboard was not, so a refused row took
+          focus and then refused. This refuses on both paths, and now does not
+          invite the keyboard either. */}
       <div
         className="field-row-display"
         data-testid={`display-${field.name}`}
         hidden={open}
-        tabIndex={0}
+        tabIndex={rows.canEdit ? 0 : undefined}
         role="button"
         onClick={() => tryOpen()}
         onKeyDown={onKeyDown}

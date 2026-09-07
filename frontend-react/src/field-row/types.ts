@@ -120,6 +120,14 @@ export interface FieldRowsController {
    * Returns whether the row opened, so a caller can tell refusal from success.
    */
   requestOpen(name: string, seedChar?: string): boolean
+  /**
+   * A12: whether the door is open for this surface, answered at RENDER.
+   *
+   * Only the tab stop reads it. Opening still asks `requestOpen`, which
+   * consults the door at every attempt - the two are different questions and
+   * merging them would reintroduce the timing dependency behaviour 2 avoids.
+   */
+  canEdit: boolean
   close(name: string): void
   setDraft(name: string, value: string): void
   /** Behaviour 5. Restores the original into the input. NOT a close. */

@@ -78,6 +78,22 @@ export function useFieldRows(fields: FieldDescriptor[]): FieldRowsController {
     return true
   }, [shell])
 
+  /**
+   * ── A12: THE DOOR'S ANSWER, FOR THE TAB STOP ONLY ───────────────────
+   *
+   * Read at render, which every other use of the door deliberately is not.
+   * The contract's note is that the door has no timing dependency and a value
+   * captured at render would reintroduce one - and that is still true of
+   * OPENING, which goes on asking `requestOpen` at every attempt.
+   *
+   * A TAB STOP IS A DIFFERENT QUESTION. It is a property of the rendered
+   * document rather than of an attempt, so it has to be answered while
+   * rendering or not at all. A door that opens after the mount is honoured for
+   * editing on the next attempt and for the tab order on the next render,
+   * which is what a re-render already is.
+   */
+  const canEdit = shell.canEditFields()
+
   const close = useCallback((name: string) => {
     // CLOSING IS NOT DISCARDING. The draft survives, so the bar still counts it
     // and a save still sends it. Behaviour 5 says discard is not close; this is
@@ -113,6 +129,7 @@ export function useFieldRows(fields: FieldDescriptor[]): FieldRowsController {
     isDirty,
     valueOf,
     requestOpen,
+    canEdit,
     close,
     setDraft,
     discard,

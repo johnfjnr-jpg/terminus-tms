@@ -8,6 +8,7 @@ import { shellServices } from './shell-services'
 import { ApprovalView } from './ApprovalView'
 import { AccountView } from './account/AccountView'
 import { ContactView } from './contact/ContactView'
+import { TestBedView } from './testbed/TestBedView'
 import { DealPanel } from './deal/DealPanel'
 import { valuesFromPayload, uiFromPayload } from './deal/payload'
 import { saveDeal } from './deal/seam'
@@ -27,6 +28,7 @@ import type { DealFormSeam } from './deal/seam'
 const APPROVAL_VIEW = 'opportunity-approval'
 const ACCOUNT_VIEW = 'account-detail'
 const CONTACT_VIEW = 'contact-detail'
+const TESTBED_VIEW = 'test-bed-detail'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -54,6 +56,7 @@ declare global {
     loadApprovalPage?: (oppId: string) => void
     loadAccountDetail?: (accountId: string) => void
     loadContactDetail?: (contactId: string) => void
+    loadTestBedDetail?: (testBedId: string) => void
     initOpportunityDealPanel?: (opp: OppRecord) => void
     initOpportunityReferencePanel?: (opp: OppRecord) => void
     initOpportunityDealVersions?: (o: { opportunityId: string, seam: DealFormSeam }) => void
@@ -117,6 +120,19 @@ window.loadAccountDetail = register(ACCOUNT_VIEW,
 // #view-contact-detail and clears the static markup on first render.
 window.loadContactDetail = register(CONTACT_VIEW,
   (id, navToken) => <ContactView contactId={id} navToken={navToken} />)
+
+// ── THE TEST BED VIEW, Round 7 Phase 2e ──────────────────────────────────
+//
+// A whole-view migration like the three above, so createRoot owns
+// #view-test-bed-detail and clears the static markup on first render.
+//
+// THE ARRIVAL FLAG IS THE navToken, not a second boolean. The vanilla kept
+// `tbFreshNavigation`, set only by navigate() because twelve of its thirteen
+// load call sites were saves. After the swap the host reloads ITSELF, so this
+// registration is reached only by a real navigation and the token that
+// increments here is exactly the signal the flag carried.
+window.loadTestBedDetail = register(TESTBED_VIEW,
+  (id, navToken) => <TestBedView testBedId={id} navToken={navToken} />)
 
 // ── THE COMMERCIALS PANEL ────────────────────────────────────────────────
 //

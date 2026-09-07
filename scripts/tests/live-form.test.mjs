@@ -201,3 +201,65 @@ test('the Contact view has a guarded entry, not a bare call', () => {
   assert.match(app, /loadContactDetailOrSayWhyNot/,
     'the guarded entry is gone')
 })
+
+// ── WHICH TEST BED SURFACE IS LIVE. Round 7, Phase 2e ───────────────────
+//
+// Same shape as the three inversions above. The scan reads index.html with
+// comments STRIPPED, so the commented-out tag - which is what the revert
+// restores - does not count as loaded.
+const TB_TAG = '<script src="/test-bed-detail.js"></script>'
+
+test('THE REACT TEST BED VIEW IS THE LIVE ONE', () => {
+  assert.ok(RAW.includes(TB_TAG),
+    'the vanilla Test Bed tag is GONE, so the revert has nothing to restore')
+  assert.ok(!LIVE.includes(TB_TAG),
+    'frontend/test-bed-detail.js is loaded again: the swap has been reverted, '
+    + 'deliberately or otherwise')
+})
+
+test('the door is WIRED for the Test Bed view, in the shell registry', () => {
+  // The seam FAILS CLOSED, so a missing line here is not a neutral state: it is
+  // a live surface on which nothing can be edited. Added in the swap commit for
+  // that reason, and asserted here so it cannot be dropped separately.
+  const app = readCode(new URL('frontend/app.js', ROOT))
+  assert.match(app, /'test-bed-detail':\s*\(\)\s*=>/,
+    'CAN_EDIT_BY_VIEW has no test-bed-detail line, so every Test Bed row refuses')
+  // ANCHORED INSIDE THE REGISTRY ENTRY, not anywhere in app.js. The ownership
+  // sweep at :6520 contains the same two strings, so a loose scan matched it
+  // and an injection replacing the door's body with `return true` came back
+  // silent. Verification 17.
+  const entry = app.slice(app.indexOf("'test-bed-detail': () =>"))
+    .slice(0, app.slice(app.indexOf("'test-bed-detail': () =>")).indexOf('},') + 2)
+  assert.match(entry, /view-test-bed-detail/,
+    'the Test Bed door no longer reads the view element')
+  assert.match(entry, /is-not-mine/,
+    'the Test Bed door no longer reads the class app.js itself maintains')
+})
+
+test('and THE OLD PATH REFUSES rather than going quiet', () => {
+  // Verification 41: callers are found by looking, a refusal is found by
+  // testing. loadTestBedDetail is superseded and every caller was re-pointed;
+  // this is what makes a missed one fail rather than silently render nothing.
+  const app = readCode(new URL('frontend/app.js', ROOT))
+  assert.match(app, /async function loadTestBedDetail\(id\)\s*\{\s*throw new Error/,
+    'the superseded loadTestBedDetail no longer refuses, so a missed caller '
+    + 'would render nothing and say nothing')
+  assert.match(app, /function loadTestBedDetailOrSayWhyNot\(id\)/,
+    'the guarded entry is gone, so a missing bundle is a ReferenceError')
+})
+
+test('and the shell publishes the landing accessor a bundle can reach', () => {
+  // C1. `tbLandOnStageAfterLoad` is a `let` no bundle can read, and
+  // TRANSITION_LANDING stays its one writer.
+  const app = readCode(new URL('frontend/app.js', ROOT))
+  assert.match(app, /window\.takeTestBedLanding\s*=/,
+    'the shell no longer publishes the landing accessor, so a transition lands '
+    + 'on Reference instead of the stage just entered')
+  // INSIDE THE ACCESSOR. `tbLandOnStageAfterLoad = null` also appears in
+  // renderTestBedDetail's own clear, so a file-wide match could not tell
+  // whether the accessor still cleared - and the injection that removed its
+  // clear came back silent.
+  const acc = app.slice(app.indexOf('window.takeTestBedLanding'))
+  assert.match(acc.slice(0, acc.indexOf('}') + 1), /tbLandOnStageAfterLoad = null/,
+    'the accessor no longer clears on read, so a later load inherits the stage')
+})

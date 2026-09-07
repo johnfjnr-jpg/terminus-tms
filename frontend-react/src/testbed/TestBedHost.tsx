@@ -231,7 +231,11 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
     // success, it would survive a failed load and make the next save read as an
     // arrival.
     const fresh = flags.current.consume()
-    const landing = flags.current.takeLanding()
+    // The landing is the SHELL's, read and cleared through its accessor. The
+    // local flags machine still owns the arrival half, and `landOn` stays for
+    // the tests that prove R5/R6 - the machine is the contract, the shell is
+    // one of its writers.
+    const landing = shell.takeTestBedLanding() ?? flags.current.takeLanding()
     setArrival({ fresh, landing })
 
     const r = await shell.api<BedLike>('GET', `/api/test-beds/${bed.id}`)
