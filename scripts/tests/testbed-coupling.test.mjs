@@ -57,6 +57,11 @@ const LEDGER = {
     'KEPT. The swap\'s own calibration. It names the tag because one of its '
     + 'fifteen injections RESTORES it, which is how the live-form inversion is '
     + 'shown capable of failing. Retires with the file.',
+  'scripts/round7/visual-tb.mjs':
+    'KEPT. The three-width comparison, which loads the vanilla in the browser '
+    + 'to capture it beside the React surface - which IS the load-order revert '
+    + 'at runtime, and is what lets the comparison prove its two captures are '
+    + 'of different implementations. Retires with the file.',
   'scripts/round7/tb-view-surface.mjs':
     'KEPT. The declared enumeration itself, and the accounting suite asserts '
     + 'against it. Retires with the file.',

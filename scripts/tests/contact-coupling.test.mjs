@@ -19,11 +19,6 @@ const walk = (dir) => readdirSync(new URL(dir + '/', ROOT), { withFileTypes: tru
 
 // ── DIRECTION A: WHAT READS THE VANILLA ─────────────────────────────────
 const LEDGER = {
-  'scripts/tests/class-rules.test.mjs':
-    'KEPT, AND IT IS THE RETIREMENT PRECONDITION. STATE_CLASSES exempts '
-    + '.field-editing and the scan reads every .js in frontend/, loaded or not. '
-    + 'Phase 0 sized the retirement by sandbox deletion and this is the ONE test '
-    + 'that fails: that failure is the instruction to drop the entry, not a defect.',
   'scripts/tests/live-form.test.mjs':
     'KEPT, AND IT IS THE SWAP\'S OWN DETECTOR. It asserts the vanilla tag is '
     + 'absent from the live markup and present in the raw, which is what makes '
@@ -39,13 +34,6 @@ const LEDGER = {
     + 'capture it beside the React surface at three widths - which IS the '
     + 'load-order revert at runtime, and is what lets the comparison prove its '
     + 'two captures are of different implementations. Retires with the file.',
-  'scripts/tests/surface-accounting.test.mjs':
-    'KEPT, AND IT IS THE CENSUS-COMPLETENESS DETECTOR. It parses the vanilla '
-    + 'for its top-level names and asserts every one is claimed by an '
-    + 'enumerated capability - evidence ABOUT the file rather than a dependency '
-    + 'on it. It is what would have caught the Phase 2 scope gap before the '
-    + 'swap. Retires with the file, and its map moves to whichever surface is '
-    + 'being censused next.',
   'scripts/tests/contact-coupling.test.mjs':
     'THIS FILE. It names the surface because it is the ledger.',
   'scripts/tests/testbed-coupling.test.mjs':
@@ -136,6 +124,11 @@ const STRINGS = {
   'frontend/app.js': 'PROSE. Comments describing the shared discard modal and the Park popup.',
   'frontend/index.html': 'PROSE, and it is the RESTORE INSTRUCTION - the commented tag itself.',
   'frontend/style.css': 'PROSE. A comment naming the file that owns a rule.',
+  'scripts/tests/class-rules.test.mjs':
+    'PROSE, as of the Round 7 retirement. Its .field-editing exemption WAS the '
+    + 'retirement precondition and was dropped with the file, exactly as the '
+    + 'ledger predicted. Two comments naming the surface remain, explaining an '
+    + 'unrelated disposition.',
   'frontend/test-bed-detail.js': 'PROSE. A comment comparing its own pattern to Contact\'s.',
   'src/routes/accounts.js': 'PROSE. A comment about where linking happens.',
   'src/routes/contacts.js': 'PROSE. Comments about which writes belong to which route.',

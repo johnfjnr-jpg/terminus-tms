@@ -83,6 +83,18 @@ describe('the tab strip renders', () => {
       'the dot selected the tab, so a dot is being read as a selection').toBe('false')
   })
 
+  test('the Next Stage button does not exist until the stage list is known', async () => {
+    // Otherwise the first paint reads "Final stage" on a record that is not at
+    // one, because an empty stage list makes nextStage null. Found by looking
+    // at a screenshot; every assertion passed.
+    await render({ deps: deps({ stages: [] }) })
+    expect(q('tb-next-stage-btn'),
+      'the button rendered before the stage list arrived, so its label is a guess')
+      .toBeNull()
+    await render()
+    expect(q('tb-next-stage-btn'), 'the button never appears').toBeTruthy()
+  })
+
   test('T7 Next Stage is disabled on Reference and enabled on the current stage tab', async () => {
     await render()
     expect((q('tb-next-stage-btn') as HTMLButtonElement).disabled).toBe(true)

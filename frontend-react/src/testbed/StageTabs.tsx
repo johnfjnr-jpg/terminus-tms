@@ -149,7 +149,22 @@ export function StageTabs({ payload, units, landing, fresh, currentStage, nextSt
 
   return (
     <div data-testid="tb-stage-tabs">
-      <div className="detail-tabs" role="tablist" data-testid="tb-detail-tabs">
+      {/* ── id="tb-detail-tabs" IS LOAD-BEARING, and the visual comparison
+          is what found it. `.detail-tabs` is `display:flex` with the default
+          nowrap; the WRAP lives in an ID rule that names this strip and the
+          Opportunity's, added in Round 7 Phase 6 because ten stage tabs
+          overflowed the viewport and cut the action group off entirely.
+          Without the id the strip overflowed by 122px at 1240 - the exact
+          defect that rule was written for, reintroduced by a swap.
+
+          The id is safe here for the ApprovalView reason: createRoot owns
+          #view-test-bed-detail and clears it, so the static #tb-detail-tabs is
+          destroyed before this renders. Disposed of in no-duplicate-ids.
+
+          The id rather than copying flex-wrap into a class, because two
+          definitions of one layout rule agree today and drift later. */}
+      <div className="detail-tabs" role="tablist" id="tb-detail-tabs"
+        data-testid="tb-detail-tabs">
         {TB_TABS.map((t) => (
           <button key={t.key} type="button" role="tab"
             aria-selected={t.key === active}
@@ -168,12 +183,27 @@ export function StageTabs({ payload, units, landing, fresh, currentStage, nextSt
           </button>))}
       </div>
 
-      {/* X4: T7 decides enablement and is injection-covered. This is the
-          ACTION, which had no wiring at all before Phase 2d. */}
-      <button type="button" data-testid="tb-next-stage-btn" disabled={next.disabled}
-        onClick={() => onNextStage?.()}>
-        {next.label}
-      </button>
+      {/* ── NOTHING UNTIL THE STAGE LIST IS KNOWN ─────────────────────────
+          X4: T7 decides enablement and is injection-covered; this is the
+          ACTION. But the LABEL is derived from the stage list, which arrives
+          from a fetch, and with an empty list `nextStage` is null - so the
+          first paint said "Final stage" on a record at Qualification.
+
+          Found by LOOKING at the Phase 3 screenshot, not by any assertion:
+          the button was present, disabled and correctly styled, and every
+          check passed. Verification 45's shape - a state nobody wrote code
+          for - and Verification 4's answer to it.
+
+          The vanilla does the same thing for the same reason: its
+          refreshTbNextStageButton returns before touching the button while
+          tbNextStageState is null. */}
+      {deps.stages.length > 0
+        ? (
+          <button type="button" data-testid="tb-next-stage-btn" disabled={next.disabled}
+            onClick={() => onNextStage?.()}>
+            {next.label}
+          </button>)
+        : null}
       <div data-testid="tb-next-stage-feedback" />
       {feedback ? <p className="msg-error" data-testid="tb-tab-feedback">{feedback}</p> : null}
 

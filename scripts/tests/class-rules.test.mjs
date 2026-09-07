@@ -82,7 +82,6 @@ const STATE_CLASSES = {
   // loaded or not, and the class is genuinely still toggled there. It goes
   // when the file does: Phase 0's sandbox deletion measured this as the ONE
   // test that fails on retirement, which is the instruction to remove it.
-  'field-editing': 'contact-detail.js, toggled while a field is dirty - but that file is UNLOADED as of Round 6 Phase 2, so nothing live toggles it. Account was React from Round 2 and Contact is now too; the React field row expresses the same state as data-dirty on .field-row. Retires with contact-detail.js.',
 }
 
 // ── AND A STRUCTURAL WRAPPER IS NOT A HOOK ────────────────────────────────

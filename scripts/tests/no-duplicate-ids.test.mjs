@@ -75,6 +75,15 @@ const DISPOSED = {
     + 'inside the mounted host. Architecture 8 exactly - correct for every '
     + 'caller that exists. The day something reaches for document.getElementById '
     + '("latch-all") it gets the hidden vanilla one.',
+  'frontend-react/src/testbed/StageTabs.tsx':
+    'INSIDE THE MOUNT CONTAINER, and the id is LOAD-BEARING. createRoot owns '
+    + '#view-test-bed-detail and clears it on first render, so the static '
+    + '#tb-detail-tabs is destroyed before this renders - the ApprovalView '
+    + 'case exactly. It is reproduced rather than renamed because the WRAP rule '
+    + 'that stops ten stage tabs overflowing the viewport is keyed on that id, '
+    + 'and the Round 7 Phase 3 visual comparison measured a 122px overflow at '
+    + '1240 without it. Copying flex-wrap into a class would be two definitions '
+    + 'of one layout rule.',
   'frontend-react/src/contact/ContactPanel.tsx':
     'Same as ContactHost above, and confirmed by the same swap.',
   'frontend-react/src/contact/StageActions.tsx':
