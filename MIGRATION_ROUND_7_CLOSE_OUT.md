@@ -194,6 +194,21 @@ identifier, so each finding extends the rule whose REMEDY it shares.
 
 ## Gate
 
-Reported with the closing commit.
+**All 21 stages passed on the closing tree, `ca76ca3`.** Pure 490/490, database
+94/94, react 902/902, all 0 fail, typecheck clean, 14 HTTP probes. Every figure
+parsed from the run.
+
+The pure suite is 490 rather than 494 because the retirement dropped
+`surface-accounting.test.mjs` with the file it censused.
+
+**Beside the gate, this round's live evidence:**
+
+| instrument | result |
+|---|---|
+| the walk, on the closing tree | **32/32, residue 0** |
+| the visual comparison, three widths | **31/31** |
+| the revert rehearsal | byte-identical, one expected failure |
+| Phase 2e injections | 15/15, reverted green |
+| Phase 2d s3 injections | 16/16, reverted green |
 
 **Not pushed. The round closes on John's word.**
