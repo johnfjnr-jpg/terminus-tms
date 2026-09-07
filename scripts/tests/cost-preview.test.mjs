@@ -39,27 +39,27 @@ function schemaKeys(src) {
 }
 
 function clientKeys(src) {
-  const at = src.indexOf('const TB_COST_INPUT_KEYS = [')
-  assert.ok(at > -1, 'TB_COST_INPUT_KEYS could not be found; this test is parsing the wrong file')
+  // RE-POINTED at the React descriptor list, Round 8 Phase 2. The vanilla's
+  // TB_COST_INPUT_KEYS retired with its file; COST_INPUT_KEYS is the same
+  // contract under the caller that now sends it.
+  const at = src.indexOf('export const COST_INPUT_KEYS = [')
+  assert.ok(at > -1, 'COST_INPUT_KEYS could not be found; this test is parsing the wrong file')
   const list = src.slice(at, src.indexOf(']', at))
   return [...list.matchAll(/'([a-zA-Z]+)'/g)].map(m => m[1]).sort()
 }
 
 test('the client key list and the route schema name exactly the same keys', () => {
-  const server = read('../../src/routes/test-beds.js')
-  const client = read('../../frontend/test-bed-detail.js')
-
-  const s = schemaKeys(server)
-  const c = clientKeys(client)
-
-  // Calibration, per Verification 13: a comparison of two empty lists passes
-  // and proves nothing, which is Verification 14's vacuous match. Both must be
-  // populated before their equality means anything.
-  assert.ok(s.length >= 10, `schema list looks unparsed: ${JSON.stringify(s)}`)
-  assert.ok(c.length >= 10, `client list looks unparsed: ${JSON.stringify(c)}`)
-
-  assert.deepEqual(c, s,
-    'the browser sends keys the route does not accept, or omits ones it does; Fastify strips the difference silently')
+  // ── RE-POINTED, NOT RETIRED. Round 8 Phase 2 ──────────────────────────
+  //
+  // This read TB_COST_INPUT_KEYS out of frontend/test-bed-detail.js. The
+  // vanilla is deleted and the caller is now the React module, but the
+  // property is unchanged and still matters: a preview and a save must send
+  // the same keys or they price differently. One contract, one caller.
+  const client = clientKeys(read('../../frontend-react/src/testbed/costPreview.ts'))
+  const schema = schemaKeys(read('../../src/routes/test-beds.js'))
+  assert.ok(client.length > 5, `only ${client.length} client keys parsed`)
+  assert.deepEqual(client, schema,
+    'the client sends keys the route does not accept, or the reverse')
 })
 
 test('every key the cost engine reads is in the accepted list', () => {

@@ -19,7 +19,11 @@ const key = (rel) => SNAP + '/' + rel.replaceAll('/', '_')
 
 const TARGETS = process.env.TARGETS
   ? process.env.TARGETS.split(',')
-  : ['frontend/contact-detail.js']
+  // NO DEFAULT, Round 8 Phase 2. It named frontend/contact-detail.js, which is
+  // deleted - a default pointing at nothing is the same fault as a commented
+  // tag naming a deleted file. The tool outlives both retirements; the target
+  // is the caller's to name.
+  : (() => { throw new Error('TARGETS is required: name the file to size') })()
 
 // ── SNAPSHOT, VERIFIED ──────────────────────────────────────────────────
 const original = new Map()

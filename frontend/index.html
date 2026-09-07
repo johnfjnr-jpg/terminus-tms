@@ -3246,44 +3246,22 @@ opened it. -->
      restoring the file from git history rather than uncommenting a tag.
      A commented tag naming a deleted file is worse than none: it reads as an
      escape route somebody might reach for. -->
-<!-- ── SUPERSEDED BY THE REACT TEST BED VIEW. Round 7, Phase 2e ──────
-     Restoring this one line reverts the surface: the vanilla re-assigns
-     window.initTestBedDetailPanel and its 25 other globals AFTER the bundle
-     has run, and app.js's loadTestBedDetailOrSayWhyNot would still call the
-     React registration - so a revert ALSO needs app.js's own
-     loadTestBedDetail refusal removed. That is two lines rather than one, and
-     it is recorded here because the Account and Contact reverts were one and
-     a reader will assume this is too.
+<!-- ── RETIRED, Round 8 Phase 2 ─────────────────────────────────────
+     frontend/test-bed-detail.js is DELETED. The commented tag that used to sit here was
+     the revert, and it is removed WITH the file rather than left behind: a
+     restore instruction pointing at a file that does not exist is worse than
+     none, because it reads as an escape route somebody might reach for. The
+     estate's own rule, first recorded about the Reference tab.
 
-     THE BUNDLE MUST STAY LOADED FIRST for the load-order property to hold.
+     The history is the revert now: git show <the retirement commit>. -->
+<!-- ── RETIRED, Round 8 Phase 2 ─────────────────────────────────────
+     frontend/contact-detail.js is DELETED. The commented tag that used to sit here was
+     the revert, and it is removed WITH the file rather than left behind: a
+     restore instruction pointing at a file that does not exist is worse than
+     none, because it reads as an escape route somebody might reach for. The
+     estate's own rule, first recorded about the Reference tab.
 
-     THE SWAP WAS HELD BACK THREE TIMES: at Phase 2, because the reach
-     instrument measured file existence rather than reachability; at Phase 2c,
-     because it measured one FILE where the decision is about a VIEW; and
-     through Phase 2d while the view's app.js half was built. Both populations
-     read zero gaps and both gates assert that floor.
-
-<script src="/test-bed-detail.js"></script>
-     ────────────────────────────────────────────────────────────────────── -->
-<!-- ── SUPERSEDED BY THE REACT CONTACT VIEW. Round 6, Phase 2b ───────
-     Restoring this one line reverts the surface: the vanilla re-assigns
-     window.loadContactDetail AFTER the bundle has, so its view runs and the
-     React mount never does.
-
-     THE BUNDLE MUST STAY LOADED FIRST for that to hold - the load-order
-     property the Round 2 rehearsal measured, and why this is one line.
-
-     THE SWAP WAS HELD BACK ONCE, at Phase 2, because 524 of the vanilla's
-     1,327 lines were behaviours nothing had migrated. All seven capabilities
-     the accounting instrument enumerates are built now, and
-     surface-accounting.test.mjs is what says so rather than an impression.
-
-     AND THE BACK BUTTON GOES WITH IT. app.js asks window.contactReturnView()
-     and falls back to the vanilla's own lexical cdReturnView, so the button
-     works under both states.
-
-<script src="/contact-detail.js"></script>
-     ────────────────────────────────────────────────────────────────────── -->
+     The history is the revert now: git show <the retirement commit>. -->
 <!-- ── THE ACCOUNT VIEW IS REACT, AND THE VANILLA IS GONE ─────────────
      Round 4 close, under the one-round confidence window: a superseded file is
      deleted after the next full round completes with no revert needed. The

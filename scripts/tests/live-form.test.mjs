@@ -156,30 +156,15 @@ test('the door is OPEN for the Reference tab, in the shell registry', () => {
     'the Opportunity door no longer answers from the record')
 })
 
-// ── WHICH CONTACT SURFACE IS LIVE. Round 6, Phase 2 ─────────────────────
+// ── WHICH CONTACT SURFACE IS LIVE: RETIRED, Round 8 Phase 2 ──
 //
-// Same shape as the Reference and deal-form inversions above. The scan reads
-// index.html with comments STRIPPED, so the commented-out tag - which is what
-// the revert restores - does not count as loaded.
-const CD_TAG = '<script src="/contact-detail.js"></script>'
+// The inversion asserted the tag was present in the raw markup and absent from
+// the live - which is what made a one-line revert both possible and visible to
+// the gate. THE FILE IS DELETED, so there is no tag to assert either way, and
+// an assertion whose message says "the tag is GONE, so the revert has nothing
+// to restore" now REQUIRES the presence of a pointer to nothing. Retired with
+// its subject rather than inverted again.
 
-// ── THE CLAIM AS IT STANDS: BUILT, REGISTERED, AND NOT TAKEN ────────────
-//
-// This read "THE REACT CONTACT VIEW IS THE LIVE ONE" for the length of one
-// session. The visual comparison then measured 524 of the vanilla's 1327 lines
-// as behaviours nothing had migrated - notes, park, unqualify, delete and the
-// account-details modal - so the tag went back and the claim inverted with it.
-//
-// The bundle STILL REGISTERS the view. That is the whole point of the
-// load-order property: the vanilla is loaded after and wins, so the swap is one
-// line away in either direction and the React work is not shelved.
-test('THE REACT CONTACT VIEW IS THE LIVE ONE', () => {
-  assert.ok(RAW.includes(CD_TAG),
-    'the vanilla Contact tag is GONE, so the one-line revert has nothing to restore')
-  assert.ok(!LIVE.includes(CD_TAG),
-    'frontend/contact-detail.js is loaded again: the swap has been reverted, '
-    + 'deliberately or otherwise')
-})
 
 test('and the shell asks for the return view rather than reading a lexical name', () => {
   // C1. The binding read `cdReturnView`, a `let` no bundle can make exist.
@@ -216,20 +201,15 @@ test('the Contact view has a guarded entry, not a bare call', () => {
     'the guarded entry is gone')
 })
 
-// ── WHICH TEST BED SURFACE IS LIVE. Round 7, Phase 2e ───────────────────
+// ── WHICH TEST BED SURFACE IS LIVE: RETIRED, Round 8 Phase 2 ──
 //
-// Same shape as the three inversions above. The scan reads index.html with
-// comments STRIPPED, so the commented-out tag - which is what the revert
-// restores - does not count as loaded.
-const TB_TAG = '<script src="/test-bed-detail.js"></script>'
+// The inversion asserted the tag was present in the raw markup and absent from
+// the live - which is what made a one-line revert both possible and visible to
+// the gate. THE FILE IS DELETED, so there is no tag to assert either way, and
+// an assertion whose message says "the tag is GONE, so the revert has nothing
+// to restore" now REQUIRES the presence of a pointer to nothing. Retired with
+// its subject rather than inverted again.
 
-test('THE REACT TEST BED VIEW IS THE LIVE ONE', () => {
-  assert.ok(RAW.includes(TB_TAG),
-    'the vanilla Test Bed tag is GONE, so the revert has nothing to restore')
-  assert.ok(!LIVE.includes(TB_TAG),
-    'frontend/test-bed-detail.js is loaded again: the swap has been reverted, '
-    + 'deliberately or otherwise')
-})
 
 test('the door is WIRED for the Test Bed view, in the shell registry', () => {
   // The seam FAILS CLOSED, so a missing line here is not a neutral state: it is

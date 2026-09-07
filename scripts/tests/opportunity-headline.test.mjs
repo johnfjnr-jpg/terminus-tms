@@ -148,8 +148,13 @@ test('"Terminus Lead" is renamed on the OPPORTUNITY and nowhere else', () => {
   // 3. BOTH SIDES ASSERTED INDIVIDUALLY, never "some file still says it". When
   //    the last vanilla consumer goes, the first assertion FAILS, and that
   //    failure is the instruction to delete it rather than a defect.
-  assert.match(code('frontend/test-bed-detail.js', 'js'), /label: 'Terminus Lead'/,
-    'the vanilla Test Bed lost its Terminus Lead label, which is not an opportunity owner')
+  // RE-POINTED, Round 8 Phase 2. The Test Bed's label lived in the vanilla,
+  // which is deleted; the React descriptors carry it now. The property is the
+  // rename's own: "Terminus Lead" is the Opportunity's word and the Test Bed
+  // keeps it, so a global rename would be wrong in one of the two places.
+  assert.match(code('frontend-react/src/testbed/descriptors.ts', 'js'),
+    /label: 'Terminus Lead'/,
+    'the Test Bed no longer labels its lead "Terminus Lead"')
 
   // The Account surface, now React. Same claim, measured where the label lives.
   assert.match(code('frontend-react/src/account/descriptors.ts', 'js'), /label: 'Terminus Lead'/,

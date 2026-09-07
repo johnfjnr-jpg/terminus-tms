@@ -115,17 +115,18 @@ test('the scan can SEE a call that omits it, and does NOT flag a column-only wri
     '/installer writes a column on records, not a revision')
 })
 
-test('the two wrappers that PATCH on behalf of a caller supply it themselves', () => {
-  // tbPatch and addContactNote are the only indirection between a control and
-  // the write. The scan above reads their bodies like any other call site, so
-  // this asserts the ONE property the scan cannot: that a caller reaching the
-  // network through them cannot end up without a precondition.
-  const tb = readCode(join(ROOT, 'frontend/test-bed-detail.js'))
+test('the one wrapper that PATCHes on behalf of a caller supplies it itself', () => {
+  // ── HALVED BY THE RETIREMENT. Round 8 Phase 2 ─────────────────────────
+  //
+  // This asserted TWO wrappers, tbPatch and addContactNote. tbPatch lived in
+  // frontend/test-bed-detail.js, which is deleted; the React Test Bed host
+  // sends `expected_revision` from the record it holds, and its own suite
+  // asserts the handshake. The reasoning for the remaining half is unchanged:
+  // an indirection between a control and the write is the one place the
+  // call-site scan cannot see, so it is asserted directly.
   const app = readCode(join(ROOT, 'frontend/app.js'))
-  const tbPatch = tb.slice(tb.indexOf('async function tbPatch('))
   const addNote = app.slice(app.indexOf('async function addContactNote('))
-  assert.match(tbPatch.slice(0, 500), /expected_revision: tbLoadedRevision/)
-  assert.match(tbPatch.slice(0, 700), /tbLoadedRevision = result\.data\.revision_number/,
-    'a wrapper that sends a revision and never refreshes it would 409 on its own second write')
-  assert.match(addNote.slice(0, 700), /expected_revision/)
+  assert.ok(addNote.length > 100, 'addContactNote could not be found')
+  assert.match(addNote.slice(0, 900), /expected_revision/,
+    'a wrapper that PATCHes on a caller-s behalf sends no precondition')
 })
