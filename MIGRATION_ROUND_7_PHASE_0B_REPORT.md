@@ -185,6 +185,20 @@ once the box was prefilled.
 
 ## Gate
 
-See below.
+**All 21 stages passed** on `4ee5b95`, the tree this report is committed on.
+
+Pure 477/477, database 94/94, react 580/580, all 0 fail, typecheck clean, 14
+HTTP probes. Every figure parsed from the run.
+
+The pure suite grew by 2 and the HTTP write-success probe from 23 checks to 30.
+
+**And the gate now means one thing more than it did yesterday.** Twenty-one
+stages were green over a Test Bed save that threw on every click for three
+rounds. They are still twenty-one stages, but one of them now POSTs a Test Bed
+field save and one asserts the payload a save sends is an identifier the file
+declares. Neither would have needed to exist if anything had ever exercised
+that write.
+
+Transcript: `.verify/verify-1210634956113708.txt`
 
 **Not pushed. Phase 1 follows on sign-off.**
