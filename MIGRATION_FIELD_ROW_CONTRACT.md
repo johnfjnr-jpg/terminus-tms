@@ -549,3 +549,93 @@ different route with a mandatory reason. The descriptor expresses the read
 (it carries `value`, not a payload key) and says nothing about the write,
 because save semantics are excluded deliberately. **Phase 2 is where that
 lands**, and it is the one row whose write path is not the batched save.
+
+---
+
+# Addendum, 2026-09-07: the LOOKUP editor, and why a string list could not carry it
+
+Written **before** the Contact surface's build, from the census rather than from
+either implementation. Migration Round 6, Phase 1.
+
+## The gap, measured
+
+The Contact census is **15 fields in four editor kinds**: 11 text, 2 select, 1
+textarea, and **1 that no proven layer can express**.
+
+`FieldDescriptor` declares `options?: string[]`, so **a select's value and its
+label are the same string**. That is true of every select the migration has met
+so far - Region, Source, Opportunity Type - because their stored value IS the
+words on screen.
+
+**Industry is not.** It is `records.industry_id`, a foreign key. The stored
+value is an id nobody should ever read, and the readable form is a name that
+lives in another table. The vanilla renders it through a second row builder,
+`cdColumnFieldRow`, whose display half calls `cdIndustryName(currentId)` and
+whose edit half emits `<option value="${o.id}">${o.name}</option>`.
+
+## A8. AN EDITOR'S OPTIONS ARE `{id, name}` PAIRS, AND THE STRING FORM IS THE
+## DEGENERATE CASE
+
+**Ruled: `options` accepts `Array<string | {id, name}>` and is normalised to
+pairs at the descriptor.** A bare string `s` means `{id: s, name: s}`.
+
+The generalisation goes this way round - pairs as the general form, strings as
+the special case - rather than adding a second `lookupOptions` key beside the
+first, for the reason `CLAUDE.md` Verification 20 gives: two declarations of
+"the choices this field offers" agree today and drift later. One shape, and the
+existing string form keeps working **by construction rather than by
+inspection**, which is what makes it safe to apply to the eleven select rows
+already in production.
+
+## A9. THE DISPLAY HALF RESOLVES THROUGH THE SAME LIST THE EDIT HALF OFFERS
+
+**Ruled: the display half renders `name` for the stored `id`, resolved from the
+descriptor's own options, never from a second lookup.**
+
+This is the half a string list hid. With value and label identical, the display
+half could render the raw value and be right by accident. With a real lookup,
+rendering the raw value puts a UUID on the screen.
+
+A second resolver - a `nameFor(id)` helper reading a cache the descriptor does
+not own - would be Verification 20 exactly, and the version it replaces is the
+vanilla's: `cdIndustryName` reads `industriesCache` while the edit half reads it
+again to build options. **Two readers of one list, in adjacent lines.**
+
+## A10. AN UNRECOGNISED STORED ID KEEPS ITS PLACE
+
+**Ruled: a stored id absent from the options list is still rendered as a
+choice**, labelled with whatever readable form is available and falling back to
+the id itself.
+
+The precedent is this project's own, from the milestone grid: *"an unrecognised
+stored milestone keeps its option in the select."* The reason is the same. A
+select that silently drops a value it does not recognise turns "this record
+points at an industry that has since been renamed" into "this record has no
+industry", and the next save writes that erasure to the database. **A default is
+an initial value, not a fallback** (Architecture 11), and dropping an unknown
+option is a fallback wearing a tidier name.
+
+## A11. THE OPTIONS ARE FETCHED BY THE SURFACE, NOT READ FROM THE SHELL
+
+`industriesCache` is declared `let` at `frontend/app.js:5065`. Migration Round
+2's rule: a `let` at the top level of a classic script is a LEXICAL name that no
+bundle can read - not a coupling to carry over, a coupling that was never
+possible.
+
+**Ruled: the surface fetches `/api/industries` itself**, the same ruling Round 5
+took for `terminusStaffCache` on the Reference tab. One fewer shell global
+rather than one more accessor.
+
+## What this addendum does NOT decide
+
+**Whether the lookup editor needs a type-ahead.** The vanilla renders a plain
+`<select>` over every industry, and the count is small enough today that this
+is not a question. It becomes one at the Account picker, which is a search
+already, and that is a different control rather than a bigger version of this
+one.
+
+**Whether `options` should be async.** They are fetched, so a row can render
+before its choices arrive. Ruled by construction instead: the surface holds the
+fetched list and passes descriptors built from it, so a descriptor never carries
+a pending list. If a later surface needs per-row async options, that is a new
+entry rather than a widening of this one.
