@@ -2305,6 +2305,24 @@ of the change. An unanswerable precondition is a stop.
     is documentation, correcting it is the disposition - there is nothing to
     re-point.
 
+    **AND A SUPERSEDED FUNCTION IN A FILE THAT STAYS LOADED MUST BE RENAMED,
+    NOT MERELY MADE TO REFUSE.** Round 7 Phase 2e, found by a live walk after
+    every unit test passed.
+
+    `app.js`'s `loadTestBedDetail` was left in place and taught to throw, which
+    is this rule's own remedy. **A top-level function declaration in a classic
+    script is a property of `window`**, and `app.js` loads AFTER the bundle - so
+    the refusing function silently overwrote the React registration of the same
+    name, and every navigation reached the refusal instead of the view.
+
+    **The load-order property that makes a swap revertible in one line is the
+    same property that did this.** The two previous swaps never met it because
+    their vanilla FILE was removed, taking its declarations with it. A file that
+    cannot be removed keeps publishing its names.
+
+    **So the refusal and the rename are both required**, and the rename is the
+    half that is easy to skip because the refusal feels like the whole job.
+
     **AND THE OLD ROUTE ITSELF REFUSES**, rather than relying on no caller
     reaching it. Callers are found by looking; a refusal is found by testing.
     Round 41 made it a 409 conditional on the same `WORKFLOW_RECORD_TYPES` list
@@ -2399,6 +2417,33 @@ of the change. An unanswerable precondition is a stop.
     `buildStageTracks` being exported for the agreement test already does and
     what V8 slipped past by feeding that exported function the wrong argument.
 
+    **AND THE ENFORCEMENT MUST NOT READ STATE A SWAP CAN RETIRE.** Round 7
+    Phase 2e, the fourth instance, and the first where the enforcement was
+    correct and its INPUT disappeared.
+
+    `CAN_EDIT_BY_VIEW` reads the `is-not-mine` CLASS - one value, one writer,
+    shared with the Opportunity by construction, and that sharing is why it
+    reads a class rather than the record. **The writer lived inside the vanilla's
+    load path.** The swap retired that path, so the new surface's banner rendered
+    correctly from the record while the door, reading a class nobody set any
+    more, stayed open: every row a tab stop and every row opening on somebody
+    else's record.
+
+    **A green display and an open door, from one retirement.** No test could see
+    it: the door is correct, the banner is correct, and the class is a fact about
+    a page.
+
+    **The check: when a swap retires a code path, list what that path WROTE, not
+    only what called it.** A class, a dataset attribute, a module-scope value -
+    anything an enforcement reads later. Same family as build-discipline rule 8,
+    enumerate everything the responsible actor writes, arriving at a swap.
+
+    **AND A FIX FOR IT CAN BE ONE RENDER TOO LATE.** Written as an effect, the
+    replacement writer ran after the row component had already asked the door,
+    and nothing re-rendered to correct it - **the measurement was identical to
+    the one before the fix**. Where an enforcement reads the DOM during render,
+    the thing it reads has to be written before that render, not after it.
+
     Nearest neighbour is Verification 20, two readers of one value. **This is
     narrower and has a remedy 20 does not: there is a specific function to
     share**, and sharing it is cheaper than proving two readers equal.
@@ -2461,6 +2506,33 @@ of the change. An unanswerable precondition is a stop.
     anything; compare the restored bytes to the original after EVERY injection
     and stop rather than compound; and refuse an anchor that is not unique.
     Prefer a language with no word-splitting to a shell.
+
+    **AND A KILLED RUN POISONS THE NEXT RUN'S BASELINE.** Round 7 Phase 2d
+    session 2, and it is the third instance of this shape.
+
+    The sweep injected a HANG deliberately - a guard against an infinite render
+    loop, removed to prove the guard real. Every other injection failed in a
+    second, so the run raced through them, applied that one, hung, and was
+    killed by the shell's own two-minute wall. **The restore never ran and the
+    mutation stayed on disk.**
+
+    **THE NEXT RUN THEN SNAPSHOTTED THE MUTATION AS THE ORIGINAL** and faithfully
+    restored it after every injection. The damage was not merely left behind; it
+    was BLESSED, and every later injection read `-1 failed` at exactly the
+    timeout because the suite hung each time.
+
+    **It surfaced because the suite hung afterwards, which is luck rather than a
+    control.** A quieter mutation would have travelled into the commit.
+
+    **The control is a MARKER, not more care.** The harness writes an in-flight
+    file beside its snapshots before the first injection and removes it only
+    after the final byte-for-byte comparison. **A run that finds one REFUSES**
+    and names the directory to restore from, rather than snapshotting the
+    wreckage.
+
+    **And an injection whose expected result IS a hang declares itself**, so the
+    timeout is evidence for that one and a hard stop for every other -
+    Verification 48 applied inside the harness.
 
     **Both times it was the final "reverted" pass that caught it**, which is the
     one thing a calibration reliably reports. It costs one run and it has now
@@ -2551,6 +2623,25 @@ of the change. An unanswerable precondition is a stop.
     indistinguishable zero that round existed to remove. **All five test files
     supplied `{ rates: ... }`**, so nothing failed anywhere, and the type
     annotation on the call even said `products`.
+
+    **AND THE CALLER SIDE: A REQUEST SHAPED BY WHAT THE READER WANTED.**
+    Round 7, twice in one round and neither caught by a test.
+
+    A panel was wired to `POST /test-beds/:id/documents/confirm` and
+    `PATCH /test-beds/:id/documents`. **Neither route exists**; the real one is
+    `POST /complete-document`, and its `approve` flag is the difference between
+    confirming a document and saving a URL. Later, the same surface fetched
+    `/api/stages`, which does not exist either - the route is
+    `/api/stage-definitions` - so a stage list stayed empty and a terminal check
+    that reads the last stage could never be true.
+
+    **Nothing failed.** No test exercised the call, and the component's own
+    assertions are about what it RENDERS. A fabricated route is invisible to
+    every layer above the network.
+
+    **The check: read the route before writing the call, and exercise it.** A
+    request is a contract with something outside the file, and the only
+    instrument that can see it is one that makes the request.
 
     **The check: a fixture for a response is built from what the ROUTE returns,
     once, in one shared place.** Five copies of a wrong shape agree with each
@@ -2726,6 +2817,30 @@ of the change. An unanswerable precondition is a stop.
     names where there were 76: fifteen `window.X = function` declarations were
     invisible, and among them the unqualify, delete and account-modal entry
     points. Verification 50's clause, hiding a fifth of a file.
+
+    **AND THE POPULATION OF A SWAP IS A VIEW, NOT A FILE.** Round 7 Phase 2c,
+    and it is the same instrument failing at the level above the one it was
+    built for.
+
+    The accounting mapped every top-level name in `frontend/test-bed-detail.js`
+    to an enumerated capability and read 20 of 20 rendered. That reading was
+    correct. **The Test Bed detail view is also built by `app.js`** - the
+    documents panel's content, the approvals panel's content, the terminal tab,
+    the Next Stage action, the view's own load and render - and none of it was in
+    the population. **574 lines across 20 names had no counterpart while the gate
+    said the swap was takeable.**
+
+    **A VIEW IS EVERY FILE THAT WRITES INTO ITS CONTAINER**, not the file named
+    after it. Verification 25's population clause at the level of a decision: an
+    instrument can be demonstrably working and blind on the population the claim
+    covers.
+
+    **The enumeration is DECLARED, not inferred.** A regex over function bodies
+    was tried first and was wrong in BOTH directions - a shared helper mentioning
+    no other view read as this view's, and this view's own renderer mentioning
+    "Opportunity" in a comment read as shared. It gave 1,057 lines and then 269
+    from the same question, and neither was reported. One disposition per name,
+    which is Verification 41's shape: the enumeration itself is the instrument.
 
     Same family as Verification 33, every measure has a shape, with a specific
     remedy 33's general one does not give.
