@@ -247,3 +247,62 @@ test('EVERY capability renders, which is the swap gate at its floor', () => {
   assert.deepEqual(NOT_RENDERED, [],
     'NOT_RENDERED is non-empty while every capability renders, so the list is stale')
 })
+
+// ── THE SECOND POPULATION: THE VIEW, NOT THE FILE ───────────────────────
+//
+// Round 7 Phase 2c, and it is the correction to this instrument rather than an
+// addition to it.
+//
+// Everything above measures test-bed-detail.js's 136 names, and it reads 20 of
+// 20 rendered. THE SWAP IS ABOUT A VIEW, and the Test Bed detail view is also
+// built by app.js: the documents panel's content, the approvals panel's
+// content, the terminal tab's content, the Next Stage action, the view's own
+// load and render. None of that was ever in the population, so the gate said
+// "every capability renders" about a view that does not.
+//
+// Verification 25's population clause, arriving at the instrument that exists
+// to stop a swap taking working capabilities off a live screen.
+//
+// The dispositions live in scripts/round7/tb-view-surface.mjs, declared rather
+// than inferred - a regex over function bodies was tried and was wrong in both
+// directions. This asserts the RECORDED gap set exactly, the same ratchet shape
+// the file's own gate used: it fails when something is built AND when something
+// regresses.
+const VIEW_GAPS = [
+  'renderTestBedDetail', 'loadTestBedDetail', 'renderTestBedDocuments',
+  'renderTbClosedPanel', 'renderTbStageApprovals', 'confirmStageDocument',
+  'tbLandOnStageAfterLoad', 'convertTestBed', 'wireTbNextStageButton',
+  'saveStageDocumentUrl', 'tbArrivingFresh', 'applyConfirmedApproval',
+  'refreshTbStagePanels', 'wireTestBedConvertOnce', 'resetTestBedConvertForm',
+  'tbDocKey', 'tbNextStageState', 'currentTestBed', 'tbDetailStages',
+  'tbFreshNavigation',
+].sort()
+
+test('the app.js view gaps are EXACTLY the recorded ones', () => {
+  const declared = readFileSync(new URL('scripts/round7/tb-view-surface.mjs', ROOT), 'utf8')
+  const block = declared.slice(declared.indexOf('const VIEW = {'), declared.indexOf('\n}\n', declared.indexOf('const VIEW = {')))
+  const gaps = [...block.matchAll(/^\s{2}([A-Za-z0-9_$]+):\s*'GAP:/gm)].map((m) => m[1]).sort()
+
+  assert.ok(gaps.length > 0, 'no gaps parsed, so this assertion is vacuous')
+  assert.deepEqual(gaps, VIEW_GAPS,
+    'the app.js gap set moved. If something was BUILT, remove it from '
+    + 'VIEW_GAPS and from the enumeration. If something REGRESSED, that is the '
+    + 'finding.')
+})
+
+test('and every declared view name still exists in app.js', () => {
+  // The enumeration is only an instrument while it names real functions.
+  const app = readFileSync(new URL('frontend/app.js', ROOT), 'utf8')
+  const present = new Set(topLevelNames(app).map((n) => n.name))
+  const missing = VIEW_GAPS.filter((n) => !present.has(n))
+  assert.deepEqual(missing, [], 'declared gaps no longer in app.js: ' + missing.join(', '))
+})
+
+test('THE SWAP IS NOT TAKEABLE while the app.js view gaps are non-empty', () => {
+  // The file's own gate reads 20/20 and says takeable. This is the other half,
+  // and until it is empty the two disagree - which is the finding, not a
+  // contradiction to resolve by picking one.
+  assert.notEqual(VIEW_GAPS.length, 0,
+    'VIEW_GAPS is empty, so the view population is covered and this assertion '
+    + 'should be inverted in the swap commit')
+})
