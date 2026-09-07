@@ -8,24 +8,31 @@
 // THE CAPABILITY LIST, NOT THE FIELD LIST, IS THIS SURFACE'S SCOPE.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync, existsSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
+import { reactSources, reachedFrom, stateOf } from '../lib/react-reach.mjs'
 import { topLevelNames, reachability } from '../lib/top-level-names.mjs'
 
 const ROOT = new URL('../../', import.meta.url)
 const SOURCE = () => readFileSync(new URL('frontend/test-bed-detail.js', ROOT), 'utf8')
 
-// `migrated` HAS A READER, which is what stops it being bookkeeping prose that
-// rots (Verification 22, and Architecture 9's fourth variant). Every capability
-// names the React modules that implement it, and the flag is asserted to AGREE
-// with whether those files exist on disk. A flag flipped without a module, or a
-// module deleted under a flag, fails.
+// THE FLAG IS GONE AND THE STATE IS DERIVED, Round 7 Phase 2.
+//
+// `migrated: boolean` read MODULE EXISTENCE, which is a proxy for the question
+// the swap actually asks: does the React surface RENDER this capability? It
+// answered wrong in both directions at once - five capabilities whose modules
+// exist and which nothing imports read migrated, and notes-history read
+// unmigrated while the shared Contact component renders it.
+//
+// Verification 19 exactly: "migrated" is a category name, and a category name
+// is a finding that needs the same evidence as one. The state is now WALKED
+// from TestBedHost.tsx's own imports, so it cannot be typed and cannot rot.
 const CAPABILITIES = {
-  'view-lifecycle': { migrated: false, modules: [], names: [
+  'view-lifecycle': { modules: ['testbed/TestBedHost.tsx'], names: [
     'tbDetailId', 'tbBed', 'tbPayload', 'tbLoadedRevision', 'tbWired',
     'initTestBedDetailPanel', 'wireTbOnce', 'renderTbReference',
     'mountTbReferenceSubTabs', 'captureTbOpenEdits', 'restoreTbOpenEdits'] },
 
-  'field-rows': { migrated: true, modules: ['descriptors.ts', 'TestBedPanel.tsx'], names: [
+  'field-rows': { modules: ['testbed/descriptors.ts', 'testbed/TestBedPanel.tsx'], names: [
     'tbEdits', 'REGION_OPTIONS', 'INSTALLATION_ENVIRONMENT_OPTIONS',
     'SITE_OWNERSHIP_OPTIONS', 'TB_NAME_FIELD', 'TB_TERMINUS_FIELDS',
     'TB_CUSTOMER_FIELDS', 'TB_SUMMARY_FIELD', 'TB_SITE_FIELDS',
@@ -34,61 +41,61 @@ const CAPABILITIES = {
     'tbReadonlyRow', 'tbEffectiveValue', 'wireTbFieldInputs', 'openTbField',
     'discardTbField', 'onTbFieldInput', 'updateTbSaveBar', 'clearTbSaveFeedback'] },
 
-  'save-path': { migrated: true, modules: ['TestBedHost.tsx'], names: [
+  'save-path': { modules: ['testbed/TestBedHost.tsx'], names: [
     'tbPatch', 'tbStaleMessage', 'saveTbFields', 'saveTbDirtyEntries'] },
 
-  'cost-preview': { migrated: true, modules: ['costPreview.ts'], names: [
+  'cost-preview': { modules: ['testbed/costPreview.ts'], names: [
     'TB_COST_INPUT_KEYS', 'tbCostPreview', 'tbCostPreviewTimer',
     'tbCostFieldsDirty', 'scheduleTbCostPreview', 'runTbCostPreview',
     'renderTbCostBreakdown'] },
 
-  'date-bounds': { migrated: true, modules: ['dateBounds.ts'], names: ['refreshTbDateBounds'] },
+  'date-bounds': { modules: ['testbed/dateBounds.ts'], names: ['refreshTbDateBounds'] },
 
-  validation: { migrated: false, modules: [], names: [
+  validation: { modules: [], names: [
     'tbInvalidFields', 'tbValidateNumeric', 'tbMarkFieldValidity',
     'renderTbValidationFeedback', 'guardNumericEntry'] },
 
-  'notes-history': { migrated: false, modules: [], names: [
+  'notes-history': { modules: ['contact/NotesHistory.tsx', 'contact/notes.ts'], names: [
     'tbNotesExpanded', 'toggleTbNotes', 'tbNoteStageChip', 'tbNewNote',
     'renderTbNotes', 'addTbNote'] },
 
-  'revision-history': { migrated: false, modules: [], names: ['renderTbHistory'] },
+  'revision-history': { modules: [], names: ['renderTbHistory'] },
 
-  'site-details': { migrated: false, modules: [], names: ['TB_SITE_PANEL_KEYS', 'renderTbSiteDetails'] },
+  'site-details': { modules: ['testbed/descriptors.ts'], names: ['TB_SITE_PANEL_KEYS', 'renderTbSiteDetails'] },
 
-  commercials: { migrated: false, modules: [], names: ['renderTbCommercials'] },
+  commercials: { modules: ['testbed/descriptors.ts'], names: ['renderTbCommercials'] },
 
-  'install-section': { migrated: false, modules: [], names: [
+  'install-section': { modules: [], names: [
     'renderTbInstallSection', 'renderTbInstallNotes', 'addTbInstallNote'] },
 
-  installer: { migrated: false, modules: [], names: [
+  installer: { modules: [], names: [
     'tbInstallerSearching', 'tbInstallerContacts', 'tbInstallerFeedback',
     'renderTbInstallerRow', 'openTbInstallerSearch', 'closeTbInstallerSearch',
     'renderTbInstallerResults', 'setTbInstaller'] },
 
-  'tech-team': { migrated: false, modules: [], names: ['renderTbTechTeamRow', 'setTbTechTeam'] },
+  'tech-team': { modules: [], names: ['renderTbTechTeamRow', 'setTbTechTeam'] },
 
-  'customer-documents': { migrated: false, modules: [], names: [
+  'customer-documents': { modules: [], names: [
     'tbCustomerDocs', 'tbCustDocFeedback', 'renderTbCustomerDocuments',
     'addTbCustomerDocument', 'removeTbCustomerDocument'] },
 
-  'sensor-counts': { migrated: true, modules: ['units.ts'], names: [
+  'sensor-counts': { modules: ['testbed/units.ts'], names: [
     'tbUnitCounts', 'loadTbUnitCounts', 'COUNT_KEY_TO_UNIT_TYPE',
     'COUNT_KEY_FOR_UNIT_TYPE', 'tbLockedCountRow', 'renderTbSensorCounts',
     'tbUnitShortfall', 'renderTbCountCorrection'] },
 
-  'use-cases': { migrated: true, modules: ['useCases.ts'], names: [
+  'use-cases': { modules: ['testbed/useCases.ts'], names: [
     'renderTbUseCases', 'addTbUseCase', 'removeTbUseCase'] },
 
-  'buyer-roles': { migrated: true, modules: ['descriptors.ts'], names: [
+  'buyer-roles': { modules: ['testbed/descriptors.ts'], names: [
     'tbAccountContacts', 'CLIENT_BUYER_ROLES', 'CLIENT_BUYER_ROLE_LABELS',
     'renderTbBuyerRows', 'linkTbBuyer'] },
 
-  'exit-criteria': { migrated: true, modules: ['exitCriteria.ts'], names: [
+  'exit-criteria': { modules: ['testbed/exitCriteria.ts'], names: [
     'TB_EXIT_CRITERION_KEYS', 'renderTbStageExitCriteria', 'toggleExitCriterion',
     'tbCriterionQueue', 'applyConfirmedCriterionTick'] },
 
-  scoring: { migrated: true, modules: ['scoring.ts', 'scoreReason.ts'], names: [
+  scoring: { modules: ['testbed/scoring.ts', 'testbed/scoreReason.ts'], names: [
     'tbScoringCriteria', 'tbScoresExpanded', 'tbScoreReasons', 'tbScoreAnchorsOpen',
     'applyTbPendingMarks', 'tbScoreReasonRequired', 'tbScoreAwaitingReason',
     'applyTbScoreEntryLock', 'setTbScoreDraft', 'setTbMeasurability',
@@ -97,7 +104,7 @@ const CAPABILITIES = {
     'recordTbScores', 'renderTbScoreSummary', 'ensureTbScoringCriteria',
     'tbScoreVisible', 'renderTbStageScoring', 'renderTbScores'] },
 
-  units: { migrated: true, modules: ['unitQueue.ts', 'units.ts'], names: [
+  units: { modules: ['testbed/unitQueue.ts', 'testbed/units.ts'], names: [
     'UNIT_TYPES', 'UNIT_TYPE_FOR_TAB_KEY', 'UNIT_STATES', 'tbUnits', 'tbUnitRow',
     'renderTbUnitPane', 'tbUnitWriteQueues', 'tbUnitWriteQueue', 'tbUnitSettleRow',
     'onTbUnitFieldChange', 'renderTbUnits'] },
@@ -144,37 +151,92 @@ test('and every enumerated name still exists, so the map cannot rot', () => {
   assert.deepEqual(missing, [], 'enumerated names that no longer exist: ' + missing.join(', '))
 })
 
-test('every capability declares whether it is migrated', () => {
-  for (const [cap, v] of Object.entries(CAPABILITIES)) {
-    assert.equal(typeof v.migrated, 'boolean', `${cap} does not say whether it is migrated`)
-  }
-})
-
 test('the reachability split is recorded, for the shell round', () => {
   const { reachable, lexical } = reachability(topLevelNames(SOURCE()))
   assert.ok(reachable.length > 0 && lexical.length > 0,
     'the split produced nothing, so it did not run')
 })
 
-test('the migrated flag AGREES with the modules on disk, so it cannot be prose', () => {
-  const disagreements = []
-  for (const [cap, v] of Object.entries(CAPABILITIES)) {
-    assert.ok(Array.isArray(v.modules), `${cap} declares no module list`)
-    const built = v.modules.length > 0
-      && v.modules.every((m) => existsSync(new URL(`frontend-react/src/testbed/${m}`, ROOT)))
-    if (built !== v.migrated) {
-      disagreements.push(`${cap}: flag says ${v.migrated}, modules on disk say ${built}`)
-    }
-  }
-  assert.deepEqual(disagreements, [], disagreements.join('; '))
+// ── THE STATE IS WALKED FROM THE HOST'S IMPORTS, NOT DECLARED ───────────
+//
+// rendered   the host reaches every module the capability declares
+// logic-only a module exists and the host cannot reach it - built, not rendered
+// absent     nothing is built
+//
+// The walk lives in scripts/lib/react-reach.mjs so the swap-readiness report
+// uses the same one (Verification 20).
+const SRC = reactSources()
+const reachedFromHost = () => reachedFrom(SRC, 'testbed/TestBedHost.tsx')
+
+test('the import walk RUNS: it reaches the panel from the host', () => {
+  // Verification 12. A walk that returns nothing reads exactly like a surface
+  // that renders nothing, and every state below would read `logic-only`.
+  const reached = reachedFromHost()
+  assert.ok(reached.has('testbed/TestBedHost.tsx'), 'the walk did not start')
+  assert.ok(reached.has('testbed/TestBedPanel.tsx'),
+    'the walk did not reach the panel through an import, so it did not run')
+  assert.ok(reached.has('field-row/FieldRow.tsx'),
+    'the walk did not follow a second hop, so it is not transitive')
 })
 
-test('and a migrated capability names at least one module', () => {
-  // Otherwise the agreement above is satisfied by declaring nothing on both
-  // sides, which is Verification 14: true by absence.
-  const migrated = Object.entries(CAPABILITIES).filter(([, v]) => v.migrated)
-  assert.ok(migrated.length > 0, 'no capability is migrated, so this asserts nothing')
-  for (const [cap, v] of migrated) {
-    assert.ok(v.modules.length > 0, `${cap} is migrated and names no module`)
+test('every declared module EXISTS, so a state cannot rest on a typo', () => {
+  const missing = []
+  for (const [cap, { modules }] of Object.entries(CAPABILITIES)) {
+    for (const m of modules) if (!SRC.has(m)) missing.push(`${cap}: ${m}`)
   }
+  assert.deepEqual(missing, [], 'declared modules that do not exist: ' + missing.join(', '))
+})
+
+/**
+ * ── THE SWAP GATE ────────────────────────────────────────────────────────
+ *
+ * The swap is takeable exactly when NOT_RENDERED is empty. Until then this is
+ * the recorded debt, and it is asserted EXACTLY rather than as a count - so it
+ * fails when something regresses AND when something is built, which is what
+ * stops it becoming a stale list nobody updates (Architecture 9's fourth
+ * variant).
+ *
+ * Measured 2026-09-07, Round 7 Phase 2, and it is why the swap did not happen
+ * in that phase. `logic-only` is the one worth reading twice: five capabilities
+ * have modules, tests and injection sweeps, and NOTHING IMPORTS THEM. Phase 1b
+ * built scoring, units, exit criteria, use cases and sensor counts as logic
+ * with no rendering surface, and the flag it used said migrated.
+ */
+const NOT_RENDERED = [
+  { cap: 'validation', state: 'absent' },
+  { cap: 'revision-history', state: 'absent' },
+  { cap: 'install-section', state: 'absent' },
+  { cap: 'installer', state: 'absent' },
+  { cap: 'tech-team', state: 'absent' },
+  { cap: 'customer-documents', state: 'absent' },
+  { cap: 'sensor-counts', state: 'logic-only' },
+  { cap: 'use-cases', state: 'logic-only' },
+  { cap: 'exit-criteria', state: 'logic-only' },
+  { cap: 'scoring', state: 'logic-only' },
+  { cap: 'units', state: 'logic-only' },
+]
+
+test('the capabilities the React surface does not render are EXACTLY the recorded ones', () => {
+  const reached = reachedFromHost()
+  const actual = Object.entries(CAPABILITIES)
+    .map(([cap, v]) => ({ cap, state: stateOf(v.modules, SRC, reached) }))
+    .filter((r) => r.state !== 'rendered')
+
+  const rendered = Object.keys(CAPABILITIES).length - actual.length
+  assert.ok(rendered > 0, 'nothing is rendered, so this assertion is vacuous')
+
+  assert.deepEqual(actual, NOT_RENDERED,
+    'the unrendered set moved. If something was BUILT, remove it from '
+    + 'NOT_RENDERED. If something REGRESSED, that is the finding.')
+})
+
+test('and the swap is takeable only when that set is EMPTY', () => {
+  // Not a tautology: it states the gate the list above exists to hold, so a
+  // future session reads the condition rather than inferring it from a list.
+  // Round 6 swapped a surface after censusing its FIELDS and took five working
+  // capabilities off a live screen. This is the instrument that stops a repeat.
+  const takeable = NOT_RENDERED.length === 0
+  assert.equal(takeable, false,
+    'NOT_RENDERED is empty, so the Test Bed swap is takeable and this '
+    + 'assertion should be inverted in the swap commit')
 })
