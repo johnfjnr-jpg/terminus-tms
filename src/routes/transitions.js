@@ -37,24 +37,20 @@ import { sendWriteError, sendRefusal } from '../lib/write-errors.js'
  * @param ctx.from_stage the stage being exited (the gate's own stage)
  * @param ctx.currentRevision the record's current revision number
  */
-// Fields a payload_field_required rule may name that are REAL COLUMNS on
-// records rather than payload keys, so the gate reads the record row instead
-// of the revision payload.
+// ── MOVED TO src/lib/stage-gate-fields.js, Round 6 Phase 1 ───────────────
 //
-// EVERY CALLER'S SELECT LIST IS BUILT FROM THIS SET, deliberately. Round 11
-// Phase 5 added installer_account_id here and the gate blocked unsatisfiably
-// until the two callers' hardcoded select lists were updated too: the row
-// simply did not carry the column, so record[field] was undefined and the
-// requirement could never be met. Nothing in the schema or the types aligned
-// the two lists, which is the same shape as stage_reference_docs and
-// stage_gate_rules holding document names as independent free strings, and
-// the same failure mode as Round 7 Phase 3.2 - a gate that is configured
-// correctly and cannot be satisfied from inside the product.
-export const RECORD_COLUMN_FIELDS = new Set(['parent_record_id', 'industry_id', 'installer_account_id'])
+// Re-exported here so every existing importer is unchanged. The definitions
+// moved because the CONTACT SCREEN needs the same two rules to decide whether
+// a blocked field has since been filled in, and nothing in a route module can
+// be read by a browser or a bundle. One definition, two readers, rather than
+// a copy with a comment claiming it is identical.
+// IMPORTED AND RE-EXPORTED, not re-exported alone. `export { X } from '...'`
+// creates NO LOCAL BINDING, so the first in-file use of RECORD_COLUMN_FIELDS
+// threw a ReferenceError - caught by the gates suite, which is exactly the
+// population that exercises it.
+import { RECORD_COLUMN_FIELDS, GATE_RECORD_SELECT } from '../lib/stage-gate-fields.js'
+export { RECORD_COLUMN_FIELDS, GATE_RECORD_SELECT }
 
-// The select every computeBlocking caller must use. Derived, never retyped.
-export const GATE_RECORD_SELECT =
-  ['id', 'record_type', 'status', 'variant', ...RECORD_COLUMN_FIELDS].join(', ')
 
 export function ruleScope(rule) {
   // Absent scope defaults to 'revision' - the behaviour every rule had

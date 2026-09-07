@@ -813,3 +813,65 @@ test('INVARIANT: no evaluator reads approvals.inert_reason', () => {
     'inert_reason is documentary. A file that reads it is a second mechanism for deciding '
     + 'whether an approval counts, beside approvalSatisfiesRule:\n  ' + offenders.join('\n  '))
 })
+
+// ─────────────────────────────────────────────────────────────────────────
+// THE CONTACT SURFACE'S GATE LIST, AGREED AGAINST THE LIVE ROWS
+// ─────────────────────────────────────────────────────────────────────────
+//
+// Round 6 Phase 1. `contact-blocking.test.ts` calibrates against a HAND-COPIED
+// list of the fields that gate Qualified, because a vitest unit test cannot
+// reach the database. A hand-copied list is a second reader of a value the
+// database holds (Verification 20), so its agreement is asserted HERE, where
+// the rows are, rather than assumed there.
+//
+// Without this the unit suite could go on calibrating happily against a set the
+// business had changed months earlier, and every one of its tests would still
+// pass.
+test('the Contact gate list the React suite calibrates against still matches the rows', () => {
+  const live = rules
+    .filter((r) => r.record_type === 'contact' && r.to_stage === 'Qualified')
+    .map((r) => r.requirement_detail?.field)
+    .filter(Boolean)
+    .sort()
+
+  const src = readCode(new URL('../../frontend-react/src/__tests__/contact-blocking.test.ts',
+    import.meta.url))
+  const block = src.slice(src.indexOf('const GATED_AT_QUALIFY = ['))
+  const copied = [...block.slice(0, block.indexOf(']')).matchAll(/'([^']+)'/g)]
+    .map((m) => m[1]).sort()
+
+  // CALIBRATED: the extraction must be able to see the list at all, or an
+  // empty copy would "agree" with an empty live set the moment either broke.
+  assert.ok(copied.length >= 10,
+    `the hand-copied list did not parse: found ${copied.length} entries`)
+  assert.ok(live.length >= 10,
+    `no live contact rules were read: found ${live.length}`)
+
+  assert.deepEqual(copied, live,
+    'the React suite calibrates against a gate list the database no longer has. '
+    + 'Update GATED_AT_QUALIFY in contact-blocking.test.ts, and check whether the '
+    + 'new or removed field needs a row or a gateKeyFor declaration.')
+})
+
+// AND THE RECORD-COLUMN SET IS ONE DEFINITION, NOT TWO.
+//
+// `RECORD_COLUMN_FIELDS` moved to src/lib in Round 6 Phase 1 so the Contact
+// screen could read the same set the gate reads. This asserts the move held:
+// every gate rule naming one of those fields is answered from the record row,
+// and the route module no longer carries its own copy.
+test('the record-column set has exactly one definition, in src/lib', () => {
+  const lib = readCode(new URL('../../src/lib/stage-gate-fields.js', import.meta.url))
+  const route = readCode(new URL('../../src/routes/transitions.js', import.meta.url))
+
+  assert.match(lib, /export const RECORD_COLUMN_FIELDS = new Set\(/,
+    'the shared definition is gone from src/lib')
+  assert.ok(!/new Set\(\[[^\]]*'parent_record_id'/.test(route),
+    'src/routes/transitions.js has grown its own copy of the record-column set again')
+  // IMPORT AND RE-EXPORT, both. A bare `export ... from` re-exports without
+  // creating a local binding, so the route's own uses of the set throw. That
+  // is how this landed the first time and the gates suite caught it.
+  assert.match(route, /import \{[^}]*RECORD_COLUMN_FIELDS[^}]*\} from '\.\.\/lib\/stage-gate-fields\.js'/,
+    'the route does not import the shared definition, so its own uses throw')
+  assert.match(route, /export \{[^}]*RECORD_COLUMN_FIELDS[^}]*\}/,
+    'the route no longer re-exports the shared definition, so its importers break')
+})
