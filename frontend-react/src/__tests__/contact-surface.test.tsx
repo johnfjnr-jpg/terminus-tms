@@ -50,6 +50,8 @@ const services: ShellServices = {
   canEditFields: () => true,
   requestChangeReason: () => {},
   currentUserEmail: () => 'probe@example.invalid',
+  staleWriteHtml: () => null,
+  setContactReturnView: () => {},
 }
 
 const mount = async (c = CONTACT) => {

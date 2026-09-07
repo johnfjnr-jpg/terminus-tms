@@ -3247,7 +3247,24 @@ opened it. -->
      A commented tag naming a deleted file is worse than none: it reads as an
      escape route somebody might reach for. -->
 <script src="/test-bed-detail.js"></script>
+<!-- ── SUPERSEDED BY THE REACT CONTACT VIEW. Round 6, Phase 2 ────────
+     Restoring this one line reverts the surface: the vanilla re-assigns
+     window.loadContactDetail AFTER the bundle has, so its view runs and the
+     React mount never does.
+
+     THE BUNDLE MUST STAY LOADED FIRST for that to hold - the load-order
+     property the Round 2 rehearsal measured, and why this is one line.
+
+     AND THE BACK BUTTON GOES WITH IT. app.js no longer reads `cdReturnView`
+     lexically; it asks window.contactReturnView() and defaults to 'leads'.
+     The vanilla still assigns its own `let` on restore, which nothing reads
+     any more - so a reverted surface returns to leads from an unqualified
+     contact and to leads from a qualified one too, until the vanilla is
+     taught to publish through the seam. That is the one behaviour a revert
+     does not restore, and it is written here rather than discovered.
+
 <script src="/contact-detail.js"></script>
+     ────────────────────────────────────────────────────────────────────── -->
 <!-- ── THE ACCOUNT VIEW IS REACT, AND THE VANILLA IS GONE ─────────────
      Round 4 close, under the one-round confidence window: a superseded file is
      deleted after the next full round completes with no revert needed. The

@@ -7,6 +7,7 @@ import { ShellProvider } from './ShellContext'
 import { shellServices } from './shell-services'
 import { ApprovalView } from './ApprovalView'
 import { AccountView } from './account/AccountView'
+import { ContactView } from './contact/ContactView'
 import { DealPanel } from './deal/DealPanel'
 import { valuesFromPayload, uiFromPayload } from './deal/payload'
 import { saveDeal } from './deal/seam'
@@ -25,6 +26,7 @@ import type { DealFormSeam } from './deal/seam'
 
 const APPROVAL_VIEW = 'opportunity-approval'
 const ACCOUNT_VIEW = 'account-detail'
+const CONTACT_VIEW = 'contact-detail'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -51,6 +53,7 @@ declare global {
   interface Window {
     loadApprovalPage?: (oppId: string) => void
     loadAccountDetail?: (accountId: string) => void
+    loadContactDetail?: (contactId: string) => void
     initOpportunityDealPanel?: (opp: OppRecord) => void
     initOpportunityReferencePanel?: (opp: OppRecord) => void
     initOpportunityDealVersions?: (o: { opportunityId: string, seam: DealFormSeam }) => void
@@ -85,6 +88,11 @@ function register(view: string, render: (id: string) => React.ReactElement) {
 
 window.loadApprovalPage = register(APPROVAL_VIEW, (id) => <ApprovalView oppId={id} />)
 window.loadAccountDetail = register(ACCOUNT_VIEW, (id) => <AccountView accountId={id} />)
+// ── THE CONTACT VIEW, Round 6 Phase 2 ────────────────────────────────────
+//
+// A whole-view migration like the two above, so createRoot owns
+// #view-contact-detail and clears the static markup on first render.
+window.loadContactDetail = register(CONTACT_VIEW, (id) => <ContactView contactId={id} />)
 
 // ── THE COMMERCIALS PANEL ────────────────────────────────────────────────
 //

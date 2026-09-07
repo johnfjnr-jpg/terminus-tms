@@ -71,7 +71,7 @@ export function ContactHost({ contact, registerReload }: {
   const [record, setRecord] = useState<ContactLike>(contact)
   const [industries, setIndustries] = useState<LookupOption[]>([])
   const [blocking, setBlocking] = useState<BlockingState | null>(null)
-  const [feedback, setFeedback] = useState<{ text: string, ok: boolean } | null>(null)
+  const [feedback, setFeedback] = useState<{ text: string | null, html?: string | null, ok: boolean } | null>(null)
 
   // A11: the surface fetches its own options. `industriesCache` is a `let` in
   // app.js, so a bundle cannot read it - Round 5's terminusStaffCache ruling.
@@ -151,10 +151,22 @@ export function ContactHost({ contact, registerReload }: {
         ? record.latest_revision_number : undefined,
     })
     if (!r.ok) {
+      // ── C5: ONE RENDERER, AND THE SHELL OWNS IT ────────────────────────
+      //
+      // The vanilla words its own 409 sentence, which is Verification 20 in a
+      // string: two descriptions of one event and only one of them ever
+      // updated. The shell's renderer also carries a RELOAD CONTROL, so a
+      // surface writing its own sentence silently tells the person to reload
+      // and gives them no way to.
+      //
+      // The plain sentence stays as the fallback for a shell with no renderer,
+      // because showing nothing would be worse than showing a sentence.
+      const html = r.status === 409 ? shell.staleWriteHtml(contact.id) : null
       setFeedback({
-        text: r.status === 409
+        text: html ? null : (r.status === 409
           ? 'This Contact changed since the screen loaded. Reload before saving.'
-          : (r.data?.error ?? 'Failed to save.'),
+          : (r.data?.error ?? 'Failed to save.')),
+        html,
         ok: false,
       })
       return
@@ -204,9 +216,12 @@ export function ContactHost({ contact, registerReload }: {
               onClick={() => { void onQualify() }}>Qualify</button>
           </div>} />
       {feedback
-        ? <div data-testid="cd-save-feedback" className={feedback.ok ? 'msg-ok' : 'msg-error'}>
-            {feedback.text}
-          </div>
+        ? (feedback.html
+          ? <div data-testid="cd-save-feedback" className="msg-error"
+              dangerouslySetInnerHTML={{ __html: feedback.html }} />
+          : <div data-testid="cd-save-feedback" className={feedback.ok ? 'msg-ok' : 'msg-error'}>
+              {feedback.text}
+            </div>)
         : null}
     </div>
   )

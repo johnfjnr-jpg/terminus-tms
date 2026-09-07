@@ -76,13 +76,14 @@ const DISPOSED = {
     + 'caller that exists. The day something reaches for document.getElementById '
     + '("latch-all") it gets the hidden vanilla one.',
   'frontend-react/src/contact/ContactHost.tsx':
-    'PHASE 2 MUST REGISTER THIS AS A WHOLE VIEW, on the Account pattern the '
-    + 'brief names, so #view-contact-detail is createRoot-ed and the static ids '
-    + 'are cleared. Behind the line nothing is registered, so nothing collides '
-    + 'yet. If the swap instead mounts into a sub-container, these ids have to '
-    + 'be renamed first - that decision is what this entry exists to force.',
+    'INSIDE THE MOUNT CONTAINER, confirmed by the Phase 2 swap. This entry was '
+    + 'written in Phase 1 as a REQUIREMENT - register whole-view or rename - and '
+    + 'the swap took the first option: main.tsx does '
+    + 'register(CONTACT_VIEW, ...), so createRoot owns #view-contact-detail and '
+    + 'clears every static cd-* id on first render. The requirement is now a '
+    + 'fact, and live-form asserts the registration that makes it one.',
   'frontend-react/src/contact/ContactPanel.tsx':
-    'Same as ContactHost above: whole-view registration in Phase 2, or rename.',
+    'Same as ContactHost above, and confirmed by the same swap.',
   'frontend-react/src/deal/intake.tsx':
     "LATENT, and it belongs to the deal panel arrangement rather than to "
     + "this file: see the DealPanel entry. The swap HIDES the vanilla block "

@@ -72,7 +72,17 @@ const STATE_CLASSES = {
   // stale - the shape Phase 0 named as entry 5 and distinct from the ds-row
   // shape, which at least reads a file. Architecture 9's fourth variant living
   // inside a test.
-  'field-editing': 'contact-detail.js, toggled while a field is dirty. The Account surface used to toggle it too and is React from Round 2; the React field row expresses the same state as data-dirty on .field-row.',
+  // RE-POINTED AGAIN, Round 6 Phase 2, and the correction is the whole
+  // disposition: contact-detail.js is now UNLOADED, so nothing the browser
+  // runs toggles this class at all. Measured across the loaded scripts -
+  // app.js 0, test-bed-detail.js 0 - the three remaining toggles are in a file
+  // no tag loads.
+  //
+  // The entry STAYS because the scan below reads every .js in the directory,
+  // loaded or not, and the class is genuinely still toggled there. It goes
+  // when the file does: Phase 0's sandbox deletion measured this as the ONE
+  // test that fails on retirement, which is the instruction to remove it.
+  'field-editing': 'contact-detail.js, toggled while a field is dirty - but that file is UNLOADED as of Round 6 Phase 2, so nothing live toggles it. Account was React from Round 2 and Contact is now too; the React field row expresses the same state as data-dirty on .field-row. Retires with contact-detail.js.',
 }
 
 // ── AND A STRUCTURAL WRAPPER IS NOT A HOOK ────────────────────────────────

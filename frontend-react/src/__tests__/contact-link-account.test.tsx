@@ -32,6 +32,8 @@ const services: ShellServices = {
   canEditFields: () => true,
   requestChangeReason: () => {},
   currentUserEmail: () => 'probe@example.invalid',
+  staleWriteHtml: () => null,
+  setContactReturnView: () => {},
 }
 
 let linked = 0

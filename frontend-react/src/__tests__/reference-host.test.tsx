@@ -52,6 +52,8 @@ const services: ShellServices = {
   // way the shell would.
   requestChangeReason: (opts: ChangeReasonOptions) => { reasonOpts = opts },
   currentUserEmail: () => 'probe@example.invalid',
+  staleWriteHtml: () => null,
+  setContactReturnView: () => {},
 }
 
 const mount = async (opp: typeof OPP = OPP) => {

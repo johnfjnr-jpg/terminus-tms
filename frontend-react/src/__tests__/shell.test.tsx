@@ -77,9 +77,18 @@ describe('the bundle registers exactly the loaders it declares', () => {
     // pickers fetch /api/terminus-staff for themselves rather than reading
     // app.js's terminusStaffCache, which is a module-scope `let` a bundle
     // cannot reach anyway - Round 2's ruling, applied again.
+    // Round 6 Phase 2 adds ONE name, loadContactDetail, and no accessor. The
+    // Contact view fetches its own industries for the same reason - app.js's
+    // industriesCache is a module-scope `let` no bundle can read.
+    //
+    // `contactReturnView` is NOT here, and deliberately: it is written by the
+    // seam when a record loads, not at import. The shell asks for it through a
+    // guarded accessor with a default, so a bundle that has never mounted a
+    // Contact leaves the back button working.
     expect(added).toEqual([
       'initOpportunityDealPanel', 'initOpportunityDealVersions',
-      'initOpportunityReferencePanel', 'loadAccountDetail', 'loadApprovalPage'])
+      'initOpportunityReferencePanel', 'loadAccountDetail', 'loadApprovalPage',
+      'loadContactDetail'])
   })
 })
 

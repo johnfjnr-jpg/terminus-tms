@@ -141,3 +141,53 @@ test('the door is OPEN for the Reference tab, in the shell registry', () => {
   assert.match(app, /!!v && !v\.classList\.contains\('is-not-mine'\)/,
     'the registry line no longer fails CLOSED on a missing view element')
 })
+
+// ── WHICH CONTACT SURFACE IS LIVE. Round 6, Phase 2 ─────────────────────
+//
+// Same shape as the Reference and deal-form inversions above. The scan reads
+// index.html with comments STRIPPED, so the commented-out tag - which is what
+// the revert restores - does not count as loaded.
+const CD_TAG = '<script src="/contact-detail.js"></script>'
+
+test('THE REACT CONTACT VIEW IS THE LIVE ONE', () => {
+  assert.ok(RAW.includes(CD_TAG),
+    'the vanilla Contact tag is GONE, so the one-line revert has nothing to restore')
+  assert.ok(!LIVE.includes(CD_TAG),
+    'frontend/contact-detail.js is loaded again: the swap has been reverted, '
+    + 'deliberately or otherwise')
+})
+
+test('and the shell asks for the return view rather than reading a lexical name', () => {
+  // C1. The binding read `cdReturnView`, a `let` no bundle can make exist.
+  // A revert restores the vanilla's own `let` and nothing reads it, which is
+  // the one behaviour the one-line revert does NOT restore - recorded at the
+  // tag and asserted here.
+  const app = readCode(new URL('frontend/app.js', ROOT))
+  assert.ok(!/navigate\(cdReturnView\)/.test(app),
+    'app.js reads cdReturnView lexically again, which a bundle cannot satisfy')
+  assert.match(app, /window\.contactReturnView/,
+    'the shell no longer asks the seam for the return view')
+  assert.match(app, /:\s*'leads'/,
+    'the guarded accessor lost its default, so a bundle that has not mounted a '
+    + 'Contact leaves the back button dead')
+})
+
+test('the door is OPEN for the Contact view, in the shell registry', () => {
+  // The Account preserve ruling by precedent: Phase 0 measured no ownership
+  // read anywhere on this surface, so there is no door to preserve and
+  // inventing one would be the migration adding behaviour.
+  const app = readCode(new URL('frontend/app.js', ROOT))
+  const registry = app.slice(app.indexOf('const CAN_EDIT_BY_VIEW'))
+  assert.match(registry.slice(0, registry.indexOf('\n}')), /'contact-detail':\s*\(\)\s*=>\s*true/,
+    'the Contact view has no entry in CAN_EDIT_BY_VIEW, so the seam fails '
+    + 'closed and every row refuses')
+})
+
+test('the Contact view has a guarded entry, not a bare call', () => {
+  const app = readCode(new URL('frontend/app.js', ROOT))
+  assert.ok(!/else if \(view === 'contact-detail' && id\) loadContactDetail\(id\)/.test(app),
+    'the dispatch calls loadContactDetail bare, so a missing bundle is a '
+    + 'ReferenceError and a blank panel rather than a sentence')
+  assert.match(app, /loadContactDetailOrSayWhyNot/,
+    'the guarded entry is gone')
+})

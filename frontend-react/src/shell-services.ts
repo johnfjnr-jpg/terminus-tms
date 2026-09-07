@@ -81,6 +81,34 @@ export interface ShellServices {
    * a save that fails, and the server records the writer independently.
    */
   currentUserEmail(): string
+  /**
+   * The shell's own sentence for a stale write, HTML because it carries a
+   * reload control.
+   *
+   * C5. Every surface that can 409 must say the same thing, and a surface that
+   * worded its own would be Verification 20 in a string: two descriptions of
+   * one event, only one of them ever updated - and the local version silently
+   * drops the control, so the person is told to reload and given no way to.
+   *
+   * Returns null when the shell has no renderer, and the caller falls back to
+   * its own plain sentence rather than showing nothing.
+   */
+  staleWriteHtml(recordId: string): string | null
+  /**
+   * ── C1, THE SEAM THAT REPLACES A LEXICAL READ ────────────────────────
+   *
+   * `frontend/app.js` bound its Contact back button to `cdReturnView`, a `let`
+   * declared at the top level of `frontend/contact-detail.js`. Classic scripts
+   * share one global lexical scope, so that read worked; a bundle cannot make
+   * the name exist at all, because `let` never reaches `window`.
+   *
+   * So the direction inverts. The React view OWNS the answer and pushes it
+   * here; the shell ASKS through a guarded accessor with 'leads' as its
+   * default, which is the value the vanilla initialised to and the safe one -
+   * leads is where an unqualified contact came from, and an unqualified
+   * contact is what a record with no status is.
+   */
+  setContactReturnView(view: 'contacts' | 'leads'): void
 }
 
 export interface ChangeReasonOptions {
@@ -105,6 +133,8 @@ type ShellWindow = Window & {
   canEditFields?: () => boolean
   requestChangeReason?: (opts: ChangeReasonOptions) => void
   currentSession?: { user?: { email?: string } } | null
+  staleWriteHtml?: (recordId: string) => string
+  contactReturnView?: () => 'contacts' | 'leads'
 }
 
 const w = (): ShellWindow => window as ShellWindow
@@ -164,5 +194,15 @@ export const shellServices: ShellServices = {
   },
   currentUserEmail(): string {
     return w().currentSession?.user?.email ?? ''
+  },
+  staleWriteHtml(recordId: string): string | null {
+    const fn = w().staleWriteHtml
+    return typeof fn === 'function' ? fn(recordId) : null
+  },
+  // NOT guarded with a throw. The shell reads this through its own guarded
+  // accessor with a default, so a shell that never asks is a shell whose back
+  // button still works.
+  setContactReturnView(view: 'contacts' | 'leads'): void {
+    w().contactReturnView = () => view
   },
 }

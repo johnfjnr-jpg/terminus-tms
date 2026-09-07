@@ -162,6 +162,19 @@ window.detailLoaded = function (view) {
 // which is worse. One line per surface as each is ruled.
 const CAN_EDIT_BY_VIEW = {
   'account-detail': () => true,
+  // ── THE CONTACT VIEW'S DOOR. Round 6, Phase 2 ─────────────────────────
+  //
+  // OPEN, by the Account preserve ruling's precedent, and the precedent
+  // applies because the measurement is the same: Phase 0 found NO ownership
+  // read anywhere in contact-detail.js - zero occurrences of `is-not-mine`,
+  // `owner_id` or `canEditFields` - and app.js's own sweep touches only
+  // view-test-bed-detail and view-opportunity-detail.
+  //
+  // So there is no door to preserve here, and inventing one would be the
+  // migration adding behaviour rather than moving it. Added in the SWAP
+  // commit because the seam fails closed: earlier opens a door on a surface
+  // nobody can see, later ships a live surface nobody can edit.
+  'contact-detail': () => true,
   // ── THE REFERENCE TAB'S DOOR. Round 5, Phase 2 ────────────────────────
   //
   // Added in the SAME COMMIT as the swap, deliberately. The React surface
@@ -198,6 +211,29 @@ window.canEditFields = function () {
 // ReferenceError out of navigate() and take the whole navigation with it.
 // Same reasoning as the approval view's guard: the dependency is now a built
 // artefact, and a build artefact can be absent for ordinary reasons.
+// ── THE CONTACT VIEW'S GUARDED ENTRY. Round 6 Phase 2 ────────────────────
+//
+// Same shape and same reason as loadAccountDetailOrSayWhyNot below: a missing
+// registration is VISIBLE and specific, not a ReferenceError in the console
+// and a blank panel. It says the fault is a build or deployment one, because
+// that is the only way this branch is reached.
+function loadContactDetailOrSayWhyNot(id) {
+  if (typeof window.loadContactDetail === 'function') { window.loadContactDetail(id); return }
+
+  const container = document.getElementById('view-contact-detail')
+  if (container) {
+    container.innerHTML = ''
+    const p = document.createElement('p')
+    p.className = 'msg-error'
+    p.id = 'cd-missing-bundle'
+    p.textContent = 'The Contact view did not load. Its script is not on the page, '
+      + 'so this is a build or deployment fault rather than anything wrong with the record. '
+      + 'Reload; if it persists the frontend bundle is missing and needs rebuilding.'
+    container.appendChild(p)
+  }
+  window.detailLoaded('contact-detail')
+}
+
 function loadAccountDetailOrSayWhyNot(id) {
   if (typeof window.loadAccountDetail === 'function') { window.loadAccountDetail(id); return }
 
@@ -278,7 +314,7 @@ function navigate(view, id) {
   else if (view === 'leads') loadContactsData()
   else if (view === 'leads-legacy') loadLegacyLeads()
   else if (view === 'contacts') loadContactsData()
-  else if (view === 'contact-detail' && id) loadContactDetail(id)
+  else if (view === 'contact-detail' && id) loadContactDetailOrSayWhyNot(id)
   else if (view === 'accounts') loadAccountsList()
   else if (view === 'account-detail' && id) loadAccountDetailOrSayWhyNot(id)
   else if (view === 'test-beds') loadTestBeds()
@@ -303,7 +339,23 @@ document.querySelectorAll('.nav-link').forEach(el => {
 })
 document.getElementById('btn-back-opps').addEventListener('click', () => navigate('opportunities'))
 document.getElementById('btn-back-testbeds').addEventListener('click', () => navigate('test-beds'))
-document.getElementById('btn-back-contact-detail').addEventListener('click', () => navigate(cdReturnView))
+// ── C1: THE BACK BUTTON ASKS, RATHER THAN READING A LEXICAL NAME ─────────
+//
+// This read `cdReturnView`, a `let` at the top level of contact-detail.js.
+// Classic scripts share one global lexical scope, so the read worked - and it
+// could never have worked from a bundle, because `let` never reaches `window`.
+// Migration Round 2's rule: not a coupling to carry over, a coupling that was
+// never possible.
+//
+// The React view owns the answer now and pushes it through the seam. This asks
+// through a guarded accessor, defaulting to 'leads' - the value the vanilla
+// initialised to, and the safe one, because leads is where an unqualified
+// contact came from and an unqualified contact is what a record with no status
+// is. A bundle that has never mounted a Contact leaves this working.
+document.getElementById('btn-back-contact-detail').addEventListener('click', () => {
+  const view = typeof window.contactReturnView === 'function' ? window.contactReturnView() : 'leads'
+  navigate(view === 'contacts' ? 'contacts' : 'leads')
+})
 
 // ── Tab strips ────────────────────────────────────────────────────────────────
 //
