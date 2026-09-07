@@ -699,3 +699,76 @@ its styling, its geometry and its computed visibility are unmeasured.
 markup - the same departure the Reference tab took, and for the same reason.
 That is a claim about behaviour parity that only the Phase 2 visual comparison
 can settle.
+
+---
+
+# Addendum, 2026-09-07 (fourth entry): SIXTH contact, the Test Bed field surface
+
+**The first surface whose door was already broken.** Account had none, the
+Reference tab had the contract's own, Contact had none again. Test Bed has one
+that **does not work**, and that is what this contact tested.
+
+Evidence: 28 descriptor and bounds tests, 16 cost-preview tests, 13 door tests,
+5 save-path tests, and a **10-injection sweep, 10/10 detected**, reverted green,
+five files byte-identical. All jsdom; Phase 2 walks it live.
+
+| # | position | Contact verdict | verdict HERE |
+|---|---|---|---|
+| 1 | `value` is always a string | CONFIRMED | **CONFIRMED** |
+| 2 | drafts live at the SURFACE | CONFIRMED | **CONFIRMED, AND LOAD-BEARING IN A NEW WAY.** The cost preview reads the live drafts without owning them, so a preview and a save cannot disagree about what is on screen |
+| 3 | `orig` is never stored | CONFIRMED | **CONFIRMED** |
+| 4 | the seed REPLACES | CONFIRMED | **CONFIRMED** |
+| 4b | whether a seed reaches an editor is the EDITOR's property | CONFIRMED | **CONFIRMED** |
+| 5 | which keys are seeds | CONFIRMED | **CONFIRMED** |
+| 6 | a rejected seed does not open the row | CONFIRMED | **CONFIRMED** |
+| 7 | closing does not clear a draft | CONFIRMED | **CONFIRMED** |
+| 8 | discard leaves the row open | CONFIRMED | **CONFIRMED** |
+| 9 | `canEditFields()`, no argument, silent refusal | NOT EXERCISED | **CONFIRMED, AND IT IS THE POINT OF THIS CONTACT.** All four entry paths refuse on all 28 rows |
+| 10 | the guard fails CLOSED | NOT EXERCISED | **CONFIRMED.** No registry line exists for this view until the swap, so the surface refuses everything |
+| 11 | no vanilla class names copied | CONFIRMED with one adoption | **CONFIRMED**, with `.pg-card` and `.ref-cards` adopted as before |
+
+## What the sixth contact changed in the document
+
+**Position 9 got its second real exercise, and its first against a BROKEN
+door.** The Reference tab proved the contract's door works. Test Bed proves it
+**fixes something**: the vanilla's `openTbField` has no ownership check at all,
+so its three entry paths disagree - the mouse is blocked by
+`pointer-events: none`, and **the keyboard is not**. `tabIndex` stays 0, the row
+takes focus, and Enter opens it. Measured live in Phase 0b.
+
+**Behaviour 2 removes the disagreement by construction**, because there is one
+hook and no second mechanism to keep in step.
+
+**AND A4 WIDENS: A BOUND MAY DEPEND ON A SIBLING'S DRAFT.**
+
+A4 made `min` descriptor data, and every date so far carried a constant. Here
+the go-live floor is the install date **as currently typed**, and the install
+ceiling is the go-live date. The vanilla mutates `min`/`max` on the inputs in
+place precisely because *"re-rendering the row would throw away an open edit"*.
+
+**The React row has no such constraint**: the draft lives in the controller, so
+the descriptor can simply be rebuilt with a new bound and the open editor keeps
+what was typed. **A4 is unchanged; what is recorded is that its data may be
+derived per render**, and the vanilla's in-place mutation is a workaround for a
+constraint this component does not have.
+
+## A recommendation this contact makes and does not take
+
+**A row the door refuses should drop its tab stop, the way a `readOnly` row
+already does.**
+
+Measured: a refused row still carries `tabIndex="0"`, takes focus, and then
+refuses. **That is already the fix** - the vanilla's row focuses AND opens - but
+it leaves a keyboard user landing on a stop that does nothing.
+
+**Not taken here**, because it changes the shared component across four
+surfaces and is therefore a contract decision rather than a phase's. Recorded so
+it is decided rather than drifted into.
+
+## What this contact did NOT test
+
+**Anything live.** Every verdict is jsdom. The door was measured live on the
+VANILLA in Phase 0b; the React door has not been.
+
+**Scoring and units**, which are Phase 1b and are 35 of this surface's 136
+names.
