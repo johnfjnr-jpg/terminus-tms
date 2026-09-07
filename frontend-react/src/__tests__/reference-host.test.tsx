@@ -51,6 +51,7 @@ const services: ShellServices = {
   // between the two - and then drive onConfirm/onDone/onCancel by hand the
   // way the shell would.
   requestChangeReason: (opts: ChangeReasonOptions) => { reasonOpts = opts },
+  currentUserEmail: () => 'probe@example.invalid',
 }
 
 const mount = async (opp: typeof OPP = OPP) => {
@@ -216,7 +217,10 @@ describe('E: the Est. Close Date write path', () => {
     expect(reasonOpts, 'a stored date was moved without asking why').not.toBeNull()
     expect(reasonOpts!.heading).toBe('Move Est. Close Date')
     expect(reasonOpts!.contextValue).toBe('2027-01-31')
-    expect(reasonOpts!.returnFocusTo, 'focus has nowhere to return to').toBe('ref-save-all')
+    // NOT the vanilla's id. Measured live, two elements carried `ref-save-all`
+    // - the vanilla's tab-action button sits outside the block the swap hides -
+    // and getElementById returns the first, so focus went to the wrong one.
+    expect(reasonOpts!.returnFocusTo, 'focus has nowhere to return to').toBe('ref-react-save-all')
     expect(posts, 'the date was written before the person gave a reason').toHaveLength(0)
     expect(patches, 'the payload was written before the date was settled').toHaveLength(0)
   })

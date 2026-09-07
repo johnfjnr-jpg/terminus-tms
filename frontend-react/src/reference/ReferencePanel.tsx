@@ -190,9 +190,15 @@ export function ReferencePanel({ source, links, closeMoves, oppId, onSave, onCha
         {row('summary')}
       </Card>
 
-      {/* ref-save-all: the id the shell dialogue returns focus to, matching
-          the vanilla it replaces. */}
-      <EditBar rows={rows} onSave={onSave} saveId="ref-save-all" />
+      {/* ── THE ID IS NOT THE VANILLA'S, AND MEASUREMENT IS WHY ───────────
+          Round 6 Phase 1. This said `ref-save-all`, matching the vanilla it
+          replaces. Measured live: TWO elements then carry that id, because the
+          vanilla's tab-action buttons sit in #opp-tab-actions, OUTSIDE the
+          #ref-vanilla block the swap hides. getElementById returns the first in
+          document order, which is the vanilla one - so the reason dialogue
+          returned focus to a button in a different container.
+          A migrated surface names its own controls. */}
+      <EditBar rows={rows} onSave={onSave} saveId="ref-react-save-all" />
     </div>
   )
 }

@@ -56,6 +56,7 @@ const services: ShellServices = {
   navigate: () => {}, detailLoaded: () => {},
   getOppLoadedRevision: () => 1, canEditFields: () => true,
   requestChangeReason: () => {},
+  currentUserEmail: () => 'probe@example.invalid',
 }
 
 const mount = async () => {

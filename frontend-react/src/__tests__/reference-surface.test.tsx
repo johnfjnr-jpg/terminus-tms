@@ -45,6 +45,7 @@ const shell = (canEdit: boolean | 'absent'): ShellServices => ({
   // default is what must decide, and the contract says FAIL CLOSED.
   canEditFields: () => (canEdit === 'absent' ? false : canEdit),
   requestChangeReason: () => {},
+  currentUserEmail: () => 'probe@example.invalid',
 })
 
 const mount = async (opts: {

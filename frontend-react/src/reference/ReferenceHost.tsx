@@ -172,7 +172,7 @@ export function ReferenceHost({ opp, registerReload }: {
       emptyReasonError: 'A reason for the move is required.',
       // Opens from Save rather than a named button, so Save is what focus
       // returns to. INTERACTION_STANDARDS section 4.
-      returnFocusTo: 'ref-save-all',
+      returnFocusTo: 'ref-react-save-all',
       onConfirm: async (reason: string) => {
         const r = await postCloseDate(date, reason)
         return { ok: r.ok, error: r.data?.error }

@@ -68,6 +68,19 @@ export interface ShellServices {
    * discard an unrelated edit.
    */
   requestChangeReason(opts: ChangeReasonOptions): void
+  /**
+   * The signed-in person's email, for authoring a note.
+   *
+   * `currentSession` is a `let` at app.js:3, but the shell ASSIGNS
+   * `window.currentSession` as well, so this one genuinely is reachable -
+   * unlike industriesCache or terminusStaffCache, which are lexical only. It
+   * is read here rather than in a component because the seam is the only
+   * module allowed to touch window.
+   *
+   * Returns '' rather than throwing: a note with no author is worth more than
+   * a save that fails, and the server records the writer independently.
+   */
+  currentUserEmail(): string
 }
 
 export interface ChangeReasonOptions {
@@ -91,6 +104,7 @@ type ShellWindow = Window & {
   getOppLoadedRevision?: () => number | null
   canEditFields?: () => boolean
   requestChangeReason?: (opts: ChangeReasonOptions) => void
+  currentSession?: { user?: { email?: string } } | null
 }
 
 const w = (): ShellWindow => window as ShellWindow
@@ -147,5 +161,8 @@ export const shellServices: ShellServices = {
         + 'The React tree cannot ask for a change reason without the shell dialogue.')
     }
     fn(opts)
+  },
+  currentUserEmail(): string {
+    return w().currentSession?.user?.email ?? ''
   },
 }
