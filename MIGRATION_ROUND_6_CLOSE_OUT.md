@@ -1,10 +1,14 @@
 # Migration Round 6 close-out: the retirement debt, then Contact
 
-Closed 2026-09-07. Phases R, 0, 1, 2, 2b and 3, **35 commits** (counted, not typed:
-`git log --oneline | grep -c "Round 6"`, re-read after this file landed - the
-first figure written here was 29, taken from a range that started in the wrong
-place, and Verification 20's addendum is that any number describing a run is
-emitted by the run).
+Closed 2026-09-07. Phases R, 0, 1, 2, 2b and 3, **35 commits through the close-out**, plus this file's own gate-recording
+commits after it.
+
+Counted, not typed - `git log --oneline | grep -c "Round 6"` - and stated as a
+range rather than a number for the reason `CLAUDE.md` already records about
+`CURRENT_STATE.md`: **a file cannot name the commit it is in.** Written as a
+bare figure it was 29 (a range starting in the wrong place), corrected to 35,
+and 36 by the time the gate was recorded. The chase is the tell that the shape
+was wrong, not the number.
 
 ---
 
