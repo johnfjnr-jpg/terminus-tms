@@ -32,6 +32,7 @@ const restore = (f, original) => {
   if (!now.equals(original)) { console.error(`STOP: restore of ${f} did not match`); process.exit(2) }
 }
 
+const LINK = 'frontend-react/src/contact/LinkAccountPanel.tsx'
 const HOST = 'frontend-react/src/contact/ContactHost.tsx'
 const PANEL = 'frontend-react/src/contact/ContactPanel.tsx'
 const DESC = 'frontend-react/src/contact/descriptors.ts'
@@ -133,12 +134,42 @@ const INJECTIONS = [
     find: '      if (PAYLOAD_KEYS.has(k)) payloadUpdate[k] = v',
     replace: "      payloadUpdate[k] = v; payloadUpdate.legalEntity = 'x'",
     expect: 'legalEntity' },
+
+  // ── FAMILY: THE LINK-ACCOUNT PANEL ────────────────────────────────────
+  { name: 'the in-flight guard becomes STATE again, which cannot fire',
+    file: LINK,
+    find: "if (inFlight.current) return\n    inFlight.current = true",
+    replace: "if (busy) return",
+    expect: 'a second request went out while the first was in flight' },
+
+  { name: 'C6 REINSTATED: the dirty path stops guarding',
+    file: LINK,
+    find: "    if (inFlight.current) return\n    if (hasDirtyEdits)",
+    replace: "    if (hasDirtyEdits)",
+    expect: 'the discard dialogue was opened twice' },
+
+  { name: 'a link refusal closes the panel instead of showing why',
+    file: LINK,
+    find: "if (!r.ok) { setError(r.data?.error ?? 'Failed to link account.'); return }",
+    replace: "if (!r.ok) { setOpen(false); return }",
+    // The test aborts on `must('cd-link-error')` throwing, before reaching the
+    // message about the panel - so the TEST NAME is the anchor, for the third
+    // time in this sweep. A matcher on a message only fires if that assertion
+    // is the FIRST to fail.
+    expect: 'a refusal is SHOWN and the panel stays open' },
+
+  { name: 'the search stops sharing its substring definition',
+    file: LINK,
+    find: "return accounts.filter((a) => a.name.toLowerCase().includes(q))",
+    replace: "return accounts.filter((a) => a.name.toLowerCase().startsWith(q))",
+    expect: 'one substring definition, shared by both callers' },
 ]
 const run = () => {
   try {
     execFileSync('npx', ['vitest', 'run',
       'src/__tests__/contact-surface.test.tsx', 'src/__tests__/contact-blocking.test.ts',
-      'src/__tests__/field-row-editors.test.tsx', 'src/__tests__/field-row.test.tsx'],
+      'src/__tests__/field-row-editors.test.tsx', 'src/__tests__/field-row.test.tsx',
+      'src/__tests__/contact-link-account.test.tsx'],
       { cwd: path.join(ROOT, 'frontend-react'), encoding: 'utf8', stdio: 'pipe' })
     return { failed: 0, out: '' }
   } catch (e) {

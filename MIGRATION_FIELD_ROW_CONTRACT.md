@@ -639,3 +639,63 @@ before its choices arrive. Ruled by construction instead: the surface holds the
 fetched list and passes descriptors built from it, so a descriptor never carries
 a pending list. If a later surface needs per-row async options, that is a new
 entry rather than a widening of this one.
+
+---
+
+# Addendum, 2026-09-07 (third entry): FIFTH contact, the Contact surface
+
+**The first surface to need an editor the slot could not express.** Account had
+15 rows and one kind beyond text; the Reference tab had 21 rows, a door and four
+kinds; the deal form had eleven margin inputs and a census. Contact has 15 rows
+and looked like the easiest of the four - and it carried the one field a
+`string[]` cannot describe, which is why A8 to A11 exist.
+
+Evidence: 17 surface tests, 15 blocking tests, 9 link-panel tests, 14 new editor
+and row tests, and an **18-injection sweep, 18/18 detected**, verified-snapshot,
+reverted green, seven files byte-identical. All jsdom; Phase 2 walks it live.
+
+| # | position | Reference verdict | verdict HERE |
+|---|---|---|---|
+| 1 | `value` is always a string | CONFIRMED, decided the checkbox | **CONFIRMED, and it decided the lookup.** The value is an id string and the label is a name; keeping `value` a string is what let the pair form be additive rather than a new type |
+| 2 | drafts live at the SURFACE | CONFIRMED, load-bearing twice | **CONFIRMED** |
+| 3 | `orig` is never stored | CONFIRMED | **CONFIRMED** |
+| 4 | the seed REPLACES | CONFIRMED | **CONFIRMED** |
+| 4b | whether a seed reaches an editor is the EDITOR's property | CONFIRMED AND GENERALISED | **CONFIRMED, and the lookup inherited it for free.** A lookup is a select, so it declares it cannot hold a seed, and A1's per-kind declaration meant no change |
+| 5 | which keys are seeds | CONFIRMED | **CONFIRMED** |
+| 6 | a rejected seed does not open the row | CONFIRMED as amended | **CONFIRMED** |
+| 7 | closing does not clear a draft | CONFIRMED | **CONFIRMED** |
+| 8 | discard leaves the row open | CONFIRMED | **CONFIRMED** |
+| 9 | `canEditFields()`, no argument, silent refusal | CONFIRMED, first real door | **NOT EXERCISED, and that is a finding rather than a pass.** Contact has NO ownership read: measured, zero occurrences of `is-not-mine`, `owner_id` or `canEditFields` in `contact-detail.js`, and the shell sweep touches only the Opportunity and Test Bed views. The Account preserve ruling applies by precedent |
+| 10 | the guard fails CLOSED | CONFIRMED | **CONFIRMED by construction and untested here**, for the same reason as 9 |
+| 11 | no vanilla class names copied | CONFIRMED | **CONFIRMED, with one deliberate adoption.** `.field-blocked` is the vanilla's tint class and is kept, because the stylesheet rule is shared and the tint is a treatment rather than a structure |
+
+## What the fifth contact changed in the document
+
+**The editor slot gained a kind that is not a shape.** Text, select, date,
+textarea and checkbox are all distinguishable by what the CONTROL is. A lookup
+is a `<select>` too: what differs is that its value and its label are different
+things. **The slot was extended by generalising the DATA rather than adding a
+member**, which is why A8 reads as one declaration with a degenerate case
+instead of a sixth editor.
+
+**And it exposed that the row has TWO DISPLAY PATHS.** The standalone path
+renders `field.value`; the connected path renders `rows.valueOf(name)`, the live
+draft. Every test written for A9 passed against the first while the second - the
+one every real surface uses - still put a raw id on the screen. The contract had
+never had reason to say the two paths must agree, because until a lookup they
+rendered the same string. **They must, and now do.**
+
+## What the fifth contact did NOT test
+
+**The door**, positions 9 and 10, for the reason in the table: this surface has
+none to test. The Reference tab remains the only real exercise.
+
+**Anything live.** Every verdict above is jsdom. The Reference tab's own round
+recorded five defects that no assertion saw and a screenshot did, and nothing
+in this phase changes that: the surface has not been rendered in a browser, so
+its styling, its geometry and its computed visibility are unmeasured.
+
+**The name header as a row.** It is one here, where the vanilla makes it static
+markup - the same departure the Reference tab took, and for the same reason.
+That is a claim about behaviour parity that only the Phase 2 visual comparison
+can settle.
