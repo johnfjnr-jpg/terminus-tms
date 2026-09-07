@@ -3247,20 +3247,25 @@ opened it. -->
      A commented tag naming a deleted file is worse than none: it reads as an
      escape route somebody might reach for. -->
 <script src="/test-bed-detail.js"></script>
-<!-- ── THE SWAP IS BUILT AND NOT TAKEN. Round 6, Phase 2 ──────────────
-     The React Contact view is complete for the FIELDS and the Qualify
-     workflow, walked live at 35/35, and it is registered by the bundle. The
-     vanilla is loaded AFTER it and re-assigns window.loadContactDetail, so the
-     vanilla is what runs. Removing this one line takes the swap.
+<!-- ── SUPERSEDED BY THE REACT CONTACT VIEW. Round 6, Phase 2b ───────
+     Restoring this one line reverts the surface: the vanilla re-assigns
+     window.loadContactDetail AFTER the bundle has, so its view runs and the
+     React mount never does.
 
-     WHY IT IS NOT TAKEN YET, measured rather than felt: 524 of the vanilla's
-     1327 lines are behaviours nothing migrated - the notes history, the park
-     form, unqualify, delete and the account-details modal. Phase 0 censused
-     FIELDS, and none of those is a field. Swapping now would take five working
-     capabilities off a live screen.
+     THE BUNDLE MUST STAY LOADED FIRST for that to hold - the load-order
+     property the Round 2 rehearsal measured, and why this is one line.
 
-     See MIGRATION_ROUND_6_PHASE_2_REPORT.md. -->
+     THE SWAP WAS HELD BACK ONCE, at Phase 2, because 524 of the vanilla's
+     1,327 lines were behaviours nothing had migrated. All seven capabilities
+     the accounting instrument enumerates are built now, and
+     surface-accounting.test.mjs is what says so rather than an impression.
+
+     AND THE BACK BUTTON GOES WITH IT. app.js asks window.contactReturnView()
+     and falls back to the vanilla's own lexical cdReturnView, so the button
+     works under both states.
+
 <script src="/contact-detail.js"></script>
+     ────────────────────────────────────────────────────────────────────── -->
 <!-- ── THE ACCOUNT VIEW IS REACT, AND THE VANILLA IS GONE ─────────────
      Round 4 close, under the one-round confidence window: a superseded file is
      deleted after the next full round completes with no revert needed. The

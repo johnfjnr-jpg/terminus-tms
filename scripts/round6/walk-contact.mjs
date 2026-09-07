@@ -15,6 +15,12 @@ const check = (n, p, d = '') => R.push({ n, p: !!p, d: String(d).slice(0, 220) }
 const puppeteer = await loadPuppeteer('walk-contact')
 let browser = null
 
+const iso = (daysFromNow) => {
+  const d = new Date()
+  d.setUTCDate(d.getUTCDate() + daysFromNow)
+  return d.toISOString().slice(0, 10)
+}
+
 const unwrap = (r, what) => { if (!r.ok) throw new Error(`${what}: ${r.status} ${JSON.stringify(r.data)}`); return r.data }
 
 // ── THE FIXTURES ────────────────────────────────────────────────────────
@@ -332,6 +338,154 @@ try {
   await clickT('cd-back')
   check('29. and the back button LANDS on leads',
     await page.evaluate(() => !document.getElementById('view-leads')?.classList.contains('hidden')))
+
+  // ══ THE FIVE CAPABILITIES, LIVE. Round 6 Phase 2b ══════════════════════
+  //
+  // ONE FIXTURE PER CAPABILITY, and that is a correction rather than a style.
+  // Threading a single record through five state changes made every later
+  // check depend on every earlier one: linking an Account for Park removed the
+  // very condition the modal check needs, and writing through the API after
+  // the page had loaded produced a 409 that read as a park defect. Each
+  // capability now gets a record in the state IT is about.
+  const capNote = await newContact('R6WALK Note')
+  const capUnq = await newContact('R6WALK Unqual')
+  const capModal = await newContact('R6WALK Modal')
+  const capDel = await newContact('R6WALK Del')
+
+  // ── N: A NOTE WRITTEN AND LISTED ──────────────────────────────────────
+  await open(capNote.id)
+  check('30. an empty history says so', /no notes yet/i.test(await $t('cd-notes-empty') ?? ''),
+    await $t('cd-notes-empty'))
+  await clickT('cd-add-note-btn')
+  await page.waitForSelector('[data-testid="cd-new-note-input"]', { timeout: 5000 })
+  await page.evaluate((t) => {
+    const el = document.querySelector('[data-testid="cd-new-note-input"]')
+    Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set.call(el, t)
+    el.dispatchEvent(new Event('input', { bubbles: true }))
+  }, 'Spoke to the client about timing')
+  await settle()
+  await clickT('cd-add-note-btn')
+  await page.waitForFunction(() =>
+    document.querySelector('#view-contact-detail [data-testid="cd-note-0"]'),
+    { timeout: 15000 }).catch(() => {})
+  await settle()
+  const noted = await contactRow(capNote.id)
+  check('31. THE NOTE IS ON THE SERVER',
+    (noted?.payload?.notes ?? []).some((n) => /Spoke to the client/.test(n.text ?? '')),
+    JSON.stringify((noted?.payload?.notes ?? [])[0] ?? null).slice(0, 120))
+  check('32. and it is LISTED on the screen',
+    /Spoke to the client/.test(await $t('cd-note-0') ?? ''), await $t('cd-note-0'))
+
+  // ── P: PARK, FROM THE STAGE IT IS REACHABLE FROM ──────────────────────
+  //
+  // FINDING, and it is the server's rather than this surface's: `Parked` is
+  // sort_order 3 with reachable_from_any_stage false, so Unqualified -> Parked
+  // SKIPS Qualified and the route refuses it - measured directly at the route,
+  // for any client, so the vanilla hits the same wall. A stage_gate_rules row
+  // nonetheless exists for that transition requiring followUpDate: configured,
+  // and unsatisfiable from inside the product. Queued, not fixed here.
+  //
+  // The record is put in its Qualified state BEFORE the page opens it, so the
+  // surface holds a current revision. Writing through the API after a load is
+  // what the handshake exists to refuse, and it did.
+  const capPark = await newContact('R6WALK Park')
+  unwrap(await api('POST', `/contacts/${capPark.id}/link-account`,
+    { account_id: accounts[0].id }), 'link for park')
+  unwrap(await api('POST', `/records/${capPark.id}/transition`,
+    { to_stage: 'Qualified' }), 'qualify for park')
+
+  await open(capPark.id)
+  await clickT('cd-btn-park')
+  await page.waitForSelector('[data-testid="cd-park-date"]', { timeout: 5000 })
+  await page.evaluate((d) => {
+    const el = document.querySelector('[data-testid="cd-park-date"]')
+    Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set.call(el, d)
+    el.dispatchEvent(new Event('input', { bubbles: true }))
+  }, iso(45))
+  await page.evaluate(() => {
+    const el = document.querySelector('[data-testid="cd-park-reason"]')
+    Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set
+      .call(el, 'Budget deferred to next quarter')
+    el.dispatchEvent(new Event('input', { bubbles: true }))
+  })
+  await settle()
+  await clickT('cd-park-save')
+  await page.waitForFunction(() =>
+    !document.querySelector('[data-testid="cd-park-date"]'), { timeout: 20000 }).catch(() => {})
+  await settle()
+  const parkErr = await page.evaluate(() =>
+    document.querySelector('[data-testid="cd-park-error"]')?.textContent ?? null)
+  const parked = await contactRow(capPark.id)
+  check('33. PARK MOVED THE RECORD', parked?.status === 'Parked',
+    `status=${parked?.status}${parkErr ? ` | form says: ${parkErr}` : ''}`)
+  check('34. and recorded the follow-up date', parked?.payload?.followUpDate === iso(45),
+    `followUpDate=${parked?.payload?.followUpDate}`)
+  check('35. and its reason, as prose, on the same list',
+    (parked?.payload?.notes ?? []).some((n) => /Contact parked.*Budget deferred/.test(n.text ?? '')),
+    JSON.stringify((parked?.payload?.notes ?? [])[0] ?? null).slice(0, 140))
+  check('35b. FINDING: Unqualified -> Parked is refused by the ROUTE, not by this '
+    + 'surface - a configured gate rule the stage order makes unreachable',
+    true, 'measured directly at the route; queued, not fixed here')
+
+  // ── U: UNQUALIFY, AND ITS CONSEQUENCES ────────────────────────────────
+  unwrap(await api('POST', `/contacts/${capUnq.id}/link-account`,
+    { account_id: accounts[0].id }), 'link for unqualify')
+  unwrap(await api('POST', `/records/${capUnq.id}/transition`,
+    { to_stage: 'Qualified' }), 'qualify for unqualify')
+  await open(capUnq.id)
+  await clickT('cd-btn-unqualify')
+  await page.waitForFunction(() =>
+    !document.querySelector('#view-contact-detail [data-testid="cd-btn-unqualify"]'),
+    { timeout: 20000 }).catch(() => {})
+  await settle()
+  check('36. UNQUALIFY MOVED THE RECORD',
+    (await contactRow(capUnq.id))?.status === 'Unqualified',
+    `status=${(await contactRow(capUnq.id))?.status}`)
+  check('37. and the control withdraws, because it no longer applies',
+    !(await exists('#view-contact-detail [data-testid="cd-btn-unqualify"]')))
+  check('38. while Qualify is offered again',
+    await exists('#view-contact-detail [data-testid="cd-btn-qualify"]'))
+
+  // ── A: THE ACCOUNT-DETAILS MODAL ROUND TRIP ───────────────────────────
+  //
+  // Reached the way a person reaches it: Qualify blocks on the Account and the
+  // company matches nothing, so the creation form opens rather than a search.
+  await open(capModal.id)
+  await clickT('cd-btn-qualify')
+  await page.waitForFunction(() =>
+    document.querySelector('[data-testid="account-details-modal"]'), { timeout: 15000 }).catch(() => {})
+  await settle()
+  check('39. A2: a blocked Account with NO match opens the creation form',
+    await exists('[data-testid="account-details-modal"]'))
+  const prefilled = await page.$eval('[data-testid="cd-account-details-name"]',
+    (e) => e.value).catch(() => null)
+  check('40. and the company is carried into it', !!prefilled && prefilled.length > 0,
+    `prefill="${prefilled}"`)
+  await page.evaluate((n) => {
+    const el = document.querySelector('[data-testid="cd-account-details-name"]')
+    Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set.call(el, n)
+    el.dispatchEvent(new Event('input', { bubbles: true }))
+  }, 'R6WALK Created Account')
+  await settle()
+  await page.evaluate(() => document.querySelector('[data-testid="account-details-save"]')?.click())
+  await page.waitForFunction(() =>
+    !document.querySelector('[data-testid="account-details-modal"]'), { timeout: 20000 }).catch(() => {})
+  await settle()
+  const linkedByModal = await contactRow(capModal.id)
+  check('41. CREATING THE ACCOUNT LINKED IT, one write',
+    !!linkedByModal?.parent_record_id, `parent=${linkedByModal?.parent_record_id}`)
+
+  // ── D: DELETE, AND ITS DESTINATION ────────────────────────────────────
+  await open(capDel.id)
+  await clickT('cd-btn-delete')
+  await page.waitForFunction(() =>
+    !document.getElementById('view-leads')?.classList.contains('hidden'),
+    { timeout: 20000 }).catch(() => {})
+  await settle()
+  check('42. DELETE returns to the RETURN VIEW, which for a lead is leads',
+    await page.evaluate(() => !document.getElementById('view-leads')?.classList.contains('hidden')))
+  check('43. and the record is gone from the list', !(await contactRow(capDel.id)),
+    `still present: ${!!(await contactRow(capDel.id))}`)
 
   check('99. no page errors and no 5xx', errs.length === 0, errs.join(' | '))
   } catch (err) {

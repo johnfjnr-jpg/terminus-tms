@@ -66,10 +66,10 @@ const CAPABILITIES = {
       'saveCdFields'],
   },
   'stage-actions': {
-    // PARTIAL, and the accounting is what surfaced it. renderCdActions draws
-    // Qualify, Park AND Move to Unqualified; the React panel had only Qualify,
-    // so this capability was two thirds absent while reading as present.
-    migrated: false,
+    // WAS PARTIAL, and the accounting is what surfaced it: renderCdActions
+    // draws Qualify, Park AND Move to Unqualified where the React panel had
+    // only Qualify. StageActions carries all three now, plus create and delete.
+    migrated: true,
     names: ['renderCdActions'],
   },
   qualify: {
@@ -83,26 +83,26 @@ const CAPABILITIES = {
       'renderCdLinkResults', 'cdLinkInFlight', 'linkCdAccount', 'performLinkCdAccount'],
   },
   'notes-history': {
-    migrated: false,
+    migrated: true,
     names: ['renderCdNotes', 'cdNoteOpen', 'onCdAddNoteClick', 'performCdAddNote',
       'discardCdNote', 'resetCdNoteInput'],
   },
   park: {
-    migrated: false,
+    migrated: true,
     names: ['cdParkKeydownHandler', 'cdParkDirty', 'clearCdParkUnsavedWarning',
       'openCdParkForm', 'requestCloseCdParkForm', 'closeCdParkForm', 'saveCdParkForm',
       'performSaveCdParkForm'],
   },
   unqualify: {
-    migrated: false,
+    migrated: true,
     names: ['attemptContactUnqualifyFromDetail', 'performContactUnqualify'],
   },
   'delete-and-create': {
-    migrated: false,
+    migrated: true,
     names: ['renderCdCreateDelete', 'deleteContactFromDetail'],
   },
   'account-details-modal': {
-    migrated: false,
+    migrated: true,
     names: ['accountDetailsKeydownHandler', 'accountDetailsParentId', 'accountDetailsOpenerId',
       'setAccountDetailsMode', 'openAccountDetailsModal', 'closeAccountDetailsModal',
       'showAccountDetailsView', 'openAccountDetailsViewModal',
