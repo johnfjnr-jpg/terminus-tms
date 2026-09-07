@@ -538,3 +538,48 @@ describe('the seam: the door fails CLOSED when the shell provides no guard', () 
     expect(must('edit-company').hasAttribute('hidden')).toBe(true)
   })
 })
+
+// ─────────────────────────────────────────────────────────────────────────
+// A9 ON THE CONNECTED ROW, 2026-09-07
+// ─────────────────────────────────────────────────────────────────────────
+//
+// THE ROW HAS TWO DISPLAY PATHS and only one of them was resolved when the
+// lookup landed. The standalone path renders `field.value`; the connected one
+// renders `rows.valueOf(name)`, the live draft. Every A9 test passed against
+// the first while the second - the one every real surface uses - would have
+// put a raw id on the screen.
+//
+// Verification 20 at the smallest possible scale: two readers of one value, in
+// one component, and the tests only reached one of them.
+describe('A9: the CONNECTED row resolves a lookup id too', () => {
+  const INDUSTRIES = [{ id: 'i-1', name: 'Aviation' }, { id: 'i-2', name: 'Maritime' }]
+  const LookupSurface = () => {
+    const fields: FieldDescriptor[] = [
+      { name: 'industry', label: 'Industry', value: 'i-1', options: INDUSTRIES },
+    ]
+    const rows = useFieldRows(fields)
+    return <div>{fields.map((f) => <FieldRow key={f.name} field={f} rows={rows} />)}</div>
+  }
+
+  test('the display half shows the NAME, not the stored id', () => {
+    render(<LookupSurface />)
+    const d = host.querySelector('[data-testid="display-industry"]') as HTMLElement
+    expect(d.textContent, 'the connected row rendered the raw id').toBe('Aviation')
+  })
+
+  test('and it re-resolves as the draft changes', () => {
+    // The connected path renders the DRAFT, so choosing another industry must
+    // read as the new name immediately rather than after a save and reload.
+    render(<LookupSurface />)
+    act(() => { (host.querySelector('[data-testid="display-industry"]') as HTMLElement).click() })
+    const sel = host.querySelector('[data-testid="input-industry"]') as HTMLSelectElement
+    act(() => {
+      const set = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value')!.set!
+      set.call(sel, 'i-2')
+      sel.dispatchEvent(new Event('change', { bubbles: true }))
+    })
+    act(() => { sel.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })) })
+    const d = host.querySelector('[data-testid="display-industry"]') as HTMLElement
+    expect(d.textContent).toBe('Maritime')
+  })
+})

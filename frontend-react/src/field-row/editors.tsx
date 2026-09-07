@@ -1,5 +1,5 @@
 import type { RefObject } from 'react'
-import type { FieldDescriptor } from './types'
+import type { FieldDescriptor, LookupOption } from './types'
 
 // ── THE EDITOR SLOT ──────────────────────────────────────────────────────
 //
@@ -87,6 +87,43 @@ function offerPicker(el: HTMLElement | null): void {
   try { withPicker.showPicker() } catch { /* the field is open and usable */ }
 }
 
+// ── A8 AND A9, 2026-09-07: OPTIONS AS PAIRS, RESOLVED ONCE ───────────────
+//
+// `normaliseOptions` is the single place a declared list becomes pairs, and
+// `displayValueFor` is the single place an id becomes readable. Both halves of
+// the row go through them, which is the point: the vanilla reads its industry
+// cache TWICE in adjacent lines, once to label the display and once to build
+// the options, and that is Verification 20 at its smallest scale.
+export function normaliseOptions(options: FieldDescriptor['options']): LookupOption[] {
+  return (options ?? []).map((o) => (typeof o === 'string' ? { id: o, name: o } : o))
+}
+
+/**
+ * A9. What the DISPLAY half shows for a stored value.
+ *
+ * A10: an id absent from the list falls back to the id itself rather than to
+ * nothing. A blank display for a value the record holds reads as "not
+ * recorded", and the next save would write that erasure down.
+ */
+export function displayValueFor(field: FieldDescriptor): string {
+  const value = field.value ?? ''
+  if (!value || !field.options) return value
+  return normaliseOptions(field.options).find((o) => o.id === value)?.name ?? value
+}
+
+/**
+ * A10. The list an editor offers for a stored value: the declared options,
+ * plus the stored one when the list does not recognise it.
+ *
+ * The unknown entry is APPENDED rather than substituted, so it can never
+ * displace a real choice.
+ */
+export function optionsWithStored(field: FieldDescriptor, value: string): LookupOption[] {
+  const list = normaliseOptions(field.options)
+  if (!value || list.some((o) => o.id === value)) return list
+  return [...list, { id: value, name: value }]
+}
+
 export function SelectEditor({ field, value, onChange, onRequestClose, focusRef, testId }: FieldEditorProps) {
   // The empty option is what lets a set field be CLEARED. Without it a select
   // is a one-way door: once a value is chosen there is no way back to unset,
@@ -101,7 +138,8 @@ export function SelectEditor({ field, value, onChange, onRequestClose, focusRef,
       onFocus={(e) => offerPicker(e.currentTarget)}
     >
       <option value="">--</option>
-      {(field.options ?? []).map((o) => <option key={o} value={o}>{o}</option>)}
+      {optionsWithStored(field, value).map((o) =>
+        <option key={o.id} value={o.id}>{o.name}</option>)}
     </select>
   )
 }

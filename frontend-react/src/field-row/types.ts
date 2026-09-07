@@ -13,6 +13,14 @@
  * that a per-field guard is a to-do list to be completed again on every new
  * field. A descriptor declares what it takes and inherits the constraint.
  */
+/** A8: one choice, with the value stored and the words shown held apart. */
+export interface LookupOption {
+  /** The value written to the record. For Industry, `records.industry_id`. */
+  id: string
+  /** What a person reads, in both halves of the row. */
+  name: string
+}
+
 export interface FieldDescriptor {
   /** Stable key. The draft store is keyed by it, as the contract's `refEdits` is. */
   name: string
@@ -41,7 +49,18 @@ export interface FieldDescriptor {
    * CLEARED. Without it a select is a one-way door and "not recorded" stops
    * being reachable from the screen.
    */
-  options?: string[]
+  /**
+   * A8, 2026-09-07. PAIRS ARE THE GENERAL FORM and a bare string is the
+   * degenerate case, `{id: s, name: s}`. Industry is a foreign key: its stored
+   * value is an id nobody should read and its readable form lives in another
+   * table, which a string list cannot express.
+   *
+   * The generalisation goes this way round rather than adding a second
+   * `lookupOptions` key, because two declarations of "the choices this field
+   * offers" agree today and drift later (Verification 20). Every select already
+   * in production keeps working by construction.
+   */
+  options?: Array<string | LookupOption>
   /**
    * Explicit editor choice, for the case where the descriptor's shape does not
    * imply it. Omitted, `options` present means select and its absence means

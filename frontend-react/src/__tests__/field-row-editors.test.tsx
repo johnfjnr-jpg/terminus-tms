@@ -15,6 +15,7 @@ import { useRef } from 'react'
 import {
   DateEditor, TextareaEditor, CheckboxEditor,
   editorFor, editorTakesSeed, acceptsValue,
+  normaliseOptions, displayValueFor,
 } from '../field-row/editors'
 import type { FieldDescriptor } from '../field-row/types'
 
@@ -249,5 +250,120 @@ describe('X: the new editors respect the slot', () => {
     })
     expect(onChange, 'the editor reported the candidate, as it must').toHaveBeenCalledWith('abc')
     expect(acceptsValue('numeric', 'abc'), 'and the ROW is what refuses it').toBe(false)
+  })
+})
+
+// ─────────────────────────────────────────────────────────────────────────
+// THE LOOKUP EDITOR: A8 to A11, 2026-09-07
+// ─────────────────────────────────────────────────────────────────────────
+//
+// DERIVED FROM THE ADDENDUM, with neither implementation open. The Contact
+// census found one field no proven layer can express: Industry is a foreign
+// key, so its stored value is an id nobody should read and its readable form
+// lives in another table.
+//
+// RED FIRST. Every test below failed before the pair form existed.
+describe('A8-A11: options as {id, name} pairs', () => {
+  const INDUSTRIES = [
+    { id: 'i-1', name: 'Aviation' },
+    { id: 'i-2', name: 'Maritime' },
+  ]
+
+  test('A8.1 a PAIR list offers names as labels and ids as values', async () => {
+    await mount(field({ name: 'industry', options: INDUSTRIES }), 'i-2')
+    const sel = host.querySelector('select') as HTMLSelectElement
+    const real = [...sel.options].filter((o) => o.value !== '')
+    expect(real.map((o) => o.value)).toEqual(['i-1', 'i-2'])
+    expect(real.map((o) => o.textContent)).toEqual(['Aviation', 'Maritime'])
+  })
+
+  test('A8.2 and the STRING form still works, as the degenerate case', async () => {
+    // The eleven selects already in production declare strings. They keep
+    // working BY CONSTRUCTION rather than by inspection, which is the whole
+    // reason the generalisation went this way round.
+    await mount(field({ name: 'region', options: ['APAC', 'Africa'] }), 'APAC')
+    const sel = host.querySelector('select') as HTMLSelectElement
+    const real = [...sel.options].filter((o) => o.value !== '')
+    expect(real.map((o) => o.value)).toEqual(['APAC', 'Africa'])
+    expect(real.map((o) => o.textContent)).toEqual(['APAC', 'Africa'])
+  })
+
+  test('A8.3 a bare string means {id: s, name: s}, proven through the normaliser', () => {
+    expect(normaliseOptions(['APAC'])).toEqual([{ id: 'APAC', name: 'APAC' }])
+    expect(normaliseOptions(INDUSTRIES)).toEqual(INDUSTRIES)
+    expect(normaliseOptions(undefined)).toEqual([])
+  })
+
+  test('A8.4 the editor still selects the STORED value, which is the id', async () => {
+    await mount(field({ name: 'industry', options: INDUSTRIES }), 'i-2')
+    expect((host.querySelector('select') as HTMLSelectElement).value).toBe('i-2')
+  })
+
+  test('A8.5 the empty option survives, so a lookup can still be CLEARED', async () => {
+    // Without it a select is a one-way door and "not recorded" stops being
+    // reachable from the screen. A lookup is no different.
+    await mount(field({ name: 'industry', options: INDUSTRIES }), 'i-1')
+    const sel = host.querySelector('select') as HTMLSelectElement
+    expect([...sel.options].some((o) => o.value === '')).toBe(true)
+  })
+
+  test('A9.1 THE DISPLAY HALF RESOLVES an id to its name', () => {
+    // The half a string list hid: with value and label identical the display
+    // could render the raw value and be right by accident. Here that puts an
+    // id on the screen.
+    expect(displayValueFor(field({ name: 'industry', value: 'i-1', options: INDUSTRIES })))
+      .toBe('Aviation')
+  })
+
+  test('A9.2 and resolves through the descriptor, not a second lookup', () => {
+    // Verification 20. The vanilla reads industriesCache twice in adjacent
+    // lines - once to label the display and once to build the options - which
+    // is what this shape removes.
+    const f = field({ name: 'industry', value: 'i-2', options: INDUSTRIES })
+    expect(displayValueFor(f)).toBe('Maritime')
+    expect(displayValueFor({ ...f, options: [{ id: 'i-2', name: 'Renamed' }] })).toBe('Renamed')
+  })
+
+  test('A9.3 a string-option field displays its value unchanged', () => {
+    expect(displayValueFor(field({ name: 'region', value: 'APAC', options: ['APAC'] })))
+      .toBe('APAC')
+  })
+
+  test('A9.4 a field with NO options displays its value unchanged', () => {
+    expect(displayValueFor(field({ name: 'city', value: 'Singapore' }))).toBe('Singapore')
+  })
+
+  test('A9.5 an empty value stays empty, so the placeholder still shows', () => {
+    expect(displayValueFor(field({ name: 'industry', value: '', options: INDUSTRIES }))).toBe('')
+  })
+
+  test('A10.1 AN UNRECOGNISED STORED ID KEEPS ITS PLACE in the list', async () => {
+    // A select that silently drops a value it does not recognise turns "points
+    // at an industry since renamed" into "has no industry", and the next save
+    // writes that erasure down. Architecture 11: dropping it is a fallback.
+    await mount(field({ name: 'industry', options: INDUSTRIES }), 'i-GONE')
+    const sel = host.querySelector('select') as HTMLSelectElement
+    expect(sel.value, 'the stored id was dropped from the list').toBe('i-GONE')
+    expect([...sel.options].map((o) => o.value)).toContain('i-GONE')
+  })
+
+  test('A10.2 and the display falls back to the id rather than showing nothing', () => {
+    expect(displayValueFor(field({ name: 'industry', value: 'i-GONE', options: INDUSTRIES })))
+      .toBe('i-GONE')
+  })
+
+  test('A10.3 the unrecognised option does not displace a real one', async () => {
+    await mount(field({ name: 'industry', options: INDUSTRIES }), 'i-GONE')
+    const sel = host.querySelector('select') as HTMLSelectElement
+    const real = [...sel.options].filter((o) => o.value !== '')
+    expect(real).toHaveLength(3)
+    expect(real.map((o) => o.value)).toContain('i-1')
+    expect(real.map((o) => o.value)).toContain('i-2')
+  })
+
+  test('A11 a lookup declares it cannot hold a seed, like every other select', () => {
+    // A1's ruling reads the declaration, not the editor's name. A lookup is a
+    // select, so a first character it cannot hold must not open its row.
+    expect(editorTakesSeed(field({ name: 'industry', options: INDUSTRIES }))).toBe(false)
   })
 })

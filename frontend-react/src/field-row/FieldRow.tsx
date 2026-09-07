@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import type { KeyboardEvent } from 'react'
 import type { FieldDescriptor, FieldRowsController } from './types'
-import { acceptsValue, editorFor, editorTakesSeed } from './editors'
+import { acceptsValue, displayValueFor, editorFor, editorTakesSeed } from './editors'
 
 export { acceptsValue }
 
@@ -58,8 +58,8 @@ export function FieldRow({ field, rows }: { field: FieldDescriptor; rows: FieldR
       <div className="field-row" data-field={field.name} data-readonly="true">
         <div className="field-row-label">{field.label}</div>
         <div className="field-row-display" data-testid={`display-${field.name}`}>
-          {field.value
-            ? <>{field.value}{field.suffix ? <span className="field-row-suffix"> {field.suffix}</span> : null}</>
+          {displayValueFor(field)
+            ? <>{displayValueFor(field)}{field.suffix ? <span className="field-row-suffix"> {field.suffix}</span> : null}</>
             : <span className="field-row-placeholder">{field.placeholder ?? EMPTY_DISPLAY}</span>}
         </div>
       </div>
@@ -105,9 +105,14 @@ export function FieldRow({ field, rows }: { field: FieldDescriptor; rows: FieldR
         onClick={() => tryOpen()}
         onKeyDown={onKeyDown}
       >
-        {rows.valueOf(field.name)
+        {/* A9: THE DRAFT, RESOLVED. This path renders rows.valueOf rather
+            than field.value, so it needs the same resolution - and it is the
+            path every real surface uses. Passing the live value through the
+            descriptor is what makes a lookup re-read as its new NAME the
+            moment the choice changes, rather than after a save and reload. */}
+        {displayValueFor({ ...field, value: rows.valueOf(field.name) })
           ? <>
-              {rows.valueOf(field.name)}
+              {displayValueFor({ ...field, value: rows.valueOf(field.name) })}
               {/* A3: DISPLAY ONLY. It is appended here and never by an editor,
                   because a suffix that reached the value would make
                   `draft !== orig` wrong on the first save. */}
