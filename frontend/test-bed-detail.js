@@ -2729,6 +2729,27 @@ async function saveTbDirtyEntries(dirtyEntries) {
   // compare-and-swap, and one key wide while every other field on this screen
   // merged unchecked. Replaced by the record-level precondition below.
 
+  // ── RESTORED, Round 7 Phase 0b. THE SAVE HAD BEEN THROWING SINCE ROUND 38 ──
+  //
+  // These two lines sat immediately after the check that commit removed, and
+  // went with it: `payloadUpdate` was then referenced on the tbPatch line below
+  // and declared nowhere, so every field save raised
+  // `ReferenceError: payloadUpdate is not defined`, wrote nothing, and left the
+  // feedback element EMPTY - a Save click that did nothing and said nothing.
+  //
+  // Not a revert of 38df3db. That commit's own change is right and stays: the
+  // record-level precondition rides tbPatch, which sends expected_revision and
+  // re-reads it from the response. This restores only the construction the
+  // deletion took as collateral, against today's precondition rather than the
+  // one it was written for.
+  //
+  // ONLY-DIRTY, which is the estate's standing shape: dirtyEntries holds just
+  // the fields opened and changed, so an untouched key is never resent and a
+  // concurrent edit to it is never clobbered. Same construction as
+  // saveCdFields and performGenericRefSave.
+  const payloadUpdate = {}
+  for (const [key, e] of dirtyEntries) payloadUpdate[key] = e.draft
+
   const result = await tbPatch({ payload: payloadUpdate })
   if (!result.ok) {
     feedback.textContent = tbStaleMessage(result, 'Failed to save.')

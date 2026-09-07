@@ -284,6 +284,63 @@ for (const c of CASES) {
     `${preMove.data?.status}@${preMove.data?.revision_number} -> ${afterMove.data?.status}@${afterMove.data?.revision_number}`)
 }
 
+// ── ROUTE 3: SAVING A TEST BED FIELD ─────────────────────────────────────
+//
+// Round 7 Phase 0b, and it is the SAME GAP one file down. Nothing in this
+// repository had ever POSTed a Test Bed field save, so twenty-one gate stages
+// were green while `saveTbDirtyEntries` threw
+// `ReferenceError: payloadUpdate is not defined` on every click - a Save that
+// wrote nothing and said nothing, since Round 38.
+//
+// This is the ROUTE half, which the client defect did not touch: the route was
+// always fine. It exists because "nothing exercises this write" is the
+// condition that let the client half hide, and the probe's own rule is that the
+// next boundary extends it rather than adding a stage nobody remembers.
+{
+  const bedId = tb.bedId
+  const pre = await api('GET', `/test-beds/${bedId}`)
+  // THE TWO ROUTES NAME THE SAME VALUE DIFFERENTLY, measured rather than
+  // assumed: GET /test-beds/:id answers `latest_revision_number` and
+  // PATCH answers `revision_number`. The vanilla's tbPatch already reads both,
+  // correctly and undocumented; a probe that assumed one name sent
+  // `expected_revision: undefined`, which means NO precondition, and the
+  // refusal check passed 200 while looking like a working test.
+  const preRev = pre.data?.latest_revision_number
+  record('TB save: the record is readable and names its revision', pre.ok
+    && Number.isInteger(preRev), `latest_revision_number ${preRev}`)
+
+  // THE SUCCESS PATH, asserting the NEW BEHAVIOUR rather than the status: the
+  // value lands, the revision advances, and an untouched key survives the merge.
+  const wrote = await api('PATCH', `/test-beds/${bedId}`, {
+    payload: { city: 'Probe City', siteAddress: '1 Probe Street' },
+    expected_revision: preRev,
+  })
+  record('TB save: a field PATCH succeeds', wrote.ok,
+    `status ${wrote.status}`)
+  record('TB save: the revision ADVANCED, so the handshake is real',
+    Number.isInteger(wrote.data?.revision_number)
+      && wrote.data.revision_number > preRev,
+    `${preRev} -> ${wrote.data?.revision_number}`)
+
+  const after = await api('GET', `/test-beds/${bedId}`)
+  record('TB save: BOTH keys landed', after.data?.payload?.city === 'Probe City'
+    && after.data?.payload?.siteAddress === '1 Probe Street',
+    `city=${after.data?.payload?.city} siteAddress=${after.data?.payload?.siteAddress}`)
+  record('TB save: an untouched key SURVIVED the merge',
+    !!after.data?.payload?.name, `name=${after.data?.payload?.name}`)
+
+  // AND THE REFUSAL, so the precondition is shown to bite rather than assumed.
+  const stale = await api('PATCH', `/test-beds/${bedId}`,
+    { payload: { city: 'Should Not Land' }, expected_revision: preRev },
+    { expect: 409, because: 'the revision the caller holds is now behind' })
+  record('TB save: a STALE revision is refused with 409', stale.status === 409,
+    `status ${stale.status}`)
+  const unchanged = await api('GET', `/test-beds/${bedId}`)
+  record('TB save: and the refused value did not land',
+    unchanged.data?.payload?.city === 'Probe City',
+    `city=${unchanged.data?.payload?.city}`)
+}
+
 const { removed } = await tearDown()
 record('teardown removed every record the test account owns', true,
   `${removed.length} soft-deleted, re-queried 0 live`)
