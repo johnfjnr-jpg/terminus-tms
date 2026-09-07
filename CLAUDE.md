@@ -407,6 +407,27 @@ not resolve it quietly.
    build-discipline rule 6, which is a fix failing to reach a new surface;
    this is an unchanged path meeting a new demand.
 
+   **AND A GUARANTEE THAT RESTED ON SYNCHRONOUS EXECUTION IS NOT PRESERVED BY
+   PORTING THE CALLS IN THE SAME ORDER.** Round 6 Phase 2b, 2026-09-07.
+
+   The vanilla's park form closes itself with a direct DOM write and THEN opens
+   the shared discard dialogue. The order is deliberate and its reason is
+   recorded at the site: the form is a fixed full-screen popup, so leaving it
+   open under the modal left "Keep editing" pointing at a Save button nobody
+   could reach.
+
+   Ported to React as `onCancel()` then `onConfirmDiscard(...)` - the same two
+   calls, the same order - **the dialogue opened with the popup still covering
+   everything.** `onCancel` only SCHEDULES the close, and React batches it, so
+   the defect the ordering exists to prevent was reproduced by the framework
+   rather than by forgetting.
+
+   **The check: when a ported behaviour's correctness depends on one thing
+   having HAPPENED before the next call, re-prove it in the new runtime.** The
+   call order survives the port; the completion order may not. `flushSync` is
+   the answer in React, and the test reads the DOM at the moment the second
+   call is made rather than trusting the sequence.
+
    **A VALIDATION can go stale the same way, and that direction is not
    watched.** Round 30 Phase 2, 2026-08-25. All nine instances above are
    code built for a screen that then changed. This is a **rule built for a
@@ -1143,6 +1164,20 @@ of the change. An unanswerable precondition is a stop.
     **It was found by an INJECTION coming back silent**, not by reading the
     test. Nothing in the assertion looked wrong, because nothing was wrong with
     it: it was measuring an absence and reporting a presence-free result.
+
+    **AND THE COMMONEST SHAPE IS A LOOP GUARDED BY ITS OWN POPULATION.**
+    Round 6, 2026-09-07. `if (patches.length) { /* assert the key is absent */ }`
+    passes when NOTHING was sent, because the loop never runs - and "the key was
+    not sent through this path" and "nothing was sent at all" are the two
+    answers it cannot tell apart.
+
+    It shipped in a test written to catch exactly the defect it then missed: the
+    surface dropped the field entirely, so the guard was false and the assertion
+    was skipped. **The defect survived a round underneath its own detector.**
+
+    **The check: an assertion inside `if (collection.length)` needs a companion
+    asserting the collection is non-empty**, or the guard is a silent skip
+    wearing a pass.
 
     **The check: an assertion of the form "X is not in Y" is paired with one
     that X EXISTS somewhere.** Both halves, always. Here that is R6 (the suffix
@@ -2570,6 +2605,36 @@ of the change. An unanswerable precondition is a stop.
     **So the prohibition made the contract sharper to work from, not vaguer**,
     which is the argument for keeping it rather than a cost to be borne.
 
+    **AND THE HARNESS REPRODUCES HOW THE CODE IS INVOKED, NOT MERELY WHAT IT
+    IS GIVEN.** Round 6 Phase 2, 2026-09-07.
+
+    A fixture can carry exactly the right data and still test a shape
+    production never has. `main.tsx` mounts a view with `createRoot` ONCE and
+    then calls `root.render()` again for every navigation - so a second visit
+    to the same record **RE-RENDERS the component rather than mounting a new
+    one.** Every jsdom test mounted fresh, so every mount-shaped assumption in
+    the view was untested and all of them were wrong:
+
+    - `detailLoaded` in an effect keyed on `[settled]` never re-ran, and the
+      view stayed at `is-loading` **permanently**, with the panel fully
+      rendered underneath it.
+    - `useQuery` saw no new observer and served CACHED data, so a record
+      qualified on that screen still read `Unqualified` on the next visit.
+    - `useState(prop)` seeds once, so the host held the record it was FIRST
+      given while the view had the new one - and the stale reader was the one
+      deciding where Back went.
+    - `createRoot` CLEARS its container, so the static back button was
+      destroyed and the shell's load-time listener was bound to nothing.
+
+    **Four defects, one fact, and each was hidden behind the one before it.**
+    None was visible until a test rendered the way the shell does: one root,
+    re-rendered. The two surfaces already in production had the same defects,
+    measured the same way.
+
+    **The check: ask how the PRODUCTION ENTRY POINT invokes this code, and
+    build the harness around that.** Mounting fresh is the convenient shape,
+    not the real one.
+
     **The tell that a derivation has gone wrong is a suite that is green on its
     first run.** 49 tests passed with no red-green cycle, which is exactly the
     signature of tests written to agree with the component. Nine injections, one
@@ -2636,6 +2701,32 @@ of the change. An unanswerable precondition is a stop.
     or reader scan can see it. **Include `label[for]`, `aria-labelledby`,
     `aria-controls` and `aria-describedby` targets.**
 
+    **AND A CENSUS OF FIELDS IS NOT A CENSUS OF THE SURFACE.** Round 6, 2026-09-07,
+    and it cost a swap that was taken and reverted.
+
+    The Contact surface's fields were censused twice, with two instruments,
+    reconciled against each other, checked against a twelve-position checklist
+    and covered by an eighteen-injection sweep. **The swap then removed five
+    working capabilities from the screen** - the notes history, the park form,
+    unqualify, delete and the account-details modal, 524 of 1,327 lines - because
+    not one of them is a field.
+
+    **They were not four measures with a shared gap. They were ONE QUESTION -
+    are the rows right? - asked four ways.**
+
+    **The remedy is an ACCOUNTING, and it is automatable where rule 33's general
+    "look at what your measure cannot see" is not: map every top-level name in
+    the file to a named capability, and treat an unmapped name as a finding.**
+    A name nobody has claimed is a capability nobody has enumerated. Run it
+    BEFORE planning a migration; it is forty lines, and what it cost to not have
+    was a swap taken and reverted.
+
+    **AND IT COUNTS EVERY DECLARATION FORM.** The same round's own inventory
+    anchored on `function`/`var`/`const`/`let` at line start and reported 61
+    names where there were 76: fifteen `window.X = function` declarations were
+    invisible, and among them the unqualify, delete and account-modal entry
+    points. Verification 50's clause, hiding a fifth of a file.
+
     Same family as Verification 33, every measure has a shape, with a specific
     remedy 33's general one does not give.
 
@@ -2684,6 +2775,32 @@ of the change. An unanswerable precondition is a stop.
     **The check: a sweep is not finished when the injections fire. It is
     finished when the SILENT ones have been explained**, and "that is not worth
     asserting" is an answer only after it has been said out loud.
+
+    **AND BEFORE A SILENCE NAMES AN UNASSERTED CLAIM, CONFIRM THE INJECTION
+    FIRED AND THE MATCHER SAW IT.** Round 6, 2026-09-07, and it is the caveat
+    that keeps this rule usable: **five silences in one round were the MATCHER,
+    not a missing detector.**
+
+    A harness scores an injection by looking for an expected string in the test
+    output. Three ways that reports SILENT on an injection that was caught:
+
+    - **The test aborts on its FIRST failing assertion**, so a matcher taken
+      from a later assertion in the same test never appears. The message that
+      does appear is whatever threw - `no cd-save-feedback`, `no
+      cd-link-error` - and it mentions nothing about the claim.
+    - **The injection breaks a SIBLING rather than the obvious test.**
+      Hardcoding a destination left the qualified case passing by luck and
+      broke the unqualified one, so the test it falsified was the second of a
+      pair.
+    - **The claim is real and the assertion cannot see it.** The navigation
+      token's only observable effect is a refetch; an assertion counting
+      something that fires on every render is blind to it.
+
+    **The tell is a SILENT verdict with a non-zero failure count.** If anything
+    failed, the injection fired and the matcher is what missed. Print the count
+    beside the verdict, and anchor on the TEST NAME rather than on a message -
+    then on the name of the test the injection actually falsifies, which is not
+    always the one it was written for.
 
 ### At round close: index these by when they apply
 
