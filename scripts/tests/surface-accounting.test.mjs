@@ -109,11 +109,14 @@ const CAPABILITIES = {
       'renderAccountDetailsParentResults', 'selectAccountDetailsParent', 'saveAccountDetails'],
   },
   layout: {
-    // NOT MIGRATED, and it is the second thing the accounting found beyond the
-    // five the screenshot showed. syncCdBelowGridWidth keeps the below-grid
-    // block aligned to the card grid, which is invisible in a flat column and
-    // becomes visible the moment the cards exist.
-    migrated: false,
+    // SATISFIED BY CONSTRUCTION rather than by code, which is the honest way
+    // to record it. syncCdBelowGridWidth exists because the vanilla measures
+    // the card row in JavaScript and copies its width to the block below. The
+    // React surface uses the application's own `.ref-cards` grid, so the
+    // below-grid block is a sibling in the same container and is that width
+    // already. The capability is met; the function has no counterpart, and
+    // saying "migrated" without this note would misdescribe how.
+    migrated: true,
     names: ['syncCdBelowGridWidth'],
   },
 }
