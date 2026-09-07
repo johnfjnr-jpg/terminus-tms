@@ -18,41 +18,43 @@ export function reasonRequired(
   return !!level?.reason_required || series.length > 0
 }
 
-const norm = (s: string | null | undefined) => String(s ?? '').trim().toLowerCase()
-
 /**
- * ── R4: MUST DIFFER, AND IT IS AN IMPROVEMENT RATHER THAN A PORT ────────
+ * ── R4: MUST-DIFFER IS STRIPPED, BY RULING, 2026-09-07 ──────────────────
  *
- * MEASURED: neither the client nor `src/lib/score-entry.js` has ever compared a
- * reason to the one already recorded. The server refuses an EMPTY reason twice
- * - once for a `reason_required` level and once for a revision - and compares
- * it to nothing.
+ * THE CLAIM CHANGED BY RULING, AND THE REASONING IS KEPT HERE RATHER THAN
+ * DELETED, so a later reader can tell a superseded decision from a preference
+ * (Verification 29).
  *
- * The Phase 0b enumeration stated must-differ as a behaviour of this surface,
- * citing Round 30. That ruling is real and is in CLAUDE.md, but it was made
- * about the OPPORTUNITY assessment panel, and it was asserted here without
- * reading for it. Recorded as the enumeration's own error.
+ * WHAT WAS MEASURED, and it stands. Neither the client nor
+ * `src/lib/score-entry.js` has ever compared a reason to the one already
+ * recorded. The server refuses an EMPTY reason twice - once for a
+ * `reason_required` level (line 129) and once for a revision (line 158) - and
+ * compares it to nothing. Phase 1b built the comparison anyway, having
+ * enumerated it as a port on the strength of Round 30, whose ruling was made
+ * about the OPPORTUNITY assessment panel and was asserted here without reading
+ * for it.
  *
- * The rule is worth applying. On a revision the box starts empty, so non-empty
- * is a real check - but a person can retype the same sentence, and a new level
- * is then recorded carrying the reasoning given for a DIFFERENT one.
+ * WHY IT IS OUT. Round 7 is a MIGRATION. A rule the vanilla does not have is a
+ * behaviour change arriving inside a swap, so a walk comparing the two surfaces
+ * would find the React one refusing a save the vanilla accepts, and the person
+ * walking it could not tell an improvement from a regression. The strip lands
+ * BEFORE the swap for exactly that reason.
  *
- * It compares against the MOST RECENT recorded reason: the series is latest
- * first, and what a person must not do is repeat the sentence they are
- * revising.
+ * WHAT SURVIVES: the empty-reason refusal, which IS the vanilla's behaviour at
+ * both sites, and R1 and R2 above, which are ports.
+ *
+ * QUEUED, NOT ABANDONED. The argument for must-differ is unchanged and is
+ * recorded as a queued enhancement in MIGRATION_TEST_BED_CAPABILITIES.md,
+ * pending a business ruling: on a revision the box starts empty, so non-empty
+ * is a real check, but a person can retype the same sentence and the new level
+ * is then recorded carrying the reasoning given for a different one. That is a
+ * PRODUCT decision about what a scorer is asked, not a migration decision, and
+ * it belongs to whoever owns the question rather than to the round that
+ * happened to notice it.
  */
 export function reasonAccepted(
-  reason: string, series: readonly ScoreEntry[],
+  reason: string, _series: readonly ScoreEntry[],
 ): { ok: boolean, error?: string } {
-  const given = norm(reason)
-  if (!given) return { ok: false, error: 'A reason is required.' }
-  const last = norm(series[0]?.reason)
-  if (last && given === last) {
-    return {
-      ok: false,
-      error: 'This reason is the same as the one already recorded. '
-        + 'Say what has changed, or the new score carries the old reasoning.',
-    }
-  }
+  if (!String(reason ?? '').trim()) return { ok: false, error: 'A reason is required.' }
   return { ok: true }
 }

@@ -266,3 +266,31 @@ these documents exist to prevent.
 The rule is worth applying: on a revision the box starts empty, so non-empty is
 a real check - but a person can retype the same sentence and a new level is then
 recorded carrying the reasoning given for a different one.
+
+### R4, RE-RECORDED 2026-09-07: BUILT IN PHASE 1b, STRIPPED IN PHASE 2, QUEUED
+
+**Ruled by the business at the Phase 2 opening.** Phase 1b built must-differ
+anyway, on the reasoning above. Phase 2 took it out before the swap.
+
+**The reasoning for the strip, and it is about WHEN rather than WHETHER.**
+Round 7 is a migration. A rule the vanilla does not have is a behaviour change
+arriving inside a swap commit, so a walk comparing the two surfaces finds the
+React one refusing a save the vanilla accepts - and the person walking it cannot
+tell an improvement from a regression. **The strip landed as its own commit
+BEFORE the swap** for exactly that reason.
+
+**What survives is the port**: the empty-reason refusal, which is the vanilla's
+behaviour at both `score-entry.js` sites, and R1 and R2 above.
+
+**QUEUED, PENDING A BUSINESS RULING, and the argument is unchanged.** A person
+can retype the same sentence on a revision, and the new level is then recorded
+carrying the reasoning given for a different one. **That is a product decision
+about what a scorer is asked, not a migration decision**, and it belongs to
+whoever owns the question rather than to the round that happened to notice it.
+
+**It is not lost, and it has a detector.** `scoreReason.ts` carries the full
+reasoning at the site rather than a deletion (Verification 29: a superseded
+decision stays visible so a reader can tell a failed premise from a changed
+preference), and the Phase 1b injection sweep now REINSTATES must-differ as an
+injection - so the strip is a change something watches rather than an absence
+nothing asserts.

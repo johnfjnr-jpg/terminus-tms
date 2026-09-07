@@ -98,17 +98,18 @@ const INJECTIONS = [
     replace: '  return score <= 2 || series.length > 0',
     expect: 'the LEVEL says whether a reason is required' },
 
-  { name: 'R4: MUST-DIFFER REMOVED, so the same reason is accepted again',
+  { name: 'R4: the empty-reason refusal is removed, which the vanilla DOES have',
     file: R,
-    find: '  if (last && given === last) {',
-    replace: '  if (false) {',
-    expect: 'the same reason was accepted for a different level' },
+    find: "  if (!String(reason ?? '').trim()) return { ok: false, error: 'A reason is required.' }",
+    replace: '  if (false) return { ok: false }',
+    expect: 'R4 an EMPTY reason is still refused' },
 
-  { name: 'R4: it compares against the OLDEST reason instead of the newest',
+  { name: 'R4: MUST-DIFFER REINSTATED, which the strip took out by ruling',
     file: R,
-    find: '  const last = norm(series[0]?.reason)',
-    replace: '  const last = norm(series[series.length - 1]?.reason)',
-    expect: 'R4 it compares against the MOST RECENT recorded reason' },
+    find: "  if (!String(reason ?? '').trim()) return { ok: false, error: 'A reason is required.' }\n  return { ok: true }",
+    replace: "  if (!String(reason ?? '').trim()) return { ok: false, error: 'A reason is required.' }\n  if (String(reason).trim().toLowerCase() === String(_series[0]?.reason ?? '').trim().toLowerCase()) return { ok: false, error: 'same' }\n  return { ok: true }",
+    expect: 'R4 A REPEATED REASON IS ACCEPTED' },
+
 ]
 const run = () => {
   try {

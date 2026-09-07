@@ -287,39 +287,37 @@ describe('R: the score reason', () => {
     expect(reasonRequired(99, LEVELS, [])).toBe(false)
   })
 
-  test('R4 an EMPTY reason is refused when one is required', () => {
-    expect(reasonAccepted('   ', [{ reason: 'because the licence lapsed' }]).ok).toBe(false)
-  })
-
-  test('R4 MUST DIFFER: a reason equal to the one recorded is REFUSED', () => {
-    // Not a port: neither the client nor the server has ever compared a reason
-    // to the one already recorded. This applies Round 30's standing rule -
-    // otherwise a new level is recorded carrying the reasoning given for a
-    // different one.
+  test('R4 A REPEATED REASON IS ACCEPTED, by ruling 2026-09-07', () => {
+    // THE CLAIM CHANGED BY RULING AND THE TEST INVERTED WITH IT. Phase 1b
+    // asserted the opposite here, having enumerated must-differ as a port on
+    // the strength of Round 30 - a ruling made about the Opportunity
+    // assessment panel. MEASURED: neither the client nor score-entry.js has
+    // ever compared a reason to the one recorded.
+    //
+    // Round 7 is a migration, so a rule the vanilla does not have is a
+    // behaviour change arriving inside a swap. The argument for must-differ is
+    // unchanged and queued as an enhancement pending a business ruling; it is
+    // not this round's to take.
     const series = [{ reason: 'because the licence lapsed' }]
     const r = reasonAccepted('because the licence lapsed', series)
-    expect(r.ok, 'the same reason was accepted for a different level').toBe(false)
-    expect(r.error).toMatch(/differ|same/i)
+    expect(r.ok, 'the repeated reason was refused, so must-differ is still live').toBe(true)
+    expect(r.error).toBeUndefined()
   })
 
-  test('R4 and it ignores surrounding whitespace and case', () => {
-    const series = [{ reason: 'Because the licence lapsed' }]
-    expect(reasonAccepted('  because the licence lapsed  ', series).ok).toBe(false)
-  })
-
-  test('R4 a DIFFERING reason lands', () => {
-    const series = [{ reason: 'because the licence lapsed' }]
-    expect(reasonAccepted('the renewal came through', series).ok).toBe(true)
-  })
-
-  test('R4 it compares against the MOST RECENT recorded reason', () => {
+  test('R4 and the SERIES no longer decides anything about the text', () => {
+    // The empty-reason refusal survives because it IS the vanilla's behaviour
+    // at both score-entry sites. Nothing else reads the series.
     const series = [{ reason: 'newest' }, { reason: 'older' }]
-    expect(reasonAccepted('newest', series).ok).toBe(false)
-    expect(reasonAccepted('older', series).ok, 'an older reason was refused; only the last one matters')
-      .toBe(true)
+    expect(reasonAccepted('newest', series).ok).toBe(true)
+    expect(reasonAccepted('older', series).ok).toBe(true)
+    expect(reasonAccepted('anything else', series).ok).toBe(true)
   })
 
-  test('R4 a FIRST score has nothing to differ from', () => {
-    expect(reasonAccepted('any reason at all', []).ok).toBe(true)
+  test('R4 an EMPTY reason is still refused, series or no series', () => {
+    // Verification 14: the acceptance above must not be true by absence. This
+    // is the case that proves reasonAccepted can still answer false at all.
+    expect(reasonAccepted('   ', [{ reason: 'because the licence lapsed' }]).ok).toBe(false)
+    expect(reasonAccepted('', []).ok).toBe(false)
+    expect(reasonAccepted('  a real one  ', []).ok).toBe(true)
   })
 })
