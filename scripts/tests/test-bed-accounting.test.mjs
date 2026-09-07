@@ -268,37 +268,56 @@ test('EVERY capability renders, which is the swap gate at its floor', () => {
 // directions. This asserts the RECORDED gap set exactly, the same ratchet shape
 // the file's own gate used: it fails when something is built AND when something
 // regresses.
-const VIEW_GAPS = [
-  'confirmStageDocument', 'saveStageDocumentUrl', 'applyConfirmedApproval',
-  'refreshTbStagePanels',
-  'convertTestBed', 'wireTestBedConvertOnce', 'resetTestBedConvertForm',
-].sort()
+const VIEW_GAPS = []
 
 test('the app.js view gaps are EXACTLY the recorded ones', () => {
   const declared = readFileSync(new URL('scripts/round7/tb-view-surface.mjs', ROOT), 'utf8')
   const block = declared.slice(declared.indexOf('const VIEW = {'), declared.indexOf('\n}\n', declared.indexOf('const VIEW = {')))
   const gaps = [...block.matchAll(/^\s{2}([A-Za-z0-9_$]+):\s*'GAP:/gm)].map((m) => m[1]).sort()
 
-  assert.ok(gaps.length > 0, 'no gaps parsed, so this assertion is vacuous')
+  // The vacuity guard inverts with the gate: with the debt at zero, what must
+  // be non-empty is the ENUMERATION, not the gap set. A parser that matched
+  // nothing would otherwise agree with an empty VIEW_GAPS perfectly.
+  const declaredNames = [...block.matchAll(/^\s{2}([A-Za-z0-9_$]+):\s*'/gm)].map((m) => m[1])
+  assert.ok(declaredNames.length > 30,
+    `only ${declaredNames.length} names parsed from the enumeration, so this `
+    + 'assertion is vacuous')
   assert.deepEqual(gaps, VIEW_GAPS,
     'the app.js gap set moved. If something was BUILT, remove it from '
     + 'VIEW_GAPS and from the enumeration. If something REGRESSED, that is the '
     + 'finding.')
 })
 
-test('and every declared view name still exists in app.js', () => {
-  // The enumeration is only an instrument while it names real functions.
+test('and every name the enumeration DECLARES still exists in app.js', () => {
+  // IT READS THE ENUMERATION, NOT VIEW_GAPS. With the debt at zero, iterating
+  // VIEW_GAPS asserts nothing at all - Verification 14, a check satisfied by
+  // an absence. The meaningful claim once the gaps are closed is that the
+  // enumeration still names real functions, which is what stops it becoming a
+  // list of dispositions for code that has moved.
+  const declared = readFileSync(new URL('scripts/round7/tb-view-surface.mjs', ROOT), 'utf8')
+  const block = declared.slice(declared.indexOf('const VIEW = {'),
+    declared.indexOf('\n}\n', declared.indexOf('const VIEW = {')))
+  const names = [...block.matchAll(/^\s{2}([A-Za-z0-9_$]+):\s*'/gm)].map((m) => m[1])
+  assert.ok(names.length > 30, `only ${names.length} names parsed, so this is vacuous`)
+
   const app = readFileSync(new URL('frontend/app.js', ROOT), 'utf8')
   const present = new Set(topLevelNames(app).map((n) => n.name))
-  const missing = VIEW_GAPS.filter((n) => !present.has(n))
-  assert.deepEqual(missing, [], 'declared gaps no longer in app.js: ' + missing.join(', '))
+  const missing = names.filter((n) => !present.has(n))
+  assert.deepEqual(missing, [],
+    'the enumeration names functions app.js no longer has: ' + missing.join(', '))
 })
 
-test('THE SWAP IS NOT TAKEABLE while the app.js view gaps are non-empty', () => {
-  // The file's own gate reads 20/20 and says takeable. This is the other half,
-  // and until it is empty the two disagree - which is the finding, not a
-  // contradiction to resolve by picking one.
-  assert.notEqual(VIEW_GAPS.length, 0,
-    'VIEW_GAPS is empty, so the view population is covered and this assertion '
-    + 'should be inverted in the swap commit')
+test('EVERY app.js view name has a React counterpart, which is the second gate at its floor', () => {
+  // INVERTED at Phase 2d session 3, when the view population reached zero.
+  // Until then this asserted the debt was non-empty; it now asserts there is
+  // none, so a name that loses its counterpart fails here rather than being
+  // quietly added back to a list.
+  //
+  // BOTH POPULATIONS NOW READ ZERO. The file population (20 of 20 rendered)
+  // and the view population (0 gaps) are different questions about the same
+  // swap, and Phase 2c exists because the first said takeable while the second
+  // had never been asked.
+  assert.deepEqual(VIEW_GAPS, [],
+    'VIEW_GAPS is non-empty, so the swap is not takeable and this assertion '
+    + 'should be reverted to its debt form')
 })

@@ -29,34 +29,34 @@ const S = 'scripts/round7/tb-view-surface.mjs'
 
 const INJECTIONS = [
   { name: 'a GAP is quietly reclassified as covered in the enumeration', file: S,
-    find: "  confirmStageDocument: 'GAP: confirming a stage document',",
-    replace: "  confirmStageDocument: 'react: nothing, this is an injection',",
+    find: "  confirmStageDocument: 'react: stageDocuments.confirmBody + DocumentsPanel',",
+    replace: "  confirmStageDocument: 'GAP: injected, to prove the gate can still see one',",
     expect: 'the app.js view gaps are EXACTLY the recorded ones' },
 
   { name: 'a NEW gap appears in app.js and nobody records it', file: S,
-    find: "  refreshTbStagePanels: 'GAP: re-loading the open stage after a write',",
-    replace: "  refreshTbStagePanels: 'GAP: re-loading the open stage after a write',\n  wireTbNextStageButton2: 'GAP: injected',",
+    find: "  refreshTbStagePanels: 'react: StageTabs refreshToken',",
+    replace: "  refreshTbStagePanels: 'react: StageTabs refreshToken',\n  wireTbNextStageButton2: 'GAP: injected',",
     expect: 'the app.js view gaps are EXACTLY the recorded ones' },
 
   { name: 'the recorded list drops an entry the enumeration still carries', file: A,
-    find: "  'confirmStageDocument', 'saveStageDocumentUrl', 'applyConfirmedApproval',",
-    replace: "  'saveStageDocumentUrl', 'applyConfirmedApproval',",
+    find: "const VIEW_GAPS = []",
+    replace: "const VIEW_GAPS = ['renderTestBedDetail']",
     expect: 'the app.js view gaps are EXACTLY the recorded ones' },
 
   { name: 'the view gate is inverted while the gaps are non-empty', file: A,
-    find: "  assert.notEqual(VIEW_GAPS.length, 0,",
-    replace: "  assert.equal(VIEW_GAPS.length, 0,",
-    expect: 'THE SWAP IS NOT TAKEABLE while the app.js view gaps are non-empty' },
+    find: "  assert.deepEqual(VIEW_GAPS, [],\n    'VIEW_GAPS is non-empty",
+    replace: "  assert.notDeepEqual(VIEW_GAPS, [],\n    'VIEW_GAPS is non-empty",
+    expect: 'EVERY app.js view name has a React counterpart' },
 
   { name: 'the gap parser matches nothing, so an empty set reads clean', file: A,
-    find: "  const gaps = [...block.matchAll(/^\\s{2}([A-Za-z0-9_$]+):\\s*'GAP:/gm)].map((m) => m[1]).sort()",
-    replace: "  const gaps = []",
-    expect: 'no gaps parsed, so this assertion is vacuous' },
+    find: "  const declaredNames = [...block.matchAll(/^\\s{2}([A-Za-z0-9_$]+):\\s*'/gm)].map((m) => m[1])",
+    replace: "  const declaredNames = []",
+    expect: 'names parsed from the enumeration, so this' },
 
-  { name: 'a declared gap is renamed, so the existence check must fire', file: A,
-    find: "  'convertTestBed', 'wireTestBedConvertOnce', 'resetTestBedConvertForm',",
-    replace: "  'convertTestBedX', 'wireTestBedConvertOnce', 'resetTestBedConvertForm',",
-    expect: 'declared gaps no longer in app.js' },
+  { name: 'a declared name is renamed, so the existence check must fire', file: S,
+    find: "  convertTestBed: 'react: convert.ts + ConvertPanel',",
+    replace: "  convertTestBedX: 'react: convert.ts + ConvertPanel',",
+    expect: 'the enumeration names functions app.js no longer has' },
 ]
 
 const run = () => {

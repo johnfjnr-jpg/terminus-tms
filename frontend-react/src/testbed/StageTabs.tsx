@@ -35,7 +35,7 @@ export interface StageTabsDeps {
 const emptyPanels = () => Object.fromEntries(
   PANEL_IDS.map((id) => [id, {} as PanelState])) as Record<PanelId, PanelState>
 
-export function StageTabs({ payload, units, landing, fresh, currentStage, nextStage, deps, reference, commercials, installSection, documents, approvals, closed, onNextStage }: {
+export function StageTabs({ payload, units, landing, fresh, currentStage, nextStage, deps, reference, commercials, installSection, documents, approvals, closed, onNextStage, refreshToken }: {
   payload: Record<string, unknown>
   units: readonly Unit[]
   landing: string | null
@@ -54,6 +54,17 @@ export function StageTabs({ payload, units, landing, fresh, currentStage, nextSt
   closed?: React.ReactNode
   /** X: the Next Stage action. T7 already decides enablement. */
   onNextStage?: () => void
+  /**
+   * F: RE-LOAD THE OPEN STAGE after a write that can change it.
+   *
+   * The vanilla's `refreshTbStagePanels` reloads documents and exit criteria
+   * and NOT approvals - a deliberate scoping, since a document confirmation
+   * cannot change an approval. THIS RE-RUNS THE WHOLE STAGE LOAD, which is a
+   * recorded divergence rather than an oversight: there is ONE loader and one
+   * path (Architecture 3), and a second partial one would agree with it today
+   * and drift later. The cost is one extra GET on a panel that has not changed.
+   */
+  refreshToken?: number
 }) {
   const [userPicked, setUserPicked] = useState(false)
   const [active, setActive] = useState<string>(() =>
@@ -105,6 +116,20 @@ export function StageTabs({ payload, units, landing, fresh, currentStage, nextSt
     void activate(landingTab({ landing, fresh, userPicked, openTab: lastTab.current }))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [landing, fresh, activate])
+
+  // F1: only when a stage tab is open. Nothing to refresh on Reference, and
+  // re-activating it would be a needless re-render.
+  useEffect(() => {
+    // NO `isStageTab` CLAUSE HERE, and its absence is measured rather than an
+    // oversight: `activate` already returns before any fetch for a non-stage
+    // tab, so the extra check removed nothing. Its injection came back SILENT
+    // with zero failures, which is Verification 9's signature for a guard whose
+    // removal changes nothing observable - dead or redundant, and both are
+    // worse than absent because they suggest a protection that is not working.
+    if (refreshToken === undefined || !lastTab.current) return
+    void activate(lastTab.current)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshToken])
 
   const next = nextStageState({ currentStage, nextStage }, active)
 

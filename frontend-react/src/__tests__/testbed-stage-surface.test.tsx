@@ -224,6 +224,37 @@ describe('the tab strip renders', () => {
   })
 })
 
+describe('F: the stage refresh', () => {
+  test('F1 a bumped token RE-LOADS the open stage', async () => {
+    const criteria = vi.fn(async () => ({ ok: true, data: CRITERIA }))
+    await render({ deps: deps({ criteria }) })
+    await click('tb-tab-btn-stage-Qualification')
+    const before = criteria.mock.calls.length
+    await render({ deps: deps({ criteria }), refreshToken: 1 })
+    expect(criteria.mock.calls.length,
+      'the refresh token did not reload the open stage').toBeGreaterThan(before)
+  })
+
+  test('F1 and does NOTHING while Reference is open', async () => {
+    const criteria = vi.fn(async () => ({ ok: true, data: CRITERIA }))
+    await render({ deps: deps({ criteria }) })
+    const before = criteria.mock.calls.length
+    await render({ deps: deps({ criteria }), refreshToken: 1 })
+    expect(criteria.mock.calls.length,
+      'a refresh fired with no stage tab open').toBe(before)
+  })
+
+  test('F1 an UNCHANGED token does not reload', async () => {
+    const criteria = vi.fn(async () => ({ ok: true, data: CRITERIA }))
+    await render({ deps: deps({ criteria }), refreshToken: 3 })
+    await click('tb-tab-btn-stage-Qualification')
+    const before = criteria.mock.calls.length
+    await render({ deps: deps({ criteria }), refreshToken: 3 })
+    expect(criteria.mock.calls.length,
+      'an unchanged token reloaded, so every render refetches').toBe(before)
+  })
+})
+
 describe('re-navigation: ONE root, re-rendered', () => {
   test('a second visit to a DIFFERENT record re-derives the landing tab', async () => {
     await render()

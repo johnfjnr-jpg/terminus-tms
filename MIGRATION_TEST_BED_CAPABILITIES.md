@@ -833,3 +833,157 @@ are dispositioned as such in the enumeration, so they are not gaps and not this
 round's to move.
 
 **`detailLoaded` itself.** It is a shell service the React tree already has.
+
+---
+
+# Addendum, 2026-09-07 (ninth entry): THE REST, and the convert path measured
+
+**Round 7 Phase 2d, session 3.** The last seven `app.js` names.
+
+---
+
+## THE ROUTES SESSION 1 INVENTED, corrected here
+
+**A defect this round introduced, found by reading the vanilla for this
+session's enumeration rather than by anything failing.**
+
+Session 1 wired the documents panel to two routes that **do not exist**:
+
+| session 1 wrote | the route |
+|---|---|
+| `POST /test-beds/:id/documents/confirm` `{document, stage}` | `POST /test-beds/:id/complete-document` `{document_type, document_location, approve}` |
+| `PATCH /test-beds/:id/documents` `{document, stage, document_location}` | the same route, with `approve: false` |
+
+**Nothing failed**, because no test exercised the call and the panel's own
+assertions are about what it renders. Verification 47's shape from the caller's
+side: a request shaped by what the reader wanted rather than by what the route
+takes.
+
+---
+
+## C. CONFIRMING AND SAVING A DOCUMENT (`confirmStageDocument` 44, `saveStageDocumentUrl` 19)
+
+**C1. ONE ROUTE, TWO MEANINGS, AND `approve` IS THE WHOLE DIFFERENCE.**
+`approve` defaults to TRUE so every pre-existing caller behaves as it did.
+Saving a URL passes `approve: false`.
+
+**C2. THE REASON IS A GATE BYPASS, AND IT IS RECORDED AT THE ROUTE.** `status`
+was a hardcoded, unconditional `'approved'`, so **saving a URL approved the
+document as a side effect**. The URL points at the WORKING COPY, set while the
+document is still being written, and **satisfying a gate by pasting a link is
+precisely the failure the gate exists to prevent**. This is `CLAUDE.md`'s own
+Architecture 8 instance, and it is why the two are separate calls rather than
+one with a flag the caller may forget.
+
+**C3. CONFIRM CARRIES WHATEVER IS IN THE URL BOX**, so an operator who pastes a
+link and confirms in one go does not lose it. It is sent only when non-empty.
+
+**C4. THE FEEDBACK IS PER ROW**, keyed by the document slug, and says which
+outcome: *URL saved.* or the server's own error.
+
+**C5. A SUCCESSFUL CONFIRM REFRESHES THE PANELS AND THE NEXT STAGE BUTTON**,
+because a confirmed document can release a gate. A URL save refreshes the panels
+only - it changes no gate.
+
+## F. THE PANEL REFRESH (`refreshTbStagePanels`, 11)
+
+**F1. IT RE-LOADS THE OPEN STAGE ONLY**, and returns early with no record or no
+open stage tab.
+
+**F2. IT RELOADS DOCUMENTS AND EXIT CRITERIA, NOT APPROVALS.** Measured, and it
+is the vanilla's own scoping: a document confirmation cannot change an approval.
+
+## A. THE OPTIMISTIC APPROVAL ROW (`applyConfirmedApproval`, 11)
+
+**A1. IT IS AN OPTIMISTIC DOM MUTATION, NOT A DATA PATH.** It finds the row by
+its rendered role text, adds `approved`, removes `clickable` and the handler,
+and rewrites the meta line.
+
+**A2. IT IS SUPERSEDED BY RENDERING, NOT DEAD.** The React approvals panel
+re-renders from the reload the approve already performs, so the same three
+changes happen from state. **Not proposed as dead** - the vanilla calls it and
+it does something - and its disposition is `react: the reload re-renders`.
+
+**A3. FINDING BY ROLE TEXT IS THE FRAGILITY IT REMOVES.** The row is located by
+matching `.sa-approval-role` textContent against the track name, and A6's
+version-scoped label is `<track> - Proposal/Pricing approved for issue`, which
+**does not match its own track**. In the vanilla the optimistic update silently
+does nothing for a version-scoped row. Rendering from state has no such gap.
+
+---
+
+## X. THE CONVERT PATH, measured Phase-0 style
+
+**Item 1's requirement: this is the estate's first CROSS-RECORD write.**
+
+### What it READS
+
+| source | what |
+|---|---|
+| `records` (the Test Bed) | `id, record_type, status, account_id, reference_code` |
+| `conversion_criteria` | the `test_bed -> opportunity` row and its `condition` |
+| `opportunity_details` | prior conversions from this Test Bed, for `max_conversions` |
+| `record_revisions` | the Test Bed's LATEST payload |
+| `stage_probability_defaults` | Qualification's default probability |
+| system defaults | the initial payload every new Opportunity gets |
+
+### What it CREATES
+
+**Three rows and two audit entries**, in order: a `records` row (`opportunity`,
+status `Qualification`, the Test Bed's `account_id` and `reference_code`); a
+`record_revisions` row at revision 1; and an `opportunity_details` row carrying
+`converted_from_test_bed_id` and `test_bed_cost`.
+
+**Two field mappings are genuine renames, not copies**: the Test Bed's
+`client_organisation` becomes `company_name`, and its `initialLead` becomes
+`customerLead` - the identical concept under two names.
+
+### What it WRITES BACK to the source
+
+**NOTHING on the Test Bed record.** The only trace on the source side is an
+`audit_log` row, `converted_to_opportunity`, naming the new Opportunity.
+**The link is held on the TARGET**, in `opportunity_details.converted_from_test_bed_id`,
+which is also what the max-conversions check reads.
+
+### The FAILURE and PARTIAL-WRITE behaviour, and it is the finding
+
+**THERE IS NO TRANSACTION.** The three inserts are separate statements with
+`return sendWriteError(...)` between them, so a failure after the first leaves:
+
+| fails at | left behind |
+|---|---|
+| `records` | nothing |
+| `record_revisions` | **an Opportunity record with NO revision** |
+| `opportunity_details` | **an Opportunity with a revision and no details, and no link back** |
+
+**The third case is the one that matters for the gate**: with no
+`opportunity_details` row there is no `converted_from_test_bed_id`, so the
+max-conversions check cannot see the conversion and **a second conversion is
+permitted**. The route's own comment records that this check was silently
+returning zero once before, from an unchecked error, and a second conversion
+went through.
+
+**Recorded as a finding, not fixed here.** It is a server-side change and this
+session is the client. Rule 10: on the list.
+
+### The client's own behaviours
+
+**X1. THE NAME IS REQUIRED CLIENT-SIDE**, refused before any request with
+*Opportunity name is required.*
+
+**X2. THE FORM IS A DISCLOSURE**, revealed by a trigger and hidden by cancel or
+by success.
+
+**X3. SUCCESS OFFERS NAVIGATION TO THE NEW RECORD** rather than navigating for
+you - the operator may want to stay.
+
+**X4. CANCEL CLEARS THE NAME AND THE FEEDBACK**, so reopening does not show the
+last attempt's error.
+
+**X5. THE WIRING IS ONCE-ONLY** in the vanilla, guarded by a module flag,
+because the controls are static markup. A React component has no such problem
+and needs no counterpart for the guard.
+
+**AND 2E OWES THIS PATH AN END-TO-END LIVE WALK**: create from a real Test Bed,
+assert the Opportunity exists with its mapped fields, assert the link row, and
+attempt a second conversion and see it refused.

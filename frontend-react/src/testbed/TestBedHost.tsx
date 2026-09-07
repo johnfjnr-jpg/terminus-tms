@@ -33,6 +33,9 @@ import { nextStageFor } from './tabModel'
 import type { StageEntry } from '../shared/stageTracks'
 import { ViewHeader } from './ViewHeader'
 import { createArrivalFlags, notMine } from './viewLoad'
+import { ConvertPanel } from './ConvertPanel'
+import { CONVERT_ROUTE } from './convert'
+import { completeDocumentRoute, confirmBody, saveUrlBody } from './stageDocuments'
 
 /**
  * V7: the numeric fields the validation banner speaks for.
@@ -108,6 +111,18 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
   // re-renders. The shell re-renders this view rather than mounting a new one,
   // so a ref is what makes "spend it once" mean once.
   const flags = useRef(createArrivalFlags())
+  // C3: the last URL typed per document, so a confirm can carry it. Kept in a
+  // ref rather than state: nothing renders from it and a re-render per
+  // keystroke would remount the row.
+  const docUrls = useRef<Record<string, string>>({})
+  // F: bumped after any write that can change what a stage panel shows. It
+  // also supersedes the vanilla's `applyConfirmedApproval`, which mutated the
+  // approved row's classes and text in place - rendering from the reloaded
+  // state does the same three things and has no equivalent of that function's
+  // own gap, where it located the row by matching role TEXT and so silently
+  // did nothing for a version-scoped row whose label is not its track name.
+  const [stageRefresh, setStageRefresh] = useState(0)
+  const refreshStage = useCallback(() => { setStageRefresh((n) => n + 1) }, [])
   const [arrival, setArrival] = useState<{ fresh: boolean, landing: string | null }>(
     () => ({ fresh: true, landing: null }))
 
@@ -422,17 +437,28 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
         nextStage={nextStageFor(stages, record.status).nextStage}
         deps={stageDeps}
         installSection={installSectionNode}
-        documents={(stage, data) => (
+        documents={(_stage, data) => (
           <DocumentsPanel data={(data ?? {}) as DocRequirements}
             onConfirm={async (name) => {
-              await shell.api('POST', `/api/test-beds/${bed.id}/documents/confirm`,
-                { document: name, stage })
+              // C3: the confirm carries whatever is in the URL box. The panel
+              // owns that value, so it is passed through here.
+              await shell.api('POST', completeDocumentRoute(bed.id),
+                confirmBody(name, docUrls.current[name] ?? ''))
+              // C5: a confirm can release a gate, so the panels reload and the
+              // Next Stage button re-derives from the reloaded record.
               await load()
+              refreshStage()
             }}
             onSaveUrl={async (name, url) => {
-              await shell.api('PATCH', `/api/test-beds/${bed.id}/documents`,
-                { document: name, stage, document_location: url })
-              await load()
+              docUrls.current[name] = url
+              // C2: approve:false. Saving a URL must not approve the document -
+              // the URL points at the working copy, and satisfying a gate by
+              // pasting a link is the failure the gate exists to prevent.
+              await shell.api('POST', completeDocumentRoute(bed.id),
+                saveUrlBody(name, url))
+              // F: a URL save changes no gate, but the document row's stored
+              // location has moved, so the panel is reloaded.
+              refreshStage()
             }} />)}
         approvals={(stage, data) => (
           <StageTrackList testId="tb-stage-tracks"
@@ -443,8 +469,10 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
             onApprove={async (track) => {
               await shell.api('POST', `/api/records/${bed.id}/approvals`, { track })
               await load()
+              refreshStage()
             }} />)}
         closed={<ClosedRecordPanel data={lifecycle.data} failed={lifecycle.failed} />}
+        refreshToken={stageRefresh}
         onNextStage={() => {
           const { currentStage, nextStage } = nextStageFor(stages, record.status)
           if (nextStage) shell.attemptTransition(bed.id, nextStage, 'test_bed', currentStage)
@@ -487,6 +515,19 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
           history={<HistoryPanel entries={history.entries} failed={history.failed} />} />} />
       {/* V5: OWNED, so it cannot clear a message that is not its own, and a
           server save error cannot clear this one either. */}
+      {/* KEYED ON THE RECORD. The shell re-renders this view rather than
+          mounting a new one, so an open form with a typed name would follow the
+          operator to the next Test Bed. The key is what resets it, and the
+          convert suite asserts BOTH halves: that without a key the form
+          persists, and that a changed key clears it. */}
+      <ConvertPanel
+        key={bed.id}
+        onConvert={async (body) => {
+          const r = await shell.api<{ id?: string, error?: string }>(
+            'POST', CONVERT_ROUTE(bed.id), body)
+          return { ok: r.ok, data: r.ok ? (r.data ?? null) : null, error: r.data?.error ?? null }
+        }}
+        onOpen={(id) => shell.navigate('opportunity-detail', id)} />
       {invalidMessage
         ? <div data-testid="tb-save-feedback" className="msg-error"
             data-owner={VALIDATION_OWNER}>{invalidMessage}</div>
