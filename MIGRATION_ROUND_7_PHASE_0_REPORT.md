@@ -380,7 +380,17 @@ verdicts - where one may have been counted. All seven were read.
 
 ## Gate
 
-See below.
+**All 21 stages passed** on `bfcae68`, the tree this report is committed on.
+
+Pure 475/475, database 94/94, react 580/580, all 0 fail, typecheck clean, 14
+HTTP probes. Every figure parsed from the run.
+
+**AND THE GATE IS GREEN OVER A BROKEN SAVE**, which is the point worth taking
+from it. Nothing in the repository POSTs a Test Bed field save, so twenty-one
+stages pass on a surface whose primary write path has thrown since Round 38.
+The defect was found by reading a variable that had no declaration and then
+**exercising the path in a browser** - which is the only instrument that could
+have seen it.
 
 **Not pushed. Phase 1 not started, and should not start until T1 has an
 answer.**
