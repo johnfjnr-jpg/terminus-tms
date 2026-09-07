@@ -283,8 +283,11 @@ a swap-commit change for the same reason as C1.
 
 ## Gate
 
-**All 21 stages passed**, twice: once on `2d53510` with this report uncommitted,
-and again on the closing tree, clean.
+**All 21 stages passed**, twice: once on `2d53510` with this report
+uncommitted, and again on `7406cc4` - the commit this report landed in - with
+the tree clean.
+
+Transcript: `.verify/verify-1191604914025041.txt`
 
 Pure 455/455, database 94/94, react 537/537, all 0 fail, typecheck clean, and
 14 HTTP probes. Every figure parsed from the run rather than typed.
