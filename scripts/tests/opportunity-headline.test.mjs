@@ -245,10 +245,21 @@ test('the one door every click-to-edit field opens through is guarded', () => {
   // dependency - unlike the CSS and the ownership sweep, which both run at
   // render. It now has two halves, because the door is a seam:
   const app = code('frontend/app.js', 'js')
-  assert.match(app, /'opportunity-detail': \(\) => \{/,
+  // ── SUPERSEDED BY THE RECORD READ. Round 8 Phase 1 ────────────────────
+  //
+  // This asserted the registry entry as `'opportunity-detail': () => {` with a
+  // body reading `!!v && !v.classList.contains('is-not-mine')`. The reasoning
+  // was right for the class model and is kept rather than deleted: a missing
+  // view element yields undefined, which fails OPEN, so the entry read the
+  // class explicitly.
+  //
+  // Ruled 2026-09-07: the door reads the RECORD. Round 7's swap retired the
+  // path that wrote the class while the door still read it, and the door
+  // stayed open on somebody else's record - a silent, security-shaped failure.
+  // There is no class in the entry to assert now, and the equivalent property
+  // lives in ownership.test.mjs where the register can be exercised.
+  assert.match(app, /'opportunity-detail':\s*\(\)\s*=>\s*ownedByMe/,
     'the shell answers no ownership question for this view, so every row refuses')
-  assert.match(app, /!!v && !v\.classList\.contains\('is-not-mine'\)/,
-    'the shell registry line no longer fails CLOSED on a missing view')
   const rows = code('frontend-react/src/field-row/useFieldRows.ts', 'js')
   assert.match(rows, /canEditFields\(\)/,
     'the row controller does not consult the guard at all')

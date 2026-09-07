@@ -138,8 +138,22 @@ test('the door is OPEN for the Reference tab, in the shell registry', () => {
   const app = readCode(new URL('../../frontend/app.js', import.meta.url))
   assert.match(app, /'opportunity-detail':\s*\(\)\s*=>/,
     'CAN_EDIT_BY_VIEW has no opportunity-detail line, so every Reference row refuses')
-  assert.match(app, /!!v && !v\.classList\.contains\('is-not-mine'\)/,
-    'the registry line no longer fails CLOSED on a missing view element')
+  // ── SUPERSEDED BY THE RECORD READ. Round 8 Phase 1 ────────────────────
+  //
+  // This asserted `!!v && !v.classList.contains('is-not-mine')` - the entry
+  // reading the CLASS and failing closed on a missing view element. That was
+  // the right property for the class model and the reasoning is kept rather
+  // than deleted (Verification 29): a missing view meant the surface was not
+  // mounted, and reading `?.classList.contains()` there yields undefined,
+  // which fails OPEN.
+  //
+  // THE MODEL CHANGED BY RULING. The door reads the record, so there is no
+  // view element to be missing and no class to be absent. The equivalent
+  // property - a view that never reported an owner fails OPEN at the door and
+  // CLOSED at the database - is asserted in ownership.test.mjs, where the
+  // register can be exercised directly.
+  assert.match(app, /'opportunity-detail':\s*\(\)\s*=>\s*ownedByMe/,
+    'the Opportunity door no longer answers from the record')
 })
 
 // ── WHICH CONTACT SURFACE IS LIVE. Round 6, Phase 2 ─────────────────────
@@ -222,18 +236,16 @@ test('the door is WIRED for the Test Bed view, in the shell registry', () => {
   // a live surface on which nothing can be edited. Added in the swap commit for
   // that reason, and asserted here so it cannot be dropped separately.
   const app = readCode(new URL('frontend/app.js', ROOT))
-  assert.match(app, /'test-bed-detail':\s*\(\)\s*=>/,
-    'CAN_EDIT_BY_VIEW has no test-bed-detail line, so every Test Bed row refuses')
-  // ANCHORED INSIDE THE REGISTRY ENTRY, not anywhere in app.js. The ownership
-  // sweep at :6520 contains the same two strings, so a loose scan matched it
-  // and an injection replacing the door's body with `return true` came back
-  // silent. Verification 17.
-  const entry = app.slice(app.indexOf("'test-bed-detail': () =>"))
-    .slice(0, app.slice(app.indexOf("'test-bed-detail': () =>")).indexOf('},') + 2)
-  assert.match(entry, /view-test-bed-detail/,
-    'the Test Bed door no longer reads the view element')
-  assert.match(entry, /is-not-mine/,
-    'the Test Bed door no longer reads the class app.js itself maintains')
+  assert.match(app, /'test-bed-detail':\s*\(\)\s*=>\s*ownedByMe/,
+    'the Test Bed door no longer answers from the record')
+  // SUPERSEDED, same ruling as the Opportunity's above. This asserted the
+  // entry read `view-test-bed-detail` and `is-not-mine` - the class the React
+  // view writes. It is exactly the dependence Round 8 removed, and the reason
+  // is Round 7's own defect: the swap retired the class's writer and the door
+  // stayed open with the banner correctly shown.
+  const registry = app.slice(app.indexOf('const CAN_EDIT_BY_VIEW = {'))
+  assert.doesNotMatch(registry.slice(0, registry.indexOf('\n}\n')), /is-not-mine/,
+    'the door reads the class again, so a swap that retires its writer reopens it')
 })
 
 test('and THE OLD PATH REFUSES rather than going quiet', () => {

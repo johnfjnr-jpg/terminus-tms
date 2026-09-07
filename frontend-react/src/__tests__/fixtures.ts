@@ -144,6 +144,7 @@ export function shellServices(
     currentUserEmail: () => 'test@example.com',
     currentUserId: () => 'user-1',
     takeTestBedLanding: () => null,
+    setViewOwner: () => {},
     staleWriteHtml: () => null,
     usesWorkflow: () => false,
     attemptTransition: () => {},

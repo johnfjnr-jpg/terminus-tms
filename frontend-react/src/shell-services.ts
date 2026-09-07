@@ -91,6 +91,19 @@ export interface ShellServices {
    */
   currentUserId(): string | null
   /**
+   * ── THE VIEW OWNER REGISTER, Round 8 Phase 1 ─────────────────────────
+   *
+   * Whoever loads a record says who owns it, and the door compares that
+   * against the session through one shared derivation. The React tree is the
+   * only loader for a migrated view, so it is the only writer for one.
+   *
+   * The direction is the same as `setContactReturnView`: the bundle owns the
+   * answer and pushes it. What is different is that this one is a SECURITY-
+   * shaped fact, so its absence fails open at the door and closed at the
+   * database rather than being guessed.
+   */
+  setViewOwner(view: string, ownerId: string | null): void
+  /**
    * ── C1: THE TRANSITION LANDING, READ AND CLEARED ─────────────────────
    *
    * `tbLandOnStageAfterLoad` is a `let` at app.js's top level, so a bundle
@@ -202,6 +215,8 @@ type ShellWindow = Window & {
   requestChangeReason?: (opts: ChangeReasonOptions) => void
   currentSession?: { user?: { email?: string, id?: string } } | null
   takeTestBedLanding?: () => string | null
+  setViewOwner?: (view: string, ownerId: string | null) => void
+  canEditRecord?: (ownerId: string | null, viewerId: string | null) => boolean
   staleWriteHtml?: (recordId: string) => string
   contactReturnView?: () => 'contacts' | 'leads'
   openDiscardConfirm?: (proceed: () => void) => void
@@ -268,6 +283,10 @@ export const shellServices: ShellServices = {
   takeTestBedLanding(): string | null {
     const fn = w().takeTestBedLanding
     return typeof fn === 'function' ? (fn() ?? null) : null
+  },
+  setViewOwner(view: string, ownerId: string | null): void {
+    const fn = w().setViewOwner
+    if (typeof fn === 'function') fn(view, ownerId)
   },
   currentUserId(): string | null {
     // Same reachable global as the email, and read the same way rather than

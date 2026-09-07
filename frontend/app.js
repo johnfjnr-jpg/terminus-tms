@@ -160,62 +160,60 @@ window.detailLoaded = function (view) {
 // including the two that do have doors and which Round 3 migrates. An unwired
 // guard fails closed by the seam's own default; a wrongly-wired one fails OPEN,
 // which is worse. One line per surface as each is ruled.
+// ── THE VIEW OWNER REGISTER, Round 8 Phase 1 ────────────────────────────
+//
+// WHOEVER LOADS A RECORD SAYS WHO OWNS IT. One writer per view, and the door
+// compares against the session through the shared derivation.
+//
+// This replaces reading `is-not-mine`. Round 7's swap retired the load path
+// that WROTE that class while CAN_EDIT_BY_VIEW still read it, so the door
+// stayed open on somebody else's record with the banner correctly shown - a
+// silent, security-shaped failure. A register cannot fail that way: a view
+// that never reports an owner reads as unowned, which fails OPEN at the door
+// and CLOSED at the database, exactly as an unowned record should.
+//
+// Cleared on navigation, so a view can never answer with the previous
+// record's owner.
+// The register itself lives in src/lib/ownership.js so it can be tested
+// outside a browser - an injection that stopped it overwriting came back
+// silent because nothing here could reach it. index.html publishes the factory.
+let VIEW_OWNERS = null
+const viewOwners = () => {
+  if (!VIEW_OWNERS && typeof window.createViewOwners === 'function') {
+    VIEW_OWNERS = window.createViewOwners()
+  }
+  return VIEW_OWNERS
+}
+window.setViewOwner = function (view, ownerId) { viewOwners()?.set(view, ownerId) }
+window.clearViewOwner = function (view) { viewOwners()?.clear(view) }
+
+// ── THE DOOR, ONE DERIVATION FOR EVERY VIEW ─────────────────────────────
+//
+// `canEditRecord` is published by index.html's module block from
+// src/lib/ownership.js, which the React tree imports directly - ONE definition
+// of who may edit a record. The fallback is `() => true` for the window before
+// that module lands, which is the same failing-open the absent-id cases take.
+function ownedByMe(view) {
+  const reg = viewOwners()
+  const me = currentSession?.user?.id ?? null
+  return reg ? reg.canEdit(view, me) : true
+}
+
+// ── WHICH VIEWS HAVE A DOOR ─────────────────────────────────────────────
+//
+// TRUE FOR account-detail and contact-detail, and the asymmetry is still the
+// point: Phase 0 of Rounds 2 and 6 measured NO ownership read on either
+// surface, so inventing one would be the migration adding behaviour. They are
+// open by ruling, not by omission.
+//
+// The Test Bed and the Opportunity are doored, and both now answer from the
+// record. Neither reads a class, so no swap can reopen either by retiring a
+// writer - the property this whole change exists for.
 const CAN_EDIT_BY_VIEW = {
   'account-detail': () => true,
-  // ── THE CONTACT VIEW'S DOOR. Round 6, Phase 2 ─────────────────────────
-  //
-  // OPEN, by the Account preserve ruling's precedent, and the precedent
-  // applies because the measurement is the same: Phase 0 found NO ownership
-  // read anywhere in contact-detail.js - zero occurrences of `is-not-mine`,
-  // `owner_id` or `canEditFields` - and app.js's own sweep touches only
-  // view-test-bed-detail and view-opportunity-detail.
-  //
-  // So there is no door to preserve here, and inventing one would be the
-  // migration adding behaviour rather than moving it. Added in the SWAP
-  // commit because the seam fails closed: earlier opens a door on a surface
-  // nobody can see, later ships a live surface nobody can edit.
   'contact-detail': () => true,
-  // ── THE REFERENCE TAB'S DOOR. Round 5, Phase 2 ────────────────────────
-  //
-  // Added in the SAME COMMIT as the swap, deliberately. The React surface
-  // refuses every row while this line is absent, because the seam fails
-  // closed - so adding it earlier would open a door on a surface nobody can
-  // see, and adding it later would ship a live surface nobody can edit.
-  //
-  // IT READS THE CLASS app.js ITSELF MAINTAINS rather than deriving ownership
-  // a second time. There is one writer, renderOppDetail's toggle, computed
-  // from opp.owner_id against currentSession.user.id, and a second derivation
-  // in the React tree would be Verification 20 exactly.
-  //
-  // The !!v is a DELIBERATE DIVERGENCE from the vanilla door, which reads
-  // getElementById(...)?.classList.contains(...) and so yields undefined when
-  // the element is missing, opening the row. That fails OPEN. Contract
-  // finding 10 says fail CLOSED, and a missing view means the surface is not
-  // mounted at all.
-  // ── THE TEST BED VIEW'S DOOR. Round 7, Phase 2e ──────────────────────
-  //
-  // Added in the SAME COMMIT as the swap, deliberately and for the same reason
-  // the Reference tab's line was: the seam FAILS CLOSED, so adding it earlier
-  // opens a door on a surface nobody can see, and adding it later ships a live
-  // surface nobody can edit.
-  //
-  // IT READS THE CLASS app.js ITSELF MAINTAINS rather than deriving ownership a
-  // second time - the same one value, the same class, the same stylesheet rule
-  // the Opportunity uses. The React view renders its own read-only BANNER,
-  // because the banners sit in different documents; the behaviour is shared by
-  // construction rather than by matching.
-  //
-  // The !!v is the same DELIBERATE DIVERGENCE from the vanilla door recorded on
-  // the Opportunity line: a missing view means the surface is not mounted, and
-  // reading `?.classList.contains()` there yields undefined, which fails OPEN.
-  'test-bed-detail': () => {
-    const v = document.getElementById('view-test-bed-detail')
-    return !!v && !v.classList.contains('is-not-mine')
-  },
-  'opportunity-detail': () => {
-    const v = document.getElementById('view-opportunity-detail')
-    return !!v && !v.classList.contains('is-not-mine')
-  },
+  'test-bed-detail': () => ownedByMe('test-bed-detail'),
+  'opportunity-detail': () => ownedByMe('opportunity-detail'),
 }
 window.canEditFields = function () {
   const view = [...document.querySelectorAll('.wrap:not(.hidden)')]
@@ -8124,8 +8122,14 @@ async function renderOppDetail(opp) {
   // `owner_id` is on the record. currentSession is the same object filterMine
   // reads for the Mine toggle, so there is one answer to "who am I" on this
   // client rather than two.
-  const notMine = !!opp.owner_id && !!currentSession?.user?.id
-    && opp.owner_id !== currentSession.user.id
+  // ── RECONCILED TO THE DOOR'S DERIVATION. Round 8 Phase 1 ──────────────
+  //
+  // This sweep used to derive `notMine` itself and the door read the class it
+  // wrote. Now it REPORTS the owner and asks the same shared function the door
+  // asks, so the sweep and the door cannot disagree - and the class it still
+  // toggles is presentation only.
+  window.setViewOwner('opportunity-detail', opp.owner_id ?? null)
+  const notMine = !window.canEditFields()
   document.getElementById('view-opportunity-detail')?.classList.toggle('is-not-mine', notMine)
   renderOppReadOnlyBanner(notMine)
   renderOppPricingApprovalBanner(opp.id)

@@ -434,7 +434,9 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
 
   // L5: all three, and the absent-id cases fail OPEN here on purpose - the
   // edit attempt is where it fails closed.
-  const readOnly = notMine(record, shell.currentUserId())
+  // The SHARED derivation takes ids, not a record: one definition serves the
+  // shell, which has no record object, and this tree, which does.
+  const readOnly = notMine(record.owner_id ?? null, shell.currentUserId())
 
   // The class itself is applied by TestBedView, BEFORE this renders. See the
   // note there: applying it from an effect here is one render too late,

@@ -56,14 +56,14 @@ describe('L1/L2: the arrival flags', () => {
 
 describe('L5: the door', () => {
   test('L5 not-mine needs ALL THREE: an owner, a viewer, and a difference', () => {
-    expect(notMine({ owner_id: 'a' }, 'b')).toBe(true)
-    expect(notMine({ owner_id: 'a' }, 'a'), 'the owner was locked out of their own record').toBe(false)
+    expect(notMine('a', 'b')).toBe(true)
+    expect(notMine('a', 'a'), 'the owner was locked out of their own record').toBe(false)
   })
 
   test('L5 an absent id on either side is NOT not-mine', () => {
-    expect(notMine({ owner_id: null }, 'b'), 'a record with no owner read as somebody else\'s').toBe(false)
-    expect(notMine({ owner_id: 'a' }, null), 'a signed-out read locked the record').toBe(false)
-    expect(notMine({}, undefined)).toBe(false)
+    expect(notMine(null, 'b'), 'a record with no owner read as somebody else\'s').toBe(false)
+    expect(notMine('a', null), 'a signed-out read locked the record').toBe(false)
+    expect(notMine(undefined, undefined)).toBe(false)
   })
 
   test('L7 the refusal text says view-not-edit, not access-denied', () => {

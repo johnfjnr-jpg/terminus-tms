@@ -3310,6 +3310,15 @@ opened it. -->
   // approve control still applies to.
   const { usesWorkflow } = await import('/lib/transition-requests.js')
   window.usesWorkflow = usesWorkflow
+
+  // ── THE DOOR'S ONE DERIVATION, Round 8 Phase 1 ────────────────────────
+  //
+  // Published for app.js, which is a classic script and cannot import. The
+  // React tree imports the same module directly, so there is ONE definition
+  // of who may edit a record rather than two that agree today.
+  const { canEditRecord, createViewOwners } = await import('/lib/ownership.js')
+  window.canEditRecord = canEditRecord
+  window.createViewOwners = createViewOwners
 </script>
 <!-- ── RETIRED, Round 6 Phase R ────────────────────────────────
      frontend/opportunity-deal.js is DELETED. The commented tag that used to

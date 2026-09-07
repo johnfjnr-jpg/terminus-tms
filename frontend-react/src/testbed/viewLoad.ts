@@ -56,22 +56,17 @@ export const OWNERSHIP_REFUSAL_TEXT =
   'This record belongs to another user. You can view it, but only its owner can change it.'
 
 /**
- * L5: ALL THREE, and the absent-id cases are deliberate.
+ * ── ONE DEFINITION, SHARED WITH THE SHELL. Round 8 Phase 1 ─────────────
  *
- * With no owner on the record, or nobody signed in, this is not somebody
- * else's record - it is a question that cannot be answered, and answering it
- * "yes" would lock a record nobody owns. It fails OPEN here and the edit
- * attempt fails CLOSED, which is where the boundary belongs.
+ * This file carried its own copy. The door now reads the record rather than a
+ * class, and the door is exactly where two readers of one value must not
+ * exist - so the derivation moved to `src/lib/ownership.js`, which app.js gets
+ * through index.html's module block and this tree imports directly.
  *
- * L7: NOT A SECURITY BOUNDARY. RLS is. This stops a person doing work that
- * will be refused; it does not stop anybody who means to.
+ * Re-exported rather than re-implemented so every existing caller is unchanged
+ * and there is still only one definition.
  */
-export function notMine(
-  record: { owner_id?: string | null } | null | undefined,
-  viewerId: string | null | undefined,
-): boolean {
-  return !!record?.owner_id && !!viewerId && record.owner_id !== viewerId
-}
+export { notMine } from '../../../src/lib/ownership.js'
 
 /** R1: the header is name and client organisation, and nothing else any more. */
 export function headerOf(

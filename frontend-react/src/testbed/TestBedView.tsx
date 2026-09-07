@@ -88,9 +88,21 @@ export function TestBedView({ testBedId, navToken }: { testBedId: string, navTok
   // would give the Test Bed a second derivation of ownership beside the
   // Opportunity's - Verification 20, and the reason the registry line reads a
   // class in the first place.
+  // ── THE DOOR NO LONGER READS THIS CLASS. Round 8 Phase 1 ─────────────
+  //
+  // Round 7 wrote it DURING RENDER because `useFieldRows` read the door while
+  // rendering, and an effect was one render too late. That ordering constraint
+  // is GONE: the door now reads the record through the register below, so this
+  // toggle is presentation only - the treatment that makes an unowned record
+  // non-interactive, which dimming alone was measured not to achieve.
+  //
+  // The register is what the door reads, and it is set in the same breath so
+  // the two cannot describe different records.
+  const readOnly = notMine(bed.data.owner_id, shell.currentUserId())
+  shell.setViewOwner('test-bed-detail', bed.data.owner_id ?? null)
   const viewEl = typeof document === 'undefined'
-    ? null : document.getElementById('test-bed-detail'.replace(/^/, 'view-'))
-  viewEl?.classList.toggle('is-not-mine', notMine(bed.data, shell.currentUserId()))
+    ? null : document.getElementById('view-test-bed-detail')
+  viewEl?.classList.toggle('is-not-mine', readOnly)
 
   // ── KEYED ON THE RECORD, AND THE LIVE WALK IS WHY IT IS BACK ─────────
   //

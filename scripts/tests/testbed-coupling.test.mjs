@@ -136,6 +136,9 @@ const REACHES_BACK = {
   attemptTransition: 'the stage transition, which stays the shell\'s',
   takeTestBedLanding: 'the stage a transition asks the next load to land on',
   currentUserId: 'the viewer, for the door\'s own comparison',
+  setViewOwner: 'the record owner this view loaded, which the door reads. Round 8 '
+    + 'Phase 1: whoever loads a record says who owns it, so no swap can retire '
+    + 'the writer out from under the door',
   currentUserEmail: 'the note author',
   detailLoaded: 'the view has painted and is not pending',
   navigate: 'opening the Opportunity a conversion created',
