@@ -35,7 +35,7 @@ export interface StageTabsDeps {
 const emptyPanels = () => Object.fromEntries(
   PANEL_IDS.map((id) => [id, {} as PanelState])) as Record<PanelId, PanelState>
 
-export function StageTabs({ payload, units, landing, fresh, currentStage, nextStage, deps, reference, commercials }: {
+export function StageTabs({ payload, units, landing, fresh, currentStage, nextStage, deps, reference, commercials, installSection }: {
   payload: Record<string, unknown>
   units: readonly Unit[]
   landing: string | null
@@ -45,6 +45,7 @@ export function StageTabs({ payload, units, landing, fresh, currentStage, nextSt
   deps: StageTabsDeps
   reference: React.ReactNode
   commercials: React.ReactNode
+  installSection?: React.ReactNode
 }) {
   const [userPicked, setUserPicked] = useState(false)
   const [active, setActive] = useState<string>(() =>
@@ -146,6 +147,9 @@ export function StageTabs({ payload, units, landing, fresh, currentStage, nextSt
             {/* P6: a VISIBILITY toggle, not a re-render, so an in-progress
                 edit survives switching away and back. */}
             <div data-testid="tb-stage-install-section" hidden={!installVisible}>
+              {/* N1: the section is a COMPOSITION - TB_INSTALL_FIELDS is empty
+                  in the vanilla, so there are no field rows of its own. */}
+              {installSection}
               <LockedCounts payload={payload} units={units} />
               <UnitsPane payload={payload} units={units}
                 deps={deps.unitDeps} onDerive={deps.onDeriveUnits} />

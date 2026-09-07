@@ -26,7 +26,7 @@ function Card({ title, testId, children }: { title: string, testId: string, chil
   )
 }
 
-export function TestBedPanel({ source, contacts, buyers, onSave, onDirtyChange, onDraftsChange, notes, costBreakdown, controls, useCases }: {
+export function TestBedPanel({ source, contacts, buyers, onSave, onDirtyChange, onDraftsChange, notes, costBreakdown, controls, useCases, customerDocs, history }: {
   source: TestBedSource
   /** The Account's contacts, for the buyer lookups. */
   contacts: LookupOption[]
@@ -42,6 +42,10 @@ export function TestBedPanel({ source, contacts, buyers, onSave, onDirtyChange, 
   controls?: ReactNode
   /** The use-case list. Its writes are whole-list, so the host owns them. */
   useCases?: ReactNode
+  /** Client-supplied documents. Their own resource, so the host owns them. */
+  customerDocs?: ReactNode
+  /** Raw audit entries. Read-only. */
+  history?: ReactNode
 }) {
   const base = testBedDescriptors(source)
 
@@ -130,6 +134,13 @@ export function TestBedPanel({ source, contacts, buyers, onSave, onDirtyChange, 
       </Card>
 
       {useCases ? <Card title="Use Cases" testId="tb-card-usecases">{useCases}</Card> : null}
+
+      {/* Both live on the Reference tab in the vanilla, measured from the
+          enclosing pane rather than assumed. */}
+      {customerDocs
+        ? <Card title="Client Documents" testId="tb-card-custdocs">{customerDocs}</Card>
+        : null}
+      {history ? <Card title="History" testId="tb-card-history">{history}</Card> : null}
 
       {controls}
       {notes}

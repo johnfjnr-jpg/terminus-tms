@@ -51,7 +51,7 @@ const CAPABILITIES = {
 
   'date-bounds': { modules: ['testbed/dateBounds.ts'], names: ['refreshTbDateBounds'] },
 
-  validation: { modules: [], names: [
+  validation: { modules: ['testbed/validation.ts'], names: [
     'tbInvalidFields', 'tbValidateNumeric', 'tbMarkFieldValidity',
     'renderTbValidationFeedback', 'guardNumericEntry'] },
 
@@ -59,23 +59,23 @@ const CAPABILITIES = {
     'tbNotesExpanded', 'toggleTbNotes', 'tbNoteStageChip', 'tbNewNote',
     'renderTbNotes', 'addTbNote'] },
 
-  'revision-history': { modules: [], names: ['renderTbHistory'] },
+  'revision-history': { modules: ['testbed/history.ts', 'testbed/HistoryPanel.tsx'], names: ['renderTbHistory'] },
 
   'site-details': { modules: ['testbed/descriptors.ts'], names: ['TB_SITE_PANEL_KEYS', 'renderTbSiteDetails'] },
 
   commercials: { modules: ['testbed/descriptors.ts'], names: ['renderTbCommercials'] },
 
-  'install-section': { modules: [], names: [
+  'install-section': { modules: ['testbed/installNotes.ts', 'testbed/InstallSection.tsx'], names: [
     'renderTbInstallSection', 'renderTbInstallNotes', 'addTbInstallNote'] },
 
-  installer: { modules: [], names: [
+  installer: { modules: ['testbed/installer.ts'], names: [
     'tbInstallerSearching', 'tbInstallerContacts', 'tbInstallerFeedback',
     'renderTbInstallerRow', 'openTbInstallerSearch', 'closeTbInstallerSearch',
     'renderTbInstallerResults', 'setTbInstaller'] },
 
-  'tech-team': { modules: [], names: ['renderTbTechTeamRow', 'setTbTechTeam'] },
+  'tech-team': { modules: ['testbed/techTeam.ts'], names: ['renderTbTechTeamRow', 'setTbTechTeam'] },
 
-  'customer-documents': { modules: [], names: [
+  'customer-documents': { modules: ['testbed/customerDocs.ts', 'testbed/CustomerDocsPanel.tsx'], names: [
     'tbCustomerDocs', 'tbCustDocFeedback', 'renderTbCustomerDocuments',
     'addTbCustomerDocument', 'removeTbCustomerDocument'] },
 
@@ -205,15 +205,13 @@ test('every declared module EXISTS, so a state cannot rest on a typo', () => {
  * |---|---|---|
  * | Phase 2 | 11 (5 logic-only, 6 absent) | 1838 |
  * | Phase 2b session 1 | 6 (0 logic-only, 6 absent) | 362 |
+ * | Phase 2b session 2 | **0** | **0** |
+ *
+ * THE RATCHET IS AT ZERO, so the swap gate below is inverted: it now asserts
+ * that every capability renders, and it fails the moment one stops. It is no
+ * longer a debt list; it is a floor.
  */
-const NOT_RENDERED = [
-  { cap: 'validation', state: 'absent' },
-  { cap: 'revision-history', state: 'absent' },
-  { cap: 'install-section', state: 'absent' },
-  { cap: 'installer', state: 'absent' },
-  { cap: 'tech-team', state: 'absent' },
-  { cap: 'customer-documents', state: 'absent' },
-]
+const NOT_RENDERED = []
 
 test('the capabilities the React surface does not render are EXACTLY the recorded ones', () => {
   const reached = reachedFromHost()
@@ -229,13 +227,23 @@ test('the capabilities the React surface does not render are EXACTLY the recorde
     + 'NOT_RENDERED. If something REGRESSED, that is the finding.')
 })
 
-test('and the swap is takeable only when that set is EMPTY', () => {
-  // Not a tautology: it states the gate the list above exists to hold, so a
-  // future session reads the condition rather than inferring it from a list.
-  // Round 6 swapped a surface after censusing its FIELDS and took five working
-  // capabilities off a live screen. This is the instrument that stops a repeat.
-  const takeable = NOT_RENDERED.length === 0
-  assert.equal(takeable, false,
-    'NOT_RENDERED is empty, so the Test Bed swap is takeable and this '
-    + 'assertion should be inverted in the swap commit')
+test('EVERY capability renders, which is the swap gate at its floor', () => {
+  // INVERTED at Phase 2b session 2, when NOT_RENDERED reached zero. Until then
+  // this asserted the debt was non-empty; it now asserts there is none, so a
+  // capability that stops rendering fails here rather than being quietly added
+  // back to a list.
+  const reached = reachedFromHost()
+  const total = Object.keys(CAPABILITIES).length
+  assert.equal(total, 20, `the capability count moved to ${total}`)
+
+  const states = Object.entries(CAPABILITIES)
+    .map(([cap, v]) => ({ cap, state: stateOf(v.modules, SRC, reached) }))
+  const rendered = states.filter((r) => r.state === 'rendered')
+
+  assert.equal(rendered.length, 20,
+    'the React surface does not render every capability: '
+    + states.filter((r) => r.state !== 'rendered')
+      .map((r) => `${r.cap} (${r.state})`).join(', '))
+  assert.deepEqual(NOT_RENDERED, [],
+    'NOT_RENDERED is non-empty while every capability renders, so the list is stale')
 })

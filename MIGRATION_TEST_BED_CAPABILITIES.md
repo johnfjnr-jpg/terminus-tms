@@ -428,3 +428,185 @@ React shell for the tabs is built here; the shell's own ownership sweep at
 **Which tabs a non-owner may open.** Measured in Phase 0b: the door is about
 FIELDS, not navigation. No tab is gated on ownership in the vanilla, and this
 enumeration does not add one.
+
+---
+
+# Addendum, 2026-09-07 (sixth entry): THE SIX ABSENT CAPABILITIES, enumerated before build
+
+**Round 7 Phase 2b, session 2.** 362 vanilla lines, the whole of what stands
+between the reach gate and an empty `NOT_RENDERED`.
+
+Enumerated from the vanilla by the same instruction the stage-tab shell had.
+
+---
+
+## I. INSTALLER (96 lines)
+
+**I1. THE INSTALLER IS A LINK TO AN ACCOUNT, not a picklist**, so it renders as
+the search-and-link shape Account detail's Parent Account row uses.
+
+**I2. TWO STATES, AND THE SEARCH IS ONE OF THEM.** With an installer set and no
+search open, the row shows the name read-only plus a **Change installer**
+button. Opening the search replaces the row with a text input and a result
+list; a Cancel button appears **only if an installer is already set**, because
+with none there is nothing to cancel back to.
+
+**I3. CLIENT-INSTALLED IS A DERIVED FACT, NOT A STORED LABEL.**
+`installer.client_installed` renders as *Client installs with their own staff*
+or *Installed by a contractor*. The vanilla's own comment says this is shown as
+a derived fact "because that is exactly what it is".
+
+**I4. THE SEARCH IS OVER THE ALREADY-FETCHED ACCOUNTS, capped at eight.**
+Case-insensitive substring, no new endpoint. An empty term lists the first
+eight rather than nothing.
+
+**I5. THE TEST BED'S OWN ACCOUNT IS MARKED IN THE RESULTS**, `(this Test Bed's
+own Account)`, because a Test Bed installed by its own client is the ordinary
+case and picking it should not feel like an error.
+
+**I6. SETTING THE INSTALLER CAN CLEAR THE TECH TEAM, AND THE USER MUST SEE IT
+HAPPEN.** The server reports `cleared_tech_team`. Changing the installer
+invalidates a tech team from the previous Account, and **saying nothing would
+leave a gate that was satisfied a moment ago silently blocking again**, with the
+row empty and no reason on screen. The message is an ERROR-styled one, not a
+success one, because the user has work to do.
+
+**I7. `accountsCache` IS A MODULE-SCOPE `let` IN THE VANILLA and unreachable
+from a bundle** (measured in the Round 2 shell inventory). The React surface
+fetches its own accounts, the same ruling `terminusStaffCache` already forced.
+
+---
+
+## E. TECH TEAM (72 lines)
+
+**E1. A SINGLE CONTACT FROM THE INSTALLER'S ACCOUNT**, which is a DIFFERENT
+Account from the record's own. The buyer-row component cannot be reused: it
+reads the record's `account_id`, and the endpoint behind it answers 422 for any
+Contact outside it.
+
+**E2. NO INSTALLER MEANS NO CONTROL AT ALL, and the reason is on screen.** The
+vanilla renders a sentence - *Set the Installer first. The Tech Team is a person
+from the Installer's Account.* - and **no select**. Its own comment: the server
+already refuses this order with a 422, and an empty select "would look available
+and produce that refusal only after the user had tried". **The fourth instance
+of this project's standing argument that a control which cannot be used is
+replaced, not disabled.**
+
+**E3. AN INSTALLER WITH NO CONTACTS STILL RENDERS THE SELECT**, with its
+placeholder saying so by name: *No Contacts at &lt;Installer&gt; yet*. Distinct
+from E2 - there is a control, it simply has nothing in it.
+
+**E4. THE SOURCE IS NAMED UNDER THE CONTROL**, *From &lt;Installer&gt;*, because
+the Account these people come from is not the one the rest of the card is about.
+
+**E5. AN EMPTY SELECTION IS A NO-OP, NOT A CLEAR.** `if (!contactId) return`.
+Choosing the placeholder does not unlink the tech team.
+
+---
+
+## V. VALIDATION (69 lines) - AND IT IS HALF BUILT
+
+**V1. THE KEYSTROKE GUARD EXISTS IN REACT ALREADY**: `acceptsValue`, keyed on
+the field's declared `inputMode` rather than on a list of field names, because
+a per-field guard is a to-do list to be completed again on every new field.
+
+**V2. WHAT IS MISSING IS THE REFUSAL AND ITS MESSAGE.** `tbValidateNumeric`
+answers three problems, and each has words:
+
+| condition | message |
+|---|---|
+| not a number | `must be a number` |
+| negative | `cannot be negative` |
+| non-integer where the field is integer | `must be a whole number` |
+
+**An empty field is NOT a problem**: not-set is a legitimate state. Architecture
+11 exactly.
+
+**V3. THE REACT KEYSTROKE PATTERN ADMITS A LEADING MINUS** (`^-?\d*$`), so a
+negative CAN be typed today and nothing refuses it. The guard and the refusal
+are not the same control and the guard alone is the silent-refusal shape.
+
+**V4. THE MESSAGE IS `<label> <problem>`, JOINED WITH `. ` ACROSS FIELDS**, and
+it is one line for all invalid fields rather than one per row.
+
+**V5. OWNERSHIP IS MARKED, NOT INFERRED FROM THE CLASS.** The vanilla writes
+`dataset.owner = 'validation'` and clears the banner only when it owns it.
+Confirmed live before the vanilla was changed: a server save error carries the
+same `msg-error` class, so identifying "its own" by class meant **one valid
+keystroke in another field erased the server's reason**.
+
+**V6. THE INVALID FIELD IS MARKED TOO**, `input-invalid` and
+`aria-invalid="true"`, and unmarked when the problem clears.
+
+**V7. VALIDITY GATES THE SAVE BAR.** The vanilla updates the bar from the guard
+rather than relying on the field-input handler, because that handler returns
+early when the field was never opened through the opener.
+
+---
+
+## D. CUSTOMER DOCUMENTS (59 lines)
+
+**D1. A SEPARATE RESOURCE, NOT A PAYLOAD KEY.** `GET/POST/DELETE
+/api/test-beds/:id/customer-documents`.
+
+**D2. CLIENT-SUPPLIED, DISTINGUISHED BY `document_kind`**, not by having a name
+no gate rule mentions.
+
+**D3. RENDERED AND REMOVED BY ROW ID, NEVER BY NAME.** Two client files genuinely
+called *Site drawings* are two documents, so nothing keys by variant.
+
+**D4. BOTH A NAME AND A LINK ARE REQUIRED**, refused client-side with *A name and
+a link are both required.* before any request.
+
+**D5. THE INPUTS CLEAR ONLY ON SUCCESS**, so a refused add does not cost the
+typing.
+
+**D6. THE LINK OPENS IN A NEW TAB**, `target="_blank" rel="noopener
+noreferrer"`.
+
+**D7. THE EMPTY STATE SAYS `No client documents yet.`**
+
+---
+
+## N. INSTALL SECTION (34 lines)
+
+**N1. IT IS A COMPOSITION, AND `TB_INSTALL_FIELDS` IS EMPTY.** Measured:
+`renderTbInstallSection` maps an empty array and then calls the installer row,
+the tech team row and the install notes. **The section has no fields of its
+own.** Recorded because the name suggests otherwise and a reader would expect
+rows.
+
+**N2. INSTALL NOTES ARE A PAYLOAD LIST, NEWEST FIRST**, written whole through
+the record PATCH - the same read-modify-write shape as use cases, with the same
+revision precondition doing the work.
+
+**N3. A BLANK NOTE IS NOT WRITTEN.**
+
+**N4. EACH NOTE CARRIES WHEN, WHO AND A STAGE CHIP.**
+
+---
+
+## H. REVISION HISTORY (32 lines)
+
+**H1. `GET /api/records/:id/history`, RAW AUDIT ENTRIES.**
+
+**H2. NEWEST FIRST, AND THE ORDER IS THE SERVER'S**:
+`.order('timestamp', { ascending: false })`. The client does not re-sort, so a
+test that proves ordering must **carry entries the server would have ordered**
+and assert the client preserves them rather than imposing an order of its own.
+
+**H3. THE PROVISIONAL NOTICE IS PART OF THE CAPABILITY, NOT DECORATION.** *Raw
+audit entries, unedited. What each action should say, how entries should be
+grouped, and which of them belong here at all are not decided yet.* It renders
+**above the empty state as well as above the table**, so a record with no
+history still says what this panel is.
+
+**H4. THE COUNT IS STATED AND IT IS SINGULAR-AWARE**, `1 entry` / `2 entries`.
+
+**H5. FOUR COLUMNS: when, action, actor, detail.** The timestamp is truncated to
+minutes with the `T` replaced by a space; the actor is the first eight
+characters of the id; the detail is JSON, and **an empty detail object renders as
+nothing rather than as `{}`**.
+
+**H6. A FAILED LOAD SAYS SO** - *Unable to load history.* - and does not render
+the notice, because there is nothing to caveat.

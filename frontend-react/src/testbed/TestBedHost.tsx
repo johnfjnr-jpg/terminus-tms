@@ -15,12 +15,36 @@ import { DERIVE_ROUTE, UNITS_ROUTE, type Unit } from './units'
 import { SCORE_ROUTE, type Criterion } from './scoring'
 import type { ScoreEntry } from './scoreReason'
 import type { Stage } from './stageLoad'
+import { InstallSection } from './InstallSection'
+import { CustomerDocsPanel } from './CustomerDocsPanel'
+import { HistoryPanel } from './HistoryPanel'
+import { INSTALLER_ROUTE, type AccountOption, type Installer } from './installer'
+import { TECH_TEAM_ROUTE, type ContactOption } from './techTeam'
+import { validityOf, validationMessage, VALIDATION_OWNER, type NumericField } from './validation'
+import { CUSTOMER_DOCS_ROUTE, customerDocRoute, type CustomerDoc } from './customerDocs'
+import type { InstallNote } from './installNotes'
+import { HISTORY_ROUTE, type HistoryEntry } from './history'
+
+/**
+ * V7: the numeric fields the validation banner speaks for.
+ *
+ * Declared from the descriptor list rather than typed a second time would be
+ * better still; these three are the integer counts, which are the only fields
+ * whose `integer` rule the vanilla asserts.
+ */
+const NUMERIC_FIELDS: NumericField[] = [
+  { key: 'safesightCameras', label: 'SafeSight cameras', integer: true },
+  { key: 'airQualitySensors', label: 'Air quality sensors', integer: true },
+  { key: 'hemirSensors', label: 'HEMIR sensors', integer: true },
+]
 
 interface BedLike {
   id: string
   status?: string
   payload?: Record<string, unknown>
   buyer_contacts?: Array<{ role?: string, contact_id?: string, name?: string }>
+  installer?: Installer | null
+  account_id?: string | null
   account?: { id?: string } | null
   latest_revision_number?: number | null
   costBreakdown?: unknown
@@ -60,6 +84,12 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
   const [stages, setStages] = useState<Stage[]>([])
   const [scoring, setScoring] = useState<Record<string, Criterion[]>>({})
   const [seriesByKey, setSeriesByKey] = useState<Record<string, ScoreEntry[]>>({})
+  const [accounts, setAccounts] = useState<AccountOption[]>([])
+  const [installerContacts, setInstallerContacts] = useState<ContactOption[]>([])
+  const [customerDocs, setCustomerDocs] = useState<CustomerDoc[]>([])
+  const [history, setHistory] = useState<{ entries: HistoryEntry[], failed: boolean }>(
+    { entries: [], failed: false })
+  const [drafts, setDrafts] = useState<Record<string, string>>({})
 
   useEffect(() => { setRecord(bed) }, [bed])
 
@@ -79,6 +109,47 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
   }, [shell, bed.id])
 
   useEffect(() => { void loadUnits() }, [loadUnits])
+
+  // I7: `accountsCache` is a module-scope `let` in app.js and unreachable from
+  // a bundle, so the surface fetches its own. The same ruling terminusStaffCache
+  // already forced.
+  useEffect(() => {
+    let live = true
+    void shell.api<AccountOption[]>('GET', '/api/accounts').then((r) => {
+      if (live && r.ok && Array.isArray(r.data)) setAccounts(r.data)
+    })
+    return () => { live = false }
+  }, [shell])
+
+  // E1: the tech team comes from the INSTALLER's Account, which is a different
+  // Account from the record's own - so this is a second contacts fetch, not a
+  // reuse of the buyer one.
+  const installerAccountId = (record.installer as { id?: string } | null)?.id ?? null
+  useEffect(() => {
+    let live = true
+    if (!installerAccountId) { setInstallerContacts([]); return }
+    void shell.api<ContactOption[]>(
+      'GET', `/api/accounts/${installerAccountId}/contacts`).then((r) => {
+      if (live && r.ok && Array.isArray(r.data)) setInstallerContacts(r.data)
+    })
+    return () => { live = false }
+  }, [shell, installerAccountId])
+
+  const loadCustomerDocs = useCallback(async () => {
+    const r = await shell.api<CustomerDoc[]>('GET', CUSTOMER_DOCS_ROUTE(bed.id))
+    setCustomerDocs(r.ok && Array.isArray(r.data) ? r.data : [])
+  }, [shell, bed.id])
+  useEffect(() => { void loadCustomerDocs() }, [loadCustomerDocs])
+
+  useEffect(() => {
+    let live = true
+    void shell.api<{ entries?: HistoryEntry[] }>('GET', HISTORY_ROUTE(bed.id)).then((r) => {
+      if (!live) return
+      setHistory(r.ok ? { entries: r.data?.entries ?? [], failed: false }
+        : { entries: [], failed: true })
+    })
+    return () => { live = false }
+  }, [shell, bed.id])
 
   // The surface fetches its own staff: `terminusStaffCache` is a module-scope
   // `let` in app.js that no bundle can read. Round 5's ruling, applied again.
@@ -126,13 +197,20 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
     (data) => setPreview(data),
   ))
 
-  const onDraftsChange = useCallback((drafts: Record<string, string>) => {
-    runner.current.schedule(drafts, record.payload ?? {})
+  const onDraftsChange = useCallback((next: Record<string, string>) => {
+    setDrafts(next)
+    runner.current.schedule(next, record.payload ?? {})
   }, [record.payload])
 
   useEffect(() => () => { runner.current.cancel() }, [])
 
+  // V6/V7: validity is derived from the live drafts, and it GATES the save.
+  const invalid = useMemo(() => validityOf(drafts, NUMERIC_FIELDS), [drafts])
+  const invalidMessage = validationMessage(invalid)
+
   const onSave = async (changes: Record<string, string>) => {
+    // V2: refused before any request, and the message says WHICH field and WHY.
+    if (invalidMessage) return
     setFeedback(null)
     const payload = buildPayload(changes)
     if (!Object.keys(payload).length) return
@@ -226,6 +304,43 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
     },
   }), [shell, bed.id, stages, scoring, seriesByKey, units, patchPayload, load, loadUnits])
 
+  const installSectionNode = (
+    <InstallSection
+      installer={record.installer ?? null}
+      ownAccountId={record.account_id ?? record.account?.id ?? null}
+      accounts={accounts}
+      installerContacts={installerContacts}
+      linkedTechTeam={(record.buyer_contacts ?? [])
+        .find((c) => c.role === 'Test Bed Tech Team')?.contact_id ?? null}
+      notes={record.payload?.installNotes as InstallNote[] | undefined}
+      author={shell.currentUserEmail()}
+      now={() => new Date().toISOString()}
+      onSetInstaller={async (accountId) => {
+        const r = await shell.api<{ cleared_tech_team?: boolean }>(
+          'PATCH', INSTALLER_ROUTE(bed.id), { installer_account_id: accountId })
+        if (!r.ok) return null
+        await load()
+        return r.data ?? {}
+      }}
+      onSetTechTeam={async (contactId) => {
+        const r = await shell.api('POST', TECH_TEAM_ROUTE(bed.id), { contact_id: contactId })
+        if (r.ok) await load()
+      }}
+      onWriteNotes={(next) => patchPayload({ installNotes: next })} />)
+
+  const customerDocsNode = (
+    <CustomerDocsPanel docs={customerDocs}
+      onAdd={async (name, url) => {
+        const r = await shell.api('POST', CUSTOMER_DOCS_ROUTE(bed.id), { name, url })
+        if (!r.ok) return false
+        await loadCustomerDocs()
+        return true
+      }}
+      onRemove={async (docId) => {
+        const r = await shell.api('DELETE', customerDocRoute(bed.id, docId))
+        if (r.ok) await loadCustomerDocs()
+      }} />)
+
   const useCasesNode = (
     <UseCasesList useCases={record.payload?.useCases as string[] | undefined}
       onWrite={(next) => patchPayload({ useCases: next })} />)
@@ -240,6 +355,7 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
         currentStage={record.status ?? ''}
         nextStage={null}
         deps={stageDeps}
+        installSection={installSectionNode}
         commercials={null}
         reference={<TestBedPanel
         source={source}
@@ -273,8 +389,15 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
               await load()
               return true
             }} />}
-          useCases={useCasesNode} />} />
-      {feedback
+          useCases={useCasesNode}
+          customerDocs={customerDocsNode}
+          history={<HistoryPanel entries={history.entries} failed={history.failed} />} />} />
+      {/* V5: OWNED, so it cannot clear a message that is not its own, and a
+          server save error cannot clear this one either. */}
+      {invalidMessage
+        ? <div data-testid="tb-save-feedback" className="msg-error"
+            data-owner={VALIDATION_OWNER}>{invalidMessage}</div>
+        : feedback
         ? (feedback.html
           ? <div data-testid="tb-save-feedback" className="msg-error"
               dangerouslySetInnerHTML={{ __html: feedback.html }} />
