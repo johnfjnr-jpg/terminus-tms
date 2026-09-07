@@ -8,6 +8,7 @@ import { useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useShell } from '../ShellContext'
 import { TestBedHost } from './TestBedHost'
+import { notMine } from './viewLoad'
 
 const VIEW = 'test-bed-detail'
 
@@ -64,18 +65,48 @@ export function TestBedView({ testBedId, navToken }: { testBedId: string, navTok
       </div>)
   }
 
-  // ── NO KEY, AND ITS ABSENCE IS MEASURED ──────────────────────────────
+  // ── THE OWNERSHIP CLASS, APPLIED BEFORE THE HOST RENDERS ─────────────
   //
-  // It was written `key={bed.data.id}` to reset the host's per-record refs -
-  // the arrival flags and the per-document URL boxes. Its injection came back
-  // SILENT with zero failures, and reproducing that by hand confirmed why:
-  // navigating to a different record gives useQuery a NEW KEY with no cache, so
-  // `isPending` is true for a render, the early return above replaces the host
-  // with the loading line, and the host UNMOUNTS. The key could only matter for
-  // a change that never passes through pending, which a different id cannot do.
+  // FOUND BY THE LIVE WALK, twice. app.js wrote `is-not-mine` inside
+  // loadTestBedDetail and CAN_EDIT_BY_VIEW READS that class - one value, one
+  // writer, shared with the Opportunity by construction. The swap retired that
+  // load path and the writer went with it, so the banner was right and the DOOR
+  // was wide open: 31 tab stops and 31 rows opening on somebody else's record.
   //
-  // Verification 9's guard clause: a guard whose removal changes nothing
-  // observable is dead or redundant, and both are worse than absent because
-  // they suggest a protection that is not working.
-  return <TestBedHost bed={bed.data} />
+  // AND WRITING IT FROM AN EFFECT WAS ONE RENDER TOO LATE. `useFieldRows` reads
+  // `canEditFields()` while the tree renders, and an effect runs after that -
+  // so the first render of a refused record still saw an open door, and nothing
+  // re-rendered to correct it. The walk measured exactly the same 31/31 with
+  // the class correctly set.
+  //
+  // So it is written DURING RENDER, before the host is returned. A side effect
+  // in render is normally wrong; this one is an idempotent class toggle on an
+  // element OUTSIDE React's tree, which StrictMode's double invoke cannot
+  // disturb, and the ordering is the whole point.
+  //
+  // The class rather than a prop, because re-pointing the door at the record
+  // would give the Test Bed a second derivation of ownership beside the
+  // Opportunity's - Verification 20, and the reason the registry line reads a
+  // class in the first place.
+  const viewEl = typeof document === 'undefined'
+    ? null : document.getElementById('test-bed-detail'.replace(/^/, 'view-'))
+  viewEl?.classList.toggle('is-not-mine', notMine(bed.data, shell.currentUserId()))
+
+  // ── KEYED ON THE RECORD, AND THE LIVE WALK IS WHY IT IS BACK ─────────
+  //
+  // Removed once, on a jsdom measurement that said it changed nothing: a
+  // DIFFERENT record gives useQuery a new key with no cache, so `isPending` is
+  // true for a render, the early return above unmounts the host, and the key
+  // adds nothing.
+  //
+  // THE HARNESS WAS ASKING THE WRONG QUESTION. It navigated tb-1 -> tb-2. The
+  // live walk went tb-1 -> the list -> tb-1, which is the ordinary thing a
+  // person does, and there the query is ALREADY CACHED: `isPending` never
+  // becomes true, nothing unmounts, and the previous visit's open stage tab was
+  // still there. Verification 47 - the harness has to reproduce how the code is
+  // INVOKED, not merely what it is given.
+  //
+  // `navToken` rather than the id, because the id does not change on a return
+  // visit and that is exactly the case this exists for.
+  return <TestBedHost key={navToken ?? bed.data.id} bed={bed.data} />
 }

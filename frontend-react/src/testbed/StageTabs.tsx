@@ -79,15 +79,29 @@ export function StageTabs({ payload, units, landing, fresh, currentStage, nextSt
     { documents: null, approvals: null })
   const lastTab = useRef<string | null>(null)
 
+  // ── THE LOADER IS CREATED ONCE AND READS THE LATEST DEPS ─────────────
+  //
+  // It held ONE deps object, captured on first render. The stage list arrives
+  // from a fetch, so on that first render it was EMPTY - and the terminal check
+  // reads the last stage by sort order, so it could never be true and the
+  // Closed tab rendered the ordinary panels for ever. Found by the live walk;
+  // every jsdom test passes its stages in synchronously and could not see it.
+  //
+  // The loader must stay a single instance, because its P1 token is what orders
+  // overlapping loads - recreating it per render would reset the token and
+  // reintroduce the race. So the instance is stable and the DEPS are read
+  // through a ref.
+  const depsRef = useRef(deps)
+  depsRef.current = deps
   const loader = useRef(createStageLoader({
-    documents: deps.documents,
-    criteria: deps.criteria,
-    approvals: deps.approvals,
-    stages: deps.stages,
+    documents: (stage) => depsRef.current.documents(stage),
+    criteria: (stage) => depsRef.current.criteria(stage),
+    approvals: (stage) => depsRef.current.approvals(stage),
+    get stages() { return depsRef.current.stages },
     onPanel: (id, s) => setPanels((p) => ({ ...p, [id]: s })),
     onScoringCard: setCard,
     onInstallSection: setInstallVisible,
-    onDeriveUnits: () => { void deps.onDeriveUnits() },
+    onDeriveUnits: () => { void depsRef.current.onDeriveUnits() },
   }))
 
   const activate = useCallback(async (key: string) => {

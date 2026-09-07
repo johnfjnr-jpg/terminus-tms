@@ -69,7 +69,11 @@ const VIEW = {
 
   // ── NO COUNTERPART. Each is a gap the swap would open ─────────────────
   renderTestBedDetail: 'react: ViewHeader + StageTabs render',
-  loadTestBedDetail: 'react: TestBedHost load + viewLoad',
+  // RENAMED IN THE SWAP COMMIT. A top-level function declaration in a classic
+  // script is a property of `window`, and app.js loads AFTER the bundle - so
+  // the old name silently overwrote the React registration. The live walk found
+  // it; no unit test could.
+  loadTestBedDetailSuperseded: 'react: TestBedHost load + viewLoad',
   renderTestBedDocuments: 'react: documents.documentRows + DocumentsPanel',
   confirmStageDocument: 'react: stageDocuments.confirmBody + DocumentsPanel',
   saveStageDocumentUrl: 'react: stageDocuments.saveUrlBody, approve:false',

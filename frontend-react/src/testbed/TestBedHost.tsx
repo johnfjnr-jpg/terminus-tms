@@ -132,7 +132,14 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
   // stage tab can decide whether it is terminal (P4).
   useEffect(() => {
     let live = true
-    void shell.api<Stage[]>('GET', '/api/stages?record_type=test_bed').then((r) => {
+    // THE ROUTE IS stage-definitions, NOT stages. Written as `/api/stages` and
+    // caught by the live walk: the fetch 404'd, `stages` stayed empty, and the
+    // terminal check - which reads the LAST stage by sort order - could never
+    // be true, so the Closed tab rendered the ordinary panels. Session 1 made
+    // the same mistake with the document routes. A request shaped by what the
+    // reader wanted rather than by what the server has.
+    void shell.api<Stage[]>(
+      'GET', '/api/stage-definitions?record_type=test_bed').then((r) => {
       if (live && r.ok && Array.isArray(r.data)) setStages(r.data)
     })
     return () => { live = false }
@@ -428,6 +435,10 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
   // L5: all three, and the absent-id cases fail OPEN here on purpose - the
   // edit attempt is where it fails closed.
   const readOnly = notMine(record, shell.currentUserId())
+
+  // The class itself is applied by TestBedView, BEFORE this renders. See the
+  // note there: applying it from an effect here is one render too late,
+  // because `canEditFields` reads it while this tree is rendering.
 
   return (
     <div data-testid="testbed-host">

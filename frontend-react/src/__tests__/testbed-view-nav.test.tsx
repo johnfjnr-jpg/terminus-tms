@@ -64,6 +64,30 @@ beforeEach(() => {
 })
 afterEach(() => { act(() => root.unmount()); host.remove() })
 
+describe('the ownership class, which the door reads', () => {
+  test('the view sets is-not-mine so canEditFields keeps working', async () => {
+    // Verification 43. app.js's loadTestBedDetail wrote this class and
+    // CAN_EDIT_BY_VIEW reads it; the swap retired that load path, so without
+    // this the banner is right and the DOOR is wide open. Found by the live
+    // walk, which measured 31 tab stops and 31 rows opening on a record
+    // belonging to somebody else.
+    const el = document.createElement('div')
+    el.id = 'view-test-bed-detail'
+    document.body.appendChild(el)
+    try {
+      await view('tb-1', 1)
+      expect(el.classList.contains('is-not-mine'),
+        'the owner\'s own record was marked not-mine').toBe(false)
+
+      svc = shellServices({ api, detailLoaded, currentUserId: () => 'somebody-else' })
+      await view('tb-1', 2)
+      expect(el.classList.contains('is-not-mine'),
+        "another user's record does not carry the class the door reads, so "
+        + 'every row stays editable').toBe(true)
+    } finally { el.remove() }
+  })
+})
+
 describe('the registration contract', () => {
   test('a second visit RE-READS the record rather than serving the cache', async () => {
     await view('tb-1', 1)
@@ -90,6 +114,27 @@ describe('the registration contract', () => {
     expect(detailLoaded.mock.calls.length,
       'a cached record never settled, so the view stays on its loading class')
       .toBeGreaterThan(before)
+  })
+
+  test('RETURNING TO THE SAME RECORD gets a fresh host', async () => {
+    // THE CASE THE FIRST VERSION OF THIS TEST MISSED. It navigated tb-1 -> tb-2,
+    // where useQuery has no cache, `isPending` is true and the host unmounts on
+    // its own - so it passed with the key removed and the live walk then found
+    // the open stage tab surviving a return visit. tb-1 -> tb-1 is what a
+    // person actually does.
+    await view('tb-1', 1)
+    await act(async () => {
+      (host.querySelector('[data-testid="tb-tab-btn-stage-Qualification"]') as HTMLElement).click()
+    })
+    for (let i = 0; i < 20 && !host.querySelector('[data-testid="tb-tab-stage-detail"]'); i++) {
+      await act(async () => { await Promise.resolve() })
+    }
+    expect(host.querySelector('[data-testid="tb-tab-stage-detail"]'),
+      'the stage tab did not open, so the assertion below is vacuous').toBeTruthy()
+
+    await view('tb-1', 2)
+    expect(host.querySelector('[data-testid="tb-tab-stage-detail"]'),
+      'a return visit kept the previous visit\'s stage tab open').toBeNull()
   })
 
   test('a second record gets a fresh host, not the first record\'s state', async () => {
@@ -138,8 +183,12 @@ describe('the registration contract', () => {
           </ShellProvider>
         </QueryClientProvider>)
     })
-    for (let i = 0; i < 20 && !host.querySelector('[data-testid="tb-view-error"]'); i++) {
-      await act(async () => { await Promise.resolve() })
+    // A REJECTED query settles over a macrotask, not a microtask. Waiting on
+    // Promise.resolve alone left the view pending and the assertion read
+    // `undefined` - which is Verification 6's shape, a wait that returns before
+    // the state it is about.
+    for (let i = 0; i < 40 && !host.querySelector('[data-testid="tb-view-error"]'); i++) {
+      await act(async () => { await new Promise((r) => setTimeout(r, 5)) })
     }
     expect(host.querySelector('[data-testid="tb-detail-name"]')?.textContent).toBe('Not found')
     expect(detailLoaded, 'a failed load never settled the view').toHaveBeenCalled()

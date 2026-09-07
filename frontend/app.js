@@ -6542,11 +6542,21 @@ let currentTestBed = null
 // exactly this: a superseded path that goes on working is worse than one that
 // breaks. Callers are found by looking; a refusal is found by testing.
 //
+// ── AND IT IS RENAMED, WHICH THE LIVE WALK FOUND AND NO TEST COULD ──────
+//
+// It was left as `loadTestBedDetail`. A TOP-LEVEL FUNCTION DECLARATION IN A
+// CLASSIC SCRIPT IS A PROPERTY OF `window`, and app.js loads AFTER the bundle -
+// so this declaration silently overwrote `window.loadTestBedDetail`, the React
+// registration, and every navigation reached the refusal instead of the view.
+//
+// The load-order property that makes the revert one line is the same property
+// that did this. The Account and Contact swaps never met it because their
+// vanilla FILE was removed, taking the declaration with it; app.js cannot be
+// removed, so the name has to move.
+//
 // Every caller was re-pointed to loadTestBedDetailOrSayWhyNot in the swap
-// commit and the round report carries the list with a disposition each. This
-// body is unreachable and is kept rather than deleted for one round, so the
-// revert is the script tag alone.
-async function loadTestBedDetail(id) {
+// commit and the round report carries the list with a disposition each.
+async function loadTestBedDetailSuperseded(id) {
   throw new Error('loadTestBedDetail is superseded by the React Test Bed view. '
     + 'Call loadTestBedDetailOrSayWhyNot(id) instead; this path no longer '
     + 'renders anything, because React owns #view-test-bed-detail.')

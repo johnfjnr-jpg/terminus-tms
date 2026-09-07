@@ -241,9 +241,16 @@ test('and THE OLD PATH REFUSES rather than going quiet', () => {
   // testing. loadTestBedDetail is superseded and every caller was re-pointed;
   // this is what makes a missed one fail rather than silently render nothing.
   const app = readCode(new URL('frontend/app.js', ROOT))
-  assert.match(app, /async function loadTestBedDetail\(id\)\s*\{\s*throw new Error/,
+  assert.match(app, /async function loadTestBedDetailSuperseded\(id\)\s*\{\s*throw new Error/,
     'the superseded loadTestBedDetail no longer refuses, so a missed caller '
     + 'would render nothing and say nothing')
+  // AND IT MUST NOT BE NAMED `loadTestBedDetail`. A top-level function
+  // declaration in a classic script is a property of window, and app.js loads
+  // AFTER the bundle - so that name silently overwrites the React
+  // registration. Found by the live walk; no unit test could see it.
+  assert.doesNotMatch(app, /^async function loadTestBedDetail\(/m,
+    'app.js declares loadTestBedDetail at top level, which overwrites the '
+    + "bundle's registration on window because app.js loads second")
   assert.match(app, /function loadTestBedDetailOrSayWhyNot\(id\)/,
     'the guarded entry is gone, so a missing bundle is a ReferenceError')
 })
