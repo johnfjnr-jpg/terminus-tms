@@ -741,3 +741,95 @@ element of that id exists. Recorded because the shape invites the old reading.
 
 **X4. T7 ALREADY DECIDES ENABLEMENT** and is built and injection-covered. This
 is the ACTION only, which is why the gap is 23 lines rather than 84.
+
+---
+
+# Addendum, 2026-09-07 (eighth entry): THE VIEW'S LOAD AND RENDER, enumerated before build
+
+**Round 7 Phase 2d, session 2.** `loadTestBedDetail`, `renderTestBedDetail` and
+the three landing flags, enumerated from the vanilla.
+
+---
+
+## L. THE VIEW LOAD (`loadTestBedDetail`, 95 lines)
+
+**L1. THE FRESH-NAVIGATION FLAG IS CONSUMED AT THE TOP, BEFORE THE GET CAN
+FAIL.** The vanilla's own comment says why, and it is not tidiness:
+`loadTestBedDetail` returns early when the GET fails, so **a flag cleared only
+by the renderer would survive a failed load and make the NEXT call - a save -
+read as an arrival and jump to Reference**. That is the original fault
+reintroduced through its own fix, reachable whenever a save follows a load that
+404ed.
+
+**L2. EXACTLY ONE PLACE SETS IT, AND THE DEFAULT WAS INVERTED TO GET THERE.**
+Twelve of the thirteen call sites are in-app saves; only `navigate()` is an
+arrival. The fix was not to pass *do not reset* at twelve call sites - **that
+leaves the thirteenth, added in a future round, inheriting the fault**, which is
+this project's standing rule at four confirmed instances. Preserving the tab is
+what happens unless something explicitly says this is a navigation.
+
+**L3. ARRIVING AT THE VIEW CLEARS THE SAVE FEEDBACK.** It is the other way the
+thing the message was about goes away. Because `navigate()` is the only setter,
+**no save path can reach this branch and wipe its own report** - which is the
+pair to T6, where a tab re-apply must not clear it either.
+
+**L4. A FAILED GET STILL SETTLES THE VIEW.** `detailLoaded` is called on the
+failure path too, or a record that could not be fetched **shows the loading line
+for ever instead of its error**. The name reads *Not found*.
+
+**L5. THE DOOR: `notMine` NEEDS ALL THREE.** An owner id on the record, a signed
+-in user id, and the two differing. Absent either id it is NOT not-mine, which
+fails OPEN deliberately at load time and closed at the edit attempt.
+
+**L6. THE BANNER IS THE ONLY PER-VIEW PART.** The class, the value and the
+stylesheet rule are shared with the Opportunity; the banners differ only because
+they sit in different documents. **The behaviour is shared by construction
+rather than by matching.**
+
+**L7. NOT A SECURITY BOUNDARY, AND SAYING SO IS PART OF THE RULE.** RLS is the
+boundary. This stops a person doing work that will be refused; it does not stop
+anybody who means to.
+
+**L8. UNIT COUNTS ARE LOADED ONCE PER DETAIL LOAD, AS A READ.** Both tabs use
+them. The derive control is the only thing that writes.
+
+---
+
+## R. THE VIEW RENDER (`renderTestBedDetail`, 99 lines)
+
+**R1. THE HEADER IS NAME AND CLIENT ORGANISATION.** The four stat-strip writes
+that used to sit here are gone with the strip: every value already had a home
+and was duplicated there.
+
+**R2. THE STAGE LIST IS FETCHED AND STORED**, because the terminal check reads
+it. Round 10 Phase 7 recorded what happens when it is not: opening a stage tab
+on a direct navigation, inside the window before it is assigned, left the list
+empty and rendered the ordinary panels on the Closed tab.
+
+**R3. THE CHEVRON STRIP AND ITS HOVER POPUP** are the shared components, keyed
+to the record.
+
+**R4. THE CURRENT-STAGE DOT IS SET ONCE PER RENDER**, not per tab switch: the
+record's real stage does not change from clicking through tabs.
+
+**R5. THE LANDING STAGE IS READ AND CLEARED HERE**, so a later unrelated load
+cannot inherit it.
+
+**R6. EVERY TRANSITION LANDS ON THE STAGE JUST ENTERED, INCLUDING THE LAST.**
+Round 10 Phase 6 excepted the final transition because Closed rendered nothing
+and arriving on a blank tab was a poor reward for completing the lifecycle.
+Round 10 Phase 7 gave Closed a real panel and **removed the exception**, which
+it had only ever been deferring.
+
+**R7. THE OPEN TAB IS READ BEFORE ANY SWITCH**, since switching rewrites the
+active class - the input to T5's reload branch.
+
+---
+
+## What this session does NOT build
+
+**The chevron strip.** R3's two functions are SHARED with the Opportunity and
+are dispositioned as such in the enumeration, so they are not gaps and not this
+round's to move.
+
+**`detailLoaded` itself.** It is a shell service the React tree already has.

@@ -29,8 +29,8 @@ const S = 'scripts/round7/tb-view-surface.mjs'
 
 const INJECTIONS = [
   { name: 'a GAP is quietly reclassified as covered in the enumeration', file: S,
-    find: "  renderTestBedDetail: 'GAP: the view render - header, stat strip, banner, landing',",
-    replace: "  renderTestBedDetail: 'react: nothing, this is an injection',",
+    find: "  confirmStageDocument: 'GAP: confirming a stage document',",
+    replace: "  confirmStageDocument: 'react: nothing, this is an injection',",
     expect: 'the app.js view gaps are EXACTLY the recorded ones' },
 
   { name: 'a NEW gap appears in app.js and nobody records it', file: S,
@@ -39,8 +39,8 @@ const INJECTIONS = [
     expect: 'the app.js view gaps are EXACTLY the recorded ones' },
 
   { name: 'the recorded list drops an entry the enumeration still carries', file: A,
-    find: "  'renderTestBedDetail', 'loadTestBedDetail', 'confirmStageDocument',",
-    replace: "  'loadTestBedDetail', 'confirmStageDocument',",
+    find: "  'confirmStageDocument', 'saveStageDocumentUrl', 'applyConfirmedApproval',",
+    replace: "  'saveStageDocumentUrl', 'applyConfirmedApproval',",
     expect: 'the app.js view gaps are EXACTLY the recorded ones' },
 
   { name: 'the view gate is inverted while the gaps are non-empty', file: A,
@@ -54,8 +54,8 @@ const INJECTIONS = [
     expect: 'no gaps parsed, so this assertion is vacuous' },
 
   { name: 'a declared gap is renamed, so the existence check must fire', file: A,
-    find: "  'currentTestBed', 'tbDetailStages',",
-    replace: "  'currentTestBedX', 'tbDetailStages',",
+    find: "  'convertTestBed', 'wireTestBedConvertOnce', 'resetTestBedConvertForm',",
+    replace: "  'convertTestBedX', 'wireTestBedConvertOnce', 'resetTestBedConvertForm',",
     expect: 'declared gaps no longer in app.js' },
 ]
 

@@ -82,6 +82,15 @@ export interface ShellServices {
    */
   currentUserEmail(): string
   /**
+   * The signed-in user's id, for the ownership door's own comparison.
+   *
+   * The door needs an ID, not an email: `records.owner_id` is an `auth.users`
+   * id and nothing in the payload carries the address. Reads the same
+   * `window.currentSession` the email does, so there is ONE reader of the
+   * session rather than two that agree today.
+   */
+  currentUserId(): string | null
+  /**
    * The shell's own sentence for a stale write, HTML because it carries a
    * reload control.
    *
@@ -179,7 +188,7 @@ type ShellWindow = Window & {
     recordType: string, currentStage: string,
   ) => void
   requestChangeReason?: (opts: ChangeReasonOptions) => void
-  currentSession?: { user?: { email?: string } } | null
+  currentSession?: { user?: { email?: string, id?: string } } | null
   staleWriteHtml?: (recordId: string) => string
   contactReturnView?: () => 'contacts' | 'leads'
   openDiscardConfirm?: (proceed: () => void) => void
@@ -242,6 +251,12 @@ export const shellServices: ShellServices = {
   },
   currentUserEmail(): string {
     return w().currentSession?.user?.email ?? ''
+  },
+  currentUserId(): string | null {
+    // Same reachable global as the email, and read the same way rather than
+    // through a second accessor. Null when signed out, which the door treats
+    // as "cannot answer" rather than as "not yours".
+    return w().currentSession?.user?.id ?? null
   },
   staleWriteHtml(recordId: string): string | null {
     const fn = w().staleWriteHtml

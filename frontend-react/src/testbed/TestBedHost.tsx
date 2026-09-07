@@ -31,6 +31,8 @@ import { DOCUMENTS_ROUTE, type DocRequirements } from './documents'
 import { LIFECYCLE_ROUTE, type Lifecycle } from './closedPanel'
 import { nextStageFor } from './tabModel'
 import type { StageEntry } from '../shared/stageTracks'
+import { ViewHeader } from './ViewHeader'
+import { createArrivalFlags, notMine } from './viewLoad'
 
 /**
  * V7: the numeric fields the validation banner speaks for.
@@ -48,6 +50,7 @@ const NUMERIC_FIELDS: NumericField[] = [
 interface BedLike {
   id: string
   status?: string
+  owner_id?: string | null
   payload?: Record<string, unknown>
   buyer_contacts?: Array<{ role?: string, contact_id?: string, name?: string }>
   installer?: Installer | null
@@ -99,6 +102,14 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
   const [drafts, setDrafts] = useState<Record<string, string>>({})
   const [lifecycle, setLifecycle] = useState<{ data: Lifecycle | null, failed: boolean }>(
     { data: null, failed: false })
+  const [loadFailed, setLoadFailed] = useState(false)
+
+  // L1/L2/R5: ONE machine for the arrival and landing flags, held across
+  // re-renders. The shell re-renders this view rather than mounting a new one,
+  // so a ref is what makes "spend it once" mean once.
+  const flags = useRef(createArrivalFlags())
+  const [arrival, setArrival] = useState<{ fresh: boolean, landing: string | null }>(
+    () => ({ fresh: true, landing: null }))
 
   useEffect(() => { setRecord(bed) }, [bed])
 
@@ -154,8 +165,13 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
     let live = true
     void shell.api<{ entries?: HistoryEntry[] }>('GET', HISTORY_ROUTE(bed.id)).then((r) => {
       if (!live) return
-      setHistory(r.ok ? { entries: r.data?.entries ?? [], failed: false }
-        : { entries: [], failed: true })
+      // Array.isArray, not `?? []`. A response of `[]` has an `entries`
+      // property - Array.prototype.entries, a FUNCTION - so the nullish
+      // fallback never fires and the panel gets a function to map over. Found
+      // by a suite hang rather than by reading.
+      setHistory(r.ok && Array.isArray(r.data?.entries)
+        ? { entries: r.data.entries, failed: false }
+        : { entries: [], failed: !r.ok })
     })
     return () => { live = false }
   }, [shell, bed.id])
@@ -196,8 +212,23 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
   }, [record])
 
   const load = useCallback(async () => {
+    // L1: THE FLAG IS SPENT HERE, BEFORE THE FETCH CAN FAIL. Cleared only on
+    // success, it would survive a failed load and make the next save read as an
+    // arrival.
+    const fresh = flags.current.consume()
+    const landing = flags.current.takeLanding()
+    setArrival({ fresh, landing })
+
     const r = await shell.api<BedLike>('GET', `/api/test-beds/${bed.id}`)
-    if (r.ok && r.data) setRecord(r.data)
+    if (r.ok && r.data) {
+      setRecord(r.data)
+      setLoadFailed(false)
+    } else {
+      // L4: the view SETTLES on the failure path too, or a record that could
+      // not be fetched shows the loading line for ever instead of its error.
+      setLoadFailed(true)
+    }
+    shell.detailLoaded('test-bed-detail')
   }, [shell, bed.id])
 
   // ── THE COST PREVIEW, with its ordering guard. C1-C9 ─────────────────
@@ -207,7 +238,21 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
   ))
 
   const onDraftsChange = useCallback((next: Record<string, string>) => {
-    setDrafts(next)
+    // ── SET ONLY ON A REAL CHANGE ────────────────────────────────────────
+    //
+    // The panel reports drafts from an effect keyed on `rows.changes`, which
+    // has a fresh object identity on every render. Calling setState
+    // unconditionally therefore renders, which re-fires the effect, which sets
+    // state again: an infinite loop, and it hung the suite rather than failing
+    // it. Before this session the callback only scheduled a preview and set no
+    // state, so the identity churn was harmless - Architecture 8 exactly, an
+    // unchanged path meeting a new demand.
+    setDrafts((prev) => {
+      const keys = Object.keys(next)
+      const same = keys.length === Object.keys(prev).length
+        && keys.every((k) => prev[k] === next[k])
+      return same ? prev : next
+    })
     runner.current.schedule(next, record.payload ?? {})
   }, [record.payload])
 
@@ -361,13 +406,18 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
     <UseCasesList useCases={record.payload?.useCases as string[] | undefined}
       onWrite={(next) => patchPayload({ useCases: next })} />)
 
+  // L5: all three, and the absent-id cases fail OPEN here on purpose - the
+  // edit attempt is where it fails closed.
+  const readOnly = notMine(record, shell.currentUserId())
+
   return (
     <div data-testid="testbed-host">
+      <ViewHeader record={loadFailed ? null : record} readOnly={readOnly} />
       <StageTabs
         payload={record.payload ?? {}}
         units={units}
-        landing={null}
-        fresh
+        landing={arrival.landing}
+        fresh={arrival.fresh}
         currentStage={record.status ?? ''}
         nextStage={nextStageFor(stages, record.status).nextStage}
         deps={stageDeps}

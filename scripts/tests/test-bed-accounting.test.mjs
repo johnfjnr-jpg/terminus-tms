@@ -269,10 +269,8 @@ test('EVERY capability renders, which is the swap gate at its floor', () => {
 // the file's own gate used: it fails when something is built AND when something
 // regresses.
 const VIEW_GAPS = [
-  'renderTestBedDetail', 'loadTestBedDetail', 'confirmStageDocument',
-  'saveStageDocumentUrl', 'applyConfirmedApproval', 'refreshTbStagePanels',
-  'tbLandOnStageAfterLoad', 'tbArrivingFresh', 'tbFreshNavigation',
-  'currentTestBed', 'tbDetailStages',
+  'confirmStageDocument', 'saveStageDocumentUrl', 'applyConfirmedApproval',
+  'refreshTbStagePanels',
   'convertTestBed', 'wireTestBedConvertOnce', 'resetTestBedConvertForm',
 ].sort()
 

@@ -142,6 +142,7 @@ export function shellServices(
     canEditFields: () => true,
     requestChangeReason: () => {},
     currentUserEmail: () => 'test@example.com',
+    currentUserId: () => 'user-1',
     staleWriteHtml: () => null,
     usesWorkflow: () => false,
     attemptTransition: () => {},
