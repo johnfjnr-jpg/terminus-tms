@@ -34,6 +34,11 @@ const LEDGER = {
   'scripts/round6/enumerate-retirement.mjs':
     'KEPT. Its default target, so Round 7 can size the retirement by sandbox '
     + 'deletion without being told the path.',
+  'scripts/round6/visual-contact.mjs':
+    'KEPT. The Phase 2 comparison loads the vanilla module in the browser to '
+    + 'capture it beside the React surface at three widths - which IS the '
+    + 'load-order revert at runtime, and is what lets the comparison prove its '
+    + 'two captures are of different implementations. Retires with the file.',
   'scripts/tests/contact-coupling.test.mjs':
     'THIS FILE. It names the surface because it is the ledger.',
 }

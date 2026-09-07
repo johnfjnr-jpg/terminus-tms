@@ -353,7 +353,13 @@ document.getElementById('btn-back-testbeds').addEventListener('click', () => nav
 // contact came from and an unqualified contact is what a record with no status
 // is. A bundle that has never mounted a Contact leaves this working.
 document.getElementById('btn-back-contact-detail').addEventListener('click', () => {
-  const view = typeof window.contactReturnView === 'function' ? window.contactReturnView() : 'leads'
+  // BOTH STATES, because the swap is built and not taken. The React view
+  // publishes through the seam; the vanilla still assigns its own lexical
+  // `cdReturnView`, and app.js shares that scope so it can still read it.
+  // `typeof` is safe on a binding whose script never loaded.
+  const fromSeam = typeof window.contactReturnView === 'function' ? window.contactReturnView() : null
+  const fromVanilla = typeof cdReturnView !== 'undefined' ? cdReturnView : null
+  const view = fromSeam ?? fromVanilla ?? 'leads'
   navigate(view === 'contacts' ? 'contacts' : 'leads')
 })
 

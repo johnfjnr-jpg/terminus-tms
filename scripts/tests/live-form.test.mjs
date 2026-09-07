@@ -149,12 +149,21 @@ test('the door is OPEN for the Reference tab, in the shell registry', () => {
 // the revert restores - does not count as loaded.
 const CD_TAG = '<script src="/contact-detail.js"></script>'
 
-test('THE REACT CONTACT VIEW IS THE LIVE ONE', () => {
-  assert.ok(RAW.includes(CD_TAG),
-    'the vanilla Contact tag is GONE, so the one-line revert has nothing to restore')
-  assert.ok(!LIVE.includes(CD_TAG),
-    'frontend/contact-detail.js is loaded again: the swap has been reverted, '
-    + 'deliberately or otherwise')
+// ── THE CLAIM AS IT STANDS: BUILT, REGISTERED, AND NOT TAKEN ────────────
+//
+// This read "THE REACT CONTACT VIEW IS THE LIVE ONE" for the length of one
+// session. The visual comparison then measured 524 of the vanilla's 1327 lines
+// as behaviours nothing had migrated - notes, park, unqualify, delete and the
+// account-details modal - so the tag went back and the claim inverted with it.
+//
+// The bundle STILL REGISTERS the view. That is the whole point of the
+// load-order property: the vanilla is loaded after and wins, so the swap is one
+// line away in either direction and the React work is not shelved.
+test('the Contact swap is BUILT and NOT TAKEN', () => {
+  assert.ok(LIVE.includes(CD_TAG),
+    'frontend/contact-detail.js is not loaded, so the swap HAS been taken - and '
+    + 'the surface is missing notes, park, unqualify, delete and the account '
+    + 'details modal')
 })
 
 test('and the shell asks for the return view rather than reading a lexical name', () => {
