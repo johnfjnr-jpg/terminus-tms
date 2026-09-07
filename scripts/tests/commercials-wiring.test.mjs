@@ -1339,28 +1339,40 @@ test('the read-only class is applied from ONE value, the way the freeze is', () 
   // The shape is the claim. Eleven controls each testing for themselves is the
   // second-reader shape, and the control that forgot to ask is the editable
   // field on a record you do not own.
+  //
+  // ── RE-POINTED TO THE ONE LIVE SWEEP. Round 8 Phase 2 ─────────────────
+  //
+  // It required exactly TWO toggles, one per doored view, reading app.js. That
+  // was right when both views loaded there. It then became a DETECTOR
+  // REQUIRING DEAD CODE TO REMAIN: Round 7's swap left the Test Bed's sweep
+  // inside a function whose first statement throws, so one of the two toggles
+  // it counted was unreachable, and Phase 0 measured that as finding F1.
+  //
+  // The dead code is deleted, so the count is ONE - the Opportunity's, which
+  // is the only view app.js still loads. The Test Bed's toggle lives in
+  // TestBedView.tsx and is asserted there.
+  //
+  // AND THE PROPERTY MOVED WITH THE DOOR. Since Phase 1 the class DECIDES
+  // NOTHING: the door reads the record. What this still asserts is that the
+  // class has ONE writer per view driven by one answer, because two writers
+  // would dim a record the door lets you edit, or the reverse.
   const src = readCode(new URL('../../frontend/app.js', import.meta.url))
-  assert.match(src, /classList\.toggle\('is-not-mine',\s*notMine\)/,
-    'the view does not carry a single is-not-mine toggle')
-  assert.match(src, /const notMine = [^\n]*owner_id[^\n]*\n?[^\n]*currentSession/,
-    'notMine is not derived from the record owner and the current session')
-  // Read through the stripper, Verification 39: the comment above that line
-  // discusses owner_id and currentSession at length.
-  // ONE PLACE PER VIEW, which is what "one value" means here and is what the
-  // first version of this assertion got wrong. It required exactly one
-  // occurrence in the file; ruling G then applied the same mechanism to Test
-  // Bed and it failed - correctly reporting a change, incorrectly describing
-  // the rule. The property is that a VIEW's read-only state is decided once,
-  // not that only one view can have one.
   const toggles = [...src.matchAll(/classList\.toggle\('is-not-mine',\s*(\w+)\)/g)]
-  assert.equal(toggles.length, 2,
-    `expected one is-not-mine toggle for the Opportunity and one for the Test Bed, found ${toggles.length}`)
-  // And each is driven by a variable, not by an inline expression repeated at
-  // the call site, which is how a second reader gets in.
-  for (const m of toggles) {
-    assert.match(src, new RegExp(`const ${m[1]} = [^\\n]*owner_id`),
-      `the is-not-mine toggle reads ${m[1]}, which is not derived from a record owner`)
-  }
+  assert.equal(toggles.length, 1,
+    `expected ONE is-not-mine toggle in app.js, the Opportunity's, found ${toggles.length}`)
+  // It is driven by a variable, not an inline expression at the call site,
+  // which is how a second reader gets in.
+  assert.match(src, new RegExp(`const ${toggles[0][1]} = [^\\n]*canEditFields`),
+    `the toggle reads ${toggles[0][1]}, which is not the door's own answer`)
+
+  // And the React tree's writer, asserted where it lives.
+  const view = readCode(new URL('../../frontend-react/src/testbed/TestBedView.tsx',
+    import.meta.url))
+  const reactToggles = [...view.matchAll(/classList\.toggle\('is-not-mine',\s*(\w+)\)/g)]
+  assert.equal(reactToggles.length, 1,
+    `expected ONE is-not-mine toggle in the Test Bed view, found ${reactToggles.length}`)
+  assert.match(view, new RegExp(`const ${reactToggles[0][1]} = notMine\\(`),
+    'the React toggle is not driven by the shared ownership derivation')
 })
 
 test('the stylesheet makes an unowned record non-interactive, not merely dim', () => {

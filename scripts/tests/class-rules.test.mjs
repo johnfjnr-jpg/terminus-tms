@@ -39,7 +39,6 @@ const HOOKS = {
   'opp-approval-feedback': 'app.js, the approval feedback line',
   'opp-crit-feedback': 'app.js, the exit-criterion feedback line',
   'opp-tab-current-dot': 'app.js, the current-stage dot on the Opportunity tabs',
-  'tb-tab-current-dot': 'app.js, the current-stage dot on the Test Bed tabs',
   // R1: a BEHAVIOUR hook with nothing to style. One delegated listener strips
   // non-digits from anything carrying it, so the class exists to be queried and
   // deliberately carries no rule: a month is a whole number of months.

@@ -62,3 +62,21 @@ test('and the shell really provides each one', () => {
   assert.deepEqual(missing, [],
     'the shell does not publish these: ' + missing.join(', '))
 })
+
+test('NO app.js top-level name collides with a bundle global', () => {
+  // Round 7's defect: `async function loadTestBedDetail` in app.js is a
+  // property of `window`, and app.js loads AFTER the bundle - so it silently
+  // overwrote the React registration and every navigation reached its refusal.
+  // Phase 0 measured the rename list as EMPTY; this asserts it stays that way
+  // once the dead code is deleted, because a deletion can expose a name too.
+  const main = readFileSync(new URL('frontend-react/src/main.tsx', ROOT), 'utf8')
+  const published = new Set([...main.matchAll(/window\.([A-Za-z0-9_$]+)\s*=/g)].map((m) => m[1]))
+  assert.ok(published.size >= 5, `only ${published.size} globals parsed from the bundle`)
+
+  const app = readFileSync(new URL('frontend/app.js', ROOT), 'utf8')
+  const clash = [...published].filter((n) =>
+    new RegExp(`^(async )?function ${n}\\(|^(var|let|const) ${n}\\b`, 'm').test(app))
+  assert.deepEqual(clash, [],
+    'app.js declares these at top level and the bundle publishes them, so '
+    + 'app.js - which loads second - overwrites the registration: ' + clash.join(', '))
+})

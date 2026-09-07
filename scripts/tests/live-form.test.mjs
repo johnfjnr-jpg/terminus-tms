@@ -228,24 +228,18 @@ test('the door is WIRED for the Test Bed view, in the shell registry', () => {
     'the door reads the class again, so a swap that retires its writer reopens it')
 })
 
-test('and THE OLD PATH REFUSES rather than going quiet', () => {
-  // Verification 41: callers are found by looking, a refusal is found by
-  // testing. loadTestBedDetail is superseded and every caller was re-pointed;
-  // this is what makes a missed one fail rather than silently render nothing.
-  const app = readCode(new URL('frontend/app.js', ROOT))
-  assert.match(app, /async function loadTestBedDetailSuperseded\(id\)\s*\{\s*throw new Error/,
-    'the superseded loadTestBedDetail no longer refuses, so a missed caller '
-    + 'would render nothing and say nothing')
-  // AND IT MUST NOT BE NAMED `loadTestBedDetail`. A top-level function
-  // declaration in a classic script is a property of window, and app.js loads
-  // AFTER the bundle - so that name silently overwrites the React
-  // registration. Found by the live walk; no unit test could see it.
-  assert.doesNotMatch(app, /^async function loadTestBedDetail\(/m,
-    'app.js declares loadTestBedDetail at top level, which overwrites the '
-    + "bundle's registration on window because app.js loads second")
-  assert.match(app, /function loadTestBedDetailOrSayWhyNot\(id\)/,
-    'the guarded entry is gone, so a missing bundle is a ReferenceError')
-})
+// ── THE OLD PATH IS GONE, Round 8 Phase 2 ───────────────────────────────
+//
+// This asserted that app.js's superseded loadTestBedDetail THREW rather than
+// going quiet - Verification 41: a superseded route that goes on working is
+// worse than one that breaks, and callers are found by looking while a refusal
+// is found by testing.
+//
+// It did its job. It caught nothing further, and the function it guarded is
+// DELETED with the rest of the dead Test Bed view code, so there is no path
+// left to refuse. Retired with its subject rather than left asserting an
+// absence, which every deletion would satisfy.
+
 
 test('and the shell publishes the landing accessor a bundle can reach', () => {
   // C1. `tbLandOnStageAfterLoad` is a `let` no bundle can read, and

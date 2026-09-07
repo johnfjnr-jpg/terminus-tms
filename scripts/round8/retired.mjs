@@ -42,7 +42,20 @@ export function retirementClaims(file, { allowProseIn = [] } = {}) {
     } catch { continue }
     if (code.includes(base) && !allowProseIn.includes(f)) claims.codeRefs.push(f)
     // The third clause: a script tag naming the file, live OR commented.
-    if (new RegExp(`<script[^>]*src=["']/${base}["']`).test(raw)) claims.commentedTag.push(f)
+    //
+    // ANCHORED AT A LINE START, and that is precision rather than convenience.
+    // Read anywhere in the raw text it also matches PROSE ABOUT a tag - a
+    // comment explaining the rule, or a harness describing the fault it
+    // injects - and it did: the final reverted run of the Phase 2 calibration
+    // went RED with every file byte-identical, on a sentence in a comment.
+    //
+    // A real tag, live or commented out, begins its line. A mention inside a
+    // `//` or `*` comment does not. Claim 2b reads the RAW file on purpose -
+    // a commented-out tag is exactly what it is looking for - so the
+    // discrimination has to come from position rather than from stripping.
+    const tagAtLineStart = new RegExp(
+      `^[ \t]*<script[^>]*src=["']/${base}["']`, 'm')
+    if (tagAtLineStart.test(raw)) claims.commentedTag.push(f)
   }
   return claims
 }
