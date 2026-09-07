@@ -2,6 +2,7 @@
 //
 // Derived from the Phase 0 enumeration and the Account parent-link precedent.
 import { describe, test, expect, beforeEach, vi } from 'vitest'
+import { shellServices } from './fixtures'
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { LinkAccountPanel, findAccountMatches } from '../contact/LinkAccountPanel'
@@ -19,7 +20,7 @@ const ACCOUNTS = [
   { id: 'a-2', name: 'Marina Port' },
 ]
 
-const services: ShellServices = {
+const services: ShellServices = shellServices({
   api: (async (_m: string, path: string, body?: unknown) => {
     posts.push({ path, body })
     // A HELD PROMISE, so a second click can be attempted while the first is
@@ -35,7 +36,7 @@ const services: ShellServices = {
   staleWriteHtml: () => null,
   setContactReturnView: () => {},
   confirmDiscard: (p: () => void) => { p() },
-}
+})
 
 let linked = 0
 let discardAsks = 0

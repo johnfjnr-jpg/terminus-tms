@@ -35,7 +35,7 @@ export interface StageTabsDeps {
 const emptyPanels = () => Object.fromEntries(
   PANEL_IDS.map((id) => [id, {} as PanelState])) as Record<PanelId, PanelState>
 
-export function StageTabs({ payload, units, landing, fresh, currentStage, nextStage, deps, reference, commercials, installSection }: {
+export function StageTabs({ payload, units, landing, fresh, currentStage, nextStage, deps, reference, commercials, installSection, documents, approvals, closed, onNextStage }: {
   payload: Record<string, unknown>
   units: readonly Unit[]
   landing: string | null
@@ -46,6 +46,14 @@ export function StageTabs({ payload, units, landing, fresh, currentStage, nextSt
   reference: React.ReactNode
   commercials: React.ReactNode
   installSection?: React.ReactNode
+  /** M: the documents panel's own content, per stage. */
+  documents?: (stage: string, data: unknown) => React.ReactNode
+  /** A: the shared track list. */
+  approvals?: (stage: string, data: unknown) => React.ReactNode
+  /** Z: the terminal tab's content. */
+  closed?: React.ReactNode
+  /** X: the Next Stage action. T7 already decides enablement. */
+  onNextStage?: () => void
 }) {
   const [userPicked, setUserPicked] = useState(false)
   const [active, setActive] = useState<string>(() =>
@@ -55,6 +63,9 @@ export function StageTabs({ payload, units, landing, fresh, currentStage, nextSt
   const [installVisible, setInstallVisible] = useState(false)
   const [feedback, setFeedback] = useState<string | null>(null)
   const [criteriaRows, setCriteriaRows] = useState<Criterion_[]>([])
+  const [terminal, setTerminal] = useState(false)
+  const [panelData, setPanelData] = useState<{ documents: unknown, approvals: unknown }>(
+    { documents: null, approvals: null })
   const lastTab = useRef<string | null>(null)
 
   const loader = useRef(createStageLoader({
@@ -77,9 +88,14 @@ export function StageTabs({ payload, units, landing, fresh, currentStage, nextSt
     if (!isStageTab(key)) return
     const stage = stageOf(key) as string
     const r = await loader.current.open(stage)
+    setTerminal(r.terminal)
     if (r.panels['tb-stage-exit-criteria-list']) {
       setCriteriaRows(r.panels['tb-stage-exit-criteria-list'] as Criterion_[])
     }
+    setPanelData({
+      documents: r.panels['tb-stage-documents-section'] ?? null,
+      approvals: r.panels['tb-stage-approval-row'] ?? null,
+    })
   }, [])
 
   // The landing tab is re-derived on every RECORD change, not on mount: the
@@ -113,9 +129,13 @@ export function StageTabs({ payload, units, landing, fresh, currentStage, nextSt
           </button>))}
       </div>
 
-      <button type="button" data-testid="tb-next-stage-btn" disabled={next.disabled}>
+      {/* X4: T7 decides enablement and is injection-covered. This is the
+          ACTION, which had no wiring at all before Phase 2d. */}
+      <button type="button" data-testid="tb-next-stage-btn" disabled={next.disabled}
+        onClick={() => onNextStage?.()}>
         {next.label}
       </button>
+      <div data-testid="tb-next-stage-feedback" />
       {feedback ? <p className="msg-error" data-testid="tb-tab-feedback">{feedback}</p> : null}
 
       {active === 'reference' ? <div data-testid="tb-tab-reference">{reference}</div> : null}
@@ -126,9 +146,17 @@ export function StageTabs({ payload, units, landing, fresh, currentStage, nextSt
           <div data-testid="tb-tab-stage-detail">
             <h3 data-testid="tb-stage-detail-heading">{stageOf(active)}</h3>
 
+            {/* Z: the terminal tab renders the completed record INSTEAD of
+                the panels, not beside them. */}
+            {terminal
+              ? closed
+              : (
+              <>
             <ReadPanel panelId="tb-stage-documents-section"
               panel={panels['tb-stage-documents-section']}
-              empty="No documents required at this stage." />
+              empty="No documents required at this stage.">
+              {documents?.(stageOf(active) as string, panelData.documents)}
+            </ReadPanel>
 
             <ExitCriteria stage={stageOf(active) as string}
               criteria={criteriaRows}
@@ -137,7 +165,9 @@ export function StageTabs({ payload, units, landing, fresh, currentStage, nextSt
 
             <ReadPanel panelId="tb-stage-approval-row"
               panel={panels['tb-stage-approval-row']}
-              empty="No approvals at this stage." />
+              empty="No approvals at this stage.">
+              {approvals?.(stageOf(active) as string, panelData.approvals)}
+            </ReadPanel>
 
             <ScoringCard card={card}
               criteria={deps.scoringCriteria(stageOf(active) as string)}
@@ -154,6 +184,7 @@ export function StageTabs({ payload, units, landing, fresh, currentStage, nextSt
               <UnitsPane payload={payload} units={units}
                 deps={deps.unitDeps} onDerive={deps.onDeriveUnits} />
             </div>
+              </>)}
           </div>)
         : null}
     </div>

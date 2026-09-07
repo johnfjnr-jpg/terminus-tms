@@ -24,6 +24,13 @@ import { validityOf, validationMessage, VALIDATION_OWNER, type NumericField } fr
 import { CUSTOMER_DOCS_ROUTE, customerDocRoute, type CustomerDoc } from './customerDocs'
 import type { InstallNote } from './installNotes'
 import { HISTORY_ROUTE, type HistoryEntry } from './history'
+import { DocumentsPanel } from './DocumentsPanel'
+import { ClosedRecordPanel } from './ClosedRecordPanel'
+import { StageTrackList } from '../shared/StageTrackList'
+import { DOCUMENTS_ROUTE, type DocRequirements } from './documents'
+import { LIFECYCLE_ROUTE, type Lifecycle } from './closedPanel'
+import { nextStageFor } from './tabModel'
+import type { StageEntry } from '../shared/stageTracks'
 
 /**
  * V7: the numeric fields the validation banner speaks for.
@@ -90,6 +97,8 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
   const [history, setHistory] = useState<{ entries: HistoryEntry[], failed: boolean }>(
     { entries: [], failed: false })
   const [drafts, setDrafts] = useState<Record<string, string>>({})
+  const [lifecycle, setLifecycle] = useState<{ data: Lifecycle | null, failed: boolean }>(
+    { data: null, failed: false })
 
   useEffect(() => { setRecord(bed) }, [bed])
 
@@ -267,8 +276,7 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
 
   const stageDeps: StageTabsDeps = useMemo(() => ({
     stages,
-    documents: (stage) => shell.api(
-      'GET', `/api/test-beds/${bed.id}/document-requirements?stage=${encodeURIComponent(stage)}`),
+    documents: (stage) => shell.api('GET', DOCUMENTS_ROUTE(bed.id, stage)),
     criteria: (stage) => shell.api(
       'GET', `/api/records/${bed.id}/exit-criteria?stage=${encodeURIComponent(stage)}`),
     approvals: () => shell.api('GET', `/api/records/${bed.id}/stage-approvals`),
@@ -341,6 +349,14 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
         if (r.ok) await loadCustomerDocs()
       }} />)
 
+  // Z1: its own route, fetched once per record rather than per stage - the
+  // terminal tab is the only reader and the answer does not vary by stage.
+  const loadLifecycle = useCallback(async () => {
+    const r = await shell.api<Lifecycle>('GET', LIFECYCLE_ROUTE(bed.id))
+    setLifecycle(r.ok && r.data ? { data: r.data, failed: false } : { data: null, failed: true })
+  }, [shell, bed.id])
+  useEffect(() => { void loadLifecycle() }, [loadLifecycle])
+
   const useCasesNode = (
     <UseCasesList useCases={record.payload?.useCases as string[] | undefined}
       onWrite={(next) => patchPayload({ useCases: next })} />)
@@ -353,9 +369,36 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
         landing={null}
         fresh
         currentStage={record.status ?? ''}
-        nextStage={null}
+        nextStage={nextStageFor(stages, record.status).nextStage}
         deps={stageDeps}
         installSection={installSectionNode}
+        documents={(stage, data) => (
+          <DocumentsPanel data={(data ?? {}) as DocRequirements}
+            onConfirm={async (name) => {
+              await shell.api('POST', `/api/test-beds/${bed.id}/documents/confirm`,
+                { document: name, stage })
+              await load()
+            }}
+            onSaveUrl={async (name, url) => {
+              await shell.api('PATCH', `/api/test-beds/${bed.id}/documents`,
+                { document: name, stage, document_location: url })
+              await load()
+            }} />)}
+        approvals={(stage, data) => (
+          <StageTrackList testId="tb-stage-tracks"
+            stage={(Array.isArray(data) ? data : [])
+              .find((s: StageEntry) => s.stage_name === stage)}
+            recordType="test_bed"
+            superseded={shell.usesWorkflow('test_bed')}
+            onApprove={async (track) => {
+              await shell.api('POST', `/api/records/${bed.id}/approvals`, { track })
+              await load()
+            }} />)}
+        closed={<ClosedRecordPanel data={lifecycle.data} failed={lifecycle.failed} />}
+        onNextStage={() => {
+          const { currentStage, nextStage } = nextStageFor(stages, record.status)
+          if (nextStage) shell.attemptTransition(bed.id, nextStage, 'test_bed', currentStage)
+        }}
         commercials={null}
         reference={<TestBedPanel
         source={source}

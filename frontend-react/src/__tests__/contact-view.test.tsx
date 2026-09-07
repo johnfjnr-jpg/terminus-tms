@@ -6,6 +6,7 @@
 //
 // None was visible in jsdom before, because nothing navigated TWICE.
 import { describe, test, expect, beforeEach, vi } from 'vitest'
+import { shellServices } from './fixtures'
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -27,7 +28,7 @@ const RECORD = () => ({
   account: null, latest_revision_number: 3,
 })
 
-const services: ShellServices = {
+const services: ShellServices = shellServices({
   api: (async (_m: string, path: string) => {
     if (path.includes('/industries')) return { ok: true, status: 200, data: [] }
     if (path.includes('/accounts')) return { ok: true, status: 200, data: [] }
@@ -43,7 +44,7 @@ const services: ShellServices = {
   staleWriteHtml: () => null,
   setContactReturnView: (v) => { returnViews.push(v) },
   confirmDiscard: (p) => { p() },
-}
+})
 
 /** Renders the way main.tsx does: ONE root, re-rendered per navigation. */
 const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })

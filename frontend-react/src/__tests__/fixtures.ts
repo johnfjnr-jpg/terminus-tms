@@ -118,3 +118,35 @@ export const catalogApi = (products: unknown[] = CATALOG_PRODUCTS) =>
   async (_m: string, path: string) => path === '/api/base-costs'
     ? { ok: true, data: { as_of: '2026-01-01', products } }
     : { ok: false, status: 404, data: {} }
+
+/**
+ * ── ONE SHELL FIXTURE, BUILT FROM THE CONTRACT ──────────────────────────
+ *
+ * Round 7 Phase 2d. Nine test files each hand-built a `ShellServices` literal,
+ * so adding a service to the seam broke all nine at once and the obvious fix
+ * was to paste two more lines into each. Verification 47: a fixture for a shape
+ * is built from what the CONTRACT declares, once, in one shared place - five
+ * copies of a wrong shape agree with each other perfectly.
+ *
+ * Every member gets a harmless default. Override the ones a test is about.
+ */
+export function shellServices(
+  over: Partial<import('../shell-services').ShellServices> = {},
+): import('../shell-services').ShellServices {
+  return {
+    api: (async () => ({ ok: true, status: 200, data: null })) as
+      import('../shell-services').ShellServices['api'],
+    navigate: () => {},
+    detailLoaded: () => {},
+    getOppLoadedRevision: () => 1,
+    canEditFields: () => true,
+    requestChangeReason: () => {},
+    currentUserEmail: () => 'test@example.com',
+    staleWriteHtml: () => null,
+    usesWorkflow: () => false,
+    attemptTransition: () => {},
+    setContactReturnView: () => {},
+    confirmDiscard: (proceed: () => void) => { proceed() },
+    ...over,
+  }
+}

@@ -4,6 +4,7 @@
 // D1-D3, A1-A6 - which was written from the vanilla BEFORE any of this was
 // built. The vanilla was not reopened while writing these.
 import { describe, test, expect, beforeEach, vi } from 'vitest'
+import { shellServices } from './fixtures'
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { ContactHost } from '../contact/ContactHost'
@@ -28,7 +29,7 @@ const RECORD = () => ({
   account: null, latest_revision_number: 4,
 })
 
-const services: ShellServices = {
+const services: ShellServices = shellServices({
   api: (async (m: string, path: string, body?: unknown) => {
     calls.push({ m, path, body })
     for (const [k, v] of Object.entries(reply)) if (path.includes(k)) return v
@@ -46,7 +47,7 @@ const services: ShellServices = {
   staleWriteHtml: () => null,
   setContactReturnView: () => {},
   confirmDiscard: (p) => { discardAsks++; p() },
-}
+})
 
 const mount = async () => {
   calls = []; navigated = []; discardAsks = 0; reply = {}

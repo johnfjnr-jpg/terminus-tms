@@ -25,6 +25,7 @@
 // perfectly while being remounted just as hard. Every editor kind is asserted,
 // not only the one that happened to show a symptom.
 import { describe, test, expect, beforeEach } from 'vitest'
+import { shellServices } from './fixtures'
 import { act, useEffect } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { ReferencePanel } from '../reference/ReferencePanel'
@@ -51,7 +52,7 @@ const source: ReferenceSource = {
   staff: ['Brad Kerr', 'John Fryatt'],
   reference: 'TT-1', status: 'Qualification', createdAt: '2026-03-04',
 }
-const services: ShellServices = {
+const services: ShellServices = shellServices({
   api: (async () => ({ ok: true, status: 200, data: [] })) as ShellServices['api'],
   navigate: () => {}, detailLoaded: () => {},
   getOppLoadedRevision: () => 1, canEditFields: () => true,
@@ -60,7 +61,7 @@ const services: ShellServices = {
   staleWriteHtml: () => null,
   setContactReturnView: () => {},
   confirmDiscard: (p: () => void) => { p() },
-}
+})
 
 const mount = async () => {
   document.body.innerHTML = '<div id="host"></div>'

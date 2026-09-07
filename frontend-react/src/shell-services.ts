@@ -95,6 +95,35 @@ export interface ShellServices {
    */
   staleWriteHtml(recordId: string): string | null
   /**
+   * ── TWO SHELL FACTS THE STAGE PANEL CANNOT DERIVE ────────────────────
+   *
+   * Round 7 Phase 2d. Both are C1-pattern seams: the shell owns the answer
+   * and a bundle cannot reach it.
+   *
+   * `usesWorkflow` decides whether the PRE-WORKFLOW approve control may be
+   * clicked at all. It is published on `window` by an index.html module
+   * deliberately, and Verification 41 records why: app.js reads it at the two
+   * sites that decide whether the superseded control still applies to a
+   * record type, and removing it left that control reading undefined.
+   *
+   * A SECOND DERIVATION HERE WOULD BE VERIFICATION 20 EXACTLY - the same list
+   * the server branches on, written down twice. Defaults FALSE when the shell
+   * has none, which offers the old control on a record type that may not want
+   * it, so the caller passes it explicitly rather than relying on the default.
+   */
+  usesWorkflow(recordType: string): boolean
+  /**
+   * The stage transition, which is the shell's and stays the shell's.
+   *
+   * The fourth argument is the RECORD KIND. It read as an element id for
+   * several rounds and never was one - the transition only ever compared it,
+   * and no element of that id exists - so the parameter is named for what it
+   * is here rather than carrying a comment explaining what it is not.
+   */
+  attemptTransition(
+    recordId: string, nextStage: string, recordType: string, currentStage: string,
+  ): void
+  /**
    * ── C1, THE SEAM THAT REPLACES A LEXICAL READ ────────────────────────
    *
    * `frontend/app.js` bound its Contact back button to `cdReturnView`, a `let`
@@ -144,6 +173,11 @@ type ShellWindow = Window & {
   detailLoaded?: (view: string) => void
   getOppLoadedRevision?: () => number | null
   canEditFields?: () => boolean
+  usesWorkflow?: (recordType: string) => boolean
+  attemptTransition?: (
+    recordId: string, nextStage: string, feedbackId: string,
+    recordType: string, currentStage: string,
+  ) => void
   requestChangeReason?: (opts: ChangeReasonOptions) => void
   currentSession?: { user?: { email?: string } } | null
   staleWriteHtml?: (recordId: string) => string
@@ -212,6 +246,20 @@ export const shellServices: ShellServices = {
   staleWriteHtml(recordId: string): string | null {
     const fn = w().staleWriteHtml
     return typeof fn === 'function' ? fn(recordId) : null
+  },
+  usesWorkflow(recordType: string): boolean {
+    const fn = w().usesWorkflow
+    return typeof fn === 'function' ? !!fn(recordType) : false
+  },
+  attemptTransition(
+    recordId: string, nextStage: string, recordType: string, currentStage: string,
+  ): void {
+    const fn = w().attemptTransition
+    // The feedback element id is the shell's own and is passed positionally by
+    // the vanilla. Named here so a reader does not have to find it.
+    if (typeof fn === 'function') {
+      fn(recordId, nextStage, 'tb-next-stage-feedback', recordType, currentStage)
+    }
   },
   // NOT guarded with a throw. The shell reads this through its own guarded
   // accessor with a default, so a shell that never asks is a shell whose back

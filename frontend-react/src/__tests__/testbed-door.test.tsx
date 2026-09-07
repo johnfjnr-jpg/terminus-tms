@@ -26,6 +26,7 @@
 // improvement over the vanilla, recorded here and in the report rather than
 // slipped in.
 import { describe, test, expect, beforeEach } from 'vitest'
+import { shellServices } from './fixtures'
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { TestBedPanel } from '../testbed/TestBedPanel'
@@ -37,7 +38,7 @@ let host: HTMLElement
 let root: Root
 let canEdit: boolean | 'absent' = true
 
-const services = (): ShellServices => ({
+const services = (): ShellServices => shellServices({
   api: (async () => ({ ok: true, status: 200, data: {} })) as ShellServices['api'],
   navigate: () => {},
   detailLoaded: () => {},

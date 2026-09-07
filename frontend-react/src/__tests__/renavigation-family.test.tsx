@@ -14,6 +14,7 @@
 // inspected. Build discipline rule 8: fix the CLASS, not the instance the
 // failure happened to name.
 import { describe, test, expect, beforeEach, vi } from 'vitest'
+import { shellServices } from './fixtures'
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -33,7 +34,7 @@ const ACCOUNT = () => ({
   payload: { name: accountName }, parent_account_id: null,
 })
 
-const services: ShellServices = {
+const services: ShellServices = shellServices({
   api: (async (_m: string, path: string) => {
     fetches.push(path)
     if (path.includes('/terminus-staff')) return { ok: true, status: 200, data: [] }
@@ -58,7 +59,7 @@ const services: ShellServices = {
   staleWriteHtml: () => null,
   setContactReturnView: () => {},
   confirmDiscard: (p) => { p() },
-}
+})
 
 const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
 

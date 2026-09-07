@@ -269,13 +269,11 @@ test('EVERY capability renders, which is the swap gate at its floor', () => {
 // the file's own gate used: it fails when something is built AND when something
 // regresses.
 const VIEW_GAPS = [
-  'renderTestBedDetail', 'loadTestBedDetail', 'renderTestBedDocuments',
-  'renderTbClosedPanel', 'renderTbStageApprovals', 'confirmStageDocument',
-  'tbLandOnStageAfterLoad', 'convertTestBed', 'wireTbNextStageButton',
-  'saveStageDocumentUrl', 'tbArrivingFresh', 'applyConfirmedApproval',
-  'refreshTbStagePanels', 'wireTestBedConvertOnce', 'resetTestBedConvertForm',
-  'tbDocKey', 'tbNextStageState', 'currentTestBed', 'tbDetailStages',
-  'tbFreshNavigation',
+  'renderTestBedDetail', 'loadTestBedDetail', 'confirmStageDocument',
+  'saveStageDocumentUrl', 'applyConfirmedApproval', 'refreshTbStagePanels',
+  'tbLandOnStageAfterLoad', 'tbArrivingFresh', 'tbFreshNavigation',
+  'currentTestBed', 'tbDetailStages',
+  'convertTestBed', 'wireTestBedConvertOnce', 'resetTestBedConvertForm',
 ].sort()
 
 test('the app.js view gaps are EXACTLY the recorded ones', () => {

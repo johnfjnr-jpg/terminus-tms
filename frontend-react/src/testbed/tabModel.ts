@@ -99,3 +99,22 @@ export function nextStageState(
     label: 'Next Stage',
   }
 }
+
+/**
+ * X1: THE NEXT STAGE IS THE ONE AFTER THE RECORD'S STATUS IN SORT ORDER.
+ *
+ * Sorted here rather than trusting the route's array order, so a route that
+ * changed its ordering could not silently change which stage comes next.
+ * Absent at the end, which is what T7's `Final stage` label reads.
+ */
+export function nextStageFor(
+  stages: ReadonlyArray<{ stage_name: string, sort_order: number }>,
+  status: string | null | undefined,
+): { currentStage: string, nextStage: string | null } {
+  const ordered = [...stages].sort((a, b) => a.sort_order - b.sort_order)
+  const i = ordered.findIndex((s) => s.stage_name === status)
+  return {
+    currentStage: status ?? '',
+    nextStage: i < 0 ? null : (ordered[i + 1]?.stage_name ?? null),
+  }
+}

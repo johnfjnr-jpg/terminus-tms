@@ -5,6 +5,7 @@
 // see. The surface tests assert what the panel HANDS to onSave; nothing
 // asserted what the host then SENDS. Verification 51.
 import { describe, test, expect, beforeEach, vi } from 'vitest'
+import { shellServices } from './fixtures'
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { ReferenceHost } from '../reference/ReferenceHost'
@@ -36,7 +37,7 @@ const OPP = {
   created_at: '2026-03-04T10:00:00.000Z',
 }
 
-const services: ShellServices = {
+const services: ShellServices = shellServices({
   api: (async (m: string, path: string, body?: unknown) => {
     if (path.includes('close-date-move')) { posts.push({ path, body }); return closeDateReply }
     if (path.includes('key-contacts')) return { ok: true, status: 200, data: [] }
@@ -55,7 +56,7 @@ const services: ShellServices = {
   staleWriteHtml: () => null,
   setContactReturnView: () => {},
   confirmDiscard: (p: () => void) => { p() },
-}
+})
 
 const mount = async (opp: typeof OPP = OPP) => {
   currentOpp = opp

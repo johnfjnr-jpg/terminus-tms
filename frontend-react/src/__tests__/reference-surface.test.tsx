@@ -4,6 +4,7 @@
 // requirement: a not-mine record refuses every row including keyboard and
 // seed; a mine record refuses none; an absent registry fails closed.
 import { describe, test, expect, beforeEach, vi } from 'vitest'
+import { shellServices } from './fixtures'
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { ReferencePanel } from '../reference/ReferencePanel'
@@ -33,7 +34,7 @@ const LINKS: KcLink[] = [{
   stance_id: null, stance_note: null, linked_at: '2026-03-04',
 }]
 
-const shell = (canEdit: boolean | 'absent'): ShellServices => ({
+const shell = (canEdit: boolean | 'absent'): ShellServices => shellServices({
   api: (async (method: string, path: string, body?: unknown) => {
     apiCalls.push({ method, path, body })
     return { ok: true, status: 200, data: [] }
@@ -331,7 +332,7 @@ describe('D: the ownership door', () => {
     // Behaviour 2's own note: the door has no timing dependency, unlike the CSS
     // and the sweep. A value read once at render would reintroduce one.
     let allowed = false
-    const services: ShellServices = { ...shell(true), canEditFields: () => allowed }
+    const services: ShellServices = shellServices({ ...shell(true), canEditFields: () => allowed })
     document.body.innerHTML = '<div id="host"></div>'
     host = document.getElementById('host')!
     root = createRoot(host)

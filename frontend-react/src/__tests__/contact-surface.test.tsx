@@ -3,6 +3,7 @@
 // Derived from the Phase 0 census, its live second instrument, and the Qualify
 // enumeration. `frontend/contact-detail.js` was not opened while writing these.
 import { describe, test, expect, beforeEach, vi } from 'vitest'
+import { shellServices } from './fixtures'
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { ContactHost, returnViewFor, WRITABLE_ELSEWHERE } from '../contact/ContactHost'
@@ -36,7 +37,7 @@ const CONTACT = {
 }
 
 let current = CONTACT
-const services: ShellServices = {
+const services: ShellServices = shellServices({
   api: (async (m: string, path: string, body?: unknown) => {
     if (path.includes('/industries')) return { ok: true, status: 200, data: INDUSTRIES }
     if (path.includes('/transition')) { transitions.push(body); return transitionReply }
@@ -53,7 +54,7 @@ const services: ShellServices = {
   staleWriteHtml: () => null,
   setContactReturnView: () => {},
   confirmDiscard: (p: () => void) => { p() },
-}
+})
 
 const mount = async (c = CONTACT) => {
   current = c

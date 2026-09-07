@@ -610,3 +610,134 @@ nothing rather than as `{}`**.
 
 **H6. A FAILED LOAD SAYS SO** - *Unable to load history.* - and does not render
 the notice, because there is nothing to caveat.
+
+---
+
+# Addendum, 2026-09-07 (seventh entry): WHAT BLOCKS THE WALK, enumerated before build
+
+**Round 7 Phase 2d, session 1.** The four `app.js` names the stage panel starves
+on, enumerated from the vanilla: the documents panel's content, the approvals
+panel's content, the terminal panel's content, and the Next Stage action.
+
+---
+
+## M. THE DOCUMENTS PANEL (`renderTestBedDocuments`, 92 lines)
+
+**M1. ONE PANEL BUILT FROM BOTH ENDPOINT KEYS**, which is what merging the two
+panels meant. `reference_docs` is the stage's configured CATALOGUE and the
+authoritative answer to *what documents belong to this stage*.
+`completable_documents` is the per-document STATE - status, stored URL, and
+whether a gate rule makes it confirmable - derived from `stage_gate_rules`.
+
+**M2. UNIONED BY NAME, NEVER INTERSECTED, AND THE REASON IS THE RULE.** The two
+tables hold document names as independent free strings with nothing aligning
+them. **Intersecting would make a mismatch INVISIBLE** - the document would
+silently vanish from the panel. A union shows it, and **a document listed with
+no Confirm control is a legible symptom of exactly that misalignment**.
+
+**M3. THREE STATUSES, from `current_status`**: `approved` reads *Approved*, any
+other truthy value reads *Started*, absent reads *Not started*.
+
+**M4. A DOCUMENT WITH NO GATE RULE IS CATALOGUE-ONLY.** Listed because the stage
+owns it, but nothing about it releases a transition, so it gets **no Confirm
+control** and says *Not gated*.
+
+**M5. AN APPROVED DOCUMENT GETS NO CONFIRM EITHER**, because there is nothing
+left to confirm. Distinct from M4: one has no gate, the other has passed it.
+
+**M6. THE ROW KEY IS A SLUG OF THE NAME**, spaces to hyphens and every other
+non-alphanumeric dropped. It keys the row, the URL box and the feedback line.
+
+**M7. A URL BOX PER ROW**, prefilled from `document_location`, saved on change.
+
+**M8. THE THREE OUTCOMES ARE DISTINCT.** A failed load says *Could not load
+documents.* and marks the panel FAILED, so no `data-stage` is set. An empty
+configured list says *No documents configured for this stage.* and marks it
+SETTLED, because that IS this stage's answer. Rows mark it settled too.
+
+---
+
+## A. THE APPROVALS PANEL (`renderTbStageApprovals`, 45) AND THE SHARED TRACK LIST
+
+**A1. ONE GET of `stage-approvals`, and the panel finds THIS stage's entry** in
+the returned list. `buildStageTracks` on the server derives the list from the
+stage's own `approval_obtained` rules, so the panel is already scoped correctly.
+
+**A2. AN UNKNOWN STAGE SAYS SO** rather than rendering an empty row.
+
+**A3. NO TRACKS SAYS *No approvals required for this stage.*** Distinct from A2:
+the stage is known and genuinely requires nothing.
+
+**A4. `recordType` IS REQUIRED AND THROWS WITHOUT IT.** It decides whether the
+pre-workflow approve control may be clicked, and **a default would hide a missed
+call site** - the vanilla throws by hand for exactly this reason.
+
+**A5. CLICKABLE ONLY WHEN ALL FOUR HOLD**: the record type does not use the
+workflow, the stage is `current`, the track is not approved, and its scope is
+not `version`.
+
+**A6. A VERSION-SCOPED TRACK IS NEVER CLICKABLE, AND SAYS WHICH VERSION.** Its
+sign-off is collected against an issued major version, not by clicking a stage
+row, and offering the control would send somebody to a route that cannot record
+what they meant. **"Approved" without naming what was approved is the claim this
+model exists to make precise.**
+
+**A7. `t.scope` COMES FROM THE RULE THE GATE READS.** Inferring it from the stage
+name would state the model in a second place - Verification 43.
+
+**A8. THE META LINE HAS FOUR SHAPES**: version-scoped approved names the version
+and the stage; version-scoped unapproved carries the rule's own reason;
+ordinary approved gives the date; ordinary unapproved says *Click to approve*,
+*Decided on the transition request*, or *Not yet at this stage* by state.
+
+**A9. BUILT AS A SHARED COMPONENT.** `buildStageTrackListHtml` serves the
+Opportunity too. The React component is consumed by the Test Bed host in this
+session; **the Opportunity's consumption is a follow-on re-point, recorded, not
+duplicated** (Verification 20: a second implementation agrees today).
+
+---
+
+## Z. THE CLOSED PANEL (`renderTbClosedPanel`, 47)
+
+**Z1. ITS OWN ROUTE**, `GET /api/test-beds/:id/lifecycle-documents`, not the
+per-stage one.
+
+**Z2. READ-ONLY IS STRUCTURAL, NOT COSMETIC.** No Confirm control and no
+editable URL **because the endpoint returns nothing either could act on** - no
+gate rule, no required_status. A closed Test Bed's documents ARE the record, and
+altering them after closure undermines the audit trail. The backward transition
+path is how something changes, and it records the move as a regression.
+
+**Z3. GROUPED BY STAGE IN LIFECYCLE ORDER**, because a flat list of nine
+documents loses the shape of what happened. **A stage that produced no documents
+is OMITTED rather than shown empty.**
+
+**Z4. IT DEGRADES HONESTLY.** A Test Bed can reach Closed with documents missing
+via the backward transition path, so the count is **stated rather than implied**:
+*All N documents produced* when they match, otherwise *N of M produced. K were
+never recorded.*
+
+**Z5. A DOCUMENT NEVER PRODUCED SAYS SO** rather than rendering a blank row that
+reads like a missing URL. A produced document with no URL says that instead.
+
+**Z6. ITS OWN PENDING CONTRACT.** `dataset.pending` while loading and
+`dataset.record` once shown, cleared on failure - the same discipline as the
+stage panels, on a different attribute because it is a different question.
+
+---
+
+## X. THE NEXT STAGE ACTION (`wireTbNextStageButton` + `tbNextStageState`, 23)
+
+**X1. THE NEXT STAGE IS THE ONE AFTER THE RECORD'S STATUS IN SORT ORDER**, read
+from the stage list. Absent at the end, which is what T7's *Final stage* label
+reads.
+
+**X2. THE FEEDBACK AREA IS CLEARED WHEN THE STATE IS WIRED**, not when the
+button is clicked.
+
+**X3. THE CLICK CARRIES THE RECORD KIND AS ITS FOURTH ARGUMENT.** It read as an
+element id and never was one: the transition only ever compared it, and no
+element of that id exists. Recorded because the shape invites the old reading.
+
+**X4. T7 ALREADY DECIDES ENABLEMENT** and is built and injection-covered. This
+is the ACTION only, which is why the gap is 23 lines rather than 84.
