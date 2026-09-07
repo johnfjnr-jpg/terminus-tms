@@ -107,8 +107,10 @@ function register(view: string, render: (id: string, navToken: number) => React.
   }
 }
 
-window.loadApprovalPage = register(APPROVAL_VIEW, (id) => <ApprovalView oppId={id} />)
-window.loadAccountDetail = register(ACCOUNT_VIEW, (id) => <AccountView accountId={id} />)
+window.loadApprovalPage = register(APPROVAL_VIEW,
+  (id, navToken) => <ApprovalView oppId={id} navToken={navToken} />)
+window.loadAccountDetail = register(ACCOUNT_VIEW,
+  (id, navToken) => <AccountView accountId={id} navToken={navToken} />)
 // ── THE CONTACT VIEW, Round 6 Phase 2 ────────────────────────────────────
 //
 // A whole-view migration like the two above, so createRoot owns

@@ -61,9 +61,9 @@ function Card({ id, eyebrow, children }: { id: string; eyebrow: string; children
   )
 }
 
-export function ApprovalView({ oppId }: { oppId: string }) {
+export function ApprovalView({ oppId, navToken }: { oppId: string, navToken?: number }) {
   const shell = useShell()
-  const { data, isPending, isError, error } = useQuery(approvalPageQuery(shell, oppId))
+  const { data, isPending, isError, error, refetch } = useQuery(approvalPageQuery(shell, oppId))
 
   // ── detailLoaded FIRES ON EVERY EXIT PATH ──────────────────────────────
   //
@@ -73,9 +73,29 @@ export function ApprovalView({ oppId }: { oppId: string }) {
   // success and failure with one condition rather than two call sites that
   // could drift apart. main.tsx covers the two paths that never reach here at
   // all: no container, and a mount that throws.
+  // ── EVERY NAVIGATION, NOT EVERY STATE CHANGE. Round 6 Phase 2b ────────
+  //
+  // NO DEPENDENCY ARRAY, and that is the fix. main.tsx's root.render()
+  // RE-RENDERS this component rather than mounting a new one, so navigating to
+  // a record whose query is already cached leaves the settled flag true from
+  // the first render: the dependency never changes, the effect never re-runs,
+  // and detailLoaded is never called for that navigation - while app.js has
+  // just set is-loading expecting it cleared.
+  //
+  // MEASURED, not inferred: renavigation-family.test.tsx drove this view
+  // through a repeat navigation and counted ONE detailLoaded across two.
+  // Found on the Contact view in Phase 2 and fixed as a CLASS here, because
+  // build discipline rule 8 is that a fix is scoped to what the event did
+  // rather than to the instance the failure happened to name.
   useEffect(() => {
     if (!isPending) shell.detailLoaded(VIEW)
-  }, [isPending, shell])
+  })
+
+  // AND THE APPROVAL STATE IS RE-READ, for the same reason and with more at
+  // stake: this page shows who has approved what, and serving a cached answer
+  // to somebody deciding whether to approve is the wrong-green Round 38
+  // recorded.
+  useEffect(() => { if (navToken !== undefined) void refetch() }, [navToken, refetch])
 
   if (isPending) {
     return <Frame oppId={oppId}><p className="pg-item-note">Loading the approval page…</p></Frame>

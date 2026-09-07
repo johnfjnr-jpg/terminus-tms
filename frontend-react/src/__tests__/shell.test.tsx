@@ -183,3 +183,56 @@ declare global {
     loadAccountDetail?: (id: string) => void
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+// THE NAVIGATION TOKEN. Round 6 Phase 2b
+// ─────────────────────────────────────────────────────────────────────────
+//
+// FOUND BY A SILENT INJECTION. The re-navigation family's calibration froze
+// `navToken` in main.tsx and NOTHING failed, because every one of those tests
+// passes the token in as a prop and none of them goes through register(). The
+// silence named a claim that was true, relied on by three views, and asserted
+// nowhere. Verification 51.
+//
+// The claim: each call of a registered loader gives its view a DIFFERENT token,
+// including a repeat call for the same record - which is the whole point, since
+// a repeat navigation is where the family bites.
+describe('register gives every navigation its own token', () => {
+  test('a repeat call for the SAME id still gets a new token', async () => {
+    // ── WHAT TO MEASURE, corrected twice ─────────────────────────────────
+    //
+    // First written against detailLoaded, which fires on EVERY render because
+    // its effect has no dependency array - so freezing the token changed
+    // nothing and the injection came back silent a second time. The token's
+    // only observable effect is the REFETCH, so that is what this counts.
+    //
+    // Verification 51 twice over on one claim: the first silence found that
+    // nothing asserted the token at all, and the second found that the
+    // assertion I wrote could not see it.
+    const paths: string[] = []
+    installShell(async (_m: string, p: string) => {
+      paths.push(p)
+      if (p.includes('/terminus-staff')) return { ok: true, data: [] }
+      return { ok: true, data: { id: 'a-1', payload: { name: 'N' }, revision_number: 1 } }
+    })
+    await import('../main')
+    if (!document.getElementById('view-account-detail')) {
+      const d = document.createElement('div')
+      d.id = 'view-account-detail'
+      document.body.appendChild(d)
+    }
+
+    const fetches = () => paths.filter((p) => p.includes('/accounts/')).length
+    window.loadAccountDetail?.('a-1')
+    await settle(); await settle(); await settle()
+    const afterFirst = fetches()
+    expect(afterFirst, 'the first navigation never fetched').toBeGreaterThan(0)
+
+    window.loadAccountDetail?.('a-1')
+    await settle(); await settle(); await settle()
+    expect(fetches(),
+      'the second navigation to the same id fetched nothing, which means '
+      + 'register handed out the same token and no view can tell one '
+      + 'navigation from the next').toBeGreaterThan(afterFirst)
+  })
+})

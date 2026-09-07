@@ -27,7 +27,7 @@ const formatDate = (iso: string | null | undefined): string => {
     : d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
-export function AccountView({ accountId }: { accountId: string }) {
+export function AccountView({ accountId, navToken }: { accountId: string, navToken?: number }) {
   const shell = useShell()
   const qc = useQueryClient()
 
@@ -93,9 +93,29 @@ export function AccountView({ accountId }: { accountId: string }) {
 
   useEffect(() => { if (nameOpen) nameInputRef.current?.focus() }, [nameOpen])
 
-  // detailLoaded on EVERY exit path. Round 41 item K.
+  // ── EVERY NAVIGATION, NOT EVERY STATE CHANGE. Round 6 Phase 2b ────────
+  //
+  // NO DEPENDENCY ARRAY, and that is the fix. main.tsx's root.render()
+  // RE-RENDERS this component rather than mounting a new one, so navigating to
+  // a record whose query is already cached leaves the settled flag true from
+  // the first render: the dependency never changes, the effect never re-runs,
+  // and detailLoaded is never called for that navigation - while app.js has
+  // just set is-loading expecting it cleared.
+  //
+  // MEASURED, not inferred: renavigation-family.test.tsx drove this view
+  // through a repeat navigation and counted ONE detailLoaded across two.
+  // Found on the Contact view in Phase 2 and fixed as a CLASS here, because
+  // build discipline rule 8 is that a fix is scoped to what the event did
+  // rather than to the instance the failure happened to name.
   const settled = !account.isPending
-  useEffect(() => { if (settled) shell.detailLoaded(VIEW) }, [settled, shell])
+  useEffect(() => { if (settled) shell.detailLoaded(VIEW) })
+
+  // AND THE RECORD IS RE-READ. useQuery sees no new observer on a re-render,
+  // so it served the cached Account and a rename made anywhere else stayed
+  // invisible. Keyed on navToken, which changes on every navigation including
+  // a repeat one.
+  const refetchAccount = account.refetch
+  useEffect(() => { if (navToken !== undefined) void refetchAccount() }, [navToken, refetchAccount])
 
   if (account.isPending) {
     return <Frame><p className="pg-item-note">Loading the Account…</p></Frame>
