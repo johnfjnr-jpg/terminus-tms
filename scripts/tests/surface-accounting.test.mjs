@@ -28,22 +28,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
+import { topLevelNames } from '../lib/top-level-names.mjs'
 
 const ROOT = new URL('../../', import.meta.url)
-
-/** Every top-level name, by every declaration form the file uses. */
-export function topLevelNames(source) {
-  const out = []
-  for (const [i, line] of source.split('\n').entries()) {
-    let m = line.match(/^(?:async\s+)?function\s+([A-Za-z0-9_$]+)/)
-    if (m) { out.push({ name: m[1], form: 'function', line: i + 1 }); continue }
-    m = line.match(/^window\.([A-Za-z0-9_$]+)\s*=\s*(?:async\s+)?function/)
-    if (m) { out.push({ name: m[1], form: 'window', line: i + 1 }); continue }
-    m = line.match(/^(const|let|var)\s+([A-Za-z0-9_$]+)/)
-    if (m) out.push({ name: m[2], form: m[1], line: i + 1 })
-  }
-  return out
-}
 
 // ── THE CONTACT SURFACE'S CAPABILITIES ──────────────────────────────────
 //

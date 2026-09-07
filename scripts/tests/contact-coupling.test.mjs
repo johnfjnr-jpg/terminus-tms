@@ -139,6 +139,11 @@ const STRINGS = {
   'frontend-react/src/shell-services.ts': 'PROSE. The C1 seam comment naming where cdReturnView lived.',
   'frontend-react/src/__tests__/contact-surface.test.tsx': 'PROSE. The derivation note.',
   'frontend-react/src/__tests__/contact-blocking.test.ts': 'PROSE. The derivation note.',
+  'scripts/lib/top-level-names.mjs':
+    'PROSE. The parser\'s own comment cites contact-detail.js as the file whose '
+    + 'fifteen window.X globals the keyword-anchored scan missed - the reason '
+    + 'the window branch no longer asks what is being assigned. Evidence for '
+    + 'the rule, not a dependency, and it outlives the file.',
 }
 
 test('every STRING mention of the surface has a disposition', () => {
