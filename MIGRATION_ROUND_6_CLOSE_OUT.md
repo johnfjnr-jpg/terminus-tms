@@ -261,6 +261,21 @@ Contact.
 
 ## Gate
 
-See the closing section.
+**All 21 stages passed** on `1c571d7`, the tree this close-out landed on, clean.
+
+Pure 469/469, database 94/94, react 580/580, all 0 fail, typecheck clean, and 14
+HTTP probes. Every figure parsed from the run rather than typed.
+
+The pure suite grew from 452 to 469 and the react suite from 485 to 580 across
+the round.
+
+**And what a green gate still does not mean here, stated because this round is
+the proof.** Every stage passed on the Phase 2 tree too - with two fifths of the
+Contact surface missing. Nothing in this gate asks what a screen HAS; it asks
+whether what is there behaves. The gap was found by a screenshot and a line
+count, and the instrument that would have found it earlier is forty lines that
+did not exist until Phase 2b.
+
+Transcript: `.verify/verify-1203432715205583.txt`
 
 **Not pushed. The round closes on John's word.**
