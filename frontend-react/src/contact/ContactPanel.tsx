@@ -32,7 +32,7 @@ function Card({ title, testId, blocked, children }: {
   )
 }
 
-export function ContactPanel({ source, blocking, accountName, onSave, onDirtyChange, onBack, actions, linkPanel }: {
+export function ContactPanel({ source, blocking, accountName, onSave, onDirtyChange, onBack, actions, linkPanel, notes, status }: {
   source: ContactSource
   blocking: BlockingState | null
   accountName: string | null
@@ -41,6 +41,10 @@ export function ContactPanel({ source, blocking, accountName, onSave, onDirtyCha
   onDirtyChange?: (dirty: boolean) => void
   /** Where Back goes. Owned here, because React owns this container. */
   onBack?: () => void
+  /** The notes history, owned by the host because its write is its own. */
+  notes?: ReactNode
+  /** The status tag the vanilla shows beside the name. */
+  status?: string | null
   /** The stage actions, owned by the host: Qualify, Park, Unqualify, Delete. */
   actions?: ReactNode
   /** The link-account panel, owned by the host because linking is its own write. */
@@ -86,8 +90,15 @@ export function ContactPanel({ source, blocking, accountName, onSave, onDirtyCha
       <div className="cd-header" data-testid="cd-header">
         <button className="btn-text" id="btn-back-contact-detail" type="button"
           data-testid="cd-back" onClick={() => onBack?.()}>Back</button>
-        <div className="cd-eyebrow" data-testid="cd-eyebrow">Contact</div>
+        {/* THE EYEBROW FOLLOWS THE STAGE, as the vanilla's does: an
+            unqualified contact is a LEAD and says so. */}
+        <div className="cd-eyebrow" data-testid="cd-eyebrow">
+          {status === 'Qualified' ? 'Contact' : status === 'Parked' ? 'Parked lead' : 'Lead'}
+        </div>
         {row('name')}
+        {status
+          ? <span className="tag" data-testid="cd-status">{status.toUpperCase()}</span>
+          : null}
         <div className="cd-company-subtitle" data-testid="cd-company">
           {accountName ?? source.payload.company as string ?? ''}
         </div>
@@ -111,6 +122,8 @@ export function ContactPanel({ source, blocking, accountName, onSave, onDirtyCha
       <Card title="Summary" testId="cd-card-summary">
         {row('summary')}
       </Card>
+
+      {notes}
 
       {actions}
 

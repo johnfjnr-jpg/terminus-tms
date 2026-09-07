@@ -9,6 +9,11 @@ import { contactDescriptors } from './descriptors'
 import { clearResolved, forRecord, unplaceable, type BlockingState, type Blocker } from './blocking'
 import { useShell } from '../ShellContext'
 import { LinkAccountPanel, type AccountOption } from './LinkAccountPanel'
+import { NotesHistory } from './NotesHistory'
+import { ParkForm } from './ParkForm'
+import { StageActions } from './StageActions'
+import { AccountDetailsModal, type AccountDetailsMode } from './AccountDetailsModal'
+import { note, prepend, parkNoteText, type Note } from './notes'
 import type { LookupOption } from '../field-row/types'
 
 interface ContactLike {
@@ -83,6 +88,11 @@ export function ContactHost({ contact, registerReload }: {
   const [industries, setIndustries] = useState<LookupOption[]>([])
   const [accounts, setAccounts] = useState<AccountOption[]>([])
   const [dirty, setDirty] = useState(false)
+  const [parkOpen, setParkOpen] = useState(false)
+  const [parkError, setParkError] = useState<string | null>(null)
+  const [modal, setModal] = useState<AccountDetailsMode>(null)
+  const [modalPrefill, setModalPrefill] = useState('')
+  const [modalError, setModalError] = useState<string | null>(null)
   const [blocking, setBlocking] = useState<BlockingState | null>(null)
   const [feedback, setFeedback] = useState<{ text: string | null, html?: string | null, ok: boolean } | null>(null)
 
@@ -161,12 +171,13 @@ export function ContactHost({ contact, registerReload }: {
     if (!sentences.length) return
 
     // ONE NOTE PER SAVE SESSION, not one per changed field: every change
-    // sentence joined into a single Notes History entry, prepended.
-    const notes = [
-      { text: sentences.join(' '), at: new Date().toISOString(), by: shell.currentUserEmail() },
-      ...((record.payload?.notes as unknown[]) ?? []),
-    ]
-    body.payload = { ...payloadUpdate, notes }
+    // sentence joined into a single Notes History entry, prepended through the
+    // shared writer - N4, one list and three authors.
+    body.payload = {
+      ...payloadUpdate,
+      notes: prepend(note(sentences.join(' '), shell.currentUserEmail(), new Date().toISOString()),
+        record.payload?.notes as Note[] | undefined),
+    }
 
     const r = await shell.api<{ error?: string }>('PATCH', `/api/contacts/${contact.id}`, {
       ...body,
@@ -202,6 +213,85 @@ export function ContactHost({ contact, registerReload }: {
     await load()
   }
 
+  const notes = (record.payload?.notes as Note[] | undefined) ?? []
+
+  /** N4 to N7: a manual note, on the same list and the same handshake. */
+  const addNote = async (text: string): Promise<boolean> => {
+    const r = await shell.api<{ error?: string }>('PATCH', `/api/contacts/${contact.id}`, {
+      payload: { notes: prepend(note(text, shell.currentUserEmail(), new Date().toISOString()), notes) },
+      expected_revision: Number.isInteger(record.latest_revision_number)
+        ? record.latest_revision_number : undefined,
+    })
+    if (!r.ok) {
+      // N6: a 409 RELOADS and keeps the typed text. The reload shows the note
+      // that beat this one and re-arms the screen with a current revision, so
+      // a second click lands. Losing what the person typed at that moment
+      // would be the worst possible answer to a race.
+      if (r.status === 409) await load()
+      else setFeedback({ text: r.data?.error ?? 'The note could not be saved.', ok: false })
+      return false
+    }
+    await load()
+    return true
+  }
+
+  /** P2: TWO writes in order, and the note goes FIRST. */
+  const park = async (date: string, reason: string) => {
+    setParkError(null)
+    const r = await shell.api<{ error?: string }>('PATCH', `/api/contacts/${contact.id}`, {
+      payload: {
+        followUpDate: date,
+        notes: prepend(note(parkNoteText(date, reason), shell.currentUserEmail(),
+          new Date().toISOString()), notes),
+      },
+      expected_revision: Number.isInteger(record.latest_revision_number)
+        ? record.latest_revision_number : undefined,
+    })
+    if (!r.ok) {
+      setParkError(r.status === 409
+        ? 'This Contact changed since the screen loaded. Reload before parking.'
+        : (r.data?.error ?? 'Failed to save.'))
+      return
+    }
+    const t = await shell.api<{ error?: string }>(
+      'POST', `/api/records/${contact.id}/transition`, { to_stage: 'Parked' })
+    // P5: a failed transition reports IN THE FORM, which stays open - and the
+    // reason is already recorded, which is why the note is written first.
+    if (!t.ok) { setParkError(t.data?.error ?? 'Failed to park.'); return }
+    setParkOpen(false)
+    await load()
+  }
+
+  /** U1 and U2. */
+  const unqualify = async () => {
+    const go = async () => {
+      await shell.api('POST', `/api/records/${contact.id}/transition`, { to_stage: 'Unqualified' })
+      await load()
+    }
+    if (dirty) { shell.confirmDiscard(() => { void go() }); return }
+    await go()
+  }
+
+  /** D1: delete, then back to the RETURN VIEW - a lead to leads, a contact
+   * to contacts. D2 is recorded rather than improved: a failed delete does
+   * nothing and says nothing, which is what the vanilla does. */
+  const remove = async () => {
+    const r = await shell.api('DELETE', `/api/contacts/${contact.id}`)
+    if (!r.ok) return
+    shell.navigate(returnViewFor(record.status ?? null))
+  }
+
+  /** A2's other half: creating the Account IS the link, one write. */
+  const createAccount = async (name: string, parentId: string | null) => {
+    setModalError(null)
+    const r = await shell.api<{ error?: string }>(
+      'POST', `/api/contacts/${contact.id}/link-account`,
+      { new_account_name: name, ...(parentId ? { account_details: { parent_account_id: parentId } } : {}) })
+    if (!r.ok) { setModalError(r.data?.error ?? 'Failed to create the Account.'); return }
+    setModal(null)
+    await load()
+  }
+
   const onQualify = async () => {
     setFeedback(null)
     const r = await shell.api<{ error?: string, blocking?: Blocker[] }>(
@@ -217,6 +307,18 @@ export function ContactHost({ contact, registerReload }: {
       // C2's guard, live rather than in a test: a blocker the screen cannot
       // place would otherwise tint nothing and say nothing, which is exactly
       // what a person blocked on Industry got.
+      // A2: when the Account blocks and the company matches no existing
+      // Account there is nothing to reconcile against, so the full creation
+      // form opens rather than a search that would return an empty list plus a
+      // "create" row the person has to click anyway. When it DOES match, the
+      // lighter link panel is the right one and is left to the person.
+      if (next.blockers.some((b) => b.field === 'parent_record_id')) {
+        const company = String(record.payload?.company ?? '').trim()
+        if (company && !accounts.some((a) => a.name.toLowerCase().includes(company.toLowerCase()))) {
+          setModalPrefill(company)
+          setModal('new')
+        }
+      }
       const lost = unplaceable(next, contactDescriptors(source).map((f) => f.name))
       if (lost.length) {
         setFeedback({
@@ -242,6 +344,14 @@ export function ContactHost({ contact, registerReload }: {
         // button and the shell's accessor cannot disagree about where Back
         // goes. Verification 20: one definition, two consumers.
         onBack={() => { shell.navigate(returnViewFor(record.status ?? null)) }}
+        status={record.status ?? null}
+        notes={
+          <NotesHistory
+            notes={notes}
+            onAdd={addNote}
+            hasDirtyEdits={dirty}
+            onConfirmDiscard={(proceed) => { shell.confirmDiscard(proceed) }}
+            resetKey={contact.id} />}
         linkPanel={
           <LinkAccountPanel
             contactId={contact.id}
@@ -253,10 +363,28 @@ export function ContactHost({ contact, registerReload }: {
             onConfirmDiscard={(proceed) => { shell.confirmDiscard(proceed) }}
             onLinked={() => { void load() }} />}
         actions={
-          <div className="cd-actions" data-testid="cd-actions">
-            <button type="button" id="cd-btn-qualify" data-testid="cd-btn-qualify"
-              onClick={() => { void onQualify() }}>Qualify</button>
-          </div>} />
+          <StageActions
+            status={record.status ?? null}
+            onQualify={() => { void onQualify() }}
+            onPark={() => { setParkError(null); setParkOpen(true) }}
+            onUnqualify={() => { void unqualify() }}
+            onDelete={() => { void remove() }}
+            onCreate={(kind) => { shell.navigate(kind === 'test-bed' ? 'test-beds' : 'opportunities') }} />} />
+      <ParkForm
+        open={parkOpen}
+        error={parkError}
+        hasDirtyEdits={dirty}
+        onConfirmDiscard={(proceed) => { shell.confirmDiscard(proceed) }}
+        onCancel={() => { setParkOpen(false); setParkError(null) }}
+        onSave={(d, r) => { void park(d, r) }} />
+      <AccountDetailsModal
+        mode={modal}
+        prefillName={modalPrefill}
+        viewing={record.account?.name ? { name: record.account.name } : null}
+        accounts={accounts}
+        error={modalError}
+        onClose={() => { setModal(null); setModalError(null) }}
+        onCreate={(n, pid) => { void createAccount(n, pid) }} />
       {feedback
         ? (feedback.html
           ? <div data-testid="cd-save-feedback" className="msg-error"

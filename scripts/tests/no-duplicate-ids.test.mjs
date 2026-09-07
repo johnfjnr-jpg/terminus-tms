@@ -75,15 +75,15 @@ const DISPOSED = {
     + 'inside the mounted host. Architecture 8 exactly - correct for every '
     + 'caller that exists. The day something reaches for document.getElementById '
     + '("latch-all") it gets the hidden vanilla one.',
-  'frontend-react/src/contact/ContactHost.tsx':
-    'INSIDE THE MOUNT CONTAINER, confirmed by the Phase 2 swap. This entry was '
-    + 'written in Phase 1 as a REQUIREMENT - register whole-view or rename - and '
-    + 'the swap took the first option: main.tsx does '
-    + 'register(CONTACT_VIEW, ...), so createRoot owns #view-contact-detail and '
-    + 'clears every static cd-* id on first render. The requirement is now a '
-    + 'fact, and live-form asserts the registration that makes it one.',
   'frontend-react/src/contact/ContactPanel.tsx':
     'Same as ContactHost above, and confirmed by the same swap.',
+  'frontend-react/src/contact/StageActions.tsx':
+    'Same as ContactHost: rendered inside the container createRoot owns, and '
+    + 'the ids are the vanilla\'s on purpose - a whole-view migration '
+    + 'reproduces the frame.',
+  'frontend-react/src/contact/ParkForm.tsx':
+    'Same as ContactHost. The park form renders inside the view container, so '
+    + 'its cd-park-* ids replace the static ones rather than joining them.',
   'frontend-react/src/deal/intake.tsx':
     "LATENT, and it belongs to the deal panel arrangement rather than to "
     + "this file: see the DealPanel entry. The swap HIDES the vanilla block "
