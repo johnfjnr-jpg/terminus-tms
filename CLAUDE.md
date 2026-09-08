@@ -556,6 +556,40 @@ not resolve it quietly.
    records what the dashboard will not, and under `supabase db push` the CLI
    writes the row itself and the `on conflict` makes it a no-op.
 
+   **CORRECTED 2026-09-08, AND THE SUPERSEDED REASONING IS LEFT ABOVE ON
+   PURPOSE. "SAFE UNDER BOTH PATHS" IS FALSE, AND A MIGRATION FILE MUST NOT
+   WRITE ITS OWN LEDGER ROW.**
+
+   Measured live during a `supabase db push`: the migration failed with **23505
+   at statement 7**, the whole thing rolled back, and neither function it
+   created exists. Hit twice, on `20260829000007` and on `20260908000001`,
+   deterministically.
+
+   **THE `on conflict` IS EXACTLY WHAT MAKES IT LOOK SAFE.** The CLI runs the
+   file's statements and THEN writes the ledger row **itself**, in the same
+   transaction, with an insert carrying **no conflict clause**. The file's
+   insert has already put the row there, so **it is the CLI's insert that
+   collides**. The file's own `on conflict` protects the file's statement and
+   can do nothing about the CLI's.
+
+   **So the rule inverts on the CLI path and survives on the by-hand path**,
+   which is the awkward shape and the reason this is a correction rather than a
+   deletion. The by-hand problem rule 10 was written about is real: applying
+   through the dashboard still leaves the ledger and the schema disagreeing.
+   **The answer is to record the row as a SEPARATE statement after the apply,
+   not inside the file**, because a file cannot know which path will run it.
+
+   **Verification 29's shape: a premise failed, so the decision is re-taken
+   rather than re-weighed.** The premise was "the `on conflict` makes the CLI
+   path a no-op", and nobody had run a `db push` against a file carrying one.
+
+   **AND THE EXPOSURE IS NINETEEN FILES, not the two that were hit.** Censused
+   2026-09-08, comment-stripped and calibrated: `20260829000007` and every
+   migration written since this rule was set - `20260830000001` through
+   `20260903000002` - carry the insert. All were applied by hand and are inert,
+   and **a rebuild from files would collide on each.** Carried as one item for
+   its own round rather than fixed piecemeal.
+
    **The instance is the argument.** Round 40 reconciled the directory against
    the ledger for the first time since Round 9 and found 97 of 98 in sync - and
    the single mismatch was the migration written that hour, which drifted while
@@ -2832,6 +2866,24 @@ of the change. An unanswerable precondition is a stop.
     instrument that did not run reports the same shape as one that found
     nothing - with the twist that here it reports the shape of finding
     EVERYTHING.
+
+    **AND THE COMMONEST CAUSE IS THE PERSON RUNNING IT. THE GATE IS THE FINAL
+    ACT ON THE FINAL COMMITTED TREE, WITH NOTHING ELSE RUNNING.** Set by the
+    business 2026-09-08, the convert atomicity round, after **two gates in one
+    round** were invalidated by concurrent activity on the same machine.
+
+    - One recorded three failures that were an API server being restarted and
+      three source files being edited while it ran. **Two of the three failed in
+      132ms and 509ms against normal durations of 29,062ms and 10,146ms**, so
+      the duration check above caught them - but only after they had been read
+      once as findings.
+    - The other was **green and still carried `(WORKING TREE DIRTY)`**, because
+      its own report was being written during it.
+
+    **The second breach was committed by the person writing up the first**,
+    which is why the rule is phrased as *the final act* rather than as advice
+    about editing source. A run concurrent with editing is not a weaker gate
+    run; it is not a gate run, and its green is worth no more than its red.
 
 
 49. **A CENSUS OF A RENDERED SURFACE IS TAKEN AFTER INITIALISE, COMPUTE AND

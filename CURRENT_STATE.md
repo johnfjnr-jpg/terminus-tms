@@ -12,8 +12,8 @@ Contains no environment variable, key or token, and no client data. Records
 appear as counts by status only, never by name or reference code, because
 this file is uploaded into chat sessions.
 
-- Generated at: `2026-09-08T00:05:48.149Z`
-- Git commit: `b3ccc96621543283b8a93c822c8679a0ebe69241`
+- Generated at: `2026-09-08T02:31:48.811Z`
+- Git commit: `e93ad2fb9b43721785a1393d9e83bce1cddba146`
 - Working tree at generation: `dirty (uncommitted changes present)`
 
 Staleness has two parts, and both must hold for this file to be current:
@@ -63,8 +63,8 @@ CLAUDE.md build discipline 13. These console settings are MITIGATIONS, not the c
 
 | tag | published commit | date | commits from `HEAD` | local agrees |
 |---|---|---|---|---|
-| `controls-complete` | `56b516e` | 2026-08-29 | 298 | yes |
-| `reshape-complete` | `3499884` | 2026-08-29 | 269 | yes |
+| `controls-complete` | `56b516e` | 2026-08-29 | 316 | yes |
+| `reshape-complete` | `3499884` | 2026-08-29 | 287 | yes |
 
 ## `stage_definitions`
 
@@ -360,34 +360,34 @@ _None._
 
 ## Record counts by type and status
 
-115 live, 42434 soft deleted, 42549 rows in total.
+115 live, 43194 soft deleted, 43309 rows in total.
 
 | record_type | status | live | soft deleted |
 |---|---|---|---|
 | account | Active | 0 | 6 |
-| account | active | 4 | 854 |
-| contact | Active | 0 | 909 |
+| account | active | 4 | 882 |
+| contact | Active | 0 | 927 |
 | contact | Parked | 0 | 6 |
-| contact | Qualified | 8 | 3935 |
-| contact | Unqualified | 1 | 118 |
-| document | approved | 61 | 2365 |
+| contact | Qualified | 8 | 4060 |
+| contact | Unqualified | 1 | 120 |
+| document | approved | 61 | 2389 |
 | document | received | 1 | 74 |
 | opportunity | Closed Lost | 0 | 19 |
 | opportunity | Closed Won | 2 | 7 |
-| opportunity | Evaluation | 0 | 131 |
+| opportunity | Evaluation | 0 | 137 |
 | opportunity | Negotiating | 1 | 16 |
-| opportunity | Proposal | 8 | 808 |
-| opportunity | Qualification | 6 | 2693 |
-| opportunity | Solution Alignment | 7 | 724 |
+| opportunity | Proposal | 8 | 838 |
+| opportunity | Qualification | 6 | 2806 |
+| opportunity | Solution Alignment | 7 | 747 |
 | test_bed | Closed | 5 | 9 |
 | test_bed | Installation and Commissioning | 1 | 29 |
 | test_bed | Monitoring and Analysis | 0 | 1 |
 | test_bed | Pre-Site Assessment | 0 | 8 |
-| test_bed | Qualification | 1 | 765 |
+| test_bed | Qualification | 1 | 796 |
 | test_bed | Review and Completion | 1 | 0 |
 | test_bed | Site Assessment | 1 | 17 |
 | unit | Installed | 4 | 3 |
-| unit | Planned | 3 | 7706 |
+| unit | Planned | 3 | 7820 |
 | unit | Removed | 0 | 1 |
 
 ### Test fixture record types
@@ -398,19 +398,19 @@ row by row, and are included in the totals above.
 
 | distinct `harness_*` record types | live rows | soft deleted rows |
 |---|---|---|
-| 2674 | 0 | 21230 |
+| 2704 | 0 | 21476 |
 
 No harness record type holds a live row; every fixture row is soft deleted.
 
 ## `approvals`
 
-2732 rows, of which 0 carry a null `stage`.
+2810 rows, of which 0 carry a null `stage`.
 
 | decision | track | rows | null stage |
 |---|---|---|---|
-| approved | Commercial | 1398 | 0 |
-| approved | Legal | 712 | 0 |
-| approved | Technical | 617 | 0 |
+| approved | Commercial | 1434 | 0 |
+| approved | Legal | 736 | 0 |
+| approved | Technical | 635 | 0 |
 | rejected | Commercial | 1 | 0 |
 | rejected | Finance | 4 | 0 |
 
@@ -536,7 +536,7 @@ than written as a literal list, so its members are not enumerable here.
 
 ## Migrations, in filename order
 
-116 files in `supabase/migrations/`.
+117 files in `supabase/migrations/`.
 
 1. `20260801000000_initial_schema.sql`
 2. `20260802000000_lead_opportunity.sql`
@@ -654,6 +654,7 @@ than written as a literal list, so its members are not enumerable here.
 114. `20260902000005_a_review_collects_the_version_tracks.sql`
 115. `20260903000001_probability_is_derived_at_every_transition.sql`
 116. `20260903000002_a_pricing_approval_closes.sql`
+117. `20260908000001_convert_is_one_transaction.sql`
 
 ## Seed files, in application order
 
