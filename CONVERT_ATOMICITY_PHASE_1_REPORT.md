@@ -448,3 +448,33 @@ node scripts/convert-atomicity/probe-conversion-limit.mjs after
 | the reference-code collision (§2) | not destroying live data; not introduced by this round; the fix changes a Milestone 5 decision |
 | no route soft-deletes an Opportunity (§2) | scope beyond the brief |
 | the Phase 2 item R6 already names | the walk teardown, per ruling 6 |
+
+---
+
+## 11. The gate
+
+Run to completion on the committed tree and captured to a file, which is then
+read. Every number below is the gate's own, emitted per stage.
+
+```
+MERGE GATE  main  17b0770cac15c525000dd8f7ea9136447bdfa73c
+  21 of 21 stages PASS
+  pure suite      489/489 pass, 0 fail     (476 before this phase, +13, the count moved)
+  database suite   94/94  pass, 0 fail
+  react suite     915/915 pass, 0 fail
+  HTTP stages     14, all PASS, 10.7s to 54.0s
+  full output: .verify/verify-1280771840756791.txt
+```
+
+The SHA is the report commit, and this time the run was launched against it
+rather than overtaking it.
+
+Durations are the suite's normal ones (Verification 48): every HTTP stage ran
+between 10.7s and 54.0s against a floor of about 130ms, so no stage failed
+faster than it could have run and none was skipped.
+
+**What the green does NOT cover, stated beside it.** No stage exercises the
+migration: it is a file on disk that nothing has parsed. The 13 new pure tests
+assert its TEXT, and the four unrun probes are not gate stages. A green gate
+here means the estate is unbroken by this phase's work, not that the functions
+are correct.
