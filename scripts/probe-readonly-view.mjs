@@ -71,6 +71,9 @@ let approverRowId = null
 const browser = await puppeteer.launch({ headless: 'new' })
 const page = await browser.newPage()
 const rows = []
+// Wait failures, collected before the assertion loop so a page that never
+// settled cannot be reported as a clean measurement.
+const notReady = []
 
 for (const width of [1240, 1920]) {
   for (const [label, id] of [['not mine', NOT_MINE], ['mine', MINE], ['approver', APPROVING]]) {
@@ -79,12 +82,60 @@ for (const width of [1240, 1920]) {
     await page.evaluate((k, v) => localStorage.setItem(k, v), 'sb-anvildouaacbhsjytkii-auth-token', JSON.stringify(session))
     await page.reload({ waitUntil: 'networkidle0' })
     await page.evaluate((rid) => navigate('opportunity-detail', rid), id)
-    // Verification 7. The reference tab's display name is set by the record's
-    // own render and is empty before it, and it differs between the two records.
-    await page.waitForFunction(() => {
-      const el = document.getElementById('ref-display-name') || document.getElementById('detail-company')
-      return el && el.textContent.trim().length > 0
-    }, { timeout: 25000 }).catch(() => {})
+    // ── THE WAIT, REPAIRED. UI hygiene v2 Phase 1, R8 ─────────────────────
+    //
+    // TWO DEFECTS, both measured before being fixed.
+    //
+    // ONE: `getElementById('ref-display-name') || getElementById('detail-company')`
+    // returns the FIRST element that EXISTS, not the first that has text.
+    // #ref-display-name exists on this view, is visible, sits in a tab that is
+    // not hidden, and was measured EMPTY for a continuous 20 seconds on the
+    // unowned record. So the `||` never reached the populated element and the
+    // condition could not become true.
+    //
+    // TWO: the `.catch(() => {})` then swallowed the 25s timeout. The probe was
+    // not measuring early - it waited the full timeout on all six combinations,
+    // about 150s of a 173s run, and measured a page that had settled BY
+    // ACCIDENT. A wait that cannot be satisfied is not a wait; it is a sleep
+    // with a misleading name.
+    //
+    // AND THE VEIL IS THE STATE THAT MATTERS. Measured: the record's data
+    // arrives at ~2.5s while the view still carries `is-loading`, which sets
+    // visibility:hidden on the content, and `is-loading` clears at ~4.0s. A
+    // condition satisfied in that window measures the veil.
+    //
+    // ── AND `!is-loading` IS NOT THE END OF THE RENDER EITHER ────────────
+    //
+    // The first repair waited on the veil clearing and was satisfied TOO
+    // EARLY, which turned a loud true failure into a silent false pass.
+    // Measured on the unowned record:
+    //
+    //   +3540ms  is-loading clears   144 controls    0 typeable
+    //   +4045ms  React mounts        296 controls  152 typeable
+    //
+    // The vanilla surface is correctly locked at 3540ms. Every one of the 152
+    // arrives when the React assessment panel mounts half a second later. A
+    // probe released at the veil reports 0 typeable and passes, which is the
+    // exact defect it exists to catch.
+    //
+    // So the condition is STABILITY, not a class: the control count unchanged
+    // across consecutive samples. It assumes nothing about which panels mount
+    // or how many, which a condition naming the React pane would.
+    const ready = await page.waitForFunction(() => {
+      const v = document.getElementById('view-opportunity-detail')
+      if (!v || v.classList.contains('is-loading')) return false
+      const named = ['ref-display-name', 'detail-company']
+        .map((i) => document.getElementById(i))
+        .some((el) => el && el.textContent.trim().length > 0)
+      if (!named) return false
+      const n = v.querySelectorAll('input, textarea, select').length
+      window.__settle = (window.__settle && window.__settle.n === n)
+        ? { n, hits: window.__settle.hits + 1 } : { n, hits: 1 }
+      return window.__settle.hits >= 4
+    }, { timeout: 25000, polling: 300 }).then(() => true).catch(() => false)
+    // A TIMEOUT IS A FAILURE, NOT A SHRUG. Recorded rather than thrown so the
+    // remaining widths still report, but it can never again pass silently.
+    if (!ready) notReady.push(`${width} ${label}: the view never settled, so every reading below is of an unrendered page`)
 
     const state = await page.evaluate(() => {
       const view = document.getElementById('view-opportunity-detail')
@@ -219,6 +270,7 @@ for (const width of [1240, 1920]) {
   if (not.bytes < 3000 || mine.bytes < 3000) fail.push(`${width}: a capture is under 3KB and is probably blank`)
 }
 console.log('')
+for (const n of notReady) fail.push(n)
 if (fail.length) for (const f of fail) console.log('  FAILED  ' + f)
 else console.log('  PASS  locked and stated on another user\'s record, untouched on your own, at both widths')
 console.log(`\n  captures: ${OUT}\n`)
