@@ -33,6 +33,29 @@ R5. Method unchanged: phases stop for sign-off, data changes
     proposed before applied, final-act gate on the exact tree, the
     word follows the stated gate result, nothing pushes without it.
 
+R6. THE ENTITLEMENT MAP IS RULED. The four GAPs close as follows:
+    - deal_sheet_versions INSERT: owner of the record only.
+    - deal_sheet_versions UPDATE, including issue: owner of the
+      record only, and only while the version is a draft. The
+      issued-immutability rule is preserved unchanged.
+    - raise_transition_request: owner of the record only. The
+      DEFINER function gains the ownership check, per Architecture
+      12's principle that the more powerful the executor, the less
+      it takes on trust.
+    - document_details: scoped to ownership of the parent record.
+    audit_log and approvals STAY identity-shaped, per the map's
+    MATCH verdicts.
+R7. The product rulings behind R6, recorded so a later round does
+    not re-litigate them: APPROVERS ENDORSE, OWNERS EXECUTE - an
+    approver may not issue. NO MANAGER OVERRIDE EXISTS; if one is
+    ever wanted it arrives as an explicit roles feature in its own
+    round, never as a loose policy.
+R8. Residue: the four evidence rows are kept per R2. The remaining
+    probe fixtures - 16 live owned by the test account plus 5
+    handed to the probe account - are torn down at the close as a
+    PROPOSED data change, listed by id for John's ruling before
+    any deletion.
+
 ## The finding, as measured
 
 POST /opportunities/:id/deal-sheet-versions answers 201 to a
