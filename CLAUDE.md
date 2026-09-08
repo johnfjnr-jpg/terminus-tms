@@ -128,6 +128,32 @@ not resolve it quietly.
    A phase that ships no diff still commits, even if only the brief: the
    branch should carry its own scope from the start.
 
+   **AND THE STALE-SERVER CLAUSE REACHES PROBES, NOT ONLY BROWSERS.** The
+   convert atomicity round, 2026-09-08. Round 17A's instance is a person's
+   browser served new frontend code against old backend code. **The same process
+   serves the probes**, and a probe cannot see the mismatch at all.
+
+   The instance. The API server had been started as
+   `node --env-file=.env src/server.js` with **no `--watch`**. A phase then
+   replaced the bodies of two routes, and **every probe written to prove the
+   replacement would have measured the code that had just been replaced.** Worse
+   than that: it would have PASSED, because the old routes satisfy almost every
+   assertion the new ones do. The single test that would have failed is the one
+   about the behaviour that changed.
+
+   **A browser can be hard-reloaded and a person can notice a stale screen.
+   Nothing about a probe can notice this**, which inverts Verification 42's
+   remedy: there is no keystroke to press and no cache to bypass.
+
+   It was caught by reading `ps`, not by any instrument, and **nothing in this
+   repository detects it** - for browsers or for probes. Named as a gap rather
+   than closed: a check that the running server's loaded source matches the tree
+   is real work and belongs in a round that scopes it.
+
+   **Until then the step is manual and it is one line: before any probe that is
+   meant to measure a change to `src/`, confirm the server was restarted after
+   the change.**
+
 10. **A CONTROL FINDING DOES NOT AUTOMATICALLY OUTRANK THE QUEUE.** Set by
     the business 2026-08-29, and it is theirs to set.
 
@@ -1061,6 +1087,30 @@ of the change. An unanswerable precondition is a stop.
    guard whose removal changes nothing observable is either dead or
    redundant, and both are worth knowing before it becomes the thing somebody
    else trusts.
+
+   **AND A DETECTOR ANCHORED ON THE DEFECT IT WATCHES STOPS BEING CALIBRATED
+   THE DAY THAT DEFECT IS FIXED.** The convert atomicity round, 2026-09-08, and
+   it is the quietest failure in this rule's family because **nothing changes in
+   the detector at all**.
+
+   A census hunting hard deletes of a child table was calibrated on the one real
+   instance in the estate: a walk's teardown line. A later ruling in the same
+   round removed that line, correctly. **The census then reported `FIRED =
+   false` and went on scanning**, and a scan whose calibration has quietly
+   inverted is exactly the instrument rule 9 exists to forbid.
+
+   **The same edit produced its twin**, which is worth keeping beside it: the
+   calibration string was written as a LITERAL into a file the census itself
+   scans, so the census began matching its own source and reported two hits on
+   itself. Verification 39's Round 8 remedy applies unchanged - the harness
+   names the string NOWHERE, assembling it from parts, rather than being
+   excused from the scan. An exemption list rots; an absent string cannot.
+
+   **The check: a calibration anchor must be able to outlive the fix.** Prefer a
+   SYNTHETIC positive built by the harness, and where a real-file anchor is also
+   wanted, keep both and choose a real instance the round is not about to
+   delete. And assert that the detector sees zero hits in itself, because that
+   is the failure the fix will introduce rather than remove.
 
    **AND IT REACHES A FIX, WHICH IS WORSE THAN A DEAD GUARD.** Round 5 of the
    migration, 2026-09-06. A dead guard protects nothing. **A fix that looks
