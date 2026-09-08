@@ -134,6 +134,30 @@ model). Line numbers in this brief are navigation aids, not claims.
     discipline 9 names the hazard; nothing in the repository detects
     it.
 
+14. THE WALK'S CHECK 7 IS A PRE-EXISTING CARRIED ITEM AND DOES NOT
+    BLOCK THE PUSH. John confirmed by looking: the Deal Sheet on
+    the Commercials tab DOES render "Test Bed cost, carried from
+    conversion" with the value.
+
+    THE DEFECT IS DISPLAY ONLY AND NARROW. The React six-cell stat
+    strip dropped the Test Bed cost cell during the strip swap,
+    while app.js:7227 still writes the value into the hidden
+    vanilla strip on every load, and the comment asserting the
+    strip "stays OUTSIDE both" is false by measurement. Dated to
+    the strip swap rounds, not to this one. LOW PRIORITY.
+
+    AND THE UNRESOLVED AUTOMATION QUESTION IS SETTLED BY JOHN'S
+    MANUAL OBSERVATION. The three failed attempts to reach the
+    Commercials tab by click - one measuring the previous frame,
+    two on "not clickable" - stand in the walk record as an
+    INSTRUMENT LIMITATION, not a finding.
+
+    ALSO QUEUED, on John's ruling: the Opportunity list gains a
+    Reference code column, matching the Test Bed list's treatment
+    of reference as a primary scanning column. Measured: the
+    Opportunity list has never had one. Small, and not this round's
+    scope.
+
 Considered and set aside, not to be re-litigated: a partial unique
 index on opportunity_details.converted_from_test_bed_id. It would
 hard-code a limit of 1 against the data-driven ruling in migration

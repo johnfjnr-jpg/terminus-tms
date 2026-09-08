@@ -92,7 +92,21 @@ Measured, the strip is **inside `#ref-vanilla`**, which is the element the
 migration hides. Architecture rule 9's fourth variant: a sentence typed into
 markup is not derived from anything, so nothing can falsify it.
 
-### What I did NOT establish
+### SETTLED 2026-09-08 BY RULING 17, AND THE ANSWER IS THE NARROWER ONE
+
+**John confirmed by looking: the Deal Sheet on the Commercials tab DOES render
+"Test Bed cost, carried from conversion" with the value.**
+
+So this is a **display defect, narrow, and pre-existing**: the React six-cell
+strip dropped a cell during the strip swap, and the value is still reachable on
+Commercials. It is dated to the strip swap rounds, carried at low priority, and
+it does not block the push.
+
+**The three failed click attempts below stand as an INSTRUMENT LIMITATION, not
+a finding.** The question they could not answer was answered by a person in
+about ten seconds, which is the honest shape of it.
+
+### What the automation did NOT establish
 
 **Whether the Deal Sheet on the Commercials tab shows the cost.**
 `frontend-react/src/deal/rows.ts:98` renders a row labelled *"Test Bed cost,
@@ -103,9 +117,8 @@ the second and third threw `Node is either not clickable` even after scrolling
 it into view, which suggests the marker landed on a control that is not the
 visible one.
 
-**So the severity is bounded but not settled.** Either the cost is absent from
-the Opportunity entirely, or it is absent from the Reference strip and present
-in the Deal Sheet. Both are worth fixing and they are not the same size.
+**So the severity was bounded but not settled by the automation.** Ruling 17
+settles it: absent from the Reference strip, present in the Deal Sheet.
 
 ---
 
