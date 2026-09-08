@@ -478,3 +478,87 @@ migration: it is a file on disk that nothing has parsed. The 13 new pure tests
 assert its TEXT, and the four unrun probes are not gate stages. A green gate
 here means the estate is unbroken by this phase's work, not that the functions
 are correct.
+
+---
+
+## 12. CORRECTION, 2026-09-08: the ledger row broke the push
+
+**Measured live by John.** `supabase db push` failed on
+`20260908000001_convert_is_one_transaction.sql` with **23505 at statement 7**.
+The whole migration rolled back and **neither function was created**.
+
+**§1 above is wrong where it says the ledger row "travels in the same paste,
+guarded `on conflict do nothing` so it is a no-op under `db push`".** That
+sentence is left standing rather than edited, per Verification 29, so a later
+reader can see that a premise failed rather than that a preference changed.
+
+**The mechanism, and the `on conflict` is exactly what made it look safe.** The
+CLI runs the file's statements and then writes the ledger row **itself**, in the
+same transaction, with an insert carrying no conflict clause. The file's insert
+has already put the row there, so **it is the CLI's insert that collides**. The
+file's own `on conflict` protects the file's statement and can do nothing about
+the CLI's.
+
+**Architecture rule 10's "safe under both paths" is false.** It is safe on the
+by-hand path, which is the path it was written for, and it makes the file
+unappliable by the CLI. Reported for disposition; not edited here.
+
+### The census, and it is nineteen files rather than one
+
+Comment-stripped, calibrated in both directions on a real file
+(`scripts/convert-atomicity/ledger-insert-census.mjs`):
+
+```
+117 migration files, 21 mention supabase_migrations.schema_migrations,
+19 of them WRITE it. Calibration: known positive fires, the same file
+with that insert commented out drops to zero, prose stays silent,
+the real statement fires.
+```
+
+`20260829000007` is the one already known. **The other eighteen are every
+migration written since Architecture rule 10 was set on 2026-08-29:**
+
+| | |
+|---|---|
+| `20260829000007` | cost basis moves to the rates column *(known; leave)* |
+| `20260830000001` | system defaults |
+| `20260831000001` … `20260831000009` | nine files: transition requests, request-approval uniqueness, decide, the-function-is-the-enforcement, raise, regulatory driver, currency initial values, derive required tracks, approval inert reason |
+| `20260901000001` | proposal issued criterion |
+| `20260902000001` … `20260902000005` | five files: record freshness, off-the-record, version gate from proposal, version approvals not collected, a review collects the version tracks |
+| `20260903000001`, `20260903000002` | probability derived at every transition, a pricing approval closes |
+
+**Reported, not fixed**, per the instruction. Two files mention the ledger in
+prose only and write nothing: `20260821000001`, and `20260908000001` itself now.
+
+### Whether the eighteen matter today
+
+**The ledger cannot be read from here** - it is not in `public`, so PostgREST
+does not expose it. What can be measured is whether the objects those
+migrations create exist, and every sample does: `system_defaults` (7 rows),
+`transition_requests` (2,067), `record_freshness` (43,030),
+`base_cost_catalog`, `required_tracks_for`, `decide_transition_request`.
+
+So the eighteen were applied **by hand through the dashboard**, which is the
+path the pattern was written for and the path on which it does not collide.
+They are inert. **`20260908000001` was the first one pushed with the CLI**,
+which is why it is the first to hit this.
+
+**A measurement error inside this correction, recorded.** The first pass called
+two of those functions with guessed parameter names and reported them ABSENT.
+`PGRST202` means *no function of that name **and argument set***, so a wrong
+parameter name reads exactly like a missing function - Verification 12, two
+causes and one answer. Read from the migration and re-run, both exist.
+
+### What changed in this commit
+
+- The self-recording insert is removed from `20260908000001`. **Proved by diff,
+  not asserted**: the only change is that block and the comment above it.
+  sha256 `202a1e61…` -> `92a9d33e…`, and the stripped file now holds **zero**
+  live references to `supabase_migrations.schema_migrations` while both
+  functions remain declared.
+- The test that asserted the ledger row is present is **inverted** to assert it
+  is absent, with the superseded reasoning kept in the test body.
+- Its calibration injection is inverted with it: it now adds a ledger row back
+  and must fire. **13/13 calibrations still behave as required**, and the
+  migration's sha256 is unchanged by the harness.
+- Pure suite 489/489.

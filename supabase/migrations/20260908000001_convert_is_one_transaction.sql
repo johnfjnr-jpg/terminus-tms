@@ -359,15 +359,28 @@ comment on function public.create_opportunity_from_contact(uuid, jsonb, text, nu
 grant execute on function public.create_opportunity_from_contact(uuid, jsonb, text, numeric) to authenticated;
 
 -- ─────────────────────────────────────────────────────────────
--- THE LEDGER ROW, IN THE SAME PASTE
+-- NO SELF-RECORDING LEDGER ROW, AND THE REASON IS A MEASUREMENT
 -- ─────────────────────────────────────────────────────────────
 --
--- Architecture rule 10. Applying SQL through the Supabase dashboard does not
--- write to supabase_migrations.schema_migrations, so the schema and the ledger
--- disagree from that moment and nothing in the application can see it. One
--- paste, two statements. Safe under both paths: by hand it records what the
--- dashboard will not, and under `supabase db push` the CLI writes the row
--- itself and the on conflict makes this a no-op.
-insert into supabase_migrations.schema_migrations (version)
-values ('20260908000001')
-on conflict (version) do nothing;
+-- Architecture rule 10 says a migration handed over for by-hand application
+-- carries its own supabase_migrations.schema_migrations insert, in the same
+-- paste, guarded `on conflict (version) do nothing` and therefore "safe under
+-- both paths".
+--
+-- MEASURED LIVE, 2026-09-08: IT IS NOT SAFE UNDER `supabase db push`. This
+-- file carried that block and the push failed with 23505 at statement 7. The
+-- whole migration rolled back and neither function was created.
+--
+-- The mechanism, and the `on conflict` is what makes it look safe. The CLI
+-- runs the file's statements and then writes the ledger row ITSELF, in the same
+-- transaction, with an insert that carries no conflict clause. The file's
+-- insert has already put the row there, so it is the CLI's insert that
+-- collides. The file's own `on conflict` protects the file's statement and can
+-- do nothing about the CLI's.
+--
+-- Same defect as 20260829000007's, replicated here by following its pattern.
+-- That one is already applied and is left alone.
+--
+-- So the ledger row is NOT in this file. Under `db push` the CLI records the
+-- version. If this is ever applied by hand through the dashboard instead, the
+-- row has to be inserted separately, after the apply, as its own statement.

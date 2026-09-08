@@ -149,12 +149,30 @@ test('neither function accepts identity or record state as a parameter', () => {
   }
 })
 
-test('the migration carries its own ledger row', () => {
-  // Architecture rule 10: applying through the dashboard does not write to
-  // supabase_migrations.schema_migrations, so the row travels in the same paste.
-  assert.match(sql, /insert into supabase_migrations\.schema_migrations \(version\)/i)
-  assert.match(sql, /values \('20260908000001'\)/i)
-  assert.match(sql, /on conflict \(version\) do nothing/i)
+test('the migration does NOT self-record its ledger row', () => {
+  // SUPERSEDES the assertion this replaced, and the superseded reasoning is
+  // left visible per Verification 29 rather than deleted.
+  //
+  // IT USED TO READ "the migration carries its own ledger row", from
+  // Architecture rule 10: applying through the Supabase dashboard does not
+  // write to supabase_migrations.schema_migrations, so the row travels in the
+  // same paste, guarded `on conflict (version) do nothing` and therefore "safe
+  // under both paths".
+  //
+  // THE PREMISE FAILED, MEASURED LIVE 2026-09-08. `supabase db push` failed on
+  // this migration with 23505 at statement 7 and rolled the whole thing back;
+  // neither function was created. The CLI writes the ledger row ITSELF after
+  // running the file, in the same transaction, with an insert carrying no
+  // conflict clause - so it is the CLI's insert that collides with the row the
+  // file already wrote. The file's own `on conflict` protects the file's
+  // statement and can do nothing about the CLI's.
+  //
+  // A decision whose comparison has lost a leg is RE-TAKEN, not re-weighed.
+  // The rule's by-hand case is real and unaddressed by this: if this file is
+  // ever applied through the dashboard, the ledger row is inserted afterwards
+  // as a separate statement.
+  assert.doesNotMatch(sql, /insert into supabase_migrations\.schema_migrations/i,
+    'a self-recording ledger insert collides with the CLI\'s own and rolls the migration back')
 })
 
 test('the plpgsql comment strip keeps the code it is applied to', () => {

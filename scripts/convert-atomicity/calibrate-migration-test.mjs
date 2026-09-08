@@ -112,10 +112,15 @@ inject('the bed reference_code becomes a caller parameter',
   '  p_bed_id          uuid,\n  p_bed_reference_code text,\n  p_payload         jsonb,',
   'identity or record state as a parameter')
 
-inject('the ledger row is dropped',
-  "insert into supabase_migrations.schema_migrations (version)\nvalues ('20260908000001')\non conflict (version) do nothing;",
-  '-- the ledger row was here',
-  'ledger row')
+// INVERTED 2026-09-08, with the migration it calibrates. It used to inject the
+// REMOVAL of a self-recording ledger row and expect a failure. That row is what
+// broke the push (23505 at statement 7, the CLI's own insert colliding with
+// it), so the claim is now that the file must NOT carry one, and the injection
+// adds one back.
+inject('a self-recording ledger row is added back',
+  'grant execute on function public.create_opportunity_from_contact(uuid, jsonb, text, numeric) to authenticated;',
+  "grant execute on function public.create_opportunity_from_contact(uuid, jsonb, text, numeric) to authenticated;\n\ninsert into supabase_migrations.schema_migrations (version)\nvalues ('20260908000001')\non conflict (version) do nothing;",
+  'does NOT self-record its ledger row')
 
 inject('the grant is dropped',
   'grant execute on function public.create_opportunity_from_contact(uuid, jsonb, text, numeric) to authenticated;',
