@@ -102,24 +102,93 @@ try {
   })
   bedId = bed.id
 
-  // ── RLS UNDER INVOKER, THE REFUSAL. Precedent is not proof ─────────────
+  // ── RLS UNDER INVOKER, THE REFUSAL, REBUILT ────────────────────────────
   //
-  // No JWT, so auth.uid() is null and records_insert's `auth.uid() = owner_id`
-  // cannot be satisfied. There is deliberately no identity guard in the
-  // function, so this refusal comes from the policy itself.
+  // THE FIRST VERSION OF THIS SECTION PASSED FOR THE WRONG REASON, and it is
+  // recorded here rather than quietly corrected. It asserted only that the
+  // anonymous call errored. It did: with PT404, because records_select is
+  // `auth.uid() is not null`, so an unidentified caller cannot SEE the bed and
+  // the function raises before reaching any insert. A real refusal, and not
+  // the one the assertion claimed - Verification 17, a probe that fires and
+  // measures the wrong thing.
+  //
+  // AND THE HONEST FINDING UNDERNEATH IT: under the current policy set, no
+  // AUTHENTICATED caller can be refused by these five insert policies through
+  // these functions, because the functions derive owner_id, created_by and
+  // actor_id from auth.uid() rather than accepting them. Every policy is
+  // satisfied by construction. That is Architecture rule 12 working, and it
+  // means "shown REFUSING at an insert" is not constructible for a signed-in
+  // user without changing policy or data.
+  //
+  // SO THE PROOF IS A CONTRAST, AND THE DELTA IS THE ENFORCEMENT. The same
+  // call, same bed, same arguments, made two ways:
+  //
+  //   publishable key, no JWT   RLS ON      auth.uid() null
+  //   service key,     no JWT   RLS BYPASSED auth.uid() null
+  //
+  // The service-role call is a faithful stand-in for what a SECURITY DEFINER
+  // version of this function would do, because bypassing RLS is exactly the
+  // privilege a definer function would have brought. If the two calls fail at
+  // DIFFERENT STAGES, the difference between them is RLS, and RLS is therefore
+  // in force for the invoker call.
   const before = await rowsFor(bedId)
   const anon = await asAnon().rpc('convert_test_bed', {
     p_bed_id: bedId, p_payload: PAYLOAD, p_max_conversions: 1,
     p_probability_pct: null, p_test_bed_cost: null,
   })
+  const bypass = await admin().rpc('convert_test_bed', {
+    p_bed_id: bedId, p_payload: PAYLOAD, p_max_conversions: 1,
+    p_probability_pct: null, p_test_bed_cost: null,
+  })
   const afterAnon = await rowsFor(bedId)
-  check('1. an unidentified caller is REFUSED by the database, not by a guard',
-    !!anon.error, `${anon.error?.code} ${anon.error?.message?.slice(0, 90)}`)
-  check('2. and the refusal wrote nothing at all',
+  check('1a. an unidentified caller under RLS is stopped at the READ, before any insert',
+    anon.error?.code === 'PT404', `${anon.error?.code} ${anon.error?.message?.slice(0, 60)}`)
+  check('1b. the same call with RLS BYPASSED gets PAST the read and dies at the first INSERT',
+    bypass.error?.code === '23502', `${bypass.error?.code} ${bypass.error?.message?.slice(0, 70)}`)
+  check('1c. DISCRIMINATES: the two failed at different stages, and the delta is RLS',
+    !!anon.error && !!bypass.error && anon.error.code !== bypass.error.code,
+    `RLS on -> ${anon.error?.code}, RLS bypassed -> ${bypass.error?.code}`)
+  check('1d. and neither wrote anything at all',
     afterAnon.details === before.details
     && afterAnon.revisions === before.revisions
     && afterAnon.bedAudits === before.bedAudits,
     `${JSON.stringify(before)} -> ${JSON.stringify(afterAnon)}`)
+
+  // ── ATOMICITY, POSITION 1: THE RECORDS INSERT ITSELF ──────────────────
+  //
+  // Reachable through the finding carried as ruling 8. A Test Bed with a
+  // reference_code has that code copied onto its Opportunity, and
+  // records_reference_code_record_type_key UNIQUE (reference_code,
+  // record_type) is not partial on deleted_at - so once one Opportunity holds
+  // the code, a second insert of it raises 23505 at the FIRST statement.
+  //
+  // A weak atomicity proof on its own, since nothing precedes insert 1 to roll
+  // back. It is here for the other half: it proves the function RAISES rather
+  // than proceeding, and it reproduces ruling 8's finding at the function
+  // rather than only at the route.
+  const codedBed = await body('POST', '/test-beds', {
+    name: `${TAG} coded bed`, account_id: account.id,
+    industry_id: industry.id, country_code: 'SG', client_organisation: `${TAG} Holdings`,
+  })
+  const firstCoded = await asUser().rpc('convert_test_bed', {
+    p_bed_id: codedBed.id, p_payload: PAYLOAD, p_max_conversions: 1,
+    p_probability_pct: null, p_test_bed_cost: null,
+  })
+  check('2a. a coded bed converts once and the Opportunity carries the bed\'s code',
+    !firstCoded.error && firstCoded.data?.reference_code === codedBed.reference_code,
+    `${firstCoded.error?.code ?? ''} ${firstCoded.data?.reference_code} vs ${codedBed.reference_code}`)
+  await softDelete(firstCoded.data?.id)
+  const b1 = await rowsFor(codedBed.id)
+  const collide = await asUser().rpc('convert_test_bed', {
+    p_bed_id: codedBed.id, p_payload: PAYLOAD, p_max_conversions: 1,
+    p_probability_pct: null, p_test_bed_cost: null,
+  })
+  const a1 = await rowsFor(codedBed.id)
+  check('2b. ATOMICITY at insert 1: the count says the bed is free, the unique index raises 23505',
+    collide.error?.code === '23505', `${collide.error?.code} ${collide.error?.message?.slice(0, 60)}`)
+  check('2c. and it left ZERO new rows (ruling 8 reproduced at the function)',
+    a1.details === b1.details && a1.revisions === b1.revisions && a1.bedAudits === b1.bedAudits,
+    `${JSON.stringify(b1)} -> ${JSON.stringify(a1)}`)
 
   // ── ATOMICITY, MEASURED AT INSERT 3 ────────────────────────────────────
   //
@@ -140,8 +209,8 @@ try {
     p_probability_pct: 999, p_test_bed_cost: null,
   })
   const a3 = await rowsFor(bedId)
-  check('3. a failure at insert 3 raises', !!bad.error, `${bad.error?.code} ${bad.error?.message?.slice(0, 80)}`)
-  check('4. ATOMICITY: it left ZERO rows across every touched table',
+  check('3a. a failure at insert 3 raises', bad.error?.code === '23514', `${bad.error?.code} ${bad.error?.message?.slice(0, 80)}`)
+  check('3b. ATOMICITY at insert 3: ZERO rows across every touched table, after two had been written',
     a3.details === b3.details && a3.revisions === b3.revisions && a3.bedAudits === b3.bedAudits,
     `${JSON.stringify(b3)} -> ${JSON.stringify(a3)}`)
 
@@ -201,6 +270,21 @@ try {
   check('13. a null max_conversions means no limit, exercised with a value other than 1',
     !unlimited.error && !!unlimited.data?.id,
     unlimited.error ? `${unlimited.error.code} ${unlimited.error.message}` : `opportunity ${unlimited.data?.id}`)
+  // ── THE FOURTH NAMED PROOF, AND THE HALF THAT IS NOT TRUE YET ─────────
+  //
+  // "The limit refusal maps to the route's 422, not a 500." The function's half
+  // is proved above: it raises PT422 with the route's own message. The MAPPING
+  // half cannot be true yet, because the routes do not call the function until
+  // Phase 2 and sendWriteError has no PT422 branch - so a PT422 reaching it
+  // today falls through to 500.
+  //
+  // Measured on the source rather than asserted, through the estate's stripper
+  // so a comment naming PT422 cannot satisfy it.
+  const { stripJs } = await import('../lib/strip-comments.mjs')
+  const writeErrors = stripJs(readFileSync('src/lib/write-errors.js', 'utf8'))
+  check('14. PT422 has NO route mapping yet, so Phase 2 must add one or the limit answers 500',
+    !writeErrors.includes('PT422'),
+    `write-errors.js mentions PT422 in code: ${writeErrors.includes('PT422')}`)
 } catch (e) {
   check('99. the probe ran to completion', false, e.message)
 } finally {
@@ -211,7 +295,7 @@ try {
   if (bedId) {
     const after = await liveConversions(bedId)
     console.log(`RESIDUE bed ${bedId}: ${after.live} live of ${after.all} conversion rows`)
-    check('14. teardown leaves zero live conversions', after.live === 0, JSON.stringify(after))
+    check('15. teardown leaves zero live conversions', after.live === 0, JSON.stringify(after))
   }
 }
 

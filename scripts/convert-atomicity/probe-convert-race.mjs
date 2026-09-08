@@ -41,6 +41,7 @@
 // has no such backstop at all.
 import { api as apiCall } from '../api-client.mjs'
 import { admin, tearDown } from '../fixtures.mjs'
+import { createClient } from '@supabase/supabase-js'
 import { readFileSync } from 'fs'
 
 const body = async (m, p, b) => (await apiCall(m, p, b)).data
@@ -54,25 +55,56 @@ const check = (name, pass, detail = '') => {
 
 const SESSION = JSON.parse(readFileSync('session-ref.json', 'utf8'))
 
-// THROUGH THE THROWING CLIENT, NOT A RAW FETCH.
+// ONE INSTRUMENT, TWO TARGETS. Verification 20: the before and the after must
+// be the same reader, or the comparison is between two probes rather than
+// between two worlds.
 //
-// The first version of this probe called fetch directly, reasoning that every
-// refusal here is a result to be counted rather than an exception to be
-// handled. scripts/tests/api-client.test.mjs caught it within the minute: that
-// file's own note says adding a script to its allowlist is a decision and
-// forgetting one is a failure, and this was neither - it was a third way of
-// talking to the API, which is the thing the control exists to stop.
+//   --via=route     the routes as they stand today. This is the BEFORE
+//                   baseline, and it stays valid until Phase 2 switches them.
+//   --via=function  convert_test_bed over RPC, concurrently. This is the AFTER
+//                   proof, and it is the only one available before Phase 2
+//                   because the routes do not call the function yet.
 //
-// ApiError carries .status and .body, so a refusal is still a value. Nothing is
-// lost and the estate keeps one client.
-async function convertRaw(bedId, name) {
+// THROUGH THE THROWING CLIENT for the route, not a raw fetch.
+// scripts/tests/api-client.test.mjs caught the first version of this probe
+// calling fetch directly within the minute: its own note says adding a script
+// to its allowlist is a decision and forgetting one is a failure, and this was
+// neither - it was a third way of talking to the API. ApiError carries .status
+// and .body, so a refusal is still a value.
+const VIA = (process.argv[4] ?? 'route').replace(/^--via=/, '')
+if (!['route', 'function'].includes(VIA)) throw new Error(`--via must be route or function, got ${VIA}`)
+
+const ENV = Object.fromEntries(readFileSync('.env', 'utf8').split('\n')
+  .filter((l) => l.includes('=') && !l.trim().startsWith('#'))
+  .map((l) => { const i = l.indexOf('='); return [l.slice(0, i).trim(), l.slice(i + 1).trim()] }))
+const asUser = () => createClient(ENV.SUPABASE_URL, ENV.SUPABASE_PUBLISHABLE_KEY, {
+  auth: { persistSession: false },
+  global: { headers: { Authorization: `Bearer ${SESSION.access_token}` } },
+})
+
+// Normalised to the same three outcomes whichever target is used, so the
+// counting code below cannot tell them apart and cannot drift between them.
+async function convertRaw(bedId, name, payload) {
   const started = performance.now()
+  if (VIA === 'function') {
+    const r = await asUser().rpc('convert_test_bed', {
+      p_bed_id: bedId, p_payload: payload, p_max_conversions: 1,
+      p_probability_pct: null, p_test_bed_cost: null,
+    })
+    return {
+      created: !r.error && !!r.data?.id,
+      refused: r.error?.code === 'PT422',
+      code: r.error?.code ?? '201',
+      data: r.error ? { error: r.error.message } : r.data,
+      started, ended: performance.now(),
+    }
+  }
   try {
     const r = await apiCall('POST', `/test-beds/${bedId}/convert`, { opportunity_name: name })
-    return { status: r.status, data: r.data, started, ended: performance.now() }
+    return { created: r.status === 201, refused: false, code: String(r.status), data: r.data, started, ended: performance.now() }
   } catch (e) {
     if (e.name !== 'ApiError') throw e
-    return { status: e.status, data: e.body, started, ended: performance.now() }
+    return { created: false, refused: e.status === 422, code: String(e.status), data: e.body, started, ended: performance.now() }
   }
 }
 
@@ -101,15 +133,16 @@ try {
   // Fired without awaiting between them. Promise.all is what makes them
   // concurrent; the interval arithmetic below is what proves they were.
   const results = await Promise.all(
-    Array.from({ length: N }, (_, i) => convertRaw(bedId, `${TAG} #${i + 1}`)))
+    Array.from({ length: N }, (_, i) => convertRaw(bedId, `${TAG} #${i + 1}`,
+      { name: `${TAG} #${i + 1}`, company_name: `${TAG} Holdings`, customerLead: null })))
 
   const latestStart = Math.max(...results.map((r) => r.started))
   const earliestEnd = Math.min(...results.map((r) => r.ended))
   const overlapMs = earliestEnd - latestStart
   const slowest = Math.max(...results.map((r) => r.ended - r.started))
-  console.log(`\n  ${N} requests, slowest ${slowest.toFixed(0)}ms, mutual overlap ${overlapMs.toFixed(0)}ms`)
+  console.log(`\n  via ${VIA}: ${N} requests, slowest ${slowest.toFixed(0)}ms, mutual overlap ${overlapMs.toFixed(0)}ms`)
   for (const [i, r] of results.entries()) {
-    console.log(`    #${i + 1}  ${r.status}  ${(r.ended - r.started).toFixed(0)}ms  ${JSON.stringify(r.data?.error ?? r.data?.id ?? null)}`)
+    console.log(`    #${i + 1}  ${r.code}  ${(r.ended - r.started).toFixed(0)}ms  ${JSON.stringify(r.data?.error ?? r.data?.id ?? null)}`)
   }
 
   // THE FLAKE TELL. Every request must have been in flight at the same instant,
@@ -120,12 +153,12 @@ try {
     throw new Error('the requests did not overlap; this run measured nothing about concurrency')
   }
 
-  const created = results.filter((r) => r.status === 201)
-  const refused422 = results.filter((r) => r.status === 422)
-  const other = results.filter((r) => r.status !== 201 && r.status !== 422)
+  const created = results.filter((r) => r.created)
+  const refused422 = results.filter((r) => r.refused)
+  const other = results.filter((r) => !r.created && !r.refused)
   const c = await conversions(bedId)
 
-  console.log(`\n  201=${created.length}  422=${refused422.length}  other=${other.length}`)
+  console.log(`\n  created=${created.length}  refused-with-the-limit=${refused422.length}  other=${other.length}`)
   console.log(`  conversion rows written: ${c.all}, live: ${c.live}`)
 
   // The verdict, stated as which world the run is in rather than as pass/fail,
@@ -141,10 +174,10 @@ try {
   }
 
   check('3. exactly one conversion committed', created.length === 1,
-    `${created.length} of ${N} answered 201`)
-  check('4. every other request was refused 422, not 409 and not 500',
+    `${created.length} of ${N} created`)
+  check('4. every other request was refused BY THE LIMIT, not by a duplicate key or a raw error',
     refused422.length === N - 1 && other.length === 0,
-    `422=${refused422.length} other=${other.map((r) => r.status).join(',') || 'none'}`)
+    `refused=${refused422.length} other=${other.map((r) => r.code).join(',') || 'none'}`)
   check('5. and the database holds exactly one live conversion', c.live === 1,
     `${c.live} live of ${c.all} rows`)
 } catch (e) {
