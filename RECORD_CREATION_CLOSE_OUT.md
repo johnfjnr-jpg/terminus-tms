@@ -205,3 +205,79 @@ Nothing below is fixed; each is recorded where a later round will find it.
   surviving clause, and not re-measured beyond the 28/28 that proves they work.
 - **The three product rulings in R4.** Recorded, not investigated. Each is its
   own future round.
+
+---
+
+## 9. The gate, the push, and the red window
+
+### The final-act gate went RED first, and it was mine
+
+```
+MERGE GATE  main  58cb31d
+  FAIL  pure suite  exit 1  4158ms  492/493 pass, 1 fail
+  20 of 21 PASS
+```
+
+4,158ms is the pure suite's normal duration, so it ran and found something.
+`scripts/tests/api-client.test.mjs` flagged `route-name-sweep.mjs:84` as a
+script calling the fetch primitive directly. **It is not a call.** It is a
+calibration string that spells the primitive out, and the control cannot tell
+one from the other.
+
+**No allowlist entry was added.** That file's own note says adding one is a
+decision and forgetting one is a failure, and this was neither. The remedy is
+Round 8's, and it is the one the sweep already applied to the route paths it
+hunts: **name the string nowhere and assemble it from parts.** I had applied
+that discipline to `/records` and not to `fetch`, ten lines apart in the same
+file.
+
+**Why it was not caught earlier, said plainly: the Phase 1 commit that
+introduced the sweep was never gated.** The gate ran at Phase 0 and again as the
+final act, which is where it fired.
+
+Re-gated on `94cbe59`: **21 of 21, pure suite 493/493**, durations normal.
+
+### THE PROCESS RULING, for promotion next round
+
+> **The push waits for the gate RESULT to be stated. It never runs in parallel
+> with a gate on the expectation of green.**
+
+**The measured argument is this round's own red window.** The push of `58cb31d`
+was made while its gate was still running, on every reasonable expectation that
+it would pass. It did not. **`58cb31d` sat on `origin/main` RED**, and neither
+party could have known, because the only instrument that could say so had not
+finished. Nothing came of it - the defect was a test-only false positive in a
+probe - which is the same shape as Round 17A's four-hour window: timing, not
+design.
+
+**This is the second form of the same lesson in one round**, and the pair is
+what makes it worth promoting. Verification 48's clause, set at the convert
+round's close, stops other work running **during** a gate. This stops an
+outward-facing act running **ahead** of one. Both are cases of an act taken
+against a gate's expected answer rather than its stated one.
+
+**Nearest existing rule is build discipline 11**, an unanswerable precondition
+is a stop. This is narrower and more common: a precondition that is merely
+**unanswered yet**, where waiting costs minutes and not waiting puts a red tree
+on a published branch.
+
+### The push, confirmed
+
+Asked of the remote directly rather than read from a local ref:
+
+```
+$ git ls-remote origin refs/heads/main
+94cbe59fcea001a28917755fbdb373bc0aeccc4c	refs/heads/main
+
+remote head              94cbe59fcea001a28917755fbdb373bc0aeccc4c
+local HEAD               94cbe59fcea001a28917755fbdb373bc0aeccc4c
+the gated tree           94cbe59fcea001a28917755fbdb373bc0aeccc4c
+all three match          YES
+commits still unpushed   0
+uncommitted files        0
+```
+
+**The published branch is now the tree the gate passed on**, which is the thing
+the red window briefly made untrue.
+
+**The round is closed.**
