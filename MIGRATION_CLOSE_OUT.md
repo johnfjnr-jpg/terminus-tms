@@ -191,6 +191,18 @@ run at all rather than that it found something.
 
 ## Gate
 
-Reported with the closing commit.
+**All 21 stages passed on the closing tree, `526c255`.** Pure 476/476, database
+94/94, react 915/915, all 0 fail, typecheck clean, 14 HTTP probes. Every figure
+parsed from the run.
+
+**Beside the gate, the live evidence on this tree:**
+
+| instrument | result |
+|---|---|
+| the estate walk - five surfaces, both doors | **22/22, residue 0** |
+| the Test Bed walk - save, tabs, convert, door | **32/32, residue 0** |
+| Phase 1 injections - the door | 10/10, reverted green |
+| Phase 2 injections - the toggle and the two claims | 4/4, reverted green |
+| the revert rehearsal | byte-identical, and it found the door is not independently revertible |
 
 **Not pushed. The migration closes on John's word.**
