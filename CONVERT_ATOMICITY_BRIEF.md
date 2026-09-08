@@ -37,6 +37,51 @@ model). Line numbers in this brief are navigation aids, not claims.
    (soft-delete, or delete parent-first), so it cannot false-alarm the
    audit-witness detector that ruling 2 creates.
 
+7. Phase 1 is signed off as delivered. The migration has been applied
+   by John via db:push, so Phase 1b runs the four pending
+   function-level proofs unchanged: RLS under INVOKER in both
+   directions, atomicity at each insert position, the race
+   after-proof against the before baseline, and the limit refusal
+   mapping to 422. Verify first that public.convert_test_bed and
+   public.create_opportunity_from_contact resolve, via
+   probe-convert-function.mjs.
+8. CARRIED ITEM, for a product ruling outside this round: the
+   reference code finding. Soft-deleting a converted Opportunity
+   STRANDS the Test Bed's reference code, because
+   records_reference_code_record_type_key UNIQUE (reference_code,
+   record_type) is not partial on deleted_at. The conversion count
+   says the bed is free and the unique index says the code is taken,
+   so a second conversion is refused 409 by a message that mentions
+   neither conversions nor Test Beds. THE MILESTONE 5 DEPENDENCY IS
+   NAMED: 20260815000007 dropped the plain unique on reference_code
+   specifically so a Test Bed's code could be carried onto its
+   Opportunity, and 20260815000008 restored it as the compound
+   (reference_code, record_type). Any fix either makes that index
+   partial on deleted_at or stops carrying the code onto a
+   replacement conversion, and the second reverses a deliberate
+   Milestone 5 decision. Not this round's to take.
+9. DEPLOYMENT FINDING, measured during apply. A migration file that
+   writes its own supabase_migrations.schema_migrations row COLLIDES
+   with the CLI's own bookkeeping insert under db push: 23505, whole
+   migration rolled back, deterministic. Hit live on 20260829000007
+   and on 20260908000001. Architecture rule 10's "safe under both
+   paths" claim is FALSE in the CLI direction: the CLI's insert
+   carries no conflict clause, so the file's own `on conflict do
+   nothing` protects the file's statement and can do nothing about
+   the CLI's.
+
+   Resolved by migration repair for the August file and by removing
+   the insert from the convert migration (commit 72418b1).
+
+   CARRIED LEARNING: migration files must not write their own
+   schema_migrations rows.
+
+   Census 2026-09-08, comment-stripped and calibrated in both
+   directions: eighteen further migrations, 20260830000001 through
+   20260903000002, carry the same insert. All were applied by hand
+   through the dashboard and are inert, but A REBUILD FROM FILES
+   WOULD COLLIDE ON EACH. Recorded under the same learning.
+
 Considered and set aside, not to be re-litigated: a partial unique
 index on opportunity_details.converted_from_test_bed_id. It would
 hard-code a limit of 1 against the data-driven ruling in migration
