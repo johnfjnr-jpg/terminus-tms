@@ -162,19 +162,17 @@ R10. A SERVER-SIDE REJECTION PROBE is added to scope and built this
       write surfaces on Opportunity tables, ENUMERATED FROM THE
       SCHEMA, not from the UI.
 
-    **INCOMPLETE AS RECEIVED, AND RECORDED AS INCOMPLETE RATHER THAN
-    COMPLETED BY INFERENCE.** The ruling as delivered ends mid
-    sentence at "If any write". The clause is a STOP CONDITION, and
-    this repository's own discipline forbids guessing one: a stop
-    rule that was assumed rather than stated is worth nothing when
-    it fires.
+    - IF ANY WRITE LANDS ON THE HEALTHY POLICY, STOP IMMEDIATELY,
+      report the finding with record ids, and wait. That is a LIVE
+      SECURITY FINDING and belongs to John before anything else
+      moves.
 
-    INTERIM WORKING ASSUMPTION, adopted because it is the
-    conservative reading and matches every prior round's stop rule,
-    and to be confirmed or corrected by John: IF ANY NON-OWNER WRITE
-    LANDS, STOP IMMEDIATELY AND REPORT WITH IDS. No further probing
-    until the word. Nothing in this phase relies on the assumption
-    being the lenient one.
+    COMPLETE. The clause above was delivered truncated at "If any
+    write" and was recorded as incomplete rather than finished by
+    inference, because a stop rule that was assumed rather than
+    stated is worth nothing when it fires. John supplied it verbatim
+    and the conservative interim reading was correct, so nothing
+    built in between rested on the lenient reading.
 
 ## Phases
 
