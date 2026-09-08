@@ -50,6 +50,22 @@ R7. Evidence: the three created records (69947943, 745cd214,
     records are KEPT, listed by id, until the fix round calibrates
     against them. Their deletion is proposed at that round's close.
 
+R8. The brief's R1 sentence claiming the map calls accounts
+    team-editable is CORRECTED, struck in place above with the
+    superseded wording left visible. It was the drafter's
+    unverified recall, contradicted by the map (records UPDATE:
+    ownership) and by measurement (PATCH /accounts/:id refuses a
+    non-owner, ownership-shaped). THE MAP'S VERDICT STANDS.
+R9. Unit ownership is QUEUED as a product question, and is neither
+    this round's scope nor the fix round's: units are records
+    owned by whoever derives them, so a handed-over bed leaves its
+    units behind and a bed's owner may be unable to edit their own
+    bed's units. PROVISIONAL DIRECTION for the future ruling: unit
+    write rights follow the parent bed's owner.
+R10. The round closes as a PROBE ROUND: eleven MATCH, three
+     landings ruled owner-only under R5 and handed to the fix
+     round, evidence kept under R7 for that round's calibration.
+
 ## Why this round exists
 
 Every live proof in the write authorization round used an
@@ -69,10 +85,16 @@ rested on one. This round converts the argument into measurement.
    units/:unitId, PATCH /test-beds/:id, convert.
    Contact: PATCH /contacts/:id, link-account, create-test-bed,
    create-opportunity, the key-contact link and its DELETE.
-   Account: PATCH /accounts/:id — the map says accounts are
-   team-editable by design; prove the design rather than assume
-   it, and state the result as MATCH against the map, not as a
-   hole.
+   Account: PATCH /accounts/:id — ~~the map says accounts are
+   team-editable by design~~ STRUCK, see R8. That sentence was the
+   drafter's unverified recall. The map says records UPDATE is
+   OWNERSHIP, an Account is a records row, and measurement agrees:
+   a non-owner is refused 403 ownership-shaped. The superseded
+   wording is left visible rather than deleted, so a reader can see
+   that a premise failed rather than a preference changing.
+   The instruction that survives is the useful half: prove the
+   design rather than assume it. The round did, and the design is
+   owner-only.
 2. Sweep the route table for any write path on these surfaces the
    list above misses; the census instrument from the write
    authorization round is the tool. Every write route on Test Bed,
