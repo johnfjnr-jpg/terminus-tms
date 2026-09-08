@@ -31,6 +31,25 @@ R4. Method unchanged: stop for sign-off, final-act gate on the
     exact tree, the word follows the stated gate result, nothing
     pushes without it.
 
+R5. The three create-from paths are ruled OWNER-ONLY: convert,
+    create-test-bed and create-opportunity all require ownership of
+    the SOURCE record. Approvers endorse, owners execute, and
+    consuming a bed's conversion allowance and its reference code
+    is execution. If colleague-initiated conversion is ever wanted
+    it arrives as an explicit reassignment or roles feature in its
+    own round. THE FIX IS A FIX ROUND, NOT THIS ONE.
+R6. The probe RESUMES to complete the table: scores, units/:unitId,
+    key-contacts and its DELETE, tech-team past its precondition,
+    and PATCH /accounts/:id with a corrected body - expected MATCH
+    as team-editable by design, and the design is to be proven
+    rather than assumed. THE STOP RULE STAYS ARMED for any NEW
+    landing; the three known landings are findings, not stops,
+    from here.
+R7. Evidence: the three created records (69947943, 745cd214,
+    ee047aca) and the audit rows written onto the three SOURCE
+    records are KEPT, listed by id, until the fix round calibrates
+    against them. Their deletion is proposed at that round's close.
+
 ## Why this round exists
 
 Every live proof in the write authorization round used an
