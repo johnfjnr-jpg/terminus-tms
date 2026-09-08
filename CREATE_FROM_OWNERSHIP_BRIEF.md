@@ -34,6 +34,24 @@ R4. Method unchanged: rulings appended at the phase they launch,
     exact tree, the word follows the stated gate result, nothing
     pushes without it.
 
+R5. THE FIX LIST IS RULED: all six paths owner-only - convert,
+    create-test-bed, create-opportunity, customer-documents,
+    complete-document, units/derive. TWO RATIONALES, both recorded
+    because they are different and a later reader deserves both:
+    the first five CONSUME from the source record - an allowance,
+    an identity, a history - while derive INJECTS into it,
+    populating another owner's bed with units they never made,
+    which is editing by another name. Same rule, stated reasons.
+R6. Phase 1's FIRST ACT: a bounded read of every write route not
+    covered by the body-local scan, looking for helper-mediated
+    creates. Any new instance of the shape joins the fix list
+    under R5 without a further ruling; anything OUTSIDE the shape
+    stops and reports. THE CLOSE STATES THE RESULT EITHER WAY:
+    that the read was done, and what it found.
+R7. transition-requests/:id/approvals is recorded as create-from
+    BY DESIGN and EXEMPT BY NAME: a non-owner acting there is the
+    approval flow's entire point. NO LATER SWEEP MAY CLOSE IT.
+
 ## The defect, as ruled
 
 A non-owner can call convert, create-test-bed or create-opportunity
