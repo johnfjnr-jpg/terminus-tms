@@ -230,25 +230,105 @@ export async function freshTestBed(tag) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// Teardown, enumerated from the DATABASE by owner
+// Teardown, enumerated from the DATABASE by TAG
 // ─────────────────────────────────────────────────────────────
 //
 // Not from walk-ids.json, and not from any file. Verification 11: a bookkeeping
 // file records what a run MEANT to create, and a rebuild, a retry or a killed
-// run leaves records it no longer names. The test account owns nothing the
-// business created, so "every live record owned by the test account" is the
-// complete set by construction.
+// run leaves records it no longer names.
+//
+// ── SUPERSEDED, 2026-09-08, and the old reasoning is left visible ─────
+//
+// This scoped by OWNER, and justified it in these words:
+//
+//   "The test account owns nothing the business created, so 'every live
+//    record owned by the test account' is the complete set by construction."
+//
+// THE PREMISE IS FALSE, and Verification 19 names the shape: a category name
+// asserting a property nobody measured. It is the complete set only while
+// nothing ELSE owns live records under that account. The moment two rounds'
+// fixtures are live at once, "everything I own" is not "everything I made".
+//
+// MEASURED: during the create-from ownership round, a single gate run soft
+// deleted 66 of that round's evidence records in ONE bulk update, while
+// probe-commercial-gate printed "2 soft-deleted". The estate's own method is
+// that data changes are proposed before they are applied; this one applied on
+// every gate run, unproposed and unreported.
+//
+// So the decision is RE-TAKEN rather than re-weighed (Verification 29): the
+// owner is now the CANDIDATE set, which is cheap to query and can never reach
+// a record the business owns, and the TAG is the SELECTOR. Both are required.
+//
+// THE FILE SUPPLIES THE TAG; THE DATABASE SUPPLIES THE RECORDS. That is the
+// distinction Verification 11 is actually about. Its objection to a file is
+// that a file lists WHICH RECORDS a run meant to create and goes stale on a
+// rebuild or a retry. A tag is the run's identity, not its inventory, and the
+// set it names is enumerated live.
+//
+// AND WHERE NO TAG CAN BE DETERMINED, THIS REFUSES. It does not fall back to
+// sweeping by owner, because that fallback IS the defect.
 //
 // SOFT delete only, and reference_number_counters is never touched: records
 // carries ON DELETE RESTRICT from record_revisions, approvals and audit_log, and
 // a counter deleted while a soft-deleted record still holds a code from it
 // restarts and collides.
-export async function tearDown() {
+// The tags this run is entitled to remove. An explicit argument wins; failing
+// that, the tags THIS run's own fixture files record. Nothing else is swept.
+export function tagsToSweep(explicit) {
+  // An explicit ARRAY is the caller stating the set outright, empty included.
+  // `tearDown([])` therefore means "sweep nothing", and reaches the refusal.
+  // Without this the refusal is unreachable whenever a fixture file exists,
+  // which is almost always - an untestable guard is Verification 9's own case.
+  if (Array.isArray(explicit)) return [...new Set(explicit.filter(Boolean))]
+  if (explicit) return [explicit]
+  const tags = []
+  for (const f of [IDS, TB_IDS]) {
+    try { const t = JSON.parse(readFileSync(f, 'utf8')).tag; if (t) tags.push(t) }
+    catch { /* a run that created no fixture of this kind has no file */ }
+  }
+  return [...new Set(tags)]
+}
+
+export async function tearDown(explicitTag) {
   const db = admin()
-  const { data: live, error } = await db.from('records')
-    .select('id, record_type, reference_code')
+  const tags = tagsToSweep(explicitTag)
+  if (!tags.length) {
+    throw new Error(
+      'tearDown: no tag to scope by, and it will NOT fall back to sweeping by owner. ' +
+      'That fallback destroyed 66 records of another round mid-gate. ' +
+      'Pass a tag, or run a fixture helper first so a tag is recorded.')
+  }
+
+  // ── OWNER IS THE CANDIDATE SET, TAG IS THE SELECTOR ──────────────────
+  //
+  // The owner filter is kept because it is cheap and because it makes reaching
+  // a record the business owns impossible rather than merely unlikely. It is no
+  // longer what decides WHAT goes.
+  const { data: candidates, error } = await db.from('records')
+    .select('id, record_type, reference_code, parent_record_id')
     .eq('owner_id', TEST_USER_ID).is('deleted_at', null)
   if (error) throw error
+
+  // The tag reaches the DATABASE through the payload name: every fixture
+  // helper writes `${tag} Contact`, `${tag} Opportunity`, `${tag} Account`,
+  // `${tag} Test Bed`. So the selector is read from the record, not the file.
+  const { data: revs, error: revErr } = candidates.length
+    ? await db.from('record_revisions').select('record_id, payload')
+        .in('record_id', candidates.map((r) => r.id))
+    : { data: [], error: null }
+  if (revErr) throw revErr
+  const named = new Map()
+  for (const r of revs) if (!named.has(r.record_id)) named.set(r.record_id, r.payload?.name ?? '')
+  const mine = (id) => tags.some((t) => String(named.get(id) ?? '').startsWith(t))
+
+  // A UNIT CARRIES NO NAME, so it can never match a tag. It is reached as a
+  // CHILD of a record that does. Build discipline 8: enumerate everything the
+  // actor writes, not the part the selector happens to see.
+  const direct = candidates.filter((r) => mine(r.id))
+  const directIds = new Set(direct.map((r) => r.id))
+  const children = candidates.filter((r) => !directIds.has(r.id)
+    && r.parent_record_id && directIds.has(r.parent_record_id))
+  const live = [...direct, ...children]
 
   if (live.length) {
     // ── A FROZEN RECORD CANNOT BE TORN DOWN. Round 41 ────────────────────
@@ -300,14 +380,20 @@ export async function tearDown() {
     if (delErr) throw delErr
   }
 
-  // Re-query rather than trusting the update's own result.
-  const { data: still, error: stillErr } = await db.from('records')
-    .select('id, record_type').eq('owner_id', TEST_USER_ID).is('deleted_at', null)
+  // Re-query rather than trusting the update's own result, SCOPED TO THE SAME
+  // SET. Asserting owner-wide zero here would throw the moment another round
+  // has a live fixture, which is the very state this rescoping exists to
+  // permit - and a teardown that fails on somebody else's records would push
+  // the next person straight back to sweeping by owner.
+  const { data: still, error: stillErr } = live.length
+    ? await db.from('records').select('id, record_type')
+        .in('id', live.map((r) => r.id)).is('deleted_at', null)
+    : { data: [], error: null }
   if (stillErr) throw stillErr
   if (still.length) {
     throw new Error(`teardown left ${still.length} live records: ${still.map((r) => r.record_type).join(', ')}`)
   }
-  return { removed: live, remaining: 0 }
+  return { removed: live, remaining: 0, tags }
 }
 
 // Only when this file is the thing being RUN. Without the guard, importing it
@@ -321,10 +407,10 @@ if (command === 'opportunity') {
   const s = await freshTestBed(tag)
   console.log(`fresh fixture ${s.tag}: account ${s.accountId}, test bed ${s.bedId} at revision ${s.revision}, no units`)
 } else if (command === 'teardown') {
-  const { removed } = await tearDown()
-  console.log(`torn down ${removed.length} records owned by the test account:`)
+  const { removed, tags } = await tearDown(tag)
+  console.log(`torn down ${removed.length} records tagged ${tags.join(', ')}:`)
   for (const r of removed) console.log(`  ${r.record_type} ${r.id} ${r.reference_code ?? ''}`)
-  console.log('re-queried: 0 live remain. reference_number_counters untouched.')
+  console.log('re-queried within that tag: 0 live remain. reference_number_counters untouched.')
 } else if (command) {
   // The old single-argument form created an Opportunity. Keeping it silently
   // would mean `fixtures.mjs teardown` creating a fixture called "teardown".
