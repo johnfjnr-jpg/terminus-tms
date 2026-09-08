@@ -282,9 +282,25 @@ try {
 } finally {
   try { if (ME) await admin().from('records').update({ owner_id: ME }).eq('id', bedId) } catch {}
   // The conversion created a record the fixture tag does not cover.
+  //
+  // ── THE HARD DELETE IS GONE. Ruling 6, the convert atomicity round ─────
+  //
+  // This used to delete the opportunity_details row outright before soft
+  // deleting the record. That is a HARD delete on a child table, which
+  // Verification 11 rules out for fixtures, and it MANUFACTURED THE EXACT
+  // RESIDUE SHAPE the convert atomicity round exists to detect: an audit row
+  // on the bed saying it was converted, with no details row naming it.
+  //
+  // Phase 0's census found sixteen beds in that state and ELEVEN OF THEM WERE
+  // THIS LINE - every run of this walk on 2026-09-07 and 2026-09-08. They read
+  // as a failure of the third insert and were nothing of the kind, and the only
+  // reason they were attributable at all is that the route cannot produce the
+  // shape: it writes the audit AFTER the details row succeeds.
+  //
+  // The soft delete alone is sufficient and is what the rest of the estate
+  // does. It also frees the bed by the deleted_at rule, measured in Phase 1b.
   try {
     if (convertedOppId) {
-      await admin().from('opportunity_details').delete().eq('record_id', convertedOppId)
       await admin().from('records').update({ deleted_at: new Date().toISOString() })
         .eq('id', convertedOppId)
     }

@@ -1410,7 +1410,10 @@ export default async function testBedsRoutes(app) {
 
     const { data: bed, error: bedErr } = await db
       .from('records')
-      .select('id, record_type, status, account_id, reference_code')
+      // account_id and reference_code are no longer selected: convert_test_bed
+      // reads both from the bed itself, so this route cannot pass the wrong
+      // ones. status was already unused before this round and is left alone.
+      .select('id, record_type, status')
       .eq('id', request.params.id)
       .eq('record_type', 'test_bed')
       .maybeSingle()
@@ -1428,37 +1431,25 @@ export default async function testBedsRoutes(app) {
       return reply.code(422).send({ error: 'test_bed -> opportunity is not a defined conversion' })
     }
 
-    const maxConversions = criteria.condition?.max_conversions
-    if (maxConversions != null) {
-      // records!opportunity_details_record_id_fkey, not the bare
-      // "records!inner(...)" this originally shipped with - opportunity_
-      // details has TWO foreign keys to records (record_id AND
-      // converted_from_test_bed_id), so the ambiguous embed failed with
-      // PGRST201 every time. Found live: the unchecked error meant that
-      // failure was silently treated as "0 prior conversions" and a
-      // second conversion went through unblocked - confirmed by actually
-      // attempting one, not assumed from reading the code. Checking
-      // priorErr explicitly now, same discipline as everywhere else in
-      // this codebase that doesn't trust a query result without
-      // checking its error first.
-      const { data: priorConversions, error: priorErr } = await db
-        .from('opportunity_details')
-        .select('record_id, records!opportunity_details_record_id_fkey(deleted_at)')
-        .eq('converted_from_test_bed_id', bed.id)
-
-      if (priorErr) {
-        request.log.error({ err: priorErr }, 'failed to check prior Test Bed conversions')
-        return reply.code(500).send({ error: priorErr.message })
-      }
-
-      const liveConversions = (priorConversions ?? []).filter(c => !c.records?.deleted_at)
-
-      if (liveConversions.length >= maxConversions) {
-        return reply.code(422).send({
-          error: 'This Test Bed has already been converted to an Opportunity'
-        })
-      }
-    }
+    // THE LIMIT VALUE IS READ HERE; THE COUNT IS NOT.
+    //
+    // conversion_criteria is configuration and reading it is not
+    // correctness-critical, so it stays in the route. The COUNT of live
+    // conversions moved into convert_test_bed, because it was read-then-write
+    // with no constraint behind it: two concurrent converts of one bed both
+    // read zero and both committed. Measured before the change at 4 of 4
+    // concurrent requests creating an Opportunity against a limit of 1, and
+    // after it at 1 of 4, with the other three refused.
+    //
+    // WHAT WAS HERE, and why it is gone rather than merely moved: a select on
+    // opportunity_details embedding records(deleted_at), then a JavaScript
+    // filter, then a length comparison. Every part of that is now one
+    // statement inside the advisory lock. The embed's own history is worth
+    // keeping in mind if anything like it is written again - it shipped as an
+    // ambiguous records!inner(...) which failed PGRST201 every time, and the
+    // unchecked error made that read as "0 prior conversions", so a second
+    // conversion went through unblocked.
+    const maxConversions = criteria.condition?.max_conversions ?? null
 
     const { data: bedRev } = await db
       .from('record_revisions')
@@ -1490,82 +1481,53 @@ export default async function testBedsRoutes(app) {
     // a fix for the one beside it.
     const defaults = initialPayload(await readSystemDefaults(db))
 
-    const { data: opp, error: oppErr } = await db
-      .from('records')
-      .insert({
-        record_type: 'opportunity',
-        status: 'Qualification',
-        owner_id: request.user.id,
-        account_id: bed.account_id ?? null,
-        reference_code: bed.reference_code ?? null
-      })
-      .select()
-      .single()
+    // ── ONE TRANSACTION, OR IT NEVER HAPPENED ────────────────────────────
+    //
+    // What was here: four writes in sequence with no transaction - records,
+    // record_revisions, opportunity_details, and an audit_log batch of two
+    // whose error was never checked. A failure after the second left a
+    // usable-looking Opportunity with no details row, and the max-conversions
+    // check reads opportunity_details.converted_from_test_bed_id, so the
+    // conversion did not count and a second was permitted.
+    //
+    // TWO RULED BEHAVIOUR CHANGES, and nothing else about this route moves:
+    //
+    //   1. the four writes are atomic;
+    //   2. a failed audit_log insert now ROLLS THE CONVERSION BACK. An
+    //      unauditable conversion must not exist. This route used to answer
+    //      201 with no audit trail.
+    //
+    // The function returns the response body this route already sent - the new
+    // record plus converted_from_test_bed_id and test_bed_cost - so there is
+    // one assembler rather than two that agree today.
+    const { data: opp, error: convErr } = await db.rpc('convert_test_bed', {
+      p_bed_id: bed.id,
+      p_payload: {
+        ...defaults,
+        name: opportunity_name.trim(),
+        company_name: bedPayload.client_organisation ?? '',
+        // customerLead (Round 2 Phase 1, 2026-08-16): carries the Test
+        // Bed's initialLead value across unchanged, a genuine field-name
+        // mapping (Test Bed calls it initialLead, Opportunity calls the
+        // identical concept customerLead), not a copy-by-key.
+        customerLead: bedPayload.initialLead ?? null
+      },
+      p_max_conversions: maxConversions,
+      p_probability_pct: probDefault?.default_probability_pct ?? null,
+      p_test_bed_cost: bedPayload.accumulated_cost ?? null
+    })
 
-    if (oppErr) {
-      request.log.error({ err: oppErr }, 'failed to create opportunity from test bed')
-      return sendWriteError(reply, oppErr)
+    // PT422 is the conversion limit and maps to the 422 this route has always
+    // answered, with the message it has always sent. PT404 is the bed
+    // disappearing between the read above and this call. Both are mapped in
+    // src/lib/write-errors.js rather than here, so a third caller of these
+    // functions cannot forget them.
+    if (convErr) {
+      request.log.error({ err: convErr }, 'failed to convert test bed to opportunity')
+      return sendWriteError(reply, convErr)
     }
 
-    const { error: revErr } = await db
-      .from('record_revisions')
-      .insert({
-        record_id: opp.id,
-        revision_number: 1,
-        payload: {
-          ...defaults,
-          name: opportunity_name.trim(),
-          company_name: bedPayload.client_organisation ?? '',
-          // customerLead (Round 2 Phase 1, 2026-08-16): carries the Test
-          // Bed's initialLead value across unchanged, same treatment as
-          // account_id/reference_code above - a genuine field-name
-          // mapping (Test Bed calls it initialLead, Opportunity calls
-          // the identical concept customerLead), not a copy-by-key.
-          customerLead: bedPayload.initialLead ?? null
-        },
-        created_by: request.user.id
-      })
-
-    if (revErr) return sendWriteError(reply, revErr)
-
-    const { error: detErr } = await db
-      .from('opportunity_details')
-      .insert({
-        record_id: opp.id,
-        probability_pct: probDefault?.default_probability_pct ?? null,
-        converted_from_test_bed_id: bed.id,
-        test_bed_cost: bedPayload.accumulated_cost ?? null
-      })
-
-    if (detErr) return sendWriteError(reply, detErr)
-
-    await db.from('audit_log').insert([
-      {
-        record_id: bed.id,
-        record_type: 'test_bed',
-        action: 'converted_to_opportunity',
-        actor_id: request.user.id,
-        detail: { opportunity_id: opp.id }
-      },
-      {
-        record_id: opp.id,
-        record_type: 'opportunity',
-        action: 'created_from_test_bed',
-        actor_id: request.user.id,
-        detail: {
-          from_test_bed_id: bed.id,
-          test_bed_cost: bedPayload.accumulated_cost ?? null,
-          account_id: bed.account_id ?? null,
-          reference_code: bed.reference_code ?? null
-        }
-      }
-    ])
-
-    return reply.code(201).send({
-      ...opp,
-      converted_from_test_bed_id: bed.id,
-      test_bed_cost: bedPayload.accumulated_cost ?? null
-    })
+    return reply.code(201).send(opp)
   })
 
   // POST /api/test-beds/:id/buyer-contacts

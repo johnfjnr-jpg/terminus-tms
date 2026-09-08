@@ -784,65 +784,60 @@ export default async function contactsRoutes(app) {
     // creation rather than silently producing a blank deal.
     const defaults = initialPayload(await readSystemDefaults(db))
 
-    const { data: opp, error: oppErr } = await db
-      .from('records')
-      .insert({
-        record_type: 'opportunity',
-        status: 'Qualification',
-        owner_id: request.user.id,
-        reference_code: referenceCode,
-        account_id: contact.parent_record_id ?? null
-      })
-      .select()
-      .single()
+    // ── ONE TRANSACTION, OR IT NEVER HAPPENED ────────────────────────────
+    //
+    // What was here: five writes in sequence with no transaction - records,
+    // record_revisions, opportunity_details, the record_contacts link, and an
+    // audit_log batch of two whose error was never checked. A failure after the
+    // second left a usable-looking Opportunity with no details row; a failure
+    // at the link left an Opportunity with no buyer contact and a 500.
+    //
+    // TWO RULED BEHAVIOUR CHANGES, and nothing else about this route moves:
+    //
+    //   1. the five writes are atomic;
+    //   2. a failed audit_log insert now ROLLS THE CREATION BACK. An
+    //      unauditable creation must not exist.
+    //
+    // account_id is NOT passed: create_opportunity_from_contact reads the
+    // Contact's own parent_record_id, because that is a fact the database holds
+    // rather than a value this route computes. The reference code IS passed,
+    // because issuing one increments a counter and has to stay the explicit
+    // call above.
+    //
+    // ── DEFAULTS ARE WRITTEN AT CREATION. Round 41 item 1 ────────────
+    //
+    // Architecture 11: a default is an initial value in the RECORD, not a
+    // fallback in the calculation. This is one of TWO creation paths, the other
+    // being Test Bed conversion, and both apply them: a deal that started blank
+    // because of how it was made would be indistinguishable from one somebody
+    // deliberately cleared.
+    //
+    // No structure is known here, so recoveryMonths and the factoring term are
+    // deliberately ABSENT rather than guessed. A field that does not yet apply
+    // must not be prefilled, or its not-recorded path is unreachable.
+    //
+    // customerLead (Round 2 Phase 1, 2026-08-16): Opportunity's own
+    // origin-contact field, set once, here, at creation, and protected from a
+    // later silent overwrite by PATCH /opportunities/:id's own freshness check
+    // (saveRefFields), not by this write.
+    const { data: opp, error: createErr } = await db.rpc('create_opportunity_from_contact', {
+      p_contact_id: contact.id,
+      p_payload: {
+        ...defaults,
+        name,
+        company_name: accountName ?? '',
+        customerLead: contactPayload.name ?? null
+      },
+      p_reference_code: referenceCode,
+      p_probability_pct: probDefault?.default_probability_pct ?? null
+    })
 
-    if (oppErr) {
-      request.log.error({ err: oppErr }, 'failed to create opportunity from contact')
-      return sendWriteError(reply, oppErr)
+    // PT404 is the Contact disappearing between loadQualifiedContact above and
+    // this call. Mapped in src/lib/write-errors.js rather than here.
+    if (createErr) {
+      request.log.error({ err: createErr }, 'failed to create opportunity from contact')
+      return sendWriteError(reply, createErr)
     }
-
-    const { error: revErr } = await db
-      .from('record_revisions')
-      .insert({
-        record_id: opp.id,
-        revision_number: 1,
-        // customerLead (Round 2 Phase 1, 2026-08-16): Opportunity's own
-        // origin-contact field, same concept and same fix as Test Bed's
-        // initialLead above - set once, here, at creation, protected from
-        // a later silent overwrite by PATCH /opportunities/:id's own
-        // freshness check (saveRefFields), not by this insert.
-        // ── DEFAULTS ARE WRITTEN AT CREATION. Round 41 item 1 ────────────
-        //
-        // Architecture 11: a default is an initial value in the RECORD, not a
-        // fallback in the calculation. This is one of TWO creation paths, the
-        // other being Test Bed conversion, and both apply them: a deal that
-        // started blank because of how it was made would be indistinguishable
-        // from one somebody deliberately cleared.
-        //
-        // No structure is known here, so recoveryMonths and the factoring term
-        // are deliberately ABSENT rather than guessed. A field that does not yet
-        // apply must not be prefilled, or its not-recorded path is unreachable.
-        payload: { ...defaults, name, company_name: accountName ?? '', customerLead: contactPayload.name ?? null },
-        created_by: request.user.id
-      })
-    if (revErr) return sendWriteError(reply, revErr)
-
-    const { error: detErr } = await db
-      .from('opportunity_details')
-      .insert({ record_id: opp.id, probability_pct: probDefault?.default_probability_pct ?? null })
-    if (detErr) return sendWriteError(reply, detErr)
-
-    try {
-      await linkContact(db, opp.id, contact.id, request.user.id)
-    } catch (err) {
-      request.log.error({ err }, 'failed to link contact to new opportunity')
-      return reply.code(500).send({ error: err.message })
-    }
-
-    await db.from('audit_log').insert([
-      { record_id: contact.id, record_type: 'contact', action: 'created_opportunity', actor_id: request.user.id, detail: { opportunity_id: opp.id } },
-      { record_id: opp.id, record_type: 'opportunity', action: 'created_from_contact', actor_id: request.user.id, detail: { contact_id: contact.id, initial_stage: 'Qualification' } }
-    ])
 
     return reply.code(201).send(opp)
   })

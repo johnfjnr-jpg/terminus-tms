@@ -197,3 +197,80 @@ test('all five writes are present in the two functions, so atomicity is about so
   assert.equal(count(convert), 4, 'convert_test_bed writes records, revision, details and audit')
   assert.equal(count(fromContact), 5, 'the contact path adds the record_contacts link')
 })
+
+// ═══════════════════════════════════════════════════════════════════════════
+// THE SHARED ERROR PATH. Ruling 11(b).
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// PT422 is added to sendWriteError AND writeErrorStatus. The file's own note
+// on PT423 says why both: "a mapper that knows a code and a twin that does not
+// is worse than neither, because the route that happens to use the second one
+// looks covered." That note was written after exactly that happened, and
+// NOTHING TESTED IT - the two existing tests that mention write-errors.js read
+// it as source text and never call either function.
+//
+// So the assertion that matters is not "PT422 maps to 422". It is THE TWINS
+// AGREE, across every code either of them knows.
+//
+// TARGETABLE BY PATH, so the calibration can point at a mutated COPY and never
+// write to src/lib/write-errors.js (Verification 44).
+const WE_PATH = process.env.WRITE_ERRORS
+  ?? new URL('../../src/lib/write-errors.js', import.meta.url).pathname
+const WE = await import(WE_PATH)
+
+// A reply just real enough to record what a route would have sent.
+const fakeReply = () => {
+  const out = {}
+  return {
+    out,
+    code(c) { out.status = c; return this },
+    send(b) { out.body = b; return this },
+  }
+}
+const sent = (err) => { const r = fakeReply(); WE.sendWriteError(r, err); return r.out }
+
+// Every code the shared path is expected to know, with the status it must
+// produce. Derived from this round's brief and from the codes already in the
+// estate, not read back out of the implementation.
+const CODES = [
+  ['PT422', 422, 'the conversion limit, added this round'],
+  ['PT404', 404, 'the source record is gone, added this round'],
+  ['PT423', 423, 'the record is frozen'],
+  ['23505', 409, 'a unique index refused the write'],
+  ['42501', 403, 'RLS refused the write'],
+  ['XX999', 500, 'anything the mappers do not know'],
+]
+
+test('every code maps to the status the brief names, through sendWriteError', () => {
+  for (const [code, status, why] of CODES) {
+    assert.equal(sent({ code, message: `msg for ${code}` }).status, status, `${code}: ${why}`)
+  }
+})
+
+test('THE TWINS AGREE: writeErrorStatus gives the same status for every code', () => {
+  for (const [code, status] of CODES) {
+    const a = sent({ code, message: `msg for ${code}` }).status
+    const b = WE.writeErrorStatus({ code, message: `msg for ${code}` }).status
+    assert.equal(b, status, `writeErrorStatus disagrees with the brief on ${code}`)
+    assert.equal(a, b, `the two mappers disagree on ${code}: ${a} vs ${b}`)
+  }
+})
+
+test('the limit refusal carries the database message through, not a substitute', () => {
+  // The route answered this exact sentence before the check moved into the
+  // function, and convert_test_bed raises it verbatim. A mapper that replaced
+  // it would silently change what a person reads.
+  const m = 'This Test Bed has already been converted to an Opportunity'
+  assert.equal(sent({ code: 'PT422', message: m }).body.error, m)
+  assert.equal(WE.writeErrorStatus({ code: 'PT422', message: m }).error, m)
+})
+
+test('the limit is not confused with a conflict or a freeze', () => {
+  // Three different things to say. A conflict says reload; a freeze says wait
+  // for somebody else; a limit says this is not allowed and reloading will not
+  // change it.
+  assert.notEqual(WE.LIMIT_STATUS, WE.FROZEN_STATUS)
+  assert.notEqual(WE.LIMIT_STATUS, WE.DUPLICATE_STATUS)
+  assert.equal(sent({ code: 'PT422', message: 'x' }).body.frozen, undefined,
+    'a limit must not be flagged as frozen')
+})

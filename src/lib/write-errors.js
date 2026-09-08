@@ -103,12 +103,57 @@ export function isFrozen(error) {
 export const FROZEN_STATUS = 423
 
 /**
+ * A WRITE REFUSED BY A DATA-DRIVEN LIMIT. Round 42, the convert atomicity round.
+ *
+ * PT422 is raised by convert_test_bed() when the Test Bed has already been
+ * converted as many times as conversion_criteria.condition allows. The limit is
+ * a database row, not a constant, so the refusal is a business rule being
+ * enforced rather than anything the caller can fix by reloading.
+ *
+ * MAPPED HERE RATHER THAN IN THE ROUTE, and the reason is PT423's, one rule
+ * later: the note above says sixteen chances to forget is not a design, and the
+ * count for this one is smaller only because the feature is newer.
+ *
+ * 422 rather than 409, and rather than 423. The route already answered 422 for
+ * this case before the check moved into the function, with this exact sentence,
+ * so the status is preserved rather than chosen. And the three are genuinely
+ * different things to say: a conflict says "reload and try again", a freeze
+ * says "this is waiting for somebody else", and a limit says "this is not
+ * allowed, and reloading will not change that".
+ *
+ * NOT PT409, deliberately. PT409 means the record moved under you. A conversion
+ * limit is not a staleness conflict and the two need different words on screen.
+ */
+export function isLimit(error) {
+  return error?.code === 'PT422'
+}
+
+export const LIMIT_STATUS = 422
+
+/**
+ * THE SOURCE IS GONE. Raised by convert_test_bed and
+ * create_opportunity_from_contact when the record named no longer resolves.
+ *
+ * Both routes read the source record and answer 404 before calling their
+ * function, so this fires only on the race between that read and the call. It
+ * is mapped here rather than inline in each route for the same reason as the
+ * two above: two routes today, and a third that forgets is the failure mode.
+ */
+export function isMissing(error) {
+  return error?.code === 'PT404'
+}
+
+export const MISSING_STATUS = 404
+
+/**
  * For a route that replies directly. Replaces
  *   return reply.code(500).send({ error: err.message })
  * and preserves that behaviour for every error that is not a refusal.
  */
 export function sendWriteError(reply, error) {
   if (isFrozen(error)) return reply.code(FROZEN_STATUS).send({ error: error.message, frozen: true })
+  if (isLimit(error)) return reply.code(LIMIT_STATUS).send({ error: error.message })
+  if (isMissing(error)) return reply.code(MISSING_STATUS).send({ error: error.message })
   // BOTH MAPPERS, ALWAYS. These two functions answer the same question for two
   // caller shapes, and the round that added PT423 to one and not the other is
   // the reason that is written down here: a mapper that knows a code and a twin
@@ -126,6 +171,8 @@ export function sendWriteError(reply, error) {
  */
 export function writeErrorStatus(error) {
   if (isFrozen(error)) return { status: FROZEN_STATUS, error: error.message, frozen: true }
+  if (isLimit(error)) return { status: LIMIT_STATUS, error: error.message }
+  if (isMissing(error)) return { status: MISSING_STATUS, error: error.message }
   if (isDuplicate(error)) return { status: DUPLICATE_STATUS, error: duplicateMessage(error) }
   return isRefusal(error)
     ? { status: 403, error: OWNERSHIP_REFUSAL }

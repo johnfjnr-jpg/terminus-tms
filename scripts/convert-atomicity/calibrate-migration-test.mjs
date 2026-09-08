@@ -150,6 +150,76 @@ results.push(must('a comment mentioning security definer leaves it green',
 
 results.push(must('the untouched file is green', original, false))
 
+// ── RULING 11(b): THE PT422 BRANCH, CALIBRATED IN BOTH MAPPERS ─────────
+//
+// The same never-write-the-real-file construction: the test imports
+// write-errors.js from WRITE_ERRORS, so each injection is a temporary copy.
+console.log('\nSHARED ERROR PATH: the PT422 branch, one mapper at a time')
+
+const WE = ROOT + 'src/lib/write-errors.js'
+const weOriginal = readFileSync(WE, 'utf8')
+const weHash = createHash('sha256').update(weOriginal).digest('hex')
+
+function runWe(src, label) {
+  const target = join(dir, `we_${label.replace(/[^a-z0-9]+/gi, '_')}.js`)
+  writeFileSync(target, src)
+  const r = spawnSync('node', ['--test', TEST], {
+    cwd: ROOT, encoding: 'utf8',
+    env: { ...process.env, CONVERT_MIGRATION: join(dir, 'baseline.sql'), WRITE_ERRORS: target },
+  })
+  const out = r.stdout + r.stderr
+  const fail = Number((out.match(/^. fail (\d+)$/m) ?? [])[1] ?? -1)
+  const pass = Number((out.match(/^. pass (\d+)$/m) ?? [])[1] ?? -1)
+  if (fail < 0 || pass < 0) {
+    console.log(`  STOP  ${label}: the test run produced no parseable result`)
+    console.log(out.slice(-800)); process.exit(2)
+  }
+  return { fail, pass, out }
+}
+writeFileSync(join(dir, 'baseline.sql'), original)
+
+function weInject(label, from, to, matcher) {
+  if (!weOriginal.includes(from)) {
+    console.log(`  STOP  ${label}: the anchor is not in write-errors.js`); process.exit(2)
+  }
+  const { fail, pass, out } = runWe(weOriginal.replace(from, to), label)
+  const fired = fail > 0
+  const named = out.includes(matcher)
+  console.log(`  ${fired && named ? 'FIRED' : 'SILENT'}  ${label}  (pass ${pass}, fail ${fail})`)
+  if (fired && !named) console.log(`         fired, but not on "${matcher}"`)
+  results.push(fired && named)
+}
+
+// ONE MAPPER AT A TIME, which is the whole point: removing the branch from
+// sendWriteError alone, or from writeErrorStatus alone, is the exact state the
+// file's own note calls worse than neither.
+weInject('the PT422 branch is removed from sendWriteError only',
+  '  if (isLimit(error)) return reply.code(LIMIT_STATUS).send({ error: error.message })\n', '',
+  'THE TWINS AGREE')
+weInject('the PT422 branch is removed from writeErrorStatus only',
+  '  if (isLimit(error)) return { status: LIMIT_STATUS, error: error.message }\n', '',
+  'THE TWINS AGREE')
+weInject('the PT404 branch is removed from sendWriteError only',
+  '  if (isMissing(error)) return reply.code(MISSING_STATUS).send({ error: error.message })\n', '',
+  'THE TWINS AGREE')
+weInject('PT422 is given the freeze status by mistake',
+  'export const LIMIT_STATUS = 422', 'export const LIMIT_STATUS = 423',
+  'the limit is not confused with a conflict or a freeze')
+weInject('the limit substitutes its own message',
+  '  if (isLimit(error)) return reply.code(LIMIT_STATUS).send({ error: error.message })',
+  "  if (isLimit(error)) return reply.code(LIMIT_STATUS).send({ error: 'Conversion limit reached' })",
+  'carries the database message through')
+
+{
+  const { fail, pass } = runWe(weOriginal, 'the untouched mappers are green')
+  console.log(`  ${fail === 0 ? 'FIRED' : 'SILENT'}  the untouched mappers are green  (pass ${pass}, fail ${fail})`)
+  results.push(fail === 0)
+}
+
+const weAfter = createHash('sha256').update(readFileSync(WE, 'utf8')).digest('hex')
+console.log(`  write-errors.js sha256 unchanged = ${weAfter === weHash}`)
+if (weAfter !== weHash) { console.log('THE HARNESS MODIFIED write-errors.js. STOP.'); process.exit(2) }
+
 // The harness verifies the thing it believes it cannot have touched.
 const after = readFileSync(MIGRATION, 'utf8')
 const afterHash = createHash('sha256').update(after).digest('hex')
