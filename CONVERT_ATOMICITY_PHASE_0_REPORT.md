@@ -355,3 +355,29 @@ Named here, not acted on: rule 10, on the list.
    inside one transaction, an audit row will witness the whole conversion,
    which makes P0.B a genuine detector going forward rather than a probe
    artefact detector.
+
+---
+
+## 8. The gate
+
+Run to completion and captured to a file, which is then read. Every number
+below is the gate's own, emitted per stage.
+
+```
+MERGE GATE  main  41e7eb81a33aae489fdc5d850fdb987ea65f01d9
+  21 of 21 stages PASS
+  pure suite      476/476 pass, 0 fail
+  database suite   94/94  pass, 0 fail
+  react suite     915/915 pass, 0 fail
+  HTTP stages     14, all PASS, 10.1s to 46.7s
+  full output: .verify/verify-1278530308111916.txt
+```
+
+**The SHA is `41e7eb8`, not the `6e03d03` the run was launched against.** The
+report file was committed while the gate was in flight and the gate reads its
+HEAD at the end, so it recorded the later commit. The two trees differ by this
+markdown file alone, which no stage reads. Stated rather than tidied.
+
+Durations are the normal ones for this suite (Verification 48): the HTTP
+stages ran 10.1s to 46.7s against a floor of about 130ms, so no stage failed
+faster than it could have run, and none was skipped.
