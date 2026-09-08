@@ -1,0 +1,128 @@
+# The convert atomicity round: brief
+
+Governing docs, read before anything: CLAUDE.md, the tms-round-method
+skill (.claude/skills/tms-round-method/), MIGRATION_CLOSE_OUT.md
+(carried item 1). This brief was drafted from an investigation of
+origin/main at f8a9c48; re-verify its premises by measurement against
+the tree you are on before writing any code (the Round 2 Phase 0
+model). Line numbers in this brief are navigation aids, not claims.
+
+## Rulings of record (John, 2026-09-08)
+
+1. Scope: POST /test-beds/:id/convert AND its sibling, the contact
+   qualification create-opportunity path in src/routes/contacts.js.
+   The generic POST /records (which carries its own TODO M2 for this
+   fix) is OUT of scope; it gets its own brief.
+2. Audit semantics change: inside the new transaction, a failed
+   audit_log insert rolls the conversion back. An unauditable
+   conversion must not exist. This is a deliberate behaviour change
+   from today's fire-and-forget.
+3. Phase 0 runs and is dispositioned before any fix is drafted.
+   Data changes are proposed, never applied in passing.
+
+Considered and set aside, not to be re-litigated: a partial unique
+index on opportunity_details.converted_from_test_bed_id. It would
+hard-code a limit of 1 against the data-driven ruling in migration
+20260815000006. The limit stays in conversion_criteria.condition.
+
+## The defect, as measured
+
+The convert route performs four writes in sequence with no
+transaction: records, record_revisions, opportunity_details,
+audit_log (a batch of 2, currently unchecked). A failure after
+insert 1 leaves a ghost opportunity with no revision and no details.
+A failure after insert 2 leaves a usable-looking opportunity with no
+details row: the max-conversions check reads
+opportunity_details.converted_from_test_bed_id, so the conversion
+does not count and a second is permitted; the close-date PATCH
+refuses the owner through the zero-rows path; the probability
+trigger UPDATEs zero rows silently at every transition;
+test_bed_cost is lost to the Deal Sheet. A failure at insert 4
+converts with no audit trail and still returns 201.
+
+Separately: the max-conversions check is read-then-write with no
+constraint behind it. Two concurrent converts of one bed both read
+zero and both commit, even if each request were internally atomic.
+
+The contact sibling has the same unguarded shape (records, revision,
+details, linkContact, audit) minus the conversion counter.
+
+## Phase 0: the residue probe (investigation, read-only, no fixes)
+
+Produce three counts against the live database, every number emitted
+by the run, captured to a file and read from the file:
+
+- P0.1 Opportunity records with no opportunity_details row.
+- P0.2 Records (any type) with no record_revisions row.
+- P0.3 Test Beds with more than one LIVE conversion:
+  opportunity_details rows grouped by converted_from_test_bed_id,
+  counting only rows whose opportunity record has deleted_at null,
+  listing any bed with count > 1.
+
+For every row found: record id, type, created_at, owner, and what
+state it is in. Propose a disposition per row; apply nothing. A
+measured zero on all three is a finding, stated as such with the
+query that could have seen a nonzero. STOP and report for sign-off.
+
+## Phase 1: the migration
+
+One migration creating two plpgsql functions, following the
+insert_deal_sheet_version pattern (20260829000002):
+
+- convert_test_bed: SECURITY INVOKER. Takes
+  pg_advisory_xact_lock(hashtextextended(bed_id::text, 0)). Inside
+  the lock, re-runs the live-conversion count (preserving the
+  deleted_at exclusion: soft-deleted opportunities do not count,
+  deleting an opportunity frees its bed). Raises a mapped SQLSTATE
+  on limit hit so the route keeps its 422; choose a code that cannot
+  collide with PT409's meaning and document the mapping. Then all
+  four inserts in the function's transaction. Audit failure raises,
+  per ruling 2.
+- create_opportunity_from_contact: SECURITY INVOKER. records,
+  revision, details, the record_contacts link, audit, one
+  transaction, same audit ruling. Keep it narrow; two small
+  functions, not one generic.
+
+Both functions take computed values as parameters. Reads that are
+not correctness-critical (bed payload, criteria row, probability
+default, system defaults, reference number issuance) stay in the
+routes. The only read that moves inside is the conversion count,
+because the lock is what makes it true.
+
+Calibration in both directions per the skill, plus these named
+proofs:
+
+- RLS under INVOKER: shown passing for an ordinary caller on all
+  four inserts, and shown REFUSING where policy says it must.
+  Precedent is not proof.
+- Atomicity: an injected failure at each insert position leaves
+  zero rows across all touched tables, measured, not asserted.
+- The race: two genuinely concurrent converts of one bed produce
+  exactly one conversion and one refusal. Note the atomicity-flake
+  tell from the close-out (item 6): a concurrency proof that
+  finishes implausibly fast did not run.
+- The limit refusal maps to the route's 422, not a 500.
+
+STOP and report for sign-off.
+
+## Phase 2: the routes
+
+Point both routes at their functions. Behaviour preserved exactly
+except the two ruled changes (atomicity, audit rollback): same
+status codes, same error shapes, same response bodies, same
+carried fields (account_id, reference_code, test_bed_cost,
+customerLead mapping, defaults at creation per Round 41 item 1).
+Derive route tests from this brief's behaviour statements, not from
+the code being replaced. The dead code the functions strand (the
+route-level prior-conversions query, if fully superseded) is
+deleted in this phase with the two claims: gone, and what replaced
+it proven. STOP and report for sign-off.
+
+## Phase 3: gate and close
+
+Full gate on the exact tree, committed first. Revert rehearsed on a
+branch per the skill; record what the rehearsal finds, including
+whether the migration is revertible independently of the route
+changes (expectation: it is not, once routes call the functions;
+measure rather than assume). Reconcile the close against this brief
+by counting. Nothing pushes without the word.
