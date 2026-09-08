@@ -47,6 +47,28 @@ R5. Method unchanged: investigation before drafting, phases stop
     for sign-off, data changes proposed before applied, nothing
     pushes without the word.
 
+R6. SUPERSEDES R1. The round's scope is re-ruled from FIX to
+    RETIRE, on Phase 0's measurement: POST /records and GET
+    /records are both DELETED. Zero callers across the estate, two
+    uses ever - both smoke tests, both hard-deleted - and a
+    validation bypass with no utility. THE ATOMICITY CLASS IS
+    CLOSED BY DELETION: no migration is written, and the TODO M2
+    naming the fix dies with the route.
+
+    R1's reasoning is left standing above rather than edited, per
+    Verification 29: a premise failed and the decision was
+    RE-TAKEN, not re-weighed, and a later reader should be able to
+    tell which happened. R1 assumed the path was worth making
+    atomic because it was a creation path. Phase 0 measured that
+    nothing creates through it.
+R7. Recorded for the future, and deliberately not built now: if a
+    generic creation path is ever genuinely needed, it is built NEW
+    at that time - atomic from birth via a SECURITY INVOKER
+    function, and carrying a record_type allowlist so it cannot be
+    the bypass this one was. The convert round's convert_test_bed
+    and create_opportunity_from_contact are the precedent for its
+    shape. NOTHING IS BUILT SPECULATIVELY NOW.
+
 ## The defect, as measured at c2bf261
 
 POST /records performs three writes with no transaction: records,
