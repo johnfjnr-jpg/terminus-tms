@@ -246,3 +246,32 @@ Unqualified, opportunity 6/7/8, test_bed 1, unit 3.
 
 **No change is unaccounted for**, which is what `CURRENT_STATE.md` rule 6 asks
 and the only reading under which its diff is evidence rather than noise.
+
+---
+
+## 9. The gate, as the final act
+
+Ruling 13's first application. Clean committed tree, nothing else running on
+the machine, nothing edited during it, and **no `WORKING TREE DIRTY` in the
+header for the first time this round.**
+
+```
+MERGE GATE  main  1f1744702b7f7b3f433e66c178b528ad6c19b0e5
+  21 of 21 stages PASS
+  pure suite      493/493 pass, 0 fail
+  database suite   94/94  pass, 0 fail
+  react suite     915/915 pass, 0 fail
+  HTTP stages     14, all PASS, 10.8s to 53.0s
+  full output: .verify/verify-1283698446502416.txt
+```
+
+Durations are the suite's normal ones (Verification 48), so no stage failed
+faster than it could have run and none was skipped.
+
+**What the green covers and what it does not.** It covers the estate: the
+routes, the shared error path, the pure and database suites, and fourteen HTTP
+probes including the two this round rewrote. It does **not** cover the browser -
+no walk was run this round - and it does not re-parse the migration, which the
+database applied and which no gate stage reads.
+
+**The round is complete and waits for the word.**
