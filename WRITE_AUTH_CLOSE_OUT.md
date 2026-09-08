@@ -147,3 +147,118 @@ They go with their rows.
   historical rows.
 - **That no other identity-shaped write exists.** The census was taken at Phase
   0 and not re-run after the migration.
+
+---
+
+## 7. The push, confirmed
+
+Asked of the remote directly rather than read from a local ref:
+
+```
+$ git ls-remote origin refs/heads/main
+33a205308c8347041f91605584fb9ce5b6d20a63	refs/heads/main
+
+remote head    33a205308c8347041f91605584fb9ce5b6d20a63
+local HEAD     33a205308c8347041f91605584fb9ce5b6d20a63
+the gated tree 33a205308c8347041f91605584fb9ce5b6d20a63
+all three match, 0 unpushed
+```
+
+**The word followed the stated gate result**, which is the rule this round put
+into `CLAUDE.md`. That is its first clean application: the gate reported 21 of
+21, the result was stated, and the push happened after.
+
+---
+
+## 8. R11: the evidence rows deleted, counted
+
+**5 of 5 deleted**, dependents checked first (0 approvals referencing the
+request, 0 requests freezing either version, so nothing was orphaned).
+
+| row | result |
+|---|---|
+| `5f1517b2` version created by a non-owner, on walk65's real record | **deleted** |
+| `e975b27e` version **issued** by a non-owner | **deleted** |
+| `0197a77d` request that moved a record | **deleted** |
+| `a7178858` probe record that carried the issued version | **soft-deleted** |
+| `e70d0755` probe record that carried the request | **soft-deleted** |
+
+**R11's named requirement is met:**
+
+```
+walk65's opportunity 29e98c46: 1 version - V0.1 draft by terminus.walk65@gmail.com
+  of which created by this probe account: 0
+live records owned by the test account: 0
+live probe-account records from today: 0
+```
+
+### And the residue counter was written wrong, which found something
+
+The first version asserted *"zero `deal_sheet_versions` created by this account,
+anywhere"*. It read **3,165**. That is every fixture row this test account has
+written since Milestone 1, across every round - an unmeetable claim that says
+nothing about this round. Verification 19: a category name, *probe artefact*,
+checked against the wrong population.
+
+**Rewritten as the claim that matters - rows this account wrote on records it
+does NOT own - it surfaced seven the approved list did not name:**
+
+| what | where | state |
+|---|---|---|
+| 5 `deal_sheet_versions` | on probe-account records `bb766625`, `2a004f1d`, `2cf7005f`, `4f665bc6`, `513a12f0` | **all five records already soft-deleted by R10** |
+| `b839633b` request | on `6e706cc5` | this round's owner-counterfactual; **record already soft-deleted** |
+| `b3a352f7` request | on walk65's **live** record `e5f8f1de` | **withdrawn**, and `requested_at` is **2026-09-02** - six days before this round. An earlier round's artefact, not this one's |
+
+**None of these is deleted.** They were not in R11's approved list, and a data
+change beyond a ruling is exactly what this method forbids. Every one is either
+a child row on a record already soft-deleted and invisible to the application,
+or - in the single live case - a withdrawn request from a different round.
+
+**Proposed for a ruling**, and deliberately not urgent: the five versions and
+`b839633b` go with their already-deleted records if anything; `b3a352f7` belongs
+to whichever round created it on 2026-09-02.
+
+---
+
+## 9. R12: accepted for the next round's opening
+
+Recorded here so the next brief carries them rather than the memory:
+
+1. **A revert rehearsal restores from an explicit ref, never from the index, and
+   verifies the tree hash rather than reading `git status`.** §3's measured
+   argument: `git checkout -- path` restored the poisoned index and left main
+   carrying the pre-fix routes while `git status` showed two modified files.
+2. **Rulings given in conversation are appended to the brief at the phase they
+   launch.** §2's measured argument: this brief carried 8 rulings while 10 were
+   in force, and the gap was found by counting at the close rather than when it
+   opened.
+
+---
+
+## 10. Carried items
+
+| item | note |
+|---|---|
+| **The parked UI hygiene round** — its brief sits in the repo unexecuted. The door presentation work resumes now, and it resumes on firmer ground: the door can finally communicate a boundary the server actually enforces | R1 |
+| Its three cosmetic items: the Test Bed cost cell, the Opportunity Reference column, the Structural Terms notes | parked with it |
+| **THE NAMED NEXT PROBE: Test Bed and Contact write paths, unexercised as a non-owner.** Every live proof in this round used an Opportunity. `POST /test-beds/:id/scores`, `/measurability`, `/buyer-contacts`, `/tech-team`, `/units/:unitId`, and the Contact `PATCH` and `link-account` routes. The policies are shared so the shapes carry — **but that is an argument, and this round is what happens when a security claim rests on one** | |
+| No manager override; an explicit roles feature in its own round if ever wanted | R7 |
+| The seven unruled probe rows in §8 | proposed, not applied |
+| The convert round's four: reference code on soft delete · Opportunity list Reference column · nineteen self-recording migrations · nothing detects a stale dev server | unchanged |
+
+---
+
+## 11. What this close does NOT cover
+
+- **The sibling surfaces**, named above. This is the largest gap and it is a
+  deliberate one: the round fixed what it proved, and proved what it fixed.
+- **No walk.** Nothing was opened in a browser this round.
+- **The live policy set.** `pg_policies` is unreadable from here; every policy
+  claim is source-derived and every enforcement claim is behavioural.
+- **Whether the three holes were ever exploited** before they were found.
+- **That no other identity-shaped write exists.** The census was taken at Phase
+  0 and not re-run after the migration.
+- **When `b3a352f7` was raised and by which round.** Dated 2026-09-02; not
+  traced further.
+
+**The round is closed.**
