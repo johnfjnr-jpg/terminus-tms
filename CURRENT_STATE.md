@@ -12,9 +12,9 @@ Contains no environment variable, key or token, and no client data. Records
 appear as counts by status only, never by name or reference code, because
 this file is uploaded into chat sessions.
 
-- Generated at: `2026-09-08T02:31:48.811Z`
-- Git commit: `e93ad2fb9b43721785a1393d9e83bce1cddba146`
-- Working tree at generation: `dirty (uncommitted changes present)`
+- Generated at: `2026-09-08T04:44:51.725Z`
+- Git commit: `83ec91dc02fde6970b720ac229522c857acdfdd8`
+- Working tree at generation: `clean`
 
 Staleness has two parts, and both must hold for this file to be current:
 the recorded commit is an ancestor of `HEAD`, AND no tracked configuration
@@ -63,8 +63,8 @@ CLAUDE.md build discipline 13. These console settings are MITIGATIONS, not the c
 
 | tag | published commit | date | commits from `HEAD` | local agrees |
 |---|---|---|---|---|
-| `controls-complete` | `56b516e` | 2026-08-29 | 316 | yes |
-| `reshape-complete` | `3499884` | 2026-08-29 | 287 | yes |
+| `controls-complete` | `56b516e` | 2026-08-29 | 326 | yes |
+| `reshape-complete` | `3499884` | 2026-08-29 | 297 | yes |
 
 ## `stage_definitions`
 
@@ -360,34 +360,34 @@ _None._
 
 ## Record counts by type and status
 
-115 live, 43194 soft deleted, 43309 rows in total.
+115 live, 43562 soft deleted, 43677 rows in total.
 
 | record_type | status | live | soft deleted |
 |---|---|---|---|
 | account | Active | 0 | 6 |
-| account | active | 4 | 882 |
-| contact | Active | 0 | 927 |
+| account | active | 4 | 895 |
+| contact | Active | 0 | 936 |
 | contact | Parked | 0 | 6 |
-| contact | Qualified | 8 | 4060 |
+| contact | Qualified | 8 | 4124 |
 | contact | Unqualified | 1 | 120 |
-| document | approved | 61 | 2389 |
+| document | approved | 61 | 2401 |
 | document | received | 1 | 74 |
 | opportunity | Closed Lost | 0 | 19 |
 | opportunity | Closed Won | 2 | 7 |
-| opportunity | Evaluation | 0 | 137 |
+| opportunity | Evaluation | 0 | 140 |
 | opportunity | Negotiating | 1 | 16 |
-| opportunity | Proposal | 8 | 838 |
-| opportunity | Qualification | 6 | 2806 |
-| opportunity | Solution Alignment | 7 | 747 |
+| opportunity | Proposal | 8 | 853 |
+| opportunity | Qualification | 6 | 2853 |
+| opportunity | Solution Alignment | 7 | 759 |
 | test_bed | Closed | 5 | 9 |
 | test_bed | Installation and Commissioning | 1 | 29 |
 | test_bed | Monitoring and Analysis | 0 | 1 |
 | test_bed | Pre-Site Assessment | 0 | 8 |
-| test_bed | Qualification | 1 | 796 |
+| test_bed | Qualification | 1 | 809 |
 | test_bed | Review and Completion | 1 | 0 |
 | test_bed | Site Assessment | 1 | 17 |
 | unit | Installed | 4 | 3 |
-| unit | Planned | 3 | 7820 |
+| unit | Planned | 3 | 7877 |
 | unit | Removed | 0 | 1 |
 
 ### Test fixture record types
@@ -398,19 +398,19 @@ row by row, and are included in the totals above.
 
 | distinct `harness_*` record types | live rows | soft deleted rows |
 |---|---|---|
-| 2704 | 0 | 21476 |
+| 2719 | 0 | 21599 |
 
 No harness record type holds a live row; every fixture row is soft deleted.
 
 ## `approvals`
 
-2810 rows, of which 0 carry a null `stage`.
+2849 rows, of which 0 carry a null `stage`.
 
 | decision | track | rows | null stage |
 |---|---|---|---|
-| approved | Commercial | 1434 | 0 |
-| approved | Legal | 736 | 0 |
-| approved | Technical | 635 | 0 |
+| approved | Commercial | 1452 | 0 |
+| approved | Legal | 748 | 0 |
+| approved | Technical | 644 | 0 |
 | rejected | Commercial | 1 | 0 |
 | rejected | Finance | 4 | 0 |
 
@@ -451,7 +451,7 @@ than written as a literal list, so its members are not enumerable here.
 
 ## Registered routes
 
-78 routes. Prefixes parsed from `src/server.js`, paths from each route module.
+76 routes. Prefixes parsed from `src/server.js`, paths from each route module.
 
 | method | path | auth | source |
 |---|---|---|---|
@@ -493,8 +493,6 @@ than written as a literal list, so its members are not enumerable here.
 | POST | `/api/opportunities/:id/key-contacts/:linkId/stance` | authenticated | `src/routes/opportunities.js` |
 | PUT | `/api/opportunities/:id/probability-override` | authenticated | `src/routes/opportunities.js` |
 | POST | `/api/opportunities/:id/scores` | authenticated | `src/routes/opportunities.js` |
-| GET | `/api/records` | authenticated | `src/routes/records.js` |
-| POST | `/api/records` | authenticated | `src/routes/records.js` |
 | GET | `/api/records/:id` | authenticated | `src/routes/records.js` |
 | GET | `/api/records/:id/approvals` | authenticated | `src/routes/approvals.js` |
 | POST | `/api/records/:id/approvals` | authenticated | `src/routes/approvals.js` |
