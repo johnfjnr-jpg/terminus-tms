@@ -2935,6 +2935,40 @@ of the change. An unanswerable precondition is a stop.
     about editing source. A run concurrent with editing is not a weaker gate
     run; it is not a gate run, and its green is worth no more than its red.
 
+    **AND TWO CLAUSES THE SAME WEEK ADDED, both from rounds that ran under the
+    rule and found its edges.** Set by the business 2026-09-08.
+
+    **(a) A DOCS-ONLY COMMIT MAY RIDE THE PRECEDING GREEN GATE, NAMED AS SUCH IN
+    THE CLOSE.** A commit touching only markdown that no gate stage reads changes
+    nothing the gate measures, and re-gating it costs five minutes to re-prove a
+    tree that differs by prose. **The naming is the control**: a close that says
+    which commits rode is auditable, and one that quietly skips is not.
+
+    The limit is exact and it is not "documentation": it is **markdown that no
+    gate stage reads**. A round that added two probe SCRIPTS alongside its report
+    re-gated, correctly, because the estate's source scans read `scripts/`.
+
+    **(b) THE PUSH WAITS FOR THE GATE RESULT TO BE STATED. It never runs in
+    parallel with a gate on the expectation of green.**
+
+    **The measured argument, and it is the reason this is a rule rather than a
+    preference.** A round pushed while its gate was still running, on every
+    reasonable expectation that it would pass. It did not. **The commit sat on
+    `origin/main` RED**, and neither party could have known, because the only
+    instrument that could say so had not finished. Nothing came of it - the
+    defect was a test-only false positive in a probe - which is the same shape
+    as Round 17A's four-hour window: timing, not design.
+
+    **The pair is what makes this worth having.** The clause above stops other
+    work running DURING a gate; this stops an outward-facing act running AHEAD
+    of one. Both are the same error: acting on a gate's EXPECTED answer rather
+    than its STATED one.
+
+    **Nearest existing rule is build discipline 11**, an unanswerable
+    precondition is a stop. This is narrower and far more common: a precondition
+    that is merely **unanswered yet**, where waiting costs minutes and not
+    waiting puts a red tree on a published branch.
+
 
 49. **A CENSUS OF A RENDERED SURFACE IS TAKEN AFTER INITIALISE, COMPUTE AND
     EXERCISE.** Round 3 of the migration, 2026-09-06, from four readings of one
