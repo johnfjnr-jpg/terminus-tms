@@ -265,6 +265,19 @@ function loadTestBedDetailOrSayWhyNot(id) {
 // the one reader, and it CLEARS on read so a later unrelated load cannot
 // inherit it. That clearing is the vanilla's own R5 behaviour, moved rather
 // than reimplemented.
+// ── RESTORED, Round 8 Phase 3. FOUND BY THE LIVE WALK ───────────────────
+//
+// Phase 2 deleted this `let` with the dead Test Bed view code, and Phase 0's
+// per-name deletion had reported it dead - correctly, as far as the suite could
+// see. TWO LIVE CALLERS SURVIVED IT: `TRANSITION_LANDING.test_bed.land` writes
+// it, and `takeTestBedLanding` below - the C1 seam the React view reads - takes
+// it. Neither is exercised by any test, so every stage was green and the browser
+// threw `tbLandOnStageAfterLoad is not defined` on the first Test Bed open.
+//
+// Exactly the risk Phase 2's report named and could not close: 953 lines were
+// dead TO THE SUITE, and the suite does not open the app.
+let tbLandOnStageAfterLoad = null
+
 window.takeTestBedLanding = function () {
   const stage = tbLandOnStageAfterLoad
   tbLandOnStageAfterLoad = null
