@@ -8011,10 +8011,15 @@ async function loadApprovalsQueue() {
   // fetch, not one per row.
   //
   // /api/opportunities RATHER THAN /api/records, walk 2026-09-03. The records
-  // list carries no payload at all - measured, fifteen columns and no name - so
+  // list carried no payload at all - measured, fifteen columns and no name - so
   // the first version of the name-first row read "Unnamed opportunity" on every
   // single line. A fallback that fires for every row is not a fallback, it is
   // the display.
+  //
+  // GET /api/records WAS RETIRED 2026-09-08 and no longer exists. The
+  // comparison is kept because it records WHY this reads the typed list, and
+  // that reason outlived the route: a generic list of records cannot carry a
+  // name. Nobody should go looking for the alternative.
   const recs = await api('GET', '/api/opportunities')
   const byId = new Map((recs.ok ? recs.data ?? [] : []).map(x => [x.id, x]))
 

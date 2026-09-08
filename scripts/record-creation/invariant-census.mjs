@@ -19,6 +19,27 @@ import { readFileSync, readdirSync } from 'fs'
 const ROOT = new URL('../../', import.meta.url).pathname
 
 // ── 1. Does the route read before it writes? ──────────────────────────────
+// ── THIS PROBE IS SUPERSEDED AND REFUSES. Retirement, 2026-09-08 ─────────
+//
+// It measured POST /records to decide whether the Phase 1 function needed an
+// advisory lock. Ruling 6 deleted the route instead, so there is nothing left
+// to measure and the anchors below resolve to -1.
+//
+// IT REFUSES RATHER THAN BEING DELETED, for two reasons. Its output is cited
+// in RECORD_CREATION_PHASE_0_REPORT.md, and a report citing a file that is not
+// there is Verification 7's third clause - a pointer to nothing is worse than
+// no pointer. And a probe that silently slices from -1 returns plausible
+// garbage rather than failing, which is the worse of the two failure modes.
+const routes0 = readFileSync(ROOT + 'src/routes/records.js', 'utf8')
+if (!routes0.includes("app.post('" + '/rec' + "ords'")) {
+  console.log('SUPERSEDED: POST /records was retired on 2026-09-08 by ruling 6 of')
+  console.log('the record creation atomicity round. This probe measured that route to')
+  console.log('decide whether a Phase 1 function needed an advisory lock. No function')
+  console.log('was written and the route is gone, so there is nothing to measure.')
+  console.log('Its findings are recorded in RECORD_CREATION_PHASE_0_REPORT.md section 3.')
+  process.exit(3)
+}
+
 const routes = stripJs(readFileSync(ROOT + 'src/routes/records.js', 'utf8'))
 const start = routes.indexOf("app.post('/records'")
 const end = routes.indexOf("app.get('/records'", start)

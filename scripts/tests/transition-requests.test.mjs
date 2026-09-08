@@ -513,8 +513,10 @@ test('THE QUEUE says what each request is waiting for, and carries no decide con
   // URL is which endpoint happens to carry what the row needs.
   //
   // /api/opportunities, not /api/records, walk 2026-09-03. The records list
-  // carries no payload - measured, fifteen columns and no name - so the
+  // carried no payload - measured, fifteen columns and no name - so the
   // name-first row read "Unnamed opportunity" on every line until this moved.
+  // GET /api/records was retired 2026-09-08; the reason it was never the right
+  // list outlived it, which is why the comparison stays.
   assert.match(queue, /const recs = await api\('GET', '\/api\/opportunities'\)/)
   assert.equal((queue.match(/await api\(/g) || []).length, 2)
 

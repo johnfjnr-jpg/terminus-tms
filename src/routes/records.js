@@ -91,66 +91,41 @@ export function buildStageTracks(stageRules, approvals, stageName, currentRevisi
 }
 
 export default async function recordsRoutes(app) {
-  // POST /api/records — create a record with its initial revision
-  // TODO M2: wrap the three inserts (records, record_revisions, audit_log)
-  // in a Postgres function called via .rpc() to make creation atomic.
-  app.post('/records', async (request, reply) => {
-    const { record_type, status = 'draft', payload = {}, parent_record_id } = request.body ?? {}
-
-    if (!record_type || typeof record_type !== 'string' || record_type.trim() === '') {
-      return reply.code(400).send({ error: 'record_type is required' })
-    }
-
-    const db = createUserClient(request.jwt)
-
-    const { data: record, error: recordErr } = await db
-      .from('records')
-      .insert({ record_type, status, owner_id: request.user.id, parent_record_id: parent_record_id ?? null })
-      .select()
-      .single()
-
-    if (recordErr) {
-      request.log.error({ err: recordErr }, 'failed to insert record')
-      return sendWriteError(reply, recordErr)
-    }
-
-    const { error: revErr } = await db
-      .from('record_revisions')
-      .insert({ record_id: record.id, revision_number: 1, payload, created_by: request.user.id })
-
-    if (revErr) {
-      request.log.error({ err: revErr }, 'failed to insert record_revision')
-      return sendWriteError(reply, revErr)
-    }
-
-    await db.from('audit_log').insert({
-      record_id: record.id,
-      record_type,
-      action: 'created',
-      actor_id: request.user.id,
-      detail: { initial_status: status }
-    })
-
-    return reply.code(201).send(record)
-  })
-
-  // GET /api/records — list records visible to the authenticated user
-  app.get('/records', async (request, reply) => {
-    const { record_type, status } = request.query ?? {}
-    const db = createUserClient(request.jwt)
-
-    let query = db.from('records').select('*').is('deleted_at', null).order('created_at', { ascending: false })
-    if (record_type) query = query.eq('record_type', record_type)
-    if (status) query = query.eq('status', status)
-
-    const { data, error } = await query
-    if (error) {
-      request.log.error({ err: error }, 'failed to list records')
-      return reply.code(500).send({ error: error.message })
-    }
-
-    return data
-  })
+  // ── POST /api/records AND GET /api/records ARE RETIRED ─────────────────
+  //
+  // Deleted 2026-09-08, the record creation atomicity round, ruling 6.
+  //
+  // THE ROUND SET OUT TO MAKE POST /records ATOMIC and measured first. It was
+  // the last non-atomic creation path and it carried its own TODO naming that
+  // fix, so the work looked obvious. The census found:
+  //
+  //   - ZERO callers, anywhere. No screen, no script, no test, no probe, no
+  //     raw fetch, across 379 tracked files. The exact literal '/records'
+  //     appeared TWICE in the whole estate and both were these two definitions,
+  //     so there was no indirection either.
+  //   - TWO records created through it, ever. Both smoke_test, both
+  //     2026-08-02, both since hard-deleted. Neither was an atomicity failure:
+  //     the route wrote its audit row only after the revision insert
+  //     succeeded, so an audit row present proves the revision landed.
+  //   - ONE refusal, where POST /test-beds has five and POST /contacts four,
+  //     and any non-empty string accepted as record_type. It could mint a
+  //     test_bed with no Account or a type that had never existed, bypassing
+  //     every precondition the typed routes enforce.
+  //
+  // So the atomicity class closed by DELETION rather than by a migration, and
+  // the TODO died with the route. GET /records went with it: the same census
+  // line showed it had no caller either, and the approval queue's own comment
+  // in frontend/app.js records why nothing used it - the records list carries
+  // fifteen columns and no name.
+  //
+  // IF A GENERIC CREATION PATH IS EVER NEEDED, ruling 7: it is built NEW at
+  // that time, atomic from birth via a SECURITY INVOKER function, carrying a
+  // record_type allowlist so it cannot be this bypass again.
+  // convert_test_bed and create_opportunity_from_contact are the shape.
+  //
+  // Deliberately prose and not commented-out code. Verification 7's third
+  // clause: a commented-out route naming a retired path is an escape route
+  // somebody reaches for, and worse than no note at all.
 
   // GET /api/records/:id — fetch a single record with its latest revision
   app.get('/records/:id', async (request, reply) => {
