@@ -26,7 +26,7 @@ R2. Scope, four items on OPPORTUNITY surfaces only:
        view and its tabs (~~Commercials included~~ STRUCK, see R5)
        by interaction under is-not-mine, not by reading selectors;
        keyboard counts. Then extend the door treatment to ~~the
-       full measured set~~ STRUCK, see R6 — the treatment targets
+       full measured set~~ STRUCK, see R6. The treatment targets
        the OPERATING surface, not the control list: controls dead
        under the door, alive without it, with named exceptions
        (Back, navigation, approval view) recorded with reasons.
@@ -128,7 +128,7 @@ covered / not-covered per control. Stop for sign-off.
 Phase 1 — the door fix per R2a as amended by R5 and R6, calibrated
 both directions on a real unowned and owned record, with a live
 walk of the Opportunity view as a non-owner across ~~the
-Commercials tab~~ STRUCK, see R5 — Commercials, Assessment and
+Commercials tab~~ STRUCK, see R5: Commercials, Assessment and
 Solution Alignment, the three tabs the census found carry reachable
 write controls: zero reachable by mouse, label or keyboard, count
 emitted. Stop for sign-off.
