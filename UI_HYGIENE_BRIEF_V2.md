@@ -119,6 +119,63 @@ R8. THE TWO ESTATE INSTRUMENT DEFECTS ARE QUEUED as the first item
     element), and it swallows the resulting timeout with
     `.catch(() => {})`, so it measures without waiting at all.
 
+R9. GATE COMPOSITION AMENDED, and it is a DECISION OF RECORD because
+    it reverses a standing by-design exclusion. verify-all.mjs
+    carries a comment stating that the browser probes are run by the
+    round and deliberately not by the gate. probe-readonly-view
+    JOINS THE GATE as a stage, CONDITIONAL on the repaired probe
+    proving stable across this phase's runs.
+
+    The reasoning, recorded because the exclusion was deliberate and
+    a later reader must be able to see which way this went and why:
+    A PROBE THAT FAILS CORRECTLY TO NOBODY IS A FALSE-COMPLETION
+    SIGNAL AT THE GATE LEVEL. Measured this phase: the probe has
+    been reporting the door gap at both widths, naming the exact
+    control the census names first, and reporting it to nothing,
+    because nothing runs it. This round exists because of that
+    silence.
+
+    IF THE PROBE PROVES UNSTABLE IN THIS ENVIRONMENT, STOP AND
+    REPORT. The gate is not reasoned forward. The fallback, a
+    separate named pre-push step, needs John's word and is not a
+    session decision.
+
+R10. A SERVER-SIDE REJECTION PROBE is added to scope and built this
+    phase. What it must establish: a non-owner write against
+    Opportunity tables is REJECTED AT THE SERVER, through the app's
+    real auth path.
+
+    - It authenticates as a REAL NON-OWNER USER JWT. Never the
+      service role. A declared policy is not an enforcement, and
+      `USING (false)` is dead code against a role that bypasses RLS,
+      so a probe through the service role proves nothing and MUST
+      NOT EXIST.
+    - Targets are TAGGED FIXTURES, created and swept by the act-1
+      teardown. No live or untagged record is touched.
+    - Calibrated both ways: shown REJECTING the non-owner write on
+      the healthy policy, and shown PASSING, the write landing, when
+      the policy is weakened by injection. Harness discipline in
+      full, the policy restored byte-identical, a reverted run at
+      the end.
+    - It starts with the writes THE CENSUS PROVED REACHABLE: the
+      assessment inputs and Mark Closed Lost. Then the remaining
+      write surfaces on Opportunity tables, ENUMERATED FROM THE
+      SCHEMA, not from the UI.
+
+    **INCOMPLETE AS RECEIVED, AND RECORDED AS INCOMPLETE RATHER THAN
+    COMPLETED BY INFERENCE.** The ruling as delivered ends mid
+    sentence at "If any write". The clause is a STOP CONDITION, and
+    this repository's own discipline forbids guessing one: a stop
+    rule that was assumed rather than stated is worth nothing when
+    it fires.
+
+    INTERIM WORKING ASSUMPTION, adopted because it is the
+    conservative reading and matches every prior round's stop rule,
+    and to be confirmed or corrected by John: IF ANY NON-OWNER WRITE
+    LANDS, STOP IMMEDIATELY AND REPORT WITH IDS. No further probing
+    until the word. Nothing in this phase relies on the assumption
+    being the lenient one.
+
 ## Phases
 
 Phase 0 — R1's two opening acts, then the door census (read-only
