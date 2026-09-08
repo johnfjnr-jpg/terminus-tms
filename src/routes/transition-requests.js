@@ -8,6 +8,7 @@
  */
 import { createUserClient } from '../supabase.js'
 import { computeBlocking, GATE_RECORD_SELECT } from './transitions.js'
+import { isRefusal, sendRefusal } from '../lib/write-errors.js'
 // From the one file that owns it, not re-declared here: a second 'version'
 // literal is a second reader of the same decision (Verification 20).
 import { linkApprovalsToVersions, versionApprovalState, VERSION_SCOPE } from '../lib/version-approval.js'
@@ -358,6 +359,13 @@ export default async function transitionRequestRoutes(app) {
       if (insErr.code === '23505') {
         return reply.code(409).send({ error: 'A request is already open on this record.' })
       }
+      // 42501 IS THE OWNERSHIP REFUSAL, added 2026-09-08 with the check that
+      // raises it. Without this line it falls to the 500 below, and a person
+      // told "server error" when they are simply on somebody else's record
+      // reloads and tries again. R3: the database enforces, the route makes it
+      // readable, through the same sendRefusal every other ownership refusal
+      // in the estate uses.
+      if (isRefusal(insErr)) return sendRefusal(reply)
       if (insErr.code === 'PT400') return reply.code(400).send({ error: insErr.message })
       if (insErr.code === 'PT401') return reply.code(401).send({ error: insErr.message })
       if (insErr.code === 'PT404') return reply.code(404).send({ error: insErr.message })

@@ -1,5 +1,5 @@
 import { createUserClient } from '../supabase.js'
-import { sendWriteError } from '../lib/write-errors.js'
+import { sendWriteError, sendRefusal } from '../lib/write-errors.js'
 import { payloadsDiffer } from '../lib/payload-diff.js'
 import { appendRecordRevision, SINGLE_KEY_RMW } from '../lib/record-revision.js'
 import { linkApprovalsToVersions, versionApprovalState, liveVersionApproval, APPROVAL_TRACK } from '../lib/version-approval.js'
@@ -555,6 +555,23 @@ export default async function dealSheetVersionsRoutes(app) {
       .maybeSingle()
     if (readErr) return reply.code(500).send({ error: readErr.message })
     if (!version) return reply.code(404).send({ error: 'version not found' })
+
+    // ── THE OWNERSHIP REFUSAL, IN WORDS. Added 2026-09-08 ─────────────────
+    //
+    // The policy is the enforcement: deal_sheet_versions_update_draft is now
+    // scoped to the record's owner, so a non-owner's UPDATE affects zero rows.
+    // The route already detects that further down - and answers "This version
+    // could not be issued. It may already have been issued.", which would be
+    // FALSE and would send the person looking for a version that is fine.
+    //
+    // So the route asks the question it can answer plainly. R3: presentation
+    // and routes communicate; they never enforce. If this check were removed
+    // the write would still be refused, one layer down, with a worse sentence.
+    const { data: owner, error: ownErr } = await db
+      .from('records').select('owner_id').eq('id', version.record_id).maybeSingle()
+    if (ownErr) return reply.code(500).send({ error: ownErr.message })
+    if (owner && owner.owner_id !== request.user.id) return sendRefusal(reply)
+
     if (version.status !== 'draft') {
       return reply.code(409).send({ error: 'This version has already been issued. An issued version cannot be changed.' })
     }
