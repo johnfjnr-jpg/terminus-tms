@@ -56,6 +56,17 @@ R8. Residue: the four evidence rows are kept per R2. The remaining
     PROPOSED data change, listed by id for John's ruling before
     any deletion.
 
+R9. Phase 2 gains one named proof before anything else:
+    document_details proven live in BOTH directions - a non-owner
+    write refused ownership-shaped, the owner's same write
+    succeeding. It was the only GAP row without a live proof and
+    it does not ship on source-reading alone.
+R10. R8's teardown list is APPROVED as proposed. Executed as a
+     listed, counted data change: ids before, a per-id result, and
+     a residue re-count reading exactly the three evidence rows
+     after. The three evidence rows are kept until the close
+     proposes their disposition.
+
 ## The finding, as measured
 
 POST /opportunities/:id/deal-sheet-versions answers 201 to a
