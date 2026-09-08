@@ -93,6 +93,23 @@ for (const item of SAMPLE) {
   // A count is only evidence once the instrument's zero is known
   // (Verification 13), so an identical idle window is measured first and every
   // interaction is judged against it.
+  //
+  // AND THE IDLE WINDOW MUST ACTUALLY BE IDLE. Measured: sampled straight
+  // after the tab click this read 1025 mutations, because it was catching the
+  // tail of the panel render rather than the page at rest. That inflated the
+  // floor 340-fold and made the verdict rule demand 4100 mutations, where a
+  // control measured LIVE had scored 1364 - so the mutation half of this
+  // instrument was dead and every verdict rested on the state signals alone.
+  //
+  // The page at rest runs at about 1 mutation per second (a clock). So wait
+  // for quiescence first: two consecutive 400ms windows under a small
+  // threshold, then measure the floor.
+  for (let i = 0; i < 25; i++) {
+    const a = await page.evaluate(() => window.__m)
+    await new Promise((r) => setTimeout(r, 400))
+    const b = await page.evaluate(() => window.__m)
+    if (b - a <= 3) break
+  }
   const idleStart = await page.evaluate(() => window.__m)
   await new Promise((r) => setTimeout(r, 700))
   const idle = (await page.evaluate(() => window.__m)) - idleStart

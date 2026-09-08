@@ -1905,6 +1905,9 @@ const EDIT_OPENING_SELECTOR = [
 // nothing, and a read-only record has to stay usable: measured, the reference
 // is a plain <span> with no onclick and `user-select: auto`, so it was never a
 // control and nothing here makes it less copyable.
+const NATIVE_CONTROL_SELECTOR = 'input, textarea, select, button, a[href]'
+const WIDGET_ROLES = new Set(['radio', 'checkbox', 'switch', 'button', 'menuitem', 'option', 'slider', 'combobox'])
+
 const NON_ACTION_SELECTOR = [
   '[data-opp-tab]', '[data-opp-stage-tab]', '[data-tb-tab]',
   '.detail-tab', '.btn-text', '.appr-refresh', '.disclose-chevron',
@@ -1925,6 +1928,71 @@ const NON_ACTION_SELECTOR = [
   // approver's.
   '[data-decision-track]',
 ].join(', ')
+
+// ── THE DOOR MUST OUTLIVE THE RENDER IT WAS APPLIED IN ──────────────────
+//
+// UI hygiene v2 Phase 1. applyReadOnlyControls is a ONE-SHOT SWEEP: it runs
+// inside a render and covers what exists at that instant. Anything rendered
+// afterwards is never swept, and on this view a great deal is.
+//
+// MEASURED on an unowned Opportunity:
+//
+//   +3540ms  is-loading clears   144 controls    0 typeable   <- swept, correct
+//   +4045ms  later content       296 controls  152 typeable   <- never swept
+//
+// Of those 152, 116 are vanilla and 36 are in the React assessment pane, so
+// this is NOT a React problem: it is a TIMING problem, and framing it as
+// React's would have fixed a third of it. Everything in the view has
+// pointer-events:none from the CSS half, which is descendant CSS and reaches
+// late content for free. The JS half is what runs once.
+//
+// This is Architecture 8 exactly: correct for every caller that existed, and
+// wrong for the caller that arrived later. Nothing regressed; the sweep was
+// always a snapshot and the surface grew around it.
+//
+// A DISABLED INPUT CLOSES BOTH GAPS AT ONCE, which is why the fix is a re-run
+// rather than a longer selector list. A label does not activate a disabled
+// input, so the mouse path through label.opp-assess-level closes; and a
+// disabled control is out of the tab order, so the keyboard path closes. The
+// treatment targets the operating surface without naming a single new control.
+let doorObserver = null
+let doorSweeping = false
+let doorSweepQueued = false
+
+function armDoorObserver(viewId, notMine) {
+  if (doorObserver) { doorObserver.disconnect(); doorObserver = null }
+  if (!notMine) return
+  const view = document.getElementById(viewId)
+  if (!view) return
+  doorObserver = new MutationObserver((records) => {
+    // RE-ENTRANCY IS REAL HERE: the sweep writes disabled, a class and
+    // tabindex, so its own writes are mutations. A module-scope flag rather
+    // than a closure variable, because two callbacks in one tick both read a
+    // stale closure - the inert-guard lesson from Verification 9.
+    if (doorSweeping) return
+    // ── ONLY ADDED ELEMENTS, AND ONLY ONCE PER FRAME ────────────────────
+    //
+    // A DEFECT THIS OBSERVER ITSELF INTRODUCED, measured and fixed here
+    // rather than left for somebody else. The first version re-swept on ANY
+    // childList change. The page carries a live clock whose tick replaces a
+    // text node, so every second triggered a full sweep of 296 controls, and
+    // the interaction probe's mutation floor went from 3 to 391 - a 130-fold
+    // rise in the noise of an instrument this round depends on.
+    //
+    // Nothing was broken and no test failed. It is Architecture 9's shape from
+    // the performance side: the door was correct and cost a full sweep a
+    // second to be correct.
+    if (!records.some((r) => [...r.addedNodes].some((n) => n.nodeType === 1))) return
+    if (doorSweepQueued) return
+    doorSweepQueued = true
+    requestAnimationFrame(() => {
+      doorSweepQueued = false
+      doorSweeping = true
+      try { applyReadOnlyControls(viewId, true) } finally { doorSweeping = false }
+    })
+  })
+  doorObserver.observe(view, { subtree: true, childList: true })
+}
 
 function applyReadOnlyControls(viewId, notMine) {
   const view = document.getElementById(viewId)
@@ -1968,6 +2036,49 @@ function applyReadOnlyControls(viewId, notMine) {
     el.classList.toggle('is-inert-action', notMine)
     if (el.tagName === 'A') el.setAttribute('tabindex', notMine ? '-1' : '0')
   }
+  // ── A CONTROL THAT IS NOT A CONTROL ELEMENT ─────────────────────────
+  //
+  // Measured after the re-run landed: 28 controls remained reachable on an
+  // unowned record and NOT ONE was an input. They are divs, spans and labels
+  // with their own handlers - the ring-radio structure picker, the tickable
+  // criterion rows - and disabling inputs cannot touch them. The interaction
+  // proof confirmed the ring-radio still RESPONDED, took focus, and drove 1364
+  // mutations on a record the user does not own.
+  //
+  // FOUND BY WHAT THEY ARE, not by name, for the same reason R3 gave for
+  // actions: a list of class names is an enumeration the next widget escapes,
+  // and `.ring-radio` is exactly the widget that escaped the CSS list.
+  //
+  // The existing `is-inert-action` class already carries the pointer-events
+  // and opacity treatment under `.is-not-mine`, so this needs no new CSS.
+  for (const el of view.querySelectorAll('*')) {
+    if (el.matches(NATIVE_CONTROL_SELECTOR)) continue
+    if (el.matches(NON_ACTION_SELECTOR) || el.closest(NON_ACTION_SELECTOR)) continue
+    const role = el.getAttribute('role')
+    const ti = el.getAttribute('tabindex')
+    const inlineHandler = el.getAttributeNames().some((a) => a.startsWith('on'))
+    const isWidget = (role && WIDGET_ROLES.has(role)) || (ti !== null && Number(ti) >= 0) || inlineHandler
+    if (!isWidget) continue
+    if (notMine) {
+      // The prior tabindex is recorded so the restore cannot invent one. An
+      // element that never carried the attribute gets it removed, not set to 0.
+      if (!el.hasAttribute('data-door-ti')) el.setAttribute('data-door-ti', ti === null ? '' : ti)
+      el.setAttribute('tabindex', '-1')
+      el.setAttribute('aria-disabled', 'true')
+      el.classList.add('is-inert-action')
+    } else if (el.hasAttribute('data-door-ti')) {
+      const prior = el.getAttribute('data-door-ti')
+      if (prior === '') el.removeAttribute('tabindex')
+      else el.setAttribute('tabindex', prior)
+      el.removeAttribute('data-door-ti')
+      el.removeAttribute('aria-disabled')
+      el.classList.remove('is-inert-action')
+    }
+  }
+
+  // Re-armed on every application so leaving the view, or arriving at a record
+  // that IS yours, tears the observer down rather than leaving it sweeping.
+  if (!doorSweeping) armDoorObserver(viewId, notMine)
   for (const el of view.querySelectorAll(EDIT_OPENING_SELECTOR)) {
     // Removed from the tab order rather than left focusable-but-dead: a control
     // you can Tab to and press Enter on is not read-only, it is a slower dead
