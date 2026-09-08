@@ -928,6 +928,27 @@ of the change. An unanswerable precondition is a stop.
    business found - the first fault in this project to reach anyone other
    than the person who wrote it.
 
+   **AND A RETIREMENT IS TWO CLAIMS, WHOSE SECOND HAS A THIRD CLAUSE.** Round 8
+   Phase 2. The file is GONE, and nothing still points at it - and the second
+   is the one that gets skipped, because deleting a file feels complete.
+
+   **Claim two reads CODE with comments stripped**, because prose naming a
+   retired file is a record rather than a dependency, and this estate keeps a
+   lot of it on purpose.
+
+   **THE THIRD CLAUSE: A COMMENTED SCRIPT TAG NAMING A DELETED FILE FAILS CLAIM
+   TWO, even though it is prose.** A revert instruction pointing at nothing is
+   worse than no instruction, because it reads as an escape route somebody
+   might reach for. The estate wrote that rule about one file and then left
+   another's tag behind at the next round's close, where it sat with a test
+   asserting its presence - the message reading *"the tag is GONE, so the
+   revert has nothing to restore"* while REQUIRING the pointer to nothing.
+
+   **The same fault has a general form: a DEFAULT, a fallback or an example
+   naming a deleted file is the same escape route.** A retirement pass checks
+   for those too - one sizing tool's default target named a file it had just
+   helped delete.
+
    **AND A REPLACEMENT IS TWO CLAIMS WITH THE POLARITY FLIPPED: WHAT YOU PUT
    THERE ARRIVED, AND WHAT WAS ALREADY THERE IS STILL THERE.** Migration
    Round 1, 2026-09-05. A move asserts the thing is GONE from its old place;
@@ -1697,6 +1718,31 @@ of the change. An unanswerable precondition is a stop.
     evidence only once the instrument has produced a non-zero, and a recovery
     is a procedure only once it has recovered something.
 
+    **AND A DELETION SIZED BY THE SUITE IS SIZED ON THE WRONG POPULATION.**
+    Round 8 Phase 3, and it is this rule's clause arriving at a retirement.
+
+    Phase 0 measured 33 dead names by deleting each and running the suite; 31
+    changed nothing and were called dead. **`tbLandOnStageAfterLoad` was among
+    them and had TWO LIVE CALLERS** - a transition hook that writes it and the
+    seam accessor the React view reads. Nothing exercises either, so all 21 gate
+    stages stayed green and the browser threw `is not defined` on the first
+    open.
+
+    **The measurement was correct about its population and the claim was about a
+    different one.** "Dead" meant dead to the suite; the deletion was in an
+    application the suite never opens.
+
+    **Two consequences.** A deletion pass says *dead to the suite* rather than
+    *dead*, and names the walk that would close the gap. And where the deletion
+    is large, a STRUCTURAL check is worth more than more tests: an identifier
+    the file READS and declares nowhere is findable without running anything,
+    and a grep cannot find it because the name is genuinely present in the two
+    places that use it - what is missing is the DECLARATION.
+
+    **In a non-strict classic script, only the READ throws.** Assigning an
+    undeclared name silently creates a global, so two other orphans from the
+    same deletion did no harm at all. The check that pays is the read.
+
     **AND "RUN EACH ONE ONCE" UNDERSELLS IT. Set by the business 2026-08-29,
     after the path above finally worked.** `refresh-session.js` succeeded for
     the first time in its life only because a credential rotation had forced a
@@ -2165,6 +2211,25 @@ of the change. An unanswerable precondition is a stop.
     show a comment failing to satisfy the scan, and show the stripped source
     still parsing.**
 
+    **AND THE INVERSE: A SCAN THAT MUST NOT STRIP CANNOT TELL THE THING FROM
+    PROSE ABOUT THE THING.** Round 8 Phase 2, and it cost two clean-looking runs.
+
+    A check for a commented-out script tag reads the file RAW on purpose - a
+    commented tag is exactly what it hunts. Read anywhere in the text it also
+    matches a COMMENT DESCRIBING one: the rule's own explanation, or a harness
+    naming the fault it injects. Both happened, and the final reverted run went
+    **RED with every file byte-identical**.
+
+    **The discrimination has to come from POSITION rather than from stripping.**
+    A real tag, live or commented out, begins its line; a mention inside a `//`
+    or `*` comment does not. Anchor at a line start and calibrate both ways:
+    prose about the thing passes, the real thing fails.
+
+    **And the second fix is not an exemption.** An exemption list rots and the
+    check is worth more absolute, so the harness was changed to name the file
+    NOWHERE - assembling the string from parts - rather than being excused from
+    the scan.
+
     **AND ONE KIND OF SCAN MUST NOT STRIP, which is why the rule names EVIDENCE
     rather than scanning.** A scan looking for a HAZARD reads the file raw: a
     key pasted into a comment is committed exactly as hard as one pasted into a
@@ -2507,7 +2572,20 @@ of the change. An unanswerable precondition is a stop.
     and stop rather than compound; and refuse an anchor that is not unique.
     Prefer a language with no word-splitting to a shell.
 
-    **AND A KILLED RUN POISONS THE NEXT RUN'S BASELINE.** Round 7 Phase 2d
+    **AND THE FINAL REVERTED RUN HAS NOW BEEN THE SOLE WITNESS FOUR TIMES.**
+    Round 8 Phase 2 added two, and both were the harness rather than the work:
+    a literal script tag in the injection file satisfied the very scan the
+    harness was calibrating, and then a COMMENT DESCRIBING one did the same.
+
+    **Every injection had already been detected and every file compared
+    byte-identical.** The run was, by every other measure, a clean 4/4.
+
+    **That is the argument for never skipping it**, and it is now stronger than
+    the original one: the pass does not only catch a harness that destroyed the
+    work, it catches a harness that has quietly become part of the thing it
+    measures.
+
+        **AND A KILLED RUN POISONS THE NEXT RUN'S BASELINE.** Round 7 Phase 2d
     session 2, and it is the third instance of this shape.
 
     The sweep injected a HANG deliberately - a guard against an infinite render
