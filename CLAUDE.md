@@ -1060,6 +1060,55 @@ of the change. An unanswerable precondition is a stop.
    in Round 9 Phase 6. A read whose error is unchecked is at least
    visibly empty; a write whose error is unchecked looks like it worked.
 
+   **AND THE CLAUSE ABOUT READS IS TOO KIND, AND IS SUPERSEDED. `?? []` TURNS
+   AN UNCHECKED ERROR INTO A ZERO THAT READS AS A MEASUREMENT.** Create-from
+   ownership round, 2026-09-08. The superseded wording is left above on
+   purpose: "at least visibly empty" was the reason a read felt like the safe
+   half of this rule, and it is false in the commonest shape a read is written.
+
+   **The instance, and it reached a signed-off and PUBLISHED report.** A Phase 1
+   probe asked whether non-owner conversions had written audit rows onto the
+   source records:
+
+       const { data: audit } = await db.from('audit_log')
+         .select('record_id, action, created_at').in('record_id', ids)
+       console.log(`audit rows: ${(audit ?? []).length}`)
+
+   `audit_log` has no `created_at`; the column is `timestamp`. PostgREST
+   returned an error, `data` came back **null**, and the `?? []` turned the
+   null into an empty array. **It printed `audit rows: 0`.**
+
+   That zero was reported as a FINDING - that the brief's defect statement was
+   not reproduced - carried as an open item, and pushed to `origin/main`. There
+   were **18 rows**, including exactly the two conversions the round had just
+   measured landing. **The brief had been right the whole time.**
+
+   **A NULL IS VISIBLY EMPTY. A NULL WEARING A DEFAULT IS NOT.** The rule's
+   original comfort holds only while the null reaches the reader. Every
+   idiom this codebase writes - `?? []`, `|| []`, `data?.length`,
+   `for (const x of data ?? [])` - consumes it one character before anybody
+   sees it, and what arrives is indistinguishable from a true zero.
+
+   **AND IT DEFEATS THE INSTRUMENTS THAT EXIST FOR THIS.** Verification 12
+   says a search that returns nothing may not have run, and 13 says a count of
+   zero from an instrument never shown reaching one is not a measurement. Both
+   were known to the author. **Neither fires**, because the zero is not from a
+   search or a counter: it is from a read that answered, in a shape the rules
+   are not watching.
+
+   **The check, and it is one line at the call site rather than a discipline:
+   destructure `error` and throw.** A helper is worth more than a habit here:
+
+       const must = ({ data, error }, what) => {
+         if (error) throw new Error(`${what}: ${error.message}`)
+         return data
+       }
+
+   **And the tell, for reading somebody else's probe: `?? []` or `|| []`
+   applied directly to a Supabase `data`.** That is not defensive coding. It
+   is the error path, silenced, at the exact point where the answer becomes a
+   number somebody will quote.
+
 9. **An invariant not proven capable of failing is not evidence**, and
    **AN OPERATION'S OWN SUCCESS LINE IS NOT CONFIRMATION EITHER.** Round 40,
    2026-08-30, and it is kept for what has teeth rather than for what happened.
