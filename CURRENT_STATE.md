@@ -12,9 +12,9 @@ Contains no environment variable, key or token, and no client data. Records
 appear as counts by status only, never by name or reference code, because
 this file is uploaded into chat sessions.
 
-- Generated at: `2026-09-08T04:44:51.725Z`
-- Git commit: `83ec91dc02fde6970b720ac229522c857acdfdd8`
-- Working tree at generation: `clean`
+- Generated at: `2026-09-08T12:59:47.164Z`
+- Git commit: `323e34a6eea3a39deca09e4908169f8eb5bf6814`
+- Working tree at generation: `dirty (uncommitted changes present)`
 
 Staleness has two parts, and both must hold for this file to be current:
 the recorded commit is an ancestor of `HEAD`, AND no tracked configuration
@@ -63,8 +63,8 @@ CLAUDE.md build discipline 13. These console settings are MITIGATIONS, not the c
 
 | tag | published commit | date | commits from `HEAD` | local agrees |
 |---|---|---|---|---|
-| `controls-complete` | `56b516e` | 2026-08-29 | 326 | yes |
-| `reshape-complete` | `3499884` | 2026-08-29 | 297 | yes |
+| `controls-complete` | `56b516e` | 2026-08-29 | 355 | yes |
+| `reshape-complete` | `3499884` | 2026-08-29 | 326 | yes |
 
 ## `stage_definitions`
 
@@ -360,34 +360,35 @@ _None._
 
 ## Record counts by type and status
 
-115 live, 43562 soft deleted, 43677 rows in total.
+153 live, 44585 soft deleted, 44738 rows in total.
 
 | record_type | status | live | soft deleted |
 |---|---|---|---|
 | account | Active | 0 | 6 |
-| account | active | 4 | 895 |
-| contact | Active | 0 | 936 |
+| account | active | 9 | 1037 |
+| contact | Active | 0 | 954 |
 | contact | Parked | 0 | 6 |
-| contact | Qualified | 8 | 4124 |
-| contact | Unqualified | 1 | 120 |
-| document | approved | 61 | 2401 |
-| document | received | 1 | 74 |
+| contact | Qualified | 12 | 4329 |
+| contact | Unqualified | 1 | 123 |
+| document | approved | 61 | 2425 |
+| document | draft | 0 | 5 |
+| document | received | 1 | 78 |
 | opportunity | Closed Lost | 0 | 19 |
 | opportunity | Closed Won | 2 | 7 |
-| opportunity | Evaluation | 0 | 140 |
+| opportunity | Evaluation | 0 | 146 |
 | opportunity | Negotiating | 1 | 16 |
-| opportunity | Proposal | 8 | 853 |
-| opportunity | Qualification | 6 | 2853 |
-| opportunity | Solution Alignment | 7 | 759 |
+| opportunity | Proposal | 8 | 885 |
+| opportunity | Qualification | 12 | 2968 |
+| opportunity | Solution Alignment | 7 | 793 |
 | test_bed | Closed | 5 | 9 |
 | test_bed | Installation and Commissioning | 1 | 29 |
 | test_bed | Monitoring and Analysis | 0 | 1 |
 | test_bed | Pre-Site Assessment | 0 | 8 |
-| test_bed | Qualification | 1 | 809 |
+| test_bed | Qualification | 21 | 867 |
 | test_bed | Review and Completion | 1 | 0 |
 | test_bed | Site Assessment | 1 | 17 |
-| unit | Installed | 4 | 3 |
-| unit | Planned | 3 | 7877 |
+| unit | Installed | 5 | 6 |
+| unit | Planned | 5 | 8005 |
 | unit | Removed | 0 | 1 |
 
 ### Test fixture record types
@@ -398,19 +399,19 @@ row by row, and are included in the totals above.
 
 | distinct `harness_*` record types | live rows | soft deleted rows |
 |---|---|---|
-| 2719 | 0 | 21599 |
+| 2749 | 0 | 21845 |
 
 No harness record type holds a live row; every fixture row is soft deleted.
 
 ## `approvals`
 
-2849 rows, of which 0 carry a null `stage`.
+2931 rows, of which 0 carry a null `stage`.
 
 | decision | track | rows | null stage |
 |---|---|---|---|
-| approved | Commercial | 1452 | 0 |
-| approved | Legal | 748 | 0 |
-| approved | Technical | 644 | 0 |
+| approved | Commercial | 1490 | 0 |
+| approved | Legal | 774 | 0 |
+| approved | Technical | 662 | 0 |
 | rejected | Commercial | 1 | 0 |
 | rejected | Finance | 4 | 0 |
 
@@ -534,7 +535,7 @@ than written as a literal list, so its members are not enumerable here.
 
 ## Migrations, in filename order
 
-117 files in `supabase/migrations/`.
+119 files in `supabase/migrations/`.
 
 1. `20260801000000_initial_schema.sql`
 2. `20260802000000_lead_opportunity.sql`
@@ -653,6 +654,8 @@ than written as a literal list, so its members are not enumerable here.
 115. `20260903000001_probability_is_derived_at_every_transition.sql`
 116. `20260903000002_a_pricing_approval_closes.sql`
 117. `20260908000001_convert_is_one_transaction.sql`
+118. `20260908000002_writes_are_owner_scoped.sql`
+119. `20260908000003_create_from_requires_source_owner.sql`
 
 ## Seed files, in application order
 
