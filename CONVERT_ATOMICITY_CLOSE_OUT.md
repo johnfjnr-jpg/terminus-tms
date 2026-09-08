@@ -275,3 +275,107 @@ no walk was run this round - and it does not re-parse the migration, which the
 database applied and which no gate stage reads.
 
 **The round is complete and waits for the word.**
+
+---
+
+## 10. The push, and the round's final reconciliation
+
+### The remote's own answer
+
+Asked of the remote directly rather than read from a local ref, because a local
+`origin/main` is a cached claim and the thing being confirmed is what the remote
+holds:
+
+```
+$ git ls-remote origin refs/heads/main
+c2bf26146761cb8390ee5ced404fbc7280b53de2	refs/heads/main
+
+remote head              c2bf26146761cb8390ee5ced404fbc7280b53de2
+local HEAD               c2bf26146761cb8390ee5ced404fbc7280b53de2
+remote == local          YES
+rev-list origin/main..HEAD   0
+uncommitted files            0
+```
+
+The remote moved from `f8a9c48`, the migration's close, to `c2bf261`.
+
+**Pushed by John from his own terminal.** The push from this session was refused
+by the environment's permission classifier - not by git, not by the remote, and
+not by anything in the repository. Recorded because a close-out that says "the
+round was pushed" without saying who did it and why is the kind of sentence that
+reads as fact and is not checkable.
+
+**The gate that authorised it ran on that exact tree**, `c2bf261`, clean, as the
+final act with nothing else running: 21 of 21, 493/493 pure, 94/94 database,
+915/915 react, 14 HTTP probes at 10.3s to 45.4s. Ruling 13's second application,
+and the reason three commits were gated again after Phase 3's green: two of them
+added scripts the gate's source scans read.
+
+### 21 commits against 8 sign-offs
+
+| sign-off | commits | |
+|---|---|---|
+| Phase 0 | 4 | brief, probe, report, gate |
+| Phase 1 | 4 | rulings R4-R6, migration, report, gate |
+| the `db push` failure | 1 | the ledger-row fix, outside any phase |
+| Phase 1b | 3 | rulings R7-R9, proofs, report |
+| Phase 2 | 3 | rulings R10-R11, the switch, report + gate |
+| Phase 3 | 3 | rulings R12-R13, the close, gate as final act |
+| R14 / R15 | 2 | the two promotions, the walk |
+| R17 / R18 | 1 | ruling 17, then the push |
+| | **21** | |
+
+Every commit belongs to a sign-off and every sign-off has commits. **The one
+that belongs to no phase is the `db push` failure**, which is correct: it was
+not phase work, it was a deployment defect found while handing a migration over,
+and it is recorded as its own commit for that reason.
+
+**Five ruling commits, eleven phase commits, four gate commits, and the brief.**
+17 rulings of record, none renumbered, no gaps.
+
+---
+
+## 11. Carried items, in full
+
+Nothing below is fixed. Each is recorded where a later round will find it.
+
+| # | item | where | size |
+|---|---|---|---|
+| 1 | **The reference code strands a bed on soft delete.** `records_reference_code_record_type_key` is not partial on `deleted_at`, so the conversion count says a bed is free while the index says its code is taken, and the caller gets a 409 mentioning neither. Needs a product ruling; the Milestone 5 dependency is named | brief R8 | medium, and it changes a deliberate decision |
+| 2 | **Nineteen migrations write their own `schema_migrations` row.** All applied by hand and inert; **a rebuild from files collides on each** | brief R9, R10; `CLAUDE.md` Architecture 10 | one round of its own |
+| 3 | **The React six-cell stat strip dropped the Test Bed cost cell** during the strip swap, while `app.js:7227` still writes the value into the hidden vanilla strip on every load, and the comment asserting the strip "stays OUTSIDE both" is false by measurement. Display only; the value is on the Deal Sheet | brief R17, walk report | low, dated to the strip swap rounds |
+| 4 | **The Opportunity list gains a Reference code column**, matching the Test Bed list. Measured: it has never had one | brief R17 | small |
+| 5 | **No route soft-deletes an Opportunity**, so the `deleted_at` exclusion protects a state the application cannot create | Phase 1 report | small, and it is why F1 happened |
+| 6 | **Nothing detects a stale dev server.** Caught by reading `ps`; a check that the running server's loaded source matches the tree is real work | close-out §4, `CLAUDE.md` build discipline 9 | medium |
+| 7 | **P0.1's 585 and P0.2's 62 rows: leave them.** Dispositioned, not remediated, and no data-change commit exists in the round | Phase 0 report, brief R4 | none, closed |
+
+---
+
+## 12. What this close does NOT cover
+
+Stated because a close that lists only what it proved is a claim about coverage
+that nobody measured.
+
+- **The estate was not walked.** One path was: Test Bed to Opportunity, twice,
+  in a browser. Nothing else on any screen was exercised this round.
+- **No gate stage parses the migration.** The database applied it; the 13
+  structural tests assert its TEXT. A green gate says the estate is unbroken, not
+  that the SQL is right.
+- **Atomicity is measured at two of five insert positions.** Positions 2, 4 and
+  5 have no reachable failure and rest on the structural claim that neither
+  function carries an `EXCEPTION` block.
+- **The RLS refusal at an INSERT is not constructible for a signed-in user**, by
+  design, so that half of the proof is a contrast between RLS on and RLS
+  bypassed rather than a direct observation.
+- **`PT404` from the functions was never reached by a real race**, only by a
+  synthetic error. Both routes 404 before calling.
+- **The contact route's qualification gate is untested.** The fixture sets
+  `Qualified` by direct write, and the gate itself is out of scope.
+- **The 585 and 22,023 residue rows are an upper bound, not an attribution.** A
+  direct fixture insert leaves the same shape as an insert-2 or insert-3 failure
+  and the data cannot separate them.
+- **The Commercials tab was never reached by automation.** Three attempts
+  failed; the question was settled by a person looking. Recorded as an
+  instrument limitation.
+
+**The round is closed.**
