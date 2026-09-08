@@ -89,6 +89,24 @@ not resolve it quietly.
    13. A heading that is shared context rather than a phase is stated as
    such.
 
+   **AND THE CAUSE, NAMED AND FIXED AT SOURCE: RULINGS GIVEN IN CONVERSATION
+   ARE APPENDED TO THE BRIEF AT THE PHASE THEY LAUNCH, NOT DISCOVERED AT THE
+   CLOSE.** Set by the business 2026-09-08.
+
+   This rule has always been about a brief that does not describe the round.
+   **The commonest way that happens is not a bad list, it is a good list
+   overtaken by rulings nobody wrote down.** Two consecutive rounds:
+
+   - one brief carried four phase headings written for a FIX, and a ruling
+     after Phase 0 changed the scope to a RETIREMENT, so its Phases 1 and 2
+     were never run and never would be;
+   - the next carried **8 rulings while 10 were in force**, the last two ruled
+     in conversation and appended only when the close counted them.
+
+   **The count at the close is the detector; appending at the phase is the
+   fix.** A ruling that launches work is part of that work's record, and a
+   brief that acquires it six phases later has been wrong for six phases.
+
 8. **Fix the class, not the instance the failure happened to name.** Round
    13 Phase 0, 2026-08-20, found by the next round rather than by the round
    that caused it. Round 12's final merge hit three failing invariants
@@ -2699,6 +2717,39 @@ of the change. An unanswerable precondition is a stop.
     **Both times it was the final "reverted" pass that caught it**, which is the
     one thing a calibration reliably reports. It costs one run and it has now
     paid for itself twice.
+
+    **AND A REVERT REHEARSAL RESTORES FROM AN EXPLICIT REF, NEVER FROM THE
+    INDEX, AND VERIFIES THE TREE HASH RATHER THAN READING `git status`.** Set by
+    the business 2026-09-08, from a rehearsal that damaged the tree it was
+    rehearsing against.
+
+    **Two faults in one attempt, and the second is the dangerous one.**
+
+    - `git revert` over a RANGE that included a probe's own history conflicted
+      on a file one commit created and the other amended. A range measures the
+      range's history, not the product. Aborted; no harm.
+    - **`git checkout <ref> -- path` followed by `git checkout -- path`
+      restored from the INDEX**, which the first command had already loaded with
+      the reverted content. `main`'s working tree was left carrying the
+      **pre-fix source** while `git status` showed only two modified files.
+      **Had the gate run at that moment it would have gated the reverted code
+      and passed.**
+
+    **This is Verification 44's own warning inverted.** That clause says never
+    use `git checkout` as the restore because it reverts to the last COMMIT, and
+    a mid-phase tree is not the last commit. This is the other direction: with
+    no ref, `git checkout --` reverts to the INDEX, and a targeted restore has
+    already poisoned it. Recover with `git checkout HEAD -- <path>`.
+
+    **And `git status` is not the check.** It showed two modified files and the
+    tree was wrong in exactly those two files. **Compare the tree hash**
+    (`git write-tree`) against the value taken before the rehearsal began; that
+    is one command and it cannot be read optimistically.
+
+    **One more, from the same rehearsal: `git checkout <ref> -- dir/` does not
+    REMOVE files added since that ref.** A migration added by the phase survived
+    a restore meant to undo it. A rehearsal that must remove a file deletes it
+    explicitly and then verifies.
 
 45. **A PROBE FOR A FIRST-PAINT DEFECT SAMPLES FROM THE FIRST FRAME.** Set by
     the business 2026-09-04, U8, and the instrument's ATTACHMENT POINT was the
