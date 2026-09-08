@@ -77,8 +77,14 @@ const a = await freshOpp('A')
 const vOwn = await body('POST', `/opportunities/${a}/deal-sheet-versions`,
   { inputs: BASE, rates: priced(BASE), reason: `${TAG} owner draft`, expected_revision: await revOf(a) })
 await db.from('records').update({ owner_id: other }).eq('id', a)
+// DIFFERENT INPUTS, deliberately. With BASE repeated, the route answers
+// "No change since V0.1. A version records a decision, so there is nothing to
+// record." - a refusal that arrives BEFORE ownership is asked and says nothing
+// about it. The first run of this probe scored that as a pass on check 1 and
+// only 1b caught it.
+const CHANGED = { targetMargin: 32 }
 const ins = await call('POST', `/opportunities/${a}/deal-sheet-versions`,
-  { inputs: BASE, rates: priced(BASE), reason: `${TAG} must be refused`, expected_revision: await revOf(a) })
+  { inputs: CHANGED, rates: priced(CHANGED), reason: `${TAG} must be refused`, expected_revision: await revOf(a) })
 check('1. version INSERT by a non-owner is refused', ins.status >= 400, `${ins.status}`)
 check('1b. and the refusal is about ownership', ownershipShaped(ins), JSON.stringify(ins.data).slice(0, 80))
 
@@ -104,9 +110,17 @@ check('3b. and the refusal is about ownership', ownershipShaped(req), JSON.strin
 // real-world positive control, and the fixed policy must refuse exactly this.
 const EVID_RECORD = '29e98c46-9377-4790-99b3-2045323f9265'
 const evidRev = await revOf(EVID_RECORD)
+// THE INPUTS MUST DIFFER FROM THE EVIDENCE ROW'S, or the route refuses this as
+// "No change since V0.2" before ownership is ever asked - measured, 409, not
+// ownership-shaped. The replay has to be a write that can REACH the policy, or
+// it proves the route's dedupe rather than the fix. Third time this class has
+// bitten in two rounds.
+const REPLAY = { targetMargin: 37 }
 const replay = await call('POST', `/opportunities/${EVID_RECORD}/deal-sheet-versions`,
-  { inputs: BASE, rates: priced(BASE), reason: `${TAG} replay of the evidence write`, expected_revision: evidRev })
+  { inputs: REPLAY, rates: priced(REPLAY), reason: `${TAG} replay of the evidence write`, expected_revision: evidRev })
 check('4. THE EVIDENCE WRITE, replayed on the real record, is refused', replay.status >= 400, `${replay.status}`)
+check('4c. and refused ON OWNERSHIP, not by the no-change dedupe', ownershipShaped(replay),
+  JSON.stringify(replay.data).slice(0, 90))
 check('4b. and the evidence row itself is untouched (R2)',
   !!(await db.from('deal_sheet_versions').select('id').eq('id', '5f1517b2-27df-41af-bb10-9261f70e146c').maybeSingle()).data,
   'version 5f1517b2 still present')
