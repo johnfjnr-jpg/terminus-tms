@@ -82,6 +82,29 @@ model). Line numbers in this brief are navigation aids, not claims.
    through the dashboard and are inert, but A REBUILD FROM FILES
    WOULD COLLIDE ON EACH. Recorded under the same learning.
 
+10. 20260829000007 KEEPS ITS LEDGER INSERT ON DISK. Editing an
+    applied migration rewrites history, so the file is not touched.
+    The nineteen-file rebuild-collision exposure is ONE CARRIED ITEM
+    for its own future round: nineteen migration files write their
+    own supabase_migrations.schema_migrations row, all applied by
+    hand and inert today, and a rebuild from files would collide on
+    each. Not this round's, and not to be fixed piecemeal.
+11. PHASE 2 SCOPE, confirmed:
+    (a) both routes point at their functions, behaviour preserved
+        except the two ruled changes (atomicity, and audit failure
+        rolling the conversion back);
+    (b) the PT422 branch added to sendWriteError AND
+        writeErrorStatus, calibrated both ways, because it touches
+        the shared error path and that file's own note says a mapper
+        that knows a code and a twin that does not is worse than
+        neither;
+    (c) ruling 6's item: the scripts/round7/walk-tb-2e.mjs teardown
+        stops hard-deleting opportunity_details;
+    (d) dead code stranded by the switch deleted, with the two
+        claims: it is gone, and what replaced it is proven.
+    Route tests derive from THIS BRIEF's behaviour statements, never
+    from the code being replaced.
+
 Considered and set aside, not to be re-litigated: a partial unique
 index on opportunity_details.converted_from_test_bed_id. It would
 hard-code a limit of 1 against the data-driven ruling in migration
