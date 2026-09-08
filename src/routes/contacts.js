@@ -632,7 +632,10 @@ export default async function contactsRoutes(app) {
   async function loadQualifiedContact(db, id) {
     const { data: contact, error } = await db
       .from('records')
-      .select('id, status, parent_record_id, industry_id')
+      // owner_id joins the select for the create-from ownership check. Three
+      // routes share this loader and none enumerates the row's keys, so the
+      // extra column is inert for the other two.
+      .select('id, status, parent_record_id, industry_id, owner_id')
       .eq('id', id)
       .eq('record_type', 'contact')
       .is('deleted_at', null)
@@ -933,6 +936,22 @@ export default async function contactsRoutes(app) {
     const db = createUserClient(request.jwt)
     const { contact, accountName, contactPayload, error } = await loadQualifiedContact(db, request.params.id)
     if (error) return reply.code(error.code).send(error.body)
+
+    // ── THE SOURCE MUST BE YOURS. Create-from ownership round, R5 ─────────
+    //
+    // This creates a Test Bed FROM the Contact named by :id. The new record is
+    // honestly the caller's, so every insert policy passes and RLS never asks
+    // the question that matters: whose Contact is being drawn on. Measured as a
+    // non-owner before this line existed: 201, and the source Contact gained a
+    // created_test_bed audit row.
+    //
+    // BEFORE the Account-link check, so a non-owner learns nothing about the
+    // Contact's state from the shape of the refusal.
+    //
+    // sendRefusal, not a fabricated 42501: that code stays reserved for
+    // refusals RLS itself raises, per the write authorization round's one-path
+    // rule. This is a route asking a route's own question.
+    if (contact.owner_id !== request.user.id) return sendRefusal(reply)
 
     if (!contact.parent_record_id) {
       return reply.code(422).send({

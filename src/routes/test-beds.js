@@ -1270,10 +1270,29 @@ export default async function testBedsRoutes(app) {
 
     const { data: bed } = await db
       .from('records')
-      .select('id')
+      // owner_id joins the select for the create-from ownership check below.
+      .select('id, owner_id')
       .eq('id', request.params.id)
       .eq('record_type', 'test_bed')
       .maybeSingle()
+
+    // ── THE SOURCE MUST BE YOURS. Create-from ownership round, R5 ─────────
+    //
+    // This finds or creates a document record FOR the bed named by :id and
+    // upserts its location. The document is honestly the caller's, so the
+    // insert policy passes; what it takes is the bed's, which gains a child
+    // document its owner did not create. Measured as a non-owner before this
+    // line existed: 201. Evidence 39a14a4c.
+    //
+    // AFTER the bed lookup and before anything is written, so the refusal
+    // cannot be confused with the 404 for a bed that is not there. A non-owner
+    // can SEE the bed - records_select is team-wide - so 404 would be a lie.
+    //
+    // NOT redundant with the document_details owner policy added by the write
+    // authorization round: that one governs writes to an EXISTING document's
+    // details, and this route's first call CREATES the document, at which point
+    // the caller owns it and the policy has nothing to refuse.
+    if (bed && bed.owner_id !== request.user.id) return sendRefusal(reply)
 
     if (!bed) return reply.code(404).send({ error: 'test bed not found' })
 
@@ -1747,10 +1766,26 @@ export default async function testBedsRoutes(app) {
   app.post('/test-beds/:id/units/derive', async (request, reply) => {
     const db = createUserClient(request.jwt)
     const { data: bed, error: bedErr } = await db
-      .from('records').select('id')
+      // owner_id joins the select for the create-from ownership check below.
+      .from('records').select('id, owner_id')
       .eq('id', request.params.id).eq('record_type', 'test_bed').is('deleted_at', null).maybeSingle()
     if (bedErr) return reply.code(500).send({ error: bedErr.message })
     if (!bed) return reply.code(404).send({ error: 'test bed not found' })
+
+    // ── THE SOURCE MUST BE YOURS. Create-from ownership round, R5 ─────────
+    //
+    // R5 gives this path its OWN rationale, and it is not the others'. The
+    // five sibling paths CONSUME from the source - an allowance, an identity,
+    // a history. This one INJECTS into it: deriveMissingUnitSlots writes unit
+    // records as children of the bed, so a non-owner populates somebody's bed
+    // with hardware slots they never made. That is editing by another name.
+    //
+    // Measured as a non-owner before this line existed: 200, two unit records
+    // created on another owner's bed.
+    //
+    // The units are created by a HELPER, which is why the body-local scan
+    // missed this route entirely and a person had to read it.
+    if (bed.owner_id !== request.user.id) return sendRefusal(reply)
 
     const { data: rev, error: revErr } = await db
       .from('record_revisions').select('payload')
@@ -1889,10 +1924,21 @@ export default async function testBedsRoutes(app) {
 
     const db = createUserClient(request.jwt)
     const { data: bed, error: bedErr } = await db
-      .from('records').select('id')
+      // owner_id joins the select for the create-from ownership check below.
+      .from('records').select('id, owner_id')
       .eq('id', request.params.id).eq('record_type', 'test_bed').is('deleted_at', null).maybeSingle()
     if (bedErr) return reply.code(500).send({ error: bedErr.message })
     if (!bed) return reply.code(404).send({ error: 'test bed not found' })
+
+    // ── THE SOURCE MUST BE YOURS. Create-from ownership round, R5 ─────────
+    //
+    // This attaches a document record TO the bed named by :id, owned by the
+    // caller. Measured as a non-owner before this line existed: 201, and the
+    // bed gained a child document it did not create. Evidence 7d04bf64.
+    //
+    // sendRefusal, not a fabricated 42501: that code stays reserved for
+    // refusals RLS itself raises. This is a route asking a route's own question.
+    if (bed.owner_id !== request.user.id) return sendRefusal(reply)
 
     // status 'received', not 'approved' and not 'draft'. These gate nothing,
     // so a status borrowed from the approval vocabulary would be a claim
