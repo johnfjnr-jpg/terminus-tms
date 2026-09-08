@@ -105,6 +105,35 @@ model). Line numbers in this brief are navigation aids, not claims.
     Route tests derive from THIS BRIEF's behaviour statements, never
     from the code being replaced.
 
+12. The PT404 mapping in the shared path is ACCEPTED AS RULED.
+    Both functions raise PT404 when the source record is gone, and
+    isMissing/MISSING_STATUS live in src/lib/write-errors.js beside
+    PT422 rather than inline in each route, for the reason the file
+    already gives for PT423: two routes today, and a third that
+    forgets is the failure mode.
+13. GATE DISCIPLINE, recorded for the close. TWO GATES THIS ROUND
+    WERE INVALIDATED BY CONCURRENT ACTIVITY ON THE MACHINE. The
+    Phase 1b run recorded three failures that were the API server
+    being restarted and three source files being edited while it
+    ran; two of the three failed in 132ms and 509ms against normal
+    durations of 29,062ms and 10,146ms. The Phase 2 run was green
+    and still carried WORKING TREE DIRTY, because its own report was
+    being written during it.
+
+    FROM PHASE 3 ONWARD THE GATE IS THE FINAL ACT ON THE FINAL
+    COMMITTED TREE, NOTHING ELSE RUNNING.
+
+    Phrased as the final act rather than as advice about editing
+    source, because the second breach was committed by the person
+    writing up the first.
+
+    AND THE STALE-SERVER CATCH GOES IN THE CLOSE-OUT'S INSTRUMENTS
+    TABLE: the API server had been started without --watch, so it
+    was still serving the pre-switch routes, and every Phase 2 probe
+    would have measured the code that had just been replaced. Build
+    discipline 9 names the hazard; nothing in the repository detects
+    it.
+
 Considered and set aside, not to be re-litigated: a partial unique
 index on opportunity_details.converted_from_test_bed_id. It would
 hard-code a limit of 1 against the data-driven ruling in migration
