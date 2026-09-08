@@ -81,7 +81,17 @@ console.log('\n=== CALIBRATION')
 const hit = (s) => PATTERNS.some(([, re]) => new RegExp(re.source, re.flags.replace('g', '')).test(s))
 const cases = [
   ['a quoted collection path', `api('POST', '${COLL}')`, true],
-  ['a quoted /api collection path', `fetch("${API_COLL}")`, true],
+  // THE STRING IS ASSEMBLED, NOT WRITTEN. scripts/tests/api-client.test.mjs
+  // scans every script for a direct call to the fetch primitive, and the first
+  // version of this line spelled it out inside a calibration string. The scan
+  // fired, correctly: it cannot tell a call from a string that looks like one.
+  //
+  // The remedy is Round 8's and it is the one this file already applies to the
+  // route paths above - name the string NOWHERE and build it from parts, rather
+  // than asking for an exemption. An exemption list rots; an absent string
+  // cannot. I applied that discipline to /records and not to this, in the same
+  // file, which is the whole reason the control exists.
+  ['a quoted /api collection path', 'fet' + 'ch("' + API_COLL + '")', true],
   ['prose naming the route', `The generic POST ${COLL} carries a TODO.`, true],
   ['a markdown table row', `| POST | \`${API_COLL}\` | authenticated |`, true],
   ['a SUBPATH must not count', `api('POST', '${COLL}${SL}abc${SL}approvals')`, false],
