@@ -174,3 +174,63 @@ published report.
 - The 38 residue records, which remain live pending the word.
 - Two orphaned `probe-scrollable.mjs` processes from another session, sleeping
   at 0.0% CPU for 58 hours. Not this round's, not killed, flagged only.
+
+---
+
+## 12. R8 executed: the 38 probe-account records, scoped by owner
+
+Ruled by John 2026-09-08 after the close gate. Scoped **by owner**, because
+the tag is exactly what failed to cover them.
+
+    owner scope: ownership-other@terminus-probe.invalid
+                 ff836462-4bab-4c39-a703-b215eb804102
+
+    BEFORE: 38 live records owned by the probe account
+    open transition requests blocking the delete: 0
+    PER-ID RESULT: 38 SOFT-DELETED, 0 failed
+
+    RESIDUE RE-COUNT, re-queried rather than assumed:
+      live records for the probe account: 0
+      soft-deleted this run:              38 of 38
+
+All 38 ids are listed in the run's own output: 32 from the sibling surfaces
+round (`sib-r0`, `sib2-r0` … `sib2-r3`), 3 from this round's Phase 0
+(`cf-r0`), and 3 `unit` records carrying no name in their payload - the
+`units/derive` units, which is why a tag-scoped sweep could never have reached
+them.
+
+Soft delete only. **No `reference_number_counters` row is touched, and that is
+a structural claim rather than a measurement**: the script issues no write to
+that table at all.
+
+**A caution recorded against my own output.** The run printed
+`reference_number_counters rows: 1000 (untouched)`. That 1000 is **PostgREST's
+default page cap, not a count** - the true figure, asked for as an exact count,
+is **3687**. The number was inert here because nothing was written, but it is
+precisely the species Verification 17 records (1000 of 8237 rows read, residue
+reported as zero), and it appeared in a close-out run by the person who had
+just cited that rule.
+
+**Estate-wide reconciliation, which is the real proof the teardown is
+complete:**
+
+    LIVE records estate-wide: 115
+       109  john@terminustechnologies.io
+         6  terminus.walk65@gmail.com
+
+115 live at the start of the day and 115 now, with **no live record owned by
+anything other than a real person**. That is Verification 11's residue test in
+its proper form, and the estate passes it.
+
+## 13. The round is fully closed
+
+`origin/main` verified at `890da4f337367ccfffb3cd0c435cbef59a5abb23`. Gate
+21/21 on that tree. Both approved data changes executed and counted. This
+section and §12 are markdown-only and ride that stated green gate under the
+promoted rule.
+
+**Two items land in the next session's opening commit, together:**
+
+1. the ruled `tearDown()` fix - scoped by tag, calibrated both ways;
+2. R9, the accepted Verification 8 extension - a null from an unchecked read,
+   passed through `?? []`, becomes a zero that reads as a measurement.
