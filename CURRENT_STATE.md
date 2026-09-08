@@ -12,9 +12,9 @@ Contains no environment variable, key or token, and no client data. Records
 appear as counts by status only, never by name or reference code, because
 this file is uploaded into chat sessions.
 
-- Generated at: `2026-09-08T12:59:47.164Z`
-- Git commit: `323e34a6eea3a39deca09e4908169f8eb5bf6814`
-- Working tree at generation: `dirty (uncommitted changes present)`
+- Generated at: `2026-09-08T13:02:11.481Z`
+- Git commit: `7361f4499c505896467acfa378d3f546551fd6ca`
+- Working tree at generation: `clean`
 
 Staleness has two parts, and both must hold for this file to be current:
 the recorded commit is an ancestor of `HEAD`, AND no tracked configuration
@@ -63,8 +63,8 @@ CLAUDE.md build discipline 13. These console settings are MITIGATIONS, not the c
 
 | tag | published commit | date | commits from `HEAD` | local agrees |
 |---|---|---|---|---|
-| `controls-complete` | `56b516e` | 2026-08-29 | 355 | yes |
-| `reshape-complete` | `3499884` | 2026-08-29 | 326 | yes |
+| `controls-complete` | `56b516e` | 2026-08-29 | 356 | yes |
+| `reshape-complete` | `3499884` | 2026-08-29 | 327 | yes |
 
 ## `stage_definitions`
 
