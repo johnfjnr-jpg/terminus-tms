@@ -20,6 +20,23 @@ model). Line numbers in this brief are navigation aids, not claims.
 3. Phase 0 runs and is dispositioned before any fix is drafted.
    Data changes are proposed, never applied in passing.
 
+4. Phase 0 dispositions, signed off: leave the 62 revision-less
+   document records, which are revision-less by design; leave the five
+   historical orphans including bed 52bf73df untouched. The six-way
+   conversion is KEPT AS EVIDENCE. Nothing to remediate.
+5. Phase 1 calibration gains one named proof, from Phase 0 finding F1:
+   a constructed fixture with one LIVE and one SOFT-DELETED conversion
+   of the same bed, shown counting the live one and excluding the dead
+   one, calibrated in both directions. Required because zero live
+   conversions exist in the database to exercise the deleted_at rule,
+   so P0.3's zero could not distinguish a rule that holds from a rule
+   with nothing to hold against.
+6. Phase 2 scope gains one named small item: the teardown of
+   scripts/round7/walk-tb-2e.mjs stops hard-deleting
+   opportunity_details in a way that manufactures the residue shape
+   (soft-delete, or delete parent-first), so it cannot false-alarm the
+   audit-witness detector that ruling 2 creates.
+
 Considered and set aside, not to be re-litigated: a partial unique
 index on opportunity_details.converted_from_test_bed_id. It would
 hard-code a limit of 1 against the data-driven ruling in migration
