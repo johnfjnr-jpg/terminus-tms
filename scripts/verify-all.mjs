@@ -193,6 +193,12 @@ const STAGES = [
     // ENUMERATION IS REPLACED by the shared census instrument - calibrated by
     // injecting a div[role=button] the allowlist could not see (296 -> 296)
     // and the replacement does (617 -> 618).
+    // ── AND A SKIP IS NOT A PASS AT A ROUND CLOSE. Ruled 2026-09-09 ────
+    //
+    // A SKIP is valid for a working gate run on a machine with no browser. It
+    // is UNANSWERED at a round close: the exit gate requires this stage GREEN
+    // on the exact tree being pushed, with a browser present. A round that
+    // closes on a SKIP here has measured nothing about the door.
     name: 'HTTP readonly-view probe',
     cmd: ['node', ['scripts/probe-readonly-view.mjs']],
     needs: 'the dev server on :3000, a live session-ref.json AND a scratch browser',

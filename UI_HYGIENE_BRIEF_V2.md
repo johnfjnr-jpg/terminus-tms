@@ -273,6 +273,30 @@ R14. TWO ADDITIONS TO THE P2.6 PROMOTION QUEUE, from P2.2.
        the run proceeded. Both produce a green that establishes
        nothing, and in both the RUN was fine.
 
+R15. THE DOOR-PROBE STAGE: SKIP IS VALID IN A RUN, NEVER AT A
+    CLOSE. Ruled 2026-09-09, reconciling two prior decisions that
+    are BOTH left visible rather than deleted.
+
+    ~~The browser probes are run by the round and deliberately not
+    by the gate, because puppeteer is not a dependency and a gate
+    that goes red for a missing optional tool is one people learn
+    to ignore.~~ SUPERSEDED for probe-readonly-view only, and the
+    reasoning stands: it is exactly why the stage SKIPS rather
+    than fails when no browser is present.
+
+    ~~R9: the probe joins verify-all.mjs as the gate stage.~~
+    REFINED, not withdrawn: it joins, and a SKIP satisfies an
+    ordinary run. AT A ROUND CLOSE THE EXIT GATE REQUIRES THIS
+    STAGE GREEN ON THE EXACT TREE BEING PUSHED, BROWSER PRESENT.
+    A close on a SKIP has measured nothing about the door.
+
+R16. scripts/lib/enumerate-controls.mjs IS THE STRUCTURE OF
+    RECORD for what counts as a control. Any future instrument
+    IMPORTS it and never re-decides classification. The two
+    instruments disagreeing about a sub-tab panel - the census
+    calling it a write control while the door's own rule
+    correctly excluded it - is what this prevents.
+
 ## Phases
 
 Phase 0 — R1's two opening acts, then the door census (read-only
