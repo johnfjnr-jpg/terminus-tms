@@ -364,30 +364,6 @@ not resolve it quietly.
     Same family as Verification 37, a rule that names a mechanism polices the
     mechanism rather than the effect: "ask for schema" named the wrong act.
 
-
-    **AND AN ALARM THAT FIRES FOR THE WRONG REASON PROVES NOTHING, WHICHEVER
-    DIRECTION IT FIRES IN.** UI hygiene v2, 2026-09-09, three shapes in one
-    round and they are the same fault:
-
-    - **A REFUSAL for the wrong reason.** Nine of eleven non-owner writes were
-      refused on BODY VALIDATION before ownership was ever asked. The probe
-      said REJECTED and had proved nothing. Fixed by asserting the refusal is
-      ownership-SHAPED, and reporting `refused-for-another-reason` as a verdict
-      distinct from `refused-on-identity`.
-    - **A GREEN for the wrong reason**, twice. An edit threw before writing
-      while the run proceeded, so a calibration re-ran the OLD file and
-      returned a result identical to success. And a calibration counted TAP
-      `not ok` lines where the runner prints `fail N`, reporting 0 failures
-      with three tests failing.
-    - **AN INJECTION for the wrong reason.** A fault injection produced
-      `0.filter is not a function`, so the test failed because the FILE WAS
-      BROKEN rather than because the behaviour was gone.
-
-    **The check is one question asked of any alarm: WOULD THIS HAVE FIRED IF
-    THE THING I AM TESTING WERE FINE?** A 400 on body shape, a syntax error and
-    a grep against the wrong output format all answer yes. The remedy is the
-    same each time: assert the REASON, not the event.
-
 15. **ONE SESSION IS ONE WHOLE, AND A PARTIAL REPORTS WHAT IS NOT BUILT
     FIRST.** Round 3 of the migration, 2026-09-06.
 
@@ -431,20 +407,6 @@ not resolve it quietly.
 ---
 
 ## Architecture
-
-
-    **AND THE READING OF A RUN IS ITSELF AN INSTRUMENT.** UI hygiene v2,
-    2026-09-09. Rule 16 says capture the output and search the file. The
-    corollary is that the SEARCH can be wrong while the run is perfect.
-
-    A calibration scored injections by counting TAP `not ok` lines. `node
-    --test` prints `fail N`. It reported **0 failures while three tests were
-    failing**, which reads exactly like a clean calibration. Re-run on EXIT
-    CODES it read three.
-
-    **Prefer the coarsest signal that cannot be misread.** An exit code has one
-    meaning; a line format is a second thing to be right about, and it is
-    invisible when wrong because a zero looks like success.
 
 1. **Extend the generic records engine. Never fork it.** New modules use
    the existing records, revisions and payload pattern rather than parallel
@@ -1394,6 +1356,30 @@ of the change. An unanswerable precondition is a stop.
     IS shown in the display half) beside R7 (and never in the value), and the
     injection then fires on each.
 
+
+    **AND AN ALARM THAT FIRES FOR THE WRONG REASON PROVES NOTHING, WHICHEVER
+    DIRECTION IT FIRES IN.** UI hygiene v2, 2026-09-09, three shapes in one
+    round and they are the same fault:
+
+    - **A REFUSAL for the wrong reason.** Nine of eleven non-owner writes were
+      refused on BODY VALIDATION before ownership was ever asked. The probe
+      said REJECTED and had proved nothing. Fixed by asserting the refusal is
+      ownership-SHAPED, and reporting `refused-for-another-reason` as a verdict
+      distinct from `refused-on-identity`.
+    - **A GREEN for the wrong reason**, twice. An edit threw before writing
+      while the run proceeded, so a calibration re-ran the OLD file and
+      returned a result identical to success. And a calibration counted TAP
+      `not ok` lines where the runner prints `fail N`, reporting 0 failures
+      with three tests failing.
+    - **AN INJECTION for the wrong reason.** A fault injection produced
+      `0.filter is not a function`, so the test failed because the FILE WAS
+      BROKEN rather than because the behaviour was gone.
+
+    **The check is one question asked of any alarm: WOULD THIS HAVE FIRED IF
+    THE THING I AM TESTING WERE FINE?** A 400 on body shape, a syntax error and
+    a grep against the wrong output format all answer yes. The remedy is the
+    same each time: assert the REASON, not the event.
+
 15. **A criterion expressed as a measurement at one viewport stops describing
     the thing it was written about.** Round 15 Phase 0, 2026-08-20. Round 8
     recorded Total Cost sitting 306px below the fold **at 1920**, named its
@@ -1434,6 +1420,20 @@ of the change. An unanswerable precondition is a stop.
     A filtered run that shows nothing is indistinguishable from a run that
     found nothing, and the moment you most need the output is the moment you
     have already discarded it.
+
+
+    **AND THE READING OF A RUN IS ITSELF AN INSTRUMENT.** UI hygiene v2,
+    2026-09-09. Rule 16 says capture the output and search the file. The
+    corollary is that the SEARCH can be wrong while the run is perfect.
+
+    A calibration scored injections by counting TAP `not ok` lines. `node
+    --test` prints `fail N`. It reported **0 failures while three tests were
+    failing**, which reads exactly like a clean calibration. Re-run on EXIT
+    CODES it read three.
+
+    **Prefer the coarsest signal that cannot be misread.** An exit code has one
+    meaning; a line format is a second thing to be right about, and it is
+    invisible when wrong because a zero looks like success.
 
 17. **A probe that distinguishes two states must be shown returning a
     different value in each, on the actual file or system under test.**
