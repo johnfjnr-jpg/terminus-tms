@@ -86,6 +86,53 @@ R4. THE CARRY-FORWARD USES `accumulated_cost`, the actual figure.
 
 R5. The door sweep was explained and no ruling was taken.
 
+R6. ACTUALS ARE DROPPED. R1's estimate-versus-actual approach is
+    withdrawn; no actuals field is built.
+
+R7. INSTEAD: AN END DATE THAT IS CALCULATED AT START AND
+    MONITORED. When a Test Bed starts, an end date is calculated,
+    and the surface HIGHLIGHTS WHEN THE CURRENT DATE IS PAST IT.
+
+    **MEASURED BEFORE SCOPING, and the requirement is well
+    founded.** Nothing derives the end date today. There are
+    THREE INDEPENDENT FIELDS with no arithmetic relating them:
+
+        estimatedInstallationDate   start, entered
+        estGoLiveDate               end, ENTERED - not derived
+        testBedDuration             months, stored separately
+
+    `dateBounds` only CONSTRAINS the end (min = start or today)
+    and the server only validates ordering (end >= start).
+    Nothing computes end from start plus duration.
+
+    **On all 9 live Test Beds, which all carry all three fields:**
+
+        start + duration matches the end date   1 of 9
+        already past their end date             4 of 9
+
+    The disagreements are not marginal - one bed records a
+    36-month duration against 0.9 months of elapsed dates, and
+    one records an END BEFORE ITS START (2026-08-25 against
+    2026-08-29) while sitting in Installation and Commissioning.
+    That last one should be refused by the server's ordering
+    check, which fires only when a PATCH carries those keys, so
+    it arrived by a path that did not.
+
+    **Four of nine beds are overdue today and nothing says so**,
+    including live ones at Installation and Commissioning and at
+    Review and Completion.
+
+    DECISIONS THIS NEEDS FROM JOHN, recorded rather than assumed:
+    a. WHAT IS "START"? The entered `estimatedInstallationDate`,
+       or the actual moment the record enters a stage such as
+       Installation and Commissioning?
+    b. IF THE END DATE BECOMES DERIVED, eight of nine existing
+       beds get a different end date from the one stored. Does
+       the calculated value REPLACE the stored one, sit beside it,
+       or apply only to new records?
+    c. WHAT DOES "HIGHLIGHT" MEAN on the strip - a colour on the
+       Proj End cell, a separate overdue badge, or both?
+
 ## Phase 0: measurement only, read-only against product code after A1
 
 1. Test Bed record fields: where Total Cost lives (stored or
