@@ -121,9 +121,26 @@ for (const width of [1240, 1920]) {
     // So the condition is STABILITY, not a class: the control count unchanged
     // across consecutive samples. It assumes nothing about which panels mount
     // or how many, which a condition naming the React pane would.
-    const ready = await page.waitForFunction(() => {
+    //
+    // ── AND THE CONDITION MUST NAME *THIS* RECORD ────────────────────────
+    //
+    // ONE PAGE IS REUSED across all six combinations, so after the first
+    // navigation `detail-company` already holds the PREVIOUS record's text and
+    // `is-loading` is not yet set. Every clause above was therefore satisfiable
+    // by the state being navigated AWAY from.
+    //
+    // Measured: at 1920 the approver row read 45 controls with is-not-mine
+    // false - the unloaded shell - while the same record at 1240 read 312 and
+    // 2/2. It failed as "no decision control was rendered", which reads as a
+    // product defect and was the probe releasing early.
+    //
+    // Verification 7's counterfactual, in the wait I wrote to fix the last one.
+    // `data-record-id` is written on every load and differs between records, so
+    // it is a condition the previous state CANNOT satisfy.
+    const ready = await page.waitForFunction((wantId) => {
       const v = document.getElementById('view-opportunity-detail')
       if (!v || v.classList.contains('is-loading')) return false
+      if (!document.querySelector(`[data-record-id="${wantId}"]`)) return false
       const named = ['ref-display-name', 'detail-company']
         .map((i) => document.getElementById(i))
         .some((el) => el && el.textContent.trim().length > 0)
@@ -132,7 +149,7 @@ for (const width of [1240, 1920]) {
       window.__settle = (window.__settle && window.__settle.n === n)
         ? { n, hits: window.__settle.hits + 1 } : { n, hits: 1 }
       return window.__settle.hits >= 4
-    }, { timeout: 25000, polling: 300 }).then(() => true).catch(() => false)
+    }, { timeout: 25000, polling: 300 }, id).then(() => true).catch(() => false)
     // A TIMEOUT IS A FAILURE, NOT A SHRUG. Recorded rather than thrown so the
     // remaining widths still report, but it can never again pass silently.
     if (!ready) notReady.push(`${width} ${label}: the view never settled, so every reading below is of an unrendered page`)

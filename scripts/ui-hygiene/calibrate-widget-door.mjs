@@ -95,6 +95,32 @@ if (broken.notMine === null) {
 }
 console.log(`  injected  not-mine ${broken.notMine} reachable, mouse ${broken.mouse}, own record ${broken.mine}  ${broken.ms}ms`)
 
+console.log('\nDIRECTION TWO-B: the container kill, reinstated\n')
+// ── A REGRESSION CAUGHT ONCE BY LUCK IS CAUGHT FOREVER BY CALIBRATION ────
+//
+// The first widget rule matched `tabindex >= 0`. Tab panels carry tabindex="0"
+// as a focus affordance, so it marked #opp-tab-commercial inert and
+// pointer-events:none INHERITED across the whole panel: every control inside
+// it, the disclosure toggle that must stay alive, and the panel's own tab stop.
+//
+// It also FLATTERED THE HEADLINE: "mouse reachable 0" was partly a blanket
+// container kill rather than controls being treated. It was found by walking
+// one dead control's ancestor chain, which is luck. This injection is what
+// makes it not luck.
+inject('frontend/app.js',
+  '    if (el.querySelector(NATIVE_CONTROL_SELECTOR)) continue',
+  '    if (false) continue',
+  'the container exclusion is removed')
+const containerKill = runCensus()
+const panelState = containerKill.out.match(/disclosure and help \(must stay alive\)\s+(\d+)\s+(\d+)/)
+restore('the container exclusion is removed')
+if (containerKill.notMine === null) {
+  console.error(`STOP: the injected census produced no parseable result in ${containerKill.ms}ms.`)
+  rmSync(INFLIGHT, { force: true }); process.exit(2)
+}
+console.log(`  container kill  not-mine ${containerKill.notMine} reachable, mouse ${containerKill.mouse}, ` +
+  `disclosure still alive ${panelState ? panelState[1] : '?'}  ${containerKill.ms}ms`)
+
 console.log('\nDIRECTION THREE: reverted\n')
 const reverted = runCensus()
 console.log(`  reverted  not-mine ${reverted.notMine} reachable, mouse ${reverted.mouse}, own record ${reverted.mine}  ${reverted.ms}ms`)
@@ -109,7 +135,14 @@ rmSync(INFLIGHT, { force: true })
 
 const fired = broken.notMine > healthy.notMine
 const recovered = reverted.notMine === healthy.notMine
+// THE CONTAINER KILL IS DETECTED BY THE DISCLOSURE COUNT, not by the reachable
+// count: killing a panel makes FEWER controls reachable, which looks like an
+// improvement. What it destroys is the read affordances that must stay alive.
+const healthyDisc = (healthy.out.match(/disclosure and help \(must stay alive\)\s+(\d+)/) ?? [])[1]
+const killedDisc = panelState ? panelState[1] : null
+const containerCaught = killedDisc !== null && healthyDisc !== undefined && Number(killedDisc) < Number(healthyDisc)
 console.log(`\n  FIRED (removing the rule makes more reachable): ${fired}  (${healthy.notMine} -> ${broken.notMine})`)
+console.log(`  CONTAINER KILL CAUGHT (disclosure dies):        ${containerCaught}  (${healthyDisc} -> ${killedDisc})`)
 console.log(`  RECOVERED (revert returns the healthy number):  ${recovered}  (${reverted.notMine})`)
 console.log(`  own record unchanged across all three:          ${healthy.mine === broken.mine && broken.mine === reverted.mine}`)
-process.exit(ok && fired && recovered ? 0 : 1)
+process.exit(ok && fired && recovered && containerCaught ? 0 : 1)

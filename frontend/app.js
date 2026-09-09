@@ -1190,6 +1190,30 @@ function refreshOppNextStageButton() {
   if (!btn || !oppNextStageState) return
   const { recordId, currentStage, nextStage, isTerminal } = oppNextStageState
 
+  // ── THE DOOR DECIDES, AND THIS RENDER MUST ASK IT ────────────────────
+  //
+  // UI hygiene v2 P2.1. The sweep sets `disabled` on every action button, and
+  // THIS FUNCTION RUNS AFTER IT and writes `disabled` from the gate's answer
+  // alone. On a record the user does not own it therefore re-enabled the
+  // button the sweep had just closed: measured, `opp-next-stage-btn` carried
+  // `is-inert-action` (so the sweep had reached it) and `disabled=false`.
+  //
+  // This is the two-writers problem the sweep's own comment warns about
+  // (Verification 20), and the fix is not to make the sweep win a race. It is
+  // that a control's render reads the SAME function the enforcement reads, so
+  // the two cannot disagree - Verification 43, and the shared reader is
+  // `canEditFields()`, which is what the door itself asks.
+  if (typeof window.canEditFields === 'function' && !window.canEditFields()) {
+    for (const el of [btn, lost]) {
+      if (!el) continue
+      el.disabled = true
+      el.onclick = null
+      el.classList.add('is-inert-action')
+    }
+    if (btn) btn.title = 'This record belongs to another user'
+    return
+  }
+
   // ── U8: PAINT ONCE, WHEN THE GATE'S ANSWER IS KNOWN ───────────────────
   //
   // Ruled 2026-09-04. This runs on tab activation, before the stage-approvals
@@ -1910,7 +1934,21 @@ const WIDGET_ROLES = new Set(['radio', 'checkbox', 'switch', 'button', 'menuitem
 
 const NON_ACTION_SELECTOR = [
   '[data-opp-tab]', '[data-opp-stage-tab]', '[data-tb-tab]',
-  '.detail-tab', '.btn-text', '.appr-refresh', '.disclose-chevron',
+  // ── `.btn-text` NARROWED. UI hygiene v2 P2.1 ─────────────────────────
+  //
+  // `.btn-text` was exempted as a navigation shape. It is a VISUAL STYLE, and
+  // measured across the estate it dresses: Back buttons, Sign out and Refresh
+  // (navigation, correctly exempt), a disclosure toggle - AND `deleteContact`,
+  // `clearTbFilter`, and the deal version `Restore`. Two of the four controls
+  // the Phase 1 census found reachable on an unowned record were sheltered by
+  // this one class.
+  //
+  // Verification 19: a category name asserting a property nobody measured. The
+  // exception now names the SHAPES it was written for rather than the styling
+  // they happen to share, so a new `.btn-text` action is swept by default
+  // instead of exempt by default.
+  '.detail-tab', '.appr-refresh', '.disclose-chevron', '.btn-text.disclose',
+  '[id^="btn-back-"]', '#btn-signout', '#approvals-refresh',
   '#btn-back-opps', '#opp-btn-list', '#opp-btn-grid', '.ot-sort',
   // ── THE THIRD CATEGORY: DECISIONS. Ruled 2026-09-02 ──────────────────
   //
@@ -2054,6 +2092,24 @@ function applyReadOnlyControls(viewId, notMine) {
   for (const el of view.querySelectorAll('*')) {
     if (el.matches(NATIVE_CONTROL_SELECTOR)) continue
     if (el.matches(NON_ACTION_SELECTOR) || el.closest(NON_ACTION_SELECTOR)) continue
+    // ── A CONTAINER OF CONTROLS IS NOT A CONTROL ────────────────────────
+    //
+    // A REGRESSION THIS LOOP ITSELF CAUSED, found by walking the ancestor
+    // chain of a control that had gone dead and fixed here rather than left.
+    //
+    // Tab panels carry tabindex="0" as a scroll and focus affordance (see the
+    // pane setup above), so `tabindex >= 0` matched `#opp-tab-commercial`, and
+    // `.is-not-mine .is-inert-action { pointer-events: none }` then killed the
+    // WHOLE Commercials panel by inheritance: every control inside it, the
+    // disclosure toggle that must stay alive, and the panel's own tab stop.
+    //
+    // It also FLATTERED THE MEASUREMENT. "mouse reachable: 0" was partly a
+    // blanket container kill rather than controls being treated, which is the
+    // shape where a number improves while the screen gets worse.
+    //
+    // The test is structural and needs no list: a control does not CONTAIN
+    // other controls. A ring-radio holds text; a panel holds inputs.
+    if (el.querySelector(NATIVE_CONTROL_SELECTOR)) continue
     const role = el.getAttribute('role')
     const ti = el.getAttribute('tabindex')
     const inlineHandler = el.getAttributeNames().some((a) => a.startsWith('on'))
