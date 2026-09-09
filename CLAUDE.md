@@ -364,6 +364,30 @@ not resolve it quietly.
     Same family as Verification 37, a rule that names a mechanism polices the
     mechanism rather than the effect: "ask for schema" named the wrong act.
 
+
+    **AND AN ALARM THAT FIRES FOR THE WRONG REASON PROVES NOTHING, WHICHEVER
+    DIRECTION IT FIRES IN.** UI hygiene v2, 2026-09-09, three shapes in one
+    round and they are the same fault:
+
+    - **A REFUSAL for the wrong reason.** Nine of eleven non-owner writes were
+      refused on BODY VALIDATION before ownership was ever asked. The probe
+      said REJECTED and had proved nothing. Fixed by asserting the refusal is
+      ownership-SHAPED, and reporting `refused-for-another-reason` as a verdict
+      distinct from `refused-on-identity`.
+    - **A GREEN for the wrong reason**, twice. An edit threw before writing
+      while the run proceeded, so a calibration re-ran the OLD file and
+      returned a result identical to success. And a calibration counted TAP
+      `not ok` lines where the runner prints `fail N`, reporting 0 failures
+      with three tests failing.
+    - **AN INJECTION for the wrong reason.** A fault injection produced
+      `0.filter is not a function`, so the test failed because the FILE WAS
+      BROKEN rather than because the behaviour was gone.
+
+    **The check is one question asked of any alarm: WOULD THIS HAVE FIRED IF
+    THE THING I AM TESTING WERE FINE?** A 400 on body shape, a syntax error and
+    a grep against the wrong output format all answer yes. The remedy is the
+    same each time: assert the REASON, not the event.
+
 15. **ONE SESSION IS ONE WHOLE, AND A PARTIAL REPORTS WHAT IS NOT BUILT
     FIRST.** Round 3 of the migration, 2026-09-06.
 
@@ -407,6 +431,20 @@ not resolve it quietly.
 ---
 
 ## Architecture
+
+
+    **AND THE READING OF A RUN IS ITSELF AN INSTRUMENT.** UI hygiene v2,
+    2026-09-09. Rule 16 says capture the output and search the file. The
+    corollary is that the SEARCH can be wrong while the run is perfect.
+
+    A calibration scored injections by counting TAP `not ok` lines. `node
+    --test` prints `fail N`. It reported **0 failures while three tests were
+    failing**, which reads exactly like a clean calibration. Re-run on EXIT
+    CODES it read three.
+
+    **Prefer the coarsest signal that cannot be misread.** An exit code has one
+    meaning; a line format is a second thing to be right about, and it is
+    invisible when wrong because a zero looks like success.
 
 1. **Extend the generic records engine. Never fork it.** New modules use
    the existing records, revisions and payload pattern rather than parallel
@@ -1519,6 +1557,30 @@ of the change. An unanswerable precondition is a stop.
     took one pass of reading the actual call sites, and all three had
     survived multiple rounds of people reading the label instead.
 
+
+    **AND A NAME USED AS AN ENUMERATION FAILS BY SILENT OMISSION, WHICH IS A
+    DIFFERENT FAULT FROM A NAME ASSERTING A PROPERTY.** UI hygiene v2,
+    2026-09-09. Rule 19 is a label claiming something nobody measured. This is
+    a label used as the LIST of what to act on, where the failure is not a
+    false claim but a member never considered.
+
+    **Three in one round, and the third would have been missed:**
+
+    - `.btn-text` exempted from the door as "a navigation shape". Measured, it
+      dresses Back, Sign out and Refresh AND `deleteContact`, `clearTbFilter`
+      and the deal version `Restore`. Two write controls sheltered by a
+      STYLING class.
+    - `.help-dot` written as the exemption for help, where `role="note"` is
+      what the thing DECLARES. The ninth help-shaped widget under another class
+      would have died silently.
+    - A tripwire naming `#deal-form-vanilla`. Enumerating by the `-vanilla`
+      suffix found **three** retired duplicates; the named list carried two.
+
+    **The check: an exception or guard enumerates by STRUCTURE or by a DECLARED
+    PROPERTY, never by name, and FAILS ON THE UNRECORDED INSTANCE.** Where a
+    list is unavoidable it asserts its own completeness, so a new member is a
+    red test rather than a silent omission.
+
 20. **A SECOND READER OF THE SAME VALUE ALWAYS DRIFTS.** Round 38,
     2026-08-29. Sibling to rule 19: that one is a claim written into a name,
     this one is a claim written into an access path. Five instances, all in
@@ -1690,6 +1752,22 @@ of the change. An unanswerable precondition is a stop.
     - on a feature whose entire point is that it does not freeze the record.
     Found only because the probe for the fix was calibrated on the real
     population, and folded into the same migration before it was applied.
+
+
+    **AND TWO INSTRUMENTS CAN DISAGREE ABOUT CLASSIFICATION RATHER THAN ABOUT
+    THE PRODUCT.** UI hygiene v2, 2026-09-09. Rule 20 is two readers of one
+    VALUE. This is two readers of one DEFINITION, and it is quieter because
+    both readings are of a healthy system.
+
+    A door census counted a sub-tab panel carrying `tabindex="0"` as a
+    reachable WRITE CONTROL; the door's own rule correctly excluded it, because
+    a control does not contain other controls. Neither was reading a wrong
+    value. They disagreed about what a control IS, and the census therefore
+    reported a gap that did not exist.
+
+    **The remedy is rule 20's and cheaper: ONE DEFINITION, IMPORTED.**
+    `scripts/lib/enumerate-controls.mjs` is that definition here, and a new
+    instrument imports it rather than deciding again.
 
 21. **A RECONCILIATION THAT CANNOT FAIL IS NOT A RECONCILIATION.** Round 38,
     2026-08-29, on the approval page's bridge.
@@ -2185,6 +2263,31 @@ of the change. An unanswerable precondition is a stop.
     narrower and harder: the assertion was RIGHT, complete, and calibrated, and
     the thing that broke was simply not of the type it counts.**
 
+
+    **AND THE SHARPEST CASE IS A MEASURE THAT MOVES THE WRONG WAY.** UI hygiene
+    v2, 2026-09-09. Rule 33 is a measure that CANNOT SEE the thing. This is a
+    measure that sees it and reports it as an IMPROVEMENT.
+
+    A door treatment over-reached and neutralised a whole tab panel, killing
+    every control inside it including the disclosure toggle that must stay
+    alive. Four detectors were tried:
+
+        reachable write controls   FALLS    2 -> 1    the defect improves it
+        disclosure candidates      FROZEN  37 -> 37   population survives,
+                                                      capability does not
+        reachable disclosure       0 -> 0             already zero when healthy
+        an EFFECT on a named
+        read affordance            RESPONDED -> inert  moves
+
+    **Two of the three failures were STRUCTURAL, not bugs.** A container kill
+    removes CAPABILITY while leaving POPULATION intact, so counts either
+    improve or freeze.
+
+    **The check: before trusting a detector, ask which way its number moves
+    when the defect is present.** If it falls, or does not move, it cannot be
+    the detector however carefully it is computed. Prefer an EFFECT on a named
+    thing - it did this, now it does not - over any count.
+
 34. **A REBUILD IS ALSO A SURVEY.** Round 40 Phase 2, 2026-08-30, set by the
     business.
 
@@ -2448,6 +2551,23 @@ of the change. An unanswerable precondition is a stop.
     a CHANGED path meeting its existing demand**, with nothing outside the
     process to notice that it had stopped meeting it.
 
+
+    **AND A 2xx IS NOT A WRITE.** UI hygiene v2, 2026-09-09. Rule 40 says
+    assert the NEW BEHAVIOUR rather than the status. The sharper form: a status
+    code cannot tell you whether anything was WRITTEN.
+
+    A probe scored `POST /deal-sheet-versions/:vid/restore` as a landed
+    non-owner write because it answered 200, and **raised a live security stop
+    that was wrong**. The route performs no write: it selects the version and
+    returns its inputs, and the overwrite is the client's subsequent PATCH,
+    which is ownership-guarded and was refused 403 in the same run. No
+    revision, no audit row and no `updated_at` change followed it.
+
+    **The check: bracket every attempt with a FINGERPRINT of the record** -
+    latest revision, audit-row count, `updated_at`, status, child-row counts -
+    **and let `landed` mean the fingerprint MOVED.** A POST that reads is
+    common enough that its name will not warn you.
+
 41. **WHEN A ROUTE IS SUPERSEDED FOR A RECORD TYPE, THE ROUND REPORT LISTS EVERY
     FRONTEND CALLER OF THAT ROUTE AND STATES ITS DISPOSITION.** Set by the
     business 2026-08-31, Round 41, from walk finding A.
@@ -2550,6 +2670,26 @@ of the change. An unanswerable precondition is a stop.
     question taken in different rounds. **This is two correct ROUTES for the same
     action**, and the same signature: each is defensible on its own terms, and
     nothing in either one knows the other exists.
+
+
+    **AND A RETIRED SURFACE THAT STILL PARSES WILL ABSORB AN EDIT SILENTLY.**
+    UI hygiene v2, 2026-09-09. Rule 41 is a superseded ROUTE that goes on
+    working. This is a superseded SURFACE that goes on existing.
+
+    `frontend/index.html` carries `#deal-form-vanilla`, `#deal-version-vanilla`
+    and `#ref-vanilla` - full duplicates of three screens, beside the empty
+    divs React mounts into. They render nothing.
+
+    **An edit converting eight note rows landed in the dead copy.** The served
+    HTML changed exactly as intended, source verification PASSED, and the
+    screen did not move. It was caught only by a browser sweep disagreeing with
+    the file. The same trap then waited in `#ref-vanilla`, where the
+    Opportunity stat strip lives and never renders.
+
+    **Two things follow.** A retired surface is RETIRED, not left beside its
+    replacement; and until it is, it carries a tripwire that fails on any edit
+    to it, because source verification cannot tell a live surface from a dead
+    one.
 
 42. **A WALK ON A CACHED BUNDLE REPORTS DEFECTS THAT ARE ALREADY FIXED.** Set by
     the business 2026-09-01, Round 41, from the fourth walk.
@@ -2799,6 +2939,22 @@ of the change. An unanswerable precondition is a stop.
     REMOVE files added since that ref.** A migration added by the phase survived
     a restore meant to undo it. A rehearsal that must remove a file deletes it
     explicitly and then verifies.
+
+
+    **AND THE WRITE SIDE: CONFIRM THE EDIT LANDED BEFORE MEASURING.** UI
+    hygiene v2, 2026-09-09. Rule 44 compares bytes after a RESTORE. It says
+    nothing about confirming an edit ARRIVED, and that is the same hole facing
+    the other way.
+
+    A scripted edit threw `AssertionError` before writing, and the calibration
+    that followed ran on the OLD file. It returned a result IDENTICAL to
+    success - three green assertions - because the number it reported happened
+    to be stable. Caught only by reading the traceback in the captured output.
+
+    **An edit that fails plus a run that proceeds is indistinguishable from a
+    run on the edited file.** The remedy costs one line: assert the artefact
+    changed - a grep for the new text, a hash, an occurrence count - BEFORE
+    launching the thing that measures it.
 
 45. **A PROBE FOR A FIRST-PAINT DEFECT SAMPLES FROM THE FIRST FRAME.** Set by
     the business 2026-09-04, U8, and the instrument's ATTACHMENT POINT was the

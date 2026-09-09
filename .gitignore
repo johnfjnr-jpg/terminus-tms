@@ -5,6 +5,9 @@ supabase/.temp/
 src/.DS_Store
 screenshots/
 session-ref.json
+# A SECOND identity's token, added when P2.3 needed an approver who is not the
+# owner. Same hazard as the file above and it was NOT covered by that line.
+session-ref-approver.json
 # The same session, copied where the dev server can serve it to a browser
 # harness. Round 39 committed this once: it carries an access token and a
 # refresh token, and it is deleted after every use. Ignored so a stray
