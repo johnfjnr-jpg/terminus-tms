@@ -45,6 +45,47 @@ DATA FLOW, NOT DISPLAY. Phase 0 establishes the MECHANISM. No
 design is assumed beyond that sentence, and no shape is proposed:
 the shape is John's call.
 
+## Rulings of record (John, 2026-09-09, on the Phase 0 report)
+
+R1. TOTAL COST IS TWO THINGS, NOT ONE: the first cost is an
+    ESTIMATE, and ACTUALS must be monitored alongside it for
+    comparison.
+
+    **AND THE DISTINCTION DOES NOT EXIST IN THE DATA TODAY.**
+    Measured after the ruling: 434 Test Beds carry both
+    `indicativeCost` and `accumulated_cost`, and they are
+    IDENTICAL in all 434 - zero divergence. `test-beds.js:915`
+    writes both to the same value in one statement:
+
+        { ...payload, accumulated_cost: costBreakdown.totalCost,
+                      indicativeCost:   costBreakdown.totalCost }
+
+    Both are a persisted mirror of `costBreakdown.totalCost`,
+    computed from unit counts and rates. There is ONE cost number
+    stored twice under two names, and NEITHER is an actual: there
+    is nowhere in the record to enter what was really spent.
+
+    So estimate-versus-actual is NEW WORK - a field, a write path
+    and a place to enter it - not a display of something that
+    exists. Phase 0's own report said the two fields were "two
+    fields, one concept, which one the strip reads is a
+    decision". That was right about the data and wrong about the
+    intent, and the ruling has corrected it.
+
+R2. HM IS HEMIR, and a Test Bed can include all hardware types.
+    WHERE NONE IS SELECTED, DISPLAY 0 - not `--`, not hidden.
+
+R3. NAMES ABOVE NUMBERS in the Hardware Numbers cell, rather
+    than SS / AQ / HM labels.
+
+R4. THE CARRY-FORWARD USES `accumulated_cost`, the actual figure.
+    That is what the mechanism already passes
+    (`test-beds.js:1536`), so the wiring is correct as built -
+    but see R1: `accumulated_cost` is not an actual today, so
+    what carries forward is the estimate under an actual's name.
+
+R5. The door sweep was explained and no ruling was taken.
+
 ## Phase 0: measurement only, read-only against product code after A1
 
 1. Test Bed record fields: where Total Cost lives (stored or
