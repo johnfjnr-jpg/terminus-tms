@@ -144,6 +144,43 @@ promotion.
 | **The `complete-document` coverage disagreement** | recorded, not resolved |
 | **`probe-readonly-view` runs 56s in the gate** | the gate is now ~7 minutes. Noted, not a finding |
 
+## 6a. The ride-rule correction, and a phantom suite entry
+
+**THE RIDE WAS NOT AVAILABLE, AND THE RE-RUN WAS REQUIRED RATHER THAN
+CAUTIOUS.** I reported that no gate stage reads markdown. That was wrong: my
+stripped scan CRASHED partway on a missing file and I read only its tail.
+
+    scripts/tests/commercials-wiring.test.mjs:572
+      readFileSync(new URL('../../COMMERCIALS_RESHAPE_PHASE_0_BRIEF.md', ...))
+
+A pure-suite stage does read a markdown file in code, so rule 48(a)'s exemption
+could not be claimed on the general reading, and the gate re-run on `5d75035`
+was necessary. The claim was made confidently off a partial read, which is the
+fault this round promoted into rule 16 - the READING of a run is itself an
+instrument.
+
+**AND THIS CLOSE-OUT'S OWN EDITS DID NOT RIDE EITHER.** Asked to record these
+two items under 48(a), the per-file check came back ambiguous: no stage names
+this file, but two stages walk directories and mention markdown, and I could
+not exclude them cleanly having already been imprecise here once. So these
+edits were COMMITTED AND THE GATE RE-RUN, per the standing instruction not to
+reason a gate forward.
+
+**A PHANTOM SUITE ENTRY, carried.** `package.json` names
+`scripts/tests/vanilla-coupling.test.mjs` in the pure suite. **The file does not
+exist** - deleted in `a763653`, Round 6, without being removed from the list.
+
+    node --test <missing>            -> exit 1
+    node --test <real> <missing>     -> exit 0     silently ignored
+    npm test                         -> 502/502, 0 fail
+
+Alone it fails; **alongside a real file it is silently ignored**, so the suite
+has reported green over a name resolving to nothing since Round 6. Nothing is
+broken by it today. It is the estate's own recorded shape - six tests once sat
+unrun while every message said green, and only a count surfaced it - and it is
+the first opening act of the next brief, with the gate taught to reconcile
+suite names against disk so a named-but-absent file can never ride green again.
+
 ## 7. What this close does NOT cover
 
 - The 19 unexercised routes, and anything about them.
