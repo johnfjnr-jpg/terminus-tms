@@ -42,6 +42,26 @@ const ENV = Object.fromEntries(readFileSync('/Users/johnfryatt/terminus-tms/.env
 const SESSION = JSON.parse(readFileSync('/Users/johnfryatt/terminus-tms/session-ref.json', 'utf8'))
 const TB_IDS = '/private/tmp/claude-501/-Users-johnfryatt-terminus-tms/2199d6a8-d1e7-4e46-89a0-2df47e6eac14/scratchpad/tb-ids.json'
 const IDS = '/private/tmp/claude-501/-Users-johnfryatt-terminus-tms/2199d6a8-d1e7-4e46-89a0-2df47e6eac14/scratchpad/walk-ids.json'
+// ── EVERY TAG THIS RUN CREATED, NOT JUST THE LAST ────────────────────────
+//
+// A REGRESSION THE TAG-SCOPING CHANGE ITSELF INTRODUCED, found by counting
+// residue and fixed here rather than left. freshOpportunity OVERWRITES the id
+// file, so a probe that builds two fixtures under two tags - which
+// probe-readonly-view does, readonly-probe then readonly-approver - left the
+// FIRST tag unswept. Owner-scoping used to catch it by accident; tag-scoping
+// does not, and 12 records accumulated before anybody counted.
+//
+// This holds TAGS, which are identities, not a list of records. Verification
+// 11's objection is to a file that says WHICH RECORDS a run made and goes
+// stale on a retry; the set each tag names is still enumerated live.
+const TAGS = '/private/tmp/claude-501/-Users-johnfryatt-terminus-tms/2199d6a8-d1e7-4e46-89a0-2df47e6eac14/scratchpad/fixture-tags.json'
+
+function rememberTag(tag) {
+  if (!tag) return
+  let all = []
+  try { all = JSON.parse(readFileSync(TAGS, 'utf8')) } catch { /* first fixture of the run */ }
+  if (!all.includes(tag)) { all.push(tag); writeFileSync(TAGS, JSON.stringify(all, null, 2)) }
+}
 
 // The account the probes act as. Read from the session rather than written
 // down, so a re-issued test user cannot leave a stale id here quietly
@@ -158,6 +178,7 @@ export async function freshOpportunity(tag) {
   const revision = await assertFresh(opp.id, tag)
   const state = { tag, contactId: contact.id, oppId: opp.id, revision }
   writeFileSync(IDS, JSON.stringify(state, null, 2))
+  rememberTag(tag)
   return state
 }
 
@@ -226,6 +247,7 @@ export async function freshTestBed(tag) {
   const revision = await assertFreshTestBed(bed.id, tag)
   const state = { tag, accountId: account.id, bedId: bed.id, revision }
   writeFileSync(TB_IDS, JSON.stringify(state, null, 2))
+  rememberTag(tag)
   return state
 }
 
@@ -282,11 +304,14 @@ export function tagsToSweep(explicit) {
   if (Array.isArray(explicit)) return [...new Set(explicit.filter(Boolean))]
   if (explicit) return [explicit]
   const tags = []
+  // Every tag this run recorded, then the two id files as a fallback for a run
+  // that predates the ledger.
+  try { tags.push(...JSON.parse(readFileSync(TAGS, 'utf8'))) } catch { /* none yet */ }
   for (const f of [IDS, TB_IDS]) {
     try { const t = JSON.parse(readFileSync(f, 'utf8')).tag; if (t) tags.push(t) }
     catch { /* a run that created no fixture of this kind has no file */ }
   }
-  return [...new Set(tags)]
+  return [...new Set(tags.filter(Boolean))]
 }
 
 export async function tearDown(explicitTag) {

@@ -28,11 +28,15 @@ const NOT_MINE = process.env.PROBE_OPP ?? 'd86369b3-f1a7-4c79-bb50-4d4ac49d42fa'
 const SAMPLE = [
   { tab: 'Commercials', sel: '.ring-radio:not(.active)', note: 'structure picker, the V1 brief\'s named finding' },
   { tab: 'Commercials', sel: '#deal-lumpCost', note: 'a numeric deal input' },
-  { tab: 'Commercials', sel: 'button.btn-text', note: 'version Restore' },
   { tab: 'Assessment', sel: 'input[id^="opp-assess-lv-"]', note: 'a score level radio' },
   { tab: 'Assessment', sel: 'textarea[id^="opp-assess-reason-"]', note: 'a score reason box' },
   { tab: 'Reference', sel: '.field-row-display', note: 'an edit opener' },
-  { tab: 'Reference', sel: '#opp-next-stage-btn', note: 'Request next stage' },
+  // THE FOUR CENSUS SURVIVORS, named individually. All four are buttons that
+  // are pointer-events:none, NOT disabled, and keyboard reachable, so the
+  // mouse cannot reach them and the tab key can.
+  { tab: 'Commercials', sel: '#btn-toggle-detail', note: 'SURVIVOR: Show detail (disclosure)' },
+  { tab: 'Commercials', sel: 'button.btn-text:not(#btn-toggle-detail)', note: 'SURVIVOR: version Restore (a WRITE)' },
+  { tab: 'Solution Alignment', sel: '#opp-next-stage-btn', note: 'SURVIVOR: Request next stage (a WRITE)' },
 ]
 
 const OBS = `
@@ -115,8 +119,33 @@ for (const item of SAMPLE) {
   const idle = (await page.evaluate(() => window.__m)) - idleStart
 
   await new Promise((r) => setTimeout(r, 250))
-  // MOUSE: a real click at the point, which respects pointer-events exactly as
-  // a person's click does.
+  // ── THE SIGNAL THAT CANNOT BE SWAMPED ────────────────────────────────
+  //
+  // Three attempts at a mutation-count floor failed: 3, then 391, then 1021,
+  // and at 1021 the burst rule demanded 4100 where a control measured LIVE had
+  // scored 1364. The count is a proxy for "something happened" and this page
+  // is too busy for it.
+  //
+  // A WRITE CONTROL'S REAL QUESTION IS WHETHER IT STARTS A WRITE. So the
+  // decisive signal is a NETWORK REQUEST to the API during the interaction
+  // window, which no amount of clock ticking can manufacture.
+  const reqs = []
+  // MUTATING REQUESTS ONLY. The first version counted any /api/ request and
+  // every control came back RESPONDED on the same row:
+  //   GET /api/records/<id>/pulse
+  // which is a BACKGROUND POLL on a timer, firing whether or not anything is
+  // touched. That is the mutation-floor problem again in a new costume, and it
+  // is the third time this probe has been fooled by periodic work.
+  //
+  // A write control's question is whether it starts a WRITE, so a GET cannot
+  // answer it either way. Non-GET only.
+  const onReq = (r) => {
+    const u = r.url()
+    if (!/\/api\//.test(u)) return
+    if (r.method() === 'GET') return
+    reqs.push(`${r.method()} ${u.replace(/^https?:\/\/[^/]+/, '')}`)
+  }
+  page.on('request', onReq)
   const mBeforeClick = await page.evaluate(() => window.__m)
   try { await page.mouse.click(before.x, before.y) } catch { /* offscreen */ }
   await new Promise((r) => setTimeout(r, 700))
@@ -147,7 +176,9 @@ for (const item of SAMPLE) {
       checked: el && 'checked' in el ? el.checked : null }
   })
 
+  page.off('request', onReq)
   rows.push({ ...item, found: true, tag: before.tag, id: before.id, pe: before.pe,
+    requests: [...new Set(reqs)],
     idle,
     clickMutations: afterClick.m - mBeforeClick,
     clickFocused: afterClick.isTarget,
@@ -160,25 +191,26 @@ for (const item of SAMPLE) {
 await browser.close()
 
 console.log(`\n  INTERACTION PROOF on an UNOWNED record. Reload between every control.\n`)
-console.log(`  ${'control'.padEnd(34)} ${'pe'.padEnd(5)} idle  click  key   focus  changed  VERDICT`)
+console.log(`  ${'control'.padEnd(39)} ${'pe'.padEnd(5)} focus  changed  reqs  VERDICT`)
 // RESPONDED means something only an interaction can produce: the control's own
 // value or checked state changed, or it took focus, or the mutation burst is
 // clearly above this page's idle rate. Mutations alone, at the idle rate, are
 // the clock.
 const responded = (r) => r.clickChanged || r.keyChanged || r.clickFocused
-  || r.clickMutations > Math.max(8, r.idle * 4) || r.keyMutations > Math.max(8, r.idle * 4)
+  || (r.requests && r.requests.length > 0)
 for (const r of rows) {
   if (!r.found) { console.log(`  ${r.note.slice(0, 33).padEnd(34)} NOT FOUND on this record`); continue }
   const chg = r.clickChanged || r.keyChanged
-  console.log(`  ${r.note.slice(0, 33).padEnd(34)} ${String(r.pe).padEnd(5)} ` +
-    `${String(r.idle).padStart(4)} ${String(r.clickMutations).padStart(6)} ${String(r.keyMutations).padStart(5)}  ` +
+  console.log(`  ${r.note.slice(0, 38).padEnd(39)} ${String(r.pe).padEnd(5)} ` +
     `${(r.clickFocused ? 'yes' : 'no').padEnd(6)} ${(chg ? 'yes' : 'no').padEnd(8)} ` +
-    `${responded(r) ? 'RESPONDED' : 'inert'}`)
+    `${String(r.requests.length).padStart(4)}  ${responded(r) ? 'RESPONDED' : 'inert'}` +
+    (r.requests.length ? `  ${r.requests.join(' ; ').slice(0, 60)}` : ''))
 }
 const live = rows.filter((r) => r.found && responded(r))
 console.log(`\n  ${live.length} of ${rows.filter((r) => r.found).length} sampled controls RESPONDED to interaction on a record the`)
 console.log(`  signed-in user does not own:`)
 for (const r of live) console.log(`    ${r.note}`)
-console.log(`\n  idle = mutations in an identical untouched window, this page's noise floor`)
-console.log(`  (a live clock). A control is only RESPONDED on its own state changing,`)
-console.log(`  taking focus, or a mutation burst well clear of that floor.`)
+console.log(`\n  reqs = MUTATING api requests (non-GET) during the interaction window.`)
+console.log(`  A control is RESPONDED on its own state changing, taking focus, or`)
+console.log(`  issuing a write. The mutation-count signal was retired: this page polls`)
+console.log(`  and ticks, and three separate floors (3, 391, 1021) were all swamped.`)
