@@ -1947,6 +1947,22 @@ const NON_ACTION_SELECTOR = [
   // exception now names the SHAPES it was written for rather than the styling
   // they happen to share, so a new `.btn-text` action is swept by default
   // instead of exempt by default.
+  // ── HELP IS NOT AN ACTION. UI hygiene v2 P2.2 ────────────────────────
+  //
+  // A DEFECT THE P2.1 WIDGET RULE INTRODUCED, and it would have been
+  // multiplied by eight by R2d. A help-dot is `span.help-dot[tabindex=0]
+  // [role=note]` with no native control inside, which is exactly the widget
+  // shape, so the rule set tabindex=-1 and pointer-events:none on every one:
+  // help was DEAD on a record you may not edit, which is the record where you
+  // are most likely to need it.
+  //
+  // IT WAS INVISIBLE TO THE CENSUS, and the reason is worth keeping. The
+  // census enumerates by role, tab-order membership, native tag or inline
+  // handler. Removing the tab stop removed the ONLY property by which a
+  // help-dot was found, so neutralised dots did not read as blocked - they
+  // VANISHED from the population. Measured: 6 on the owned record, 0 on the
+  // unowned one.
+  '.help-dot', '[role="note"]',
   '.detail-tab', '.appr-refresh', '.disclose-chevron', '.btn-text.disclose',
   '[id^="btn-back-"]', '#btn-signout', '#approvals-refresh',
   '#btn-back-opps', '#opp-btn-list', '#opp-btn-grid', '.ot-sort',
@@ -6601,6 +6617,20 @@ document.getElementById('opps-mine-toggle').addEventListener('click', () => {
 // `lead`. Architecture 6: a display rename stays a display rename, so the key,
 // the column and every write path are untouched.
 const OPP_COLUMNS = [
+  // ── R2c: THE REFERENCE CODE, FIRST COLUMN ────────────────────────────────
+  //
+  // Matching the Test Bed list's treatment: `col-mono` and `--` when absent.
+  // Measured before building: all 36 opportunities in the list response carry
+  // `reference_code`, so no route change is needed and the `--` branch is for
+  // a record whose code has not been generated rather than for the common case.
+  //
+  // `cls` is new on a column definition and is why this is a data change rather
+  // than markup surgery: the Test Bed table puts col-mono on the CELL, and the
+  // two lists should not differ in treatment because they differ in renderer.
+  { key: 'reference', label: 'Reference', align: 'left', cls: 'col-mono',
+    value: (o) => o.reference_code ?? null,
+    cell: (o) => o.reference_code
+      ? escHtml(o.reference_code) : '<span class="ot-absent">--</span>' },
   // T1: the Account is its own column, not a sub-line under the name. It is a
   // thing you sort and scan by, which a caption under another column is not.
   //
@@ -6709,7 +6739,7 @@ function renderOppList(opps) {
 
   container.innerHTML = sortOpps(opps).map((o) => `
     <tr class="ot-row" onclick="navigate('opportunity-detail', '${o.id}')">
-      ${OPP_COLUMNS.map((c) => `<td class="ot-${c.align}">${c.cell(o)}</td>`).join('')}
+      ${OPP_COLUMNS.map((c) => `<td class="ot-${c.align}${c.cls ? ' ' + c.cls : ''}">${c.cell(o)}</td>`).join('')}
     </tr>`).join('')
 }
 

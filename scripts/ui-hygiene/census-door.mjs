@@ -196,6 +196,19 @@ for (const rec of RECORDS) {
         seen.set(el, r); out.push(r)
       }
       for (const scope of scopes) {
+        // ── NEUTRALISED CONTROLS MUST STAY IN THE POPULATION ─────────────
+        //
+        // The door's widget rule sets tabindex="-1", which removes the ONLY
+        // property this census enumerated a role-less, handler-less widget by.
+        // So a neutralised control did not read as blocked, it VANISHED:
+        // measured, the Assessment tab showed 118 candidates on an owned
+        // record and 13 on an unowned one, and help-dots went 6 to 0.
+        //
+        // That flatters the headline. "0 reachable" is a much weaker claim if
+        // the treated controls simply left the count. The door records what it
+        // touched in `data-door-ti`, so the census reads that marker and keeps
+        // them, where they now correctly read as present and unreachable.
+        for (const el of scope.querySelectorAll('[data-door-ti]')) push(el, 'D')
         for (const el of scope.querySelectorAll(NATIVE)) push(el, 'N')
         for (const el of scope.querySelectorAll('[data-probe-listener]')) push(el, 'L')
         for (const el of scope.querySelectorAll('[role],[tabindex]')) {
