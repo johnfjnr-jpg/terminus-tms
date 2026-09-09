@@ -214,6 +214,42 @@ R11. THE P2.6 PROMOTION QUEUE, recorded at the phase that produced
        controls - and any future instrument inherits it rather
        than re-deciding.
 
+R12. R2b IS CARRIED, on a measured false premise, and the
+    tripwire is extended. Ruled at P2.2.
+
+    R2b reads "the Test Bed cost cell added to the React strip".
+    MEASURED ON THE LIVE PAGE: there is no React strip.
+    #ref-root is visible and rendering, the React Reference panel
+    contains zero `stat-` occurrences, all three .stats-grid
+    elements on the page are INVISIBLE, and `detail-testbed-cost`
+    sits inside #ref-vanilla, which is `display: none`.
+
+    So R2b is not "add a cell" but "BUILD A STAT STRIP", a new
+    surface needing its own design input - which cells, what
+    data, what placement. Improvising one mid-phase is how a
+    surface gets built twice. Carried to its own round with the
+    measurement attached.
+
+    The dead write at app.js:7447 into `detail-testbed-cost` is
+    confirmed dead, and for a reason the brief did not
+    anticipate: THE WHOLE STRIP IS DEAD, not just the write.
+
+R13. THE RETIRED DUPLICATES ARE THREE, NOT TWO, AND THE TRIPWIRE
+    DISCOVERS THEM RATHER THAN NAMING THEM.
+
+        #deal-form-vanilla     beside  #deal-form-root
+        #deal-version-vanilla  beside  #deal-version-root
+        #ref-vanilla           beside  #ref-root
+
+    A first draft named #deal-form-vanilla alone. Enumerating by
+    the `-vanilla` id suffix found three, and the third would
+    have been missed. THIS ROUND HAS NOW BEEN CAUGHT THREE TIMES
+    BY RULES THAT NAME INSTANCES INSTEAD OF DESCRIBING SHAPES -
+    `.btn-text`, `.help-dot`, and this - which is why the test
+    discovers them and fails on an unrecorded fourth.
+
+    Retiring all three is one scoped job for its own round.
+
 ## Phases
 
 Phase 0 — R1's two opening acts, then the door census (read-only
