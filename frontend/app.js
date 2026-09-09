@@ -1932,6 +1932,27 @@ const EDIT_OPENING_SELECTOR = [
 const NATIVE_CONTROL_SELECTOR = 'input, textarea, select, button, a[href]'
 const WIDGET_ROLES = new Set(['radio', 'checkbox', 'switch', 'button', 'menuitem', 'option', 'slider', 'combobox'])
 
+// ── HELP IS NOT AN ACTION, AND THE TEST IS STRUCTURAL ────────────────────
+//
+// A first version of this exemption named `.help-dot`, WHICH IS THE .btn-text
+// DEFECT AGAIN: a class name asserting a property nobody measured, under which
+// the ninth help-shaped widget added under a different class dies silently.
+//
+// An ARIA role is a declaration of WHAT THE THING IS, so the exemption keys on
+// that. These roles are non-interactive by specification: an element carrying
+// one is describing content, not offering an action, however it is styled and
+// whatever it is called. A tabindex on such an element is a READING affordance
+// - it makes the note focusable so a keyboard user can reach the explanation -
+// and taking it away is the opposite of what the door is for.
+//
+// A real control is still caught: role is what distinguishes them, so the same
+// span with role="button" is neutralised, and an element with a native control
+// inside is excluded as a container by the rule below.
+const NON_WIDGET_ROLES = new Set([
+  'note', 'tooltip', 'status', 'img', 'presentation', 'none',
+  'definition', 'term', 'separator', 'heading', 'paragraph', 'caption',
+])
+
 const NON_ACTION_SELECTOR = [
   '[data-opp-tab]', '[data-opp-stage-tab]', '[data-tb-tab]',
   // ── `.btn-text` NARROWED. UI hygiene v2 P2.1 ─────────────────────────
@@ -1962,7 +1983,6 @@ const NON_ACTION_SELECTOR = [
   // help-dot was found, so neutralised dots did not read as blocked - they
   // VANISHED from the population. Measured: 6 on the owned record, 0 on the
   // unowned one.
-  '.help-dot', '[role="note"]',
   '.detail-tab', '.appr-refresh', '.disclose-chevron', '.btn-text.disclose',
   '[id^="btn-back-"]', '#btn-signout', '#approvals-refresh',
   '#btn-back-opps', '#opp-btn-list', '#opp-btn-grid', '.ot-sort',
@@ -2127,6 +2147,9 @@ function applyReadOnlyControls(viewId, notMine) {
     // other controls. A ring-radio holds text; a panel holds inputs.
     if (el.querySelector(NATIVE_CONTROL_SELECTOR)) continue
     const role = el.getAttribute('role')
+    // Declared as content rather than as a control: not a widget, whatever
+    // class it carries.
+    if (role && NON_WIDGET_ROLES.has(role)) continue
     const ti = el.getAttribute('tabindex')
     const inlineHandler = el.getAttributeNames().some((a) => a.startsWith('on'))
     const isWidget = (role && WIDGET_ROLES.has(role)) || (ti !== null && Number(ti) >= 0) || inlineHandler
