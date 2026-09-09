@@ -182,6 +182,24 @@ const STAGES = [
     needsSession: true,
   },
   {
+    // ── R9: THE DOOR PROBE IS A GATE STAGE ──────────────────────────────
+    //
+    // It has been reporting the door gap at both widths, naming the exact
+    // control the census names first, TO NOBODY, because nothing ran it. That
+    // silence is why the parked round's finding survived to become this one.
+    //
+    // Conditional on two things, both now met: the probe is STABLE (four runs
+    // at 49, 50, 51 and 51 seconds with identical numbers), and its ALLOWLIST
+    // ENUMERATION IS REPLACED by the shared census instrument - calibrated by
+    // injecting a div[role=button] the allowlist could not see (296 -> 296)
+    // and the replacement does (617 -> 618).
+    name: 'HTTP readonly-view probe',
+    cmd: ['node', ['scripts/probe-readonly-view.mjs']],
+    needs: 'the dev server on :3000, a live session-ref.json AND a scratch browser',
+    needsSession: true,
+    needsBrowser: true,
+  },
+  {
     // Round 41 W4. The three probes above all measure REFUSALS: a stale write
     // rejected, an approval refused, a gate held shut. Not one of them
     // exercises a write that is supposed to WORK, which is how a
@@ -233,6 +251,9 @@ const STAGES = [
 // machine that had not scratch-installed a browser, and a gate that is red for
 // a missing optional tool is a gate people learn to ignore.
 //
+// ── SUPERSEDED for probe-readonly-view, 2026-09-09, R9. The reasoning below
+// is left visible: it was right, and it is why the stage SKIPS rather than
+// fails when no browser is present. The other browser probes are unchanged.
 // Round 41 W1 wanted probe-readonly-view here and it is not, for that reason.
 // Its claim - every control on another user's record non-interactive, every
 // control on your own still typeable - is measured by that probe and reported at
@@ -321,7 +342,35 @@ let failed = 0
 // where reachability was what failed.
 let blockedBy = null
 
+// ── IS A BROWSER AVAILABLE? R9, and it reconciles two rulings ────────────
+//
+// R9 rules probe-readonly-view into the gate: a probe that fails correctly to
+// NOBODY is a false-completion signal, and this round exists because of that
+// silence. The standing exclusion below has its own reason and it is also
+// right: puppeteer is deliberately not a dependency, and a gate that goes red
+// for a missing optional tool is a gate people learn to ignore.
+//
+// Both hold, and SKIP is the existing outcome that satisfies both - the gate
+// already distinguishes it from PASS for a session-blocked stage. With a
+// browser present the probe runs and can fail; without one it reports SKIPPED,
+// which is not a pass and says so.
+const browserAvailable = (() => {
+  const dir = process.env.PUPPETEER_PATH
+  if (!dir) return false
+  try { return existsSync(`${dir}/package.json`) } catch { return false }
+})()
+
 for (const stage of STAGES) {
+  if (stage.needsBrowser && !browserAvailable) {
+    summary.push(`SKIP  ${stage.name.padEnd(26)} not run: no browser (set PUPPETEER_PATH)`)
+    transcript.push(
+      `${'='.repeat(72)}\n${stage.name}\nSKIPPED. puppeteer is not available, so this stage did not run.\n` +
+      `THIS IS NOT A PASS. Nothing was measured. Install a scratch browser and set\n` +
+      `PUPPETEER_PATH to run it:\n` +
+      `  npm i puppeteer --prefix /tmp/tms-probe\n` +
+      `  PUPPETEER_PATH=/tmp/tms-probe/node_modules/puppeteer npm run verify\n${'='.repeat(72)}\n`)
+    continue
+  }
   if (stage.needsSession && blockedBy) {
     summary.push(`SKIP  ${stage.name.padEnd(26)} not run: ${blockedBy} failed`)
     transcript.push(

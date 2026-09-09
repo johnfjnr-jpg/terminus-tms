@@ -17,6 +17,17 @@
 import { loadPuppeteer } from './lib/puppeteer.mjs'
 const puppeteer = await loadPuppeteer('probe-readonly-view.mjs')
 import { readFileSync, mkdirSync, statSync } from 'fs'
+// ── THE ALLOWLIST IS GONE. R9, P2.4 ──────────────────────────────────────
+//
+// This probe enumerated `input, textarea, select` plus four class names. With
+// the input-shaped findings fixed it reported 296 controls / 0 typeable and
+// PASSED, while the census found 28 controls still reachable and NOT ONE was
+// an input. An allowlist cannot report what it does not name.
+//
+// Both instruments now import ONE definition of what counts as a control, so
+// they cannot disagree about classification the way they did when the census
+// called a sub-tab panel a write control and the door's own rule did not.
+import { enumerateControlsInPage, classifyControl } from './lib/enumerate-controls.mjs'
 // A long browser run outlived the session twice in one round, each time
 // mid-measurement. This checks liveness periodically and refreshes only when
 // the session file agrees the token is near expiry; a refused read on a
@@ -161,6 +172,13 @@ for (const width of [1240, 1920]) {
     // remaining widths still report, but it can never again pass silently.
     if (!ready) notReady.push(`${width} ${label}: the view never settled, so every reading below is of an unrendered page`)
 
+    // The enumerator runs IN THE PAGE, so it is installed from the module's own
+    // source rather than reimplemented here. One definition, two instruments.
+    await page.evaluate((e, c) => {
+      window.__enum = new Function('return ' + e)()
+      window.__classify = new Function('return ' + c)()
+    }, enumerateControlsInPage.toString(), classifyControl.toString())
+
     const state = await page.evaluate(() => {
       const view = document.getElementById('view-opportunity-detail')
       const banner = document.getElementById('opp-readonly-banner')
@@ -197,19 +215,19 @@ for (const width of [1240, 1920]) {
       const withdrawBtn = [...view.querySelectorAll('button')]
         .find((b) => /withdraw/i.test(b.textContent))
       const closeLostBtn = document.getElementById('opp-close-lost-btn')
-      const formControls = [...view.querySelectorAll('input, textarea, select')]
-      const editOpeners = [...view.querySelectorAll(
-        '.ref-field-display, .cd-name-display, .deal-toggle, [role="switch"]')]
-      const controls = [...formControls, ...editOpeners]
+      const rows = window.__enum(view.id)
+      const formControls = rows.filter((r) => /^(input|textarea|select)$/.test(r.tag))
+      const editOpeners = rows.filter((r) => !/^(input|textarea|select)$/.test(r.tag))
+      const controls = rows
       // THE PROPERTY A PERSON EXPERIENCES, and it takes two questions now:
       // pointer-events stops a mouse, `disabled` and tabindex stop a keyboard,
       // and the reported defect went through the keyboard on a select that had
       // only the first.
-      const interactive = controls.filter((el) => {
-        if (getComputedStyle(el).pointerEvents === 'none'
-          && (el.disabled === true || el.getAttribute('tabindex') === '-1')) return false
-        return true
-      })
+      // REACHABILITY, not a style read: a control a person can reach by mouse
+      // or by keyboard. Navigation and disclosure are excluded because they
+      // must stay alive; containers because a control does not contain
+      // controls.
+      const interactive = rows.filter((r) => { const c = window.__classify(r); return c.write && c.reachable })
       return {
         klass: view.classList.contains('is-not-mine'),
         bannerText: (banner?.textContent ?? '').trim(),
@@ -217,7 +235,9 @@ for (const width of [1240, 1920]) {
         formControls: formControls.length,
         editOpeners: editOpeners.length,
         interactive: interactive.length,
-        firstInteractive: interactive[0]?.id || interactive[0]?.className || interactive[0]?.tagName || null,
+        firstInteractive: interactive[0] ? (interactive[0].id || interactive[0].cls || interactive[0].tag) : null,
+        interactiveDetail: interactive.slice(0, 5).map((r) =>
+          `${r.tag}#${r.id ?? '-'}.${(r.cls ?? '-').split(' ')[0]} role=${r.role ?? '-'} how=${r.how}`),
         decisionControls: decisionControls.length,
         decisionsUsable: decisionsUsable.length,
         withdrawBlocked: withdrawBtn ? withdrawBtn.disabled === true : null,
@@ -241,6 +261,7 @@ for (const width of [1240, 1920]) {
 console.log('\n  ANOTHER USER\'S RECORD IS READ ONLY. Round 41 W1.\n')
 console.log('  width  record     is-not-mine  controls  typeable  decisions usable  closeLost blocked')
 for (const r of rows) {
+  if (r.interactiveDetail?.length) console.log(`         ^ ${r.label}: ${r.interactiveDetail.join(' | ')}`)
   console.log(`  ${String(r.width).padEnd(6)} ${r.label.padEnd(10)} ${String(r.klass).padEnd(12)} ` +
     `${String(r.controls).padEnd(9)} ${String(r.interactive).padEnd(9)} ` +
     `${String(r.decisionsUsable + '/' + r.decisionControls).padEnd(17)} ${r.closeLostBlocked}`)
