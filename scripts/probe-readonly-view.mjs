@@ -17,6 +17,13 @@
 import { loadPuppeteer } from './lib/puppeteer.mjs'
 const puppeteer = await loadPuppeteer('probe-readonly-view.mjs')
 import { readFileSync, mkdirSync, statSync } from 'fs'
+// A long browser run outlived the session twice in one round, each time
+// mid-measurement. This checks liveness periodically and refreshes only when
+// the session file agrees the token is near expiry; a refused read on a
+// healthy-looking file is a REVOKED token and stops the run loudly rather than
+// being retried into silence.
+import { startKeepAlive } from './lib/keep-alive.mjs'
+const keepAlive = startKeepAlive({ everyMs: 60000 })
 
 const session = JSON.parse(readFileSync(new URL('../session-ref.json', import.meta.url).pathname, 'utf8'))
 const OUT = new URL('../.verify/readonly/', import.meta.url).pathname

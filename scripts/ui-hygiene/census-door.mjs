@@ -31,6 +31,13 @@
 import { loadPuppeteer } from '../lib/puppeteer.mjs'
 const puppeteer = await loadPuppeteer('census-door.mjs')
 import { readFileSync, mkdirSync, writeFileSync } from 'fs'
+// A long browser run outlived the session twice in one round, each time
+// mid-measurement. This checks liveness periodically and refreshes only when
+// the session file agrees the token is near expiry; a refused read on a
+// healthy-looking file is a REVOKED token and stops the run loudly rather than
+// being retried into silence.
+import { startKeepAlive } from '../lib/keep-alive.mjs'
+const keepAlive = startKeepAlive({ everyMs: 60000 })
 
 const ROOT = '/Users/johnfryatt/terminus-tms'
 const session = JSON.parse(readFileSync(`${ROOT}/session-ref.json`, 'utf8'))
@@ -184,6 +191,7 @@ for (const rec of RECORDS) {
           visible: rect.width > 0 && rect.height > 0 && cs.visibility !== 'hidden',
           mouseReachable: reachable,
           keyboardReachable: focusable,
+          isContainer: !!el.querySelector(NATIVE),
         }
         seen.set(el, r); out.push(r)
       }
@@ -223,15 +231,21 @@ const mine = rows.filter((r) => r.record === 'mine')
 // record you may not edit is still reading; and help, for the same reason.
 const NAV = (r) => r.cls?.includes('detail-tab') || r.role === 'tab'
   || /back|close/i.test(r.text) || r.tag === 'a'
+// Identity can live in the ID rather than the class: #btn-toggle-detail carries
+// class `btn-text disclose`, so a class-only classifier never saw it.
 const DISCLOSURE = (r) => r.cls?.includes('help-dot')
-  || r.cls?.includes('btn-toggle-detail') || r.cls?.includes('latch')
+  || r.id === 'btn-toggle-detail' || r.cls?.includes('disclose') || r.cls?.includes('latch')
   || /^(show|hide)\b/i.test(r.text) || /show details for/i.test(r.text)
 const BENIGN = (r) => NAV(r) || DISCLOSURE(r)
 const reach = (r) => r.mouseReachable || r.keyboardReachable
 
-const write = notMine.filter((r) => !BENIGN(r) && r.visible)
+// A CONTAINER OF CONTROLS IS NOT A CONTROL - the same structural test the
+// door's own rule uses. Without it the census counted
+// #opp-assessment-mount-pane-commercial, a sub-tab panel carrying tabindex=0
+// as a focus affordance, as a reachable WRITE control.
+const write = notMine.filter((r) => !BENIGN(r) && r.visible && !r.isContainer)
 const liveWrite = write.filter(reach)
-const mineWrite = mine.filter((r) => !BENIGN(r) && r.visible)
+const mineWrite = mine.filter((r) => !BENIGN(r) && r.visible && !r.isContainer)
 const mineLive = mineWrite.filter(reach)
 
 console.log(`\n  DOOR CENSUS. Enumerated by instrument, reachability by hit test.\n`)
@@ -241,6 +255,19 @@ const line = (l, a, b) => console.log(`  ${l.padEnd(42)} ${String(a).padEnd(10)}
 line('candidates enumerated', notMine.length, mine.length)
 line('  navigation (must stay alive)', notMine.filter(NAV).length, mine.filter(NAV).length)
 line('  disclosure and help (must stay alive)', notMine.filter((r) => DISCLOSURE(r) && !NAV(r)).length, mine.filter((r) => DISCLOSURE(r) && !NAV(r)).length)
+// ── AND HOW MANY OF THEM ARE STILL REACHABLE ────────────────────────────
+//
+// The count above is a POPULATION: those elements still exist when a panel is
+// killed, they simply stop working, so it cannot see a container-level kill.
+// A calibration keyed on it read 37 -> 37 while the whole Commercials panel
+// was dead.
+//
+// A DETECTOR MUST NOT BE KEYED ON A NUMBER THE DEFECT LEAVES ALONE - and a
+// container kill also makes the headline REACHABLE count fall, which looks
+// like an improvement. This is the line that moves the right way: read
+// affordances a person can still operate.
+const reachDisc = (set) => set.filter((r) => DISCLOSURE(r) && !NAV(r) && r.visible && reach(r)).length
+line('  of those, still REACHABLE', reachDisc(notMine), reachDisc(mine))
 line('  of which visible write controls', write.length, mineWrite.length)
 line('REACHABLE write controls', liveWrite.length, mineLive.length)
 line('  reachable by MOUSE', write.filter((r) => r.mouseReachable).length, mineWrite.filter((r) => r.mouseReachable).length)

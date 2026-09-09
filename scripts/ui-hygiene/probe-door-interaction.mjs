@@ -17,6 +17,13 @@
 import { loadPuppeteer } from '../lib/puppeteer.mjs'
 const puppeteer = await loadPuppeteer('probe-door-interaction.mjs')
 import { readFileSync } from 'fs'
+// A long browser run outlived the session twice in one round, each time
+// mid-measurement. This checks liveness periodically and refreshes only when
+// the session file agrees the token is near expiry; a refused read on a
+// healthy-looking file is a REVOKED token and stops the run loudly rather than
+// being retried into silence.
+import { startKeepAlive } from '../lib/keep-alive.mjs'
+const keepAlive = startKeepAlive({ everyMs: 60000 })
 
 const ROOT = '/Users/johnfryatt/terminus-tms'
 const session = JSON.parse(readFileSync(`${ROOT}/session-ref.json`, 'utf8'))
