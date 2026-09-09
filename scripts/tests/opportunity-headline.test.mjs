@@ -271,11 +271,38 @@ test('the one door every click-to-edit field opens through is guarded', () => {
 })
 
 test('W1\'s probe enumerates by behaviour, so it cannot share the rule\'s blind spot', () => {
+  // ── THE ASSERTION NAMED THE MECHANISM AND THE MECHANISM WAS REPLACED ────
+  //
+  // This asserted the probe contained
+  //   `const editOpeners = [...view.querySelectorAll(`
+  // and a pointer-events-plus-tabindex expression. Both were the RIGHT guard
+  // for the enumeration that existed: they stopped the probe regressing to
+  // form controls only.
+  //
+  // P2.4 replaced that enumeration outright. The probe now imports the shared
+  // census instrument, and the old assertion failed on a change that made the
+  // probe STRICTLY BROADER - 296 controls to 617, and a div[role=button] the
+  // allowlist could not see is now caught. Architecture 9's second variant: a
+  // rule built for a state that then changed, still running, still passing,
+  // until the state moved under it.
+  //
+  // The intent is unchanged and is what is asserted now: the probe must not
+  // decide for itself what a control is.
   const probe = code('scripts/probe-readonly-view.mjs', 'js')
-  assert.match(probe, /const editOpeners = \[\.\.\.view\.querySelectorAll\(/,
-    'the probe counts only form controls again, which is the blind spot it had')
-  assert.match(probe, /el\.disabled === true \|\| el\.getAttribute\('tabindex'\) === '-1'/,
-    'the probe treats pointer-events alone as read-only, which the defect disproved')
+  assert.match(probe, /from '\.\/lib\/enumerate-controls\.mjs'/,
+    'the probe no longer imports the shared enumerator, so it is deciding for itself again')
+  assert.match(probe, /window\.__enum\(/,
+    'the probe does not call the shared enumerator in the page')
+  assert.doesNotMatch(probe, /querySelectorAll\('input, textarea, select'\)[\s\S]{0,120}editOpeners/,
+    'the allowlist enumeration is back')
+
+  // AND THE ENUMERATOR ITSELF CARRIES THE PROPERTY THE OLD ASSERTION GUARDED:
+  // reachability is a hit test plus tab-order membership, never a style read.
+  const enumerator = code('scripts/lib/enumerate-controls.mjs', 'js')
+  assert.match(enumerator, /elementFromPoint/,
+    'reachability is not measured by hit test, so pointer-events is being read as truth')
+  assert.match(enumerator, /keyboardReachable/,
+    'the enumerator does not measure keyboard reachability, which is the larger half')
 })
 
 // ── T4: THE CORRECTNESS IS AT THE READER, NOT THE N WRITERS ───────────────
