@@ -16,6 +16,27 @@ Tree `fce0583`, clean. **Gate: all 22 stages passed.** Nothing pushed.
 | Residue | **0** probe records. 132 live = 126 business + 6 walk65 |
 | Commits reconciled | 32 round commits, every one mapped below |
 
+## 1a. The revert rehearsal, and the boundary of what it proves
+
+From an explicit ref (`3ee418d`), 32 commits, tree `5931b582…` **byte-identical**
+before and after, verified with `git write-tree` rather than by reading
+`git status`. At base: no shared enumerator, no keep-alive, no tripwire, no
+P2.3 probe, no `NON_WIDGET_ROLES`, no gate stage.
+
+**AND THE BOUNDARY, STATED BESIDE THE RESULT, because "revert rehearsed,
+byte-identical" read alone invites over-trust in the escape hatch:**
+
+| | reverts | does not revert |
+|---|---|---|
+| source | yes | |
+| the React bundle | yes - `frontend-react/dist` is TRACKED, checked not assumed, so source and built output revert together | |
+| schema | n/a - no migration this round | |
+| **data** | | **no.** 45,024 soft-deleted records stay soft-deleted. The approved R8 sweep and every probe teardown are DATA changes and no code revert reaches one of them |
+
+So a revert of this round restores the screens and the instruments, and leaves
+the database exactly where the round left it. That is the honest shape of the
+escape hatch, and it is what a rehearsal buys over a written procedure.
+
 ## 2. What the round did
 
 **The door was measured, not argued.** Phase 0 censused by four unioned
