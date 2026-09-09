@@ -184,6 +184,42 @@ R8. THE GO LIVE DATE, ruled 2026-09-10, superseding R7's open
     repurposed as the contracted end, or left alone beside the
     new calculated value.
 
+R9. `estGoLiveDate` IS REPURPOSED AS THE CONTRACTED END DATE.
+    Existing records are test data: NO BACKFILL, and a record that
+    trips the warning is a useful test rather than a problem.
+
+    **THE READING THIS SETTLES, stated because two of the
+    statements could otherwise be reconciled two ways.**
+
+    "The calculated end date will be the go live date plus the
+    duration, and when the current date goes beyond THAT date it
+    should highlight it has gone beyond its CONTRACTED end date"
+    could mean the red compares today against the CALCULATED
+    date, or against a separately entered CONTRACTED one.
+
+    "If it triggers the warning then great test" DECIDES IT.
+    Existing beds carry no go-live stamp, so they have no
+    calculated end; if the comparison were against a calculated
+    value, no existing record could ever trip it and there would
+    be nothing to test. Four of nine are already past their
+    stored `estGoLiveDate`. So:
+
+        estGoLiveDate   IS the contracted end date, one field
+        at go-live      it is SET to go-live plus testBedDuration
+        the highlight   today > estGoLiveDate  ->  red
+
+    ONE field holds the contracted end. The calculation POPULATES
+    it at go-live rather than competing with it, which also
+    removes the two-readers problem R8(iii) raised: there is no
+    second end date to drift.
+
+    Records already carrying an entered value keep it untouched,
+    and the four that are overdue exercise the warning on day one.
+
+    IF THIS READING IS WRONG, the alternative is two fields and a
+    calculated-versus-contracted comparison; say so at sign-off
+    and Phase 1 takes that shape instead.
+
 ## Phase 0: measurement only, read-only against product code after A1
 
 1. Test Bed record fields: where Total Cost lives (stored or
