@@ -174,6 +174,46 @@ R10. A SERVER-SIDE REJECTION PROBE is added to scope and built this
     and the conservative interim reading was correct, so nothing
     built in between rested on the lenient reading.
 
+R11. THE P2.6 PROMOTION QUEUE, recorded at the phase that produced
+    it rather than discovered at the close. Positions of record,
+    none requiring a ruling.
+
+    a. A DETECTOR MUST NOT BE KEYED ON A NUMBER THE DEFECT LEAVES
+       ALONE OR IMPROVES. Four attempts were needed to catch the
+       container kill, and TWO OF THE THREE FAILURES WERE
+       STRUCTURAL rather than bugs: a container kill removes
+       CAPABILITY while leaving POPULATION intact, so counts
+       either improve or freeze.
+
+           reachable write controls   FALLS   2 -> 1
+           disclosure candidates      FROZEN  37 -> 37
+           reachable disclosure       0 -> 0, already zero healthy
+           effect on a named affordance   RESPONDED -> inert
+
+       The table is carried verbatim. The distinction to preserve
+       against Verification 33 is a measure that CANNOT SEE the
+       thing versus a measure that MOVES THE WRONG WAY.
+
+    b. AN EDIT THAT THREW BEFORE WRITING, PLUS A RUN THAT
+       PROCEEDED, IS INDISTINGUISHABLE FROM A RUN ON THE EDITED
+       FILE. It produced a green calibration that established
+       nothing, and was caught only by reading the traceback in
+       the capture. The remedy in use is to ASSERT THE ARTEFACT
+       CHANGED before launching the run. It is the byte-snapshot
+       discipline's missing sibling on the WRITE side: the
+       harness rules already require comparing bytes after a
+       restore, and say nothing about confirming an edit landed
+       before measuring. Proposed as an extension to those rules
+       rather than a new number.
+
+    c. FOR THE FINDINGS SECTION, one line: two instruments
+       disagreed about CLASSIFICATION, not about the product. The
+       census counted a sub-tab panel as a write control while
+       the door's own rule correctly excluded it. Both now share
+       one structural test - a control does not contain other
+       controls - and any future instrument inherits it rather
+       than re-deciding.
+
 ## Phases
 
 Phase 0 — R1's two opening acts, then the door census (read-only
