@@ -98,12 +98,12 @@ console.log('DIRECTION ONE: each claim, falsified\n')
 
 // 1. THE DEFECT ITSELF, reinstated: owner as the delete selector.
 claim('THE 66-RECORD DEFECT: sweep by owner again', 'scripts/fixtures.mjs',
-  '  const direct = candidates.filter((r) => mine(r.id))',
-  '  const direct = candidates.slice()')
+  '  const direct = [...candidates.filter((r) => mine(r.id)), ...handedRows]',
+  '  const direct = [...candidates, ...handedRows]')
 
 // 2. The sweep stops working at all.
 claim('the sweep stops matching its own tag', 'scripts/fixtures.mjs',
-  '  const direct = candidates.filter((r) => mine(r.id))',
+  '  const direct = [...candidates.filter((r) => mine(r.id)), ...handedRows]',
   '  const direct = []')
 
 // 3. The refusal is removed. The FIRST attempt edited a different line of the
@@ -128,6 +128,19 @@ claim('the unnamed-child rule is removed', 'scripts/fixtures.mjs',
 claim('the re-query goes back to owner-wide', 'scripts/fixtures.mjs',
   "  const { data: still, error: stillErr } = live.length\n    ? await db.from('records').select('id, record_type')\n        .in('id', live.map((r) => r.id)).is('deleted_at', null)\n    : { data: [], error: null }",
   "  const { data: still, error: stillErr } = await db.from('records')\n    .select('id, record_type').eq('owner_id', TEST_USER_ID).is('deleted_at', null)")
+
+// 6. P2.5: the handed-away discovery removed. A record handed to another owner
+// leaves the owner-scoped candidate set, and without this branch teardown
+// cannot reach it - which is how 38 records survived one round and one
+// survived each of P2.3's first two runs.
+// The injection must remove the BEHAVIOUR and leave valid code. A first
+// version produced `0.filter is not a function`, so the test failed because
+// the file was broken rather than because the discovery was gone - an
+// injection firing for the wrong reason proves nothing, exactly as a refusal
+// for the wrong reason does.
+claim('the handed-away discovery is removed', 'scripts/fixtures.mjs',
+  '  const reachIds = [...new Set([...taggedIds, ...ledgered])]\n    .filter((id) => !candidates.some((c) => c.id === id))',
+  '  const reachIds = []')
 
 console.log('\nDIRECTION TWO: the untouched tree is green\n')
 const clean = run()

@@ -95,3 +95,34 @@ test('tagsToSweep prefers an explicit tag over the recorded files', () => {
   assert.deepEqual(tagsToSweep('explicit-wins'), ['explicit-wins'])
   assert.deepEqual(tagsToSweep([]), [], 'an explicit empty array is a set, not an absence')
 })
+
+// ── P2.5: A PROBE THAT HANDS A RECORD AWAY LEAVES ZERO RESIDUE ────────────
+//
+// tearDown's candidate set is owner scoped, which is what makes reaching a
+// business record impossible. Every ownership probe hands a record to another
+// owner - that IS the state being tested - and the moment it does, the record
+// leaves that set and cannot be swept. Measured three times in one phase.
+test('a record handed to another owner is still swept', async () => {
+  const session = JSON.parse((await import('fs')).readFileSync(
+    '/Users/johnfryatt/terminus-tms/session-ref.json', 'utf8'))
+  const owner = session.user.id
+  const tag = `tdhand-${stamp()}`
+  const { data: u } = await db.auth.admin.listUsers({ page: 1, perPage: 1000 })
+  const other = u.users.find((x) => x.email === 'ownership-other@terminus-probe.invalid')?.id
+  assert.ok(other, 'the probe account must exist for this test to mean anything')
+
+  const id = await tagged(tag, owner)
+  try {
+    // HANDED AWAY: from here it is outside the owner-scoped candidate set.
+    must(await db.from('records').update({ owner_id: other }).eq('id', id).select('id'), 'hand over')
+    const beforeOwner = must(await db.from('records').select('owner_id').eq('id', id), 'read')[0].owner_id
+    assert.equal(beforeOwner, other, 'precondition: the record now belongs to someone else')
+
+    const { removed } = await tearDown(tag)
+    assert.ok(removed.some((r) => r.id === id),
+      'a handed-away record was NOT swept: it is outside the owner-scoped candidate set')
+    assert.equal(await isLive(id), false, 'the handed-away record is still live after teardown')
+  } finally {
+    await purge([id])
+  }
+})

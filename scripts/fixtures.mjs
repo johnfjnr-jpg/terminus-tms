@@ -56,6 +56,46 @@ const IDS = '/private/tmp/claude-501/-Users-johnfryatt-terminus-tms/2199d6a8-d1e
 // stale on a retry; the set each tag names is still enumerated live.
 const TAGS = '/private/tmp/claude-501/-Users-johnfryatt-terminus-tms/2199d6a8-d1e7-4e46-89a0-2df47e6eac14/scratchpad/fixture-tags.json'
 
+// ── A RECORD HANDED AWAY LEAVES tearDown's REACH ─────────────────────────
+//
+// P2.5. tearDown's candidate set is `owner_id = TEST_USER_ID`, which is what
+// makes reaching a business record impossible rather than unlikely. Every
+// ownership probe hands a record to another owner - that is the state being
+// tested - and the moment it does, the record is outside that set and CANNOT
+// BE SWEPT. Measured three times in one phase: the create-from round left 38
+// such records, and P2.3 left one on each of its first two runs.
+//
+// The fix is not to widen the owner filter, which would give up the guarantee.
+// It is that HANDING A RECORD OVER IS A LEDGERED ACT: the id is written down
+// at the moment ownership moves, and teardown sweeps what the run handed away
+// as well as what it still owns.
+const HANDOVERS = '/private/tmp/claude-501/-Users-johnfryatt-terminus-tms/2199d6a8-d1e7-4e46-89a0-2df47e6eac14/scratchpad/fixture-handovers.json'
+
+function rememberHandover(recordId) {
+  let all = []
+  try { all = JSON.parse(readFileSync(HANDOVERS, 'utf8')) } catch { /* first of the run */ }
+  if (!all.includes(recordId)) { all.push(recordId); writeFileSync(HANDOVERS, JSON.stringify(all, null, 2)) }
+}
+
+/**
+ * Hand a record to another owner AND ledger it, so teardown can still reach it.
+ *
+ * Probes must use this rather than updating owner_id directly: a raw update
+ * moves the record out of teardown's candidate set silently, and the residue is
+ * only found by counting afterwards.
+ */
+export async function handOver(recordId, newOwnerId) {
+  const db = admin()
+  const { error } = await db.from('records').update({ owner_id: newOwnerId }).eq('id', recordId).select('id')
+  if (error) throw new Error(`handOver(${recordId}): ${error.message}`)
+  rememberHandover(recordId)
+  return recordId
+}
+
+export function ledgeredHandovers() {
+  try { return JSON.parse(readFileSync(HANDOVERS, 'utf8')) } catch { return [] }
+}
+
 function rememberTag(tag) {
   if (!tag) return
   let all = []
@@ -349,7 +389,34 @@ export async function tearDown(explicitTag) {
   // A UNIT CARRIES NO NAME, so it can never match a tag. It is reached as a
   // CHILD of a record that does. Build discipline 8: enumerate everything the
   // actor writes, not the part the selector happens to see.
-  const direct = candidates.filter((r) => mine(r.id))
+  // ── HANDED-AWAY RECORDS, FOUND STRUCTURALLY ──────────────────────────
+  //
+  // A ledger only works if every caller remembers to write to it, and FOURTEEN
+  // probes hand ownership over by a raw update. Converting all fourteen is the
+  // multi-site change this estate keeps being caught by, and most of them are
+  // historical round scripts that will never run again.
+  //
+  // So the tag does the work here too. A record carrying THIS RUN'S TAG is this
+  // run's whatever it now belongs to, and the tag is a stronger safety net than
+  // the owner filter it replaces on this branch: a business record can never
+  // carry one, where it could in principle be owned by the test account.
+  //
+  // handOver() and its ledger remain the explicit path for new probes - it is
+  // better hygiene to say so at the moment ownership moves - but teardown no
+  // longer depends on anyone having used it.
+  const ledgered = ledgeredHandovers()
+  const taggedRevs = (await db.from('record_revisions').select('record_id, payload')
+    .or(tags.map((t) => `payload->>name.ilike.${t}%`).join(','))).data ?? []
+  const taggedIds = [...new Set(taggedRevs.map((r) => r.record_id))]
+  const reachIds = [...new Set([...taggedIds, ...ledgered])]
+    .filter((id) => !candidates.some((c) => c.id === id))
+  const handedRows = reachIds.length
+    ? (await db.from('records').select('id, record_type, reference_code, parent_record_id')
+        .in('id', reachIds).is('deleted_at', null)).data ?? []
+    : []
+  const handed = ledgered
+
+  const direct = [...candidates.filter((r) => mine(r.id)), ...handedRows]
   const directIds = new Set(direct.map((r) => r.id))
   const children = candidates.filter((r) => !directIds.has(r.id)
     && r.parent_record_id && directIds.has(r.parent_record_id))
@@ -418,7 +485,10 @@ export async function tearDown(explicitTag) {
   if (still.length) {
     throw new Error(`teardown left ${still.length} live records: ${still.map((r) => r.record_type).join(', ')}`)
   }
-  return { removed: live, remaining: 0, tags }
+  // The ledger is cleared once its records are gone, so a later run cannot
+  // inherit ids it never created.
+  if (handed.length) { try { writeFileSync(HANDOVERS, JSON.stringify([], null, 2)) } catch { /* best effort */ } }
+  return { removed: live, remaining: 0, tags, handedBack: handedRows.length }
 }
 
 // Only when this file is the thing being RUN. Without the guard, importing it
