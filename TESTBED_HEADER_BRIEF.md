@@ -133,6 +133,57 @@ R7. INSTEAD: AN END DATE THAT IS CALCULATED AT START AND
     c. WHAT DOES "HIGHLIGHT" MEAN on the strip - a colour on the
        Proj End cell, a separate overdue badge, or both?
 
+R8. THE GO LIVE DATE, ruled 2026-09-10, superseding R7's open
+    question (a).
+
+    - A Test Bed GOES LIVE when Installation and Commissioning is
+      COMPLETED. That moment is the ACTUAL START DATE.
+    - The CALCULATED END DATE is go-live plus `testBedDuration`.
+    - When the current date passes it, the strip HIGHLIGHTS the
+      end date in RED - a red border or red highlight on that
+      cell.
+
+    **MEASURED, and three things follow.**
+
+    (i) THE TRANSITION PATH DOES NOT WRITE THE PAYLOAD TODAY.
+    `transitions.js:947` READS the current revision for gate
+    checks and nothing appends. Stamping go-live means ADDING A
+    WRITE to that path, and CLAUDE.md Verification 46 applies
+    directly: `records` carries `refuse_write_while_frozen` and
+    the append advisory lock, so a new writer inherits both. The
+    record-freshness work hit exactly this and answered it with a
+    table of its own. Whether the stamp lives in the payload or
+    beside it is a Phase 1 design question, not an assumption.
+
+    (ii) THE HISTORIC GO-LIVE MOMENT IS RECOVERABLE FROM DATA,
+    so a backfill need not guess. `audit_log` records every
+    transition with `from`, `to` and a timestamp, and the row
+    where `from = "Installation and Commissioning"` dates it:
+
+        3e69041d  Review and Completion   2026-08-19
+        01212278  Closed                  2026-08-19
+        264010b1  Closed                  2026-08-19
+        ee10a68b  Closed                  2026-08-20
+        37594c21  Closed                  2026-08-21
+        2865d25c  Closed                  2026-08-21
+
+    All six that have LEFT the stage are datable. The seventh,
+    `9673244b`, is still AT it and so has not gone live - there is
+    correctly nothing to recover.
+
+    (iii) THE STORED END DATE BECOMES A SECOND READER. R7's
+    measurement stands: `estGoLiveDate` is entered, and on 8 of 9
+    live beds it disagrees with start plus duration. Once the end
+    date is CALCULATED from go-live plus duration, the entered
+    field is either superseded, or kept as a contracted date that
+    the calculated one is compared against. Verification 20: two
+    readers of one value drift, and this would be two by
+    construction.
+
+    OPEN FOR PHASE 1: whether `estGoLiveDate` is retired,
+    repurposed as the contracted end, or left alone beside the
+    new calculated value.
+
 ## Phase 0: measurement only, read-only against product code after A1
 
 1. Test Bed record fields: where Total Cost lives (stored or
