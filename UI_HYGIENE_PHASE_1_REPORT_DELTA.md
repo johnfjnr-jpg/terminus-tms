@@ -164,3 +164,31 @@ which is reported as not landed. Staged by name throughout, per R7.
 - One viewport for the census; the probe covers 1240 and 1920.
 - R2b, c and d are untouched.
 - **The gate has not been run on this tree.**
+
+---
+
+## 10. Ruling 3's sweep, executed
+
+Approved data change, run at the Phase 1 close.
+
+    BEFORE, the four named records:
+      76996fc8-8f9c-45dc-8cbd-7c4cc23fe8a5  opportunity TT-SGP-AIRPRT-3976
+      c4ce54e9-5417-4ee5-9e51-878980a6c61e  opportunity TT-SGP-AIRPRT-3977
+      35323a63-1ac8-48e9-b510-2a086fd253b3  opportunity TT-SGP-AIRPRT-3978
+      812bb63d-9e42-4bdd-bc9a-bb20ab2bd394  opportunity TT-SGP-AIRPRT-3979
+
+    PER-ID RESULT: 4 SOFT-DELETED, 0 failed
+    RE-QUERY: live records for the probe account: 0
+    reference_number_counters: 3693 rows, untouched
+
+**SOFT, and the interpretation is stated rather than made silently.** The
+ruling says "delete". Verification 11 says test fixtures are SOFT deleted and
+never hard deleted, because `records` carries `ON DELETE RESTRICT` from
+`record_revisions`, `approvals` and `audit_log`, so a hard delete is either
+blocked or orphans history. CLAUDE.md wins over a brief and the disagreement is
+a finding, so the rule-compliant reading was taken and is flagged here.
+
+**Two guards the sweep carried, because the ruling named id PREFIXES.** Each
+prefix had to resolve to exactly one live record, and the live set for that
+account had to be exactly the four named. Either mismatch refuses rather than
+sweeping a set it was not given.
