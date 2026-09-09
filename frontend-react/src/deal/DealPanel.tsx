@@ -396,6 +396,23 @@ export function DealPanel({
     'deal-recoveryMonths': 'The number of months over which the upfront capital is recovered from contract revenue.',
     'deal-factoring-ratePct': 'The monthly cost of factoring the hardware and installation spend. It both reduces margin and brings cash in earlier.',
     'deal-factoring-termMonths': 'How long the factoring runs. Rate multiplied by term is the total financing cost.',
+    // ── R2d: THE EIGHT STRUCTURAL TERMS NOTES ────────────────────────────
+    //
+    // These were visible `pg-item-note` rows under each field in
+    // section36.tsx. They are the same text, moved verbatim, into the map that
+    // already drives the help-dot pattern - so the deal form has ONE way of
+    // explaining a field rather than two. The two DYNAMIC readouts that also
+    // use pg-item-note (achieved margin's `against target`, and the per-product
+    // hardware notes) are untouched: they report a value, they do not explain
+    // a field.
+    'deal-targetMargin': 'Seeds the margin on every pricing line. Margin on price, not markup on cost.',
+    'deal-warrantyPct': 'Replacement unit provision, applied across total units.',
+    'deal-duration': 'The contract term. A longer term spreads fixed costs and usually lifts margin, but we carry the hosting cost for longer.',
+    'deal-bidCurrency': 'The currency our costs are held in. Defaults to USD, the currency of the Base Cost Data.',
+    'deal-proposalCurrency': 'The currency the customer is quoted and invoiced in.',
+    'deal-fxContingency': 'Uplift on the converted price to absorb exchange rate movement between proposal and contract. Zero when both currencies match.',
+    'deal-whtPct': 'Deducted by the customer from the invoice.',
+    'deal-gstPct': 'Added to the invoice, passed through to the tax authority.',
   }
   const renderField = (id: string, bare = false) => {
     const f = CENSUS.find((c) => c.id === id)

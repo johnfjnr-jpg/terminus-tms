@@ -10,21 +10,14 @@ import { marginPresentation } from '../../../src/lib/deal-inputs.js'
 // The accent is marginPresentation's, the same object the strip reads. Round 39
 // wrote the rule inline and toggled it on one of the two renderings, so a deal
 // 22 points under target displayed in the treatment of one on target.
-// THE CARDS, THE HEADINGS AND THE NOTES, in the vanilla's own words. The
+// THE CARDS AND THE HEADINGS, in the vanilla's own words. THE NOTES HAVE
+// MOVED: R2d put the eight field explanations into DealPanel's HELP map, so
+// they render through the existing help-dot pattern instead of as a visible
+// row under each field. This sentence named them until that change, which is
+// the rotting-claim shape: a comment describing content it no longer has. The
 // swapped screen rendered the fields and dropped all three headings and all
 // eight notes: the controls were there and the explanation of what they do was
 // not, which is what the comparison against the vanilla found.
-const NOTES: Record<string, string> = {
-  'deal-targetMargin': 'Seeds the margin on every pricing line. Margin on price, not markup on cost.',
-  'deal-warrantyPct': 'Replacement unit provision, applied across total units.',
-  'deal-duration': 'The contract term. A longer term spreads fixed costs and usually lifts margin, but we carry the hosting cost for longer.',
-  'deal-bidCurrency': 'The currency our costs are held in. Defaults to USD, the currency of the Base Cost Data.',
-  'deal-proposalCurrency': 'The currency the customer is quoted and invoiced in.',
-  'deal-fxContingency': 'Uplift on the converted price to absorb exchange rate movement between proposal and contract. Zero when both currencies match.',
-  'deal-whtPct': 'Deducted by the customer from the invoice.',
-  'deal-gstPct': 'Added to the invoice, passed through to the tax authority.',
-}
-
 const CARDS = [
   { title: 'Margin and Warranty', achieved: true,
     fields: ['deal-targetMargin', 'deal-warrantyPct', 'deal-duration'] },
@@ -47,7 +40,6 @@ export function StructuralTermsSection({ renderField, achievedMargin, payload, g
   const row = (id: string) => (
     <div className="terms-field-row" key={id}>
       {renderField(id)}
-      {NOTES[id] ? <div className="pg-item-note">{NOTES[id]}</div> : null}
     </div>
   )
 
