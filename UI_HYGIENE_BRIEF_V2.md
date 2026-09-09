@@ -250,6 +250,29 @@ R13. THE RETIRED DUPLICATES ARE THREE, NOT TWO, AND THE TRIPWIRE
 
     Retiring all three is one scoped job for its own round.
 
+R14. TWO ADDITIONS TO THE P2.6 PROMOTION QUEUE, from P2.2.
+
+    d. EXCEPTIONS AND GUARDS ENUMERATE BY STRUCTURE OR DECLARED
+       PROPERTY, NEVER BY NAME, AND FAIL ON THE UNRECORDED
+       INSTANCE. Three instances in one round: `.btn-text`
+       sheltering two write controls, `.help-dot` as a nominal
+       exemption for what `role=note` declares structurally, and a
+       named duplicate list that would have carried two blocks and
+       missed #deal-version-vanilla. Verification 19 is the nearest
+       neighbour and is NOT the same: 19 is about a name asserting
+       an unmeasured PROPERTY; this is about a name used as an
+       ENUMERATION, where the failure is silent omission rather
+       than a false claim.
+
+    e. A GREEN READING PRODUCED BY THE READER RATHER THAN THE RUN.
+       Second instance: a calibration counted TAP "not ok" lines
+       where the runner prints "fail N", and reported 0 failures
+       when three tests were failing. Exit codes were the fix
+       because they cannot be misread. The first instance is the
+       silent-edit failure - an edit that threw before writing while
+       the run proceeded. Both produce a green that establishes
+       nothing, and in both the RUN was fine.
+
 ## Phases
 
 Phase 0 — R1's two opening acts, then the door census (read-only
