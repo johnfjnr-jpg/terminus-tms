@@ -10518,3 +10518,74 @@ recorded at the request's FROZEN revision. They coincide only when nothing
 changed in between - and when they stopped coinciding, **no version had ever read
 as approved**, the gate was deciding from a numeric accident, and four screens
 told four different stories about one coherent set of rows.
+
+---
+
+# The Test Bed header round, closed 2026-09-10
+
+Gate 22/22 on `dff123c`, pushed as `a825137..90a0af7`, 19 commits. Three
+decisions of record, and the third supersedes an earlier one in this round.
+
+## Cost carry-forward is a SNAPSHOT, and that is the design
+
+**Ruled by John at the close.** When an Opportunity is created from a Test Bed,
+`accumulated_cost` is copied into `test_bed_cost` at conversion and feeds TCV.
+One number, taken once.
+
+**No live link and no line items.** The Opportunity does not track the bed's
+cost afterwards, and it cannot see what the cost was made of.
+
+> If a future requirement wants the figure to track post-conversion cost
+> changes, that is a NEW DESIGN ITEM, not a defect in this one.
+
+**That sentence is why this entry exists.** A snapshot that does not follow its
+source is indistinguishable from a stale value to anybody meeting it without
+this ruling, and the natural instinct on finding one is to "fix" it. It was
+decided. Verification 23 applies to whoever revisits it: search for the decision
+before taking a new one.
+
+The round wrote no code for this. Phase 0 measured that the mechanism already
+existed - `src/routes/test-beds.js:1536` passes `bedPayload.accumulated_cost`
+into `p_test_bed_cost`, and six live bed/opportunity pairs agree exactly - and
+asked whether one number was what was meant rather than proposing a shape. **The
+deliverable was the question, and the answer closed the workstream.**
+
+## A Test Bed's contracted end is derived from GO-LIVE, not from creation
+
+Ruled across R7 to R10, and the sequence matters because the first version was
+withdrawn.
+
+- **Go-live is the completion of Installation and Commissioning.** Not a date
+  somebody types: the transition out of that stage stamps
+  `testBedGoLiveDate`. That is the bed's actual start.
+- **The contracted end is go-live plus the contract duration.**
+- **`estGoLiveDate` was REPURPOSED as the single contracted-end field**, rather
+  than adding a second one. Two fields for one concept is how the estate ends up
+  with `accumulated_cost` beside `indicativeCost`, which this same round had to
+  take a decision about.
+- **Past that date, the header cell renders red with a border.** A border AND a
+  colour, so the meaning does not rest on colour alone.
+
+**R1 asked for ACTUALS and was withdrawn by R6.** The superseded reasoning is
+left visible: tracking estimated against actual cost is a real requirement and a
+larger one, and it was separated from the header rather than folded into it.
+
+**The read side needs no write, no flag and no migration**, which is what made
+the acceptance test cheap: five live beds were already past their hand-entered
+dates and all five rendered red on first load, with two not-yet-due beds
+sampled as the control arm. Nothing was backfilled because there was nothing to
+backfill.
+
+## Hardware counts show only what a bed carries
+
+**R12 supersedes R2 from earlier in the same round.** R2 said an unselected
+hardware type shows `0`. R12 suppresses the HEMIR cell entirely unless
+`hemirSensors` carries data.
+
+The reason for the change is the reason it is recorded: `hemirSensors` is
+declared and unused on **every live bed**, so a permanent `0` is not a
+measurement of anything. It says "none selected" where the truth is "this has
+never been populated", and a column of zeroes that can never be anything else
+teaches people to stop reading the row.
+
+**Names above numbers**, per R3, rather than SS/AQ/HM initialisms.
