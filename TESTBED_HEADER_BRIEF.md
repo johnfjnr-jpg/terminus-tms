@@ -45,6 +45,31 @@ DATA FLOW, NOT DISPLAY. Phase 0 establishes the MECHANISM. No
 design is assumed beyond that sentence, and no shape is proposed:
 the shape is John's call.
 
+### ANSWERED AT THE CLOSE, 2026-09-10. W2 IS CONFIRMED AS BUILT.
+
+Ruled by John. **One snapshot number - `accumulated_cost` into
+`test_bed_cost` at conversion, feeding TCV - is the DESIGN OF
+RECORD.** No live link, no line items.
+
+> If a future requirement wants the figure to track
+> post-conversion cost changes, that is a NEW DESIGN ITEM, not a
+> defect in this one.
+
+**That clause is the reason this is recorded in the brief rather
+than only in the close-out.** A snapshot that does not follow its
+source reads as a bug to anybody meeting it without the ruling,
+and the next person to notice it will look here first. It was
+decided, it was not overlooked.
+
+Phase 0 measured the mechanism rather than assuming it:
+`src/routes/test-beds.js:1536` passes
+`bedPayload.accumulated_cost` into `p_test_bed_cost`, and six
+live bed/opportunity pairs agree exactly. Nothing was built for
+W2 this round because nothing needed to be.
+
+Verification 23 applies to whoever revisits this: the decision
+exists, so search for it before taking a new one.
+
 ## Rulings of record (John, 2026-09-09, on the Phase 0 report)
 
 R1. TOTAL COST IS TWO THINGS, NOT ONE: the first cost is an

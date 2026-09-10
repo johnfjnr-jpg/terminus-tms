@@ -1,13 +1,32 @@
 # Test Bed header and cost carry-forward: close-out
 
 Gate: **22/22 PASS on `dff123c`**, clean tree, door stage PASS not SKIP.
-Nothing pushed. 17 commits await the word.
+
+**CLOSED 2026-09-10 on John's word.** W2 ruled answered, the 25-record sweep
+approved and executed, and the round pushed to `origin/main`. The carried list
+in section 9 is John's, in his order, and its first item is the next brief's
+first opening act.
 
 ---
 
-## 1. WHAT IS NOT BUILT, first, per build discipline 15
+## 1. W2, cost carry-forward: ANSWERED AT THE CLOSE
 
-### W2, cost carry-forward: UNANSWERED, not blocked and not built
+**RULED BY JOHN, 2026-09-10: W2 is CONFIRMED AS BUILT.** One snapshot number -
+`accumulated_cost` into `test_bed_cost` at conversion, feeding TCV - is the
+**design of record**. No live link, no line items.
+
+> If a future requirement wants the figure to track post-conversion cost
+> changes, that is a NEW DESIGN ITEM, not a defect in this one.
+
+That last clause is the load-bearing half and is why it is quoted rather than
+summarised: a snapshot that does not follow its source looks like a bug to
+anybody who meets it without this ruling.
+
+**Nothing is carried from W2.** The section below is left standing as the
+record of what was measured and asked, because the ruling answers it rather
+than superseding it.
+
+### The measurement the ruling rests on
 
 Phase 0 measured that **the mechanism already exists**. `test-beds.js:1536`
 passes `bedPayload.accumulated_cost` into `p_test_bed_cost` on create-from, and
@@ -28,12 +47,10 @@ four were ruled and one was not:
 | 1 | `accumulated_cost` or `indicativeCost` | **R4** accumulated cost |
 | 2 | HM cell with no data | **R12** suppressed unless `hemirSensors` carries data |
 | 3 | SS/AQ/HM labels or names above numbers | **R3** names above numbers |
-| 4 | **W2: is the single number what you meant?** | **NONE** |
+| 4 | **W2: is the single number what you meant?** | **RULED at the close: yes, snapshot is the design** |
 | 5 | Door sweep on the Test Bed view | **R11** yes, in scope |
 
-W2 needs one word, not a phase. If yes, it is closed by measurement already
-taken. If no, section 5 of the Phase 0 report holds the options with trade-offs
-and takes no position, as ruled.
+**Answered: yes.** W2 is closed by the measurement already taken.
 
 ---
 
@@ -79,6 +96,42 @@ result, residue re-queried after and expected to read zero.
 25 -> 26 against ledgered 25 -> 25, and confirmed by three full gate runs since
 adding none.
 
+### APPROVED AND EXECUTED, 2026-09-10
+
+Soft delete per Verification 11. `records` carries `ON DELETE RESTRICT` from
+`record_revisions`, `approvals` and `audit_log`, so a hard delete is blocked or
+orphans history, and a `reference_number_counters` row is never touched at all.
+
+```
+ids parsed from the close-out list: 25
+live before the sweep: 25 of 25 found
+  ... 25 lines, each re-queried after its own update ...
+  25 of 25 soft deleted
+
+RESIDUE RE-QUERIED STRUCTURALLY: 0 live readonly-approver opportunities
+```
+
+**The list and the database are asked separately.** The ids come from this
+document, as ruled; the residue count is then taken STRUCTURALLY by payload
+name across all owners, because a list records what you meant to sweep and only
+the database records what is there (Verification 11, and build discipline 8:
+scope the cleanup to what the actor did, not to what the list names).
+
+Every delete is confirmed by re-querying `deleted_at` on that id, never by
+trusting the update's own result.
+
+| | before | after |
+|---|---|---|
+| live records, exact count | 135 | **110** |
+| live `readonly-approver` opportunities | 25 | **0** |
+| `reference_number_counters` rows, exact count | 3,735 | **3,735** |
+
+**AND THE COUNTER FIGURE IS AN EXACT COUNT, NOT A PAGE.** The sweep script's
+first pass read the counters with a plain select and printed **1,000**, which is
+PostgREST's default cap and not a number at all. That is this round's own
+carried finding arriving in the script written to close the round, one screen
+below where it is documented. Re-taken with `head: true, count: 'exact'`: 3,735.
+
 ---
 
 ## 3. R10's acceptance test, as ruled
@@ -95,12 +148,17 @@ OK  9673244b  end 2026-08-25  expect RED    got RED    Installation and Commissi
 OK  01212278  end 2026-09-03  expect RED    got RED    Closed
 OK  37594c21  end 2026-09-09  expect RED    got RED    Closed
 OK  2865d25c  end 2026-08-31  expect RED    got RED    Closed
-OK  ccde659b  end 2027-02-15  expect plain  got plain  Qualification
-OK  264010b1  end 2026-10-27  expect plain  got plain  Closed
+OK  ccde659b  end 2027-02-15  expect plain  got plain  Qualification   (control, 1 of 2 sampled)
+OK  264010b1  end 2026-10-27  expect plain  got plain  Closed          (control, 2 of 2 sampled)
 
 5 of 5 overdue beds render RED on first load
-2 of 2 not-yet-due beds render PLAIN
+2 of the 4 not-yet-due beds visited, both render PLAIN
 ```
+
+**PRECISION, John's correction at the close.** The control arm is **2 of the 4**
+not-yet-due beds, not all of them: the probe visits every overdue bed and takes
+the first two of the rest. The overdue claim is exhaustive; the control claim is
+a sample, and it is stated as a sample.
 
 **The pair is the instrument.** A probe that only visited overdue beds would
 report red against a build that painted every end date red. Overdue read
@@ -242,31 +300,51 @@ already Verification 44's territory and needed no new text.
 
 ---
 
-## 9. Carried items
+## 9. Carried to the next brief, in John's order
 
-1. **W2 needs one word.** Section 1.
-2. **The 25 residue records.** Section 2, proposed not applied.
-3. **`tearDown`'s tag branch is 96% blind, and this is the item worth a
-   round.** Its query carries no range and no order, so PostgREST caps it at
-   1000 rows: **1,000 of 23,066 matching rows, covering 389 distinct records,
-   reaching 0 of the 25.** It is the safety net that replaced the owner-sweep
-   which once destroyed 66 records, and it is arbitrary about which 4% it sees.
-   Verification 17's paged-API species, now found **twice in the same table** -
-   Round 20 Phase 8 read 1000 of 8,237 and reported a residue count of zero.
-   **No error check would catch it:** the query succeeds and answers truthfully
-   about the page it was given.
-4. **14 probe call sites still move `owner_id` by raw update**, measured
-   comment-stripped across `scripts/` (16 files, of which `fixtures.mjs` and
-   `teardown-scoping.test.mjs` are the helper and its test). Only the door
-   probe was converted, because it is a gate stage. A scan forbidding the raw
-   form is the cheap durable fix and belongs with item 3.
-5. **The fixture ledger paths are hardcoded to a previous session's scratchpad
-   directory.** They work today because that directory still exists. It is a
-   dependency on a temporary path.
-6. **The reverse-direction census now exists for test files** (`bce3a07`) but
-   nothing does the same for probe scripts or gate stages.
+**Ruled at the close, 2026-09-10. This list supersedes the one this document
+carried before the word; the two items of mine it does not carry are named at
+the bottom rather than dropped silently.**
 
----
+1. **The blind tag query. FIRST OPENING ACT.** `tearDown`'s tag branch is
+   range-capped at **1,000 of 23,066 rows**. Paginate or filter the query,
+   **calibrated on a population larger than the page cap** and **shown reaching
+   a record beyond row 1,000**.
+
+   > **Until it lands, every teardown claim carries the 96%-blind asterisk.**
+
+   That sentence is the ruling's teeth and belongs in the next brief verbatim:
+   it makes the gap a stated condition on other people's evidence rather than a
+   task on a list. The calibration is specified in a way that a passing check
+   cannot fake - a page-sized population would go green while proving nothing,
+   which is the exact shape that produced the finding.
+
+2. **The remaining raw-handover call sites**, 13 after this round's fix,
+   **converted or confirmed historical**. Measured comment-stripped: 16 files
+   match, of which `fixtures.mjs` (the helper) and `teardown-scoping.test.mjs`
+   (its test) are legitimate. "Confirmed historical" is an allowed disposition,
+   which is Verification 41's shape: the enumeration with a disposition each IS
+   the instrument.
+
+3. **The vanilla retirement class**, three duplicates one job. **The tripwires
+   stand until then** - `vanilla-duplicates-frozen.test.mjs` keeps failing any
+   edit that lands in a dead surface, which is what caught an edit landing in
+   `#deal-form-vanilla` while source verification passed and the screen did not
+   move.
+
+4. **The 19 routes unexercised as a non-owner, and concurrency.**
+
+5. **The `complete-document` disagreement, recorded not resolved.**
+
+**Raised in this close and NOT carried by the ruling**, recorded so they are
+absent by decision rather than by oversight:
+
+- The fixture ledger paths are hardcoded to a previous session's scratchpad
+  directory. They work today because that directory still exists.
+- The reverse-direction census now exists for test files (`bce3a07`), but
+  nothing does the same for probe scripts or gate stages.
+
+Both are adjacent to item 1 and will most naturally be met while doing it.
 
 ## 10. What this close does NOT establish
 
