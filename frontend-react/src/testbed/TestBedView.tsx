@@ -52,6 +52,40 @@ export function TestBedView({ testBedId, navToken }: { testBedId: string, navTok
   const settled = !bed.isPending
   useEffect(() => { if (settled) shell.detailLoaded(VIEW) })
 
+  // ── R11: THE JS HALF OF THE DOOR, ON THIS VIEW TOO ──────────────────
+  //
+  // The `is-not-mine` class below is the CSS half: pointer-events and opacity
+  // on inputs, textareas and selects. It stops a mouse and leaves the tab
+  // order intact. Measured on the Opportunity view last round, the same gap
+  // left 46 write controls keyboard-reachable on somebody else's record.
+  //
+  // `applyReadOnlyControls` is the half that disables form controls, marks
+  // action buttons inert, neutralises div-shaped widgets by what they ARE, and
+  // re-applies all of it to late-rendered content through its own observer. It
+  // had two call sites and both named view-opportunity-detail: this view
+  // carried the class and none of the treatment.
+  //
+  // ── ABOVE THE EARLY RETURN, AND THAT POSITION IS THE WHOLE POINT ────
+  //
+  // Placed after it first, next to the class toggle where it reads naturally.
+  // The early return below means the hook then runs on some renders and not
+  // others: React error #310, rendered more hooks than during the previous
+  // render, and THE WHOLE TEST BED VIEW STAYED BLANK AT `is-loading`. Caught
+  // by the door probe timing out on a view that never rendered.
+  //
+  // In an effect rather than in render because the sweep reads the PAINTED
+  // DOM. `bed.data` is undefined until settled, so the owner question is asked
+  // defensively and the sweep simply does not run until there is a record.
+  const ownerId = bed.data?.owner_id
+  const doorClosed = ownerId !== undefined && notMine(ownerId, shell.currentUserId())
+  useEffect(() => {
+    if (!settled || ownerId === undefined) return
+    const apply = (window as unknown as {
+      applyReadOnlyControls?: (viewId: string, notMine: boolean) => void
+    }).applyReadOnlyControls
+    apply?.('view-test-bed-detail', doorClosed)
+  }, [settled, ownerId, doorClosed])
+
   if (bed.isPending) {
     return <p className="sub" data-testid="tb-view-loading">Loading the Test Bed.</p>
   }
@@ -103,6 +137,7 @@ export function TestBedView({ testBedId, navToken }: { testBedId: string, navTok
   const viewEl = typeof document === 'undefined'
     ? null : document.getElementById('view-test-bed-detail')
   viewEl?.classList.toggle('is-not-mine', readOnly)
+
 
   // ── KEYED ON THE RECORD, AND THE LIVE WALK IS WHY IT IS BACK ─────────
   //
