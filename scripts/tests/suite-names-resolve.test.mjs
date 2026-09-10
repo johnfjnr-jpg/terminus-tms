@@ -26,7 +26,7 @@
 // names, and fails on any future one.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync, existsSync } from 'node:fs'
+import { readFileSync, existsSync, readdirSync } from 'node:fs'
 
 const ROOT = new URL('../../', import.meta.url).pathname
 const pkg = JSON.parse(readFileSync(`${ROOT}package.json`, 'utf8'))
@@ -61,4 +61,25 @@ test('the scan can see a phantom, so its zero is a measurement', () => {
   const missing = named.filter(({ file }) => !existsSync(`${ROOT}${file}`))
   assert.equal(missing.length, 1, 'the scan cannot see a phantom name, so its zero means nothing')
   assert.match(missing[0].file, /does-not-exist/)
+})
+
+// ── AND THE OTHER DIRECTION, which this file did not have ────────────────
+//
+// A1 built the named -> disk half: every file a suite NAMES must exist. That
+// catches a phantom. It cannot catch the opposite, a test file that exists and
+// is named by nothing, which never runs and reads exactly like a passing one.
+// Verification 50: a census runs in BOTH directions, and the one nobody looks
+// at is the one that finds something.
+//
+// Its first run found one - the file added in the same close that wrote this -
+// which is the red-green this half needed to be evidence rather than an
+// assertion (Verification 9).
+test('every test file on disk is named by a suite', () => {
+  const disk = readdirSync(new URL('.', import.meta.url).pathname)
+    .filter((f) => f.endsWith('.test.mjs'))
+    .map((f) => `scripts/tests/${f}`)
+  const named = new Set(suiteNames().map((n) => n.file))
+  const unnamed = disk.filter((f) => !named.has(f))
+  assert.deepEqual(unnamed, [],
+    `on disk and named by no suite, so it never runs: ${unnamed.join(', ')}`)
 })

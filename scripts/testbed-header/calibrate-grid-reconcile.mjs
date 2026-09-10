@@ -16,7 +16,7 @@ const INFLIGHT = `${SNAP}/IN_FLIGHT`
 const key = (f) => `${SNAP}/${f.replaceAll('/', '_')}`
 
 const FILES = ['frontend-react/src/testbed/headerStats.ts', 'frontend/style.css',
-  'frontend-react/src/__tests__/testbed-header-stats.test.tsx']
+  'scripts/tests/stats-grid-cells-match.test.mjs']
 
 if (existsSync(INFLIGHT)) {
   console.error(`REFUSING: a previous run died mid-injection. Restore from ${SNAP} by hand.`)
@@ -32,8 +32,8 @@ const run = () => {
   let out = ''
   let code = 0
   try {
-    out = execSync('npx vitest run src/__tests__/testbed-header-stats.test.tsx 2>&1',
-      { cwd: `${ROOT}/frontend-react`, encoding: 'utf8' })
+    out = execSync('node --test scripts/tests/stats-grid-cells-match.test.mjs 2>&1',
+      { cwd: ROOT, encoding: 'utf8' })
   } catch (e) { out = (e.stdout ?? '') + (e.stderr ?? ''); code = e.status ?? 1 }
   return { code, out, ms: Date.now() - t0 }
 }
@@ -63,8 +63,9 @@ const INJECTIONS = [
     go: () => patch(FILES[1], 'grid-template-columns: 1fr 1fr 1.4fr 1fr 1fr;',
       'grid-template-columns: 1fr 1fr 1.4fr 1fr;') },
   { name: 'the scan reads the file RAW, so prose satisfies it  (Verification 39)',
-    expect: 'reads the RULE',
-    go: () => patch(FILES[2], 'const css = stripCss(raw)', 'const css = raw') },
+    expect: 'the stripper keeps the rule',
+    go: () => patch(FILES[2], "const css = stripCss(readFileSync(`${ROOT}frontend/style.css`, 'utf8'))",
+      "const css = readFileSync(`${ROOT}frontend/style.css`, 'utf8')") },
 ]
 
 const base = run()
