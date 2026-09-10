@@ -80,9 +80,19 @@ function rememberHandover(recordId) {
 /**
  * Hand a record to another owner AND ledger it, so teardown can still reach it.
  *
- * Probes must use this rather than updating owner_id directly: a raw update
- * moves the record out of teardown's candidate set silently, and the residue is
- * only found by counting afterwards.
+ * Probes must use this rather than updating owner_id directly, and the reason
+ * below is CORRECTED: this docstring used to say a raw update moves the record
+ * out of teardown's candidate set. It does not - the tag branch below reaches
+ * handed-away records across owners, and was built for that.
+ *
+ * The real reason, measured 2026-09-10: that tag query carries no range and no
+ * order, so PostgREST caps it at 1000 rows. On this database that is 1000 of
+ * 23,066 matching rows - 4% - and it reached 0 of the 25 residue records a
+ * gate-stage probe had left. The LEDGER does not go through that query, so
+ * handOver is reached whatever the tag branch can see.
+ *
+ * The superseded wording is left visible rather than deleted: a premise failed
+ * and the guidance is re-taken, not re-weighed (Verification 29).
  */
 export async function handOver(recordId, newOwnerId) {
   const db = admin()

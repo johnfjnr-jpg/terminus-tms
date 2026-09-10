@@ -70,11 +70,23 @@ let approverRowId = null
   // Solution Alignment the request opens with no tracks and renders no
   // controls, which is what the first version of this fixture did: it measured
   // 0 of 0 and reported the same false pass it was written to remove.
-  // LEDGERED, not a raw owner_id update. handOver's own docstring forbids the
-  // raw form because it moves the record out of teardown's candidate set
-  // silently - and this probe was doing exactly that, leaving ONE live
-  // opportunity in the business's list views per run. Since the probe became a
-  // gate stage that is once per gate. 25 had accumulated.
+  // LEDGERED, not a raw owner_id update. Measured: the raw form leaves ONE live
+  // opportunity in the business's list views per run, and since this probe
+  // became a gate stage that is once per gate. 25 had accumulated.
+  //
+  // AND THE REASON IS NOT THE ONE handOver's DOCSTRING GIVES, which is why it
+  // is written out here. The docstring says a raw update moves the record out
+  // of teardown's candidate set. It does not: tearDown ALSO finds handed-away
+  // records by TAG, across owners, and that branch exists for exactly this.
+  //
+  // That branch is 96% blind. Its query carries no range and no order, so
+  // PostgREST caps it at its default 1000 rows - measured at 1000 of 23,066
+  // matching rows, covering 389 distinct records, and reaching 0 of the 25.
+  // Verification 17's paged-API species, in the estate's own teardown.
+  //
+  // handOver works because the LEDGER path does not go through that query. It
+  // is the right call here regardless, and the blindness is carried as its own
+  // item rather than repaired at a close.
   await handOver(APPROVING, otherOwner)
   await db.from('records').update({ status: 'Proposal' }).eq('id', APPROVING).select('id')
   const { data: rev } = await db.from('record_revisions').select('revision_number')
