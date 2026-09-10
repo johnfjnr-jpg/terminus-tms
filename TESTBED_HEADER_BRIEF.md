@@ -220,6 +220,42 @@ R9. `estGoLiveDate` IS REPURPOSED AS THE CONTRACTED END DATE.
     calculated-versus-contracted comparison; say so at sign-off
     and Phase 1 takes that shape instead.
 
+R10. THE READING IS CONFIRMED, and the write moment is precise.
+    `estGoLiveDate` is ONE field, the contracted end.
+
+    WRITE: once, INSIDE the existing stage-transition write, when
+    a Test Bed transitions into its live stage:
+    `estGoLiveDate = transition date + testBedDuration`. No new
+    writer. No write on load.
+    Phase 1 MEASURES, rather than assumes, that the transition
+    write path can carry the payload key under
+    `refuse_write_while_frozen` and the append advisory lock, and
+    confirms existing live beds with manually entered dates need
+    no backfill because the display check only READS.
+
+    READ: the header computes `today > estGoLiveDate` at render
+    and highlights red. Nothing stored, no flag.
+    THE FOUR BEDS ALREADY PAST THEIR DATE ARE THE ACCEPTANCE
+    TEST: they show red on first render.
+
+R11. THE DOOR SWEEP IS EXTENDED TO THE TEST BED VIEW, in scope
+    this round. Reuse the mechanism, the shared enumerator
+    (`scripts/lib/enumerate-controls.mjs`) and the calibration
+    harness as they stand. Calibrate on the Test Bed view BOTH
+    WAYS: an unowned bed has its write controls neutralised with
+    navigation and disclosure alive, an owned bed is untouched.
+    THE NEW HEADER SHIPS ONTO A DOORED VIEW, NOT AN UNDOORED ONE.
+
+R12. HM IS SUPPRESSED, SUPERSEDING R2. The Hardware Numbers cell
+    shows SS and AQ; the HM slot renders ONLY when
+    `hemirSensors` carries data. No zero is shown for an unused
+    field.
+
+    ~~R2: where none is selected, display 0.~~ Superseded. R2 was
+    ruled before the measurement showed `hemirSensors` is carried
+    by NO live bed, which would put a permanent 0 on every
+    record for a field nobody uses.
+
 ## Phase 0: measurement only, read-only against product code after A1
 
 1. Test Bed record fields: where Total Cost lives (stored or
