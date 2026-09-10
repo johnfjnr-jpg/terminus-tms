@@ -5748,3 +5748,62 @@ input.input-invalid {
   opacity: 0.45;
   cursor: default;
 }
+
+/* ── W1: THE TEST BED HEADER ──────────────────────────────────────────────
+ *
+ * Title large with the summary beside it, then the stats strip, then the
+ * chevron. The strip reuses .stats-grid and .stat-value unchanged, so it is
+ * the same strip the Opportunity uses rather than a lookalike.
+ */
+.tb-header-row {
+  display: flex;
+  align-items: baseline;
+  gap: 28px;
+  margin-bottom: 20px;
+}
+.tb-header-title { flex: 0 0 auto; }
+.tb-header-title h2 { font-size: 30px; line-height: 1.15; margin: 0; }
+/* The summary takes the remaining width and wraps rather than pushing the
+ * title around; it keeps its element when empty so the title cannot move. */
+.tb-header-summary {
+  flex: 1 1 auto;
+  margin: 0;
+  max-width: 62ch;
+}
+
+/* R3: NAMES ABOVE NUMBERS. One cell, one column per unit type present. */
+/* FIVE CELLS, NOT FOUR. `.stats-grid` is repeat(4, 1fr), built for the
+ * Opportunity's four, so the Test Bed's fifth WRAPPED onto a second row and
+ * stranded "Contracted end" alone under the others. Every programmatic check
+ * passed on that layout; it was found by opening the screenshot.
+ *
+ * A modifier rather than a change to the shared rule, which is the pattern
+ * `.stats-grid--deal` already sets. Hardware is widest because it holds two or
+ * three name-and-number pairs. */
+.stats-grid--testbed {
+  grid-template-columns: 1fr 1fr 1.4fr 1fr 1fr;
+  gap: 24px;
+  margin-bottom: 28px;
+}
+
+.tb-hardware { display: flex; gap: 18px; }
+.tb-hardware-item { display: flex; flex-direction: column; }
+.tb-hardware-name {
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* R10's read side: past the contracted end date. A border AND a colour, so it
+ * does not rely on colour alone to carry the meaning. */
+.stat-value--overdue {
+  /* The estate's existing error colour, not a new token: .tb-doc-feedback.err
+   * already reads `var(--red, #e06c6c)`, so overdue matches what an error
+   * looks like here rather than introducing a second red. */
+  color: var(--red, #e06c6c);
+  border: 1px solid var(--red, #e06c6c);
+  border-radius: 3px;
+  padding: 1px 7px;
+  display: inline-block;
+}
