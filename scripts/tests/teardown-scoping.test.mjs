@@ -208,6 +208,10 @@ test('tearDown reaches a record beyond row 1,000 of its own tag population', asy
     `the population is ${population} (exact count), at or under the cap, so this test cannot see the defect`)
   assert.ok(sweep.length <= 25, 'the sweep set must fit one chunk, or it is not the query under test')
   assert.ok(!sweep.includes(KEEP), 'the control must not be in the sweep set')
+  // EMITTED, not typed. Any number describing a run comes out of the run
+  // (Verification 20), and the first commit of this work quoted a population
+  // figure the run had never printed.
+  console.log(`    population: ${population} rows (exact count) over ${sweep.length} tags, cap 1000`)
 
   // ── WHERE THE FIXTURE FALLS IN THE ORDER THE FIX PAGES BY ───────────────
   //
@@ -223,6 +227,7 @@ test('tearDown reaches a record beyond row 1,000 of its own tag population', asy
   }
   const index = ordered.findIndex((r) => r.record_id === deep.oppId)
   assert.ok(index >= 0, 'the fixture is not in the population at all; the sweep set is wrong')
+  console.log(`    fixture at index ${index} of ${ordered.length} (paged, full enumeration)`)
   assert.ok(index > 1000,
     `the fixture landed at index ${index} of ${ordered.length}, inside the first page, ` +
     'so it would be reached even by the broken query and proves nothing')
@@ -234,6 +239,7 @@ test('tearDown reaches a record beyond row 1,000 of its own tag population', asy
   assert.equal(firstPage.length, 1000, 'the unranged query no longer caps at 1000; re-derive this test')
   assert.ok(!firstPage.some((r) => r.record_id === deep.oppId),
     'the fixture is inside the unranged page after all, so the two arms are not distinguishable')
+  console.log(`    unranged query returns ${firstPage.length} rows and does NOT contain the fixture`)
 
   await tearDown(sweep)
 
