@@ -73,6 +73,21 @@ hiding rather than a second opinion about it.
    invocation, referenced by any suite or gate stage, or reachable from a
    current probe. **No conversions yet** - the split decides Phase 1's scope.
 
+### CLOSED BY MEASUREMENT, 2026-09-10 (R6)
+
+**Ruled by John on the Phase 0 report. Carried item 2 is CLOSED.**
+
+The 14 raw-handover sites are confirmed **HISTORICAL** and stay as they are.
+The one live site is deliberate and stays: its raw update is what puts the
+fixture under the tag branch, and using `handOver` there would mask the branch
+under test.
+
+**The residue risk was the BLIND QUERY, not the raw handover.** It is fixed and
+calibrated, and the tag branch is proven to reach handed-away records on every
+A1 test run rather than by argument. All 16 sites hand away records carrying a
+tag prefix, so all 16 are reachable; there are zero sites handing away an
+untagged record.
+
 2. **The page-cap audit.** Every other unranged select in `scripts/` and in the
    gate's suites, measured against the cap. **The pattern has now appeared
    three times.** Measure how many more instances exist before they surface one

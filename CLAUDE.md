@@ -2739,6 +2739,39 @@ of the change. An unanswerable precondition is a stop.
     to it, because source verification cannot tell a live surface from a dead
     one.
 
+    **AND THE REASON SOURCE VERIFICATION PASSED IS THAT THE GATE ASSERTS
+    AGAINST THE CORPSE.** Measured 2026-09-10, teardown integrity round Phase 0,
+    and it turns the clause above from a warning into a standing qualification
+    on the gate.
+
+    **58 id-assertions across 10 gate suites read ids that exist ONLY inside
+    one of the three dead blocks.** Six are the tripwires themselves, naming
+    the blocks on purpose and correct. **The other 52 are assertions about a
+    live screen, made against markup that renders nothing** - 26 of them in
+    `commercials-wiring.test.mjs` alone, then `class-rules` 8, `latches` 7,
+    `adopted-identity` 6, `no-duplicate-ids` 2, `transition-requests` 2,
+    `strip-comments` 1.
+
+    **So "source verification PASSED" above was not luck and not a weak check.
+    The suites were doing exactly what they were written to do, against the
+    wrong document.**
+
+    **THE STANDING QUALIFICATION, set by the business 2026-09-10, and it holds
+    until those 52 assertions move:**
+
+    > **The green of those eight suites is NOT evidence about the live deal
+    > form, the reference tab, or the version panel.** A change to any of those
+    > three surfaces is verified by SCREENSHOT or LIVE DOM, per Verification 4,
+    > and a passing suite is not offered as evidence for it.
+
+    **What breaks on removal is not the React tree.** Its components recreate
+    the same ids on the live surface, so a hit in `section4.tsx` is not a
+    dependency on the dead markup. The dependency is code that reads
+    `frontend/index.html` **as a file**: 17 files, 13 of them run by the gate.
+    **The retirement is therefore a re-pointing of 52 assertions across 8
+    suites, not a deletion**, which is why it is carried as its own round
+    rather than done in passing.
+
 42. **A WALK ON A CACHED BUNDLE REPORTS DEFECTS THAT ARE ALREADY FIXED.** Set by
     the business 2026-09-01, Round 41, from the fourth walk.
 
