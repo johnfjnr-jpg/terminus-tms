@@ -42,7 +42,7 @@ const run = () => {
   let out = ''
   try {
     out = execFileSync('node', ['--test', '--env-file-if-exists=.env',
-      'scripts/tests/teardown-scoping.test.mjs'], { cwd: ROOT, encoding: 'utf8', timeout: 120000 })
+      'scripts/tests/teardown-scoping.test.mjs'], { cwd: ROOT, encoding: 'utf8', timeout: 300000 })
   } catch (e) { out = `${e.stdout ?? ''}${e.stderr ?? ''}` }
   const ms = Date.now() - started
   const m = out.match(/^. fail (\d+)/m)
@@ -125,9 +125,13 @@ claim('the unnamed-child rule is removed', 'scripts/fixtures.mjs',
 // firing on it, so its coverage was a claim rather than a measurement. An
 // owner-wide re-query throws the moment another round has a live fixture,
 // which is exactly the state the test constructs.
+// RE-POINTED at A1, 2026-09-10. The anchor moved when the re-query was routed
+// through pagedSelectIn; the harness STOPPED DEAD rather than scoring a missing
+// anchor as a silent pass, which is the behaviour Verification 51's caveat asks
+// for - a SILENT verdict is only a finding once the matcher is known good.
 claim('the re-query goes back to owner-wide', 'scripts/fixtures.mjs',
-  "  const { data: still, error: stillErr } = live.length\n    ? await db.from('records').select('id, record_type')\n        .in('id', live.map((r) => r.id)).is('deleted_at', null)\n    : { data: [], error: null }",
-  "  const { data: still, error: stillErr } = await db.from('records')\n    .select('id, record_type').eq('owner_id', TEST_USER_ID).is('deleted_at', null)")
+  "  const still = await pagedSelectIn('records', 'id, record_type', 'id',\n    live.map((r) => r.id), 'still live', (q) => q.is('deleted_at', null))",
+  "  const still = await pagedSelect(() => db.from('records')\n    .select('id, record_type').eq('owner_id', TEST_USER_ID).is('deleted_at', null), 'still live')")
 
 // 6. P2.5: the handed-away discovery removed. A record handed to another owner
 // leaves the owner-scoped candidate set, and without this branch teardown
@@ -138,9 +142,26 @@ claim('the re-query goes back to owner-wide', 'scripts/fixtures.mjs',
 // the file was broken rather than because the discovery was gone - an
 // injection firing for the wrong reason proves nothing, exactly as a refusal
 // for the wrong reason does.
+// RE-POINTED at A1. The filter became a Set lookup when the candidate scan was
+// paged; the behaviour under test is unchanged.
 claim('the handed-away discovery is removed', 'scripts/fixtures.mjs',
-  '  const reachIds = [...new Set([...taggedIds, ...ledgered])]\n    .filter((id) => !candidates.some((c) => c.id === id))',
+  '  const reachIds = [...new Set([...taggedIds, ...ledgered])].filter((id) => !candidateIds.has(id))',
   '  const reachIds = []')
+
+// ── A1, 2026-09-10: THE PAGE CAP ITSELF ──────────────────────────────────
+//
+// The seventh claim, and the reason this round exists. Reverting pagedSelect to
+// a single unranged request is EXACTLY the code that shipped, so this injection
+// reproduces the real defect rather than a model of it.
+// THE INJECTION IS THE CODE THAT SHIPPED, not a model of it. A first draft
+// stripped .order and .range from inside the loop, which left the loop running
+// 500 identical full-page requests: the harness reported NO RESULT at its
+// timeout rather than a failure, and an injection that hangs proves nothing
+// about the claim. Verification 44's clause - an injection whose expected
+// result is a hang has to declare itself - so this one returns instead.
+claim('the paged select goes back to one unranged request', 'scripts/fixtures.mjs',
+  'async function pagedSelect(makeQuery, what) {\n  const rows = []',
+  'async function pagedSelect(makeQuery, what) {\n  const { data: once, error: onceErr } = await makeQuery()\n  if (onceErr) throw new Error(`${what}: ${onceErr.message}`)\n  return once\n  const rows = []')
 
 console.log('\nDIRECTION TWO: the untouched tree is green\n')
 const clean = run()

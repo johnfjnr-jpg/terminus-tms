@@ -364,6 +364,57 @@ export function tagsToSweep(explicit) {
   return [...new Set(tags.filter(Boolean))]
 }
 
+// ── EVERY ROW, NOT THE FIRST PAGE OF THEM ────────────────────────────────
+//
+// A1, 2026-09-10. PostgREST answers an unranged select with its first 1,000
+// rows and no indication that it did so. Measured on this database: the tag
+// branch below matched 23,210 revision rows covering 7,938 records and the
+// query returned 1,000 rows covering 414 - so teardown was deciding what to
+// sweep from 5.2% of the records it was asking about.
+//
+// THE PAGE CAP WAS HIDING A SECOND FAULT. Range paging without a stable
+// ORDER BY can return a row twice or skip it entirely, because an unordered
+// query has no obligation to be consistent between requests. Every helper here
+// orders by `id`, which is unique on all four tables teardown touches. Paging
+// without that is not a fix; it is the same bug with more round trips.
+const PAGE_SIZE = 1000
+const IN_CHUNK = 150
+const MAX_PAGES = 500
+
+async function pagedSelect(makeQuery, what) {
+  const rows = []
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const from = page * PAGE_SIZE
+    const { data, error } = await makeQuery()
+      .order('id', { ascending: true }).range(from, from + PAGE_SIZE - 1)
+    if (error) throw new Error(`${what} (page ${page}): ${error.message}`)
+    rows.push(...data)
+    if (data.length < PAGE_SIZE) return rows
+  }
+  throw new Error(`${what}: still returning full pages after ${MAX_PAGES}; refusing to loop`)
+}
+
+// An `.in()` list travels in the URL, so a long one fails on length rather than
+// on the cap. Different limit, same class: the query answers about less than it
+// was asked. Chunked and paged, because a chunk can itself exceed a page.
+async function pagedSelectIn(table, cols, column, values, what, modify = (q) => q) {
+  const out = []
+  for (let i = 0; i < values.length; i += IN_CHUNK) {
+    const chunk = values.slice(i, i + IN_CHUNK)
+    out.push(...await pagedSelect(
+      () => modify(admin().from(table).select(cols).in(column, chunk)), `${what}[${i}]`))
+  }
+  return out
+}
+
+// A write carries the same list in the same URL and has the same limit.
+async function chunkedWrite(table, column, values, apply, what) {
+  for (let i = 0; i < values.length; i += IN_CHUNK) {
+    const { error } = await apply(admin().from(table)).in(column, values.slice(i, i + IN_CHUNK))
+    if (error) throw new Error(`${what}[${i}]: ${error.message}`)
+  }
+}
+
 export async function tearDown(explicitTag) {
   const db = admin()
   const tags = tagsToSweep(explicitTag)
@@ -379,19 +430,19 @@ export async function tearDown(explicitTag) {
   // The owner filter is kept because it is cheap and because it makes reaching
   // a record the business owns impossible rather than merely unlikely. It is no
   // longer what decides WHAT goes.
-  const { data: candidates, error } = await db.from('records')
+  const candidates = await pagedSelect(() => db.from('records')
     .select('id, record_type, reference_code, parent_record_id')
-    .eq('owner_id', TEST_USER_ID).is('deleted_at', null)
-  if (error) throw error
+    .eq('owner_id', TEST_USER_ID).is('deleted_at', null), 'candidates')
 
   // The tag reaches the DATABASE through the payload name: every fixture
   // helper writes `${tag} Contact`, `${tag} Opportunity`, `${tag} Account`,
   // `${tag} Test Bed`. So the selector is read from the record, not the file.
-  const { data: revs, error: revErr } = candidates.length
-    ? await db.from('record_revisions').select('record_id, payload')
-        .in('record_id', candidates.map((r) => r.id))
-    : { data: [], error: null }
-  if (revErr) throw revErr
+  // Its population is every REVISION of every candidate, so it passes the cap
+  // long before the candidate count does: a few hundred fixtures with a
+  // handful of revisions each is already over. This one was never the reported
+  // fault and had the same one.
+  const revs = await pagedSelectIn('record_revisions', 'id, record_id, payload',
+    'record_id', candidates.map((r) => r.id), 'revs')
   const named = new Map()
   for (const r of revs) if (!named.has(r.record_id)) named.set(r.record_id, r.payload?.name ?? '')
   const mine = (id) => tags.some((t) => String(named.get(id) ?? '').startsWith(t))
@@ -415,15 +466,31 @@ export async function tearDown(explicitTag) {
   // better hygiene to say so at the moment ownership moves - but teardown no
   // longer depends on anyone having used it.
   const ledgered = ledgeredHandovers()
-  const taggedRevs = (await db.from('record_revisions').select('record_id, payload')
-    .or(tags.map((t) => `payload->>name.ilike.${t}%`).join(','))).data ?? []
+  // THE ONE THE ROUND WAS CALLED FOR. Also `.data ?? []` before, which is the
+  // idiom Verification 8 names: it silences the error path at exactly the point
+  // where the answer becomes a number somebody quotes. Here it was worse than
+  // that, because there was no error to silence - the query succeeded and
+  // answered truthfully about a page nobody asked for.
+  //
+  // The tag list travels in the `.or()` string, so it is chunked for the same
+  // reason `.in()` is: 30 tags is 967 characters today and nothing stops it
+  // growing.
+  const TAG_CHUNK = 25
+  const taggedRevs = []
+  for (let i = 0; i < tags.length; i += TAG_CHUNK) {
+    const or = tags.slice(i, i + TAG_CHUNK).map((t) => `payload->>name.ilike.${t}%`).join(',')
+    taggedRevs.push(...await pagedSelect(
+      () => db.from('record_revisions').select('id, record_id, payload').or(or), `taggedRevs[${i}]`))
+  }
   const taggedIds = [...new Set(taggedRevs.map((r) => r.record_id))]
-  const reachIds = [...new Set([...taggedIds, ...ledgered])]
-    .filter((id) => !candidates.some((c) => c.id === id))
-  const handedRows = reachIds.length
-    ? (await db.from('records').select('id, record_type, reference_code, parent_record_id')
-        .in('id', reachIds).is('deleted_at', null)).data ?? []
-    : []
+  const candidateIds = new Set(candidates.map((c) => c.id))
+  const reachIds = [...new Set([...taggedIds, ...ledgered])].filter((id) => !candidateIds.has(id))
+  // `deleted_at` is filtered AT THE QUERY, not afterwards. Filtering in JS on a
+  // column the select does not name reads as a filter and keeps everything,
+  // which is how a soft-deleted record gets torn down a second time.
+  const handedRows = await pagedSelectIn('records',
+    'id, record_type, reference_code, parent_record_id', 'id', reachIds, 'handedRows',
+    (q) => q.is('deleted_at', null))
   const handed = ledgered
 
   const direct = [...candidates.filter((r) => mine(r.id)), ...handedRows]
@@ -448,17 +515,15 @@ export async function tearDown(explicitTag) {
     // THE REQUEST IS CLOSED, NOT DELETED. It is the audit trail of what the
     // probe did, and Verification 11 is that fixtures are soft deleted.
     const ids = live.map((r) => r.id)
-    const { data: open, error: openErr } = await db.from('transition_requests')
-      .select('id').in('record_id', ids).eq('status', 'open')
-    if (openErr) throw openErr
-    if (open?.length) {
-      const { error: closeErr } = await db.from('transition_requests').update({
+    const open = await pagedSelectIn('transition_requests', 'id', 'record_id', ids,
+      'open requests', (q) => q.eq('status', 'open'))
+    if (open.length) {
+      await chunkedWrite('transition_requests', 'id', open.map((r) => r.id), (q) => q.update({
         status: 'withdrawn',
         closed_by: TEST_USER_ID,
         closed_at: new Date().toISOString(),
         close_reason: 'teardown: the fixture this request froze is being removed',
-      }).in('id', open.map((r) => r.id))
-      if (closeErr) throw closeErr
+      }), 'close requests')
     }
 
     // ── A RECORD-SCOPED APPROVER SEAT IS NOT A RECORD ────────────────────
@@ -472,14 +537,10 @@ export async function tearDown(explicitTag) {
     // Build discipline 8: enumerate everything the actor writes, not the one
     // thing the failing check named. Scoped to the ids being torn down, so a
     // real configuration seat is never touched.
-    const { error: seatErr } = await db.from('track_approvers')
-      .delete().in('record_id', ids)
-    if (seatErr) throw seatErr
+    await chunkedWrite('track_approvers', 'record_id', ids, (q) => q.delete(), 'seats')
 
-    const { error: delErr } = await db.from('records')
-      .update({ deleted_at: new Date().toISOString() })
-      .in('id', live.map((r) => r.id))
-    if (delErr) throw delErr
+    const stamp = new Date().toISOString()
+    await chunkedWrite('records', 'id', ids, (q) => q.update({ deleted_at: stamp }), 'soft delete')
   }
 
   // Re-query rather than trusting the update's own result, SCOPED TO THE SAME
@@ -487,11 +548,8 @@ export async function tearDown(explicitTag) {
   // has a live fixture, which is the very state this rescoping exists to
   // permit - and a teardown that fails on somebody else's records would push
   // the next person straight back to sweeping by owner.
-  const { data: still, error: stillErr } = live.length
-    ? await db.from('records').select('id, record_type')
-        .in('id', live.map((r) => r.id)).is('deleted_at', null)
-    : { data: [], error: null }
-  if (stillErr) throw stillErr
+  const still = await pagedSelectIn('records', 'id, record_type', 'id',
+    live.map((r) => r.id), 'still live', (q) => q.is('deleted_at', null))
   if (still.length) {
     throw new Error(`teardown left ${still.length} live records: ${still.map((r) => r.record_type).join(', ')}`)
   }

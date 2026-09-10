@@ -126,3 +126,126 @@ test('a record handed to another owner is still swept', async () => {
     await purge([id])
   }
 })
+
+// ── A1, 2026-09-10: THE PAGE CAP ──────────────────────────────────────────
+//
+// tearDown's tag branch answered from PostgREST's default first 1,000 rows.
+// Measured before the fix: 23,210 matching revision rows covering 7,938
+// records, of which the query returned 1,000 covering 414. Teardown was
+// deciding what to sweep from 5.2% of the records it was asking about.
+//
+// THIS TEST EXISTS BECAUSE EVERY OTHER TEST IN THIS FILE IS BLIND TO IT. They
+// build two or three fixtures and sweep them, so their population is three
+// orders of magnitude under the cap and an unranged query returns all of it.
+// A page-sized population goes green while proving nothing, and that shape is
+// what produced the finding in the first place.
+//
+// So the population here is the REAL one: every tag in the ledger, which is
+// what a no-argument tearDown() sweeps, plus this test's own fixture.
+test('tearDown reaches a record beyond row 1,000 of its own tag population', async () => {
+  const { admin, freshOpportunity, tearDown, tagsToSweep } = await import('../fixtures.mjs')
+  const db = admin()
+  const must = ({ data, error }, w) => { if (error) throw new Error(`${w}: ${error.message}`); return data }
+  const TAG = 'a1deep'
+  const KEEP = 'a1keep'
+  const or = (ts) => ts.map((t) => `payload->>name.ilike.${t}%`).join(',')
+  const exactCount = async (q, w) => {
+    const { count, error } = await q
+    if (error) throw new Error(`${w}: ${error.message}`)
+    return count
+  }
+
+  const deep = await freshOpportunity(TAG)
+  const kept = await freshOpportunity(KEEP)
+
+  // ── BOTH ARE HANDED AWAY, AND THAT IS WHAT PUTS THEM UNDER THE TAG BRANCH ─
+  //
+  // The first version of this test left them owned by the test account, and the
+  // page-cap injection came back SILENT. The reason is the whole shape of the
+  // defect: a record the test account still OWNS is found by the owner-scoped
+  // candidate branch and never needs the tag query at all. The tag branch only
+  // decides the fate of records that have LEFT that set - which is exactly the
+  // population it was built for, and exactly the 25 handed-away opportunities
+  // the previous round found sitting live.
+  //
+  // Raw update rather than handOver(), deliberately: the ledger is the other
+  // way a handed-away record is reached, and using it here would mask the very
+  // branch under test.
+  const other = must(await db.from('track_approvers').select('user_id')
+    .eq('record_type', 'opportunity').limit(1), 'other owner')[0].user_id
+  for (const id of [deep.oppId, kept.oppId]) {
+    must(await db.from('records').update({ owner_id: other }).eq('id', id).select('id'), `hand ${id}`)
+  }
+
+  // ── THE SWEEP SET IS BUILT TO EXCEED THE CAP, NOT HOPED TO ──────────────
+  //
+  // Two earlier drafts failed here and both failures are the reason this is
+  // constructed rather than taken. Probing the ledger's first 25 tags missed
+  // the fixture's own tag entirely, which reported as index -1 and READS as
+  // "inside the first page". Probing the chunk the fixture's tag falls in gave
+  // a population of 29, because a tag appended seconds ago sits among other
+  // recent small ones while the mass is in the old tags.
+  //
+  // So: the fixture's tag, plus the heaviest historical tags, until the
+  // population is over the cap. Every count here is EXACT (head + count), never
+  // a select's length, because a select's length IS the cap.
+  const ledger = tagsToSweep().filter((t) => t !== TAG && t !== KEEP)
+  const weighed = []
+  for (const t of ledger) {
+    weighed.push({ t, n: await exactCount(db.from('record_revisions')
+      .select('id', { count: 'exact', head: true }).ilike('payload->>name', `${t}%`), `weigh ${t}`) })
+  }
+  weighed.sort((a, b) => b.n - a.n)
+  const sweep = [TAG]
+  let total = 0
+  for (const { t, n } of weighed) {
+    if (total > 1000 || sweep.length >= 25) break
+    sweep.push(t); total += n
+  }
+  const population = await exactCount(db.from('record_revisions')
+    .select('id', { count: 'exact', head: true }).or(or(sweep)), 'population')
+  assert.ok(population > 1000,
+    `the population is ${population} (exact count), at or under the cap, so this test cannot see the defect`)
+  assert.ok(sweep.length <= 25, 'the sweep set must fit one chunk, or it is not the query under test')
+  assert.ok(!sweep.includes(KEEP), 'the control must not be in the sweep set')
+
+  // ── WHERE THE FIXTURE FALLS IN THE ORDER THE FIX PAGES BY ───────────────
+  //
+  // Ordered by `id`, which is unique: range paging over a non-unique order can
+  // return a row twice or skip it, which is a correctness fault the cap was
+  // hiding rather than a second opinion about it.
+  const ordered = []
+  for (let from = 0; ; from += 1000) {
+    const d = must(await db.from('record_revisions').select('id, record_id')
+      .or(or(sweep)).order('id', { ascending: true }).range(from, from + 999), 'ordered')
+    ordered.push(...d)
+    if (d.length < 1000) break
+  }
+  const index = ordered.findIndex((r) => r.record_id === deep.oppId)
+  assert.ok(index >= 0, 'the fixture is not in the population at all; the sweep set is wrong')
+  assert.ok(index > 1000,
+    `the fixture landed at index ${index} of ${ordered.length}, inside the first page, ` +
+    'so it would be reached even by the broken query and proves nothing')
+
+  // The counterfactual, asserted rather than assumed: the unranged query the
+  // defect shipped genuinely cannot see this record.
+  const firstPage = must(await db.from('record_revisions').select('id, record_id')
+    .or(or(sweep)).order('id', { ascending: true }), 'firstPage')
+  assert.equal(firstPage.length, 1000, 'the unranged query no longer caps at 1000; re-derive this test')
+  assert.ok(!firstPage.some((r) => r.record_id === deep.oppId),
+    'the fixture is inside the unranged page after all, so the two arms are not distinguishable')
+
+  await tearDown(sweep)
+
+  const after = must(await db.from('records').select('id, deleted_at')
+    .in('id', [deep.oppId, kept.oppId]), 'after')
+  const state = (id) => after.find((r) => r.id === id)?.deleted_at
+  assert.ok(state(deep.oppId), `the record at index ${index} of ${ordered.length} was NOT swept`)
+  assert.equal(state(kept.oppId), null, 'the control was swept though its tag was excluded')
+
+  // BOTH DIRECTIONS. The control was spared because it was untagged, not
+  // because it was unreachable, and sweeping it now is what tells them apart.
+  await tearDown([KEEP])
+  const final = must(await db.from('records').select('id, deleted_at').eq('id', kept.oppId), 'final')
+  assert.ok(final[0].deleted_at, 'the control could not be swept even when named')
+})
