@@ -115,11 +115,39 @@ function by(...keys) {
 async function fetchAll(db, table, columns) {
   const PAGE = 1000
   const rows = []
-  for (let from = 0; ; from += PAGE) {
-    const { data, error } = await db.from(table).select(columns).range(from, from + PAGE - 1)
-    if (error) throw new Error(`state-dump: reading ${table} failed: ${error.message}`)
+  // ORDERED, and it is not decoration. Range paging over an UNORDERED query has
+  // no obligation to be consistent between requests, so a row can come back
+  // twice or not at all - which in this file means a published count that is
+  // quietly wrong. Found at the teardown integrity round's close, 2026-09-11:
+  // the same correctness fault the page cap was hiding in tearDown, in the
+  // generator producing the document that close publishes.
+  //
+  // NOT EVERY TABLE HAS `id` - approval_tracks does not - and a blanket order
+  // simply fails on those. But ordering only MATTERS once paging actually
+  // happens, so an unordered read is sound exactly while the result fits one
+  // page. The fallback therefore PROVES that rather than assuming it: it
+  // refuses if such a table ever grows past the cap.
+  let ordered = true
+  let from = 0
+  for (;;) {
+    let q = db.from(table).select(columns)
+    if (ordered) q = q.order('id', { ascending: true })
+    const { data, error } = await q.range(from, from + PAGE - 1)
+    if (error) {
+      if (ordered && /column .*id.* does not exist/i.test(error.message)) {
+        ordered = false
+        continue
+      }
+      throw new Error(`state-dump: reading ${table} failed: ${error.message}`)
+    }
     rows.push(...data)
     if (data.length < PAGE) break
+    from += PAGE
+  }
+  if (!ordered && rows.length >= PAGE) {
+    throw new Error(`state-dump: ${table} has no \`id\` to page by and now holds ` +
+      `${rows.length} rows, so an unordered paged read may duplicate or skip. ` +
+      'Give fetchAll an explicit order column for this table.')
   }
   return rows
 }

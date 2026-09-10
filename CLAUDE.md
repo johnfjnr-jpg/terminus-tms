@@ -1514,6 +1514,32 @@ of the change. An unanswerable precondition is a stop.
     scan stays blind to the rest (Round 20 Phase 8 read 1000 of 8237
     `record_revisions` rows and reported a residue count of zero).
 
+    **AND "CONFIRM THE QUERY IS EVALUATED OVER THE WHOLE POPULATION" IS A
+    HABIT. MAKE IT AN ASSERTION.** Teardown integrity round, 2026-09-10, and
+    it is the same remedy this rule already prescribes, moved from the person
+    to the test.
+
+    The instance, and it is the third of this shape in the estate. A gate suite
+    hunted orphaned `approvals.stage` values across the whole table and was
+    examining **1,000 of 3,027**. Two thousand and twenty-seven rows were never
+    looked at while the assertion reported clean, so an orphan among them could
+    not have been found. Round 20's 1000-of-8237 is the same fault, and the
+    round that found this one had itself just fixed a 1000-of-23,210.
+
+    **The mechanism, and it costs two lines: take the EXACT count first, then
+    assert the rows actually walked equal it.**
+
+        const { count: total } = await db.from(t).select('id',
+          { count: 'exact', head: true }).not('stage', 'is', null)
+        // ... page the real query ...
+        assert.equal(rows.length, total,
+          'the scan did not examine every row, so a clean result means nothing')
+
+    **The coverage claim becomes part of the test rather than a property of how
+    it happens to be written**, so it cannot silently truncate again when the
+    table grows past the cap. A habit protects the query somebody is looking
+    at; an assertion protects the one nobody is.
+
     **The check: run the probe against a state you know differs, and
     confirm the value changes.** Cheapest forms are a known-present and a
     known-absent string on the same file, a before and after delta, or
@@ -1629,6 +1655,33 @@ of the change. An unanswerable precondition is a stop.
     list is unavoidable it asserts its own completeness, so a new member is a
     red test rather than a silent omission.
 
+    **AND WHERE THE GUARD STRIPS COMMENTS, THE EXEMPTION IS A CALL - WHICH IS A
+    FEATURE, NOT AN OBSTACLE.** Teardown integrity round, 2026-09-10.
+
+    A scan for unbounded selects needed one deliberate exception: a test that
+    reads a supra-cap table with no range ON PURPOSE, because that is what
+    proves the cap is real. Bounding it would destroy the evidence.
+
+    **The obvious answer is a pragma in a comment, and it cannot work here.**
+    Verification 39 requires the scan to strip comments before matching, so
+    prose cannot satisfy it - which is exactly right, and it also means prose
+    cannot EXEMPT anything. The two follow from one property.
+
+    **So the exemption is a function call**, `unrangedForCalibration(query)`,
+    and two things follow that a comment could not give:
+
+    - it is **code**, so it cannot be satisfied by a sentence somebody wrote
+      about the query, which is the fault Verification 39 exists for;
+    - the function is defined **in the guard's own module**, so minting a new
+      exemption means editing the guard, in a diff somebody reads. A locally
+      declared helper of the same name in any file would be a name anyone can
+      mint, which is this rule's own warning arriving from inside the remedy.
+
+    **And the exemption itself is calibrated**, because an exemption that
+    swallows a real defect is worse than no guard: the sweep injects a bare
+    unbounded select IMMEDIATELY AFTER an exempted one and requires it to still
+    fire. That is what catches a look-behind that over-reaches.
+
 20. **A SECOND READER OF THE SAME VALUE ALWAYS DRIFTS.** Round 38,
     2026-08-29. Sibling to rule 19: that one is a claim written into a name,
     this one is a claim written into an access path. Five instances, all in
@@ -1701,6 +1754,30 @@ of the change. An unanswerable precondition is a stop.
     limit is honest rather than papered over: a script that never ran produces
     no number to quote, and nothing in the repository can catch an intention
     that was never expressed.
+
+    **AND THE VARIANT THAT SURVIVES THE RULE: A NUMBER YOU DID NOT TYPE FROM
+    NOTHING, BUT ATTRIBUTED TO THE WRONG RUNNER.** Teardown integrity round,
+    2026-09-10, and it is recorded because it happened in a round whose own
+    ruling restated this rule, to the person applying it.
+
+    A commit said `Pure suite 512 -> 514`. **The run never emitted 514.** Two
+    tests had been added and the total was assumed to move by two - which is
+    arithmetic, not invention, and is the reason it felt safe. **The two tests
+    were in a different suite.** `teardown-scoping.test.mjs` and
+    `gates.test.mjs` run under `test:db`, so the pure suite was unchanged at
+    512 and the database suite went 98 to 100.
+
+    **The rule as written stops a number pulled from the air. It does not stop
+    a number DERIVED from a true premise about the wrong runner**, and the
+    derivation is what makes it convincing: the tests really were added, the
+    delta really was two.
+
+    **The check is one question before quoting any suite total: WHICH SCRIPT
+    RUNS THIS FILE?** `package.json` answers it in one grep, and a file's
+    directory does not - `scripts/tests/` holds files belonging to at least
+    two different suites. Better still, quote the total the runner printed for
+    the suite you actually ran, which is what the rule already says and what
+    the arithmetic quietly replaced.
 
     **A display surface never invents its own read.** The approval page
     reads every deal value through the same readers `buildDealInputs` uses,

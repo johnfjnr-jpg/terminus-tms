@@ -12,8 +12,8 @@ Contains no environment variable, key or token, and no client data. Records
 appear as counts by status only, never by name or reference code, because
 this file is uploaded into chat sessions.
 
-- Generated at: `2026-09-10T02:10:33.636Z`
-- Git commit: `a5a8f8097792953ff086a6f5632bc70d85eea83f`
+- Generated at: `2026-09-10T22:37:31.710Z`
+- Git commit: `04f8ee9cc453f19473ec7dbac429f3b2e3bfde39`
 - Working tree at generation: `dirty (uncommitted changes present)`
 
 Staleness has two parts, and both must hold for this file to be current:
@@ -57,14 +57,14 @@ CLAUDE.md build discipline 13. These console settings are MITIGATIONS, not the c
 
 - Committed bundle: `frontend-react/dist/terminus-react.js`, 410,893 bytes
 - sha256: `5f06671a3aa0fb9c9c9793d987edc63595a82e8bd7fe4f286fb5b887bab9d835`
-- React suite: 934/934 pass, 0 fail
+- React suite: 932/932 pass, 0 fail
 
 ## Tags
 
 | tag | published commit | date | commits from `HEAD` | local agrees |
 |---|---|---|---|---|
-| `controls-complete` | `56b516e` | 2026-08-29 | 407 | yes |
-| `reshape-complete` | `3499884` | 2026-08-29 | 378 | yes |
+| `controls-complete` | `56b516e` | 2026-08-29 | 421 | yes |
+| `reshape-complete` | `3499884` | 2026-08-29 | 392 | yes |
 
 ## `stage_definitions`
 
@@ -100,55 +100,55 @@ CLAUDE.md build discipline 13. These console settings are MITIGATIONS, not the c
 | record_type | variant | from_stage | to_stage | requirement_type | requirement_detail |
 |---|---|---|---|---|---|
 | contact | (null) | Unqualified | Parked | payload_field_required | `{"field":"followUpDate"}` |
-| contact | (null) | Unqualified | Qualified | payload_field_required | `{"field":"name"}` |
+| contact | (null) | Unqualified | Qualified | payload_field_required | `{"field":"postcode"}` |
+| contact | (null) | Unqualified | Qualified | payload_field_required | `{"field":"mobile"}` |
 | contact | (null) | Unqualified | Qualified | payload_field_required | `{"field":"parent_record_id"}` |
 | contact | (null) | Unqualified | Qualified | payload_field_required | `{"field":"industry_id"}` |
-| contact | (null) | Unqualified | Qualified | payload_field_required | `{"field":"email"}` |
-| contact | (null) | Unqualified | Qualified | payload_field_required | `{"field":"mobile"}` |
-| contact | (null) | Unqualified | Qualified | payload_field_required | `{"field":"jobRole"}` |
-| contact | (null) | Unqualified | Qualified | payload_field_required | `{"field":"address"}` |
 | contact | (null) | Unqualified | Qualified | payload_field_required | `{"field":"city"}` |
-| contact | (null) | Unqualified | Qualified | payload_field_required | `{"field":"postcode"}` |
-| contact | (null) | Unqualified | Qualified | payload_field_required | `{"field":"country"}` |
+| contact | (null) | Unqualified | Qualified | payload_field_required | `{"field":"address"}` |
 | contact | (null) | Unqualified | Qualified | payload_field_required | `{"field":"region"}` |
+| contact | (null) | Unqualified | Qualified | payload_field_required | `{"field":"jobRole"}` |
 | contact | (null) | Unqualified | Qualified | payload_field_required | `{"field":"linkedin"}` |
-| contact | (null) | Unqualified | Qualified | payload_field_required | `{"field":"source"}` |
+| contact | (null) | Unqualified | Qualified | payload_field_required | `{"field":"email"}` |
+| contact | (null) | Unqualified | Qualified | payload_field_required | `{"field":"country"}` |
 | contact | (null) | Unqualified | Qualified | payload_field_required | `{"field":"summary"}` |
+| contact | (null) | Unqualified | Qualified | payload_field_required | `{"field":"source"}` |
+| contact | (null) | Unqualified | Qualified | payload_field_required | `{"field":"name"}` |
 | opportunity | (null) | Evaluation | Negotiating | approval_obtained | `{"scope":"version","track":"Technical"}` |
-| opportunity | (null) | Evaluation | Negotiating | approval_obtained | `{"scope":"version","track":"Legal"}` |
 | opportunity | (null) | Evaluation | Negotiating | approval_obtained | `{"scope":"version","track":"Commercial"}` |
+| opportunity | (null) | Evaluation | Negotiating | approval_obtained | `{"scope":"version","track":"Legal"}` |
 | opportunity | (null) | Evaluation | Negotiating | payload_field_required | `{"field":"exitEvalClarificationsResponded","label":"Clarifications responded to"}` |
 | opportunity | (null) | Evaluation | Negotiating | payload_field_required | `{"field":"exitEvalRevisedPricing","label":"Revised pricing submitted if required"}` |
 | opportunity | (null) | Evaluation | Negotiating | payload_field_required | `{"field":"exitEvalTechnicalClarifications","label":"Technical clarifications completed"}` |
-| opportunity | (null) | Negotiating | Closed Won | approval_obtained | `{"scope":"version","track":"Legal"}` |
 | opportunity | (null) | Negotiating | Closed Won | approval_obtained | `{"scope":"version","track":"Technical"}` |
+| opportunity | (null) | Negotiating | Closed Won | approval_obtained | `{"scope":"version","track":"Legal"}` |
 | opportunity | (null) | Negotiating | Closed Won | approval_obtained | `{"scope":"version","track":"Commercial"}` |
-| opportunity | (null) | Negotiating | Closed Won | payload_field_required | `{"field":"exitNegPricingAgreed","label":"Pricing agreed"}` |
-| opportunity | (null) | Negotiating | Closed Won | payload_field_required | `{"field":"exitNegCommercialsApproved","label":"Commercials approved"}` |
-| opportunity | (null) | Negotiating | Closed Won | payload_field_required | `{"field":"exitNegScopeAgreed","label":"Scope agreed"}` |
+| opportunity | (null) | Negotiating | Closed Won | payload_field_required | `{"entry_stage_at_or_after":"Negotiating","field":"assessmentReviewed","label":"Assessment reviewed","min_length":1,"verb":""}` |
 | opportunity | (null) | Negotiating | Closed Won | payload_field_required | `{"field":"exitNegContractExecuted","label":"Contract executed"}` |
 | opportunity | (null) | Negotiating | Closed Won | payload_field_required | `{"field":"exitNegLegalResolved","label":"Legal issues resolved"}` |
-| opportunity | (null) | Negotiating | Closed Won | payload_field_required | `{"entry_stage_at_or_after":"Negotiating","field":"assessmentReviewed","label":"Assessment reviewed","min_length":1,"verb":""}` |
+| opportunity | (null) | Negotiating | Closed Won | payload_field_required | `{"field":"exitNegCommercialsApproved","label":"Commercials approved"}` |
+| opportunity | (null) | Negotiating | Closed Won | payload_field_required | `{"field":"exitNegScopeAgreed","label":"Scope agreed"}` |
+| opportunity | (null) | Negotiating | Closed Won | payload_field_required | `{"field":"exitNegPricingAgreed","label":"Pricing agreed"}` |
+| opportunity | (null) | Proposal | Evaluation | approval_obtained | `{"scope":"version","track":"Commercial"}` |
 | opportunity | (null) | Proposal | Evaluation | approval_obtained | `{"scope":"version","track":"Technical"}` |
 | opportunity | (null) | Proposal | Evaluation | approval_obtained | `{"scope":"version","track":"Legal"}` |
-| opportunity | (null) | Proposal | Evaluation | approval_obtained | `{"scope":"version","track":"Commercial"}` |
-| opportunity | (null) | Proposal | Evaluation | payload_field_required | `{"field":"proposalIssued","label":"Proposal issued (issue the latest draft)"}` |
-| opportunity | (null) | Proposal | Evaluation | payload_field_required | `{"field":"exitPropImplSchedule","label":"Implementation schedule agreed"}` |
-| opportunity | (null) | Proposal | Evaluation | payload_field_required | `{"field":"exitPropDocumentation","label":"Proposal documentation approved"}` |
 | opportunity | (null) | Proposal | Evaluation | payload_field_required | `{"field":"exitPropContractTerms","label":"Contract terms and variations approved"}` |
+| opportunity | (null) | Proposal | Evaluation | payload_field_required | `{"field":"exitPropImplSchedule","label":"Implementation schedule agreed"}` |
 | opportunity | (null) | Proposal | Evaluation | payload_field_required | `{"entry_stage_at_or_after":"Proposal","field":"assessmentReviewed","label":"Assessment reviewed","min_length":1,"verb":""}` |
+| opportunity | (null) | Proposal | Evaluation | payload_field_required | `{"field":"proposalIssued","label":"Proposal issued (issue the latest draft)"}` |
+| opportunity | (null) | Proposal | Evaluation | payload_field_required | `{"field":"exitPropDocumentation","label":"Proposal documentation approved"}` |
 | opportunity | (null) | Qualification | Solution Alignment | payload_field_required | `{"entry_stage_at_or_after":"Qualification","field":"assessmentReviewed","label":"Assessment reviewed","min_length":1,"verb":""}` |
+| opportunity | (null) | Solution Alignment | Proposal | approval_obtained | `{"scope":"stage","track":"Legal"}` |
 | opportunity | (null) | Solution Alignment | Proposal | approval_obtained | `{"scope":"stage","track":"Commercial"}` |
 | opportunity | (null) | Solution Alignment | Proposal | approval_obtained | `{"scope":"stage","track":"Technical"}` |
-| opportunity | (null) | Solution Alignment | Proposal | approval_obtained | `{"scope":"stage","track":"Legal"}` |
-| opportunity | (null) | Solution Alignment | Proposal | payload_field_required | `{"field":"exitSolKeyStakeholders","label":"Key stakeholders"}` |
-| opportunity | (null) | Solution Alignment | Proposal | payload_field_required | `{"field":"exitSolBuyersKnown","label":"Buyers known"}` |
-| opportunity | (null) | Solution Alignment | Proposal | payload_field_required | `{"field":"exitSolTechnicalSolution","label":"Technical solution understood"}` |
-| opportunity | (null) | Solution Alignment | Proposal | payload_field_required | `{"field":"exitSolTermsReviewed","label":"Terms and conditions reviewed"}` |
 | opportunity | (null) | Solution Alignment | Proposal | payload_field_required | `{"entry_stage_at_or_after":"Solution Alignment","field":"assessmentReviewed","label":"Assessment reviewed","min_length":1,"verb":""}` |
+| opportunity | (null) | Solution Alignment | Proposal | payload_field_required | `{"field":"exitSolTechnicalSolution","label":"Technical solution understood"}` |
+| opportunity | (null) | Solution Alignment | Proposal | payload_field_required | `{"field":"exitSolKeyStakeholders","label":"Key stakeholders"}` |
+| opportunity | (null) | Solution Alignment | Proposal | payload_field_required | `{"field":"exitSolTermsReviewed","label":"Terms and conditions reviewed"}` |
+| opportunity | (null) | Solution Alignment | Proposal | payload_field_required | `{"field":"exitSolBuyersKnown","label":"Buyers known"}` |
 | smoke_test | (null) | draft | active | approval_obtained | `{"track":"Internal"}` |
-| test_bed | (null) | Decommissioning | Closed | approval_obtained | `{"scope":"stage","track":"Technical"}` |
 | test_bed | (null) | Decommissioning | Closed | approval_obtained | `{"scope":"stage","track":"Commercial"}` |
+| test_bed | (null) | Decommissioning | Closed | approval_obtained | `{"scope":"stage","track":"Technical"}` |
 | test_bed | (null) | Decommissioning | Closed | approval_obtained | `{"scope":"stage","track":"Legal"}` |
 | test_bed | (null) | Decommissioning | Closed | document_status | `{"document":"Site Decommissioning Report","status":"approved"}` |
 | test_bed | (null) | Installation and Commissioning | Monitoring and Analysis | approval_obtained | `{"scope":"stage","track":"Commercial"}` |
@@ -156,42 +156,42 @@ CLAUDE.md build discipline 13. These console settings are MITIGATIONS, not the c
 | test_bed | (null) | Installation and Commissioning | Monitoring and Analysis | contact_role_linked | `{"role":"Test Bed Tech Team"}` |
 | test_bed | (null) | Installation and Commissioning | Monitoring and Analysis | document_status | `{"document":"Site Installation Document","status":"approved"}` |
 | test_bed | (null) | Installation and Commissioning | Monitoring and Analysis | payload_field_required | `{"field":"installer_account_id","label":"Installer"}` |
-| test_bed | (null) | Monitoring and Analysis | Review and Completion | approval_obtained | `{"scope":"stage","track":"Technical"}` |
 | test_bed | (null) | Monitoring and Analysis | Review and Completion | approval_obtained | `{"scope":"stage","track":"Commercial"}` |
 | test_bed | (null) | Monitoring and Analysis | Review and Completion | approval_obtained | `{"scope":"stage","track":"Legal"}` |
+| test_bed | (null) | Monitoring and Analysis | Review and Completion | approval_obtained | `{"scope":"stage","track":"Technical"}` |
 | test_bed | (null) | Monitoring and Analysis | Review and Completion | document_status | `{"document":"Test Bed Performance","status":"approved"}` |
 | test_bed | (null) | Monitoring and Analysis | Review and Completion | document_status | `{"document":"Review Meeting Minutes","status":"approved"}` |
-| test_bed | (null) | Monitoring and Analysis | Review and Completion | payload_field_required | `{"entry_stage_at_or_after":"Monitoring and Analysis","field":"scoreUseCaseRequirementsAndMetrics","label":"Clear Use Case Requirements and Metrics","min_length":1}` |
 | test_bed | (null) | Monitoring and Analysis | Review and Completion | payload_field_required | `{"field":"exitMonAllMeetingActionsCompleted","label":"All Meeting Actions Completed"}` |
-| test_bed | (null) | Pre-Site Assessment | Site Assessment | approval_obtained | `{"scope":"stage","track":"Commercial"}` |
+| test_bed | (null) | Monitoring and Analysis | Review and Completion | payload_field_required | `{"entry_stage_at_or_after":"Monitoring and Analysis","field":"scoreUseCaseRequirementsAndMetrics","label":"Clear Use Case Requirements and Metrics","min_length":1}` |
 | test_bed | (null) | Pre-Site Assessment | Site Assessment | approval_obtained | `{"scope":"stage","track":"Legal"}` |
+| test_bed | (null) | Pre-Site Assessment | Site Assessment | approval_obtained | `{"scope":"stage","track":"Commercial"}` |
 | test_bed | (null) | Pre-Site Assessment | Site Assessment | document_status | `{"document":"NDA","status":"approved"}` |
-| test_bed | (null) | Qualification | Pre-Site Assessment | approval_obtained | `{"scope":"stage","track":"Technical"}` |
 | test_bed | (null) | Qualification | Pre-Site Assessment | approval_obtained | `{"scope":"stage","track":"Commercial"}` |
+| test_bed | (null) | Qualification | Pre-Site Assessment | approval_obtained | `{"scope":"stage","track":"Technical"}` |
 | test_bed | (null) | Qualification | Pre-Site Assessment | contact_role_linked | `{"role":"Client Commercial Buyer"}` |
-| test_bed | (null) | Qualification | Pre-Site Assessment | contact_role_linked | `{"role":"Client Technical Buyer"}` |
 | test_bed | (null) | Qualification | Pre-Site Assessment | contact_role_linked | `{"role":"Client Legal Buyer"}` |
+| test_bed | (null) | Qualification | Pre-Site Assessment | contact_role_linked | `{"role":"Client Technical Buyer"}` |
 | test_bed | (null) | Qualification | Pre-Site Assessment | payload_field_required | `{"field":"testBedDuration"}` |
-| test_bed | (null) | Qualification | Pre-Site Assessment | payload_field_required | `{"field":"estimatedInstallationDate"}` |
-| test_bed | (null) | Qualification | Pre-Site Assessment | payload_field_required | `{"field":"estGoLiveDate"}` |
-| test_bed | (null) | Qualification | Pre-Site Assessment | payload_field_required | `{"field":"scoreRolloutPath","label":"Rollout Path","min_length":1}` |
 | test_bed | (null) | Qualification | Pre-Site Assessment | payload_field_required | `{"field":"scoreClientCommitment","label":"Client Commitment","min_length":1}` |
-| test_bed | (null) | Qualification | Pre-Site Assessment | payload_field_required | `{"field":"scoreUseCaseRequirementsAndMetrics","label":"Clear Use Case Requirements and Metrics","min_length":1}` |
-| test_bed | (null) | Qualification | Pre-Site Assessment | payload_field_required | `{"field":"scorePhysicalSuitability","label":"Physical Suitability","min_length":1}` |
-| test_bed | (null) | Qualification | Pre-Site Assessment | payload_field_required | `{"field":"scoreDataRights","label":"Data Rights","min_length":1}` |
 | test_bed | (null) | Qualification | Pre-Site Assessment | payload_field_required | `{"field":"measurabilityConfirmed","label":"Sensors can capture what would be measured","min_length":1}` |
-| test_bed | (null) | Review and Completion | Decommissioning | approval_obtained | `{"scope":"stage","track":"Commercial"}` |
+| test_bed | (null) | Qualification | Pre-Site Assessment | payload_field_required | `{"field":"scoreRolloutPath","label":"Rollout Path","min_length":1}` |
+| test_bed | (null) | Qualification | Pre-Site Assessment | payload_field_required | `{"field":"scoreUseCaseRequirementsAndMetrics","label":"Clear Use Case Requirements and Metrics","min_length":1}` |
+| test_bed | (null) | Qualification | Pre-Site Assessment | payload_field_required | `{"field":"estGoLiveDate"}` |
+| test_bed | (null) | Qualification | Pre-Site Assessment | payload_field_required | `{"field":"scoreDataRights","label":"Data Rights","min_length":1}` |
+| test_bed | (null) | Qualification | Pre-Site Assessment | payload_field_required | `{"field":"estimatedInstallationDate"}` |
+| test_bed | (null) | Qualification | Pre-Site Assessment | payload_field_required | `{"field":"scorePhysicalSuitability","label":"Physical Suitability","min_length":1}` |
 | test_bed | (null) | Review and Completion | Decommissioning | approval_obtained | `{"scope":"stage","track":"Technical"}` |
+| test_bed | (null) | Review and Completion | Decommissioning | approval_obtained | `{"scope":"stage","track":"Commercial"}` |
 | test_bed | (null) | Review and Completion | Decommissioning | approval_obtained | `{"scope":"stage","track":"Legal"}` |
 | test_bed | (null) | Review and Completion | Decommissioning | document_status | `{"document":"Test Bed Close Out Report","status":"approved"}` |
+| test_bed | (null) | Site Assessment | Installation and Commissioning | approval_obtained | `{"scope":"stage","track":"Legal"}` |
 | test_bed | (null) | Site Assessment | Installation and Commissioning | approval_obtained | `{"scope":"stage","track":"Commercial"}` |
 | test_bed | (null) | Site Assessment | Installation and Commissioning | approval_obtained | `{"scope":"stage","track":"Technical"}` |
-| test_bed | (null) | Site Assessment | Installation and Commissioning | approval_obtained | `{"scope":"stage","track":"Legal"}` |
 | test_bed | (null) | Site Assessment | Installation and Commissioning | document_status | `{"document":"Site Assessment Report","status":"approved"}` |
 | test_bed | (null) | Site Assessment | Installation and Commissioning | document_status | `{"document":"Compliance and Data Protection","status":"approved"}` |
 | test_bed | (null) | Site Assessment | Installation and Commissioning | document_status | `{"document":"Partnership and Test Bed Agreement","status":"approved"}` |
-| test_bed | (null) | Site Assessment | Installation and Commissioning | payload_field_required | `{"entry_stage_at_or_after":"Site Assessment","field":"scorePhysicalSuitability","label":"Physical Suitability","min_length":1}` |
 | test_bed | (null) | Site Assessment | Installation and Commissioning | payload_field_required | `{"entry_stage_at_or_after":"Site Assessment","field":"scoreDataRights","label":"Data Rights","min_length":1}` |
+| test_bed | (null) | Site Assessment | Installation and Commissioning | payload_field_required | `{"entry_stage_at_or_after":"Site Assessment","field":"scorePhysicalSuitability","label":"Physical Suitability","min_length":1}` |
 
 Rule count by record type and requirement type:
 
@@ -360,35 +360,35 @@ _None._
 
 ## Record counts by type and status
 
-135 live, 45421 soft deleted, 45556 rows in total.
+111 live, 46199 soft deleted, 46310 rows in total.
 
 | record_type | status | live | soft deleted |
 |---|---|---|---|
 | account | Active | 0 | 6 |
-| account | active | 4 | 1064 |
-| contact | Active | 0 | 972 |
+| account | active | 4 | 1070 |
+| contact | Active | 0 | 990 |
 | contact | Parked | 0 | 6 |
-| contact | Qualified | 8 | 4513 |
-| contact | Unqualified | 1 | 123 |
-| document | approved | 61 | 2452 |
+| contact | Qualified | 8 | 4663 |
+| contact | Unqualified | 2 | 123 |
+| document | approved | 61 | 2480 |
 | document | draft | 0 | 5 |
 | document | received | 1 | 78 |
 | opportunity | Closed Lost | 0 | 20 |
 | opportunity | Closed Won | 2 | 7 |
-| opportunity | Evaluation | 0 | 150 |
+| opportunity | Evaluation | 0 | 153 |
 | opportunity | Negotiating | 1 | 16 |
-| opportunity | Proposal | 27 | 909 |
-| opportunity | Qualification | 6 | 3101 |
-| opportunity | Solution Alignment | 7 | 810 |
+| opportunity | Proposal | 3 | 951 |
+| opportunity | Qualification | 5 | 3231 |
+| opportunity | Solution Alignment | 7 | 822 |
 | test_bed | Closed | 5 | 9 |
 | test_bed | Installation and Commissioning | 1 | 35 |
 | test_bed | Monitoring and Analysis | 0 | 2 |
 | test_bed | Pre-Site Assessment | 0 | 8 |
-| test_bed | Qualification | 1 | 902 |
+| test_bed | Qualification | 1 | 908 |
 | test_bed | Review and Completion | 1 | 0 |
 | test_bed | Site Assessment | 1 | 17 |
 | unit | Installed | 4 | 7 |
-| unit | Planned | 4 | 8117 |
+| unit | Planned | 4 | 8225 |
 | unit | Removed | 0 | 1 |
 
 ### Test fixture record types
@@ -399,19 +399,19 @@ row by row, and are included in the totals above.
 
 | distinct `harness_*` record types | live rows | soft deleted rows |
 |---|---|---|
-| 2779 | 0 | 22091 |
+| 2811 | 0 | 22366 |
 
 No harness record type holds a live row; every fixture row is soft deleted.
 
 ## `approvals`
 
-2988 rows, of which 0 carry a null `stage`.
+3027 rows, of which 0 carry a null `stage`.
 
 | decision | track | rows | null stage |
 |---|---|---|---|
-| approved | Commercial | 1517 | 0 |
-| approved | Legal | 790 | 0 |
-| approved | Technical | 676 | 0 |
+| approved | Commercial | 1535 | 0 |
+| approved | Legal | 802 | 0 |
+| approved | Technical | 685 | 0 |
 | rejected | Commercial | 1 | 0 |
 | rejected | Finance | 4 | 0 |
 
