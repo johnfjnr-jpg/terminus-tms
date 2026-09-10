@@ -89,7 +89,30 @@ const INJECTIONS = [
     expect: 'no stale entries',
     go: () => edit('scripts/lib/unbounded-select-allowlist.mjs', 'export const ALLOWED = [',
       "export const ALLOWED = [\n  'scripts/gone.mjs::records::0',")
-      || edit('scripts/lib/unbounded-select-allowlist.mjs', 'export const CEILING = 41', 'export const CEILING = 42') },
+      // The ceiling is raised too, so ONLY the stale-entry assertion can fire.
+      // Read from the file rather than typed: R7 part 2 moved it 41 -> 40 and a
+      // hardcoded anchor would have made this injection stop dead.
+      || (() => {
+        const p = `${ROOT}/scripts/lib/unbounded-select-allowlist.mjs`
+        const cur = Number(/export const CEILING = (\d+)/.exec(readFileSync(p, 'utf8'))[1])
+        edit('scripts/lib/unbounded-select-allowlist.mjs',
+          `export const CEILING = ${cur}`, `export const CEILING = ${cur + 1}`)
+      })() },
+
+  // THE EXEMPTIONS NEED CALIBRATING TOO, and this is the injection that matters
+  // most: an exemption that swallows a real defect is worse than no guard. A
+  // bare select sitting immediately AFTER a wrapped one must still fire, or the
+  // 60-character look-behind is over-reaching and every select following a
+  // pagedSelect call is silently excused.
+  { name: 'a bare select sitting right after a WRAPPED one still fires',
+    expect: 'no unbounded select outside the measured allowlist',
+    go: () => append('scripts/probe-version-order.mjs', `
+async function __calibrationWrappedThenBare(db, pagedSelect) {
+  const a = await pagedSelect(() => db.from('approvals').select('id'), 'wrapped')
+  const b = await db.from('records').select('id, record_type').eq('record_type', 'opportunity')
+  return [a, b]
+}
+`) },
 
   { name: 'the file walk stops finding anything (a vacuous green)',
     expect: 'so a zero would be a measurement',

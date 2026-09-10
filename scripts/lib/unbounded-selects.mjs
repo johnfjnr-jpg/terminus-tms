@@ -24,6 +24,35 @@ export const ROOT = path.resolve(new URL('../../', import.meta.url).pathname)
 const CHAIN = /\.from\(\s*['"`]([\w.]+)['"`]\s*\)\s*\n?\s*\.select\(([\s\S]{0,400}?)(?=\n\s*(?:const|let|var|if|for|return|await|\}|$))/g
 const BOUND = /\.range\(|\.limit\(|\.single\(|\.maybeSingle\(|head:\s*true/
 
+// ── TWO WAYS A CHAIN IS BOUNDED BY SOMETHING IT DOES NOT CONTAIN ─────────
+//
+// Found by the guard failing on its own author's code within the hour of being
+// written, which is the calibration nobody plans.
+//
+// A query handed to `pagedSelect(() => db.from(...).select(...))` carries no
+// `.range(` of its own - the helper adds it. Reading the chain alone, that is
+// indistinguishable from a genuinely unbounded select, and it is the opposite:
+// it is the fixed form.
+//
+// `unrangedForCalibration` is the deliberate exemption, and it is a CALL rather
+// than a comment on purpose. Verification 39: comments are stripped before
+// matching here, so a pragma in prose could never work - which is a good
+// property, not an obstacle. And Verification 19's clause: an exemption
+// enumerates by a DECLARED property, never by a name anyone can mint. The
+// function is defined in THIS module, so minting a new exemption means editing
+// the guard itself, in a diff somebody reads.
+const WRAPPED = /(pagedSelect|pagedSelectIn|unrangedForCalibration)\s*\(\s*(\(\s*\)\s*=>\s*)?$/
+
+/**
+ * A deliberately unranged read, for a test that needs to PROVE the cap exists.
+ * The counterfactual in the teardown suite reads a supra-cap table with no
+ * range and asserts it comes back at exactly 1,000 - which is the whole point,
+ * and would be destroyed by bounding it.
+ */
+export async function unrangedForCalibration(query) {
+  return query
+}
+
 /** Every file the GATE runs: a stage command, or named by a suite script. */
 export function gateRunFiles() {
   const pkg = JSON.parse(readFileSync(path.join(ROOT, 'package.json'), 'utf8'))
@@ -57,6 +86,10 @@ export function findUnboundedSelects(files = gateRunFiles()) {
       const n = (seen.get(table) ?? 0)
       seen.set(table, n + 1)
       if (BOUND.test(m[0])) continue
+      // Is this chain the argument of a helper that bounds it? Look at what
+      // immediately precedes the `.from(`, on the same expression.
+      const before = src.slice(Math.max(0, m.index - 60), m.index)
+      if (WRAPPED.test(before.replace(/\b(db|admin\(\))\s*$/, ''))) continue
       found.push({ file: path.relative(ROOT, f), table, key: `${path.relative(ROOT, f)}::${table}::${n}` })
     }
   }

@@ -255,3 +255,52 @@ test('tearDown reaches a record beyond row 1,000 of its own tag population', asy
   const final = must(await db.from('records').select('id, deleted_at').eq('id', kept.oppId), 'final')
   assert.ok(final[0].deleted_at, 'the control could not be swept even when named')
 })
+
+// ── THE A1 RESIDUAL, ruled at the Phase 0 close ───────────────────────────
+//
+// A1's calibration proved the paging helper on `record_revisions` and
+// `records`. The report said so, and said the other tables teardown touches
+// are paged by the same helper but were not separately exercised at supra-cap
+// volume. That is an argument from shared code, and this estate has been
+// caught by exactly that argument before - the sibling surfaces round exists
+// because a security claim rested on "the policies are shared, so the shapes
+// carry".
+//
+// `transition_requests` is the choice because it is the only OTHER table
+// teardown touches whose population is over the cap: 2,370 rows against
+// track_approvers' 5. Exercising the helper on a table of five would prove
+// nothing, which is R2's population clause in a different costume.
+test('the paging helper returns a whole supra-cap table, not its first page', async () => {
+  const { admin, pagedSelect, pagedSelectIn } = await import('../fixtures.mjs')
+  const { unrangedForCalibration } = await import('../lib/unbounded-selects.mjs')
+  const db = admin()
+  const { count: exact, error } = await db.from('transition_requests')
+    .select('id', { count: 'exact', head: true })
+  assert.equal(error, null, `count failed: ${error?.message}`)
+  assert.ok(exact > 1000,
+    `transition_requests holds ${exact} rows, at or under the cap, so this proves nothing`)
+
+  const all = await pagedSelect(() => db.from('transition_requests').select('id'), 'all requests')
+  console.log(`    pagedSelect: ${all.length} of ${exact} (exact count), cap 1000`)
+  assert.equal(all.length, exact, 'the helper returned less than the table holds')
+  assert.equal(new Set(all.map((r) => r.id)).size, all.length,
+    'the helper returned a row twice, which is what paging without a stable ORDER BY does')
+
+  // The unranged counterfactual, asserted rather than assumed - and it must
+  // STAY unranged, because it is what proves the cap is real. Wrapped in the
+  // guard's own declared exemption rather than allowlisted: a deliberate
+  // unranged read is a different thing from an overlooked one, and the code
+  // should say which it is.
+  const { data: onePage } = await unrangedForCalibration(
+    db.from('transition_requests').select('id'))
+  assert.equal(onePage.length, 1000, 'the unranged query no longer caps at 1000; re-derive this test')
+
+  // And the `.in()` chunker, which fails on URL LENGTH rather than on the cap:
+  // a different limit, the same class. IN_CHUNK is 150, so this needs more
+  // than 150 ids to exercise more than one chunk.
+  const ids = all.slice(0, 400).map((r) => r.id)
+  const back = await pagedSelectIn('transition_requests', 'id', 'id', ids, 'chunked')
+  console.log(`    pagedSelectIn: ${back.length} rows over ${ids.length} ids in chunks of 150`)
+  assert.equal(back.length, ids.length, 'the chunker lost rows across chunk boundaries')
+  assert.equal(new Set(back.map((r) => r.id)).size, ids.length, 'the chunker returned a row twice')
+})

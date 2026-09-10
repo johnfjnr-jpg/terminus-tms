@@ -381,7 +381,7 @@ const PAGE_SIZE = 1000
 const IN_CHUNK = 150
 const MAX_PAGES = 500
 
-async function pagedSelect(makeQuery, what) {
+export async function pagedSelect(makeQuery, what) {
   const rows = []
   for (let page = 0; page < MAX_PAGES; page++) {
     const from = page * PAGE_SIZE
@@ -397,7 +397,7 @@ async function pagedSelect(makeQuery, what) {
 // An `.in()` list travels in the URL, so a long one fails on length rather than
 // on the cap. Different limit, same class: the query answers about less than it
 // was asked. Chunked and paged, because a chunk can itself exceed a page.
-async function pagedSelectIn(table, cols, column, values, what, modify = (q) => q) {
+export async function pagedSelectIn(table, cols, column, values, what, modify = (q) => q) {
   const out = []
   for (let i = 0; i < values.length; i += IN_CHUNK) {
     const chunk = values.slice(i, i + IN_CHUNK)

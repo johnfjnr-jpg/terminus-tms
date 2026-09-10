@@ -13,8 +13,16 @@
 // When an instance is CLEARED - bounded, or proven unable to exceed the cap -
 // remove its key AND lower the ceiling. A stale key fails the guard too, so the
 // list cannot drift from the tree in either direction.
+//
+// A KNOWN WEAKNESS OF THE KEY, recorded rather than papered over: the index is
+// POSITIONAL - the nth select on that table in that file - so bounding one
+// select renumbers its siblings. Clearing gates::approvals::0 produced a
+// three-line diff here (::0 and ::2 left, ::3 arrived) for one instance. The
+// shrink-only property still holds, because the CEILING is what moves and it
+// moved 41 -> 40. But a reviewer reading the diff sees churn rather than a
+// single removal, and a future clearing will do the same.
 
-export const CEILING = 41
+export const CEILING = 40
 
 export const ALLOWED = [
   'scripts/probe-pricing-approval.mjs::approvals::0',
@@ -45,8 +53,7 @@ export const ALLOWED = [
   'scripts/tests/contact-links.test.mjs::record_contact_stances::0',
   'scripts/tests/contact-links.test.mjs::record_contacts::0',
   'scripts/tests/contact-links.test.mjs::records::0',
-  'scripts/tests/gates.test.mjs::approvals::0',
-  'scripts/tests/gates.test.mjs::approvals::2',
+  'scripts/tests/gates.test.mjs::approvals::3',
   'scripts/tests/gates.test.mjs::stage_definitions::0',
   'scripts/tests/gates.test.mjs::stage_gate_rules::0',
   'scripts/tests/record-revision.test.mjs::record_revisions::0',

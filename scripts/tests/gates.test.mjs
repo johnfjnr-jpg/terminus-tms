@@ -296,11 +296,35 @@ test('INVARIANT: no stage_gate_rules row or approvals.stage names a stage absent
   // explanation anywhere. NULL is legitimate and excluded: approvals
   // issued before the column existed carry null by design, and are
   // deliberately unable to satisfy a stage-scoped rule.
-  const { data: approvals, error: apprErr } = await db
-    .from('approvals')
-    .select('id, stage, record_id, records!inner(record_type)')
-    .not('stage', 'is', null)
-  assert.equal(apprErr, null, `approvals query failed: ${apprErr?.message}`)
+  // PAGED, AND IT PROVES ITS OWN COVERAGE. Measured 2026-09-10: 3,027 approvals
+  // carry a stage and this query returned PostgREST's first 1,000, so 2,027
+  // rows were never examined while the assertion below reported clean. An
+  // orphan among them could not have been found. Verification 17's paged-API
+  // species - the same shape as Round 20 Phase 8, which read 1,000 of 8,237
+  // record_revisions and reported a residue count of zero.
+  //
+  // The exact count is taken FIRST and asserted against the rows actually
+  // walked, so this can never silently truncate again: the coverage claim is
+  // part of the test rather than a property of how it happens to be written.
+  const { count: apprTotal, error: apprCountErr } = await db
+    .from('approvals').select('id', { count: 'exact', head: true }).not('stage', 'is', null)
+  assert.equal(apprCountErr, null, `approvals count failed: ${apprCountErr?.message}`)
+
+  const approvals = []
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await db
+      .from('approvals')
+      .select('id, stage, record_id, records!inner(record_type)')
+      .not('stage', 'is', null)
+      .order('id', { ascending: true })
+      .range(from, from + 999)
+    assert.equal(error, null, `approvals query failed: ${error?.message}`)
+    approvals.push(...data)
+    if (data.length < 1000) break
+  }
+  console.log(`    approvals with a stage: examined ${approvals.length} of ${apprTotal} (exact count)`)
+  assert.equal(approvals.length, apprTotal,
+    'the scan did not examine every approval carrying a stage, so a clean result means nothing')
 
   const apprOrphans = (approvals ?? [])
     .filter(a => a.records?.record_type !== TYPE)
