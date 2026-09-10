@@ -43,7 +43,7 @@ mkdirSync(OUT, { recursive: true })
 // NOT MINE: owned by john@, and the dev session is john+test@.
 // MINE: created by this session through the API, immediately before the run.
 const NOT_MINE = process.env.PROBE_OPP ?? 'd86369b3-f1a7-4c79-bb50-4d4ac49d42fa'
-const { freshOpportunity, tearDown, admin } = await import('./fixtures.mjs')
+const { freshOpportunity, tearDown, admin, handOver } = await import('./fixtures.mjs')
 const { oppId: MINE } = await freshOpportunity('readonly-probe')
 
 // ── AN APPROVER'S RECORD: NOT MINE, AND I MAY DECIDE ON IT ───────────────
@@ -70,7 +70,13 @@ let approverRowId = null
   // Solution Alignment the request opens with no tracks and renders no
   // controls, which is what the first version of this fixture did: it measured
   // 0 of 0 and reported the same false pass it was written to remove.
-  await db.from('records').update({ owner_id: otherOwner, status: 'Proposal' }).eq('id', APPROVING)
+  // LEDGERED, not a raw owner_id update. handOver's own docstring forbids the
+  // raw form because it moves the record out of teardown's candidate set
+  // silently - and this probe was doing exactly that, leaving ONE live
+  // opportunity in the business's list views per run. Since the probe became a
+  // gate stage that is once per gate. 25 had accumulated.
+  await handOver(APPROVING, otherOwner)
+  await db.from('records').update({ status: 'Proposal' }).eq('id', APPROVING).select('id')
   const { data: rev } = await db.from('record_revisions').select('revision_number')
     .eq('record_id', APPROVING).order('revision_number', { ascending: false }).limit(1).maybeSingle()
   const { data: req } = await db.from('transition_requests').insert({
