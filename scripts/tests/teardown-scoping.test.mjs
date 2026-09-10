@@ -155,8 +155,11 @@ test('tearDown reaches a record beyond row 1,000 of its own tag population', asy
     return count
   }
 
-  const deep = await freshOpportunity(TAG)
   const kept = await freshOpportunity(KEEP)
+  // `deep` is chosen, not hoped for - see the retry below, which exists because
+  // the first version of this test was FLAKY IN THE GATE.
+  let deep = await freshOpportunity(TAG)
+  const extras = []
 
   // ── BOTH ARE HANDED AWAY, AND THAT IS WHAT PUTS THEM UNDER THE TAG BRANCH ─
   //
@@ -225,12 +228,37 @@ test('tearDown reaches a record beyond row 1,000 of its own tag population', asy
     ordered.push(...d)
     if (d.length < 1000) break
   }
-  const index = ordered.findIndex((r) => r.record_id === deep.oppId)
+  // ── THE DEPTH IS CHOSEN, NOT HOPED FOR ─────────────────────────────────
+  //
+  // A record's id is a random uuid and the population is ordered by it, so a
+  // single fixture lands in the first 1,000 of ~5,000 about one run in five.
+  // The FIRST version of this test created one and asserted its depth, and it
+  // duly failed in the gate at index 997 of 5,045 - correctly refusing to prove
+  // anything, which is the right failure and still a red gate one run in five.
+  //
+  // So: create until one lands deep. Every extra carries the same tag and is
+  // swept by the same tearDown below, so the retry costs fixtures, not residue.
+  // Six attempts leaves a false failure at about one run in fifteen thousand.
+  let index = ordered.findIndex((r) => r.record_id === deep.oppId)
+  for (let attempt = 1; index >= 0 && index <= 1000 && attempt < 6; attempt++) {
+    extras.push(deep)
+    deep = await freshOpportunity(TAG)
+    must(await db.from('records').update({ owner_id: other }).eq('id', deep.oppId).select('id'), 'hand deep')
+    ordered.length = 0
+    for (let from = 0; ; from += 1000) {
+      const d = must(await db.from('record_revisions').select('id, record_id')
+        .or(or(sweep)).order('id', { ascending: true }).range(from, from + 999), 'ordered')
+      ordered.push(...d)
+      if (d.length < 1000) break
+    }
+    index = ordered.findIndex((r) => r.record_id === deep.oppId)
+  }
+  console.log(`    fixture at index ${index} of ${ordered.length} (paged, full enumeration)` +
+    `${extras.length ? `, after ${extras.length} shallow draw${extras.length > 1 ? 's' : ''}` : ''}`)
   assert.ok(index >= 0, 'the fixture is not in the population at all; the sweep set is wrong')
-  console.log(`    fixture at index ${index} of ${ordered.length} (paged, full enumeration)`)
   assert.ok(index > 1000,
-    `the fixture landed at index ${index} of ${ordered.length}, inside the first page, ` +
-    'so it would be reached even by the broken query and proves nothing')
+    `six draws all landed inside the first page (last at ${index} of ${ordered.length}); ` +
+    'the population may have shrunk below the cap')
 
   // The counterfactual, asserted rather than assumed: the unranged query the
   // defect shipped genuinely cannot see this record.
