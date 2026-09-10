@@ -885,6 +885,25 @@ of the change. An unanswerable precondition is a stop.
    that gives a `display` to a class the application hides by attribute unless
    it is scoped `:not([hidden])`. Rule 4 says look; this says what to assert
    once looking has told you what to look for.
+   **AND A LAYOUT CLASS IS SIZED FOR A POPULATION, AND THE MARKUP USING IT
+   CANNOT SEE THAT.** Test Bed header round, 2026-09-10.
+
+   `.stats-grid` is `repeat(4, 1fr)`. The new header put FIVE cells in it, so
+   the fifth wrapped to a second row and the strip rendered two rows deep.
+
+   **Every assertion passed, including the one about ORDER.** Five cells
+   present, the right labels, the right values, the contracted end red inside
+   its border, and the top-to-bottom order `header -> stats -> chevron`
+   correct - because wrapping PRESERVES DOM ORDER, and every check was about
+   the CELLS. The column count is a property of the CLASS, in a stylesheet the
+   new markup never mentions.
+
+   **The check, and like the clause above it is automatable rather than a
+   reminder to look: assert the cells share ONE ROW**, by equal
+   `getBoundingClientRect().top`, not that they exist. A count of children
+   cannot see a wrap; a row test can, and it fails the moment somebody adds a
+   sixth cell to a grid built for four.
+
 5. When a control matters, the assertion belongs in the automated suite,
    where it passes or fails, not in prose.
 
@@ -1108,6 +1127,35 @@ of the change. An unanswerable precondition is a stop.
    applied directly to a Supabase `data`.** That is not defensive coding. It
    is the error path, silenced, at the exact point where the answer becomes a
    number somebody will quote.
+
+   **AND A FIXTURE'S UNCHECKED INSERT DOES NOT LOOK LIKE A FAILED WRITE. IT
+   LOOKS LIKE A DEFECT IN THE THING UNDER TEST.** Test Bed header round,
+   2026-09-10.
+
+   Every instance above is product code, and the rule's own sentence - a write
+   whose error is unchecked looks like it worked - describes what the WRITER
+   sees. In a fixture the consequence lands somewhere else entirely.
+
+   **Six inserts building the state an R10 probe needed failed one after
+   another**: `contact_record_id` where the column is `contact_id`, `role_id`
+   where `contact_roles` links by a text `role`, a `scope` column `approvals`
+   does not have, a `record_type` column it does not have either,
+   `records_document_kind_required` unsatisfied, and a document matched on the
+   wrong key. Unchecked, each returned and the probe carried on - so the
+   transition then refused with an unmet exit criterion, **and the reading that
+   follows from that is that the GATE is wrong.**
+
+   **The diagnosis points at the subject.** Verification 14's clause covers the
+   neighbouring case, an assertion about an EFFECT failing when the cause never
+   happened. This is the same inversion one step earlier: the cause is the
+   fixture, and nothing in the run mentions the fixture at all.
+
+   **And the remedy already existed in this estate and was still not reached
+   for**, which is the argument for naming the SITE rather than restating the
+   discipline: `must` was written for this rule two rounds earlier and sits in
+   the same `scripts/` tree. A fixture does not feel like a write path, so the
+   habit does not travel to it. **Wrap the fixture's inserts, not only the
+   round's.**
 
 9. **An invariant not proven capable of failing is not evidence**, and
    **AN OPERATION'S OWN SUCCESS LINE IS NOT CONFIRMATION EITHER.** Round 40,
