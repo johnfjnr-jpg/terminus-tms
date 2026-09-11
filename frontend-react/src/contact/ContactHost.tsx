@@ -254,7 +254,7 @@ export function ContactHost({ contact, registerReload }: {
       return
     }
     const t = await shell.api<{ error?: string }>(
-      'POST', `/api/records/${contact.id}/transition`, { to_stage: 'Parked' })
+      'POST', `/api/records/${contact.id}/transition`, { to_stage: 'Nurture' })
     // P5: a failed transition reports IN THE FORM, which stays open - and the
     // reason is already recorded, which is why the note is written first.
     if (!t.ok) { setParkError(t.data?.error ?? 'Failed to park.'); return }

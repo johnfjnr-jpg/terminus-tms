@@ -108,7 +108,7 @@ export function ContactPanel({ source, blocking, accountName, onSave, onDirtyCha
             subtitle read as a third unrelated line. On the eyebrow line it
             reads as what it is: the stage this record is at. */}
         <div className="cd-eyebrow eyebrow" data-testid="cd-eyebrow">
-          <span>{status === 'Qualified' ? 'Contact' : status === 'Parked' ? 'Parked lead' : 'Lead'}</span>
+          <span>{status === 'Qualified' ? 'Contact' : status === 'Nurture' ? 'Nurture lead' : 'Lead'}</span>
           {status
             ? <span className="tag" data-testid="cd-status">{status.toUpperCase()}</span>
             : null}
