@@ -94,6 +94,40 @@ service role proves nothing.
 | **A5** | The door reaches **every write** on the Lead view - fields, Qualify, Park, Add Note, follow-up task - on an unowned lead. **Calibrated both ways.** |
 | **A6** | Resolved by A4 + A5: an unowned lead shows the **owner's saved data**, never local unsaved edits. |
 
+### STANDING REQUIREMENT FOR EVERY SCREEN PHASE (P2-P5)
+
+**Ruled at the P1 close, 2026-09-11, from what P1 measured rather than from
+principle.**
+
+> **`node scripts/check-dist-fresh.mjs` is required verification for any phase
+> that changes a screen, and a screen claim is not evidence until it has
+> passed.**
+
+**The bundle is a SECOND READER of the source** (Verification 20), and
+`check-dist-fresh.mjs` exists saying exactly that in its own comment. P1 proved
+what happens when it is skipped:
+
+- the source was correct,
+- `tsc --noEmit` was green,
+- **the react suite passed 932/932**,
+- and **the screen still rendered the old label**, because `dist` had not been
+  rebuilt.
+
+**A stale label would have shipped behind three green instruments.** Worse, the
+react suite passing was not even weak evidence: nothing asserted the string, so
+flipping it could not have gone red in either direction.
+
+**So a screen phase ends with: `npm run build:react`, then
+`check-dist-fresh.mjs`, then a LIVE-DOM assertion** - and the live-DOM
+assertion matches what is RENDERED, not what the source typed. P1's own first
+attempt failed against a correct screen because the element is
+`text-transform: uppercase` and `innerText` returns the transformed text.
+
+This sits beside the standing qualification rather than replacing it: that one
+says the eight vanilla-asserting suites are not evidence about a live screen;
+this says a green suite of any kind is not evidence about a screen whose bundle
+is stale.
+
 ### P3: Lead Detail redesign
 Mockup `image5` layout.
 
