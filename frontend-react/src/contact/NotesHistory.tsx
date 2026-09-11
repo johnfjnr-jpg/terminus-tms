@@ -2,6 +2,11 @@
 import { useRef, useState } from 'react'
 import type { Note } from './notes'
 
+/** P3, ruled: the list opens showing the latest two. */
+export const DEFAULT_SHOWN = 2
+/** The middle rung. `Infinity` is All, and renders every note. */
+export const EXPANDED_SHOWN = 10
+
 /** N1: when, who, what - and an empty state that says so. */
 export function NotesHistory({ notes, onAdd, hasDirtyEdits, onConfirmDiscard, resetKey }: {
   notes: readonly Note[]
@@ -14,6 +19,13 @@ export function NotesHistory({ notes, onAdd, hasDirtyEdits, onConfirmDiscard, re
 }) {
   const [open, setOpen] = useState(false)
   const [text, setText] = useState('')
+  // P3: HOW MANY ARE SHOWN. Ruled: latest first, DEFAULT LAST 2, expandable to
+  // 10 and to All. P1 measured both gaps - `notes.map(...)` had no slice, so
+  // every note rendered and no expand control existed.
+  //
+  // A NUMBER, NOT A BOOLEAN, because there are three states and a pair of
+  // booleans would admit a fourth that means nothing.
+  const [shown, setShown] = useState<number>(DEFAULT_SHOWN)
   const [lastReset, setLastReset] = useState(resetKey)
   const inFlight = useRef(false)
 
@@ -23,6 +35,9 @@ export function NotesHistory({ notes, onAdd, hasDirtyEdits, onConfirmDiscard, re
   if (resetKey !== lastReset) {
     setLastReset(resetKey)
     if (open || text) { setOpen(false); setText('') }
+    // The expansion is per-visit too: arriving at a lead shows the latest two,
+    // whatever the last lead was left expanded to.
+    setShown(DEFAULT_SHOWN)
   }
 
   const submit = async () => {
@@ -68,10 +83,31 @@ export function NotesHistory({ notes, onAdd, hasDirtyEdits, onConfirmDiscard, re
           </div>
         : null}
 
+      {/* P3: the expand controls. Rendered only when there is something to
+          expand TO - a lead with two notes has nothing behind the fold, and a
+          control that changes nothing is worse than none. The count is stated
+          so a person knows what they are not seeing. */}
+      {notes.length > DEFAULT_SHOWN
+        ? <div className="cd-notes-expand" data-testid="cd-notes-expand">
+            <span className="sub" data-testid="cd-notes-shown">
+              {`Showing ${Math.min(shown, notes.length)} of ${notes.length}`}
+            </span>
+            <button type="button" data-testid="cd-notes-show-2"
+              disabled={shown === DEFAULT_SHOWN}
+              onClick={() => setShown(DEFAULT_SHOWN)}>Latest 2</button>
+            <button type="button" data-testid="cd-notes-show-10"
+              disabled={shown === EXPANDED_SHOWN}
+              onClick={() => setShown(EXPANDED_SHOWN)}>Last 10</button>
+            <button type="button" data-testid="cd-notes-show-all"
+              disabled={shown === Infinity}
+              onClick={() => setShown(Infinity)}>All</button>
+          </div>
+        : null}
+
       <div className="cd-notes-list" data-testid="cd-notes-list">
         {notes.length === 0
           ? <p className="empty-state" data-testid="cd-notes-empty">No notes yet.</p>
-          : notes.map((n, i) => (
+          : notes.slice(0, shown).map((n, i) => (
             <div className="ref-notes-row" data-testid={`cd-note-${i}`} key={`${n.at}-${i}`}>
               <span className="ref-notes-when">{n.at}</span>
               <span className="ref-notes-author">{n.by || '--'}</span>

@@ -167,6 +167,63 @@ describe('N: the notes history', () => {
   })
 })
 
+// ─────────────────────────────────────────────────────────────────────────
+// P3: HOW MANY NOTES ARE SHOWN. Ruled: latest first, DEFAULT LAST 2,
+// expandable to 10 and to All. P1 carried both as gaps - `notes.map(...)` had
+// no slice and no expand control existed - so these are the assertions that
+// close them.
+describe('P3: the notes list shows the latest 2 and expands', () => {
+  const many = (n: number) => Array.from({ length: n }, (_, i) => ({
+    text: `note ${i}`,
+    // Descending, because the list is stored latest-first and the component
+    // must not be re-sorting it.
+    at: `2026-01-${String(28 - i).padStart(2, '0')}T00:00:00.000Z`,
+    by: 'a@b.c',
+  }))
+
+  test('a fresh visit shows exactly the latest 2 of many', async () => {
+    notesOnRecord = many(12)
+    await mount()
+    expect(must('cd-note-0').textContent).toContain('note 0')
+    expect(must('cd-note-1').textContent).toContain('note 1')
+    expect($('cd-note-2'), 'a third note rendered, so the default is not 2').toBeNull()
+    expect(must('cd-notes-shown').textContent).toBe('Showing 2 of 12')
+  })
+
+  test('Last 10 shows ten, All shows every one, Latest 2 returns', async () => {
+    notesOnRecord = many(12)
+    await mount()
+    act(() => { must('cd-notes-show-10').click() })
+    expect(must('cd-note-9').textContent).toContain('note 9')
+    expect($('cd-note-10'), 'an eleventh rendered under Last 10').toBeNull()
+
+    act(() => { must('cd-notes-show-all').click() })
+    expect(must('cd-note-11').textContent).toContain('note 11')
+    expect(must('cd-notes-shown').textContent).toBe('Showing 12 of 12')
+
+    act(() => { must('cd-notes-show-2').click() })
+    expect($('cd-note-2'), 'Latest 2 did not collapse the list again').toBeNull()
+  })
+
+  test('with 2 or fewer notes there is NO expand control, because it would do nothing', async () => {
+    notesOnRecord = many(2)
+    await mount()
+    expect(must('cd-note-1').textContent).toContain('note 1')
+    expect($('cd-notes-expand'),
+      'an expand control rendered with nothing behind the fold').toBeNull()
+  })
+
+  test('the newest note is still FIRST, so the slice is a window not a re-sort', async () => {
+    notesOnRecord = many(5)
+    await mount()
+    // many() builds descending dates; note 0 is the newest.
+    expect(must('cd-note-0').textContent).toContain('note 0')
+    act(() => { must('cd-notes-show-all').click() })
+    expect(must('cd-note-0').textContent).toContain('note 0')
+    expect(must('cd-note-4').textContent).toContain('note 4')
+  })
+})
+
 describe('P: the park form', () => {
   const openPark = async () => { await mount(); await click('cd-btn-park') }
 
