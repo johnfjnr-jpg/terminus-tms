@@ -130,13 +130,16 @@ describe('the select participates in draft, dirty and discard IDENTICALLY', () =
     expect(must('edit-bar').hasAttribute('hidden')).toBe(true)
   })
 
-  test('discard restores the original into the select and is NOT a close', () => {
+  // SUPERSEDED 2026-09-11 (A3/A1): the per-field control is gone and revert
+  // IS a close. The select must behave IDENTICALLY to a text row under the new
+  // contract, which is what this describe block exists to assert.
+  test('Escape restores the original into the select AND closes it', () => {
     render(<Surface />)
     click(must('display-billingRegion'))
     choose('billingRegion', 'Africa')
-    click(must('discard-billingRegion'))
+    press(must('input-billingRegion'), 'Escape')
     expect(sel('billingRegion').value).toBe('APAC')
-    expect(must('edit-billingRegion').hasAttribute('hidden')).toBe(false)
+    expect(must('edit-billingRegion').hasAttribute('hidden')).toBe(true)
   })
 
   test('a select and a text row aggregate into ONE bar', () => {
@@ -151,13 +154,15 @@ describe('the select participates in draft, dirty and discard IDENTICALLY', () =
     expect(saved[0]).toEqual({ billingRegion: 'Africa', city: 'Kuala Lumpur' })
   })
 
-  test('Escape closes a select row without discarding it', () => {
+  // SUPERSEDED 2026-09-11 (A3): Escape discards. Inverted rather than deleted,
+  // so the new contract is asserted where the old one was.
+  test('Escape on a select DOES discard, like every other row', () => {
     render(<Surface />)
     click(must('display-billingRegion'))
     choose('billingRegion', 'Africa')
     press(sel('billingRegion'), 'Escape')
     expect(must('edit-billingRegion').hasAttribute('hidden')).toBe(true)
-    expect(must('dirty-count').textContent).toBe('1 change')
+    expect(must('edit-bar').hasAttribute('hidden')).toBe(true)
   })
 })
 

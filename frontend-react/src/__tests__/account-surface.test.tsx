@@ -73,6 +73,10 @@ const settle = async () => { await act(async () => { await new Promise((r) => se
 const $ = (id: string) => host.querySelector(`[data-testid="${id}"]`) as HTMLElement | null
 const must = (id: string) => { const el = $(id); if (!el) throw new Error(`no [data-testid="${id}"]`); return el }
 const click = (el: HTMLElement) => act(() => { el.dispatchEvent(new MouseEvent('click', { bubbles: true })) })
+// A3, 2026-09-11: Escape is now the revert-and-close gesture, so this walk
+// needs a key press where it used to click a per-field control.
+const press = (el: HTMLElement, key: string) =>
+  act(() => { el.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true })) })
 const typeInto = (el: HTMLInputElement, v: string) => {
   const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!
   act(() => { setter.call(el, v); el.dispatchEvent(new Event('input', { bubbles: true })) })
@@ -142,11 +146,11 @@ describe('the surface renders the MEASURED structure', () => {
 })
 
 describe('the walk recipe, per element type', () => {
-  test('a TEXT row: open, type, discard, reopen, type, save', async () => {
+  test('a TEXT row: open, type, ESCAPE-reverts, reopen, type, save', async () => {
     await mount()
     click(must('display-billingCity'))
     typeInto(must('input-billingCity') as HTMLInputElement, 'Kuala Lumpur')
-    click(must('discard-billingCity'))
+    press(must('input-billingCity'), 'Escape')  // A3: reverts and closes
     expect((must('input-billingCity') as HTMLInputElement).value).toBe('Singapore')
     typeInto(must('input-billingCity') as HTMLInputElement, 'Jakarta')
     click(must('save-all'))
@@ -155,11 +159,11 @@ describe('the walk recipe, per element type', () => {
     expect((patch.body as { payload: Record<string, string> }).payload).toEqual({ billingCity: 'Jakarta' })
   })
 
-  test('a SELECT row: open, choose, discard, reopen, choose, save', async () => {
+  test('a SELECT row: open, choose, ESCAPE-reverts, reopen, choose, save', async () => {
     await mount()
     click(must('display-billingRegion'))
     choose(must('input-billingRegion') as HTMLSelectElement, 'Africa')
-    click(must('discard-billingRegion'))
+    press(must('input-billingRegion'), 'Escape')  // A3: reverts and closes
     expect((must('input-billingRegion') as HTMLSelectElement).value).toBe('APAC')
     choose(must('input-billingRegion') as HTMLSelectElement, 'Europe & UK')
     click(must('save-all'))

@@ -137,7 +137,20 @@ export function FieldRow({ field, rows }: { field: FieldDescriptor; rows: FieldR
           value={rows.valueOf(field.name)}
           testId={`input-${field.name}`}
           focusRef={focusRef}
-          onRequestClose={() => rows.close(field.name)}
+          // A3, Leads round: ESCAPE REVERTS, THEN CLOSES. One site, all four
+          // surfaces, per R3 - John ruled it knowing it reaches Test Bed,
+          // Reference and Account as well as Lead.
+          //
+          // The order matters and is not arbitrary: discard first, so the row
+          // closes onto the RESTORED value rather than closing and then
+          // reverting something no longer on screen. Both are independent
+          // setState calls - drafts and open are different maps - so React
+          // batching them is harmless.
+          //
+          // SUPERSEDES the contract's "the row closes; it does NOT discard",
+          // superseded in writing at MIGRATION_FIELD_ROW_CONTRACT.md rather
+          // than left standing beside this.
+          onRequestClose={() => { rows.discard(field.name); rows.close(field.name) }}
           // THE ROW APPLIES THE GUARD, NOT THE EDITOR. An editor proposes a
           // value; the declared constraint is enforced here, on the WHOLE
           // candidate, so a paste is guarded the same as a keystroke and a
@@ -145,8 +158,19 @@ export function FieldRow({ field, rows }: { field: FieldDescriptor; rows: FieldR
           // to skip the guard has nowhere to do it.
           onChange={(next) => { if (acceptsValue(field.inputMode, next)) rows.setDraft(field.name, next) }}
         />
-        <button type="button" data-testid={`discard-${field.name}`}
-          onClick={() => rows.discard(field.name)}>Discard</button>
+        {/* A1, Leads round: THE PER-FIELD DISCARD IS GONE, on all four
+            surfaces at once. John ruled the blast radius knowingly - Contact,
+            Test Bed, Reference and Account lose it together rather than the
+            row being forked, per Architecture 1.
+
+            `rows.discard(name)` SURVIVES and is not dead code: it is the
+            revert-to-last-saved semantic, and A3 rebinds it to Escape. What
+            goes is the button, not the behaviour.
+
+            MEASURED AGAINST THE VANILLA, because the brief calls these
+            regressions: the vanilla had this control too, as a `×` at
+            contact-detail.js:520. So this is a NEW design rather than a
+            recovery, and the vanilla is not its reference. */}
       </div>
     </div>
   )

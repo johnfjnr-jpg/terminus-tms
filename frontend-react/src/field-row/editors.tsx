@@ -33,7 +33,15 @@ export interface FieldEditorProps {
   value: string
   /** Report a candidate value. The row applies its own guard before storing. */
   onChange(next: string): void
-  /** Escape. The row closes; it does NOT discard. */
+  /**
+   * Escape. SUPERSEDED 2026-09-11 (A3/R3): the row REVERTS the field to its
+   * last saved value and then closes. The previous contract - "the row closes;
+   * it does NOT discard" - was a deliberate decision and is superseded in
+   * writing at MIGRATION_FIELD_ROW_CONTRACT.md, not merely overwritten here.
+   *
+   * The editor still just REPORTS the key. What Escape MEANS is the row's to
+   * decide, which is why this rebinding needed one change and not five.
+   */
   onRequestClose(): void
   /** The row focuses this on the open transition. */
   focusRef: RefObject<HTMLElement | null>

@@ -105,13 +105,56 @@ typed character has lost a behaviour nobody will report and everybody will feel.
 ### 5. Discard restores the original
 
 `discardRefField` deletes the draft, restores `orig` into the input, clears the
-dirty class, and re-renders the edit bar. Discard is not "close".
+dirty class, and re-renders the edit bar. ~~Discard is not "close".~~
+
+> **SUPERSEDED 2026-09-11, Leads round A3/A1. Ruled by John on the conflict
+> this raised mid-build.**
+>
+> **"Discard is not close" no longer holds, because the two have been merged
+> into one gesture.** Escape now REVERTS the field to its last saved value and
+> then closes the row. There is no longer any way to close a row without
+> discarding it, because Escape is the only close path.
+>
+> **The per-field Discard control is gone entirely**, on all four surfaces at
+> once (A1/R4). The restore BEHAVIOUR survives and is what Escape now does;
+> what went is the button.
+>
+> **REASONING OF RECORD, John's: A1 MOVES THE UNIT OF EDITING FROM THE ROW TO
+> THE FORM.** One form-level Save and Discard, form-level dirty tracking. The
+> row-as-unit guarantees this behaviour protected no longer have a basis - the
+> guarantee was about a row being independently discardable, and a row is no
+> longer the unit.
+>
+> **Measured against the vanilla, because the brief called these regressions:**
+> the vanilla had per-field discard as a `×` at `contact-detail.js:520`, and
+> `discardCdField` reverted the input to the saved value. So the restore
+> behaviour is REBOUND here, not recovered, and the removal is new design. The
+> vanilla is not the reference for either.
 
 ### 6. A shared edit bar aggregates across rows
 
 Dirty count is computed across all open drafts on the surface, and save and
 discard-all act on the set. **The bar is a property of the surface, not of a
 row**, which is why the row component cannot own it.
+
+> **PARTIALLY SUPERSEDED 2026-09-11, Leads round A3/A1. The bar is UNCHANGED
+> and more true than before; what falls is the clause that a draft OUTLIVES
+> ITS EDITOR.**
+>
+> That clause rested on close and discard being different gestures, so a row
+> could be closed while keeping its draft and the bar would still count it.
+> **With Escape reverting and closing, a draft dies with its editor** and the
+> count can no longer span closed rows - there are none holding drafts.
+>
+> **The behaviour's own sentence survives intact**: the count is still computed
+> across every draft on the surface, save and discard-all still act on the set,
+> and the bar is still a property of the surface. **A1 strengthens that** by
+> moving the bar into the header and giving it a form-level Discard, which is
+> the row-to-form shift in the supersession above.
+>
+> Recorded here rather than in the round's report alone, per Verification 23:
+> a later reader comparing this contract with the code must find the change,
+> not a disagreement.
 
 ### 7. The read-only variant is the same row without a door
 

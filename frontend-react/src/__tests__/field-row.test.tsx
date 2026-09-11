@@ -129,13 +129,24 @@ describe('behaviour 1: draft state per field, compared not flagged', () => {
     expect(must('dirty-count').textContent).toBe('1 change')
   })
 
-  test('CLOSING a row does not clear its dirty state, because close is not discard', () => {
+  // SUPERSEDED 2026-09-11 (A3/A1), superseded in writing at
+  // MIGRATION_FIELD_ROW_CONTRACT.md behaviour 5. This asserted that closing
+  // kept the draft, which rested on close and discard being different
+  // gestures. Escape now reverts AND closes, and it is the only close path, so
+  // the old assertion is not merely failing - it describes a state the surface
+  // can no longer reach.
+  //
+  // Re-pointed rather than deleted, because the QUESTION it asked is still
+  // worth asking: what does Escape leave behind?
+  test('ESCAPE reverts and closes, so the row is clean afterwards', () => {
     render(<Surface />)
     click(must('display-company'))
     type('company', 'Changed')
     press(input('company'), 'Escape')
     expect(must('edit-company').hasAttribute('hidden')).toBe(true)
-    expect(must('dirty-count').textContent).toBe('1 change')
+    expect(input('company').value).toBe('Acme Ltd')
+    expect(must('display-company').closest('.field-row')!.getAttribute('data-dirty')).toBe('false')
+    expect(must('edit-bar').hasAttribute('hidden')).toBe(true)
   })
 })
 
@@ -325,7 +336,7 @@ describe('behaviour 5: discard restores the original', () => {
     click(must('display-company'))
     type('company', 'Changed')
     expect(input('company').value).toBe('Changed')
-    click(must('discard-company'))
+    press(input('company'), 'Escape')
     expect(input('company').value).toBe('Acme Ltd')
   })
 
@@ -333,27 +344,30 @@ describe('behaviour 5: discard restores the original', () => {
     render(<Surface />)
     click(must('display-company'))
     type('company', 'Changed')
-    click(must('discard-company'))
+    press(input('company'), 'Escape')
     expect(must('display-company').closest('.field-row')!.getAttribute('data-dirty')).toBe('false')
     expect(must('edit-bar').hasAttribute('hidden')).toBe(true)
   })
 
   // THE CONTRACT'S OWN SENTENCE: "Discard is not close." An implementation that
   // closes the row on discard passes both tests above and fails this one.
-  test('and it is NOT a close: the row is still open afterwards', () => {
+  // SUPERSEDED 2026-09-11 (A3): revert IS a close now. The assertion is
+  // inverted rather than removed, so the contract's new shape is asserted
+  // where its old shape used to be and a reader finds the change here.
+  test('and it IS a close now: the row is shut afterwards', () => {
     render(<Surface />)
     click(must('display-company'))
     type('company', 'Changed')
-    click(must('discard-company'))
-    expect(must('edit-company').hasAttribute('hidden')).toBe(false)
-    expect(must('display-company').hasAttribute('hidden')).toBe(true)
+    press(input('company'), 'Escape')
+    expect(must('edit-company').hasAttribute('hidden')).toBe(true)
+    expect(must('display-company').hasAttribute('hidden')).toBe(false)
   })
 
   test('discarding one field leaves its neighbour untouched', () => {
     render(<Surface />)
     click(must('display-company')); type('company', 'A')
     click(must('display-units')); type('units', '99')
-    click(must('discard-company'))
+    press(input('company'), 'Escape')
     expect(input('units').value).toBe('99')
     expect(must('dirty-count').textContent).toBe('1 change')
   })
@@ -371,12 +385,17 @@ describe('behaviour 6: a shared edit bar aggregates across rows', () => {
     expect(must('dirty-count').textContent).toBe('3 changes')
   })
 
-  test('it counts fields whose rows have been CLOSED again, because a draft outlives its editor', () => {
+  // SUPERSEDED 2026-09-11 (A3), at MIGRATION_FIELD_ROW_CONTRACT.md behaviour
+  // 6. A draft no longer outlives its editor: Escape reverts, and Escape is
+  // the only close. The bar's own behaviour is UNCHANGED and is what this now
+  // asserts - it still aggregates across every draft on the surface.
+  test('it counts every draft on the surface, across rows left OPEN', () => {
     render(<Surface />)
+    // The rows stay OPEN. Pressing Escape here would now revert both drafts,
+    // which is the superseded behaviour and would be asserting the old
+    // contract with a new name on it.
     click(must('display-company')); type('company', 'A')
-    press(input('company'), 'Escape')
     click(must('display-units')); type('units', '99')
-    press(input('units'), 'Escape')
     expect(must('dirty-count').textContent).toBe('2 changes')
   })
 
@@ -567,9 +586,21 @@ describe('A9: the CONNECTED row resolves a lookup id too', () => {
     expect(d.textContent, 'the connected row rendered the raw id').toBe('Aviation')
   })
 
-  test('and it re-resolves as the draft changes', () => {
-    // The connected path renders the DRAFT, so choosing another industry must
-    // read as the new name immediately rather than after a save and reload.
+  // SUPERSEDED 2026-09-11 (A3), and this one names a CONSEQUENCE worth
+  // carrying into the P2 report rather than just a failing assertion.
+  //
+  // The test observed "the display renders the DRAFT" by pressing Escape to
+  // close the row and reading the display. With Escape reverting, that
+  // observation is impossible - and so is the state it observed. A display
+  // only renders while its row is CLOSED, and the only way to close now
+  // reverts the draft, so THE DISPLAY CAN NEVER SHOW AN UNSAVED DRAFT.
+  //
+  // The resolution code in the connected path is still correct and is still
+  // exercised on the saved value; what has gone is a reachable state, not a
+  // capability that misbehaves. Flagged in the P2 report as possible dead
+  // capability rather than silently kept alive by a test that reaches it in a
+  // way no person can.
+  test('and Escape reverts the connected row to its saved label', () => {
     render(<LookupSurface />)
     act(() => { (host.querySelector('[data-testid="display-industry"]') as HTMLElement).click() })
     const sel = host.querySelector('[data-testid="input-industry"]') as HTMLSelectElement
@@ -580,6 +611,6 @@ describe('A9: the CONNECTED row resolves a lookup id too', () => {
     })
     act(() => { sel.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })) })
     const d = host.querySelector('[data-testid="display-industry"]') as HTMLElement
-    expect(d.textContent).toBe('Maritime')
+    expect(d.textContent).toBe('Aviation')
   })
 })
