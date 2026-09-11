@@ -5807,3 +5807,120 @@ input.input-invalid {
   padding: 1px 7px;
   display: inline-block;
 }
+
+/* ── P3: THE LEAD DETAIL HEADER AND ITS PANELS ───────────────────────────
+ *
+ * The ruled layout, top to bottom: Back, the LEAD DETAILS title in green with
+ * the lead name at 18pt, then a header action row carrying the status badge,
+ * Qualify, Nurture and - pushed right - the unsaved count with Save and
+ * Discard.
+ *
+ * SIZES ARE THE RULED ONES rather than inherited: 18pt for the lead name, 14pt
+ * for a panel header, 12pt for a panel body. They are written as px because
+ * every other size in this sheet is, and mixing units in one stylesheet is a
+ * second definition of one scale.
+ *
+ * The stats-grid lesson from the Test Bed round applies to the header row: it
+ * is flex with wrap allowed, so a narrow window drops the right-hand group
+ * onto a second line rather than overflowing. A test asserts the cells share
+ * one row at 1440, which is where the ruled layout is measured. */
+.cd-title {
+  color: var(--green);
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+.cd-header-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.cd-lead-name {
+  font-size: 18px;
+  font-weight: 500;
+  margin: 0;
+  color: var(--white);
+}
+
+/* Pushed right, which is what "Save and Discard pushed right" means, and it
+ * survives the row wrapping because the margin is auto rather than a fixed
+ * gap. */
+.cd-header-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* THE UNSAVED COUNT CARRIES THE STATE, because a collapsed panel cannot show a
+ * pending edit (the A9 consequence). Amber, matching .field-editing's own
+ * convention for edited-not-yet-saved, rather than a new colour for one job. */
+.cd-dirty {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--amber, #d9a441);
+}
+
+.cd-qualify-hint {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 6px;
+}
+
+/* The collapse head is a BUTTON carrying .pg-card-title, so it keeps the card
+ * title's look and gains a real disclosure's behaviour. The reset is because a
+ * button brings its own background and border. */
+.cd-collapse-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+}
+.cd-collapse-caret { margin-left: auto; color: var(--muted); }
+
+.cd-card { border: 1px solid var(--hairline); padding: 14px 16px; margin-bottom: 16px; }
+.cd-card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.cd-card-title {
+  color: var(--green);
+  font-family: var(--mono);
+  font-size: 14px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.cd-followup-body { display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap; }
+.cd-followup-field { display: flex; flex-direction: column; gap: 4px; }
+.cd-followup-field--wide { flex: 1 1 280px; }
+
+/* The notes expand controls. A row of small buttons under the header, with the
+ * count stated so a person knows what they are not seeing. */
+.cd-notes-expand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0 10px;
+}
+.cd-notes-expand .sub { margin-right: 4px; }
+
+/* THE RULED PANEL SIZES, SCOPED TO THIS SCREEN.
+ *
+ * The layout rules 14pt panel headers and 12pt bodies. `.pg-card-title` is
+ * 10px and is used by every card in the application, so changing it there
+ * would resize surfaces nobody ruled on - the A1 blast radius was accepted
+ * deliberately and this one was not. Scoped under `.cd-panel`, the Lead
+ * Detail root, so the ruling reaches exactly what it named. */
+.cd-panel .pg-card-title { font-size: 14px; }
+.cd-panel .pg-card { font-size: 12px; }
+.cd-panel .cd-notes-list,
+.cd-panel .field-row-display { font-size: 12px; }

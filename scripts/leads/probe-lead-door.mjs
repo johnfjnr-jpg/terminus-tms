@@ -124,7 +124,17 @@ if (own.writeReachable === 0) fail.push('NOTHING is reachable on your own lead e
 if (not.navAlive === 0) fail.push('navigation is dead on the unowned lead, so a read-only record stops being readable')
 
 // Declared absent, with the reason and the phase that ends it. See below.
-const NOT_YET_RENDERED = new Set(['followUp'])
+//
+// EMPTIED BY P3, 2026-09-11, which is the declaration working rather than being
+// removed. P2 declared `followUp` absent because P1 had built the keys and
+// nothing rendered them, and made the declaration SHRINK-ONLY: the moment a
+// control appeared, `present` would move off 0 and this probe would go red
+// telling the next person to assert it.
+//
+// It did. P3's follow-up panel made it `3 present`, the probe failed with "now
+// RENDERS, so the not-yet-rendered declaration is stale", and the entry came
+// out. The tripwire fired once, on the change it was set for.
+const NOT_YET_RENDERED = new Set([])
 
 console.log('\n  THE FIVE NAMED WRITES, present vs reachable')
 console.log('  write            not mine            mine')
@@ -175,12 +185,28 @@ for (const k of Object.keys(not.byName)) {
     await page.evaluate((rid) => navigate('contact-detail', rid), theirs.id)
     await page.waitForFunction(() => {
       const v = document.getElementById('view-contact-detail')
-      return !!v && !v.classList.contains('is-loading') && (v.innerText ?? '').includes('Door Holdings')
+      // WAIT ON THE HEADING, not the company. P3 collapsed Contact Details by
+      // default and innerText excludes hidden content, so "Door Holdings" is
+      // no longer in the text of a settled screen - the old condition timed
+      // out against a page that had rendered perfectly.
+      return !!v && !v.classList.contains('is-loading')
+        && !!v.querySelector('[data-testid="cd-lead-name"]')
+        && (v.querySelector('[data-testid="cd-lead-name"]').textContent ?? '').includes('Lead')
     }, { polling: 150, timeout: 30000 })
   }
   await open()
 
   // 1. TRY TO EDIT. A5 should refuse the row entirely.
+  //
+  // The panel is collapsed by default now, so it is opened first - a DISCLOSURE
+  // stays alive on an unowned lead by design, and a person who may not edit a
+  // lead must still be able to read it. If the toggle were dead this would
+  // fail here, which is itself worth asserting.
+  await page.evaluate(() => document.querySelector('[data-testid="cd-card-contact-toggle"]')?.click())
+  await page.waitForFunction(() => {
+    const b = document.querySelector('[data-testid="cd-card-contact-body"]')
+    return !!b && !b.hasAttribute('hidden')
+  }, { polling: 50, timeout: 5000 })
   const attempt = await page.evaluate(() => {
     const d = document.querySelector('[data-testid="display-company"]')
     d?.click()

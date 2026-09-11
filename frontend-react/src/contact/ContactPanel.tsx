@@ -5,9 +5,8 @@
 // Built from the Phase 0 census and its live second instrument. The vanilla's
 // CD_* constants are `const` in a classic script and unreadable from a bundle,
 // so the descriptors are derived rather than imported - Round 2's rule.
-import { useEffect, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { FieldRow } from '../field-row/FieldRow'
-import { EditBar } from '../field-row/EditBar'
 import { useFieldRows } from '../field-row/useFieldRows'
 import { contactDescriptors, type ContactSource } from './descriptors'
 import { tintedRows, accountCardBlocked, type BlockingState } from './blocking'
@@ -21,6 +20,42 @@ import { tintedRows, accountCardBlocked, type BlockingState } from './blocking'
  * remounted the whole subtree on every keystroke and a textarea's caret reset
  * to 0 each time. Typing `abcd` produced `dcba`.
  */
+/**
+ * P3: A CARD THAT CAN COLLAPSE.
+ *
+ * Contact Details and Address are COLLAPSED BY DEFAULT per the ruled layout.
+ * The toggle is a real `<button>` rather than a div, so the door treats it as
+ * what it is: a DISCLOSURE, which stays alive on an unowned lead. A person who
+ * may not edit a lead must still be able to read it, and a collapsed panel
+ * they cannot open is a panel they cannot read.
+ *
+ * `blocked` is unchanged and still tints the card. A collapsed card that is
+ * blocking Qualify still shows its tint on the HEAD, or the hint would name a
+ * field behind a fold with nothing pointing at it.
+ */
+function Collapsible({ title, testId, blocked, blockedCount, children }: {
+  title: string, testId: string, blocked?: boolean, blockedCount?: number, children: ReactNode
+}) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div className={`pg-card${blocked ? ' field-blocked' : ''}`} data-testid={testId}>
+      <button
+        type="button"
+        className="pg-card-title cd-collapse-head"
+        data-testid={`${testId}-toggle`}
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}>
+        <span>{title}</span>
+        {blockedCount
+          ? <span className="tag" data-testid={`${testId}-blocked-count`}>{blockedCount}</span>
+          : null}
+        <span className="cd-collapse-caret" aria-hidden="true">{open ? '\u2212' : '+'}</span>
+      </button>
+      <div data-testid={`${testId}-body`} hidden={!open}>{children}</div>
+    </div>
+  )
+}
+
 function Card({ title, testId, blocked, children }: {
   title: string, testId: string, blocked?: boolean, children: ReactNode
 }) {
@@ -41,7 +76,27 @@ function Card({ title, testId, blocked, children }: {
   )
 }
 
-export function ContactPanel({ source, subject, blocking, accountName, onSave, onDirtyChange, onBack, actions, linkPanel, notes, status }: {
+// P3's ruled field groups. `jobRole` IS INCLUDED AND THE LAYOUT DID NOT LIST
+// IT - see the P3 report. It is one of the 15 fields gated at Qualify, so a
+// screen without it can never satisfy the gate it also renders a hint for.
+// P3's ruled Contact Details list is: Company, Email, Mobile, LinkedIn,
+// Industry, Source. TWO FIELDS ARE ADDED HERE AND BOTH ARE REPORTED, because
+// each is GATED AT QUALIFY and a screen that renders the Qualify hint while
+// giving a person no way to satisfy it is worse than one that renders neither:
+//
+//   jobRole   gated, and absent from the ruled list entirely
+//   name      gated, and now the 18pt HEADING rather than a row - the heading
+//             displays it, so without a row it became uneditable
+//
+// The heading stays exactly as ruled; `name` is a row as well, which is how
+// the look and the capability both survive.
+const CONTACT_FIELDS = ['name', 'company', 'jobRole', 'email', 'mobile', 'linkedin', 'industry', 'source']
+const ADDRESS_FIELDS = ['address', 'address2', 'city', 'postcode', 'country', 'region']
+
+export function ContactPanel({
+  source, subject, blocking, accountName, onSave, onDirtyChange, onBack, actions,
+  linkPanel, notes, status, leadName, followUp, nurturePanel, qualifyBlockers,
+}: {
   source: ContactSource
   /** A4: the record being edited. Changing it drops every unsaved draft. */
   subject?: string | null
@@ -60,6 +115,18 @@ export function ContactPanel({ source, subject, blocking, accountName, onSave, o
   actions?: ReactNode
   /** The link-account panel, owned by the host because linking is its own write. */
   linkPanel?: ReactNode
+  /** P3: the lead's own name, rendered at 18pt in the header. */
+  leadName?: string
+  /** P3: the follow-up task panel, owned by the host because its write is its own. */
+  followUp?: ReactNode
+  /** P3: the inline Nurture panel, shown under the header when open. */
+  nurturePanel?: ReactNode
+  /**
+   * P3: what Qualify is still waiting for, READ FROM THE SERVER'S OWN
+   * DERIVATION (GET /records/:id/exit-criteria), never from a second list.
+   * Empty means nothing is blocking and Qualify is enabled.
+   */
+  qualifyBlockers?: Array<{ field: string, message?: string }>
 }) {
   const fields = contactDescriptors(source)
   // A4: the record being edited. When it changes, every draft is dropped -
@@ -84,7 +151,7 @@ export function ContactPanel({ source, subject, blocking, accountName, onSave, o
   }
 
   return (
-    <div data-testid="contact-panel">
+    <div className="cd-panel" data-testid="contact-panel">
       {/* THE NAME HEADER. In the vanilla this is static markup populated by id,
           which is what hid summary's editor kind from the source census. Here
           it is an ordinary row that happens to sit in the header, so it has a
@@ -100,59 +167,111 @@ export function ContactPanel({ source, subject, blocking, accountName, onSave, o
           still binds a dead listener to the Account one for the same reason.
           The shell's own binding stays because it is the REVERT path: restore
           the vanilla tag and the static markup is what runs again. */}
+      {/* ── 1 and 2: BACK, then the title and the lead name ──────────────
+          The shell binds a load-time listener to #btn-back-contact-detail, so
+          the id is kept and the handler is owned here - both migrated views
+          before this one solve it the same way. */}
       <div className="cd-header" data-testid="cd-header">
         <button className="btn-text" id="btn-back-contact-detail" type="button"
           data-testid="cd-back" onClick={() => onBack?.()}>Back</button>
-        {/* THE EYEBROW FOLLOWS THE STAGE, as the vanilla's does: an
-            unqualified contact is a LEAD and says so. */}
-        {/* THE TAG SITS WITH THE EYEBROW, and that is a recorded divergence.
-            The vanilla puts it beside a large H1 name; here the name is a
-            FieldRow - a label and a value, the same departure the Reference
-            tab took - and a tag wedged between the row and the company
-            subtitle read as a third unrelated line. On the eyebrow line it
-            reads as what it is: the stage this record is at. */}
-        <div className="cd-eyebrow eyebrow" data-testid="cd-eyebrow">
-          <span>{status === 'Qualified' ? 'Contact' : status === 'Nurture' ? 'Nurture lead' : 'Lead'}</span>
+
+        <div className="cd-title" data-testid="cd-title">Lead details</div>
+
+        {/* ── 3: THE HEADER ACTION ROW ──────────────────────────────────
+            Status badge, Qualify, Nurture on the left; the dirty indicator,
+            Save and Discard pushed right. The lead NAME shares this row at
+            18pt, which is what "same row as the lead name" means. */}
+        <div className="cd-header-row" data-testid="cd-header-row">
+          <h2 className="cd-lead-name" data-testid="cd-lead-name">
+            {leadName || '--'}
+          </h2>
+
           {status
             ? <span className="tag" data-testid="cd-status">{status.toUpperCase()}</span>
             : null}
-        </div>
-        {row('name')}
-        <div className="cd-company-subtitle" data-testid="cd-company">
-          {accountName ?? source.payload.company as string ?? ''}
-        </div>
-      </div>
 
-      {/* THREE CARDS ACROSS, as the vanilla has them: a grid of
-          auto-fit minmax(280px, 1fr), so it is three at 1920 and one at a
-          narrow width without a media query. Summary and the notes sit below
-          it full width, because they are prose rather than fields. */}
-      <div className="ref-cards" data-testid="cd-cards">
-        <Card title="Contact Details" testId="cd-card-contact">
-          {['company', 'jobRole', 'email', 'mobile', 'linkedin', 'industry', 'source'].map(row)}
-        </Card>
+          {actions}
 
-        <Card title="Address" testId="cd-card-address">
-          {['address', 'address2', 'city', 'postcode', 'country', 'region'].map(row)}
-        </Card>
-
-        <Card title="Account" testId="cd-card-account" blocked={accountCardBlocked(blocking)}>
-          <div data-testid="cd-account-status">
-            {accountName ? accountName : 'Not linked'}
+          <div className="cd-header-right" data-testid="cd-header-right">
+            {/* THE DIRTY INDICATOR CARRIES THE UNSAVED STATE, and it is here
+                because of a P2 consequence rather than a preference: Escape
+                reverts and is the only revert, so a COLLAPSED panel can never
+                show a pending edit. With Contact Details and Address collapsed
+                by default, this count is the only thing on screen that knows
+                an edit exists. It is not decoration. */}
+            <span className="cd-dirty" data-testid="cd-dirty-indicator"
+              hidden={rows.dirtyCount === 0}>
+              {rows.dirtyCount === 1 ? '1 unsaved change' : `${rows.dirtyCount} unsaved changes`}
+            </span>
+            <button type="button" id="cd-save-all" data-testid="save-all"
+              disabled={rows.dirtyCount === 0}
+              onClick={() => onSave(rows.changes)}>Save</button>
+            <button type="button" data-testid="discard-all"
+              disabled={rows.dirtyCount === 0}
+              onClick={() => rows.discardAll()}>Discard</button>
           </div>
-          {linkPanel}
-        </Card>
+        </div>
+
+        {/* THE QUALIFY HINT, naming what is missing. The server is the
+            enforcement; this is the surface, and it reads the server's OWN
+            derivation so the two cannot drift (Verification 43). */}
+        {qualifyBlockers && qualifyBlockers.length
+          ? <div className="cd-qualify-hint" data-testid="cd-qualify-hint">
+              {`Qualify needs ${qualifyBlockers.length} more: `}
+              <span data-testid="cd-qualify-hint-fields">
+                {qualifyBlockers.map((b) => b.field).join(', ')}
+              </span>
+            </div>
+          : null}
+
+        {nurturePanel}
       </div>
 
+      {/* ── 4: SUMMARY ────────────────────────────────────────────────── */}
       <Card title="Summary" testId="cd-card-summary">
         {row('summary')}
       </Card>
 
-      {notes}
+      {/* ── 5: NOTES, as a PANEL ──────────────────────────────────────
+          It was bare text between two cards until the screenshot was opened:
+          every assertion passed, and Summary sat in a panel while Notes did
+          not. Verification 4 - presence is not legibility, and no assertion
+          can tell them apart. */}
+      <Card title="Notes" testId="cd-card-notes">
+        {notes}
+      </Card>
 
-      {actions}
+      {/* ── 6: CONTACT DETAILS and ADDRESS, side by side, COLLAPSED ───── */}
+      <div className="ref-cards" data-testid="cd-cards">
+        <Collapsible title="Contact Details" testId="cd-card-contact"
+          blocked={CONTACT_FIELDS.some((n) => tinted.has(n))}
+          blockedCount={CONTACT_FIELDS.filter((n) => tinted.has(n)).length}>
+          {CONTACT_FIELDS.map(row)}
+        </Collapsible>
 
-      <EditBar rows={rows} onSave={onSave} saveId="cd-save-all" />
+        <Collapsible title="Address Details" testId="cd-card-address"
+          blocked={ADDRESS_FIELDS.some((n) => tinted.has(n))}
+          blockedCount={ADDRESS_FIELDS.filter((n) => tinted.has(n)).length}>
+          {ADDRESS_FIELDS.map(row)}
+        </Collapsible>
+      </div>
+
+      {/* ── 7: ACCOUNT. Its empty state is one of the things keeping
+          Qualify disabled, which is why it is not inside a collapsed card. */}
+      <Card title="Account" testId="cd-card-account" blocked={accountCardBlocked(blocking)}>
+        <div data-testid="cd-account-status">
+          {accountName ? accountName : 'Not linked'}
+        </div>
+        {linkPanel}
+      </Card>
+
+      {/* ── 8: THE FOLLOW-UP TASK ─────────────────────────────────────── */}
+      {followUp}
+
+      {/* The shared EditBar is NOT rendered here any more: A1 moved Save and
+          Discard into the header row above, and rendering both would put two
+          Save controls on one surface. The import stays used by the other
+          three surfaces, which are unchanged. */}
     </div>
   )
 }

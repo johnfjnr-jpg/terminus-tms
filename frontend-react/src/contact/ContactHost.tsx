@@ -10,6 +10,7 @@ import { clearResolved, forRecord, unplaceable, type BlockingState, type Blocker
 import { useShell } from '../ShellContext'
 import { LinkAccountPanel, type AccountOption } from './LinkAccountPanel'
 import { NotesHistory } from './NotesHistory'
+import { FollowUpTask } from './FollowUpTask'
 import { ParkForm } from './ParkForm'
 import { StageActions } from './StageActions'
 import { AccountDetailsModal, type AccountDetailsMode } from './AccountDetailsModal'
@@ -96,6 +97,19 @@ export function ContactHost({ contact, registerReload, navToken }: {
   const [modalPrefill, setModalPrefill] = useState('')
   const [modalError, setModalError] = useState<string | null>(null)
   const [blocking, setBlocking] = useState<BlockingState | null>(null)
+  // ── P3: WHAT QUALIFY IS STILL WAITING FOR ─────────────────────────────
+  //
+  // Read from GET /records/:id/exit-criteria, which transitions.js says
+  // computes "the exact same blocking[]" the transition itself would. That is
+  // Verification 43's remedy taken literally: the surface reads the
+  // enforcement's OWN derivation rather than a second list of required fields
+  // that would drift the first time a gate rule changed.
+  //
+  // R5 is the proof that it would have drifted: adding `company` to the gate
+  // broke a test asserting a second reader of those same rows, and that test
+  // had to be updated by hand. A client list here would have needed the same
+  // hand and had nothing to catch it.
+  const [qualifyBlockers, setQualifyBlockers] = useState<Array<{ field: string, message?: string }>>([])
   const [feedback, setFeedback] = useState<{ text: string | null, html?: string | null, ok: boolean } | null>(null)
 
   // A11: the surface fetches its own options. `industriesCache` is a `let` in
@@ -132,6 +146,34 @@ export function ContactHost({ contact, registerReload, navToken }: {
   }, [shell, contact.id])
 
   useEffect(() => { registerReload?.(() => { void load() }) }, [registerReload, load])
+
+  // P3: ask the server what Qualify is waiting for, and ask again whenever the
+  // record changes - a save that fills the last missing field must enable the
+  // button without a reload. `record` rather than `contact.id`, because the
+  // whole point is that it re-reads after a write.
+  //
+  // Only while UNQUALIFIED: exit-criteria answers for the next transition, and
+  // a qualified lead's next transition is not Qualify.
+  useEffect(() => {
+    let cancelled = false
+    if ((record.status ?? null) !== 'Unqualified') { setQualifyBlockers([]); return }
+    void (async () => {
+      const r = await shell.api<{ blocking?: Array<{ field: string, message?: string }> }>(
+        'GET', `/api/records/${contact.id}/exit-criteria`)
+      // A failed read must not report "nothing is blocking", which would enable
+      // a button the server will refuse. An unreadable answer leaves the last
+      // known state alone.
+      if (cancelled || !r.ok || !Array.isArray(r.data?.blocking)) return
+      setQualifyBlockers(r.data.blocking)
+    })()
+    return () => { cancelled = true }
+  }, [shell, contact.id, record])
+
+  /** P3: the follow-up task's own write. Two keys, saved together. */
+  const saveFollowUp = useCallback(async (next: { followUpDate: string, followUpDescription: string }) => {
+    const r = await shell.api('PATCH', `/api/contacts/${contact.id}`, { payload: next })
+    if (r.ok) await load()
+  }, [shell, contact.id, load])
 
   // A BLOCKING LIST BELONGS TO ITS OWN RECORD. Carrying one onto a different
   // contact would tint fields for a failure that happened somewhere else.
@@ -365,6 +407,26 @@ export function ContactHost({ contact, registerReload, navToken }: {
           go()
         }}
         status={record.status ?? null}
+        // P3: the lead name, rendered as the 18pt heading. The same value the
+        // `name` row edits - one record, one source, read twice for two jobs.
+        leadName={String(record.payload?.name ?? '')}
+        // P3: what Qualify is still waiting for, from the server's OWN
+        // derivation. Never a client list.
+        qualifyBlockers={qualifyBlockers}
+        followUp={
+          <FollowUpTask
+            date={String(record.payload?.followUpDate ?? '')}
+            description={String(record.payload?.followUpDescription ?? '')}
+            resetKey={`${contact.id}:${navToken ?? 0}`}
+            onSave={(next) => { void saveFollowUp(next) }} />}
+        nurturePanel={
+          <ParkForm
+            open={parkOpen}
+            onCancel={() => { setParkOpen(false); setParkError(null) }}
+            onSave={(date, reason) => { void park(date, reason) }}
+            hasDirtyEdits={dirty}
+            onConfirmDiscard={(proceed) => { shell.confirmDiscard(proceed) }}
+            error={parkError} />}
         notes={
           <NotesHistory
             notes={notes}
@@ -386,17 +448,15 @@ export function ContactHost({ contact, registerReload, navToken }: {
           <StageActions
             status={record.status ?? null}
             onQualify={() => { void onQualify() }}
+            qualifyBlockedCount={qualifyBlockers.length}
             onPark={() => { setParkError(null); setParkOpen(true) }}
             onUnqualify={() => { void unqualify() }}
             onDelete={() => { void remove() }}
             onCreate={(kind) => { shell.navigate(kind === 'test-bed' ? 'test-beds' : 'opportunities') }} />} />
-      <ParkForm
-        open={parkOpen}
-        error={parkError}
-        hasDirtyEdits={dirty}
-        onConfirmDiscard={(proceed) => { shell.confirmDiscard(proceed) }}
-        onCancel={() => { setParkOpen(false); setParkError(null) }}
-        onSave={(d, r) => { void park(d, r) }} />
+      {/* P3: the Nurture panel moved INTO the header, as `nurturePanel` above.
+          Ruled as an inline date-and-reason panel, so it renders where the
+          action that opens it lives rather than at the bottom of the page. One
+          instance, not two. */}
       <AccountDetailsModal
         mode={modal}
         prefillName={modalPrefill}

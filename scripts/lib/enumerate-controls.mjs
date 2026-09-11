@@ -69,6 +69,11 @@ export function enumerateControlsInPage(viewId) {
       cls: (typeof el.className === 'string' ? el.className.slice(0, 60) : '') || null,
       text: (el.textContent ?? '').trim().replace(/\s+/g, ' ').slice(0, 40),
       role: el.getAttribute('role'),
+      // A disclosure declares itself with aria-expanded. Captured here so
+      // classifyControl can read it - a classifier reading a field the
+      // enumerator never produced is always `undefined`, which reads as
+      // "not a disclosure" and would have silently reversed the exemption.
+      ariaExpanded: el.getAttribute('aria-expanded'),
       tabindex: ti,
       disabled: el.disabled === true,
       ariaDisabled: el.getAttribute('aria-disabled'),
@@ -130,7 +135,12 @@ export function classifyControl(r) {
   const nav = !!(r.cls?.includes('detail-tab') || r.role === 'tab'
     || /back|close/i.test(r.text) || r.tag === 'a')
   // Reading more of a record you may not edit is still reading.
-  const disclosure = !!(r.cls?.includes('help-dot') || r.id === 'btn-toggle-detail'
+  // `ariaExpanded` FIRST: a disclosure declares itself, and P3 added collapsible
+  // panels whose toggles carry it. One definition with the door, which exempts
+  // the same attribute - two instruments disagreeing about what a disclosure IS
+  // is the fault Verification 20 names, and it is why this is not a name list.
+  const disclosure = !!(r.ariaExpanded !== null && r.ariaExpanded !== undefined)
+    || !!(r.cls?.includes('help-dot') || r.id === 'btn-toggle-detail'
     || r.cls?.includes('disclose') || r.cls?.includes('latch')
     || /^(show|hide)\b/i.test(r.text) || /show details for/i.test(r.text))
   return {

@@ -1999,6 +1999,25 @@ const NON_ACTION_SELECTOR = [
   // help-dot was found, so neutralised dots did not read as blocked - they
   // VANISHED from the population. Measured: 6 on the owned record, 0 on the
   // unowned one.
+  // ── A DISCLOSURE DECLARES ITSELF, AND THAT IS THE EXEMPTION ──────────
+  //
+  // P3, 2026-09-11. The Lead Detail redesign collapses Contact Details and
+  // Address by default, and their toggles are real `<button>`s - so the door
+  // disabled them, and AN UNOWNED LEAD BECAME UNREADABLE. Measured:
+  // disabled=true, pointer-events:none on the toggle, with the panel's
+  // contents behind it.
+  //
+  // That is the door doing the one thing it must never do. A person who may
+  // not EDIT a record must still be able to READ it, and a panel they cannot
+  // open is a panel they cannot read.
+  //
+  // `[aria-expanded]` rather than a class or an id, per Verification 19: an
+  // exemption enumerates by a DECLARED PROPERTY and fails on the unrecorded
+  // instance. aria-expanded is what a disclosure IS - the attribute exists to
+  // say "I show and hide something" - so every future collapsible is covered
+  // without anybody remembering to add it here, and anything carrying it is
+  // making a claim a reviewer can check.
+  '[aria-expanded]',
   '.detail-tab', '.appr-refresh', '.disclose-chevron', '.btn-text.disclose',
   '[id^="btn-back-"]', '#btn-signout', '#approvals-refresh',
   '#btn-back-opps', '#opp-btn-list', '#opp-btn-grid', '.ot-sort',

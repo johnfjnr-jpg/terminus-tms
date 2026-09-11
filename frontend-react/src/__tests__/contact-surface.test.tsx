@@ -103,9 +103,24 @@ describe('the rows', () => {
     expect(must('input-summary').tagName).toBe('TEXTAREA')
   })
 
-  test('the name header carries the name row, with a door and a discard', async () => {
+  // P3 MOVED THE NAME, and this asserts the move rather than the old place.
+  //
+  // The ruled layout puts LEAD NAME in the header at 18pt as a HEADING. A
+  // heading is not editable, and `name` is one of the 15 fields gated at
+  // Qualify - so the row survives, inside Contact Details, and the heading
+  // displays the same value. Both halves are asserted here: the look that was
+  // ruled, and the capability that would otherwise have gone with it.
+  //
+  // "and a discard" has gone from the title because A1 removed the per-field
+  // discard on all four surfaces. Escape is the revert now.
+  test('the header shows the lead name, and the name is still EDITABLE as a row', async () => {
     await mount()
-    expect(must('cd-header').querySelector('[data-key="name"]')).not.toBeNull()
+    // The ruled heading.
+    expect(must('cd-lead-name').textContent).toBe('Ada Poh')
+    // The capability. It lives in Contact Details, which is collapsed, so it
+    // is opened first - a collapsed panel is closed, not absent.
+    await act(async () => { must('cd-card-contact-toggle').click() })
+    expect(must('cd-card-contact-body').querySelector('[data-key="name"]')).not.toBeNull()
     await act(async () => { must('display-name').click() })
     expect($('input-name')).not.toBeNull()
   })

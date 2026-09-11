@@ -63,7 +63,10 @@ export function NotesHistory({ notes, onAdd, hasDirtyEdits, onConfirmDiscard, re
   return (
     <div data-testid="cd-notes">
       <div className="cd-notes-header-row" data-testid="cd-notes-header-row">
-        <span className="label">Notes history · latest first</span>
+        {/* The panel's own title now says NOTES (P3), so this says only what
+            the title cannot: the order. "Notes history · latest first" under a
+            heading reading NOTES was the same word twice. */}
+        <span className="label">Latest first</span>
         {!open
           ? <button type="button" data-testid="cd-add-note-btn" onClick={onClick}>Add note</button>
           : null}
