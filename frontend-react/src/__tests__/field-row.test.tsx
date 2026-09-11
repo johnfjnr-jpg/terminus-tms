@@ -151,6 +151,57 @@ describe('behaviour 1: draft state per field, compared not flagged', () => {
 })
 
 // ─────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────
+// A2, Leads round: the open editor closes when focus LEAVES the row.
+//
+// What persists was measured on the live screen before this was written: there
+// is no CSS focus rule on the row, and opening a second row leaves the first
+// reading `open: true`. The editor IS the highlight.
+describe('A2: focus leaving the row closes its editor, without reverting', () => {
+  const focusOut = (from: HTMLElement, to: HTMLElement | null) =>
+    act(() => {
+      from.dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: to }))
+    })
+
+  test('opening a second row closes the first', () => {
+    render(<Surface />)
+    click(must('display-company'))
+    expect(must('edit-company').hasAttribute('hidden')).toBe(false)
+    click(must('display-units'))
+    focusOut(input('company'), input('units'))
+    expect(must('edit-company').hasAttribute('hidden')).toBe(true)
+    expect(must('edit-units').hasAttribute('hidden')).toBe(false)
+  })
+
+  test('and the draft SURVIVES, because blur is not Escape', () => {
+    render(<Surface />)
+    click(must('display-company'))
+    type('company', 'Changed')
+    click(must('display-units'))
+    focusOut(input('company'), input('units'))
+    expect(must('edit-company').hasAttribute('hidden')).toBe(true)
+    // The edit is still counted: closing is not discarding, and only Escape
+    // reverts. Tabbing between fields must not destroy what was typed.
+    expect(must('dirty-count').textContent).toBe('1 change')
+    click(must('display-company'))
+    expect(input('company').value).toBe('Changed')
+  })
+
+  test('a blur INSIDE the same row does not close it', () => {
+    render(<Surface />)
+    click(must('display-company'))
+    focusOut(input('company'), must('edit-company'))
+    expect(must('edit-company').hasAttribute('hidden')).toBe(false)
+  })
+
+  test('a blur to NOTHING does not close it: the person has not moved', () => {
+    render(<Surface />)
+    click(must('display-company'))
+    focusOut(input('company'), null)
+    expect(must('edit-company').hasAttribute('hidden')).toBe(false)
+  })
+})
+
 describe('behaviour 2: ONE door, carrying the ownership guard', () => {
   test('with the guard open, a click opens the editor', () => {
     render(<Surface />)

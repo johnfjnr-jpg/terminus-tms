@@ -146,6 +146,26 @@ row**, which is why the row component cannot own it.
 > **With Escape reverting and closing, a draft dies with its editor** and the
 > count can no longer span closed rows - there are none holding drafts.
 >
+> **CORRECTED THE SAME DAY, once A2 landed, and the correction matters because
+> the paragraph above was written when Escape was the ONLY way to close.**
+>
+> **A2 adds a second close: focus leaving the row.** It calls `close`, NOT the
+> Escape path, so **it keeps the draft** - tabbing from one field to the next
+> must not destroy what was typed, or multi-field editing is impossible.
+>
+> **So the clause is retired under ESCAPE and RESTORED under BLUR.** A draft
+> still outlives its editor; what has changed is that one specific gesture now
+> ends both at once. Precisely:
+>
+> | gesture | editor | draft |
+> |---|---|---|
+> | **Escape** | closes | **reverted** |
+> | **focus leaves the row** | closes | **kept, and still counted** |
+>
+> The overstatement is left above rather than rewritten, per this document's
+> own convention: a reader should see that a supersession was itself corrected
+> within hours, not find a tidy record of a decision that was made once.
+>
 > **The behaviour's own sentence survives intact**: the count is still computed
 > across every draft on the surface, save and discard-all still act on the set,
 > and the bar is still a property of the surface. **A1 strengthens that** by

@@ -131,7 +131,36 @@ export function FieldRow({ field, rows }: { field: FieldDescriptor; rows: FieldR
           : <span className="field-row-placeholder">{field.placeholder ?? EMPTY_DISPLAY}</span>}
       </div>
 
-      <div className="field-row-edit" data-testid={`edit-${field.name}`} hidden={!open}>
+      {/* A2, Leads round: THE OPEN EDITOR CLOSES WHEN FOCUS LEAVES THE ROW.
+          MEASURED FIRST, not assumed. The brief calls this a "focus highlight"
+          that persists after moving to another field. There is no CSS focus
+          rule on this row - measured live, what persists is the OPEN EDITOR:
+          open `company`, then open `jobRole`, and company reads `open: true`
+          with focus on `input-jobRole`. The editor is the highlight.
+
+          IT CLOSES, IT DOES NOT REVERT. `rows.close` and not the Escape path:
+          the draft lives in a different map and survives, so tabbing from one
+          field to the next keeps both edits and the bar counts two. Wiring
+          blur to the Escape path would revert on every field change and make
+          multi-field editing impossible.
+
+          `relatedTarget` is what keeps this from firing on its own controls: a
+          blur INTO the same row - a select's option list, the row's own
+          editor - is not leaving the row. A blur to nothing (relatedTarget
+          null, as when the window loses focus) deliberately does NOT close
+          either, because the person has not moved anywhere. */}
+      <div
+        className="field-row-edit"
+        data-testid={`edit-${field.name}`}
+        hidden={!open}
+        onBlur={(e) => {
+          if (!open) return
+          const to = e.relatedTarget as Node | null
+          if (!to) return
+          if (e.currentTarget.contains(to)) return
+          rows.close(field.name)
+        }}
+      >
         <Editor
           field={field}
           value={rows.valueOf(field.name)}
