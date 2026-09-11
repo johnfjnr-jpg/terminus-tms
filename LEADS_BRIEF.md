@@ -71,6 +71,31 @@ own design of record**, which is the authoritative statement and not a guess:
 stops after item 5 and asks. Recorded here rather than only in a report,
 because a truncation discovered later reads as an oversight.
 
+### R7 and R8 (John, 2026-09-11, on the P3 report)
+
+**R7. Both gated fields get a surface.** `jobRole` IS a Contact Details field
+and is an editable row. The lead name is **editable**: the row-and-heading
+split stays, the heading displays and the row satisfies the gate. **Proven by
+probe:** every field in `exit-criteria`'s `blocking[]` has a reachable editable
+input.
+
+**R8. DELETE AND UNQUALIFY ARE REMOVED, AS A LIFECYCLE RULE** rather than a
+layout choice:
+
+> - **Leads are NOT deleted from the Lead screen at this stage.**
+> - **The lead lifecycle is FORWARD-ONLY at this stage:** created Unqualified,
+>   then Qualified or Nurture. **No transition back to Unqualified.**
+
+Recorded as a rule so a later round does not restore the controls on the
+grounds that the vanilla had them - which is exactly the argument that would
+restore them.
+
+**THE CONTROL GOING DOES NOT CLOSE THE TRANSITION, and that is flagged, not
+built.** Measured against the live server: `POST /records/:id/transition` with
+`to_stage: 'Unqualified'` on a Qualified lead answers **200** and the record
+moves. `transitions.js` permits any backward transition by design. Whether to
+close it server-side is a **separate item**.
+
 ## Phases, in build order. Each stops for sign-off.
 
 ### P1: lifecycle logic

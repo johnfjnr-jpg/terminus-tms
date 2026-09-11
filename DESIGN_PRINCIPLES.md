@@ -10716,3 +10716,49 @@ deciding them, which is worth knowing before the next entry is cleared with it.
 and belongs in `scripts/` with its positive control. It is not added in this
 commit because that would make the commit non-markdown and force a re-gate on a
 closed round.
+
+---
+
+# The lead lifecycle is forward-only, and leads are not deleted from the screen
+
+**Ruled by John 2026-09-11, at the Leads round's P3 close. Recorded as a
+LIFECYCLE RULE rather than a layout note, because the two controls it removes
+existed in the vanilla and "the vanilla had them" is exactly the argument that
+would put them back.**
+
+> - **Leads are NOT deleted from the Lead screen at this stage.**
+> - **The lead lifecycle is FORWARD-ONLY at this stage:** a lead is created
+>   `Unqualified`, and moves to `Qualified` or to `Nurture`. **There is no
+>   transition back to `Unqualified`**, and no Unqualify control.
+
+**What this supersedes.** `StageActions` carried Qualify, Nurture, **Move to
+Unqualified** and **Delete**, ported deliberately from the vanilla's
+`renderCdActions` after an accounting instrument found the migrated panel had
+only one of them. That port was correct at the time and is now superseded: the
+capability was restored to match the vanilla, and the lifecycle question was
+answered later.
+
+## THE CONTROL GOING DOES NOT CLOSE THE TRANSITION
+
+**Measured 2026-09-11 against the live server**, and flagged rather than fixed
+because closing it is a separate decision:
+
+```
+POST /records/:id/transition {to_stage: 'Unqualified'} on a Qualified lead
+  -> 200 ACCEPTED, and the record moves to Unqualified
+```
+
+`transitions.js` permits **any backward transition** by design - `isBackward`
+exempts it from the adjacency check - and its own comment records that whether
+a reversal should require a reason, an entitlement, or both is a live question,
+**the same governance question as approval entitlement**.
+
+**So the rule above is currently enforced by the SCREEN and not by the
+server.** That is a weaker guarantee than this estate usually accepts, and it is
+stated plainly rather than left to be discovered: anything that can reach the
+transition endpoint can still reverse a lead. `DELETE /contacts/:id` is
+likewise untouched.
+
+**The item, for a later round:** decide whether a reversal should be refused,
+gated on an entitlement, or allowed with a recorded reason - and note that the
+same answer probably governs every record type, not only leads.

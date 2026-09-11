@@ -307,23 +307,19 @@ export function ContactHost({ contact, registerReload, navToken }: {
   }
 
   /** U1 and U2. */
-  const unqualify = async () => {
-    const go = async () => {
-      await shell.api('POST', `/api/records/${contact.id}/transition`, { to_stage: 'Unqualified' })
-      await load()
-    }
-    if (dirty) { shell.confirmDiscard(() => { void go() }); return }
-    await go()
-  }
-
-  /** D1: delete, then back to the RETURN VIEW - a lead to leads, a contact
-   * to contacts. D2 is recorded rather than improved: a failed delete does
-   * nothing and says nothing, which is what the vanilla does. */
-  const remove = async () => {
-    const r = await shell.api('DELETE', `/api/contacts/${contact.id}`)
-    if (!r.ok) return
-    shell.navigate(returnViewFor(record.status ?? null))
-  }
+  // ── R8: `unqualify` AND `remove` ARE GONE, NOT MERELY UNCALLED ─────────
+  //
+  // A removal is two claims - the control is gone AND nothing points at it -
+  // and a handler left behind with no caller is the second claim failing. It
+  // would also be the first thing a later reader found when asking how a lead
+  // gets unqualified, and it would answer a question the lifecycle no longer
+  // asks.
+  //
+  // THE SERVER-SIDE TRANSITION IS UNTOUCHED AND REACHABLE. Measured: a POST to
+  // /records/:id/transition with to_stage 'Unqualified' on a Qualified lead
+  // answers 200 and the record moves. Deleting client code is not closing a
+  // transition, and whether to close it is the item flagged in the P3 report.
+  // The DELETE /contacts/:id route is likewise untouched.
 
   /** A2's other half: creating the Account IS the link, one write. */
   const createAccount = async (name: string, parentId: string | null) => {
@@ -450,8 +446,6 @@ export function ContactHost({ contact, registerReload, navToken }: {
             onQualify={() => { void onQualify() }}
             qualifyBlockedCount={qualifyBlockers.length}
             onPark={() => { setParkError(null); setParkOpen(true) }}
-            onUnqualify={() => { void unqualify() }}
-            onDelete={() => { void remove() }}
             onCreate={(kind) => { shell.navigate(kind === 'test-bed' ? 'test-beds' : 'opportunities') }} />} />
       {/* P3: the Nurture panel moved INTO the header, as `nurturePanel` above.
           Ruled as an inline date-and-reason panel, so it renders where the

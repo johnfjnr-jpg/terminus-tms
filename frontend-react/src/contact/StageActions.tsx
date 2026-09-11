@@ -1,17 +1,41 @@
-// ── U1 TO U3, D1 TO D3: THE STAGE ACTIONS ────────────────────────────────
+// ── THE STAGE ACTIONS ────────────────────────────────────────────────────
 //
-// renderCdActions in the vanilla draws Qualify, Park AND Move to Unqualified.
-// The Phase 2 panel had only Qualify, so the capability was two thirds absent
-// while reading as present - which is what the accounting instrument found and
-// a screenshot showed as "a button is missing".
-export function StageActions({ status, onQualify, onPark, onUnqualify, onDelete, onCreate, qualifyBlockedCount = 0 }: {
+// ~~U1 TO U3, D1 TO D3.~~ The vanilla's renderCdActions drew Qualify, Park AND
+// Move to Unqualified, and a Delete beneath them. The Phase 2 panel had only
+// Qualify, so the capability was two thirds absent while reading as present -
+// which is what the accounting instrument found and a screenshot showed as "a
+// button is missing".
+//
+// ── R8, 2026-09-11: DELETE AND UNQUALIFY ARE REMOVED, AS A LIFECYCLE RULE ─
+//
+// Ruled by John at the P3 close, and recorded as a rule rather than a layout
+// choice so a later round does not restore them on the grounds that the
+// vanilla had them:
+//
+//   Leads are NOT deleted from the Lead screen at this stage.
+//   The lead lifecycle is FORWARD-ONLY at this stage: created Unqualified,
+//   then Qualified or Nurture. No transition back to Unqualified.
+//
+// The superseded reasoning is struck above rather than deleted. Restoring
+// these because "the vanilla had them" would be re-deciding a question that
+// has now been decided the other way (Verification 23).
+//
+// THE CONTROL GOING DOES NOT CLOSE THE TRANSITION, and that is flagged rather
+// than fixed. Measured 2026-09-11 against the live server:
+//
+//     POST /records/:id/transition {to_stage:'Unqualified'} on a Qualified
+//     lead -> 200 ACCEPTED, and the record moves.
+//
+// transitions.js permits any BACKWARD transition by design - `isBackward`
+// exempts it from the adjacency check - and its own comment records that
+// whether a reversal should need a reason or an entitlement is a live
+// question. Closing it server-side is a separate item, flagged not built.
+export function StageActions({ status, onQualify, onPark, onCreate, qualifyBlockedCount = 0 }: {
   status: string | null
   onQualify: () => void
   /** P3: how many gate requirements are still unmet. 0 enables Qualify. */
   qualifyBlockedCount?: number
   onPark: () => void
-  onUnqualify: () => void
-  onDelete: () => void
   onCreate: (kind: 'test-bed' | 'opportunity') => void
 }) {
   const qualified = status === 'Qualified'
@@ -35,11 +59,7 @@ export function StageActions({ status, onQualify, onPark, onUnqualify, onDelete,
         : null}
       <button type="button" id="cd-btn-park" data-testid="cd-btn-park"
         onClick={onPark}>Nurture</button>
-      {/* U3: offered only when the contact is not already Unqualified. */}
-      {status !== 'Unqualified'
-        ? <button type="button" id="cd-btn-unqualify" data-testid="cd-btn-unqualify"
-            onClick={onUnqualify}>Move to Unqualified</button>
-        : null}
+      {/* R8: no Unqualify. The lifecycle is forward-only at this stage. */}
 
       {/* D3: create is offered ONLY on a Qualified contact. */}
       {qualified
@@ -52,10 +72,10 @@ export function StageActions({ status, onQualify, onPark, onUnqualify, onDelete,
           </div>
         : null}
 
-      <div className="cd-delete-section" data-testid="cd-delete-section">
-        <button type="button" className="btn-text" data-testid="cd-btn-delete"
-          onClick={onDelete}>&times; Delete</button>
-      </div>
+      {/* R8: no Delete. Leads are not deleted from the Lead screen at this
+          stage. The route still exists and is not touched here - removing a
+          control is not removing a capability, and which is wanted is the
+          separate item flagged above. */}
     </div>
   )
 }

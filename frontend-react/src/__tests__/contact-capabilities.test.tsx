@@ -315,49 +315,46 @@ describe('P: the park form', () => {
   })
 })
 
-describe('U and D: unqualify, delete, create', () => {
-  test('U1 unqualify transitions and re-reads', async () => {
+// ── R8, 2026-09-11: UNQUALIFY AND DELETE ARE REMOVED FROM THIS SCREEN ────
+//
+// Ruled by John as a LIFECYCLE RULE rather than a layout choice:
+//
+//   Leads are NOT deleted from the Lead screen at this stage.
+//   The lifecycle is FORWARD-ONLY: created Unqualified, then Qualified or
+//   Nurture. No transition back to Unqualified.
+//
+// ~~U1, U2, U3, D1, D2~~ asserted those capabilities and are INVERTED rather
+// than deleted. A deleted test leaves the controls unguarded in both
+// directions - nothing would notice them being restored, and "the vanilla had
+// them" is exactly the argument that would restore them (Verification 23).
+//
+// D3 survives unchanged: creating a Test Bed or an Opportunity from a
+// Qualified contact is untouched by R8.
+describe('R8: the Lead screen offers neither Unqualify nor Delete', () => {
+  test('an Unqualified lead has no Unqualify and no Delete control', async () => {
+    status = 'Unqualified'
+    await mount()
+    expect($('cd-btn-unqualify'), 'Unqualify is back on the Lead screen').toBeNull()
+    expect($('cd-btn-delete'), 'Delete is back on the Lead screen').toBeNull()
+    expect($('cd-delete-section'), 'the delete section is back').toBeNull()
+  })
+
+  test('and a QUALIFIED lead has neither either, which is where they used to appear', async () => {
+    // U3 only ever offered Unqualify on a NON-Unqualified record, so a test
+    // checking the Unqualified case alone would pass against the old code too.
     status = 'Qualified'
     await mount()
-    await click('cd-btn-unqualify')
-    expect(calls.some((c) => c.path.includes('/transition')
-      && (c.body as { to_stage: string })?.to_stage === 'Unqualified')).toBe(true)
+    expect($('cd-btn-unqualify'), 'Unqualify is back on a Qualified lead').toBeNull()
+    expect($('cd-btn-delete'), 'Delete is back on a Qualified lead').toBeNull()
   })
 
-  test('U2 a dirty surface is asked first', async () => {
+  test('no reverse-transition or delete request can be made from this screen', async () => {
     status = 'Qualified'
     await mount()
-    await act(async () => { must('display-city').click() })
-    await type('input-city', 'KL')
-    await click('cd-btn-unqualify')
-    expect(discardAsks).toBe(1)
-  })
-
-  test('U3 it is not offered on a contact that is already Unqualified', async () => {
-    await mount()
-    expect($('cd-btn-unqualify')).toBeNull()
-    expect($('cd-btn-qualify'), 'Qualify should be offered instead').not.toBeNull()
-  })
-
-  test('D1 delete returns to the RETURN VIEW, not a fixed list', async () => {
-    status = 'Qualified'
-    await mount()
-    await click('cd-btn-delete')
-    expect(calls.some((c) => c.m === 'DELETE')).toBe(true)
-    expect(navigated.at(-1), 'a deleted contact went somewhere it did not come from').toBe('contacts')
-  })
-
-  test('D1 and an unqualified one returns to leads', async () => {
-    await mount()
-    await click('cd-btn-delete')
-    expect(navigated.at(-1)).toBe('leads')
-  })
-
-  test('D2 a FAILED delete does nothing, which is what the vanilla does', async () => {
-    await mount()
-    reply = { '/contacts/c-1': { ok: false, status: 500, data: {} } }
-    await click('cd-btn-delete')
-    expect(navigated, 'a failed delete navigated anyway').toEqual([])
+    const reverse = calls.filter((c) => c.m === 'DELETE'
+      || (typeof c.body === 'object' && c.body !== null
+        && (c.body as { to_stage?: string }).to_stage === 'Unqualified'))
+    expect(reverse, 'the screen sent a reverse or delete request').toEqual([])
   })
 
   test('D3 create is offered ONLY on a Qualified contact', async () => {
