@@ -6,8 +6,13 @@ Five phases, all signed off. Nothing pushed. The word is John's.
 
 ## 1. The gate
 
-**Stated after this commit, on the exact tree, as the final act with
-nothing else running.** See section 9.
+**22 of 22 PASS, 0 SKIP, 0 FAIL, on `6f1cd97`**, the exact committed
+tree, with a clean working tree and no dirty-tree warning.
+
+**The door stage ran GREEN, not skipped:**
+`PASS  HTTP readonly-view probe   exit 0  84967ms`.
+
+**It took two runs, and the first one is the finding.** See section 9.
 
 ---
 
@@ -218,6 +223,14 @@ next person to edit that function will read it.
    answers 200 and `DELETE /contacts/:id` is untouched. The forward-only
    lifecycle is **UI-only-enforced today**. A governance round.
 6. **The two-save-controls note**, for any future card-shape work.
+7. **F6, the gate runner calls a SKIP a pass.** `All 22 stages passed.`
+   printed over 21 PASS and 1 SKIP. A false green inside the instrument
+   the estate quotes at itself. **Should be the next round's first act**
+   (section 9).
+8. **F7, orphaned processes outlive their session.** Two ran for five
+   days against this server and database with nothing watching them.
+   Worth a standing pre-gate check that nothing foreign is running,
+   since "nothing else running" is currently an assumption.
 
 Still carried from before this round: the vanilla retirement and its
 standing qualification on eight suites; the 20 under-cap unbounded
@@ -257,6 +270,57 @@ selects; the 19 routes unexercised as a non-owner, and concurrency; the
 
 ---
 
-## 9. Gate result
+## 9. Gate result, and the two things the gate itself found
 
-To be stated on the tree this commit creates.
+### The result
+
+**22 of 22 PASS on `6f1cd97`. 0 SKIP. 0 FAIL.** Clean working tree, no
+dirty-tree warning, nothing else running.
+
+`PASS  HTTP readonly-view probe   exit 0  84967ms` - the door stage,
+green, on the exact tree.
+
+### F6: the gate runner calls a SKIP a pass
+
+**The first run of this gate printed `All 22 stages passed.` while the
+door stage had SKIPPED** - `not run: no browser (set PUPPETEER_PATH)`.
+21 PASS and 1 SKIP, summarised as all 22 passing.
+
+That summary is false in the one direction that matters. The stage's own
+source carries the ruling it contradicts:
+
+> A SKIP is valid for a working gate run on a machine with no browser. It
+> is UNANSWERED at a round close. **A round that closes on a SKIP here has
+> measured nothing about the door.**
+
+**A reader taking the summary line at its word closes the round on an
+unmeasured door.** The instruction for this close said "door stage green
+not skipped", which is what caught it; without that sentence the printed
+summary would have been quoted and believed.
+
+Verification 19's shape - a claim asserting a property nobody measured -
+inside the instrument the whole estate quotes. Not fixed here, because
+changing `verify-all.mjs` means re-gating and this is the close.
+**Carried, and it should be the next round's first act.**
+
+### F7: two orphaned processes from a dead session, five days old
+
+Found while diagnosing why the gate appeared to stall: `probe-scrollable.mjs`
+and `walk.mjs` from session `1b6522fb`, elapsed **5 days 12 hours** and
+**5 days 9 hours**, hung against this same dev server and database.
+
+**They were present during every gate run of this round and the last.**
+Nothing was watching them and nothing would have reported them.
+
+Killed before the second run, so the stated gate is the first this round
+that provably ran with nothing else against the server. The earlier
+readings are not retracted - the two were blocked, not working - but the
+honest statement is that "nothing else running" was **assumed and not
+checked** until this close.
+
+**The diagnosis also cost a wrong reading of my own.** `pgrep -f
+"verify-all"` matched another session's watcher loop, whose own command
+line contains that string, so a wait loop reported the gate RUNNING when
+it had finished. A pattern that matches watchers as well as the watched
+is Verification 17's shape: the probe fired perfectly against the wrong
+thing.
