@@ -2068,10 +2068,12 @@ let doorObserver = null
 let doorSweeping = false
 let doorSweepQueued = false
 
-function armDoorObserver(viewId, notMine) {
+function armDoorObserver(viewIdOrRoot, notMine) {
   if (doorObserver) { doorObserver.disconnect(); doorObserver = null }
   if (!notMine) return
-  const view = document.getElementById(viewId)
+  const view = typeof viewIdOrRoot === 'string'
+    ? document.getElementById(viewIdOrRoot)
+    : viewIdOrRoot
   if (!view) return
   doorObserver = new MutationObserver((records) => {
     // RE-ENTRANCY IS REAL HERE: the sweep writes disabled, a class and
@@ -2097,14 +2099,29 @@ function armDoorObserver(viewId, notMine) {
     requestAnimationFrame(() => {
       doorSweepQueued = false
       doorSweeping = true
-      try { applyReadOnlyControls(viewId, true) } finally { doorSweeping = false }
+      try { applyReadOnlyControls(viewIdOrRoot, true) } finally { doorSweeping = false }
     })
   })
   doorObserver.observe(view, { subtree: true, childList: true })
 }
 
-function applyReadOnlyControls(viewId, notMine) {
-  const view = document.getElementById(viewId)
+// ── P4: IT TAKES A ROOT, NOT ONLY A VIEW ─────────────────────────────────
+//
+// Every caller until now passed a view id, because every doored surface was a
+// DETAIL view: one record, one owner, one answer for the whole screen.
+//
+// A LIST BREAKS THAT. The Leads list stacks many cards and each belongs to
+// somebody; "this view is not mine" is not a question it can answer. The door
+// has to be asked per card.
+//
+// An ELEMENT is accepted as well as an id, and nothing else changes. The
+// alternative was a second sweep for cards, which would be two readers of one
+// rule - and the rule is long, subtle, and has already been wrong twice in
+// ways that took a live walk to find. One definition, reused.
+function applyReadOnlyControls(viewIdOrRoot, notMine) {
+  const view = typeof viewIdOrRoot === 'string'
+    ? document.getElementById(viewIdOrRoot)
+    : viewIdOrRoot
   if (!view) return
   // BY TYPE. Every form control in the view, whatever it is called and whenever
   // it was added, so a control built after this rule is covered by it.
@@ -2208,7 +2225,12 @@ function applyReadOnlyControls(viewId, notMine) {
 
   // Re-armed on every application so leaving the view, or arriving at a record
   // that IS yours, tears the observer down rather than leaving it sweeping.
-  if (!doorSweeping) armDoorObserver(viewId, notMine)
+  // The observer needs a stable handle, and a ROOT is one - it re-sweeps the
+  // same element rather than looking an id up again. Passing `viewIdOrRoot`
+  // rather than the old `viewId` is not cosmetic: `viewId` no longer exists in
+  // this scope, and reading it would have been an undefined global that only a
+  // browser would have found. The pure suite caught it on the first run.
+  if (!doorSweeping) armDoorObserver(viewIdOrRoot, notMine)
   for (const el of view.querySelectorAll(EDIT_OPENING_SELECTOR)) {
     // Removed from the tab order rather than left focusable-but-dead: a control
     // you can Tab to and press Enter on is not read-only, it is a slower dead

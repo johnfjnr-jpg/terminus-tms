@@ -212,7 +212,17 @@ test('and the keyboard path is closed, not just the mouse one', () => {
   // pointer-events is a MOUSE guard. The reported defect went through a select
   // that was pointer-events: none and NOT disabled, so it stayed operable by
   // arrow keys once focused.
-  assert.match(app, /function applyReadOnlyControls\(viewId, notMine\)/)
+  // P4, 2026-09-11: the parameter is `viewIdOrRoot` now - the Leads list stacks
+  // many cards with different owners, so the door had to be askable per card
+  // and accepts an ELEMENT as well as an id.
+  //
+  // ANCHORED ON THE FUNCTION, NOT ITS PARAMETER NAME. What this test is about
+  // is the three assertions below - that the keyboard path is closed and
+  // restored - and the signature was only ever how it found the function.
+  // Verification 37: a check that names a mechanism polices the mechanism
+  // rather than the effect, and a rename should not read as the guard being
+  // removed.
+  assert.match(app, /function applyReadOnlyControls\(/)
   assert.match(app, /c\.disabled = notMine/, 'form controls are not disabled, so the keyboard still reaches them')
   assert.match(app, /el\.setAttribute\('tabindex', notMine \? '-1' : '0'\)/,
     'edit-opening elements stay in the tab order, so Enter still opens them')
