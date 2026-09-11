@@ -98,5 +98,9 @@ export function ContactView({ contactId, navToken }: { contactId: string, navTok
     )
   }
 
-  return <ContactHost contact={contact.data} />
+  // A4: navToken travels to the host so the edit surface can key its drafts on
+  // the VISIT, not just on the record. Navigating away and back to the SAME
+  // lead must drop unsaved edits too - which keying on the id alone does not
+  // do, measured on the live screen after the unit test was already green.
+  return <ContactHost contact={contact.data} navToken={navToken} />
 }

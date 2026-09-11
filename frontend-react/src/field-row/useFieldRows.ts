@@ -20,10 +20,41 @@ import type { FieldDescriptor, FieldRowsController } from './types'
 // Behaviour 6: the drafts live HERE, at the surface, because the bar
 // aggregates across all of them and a row that owned its draft could not be
 // counted by anything above it.
-export function useFieldRows(fields: FieldDescriptor[]): FieldRowsController {
+/**
+ * A4, Leads round: `subject` IDENTIFIES WHAT IS BEING EDITED, AND CHANGING IT
+ * DROPS EVERY DRAFT.
+ *
+ * THE ONE GENUINE MIGRATION REGRESSION OF THE SIX. The vanilla reset its edit
+ * state on every load - `cdEdits = {}` inside `loadContactDetail`, and its own
+ * comment at contact-detail.js:720 says so. React holds drafts in state, and
+ * `main.tsx` RE-RENDERS one root per navigation rather than mounting a new
+ * one, so nothing ever cleared them.
+ *
+ * Measured on the live screen before this was written: type into a lead,
+ * navigate to the list, come back, and the field still reads EDITED NOT SAVED
+ * with the bar showing 1 change. Somebody else's unsaved words, waiting on a
+ * record they were not typed into.
+ *
+ * `subject` is OPTIONAL so the other three surfaces are unchanged until they
+ * pass one. It is a reset key, not an identity the hook reasons about: the
+ * hook only asks whether it DIFFERS from last render.
+ */
+export function useFieldRows(fields: FieldDescriptor[], subject?: string | null): FieldRowsController {
   const shell = useShell()
   const [drafts, setDrafts] = useState<Record<string, string>>({})
   const [open, setOpen] = useState<Record<string, boolean>>({})
+
+  // DURING RENDER, not in an effect, and the difference is the whole point. An
+  // effect runs AFTER the first paint, so the new record would render once
+  // carrying the old record's drafts - which is the defect, briefly, on every
+  // navigation. React supports this exact pattern for derived-from-props state
+  // and it is why the ref is compared here rather than in useEffect.
+  const lastSubject = useRef<string | null | undefined>(subject)
+  if (subject !== lastSubject.current) {
+    lastSubject.current = subject
+    if (Object.keys(drafts).length) setDrafts({})
+    if (Object.keys(open).length) setOpen({})
+  }
 
   // The descriptors, addressable by name. A name that is not here is not a
   // field on this surface, and every mutator below refuses it rather than

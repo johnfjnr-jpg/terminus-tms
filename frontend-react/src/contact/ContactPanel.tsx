@@ -41,8 +41,10 @@ function Card({ title, testId, blocked, children }: {
   )
 }
 
-export function ContactPanel({ source, blocking, accountName, onSave, onDirtyChange, onBack, actions, linkPanel, notes, status }: {
+export function ContactPanel({ source, subject, blocking, accountName, onSave, onDirtyChange, onBack, actions, linkPanel, notes, status }: {
   source: ContactSource
+  /** A4: the record being edited. Changing it drops every unsaved draft. */
+  subject?: string | null
   blocking: BlockingState | null
   accountName: string | null
   onSave: (changes: Record<string, string>) => void
@@ -60,7 +62,9 @@ export function ContactPanel({ source, blocking, accountName, onSave, onDirtyCha
   linkPanel?: ReactNode
 }) {
   const fields = contactDescriptors(source)
-  const rows = useFieldRows(fields)
+  // A4: the record being edited. When it changes, every draft is dropped -
+  // edits live only until saved or discarded, and navigating away is neither.
+  const rows = useFieldRows(fields, subject)
   const tinted = tintedRows(blocking, fields.map((f) => f.name))
   const dirty = rows.dirtyCount > 0
   useEffect(() => { onDirtyChange?.(dirty) }, [dirty, onDirtyChange])

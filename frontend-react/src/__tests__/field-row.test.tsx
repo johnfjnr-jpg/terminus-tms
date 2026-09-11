@@ -157,6 +157,44 @@ describe('behaviour 1: draft state per field, compared not flagged', () => {
 // What persists was measured on the live screen before this was written: there
 // is no CSS focus rule on the row, and opening a second row leaves the first
 // reading `open: true`. The editor IS the highlight.
+// ─────────────────────────────────────────────────────────────────────────
+// A4, Leads round: THE SUBJECT RESET. The one genuine migration regression of
+// the six - the vanilla cleared its edit state on every load, React never did,
+// and a re-rendered root carried one record's unsaved words onto the next.
+describe('A4: changing the subject drops every unsaved draft', () => {
+  function Subjected({ subject }: { subject: string }) {
+    const rows = useFieldRows(FIELDS, subject)
+    return (
+      <>
+        {FIELDS.map((f) => <FieldRow key={f.name} field={f} rows={rows} />)}
+        <EditBar rows={rows} onSave={() => {}} />
+      </>
+    )
+  }
+
+  test('a draft does not survive the subject changing', () => {
+    // The file's own `render` re-renders ONE root, which is what main.tsx
+    // does per navigation. Mounting fresh would be the convenient shape and
+    // not the real one - Verification 47's clause, and the reason this
+    // regression existed at all.
+    render(<Subjected subject="lead-1" />)
+    click(must('display-company'))
+    type('company', 'EDITED NOT SAVED')
+    expect(must('dirty-count').textContent).toBe('1 change')
+    render(<Subjected subject="lead-2" />)
+    expect(must('edit-bar').hasAttribute('hidden')).toBe(true)
+    expect(must('display-company').textContent).not.toContain('EDITED NOT SAVED')
+  })
+
+  test('and the SAME subject keeps it, so this is not just clearing on render', () => {
+    render(<Subjected subject="lead-1" />)
+    click(must('display-company'))
+    type('company', 'Still here')
+    render(<Subjected subject="lead-1" />)
+    expect(must('dirty-count').textContent).toBe('1 change')
+  })
+})
+
 describe('A2: focus leaving the row closes its editor, without reverting', () => {
   const focusOut = (from: HTMLElement, to: HTMLElement | null) =>
     act(() => {

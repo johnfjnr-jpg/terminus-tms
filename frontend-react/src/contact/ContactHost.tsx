@@ -69,9 +69,11 @@ const PAYLOAD_KEYS = new Set([
  */
 export const WRITABLE_ELSEWHERE = ['legalEntity', 'followUpDate'] as const
 
-export function ContactHost({ contact, registerReload }: {
+export function ContactHost({ contact, registerReload, navToken }: {
   contact: ContactLike
   registerReload?: (reload: () => void) => void
+  /** A4: increments on every navigation to this view. Part of the draft key. */
+  navToken?: number
 }) {
   const shell = useShell()
   // ── THE PROP IS THE SOURCE, AND useState ONLY TAKES ITS FIRST VALUE ────
@@ -336,6 +338,14 @@ export function ContactHost({ contact, registerReload }: {
     <div data-testid="contact-host">
       <ContactPanel
         source={source}
+        // A4: when this changes, the panel drops every unsaved draft. The host
+        // holds the record, so the host names the subject.
+        // A4: THE VISIT, NOT THE RECORD. Keying on contact.id alone passed the
+        // unit test and left the bug on the screen - the probe navigates away
+        // and back to the SAME lead, so the id never changed. navToken
+        // increments per navigation, so returning to the same record is a new
+        // subject and the drafts go.
+        subject={`${contact.id}:${navToken ?? 0}`}
         blocking={blocking}
         accountName={record.account?.name ?? null}
         onSave={(c) => { void onSave(c) }}
@@ -343,7 +353,17 @@ export function ContactHost({ contact, registerReload }: {
         // THE SAME RULE THE SEAM PUBLISHES, read from the same place, so the
         // button and the shell's accessor cannot disagree about where Back
         // goes. Verification 20: one definition, two consumers.
-        onBack={() => { shell.navigate(returnViewFor(record.status ?? null)) }}
+        // A4: NAVIGATING AWAY FROM A DIRTY FORM WARNS, and on confirm the
+        // edits are DROPPED. Back was the one path in this file that did not
+        // ask - unqualify, park and link-account all guard the same way, and
+        // this was the gap. The drop itself is `subject` above: the panel
+        // clears its drafts when the record changes, so coming back finds the
+        // owner's saved data rather than yesterday's typing.
+        onBack={() => {
+          const go = () => { shell.navigate(returnViewFor(record.status ?? null)) }
+          if (dirty) { shell.confirmDiscard(go); return }
+          go()
+        }}
         status={record.status ?? null}
         notes={
           <NotesHistory
