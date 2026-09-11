@@ -181,15 +181,25 @@ test('and the shell asks for the return view rather than reading a lexical name'
     + 'Contact leaves the back button dead')
 })
 
-test('the door is OPEN for the Contact view, in the shell registry', () => {
-  // The Account preserve ruling by precedent: Phase 0 measured no ownership
-  // read anywhere on this surface, so there is no door to preserve and
-  // inventing one would be the migration adding behaviour.
+// SUPERSEDED 2026-09-11, Leads round A5. John ruled that the door must reach
+// EVERY write on the Lead view, so this view is no longer open.
+//
+// ~~The Account preserve ruling by precedent: Phase 0 measured no ownership
+// read anywhere on this surface, so there is no door to preserve and inventing
+// one would be the migration adding behaviour.~~ That reasoning was correct
+// when written and rests on a premise A5 replaces: the migration was not to
+// ADD behaviour, and A5 is a deliberate decision to add it.
+//
+// INVERTED RATHER THAN DELETED, so the new ruling is enforced where the old
+// one was. A deleted test would leave the entry unguarded in either direction.
+test('the door is CLOSED for the Contact view, answering from the record', () => {
   const app = readCode(new URL('frontend/app.js', ROOT))
   const registry = app.slice(app.indexOf('const CAN_EDIT_BY_VIEW'))
-  assert.match(registry.slice(0, registry.indexOf('\n}')), /'contact-detail':\s*\(\)\s*=>\s*true/,
-    'the Contact view has no entry in CAN_EDIT_BY_VIEW, so the seam fails '
-    + 'closed and every row refuses')
+  const body = registry.slice(0, registry.indexOf('\n}'))
+  assert.match(body, /'contact-detail':\s*\(\)\s*=>\s*ownedByMe\('contact-detail'\)/,
+    'the Contact view must answer through the shared derivation, not a literal')
+  assert.doesNotMatch(body, /'contact-detail':\s*\(\)\s*=>\s*true/,
+    'the Contact view is open again, which A5 superseded')
 })
 
 test('the Contact view has a guarded entry, not a bare call', () => {

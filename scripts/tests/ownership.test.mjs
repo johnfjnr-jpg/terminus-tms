@@ -86,7 +86,10 @@ test('and EVERY doored view answers from the record, through one derivation', ()
   // stylesheet-era door had one per view.
   // PER VIEW, not "at least one". An injection replacing the Opportunity-s
   // entry with `() => true` came back silent against the weaker form.
-  const DOORED = ['test-bed-detail', 'opportunity-detail']
+  // A5, 2026-09-11: contact-detail JOINS the doored set. It was open by ruling
+  // and John superseded that ruling for the Lead view; the supersession is
+  // recorded in frontend/app.js with the old reasoning struck in place.
+  const DOORED = ['test-bed-detail', 'opportunity-detail', 'contact-detail']
   for (const v of DOORED) {
     const m = body.match(new RegExp(`'${v}':\\s*\\(\\)\\s*=>\\s*([^,\\n]+)`))
     assert.ok(m, `${v} has no entry in the registry`)
@@ -94,7 +97,11 @@ test('and EVERY doored view answers from the record, through one derivation', ()
       `${v} does not answer through the shared derivation: ${m[1]}`)
   }
   // And the open ones are open BY RULING, stated so the asymmetry is visible.
-  for (const v of ['account-detail', 'contact-detail']) {
+  //
+  // ACCOUNT-DETAIL ONLY, since A5. Widening A5 to Account on the strength of a
+  // sentence the two once shared is the inference this estate keeps being
+  // caught by, so Account keeps its ruling and keeps this assertion.
+  for (const v of ['account-detail']) {
     const m = body.match(new RegExp(`'${v}':\\s*\\(\\)\\s*=>\\s*([^,\\n]+)`))
     assert.ok(m && /true/.test(m[1]), `${v} is no longer open by ruling`)
   }
