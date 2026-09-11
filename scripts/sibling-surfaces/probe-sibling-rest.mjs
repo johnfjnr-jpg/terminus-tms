@@ -31,6 +31,7 @@ const roleId = (await db.from('contact_roles').select('id').eq('active', true).l
 const mkAccount = async () => (await body('POST', '/accounts', { name: `${TAG}-${rnd()} Acct`, industry_id: industry.id, billingCountry: 'Singapore' })).id
 const mkContact = async (accountId) => {
   const c = await body('POST', '/contacts', {
+    jobRole: 'Head of Ops',
     name: `${TAG}-${rnd()} person`, company: `${TAG} Ltd`, email: `${TAG}-${rnd()}@example.invalid`,
     mobile: '+65 9000 0006', industry_id: industry.id, source: 'Referral', country: 'Singapore',
   })

@@ -40,6 +40,7 @@ const browser = await puppeteer.launch({ headless: 'new' })
 try {
   const industry = (await call('GET', '/industries'))[0]
   const make = async (label) => (await call('POST', '/contacts', {
+    jobRole: 'Head of Ops',
     name: `${TAG}-${label} Lead`, company: 'List Holdings', email: `${TAG}@example.invalid`,
     mobile: '+65 9000 0012', source: 'Direct Outreach', industry_id: industry.id,
   }))

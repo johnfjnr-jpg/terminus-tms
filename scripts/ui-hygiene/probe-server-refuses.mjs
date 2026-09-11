@@ -78,6 +78,7 @@ try {
     name: `${TAG} Account`, industry_id: industry.id, billingCountry: 'Singapore',
   })
   const contact = await body('POST', '/contacts', {
+    jobRole: 'Head of Ops',
     name: `${TAG} person`, company: `${TAG} Ltd`, email: `${TAG}@example.invalid`,
     mobile: '+65 9000 0002', industry_id: industry.id, source: 'Referral', country: 'Singapore',
   })

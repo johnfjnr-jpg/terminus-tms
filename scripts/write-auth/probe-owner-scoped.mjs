@@ -40,6 +40,7 @@ async function freshOpp(label) {
   const industry = (await body('GET', '/industries'))[0]
   const account = await body('POST', '/accounts', { name: `${TAG}-${label} Acct`, industry_id: industry.id, billingCountry: 'Singapore' })
   const contact = await body('POST', '/contacts', {
+    jobRole: 'Head of Ops',
     name: `${TAG}-${label} person`, company: `${TAG} Ltd`, email: `${TAG}-${label}@example.invalid`,
     mobile: '+65 9000 0004', industry_id: industry.id, source: 'Referral', country: 'Singapore',
   })

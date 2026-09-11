@@ -12,15 +12,26 @@ const VALID_SOURCES = ['Web', 'Email Inquiry', 'Referral', 'Direct Outreach', 'M
  * WHAT A LEAD NEEDS TO EXIST. The single statement of the creation minimum,
  * read by POST /contacts and served by GET /contacts/creation-requirements.
  *
- * `jobRole` IS DELIBERATELY ABSENT and that is a FINDING rather than a
- * decision taken here - P5's ruled layout marks Job Title mandatory and this
- * route has never required it. Adding it would change every creation path,
- * including the inline buyer-contact dialogue, which is not P5's to do.
- * Reported instead.
+ * `jobRole` IS REQUIRED, ruled by the business as R11 on 2026-09-11.
+ *
+ * ~~`jobRole` IS DELIBERATELY ABSENT ... Adding it would change every creation
+ * path, including the inline buyer-contact dialogue, which is not P5's to
+ * do.~~ SUPERSEDED, and left visible because a PREMISE FAILED rather than a
+ * preference changing. That objection was written in the voice of a
+ * measurement and was never one. Measured at the P5 sign-off: the inline
+ * buyer-contact dialogue ALREADY requires jobRole client-side - it sits in
+ * that surface's own REQUIRED list and the dialogue refuses to submit without
+ * one - so no product surface changes behaviour at all.
+ *
+ * AND THE RULING CLOSES A GAP RATHER THAN ADDING A CONSTRAINT. Job Title was
+ * enforced in the CLIENT only, on one screen, so a direct POST bypassed it.
+ * Presentation communicates; it never enforces. The server not requiring what
+ * a screen requires was the defect.
  */
 const CONTACT_REQUIRED_AT_CREATION = [
   { key: 'name', value: (b) => b.name?.trim() },
   { key: 'company', value: (b) => b.company?.trim() },
+  { key: 'jobRole', value: (b) => b.jobRole?.trim() },
   { key: 'email', value: (b) => b.email?.trim() },
   { key: 'mobile', value: (b) => b.mobile?.trim() },
   { key: 'industry_id', value: (b) => b.industry_id },
@@ -200,7 +211,7 @@ export default async function contactsRoutes(app) {
     // GET /contacts/creation-requirements below. A field added to the tuple
     // reaches the grid without anybody editing the grid.
     const missing = CONTACT_REQUIRED_AT_CREATION
-      .filter(({ key, value }) => !value({ name, company, email, mobile, industry_id, source }))
+      .filter(({ key, value }) => !value({ name, company, jobRole, email, mobile, industry_id, source }))
       .map(({ key }) => key)
     if (missing.length) {
       return reply.code(400).send({ error: 'missing required fields', missing })
@@ -237,8 +248,13 @@ export default async function contactsRoutes(app) {
     }
 
     const payload = { name: name.trim(), company: company.trim(), email: email.trim(), mobile: mobile.trim() }
-    const optionalStringFields = { source, summary, jobRole, linkedin, address, address2, city, postcode, country, region }
-    for (const [key, value] of Object.entries(optionalStringFields)) {
+    // NOT "optional": `source` has always been required and `jobRole` is as of
+    // R11, and both sat in a bucket called optional. The list is what gets
+    // WRITTEN WHEN PRESENT - required or not, validated above or not - so it is
+    // named for that. Verification 19: a category name is a claim, and this one
+    // was false before this round ever touched it.
+    const writeIfPresent = { source, summary, jobRole, linkedin, address, address2, city, postcode, country, region }
+    for (const [key, value] of Object.entries(writeIfPresent)) {
       if (typeof value === 'string' && value.trim()) payload[key] = value.trim()
     }
     // Notes (New Lead modal, Terminus Ops.dc.html:4945) seeds the real

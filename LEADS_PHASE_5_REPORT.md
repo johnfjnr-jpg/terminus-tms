@@ -5,9 +5,70 @@ after rebuild, calibrated by injection. Nothing pushed.
 
 ---
 
+## 0. The two rulings, and what they changed
+
+**R11 - JOB TITLE MANDATORY SERVER-SIDE.** Ruled 2026-09-11. `jobRole`
+joins `CONTACT_REQUIRED_AT_CREATION`, the single tuple `POST /contacts`
+refuses without and `GET /contacts/creation-requirements` serves.
+
+**Every creation path this now bites**, enumerated rather than
+summarised, 39 call sites comment-stripped:
+
+| path | disposition |
+|---|---|
+| `frontend/app.js` inline buyer-contact dialogue | **already sent AND already required it client-side.** No behaviour change; the enforcement simply moved to the server where it belongs |
+| `frontend-react/.../NewLeadGrid.tsx` the batch grid | **no edit, no rebuild.** Derives its markers; builds its body from its own column list, which has always included `jobRole` |
+| `scripts/fixtures.mjs` and 22 other callers | already send it |
+| 10 probe scripts | **patched.** They create leads and would have begun answering 400 |
+
+The 10: `probe-source-owned`, `probe-leads-list`, `probe-p3-layout`,
+`probe-sibling-writes`, `probe-sibling-rest`, `probe-server-refuses`,
+`probe-owner-scoped`, `probe-issue-and-request`,
+`probe-contact-function`, `probe-routes-preserved`.
+
+**Re-proven by OMISSION, not by the endpoint the grid reads:**
+
+```
+without name         -> REFUSED  ["name"]
+without company      -> REFUSED  ["company"]
+without jobRole      -> REFUSED  ["jobRole"]     <- R11
+without industry_id  -> REFUSED  ["industry_id"]
+without email        -> REFUSED  ["email"]
+without mobile       -> REFUSED  ["mobile"]
+without source       -> REFUSED  ["source"]
+without summary      -> ACCEPTED
+```
+
+Seven refused, one accepted, so the instrument reached both answers. The
+server was restarted first: it runs without `--watch`, and a probe
+against the old process would have measured the code just replaced and
+**passed**.
+
+**And the derivation proved itself.** `NewLeadGrid.tsx` is
+byte-identical to its P5 commit and the bundle was not rebuilt, yet the
+screen now marks **seven**: `[name, company, jobRole, industry_id,
+email, mobile, source]`, matching the server exactly, `summary`
+unmarked. That is the whole point of the ruling that the set be derived,
+measured rather than asserted.
+
+**One stale label went with it.** `optionalStringFields` contained
+`source`, which has always been required, and would now have contained
+`jobRole` too. Renamed `writeIfPresent`, which is what it does. The name
+was false before this round touched it.
+
+**R12 - `regionForCountry` CARRIED**, low priority, recorded in
+`DESIGN_PRINCIPLES.md` as a decision rather than a silent loss, with the
+map's location in git and in the prototype.
+
+---
+
 ## 1. What this phase did NOT resolve, first
 
-### F1. `jobRole` is mandatory in the ruled layout and NOT in the server's creation minimum
+### F1. `jobRole` - CLOSED BY R11, 2026-09-11
+
+**Resolved by ruling after this report was first written.** The finding
+as it stood is kept below, because the measurement that led to R11 is
+the useful part and the objection that failed is worth seeing fail.
 
 The ruling was explicit: *"Mandatory at creation: EVERYTHING EXCEPT
 Summary"*, and *"Derive the mandatory set from the server's own creation
@@ -102,6 +163,33 @@ Worth saying plainly: the React migration has been shipping unclassed
 buttons for several phases and **no suite can see it**. It took opening
 a screenshot, and the one that was found belonged to this phase only by
 luck of being in the same frame.
+
+### F5. A gate test is timing-flaky against a growing table
+
+`scripts/tests/teardown-scoping.test.mjs`, *"tearDown sweeps its own tag
+AND leaves another round's tag standing"*, **failed inside the
+pre-commit hook** with
+
+    Error: taggedRevs[0] (page 0): canceling statement due to
+    statement timeout
+
+That is a Postgres statement timeout, not an assertion. The same test
+passed 100/100 standalone minutes before and again immediately after.
+**6,016ms on the passing run, 15,957ms on the failing one.**
+
+**Not R11.** The test makes zero `POST /contacts` calls. What it does is
+page and exact-count `record_revisions` - the table that was 8,237 rows
+at Round 20 and 23,210 more recently, and the exact-count is there
+because Verification 17 requires the scan to prove it examined every
+row.
+
+**So the mechanism is that the correct coverage assertion gets slower as
+the table grows**, and it will cross the statement timeout more often.
+The hook refused the commit, which is the hook working; but a gate test
+that fails on load is one nobody can distinguish from a real regression
+at the moment it fires.
+
+Carried. Not this phase's authorship and not fixed here.
 
 ### F4. `reference_code` reads null on the contacts list
 
@@ -426,5 +514,6 @@ live.
 - The probe drives one account. Nothing about the grid was exercised as
   a non-owner, and nothing needs to be: creation makes the actor the
   owner.
-- `jobRole` (F1), the lost region autofill (F2), the unclassed
-  buttons (F3) and the null `reference_code` (F4) are open.
+- F1 is CLOSED by R11 and F2 by R12. Still open: the unclassed buttons
+  (F3), the null `reference_code` (F4), and the timing-flaky gate test
+  (F5).

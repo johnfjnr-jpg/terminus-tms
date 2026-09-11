@@ -42,6 +42,7 @@ const hand = async (id) => { await db.from('records').update({ owner_id: OTHER }
 const mkAccount = async (n) => (await body('POST', '/accounts', { name: `${TAG}-${n} Acct`, industry_id: industry.id, billingCountry: 'Singapore' })).id
 const mkContact = async (n, accountId) => {
   const c = await body('POST', '/contacts', {
+    jobRole: 'Head of Ops',
     name: `${TAG}-${n} person`, company: `${TAG} Ltd`, email: `${TAG}-${n}@example.invalid`,
     mobile: '+65 9000 0005', industry_id: industry.id, source: 'Referral', country: 'Singapore',
   })

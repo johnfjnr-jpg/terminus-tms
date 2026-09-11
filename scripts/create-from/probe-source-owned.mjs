@@ -30,6 +30,7 @@ const mkBed = async () => (await body('POST', '/test-beds', {
 const mkContact = async () => {
   const acc = await mkAccount()
   const c = await body('POST', '/contacts', {
+    jobRole: 'Head of Ops',
     name: `${TAG}-${rnd()} person`, company: `${TAG} Ltd`, email: `${TAG}-${rnd()}@example.invalid`,
     mobile: '+65 9000 0007', industry_id: industry.id, source: 'Referral', country: 'Singapore',
   })

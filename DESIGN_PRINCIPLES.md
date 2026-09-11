@@ -10813,3 +10813,81 @@ after    NOT on Leads, on Contacts
 is equally true of a record that never arrived, of a screen that rendered no
 groups, and of a fetch that failed - which is the shape Verification 14 names,
 and it is why an absent heading was not accepted as the proof.
+
+# Job Title is required to create a Contact, and it always was on the one screen that asked
+
+Ruled by the business as R11, 2026-09-11, at the P5 sign-off of the LEADS
+round.
+
+`jobRole` joins `CONTACT_REQUIRED_AT_CREATION` in `src/routes/contacts.js`,
+the single statement of the creation minimum that `POST /contacts` refuses
+without and `GET /contacts/creation-requirements` serves.
+
+## The objection that was recorded against it, and why it failed
+
+P5's report gave a reason not to do this:
+
+> ~~Adding `jobRole` to its minimum makes Job Title mandatory THERE too, on
+> a dialogue this round never looked at. That is a change to what every
+> creation path requires.~~
+
+**That sentence was written in the voice of a measurement and was never
+one.** It is left visible here and struck at its own site, because a
+premise failed rather than a preference changing.
+
+**Measured before the ruling was taken.** 39 call sites POST to
+`/contacts`. Two are product surfaces:
+
+- the **inline buyer-contact dialogue** (`frontend/app.js`) already sends
+  `jobRole` AND already **requires** it, in that surface's own `REQUIRED`
+  list, refusing to submit without one. It collects Job Title, LinkedIn and
+  a full address. It is not a fast-capture path and it is not harmed.
+- the **New Lead batch grid** derives its markers from the endpoint and
+  builds its body from its own column list, so it took the new requirement
+  up with **no edit and no rebuild** - proven live: seven markers where
+  there were six, `NewLeadGrid.tsx` byte-identical.
+
+The real cost was ten probe and fixture scripts that did not send the
+field. Mechanical.
+
+## And the ruling closes a gap rather than adding a constraint
+
+Job Title was enforced in the CLIENT only, on one screen, so a direct POST
+created a Contact without one. **Presentation communicates; it never
+enforces.** The server not requiring what a screen requires was the defect,
+not the rule that fixed it.
+
+## The general shape, worth keeping
+
+**A requirement that exists on one screen and not at the route is not a
+lenient server, it is an unenforced rule with a witness.** The screen makes
+it look enforced, which is what stops anybody checking.
+
+# The country to region autofill is deleted, and carried for possible restoration
+
+Ruled by the business as R12, 2026-09-11, at the same sign-off. **Low
+priority, carried, and recorded as a DECISION rather than left as a silent
+loss.**
+
+`regionForCountry` mapped a typed country to one of six regions. Its own
+comment recorded that it was *"scoped to the New Lead creation form only"*,
+and the detail page deliberately never used it - Country and Region were
+always edited independently there.
+
+P5 retired that form. A comment-stripped sweep of the whole estate then
+found the declaration and **zero readers**, so it was deleted with the
+surface it served.
+
+**The capability is gone from the estate, not moved.** Typing a country
+fills in a region nowhere. The ruled batch grid has no address columns at
+all, so there was no surface in P5 to carry it to.
+
+The map is recoverable: it is in git history and in the prototype at
+`Terminus Ops.dc.html:7510-7523`.
+
+**Why this is written down at all.** A deleted function with zero readers
+leaves no trace that a capability ever existed - no test fails, no screen
+changes, and the next person to want country-to-region autofill would build
+it from nothing without knowing it had been there. **A deletion that is
+correct can still be worth announcing**, and the thing that makes it
+announceable is that somebody decided, rather than that nobody noticed.

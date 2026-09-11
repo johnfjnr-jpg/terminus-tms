@@ -134,6 +134,7 @@ try {
   // ══ THE CONTACT ROUTE ══════════════════════════════════════════════════
   console.log('\n-- POST /contacts/:id/create-opportunity')
   const contact = await body('POST', '/contacts', {
+    jobRole: 'Head of Ops',
     name: `${TAG} contact person`, company: `${TAG} Holdings`, email: `${TAG}@example.invalid`,
     mobile: '+65 9000 0001', industry_id: industry.id, source: 'Referral', country: 'Singapore',
   })
