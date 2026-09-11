@@ -57,10 +57,15 @@ to an instruction, a ruling, or a named correction.
 | 32 | `9f2c533` | **rulings R11 and R12** |
 | 33 | `8e1ffc2` | close: promotions |
 | 34 | `aee9a6f` | close: CURRENT_STATE |
-| 35 | this | close: the brief reconciled and the close-out |
+| 35 | `6f1cd97` | close: the brief reconciled and the close-out |
+| 36 | `19efa9d` | close: the gate result, F6 and F7 |
 
-**Unaccounted 0. Phantom 0.** The count is stated against `rev-list` in
-section 9, taken on the final tree.
+**36 enumerated. `git rev-list --count 9a88f89..HEAD` reads 36.
+Unaccounted 0. Phantom 0.**
+
+Commit 36 is markdown only, no gate stage reads it, and it rides the
+green gate on `6f1cd97` under build discipline 48(a) - named here rather
+than skipped quietly, which is what makes the ride auditable.
 
 ### And the count found what it is there to find
 
