@@ -35,6 +35,42 @@ it.**
 - **Notes:** timestamped, newest first, **default last 2**, expand to **10** or
   **All**. Add Note appends as the latest note.
 
+## Rulings of record (John, 2026-09-11, on the Phase 0 report)
+
+**R1. NURTURE IS A RELABEL OF `Parked`.** Test data only, no backfill concern -
+**the action is identical.** Relabel the status value and every surface that
+displays it, and **supersede "Parked" in writing wherever it was recorded as a
+decision** (Verification 23).
+
+**R2. P1 ABSORBS the carried `Unqualified -> Parked`(Nurture) reachability
+item.** This round makes that transition load-bearing, **so this round proves
+it**: the `followUpDate` rule must be shown to gate it, **both directions**.
+
+**R3. A3 WINS over the recorded field-row contract**, applied to **all four
+surfaces** - Contact, Test Bed, Reference, Account. Escape reverts the focused
+field to its last saved value everywhere. **The contract's deliberate
+no-discard decision is superseded IN WRITING at its recorded site**, not left
+standing beside the new behaviour. **John ruled this knowing it touches
+surfaces outside Leads.**
+
+**R4. A1's per-field Discard removal is done ONCE** on the shared
+`FieldRow`/`EditBar`, removing it across all four surfaces, replaced by
+form-level Save + Discard with form-level dirty tracking. **John ruled this
+knowing the blast radius.**
+
+### An instruction received truncated, recorded as such
+
+**The P1 instruction arrived cut off mid-item-5**, at "BUILD the follow-up task
+(calendar date + description) on ALL". **Item 5 is completed from this brief's
+own design of record**, which is the authoritative statement and not a guess:
+
+> A follow-up task (calendar date + description) exists on **all statuses**,
+> independent of the Nurture reason.
+
+**Whether items 6 or beyond existed is unknown and is NOT assumed away.** P1
+stops after item 5 and asks. Recorded here rather than only in a report,
+because a truncation discovered later reads as an oversight.
+
 ## Phases, in build order. Each stops for sign-off.
 
 ### P1: lifecycle logic

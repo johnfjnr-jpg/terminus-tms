@@ -182,6 +182,27 @@ calibrated.
 | 11 | Class names and the DOM contract | **No vanilla class names are copied.** Visibility uses the `hidden` ATTRIBUTE, which is load-bearing: a hidden subtree is out of the tab order by specification, so a closed row's input cannot be reached by keyboard - the second half of behaviour 2's own recorded defect |
 
 **One observation about this document rather than about the component.**
+> ## SUPERSEDED 2026-09-11: ESCAPE NOW REVERTS
+>
+> **John ruled A3 at the Leads round's Phase 0 sign-off, knowing it touches
+> surfaces outside Leads.** Escape reverts the focused field to its last saved
+> value, on **all four** surfaces the row serves - Contact, Test Bed, Reference
+> and Account.
+>
+> **The superseded decision is left in place below rather than deleted**, and
+> the signature line above points here rather than silently changing meaning.
+> Verification 23 is explicit that two correct decisions taken in different
+> rounds produce a conflict nothing detects, and that **the fix is deletion of
+> one, not reconciliation** - so this is recorded as a supersession with a date
+> and an author, not as a second opinion.
+>
+> **What made the original defensible, and why it was still changed.** It was
+> stated as a NEGATIVE on purpose, which the paragraph below explains made it
+> read as specification rather than as a description of existing code. That is
+> exactly why it could not simply be overwritten: somebody chose it. The ruling
+> is that a row behaving differently by surface would be worse than either
+> rule, so the change is applied everywhere at once.
+
 Behaviours 5 and 6 are both stated as **negatives** - "discard is not close",
 "the bar is a property of the surface, not of a row". With the vanilla source
 open, a negative reads as a note about how the existing code happens to work.
@@ -228,7 +249,7 @@ interface FieldEditorProps {
   field: FieldDescriptor
   value: string                  // the draft if there is one, else the original
   onChange(next: string): void   // a CANDIDATE; the row applies its own guard
-  onRequestClose(): void         // Escape. The row closes; it does NOT discard
+  onRequestClose(): void         // Escape. SUPERSEDED 2026-09-11 - see below
   focusRef: RefObject<HTMLElement | null>
   testId: string
 }
