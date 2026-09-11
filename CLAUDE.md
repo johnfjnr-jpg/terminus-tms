@@ -1071,6 +1071,29 @@ of the change. An unanswerable precondition is a stop.
    family as rule 33, a measure that cannot see the thing that broke, with a
    specific remedy 33's general one does not give.
 
+   **AND A REPLACED CONTROL INHERITS THE ROLE OF THE ONE IT REPLACES, AND A
+   ROLE CARRIES A TREATMENT.** The LEADS round, 2026-09-11. The clause above
+   is about everything AROUND the new markup surviving. This is about the new
+   control itself, and it is the half that every assertion passes on.
+
+   **The instance.** The retired New Lead form's Save was
+   `<button class="btn-primary">`. Its replacement shipped as `<button>` with
+   no class. **Present, positioned bottom-right, correctly disabled when there
+   was nothing to save, and clicking it saved** - so presence, position, state
+   and behaviour all read green, on a **white browser default sitting on a
+   dark screen**.
+
+   Found by opening the screenshot, which is Verification 4's remedy and its
+   limit: looking tells you afterwards, and only if you look.
+
+   **The check, and it is assertable rather than a reminder: when a control
+   replaces another, assert it carries the replaced control's CLASS**, not
+   only that it exists. One line, and it fails the day somebody rebuilds the
+   footer. Where the estate has a named treatment for the role - `btn-primary`,
+   `btn-ghost`, `cd-title` - that name is the contract, and a replacement that
+   invents its own metrics is Verification 20's second reader arriving in the
+   stylesheet.
+
 8. **Every Supabase call has its `error` checked, including upserts and
    any write whose result is not otherwise read.** An unchecked write
    returns success with nothing stored. Two confirmed instances of this
@@ -1202,6 +1225,35 @@ of the change. An unanswerable precondition is a stop.
    guard whose removal changes nothing observable is either dead or
    redundant, and both are worth knowing before it becomes the thing somebody
    else trusts.
+
+   **AND AN INJECTION CAN FIRE WITHOUT EVER REACHING THE CHECK IT WAS WRITTEN
+   FOR, WHICH READS EXACTLY LIKE A CALIBRATED ASSERTION.** The LEADS round,
+   2026-09-11, and it is the gap between rule 9 and rule 51: 51 says explain
+   the SILENCES, and this one is not silent. It goes red.
+
+   **The instance.** An injection removed a grid's auto-extend. The run went
+   red and the harness printed `FIRED`. What actually happened is that the
+   probe died six lines earlier, at
+   `page.click('[data-testid="nlg-name-4"]')` - **a blur target that exists
+   only BECAUSE auto-extend works.** The auto-extend assertion itself was
+   never reached, in that run or any other, so the one thing a calibration
+   exists to establish had not been established for it.
+
+   **The shape is a check that is only ever REACHED when it passes**, and
+   nothing in the output can show it: a red run and a red run look the same.
+   The assertion was in the file, the injection was real, the verdict was
+   FIRED, and the check was decorative.
+
+   **The check: a calibration reads WHICH assertion failed, not whether the
+   run failed.** Anchor on the test name or the check's own text rather than
+   on the exit code, and when an injection kills the probe early, move the
+   setup off the thing under test - here the blur moved to a `th`, which is
+   always present, and the same injection then reported
+   `FAIL focusing the last row extends the grid`.
+
+   **And a probe's SETUP must not depend on the behaviour it is testing**,
+   which is the reusable half. The dependency is invisible while the feature
+   works, and it is the feature working that hides it.
 
    **AND A DETECTOR ANCHORED ON THE DEFECT IT WATCHES STOPS BEING CALIBRATED
    THE DAY THAT DEFECT IS FIXED.** The convert atomicity round, 2026-09-08, and
@@ -2071,6 +2123,29 @@ of the change. An unanswerable precondition is a stop.
     project. **Each of those currently exists as an intention.** A zero is
     evidence only once the instrument has produced a non-zero, and a recovery
     is a procedure only once it has recovered something.
+
+    **AND THE POPULATION CAN BE TOO WIDE, WHICH RULE 25 DOES NOT SAY.** The
+    LEADS round, 2026-09-11. Rule 25's own sentence is "far too SMALL a
+    population", and every instance under it is an instrument pointed at less
+    than the claim covers. **This is the mirror, and it reports a confident
+    number that is simply somebody else's.**
+
+    A P3 probe counted note rows with `document.querySelectorAll`. It read
+    **22 on a record that has 6**. The extra sixteen belonged to other cards
+    on the same page: the app is a single document with several screens and
+    many records resident at once, so a document-wide selector answers for
+    **whatever is in the DOM**, not for the thing under test.
+
+    **It is worse than a narrow population because it cannot read as empty.**
+    A too-small population tends toward zero, and a zero is at least
+    suspicious. A too-wide one returns a plausible, non-zero, wrong number,
+    and there is nothing in it to notice.
+
+    **The check: a probe about a THING scopes its selector to that thing's own
+    element, never to the document.** Find the card, the row, the panel by its
+    own test id, then query WITHIN it. Where a document-wide query is genuinely
+    what is meant, say so and assert the expected total, because a count that
+    can silently absorb a neighbour is not a measurement of anything.
 
     **AND A DELETION SIZED BY THE SUITE IS SIZED ON THE WRONG POPULATION.**
     Round 8 Phase 3, and it is this rule's clause arriving at a retirement.
