@@ -10891,3 +10891,73 @@ changes, and the next person to want country-to-region autofill would build
 it from nothing without knowing it had been there. **A deletion that is
 correct can still be worth announcing**, and the thing that makes it
 announceable is that somebody decided, rather than that nobody noticed.
+
+# The LEADS round, closed 2026-09-11
+
+Five phases, 38 commits, gated at `6f1cd97` on **22 of 22 PASS, 0 SKIP, 0
+FAIL, door stage green**. Pushed to `origin/main` on John's word,
+confirmed by `ls-remote` matching local HEAD.
+
+## What shipped
+
+The Lead lifecycle became one thing rather than several. **Parked is
+Nurture**, reachable from any stage; **company** joined the Qualify
+completeness gate; the reason-as-note and the follow-up task exist on
+every status. Lead Detail and the Leads list were rebuilt to the ruled
+layouts, the list grouping only the leads still being worked - **a
+Qualified lead graduates to Contacts rather than sitting in the
+pipeline** - and the New Lead single-record form was replaced by a batch
+grid and **retired rather than left beside its replacement**.
+
+## The five things worth carrying, in the order they cost the most
+
+**A DERIVED REQUIREMENT PROVED ITSELF.** R11 made Job Title mandatory
+server-side, and the grid's marker set went from six to seven **with no
+edit to the grid and no rebuild** - `NewLeadGrid.tsx` byte-identical to
+its own commit. That is the whole argument for deriving a rule from its
+single statement rather than restating it: the screen could not be wrong
+about what the server requires, because it does not hold an opinion.
+
+**AND THE OBJECTION TO R11 WAS AN UNMEASURED PREMISE.** The P5 report
+argued against it because the change would reach the inline buyer-contact
+dialogue. Measured, that dialogue **already required Job Title in its own
+client-side list**, so no product surface changed at all - and the ruling
+turned out to close an enforcement gap rather than add a constraint,
+since the field had been enforced in the client only and a direct POST
+bypassed it. A sentence written in the voice of a measurement, believed
+for a phase.
+
+**THE COUNT AT THE CLOSE FOUND THE BRIEF WRONG AGAIN.** 8 rulings
+recorded while 11 were in force. The previous round was 8 while 10 were.
+**Build discipline 7's detector works and its practice is failing**, two
+rounds running, and the fix it names - append at the phase that launches
+the work - is the half that keeps not happening.
+
+**THE GATE CALLED A SKIP A PASS.** The first close gate printed `All 22
+stages passed.` with the door stage SKIPPED for want of a browser. The
+stage's own source says a SKIP there is unanswered at a round close. **A
+false green inside the instrument the whole estate quotes at itself**,
+caught only because the closing instruction said "door stage green not
+skipped". Carried as the next round's first act.
+
+**AND THE GATE HAD NEVER RUN ALONE.** Two orphaned processes from a dead
+session, five days old, hung against this dev server and database through
+every gate of this round and the last. Nothing was watching them and
+nothing would have reported them. **"Nothing else running" was an
+assumption for two rounds.**
+
+## What a screenshot found that nothing else could
+
+The batch grid's Save shipped unclassed: present, positioned
+bottom-right, correctly disabled, and it saved. **A white browser default
+on a dark screen with every assertion green.** Its siblings on the Lead
+cards still are, and no suite can see them either.
+
+## The standing qualification remains
+
+The eight vanilla-asserting suites are still not evidence about the deal
+form, the reference tab or the version panel. Every Lead surface in this
+round was verified by live DOM and screenshot instead.
+
+**And the round's screens have not been walked by a person.** A walk is
+this project's stopping condition; P3, P4 and P5 have had probes only.
