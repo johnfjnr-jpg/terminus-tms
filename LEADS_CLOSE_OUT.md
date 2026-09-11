@@ -67,6 +67,23 @@ Commit 36 is markdown only, no gate stage reads it, and it rides the
 green gate on `6f1cd97` under build discipline 48(a) - named here rather
 than skipped quietly, which is what makes the ride auditable.
 
+**AND THE TABLE CANNOT NAME ITS OWN COMMIT, so the count is stated with
+its terminator rather than chased.** Writing row 36 produced commit 37;
+recording that would produce 38, and so on. This is the same
+self-reference `CURRENT_STATE.md` rule 1 records - a generated file can
+never name the commit it is committed in, and a rule that demands it can
+never pass.
+
+**The terminating statement, which is the auditable form:** the table
+enumerates every commit of the round's WORK and its close through the
+gate result, 36 of them, matching `rev-list` at the moment it was
+written. **The commits after row 36 are this bookkeeping and nothing
+else**, they are markdown only, they ride the same 48(a) green, and they
+are named here. A reader can therefore reconcile `rev-list` against the
+table exactly: any excess over 36 is close-out bookkeeping, enumerable by
+`git log --oneline 6f1cd97..HEAD`, and if it contains anything that is
+not markdown, that is a finding.
+
 ### And the count found what it is there to find
 
 **The brief carried 8 rulings while 11 were in force.** R5, R11 and R12
