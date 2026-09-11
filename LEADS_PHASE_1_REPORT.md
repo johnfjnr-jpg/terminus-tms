@@ -8,55 +8,67 @@ unapplied migration, and neither is blocked on anything I can do.
 
 ---
 
-## NOT COMPLETE
+## COMPLETED AFTER THE APPLY, 2026-09-11
 
-### Item 1, the code half: two one-line sites, held for Phase 1b
+**Both items that were blocked are now done.** John applied the migration
+through the Supabase SQL editor, which is this repo's actual practice - my
+first instruction named `npm run db:push` and was wrong for it.
 
-The migration is **written and unapplied** (`20260911000001_contact_nurture_relabel.sql`).
-Until John applies it, the database knows `Parked` and not `Nurture`, so
-changing these two sites now would break the live screen:
-
-| site | today |
-|---|---|
-| `ContactHost.tsx:257` | POSTs `to_stage: 'Parked'` |
-| `ContactPanel.tsx:111` | renders `'Parked lead'` |
-
-**Held deliberately, not overlooked.** Landing them before the apply produces a
-client that asks for a stage the server does not have.
-
-### Item 3, the Nurture gate proof: blocked, and the block IS the finding
-
-`Unqualified -> Nurture` **cannot be reached at all today**:
+**Verified independently over PostgREST, not taken on report:**
 
 ```
-400 "cannot skip stages: Parked is not the next stage after Unqualified"
+stage_definitions   Unqualified 1 false | Qualified 2 false | Nurture 3 TRUE
+gate rule           Unqualified -> Nurture  payload_field_required followUpDate
+still named Parked  stage_definitions 0, gate_rules 0, records 0, defaults 0
+relabelled          6 records now Nurture (the soft-deleted six)
 ```
 
-Nurture is `sort_order` 3 and Qualified is 2, so the adjacency check in
-`transitions.js` refuses the jump, **and the `followUpDate` gate beneath it is
-dead code.** That is `RECORD_CREATION_ATOMICITY_BRIEF.md` R4c measured live
-rather than inferred - the carried item R2 absorbed, confirmed.
+### R2's carried item is CLOSED
 
-**The fix is in the same migration** and is a configuration correction rather
-than a build: `reachable_from_any_stage`, the estate's existing side-branch
-mechanism, **already carried by `opportunity/'Closed Lost'`**. `transitions.js`
-says why it is the right one - it "widens which stages may be entered from
-here, not what is required to enter them" - so the `followUpDate` requirement
-is untouched and must still be satisfied.
+The lifecycle probe went **5/8 to 7/8**, and the two that moved are exactly
+what the prior ruling required:
 
-**The proof re-runs unchanged after the apply.** The probe **reads** the stage
-name from `stage_definitions` rather than typing it, so it is correct on both
-sides and prints which side it is on. No Phase 1b rewrite.
+```
+PASS  no followUpDate      -> Nurture REFUSED 422, naming followUpDate
+PASS  followUpDate present -> Nurture LANDS 200, record now Nurture
+```
+
+**The probe needed no rewrite.** It reads the stage name from
+`stage_definitions` rather than typing it, so the same file ran on both sides
+of the apply and printed which side it was on.
+
+### Item 1's code half: 2 sites, 0 `Parked` literals left
+
+**And the live-DOM check earned its place twice**, which is why the instruction
+required it instead of the suites.
+
+**The react suite passed 932/932 with the string changed.** Had anything
+asserted `"Parked lead"`, flipping it would have gone red. Nothing did - so the
+label is **unasserted**, and the suite is not evidence about it either way.
+
+**And this would have shipped:** the first live-DOM run showed the screen still
+rendering the OLD label while source, typecheck and 932 tests were all green.
+**The served bundle is a second reader of the source and had not been rebuilt.**
+`check-dist-fresh.mjs` exists for exactly this and says so in its own comment.
+
+A third correction was the **instrument**: the assertion tested `/Nurture lead/`
+and failed against a correct screen, because the element is CSS
+`text-transform: uppercase` and `innerText` returns the **transformed** text.
+An assertion about what a person SEES matches what is rendered.
+
+Both halves asserted: `Nurture lead` present **and** `Parked` absent.
+Screenshot read: **NURTURE LEAD** with a NURTURE badge, notes header **LATEST
+FIRST**.
 
 ---
 
-## What existed versus what was built
+## What existed versus what was built## What existed versus what was built
 
 | item | verdict |
 |---|---|
-| 1. Relabel | **migration written, unapplied**; 2 code sites held |
+| 1. Relabel | **COMPLETE** - migration applied, 2 code sites landed, live-DOM verified |
 | 2. Qualify enforcement | **existed** - 14 gate rules. **Proven.** |
-| 3. Nurture gate | **existed but unreachable.** Fix written; proof blocked |
+| 3. Nurture gate | **existed but unreachable.** Fixed and **PROVEN both directions** |
 | 4. Reason-as-note | **ALREADY BUILT.** Proven, not built |
 | 5. Follow-up task | **built** - one key. Proven, calibrated 2/2 |
 | 6. Notes model | **largely existed.** Gaps below |
@@ -79,9 +91,9 @@ PASS  Summary incomplete    -> Qualified REFUSED 422, naming summary
 PASS  all three complete    -> Qualified LANDS 200, record moves
 PASS  complete, NON-OWNER   -> REFUSED 403 ownership-shaped, record does not move
 PASS  the hold reason       -> recorded as a NOTE, newest first, no separate field
-FAIL  Contact Details incomplete -> Qualified LANDS 200          <- finding
-FAIL  no followUpDate -> Nurture REFUSED                          <- blocked
-FAIL  followUpDate present -> Nurture LANDS                       <- blocked
+PASS  no followUpDate       -> Nurture REFUSED 422, naming followUpDate
+PASS  followUpDate present  -> Nurture LANDS 200, record now Nurture
+FAIL  Contact Details incomplete -> Qualified LANDS 200          <- the one finding
 ```
 
 **The refusal is asserted to be ownership-SHAPED, not merely a 4xx.** A
@@ -223,9 +235,7 @@ having existed.
 
 - **Nothing about any screen.** The disabled Qualify hint, the list and the
   detail rendering are P2/P3 by the instruction's boundary.
-- **The Nurture gate is unproven until the migration applies.** The probe is
-  written and re-runs unchanged.
 - **`company`'s status is a finding, not a decision.**
-- **No live-DOM verification was needed**: no P1 change reached a surface, so
-  the standing qualification was not exercised.
+- **The live-DOM check covered the relabel only.** No other P1 change reaches a
+  surface.
 - The P3-P5 mockups are still absent.
