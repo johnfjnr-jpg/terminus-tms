@@ -201,17 +201,33 @@ function ownedByMe(view) {
 
 // ── WHICH VIEWS HAVE A DOOR ─────────────────────────────────────────────
 //
-// TRUE FOR account-detail and contact-detail, and the asymmetry is still the
-// point: Phase 0 of Rounds 2 and 6 measured NO ownership read on either
+// ~~TRUE FOR account-detail and contact-detail~~, and the asymmetry is still
+// the point: Phase 0 of Rounds 2 and 6 measured NO ownership read on either
 // surface, so inventing one would be the migration adding behaviour. They are
 // open by ruling, not by omission.
+//
+// ── SUPERSEDED FOR contact-detail, 2026-09-11, Leads round A5 ───────────
+//
+// John ruled that the door must reach EVERY write on the Lead view - fields,
+// Qualify, Nurture, Add Note, the follow-up task - on an unowned lead. The
+// reasoning above was correct when written and rests on a premise A5 replaces:
+// the migration was not to ADD behaviour the vanilla lacked, and A5 is a
+// deliberate decision to add it.
+//
+// The superseded wording is struck rather than deleted, per Verification 23: a
+// later reader must be able to see that a premise was replaced rather than
+// find two rules disagreeing.
+//
+// ACCOUNT-DETAIL IS UNCHANGED and stays open by that same ruling. A5 named the
+// Lead view, and widening it to Account on the strength of a shared sentence
+// would be exactly the inference this estate keeps being caught by.
 //
 // The Test Bed and the Opportunity are doored, and both now answer from the
 // record. Neither reads a class, so no swap can reopen either by retiring a
 // writer - the property this whole change exists for.
 const CAN_EDIT_BY_VIEW = {
   'account-detail': () => true,
-  'contact-detail': () => true,
+  'contact-detail': () => ownedByMe('contact-detail'),   // A5, was `true`
   'test-bed-detail': () => ownedByMe('test-bed-detail'),
   'opportunity-detail': () => ownedByMe('opportunity-detail'),
 }

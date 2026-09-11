@@ -10,6 +10,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useShell } from '../ShellContext'
 import { ContactHost } from './ContactHost'
 import { returnViewFor } from './ContactHost'
+import { notMine } from '../testbed/viewLoad'
 
 const VIEW = 'contact-detail'
 
@@ -19,6 +20,8 @@ interface ContactRecord {
   industry_id?: string | null
   parent_record_id?: string | null
   status?: string | null
+  /** A5: the door's question. Already returned by GET /contacts/:id. */
+  owner_id?: string | null
   account?: { id?: string, name?: string } | null
   latest_revision_number?: number | null
 }
@@ -86,6 +89,45 @@ export function ContactView({ contactId, navToken }: { contactId: string, navTok
   // than a per-transition one.
   const settled = !contact.isPending
   useEffect(() => { if (settled) shell.detailLoaded(VIEW) })
+
+  // ── A5: THE DOOR, ON THIS VIEW AT LAST ────────────────────────────────
+  //
+  // Phase 0 measured that applyReadOnlyControls had two call sites and both
+  // named view-opportunity-detail, plus R11's on the Test Bed view. THE LEAD
+  // VIEW HAD NO DOOR AT ALL.
+  //
+  // ── IT HAS THREE PARTS, AND TWO OF THEM RUN DURING RENDER ─────────────
+  //
+  // A first attempt did the class and the sweep in an effect and left the
+  // third part out entirely. The door probe read 0 write controls reachable
+  // and A6 then OPENED AN EDITOR on the same unowned lead - two instruments
+  // disagreeing, which is the finding rather than a probe fault.
+  //
+  // The third part is the ROW's own guard. `useFieldRows` asks
+  // shell.canEditFields(), which app.js answers from CAN_EDIT_BY_VIEW, which
+  // for contact-detail returned a literal `true`. The class stops a mouse; the
+  // register is what stops the row opening at all.
+  //
+  // The register and the class are written DURING RENDER, matching
+  // TestBedView, because the row asks the question during ITS render. Written
+  // in an effect they are one render too late - which CLAUDE.md records as a
+  // fix that measures identical to no fix at all.
+  const ownerId = contact.data?.owner_id ?? null
+  const doorClosed = settled && contact.data ? notMine(ownerId, shell.currentUserId()) : false
+  if (settled && contact.data) {
+    shell.setViewOwner(VIEW, ownerId)
+    const viewEl = typeof document === 'undefined' ? null : document.getElementById('view-contact-detail')
+    viewEl?.classList.toggle('is-not-mine', doorClosed)
+  }
+  // The sweep stays in an effect: it reads the PAINTED DOM, so it must run
+  // after the render the two lines above prepared.
+  useEffect(() => {
+    if (!settled) return
+    const apply = (window as unknown as {
+      applyReadOnlyControls?: (viewId: string, notMine: boolean) => void
+    }).applyReadOnlyControls
+    apply?.('view-contact-detail', doorClosed)
+  }, [settled, doorClosed, navToken])
 
   if (contact.isPending) {
     return <p className="pg-item-note" data-testid="contact-loading">Loading the Contact…</p>
