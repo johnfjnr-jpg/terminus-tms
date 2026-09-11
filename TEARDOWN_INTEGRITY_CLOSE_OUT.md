@@ -1,8 +1,9 @@
 # Teardown integrity: close-out
 
 **Gate: 22/22 PASS on `85c2784`**, exit 0, door stage PASS not SKIP, working
-tree clean, no dirty warning in the transcript. **Nothing pushed.** 9 commits
-await the word.
+tree clean, no dirty warning in the transcript. **Nothing pushed.** **11
+commits** await the word - reconciled one by one in section 6, including this
+document and the commit that corrects its own count.
 
 ---
 
@@ -126,14 +127,52 @@ heading and build discipline 7 says not to trust that.
 | Round instruction (brief) | 1 | `0a22bec` |
 | Opening act A1 (R1-R3) | 2 | `d4a301f` `f0dfe39` |
 | Phase 0 instruction (items 1-3) | 1 | `452b16c` |
-| Phase 1 = R7 in order + the residual, plus R6/R8 landed with it | 4 | `3070e6f` `3b213e7` `1f04171` `04f8ee9` |
-| Close instruction | 1 | `85c2784` |
-| **Total** | **9** | matches `git rev-list --count` |
+| Phase 1 = R7 in order + the residual, with R6/R8 landed alongside | 4 | `3070e6f` `3b213e7` `1f04171` `04f8ee9` |
+| Close instruction | 2 | `85c2784` promotions + `CURRENT_STATE`; `25aa9f2` **this document** |
+| Reconciliation instruction, 2026-09-11 | 1 | **this commit** |
+| **Total** | **11** | matches `git rev-list --count origin/main..HEAD` |
 
-Two of the nine are **corrections to the commit before them**, and both stand
+**CORRECTED 2026-09-11, and the error is worth keeping rather than quietly
+fixing.** The first version of this table totalled **9** while the closing
+statement said **10**, and John caught the mismatch before the word.
+
+**The cause is structural, not arithmetic: a table inside the document it counts
+cannot count itself.** It was written in `85c2784`, one commit before the
+close-out document existed, and was accurate for every commit that existed when
+it was written. The same trap then applies one level further out - correcting it
+creates the eleventh commit - so the table now **names itself and its own
+correction** rather than enumerating only its ancestors.
+
+**This is Verification 20's family**: the closing statement read its count from
+`git`, the table was assembled by hand, and the two disagreed. *The disagreement
+is the only thing that surfaced it* - had they agreed by luck, a commit would
+have ridden to a push unaccounted, which is exactly what the ruling forbids.
+
+Two of the eleven are **corrections to the commit before them**, and both stand
 with the wrong figure left visible.
 
----
+### The trailing commits' gate path
+
+**`85c2784` was GATED**: it touches `scripts/state-dump.mjs`, so it was not
+eligible to ride. 22/22 on that exact tree.
+
+**`25aa9f2` and this commit are markdown-only** - one file each, zero non-`.md`
+paths, confirmed by `git show --name-only` rather than by recollection - and
+ride the green gate on `85c2784` under 48(a). **The condition is measured per
+file, not inherited**, and the scan carries its own positive control:
+
+```
+files scanned (comment-stripped):                     378
+POSITIVE CONTROL, live files reading the known brief:   1   (the scan can see one)
+TEARDOWN_INTEGRITY_CLOSE_OUT.md
+   referenced by gate-run code:  0
+   referenced anywhere:          0
+```
+
+Without the control line the zero would be worth nothing (Verification 12): a
+scan that has stopped finding files reports exactly the same result as a scan
+that found nothing. `commercials-wiring.test.mjs` genuinely reads
+`COMMERCIALS_RESHAPE_PHASE_0_BRIEF.md`, so the scan is shown reaching one.
 
 ## 7. Revert rehearsal, and its boundary
 
