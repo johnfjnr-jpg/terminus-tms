@@ -8,6 +8,25 @@ import { countryToCode } from '../lib/country-code.js'
 
 const VALID_SOURCES = ['Web', 'Email Inquiry', 'Referral', 'Direct Outreach', 'Marketing Campaign']
 
+/**
+ * WHAT A LEAD NEEDS TO EXIST. The single statement of the creation minimum,
+ * read by POST /contacts and served by GET /contacts/creation-requirements.
+ *
+ * `jobRole` IS DELIBERATELY ABSENT and that is a FINDING rather than a
+ * decision taken here - P5's ruled layout marks Job Title mandatory and this
+ * route has never required it. Adding it would change every creation path,
+ * including the inline buyer-contact dialogue, which is not P5's to do.
+ * Reported instead.
+ */
+const CONTACT_REQUIRED_AT_CREATION = [
+  { key: 'name', value: (b) => b.name?.trim() },
+  { key: 'company', value: (b) => b.company?.trim() },
+  { key: 'email', value: (b) => b.email?.trim() },
+  { key: 'mobile', value: (b) => b.mobile?.trim() },
+  { key: 'industry_id', value: (b) => b.industry_id },
+  { key: 'source', value: (b) => b.source },
+]
+
 export default async function contactsRoutes(app) {
   // GET /api/contacts — excludes soft-deleted rows.
   // ?account_id= added Round 11 Phase 5, 2026-08-19. A NEW CAPABILITY, not an
@@ -149,19 +168,40 @@ export default async function contactsRoutes(app) {
   // gate, not here - all accepted as optional fields if provided. Notes,
   // if filled, seeds the real Notes History array's first entry rather
   // than being its own field - see below.
+  // P5: the grid asks what a lead needs, rather than being told twice.
+  app.get('/contacts/creation-requirements', async (_request, reply) => {
+    return reply.send({
+      required: CONTACT_REQUIRED_AT_CREATION.map(({ key }) => key),
+      sources: VALID_SOURCES,
+      // NO PATTERNS HERE, deliberately. `isValidMobile` is a two-part check -
+      // a character-set test and a digit count - and serialising it as one
+      // regex would be a SECOND STATEMENT of it that agrees today. The grid
+      // imports the function itself from src/lib/field-validation.js, the way
+      // useDealForm already imports rate-resolution. One definition, literally
+      // shared, rather than one definition and a copy of its shape.
+    })
+  })
+
   app.post('/contacts', async (request, reply) => {
     const {
       name, company, email, mobile, industry_id, source,
       summary, jobRole, linkedin, address, address2, city, postcode, country, region, notes,
     } = request.body ?? {}
 
-    const missing = []
-    if (!name?.trim()) missing.push('name')
-    if (!company?.trim()) missing.push('company')
-    if (!email?.trim()) missing.push('email')
-    if (!mobile?.trim()) missing.push('mobile')
-    if (!industry_id) missing.push('industry_id')
-    if (!source) missing.push('source')
+    // ── ONE SOURCE FOR "WHAT A LEAD NEEDS TO EXIST" ─────────────────────
+    //
+    // P5, 2026-09-11. The batch grid must mark the same fields mandatory that
+    // this route refuses without, and John ruled the set is DERIVED rather than
+    // hand-written on the client. The reason is in this round's own record:
+    // `company` and `parent_record_id` drifted apart precisely because two
+    // places described one requirement.
+    //
+    // So the list lives once, is applied here, and is served by
+    // GET /contacts/creation-requirements below. A field added to the tuple
+    // reaches the grid without anybody editing the grid.
+    const missing = CONTACT_REQUIRED_AT_CREATION
+      .filter(({ key, value }) => !value({ name, company, email, mobile, industry_id, source }))
+      .map(({ key }) => key)
     if (missing.length) {
       return reply.code(400).send({ error: 'missing required fields', missing })
     }

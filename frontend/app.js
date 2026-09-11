@@ -2904,27 +2904,18 @@ function formatDateTime(dateStr) {
   return `${datePart}, ${timePart}`
 }
 
-// Exact copy of the prototype's regionForCountry() (Terminus Ops.dc.html
-// :7510-7523) - only auto-fills when a match is found, never clears an
-// existing region for an unrecognised country. Scoped to the New Lead
-// creation form only, per the ask - the detail page's click-to-edit
-// fields edit Country and Region completely independently of each other
-// (cdEdits has no cross-field reactivity), and wiring that up is a
-// separate, larger change to a working mechanism, not attempted here.
-function regionForCountry(country) {
-  const c = String(country || '').trim().toLowerCase()
-  if (!c) return ''
-  const map = {
-    'united kingdom': 'Europe & UK', 'uk': 'Europe & UK', 'great britain': 'Europe & UK', 'england': 'Europe & UK', 'scotland': 'Europe & UK', 'wales': 'Europe & UK', 'northern ireland': 'Europe & UK',
-    'ireland': 'Europe & UK', 'france': 'Europe & UK', 'germany': 'Europe & UK', 'spain': 'Europe & UK', 'portugal': 'Europe & UK', 'italy': 'Europe & UK', 'netherlands': 'Europe & UK', 'belgium': 'Europe & UK',
-    'denmark': 'Europe & UK', 'sweden': 'Europe & UK', 'norway': 'Europe & UK', 'finland': 'Europe & UK', 'poland': 'Europe & UK', 'austria': 'Europe & UK', 'switzerland': 'Europe & UK', 'czech republic': 'Europe & UK', 'greece': 'Europe & UK',
-    'united states': 'Americas', 'usa': 'Americas', 'us': 'Americas', 'united states of america': 'Americas', 'canada': 'Americas', 'mexico': 'Americas', 'brazil': 'Americas', 'argentina': 'Americas', 'chile': 'Americas', 'colombia': 'Americas', 'peru': 'Americas',
-    'united arab emirates': 'Middle East', 'uae': 'Middle East', 'saudi arabia': 'Middle East', 'qatar': 'Middle East', 'kuwait': 'Middle East', 'oman': 'Middle East', 'bahrain': 'Middle East', 'israel': 'Middle East', 'jordan': 'Middle East', 'turkey': 'Middle East', 'egypt': 'Middle East',
-    'south africa': 'Africa', 'nigeria': 'Africa', 'kenya': 'Africa', 'ghana': 'Africa', 'morocco': 'Africa', 'ethiopia': 'Africa', 'tanzania': 'Africa', 'rwanda': 'Africa', 'senegal': 'Africa', 'ivory coast': 'Africa', 'uganda': 'Africa', 'zambia': 'Africa',
-    'australia': 'APAC', 'new zealand': 'APAC', 'singapore': 'APAC', 'japan': 'APAC', 'south korea': 'APAC', 'korea': 'APAC', 'china': 'APAC', 'hong kong': 'APAC', 'taiwan': 'APAC', 'india': 'APAC', 'malaysia': 'APAC', 'indonesia': 'APAC', 'thailand': 'APAC', 'vietnam': 'APAC', 'philippines': 'APAC',
-  }
-  return map[c] || ''
-}
+// P5 (2026-09-11): regionForCountry is DELETED, and the finding is recorded
+// rather than quietly absorbed. Its own comment above said it was "scoped to
+// the New Lead creation form only", and that form is retired, so a
+// comment-stripped sweep of the whole estate found the declaration and ZERO
+// readers. The map itself is in git and in the prototype at
+// Terminus Ops.dc.html:7510-7523.
+//
+// THE CAPABILITY IS GONE FROM THE ESTATE, not moved: typing a country no
+// longer fills in a region anywhere. It never worked on the detail page (that
+// comment recorded the reason), and the ruled batch grid has no address
+// columns at all, so there is no surface here to carry it. Named for John as
+// a lost capability, not rebuilt inside this phase.
 
 // Currency label is hardcoded (2026-08-15 fix), not a real backing field
 // - no currency picklist/payload key exists anywhere for Test Bed or
@@ -6252,16 +6243,21 @@ let newLeadDirty = false
 document.querySelector('#new-contact-form .modal-panel').addEventListener('input', () => { newLeadDirty = true })
 document.querySelector('#new-contact-form .modal-panel').addEventListener('change', () => { newLeadDirty = true })
 
+// P5: re-pointed from the retired #btn-save-contact to the grid's own Save.
+// The button is React's, so it may not be mounted yet - hence the guard.
 function clearNewLeadUnsavedWarning() {
-  document.getElementById('btn-save-contact').classList.remove('btn-attention')
+  document.getElementById('nlg-save')?.classList.remove('btn-attention')
   document.getElementById('contact-form-unsaved-warning').classList.add('hidden')
 }
 
+// P5: the modal now holds the React batch grid. The shell keeps what a modal
+// is - the backdrop, Escape, focus return - and React owns the grid inside it.
+// `populateContactFormPickers` and the field focus are gone with the
+// single-record form they served.
 async function openNewLeadModal() {
   newLeadDirty = false
   document.getElementById('new-contact-form').classList.remove('hidden')
-  await populateContactFormPickers()
-  document.getElementById('contact-name').focus()
+  if (typeof window.mountNewLeadGrid === 'function') window.mountNewLeadGrid()
 
   newLeadKeydownHandler = (e) => {
     // Inert while the discard-confirmation dialog is stacked on top -
@@ -6305,122 +6301,48 @@ function closeNewLeadModal() {
     document.removeEventListener('keydown', newLeadKeydownHandler)
     newLeadKeydownHandler = null
   }
-  clearContactForm()
   document.getElementById('btn-new-contact').focus()
 }
 
 document.getElementById('btn-new-contact').addEventListener('click', openNewLeadModal)
-document.getElementById('contact-country').addEventListener('input', (e) => {
-  const region = regionForCountry(e.target.value)
-  if (region) document.getElementById('contact-region').value = region
-})
-document.getElementById('btn-cancel-contact').addEventListener('click', requestCloseNewLeadModal)
+// P5: the grid creates leads and asks the shell to refresh the list. The shell
+// owns loadContactsData, so the shell is what re-reads - the grid does not
+// reach into a cache it does not own.
+window.renderLeadsCardsAfterCreate = () => { loadContactsData() }
+// P5: the country/region autofill and the Cancel button went with the
+// single-record form. `regionForCountry` still has live callers on the Lead
+// Detail address block, so the helper stays and only this call site goes.
 document.getElementById('btn-close-new-contact').addEventListener('click', requestCloseNewLeadModal)
+document.getElementById('btn-close-new-contact').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); requestCloseNewLeadModal() }
+})
 document.getElementById('new-contact-form').addEventListener('click', (e) => {
   if (e.target.id !== 'new-contact-form') return
   if (newLeadDirty) {
-    document.getElementById('btn-save-contact').classList.add('btn-attention')
+    // P5: re-pointed to the grid's own Save. The recorded distinction is
+    // unchanged - backdrop-click is an accidental dismissal and is refused
+    // outright; Escape and the X get a real choice.
+    document.getElementById('nlg-save')?.classList.add('btn-attention')
     document.getElementById('contact-form-unsaved-warning').classList.remove('hidden')
     // Guarantees Save + the warning are actually visible, not just
     // "shown" somewhere off-screen if the user was scrolled elsewhere
     // in the panel when they clicked outside.
-    document.querySelector('#new-contact-form .form-actions').scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    document.querySelector('#new-contact-form .new-lead-foot')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
     return
   }
   closeNewLeadModal()
 })
-document.getElementById('btn-save-contact').addEventListener('click', saveContact)
 
-// Company is plain free text here (2026-08-13 correction) - no Account
-// picker at fast lead entry. Only Industry still needs a real picklist.
-// Round 4 Phase 5 (2026-08-17): Company also gets a lightweight <datalist>
-// of existing Account names, suggestion only - the field itself is
-// unchanged, still a plain text input, no id is ever attached to what's
-// typed. Reuses accountsCache as-is (already fresh, loadContactsData()
-// refetches it on every Leads page load, same reasoning that cache
-// already documents for why it isn't cached across calls here) - no new
-// fetch, matching the "no new search endpoint" precedent already set by
-// Contact detail's own Account search.
-async function populateContactFormPickers() {
-  if (!industriesCache.length) {
-    const indResult = await api('GET', '/api/industries')
-    if (indResult.ok) industriesCache = indResult.data
-  }
-
-  document.getElementById('contact-industry').innerHTML = '<option value="">Select industry</option>' +
-    industriesCache.map(i => `<option value="${i.id}">${escHtml(i.name)}</option>`).join('')
-
-  document.getElementById('contact-company-list').innerHTML =
-    accountsCache.map(a => `<option value="${escHtml(a.payload?.name ?? '')}">`).join('')
-}
-
-async function saveContact() {
-  const errEl = document.getElementById('contact-form-error')
-  errEl.classList.add('hidden')
-  // Clicking Save is acting on the unsaved-changes warning, whether the
-  // save itself goes on to succeed or fail - if it fails, the red
-  // validation error above is the relevant message now, not this one.
-  clearNewLeadUnsavedWarning()
-
-  const name = document.getElementById('contact-name').value.trim()
-  const company = document.getElementById('contact-company').value.trim()
-  const industry_id = document.getElementById('contact-industry').value
-  const email = document.getElementById('contact-email').value.trim()
-  const mobile = document.getElementById('contact-mobile').value.trim()
-  const jobRole = document.getElementById('contact-jobrole').value.trim()
-  const linkedin = document.getElementById('contact-linkedin').value.trim()
-  const address = document.getElementById('contact-address').value.trim()
-  const address2 = document.getElementById('contact-address2').value.trim()
-  const city = document.getElementById('contact-city').value.trim()
-  const postcode = document.getElementById('contact-postcode').value.trim()
-  const country = document.getElementById('contact-country').value.trim()
-  const region = document.getElementById('contact-region').value
-  const source = document.getElementById('contact-source').value
-  const summary = document.getElementById('contact-summary').value.trim()
-  const notes = document.getElementById('contact-notes').value.trim()
-
-  // name/company/industry/email/mobile/source are mandatory here. The
-  // first five are leadMandatoryFields; Source is a confirmed deliberate
-  // departure from that list (2026-08-13 business decision), not a drift.
-  // Everything else below is sent only if filled in, since it's optional
-  // at creation and only mandatory at qualification (leadQualifyRequired).
-  // The real Account link (parent_record_id) isn't part of this form at
-  // all - that's resolved later via "Link to Account" on the detail page.
-  const body = { name, company, email, mobile, industry_id, source }
-  if (jobRole) body.jobRole = jobRole
-  if (linkedin) body.linkedin = linkedin
-  if (address) body.address = address
-  if (address2) body.address2 = address2
-  if (city) body.city = city
-  if (postcode) body.postcode = postcode
-  if (country) body.country = country
-  if (region) body.region = region
-  if (summary) body.summary = summary
-  if (notes) body.notes = notes
-
-  const result = await api('POST', '/api/contacts', body)
-  if (!result.ok) {
-    errEl.textContent = result.data.error ? `Missing or invalid: ${(result.data.missing ?? []).join(', ') || result.data.error}` : 'Failed to save contact.'
-    errEl.classList.remove('hidden')
-    return
-  }
-
-  closeNewLeadModal()
-  loadContactsData()
-}
-
-function clearContactForm() {
-  ;[
-    'contact-name', 'contact-company', 'contact-email', 'contact-mobile', 'contact-summary', 'contact-notes',
-    'contact-jobrole', 'contact-linkedin', 'contact-address', 'contact-address2', 'contact-city', 'contact-postcode', 'contact-country',
-  ].forEach(id => (document.getElementById(id).value = ''))
-  ;['contact-industry', 'contact-source', 'contact-region'].forEach(id => (document.getElementById(id).value = ''))
-  const errEl = document.getElementById('contact-form-error')
-  errEl.textContent = ''
-  errEl.classList.add('hidden')
-  newLeadDirty = false
-  clearNewLeadUnsavedWarning()
-}
+// P5 (2026-09-11): populateContactFormPickers, saveContact and
+// clearContactForm are DELETED with the single-record New Lead form they
+// served. Each was defined once and called once, and both call sites went
+// with the form, so they were left defined-and-never-called - the
+// #deal-form-vanilla shape, where a retired surface that still parses
+// absorbs an edit silently and source verification passes while the screen
+// does not move. The React batch grid posts to POST /api/contacts itself.
+//
+// `regionForCountry` is NOT deleted: it has live callers on the Lead Detail
+// address block. Only this form's call site went.
 
 // ── Test Beds ─────────────────────────────────────────────────────────────────
 // No standalone creation form (removed Milestone 4) - account_id is a hard

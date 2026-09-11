@@ -5824,7 +5824,8 @@ input.input-invalid {
  * is flex with wrap allowed, so a narrow window drops the right-hand group
  * onto a second line rather than overflowing. A test asserts the cells share
  * one row at 1440, which is where the ruled layout is measured. */
-.cd-title {
+.cd-title,
+.new-lead-title {
   color: var(--green);
   font-family: var(--mono);
   font-size: 12px;
@@ -5986,3 +5987,75 @@ input.input-invalid {
 @media (max-width: 1100px) {
   .lead-card-body { grid-template-columns: 1fr; }
 }
+
+/* ---------------------------------------------------------------------
+   P5: the New Lead batch grid (2026-09-11).
+
+   Its own width class rather than a widened .modal-panel-wide, which is
+   shared with the account-details and inline-buyer-contact modals at
+   520px - eight columns do not fit there and those two do not want the
+   room.
+   --------------------------------------------------------------------- */
+.modal-panel-batch {
+  max-width: min(1480px, 96vw);
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+}
+.new-lead-grid { display: flex; flex-direction: column; min-height: 0; gap: 14px; }
+.new-lead-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+/* No metrics of its own: P3 established this treatment as .cd-title and the
+   ruling for both screens is the same green uppercase title. One rule with two
+   selectors, so the two cannot drift apart. */
+.new-lead-title { margin: 0; }
+/* The grid is the scroll container, so the title and the Save row stay
+   put while rows accumulate under tab. */
+.new-lead-scroll { overflow: auto; min-height: 0; flex: 1; }
+.new-lead-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.new-lead-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--black);
+  text-align: left;
+  font-weight: 400;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 10px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--hairline);
+  white-space: nowrap;
+}
+.new-lead-table td { padding: 3px 4px; vertical-align: top; }
+.new-lead-table input,
+.new-lead-table select,
+.new-lead-table textarea {
+  width: 100%;
+  min-width: 110px;
+  box-sizing: border-box;
+}
+/* The required marker is the SERVER's answer rendered, not a styling
+   choice: NewLeadGrid puts .nlg-required on exactly the keys
+   GET /contacts/creation-requirements returns. */
+.nlg-required { color: var(--green); margin-left: 3px; }
+.nlg-why {
+  display: block;
+  color: rgba(242,100,100,0.9);
+  font-size: 10px;
+  margin-top: 2px;
+  max-width: 180px;
+}
+.new-lead-table input[aria-invalid="true"],
+.new-lead-table select[aria-invalid="true"] { border-color: rgba(242,100,100,0.9); }
+.new-lead-foot { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+/* The shell-owned modal frame: the close X and the accidental-dismissal
+   warning sit above React's mount point. */
+.new-lead-frame {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+.new-lead-frame .modal-close { line-height: 1; }

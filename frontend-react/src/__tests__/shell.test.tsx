@@ -99,10 +99,19 @@ describe('the bundle registers exactly the loaders it declares', () => {
     // property - app.js loads after this bundle, so it would overwrite the
     // registration and the delegation would call itself. Verification 41
     // records that exact collision costing a live walk.
+    //
+    // P5 adds `mountNewLeadGrid`, the New Lead batch grid's mount point.
+    // Checked the same way before adding it here, because this list going
+    // green is not the point - the collision is: a comment-stripped scan of
+    // app.js finds NO top-level `function mountNewLeadGrid` and no assignment
+    // to that name, only two reads. `renderLeadsCardsAfterCreate` travels the
+    // other way - app.js publishes it and the grid calls it - so the bundle
+    // does not register it and it is correctly absent below.
     expect(added).toEqual([
       'initOpportunityDealPanel', 'initOpportunityDealVersions',
       'initOpportunityReferencePanel', 'loadAccountDetail', 'loadApprovalPage',
-      'loadContactDetail', 'loadTestBedDetail', 'mountLeadsList'])
+      'loadContactDetail', 'loadTestBedDetail', 'mountLeadsList',
+      'mountNewLeadGrid'])
   })
 })
 

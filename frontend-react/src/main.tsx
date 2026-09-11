@@ -5,6 +5,7 @@ import type { Root } from 'react-dom/client'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ShellProvider } from './ShellContext'
 import { LeadsList } from './leads/LeadsList'
+import { NewLeadGrid } from './leads/NewLeadGrid'
 import { shellServices } from './shell-services'
 import { ApprovalView } from './ApprovalView'
 import { AccountView } from './account/AccountView'
@@ -69,6 +70,10 @@ declare global {
      * walk on the Test Bed view.
      */
     mountLeadsList?: () => void
+    /** P5: the New Lead batch grid, mounted into the shell's modal. */
+    mountNewLeadGrid?: () => void
+    /** Published by the shell so the grid can ask for a list refresh. */
+    renderLeadsCardsAfterCreate?: () => void
     initOpportunityDealPanel?: (opp: OppRecord) => void
     initOpportunityReferencePanel?: (opp: OppRecord) => void
     initOpportunityDealVersions?: (o: { opportunityId: string, seam: DealFormSeam }) => void
@@ -163,6 +168,14 @@ window.loadAccountDetail = register(ACCOUNT_VIEW,
 // P4: the Leads list. app.js's renderLeadsCards() delegates here.
 window.mountLeadsList = mountList('live-leads-rows',
   (navToken) => <LeadsList navToken={navToken} />)
+
+// P5: the New Lead batch grid, inside the shell's own modal.
+window.mountNewLeadGrid = mountList('new-lead-grid-mount',
+  () => <NewLeadGrid onDone={() => {
+    // The list is the shell's to refresh; the grid does not know about it.
+    const w = window as unknown as { renderLeadsCardsAfterCreate?: () => void }
+    w.renderLeadsCardsAfterCreate?.()
+  }} />)
 
 window.loadContactDetail = register(CONTACT_VIEW,
   (id, navToken) => <ContactView contactId={id} navToken={navToken} />)

@@ -133,124 +133,28 @@
          prototype's literal 5 (it doesn't mark Source) - a deliberate,
          already-confirmed business decision, not something this
          layout-matching pass revisits. -->
+    <!-- P5: THE NEW LEAD BATCH GRID.
+
+         The single-record form that lived here is RETIRED, not hidden beside
+         its replacement. Verification 41: a retired surface that still parses
+         absorbs an edit silently, and #deal-form-vanilla is the standing
+         example - an edit landed in the dead copy, source verification passed,
+         and the screen did not move.
+
+         The backdrop and panel stay because the shell owns the modal
+         behaviour - Escape, focus return, the unsaved guard. React owns only
+         the grid inside it. -->
     <div id="new-contact-form" class="hidden modal-backdrop">
-      <div class="modal-panel modal-panel-wide">
-        <div class="modal-header-sticky" style="display:flex;justify-content:space-between;align-items:flex-start">
-          <div>
-            <h2 style="margin:0">New lead</h2>
-            <p class="sub" style="margin-top:4px">Raw, unverified interest. Qualify it, then convert to a Contact plus a Test Bed or Opportunity.</p>
-          </div>
-          <span class="modal-close" id="btn-close-new-contact">&times;</span>
-        </div>
-        <div class="form-grid" style="margin-top:20px">
-          <div class="form-group">
-            <label for="contact-name">Name *</label>
-            <input type="text" id="contact-name" placeholder="Jane Smith">
-          </div>
-          <div class="form-group">
-            <label for="contact-company">Company *</label>
-            <!-- Round 4 Phase 5 (2026-08-17): lightweight autocomplete only
-                 - a native <datalist>, not a custom dropdown like the
-                 Account Details panel's Parent Account search. Deliberately
-                 chosen for this field specifically: a datalist suggests
-                 without ever resolving anything (selecting an option just
-                 fills the text value, no id, no onchange side effect),
-                 which is exactly "stays genuinely free text underneath,
-                 nothing is resolved, linked, or created" - the brief's own
-                 words - for free, rather than something a custom dropdown
-                 would have to be deliberately built not to do. -->
-            <input type="text" id="contact-company" list="contact-company-list" placeholder="Acme Corp">
-            <datalist id="contact-company-list"></datalist>
-          </div>
-          <div class="form-group">
-            <label for="contact-industry">Industry *</label>
-            <select id="contact-industry">
-              <option value="">Select industry</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="contact-jobrole">Job Role</label>
-            <input type="text" id="contact-jobrole" placeholder="Head of Operations">
-          </div>
-          <div class="form-group">
-            <label for="contact-email">Email *</label>
-            <input type="email" id="contact-email" placeholder="jane@acme.com">
-          </div>
-          <div class="form-group">
-            <label for="contact-mobile">Mobile *</label>
-            <input type="text" id="contact-mobile" placeholder="+44 7700 900000">
-          </div>
-          <div class="form-group full">
-            <label for="contact-address">Address Line 1</label>
-            <input type="text" id="contact-address" placeholder="1 Example Street">
-          </div>
-          <div class="form-group full">
-            <label for="contact-address2">Address Line 2</label>
-            <input type="text" id="contact-address2" placeholder="Optional">
-          </div>
-          <div class="form-group">
-            <label for="contact-city">City</label>
-            <input type="text" id="contact-city" placeholder="London">
-          </div>
-          <div class="form-group">
-            <label for="contact-postcode">Postcode / Zip</label>
-            <input type="text" id="contact-postcode" placeholder="EC1A 1AA">
-          </div>
-          <div class="form-group">
-            <label for="contact-country">Country</label>
-            <input type="text" id="contact-country" placeholder="United Kingdom">
-          </div>
-          <div class="form-group">
-            <label for="contact-region">Region</label>
-            <select id="contact-region">
-              <option value="">Select region</option>
-              <option value="Americas">Americas</option>
-              <option value="Europe &amp; UK">Europe &amp; UK</option>
-              <option value="Middle East">Middle East</option>
-              <option value="APAC">APAC</option>
-              <option value="Africa">Africa</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="contact-linkedin">LinkedIn</label>
-            <input type="text" id="contact-linkedin" placeholder="linkedin.com/in/janesmith">
-          </div>
-          <div class="form-group">
-            <label for="contact-source">Source *</label>
-            <select id="contact-source">
-              <option value="">Select source</option>
-              <option value="Web">Web</option>
-              <option value="Email Inquiry">Email Inquiry</option>
-              <option value="Referral">Referral</option>
-              <option value="Direct Outreach">Direct Outreach</option>
-              <option value="Marketing Campaign">Marketing Campaign</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Status</label>
-            <span style="padding:8px 0;color:var(--muted)">Unqualified</span>
-          </div>
-          <div class="form-group full">
-            <label for="contact-summary">Summary</label>
-            <textarea id="contact-summary" rows="3" placeholder="What they need, briefly"></textarea>
-          </div>
-          <div class="form-group full">
-            <label for="contact-notes">Notes</label>
-            <textarea id="contact-notes" rows="2" placeholder="Optional - seeds the first Notes History entry"></textarea>
-          </div>
-        </div>
-        <div class="form-actions" style="margin-top:20px">
-          <button class="btn-ghost" id="btn-cancel-contact">Cancel</button>
-          <button class="btn-primary" id="btn-save-contact">Save lead</button>
-          <span class="msg-error hidden" id="contact-form-error"></span>
-          <!-- Backdrop-click-to-close is blocked while the form has
-               unsaved changes (2026-08-13) - a real, contained instance
-               of INTERACTION_STANDARDS.md's deferred unsaved-changes
-               spec (Section 5), same discipline as Park's focus trap
-               being a small slice of Section 4 rather than the whole
-               system-wide version. -->
+      <div class="modal-panel modal-panel-batch">
+        <!-- The shell owns the modal FRAME: the close control, the
+             accidental-dismissal warning, focus return. React owns the grid.
+             The close X survives the form's retirement because it closes the
+             MODAL, not the form. -->
+        <div class="new-lead-frame">
           <span class="msg-warning hidden" id="contact-form-unsaved-warning">You have unsaved changes, save or cancel.</span>
+          <span class="modal-close" id="btn-close-new-contact" role="button" tabindex="0" aria-label="Close">&times;</span>
         </div>
+        <div id="new-lead-grid-mount"></div>
       </div>
     </div>
 
