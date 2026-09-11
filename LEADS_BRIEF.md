@@ -96,6 +96,22 @@ built.** Measured against the live server: `POST /records/:id/transition` with
 moves. `transitions.js` permits any backward transition by design. Whether to
 close it server-side is a **separate item**.
 
+### R9 and R10 (John, 2026-09-11, on the P4 report)
+
+**R9. GRADUATION. The product rule that defines the Leads screen:**
+
+> **The Leads screen shows Unqualified and Nurture only. On qualification a
+> lead graduates off the Leads pipeline and is worked as a Contact.**
+
+The Leads grouping is therefore **Unqualified / Nurture**. The Qualified group
+was built under the earlier three-group layout and is dropped here. **Proven
+live by MEMBERSHIP, not by a heading being absent:** one record followed by id
+across both screens, before and after the transition.
+
+**R10. Empty status headings are SHOWN** - "Nurture 0". A pipeline scan
+benefits from seeing that a stage is empty; a missing heading is not
+information.
+
 ## Phases, in build order. Each stops for sign-off.
 
 ### P1: lifecycle logic

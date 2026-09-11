@@ -10762,3 +10762,54 @@ likewise untouched.
 **The item, for a later round:** decide whether a reversal should be refused,
 gated on an entitlement, or allowed with a recorded reason - and note that the
 same answer probably governs every record type, not only leads.
+
+---
+
+# The Leads screen is a pipeline, and qualification is graduation
+
+**Ruled by John 2026-09-11 at the Leads round's P4 close. This defines what the
+screen IS, which is why it is a product rule and not a filter.**
+
+> **The Leads screen shows Unqualified and Nurture only. On qualification a
+> lead graduates off the Leads pipeline and is worked as a Contact.**
+
+**What it settles.** The Leads screen is the pipeline of leads *still being
+worked*. A Qualified record has stopped being a lead in that sense: it is a
+Contact, and Contacts is where it lives. The two screens therefore do **not**
+overlap, which the earlier three-group layout would have made them do.
+
+**The grouping is Unqualified / Nurture**, and **empty stage headings are
+shown** - "Nurture 0". A pipeline scan benefits from seeing that a stage is
+empty, and a missing heading is not information.
+
+## Why the pipeline is a NAMED SET and the order is not
+
+**"Which stages are still being worked" is a product decision.** No ordering or
+flag in `stage_definitions` carries it, and inferring it as "everything except
+Qualified" would silently adopt whatever a future migration adds. So the set is
+named in code, with this rule quoted at it.
+
+**The ORDER still comes from configuration**, so a stage relabelled or
+reordered by migration moves without an edit.
+
+**AND THE SET IS CHECKED AGAINST CONFIGURATION, which the `Parked` relabel
+earned.** A named set that quietly stops matching anything **empties this
+screen with no error at all**, and an empty pipeline reads exactly like "no
+leads right now". The list renders a visible mismatch warning when a pipeline
+name is not a configured stage. Same family as Architecture 9's fourth variant:
+a literal that was true when typed.
+
+## Proven by membership, not by absence
+
+The verification follows **one record by id across both screens**, before and
+after the transition:
+
+```
+before   on Leads, not on Contacts
+after    NOT on Leads, on Contacts
+```
+
+**The before half is what makes the after half mean anything.** "Not on Leads"
+is equally true of a record that never arrived, of a screen that rendered no
+groups, and of a fetch that failed - which is the shape Verification 14 names,
+and it is why an absent heading was not accepted as the proof.

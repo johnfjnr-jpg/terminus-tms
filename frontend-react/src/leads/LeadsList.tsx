@@ -15,12 +15,40 @@ import { LeadCard, type LeadRecord } from './LeadCard'
 
 interface Stage { stage_name: string, sort_order: number }
 
+/**
+ * R9, ruled by John 2026-09-11. THE PRODUCT RULE THAT DEFINES THIS SCREEN:
+ *
+ *   The Leads screen shows Unqualified and Nurture only. On qualification a
+ *   lead graduates off the Leads pipeline and is worked as a Contact.
+ *
+ * SO THIS IS A NAMED SET, NOT A DERIVATION, and that is deliberate. "Which
+ * stages are still being worked" is a product decision; no ordering or flag in
+ * `stage_definitions` carries it, and inferring it as "everything except
+ * Qualified" would silently adopt whatever a future migration adds.
+ *
+ * THE ORDER STILL COMES FROM CONFIGURATION, and the set is CHECKED against it
+ * below - because a named set is exactly what went stale when `Parked` became
+ * `Nurture`, and a set that quietly matches nothing empties this screen with no
+ * error at all.
+ */
+const LEADS_PIPELINE = ['Unqualified', 'Nurture']
+
 export function LeadsList({ navToken }: { navToken?: number }) {
   const shell = useShell()
   const [leads, setLeads] = useState<LeadRecord[]>([])
   const [stages, setStages] = useState<Stage[]>([])
   const [accounts, setAccounts] = useState<Array<{ id: string, payload?: { name?: string } }>>([])
   const [loaded, setLoaded] = useState(false)
+  // A COMPLETED-FETCH COUNTER, published on the root as `data-fetch`.
+  //
+  // Not for the component - for anything waiting on this list to have
+  // REFRESHED. `[data-testid="leads-list"]` exists from the previous render, so
+  // a probe waiting on it is satisfied by the state it is trying to watch
+  // change: a lead qualified and removed from the pipeline still read as
+  // present, because the read happened before the refetch landed.
+  // Verification 7 - state the counterfactual, and wait on something the OLD
+  // state cannot satisfy.
+  const [fetches, setFetches] = useState(0)
 
   const load = useMemo(() => async () => {
     const [c, s, a] = await Promise.all([
@@ -32,6 +60,7 @@ export function LeadsList({ navToken }: { navToken?: number }) {
     if (s.ok && Array.isArray(s.data)) setStages(s.data)
     if (a.ok && Array.isArray(a.data)) setAccounts(a.data)
     setLoaded(true)
+    setFetches((n) => n + 1)
   }, [shell])
 
   useEffect(() => { void load() }, [load, navToken])
@@ -41,14 +70,25 @@ export function LeadsList({ navToken }: { navToken?: number }) {
     l.account?.name ?? accounts.find((x) => x.id === (l as { parent_record_id?: string }).parent_record_id)?.payload?.name ?? null
 
   const grouped = useMemo(() => {
-    const order = stages.length
-      ? [...stages].sort((x, y) => x.sort_order - y.sort_order).map((x) => x.stage_name)
-      : []
+    // ORDER FROM CONFIGURATION, MEMBERSHIP FROM THE RULE. A stage relabelled or
+    // reordered by migration moves here without an edit; a stage that is not
+    // part of the pipeline never appears however it is ordered.
+    const configured = [...stages].sort((x, y) => x.sort_order - y.sort_order).map((x) => x.stage_name)
+    const order = configured.length
+      ? configured.filter((n) => LEADS_PIPELINE.includes(n))
+      : LEADS_PIPELINE
+
     const byStatus = new Map<string, LeadRecord[]>()
+    // R10: EVERY pipeline stage gets a heading, including an empty one. A
+    // pipeline scan benefits from seeing that a stage is empty - "no leads in
+    // Nurture" is information, and a missing heading is not.
     for (const name of order) byStatus.set(name, [])
     for (const l of leads) {
       const k = l.status ?? ''
-      if (!byStatus.has(k)) byStatus.set(k, [])
+      // R9: a Qualified lead has GRADUATED and is worked as a Contact. It is
+      // dropped here rather than grouped, so this is membership and not
+      // merely a hidden heading.
+      if (!byStatus.has(k)) continue
       byStatus.get(k)!.push(l)
     }
     // NEWEST FIRST within each group. `created_at` descending, and the compare
@@ -57,8 +97,16 @@ export function LeadsList({ navToken }: { navToken?: number }) {
     for (const list of byStatus.values()) {
       list.sort((x, y) => String(y.created_at ?? '').localeCompare(String(x.created_at ?? '')))
     }
-    return [...byStatus.entries()].filter(([, list]) => list.length > 0)
+    return [...byStatus.entries()]
   }, [leads, stages])
+
+  // THE SET IS CHECKED AGAINST CONFIGURATION, and this is the guard the Parked
+  // relabel earns. A pipeline name that no stage carries means this screen is
+  // quietly showing fewer stages than it claims - which looks exactly like "no
+  // leads in that stage" and would never be reported as a defect.
+  const unknownStages = stages.length
+    ? LEADS_PIPELINE.filter((n) => !stages.some((s) => s.stage_name === n))
+    : []
 
   const addNote = async (id: string, text: string) => {
     const lead = leads.find((l) => l.id === id)
@@ -78,10 +126,15 @@ export function LeadsList({ navToken }: { navToken?: number }) {
   }
 
   if (!loaded) return <p className="sub" data-testid="leads-loading">Loading leads.</p>
-  if (!grouped.length) return <p className="empty-state" data-testid="leads-empty">No leads.</p>
 
   return (
-    <div data-testid="leads-list">
+    <div data-testid="leads-list" data-fetch={fetches}>
+      {unknownStages.length
+        ? <p className="msg-error" data-testid="leads-stage-mismatch">
+            {`The Leads pipeline names a stage the configuration does not have: `
+              + `${unknownStages.join(', ')}. Leads in it would not appear here.`}
+          </p>
+        : null}
       {grouped.map(([status, list]) => (
         <section key={status} className="lead-group" data-testid={`lead-group-${status}`}>
           <h3 className="lead-group-title" data-testid={`lead-group-title-${status}`}>
