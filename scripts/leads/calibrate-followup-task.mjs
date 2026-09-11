@@ -15,6 +15,7 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync, rmSync } from 'node:fs'
 import { execFileSync, spawn } from 'node:child_process'
 import { createHash } from 'node:crypto'
+import { api, ApiError } from '../api-client.mjs'
 
 const ROOT = '/Users/johnfryatt/terminus-tms'
 const SNAP = process.env.SNAPDIR
@@ -46,11 +47,19 @@ async function restartServer() {
   child = spawn('node', ['--env-file=.env', 'src/server.js'], { cwd: ROOT, detached: true, stdio: 'ignore' })
   child.unref()
   // Wait on the server ANSWERING, never on a fixed delay (Verification 6).
+  //
+  // THROUGH THE SHARED CLIENT, per scripts/tests/api-client.test.mjs, and the
+  // liveness test is what the client throws. An ApiError means the server
+  // REPLIED - even a 401 is a reply, and it is the reply an unauthenticated
+  // poll should get - so it counts as up. Anything else is the connection
+  // failing, which is not up.
   for (let i = 0; i < 40; i++) {
     try {
-      const r = await fetch('http://localhost:3000/api/industries', { method: 'GET' })
-      if (r.status === 401 || r.ok) return true
-    } catch { /* not up yet */ }
+      await api('GET', '/industries')
+      return true
+    } catch (e) {
+      if (e instanceof ApiError) return true
+    }
     await sleep(500)
   }
   return false

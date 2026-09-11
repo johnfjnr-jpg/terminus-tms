@@ -18,6 +18,7 @@
 // sides of the apply and needs no Phase 1b rewrite.
 import { readFileSync } from 'node:fs'
 import { admin, tearDown } from '../fixtures.mjs'
+import { api, ApiError } from '../api-client.mjs'
 
 const ROOT = '/Users/johnfryatt/terminus-tms'
 const API = process.env.TMS_API ?? 'http://localhost:3000/api'
@@ -32,15 +33,36 @@ for (const [who, s] of [['owner', OWNER], ['non-owner', OTHER]]) {
   if (new Date((s.expires_at ?? 0) * 1000) <= new Date()) throw new Error(`${who}: session expired`)
 }
 
-async function call(method, path, body, token = OWNER.access_token) {
-  const r = await fetch(`${API}${path}`, {
-    method,
-    headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  })
-  let data = null
-  try { data = await r.json() } catch { /* some routes answer empty */ }
-  return { ok: r.ok, status: r.status, data }
+// THROUGH THE SHARED CLIENT, not a hand-rolled fetch.
+//
+// `scripts/tests/api-client.test.mjs` forbids a direct fetch anywhere in
+// scripts/ except two named files, and its reason is exactly this probe's
+// subject: "these bypass the throwing client, so a non-2xx there is silent
+// again". It caught these four probes, correctly.
+//
+// It is also the better instrument here. `api()` THROWS on any status the call
+// did not declare, so every refusal this probe asserts has to name the status
+// it expects and WHY - which is the difference between "a 4xx happened" and
+// "the gate refused", and this round has already been bitten once by a refusal
+// for the wrong reason.
+//
+// IDENTITY: the client reads TMS_ACCESS_TOKEN at CALL time, so the non-owner
+// case swaps the env var around the call rather than passing a token.
+async function call(method, path, body, opts = {}) {
+  try {
+    return await api(method, path, body, opts)
+  } catch (e) {
+    if (e instanceof ApiError) return { ok: false, status: e.status, data: e.body }
+    throw e
+  }
+}
+
+/** The same call as a DIFFERENT real user. Never the service role. */
+async function callAs(token, method, path, body, opts = {}) {
+  const had = process.env.TMS_ACCESS_TOKEN
+  process.env.TMS_ACCESS_TOKEN = token
+  try { return await call(method, path, body, opts) }
+  finally { if (had === undefined) delete process.env.TMS_ACCESS_TOKEN; else process.env.TMS_ACCESS_TOKEN = had }
 }
 
 // ── THE MODEL'S OWN GROUPS, from the screen's cards ───────────────────────
@@ -127,7 +149,8 @@ try {
     const include = all.filter((g) => g !== missing)
     const lead = await makeLead(missing.replace(/\s+/g, ''), include)
     await call('POST', `/contacts/${lead.id}/link-account`, { account_id: accounts[0].id })
-    const t = await call('POST', `/records/${lead.id}/transition`, { to_stage: QUALIFIED })
+    const t = await call('POST', `/records/${lead.id}/transition`, { to_stage: QUALIFIED },
+      { expect: 422, because: `${missing} is incomplete, so the gate must refuse` })
     const blocked = !t.ok
     // THE REFUSAL MUST BE ABOUT COMPLETENESS, not any 4xx. A body-shape or
     // ownership refusal would satisfy a naive check and prove nothing.
@@ -150,8 +173,8 @@ try {
   // ═══ THE IDENTITY COUNTERFACTUAL: a real non-owner JWT, never the service role
   const otherLead = await makeLead('identity', all)
   await call('POST', `/contacts/${otherLead.id}/link-account`, { account_id: accounts[0].id })
-  const nonOwner = await call('POST', `/records/${otherLead.id}/transition`,
-    { to_stage: QUALIFIED }, OTHER.access_token)
+  const nonOwner = await callAs(OTHER.access_token, 'POST', `/records/${otherLead.id}/transition`,
+    { to_stage: QUALIFIED }, { expect: 403, because: 'a non-owner may not move somebody else\'s record' })
   const still = must(await db.from('records').select('status').eq('id', otherLead.id), 'still')[0]
   const ownershipShaped = nonOwner.status === 403 || /own|permission|forbidden/i.test(JSON.stringify(nonOwner.data ?? {}))
   record('a COMPLETE lead is refused to a non-owner, ownership-shaped, and does not move',
@@ -160,7 +183,8 @@ try {
 
   // ═══ ITEM 3 (R2): the hold stage is gated by followUpDate ════════════════
   const hold = await makeLead('hold', all)
-  const noDate = await call('POST', `/records/${hold.id}/transition`, { to_stage: HOLD })
+  const noDate = await call('POST', `/records/${hold.id}/transition`, { to_stage: HOLD },
+    { expect: 422, because: 'no followUpDate is saved, so the hold gate must refuse' })
   record(`no followUpDate -> ${HOLD} is REFUSED, naming followUpDate`,
     !noDate.ok && refusalNames(noDate.data, 'followUpDate'),
     `status ${noDate.status}  ${JSON.stringify(noDate.data).slice(0, 150)}`)

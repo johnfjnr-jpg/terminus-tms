@@ -15,6 +15,7 @@ import { loadPuppeteer } from '../lib/puppeteer.mjs'
 const puppeteer = await loadPuppeteer('probe-nurture-dom.mjs')
 import { readFileSync, mkdirSync } from 'node:fs'
 import { admin, tearDown } from '../fixtures.mjs'
+import { api } from '../api-client.mjs'
 
 const ROOT = '/Users/johnfryatt/terminus-tms'
 const API = 'http://localhost:3000/api'
@@ -25,16 +26,9 @@ const db = admin()
 const must = ({ data, error }, w) => { if (error) throw new Error(`${w}: ${error.message}`); return data }
 const OWNER = JSON.parse(readFileSync(`${ROOT}/session-ref.json`, 'utf8'))
 
-async function call(method, path, body) {
-  const r = await fetch(`${API}${path}`, {
-    method, headers: { 'content-type': 'application/json', authorization: `Bearer ${OWNER.access_token}` },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  })
-  let data = null
-  try { data = await r.json() } catch { /* empty */ }
-  if (!r.ok) throw new Error(`${method} ${path}: ${r.status} ${JSON.stringify(data).slice(0, 140)}`)
-  return data
-}
+// Every call here is setup and every one must succeed, so the shared client's
+// throw-on-non-2xx IS the assertion. Nothing is expected to refuse.
+const call = async (method, path, body) => (await api(method, path, body)).data
 
 let lead = null
 try {

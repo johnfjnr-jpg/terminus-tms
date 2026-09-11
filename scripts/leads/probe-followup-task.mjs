@@ -15,6 +15,7 @@
 // back.
 import { readFileSync } from 'node:fs'
 import { admin, tearDown } from '../fixtures.mjs'
+import { api, ApiError } from '../api-client.mjs'
 
 const ROOT = '/Users/johnfryatt/terminus-tms'
 const API = process.env.TMS_API ?? 'http://localhost:3000/api'
@@ -23,14 +24,16 @@ const db = admin()
 const must = ({ data, error }, w) => { if (error) throw new Error(`${w}: ${error.message}`); return data }
 const OWNER = JSON.parse(readFileSync(`${ROOT}/session-ref.json`, 'utf8'))
 
-async function call(method, path, body, token = OWNER.access_token) {
-  const r = await fetch(`${API}${path}`, {
-    method, headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  })
-  let data = null
-  try { data = await r.json() } catch { /* some routes answer empty */ }
-  return { ok: r.ok, status: r.status, data }
+// Through the shared throwing client, per scripts/tests/api-client.test.mjs.
+// A declared `expect` is how a refusal this probe WANTS is told apart from one
+// it merely received.
+async function call(method, path, body, opts = {}) {
+  try {
+    return await api(method, path, body, opts)
+  } catch (e) {
+    if (e instanceof ApiError) return { ok: false, status: e.status, data: e.body }
+    throw e
+  }
 }
 const results = []
 const record = (name, pass, detail) => {
@@ -104,7 +107,8 @@ try {
   // The writable-key allowlist must not have been widened by accident. This is
   // the counterfactual for case 1: without it, "the key was accepted" is also
   // satisfied by a route that accepts anything.
-  const w4 = await call('PATCH', `/contacts/${a.id}`, { payload: { notAField: 'x' } })
+  const w4 = await call('PATCH', `/contacts/${a.id}`, { payload: { notAField: 'x' } },
+    { expect: 400, because: 'an unknown payload key must stay outside the writable allowlist' })
   record('an unknown payload key is still REFUSED, so case 1 is about the allowlist',
     !w4.ok, `status ${w4.status}  ${JSON.stringify(w4.data).slice(0, 120)}`)
 
