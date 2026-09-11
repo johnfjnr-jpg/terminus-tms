@@ -267,8 +267,22 @@ export default async function contactsRoutes(app) {
   // through the generic POST /api/records/:id/transition, including
   // Parked, which is gated on followUpDate already being saved here first
   // (see transitions.js's payload_field_required check).
+  // P1 item 5, Leads round: THE FOLLOW-UP TASK IS A DATE AND A DESCRIPTION, ON
+  // EVERY STATUS, and it is INDEPENDENT OF THE NURTURE REASON.
+  //
+  // `followUpDate` was already writable here on any status; what did not exist
+  // was anywhere to say WHAT the follow-up is. The Park form wrote the date and
+  // put its reason in the Notes History, which is correct and is a different
+  // thing: the reason explains why a lead went to Nurture, the task says what
+  // to do and when. A lead that is Unqualified or Qualified has no reason and
+  // may still have a task.
+  //
+  // ONE KEY ADDED, not a new mechanism. Both are ordinary payload fields on the
+  // ordinary write path, so they are writable on every status by construction
+  // rather than by a rule that has to be kept in step with the status list.
   const CONTACT_WRITABLE_KEYS = new Set([
-    'name', 'company', 'email', 'mobile', 'source', 'summary', 'address', 'legalEntity', 'followUpDate',
+    'name', 'company', 'email', 'mobile', 'source', 'summary', 'address', 'legalEntity',
+    'followUpDate', 'followUpDescription',
     'jobRole', 'linkedin', 'address2', 'city', 'postcode', 'country', 'region',
     'notes', // append-only Notes History, same shape/convention as Opportunity's
   ])
