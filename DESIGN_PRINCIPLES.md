@@ -10589,3 +10589,130 @@ never been populated", and a column of zeroes that can never be anything else
 teaches people to stop reading the row.
 
 **Names above numbers**, per R3, rather than SS/AQ/HM initialisms.
+
+---
+
+# The teardown integrity round, closed 2026-09-11
+
+Gate 22/22 on `85c2784`, door stage PASS. Pushed as `ac9a682..e5ddf27`, 11
+commits, two of them markdown riding under 48(a) as measured per file.
+
+## The asterisk is lifted
+
+**`tearDown` was deciding what to sweep from 5.2% of the records it was asking
+about.** Its tag branch matched 23,210 revision rows covering 7,938 records and
+read PostgREST's first 1,000, covering 414. No range, no order, and no
+indication that it had truncated.
+
+**Teardown now reports on its whole population, and every count in its evidence
+is an exact count** (`head: true, count: 'exact'`) rather than a select's
+length, because a select's length *is* the cap and is not a count.
+
+**It was seven selects, not one**, and two would have bitten independently: the
+revision scan pages over revisions *of* candidates, and the candidate scan was
+itself unbounded.
+
+**And the cap was hiding a correctness fault.** Range paging without a stable
+`ORDER BY` may return a row twice or skip it, because an unordered query has no
+obligation to be consistent between requests. **Paging without one is the same
+bug with more round trips.**
+
+**The consequence for this repository's records: a teardown reporting zero
+residue is now reporting on everything it swept.** Every such claim before
+2026-09-11 carried a 96%-blind asterisk, and the ones since do not.
+
+## A gate test was truncating, and coverage is now asserted rather than checked
+
+`gates.test.mjs` hunts orphaned `approvals.stage` values across the whole table
+and was examining **1,000 of 3,027**. Two thousand and twenty-seven rows were
+never looked at while the assertion reported clean, so an orphan among them
+could not have been found.
+
+**The fix is not paging. The fix is that the test now proves its own
+coverage:** it takes the exact count first and asserts the rows actually walked
+equal it, so it cannot silently truncate again when the table grows.
+
+> **A habit protects the query somebody is looking at. An assertion protects
+> the one nobody is.**
+
+## The guard, and why it is about the class
+
+The page cap has now produced four findings here. Measuring instances one at a
+time did not stop the next arriving, so `no-unbounded-select.test.mjs` makes
+**number 42 a red test** rather than a discovery in six months.
+
+**Shrink-only, mechanically:** a new unbounded select fails because its key is
+absent; adding the key breaks the ceiling; a stale key fails too, so the list
+cannot drift from the tree in either direction. **Allowlist stands at 40**, down
+from 41 as the truncating instance cleared.
+
+**The exemption is a function call, not a comment**, and that follows from
+Verification 39 rather than from taste: where a guard strips comments, prose can
+neither satisfy it nor exempt anything. The function lives in the guard's own
+module, so minting a new exemption means editing the guard.
+
+## The generator had the other half of the same fault
+
+`state-dump.mjs` carries zero unbounded selects and already paged - **with no
+`ORDER BY`**, in the generator producing `CURRENT_STATE.md`, the document every
+close publishes.
+
+Not every table has `id`, and ordering only **matters** once paging happens, so
+**the fallback proves the result fits a single page** rather than assuming it,
+and refuses if such a table ever grows past the cap.
+
+Measured ordered against unordered on the same data: **no published count
+moved**, only row order in a config table under the cap. That one-time
+reordering is recorded because `CURRENT_STATE`'s value is that its diff between
+rounds is the configuration changelog.
+
+## The standing qualification on eight suites
+
+**58 id-assertions across 10 gate suites read ids that exist only inside one of
+the three dead `-vanilla` blocks.** Six are the tripwires and are correct. **The
+other 52 are assertions about a live screen made against a corpse** - which is
+why "source verification PASSED" on the note-row edit that never reached the
+screen.
+
+> **IN FORCE UNTIL THE RETIREMENT ROUND: the green of those eight suites is not
+> evidence about the live deal form, the reference tab, or the version panel.**
+> A change to any of those three surfaces is verified by screenshot or live DOM
+> per Verification 4, and a passing suite is not offered as evidence for it.
+
+Recorded in `CLAUDE.md` as an extension to Verification 41.
+
+## Carried forward, in John's order
+
+1. **The vanilla retirement.** 52 assertions across 8 suites re-pointed or
+   retired **before** the three blocks delete. The Phase 0 measurement is that
+   round's brief foundation. **The tripwires and the standing qualification hold
+   until then.**
+2. **The 20 under-cap unbounded selects**, held by the allowlist. Harmless
+   today; they rot silently if those tables grow.
+3. **The 19 routes unexercised as a non-owner, and concurrency.**
+4. **The `complete-document` disagreement, recorded not resolved.**
+
+## A note on how this entry itself was cleared
+
+Recorded because it is a small instance of the fault this round promoted, and
+it was caught by the check rather than by reading.
+
+This file is markdown, so it rides the green gate under 48(a) - **provided no
+gate stage reads it.** The per-file scan reported **one** reader,
+`scripts/state-dump.mjs`, and marked it LIVE.
+
+**The scan was over-reporting, and its rule was wider than the question.** It
+classifies a file as live when *any* `package.json` script names it.
+`state-dump.mjs` is named by `state:dump`, a standalone command: **zero of the
+22 gate stages run it, and none of the four gate suites names it.** Checked
+directly rather than argued.
+
+**That is the suite-attribution fault's sibling** - "named by a script" is not
+"run by the gate", the same way "in `scripts/tests/`" is not "in the pure
+suite". The instrument is sound for finding candidates and too generous for
+deciding them, which is worth knowing before the next entry is cleared with it.
+
+**Queued, not built here:** the 48(a) check has now been run by hand five times
+and belongs in `scripts/` with its positive control. It is not added in this
+commit because that would make the commit non-markdown and force a re-gate on a
+closed round.
