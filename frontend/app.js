@@ -5301,7 +5301,8 @@ window.toggleLegacyLeadExpand = (id) => {
 
 // ── Leads (live) / Contacts ─────────────────────────────────────────────────
 // Two filtered views over the same Contact record type, not two separate
-// things (2026-08-13 restructure). Leads = status Unqualified or Parked;
+// things (2026-08-13 restructure). Leads = status Unqualified or Nurture
+// (relabelled from Parked, R1 2026-09-11);
 // Contacts = status Qualified, the graduated roster. One shared fetch
 // (loadContactsData), one shared cache (contactsCache), one generic row
 // renderer (renderContactGrid) called once per view with a different
