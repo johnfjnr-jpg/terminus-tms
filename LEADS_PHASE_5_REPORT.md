@@ -32,12 +32,42 @@ The grid follows the ruling that WINS on the estate's own reasoning:
 it derives, so it marks six, not seven. Job Title renders as a column
 with no `*`.
 
-**Why it was not simply added.** `POST /contacts` is the single creation
-path for every contact in the system, including the inline
+**Why it was not simply added** - ~~`POST /contacts` is the single
+creation path for every contact in the system, including the inline
 buyer-contact dialogue on the Test Bed surface. Adding `jobRole` to its
 minimum makes Job Title mandatory THERE too, on a dialogue this round
-never looked at. That is a change to what every creation path requires,
-which is a product decision and not this screen's to take.
+never looked at.~~ **STRUCK, and measured at the P5 sign-off. The
+premise was mine and it is false.**
+
+The sentence above rested on an assumption nobody checked: that the
+inline dialogue would be harmed by the change. It was written in the
+voice of a measurement and was never one.
+
+**Measured.** 39 call sites POST to `/contacts`. Two are product
+surfaces:
+
+- **the inline buyer-contact dialogue** (`frontend/app.js:3075`) sends
+  `jobRole` AND **already requires it client-side** - it sits in that
+  surface's own `REQUIRED` list and the dialogue refuses to submit
+  without one. It is not a fast-capture path: it collects Job Title,
+  LinkedIn and a full address.
+- **the P5 grid** builds its body from `COLUMNS`, which includes
+  `jobRole`, and derives its markers - so it would pick the requirement
+  up with **no code change at all**.
+
+**So no product surface changes behaviour.** The cost is **13
+probe/fixture scripts** that do not send `jobRole` and would begin
+answering 400. Those are test scripts and the fix is mechanical.
+
+**And it closes a real gap rather than adding a constraint.** Job Title
+is enforced TODAY in the client only, on one surface. A direct POST
+bypasses it. This estate's own principle is that presentation
+communicates and never enforces, so the server not requiring what a
+screen requires is the defect - not the ruling that would fix it.
+
+**The decision remains John's**, because it is a product rule about what
+a Contact minimally is. What has changed is its price: near zero, and
+the reasoning for it is now stronger than "it was ruled".
 
 **The position taken, and it is reversible in one line:** the grid marks
 what the server refuses without. If John rules Job Title mandatory at
