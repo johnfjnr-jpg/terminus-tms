@@ -59,11 +59,25 @@ try {
     return !!v && !v.classList.contains('is-loading') && !!v.querySelector('[data-testid="cd-lead-name"]')
   }, { polling: 150, timeout: 30000 })
   // The Qualify hint arrives from a second request; wait on it rather than a delay.
-  await page.waitForFunction(() => !!document.querySelector('[data-testid="cd-qualify-hint"]'),
+  await page.waitForFunction(() => !!document.getElementById('view-contact-detail')
+    ?.querySelector('[data-testid="cd-qualify-hint"]'),
     { polling: 150, timeout: 15000 }).catch(() => {})
 
   const L = await page.evaluate(() => {
-    const q = (t) => document.querySelector(`[data-testid="${t}"]`)
+    // SCOPED TO THE VIEW, and P4 is why.
+    //
+    // These were document-wide and passed for three phases, because the only
+    // thing rendering NotesHistory was this screen. P4's Leads list renders the
+    // SAME component into #live-leads-rows, its React root stays mounted when
+    // you navigate away, and a hidden card's notes answered these queries
+    // first: 22 note rows counted where the record has 6, and `cd-notes` found
+    // at top 0 because the match was an off-screen card.
+    //
+    // It read as a P3 regression and was a probe measuring the wrong surface.
+    // Two screens sharing a component share its testids, which is correct -
+    // the probe is what has to say which screen it means.
+    const view = document.getElementById('view-contact-detail')
+    const q = (t) => view.querySelector(`[data-testid="${t}"]`)
     const top = (t) => { const e = q(t); return e ? Math.round(e.getBoundingClientRect().top) : null }
     const cs = (t, p) => { const e = q(t); return e ? getComputedStyle(e)[p] : null }
     return {
@@ -87,13 +101,15 @@ try {
         contact: q('cd-card-contact-body')?.hasAttribute('hidden') ?? null,
         address: q('cd-card-address-body')?.hasAttribute('hidden') ?? null,
       },
-      perFieldDiscard: document.querySelectorAll('[data-testid^="discard-"]:not([data-testid="discard-all"])').length,
+      perFieldDiscard: view.querySelectorAll('[data-testid^="discard-"]:not([data-testid="discard-all"])').length,
       qualify: { present: !!q('cd-btn-qualify'), disabled: q('cd-btn-qualify')?.disabled ?? null },
       hint: q('cd-qualify-hint')?.textContent ?? null,
       nurtureLabel: q('cd-btn-park')?.textContent ?? null,
       dirtyHidden: q('cd-dirty-indicator')?.hasAttribute('hidden') ?? null,
       notesShown: q('cd-notes-shown')?.textContent ?? null,
-      noteCount: document.querySelectorAll('[data-testid^="cd-note-"]').length,
+      // `cd-note-` is also a prefix of `cd-notes-*`, so this is anchored on the
+      // row testid pattern rather than a loose prefix.
+      noteCount: view.querySelectorAll('[data-testid^="cd-note-"]:not([data-testid^="cd-notes-"])').length,
       followUpControls: ['cd-followUpDate', 'cd-followUpDescription', 'cd-followup-save']
         .filter((t) => !!q(t)).length,
     }
@@ -124,20 +140,24 @@ try {
     `${L.followUpControls}/3`)
 
   // The dirty indicator, exercised rather than assumed.
-  await page.evaluate(() => document.querySelector('[data-testid="cd-card-contact-toggle"]')?.click())
+  const inView = (t) => `document.getElementById('view-contact-detail').querySelector('[data-testid="${t}"]')`
+  await page.evaluate(`${inView('cd-card-contact-toggle')}?.click()`)
   await page.waitForFunction(() => {
-    const b = document.querySelector('[data-testid="cd-card-contact-body"]')
+    const b = document.getElementById('view-contact-detail')
+      .querySelector('[data-testid="cd-card-contact-body"]')
     return b && !b.hasAttribute('hidden')
   }, { polling: 50, timeout: 5000 })
-  await page.evaluate(() => document.querySelector('[data-testid="display-company"]')?.click())
+  await page.evaluate(`${inView('display-company')}?.click()`)
   await page.waitForFunction(() => {
-    const e = document.querySelector('[data-testid="edit-company"]')
+    const e = document.getElementById('view-contact-detail')
+      .querySelector('[data-testid="edit-company"]')
     return e && !e.hasAttribute('hidden')
   }, { polling: 50, timeout: 5000 })
   await page.type('[data-testid="input-company"] input, [data-testid="input-company"]', 'X')
   await new Promise((r) => setTimeout(r, 300))
   const dirty = await page.evaluate(() => {
-    const d = document.querySelector('[data-testid="cd-dirty-indicator"]')
+    const d = document.getElementById('view-contact-detail')
+      .querySelector('[data-testid="cd-dirty-indicator"]')
     return { hidden: d?.hasAttribute('hidden') ?? null, text: d?.textContent ?? null }
   })
   check('the dirty indicator APPEARS and counts, on an edit',

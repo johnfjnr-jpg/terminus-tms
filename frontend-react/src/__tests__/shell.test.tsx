@@ -93,10 +93,16 @@ describe('the bundle registers exactly the loaders it declares', () => {
     // `takeTestBedLanding` is NOT here, and deliberately: it is published by
     // the SHELL, not by the bundle. The direction is the opposite of
     // `contactReturnView`, which the bundle writes and the shell reads.
+    // P4 adds `mountLeadsList`, the Leads list's mount point. The name is
+    // deliberately NOT `renderLeadsCards`: app.js declares a top-level function
+    // of that name, and a top-level declaration in a classic script IS a window
+    // property - app.js loads after this bundle, so it would overwrite the
+    // registration and the delegation would call itself. Verification 41
+    // records that exact collision costing a live walk.
     expect(added).toEqual([
       'initOpportunityDealPanel', 'initOpportunityDealVersions',
       'initOpportunityReferencePanel', 'loadAccountDetail', 'loadApprovalPage',
-      'loadContactDetail', 'loadTestBedDetail'])
+      'loadContactDetail', 'loadTestBedDetail', 'mountLeadsList'])
   })
 })
 

@@ -2018,6 +2018,23 @@ const NON_ACTION_SELECTOR = [
   // without anybody remembering to add it here, and anything carrying it is
   // making a claim a reviewer can check.
   '[aria-expanded]',
+  // ── AND `aria-controls`, FOR THE SAME REASON ONE STEP OUT ────────────
+  //
+  // P4. The notes expand rungs - Latest 2 / Last 10 / All - change how much of
+  // the record is SHOWN. They write nothing. The door disabled all three on an
+  // unowned card, so a person who may not edit a lead could not expand its
+  // notes to read them: P3's collapse toggle again, on the list.
+  //
+  // They are not `aria-expanded`, and forcing that on them would be a lie - it
+  // is a boolean and this is a three-rung selector. `aria-controls` is the
+  // true statement: these buttons control that region.
+  //
+  // MEASURED BEFORE ADDING IT: every existing user of `aria-controls` in this
+  // estate - the deal latches, the detail disclosure - ALSO carries
+  // `aria-expanded`, so they are already exempt by the line above. This widens
+  // the read-affordance category by exactly the control it was added for,
+  // rather than by an unknown set.
+  '[aria-controls]',
   '.detail-tab', '.appr-refresh', '.disclose-chevron', '.btn-text.disclose',
   '[id^="btn-back-"]', '#btn-signout', '#approvals-refresh',
   '#btn-back-opps', '#opp-btn-list', '#opp-btn-grid', '.ot-sort',
@@ -5505,7 +5522,30 @@ async function addContactNote(contactId, text, source) {
 // (unlike the detail page's resetCdNoteInput): renderLeadsCards()
 // already rebuilds every card's HTML from scratch on every call, so
 // idle is just what a fresh render produces.
+// ── P4: THE LEADS CARDS ARE REACT NOW ────────────────────────────────────
+//
+// The redesign needs notes with an expand control and an inline follow-up
+// task, and BOTH ALREADY EXIST as React components used by the Lead detail
+// screen. Rebuilding either here in vanilla would be two implementations of
+// one behaviour - and the notes model in particular has been ruled on twice in
+// this round already.
+//
+// So this delegates. The shell keeps the page-head, the Mine toggle and the
+// New lead button; React owns only `#live-leads-rows`.
+//
+// The vanilla body below is left in place, unreachable, for ONE round: it is
+// the revert path, and the whole card markup would otherwise have to be
+// reconstructed from git to restore it. It is dead code with a date on it, and
+// it is named in the P4 report so it is removed rather than forgotten.
 function renderLeadsCards() {
+  // NOT window.renderLeadsCards: this very function IS that property, because
+  // a top-level declaration in a classic script defines one and app.js loads
+  // after the bundle. Calling it would be calling itself.
+  if (typeof window.mountLeadsList === 'function') { window.mountLeadsList(); return }
+  return renderLeadsCardsVanilla()
+}
+
+function renderLeadsCardsVanilla() {
   const container = document.getElementById('live-leads-rows')
   const rows = filterMine(contactsCache.filter(c => c.status !== 'Qualified'), leadsMineOnly)
   if (!rows.length) {

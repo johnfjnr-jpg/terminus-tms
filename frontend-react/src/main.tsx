@@ -4,6 +4,7 @@ import { createRoot } from 'react-dom/client'
 import type { Root } from 'react-dom/client'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ShellProvider } from './ShellContext'
+import { LeadsList } from './leads/LeadsList'
 import { shellServices } from './shell-services'
 import { ApprovalView } from './ApprovalView'
 import { AccountView } from './account/AccountView'
@@ -57,6 +58,17 @@ declare global {
     loadAccountDetail?: (accountId: string) => void
     loadContactDetail?: (contactId: string) => void
     loadTestBedDetail?: (testBedId: string) => void
+    /**
+     * P4: the Leads list, mounted into #live-leads-rows.
+     *
+     * NOT `renderLeadsCards`, and the name is the whole point. app.js declares
+     * `function renderLeadsCards()` at top level, and a top-level declaration
+     * in a classic script IS a property of window - app.js loads AFTER this
+     * bundle, so it would overwrite this registration and the delegation would
+     * call itself. Verification 41 records that exact collision costing a live
+     * walk on the Test Bed view.
+     */
+    mountLeadsList?: () => void
     initOpportunityDealPanel?: (opp: OppRecord) => void
     initOpportunityReferencePanel?: (opp: OppRecord) => void
     initOpportunityDealVersions?: (o: { opportunityId: string, seam: DealFormSeam }) => void
@@ -86,6 +98,36 @@ declare global {
 // wants per-navigation behaviour depends on it. Views that do not are
 // unchanged.
 const navTokens = new Map<string, number>()
+
+// ── P4: MOUNTING A LIST, WHICH IS NOT A DETAIL VIEW ──────────────────────
+//
+// `register` above owns a whole `#view-*` container and takes a record id.
+// The Leads list is neither: it has no id, and it renders into the existing
+// `#live-leads-rows` INSIDE a view whose page-head, Mine toggle and New lead
+// button remain the shell's. So it mounts into that element rather than the
+// view, and leaves everything around it alone.
+//
+// That is the deliberate narrow choice. Taking the whole `#view-leads`
+// container would clear it on first render - createRoot does - and the toggle
+// and the New lead button would go with it, which is the exact fault recorded
+// against the first React approval view.
+function mountList(containerId: string, render: (navToken: number) => React.ReactElement) {
+  return function (): void {
+    const container = document.getElementById(containerId)
+    if (!container) return
+    const navToken = (navTokens.get(containerId) ?? 0) + 1
+    navTokens.set(containerId, navToken)
+    let root = roots.get(containerId)
+    if (!root) { root = createRoot(container); roots.set(containerId, root) }
+    root.render(
+      <StrictMode>
+        <QueryClientProvider client={queryClient}>
+          <ShellProvider services={shellServices}>{render(navToken)}</ShellProvider>
+        </QueryClientProvider>
+      </StrictMode>,
+    )
+  }
+}
 
 function register(view: string, render: (id: string, navToken: number) => React.ReactElement) {
   return function (id: string): void {
@@ -118,6 +160,10 @@ window.loadAccountDetail = register(ACCOUNT_VIEW,
 //
 // A whole-view migration like the two above, so createRoot owns
 // #view-contact-detail and clears the static markup on first render.
+// P4: the Leads list. app.js's renderLeadsCards() delegates here.
+window.mountLeadsList = mountList('live-leads-rows',
+  (navToken) => <LeadsList navToken={navToken} />)
+
 window.loadContactDetail = register(CONTACT_VIEW,
   (id, navToken) => <ContactView contactId={id} navToken={navToken} />)
 

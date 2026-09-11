@@ -28,6 +28,11 @@ export function NotesHistory({ notes, onAdd, hasDirtyEdits, onConfirmDiscard, re
   const [shown, setShown] = useState<number>(DEFAULT_SHOWN)
   const [lastReset, setLastReset] = useState(resetKey)
   const inFlight = useRef(false)
+  // A stable id for the region the expand rungs control. The list renders many
+  // cards at once, so it is keyed on the reset key rather than a constant -
+  // duplicate ids across cards would make aria-controls point at the wrong
+  // notes and would trip no-duplicate-ids.test.mjs.
+  const notesListId = `cd-notes-list-${String(resetKey ?? 'x')}`
 
   // N9. The input lives outside the rendered list, so like the vanilla's it
   // survives a re-render and must be cleared explicitly - or a half-typed note
@@ -90,24 +95,30 @@ export function NotesHistory({ notes, onAdd, hasDirtyEdits, onConfirmDiscard, re
           expand TO - a lead with two notes has nothing behind the fold, and a
           control that changes nothing is worse than none. The count is stated
           so a person knows what they are not seeing. */}
+      {/* `aria-controls` on each rung, pointing at the list it changes. It is
+          true - these buttons control that region - and it is what the door
+          reads to know they are READ AFFORDANCES rather than writes.
+          P4: on an unowned lead the door disabled all three, so a person who
+          may not edit a lead could not expand its notes to READ them. The same
+          shape as P3's collapse toggle, on the list this time. */}
       {notes.length > DEFAULT_SHOWN
         ? <div className="cd-notes-expand" data-testid="cd-notes-expand">
             <span className="sub" data-testid="cd-notes-shown">
               {`Showing ${Math.min(shown, notes.length)} of ${notes.length}`}
             </span>
-            <button type="button" data-testid="cd-notes-show-2"
+            <button type="button" data-testid="cd-notes-show-2" aria-controls={notesListId}
               disabled={shown === DEFAULT_SHOWN}
               onClick={() => setShown(DEFAULT_SHOWN)}>Latest 2</button>
-            <button type="button" data-testid="cd-notes-show-10"
+            <button type="button" data-testid="cd-notes-show-10" aria-controls={notesListId}
               disabled={shown === EXPANDED_SHOWN}
               onClick={() => setShown(EXPANDED_SHOWN)}>Last 10</button>
-            <button type="button" data-testid="cd-notes-show-all"
+            <button type="button" data-testid="cd-notes-show-all" aria-controls={notesListId}
               disabled={shown === Infinity}
               onClick={() => setShown(Infinity)}>All</button>
           </div>
         : null}
 
-      <div className="cd-notes-list" data-testid="cd-notes-list">
+      <div className="cd-notes-list" id={notesListId} data-testid="cd-notes-list">
         {notes.length === 0
           ? <p className="empty-state" data-testid="cd-notes-empty">No notes yet.</p>
           : notes.slice(0, shown).map((n, i) => (

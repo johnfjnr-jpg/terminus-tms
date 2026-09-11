@@ -5924,3 +5924,65 @@ input.input-invalid {
 .cd-panel .pg-card { font-size: 12px; }
 .cd-panel .cd-notes-list,
 .cd-panel .field-row-display { font-size: 12px; }
+
+/* ── P4: THE LEADS LIST ──────────────────────────────────────────────────
+ *
+ * Stacked cards, grouped by status. The card is a single click target that
+ * navigates, so it carries the affordance - a hover and a focus ring - while
+ * the two inline regions inside it stop the click and look like what they are.
+ *
+ * THE THREE COLUMNS ARE A GRID SIZED FOR THREE, and the Test Bed lesson
+ * applies: a class sized for a population cannot see markup that exceeds it.
+ * A test asserts the three columns share one row rather than counting them. */
+.lead-group { margin-bottom: 26px; }
+.lead-group-title {
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--green);
+  margin: 0 0 10px;
+}
+.lead-group-title .sub { margin-left: 8px; color: var(--muted); }
+
+.lead-card {
+  border: 1px solid var(--hairline-strong);
+  padding: 14px 16px;
+  margin-bottom: 12px;
+  cursor: pointer;
+}
+.lead-card:hover { background: rgba(242, 242, 240, 0.03); }
+.lead-card:focus-visible { outline: 1px solid var(--green); outline-offset: 2px; }
+
+.lead-card-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+/* 14pt green, per the ruled layout. */
+.lead-card-name { font-size: 14px; color: var(--green); }
+.lead-card-sub {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+  flex-basis: 100%;
+}
+
+.lead-card-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 18px;
+  margin-top: 12px;
+}
+/* The inline regions are not click targets for navigation, and the cursor says
+ * so rather than leaving a person to discover it. */
+.lead-card-col { cursor: default; font-size: 12px; }
+.lead-card-col-title {
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--green);
+  margin-bottom: 6px;
+}
+.lead-card-summary-body { white-space: pre-wrap; }
+
+@media (max-width: 1100px) {
+  .lead-card-body { grid-template-columns: 1fr; }
+}
