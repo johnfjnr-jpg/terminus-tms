@@ -112,6 +112,46 @@ across both screens, before and after the transition.
 benefits from seeing that a stage is empty; a missing heading is not
 information.
 
+**APPENDED AT THE CLOSE, AND THAT IS THE FAULT BUILD DISCIPLINE 7 NAMES.**
+The rule says a ruling given in conversation is appended to the brief AT THE
+PHASE IT LAUNCHES, not discovered at the close. This brief carried **8 while
+11 were in force**, and the count at the close is what found it - which is
+the rule working as a detector and failing as a practice. The previous round
+was 8 while 10 were in force. Same fault, consecutive rounds.
+
+**R5. COMPANY IS PART OF CONTACT DETAILS COMPLETE.** Ruled at P1. `company`
+joins the Unqualified to Qualified completeness gate as a
+`payload_field_required` row. Launched the P1 migration
+`20260911000002_contact_qualify_requires_company.sql`, applied by John
+through the SQL editor and verified over PostgREST.
+
+**R11. JOB TITLE IS MANDATORY SERVER-SIDE.** Ruled at the P5 sign-off.
+`jobRole` joins `CONTACT_REQUIRED_AT_CREATION` in `src/routes/contacts.js`.
+Launched the route change, the enumeration of every creation path it bites,
+the omission re-proof, and the patch of ten probe fixtures.
+
+**R12. `regionForCountry` IS CARRIED**, low priority, recorded in
+`DESIGN_PRINCIPLES.md` as a decision rather than a silent loss.
+
+**THERE IS NO R6.** The numbering runs R1 to R5 then R7 to R12. The ruling
+that would have held that slot was given unnumbered: the red-tree mechanical
+fix, below.
+
+**THE UNNUMBERED CONVERSATIONAL RULINGS, recorded because they launched work
+exactly as the numbered ones did:**
+
+- **A3 conflict, option (a), at P2.** Escape reverts and closes; a draft dies
+  with its editor. Superseded field-row contract behaviours 1 and 6 in
+  writing at their recorded sites, across all four surfaces.
+- **The A6 acceptance test, at P2.** Edit a field on an unowned lead, navigate
+  away and back, confirm the owner's saved data renders with no local edit
+  surviving.
+- **The red-tree mechanical fix, option (a), at P2.** A pre-commit check runs
+  the suites and refuses the commit if any is red, calibrated both ways, and
+  recorded as the answer to a twice-repeated fault: a rule that failed twice
+  while known is replaced by a mechanism, not a third restatement. It found a
+  live database red on its first run.
+
 ## Phases, in build order. Each stops for sign-off.
 
 ### P1: lifecycle logic
