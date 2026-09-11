@@ -1,7 +1,10 @@
 # Leads, P4: the Leads List redesign
 
-**15/15 verified on the live screen after a rebuild.** pure 512/512,
-react 939/939, database 100/100. **Nothing pushed.**
+**15/15 on the list, 8/8 on the graduation, verified live after a rebuild.**
+pure 512/512, react 939/939, database 100/100. **Nothing pushed.**
+
+**R9 and R10 ruled at the close and now built, recorded and proven** - see
+section 6.
 
 ---
 
@@ -129,12 +132,8 @@ every assertion passed over.
 
 ## What P4 does NOT establish
 
-- **The Qualified group now appears on the Leads screen.** The ruled grouping is
-  Unqualified / Qualified / Nurture, and the old list filtered Qualified out -
-  those records also appear on Contacts. **Deliberate per the ruling, and worth
-  knowing: Leads and Contacts now overlap.**
-- **Empty groups are not rendered.** A status with no leads shows no heading. A
-  position taken, not a ruling - showing `Nurture 0` is equally defensible.
+- **Both open questions were ruled and are closed** - section 6. Leads and
+  Contacts do **not** overlap, and empty headings **are** shown.
 - **`renderLeadsCardsVanilla` is dead code with a date on it**, left for one
   round as the revert path. It is named here so it is removed rather than
   forgotten.
@@ -143,3 +142,66 @@ every assertion passed over.
   controls on one screen is worth settling.
 - **No gate run.** That is the round close.
 - **P5 remains blocked on its mockup.**
+
+---
+
+## 6. R9 and R10, ruled and closed
+
+### R9 - qualification is GRADUATION
+
+Recorded in the brief **and** `DESIGN_PRINCIPLES.md` as a product rule, because
+it defines what the screen **is** rather than filtering it:
+
+> **The Leads screen shows Unqualified and Nurture only. On qualification a
+> lead graduates off the Leads pipeline and is worked as a Contact.**
+
+So the two screens do **not** overlap, which the earlier three-group layout
+would have made them do.
+
+**The pipeline is a named set; the order is not.** *Which stages are still
+being worked* is a product decision - nothing in `stage_definitions` carries
+it, and inferring it as "everything except Qualified" would silently adopt
+whatever a future migration adds. The **order** still comes from configuration,
+so a relabel or reorder moves without an edit.
+
+> **And the set is checked against configuration, which the `Parked` relabel
+> earned.** A named set that quietly stops matching anything **empties this
+> screen with no error**, and an empty pipeline reads exactly like "no leads
+> right now". The list renders a visible mismatch warning when a pipeline name
+> is not a configured stage.
+
+### R10 - empty stage headings are shown
+
+`Nurture 0`. A pipeline scan benefits from seeing a stage is empty; a missing
+heading is not information.
+
+### Proven by MEMBERSHIP, not by an absent heading
+
+One record followed **by id across both screens**, before and after:
+
+```
+PASS  BEFORE: the Unqualified lead IS on the Leads screen
+PASS  BEFORE: and is NOT on Contacts
+PASS  the lead is Qualified in the database
+PASS  AFTER: the Qualified lead has LEFT the Leads screen
+PASS  AFTER: and it appears on Contacts
+PASS  the Leads screen shows ONLY Unqualified and Nurture
+PASS  empty stage headings are SHOWN
+PASS  no stage-mismatch warning                             8/8
+```
+
+**The BEFORE half is what makes the AFTER half mean anything.** "Not on Leads"
+is equally true of a record that never arrived, of a screen that rendered no
+groups, and of a fetch that failed.
+
+### And the first run reported R9 unbuilt when it was built
+
+The probe waited on `[data-testid="leads-list"]`, **which exists from the
+previous visit** - so it read the old data and the qualified lead still looked
+present. Verification 7: state the counterfactual, and wait on something the
+old state cannot satisfy.
+
+**Fixed at the source rather than with a delay.** The list publishes
+`data-fetch`, a completed-fetch counter, and the probe waits for it to
+**change**. The Contacts grid has no such counter, so that half polls for the
+name within a bound and never on a bare sleep.
