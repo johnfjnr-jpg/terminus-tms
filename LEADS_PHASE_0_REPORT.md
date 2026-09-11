@@ -178,11 +178,33 @@ hint that names what is missing must read those rows**, or it becomes
 Verification 43's fourth instance: a display deriving a gate state by a second
 path.
 
-**EMAIL AND MOBILE HAVE NO VALIDATION TODAY.** `descriptors.ts:74-75` sets
-`inputMode: 'email'` and `inputMode: 'tel'`, which are **keyboard hints, not
-validation** - they change the on-screen keyboard on a phone and constrain
-nothing. No pattern, no client check, and no server check in `src/routes/contacts.js`.
-P5's field-by-field validation is a build, not an extension.
+**~~EMAIL AND MOBILE HAVE NO VALIDATION TODAY.~~ CORRECTED 2026-09-11, and the
+superseded claim is left visible.** The original sentence read that neither
+field is validated anywhere. **That is half wrong**, and P1's probe found it by
+being refused:
+
+    400 {"error":"mobile must be a phone number: an optional leading +,
+         then 7 to 15 digits, with spaces, hyphens, brackets or dots
+         as separators"}
+
+| field | client | server |
+|---|---|---|
+| **mobile** | `inputMode: 'tel'` only | **VALIDATED on BOTH write paths** by `isValidMobile`, `contacts.js:176` and `:316` |
+| **email** | `inputMode: 'email'` only | **presence only** (`!email?.trim()`), no format check |
+
+**How the wrong finding was reached, because the method matters more than the
+correction.** The Phase 0 scan grepped `contacts.js` for `valid|pattern|email`
+and read the empty result as absence. The validator is named `isValidMobile`
+and its message says "must be a phone number" - **neither contains the word
+`pattern`, and the `valid` in `isValidMobile` sits inside an identifier the
+grep's own word-ish pattern did not surface.** Verification 12: before
+reporting an absence, confirm the search can find something known to be there.
+It was not calibrated, and a calibrated re-run finds the string immediately.
+
+`inputMode` is still only a keyboard hint and constrains nothing, so **the
+client-side half of P5 is a build for both fields**. The server-side half is a
+build for **email only**; mobile is already enforced and P5 must not add a
+second validator beside it (Verification 20).
 
 ---
 

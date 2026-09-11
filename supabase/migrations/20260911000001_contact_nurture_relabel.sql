@@ -58,7 +58,33 @@ update public.records
  where record_type = 'contact'
    and status      = 'Parked';
 
--- 4. Probability defaults, if any are ever added for this stage. Matches zero
+-- 4. R2: MAKE THE TRANSITION REACHABLE. Measured live, this is the whole of
+--    the carried item, and it is a configuration correction rather than a
+--    build:
+--
+--        POST /records/:id/transition {to_stage: 'Parked'}
+--        -> 400 "cannot skip stages: Parked is not the next stage after
+--                Unqualified"
+--
+--    Nurture is sort_order 3 and Qualified is 2, so the adjacency check in
+--    transitions.js refuses the jump and the followUpDate gate below it is
+--    DEAD CODE - which is exactly what the prior ruling predicted
+--    (RECORD_CREATION_ATOMICITY_BRIEF.md R4c, "ruled REACHABLE ... at which
+--    point the existing stage_gate_rules row becomes live and must be proven
+--    to gate it").
+--
+--    `reachable_from_any_stage` is the estate's existing mechanism for a side
+--    branch, already carried by opportunity/'Closed Lost', so this extends a
+--    proven path rather than adding a second one. Its own comment in
+--    transitions.js is the reason it is the right one: it "widens which stages
+--    may be entered from here, not what is required to enter them" - so the
+--    followUpDate requirement is untouched and still has to be satisfied.
+update public.stage_definitions
+   set reachable_from_any_stage = true
+ where record_type = 'contact'
+   and stage_name  in ('Nurture', 'Parked');
+
+-- 5. Probability defaults, if any are ever added for this stage. Matches zero
 --    rows today and is here so the relabel is complete rather than sufficient.
 update public.stage_probability_defaults
    set stage = 'Nurture'
@@ -100,6 +126,15 @@ begin
                     and requirement_type = 'payload_field_required'
                     and requirement_detail->>'field' = 'followUpDate') then
     raise exception 'contact nurture relabel: the followUpDate gate did not follow the relabel';
+  end if;
+
+  -- R2's own assertion. Without this the relabel could land while the
+  -- transition stayed unreachable, which is the state the prior ruling
+  -- described and this migration exists to end.
+  if not exists (select 1 from public.stage_definitions
+                  where record_type = 'contact' and stage_name = 'Nurture'
+                    and reachable_from_any_stage is true) then
+    raise exception 'contact nurture relabel: Nurture is not reachable from any stage, so its followUpDate gate is dead';
   end if;
 end $$;
 
