@@ -1,7 +1,13 @@
 # Leads, P3: the Lead Detail redesign
 
-**Built to the ruled layout and verified 13/13 on the live screen.**
-pure 512/512, react 942/942, database 100/100. **Nothing pushed.**
+**Built to the ruled layout and verified 13/13 on the live screen. R7 and R8
+ruled at the close and now built, recorded and verified.**
+pure 512/512, react 939/939, database 100/100. **Nothing pushed.**
+
+**Re-verified after R8's removals:** layout 13/13, door 0 of 10 write controls
+reachable unowned against 10 of 10 owned with **disclosure alive 2 on both**,
+and the screenshot read - Delete and Unqualify gone, NAME and JOB ROLE present
+and editable.
 
 Every claim below is a **live DOM read after a rebuild**, with
 `check-dist-fresh.mjs` passing first. The probe refuses to run on a stale
@@ -9,42 +15,82 @@ bundle.
 
 ---
 
-## 1. TWO FINDINGS THAT NEED A RULING
+## 1. R7 and R8, ruled and closed
 
-Both are cases where the ruled layout, followed exactly, would have produced a
-screen that cannot do its job. I built the working version and am reporting it
-rather than assuming.
+The two findings P3 raised were ruled at the close. Both are now built,
+recorded and verified.
 
-### Two gated fields had no home in the layout
+### R7 - every gated field has a reachable editable input
 
-The Qualify gate has **15** `payload_field_required` rules. The ruled Contact
-Details list is *Company, Email, Mobile, LinkedIn, Industry, Source*.
+`jobRole` is a Contact Details row. The lead name is **editable**: the heading
+displays it and the row satisfies the gate.
 
-| field | gated? | in the ruled layout? |
-|---|---|---|
-| **`jobRole`** | yes | **absent entirely** |
-| **`name`** | yes | the **18pt heading** - and a heading is not editable |
+**Proven, not asserted.** `probe-gated-fields-reachable.mjs` takes its
+population **from the server** - `GET /records/:id/exit-criteria`, the same
+derivation the gate uses - so it cannot pass against a stale copy of the
+requirements. **A 16th gated field added by a migration tomorrow, with no row,
+turns this red.**
 
-> **A screen that renders the Qualify hint while giving a person no way to
-> satisfy it is worse than one that renders neither.**
+```
+gated at Qualify, per the server: 15
+13 rows: present, opens, accepts typing
+ 2 declared as satisfied elsewhere, each naming its surface:
+     parent_record_id -> the Account card
+     industry_id      -> the Industry row, keyed by column name
+```
 
-**Both are now rows in Contact Details.** The 18pt heading stays exactly as
-ruled and displays the name; the row is what makes it editable. If you would
-rather the name were uneditable after creation, that is a ruling and I will
-take it - but it should be a decision, not a side effect of where the name is
-drawn.
+> **"Reachable" means OPENED AND TYPED INTO, not present in the DOM.** A row
+> inside a collapsed panel counts because the panel opens, and the probe opens
+> it - part of the claim rather than a shortcut. A row that renders and refuses
+> to open does not count, **which is exactly what P3's own door bug was.**
 
-### `× Delete` sits under the lead name
+### R8 - the lifecycle is forward-only, and leads are not deleted here
 
-The ruled header row is *status badge, Qualify, Nurture, Save, Discard*.
-`StageActions` also renders **Unqualify** and **Delete**, which are existing
-capabilities the layout does not mention. They currently render inside the
-header block, and Delete reads as a stray line under the name. **Not moved,
-because where they belong is a layout decision.**
+Recorded in the brief **and** in `DESIGN_PRINCIPLES.md`, as a rule:
 
----
+> - **Leads are NOT deleted from the Lead screen at this stage.**
+> - **The lifecycle is FORWARD-ONLY:** created `Unqualified`, then `Qualified`
+>   or `Nurture`. **No transition back to `Unqualified`.**
 
-## 2. The layout, verified
+**Recorded as a rule because both controls existed in the vanilla** and were
+ported deliberately after an accounting instrument found them missing. That
+port was correct at the time. *"The vanilla had them"* is exactly the argument
+that would restore them, so the supersession is written where somebody would
+look.
+
+**The handlers are gone, not merely uncalled.** An orphaned `unqualify` would
+be the first thing a later reader found when asking how a lead gets
+unqualified - answering a question the lifecycle no longer asks.
+
+**Five tests inverted, not deleted.** A deleted test leaves the controls
+unguarded in *both* directions. One of the replacements checks a **Qualified**
+lead specifically, because U3 only ever offered Unqualify on a non-Unqualified
+record - a test checking only the Unqualified case would pass against the old
+code too.
+
+### FLAGGED, NOT BUILT: the transition is still open server-side
+
+**Measured, not inferred:**
+
+```
+POST /records/:id/transition {to_stage:'Unqualified'} on a Qualified lead
+  -> 200 ACCEPTED, and the record moves
+```
+
+`transitions.js` permits **any backward transition by design**, and its own
+comment records that whether a reversal needs a reason or an entitlement is a
+live question - **the same governance question as approval entitlement**.
+
+> **So the rule is currently enforced by the SCREEN and not by the server.**
+
+That is a weaker guarantee than this estate usually accepts, and it is stated
+plainly in `DESIGN_PRINCIPLES.md` rather than left to be discovered: anything
+that can reach the transition endpoint can still reverse a lead.
+`DELETE /contacts/:id` is likewise untouched. **The item for a later round:**
+refuse, gate on an entitlement, or allow with a recorded reason - and the same
+answer probably governs every record type.
+
+## 2. The layout, verified## 2. The layout, verified
 
 ```
 the ruled order, top to bottom   back < title < header < summary
@@ -197,7 +243,8 @@ settled screen contains. Both fixed at the site.
   field panels collapsed by default, the header count is the only thing on
   screen that knows an unsaved edit exists. It is carried, not resolved.
 - **No gate run.** That is the round close.
-- **Delete and Unqualify are unplaced** - section 1.
+- **Whether the reverse transition should be closed server-side** - flagged in
+  section 1, not built.
 - **The follow-up task saves on its own button**, separate from the header
   Save. Two save controls on one screen is a thing to look at when P4 settles
   the card's shape.
