@@ -25,8 +25,19 @@ const NAMES = contactDescriptors({ payload: {}, industryId: null, industries: []
  * narrow: it is the CALIBRATION POPULATION, and the agreement test that proves
  * it still matches the database lives in the database suite where the rows are.
  */
+// R5, Leads round 2026-09-11: `company` JOINS THE GATE. John ruled that
+// company is part of "Contact Details complete" for Qualified, and the
+// migration added the 15th payload_field_required row.
+//
+// THIS LIST IS A SECOND READER of those rows, which is why
+// config-invariants.test.mjs asserts the two against each other - and that
+// assertion is what caught the omission. The database suite went red the
+// moment the migration was applied and stayed red through P2, because I was
+// running the pure and react suites and not this one. It is the same
+// suite-attribution fault the pre-commit hook now exists for, found BY the
+// hook on its first calibration run.
 const GATED_AT_QUALIFY = [
-  'name', 'parent_record_id', 'industry_id', 'email', 'mobile', 'jobRole',
+  'name', 'company', 'parent_record_id', 'industry_id', 'email', 'mobile', 'jobRole',
   'address', 'city', 'postcode', 'country', 'region', 'linkedin', 'source', 'summary',
 ]
 
@@ -34,7 +45,7 @@ const state = (fields: string[], recordId = 'c-1'): BlockingState =>
   ({ recordId, blockers: fields.map((field) => ({ field })) })
 
 describe('C2: every gated field reaches something on the screen', () => {
-  test('all 14 gated fields are placeable - the 1 that was not is the reason this exists', () => {
+  test('all 15 gated fields are placeable - the 1 that was not is the reason this exists', () => {
     const missed = unplaceable(state(GATED_AT_QUALIFY), NAMES)
     expect(missed.map((b) => b.field),
       'a gated field tints nothing, which is what a person blocked on it sees').toEqual([])
@@ -48,9 +59,14 @@ describe('C2: every gated field reaches something on the screen', () => {
       .toEqual(['industry_id'])
   })
 
-  test('the 14 break down as 12 rows, 1 card, and 1 that needs its declaration', () => {
+  // R5: 14 -> 15, and the extra one is a ROW. `company` is on the Contact
+  // Details card by name, so it lands in the first group and the arithmetic
+  // moves 12 -> 13. The card and the declaration are unchanged, which is the
+  // point of asserting the three groups separately rather than just the total:
+  // a new gated field that landed in the WRONG group would still sum to 15.
+  test('the 15 break down as 13 rows, 1 card, and 1 that needs its declaration', () => {
     // The Phase 0 report said "13 land, 1 does not", counting the Account card
-    // among the 13. Stated exactly: TWELVE match a row by name,
+    // among the 13. Stated exactly: THIRTEEN match a row by name,
     // parent_record_id is the card, and industry_id reaches its row only
     // through gateKeyFor. The arithmetic is asserted so the three groups
     // cannot drift into each other unnoticed.
@@ -58,7 +74,7 @@ describe('C2: every gated field reaches something on the screen', () => {
     const asCard = GATED_AT_QUALIFY.filter((f) => GATED_NOT_A_ROW.has(f))
     const byDeclaration = GATED_AT_QUALIFY.filter(
       (f) => !NAMES.includes(f) && !GATED_NOT_A_ROW.has(f))
-    expect(byName).toHaveLength(12)
+    expect(byName).toHaveLength(13)
     expect(asCard).toEqual(['parent_record_id'])
     expect(byDeclaration).toEqual(['industry_id'])
     expect(byName.length + asCard.length + byDeclaration.length).toBe(GATED_AT_QUALIFY.length)

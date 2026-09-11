@@ -13,6 +13,18 @@
 #
 # Reported through node rather than sed: the journal is JSON and a line-based
 # reader mangles it, which would make the refusal message itself untrustworthy.
+# ── GUARD 2 (added 2026-09-11): a suite is red ───────────────────────────
+#
+# Ruled by John as the mechanical answer to a fault that recurred while the
+# rule against it was known and quoted. See scripts/pre-commit-suites.mjs for
+# what it runs and what it deliberately does not.
+#
+# Runs BEFORE the journal check below only in the sense that it is written
+# first; the journal check is cheap and exits immediately when there is no
+# journal, so order costs nothing either way.
+node scripts/pre-commit-suites.mjs || exit 1
+
+# ── GUARD 1: a scripted edit batch did not fully land ────────────────────
 JOURNAL=".edit-journal.json"
 [ -f "$JOURNAL" ] || exit 0
 exec node -e '
