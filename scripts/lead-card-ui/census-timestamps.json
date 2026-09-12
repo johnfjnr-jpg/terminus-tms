@@ -1,0 +1,420 @@
+{
+  "decls": [
+    {
+      "f": "frontend/app.js",
+      "n": 2893,
+      "kind": "toLocaleDateString",
+      "line": "return new Date(dateStr).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' })"
+    },
+    {
+      "f": "frontend/app.js",
+      "n": 2902,
+      "kind": "toLocaleDateString",
+      "line": "const datePart = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' })"
+    },
+    {
+      "f": "frontend/app.js",
+      "n": 2903,
+      "kind": "toLocaleTimeString",
+      "line": "const timePart = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })"
+    },
+    {
+      "f": "frontend-react/src/account/AccountView.tsx",
+      "n": 27,
+      "kind": "toLocaleDateString",
+      "line": ": d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })"
+    },
+    {
+      "f": "frontend-react/src/approval-format.ts",
+      "n": 59,
+      "kind": "ISO slice(0,10)",
+      "line": "export const isoDate = (v: unknown): string => String(v ?? '').slice(0, 10)"
+    },
+    {
+      "f": "frontend-react/src/leads/LeadCard.tsx",
+      "n": 121,
+      "kind": "ISO slice(0,10)",
+      "line": "lead.created_at ? String(lead.created_at).slice(0, 10) : '--'].join(' · ')}"
+    },
+    {
+      "f": "frontend-react/src/reference/descriptors.ts",
+      "n": 59,
+      "kind": "toLocaleDateString",
+      "line": ": new Date(t).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' })"
+    },
+    {
+      "f": "frontend-react/src/reference/descriptors.ts",
+      "n": 63,
+      "kind": "ISO slice(0,10)",
+      "line": "export const todayIso = (now: Date): string => now.toISOString().slice(0, 10)"
+    },
+    {
+      "f": "frontend-react/src/shared/stageTracks.ts",
+      "n": 33,
+      "kind": "ISO slice(0,10)",
+      "line": "const formatDate = (d: string | null | undefined) => String(d ?? '').slice(0, 10)"
+    },
+    {
+      "f": "frontend-react/src/testbed/dateBounds.ts",
+      "n": 15,
+      "kind": "ISO slice(0,10)",
+      "line": "export const todayIso = (now: Date = new Date()): string => now.toISOString().slice(0, 10)"
+    },
+    {
+      "f": "frontend-react/src/testbed/headerStats.ts",
+      "n": 23,
+      "kind": "ISO slice(0,10)",
+      "line": "export const todayIso = (now: Date = new Date()): string => now.toISOString().slice(0, 10)"
+    },
+    {
+      "f": "frontend-react/src/testbed/history.ts",
+      "n": 35,
+      "kind": "ISO slice(0,16)",
+      "line": "when: String(e.timestamp ?? '').slice(0, 16).replace('T', ' '),"
+    },
+    {
+      "f": "frontend-react/src/testbed/history.ts",
+      "n": 35,
+      "kind": "replace('T')",
+      "line": "when: String(e.timestamp ?? '').slice(0, 16).replace('T', ' '),"
+    },
+    {
+      "f": "frontend-react/src/versions/model.ts",
+      "n": 86,
+      "kind": "ISO slice(0,16)",
+      "line": "return new Date(v.issued_at ?? v.created_at ?? '').toISOString().slice(0, 16).replace('T', ' ')"
+    },
+    {
+      "f": "frontend-react/src/versions/model.ts",
+      "n": 86,
+      "kind": "replace('T')",
+      "line": "return new Date(v.issued_at ?? v.created_at ?? '').toISOString().slice(0, 16).replace('T', ' ')"
+    },
+    {
+      "f": "frontend-react/src/versions/model.ts",
+      "n": 93,
+      "kind": "toLocaleDateString",
+      "line": "return `${d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' })}, `"
+    },
+    {
+      "f": "frontend-react/src/versions/model.ts",
+      "n": 94,
+      "kind": "toLocaleTimeString",
+      "line": "+ `${d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`"
+    },
+    {
+      "f": "src/lib/approval-page.js",
+      "n": 877,
+      "kind": "ISO slice(0,10)",
+      "line": "+ (costBasis.oldest?.effectiveFrom ? ` and cost basis dated ${String(costBasis.oldest.effectiveFrom).slice(0, 10)}` : '')"
+    },
+    {
+      "f": "src/lib/cost-basis.js",
+      "n": 118,
+      "kind": "ISO slice(0,10)",
+      "line": "const from = new Date(`${String(effectiveFrom).slice(0, 10)}T00:00:00Z`);"
+    },
+    {
+      "f": "src/lib/cost-basis.js",
+      "n": 119,
+      "kind": "ISO slice(0,10)",
+      "line": "const asOf = new Date(`${String(asOfISO).slice(0, 10)}T00:00:00Z`);"
+    },
+    {
+      "f": "src/lib/field-validation.js",
+      "n": 98,
+      "kind": "ISO slice(0,10)",
+      "line": "const today = new Date().toISOString().slice(0, 10)"
+    },
+    {
+      "f": "src/lib/opportunity-dates.js",
+      "n": 32,
+      "kind": "ISO slice(0,10)",
+      "line": "return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === v.trim();"
+    },
+    {
+      "f": "src/lib/opportunity-dates.js",
+      "n": 41,
+      "kind": "ISO slice(0,10)",
+      "line": "return now.toISOString().slice(0, 10);"
+    },
+    {
+      "f": "src/lib/opportunity-dates.js",
+      "n": 143,
+      "kind": "ISO slice(0,10)",
+      "line": "return { estGoLive: d.toISOString().slice(0, 10) };"
+    },
+    {
+      "f": "src/lib/reference-number.js",
+      "n": 82,
+      "kind": "ISO slice(0,10)",
+      "line": "return (name ?? '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 10)"
+    },
+    {
+      "f": "src/routes/base-costs.js",
+      "n": 34,
+      "kind": "ISO slice(0,10)",
+      "line": "const asOf = request.query?.as_of ?? new Date().toISOString().slice(0, 10)"
+    },
+    {
+      "f": "src/routes/deal-sheet-versions.js",
+      "n": 46,
+      "kind": "ISO slice(0,10)",
+      "line": "const asOf = new Date().toISOString().slice(0, 10)"
+    },
+    {
+      "f": "src/routes/deal-sheet-versions.js",
+      "n": 213,
+      "kind": "ISO slice(0,10)",
+      "line": "targetChangedAt = String(revisions[i - 1].created_at).slice(0, 10)"
+    },
+    {
+      "f": "src/routes/deals.js",
+      "n": 119,
+      "kind": "ISO slice(0,10)",
+      "line": "const asOf = new Date().toISOString().slice(0, 10);"
+    },
+    {
+      "f": "src/routes/opportunities.js",
+      "n": 20,
+      "kind": "ISO slice(0,10)",
+      "line": "const asOf = new Date().toISOString().slice(0, 10)"
+    }
+  ],
+  "sites": [
+    {
+      "f": "frontend/app.js",
+      "n": 1398,
+      "kind": "JSX / template interpolation",
+      "line": "+ `rejected${versionRejection.decidedAt ? ' on ' + escHtml(formatDateTime(versionRejection.decidedAt)) : ''}.</p>`"
+    },
+    {
+      "f": "frontend/app.js",
+      "n": 2316,
+      "kind": "JSX / template interpolation",
+      "line": "+ `<span class=\"sa-approval-meta\">${state}${d?.decided_at ? ' ' + formatDate(d.decided_at) : ''}</span>`"
+    },
+    {
+      "f": "frontend/app.js",
+      "n": 2334,
+      "kind": "JSX / template interpolation",
+      "line": "${escHtml(formatDateTime(req.requested_at))}</p>"
+    },
+    {
+      "f": "frontend/app.js",
+      "n": 2394,
+      "kind": "JSX / template interpolation",
+      "line": "? `Request raised ${formatDateTime(req.requested_at)}`"
+    },
+    {
+      "f": "frontend/app.js",
+      "n": 3850,
+      "kind": "JSX / template interpolation",
+      "line": "<p class=\"opp-assess-current-meta\">${escHtml(current.by ?? '--')} &middot; ${escHtml(formatDateTime(current.at))}</p>`"
+    },
+    {
+      "f": "frontend/app.js",
+      "n": 3856,
+      "kind": "JSX / template interpolation",
+      "line": "${series.slice(0, -1).reverse().map(e => `<div class=\"opp-assess-entry\"><span>${escHtml(formatDateTime(e.at))}</span><span>${escHtml(labelFor(e.value))}</span>${"
+    },
+    {
+      "f": "frontend/app.js",
+      "n": 5261,
+      "kind": "JSX / template interpolation",
+      "line": "<span class=\"record-card-stat\">${daysAgo(l.created_at)} ago</span>"
+    },
+    {
+      "f": "frontend/app.js",
+      "n": 5279,
+      "kind": "JSX / template interpolation",
+      "line": "<span class=\"cm-label\">Created</span><span>${formatDate(l.created_at)}</span>"
+    },
+    {
+      "f": "frontend/app.js",
+      "n": 5409,
+      "kind": "JSX / template interpolation",
+      "line": "<span class=\"rg-combined\">${formatDate(a.created_at)}</span>"
+    },
+    {
+      "f": "frontend/app.js",
+      "n": 5554,
+      "kind": "JSX / template interpolation",
+      "line": "const line3 = `${p.email ?? '--'} · source ${p.source ?? '--'} · created ${formatDate(c.created_at)}`"
+    },
+    {
+      "f": "frontend/app.js",
+      "n": 5576,
+      "kind": "JSX / template interpolation",
+      "line": "<span class=\"ref-notes-when\">${formatDateTime(n.at)}</span><span class=\"ref-notes-author\">${escHtml(n.by ?? '--')}</span><span class=\"ref-notes-text\">${escHtml(n.text)}</span>"
+    },
+    {
+      "f": "frontend/app.js",
+      "n": 6637,
+      "kind": "JSX / template interpolation",
+      "line": "<td class=\"col-mono\">${formatDate(b.created_at)}</td>"
+    },
+    {
+      "f": "frontend/app.js",
+      "n": 6876,
+      "kind": "JSX / template interpolation",
+      "line": "<span class=\"card-meta\">${daysAgo(o.created_at)}</span>"
+    },
+    {
+      "f": "frontend/app.js",
+      "n": 7489,
+      "kind": "DOM write",
+      "line": "document.getElementById('detail-age').textContent = daysAgo(opp.created_at)"
+    },
+    {
+      "f": "frontend/app.js",
+      "n": 7736,
+      "kind": "JSX / template interpolation",
+      "line": "? `Approved ${formatDate(t.decided_at)}`"
+    },
+    {
+      "f": "frontend/app.js",
+      "n": 7817,
+      "kind": "JSX / template interpolation",
+      "line": "? `${t.version_label ?? 'Version'} · approved ${formatDate(t.decided_at)} · at ${escHtml(st.stage_name)}`"
+    },
+    {
+      "f": "frontend/app.js",
+      "n": 7820,
+      "kind": "JSX / template interpolation",
+      "line": "? `Approved ${formatDate(t.decided_at)}`"
+    },
+    {
+      "f": "frontend/app.js",
+      "n": 8319,
+      "kind": "JSX / template interpolation",
+      "line": "&middot; raised ${formatDate(req.requested_at)}</div>"
+    },
+    {
+      "f": "frontend-react/src/ApprovalBlocks.tsx",
+      "n": 112,
+      "kind": "JSX / template interpolation",
+      "line": "{base?.approvedAt ? ` on ${isoDate(base.approvedAt)}` : ''}."
+    },
+    {
+      "f": "frontend-react/src/account/AccountView.tsx",
+      "n": 243,
+      "kind": "JSX / template interpolation",
+      "line": "field={{ name: 'dateCreated', label: 'Date Created', value: formatDate(rec?.created_at), readOnly: true }} />"
+    },
+    {
+      "f": "frontend-react/src/contact/AccountDetailsModal.tsx",
+      "n": 81,
+      "kind": "JSX / template interpolation",
+      "line": "{viewingMode ? (viewing?.created_at ?? '--') : '--'}"
+    },
+    {
+      "f": "frontend-react/src/contact/ContactHost.tsx",
+      "n": 414,
+      "kind": "JSX / template interpolation",
+      "line": "date={String(record.payload?.followUpDate ?? '')}"
+    },
+    {
+      "f": "frontend-react/src/contact/NotesHistory.tsx",
+      "n": 152,
+      "kind": "JSX / template interpolation",
+      "line": "<div className=\"ref-notes-row\" data-testid={`cd-note-${i}`} key={`${n.at}-${i}`}>"
+    },
+    {
+      "f": "frontend-react/src/contact/NotesHistory.tsx",
+      "n": 153,
+      "kind": "JSX / template interpolation",
+      "line": "<span className=\"ref-notes-when\">{n.at}</span>"
+    },
+    {
+      "f": "frontend-react/src/deal/DealPanel.tsx",
+      "n": 68,
+      "kind": "JSX / template interpolation",
+      "line": "return { rates, missing, batches, asOf: r.data?.as_of ?? null }"
+    },
+    {
+      "f": "frontend-react/src/leads/LeadCard.tsx",
+      "n": 208,
+      "kind": "JSX / template interpolation",
+      "line": "date={str(p.followUpDate)}"
+    },
+    {
+      "f": "frontend-react/src/reference/KeyContacts.tsx",
+      "n": 158,
+      "kind": "JSX / template interpolation",
+      "line": "<td>{l.linked_at ?? '--'}</td>"
+    },
+    {
+      "f": "frontend-react/src/reference/descriptors.ts",
+      "n": 141,
+      "kind": "JSX / template interpolation",
+      "line": "{ name: 'ro-created', label: 'Date Created', value: asDate(src.createdAt), readOnly: true },"
+    },
+    {
+      "f": "frontend-react/src/shared/stageTracks.ts",
+      "n": 46,
+      "kind": "JSX / template interpolation",
+      "line": "? `${t.version_label ?? 'Version'} · approved ${formatDate(t.decided_at)} · at ${st.stage_name}`"
+    },
+    {
+      "f": "frontend-react/src/shared/stageTracks.ts",
+      "n": 49,
+      "kind": "JSX / template interpolation",
+      "line": "? `Approved ${formatDate(t.decided_at)}`"
+    },
+    {
+      "f": "frontend-react/src/testbed/InstallSection.tsx",
+      "n": 123,
+      "kind": "JSX / template interpolation",
+      "line": "<div className=\"ref-notes-row\" key={`${n.at}-${i}`}"
+    },
+    {
+      "f": "frontend-react/src/testbed/InstallSection.tsx",
+      "n": 125,
+      "kind": "JSX / template interpolation",
+      "line": "<span className=\"ref-notes-when\">{n.at}</span>"
+    },
+    {
+      "f": "frontend-react/src/testbed/headerStats.ts",
+      "n": 64,
+      "kind": "JSX / template interpolation",
+      "line": "{ label: 'Est. start', value: date(payload?.estimatedInstallationDate) },"
+    },
+    {
+      "f": "frontend-react/src/testbed/headerStats.ts",
+      "n": 65,
+      "kind": "JSX / template interpolation",
+      "line": "{ label: 'Contracted end', value: date(payload?.estGoLiveDate), overdue },"
+    },
+    {
+      "f": "frontend-react/src/versions/model.ts",
+      "n": 138,
+      "kind": "JSX / template interpolation",
+      "line": "return `Under approval since ${formatDealDateTime(pending.requested_at)} · ${parts.join(' · ')}`"
+    },
+    {
+      "f": "src/routes/opportunities.js",
+      "n": 1423,
+      "kind": "JSX / template interpolation",
+      "line": "return reply.code(201).send({ ok: true, id: written[0].id, at: written[0].created_at })"
+    },
+    {
+      "f": "src/routes/test-beds.js",
+      "n": 1910,
+      "kind": "JSX / template interpolation",
+      "line": "return docs.map(d => ({ id: d.id, name: d.variant, url: byId[d.id] ?? null, created_at: d.created_at }))"
+    },
+    {
+      "f": "src/routes/test-beds.js",
+      "n": 1977,
+      "kind": "JSX / template interpolation",
+      "line": "return reply.code(201).send({ id: doc.id, name: doc.variant, url: String(url).trim(), created_at: doc.created_at })"
+    }
+  ],
+  "calibration": {
+    "KNOWN_RAW": true,
+    "KNOWN_FMT": true,
+    "PROSE_EXCLUDED": true
+  },
+  "filesScanned": 157
+}
