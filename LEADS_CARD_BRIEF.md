@@ -102,6 +102,44 @@ Recorded in the Phase 1 report with its reasoning. It touches every
 close, so it is the opening act of a near-term round and calibrates on
 its own.
 
+**R11. ADDRESS DETAILS STAYS ALIVE ON AN UNOWNED CARD.** Ruled at the
+Phase 2 sign-off. It is a read disclosure - six read-only values, and the
+revealed panel holds **zero** controls, which is asserted rather than
+argued. Neutralising it would re-create P3's recorded defect, *"a door
+that had made an unowned lead unreadable"*, which that finding calls the
+one thing the door must never do. Qualify, Nurture and Follow-up remain
+neutralised.
+
+---
+
+## The round-close PROMOTION QUEUE
+
+Candidates named at the phase that raised them, so the close rules on a
+list rather than reconstructing one.
+
+**F3, THE UNCLASSED-CONTROL CLASS.** Four instances across three phases,
+and the estate has no instrument for any of them:
+
+| instance | phase |
+|---|---|
+| the New Lead grid's Save shipped unclassed, a white button on a dark screen | LEADS P5 |
+| Add note and Save task on the Lead cards, still unclassed | LEADS P3/P4, carried as F3 |
+| the Qualify account step rendered TWO Cancel buttons, one unstyled | this round, Phase 2 |
+| `LinkAccountPanel`'s search input has no `type` attribute, so it misses the estate's own input rule - on Lead Detail too | this round, Phase 2 |
+
+**Why it recurs and why nothing catches it.** Presence, position,
+disabled state and behaviour all read GREEN on a white browser default.
+Every assertion an estate like this writes is about what a control IS and
+what it DOES, and none is about what it LOOKS LIKE. Every instance so far
+was found by a person opening a screenshot, which is Verification 4's
+remedy and its limit: it works only when somebody looks, and only at what
+is in frame.
+
+**Not fixed here, by instruction.** The close rules whether this becomes
+a check (a scan for interactive elements carrying no estate class, or a
+computed-style assertion that no control renders on the default white)
+or a rule.
+
 ---
 
 ## What "create Contact" means, resolved by the design of record

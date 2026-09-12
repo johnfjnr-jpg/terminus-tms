@@ -3,8 +3,8 @@
 Built to R2, rendering on the conversion Phase 1b proved. Lead Detail
 untouched (R4). Nothing pushed.
 
-**One decision is owed before this phase can be called finished** - the
-door's treatment of Address details. Section 5.
+**R11 CLOSED IT: Address details stays alive.** Section 5. Widths
+re-measured at all three (section 4a). F3 named for the close (section 10).
 
 ---
 
@@ -15,6 +15,7 @@ door's treatment of Address details. Section 5.
 | `probe-card.mjs` (live screen) | **15/15** |
 | `probe-qualify-route.mjs` (HTTP) | **7/7** |
 | `probe-nurture.mjs` (live screen) | **5/5** |
+| `probe-card-widths.mjs` (1240, 1920, 3440) | **15/15** |
 
 Bundle freshness asserted before every live measurement. Suites: pure
 **519/519**, react **939/939**, database **100/100**. Probe residue: **0**.
@@ -86,7 +87,42 @@ follow-up control on the card rather than two.
 
 ---
 
-## 5. THE DOOR, AND THE ONE DECISION OWED
+## 4a. All three widths, which the first pass did not do
+
+Phase 2 measured full width at **1920 only** and said so. Verification 10
+wants 1240, 1920 and 3440, and **1240 is where it broke** - which is the
+whole reason the rule names that width.
+
+| | 1240 | 1920 | 3440 |
+|---|---|---|---|
+| card fills the content column, uncapped | 876 of 877 | 1556 of 1556 | 3076 of 3076 |
+| Company/Source/Created Date on the name line | yes | yes | yes |
+| the four actions share one row | yes | yes | yes |
+| no sideways scroll | yes | yes | yes |
+| an extreme name wraps cleanly, never overflows | yes | yes | yes |
+
+**One of the two 1240 failures was my assertion, not the product.** The
+first check read `card > viewport * 0.75` and failed at 876 of 1240 - on
+a card using **every pixel available to it**. The sidebar and `.wrap`'s
+fixed padding are ~363px whatever the width, so they are 29% of 1240 and
+11% of 3440. **A fraction of the VIEWPORT was never the claim**; filling
+the content column is. Verification 27's shape: the measure was a
+property of the document rather than of what the person gets.
+
+**The other was real, and is now measured rather than assumed away.** The
+head is a wrapping flex row. With a 44-character name and a 52-character
+company it wraps at 1240 instead of overflowing. So the probe now carries
+**two leads** - typical and deliberately extreme - and asserts the claim
+on the typical one at all three widths, while asserting the extreme one
+**wraps cleanly and never scrolls the page sideways**. Confirmed by
+screenshot at 1240: "Jane Tan · Willowglen · Referral · 2026-09-12" on
+one line, the extreme lead's company wrapping below it, both readable.
+
+Screenshots: `p2-width-1240.png`, `p2-width-1920.png`, `p2-width-3440.png`.
+
+---
+
+## 5. THE DOOR, AND R11
 
 | check | result |
 |---|---|
@@ -96,8 +132,9 @@ follow-up control on the card rather than two.
 | **Address details ALIVE on an unowned card** | `live` |
 | the revealed address panel holds ZERO controls | 0 interactive elements |
 
-**The instruction and a recorded principle disagree, and I have not
-resolved it by choosing the easier assertion.**
+**R11 RULED: LEAVE ALIVE.** The reasoning below is what the ruling rests
+on and is kept, because the conflict was real and a later reader should
+see how it was settled rather than that it never arose.
 
 The Phase 2 instruction lists *"Qualify/Nurture/Follow-up/Address/Add-note
 all neutralised"*. Address details, as built, is a **read disclosure**: it
@@ -124,10 +161,11 @@ depends on what Address IS, and that is yours to say.
   address cannot be read without opening the lead. If you want this, say
   so and it is one selector.
 
-**Built as (a)**, because it is the behaviour the recorded principle
-requires and the safer default while you decide - a disclosure that is
-wrongly alive costs a read, and one wrongly dead costs the defect P3
-already paid for.
+**Ruled (a), and already asserted both ways**: Address is `live` on an
+unowned card, the three write actions are `dead`, and **the revealed
+panel holds zero controls** - which is what makes alive safe rather than
+merely permitted. A disclosure that is wrongly alive costs a read; one
+wrongly dead costs the defect P3 already paid for.
 
 ---
 
@@ -182,14 +220,32 @@ site.
 
 ---
 
-## 9. What this phase does not establish
+## 10. F3 named for the round close
 
-- **No walk.** Three probes and screenshots, not a person. The card has
+The unclassed-control class is now **four instances across three phases**,
+and it is on the close's promotion queue in `LEADS_CARD_BRIEF.md` with
+the table. Not fixed here, by instruction.
+
+**Why nothing catches it:** presence, position, disabled state and
+behaviour all read green on a white browser default. Every assertion this
+estate writes is about what a control IS and what it DOES; none is about
+what it LOOKS LIKE. All four were found by a person opening a screenshot
+- Verification 4's remedy and its limit, since it works only when
+somebody looks and only at what is in frame.
+
+The close rules whether that becomes a check or a rule.
+
+---
+
+## 11. What this phase does not establish
+
+- **No walk.** Four probes and screenshots, not a person. The card has
   not been used by anyone.
 - **The Qualify flow was exercised with one account choice per path**
   (create-new on the card, link-existing over HTTP). Searching a long
   account list, and the panel's matching behaviour, are untested here.
-- **Nothing was measured at 1240 or 3440.** Full width was asserted at
-  1920 only; Verification 10 wants three widths and this phase took one.
+- **The widths were measured on a card with no notes and no follow-up
+  set.** A card carrying ten notes and an open address disclosure is
+  taller and was not measured at 1240.
 - The completion popup tells a person to **open the lead** to fill fields
   in. It does not fill them in on the card, which R2 did not ask for.
