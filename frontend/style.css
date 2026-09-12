@@ -6258,3 +6258,17 @@ input.input-invalid {
    header AND its controls rather than a label with a button after it. */
 .cd-notes-header-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .cd-notes-header-row .label { margin-right: auto; }
+
+/* R2 + R5 INTERACT, and a screenshot is what showed it. R5 moved the actions
+   INSIDE the head, so the head's flex sizes them to their content - and the
+   completion surface, which renders from the same component, inherited that
+   narrow column while two thirds of the card sat empty.
+   When a step is open the action group takes a full row of the head instead.
+   The buttons stay on the top line; only the expanded surface spans. */
+.lead-card-head .lead-card-actions:has(.lead-qualify-step) {
+  flex-basis: 100%;
+  margin-left: 0;
+}
+.lead-card-head .lead-card-actions:has(.lead-qualify-step) .lead-action-row {
+  justify-content: flex-end;
+}

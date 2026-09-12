@@ -118,6 +118,21 @@ try {
     !(await page.$eval(`[data-testid="lead-incomplete-${partial.id}"]`,
       (e) => /open the lead/i.test(e.textContent))),
     'the message is "Please complete missing data"')
+  // THE SURFACE MUST SPAN THE CARD, not sit in the action column. R5 moved
+  // the actions into the head, so the completion surface inherited a
+  // content-sized flex item - found by opening the screenshot, with two
+  // thirds of the card empty beside it.
+  const span = await page.evaluate((id) => {
+    const s = document.querySelector(`[data-testid="lead-incomplete-${id}"]`)
+    const card = document.querySelector(`[data-testid="lead-card-${id}"]`)
+    return {
+      surface: Math.round(s.getBoundingClientRect().width),
+      card: Math.round(card.getBoundingClientRect().width),
+    }
+  }, partial.id)
+  check('R2: the completion surface spans the card, not the action column',
+    span.surface > span.card * 0.8,
+    `surface ${span.surface}px of a ${span.card}px card`)
   await page.screenshot({ path: `${OUT}p1-popup.png` })
 
   // Save enables only on dirty.
