@@ -107,11 +107,16 @@ describe('the bundle registers exactly the loaders it declares', () => {
     // to that name, only two reads. `renderLeadsCardsAfterCreate` travels the
     // other way - app.js publishes it and the grid calls it - so the bundle
     // does not register it and it is correctly absent below.
+    // R7 adds TWO, deliberately and for a reason this guard should carry:
+    // `app.js` is a classic script and cannot import, so the one date
+    // formatter is published here rather than reimplemented there. Phase 0
+    // measured three copies of a formatter claiming to agree with one already
+    // drifted, which is what a second implementation costs.
     expect(added).toEqual([
       'initOpportunityDealPanel', 'initOpportunityDealVersions',
       'initOpportunityReferencePanel', 'loadAccountDetail', 'loadApprovalPage',
       'loadContactDetail', 'loadTestBedDetail', 'mountLeadsList',
-      'mountNewLeadGrid'])
+      'mountNewLeadGrid', 'tmsFormatDate', 'tmsFormatTimestamp'])
   })
 })
 

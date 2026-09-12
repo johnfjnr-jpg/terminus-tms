@@ -7,6 +7,7 @@
 // two hand-written tables agree today and drift later. This side reads the
 // map that belongs to it.
 import { COUNT_KEY_TO_UNIT_TYPE } from './units'
+import { formatDate as fmtDate } from '../../../src/lib/format-dates.js'
 
 export interface StatCell { label: string, value: string, overdue?: boolean }
 
@@ -16,8 +17,10 @@ const money = (n: unknown): string => {
   return `$${v.toLocaleString('en-US', { maximumFractionDigits: 0 })}`
 }
 
-const date = (s: unknown): string =>
-  (typeof s === 'string' && s.trim()) ? s : '--'
+// R7: this was a PASSTHROUGH - it returned the stored string unchanged, so
+// Est. start and Contracted end rendered YYYY-MM-DD. A passthrough is a raw
+// render wearing a function's name, which is why the census counted it.
+const date = (s: unknown): string => fmtDate(s) || '--'
 
 /** Today as an ISO date, injectable so the overdue rule is testable. */
 export const todayIso = (now: Date = new Date()): string => now.toISOString().slice(0, 10)

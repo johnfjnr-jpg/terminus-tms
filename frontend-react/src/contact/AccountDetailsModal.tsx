@@ -5,6 +5,8 @@
 // and a second would be a second place for them to drift.
 import { useEffect, useRef, useState } from 'react'
 import { findAccountMatches, type AccountOption } from './LinkAccountPanel'
+// R7: the one formatter, replacing a raw ISO render.
+import { formatTimestamp } from '../../../src/lib/format-dates.js'
 
 export type AccountDetailsMode = 'new' | 'view' | null
 
@@ -78,7 +80,7 @@ export function AccountDetailsModal({ mode, prefillName, viewing, accounts, onCl
           {viewingMode ? (viewing?.reference_code ?? '--') : 'Not yet generated'}
         </div>
         <div data-testid="account-details-created">
-          {viewingMode ? (viewing?.created_at ?? '--') : '--'}
+          {viewingMode ? (formatTimestamp(viewing?.created_at) || '--') : '--'}
         </div>
 
         {/* A5: a parent, searched by the SAME substring rule the link panel

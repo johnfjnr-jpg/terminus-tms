@@ -1,3 +1,4 @@
+import { formatDate as fmtDate } from '../../src/lib/format-dates.js'
 // ── FORMATTING ONLY. NO ARITHMETIC. ──────────────────────────────────────
 //
 // Brief Phase 2 point 1: nothing is computed client-side, and any arithmetic
@@ -54,9 +55,12 @@ export function fmtVal(v: unknown): string {
   return String(v)
 }
 
-// ISO date to its date part. `String(x ?? '').slice(0, 10)` in the vanilla, and
-// the empty-string fallback matters: an absent date must not print "undefined".
-export const isoDate = (v: unknown): string => String(v ?? '').slice(0, 10)
+// R7: the one formatter. The name is kept because two call sites and the
+// approval page's own vocabulary use it; what changed is the SHAPE, from
+// YYYY-MM-DD to DD/MM/YY. The empty-string fallback this comment flagged is
+// now the module's own contract - an absent date must not print "undefined",
+// and the caller names its own dash.
+export const isoDate = (v: unknown): string => fmtDate(v)
 
 // A signed money figure split into its display pieces. The server decided the
 // sign; this only chooses where to print it.

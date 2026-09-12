@@ -28,6 +28,7 @@ import { InlineSummary } from './InlineSummary'
 import { NotesHistory } from '../contact/NotesHistory'
 import { FollowUpTask } from '../contact/FollowUpTask'
 import type { Note } from '../contact/notes'
+import { formatDate } from '../../../src/lib/format-dates.js'
 
 export interface LeadRecord {
   id: string
@@ -118,7 +119,7 @@ export function LeadCard({
           : null}
         <span className="lead-card-sub" data-testid={`lead-sub-${lead.id}`}>
           {[accountName ?? str(p.company) ?? '--', str(p.source) || '--',
-            lead.created_at ? String(lead.created_at).slice(0, 10) : '--'].join(' · ')}
+            formatDate(lead.created_at) || '--'].join(' · ')}
         </span>
 
         {/* R5: THE ACTIONS ARE ON THE TOP LINE, inside the head, rather than

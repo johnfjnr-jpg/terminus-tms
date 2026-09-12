@@ -2888,9 +2888,22 @@ function daysAgo(dateStr) {
   return `${days} days`
 }
 
+// ── R7: BOTH DELEGATE. ONE IMPLEMENTATION, IN src/lib/format-dates.js ────
+//
+// Phase 0 censused sixteen sites producing seven shapes, and these two fed
+// nineteen of the call sites between them. They are kept as names because
+// nineteen callers read better than nineteen edits, and because a delegate
+// that cannot drift is the point - the body is one line and there is nothing
+// in it to get wrong.
+//
+// The bundle loads before this file (index.html: terminus-react.js then
+// app.js), so the published functions are there by the time anything calls
+// these. The fallback returns the value unchanged rather than inventing a
+// second format: if the bundle ever fails to load, a raw value is a visible
+// fault, and a quietly-different format is not.
 function formatDate(dateStr) {
   if (!dateStr) return '--'
-  return new Date(dateStr).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' })
+  return (window.tmsFormatDate ? window.tmsFormatDate(dateStr) : String(dateStr)) || '--'
 }
 
 // Date + time, for records where "when exactly" matters (Notes History)
@@ -2898,10 +2911,7 @@ function formatDate(dateStr) {
 // Date, Key Dates, Opportunity's own Notes panel) keeps using unchanged.
 function formatDateTime(dateStr) {
   if (!dateStr) return '--'
-  const d = new Date(dateStr)
-  const datePart = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' })
-  const timePart = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
-  return `${datePart}, ${timePart}`
+  return (window.tmsFormatTimestamp ? window.tmsFormatTimestamp(dateStr) : String(dateStr)) || '--'
 }
 
 // P5 (2026-09-11): regionForCountry is DELETED, and the finding is recorded

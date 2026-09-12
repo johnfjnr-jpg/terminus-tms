@@ -18,6 +18,8 @@
 // panel, so it shares no markup with the row mechanism either.
 import { useCallback, useEffect, useState } from 'react'
 import { useShell } from '../ShellContext'
+// R7: the one formatter, replacing a raw ISO render.
+import { formatTimestamp } from '../../../src/lib/format-dates.js'
 
 export interface KcVocabItem { id: string, name: string }
 export interface KcLink {
@@ -155,7 +157,7 @@ export function KeyContacts({ oppId, links, onChanged }: {
                   hidden={!armed[l.id]} disabled={busy}
                   onClick={() => { void record(l.id) }}>Record</button>
               </td>
-              <td>{l.linked_at ?? '--'}</td>
+              <td>{formatTimestamp(l.linked_at) || '--'}</td>
               <td>
                 <span className="kc-remove" role="button" tabIndex={0}
                   data-testid={`kc-remove-${l.id}`}

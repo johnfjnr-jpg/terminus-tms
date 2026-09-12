@@ -159,8 +159,12 @@ describe('S: item 5, same-as-account', () => {
 describe('D: dates a person reads', () => {
   test('D1 Date Created renders a date, not a stored timestamp', () => {
     const r = referenceReadOnly(src({ createdAt: '2026-09-06T14:12:05.80658+00:00' }), 0)
-    expect(r.find((x) => x.label === 'Date Created')!.value,
-      'the raw column reached the screen').toBe('06 Sept 26')
+    // R7: DD/MM/YY. The claim this test makes - that a STORED TIMESTAMP does
+    // not reach the screen as it stands - is unchanged, and is what the two
+    // assertions below check: the shape is a date, and no ISO survives.
+    const v = r.find((x) => x.label === 'Date Created')!.value
+    expect(v, 'the raw column reached the screen').toMatch(/^\d{2}\/\d{2}\/\d{2}$/)
+    expect(v).not.toContain('T')
   })
   test('D2 an unparseable value is shown as it is, never as "Invalid Date"', () => {
     // '01/01/27' is NOT the example to use here: Date.parse accepts it. A value

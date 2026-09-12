@@ -1,58 +1,10 @@
 {
   "decls": [
     {
-      "f": "frontend/app.js",
-      "n": 2893,
-      "kind": "toLocaleDateString",
-      "line": "return new Date(dateStr).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' })"
-    },
-    {
-      "f": "frontend/app.js",
-      "n": 2902,
-      "kind": "toLocaleDateString",
-      "line": "const datePart = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' })"
-    },
-    {
-      "f": "frontend/app.js",
-      "n": 2903,
-      "kind": "toLocaleTimeString",
-      "line": "const timePart = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })"
-    },
-    {
-      "f": "frontend-react/src/account/AccountView.tsx",
-      "n": 27,
-      "kind": "toLocaleDateString",
-      "line": ": d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })"
-    },
-    {
-      "f": "frontend-react/src/approval-format.ts",
-      "n": 59,
-      "kind": "ISO slice(0,10)",
-      "line": "export const isoDate = (v: unknown): string => String(v ?? '').slice(0, 10)"
-    },
-    {
-      "f": "frontend-react/src/leads/LeadCard.tsx",
-      "n": 121,
-      "kind": "ISO slice(0,10)",
-      "line": "lead.created_at ? String(lead.created_at).slice(0, 10) : '--'].join(' · ')}"
-    },
-    {
       "f": "frontend-react/src/reference/descriptors.ts",
-      "n": 59,
-      "kind": "toLocaleDateString",
-      "line": ": new Date(t).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' })"
-    },
-    {
-      "f": "frontend-react/src/reference/descriptors.ts",
-      "n": 63,
+      "n": 65,
       "kind": "ISO slice(0,10)",
       "line": "export const todayIso = (now: Date): string => now.toISOString().slice(0, 10)"
-    },
-    {
-      "f": "frontend-react/src/shared/stageTracks.ts",
-      "n": 33,
-      "kind": "ISO slice(0,10)",
-      "line": "const formatDate = (d: string | null | undefined) => String(d ?? '').slice(0, 10)"
     },
     {
       "f": "frontend-react/src/testbed/dateBounds.ts",
@@ -62,45 +14,9 @@
     },
     {
       "f": "frontend-react/src/testbed/headerStats.ts",
-      "n": 23,
+      "n": 26,
       "kind": "ISO slice(0,10)",
       "line": "export const todayIso = (now: Date = new Date()): string => now.toISOString().slice(0, 10)"
-    },
-    {
-      "f": "frontend-react/src/testbed/history.ts",
-      "n": 35,
-      "kind": "ISO slice(0,16)",
-      "line": "when: String(e.timestamp ?? '').slice(0, 16).replace('T', ' '),"
-    },
-    {
-      "f": "frontend-react/src/testbed/history.ts",
-      "n": 35,
-      "kind": "replace('T')",
-      "line": "when: String(e.timestamp ?? '').slice(0, 16).replace('T', ' '),"
-    },
-    {
-      "f": "frontend-react/src/versions/model.ts",
-      "n": 86,
-      "kind": "ISO slice(0,16)",
-      "line": "return new Date(v.issued_at ?? v.created_at ?? '').toISOString().slice(0, 16).replace('T', ' ')"
-    },
-    {
-      "f": "frontend-react/src/versions/model.ts",
-      "n": 86,
-      "kind": "replace('T')",
-      "line": "return new Date(v.issued_at ?? v.created_at ?? '').toISOString().slice(0, 16).replace('T', ' ')"
-    },
-    {
-      "f": "frontend-react/src/versions/model.ts",
-      "n": 93,
-      "kind": "toLocaleDateString",
-      "line": "return `${d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' })}, `"
-    },
-    {
-      "f": "frontend-react/src/versions/model.ts",
-      "n": 94,
-      "kind": "toLocaleTimeString",
-      "line": "+ `${d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`"
     },
     {
       "f": "src/lib/approval-page.js",
@@ -208,85 +124,85 @@
     },
     {
       "f": "frontend/app.js",
-      "n": 3850,
+      "n": 3860,
       "kind": "JSX / template interpolation",
       "line": "<p class=\"opp-assess-current-meta\">${escHtml(current.by ?? '--')} &middot; ${escHtml(formatDateTime(current.at))}</p>`"
     },
     {
       "f": "frontend/app.js",
-      "n": 3856,
+      "n": 3866,
       "kind": "JSX / template interpolation",
       "line": "${series.slice(0, -1).reverse().map(e => `<div class=\"opp-assess-entry\"><span>${escHtml(formatDateTime(e.at))}</span><span>${escHtml(labelFor(e.value))}</span>${"
     },
     {
       "f": "frontend/app.js",
-      "n": 5261,
+      "n": 5271,
       "kind": "JSX / template interpolation",
       "line": "<span class=\"record-card-stat\">${daysAgo(l.created_at)} ago</span>"
     },
     {
       "f": "frontend/app.js",
-      "n": 5279,
+      "n": 5289,
       "kind": "JSX / template interpolation",
       "line": "<span class=\"cm-label\">Created</span><span>${formatDate(l.created_at)}</span>"
     },
     {
       "f": "frontend/app.js",
-      "n": 5409,
+      "n": 5419,
       "kind": "JSX / template interpolation",
       "line": "<span class=\"rg-combined\">${formatDate(a.created_at)}</span>"
     },
     {
       "f": "frontend/app.js",
-      "n": 5554,
+      "n": 5564,
       "kind": "JSX / template interpolation",
       "line": "const line3 = `${p.email ?? '--'} · source ${p.source ?? '--'} · created ${formatDate(c.created_at)}`"
     },
     {
       "f": "frontend/app.js",
-      "n": 5576,
+      "n": 5586,
       "kind": "JSX / template interpolation",
       "line": "<span class=\"ref-notes-when\">${formatDateTime(n.at)}</span><span class=\"ref-notes-author\">${escHtml(n.by ?? '--')}</span><span class=\"ref-notes-text\">${escHtml(n.text)}</span>"
     },
     {
       "f": "frontend/app.js",
-      "n": 6637,
+      "n": 6647,
       "kind": "JSX / template interpolation",
       "line": "<td class=\"col-mono\">${formatDate(b.created_at)}</td>"
     },
     {
       "f": "frontend/app.js",
-      "n": 6876,
+      "n": 6886,
       "kind": "JSX / template interpolation",
       "line": "<span class=\"card-meta\">${daysAgo(o.created_at)}</span>"
     },
     {
       "f": "frontend/app.js",
-      "n": 7489,
+      "n": 7499,
       "kind": "DOM write",
       "line": "document.getElementById('detail-age').textContent = daysAgo(opp.created_at)"
     },
     {
       "f": "frontend/app.js",
-      "n": 7736,
+      "n": 7746,
       "kind": "JSX / template interpolation",
       "line": "? `Approved ${formatDate(t.decided_at)}`"
     },
     {
       "f": "frontend/app.js",
-      "n": 7817,
+      "n": 7827,
       "kind": "JSX / template interpolation",
       "line": "? `${t.version_label ?? 'Version'} · approved ${formatDate(t.decided_at)} · at ${escHtml(st.stage_name)}`"
     },
     {
       "f": "frontend/app.js",
-      "n": 7820,
+      "n": 7830,
       "kind": "JSX / template interpolation",
       "line": "? `Approved ${formatDate(t.decided_at)}`"
     },
     {
       "f": "frontend/app.js",
-      "n": 8319,
+      "n": 8329,
       "kind": "JSX / template interpolation",
       "line": "&middot; raised ${formatDate(req.requested_at)}</div>"
     },
@@ -297,16 +213,28 @@
       "line": "{base?.approvedAt ? ` on ${isoDate(base.approvedAt)}` : ''}."
     },
     {
+      "f": "frontend-react/src/ApprovalBlocks.tsx",
+      "n": 190,
+      "kind": "JSX / template interpolation",
+      "line": "Resolved as at {isoDate(c.asOf)}. {c.asOfRule}"
+    },
+    {
+      "f": "frontend-react/src/ApprovalBlocks.tsx",
+      "n": 197,
+      "kind": "JSX / template interpolation",
+      "line": "note={`${p.batchLabel ?? 'unlabelled batch'}, effective ${isoDate(p.effectiveFrom) || 'unknown'}. ${p.bandMeaning ?? ''}`} />"
+    },
+    {
       "f": "frontend-react/src/account/AccountView.tsx",
-      "n": 243,
+      "n": 251,
       "kind": "JSX / template interpolation",
       "line": "field={{ name: 'dateCreated', label: 'Date Created', value: formatDate(rec?.created_at), readOnly: true }} />"
     },
     {
       "f": "frontend-react/src/contact/AccountDetailsModal.tsx",
-      "n": 81,
+      "n": 83,
       "kind": "JSX / template interpolation",
-      "line": "{viewingMode ? (viewing?.created_at ?? '--') : '--'}"
+      "line": "{viewingMode ? (formatTimestamp(viewing?.created_at) || '--') : '--'}"
     },
     {
       "f": "frontend-react/src/contact/ContactHost.tsx",
@@ -316,15 +244,15 @@
     },
     {
       "f": "frontend-react/src/contact/NotesHistory.tsx",
-      "n": 152,
+      "n": 156,
       "kind": "JSX / template interpolation",
       "line": "<div className=\"ref-notes-row\" data-testid={`cd-note-${i}`} key={`${n.at}-${i}`}>"
     },
     {
       "f": "frontend-react/src/contact/NotesHistory.tsx",
-      "n": 153,
+      "n": 157,
       "kind": "JSX / template interpolation",
-      "line": "<span className=\"ref-notes-when\">{n.at}</span>"
+      "line": "<span className=\"ref-notes-when\">{formatTimestamp(n.at)}</span>"
     },
     {
       "f": "frontend-react/src/deal/DealPanel.tsx",
@@ -334,63 +262,93 @@
     },
     {
       "f": "frontend-react/src/leads/LeadCard.tsx",
-      "n": 208,
+      "n": 209,
       "kind": "JSX / template interpolation",
       "line": "date={str(p.followUpDate)}"
     },
     {
       "f": "frontend-react/src/reference/KeyContacts.tsx",
-      "n": 158,
+      "n": 160,
       "kind": "JSX / template interpolation",
-      "line": "<td>{l.linked_at ?? '--'}</td>"
+      "line": "<td>{formatTimestamp(l.linked_at) || '--'}</td>"
     },
     {
       "f": "frontend-react/src/reference/descriptors.ts",
-      "n": 141,
+      "n": 143,
       "kind": "JSX / template interpolation",
       "line": "{ name: 'ro-created', label: 'Date Created', value: asDate(src.createdAt), readOnly: true },"
     },
     {
       "f": "frontend-react/src/shared/stageTracks.ts",
-      "n": 46,
+      "n": 50,
       "kind": "JSX / template interpolation",
       "line": "? `${t.version_label ?? 'Version'} · approved ${formatDate(t.decided_at)} · at ${st.stage_name}`"
     },
     {
       "f": "frontend-react/src/shared/stageTracks.ts",
-      "n": 49,
+      "n": 53,
       "kind": "JSX / template interpolation",
       "line": "? `Approved ${formatDate(t.decided_at)}`"
     },
     {
       "f": "frontend-react/src/testbed/InstallSection.tsx",
-      "n": 123,
+      "n": 125,
       "kind": "JSX / template interpolation",
       "line": "<div className=\"ref-notes-row\" key={`${n.at}-${i}`}"
     },
     {
       "f": "frontend-react/src/testbed/InstallSection.tsx",
-      "n": 125,
+      "n": 127,
       "kind": "JSX / template interpolation",
-      "line": "<span className=\"ref-notes-when\">{n.at}</span>"
+      "line": "<span className=\"ref-notes-when\">{formatTimestamp(n.at)}</span>"
     },
     {
       "f": "frontend-react/src/testbed/headerStats.ts",
-      "n": 64,
+      "n": 67,
       "kind": "JSX / template interpolation",
       "line": "{ label: 'Est. start', value: date(payload?.estimatedInstallationDate) },"
     },
     {
       "f": "frontend-react/src/testbed/headerStats.ts",
-      "n": 65,
+      "n": 68,
       "kind": "JSX / template interpolation",
       "line": "{ label: 'Contracted end', value: date(payload?.estGoLiveDate), overdue },"
     },
     {
       "f": "frontend-react/src/versions/model.ts",
-      "n": 138,
+      "n": 142,
       "kind": "JSX / template interpolation",
       "line": "return `Under approval since ${formatDealDateTime(pending.requested_at)} · ${parts.join(' · ')}`"
+    },
+    {
+      "f": "src/lib/approval-page.js",
+      "n": 877,
+      "kind": "JSX / template interpolation",
+      "line": "+ (costBasis.oldest?.effectiveFrom ? ` and cost basis dated ${String(costBasis.oldest.effectiveFrom).slice(0, 10)}` : '')"
+    },
+    {
+      "f": "src/lib/base-costs.js",
+      "n": 163,
+      "kind": "JSX / template interpolation",
+      "line": "batches[product] = { batch_id: row.batch_id, batch_label: row.batch_label, effective_from: row.effective_from };"
+    },
+    {
+      "f": "src/lib/format-dates.js",
+      "n": 59,
+      "kind": "JSX / template interpolation",
+      "line": "return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${String(d.getFullYear()).slice(2)}`"
+    },
+    {
+      "f": "src/lib/format-dates.js",
+      "n": 72,
+      "kind": "JSX / template interpolation",
+      "line": "return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${String(d.getFullYear()).slice(2)}`"
+    },
+    {
+      "f": "src/routes/deal-sheet-versions.js",
+      "n": 235,
+      "kind": "JSX / template interpolation",
+      "line": "catalog: { batches: catalog.batches, missing: catalog.missing, asOf: catalog.asOf },"
     },
     {
       "f": "src/routes/opportunities.js",
@@ -411,10 +369,243 @@
       "line": "return reply.code(201).send({ id: doc.id, name: doc.variant, url: String(url).trim(), created_at: doc.created_at })"
     }
   ],
+  "raw": [],
+  "routed": [
+    {
+      "f": "frontend/app.js",
+      "n": 1398,
+      "kind": "JSX / template interpolation",
+      "line": "+ `rejected${versionRejection.decidedAt ? ' on ' + escHtml(formatDateTime(versionRejection.decidedAt)) : ''}.</p>`"
+    },
+    {
+      "f": "frontend/app.js",
+      "n": 2316,
+      "kind": "JSX / template interpolation",
+      "line": "+ `<span class=\"sa-approval-meta\">${state}${d?.decided_at ? ' ' + formatDate(d.decided_at) : ''}</span>`"
+    },
+    {
+      "f": "frontend/app.js",
+      "n": 2334,
+      "kind": "JSX / template interpolation",
+      "line": "${escHtml(formatDateTime(req.requested_at))}</p>"
+    },
+    {
+      "f": "frontend/app.js",
+      "n": 2394,
+      "kind": "JSX / template interpolation",
+      "line": "? `Request raised ${formatDateTime(req.requested_at)}`"
+    },
+    {
+      "f": "frontend/app.js",
+      "n": 3860,
+      "kind": "JSX / template interpolation",
+      "line": "<p class=\"opp-assess-current-meta\">${escHtml(current.by ?? '--')} &middot; ${escHtml(formatDateTime(current.at))}</p>`"
+    },
+    {
+      "f": "frontend/app.js",
+      "n": 3866,
+      "kind": "JSX / template interpolation",
+      "line": "${series.slice(0, -1).reverse().map(e => `<div class=\"opp-assess-entry\"><span>${escHtml(formatDateTime(e.at))}</span><span>${escHtml(labelFor(e.value))}</span>${"
+    },
+    {
+      "f": "frontend/app.js",
+      "n": 5271,
+      "kind": "JSX / template interpolation",
+      "line": "<span class=\"record-card-stat\">${daysAgo(l.created_at)} ago</span>"
+    },
+    {
+      "f": "frontend/app.js",
+      "n": 5289,
+      "kind": "JSX / template interpolation",
+      "line": "<span class=\"cm-label\">Created</span><span>${formatDate(l.created_at)}</span>"
+    },
+    {
+      "f": "frontend/app.js",
+      "n": 5419,
+      "kind": "JSX / template interpolation",
+      "line": "<span class=\"rg-combined\">${formatDate(a.created_at)}</span>"
+    },
+    {
+      "f": "frontend/app.js",
+      "n": 5564,
+      "kind": "JSX / template interpolation",
+      "line": "const line3 = `${p.email ?? '--'} · source ${p.source ?? '--'} · created ${formatDate(c.created_at)}`"
+    },
+    {
+      "f": "frontend/app.js",
+      "n": 5586,
+      "kind": "JSX / template interpolation",
+      "line": "<span class=\"ref-notes-when\">${formatDateTime(n.at)}</span><span class=\"ref-notes-author\">${escHtml(n.by ?? '--')}</span><span class=\"ref-notes-text\">${escHtml(n.text)}</span>"
+    },
+    {
+      "f": "frontend/app.js",
+      "n": 6647,
+      "kind": "JSX / template interpolation",
+      "line": "<td class=\"col-mono\">${formatDate(b.created_at)}</td>"
+    },
+    {
+      "f": "frontend/app.js",
+      "n": 6886,
+      "kind": "JSX / template interpolation",
+      "line": "<span class=\"card-meta\">${daysAgo(o.created_at)}</span>"
+    },
+    {
+      "f": "frontend/app.js",
+      "n": 7499,
+      "kind": "DOM write",
+      "line": "document.getElementById('detail-age').textContent = daysAgo(opp.created_at)"
+    },
+    {
+      "f": "frontend/app.js",
+      "n": 7746,
+      "kind": "JSX / template interpolation",
+      "line": "? `Approved ${formatDate(t.decided_at)}`"
+    },
+    {
+      "f": "frontend/app.js",
+      "n": 7827,
+      "kind": "JSX / template interpolation",
+      "line": "? `${t.version_label ?? 'Version'} · approved ${formatDate(t.decided_at)} · at ${escHtml(st.stage_name)}`"
+    },
+    {
+      "f": "frontend/app.js",
+      "n": 7830,
+      "kind": "JSX / template interpolation",
+      "line": "? `Approved ${formatDate(t.decided_at)}`"
+    },
+    {
+      "f": "frontend/app.js",
+      "n": 8329,
+      "kind": "JSX / template interpolation",
+      "line": "&middot; raised ${formatDate(req.requested_at)}</div>"
+    },
+    {
+      "f": "frontend-react/src/ApprovalBlocks.tsx",
+      "n": 112,
+      "kind": "JSX / template interpolation",
+      "line": "{base?.approvedAt ? ` on ${isoDate(base.approvedAt)}` : ''}."
+    },
+    {
+      "f": "frontend-react/src/ApprovalBlocks.tsx",
+      "n": 190,
+      "kind": "JSX / template interpolation",
+      "line": "Resolved as at {isoDate(c.asOf)}. {c.asOfRule}"
+    },
+    {
+      "f": "frontend-react/src/ApprovalBlocks.tsx",
+      "n": 197,
+      "kind": "JSX / template interpolation",
+      "line": "note={`${p.batchLabel ?? 'unlabelled batch'}, effective ${isoDate(p.effectiveFrom) || 'unknown'}. ${p.bandMeaning ?? ''}`} />"
+    },
+    {
+      "f": "frontend-react/src/account/AccountView.tsx",
+      "n": 251,
+      "kind": "JSX / template interpolation",
+      "line": "field={{ name: 'dateCreated', label: 'Date Created', value: formatDate(rec?.created_at), readOnly: true }} />"
+    },
+    {
+      "f": "frontend-react/src/contact/AccountDetailsModal.tsx",
+      "n": 83,
+      "kind": "JSX / template interpolation",
+      "line": "{viewingMode ? (formatTimestamp(viewing?.created_at) || '--') : '--'}"
+    },
+    {
+      "f": "frontend-react/src/contact/ContactHost.tsx",
+      "n": 414,
+      "kind": "JSX / template interpolation",
+      "line": "date={String(record.payload?.followUpDate ?? '')}"
+    },
+    {
+      "f": "frontend-react/src/contact/NotesHistory.tsx",
+      "n": 156,
+      "kind": "JSX / template interpolation",
+      "line": "<div className=\"ref-notes-row\" data-testid={`cd-note-${i}`} key={`${n.at}-${i}`}>"
+    },
+    {
+      "f": "frontend-react/src/contact/NotesHistory.tsx",
+      "n": 157,
+      "kind": "JSX / template interpolation",
+      "line": "<span className=\"ref-notes-when\">{formatTimestamp(n.at)}</span>"
+    },
+    {
+      "f": "frontend-react/src/deal/DealPanel.tsx",
+      "n": 68,
+      "kind": "JSX / template interpolation",
+      "line": "return { rates, missing, batches, asOf: r.data?.as_of ?? null }"
+    },
+    {
+      "f": "frontend-react/src/leads/LeadCard.tsx",
+      "n": 209,
+      "kind": "JSX / template interpolation",
+      "line": "date={str(p.followUpDate)}"
+    },
+    {
+      "f": "frontend-react/src/reference/KeyContacts.tsx",
+      "n": 160,
+      "kind": "JSX / template interpolation",
+      "line": "<td>{formatTimestamp(l.linked_at) || '--'}</td>"
+    },
+    {
+      "f": "frontend-react/src/reference/descriptors.ts",
+      "n": 143,
+      "kind": "JSX / template interpolation",
+      "line": "{ name: 'ro-created', label: 'Date Created', value: asDate(src.createdAt), readOnly: true },"
+    },
+    {
+      "f": "frontend-react/src/shared/stageTracks.ts",
+      "n": 50,
+      "kind": "JSX / template interpolation",
+      "line": "? `${t.version_label ?? 'Version'} · approved ${formatDate(t.decided_at)} · at ${st.stage_name}`"
+    },
+    {
+      "f": "frontend-react/src/shared/stageTracks.ts",
+      "n": 53,
+      "kind": "JSX / template interpolation",
+      "line": "? `Approved ${formatDate(t.decided_at)}`"
+    },
+    {
+      "f": "frontend-react/src/testbed/InstallSection.tsx",
+      "n": 125,
+      "kind": "JSX / template interpolation",
+      "line": "<div className=\"ref-notes-row\" key={`${n.at}-${i}`}"
+    },
+    {
+      "f": "frontend-react/src/testbed/InstallSection.tsx",
+      "n": 127,
+      "kind": "JSX / template interpolation",
+      "line": "<span className=\"ref-notes-when\">{formatTimestamp(n.at)}</span>"
+    },
+    {
+      "f": "frontend-react/src/testbed/headerStats.ts",
+      "n": 67,
+      "kind": "JSX / template interpolation",
+      "line": "{ label: 'Est. start', value: date(payload?.estimatedInstallationDate) },"
+    },
+    {
+      "f": "frontend-react/src/testbed/headerStats.ts",
+      "n": 68,
+      "kind": "JSX / template interpolation",
+      "line": "{ label: 'Contracted end', value: date(payload?.estGoLiveDate), overdue },"
+    },
+    {
+      "f": "frontend-react/src/versions/model.ts",
+      "n": 142,
+      "kind": "JSX / template interpolation",
+      "line": "return `Under approval since ${formatDealDateTime(pending.requested_at)} · ${parts.join(' · ')}`"
+    },
+    {
+      "f": "src/lib/approval-page.js",
+      "n": 877,
+      "kind": "JSX / template interpolation",
+      "line": "+ (costBasis.oldest?.effectiveFrom ? ` and cost basis dated ${String(costBasis.oldest.effectiveFrom).slice(0, 10)}` : '')"
+    }
+  ],
   "calibration": {
     "KNOWN_RAW": true,
     "KNOWN_FMT": true,
-    "PROSE_EXCLUDED": true
+    "PROSE_EXCLUDED": true,
+    "STRIPPER_KEEPS_CODE": true,
+    "CLASSIFIER_OK": true
   },
-  "filesScanned": 157
+  "filesScanned": 158
 }

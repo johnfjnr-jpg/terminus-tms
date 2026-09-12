@@ -1,3 +1,4 @@
+import { formatTimestamp } from '../../../src/lib/format-dates.js'
 // ── H: REVISION HISTORY ─────────────────────────────────────────────────
 //
 // H1: raw audit entries from GET /api/records/:id/history.
@@ -10,7 +11,11 @@ export interface HistoryEntry {
 }
 
 export interface HistoryRow {
-  id: string, when: string, action: string, actor: string, detail: string
+  // `whenText`, not `when`: this field holds DISPLAY TEXT that has already
+  // been through the formatter, and a name reading as a timestamp invites
+  // exactly the raw render R7 exists to stop. The census asked about it and
+  // the name was the thing that was wrong.
+  id: string, whenText: string, action: string, actor: string, detail: string
 }
 
 /**
@@ -32,7 +37,7 @@ export const HISTORY_NOTICE = 'Raw audit entries, unedited. What each action sho
 export function historyRows(entries: readonly HistoryEntry[]): HistoryRow[] {
   return entries.map((e, i) => ({
     id: e.id ?? String(i),
-    when: String(e.timestamp ?? '').slice(0, 16).replace('T', ' '),
+    whenText: formatTimestamp(e.timestamp),
     action: e.action ?? '',
     actor: String(e.actor_id ?? '').slice(0, 8),
     detail: e.detail && Object.keys(e.detail).length ? JSON.stringify(e.detail) : '',

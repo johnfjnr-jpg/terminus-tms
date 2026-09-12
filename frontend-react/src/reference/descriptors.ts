@@ -10,6 +10,7 @@
 // That makes this a redesign rather than an accessor, which is what Round 2
 // did for `terminusStaffCache`.
 import type { FieldDescriptor } from '../field-row/types'
+import { formatDate as fmtDate } from '../../../src/lib/format-dates.js'
 
 export const REGION_OPTIONS = ['Americas', 'Europe & UK', 'Middle East', 'APAC', 'Africa']
 export const OPP_TYPE_OPTIONS = ['Terminus Led', 'Tender']
@@ -51,12 +52,13 @@ const str = (v: unknown): string => (v == null ? '' : String(v))
 export const asDate = (v: unknown): string => {
   const s = str(v)
   if (!s) return ''
-  const t = Date.parse(s)
-  // The shell's own format, so the two surfaces read the same while both
-  // exist: app.js formatDate uses en-GB day / short month / 2-digit year.
-  return Number.isNaN(t)
-    ? s
-    : new Date(t).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' })
+  // R7: the one formatter. The superseded comment read "The shell's own
+  // format, so the two surfaces read the same while both exist" - which was
+  // TRUE of this copy and false of AccountView's, and nothing could tell you
+  // which. Verification 20: "kept identical to" marks an unproven claim.
+  // The unparseable-input passthrough this file chose deliberately is now the
+  // module's behaviour for every caller.
+  return fmtDate(s)
 }
 
 /** Today, as the native `min` for a field that declares no past. A4. */

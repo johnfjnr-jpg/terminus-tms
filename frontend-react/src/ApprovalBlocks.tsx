@@ -187,7 +187,7 @@ export function CostBasisBlock({ costBasis }: { costBasis: CostBasis }) {
   return (
     <>
       <p className="pg-item-note" style={{ marginBottom: 10 }}>
-        Resolved as at {c.asOf}. {c.asOfRule}
+        Resolved as at {isoDate(c.asOf)}. {c.asOfRule}
         {' '}A deal is only as current as its stalest input, so the oldest is first.
       </p>
       {c.products.map((p) => (

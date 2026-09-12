@@ -9,6 +9,7 @@
 // are imported, not copied.
 import { reasonPromptFor } from '../../../src/lib/version-reason.js'
 import { namedChangedKeys } from '../../../src/lib/version-pricing.js'
+import { formatTimestamp } from '../../../src/lib/format-dates.js'
 
 export type VersionStatus = 'draft' | 'issued'
 export type ApprovalState =
@@ -83,15 +84,18 @@ export function versionAuthor(v: DealVersion): string {
 }
 
 export function versionWhen(v: DealVersion): string {
-  return new Date(v.issued_at ?? v.created_at ?? '').toISOString().slice(0, 16).replace('T', ' ')
+  return formatTimestamp(v.issued_at ?? v.created_at ?? '')
 }
 
 /** T4's formatter. A missing date says so rather than rendering `Invalid Date`. */
 export function formatDealDateTime(dateStr?: string | null): string {
   if (!dateStr) return 'an unknown time'
-  const d = new Date(dateStr)
-  return `${d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' })}, `
-    + `${d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`
+  // THE STRING GOES STRAIGHT IN. Routing it via `new Date(...).toISOString()`
+  // THROWS a RangeError on an unparseable value, where the toLocaleDateString
+  // this replaced returned "Invalid Date" harmlessly - a failure branch the
+  // old path did not have, which is Architecture 8 in one line. The module
+  // returns an unparseable value as it stands.
+  return formatTimestamp(dateStr)
 }
 
 // ── The approval line, all seven states ──────────────────────────────────

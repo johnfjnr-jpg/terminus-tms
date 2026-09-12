@@ -17,6 +17,7 @@ import { saveDeal } from './deal/seam'
 import { VersionCardHost } from './versions/VersionCardHost'
 import type { VersionSeam } from './versions/VersionCardHost'
 import type { DealFormSeam } from './deal/seam'
+import { formatDate as fmtDate, formatTimestamp as fmtTimestamp } from '../../src/lib/format-dates.js'
 
 // ── WHAT THIS BUNDLE DOES THIS ROUND, AND NOTHING ELSE ───────────────────
 //
@@ -55,6 +56,21 @@ interface OppRecord {
 
 declare global {
   interface Window {
+    /**
+     * R7: the ONE date formatter, published for `app.js`.
+     *
+     * `app.js` is a classic script and cannot import, and index.html loads the
+     * bundle BEFORE it - so publishing here is the only way the two trees can
+     * share one implementation rather than keeping two that agree today.
+     *
+     * THIS IS A TRANSPORT, NOT A SECOND IMPLEMENTATION, which is the whole
+     * point: Phase 0 found three copies claiming to agree and one already
+     * drifted, because the estate's rule was that the seam is for services
+     * rather than helpers. That rule produced the defect. A helper that
+     * MUST NOT have two versions belongs on the seam.
+     */
+    tmsFormatDate?: (v: unknown) => string
+    tmsFormatTimestamp?: (v: unknown) => string
     loadApprovalPage?: (oppId: string) => void
     loadAccountDetail?: (accountId: string) => void
     loadContactDetail?: (contactId: string) => void
@@ -158,6 +174,11 @@ function register(view: string, render: (id: string, navToken: number) => React.
     }
   }
 }
+
+// R7: published FIRST, because app.js's own formatters delegate to these and
+// app.js parses immediately after this bundle.
+window.tmsFormatDate = fmtDate
+window.tmsFormatTimestamp = fmtTimestamp
 
 window.loadApprovalPage = register(APPROVAL_VIEW,
   (id, navToken) => <ApprovalView oppId={id} navToken={navToken} />)

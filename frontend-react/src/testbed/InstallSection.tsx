@@ -10,6 +10,8 @@ import {
 } from './installer'
 import { techTeamState, type ContactOption } from './techTeam'
 import { addInstallNote, type InstallNote } from './installNotes'
+// R7: the one formatter, replacing a raw ISO render.
+import { formatTimestamp } from '../../../src/lib/format-dates.js'
 
 export interface InstallSectionProps {
   installer: Installer | null
@@ -122,7 +124,7 @@ export function InstallSection(p: InstallSectionProps) {
             ? (p.notes ?? []).map((n, i) => (
               <div className="ref-notes-row" key={`${n.at}-${i}`}
                 data-testid={`tb-install-note-${i}`}>
-                <span className="ref-notes-when">{n.at}</span>
+                <span className="ref-notes-when">{formatTimestamp(n.at)}</span>
                 <span className="ref-notes-author">{n.by}</span>
                 <span className="ref-notes-text">
                   {n.stage ? <span className="chip">{n.stage}</span> : null}{n.text}</span>

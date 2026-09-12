@@ -26,7 +26,7 @@ export function HistoryPanel({ entries, failed }: {
               <tbody>
                 {rows.map((r) => (
                   <tr key={r.id} data-testid={`tb-history-row-${r.id}`}>
-                    <td><span>{r.when}</span></td>
+                    <td><span>{r.whenText}</span></td>
                     <td><span>{r.action}</span></td>
                     <td><span>{r.actor}</span></td>
                     <td className="tb-history-detail"><span>{r.detail}</span></td>

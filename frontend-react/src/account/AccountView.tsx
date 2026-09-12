@@ -17,15 +17,23 @@ interface AccountRecord {
   contacts?: { id: string; status?: string | null; payload?: { name?: string } }[]
 }
 
-// ── formatDate, PORTED NOT REACHED FOR ─────────────────────────────────
-// app.js's formatDate IS on window, but reading it would be a new coupling for
-// a pure function. The seam exists for SERVICES, not for helpers.
-const formatDate = (iso: string | null | undefined): string => {
-  if (!iso) return '--'
-  const d = new Date(iso)
-  return Number.isNaN(d.getTime()) ? '--'
-    : d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
-}
+// ── formatDate: THE PORT IS RETIRED, AND IT IS THE ONE THAT DRIFTED ────
+//
+// The superseded reasoning is kept visible per this repository's own rule.
+// It read: "app.js's formatDate IS on window, but reading it would be a new
+// coupling for a pure function. The seam exists for SERVICES, not for helpers."
+//
+// THE PREMISE WAS SOUND AND THE OUTCOME WAS THE DEFECT. Phase 0 measured this
+// copy carrying `year: 'numeric'` where both files it was copied from carry
+// `'2-digit'` - so the surface that avoided a coupling is the one that drifted,
+// and the comment saying it matched was the only thing asserting it.
+//
+// Verification 29's shape: a premise failed, so the decision is re-taken
+// rather than re-weighed. R7's module is not a helper on the seam, it is an
+// ordinary import from src/lib, which is what the seam objection was about.
+import { formatDate as fmt } from '../../../src/lib/format-dates.js'
+
+const formatDate = (iso: string | null | undefined): string => fmt(iso) || '--'
 
 export function AccountView({ accountId, navToken }: { accountId: string, navToken?: number }) {
   const shell = useShell()

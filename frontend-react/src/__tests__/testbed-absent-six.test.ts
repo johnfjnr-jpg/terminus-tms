@@ -186,9 +186,16 @@ describe('H: revision history', () => {
       'the client re-sorted, so it is a second reader of the order').toEqual(['1', '2', '3'])
   })
 
-  test('H5 four columns, with the timestamp cut to minutes and the T replaced', () => {
+  test('H5 four columns, and R7\'s timestamp in the reader\'s own time', () => {
     const r = historyRows(ENTRIES)[0]
-    expect(r.when).toBe('2026-03-03 11:22')
+    // R7 supersedes "cut to minutes and the T replaced", which rendered UTC.
+    // EXPRESSED, NOT RESTATED (Verification 20): the shape is asserted, and
+    // the hour is derived from the same input rather than typed, so the test
+    // is not a second reader of the formatter's own arithmetic.
+    expect(r.whenText).toMatch(/^\d{2}\/\d{2}\/\d{2} \d{2}:\d{2}:\d{2}$/)
+    const local = new Date(ENTRIES[0].timestamp as string)
+    expect(r.whenText.slice(9, 11)).toBe(String(local.getHours()).padStart(2, '0'))
+    expect(r.whenText).not.toContain('T')
     expect(r.action).toBe('stage_changed')
     expect(r.actor).toBe('abcdefgh')
     expect(r.detail).toBe('{"to":"Site Assessment"}')

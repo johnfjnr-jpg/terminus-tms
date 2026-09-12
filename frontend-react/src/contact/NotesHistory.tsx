@@ -1,6 +1,10 @@
 // ── N1 TO N9: THE NOTES HISTORY ──────────────────────────────────────────
 import { useRef, useState } from 'react'
 import type { Note } from './notes'
+// R7: the one formatter. This site is the raw ISO Phase 0 photographed on
+// the lead card, and it reaches the card, Lead Detail and the Test Bed from
+// this single line - which is why R2 ruled the fix through the frozen surface.
+import { formatTimestamp } from '../../../src/lib/format-dates.js'
 
 /** P3, ruled: the list opens showing the latest two. */
 export const DEFAULT_SHOWN = 2
@@ -150,7 +154,7 @@ export function NotesHistory({ notes, onAdd, hasDirtyEdits, onConfirmDiscard, re
           ? <p className="empty-state" data-testid="cd-notes-empty">No notes yet.</p>
           : notes.slice(0, shown).map((n, i) => (
             <div className="ref-notes-row" data-testid={`cd-note-${i}`} key={`${n.at}-${i}`}>
-              <span className="ref-notes-when">{n.at}</span>
+              <span className="ref-notes-when">{formatTimestamp(n.at)}</span>
               <span className="ref-notes-author">{n.by || '--'}</span>
               <span className="ref-notes-text">{n.text}</span>
             </div>))}

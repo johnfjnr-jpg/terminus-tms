@@ -56,6 +56,23 @@ R6. **DOCUMENT THE CONVENTIONS** this round establishes as **written
     abstraction**: abstraction waits for real second consumers. This is
     John's explicit anti-rework ask.
 
+R7. **TIMESTAMP MODULE.** **ONE module, TWO functions**:
+    `formatTimestamp` (`DD/MM/YY HH:MM:SS`) and `formatDate` (`DD/MM/YY`,
+    no time). **All 16 sites route through it**: a date site uses
+    `formatDate`, a timestamp site `formatTimestamp`, **and no site
+    renders raw.** Proven **by census**: zero raw-ISO renders remain and
+    every site routes through the module. **This reaches frozen Lead
+    Detail's timestamps**, per R2's shared-rendering-defect rule.
+R8. **R3 PLUS F3.** The notes header buttons are **classed as part of
+    R3**: the 12px residual misalignment **IS** the unclassed-button
+    height, so the alignment cannot be fixed without it. **This retires
+    one F3 instance.** The `NotesHistory` **three-consumer constraint
+    holds**: the card, frozen Lead Detail **and the Test Bed**. Optional
+    props, and no structural change to Detail or to the Test Bed.
+R9. **R5 IS ACCEPTED AS MEASURED.** R4 already reclaims the band at 1920
+    and 3440, 57px. At 1240 the 218px frozen follow-up panel drives it
+    and it is left as ruled. **R5 needs no separate work.**
+
 ## Frozen by ruling
 
 - **The follow-up panel**, rebuilt in the follow-up-entity round.
@@ -78,6 +95,28 @@ R6. **DOCUMENT THE CONVENTIONS** this round establishes as **written
 5. **R5**: what occupies, or fails to occupy, the empty band. Is it the
    frozen follow-up panel's, or reclaimable card space?
 6. **R6**: the conventions R1 and R3 will establish, for documentation.
+
+## Phase 1: the build (R7, R1, R3+R8, R4, R6)
+
+- **R7**: the timestamp module, all 16 sites routed, zero raw renders,
+  census-proven, reaching Lead Detail's timestamps.
+- **R1**: the type-ahead dropdown, create to the right of the input,
+  card-local as `AccountPicker.tsx` importing `findAccountMatches` -
+  **the match definition is shared, the component is not.** No premature
+  generalisation: Region and Names are different selection types.
+- **R3 + R8**: the notes header on one line, the input aligned to the
+  Summary column, the buttons classed. Optional props, three consumers
+  unbroken.
+- **R4**: remove "No notes yet.", which delivers R5 at the wide widths.
+- **R6**: document the conventions for the Contacts screens.
+
+**The door both ways for any write. Every state screenshotted THROUGH
+THE ELEMENT, never a page-coordinate clip** - Phase 0's own V4 fault.
+Heights at three widths wherever layout moves. Frozen: the follow-up
+panel, Lead Detail's structure, the Test Bed's structure. Stop for the
+Phase 1 report. **Nothing pushes.**
+
+## Phase 0's deliverable
 
 Stop with the Phase 0 report: R1's scope, R2's formatter finding (one or
 many, the anti-rework crux), R3's props, R4 and R5 deltas, and the

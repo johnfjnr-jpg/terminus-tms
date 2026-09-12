@@ -1,3 +1,4 @@
+import { formatDate as fmtDate } from '../../../src/lib/format-dates.js'
 // ── A: THE STAGE TRACK LIST ─────────────────────────────────────────────
 //
 // SHARED. `buildStageTrackListHtml` serves the Opportunity as well as the Test
@@ -30,7 +31,10 @@ export interface TrackRow {
   meta: string
 }
 
-const formatDate = (d: string | null | undefined) => String(d ?? '').slice(0, 10)
+// R7: date grain preserved, shape unified. `decided_at` is a timestamp shown
+// as a date on an approval chip, and it stays a date: the ruling is about the
+// shape a person reads and about raw ISO, not about adding seconds to a chip.
+const formatDate = (d: string | null | undefined) => fmtDate(d)
 
 export function trackRow(t: Track, st: StageEntry, superseded: boolean): TrackRow {
   const versionScoped = t.scope === 'version'
