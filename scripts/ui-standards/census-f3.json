@@ -1,0 +1,446 @@
+{
+ "controls": [
+  {
+   "file": "frontend-react/src/leads/LeadCardActions.tsx",
+   "line": 115,
+   "tag": "button",
+   "testid": "lead-qualify-${leadId",
+   "rendered": true,
+   "classes": [
+    "btn-primary"
+   ],
+   "styled": true
+  },
+  {
+   "file": "frontend-react/src/leads/LeadCardActions.tsx",
+   "line": 123,
+   "tag": "button",
+   "testid": "lead-nurture-${leadId",
+   "rendered": true,
+   "classes": [
+    "btn-ghost"
+   ],
+   "styled": true
+  },
+  {
+   "file": "frontend-react/src/leads/LeadCardActions.tsx",
+   "line": 130,
+   "tag": "button",
+   "testid": "lead-followup-btn-${leadId",
+   "rendered": true,
+   "classes": [
+    "btn-ghost"
+   ],
+   "styled": true
+  },
+  {
+   "file": "frontend-react/src/leads/LeadCardActions.tsx",
+   "line": 146,
+   "tag": "button",
+   "testid": "lead-address-${leadId",
+   "rendered": true,
+   "classes": [
+    "btn-ghost"
+   ],
+   "styled": true
+  },
+  {
+   "file": "frontend-react/src/leads/AccountPicker.tsx",
+   "line": 100,
+   "tag": "input",
+   "testid": "acct-search-${leadId",
+   "rendered": true,
+   "classes": [
+    "acct-picker-input"
+   ],
+   "styled": true
+  },
+  {
+   "file": "frontend-react/src/leads/AccountPicker.tsx",
+   "line": 113,
+   "tag": "button",
+   "testid": "acct-create-${leadId",
+   "rendered": true,
+   "classes": [
+    "btn-primary",
+    "acct-picker-create"
+   ],
+   "styled": true
+  },
+  {
+   "file": "frontend-react/src/leads/AccountPicker.tsx",
+   "line": 137,
+   "tag": "button",
+   "testid": "acct-option-${a.id",
+   "rendered": true,
+   "classes": [
+    "acct-picker-option",
+    "i",
+    "active"
+   ],
+   "styled": true
+  },
+  {
+   "file": "frontend-react/src/leads/AccountPicker.tsx",
+   "line": 152,
+   "tag": "button",
+   "testid": "acct-cancel-${leadId",
+   "rendered": true,
+   "classes": [
+    "btn-ghost",
+    "acct-picker-cancel"
+   ],
+   "styled": true
+  },
+  {
+   "file": "frontend-react/src/contact/LinkAccountPanel.tsx",
+   "line": 126,
+   "tag": "button",
+   "testid": "cd-btn-link-account",
+   "rendered": false,
+   "classes": [],
+   "styled": false
+  },
+  {
+   "file": "frontend-react/src/contact/LinkAccountPanel.tsx",
+   "line": 133,
+   "tag": "input",
+   "testid": "cd-link-search",
+   "rendered": false,
+   "classes": [],
+   "styled": false
+  },
+  {
+   "file": "frontend-react/src/contact/LinkAccountPanel.tsx",
+   "line": 140,
+   "tag": "button",
+   "testid": "cd-link-${a.id",
+   "rendered": false,
+   "classes": [],
+   "styled": false
+  },
+  {
+   "file": "frontend-react/src/contact/LinkAccountPanel.tsx",
+   "line": 148,
+   "tag": "button",
+   "testid": "cd-link-create",
+   "rendered": false,
+   "classes": [],
+   "styled": false
+  },
+  {
+   "file": "frontend-react/src/contact/LinkAccountPanel.tsx",
+   "line": 155,
+   "tag": "button",
+   "testid": "cd-link-cancel",
+   "rendered": false,
+   "classes": [],
+   "styled": false
+  },
+  {
+   "file": "frontend-react/src/leads/QualifyCompletion.tsx",
+   "line": 180,
+   "tag": "button",
+   "testid": "lead-fix-save-${leadId",
+   "rendered": true,
+   "classes": [
+    "btn-primary"
+   ],
+   "styled": true
+  },
+  {
+   "file": "frontend-react/src/leads/QualifyCompletion.tsx",
+   "line": 186,
+   "tag": "button",
+   "testid": "lead-incomplete-close-${leadId",
+   "rendered": true,
+   "classes": [
+    "btn-ghost"
+   ],
+   "styled": true
+  },
+  {
+   "file": "frontend-react/src/leads/LeadFieldInput.tsx",
+   "line": 48,
+   "tag": "select",
+   "testid": "",
+   "rendered": true,
+   "classes": [],
+   "styled": false
+  },
+  {
+   "file": "frontend-react/src/leads/LeadFieldInput.tsx",
+   "line": 56,
+   "tag": "select",
+   "testid": "",
+   "rendered": true,
+   "classes": [],
+   "styled": false
+  },
+  {
+   "file": "frontend-react/src/leads/LeadFieldInput.tsx",
+   "line": 69,
+   "tag": "select",
+   "testid": "",
+   "rendered": true,
+   "classes": [],
+   "styled": false
+  },
+  {
+   "file": "frontend-react/src/leads/LeadFieldInput.tsx",
+   "line": 76,
+   "tag": "textarea",
+   "testid": "",
+   "rendered": true,
+   "classes": [],
+   "styled": false
+  },
+  {
+   "file": "frontend-react/src/leads/LeadFieldInput.tsx",
+   "line": 82,
+   "tag": "input",
+   "testid": "",
+   "rendered": true,
+   "classes": [],
+   "styled": false
+  },
+  {
+   "file": "frontend-react/src/leads/AddressPopup.tsx",
+   "line": 115,
+   "tag": "button",
+   "testid": "addr-save-${leadId",
+   "rendered": true,
+   "classes": [
+    "btn-primary"
+   ],
+   "styled": true
+  },
+  {
+   "file": "frontend-react/src/leads/AddressPopup.tsx",
+   "line": 133,
+   "tag": "button",
+   "testid": "addr-close-${leadId",
+   "rendered": true,
+   "classes": [
+    "btn-ghost"
+   ],
+   "styled": true
+  },
+  {
+   "file": "frontend-react/src/leads/InlineSummary.tsx",
+   "line": 35,
+   "tag": "textarea",
+   "testid": "lead-summary-input-${leadId",
+   "rendered": true,
+   "classes": [
+    "lead-summary-input"
+   ],
+   "styled": true
+  },
+  {
+   "file": "frontend-react/src/leads/InlineSummary.tsx",
+   "line": 42,
+   "tag": "button",
+   "testid": "lead-summary-save-${leadId",
+   "rendered": true,
+   "classes": [
+    "btn-ghost",
+    "lead-summary-save"
+   ],
+   "styled": true
+  },
+  {
+   "file": "frontend-react/src/contact/NotesHistory.tsx",
+   "line": 121,
+   "tag": "button",
+   "testid": "cd-add-note-btn",
+   "rendered": true,
+   "classes": [
+    "btn-sm"
+   ],
+   "styled": true
+  },
+  {
+   "file": "frontend-react/src/contact/NotesHistory.tsx",
+   "line": 125,
+   "tag": "button",
+   "testid": "cd-note-discard",
+   "rendered": true,
+   "classes": [
+    "btn-sm"
+   ],
+   "styled": true
+  },
+  {
+   "file": "frontend-react/src/contact/NotesHistory.tsx",
+   "line": 132,
+   "tag": "textarea",
+   "testid": "cd-new-note-input",
+   "rendered": true,
+   "classes": [
+    "cd-note-input"
+   ],
+   "styled": true
+  },
+  {
+   "file": "frontend-react/src/contact/NotesHistory.tsx",
+   "line": 146,
+   "tag": "button",
+   "testid": "cd-add-note-btn",
+   "rendered": true,
+   "classes": [
+    "btn-sm"
+   ],
+   "styled": true
+  },
+  {
+   "file": "frontend-react/src/contact/NotesHistory.tsx",
+   "line": 148,
+   "tag": "button",
+   "testid": "cd-note-discard",
+   "rendered": true,
+   "classes": [
+    "btn-sm"
+   ],
+   "styled": true
+  },
+  {
+   "file": "frontend-react/src/contact/NotesHistory.tsx",
+   "line": 170,
+   "tag": "button",
+   "testid": "cd-notes-show-2",
+   "rendered": true,
+   "classes": [
+    "btn-sm"
+   ],
+   "styled": true
+  },
+  {
+   "file": "frontend-react/src/contact/NotesHistory.tsx",
+   "line": 173,
+   "tag": "button",
+   "testid": "cd-notes-show-10",
+   "rendered": true,
+   "classes": [
+    "btn-sm"
+   ],
+   "styled": true
+  },
+  {
+   "file": "frontend-react/src/contact/NotesHistory.tsx",
+   "line": 176,
+   "tag": "button",
+   "testid": "cd-notes-show-all",
+   "rendered": true,
+   "classes": [
+    "btn-sm"
+   ],
+   "styled": true
+  },
+  {
+   "file": "frontend-react/src/contact/FollowUpTask.tsx",
+   "line": 59,
+   "tag": "input",
+   "testid": "cd-followUpDate",
+   "rendered": true,
+   "classes": [],
+   "styled": false
+  },
+  {
+   "file": "frontend-react/src/contact/FollowUpTask.tsx",
+   "line": 69,
+   "tag": "input",
+   "testid": "cd-followUpDescription",
+   "rendered": true,
+   "classes": [],
+   "styled": false
+  },
+  {
+   "file": "frontend-react/src/contact/FollowUpTask.tsx",
+   "line": 78,
+   "tag": "button",
+   "testid": "cd-followup-save",
+   "rendered": true,
+   "classes": [],
+   "styled": false
+  }
+ ],
+ "unstyled": [
+  {
+   "file": "frontend-react/src/leads/LeadFieldInput.tsx",
+   "line": 48,
+   "tag": "select",
+   "testid": "",
+   "rendered": true,
+   "classes": [],
+   "styled": false
+  },
+  {
+   "file": "frontend-react/src/leads/LeadFieldInput.tsx",
+   "line": 56,
+   "tag": "select",
+   "testid": "",
+   "rendered": true,
+   "classes": [],
+   "styled": false
+  },
+  {
+   "file": "frontend-react/src/leads/LeadFieldInput.tsx",
+   "line": 69,
+   "tag": "select",
+   "testid": "",
+   "rendered": true,
+   "classes": [],
+   "styled": false
+  },
+  {
+   "file": "frontend-react/src/leads/LeadFieldInput.tsx",
+   "line": 76,
+   "tag": "textarea",
+   "testid": "",
+   "rendered": true,
+   "classes": [],
+   "styled": false
+  },
+  {
+   "file": "frontend-react/src/leads/LeadFieldInput.tsx",
+   "line": 82,
+   "tag": "input",
+   "testid": "",
+   "rendered": true,
+   "classes": [],
+   "styled": false
+  },
+  {
+   "file": "frontend-react/src/contact/FollowUpTask.tsx",
+   "line": 59,
+   "tag": "input",
+   "testid": "cd-followUpDate",
+   "rendered": true,
+   "classes": [],
+   "styled": false
+  },
+  {
+   "file": "frontend-react/src/contact/FollowUpTask.tsx",
+   "line": 69,
+   "tag": "input",
+   "testid": "cd-followUpDescription",
+   "rendered": true,
+   "classes": [],
+   "styled": false
+  },
+  {
+   "file": "frontend-react/src/contact/FollowUpTask.tsx",
+   "line": 78,
+   "tag": "button",
+   "testid": "cd-followup-save",
+   "rendered": true,
+   "classes": [],
+   "styled": false
+  }
+ ],
+ "undefinedVars": [
+  "--red",
+  "--amber"
+ ]
+}
