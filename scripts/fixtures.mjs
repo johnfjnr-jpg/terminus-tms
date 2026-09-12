@@ -381,13 +381,36 @@ const PAGE_SIZE = 1000
 const IN_CHUNK = 150
 const MAX_PAGES = 500
 
+/**
+ * F5's HEADROOM RECORD. The slowest single statement any paged scan has run
+ * this process, so a caller can assert margin against the statement timeout
+ * rather than only that today's run happened to finish.
+ *
+ * A test that passes because the table is small enough TODAY is the shape F5
+ * was: it passed for two rounds while its failing case climbed 15,957 to
+ * 19,887ms, and nothing in the suite was watching the number.
+ */
+export const pageTiming = { slowestMs: 0, slowestWhat: null, pages: 0 }
+
+/**
+ * F5: how many tags travel in one `.or()`, and therefore how much work one
+ * STATEMENT does. Exported because the guard in teardown-scoping.test.mjs
+ * times the real shape, and a guard that retypes this number is timing a
+ * statement the code does not run.
+ */
+export const TAG_CHUNK_SIZE = 6
+
 export async function pagedSelect(makeQuery, what) {
   const rows = []
   for (let page = 0; page < MAX_PAGES; page++) {
     const from = page * PAGE_SIZE
+    const t0 = Date.now()
     const { data, error } = await makeQuery()
       .order('id', { ascending: true }).range(from, from + PAGE_SIZE - 1)
-    if (error) throw new Error(`${what} (page ${page}): ${error.message}`)
+    const ms = Date.now() - t0
+    pageTiming.pages++
+    if (ms > pageTiming.slowestMs) { pageTiming.slowestMs = ms; pageTiming.slowestWhat = `${what} page ${page}` }
+    if (error) throw new Error(`${what} (page ${page}, ${ms}ms): ${error.message}`)
     rows.push(...data)
     if (data.length < PAGE_SIZE) return rows
   }
@@ -475,12 +498,50 @@ export async function tearDown(explicitTag) {
   // The tag list travels in the `.or()` string, so it is chunked for the same
   // reason `.in()` is: 30 tags is 967 characters today and nothing stops it
   // growing.
-  const TAG_CHUNK = 25
+  // F5: 25 cost ~1,459ms warm per statement, and roughly 6x that cold, which
+  // is past the 8s statement timeout. 6 costs ~578ms warm. More statements,
+  // each far under the ceiling, same rows.
+  const TAG_CHUNK = TAG_CHUNK_SIZE
   const taggedRevs = []
   for (let i = 0; i < tags.length; i += TAG_CHUNK) {
     const or = tags.slice(i, i + TAG_CHUNK).map((t) => `payload->>name.ilike.${t}%`).join(',')
+    // ── F5's HARDENING, AND A MEASUREMENT I GOT WRONG FIRST ──────────────
+    //
+    // `payload` was selected here and never read - only `record_id` is taken
+    // off these rows - so dropping it is free. It is NOT the fix, and the
+    // superseded reasoning is left visible because the error is the useful
+    // part:
+    //
+    //   ~~with payload 7,879ms, without 1,308ms, SIX TIMES~~
+    //
+    // Those two numbers are real and the conclusion was false. They were run
+    // in that order, so the first paid for a COLD CACHE and the second did
+    // not. Alternated and warm, the honest ratio is **1.17x**:
+    //
+    //     without payload   1107, 1077, 1079, 1080   median 1080ms
+    //     with payload      1197, 1260, 1161, 1335   median 1260ms
+    //
+    // Caught by the calibration, not by re-reading: the guard below was
+    // supposed to fire when the defect was reinjected and it did not.
+    //
+    // ── WHAT THE 7,879ms ACTUALLY WAS, AND WHY IT MATTERS ────────────────
+    //
+    // The cold first statement. Which is exactly what a gate run hits: the
+    // first teardown scan of a fresh process, against a cold cache, on a
+    // table that grows daily. That is F5.
+    //
+    // THE TIMEOUT IS PER STATEMENT, so the fix is to bound per-statement
+    // work. Measured, one page against the number of tags in the OR:
+    //
+    //     25 tags  1,459ms      6 tags   578ms
+    //     12 tags  1,025ms      3 tags   410ms
+    //                           1 tag    214ms
+    //
+    // Roughly linear, so TAG_CHUNK is the lever. Total work is unchanged -
+    // the same rows are matched over more statements - and the coverage
+    // claim is untouched, which is the only kind of fix available here.
     taggedRevs.push(...await pagedSelect(
-      () => db.from('record_revisions').select('id, record_id, payload').or(or), `taggedRevs[${i}]`))
+      () => db.from('record_revisions').select('id, record_id').or(or), `taggedRevs[${i}]`))
   }
   const taggedIds = [...new Set(taggedRevs.map((r) => r.record_id))]
   const candidateIds = new Set(candidates.map((c) => c.id))

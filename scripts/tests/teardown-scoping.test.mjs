@@ -12,7 +12,7 @@
 // discriminates is the SURVIVOR.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { admin, tearDown, tagsToSweep } from '../fixtures.mjs'
+import { admin, tearDown, tagsToSweep, TAG_CHUNK_SIZE } from '../fixtures.mjs'
 
 const db = admin()
 const must = ({ data, error }, w) => { if (error) throw new Error(`${w}: ${error.message}`); return data }
@@ -215,6 +215,82 @@ test('tearDown reaches a record beyond row 1,000 of its own tag population', asy
   // (Verification 20), and the first commit of this work quoted a population
   // figure the run had never printed.
   console.log(`    population: ${population} rows (exact count) over ${sweep.length} tags, cap 1000`)
+
+  // ── F5: HEADROOM AGAINST THE STATEMENT TIMEOUT, ASSERTED ───────────────
+  //
+  // This test failed the LEADS CARD POLISH round's own closing gate, and its
+  // FAILING duration had climbed 15,957 to 19,887ms across two rounds while
+  // the passing case stayed flat at ~6.3s. Nothing in the suite was watching
+  // that number, so it passed for two rounds while getting worse.
+  //
+  // The cause was a scan carrying a whole JSON payload off every row to
+  // discard it - 7,879ms for one page, against 1,308ms without, measured on
+  // the live table. Dropping it is the fix; THIS is what stops the same thing
+  // happening again silently as the table keeps growing.
+  //
+  // Asserted against a stated ceiling rather than left as a printed number,
+  // because a printed number is what nobody was watching.
+  // ── THE CEILING IS DERIVED, NOT PICKED ─────────────────────────────────
+  //
+  // The statement that failed was COLD - the first scan of a fresh process
+  // against a cold cache, which is exactly what a gate run does. Measured on
+  // the same query, cold 7,879ms against warm ~1,300ms: a factor of about 6.
+  //
+  // A test cannot reliably produce a cold cache, so it measures WARM and
+  // requires that warm times the observed cold factor, with margin, still
+  // clears the timeout. That is what makes this a headroom assertion rather
+  // than "it passed today".
+  const TIMEOUT_MS = 8000
+  const COLD_FACTOR = 6
+  const MARGIN = 1.5
+  const CEILING = Math.round(TIMEOUT_MS / COLD_FACTOR / MARGIN)
+
+  // ── THE GUARD TIMES THE QUERY THAT ACTUALLY FAILED ─────────────────────
+  //
+  // The first version of this watched `pageTiming`, the slowest page any scan
+  // in the process had run. It read 205ms with the defect deliberately
+  // reinjected and PASSED - because this test's own teardown sweeps two tags
+  // over 5,525 rows, while the statement that timed out was tearDown's
+  // full-ledger scan: a 25-tag OR over 24,443 rows. Verification 25 exactly -
+  // the right measurement on far too small a population, and the calibration
+  // is what caught it rather than the reading looking wrong.
+  //
+  // So the guard runs ONE page of the real shape and times that.
+  // THE SAME CHUNK SIZE THE CODE USES, imported rather than retyped: a guard
+  // that times a statement the code never runs is measuring nothing. 25 was
+  // what tearDown used when this failed; TAG_CHUNK is now the lever that was
+  // turned, so the guard follows it.
+  // THE HEAVIEST CHUNK, not the first. `weighed` above already has every tag
+  // with its exact row count, so the worst statement tearDown will actually
+  // run is the TAG_CHUNK_SIZE heaviest tags together. Timing the first six
+  // measured 407 rows and proved nothing about the chunk that matters.
+  const ledgerTags = weighed.slice(0, TAG_CHUNK_SIZE).map((w) => w.t)
+  const ledgerOr = ledgerTags.map((t) => `payload->>name.ilike.${t}%`).join(',')
+  const probeStart = Date.now()
+  const { error: probeErr } = await db.from('record_revisions')
+    .select('id, record_id').or(ledgerOr).order('id', { ascending: true }).range(0, 999)
+  const probeMs = Date.now() - probeStart
+  if (probeErr) throw new Error(`headroom probe: ${probeErr.message}`)
+  const scanned = await exactCount(db.from('record_revisions')
+    .select('id', { count: 'exact', head: true }).or(ledgerOr), 'headroom population')
+
+  console.log(`    headroom: the HEAVIEST chunk, ${scanned} rows `
+    + `(${ledgerTags.length} tags) took ${probeMs}ms warm, ceiling ${CEILING}ms `
+    + `(${TIMEOUT_MS}ms timeout / ${COLD_FACTOR}x cold / ${MARGIN}x margin)`)
+  // NOT "> 1000". Paging is no longer the failure - per-statement cost is -
+  // and with the chunk bounded a single statement may legitimately not page.
+  // What must hold is that this is the WORST statement and a real one.
+  assert.equal(ledgerTags.length, TAG_CHUNK_SIZE,
+    'the probe must use the same chunk size the code does, or it times a statement nobody runs')
+  assert.ok(scanned > 0,
+    `the headroom probe matched ${scanned} rows; an empty scan is not a measurement`)
+  assert.ok(probeMs < CEILING,
+    `the heaviest chunk took ${probeMs}ms warm over ${scanned} rows in ${ledgerTags.length} tags, `
+    + `past the ${CEILING}ms ceiling (${TIMEOUT_MS}ms timeout / ${COLD_FACTOR}x cold / `
+    + `${MARGIN}x margin). THIS IS F5 RETURNING: the scan is outgrowing the statement timeout `
+    + 'again. Lower TAG_CHUNK_SIZE so each statement does less work. Do NOT raise this ceiling, '
+    + 'and do NOT retry: the failing case climbs while the passing one stays flat, which is what '
+    + 'a retry would hide.')
 
   // ── WHERE THE FIXTURE FALLS IN THE ORDER THE FIX PAGES BY ───────────────
   //
