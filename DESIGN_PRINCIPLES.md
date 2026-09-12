@@ -10961,3 +10961,94 @@ round was verified by live DOM and screenshot instead.
 
 **And the round's screens have not been walked by a person.** A walk is
 this project's stopping condition; P3, P4 and P5 have had probes only.
+
+# The LEADS CARD and LEADS CARD POLISH rounds, closed 2026-09-12
+
+Two rounds, closed together because the first never executed a close.
+Gated at `f8894cd` on **22 of 22 PASS, 0 SKIP, door stage green**, and
+**18 commits had never had a full gate until that run** - every one had
+passed the pre-commit hook's three suites, but the 22-stage gate with its
+HTTP probes had not run over the qualify conversion, the atomic function
+or the card itself.
+
+## What shipped
+
+**Qualify became a conversion.** It no longer waits for somebody to have
+linked an Account first: pressing it opens the account step, and
+resolving that step runs **one atomic transaction** that creates or links
+the Account, links the lead and flips the status. Proven by injecting a
+failure at the status flip with a real freeze guard: **the account rolls
+back with it, zero orphans.**
+
+**The lead card became the working surface.** Full width, four actions on
+the name line, an editable address popup, an editable summary, and a
+completion popup that lets an incomplete lead be finished **in place**.
+
+## The five worth carrying
+
+**A DERIVED REQUIREMENT PROVED ITSELF TWICE.** R11 made Job Title
+mandatory server-side and the grid's markers went six to seven with the
+grid file byte-identical. Then R1 and R6 merged onto one field
+definition, and the same property held: the completion popup renders
+exactly the keys the SERVER names as blocking. **The estate's recurring
+defect is two implementations of one fact, and the answer is a single
+definition both sides read.**
+
+**A DOOR MUST NEVER KILL THE WAY OUT.** The door correctly neutralised an
+editable popup's inputs and Save on an unowned lead, **and its Close
+button with them** - over a full-screen backdrop, so the page could not
+be dismissed or clicked. Every assertion about the writes passed. A
+control whose job is to LEAVE is a read affordance.
+
+**AND IT WAS FOUND BY AN ASSERTION MEASURING SOMETHING ELSE.** A Summary
+save failed, the network showed no request at all, the button was
+present, enabled and in view - and `elementFromPoint` returned
+`DIV.modal-backdrop`. **What is on top of an element is a property no
+assertion about the element can see.**
+
+**A FAILURE'S DURATION IS DATA ACROSS RUNS.** A gate test that passes on
+re-run looks like a flake. Four readings said otherwise: passing 6,016
+then 6,339 (flat), failing 15,957 then 19,887 (**+25%**), while the table
+it pages grew 3,479 rows in a day. **A retry would have collapsed all
+four into "passed on attempt 2"**, destroying the evidence that separates
+a flake from a deadline.
+
+**AND THE CLOSING GATE ITSELF WENT RED**, on the other member of that
+class, in the round that named it. Both runs are in the record.
+
+## The flaky-gate direction, ruled and split
+
+**F5 HARDENS, F8 RETRIES**, and the split is the point rather than a
+compromise:
+
+- **F5's diagnostic is DURATION and it is climbing.** A deadline that is
+  closing is fixed by doing less work, not by trying again. **Next
+  round's first act.**
+- **F8's is FREQUENCY.** `TypeError: fetch failed` is a dropped
+  connection, not a timeout. Retrying a dropped call is the right
+  response to a dropped call, and recording the retry keeps it visible.
+
+**A retry on F5 would have hidden the trend that identified it, and
+hardening F8 would mean weakening a real concurrency assertion.** The
+diagnostic decided the treatment.
+
+## What is frozen, and why it is not neglect
+
+**Lead Detail stays frozen** pending John's parity walk of the polished
+card. **The follow-up panel stays frozen** because the next round rebuilds
+it as a view onto a system-wide task entity - and that panel sets a 218px
+floor under the card's height, so **R3's remainder is reclaimed there
+rather than by polishing something about to be replaced.**
+
+Two declared duplications stand until Lead Detail retires: `NurtureDialog`
+and the address popup. A change to either flow lands in two places until
+then.
+
+## Still true, and still unaddressed
+
+**No walk.** Both rounds are probe-and-screenshot evidence. The Close-button
+trap is the argument for one: a screen a person could get stuck on, that
+no suite could have reported.
+
+**F3 stands at four instances.** Unclassed white controls, invisible to
+every assertion this estate writes, found only by opening a screenshot.
