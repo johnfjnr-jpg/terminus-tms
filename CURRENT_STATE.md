@@ -12,8 +12,8 @@ Contains no environment variable, key or token, and no client data. Records
 appear as counts by status only, never by name or reference code, because
 this file is uploaded into chat sessions.
 
-- Generated at: `2026-09-11T14:12:39.428Z`
-- Git commit: `8e1ffc2263f14176044916e55373a466b010c34d`
+- Generated at: `2026-09-12T05:19:25.850Z`
+- Git commit: `b6da38a79195f3a99ea135c204eebe8dd63135b5`
 - Working tree at generation: `clean`
 
 Staleness has two parts, and both must hold for this file to be current:
@@ -55,16 +55,16 @@ CLAUDE.md build discipline 13. These console settings are MITIGATIONS, not the c
 
 ## React workspace
 
-- Committed bundle: `frontend-react/dist/terminus-react.js`, 424,321 bytes
-- sha256: `2e5470547d1675e5b9de02a1348bf6f8e728dbddfb4c81aa59c0fe57a4ac8fbe`
+- Committed bundle: `frontend-react/dist/terminus-react.js`, 435,037 bytes
+- sha256: `c8db8bb73fa6ed2b80ba110f20707c734d2a3d4e71c4d87d06601a480439aea9`
 - React suite: 939/939 pass, 0 fail
 
 ## Tags
 
 | tag | published commit | date | commits from `HEAD` | local agrees |
 |---|---|---|---|---|
-| `controls-complete` | `56b516e` | 2026-08-29 | 458 | yes |
-| `reshape-complete` | `3499884` | 2026-08-29 | 429 | yes |
+| `controls-complete` | `56b516e` | 2026-08-29 | 478 | yes |
+| `reshape-complete` | `3499884` | 2026-08-29 | 449 | yes |
 
 ## `stage_definitions`
 
@@ -95,14 +95,13 @@ CLAUDE.md build discipline 13. These console settings are MITIGATIONS, not the c
 
 ## `stage_gate_rules`
 
-94 rows. Full `requirement_detail`, keys sorted.
+93 rows. Full `requirement_detail`, keys sorted.
 
 | record_type | variant | from_stage | to_stage | requirement_type | requirement_detail |
 |---|---|---|---|---|---|
 | contact | (null) | Unqualified | Nurture | payload_field_required | `{"field":"followUpDate"}` |
 | contact | (null) | Unqualified | Qualified | payload_field_required | `{"field":"postcode"}` |
 | contact | (null) | Unqualified | Qualified | payload_field_required | `{"field":"mobile"}` |
-| contact | (null) | Unqualified | Qualified | payload_field_required | `{"field":"parent_record_id"}` |
 | contact | (null) | Unqualified | Qualified | payload_field_required | `{"field":"industry_id"}` |
 | contact | (null) | Unqualified | Qualified | payload_field_required | `{"field":"city"}` |
 | contact | (null) | Unqualified | Qualified | payload_field_required | `{"field":"address"}` |
@@ -198,7 +197,7 @@ Rule count by record type and requirement type:
 
 | record_type | requirement_type | rules |
 |---|---|---|
-| contact | payload_field_required | 16 |
+| contact | payload_field_required | 15 |
 | opportunity | approval_obtained | 12 |
 | opportunity | payload_field_required | 20 |
 | smoke_test | approval_obtained | 1 |
@@ -361,35 +360,35 @@ _None._
 
 ## Record counts by type and status
 
-113 live, 48811 soft deleted, 48924 rows in total.
+116 live, 51423 soft deleted, 51539 rows in total.
 
 | record_type | status | live | soft deleted |
 |---|---|---|---|
 | account | Active | 0 | 6 |
-| account | active | 5 | 1075 |
-| contact | Active | 0 | 1083 |
-| contact | Nurture | 0 | 12 |
-| contact | Qualified | 8 | 4817 |
-| contact | Unqualified | 3 | 348 |
-| document | approved | 61 | 2604 |
+| account | active | 5 | 1100 |
+| contact | Active | 0 | 1179 |
+| contact | Nurture | 0 | 14 |
+| contact | Qualified | 8 | 4996 |
+| contact | Unqualified | 6 | 433 |
+| document | approved | 61 | 2732 |
 | document | draft | 0 | 5 |
 | document | received | 1 | 78 |
 | opportunity | Closed Lost | 0 | 20 |
 | opportunity | Closed Won | 2 | 7 |
-| opportunity | Evaluation | 0 | 156 |
+| opportunity | Evaluation | 0 | 160 |
 | opportunity | Negotiating | 1 | 16 |
-| opportunity | Proposal | 3 | 969 |
-| opportunity | Qualification | 5 | 3396 |
-| opportunity | Solution Alignment | 7 | 832 |
+| opportunity | Proposal | 3 | 991 |
+| opportunity | Qualification | 5 | 3579 |
+| opportunity | Solution Alignment | 7 | 848 |
 | test_bed | Closed | 5 | 9 |
 | test_bed | Installation and Commissioning | 1 | 35 |
 | test_bed | Monitoring and Analysis | 0 | 2 |
 | test_bed | Pre-Site Assessment | 0 | 8 |
-| test_bed | Qualification | 1 | 913 |
+| test_bed | Qualification | 1 | 921 |
 | test_bed | Review and Completion | 1 | 0 |
 | test_bed | Site Assessment | 1 | 17 |
 | unit | Installed | 4 | 7 |
-| unit | Planned | 4 | 8758 |
+| unit | Planned | 4 | 9310 |
 | unit | Removed | 0 | 1 |
 
 ### Test fixture record types
@@ -400,19 +399,19 @@ row by row, and are included in the totals above.
 
 | distinct `harness_*` record types | live rows | soft deleted rows |
 |---|---|---|
-| 2966 | 0 | 23637 |
+| 3126 | 0 | 24949 |
 
 No harness record type holds a live row; every fixture row is soft deleted.
 
 ## `approvals`
 
-3066 rows, of which 0 carry a null `stage`.
+3118 rows, of which 0 carry a null `stage`.
 
 | decision | track | rows | null stage |
 |---|---|---|---|
-| approved | Commercial | 1553 | 0 |
-| approved | Legal | 814 | 0 |
-| approved | Technical | 694 | 0 |
+| approved | Commercial | 1577 | 0 |
+| approved | Legal | 830 | 0 |
+| approved | Technical | 706 | 0 |
 | rejected | Commercial | 1 | 0 |
 | rejected | Finance | 4 | 0 |
 
@@ -453,7 +452,7 @@ than written as a literal list, so its members are not enumerable here.
 
 ## Registered routes
 
-77 routes. Prefixes parsed from `src/server.js`, paths from each route module.
+78 routes. Prefixes parsed from `src/server.js`, paths from each route module.
 
 | method | path | auth | source |
 |---|---|---|---|
@@ -474,6 +473,7 @@ than written as a literal list, so its members are not enumerable here.
 | POST | `/api/contacts/:id/create-opportunity` | authenticated | `src/routes/contacts.js` |
 | POST | `/api/contacts/:id/create-test-bed` | authenticated | `src/routes/contacts.js` |
 | POST | `/api/contacts/:id/link-account` | authenticated | `src/routes/contacts.js` |
+| POST | `/api/contacts/:id/qualify` | authenticated | `src/routes/contacts.js` |
 | GET | `/api/contacts/:id/test-bed-name-suggestion` | authenticated | `src/routes/contacts.js` |
 | GET | `/api/contacts/creation-requirements` | authenticated | `src/routes/contacts.js` |
 | GET | `/api/deal-sheet-versions/:vid` | authenticated | `src/routes/deal-sheet-versions.js` |
@@ -537,7 +537,7 @@ than written as a literal list, so its members are not enumerable here.
 
 ## Migrations, in filename order
 
-121 files in `supabase/migrations/`.
+123 files in `supabase/migrations/`.
 
 1. `20260801000000_initial_schema.sql`
 2. `20260802000000_lead_opportunity.sql`
@@ -660,6 +660,8 @@ than written as a literal list, so its members are not enumerable here.
 119. `20260908000003_create_from_requires_source_owner.sql`
 120. `20260911000001_contact_nurture_relabel.sql`
 121. `20260911000002_contact_qualify_requires_company.sql`
+122. `20260912000001_qualify_is_one_transaction.sql`
+123. `20260912000002_qualify_drops_account_precondition.sql`
 
 ## Seed files, in application order
 
