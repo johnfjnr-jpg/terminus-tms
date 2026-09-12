@@ -20,7 +20,19 @@
 // date-plus-description with its own save. Writing card versions of either
 // would be two readers of one behaviour, and the notes model in particular has
 // just been ruled on twice.
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { LeadCardActions } from './LeadCardActions'
+
+/**
+ * R2's Address details disclosure. Read-only on the card by design: the card
+ * works a pipeline, and editing an address is what opening the lead is for.
+ * Qualify needs all five, so seeing WHICH are missing without leaving the list
+ * is the point of showing them here.
+ */
+const ADDRESS_FIELDS: Array<[string, string]> = [
+  ['address', 'Address'], ['address2', 'Address 2'], ['city', 'City'],
+  ['postcode', 'Postcode'], ['country', 'Country'], ['region', 'Region'],
+]
 import { NotesHistory } from '../contact/NotesHistory'
 import { FollowUpTask } from '../contact/FollowUpTask'
 import type { Note } from '../contact/notes'
@@ -36,7 +48,9 @@ export interface LeadRecord {
 
 const str = (v: unknown): string => (v === null || v === undefined ? '' : String(v))
 
-export function LeadCard({ lead, notMine, accountName, onOpen, onAddNote, onSaveFollowUp }: {
+export function LeadCard({
+  lead, notMine, accountName, accounts, onOpen, onAddNote, onSaveFollowUp, onNurture, onQualified,
+}: {
   lead: LeadRecord
   /** Per-card, because a list has many owners and the door must be asked once each. */
   notMine: boolean
@@ -44,8 +58,15 @@ export function LeadCard({ lead, notMine, accountName, onOpen, onAddNote, onSave
   onOpen: (id: string) => void
   onAddNote: (id: string, text: string) => Promise<boolean>
   onSaveFollowUp: (id: string, next: { followUpDate: string, followUpDescription: string }) => void
+  /** R2: the account step's options, fetched once by the list, not per card. */
+  accounts: Array<{ id: string, name: string }>
+  /** R2: Nurture opens the follow-up dialogue, date and reason. */
+  onNurture: (id: string) => void
+  /** The conversion landed; the list re-reads so the card leaves the pipeline. */
+  onQualified: () => void
 }) {
   const ref = useRef<HTMLDivElement | null>(null)
+  const [addressOpen, setAddressOpen] = useState(false)
   const p = lead.payload ?? {}
   const notes = (Array.isArray(p.notes) ? p.notes : []) as Note[]
 
@@ -63,7 +84,10 @@ export function LeadCard({ lead, notMine, accountName, onOpen, onAddNote, onSave
       applyReadOnlyControls?: (root: HTMLElement | string, notMine: boolean) => void
     }).applyReadOnlyControls
     if (ref.current) apply?.(ref.current, notMine)
-  }, [notMine, notes.length, p.followUpDate, p.followUpDescription])
+    // addressOpen is in the dependency list DELIBERATELY. Verification 43's
+    // clause: a control revealed AFTER the door has swept is a control the
+    // door never saw, and the disclosure adds real inputs to the card.
+  }, [notMine, notes.length, p.followUpDate, p.followUpDescription, addressOpen])
 
   // A click anywhere opens the lead. The inline regions below stop propagation,
   // so typing a note never navigates away mid-sentence.
@@ -93,6 +117,36 @@ export function LeadCard({ lead, notMine, accountName, onOpen, onAddNote, onSave
             lead.created_at ? String(lead.created_at).slice(0, 10) : '--'].join(' · ')}
         </span>
       </div>
+
+      <LeadCardActions
+        leadId={lead.id}
+        status={lead.status ?? null}
+        accounts={accounts}
+        onQualified={onQualified}
+        onNurture={() => onNurture(lead.id)}
+        addressOpen={addressOpen}
+        onToggleAddress={() => setAddressOpen((v: boolean) => !v)} />
+
+      {addressOpen
+        ? (
+          <div
+            className="lead-address-panel"
+            id={`lead-address-panel-${lead.id}`}
+            data-testid={`lead-address-${lead.id}`}
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
+          >
+            {ADDRESS_FIELDS.map(([key, label]) => (
+              <div className="lead-address-cell" key={key}>
+                <div className="lead-card-col-title">{label}</div>
+                <div data-testid={`lead-address-${key}-${lead.id}`}>
+                  {str(p[key]) || <span className="empty-state">Not recorded</span>}
+                </div>
+              </div>
+            ))}
+          </div>
+        )
+        : null}
 
       <div className="lead-card-body">
         <div className="lead-card-col" data-testid={`lead-summary-${lead.id}`}>

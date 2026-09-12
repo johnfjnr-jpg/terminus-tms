@@ -5962,7 +5962,13 @@ input.input-invalid {
   font-family: var(--mono);
   font-size: 11px;
   color: var(--muted);
-  flex-basis: 100%;
+  /* R2: ON the lead name line, not under it.
+     `flex-basis: 100%` is what P4 set when the card was capped at 1240px and
+     the sub genuinely did not fit beside the name. It does not merely allow a
+     wrap, it FORCES one - the item takes a full row whatever the width. The
+     card is now full width, so it comes off, and the row test in
+     probe-card.mjs asserts the two share a row rather than trusting that they
+     fit. */
 }
 
 .lead-card-body {
@@ -6059,3 +6065,91 @@ input.input-invalid {
   margin-bottom: 4px;
 }
 .new-lead-frame .modal-close { line-height: 1; }
+
+/* ---------------------------------------------------------------------
+   R2: the Lead List card as the primary working surface (2026-09-12).
+   --------------------------------------------------------------------- */
+
+/* FULL WIDTH, by the precedent #view-contact-detail already set rather than
+   by a new mechanism. .wrap caps every view at 1240px; that page overrides
+   max-width and restores the right padding the percentage rule loses. Same
+   two declarations, same reason, so the two pages cannot drift apart. */
+#view-leads {
+  max-width: none;
+  padding-right: 62px;
+}
+
+.lead-card-actions { margin: 10px 0 4px; }
+.lead-action-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+/* The Qualify steps sit under the action row, in the card, so the person
+   never loses the lead they are acting on. */
+.lead-qualify-step {
+  margin-top: 10px;
+  padding: 12px;
+  border: 1px solid var(--hairline-strong);
+  background: rgba(242, 242, 240, 0.02);
+}
+.lead-qualify-step ul { margin: 6px 0 10px; padding-left: 18px; }
+.lead-qualify-step li { font-size: 12px; color: var(--muted); }
+
+/* The Address disclosure. A grid rather than a stack, because six short
+   values in a column is a scroll for no reason on a full-width card. */
+.lead-address-panel {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(160px, 1fr));
+  gap: 10px 24px;
+  margin: 8px 0 4px;
+  padding: 12px;
+  border: 1px solid var(--hairline);
+}
+.lead-address-cell { font-size: 12px; }
+
+@media (max-width: 1100px) {
+  .lead-address-panel { grid-template-columns: repeat(2, minmax(140px, 1fr)); }
+}
+
+/* The account step's controls take the estate treatment, SCOPED TO THE CARD.
+   LinkAccountPanel is shared with Lead Detail, which is frozen this round, so
+   the classes go on the container rather than into the component. The first
+   build shipped this step with a bare white input and two Cancel buttons, and
+   only a screenshot showed it - the same fault the LEADS round's unclassed
+   Save button was. */
+/* EVERY input in the step, not `input[type="text"]`.
+   LinkAccountPanel's search box carries NO type attribute, so it misses the
+   estate's own `input[type="text"], input[type="date"], select, textarea`
+   rule at line ~1726 and renders as a white browser default on a dark screen.
+   That is a defect in the SHARED component, so it looks the same on Lead
+   Detail - which is FROZEN this round (R4), so it is reported rather than
+   fixed there. Here the treatment is applied from the card's side, where it
+   changes nothing else. */
+.lead-qualify-step input {
+  width: 100%;
+  max-width: 420px;
+  margin-bottom: 8px;
+  background: var(--black);
+  border: none;
+  border-bottom: 1px solid var(--hairline-strong);
+  color: var(--white);
+  font-family: var(--body);
+  font-size: 14px;
+  padding: 6px 0;
+}
+.lead-qualify-step input:focus { outline: none; border-bottom-color: var(--white); }
+.lead-qualify-step button {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 6px 12px;
+  margin: 0 8px 6px 0;
+  background: transparent;
+  color: var(--body);
+  border: 1px solid var(--hairline-strong);
+  cursor: pointer;
+}
+.lead-qualify-step button:hover:not(:disabled) { border-color: var(--green); color: var(--green); }
+.lead-qualify-step button:disabled { opacity: 0.4; cursor: default; }
+.lead-qualify-step [data-testid="cd-link-results"] {
+  display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0;
+}

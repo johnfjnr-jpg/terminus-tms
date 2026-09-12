@@ -27,16 +27,45 @@ export function findAccountMatches(query: string, accounts: AccountOption[]): Ac
   return accounts.filter((a) => a.name.toLowerCase().includes(q))
 }
 
-export function LinkAccountPanel({ contactId, accounts, hasDirtyEdits, onConfirmDiscard, onLinked }: {
+export function LinkAccountPanel({
+  contactId, accounts, hasDirtyEdits, onConfirmDiscard, onLinked,
+  submitPath, openLabel, startOpen = false, onCancel,
+}: {
   contactId: string
   accounts: AccountOption[]
   hasDirtyEdits: boolean
   /** Asks the shared discard dialogue, then runs the link if it is accepted. */
   onConfirmDiscard: (proceed: () => void) => void
   onLinked: () => void
+  /**
+   * R7: REUSED AS QUALIFY'S ACCOUNT STEP, and this is the whole of the change.
+   *
+   * The panel builds exactly the two bodies the qualify route accepts -
+   * `{account_id}` or `{new_account_name, account_details}` - so the account
+   * step needed no second picker, only a different place to send them.
+   *
+   * Defaults to link-account, so LEAD DETAIL'S BEHAVIOUR IS UNTOUCHED (R4).
+   * The card passes the qualify route, whose three writes happen inside one
+   * transaction instead of this route's three separate calls.
+   */
+  submitPath?: string
+  /** The card's step is already open and says "Qualify", not "Link to Account". */
+  openLabel?: string
+  startOpen?: boolean
+  /**
+   * When the panel is the card's account step it is already open, so its own
+   * Cancel must cancel the STEP rather than collapse to a button nobody asked
+   * for. Given, it replaces the default; omitted, Lead Detail behaves exactly
+   * as before (R4).
+   *
+   * This is why the card does not render a Cancel of its own: the first build
+   * did, and the screenshot showed TWO Cancel buttons side by side, one of
+   * them an unstyled browser default.
+   */
+  onCancel?: () => void
 }) {
   const shell = useShell()
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(startOpen)
   const [query, setQuery] = useState('')
   const [error, setError] = useState<string | null>(null)
   // ── A REF, NOT STATE. Round 4's finding, applied rather than repeated ──
@@ -59,7 +88,7 @@ export function LinkAccountPanel({ contactId, accounts, hasDirtyEdits, onConfirm
     setError(null)
     try {
       const r = await shell.api<{ error?: string }>(
-        'POST', `/api/contacts/${contactId}/link-account`, body)
+        'POST', submitPath ?? `/api/contacts/${contactId}/link-account`, body)
       if (!r.ok) { setError(r.data?.error ?? 'Failed to link account.'); return }
       setOpen(false)
       setQuery('')
@@ -82,7 +111,7 @@ export function LinkAccountPanel({ contactId, accounts, hasDirtyEdits, onConfirm
   if (!open) {
     return (
       <button type="button" data-testid="cd-btn-link-account"
-        onClick={() => { setOpen(true); setError(null) }}>Link to Account</button>
+        onClick={() => { setOpen(true); setError(null) }}>{openLabel ?? 'Link to Account'}</button>
     )
   }
 
@@ -111,7 +140,11 @@ export function LinkAccountPanel({ contactId, accounts, hasDirtyEdits, onConfirm
       </div>
       {error ? <div className="msg-error" data-testid="cd-link-error">{error}</div> : null}
       <button type="button" data-testid="cd-link-cancel"
-        onClick={() => { setOpen(false); setError(null) }}>Cancel</button>
+        onClick={() => {
+          setError(null)
+          if (onCancel) { onCancel(); return }
+          setOpen(false)
+        }}>Cancel</button>
     </div>
   )
 }

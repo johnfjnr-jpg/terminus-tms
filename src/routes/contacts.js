@@ -5,6 +5,29 @@ import { appendRecordRevision, SINGLE_KEY_RMW, readExpectedRevision, isStaleWrit
 import { isValidMobile } from '../lib/field-validation.js'
 import { issueReferenceNumber, issueAccountNumber } from '../lib/reference-number.js'
 import { countryToCode } from '../lib/country-code.js'
+import { computeBlocking } from './transitions.js'
+import { GATE_RECORD_SELECT } from '../lib/stage-gate-fields.js'
+
+/**
+ * The Account's revision payload, in the shape link-account already writes.
+ * One definition, so the two paths cannot describe an Account differently.
+ */
+function accountPayloadFrom(name, details) {
+  const d = details ?? {}
+  const b = d.billing ?? {}
+  const s = d.shipping ?? {}
+  return {
+    name: name ? name.trim() : null,
+    terminusLead: d.terminusLead ?? null,
+    websiteUrl: d.websiteUrl ?? null,
+    billingAddress: b.address ?? null, billingAddress2: b.address2 ?? null,
+    billingCity: b.city ?? null, billingPostcode: b.postcode ?? null,
+    billingCountry: b.country ?? null, billingRegion: b.region ?? null,
+    shippingAddress: s.address ?? null, shippingAddress2: s.address2 ?? null,
+    shippingCity: s.city ?? null, shippingPostcode: s.postcode ?? null,
+    shippingCountry: s.country ?? null, shippingRegion: s.region ?? null,
+  }
+}
 
 const VALID_SOURCES = ['Web', 'Email Inquiry', 'Referral', 'Direct Outreach', 'Marketing Campaign']
 
@@ -450,6 +473,100 @@ export default async function contactsRoutes(app) {
     // T4: `record_revision_number` is the name the client's adoption hook
     // trusts, set only by a response that advanced the record.
     return reply.send({ ok: true, revision_number: writtenRevision, record_revision_number: writtenRevision })
+  })
+
+  // ── POST /api/contacts/:id/qualify ──────────────────────────────────────
+  //
+  // R1 of the LEADS CARD round: Qualify IS the conversion. One route, one
+  // atomic call.
+  //
+  // ── THE GATE IS COMPUTED, NEVER RESTATED ────────────────────────────────
+  //
+  // `computeBlocking` is the estate's single evaluator and this route calls
+  // it, the same function the transition route and the exit-criteria panel
+  // use. The completion popup on the card renders what comes back from HERE,
+  // so the list a person is asked to fill in is the list the server refuses
+  // on. A client-side copy would be Verification 43 exactly - a display beside
+  // a correct rule, agreeing today and drifting later.
+  //
+  // ── AND THE FUNCTION IS ONE CALL, NOT THREE ─────────────────────────────
+  //
+  // link-account makes three separate PostgREST calls - insert the account
+  // record, insert its revision, update the contact - so a failure between
+  // them leaves an orphan Account. That route stays for the Lead Detail path,
+  // which is frozen. Qualify goes through qualify_contact, proven atomic in
+  // Phase 1b: a failure at the status flip rolls the account back with it.
+  app.post('/contacts/:id/qualify', async (request, reply) => {
+    const db = createUserClient(request.jwt)
+    const { account_id = null, new_account_name = null, account_details = null } = request.body ?? {}
+
+    if ((account_id === null) === (new_account_name === null)) {
+      return reply.code(400).send({
+        error: 'exactly one of account_id or new_account_name is required',
+      })
+    }
+
+    const { data: record, error: recordErr } = await db
+      .from('records')
+      .select(GATE_RECORD_SELECT)
+      .eq('id', request.params.id)
+      .eq('record_type', 'contact')
+      .is('deleted_at', null)
+      .maybeSingle()
+    if (recordErr) return sendWriteError(reply, recordErr)
+    if (!record) return reply.code(404).send({ error: 'Lead not found' })
+
+    if (record.status === 'Qualified') {
+      return reply.code(422).send({ error: 'This lead is already Qualified.' })
+    }
+
+    // The payload the gate reads, the way every other caller reads it.
+    const { data: revRow } = await db
+      .from('record_revisions')
+      .select('revision_number, payload')
+      .eq('record_id', record.id)
+      .order('revision_number', { ascending: false })
+      .limit(1)
+    const latest = revRow?.[0]
+    const { blocking, error: blockingErr } = await computeBlocking(
+      db, record, record.status, 'Qualified', latest?.revision_number ?? 1, latest?.payload ?? {})
+    if (blockingErr) return sendWriteError(reply, blockingErr)
+
+    if (blocking.length) {
+      // 422 with the SERVER'S OWN list. The card's completion popup renders
+      // this array; it does not compute its own.
+      return reply.code(422).send({
+        error: 'This lead is not complete enough to qualify.',
+        blocking,
+      })
+    }
+
+    // An Account Number, minted the same way link-account mints one, on the
+    // same log-and-continue convention: a generation failure must not block
+    // the conversion, and must not be silently dropped either.
+    let accountReference = null
+    if (new_account_name) {
+      const country = account_details?.billing?.country
+      if (country) {
+        try {
+          const code = countryToCode(country)
+          if (code) accountReference = await issueAccountNumber(db, code, new_account_name.trim())
+        } catch (err) {
+          request.log.error({ err }, 'failed to issue Account Number during qualify')
+        }
+      }
+    }
+
+    const { data: result, error: convertErr } = await db.rpc('qualify_contact', {
+      p_contact_id: record.id,
+      p_account_id: account_id,
+      p_new_account_name: new_account_name ? new_account_name.trim() : null,
+      p_account_payload: accountPayloadFrom(new_account_name, account_details),
+      p_account_reference: accountReference,
+    })
+    if (convertErr) return sendWriteError(reply, convertErr)
+
+    return reply.send(result)
   })
 
   // POST /api/contacts/:id/link-account

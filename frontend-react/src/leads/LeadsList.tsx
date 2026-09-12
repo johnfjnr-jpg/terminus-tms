@@ -10,6 +10,7 @@
 // stage relabelled or reordered by migration moves here without an edit -
 // which is exactly what happened to Parked/Nurture three phases ago.
 import { useEffect, useMemo, useState } from 'react'
+import { NurtureDialog } from './NurtureDialog'
 import { useShell } from '../ShellContext'
 import { LeadCard, type LeadRecord } from './LeadCard'
 
@@ -49,6 +50,8 @@ export function LeadsList({ navToken }: { navToken?: number }) {
   // Verification 7 - state the counterfactual, and wait on something the OLD
   // state cannot satisfy.
   const [fetches, setFetches] = useState(0)
+  /** R2: which lead's Nurture dialogue is open. Null is closed. */
+  const [nurturing, setNurturing] = useState<string | null>(null)
 
   const load = useMemo(() => async () => {
     const [c, s, a] = await Promise.all([
@@ -66,6 +69,13 @@ export function LeadsList({ navToken }: { navToken?: number }) {
   useEffect(() => { void load() }, [load, navToken])
 
   const me = shell.currentUserId()
+  // One shape for the account step, derived from the list's own fetch rather
+  // than fetched again per card.
+  const accountOptions = useMemo(
+    () => accounts.map((a) => ({ id: a.id, name: a.payload?.name ?? '' }))
+      .filter((a) => a.name),
+    [accounts])
+
   const accountName = (l: LeadRecord) =>
     l.account?.name ?? accounts.find((x) => x.id === (l as { parent_record_id?: string }).parent_record_id)?.payload?.name ?? null
 
@@ -135,6 +145,15 @@ export function LeadsList({ navToken }: { navToken?: number }) {
               + `${unknownStages.join(', ')}. Leads in it would not appear here.`}
           </p>
         : null}
+      {nurturing
+        ? (
+          <NurtureDialog
+            leadId={nurturing}
+            onCancel={() => setNurturing(null)}
+            onDone={() => { setNurturing(null); void load() }} />
+        )
+        : null}
+
       {grouped.map(([status, list]) => (
         <section key={status} className="lead-group" data-testid={`lead-group-${status}`}>
           <h3 className="lead-group-title" data-testid={`lead-group-title-${status}`}>
@@ -150,7 +169,10 @@ export function LeadsList({ navToken }: { navToken?: number }) {
               accountName={accountName(l)}
               onOpen={(id) => shell.navigate('contact-detail', id)}
               onAddNote={addNote}
-              onSaveFollowUp={saveFollowUp} />
+              onSaveFollowUp={saveFollowUp}
+              accounts={accountOptions}
+              onNurture={(id) => setNurturing(id)}
+              onQualified={() => { void load() }} />
           ))}
         </section>
       ))}
