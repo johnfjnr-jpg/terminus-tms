@@ -9,8 +9,9 @@ three times.** Section 7.
 
 ## 1. The gate
 
-Stated after this commit, on the exact tree, with `--round-close` so F6
-refuses a skipped required stage. Section 8.
+**22 of 22 PASS, 0 SKIP, 0 FAIL on `578b96b`**, first run, with
+`--round-close`. Door stage `PASS  HTTP readonly-view probe  exit 0
+83786ms`. Database suite `100/100`. Section 9.
 
 ---
 
@@ -175,4 +176,19 @@ stays visible rather than becoming invisible.
 
 ## 9. Gate result
 
-To be stated on the tree this commit creates.
+**22 of 22 PASS, 0 SKIP, 0 FAIL**, first run, on `578b96b` with
+`--round-close`.
+
+| | |
+|---|---|
+| database suite | 100/100, 41,408ms |
+| **door stage** | **PASS**, 83,786ms |
+| pure / react | 519/519, 939/939 |
+
+**F8 did not fire on this gate**, and that is one sample rather than a
+change. **The last round's close made exactly that point and was proved
+right within the hour** when F8 failed the log-close commit. Section 7's
+three-failure record stands, and the clean run does not reduce it.
+
+**F5 did not fire either.** It was hardened last round and its guard
+watches the heaviest chunk; this gate's database suite ran in 41,408ms.
