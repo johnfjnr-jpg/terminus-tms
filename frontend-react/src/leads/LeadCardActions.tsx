@@ -19,7 +19,7 @@
 // GET /records/:id/exit-criteria, which is computeBlocking - the same
 // evaluator the qualify route refuses on. A client-side copy would be
 // Verification 43: a display beside a correct rule, agreeing today.
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useShell } from '../ShellContext'
 import { LinkAccountPanel } from '../contact/LinkAccountPanel'
 import { QualifyCompletion } from './QualifyCompletion'
@@ -30,7 +30,7 @@ type Step = 'idle' | 'checking' | 'incomplete' | 'account'
 
 export function LeadCardActions({
   leadId, status, accounts, onQualified, onNurture, onOpenAddress, addressOpen,
-  payload, industries, sources, regions, onSaved,
+  payload, industries, sources, regions, onSaved, registerRefresh,
 }: {
   leadId: string
   status: string | null
@@ -38,13 +38,20 @@ export function LeadCardActions({
   onQualified: () => void
   onNurture: () => void
   onOpenAddress: () => void
+  /**
+   * R3: the card's address popup saves on a path that does not run through
+   * this component, and the blocking list lives HERE. Rather than a second
+   * copy over there, the card is handed this one.
+   */
+  registerRefresh?: (fn: () => Promise<unknown>) => void
   addressOpen: boolean
   /** R1: the popup prefills what is already there and edits what is not. */
   payload: Record<string, unknown>
   industries: Array<{ id: string, name: string }>
   sources: string[]
   regions: string[]
-  onSaved: () => void
+  /** R4: awaited, because the refresh must land before drafts are cleared. */
+  onSaved: () => Promise<void> | void
 }) {
   const shell = useShell()
   const [step, setStep] = useState<Step>('idle')
@@ -67,6 +74,32 @@ export function LeadCardActions({
     setBlocking(missing)
     setStep(missing.length ? 'incomplete' : 'account')
   }
+
+  // ── R3: ONE REFRESH PATH, OWNED HERE ──────────────────────────────────
+  //
+  // `blocking` is this component's state, so this is the only thing that may
+  // write it. The in-surface save and the address popup both call THIS -
+  // a second copy in the child would be the two-readers fault the round
+  // exists to remove.
+  //
+  // R4: it refreshes VALUES as well as markers, and the order matters.
+  // `onSaved` reloads the list, which is where the record's payload comes
+  // from; awaiting it before the child clears its local drafts is what stops
+  // a field falling back to a STALE empty. Phase 0 measured that exact
+  // sequence going wrong: `address` saved as "12 Recompute Road", the box
+  // empty, the star still on.
+  const refreshAfterSave = async (): Promise<Blocking[]> => {
+    await onSaved()
+    const r = await shell.api<{ blocking?: Blocking[] }>(
+      'GET', `/api/records/${leadId}/exit-criteria`)
+    const left = r.ok ? (r.data?.blocking ?? []) : blocking
+    setBlocking(left)
+    return left
+  }
+
+  // Published once so the card's popup path calls the same function this
+  // component's own save does. One writer of `blocking`, two callers.
+  useEffect(() => { registerRefresh?.(refreshAfterSave) })
 
   // R8: every cancel path is this. It calls nothing.
   const cancel = () => { setStep('idle'); setBlocking([]); setError(null) }
@@ -138,6 +171,7 @@ export function LeadCardActions({
             sources={sources}
             regions={regions}
             onCancel={cancel}
+            onRefresh={refreshAfterSave}
             onComplete={() => {
               // NOTHING IS BLOCKING ANY MORE, so the flow continues to the
               // account step WITHOUT the person pressing Qualify again. R1:

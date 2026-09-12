@@ -59,6 +59,21 @@ handles it.**
 conversation are appended **at the phase they launch**. Data changes
 proposed before applied. Nothing pushes without the word.
 
+**R3. THE PARENT OWNS REFRESHED BLOCKING** and passes a refresh
+callback. The in-surface save and the address-popup path both call **one
+thing**. **No second copy in the child** - that is the two-readers fault
+this round exists to remove.
+
+**R4. THE VALUE STALENESS IS IN SCOPE, ruled YES.** The empty box over
+saved data is the same surface and the same save, and it is the half that
+makes a person retype. Markers and values are fixed as **one
+save-then-refresh treatment covering all three paths** - in-surface save,
+address popup, partial save.
+
+**R5. THE SUMMARY-ONLY SURFACE: STAR IT AND NAME THE CARD'S PANEL.**
+"Summary required, complete it below", keeping one consistent surface
+rather than a flow that is a surface sometimes and a jump sometimes.
+
 ---
 
 ## Phase 0: measurement only

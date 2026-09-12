@@ -1,5 +1,13 @@
 // COMPLETION SURFACE FIX, Phase 0: measurement only. Nothing is changed.
 //
+// ── ITS SCREENSHOTS ARE NAMED FOR THIS PHASE, DELIBERATELY ──────────────
+//
+// This probe was copied from the Phase 0 measurement one and inherited its
+// output filenames, so its first run OVERWROTE the images the Phase 0 report
+// cites as evidence of the defect. Verification 44 is about backups keyed on
+// a basename; the same fault reaches any artefact named after a run rather
+// than after the run that made it.
+//
 // THE INSTRUMENT, named because R1 asks for it: the surface's `*` markers
 // carry `data-testid="lead-needs-<key>-<id>"` and are rendered from the
 // `blocking` prop. So "which fields are marked" is readable from the DOM
@@ -93,7 +101,7 @@ try {
   const before = await surfaceState(lead.id)
   console.log(`  BEFORE  markers: [${before.marks.join(', ')}]`)
   console.log(`          server:  [${(await serverMissing(lead.id)).join(', ')}]`)
-  await page.screenshot({ path: `${OUT}p0-before-save.png` })
+  await page.screenshot({ path: `${OUT}p1-before-save.png` })
 
   // Fill exactly ONE of the three, so a correct surface would drop one star.
   const sel = `[data-testid="lead-fix-address-${lead.id}"]`
@@ -119,7 +127,7 @@ try {
     .eq('record_id', lead.id).order('revision_number', { ascending: false }).limit(1), 'rev')[0]
   console.log(`  the save DID persist: address="${persisted.payload?.address}"`)
   console.log(`  the field VALUE on screen after save: "${after.address}"`)
-  await page.screenshot({ path: `${OUT}p0-after-save.png` })
+  await page.screenshot({ path: `${OUT}p1-after-save.png` })
 
   // ── 2. R1 CROSS-SURFACE: THE ADDRESS POPUP ────────────────────────────
   say('2. R1 cross-surface: does the address popup path recompute the markers?')
@@ -165,7 +173,7 @@ try {
   console.log(`  after typing into the SURFACE: surface="${drift.surface}" card="${drift.card}"`)
   if (two.surfaceEditor) global.__FAIL.push('R2: the completion surface STILL edits Summary')
   if (!two.cardEditor) global.__FAIL.push('R2: the card lost its Summary editor')
-  await page.screenshot({ path: `${OUT}p0-two-editors.png` })
+  await page.screenshot({ path: `${OUT}p1-one-editor.png` })
 
   // ── 4. R2's CONSEQUENCE ───────────────────────────────────────────────
   say('4. R2 consequence: can Summary be the ONLY missing field?')
@@ -192,7 +200,7 @@ try {
   const starOnly = await page.evaluate((x) =>
     !!document.querySelector(`[data-testid="lead-needs-summary-${x}"]`), onlySummary.id)
   if (!starOnly) global.__FAIL.push('R5: Summary is not marked required')
-  await page.screenshot({ path: `${OUT}p0-only-summary.png` })
+  await page.screenshot({ path: `${OUT}p1-only-summary.png` })
 } finally {
   for (const id of created) await db.from('records').update({ deleted_at: new Date().toISOString() }).eq('id', id)
   console.log(`\n  soft deleted ${created.length}`)

@@ -43,6 +43,7 @@ const str = (v: unknown): string => (v === null || v === undefined ? '' : String
 export function LeadCard({
   lead, notMine, accountName, accounts, industries, sources, regions,
   onOpen, onAddNote, onSaveFollowUp, onSaveSummary, onNurture, onQualified,
+  onAddressSaved,
 }: {
   lead: LeadRecord
   /** Per-card, because a list has many owners and the door must be asked once each. */
@@ -58,6 +59,8 @@ export function LeadCard({
   regions: string[]
   /** R4: Summary is a write now, so it saves like the other inline writes. */
   onSaveSummary: (id: string, text: string) => Promise<boolean>
+  /** R3/R4: reload the record AND re-read the blocking list, as one thing. */
+  onAddressSaved: () => Promise<void>
   /** R2: Nurture opens the follow-up dialogue, date and reason. */
   onNurture: (id: string) => void
   /** The conversion landed; the list re-reads so the card leaves the pipeline. */
@@ -65,6 +68,9 @@ export function LeadCard({
 }) {
   const ref = useRef<HTMLDivElement | null>(null)
   const [addressOpen, setAddressOpen] = useState(false)
+  // R3: the actions component owns `blocking`; it hands this ref its refresh
+  // so the address popup calls the same function rather than keeping a copy.
+  const refreshRef = useRef<null | (() => Promise<unknown>)>(null)
   const p = lead.payload ?? {}
   const notes = (Array.isArray(p.notes) ? p.notes : []) as Note[]
 
@@ -129,6 +135,7 @@ export function LeadCard({
           onNurture={() => onNurture(lead.id)}
           addressOpen={addressOpen}
           onOpenAddress={() => setAddressOpen(true)}
+        registerRefresh={(fn) => { refreshRef.current = fn }}
           payload={p}
           industries={industries}
           sources={sources}
@@ -143,7 +150,18 @@ export function LeadCard({
             current={p}
             regions={regions}
             onClose={() => setAddressOpen(false)}
-            onSaved={() => { setAddressOpen(false); onQualified() }} />
+            onSaved={async () => {
+              // R3: the popup takes the SAME refresh path. Phase 0 measured
+              // it refreshing values and leaving TWO stars wrong, because
+              // nothing on this path touched the parent's blocking list.
+              //
+              // The actions component's refresh when the surface is open, so
+              // the markers behind it recompute; the plain list reload
+              // otherwise, when there is no surface to correct.
+              setAddressOpen(false)
+              if (refreshRef.current) await refreshRef.current()
+              else await onAddressSaved()
+            }} />
         )
         : null}
 

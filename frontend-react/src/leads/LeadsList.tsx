@@ -181,6 +181,10 @@ export function LeadsList({ navToken }: { navToken?: number }) {
           <h3 className="lead-group-title" data-testid={`lead-group-title-${status}`}>
             {status} <span className="sub">{list.length}</span>
           </h3>
+          {/* R4: `onQualified` and `onAddressSaved` are `load` ITSELF, not a
+              fire-and-forget wrapper. The refresh path awaits it, so the
+              record is reloaded before the surface clears its local drafts -
+              which was half of why a saved value showed as an empty box. */}
           {list.map((l) => (
             <LeadCard
               key={l.id}
@@ -197,8 +201,9 @@ export function LeadsList({ navToken }: { navToken?: number }) {
               sources={sources}
               regions={regions}
               onSaveSummary={saveSummary}
+              onAddressSaved={load}
               onNurture={(id) => setNurturing(id)}
-              onQualified={() => { void load() }} />
+              onQualified={load} />
           ))}
         </section>
       ))}

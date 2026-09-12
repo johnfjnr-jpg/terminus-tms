@@ -30,13 +30,13 @@
 // Detail is untouched by construction rather than by care.
 import { useMemo, useRef, useState } from 'react'
 import { useShell } from '../ShellContext'
-import { CONTACT_FIELDS, ADDRESS_FIELDS, SUMMARY_FIELDS, type LeadField } from './leadFields'
+import { CONTACT_FIELDS, ADDRESS_FIELDS, type LeadField } from './leadFields'
 import { LeadFieldInput } from './LeadFieldInput'
 
 type Blocking = { field?: string, label?: string, message?: string }
 
 export function QualifyCompletion({
-  leadId, blocking, current, industries, sources, regions, onComplete, onCancel,
+  leadId, blocking, current, industries, sources, regions, onComplete, onCancel, onRefresh,
 }: {
   leadId: string
   blocking: Blocking[]
@@ -46,6 +46,14 @@ export function QualifyCompletion({
   regions: string[]
   onComplete: () => void
   onCancel: () => void
+  /**
+   * R3: the PARENT's one refresh path. Reloads the record and re-reads the
+   * server's blocking list, returning it. This component does not keep its
+   * own copy of either - Phase 0 measured what happens when it tries: the
+   * markers were open-time, the values were open-time, and only the count
+   * was fresh. Three vintages on one panel.
+   */
+  onRefresh: () => Promise<Blocking[]>
 }) {
   const shell = useShell()
   const [values, setValues] = useState<Record<string, string>>({})
@@ -57,6 +65,7 @@ export function QualifyCompletion({
     () => new Set(blocking.map((b) => b.field).filter(Boolean) as string[]),
     [blocking])
 
+  const summaryRequired = missing.has('summary')
   const str = (v: unknown) => (v === null || v === undefined ? '' : String(v))
   const valueFor = (k: string) => values[k] ?? str(current[k])
   const set = (k: string, v: string) => setValues((p) => ({ ...p, [k]: v }))
@@ -111,15 +120,20 @@ export function QualifyCompletion({
       const r = await shell.api<{ error?: string }>('PATCH', `/api/contacts/${leadId}`, body)
       if (!r.ok) { setError(r.data?.error ?? 'Could not save.'); return }
 
-      // ASK THE SERVER AGAIN. This surface shows every field; only the gate
-      // knows whether the lead may now move, and it is still the one evaluator.
-      const again = await shell.api<{ blocking?: Blocking[] }>(
-        'GET', `/api/records/${leadId}/exit-criteria`)
-      if (!again.ok) { setError('Saved, but could not re-check. Press Qualify again.'); return }
-      const left = again.data?.blocking ?? []
+      // ── R1 + R4: ONE SAVE-THEN-REFRESH, AND THE ORDER IS THE FIX ───────
+      //
+      // The previous version fetched exactly this and used only its LENGTH,
+      // for the message. So the fresh answer was already in hand and thrown
+      // away, which is why the count was right while the markers were wrong.
+      //
+      // It now goes through the parent's one refresh path, which reloads the
+      // RECORD first and then re-reads the blocking list. Clearing the local
+      // drafts afterwards is then safe: the fields fall back to a payload
+      // that is fresh, instead of to the open-time one that was empty.
+      const left = await onRefresh()
+      setValues({})
       if (left.length) {
         setError(`Saved. ${left.length} still to complete.`)
-        setValues({})
         return
       }
       onComplete()
@@ -135,7 +149,31 @@ export function QualifyCompletion({
       <div data-testid={`lead-missing-${leadId}`}>
         {group('Contact details', CONTACT_FIELDS)}
         {group('Address details', ADDRESS_FIELDS)}
-        {group('Summary', SUMMARY_FIELDS)}
+
+        {/* ── R2: SUMMARY IS MARKED HERE AND EDITED ON THE CARD ──────────
+            Phase 0 measured two editors of one field with INDEPENDENT
+            drafts: typing into this one left the card's showing "", and
+            whichever saved last won silently. The card's panel owns the
+            editing; this surface may only say that it is required.
+
+            R5: and it names where. A star on a field with nowhere to type
+            is worse than an empty surface - the eye has nothing to land
+            on - so the requirement points at the panel that can satisfy
+            it. */}
+        {summaryRequired
+          ? (
+            <section className="lead-complete-group"
+              data-testid={`lead-complete-summary-${leadId}`}>
+              <div className="lead-card-col-title">
+                Summary
+                <span className="nlg-required" data-testid={`lead-needs-summary-${leadId}`}> *</span>
+              </div>
+              <p className="sub" data-testid={`lead-summary-pointer-${leadId}`}>
+                Summary is required. Complete it in the Summary panel below.
+              </p>
+            </section>
+          )
+          : null}
       </div>
       {error ? <p className="msg-error" data-testid={`lead-fix-error-${leadId}`}>{error}</p> : null}
       <div className="lead-complete-actions">
