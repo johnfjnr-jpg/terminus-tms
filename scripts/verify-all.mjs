@@ -16,6 +16,15 @@
 import { spawnSync } from 'node:child_process'
 import { writeFileSync, mkdirSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
+import { gateVerdict } from './lib/gate-verdict.mjs'
+
+// ── ROUND-CLOSE MODE, F6 ─────────────────────────────────────────────────
+//
+// Opt-in, because an ordinary run on a machine with no browser must keep
+// behaving as it always has - that decision is recorded at the browser check
+// below and it is still right. A close is the one moment a SKIP of a required
+// stage is fatal.
+const ROUND_CLOSE = process.argv.includes('--round-close')
 
 const ROOT = new URL('../', import.meta.url).pathname
 const OUT_DIR = join(ROOT, '.verify')
@@ -199,6 +208,10 @@ const STAGES = [
     // is UNANSWERED at a round close: the exit gate requires this stage GREEN
     // on the exact tree being pushed, with a browser present. A round that
     // closes on a SKIP here has measured nothing about the door.
+    // REQUIRED, F6. A skip here is unanswered rather than passed, and at a
+    // round close it is fatal. This is the stage the LEADS close caught being
+    // summarised as a pass.
+    required: true,
     name: 'HTTP readonly-view probe',
     cmd: ['node', ['scripts/probe-readonly-view.mjs']],
     needs: 'the dev server on :3000, a live session-ref.json AND a scratch browser',
@@ -338,6 +351,16 @@ const transcript = []
 const summary = []
 let failed = 0
 
+// F6: the stages that did NOT run, recorded as objects when it happens.
+//
+// The first version of this recovered the names by parsing the SKIP lines back
+// out of the summary, splitting on the padding. It worked, and it worked BY
+// LUCK: `name.padEnd(26)` leaves two spaces after the door stage's 24-character
+// name and NOTHING after the seven stage names that are 26 or longer, so the
+// same parse returns the whole line for those. A count is not a structure, and
+// a formatted line is not a record.
+const skippedStages = []
+
 // Set to the NAME of the first gate stage that failed. Everything downstream is
 // SKIPPED rather than run, so the summary cannot be read as a list of findings.
 //
@@ -368,6 +391,7 @@ const browserAvailable = (() => {
 
 for (const stage of STAGES) {
   if (stage.needsBrowser && !browserAvailable) {
+    skippedStages.push(stage)
     summary.push(`SKIP  ${stage.name.padEnd(26)} not run: no browser (set PUPPETEER_PATH)`)
     transcript.push(
       `${'='.repeat(72)}\n${stage.name}\nSKIPPED. puppeteer is not available, so this stage did not run.\n` +
@@ -378,6 +402,7 @@ for (const stage of STAGES) {
     continue
   }
   if (stage.needsSession && blockedBy) {
+    skippedStages.push(stage)
     summary.push(`SKIP  ${stage.name.padEnd(26)} not run: ${blockedBy} failed`)
     transcript.push(
       `${'='.repeat(72)}\n${stage.name}\nSKIPPED. The ${blockedBy} stage failed, so this stage was not run.\n` +
@@ -446,11 +471,29 @@ console.log(`\nfull output: ${file}`)
 // A SKIPPED stage is not a passed one and not a failed one, and saying so is
 // the whole point of the pre-stage: "1 of 19 stages FAILED" beside fourteen
 // skips reads correctly, where fourteen failures did not.
-const skipped = summary.filter((l) => l.startsWith('SKIP')).length
-console.log(failed
-  ? `\n${failed} of ${STAGES.length} stages FAILED${skipped ? `, ${skipped} NOT RUN` : ''}. Do not merge.`
-  : `\nAll ${STAGES.length} stages passed.`)
-if (skipped) {
-  console.log('\nNothing was measured by the skipped stages. They are not findings.')
+// F6: the verdict is computed by a function that can be exercised without a
+// seventeen-minute run, rather than assembled inline where it went wrong.
+//
+// The skipped stages are counted by NAME against the stage list, not by
+// position, so a reordering cannot silently move which one is required.
+const skippedRequired = skippedStages.filter((s) => s.required).length
+
+// The structural record and the printed summary must agree about how many
+// stages skipped. If they ever disagree, one of them is lying and the gate
+// says so rather than picking a side.
+const printedSkips = summary.filter((l) => l.startsWith('SKIP')).length
+if (printedSkips !== skippedStages.length) {
+  console.error(`\nGATE BOOKKEEPING BROKEN: ${printedSkips} SKIP lines printed but ` +
+    `${skippedStages.length} stages recorded as skipped. Refusing to report a verdict.`)
+  process.exit(2)
 }
-process.exit(failed ? 1 : 0)
+
+const verdict = gateVerdict({
+  stageCount: STAGES.length,
+  failed,
+  skippedRequired,
+  skippedOther: skippedStages.length - skippedRequired,
+  roundClose: ROUND_CLOSE,
+})
+console.log('\n' + verdict.lines.join('\n'))
+process.exit(verdict.exitCode)
