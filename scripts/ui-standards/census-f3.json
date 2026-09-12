@@ -1,6 +1,46 @@
 {
  "controls": [
   {
+   "file": "frontend-react/src/leads/NurtureDialog.tsx",
+   "line": 66,
+   "tag": "input",
+   "testid": "nurture-date",
+   "rendered": true,
+   "classes": [],
+   "styled": false
+  },
+  {
+   "file": "frontend-react/src/leads/NurtureDialog.tsx",
+   "line": 69,
+   "tag": "textarea",
+   "testid": "nurture-reason",
+   "rendered": true,
+   "classes": [],
+   "styled": false
+  },
+  {
+   "file": "frontend-react/src/leads/NurtureDialog.tsx",
+   "line": 73,
+   "tag": "button",
+   "testid": "nurture-save",
+   "rendered": true,
+   "classes": [
+    "btn-primary"
+   ],
+   "styled": true
+  },
+  {
+   "file": "frontend-react/src/leads/NurtureDialog.tsx",
+   "line": 77,
+   "tag": "button",
+   "testid": "nurture-cancel",
+   "rendered": true,
+   "classes": [
+    "btn-ghost"
+   ],
+   "styled": true
+  },
+  {
    "file": "frontend-react/src/leads/LeadCardActions.tsx",
    "line": 115,
    "tag": "button",
@@ -366,6 +406,24 @@
   }
  ],
  "unstyled": [
+  {
+   "file": "frontend-react/src/leads/NurtureDialog.tsx",
+   "line": 66,
+   "tag": "input",
+   "testid": "nurture-date",
+   "rendered": true,
+   "classes": [],
+   "styled": false
+  },
+  {
+   "file": "frontend-react/src/leads/NurtureDialog.tsx",
+   "line": 69,
+   "tag": "textarea",
+   "testid": "nurture-reason",
+   "rendered": true,
+   "classes": [],
+   "styled": false
+  },
   {
    "file": "frontend-react/src/leads/LeadFieldInput.tsx",
    "line": 48,

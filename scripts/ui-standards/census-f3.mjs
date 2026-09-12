@@ -63,12 +63,26 @@ const renderClosure = (entry) => {
   visit(entry)
   return out
 }
-const ENTRY = join(ROOT, 'frontend-react/src/leads/LeadCard.tsx')
-const RENDERED = new Set(renderClosure(ENTRY).filter((f) => /\.(tsx|ts)$/.test(f)))
+// ── AND THE ENTRY POINT IS THE LIST, NOT THE CARD ───────────────────────
+//
+// Verification 49: a view is every file that writes into its container. The
+// NURTURE DIALOGUE is opened by a button on the card and RENDERED BY THE
+// LIST, so a census rooted at LeadCard cannot see it - and it holds two
+// unclassed controls. Found by the live probe disagreeing with this one,
+// which is the second instrument catching the first this fortnight.
+//
+// `NewLeadGrid` is reachable from the list and is NOT a card surface, so it
+// is named and excluded rather than silently swept in.
+const ENTRY = join(ROOT, 'frontend-react/src/leads/LeadsList.tsx')
+const NOT_A_CARD_SURFACE = ['NewLeadGrid.tsx']
+const RENDERED = new Set(renderClosure(ENTRY)
+  .filter((f) => /\.(tsx|ts)$/.test(f))
+  .filter((f) => !NOT_A_CARD_SURFACE.some((n) => f.endsWith(n))))
 const FILES = closure(ENTRY).filter((f) => /\.(tsx|ts)$/.test(f))
 const dropped = FILES.filter((f) => !RENDERED.has(f))
 console.log(`import closure: ${FILES.length} files;  RENDER closure: ${RENDERED.size}`)
-console.log(`  reachable by import but NOT rendered on the card: ${dropped.map((f) => f.split('/').pop()).join(' ') || '(none)'}`)
+console.log(`  reachable by import but NOT rendered on a card surface: ${dropped.map((f) => f.split('/').pop()).join(' ') || '(none)'}`)
+console.log(`  excluded as list-only, by name and deliberately: ${NOT_A_CARD_SURFACE.join(' ')}`)
 
 // ── WHAT THE STYLESHEET DEFINES ─────────────────────────────────────────
 const css = stripCss(readFileSync(join(ROOT, 'frontend/style.css'), 'utf8'))
