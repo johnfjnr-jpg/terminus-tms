@@ -11149,3 +11149,89 @@ that arrived afterwards.
 
 **F8's retry-with-recorded-cause is unbuilt and is now the better-evidenced
 of the two queue items.**
+
+# The LEADS COMPLETION SURFACE FIX round, closed 2026-09-12
+
+Gated at `578b96b` on **22 of 22 PASS, 0 SKIP, door stage green, first
+run**, and pushed to `origin/main` at `6077d6f`.
+
+## What shipped
+
+**The Qualify completion surface answers the server, once, after saving.**
+One save-then-refresh in reload-then-clear order replaced three separate
+readings of one truth, and the card's action row owns the blocking list so
+there is one holder of it rather than one per panel.
+
+**Summary is marked and never edited there.** The completion surface shows
+the star and points at the Summary panel below, which is the one editor.
+
+## The two worth carrying
+
+**THREE VINTAGES OF TRUTH ON ONE PANEL, AND EACH READER WAS CORRECT.**
+The markers were computed when the popup opened, the values were read when
+the popup opened, and the count was fetched fresh. **Nothing was stale by
+accident**: three readers had each sampled the same fact at a different
+moment, and the panel presented the three together as one state. It is
+Verification 20 with more readers rather than a new rule, which is why it
+was checked and deliberately NOT promoted.
+
+**THE ORDER OF THE FIX IS THE FIX.** Reload then clear. Clearing first
+leaves the surface briefly asserting a completeness nothing has confirmed,
+and the difference between the two orders is invisible in any assertion
+about the final state.
+
+## The promotion: Verification 44 gains the lineage axis
+
+V44's existing clause is **two files colliding in one tree**, a basename
+unique in a directory and not across `src/lib` and `src/routes`. **The
+extension is the other axis: one name colliding with ITSELF across two
+runs**, because a probe copied from another inherits its artefact names.
+
+**The loss is worse than a backup collision**, because what it destroys is
+the record of a **defect that has since been fixed**, and that cannot be
+regenerated without reverting the fix.
+
+**Copying a probe is the normal way to write one.** The new probe measures
+the same surface, wants the same screenshots, and writes the same names.
+**The inheritance is by construction rather than by carelessness**, which
+is what makes it worth a rule.
+
+The instance is resolved: outputs renamed `p1-*`, both states on disk, and
+**the images John reviewed pre-dated the overwrite and showed the defect
+correctly**. What diverged was the file, not the report.
+
+## The boundary, and it is the narrowest a round has had
+
+**Zero migrations, zero `supabase/` files, and zero `src/` files.** Not
+merely no schema change: no server code at all. The round is
+`frontend-react/` and probes, so the rehearsal reverted it completely, to a
+tree byte-identical to the pre-round one, with `main` unmoved.
+
+**Recorded because a narrow boundary is a property worth knowing at the
+moment somebody needs to undo something**, and it is cheapest to measure
+while the round is still open.
+
+## What is explicitly NOT done
+
+**THE REGION DRIFT IS STILL NOT CLOSED.** Six copies remain unre-pointed,
+unchanged from the previous round's entry. **It is not one source yet.**
+
+**F8 IS UNBUILT AND HAS NOW FIRED THREE TIMES**, at 3,551ms, 5,595ms and
+2,523ms. **The durations are unrelated, and that is the distinction the
+split ruling rests on**: F5's diagnostic was duration and it climbed,
+F8's is FREQUENCY and it loses one connection of forty. **Two of the three
+interrupted a close**, which is the worst moment for an ambiguous red,
+because nobody can tell it from a real regression without re-running.
+
+**This round's gate was clean on the first run. That is one sample.** The
+previous round's close said exactly that and was proved right within the
+hour, when F8 failed its log commit.
+
+## Still true
+
+**No walk.** Lead Detail stays frozen pending the parity checklist, and
+`NurtureDialog` and the address popup stay declared duplications until it
+retires.
+
+**F3 stands at four instances**, unclassed white controls with no
+instrument that can see them.
