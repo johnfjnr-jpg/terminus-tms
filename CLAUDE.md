@@ -1014,6 +1014,39 @@ of the change. An unanswerable precondition is a stop.
    eight were written in the phase that promoted it. Apply the
    counterfactual; do not rely on recognising the shape.
 
+   **AND THE INVERSE, WHICH THE COUNTERFACTUAL DOES NOT CATCH: A WAIT THAT
+   CAN NEVER BE SATISFIED BECAUSE THE PRODUCT CORRECTLY MOVED ON.** The
+   LEADS CARD POLISH 2 round, 2026-09-12, three times in one round's probes
+   and twice in the round before it.
+
+   The rule above is a condition the OLD state already satisfies, so the
+   probe passes wrongly. **This is a condition that can never become true**,
+   so the probe FAILS wrongly - and it fails as a timeout on a selector,
+   which reads exactly like a feature that has stopped working.
+
+   **The instances are one shape: a fixture consumed by an earlier claim.**
+
+   - A probe qualified a lead, then waited for that lead's card on the
+     pipeline. **Qualified leads correctly leave the pipeline**, which the
+     same probe asserts two checks earlier.
+   - A later section reused the fixture an earlier section had converted.
+   - A third read a group membership the refetch was still replacing.
+
+   **The counterfactual gives no help here**, which is why this is its own
+   clause: the counterfactual for "wait for lead X's card" is "the card is
+   absent", and absent is the CORRECT outcome. The two readings are
+   identical.
+
+   **The check: before a wait, ask what the EARLIER CLAIMS DID to the thing
+   being waited on.** A probe is a sequence of state changes, and a fixture
+   that satisfied claim 3 may have been consumed by claim 5. Where two
+   claims need one fixture in different states, **give each its own** - it
+   costs one row and removes the class.
+
+   **The tell is a timeout on a selector for a record the probe itself
+   changed** - not one that never existed, one that existed earlier in the
+   same run.
+
    **A change that MOVES something is two claims, not one:** the thing
    appears in its new place, and the thing is gone from its old one. The
    second claim needs its own assertion and almost never gets one, because
