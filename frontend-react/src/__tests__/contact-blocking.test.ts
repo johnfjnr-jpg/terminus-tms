@@ -37,7 +37,10 @@ const NAMES = contactDescriptors({ payload: {}, industryId: null, industries: []
 // suite-attribution fault the pre-commit hook now exists for, found BY the
 // hook on its first calibration run.
 const GATED_AT_QUALIFY = [
-  'name', 'company', 'parent_record_id', 'industry_id', 'email', 'mobile', 'jobRole',
+  // R1 of the LEADS CARD round: parent_record_id is GONE from this gate.
+  // Qualify no longer requires a pre-existing Account link because Qualify IS
+  // the conversion - it creates or links the Account itself, atomically.
+  'name', 'company', 'industry_id', 'email', 'mobile', 'jobRole',
   'address', 'city', 'postcode', 'country', 'region', 'linkedin', 'source', 'summary',
 ]
 
@@ -59,23 +62,21 @@ describe('C2: every gated field reaches something on the screen', () => {
       .toEqual(['industry_id'])
   })
 
-  // R5: 14 -> 15, and the extra one is a ROW. `company` is on the Contact
-  // Details card by name, so it lands in the first group and the arithmetic
-  // moves 12 -> 13. The card and the declaration are unchanged, which is the
-  // point of asserting the three groups separately rather than just the total:
-  // a new gated field that landed in the WRONG group would still sum to 15.
-  test('the 15 break down as 13 rows, 1 card, and 1 that needs its declaration', () => {
-    // The Phase 0 report said "13 land, 1 does not", counting the Account card
-    // among the 13. Stated exactly: THIRTEEN match a row by name,
-    // parent_record_id is the card, and industry_id reaches its row only
-    // through gateKeyFor. The arithmetic is asserted so the three groups
-    // cannot drift into each other unnoticed.
+  // R5 took this 14 -> 15; R1 of the LEADS CARD round takes it back to 14 by
+  // removing parent_record_id, and the group that LOSES a member is the CARD,
+  // which is now empty. The three groups are still asserted separately rather
+  // than just the total, because a gated field landing in the wrong group
+  // would still sum correctly.
+  test('the 14 break down as 13 rows, 0 cards, and 1 that needs its declaration', () => {
+    // THIRTEEN match a row by name, NOTHING is card-only now that the Account
+    // link is not gated, and industry_id reaches its row only through
+    // gateKeyFor.
     const byName = GATED_AT_QUALIFY.filter((f) => NAMES.includes(f))
     const asCard = GATED_AT_QUALIFY.filter((f) => GATED_NOT_A_ROW.has(f))
     const byDeclaration = GATED_AT_QUALIFY.filter(
       (f) => !NAMES.includes(f) && !GATED_NOT_A_ROW.has(f))
     expect(byName).toHaveLength(13)
-    expect(asCard).toEqual(['parent_record_id'])
+    expect(asCard).toEqual([])
     expect(byDeclaration).toEqual(['industry_id'])
     expect(byName.length + asCard.length + byDeclaration.length).toBe(GATED_AT_QUALIFY.length)
     expect(gateKeyFor('industry')).toBe('industry_id')

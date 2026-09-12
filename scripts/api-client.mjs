@@ -128,3 +128,61 @@ export async function api(method, path, body, opts = {}) {
 export function sessionUser() {
   return JSON.parse(readFileSync(SESSION_PATH, 'utf8')).user ?? null
 }
+
+// ── CALLING A POSTGREST RPC AS A NAMED IDENTITY ──────────────────────────
+//
+// Added for the LEADS CARD round's Phase 1b, and added HERE rather than
+// exempting a probe, because the fetch guard caught that probe and was right
+// to: a raw fetch bypasses the throwing client and a non-2xx goes silent.
+//
+// `api` above cannot serve this need for two reasons, both structural rather
+// than stylistic:
+//
+//   IT READS ONE SESSION FILE. An identity counterfactual needs a SECOND, real
+//   user's JWT, and "never the service role" is the standing rule - a declared
+//   policy is not an enforcement, and a probe through the service role proves
+//   nothing.
+//
+//   IT PREFIXES /api. A SECURITY INVOKER function is reached at PostgREST's
+//   own /rest/v1/rpc, not through the Fastify routes.
+//
+// A refusal is DATA here, not an error: the whole point is to assert that a
+// non-owner is refused ownership-shaped. So this returns the status rather
+// than throwing, and the guard's concern is answered by the caller asserting
+// it - which is what `expect` makes explicit below.
+export async function rpcAs(session, fn, args, opts = {}) {
+  const { expect, because } = opts
+  if (expect !== undefined && !because) {
+    throw new Error(`rpcAs(${fn}): expect: ${expect} needs because: '<why>'.`)
+  }
+  const url = process.env.SUPABASE_URL
+  const key = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_PUBLISHABLE_KEY
+  if (!url || !key) throw new Error('rpcAs needs SUPABASE_URL and an anon/publishable key')
+  if (!session?.access_token) throw new Error('rpcAs needs a session with an access_token')
+
+  const res = await fetch(`${url}/rest/v1/rpc/${fn}`, {
+    method: 'POST',
+    headers: {
+      apikey: key,
+      Authorization: `Bearer ${session.access_token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(args ?? {}),
+  })
+  const data = await res.json().catch(() => null)
+  const result = { status: res.status, ok: res.ok, data }
+  if (expect !== undefined && res.status !== expect) {
+    throw new ApiError('POST', `/rpc/${fn}`, res.status, { expected: expect, because, got: data })
+  }
+  return result
+}
+
+/** Is a live session on disk for this identity? A dead token refuses
+ *  everything, which reads exactly like a working rule. */
+export async function sessionIsLive(session) {
+  const url = process.env.SUPABASE_URL
+  const key = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_PUBLISHABLE_KEY
+  const res = await fetch(`${url}/rest/v1/records?select=id&limit=1`,
+    { headers: { apikey: key, Authorization: `Bearer ${session.access_token}` } })
+  return res.ok
+}
