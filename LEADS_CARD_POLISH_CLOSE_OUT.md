@@ -184,6 +184,27 @@ class `flaky-gate-tests`.
 
 ---
 
+## 7a. THE PROMOTION OUTCOME, ruled
+
+**The direction is SPLIT, and the split is the session's own refinement
+rather than a compromise.** The two members of `flaky-gate-tests` fail
+for different reasons, so one treatment for both would be wrong for one
+of them.
+
+| | ruled treatment | why |
+|---|---|---|
+| **F5** `teardown-scoping` | **HARDEN** - bound the scan so it cannot outgrow the statement timeout | **DURATION**, and it is climbing: 15,957 to 19,887ms while the passing case stays flat. A deadline that is closing is fixed by doing less work, not by trying again |
+| **F8** `atomicity: 40 appends` | **RETRY WITH RECORDED CAUSE** | **FREQUENCY**, not duration. `TypeError: fetch failed` is a dropped connection; the test does not run out of time. Retrying a dropped call is the correct response to a dropped call, and recording that it retried keeps the flake visible |
+
+**F5 is the NEXT round's FIRST act**, and is not carried past it.
+
+**What makes the split honest rather than convenient:** a retry on F5
+would have hidden the trend that identified it, and hardening F8 would
+mean either weakening a real concurrency assertion or rebuilding the
+transport. The diagnostic decided the treatment in each case.
+
+---
+
 ## 7. The promotion queue as it stands
 
 - **F3, the unclassed-control class** - four instances across three
