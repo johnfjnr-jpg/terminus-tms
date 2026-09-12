@@ -109,6 +109,58 @@ separation, asserted both ways per card: unowned means address readable,
 edit controls dead, Save unreachable; owned means editable, Save enabling
 only on dirty.
 
+**R5 AT 1240, RULED (a): ACCEPT THE WRAP.** The four buttons sit on the
+head's line at 1920 and 3440, and wrap to a second line within the head at
+1240 where they plus the name line exceed the width. **No label change.**
+
+**Asserted rather than merely accepted**, at all three widths: the actions
+stay inside the head and never overflow it; they share the name's line at
+1920 and 3440 and do not at 1240. An accepted behaviour that nothing
+checks is one a later change can turn into an overflow unnoticed.
+
+---
+
+## The round-close PROMOTION QUEUE
+
+Candidates named at the phase that raised them.
+
+### F3, the unclassed-control class
+
+Four instances across three phases. Carried from the previous brief; the
+table is there. Nothing catches it because presence, position, state and
+behaviour all read green on a white browser default.
+
+### `flaky-gate-tests`, NAMED AS A CLASS
+
+**Two intermittent gate failures, different mechanisms, one
+consequence.** Both stay recorded; **neither is buried under a retry.**
+
+| | test | mechanism |
+|---|---|---|
+| **F5** | `teardown-scoping`, the exact-count scan | a query getting **slower** as `record_revisions` grows, crossing Postgres's statement timeout |
+| **F8** | `atomicity: 40 genuinely concurrent appends` | a **dropped connection** among forty simultaneous HTTP calls - `TypeError: fetch failed` |
+
+**The consequence is the same and it is the reason this is a class:** a
+gate can go red for a reason unrelated to the code, and **at that moment
+nobody can tell it from a real regression without re-running.** That is
+the one thing a gate exists to make unambiguous.
+
+**And a retry that goes green is exactly how a real intermittent defect
+gets dismissed**, which is why the direction matters rather than the
+individual fixes.
+
+**The close rules the direction:**
+
+- **retry with a recorded cause** - the runner retries a named set once
+  and reports that it did, so a flake is visible rather than invisible;
+- **or harden the cases** - bound F5's scan so it cannot outgrow the
+  timeout, and give F8's forty calls a transport that tolerates one
+  drop.
+
+Recommended: **harden**, with retry as the fallback for what cannot be
+hardened. A retry makes the gate quieter; hardening makes it honest, and
+this estate's whole argument is that a green must mean something.
+
 ---
 
 ## Phase 0: measurement only

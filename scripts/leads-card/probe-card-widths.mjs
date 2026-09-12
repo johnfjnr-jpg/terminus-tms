@@ -114,6 +114,30 @@ try {
       mLong.sameRow || (!mLong.hOverflow && mLong.subLeft < mLong.nameRight),
       `extreme lead: same row ${mLong.sameRow}, sideways scroll ${mLong.hOverflow}`)
     check(`${w}: the four actions share one row`, m.actionsOneRow, `one row: ${m.actionsOneRow}`)
+    // R5, RULED (a): the actions sit on the head's line at 1920 and 3440 and
+    // WRAP TO A SECOND LINE AT 1240, where the four buttons plus the name line
+    // exceed the width. That is an accepted behaviour, so it is asserted -
+    // otherwise a later change could turn the wrap into an OVERFLOW and
+    // nothing would notice. The claim is: same line when there is room, a
+    // clean second line when there is not, never a sideways scroll.
+    const headShape = await page.evaluate((id) => {
+      const card = document.querySelector(`[data-testid="lead-card-${id}"]`)
+      const head = card.querySelector('.lead-card-head')
+      const name = head.querySelector('.lead-card-name').getBoundingClientRect()
+      const acts = head.querySelector('.lead-card-actions').getBoundingClientRect()
+      const hb = head.getBoundingClientRect()
+      return {
+        sameLine: Math.abs(name.top - acts.top) < 8,
+        insideHead: acts.right <= hb.right + 1 && acts.left >= hb.left - 1,
+        headRows: Math.round(hb.height) > 48 ? 2 : 1,
+      }
+    }, lead.id)
+    check(`${w}: the actions are inside the head and never overflow it`,
+      headShape.insideHead,
+      `head rows ${headShape.headRows}, actions on the name's line: ${headShape.sameLine}`)
+    check(`${w}: ${w === 1240 ? 'the actions WRAP, as ruled' : 'the actions share the name line'}`,
+      w === 1240 ? !headShape.sameLine : headShape.sameLine,
+      `same line: ${headShape.sameLine} (R5 (a): wrap at 1240, one line above it)`)
     check(`${w}: the page does not scroll sideways`, !m.hOverflow,
       `scrollWidth vs clientWidth overflow: ${m.hOverflow}`)
     await page.screenshot({ path: `${OUT}p2-width-${w}.png` })

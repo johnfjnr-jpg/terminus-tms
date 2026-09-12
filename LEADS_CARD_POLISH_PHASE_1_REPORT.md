@@ -11,7 +11,7 @@ untouched. Lead Detail untouched. Nothing pushed.
 |---|---|
 | `probe-polish.mjs` (R1, R2, R4, live) | **18/18** |
 | `probe-card.mjs` (carried behaviour) | **13/13** |
-| `probe-card-widths.mjs` (1240/1920/3440) | **15/15** |
+| `probe-card-widths.mjs` (1240/1920/3440) | **21/21** |
 | `probe-new-lead-grid.mjs` (R6) | **19/19** |
 
 Suites: pure **519/519**, react **939/939**, database **100/100**. Probe
@@ -118,6 +118,19 @@ passed every other check on this page.
 - The actions moved **inside the head**, so they are on the top line.
 - Notes-to-Created-Date: **108px closed to 36px**.
 
+**R5 at 1240 ruled (a): accept the wrap, no label change.** Now asserted
+at all three widths rather than merely accepted:
+
+| | 1240 | 1920 | 3440 |
+|---|---|---|---|
+| actions inside the head, never overflowing | yes | yes | yes |
+| actions share the name's line | **no, they wrap** | yes | yes |
+| head rows | 2 | 1 | 1 |
+
+**An accepted behaviour that nothing checks is one a later change can
+turn into an overflow unnoticed**, so the probe now asserts the wrap at
+1240 and the single line above it. `probe-card-widths.mjs`: **21/21**.
+
 **Exact alignment is not claimed.** The head line's width depends on the
 name and company text, so where Created Date ends differs per card.
 36px is what this fixture measures; a claim of zero would be false for
@@ -182,8 +195,48 @@ code**, and at that moment nobody can tell it from a real regression
 without re-running.
 
 **Recorded rather than retried-and-forgotten**, because a retry that goes
-green is exactly how a real intermittent defect gets dismissed. Carried
-for the close to rule on alongside F5.
+green is exactly how a real intermittent defect gets dismissed.
+
+**Named for the close as a CLASS, `flaky-gate-tests`**, with F5, in the
+brief's promotion queue. Two mechanisms - a query outgrowing a timeout,
+and a dropped connection among forty - and one consequence: **a gate can
+go red for a reason unrelated to the code, and at that moment it is
+indistinguishable from a real regression.**
+
+### And F5 fired in the very commit that named it
+
+The hook refused the commit carrying this section, on `teardown-scoping`:
+
+```
+Error: taggedRevs[0] (page 0): canceling statement due to statement timeout
+```
+
+**19,887ms.** Re-run immediately: green at **6,339ms**.
+
+**Four readings now, and they are not random noise:**
+
+| | duration | |
+|---|---|---|
+| LEADS round, passing | 6,016ms | |
+| LEADS round, failing | 15,957ms | |
+| this round, passing | 6,339ms | |
+| **this round, failing** | **19,887ms** | **+25% on the previous failure** |
+
+**The passing time is flat and the FAILING time is climbing**, while
+`record_revisions` went **78,395 to 81,874 rows today alone**. So this is
+bimodal rather than a smooth slowdown - the scan is usually fine and
+sometimes crosses the timeout - **but the bad case is getting worse**,
+which means it will cross more often rather than less.
+
+**That materially strengthens the recommendation.** A retry would have
+hidden all four readings, and the trend is only visible because both
+failures were recorded rather than retried away.
+
+The close rules the direction: **retry with a recorded cause**, so a
+flake is visible rather than invisible, or **harden the cases**.
+**Recommended: harden**, with retry as the fallback for what cannot be
+hardened. A retry makes the gate quieter; hardening makes it honest, and
+F5's own trend says quiet would have cost the trend.
 
 ---
 
