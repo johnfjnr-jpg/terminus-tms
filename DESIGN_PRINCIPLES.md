@@ -11342,3 +11342,114 @@ an approval chip stays a date.
 **ABSENCE IS THE CALLER'S TO NAME.** The module returns empty; each site
 keeps its own `--` or blank. Unifying the shape must not quietly unify the
 absence.
+
+# The LEAD CARD UI FIXES round, closed 2026-09-13
+
+Gated at `74c3510` on **22 of 22 PASS, 0 SKIP, door stage green**, and
+pushed to `origin/main` at `272cfbd`. **The gate took two runs**, and why
+is the first thing below.
+
+## THE PROCESS COST, STATED FIRST
+
+**The product work was mostly right. The apparatus needed correcting
+throughout, and every correction was of something this session had itself
+made.** Recorded plainly because a round that lists only its output
+misrepresents what it cost.
+
+**Three self-inflicted operational faults, all at the close:**
+
+- **A SECOND GATE LAUNCHED OVER A RUNNING ONE.** The first closing gate
+  hit a command wall; `ps` showed it still alive, and a second was started
+  anyway. That is the run-nothing-else rule, breached by the session that
+  had cited it an hour earlier.
+- **33 RESIDUE RECORDS AND 3 `stage_gate_rules`**, left by those killed
+  runs in a 63-second window, owned by identities that had owned zero.
+- **THE `CURRENT_STATE` GENERATOR'S STDOUT REDIRECTED INTO ITS OWN FILE.**
+  It writes the file itself; redirecting put two progress lines inside the
+  document and displaced the header.
+
+**Plus five instrument faults inside the phases**: three census
+corrections in Phase 0 and two broken layouts in Phase 1 that every
+assertion passed on.
+
+**All eight were caught before anything was reported as fact, and none
+reached a conclusion.** That is the system working. **It is also eight,
+and the honest reading is that the measuring cost more than the building.**
+
+## What shipped
+
+**One date formatter for the estate.** `src/lib/format-dates.js`, two
+functions, and `app.js` DELEGATES to it rather than keeping a copy.
+
+**A type-ahead account picker on the lead card**, card-local, with Create
+to the right of its input. **The notes header on one line**, with the
+input aligned to the Summary field. **The empty-state sentence gone.**
+**Six conventions written down** so the Contacts screens inherit them.
+
+## The four worth carrying
+
+**A CSS MECHANISM IS NOT A LAYOUT OUTCOME.** The dropdown was
+`position: absolute` so it would not reflow the card. Two checks - the
+computed position, and the step's height unchanged with six matches - both
+**PASSED while the list rendered 730px BELOW the card**, because it was a
+sibling of the positioned row and had no positioned ancestor at all.
+**Every property asserted was true of a list parked anywhere in the
+document**, and "the step did not grow" was *more* true once the list had
+left the step entirely. Promoted into Verification 4.
+
+**WHERE A DETECTOR REPORTS A BINARY, THE REASSURING VERDICT IS THE ONE
+THAT GETS A PROXY.** The census defined RAW eight ways and ROUTED as
+"contains a call". `${String(x.effectiveFrom).slice(0, 10)}` contains a
+call, is a second implementation, and **the census would have printed
+`0 RAW` over the top of it.** Promoted into build discipline 3.
+
+**A CALIBRATION ANCHORED ON THE DEFECT ITS OWN FIX REMOVES STOPS WORKING
+THE MOMENT THE FIX LANDS.** The census required a raw render and a
+`toLocaleDateString` to exist. Phase 1 removed both, so it **refused to
+report on the tree that proves it**. Verification 9's clause, arriving
+exactly on schedule, and the remedy it already prescribes - synthetic
+anchors, assembled from parts - is what fixed it.
+
+**A NAME VOCABULARY MISSES MEMBERS, AND THE DEFENCE IS THE MODULE, NOT THE
+SCAN.** The census had no `asOf`, so `ApprovalBlocks` rendering `{c.asOf}`
+raw was invisible; then no `since`, so `provenance.since` was too. **Both
+were found by something else** - a grep checking a false positive, and a
+test failing for another reason. Verification 19, twice, and the reason
+R7 is a MODULE rather than a sweep: **a field routed through it cannot
+render raw whatever it is called.**
+
+## What F6 is worth
+
+**F6 fired on the first closing gate and refused it.** The run was
+launched without a browser, the door stage did not run, and instead of
+"21 of 22 passed" the runner said the gate was **unanswered, not green,
+and a round close may not rest on it.**
+
+**That is the exact failure it was built for**, after the LEADS close
+printed "All 22 stages passed" over a silently skipped door. **A detector
+that has never fired is an assertion; this one is now a control.**
+
+## What is explicitly NOT done
+
+**THE REGION DRIFT IS STILL NOT CLOSED**, six copies, unchanged across
+three consecutive entries now.
+
+**F8 IS STILL UNBUILT** at three failures. **It was silent this round** -
+eight samples across hook runs and two gates - **and that is eight samples
+of a frequency defect, not a change.** The three-failure record stands.
+
+**LEAD DETAIL AND THE TEST BED BOTH CHANGED APPEARANCE AND NEITHER WAS
+WALKED.** New date formats, classed note controls, no empty sentence.
+Their evidence is unit tests, not eyes, and Lead Detail's parity walk now
+has more to cover than when it was frozen.
+
+**`--red` AND `--amber` ARE USED AND DEFINED NOWHERE** in `style.css`,
+always with a literal fallback so they render. F3's family, joined to it
+this round and not fixed.
+
+## A note for whoever reverts this
+
+**This round changed `src/`**, two pure functions with no schema and no
+stored data, so it reverts completely. **The revert needs the API server
+restarted**: `approval-page.js` is server-rendered and the dev server runs
+without `--watch`.
