@@ -1422,6 +1422,28 @@ of the change. An unanswerable precondition is a stop.
     and produced nothing" from "it never happened". Adding the POST status to
     the failure line ended the four iterations in one run.
 
+    **AND FOR A CLICK, THE CAUSE'S OWN ANSWER IS `elementFromPoint`.** The
+    LEADS CARD POLISH round, 2026-09-12. "The save did not happen" and "the
+    click never reached the button" are the two failures this rule separates,
+    and in a browser there is a third possibility the HTTP status cannot see:
+    **the click landed on something else.**
+
+    The instance. A Summary save asserted the text was written and it was not.
+    The network log showed **no request at all**, which ruled out a refusal;
+    the button was present, enabled and in view, which ruled out the obvious.
+    One line answered it:
+
+        document.elementFromPoint(cx, cy)  ->  DIV.modal-backdrop
+
+    A dialogue on another card had been left open, and its backdrop covered
+    the screen. **The assertion was about the Summary and the defect was a door
+    that had trapped a popup open**, which is the finding the round kept.
+
+    **The check: when a UI interaction produces NO request, ask what is at the
+    point before asking why the handler refused.** Present, enabled and in view
+    are three properties of the element; what is on top of it is a fourth, and
+    it is the one no assertion about the element can see.
+
     **AND A CLAIM CAN BE TRUE BY ABSENCE, WHICH IS NOT THE SAME AS TRUE.**
     Round 5 of the migration, 2026-09-06. Rule 14 is a comparison reached with
     nothing on either side; this is an assertion satisfied because the thing it
@@ -3027,6 +3049,31 @@ of the change. An unanswerable precondition is a stop.
     anything an enforcement reads later. Same family as build-discipline rule 8,
     enumerate everything the responsible actor writes, arriving at a swap.
 
+    **AND A DOOR MUST NEVER KILL THE WAY OUT.** The LEADS CARD POLISH round,
+    2026-09-12, and it is about the door's own SCOPE rather than what it reads.
+
+    The door neutralises writes on a record you do not own, correctly. An
+    editable popup was added to the lead card, so its inputs and Save went dead
+    on an unowned lead, correctly. **Its CLOSE button went dead with them** -
+    and the popup renders a full-screen backdrop, so opening it on somebody
+    else's lead covered the page with a dialogue that could not be dismissed
+    and left nothing behind it clickable.
+
+    **Every assertion about the writes passed.** Six of six inputs neutralised,
+    Save unreachable: the door doing exactly its job, and the screen unusable.
+
+    **The rule: a control whose job is to LEAVE is a read affordance.** Close,
+    Cancel, Back, a dismiss. Neutralising it does not protect a record, it
+    traps a person, and P3 already recorded that the one thing the door must
+    never do is make an unowned record unusable to read.
+
+    **The check: for any surface the door can reach that OVERLAYS the page,
+    assert the dismiss control survives the door, on an unowned record.** The
+    exemption is a DECLARED PROPERTY the door already reads - `aria-controls`
+    naming the region the button dismisses, which is true of it - never a class
+    name, because Verification 19 records a styling class sheltering two write
+    controls.
+
     **AND A FIX FOR IT CAN BE ONE RENDER TOO LATE.** Written as an effect, the
     replacement writer ran after the row component had already asked the door,
     and nothing re-rendered to correct it - **the measurement was identical to
@@ -3393,6 +3440,35 @@ of the change. An unanswerable precondition is a stop.
     **The list reads as findings, and the first instinct is to read it as
     findings.** Fifteen simultaneous failures across unrelated surfaces is not a
     plausible defect, and the timing says so before any of them is opened.
+
+    **AND A FAILURE'S DURATION IS DATA ACROSS RUNS, NOT ONLY WITHIN ONE.**
+    The LEADS CARD POLISH round, 2026-09-12. Rule 48 reads a duration against
+    the stage's own normal to answer "did this run at all". The same number
+    read across RUNS answers a different question: **is this a flake, or a
+    defect on a clock?**
+
+    The instance. A gate test failed on a Postgres statement timeout, passed on
+    an immediate re-run, and would have been filed as flaky. Four readings say
+    otherwise:
+
+        passing   6,016ms   then   6,339ms     flat
+        failing  15,957ms   then  19,887ms     +25%
+
+    **The passing time is FLAT and the FAILING time is CLIMBING**, while the
+    table the scan pages through grew by 3,479 rows in a day. That is not
+    random: it is bimodal, and **the bad case is getting worse**, so it crosses
+    the timeout more often rather than less.
+
+    **A RETRY WOULD HAVE DESTROYED THE EVIDENCE.** Any retry policy - even one
+    that records that it retried - collapses those four readings into "it
+    passed on attempt 2", and the trend that distinguishes a flake from a
+    deadline is exactly the thing that disappears.
+
+    **The check: record the DURATION of every intermittent failure, not only
+    that it happened, and compare failures with failures.** A flake's failing
+    duration wanders; a defect on a clock's climbs. And prefer hardening the
+    case to retrying it, because a retry makes the gate quieter and this
+    estate's whole argument is that a green must mean something.
 
     **AND A HARNESS MUST STOP ON A RUN THAT PRODUCED NO RESULT, NEVER SCORE
     IT.** Round 3 of the migration. A calibration harness treated "no parseable
