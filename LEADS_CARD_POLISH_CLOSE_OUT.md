@@ -8,9 +8,16 @@ Two phases, both signed off. Nothing pushed. The word is John's.
 
 ## 1. The gate
 
-**Stated after this commit**, on the exact tree, run with `--round-close`
-so F6 refuses a skipped required stage rather than summarising it as a
-pass. See section 9.
+**TWO RUNS ON THE SAME TREE, AND BOTH ARE REPORTED.** The first was
+**RED**. Section 9.
+
+| run | result |
+|---|---|
+| 1 | **1 of 22 FAILED** - database suite 99/100, **F8** |
+| 2 | **22 of 22 PASS, 0 SKIP**, door stage `PASS 87367ms` |
+
+Both with `--round-close`, so F6 refuses a skipped required stage rather
+than summarising it as a pass.
 
 **And this gate covers more than this round.** The last full gate was the
 LEADS round's close at `6f1cd97`; **18 commits have landed since, across
@@ -205,6 +212,65 @@ class `flaky-gate-tests`.
 
 ---
 
-## 9. Gate result
+## 9. Gate result: red, then green, and the red one is the finding
 
-To be stated on the tree this commit creates.
+### Run 1: RED
+
+```
+FAIL  database suite   exit 1  39651ms   99/100 pass, 1 fail
+1 of 22 stages FAILED. Do not merge.
+
+test at scripts/tests/record-revision.test.mjs:66:1
+atomicity: 40 genuinely concurrent appends (5595ms)
+  expected every concurrent append to succeed, 1 failed: TypeError: fetch failed
+```
+
+**F8. The round's own closing gate failed on a member of the class this
+round named.** Every other stage passed, including the door stage at
+98923ms with zero skips.
+
+### Run 2: GREEN
+
+**22 of 22 PASS, 0 SKIP, 0 FAIL** on the same tree, `f8894cd`, run with
+`--round-close`. Door stage `PASS  HTTP readonly-view probe  exit 0
+87367ms`. Database suite `100/100`.
+
+### Why both are reported rather than only the second
+
+**A gate that cannot go green does not push, and a gate that went green
+on the second attempt did not go green on the first.** Reporting only run
+2 would be reasoning the gate forward, and it would do the precise thing
+the `flaky-gate-tests` ruling forbids: bury an intermittent failure under
+a retry.
+
+**F8's readings so far:**
+
+| | duration | outcome |
+|---|---|---|
+| Phase 1 hook | 3,551ms | failed, 1 of 40 |
+| Phase 1 re-run | 2,976ms | passed |
+| **close gate run 1** | **5,595ms** | **failed, 1 of 40** |
+| close gate run 2 | not isolated | passed |
+
+**Unlike F5, duration is not F8's diagnostic.** `TypeError: fetch failed`
+is a dropped connection, not a deadline - the test does not run out of
+time, one of forty calls never completes. So F8's evidence is its
+FREQUENCY: **twice in one day, on a suite that runs many times a day**,
+and one of those times was the round's closing gate.
+
+**That is the argument for the class rather than for two fixes.** F5 is a
+deadline that is closing; F8 is a transport that drops. Both make a gate
+red for a reason unrelated to the code, and **this close is now the
+evidence that it costs real time at exactly the wrong moment.**
+
+### What John is being asked
+
+**Section 6's proposal stands and gains weight:** harden F5 as this
+close's act or the next round's first. **And F8 now has a claim on the
+same ruling** - forty concurrent calls with no tolerance for a single
+drop is a test asserting something about the database by way of the
+network. Retry may genuinely be right for F8 where hardening is right for
+F5.
+
+**The round does not close on run 1.** It closes, if John gives the word,
+on run 2 with run 1 named - which is what this section is for.
