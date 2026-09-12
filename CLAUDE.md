@@ -3148,6 +3148,37 @@ of the change. An unanswerable precondition is a stop.
     `.verify` transcripts. A name that is unique in one directory is not unique
     across a tree.
 
+    **AND THE OTHER AXIS IS TIME, NOT PATH: A PROBE COPIED FROM ANOTHER
+    INHERITS ITS ARTEFACT NAMES, AND ITS FIRST RUN OVERWRITES THE SOURCE
+    RUN'S EVIDENCE.** The completion surface fix round, 2026-09-12.
+
+    The clause above is two files colliding in one tree. **This is one name
+    colliding with itself across two runs**, and the loss is worse because
+    what it destroys is the record of a DEFECT that has since been fixed -
+    which cannot be regenerated without reverting the fix.
+
+    **The instance.** A Phase 1 probe was copied from the Phase 0 measurement
+    probe, inherited its `p0-*.png` screenshot names, and on its first run
+    replaced them. **For a while `p0-after-save.png` showed the FIXED surface
+    under a report describing the broken one.** Nothing errored; the images
+    were simply newer.
+
+    **Copying a probe is the normal way to write one**, which is what makes
+    this reliable rather than unlucky: the new probe measures the same
+    surface, so it wants the same screenshots, so it writes the same names.
+    **The inheritance is by construction.**
+
+    **The check: an artefact is named after THE RUN THAT MADE IT, not after
+    the thing it depicts.** A phase prefix, a timestamp passed in, a run id -
+    anything that differs between two runs of near-identical code. And
+    **when a probe is copied, its output paths are the first thing to
+    re-point**, before its assertions.
+
+    **The tell is a report citing an image that shows the opposite of what
+    the report says.** Nothing in a suite can catch that; it is found by
+    opening the file the report points at, which is the one thing a reader
+    does and a harness does not.
+
     **AND THE HARNESS VERIFIES ITS OWN SNAPSHOT BEFORE INJECTING, AND ITS OWN
     RESTORE AFTER EVERY INJECTION, STOPPING DEAD ON A MISMATCH.** Migration
     Round 1, 2026-09-05, after a calibration harness destroyed the work it was
