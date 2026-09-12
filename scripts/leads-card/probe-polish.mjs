@@ -48,7 +48,15 @@ const theirs = await mk('Theirs', {
   address: '9 Other Road', city: 'Singapore', postcode: '069118',
   country: 'Singapore', region: 'APAC',
 }, OTHER_ID)
-const created = [partial.id, theirs.id]
+// R5 gets its OWN lead. The first run reused `partial`, which R4 had just
+// qualified - so it had correctly LEFT the pipeline and the wait could never
+// be satisfied. The product working, measured as a failure, for the third
+// time in this round's probes: a fixture consumed by an earlier claim is not
+// available to a later one.
+const notesLead = await mk('Notes', {
+  company: 'Polish Co', source: 'Referral', summary: 'for the notes checks',
+})
+const created = [partial.id, theirs.id, notesLead.id]
 
 const browser = await puppeteer.launch({ headless: 'new', args: ['--window-size=3440,1400'] })
 try {
@@ -85,9 +93,27 @@ try {
   const inputs = await page.$$eval(
     `[data-testid="lead-missing-${partial.id}"] [data-testid^="lead-fix-"]`,
     (els) => els.map((x) => x.getAttribute('data-testid').replace(/^lead-fix-/, '').replace(/-[0-9a-f-]{36}$/, '')))
-  check('every field the server says is missing has an INPUT in the popup',
-    inputs.length === blocking.length && blocking.every((b) => inputs.includes(b)),
-    `server blocks ${blocking.length}: ${blocking.join(', ')} | popup inputs ${inputs.length}`)
+  check('every field the server says is missing has an INPUT in the surface',
+    blocking.every((b) => inputs.includes(b)),
+    `server blocks ${blocking.length}: ${blocking.join(', ')} | surface inputs ${inputs.length}`)
+  // ── R1, WHICH IS R2 ───────────────────────────────────────────────────
+  //
+  // address2 is NOT in the gate's fourteen, so a surface rendering only the
+  // blocking keys can never offer it - and ten of fourteen live contacts
+  // carry a Line 2. The panel offers it BECAUSE it is a panel.
+  check('R1: address2 is enterable although the gate never blocks on it',
+    inputs.includes('address2') && !blocking.includes('address2'),
+    `address2 input present: ${inputs.includes('address2')}, in the gate: ${blocking.includes('address2')}`)
+  const groups = await page.$$eval(`[data-testid^="lead-complete-"][data-testid*="-details-"], `
+    + `[data-testid^="lead-complete-summary-"]`, (els) => els.length)
+  check('R2: the surface is three PANELS, not a list',
+    groups === 3, `${groups} panel groups rendered`)
+  // R3: region is a select, from the server's list.
+  const regionKind = await page.$eval(`[data-testid="lead-fix-region-${partial.id}"]`,
+    (el) => ({ tag: el.tagName, opts: el.tagName === 'SELECT' ? el.options.length : 0 }))
+  check('R3: Region is a SELECT from the served list, not free text',
+    regionKind.tag === 'SELECT' && regionKind.opts === 6,
+    `<${regionKind.tag}> with ${regionKind.opts} options (5 regions plus the blank)`)
   check('the popup no longer tells the person to go somewhere else',
     !(await page.$eval(`[data-testid="lead-incomplete-${partial.id}"]`,
       (e) => /open the lead/i.test(e.textContent))),
@@ -103,11 +129,13 @@ try {
     const sel = `[data-testid="lead-fix-${key}-${partial.id}"]`
     await page.click(sel); await page.type(sel, v)
   }
-  for (const [k, v] of [['address', '1 Polish Way'], ['city', 'Singapore'],
-    ['postcode', '069118'], ['country', 'Singapore'], ['region', 'APAC'],
+  for (const [k, v] of [['address', '1 Polish Way'], ['address2', 'Unit 04-12'],
+    ['city', 'Singapore'], ['postcode', '069118'], ['country', 'Singapore'],
     ['linkedin', 'https://example.invalid/in/p']]) {
-    if (blocking.includes(k)) await typeInto(k, v)
+    await typeInto(k, v)
   }
+  // Region is a select now, so it is picked rather than typed.
+  await page.select(`[data-testid="lead-fix-region-${partial.id}"]`, 'APAC')
   check('Save enables once fields are entered', !(await page.$eval(saveSel, (b) => b.disabled)),
     'dirty')
 
@@ -131,7 +159,9 @@ try {
   await page.waitForSelector(`[data-testid="address-popup-${partial.id}"]`, { timeout: 10000 })
   const mineAddr = await page.evaluate((id) => {
     const p = document.querySelector(`[data-testid="address-popup-${id}"]`)
-    const inputs = [...p.querySelectorAll('input')]
+    // `input, select` - R3 made Region a select, and an input-only census
+    // would leave that control unmeasured on both sides of the door.
+    const inputs = [...p.querySelectorAll('input, select')]
     const save = p.querySelector(`[data-testid="addr-save-${id}"]`)
     return {
       inputs: inputs.length,
@@ -157,6 +187,15 @@ try {
   const saved = must(await db.from('record_revisions').select('payload')
     .eq('record_id', partial.id).order('revision_number', { ascending: false }).limit(1), 'rev')[0]
   check('OWNED: the edit is written', saved.payload?.city === 'Jurong', `city "${saved.payload?.city}"`)
+  // AND IT MUST NOT BLANK THE FIELDS NOBODY TOUCHED. The popup used to write
+  // all six unconditionally from a state seeded once at mount, so editing
+  // `city` cleared address, address2, postcode, country and region - real
+  // data, silently, on a screen that looked correct throughout.
+  check('OWNED: saving one address field does NOT blank the others',
+    !!saved.payload?.address && !!saved.payload?.postcode && !!saved.payload?.country
+      && !!saved.payload?.region,
+    `address "${saved.payload?.address}" postcode "${saved.payload?.postcode}" `
+    + `country "${saved.payload?.country}" region "${saved.payload?.region}"`)
 
   // THE UNOWNED SIDE. Reading preserved, writing dead.
   await toLeads()
@@ -164,7 +203,7 @@ try {
   await page.waitForSelector(`[data-testid="address-popup-${theirs.id}"]`, { timeout: 10000 })
   const theirAddr = await page.evaluate((id) => {
     const p = document.querySelector(`[data-testid="address-popup-${id}"]`)
-    const inputs = [...p.querySelectorAll('input')]
+    const inputs = [...p.querySelectorAll('input, select')]
     const save = p.querySelector(`[data-testid="addr-save-${id}"]`)
     const dead = (el) => el.disabled || getComputedStyle(el).pointerEvents === 'none' || el.tabIndex === -1
     return {
@@ -257,6 +296,121 @@ try {
   check('UNOWNED: the Summary is readable but not editable',
     !!theirSum.text && theirSum.dead && theirSum.saveDead,
     `text "${theirSum.text.slice(0, 24)}", editor dead: ${theirSum.dead}, save dead: ${theirSum.saveDead}`)
+
+  // ══ R4: CREATE IS OFFERED EVEN WHEN SOMETHING MATCHES ════════════════
+  console.log('\nR4  the account step offers Create alongside matches')
+  await toLeads()
+  // Verification 14's clause, promoted this round: when a click produces
+  // nothing, ask what is AT the point before asking why the handler refused.
+  const qDiag = await page.evaluate((id) => {
+    const b = document.querySelector(`[data-testid="lead-qualify-${id}"]`)
+    if (!b) return { present: false }
+    const r = b.getBoundingClientRect()
+    const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)
+    const card = document.querySelector(`[data-testid="lead-card-${id}"]`)
+    return {
+      present: true, disabled: b.disabled, label: b.textContent.trim(),
+      hit: hit ? `${hit.tagName}.${String(hit.className).slice(0, 40)}` : 'null',
+      isTheButton: hit === b,
+      notMine: card?.dataset.notMine,
+      err: document.querySelector(`[data-testid="lead-action-error-${id}"]`)?.textContent ?? null,
+    }
+  }, partial.id)
+  console.log(`        [qualify diag] ${JSON.stringify(qDiag)}`)
+  await page.click(`[data-testid="lead-qualify-${partial.id}"]`)
+  await new Promise((r) => setTimeout(r, 2500))
+  const afterClick = await page.evaluate((id) => ({
+    step: !!document.querySelector(`[data-testid="lead-account-step-${id}"]`),
+    incomplete: !!document.querySelector(`[data-testid="lead-incomplete-${id}"]`),
+    err: document.querySelector(`[data-testid="lead-action-error-${id}"]`)?.textContent ?? null,
+  }), partial.id)
+  console.log(`        [after click] ${JSON.stringify(afterClick)}`)
+  if (afterClick.incomplete) {
+    const still = await api('GET', `/records/${partial.id}/exit-criteria`)
+    const rev = must(await db.from('record_revisions').select('payload')
+      .eq('record_id', partial.id).order('revision_number', { ascending: false }).limit(1), 'r')[0]
+    console.log(`        [still blocking] ${JSON.stringify((still.data.blocking ?? []).map((b) => b.field))}`)
+    console.log(`        [payload now] address="${rev.payload?.address}" address2="${rev.payload?.address2}" `
+      + `city="${rev.payload?.city}" region="${rev.payload?.region}" linkedin="${rev.payload?.linkedin}"`)
+  }
+  await page.waitForSelector(`[data-testid="lead-account-step-${partial.id}"]`, { timeout: 20000 })
+  // An account that really exists, so there IS a match to be shadowed by.
+  const existing = must(await db.from('records').select('id').eq('record_type', 'account')
+    .is('deleted_at', null).limit(1), 'acct')[0]
+  const existingName = must(await db.from('record_revisions').select('payload')
+    .eq('record_id', existing.id).order('revision_number', { ascending: false }).limit(1), 'acctrev')[0]
+    .payload?.name ?? ''
+  const prefix = existingName.slice(0, Math.max(4, Math.floor(existingName.length / 2)))
+  await page.type('[data-testid="cd-link-search"]', prefix)
+  await page.waitForFunction((id) => !!document.querySelector(`[data-testid="cd-link-${id}"]`),
+    { timeout: 10000 }, existing.id)
+  const both = await page.evaluate((id) => ({
+    match: !!document.querySelector(`[data-testid="cd-link-${id}"]`),
+    create: !!document.querySelector('[data-testid="cd-link-create"]'),
+  }), existing.id)
+  check('R4: typing a PREFIX of a real account offers both the match AND Create',
+    both.match && both.create,
+    `typed "${prefix}" against "${existingName}": match ${both.match}, create ${both.create}`)
+  await page.screenshot({ path: `${OUT}p2-r4-autocomplete.png` })
+  // AND PICKING THE EXISTING ONE STILL WORKS - the other half of link-or-create.
+  const beforeAccts = must(await db.from('records').select('id').eq('record_type', 'account')
+    .is('deleted_at', null), 'a').length
+  await page.click(`[data-testid="cd-link-${existing.id}"]`)
+  await page.waitForFunction((id) => !document.querySelector(`[data-testid="lead-card-${id}"]`),
+    { timeout: 25000 }, partial.id)
+  const afterAccts = must(await db.from('records').select('id').eq('record_type', 'account')
+    .is('deleted_at', null), 'a').length
+  const qualified = must(await db.from('records').select('status, parent_record_id')
+    .eq('id', partial.id).single(), 'q')
+  check('R4: picking the existing match links it and creates NO new account',
+    qualified.status === 'Qualified' && qualified.parent_record_id === existing.id
+      && afterAccts === beforeAccts,
+    `status ${qualified.status}, linked to the existing account: `
+    + `${qualified.parent_record_id === existing.id}, accounts ${beforeAccts} -> ${afterAccts}`)
+
+  // ══ R5: ADD NOTE AND DISCARD ON THE NOTES HEADER LINE ════════════════
+  console.log('\nR5  the Notes header carries both controls')
+  await page.evaluate(() => navigate('leads'))
+  await page.waitForFunction((id) => !!document.querySelector(`[data-testid="lead-card-${id}"]`),
+    { timeout: 20000 }, notesLead.id)
+  const notesSel = `[data-testid="lead-notes-${theirs.id}"]`
+  const headerBefore = await page.evaluate((sel) => {
+    const h = document.querySelector(`${sel} [data-testid="cd-notes-header-row"]`)
+    return [...h.querySelectorAll('button')].map((b) => b.textContent.trim())
+  }, notesSel)
+  check('R5: closed, the header carries Add note', headerBefore.includes('Add note'),
+    `header buttons: ${JSON.stringify(headerBefore)}`)
+  // Open it on the OWNED card, where the control is alive.
+  const mineNotes = `[data-testid="lead-notes-${notesLead.id}"]`
+  await page.click(`${mineNotes} [data-testid="cd-add-note-btn"]`)
+  await page.waitForSelector(`${mineNotes} [data-testid="cd-new-note-input"]`, { timeout: 10000 })
+  const openState = await page.evaluate((sel) => {
+    const h = document.querySelector(`${sel} [data-testid="cd-notes-header-row"]`)
+    const header = [...h.querySelectorAll('button')].map((b) => b.textContent.trim())
+    const wrap = document.querySelector(`${sel} [data-testid="cd-note-input-wrap"]`)
+    return {
+      header,
+      inWrap: wrap ? [...wrap.querySelectorAll('button')].map((b) => b.textContent.trim()) : [],
+      totalAdd: document.querySelectorAll(`${sel} [data-testid="cd-add-note-btn"]`).length,
+      totalDiscard: document.querySelectorAll(`${sel} [data-testid="cd-note-discard"]`).length,
+    }
+  }, mineNotes)
+  check('R5: open, BOTH Add note and Discard are on the header line',
+    openState.header.includes('Add note') && openState.header.includes('Discard'),
+    `header: ${JSON.stringify(openState.header)}, in the editor wrap: ${JSON.stringify(openState.inWrap)}`)
+  check('R5: and there is exactly ONE of each, not a duplicate pair',
+    openState.totalAdd === 1 && openState.totalDiscard === 1,
+    `Add note x${openState.totalAdd}, Discard x${openState.totalDiscard}`)
+  await page.type(`${mineNotes} [data-testid="cd-new-note-input"]`, 'a note being typed')
+  await page.click(`${mineNotes} [data-testid="cd-note-discard"]`)
+  await page.waitForFunction((sel) => !document.querySelector(`${sel} [data-testid="cd-new-note-input"]`),
+    { timeout: 8000 }, mineNotes)
+  const notesAfter = must(await db.from('record_revisions').select('payload')
+    .eq('record_id', notesLead.id).order('revision_number', { ascending: false }).limit(1), 'n')[0]
+  check('R5: Discard cancels THIS NOTE and writes nothing',
+    !Array.isArray(notesAfter.payload?.notes) || notesAfter.payload.notes.length === 0,
+    `notes on the record: ${(notesAfter.payload?.notes ?? []).length}`)
+  await page.screenshot({ path: `${OUT}p2-r5-notes.png` })
 } finally {
   for (const id of created) await db.from('records').update({ deleted_at: new Date().toISOString() }).eq('id', id)
   const live = must(await db.from('records').select('id').is('deleted_at', null), 'sweep')

@@ -394,11 +394,21 @@ export const pageTiming = { slowestMs: 0, slowestWhat: null, pages: 0 }
 
 /**
  * F5: how many tags travel in one `.or()`, and therefore how much work one
- * STATEMENT does. Exported because the guard in teardown-scoping.test.mjs
+ * STATEMENT does.
+ *
+ * 25 -> 6 -> 3, and the second step was the GUARD DOING ITS JOB on its first
+ * real encounter. At 6 it measured 526ms and 574ms warm, then 1,022ms - past
+ * the 889ms ceiling - while the row count moved by 69. So that was VARIANCE,
+ * not growth, and a ceiling normal variance crosses is a ceiling with no
+ * margin. 3 tags measures ~410ms, which leaves room for the same variance.
+ *
+ * The guard's own message says lower this rather than raise the ceiling, and
+ * that is what was done. Raising it would have been fitting the instrument to
+ * the reading. Exported because the guard in teardown-scoping.test.mjs
  * times the real shape, and a guard that retypes this number is timing a
  * statement the code does not run.
  */
-export const TAG_CHUNK_SIZE = 6
+export const TAG_CHUNK_SIZE = 3
 
 export async function pagedSelect(makeQuery, what) {
   const rows = []

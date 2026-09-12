@@ -54,6 +54,7 @@ export function LeadsList({ navToken }: { navToken?: number }) {
   const [nurturing, setNurturing] = useState<string | null>(null)
   const [industries, setIndustries] = useState<Array<{ id: string, name: string }>>([])
   const [sources, setSources] = useState<string[]>([])
+  const [regions, setRegions] = useState<string[]>([])
 
   const load = useMemo(() => async () => {
     // R1: the completion popup renders real inputs, so the list fetches the
@@ -66,13 +67,15 @@ export function LeadsList({ navToken }: { navToken?: number }) {
       shell.api<Stage[]>('GET', '/api/stage-definitions?record_type=contact'),
       shell.api<Array<{ id: string, payload?: { name?: string } }>>('GET', '/api/accounts'),
       shell.api<Array<{ id: string, name: string }>>('GET', '/api/industries'),
-      shell.api<{ sources?: string[] }>('GET', '/api/contacts/creation-requirements'),
+      shell.api<{ sources?: string[], regions?: string[] }>('GET', '/api/contacts/creation-requirements'),
     ])
     if (c.ok && Array.isArray(c.data)) setLeads(c.data)
     if (s.ok && Array.isArray(s.data)) setStages(s.data)
     if (a.ok && Array.isArray(a.data)) setAccounts(a.data)
     if (ind.ok && Array.isArray(ind.data)) setIndustries(ind.data)
     if (req.ok && req.data?.sources) setSources(req.data.sources)
+    // R3: the region list arrives with the picklists, from one server source.
+    if (req.ok && req.data?.regions) setRegions(req.data.regions)
     setLoaded(true)
     setFetches((n) => n + 1)
   }, [shell])
@@ -192,6 +195,7 @@ export function LeadsList({ navToken }: { navToken?: number }) {
               accounts={accountOptions}
               industries={industries}
               sources={sources}
+              regions={regions}
               onSaveSummary={saveSummary}
               onNurture={(id) => setNurturing(id)}
               onQualified={() => { void load() }} />

@@ -82,6 +82,22 @@ entered** - a cancel-this-note, **not** a card-level discard.
 conversation are appended **at the phase they launch**. Data changes
 proposed before applied. Nothing pushes without the word.
 
+**R3 RULED (a): SERVER-DERIVED.** The region list is served from the
+server the way `creation-requirements` serves `sources`. Single source,
+and it reaches every surface without a per-place edit.
+
+**Frozen Lead Detail's copy is NOT edited.** It stays as it is and is
+noted; the new and card surfaces read the derived source. The other
+copies are re-pointed when their own surfaces are next touched.
+
+**R4 AND R5 USE OPTIONAL PROPS defaulting to current behaviour** - the
+proven `submitPath` / `onCancel` pattern - so frozen Lead Detail is
+provably untouched.
+
+**R1 FOLDS INTO R2.** One fix. `address2` arrives through R2's
+panel-based completion surface, and is **not** special-cased into the
+server-blocking list R2 replaces.
+
 ---
 
 ## Phase 0: measurement only, read-only after the F5 act

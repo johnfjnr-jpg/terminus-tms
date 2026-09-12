@@ -1,40 +1,49 @@
-// ── R1: THE COMPLETION POPUP IS ACTIONABLE ───────────────────────────────
+// ── R2 (WITH R1): THE COMPLETION SURFACE IS PANELS, NOT A LIST ───────────
 //
-// Phase 0 measured the defect precisely: the popup listed NINE missing fields,
-// the server said nine, the two matched exactly - and the popup held ZERO
-// inputs and one Close button, with its own message telling the user to open
-// the lead. Five of the nine were the address group.
+// The previous version rendered one input per key the SERVER named as
+// blocking. That was the right answer to the last round's R1 - the list came
+// from `computeBlocking` through exit-criteria and was proven equal to it -
+// and it carried a defect the list shape makes inevitable:
 //
-// So nothing about WHERE THE LIST COMES FROM changes. It was already the
-// server's own `computeBlocking` through exit-criteria, and Phase 2 proved
-// that by comparing the rendered lines against the endpoint's output. What
-// this adds is the ability to ACT on it.
+//   `address2` IS NOT IN THE QUALIFY GATE'S FOURTEEN FIELDS.
 //
-// ── THE FIELDS COME FROM THE SHARED DEFINITION ───────────────────────────
+// Correctly: a lead can qualify without a Line 2. But TEN OF FOURTEEN live
+// contacts carry one, and a surface that renders only what blocks can never
+// offer it. So a person completing an address there could not enter the
+// second line at all.
 //
-// R1 merged with R6: the seven fields the grid was missing are the same seven
-// this popup needs. `leadFields.ts` is the single definition and both render
-// it, so a field added there reaches both surfaces with neither edited.
+// R1 and R2 are therefore ONE FIX, and special-casing address2 into the
+// blocking list would have been the wrong half of it.
 //
-// The popup shows EXACTLY the keys the server named as blocking. It does not
-// decide what is missing, and it cannot drift from the gate, because it is the
-// gate's own answer rendered as inputs.
+// ── WHAT REPLACES IT ─────────────────────────────────────────────────────
+//
+// The same three panels the card already shows and edits: contact fields, the
+// address panel, the summary. Every field is present and prefilled from the
+// record; the ones the SERVER says are blocking are marked. The gate is still
+// the only thing that decides whether the lead may move - this surface asks
+// the server again after saving rather than deciding for itself.
+//
+// ── CARD-LOCAL ──────────────────────────────────────────────────────────
+//
+// Everything here is from `leads/`: leadFields, LeadFieldInput. Phase 0
+// measured that nothing outside that folder imports them, so frozen Lead
+// Detail is untouched by construction rather than by care.
 import { useMemo, useRef, useState } from 'react'
 import { useShell } from '../ShellContext'
-import { fieldFor } from './leadFields'
+import { CONTACT_FIELDS, ADDRESS_FIELDS, SUMMARY_FIELDS, type LeadField } from './leadFields'
 import { LeadFieldInput } from './LeadFieldInput'
 
 type Blocking = { field?: string, label?: string, message?: string }
 
 export function QualifyCompletion({
-  leadId, blocking, current, industries, sources, onComplete, onCancel,
+  leadId, blocking, current, industries, sources, regions, onComplete, onCancel,
 }: {
   leadId: string
   blocking: Blocking[]
   current: Record<string, unknown>
   industries: Array<{ id: string, name: string }>
   sources: string[]
-  /** Saved and nothing is blocking any more: the flow moves on by itself. */
+  regions: string[]
   onComplete: () => void
   onCancel: () => void
 }) {
@@ -44,17 +53,40 @@ export function QualifyCompletion({
   const [busy, setBusy] = useState(false)
   const inFlight = useRef(false)
 
-  // The blocking keys the shared definition knows how to render. A key it does
-  // not know is SHOWN, not silently dropped - an unenterable requirement the
-  // user cannot see is worse than one they can.
-  const entries = useMemo(() => blocking.map((b) => ({
-    key: b.field ?? '',
-    message: b.message ?? b.label ?? b.field ?? '',
-    field: fieldFor(b.field ?? ''),
-  })), [blocking])
-  const unknown = entries.filter((e) => !e.field)
+  const missing = useMemo(
+    () => new Set(blocking.map((b) => b.field).filter(Boolean) as string[]),
+    [blocking])
 
-  const dirty = Object.values(values).some((v) => v.trim())
+  const str = (v: unknown) => (v === null || v === undefined ? '' : String(v))
+  const valueFor = (k: string) => values[k] ?? str(current[k])
+  const set = (k: string, v: string) => setValues((p) => ({ ...p, [k]: v }))
+  const dirty = Object.keys(values).some((k) => values[k] !== str(current[k]))
+
+  const group = (title: string, fields: LeadField[]) => (
+    <section className="lead-complete-group" data-testid={`lead-complete-${title.toLowerCase().replace(/\s+/g, '-')}-${leadId}`}>
+      <div className="lead-card-col-title">{title}</div>
+      <div className="lead-complete-grid">
+        {fields.map((f) => (
+          <div className="lead-complete-cell" key={f.key}>
+            <label htmlFor={`lead-fix-${f.key}-${leadId}`}>
+              {f.label}
+              {missing.has(f.key)
+                ? <span className="nlg-required" data-testid={`lead-needs-${f.key}-${leadId}`}> *</span>
+                : null}
+            </label>
+            <LeadFieldInput
+              field={f}
+              value={valueFor(f.key)}
+              onChange={(v) => set(f.key, v)}
+              industries={industries}
+              sources={sources}
+              regions={regions}
+              testid={`lead-fix-${f.key}-${leadId}`} />
+          </div>
+        ))}
+      </div>
+    </section>
+  )
 
   const save = async () => {
     if (inFlight.current || !dirty) return
@@ -64,12 +96,11 @@ export function QualifyCompletion({
     try {
       // industry_id is a REAL COLUMN on `records`, not a payload key, and the
       // PATCH route takes it at the top level. Sending it inside `payload`
-      // would write a key the gate never reads - the same distinction that
-      // cost a Phase 1b probe an hour.
+      // would write a key the gate never reads.
       const payload: Record<string, string> = {}
       let industryId: string | undefined
       for (const [k, v] of Object.entries(values)) {
-        if (!v.trim()) continue
+        if (v === str(current[k])) continue
         if (k === 'industry_id') industryId = v
         else payload[k] = v.trim()
       }
@@ -80,8 +111,8 @@ export function QualifyCompletion({
       const r = await shell.api<{ error?: string }>('PATCH', `/api/contacts/${leadId}`, body)
       if (!r.ok) { setError(r.data?.error ?? 'Could not save.'); return }
 
-      // ASK THE SERVER AGAIN rather than deciding here whether it is now
-      // complete. The gate is the only thing that knows.
+      // ASK THE SERVER AGAIN. This surface shows every field; only the gate
+      // knows whether the lead may now move, and it is still the one evaluator.
       const again = await shell.api<{ blocking?: Blocking[] }>(
         'GET', `/api/records/${leadId}/exit-criteria`)
       if (!again.ok) { setError('Saved, but could not re-check. Press Qualify again.'); return }
@@ -99,30 +130,13 @@ export function QualifyCompletion({
   }
 
   return (
-    <div className="lead-qualify-step" data-testid={`lead-incomplete-${leadId}`}>
+    <div className="lead-qualify-step lead-complete-surface" data-testid={`lead-incomplete-${leadId}`}>
       <p className="eyebrow">Please complete missing data</p>
-      <div className="lead-complete-grid" data-testid={`lead-missing-${leadId}`}>
-        {entries.filter((e) => e.field).map((e) => (
-          <div className="lead-complete-cell" key={e.key}>
-            <label htmlFor={`lead-fix-${e.key}-${leadId}`}>{e.field!.label}</label>
-            <LeadFieldInput
-              field={e.field!}
-              value={values[e.key] ?? String(current[e.key] ?? '')}
-              onChange={(v) => setValues((p) => ({ ...p, [e.key]: v }))}
-              industries={industries}
-              sources={sources}
-              testid={`lead-fix-${e.key}-${leadId}`} />
-          </div>
-        ))}
+      <div data-testid={`lead-missing-${leadId}`}>
+        {group('Contact details', CONTACT_FIELDS)}
+        {group('Address details', ADDRESS_FIELDS)}
+        {group('Summary', SUMMARY_FIELDS)}
       </div>
-      {unknown.length
-        ? (
-          <p className="msg-error" data-testid={`lead-unknown-${leadId}`}>
-            {unknown.length} requirement{unknown.length === 1 ? '' : 's'} cannot be
-            entered here: {unknown.map((u) => u.message).join('; ')}
-          </p>
-        )
-        : null}
       {error ? <p className="msg-error" data-testid={`lead-fix-error-${leadId}`}>{error}</p> : null}
       <div className="lead-complete-actions">
         <button type="button" className="btn-primary"

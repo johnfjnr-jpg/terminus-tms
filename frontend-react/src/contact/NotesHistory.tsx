@@ -8,7 +8,7 @@ export const DEFAULT_SHOWN = 2
 export const EXPANDED_SHOWN = 10
 
 /** N1: when, who, what - and an empty state that says so. */
-export function NotesHistory({ notes, onAdd, hasDirtyEdits, onConfirmDiscard, resetKey }: {
+export function NotesHistory({ notes, onAdd, hasDirtyEdits, onConfirmDiscard, resetKey, actionsInHeader = false }: {
   notes: readonly Note[]
   /** Resolves false when the write was refused, so the text can stay put. */
   onAdd: (text: string) => Promise<boolean>
@@ -16,6 +16,18 @@ export function NotesHistory({ notes, onAdd, hasDirtyEdits, onConfirmDiscard, re
   onConfirmDiscard: (proceed: () => void) => void
   /** N9: changes per navigation, so a stale open input cannot persist. */
   resetKey?: unknown
+  /**
+   * R5: ADD NOTE AND DISCARD ON THE HEADER LINE.
+   *
+   * The card wants both controls on the NOTES header row; Lead Detail keeps
+   * them where they are, under the editor. Optional and defaulting to the
+   * existing layout, so the FROZEN surface is untouched - the same pattern
+   * LinkAccountPanel has now carried three times.
+   *
+   * The Discard is a cancel-THIS-NOTE, which is what it already does
+   * (`setOpen(false); setText('')`). Only its placement moves.
+   */
+  actionsInHeader?: boolean
 }) {
   const [open, setOpen] = useState(false)
   const [text, setText] = useState('')
@@ -72,8 +84,13 @@ export function NotesHistory({ notes, onAdd, hasDirtyEdits, onConfirmDiscard, re
             the title cannot: the order. "Notes history · latest first" under a
             heading reading NOTES was the same word twice. */}
         <span className="label">Latest first</span>
-        {!open
-          ? <button type="button" data-testid="cd-add-note-btn" onClick={onClick}>Add note</button>
+        {!open || actionsInHeader
+          ? <button type="button" data-testid="cd-add-note-btn"
+              disabled={open && !text.trim()} onClick={onClick}>Add note</button>
+          : null}
+        {actionsInHeader && open
+          ? <button type="button" data-testid="cd-note-discard"
+              onClick={() => { setOpen(false); setText('') }}>Discard</button>
           : null}
       </div>
 
@@ -84,10 +101,20 @@ export function NotesHistory({ notes, onAdd, hasDirtyEdits, onConfirmDiscard, re
               autoFocus
               value={text}
               onChange={(e) => setText(e.target.value)} />
-            <button type="button" data-testid="cd-add-note-btn"
-              disabled={!text.trim()} onClick={onClick}>Add note</button>
-            <button type="button" data-testid="cd-note-discard"
-              onClick={() => { setOpen(false); setText('') }}>Discard</button>
+            {/* R5: with the actions in the header these would be a SECOND
+                Add note and a second Discard on the same card - the exact
+                duplicate-control fault a screenshot caught in the Qualify
+                account step last round. */}
+            {actionsInHeader
+              ? null
+              : (
+                <>
+                  <button type="button" data-testid="cd-add-note-btn"
+                    disabled={!text.trim()} onClick={onClick}>Add note</button>
+                  <button type="button" data-testid="cd-note-discard"
+                    onClick={() => { setOpen(false); setText('') }}>Discard</button>
+                </>
+              )}
           </div>
         : null}
 

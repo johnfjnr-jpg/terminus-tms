@@ -83,6 +83,7 @@ export function NewLeadGrid({ onDone, onDirtyChange }: {
   const [rows, setRows] = useState<Row[]>(() => Array.from({ length: BLANK_ROWS }, blank))
   const [required, setRequired] = useState<string[]>([])
   const [sources, setSources] = useState<string[]>([])
+  const [regions, setRegions] = useState<string[]>([])
   const [industries, setIndustries] = useState<Array<{ id: string, name: string }>>([])
   const [touched, setTouched] = useState<Record<string, boolean>>({})
   const [saving, setSaving] = useState(false)
@@ -92,10 +93,14 @@ export function NewLeadGrid({ onDone, onDirtyChange }: {
   useEffect(() => {
     void (async () => {
       const [req, ind] = await Promise.all([
-        shell.api<{ required: string[], sources: string[] }>('GET', '/api/contacts/creation-requirements'),
+        shell.api<{ required: string[], sources: string[], regions?: string[] }>('GET', '/api/contacts/creation-requirements'),
         shell.api<Array<{ id: string, name: string }>>('GET', '/api/industries'),
       ])
-      if (req.ok && req.data) { setRequired(req.data.required); setSources(req.data.sources) }
+      if (req.ok && req.data) {
+        setRequired(req.data.required); setSources(req.data.sources)
+        // R3: region is a dropdown in the grid too, from the same source.
+        setRegions(req.data.regions ?? [])
+      }
       if (ind.ok && Array.isArray(ind.data)) setIndustries(ind.data)
     })()
   }, [shell])
@@ -193,6 +198,7 @@ export function NewLeadGrid({ onDone, onDirtyChange }: {
                           onChange={(v) => set(i, c.key, v)}
                           industries={industries}
                           sources={sources}
+                          regions={regions}
                           testid={`nlg-${c.key}-${i}`}
                           invalid={!!why}
                           describedBy={`nlg-why-${c.key}-${i}`}

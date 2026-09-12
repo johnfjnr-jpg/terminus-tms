@@ -5,6 +5,7 @@ import { appendRecordRevision, SINGLE_KEY_RMW, readExpectedRevision, isStaleWrit
 import { isValidMobile } from '../lib/field-validation.js'
 import { issueReferenceNumber, issueAccountNumber } from '../lib/reference-number.js'
 import { countryToCode } from '../lib/country-code.js'
+import { REGION_OPTIONS } from '../lib/regions.js'
 import { computeBlocking } from './transitions.js'
 import { GATE_RECORD_SELECT } from '../lib/stage-gate-fields.js'
 
@@ -207,6 +208,12 @@ export default async function contactsRoutes(app) {
     return reply.send({
       required: CONTACT_REQUIRED_AT_CREATION.map(({ key }) => key),
       sources: VALID_SOURCES,
+      // R3: regions travel with the picklists the card already fetches here,
+      // rather than a sixth copy typed into a seventh place. One definition,
+      // in src/lib/regions.js, and the surfaces DERIVE it - the same property
+      // that made a change to the required tuple reach the grid's markers
+      // with no edit to the grid.
+      regions: REGION_OPTIONS,
       // NO PATTERNS HERE, deliberately. `isValidMobile` is a two-part check -
       // a character-set test and a digit count - and serialising it as one
       // regex would be a SECOND STATEMENT of it that agrees today. The grid

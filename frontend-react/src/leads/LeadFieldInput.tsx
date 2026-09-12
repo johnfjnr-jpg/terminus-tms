@@ -8,7 +8,7 @@
 import type { LeadField } from './leadFields'
 
 export function LeadFieldInput({
-  field, value, onChange, industries, sources, testid, invalid, describedBy,
+  field, value, onChange, industries, sources, regions = [], testid, invalid, describedBy,
   onFocus, onBlur, title,
 }: {
   field: LeadField
@@ -16,6 +16,8 @@ export function LeadFieldInput({
   onChange: (v: string) => void
   industries: Array<{ id: string, name: string }>
   sources: string[]
+  /** R3: served by the server, never a copy typed here. */
+  regions?: string[]
   testid: string
   invalid?: boolean
   describedBy?: string
@@ -54,6 +56,19 @@ export function LeadFieldInput({
       <select {...common} onChange={(e) => onChange(e.target.value)}>
         <option value="">--</option>
         {sources.map((x) => <option key={x} value={x}>{x}</option>)}
+      </select>
+    )
+  }
+  if (field.kind === 'region') {
+    // R3: a select, from the list the SERVER serves. If the fetch has not
+    // landed the field still renders - as a select with only the current
+    // value - rather than silently becoming free text, which would be the
+    // drift arriving through the back door.
+    const opts = regions.length ? regions : (value ? [value] : [])
+    return (
+      <select {...common} onChange={(e) => onChange(e.target.value)}>
+        <option value="">--</option>
+        {opts.map((x) => <option key={x} value={x}>{x}</option>)}
       </select>
     )
   }

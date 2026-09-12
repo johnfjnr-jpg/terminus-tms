@@ -41,7 +41,7 @@ export interface LeadRecord {
 const str = (v: unknown): string => (v === null || v === undefined ? '' : String(v))
 
 export function LeadCard({
-  lead, notMine, accountName, accounts, industries, sources,
+  lead, notMine, accountName, accounts, industries, sources, regions,
   onOpen, onAddNote, onSaveFollowUp, onSaveSummary, onNurture, onQualified,
 }: {
   lead: LeadRecord
@@ -55,6 +55,7 @@ export function LeadCard({
   accounts: Array<{ id: string, name: string }>
   industries: Array<{ id: string, name: string }>
   sources: string[]
+  regions: string[]
   /** R4: Summary is a write now, so it saves like the other inline writes. */
   onSaveSummary: (id: string, text: string) => Promise<boolean>
   /** R2: Nurture opens the follow-up dialogue, date and reason. */
@@ -131,6 +132,7 @@ export function LeadCard({
           payload={p}
           industries={industries}
           sources={sources}
+          regions={regions}
           onSaved={onQualified} />
       </div>
 
@@ -139,6 +141,7 @@ export function LeadCard({
           <AddressPopup
             leadId={lead.id}
             current={p}
+            regions={regions}
             onClose={() => setAddressOpen(false)}
             onSaved={() => { setAddressOpen(false); onQualified() }} />
         )
@@ -172,7 +175,8 @@ export function LeadCard({
             onAdd={(text) => onAddNote(lead.id, text)}
             hasDirtyEdits={false}
             onConfirmDiscard={(proceed) => { proceed() }}
-            resetKey={lead.id} />
+            resetKey={lead.id}
+            actionsInHeader />
         </div>
 
         {/* INLINE WRITE 2. */}

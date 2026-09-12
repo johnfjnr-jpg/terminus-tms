@@ -30,7 +30,7 @@ type Step = 'idle' | 'checking' | 'incomplete' | 'account'
 
 export function LeadCardActions({
   leadId, status, accounts, onQualified, onNurture, onOpenAddress, addressOpen,
-  payload, industries, sources, onSaved,
+  payload, industries, sources, regions, onSaved,
 }: {
   leadId: string
   status: string | null
@@ -43,6 +43,7 @@ export function LeadCardActions({
   payload: Record<string, unknown>
   industries: Array<{ id: string, name: string }>
   sources: string[]
+  regions: string[]
   onSaved: () => void
 }) {
   const shell = useShell()
@@ -135,6 +136,7 @@ export function LeadCardActions({
             current={payload}
             industries={industries}
             sources={sources}
+            regions={regions}
             onCancel={cancel}
             onComplete={() => {
               // NOTHING IS BLOCKING ANY MORE, so the flow continues to the
@@ -161,6 +163,7 @@ export function LeadCardActions({
               hasDirtyEdits={false}
               onConfirmDiscard={(proceed) => { proceed() }}
               submitPath={`/api/contacts/${leadId}/qualify`}
+              alwaysOfferCreate
               startOpen
               onCancel={cancel}
               onLinked={() => { setStep('idle'); onQualified() }} />

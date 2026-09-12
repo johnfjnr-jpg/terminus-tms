@@ -29,7 +29,7 @@ export function findAccountMatches(query: string, accounts: AccountOption[]): Ac
 
 export function LinkAccountPanel({
   contactId, accounts, hasDirtyEdits, onConfirmDiscard, onLinked,
-  submitPath, openLabel, startOpen = false, onCancel,
+  submitPath, openLabel, startOpen = false, onCancel, alwaysOfferCreate = false,
 }: {
   contactId: string
   accounts: AccountOption[]
@@ -63,6 +63,19 @@ export function LinkAccountPanel({
    * them an unstyled browser default.
    */
   onCancel?: () => void
+  /**
+   * R4: OFFER CREATE EVEN WHEN SOMETHING MATCHES.
+   *
+   * The default hides Create whenever any account matches, so typing
+   * "Willow" against an existing "Willowglen" makes a distinct new account
+   * impossible - which is exactly the case R4 names.
+   *
+   * Optional and defaulting to the existing behaviour, so FROZEN Lead Detail
+   * is untouched. Same pattern as `submitPath` and `onCancel`, which is the
+   * third time it has carried a change onto this component without changing
+   * the surface that is waiting for a parity walk.
+   */
+  alwaysOfferCreate?: boolean
 }) {
   const shell = useShell()
   const [open, setOpen] = useState(startOpen)
@@ -131,7 +144,7 @@ export function LinkAccountPanel({
         {/* CREATING IS THE SAME WRITE, not a second path: the route takes
             either an id or a name, and a contact whose company matches no
             real Account has nothing to reconcile against. */}
-        {query.trim() && !matches.length
+        {query.trim() && (alwaysOfferCreate || !matches.length)
           ? <button type="button" data-testid="cd-link-create" disabled={busy}
               onClick={() => start({ new_account_name: query.trim() })}>
               Create "{query.trim()}"

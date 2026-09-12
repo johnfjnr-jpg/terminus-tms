@@ -6236,3 +6236,25 @@ input.input-invalid {
 @media (max-width: 1100px) {
   .address-popup-grid { grid-template-columns: 1fr; }
 }
+
+/* ---------------------------------------------------------------------
+   LEADS CARD POLISH 2 (2026-09-12): R2/R1, R3, R5.
+   --------------------------------------------------------------------- */
+
+/* R2: the completion surface is PANELS. Three groups, each a labelled grid,
+   so a person sees Contact / Address / Summary rather than a list of keys
+   the gate happens to block on. */
+.lead-complete-surface { max-height: 62vh; overflow-y: auto; }
+.lead-complete-group { margin-bottom: 14px; }
+.lead-complete-group .lead-card-col-title { margin-bottom: 6px; }
+
+/* R5: Notes further left. The body was 0.92 / 1.04 / 1.04; taking more from
+   the Summary column moves the Notes column's start toward the end of the
+   Created Date text on the head line. Exact alignment is content-dependent
+   and is not claimed. */
+.lead-card-body { grid-template-columns: minmax(0, 0.78fr) minmax(0, 1.11fr) minmax(0, 1.11fr); }
+
+/* R5: Add note and Discard sit on the NOTES header row, so the row is a
+   header AND its controls rather than a label with a button after it. */
+.cd-notes-header-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.cd-notes-header-row .label { margin-right: auto; }

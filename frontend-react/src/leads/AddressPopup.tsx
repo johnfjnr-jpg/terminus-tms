@@ -27,9 +27,11 @@ import { useShell } from '../ShellContext'
 import { ADDRESS_FIELDS } from './leadFields'
 import { LeadFieldInput } from './LeadFieldInput'
 
-export function AddressPopup({ leadId, current, onClose, onSaved }: {
+export function AddressPopup({ leadId, current, regions, onClose, onSaved }: {
   leadId: string
   current: Record<string, unknown>
+  /** R3: served, never a copy typed here. */
+  regions: string[]
   onClose: () => void
   onSaved: () => void
 }) {
@@ -52,8 +54,30 @@ export function AddressPopup({ leadId, current, onClose, onSaved }: {
     setBusy(true)
     setError(null)
     try {
+      // ── WRITE THE DIFF, NOT THE GROUP ───────────────────────────────
+      //
+      // This wrote all six fields unconditionally, and it DESTROYED DATA.
+      // Found by probe: after editing only `city`, the record came back with
+      // address, address2, postcode, country and region all empty.
+      //
+      // The mechanism is `useState(initial)`, which seeds ONCE. If the popup
+      // mounts before a refetch has landed, `values` holds the stale - here
+      // empty - record, and saving then writes those blanks over real data.
+      // The screen looked right at every moment: it showed what it had.
+      //
+      // Verification 20's addendum exactly, arriving through a write: a
+      // control that supplies a value on save turns "unchanged" into "empty"
+      // wherever the payload is rebuilt from the screen. The same shape that
+      // would have deleted marginOverrides on 33 opportunities.
+      //
+      // QualifyCompletion already writes only what differs; this now does too,
+      // so a field the person did not touch is not a field they cleared.
       const payload: Record<string, string> = {}
-      for (const f of ADDRESS_FIELDS) payload[f.key] = (values[f.key] ?? '').trim()
+      for (const f of ADDRESS_FIELDS) {
+        const next = (values[f.key] ?? '').trim()
+        if (next !== (initial[f.key] ?? '')) payload[f.key] = next
+      }
+      if (!Object.keys(payload).length) { onSaved(); return }
       const r = await shell.api<{ error?: string }>(
         'PATCH', `/api/contacts/${leadId}`, { payload })
       if (!r.ok) { setError(r.data?.error ?? 'Could not save the address.'); return }
@@ -81,6 +105,7 @@ export function AddressPopup({ leadId, current, onClose, onSaved }: {
                 onChange={(v) => setValues((p) => ({ ...p, [f.key]: v }))}
                 industries={[]}
                 sources={[]}
+                regions={regions}
                 testid={`addr-${f.key}-${leadId}`} />
             </div>
           ))}

@@ -117,10 +117,27 @@ try {
   // comparison would pass on two empty lists.
   const server = await api('GET', `/records/${partial.id}/exit-criteria`)
   const serverFields = (server.data.blocking ?? []).map((b) => b.field)
-  check('the completion popup names the SERVER\'S blocking list, not a client copy',
-    missing.length === serverFields.length && missing.length > 0
-      && missing.every((m) => serverFields.includes(m)),
-    `popup ${missing.length} inputs, server ${serverFields.length} blocking: ${missing.slice(0, 4).join(', ')}...`)
+  // ── THE CLAIM CHANGED WITH R2, AND EQUALITY IS NO LONGER IT ──────────
+  //
+  // This asserted the surface's inputs EQUALLED the server's blocking list,
+  // which was right while the popup rendered one input per blocking key. R2
+  // rebuilt it from PANELS, so it now shows all fifteen fields with the
+  // blocking ones marked - and that is the point: `address2` is not in the
+  // gate's fourteen, and ten of fourteen live contacts carry a Line 2.
+  //
+  // So the claim is a SUPERSET with the missing ones marked, not equality.
+  // Both halves are asserted, because "it shows everything" on its own would
+  // pass even if the server's answer were ignored entirely.
+  const marked = await page.evaluate((id) => [...document.querySelectorAll(
+    `[data-testid^="lead-needs-"][data-testid$="-${id}"]`)]
+    .map((e) => e.getAttribute('data-testid').replace('lead-needs-', '').replace(`-${id}`, '')),
+  partial.id)
+  check('the completion surface contains an input for every field the server blocks on',
+    serverFields.length > 0 && serverFields.every((f) => missing.includes(f)),
+    `server blocks ${serverFields.length}, surface renders ${missing.length} inputs`)
+  check('and it MARKS exactly the server\'s blocking set, not a client copy',
+    marked.length === serverFields.length && serverFields.every((f) => marked.includes(f)),
+    `marked ${marked.length}: ${marked.slice(0, 5).join(', ')}... | server ${serverFields.length}`)
   await page.screenshot({ path: `${OUT}p2-incomplete.png` })
   await page.click(`[data-testid="lead-incomplete-close-${partial.id}"]`)
 

@@ -20,7 +20,7 @@
 // `computeBlocking` names in its blocking list, so the popup can match the
 // server's missing-field list against this set by key with no translation
 // table in between. A translation table would be a second reader.
-export type LeadFieldKind = 'text' | 'textarea' | 'industry' | 'source'
+export type LeadFieldKind = 'text' | 'textarea' | 'industry' | 'source' | 'region'
 
 export type LeadField = {
   key: string
@@ -53,9 +53,24 @@ export const LEAD_FIELDS: LeadField[] = [
   { key: 'city', label: 'City', kind: 'text' },
   { key: 'postcode', label: 'Postcode', kind: 'text' },
   { key: 'country', label: 'Country', kind: 'text' },
-  { key: 'region', label: 'Region', kind: 'text' },
+  { key: 'region', label: 'Region', kind: 'region' },
   { key: 'summary', label: 'Summary', kind: 'textarea', wide: true },
 ]
+
+/**
+ * R2: THE THREE GROUPS THE COMPLETION SURFACE IS ASSEMBLED FROM.
+ *
+ * The surface renders PANELS, not a list of whatever the server happens to be
+ * blocking on. That is R1's fix as much as R2's: `address2` is not in the
+ * Qualify gate's fourteen, so a list of blocking keys can never offer it -
+ * and ten of fourteen live contacts carry a Line 2.
+ *
+ * Groups, not one flat list, because that is what the card already shows and
+ * what the person is being asked to complete.
+ */
+export const CONTACT_KEYS = ['name', 'company', 'jobRole', 'industry_id', 'email', 'mobile', 'source', 'linkedin']
+export const CONTACT_FIELDS = LEAD_FIELDS.filter((f) => CONTACT_KEYS.includes(f.key))
+export const SUMMARY_FIELDS = LEAD_FIELDS.filter((f) => f.key === 'summary')
 
 /** The six the address popup edits (R2), derived rather than retyped. */
 export const ADDRESS_KEYS = ['address', 'address2', 'city', 'postcode', 'country', 'region']
