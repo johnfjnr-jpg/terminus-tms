@@ -46,6 +46,28 @@ not resolve it quietly.
    materially different from the claim. If a check could pass while the
    claim is false, it is not evidence.
 
+   **AND WHERE A DETECTOR REPORTS A BINARY, BOTH VERDICTS NEED DEFINING. THE
+   REASSURING ONE IS THE ONE THAT GETS A PROXY.** Lead card UI fixes round,
+   2026-09-12.
+
+   A census classified every date-render site as RAW or ROUTED. **RAW was
+   defined with care** and calibrated eight ways: which interpolation, React
+   keys excluded, object literals excluded, the name vocabulary. **ROUTED was
+   defined as "the expression contains a call"** - and nobody calibrated it,
+   because it is the verdict that means everything is fine.
+
+   `${String(x.effectiveFrom).slice(0, 10)}` contains a call. It is a site
+   formatting a date INLINE, which is the second implementation the round
+   existed to delete, and the census would have printed **`0 RAW`** over the
+   top of it.
+
+   **The attention goes to the alarming verdict, and the defect hides in the
+   other one.** A proxy for "this is a problem" gets argued about; a proxy for
+   "this is fine" gets written once and read as a result forever.
+
+   **The check: for any detector with a pass verdict, write the injection that
+   makes something WRONGLY pass.** Not only the one that makes it fire.
+
 4. **Rule 8: never build against a section marked with a yellow status
    marker in `PROTOTYPE_SPECIFICATION.md` without first doing a line-cited
    extraction pass.** "Use the prototype as reference" without line numbers
@@ -903,6 +925,39 @@ of the change. An unanswerable precondition is a stop.
    `getBoundingClientRect().top`, not that they exist. A count of children
    cannot see a wrap; a row test can, and it fails the moment somebody adds a
    sixth cell to a grid built for four.
+
+   **AND A CSS MECHANISM IS NOT A LAYOUT OUTCOME. ASSERT THE RELATIONSHIP
+   BETWEEN TWO ELEMENTS, NEVER A PROPERTY OF ONE.** Lead card UI fixes round,
+   2026-09-12, twice in one phase and both found by opening the screenshot.
+
+   The clause above is a measure that cannot see a WRAP. This is a measure
+   that reports the MECHANISM of a layout while the layout is wrong, and it is
+   harder to doubt because the mechanism is genuinely correct.
+
+   A type-ahead's dropdown was `position: absolute` so that opening it would
+   not reflow the card. Two checks: `getComputedStyle(list).position ===
+   'absolute'`, and the step's height unchanged with six matches showing.
+   **Both PASSED. The list was rendering 730px BELOW the card**, at `top:
+   1106` on a 1100px viewport, because it was a SIBLING of the positioned row
+   and therefore had no positioned ancestor at all.
+
+   **Every property asserted was true of a list parked anywhere in the
+   document.** `absolute` is true. "The step did not grow" is true - more
+   true, since the list had left the step entirely. The earlier build anchored
+   it on the wrong ancestor and opened it below a Cancel button, and the same
+   two checks passed on that as well.
+
+   **The tell is that the assertion names a CSS property the fix happens to
+   use.** `position`, `display`, `overflow`, `z-index`, `flex-direction` are
+   how a layout is achieved; where a thing sits relative to another thing is
+   what was claimed. Verification 37's shape - a rule naming a mechanism
+   polices the mechanism - arriving inside a test assertion.
+
+   **The check: state the claim as two elements and a relation, then assert
+   that.** "The list hangs off the input" is
+   `|list.top - input.bottom| < 24 && |list.left - input.left| < 4`. It fires
+   on both of the above, it needs no knowledge of how the positioning is done,
+   and it survives the next rewrite of the CSS.
 
 5. When a control matters, the assertion belongs in the automated suite,
    where it passes or fails, not in prose.

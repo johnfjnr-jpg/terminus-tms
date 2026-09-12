@@ -73,6 +73,16 @@ R9. **R5 IS ACCEPTED AS MEASURED.** R4 already reclaims the band at 1920
     and 3440, 57px. At 1240 the 218px frozen follow-up panel drives it
     and it is left as ruled. **R5 needs no separate work.**
 
+R10. **THE NOTE TEXTAREA STAYS CLASSED.** R3 pairs it visually with the
+    styled Summary field, so an unstyled textarea beside a styled one is a
+    **new instance of the F3 defect this round retires**. (Had it been ruled
+    out, the removal would have been recorded as a known F3 instance
+    instead.)
+R11. **`--red` AND `--amber` ARE QUEUED, NOT FIXED.** Used in
+    `style.css` and defined nowhere, always with a literal fallback so they
+    render. F3-family, pre-existing, unrelated to this round's scope.
+    Confirmed carried at the close.
+
 ## Frozen by ruling
 
 - **The follow-up panel**, rebuilt in the follow-up-entity round.
