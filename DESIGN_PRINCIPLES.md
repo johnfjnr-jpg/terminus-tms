@@ -11052,3 +11052,100 @@ no suite could have reported.
 
 **F3 stands at four instances.** Unclassed white controls, invisible to
 every assertion this estate writes, found only by opening a screenshot.
+
+# The LEADS CARD POLISH 2 round, closed 2026-09-12
+
+Gated at `c936ba9` on **22 of 22 PASS, 0 SKIP, door stage green, first
+run** - which the previous two closes were not.
+
+## What shipped
+
+**The Qualify completion surface is panels, not a list.** Contact details,
+address, summary: the card's own components, card-local, frozen Lead
+Detail untouched by construction. Every field present and prefilled, the
+ones the server blocks on marked, and the gate asked again after saving
+rather than decided locally.
+
+**Region is a dropdown from one server source.** Account autocomplete
+offers Create alongside matches. Add note and Discard sit on the Notes
+header line. F5 hardened.
+
+## The five worth carrying
+
+**A LIST-SHAPED SURFACE CANNOT OFFER WHAT THE GATE DOES NOT BLOCK ON.**
+`address2` is not among the Qualify gate's fourteen fields - correctly, a
+lead can qualify without a Line 2 - and **ten of fourteen live contacts
+carry one**. So a popup rendering exactly the server's blocking keys, which
+was the RIGHT answer to the previous round's ruling and proven equal to
+the endpoint, could never let anyone enter it. **The fix was not to
+special-case the field; it was to stop rendering a list.**
+
+**A CONTROL THAT SUPPLIES A VALUE ON SAVE TURNS "UNCHANGED" INTO
+"EMPTY".** The address popup wrote all six fields from a state seeded ONCE
+at mount, so editing `city` returned a record with address, address2,
+postcode, country and region all blank. **The screen looked right at every
+moment because it showed what it had.** Fourth instance of this shape in
+the estate, and the first where it destroyed data on a surface built two
+weeks earlier.
+
+**AND IT WAS FOUND BY PERSISTED STATE, NOT BY APPEARANCE.** A later probe
+section re-qualified the same lead and the server still reported four
+fields blocking. No screenshot would have shown it; the surface was
+correct.
+
+**A CENSUS BY ELEMENT TYPE MISSES A CONTROL THE ROUND ITSELF CHANGED.**
+Making Region a `<select>` meant an `input`-only door check would have
+left it **unmeasured on unowned cards** - a write control the door was
+never asked about. Verification 19's shape arriving from inside the same
+round's own work.
+
+**A GUARD TIGHTENED ON VARIANCE IS A GUARD WITHOUT MARGIN.** F5's headroom
+guard fired at 1,022ms against an 889ms ceiling while the table had grown
+by 69 rows. That is variance, not growth, and the answer was to lower the
+work rather than raise the ceiling - **but it is the second reactive
+step**, and the next round in F5's scope reviews the DERIVATION instead.
+
+## What is explicitly NOT done
+
+**THE REGION DRIFT IS NOT CLOSED.** One server source and one reader were
+added. **Six copies remain unre-pointed** - frozen Lead Detail's
+descriptors, the Test Bed, Account and Reference descriptors, `app.js`'s
+`TB_MATRIX_REGIONS`, and three hardcoded `<option>` blocks in
+`index.html`. Each is re-pointed as its surface is next touched.
+
+**Recorded so that a future "just change the regions" does not assume one
+source. It is not one source yet.**
+
+## Still true
+
+**No walk.** Two rounds of probe-and-screenshot evidence on a card John
+has walked twice by eye but never with the parity checklist Lead Detail's
+retirement waits on.
+
+**F3 stands at four instances** - unclassed white controls, invisible to
+every assertion this estate writes.
+
+**AND F8 FAILED AGAIN WHILE THIS ENTRY WAS BEING COMMITTED**, which is
+the third time and is recorded because it sharpens the ruling rather than
+merely repeating it.
+
+| when | duration | outcome |
+|---|---|---|
+| polish 1, pre-commit hook | 3,551ms | **failed**, 1 of 40 |
+| polish 1, immediate re-run | 2,976ms | passed |
+| polish 1 **close gate**, run 1 | 5,595ms | **failed**, 1 of 40 |
+| polish 2 **log-close commit** | 2,523ms | **failed**, 1 of 40 |
+
+**Three failures, and the durations are unrelated** - 3,551, 5,595,
+2,523. F5's diagnostic was duration and it climbed; **F8's is frequency,
+and this is the evidence**: it does not run out of time, it loses one
+connection of forty, and it does so often enough to have now interrupted
+a close gate and a log commit in consecutive rounds.
+
+**The close gate for THIS round was green on the first run**, which was
+written up two hours before this failure. **A clean run really was one
+sample**, and saying so in the close-out was the right call for a reason
+that arrived afterwards.
+
+**F8's retry-with-recorded-cause is unbuilt and is now the better-evidenced
+of the two queue items.**
