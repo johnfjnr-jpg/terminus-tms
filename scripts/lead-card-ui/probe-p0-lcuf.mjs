@@ -94,6 +94,24 @@ try {
       throw e
     }
   }
+  // ── CAPTURE THROUGH THE ELEMENT, NEVER A PAGE-COORDINATE CLIP ────────
+  //
+  // The first run of this probe clipped on the card's getBoundingClientRect
+  // in PAGE coordinates. The list lives inside `app-content-scroll`, whose
+  // scrollHeight is 2068 against a 900px page, so a card below the fold was
+  // captured as pure background - and the image showed a Notes column with
+  // its rows missing, which reads exactly like a rendering defect. It was
+  // nearly reported as one. Verification 4's own clause: confirm the element
+  // is inside the captured region before treating the image as evidence.
+  //
+  // ElementHandle.screenshot scrolls the element into view and captures it,
+  // so the region cannot miss the element.
+  const shot = async (id, name) => {
+    const el = await page.$(`[data-testid="lead-card-${id}"]`)
+    if (!el) throw new Error(`shot: no card ${id}`)
+    await el.screenshot({ path: `${OUT}${name}` })
+  }
+
   const rects = async (id) => page.evaluate((x) => {
     const r = (sel) => { const e = document.querySelector(sel); if (!e) return null
       const b = e.getBoundingClientRect(); return { top: b.top, left: b.left, right: b.right, bottom: b.bottom, w: b.width, h: b.height } }
@@ -127,10 +145,7 @@ try {
   console.log(`  card head sub line:               "${subText}"`)
   FINDINGS.r2Raw = whenTexts.some((t) => /\d{4}-\d{2}-\d{2}T/.test(t))
   console.log(`  RAW ISO ON SCREEN: ${FINDINGS.r2Raw}`)
-  await page.screenshot({ path: `${OUT}lcuf-p0-notes-1920.png`, clip: await page.evaluate((x) => {
-    const b = document.querySelector(`[data-testid="lead-card-${x}"]`).getBoundingClientRect()
-    return { x: b.x, y: b.y, width: b.width, height: b.height }
-  }, withNotes.id) })
+  await shot(withNotes.id, `lcuf-p0-notes-1920.png`)
 
   // ── 2. R3: the notes header and the input's alignment ─────────────────
   say('2. R3: the notes header line and where the input sits')
@@ -152,10 +167,7 @@ try {
   console.log(`  MISALIGNMENT, note input vs Summary input:  top ${px(dTop)}`)
   FINDINGS.r3MisalignTop = Math.round(dTop)
   console.log(`  Discard          top ${px(open.noteDiscard?.top)}  left ${px(open.noteDiscard?.left)}`)
-  await page.screenshot({ path: `${OUT}lcuf-p0-notes-open-1920.png`, clip: await page.evaluate((x) => {
-    const b = document.querySelector(`[data-testid="lead-card-${x}"]`).getBoundingClientRect()
-    return { x: b.x, y: b.y, width: b.width, height: b.height }
-  }, withNotes.id) })
+  await shot(withNotes.id, `lcuf-p0-notes-open-1920.png`)
 
   // ── 3. R4: the empty-notes line ───────────────────────────────────────
   say('3. R4: where "No notes yet." renders, and what it costs')
@@ -203,10 +215,7 @@ try {
         [k, Math.round(deepest[k] ? deepest[k].colBottom - deepest[k].contentBottom : 0)])),
       belowBody: Math.round(cardBottom - bodyBottom),
     }
-    await page.screenshot({ path: `${OUT}lcuf-p0-lean-${w}.png`, clip: await page.evaluate((x) => {
-      const b = document.querySelector(`[data-testid="lead-card-${x}"]`).getBoundingClientRect()
-      return { x: Math.max(0, b.x), y: Math.max(0, b.y), width: b.width, height: b.height }
-    }, lean.id) })
+    await shot(lean.id, `lcuf-p0-lean-${w}.png`)
   }
 
   // ── 5. R1: the account picker as it renders today ─────────────────────
@@ -241,10 +250,7 @@ try {
   console.log(`  input  top ${px(picker.input?.top)} left ${px(picker.input?.left)} w ${px(picker.input?.w)}`)
   console.log(`  Create top ${px(picker.create?.top)} left ${px(picker.create?.left)}   BELOW the input: ${picker.createBelowInput}`)
   FINDINGS.r1 = picker
-  await page.screenshot({ path: `${OUT}lcuf-p0-picker-1920.png`, clip: await page.evaluate((x) => {
-    const b = document.querySelector(`[data-testid="lead-card-${x}"]`).getBoundingClientRect()
-    return { x: Math.max(0, b.x), y: Math.max(0, b.y), width: b.width, height: Math.min(b.height, 900) }
-  }, forPicker.id) })
+  await shot(forPicker.id, `lcuf-p0-picker-1920.png`)
   // How many accounts exist at all, so "N boxes" has a denominator.
   const total = await page.evaluate(() => window.__leadAccountsCount ?? null)
   console.log(`  accounts in the list (window hint): ${total ?? 'not exposed'}`)

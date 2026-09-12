@@ -76,7 +76,19 @@ try {
   }
 
   console.log('\nR4/R5. What "No notes yet." costs, measured by removing it live')
-  await page.setViewport({ width: 1920, height: 1000 })
+  // AT ALL THREE WIDTHS, because R5's answer DIFFERS by width: at 1240 the
+  // frozen follow-up column is the driver and R5 says leave it, and at 1920
+  // and 3440 it is not. Measuring only the middle width would have answered
+  // the wrong question at both ends.
+  for (const W of [1240, 1920, 3440]) {
+  await page.setViewport({ width: W, height: 1000 })
+  // A FULL RELOAD PER WIDTH. The first version of this loop removed the node
+  // at 1240 and then measured 1920 and 3440 against a tree the removal had
+  // already been applied to - `navigate('leads')` re-renders, it does not
+  // remount, so the node stayed gone. Both later widths read `removed: false`
+  // and a delta of zero, which is Verification 7's fixture-consumed-by-an-
+  // earlier-claim arriving inside one probe's own loop.
+  await page.reload({ waitUntil: 'networkidle0' })
   await gotoLeads(lean.id)
   const cols = async (x) => page.evaluate((id) => {
     const h = (sel) => { const e = document.querySelector(sel); return e ? e.getBoundingClientRect().height : null }
@@ -96,8 +108,8 @@ try {
     }
   }, x)
   const before = await cols(lean.id)
-  console.log(`  WITH    card ${px(before.card)}  Notes col ${px(before.Notes)}  notes content ${px(before.notesContent)}  Summary ${px(before.Summary)}  Follow-up ${px(before.Follow)}`)
-  await page.screenshot({ path: `${OUT}lcuf-p0b-with-empty-1920.png`, clip: await page.evaluate((x) => {
+  console.log(`  ${W}px WITH    card ${px(before.card)}  Notes content ${px(before.notesContent)}  Summary ${px(before.Summary)}  Follow-up ${px(before.Follow)}`)
+  await page.screenshot({ path: `${OUT}lcuf-p0b-with-empty-${W}.png`, clip: await page.evaluate((x) => {
     const b = document.querySelector(`[data-testid="lead-card-${x}"]`).getBoundingClientRect()
     return { x: Math.max(0, b.x), y: Math.max(0, b.y), width: b.width, height: b.height } }, lean.id) })
   // The experiment: remove the node, nothing else. A layout read follows.
@@ -107,12 +119,15 @@ try {
     e.remove(); return true
   }, lean.id)
   const after = await cols(lean.id)
-  console.log(`  removed the node: ${removed}`)
-  console.log(`  WITHOUT card ${px(after.card)}  Notes col ${px(after.Notes)}  notes content ${px(after.notesContent)}`)
-  console.log(`  CARD HEIGHT DELTA: ${px(before.card - after.card)}  per card, at 1920`)
-  await page.screenshot({ path: `${OUT}lcuf-p0b-without-empty-1920.png`, clip: await page.evaluate((x) => {
+  const drivers = { Summary: after.Summary, Notes: after.notesContent, 'Follow-up': after.Follow }
+  const driver = Object.keys(drivers).reduce((a, b) => (drivers[a] >= drivers[b] ? a : b))
+  console.log(`  ${W}px WITHOUT card ${px(after.card)}  Notes content ${px(after.notesContent)}   removed: ${removed}`)
+  if (!removed) { console.error(`  ${W}px READING VOID: the node was not present to remove`); process.exitCode = 3 }
+  console.log(`  ${W}px DELTA ${px(before.card - after.card)} per card   NEW DRIVER: ${driver} at ${px(drivers[driver])}`)
+  await page.screenshot({ path: `${OUT}lcuf-p0b-without-empty-${W}.png`, clip: await page.evaluate((x) => {
     const b = document.querySelector(`[data-testid="lead-card-${x}"]`).getBoundingClientRect()
     return { x: Math.max(0, b.x), y: Math.max(0, b.y), width: b.width, height: b.height } }, lean.id) })
+  }
 
   console.log('\nR1. The spray at its widest: a query matching every account')
   await gotoLeads(picker.id)
@@ -120,18 +135,28 @@ try {
   await page.waitForSelector(`[data-testid="lead-account-step-${picker.id}"]`, { timeout: 15000 })
   const sel = `[data-testid="lead-account-step-${picker.id}"] [data-testid="cd-link-search"]`
   for (const q of ['a', 'e']) {
-    await page.click(sel, { clickCount: 3 })
+    // SELECT-ALL BY KEYBOARD, not triple-click. Triple-click does not select
+    // in this input: the first version of this loop APPENDED, so it read
+    // `input="eo"` and reported 0 matches - which looked exactly like a
+    // picker that does not re-filter. probe-p0c-lcuf.mjs diagnosed it by
+    // reading the input's value back beside the count, which is Verification
+    // 14's remedy: the failure detail carries the cause's own answer.
+    await page.click(sel)
+    await page.keyboard.down('Meta'); await page.keyboard.press('KeyA'); await page.keyboard.up('Meta')
+    await page.keyboard.press('Backspace')
     await page.keyboard.type(q)
     await new Promise((r) => setTimeout(r, 400))
     const s = await page.evaluate((x) => {
       const step = document.querySelector(`[data-testid="lead-account-step-${x}"]`)
       const res = step.querySelector('[data-testid="cd-link-results"]')
       const boxes = [...res.querySelectorAll('button')].filter((b) => b.dataset.testid !== 'cd-link-create')
-      return { n: boxes.length, rows: new Set(boxes.map((b) => Math.round(b.getBoundingClientRect().top))).size,
+      return { value: step.querySelector('[data-testid="cd-link-search"]').value,
+        n: boxes.length, rows: new Set(boxes.map((b) => Math.round(b.getBoundingClientRect().top))).size,
         resH: res.getBoundingClientRect().height, stepH: step.getBoundingClientRect().height,
         labels: boxes.map((b) => b.textContent.trim()) }
     }, picker.id)
-    console.log(`  "${q}" -> ${s.n} boxes over ${s.rows} row(s), results ${px(s.resH)}, step ${px(s.stepH)}   ${JSON.stringify(s.labels)}`)
+    console.log(`  input="${s.value}" -> ${s.n} boxes over ${s.rows} row(s), results ${px(s.resH)}, step ${px(s.stepH)}   ${JSON.stringify(s.labels)}`)
+    if (s.value !== q) { console.error(`  READING VOID: meant to type "${q}", the box holds "${s.value}"`); process.exitCode = 3 }
   }
   await page.screenshot({ path: `${OUT}lcuf-p0b-spray-1920.png`, clip: await page.evaluate((x) => {
     const b = document.querySelector(`[data-testid="lead-card-${x}"]`).getBoundingClientRect()
