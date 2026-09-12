@@ -105,18 +105,22 @@ try {
   // ── QUALIFY ON AN INCOMPLETE LEAD -> the SERVER'S list ────────────────
   await page.click(`[data-testid="lead-qualify-${partial.id}"]`)
   await page.waitForSelector(`[data-testid="lead-incomplete-${partial.id}"]`, { timeout: 15000 })
-  const missing = await page.$$eval(`[data-testid="lead-missing-${partial.id}"] li`,
-    (li) => li.map((x) => x.textContent.trim()))
+  // R1 changed the RENDERING, not the source. The popup used to list the
+  // server's sentences as <li>; it now renders one labelled INPUT per missing
+  // field, keyed `lead-fix-<key>-<id>`. The claim is unchanged - the set comes
+  // from the server - so the assertion moves to the keys.
+  const missing = await page.$$eval(`[data-testid="lead-missing-${partial.id}"] [data-testid^="lead-fix-"]`,
+    (els) => els.map((x) => x.getAttribute('data-testid').replace(/^lead-fix-/, '').replace(/-[0-9a-f-]{36}$/, '')))
   // Through the throwing client, not a raw fetch: the guard caught this
   // shape twice in two rounds and the reason holds here too - a non-2xx from
   // the server side of this comparison would otherwise be silent, and the
   // comparison would pass on two empty lists.
   const server = await api('GET', `/records/${partial.id}/exit-criteria`)
-  const serverFields = (server.data.blocking ?? []).map((b) => b.message ?? b.label ?? b.field)
+  const serverFields = (server.data.blocking ?? []).map((b) => b.field)
   check('the completion popup names the SERVER\'S blocking list, not a client copy',
     missing.length === serverFields.length && missing.length > 0
       && missing.every((m) => serverFields.includes(m)),
-    `popup ${missing.length}, server ${serverFields.length}: ${missing.slice(0, 4).join(', ')}...`)
+    `popup ${missing.length} inputs, server ${serverFields.length} blocking: ${missing.slice(0, 4).join(', ')}...`)
   await page.screenshot({ path: `${OUT}p2-incomplete.png` })
   await page.click(`[data-testid="lead-incomplete-close-${partial.id}"]`)
 
@@ -208,38 +212,24 @@ try {
   check('on an UNOWNED card every WRITE action is neutralised',
     !!door.theirs && writes.every((k) => door.theirs[k] === 'dead'),
     JSON.stringify(door.theirs))
-  check('Address details stays alive on an unowned card, as a disclosure',
+  check('the Address button stays alive on an unowned card, so the lead stays readable',
     door.theirs?.address === 'live',
-    'P3: the door must never make an unowned lead unreadable')
+    'P3: the door must never make an unowned lead unreadable. What it OPENS is asserted in probe-polish.mjs')
   check('and the unowned card is still navigable, so the door is not a wall',
     !!door.theirs && door.theirs.navigable === true, `tabIndex 0: ${door.theirs?.navigable}`)
   check('on an OWNED card every write action is alive',
     !!door.mine && [...writes, 'address'].every((k) => door.mine[k] === 'live'),
     JSON.stringify(door.mine))
 
-  // AND WHAT MAKES "ALIVE" SAFE: the panel it reveals contains no control at
-  // all. A disclosure that revealed an editor would be a write path wearing a
-  // toggle, and the exemption would be the hole.
-  await page.click(`[data-testid="lead-address-${theirs.id}"]`)
-  await page.waitForSelector(`#lead-address-panel-${theirs.id}`, { timeout: 10000 })
-  const inPanel = await page.evaluate((id) => {
-    const panel = document.getElementById(`lead-address-panel-${id}`)
-    return panel.querySelectorAll('input, select, textarea, button, [tabindex]').length
-  }, theirs.id)
-  check('the disclosed address panel holds ZERO controls, so alive costs nothing',
-    inPanel === 0, `${inPanel} interactive elements inside the revealed panel`)
+  // R2 EXPIRED THE OLD ASSERTION HERE, and it is recorded rather than
+  // silently swapped. Last round asserted the revealed panel held ZERO
+  // controls, which is what made leaving the button alive safe. An editable
+  // address is a WRITE, so that assertion is no longer available and a
+  // read-versus-write separation replaces it: the BUTTON opens (reading
+  // preserved) and everything inside is dead. Proven in probe-polish.mjs,
+  // which owns R2.
   await page.screenshot({ path: `${OUT}p2-door.png` })
 
-  // ── THE ADDRESS DISCLOSURE ────────────────────────────────────────────
-  await page.click(`[data-testid="lead-address-${partial.id}"]`)
-  await page.waitForSelector(`[data-testid="lead-address-${partial.id}"][aria-expanded="true"]`, { timeout: 10000 })
-  const cells = await page.$$eval(`#lead-address-panel-${partial.id} .lead-address-cell`, (c) => c.length)
-  const oneRow = await page.evaluate((id) => {
-    const cs = [...document.querySelectorAll(`#lead-address-panel-${id} .lead-address-cell`)]
-    return new Set(cs.map((c) => Math.round(c.getBoundingClientRect().top))).size
-  }, partial.id)
-  check('Address details discloses all six fields', cells === 6, `${cells} cells in ${oneRow} row(s)`)
-  await page.screenshot({ path: `${OUT}p2-address.png` })
 } finally {
   for (const id of created) await db.from('records').update({ deleted_at: new Date().toISOString() }).eq('id', id)
   const live = must(await db.from('records').select('id').is('deleted_at', null), 'sweep')

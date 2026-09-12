@@ -52,16 +52,27 @@ export function LeadsList({ navToken }: { navToken?: number }) {
   const [fetches, setFetches] = useState(0)
   /** R2: which lead's Nurture dialogue is open. Null is closed. */
   const [nurturing, setNurturing] = useState<string | null>(null)
+  const [industries, setIndustries] = useState<Array<{ id: string, name: string }>>([])
+  const [sources, setSources] = useState<string[]>([])
 
   const load = useMemo(() => async () => {
-    const [c, s, a] = await Promise.all([
+    // R1: the completion popup renders real inputs, so the list fetches the
+    // picklists once for every card rather than each card fetching its own.
+    // `sources` comes from creation-requirements, which is the same endpoint
+    // the New Lead grid derives its mandatory markers from - one source for
+    // what a lead may be, not two.
+    const [c, s, a, ind, req] = await Promise.all([
       shell.api<LeadRecord[]>('GET', '/api/contacts'),
       shell.api<Stage[]>('GET', '/api/stage-definitions?record_type=contact'),
       shell.api<Array<{ id: string, payload?: { name?: string } }>>('GET', '/api/accounts'),
+      shell.api<Array<{ id: string, name: string }>>('GET', '/api/industries'),
+      shell.api<{ sources?: string[] }>('GET', '/api/contacts/creation-requirements'),
     ])
     if (c.ok && Array.isArray(c.data)) setLeads(c.data)
     if (s.ok && Array.isArray(s.data)) setStages(s.data)
     if (a.ok && Array.isArray(a.data)) setAccounts(a.data)
+    if (ind.ok && Array.isArray(ind.data)) setIndustries(ind.data)
+    if (req.ok && req.data?.sources) setSources(req.data.sources)
     setLoaded(true)
     setFetches((n) => n + 1)
   }, [shell])
@@ -118,6 +129,14 @@ export function LeadsList({ navToken }: { navToken?: number }) {
     ? LEADS_PIPELINE.filter((n) => !stages.some((s) => s.stage_name === n))
     : []
 
+  // R4: Summary is a write now, and it travels the same PATCH path the other
+  // inline writes do rather than inventing one.
+  const saveSummary = async (id: string, text: string) => {
+    const r = await shell.api('PATCH', `/api/contacts/${id}`, { payload: { summary: text } })
+    if (r.ok) await load()
+    return r.ok
+  }
+
   const addNote = async (id: string, text: string) => {
     const lead = leads.find((l) => l.id === id)
     const existing = Array.isArray(lead?.payload?.notes) ? lead!.payload!.notes as unknown[] : []
@@ -171,6 +190,9 @@ export function LeadsList({ navToken }: { navToken?: number }) {
               onAddNote={addNote}
               onSaveFollowUp={saveFollowUp}
               accounts={accountOptions}
+              industries={industries}
+              sources={sources}
+              onSaveSummary={saveSummary}
               onNurture={(id) => setNurturing(id)}
               onQualified={() => { void load() }} />
           ))}

@@ -79,6 +79,36 @@ pushes without the word.
 **AND LEAD DETAIL REMAINS FROZEN**, from the previous round's R4. It is
 retired only after John confirms card parity, which has not happened.
 
+**R1 REFRAMED, and MERGED WITH R6.** The popup already shows the correct
+server-derived list; what it lacks is **inputs**. R1 is therefore: make
+the popup **actionable**, so the missing fields are entered in place and
+no separate panel is needed.
+
+**The entry surface is built ONCE** and used by both the Qualify
+completion popup and the New Lead grid, because the seven fields R6 adds
+to the grid are the same seven the popup needs. **Two implementations of
+one field set is the drift this project keeps catching.**
+
+**R3 DEFERRED, in part.** Take R5's action-row move and a notes cap now,
+roughly 40 to 55px, and **state that as the achievable figure**. The
+remainder defers to the follow-up-entity round, which rebuilds the 218px
+follow-up panel anyway. **The follow-up panel is NOT unfrozen to save
+height.**
+
+Record R4's counter-pull and hold both rulings together: an editable
+Summary is **taller** than a paragraph, and the 192px of slack makes it
+affordable. Card height stated **before and after at 1240, 1920 and
+3440**.
+
+**R2 CONFIRMED CARD-LOCAL.** Frozen Lead Detail is not touched and not
+extracted from; the duplication is declared, like `NurtureDialog`.
+
+**R2 FLIPS last round's R11.** An editable address is a **write**, so the
+zero-controls assertion **expires** and is replaced by a read-versus-write
+separation, asserted both ways per card: unowned means address readable,
+edit controls dead, Save unreachable; owned means editable, Save enabling
+only on dirty.
+
 ---
 
 ## Phase 0: measurement only

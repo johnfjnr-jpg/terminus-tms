@@ -22,17 +22,9 @@
 // just been ruled on twice.
 import { useEffect, useRef, useState } from 'react'
 import { LeadCardActions } from './LeadCardActions'
+import { AddressPopup } from './AddressPopup'
+import { InlineSummary } from './InlineSummary'
 
-/**
- * R2's Address details disclosure. Read-only on the card by design: the card
- * works a pipeline, and editing an address is what opening the lead is for.
- * Qualify needs all five, so seeing WHICH are missing without leaving the list
- * is the point of showing them here.
- */
-const ADDRESS_FIELDS: Array<[string, string]> = [
-  ['address', 'Address'], ['address2', 'Address 2'], ['city', 'City'],
-  ['postcode', 'Postcode'], ['country', 'Country'], ['region', 'Region'],
-]
 import { NotesHistory } from '../contact/NotesHistory'
 import { FollowUpTask } from '../contact/FollowUpTask'
 import type { Note } from '../contact/notes'
@@ -49,7 +41,8 @@ export interface LeadRecord {
 const str = (v: unknown): string => (v === null || v === undefined ? '' : String(v))
 
 export function LeadCard({
-  lead, notMine, accountName, accounts, onOpen, onAddNote, onSaveFollowUp, onNurture, onQualified,
+  lead, notMine, accountName, accounts, industries, sources,
+  onOpen, onAddNote, onSaveFollowUp, onSaveSummary, onNurture, onQualified,
 }: {
   lead: LeadRecord
   /** Per-card, because a list has many owners and the door must be asked once each. */
@@ -60,6 +53,10 @@ export function LeadCard({
   onSaveFollowUp: (id: string, next: { followUpDate: string, followUpDescription: string }) => void
   /** R2: the account step's options, fetched once by the list, not per card. */
   accounts: Array<{ id: string, name: string }>
+  industries: Array<{ id: string, name: string }>
+  sources: string[]
+  /** R4: Summary is a write now, so it saves like the other inline writes. */
+  onSaveSummary: (id: string, text: string) => Promise<boolean>
   /** R2: Nurture opens the follow-up dialogue, date and reason. */
   onNurture: (id: string) => void
   /** The conversion landed; the list re-reads so the card leaves the pipeline. */
@@ -116,44 +113,49 @@ export function LeadCard({
           {[accountName ?? str(p.company) ?? '--', str(p.source) || '--',
             lead.created_at ? String(lead.created_at).slice(0, 10) : '--'].join(' · ')}
         </span>
-      </div>
 
-      <LeadCardActions
-        leadId={lead.id}
-        status={lead.status ?? null}
-        accounts={accounts}
-        onQualified={onQualified}
-        onNurture={() => onNurture(lead.id)}
-        addressOpen={addressOpen}
-        onToggleAddress={() => setAddressOpen((v: boolean) => !v)} />
+        {/* R5: THE ACTIONS ARE ON THE TOP LINE, inside the head, rather than
+            on a row of their own. That row cost 34px plus its margins, and
+            Phase 0 measured it as the largest height saving available while
+            the follow-up column is frozen by R7. `margin-left: auto` in the
+            stylesheet pushes the group off the text and into the middle of
+            the line. */}
+        <LeadCardActions
+          leadId={lead.id}
+          status={lead.status ?? null}
+          accounts={accounts}
+          onQualified={onQualified}
+          onNurture={() => onNurture(lead.id)}
+          addressOpen={addressOpen}
+          onOpenAddress={() => setAddressOpen(true)}
+          payload={p}
+          industries={industries}
+          sources={sources}
+          onSaved={onQualified} />
+      </div>
 
       {addressOpen
         ? (
-          <div
-            className="lead-address-panel"
-            id={`lead-address-panel-${lead.id}`}
-            data-testid={`lead-address-${lead.id}`}
-            onClick={(e) => e.stopPropagation()}
-            onKeyDown={(e) => e.stopPropagation()}
-          >
-            {ADDRESS_FIELDS.map(([key, label]) => (
-              <div className="lead-address-cell" key={key}>
-                <div className="lead-card-col-title">{label}</div>
-                <div data-testid={`lead-address-${key}-${lead.id}`}>
-                  {str(p[key]) || <span className="empty-state">Not recorded</span>}
-                </div>
-              </div>
-            ))}
-          </div>
+          <AddressPopup
+            leadId={lead.id}
+            current={p}
+            onClose={() => setAddressOpen(false)}
+            onSaved={() => { setAddressOpen(false); onQualified() }} />
         )
         : null}
 
       <div className="lead-card-body">
-        <div className="lead-card-col" data-testid={`lead-summary-${lead.id}`}>
+        <div
+          className="lead-card-col"
+          data-testid={`lead-summary-${lead.id}`}
+          onClick={(e) => e.stopPropagation()}
+          onKeyDown={(e) => e.stopPropagation()}
+        >
           <div className="lead-card-col-title">Summary</div>
-          <div className="lead-card-summary-body">
-            {str(p.summary) || <span className="empty-state">No summary captured yet.</span>}
-          </div>
+          <InlineSummary
+            value={str(p.summary)}
+            leadId={lead.id}
+            onSave={(text) => onSaveSummary(lead.id, text)} />
         </div>
 
         {/* INLINE WRITE 1. stopPropagation so the card's navigate does not fire

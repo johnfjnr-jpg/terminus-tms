@@ -13,7 +13,7 @@ const ROOT = '/Users/johnfryatt/terminus-tms'
 const OUT = `${ROOT}/.verify/leads-polish/`
 mkdirSync(OUT, { recursive: true })
 const db = admin()
-const TAG = 'p0pol'
+const TAG = 'p1pol-after'
 const OWNER = JSON.parse(readFileSync(`${ROOT}/session-ref.json`, 'utf8'))
 const must = ({ data, error }, w) => { if (error) throw new Error(`${w}: ${error.message}`); return data }
 const say = (h) => console.log(`\n${h}`)
@@ -75,7 +75,8 @@ try {
     const box = document.querySelector(`[data-testid="lead-incomplete-${id}"]`)
     return {
       text: box.textContent.replace(/\s+/g, ' ').trim().slice(0, 160),
-      lines: [...box.querySelectorAll('li')].map((li) => li.textContent.trim()),
+      lines: [...box.querySelectorAll('[data-testid^="lead-fix-"]')]
+      .map((x) => x.getAttribute('data-testid')),
       inputs: box.querySelectorAll('input, select, textarea').length,
       buttons: [...box.querySelectorAll('button')].map((b) => b.textContent.trim()),
     }
@@ -97,19 +98,8 @@ try {
 
   // ── 2. ADDRESS TODAY ──────────────────────────────────────────────────
   say('2. ADDRESS TODAY (R2)')
-  await page.click(`[data-testid="lead-address-${busy.id}"]`)
-  await page.waitForSelector(`#lead-address-panel-${busy.id}`, { timeout: 10000 })
-  const addr = await page.evaluate((id) => {
-    const p = document.getElementById(`lead-address-panel-${id}`)
-    return {
-      cells: p.querySelectorAll('.lead-address-cell').length,
-      controls: p.querySelectorAll('input, select, textarea, button').length,
-      height: Math.round(p.getBoundingClientRect().height),
-      inline: true,
-    }
-  }, busy.id)
-  console.log(`  the disclosure is INLINE in the card: ${addr.cells} cells, ${addr.controls} controls, ${addr.height}px tall`)
-  console.log(`  R2 wants a POPUP and EDITABLE, so: a new surface, and the door must reach its writes`)
+  console.log('  (the inline disclosure is gone; R2 replaced it with an editable popup,')
+  console.log('   proven in probe-polish.mjs. Not re-measured here.)')
 
   // ── 3. CARD HEIGHT COMPOSITION ────────────────────────────────────────
   say('3. CARD HEIGHT, LEAN AND BUSY, AT THREE WIDTHS (R3)')

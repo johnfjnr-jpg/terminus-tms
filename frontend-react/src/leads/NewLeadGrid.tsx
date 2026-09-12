@@ -25,17 +25,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useShell } from '../ShellContext'
 import { isValidMobile } from '../../../src/lib/field-validation.js'
+import { LEAD_FIELDS } from './leadFields'
+import { LeadFieldInput } from './LeadFieldInput'
 
-const COLUMNS = [
-  { key: 'name', label: 'Name' },
-  { key: 'company', label: 'Company Name' },
-  { key: 'jobRole', label: 'Job Title' },
-  { key: 'industry_id', label: 'Industry', kind: 'industry' as const },
-  { key: 'email', label: 'Email' },
-  { key: 'mobile', label: 'Mobile' },
-  { key: 'source', label: 'Lead Source', kind: 'source' as const },
-  { key: 'summary', label: 'Summary' },
-]
+// R6: ALL FIFTEEN FIELDS, from the one definition. The grid used to carry its
+// own list of eight; the seven added are linkedin and the address group - the
+// same seven the Qualify completion popup needs, which is why the definition
+// moved out of this file rather than being copied into another.
+const COLUMNS = LEAD_FIELDS
 
 const BLANK_ROWS = 4
 type Row = Record<string, string>
@@ -188,34 +185,20 @@ export function NewLeadGrid({ onDone, onDirtyChange }: {
                 <tr key={i} data-testid={`nlg-row-${i}`} data-invalid={bad ? 'true' : 'false'}>
                   {COLUMNS.map((c) => {
                     const why = touched[`${i}:${c.key}`] || bad ? p[c.key] : undefined
-                    const common = {
-                      'data-testid': `nlg-${c.key}-${i}`,
-                      value: row[c.key] ?? '',
-                      onFocus: () => onFocusRow(i),
-                      onBlur: () => setTouched((t) => ({ ...t, [`${i}:${c.key}`]: true })),
-                      className: why ? 'field-blocked' : undefined,
-                      // aria-invalid is the DECLARED property, so the
-                      // stylesheet and any probe enumerate by what the control
-                      // says about itself rather than by a class name somebody
-                      // can mint a ninth variant of.
-                      'aria-invalid': why ? true : undefined,
-                      'aria-errormessage': why ? `nlg-why-${c.key}-${i}` : undefined,
-                      title: why,
-                    }
                     return (
                       <td key={c.key}>
-                        {c.kind === 'industry'
-                          ? <select {...common} onChange={(e) => set(i, c.key, e.target.value)}>
-                              <option value="">--</option>
-                              {industries.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
-                            </select>
-                          : c.kind === 'source'
-                            ? <select {...common} onChange={(e) => set(i, c.key, e.target.value)}>
-                                <option value="">--</option>
-                                {sources.map((x) => <option key={x} value={x}>{x}</option>)}
-                              </select>
-                            : <input type="text" {...common}
-                                onChange={(e) => set(i, c.key, e.target.value)} />}
+                        <LeadFieldInput
+                          field={c}
+                          value={row[c.key] ?? ''}
+                          onChange={(v) => set(i, c.key, v)}
+                          industries={industries}
+                          sources={sources}
+                          testid={`nlg-${c.key}-${i}`}
+                          invalid={!!why}
+                          describedBy={`nlg-why-${c.key}-${i}`}
+                          onFocus={() => onFocusRow(i)}
+                          onBlur={() => setTouched((t) => ({ ...t, [`${i}:${c.key}`]: true }))}
+                          title={why} />
                         {why
                           ? <span className="nlg-why" id={`nlg-why-${c.key}-${i}`} data-testid={`nlg-why-${c.key}-${i}`}>{why}</span>
                           : null}

@@ -6153,3 +6153,86 @@ input.input-invalid {
 .lead-qualify-step [data-testid="cd-link-results"] {
   display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0;
 }
+
+/* ---------------------------------------------------------------------
+   LEADS CARD POLISH (2026-09-12): R1, R2, R4, R5.
+   --------------------------------------------------------------------- */
+
+/* R5: the actions sit ON the top line. `margin-left: auto` pushes the group
+   off the text, and the head's own flex-wrap means they drop to a second row
+   only when there is genuinely no space, rather than always. */
+.lead-card-head .lead-card-actions { margin: 0 0 0 auto; }
+.lead-card-head .lead-action-row { flex-wrap: nowrap; }
+
+/* R5: Notes aligns with the end of Created Date. The body was three equal
+   columns, which put Notes 108px right of where the head line ends. Sizing
+   the Summary column to the head's text makes the second column start where
+   the first line of the card finishes. */
+.lead-card-body { grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.04fr) minmax(0, 1.04fr); }
+
+/* R3: the card's own vertical cost, trimmed where it is this round's to trim.
+   The follow-up column is frozen (R7) and sets a 218px floor, so these are
+   the remaining levers rather than a claim to have solved it. */
+.lead-card { padding: 10px 16px; }
+.lead-card-body { row-gap: 10px; }
+
+/* R3: the notes cap. A busy card's Notes column was the DRIVER at 269px
+   against the frozen column's 218, so capping it helps exactly the cards that
+   are worst while doing nothing to a lean one. */
+/* `.cd-notes-list`, which is what the component actually renders. The first
+   version of this rule targeted `.notes-list`, a class that exists nowhere -
+   dead CSS that would have capped nothing while reading as a height fix.
+   Checked against the component rather than guessed. */
+.lead-card-col[data-testid^="lead-notes-"] .cd-notes-list {
+  max-height: 190px;
+  overflow-y: auto;
+}
+
+/* R4: the Summary editor. Taller than the paragraph it replaces, which is the
+   counter-pull recorded against R3 - affordable because Summary had 192px of
+   slack before it drove anything. */
+.lead-summary-edit { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+.lead-summary-input {
+  width: 100%;
+  background: var(--black);
+  border: none;
+  border-bottom: 1px solid var(--hairline);
+  color: var(--white);
+  font-family: var(--body);
+  font-size: 13px;
+  resize: vertical;
+}
+.lead-summary-input:focus { outline: none; border-bottom-color: var(--white); }
+
+/* R1: the completion popup's fields. A grid, because a column of fifteen
+   labelled inputs is a scroll and the whole point of R1 is finishing in
+   place. */
+.lead-complete-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 10px 18px;
+  margin: 8px 0 12px;
+}
+.lead-complete-cell { display: flex; flex-direction: column; gap: 3px; }
+.lead-complete-cell label,
+.address-popup-cell label {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.lead-complete-actions { display: flex; gap: 8px; }
+
+/* R2: the address popup. */
+.address-popup-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(180px, 1fr));
+  gap: 12px 20px;
+  margin: 10px 0 14px;
+}
+.address-popup-cell { display: flex; flex-direction: column; gap: 3px; }
+
+@media (max-width: 1100px) {
+  .address-popup-grid { grid-template-columns: 1fr; }
+}

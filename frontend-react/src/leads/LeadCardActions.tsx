@@ -22,21 +22,28 @@
 import { useState } from 'react'
 import { useShell } from '../ShellContext'
 import { LinkAccountPanel } from '../contact/LinkAccountPanel'
+import { QualifyCompletion } from './QualifyCompletion'
 
 type Blocking = { field?: string, label?: string, message?: string }
 type AccountOption = { id: string, name: string }
 type Step = 'idle' | 'checking' | 'incomplete' | 'account'
 
 export function LeadCardActions({
-  leadId, status, accounts, onQualified, onNurture, onToggleAddress, addressOpen,
+  leadId, status, accounts, onQualified, onNurture, onOpenAddress, addressOpen,
+  payload, industries, sources, onSaved,
 }: {
   leadId: string
   status: string | null
   accounts: AccountOption[]
   onQualified: () => void
   onNurture: () => void
-  onToggleAddress: () => void
+  onOpenAddress: () => void
   addressOpen: boolean
+  /** R1: the popup prefills what is already there and edits what is not. */
+  payload: Record<string, unknown>
+  industries: Array<{ id: string, name: string }>
+  sources: string[]
+  onSaved: () => void
 }) {
   const shell = useShell()
   const [step, setStep] = useState<Step>('idle')
@@ -108,7 +115,7 @@ export function LeadCardActions({
           data-testid={`lead-address-${leadId}`}
           aria-expanded={addressOpen}
           aria-controls={`lead-address-panel-${leadId}`}
-          onClick={onToggleAddress}>
+          onClick={onOpenAddress}>
           Address details
         </button>
       </div>
@@ -122,30 +129,21 @@ export function LeadCardActions({
           computeBlocking through exit-criteria. */}
       {step === 'incomplete'
         ? (
-          <div className="lead-qualify-step" data-testid={`lead-incomplete-${leadId}`}>
-            <p className="eyebrow">Not ready to qualify</p>
-            <p className="sub">
-              This lead needs {blocking.length} more {blocking.length === 1 ? 'field' : 'fields'}
-              {' '}before it can be qualified. Open the lead to fill them in.
-            </p>
-            <ul data-testid={`lead-missing-${leadId}`}>
-              {blocking.map((b, i) => (
-                <li key={b.field ?? i} data-testid={`lead-missing-${leadId}-${b.field ?? i}`}>
-                  {/* The SERVER'S own sentence. `message` is what
-                      computeBlocking builds - "Requires address to be set" -
-                      and the first build rendered `field`, so the popup listed
-                      raw keys: jobRole, linkedin. Found by opening the
-                      screenshot, which is the only instrument that could: the
-                      list was the right length, from the right source, and
-                      every assertion about it passed. */}
-                  {b.message ?? b.label ?? b.field}
-                </li>
-              ))}
-            </ul>
-            <button type="button" className="btn-ghost"
-              data-testid={`lead-incomplete-close-${leadId}`}
-              onClick={cancel}>Close</button>
-          </div>
+          <QualifyCompletion
+            leadId={leadId}
+            blocking={blocking}
+            current={payload}
+            industries={industries}
+            sources={sources}
+            onCancel={cancel}
+            onComplete={() => {
+              // NOTHING IS BLOCKING ANY MORE, so the flow continues to the
+              // account step WITHOUT the person pressing Qualify again. R1:
+              // complete it in place, no separate panel, no second journey.
+              onSaved()
+              setBlocking([])
+              setStep('account')
+            }} />
         )
         : null}
 
