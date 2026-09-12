@@ -74,6 +74,8 @@ declare global {
     mountNewLeadGrid?: () => void
     /** Published by the shell so the grid can ask for a list refresh. */
     renderLeadsCardsAfterCreate?: () => void
+    /** R6: published by the shell; the GRID is what knows whether it is dirty. */
+    setNewLeadDirty?: (dirty: boolean) => void
     initOpportunityDealPanel?: (opp: OppRecord) => void
     initOpportunityReferencePanel?: (opp: OppRecord) => void
     initOpportunityDealVersions?: (o: { opportunityId: string, seam: DealFormSeam }) => void
@@ -171,7 +173,12 @@ window.mountLeadsList = mountList('live-leads-rows',
 
 // P5: the New Lead batch grid, inside the shell's own modal.
 window.mountNewLeadGrid = mountList('new-lead-grid-mount',
-  () => <NewLeadGrid onDone={() => {
+  () => <NewLeadGrid
+    onDirtyChange={(d) => {
+      const w = window as unknown as { setNewLeadDirty?: (d: boolean) => void }
+      w.setNewLeadDirty?.(d)
+    }}
+    onDone={() => {
     // The list is the shell's to refresh; the grid does not know about it.
     const w = window as unknown as { renderLeadsCardsAfterCreate?: () => void }
     w.renderLeadsCardsAfterCreate?.()

@@ -6239,9 +6239,30 @@ let newLeadKeydownHandler = null
 // get a real choice instead, via the shared discard-confirmation dialog
 // above - Discard (closes for real) or Keep editing (returns here,
 // nothing lost).
+// ── R6: THE GRID OWNS THIS, THE SHELL NO LONGER GUESSES ──────────────────
+//
+// SUPERSEDED, and left visible because a premise failed rather than a
+// preference changing:
+//
+//   document.querySelector('#new-contact-form .modal-panel')
+//     .addEventListener('input',  () => { newLeadDirty = true })
+//   document.querySelector('#new-contact-form .modal-panel')
+//     .addEventListener('change', () => { newLeadDirty = true })
+//
+// Those two lines inferred "dirty" from any keystroke inside the panel. The
+// inference CANNOT SEE A SAVE - which is the defect John reported: save a row,
+// the grid empties, "0 ready", and closing still asked to discard. It cannot
+// see a PARTIAL save either, where rows the server refused stay behind and the
+// grid IS still dirty.
+//
+// Two readers of one value, and the shell's reader was blind to the event that
+// changes it. The grid knows; the grid says so.
+//
+// A NOTE ON WHY THE ONE-LINE FIX WAS REJECTED. Resetting the flag in the
+// existing onDone handler would have closed the screenshot and stayed wrong,
+// because onDone fires after a partial save too.
 let newLeadDirty = false
-document.querySelector('#new-contact-form .modal-panel').addEventListener('input', () => { newLeadDirty = true })
-document.querySelector('#new-contact-form .modal-panel').addEventListener('change', () => { newLeadDirty = true })
+window.setNewLeadDirty = (dirty) => { newLeadDirty = !!dirty }
 
 // P5: re-pointed from the retired #btn-save-contact to the grid's own Save.
 // The button is React's, so it may not be mounted yet - hence the guard.

@@ -75,6 +75,59 @@ the LEADS round carried 8 while 11 were in force and the round before it
 the named risk. Data changes proposed before applied. Nothing pushes
 without the word.
 
+**R6. THE GRID OWNS ITS DIRTY STATE** and reports it; the shell stops
+inferring it. The shell-side guess cannot see a partial save, so the
+one-line reset is REJECTED as insufficient. Proven three ways: the guard
+does NOT fire on a saved or clean grid, DOES fire on a genuinely dirty
+one, and DOES fire when a partial save leaves invalid rows behind.
+
+**R7. THE ACCOUNT STEP REUSES `LinkAccountPanel`.** Link-existing and
+create-new already work there. **Do not build a second picker.** Its
+three separate writes move INSIDE the atomic conversion function: the
+panel is the UI, the function is the transaction.
+
+**R8. NO PERSISTED MID-QUALIFICATION STATE.** Qualify opens the account
+step in memory; only resolving it calls the atomic function; cancel
+discards the in-memory step and the lead stays Unqualified, untouched.
+**Proven: cancel at the account step leaves zero new records** - no
+orphan Account, no Contact, status unchanged.
+
+**R9. GRID SIZING, confirmed with specifics.** John's direction is a
+minimum sensible width per column with the panel scrolling horizontally,
+so no column is crushed at fifteen. **Confirmed**, and specified in the
+Phase 1 report rather than left as an adjective.
+
+**R10. GATE GOVERNANCE IS ITS OWN ITEM, ruled but NOT built here.**
+Recorded in the Phase 1 report with its reasoning. It touches every
+close, so it is the opening act of a near-term round and calibrates on
+its own.
+
+---
+
+## What "create Contact" means, resolved by the design of record
+
+R1 says the transaction must *"create/link Account, create Contact, flip
+status to Qualified"*. Measured before building, because the two readings
+produce different functions:
+
+- There are **no live `lead` records**. The live record types are
+  account, contact, test_bed, document, unit, opportunity. The
+  `record_type='lead'` route serves LEGACY rows that are deliberately
+  left alone.
+- **A Lead IS a `contact` row at status Unqualified.** `contact` stages
+  are `Unqualified -> Qualified -> Nurture`.
+- `frontend/index.html:107` states it as the design of record:
+  **"one record, one stage chip, no separate Lead conversion."**
+
+**So "create Contact" is the status flip on the SAME record, not a second
+row.** Creating one would contradict the LEADS round's own design. The
+transaction is: create-or-link the Account, set the lead's
+`parent_record_id`, flip status to Qualified, append the revision, write
+the audit row.
+
+Recorded here rather than asked, because the design of record answers it
+and a settled question is not an ambiguity.
+
 ---
 
 ## The opening fix: a defect, not design

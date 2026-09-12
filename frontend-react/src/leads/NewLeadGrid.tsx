@@ -66,7 +66,22 @@ export function rowProblems(row: Row, required: string[]): Record<string, string
   return p
 }
 
-export function NewLeadGrid({ onDone }: { onDone?: (created: number) => void }) {
+export function NewLeadGrid({ onDone, onDirtyChange }: {
+  onDone?: (created: number) => void,
+  /**
+   * R6: THE GRID OWNS ITS DIRTY STATE AND REPORTS IT.
+   *
+   * The shell used to infer dirty from any `input` or `change` event inside
+   * the modal panel. That guess CANNOT SEE A SAVE, which is the defect John
+   * reported: save a row, the grid empties, and closing still asked to
+   * discard. It also cannot see a PARTIAL save, where rows the server refused
+   * stay behind and the grid is genuinely still dirty.
+   *
+   * Dirty is "this grid holds rows somebody typed and has not saved", which
+   * is a fact only the grid has.
+   */
+  onDirtyChange?: (dirty: boolean) => void,
+}) {
   const shell = useShell()
   const [rows, setRows] = useState<Row[]>(() => Array.from({ length: BLANK_ROWS }, blank))
   const [required, setRequired] = useState<string[]>([])
@@ -104,6 +119,9 @@ export function NewLeadGrid({ onDone }: { onDone?: (created: number) => void }) 
 
   const filled = rows.map((r, i) => ({ r, i })).filter(({ r }) => !isEmptyRow(r))
   const valid = filled.filter(({ i }) => Object.keys(problems[i]).length === 0)
+
+  const dirty = filled.length > 0
+  useEffect(() => { onDirtyChange?.(dirty) }, [dirty, onDirtyChange])
 
   const save = async () => {
     if (inFlight.current || !valid.length) return
