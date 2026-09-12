@@ -69,7 +69,7 @@ const DECL = [
 // is the module - a field routed through it cannot render raw whatever it is
 // called, which is why R7 is a module and not a sweep.
 const TS = String.raw`(?:[A-Za-z_$][\w$]*_at|[a-z][\w$]*At|[a-z][\w$]*Date|[a-z][\w$]*From`
-  + String.raw`|as_of|asOf|effective_from|effectiveFrom|timestamp|\bat|\bwhen)\b`
+  + String.raw`|as_of|asOf|effective_from|effectiveFrom|timestamp|\bat|\bwhen|\bsince|\buntil)\b`
 // Reaching a person: JSX interpolation, a template literal, or an assignment
 // to textContent/innerHTML.
 const SITE = [
@@ -143,7 +143,23 @@ const rawParts = (line) => {
     .filter((e) => !/^[\s\w$]+:/.test(e.trim()) && !/,\s*[\w$]+\s*:/.test(e))
     .filter((e) => TS_READ.test(e) && !e.includes('('))
 }
-const isRaw = (s) => DISPLAY(s.f) && rawParts(s.line).length > 0
+// ── "ROUTED" MEANT "CONTAINS A CALL", WHICH IS TOO WEAK ─────────────────
+//
+// A site doing its OWN date shaping inline - `${String(x.effectiveFrom)
+// .slice(0, 10)}` - contains a call, so the first version of this classifier
+// scored it ROUTED. It is not routed: it is a second implementation, which
+// is the exact thing R7 exists to remove, and the census would have reported
+// "0 raw" over the top of it.
+//
+// Found in approval-page.js by a grep run for a different reason, which is
+// the second time this census has been corrected by a grep rather than by
+// itself. Its shape is stated as a limit in the Phase 1 report rather than
+// claimed closed.
+const SELF_FORMATTING = DECL.map(([re]) => re)
+const selfFormats = (expr) => SELF_FORMATTING.some((re) => re.test(expr))
+const isRaw = (s) => DISPLAY(s.f)
+  && (rawParts(s.line).length > 0
+      || interpolations(s.line).some((e) => TS_READ.test(e) && selfFormats(e)))
 const raw = sites.filter(isRaw)
 const routed = sites.filter((s) => DISPLAY(s.f) && !isRaw(s))
 
@@ -162,8 +178,13 @@ const CLS = [
   [`<span>Resolved as at {c.asOf}.</span>`, true,
     'asOf is in the vocabulary - the omission that let a real site through'],
 ]
-const clsResults = CLS.map(([line, expectRaw, why]) =>
-  [rawParts(line).length > 0 === expectRaw, why])
+const CLS2 = CLS.concat([
+  ['`cost basis dated ${String(x.effectiveFrom).slice(0, 10)}`', true,
+    'shaping a date INLINE is a second implementation, not routing'],
+  ['`approved ${formatDate(t.decided_at)}`', false, 'a module call is routing'],
+])
+const clsResults = CLS2.map(([line, expectRaw, why]) =>
+  [isRaw({ f: 'frontend/x.js', line }) === expectRaw, why])
 const CLASSIFIER_OK = clsResults.every(([ok]) => ok)
 
 const out = { decls, sites, raw, routed,

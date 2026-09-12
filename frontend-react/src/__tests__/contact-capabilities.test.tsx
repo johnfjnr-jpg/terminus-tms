@@ -90,9 +90,21 @@ describe('N: the notes history', () => {
     expect(must('cd-note-1').textContent).toContain('oldest')
   })
 
-  test('N1 an empty history says No notes yet', async () => {
+  test('N1 an empty history says NOTHING - R4 supersedes "No notes yet."', async () => {
+    // R4: the empty area already shows there are no notes. The sentence was
+    // `.empty-state`, a PAGE-level style (40px vertical padding, centred)
+    // used inside a 12px card column and measured at 101px.
+    //
+    // THIS SURFACE IS THE CONTACT, NOT THE CARD, and the assertion is here
+    // deliberately: the removal reaches all three NotesHistory consumers, and
+    // this test is the evidence it reached this one.
     await mount()
-    expect(must('cd-notes-empty').textContent).toBe('No notes yet.')
+    // Both halves, per Verification 14: an assertion that a thing is ABSENT
+    // passes just as well when the whole component failed to render, so the
+    // container is asserted PRESENT and EMPTY rather than the sentence gone.
+    expect($('cd-notes-empty'), 'the sentence is gone').toBeNull()
+    expect(must('cd-notes-list'), 'the list itself still renders').not.toBeNull()
+    expect(must('cd-notes-list').children.length, 'and it is empty').toBe(0)
   })
 
   test('N2 ONE control: idle it opens, and open-and-empty it is DISABLED', async () => {

@@ -19,12 +19,6 @@
       "line": "export const todayIso = (now: Date = new Date()): string => now.toISOString().slice(0, 10)"
     },
     {
-      "f": "src/lib/approval-page.js",
-      "n": 877,
-      "kind": "ISO slice(0,10)",
-      "line": "+ (costBasis.oldest?.effectiveFrom ? ` and cost basis dated ${String(costBasis.oldest.effectiveFrom).slice(0, 10)}` : '')"
-    },
-    {
       "f": "src/lib/cost-basis.js",
       "n": 118,
       "kind": "ISO slice(0,10)",
@@ -244,13 +238,13 @@
     },
     {
       "f": "frontend-react/src/contact/NotesHistory.tsx",
-      "n": 156,
+      "n": 189,
       "kind": "JSX / template interpolation",
       "line": "<div className=\"ref-notes-row\" data-testid={`cd-note-${i}`} key={`${n.at}-${i}`}>"
     },
     {
       "f": "frontend-react/src/contact/NotesHistory.tsx",
-      "n": 157,
+      "n": 190,
       "kind": "JSX / template interpolation",
       "line": "<span className=\"ref-notes-when\">{formatTimestamp(n.at)}</span>"
     },
@@ -262,7 +256,7 @@
     },
     {
       "f": "frontend-react/src/leads/LeadCard.tsx",
-      "n": 209,
+      "n": 220,
       "kind": "JSX / template interpolation",
       "line": "date={str(p.followUpDate)}"
     },
@@ -322,9 +316,15 @@
     },
     {
       "f": "src/lib/approval-page.js",
-      "n": 877,
+      "n": 879,
       "kind": "JSX / template interpolation",
-      "line": "+ (costBasis.oldest?.effectiveFrom ? ` and cost basis dated ${String(costBasis.oldest.effectiveFrom).slice(0, 10)}` : '')"
+      "line": "+ (target.provenance ? ` (${target.provenance.source}, set ${formatDate(target.provenance.since)})` : '')"
+    },
+    {
+      "f": "src/lib/approval-page.js",
+      "n": 880,
+      "kind": "JSX / template interpolation",
+      "line": "+ (costBasis.oldest?.effectiveFrom ? ` and cost basis dated ${formatDate(costBasis.oldest.effectiveFrom)}` : '')"
     },
     {
       "f": "src/lib/base-costs.js",
@@ -517,13 +517,13 @@
     },
     {
       "f": "frontend-react/src/contact/NotesHistory.tsx",
-      "n": 156,
+      "n": 189,
       "kind": "JSX / template interpolation",
       "line": "<div className=\"ref-notes-row\" data-testid={`cd-note-${i}`} key={`${n.at}-${i}`}>"
     },
     {
       "f": "frontend-react/src/contact/NotesHistory.tsx",
-      "n": 157,
+      "n": 190,
       "kind": "JSX / template interpolation",
       "line": "<span className=\"ref-notes-when\">{formatTimestamp(n.at)}</span>"
     },
@@ -535,7 +535,7 @@
     },
     {
       "f": "frontend-react/src/leads/LeadCard.tsx",
-      "n": 209,
+      "n": 220,
       "kind": "JSX / template interpolation",
       "line": "date={str(p.followUpDate)}"
     },
@@ -595,9 +595,15 @@
     },
     {
       "f": "src/lib/approval-page.js",
-      "n": 877,
+      "n": 879,
       "kind": "JSX / template interpolation",
-      "line": "+ (costBasis.oldest?.effectiveFrom ? ` and cost basis dated ${String(costBasis.oldest.effectiveFrom).slice(0, 10)}` : '')"
+      "line": "+ (target.provenance ? ` (${target.provenance.source}, set ${formatDate(target.provenance.since)})` : '')"
+    },
+    {
+      "f": "src/lib/approval-page.js",
+      "n": 880,
+      "kind": "JSX / template interpolation",
+      "line": "+ (costBasis.oldest?.effectiveFrom ? ` and cost basis dated ${formatDate(costBasis.oldest.effectiveFrom)}` : '')"
     }
   ],
   "calibration": {
@@ -607,5 +613,5 @@
     "STRIPPER_KEEPS_CODE": true,
     "CLASSIFIER_OK": true
   },
-  "filesScanned": 158
+  "filesScanned": 159
 }

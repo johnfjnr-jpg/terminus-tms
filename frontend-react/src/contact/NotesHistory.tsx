@@ -12,7 +12,7 @@ export const DEFAULT_SHOWN = 2
 export const EXPANDED_SHOWN = 10
 
 /** N1: when, who, what - and an empty state that says so. */
-export function NotesHistory({ notes, onAdd, hasDirtyEdits, onConfirmDiscard, resetKey, actionsInHeader = false }: {
+export function NotesHistory({ notes, onAdd, hasDirtyEdits, onConfirmDiscard, resetKey, actionsInHeader = false, title }: {
   notes: readonly Note[]
   /** Resolves false when the write was refused, so the text can stay put. */
   onAdd: (text: string) => Promise<boolean>
@@ -32,6 +32,23 @@ export function NotesHistory({ notes, onAdd, hasDirtyEdits, onConfirmDiscard, re
    * (`setOpen(false); setText('')`). Only its placement moves.
    */
   actionsInHeader?: boolean
+  /**
+   * R3: THE TITLE ON THE HEADER LINE.
+   *
+   * The card used to render `<div class="lead-card-col-title">Notes</div>` as
+   * a SIBLING above this component, so the column read title / then a row of
+   * controls / then the input - and the input sat 36px below the Summary
+   * column's field beside it. John's word for it was "slapdash".
+   *
+   * Given, the title becomes the first item on the header row and the row
+   * carries `card-col-head`, the shared header-line class, so the field below
+   * starts at the same y as every other column's. Omitted, nothing changes -
+   * which is what keeps FROZEN Lead Detail and the Test Bed untouched.
+   *
+   * THREE CONSUMERS, NOT TWO: LeadCard, ContactHost and TestBedHost. R8 names
+   * the constraint and this prop is how it is met.
+   */
+  title?: string
 }) {
   const [open, setOpen] = useState(false)
   const [text, setText] = useState('')
@@ -83,17 +100,29 @@ export function NotesHistory({ notes, onAdd, hasDirtyEdits, onConfirmDiscard, re
 
   return (
     <div data-testid="cd-notes">
-      <div className="cd-notes-header-row" data-testid="cd-notes-header-row">
+      <div className={`cd-notes-header-row${title ? ' card-col-head' : ''}`}
+        data-testid="cd-notes-header-row">
+        {title
+          ? <span className="lead-card-col-title" data-testid="cd-notes-title">{title}</span>
+          : null}
         {/* The panel's own title now says NOTES (P3), so this says only what
             the title cannot: the order. "Notes history · latest first" under a
             heading reading NOTES was the same word twice. */}
         <span className="label">Latest first</span>
+        {/* R8: CLASSED. These shipped unclassed, so they rendered as white
+            browser defaults on a dark screen - F3's instances on this card,
+            found by opening a screenshot and invisible to every assertion the
+            estate writes. Their height is also what sets the alignment: a
+            bare button is 21px and `.btn-sm` is a known height, so the header
+            line and the Summary column's can be equal by construction.
+            Classing reaches all three consumers, which is a treatment fix
+            rather than a structural change and is stated in the report. */}
         {!open || actionsInHeader
-          ? <button type="button" data-testid="cd-add-note-btn"
+          ? <button type="button" className="btn-sm" data-testid="cd-add-note-btn"
               disabled={open && !text.trim()} onClick={onClick}>Add note</button>
           : null}
         {actionsInHeader && open
-          ? <button type="button" data-testid="cd-note-discard"
+          ? <button type="button" className="btn-sm" data-testid="cd-note-discard"
               onClick={() => { setOpen(false); setText('') }}>Discard</button>
           : null}
       </div>
@@ -101,6 +130,7 @@ export function NotesHistory({ notes, onAdd, hasDirtyEdits, onConfirmDiscard, re
       {open
         ? <div className="cd-note-input-wrap" data-testid="cd-note-input-wrap">
             <textarea
+              className="cd-note-input"
               data-testid="cd-new-note-input"
               autoFocus
               value={text}
@@ -113,9 +143,9 @@ export function NotesHistory({ notes, onAdd, hasDirtyEdits, onConfirmDiscard, re
               ? null
               : (
                 <>
-                  <button type="button" data-testid="cd-add-note-btn"
+                  <button type="button" className="btn-sm" data-testid="cd-add-note-btn"
                     disabled={!text.trim()} onClick={onClick}>Add note</button>
-                  <button type="button" data-testid="cd-note-discard"
+                  <button type="button" className="btn-sm" data-testid="cd-note-discard"
                     onClick={() => { setOpen(false); setText('') }}>Discard</button>
                 </>
               )}
@@ -137,22 +167,25 @@ export function NotesHistory({ notes, onAdd, hasDirtyEdits, onConfirmDiscard, re
             <span className="sub" data-testid="cd-notes-shown">
               {`Showing ${Math.min(shown, notes.length)} of ${notes.length}`}
             </span>
-            <button type="button" data-testid="cd-notes-show-2" aria-controls={notesListId}
+            <button type="button" className="btn-sm" data-testid="cd-notes-show-2" aria-controls={notesListId}
               disabled={shown === DEFAULT_SHOWN}
               onClick={() => setShown(DEFAULT_SHOWN)}>Latest 2</button>
-            <button type="button" data-testid="cd-notes-show-10" aria-controls={notesListId}
+            <button type="button" className="btn-sm" data-testid="cd-notes-show-10" aria-controls={notesListId}
               disabled={shown === EXPANDED_SHOWN}
               onClick={() => setShown(EXPANDED_SHOWN)}>Last 10</button>
-            <button type="button" data-testid="cd-notes-show-all" aria-controls={notesListId}
+            <button type="button" className="btn-sm" data-testid="cd-notes-show-all" aria-controls={notesListId}
               disabled={shown === Infinity}
               onClick={() => setShown(Infinity)}>All</button>
           </div>
         : null}
 
       <div className="cd-notes-list" id={notesListId} data-testid="cd-notes-list">
-        {notes.length === 0
-          ? <p className="empty-state" data-testid="cd-notes-empty">No notes yet.</p>
-          : notes.slice(0, shown).map((n, i) => (
+        {/* R4: "No notes yet." REMOVED. It was `.empty-state`, a PAGE-level
+            style - `padding: 40px 0`, centred - used inside a 12px card
+            column, measured at 101px. The empty area already says there are
+            no notes, and at 1920 and 3440 that sentence was what drove the
+            card's height, so removing it is also R5 (measured: 57px). */}
+        {notes.slice(0, shown).map((n, i) => (
             <div className="ref-notes-row" data-testid={`cd-note-${i}`} key={`${n.at}-${i}`}>
               <span className="ref-notes-when">{formatTimestamp(n.at)}</span>
               <span className="ref-notes-author">{n.by || '--'}</span>

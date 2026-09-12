@@ -339,6 +339,11 @@ test('block 1 states the ask in one sentence', () => {
   assert.equal(page.ask.version.revisionNumber, 12)
 })
 
+// R7 (2026-09-12): the two date shapes below moved from YYYY-MM-DD to
+// DD/MM/YY. The CLAIMS are unchanged - the absence is stated rather than left
+// as a gap, and the default provenance is named - and only the rendering
+// moved. `provenance.since` was a raw render the census's name vocabulary did
+// not contain; this test is what surfaced it.
 test('NO BASELINE STATES THE ABSENCE, it does not leave a gap', () => {
   // The business's decision: no delta against V0.1, because that is internal
   // drafting churn. And a blank block reads as a rendering failure, so the
@@ -347,13 +352,13 @@ test('NO BASELINE STATES THE ABSENCE, it does not leave a gap', () => {
   assert.equal(page.moved.bridge, null)
   assert.equal(page.moved.baseline, null)
   assert.match(page.moved.absence,
-    /^First approval\. No prior approved version\. Priced against target 30% and cost basis dated 2026-03-12\.$/)
+    /^First approval\. No prior approved version\. Priced against target 30% and cost basis dated 12\/03\/26\.$/)
 })
 
 test('the absence sentence names the DEFAULT provenance when target is unset', () => {
   const p = { ...NOW }; delete p.targetMargin
   const page = buildApprovalPage({ payload: p, testBedCost: 25000, version: VERSION, baseline: null, catalog: CATALOG })
-  assert.match(page.moved.absence, /target 30% \(system default, set \d{4}-\d{2}-\d{2}\) and cost basis dated 2026-03-12/)
+  assert.match(page.moved.absence, /target 30% \(system default, set \d{2}\/\d{2}\/\d{2}\) and cost basis dated 12\/03\/26/)
 })
 
 test('with a baseline, the page carries the bridge and its printed order', () => {

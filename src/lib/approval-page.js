@@ -44,6 +44,9 @@ import { frozenTermsSentences } from './system-defaults.js';
 // Commercials reference panel shows a salesperson the same thing earlier.
 // Verification 20: same bands, same words, one source.
 import { COST_BASIS_STALENESS, stalenessBand, ageInDays } from './cost-basis.js';
+// R7: the one formatter. This site shaped its own date inline, which the
+// census scored as routed because it contained a call. It was not routed.
+import { formatDate } from './format-dates.js';
 export { COST_BASIS_STALENESS, stalenessBand, ageInDays } from './cost-basis.js';
 
 // ─────────────────────────────────────────────────────────────
@@ -873,8 +876,8 @@ export function buildApprovalPage({
       bridge: null,
       absence: 'First approval. No prior approved version. '
         + `Priced against target ${target.target}%`
-        + (target.provenance ? ` (${target.provenance.source}, set ${target.provenance.since})` : '')
-        + (costBasis.oldest?.effectiveFrom ? ` and cost basis dated ${String(costBasis.oldest.effectiveFrom).slice(0, 10)}` : '')
+        + (target.provenance ? ` (${target.provenance.source}, set ${formatDate(target.provenance.since)})` : '')
+        + (costBasis.oldest?.effectiveFrom ? ` and cost basis dated ${formatDate(costBasis.oldest.effectiveFrom)}` : '')
         + '.',
     };
 

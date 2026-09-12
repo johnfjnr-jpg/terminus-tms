@@ -6272,3 +6272,148 @@ input.input-invalid {
 .lead-card-head .lead-card-actions:has(.lead-qualify-step) .lead-action-row {
   justify-content: flex-end;
 }
+
+/* ---------------------------------------------------------------------
+   LEAD CARD UI FIXES (2026-09-12): R1's type-ahead.
+
+   It replaces `.lead-qualify-step [data-testid="cd-link-results"]`, the
+   wrapping flex row of match boxes. That rule stays where it is because
+   LinkAccountPanel still renders that markup on frozen Lead Detail.
+   --------------------------------------------------------------------- */
+
+/* R6 convention: create sits to the RIGHT of the input, on its line.
+
+   THE ROW IS THE POSITIONING CONTEXT, not the picker. Anchored on `.acct-
+   picker` the list hung from the bottom of the WHOLE component, so it opened
+   below the Cancel button with a gap where the card showed through. Found by
+   opening the screenshot: every assertion passed, because "absolute" and
+   "does not reflow the step" were both true of the wrong anchor. */
+.acct-picker-row { display: flex; align-items: center; gap: 8px; position: relative; }
+
+.acct-picker-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 420px;
+  background: var(--black);
+  border: none;
+  border-bottom: 1px solid var(--hairline);
+  color: var(--white);
+  font-family: var(--mono);
+  font-size: 12px;
+  padding: 6px 0;
+}
+.acct-picker-input:focus { outline: none; border-bottom-color: var(--green); }
+
+/* The name can be long; the button must not push the input off the line. */
+.acct-picker-create {
+  flex: 0 0 auto;
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ABSOLUTE, so opening the list does not move the card's other columns.
+   The spray it replaces reflowed the whole step on every keystroke. */
+.acct-picker-list {
+  position: absolute;
+  z-index: 20;
+  top: 100%;
+  left: 0;
+  /* The input's width, not the row's: the list belongs to the box it
+     filters, and stopping short of the Create button says so. */
+  width: 420px;
+  max-width: 100%;
+  max-height: 220px;
+  overflow-y: auto;
+  margin: 2px 0 0;
+  padding: 0;
+  list-style: none;
+  /* `--dark` is the estate's panel ground. The first version of this rule
+     invented `--panel-bg`, a token that exists nowhere - it would have
+     rendered from the fallback and read as a themed value. Checked against
+     the defined set rather than assumed, which is how the same fault was
+     caught earlier in this round's session. */
+  background: var(--dark);
+  border: 1px solid var(--hairline-strong);
+}
+.acct-picker-option {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 7px 10px;
+  background: transparent;
+  border: none;
+  color: var(--body);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+.acct-picker-option.is-active,
+.acct-picker-option:hover:not(:disabled) { background: rgba(242, 242, 240, 0.07); color: var(--green); }
+.acct-picker-option:disabled { opacity: 0.4; cursor: default; }
+
+.acct-picker-cancel { margin-top: 10px; }
+
+/* ---------------------------------------------------------------------
+   R3 + R6: THE COLUMN HEADER LINE.
+
+   A card column's title shares one line with that column's own state label
+   and controls. Every column in a card body uses this class, so the first
+   field in each starts at the same y WITHOUT any column knowing about its
+   neighbour's margins.
+
+   Phase 0 measured the alternative: the note input sat 36px below the
+   Summary field beside it, of which 24px was the title taking a line of its
+   own and 12px was the header row being taller than a bare title. Tuning
+   one margin to match the other would have closed it and broken again the
+   next time a control's height changed.
+   --------------------------------------------------------------------- */
+.card-col-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  /* A FIXED LINE HEIGHT, not a minimum. A minimum grows to its tallest child,
+     so the Notes header measured 39px against the Summary header's 30px and
+     the two fields below them sat 9px apart - the residual C2 was written to
+     prevent, arriving through the very controls R8 had just classed.
+     The line owns its height; its contents fit inside it. */
+  height: 30px;
+  margin-bottom: 6px;
+}
+/* And the controls are sized to the line rather than the line to the
+   controls. `.btn-sm`'s own padding is built for a standalone button. */
+.card-col-head .btn-sm {
+  padding: 3px 10px;
+  line-height: 1.4;
+}
+/* The title already carries its own bottom margin for the surfaces that do
+   not use a header line; inside one, the line owns the spacing. */
+.card-col-head .lead-card-col-title { margin-bottom: 0; }
+/* `Latest first` pushes the actions to the right of the line. */
+.cd-notes-header-row.card-col-head .label { margin-right: auto; }
+
+/* The note editor, matching the Summary field it now sits beside.
+
+   PRE-EXISTING, NOT INTRODUCED HERE: the textarea had no rule anywhere in
+   this stylesheet and rendered as a white browser default on all three
+   NotesHistory surfaces. Phase 0's capture shows it.
+
+   IT IS FIXED HERE UNDER BUILD-DISCIPLINE 10'S LIMIT, and the judgment is
+   stated in the Phase 1 report for the business to overturn. R3 brings this
+   field to exactly the same y as the Summary field beside it, so the two are
+   now read together - one styled, one a browser default. That is the "bright
+   zero beside a dim zero" shape: worse BECAUSE of what the round did, even
+   though the defect predates it. Same family as R8, which was ruled in. */
+.cd-note-input {
+  width: 100%;
+  background: var(--black);
+  border: none;
+  border-bottom: 1px solid var(--hairline);
+  color: var(--white);
+  font-family: var(--body);
+  font-size: 13px;
+  resize: vertical;
+}
+.cd-note-input:focus { outline: none; border-bottom-color: var(--green); }

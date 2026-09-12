@@ -11235,3 +11235,110 @@ retires.
 
 **F3 stands at four instances**, unclassed white controls with no
 instrument that can see them.
+
+# Card and panel conventions, set 2026-09-12
+
+**R6 of the LEAD CARD UI FIXES round, and the reason it is written down is
+John's: the Contacts screens build on these, and he does not want the same
+style decisions re-derived by walking each new screen.**
+
+**A WRITTEN CONTRACT, NOT A CODE ABSTRACTION.** Each convention below is a
+decision a builder applies, not a component they import. Abstraction waits
+for a real second consumer: R1 of this round names Region (a fixed
+geographic list, a plain select) and the future Names picker (a managed
+admin list) as **different selection types**, and extracting a shared
+type-ahead before Names exists would be the premature generalisation the
+round was explicitly told to avoid.
+
+## C1. The column header line
+
+**A card column's title shares ONE line with that column's own state label
+and controls.** The title never takes a line of its own above them.
+
+Measured on the lead card before the change: `NOTES` on one line, then
+`LATEST FIRST` + Add note + Discard on a second, then the input. John's
+word was "slapdash".
+
+## C2. The field aligns across columns
+
+**Every column in a card body gives its header line the same height, so the
+first field in each column starts at the same y.** `.card-col-head` is that
+class. **Equal by construction, never by tuning one column's margin to
+match its neighbour's.**
+
+The arithmetic that produced this: the note input sat **36px** below the
+Summary field beside it. **24px was the title taking its own line and 12px
+was the header row being taller than a bare title.** Closing it by adjusting
+a margin would have worked and would have broken again the first time a
+control's height changed - which is exactly what C1 does to a control's
+height.
+
+**AND A CONTROL'S CLASS IS PART OF THIS.** An unclassed button is a browser
+default whose height nobody chose, so alignment and treatment cannot be
+decided separately. That is why R8 folded F3's fix into R3 rather than
+queueing it.
+
+## C3. Create sits to the right of the input it creates from
+
+**On the same line. Never below the results, and never inside them.**
+
+The lead card's picker put `CREATE "A"` at the **end of the row of matching
+accounts, in the same treatment as the real ones** - so the control that
+makes a new Account was indistinguishable from the controls that pick an
+existing one. **A control that makes a new thing is not dressed as one of
+the existing things.**
+
+**Present and disabled with an empty query, not hidden**, so the row does
+not jump and the affordance is visible before it is usable.
+
+## C4. A filtered selection is a dropdown, not a row of buttons
+
+**The height of a picker must not be a function of how much data exists.**
+Six accounts produced six buttons on one row; six hundred would produce a
+wall. The list is absolutely positioned so opening it does not reflow the
+columns beside it.
+
+**Not opening IS the empty signal.** A dropdown that opens to say "no
+matches" is C5's sentence in a smaller box, and Create sits beside the input
+as the way forward.
+
+**Enter picks only what is HIGHLIGHTED.** With nothing highlighted it does
+nothing, rather than committing the first match somebody never looked at.
+
+**AND THE ARIA GOES ON THE INPUT, NOWHERE ELSE.** The door's
+`NON_ACTION_SELECTOR` exempts `[aria-expanded]` and `[aria-controls]` and
+skips anything that `closest()`-matches an exemption. **A combobox wrapper
+carrying those attributes would exempt every option and the Create button
+inside it, leaving live write controls on a record somebody else owns.** The
+listbox is a SIBLING of the input, not a descendant.
+
+## C5. An empty region says nothing
+
+**No "No X yet." sentence.** The absence is the message.
+
+**And a page-level empty state never appears inside a card column.**
+`.empty-state` carries `padding: 40px 0` and centres its text; inside a 12px
+column it measured **101px** and read as detached from everything around it.
+At 1920 and 3440 it was **what drove the card's height**.
+
+## C6. One timestamp formatter, one date formatter, one module
+
+`src/lib/format-dates.js`. **A surface never formats a date inline and never
+ports a formatter by copying.**
+
+The estate had **16 sites producing 7 shapes**, four rendering a raw ISO
+string at a person. **Three copies claimed to agree and one had already
+drifted**, its comment saying it matched the two it was copied from while
+carrying a four-digit year against their two-digit one.
+
+**`app.js` cannot import, so the module is published on `window` and app.js
+DELEGATES.** That is a transport, not a second implementation. The estate's
+previous rule - the seam is for services, not helpers - is what produced the
+drift, and a helper that must not have two versions belongs on the seam.
+
+**GRAIN IS PRESERVED, SHAPE IS UNIFIED.** A timestamp shown at date grain on
+an approval chip stays a date.
+
+**ABSENCE IS THE CALLER'S TO NAME.** The module returns empty; each site
+keeps its own `--` or blank. Unifying the shape must not quietly unify the
+absence.

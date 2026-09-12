@@ -173,7 +173,14 @@ export function LeadCard({
           onClick={(e) => e.stopPropagation()}
           onKeyDown={(e) => e.stopPropagation()}
         >
-          <div className="lead-card-col-title">Summary</div>
+          {/* R3 + R6's convention: THE COLUMN HEADER LINE. Both columns give
+              their header the same class and therefore the same height, so
+              the first field in each starts at the same y. Equal BY
+              CONSTRUCTION rather than by tuning a margin to match a
+              neighbour - which is the half that survives the next change. */}
+          <div className="card-col-head">
+            <span className="lead-card-col-title">Summary</span>
+          </div>
           <InlineSummary
             value={str(p.summary)}
             leadId={lead.id}
@@ -188,13 +195,17 @@ export function LeadCard({
           onClick={(e) => e.stopPropagation()}
           onKeyDown={(e) => e.stopPropagation()}
         >
-          <div className="lead-card-col-title">Notes</div>
+          {/* R3: the title is no longer a sibling above the component. It is
+              the first item ON the header row, beside `Latest first`, Add
+              note and Discard - which is what brings the note input up to the
+              Summary field's line. */}
           <NotesHistory
             notes={notes}
             onAdd={(text) => onAddNote(lead.id, text)}
             hasDirtyEdits={false}
             onConfirmDiscard={(proceed) => { proceed() }}
             resetKey={lead.id}
+            title="Notes"
             actionsInHeader />
         </div>
 

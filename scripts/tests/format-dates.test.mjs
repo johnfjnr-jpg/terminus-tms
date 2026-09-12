@@ -6,6 +6,7 @@
 // below follows from that sentence plus Phase 0's measured absence behaviour.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { execFileSync } from 'node:child_process'
 import { formatDate, formatTimestamp } from '../../src/lib/format-dates.js'
 
 // The exact string Phase 0 photographed on the lead card, so the test is
@@ -47,15 +48,26 @@ test('an unparseable value is returned as it stands, not blanked', () => {
   assert.equal(formatTimestamp('not a date'), 'not a date')
 })
 
-test('a date-only value does not shift a day, in ANY timezone', () => {
+test('a date-only value does not shift a day, IN A ZONE WEST OF UTC', () => {
   // `new Date('2026-09-12')` is UTC midnight, so west of UTC getDate() gives
-  // the 11th. Every formatter this module replaces had that hazard. Asserted
-  // by construction rather than by trusting the runner's own zone: the day
-  // field must equal the day in the string.
-  for (const iso of ['2026-01-01', '2026-09-12', '2026-12-31']) {
-    const [, , dd] = iso.split('-')
-    assert.equal(formatDate(iso).slice(0, 2), dd, `${iso} shifted`)
-  }
+  // the 11th. Every formatter this module replaces had that hazard.
+  //
+  // THE FIRST VERSION OF THIS TEST RAN IN THE RUNNER'S OWN ZONE AND COULD NOT
+  // FAIL. Calibration proved it: with the date-only path removed, this test
+  // stayed GREEN here (UTC+8, where UTC midnight is 08:00 the same day) and
+  // went red under TZ=America/New_York. It claimed "in ANY timezone" and
+  // could only observe one - Verification 25's population clause, in the time
+  // dimension. The zone is now forced in a child process, so the assertion
+  // measures the population the claim is about wherever the suite runs.
+  const script = `
+    import { formatDate } from '${new URL('../../src/lib/format-dates.js', import.meta.url).pathname}'
+    const bad = ['2026-01-01', '2026-09-12', '2026-12-31']
+      .filter((iso) => formatDate(iso).slice(0, 2) !== iso.split('-')[2])
+    process.stdout.write(bad.join(','))
+  `
+  const out = execFileSync(process.execPath, ['--input-type=module', '-e', script],
+    { env: { ...process.env, TZ: 'America/New_York' }, encoding: 'utf8' })
+  assert.equal(out, '', `these shifted a day west of UTC: ${out}`)
 })
 
 test('a date-only value given to formatTimestamp does not acquire 00:00:00', () => {

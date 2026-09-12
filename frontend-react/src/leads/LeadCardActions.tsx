@@ -21,7 +21,7 @@
 // Verification 43: a display beside a correct rule, agreeing today.
 import { useEffect, useState } from 'react'
 import { useShell } from '../ShellContext'
-import { LinkAccountPanel } from '../contact/LinkAccountPanel'
+import { AccountPicker } from './AccountPicker'
 import { QualifyCompletion } from './QualifyCompletion'
 
 type Blocking = { field?: string, label?: string, message?: string }
@@ -184,21 +184,29 @@ export function LeadCardActions({
         : null}
 
       {/* ── THE ACCOUNT STEP ────────────────────────────────────────────
-          R7: LinkAccountPanel, not a second picker. Its submitPath is the
-          qualify route, so resolving it is ONE atomic call rather than
-          link-account's three. */}
+          R1 (UI fixes round), SUPERSEDING the previous round's R7. The
+          superseded reasoning is left visible: "LinkAccountPanel, not a
+          second picker. Its submitPath is the qualify route, so resolving
+          it is ONE atomic call rather than link-account's three."
+
+          THE ATOMIC-CALL HALF STILL HOLDS and is unchanged - AccountPicker
+          posts to the same qualify route with the same two bodies. What
+          changed is the SHAPE: John's walk ruled the button-spray out, and a
+          dropdown is not a prop on a panel that renders a row of buttons.
+
+          A FOURTH OPTIONAL PROP WAS THE ALTERNATIVE AND WAS REFUSED. The
+          three it already carries switch BEHAVIOUR - where to post, what
+          cancel does, whether Create shows. A prop switching the whole
+          render is two components sharing a file, and frozen Lead Detail
+          would then depend on that file being rewritten for the card. */}
       {step === 'account'
         ? (
           <div className="lead-qualify-step" data-testid={`lead-account-step-${leadId}`}>
             <p className="eyebrow">Qualify: choose the account</p>
-            <LinkAccountPanel
-              contactId={leadId}
+            <AccountPicker
+              leadId={leadId}
               accounts={accounts}
-              hasDirtyEdits={false}
-              onConfirmDiscard={(proceed) => { proceed() }}
               submitPath={`/api/contacts/${leadId}/qualify`}
-              alwaysOfferCreate
-              startOpen
               onCancel={cancel}
               onLinked={() => { setStep('idle'); onQualified() }} />
           </div>
