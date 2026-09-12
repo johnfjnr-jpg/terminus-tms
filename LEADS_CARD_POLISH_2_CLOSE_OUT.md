@@ -6,8 +6,14 @@ Two phases, both signed off. Nothing pushed. The word is John's.
 
 ## 1. The gate
 
-Stated after this commit, on the exact tree, with `--round-close` so F6
-refuses a skipped required stage. Section 8.
+**22 of 22 PASS, 0 SKIP, 0 FAIL on `c936ba9`**, the exact committed tree,
+clean working tree, run with `--round-close` so F6 refuses a skipped
+required stage. Door stage `PASS  HTTP readonly-view probe  exit 0
+87438ms`. Database suite `100/100`.
+
+**Green on the FIRST run**, which is worth stating because the last two
+rounds were not: the previous close went red on F8 and needed a second
+run, and the Phase 1 commit here was refused by the F5 guard. Section 8.
 
 ---
 
@@ -152,4 +158,27 @@ identical.
 
 ## 8. Gate result
 
-To be stated on the tree this commit creates.
+**22 of 22 PASS, 0 SKIP, 0 FAIL**, first run, on `c936ba9` with
+`--round-close`.
+
+| | |
+|---|---|
+| database suite | 100/100, 44,042ms |
+| **door stage** | **PASS**, 87,438ms |
+| pure / react | 519/519, 939/939 |
+
+### The flaky pair, this run
+
+**Neither F5 nor F8 fired.**
+
+**F5 was hardened this round and its guard fired once during Phase 1** -
+at 1,022ms against an 889ms ceiling - which is what took
+`TAG_CHUNK_SIZE` from 6 to 3. On this gate the database suite ran clean
+in 44,042ms.
+
+**F8 did not fire either**, and that is **not** evidence it is fixed. It
+is a dropped connection among forty concurrent calls, so its diagnostic
+is frequency rather than duration: a clean run is one sample. **It stays
+on the queue with its retry-with-recorded-cause treatment unbuilt.**
+
+**A green gate after two rounds of red ones is a reading, not a trend.**
