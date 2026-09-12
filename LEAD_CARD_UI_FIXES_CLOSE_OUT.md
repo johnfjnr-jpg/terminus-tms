@@ -7,8 +7,9 @@ each appended at the phase it launched. Nothing pushed.
 
 ## 1. The gate
 
-**22 of 22 PASS, 0 SKIP, 0 FAIL** on the exact committed tree, with
-`--round-close` so F6 refuses a skipped required stage. Section 9.
+**22 of 22 PASS, 0 SKIP, 0 FAIL** on `74c3510`, the exact committed tree,
+with `--round-close`. Door stage **PASS, 85,204ms**. Section 9, **and it
+took two runs: F6 caught the first and refused to call it green.**
 
 ---
 
@@ -96,7 +97,72 @@ file put two progress lines inside the document and displaced the header.
 
 ---
 
-## 5. Residue: none from this round
+## 5. F6 FIRED, ON THE FIRST CLOSING GATE
+
+**The first run of the closing gate was launched without
+`PUPPETEER_PATH`, so the door stage did not run.** The runner reported:
+
+> 21 of 22 stages passed, 1 NOT RUN. **1 REQUIRED stage did not run, so
+> this gate is UNANSWERED, not green. A ROUND CLOSE MAY NOT REST ON THIS
+> RUN. Do not close.**
+
+**That is exactly the failure F6 was built for**, at the start of this
+sequence of rounds, after the LEADS close printed "All 22 stages passed"
+over a silently skipped door. **It has now fired on the round that built
+it**, which is the only kind of evidence Verification 9 accepts: a
+detector that has never fired is an assertion, not a control.
+
+**Twenty-one green stages and a wrong answer is precisely the shape that
+is hardest to catch by reading.** The re-run with the browser available
+is the gate in section 9.
+
+---
+
+## 6. Residue: a cleanup this close had to do
+
+**Two gate runs were killed** - one by a ten-minute command wall, one
+because a second was launched on top of the first, which is itself the
+breach of the run-nothing-else rule and is recorded as mine.
+
+**They left 33 live records**, created in a 63-second window, owned by the
+two probe identities that had owned **zero** before. Build-discipline 8
+says enumerate what the ACTOR writes rather than what the first check
+names, so the harness's own source was read: it writes `records`,
+`stage_gate_rules`, `approvals` and `record_contacts`.
+
+| | before | after |
+|---|---|---|
+| live records owned by a probe identity | **33** | **0** |
+| live `harness_*` records | 4 | **0** |
+| `stage_gate_rules` for a `harness_*` type | **3** | **0** |
+| live records, total | 150 | **117**, the figure `CURRENT_STATE` records |
+
+**Records were SOFT deleted** per Verification 11, re-queried rather than
+trusted, and **no `reference_number_counters` row was touched**. The three
+`stage_gate_rules` rows were deleted outright: they are configuration for
+a synthetic type whose records are gone, and they are the literal instance
+build-discipline 8 was written from. **`approvals` and `record_contacts`
+were left in place**, hanging off soft-deleted records, because that is
+how this estate keeps history rather than orphaning it.
+
+**Verified again after the successful gate: 117 live, 0 probe-owned, 0
+`harness_*`, 93 `stage_gate_rules`.**
+
+### And a number I nearly reported as a finding
+
+A first pass read **989 approvals pointing at a non-existent record.** It
+was a **capped scan**: the record-id set was fetched with a `.limit()`
+against a table PostgREST caps far lower, so every approval whose record
+fell outside the page read as orphaned.
+
+**Re-measured by paging both tables and asserting the rows walked equal
+the exact count** - 55,319 records and 3,197 approvals, both complete -
+the answer is **0**. Verification 17's paged-API species, caught by its
+own remedy before it reached this document.
+
+---
+
+## 7. Residue attributable to the ROUND itself: none
 
 **Neither probe identity owns a single live record.**
 
@@ -117,7 +183,7 @@ not this round's residue either way.
 
 ---
 
-## 6. Promotions: two, both EXTENSIONS
+## 8. Promotions: two, both EXTENSIONS
 
 ### Verification 4 gains the layout clause
 
@@ -163,7 +229,7 @@ one that makes it fire.
 
 ---
 
-## 7. What this round did NOT do
+## 9. What this round did NOT do
 
 - **No walk.** Lead Detail and the Test Bed both changed appearance -
   formatters, classed controls, no empty sentence - and neither has been
@@ -174,7 +240,7 @@ one that makes it fire.
 
 ---
 
-## 8. Carried forward, in order
+## 10. Carried forward, in order
 
 1. **F8's retry-with-recorded-cause** - **unbuilt, three failures**, two of
    which interrupted a close. Still the best-evidenced item on the queue.
@@ -196,6 +262,18 @@ one that makes it fire.
 
 ---
 
-## 9. Gate result
+## 11. Gate result
 
-To be stated on the tree this commit creates.
+**22 of 22 PASS, 0 SKIP, 0 FAIL**, on `74c3510` with `--round-close`.
+
+| | |
+|---|---|
+| pure / react / database | 527/527, 957/957, 100/100 |
+| **door stage** | **PASS**, 85,204ms |
+| **F6** | **fired on the first run** and refused it; section 5 |
+| **F8** | **did not fire**, on either gate run or any hook run this round |
+| F5 | did not fire; database suite 42,078ms |
+
+**F8's silence is eight samples of a frequency defect, not a change.** Two
+consecutive closes have now said so, and the previous one was proved right
+within the hour.
