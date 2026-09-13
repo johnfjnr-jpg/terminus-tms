@@ -98,7 +98,7 @@ const SURFACES: Array<{ name: string, node: () => React.ReactNode }> = [
     node: () => (
       <ContactPanel
         source={{ payload: { name: 'Ana', email: 'a@b.c' }, industryId: null, industries: [] }}
-        blocking={null} accountName={null} onSave={() => {}} />),
+        blocking={null} account={null} onSave={() => {}} />),
   },
   {
     name: 'Reference tab',

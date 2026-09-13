@@ -10,6 +10,7 @@ import { FieldRow } from '../field-row/FieldRow'
 import { useFieldRows } from '../field-row/useFieldRows'
 import { contactDescriptors, type ContactSource } from './descriptors'
 import { tintedRows, accountCardBlocked, type BlockingState } from './blocking'
+import { AccountSection, type AccountRef } from '../leads/AccountSection'
 
 /**
  * A titled card.
@@ -94,14 +95,22 @@ const CONTACT_FIELDS = ['name', 'company', 'jobRole', 'email', 'mobile', 'linked
 const ADDRESS_FIELDS = ['address', 'address2', 'city', 'postcode', 'country', 'region']
 
 export function ContactPanel({
-  source, subject, blocking, accountName, onSave, onDirtyChange, onBack, actions,
+  source, subject, blocking, account, parentRecordId, onSave, onDirtyChange, onBack, actions,
   linkPanel, notes, status, leadName, followUp, nurturePanel, qualifyBlockers,
 }: {
   source: ContactSource
   /** A4: the record being edited. Changing it drops every unsaved draft. */
   subject?: string | null
   blocking: BlockingState | null
-  accountName: string | null
+  /**
+   * R6: the account as the ROUTE resolved it, which is the same derivation
+   * `GET /contacts` uses. This screen used to take a bare `accountName`
+   * read from `record.account?.name` - a key no route returned - so all ten
+   * live Qualified contacts were told they had no account.
+   */
+  account: AccountRef | null
+  /** What separates "no account" from "an account that would not resolve". */
+  parentRecordId?: string | null
   onSave: (changes: Record<string, string>) => void
   /** The link panel needs to know, because linking may lose unsaved edits. */
   onDirtyChange?: (dirty: boolean) => void
@@ -257,13 +266,21 @@ export function ContactPanel({
       </div>
 
       {/* ── 7: ACCOUNT. Its empty state is one of the things keeping
-          Qualify disabled, which is why it is not inside a collapsed card. */}
-      <Card title="Account" testId="cd-card-account" blocked={accountCardBlocked(blocking)}>
-        <div data-testid="cd-account-status">
-          {accountName ? accountName : 'Not linked'}
-        </div>
+          Qualify disabled, which is why it is not inside a collapsed card.
+
+          R2/R6: the SHARED section, not a card local to this screen. Both
+          testids survive by name - five callers address them, and
+          `probe-gated-fields-reachable.mjs` treats `cd-card-account` as
+          `parent_record_id`'s own container. */}
+      <AccountSection
+        account={account}
+        parentRecordId={parentRecordId}
+        blocked={accountCardBlocked(blocking)}
+        framed
+        testid="cd-card-account"
+        statusTestid="cd-account-status">
         {linkPanel}
-      </Card>
+      </AccountSection>
 
       {/* ── 8: THE FOLLOW-UP TASK ─────────────────────────────────────── */}
       {followUp}

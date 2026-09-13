@@ -114,7 +114,27 @@ So this round:
 dissolve only when `contact-detail` retires, and it does not. **Use
 optional props; do not touch the frozen consumers.**
 
-## Phase 1: build R1, R2, R3. RETIRE NOTHING.
+## R6 and R7, ruled after Phase 1's partial (John, 2026-09-13)
+
+**R6 - THE "NOT LINKED" DEFECT IS FIXED NOW, as an opening act.** The route
+does not return an account object; the screen reads `record.account?.name`;
+**all 10 Qualified contacts show "Not linked" while linked.** Fix the route
+to return the account - **the same one source R2's section reads.** It is
+the prerequisite for R2 showing real data. **Prove it live, with a
+screenshot.**
+
+**R7 - R1 BECOMES ITS OWN ROUND.** **Land R2 this round**, fed by the fixed
+route. **R1's surface swap is its own next round, with the 15-test
+re-pointing as EXPLICIT budgeted work, re-pointed against the REQUIREMENT
+rather than against the change** - the Verification 47 pattern the revert
+avoided. **R1 rewrites a live screen; it deserves a round where honest test
+re-pointing is the named job.**
+
+**AND REGARDLESS: R3's `blocking={[]}` over-application is FIXED to
+conditional** - markers only when something is missing. It is a defect this
+session already identified.
+
+## Phase 2: build R6 and R2. R1 defers to its own round.
 
 **NOTHING IS RETIRED**, so the proof obligation changes:
 
@@ -133,3 +153,43 @@ Stop at each phase for sign-off. **Nothing pushes.**
 
 **The Phase 1 report states that the walk is PENDING and REQUIRED before
 this is called final.**
+
+
+## Phase 2 (R6 + R2) - what landed
+
+R6. THE ROUTE RETURNS THE ACCOUNT. `accountsFor(db, contacts)` in
+    `src/routes/contacts.js` resolves `parent_record_id` to the account's
+    latest revision, and BOTH `GET /contacts` and `GET /contacts/:id` call
+    it. One derivation, so the list and the detail view cannot disagree -
+    Verification 20 closed at the source rather than at each reader.
+R2. THE SHARED SECTION LANDED ON THE BESPOKE SCREEN. `ContactPanel`'s local
+    `Card title="Account"` is replaced by `AccountSection`, which now reads
+    the route's `account` object rather than searching an accounts list.
+    Both testids survive by name: five callers address them.
+
+    THE RENDER RULE GAINED ITS SECOND HALF, on measurement. R2 as written
+    ("renders for a contact, not for a lead") was correct for the lead card
+    and would have taken the LINK PANEL off the bespoke screen, which is the
+    surface where an account is linked. The rule is now: render when the
+    record HAS an account, or when the host has given the section something
+    to OFFER. Both halves are structural.
+
+R8. THE FRAME DEFECT, FOUND BY OPENING THE SCREENSHOT AND FIXED HERE under
+    build-discipline 10's limit. Swapping `Card` for the panel shell dropped
+    `.pg-card`, so the account name rendered as bare text outside any border
+    while all five siblings were framed, and the link control was clipped.
+    Every assertion passed. `Panel` is the header-and-body contract, not a
+    card, so the frame is now a `framed` prop the host passes.
+
+R9. CARRIED, NOT FIXED (rule 10, not this round's authorship):
+    - `NewLeadGrid.tsx` lines 14-18 state `jobRole` "IS IN THE RULED LAYOUT
+      AND NOT IN THE SERVER'S SET". FALSE since 9f2c533 (LEADS P5 R11,
+      2026-09-11) made it mandatory server-side. Architecture 9's fourth
+      variant: a literal that rotted, which nothing can falsify.
+    - `probe-gated-fields-reachable.mjs` had been dead since that same
+      commit, dying on `missing: ["jobRole"]`. It is not a gate stage, so it
+      rotted unrun for two rounds. Its fixture was corrected here (one key)
+      and it passes; the wider question - how many non-gate probes have
+      rotted the same way - is queued, not answered.
+    - `LinkAccountPanel`'s button renders dim enough to read as disabled.
+      Pre-existing, for John's eye.

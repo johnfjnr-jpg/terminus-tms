@@ -39,7 +39,7 @@ type Blocking = { field?: string, label?: string, message?: string }
 
 export function QualifyCompletion({
   leadId, blocking, current, industries, sources, regions, onComplete, onCancel, onRefresh,
-  mode = 'complete', accounts, parentRecordId, accountActions, saveLabel, onSaveChanges,
+  mode = 'complete', account, parentRecordId, accountActions, saveLabel, onSaveChanges,
 }: {
   leadId: string
   blocking: Blocking[]
@@ -69,8 +69,13 @@ export function QualifyCompletion({
    * this is a mode flag and an entry, not a second surface.
    */
   mode?: 'complete' | 'view'
-  /** R2: the accounts the host already fetched. Not a second request. */
-  accounts?: AccountRef[]
+  /**
+   * R6: THE ACCOUNT AS THE ROUTE RESOLVED IT. Not an accounts list to
+   * search: `GET /contacts` and `GET /contacts/:id` both resolve
+   * `parent_record_id` through one helper, so this surface reads the
+   * SAME derivation the list does and cannot disagree with it.
+   */
+  account?: AccountRef | null
   /** R2: `records.parent_record_id`, the one source. Absent for a lead. */
   parentRecordId?: string | null
   accountActions?: React.ReactNode
@@ -229,7 +234,7 @@ export function QualifyCompletion({
             nothing at all. */}
         <AccountSection
           parentRecordId={parentRecordId}
-          accounts={accounts ?? []}
+          account={account}
           actions={accountActions}
           testid={`lead-account-${leadId}`} />
 

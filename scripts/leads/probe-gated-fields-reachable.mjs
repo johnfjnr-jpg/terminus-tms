@@ -36,6 +36,13 @@ try {
   const lead = await call('POST', '/contacts', {
     name: `${TAG} Lead`, company: 'Gate Co', email: `${TAG}@example.invalid`,
     mobile: '+65 9000 0011', source: 'Direct Outreach', industry_id: industry.id,
+    // `jobRole` became mandatory server-side in 9f2c533 (LEADS P5 R11,
+    // 2026-09-11). This probe is not a gate stage, so it rotted unrun for
+    // two rounds and died on `missing: ["jobRole"]` - Verification 9's
+    // clause about a check that stops being calibrated, arriving at a probe
+    // nothing schedules. Fixed here only so its disposition under
+    // Verification 41 could be MEASURED rather than asserted.
+    jobRole: 'Gate Probe',
   })
 
   // THE SERVER'S OWN ANSWER, for this record, right now.

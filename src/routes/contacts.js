@@ -75,6 +75,47 @@ export default async function contactsRoutes(app) {
   // every contact and filters in the browser, which is a scaling problem
   // rather than a fixed cost. Existing callers are untouched and still get
   // the full list, so this is a strict superset of the previous behaviour.
+  /**
+   * R6: THE ACCOUNT A CONTACT IS LINKED TO, DERIVED HERE AND NOWHERE ELSE.
+   *
+   * THE DEFECT THIS CLOSES. `ContactPanel` renders
+   * `record.account?.name ?? 'Not linked'`, and NO ROUTE HAS EVER RETURNED
+   * an `account` object - not this one, not `/contacts/:id`. Measured at
+   * this round's baseline: **all ten live Qualified contacts carry a
+   * `parent_record_id`, and the screen told every one of them "Not
+   * linked".** A reader of a key nobody writes, and the screen said the
+   * opposite of the truth for a year of rounds.
+   *
+   * ONE SOURCE: `records.parent_record_id`, resolved to the account's own
+   * latest revision. Both routes call this, so the list and the detail view
+   * cannot disagree - Verification 20's remedy, one definition and two
+   * callers.
+   *
+   * ABSENT AND UNRESOLVED ARE DIFFERENT. A contact with no
+   * `parent_record_id` gets `null` - it genuinely has no account. A contact
+   * whose account row cannot be read gets `null` too, and the CLIENT
+   * distinguishes the two by looking at `parent_record_id` itself, because
+   * collapsing them is exactly what hid this.
+   */
+  async function accountsFor(db, contacts) {
+    const parentIds = [...new Set(contacts.map(c => c.parent_record_id).filter(Boolean))]
+    if (!parentIds.length) return {}
+    const { data: accounts, error } = await db
+      .from('records').select('id').in('id', parentIds).eq('record_type', 'account')
+    if (error) throw new Error(`accountsFor: ${error.message}`)
+    const accountIds = (accounts ?? []).map(a => a.id)
+    if (!accountIds.length) return {}
+    const { data: revs, error: revErr } = await db
+      .from('record_revisions').select('record_id, revision_number, payload')
+      .in('record_id', accountIds).order('revision_number', { ascending: false })
+    if (revErr) throw new Error(`accountsFor revisions: ${revErr.message}`)
+    const byId = {}
+    for (const r of revs ?? []) if (!byId[r.record_id]) byId[r.record_id] = r.payload
+    const out = {}
+    for (const id of accountIds) out[id] = { id, name: byId[id]?.name ?? null }
+    return out
+  }
+
   app.get('/contacts', async (request, reply) => {
     const db = createUserClient(request.jwt)
     const accountId = request.query?.account_id
@@ -176,10 +217,16 @@ export default async function contactsRoutes(app) {
       })
     }
 
+    // R6: the account, from the SAME derivation the detail route uses, so
+    // the list and the detail view cannot disagree about who a contact
+    // belongs to.
+    const accounts = await accountsFor(db, contacts)
+
     return contacts.map(c => ({
       ...c,
       payload: latestPayload[c.id] ?? {},
       latest_revision_number: latestRevision[c.id] ?? null,
+      account: accounts[c.parent_record_id] ?? null,
       linked_test_beds: byContact[c.id] ? [...byContact[c.id].test_bed.values()] : [],
       linked_opportunities: byContact[c.id] ? [...byContact[c.id].opportunity.values()] : [],
     }))
@@ -342,10 +389,14 @@ export default async function contactsRoutes(app) {
       .limit(1)
       .maybeSingle()
 
+    // R6: the account travels with the record, from the one derivation.
+    const accounts = await accountsFor(db, [contact])
+
     return {
       ...contact,
       payload: rev?.payload ?? {},
       latest_revision_number: rev?.revision_number ?? null,
+      account: accounts[contact.parent_record_id] ?? null,
     }
   })
 

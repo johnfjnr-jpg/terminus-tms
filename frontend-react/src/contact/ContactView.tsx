@@ -22,7 +22,8 @@ interface ContactRecord {
   status?: string | null
   /** A5: the door's question. Already returned by GET /contacts/:id. */
   owner_id?: string | null
-  account?: { id?: string, name?: string } | null
+  /** R6: the route's own resolution of `parent_record_id`. */
+  account?: { id: string, name: string | null } | null
   latest_revision_number?: number | null
 }
 

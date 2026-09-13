@@ -23,7 +23,8 @@ interface ContactLike {
   industry_id?: string | null
   parent_record_id?: string | null
   status?: string | null
-  account?: { id?: string, name?: string } | null
+  /** R6: resolved by the route from `parent_record_id`, in the helper `GET /contacts` also calls. */
+  account?: { id: string, name: string | null } | null
   /** The revision handshake's own value, carried BY THE RECORD. */
   latest_revision_number?: number | null
 }
@@ -385,7 +386,8 @@ export function ContactHost({ contact, registerReload, navToken }: {
         // subject and the drafts go.
         subject={`${contact.id}:${navToken ?? 0}`}
         blocking={blocking}
-        accountName={record.account?.name ?? null}
+        account={record.account ?? null}
+        parentRecordId={record.parent_record_id ?? null}
         onSave={(c) => { void onSave(c) }}
         onDirtyChange={setDirty}
         // THE SAME RULE THE SEAM PUBLISHES, read from the same place, so the
