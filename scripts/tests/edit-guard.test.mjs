@@ -153,21 +153,19 @@ test('the hook and its installer are in the repository', () => {
     'npm has no prepare script installing the hook, so a clone would not have it')
 })
 
-test('every test file is named by a suite, so none can sit unrun', () => {
-  // ROUND 39's INSTANCE, ARRIVING AGAIN IN ROUND 41 and caught the same way,
-  // by a count. Nine new assertions were written, the suite went from 270 to
-  // 271, and the file holding them was not in package.json at all. Round 39's
-  // remedy was that any number describing a run is emitted by the run, which is
-  // done and did not help: the run was honest about a population that was one
-  // file short.
-  //
-  // The scripts are read rather than a list being maintained here, so a suite
-  // renamed or split needs no edit and cannot rot.
-  const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'))
-  const named = Object.values(pkg.scripts).join(' ')
-  const files = readdirSync(join(ROOT, 'scripts/tests')).filter((f) => f.endsWith('.test.mjs'))
-  assert.ok(files.length > 20, `population check: expected the test directory to hold the suite, saw ${files.length}`)
-  const orphans = files.filter((f) => !named.includes(`scripts/tests/${f}`)).sort()
-  assert.deepEqual(orphans, [],
-    'these test files are in no npm script, so nothing runs them:\n  ' + orphans.join('\n  '))
-})
+// ── THIS CHECK MOVED, 2026-09-14 ─────────────────────────────────────────
+//
+// "every test file is named by a suite" now lives in
+// scripts/tests/enforcement.test.mjs, the enforcement layer and the natural
+// home for "is this control wired".
+//
+// It was asserted in BOTH files - Verification 20, two readers of one claim,
+// inside the test suite, where this estate has been bitten by it before.
+//
+// THIS implementation is the one that SURVIVED the merge - full path match
+// and population check included. The meta-check adopted it rather than
+// keeping its own weaker basename version, because the older one was better
+// and newer is not a reason.
+//
+// Left as a pointer rather than deleted silently, so a reader looking for
+// the check here finds where it went.

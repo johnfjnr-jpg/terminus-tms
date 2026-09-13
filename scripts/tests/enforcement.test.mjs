@@ -71,12 +71,33 @@ const suiteText = () => Object.values(pkg.scripts ?? {}).join(' ')
 const wiredAnywhere = (base) =>
   suiteText().includes(base) || verifyAll.includes(base) || hook.includes(base)
 
-test('every test file is named by a suite, or nothing runs it', () => {
-  const tests = readdirSync(join(ROOT, 'scripts/tests')).filter((f) => f.endsWith('.test.mjs'))
-  assert.ok(tests.length > 0, 'no test files found at all, which is not a clean result')
-  const unrun = tests.filter((f) => !suiteText().includes(f))
-  assert.deepEqual(unrun, [],
-    `test files that no npm script runs, so they cannot fail:\n  ${unrun.join('\n  ')}`)
+// ── MOVED HERE FROM edit-guard.test.mjs, 2026-09-14 ──────────────────────
+//
+// Both files asserted this. Verification 20 - two readers of one claim -
+// inside the test suite, which is where this estate has been bitten by it
+// before. The enforcement layer owns it now.
+//
+// THE OLDER IMPLEMENTATION WAS THE BETTER ONE AND IS WHAT SURVIVED, rather
+// than the newer one winning because it was newer: it matches the FULL PATH
+// instead of the basename, and it carries a population check. A basename
+// match can be satisfied by the string appearing anywhere in any script.
+//
+// Its history, kept because it is the reason the check exists: Round 39's
+// instance arrived again in Round 41 and was caught the same way, by a
+// count. Nine new assertions were written, the suite went 270 to 271, and
+// the file holding them was in package.json not at all. Round 39's remedy -
+// any number describing a run is emitted by the run - was already done and
+// did not help: the run was honest about a population one file short.
+//
+// The scripts are READ rather than a list maintained here, so a suite
+// renamed or split needs no edit and cannot rot.
+test('every test file is named by a suite, so none can sit unrun', () => {
+  const files = readdirSync(join(ROOT, 'scripts/tests')).filter((f) => f.endsWith('.test.mjs'))
+  assert.ok(files.length > 20,
+    `population check: expected the test directory to hold the suite, saw ${files.length}`)
+  const orphans = files.filter((f) => !suiteText().includes(`scripts/tests/${f}`)).sort()
+  assert.deepEqual(orphans, [],
+    'these test files are in no npm script, so nothing runs them:\n  ' + orphans.join('\n  '))
 })
 
 test('every standing check is wired to a runner', () => {
