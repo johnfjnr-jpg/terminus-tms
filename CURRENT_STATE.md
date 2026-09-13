@@ -12,8 +12,8 @@ Contains no environment variable, key or token, and no client data. Records
 appear as counts by status only, never by name or reference code, because
 this file is uploaded into chat sessions.
 
-- Generated at: `2026-09-13T11:01:26.197Z`
-- Git commit: `71782cf9e31ef7209fc9716f05f5d65e6d54db35`
+- Generated at: `2026-09-13T12:57:02.425Z`
+- Git commit: `077e36b4508b53af6ec1a7a0b45fa6ea2fe09210`
 - Working tree at generation: `dirty (uncommitted changes present)`
 
 Staleness has two parts, and both must hold for this file to be current:
@@ -63,8 +63,8 @@ CLAUDE.md build discipline 13. These console settings are MITIGATIONS, not the c
 
 | tag | published commit | date | commits from `HEAD` | local agrees |
 |---|---|---|---|---|
-| `controls-complete` | `56b516e` | 2026-08-29 | 558 | yes |
-| `reshape-complete` | `3499884` | 2026-08-29 | 529 | yes |
+| `controls-complete` | `56b516e` | 2026-08-29 | 562 | yes |
+| `reshape-complete` | `3499884` | 2026-08-29 | 533 | yes |
 
 ## `stage_definitions`
 
@@ -95,7 +95,7 @@ CLAUDE.md build discipline 13. These console settings are MITIGATIONS, not the c
 
 ## `stage_gate_rules`
 
-93 rows. Full `requirement_detail`, keys sorted.
+116 rows. Full `requirement_detail`, keys sorted.
 
 | record_type | variant | from_stage | to_stage | requirement_type | requirement_detail |
 |---|---|---|---|---|---|
@@ -114,6 +114,29 @@ CLAUDE.md build discipline 13. These console settings are MITIGATIONS, not the c
 | contact | (null) | Unqualified | Qualified | payload_field_required | `{"field":"summary"}` |
 | contact | (null) | Unqualified | Qualified | payload_field_required | `{"field":"source"}` |
 | contact | (null) | Unqualified | Qualified | payload_field_required | `{"field":"name"}` |
+| harness_r7h1789301944274687 | (null) | Stage10A | Stage10B | child_record_status | `{"record_type":"harness_r7h1789301944274687_pilot","status":"complete"}` |
+| harness_r7h1789301944274687 | (null) | Stage11A | Stage11B | child_record_status | `{"record_type":"document","status":"approved","variant":"NDA"}` |
+| harness_r7h1789301944274687 | (null) | Stage12A | Stage12B | approval_obtained | `{"track":"Senior"}` |
+| harness_r7h1789301944274687 | (null) | Stage13A | Stage13B | document_status | `{"document":"NDA","status":"approved"}` |
+| harness_r7h1789301944274687 | (null) | Stage14A | Stage14B | contact_role_linked | `{"role":"Client Legal Buyer"}` |
+| harness_r7h1789301944274687 | (null) | Stage15A | Stage15B | approval_obtained | `{"track":"Senior"}` |
+| harness_r7h1789301944274687 | (null) | Stage16A | Stage16B | approval_obtained | `{"scope":"stage","track":"Legal"}` |
+| harness_r7h1789301944274687 | (null) | Stage17A | Stage17B | approval_obtained | `{"scope":"stage","track":"Legal"}` |
+| harness_r7h1789301944274687 | (null) | Stage19A | Stage19B | approval_obtained | `{"scope":"stage","track":"Legal"}` |
+| harness_r7h1789301944274687 | (null) | Stage1A | Stage1B | approval_obtained | `{"track":"Senior"}` |
+| harness_r7h1789301944274687 | (null) | Stage21A | Stage21B | approval_obtained | `{"scope":"stage","track":"Legal"}` |
+| harness_r7h1789301944274687 | (null) | Stage22A | Stage22B | approval_obtained | `{"scope":"stage","track":"Technical"}` |
+| harness_r7h1789301944274687 | (null) | Stage23A | Stage23B | approval_obtained | `{"track":"Commercial"}` |
+| harness_r7h1789301944274687 | (null) | Stage2A | Stage2B | document_status | `{"document":"NDA","status":"approved"}` |
+| harness_r7h1789301944274687 | (null) | Stage3A | Stage3B | payload_field_required | `{"field":"testBedDuration"}` |
+| harness_r7h1789301944274687 | (null) | Stage4A | Stage4B | contact_role_linked | `{"role":"Client Legal Buyer"}` |
+| harness_r7h1789301944274687 | (null) | Stage5A | Stage5B | contact_role_linked | `{"role":"Client Commercial Buyer"}` |
+| harness_r7h1789301944274687 | (null) | Stage6A | Stage6B | payload_field_required | `{"field":"sharedField"}` |
+| harness_r7h1789301944274687 | (null) | Stage7A | Stage7B | payload_field_required | `{"field":"agreementField"}` |
+| harness_r7h1789301944274687 | (null) | Stage8A | Stage8B | child_record_status | `{"record_type":"document","status":"approved","variant":"NDA"}` |
+| harness_r7h1789301944274687 | (null) | Stage9A | Stage9B | child_record_status | `{"record_type":"document","status":"approved","variant":"NDA"}` |
+| harness_r7h1789301944274687 | alpha | Stage6A | Stage6B | payload_field_required | `{"field":"alphaField"}` |
+| harness_r7h1789301944274687 | beta | Stage6A | Stage6B | payload_field_required | `{"field":"betaField"}` |
 | opportunity | (null) | Evaluation | Negotiating | approval_obtained | `{"scope":"version","track":"Technical"}` |
 | opportunity | (null) | Evaluation | Negotiating | approval_obtained | `{"scope":"version","track":"Commercial"}` |
 | opportunity | (null) | Evaluation | Negotiating | approval_obtained | `{"scope":"version","track":"Legal"}` |
@@ -198,6 +221,11 @@ Rule count by record type and requirement type:
 | record_type | requirement_type | rules |
 |---|---|---|
 | contact | payload_field_required | 15 |
+| harness_r7h1789301944274687 | approval_obtained | 9 |
+| harness_r7h1789301944274687 | child_record_status | 4 |
+| harness_r7h1789301944274687 | contact_role_linked | 3 |
+| harness_r7h1789301944274687 | document_status | 2 |
+| harness_r7h1789301944274687 | payload_field_required | 5 |
 | opportunity | approval_obtained | 12 |
 | opportunity | payload_field_required | 20 |
 | smoke_test | approval_obtained | 1 |
@@ -360,36 +388,36 @@ _None._
 
 ## Record counts by type and status
 
-121 live, 62707 soft deleted, 62828 rows in total.
+153 live, 63446 soft deleted, 63599 rows in total.
 
 | record_type | status | live | soft deleted |
 |---|---|---|---|
 | account | Active | 0 | 6 |
-| account | active | 7 | 1132 |
-| contact | Active | 0 | 1617 |
+| account | active | 7 | 1138 |
+| contact | Active | 0 | 1641 |
 | contact | Nurture | 0 | 14 |
-| contact | Qualified | 11 | 5653 |
+| contact | Qualified | 11 | 5762 |
 | contact | Unqualified | 6 | 581 |
-| document | approved | 61 | 3313 |
+| document | approved | 65 | 3341 |
 | document | draft | 0 | 5 |
 | document | received | 1 | 78 |
 | opportunity | Closed Lost | 0 | 20 |
 | opportunity | Closed Won | 2 | 7 |
-| opportunity | Evaluation | 0 | 174 |
+| opportunity | Evaluation | 0 | 177 |
 | opportunity | Negotiating | 1 | 16 |
-| opportunity | Proposal | 3 | 1071 |
-| opportunity | Qualification | 5 | 4371 |
-| opportunity | Solution Alignment | 7 | 902 |
+| opportunity | Proposal | 3 | 1089 |
+| opportunity | Qualification | 5 | 4463 |
+| opportunity | Solution Alignment | 7 | 914 |
 | test_bed | Closed | 5 | 9 |
 | test_bed | Installation and Commissioning | 1 | 35 |
 | test_bed | Monitoring and Analysis | 0 | 2 |
 | test_bed | Pre-Site Assessment | 0 | 8 |
-| test_bed | Qualification | 1 | 949 |
+| test_bed | Qualification | 1 | 955 |
 | test_bed | Review and Completion | 1 | 0 |
 | test_bed | Site Assessment | 1 | 17 |
 | unit | Active | 0 | 1 |
 | unit | Installed | 4 | 7 |
-| unit | Planned | 4 | 11811 |
+| unit | Planned | 4 | 11953 |
 | unit | Removed | 0 | 1 |
 
 ### Test fixture record types
@@ -400,22 +428,51 @@ row by row, and are included in the totals above.
 
 | distinct `harness_*` record types | live rows | soft deleted rows |
 |---|---|---|
-| 3855 | 0 | 30907 |
+| 3895 | 28 | 31206 |
 
-No harness record type holds a live row; every fixture row is soft deleted.
+Harness record types still holding a live row, which teardown should have
+soft deleted:
+
+| record_type | status | live |
+|---|---|---|
+| harness_r7h1789301944274687 | Qualified | 3 |
+| harness_r7h1789301944274687 | Stage10A | 1 |
+| harness_r7h1789301944274687 | Stage11A | 2 |
+| harness_r7h1789301944274687 | Stage12A | 1 |
+| harness_r7h1789301944274687 | Stage13A | 1 |
+| harness_r7h1789301944274687 | Stage14A | 1 |
+| harness_r7h1789301944274687 | Stage15A | 1 |
+| harness_r7h1789301944274687 | Stage16A | 1 |
+| harness_r7h1789301944274687 | Stage17A | 1 |
+| harness_r7h1789301944274687 | Stage19A | 1 |
+| harness_r7h1789301944274687 | Stage1A | 1 |
+| harness_r7h1789301944274687 | Stage20A | 1 |
+| harness_r7h1789301944274687 | Stage21A | 1 |
+| harness_r7h1789301944274687 | Stage22A | 1 |
+| harness_r7h1789301944274687 | Stage23A | 1 |
+| harness_r7h1789301944274687 | Stage2A | 1 |
+| harness_r7h1789301944274687 | Stage3A | 1 |
+| harness_r7h1789301944274687 | Stage4A | 1 |
+| harness_r7h1789301944274687 | Stage5A | 1 |
+| harness_r7h1789301944274687 | Stage6A | 2 |
+| harness_r7h1789301944274687 | Stage7A | 1 |
+| harness_r7h1789301944274687 | Stage8A | 1 |
+| harness_r7h1789301944274687 | Stage9A | 1 |
+| harness_r7h1789301944274687_pilot | complete | 1 |
 
 ## `approvals`
 
-3301 rows, of which 1 carry a null `stage`.
+3349 rows, of which 3 carry a null `stage`.
 
 | decision | track | rows | null stage |
 |---|---|---|---|
-| approved | Commercial | 1661 | 0 |
-| approved | Legal | 886 | 0 |
-| approved | Senior | 1 | 1 |
-| approved | Technical | 748 | 0 |
+| approved | Commercial | 1680 | 0 |
+| approved | Legal | 902 | 1 |
+| approved | Senior | 3 | 2 |
+| approved | Technical | 758 | 0 |
 | rejected | Commercial | 1 | 0 |
 | rejected | Finance | 4 | 0 |
+| rejected | Legal | 1 | 0 |
 
 ## Writable-key allowlists
 

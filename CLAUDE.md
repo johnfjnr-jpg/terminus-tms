@@ -3809,6 +3809,55 @@ of the change. An unanswerable precondition is a stop.
     case to retrying it, because a retry makes the gate quieter and this
     estate's whole argument is that a green must mean something.
 
+    **AND THE CAVEAT THIS CLAUSE EARNED THE HARD WAY: TWO READINGS OF EACH
+    CANNOT SEPARATE A TREND FROM A DISTRIBUTION, AND THIS RULE WAS APPLIED
+    AND GOT THE WRONG ANSWER.** The F5 timeout fix round, 2026-09-13. **No
+    new number: this is the instance, and the action it adds.**
+
+    The clause above reads flat-versus-climbing off two passing and two
+    failing samples. A later round inherited that reading for a statement
+    timeout, acted on it three times - stepping a chunk size 25 to 6 to 3 to
+    reduce per-statement work - and the failures kept coming back.
+
+    **Measured properly, it was never a clock.** Decomposed, the statement
+    was ~408ms: ~147ms network round trip, ~126ms scan, ~135ms returning
+    1000 rows. Only the scan grows with the table, so doubling the table
+    reached ~534ms against an 889ms ceiling. **Table growth could not produce
+    the 1178ms that turned a gate red.** What could: 25 samples of a SINGLE
+    INDEXED ROW swung 133ms to 498ms, a 3.7x spread, and the distribution was
+    not stationary between runs.
+
+    **The inference "passing flat, failing climbing" is exactly what a
+    heavy-tailed distribution looks like through four samples**, and nothing
+    in the shape of those four numbers says which it is.
+
+    **THE ACTION THIS ADDS, and it is what the clause above does not give:**
+
+    - **Before reading a trend off durations, take enough samples to see the
+      SPREAD.** If the spread of the passing case is as wide as the gap you
+      are calling a trend, there is no trend yet.
+    - **Never assert a single measured duration against a fixed threshold.**
+      That is a lottery ticket: any heavy tail crosses any ceiling eventually.
+      Sample N and assert a statistic.
+    - **PREFER THE MINIMUM WHEN THE NOISE IS ADDITIVE**, which for timing it
+      almost always is: jitter, scheduling and contention only ever make
+      something slower. `min(N)` is then a lower bound on the true cost and
+      discards exactly the samples that are noise. **It sharpens the guard
+      rather than loosening it** - a real cost increase raises the floor, and
+      the floor is what the minimum measures. A median still carries whatever
+      the connection was doing during those seconds, and was measured
+      non-monotonic here.
+    - **Separate the terms that scale differently.** A cold-cache factor
+      multiplies DISK READS, not a network round trip; applying it to a total
+      overstates the risk. Guard the growing term on its own.
+
+    **The tell that a threshold is being drawn against rather than measured
+    against: nothing you do to the work moves the number much.** Five
+    attempts to inject a real cost increase here - leading wildcards, ten
+    times the rows, regex predicates - moved a ~357ms statement by tens of
+    milliseconds, because the ceiling sat 2.5x above the true cost the whole
+    time.
+
     **AND A HARNESS MUST STOP ON A RUN THAT PRODUCED NO RESULT, NEVER SCORE
     IT.** Round 3 of the migration. A calibration harness treated "no parseable
     result" as "failed, therefore the injection was caught", so an expired token
