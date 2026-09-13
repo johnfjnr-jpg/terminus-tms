@@ -266,31 +266,108 @@ test('tearDown reaches a record beyond row 1,000 of its own tag population', asy
   // measured 407 rows and proved nothing about the chunk that matters.
   const ledgerTags = weighed.slice(0, TAG_CHUNK_SIZE).map((w) => w.t)
   const ledgerOr = ledgerTags.map((t) => `payload->>name.ilike.${t}%`).join(',')
-  const probeStart = Date.now()
-  const { error: probeErr } = await db.from('record_revisions')
-    .select('id, record_id').or(ledgerOr).order('id', { ascending: true }).range(0, 999)
-  const probeMs = Date.now() - probeStart
-  if (probeErr) throw new Error(`headroom probe: ${probeErr.message}`)
+
+  // ── ONE DRAW OF A 3.7x DISTRIBUTION IS NOT A MEASUREMENT ───────────────
+  //
+  // SUPERSEDED REASONING LEFT VISIBLE, because the premise failed rather
+  // than a preference changing (Verification 29). This probe used to time
+  // the statement ONCE and assert that single reading under the ceiling,
+  // and its failure message said "the failing case climbs while the passing
+  // one stays flat" - a table-growth diagnosis that three rounds acted on,
+  // stepping TAG_CHUNK_SIZE 25 -> 6 -> 3.
+  //
+  // MEASURED, and it is not table growth. Decomposed at 99,599 rows the
+  // statement is ~408ms idle: ~147ms network round trip, ~126ms scan, and
+  // ~135ms returning 1000 rows. ONLY the 126ms grows with the table, so
+  // doubling the table reaches ~534ms - still under the ceiling. Table
+  // growth cannot produce the 1178ms that turned a gate red.
+  //
+  // What does: 25 samples of a SINGLE INDEXED ROW swing 133ms to 498ms,
+  // a 3.7x spread, and the distribution is not stationary. The chunk
+  // inherits that. A single draw asserted against a fixed ceiling crosses
+  // it a few percent of the time forever, whatever the chunk size is - and
+  // the chunk size was never the lever: 1 tag costs 314ms and 8 cost 567ms
+  // against a floor of ~150ms, so stepping down saves tens of milliseconds
+  // and adds statements that each pay the floor again.
+  //
+  // So the probe samples N times and asserts the MINIMUM.
+  //
+  // WHY THE MINIMUM AND NOT THE MEDIAN, which was tried first and measured
+  // insufficient: the connection's noise is STRICTLY ADDITIVE. Jitter,
+  // scheduling and contention can only make a statement take LONGER than its
+  // true cost; nothing makes it faster. So min(N) is a lower bound on the
+  // real cost and an unbiased-from-above estimator of it, while the median
+  // still carries whatever the distribution was doing during those seconds.
+  //
+  // Measured: a median of 5 read 945ms for a 16-tag chunk and 314ms for a
+  // 24-tag chunk that walks MORE rows - non-monotonic, because the
+  // distribution shifted between the two. The minima over the same runs were
+  // far better behaved.
+  //
+  // This SHARPENS the guard rather than loosening it. A real cost increase
+  // raises the floor, and the floor is exactly what the minimum measures;
+  // jitter raises only the upper samples, which the minimum ignores.
+  const SAMPLES = 5
+  const timings = []
+  for (let i = 0; i < SAMPLES; i++) {
+    const t0 = Date.now()
+    const { error: probeErr } = await db.from('record_revisions')
+      .select('id, record_id').or(ledgerOr).order('id', { ascending: true }).range(0, 999)
+    if (probeErr) throw new Error(`headroom probe: ${probeErr.message}`)
+    timings.push(Date.now() - t0)
+  }
+  const sorted = [...timings].sort((a, b) => a - b)
+  const probeMs = sorted[0]
+  const worstMs = sorted[SAMPLES - 1]
+
+  // ── AND THE COLD-TAIL GUARD, ON THE TERM THAT ACTUALLY MULTIPLIES ──────
+  //
+  // The 6x cold factor is a DISK-CACHE effect: it multiplies the SCAN, not
+  // the network round trip and not the fetch of 1000 rows. Applying it to a
+  // jitter-inflated total overstates the risk; applying it to the scan term
+  // measures the real one. This times a full scan that returns NOTHING, so
+  // it is floor + scan with the fetch removed, and asserts that cold it
+  // still clears the statement timeout with the same margin.
+  const scanTimings = []
+  for (let i = 0; i < SAMPLES; i++) {
+    const t0 = Date.now()
+    const { error: scanErr } = await db.from('record_revisions').select('id, record_id')
+      .ilike('payload->>name', 'zzzz-headroom-no-match-%')
+      .order('id', { ascending: true }).range(0, 999)
+    if (scanErr) throw new Error(`scan-term probe: ${scanErr.message}`)
+    scanTimings.push(Date.now() - t0)
+  }
+  const scanMs = [...scanTimings].sort((a, b) => a - b)[0]
+  const COLD_BOUND = Math.round(TIMEOUT_MS / MARGIN)
+
   const scanned = await exactCount(db.from('record_revisions')
     .select('id', { count: 'exact', head: true }).or(ledgerOr), 'headroom population')
 
-  console.log(`    headroom: the HEAVIEST chunk, ${scanned} rows `
-    + `(${ledgerTags.length} tags) took ${probeMs}ms warm, ceiling ${CEILING}ms `
-    + `(${TIMEOUT_MS}ms timeout / ${COLD_FACTOR}x cold / ${MARGIN}x margin)`)
-  // NOT "> 1000". Paging is no longer the failure - per-statement cost is -
-  // and with the chunk bounded a single statement may legitimately not page.
-  // What must hold is that this is the WORST statement and a real one.
+  console.log(`    headroom: the HEAVIEST chunk, ${scanned} rows (${ledgerTags.length} tags), `
+    + `${SAMPLES} samples [${timings.join(', ')}] min ${probeMs}ms worst ${worstMs}ms, ceiling ${CEILING}ms`)
+  console.log(`    cold tail: scan term min ${scanMs}ms x ${COLD_FACTOR} cold = `
+    + `${scanMs * COLD_FACTOR}ms, bound ${COLD_BOUND}ms (${TIMEOUT_MS}ms / ${MARGIN}x margin)`)
+
   assert.equal(ledgerTags.length, TAG_CHUNK_SIZE,
     'the probe must use the same chunk size the code does, or it times a statement nobody runs')
   assert.ok(scanned > 0,
     `the headroom probe matched ${scanned} rows; an empty scan is not a measurement`)
+
+  // A. THE REGRESSION GUARD. Median, not one draw.
   assert.ok(probeMs < CEILING,
-    `the heaviest chunk took ${probeMs}ms warm over ${scanned} rows in ${ledgerTags.length} tags, `
-    + `past the ${CEILING}ms ceiling (${TIMEOUT_MS}ms timeout / ${COLD_FACTOR}x cold / `
-    + `${MARGIN}x margin). THIS IS F5 RETURNING: the scan is outgrowing the statement timeout `
-    + 'again. Lower TAG_CHUNK_SIZE so each statement does less work. Do NOT raise this ceiling, '
-    + 'and do NOT retry: the failing case climbs while the passing one stays flat, which is what '
-    + 'a retry would hide.')
+    `the heaviest chunk's MINIMUM of ${SAMPLES} samples was ${probeMs}ms warm over ${scanned} rows `
+    + `in ${ledgerTags.length} tags, past the ${CEILING}ms ceiling. Samples: [${timings.join(', ')}].\n`
+    + `A MINIMUM over the ceiling is a REAL cost increase, not jitter: noise is strictly additive, `
+    + `so every one of the ${SAMPLES} samples was genuinely this slow. Do NOT step TAG_CHUNK_SIZE `
+    + `down: measured, tag count is not the `
+    + `lever (1 tag 314ms, 8 tags 567ms, floor ~150ms). Find what made the statement more expensive.`)
+
+  // B. THE COLD-TAIL GUARD, on the growing term.
+  assert.ok(scanMs * COLD_FACTOR < COLD_BOUND,
+    `the SCAN TERM minimum is ${scanMs}ms warm; times the ${COLD_FACTOR}x cold factor that is `
+    + `${scanMs * COLD_FACTOR}ms against a ${COLD_BOUND}ms bound (${TIMEOUT_MS}ms statement timeout `
+    + `/ ${MARGIN}x margin). THIS is the term that grows with the table, and it has now grown enough `
+    + `to threaten the statement timeout on a cold cache. Samples: [${scanTimings.join(', ')}].`)
 
   // ── WHERE THE FIXTURE FALLS IN THE ORDER THE FIX PAGES BY ───────────────
   //

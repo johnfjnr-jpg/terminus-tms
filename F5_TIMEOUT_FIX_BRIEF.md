@@ -95,3 +95,14 @@ fire. Reconciliation by counting, revert rehearsed with the boundary stated,
 **Then PUSH ALL TOGETHER once the gate is genuinely clean across multiple
 runs**: PROBE INVENTORY (2 commits), GATE RACE FIX (4), and this round.
 Nothing pushes without the word.
+
+
+## Rulings appended at Phase 1 (John, 2026-09-13)
+
+R6. Fix approach ACCEPTED: a robust statistic over N samples plus a
+    SEPARATE, looser cold-tail bound. The expression index is PARKED - it
+    removes the 126ms small term and leaves the 3.7x binding one, and needs
+    its own migration ruling.
+R7. Both halves proven or it is not the fix: it must not fail on the jitter
+    that failed gate 2, AND it must still fail on a real cost increase.
+    Coverage stays proven (rows walked == exact count).
