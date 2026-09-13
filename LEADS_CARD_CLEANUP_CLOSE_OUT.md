@@ -7,8 +7,9 @@ phase they launched. Nothing pushed.
 
 ## 1. The gate
 
-**22 of 22 PASS, 0 SKIP, 0 FAIL** on the exact committed tree, with
-`--round-close` so F6 refuses a skipped required stage. Section 9.
+**22 of 22 PASS, 0 SKIP, 0 FAIL** on `61f83a2`, the exact committed tree,
+with `--round-close`. Door stage **PASS, 81,835ms**. **First run.**
+Section 10.
 
 ---
 
@@ -196,4 +197,20 @@ a uniform 230px, that is a decision rather than a defect.
 
 ## 10. Gate result
 
-To be stated on the tree this commit creates.
+**22 of 22 PASS, 0 SKIP, 0 FAIL** on `61f83a2` with `--round-close`,
+**first run**.
+
+| | |
+|---|---|
+| pure / react / database | **539/539**, **975/975**, **100/100** |
+| **door stage** | **PASS**, 81,835ms |
+| **F6** | did not need to fire; the browser was available |
+| **F8** | did not fire |
+| **the concurrent-write timeout** | **did not fire**, having refused two commits in the previous round |
+
+**The pure suite is 539** and carries **ten** conformance checks plus three
+staleness checks, all calibrated to fail.
+
+**Residue after the gate: 119 live, 0 probe-owned, 93 `stage_gate_rules`** -
+unchanged, so the run tore down what it created, and the 119 is still the
+117 plus John's two walk leads.
