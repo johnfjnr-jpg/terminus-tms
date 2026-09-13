@@ -11453,3 +11453,128 @@ this round and not fixed.
 stored data, so it reverts completely. **The revert needs the API server
 restarted**: `approval-page.js` is server-rendered and the dev server runs
 without `--watch`.
+
+# The UI STANDARDS - LEADS round, closed 2026-09-13
+
+Gated at `3e35c70` on **22 of 22 PASS, 0 SKIP, door stage green, first
+run**, and pushed to `origin/main` at `f8f47a5`. **Thirteen commits across
+two briefs**: the UI STANDARDS round was **absorbed**, not abandoned, and
+its Phase 0 is what this round's Phase 0 built on.
+
+## What shipped
+
+**A UI standard that a commit can fail.** `Panel`, `PanelHeader` and
+`SaveControl`, which take a panel's actions **only** through the header's
+slot; a `Modal` shape carrying its footer convention **and**
+`INTERACTION_STANDARDS` Sections 4 and 5 inside it; a conformance gate;
+and a staleness gate on the standards document itself.
+
+**Section 4 went 0 of 6 to 8 of 8. Section 5 went 1 of 3 to 4 of 4.**
+Among the panels S1 governs there is now **one** save placement, at 0px
+from the right edge and 0px of field-to-header drift at 1240, 1920 and
+3440.
+
+## The finding: DRIFT, NOT ROT
+
+Phase 0 read the document's dead citations as **migration rot**. **It is
+not, and the correction is worth more than the finding was.**
+
+`frontend/contact-detail.js` was retired and Section 5's two cited
+implementations lived in it - **but Park MOVED INTACT into
+`ParkForm.tsx`**, Escape, focus cycling and backdrop refusal all present,
+and New Lead's survived retrofitted for the batch grid.
+
+> **The standard survived the migration. What it did not survive was being
+> built AFTERWARDS.** The lead card's dialogues came later, built by people
+> reading the screen, and **nothing existed that could have told them.**
+
+**A document cannot stop drift. A gate can**, and that reframing is why
+this round's deliverable is enforcement rather than prose.
+
+## THE LIMIT OF PROMOTION, MEASURED
+
+**Set by the business, and it is the entry's most useful paragraph.**
+
+The round produced **seven self-caught instrument and build faults**, and
+**at least three were shapes this estate had already promoted a rule
+about**: reading a suite's count instead of its exit code, asserting an
+attribute where visibility was the claim, and a harness whose own source
+satisfied the scan it was calibrating.
+
+**The rules prevented none of them. They made every one fast to
+diagnose** - named, understood and fixed in minutes, because the shape had
+a name and a recorded remedy.
+
+> **That is what promotion buys. It is worth having, and it is not
+> immunity. A close that reports a promoted rule as a control is
+> overstating it.**
+
+**So this round promoted ONE thing and deliberately refused a second.**
+The limit above is already stated twice in `CLAUDE.md` - *"knowing a rule
+confers no ability to spot its instances"* - so **what was missing was
+evidence, not a rule**, and the existing statement got the count instead
+of a new number being minted.
+
+The one promotion: **Verification 7 gains the BEHAVIOUR axis.** Its
+clauses covered what surrounds new markup and the treatment a replacement
+wears; this is **what the old element DID, in a line with no comment on
+it.**
+
+## The regression the unit tests could not see
+
+A hand-rolled backdrop carried `onClick={(e) => e.stopPropagation()}`. The
+shared `Modal` that replaced it did not, **and the lead card is itself a
+click target that navigates** - so a backdrop click bubbled to the card and
+opened the record.
+
+**The new component's logic was perfect, and that is what made it hard.**
+The dirty check ran, the refusal held, the nudge was revealed - into a view
+that had just been set to `display: none` underneath it. **It presented as
+the refusal failing.**
+
+Found by measuring the **ancestor chain** after the probe reported a
+plainly-visible 1920x1200 backdrop as invisible. A `position: fixed`
+element inside an unrendered subtree reports its own `display` as `flex`
+and a rect of 0x0, which is why the presence check and the visibility check
+disagreed - and the disagreement is what pointed at the cause.
+
+## A NEW CONSTRAINT THIS ROUND CREATED, and it changes the close procedure
+
+**`INTERACTION_STANDARDS.md` is now read by a GATE STAGE.** The staleness
+check runs in the pure suite, so **a commit touching that document is no
+longer markdown-that-rides-a-green-gate: it re-gates.**
+
+Measured at this close rather than assumed: `DESIGN_PRINCIPLES.md`'s only
+readers are `state-dump.mjs` and an untracked script, **neither in a suite
+nor named by `verify-all`**, so this entry rides 48(a). **The standards
+document does not.**
+
+**The first markdown file in this estate that a gate depends on**, and the
+per-file re-measurement is what caught it.
+
+## What is explicitly NOT done
+
+**THE REGION DRIFT IS STILL NOT CLOSED**, six copies, **a fourth
+consecutive entry** saying so.
+
+**F8 is still unbuilt** at three failures. **And a SECOND, DISTINCT
+environment fault appeared**: 3 to 4 of 40 concurrent WRITES failing at a
+pinned 10s or 60s and clearing after a pause. **It refused two commits this
+round.** Recorded separately because F8 loses ONE connection of forty at
+wandering durations, and conflating them would lose the distinction that
+makes either diagnosable.
+
+**THE FOLLOW-UP PANEL IS UNTOUCHED AND NOW CARRIES THREE THINGS** for the
+entity round: the rebuild, `lead-followup-btn`'s placement, and its three
+unclassed controls - the only unclassed controls left on the card.
+
+**The migration-conformance walk of Sections 6 to 11 is unstarted**, and
+`deal/section4.tsx`'s broken `aria-controls` is the first measured evidence
+the drift reaches those surfaces.
+
+## Still true
+
+**No walk.** Lead Detail and the Test Bed both take the shared
+`NotesHistory` and neither has been seen by a person since it changed.
+Their evidence is a unit test asserting that without the new prop nothing
+changes at all.
