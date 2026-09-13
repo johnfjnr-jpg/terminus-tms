@@ -136,6 +136,24 @@
    ]
   },
   {
+   "file": "LEADS_CARD_CLEANUP_BRIEF.md",
+   "kind": "DOCUMENT",
+   "inCode": true,
+   "count": 1,
+   "first": [
+    "18: The consolidation round's Phase 0 found that `#view-contact-detail` is the"
+   ]
+  },
+  {
+   "file": "LEADS_CARD_CLEANUP_CLOSE_OUT.md",
+   "kind": "DOCUMENT",
+   "inCode": true,
+   "count": 1,
+   "first": [
+    "37: `#view-contact-detail` serves 10 Qualified contacts the card never shows -"
+   ]
+  },
+  {
    "file": "LEADS_CARD_PHASE_0_REPORT.md",
    "kind": "DOCUMENT",
    "inCode": true,
@@ -151,6 +169,16 @@
    "count": 1,
    "first": [
     "81: Full width uses the `#view-contact-detail` precedent - the same two"
+   ]
+  },
+  {
+   "file": "LEADS_DETAILS_CONSOLIDATION_PHASE_0_REPORT.md",
+   "kind": "DOCUMENT",
+   "inCode": true,
+   "count": 2,
+   "first": [
+    "13: > **`#view-contact-detail` is not \"Lead Detail\". It is the CONTACT detail",
+    "193: | PROBE / SCRIPT | 12 | six Leads probes address `#view-contact-detail` |"
    ]
   },
   {
@@ -219,7 +247,7 @@
    "count": 2,
    "first": [
     "76: loadContactDetail?: (contactId: string) => void",
-    "208: window.loadContactDetail = register(CONTACT_VIEW,"
+    "223: window.loadContactDetail = register(CONTACT_VIEW,"
    ]
   },
   {
@@ -368,6 +396,25 @@
    ]
   },
   {
+   "file": "scripts/round-b/capabilities.json",
+   "kind": "PROBE / SCRIPT",
+   "inCode": true,
+   "count": 1,
+   "first": [
+    "10: \"ContactHost\","
+   ]
+  },
+  {
+   "file": "scripts/round-b/census-capabilities.mjs",
+   "kind": "PROBE / SCRIPT",
+   "inCode": true,
+   "count": 2,
+   "first": [
+    "18: 'frontend-react/src/contact/ContactHost.tsx',",
+    "70: ContactHost: 'the host: data, refresh, the shared discard dialogue',"
+   ]
+  },
+  {
    "file": "scripts/round6/inject-phase-1.mjs",
    "kind": "PROBE / SCRIPT",
    "inCode": true,
@@ -415,12 +462,40 @@
    ]
   },
   {
+   "file": "LEADS_CARD_CLEANUP_PHASE_0_REPORT.md",
+   "kind": "DOCUMENT",
+   "inCode": true,
+   "count": 1,
+   "first": [
+    "139: consumers**, `ContactHost` and `TestBedHost`. **The three-consumer"
+   ]
+  },
+  {
+   "file": "LEADS_CARD_CLEANUP_PHASE_1_REPORT.md",
+   "kind": "DOCUMENT",
+   "inCode": true,
+   "count": 1,
+   "first": [
+    "48: non-title path still renders it for `ContactHost` and `TestBedHost`. **The"
+   ]
+  },
+  {
    "file": "LEADS_CARD_PHASE_2_REPORT.md",
    "kind": "DOCUMENT",
    "inCode": true,
    "count": 1,
    "first": [
     "211: `NurtureDialog` performs the same two calls as `ContactHost`'s park flow -"
+   ]
+  },
+  {
+   "file": "LEADS_DETAILS_CONSOLIDATION_PHASE_0_REPORT.md",
+   "kind": "DOCUMENT",
+   "inCode": true,
+   "count": 3,
+   "first": [
+    "189: | REACT SOURCE | 8 | 4 in code: `ContactHost`, `ContactView`, `main.tsx`, `shell-servi",
+    "210: | `NotesHistory` | `ContactHost`, `LeadCard`, **`TestBedHost`** |"
    ]
   },
   {
@@ -528,7 +603,17 @@
    "count": 2,
    "first": [
     "12: import { ContactView } from './contact/ContactView'",
-    "209: (id, navToken) => <ContactView contactId={id} navToken={navToken} />)"
+    "224: (id, navToken) => <ContactView contactId={id} navToken={navToken} />)"
+   ]
+  },
+  {
+   "file": "scripts/round-b/census-capabilities.mjs",
+   "kind": "PROBE / SCRIPT",
+   "inCode": true,
+   "count": 2,
+   "first": [
+    "19: 'frontend-react/src/contact/ContactView.tsx',",
+    "69: ContactView: 'the view shell: load, navigation token, back',"
    ]
   },
   {
@@ -538,6 +623,15 @@
    "count": 1,
    "first": [
     "35: const VIEW = 'frontend-react/src/contact/ContactView.tsx'"
+   ]
+  },
+  {
+   "file": "LEADS_DETAILS_CONSOLIDATION_PHASE_0_REPORT.md",
+   "kind": "DOCUMENT",
+   "inCode": true,
+   "count": 1,
+   "first": [
+    "189: | REACT SOURCE | 8 | 4 in code: `ContactHost`, `ContactView`, `main.tsx`, `shell-servi"
    ]
   },
   {
@@ -685,6 +779,15 @@
    "count": 1,
    "first": [
     "38: setContactReturnView: 'unused by this surface, declared by the seam',"
+   ]
+  },
+  {
+   "file": "LEADS_DETAILS_CONSOLIDATION_PHASE_0_REPORT.md",
+   "kind": "DOCUMENT",
+   "inCode": true,
+   "count": 1,
+   "first": [
+    "196: **AND ONE ANCHOR IS NOT DETAIL'S TO RETIRE.** `setContactReturnView`"
    ]
   },
   {

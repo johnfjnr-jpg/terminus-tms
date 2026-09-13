@@ -1,0 +1,37 @@
+{
+ "bespoke": [
+  "ContactPanel",
+  "FollowUpTask",
+  "ParkForm",
+  "NotesHistory",
+  "LinkAccountPanel",
+  "StageActions",
+  "AccountDetailsModal",
+  "ContactHost",
+  "FieldRow",
+  "Card",
+  "Collapsible"
+ ],
+ "shared": [
+  "LeadCardActions",
+  "AddressPopup",
+  "InlineSummary",
+  "NotesHistory",
+  "FollowUpTask",
+  "QualifyCompletion",
+  "AccountPicker",
+  "Panel",
+  "LeadFieldInput"
+ ],
+ "gap": [
+  "AccountDetailsModal",
+  "FieldRow",
+  "LinkAccountPanel",
+  "ParkForm",
+  "StageActions"
+ ],
+ "unmapped": [
+  "Card",
+  "Collapsible"
+ ]
+}
