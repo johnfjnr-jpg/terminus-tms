@@ -22,6 +22,7 @@
 import { test, before } from 'node:test'
 import assert from 'node:assert/strict'
 import { adminClient } from '../verify-harness.mjs'
+import { pagedSelect } from '../fixtures.mjs'
 import { readdirSync } from 'node:fs'
 import { readCode } from '../lib/strip-comments.mjs'
 import { isFixtureRecordType, assertExclusionSpares } from '../lib/fixture-record-types.mjs'
@@ -122,10 +123,29 @@ before(async () => {
   // string, so coerce once here rather than in each assertion, where a
   // forgotten Number() would compare '8000' to 8000 and fail for a reason
   // that has nothing to do with the configuration.
-  const bc = await db.from('base_cost_batches')
-    .select('id, product, batch_label, effective_from, unit_cost, install_cost_existing, install_cost_new, hosting_cost_month')
-  assert.equal(bc.error, null, `base_cost_batches query failed: ${bc.error?.message}`)
-  baseCosts = bc.data.map(r => ({
+  // ── BOUNDED RATHER THAN ALLOWLISTED, AND THE RATCHET IS WHY ───────────
+  //
+  // This select was invisible to the unbounded-select scanner until the
+  // scanner stopped losing chains whose body ran past its window: the
+  // terminator sat 446 characters away, because the multi-line `.map()`
+  // below begins with no statement keyword. It was unbounded the whole time
+  // and was not in the allowlist, because it had never been FOUND - so the
+  // drift detector could not have caught it either.
+  //
+  // FIRST DISPOSITION, SUPERSEDED AND LEFT VISIBLE: allowlist it, on the
+  // measurement that `base_cost_batches` holds 3 rows and grows by one per
+  // product per price change. That reasoning was sound and the answer was
+  // still wrong, because the allowlist carries a SHRINK-ONLY ratchet and the
+  // entry would have raised its ceiling from 40 to 41.
+  //
+  // The ratchet pushed back and the better answer was already in the estate.
+  // `pagedSelect` reads EVERY row whatever the count, so INVARIANT 13 still
+  // sees the whole catalog, the list does not grow, and the caveat the
+  // allowlist entry needed - safe only because the table is tiny - is gone.
+  const bcRows = await pagedSelect(() => db.from('base_cost_batches')
+    .select('id, product, batch_label, effective_from, unit_cost, install_cost_existing, install_cost_new, hosting_cost_month'),
+  'base_cost_batches')
+  baseCosts = bcRows.map(r => ({
     ...r,
     unit_cost: Number(r.unit_cost),
     install_cost_existing: Number(r.install_cost_existing),

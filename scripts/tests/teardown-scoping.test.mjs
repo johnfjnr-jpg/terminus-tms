@@ -415,8 +415,27 @@ test('tearDown reaches a record beyond row 1,000 of its own tag population', asy
 
   // The counterfactual, asserted rather than assumed: the unranged query the
   // defect shipped genuinely cannot see this record.
-  const firstPage = must(await db.from('record_revisions').select('id, record_id')
-    .or(or(sweep)).order('id', { ascending: true }), 'firstPage')
+  // WRAPPED IN THE GUARD'S OWN DECLARED EXEMPTION, not allowlisted, for the
+  // reason the sibling case lower in this file already records: a deliberate
+  // unranged read is a different thing from an overlooked one, and the code
+  // should say which it is.
+  //
+  // This query MUST stay unranged - the assertion below is that it caps at
+  // 1000, which is what proves the defect was real. Bounding it destroys the
+  // evidence.
+  //
+  // It became visible to the scanner only when the scanner stopped losing
+  // chains whose body ran past its window. It was unbounded the whole time;
+  // nothing could see it, and it was not in the allowlist because it had
+  // never been found.
+  // NOT ALIASED. The exemption is recognised by the literal name
+  // `unrangedForCalibration` appearing before the `.from(`, so importing it
+  // as a shorter alias silently voids it - which this round did on its first
+  // attempt and the guard caught, correctly, by still flagging the select.
+  const { unrangedForCalibration } = await import('../lib/unbounded-selects.mjs')
+  const firstPage = must(await unrangedForCalibration(
+    db.from('record_revisions').select('id, record_id')
+      .or(or(sweep)).order('id', { ascending: true })), 'firstPage')
   assert.equal(firstPage.length, 1000, 'the unranged query no longer caps at 1000; re-derive this test')
   assert.ok(!firstPage.some((r) => r.record_id === deep.oppId),
     'the fixture is inside the unranged page after all, so the two arms are not distinguishable')

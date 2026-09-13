@@ -89,3 +89,13 @@ counting, revert rehearsed with the boundary stated, `CURRENT_STATE`
 staleness both halves. **Promotion: weigh "a guard with a silent failure mode
 is worse than no guard"** - check coverage, instance-not-number per the
 discipline. Nothing pushes without the word.
+
+
+## Rulings appended at Phase 1 (John, 2026-09-13)
+
+R5. Fix (a) ACCEPTED, parse split. Prove both halves: the two currently-blind
+    unbounded selects are seen or raised, and the 66 already-bounded chains
+    are untouched with no new false positives.
+R6. **DISPOSITION EACH NEWLY-VISIBLE SELECT BY MEASUREMENT, do not
+    blanket-rule.** One may be a real bug and one legitimate; they are not
+    necessarily the same answer.

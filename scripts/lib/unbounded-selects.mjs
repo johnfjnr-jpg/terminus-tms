@@ -76,22 +76,123 @@ export function gateRunFiles() {
  * Unbounded selects in the given files, keyed stably so an allowlist can name
  * them: `<relative path>::<table>::<nth occurrence of that table in that file>`.
  */
-export function findUnboundedSelects(files = gateRunFiles()) {
+/**
+ * THE WINDOW, AND WHY THE PARSE IS NOW IN TWO STEPS.
+ *
+ * The old CHAIN pattern required a terminator WITHIN the window for the
+ * chain to match AT ALL. Past it the whole match failed and the select was
+ * silently not counted - which reads as FEWER unbounded selects, i.e. as
+ * progress. Measured: six lines of ordinary comment took the total from 40
+ * to 39 with no code changed, and TWO genuinely unbounded selects were
+ * invisible in the tree, neither of them in the allowlist because the
+ * scanner had never found them. The drift detector that caught the previous
+ * instance could not have caught those.
+ *
+ * A guard that cannot see what it is scanning must FAIL LOUD, never report
+ * clean. So:
+ *
+ *   1. Find chain STARTS with NO window. `.from('x').select(` is
+ *      unambiguous and needs no terminator to be recognised.
+ *   2. THEN bound the body BY CONTINUATION rather than by guessing where the
+ *      next statement begins. A PostgREST chain continues only via
+ *      `.method(`, so it ends at the first non-blank line that does not
+ *      start with a dot. That is a property of the thing being parsed rather
+ *      than a heuristic about the code around it, and it has no window to
+ *      exceed - which removed all four of the chains the terminator
+ *      heuristic could not bound, without editing one of them.
+ *   3. The WINDOW SURVIVES AS A BACKSTOP. If a chain body somehow runs past
+ *      it, the chain is UNPARSEABLE and is raised BY NAME - never dropped.
+ *
+ * Widening the window was rejected: 13 chains already sit at 60-100% of it,
+ * so any new number has its own cliff one edit away. And stripping comments
+ * first is ALREADY done and cannot help - `stripJs` replaces comments with
+ * SPACES to preserve line numbers, so they still consume the window.
+ */
+const WINDOW = 2000
+const START = /\.from\(\s*['"`]([\w.]+)['"`]\s*\)\s*\n?\s*\.select\(/g
+
+const lineOf = (src, index) => src.slice(0, index).split('\n').length
+
+/**
+ * The chain body: the remainder of the line the chain starts on, plus every
+ * following line that CONTINUES the chain with a dot. Blank lines are
+ * skipped rather than ending the chain, because `stripJs` turns a comment
+ * between two chained calls into exactly that - and ending there would drop
+ * a `.range()` on the far side and report a bounded chain as unbounded.
+ *
+ * Returns null when the body runs past the window, which is the backstop
+ * condition the caller raises on.
+ */
+function chainBody(src, from) {
+  const lines = src.slice(from).split('\n')
+  let body = lines[0]
+  for (let i = 1; i < lines.length; i++) {
+    const t = lines[i].trim()
+    if (t === '') { body += '\n' + lines[i]; continue }
+    if (!t.startsWith('.')) break
+    body += '\n' + lines[i]
+    if (body.length > WINDOW) return null
+  }
+  return body.length > WINDOW ? null : body
+}
+
+/**
+ * Every chain start, classified. Returns BOTH the unbounded findings and the
+ * chains that could not be bounded, so no caller can receive a short list
+ * and read it as clean.
+ */
+export function findChains(files = gateRunFiles()) {
   const found = []
+  const unparseable = []
   for (const f of files) {
     const src = stripJs(readFileSync(f, 'utf8'))
+    const rel = path.relative(ROOT, f)
     const seen = new Map()
-    for (const m of src.matchAll(CHAIN)) {
+    for (const m of src.matchAll(START)) {
       const table = m[1]
-      const n = (seen.get(table) ?? 0)
+      const n = seen.get(table) ?? 0
       seen.set(table, n + 1)
-      if (BOUND.test(m[0])) continue
+      const key = `${rel}::${table}::${n}`
+      // STEP 2: bound the body by CONTINUATION, or raise. Never drop.
+      const tail = chainBody(src, m.index)
+      if (tail === null) {
+        unparseable.push({ file: rel, table, key, line: lineOf(src, m.index), distance: null })
+        continue
+      }
+      const body = tail
+      if (BOUND.test(body)) continue
       // Is this chain the argument of a helper that bounds it? Look at what
       // immediately precedes the `.from(`, on the same expression.
       const before = src.slice(Math.max(0, m.index - 60), m.index)
       if (WRAPPED.test(before.replace(/\b(db|admin\(\))\s*$/, ''))) continue
-      found.push({ file: path.relative(ROOT, f), table, key: `${path.relative(ROOT, f)}::${table}::${n}` })
+      found.push({ file: rel, table, key })
     }
   }
-  return found.sort((a, b) => a.key.localeCompare(b.key))
+  found.sort((a, b) => a.key.localeCompare(b.key))
+  unparseable.sort((a, b) => a.key.localeCompare(b.key))
+  return { found, unparseable }
+}
+
+/**
+ * Unbounded selects in the given files, keyed stably so an allowlist can name
+ * them: `<relative path>::<table>::<nth occurrence of that table in that file>`.
+ *
+ * RAISES if any chain could not be bounded. A caller receiving a list has a
+ * guarantee that the list is complete; that guarantee is the whole point.
+ */
+export function findUnboundedSelects(files = gateRunFiles()) {
+  const { found, unparseable } = findChains(files)
+  if (unparseable.length) {
+    const detail = unparseable.map((u) =>
+      `  ${u.file}:${u.line}  .from('${u.table}').select(  - terminator `
+      + `chain body exceeds the ${WINDOW}-character backstop`)
+      .join('\n')
+    throw new Error(
+      `the unbounded-select scanner found ${unparseable.length} select chain(s) it could NOT `
+      + `bound, and refuses to report a count that silently omits them:\n${detail}\n\n`
+      + `Each is a select the guard cannot classify, and a count that omits them would be a `
+      + `false clean. Break the chain up, or teach \`chainBody\` the shape it did not expect. `
+      + `Do NOT simply widen the backstop: that relocates the blind spot rather than removing it.`)
+  }
+  return found
 }
