@@ -15,6 +15,7 @@ import assert from 'node:assert/strict'
 import { adminClient, newRunTag, resolveOwnerId, Fixtures } from '../verify-harness.mjs'
 import { computeBlocking, approvalSatisfiesRule, ruleScope } from '../../src/routes/transitions.js'
 import { buildStageTracks } from '../../src/routes/records.js'
+import { isFixtureRecordType, FIXTURE_RECORD_TYPE_PREFIX } from '../lib/fixture-record-types.mjs'
 
 let db, runTag, fx, ownerId, TYPE
 
@@ -30,7 +31,10 @@ const types = (blocking) => blocking.map(b => b.requirement_type).sort()
 before(async () => {
   db = adminClient()
   runTag = newRunTag()
-  TYPE = `harness_${runTag}` // synthetic record_type, never a real one
+  // The prefix comes from the SHARED module now. It used to be spelled
+  // here and nowhere else, which is exactly why config-invariants.test.mjs
+  // never knew the convention existed and raced against these rows.
+  TYPE = `${FIXTURE_RECORD_TYPE_PREFIX}${runTag}` // synthetic, never a real one
   fx = new Fixtures(db, runTag)
   ownerId = await resolveOwnerId(db)
 })
@@ -284,7 +288,7 @@ test('INVARIANT: no stage_gate_rules row or approvals.stage names a stage absent
   // rows at all, so they are excluded by record_type - not by ignoring
   // orphans generally, which would defeat the invariant.
   const orphans = rules
-    .filter(r => r.record_type !== TYPE)
+    .filter(r => !isFixtureRecordType(r.record_type))
     .filter(r => !live.has(`${r.record_type}||${r.from_stage}`) || !live.has(`${r.record_type}||${r.to_stage}`))
 
   assert.deepEqual(orphans, [],
@@ -327,7 +331,7 @@ test('INVARIANT: no stage_gate_rules row or approvals.stage names a stage absent
     'the scan did not examine every approval carrying a stage, so a clean result means nothing')
 
   const apprOrphans = (approvals ?? [])
-    .filter(a => a.records?.record_type !== TYPE)
+    .filter(a => !isFixtureRecordType(a.records?.record_type))
     .filter(a => !live.has(`${a.records?.record_type}||${a.stage}`))
     .map(a => ({ id: a.id, record_type: a.records?.record_type, stage: a.stage }))
 

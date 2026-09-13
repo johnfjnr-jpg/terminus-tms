@@ -24,9 +24,10 @@ import assert from 'node:assert/strict'
 import { adminClient } from '../verify-harness.mjs'
 import { readdirSync } from 'node:fs'
 import { readCode } from '../lib/strip-comments.mjs'
+import { isFixtureRecordType, assertExclusionSpares } from '../lib/fixture-record-types.mjs'
 
 let db
-let rules, stages, refDocs, tracks
+let rules, rulesUnfiltered, stages, refDocs, tracks
 let criteria, anchors, liveDocuments, livePayloads
 let contactRoles, contactStances
 let baseCosts
@@ -34,10 +35,27 @@ let baseCosts
 before(async () => {
   db = adminClient()
 
+  // ── FILTERED AT THE LOADER, SO EVERY INVARIANT INHERITS IT ────────────
+  //
+  // Build-discipline 8: fix the class, not the instance the failure named.
+  // SEVEN tests in this file read `rules` and FIVE did not filter by
+  // record_type. Two were proven exploitable by the fixtures that exist
+  // today - INVARIANT 2 and INVARIANT 4, both reproduced on demand - and
+  // "not exploitable by today's fixtures" is not "safe", because tomorrow's
+  // fixtures differ. Filtering here covers all seven at once and cannot be
+  // forgotten by the next invariant somebody adds.
+  //
+  // THIS COMMENT SITS ABOVE THE SELECT ON PURPOSE. Placed below it, it
+  // pushed the next statement keyword past the 400-character window
+  // `unbounded-selects.mjs` scans, and the guard STOPPED SEEING THIS
+  // SELECT ALTOGETHER - measured at 882 characters. A comment that blinds
+  // a guard is worse than no comment.
   const r = await db.from('stage_gate_rules')
     .select('id, record_type, variant, from_stage, to_stage, requirement_type, requirement_detail')
+  const rulesRaw = r.data
   assert.equal(r.error, null, `stage_gate_rules query failed: ${r.error?.message}`)
-  rules = r.data
+  rulesUnfiltered = rulesRaw
+  rules = rulesRaw.filter((x) => !isFixtureRecordType(x.record_type))
 
   const s = await db.from('stage_definitions').select('record_type, variant, stage_name, sort_order')
   assert.equal(s.error, null, `stage_definitions query failed: ${s.error?.message}`)
@@ -80,11 +98,20 @@ before(async () => {
 
   // Every live record's current revision payload, for invariant 9. Read
   // once here rather than per test.
+  // THE SAME CLASS ON ANOTHER TABLE, and a departure from the letter of the
+  // ruling stated plainly rather than buried. `verify-harness` inserts into
+  // `approvals`, `record_contacts`, `records` and `stage_gate_rules`; this
+  // file reads `records` unfiltered too. No invariant is exploitable through
+  // it by today's fixtures, which by the round's own ruling is not a reason
+  // to leave it. One line, the same predicate.
+  //
+  // Above the select, for the reason recorded at the rules loader above.
   const recs = await db.from('records').select('id, record_type').is('deleted_at', null)
+  const liveRecords = (recs.data ?? []).filter((x) => !isFixtureRecordType(x.record_type))
   assert.equal(recs.error, null, `records query failed: ${recs.error?.message}`)
   const revs = await db.from('record_revisions')
     .select('record_id, revision_number, payload')
-    .in('record_id', recs.data.map(r => r.id))
+    .in('record_id', liveRecords.map(r => r.id))
     .order('revision_number', { ascending: true })
   assert.equal(revs.error, null, `record_revisions query failed: ${revs.error?.message}`)
   const latest = {}
@@ -163,6 +190,42 @@ test('INVARIANT 1: test_bed carries exactly the configured number of gate rules'
 // across every record type in the table, including any harness type that
 // a concurrent run has left behind, which would itself be a teardown
 // failure worth surfacing.
+// ─────────────────────────────────────────────────────────────
+// 1b. The fixture exclusion, and proof it costs no real coverage
+// ─────────────────────────────────────────────────────────────
+//
+// The invariants below read `rules` with test-fixture record types already
+// filtered out at the loader. That filter closed a race; it could also hide
+// a real orphan, and an exclusion that hides a real orphan is worse than the
+// race it closed.
+//
+// So the exclusion is asserted against the product's own configuration:
+// every record_type that `stage_definitions` configures must SURVIVE it.
+// Widen the prefix to swallow `test_bed` and this goes red before any
+// invariant has a chance to go quiet.
+//
+// Derived from the database, never from a hardcoded list, so a new record
+// type is covered the day it is configured.
+test('the fixture exclusion spares every CONFIGURED record type', () => {
+  const configured = assertExclusionSpares(assert, stages)
+  // And it is not vacuous: the filter must actually be capable of removing
+  // something, or "it removed nothing real" is true the way "no unicorn is
+  // in this room" is true (Verification 14's absence clause).
+  assert.ok(configured.length >= 4,
+    `only ${configured.length} record types configured; expected the product's set`)
+})
+
+test('the fixture exclusion removed only fixture rows, and said how many', () => {
+  const removed = rulesUnfiltered.filter((r) => isFixtureRecordType(r.record_type))
+  const configured = new Set(stages.map((s) => s.record_type))
+  const wrongly = removed.filter((r) => configured.has(r.record_type))
+  assert.deepEqual(wrongly, [],
+    `the exclusion removed rules belonging to CONFIGURED record types:\n${JSON.stringify(wrongly, null, 2)}`)
+  // A count, printed rather than asserted: on a quiet database it is 0, and
+  // during a parallel gates.test.mjs run it is not. Both are correct.
+  if (removed.length) console.log(`      (excluded ${removed.length} live fixture rule(s) from a concurrent run)`)
+})
+
 test('INVARIANT 2: no gate rule names a stage absent from stage_definitions', () => {
   const live = new Set(stages.map(s => `${s.record_type}||${s.stage_name}`))
   const orphans = rules

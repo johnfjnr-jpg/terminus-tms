@@ -97,3 +97,22 @@ habit; the third close fixed it by checking first). **The gate runs MULTIPLE
 TIMES** per R4. Reconciliation by counting, revert rehearsed with the
 boundary stated, `CURRENT_STATE` staleness both halves. Nothing pushes
 without the word.
+
+
+## Rulings appended at Phase 1 (John, 2026-09-13)
+
+R6. **SCOPE: the predicate applies to EVERY invariant reading `rules`
+    unfiltered**, not only the two proven exploitable. *"Not exploitable by
+    today's fixtures" is not "safe" - tomorrow's fixtures differ.*
+R7. Fix approach accepted as recommended: one shared imported predicate
+    closing the Verification 20 fault at root, applied in the `before` hook,
+    plus the coverage assertion. The name-based predicate is accepted **with
+    the limitation stated**, no fixture-marking column existing.
+R8. **PROMOTION: add the INSTANCE, not a number**, where an existing rule
+    already carries the remedy.
+
+## Rulings appended at the close (John, 2026-09-13)
+
+R9. The PROBE INVENTORY prioritised list **resumes after this round**: P2
+    into R1, P3 wire `check-state-fresh.mjs`, P4 the four rotted assertions,
+    P5 and P6 as standing conditions.

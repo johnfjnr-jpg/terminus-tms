@@ -784,6 +784,26 @@ collapse into one:
 > the system under test, ON THE SAME POPULATION you are about to make the claim
 > about.
 
+**AND THE INSTANCE THAT PUTS A NUMBER ON IT: A RUN COUNT IS A NULL READING,
+AND ITS WORTH IS SET BY THE BASE RATE.** The gate race fix round, 2026-09-13.
+**No new number; this is the collapsed rule above, applied to a verification
+PLAN rather than to a probe.**
+
+A round was instructed to prove a race fixed by running the suite **20 times
+and showing all green**. Measured BEFORE the fix, the natural failure rate was
+**0 of 8**. At a 5% per-run rate, twenty consecutive green runs happens
+**36% of the time with the bug still present** (`0.95^20 = 0.36`); at 2% it is
+67%. **The run count cannot tell a fixed race from a lucky afternoon.**
+
+So the proof rested on a FORCED reproduction - one that made the assertion red
+on demand before the fix and could not after - which is the collapsed rule
+exactly: make the instrument produce a non-null reading before trusting a null
+one.
+
+**The check: before quoting "N runs, all green", ask what N green runs would
+look like if the defect were still there.** If the answer is "much the same",
+the count is not the evidence and something that can fail on demand has to be.
+
 Three that do NOT collapse into it and fire at the same moment: **Verification 14**,
 require both sides to exist before comparing them; **Verification 18**, do not
 stop at the first fix, because a calibration that does not move the number has
@@ -2109,6 +2129,34 @@ of the change. An unanswerable precondition is a stop.
     corollary exactly, arriving from the direction nobody watches: not a default
     filling in a value nobody entered, but a removal emptying a value somebody
     did.
+
+    **AND THE TWO READERS CAN BE TWO TEST FILES, WHERE THE DRIFT SHOWS UP AS
+    AN INTERMITTENT GATE.** The gate race fix round, 2026-09-13. **No new
+    number: the remedy above is exactly the fix, and this is recorded as the
+    instance that says where to look.**
+
+    `scripts/tests/gates.test.mjs` and `scripts/tests/config-invariants.test.mjs`
+    assert the SAME claim about `stage_gate_rules` - no rule names a stage
+    absent from `stage_definitions`. One excluded the harness's synthetic
+    record type; the other had never heard of it, because **the convention was
+    spelled in `gates.test.mjs` and nowhere else** - not even in
+    `verify-harness.mjs`, which creates the rows.
+
+    `node --test` runs the ten `test:db` files CONCURRENTLY - measured, two
+    files overlapping 1501ms of a 1502ms test - so the second file read the
+    first file's live fixtures and the invariant went red or green **by
+    timing, with zero real orphans in the configuration.**
+
+    **THE TELL, and it is the reusable half: AN INTERMITTENT FAILURE IN A
+    WHOLE-TABLE ASSERTION IS A TWO-READERS SYMPTOM.** It does not look like
+    drift. It looks like flakiness, and flakiness invites a retry, which
+    destroys the evidence (Verification 48's own clause). Ask instead who
+    ELSE asserts this claim, and whether they agree about what to exclude.
+
+    **And the fault was wider than the assertion that failed.** Seven
+    invariants in that file read the table; **five did not filter**, and two
+    were proven exploitable. The fix belongs at the LOADER, so a new invariant
+    inherits it rather than having to remember (build-discipline 8).
 
     **AND AN ASSERTION ABOUT A VALUE IS NOT AN ASSERTION ABOUT ITS READERS.**
     Round 41, 2026-09-03, and it is rule 20 arriving from the SCHEMA side.
