@@ -18,6 +18,7 @@
 // Until then, a change to the Nurture sequence has to land in both.
 import { useState } from 'react'
 import { useShell } from '../ShellContext'
+import { Modal, ModalClose } from '../ui/Modal'
 
 export function NurtureDialog({ leadId, onCancel, onDone }: {
   leadId: string
@@ -53,31 +54,45 @@ export function NurtureDialog({ leadId, onCancel, onDone }: {
     }
   }
 
+  // ── THE MODAL SHAPE (2026-09-13) ───────────────────────────────────
+  //
+  // Phase 0 measured this dialogue at 0 of 6 on Section 4 as well. Sections
+  // 4 and 5 are in `Modal` now; this file describes a nurture decision.
+  //
+  // DIRTY IS "SOMETHING WAS TYPED". The two fields start empty and are
+  // required, so anything entered is unsaved work worth protecting.
+  const dirty = date.trim() !== '' || reason.trim() !== ''
   return (
-    <div className="modal-backdrop" data-testid="nurture-dialog">
-      <div className="modal-panel" role="dialog" aria-modal="true"
-        aria-labelledby="nurture-heading">
-        <p className="eyebrow" id="nurture-heading">Move to Nurture</p>
-        <p className="sub">
-          A nurtured lead needs a date to come back to it, and a reason it is
-          not being worked now.
-        </p>
-        <label htmlFor="nurture-date">Follow-up date</label>
-        <input id="nurture-date" type="date" data-testid="nurture-date"
-          value={date} onChange={(e) => setDate(e.target.value)} />
-        <label htmlFor="nurture-reason">Reason</label>
-        <textarea id="nurture-reason" data-testid="nurture-reason"
-          value={reason} onChange={(e) => setReason(e.target.value)} />
-        {error ? <p className="msg-error" data-testid="nurture-error">{error}</p> : null}
-        <div className="form-actions">
-          <button type="button" className="btn-primary" data-testid="nurture-save"
+    <Modal
+      title="Move to Nurture"
+      testid="nurture-dialog"
+      regionId="nurture-dialog-region"
+      dirty={dirty}
+      onClose={onCancel}
+      nudge="You have unsaved changes, save or cancel."
+      footer={(requestClose) => (
+        <>
+          <button type="button" className="btn-sm" data-testid="nurture-save"
             disabled={busy} onClick={() => { void save() }}>
             {busy ? 'Saving...' : 'Move to Nurture'}
           </button>
-          <button type="button" className="btn-ghost" data-testid="nurture-cancel"
-            onClick={onCancel}>Cancel</button>
-        </div>
-      </div>
-    </div>
+          <ModalClose onRequestClose={requestClose} regionId="nurture-dialog-region"
+            testid="nurture-cancel" label="Cancel" />
+        </>
+      )}>
+      <p className="sub">
+        A nurtured lead needs a date to come back to it, and a reason it is
+        not being worked now.
+      </p>
+      <label htmlFor="nurture-date">Follow-up date</label>
+      <input id="nurture-date" type="date" className="lead-field-input"
+        data-testid="nurture-date"
+        value={date} onChange={(e) => setDate(e.target.value)} />
+      <label htmlFor="nurture-reason">Reason</label>
+      <textarea id="nurture-reason" className="lead-field-input"
+        data-testid="nurture-reason"
+        value={reason} onChange={(e) => setReason(e.target.value)} />
+      {error ? <p className="msg-error" data-testid="nurture-error">{error}</p> : null}
+    </Modal>
   )
 }

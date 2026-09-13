@@ -143,12 +143,25 @@ export function LeadCardActions({
           }}>
           Follow-up task
         </button>
+        {/* R3: `aria-controls` named `lead-address-panel-<id>`, WHICH DOES
+            NOT EXIST. The door's exemption list contains [aria-controls] and
+            reads the attribute's PRESENCE, not its target - so this button
+            was exempt because it declared a property it did not have.
+            Measured, the door still held (Save and all six inputs dead, only
+            Close live), so it was a true statement made by a false
+            declaration and nothing checked the declaration. It now names the
+            modal's own region, which is what it controls.
+
+            AND THE COMMENT SITS ABOVE THE ELEMENT, not between its
+            attributes: `tsc --noEmit` accepts a comment there and the
+            bundler's parser does not, so the typecheck passed and 33 tests
+            failed on a parse error in an unrelated file. */}
         <button
           type="button"
           className="btn-ghost"
           data-testid={`lead-address-${leadId}`}
           aria-expanded={addressOpen}
-          aria-controls={`lead-address-panel-${leadId}`}
+          aria-controls={`address-popup-region-${leadId}`}
           onClick={onOpenAddress}>
           Address details
         </button>

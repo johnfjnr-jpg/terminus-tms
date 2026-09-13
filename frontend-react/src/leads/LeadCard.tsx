@@ -167,20 +167,12 @@ export function LeadCard({
         : null}
 
       <div className="lead-card-body">
-        <div
-          className="lead-card-col"
-          data-testid={`lead-summary-${lead.id}`}
-          onClick={(e) => e.stopPropagation()}
-          onKeyDown={(e) => e.stopPropagation()}
-        >
-          {/* R3 + R6's convention: THE COLUMN HEADER LINE. Both columns give
-              their header the same class and therefore the same height, so
-              the first field in each starts at the same y. Equal BY
-              CONSTRUCTION rather than by tuning a margin to match a
-              neighbour - which is the half that survives the next change. */}
-          <div className="card-col-head">
-            <span className="lead-card-col-title">Summary</span>
-          </div>
+        {/* The panel renders its OWN header now, through the shared shell.
+            The card no longer places a title above a component and hopes the
+            two line up: `Panel` owns the header line, so S1's placement and
+            S3's alignment are properties of the shell rather than of this
+            call site. */}
+        <div onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
           <InlineSummary
             value={str(p.summary)}
             leadId={lead.id}

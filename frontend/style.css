@@ -6417,3 +6417,96 @@ input.input-invalid {
   resize: vertical;
 }
 .cd-note-input:focus { outline: none; border-bottom-color: var(--green); }
+
+/* ---------------------------------------------------------------------
+   THE PANEL SHELL (2026-09-13). The principle, expressed as layout.
+
+   > ACTION GOES WITH ITS SCOPE.
+
+   S1: panel-scoped actions on the header line, right-aligned. S2: title,
+   secondary label and actions on ONE line. S3: the body's first field
+   aligns to the header's left edge.
+
+   These are properties of the SHELL, not of each panel, which is the
+   whole point: Phase 0 measured five save-control placements on one card
+   because there was no shell to inherit them from.
+   --------------------------------------------------------------------- */
+
+.panel { min-width: 0; }
+
+/* S2. A FIXED height rather than a minimum: a minimum grows to its tallest
+   child, so a header holding buttons ends up taller than one holding only a
+   title, and the fields below them stop lining up. Measured at 9px of drift
+   in the round before this one, caused by exactly that. */
+.panel-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 30px;
+  margin-bottom: 6px;
+}
+
+.panel-title {
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--green);
+}
+
+/* The Notes pattern's `LATEST FIRST`: a fact about the panel, set quieter
+   than the title and never mistakable for a control. */
+.panel-secondary {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* S1, and it is one line of CSS because it is one decision: `margin-left:
+   auto` pins the action group to the panel's right edge whatever precedes
+   it, the same mechanism Section 6 records for the record action bar. */
+.panel-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Panel-scoped controls are sized to the header line rather than the line
+   to the controls. `.btn-sm`'s own padding is built for a standalone button. */
+.panel-actions .btn-sm { padding: 3px 10px; line-height: 1.4; }
+
+/* S3: the body starts at the header's left edge, by sharing the container
+   rather than by matching a margin. */
+.panel-body { min-width: 0; }
+
+/* ── THE TWO UNDEFINED TOKENS, DEFINED (S5) ─────────────────────────────
+   `--red` and `--amber` were used at 3 and 10 sites and defined nowhere,
+   every site carrying a literal fallback - so they rendered correctly and
+   were invisible to the palette. Defined here AT THE VALUES ALREADY IN USE,
+   so the fix changes nothing on screen and everything structurally: the
+   brand palette can now reach them. */
+:root {
+  --red: #e06c6c;
+  --amber: #E0A33E;
+}
+
+/* S5: the field treatment. `LeadFieldInput`'s five controls and the Nurture
+   dialogue's two rendered as browser defaults - white boxes on a dark screen
+   - which every assertion the estate writes passes on. Named once here so a
+   sixth field cannot arrive unstyled. */
+.lead-field-input {
+  width: 100%;
+  background: var(--black);
+  border: none;
+  border-bottom: 1px solid var(--hairline);
+  color: var(--white);
+  font-family: var(--body);
+  font-size: 13px;
+  padding: 5px 0;
+}
+.lead-field-input:focus { outline: none; border-bottom-color: var(--green); }
+.lead-field-input:disabled { opacity: 0.5; }
+textarea.lead-field-input { resize: vertical; }

@@ -5,6 +5,7 @@ import type { Note } from './notes'
 // the lead card, and it reaches the card, Lead Detail and the Test Bed from
 // this single line - which is why R2 ruled the fix through the frozen surface.
 import { formatTimestamp } from '../../../src/lib/format-dates.js'
+import { Panel } from '../ui/Panel'
 
 /** P3, ruled: the list opens showing the latest two. */
 export const DEFAULT_SHOWN = 2
@@ -98,34 +99,24 @@ export function NotesHistory({ notes, onAdd, hasDirtyEdits, onConfirmDiscard, re
     void submit()
   }
 
-  return (
-    <div data-testid="cd-notes">
-      <div className={`cd-notes-header-row${title ? ' card-col-head' : ''}`}
-        data-testid="cd-notes-header-row">
-        {title
-          ? <span className="lead-card-col-title" data-testid="cd-notes-title">{title}</span>
-          : null}
-        {/* The panel's own title now says NOTES (P3), so this says only what
-            the title cannot: the order. "Notes history · latest first" under a
-            heading reading NOTES was the same word twice. */}
-        <span className="label">Latest first</span>
-        {/* R8: CLASSED. These shipped unclassed, so they rendered as white
-            browser defaults on a dark screen - F3's instances on this card,
-            found by opening a screenshot and invisible to every assertion the
-            estate writes. Their height is also what sets the alignment: a
-            bare button is 21px and `.btn-sm` is a known height, so the header
-            line and the Summary column's can be equal by construction.
-            Classing reaches all three consumers, which is a treatment fix
-            rather than a structural change and is stated in the report. */}
-        {!open || actionsInHeader
-          ? <button type="button" className="btn-sm" data-testid="cd-add-note-btn"
-              disabled={open && !text.trim()} onClick={onClick}>Add note</button>
-          : null}
-        {actionsInHeader && open
-          ? <button type="button" className="btn-sm" data-testid="cd-note-discard"
-              onClick={() => { setOpen(false); setText('') }}>Discard</button>
-          : null}
-      </div>
+  // The two header controls, lifted out so ONE definition serves both the
+  // shell path and the original one. Two copies would be Verification 20 in
+  // the file that this round exists to stop repeating.
+  const actions = (
+    <>
+      {!open || actionsInHeader
+        ? <button type="button" className="btn-sm" data-testid="cd-add-note-btn"
+            disabled={open && !text.trim()} onClick={onClick}>Add note</button>
+        : null}
+      {actionsInHeader && open
+        ? <button type="button" className="btn-sm" data-testid="cd-note-discard"
+            onClick={() => { setOpen(false); setText('') }}>Discard</button>
+        : null}
+    </>
+  )
+
+  const body = (
+    <>
 
       {open
         ? <div className="cd-note-input-wrap" data-testid="cd-note-input-wrap">
@@ -192,6 +183,36 @@ export function NotesHistory({ notes, onAdd, hasDirtyEdits, onConfirmDiscard, re
               <span className="ref-notes-text">{n.text}</span>
             </div>))}
       </div>
+    </>
+  )
+
+  // ── THE SHELL, TAKEN THROUGH AN OPTIONAL PROP ─────────────────────────
+  //
+  // THREE CONSUMERS: the lead card, ContactHost (FROZEN Lead Detail) and
+  // TestBedHost. Only the card passes `title`, so only the card routes
+  // through `Panel`. The other two render the markup they always did, which
+  // is what "structurally untouched" has to mean - not "changed carefully".
+  //
+  // The header keeps its existing testid, so the tests that already assert
+  // against this panel go on asserting against the same thing.
+  if (title) {
+    return (
+      <Panel name="notes" title={title} secondary="Latest first" actions={actions}
+        testid="cd-notes" headerTestid="cd-notes-header-row">
+        {body}
+      </Panel>
+    )
+  }
+
+  return (
+    <div data-testid="cd-notes">
+      <div className="cd-notes-header-row" data-testid="cd-notes-header-row">
+        {/* The panel's own title says NOTES, so this says only what the title
+            cannot: the order. */}
+        <span className="label">Latest first</span>
+        {actions}
+      </div>
+      {body}
     </div>
   )
 }

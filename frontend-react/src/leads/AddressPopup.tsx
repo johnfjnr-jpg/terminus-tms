@@ -26,6 +26,7 @@ import { useMemo, useRef, useState } from 'react'
 import { useShell } from '../ShellContext'
 import { ADDRESS_FIELDS } from './leadFields'
 import { LeadFieldInput } from './LeadFieldInput'
+import { Modal, ModalClose } from '../ui/Modal'
 
 export function AddressPopup({ leadId, current, regions, onClose, onSaved }: {
   leadId: string
@@ -88,53 +89,56 @@ export function AddressPopup({ leadId, current, regions, onClose, onSaved }: {
     }
   }
 
+  // ── THE MODAL SHAPE (2026-09-13) ────────────────────────────────────
+  //
+  // Sections 4 and 5 now live in `Modal`, not here. Phase 0 measured this
+  // dialogue at 0 of 6 on Section 4 - no focus on open, no Tab confinement,
+  // no Escape - and its Close DISCARDING SILENTLY while dirty, which is the
+  // data-loss path R1 exists to close.
+  //
+  // The footer is a render function so Close and Escape are ONE path.
   return (
-    <div className="modal-backdrop" id={`address-popup-region-${leadId}`}
-      data-testid={`address-popup-${leadId}`}
-      onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
-      <div className="modal-panel modal-panel-wide" role="dialog" aria-modal="true"
-        aria-labelledby={`address-heading-${leadId}`}>
-        <p className="eyebrow" id={`address-heading-${leadId}`}>Address details</p>
-        <div className="address-popup-grid">
-          {ADDRESS_FIELDS.map((f) => (
-            <div className="address-popup-cell" key={f.key}>
-              <label htmlFor={`addr-${f.key}-${leadId}`}>{f.label}</label>
-              <LeadFieldInput
-                field={f}
-                value={values[f.key] ?? ''}
-                onChange={(v) => setValues((p) => ({ ...p, [f.key]: v }))}
-                industries={[]}
-                sources={[]}
-                regions={regions}
-                testid={`addr-${f.key}-${leadId}`} />
-            </div>
-          ))}
-        </div>
-        {error ? <p className="msg-error" data-testid={`addr-error-${leadId}`}>{error}</p> : null}
-        <div className="form-actions">
-          <button type="button" className="btn-primary" data-testid={`addr-save-${leadId}`}
+    <Modal
+      title="Address details"
+      testid={`address-popup-${leadId}`}
+      regionId={`address-popup-region-${leadId}`}
+      dirty={dirty}
+      onClose={onClose}
+      nudge="You have unsaved address changes, save or close."
+      footer={(requestClose) => (
+        <>
+          <button type="button" className="btn-sm" data-testid={`addr-save-${leadId}`}
             disabled={busy || !dirty} onClick={() => { void save() }}>
             {busy ? 'Saving...' : 'Save'}
           </button>
-          {/* ── CLOSE MUST SURVIVE THE DOOR ─────────────────────────────
-              Found by probe, not by reading: on an UNOWNED lead the door
-              neutralises every button in the card, and this one was among
-              them - so the popup opened over a full-screen backdrop and
-              could not be dismissed. The card behind it became unclickable.
-              That is P3's family exactly: the door must never make an
-              unowned lead unusable to READ.
-
-              `aria-controls` is the DECLARED PROPERTY the door already reads
-              for read affordances, and it is TRUE here: this button controls
-              that region's visibility, the same justification the notes
-              expand rungs carry. Exempting by a class name would be
-              Verification 19's warning - a styling class sheltering
-              controls. */}
-          <button type="button" className="btn-ghost" data-testid={`addr-close-${leadId}`}
-            aria-controls={`address-popup-region-${leadId}`}
-            onClick={onClose}>Close</button>
-        </div>
+          {/* CLOSE MUST SURVIVE THE DOOR. On an UNOWNED lead the door
+              neutralises every button in the card, and this one among them
+              left the popup open over a full-screen backdrop with no way
+              out. `aria-controls` is the declared property the door reads
+              for read affordances, and `ModalClose` names the MODAL'S OWN
+              REGION - R3: a pointer that names nothing grants the exemption
+              anyway, which is an exemption held by a false declaration. */}
+          <ModalClose onRequestClose={requestClose}
+            regionId={`address-popup-region-${leadId}`}
+            testid={`addr-close-${leadId}`} />
+        </>
+      )}>
+      <div className="address-popup-grid">
+        {ADDRESS_FIELDS.map((f) => (
+          <div className="address-popup-cell" key={f.key}>
+            <label htmlFor={`addr-${f.key}-${leadId}`}>{f.label}</label>
+            <LeadFieldInput
+              field={f}
+              value={values[f.key] ?? ''}
+              onChange={(v) => setValues((p) => ({ ...p, [f.key]: v }))}
+              industries={[]}
+              sources={[]}
+              regions={regions}
+              testid={`addr-${f.key}-${leadId}`} />
+          </div>
+        ))}
       </div>
-    </div>
+      {error ? <p className="msg-error" data-testid={`addr-error-${leadId}`}>{error}</p> : null}
+    </Modal>
   )
 }

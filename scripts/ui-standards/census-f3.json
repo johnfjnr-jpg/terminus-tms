@@ -2,41 +2,45 @@
  "controls": [
   {
    "file": "frontend-react/src/leads/NurtureDialog.tsx",
-   "line": 66,
-   "tag": "input",
-   "testid": "nurture-date",
-   "rendered": true,
-   "classes": [],
-   "styled": false
-  },
-  {
-   "file": "frontend-react/src/leads/NurtureDialog.tsx",
-   "line": 69,
-   "tag": "textarea",
-   "testid": "nurture-reason",
-   "rendered": true,
-   "classes": [],
-   "styled": false
-  },
-  {
-   "file": "frontend-react/src/leads/NurtureDialog.tsx",
-   "line": 73,
+   "line": 75,
    "tag": "button",
    "testid": "nurture-save",
    "rendered": true,
    "classes": [
-    "btn-primary"
+    "btn-sm"
    ],
    "styled": true
   },
   {
    "file": "frontend-react/src/leads/NurtureDialog.tsx",
-   "line": 77,
-   "tag": "button",
-   "testid": "nurture-cancel",
+   "line": 88,
+   "tag": "input",
+   "testid": "nurture-date",
    "rendered": true,
    "classes": [
-    "btn-ghost"
+    "lead-field-input"
+   ],
+   "styled": true
+  },
+  {
+   "file": "frontend-react/src/leads/NurtureDialog.tsx",
+   "line": 92,
+   "tag": "textarea",
+   "testid": "nurture-reason",
+   "rendered": true,
+   "classes": [
+    "lead-field-input"
+   ],
+   "styled": true
+  },
+  {
+   "file": "frontend-react/src/ui/Modal.tsx",
+   "line": 172,
+   "tag": "button",
+   "testid": "testid",
+   "rendered": true,
+   "classes": [
+    "btn-sm"
    ],
    "styled": true
   },
@@ -205,8 +209,10 @@
    "tag": "select",
    "testid": "",
    "rendered": true,
-   "classes": [],
-   "styled": false
+   "classes": [
+    "lead-field-input"
+   ],
+   "styled": true
   },
   {
    "file": "frontend-react/src/leads/LeadFieldInput.tsx",
@@ -214,8 +220,10 @@
    "tag": "select",
    "testid": "",
    "rendered": true,
-   "classes": [],
-   "styled": false
+   "classes": [
+    "lead-field-input"
+   ],
+   "styled": true
   },
   {
    "file": "frontend-react/src/leads/LeadFieldInput.tsx",
@@ -223,8 +231,10 @@
    "tag": "select",
    "testid": "",
    "rendered": true,
-   "classes": [],
-   "styled": false
+   "classes": [
+    "lead-field-input"
+   ],
+   "styled": true
   },
   {
    "file": "frontend-react/src/leads/LeadFieldInput.tsx",
@@ -232,8 +242,10 @@
    "tag": "textarea",
    "testid": "",
    "rendered": true,
-   "classes": [],
-   "styled": false
+   "classes": [
+    "lead-field-input"
+   ],
+   "styled": true
   },
   {
    "file": "frontend-react/src/leads/LeadFieldInput.tsx",
@@ -241,34 +253,25 @@
    "tag": "input",
    "testid": "",
    "rendered": true,
-   "classes": [],
-   "styled": false
-  },
-  {
-   "file": "frontend-react/src/leads/AddressPopup.tsx",
-   "line": 115,
-   "tag": "button",
-   "testid": "addr-save-${leadId",
-   "rendered": true,
    "classes": [
-    "btn-primary"
+    "lead-field-input"
    ],
    "styled": true
   },
   {
    "file": "frontend-react/src/leads/AddressPopup.tsx",
-   "line": 133,
+   "line": 110,
    "tag": "button",
-   "testid": "addr-close-${leadId",
+   "testid": "addr-save-${leadId",
    "rendered": true,
    "classes": [
-    "btn-ghost"
+    "btn-sm"
    ],
    "styled": true
   },
   {
    "file": "frontend-react/src/leads/InlineSummary.tsx",
-   "line": 35,
+   "line": 57,
    "tag": "textarea",
    "testid": "lead-summary-input-${leadId",
    "rendered": true,
@@ -278,20 +281,30 @@
    "styled": true
   },
   {
-   "file": "frontend-react/src/leads/InlineSummary.tsx",
-   "line": 42,
+   "file": "frontend-react/src/ui/SaveControl.tsx",
+   "line": 34,
    "tag": "button",
-   "testid": "lead-summary-save-${leadId",
+   "testid": "${testidBase",
    "rendered": true,
    "classes": [
-    "btn-ghost",
-    "lead-summary-save"
+    "btn-sm"
+   ],
+   "styled": true
+  },
+  {
+   "file": "frontend-react/src/ui/SaveControl.tsx",
+   "line": 37,
+   "tag": "button",
+   "testid": "${testidBase",
+   "rendered": true,
+   "classes": [
+    "btn-sm"
    ],
    "styled": true
   },
   {
    "file": "frontend-react/src/contact/NotesHistory.tsx",
-   "line": 121,
+   "line": 108,
    "tag": "button",
    "testid": "cd-add-note-btn",
    "rendered": true,
@@ -302,7 +315,7 @@
   },
   {
    "file": "frontend-react/src/contact/NotesHistory.tsx",
-   "line": 125,
+   "line": 112,
    "tag": "button",
    "testid": "cd-note-discard",
    "rendered": true,
@@ -313,7 +326,7 @@
   },
   {
    "file": "frontend-react/src/contact/NotesHistory.tsx",
-   "line": 132,
+   "line": 123,
    "tag": "textarea",
    "testid": "cd-new-note-input",
    "rendered": true,
@@ -324,7 +337,7 @@
   },
   {
    "file": "frontend-react/src/contact/NotesHistory.tsx",
-   "line": 146,
+   "line": 137,
    "tag": "button",
    "testid": "cd-add-note-btn",
    "rendered": true,
@@ -335,7 +348,7 @@
   },
   {
    "file": "frontend-react/src/contact/NotesHistory.tsx",
-   "line": 148,
+   "line": 139,
    "tag": "button",
    "testid": "cd-note-discard",
    "rendered": true,
@@ -346,7 +359,7 @@
   },
   {
    "file": "frontend-react/src/contact/NotesHistory.tsx",
-   "line": 170,
+   "line": 161,
    "tag": "button",
    "testid": "cd-notes-show-2",
    "rendered": true,
@@ -357,7 +370,7 @@
   },
   {
    "file": "frontend-react/src/contact/NotesHistory.tsx",
-   "line": 173,
+   "line": 164,
    "tag": "button",
    "testid": "cd-notes-show-10",
    "rendered": true,
@@ -368,7 +381,7 @@
   },
   {
    "file": "frontend-react/src/contact/NotesHistory.tsx",
-   "line": 176,
+   "line": 167,
    "tag": "button",
    "testid": "cd-notes-show-all",
    "rendered": true,
@@ -407,69 +420,6 @@
  ],
  "unstyled": [
   {
-   "file": "frontend-react/src/leads/NurtureDialog.tsx",
-   "line": 66,
-   "tag": "input",
-   "testid": "nurture-date",
-   "rendered": true,
-   "classes": [],
-   "styled": false
-  },
-  {
-   "file": "frontend-react/src/leads/NurtureDialog.tsx",
-   "line": 69,
-   "tag": "textarea",
-   "testid": "nurture-reason",
-   "rendered": true,
-   "classes": [],
-   "styled": false
-  },
-  {
-   "file": "frontend-react/src/leads/LeadFieldInput.tsx",
-   "line": 48,
-   "tag": "select",
-   "testid": "",
-   "rendered": true,
-   "classes": [],
-   "styled": false
-  },
-  {
-   "file": "frontend-react/src/leads/LeadFieldInput.tsx",
-   "line": 56,
-   "tag": "select",
-   "testid": "",
-   "rendered": true,
-   "classes": [],
-   "styled": false
-  },
-  {
-   "file": "frontend-react/src/leads/LeadFieldInput.tsx",
-   "line": 69,
-   "tag": "select",
-   "testid": "",
-   "rendered": true,
-   "classes": [],
-   "styled": false
-  },
-  {
-   "file": "frontend-react/src/leads/LeadFieldInput.tsx",
-   "line": 76,
-   "tag": "textarea",
-   "testid": "",
-   "rendered": true,
-   "classes": [],
-   "styled": false
-  },
-  {
-   "file": "frontend-react/src/leads/LeadFieldInput.tsx",
-   "line": 82,
-   "tag": "input",
-   "testid": "",
-   "rendered": true,
-   "classes": [],
-   "styled": false
-  },
-  {
    "file": "frontend-react/src/contact/FollowUpTask.tsx",
    "line": 59,
    "tag": "input",
@@ -497,8 +447,5 @@
    "styled": false
   }
  ],
- "undefinedVars": [
-  "--red",
-  "--amber"
- ]
+ "undefinedVars": []
 }

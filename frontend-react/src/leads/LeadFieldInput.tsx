@@ -41,7 +41,12 @@ export function LeadFieldInput({
     title,
     'aria-invalid': invalid ? true : undefined,
     'aria-errormessage': invalid ? describedBy : undefined,
-    className: invalid ? 'field-blocked' : undefined,
+    // S5: the field treatment, COMPOSED with the invalid state rather than
+    // replacing it. The first attempt added `className` beside the spread on
+    // each of the five controls, which TypeScript correctly refused: the
+    // spread already carried one, and the second would have silently
+    // overwritten `.field-blocked` - the qualification gate's own highlight.
+    className: `lead-field-input${invalid ? ' field-blocked' : ''}`,
   }
   if (field.kind === 'industry') {
     return (

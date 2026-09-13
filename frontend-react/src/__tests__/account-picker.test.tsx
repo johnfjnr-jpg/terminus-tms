@@ -220,29 +220,37 @@ const mountNotes = async (props: Record<string, unknown> = {}) => {
 
 describe('R3 + R8: the notes header on one line', () => {
   test('N-R3 given a title, it is the FIRST item on the header row', async () => {
+    // The panel now routes through the shared shell, so the title is the
+    // shell's `data-panel-title` rather than a span this component owns.
+    // The CLAIM is unchanged: title first, then the secondary, then the
+    // actions, all on one line.
     await mountNotes({ title: 'Notes', actionsInHeader: true })
     const row = must('cd-notes-header-row')
-    expect(row.contains(must('cd-notes-title'))).toBe(true)
-    expect(row.children[0]).toBe(must('cd-notes-title'))
-    expect(must('cd-notes-title').textContent).toBe('Notes')
-    // ALL FOUR ON THE LINE, which is what R3 asks for.
+    const title = row.querySelector('[data-panel-title]')!
+    expect(row.children[0]).toBe(title)
+    expect(title.textContent).toBe('Notes')
     expect(row.contains(must('cd-add-note-btn'))).toBe(true)
-    expect(row.querySelector('.label')!.textContent).toBe('Latest first')
+    expect(row.querySelector('.panel-secondary')!.textContent).toBe('Latest first')
   })
 
-  test('N-R3 the header row carries the SHARED header-line class', async () => {
-    // The alignment is equal BY CONSTRUCTION: the Summary column uses the same
-    // class, so neither column knows about the other's margins.
+  test('N-R3 the header comes from the SHARED SHELL, not a class copied here', async () => {
+    // Alignment is equal by CONSTRUCTION because every panel's header is the
+    // same component - not because two panels were given the same class and
+    // are trusted to keep it.
     await mountNotes({ title: 'Notes', actionsInHeader: true })
-    expect(must('cd-notes-header-row').classList.contains('card-col-head')).toBe(true)
+    expect(must('cd-notes-header-row').classList.contains('panel-head')).toBe(true)
+    expect(host.querySelector('[data-panel="notes"]')).not.toBeNull()
   })
 
   test('N-R3 WITHOUT the prop nothing changes: the frozen surfaces are untouched', async () => {
     // Lead Detail and the Test Bed pass no title. Both halves asserted, so
     // this cannot pass on a component that failed to render at all.
     await mountNotes()
-    expect($('cd-notes-title'), 'a title appeared on a surface that asked for none').toBeNull()
-    expect(must('cd-notes-header-row').classList.contains('card-col-head')).toBe(false)
+    expect(host.querySelector('[data-panel-title]'),
+      'a title appeared on a surface that asked for none').toBeNull()
+    expect(host.querySelector('[data-panel]'),
+      'a frozen consumer was routed through the shell').toBeNull()
+    expect(must('cd-notes-header-row').classList.contains('panel-head')).toBe(false)
     expect(must('cd-notes-header-row').querySelector('.label')!.textContent).toBe('Latest first')
   })
 
