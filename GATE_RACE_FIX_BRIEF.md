@@ -116,3 +116,19 @@ R8. **PROMOTION: add the INSTANCE, not a number**, where an existing rule
 R9. The PROBE INVENTORY prioritised list **resumes after this round**: P2
     into R1, P3 wire `check-state-fresh.mjs`, P4 the four rotted assertions,
     P5 and P6 as standing conditions.
+
+
+## Ruling appended at the close (John, 2026-09-13)
+
+R10. **THE SCANNER-WINDOW BLIND SPOT IS CARRIED AS A FINDING, NOT FIXED
+     HERE.** `unbounded-selects.mjs` matches a chain within a 400-character
+     window and **silently drops** any chain that exceeds it. This round
+     blinded it on two selects with nothing but a comment, and it was caught
+     only because the drop shifted allowlist entries and tripped the
+     drift-detector.
+
+     > **The scanner should FAIL LOUDLY when a chain exceeds its window,
+     > never silently drop it. A guard with a silent blind spot is the thing
+     > this whole PROBE INVENTORY sequence is about.**
+
+     First item on the carried list.
