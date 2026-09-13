@@ -959,6 +959,41 @@ of the change. An unanswerable precondition is a stop.
    on both of the above, it needs no knowledge of how the positioning is done,
    and it survives the next rewrite of the CSS.
 
+   **AND THE CAPTURE CAN CHANGE THE THING YOU ARE MEASURING. MEASURE FIRST,
+   CAPTURE SECOND, AND NEVER PHOTOGRAPH THE ELEMENT WHOSE GEOMETRY IS THE
+   CLAIM.** The New Lead grid width round, 2026-09-13.
+
+   Every clause above is about a screenshot that fails to SHOW the thing - a
+   clip of pure background, an attribute passing while the cascade renders, a
+   mechanism asserted instead of a relationship. **This is a screenshot that
+   DESTROYS the thing**, and it is worse because the evidence and the damage
+   arrive in the same call.
+
+   The instance, measured rather than inferred:
+
+       fresh open                                   gutter  12px
+       after scrollLeft = 1500                      gutter  12px
+       after an ELEMENT screenshot of the container gutter   0px
+       after a PAGE screenshot                      gutter   0px
+
+   **Puppeteer suppresses the scrollbar to take an element capture and does
+   not put it back.** A probe that photographed the container and then
+   measured it was reading a scroll bar its own instrument had removed - and
+   the pixel comparison that followed **PASSED**, on a difference that had
+   nothing to do with the bar.
+
+   **It was caught by a guard added for a different reason**: an assertion
+   that the suppression had genuinely taken before its result was read
+   (Verification 14, a comparison with nothing on either side). That guard
+   expected `12px -> 0px` and reported `0px -> 0px`, which is how the real
+   cause surfaced. **Verification 14 caught a fault in the INSTRUMENT rather
+   than in the product, which is not what it was written for.**
+
+   **The check: order the probe so every measurement precedes every capture,
+   and never capture the element whose own geometry is the claim - capture the
+   page.** The general form is that an instrument may perturb its subject, and
+   a screenshot is the one nobody suspects of it.
+
 5. When a control matters, the assertion belongs in the automated suite,
    where it passes or fails, not in prose.
 
@@ -2635,6 +2670,41 @@ of the change. An unanswerable precondition is a stop.
     says looking beats an assertion for emphasis and prominence. **This is
     narrower and harder: the assertion was RIGHT, complete, and calibrated, and
     the thing that broke was simply not of the type it counts.**
+
+    **AND THE SHARPEST FORM: A MEASURE CAN BE CORRECT, CALIBRATED AND
+    NON-VACUOUS AND STILL BE AIMED AT THE WRONG AXIS OF A PROPERTY THAT HAS
+    MORE THAN ONE.** The New Lead grid width round, 2026-09-13, and it is the
+    root cause of a defect that shipped, was asserted, and passed.
+
+    Every clause above is a measure that CANNOT SEE the thing - a count that
+    cannot see a wrap, a control census that cannot see a section name. **This
+    one sees the thing perfectly and looks at the wrong half of it.**
+
+    The instance. A probe asserted **"the scroll position RESETS on reopen"**
+    and guarded the assertion against vacuity, which is careful work:
+
+        check(setTo > 0, 'the scroll could actually be moved (so the reset claim is not vacuous)')
+        check(onReopen === 0, 'the scroll position RESETS on reopen')
+
+    **Both lines read `scrollTop`. The string `scrollLeft` appears in that
+    probe zero times.** The component resets `scrollTop` and not `scrollLeft`,
+    so the probe was pointed at the ONE AXIS THE COMPONENT ALREADY HANDLED
+    while 3500px of content scrolled along the other. Everything agreed, and
+    the modal shipped opening at a middle column with the first column
+    off-screen.
+
+    **VERIFICATION 17 WAS SATISFIED AND DID NOT HELP**, which is the boundary
+    worth holding: the probe WAS shown returning a different value in each
+    state, on the system under test. It discriminated perfectly - on one axis.
+    **A calibration proves an instrument can tell two states apart; it says
+    nothing about whether the states are the ones that matter.**
+
+    **The check: when a property has more than one dimension, NAME THE
+    DIMENSIONS AND ASSERT EACH.** `scrollTop` and `scrollLeft`. Width and
+    height. Row and column. Start and end. The tell is a claim phrased in the
+    singular - "the scroll position", "the size", "the position" - about
+    something that is not singular, and the fix is to say which one and then
+    notice there is another.
 
 
     **AND THE SHARPEST CASE IS A MEASURE THAT MOVES THE WRONG WAY.** UI hygiene

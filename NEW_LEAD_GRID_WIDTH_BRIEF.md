@@ -120,3 +120,11 @@ R6. **CLAIM (b) IS MEASURED HEADED OR NOT AT ALL.** Headless is blind to
     scrollbars, proven this round in both directions. A headless
     scrollbar-present check would repeat Round A's blindness exactly, and
     is forbidden here rather than merely discouraged.
+
+
+## Ruling appended at the close (John, 2026-09-13)
+
+R7. **THE 1920 LIMIT IS ACCEPTED AS BUILT**: 7 of 15 columns visible at 1920
+    plus the real draggable scroll bar, and **the readability fix stands**.
+    **Per-column widths** - Postcode, Region and City need less than Company
+    Name and Email - are recorded as a **FUTURE REFINEMENT, NOT BUILT.**
