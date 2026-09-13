@@ -1626,7 +1626,47 @@ of the change. An unanswerable precondition is a stop.
       any of them.
 
     The window survives as a backstop that raises, and **the raise is
-    calibrated** - rule 9 applies to it like any other detector. Same family as Architecture rule 9,
+    calibrated** - rule 9 applies to it like any other detector.
+
+    **AND THE SHARPEST FORM: A CONTROL THAT DELETES ITS OWN EVIDENCE OF USE
+    CANNOT DETECT NON-USE. IT FAILS OPEN.** The enforcement gaps round,
+    2026-09-14. **No new number: this is the same false clean, produced by a
+    mechanism worth naming on its own.**
+
+    **The instance.** `scripts/edit.mjs` journals each edit and
+    `.githooks/pre-commit` refuses a commit when one did not land. Built at
+    the Round 39 close for exactly the fault of a commit message describing a
+    change a file does not carry. **That fault then recurred twice in four
+    rounds**, and the guard never fired.
+
+    Two lines explain it:
+
+        lib/edit.mjs     if (existsSync(JOURNAL)) unlinkSync(JOURNAL)
+        pre-commit       [ -f "$JOURNAL" ] || exit 0
+
+        routed, landed    journal deleted      hook passes
+        routed, FAILED    failed entry         hook refuses   <- caught
+        NEVER ROUTED      never written        hook passes    <- the fault
+
+    **A routed success and a never-routed edit are INDISTINGUISHABLE to a
+    guard that deletes its evidence of use.** The absence of a failure record
+    was being read as the absence of a failure.
+
+    **AND IT WAS CALLED A DISCIPLINE FAILURE FOR FOUR ROUNDS.** "Remember to
+    use the tool" was the recorded remedy, twice. It was a BUILD DEFECT:
+    nothing could enforce routing, so routing was left to memory, and memory
+    is not a control.
+
+    **The check: a control must leave a POSITIVE RECORD of having run.** Ask
+    what the guard sees when the thing it protects simply did not happen. If
+    that looks identical to success, the guard is decoration. The remedy here
+    was for the journal to ACCUMULATE landed edits, so a commit can be asked
+    whether every file it touches has an entry - and the bypass case becomes
+    visible for the first time.
+
+    Same family as Verification 9's ratchet clause, from the other side: that
+    one is a control whose refusal you should heed, this is a control that
+    can never refuse. Same family as Architecture rule 9,
     where a failure output that does not change is evidence the change never
     reached the code path.
 
@@ -4226,6 +4266,33 @@ rule that is merely true.** Before minting one, ask what moment it fires at
 and what action it prescribes. A rule with neither adds to the reading cost
 of every future round and changes nothing - and this file is now long enough
 that the reading cost is real.
+
+**AND THE LINE BETWEEN WHAT A RULE CAN DO AND WHAT A MECHANISM CAN DO. Set
+by the business 2026-09-14, the enforcement gaps round.**
+
+> **MECHANICAL ENFORCEMENT IS GATEABLE. JUDGEMENT IS NOT.**
+
+The estate has now measured both halves of this rather than assumed either.
+
+**The gateable half.** "Use the edit tool" was a promoted behavioural remedy
+and the fault it addressed recurred twice. Rebuilt as a mechanism - the
+journal accumulating, a hook refusing an unrouted file - it became
+impossible rather than merely nameable, **and the tool caught its own author
+on that exact fault within the same round.** Where a fault is mechanical,
+a mechanism beats a rule and the rule should be replaced rather than
+repeated louder.
+
+**The ungateable half, and it is not a gap to be closed later.** Whether a
+document is still being applied, whether a decision was sound, whether a
+promoted rule is being followed: no gate stage can see any of it.
+`INTERACTION_STANDARDS.md` was maintained carefully and then abandoned, and
+nothing mechanical noticed or could have.
+
+**The check when minting or reviewing a rule: ask which half it is in.** A
+behavioural rule guarding a mechanical fault is a rule that will be broken -
+build the mechanism. A mechanism claiming to cover judgement is the
+overclaim this round exists to kill, and the honest move is to NAME the
+uncovered bucket rather than let a green gate imply it is covered.
 
 **AND THE CONCLUSION, AFTER THREE ROUNDS OF WATCHING ONE FAMILY. Set by the
 business 2026-09-13, and it is a finding about what rules can do rather than
