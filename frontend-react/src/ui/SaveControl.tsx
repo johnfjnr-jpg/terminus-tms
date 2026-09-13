@@ -16,7 +16,9 @@
 // this panel" - and Verification 23 says to search for an existing decision
 // before taking a new one. Flattening the bar would supersede that ruling
 // without anybody deciding to.
-export function SaveControl({ dirty, busy, onSave, onDiscard, saveLabel, testidBase }: {
+export function SaveControl({
+  dirty, busy, onSave, onDiscard, saveLabel, testidBase, saveTestid, discardTestid,
+}: {
   dirty: boolean
   busy?: boolean
   onSave: () => void
@@ -24,17 +26,32 @@ export function SaveControl({ dirty, busy, onSave, onDiscard, saveLabel, testidB
   onDiscard: () => void
   saveLabel?: string
   testidBase: string
+  /**
+   * EXPLICIT TESTIDS, because a shared control must not rename its callers'
+   * hooks. Deriving `${testidBase}-save` would have renamed the Summary
+   * panel's Save from `lead-summary-save-<id>`, and SIX probe files across
+   * four earlier rounds address it by that name. They would have failed as
+   * TIMEOUTS, which read like product defects rather than a rename.
+   *
+   * Verification 41's disposition rule: every caller of a superseded name is
+   * listed and given a disposition. The disposition here is KEPT, because a
+   * rename buys nothing and costs six probes.
+   */
+  saveTestid?: string
+  discardTestid?: string
 }) {
+  const saveId = saveTestid ?? `${testidBase}-save`
+  const discardId = discardTestid ?? `${testidBase}-discard`
   return (
     <>
       {/* DISCARD FIRST IN THE DOM, so tab order reaches the reversible action
           before the committing one, and Save sits closest to the panel's
           right edge where S1 puts the primary. */}
       {dirty
-        ? <button type="button" className="btn-sm" data-testid={`${testidBase}-discard`}
+        ? <button type="button" className="btn-sm" data-testid={discardId}
             onClick={onDiscard}>Discard</button>
         : null}
-      <button type="button" className="btn-sm" data-testid={`${testidBase}-save`}
+      <button type="button" className="btn-sm" data-testid={saveId}
         disabled={!dirty || !!busy} onClick={onSave}>
         {busy ? 'Saving...' : (saveLabel ?? 'Save')}
       </button>

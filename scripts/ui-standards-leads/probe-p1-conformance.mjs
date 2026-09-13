@@ -1,4 +1,11 @@
-// UI STANDARDS - LEADS, Phase 0: the Leads card against INTERACTION_STANDARDS.
+// UI STANDARDS - LEADS, Phase 1: the same measurement, after the build.
+//
+// COPIED FROM THE PHASE 0 PROBE, so the artefact paths were the FIRST thing
+// re-pointed - Verification 44's lineage clause, promoted after a copied
+// probe overwrote the evidence of the defect it was measuring.
+//
+// The claims are UNCHANGED. That is the point: the same instrument, the same
+// assertions, before and after.
 //
 // READ-ONLY except its own fixtures.
 //
@@ -7,9 +14,9 @@
 // was retired in the migration - so the standard is measured against the CARD
 // rather than against the document's dead examples.
 //
-// Artefacts are `usl-p0-*` (Verification 44's lineage clause).
+// Artefacts are `usl-p1-*` (Verification 44's lineage clause).
 import { loadPuppeteer } from '../lib/puppeteer.mjs'
-const puppeteer = await loadPuppeteer('probe-p0-conformance.mjs')
+const puppeteer = await loadPuppeteer('probe-p1-conformance.mjs')
 import { readFileSync, mkdirSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { admin } from '../fixtures.mjs'
@@ -34,14 +41,14 @@ const mk = async (label, payload) => {
   const r = must(await db.from('records').insert({ record_type: 'contact', status: 'Unqualified',
     owner_id: OWNER.user.id, industry_id: industry.id }).select().single(), `lead ${label}`)
   must(await db.from('record_revisions').insert({ record_id: r.id, revision_number: 1,
-    payload: { name: `usl0 ${label}`, company: 'Standards Co', source: 'Referral', ...payload },
+    payload: { name: `usl1 ${label}`, company: 'Standards Co', source: 'Referral', ...payload },
     created_by: OWNER.user.id }).select().single(), `rev ${label}`)
   return r
 }
 // One fixture per claim group. Verification 7: a fixture consumed by an
 // earlier claim cannot serve a later one, and the third-case test SAVES.
-const dialogs = await mk('Dialogs', { summary: 'A summary.', address: '1 Way', city: 'Singapore' })
-const thirdCase = await mk('ThirdCase', { summary: 'Original summary text.' })
+const dialogs = await mk('P1Dialogs', { summary: 'A summary.', address: '1 Way', city: 'Singapore' })
+const thirdCase = await mk('P1ThirdCase', { summary: 'Original summary text.' })
 const created = [dialogs.id, thirdCase.id]
 console.log(`fixtures: ${created.join(' ')}\n`)
 
@@ -164,16 +171,52 @@ try {
     bd.dispatchEvent(new MouseEvent('click', { bubbles: true }))
   }, dialogs.id)
   await new Promise((r) => setTimeout(r, 400))
+  // Verification 14: the failure detail carries the CAUSE's own answer. "The
+  // popup closed" and "it was never dirty" are different failures with
+  // different fixes, and the first version measured only the effect.
+  const typedInto = await page.evaluate((s) => document.querySelector(s)?.value ?? '(absent)', city)
+  const wasDirty = await page.evaluate((x) => {
+    const b = document.querySelector(`[data-testid="addr-save-${x}"]`)
+    return b ? !b.disabled : null
+  }, dialogs.id)
   const afterBackdrop = {
     open: await visible(`[data-testid="address-popup-${dialogs.id}"]`),
-    warn: await visible('.msg-warning'),
+    present: await page.evaluate((x) => !!document.querySelector(`[data-testid="address-popup-${x}"]`), dialogs.id),
+    warn: await visible(`[data-testid="address-popup-${dialogs.id}-nudge"]`),
     attention: await visible('.btn-attention'),
   }
+  const why = await page.evaluate((x) => {
+    const e = document.querySelector(`[data-testid="address-popup-${x}"]`)
+    if (!e) return '(absent)'
+    const s = getComputedStyle(e); const b = e.getBoundingClientRect()
+    return { display: s.display, visibility: s.visibility, opacity: s.opacity,
+      w: Math.round(b.width), h: Math.round(b.height), cls: e.className,
+      inDoc: document.contains(e),
+      // The ancestor chain: a position:fixed element inside a display:none
+      // subtree is not rendered at all, and reports its OWN display as flex.
+      chain: (() => { const out = []; let n = e.parentElement
+        while (n && n !== document.body) {
+          const cs = getComputedStyle(n)
+          if (cs.display === 'none' || n.hasAttribute('hidden'))
+            out.push(`${n.tagName}#${n.id || ''}.${n.className} display=${cs.display} hidden=${n.hasAttribute('hidden')}`)
+          n = n.parentElement }
+        return out })() }
+  }, dialogs.id)
+  console.log(`  [cause] city holds "${typedInto}", Save enabled (=dirty) ${wasDirty},`
+    + ` popup present ${afterBackdrop.present}, visible ${afterBackdrop.open}`)
+  console.log(`  [cause] backdrop computed: ${JSON.stringify(why)}`)
   check('5', 'ADDRESS POPUP: a backdrop click while dirty is refused', afterBackdrop.open)
   check('5', 'ADDRESS POPUP: and it nudges (.msg-warning / .btn-attention)',
     afterBackdrop.warn || afterBackdrop.attention,
     `msg-warning ${afterBackdrop.warn}, btn-attention ${afterBackdrop.attention}`)
   // 5b: an intentional leave while dirty opens the shared discard dialogue.
+  // A GUARDED ASSERTION THAT SILENTLY DOES NOT RUN is Verification 14's
+  // clause: the first Phase 1 run lost this claim entirely because the guard
+  // above was false, and a claim that vanishes reads as a claim that passed.
+  if (!afterBackdrop.open) {
+    console.log('  SKIPPED  [5] ADDRESS POPUP: Close while dirty - the popup was already gone')
+    R.push({ section: '5', claim: 'Close while dirty asks (SKIPPED)', ok: false })
+  }
   if (afterBackdrop.open) {
     await page.click(`[data-testid="addr-close-${dialogs.id}"]`)
     await new Promise((r) => setTimeout(r, 500))

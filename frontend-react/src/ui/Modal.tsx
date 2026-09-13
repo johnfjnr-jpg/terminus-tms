@@ -128,6 +128,16 @@ export function Modal({
   // SECTION 5, ACCIDENTAL DISMISSAL: refused, and it says so. The refusal
   // alone was what Phase 0 found; the nudge is the half that was missing.
   const onBackdrop = (e: React.MouseEvent) => {
+    // STOP PROPAGATION FIRST, ALWAYS. The lead card is itself a click target
+    // that navigates, so a backdrop click that bubbles opens the record -
+    // and the modal's own refusal then looks like a refusal that failed,
+    // because the view it was rendered into has been hidden underneath it.
+    //
+    // The popup this replaced carried `onClick={(e) => e.stopPropagation()}`
+    // on its backdrop and the reason was not written down; dropping it was a
+    // regression, caught by the live probe measuring the ancestor chain and
+    // finding `#view-leads` at `display: none`.
+    e.stopPropagation()
     if (e.target !== e.currentTarget) return
     if (!dirty) { onClose(); return }
     const save = panelRef.current?.querySelector<HTMLElement>('.form-actions button')

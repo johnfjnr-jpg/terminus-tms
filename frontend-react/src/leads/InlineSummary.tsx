@@ -49,6 +49,9 @@ export function InlineSummary({ value, leadId, onSave }: {
           dirty={dirty}
           busy={busy}
           testidBase={`lead-summary-${leadId}`}
+          // KEPT, not derived: six probe files address this name.
+          saveTestid={`lead-summary-save-${leadId}`}
+          discardTestid={`lead-summary-discard-${leadId}`}
           onSave={() => { void save() }}
           // S4: Discard REVERTS to the loaded value. The panel had no
           // Discard at all before this round; four of eight did not.
