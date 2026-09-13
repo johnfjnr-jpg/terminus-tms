@@ -11578,3 +11578,111 @@ the drift reaches those surfaces.
 `NotesHistory` and neither has been seen by a person since it changed.
 Their evidence is a unit test asserting that without the new prop nothing
 changes at all.
+
+# The LEADS CARD CLEANUP round, closed 2026-09-13
+
+Gated at `61f83a2` on **22 of 22 PASS, 0 SKIP, door stage green, first
+run**, and pushed to `origin/main` at `3a78a27`. **Ten commits across two
+briefs**: the consolidation round was **SPLIT**, not abandoned, and its
+Phase 0 is Round B's measurement already taken.
+
+## What shipped
+
+**The conformance gate's polarity is inverted**, which is the round's real
+result. **A `required` affordance on the shared panel header.** **The New
+Lead grid reads as a table**, scrolls, resets and closes on save. **A CSS
+override for Chrome's autofill**, with its verification limit printed
+rather than claimed.
+
+## THE KEY RESULT: forbid-absent, not permit-absent
+
+The gate's shell test was **a list of three class names**, and
+`QualifyCompletion` used none of them - so it passed while hand-rolling a
+panel header. **Verification 19 inside the gate built to enforce
+Verification 19.**
+
+> **A list PERMITS everything absent from it. The replacement FORBIDS
+> everything absent from it.**
+
+Any class on a Leads surface shaped like a heading or an action row is an
+offender **unless** it is one the shell emits - **derived from `Panel.tsx`,
+never retyped** - or **declared by a CALL** carrying its reason. **A future
+`foo-header` goes red until somebody says in a diff why it is not a panel.**
+
+**Shown flagging exactly the two real violations before the fix**, and
+green after. That is the difference between a gate and a claim.
+
+## THE STANDING TAX, and it is the second close to name it
+
+**Four instrument faults in one phase. THREE were one shape**: an
+assertion that validates the change just made rather than testing the
+requirement.
+
+- **A threshold taken from the outcome, twice.** The claim was "cells are
+  sized so data is readable"; the change widened an input to 130px; the
+  assertion written for it was **`inputWidth >= 130`**. **A tautology
+  wearing a threshold, and it passed on a cell that still cropped.**
+- **A same-tick read** of `aria-invalid` that **passed twice on luck**.
+- **A calibration matcher anchored on a test name the same round
+  renamed**, which came back SILENT while the gate went red correctly.
+
+**Rewritten to ask the REQUIREMENT** - does a real 32-character account
+name from this estate's own list fit? - **the assertion FAILED**, at 208px
+needed against 170px given.
+
+> **THE HONEST TEST FAILED WHERE THE PROXY PASSED, ON THE SAME CODE.** That
+> is the only demonstration of this that carries any weight.
+
+## The promotion, and the second consecutive refusal to mint
+
+**The fault is already forbidden twice** - Verification 47's *"a probe
+written after the change tests the change"* and build discipline 3's *"if
+a check could pass while the claim is false, it is not evidence"*.
+**Neither prevented it.**
+
+**So nothing new was minted, for the second close running.** What was
+missing was a REMEDY, and one was written into Verification 47:
+
+> **TAKE THE THRESHOLD FROM THE REQUIREMENT, NEVER FROM THE RESULT.**
+>
+> **The tell is a threshold suspiciously close to what you just measured.**
+
+**The open question, carried deliberately: does the remedy reduce
+recurrence, or is this class rules-unpreventable and a walk the only
+backstop?** **Next round answers it**, and the answer matters most for the
+Sections 6 to 11 walk - a surface-by-surface comparison against a document
+is exactly the work where an assertion shaped to what you just found passes
+in silence.
+
+## A constraint this estate now lives with
+
+**`INTERACTION_STANDARDS.md` is read by a GATE STAGE**, so a commit
+touching it re-gates and cannot ride a green gate as ordinary markdown.
+**Re-measured at this close rather than inherited from the last one**, and
+the split held: `DESIGN_PRINCIPLES.md`'s readers are in neither a suite nor
+`verify-all`, so this entry rides.
+
+## What is explicitly NOT done
+
+**THE REGION DRIFT IS STILL NOT CLOSED**, six copies, **a fifth
+consecutive entry**.
+
+**A TRADE, FLAGGED RATHER THAN SOLD AS A WIN**: the New Lead grid now
+scrolls **horizontally**, at 3500px of table min-width. **That is the price
+of fifteen readable columns.** A readable cell with a scrollbar beats an
+unreadable one without, and it is still a trade - fewer columns, or
+per-column widths, would be decisions rather than defects.
+
+**ROUND B IS NEXT AND ITS MEASUREMENT ALREADY EXISTS**: `contact-detail` is
+the bespoke screen serving **10 Qualified contacts the Leads card never
+shows**, and it is replaced by the shared surface plus an account section,
+with the Contacts list rewired to open it. **The create-Test-Bed and
+create-Opportunity actions stay on the Contacts list.**
+
+## Still true
+
+**No walk.** Every claim in this round is a probe or a screenshot.
+
+**And two live records in the count are John's own** - "Road Runner" and
+"SPIKE DOG", from his walk. Checked against the owner id rather than
+assumed to be residue, and left alone.
