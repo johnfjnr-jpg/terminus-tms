@@ -1414,6 +1414,38 @@ of the change. An unanswerable precondition is a stop.
    open and what had been tried. Same remedy as the rest of rule 9: take it
    out and watch something fail. If nothing does, it was never a fix.
 
+   **AND ONE STEP EARLIER THAN ANY OF THIS: A DETECTOR NOTHING SCHEDULES
+   ROTS, AND ITS SILENCE READS EXACTLY LIKE ITS SUCCESS.** Round B Phase 2,
+   2026-09-13.
+
+   Every clause above is a detector that RUNS and fails to discriminate.
+   **This one does not run at all**, and no clause above can see that,
+   because each of them begins by executing the thing.
+
+   The instance. `scripts/leads/probe-gated-fields-reachable.mjs` had been
+   dead since `9f2c533`, dying on its first call with
+   `missing: ["jobRole"]` after the business made that field mandatory
+   server-side. **It is not a gate stage, so nothing ran it for two rounds**,
+   and the estate went on counting it as coverage.
+
+   **THE ROT IS NOT IN THE PROBE, IT IS IN THE WORLD THE PROBE ASSUMES**,
+   which is exactly why the probe cannot report it: the fixture was correct
+   when written, a requirement moved somewhere else, and the only instrument
+   that could have said so was the probe itself.
+
+   **HERE A RULE IS WORTH LESS THAN A CHECK, and the check is the
+   deliverable.** A rule fires when a probe is written; the failure arrives
+   rounds later, at nobody's moment. So: **every probe is either wired to a
+   gate stage or recorded as unwired with the reason**, and a scan
+   enumerates `scripts/**` against the stages in `package.json` and
+   `scripts/verify-all.mjs` so an unwired probe is a finding rather than a
+   silence. Verification 20's "WHICH SCRIPT RUNS THIS FILE?" is the same
+   grep asked for the opposite purpose.
+
+   **And the wider question it names is NOT answered: how many of this
+   estate's non-gate probes have rotted the same way.** One was found by
+   reaching for it. The rest are unmeasured, and saying so is the state.
+
 10. **Layout is checked at 1240px, 1920px and 3440px, before and after.**
     Promoted here Round 10 after appearing in seven briefs and no
     permanent document. 1240 is where things break, 3440 is where a cap
@@ -3810,6 +3842,40 @@ of the change. An unanswerable precondition is a stop.
     from the same question, and neither was reported. One disposition per name,
     which is Verification 41's shape: the enumeration itself is the instrument.
 
+    **AND A CAPABILITY CAN LIVE IN A SAVE PATH, WHICH NO CENSUS OF WHAT A
+    SURFACE RENDERS CAN REACH.** Round B Phase 1, 2026-09-13, and it is
+    V49's own instrument failing one layer BELOW where it looks.
+
+    Every clause above censuses what a surface SHOWS - rendered rows, live
+    classes, top-level names mapped to capabilities. **This is a capability
+    with no markup at all.**
+
+    The instance. `ContactHost.onSave` writes ONE NOTES HISTORY ENTRY PER
+    SAVE SESSION - *"Job Title changed from X to Y. City changed from A to
+    B."* The shared surface's own save just PATCHes the payload. **Routing
+    the contact's fields through it would have deleted that audit trail
+    silently.**
+
+    **AND NO TEST ON THE REPLACEMENT COULD HAVE NOTICED, because the
+    replacement never had the behaviour to lose.** That is the half that
+    makes it invisible: the swap does not break an assertion, it removes a
+    write nothing on the new side ever made. The old side's tests go with
+    the old side.
+
+    **The check: the accounting walks the WRITE PATHS, not only the render
+    tree.** For every surface being replaced, enumerate what its save,
+    delete, link and transition handlers DO beyond the obvious PATCH - a
+    derived note, an audit row, a counter, a cache invalidation, a second
+    record - and give each a disposition. A capability that is a BRANCH
+    INSIDE A HANDLER has no top-level name, so the name-to-capability map
+    that catches everything else cannot see it.
+
+    Verification 7's behaviour axis is the nearest neighbour and does not
+    cover this: that one is what a replaced ELEMENT did that is not in its
+    props, and its instance is event propagation. **This is what a replaced
+    HOST wrote that the replacement does not**, and the remedy is an
+    enumeration rather than a reading.
+
     Same family as Verification 33, every measure has a shape, with a specific
     remedy 33's general one does not give.
 
@@ -3925,6 +3991,46 @@ rule that is merely true.** Before minting one, ask what moment it fires at
 and what action it prescribes. A rule with neither adds to the reading cost
 of every future round and changes nothing - and this file is now long enough
 that the reading cost is real.
+
+**AND THE CONCLUSION, AFTER THREE ROUNDS OF WATCHING ONE FAMILY. Set by the
+business 2026-09-13, and it is a finding about what rules can do rather than
+about the fault.**
+
+The business asked, at the leads-cleanup close, whether promoting V47's
+threshold remedy would reduce recurrence of the PROXY FAULT - **an assertion
+that validates the change just made rather than testing the requirement.**
+Three rounds later the answer is measured and it is no.
+
+- **The leads-cleanup round** produced the remedy: a threshold read off the
+  result (`>= 130` after measuring 130), which passed on a cropping cell.
+  Promoted as *take the threshold from the requirement, never from the
+  result.*
+- **Round B Phase 1** recurred in IMPLEMENTATION, not measurement:
+  `blocking={[]}` passed unconditionally with a comment rationalising it,
+  which deleted a live screen's qualification tinting. **No threshold was
+  involved and V47's remedy could not have fired.**
+- **Round B Phase 2** produced two more, both outside the remedy again: a
+  requirement asserted in the state it does not apply to, and a probe read
+  as proving a disposition when the branch naming it never ran.
+
+> **THE FAMILY IS BROADER THAN ANY OF ITS REMEDIES. It is not fully
+> rule-preventable, and the walk is the backstop.**
+
+**And the good version showed in the same rounds**, which is the half worth
+recording because it is what actually works: a test rewritten when its first
+run failed rather than bent to pass; a defect found by opening a screenshot
+after every assertion went green; a probe result withdrawn on reading WHICH
+assertion had run.
+
+**Every one of those was MANUAL AND PER-INSTANCE.** The rules named the
+shape and made each fast to diagnose; **not one of them fired by itself.**
+A rule names a check. It does not perform it.
+
+**The consequence, and it is a scoping fact rather than a counsel of
+despair: work whose correctness rests on this family being caught must
+budget the walk as the control**, not the suite and not the rulebook. That
+applies directly to the Sections 6-11 migration-conformance walk, where the
+surfaces are numerous and the faults are of exactly this shape.
 
 **AND ASK ONE QUESTION OF THE GROUPS: DO THEY COLLAPSE?** Added by the
 business the same day, and it is the point of the exercise rather than a
