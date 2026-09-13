@@ -1182,6 +1182,37 @@ of the change. An unanswerable precondition is a stop.
    invents its own metrics is Verification 20's second reader arriving in the
    stylesheet.
 
+   **AND THE THIRD AXIS IS BEHAVIOUR THE OLD ELEMENT CARRIED AND NEVER
+   EXPLAINED.** UI standards round, 2026-09-13.
+
+   The clauses above are what SURROUNDS the new markup, and the TREATMENT the
+   new control wears. This is what the old element **did**, in a line with no
+   comment on it.
+
+   The instance. A hand-rolled modal backdrop carried
+   `onClick={(e) => e.stopPropagation()}`. A shared `Modal` component replaced
+   it and did not. **The lead card is itself a click target that navigates**,
+   so a backdrop click bubbled to the card and opened the record.
+
+   **THE NEW COMPONENT'S OWN LOGIC WAS PERFECT AND THAT IS WHAT MADE IT HARD.**
+   The dirty check ran, the refusal held, the nudge was revealed - into a view
+   that had just been set to `display: none` underneath it. **It presented as
+   the refusal failing**, and the probe reported a plainly-visible 1920x1200
+   backdrop as invisible, which is true of any element inside an unrendered
+   subtree.
+
+   **No unit test could see it.** The component is correct in isolation; the
+   defect is entirely in what the surrounding page does with an event the
+   component let through.
+
+   **The check: before replacing a component, list what the old one DID that
+   is not in its props.** Event handling and propagation, focus moves, what it
+   stopped as much as what it started. A one-line `stopPropagation` with no
+   comment is the shape to look for, because a line nobody explained is a line
+   nobody will miss. Same family as Verification 43's clause - when a swap
+   retires a path, list what that path WROTE - with the twist that this path
+   wrote nothing and merely **refused to pass something on**.
+
 8. **Every Supabase call has its `error` checked, including upserts and
    any write whose result is not otherwise read.** An unchecked write
    returns success with nothing stored. Two confirmed instances of this
@@ -3830,6 +3861,31 @@ fires at the moment rather than by recall**, which matters because several
 rules here record their own author being caught by them within the hour of
 writing them down. Knowing a rule confers no ability to spot its instances;
 being prompted at the right moment does.
+
+**AND THE LIMIT OF PROMOTION, MEASURED. Set by the business 2026-09-13, and
+it is evidence for a claim this file already makes twice rather than a new
+one.**
+
+One round produced **seven self-caught instrument and build faults**, and
+**at least three were shapes this file had already promoted a rule about**:
+reading a suite's COUNT instead of its EXIT CODE (Verification 16's own
+corollary), asserting an ATTRIBUTE where visibility was the claim
+(Verification 4's clause), and a harness whose own source SATISFIED the scan
+it was calibrating (Verification 39's Round 8 remedy).
+
+**The rules did not prevent any of them. They made every one of them fast to
+diagnose** - each was named, understood and fixed within minutes, because the
+shape had a name and a recorded remedy.
+
+> **THAT IS WHAT PROMOTION BUYS, AND IT IS WORTH HAVING. It is not
+> immunity, and a close that reports a promoted rule as though it were a
+> control is overstating it.**
+
+**The consequence for this file: prefer a rule that will be APPLIED over a
+rule that is merely true.** Before minting one, ask what moment it fires at
+and what action it prescribes. A rule with neither adds to the reading cost
+of every future round and changes nothing - and this file is now long enough
+that the reading cost is real.
 
 **AND ASK ONE QUESTION OF THE GROUPS: DO THEY COLLAPSE?** Added by the
 business the same day, and it is the point of the exercise rather than a
