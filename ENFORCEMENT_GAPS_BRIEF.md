@@ -38,9 +38,39 @@ R2. **The meta-check is the deliverable.** A gate stage that FAILS when a
 R3. **Scope the meta-check to what is MECHANICALLY CHECKABLE** - whether a
     guard is a gate stage is checkable; whether a document is maintained is
     harder. **Measure what is in scope and be honest about what is not.**
-R4. **Calibrate the meta-check BOTH WAYS.** It must fail on a deliberately
-    unwired control and pass when all known controls are wired. **A
-    meta-check that cannot fail is the exact fault it is built to catch.**
+R4. **Calibrate the meta-check THREE WAYS.** It must fail on a deliberately
+    unwired control, pass when all known mechanically-checkable controls are
+    wired, and **FAIL CLOSED on an indeterminate case**. **A meta-check that
+    cannot fail is the exact fault it is built to catch.**
+R7. **IT MUST FAIL CLOSED.** If it cannot determine whether a control is
+    enforced, it goes RED and demands an explicit answer. **It never passes
+    on "could not tell"** - a check that passes when unsure is the
+    silent-failure-mode guard the SCANNER WINDOW round just killed, rebuilt
+    one level up.
+
+## THE HONEST BOUNDARY, AND WHY IT IS A RULING AND NOT A CAVEAT
+
+**Overclaiming coverage is the `edit.mjs` fault itself.** That guard's comment
+says *"a broken edit cannot reach a message describing a change the file does
+not carry"* - a property of ROUTED edits, stated as a property of the
+repository. The gap between those two sentences is how the fault recurred
+twice.
+
+So this round states its own boundary in the same breath as its deliverable:
+
+| the meta-check CAN enforce | it CANNOT enforce |
+|---|---|
+| is a guard a gate stage - yes/no | is a document maintained |
+| did an edit route through the journal - yes/no | was a decision sound |
+| is a test named by a suite - yes/no | is a standard still being applied |
+
+**Every control is therefore classified into THREE buckets, not two:**
+ENFORCED, REMEMBERED, and **UNENFORCEABLE-BY-GATE (judgment)**. The third is
+not a failure to be fixed later; it is the honest edge of the mechanism, and
+naming it is what stops this round claiming a "never again" it cannot deliver.
+
+**A meta-check claiming completeness it lacks is the exact fault recurring
+one level up.**
 R5. **DOGFOOD: route this round's own edits through `scripts/edit.mjs`.** If
     the false-commit-message fault can happen this round, the fix did not
     work.
