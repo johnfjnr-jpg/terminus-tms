@@ -1400,6 +1400,33 @@ of the change. An unanswerable precondition is a stop.
    redundant, and both are worth knowing before it becomes the thing somebody
    else trusts.
 
+   **AND WHEN A CONTROL REFUSES YOU, THE FIRST MOVE IS TO IMPROVE THE CHANGE,
+   NOT TO RAISE THE CEILING.** The scanner window round, 2026-09-13. An
+   instance rather than a number, and recorded because it is a failure I
+   nearly committed rather than a virtue I displayed.
+
+   The unbounded-select allowlist carries a **SHRINK-ONLY ratchet**: the
+   ceiling may only ever be lowered. A newly-visible unbounded select was
+   about to be added to it on a sound measurement - the table holds 3 rows and
+   grows by one per product per price change, and the invariant reading it
+   must see the whole catalog, so bounding it looked wrong.
+
+   **The reasoning was sound and the answer was still wrong.** The ratchet
+   refused the entry at 41 against a ceiling of 40, and the better answer was
+   already in the estate: `pagedSelect` reads EVERY row whatever the count, so
+   the invariant still sees the whole catalog, the list does not grow, and the
+   caveat the entry needed - *safe only because the table is tiny* -
+   disappears.
+
+   **A control doing its job produced a better fix than the one brought to
+   it**, which is worth more than the entry it refused.
+
+   **The check: a one-way control's refusal is INFORMATION ABOUT YOUR FIX, not
+   an obstacle in front of it.** The tempting move is to raise the ceiling by
+   one with a justification, and a justification will always be available
+   because the entry is usually defensible. Ask instead what the refusal is
+   pointing at.
+
    **AND AN INJECTION CAN FIRE WITHOUT EVER REACHING THE CHECK IT WAS WRITTEN
    FOR, WHICH READS EXACTLY LIKE A CALIBRATED ASSERTION.** The LEADS round,
    2026-09-11, and it is the gap between rule 9 and rule 51: 51 says explain
@@ -1558,7 +1585,48 @@ of the change. An unanswerable precondition is a stop.
     nothing, the possibilities are that the thing is absent OR that the search
     did not run. Those are different, and most tools do not distinguish them
     for you. Before reporting an absence, confirm the search can find
-    something you already know is there. Same family as Architecture rule 9,
+    something you already know is there.
+
+    **AND THE OTHER SIDE OF IT: WHEN YOU WRITE THE TOOL, MAKE IT RAISE. A
+    GUARD WITH A SILENT FAILURE MODE IS WORSE THAN NO GUARD, BECAUSE IT
+    REPORTS A FALSE CLEAN.** The scanner window round, 2026-09-13. **No new
+    number: this is rule 12 stated from the author's side rather than the
+    reader's.**
+
+    Everything above tells the READER of a tool to calibrate it. That is right
+    and it does not scale: nobody calibrates a guard that has been green for
+    months.
+
+    **The instance.** The unbounded-select scanner matched a chain within a
+    400-character window ending at the next statement keyword. Past that
+    window the whole chain failed to match and the select was **silently not
+    counted** - so the total went DOWN, which reads as fewer unbounded
+    selects, which reads as progress. Measured: **six lines of ordinary
+    comment took the count from 40 to 39 with no code changed**, and **two
+    genuinely unbounded selects were invisible in the tree** - neither in the
+    allowlist, because the scanner had never found them, so the drift detector
+    that caught the previous instance could not have caught these.
+
+    **The trigger was not comments.** One was blinded by an ordinary
+    multi-line `.map()` returning an object literal. Any code shape that
+    delays the terminator does it.
+
+    **Two things follow, and the second is the one that gets skipped:**
+
+    - **A tool that cannot classify an input RAISES AND NAMES IT.** Returning
+      a shorter list is the failure. A caller receiving a count must be able
+      to rely on that count being complete, and the guarantee is the whole
+      point of the tool.
+    - **WIDENING THE WINDOW IS NOT THE FIX**; it relocates the cliff. 13
+      chains already sat at 60-100% of the old one. **Fix the GRAMMAR
+      instead**: a PostgREST chain continues only via `.method(`, so it ends
+      at the first non-blank line that does not start with a dot. That is a
+      property of the thing being parsed rather than a guess about the code
+      around it, and it removed all four unparseable chains without editing
+      any of them.
+
+    The window survives as a backstop that raises, and **the raise is
+    calibrated** - rule 9 applies to it like any other detector. Same family as Architecture rule 9,
     where a failure output that does not change is evidence the change never
     reached the code path.
 
