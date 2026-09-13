@@ -1,0 +1,756 @@
+{
+ "view-contact-detail": [
+  {
+   "file": "frontend/app.js",
+   "kind": "VANILLA SOURCE",
+   "inCode": true,
+   "count": 1,
+   "first": [
+    "306: const container = document.getElementById('view-contact-detail')"
+   ]
+  },
+  {
+   "file": "frontend/index.html",
+   "kind": "VANILLA SOURCE",
+   "inCode": true,
+   "count": 2,
+   "first": [
+    "340: <div id=\"view-contact-detail\" class=\"wrap hidden\">",
+    "477: the page though: #view-contact-detail has max-width:none (wide-"
+   ]
+  },
+  {
+   "file": "frontend/style.css",
+   "kind": "VANILLA SOURCE",
+   "inCode": true,
+   "count": 7,
+   "first": [
+    "87: #view-contact-detail's margin-left was effectively 0px (the old",
+    "95: #view-contact-detail {"
+   ]
+  },
+  {
+   "file": "frontend-react/src/contact/AccountDetailsModal.tsx",
+   "kind": "REACT SOURCE",
+   "inCode": false,
+   "count": 1,
+   "first": [
+    "18: // index.html:2849, OUTSIDE #view-contact-detail, so it survives the mount and"
+   ]
+  },
+  {
+   "file": "frontend-react/src/contact/ContactView.tsx",
+   "kind": "REACT SOURCE",
+   "inCode": true,
+   "count": 3,
+   "first": [
+    "4: // #view-contact-detail, which main.tsx createRoot()s, so the static markup",
+    "119: const viewEl = typeof document === 'undefined' ? null : document.getElementById('view-"
+   ]
+  },
+  {
+   "file": "frontend-react/src/main.tsx",
+   "kind": "REACT SOURCE",
+   "inCode": false,
+   "count": 1,
+   "first": [
+    "190: // #view-contact-detail and clears the static markup on first render."
+   ]
+  },
+  {
+   "file": "scripts/leads/probe-gated-fields-reachable.mjs",
+   "kind": "PROBE / SCRIPT",
+   "inCode": true,
+   "count": 1,
+   "first": [
+    "57: const v = document.getElementById('view-contact-detail')"
+   ]
+  },
+  {
+   "file": "scripts/leads/probe-lead-detail-behaviour.mjs",
+   "kind": "PROBE / SCRIPT",
+   "inCode": true,
+   "count": 2,
+   "first": [
+    "57: const v = document.getElementById('view-contact-detail')",
+    "122: const v = document.getElementById('view-contact-detail')"
+   ]
+  },
+  {
+   "file": "scripts/leads/probe-lead-door.mjs",
+   "kind": "PROBE / SCRIPT",
+   "inCode": true,
+   "count": 5,
+   "first": [
+    "6: // view-contact-detail, deliberately the same instrument rather than a new one.",
+    "60: const v = document.getElementById('view-contact-detail')"
+   ]
+  },
+  {
+   "file": "scripts/leads/probe-leads-list.mjs",
+   "kind": "PROBE / SCRIPT",
+   "inCode": true,
+   "count": 3,
+   "first": [
+    "191: const stayed = await page.evaluate(() => !document.getElementById('view-contact-detail",
+    "192: || document.getElementById('view-contact-detail').classList.contains('hidden'))"
+   ]
+  },
+  {
+   "file": "scripts/leads/probe-nurture-dom.mjs",
+   "kind": "PROBE / SCRIPT",
+   "inCode": true,
+   "count": 3,
+   "first": [
+    "58: const v = document.getElementById('view-contact-detail')",
+    "64: const v = document.getElementById('view-contact-detail')"
+   ]
+  },
+  {
+   "file": "scripts/leads/probe-p3-layout.mjs",
+   "kind": "PROBE / SCRIPT",
+   "inCode": true,
+   "count": 7,
+   "first": [
+    "59: const v = document.getElementById('view-contact-detail')",
+    "63: await page.waitForFunction(() => !!document.getElementById('view-contact-detail')"
+   ]
+  },
+  {
+   "file": "scripts/round6/walk-contact.mjs",
+   "kind": "PROBE / SCRIPT",
+   "inCode": true,
+   "count": 12,
+   "first": [
+    "95: const v = document.getElementById('view-contact-detail')",
+    "96: const panel = document.querySelector('#view-contact-detail [data-testid=\"contact-panel"
+   ]
+  },
+  {
+   "file": "scripts/round8/walk-estate.mjs",
+   "kind": "PROBE / SCRIPT",
+   "inCode": true,
+   "count": 1,
+   "first": [
+    "83: rows: document.querySelectorAll('#view-contact-detail .field-row').length,"
+   ]
+  },
+  {
+   "file": "LEADS_CARD_PHASE_0_REPORT.md",
+   "kind": "DOCUMENT",
+   "inCode": true,
+   "count": 1,
+   "first": [
+    "175: caps at `max-width: 1240px`, and `#view-contact-detail` already overrides"
+   ]
+  },
+  {
+   "file": "LEADS_CARD_PHASE_2_REPORT.md",
+   "kind": "DOCUMENT",
+   "inCode": true,
+   "count": 1,
+   "first": [
+    "81: Full width uses the `#view-contact-detail` precedent - the same two"
+   ]
+  },
+  {
+   "file": "LEADS_PHASE_0_REPORT.md",
+   "kind": "DOCUMENT",
+   "inCode": true,
+   "count": 4,
+   "first": [
+    "28: **list** is `view-leads`; the Lead **detail** is `view-contact-detail`, mounted",
+    "153: **`view-contact-detail` appears in neither.** A5 is confirmed as a real gap, and"
+   ]
+  },
+  {
+   "file": "LEADS_PHASE_4_REPORT.md",
+   "kind": "DOCUMENT",
+   "inCode": true,
+   "count": 1,
+   "first": [
+    "114: > is scoped to `#view-contact-detail` now, and it is back to 13/13."
+   ]
+  },
+  {
+   "file": "MIGRATION_ROUND_6_PHASE_2_REPORT.md",
+   "kind": "DOCUMENT",
+   "inCode": true,
+   "count": 1,
+   "first": [
+    "57: migration on the Account pattern, so `createRoot` owns `#view-contact-detail`."
+   ]
+  }
+ ],
+ "loadContactDetail": [
+  {
+   "file": "frontend/app.js",
+   "kind": "VANILLA SOURCE",
+   "inCode": true,
+   "count": 4,
+   "first": [
+    "303: function loadContactDetailOrSayWhyNot(id) {",
+    "304: if (typeof window.loadContactDetail === 'function') { window.loadContactDetail(id); re"
+   ]
+  },
+  {
+   "file": "frontend-react/src/__tests__/shell.test.tsx",
+   "kind": "REACT TEST",
+   "inCode": true,
+   "count": 2,
+   "first": [
+    "80: // Round 6 Phase 2 adds ONE name, loadContactDetail, and no accessor. The",
+    "118: 'loadContactDetail', 'loadTestBedDetail', 'mountLeadsList',"
+   ]
+  },
+  {
+   "file": "frontend-react/src/field-row/useFieldRows.ts",
+   "kind": "REACT SOURCE",
+   "inCode": false,
+   "count": 1,
+   "first": [
+    "28: * state on every load - `cdEdits = {}` inside `loadContactDetail`, and its own"
+   ]
+  },
+  {
+   "file": "frontend-react/src/main.tsx",
+   "kind": "REACT SOURCE",
+   "inCode": true,
+   "count": 2,
+   "first": [
+    "76: loadContactDetail?: (contactId: string) => void",
+    "208: window.loadContactDetail = register(CONTACT_VIEW,"
+   ]
+  },
+  {
+   "file": "scripts/round6/walk-contact.mjs",
+   "kind": "PROBE / SCRIPT",
+   "inCode": true,
+   "count": 1,
+   "first": [
+    "81: await page.waitForFunction(() => typeof window.loadContactDetail === 'function', { tim"
+   ]
+  },
+  {
+   "file": "scripts/round8/walk-estate.mjs",
+   "kind": "PROBE / SCRIPT",
+   "inCode": true,
+   "count": 1,
+   "first": [
+    "54: loaders: ['loadApprovalPage', 'loadAccountDetail', 'loadContactDetail', 'loadTestBedDe"
+   ]
+  },
+  {
+   "file": "scripts/tests/live-form.test.mjs",
+   "kind": "GATE SUITE",
+   "inCode": true,
+   "count": 3,
+   "first": [
+    "207: assert.ok(!/else if \\(view === 'contact-detail' && id\\) loadContactDetail\\(id\\)/.test(",
+    "208: 'the dispatch calls loadContactDetail bare, so a missing bundle is a '"
+   ]
+  },
+  {
+   "file": "DESIGN_PRINCIPLES.md",
+   "kind": "DOCUMENT",
+   "inCode": true,
+   "count": 1,
+   "first": [
+    "2416: - **Tab/Enter field navigation and unsaved-changes-on-navigate warnings**: system-wide"
+   ]
+  },
+  {
+   "file": "INTERACTION_STANDARDS.md",
+   "kind": "DOCUMENT",
+   "inCode": true,
+   "count": 2,
+   "first": [
+    "88: It must **not** warn on the app's own post-save redirect, for example a successful Par",
+    "101: **A third case, distinct from the two above, confirmed 2026-08-15.** The binary in thi"
+   ]
+  },
+  {
+   "file": "MIGRATION_ROUND_6_BRIEF.md",
+   "kind": "DOCUMENT",
+   "inCode": true,
+   "count": 1,
+   "first": [
+    "52: 1. The view boundary: loadContactDetail, cdReturnView semantics (back"
+   ]
+  },
+  {
+   "file": "MIGRATION_ROUND_6_PHASE_0_REPORT.md",
+   "kind": "DOCUMENT",
+   "inCode": true,
+   "count": 1,
+   "first": [
+    "185: **`loadContactDetail`** wraps `loadContactDetailInner` in try/finally so every"
+   ]
+  },
+  {
+   "file": "MIGRATION_ROUND_6_PHASE_2_REPORT.md",
+   "kind": "DOCUMENT",
+   "inCode": true,
+   "count": 4,
+   "first": [
+    "13: is loaded after it and re-assigns `window.loadContactDetail`, so **the vanilla",
+    "56: One commit. `main.tsx` registers `loadContactDetail` as a **whole-view**"
+   ]
+  }
+ ],
+ "ContactHost": [
+  {
+   "file": "frontend-react/src/__tests__/contact-capabilities.test.tsx",
+   "kind": "REACT TEST",
+   "inCode": true,
+   "count": 2,
+   "first": [
+    "10: import { ContactHost } from '../contact/ContactHost'",
+    "58: root.render(<ShellProvider services={services}><ContactHost contact={RECORD()} /></She"
+   ]
+  },
+  {
+   "file": "frontend-react/src/__tests__/contact-surface.test.tsx",
+   "kind": "REACT TEST",
+   "inCode": true,
+   "count": 2,
+   "first": [
+    "9: import { ContactHost, returnViewFor, WRITABLE_ELSEWHERE } from '../contact/ContactHost",
+    "67: root.render(<ShellProvider services={services}><ContactHost contact={c} /></ShellProvi"
+   ]
+  },
+  {
+   "file": "frontend-react/src/contact/ContactHost.tsx",
+   "kind": "REACT SOURCE",
+   "inCode": true,
+   "count": 1,
+   "first": [
+    "73: export function ContactHost({ contact, registerReload, navToken }: {"
+   ]
+  },
+  {
+   "file": "frontend-react/src/contact/ContactView.tsx",
+   "kind": "REACT SOURCE",
+   "inCode": true,
+   "count": 3,
+   "first": [
+    "11: import { ContactHost } from './ContactHost'",
+    "12: import { returnViewFor } from './ContactHost'"
+   ]
+  },
+  {
+   "file": "frontend-react/src/contact/NotesHistory.tsx",
+   "kind": "REACT SOURCE",
+   "inCode": false,
+   "count": 2,
+   "first": [
+    "49: * THREE CONSUMERS, NOT TWO: LeadCard, ContactHost and TestBedHost. R8 names",
+    "191: // THREE CONSUMERS: the lead card, ContactHost (FROZEN Lead Detail) and"
+   ]
+  },
+  {
+   "file": "frontend-react/src/leads/NurtureDialog.tsx",
+   "kind": "REACT SOURCE",
+   "inCode": false,
+   "count": 1,
+   "first": [
+    "13: // ContactHost has this same two-call sequence. It is NOT refactored into a"
+   ]
+  },
+  {
+   "file": "scripts/lead-card-ui/census-timestamps.json",
+   "kind": "PROBE / SCRIPT",
+   "inCode": true,
+   "count": 2,
+   "first": [
+    "234: \"f\": \"frontend-react/src/contact/ContactHost.tsx\",",
+    "513: \"f\": \"frontend-react/src/contact/ContactHost.tsx\","
+   ]
+  },
+  {
+   "file": "scripts/round6/inject-phase-1.mjs",
+   "kind": "PROBE / SCRIPT",
+   "inCode": true,
+   "count": 1,
+   "first": [
+    "36: const HOST = 'frontend-react/src/contact/ContactHost.tsx'"
+   ]
+  },
+  {
+   "file": "scripts/round6/inject-phase-2.mjs",
+   "kind": "PROBE / SCRIPT",
+   "inCode": true,
+   "count": 1,
+   "first": [
+    "36: const HOST = 'frontend-react/src/contact/ContactHost.tsx'"
+   ]
+  },
+  {
+   "file": "scripts/round6/inject-phase-2c.mjs",
+   "kind": "PROBE / SCRIPT",
+   "inCode": true,
+   "count": 1,
+   "first": [
+    "39: const HOST = 'frontend-react/src/contact/ContactHost.tsx'"
+   ]
+  },
+  {
+   "file": "scripts/tests/no-duplicate-ids.test.mjs",
+   "kind": "GATE SUITE",
+   "inCode": true,
+   "count": 3,
+   "first": [
+    "88: 'Same as ContactHost above, and confirmed by the same swap.',",
+    "90: 'Same as ContactHost: rendered inside the container createRoot owns, and '"
+   ]
+  },
+  {
+   "file": "INTERACTION_STANDARDS.md",
+   "kind": "DOCUMENT",
+   "inCode": true,
+   "count": 2,
+   "first": [
+    "95: **RECONCILED 2026-09-13, and the correction is worth more than the names.** New Lead's",
+    "101: **A third case, distinct from the two above, confirmed 2026-08-15.** The binary in thi"
+   ]
+  },
+  {
+   "file": "LEADS_CARD_PHASE_2_REPORT.md",
+   "kind": "DOCUMENT",
+   "inCode": true,
+   "count": 1,
+   "first": [
+    "211: `NurtureDialog` performs the same two calls as `ContactHost`'s park flow -"
+   ]
+  },
+  {
+   "file": "LEADS_PHASE_1_FINAL_REPORT.md",
+   "kind": "DOCUMENT",
+   "inCode": true,
+   "count": 2,
+   "first": [
+    "25: **Item 4 needed nothing.** `ContactHost` already wrote the reason as a prepended",
+    "113: callers\". There are **four** - three in `ContactHost` and one in `TestBedHost`."
+   ]
+  },
+  {
+   "file": "LEADS_PHASE_1_REPORT.md",
+   "kind": "DOCUMENT",
+   "inCode": true,
+   "count": 2,
+   "first": [
+    "76: **Item 4 needed no build at all.** `ContactHost.tsx` already writes the park",
+    "178: callers\". There are **four** - three in `ContactHost` (field edits, manual note,"
+   ]
+  },
+  {
+   "file": "LEAD_CARD_UI_FIXES_PHASE_0_REPORT.md",
+   "kind": "DOCUMENT",
+   "inCode": true,
+   "count": 2,
+   "first": [
+    "97: card) and `ContactHost` (**frozen Lead Detail**). `findAccountMatches`,",
+    "180: consumers, not two: `LeadCard`, `ContactHost` (frozen Lead Detail) **and"
+   ]
+  },
+  {
+   "file": "MIGRATION_ROUND_6_PHASE_1_REPORT.md",
+   "kind": "DOCUMENT",
+   "inCode": true,
+   "count": 1,
+   "first": [
+    "246: | `ContactHost`, `ContactPanel` | **Phase 2 must register whole-view, or rename.** The"
+   ]
+  },
+  {
+   "file": "MIGRATION_ROUND_6_PHASE_2B_REPORT.md",
+   "kind": "DOCUMENT",
+   "inCode": true,
+   "count": 1,
+   "first": [
+    "115: Its **rot guard** also fired correctly: `ContactHost` stopped clashing when the"
+   ]
+  },
+  {
+   "file": "UI_STANDARDS_LEADS_PHASE_0_REPORT.md",
+   "kind": "DOCUMENT",
+   "inCode": true,
+   "count": 2,
+   "first": [
+    "160: | `NotesHistory` | card, **ContactHost**, **TestBedHost** | optional props; **already ",
+    "161: | `FollowUpTask` | card, **ContactHost** | **frozen AND shared**; holds 3 of the 10 un"
+   ]
+  },
+  {
+   "file": "UI_STANDARDS_PHASE_0_REPORT.md",
+   "kind": "DOCUMENT",
+   "inCode": true,
+   "count": 2,
+   "first": [
+    "116: | **NotesHistory** | card, **ContactHost**, **TestBedHost** | **the three-consumer cas",
+    "117: | **FollowUpTask** | card, **ContactHost** | **frozen AND shared** |"
+   ]
+  }
+ ],
+ "ContactView": [
+  {
+   "file": "frontend/app.js",
+   "kind": "VANILLA SOURCE",
+   "inCode": false,
+   "count": 1,
+   "first": [
+    "448: // deletion: removing `setContactReturnView` fails two ContactView tests. It"
+   ]
+  },
+  {
+   "file": "frontend-react/src/__tests__/contact-view.test.tsx",
+   "kind": "REACT TEST",
+   "inCode": true,
+   "count": 2,
+   "first": [
+    "13: import { ContactView } from '../contact/ContactView'",
+    "55: <ShellProvider services={services}><ContactView contactId=\"c-1\" navToken={navToken} />"
+   ]
+  },
+  {
+   "file": "frontend-react/src/contact/ContactView.tsx",
+   "kind": "REACT SOURCE",
+   "inCode": true,
+   "count": 1,
+   "first": [
+    "29: export function ContactView({ contactId, navToken }: { contactId: string, navToken?: n"
+   ]
+  },
+  {
+   "file": "frontend-react/src/main.tsx",
+   "kind": "REACT SOURCE",
+   "inCode": true,
+   "count": 2,
+   "first": [
+    "12: import { ContactView } from './contact/ContactView'",
+    "209: (id, navToken) => <ContactView contactId={id} navToken={navToken} />)"
+   ]
+  },
+  {
+   "file": "scripts/round6/inject-phase-2.mjs",
+   "kind": "PROBE / SCRIPT",
+   "inCode": true,
+   "count": 1,
+   "first": [
+    "35: const VIEW = 'frontend-react/src/contact/ContactView.tsx'"
+   ]
+  },
+  {
+   "file": "LEADS_PHASE_0_REPORT.md",
+   "kind": "DOCUMENT",
+   "inCode": true,
+   "count": 1,
+   "first": [
+    "29: by React (`ContactView.tsx`)."
+   ]
+  },
+  {
+   "file": "MIGRATION_ROUND_8_PHASE_2_REPORT.md",
+   "kind": "DOCUMENT",
+   "inCode": true,
+   "count": 1,
+   "first": [
+    "74: Removing it fails two `ContactView` tests. It **replaced** the lexical read"
+   ]
+  }
+ ],
+ "setContactReturnView": [
+  {
+   "file": "frontend/app.js",
+   "kind": "VANILLA SOURCE",
+   "inCode": false,
+   "count": 1,
+   "first": [
+    "448: // deletion: removing `setContactReturnView` fails two ContactView tests. It"
+   ]
+  },
+  {
+   "file": "frontend-react/src/__tests__/contact-capabilities.test.tsx",
+   "kind": "REACT TEST",
+   "inCode": true,
+   "count": 1,
+   "first": [
+    "48: setContactReturnView: () => {},"
+   ]
+  },
+  {
+   "file": "frontend-react/src/__tests__/contact-link-account.test.tsx",
+   "kind": "REACT TEST",
+   "inCode": true,
+   "count": 1,
+   "first": [
+    "37: setContactReturnView: () => {},"
+   ]
+  },
+  {
+   "file": "frontend-react/src/__tests__/contact-surface.test.tsx",
+   "kind": "REACT TEST",
+   "inCode": true,
+   "count": 1,
+   "first": [
+    "55: setContactReturnView: () => {},"
+   ]
+  },
+  {
+   "file": "frontend-react/src/__tests__/contact-view.test.tsx",
+   "kind": "REACT TEST",
+   "inCode": true,
+   "count": 1,
+   "first": [
+    "45: setContactReturnView: (v) => { returnViews.push(v) },"
+   ]
+  },
+  {
+   "file": "frontend-react/src/__tests__/field-row-stability.test.tsx",
+   "kind": "REACT TEST",
+   "inCode": true,
+   "count": 1,
+   "first": [
+    "62: setContactReturnView: () => {},"
+   ]
+  },
+  {
+   "file": "frontend-react/src/__tests__/fixtures.ts",
+   "kind": "REACT TEST",
+   "inCode": true,
+   "count": 1,
+   "first": [
+    "151: setContactReturnView: () => {},"
+   ]
+  },
+  {
+   "file": "frontend-react/src/__tests__/reference-host.test.tsx",
+   "kind": "REACT TEST",
+   "inCode": true,
+   "count": 1,
+   "first": [
+    "57: setContactReturnView: () => {},"
+   ]
+  },
+  {
+   "file": "frontend-react/src/__tests__/reference-surface.test.tsx",
+   "kind": "REACT TEST",
+   "inCode": true,
+   "count": 1,
+   "first": [
+    "51: setContactReturnView: () => {},"
+   ]
+  },
+  {
+   "file": "frontend-react/src/__tests__/renavigation-family.test.tsx",
+   "kind": "REACT TEST",
+   "inCode": true,
+   "count": 1,
+   "first": [
+    "60: setContactReturnView: () => {},"
+   ]
+  },
+  {
+   "file": "frontend-react/src/__tests__/testbed-door.test.tsx",
+   "kind": "REACT TEST",
+   "inCode": true,
+   "count": 1,
+   "first": [
+    "52: setContactReturnView: () => {},"
+   ]
+  },
+  {
+   "file": "frontend-react/src/contact/ContactView.tsx",
+   "kind": "REACT SOURCE",
+   "inCode": true,
+   "count": 1,
+   "first": [
+    "68: shell.setContactReturnView(returnViewFor(status))"
+   ]
+  },
+  {
+   "file": "frontend-react/src/shell-services.ts",
+   "kind": "REACT SOURCE",
+   "inCode": true,
+   "count": 3,
+   "first": [
+    "100: * The direction is the same as `setContactReturnView`: the bundle owns the",
+    "174: setContactReturnView(view: 'contacts' | 'leads'): void"
+   ]
+  },
+  {
+   "file": "scripts/tests/seam-ledger.test.mjs",
+   "kind": "GATE SUITE",
+   "inCode": true,
+   "count": 1,
+   "first": [
+    "38: setContactReturnView: 'unused by this surface, declared by the seam',"
+   ]
+  },
+  {
+   "file": "MIGRATION_CLOSE_OUT.md",
+   "kind": "DOCUMENT",
+   "inCode": true,
+   "count": 2,
+   "first": [
+    "85: | | `setContactReturnView` |",
+    "87: **`setContactReturnView` did NOT retire with `contact-detail.js`**, against the"
+   ]
+  },
+  {
+   "file": "MIGRATION_ROUND_6_CLOSE_OUT.md",
+   "kind": "DOCUMENT",
+   "inCode": true,
+   "count": 1,
+   "first": [
+    "256: - **The C1-pattern seam items accumulate.** `setContactReturnView`,"
+   ]
+  },
+  {
+   "file": "MIGRATION_ROUND_6_PHASE_2_REPORT.md",
+   "kind": "DOCUMENT",
+   "inCode": true,
+   "count": 1,
+   "first": [
+    "78: The React view owns the answer and pushes it through `setContactReturnView`; the"
+   ]
+  },
+  {
+   "file": "MIGRATION_ROUND_7_CLOSE_OUT.md",
+   "kind": "DOCUMENT",
+   "inCode": true,
+   "count": 1,
+   "first": [
+    "72: | shell asks the bundle | `setContactReturnView` - the only inverted one |"
+   ]
+  },
+  {
+   "file": "MIGRATION_ROUND_8_BRIEF.md",
+   "kind": "DOCUMENT",
+   "inCode": true,
+   "count": 2,
+   "first": [
+    "59: (`setContactReturnView`) noted - it retires with `contact-detail.js`.",
+    "84: `setContactReturnView` retired with its file."
+   ]
+  },
+  {
+   "file": "MIGRATION_ROUND_8_PHASE_0_REPORT.md",
+   "kind": "DOCUMENT",
+   "inCode": true,
+   "count": 1,
+   "first": [
+    "256: | `setContactReturnView` | 1 | **TEMPORARY, and INVERTED** - the only member the bundl"
+   ]
+  },
+  {
+   "file": "MIGRATION_ROUND_8_PHASE_2_REPORT.md",
+   "kind": "DOCUMENT",
+   "inCode": true,
+   "count": 1,
+   "first": [
+    "71: **The brief says `setContactReturnView` retires with `contact-detail.js`. It"
+   ]
+  }
+ ]
+}
