@@ -33,11 +33,13 @@ import { useShell } from '../ShellContext'
 import { CONTACT_FIELDS, ADDRESS_FIELDS, type LeadField } from './leadFields'
 import { LeadFieldInput } from './LeadFieldInput'
 import { Panel } from '../ui/Panel'
+import { AccountSection, type AccountRef } from './AccountSection'
 
 type Blocking = { field?: string, label?: string, message?: string }
 
 export function QualifyCompletion({
   leadId, blocking, current, industries, sources, regions, onComplete, onCancel, onRefresh,
+  mode = 'complete', accounts, parentRecordId, accountActions, saveLabel, onSaveChanges,
 }: {
   leadId: string
   blocking: Blocking[]
@@ -55,6 +57,45 @@ export function QualifyCompletion({
    * was fresh. Three vintages on one panel.
    */
   onRefresh: () => Promise<Blocking[]>
+  /**
+   * R3: TWO ENTRY MODES, ONE SURFACE.
+   *
+   * `complete` is what Qualify opens: the "please complete missing data"
+   * framing and a marker on every field the SERVER says is blocking.
+   *
+   * `view` is the record's detail view: the same fields, the same editing,
+   * NO framing and NO markers. Phase 0 measured that the component already
+   * renders every field with zero markers when `blocking` is empty - so
+   * this is a mode flag and an entry, not a second surface.
+   */
+  mode?: 'complete' | 'view'
+  /** R2: the accounts the host already fetched. Not a second request. */
+  accounts?: AccountRef[]
+  /** R2: `records.parent_record_id`, the one source. Absent for a lead. */
+  parentRecordId?: string | null
+  accountActions?: React.ReactNode
+  saveLabel?: string
+  /**
+   * THE HOST'S OWN SAVE, when it has one - and the contact surface does.
+   *
+   * WITHOUT THIS THE SWAP LOSES AN AUDIT TRAIL. `ContactHost.onSave` writes
+   * ONE Notes History entry per save session - "Job Title changed from X to
+   * Y. City changed from A to B." - through the shared notes writer. This
+   * component's own save just PATCHes the payload, so routing the contact's
+   * fields through it would have deleted that trail silently: no test on
+   * the shared surface could have noticed, because the surface never had
+   * the behaviour to lose.
+   *
+   * Verification 49's clause one layer deeper than a component census
+   * reaches: a capability can live in a SAVE PATH, and a census of what a
+   * screen RENDERS cannot see it.
+   *
+   * Given, this component hands over the changed values and does not write.
+   * Omitted, the card behaves exactly as before - leads are untouched, and
+   * whether a lead edit should also leave a note is a product question this
+   * round does not answer.
+   */
+  onSaveChanges?: (changes: Record<string, string>) => Promise<void> | void
 }) {
   const shell = useShell()
   const [values, setValues] = useState<Record<string, string>>({})
@@ -62,6 +103,12 @@ export function QualifyCompletion({
   const [busy, setBusy] = useState(false)
   const inFlight = useRef(false)
 
+  // R3 SAYS "no missing markers WHEN NOTHING IS MISSING", which an empty
+  // blocking list already delivers. The first version of this suppressed
+  // markers in view mode ALWAYS - stronger than the requirement, and it
+  // deleted the contact screen's qualification tinting, which four tests
+  // caught. The mode governs the FRAMING; the server's list governs the
+  // marks, in both modes.
   const missing = useMemo(
     () => new Set(blocking.map((b) => b.field).filter(Boolean) as string[]),
     [blocking])
@@ -131,6 +178,17 @@ export function QualifyCompletion({
       if (Object.keys(payload).length) body.payload = payload
       if (industryId) body.industry_id = industryId
 
+      if (onSaveChanges) {
+        // The host owns the write, and with it the change-note trail.
+        const changed: Record<string, string> = {}
+        for (const [k, v] of Object.entries(values)) {
+          if (v === str(current[k])) continue
+          changed[k] = v
+        }
+        await onSaveChanges(changed)
+        setValues({})
+        return
+      }
       const r = await shell.api<{ error?: string }>('PATCH', `/api/contacts/${leadId}`, body)
       if (!r.ok) { setError(r.data?.error ?? 'Could not save.'); return }
 
@@ -159,10 +217,21 @@ export function QualifyCompletion({
 
   return (
     <div className="lead-qualify-step lead-complete-surface" data-testid={`lead-incomplete-${leadId}`}>
-      <p className="eyebrow">Please complete missing data</p>
+      {mode === 'complete'
+        ? <p className="eyebrow">Please complete missing data</p>
+        : null}
       <div data-testid={`lead-missing-${leadId}`}>
         {group('Contact details', CONTACT_FIELDS)}
         {group('Address details', ADDRESS_FIELDS)}
+
+        {/* R2: contact-only, decided by the RECORD rather than by a flag.
+            A lead has no `parent_record_id` and the section renders
+            nothing at all. */}
+        <AccountSection
+          parentRecordId={parentRecordId}
+          accounts={accounts ?? []}
+          actions={accountActions}
+          testid={`lead-account-${leadId}`} />
 
         {/* ── R3: THE PANEL IS MARKED. IT IS NOT POINTED AT ──────────────
             Summary is still edited on the card's own Summary panel, not
@@ -192,7 +261,7 @@ export function QualifyCompletion({
           data-testid={`lead-fix-save-${leadId}`}
           disabled={busy || !dirty}
           onClick={() => { void save() }}>
-          {busy ? 'Saving...' : 'Save and continue'}
+          {busy ? 'Saving...' : (saveLabel ?? 'Save and continue')}
         </button>
         <button type="button" className="btn-ghost"
           data-testid={`lead-incomplete-close-${leadId}`}

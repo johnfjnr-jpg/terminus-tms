@@ -235,3 +235,47 @@ describe('SECTION 5: two mechanisms, deliberately different', () => {
       .not.toBeNull()
   })
 })
+
+// ── ROUND B: R2's ACCOUNT SECTION and R3's VIEW MODE ─────────────────────
+//
+// Derived from the rulings, not from the components. R2: renders for a
+// record that HAS an account and not for one that does not. R3: the mode
+// governs the FRAMING, and the server's list governs the marks.
+import { AccountSection } from '../leads/AccountSection'
+
+describe('R2: the account section', () => {
+  const ACCOUNTS = [{ id: 'acc-1', name: 'Singapore Instutue of Technology' }]
+
+  test('A-1 a LEAD has no parent_record_id, so nothing renders at all', async () => {
+    // Decided by the RECORD, not by a flag somebody remembers to pass.
+    await mount(<AccountSection parentRecordId={null} accounts={ACCOUNTS} testid="acc" />)
+    expect(host.querySelector('[data-panel="account"]')).toBeNull()
+    expect(host.textContent).toBe('')
+  })
+
+  test('A-2 a CONTACT resolves its account by parent_record_id, one source', async () => {
+    await mount(<AccountSection parentRecordId="acc-1" accounts={ACCOUNTS} testid="acc" />)
+    expect(host.querySelector('[data-panel="account"]')).not.toBeNull()
+    expect(must('acc-name').textContent).toBe('Singapore Instutue of Technology')
+  })
+
+  test('A-3 LINKED-BUT-UNRESOLVED is not the same as NOT LINKED', async () => {
+    // The live defect this replaces: the bespoke card read
+    // `record.account?.name`, no route returns an `account` object, and it
+    // told all ten Qualified contacts "Not linked" while all ten had a
+    // parent_record_id. Collapsing the two states is what made that
+    // invisible, so they are kept apart here.
+    await mount(<AccountSection parentRecordId="acc-missing" accounts={ACCOUNTS} testid="acc" />)
+    expect($('acc-name'), 'it claimed to resolve an account it does not have').toBeNull()
+    const un = must('acc-unresolved')
+    expect(un.textContent).toContain('could not be resolved')
+    expect(un.textContent).not.toContain('Not linked')
+  })
+
+  test('A-4 it is a Panel, so the conformance gate governs it', async () => {
+    await mount(<AccountSection parentRecordId="acc-1" accounts={ACCOUNTS} testid="acc" />)
+    const head = host.querySelector('[data-panel-header]')
+    expect(head, 'the account section is not routed through the shell').not.toBeNull()
+    expect(head!.querySelector('[data-panel-title]')!.textContent).toBe('Account')
+  })
+})
