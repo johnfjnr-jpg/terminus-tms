@@ -3463,6 +3463,45 @@ of the change. An unanswerable precondition is a stop.
     ask what it would catch if the change had been done wrong in a DIFFERENT
     way.
 
+    **AND THE REMEDY, BECAUSE THE WARNING ALONE HAS NOT BEEN ENOUGH: TAKE
+    THE THRESHOLD FROM THE REQUIREMENT, NEVER FROM THE RESULT.** Leads card
+    cleanup round, 2026-09-13, and it is recorded as a remedy rather than a
+    new rule because the fault it describes is already forbidden here and by
+    build discipline 3, and was committed anyway - twice in one phase.
+
+    **The instance.** The claim was "cells are sized so data is readable".
+    The change widened an input from 110px to 130px. The assertion written
+    for it was **`inputWidth >= 130`** - a number read off the result and
+    then asserted against, which is a tautology wearing a threshold. **It
+    passed on a cell that still cropped.**
+
+    Rewritten to ask the REQUIREMENT - does a real 32-character account
+    name, taken from this estate's own list, fit? - **it failed**, at 208px
+    needed against 170px given. Sized from that measurement it passes at
+    213/213.
+
+    **THE HONEST TEST FAILED WHERE THE PROXY PASSED, ON THE SAME CODE**,
+    which is the only demonstration of this that carries any weight.
+
+    **The tell is a threshold suspiciously close to what you just
+    measured.** `>= 130` after measuring 130. `>= 0.9` after measuring 0.92.
+    A requirement is a sentence about the world - a real name must be
+    readable, a save must land, a person must see both at once - and it is
+    written BEFORE the number is known, or it is not a requirement.
+
+    **THE SAME SHAPE ARRIVES THREE WAYS, and one phase produced all three:**
+    a threshold taken from the outcome; an assertion read in the same tick
+    as the interaction it tests, which passed twice on luck before failing;
+    and a calibration matcher anchored on a test name the same round
+    renamed, which came back SILENT while the gate went red correctly.
+    **Each is an assertion that validates the change just made rather than
+    testing the requirement.**
+
+    **This is the standing tax.** Both this rule and build discipline 3 name
+    the fault, both were known to the author, and it recurred inside a
+    single phase. **The rules make it fast to find. They do not make it
+    rare** - see the note on the limit of promotion in the index task.
+
     **AND A RESPONSE FIXTURE IS SHAPED BY THE ROUTE, NOT BY THE READER.**
     Round 3 of the migration, and it would have shipped. A React query read
     `data.rates`; `GET /api/base-costs` answers `{ as_of, products }` and the
