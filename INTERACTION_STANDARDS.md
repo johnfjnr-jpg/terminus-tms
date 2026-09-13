@@ -6,7 +6,7 @@
 
 **This document also now records what is BUILT and was never specified**, which it had no home for before. Round 29 exists because three times the business has been asked to screenshot Test Bed so a pattern could be learned. A convention that lives only in the product and in one person's memory is re-derived, and Round 28 recorded nine instances of a fix built for the screen that existed at the time, every one of them a pattern nobody had written down. This is the concrete spec that DESIGN_PRINCIPLES.md's Deferred scope entry for "Tab/Enter field navigation and unsaved-changes-on-navigate warnings" points to, written now so that work has a real target to build against when it's picked up, same discipline as extracting the prototype before building (DESIGN_PRINCIPLES.md Section 3, rule 8): write down what "correct" concretely means before writing any code against it, not after.
 
-**Why this is its own document, not folded into DESIGN_PRINCIPLES.md or a prototype-extraction spec:** DESIGN_PRINCIPLES.md records confirmed product and data-model decisions. A prototype-extraction spec records what `Terminus_Ops_dc.html` actually does, cited by section and line. Neither fits here: this isn't a product decision, and the prototype has no real forms or Tab/Enter handling to extract from at all, confirmed directly against its source. This is general professional interaction-design practice, external to this project, sourced from two published standards below, and applied concretely to this app's real screens and field IDs, not just linked to.
+**Why this is its own document, not folded into DESIGN_PRINCIPLES.md or a prototype-extraction spec:** DESIGN_PRINCIPLES.md records confirmed product and data-model decisions. A prototype-extraction spec records what `Terminus Ops.dc.html` actually does, cited by section and line. (**Corrected 2026-09-13**: this previously cited the same name with underscores in place of the space and the dot, which resolves to nothing. Found by the staleness check on its first run - an unresolvable citation sitting in the paragraph that explains why this document is trustworthy. The wrong spelling is described here rather than quoted, because quoting it would reintroduce the very citation the check is looking for.) Neither fits here: this isn't a product decision, and the prototype has no real forms or Tab/Enter handling to extract from at all, confirmed directly against its source. This is general professional interaction-design practice, external to this project, sourced from two published standards below, and applied concretely to this app's real screens and field IDs, not just linked to.
 
 ---
 
@@ -16,6 +16,35 @@
 - **WAI-ARIA Authoring Practices Guide (APG)** (https://www.w3.org/WAI/ARIA/apg/). Used here for general keyboard interaction conventions (https://www.w3.org/WAI/ARIA/apg/practices/keyboard-interface/) and the Dialog (Modal) pattern's focus-management requirements (https://www.w3.org/WAI/ARIA/apg/patterns/dialog-modal/), applied to Park and any future in-page panel that plays the same role even though it isn't a full-screen overlay.
 
 ---
+
+## 0. The governing principle: ACTION GOES WITH ITS SCOPE
+
+**Set by the business 2026-09-13. It sits above the numbered sections
+because it is what several of them turn out to be saying.**
+
+> **A control sits with the thing it acts on.**
+
+- **Record-scoped actions** - advance the record, save all its fields - live
+  on the **record's action bar**. That is Section 6, written from Test Bed in
+  Round 29 and true of the lead card without anybody having read it.
+- **Panel-scoped actions** - save this Summary, these Notes - live on **that
+  panel's header line, right-aligned**.
+
+**These are ONE principle at two scopes, not two standards.** Section 6 is its
+record-scope expression and Section 12 is its panel-scope expression. **A new
+surface applies it by asking what the action acts on**, which is a question
+with an answer, rather than by finding the nearest screen to copy.
+
+**Why it needed writing down.** Measured on one lead card, 2026-09-12: **FIVE
+different save-control placements** - below the field, on the header line,
+beside the field, in a footer row, and on the record bar - across eight
+surfaces, with **no shared component of any kind** and three competing CSS
+shells. Every panel was locally defensible. The card was not.
+
+> **The failure mode this exists to end: locally-correct panels, a globally
+> inconsistent app, caught only by walking.**
+
+**AND IT IS ENFORCED, NOT ADVISED.** Section 12.
 
 ## 1. Tab order matches visual layout, exactly
 
@@ -63,13 +92,15 @@ It must **not** warn on the app's own post-save redirect, for example a successf
 - **Accidental dismissal (backdrop-click) → refusal plus a nudge, not a choice.** Clicking outside the modal while dirty doesn't close it at all: the modal stays open, Save gets `.btn-attention`, and "You have unsaved changes, save or cancel." shows via `.msg-warning`, auto-scrolled into view (`scrollIntoView({behavior:'smooth', block:'nearest'})`) so it's visible even if the user was scrolled elsewhere in a long form. No second click, no confirmation, the click is simply refused - the premise is that a backdrop-click was probably a misclick, not a real decision to leave.
 - **Intentional leave actions (Cancel, the close X, Escape) → confirm-and-discard, a real choice.** These are deliberate "I want to leave" actions, so refusing them outright would make Cancel itself non-functional while dirty. Instead, while dirty, each opens the same shared discard-confirmation dialog (`#discard-confirm-modal`, `openDiscardConfirm`/`closeDiscardConfirm`, defined once in `frontend/app.js` and reused by both modals rather than duplicated - the strongest guarantee they can't drift apart): "Discard unsaved changes?" with two explicit choices, **Discard** (`.btn-ghost`, de-emphasized - closes for real, data lost, now an informed choice) and **Keep editing** (`.btn-primary`, prominent and focused by default - returns to the form, nothing lost). Escape and clicking the confirmation dialog's own backdrop both map to Keep editing, never Discard, so no destructive action can ever happen from an ambiguous input. While this dialog is open, the parent modal's own Tab/Escape keydown handler goes inert (checked at the top: `if (discardConfirmIsOpen()) return`), so a single Escape press can't fire both handlers in the same tick. When the form is clean, all three still close immediately, exactly as before this pattern existed - the guard only activates once there's something real to protect.
 
-New Lead's implementation lives in `frontend/app.js` (`newLeadDirty`, `openNewLeadModal`/`closeNewLeadModal`/`requestCloseNewLeadModal`), Park's in `frontend/contact-detail.js` (`cdParkDirty`, `openCdParkForm`/`closeCdParkForm`/`requestCloseCdParkForm`, retrofitted from New Lead's, not a second pattern). Neither is the system-wide dirty-state registry this section specifies, and neither has any connection to real page navigation at all - they're a working proof that the underlying idea, don't silently discard real unsaved input, holds up in two small, real cases (now with two distinct, correctly-matched mechanisms within them), for whenever the full system-wide version gets built.
+**RECONCILED 2026-09-13, and the correction is worth more than the names.** New Lead's implementation still lives in `frontend/app.js` (`newLeadDirty`, `openNewLeadModal`, `requestCloseNewLeadModal`), now hosting the batch grid rather than a form: the container id changed from `new-lead-modal` to `new-contact-form` and the function mounts `mountNewLeadGrid`. **Park's moved.** It was written in `frontend/contact-detail.js`, which the migration RETIRED, and it now lives in `frontend-react/src/contact/ParkForm.tsx` - rendered by `ContactHost` - with both mechanisms intact: Escape and Cancel leave the way this section describes, a backdrop click while dirty is refused with `btn-attention`, and Tab cycles inside the form.
+
+**So the standard survived the migration. What it did not survive is being built AFTERWARDS.** Measured 2026-09-13, the lead card's two dialogues - the address popup and the nurture dialogue - implemented **none** of Section 4 and one third of Section 5. They were built after the migration, by people reading the screen rather than this document, and nothing existed that could have told them. That is what the conformance gate and this section's new Part-two entry are for. Neither is the system-wide dirty-state registry this section specifies, and neither has any connection to real page navigation at all - they're a working proof that the underlying idea, don't silently discard real unsaved input, holds up in two small, real cases (now with two distinct, correctly-matched mechanisms within them), for whenever the full system-wide version gets built.
 
 **A third working example, Round 3, 2026-08-16: Opportunity's Est. Close Date reason dialogue.** Built initially with only backdrop-click and Escape as cancel paths, missing Park's full Tab-cycling focus trap. Corrected to match Section 4 precisely once the gap was raised, not accepted as a smaller, dialogue-specific standard, a single Escape-key listener attached only while the dialogue is open and removed on close (the first version had two overlapping Escape owners, a real bug in its own right, fixed as part of bringing this in line), Tab/Shift+Tab confined to exactly the dialogue's own three elements, focus landing on the reason field on open and returning to the control that opened it on close. Also verified, empirically, not just reasoned about, that cancelling this dialogue does not discard an unrelated dirty field edited in the same batched save, dirtying two fields (Est. Close Date and an unrelated field), cancelling the dialogue, and confirming both survived, then genuinely re-saving both to confirm the surviving state wasn't inert leftover DOM rather than something a real save would actually persist.
 
-**A third case, distinct from the two above, confirmed 2026-08-15.** The binary in this section, accidental dismissal versus intentional leave, was written for one dialog's own dismissal. It doesn't fully cover a related but different situation, found when 4 more sites in `contact-detail.js` needed the same underlying protection: `linkCdAccount`, `attemptContactUnqualifyFromDetail`, `onCdAddNoteClick`, `saveCdParkForm`. None of these are a dialog being dismissed at all, they're deliberate clicks on unrelated controls (Link an Account, Move to Unqualified, Add a note, Save & park) that happen to trigger a side-effect reload (`loadContactDetail()`) which would silently clobber a *separate*, unrelated field left open elsewhere on the same page. **Confirm-and-discard is still the right mechanism for this third case, but the reasoning is different, not equivalent to Cancel/Escape's case:** refusing the action outright, the way a backdrop-click gets refused, would block a valid, unrelated action for a reason the user can't see, there's no coherent "Save" button to highlight, since the dirty field isn't part of what the user is actually interacting with. That makes outright refusal worse here than in Park's own dismissal case, not just unnecessary. **Naming this as its own case:** an unrelated deliberate action threatens someone else's unsaved edit elsewhere on the page. Same mechanism as intentional-leave (confirm-and-discard), different reason for choosing it. When the system-wide dirty-state registry gets built, it needs to handle this third case explicitly, not just the original two.
+**A third case, distinct from the two above, confirmed 2026-08-15.** The binary in this section, accidental dismissal versus intentional leave, was written for one dialog's own dismissal. It doesn't fully cover a related but different situation, found when 4 more sites needed the same underlying protection. **RECONCILED 2026-09-13: those four were named in `contact-detail.js`, which the migration retired. The CASE survives and the sites moved** - linking an account, unqualifying, adding a note and saving the park form are now `LinkAccountPanel`, `StageActions`, `NotesHistory` and `ParkForm`, all rendered by `ContactHost`, which passes each of them the shared discard dialogue through the shell's `confirmDiscard`. None of these are a dialog being dismissed at all, they're deliberate clicks on unrelated controls (Link an Account, Move to Unqualified, Add a note, Save & park) that happen to trigger a side-effect reload (`loadContactDetail()`) which would silently clobber a *separate*, unrelated field left open elsewhere on the same page. **Confirm-and-discard is still the right mechanism for this third case, but the reasoning is different, not equivalent to Cancel/Escape's case:** refusing the action outright, the way a backdrop-click gets refused, would block a valid, unrelated action for a reason the user can't see, there's no coherent "Save" button to highlight, since the dirty field isn't part of what the user is actually interacting with. That makes outright refusal worse here than in Park's own dismissal case, not just unnecessary. **Naming this as its own case:** an unrelated deliberate action threatens someone else's unsaved edit elsewhere on the page. Same mechanism as intentional-leave (confirm-and-discard), different reason for choosing it. When the system-wide dirty-state registry gets built, it needs to handle this third case explicitly, not just the original two.
 
-**A real asymmetry within Park's own implementation, confirmed 2026-08-15, not a bug, worth knowing before either path is touched again.** Park now has two different sub-mechanisms protecting against the same underlying risk, a keydown handler double-firing. `requestCloseCdParkForm` (Cancel/X/Escape, Park stays open while the confirm dialog is shown) relies on the inert-guard, `discardConfirmIsOpen()` checked at the top of Park's own keydown handler. `saveCdParkForm`'s new dirty-check branch (added for the 4-site fix above) instead calls `closeCdParkForm()` first, which removes Park's keydown listener entirely, before `openDiscardConfirm()` ever runs, so there's no window where both handlers are attached simultaneously, prevented by removal rather than by the inert-check. Both are correct on inspection, confirmed by real test evidence for both paths, but they are genuinely two different sub-mechanisms in one file, not one guard reused twice. A future edit to one path (e.g. adding a third way to close Park) needs to account for both, not assume fixing `requestCloseCdParkForm` alone covers `saveCdParkForm` too.
+**A real asymmetry within Park's own implementation, confirmed 2026-08-15, RECONCILED 2026-09-13 and now HISTORICAL.** The two sub-mechanisms described here - `requestCloseCdParkForm` relying on the inert-guard while `saveCdParkForm` removed the keydown listener first - were properties of `frontend/contact-detail.js`, which the migration retired. **`ParkForm.tsx` has ONE close path**, so the asymmetry is gone rather than carried. Kept as a record because the warning it ends on is the general one and is still true: a future edit that adds a third way to close a dialogue must account for every path out of it, not only the one it is looking at. **That is now enforced rather than remembered** - see Section 12, where a modal's dismiss control and its Escape key are the same function by construction.
 
 ---
 
@@ -115,7 +146,7 @@ const show = dirtyCount > 0 || tbInvalidFields.size > 0
 
 ## 7. Next Stage is disabled by two conditions, and neither is what you would guess
 
-**`refreshTbNextStageButton()` at `frontend/app.js`, `refreshTbNextStageButton()` is the ONLY writer of `#tb-next-stage-btn.disabled`.** There are no other writers anywhere in `frontend/`.
+**`refreshTbNextStageButton()` at `frontend/app.js`, `refreshTbNextStageButton()` is the ONLY writer of the `disabled` property on `#tb-next-stage-btn`.** There are no other writers anywhere in `frontend/`.
 
 | # | Condition | What the button shows |
 |---|---|---|
@@ -254,4 +285,123 @@ wrong three ways.
 
 ## Cross-reference
 
-This document is the target DESIGN_PRINCIPLES.md's Deferred scope entry for "Tab/Enter field navigation and unsaved-changes-on-navigate warnings" points to. Build against this specification when that work is picked up. This document is not itself built from, it describes intended behavior only.
+This document is the target DESIGN_PRINCIPLES.md's Deferred scope entry for "Tab/Enter field navigation and unsaved-changes-on-navigate warnings" points to. Build against this specification when that work is picked up.
+
+**CORRECTED 2026-09-13. The superseded sentence is left visible because it is the same failure this document's own status line was corrected for in Round 29.** It read: *"This document is not itself built from, it describes intended behavior only."*
+
+**That was false when it was written and is more false now.** Part two exists precisely to record what IS built, with a file and a line per statement. Section 12 below is BUILT AND ENFORCED: the shell components exist, and a gate stage fails a commit that routes around them. **A document that tells its reader it is only aspirational invites them to skip the parts that are load-bearing** - which is what the Round 29 correction says, one sentence earlier in the same document, about a different line.
+
+
+## 12. The panel shell, the modal shape, and the gate that holds them
+
+**Built 2026-09-13, on the Leads card. Read from source.**
+
+**This is Section 0's panel-scope expression, and the first section of this
+document that a commit can FAIL.**
+
+### The shell
+
+`Panel` and `PanelHeader` at `frontend-react/src/ui/Panel.tsx`, `SaveControl`
+at `frontend-react/src/ui/SaveControl.tsx`.
+
+**A `Panel` renders its own header and takes actions ONLY through the
+header's slot.** There is no prop for a footer and no slot below the body, so
+a panel cannot place its Save below its field: it has nowhere to put it.
+
+> The rationale, from the file: the panels were not inconsistent through
+> carelessness. **There was never one thing to build them from.**
+
+**The header's order is title, secondary label, actions**, and the actions are
+pinned right by `margin-left: auto` on `.panel-actions` - the same mechanism
+Section 6 records for the record action bar, which is what makes them one
+principle rather than two rules that agree.
+
+**`.panel-head` has a FIXED height, not a minimum.** A minimum grows to its
+tallest child, so a header holding buttons ends up taller than one holding
+only a title and the fields below them stop lining up. Measured at 9px of
+drift the day before this was built, caused by exactly that.
+
+**`SaveControl` is one definition of what dirty means to a control**: Save
+disabled until dirty, Discard rendered only when there is something to
+revert, Discard before Save in the DOM so the reversible action comes first
+in the tab order. **Four panels implemented "the same" four different ways
+and half of them had no Discard at all.**
+
+**One treatment across panels, `.btn-sm`. The record bar keeps `btn-primary`
+against `btn-ghost`**, because Section 10 records that distinction as
+deliberate - "there is one primary action on this panel" - and flattening it
+would supersede a ruling without anybody deciding to.
+
+### The modal shape
+
+`Modal` and `ModalClose` at `frontend-react/src/ui/Modal.tsx`.
+
+**A modal is a DISTINCT shape: its actions sit in a FOOTER row, not on a
+header line.** The established dialogue convention, GOV.UK and APG, both of
+which this document already cites. **Named explicitly so a modal is a
+convention rather than a silent exception to Section 12's header rule.**
+
+**Sections 4 and 5 live INSIDE it**: focus to the first focusable element on
+open and back to the opener on close; Tab and Shift+Tab wrapping within;
+Escape closing by the same path as the dismiss control; the backdrop refusal
+WITH its nudge; and confirm-and-discard through the shell's shared dialogue,
+with this document's own inert-guard so one Escape cannot fire two handlers.
+
+**The footer is a RENDER FUNCTION taking `requestClose`.** That is not a
+style: it makes the dismiss control and the Escape key the same function.
+
+> **Two paths out of one dialogue is how the lead card ended up with Escape
+> doing nothing while Close discarded silently.**
+
+**Measured before it was built, 2026-09-13**: the lead card's two dialogues
+implemented **none** of Section 4 and one third of Section 5. **Section 4
+survived the migration** - Park moved intact into `ParkForm.tsx` - **and was
+never applied to the surfaces built after it.** That distinction matters:
+this was not rot, it was drift, and a document cannot stop drift on its own.
+
+### The gate
+
+`scripts/tests/panel-conformance.test.mjs`, in the pure suite, seven checks:
+every control on a Leads surface carries a class the stylesheet defines;
+panel actions use one treatment; every `aria-controls` names a declared id;
+no Leads surface builds a shell or a modal backdrop of its own; and the
+registry is structural.
+
+**The population comes from `data-panel`, which the shell emits.** A panel
+joins the census by existing, so a list nobody updated cannot silently omit
+one.
+
+**The one exemption is a FUNCTION CALL in the guard's own module**,
+`frozenByRuling`, naming `FollowUpTask` - frozen by ruling until the
+follow-up entity round rebuilds it. **A comment could not have granted it**,
+which is deliberate: minting an exemption is an edit somebody reads.
+
+`scripts/tests/standards-staleness.test.mjs` fails when THIS DOCUMENT cites a
+name the code no longer has. **It found one on its first run**: the prototype
+was cited under a filename that resolves to nothing, in the paragraph
+explaining why this document is trustworthy.
+
+## Identifiers asserted ABSENT
+
+**The document's own escape hatch, and it is machine-read.**
+`scripts/tests/standards-staleness.test.mjs` fails the suite when this
+document cites a name that no longer exists in `frontend/`,
+`frontend-react/src/` or `src/`. Some names are cited precisely BECAUSE they
+do not exist, and this is where they are declared, so "there is no such
+thing" stays sayable without the check going red for being right.
+
+- `oppEdits` - Section 9. The assessment registry is DERIVED; a parallel map
+  would be a second source of truth that agrees today.
+- `closeLost` - Section 10. Test Bed has no Closed Lost equivalent, and there
+  is no precedent to copy from.
+- `abandon` - Section 10, the same search.
+- `new-lead-modal` - Section 5. The container id BEFORE the batch grid
+  replaced the form; it is now `new-contact-form`.
+- `requestCloseCdParkForm` - Section 5's historical note. One of
+  `contact-detail.js`'s two close paths, kept as a record of an asymmetry
+  that no longer exists because `ParkForm.tsx` has one close path.
+
+**Adding a name here is an edit somebody reads in a diff.** It is not a way
+to silence the check: a stale citation and a deliberate absence look
+identical to a scan, and the difference is a claim somebody has to make out
+loud.
