@@ -104,3 +104,19 @@ directions before it counts as evidence. Stop for sign-off.
 
 John walks it: near-full-width, most columns visible, and a real scroll bar
 he can drag when the window is small.
+
+
+## Rulings appended at Phase 1 (John, 2026-09-13)
+
+R4. **PROMOTE AT THE CLOSE**, offered in Phase 0 rather than minted there:
+    *a measure can be correct, calibrated AND non-vacuous and still be aimed
+    at the WRONG AXIS of a multi-dimensional property.* A new shape - not
+    the threshold proxy, not attribute-versus-visibility. Check existing
+    coverage; mint or extend the nearest. **This is the root cause of Round
+    A's failure and belongs recorded.**
+R5. **R1's blast radius is fixed by ruling:** `.modal-panel`, shared by
+    eleven surfaces, MUST NOT MOVE. Only `.modal-panel-batch`.
+R6. **CLAIM (b) IS MEASURED HEADED OR NOT AT ALL.** Headless is blind to
+    scrollbars, proven this round in both directions. A headless
+    scrollbar-present check would repeat Round A's blindness exactly, and
+    is forbidden here rather than merely discouraged.

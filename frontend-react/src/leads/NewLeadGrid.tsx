@@ -110,7 +110,20 @@ export function NewLeadGrid({ onDone, onDirtyChange, resetKey }: {
   if (resetKey !== lastReset) {
     setLastReset(resetKey)
     setResult(null)
-    if (scrollRef.current) scrollRef.current.scrollTop = 0
+    // BOTH AXES. `scrollTop` alone was the defect: the modal persists in
+    // the DOM between opens, so tabbing across to Mobile, closing and
+    // reopening landed you where you left - with NAME off-screen left,
+    // which is the "it starts at Mobile" the walk reported.
+    //
+    // Round A asserted "the scroll position RESETS on reopen", calibrated
+    // it against vacuity, and read `scrollTop` both times; the string
+    // `scrollLeft` appears in that probe zero times. The assertion was
+    // correct and aimed at the one axis the component already handled,
+    // while 3500px of content scrolls along the other.
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = 0
+      scrollRef.current.scrollLeft = 0
+    }
   }
 
   useEffect(() => {

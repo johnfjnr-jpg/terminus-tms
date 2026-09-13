@@ -6002,8 +6002,21 @@ input.input-invalid {
    520px - eight columns do not fit there and those two do not want the
    room.
    --------------------------------------------------------------------- */
+/* ── R1: THE BATCH MODAL IS NEAR-FULL-WIDTH ────────────────────────────
+   The 1480px cap bound at 1920 AND at 3440, so the modal was 77% of one
+   screen and 43% of the other, leaving 57% of a 3440 viewport empty -
+   measured, and visible in `p0-page-3440.png` as a narrow box floating in
+   a vast page.
+
+   `width` is overridden too, not only `max-width`. `.modal-panel` is
+   `width: 90%`, so raising the cap alone would have left 90% binding and
+   the fix would have moved a number without reaching the outcome.
+
+   THIS RULE HAS EXACTLY ONE SURFACE, `#new-contact-form`. `.modal-panel`
+   is shared by eleven and is deliberately untouched (R5). */
 .modal-panel-batch {
-  max-width: min(1480px, 96vw);
+  width: 95vw;
+  max-width: 95vw;
   max-height: 88vh;
   display: flex;
   flex-direction: column;
@@ -6569,6 +6582,35 @@ textarea.lead-field-input { resize: vertical; }
    exactly. Capped in vh so it holds at 1240 as well as 3440 rather than
    being tuned to one viewport. */
 .new-lead-scroll { max-height: 52vh; }
+
+/* ── R2: A REAL, VISIBLE, DRAGGABLE SCROLL BAR ─────────────────────────
+   The whole of the defect was an ASYMMETRY: `.modal-panel` carries
+   `::-webkit-scrollbar` rules and `.new-lead-scroll` carried none, so it
+   took the platform default - on macOS an OVERLAY bar with zero layout
+   height that paints nothing until you are already scrolling. The only
+   way to reach a hidden column was tabbing through the fields, which is
+   the bug the walk reported.
+
+   Styling `::-webkit-scrollbar` is what opts a container OUT of overlay
+   behaviour and into a classic bar with real layout and visible pixels.
+   Measured both ways on a self-contained page: unstyled 0px of layout and
+   no pixel change, styled 14px and a visible thumb.
+
+   `scrollbar-color` and `scrollbar-width` were tried FIRST and moved
+   nothing in this browser, so they are not the remedy and are not used. */
+.new-lead-scroll::-webkit-scrollbar { height: 12px; width: 12px; }
+.new-lead-scroll::-webkit-scrollbar-track {
+  background: rgba(242,242,240,0.06);
+}
+.new-lead-scroll::-webkit-scrollbar-thumb {
+  background: rgba(242,242,240,0.30);
+  border-radius: 6px;
+  border: 2px solid var(--black);
+}
+.new-lead-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(242,242,240,0.46);
+}
+.new-lead-scroll::-webkit-scrollbar-corner { background: transparent; }
 
 /* ---------------------------------------------------------------------
    R1 (2026-09-13): Chrome's autofill highlight.
