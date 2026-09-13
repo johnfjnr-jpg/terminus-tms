@@ -37,24 +37,71 @@
 //
 // A crash therefore leaves a `pending` entry, which is exactly the state the
 // hook exists to catch. Silence is not success.
-import { readFileSync, writeFileSync, existsSync, unlinkSync } from 'fs'
+// `unlinkSync` is gone with the delete-on-success it served.
+import { readFileSync, writeFileSync, existsSync } from 'fs'
 import { join, isAbsolute } from 'path'
 
 const ROOT = new URL('../../', import.meta.url).pathname
-export const JOURNAL = join(ROOT, '.edit-journal.json')
+// ── THE PATH IS OVERRIDABLE, AND THAT IS A BUG FIX ───────────────────────
+//
+// `edit-guard.test.mjs` exercises the journal and `rmSync`s it in its
+// `finally`. While the journal deleted itself on success that was harmless.
+// Now that it ACCUMULATES, the suite was destroying the live routing record
+// mid-round - measured: a full `npm test` left no journal at all, so the
+// routing guard would have refused every modified file.
+//
+// A test that shares mutable state with the thing it tests is not isolated.
+// The env override lets the suite point at a scratch path and leave the real
+// record alone.
+export const JOURNAL = process.env.TMS_EDIT_JOURNAL
+  ? (isAbsolute(process.env.TMS_EDIT_JOURNAL)
+      ? process.env.TMS_EDIT_JOURNAL
+      : join(ROOT, process.env.TMS_EDIT_JOURNAL))
+  : join(ROOT, '.edit-journal.json')
 
+// ── THE JOURNAL ACCUMULATES. IT MUST NOT DELETE ITSELF ON SUCCESS ─────────
+//
+// SUPERSEDED DESIGN, LEFT VISIBLE because the premise failed rather than a
+// preference changing: `endBatch` used to `unlinkSync(JOURNAL)` and the hook
+// opened with `[ -f "$JOURNAL" ] || exit 0`.
+//
+// Those two lines together made the guard FAIL OPEN on the one case it
+// existed to catch:
+//
+//   routed edit, landed      journal deleted      hook passes
+//   routed edit, FAILED      failed entry         hook refuses   <- caught
+//   NEVER ROUTED AT ALL      never written        hook passes    <- the fault
+//
+// A routed success and a never-routed edit are INDISTINGUISHABLE to a guard
+// that deletes its own evidence of use. The false-commit-message fault
+// recurred twice in four rounds inside that blind spot, and it was called a
+// discipline failure when it was a build defect: nothing COULD enforce
+// routing, so routing was left to memory.
+//
+// So the journal now keeps a `landed` list across batches, and the hook can
+// ask the question that matters: does every MODIFIED file in this commit
+// have an entry? A post-commit hook clears it, so the record is per-commit.
 function read() {
-  if (!existsSync(JOURNAL)) return { label: null, edits: [] }
-  try { return JSON.parse(readFileSync(JOURNAL, 'utf8')) } catch { return { label: 'UNREADABLE', edits: [] } }
+  if (!existsSync(JOURNAL)) return { label: null, edits: [], landed: [] }
+  try {
+    const j = JSON.parse(readFileSync(JOURNAL, 'utf8'))
+    return { label: j.label ?? null, edits: j.edits ?? [], landed: j.landed ?? [] }
+  } catch { return { label: 'UNREADABLE', edits: [], landed: [] } }
 }
 
 function flush(j) {
   writeFileSync(JOURNAL, JSON.stringify(j, null, 2))
 }
 
-/** Start a batch. Clears the previous one, which the hook has already judged. */
+/**
+ * Start a batch. Clears the previous batch's IN-FLIGHT edits, which the hook
+ * has already judged, and PRESERVES the accumulated `landed` record - that
+ * record is what proves routing happened and it must survive every batch
+ * until the commit that consumes it.
+ */
 export function beginBatch(label) {
-  flush({ label, edits: [] })
+  const j = read()
+  flush({ label, edits: [], landed: j.landed })
 }
 
 /** Every edit in the batch landed. Only then may a commit proceed. */
@@ -65,7 +112,10 @@ export function endBatch() {
     throw new Error(`batch "${j.label}" has ${bad.length} edit(s) that did not land:\n  `
       + bad.map((e) => `${e.file}: ${e.status}${e.why ? ` (${e.why})` : ''}`).join('\n  '))
   }
-  if (existsSync(JOURNAL)) unlinkSync(JOURNAL)
+  // ACCUMULATE rather than delete. The files this batch touched join the
+  // record; the in-flight list empties.
+  const landed = [...new Set([...j.landed, ...j.edits.map((e) => e.file)])]
+  flush({ label: j.label, edits: [], landed })
 }
 
 /**

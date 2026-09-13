@@ -37,10 +37,24 @@
 // ── SEMANTICS ──────────────────────────────────────────────────────────────
 //
 // One edit per invocation, and the invocation IS the batch: it opens the
-// journal, performs the edit, and clears the journal only if the edit landed. A
-// failure leaves an entry and .githooks/pre-commit refuses the commit, so a
-// broken edit cannot reach a message describing a change the file does not
-// carry.
+// journal, performs the edit, and records the file as landed only if it did. A
+// failure leaves an entry and .githooks/pre-commit refuses the commit.
+//
+// ── THE CLAIM THIS COMMENT USED TO MAKE, AND ITS ACTUAL COVERAGE ──────────
+//
+// It read: "a broken edit cannot reach a message describing a change the file
+// does not carry." That is a property of ROUTED edits, stated as a property of
+// the repository, and the gap between those two readings is exactly how the
+// fault recurred twice: an edit that never came through here left no journal,
+// and the hook passed.
+//
+// The claim is now TRUE of the repository, and it is true because of the
+// ROUTING guard rather than this one: `.edit-journal.json` accumulates landed
+// edits instead of deleting itself, and `scripts/hooks/journal-guard.mjs`
+// refuses a commit whose modified files have no entry. This file's guarantee
+// on its own remains the narrow one - "an edit THROUGH THIS TOOL either lands
+// or refuses the commit" - and saying so is the point, because overclaiming
+// coverage is the fault the enforcement round exists to fix.
 //
 // The anchor must appear EXACTLY ONCE. Zero is an anchor that moved, which is
 // how five of the six failed; more than one is ambiguous and guessing which is

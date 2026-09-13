@@ -1,5 +1,6 @@
 .env
 node_modules
+.edit-journal.json
 supabase/.temp/
 .DS_Store
 src/.DS_Store

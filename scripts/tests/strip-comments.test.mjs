@@ -175,9 +175,23 @@ test('the pre-commit hook keeps its commands after stripping', () => {
   const src = readFileSync(ROOT + '.githooks/pre-commit', 'utf8')
   const out = stripSh(src)
   assert.equal(out.length, src.length)
-  const lines = (s) => s.split('\n').filter((l) => l.trim() && !/^\s*$/.test(l)).length
-  assert.ok(lines(out) > 3, 'the hook lost its body')
-  assert.ok(out.includes('edit-journal') || out.includes('JOURNAL'), 'the hook lost the journal check')
+  // ── THE COUNT WAS A PROXY; ASSERT THE REQUIREMENT ─────────────────────
+  //
+  // This used to require more than three non-blank lines after stripping,
+  // as a stand-in for "the hook still has its body". The hook is now a thin
+  // delegator - two lines, one per guard - which is better structure and
+  // failed the proxy.
+  //
+  // The claim is not "the hook is long". It is that BOTH guards are still
+  // invoked, and that survives any future restructuring the count would
+  // break again. Verification 47: take the threshold from the requirement,
+  // never from the result.
+  assert.ok(out.includes('pre-commit-suites.mjs'),
+    'the hook no longer runs the suites, so a red suite could be committed')
+  // The hook DELEGATES to scripts/hooks/journal-guard.mjs now; the inline
+  // JS it used to carry is gone, and with it the `JOURNAL=` variable this
+  // used to look for. What must survive stripping is the invocation.
+  assert.ok(out.includes('journal-guard.mjs'), 'the hook lost the journal guard')
 })
 
 test('stripped css loses exactly the braces that were inside comments', () => {

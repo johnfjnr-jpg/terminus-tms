@@ -25,32 +25,8 @@
 node scripts/pre-commit-suites.mjs || exit 1
 
 # ── GUARD 1: a scripted edit batch did not fully land ────────────────────
-JOURNAL=".edit-journal.json"
-[ -f "$JOURNAL" ] || exit 0
-exec node -e '
-const fs = require("fs");
-let j;
-try { j = JSON.parse(fs.readFileSync(".edit-journal.json", "utf8")); }
-catch (e) {
-  console.error("COMMIT REFUSED: .edit-journal.json is present and unreadable.");
-  console.error("  " + e.message);
-  process.exit(1);
-}
-const bad = (j.edits || []).filter((e) => e.status !== "landed");
-if (!bad.length) {
-  console.error("pre-commit: every edit in batch \"" + j.label + "\" landed, but endBatch() was not called.");
-  console.error("  Call endBatch(), or remove .edit-journal.json once you have checked the tree.");
-  process.exit(1);
-}
-console.error("COMMIT REFUSED: " + bad.length + " scripted edit(s) in batch \"" + j.label + "\" did not land.");
-console.error("");
-for (const e of bad) {
-  console.error("  " + e.file);
-  console.error("      status: " + e.status);
-  if (e.why) console.error("      why:    " + e.why);
-}
-console.error("");
-console.error("The commit message would have described a change the files do not contain.");
-console.error("Fix the edit, or delete .edit-journal.json if you have verified the tree by hand.");
-process.exit(1);
-'
+# Both journal guards live in a real script rather than shell-quoted JS: the
+# routing guard needs git's staged list and must fail closed, and neither is
+# writable inside a single-quoted -e string without the quoting becoming the
+# thing most likely to break.
+exec node scripts/hooks/journal-guard.mjs

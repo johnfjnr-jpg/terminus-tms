@@ -219,6 +219,40 @@ const STAGES = [
     needsBrowser: true,
   },
   {
+    // ── CURRENT_STATE STALENESS, WIRED 2026-09-14 ───────────────────────
+    //
+    // It existed and was wired to NOTHING. The method requires it at every
+    // close and nobody enforced it - instance 2 of the enforcement-gap
+    // pattern: the control worked, using it was remembered, memory failed.
+    //
+    // Run before wiring, because an unrun check may have rotted and wiring a
+    // rotted check reddens the gate for the wrong reason. It read
+    // "current at 4a7f66a, 5 sources watched".
+    //
+    // NOT `required`: it reads local git state and a different checkout can
+    // legitimately skip. The meta-check asserts it is WIRED; F6 asserts
+    // required stages are not skipped at a close.
+    name: 'CURRENT_STATE staleness',
+    cmd: ['node', ['scripts/check-state-fresh.mjs']],
+    needs: 'a git checkout',
+  },
+  {
+    // ── THE SELF-DISABLE CHECK, 2026-09-14 ──────────────────────────────
+    //
+    // The fourth instance, and a different shape: not a control nothing
+    // routes through, but one that RUNS, finds its dependency absent, and
+    // quietly checks nothing.
+    //
+    // Measured: the puppeteer scratch install was a directory holding `lib`
+    // and `src` after a tmp sweep. A presence check passes on that;
+    // `loadPuppeteer` does not, and the browser stage would have SKIPPED and
+    // fired F6 at the close.
+    name: 'browser dependency is functional',
+    cmd: ['node', ['scripts/check-browser-usable.mjs']],
+    needs: 'a scratch browser',
+    needsBrowser: true,
+  },
+  {
     // Round 41 W4. The three probes above all measure REFUSALS: a stale write
     // rejected, an approval refused, a gate held shut. Not one of them
     // exercises a write that is supposed to WORK, which is how a

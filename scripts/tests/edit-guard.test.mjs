@@ -8,7 +8,16 @@ import assert from 'node:assert/strict'
 import { writeFileSync, readFileSync, existsSync, mkdtempSync, rmSync, statSync, readdirSync } from 'fs'
 import { tmpdir } from 'os'
 import { join, relative } from 'path'
-import { edit, beginBatch, endBatch, JOURNAL } from '../lib/edit.mjs'
+// ── AN ISOLATED JOURNAL, BECAUSE THIS SUITE DELETES IT ───────────────────
+//
+// Set BEFORE the import, so the module reads it at load. The journal now
+// accumulates landed edits and the routing guard depends on that record; a
+// suite that `rmSync`s the real path destroys it. Measured: a full `npm
+// test` left no journal, and the guard would have refused every modified
+// file in the round that built it.
+process.env.TMS_EDIT_JOURNAL = process.env.TMS_EDIT_JOURNAL
+  ?? `/tmp/tms-edit-journal-test-${process.pid}.json`
+const { edit, beginBatch, endBatch, JOURNAL } = await import('../lib/edit.mjs')
 import { readCode } from '../lib/strip-comments.mjs'
 
 const ROOT = new URL('../../', import.meta.url).pathname
@@ -28,7 +37,16 @@ test('a landed edit changes the file on disk and clears the journal', () => {
     assert.equal(readFileSync(s.file, 'utf8'), 'alpha\nBETA\ngamma\n')
     assert.ok(r.bytesAfter >= r.bytesBefore)
     endBatch()
-    assert.equal(existsSync(JOURNAL), false, 'a clean batch leaves nothing for the hook')
+    // THE CONTRACT CHANGED, and the superseded assertion is named rather
+    // than quietly replaced: this used to require the journal be GONE after
+    // a clean batch. That delete is exactly what made the guard fail open -
+    // a routed success and a never-routed edit both left nothing.
+    // Now a clean batch leaves a LANDED RECORD, which is what lets the
+    // routing guard tell those two apart.
+    const j = JSON.parse(readFileSync(JOURNAL, 'utf8'))
+    assert.deepEqual(j.edits, [], 'a clean batch leaves nothing IN FLIGHT')
+    assert.ok(j.landed.includes(s.rel),
+      'a clean batch RECORDS the file it landed, or routing cannot be proven')
   } finally { rmSync(s.dir, { recursive: true, force: true }) }
 })
 
@@ -117,8 +135,16 @@ test('the hook and its installer are in the repository', () => {
   // commented out would otherwise still satisfy a scan for it, which is the
   // same fault in a language the stripper had to learn.
   const hook = readCode(join(ROOT, '.githooks/pre-commit'))
-  assert.match(hook, /COMMIT REFUSED/)
-  assert.match(hook, /edit-journal\.json/)
+  // THE HOOK NOW DELEGATES, so the assertion follows the implementation to
+  // where it lives. Asserting `COMMIT REFUSED` against the hook after the
+  // logic moved would be a test passing on the wrong file.
+  assert.match(hook, /journal-guard\.mjs/,
+    'the hook no longer invokes the journal guard')
+  const guard = readCode(join(ROOT, 'scripts/hooks/journal-guard.mjs'))
+  assert.match(guard, /COMMIT REFUSED/)
+  assert.match(guard, /edit-journal\.json/)
+  assert.match(guard, /diff.*--cached/,
+    'the routing guard must read the STAGED set, or it cannot tell what this commit touches')
   assert.ok(statSync(join(ROOT, '.githooks/pre-commit')).mode & 0o111, 'the hook is not executable')
 
   // The installer, so a fresh clone gets the guard without anybody remembering.
