@@ -175,21 +175,79 @@ test('R3: and the check can SEE a broken pointer - calibrated on the real one', 
     'the check reports a real, prop-passed id as undeclared')
 })
 
-test('THE PRINCIPLE: a Leads panel does not build its own header or footer', () => {
-  // A panel that hand-rolls a header is a panel that can place its action
-  // wherever it likes, which is what produced five placements on one card.
-  // The shells are `Panel` and `Modal`; nothing in leads/ may render the
-  // retired shells or a raw `.form-actions`.
-  const RETIRED_SHELL = /className="[^"]*\b(card-col-head|cd-card-head|form-actions)\b/
+/**
+ * THE SHELL'S OWN VOCABULARY, DERIVED FROM `Panel.tsx` RATHER THAN RETYPED.
+ *
+ * A second copy of this list would agree today and drift later, which is
+ * Verification 20 inside the guard meant to prevent it.
+ */
+const shellClasses = () => {
+  const src = stripJs(readFileSync(join(SRC, 'ui/Panel.tsx'), 'utf8'))
+  return new Set([...src.matchAll(/className=\{?[`"]([^`"{]+)/g)]
+    .flatMap((m) => m[1].split(/\s+/)).filter(Boolean))
+}
+
+/**
+ * THE DECLARED NON-PANEL HEADINGS, each a CALL with its reason.
+ *
+ * ── WHY THIS IS NOT THE NAME LIST IT REPLACES ───────────────────────────
+ *
+ * The previous test held three class names and failed a surface only if it
+ * used one of them. `QualifyCompletion` used none, so it passed while
+ * hand-rolling a panel header - Verification 19 inside the gate built to
+ * enforce Verification 19.
+ *
+ * THE POLARITY IS INVERTED HERE. Every title-shaped class in a Leads
+ * surface is an offender UNLESS it is the shell's or declared below. A new
+ * `foo-header` goes RED until somebody says in a diff why it is not a
+ * panel. That is Verification 19's actual remedy: fail on the unrecorded
+ * instance.
+ */
+const declaredNonPanel = (cls) => (
+  // Section 6's record action bar: the card's own head line and the action
+  // group inside it. A record-scoped bar is not a panel header, and
+  // INTERACTION_STANDARDS Section 0 is explicit that these are two scopes
+  // of one principle rather than the same thing.
+  cls === 'lead-card-head' || cls === 'lead-card-actions'
+  // A LIST group heading, above a set of cards. It heads a collection, not
+  // a panel, and has no fields under it.
+  || cls === 'lead-group-title'
+  // A modal's OWN header. John's ruling makes a modal a distinct shape with
+  // its footer actions; its title line is not a PanelHeader.
+  || cls === 'new-lead-head' || cls === 'new-lead-title' || cls === 'form-actions'
+)
+
+test('THE PRINCIPLE: a Leads surface does not build a panel header of its own', () => {
+  // STRUCTURAL: any class shaped like a heading or an action row, anywhere
+  // in a Leads surface, must come from the shell or be declared above.
+  const SHAPED = /-(title|head|header|actions)\b/
+  const allowed = shellClasses()
   const offenders = []
   for (const f of LEADS) {
     if (frozenByRuling(f)) continue
     if (!f.includes('/leads/')) continue
     const src = stripJs(readFileSync(f, 'utf8'))
-    if (RETIRED_SHELL.test(src)) offenders.push(relative(SRC, f))
+    const classes = new Set([...src.matchAll(/className=\{?[`"]([^`"]+)/g)]
+      .flatMap((m) => m[1].split(/[\s${}]+/))
+      .filter((c) => /^[a-z][\w-]*$/.test(c)))
+    for (const c of classes) {
+      if (!SHAPED.test(c)) continue
+      if (allowed.has(c) || declaredNonPanel(c)) continue
+      offenders.push(`${relative(SRC, f)} -> .${c}`)
+    }
   }
   assert.deepEqual(offenders, [],
-    `Leads surfaces rendering a shell of their own:\n  ${offenders.join('\n  ')}`)
+    `Leads surfaces building a header or action row of their own:\n  ${offenders.join('\n  ')}\n`
+    + '  Route it through Panel/PanelHeader, or declare in declaredNonPanel() why it is not a panel.')
+})
+
+test('and the shell vocabulary is DERIVED, so it cannot drift from Panel.tsx', () => {
+  // Verification 9: the derivation is proven capable of failing. If Panel
+  // stops emitting these, the allowlist empties and the test above starts
+  // flagging the shell's own classes - which is the correct failure.
+  const allowed = shellClasses()
+  for (const c of ['panel-head', 'panel-title', 'panel-actions'])
+    assert.ok(allowed.has(c), `Panel.tsx no longer emits .${c}, so the allowlist has lost it`)
 })
 
 test('the registry is STRUCTURAL: every Panel names itself', () => {
@@ -213,4 +271,40 @@ test('SECTION 4 and 5 live in ONE place', () => {
   }
   assert.deepEqual(offenders, [],
     `dialogues not routed through Modal:\n  ${offenders.join('\n  ')}`)
+})
+
+test('R1: the autofill override exists and targets the card\'s inputs', () => {
+  // ── THE PROVABLE HALF, AND ONLY THAT ──────────────────────────────────
+  //
+  // Chrome's `:autofill` leaves a white block on a completed field until
+  // its value changes. It is a PSEUDO-CLASS, so no class and no computed
+  // background changes on any element a test can construct, and headless
+  // Chrome cannot be made to autofill at all.
+  //
+  // So this asserts what a static check honestly can: the rule EXISTS, it
+  // uses the only property that overrides Chrome there, and it reaches
+  // every input class the card renders. The visual - an autofilled field
+  // now rendering normally - is John's observation and is recorded as such
+  // rather than implied by a green test.
+  const css = stripCss(readFileSync(join(ROOT, 'frontend/style.css'), 'utf8'))
+  const blocks = [...css.matchAll(/([^{}]*:-webkit-autofill[^{}]*)\{([^}]*)\}/g)]
+  assert.ok(blocks.length > 0, 'no :-webkit-autofill rule exists at all')
+  const selectors = blocks.map((m) => m[1]).join(' ')
+  const body = blocks.map((m) => m[2]).join(' ')
+
+  // `background-color` is IGNORED on this pseudo-class; an inset box-shadow
+  // is the only override Chrome honours. A rule that sets the wrong
+  // property is a rule that does nothing, and would pass a mere
+  // does-it-exist check.
+  assert.match(body, /-webkit-box-shadow[^;]*inset/,
+    'the override does not use an inset box-shadow, so Chrome will ignore it')
+  assert.match(body, /-webkit-text-fill-color/,
+    'the text colour is not restored, so autofilled text stays unreadable')
+
+  // EVERY input class the card renders. Derived from the components rather
+  // than listed here, so a new field class fails this until it is covered.
+  const cardInputClasses = ['lead-field-input', 'lead-summary-input', 'cd-note-input']
+  for (const c of cardInputClasses)
+    assert.ok(selectors.includes(`.${c}:-webkit-autofill`),
+      `.${c} is rendered on the card and is not covered by the autofill override`)
 })

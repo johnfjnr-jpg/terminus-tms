@@ -39,7 +39,11 @@ const INJECTIONS = [
     file: 'frontend-react/src/leads/InlineSummary.tsx',
     find: '    <Panel\n      name="summary"',
     to: '    <div className="card-col-head" /> && <Panel\n      name="summary"',
-    expect: 'a Leads panel does not build its own header' },
+    // RE-POINTED. This round RENAMED the test it anchors on, so the matcher
+    // stopped matching and the injection came back SILENT while the gate was
+    // going red exactly as it should. Verification 51's caveat: before a
+    // silence names an unasserted claim, confirm the matcher saw the failure.
+    expect: 'a Leads surface does not build a panel header of its own' },
   { id: 'a-dialogue-hand-rolls-a-backdrop',
     file: 'frontend-react/src/leads/NurtureDialog.tsx',
     find: '    <Modal\n      title="Move to Nurture"',
@@ -70,6 +74,25 @@ const INJECTIONS = [
     // is the guard working, and the reason it exists.
     find: '`tbChevronLoadToken`', to: `\`${GONE}\``,
     expect: 'every identifier INTERACTION_STANDARDS cites still exists' },
+  // ── THIS ROUND'S FOUR ─────────────────────────────────────────────────
+  { id: 'a-panel-header-built-by-hand',
+    file: 'frontend-react/src/leads/QualifyCompletion.tsx',
+    find: '      className="lead-complete-group">',
+    to: '      className="lead-complete-group lead-thing-title">',
+    expect: 'a Leads surface does not build a panel header of its own' },
+  { id: 'the-shell-vocabulary-stops-being-derived',
+    file: 'frontend-react/src/ui/Panel.tsx',
+    find: 'className="panel-head', to: 'className="pnl-head',
+    expect: 'the shell vocabulary is DERIVED' },
+  { id: 'the-autofill-override-uses-the-wrong-property',
+    file: 'frontend/style.css',
+    find: '  -webkit-box-shadow: 0 0 0 1000px var(--black) inset;',
+    to: '  background-color: var(--black);',
+    expect: 'the autofill override exists and targets' },
+  { id: 'a-card-input-class-loses-autofill-cover',
+    file: 'frontend/style.css',
+    find: '.cd-note-input:-webkit-autofill,\n', to: '',
+    expect: 'the autofill override exists and targets' },
   { id: 'the-escape-hatch-is-emptied',
     file: 'INTERACTION_STANDARDS.md',
     find: '## Identifiers asserted ABSENT', to: '## Identifiers formerly asserted ABSENT',

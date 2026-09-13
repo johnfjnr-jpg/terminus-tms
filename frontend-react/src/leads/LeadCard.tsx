@@ -20,7 +20,7 @@
 // date-plus-description with its own save. Writing card versions of either
 // would be two readers of one behaviour, and the notes model in particular has
 // just been ruled on twice.
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { LeadCardActions } from './LeadCardActions'
 import { AddressPopup } from './AddressPopup'
 import { InlineSummary } from './InlineSummary'
@@ -72,6 +72,18 @@ export function LeadCard({
   // R3: the actions component owns `blocking`; it hands this ref its refresh
   // so the address popup calls the same function rather than keeping a copy.
   const refreshRef = useRef<null | (() => Promise<unknown>)>(null)
+  // R3: whether the SERVER says Summary is still required. Received from the
+  // actions component, which owns the blocking list, rather than fetched
+  // again here - one writer, one value.
+  const [summaryRequired, setSummaryRequired] = useState(false)
+  // HOISTED, not written inline in the JSX. A hook in an attribute position
+  // is legal only while that JSX is unconditional, and nothing in the markup
+  // says so - the next person to wrap this in a condition breaks hook order
+  // with no warning. It is also referentially stable, which the effect that
+  // calls it depends on.
+  const onBlockingChange = useCallback((b: Array<{ field?: string }>) => {
+    setSummaryRequired(b.some((x) => x.field === 'summary'))
+  }, [])
   const p = lead.payload ?? {}
   const notes = (Array.isArray(p.notes) ? p.notes : []) as Note[]
 
@@ -137,6 +149,7 @@ export function LeadCard({
           addressOpen={addressOpen}
           onOpenAddress={() => setAddressOpen(true)}
         registerRefresh={(fn) => { refreshRef.current = fn }}
+          onBlockingChange={onBlockingChange}
           payload={p}
           industries={industries}
           sources={sources}
@@ -176,6 +189,7 @@ export function LeadCard({
           <InlineSummary
             value={str(p.summary)}
             leadId={lead.id}
+            required={summaryRequired}
             onSave={(text) => onSaveSummary(lead.id, text)} />
         </div>
 

@@ -27,7 +27,9 @@
 // a list enumerated by name fails silently on the member nobody added.
 import type { ReactNode } from 'react'
 
-export function PanelHeader({ title, secondary, actions, testid, headerTestid }: {
+export function PanelHeader({
+  title, secondary, actions, testid, headerTestid, required, requiredTestid,
+}: {
   title: string
   /** The Notes pattern's `LATEST FIRST`: a fact about the panel, not a control. */
   secondary?: ReactNode
@@ -36,6 +38,20 @@ export function PanelHeader({ title, secondary, actions, testid, headerTestid }:
   testid?: string
   /** So a panel adopting the shell keeps the testid its tests already use. */
   headerTestid?: string
+  /**
+   * R3: THE PANEL SAYS IT MUST BE COMPLETED, and the shell owns saying it.
+   *
+   * It replaces a sentence the completion surface used to render - "Summary
+   * is required. Complete it in the Summary panel below." - which pointed at
+   * a panel instead of marking it. One asterisk on the real panel beats an
+   * instruction about where to go.
+   *
+   * ON THE SHELL RATHER THAN IN ONE PANEL, deliberately: any panel that must
+   * be completed now says so the same way, and Round B's account section
+   * inherits it without deciding again.
+   */
+  required?: boolean
+  requiredTestid?: string
 }) {
   const hid = headerTestid ?? (testid ? `${testid}-head` : undefined)
   return (
@@ -43,14 +59,23 @@ export function PanelHeader({ title, secondary, actions, testid, headerTestid }:
       {...(hid ? { 'data-testid': hid } : {})}>
       {/* `data-panel-title` is structural, so the conformance test can find
           a panel's title without every panel remembering to add a testid. */}
-      <span className="panel-title" data-panel-title>{title}</span>
+      <span className="panel-title" data-panel-title>
+        {title}
+        {required
+          ? <span className="nlg-required"
+              {...(requiredTestid ? { 'data-testid': requiredTestid } : {})}> *</span>
+          : null}
+      </span>
       {secondary ? <span className="panel-secondary">{secondary}</span> : null}
       {actions ? <span className="panel-actions">{actions}</span> : null}
     </div>
   )
 }
 
-export function Panel({ name, title, secondary, actions, children, testid, className, headerTestid }: {
+export function Panel({
+  name, title, secondary, actions, children, testid, className, headerTestid,
+  required, requiredTestid,
+}: {
   /** The registry key. Structural, so a new panel joins the census by existing. */
   name: string
   title: string
@@ -60,12 +85,15 @@ export function Panel({ name, title, secondary, actions, children, testid, class
   testid?: string
   className?: string
   headerTestid?: string
+  required?: boolean
+  requiredTestid?: string
 }) {
   return (
     <section className={`panel${className ? ` ${className}` : ''}`} data-panel={name}
       {...(testid ? { 'data-testid': testid } : {})}>
       <PanelHeader title={title} secondary={secondary} actions={actions}
-        testid={testid} headerTestid={headerTestid} />
+        testid={testid} headerTestid={headerTestid}
+        required={required} requiredTestid={requiredTestid} />
       <div className="panel-body">{children}</div>
     </section>
   )

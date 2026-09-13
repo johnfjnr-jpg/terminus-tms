@@ -194,15 +194,30 @@ window.mountLeadsList = mountList('live-leads-rows',
 
 // P5: the New Lead batch grid, inside the shell's own modal.
 window.mountNewLeadGrid = mountList('new-lead-grid-mount',
-  () => <NewLeadGrid
+  (navToken) => <NewLeadGrid
+    // R2: the token mountList already increments per open. The grid resets
+    // its scroll and its result message from it.
+    resetKey={navToken}
     onDirtyChange={(d) => {
       const w = window as unknown as { setNewLeadDirty?: (d: boolean) => void }
       w.setNewLeadDirty?.(d)
     }}
-    onDone={() => {
+    onDone={(created) => {
     // The list is the shell's to refresh; the grid does not know about it.
-    const w = window as unknown as { renderLeadsCardsAfterCreate?: () => void }
+    const w = window as unknown as {
+      renderLeadsCardsAfterCreate?: () => void
+      closeNewLeadModal?: () => void
+    }
     w.renderLeadsCardsAfterCreate?.()
+    // R2: ON SAVE THE MODAL CLOSES AND RETURNS TO THE LIST. It used to stay
+    // open reporting "N leads created", so the person had to dismiss a
+    // dialogue to see the thing they had just made.
+    //
+    // ONLY WHEN SOMETHING WAS CREATED. A save where every row was refused
+    // leaves the grid open with those rows still in it, which is the
+    // partial-failure behaviour the grid was built for - closing then would
+    // discard work the server rejected.
+    if (created > 0) w.closeNewLeadModal?.()
   }} />)
 
 window.loadContactDetail = register(CONTACT_VIEW,

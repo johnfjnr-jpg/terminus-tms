@@ -63,7 +63,7 @@ export function rowProblems(row: Row, required: string[]): Record<string, string
   return p
 }
 
-export function NewLeadGrid({ onDone, onDirtyChange }: {
+export function NewLeadGrid({ onDone, onDirtyChange, resetKey }: {
   onDone?: (created: number) => void,
   /**
    * R6: THE GRID OWNS ITS DIRTY STATE AND REPORTS IT.
@@ -78,6 +78,18 @@ export function NewLeadGrid({ onDone, onDirtyChange }: {
    * is a fact only the grid has.
    */
   onDirtyChange?: (dirty: boolean) => void,
+  /**
+   * R2: CHANGES ON EVERY OPEN, so the grid starts fresh.
+   *
+   * The modal persists in the DOM between opens - `openNewLeadModal` only
+   * removes `hidden` - so the scroll container kept whatever offset it was
+   * left at, and reopening dropped you into the middle of the table.
+   *
+   * `mountList` already increments a token per call, so this is the shell's
+   * existing signal rather than a new one, and it is the same `resetKey`
+   * convention NotesHistory and FollowUpTask use.
+   */
+  resetKey?: unknown,
 }) {
   const shell = useShell()
   const [rows, setRows] = useState<Row[]>(() => Array.from({ length: BLANK_ROWS }, blank))
@@ -89,6 +101,17 @@ export function NewLeadGrid({ onDone, onDirtyChange }: {
   const [saving, setSaving] = useState(false)
   const [result, setResult] = useState<string | null>(null)
   const inFlight = useRef(false)
+  const scrollRef = useRef<HTMLDivElement | null>(null)
+  const [lastReset, setLastReset] = useState(resetKey)
+
+  // Compared during RENDER rather than in an effect, for the reason the
+  // field rows record: an effect is one paint late, so the person sees the
+  // stale scroll position for a frame before it corrects.
+  if (resetKey !== lastReset) {
+    setLastReset(resetKey)
+    setResult(null)
+    if (scrollRef.current) scrollRef.current.scrollTop = 0
+  }
 
   useEffect(() => {
     void (async () => {
@@ -168,7 +191,7 @@ export function NewLeadGrid({ onDone, onDirtyChange }: {
           : null}
       </div>
 
-      <div className="new-lead-scroll">
+      <div className="new-lead-scroll" ref={scrollRef}>
         <table className="new-lead-table">
           <thead>
             <tr>

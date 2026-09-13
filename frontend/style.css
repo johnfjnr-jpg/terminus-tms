@@ -6510,3 +6510,94 @@ input.input-invalid {
 .lead-field-input:focus { outline: none; border-bottom-color: var(--green); }
 .lead-field-input:disabled { opacity: 0.5; }
 textarea.lead-field-input { resize: vertical; }
+
+/* ---------------------------------------------------------------------
+   R2 (2026-09-13): the New Lead grid reads as a TABLE.
+
+   MEASURED FIRST, and the first measurement was wrong. A prior pass read
+   the `border` SHORTHAND on a cell, which computes to "" whenever the four
+   sides differ, and reported "the cells have no border". They do: `th` and
+   `td` both carry 1px at 0.12, and they already agree.
+
+   So the defect is narrower than it looked. THREE bottom lines existed:
+
+     th / td   1px rgba(242,242,240,0.12)   the table's own, consistent
+     input     1px rgba(242,242,240,0.22)   THE MISMATCH
+     select    1px rgba(242,100,100,0.9)    [aria-invalid], DELIBERATE
+
+   The fix is to REMOVE the input's own underline inside a cell, not to add
+   borders that are already there. One line per row edge is what makes a
+   table read as a table; two lines 0.10 apart is what stops it.
+   --------------------------------------------------------------------- */
+
+.new-lead-table .lead-field-input {
+  border-bottom: none;
+  padding: 4px 0;
+}
+/* The red stays. An empty required cell must still say so, and this is the
+   signal - not an inconsistency to tidy away. */
+.new-lead-table input[aria-invalid="true"],
+.new-lead-table select[aria-invalid="true"] {
+  border-bottom: 1px solid var(--red);
+}
+/* Focus needs to be visible now that the resting underline is gone. */
+.new-lead-table .lead-field-input:focus {
+  outline: 1px solid var(--green);
+  outline-offset: -1px;
+}
+
+/* CELLS SIZED SO DATA IS READABLE. Fifteen columns in 1480px is 98px each,
+   and a 58-character company name needs 370. The table gets a min-width and
+   the container scrolls horizontally: a readable cell with a scrollbar beats
+   an unreadable one without. */
+/* Sized from what a value NEEDS, not from what a layout happened to give.
+   A 30-character name is the realistic case and needs ~190px at this font;
+   the first threshold tried here was 130px, which was chosen AFTER the
+   change and passed a check that still cropped. The assertion in the probe
+   is now "a realistic value is fully visible" - scrollWidth <= clientWidth -
+   rather than a pixel number somebody picked. */
+.new-lead-table { min-width: 3500px; }
+.new-lead-table th, .new-lead-table td { padding: 6px 10px; }
+/* 230px, from the measurement: a real 32-character account name from this
+   estate's own list needs 208px of input, and the cell's padding costs 20.
+   190px was the second guess and still cropped it by 38. */
+.new-lead-table td { min-width: 230px; }
+
+/* A HEIGHT CAP, SO IT SCROLLS. `.new-lead-scroll` was `flex: 1` with no
+   max-height inside a modal capped at 88vh, so the container GREW and there
+   was never a scrollbar - at seven rows scrollHeight equalled clientHeight
+   exactly. Capped in vh so it holds at 1240 as well as 3440 rather than
+   being tuned to one viewport. */
+.new-lead-scroll { max-height: 52vh; }
+
+/* ---------------------------------------------------------------------
+   R1 (2026-09-13): Chrome's autofill highlight.
+
+   CAUSE CONFIRMED BY JOHN, not by this stylesheet: the "popup lists" are
+   Chrome's own autofill suggestions, and the white block left behind is the
+   `:autofill` pseudo-class - browser state, not app state. It persists
+   until the value changes, which is why a completed field stayed lit after
+   a save and drew the eye to what was DONE instead of what was missing.
+
+   It was invisible to every probe this estate writes because it is a
+   PSEUDO-CLASS: no class changes, no computed background changes on any
+   element a test can construct.
+
+   `-webkit-box-shadow` with an inset spread is the only way to override
+   Chrome's autofill background; `background-color` is ignored on that
+   pseudo-class. `-webkit-text-fill-color` is likewise the only way to
+   restore the text colour.
+   --------------------------------------------------------------------- */
+
+.lead-field-input:-webkit-autofill,
+.lead-field-input:-webkit-autofill:hover,
+.lead-field-input:-webkit-autofill:focus,
+.cd-note-input:-webkit-autofill,
+.lead-summary-input:-webkit-autofill,
+.acct-picker-input:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0 1000px var(--black) inset;
+  box-shadow: 0 0 0 1000px var(--black) inset;
+  -webkit-text-fill-color: var(--white);
+  caret-color: var(--white);
+  transition: background-color 9999s ease-in-out 0s;
+}

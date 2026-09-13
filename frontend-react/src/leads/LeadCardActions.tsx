@@ -30,7 +30,7 @@ type Step = 'idle' | 'checking' | 'incomplete' | 'account'
 
 export function LeadCardActions({
   leadId, status, accounts, onQualified, onNurture, onOpenAddress, addressOpen,
-  payload, industries, sources, regions, onSaved, registerRefresh,
+  payload, industries, sources, regions, onSaved, registerRefresh, onBlockingChange,
 }: {
   leadId: string
   status: string | null
@@ -44,6 +44,18 @@ export function LeadCardActions({
    * copy over there, the card is handed this one.
    */
   registerRefresh?: (fn: () => Promise<unknown>) => void
+  /**
+   * R3: the card's Summary PANEL needs to know Summary is required, and this
+   * component already owns the blocking list.
+   *
+   * A CALLBACK, NOT A SECOND FETCH. Verification 20 forbids two readers of
+   * one value; this is the same value PROPAGATED from its single writer, so
+   * the card cannot hold a blocking list that disagrees with the actions'.
+   * Lifting the state instead would re-open a ruling taken last round -
+   * "the actions component owns `blocking`" - which Verification 23 says to
+   * search for before deciding again.
+   */
+  onBlockingChange?: (blocking: Blocking[]) => void
   addressOpen: boolean
   /** R1: the popup prefills what is already there and edits what is not. */
   payload: Record<string, unknown>
@@ -100,6 +112,8 @@ export function LeadCardActions({
   // Published once so the card's popup path calls the same function this
   // component's own save does. One writer of `blocking`, two callers.
   useEffect(() => { registerRefresh?.(refreshAfterSave) })
+  // Published on every change, from the one place that writes it.
+  useEffect(() => { onBlockingChange?.(blocking) }, [blocking, onBlockingChange])
 
   // R8: every cancel path is this. It calls nothing.
   const cancel = () => { setStep('idle'); setBlocking([]); setError(null) }

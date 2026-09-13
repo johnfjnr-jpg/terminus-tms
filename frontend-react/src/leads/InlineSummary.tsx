@@ -14,10 +14,17 @@ import { useEffect, useRef, useState } from 'react'
 import { Panel } from '../ui/Panel'
 import { SaveControl } from '../ui/SaveControl'
 
-export function InlineSummary({ value, leadId, onSave }: {
+export function InlineSummary({ value, leadId, onSave, required }: {
   value: string
   leadId: string
   onSave: (text: string) => Promise<boolean>
+  /**
+   * R3: the server still lists Summary as blocking. The mark is the SHELL's
+   * affordance, not this panel's own markup, so Round B's account section
+   * gets it without deciding again - and the testid is the one the
+   * completion surface used, because two probes address it.
+   */
+  required?: boolean
 }) {
   const [text, setText] = useState(value)
   const [busy, setBusy] = useState(false)
@@ -43,6 +50,8 @@ export function InlineSummary({ value, leadId, onSave }: {
       name="summary"
       title="Summary"
       testid={`lead-summary-${leadId}`}
+      required={required}
+      requiredTestid={`lead-needs-summary-${leadId}`}
       className="lead-card-col"
       actions={
         <SaveControl

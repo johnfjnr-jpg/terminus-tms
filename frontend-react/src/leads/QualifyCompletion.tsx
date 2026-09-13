@@ -32,6 +32,7 @@ import { useMemo, useRef, useState } from 'react'
 import { useShell } from '../ShellContext'
 import { CONTACT_FIELDS, ADDRESS_FIELDS, type LeadField } from './leadFields'
 import { LeadFieldInput } from './LeadFieldInput'
+import { Panel } from '../ui/Panel'
 
 type Blocking = { field?: string, label?: string, message?: string }
 
@@ -71,9 +72,22 @@ export function QualifyCompletion({
   const set = (k: string, v: string) => setValues((p) => ({ ...p, [k]: v }))
   const dirty = Object.keys(values).some((k) => values[k] !== str(current[k]))
 
+  // ── R4: ROUTED THROUGH THE SHELL ────────────────────────────────────
+  //
+  // This rendered its own `lead-card-col-title` heading per group, and the
+  // conformance gate PASSED it - the gate's shell test was a list of three
+  // class names and this used none of them. Verification 19 inside the gate
+  // built to enforce Verification 19.
+  //
+  // THE TESTID IS PRESERVED, not derived. Six probe files address this
+  // surface's hooks, and last round measured what a silent rename costs:
+  // six timeouts that read like product defects.
   const group = (title: string, fields: LeadField[]) => (
-    <section className="lead-complete-group" data-testid={`lead-complete-${title.toLowerCase().replace(/\s+/g, '-')}-${leadId}`}>
-      <div className="lead-card-col-title">{title}</div>
+    <Panel
+      name={`complete-${title.toLowerCase().replace(/\s+/g, '-')}`}
+      title={title}
+      testid={`lead-complete-${title.toLowerCase().replace(/\s+/g, '-')}-${leadId}`}
+      className="lead-complete-group">
       <div className="lead-complete-grid">
         {fields.map((f) => (
           <div className="lead-complete-cell" key={f.key}>
@@ -94,7 +108,7 @@ export function QualifyCompletion({
           </div>
         ))}
       </div>
-    </section>
+    </Panel>
   )
 
   const save = async () => {
@@ -150,33 +164,30 @@ export function QualifyCompletion({
         {group('Contact details', CONTACT_FIELDS)}
         {group('Address details', ADDRESS_FIELDS)}
 
-        {/* ── R2: SUMMARY IS MARKED HERE AND EDITED ON THE CARD ──────────
-            Phase 0 measured two editors of one field with INDEPENDENT
-            drafts: typing into this one left the card's showing "", and
-            whichever saved last won silently. The card's panel owns the
-            editing; this surface may only say that it is required.
+        {/* ── R3: THE PANEL IS MARKED. IT IS NOT POINTED AT ──────────────
+            Summary is still edited on the card's own Summary panel, not
+            here: two editors of one field with independent drafts meant
+            whichever saved last won silently.
+            
+            What changed is how this surface SAYS so. It used to render a
+            heading plus the sentence "Summary is required. Complete it in
+            the Summary panel below." - an instruction about where to go.
+            R3: do not point, just mark. The asterisk now lives on the real
+            Summary panel's own title, through the shell's `required`
+            affordance, so the eye lands on the thing that can satisfy it.
 
-            R5: and it names where. A star on a field with nowhere to type
-            is worse than an empty surface - the eye has nothing to land
-            on - so the requirement points at the panel that can satisfy
-            it. */}
-        {summaryRequired
-          ? (
-            <section className="lead-complete-group"
-              data-testid={`lead-complete-summary-${leadId}`}>
-              <div className="lead-card-col-title">
-                Summary
-                <span className="nlg-required" data-testid={`lead-needs-summary-${leadId}`}> *</span>
-              </div>
-              <p className="sub" data-testid={`lead-summary-pointer-${leadId}`}>
-                Summary is required. Complete it in the Summary panel below.
-              </p>
-            </section>
-          )
-          : null}
+            The marker's testid is carried over unchanged: two probes
+            address it. */}
+        {null}
       </div>
       {error ? <p className="msg-error" data-testid={`lead-fix-error-${leadId}`}>{error}</p> : null}
-      <div className="lead-complete-actions">
+      {/* R4: the estate's own footer row, not a class of this surface's.
+          These actions are SURFACE-scoped - one Save for three panels - so
+          they are the modal-footer shape rather than a panel's header line,
+          and `form-actions` is the class the estate already declares for
+          exactly that. Reusing it beats minting `lead-complete-actions`,
+          which the widened gate correctly flagged. */}
+      <div className="form-actions">
         <button type="button" className="btn-primary"
           data-testid={`lead-fix-save-${leadId}`}
           disabled={busy || !dirty}
