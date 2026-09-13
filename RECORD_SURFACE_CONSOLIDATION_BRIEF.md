@@ -84,21 +84,52 @@ consumer remains for `NotesHistory`, `FollowUpTask` or `LeadFieldInput`.
    three-consumer constraint dissolves.
 5. **R1**: the Contacts list row-click wiring, and what changes.
 
-## Phase 1: build R1, R2, R3 and the retirement (R5). R4 untouched.
+## R4 RE-RULED at Phase 1's launch (John, 2026-09-13)
 
-**THIS ROUND RETIRES A SCREEN SERVING LIVE RECORDS**, so:
+**Phase 0 found R4's premise false**: the create-actions live in
+`StageActions`, rendered by `ContactHost` - **the screen R5 would retire** -
+not on the Contacts list. **The ruling was built on a wrong fact.**
+
+**RULED (b): `contact-detail` is NOT retired this round.**
+
+It uniquely provides **four** capabilities, **two named by no ruling**:
+the account link and edit (R2), **PARK the contact**, and **STAGE
+PROGRESSION plus create-from**. **Retiring it would drop Park and
+create-from - a real regression.**
+
+So this round:
+
+- **R1**: the Contacts list row-click opens the **shared surface for the
+  RECORD FIELDS**.
+- **R2**: add the account section - a `Panel`, one source.
+- **R3**: view/edit mode - Phase 0 confirms this is **a mode flag and an
+  entry**, not a new surface.
+- **R5 DEFERRED**: `contact-detail` **stays alive** for Park, stage
+  progression and create-from **until those are rebuilt on the shared
+  surface, in their own later round**. **Keep its view id and route**, so
+  the eventual retirement is of `ContactHost` and `ContactPanel`, not of
+  the view.
+
+**AND THE FROZEN CONSTRAINT STANDS FOR ALL THREE.** Two of the three
+dissolve only when `contact-detail` retires, and it does not. **Use
+optional props; do not touch the frozen consumers.**
+
+## Phase 1: build R1, R2, R3. RETIRE NOTHING.
+
+**NOTHING IS RETIRED**, so the proof obligation changes:
 
 - **prove the consolidated surface renders a CONTACT correctly**, with its
   account section, by live DOM and screenshot;
-- **prove the retirement strands nothing**: every contact reachable, every
-  pointer updated.
+- **prove PARK, STAGE PROGRESSION and CREATE-FROM still work**, because
+  they are exactly what the deferral exists to protect.
 
 Stop at each phase for sign-off. **Nothing pushes.**
 
 ## AFTER PHASE 1: the walk is the gate
 
-> **John walks the consolidated surface AS A CONTACT. This is the
-> load-bearing parity check and the gate on retiring `contact-detail`.**
+> **John walks the consolidated surface AS A CONTACT**: the account
+> section, view/edit mode, **and confirms PARK and CREATE-FROM still work
+> on `contact-detail`, which is not retired.**
 
 **The Phase 1 report states that the walk is PENDING and REQUIRED before
-the retirement is called final.**
+this is called final.**
