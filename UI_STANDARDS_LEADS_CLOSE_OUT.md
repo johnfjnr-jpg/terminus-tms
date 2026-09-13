@@ -8,8 +8,8 @@ launched. Nothing pushed.
 
 ## 1. The gate
 
-**22 of 22 PASS, 0 SKIP, 0 FAIL** on the exact committed tree, with
-`--round-close` so F6 refuses a skipped required stage. Section 10.
+**22 of 22 PASS, 0 SKIP, 0 FAIL** on `3e35c70`, the exact committed tree,
+with `--round-close`. Door stage **PASS, 79,569ms**. First run. Section 10.
 
 ---
 
@@ -236,4 +236,19 @@ which is precisely what the gate now prevents.
 
 ## 10. Gate result
 
-To be stated on the tree this commit creates.
+**22 of 22 PASS, 0 SKIP, 0 FAIL** on `3e35c70` with `--round-close`,
+**first run**.
+
+| | |
+|---|---|
+| pure / react / database | **537/537**, **975/975**, **100/100** |
+| **door stage** | **PASS**, 79,569ms |
+| **F6** | did not need to fire; the browser was available |
+| **F8** | did not fire |
+| **the concurrent-write timeout** | **did not fire on the gate**, having refused two commits earlier in the round |
+
+**Residue after the gate: 117 live, 0 probe-owned, 93
+`stage_gate_rules`** - unchanged, so the run tore down what it created.
+
+**The pure suite is 537 and carries the two new gates**: seven
+conformance checks and three staleness checks, both calibrated to fail.
