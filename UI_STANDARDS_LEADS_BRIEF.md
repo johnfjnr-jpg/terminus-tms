@@ -87,6 +87,38 @@ reinvent it.**
   source, file, line, rationale: the panel standard, the modal shape, and
   **reconcile with existing Sections 4, 5 and 6.**
 
+## Rulings appended at Phase 1's launch (John, 2026-09-13)
+
+R1. **SECTIONS 4 AND 5 ARE FIXED IN THIS ROUND.** The `Modal` component
+    is being built anyway, so **the focus trap and the dirty-state
+    protection belong INSIDE it** - carrying them means building `Modal`
+    twice, and **Section 5's silent discard is a live data-loss path.**
+    Fixing them makes the round bigger and conforms the card to the
+    standard's **data-protective** parts, not only its layout.
+R2. **`lead-followup-btn` is principle-divergent and is NOT fixed here.**
+    A record-bar control with no record scope, whose whole behaviour is
+    scroll-plus-focus. The follow-up panel is **frozen**, and **the entity
+    round places it correctly when it rebuilds.** Noted, not fixed.
+R3. **`aria-controls` pointing at nothing is FIXED** - point it at the
+    real element, or remove the exemption so the door reaches the control
+    properly. **"Holds by accident" stops holding when touched.**
+
+## Phase 1: what is built
+
+- The shared components - **`Panel`, `PanelHeader`, `SaveControl`** -
+  enforcing the principle and S1 to S5.
+- **The `Modal` shape**: footer actions per the document, **and per R1
+  the Section 4 focus trap and Section 5 dirty-state inside it.**
+- **The conformance gate test**: a registry the components populate
+  **structurally**, a cheap no-browser half, **calibrated to fail.**
+- **The staleness check** into the pure suite: 81 citations, with
+  **asserted-absent markers** for the correct negatives.
+- **Fold the principle and the Leads decisions into
+  `INTERACTION_STANDARDS` in its own style**, and **RECONCILE the 10
+  rotted citations** in the sections describing retired vanilla.
+  **The document must describe what exists.**
+- Three-consumer and frozen constraints **via optional props**.
+
 ## Phase 0: measurement only, read-only
 
 1. **Read `INTERACTION_STANDARDS` fully.** Which existing sections (4, 5,
