@@ -169,12 +169,20 @@ export function ContactPanel({
   // THE TINT IS A PROPERTY OF THE ROW, applied by wrapping rather than by
   // reaching into FieldRow. The row component is shared across four surfaces
   // and blocking is one surface's concern.
-  const row = (name: string) => {
-    const f = fields.find((x) => x.name === name)
-    if (!f) return null
+  const row = (name: string, labelOverride?: string) => {
+    const base = fields.find((x) => x.name === name)
+    if (!base) return null
+    // A6: a row whose panel header already names it does not name itself.
+    const f = labelOverride === undefined ? base : { ...base, label: labelOverride }
     return (
+      // A6: a row with no label must not keep the label's 170px column. The
+      // Summary card is a third of the row now, so the reserved column left
+      // its text about 88px and wrapped it against the right edge.
       <div key={name} data-key={name}
-        className={tinted.has(name) ? 'field-blocked' : undefined}>
+        className={[
+          tinted.has(name) ? 'field-blocked' : '',
+          labelOverride === '' ? 'cd-row-nolabel' : '',
+        ].filter(Boolean).join(' ') || undefined}>
         <FieldRow field={f} rows={rows} />
       </div>
     )
@@ -267,19 +275,36 @@ export function ContactPanel({
         {nurturePanel}
       </div>
 
-      {/* ── 4: SUMMARY ────────────────────────────────────────────────── */}
-      <Card title="Summary" testId="cd-card-summary">
-        {row('summary')}
-      </Card>
+      {/* ── 4, 5 and 8: SUMMARY, NOTES and FOLLOW-UP ACROSS ONE ROW ──────
+          A3. Ruled direction: THE CONTACT MATCHES THE LEAD, not the reverse.
+          These three were stacked here and Follow-up sat at the bottom of the
+          screen, while the lead card has had them on one line for rounds.
 
-      {/* ── 5: NOTES, as a PANEL ──────────────────────────────────────
-          It was bare text between two cards until the screenshot was opened:
-          every assertion passed, and Summary sat in a panel while Notes did
-          not. Verification 4 - presence is not legibility, and no assertion
-          can tell them apart. */}
-      <Card title="Notes" testId="cd-card-notes">
-        {notes}
-      </Card>
+          `.lead-card-body` is the LEAD's own layout class, reused rather than
+          copied - Verification 20, one definition. Its name says `lead` and
+          this is a contact, which is the honest cost of adopting a layout
+          wholesale: the alternative is a second three-column rule that agrees
+          today. The ruling is that the contact takes the lead's layout, so it
+          takes the lead's class. */}
+      <div className="lead-card-body" data-testid="cd-top-row">
+        {/* A6: the panel title says Summary, so the ROW does not say it again.
+            The label is blanked rather than the title removed, because the
+            panel header is the estate's standard (S1) and the row label is
+            the duplicate. */}
+        <Card title="Summary" testId="cd-card-summary">
+          {row('summary', '')}
+        </Card>
+
+        {/* It was bare text between two cards until the screenshot was opened:
+            every assertion passed, and Summary sat in a panel while Notes did
+            not. Verification 4 - presence is not legibility, and no assertion
+            can tell them apart. */}
+        <Card title="Notes" testId="cd-card-notes">
+          {notes}
+        </Card>
+
+        {followUp}
+      </div>
 
       {/* ── 6: CONTACT DETAILS and ADDRESS, as the SHARED DENSE GRID ─────
           R8, direction (c). These two cards were COLLAPSED BY DEFAULT, so at
@@ -309,7 +334,13 @@ export function ContactPanel({
           `probe-p3-layout.mjs` measures this container's top. */}
       <div data-testid="cd-cards">
         <FieldGrid
-          name="contact-details" title="Contact Details" testid="cd-card-contact"
+          // A6: was "Contact Details", which repeated the eyebrow word for
+          // word on the contact view - two headings saying the same thing,
+          // one above the other. Renamed rather than dropping the eyebrow,
+          // because the eyebrow is the screen's identity and was ruled last
+          // round. "Personal" matches its sibling "Address" and reads
+          // correctly on BOTH modes, so no mode machinery is needed for it.
+          name="contact-details" title="Personal Details" testid="cd-card-contact"
           className="lead-complete-group pg-card"
           fields={gridFields.filter((f) => CONTACT_FIELDS.includes(f.key))}
           valueOf={(k) => rows.valueOf(k)}
@@ -356,8 +387,7 @@ export function ContactPanel({
         {linkPanel}
       </AccountSection>
 
-      {/* ── 8: THE FOLLOW-UP TASK ─────────────────────────────────────── */}
-      {followUp}
+      {/* A3: the follow-up task moved UP, onto the Summary/Notes row above. */}
 
       {/* The shared EditBar is NOT rendered here any more: A1 moved Save and
           Discard into the header row above, and rendering both would put two

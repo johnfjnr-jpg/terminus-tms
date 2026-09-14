@@ -94,6 +94,10 @@ export function LeadCard({
   // name. Memoised because it is a new object each render otherwise, and a
   // future effect keyed on it would then loop.
   const fieldValues = useMemo(() => fieldValuesFor(lead), [lead])
+  // A4: held in STATE rather than a ref, because the portal must re-render
+  // once the slot element exists. A ref would be null on the first pass and
+  // nothing would tell React to look again.
+  const [panelHost, setPanelHost] = useState<HTMLDivElement | null>(null)
 
   // ── THE DOOR, PER CARD ────────────────────────────────────────────────
   //
@@ -162,7 +166,8 @@ export function LeadCard({
           industries={industries}
           sources={sources}
           regions={regions}
-          onSaved={onQualified} />
+          onSaved={onQualified}
+          panelHost={panelHost} />
       </div>
 
       {addressOpen
@@ -237,6 +242,16 @@ export function LeadCard({
             onSave={(next) => onSaveFollowUp(lead.id, next)} />
         </div>
       </div>
+      {/* A4: THE SLOT THE EXPANDED QUALIFY STEPS RENDER INTO, below the card's
+          own content rather than above it. The actions stay on the top line
+          (R5); only the sheet they open moves. It stops propagation for the
+          same reason the three columns above do - the card itself navigates,
+          and somebody typing into the sheet is not asking to open the record. */}
+      <div
+        ref={setPanelHost}
+        data-testid={`lead-steps-${lead.id}`}
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => e.stopPropagation()} />
     </div>
   )
 }

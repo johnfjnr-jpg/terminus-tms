@@ -102,11 +102,41 @@ export function NotesHistory({ notes, onAdd, hasDirtyEdits, onConfirmDiscard, re
   // The two header controls, lifted out so ONE definition serves both the
   // shell path and the original one. Two copies would be Verification 20 in
   // the file that this round exists to stop repeating.
+  // A1: THE EXPAND RUNGS BELONG ON THE HEADER LINE, beside Add note. They were
+  // below the input, which put the note controls on two lines and left the
+  // header saying only "Latest first". S1/S2 is the standard and this is where
+  // it was unapplied.
+  //
+  // Rendered only when there is something to expand TO - unchanged, and the
+  // reason is unchanged: a lead with two notes has nothing behind the fold,
+  // and a control that changes nothing is worse than none.
+  const rungs = notes.length > DEFAULT_SHOWN
+    ? (
+      <span className="cd-notes-expand" data-testid="cd-notes-expand">
+        <button type="button" className="btn-sm" data-testid="cd-notes-show-2" aria-controls={notesListId}
+          disabled={shown === DEFAULT_SHOWN}
+          onClick={() => setShown(DEFAULT_SHOWN)}>Latest 2</button>
+        <button type="button" className="btn-sm" data-testid="cd-notes-show-10" aria-controls={notesListId}
+          disabled={shown === EXPANDED_SHOWN}
+          onClick={() => setShown(EXPANDED_SHOWN)}>Last 10</button>
+        <button type="button" className="btn-sm" data-testid="cd-notes-show-all" aria-controls={notesListId}
+          disabled={shown === Infinity}
+          onClick={() => setShown(Infinity)}>All</button>
+      </span>
+    )
+    : null
+
   const actions = (
     <>
+      {rungs}
+      {/* A2: ONE CONTROL, TWO ACTIONS, and the label now says which one it is
+          about to do. `onClick` already opened when closed and COMMITTED when
+          open - measured before changing anything - so this is the label
+          catching up with the behaviour, not a new behaviour. The save path is
+          untouched. */}
       {!open || actionsInHeader
         ? <button type="button" className="btn-sm" data-testid="cd-add-note-btn"
-            disabled={open && !text.trim()} onClick={onClick}>Add note</button>
+            disabled={open && !text.trim()} onClick={onClick}>{open ? 'Save' : 'Add note'}</button>
         : null}
       {actionsInHeader && open
         ? <button type="button" className="btn-sm" data-testid="cd-note-discard"
@@ -135,7 +165,7 @@ export function NotesHistory({ notes, onAdd, hasDirtyEdits, onConfirmDiscard, re
               : (
                 <>
                   <button type="button" className="btn-sm" data-testid="cd-add-note-btn"
-                    disabled={!text.trim()} onClick={onClick}>Add note</button>
+                    disabled={!text.trim()} onClick={onClick}>Save</button>
                   <button type="button" className="btn-sm" data-testid="cd-note-discard"
                     onClick={() => { setOpen(false); setText('') }}>Discard</button>
                 </>
@@ -153,21 +183,17 @@ export function NotesHistory({ notes, onAdd, hasDirtyEdits, onConfirmDiscard, re
           P4: on an unowned lead the door disabled all three, so a person who
           may not edit a lead could not expand its notes to READ them. The same
           shape as P3's collapse toggle, on the list this time. */}
+
+
+      {/* A1: the COUNT stays, just not on the header line. It was the widest
+          item there - `.panel-head` is a fixed-height flex row with no wrap,
+          so with the rungs beside it the header overflowed its third of the
+          card and sat on top of the next column. Measured: `elementFromPoint`
+          over Add note returned the FOLLOW-UP card's title. */}
       {notes.length > DEFAULT_SHOWN
-        ? <div className="cd-notes-expand" data-testid="cd-notes-expand">
-            <span className="sub" data-testid="cd-notes-shown">
-              {`Showing ${Math.min(shown, notes.length)} of ${notes.length}`}
-            </span>
-            <button type="button" className="btn-sm" data-testid="cd-notes-show-2" aria-controls={notesListId}
-              disabled={shown === DEFAULT_SHOWN}
-              onClick={() => setShown(DEFAULT_SHOWN)}>Latest 2</button>
-            <button type="button" className="btn-sm" data-testid="cd-notes-show-10" aria-controls={notesListId}
-              disabled={shown === EXPANDED_SHOWN}
-              onClick={() => setShown(EXPANDED_SHOWN)}>Last 10</button>
-            <button type="button" className="btn-sm" data-testid="cd-notes-show-all" aria-controls={notesListId}
-              disabled={shown === Infinity}
-              onClick={() => setShown(Infinity)}>All</button>
-          </div>
+        ? <span className="sub" data-testid="cd-notes-shown">
+            {`Showing ${Math.min(shown, notes.length)} of ${notes.length}`}
+          </span>
         : null}
 
       <div className="cd-notes-list" id={notesListId} data-testid="cd-notes-list">
@@ -196,8 +222,14 @@ export function NotesHistory({ notes, onAdd, hasDirtyEdits, onConfirmDiscard, re
   // The header keeps its existing testid, so the tests that already assert
   // against this panel go on asserting against the same thing.
   if (title) {
+    // A1: "Latest first" gives way to the rungs when there are rungs. The
+    // column is a third of a card and cannot hold NOTES + Latest first + three
+    // rungs + Add note: measured, the secondary wrapped to two lines and Add
+    // note was clipped at the column edge. The rungs say "Latest 2" and "Last
+    // 10", so the ordering is still stated - by the controls rather than
+    // beside them. With no rungs the secondary returns.
     return (
-      <Panel name="notes" title={title} secondary="Latest first" actions={actions}
+      <Panel name="notes" title={title} secondary={rungs ? undefined : 'Latest first'} actions={actions}
         testid="cd-notes" headerTestid="cd-notes-header-row">
         {body}
       </Panel>

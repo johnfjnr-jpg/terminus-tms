@@ -20,6 +20,7 @@
 // evaluator the qualify route refuses on. A client-side copy would be
 // Verification 43: a display beside a correct rule, agreeing today.
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useShell } from '../ShellContext'
 import { AccountPicker } from './AccountPicker'
 import { QualifyCompletion } from './QualifyCompletion'
@@ -31,6 +32,7 @@ type Step = 'idle' | 'checking' | 'incomplete' | 'account'
 export function LeadCardActions({
   leadId, status, accounts, onQualified, onNurture, onOpenAddress, addressOpen,
   payload, industries, sources, regions, onSaved, registerRefresh, onBlockingChange,
+  panelHost,
 }: {
   leadId: string
   status: string | null
@@ -56,6 +58,12 @@ export function LeadCardActions({
    * search for before deciding again.
    */
   onBlockingChange?: (blocking: Blocking[]) => void
+  /**
+   * A4: where the expanded steps render. The card places a slot BELOW its
+   * Summary / Notes / Follow-up row and passes the element; absent, they
+   * render inline exactly as before, so any other caller is untouched.
+   */
+  panelHost?: HTMLElement | null
   addressOpen: boolean
   /** R1: the popup prefills what is already there and edits what is not. */
   payload: Record<string, unknown>
@@ -117,6 +125,81 @@ export function LeadCardActions({
 
   // R8: every cancel path is this. It calls nothing.
   const cancel = () => { setStep('idle'); setBlocking([]); setError(null) }
+
+  // A4: THE EXPANDED STEPS RENDER BELOW THE CARD BODY, not inside the head.
+  //
+  // The actions live on the top line by R5 and stay there; what moves is the
+  // SHEET they open, which was appearing ABOVE Summary, Notes and Follow-up
+  // and pushing the card's own content down the screen.
+  //
+  // A PORTAL rather than lifting `step` into the card: which step, the
+  // server's blocking list and the error all belong to this component, and
+  // hoisting three pieces of state into the card to satisfy a layout would
+  // put them somewhere only this file reads them.
+  //
+  // THE RULING NAMES THE COMPLETION PANEL. The account step is the NEXT STEP
+  // OF THE SAME FLOW and moves with it: leaving it above would put two steps
+  // of one sequence in two different places. An implementation decision,
+  // recorded here and revisitable.
+  const steps = (
+    <>
+      {/* ── THE COMPLETION POPUP ────────────────────────────────────────
+          Names the SERVER'S list. Every line here came from
+          computeBlocking through exit-criteria. */}
+      {step === 'incomplete'
+        ? (
+          <QualifyCompletion
+            leadId={leadId}
+            blocking={blocking}
+            current={payload}
+            industries={industries}
+            sources={sources}
+            regions={regions}
+            onCancel={cancel}
+            onRefresh={refreshAfterSave}
+            onComplete={() => {
+              // NOTHING IS BLOCKING ANY MORE, so the flow continues to the
+              // account step WITHOUT the person pressing Qualify again. R1:
+              // complete it in place, no separate panel, no second journey.
+              onSaved()
+              setBlocking([])
+              setStep('account')
+            }} />
+        )
+        : null}
+
+      {/* ── THE ACCOUNT STEP ────────────────────────────────────────────
+          R1 (UI fixes round), SUPERSEDING the previous round's R7. The
+          superseded reasoning is left visible: "LinkAccountPanel, not a
+          second picker. Its submitPath is the qualify route, so resolving
+          it is ONE atomic call rather than link-account's three."
+
+          THE ATOMIC-CALL HALF STILL HOLDS and is unchanged - AccountPicker
+          posts to the same qualify route with the same two bodies. What
+          changed is the SHAPE: John's walk ruled the button-spray out, and a
+          dropdown is not a prop on a panel that renders a row of buttons.
+
+          A FOURTH OPTIONAL PROP WAS THE ALTERNATIVE AND WAS REFUSED. The
+          three it already carries switch BEHAVIOUR - where to post, what
+          cancel does, whether Create shows. A prop switching the whole
+          render is two components sharing a file, and frozen Lead Detail
+          would then depend on that file being rewritten for the card. */}
+      {step === 'account'
+        ? (
+          <div className="lead-qualify-step" data-testid={`lead-account-step-${leadId}`}>
+            <p className="eyebrow">Qualify: choose the account</p>
+            <AccountPicker
+              leadId={leadId}
+              accounts={accounts}
+              submitPath={`/api/contacts/${leadId}/qualify`}
+              onCancel={cancel}
+              onLinked={() => { setStep('idle'); onQualified() }} />
+          </div>
+        )
+        : null}
+    </>
+  )
+
 
   return (
     <div
@@ -185,60 +268,7 @@ export function LeadCardActions({
         ? <p className="msg-error" data-testid={`lead-action-error-${leadId}`}>{error}</p>
         : null}
 
-      {/* ── THE COMPLETION POPUP ────────────────────────────────────────
-          Names the SERVER'S list. Every line here came from
-          computeBlocking through exit-criteria. */}
-      {step === 'incomplete'
-        ? (
-          <QualifyCompletion
-            leadId={leadId}
-            blocking={blocking}
-            current={payload}
-            industries={industries}
-            sources={sources}
-            regions={regions}
-            onCancel={cancel}
-            onRefresh={refreshAfterSave}
-            onComplete={() => {
-              // NOTHING IS BLOCKING ANY MORE, so the flow continues to the
-              // account step WITHOUT the person pressing Qualify again. R1:
-              // complete it in place, no separate panel, no second journey.
-              onSaved()
-              setBlocking([])
-              setStep('account')
-            }} />
-        )
-        : null}
-
-      {/* ── THE ACCOUNT STEP ────────────────────────────────────────────
-          R1 (UI fixes round), SUPERSEDING the previous round's R7. The
-          superseded reasoning is left visible: "LinkAccountPanel, not a
-          second picker. Its submitPath is the qualify route, so resolving
-          it is ONE atomic call rather than link-account's three."
-
-          THE ATOMIC-CALL HALF STILL HOLDS and is unchanged - AccountPicker
-          posts to the same qualify route with the same two bodies. What
-          changed is the SHAPE: John's walk ruled the button-spray out, and a
-          dropdown is not a prop on a panel that renders a row of buttons.
-
-          A FOURTH OPTIONAL PROP WAS THE ALTERNATIVE AND WAS REFUSED. The
-          three it already carries switch BEHAVIOUR - where to post, what
-          cancel does, whether Create shows. A prop switching the whole
-          render is two components sharing a file, and frozen Lead Detail
-          would then depend on that file being rewritten for the card. */}
-      {step === 'account'
-        ? (
-          <div className="lead-qualify-step" data-testid={`lead-account-step-${leadId}`}>
-            <p className="eyebrow">Qualify: choose the account</p>
-            <AccountPicker
-              leadId={leadId}
-              accounts={accounts}
-              submitPath={`/api/contacts/${leadId}/qualify`}
-              onCancel={cancel}
-              onLinked={() => { setStep('idle'); onQualified() }} />
-          </div>
-        )
-        : null}
+      {panelHost ? createPortal(steps, panelHost) : steps}
     </div>
   )
 }

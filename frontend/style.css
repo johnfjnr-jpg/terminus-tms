@@ -5661,6 +5661,14 @@ input.input-invalid {
   border-bottom: 1px solid var(--hairline);
 }
 .field-row:last-child { border-bottom: none; }
+/* A6: a labelled row reserves 170px for its label. A row whose panel header
+   already names it has no label to show, and reserving the column anyway
+   squeezed the Summary text into 88px against the right edge of a third-width
+   card. */
+.cd-row-nolabel .field-row-label {
+  flex: 0 0 0;
+  padding: 0;
+}
 .field-row-label {
   flex: 0 0 170px;
   padding-top: 3px;
@@ -5940,7 +5948,11 @@ input.input-invalid {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin: 6px 0 10px;
+  /* A1: the rungs sit ON the notes header line now, not in a block below the
+     input, so the vertical margin that separated that block is gone. Changed
+     here rather than scoped to the header because `NotesHistory` is the only
+     thing that renders this class. */
+  margin: 0;
 }
 .cd-notes-expand .sub { margin-right: 4px; }
 
@@ -6007,6 +6019,12 @@ input.input-invalid {
   gap: 18px;
   margin-top: 12px;
 }
+/* A1: a grid column's default `min-width: auto` refuses to shrink below its
+   content, so an over-wide header does not clip - it OVERLAPS its neighbour.
+   The wider viewports already say `minmax(0, ...)` for this reason; the base
+   rule did not, and that is where the notes header landed on top of the
+   follow-up card. */
+.lead-card-body > * { min-width: 0; }
 /* The inline regions are not click targets for navigation, and the cursor says
  * so rather than leaving a person to discover it. */
 .lead-card-col { cursor: default; font-size: 12px; }

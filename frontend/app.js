@@ -5765,17 +5765,59 @@ function renderContactCountPopup(records, type) {
 let contactCreateFeedback = {} // contactId -> feedback HTML | null
 
 function renderContactRowActions(c) {
+  // A5: CREATE OPENS ON CLICK, not on hover.
+  //
+  // Ruled: the list and the detail screen open it the same way, and click is
+  // the more robust of the two - a hover menu is unreachable on a touch screen
+  // and closes the moment the pointer strays. The detail screen has opened on
+  // click since the contact-mode round; this brings the list to it.
+  //
+  // `.contact-create-hover` KEEPS ITS NAME and its rule: it is the positioned
+  // anchor the absolute dropdown hangs from, which is a layout job and has
+  // nothing to do with hovering. Renaming it would edit the stylesheet for no
+  // behaviour.
+  //
+  // Every handler stops propagation, because the row itself navigates.
   return `
-  <span class="contact-create-hover" onmouseenter="event.stopPropagation();this.querySelector('.contact-create-dropdown').classList.remove('hidden')" onmouseleave="event.stopPropagation();this.querySelector('.contact-create-dropdown').classList.add('hidden')">
-    <span class="contact-create-trigger">+ Create</span>
-    <div class="contact-create-dropdown hidden" onclick="event.stopPropagation()">
-      <div class="contact-create-item" onclick="this.closest('.contact-create-dropdown').classList.add('hidden');onContactCreateClick('${c.id}', 'test-bed')">Test Bed</div>
-      <div class="contact-create-item" onclick="this.closest('.contact-create-dropdown').classList.add('hidden');onContactCreateClick('${c.id}', 'opportunity')">Opportunity</div>
+  <span class="contact-create-hover">
+    <button type="button" class="contact-create-trigger" aria-haspopup="menu" aria-expanded="false"
+      onclick="event.stopPropagation();toggleContactCreateMenu(this)">+ Create</button>
+    <div class="contact-create-dropdown hidden" role="menu" onclick="event.stopPropagation()">
+      <button type="button" role="menuitem" class="contact-create-item" onclick="event.stopPropagation();closeContactCreateMenus();onContactCreateClick('${c.id}', 'test-bed')">Test Bed</button>
+      <button type="button" role="menuitem" class="contact-create-item" onclick="event.stopPropagation();closeContactCreateMenus();onContactCreateClick('${c.id}', 'opportunity')">Opportunity</button>
     </div>
   </span>
   <button class="btn-text" onclick="event.stopPropagation();deleteContact('${c.id}')">✕</button>
   `
 }
+
+/** A5: close every open row menu, so two can never be open at once. */
+window.closeContactCreateMenus = () => {
+  document.querySelectorAll('.contact-create-dropdown').forEach((d) => {
+    d.classList.add('hidden')
+    const t = d.parentElement && d.parentElement.querySelector('.contact-create-trigger')
+    if (t) t.setAttribute('aria-expanded', 'false')
+  })
+}
+
+window.toggleContactCreateMenu = (trigger) => {
+  const drop = trigger.parentElement.querySelector('.contact-create-dropdown')
+  const wasOpen = !drop.classList.contains('hidden')
+  closeContactCreateMenus()
+  if (!wasOpen) {
+    drop.classList.remove('hidden')
+    trigger.setAttribute('aria-expanded', 'true')
+  }
+}
+
+// A5: a menu that only closes by choosing is one left open behind whatever
+// happens next. ONE listener for the whole list rather than one per row.
+document.addEventListener('click', (e) => {
+  if (!e.target.closest || !e.target.closest('.contact-create-hover')) closeContactCreateMenus()
+})
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeContactCreateMenus()
+})
 
 window.onContactCreateClick = (id, type) => {
   createFromContact(id, type)
