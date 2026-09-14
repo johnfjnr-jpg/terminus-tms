@@ -444,9 +444,30 @@ for (const stage of STAGES) {
     continue
   }
   const [bin, args] = stage.cmd
+  // ── WALL-CLOCK, SO A FAILURE IS PLACEABLE IN TIME ────────────────────────
+  //
+  // Added 2026-09-14 after a failure that could not be diagnosed AT ALL.
+  //
+  // The version-gate probe died on a 404 reading its own fixture. That record
+  // turned out to be soft-deleted at 07:32:09 UTC - but the transcript
+  // carried only DURATIONS, so there was no way to tell whether the 404
+  // happened BEFORE that delete (something swept a live fixture: a real gate
+  // defect) or AFTER it (routine housekeeping by the next stage, and the 404
+  // was a transient read).
+  //
+  // Two mechanisms were proposed and both collapsed on arithmetic, because
+  // the one number that would have settled it did not exist. A 24-stage gate
+  // in which no failure can be located in time cannot diagnose its own
+  // intermittents - the same blind-instrument class as the rest of this
+  // sequence, arriving in the instrument the whole estate reports from.
+  //
+  // ISO with milliseconds, because the events being compared are database
+  // timestamps and whole seconds are not enough to order them.
+  const startedAt = new Date().toISOString()
   const started = process.hrtime.bigint()
   const run = spawnSync(bin, args, { cwd: ROOT, encoding: 'utf8', shell: false })
   const ms = Number((process.hrtime.bigint() - started) / 1000000n)
+  const endedAt = new Date().toISOString()
   const output = `${run.stdout ?? ''}${run.stderr ?? ''}`
   // status is null when the process could not be spawned at all, which is a
   // different failure from a failing suite and must not read as one.
@@ -456,6 +477,7 @@ for (const stage of STAGES) {
 
   transcript.push(
     `${'='.repeat(72)}\n${stage.name}  (${bin} ${args.join(' ')})\nneeds: ${stage.needs}\n` +
+    `started: ${startedAt}\nended:   ${endedAt}\n` +
     `exit: ${run.status === null ? `could not run (${run.error?.message ?? 'unknown'})` : run.status}  in ${ms}ms\n` +
     `${'='.repeat(72)}\n${output}`)
   // ── THE COUNT COMES FROM THE RUN ────────────────────────────────────────
