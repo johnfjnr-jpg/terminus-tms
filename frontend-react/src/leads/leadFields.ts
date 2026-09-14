@@ -79,3 +79,27 @@ export const ADDRESS_FIELDS = LEAD_FIELDS.filter((f) => ADDRESS_KEYS.includes(f.
 /** Look one up by the key the server used. */
 export const fieldFor = (key: string): LeadField | undefined =>
   LEAD_FIELDS.find((f) => f.key === key)
+
+/**
+ * R7: THE RECORD'S CURRENT VALUE FOR EVERY KEY THESE FIELDS NAME.
+ *
+ * `industry_id` is a real COLUMN on `records`, not a payload key - measured
+ * live, 17 of 17 rows carry it at the top level and NONE carries it inside
+ * `payload`. A surface handed the raw payload therefore renders the Industry
+ * picker as `--` on every record, forever, however the industry was set.
+ *
+ * Worse than merely blank: the server sees the column and reports Industry
+ * SATISFIED, so the field also carries no missing-marker. The screen said
+ * "not chosen" about a field the gate said was fine, which is Verification
+ * 43's family - a display reading a different source from the enforcement.
+ *
+ * ONE DEFINITION, because two surfaces need it and Phase 0 measured them
+ * disagreeing about this exact key: the leads card calls it `industry_id`
+ * and the contact descriptors call it `industry`. A second mapper written
+ * alongside would be the drift this closes.
+ */
+export function fieldValuesFor(
+  record: { payload?: Record<string, unknown>, industry_id?: string | null },
+): Record<string, unknown> {
+  return { ...(record.payload ?? {}), industry_id: record.industry_id ?? '' }
+}

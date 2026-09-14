@@ -20,7 +20,8 @@
 // date-plus-description with its own save. Writing card versions of either
 // would be two readers of one behaviour, and the notes model in particular has
 // just been ruled on twice.
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { fieldValuesFor } from './leadFields'
 import { LeadCardActions } from './LeadCardActions'
 import { AddressPopup } from './AddressPopup'
 import { InlineSummary } from './InlineSummary'
@@ -36,6 +37,8 @@ export interface LeadRecord {
   owner_id?: string | null
   created_at?: string | null
   payload?: Record<string, unknown>
+  /** R7: a real COLUMN, and the reason the Industry picker read `--`. */
+  industry_id?: string | null
   account?: { name?: string } | null
 }
 
@@ -86,6 +89,11 @@ export function LeadCard({
   }, [])
   const p = lead.payload ?? {}
   const notes = (Array.isArray(p.notes) ? p.notes : []) as Note[]
+  // R7: what the FIELD SURFACE gets. `p` stays the payload for everything
+  // that genuinely reads a payload key; this adds the one column the fields
+  // name. Memoised because it is a new object each render otherwise, and a
+  // future effect keyed on it would then loop.
+  const fieldValues = useMemo(() => fieldValuesFor(lead), [lead])
 
   // ── THE DOOR, PER CARD ────────────────────────────────────────────────
   //
@@ -150,7 +158,7 @@ export function LeadCard({
           onOpenAddress={() => setAddressOpen(true)}
         registerRefresh={(fn) => { refreshRef.current = fn }}
           onBlockingChange={onBlockingChange}
-          payload={p}
+          payload={fieldValues}
           industries={industries}
           sources={sources}
           regions={regions}
