@@ -1516,6 +1516,43 @@ of the change. An unanswerable precondition is a stop.
    delete. And assert that the detector sees zero hits in itself, because that
    is the failure the fix will introduce rather than remove.
 
+   **AND THE ANCHOR NEED NOT BE A DEFECT. A TEST CAN REST ON AMBIENT RESIDUE
+   THE ESTATE IS ACTIVELY TRYING TO ELIMINATE - AND THEN GO RED WHEN THE ESTATE
+   GETS HEALTHIER.** Group A close, 2026-09-15.
+
+   The clause above is a calibration anchored on a real DEFECT, which the next
+   fix removes. **This is anchored on LITTER**, which every round's teardown is
+   trying to remove, so it is being eroded continuously by work that is going
+   well.
+
+   The instance. `teardown-scoping.test.mjs` asserts it has `TAG_CHUNK_SIZE`
+   tags to weigh, and builds that list from the fixture ledger **MINUS its own
+   two tags** - so every tag it counted belonged to SOMEBODY ELSE'S RUN. It
+   passed for months because the estate was never clean enough to starve it. A
+   round whose probes tore down everything they created left the ledger holding
+   exactly this test's two tags, and it failed.
+
+   **THE TELL IS INVERTED AND THAT IS WHAT MAKES IT HARD: THE TEST GOES RED
+   WHEN THE SYSTEM IS AT ITS CLEANEST.** Every instinct reads a red on healthy
+   state as a flake.
+
+   **AND IT REPAIRS THE CONDITION IT NEEDS, WHICH IS WHY IT READS AS ONE.** The
+   failed run left its own two tags behind, so the NEXT run borrowed those and
+   went green. **A retry would have passed, destroyed the evidence, and taught
+   everybody it was intermittent.** It is deterministic: it fails whenever the
+   estate is clean.
+
+   **The check: for any test that reads shared or accumulated state, ask what
+   it would do on an EMPTY estate - a fresh checkout, a new machine, the
+   morning after a thorough teardown.** If the answer is "fail", it is resting
+   on litter. **Make it create what it needs**, and prove the fix on the
+   STARVED condition rather than the polluted one, because the polluted one is
+   what a retry measures and it passes either way.
+
+   Nearest neighbour is Verification 17, a probe that fires correctly and
+   measures the wrong thing, with the difference that this one measures the
+   right thing and **cannot run at all** without somebody else's rubbish.
+
    **AND IT REACHES A FIX, WHICH IS WORSE THAN A DEAD GUARD.** Round 5 of the
    migration, 2026-09-06. A dead guard protects nothing. **A fix that looks
    applied and does nothing STOPS THE NEXT PERSON LOOKING**, which is the
