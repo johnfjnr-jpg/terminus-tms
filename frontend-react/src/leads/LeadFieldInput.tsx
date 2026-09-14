@@ -9,7 +9,7 @@ import type { LeadField } from './leadFields'
 
 export function LeadFieldInput({
   field, value, onChange, industries, sources, regions = [], testid, invalid, describedBy,
-  onFocus, onBlur, title,
+  onFocus, onBlur, title, disabled,
 }: {
   field: LeadField
   value: string
@@ -21,6 +21,8 @@ export function LeadFieldInput({
   testid: string
   invalid?: boolean
   describedBy?: string
+  /** R8: the door for an always-open input. See `common` below. */
+  disabled?: boolean
   /**
    * The grid's auto-extend hangs off FOCUS and its touched-tracking off BLUR.
    * They are props rather than something this file invents, and they are here
@@ -36,6 +38,14 @@ export function LeadFieldInput({
   const common = {
     'data-testid': testid,
     value,
+    // R8: THE DOOR, for an always-open input.
+    //
+    // The display/edit row enforces ownership by REFUSING TO OPEN - there is
+    // no input to neutralise until you have opened one. An always-open input
+    // has no such moment, so the door has to arrive as `disabled`, answered at
+    // render from the same `canEdit` the row controller publishes. One rule,
+    // two renderings; not a second door.
+    disabled,
     onFocus,
     onBlur,
     title,

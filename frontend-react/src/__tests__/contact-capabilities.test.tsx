@@ -160,7 +160,10 @@ describe('N: the notes history', () => {
 
   test('N7 a dirty surface is asked first', async () => {
     await mount()
-    await act(async () => { must('display-city').click() })
+    // R8: the field cards are the dense grid now, so the input is already
+    // open. The old display-row click was the idiom's opening step, not part
+    // of this claim - what makes the surface dirty is the typing, and that is
+    // unchanged.
     await type('input-city', 'Kuala Lumpur')
     await click('cd-add-note-btn')
     await type('cd-new-note-input', 'x')
@@ -309,7 +312,7 @@ describe('P: the park form', () => {
     // "Keep editing" pointing at a Save button nobody could reach.
     let formOpenWhenAsked: boolean | null = null
     await mount()
-    await act(async () => { must('display-city').click() })
+    // R8: as N7 - the input is always open now; the typing is what dirties.
     await type('input-city', 'Kuala Lumpur')
     await click('cd-btn-park')
     await type('cd-park-date', '2027-01-31')

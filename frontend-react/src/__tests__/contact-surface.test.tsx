@@ -37,9 +37,15 @@ const CONTACT = {
 }
 
 let current = CONTACT
+// R8: the two claims the calibration sweep found SILENT. Both are things the
+// swap made true and nothing asserted - V51, the silent injection names a
+// claim that is real, relied on, and tested nowhere.
+let canEdit = true
+let exitBlockers: Array<{ field: string, message?: string }> = []
 const services: ShellServices = shellServices({
   api: (async (m: string, path: string, body?: unknown) => {
     if (path.includes('/industries')) return { ok: true, status: 200, data: INDUSTRIES }
+    if (path.includes('exit-criteria')) return { ok: true, status: 200, data: { blocking: exitBlockers } }
     if (path.includes('/transition')) { transitions.push(body); return transitionReply }
     if (m === 'PATCH' && path.includes('/contacts/')) { patches.push(body); return { ok: true, status: 200 } }
     if (path.includes('/contacts')) return { ok: true, status: 200, data: [current] }
@@ -48,7 +54,7 @@ const services: ShellServices = shellServices({
   navigate: ((v: string) => { navigated.push(v) }) as ShellServices['navigate'],
   detailLoaded: vi.fn(),
   getOppLoadedRevision: () => 1,
-  canEditFields: () => true,
+  canEditFields: () => canEdit,
   requestChangeReason: () => {},
   currentUserEmail: () => 'probe@example.invalid',
   staleWriteHtml: () => null,
@@ -70,8 +76,16 @@ const mount = async (c = CONTACT) => {
 }
 const $ = (id: string) => host.querySelector(`[data-testid="${id}"]`) as HTMLElement | null
 const must = (id: string) => { const e = $(id); if (!e) throw new Error(`no ${id}`); return e }
+// R8: PUT A VALUE IN A FIELD, whichever way the field is rendered.
+//
+// The contract says nothing about display/edit rows: C6 to C11 are about what
+// a save SENDS. This helper therefore expresses the requirement-level act -
+// "the person put this value in this field" - and opens a display row first
+// only where one exists. Summary is still a row; the other fourteen are the
+// dense grid's always-open inputs.
 const editRow = async (name: string, value: string) => {
-  await act(async () => { must(`display-${name}`).click() })
+  const display = $(`display-${name}`)
+  if (display) await act(async () => { display.click() })
   await act(async () => {
     const i = must(`input-${name}`) as HTMLInputElement
     const proto = i.tagName === 'SELECT' ? window.HTMLSelectElement.prototype
@@ -82,8 +96,14 @@ const editRow = async (name: string, value: string) => {
   })
 }
 const save = async () => { await act(async () => { must('save-all').click() }) }
+/** The always-open inputs of the dense grid, and only those. */
+const gridInputs = () => [...host.querySelectorAll<HTMLInputElement | HTMLSelectElement
+  | HTMLTextAreaElement>('.lead-complete-cell input, .lead-complete-cell select, .lead-complete-cell textarea')]
 
-beforeEach(() => { document.body.innerHTML = '' })
+// Reset BEFORE the test body, not inside `mount`: a test that sets the door
+// shut then mounts would otherwise have its own setup overwritten by the
+// thing it is setting up.
+beforeEach(() => { document.body.innerHTML = ''; canEdit = true; exitBlockers = [] })
 
 describe('the rows', () => {
   test('every census field renders exactly one row', async () => {
@@ -92,9 +112,17 @@ describe('the rows', () => {
     expect(rows).toHaveLength(CENSUS_FIELD_COUNT)
   })
 
+  // CONTRACT C2: a lookup field shows the NAME; an id never reaches the screen.
+  //
+  // Re-pointed at the requirement, not at the rendering. The old assertion
+  // read a display row's textContent; the field is a picker now, so the name
+  // is its SELECTED OPTION. Both halves are asserted, because "shows Aviation"
+  // alone would pass on a screen that also printed the uuid somewhere.
   test('the LOOKUP shows the industry NAME, never the id', async () => {
     await mount()
-    expect(must('display-industry').textContent, 'a UUID reached the screen').toBe('Aviation')
+    const sel = must('input-industry') as HTMLSelectElement
+    expect(sel.options[sel.selectedIndex]?.textContent, 'a UUID reached the screen').toBe('Aviation')
+    expect(host.textContent).not.toMatch(/\bi-[12]\b/)
   })
 
   test('summary is a TEXTAREA, which only the live census could tell us', async () => {
@@ -113,16 +141,79 @@ describe('the rows', () => {
   //
   // "and a discard" has gone from the title because A1 removed the per-field
   // discard on all four surfaces. Escape is the revert now.
-  test('the header shows the lead name, and the name is still EDITABLE as a row', async () => {
+  // CONTRACT C4: the name appears as the screen's HEADING and REMAINS EDITABLE.
+  // The heading is a display, not a substitute for the field.
+  //
+  // Re-pointed. The old version opened a collapsed card first, which was a
+  // fact about the rendering rather than about the requirement - and the
+  // rendering is what R8 changed. Both halves of C4 are still asserted, and
+  // the second is asserted harder than before: the field must be editable,
+  // which for an always-open input means present AND not disabled.
+  test('the header shows the lead name, and the name is still EDITABLE', async () => {
     await mount()
-    // The ruled heading.
     expect(must('cd-lead-name').textContent).toBe('Ada Poh')
-    // The capability. It lives in Contact Details, which is collapsed, so it
-    // is opened first - a collapsed panel is closed, not absent.
-    await act(async () => { must('cd-card-contact-toggle').click() })
-    expect(must('cd-card-contact-body').querySelector('[data-key="name"]')).not.toBeNull()
-    await act(async () => { must('display-name').click() })
-    expect($('input-name')).not.toBeNull()
+    expect(must('cd-card-contact').querySelector('[data-key="name"]')).not.toBeNull()
+    const input = must('input-name') as HTMLInputElement
+    expect(input.disabled, 'the owner must be able to edit the name').toBe(false)
+  })
+
+  // CONTRACT C1, the other half: the heading DISPLAYS the same value the field
+  // edits. One record, one source, read twice for two jobs - so a heading that
+  // silently diverged from the field would be caught.
+  test('and the heading shows the same value the field holds', async () => {
+    await mount()
+    expect((must('input-name') as HTMLInputElement).value)
+      .toBe(must('cd-lead-name').textContent)
+  })
+})
+
+// ── THE TWO CLAIMS THE CALIBRATION SWEEP FOUND SILENT ────────────────────
+//
+// Both were introduced by R8's swap and asserted by nothing. A silent
+// injection is not a weaker result than a firing one, it is a different
+// result: it names something true, relied on, and untested (V51).
+describe('R8: the door, and the marks', () => {
+  test('THE DOOR REACHES THE ALWAYS-OPEN INPUTS: a non-owner cannot edit', async () => {
+    // The swap changed HOW the door arrives, not whether it does. A
+    // display/edit row enforces ownership by refusing to OPEN; an always-open
+    // input has no such moment, so the rule has to arrive as `disabled`. This
+    // is the assertion that stops that wiring being dropped silently.
+    canEdit = false
+    await mount()
+    // SCOPED TO THE GRID, deliberately. Summary is still a display/edit row,
+    // and a row enforces the door by refusing to OPEN rather than by
+    // disabling - its editor exists in the DOM, hidden, and is inert by a
+    // different mechanism that its own tests cover. A selector wide enough to
+    // catch it would be measuring two populations and reporting one number.
+    const inputs = gridInputs()
+    expect(inputs.length, 'the fields still RENDER, because reading is not editing')
+      .toBeGreaterThanOrEqual(14)
+    expect(inputs.filter((e) => !e.disabled),
+      'a non-owner must not be able to edit any grid field').toHaveLength(0)
+  })
+
+  test('and for the OWNER every one of them is editable', async () => {
+    // The counterfactual. Without this, the assertion above would pass on a
+    // surface that disabled every field for everybody.
+    await mount()
+    const inputs = gridInputs()
+    expect(inputs.filter((e) => !e.disabled).length).toBe(inputs.length)
+  })
+
+  // CONTRACT C23: the mode governs framing, THE SERVER governs marks.
+  test('the server\'s outstanding list MARKS those fields, and only those', async () => {
+    exitBlockers = [{ field: 'city' }, { field: 'industry_id' }]
+    await mount()
+    const marked = [...host.querySelectorAll('[data-testid^="cd-needs-"]')]
+      .map((e) => e.getAttribute('data-testid')!.replace('cd-needs-', '')).sort()
+    // `industry_id` is the GATE's name for it; this surface calls the field
+    // `industry`, and the mapping is what makes the mark land on the right row.
+    expect(marked).toEqual(['city', 'industry'])
+  })
+
+  test('and with nothing outstanding, nothing is marked', async () => {
+    await mount()
+    expect(host.querySelectorAll('[data-testid^="cd-needs-"]')).toHaveLength(0)
   })
 })
 
@@ -168,9 +259,19 @@ describe('the save path', () => {
     expect((patches[0] as { expected_revision: number }).expected_revision).toBe(7)
   })
 
-  test('nothing dirty sends nothing', async () => {
+  // CONTRACT C11: nothing dirty sends nothing.
+  //
+  // Re-pointed at the requirement. The old version OPENED a display row and
+  // saved, which tested "opening is not editing" - true, and a fact about an
+  // idiom that no longer exists here. The requirement underneath is that only
+  // what MOVED is sent, so the sharper form is to touch the field and put the
+  // same value back: dirty is `draft !== orig`, strictly, and this is the case
+  // that separates a real comparison from a touched-flag.
+  test('nothing dirty sends nothing, even after a field is touched', async () => {
     await mount()
-    await act(async () => { must('display-city').click() })
+    await editRow('city', 'Singapore')
+    expect((must('input-city') as HTMLInputElement).value,
+      'the field really was written, so this is not vacuous').toBe('Singapore')
     await save()
     expect(patches).toHaveLength(0)
   })

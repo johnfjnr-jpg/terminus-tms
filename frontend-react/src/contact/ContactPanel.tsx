@@ -8,7 +8,11 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { FieldRow } from '../field-row/FieldRow'
 import { useFieldRows } from '../field-row/useFieldRows'
-import { contactDescriptors, type ContactSource } from './descriptors'
+import {
+  contactDescriptors, contactGridFields, gateKeyFor,
+  SOURCE_OPTIONS, REGION_OPTIONS, type ContactSource,
+} from './descriptors'
+import { FieldGrid } from '../leads/FieldGrid'
 import { tintedRows, accountCardBlocked, type BlockingState } from './blocking'
 import { AccountSection, type AccountRef } from '../leads/AccountSection'
 
@@ -138,6 +142,18 @@ export function ContactPanel({
   qualifyBlockers?: Array<{ field: string, message?: string }>
 }) {
   const fields = contactDescriptors(source)
+  // R8: the same descriptors in the shared grid's shape. The KEY is unchanged,
+  // so `industry` stays `industry` all the way into `rows.changes` and
+  // `ContactHost.onSave` keeps its existing contract.
+  const gridFields = contactGridFields(source)
+  // C23: THE SERVER GOVERNS THE MARKS. `qualifyBlockers` is the server's own
+  // derivation (GET /records/:id/exit-criteria), which is the same list the
+  // hint above renders - so the asterisk and the sentence cannot disagree
+  // (Verification 43). Mapped through `gateKeyFor` because the gate calls
+  // Industry `industry_id` and this surface calls it `industry`.
+  const outstandingKeys = new Set((qualifyBlockers ?? []).map((b) => b.field))
+  const outstanding = new Set(
+    fields.map((f) => f.name).filter((n) => outstandingKeys.has(gateKeyFor(n))))
   // A4: the record being edited. When it changes, every draft is dropped -
   // edits live only until saved or discarded, and navigating away is neither.
   const rows = useFieldRows(fields, subject)
@@ -250,19 +266,62 @@ export function ContactPanel({
         {notes}
       </Card>
 
-      {/* ── 6: CONTACT DETAILS and ADDRESS, side by side, COLLAPSED ───── */}
-      <div className="ref-cards" data-testid="cd-cards">
-        <Collapsible title="Contact Details" testId="cd-card-contact"
-          blocked={CONTACT_FIELDS.some((n) => tinted.has(n))}
-          blockedCount={CONTACT_FIELDS.filter((n) => tinted.has(n)).length}>
-          {CONTACT_FIELDS.map(row)}
-        </Collapsible>
+      {/* ── 6: CONTACT DETAILS and ADDRESS, as the SHARED DENSE GRID ─────
+          R8, direction (c). These two cards were COLLAPSED BY DEFAULT, so at
+          1440 this screen showed ZERO of the record's fifteen fields on load,
+          measured against the completion surface's fourteen. That is the
+          finding the ruling came from.
 
-        <Collapsible title="Address Details" testId="cd-card-address"
-          blocked={ADDRESS_FIELDS.some((n) => tinted.has(n))}
-          blockedCount={ADDRESS_FIELDS.filter((n) => tinted.has(n)).length}>
-          {ADDRESS_FIELDS.map(row)}
-        </Collapsible>
+          THE RENDERING IS ALL THAT CHANGED. The nine layout slots around it
+          are untouched, and so is everything underneath: `rows` is the same
+          `FieldRowsController`, so `rows.changes`, `rows.dirtyCount`,
+          `rows.discardAll()` and the header's Save mean exactly what they
+          meant, and `ContactHost.onSave` - which writes the change-note audit
+          trail - never learns that the display moved. Round B measured what a
+          naive swap does to that trail: it goes silently, and no test on the
+          replacement can notice, because the replacement never had it.
+
+          THE DOOR ARRIVES DIFFERENTLY AND IS THE SAME RULE. A display/edit row
+          enforces ownership by refusing to OPEN; an always-open input has no
+          such moment, so `canEdit` is passed as `disabled`. One rule, two
+          renderings, not a second door. */}
+      {/* FULL WIDTH, STACKED, rather than the half-width `ref-cards` pair.
+          `.lead-complete-grid` is `repeat(auto-fit, minmax(190px, 1fr))`, so
+          its density is a function of the width it is GIVEN: inside a
+          half-width card it resolves to ONE column, which is the shape the
+          first owner screenshot showed. The ruling asked for the dense grid,
+          and the grid cannot be dense in 380px. The testid is kept because
+          `probe-p3-layout.mjs` measures this container's top. */}
+      <div data-testid="cd-cards">
+        <FieldGrid
+          name="contact-details" title="Contact Details" testid="cd-card-contact"
+          className="lead-complete-group pg-card"
+          fields={gridFields.filter((f) => CONTACT_FIELDS.includes(f.key))}
+          valueOf={(k) => rows.valueOf(k)}
+          onChange={(k, v) => rows.setDraft(k, v)}
+          missing={outstanding}
+          tinted={tinted}
+          industries={source.industries}
+          sources={[...SOURCE_OPTIONS]}
+          regions={[...REGION_OPTIONS]}
+          disabled={!rows.canEdit}
+          inputTestid={(k) => `input-${k}`}
+          missingTestid={(k) => `cd-needs-${k}`} />
+
+        <FieldGrid
+          name="address-details" title="Address Details" testid="cd-card-address"
+          className="lead-complete-group pg-card"
+          fields={gridFields.filter((f) => ADDRESS_FIELDS.includes(f.key))}
+          valueOf={(k) => rows.valueOf(k)}
+          onChange={(k, v) => rows.setDraft(k, v)}
+          missing={outstanding}
+          tinted={tinted}
+          industries={source.industries}
+          sources={[...SOURCE_OPTIONS]}
+          regions={[...REGION_OPTIONS]}
+          disabled={!rows.canEdit}
+          inputTestid={(k) => `input-${k}`}
+          missingTestid={(k) => `cd-needs-${k}`} />
       </div>
 
       {/* ── 7: ACCOUNT. Its empty state is one of the things keeping

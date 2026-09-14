@@ -11,6 +11,7 @@
 // TEXTAREA declared in static markup, which the source instrument cannot see
 // and the Phase 0 report recorded as text by assuming the row renderer.
 import type { FieldDescriptor, LookupOption } from '../field-row/types'
+import type { LeadField, LeadFieldKind } from '../leads/leadFields'
 
 /** What the surface needs to build its rows. */
 export interface ContactSource {
@@ -98,3 +99,35 @@ export function contactDescriptors(src: ContactSource): FieldDescriptor[] {
 
 /** The census's own count, asserted rather than trusted. */
 export const CENSUS_FIELD_COUNT = 15
+
+/**
+ * R8: the same descriptors, in the shape the SHARED grid renders.
+ *
+ * THE KEY DOES NOT CHANGE. `industry` stays `industry`, which is the whole
+ * point: the contact surface speaks its own vocabulary end to end, so
+ * `ContactHost.onSave` is untouched and with it the change-note audit trail,
+ * the lift of `industry` onto the `industry_id` COLUMN, and the revision
+ * handshake. Phase 0 measured this seam from the save side and Round B
+ * measured what a naive swap does to it: the trail goes silently, and no test
+ * on the replacement can notice, because the replacement never had the
+ * behaviour to lose.
+ *
+ * The leads surface calls the same field `industry_id` and keeps doing so.
+ * Two vocabularies, one renderer, and the translation happens exactly once -
+ * here - rather than inside the component both of them share.
+ */
+export function contactGridFields(src: ContactSource): LeadField[] {
+  return contactDescriptors(src).map((d) => ({
+    key: d.name,
+    label: d.label,
+    kind: kindOf(d.name, d),
+  }))
+}
+
+function kindOf(name: string, d: FieldDescriptor): LeadFieldKind {
+  if (d.editor === 'textarea') return 'textarea'
+  if (name === 'industry') return 'industry'
+  if (name === 'source') return 'source'
+  if (name === 'region') return 'region'
+  return 'text'
+}

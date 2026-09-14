@@ -31,8 +31,8 @@
 import { useMemo, useRef, useState } from 'react'
 import { useShell } from '../ShellContext'
 import { CONTACT_FIELDS, ADDRESS_FIELDS, type LeadField } from './leadFields'
-import { LeadFieldInput } from './LeadFieldInput'
-import { Panel } from '../ui/Panel'
+import { FieldGrid } from './FieldGrid'
+
 import { AccountSection, type AccountRef } from './AccountSection'
 
 type Blocking = { field?: string, label?: string, message?: string }
@@ -134,34 +134,30 @@ export function QualifyCompletion({
   // THE TESTID IS PRESERVED, not derived. Six probe files address this
   // surface's hooks, and last round measured what a silent rename costs:
   // six timeouts that read like product defects.
-  const group = (title: string, fields: LeadField[]) => (
-    <Panel
-      name={`complete-${title.toLowerCase().replace(/\s+/g, '-')}`}
-      title={title}
-      testid={`lead-complete-${title.toLowerCase().replace(/\s+/g, '-')}-${leadId}`}
-      className="lead-complete-group">
-      <div className="lead-complete-grid">
-        {fields.map((f) => (
-          <div className="lead-complete-cell" key={f.key}>
-            <label htmlFor={`lead-fix-${f.key}-${leadId}`}>
-              {f.label}
-              {missing.has(f.key)
-                ? <span className="nlg-required" data-testid={`lead-needs-${f.key}-${leadId}`}> *</span>
-                : null}
-            </label>
-            <LeadFieldInput
-              field={f}
-              value={valueFor(f.key)}
-              onChange={(v) => set(f.key, v)}
-              industries={industries}
-              sources={sources}
-              regions={regions}
-              testid={`lead-fix-${f.key}-${leadId}`} />
-          </div>
-        ))}
-      </div>
-    </Panel>
-  )
+  // R8: THE GRID IS SHARED NOW, and the testids are unchanged.
+  //
+  // This surface's own markup moved into `FieldGrid` so the contact surface
+  // can render the same thing rather than a second copy of it. Every id and
+  // testid below is what it was - `lead-fix-<key>-<leadId>` with the record
+  // id LAST - because six probes and three gate suites cite them.
+  const group = (title: string, fields: LeadField[]) => {
+    const slug = title.toLowerCase().replace(/\s+/g, '-')
+    return (
+      <FieldGrid
+        name={`complete-${slug}`}
+        title={title}
+        testid={`lead-complete-${slug}-${leadId}`}
+        fields={fields}
+        valueOf={valueFor}
+        onChange={set}
+        missing={missing}
+        industries={industries}
+        sources={sources}
+        regions={regions}
+        inputTestid={(k) => `lead-fix-${k}-${leadId}`}
+        missingTestid={(k) => `lead-needs-${k}-${leadId}`} />
+    )
+  }
 
   const save = async () => {
     if (inFlight.current || !dirty) return
