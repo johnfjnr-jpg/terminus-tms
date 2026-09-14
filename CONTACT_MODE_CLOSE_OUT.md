@@ -149,3 +149,42 @@ only the clean readings misrepresents what measuring costs.
 reader, measured per file rather than inherited, and RIDE the green gate at
 `47d1e84` under build-discipline 48(a) - named here, which is the control that
 clause requires.**
+
+---
+
+## PUSHED
+
+**The word was given 2026-09-14 and the whole thirteen-commit stack is
+published.** `ls-remote` confirms `origin/main` = local HEAD =
+`e955ff13bc3c8c410d4d9707ec4fa170b8df2d2c`.
+
+**What that stack is, as one thing:** the record-surface consolidation. Leads
+and contacts on one shared surface (R1 c), the Industry fix (R7), the dense
+field grid (R8), and the surface knowing which of the two it is showing
+(contact-mode). Three rounds, one outcome.
+
+**No server restart**, measured rather than assumed: `src/` is unchanged across
+all thirteen commits, so the running API server's loaded source is
+byte-identical to what is now on `origin`. `frontend/style.css` needs a browser
+reload; `frontend-react/dist` is tracked and moved with its source.
+
+## The process change this close set
+
+**PROPORTIONATE TESTING is recorded in `DESIGN_PRINCIPLES.md` section 4**,
+under the scale principle it follows from: match verification to what a change
+can BREAK. A light path for cosmetic and layout work - the affected suite plus
+a screenshot, no Phase 0 forensics, no both-mode calibration unless a behaviour
+changed - and the full treatment for behaviour, data and auth. **Related small
+changes batch into one round with ONE gate run**, which is what Group A's six
+items are the model for.
+
+**It names its own limit**: if you have to argue a change is cosmetic, it is
+not, and Verification 4's screenshot applies to both paths.
+
+## AND THE DOGFOOD CAUGHT ITS AUTHOR A FIFTH TIME
+
+The first attempt at this very section was appended with `cat >>` rather than
+routed through `scripts/edit.mjs`, and **the journal guard refused the
+commit** - on precisely the fault it was built for, in the close that records
+it. The ENFORCEMENT GAPS close counted four such catches; this is the fifth,
+and the first on a file whose only content is prose about discipline.

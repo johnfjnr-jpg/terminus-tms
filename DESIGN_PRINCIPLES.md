@@ -236,6 +236,47 @@ The instance it comes from. Two tests fired **40** and **50** genuinely concurre
 
 **AND THE SAME QUESTION APPLIES TO THE TEST RUNNER.** `node --test` runs files in parallel, so ten files hit the database at once - an artefact of the runner, not a product load. `test:db` therefore runs with `--test-concurrency=1`: measured, serial runs pass cleanly where parallel runs failed differently every time, at a cost of roughly four minutes. **On an internal tool that is a good trade, and it needs no re-tuning as the suite grows.**
 
+### PROPORTIONATE TESTING: match verification to what a change can BREAK
+
+Set by the business 2026-09-14, at the contact-mode close, and it follows the
+scale principle above rather than sitting beside it: the same question - *can
+the product produce this?* - asked of the VERIFICATION rather than of the load.
+
+> **The test is one question: what can this change break?** A label cannot
+> corrupt data or open a hole, so it does not get data or auth verification.
+
+**TWO PATHS, and a change takes the one its blast radius earns.**
+
+| | **LIGHT** | **FULL** |
+|---|---|---|
+| what it covers | cosmetic and layout: CSS, labels, panel arrangement - **no logic, no data, no auth** | behaviour, data, auth: the door, save paths, conversions, gates |
+| verification | the **affected suite**, plus a **screenshot of the changed screen** | the full treatment |
+| what it does NOT get | **no full Phase 0 forensics; no both-mode injection calibration** unless a behaviour changed | - |
+
+**A behaviour change inside a cosmetic round pulls that ITEM onto the full
+path**, not the whole round. The paths are per change, and the round takes the
+heaviest path any of its items earns.
+
+**AND BATCH RELATED SMALL CHANGES INTO ONE ROUND BY DEFAULT.** Group A's six
+items are the model: one round, **one gate run for the batch rather than one
+per item**. A round per change spends a twenty-minute gate on a label and
+makes the gate the reason not to fix small things.
+
+**Why this is worth writing down.** The rounds before it ran full forensics on
+work that could not have broken anything - a Phase 0 census, both-direction
+injection sweeps, live door probes - because the method had one gear. **That
+rigour is correct for a save path and is theatre for a heading**, and theatre
+has a cost: it is why small visible defects queue up behind their own
+verification budget. The two unstyled buttons carried for two rounds are the
+evidence.
+
+**The limit, so this is not read as licence.** *Cosmetic* means the change
+cannot alter what is stored, who may act, or what the system decides. **If you
+have to argue that a change is cosmetic, it is not** - take the full path.
+Verification 4 still applies to both paths: the screenshot is the instrument
+for anything whose purpose is emphasis, ordering or prominence, and the light
+path names it explicitly for that reason.
+
 ---
 
 ## 5. Sales opportunity stage gates in detail
