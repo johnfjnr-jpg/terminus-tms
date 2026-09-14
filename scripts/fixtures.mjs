@@ -410,17 +410,83 @@ export const pageTiming = { slowestMs: 0, slowestWhat: null, pages: 0 }
  */
 export const TAG_CHUNK_SIZE = 3
 
+// ── THE STALL RETRY, AND WHY "RECORDED CAUSE" DOES REAL WORK ─────────────
+//
+// MEASURED, 20 runs of the real teardown scan against a 103,384-row table:
+//
+//   runs where a statement crossed the 8000ms timeout : 2 of 20 (idle)
+//   per-run MEDIAN statement                          : 410ms, FLAT
+//   the two failures                                  : 30,132ms and 19,823ms
+//
+// The median did not move - inside both failing runs it was 443ms and 507ms.
+// So the scan is NOT too slow and the distribution did NOT shift: two draws
+// spiked at 73x and 48x. That is the server or the connection STALLING for
+// tens of seconds, not a query doing more work, and no amount of making the
+// query faster prevents a stall.
+//
+// 2 of 20 was measured IDLE. The gate runs this with the rest of the suite
+// against the same database, so it is a FLOOR on the rate, not an estimate.
+//
+// ── THREE THINGS KEEP THIS HONEST ────────────────────────────────────────
+//
+// 1. IT WAITS BEFORE RETRYING. An immediate retry can re-hit the same stall,
+//    which would make the retry look useless and the defect look real.
+// 2. IT RECORDS EVERY ATTEMPT WITH ITS DURATION. A 30,132ms stall is logged
+//    AS a 30-second stall rather than folded into the word "flaky", so a
+//    rising attempt count or climbing stall durations surface as a TREND.
+//    This is the anti-paper-over: Verification 48 records that a retry
+//    policy collapses four readings into "it passed on attempt 2" and
+//    destroys exactly the evidence that separates a flake from a deadline.
+// 3. IT HAS A CEILING. After RETRY_LIMIT consecutive timeouts it FAILS.
+//    At that point it is not intermittent, it is real, and failing is the
+//    honest answer. A retry that loops until green is the evidence-
+//    destroying move this sequence exists to refuse.
+//
+// SCOPED TO TIMEOUTS. Any other error throws on the first attempt: a retry
+// that swallows a permissions error or a bad column would be a second guard
+// failing open.
+const RETRY_LIMIT = 3
+const RETRY_WAIT_MS = 2000
+const isStall = (msg) => /statement timeout|canceling statement|ETIMEDOUT|socket hang up|fetch failed/i.test(msg ?? '')
+
+/** Every retry this process made, so a run can report them rather than hide them. */
+export const stallLog = []
+
 export async function pagedSelect(makeQuery, what) {
   const rows = []
   for (let page = 0; page < MAX_PAGES; page++) {
     const from = page * PAGE_SIZE
-    const t0 = Date.now()
-    const { data, error } = await makeQuery()
-      .order('id', { ascending: true }).range(from, from + PAGE_SIZE - 1)
-    const ms = Date.now() - t0
-    pageTiming.pages++
-    if (ms > pageTiming.slowestMs) { pageTiming.slowestMs = ms; pageTiming.slowestWhat = `${what} page ${page}` }
-    if (error) throw new Error(`${what} (page ${page}, ${ms}ms): ${error.message}`)
+    let data, error, ms
+    const attempts = []
+    for (let attempt = 1; attempt <= RETRY_LIMIT; attempt++) {
+      const t0 = Date.now()
+      ;({ data, error } = await makeQuery()
+        .order('id', { ascending: true }).range(from, from + PAGE_SIZE - 1))
+      ms = Date.now() - t0
+      pageTiming.pages++
+      if (ms > pageTiming.slowestMs) { pageTiming.slowestMs = ms; pageTiming.slowestWhat = `${what} page ${page}` }
+      attempts.push({ attempt, ms, error: error?.message ?? null })
+      if (!error || !isStall(error.message)) break
+      if (attempt === RETRY_LIMIT) break
+      // WAIT, then retry. Let the stall clear rather than racing it.
+      await new Promise((r) => setTimeout(r, RETRY_WAIT_MS * attempt))
+    }
+    if (attempts.length > 1) {
+      const entry = { what, page, attempts: attempts.length, durations: attempts.map((a) => a.ms), recovered: !error }
+      stallLog.push(entry)
+      // PRINTED, not merely collected. A retry nobody sees is a paper-over.
+      console.log(`    STALL  ${what} page ${page}: ${attempts.length} attempts, `
+        + `durations [${entry.durations.join(', ')}]ms, `
+        + `${entry.recovered ? 'recovered' : 'STILL FAILING'}`)
+    }
+    if (error) {
+      throw new Error(`${what} (page ${page}, ${ms}ms): ${error.message}`
+        + (attempts.length > 1
+          ? `\n  ${attempts.length} attempts, durations [${attempts.map((a) => a.ms).join(', ')}]ms. `
+            + `This is no longer intermittent: ${RETRY_LIMIT} consecutive timeouts is a real `
+            + `condition and failing is the honest answer.`
+          : ''))
+    }
     rows.push(...data)
     if (data.length < PAGE_SIZE) return rows
   }

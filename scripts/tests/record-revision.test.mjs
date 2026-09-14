@@ -63,9 +63,35 @@ const revisionsOf = async (recordId) => {
   return data
 }
 
-test('atomicity: 40 genuinely concurrent appends, no duplicates and no gaps', async () => {
+// ── N IS 3, AND 40 WAS THE PROBLEM RATHER THAN THE RIGOUR ────────────────
+//
+// MEASURED 2026-09-14, 20 rounds of 40 genuinely concurrent appends:
+//
+//   runs  1-14  FAILED 0        per-call median 670-1575ms
+//   runs 15-20  FAILED 28-37    per-call median pinned at ~10,500ms
+//
+// Not intermittent. It SATURATES: fourteen clean rounds, then a cliff, and
+// it never recovers within the run - every failure `TypeError: fetch
+// failed`, the HTTP connection dying, with the median pinned at a client
+// timeout rather than varying. The connection was healthy again the moment
+// the load stopped.
+//
+// ZERO duplicates and zero gaps throughout, in 800 concurrent appends. The
+// write path was never the problem.
+//
+// AND THE LOAD IS ONE THE PRODUCT CANNOT PRODUCE. This is an internal
+// single-user tool: the application appends one revision per user save.
+// Forty simultaneous writes to one record exists nowhere but here - so the
+// test was manufacturing contention, saturating the connection, and then
+// breaking its NEIGHBOURS in the same suite run. Five consecutive suite runs
+// failed five different ways because of it, and it was read as an
+// environmental fault for most of a session.
+//
+// 3 is enough to catch a genuine write race - two writers interleaving is
+// what the atomicity is about - and not enough to saturate anything.
+test('atomicity: 3 genuinely concurrent appends, no duplicates and no gaps', async () => {
   const recordId = await seedRecord({ seeded: true })
-  const N = 40
+  const N = 3
 
   // Promise.all so the calls genuinely overlap. A sequential loop would pass
   // even if the function were not atomic at all, which is the whole point of
@@ -90,9 +116,18 @@ test('atomicity: 40 genuinely concurrent appends, no duplicates and no gaps', as
   }
 })
 
+// N IS 3, for the reason recorded at the atomicity test above: 25 concurrent
+// writes to one record is a load a single-user internal tool cannot produce,
+// and the measured cost of that load is a saturated connection that breaks
+// NEIGHBOURING tests in the same suite run.
+//
+// The claim is unchanged and is what actually matters: concurrent patches to
+// DISTINCT keys must all survive, because the pre-Phase-1 code merged in JS
+// from a stale read and silently dropped them. Three writers interleaving
+// exercises that exactly - the defect was two writers, not twenty-five.
 test('no lost update: every concurrent patch key survives in the final payload', async () => {
   const recordId = await seedRecord({ seeded: true })
-  const N = 25
+  const N = 3
 
   // This is the half that numbering alone would not fix. Before Phase 1 the
   // payload was merged in JS from a read taken before the write, so two

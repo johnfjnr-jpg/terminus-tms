@@ -220,6 +220,22 @@ These apply to every module, present and future. If a new feature can't be built
 
 Software that supports traceability, controlled approval, and documented decisions is a *foundation* for ISO 9001 and similar management-practice frameworks. It is not certification by itself, certification is an organisational commitment (procedures, internal audits, management review) that this system can support with evidence, not replace. Worth keeping that distinction explicit as the system grows, so it's never mistaken for the whole job.
 
+### The scale this is built for, and it is a fact tests may be held to
+
+Set by the business 2026-09-14, after a test asserting a load the product cannot produce cost most of a session.
+
+**Terminus TMS is an INTERNAL TOOL FOR A SMALL TEAM - up to five people - at low concurrency.** The realistic worst case is roughly **five simultaneous operations**, and that is rare rather than typical. It is not a single-user tool, and it is nowhere near a system that sees tens of concurrent writers.
+
+**THE RULE THAT FOLLOWS: no test may assert a load beyond what the product can produce.**
+
+The instance it comes from. Two tests fired **40** and **50** genuinely concurrent writes to one record, and a third fired **25**. Measured, 20 rounds of 40: fourteen clean, then a cliff at run 15 that never recovered, 28 to 37 of 40 failing with `TypeError: fetch failed` and the per-call median pinned at a client timeout. **The connection was healthy again the moment the load stopped, and there were zero duplicates and zero gaps across 800 concurrent appends - the write path was never at fault.**
+
+**The test was manufacturing contention that exists nowhere in the product, saturating the connection, and then breaking its NEIGHBOURS in the same suite run.** Five consecutive suite runs failed five different ways and were read as an unhealthy connection for most of a session.
+
+**The check, and it is one question asked before writing a load test: can the product produce this?** Three to six concurrent operations is realistic for five users with margin. Twenty-five is fiction, and a fiction that breaks the suite is worse than no test.
+
+**AND THE SAME QUESTION APPLIES TO THE TEST RUNNER.** `node --test` runs files in parallel, so ten files hit the database at once - an artefact of the runner, not a product load. `test:db` therefore runs with `--test-concurrency=1`: measured, serial runs pass cleanly where parallel runs failed differently every time, at a cost of roughly four minutes. **On an internal tool that is a good trade, and it needs no re-tuning as the suite grows.**
+
 ---
 
 ## 5. Sales opportunity stage gates in detail
