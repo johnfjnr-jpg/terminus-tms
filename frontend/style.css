@@ -774,11 +774,30 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
   position: relative;
   display: inline-block;
 }
+/* R4: the contact view's Create control anchors its menu.
+   `.contact-create-dropdown` is position:absolute with top:100%, so it needs a
+   POSITIONED ANCESTOR or it hangs wherever the nearest one happens to be -
+   CLAUDE.md records a dropdown that rendered 730px below its card for exactly
+   that reason, with every CSS-property assertion passing. Named for what it
+   does rather than reusing `.contact-create-hover`, whose name asserts a
+   behaviour this control does not have: it opens on CLICK. */
+.cd-create-anchor {
+  position: relative;
+  display: inline-block;
+}
 .contact-create-trigger {
   cursor: pointer;
   font-family: var(--mono);
   font-size: 11px;
   color: var(--green);
+  /* R4: A BUTTON ON THE CONTACT VIEW, a span on the list row. Same reason as
+     `.contact-create-item` below and found in the same screenshot: the class
+     was written for a span, so it never had to say what background it wanted,
+     and the button default put a pale pill behind green text on a dark
+     screen. Inert on the vanilla's span. */
+  background: none;
+  border: 0;
+  padding: 0;
 }
 .contact-create-dropdown {
   position: absolute;
@@ -797,6 +816,17 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
   font-family: var(--body);
   font-size: 12px;
   color: var(--white);
+  /* R4: THE ITEMS ARE BUTTONS NOW, and a button brings a background, a border
+     and centred text a div never had. This class set `color` only, because it
+     never needed to - so the contact view's menu rendered as two white blocks
+     with white text on them, invisible.
+     Every assertion passed: both items present, the menu anchored to its
+     trigger within a pixel. It was found by opening the screenshot.
+     These four are inert on the vanilla's divs and correct on both. */
+  background: none;
+  border: 0;
+  width: 100%;
+  text-align: left;
 }
 .contact-create-item:hover { background: rgba(242,242,240,0.04); }
 

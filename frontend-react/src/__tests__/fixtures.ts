@@ -137,6 +137,7 @@ export function shellServices(
     api: (async () => ({ ok: true, status: 200, data: null })) as
       import('../shell-services').ShellServices['api'],
     navigate: () => {},
+    createFromContact: () => {},
     detailLoaded: () => {},
     getOppLoadedRevision: () => 1,
     canEditFields: () => true,

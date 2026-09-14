@@ -34,6 +34,20 @@ export interface ApiResult<T = unknown> {
 export interface ShellServices {
   api<T = unknown>(method: string, path: string, body?: unknown): Promise<ApiResult<T>>
   navigate(view: string, id?: string): void
+  /**
+   * R4: CREATE A TEST BED OR AN OPPORTUNITY FROM A CONTACT.
+   *
+   * The shell owns the whole flow and has since Round 10: it checks for a
+   * record of that type already linked to this contact, warns with a proceed
+   * if there is one, then opens the name dialogue with a suggested name
+   * fetched from the same function the create endpoint itself uses, behind a
+   * real focus trap.
+   *
+   * The React contact view had two buttons that NAVIGATED TO A LIST and
+   * created nothing. This is the shell's mechanism reused, not a second one
+   * built beside it.
+   */
+  createFromContact(id: string, type: 'test-bed' | 'opportunity'): void
   detailLoaded(view: string): void
   getOppLoadedRevision(): number | null
   /**
@@ -204,6 +218,7 @@ export interface ChangeReasonOptions {
 type ShellWindow = Window & {
   api?: (method: string, path: string, body?: unknown) => Promise<ApiResult<unknown>>
   navigate?: (view: string, id?: string) => void
+  createFromContact?: (id: string, type: string) => unknown
   detailLoaded?: (view: string) => void
   getOppLoadedRevision?: () => number | null
   canEditFields?: () => boolean
@@ -240,6 +255,17 @@ export const shellServices: ShellServices = {
     const fn = w().navigate
     if (typeof fn !== 'function') throw new Error('shell-services: window.navigate is not available.')
     fn(view, id)
+  },
+  createFromContact(id: string, type: 'test-bed' | 'opportunity'): void {
+    const fn = w().createFromContact
+    if (typeof fn !== 'function') {
+      throw new Error('shell-services: window.createFromContact is not available. '
+        + 'The contact view cannot create a Test Bed or an Opportunity without the shell.')
+    }
+    // It is async and owns its own errors, including leaving the dialogue open
+    // with the reason on it. Awaiting here would give this seam a second
+    // opinion about a failure the shell already reports.
+    void fn(id, type)
   },
   detailLoaded(view: string): void {
     // NOT guarded with a throw. This one is called on the failure path, and a

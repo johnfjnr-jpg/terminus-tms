@@ -17,6 +17,8 @@ let root: Root
 let calls: Array<{ m: string, path: string, body?: unknown }> = []
 let reply: Record<string, { ok: boolean, status?: number, data?: unknown }> = {}
 let navigated: string[] = []
+/** R4: what reached the shell's own create flow, and with which kind. */
+let created: Array<[string, string]> = []
 let discardAsks = 0
 let status = 'Unqualified'
 let notesOnRecord: Array<{ text: string, at: string, by: string }> = []
@@ -39,6 +41,8 @@ const services: ShellServices = shellServices({
     return { ok: true, status: 200, data: {} }
   }) as ShellServices['api'],
   navigate: ((v: string) => { navigated.push(v) }) as ShellServices['navigate'],
+  createFromContact: ((id: string, type: string) => { created.push([id, type]) }) as
+    ShellServices['createFromContact'],
   detailLoaded: vi.fn(),
   getOppLoadedRevision: () => 1,
   canEditFields: () => true,
@@ -50,7 +54,7 @@ const services: ShellServices = shellServices({
 })
 
 const mount = async () => {
-  calls = []; navigated = []; discardAsks = 0; reply = {}
+  calls = []; navigated = []; created = []; discardAsks = 0; reply = {}
   document.body.innerHTML = '<div id="host"></div>'
   host = document.getElementById('host')!
   root = createRoot(host)
@@ -372,14 +376,116 @@ describe('R8: the Lead screen offers neither Unqualify nor Delete', () => {
     expect(reverse, 'the screen sent a reverse or delete request').toEqual([])
   })
 
+  // Re-pointed at the requirement, not the rendering. R4 made create ONE
+  // control that opens the shell's own menu, so the two kinds live behind it.
+  // What the requirement says is unchanged: create is offered only on a
+  // contact, and both kinds are reachable.
   test('D3 create is offered ONLY on a Qualified contact', async () => {
     await mount()
-    expect($('cd-create-section')).toBeNull()
+    expect($('cd-create-section'), 'a lead is not offered create').toBeNull()
+    expect($('cd-create'), 'not by the control either').toBeNull()
     status = 'Qualified'
     await mount()
     expect($('cd-create-section')).not.toBeNull()
+    expect($('cd-create')).not.toBeNull()
+  })
+
+  test('D3 and BOTH kinds are reachable from that one control', async () => {
+    status = 'Qualified'
+    await mount()
+    expect($('cd-create-test-bed'), 'the menu starts closed').toBeNull()
+    await click('cd-create')
     expect($('cd-create-test-bed')).not.toBeNull()
     expect($('cd-create-opportunity')).not.toBeNull()
+  })
+
+  test('D3 and choosing a kind calls the SHELL\'S create flow, not a navigation', async () => {
+    // The old buttons navigated to a list and created nothing. This asserts
+    // the record and the kind both reach the shell's own mechanism.
+    status = 'Qualified'
+    await mount()
+    await click('cd-create')
+    await click('cd-create-opportunity')
+    expect(created).toEqual([['c-1', 'opportunity']])
+    expect(navigated, 'creating must not navigate anywhere').toEqual([])
+  })
+
+  test('D3 and the menu closes on Escape', async () => {
+    status = 'Qualified'
+    await mount()
+    await click('cd-create')
+    expect($('cd-create-menu')).not.toBeNull()
+    await act(async () => {
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    })
+    expect($('cd-create-menu'), 'a menu that only closes by choosing is left open').toBeNull()
+  })
+})
+
+// ── CONTACT-MODE FURNITURE ───────────────────────────────────────────────
+//
+// EVERY ONE OF THESE IS ASSERTED ON BOTH MODES, and that is the point rather
+// than thoroughness: each change is a CONDITIONAL, and a test on one branch
+// says nothing about the other. Verification 24 - a defaulted branch hides an
+// incomplete change until a second value exercises it. The ruling is
+// explicit that lead-mode must not move, so lead-mode is measured, not
+// assumed.
+describe('the surface is mode-aware, and the mode is the record\'s status', () => {
+  test('R1 the title reads "Contact details" on a contact', async () => {
+    status = 'Qualified'
+    await mount()
+    expect(must('cd-title').textContent).toBe('Contact details')
+  })
+
+  test('R1 and "Lead details" on a lead', async () => {
+    await mount()
+    expect(must('cd-title').textContent).toBe('Lead details')
+  })
+
+  test('R2 the status chip is GONE on a contact - being here implies it', async () => {
+    status = 'Qualified'
+    await mount()
+    expect($('cd-status')).toBeNull()
+  })
+
+  test('R2 and a lead still shows its own chip', async () => {
+    await mount()
+    expect(must('cd-status').textContent).toBe('UNQUALIFIED')
+  })
+
+  test('R3 Nurture is GONE on a contact - it is a lead action', async () => {
+    status = 'Qualified'
+    await mount()
+    expect($('cd-btn-park')).toBeNull()
+  })
+
+  test('R3 and a lead still has Nurture', async () => {
+    await mount()
+    expect($('cd-btn-park')).not.toBeNull()
+  })
+
+  // Verification 7's replacement clause, as an assertion rather than a
+  // reminder to look: where the estate has a named treatment for the role,
+  // that name is the contract. The vanilla's own markup carries these two
+  // (frontend/index.html), the migration left them behind, and both rendered
+  // as white browser defaults on a dark screen until a screenshot was opened.
+  test('the stage controls carry the treatment the vanilla gave them', async () => {
+    await mount()
+    expect(must('cd-btn-qualify').className).toContain('btn-primary')
+    expect(must('cd-btn-park').className).toContain('btn-ghost')
+    status = 'Qualified'
+    await mount()
+    expect(must('cd-create').className).toContain('contact-create-trigger')
+  })
+
+  test('and a lead is still offered Qualify, which a contact is not', async () => {
+    // Not a ruling - the counterfactual that stops the four changes above
+    // being satisfied by a surface that renders nothing at all on one mode.
+    await mount()
+    expect($('cd-btn-qualify')).not.toBeNull()
+    status = 'Qualified'
+    await mount()
+    expect($('cd-btn-qualify')).toBeNull()
   })
 })
 

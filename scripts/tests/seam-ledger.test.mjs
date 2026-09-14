@@ -21,6 +21,14 @@ const ROOT = new URL('../../', import.meta.url)
 // C1-pattern seam: the shell owns the answer and a bundle cannot reach it.
 const REACHES_BACK = {
   canEditFields: 'the ownership door, read at every edit attempt',
+  createFromContact: 'the create-from-contact flow, which the shell has owned since '
+    + 'Round 10: the duplicate-record check, the warning with a proceed, then the '
+    + 'name dialogue with a server-suggested name behind a focus trap. The React '
+    + 'contact view had two buttons that NAVIGATED TO A LIST and created nothing, '
+    + 'so this is the shell\'s mechanism reused rather than a second one built '
+    + 'beside it. Its own state (ntbContactId, ntbType, contactsCache) is module '
+    + 'scope `let` in app.js and unreachable from a bundle, so the whole flow '
+    + 'stays the shell\'s and only the entry point crosses',
   usesWorkflow: 'whether the pre-workflow approve control may be clicked',
   attemptTransition: 'the stage transition, which stays the shell\'s',
   takeTestBedLanding: 'the stage a transition asks the next load to land on',

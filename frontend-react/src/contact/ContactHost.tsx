@@ -448,7 +448,16 @@ export function ContactHost({ contact, registerReload, navToken }: {
             onQualify={() => { void onQualify() }}
             qualifyBlockedCount={qualifyBlockers.length}
             onPark={() => { setParkError(null); setParkOpen(true) }}
-            onCreate={(kind) => { shell.navigate(kind === 'test-bed' ? 'test-beds' : 'opportunities') }} />} />
+            // R4: THE SHELL'S OWN CREATE FLOW, not a navigation.
+            //
+            // This used to navigate to the Test Beds or Opportunities LIST and
+            // create nothing - it did not carry the contact and never reached
+            // POST /contacts/:id/create-test-bed. The shell has owned the real
+            // flow since Round 10: the duplicate check, the warning with a
+            // proceed, then the name dialogue with a server-suggested name
+            // behind a focus trap. Reached through shell-services, which is
+            // the only module allowed to read window.
+            onCreate={(kind) => { shell.createFromContact(contact.id, kind) }} />} />
       {/* P3: the Nurture panel moved INTO the header, as `nurturePanel` above.
           Ruled as an inline date-and-reason panel, so it renders where the
           action that opens it lives rather than at the bottom of the page. One

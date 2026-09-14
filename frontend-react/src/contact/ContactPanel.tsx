@@ -141,6 +141,11 @@ export function ContactPanel({
    */
   qualifyBlockers?: Array<{ field: string, message?: string }>
 }) {
+  // THE MODE SIGNAL, and it is the estate's existing one rather than a new
+  // one: `returnViewFor` and `StageActions` both already branch on exactly
+  // this. `record_type` cannot tell them apart - leads and contacts are both
+  // `record_type: 'contact'` - so status is the only signal there is.
+  const qualified = status === 'Qualified'
   const fields = contactDescriptors(source)
   // R8: the same descriptors in the shared grid's shape. The KEY is unchanged,
   // so `industry` stays `industry` all the way into `rows.changes` and
@@ -200,7 +205,14 @@ export function ContactPanel({
         <button className="btn-text" id="btn-back-contact-detail" type="button"
           data-testid="cd-back" onClick={() => onBack?.()}>Back</button>
 
-        <div className="cd-title" data-testid="cd-title">Lead details</div>
+        {/* R1: THE TITLE IS MODE-AWARE. "Lead details" was a hardcoded literal
+            - Architecture 9's fourth variant - true when it was typed and
+            false from the moment this surface began serving contacts. Sentence
+            case, per the estate's output convention and the string it
+            replaces. */}
+        <div className="cd-title" data-testid="cd-title">
+          {qualified ? 'Contact details' : 'Lead details'}
+        </div>
 
         {/* ── 3: THE HEADER ACTION ROW ──────────────────────────────────
             Status badge, Qualify, Nurture on the left; the dirty indicator,
@@ -211,7 +223,10 @@ export function ContactPanel({
             {leadName || '--'}
           </h2>
 
-          {status
+          {/* R2: the chip is a LEAD affordance. On a contact it says
+              "QUALIFIED" on the screen you can only reach by being qualified,
+              so it is implied by where you are. A lead still shows its own. */}
+          {status && !qualified
             ? <span className="tag" data-testid="cd-status">{status.toUpperCase()}</span>
             : null}
 

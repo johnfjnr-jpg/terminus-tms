@@ -30,6 +30,8 @@
 // exempts it from the adjacency check - and its own comment records that
 // whether a reversal should need a reason or an entitlement is a live
 // question. Closing it server-side is a separate item, flagged not built.
+import { useEffect, useRef, useState } from 'react'
+
 export function StageActions({ status, onQualify, onPark, onCreate, qualifyBlockedCount = 0 }: {
   status: string | null
   onQualify: () => void
@@ -39,10 +41,42 @@ export function StageActions({ status, onQualify, onPark, onCreate, qualifyBlock
   onCreate: (kind: 'test-bed' | 'opportunity') => void
 }) {
   const qualified = status === 'Qualified'
+  const [menuOpen, setMenuOpen] = useState(false)
+  const anchor = useRef<HTMLSpanElement | null>(null)
+  // A menu that only closes by choosing is a menu left open behind whatever
+  // the person does next. Escape and a click outside both close it; the
+  // listeners exist only while it is open, so there is one owner of each and
+  // nothing to leak.
+  useEffect(() => {
+    if (!menuOpen) return
+    const away = (e: MouseEvent) => {
+      if (!anchor.current?.contains(e.target as Node)) setMenuOpen(false)
+    }
+    const key = (e: KeyboardEvent) => { if (e.key === 'Escape') setMenuOpen(false) }
+    document.addEventListener('mousedown', away)
+    document.addEventListener('keydown', key)
+    return () => {
+      document.removeEventListener('mousedown', away)
+      document.removeEventListener('keydown', key)
+    }
+  }, [menuOpen])
   return (
     <div className="cd-actions" data-testid="cd-actions">
       {!qualified
-        ? <button type="button" id="cd-btn-qualify" data-testid="cd-btn-qualify"
+        // THE TREATMENT THE VANILLA GAVE THEM. `frontend/index.html` has
+        // `class="btn-primary"` on Qualify and `class="btn-ghost"` on Park;
+        // the migration carried the controls and left the classes behind, so
+        // both rendered as white browser defaults on a dark screen -
+        // Verification 7's replacement clause, which this estate has already
+        // shipped once.
+        //
+        // Fixed HERE rather than queued because R4 just gave the third control
+        // in this same row its correct treatment. Rule 10's limit: a defect
+        // made visible by making its neighbour correct is part of the change,
+        // and a row of one styled and two unstyled controls is worse than the
+        // uniform wrongness it replaced.
+        ? <button type="button" className="btn-primary"
+            id="cd-btn-qualify" data-testid="cd-btn-qualify"
             // P3: DISABLED UNTIL THE SERVER SAYS IT WOULD SUCCEED. The count
             // comes from GET /records/:id/exit-criteria - the enforcement's own
             // derivation - so the button cannot disagree with the gate.
@@ -57,19 +91,44 @@ export function StageActions({ status, onQualify, onPark, onCreate, qualifyBlock
               : undefined}
             onClick={onQualify}>Qualify</button>
         : null}
-      <button type="button" id="cd-btn-park" data-testid="cd-btn-park"
-        onClick={onPark}>Nurture</button>
+      {/* R3: NURTURE IS A LEAD ACTION. It was unconditional, so a contact -
+          a record that has already left the lead pipeline - was offered a
+          move back into it. Guarded by the SAME `qualified` this component
+          already computes, so the lead view cannot be reached by the guard. */}
+      {!qualified
+        ? <button type="button" className="btn-ghost"
+            id="cd-btn-park" data-testid="cd-btn-park"
+            onClick={onPark}>Nurture</button>
+        : null}
       {/* R8: no Unqualify. The lifecycle is forward-only at this stage. */}
 
       {/* D3: create is offered ONLY on a Qualified contact. */}
+      {/* R4: ONE CONTROL, THEN THE SHELL'S OWN DIALOGUE.
+          This was two bare buttons in `.cd-create-section`, a class with ZERO
+          rules in the stylesheet - which is why they rendered as white browser
+          defaults on a dark screen. The three classes here are the estate's
+          declared treatment for exactly this control, the one the Contacts
+          list's own "+ Create" already wears (Verification 7: a replacement
+          inherits the replaced control's treatment).
+          The testids are kept: `contact-capabilities` cites both items. */}
       {qualified
-        ? <div className="cd-create-section" data-testid="cd-create-section">
-            <span className="label">+ Create</span>
-            <button type="button" data-testid="cd-create-test-bed"
-              onClick={() => onCreate('test-bed')}>Test Bed</button>
-            <button type="button" data-testid="cd-create-opportunity"
-              onClick={() => onCreate('opportunity')}>Opportunity</button>
-          </div>
+        ? <span className="cd-create-anchor" data-testid="cd-create-section" ref={anchor}>
+            <button type="button" className="contact-create-trigger"
+              data-testid="cd-create" id="cd-create"
+              aria-haspopup="menu" aria-expanded={menuOpen} aria-controls="cd-create-menu"
+              onClick={() => setMenuOpen((o) => !o)}>+ Create</button>
+            {menuOpen
+              ? <div className="contact-create-dropdown" id="cd-create-menu" role="menu"
+                  data-testid="cd-create-menu">
+                  <button type="button" role="menuitem" className="contact-create-item"
+                    data-testid="cd-create-test-bed"
+                    onClick={() => { setMenuOpen(false); onCreate('test-bed') }}>Test Bed</button>
+                  <button type="button" role="menuitem" className="contact-create-item"
+                    data-testid="cd-create-opportunity"
+                    onClick={() => { setMenuOpen(false); onCreate('opportunity') }}>Opportunity</button>
+                </div>
+              : null}
+          </span>
         : null}
 
       {/* R8: no Delete. Leads are not deleted from the Lead screen at this
