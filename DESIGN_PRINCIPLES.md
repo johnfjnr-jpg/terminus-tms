@@ -277,6 +277,41 @@ Verification 4 still applies to both paths: the screenshot is the instrument
 for anything whose purpose is emphasis, ordering or prominence, and the light
 path names it explicitly for that reason.
 
+#### VALIDATED ON FIRST USE, 2026-09-15, and it is the model going forward
+
+Group A ran **six cosmetic and layout items in ONE round on ONE gate run**,
+and the business's walk confirmed the batch as consistent.
+
+**THE SCREENSHOT CAUGHT THREE LAYOUT DEFECTS NO ASSERTION COULD**, all
+introduced by the batch itself and all fixed inside it:
+
+- a notes header overflowing its third of a card and rendering **on top of**
+  its neighbour - `elementFromPoint` over the button returned the other card's
+  title;
+- a secondary label wrapping to two lines with the control beside it **clipped
+  at the column edge**;
+- a blank field label still reserving its **170px column**, squeezing the text
+  against the right edge.
+
+**A full-path treatment would have found none of them.** A Phase 0 census and
+a both-direction injection sweep measure logic, and not one of the three was a
+logic fault. **That is the argument for the light path stated as evidence
+rather than as a preference.**
+
+**AND EACH WAS THEN ASSERTED**, which is the half that stops the light path
+becoming "just look at it": the header items share one row by equal `top`, the
+control's right edge sits inside its header's, and the empty label reserves
+zero width. **A membership check cannot see a wrap** - which is exactly how the
+first build passed while the header was broken.
+
+**One item strained the boundary and was flagged rather than waved through**: a
+panel was moved with a React portal, which is structural rather than CSS. It
+carried no logic, data or auth, so it stayed light - and it is the shape where
+*cosmetic* is an argument rather than a fact. **Flagging it is what the limit
+above asks for.**
+
+**Batching works and is now the default**: six items, one gate run, one walk.
+
 ---
 
 ## 5. Sales opportunity stage gates in detail

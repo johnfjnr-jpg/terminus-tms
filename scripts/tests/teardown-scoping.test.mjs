@@ -192,6 +192,30 @@ test('tearDown reaches a record beyond row 1,000 of its own tag population', asy
   // So: the fixture's tag, plus the heaviest historical tags, until the
   // population is over the cap. Every count here is EXACT (head + count), never
   // a select's length, because a select's length IS the cap.
+  // ── THE TEST CREATES THE TAGS IT NEEDS. IT DOES NOT BORROW THEM ─────────
+  //
+  // The chunk assertion below requires TAG_CHUNK_SIZE tags in `weighed`, and
+  // `weighed` is the ledger MINUS this test's own two - so every tag it counted
+  // came from OTHER runs' leftovers. It passed for a long time because the
+  // estate was never clean enough to starve it.
+  //
+  // It was found when a round's probes tore down everything they made. The
+  // ledger was left holding exactly this test's two tags, `weighed` had one
+  // entry, and the assertion failed - DETERMINISTICALLY, whenever the estate is
+  // clean. Worse, the failed run left its own two tags behind, so the next run
+  // borrowed those and went green: the bug restored the litter it needed, which
+  // is why re-running looked like a flake and was not.
+  //
+  // A test that depends on other tests' residue is not measuring the system. It
+  // now makes its own, so a clean estate is the condition it PASSES on rather
+  // than the one that breaks it.
+  const PAD_TAGS = []
+  for (let i = 1; PAD_TAGS.length < TAG_CHUNK_SIZE; i++) {
+    const t = `a1pad${i}`
+    await freshOpportunity(t)
+    PAD_TAGS.push(t)
+  }
+
   const ledger = tagsToSweep().filter((t) => t !== TAG && t !== KEEP)
   const weighed = []
   for (const t of ledger) {
@@ -452,6 +476,10 @@ test('tearDown reaches a record beyond row 1,000 of its own tag population', asy
   // BOTH DIRECTIONS. The control was spared because it was untagged, not
   // because it was unreachable, and sweeping it now is what tells them apart.
   await tearDown([KEEP])
+  // The pads are this test's own, so this test sweeps them. They enter the
+  // ledger through `freshOpportunity`, so a no-argument tearDown would reach
+  // them too; naming them here makes it deterministic rather than incidental.
+  await tearDown(PAD_TAGS)
   const final = must(await db.from('records').select('id, deleted_at').eq('id', kept.oppId), 'final')
   assert.ok(final[0].deleted_at, 'the control could not be swept even when named')
 })
