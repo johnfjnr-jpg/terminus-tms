@@ -1268,6 +1268,42 @@ of the change. An unanswerable precondition is a stop.
    retires a path, list what that path WROTE - with the twist that this path
    wrote nothing and merely **refused to pass something on**.
 
+   **AND THE FOURTH AXIS: THE CLASS SURVIVES AND THE ELEMENT TYPE CHANGES
+   UNDERNEATH IT, SO THE CLASS ASSERTION PASSES.** Contact-mode furniture
+   round, 2026-09-14, twice in one phase.
+
+   The clause above's own remedy is *assert it carries the replaced control's
+   CLASS*. **That remedy is satisfied here.** The class is present, it is the
+   right one, and it is the estate's own declared treatment for the role.
+
+   The instance. `.contact-create-item` was written for a `<div>` and
+   `.contact-create-trigger` for a `<span>`, on the Contacts list's row. The
+   contact view needed real controls - keyboard, `role="menuitem"`,
+   `aria-expanded` - so both became `<button>`. **Neither class says
+   `background`, because a div and a span do not have one.** A button does,
+   and brings a border, padding and centred text with it.
+
+   **The menu rendered as two white blocks with white text on them**, and the
+   trigger as a pale pill behind green text, on a dark screen.
+
+   **EVERY ASSERTION PASSED, INCLUDING THE ONE THIS RULE ALREADY PRESCRIBES:**
+   both items present, the class correct, and the menu anchored to its trigger
+   within one pixel - a relationship, measured, not a CSS property. Found by
+   opening the screenshot.
+
+   **The check: when a class survives but its ELEMENT TYPE changes, the class
+   has become under-specified.** Ask what the new tag brings that the old one
+   did not - a `button` brings background, border, padding and text-align; a
+   `p` brings margin; an `li` a marker; an `a` colour and underline - and
+   **put the reset in the STYLESHEET rather than the markup**, so it is
+   correct for both element types. It has to be, because the old one is
+   usually still out there: here the vanilla's list rows keep the div and the
+   span, and all four added declarations are inert on them.
+
+   **The tell is a class whose rules name only what it ADDS** - a colour, a
+   font, a padding - and never what it SUPPRESSES. That class has an element
+   type baked into it that nobody wrote down.
+
 8. **Every Supabase call has its `error` checked, including upserts and
    any write whose result is not otherwise read.** An unchecked write
    returns success with nothing stored. Two confirmed instances of this
