@@ -599,7 +599,11 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
               onSave={(next) => { void saveFollowUp(next) }} />}
           useCases={useCasesNode}
           customerDocs={customerDocsNode}
-          history={<HistoryPanel entries={history.entries} failed={history.failed} />} />} />
+          history={<HistoryPanel entries={history.entries} failed={history.failed}
+            // R3: the SAME descriptors this surface renders its rows from, so
+            // the history names a field exactly as the screen does. A second
+            // label table would agree today and drift (Verification 20).
+            labelOf={(k) => testBedDescriptors(source).find((f) => f.name === k)?.label ?? k} />} />} />
       {/* R1: ONE BAR FOR THE WHOLE SURFACE, outside the tabs. Inside the
           Reference panel it vanished with that panel, so the cost rows that
           moved to Commercials had no Save and no Discard. Rendered here it

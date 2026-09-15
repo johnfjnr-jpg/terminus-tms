@@ -6,6 +6,8 @@ import { isValidMobile } from '../lib/field-validation.js'
 import { issueReferenceNumber, issueAccountNumber } from '../lib/reference-number.js'
 import { countryToCode } from '../lib/country-code.js'
 import { REGION_OPTIONS } from '../lib/regions.js'
+// R3: notes and audit are two concerns. One differ, shared with test-beds.js.
+import { auditChanges, hasAuditableChange, FIELDS_CHANGED } from '../lib/payload-audit.js'
 import { computeBlocking } from './transitions.js'
 import { GATE_RECORD_SELECT } from '../lib/stage-gate-fields.js'
 
@@ -513,6 +515,37 @@ export default async function contactsRoutes(app) {
       // append_record_revision does the lookup and the insert in one
       // statement, so it cannot see "no prior revision" for a record that
       // has one.
+      // ── R3: THE AUDIT DIFF'S READ, AND IT IS NOT THE READ THAT WAS
+      //    REMOVED HERE ────────────────────────────────────────────────────
+      //
+      // The comment above records Round 17A deleting a read from this spot,
+      // and it is right to warn the next person. THIS IS A DIFFERENT READ AND
+      // THE DIFFERENCE IS WHAT IT FEEDS.
+      //
+      // The removed read built the MERGE in the browser's process, so two
+      // concurrent writes could each merge onto the same base and one would be
+      // lost. The merge still happens inside append_record_revision and
+      // nothing here touches it. This read feeds only the AUDIT DIFF, so the
+      // worst a concurrent write can do is make a "from" value describe a
+      // state one revision old. No data is lost either way.
+      //
+      // AND WHERE THE CLIENT SENDS A REVISION, EVEN THAT CANNOT HAPPEN: the
+      // append below carries the precondition, so if the record moved between
+      // this read and that call the write is refused and no audit row is
+      // written at all. The diff is exact or there is no diff.
+      const { data: beforeRev, error: beforeErr } = await db
+        .from('record_revisions')
+        .select('payload')
+        .eq('record_id', record.id)
+        .order('revision_number', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      // CHECKED, not `?? {}`: an unchecked read wearing a default turns an
+      // error into an empty object, and an empty object here reads as "every
+      // field is new" - a confident, wrong audit row (Verification 8).
+      if (beforeErr) return sendWriteError(reply, beforeErr)
+      const auditDetail = auditChanges(beforeRev?.payload ?? {}, payload)
+
       const { data: newRevision, error: revErr } = await appendRecordRevision(
         db, record.id, payload, request.user.id, [],
         // Round 38: the Contact screen now sends the revision it loaded. This
@@ -526,6 +559,22 @@ export default async function contactsRoutes(app) {
       }
       if (revErr) return sendWriteError(reply, revErr)
       writtenRevision = newRevision?.revision_number ?? null
+
+      // R3: WRITTEN ONLY AFTER THE REVISION LANDED, so a refused or stale
+      // write leaves no audit row claiming a change that never happened.
+      if (hasAuditableChange(auditDetail)) {
+        const { error: auditErr } = await db.from('audit_log').insert({
+          record_id: record.id,
+          record_type: 'contact',
+          action: FIELDS_CHANGED,
+          actor_id: request.user.id,
+          detail: { changes: auditDetail, revision: writtenRevision },
+        })
+        // An unchecked write returns success with nothing stored
+        // (Verification 8). A lost audit row must not be silent.
+        if (auditErr) request.log.error({ err: auditErr, record: record.id },
+          'the field-change audit row was not written')
+      }
     }
 
     // T4: `record_revision_number` is the name the client's adoption hook

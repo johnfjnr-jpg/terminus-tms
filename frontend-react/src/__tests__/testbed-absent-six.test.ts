@@ -211,8 +211,53 @@ describe('H: revision history', () => {
     expect(historyCount(0)).toBe('0 entries.')
   })
 
-  test('H3 the provisional notice says the panel is undecided', () => {
-    expect(HISTORY_NOTICE).toMatch(/Raw audit entries, unedited/)
-    expect(HISTORY_NOTICE).toMatch(/not decided yet/)
+  test('R3 a field-change entry renders as PROSE, not as JSON', () => {
+    const rows = historyRows([{
+      id: 'a', action: 'fields_changed', timestamp: '2026-09-15T10:00:00Z',
+      detail: { changes: { city: { from: 'KL', to: 'Jakarta' } }, revision: 4 },
+    }])
+    expect(rows[0].detail).toBe('city changed from KL to Jakarta.')
+    expect(rows[0].detail.includes('{'), 'raw JSON reached the screen').toBe(false)
+  })
+
+  test('R3 it uses the label the SCREEN uses, when the host supplies one', () => {
+    // The key is the FALLBACK, deliberately: the host owns the vocabulary, and
+    // a second label table here would agree today and drift (Verification 20).
+    const rows = historyRows(
+      [{ id: 'a', action: 'fields_changed', detail: { changes: { ssUnitCost: { from: null, to: '90' } } } }],
+      (k) => (k === 'ssUnitCost' ? 'SafeSight Unit Cost' : k))
+    expect(rows[0].detail).toBe('SafeSight Unit Cost changed from not recorded to 90.')
+  })
+
+  test('R3 an absent value reads NOT RECORDED, the way the screens say it', () => {
+    const rows = historyRows([{ id: 'a', action: 'fields_changed',
+      detail: { changes: { city: { from: null, to: null } } } }])
+    expect(rows[0].detail).toBe('city changed from not recorded to not recorded.')
+  })
+
+  test('R3 every OTHER action keeps its raw render', () => {
+    // The paired negative: composing prose must not swallow the actions whose
+    // wording is still undecided, which is what the notice promises.
+    const rows = historyRows([{ id: 'a', action: 'transition', detail: { from: 'draft', to: 'active' } }])
+    expect(rows[0].detail).toBe('{"from":"draft","to":"active"}')
+  })
+
+  test('R3 several changed fields read as several sentences', () => {
+    const rows = historyRows([{ id: 'a', action: 'fields_changed', detail: { changes: {
+      city: { from: 'KL', to: 'Jakarta' }, country: { from: 'MY', to: 'ID' },
+    } } }])
+    expect(rows[0].detail).toBe('city changed from KL to Jakarta. country changed from MY to ID.')
+  })
+
+  test('H3 the notice separates what IS decided from what is not', () => {
+    // R3 decided the wording for ONE action, so the notice can no longer say
+    // every entry is raw. It must still caveat the rest: a notice that stopped
+    // saying "undecided" would overclaim in the other direction.
+    expect(HISTORY_NOTICE, 'the notice no longer says field changes are server-worded')
+      .toMatch(/Field changes are written and worded by the server/)
+    expect(HISTORY_NOTICE, 'the notice dropped its caveat for every other action')
+      .toMatch(/raw audit entries, unedited/)
+    expect(HISTORY_NOTICE, 'the notice now claims the whole panel is decided')
+      .toMatch(/not decided yet/)
   })
 })

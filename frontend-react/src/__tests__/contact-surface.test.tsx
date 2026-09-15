@@ -226,30 +226,64 @@ describe('the save path', () => {
     expect(patches).toHaveLength(1)
     const b = patches[0] as { payload: Record<string, unknown>, industry_id: string }
     expect(b.industry_id, 'industry went through the payload, which the route rejects').toBe('i-2')
-    expect(Object.keys(b.payload).sort()).toEqual(['city', 'notes'])
+    // R3: `notes` is GONE from the save payload. It used to ride every save
+    // because the client composed a change sentence into it.
+    expect(Object.keys(b.payload).sort()).toEqual(['city'])
     expect(b.payload.city).toBe('Kuala Lumpur')
   })
 
-  test('ONE note per save session, not one per field, and prepended', async () => {
+  // ── R3: THE CLIENT DOES NOT AUTHOR THE AUDIT TRAIL ─────────────────────
+  //
+  // These three tests asserted the retired contract: one composed sentence
+  // per save session, prepended into `payload.notes`, naming the industry by
+  // name. That behaviour is not weakened, it is MOVED - the route diffs the
+  // patch against the payload it actually holds and writes a structured
+  // change to `audit_log` itself.
+  //
+  // So the claim here inverts: a field save must touch NOTES AT ALL, and the
+  // stated negative is the specification. Paired below with the positive -
+  // the human note path still writes - because "X is not in Y" needs a
+  // companion asserting X exists somewhere (Verification 14).
+  test('R3 a field save writes NO note, on any number of fields', async () => {
     await mount()
     await editRow('city', 'Kuala Lumpur')
     await editRow('postcode', '50000')
     await save()
-    const b = patches[0] as { payload: { notes: Array<{ text: string }> } }
-    expect(b.payload.notes).toHaveLength(2)
-    expect(b.payload.notes[0].text).toMatch(/City changed/)
-    expect(b.payload.notes[0].text).toMatch(/Postcode/)
-    expect(b.payload.notes[1].text, 'the history was not preserved').toBe('older')
+    const b = patches[0] as { payload: Record<string, unknown> }
+    expect('notes' in b.payload,
+      'the client is still composing an audit sentence into the notes history').toBe(false)
+    expect(Object.keys(b.payload).sort()).toEqual(['city', 'postcode'])
   })
 
-  test('the note names the industry by NAME, not by id', async () => {
+  test('R3 and no note even when the changed field is the industry COLUMN', async () => {
     await mount()
     await editRow('industry', 'i-2')
     await save()
-    const b = patches[0] as { payload: { notes: Array<{ text: string }> } }
-    expect(b.payload.notes[0].text).toContain('Aviation')
-    expect(b.payload.notes[0].text).toContain('Maritime')
-    expect(b.payload.notes[0].text, 'a UUID reached the notes history').not.toMatch(/i-[12]/)
+    const b = patches[0] as { payload: Record<string, unknown>, industry_id: string }
+    expect(b.industry_id).toBe('i-2')
+    expect('notes' in b.payload, 'the industry change composed a note').toBe(false)
+  })
+
+  test('R3 THE HUMAN NOTE PATH STILL WRITES, and still prepends', async () => {
+    // THE COMPANION POSITIVE. "A field save writes no note" is an assertion of
+    // absence, and an absence is also what a broken notes path reports. This
+    // is the half that stops the two readings looking alike (Verification 14).
+    await mount()
+    // `cd-add-note-btn` is BOTH the opener and, once open, the Save - the
+    // card reuses the id rather than showing two Add note controls.
+    await act(async () => { must('cd-add-note-btn').click() })
+    const box = must('cd-new-note-input') as HTMLTextAreaElement
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')!
+        .set!.call(box, 'Called the site manager')
+      box.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+    await act(async () => { must('cd-add-note-btn').click() })
+
+    const b = patches.at(-1) as { payload: { notes: Array<{ text: string }> } }
+    expect(b?.payload?.notes, 'the human note did not reach the payload').toBeTruthy()
+    expect(b.payload.notes[0].text).toBe('Called the site manager')
+    expect(b.payload.notes[1]?.text, 'the existing history was not preserved').toBe('older')
   })
 
   test('the revision handshake rides the save, read off the RECORD', async () => {

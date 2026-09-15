@@ -7,6 +7,8 @@ import { isValidIsoDate, isNotPastIsoDate, isValidNonNegativeInteger, isValidNon
 import { calculateTestBedCost } from '../lib/deal-calculator.js'
 import { UNIT_TYPE_COUNT_KEYS, VALID_UNIT_STATES, VALID_STATE_SOURCES, loadUnits, deriveMissingUnitSlots } from '../lib/units.js'
 import { recordScoreEntry } from '../lib/score-entry.js'
+// R3: notes and audit are two concerns. One differ, shared with contacts.js.
+import { auditChanges, hasAuditableChange, FIELDS_CHANGED } from '../lib/payload-audit.js'
 
 // Round 5 Phase 6 (2026-08-17): builds the itemized cost breakdown from
 // whatever's currently in a Test Bed's payload - the one place this
@@ -846,6 +848,21 @@ export default async function testBedsRoutes(app) {
       // to choose, inside the same statement that does the merge.
       const mergedPayload = { ...(revRow?.payload ?? {}), ...payload }
 
+      // ── R3: THE AUDIT DIFF, FROM A READ THIS ROUTE ALREADY DOES ─────────
+      //
+      // `revRow.payload` is the stored payload and its error is already
+      // checked above, so the diff costs nothing here - unlike contacts.js,
+      // where the equivalent read had to be added.
+      //
+      // DIFFED AGAINST `payload`, THE CALLER'S OWN KEYS, never against the
+      // patch that is actually written. That patch also carries
+      // accumulated_cost and indicativeCost, which this route RECOMPUTES on
+      // every save: auditing them would log two "changes" on a save that
+      // altered nothing a person can see, and would do it on every save for
+      // ever. An audit records what somebody DID, not what the server
+      // derived from it.
+      const auditDetail = auditChanges(revRow?.payload ?? {}, payload)
+
       // Round 15 Phase 1: Est. Go Live cannot precede Estimated Installation
       // Date. The first cross-field rule in this application; every other
       // check here validates one key against itself.
@@ -945,6 +962,20 @@ export default async function testBedsRoutes(app) {
       }
 
       writtenRevision = written?.revision_number ?? null
+
+      // R3: AFTER the revision landed, so a refused or stale write leaves no
+      // audit row claiming a change that never happened.
+      if (hasAuditableChange(auditDetail)) {
+        const { error: auditErr } = await db.from('audit_log').insert({
+          record_id: record.id,
+          record_type: 'test_bed',
+          action: FIELDS_CHANGED,
+          actor_id: request.user.id,
+          detail: { changes: auditDetail, revision: writtenRevision },
+        })
+        if (auditErr) request.log.error({ err: auditErr, record: record.id },
+          'the field-change audit row was not written')
+      }
     }
 
     // Round 38: the number goes back so a screen with several independent

@@ -197,32 +197,36 @@ export function ContactHost({ contact, registerReload, navToken }: {
     setFeedback(null)
     const body: Record<string, unknown> = {}
     const payloadUpdate: Record<string, unknown> = {}
-    const sentences: string[] = []
-    const labelOf = (k: string) =>
-      contactDescriptors(source).find((f) => f.name === k)?.label ?? k
-    const shownFor = (k: string, v: string) =>
-      k === 'industry' ? ((industries.find((i) => i.id === v)?.name ?? v) || 'nothing') : (v || 'nothing')
-
+    // ── R3: THE CLIENT NO LONGER COMPOSES THE AUDIT TRAIL ────────────────
+    //
+    // This used to build "Job Title changed from X to Y." per changed field,
+    // join them, and prepend the result into `payload.notes`. Two things were
+    // wrong with that and the business ruled both:
+    //
+    // NOTES AND AUDIT ARE TWO CONCERNS. `payload.notes` is what a PERSON
+    // wrote; a field changing is something the SYSTEM observed. Mixing them
+    // means a note list nobody can scan and an audit trail a person can edit
+    // by editing a note.
+    //
+    // AND A CALLER MAY NOT AUTHOR ITS OWN AUDIT. The sentence above was
+    // composed from `record`, loaded at some earlier moment, and nothing
+    // checked it against what was stored. The route now diffs the patch
+    // against the payload it actually holds and writes the structured change
+    // itself - Architecture 12's rule, one layer up: derive, do not accept.
+    //
+    // The count of changed keys still gates the request, because a PATCH that
+    // changes nothing should not be sent at all.
     for (const [k, v] of Object.entries(changes)) {
-      const was = k === 'industry'
-        ? shownFor(k, record.industry_id ?? '')
-        : shownFor(k, String(record.payload?.[k] ?? ''))
-      sentences.push(`${labelOf(k)} changed from ${was} to ${shownFor(k, v)}.`)
       // industry is a REAL COLUMN, lifted to the top level rather than sent as
       // a payload key. The route rejects any payload key it does not own.
       if (k === 'industry') { body.industry_id = v || null; continue }
       if (PAYLOAD_KEYS.has(k)) payloadUpdate[k] = v
     }
-    if (!sentences.length) return
+    if (!Object.keys(changes).length) return
 
-    // ONE NOTE PER SAVE SESSION, not one per changed field: every change
-    // sentence joined into a single Notes History entry, prepended through the
-    // shared writer - N4, one list and three authors.
-    body.payload = {
-      ...payloadUpdate,
-      notes: prepend(note(sentences.join(' '), shell.currentUserEmail(), new Date().toISOString()),
-        record.payload?.notes as Note[] | undefined),
-    }
+    // NOTES ARE NOT TOUCHED HERE ANY MORE. The human list is written by the
+    // Add note control and by nothing else, which is what makes it human.
+    body.payload = payloadUpdate
 
     const r = await shell.api<{ error?: string }>('PATCH', `/api/contacts/${contact.id}`, {
       ...body,

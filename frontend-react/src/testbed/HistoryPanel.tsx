@@ -1,9 +1,16 @@
 // ── H: REVISION HISTORY ─────────────────────────────────────────────────
 import { historyRows, historyCount, HISTORY_NOTICE, type HistoryEntry } from './history'
 
-export function HistoryPanel({ entries, failed }: {
+export function HistoryPanel({ entries, failed, labelOf }: {
   entries: readonly HistoryEntry[]
   failed?: boolean
+  /**
+   * R3: how to name a field in a change sentence. Supplied by the host from
+   * the SAME descriptors the rows are rendered from, so the history calls a
+   * field what the screen calls it. Without it the sentence falls back to the
+   * payload key, which is honest but not what a person reads.
+   */
+  labelOf?: (key: string) => string
 }) {
   // H6: a failed load says so, and does NOT render the notice - there is
   // nothing to caveat.
@@ -11,7 +18,7 @@ export function HistoryPanel({ entries, failed }: {
     return <p className="empty-state" data-testid="tb-history-block">Unable to load history.</p>
   }
 
-  const rows = historyRows(entries)
+  const rows = historyRows(entries, labelOf)
   return (
     <div data-testid="tb-history-block">
       {/* H3: the notice renders above the empty state as well as above the
