@@ -15,7 +15,7 @@ import { ShellProvider } from '../ShellContext'
 import { shellServices } from './fixtures'
 import type { ShellServices } from '../shell-services'
 import { canEditRecord, notMine } from '../../../src/lib/ownership.js'
-import { TestBedPanel } from '../testbed/TestBedPanel'
+import { TestBedPanelForTest } from '../testbed/TestBedPanelForTest'
 import { ContactPanel } from '../contact/ContactPanel'
 import { ReferencePanel } from '../reference/ReferencePanel'
 import { AccountView } from '../account/AccountView'
@@ -63,7 +63,7 @@ afterEach(() => { act(() => root.unmount()); host.remove() })
 
 const SURFACES: Array<{ name: string, node: () => React.ReactNode }> = [
   { name: 'Test Bed', node: () => (
-    <TestBedPanel source={{ payload: { name: 'Bed', city: 'KL' }, staff: [] }}
+    <TestBedPanelForTest source={{ payload: { name: 'Bed', city: 'KL' }, staff: [] }}
       contacts={[]} buyers={{}} onSave={() => {}} />) },
   { name: 'Contact', node: () => (
     <ContactPanel source={{ payload: { name: 'Ana', email: 'a@b.c' }, industryId: null, industries: [] }}

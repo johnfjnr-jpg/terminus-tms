@@ -3,7 +3,8 @@
 // The panel does not fetch, save, or know about routes. This holds those.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { TestBedPanel } from './TestBedPanel'
-import { PAYLOAD_ONLY_KEYS, CLIENT_BUYER_ROLES, type TestBedSource } from './descriptors'
+import { PAYLOAD_ONLY_KEYS, CLIENT_BUYER_ROLES, testBedDescriptors, type TestBedSource } from './descriptors'
+import { useFieldRows } from '../field-row/useFieldRows'
 import { createPreviewRunner } from './costPreview'
 import { useShell } from '../ShellContext'
 import type { LookupOption } from '../field-row/types'
@@ -250,9 +251,17 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
     return () => { live = false }
   }, [shell, record.account_id, record.account?.id])
 
+  // R1: THE DRAFT STORE LIVES HERE, above the tabs, so a tab switch cannot
+  // destroy it. `StageTabs` unmounts each panel when its tab is inactive and
+  // TestBedPanel owned this - measured, every unsaved edit was discarded.
   const source: TestBedSource = useMemo(() => ({
     payload: record.payload ?? {}, staff,
   }), [record, staff])
+
+  // The store itself. Built from the same descriptors the panel renders, so
+  // there is exactly ONE of it for the whole screen however many tabs come
+  // and go.
+  const rows = useFieldRows(testBedDescriptors(source))
 
   const buyers = useMemo(() => {
     const out: Record<string, string> = {}
@@ -526,6 +535,7 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
         commercials={null}
         reference={<TestBedPanel
         source={source}
+          rows={rows}
         contacts={contacts}
         buyers={buyers}
         onSave={(c) => { void onSave(c) }}

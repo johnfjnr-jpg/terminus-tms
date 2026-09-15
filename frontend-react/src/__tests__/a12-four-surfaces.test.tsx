@@ -13,7 +13,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ShellProvider } from '../ShellContext'
 import { shellServices } from './fixtures'
 import type { ShellServices } from '../shell-services'
-import { TestBedPanel } from '../testbed/TestBedPanel'
+import { TestBedPanelForTest } from '../testbed/TestBedPanelForTest'
 import { ContactPanel } from '../contact/ContactPanel'
 import { ReferencePanel } from '../reference/ReferencePanel'
 import { AccountView } from '../account/AccountView'
@@ -90,7 +90,7 @@ const SURFACES: Array<{ name: string, node: () => React.ReactNode }> = [
   {
     name: 'Test Bed',
     node: () => (
-      <TestBedPanel source={{ payload: { name: 'Bed', city: 'KL' }, staff: [] }}
+      <TestBedPanelForTest source={{ payload: { name: 'Bed', city: 'KL' }, staff: [] }}
         contacts={[]} buyers={{}} onSave={() => {}} />),
   },
   {

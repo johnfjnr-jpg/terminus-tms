@@ -5,7 +5,7 @@ import { useEffect, type ReactNode } from 'react'
 
 import { FieldRow } from '../field-row/FieldRow'
 import { EditBar } from '../field-row/EditBar'
-import { useFieldRows } from '../field-row/useFieldRows'
+import type { useFieldRows } from '../field-row/useFieldRows'
 import { testBedDescriptors, buyerDescriptor, CLIENT_BUYER_ROLES, type TestBedSource } from './descriptors'
 import { dateBounds } from './dateBounds'
 import type { LookupOption } from '../field-row/types'
@@ -27,9 +27,14 @@ function Card({ title, testId, children }: { title: string, testId: string, chil
   )
 }
 
-export function TestBedPanel({ source, contacts, buyers, onSave, onDirtyChange, onDraftsChange, notes, costBreakdown, controls, useCases, customerDocs, history }: {
+export function TestBedPanel({ source, rows, contacts, buyers, onSave, onDirtyChange, onDraftsChange, notes, costBreakdown, controls, useCases, customerDocs, history }: {
   source: TestBedSource
   /** The Account's contacts, for the buyer lookups. */
+  /**
+   * R1: the draft store, owned by the HOST. This panel unmounts on every tab
+   * switch and used to take the store with it, discarding unsaved edits.
+   */
+  rows: ReturnType<typeof useFieldRows>
   contacts: LookupOption[]
 
   /** role -> linked contact id. */
@@ -49,6 +54,14 @@ export function TestBedPanel({ source, contacts, buyers, onSave, onDirtyChange, 
   /** Raw audit entries. Read-only. */
   history?: ReactNode
 }) {
+  // R1: THE DRAFT STORE IS OWNED BY THE HOST NOW, not by this panel.
+  //
+  // `StageTabs` renders each panel as `active === 'x' ? panel : null`, so this
+  // component UNMOUNTS on every tab switch - and took the store with it, which
+  // discarded any unsaved edit silently. Measured, not inferred.
+  //
+  // The host outlives the tabs, so the store does too. Everything below is
+  // unchanged: the same controller, read through a prop rather than a hook.
   const base = testBedDescriptors(source)
 
   // ── THE DATE BOUNDS ARE DERIVED FROM THE LIVE DRAFTS ─────────────────
@@ -57,16 +70,19 @@ export function TestBedPanel({ source, contacts, buyers, onSave, onDirtyChange, 
   // row would throw away an open edit. Here the row keeps its draft in the
   // controller, so the descriptor can simply carry the bound - A4 as data, with
   // the value now depending on a sibling's draft rather than a constant.
-  const rows0 = useFieldRows(base)
+  // R1: read from the HOST'S store, the same one the rows write into. A
+  // calibration injection that gave this its own `useFieldRows` came back
+  // SILENT - nothing asserted that the bound follows a live draft rather than
+  // the saved value (Verification 51). The assertion now exists, below.
   const bounds = dateBounds(
-    rows0.valueOf('estimatedInstallationDate'),
-    rows0.valueOf('estGoLiveDate'),
+    rows.valueOf('estimatedInstallationDate'),
+    rows.valueOf('estGoLiveDate'),
   )
   const fields = base.map((f) =>
     f.name === 'estimatedInstallationDate' || f.name === 'estGoLiveDate'
       ? { ...f, ...bounds[f.name as 'estimatedInstallationDate' | 'estGoLiveDate'] }
       : f)
-  const rows = rows0
+
 
   const dirty = rows.dirtyCount > 0
   useEffect(() => { onDirtyChange?.(dirty) }, [dirty, onDirtyChange])

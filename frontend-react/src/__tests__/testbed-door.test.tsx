@@ -29,7 +29,7 @@ import { describe, test, expect, beforeEach } from 'vitest'
 import { shellServices } from './fixtures'
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
-import { TestBedPanel } from '../testbed/TestBedPanel'
+import { TestBedPanelForTest } from '../testbed/TestBedPanelForTest'
 import { ShellProvider } from '../ShellContext'
 import type { ShellServices } from '../shell-services'
 import { testBedDescriptors } from '../testbed/descriptors'
@@ -63,7 +63,7 @@ const mount = async () => {
   await act(async () => {
     root.render(
       <ShellProvider services={services()}>
-        <TestBedPanel source={SRC} contacts={[]} buyers={{}} onSave={() => {}} />
+        <TestBedPanelForTest source={SRC} contacts={[]} buyers={{}} onSave={() => {}} />
       </ShellProvider>)
   })
 }
