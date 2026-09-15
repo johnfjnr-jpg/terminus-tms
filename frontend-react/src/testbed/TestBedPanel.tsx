@@ -2,6 +2,7 @@
 //
 // Behind the line: nothing registers this and the vanilla stays live.
 import { useEffect, type ReactNode } from 'react'
+
 import { FieldRow } from '../field-row/FieldRow'
 import { EditBar } from '../field-row/EditBar'
 import { useFieldRows } from '../field-row/useFieldRows'
@@ -30,6 +31,7 @@ export function TestBedPanel({ source, contacts, buyers, onSave, onDirtyChange, 
   source: TestBedSource
   /** The Account's contacts, for the buyer lookups. */
   contacts: LookupOption[]
+
   /** role -> linked contact id. */
   buyers: Record<string, string>
   onSave: (changes: Record<string, string>) => void
@@ -90,6 +92,29 @@ export function TestBedPanel({ source, contacts, buyers, onSave, onDirtyChange, 
         {row('name')}
       </div>
 
+      {/* R1: SUMMARY AND NOTES ON ONE ROW AT THE TOP, matching leads and
+          contacts. Both already existed at the BOTTOM of this screen and both
+          were already editable - this is a move, not a rewire, and it does not
+          touch Test Bed's notes/audit split, which was measured clean.
+
+          `.lead-card-body` is the LEAD's layout CLASS, and this is its third
+          consumer. THE CLASS IS NOT MODIFIED: adding a consumer cannot move
+          leads or contacts, which is the whole reason the radius here is nil.
+
+          `.tb-top-row` is a SCOPED column override, because that class is a
+          three-column grid and this row has two cells. Follow-up is the third
+          cell and is NOT in this round: it does not exist on a Test Bed at
+          all, and the route's payload allowlist refuses the key - a new write
+          path, carried with the notes/audit round. */}
+      <div className="lead-card-body tb-top-row" data-testid="tb-top-row">
+        <Card title="Summary" testId="tb-card-summary">
+          {row('summary')}
+        </Card>
+        <Card title="Notes" testId="tb-card-notes">
+          {notes}
+        </Card>
+      </div>
+
       <div className="ref-cards" data-testid="tb-cards">
         <Card title="Terminus Details" testId="tb-card-terminus">
           {['terminusLead', 'commercialAuthority', 'technicalAuthority',
@@ -112,14 +137,16 @@ export function TestBedPanel({ source, contacts, buyers, onSave, onDirtyChange, 
         <Card title="Site Details" testId="tb-card-site">
           {['siteOwnership', 'installationEnvironment', 'siteAddress', 'city'].map(row)}
         </Card>
+
+        {/* R2: KEY DATES BESIDE SITE DETAILS. It was a section lower down; it
+            is now a sibling in the same card row. */}
+        <Card title="Key Dates" testId="tb-card-dates">
+          {['estimatedInstallationDate', 'estGoLiveDate', 'testBedDuration'].map(row)}
+        </Card>
       </div>
 
       <Card title="Sensor Counts" testId="tb-card-sensors">
         {['safesightCameras', 'airQualitySensors', 'hemirSensors'].map(row)}
-      </Card>
-
-      <Card title="Dates" testId="tb-card-dates">
-        {['estimatedInstallationDate', 'estGoLiveDate', 'testBedDuration'].map(row)}
       </Card>
 
       <Card title="Commercials" testId="tb-card-commercials">
@@ -129,9 +156,7 @@ export function TestBedPanel({ source, contacts, buyers, onSave, onDirtyChange, 
         {costBreakdown}
       </Card>
 
-      <Card title="Summary" testId="tb-card-summary">
-        {row('summary')}
-      </Card>
+
 
       {useCases ? <Card title="Use Cases" testId="tb-card-usecases">{useCases}</Card> : null}
 
@@ -143,7 +168,10 @@ export function TestBedPanel({ source, contacts, buyers, onSave, onDirtyChange, 
       {history ? <Card title="History" testId="tb-card-history">{history}</Card> : null}
 
       {controls}
-      {notes}
+      {/* R1: `{notes}` moved to the top row. Removed here rather than left,
+          because a move is TWO claims - it appears in its new place AND is
+          gone from its old one - and this estate has shipped the duplicate
+          that skipping the second one produces. */}
 
       <EditBar rows={rows} onSave={onSave} saveId="tb-react-save-all" />
     </div>

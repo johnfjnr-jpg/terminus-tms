@@ -6027,6 +6027,15 @@ input.input-invalid {
   gap: 18px;
   margin-top: 12px;
 }
+/* R1 (Test Bed layout moves): the Test Bed's top row has TWO cells, not three,
+   because Follow-up does not exist on a Test Bed - it is not in the payload,
+   not in the descriptors, and the route's allowlist refuses the key. It is a
+   new write path and is carried with the notes/audit round.
+
+   SCOPED, so `.lead-card-body` itself is untouched: adding a third consumer of
+   a class cannot move leads or contacts, and editing the class would. */
+.lead-card-body.tb-top-row { grid-template-columns: 1fr 1fr; }
+
 /* A1: a grid column's default `min-width: auto` refuses to shrink below its
    content, so an over-wide header does not clip - it OVERLAPS its neighbour.
    The wider viewports already say `minmax(0, ...)` for this reason; the base
