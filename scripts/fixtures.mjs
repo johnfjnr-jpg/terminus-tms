@@ -34,14 +34,38 @@
 import { createClient } from '@supabase/supabase-js'
 import { readSystemDefaults, initialPayload } from '../src/lib/system-defaults.js'
 import { api as apiCall } from './api-client.mjs'
-import { readFileSync, writeFileSync } from 'fs'
+import { readFileSync, writeFileSync, mkdirSync } from 'fs'
+import { join, dirname } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+// ── SCRATCH LIVES IN THE REPO, NOT IN SOMEBODY'S SESSION ─────────────────
+//
+// These three constants used to be absolute paths into ONE AGENT SESSION'S
+// temp directory, `/private/tmp/claude-501/.../2199d6a8-.../scratchpad/`,
+// baked in when that session wrote them. That directory is per-session and
+// the operating system sweeps it, so the paths were true when typed and
+// false thereafter - CLAUDE.md Architecture 9's fourth variant, a literal
+// with nothing to falsify it.
+//
+// IT BROKE BY THE PASSAGE OF TIME RATHER THAN BY A COMMIT, which is why no
+// gate caught it: Group A gated 24 of 24 green on 2026-09-15 while the
+// directory was still alive, and the same tree failed hours later with
+// `ENOENT ... walk-ids.json` once it had been swept.
+//
+// TAGS IS THE TEARDOWN LEDGER, so this was not only a red test. A run that
+// cannot record the tags it created cannot sweep them, which is the residue
+// mechanism the Group A close had just finished clearing by hand.
+//
+// Repo-relative, and `/.scratch/` is already in .gitignore.
+const SCRATCH = join(dirname(fileURLToPath(new URL('.', import.meta.url))), '.scratch')
+mkdirSync(SCRATCH, { recursive: true })
 
 const ENV = Object.fromEntries(readFileSync('/Users/johnfryatt/terminus-tms/.env', 'utf8')
   .split('\n').filter(l => l.includes('=') && !l.trim().startsWith('#'))
   .map(l => { const i = l.indexOf('='); return [l.slice(0, i).trim(), l.slice(i + 1).trim()] }))
 const SESSION = JSON.parse(readFileSync('/Users/johnfryatt/terminus-tms/session-ref.json', 'utf8'))
-const TB_IDS = '/private/tmp/claude-501/-Users-johnfryatt-terminus-tms/2199d6a8-d1e7-4e46-89a0-2df47e6eac14/scratchpad/tb-ids.json'
-const IDS = '/private/tmp/claude-501/-Users-johnfryatt-terminus-tms/2199d6a8-d1e7-4e46-89a0-2df47e6eac14/scratchpad/walk-ids.json'
+const TB_IDS = join(SCRATCH, 'tb-ids.json')
+const IDS = join(SCRATCH, 'walk-ids.json')
 // ── EVERY TAG THIS RUN CREATED, NOT JUST THE LAST ────────────────────────
 //
 // A REGRESSION THE TAG-SCOPING CHANGE ITSELF INTRODUCED, found by counting
@@ -54,7 +78,7 @@ const IDS = '/private/tmp/claude-501/-Users-johnfryatt-terminus-tms/2199d6a8-d1e
 // This holds TAGS, which are identities, not a list of records. Verification
 // 11's objection is to a file that says WHICH RECORDS a run made and goes
 // stale on a retry; the set each tag names is still enumerated live.
-const TAGS = '/private/tmp/claude-501/-Users-johnfryatt-terminus-tms/2199d6a8-d1e7-4e46-89a0-2df47e6eac14/scratchpad/fixture-tags.json'
+const TAGS = join(SCRATCH, 'fixture-tags.json')
 
 // ── A RECORD HANDED AWAY LEAVES tearDown's REACH ─────────────────────────
 //
@@ -69,7 +93,7 @@ const TAGS = '/private/tmp/claude-501/-Users-johnfryatt-terminus-tms/2199d6a8-d1
 // It is that HANDING A RECORD OVER IS A LEDGERED ACT: the id is written down
 // at the moment ownership moves, and teardown sweeps what the run handed away
 // as well as what it still owns.
-const HANDOVERS = '/private/tmp/claude-501/-Users-johnfryatt-terminus-tms/2199d6a8-d1e7-4e46-89a0-2df47e6eac14/scratchpad/fixture-handovers.json'
+const HANDOVERS = join(SCRATCH, 'fixture-handovers.json')
 
 function rememberHandover(recordId) {
   let all = []
