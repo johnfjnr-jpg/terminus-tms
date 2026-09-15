@@ -2368,6 +2368,46 @@ of the change. An unanswerable precondition is a stop.
     population, and folded into the same migration before it was applied.
 
 
+    **AND TWO OWNERS OF ONE CLASS, WHERE ONE OF THEM SWEEPS DOCUMENT-WIDE. THE
+    BLAST RADIUS IS EVERY SURFACE THAT SHARES THE CLASS, INCLUDING ONES THE
+    ROUND NEVER OPENED.** The Create-dead-on-detail bug, 2026-09-15.
+
+    Every clause above is two readers of one VALUE. This is two OWNERS of one
+    CLASS, and the damage runs the other way: not a wrong reading, but a write
+    into somebody else's DOM.
+
+    The instance. A round gave the Contacts LIST a click-to-open menu with an
+    outside-click closer:
+
+        document.querySelectorAll('.contact-create-dropdown')   // DOCUMENT-WIDE
+          .forEach((d) => d.classList.add('hidden'))
+
+    **The contact DETAIL screen's menu is React's and wears that same class** -
+    correctly, because it wears the estate's declared treatment for the control,
+    which is what Verification 7 asks for. The closer tested the click against
+    the LIST's anchor, so a click on the DETAIL trigger read as "outside", and
+    vanilla closed a menu React had opened **in the same tick**.
+
+    **THE SYMPTOM IS A DEAD CONTROL ON A SCREEN THE ROUND NEVER TOUCHED.** React
+    does not re-render, because its own state still says open. The screen that
+    was changed worked perfectly, and was verified.
+
+    **IT IS NOT A LIGHT-PATH FAULT, AND READING IT AS ONE WOULD LEARN THE WRONG
+    THING.** The round correctly identified the change as an INTERACTION and
+    proved the list still worked. What it did not do is ask **who else wears
+    this class**.
+
+    **The check: a DOCUMENT-WIDE SELECTOR IS A GLOBAL WRITE, so name every
+    surface that shares its class before changing it** - regardless of which
+    verification path the change is on, because blast radius is a property of
+    the code and not of the round. Scope the query to the caller's own anchor,
+    which makes the reach impossible rather than merely unexercised.
+
+    **And the probe gap is worth keeping beside it, because the probe DID click
+    the control**: it asserted the menu was IN THE DOM. Throughout the bug the
+    menu was in the DOM and **hidden**. Presence, not visibility - Verification
+    4's own sentence, arriving in a probe that drove the user path correctly.
+
     **AND TWO INSTRUMENTS CAN DISAGREE ABOUT CLASSIFICATION RATHER THAN ABOUT
     THE PRODUCT.** UI hygiene v2, 2026-09-09. Rule 20 is two readers of one
     VALUE. This is two readers of one DEFINITION, and it is quieter because
