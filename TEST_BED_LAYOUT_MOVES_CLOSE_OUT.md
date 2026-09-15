@@ -8,7 +8,8 @@
 `frontend-react/src/testbed/TestBedPanel.tsx`, one scoped CSS rule, and the
 bundle.
 
-**Nothing pushed.**
+**PUSHED** on the word, 2026-09-15. `ls-remote` confirms `origin/main` = local
+HEAD = `d3085effd22b43430df8165586e6d0fd30bde295`.
 
 ---
 
@@ -91,17 +92,29 @@ could not land - but that is the smaller half.
 
 ---
 
-## Carried
+## NEXT: THE TEST BED STATE ROUND, ruled and consolidated
 
-1. **R3**, per John's ruling on the fork above.
-2. **The draft-loss-on-tab-switch bug** - real, pre-existing, and worth its own
-   decision whether or not R3 proceeds.
-3. **R1's Follow-up** - new field pair, new write path, **server allowlist
-   change**. Same class as the notes/audit split and belongs in that round.
-4. **The leads/contacts notes/audit split** - server write-path plus a display
-   renderer, Architecture 12. **Reconfirm the 20-entry ruling at that round's
-   open**, because the shape changed after it was given.
-5. `StageActions` outside the conformance gate · the two unstyled buttons ·
+**All the Test Bed under-the-hood work in ONE properly-scoped round** rather
+than scattered across layout batches. **Option 1 on the fork, ruled.**
+**Medium-full, its own gate, restart discipline.**
+
+1. **R3 - lift `useFieldRows` to `TestBedHost`.** One store, surviving tab
+   switches, which **FIXES the draft-loss bug** rather than working around it.
+   Then move Sensor Counts and Costs to Commercials **through the portal that
+   then works**, because the owning component no longer unmounts.
+2. **R1's Follow-up** - new field pair, new write path, **server allowlist
+   change**. Test Bed has no follow-up today and the route refuses the key.
+3. **The leads/contacts notes/audit split** - the server writes structured
+   audit to `audit_log.detail` on PATCH, and a **display renderer** composes
+   the sentence. **Architecture 12**: a definer derives audit, it does not
+   accept client-composed audit. **RECONFIRM the 20-entry ruling at open** -
+   the shape changed after it was given, from a re-wire to a server change.
+
+**Correctly NOT a layout batch**, and that is the point of consolidating it.
+
+## Carried alongside
+
+1. `StageActions` outside the conformance gate · the two unstyled buttons ·
    **(d)** unscoped · ENFORCEMENT GAPS carrieds · navigation-state survival ·
    item 5's teardown population dependency · the Commercials tab not switching
    under a probe.
