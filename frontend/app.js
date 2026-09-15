@@ -5791,9 +5791,29 @@ function renderContactRowActions(c) {
   `
 }
 
-/** A5: close every open row menu, so two can never be open at once. */
+/**
+ * A5: close every open LIST-ROW menu, so two can never be open at once.
+ *
+ * SCOPED TO `.contact-create-hover`, WHICH IS THIS FILE'S OWN ANCHOR, and that
+ * scope is the whole point rather than tidiness.
+ *
+ * The first version queried `.contact-create-dropdown` DOCUMENT-WIDE. The
+ * contact DETAIL screen's Create menu is React's, and it wears that same class
+ * because it wears the estate's declared treatment for this control - which is
+ * correct, and is what Verification 7 asks for. So this function reached into
+ * a React-owned subtree, added `hidden` to a menu React had just opened and
+ * forced its trigger's `aria-expanded` back to false.
+ *
+ * The detail screen's Create then did NOTHING on click while the list's went
+ * on working, which is exactly how it was reported. React had opened the menu;
+ * this had closed it in the same tick, and React does not re-render because its
+ * own state still says open.
+ *
+ * VANILLA DOES NOT REACH INTO REACT'S DOM. The detail menu is anchored in
+ * `.cd-create-anchor` and owns its own outside-click and Escape handling.
+ */
 window.closeContactCreateMenus = () => {
-  document.querySelectorAll('.contact-create-dropdown').forEach((d) => {
+  document.querySelectorAll('.contact-create-hover .contact-create-dropdown').forEach((d) => {
     d.classList.add('hidden')
     const t = d.parentElement && d.parentElement.querySelector('.contact-create-trigger')
     if (t) t.setAttribute('aria-expanded', 'false')

@@ -12,6 +12,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
+// Comments stripped before matching, so prose describing the old unscoped
+// query cannot satisfy or trip this check (Verification 39).
+import { readCode } from '../lib/strip-comments.mjs'
 
 const ROOT = new URL('../../', import.meta.url)
 
@@ -87,4 +90,47 @@ test('NO app.js top-level name collides with a bundle global', () => {
   assert.deepEqual(clash, [],
     'app.js declares these at top level and the bundle publishes them, so '
     + 'app.js - which loads second - overwrites the registration: ' + clash.join(', '))
+})
+
+test('app.js does not sweep a SHARED class document-wide, into React-owned DOM', () => {
+  // THE DEFECT THIS EXISTS FOR, and it shipped.
+  //
+  // `closeContactCreateMenus` queried `.contact-create-dropdown` across the
+  // WHOLE DOCUMENT. The contact detail screen's Create menu is React's and
+  // wears that class because it wears the estate's declared treatment for the
+  // control - which is correct, and is what Verification 7 asks for.
+  //
+  // So vanilla reached into a React subtree, added `hidden` to a menu React
+  // had just opened and forced its trigger's aria-expanded back to false. The
+  // detail screen's Create then did NOTHING on click while the list's kept
+  // working. React does not re-render, because its own state still says open.
+  //
+  // A MECHANISM TEST CANNOT SEE THIS. The dialogue works, the route works, the
+  // create works - from the list. Only a CLICK on the dead control shows it,
+  // and only if the assertion is VISIBILITY rather than presence: the menu was
+  // in the DOM throughout.
+  const app = readCode(new URL('frontend/app.js', ROOT))
+
+  // Every class the React tree styles its own menu with, derived from the
+  // component rather than retyped, so this cannot rot when the class changes.
+  const stage = readCode(new URL('frontend-react/src/contact/StageActions.tsx', ROOT))
+  const reactOwned = [...stage.matchAll(/className="([^"]*contact-create[^"]*)"/g)]
+    .flatMap((m) => m[1].split(/\s+/))
+    .filter((c) => c.startsWith('contact-create'))
+  assert.ok(reactOwned.length > 0,
+    'no shared contact-create class found in StageActions, so this check is vacuous')
+
+  const unscoped = []
+  for (const cls of new Set(reactOwned)) {
+    for (const m of app.matchAll(/querySelectorAll\(\s*'([^']+)'\s*\)/g)) {
+      const sel = m[1]
+      if (!sel.includes(cls)) continue
+      // Scoped to the vanilla's OWN anchor is fine - that is its own markup.
+      if (sel.includes('.contact-create-hover')) continue
+      unscoped.push(`querySelectorAll('${sel}')`)
+    }
+  }
+  assert.deepEqual(unscoped, [],
+    'app.js sweeps a class React also renders, document-wide, so it reaches into '
+    + 'React-owned DOM and silently undoes what React just did: ' + unscoped.join(', '))
 })
