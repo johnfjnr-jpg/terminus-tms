@@ -40,7 +40,9 @@ try {
       datesBesideSite: site && dates ? Math.abs(site.top - dates.top) < 8 : null,
       datesTops: site && dates ? [Math.round(site.top), Math.round(dates.top)] : null,
       sensorsOnReference: !!r('tb-card-sensors'),
-      commercialsOnReference: !!r('tb-card-commercials'),
+      // RE-POINTED 2026-09-15, L3: one flat Commercials card became three
+      // titled rate cards, so this reads the first of them.
+      commercialsOnReference: !!r('tb-card-rates-hardware'),
     }
   })
   console.log(`  ${JSON.stringify(geo)}`)

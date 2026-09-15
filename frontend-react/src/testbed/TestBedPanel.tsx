@@ -8,6 +8,7 @@ import { FieldRow } from '../field-row/FieldRow'
 import type { useFieldRows } from '../field-row/useFieldRows'
 import { testBedDescriptors, buyerDescriptor, CLIENT_BUYER_ROLES, type TestBedSource } from './descriptors'
 import { dateBounds } from './dateBounds'
+import { SubTabs } from './SubTabs'
 import type { LookupOption } from '../field-row/types'
 
 /**
@@ -31,7 +32,7 @@ export function Card({ title, testId, children }: { title: string, testId: strin
   )
 }
 
-export function TestBedPanel({ source, rows, contacts, buyers, onDirtyChange, onDraftsChange, notes, followUp, controls, useCases, customerDocs, history }: {
+export function TestBedPanel({ source, rows, contacts, buyers, onDirtyChange, notes, followUp, controls, useCases, customerDocs, history, score, refPanes, refPane, onRefPaneChange }: {
   source: TestBedSource
   /** The Account's contacts, for the buyer lookups. */
   /**
@@ -45,8 +46,6 @@ export function TestBedPanel({ source, rows, contacts, buyers, onDirtyChange, on
   buyers: Record<string, string>
 
   onDirtyChange?: (dirty: boolean) => void
-  /** The cost preview needs the live drafts, and a preview is not a save. */
-  onDraftsChange?: (drafts: Record<string, string>) => void
   notes?: ReactNode
   /** R2: the follow-up task, owned by the host because its write is its own. */
   followUp?: ReactNode
@@ -59,6 +58,20 @@ export function TestBedPanel({ source, rows, contacts, buyers, onDirtyChange, on
   customerDocs?: ReactNode
   /** Raw audit entries. Read-only. */
   history?: ReactNode
+
+  /** L2: the Qualification score card's rows. Display only. */
+  score?: ReactNode
+  /**
+   * L4: whether to render the three panes as a strip. False while the host has
+   * nothing to put in them, so an empty strip is never shown.
+   */
+  refPanes?: boolean
+  /**
+   * L4: the open pane, HELD BY THE HOST. This panel unmounts on every tab
+   * switch, so state here would reset on Reference -> Commercials -> Reference.
+   */
+  refPane?: string
+  onRefPaneChange?: (key: string) => void
 }) {
   // R1: THE DRAFT STORE IS OWNED BY THE HOST NOW, not by this panel.
   //
@@ -92,7 +105,26 @@ export function TestBedPanel({ source, rows, contacts, buyers, onDirtyChange, on
 
   const dirty = rows.dirtyCount > 0
   useEffect(() => { onDirtyChange?.(dirty) }, [dirty, onDirtyChange])
-  useEffect(() => { onDraftsChange?.(rows.changes) }, [rows.changes, onDraftsChange])
+  // ── `onDraftsChange` IS GONE FROM HERE, AND IT HAD TO BE ─────────────────
+  //
+  // It ran as an effect in THIS component, which is the Reference pane, and
+  // `StageTabs` renders `active === 'reference' ? panel : null`. So it stopped
+  // firing the moment the cost fields moved to the Commercials tab last round:
+  // typing a sensor count there scheduled no preview at all.
+  //
+  // IT WAS INVISIBLE UNTIL L1 FILLED THE BREAKDOWN. With the container
+  // rendering two words, a preview that never arrived looked exactly like a
+  // preview that had - and once the four cards render, the LABELS still follow
+  // the drafts, because they are read during render rather than from an
+  // effect. That left `SafeSight (12 × $4,200)` beside `$0`: the
+  // self-contradicting row the vanilla's own comment exists to prevent.
+  //
+  // Found by a live browser, not by a test. Reported as a Phase 1 finding, and
+  // fixed here rather than carried, because this round is what made it visible
+  // (build discipline 10's limit).
+  //
+  // The reporting now lives on the HOST, beside the store it reads. Same
+  // reasoning as R1 lifting the store: the host outlives the tabs.
 
   // R2: A ROW WHOSE CARD ALREADY NAMES IT DOES NOT NAME ITSELF, and it must
   // not keep the label's 170px column either. Adding the follow-up as the
@@ -185,6 +217,23 @@ export function TestBedPanel({ source, rows, contacts, buyers, onDirtyChange, on
         <Card title="Key Dates" testId="tb-card-dates">
           {['estimatedInstallationDate', 'estGoLiveDate', 'testBedDuration'].map((n) => row(n))}
         </Card>
+
+        {/* ── L2: THE QUALIFICATION SCORE CARD ──────────────────────────
+            `tb-score-summary` appeared ZERO times in the React tree. Restored
+            into the same `.ref-cards` grid the vanilla put it in, so it wraps
+            with its siblings rather than being positioned by hand.
+
+            The sub-line is not decoration. This card carries NO control, and
+            the sentence is what makes the route evident without one: it says
+            where scoring happens instead of offering a second place to do it.
+
+            Retitled by Round 15 Phase 5 from "Scores" to "Qualification
+            score", sentence case. Two similarly named panels on different
+            tabs is deliberate and was confirmed with the business. */}
+        <Card title="Qualification score" testId="tb-card-score">
+          <p className="sub" data-testid="tb-score-summary-sub">Recorded on the stage tabs.</p>
+          {score}
+        </Card>
       </div>
 
       {/* R1: Sensor Counts and Commercials MOVED to the Commercials tab, which
@@ -194,14 +243,35 @@ export function TestBedPanel({ source, rows, contacts, buyers, onDirtyChange, on
 
 
 
-      {useCases ? <Card title="Use Cases" testId="tb-card-usecases">{useCases}</Card> : null}
+      {/* ── L4: THE THREE PANES ARE A SUB-TAB STRIP AGAIN ────────────────
+          They were stacked cards after the swap. The vanilla made them panes
+          and recorded the business's reason: two large, mostly-empty panels
+          for two lists that are usually short is a poor use of the tab's
+          vertical space, and one pane at a time gives each list the full
+          width AND removes the empty half.
 
-      {/* Both live on the Reference tab in the vanilla, measured from the
-          enclosing pane rather than assumed. */}
-      {customerDocs
-        ? <Card title="Client Documents" testId="tb-card-custdocs">{customerDocs}</Card>
+          NO .pg-card AND NO TITLE INSIDE A PANE. The pane IS the container
+          and the tab label IS the heading - a bordered card carrying the same
+          word as the tab above it is the clutter the vanilla's own phase
+          removed. That is why the three `tb-card-*` testids are gone rather
+          than moved: there are no cards here now. None had a caller outside
+          this file, checked before removing them.
+
+          THE LABEL IS `Customer documents`, the vanilla's, not the React
+          card's `Client Documents`. The two disagreed and the brief asked for
+          one to be picked; the vanilla's is the one this round is restoring
+          and the one the business has seen. */}
+      {refPanes
+        ? (
+          <SubTabs idPrefix="tb-ref-subtabs" label="Reference detail"
+            active={refPane ?? 'useCases'}
+            onSelect={(k) => onRefPaneChange?.(k)}
+            tabs={[
+              { key: 'useCases', label: 'Use cases', content: useCases },
+              { key: 'customerDocuments', label: 'Customer documents', content: customerDocs },
+              { key: 'history', label: 'History', content: history },
+            ]} />)
         : null}
-      {history ? <Card title="History" testId="tb-card-history">{history}</Card> : null}
 
       {controls}
       {/* R1: `{notes}` moved to the top row. Removed here rather than left,

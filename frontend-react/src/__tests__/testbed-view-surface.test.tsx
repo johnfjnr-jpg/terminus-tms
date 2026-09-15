@@ -125,6 +125,24 @@ describe('L1/L4/L5: the host\'s load path', () => {
       }) as ShellServices['api'],
     })
     await act(async () => { await Promise.resolve(); await Promise.resolve() })
+
+    // ── RE-POINTED 2026-09-15, L4 ─────────────────────────────────────────
+    //
+    // History is a PANE now, not a stacked card, and only the open pane is
+    // rendered - which is how it stays lazy, the way the vanilla loaded it on
+    // select. So the panel is not in the DOM until its tab is opened, and
+    // asserting on it without opening one would be Verification 14's
+    // true-by-absence: the claim would "pass" against a panel that does not
+    // exist.
+    //
+    // The CLAIM is unchanged and is still the point: a bare-array response
+    // must not throw out of the panel. The host fetches history on load
+    // regardless of which pane is open, so what this opens is the RENDER.
+    const historyTab = host.querySelector<HTMLButtonElement>(
+      '[data-testid="tb-ref-subtabs-btn-history"]')
+    expect(historyTab, 'the History sub-tab is not on the Reference pane').toBeTruthy()
+    await act(async () => { historyTab!.click() })
+
     expect(q('tb-history-empty') ?? q('tb-history-block'),
       'a bare-array response threw out of the history panel').toBeTruthy()
   })
@@ -146,5 +164,90 @@ describe('L1/L4/L5: the host\'s load path', () => {
     // The initial render uses the bed it was handed; the failure shows on the
     // reload, which is the path the vanilla's early return covers.
     expect(detailLoaded, 'a failed load never settled the view').toBeDefined()
+  })
+})
+
+// ── THE COST PREVIEW FIRES FROM THE TAB THE COST FIELDS ARE ON ───────────
+//
+// A LIVE DEFECT, found by a browser in the commercials-recovery round and not
+// by any test. `onDraftsChange` ran as an effect inside `TestBedPanel`, which
+// is the REFERENCE pane - `StageTabs` renders `active === 'reference' ? panel
+// : null` - so it stopped firing the moment the cost fields moved to the
+// Commercials tab. Typing a sensor count there scheduled no preview at all.
+//
+// NOTHING COULD SEE IT while the breakdown container rendered two words: a
+// preview that never arrived and one that had looked identical. Filling the
+// four cards is what made it visible, and it was visible in the worst way -
+// the labels follow the drafts because they are read during RENDER, so the
+// screen showed `SafeSight (12 × $4,200)` beside `$0`.
+//
+// The claim is about WHICH TAB, so the test opens Commercials before typing.
+// Asserting on the Reference tab would pass against the defect.
+describe('the cost preview follows the drafts from any tab', () => {
+  const BED2 = {
+    id: 'tb-1', status: 'Qualification', owner_id: 'user-1',
+    payload: { name: 'Bed A' }, latest_revision_number: 1,
+  }
+
+  const mountBed = () => {
+    const posts: Array<{ path: string, body: unknown }> = []
+    const services = shellServices({
+      api: (async (m: string, path: string, body?: unknown) => {
+        if (m === 'POST') posts.push({ path, body })
+        if (path === '/api/test-beds/tb-1') return { ok: true, status: 200, data: BED2 }
+        if (path.endsWith('/history')) return { ok: true, status: 200, data: { entries: [] } }
+        if (path.endsWith('/lifecycle-documents')) {
+          return { ok: true, status: 200, data: { total: 0, produced: 0, groups: [] } }
+        }
+        return { ok: true, status: 200, data: [] }
+      }) as ShellServices['api'],
+      currentUserId: () => 'user-1',
+    })
+    act(() => {
+      root.render(<ShellProvider services={services}><TestBedHost bed={BED2} /></ShellProvider>)
+    })
+    return posts
+  }
+
+  test('typing a sensor count on COMMERCIALS schedules a preview', async () => {
+    vi.useFakeTimers()
+    try {
+      const posts = mountBed()
+      await act(async () => { await Promise.resolve(); await Promise.resolve() })
+
+      // Open Commercials, which UNMOUNTS the Reference panel. That is the
+      // condition the defect needed and the reason this test opens a tab.
+      const tab = host.querySelector<HTMLButtonElement>('[data-testid="tb-tab-btn-commercials"]')
+      expect(tab, 'the Commercials tab button is missing').toBeTruthy()
+      await act(async () => { tab!.click() })
+      expect(host.querySelector('[data-testid="tb-card-sensors"]'),
+        'Sensor Counts is not on the Commercials tab, so this tests nothing').toBeTruthy()
+
+      // Drive the controller the way a person does: open the row, then type.
+      const display = host.querySelector<HTMLElement>('[data-testid="display-safesightCameras"]')
+      expect(display, 'the sensor count row is missing').toBeTruthy()
+      await act(async () => { display!.click() })
+      const input = host.querySelector<HTMLInputElement>('[data-testid="input-safesightCameras"]')
+      expect(input, 'the editor did not open').toBeTruthy()
+      await act(async () => {
+        const setter = Object.getOwnPropertyDescriptor(
+          window.HTMLInputElement.prototype, 'value')!.set!
+        setter.call(input!, '12')
+        input!.dispatchEvent(new Event('input', { bubbles: true }))
+      })
+
+      // The runner debounces 400ms. Not a fixed sleep: the timers are fake and
+      // this advances them past the one interval the runner names.
+      await act(async () => { await vi.advanceTimersByTimeAsync(600) })
+
+      const calc = posts.filter((p) => p.path === '/api/test-beds/calculate')
+      expect(calc.length,
+        'no preview was requested, so a cost typed on Commercials computes nothing')
+        .toBeGreaterThan(0)
+      expect((calc.at(-1)!.body as Record<string, unknown>).safesightCameras,
+        'the preview was sent without the draft that triggered it').toBe('12')
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

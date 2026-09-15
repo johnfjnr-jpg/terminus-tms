@@ -45,7 +45,13 @@ describe('R12: HEMIR is suppressed unless it carries data', () => {
 describe('the five cells', () => {
   it('reads accumulated_cost, which is what the carry-forward passes', () => {
     const { cells } = headerStats({ accumulated_cost: 164000 }, '2026-09-10')
-    expect(cells[0]).toEqual({ label: 'Total cost', value: '$164,000' })
+    // ── Q1-A, 2026-09-15: THE LABEL SAYS WHICH TOTAL THIS IS ──────────────
+    //
+    // Restoring the cost breakdown puts a SECOND Total Cost on this screen,
+    // recomputed from whatever is currently typed. This one is the persisted
+    // `accumulated_cost`. The two differing during an edit is correct; what
+    // was wrong is that neither said which it was.
+    expect(cells[0]).toEqual({ label: 'Total cost (saved)', value: '$164,000' })
   })
   it('says -- rather than 0 for a cost nobody has entered', () => {
     const { cells } = headerStats({}, '2026-09-10')
@@ -59,7 +65,7 @@ describe('the five cells', () => {
   it('keeps the five cells in the order of record', () => {
     const { cells } = headerStats({}, '2026-09-10')
     expect(cells.map((c) => c.label))
-      .toEqual(['Total cost', 'Duration', 'Hardware', 'Est. start', 'Contracted end'])
+      .toEqual(['Total cost (saved)', 'Duration', 'Hardware', 'Est. start', 'Contracted end'])
   })
 })
 

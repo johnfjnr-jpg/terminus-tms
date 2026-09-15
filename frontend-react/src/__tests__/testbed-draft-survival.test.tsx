@@ -159,7 +159,11 @@ describe('R1 part 2: the cards MOVED to Commercials', () => {
     expect(must('testbed-panel'),
       'the Reference panel did not render, so its emptiness proves nothing').toBeTruthy()
     expect(count('tb-card-sensors'), 'Sensor Counts is STILL on Reference').toBe(0)
-    expect(count('tb-card-commercials'), 'the Commercials card is STILL on Reference').toBe(0)
+    // RE-POINTED 2026-09-15, L3. `tb-card-commercials` named ONE card holding
+    // all nine cost rows; it is three cards now, so the name is retired rather
+    // than left on an arbitrary one of them (Verification 19/41). The claim is
+    // unchanged: the cost rows are not on Reference.
+    expect(count('tb-card-rates-hardware'), 'the rate cards are STILL on Reference').toBe(0)
   })
 
   test('Commercials carries exactly one of each, and the tab is no longer empty', async () => {
@@ -167,7 +171,7 @@ describe('R1 part 2: the cards MOVED to Commercials', () => {
     click(must('tb-tab-btn-commercials'))
     await settle()
     expect(count('tb-card-sensors'), 'Sensor Counts did not arrive, or arrived twice').toBe(1)
-    expect(count('tb-card-commercials'), 'the Commercials card did not arrive, or arrived twice').toBe(1)
+    expect(count('tb-card-rates-hardware'), 'the Hardware rate card did not arrive, or arrived twice').toBe(1)
     expect(count('tb-cost-breakdown'),
       'the cost breakdown did not travel with the card it belongs to').toBe(1)
     // The rows are REAL rows, not a heading: the door and the save path both

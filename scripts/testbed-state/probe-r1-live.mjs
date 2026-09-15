@@ -51,7 +51,9 @@ try {
     return {
       panel: !!v.querySelector('[data-testid="testbed-panel"]'),
       sensors: v.querySelectorAll('[data-testid="tb-card-sensors"]').length,
-      costs: v.querySelectorAll('[data-testid="tb-card-commercials"]').length,
+      // RE-POINTED 2026-09-15, L3: the one flat Commercials card is three
+      // titled rate cards now, so every reading below takes the first of them.
+      costs: v.querySelectorAll('[data-testid="tb-card-rates-hardware"]').length,
     }
   })
   check(onRef.panel, 'the Reference panel rendered, so its emptiness is a measurement')
@@ -63,7 +65,7 @@ try {
   await p.click('[data-testid="tb-tab-btn-commercials"]')
   await p.waitForFunction(() => {
     const v = document.getElementById('view-test-bed-detail')
-    const c = v?.querySelector('[data-testid="tb-card-commercials"]')
+    const c = v?.querySelector('[data-testid="tb-card-rates-hardware"]')
     return !!c && (c.textContent ?? '').trim().length > 0
   }, { timeout: 30000 })
 
@@ -72,11 +74,11 @@ try {
     const one = (t) => v.querySelector(`[data-testid="${t}"]`)
     const n = (t) => v.querySelectorAll(`[data-testid="${t}"]`).length
     const tab = one('tb-tab-commercials')
-    const sensors = one('tb-card-sensors'), costs = one('tb-card-commercials')
+    const sensors = one('tb-card-sensors'), costs = one('tb-card-rates-hardware')
     const rs = sensors?.getBoundingClientRect(), rc = costs?.getBoundingClientRect()
     const input = one('display-ssUnitCost')?.getBoundingClientRect()
     return {
-      sensors: n('tb-card-sensors'), costs: n('tb-card-commercials'),
+      sensors: n('tb-card-sensors'), costs: n('tb-card-rates-hardware'),
       breakdown: n('tb-cost-breakdown'), rowCount: n('display-ssUnitCost'),
       // A RELATIONSHIP, not a CSS property: the cards hang off the tab pane.
       sensorsInTab: !!(tab && sensors && tab.contains(sensors)),

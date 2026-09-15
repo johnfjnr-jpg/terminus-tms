@@ -3139,6 +3139,36 @@ input.input-invalid {
   color: var(--white);
 }
 
+/* ── The breakdown's three row weights, recovered 2026-09-15 ────────────
+   The vanilla carried these as INLINE styles on every span it built, which
+   is invisible to `class-rules.test.mjs` and cannot be asserted. Recovering
+   the breakdown into React is the moment to give them names, so the
+   treatment is one definition rather than four copies of a style attribute
+   (Verification 20), and so a later rebuild cannot quietly drop one.
+
+   ITEM is the dimmed weight for the rows a total is built FROM. Its value
+   keeps .data-row-label, which is the estate's existing dimmed treatment.
+
+   STRONG is white, and it dresses both the summary card's category rows and
+   the detail cards' closing subtotals.
+
+   SUBTOTAL adds the divider, and ONLY the detail cards get it. The summary
+   card deliberately does not: every row in it is already a total, so there
+   is nothing for a rule to divide it from. Round 15 Phase 4's own note. */
+.tb-cost-item-label { font-size: 13px; }
+.tb-cost-strong {
+  font-size: 13px;
+  color: var(--white);
+}
+.tb-cost-subtotal { border-top: 1px solid var(--hairline); }
+
+/* ── L1/Q4: the Itemized Cost section's own spacing ─────────────────────
+   The vanilla carried this as `style="margin-top:28px"` on the wrapper. A
+   name rather than an inline style, for the same reason as the three row
+   weights above: an inline style cannot be asserted and cannot be found by
+   anyone looking for how this section is spaced. */
+.tb-itemized-cost { margin-top: 28px; }
+
 /* ── Round 9 Phase 6: merged Terminus Documents panel and the Exit
    Criteria tick list ────────────────────────────────────────────────
    No new grid CSS: all three stage-tab panels sit in the existing

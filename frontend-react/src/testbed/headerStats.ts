@@ -7,15 +7,14 @@
 // two hand-written tables agree today and drift later. This side reads the
 // map that belongs to it.
 import { COUNT_KEY_TO_UNIT_TYPE } from './units'
+import { money } from './money'
 import { formatDate as fmtDate } from '../../../src/lib/format-dates.js'
 
 export interface StatCell { label: string, value: string, overdue?: boolean }
 
-const money = (n: unknown): string => {
-  const v = Number(n)
-  if (!Number.isFinite(v) || n === null || n === undefined || n === '') return '--'
-  return `$${v.toLocaleString('en-US', { maximumFractionDigits: 0 })}`
-}
+// Q2, ruled: ONE formatter. This was a module-local copy; the cost breakdown
+// needed the same one, and two definitions of one format on one screen is the
+// thing Verification 20 is about. Imported now, defined in `money.ts`.
 
 // R7: this was a PASSTHROUGH - it returned the stored string unchanged, so
 // Est. start and Contracted end rendered YYYY-MM-DD. A passthrough is a raw
@@ -61,7 +60,25 @@ export function headerStats(payload: Record<string, unknown>, today = todayIso()
     // `accumulated_cost` per R4: it is what the carry-forward already passes
     // to an Opportunity, so the header and the carry-forward read one field.
     cells: [
-      { label: 'Total cost', value: money(payload?.accumulated_cost) },
+      // ── Q1-A, RULED 2026-09-15: THIS TOTAL SAYS IT IS THE SAVED ONE ────
+      //
+      // Restoring the cost breakdown puts a SECOND Total Cost on this screen,
+      // in the Cost summary card, and the two are read from different places
+      // on purpose: this one is `accumulated_cost`, the persisted mirror, and
+      // that one is `costBreakdown.totalCost`, recomputed from whatever is
+      // currently typed.
+      //
+      // WHILE AN EDIT IS OPEN THEY WILL LEGITIMATELY DIFFER, and that is the
+      // point rather than a defect: one is what is stored and one is what is
+      // being typed. What was wrong is that neither said which it was
+      // (Verification 20, two readers of one value).
+      //
+      // The collision is NEW and this round created it. The header strip
+      // landed 2026-09-10, after the breakdown had already been dropped at the
+      // swap, so the two have never been on screen together until now - which
+      // is build discipline 10's limit: a finding your own change creates is
+      // part of the change.
+      { label: 'Total cost (saved)', value: money(payload?.accumulated_cost) },
       { label: 'Duration', value: (months === undefined || months === null || months === '') ? '--' : `${months} months` },
       { label: 'Hardware', value: '' },
       { label: 'Est. start', value: date(payload?.estimatedInstallationDate) },

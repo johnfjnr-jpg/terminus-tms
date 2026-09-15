@@ -12,6 +12,9 @@ import { EditBar } from '../field-row/EditBar'
 // the two would agree today (Verification 20).
 import { FollowUpTask } from '../contact/FollowUpTask'
 import { createPreviewRunner } from './costPreview'
+import { CostBreakdownCards } from './CostBreakdownCards'
+import { QualificationScore } from './QualificationScore'
+import { isBreakdown, type TestBedCostBreakdown } from './costBreakdown'
 import { useShell } from '../ShellContext'
 import type { LookupOption } from '../field-row/types'
 import { NotesHistory } from '../contact/NotesHistory'
@@ -67,7 +70,12 @@ interface BedLike {
   account_id?: string | null
   account?: { id?: string } | null
   latest_revision_number?: number | null
-  costBreakdown?: unknown
+  // L1: WAS `unknown`, AND THAT WAS THE WHOLE DEFECT IN ONE WORD.
+  //
+  // `GET /api/test-beds/:id` has always carried this - live-recomputed from
+  // the stored payload at `src/routes/test-beds.js:419` - and nothing has ever
+  // read it. Typed now, from the engine's own return rather than from a guess.
+  costBreakdown?: TestBedCostBreakdown
 }
 
 /**
@@ -97,13 +105,34 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
   const [record, setRecord] = useState<BedLike>(bed)
   const [staff, setStaff] = useState<string[]>([])
   const [contacts, setContacts] = useState<LookupOption[]>([])
-  const [preview, setPreview] = useState<unknown | null>(null)
+  // L1: the SECOND `unknown`. The preview is the same shape as the stored
+  // breakdown, because both come from `buildTestBedCostBreakdown` over the
+  // same engine - which is why a preview and a save can never disagree about
+  // arithmetic, only about inputs.
+  const [preview, setPreview] = useState<TestBedCostBreakdown | null>(null)
   const [feedback, setFeedback] = useState<{ text: string | null, html?: string | null, ok: boolean } | null>(null)
   const [dirty, setDirty] = useState(false)
   const [units, setUnits] = useState<Unit[]>([])
   const [stages, setStages] = useState<Stage[]>([])
   const [scoring, setScoring] = useState<Record<string, Criterion[]>>({})
   const [seriesByKey, setSeriesByKey] = useState<Record<string, ScoreEntry[]>>({})
+  // L2: EVERY test_bed criterion, not the per-stage subset. The card lists
+  // them all and says which stage each score was recorded at, so a per-stage
+  // list would show a person only what the stage they are on happens to ask.
+  const [allCriteria, setAllCriteria] = useState<Criterion[]>([])
+  // ── L4: THE OPEN REFERENCE PANE LIVES HERE, NOT IN THE PANEL ──────────
+  //
+  // `TestBedPanel` unmounts on every tab switch and would take this with it.
+  // The host outlives the tabs, which is R1's reasoning for the draft store
+  // applied unchanged.
+  //
+  // IT MUST STILL RESET BETWEEN RECORDS. `main.tsx` re-renders this tree
+  // rather than remounting it, so a plain `useState` would follow the user
+  // to the next Test Bed and open a pane that is empty on it. Keyed on the
+  // record id, which is the same trap `useState(prop)` fell into on Contact.
+  const [refPane, setRefPane] = useState('useCases')
+  const [paneRecord, setPaneRecord] = useState(bed.id)
+  if (paneRecord !== bed.id) { setPaneRecord(bed.id); setRefPane('useCases') }
   const [accounts, setAccounts] = useState<AccountOption[]>([])
   const [installerContacts, setInstallerContacts] = useState<ContactOption[]>([])
   const [customerDocs, setCustomerDocs] = useState<CustomerDoc[]>([])
@@ -192,6 +221,25 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
     return () => { live = false }
   }, [shell, installerAccountId])
 
+  // ── L2: THE SCORING CRITERIA, FETCHED ONCE ─────────────────────────────
+  //
+  // Not per record and not per stage: the criteria are CONFIGURATION for the
+  // record type, which is why the vanilla's `ensureTbScoringCriteria` cached
+  // them for the life of the page.
+  //
+  // THE HOST'S `scoring` STATE COULD NOT BE USED, and that is worth naming
+  // rather than working around silently: `setScoring` is never called
+  // anywhere in this file, so `scoring` is permanently `{}`. Recorded as a
+  // finding and NOT fixed here - it feeds the stage panel, not this card.
+  useEffect(() => {
+    let live = true
+    void shell.api<Criterion[]>('GET', '/api/scoring-criteria?record_type=test_bed')
+      .then((r) => {
+        if (live && r.ok && Array.isArray(r.data)) setAllCriteria(r.data)
+      })
+    return () => { live = false }
+  }, [shell])
+
   const loadCustomerDocs = useCallback(async () => {
     const r = await shell.api<CustomerDoc[]>('GET', CUSTOMER_DOCS_ROUTE(bed.id))
     setCustomerDocs(r.ok && Array.isArray(r.data) ? r.data : [])
@@ -270,15 +318,56 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
   const rows = useFieldRows(testBedDescriptors(source))
 
 
-  // R1: the breakdown travels WITH the Commercials card it belongs to. It was
-  // a prop of TestBedPanel only because the card was.
+  // ── L1: THE ITEMIZED COST SECTION ──────────────────────────────────────
+  //
+  // The container used to render the words "Unsaved figures" and nothing else,
+  // while the four cards' data sat in `preview` unread. It is filled now.
+  //
+  // WHICH SOURCE, AND IT IS A CHOICE OF INPUTS RATHER THAN OF ARITHMETIC.
+  // The preview while something cost-related is dirty, the record's own
+  // stored breakdown otherwise. Both come from the same server function, so
+  // the two can never disagree about how anything is added up - the vanilla's
+  // `tbCostPreview ?? tbBed.costBreakdown`, unchanged in meaning.
+  const shown = preview ?? (isBreakdown(record.costBreakdown) ? record.costBreakdown : null)
+  const unsaved = preview !== null
+
+  // The draft-or-stored reader, the vanilla's `tbEffectiveValue`. The hardware
+  // labels quote their own inputs, so while a preview is showing they must
+  // quote the DRAFT ones - otherwise a row reads `SafeSight (12 × $4,200)`
+  // beside a figure computed from 14.
+  const effective = useCallback(
+    (key: string) => rows.valueOf(key) ?? '', [rows])
+
   const costBreakdownNode = (
-    <div data-testid="tb-cost-breakdown"
-      className={preview ? 'tb-cost-unsaved' : undefined}>
-      {/* C4: the marker says these figures come from UNSAVED drafts. A
-          preview is not a save, and the screen must be able to say so. */}
-      {preview ? <span data-testid="tb-cost-preview-marker">Unsaved figures</span> : null}
+    <div data-testid="tb-cost-breakdown">
+      {shown
+        ? <CostBreakdownCards breakdown={shown} input={effective} unsaved={unsaved} />
+        : (
+          // Reported rather than omitted. A section that disappears when
+          // something goes wrong reads as "this Test Bed has no costs" to
+          // whoever it was for.
+          <p className="empty-state" data-testid="tb-cost-breakdown-empty">
+            Unable to load cost breakdown.
+          </p>)}
     </div>
+  )
+
+  // Q4, ruled: the breakdown is its OWN section below the rate grid, with the
+  // vanilla's heading and sub-line, rather than a child of the Commercials
+  // card. The sub-line is the one place on this tab that says what the figures
+  // are FOR, and it says cost only, no price or margin.
+  const commercialsTab = (
+    <>
+      <CommercialsCards rows={rows} fields={testBedDescriptors(source)} />
+      <div className="tb-itemized-cost" data-testid="tb-itemized-cost">
+        <p className="pg-card-title">Itemized Cost</p>
+        <p className="sub">
+          What this Test Bed will cost to build - cost only, no price or margin,
+          supporting a go/no-go decision.
+        </p>
+        {costBreakdownNode}
+      </div>
+    </>
   )
 
   const buyers = useMemo(() => {
@@ -316,7 +405,12 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
   // ── THE COST PREVIEW, with its ordering guard. C1-C9 ─────────────────
   const runner = useRef(createPreviewRunner(
     async (body) => shell.api('POST', '/api/test-beds/calculate', body),
-    (data) => setPreview(data),
+    // The runner hands back whatever the route answered. Narrowed here rather
+    // than trusted: a malformed answer becomes null, which falls back to the
+    // stored breakdown, which is the vanilla's own behaviour on a failed
+    // preview - a wrong number wearing the unsaved marker is worse than the
+    // saved one.
+    (data) => setPreview(isBreakdown(data) ? data : null),
   ))
 
   // R2: ITS OWN WRITE, like the Contact surface's. The follow-up task is not
@@ -350,6 +444,18 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
     })
     runner.current.schedule(next, record.payload ?? {})
   }, [record.payload])
+
+  // ── THE DRAFTS ARE REPORTED FROM HERE, NOT FROM THE REFERENCE PANEL ─────
+  //
+  // This effect used to live in `TestBedPanel`, which is the Reference pane and
+  // therefore UNMOUNTS whenever another tab is open. When last round moved the
+  // cost fields to the Commercials tab, typing a cost stopped scheduling a
+  // preview entirely - and nothing could see it, because the breakdown
+  // container rendered two words either way.
+  //
+  // It belongs beside the store. `rows` is owned by this host, so this is the
+  // one place that can see a draft change from ANY tab.
+  useEffect(() => { onDraftsChange(rows.changes) }, [rows.changes, onDraftsChange])
 
   useEffect(() => () => { runner.current.cancel() }, [])
 
@@ -563,16 +669,18 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
           const { currentStage, nextStage } = nextStageFor(stages, record.status)
           if (nextStage) shell.attemptTransition(bed.id, nextStage, 'test_bed', currentStage)
         }}
-        commercials={
-          <CommercialsCards rows={rows} fields={testBedDescriptors(source)}
-            costBreakdown={costBreakdownNode} />}
+        commercials={commercialsTab}
         reference={<TestBedPanel
           source={source}
           rows={rows}
           contacts={contacts}
           buyers={buyers}
-          onDirtyChange={setDirty}
-        onDraftsChange={onDraftsChange}
+          score={<QualificationScore criteria={allCriteria} payload={record.payload} />}
+        refPanes
+        refPane={refPane}
+        onRefPaneChange={setRefPane}
+        onDirtyChange={setDirty}
+
         notes={
           <NotesHistory
             notes={notes}

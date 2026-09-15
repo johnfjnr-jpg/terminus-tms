@@ -8,7 +8,33 @@
 //
 // R2: any REVISION requires one too, whatever the level says.
 export interface Level { value: number, label?: string, reason_required?: boolean }
-export interface ScoreEntry { reason?: string | null }
+/**
+ * ── Q5, WIDENED 2026-09-15: WHAT IS ACTUALLY STORED ─────────────────────
+ *
+ * This named ONE field, `reason`, because `reasonRequired` is the only thing
+ * that had ever read an entry and the only thing it needs is the series
+ * LENGTH. That was correct for every caller it had, and it is Architecture 8
+ * exactly: an unchanged type meeting a new demand.
+ *
+ * The Qualification score card (L2) needs the CURRENT value and the STAGE it
+ * was recorded at, so the type now names what `src/lib/score-entry.js:177`
+ * actually writes. Every field stays optional: these entries come off a
+ * record payload written by any version of the app that ever ran, and a
+ * required field here would be a fixture shaped to the reader rather than to
+ * the writer (Verification 47).
+ */
+export interface ScoreEntry {
+  /** ISO timestamp. The series is ordered by this. */
+  at?: string
+  /** The recorder's email. */
+  by?: string
+  /** The numeric level recorded. */
+  value?: number
+  /** The record's stage AT THE MOMENT the score was recorded. */
+  stage?: string
+  anchorVersion?: number | null
+  reason?: string | null
+}
 
 export function reasonRequired(
   score: number, levels: readonly Level[], series: readonly ScoreEntry[],
