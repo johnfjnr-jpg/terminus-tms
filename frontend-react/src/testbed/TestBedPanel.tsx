@@ -31,7 +31,7 @@ export function Card({ title, testId, children }: { title: string, testId: strin
   )
 }
 
-export function TestBedPanel({ source, rows, contacts, buyers, onDirtyChange, onDraftsChange, notes, controls, useCases, customerDocs, history }: {
+export function TestBedPanel({ source, rows, contacts, buyers, onDirtyChange, onDraftsChange, notes, followUp, controls, useCases, customerDocs, history }: {
   source: TestBedSource
   /** The Account's contacts, for the buyer lookups. */
   /**
@@ -48,6 +48,8 @@ export function TestBedPanel({ source, rows, contacts, buyers, onDirtyChange, on
   /** The cost preview needs the live drafts, and a preview is not a save. */
   onDraftsChange?: (drafts: Record<string, string>) => void
   notes?: ReactNode
+  /** R2: the follow-up task, owned by the host because its write is its own. */
+  followUp?: ReactNode
 
   /** installer, tech team - direct-write controls the host owns. */
   controls?: ReactNode
@@ -92,11 +94,23 @@ export function TestBedPanel({ source, rows, contacts, buyers, onDirtyChange, on
   useEffect(() => { onDirtyChange?.(dirty) }, [dirty, onDirtyChange])
   useEffect(() => { onDraftsChange?.(rows.changes) }, [rows.changes, onDraftsChange])
 
-  const row = (name: string) => {
-    const f = fields.find((x) => x.name === name)
-    if (!f) return null
+  // R2: A ROW WHOSE CARD ALREADY NAMES IT DOES NOT NAME ITSELF, and it must
+  // not keep the label's 170px column either. Adding the follow-up as the
+  // third cell took the top row from two columns to three, and the Summary
+  // card's value went to 58px - four wrapped lines for "No summary captured
+  // yet." Measured, not guessed.
+  //
+  // THIS IS THE CONTACT SURFACE'S OWN FIX, and the rule's comment in
+  // style.css records the same defect on the same card at the same width.
+  // Taking `.cd-row-nolabel` rather than minting a Test Bed equivalent is the
+  // point: one definition, so the two cannot drift (Verification 20).
+  const row = (name: string, labelOverride?: string) => {
+    const base = fields.find((x) => x.name === name)
+    if (!base) return null
+    const f = labelOverride === undefined ? base : { ...base, label: labelOverride }
     return (
-      <div key={name} data-key={name}>
+      <div key={name} data-key={name}
+        className={labelOverride === '' ? 'cd-row-nolabel' : undefined}>
         <FieldRow field={f} rows={rows} />
       </div>
     )
@@ -121,24 +135,28 @@ export function TestBedPanel({ source, rows, contacts, buyers, onDirtyChange, on
           consumer. THE CLASS IS NOT MODIFIED: adding a consumer cannot move
           leads or contacts, which is the whole reason the radius here is nil.
 
-          `.tb-top-row` is a SCOPED column override, because that class is a
-          three-column grid and this row has two cells. Follow-up is the third
-          cell and is NOT in this round: it does not exist on a Test Bed at
-          all, and the route's payload allowlist refuses the key - a new write
-          path, carried with the notes/audit round. */}
+          R2: FOLLOW-UP IS NOW THE THIRD CELL, so the scoped two-column
+          override `.tb-top-row` carried is gone and this row inherits the
+          three-column grid leads and contacts use. The override existed only
+          because a Test Bed had no follow-up: the route's allowlist refused
+          the keys. It accepts them now, proven refused-then-written. */}
       <div className="lead-card-body tb-top-row" data-testid="tb-top-row">
         <Card title="Summary" testId="tb-card-summary">
-          {row('summary')}
+          {row('summary', '')}
         </Card>
         <Card title="Notes" testId="tb-card-notes">
           {notes}
         </Card>
+        {/* Rendered as a bare grid cell, exactly as the Contact surface does
+            it: FollowUpTask draws its own card, so wrapping it in another
+            would give the Test Bed a frame its sibling surfaces do not have. */}
+        {followUp}
       </div>
 
       <div className="ref-cards" data-testid="tb-cards">
         <Card title="Terminus Details" testId="tb-card-terminus">
           {['terminusLead', 'commercialAuthority', 'technicalAuthority',
-            'terminusLegalOwner', 'region', 'country'].map(row)}
+            'terminusLegalOwner', 'region', 'country'].map((n) => row(n))}
         </Card>
 
         <Card title="Customer Details" testId="tb-card-customer">
@@ -155,13 +173,17 @@ export function TestBedPanel({ source, rows, contacts, buyers, onDirtyChange, on
         </Card>
 
         <Card title="Site Details" testId="tb-card-site">
-          {['siteOwnership', 'installationEnvironment', 'siteAddress', 'city'].map(row)}
+          {/* BOUND EXPLICITLY, not `.map(row)`: Array.map hands the INDEX in as
+              the second argument, which `row` now reads as a label override, so
+              every row in a mapped list would have been silently relabelled
+              with a number. Caught by the typechecker. */}
+          {['siteOwnership', 'installationEnvironment', 'siteAddress', 'city'].map((n) => row(n))}
         </Card>
 
         {/* R2: KEY DATES BESIDE SITE DETAILS. It was a section lower down; it
             is now a sibling in the same card row. */}
         <Card title="Key Dates" testId="tb-card-dates">
-          {['estimatedInstallationDate', 'estGoLiveDate', 'testBedDuration'].map(row)}
+          {['estimatedInstallationDate', 'estGoLiveDate', 'testBedDuration'].map((n) => row(n))}
         </Card>
       </div>
 

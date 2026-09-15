@@ -6034,7 +6034,7 @@ input.input-invalid {
 
    SCOPED, so `.lead-card-body` itself is untouched: adding a third consumer of
    a class cannot move leads or contacts, and editing the class would. */
-.lead-card-body.tb-top-row { grid-template-columns: 1fr 1fr; }
+
 
 /* A1: a grid column's default `min-width: auto` refuses to shrink below its
    content, so an over-wide header does not clip - it OVERLAPS its neighbour.

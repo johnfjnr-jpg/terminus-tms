@@ -7,6 +7,10 @@ import { PAYLOAD_ONLY_KEYS, CLIENT_BUYER_ROLES, testBedDescriptors, type TestBed
 import { useFieldRows } from '../field-row/useFieldRows'
 import { CommercialsCards } from './CommercialsCards'
 import { EditBar } from '../field-row/EditBar'
+// R2: THE SAME COMPONENT THE CONTACT SURFACE USES, imported rather than
+// rebuilt. A second follow-up panel would be two renderers of one idea, and
+// the two would agree today (Verification 20).
+import { FollowUpTask } from '../contact/FollowUpTask'
 import { createPreviewRunner } from './costPreview'
 import { useShell } from '../ShellContext'
 import type { LookupOption } from '../field-row/types'
@@ -265,6 +269,7 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
   // and go.
   const rows = useFieldRows(testBedDescriptors(source))
 
+
   // R1: the breakdown travels WITH the Commercials card it belongs to. It was
   // a prop of TestBedPanel only because the card was.
   const costBreakdownNode = (
@@ -313,6 +318,19 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
     async (body) => shell.api('POST', '/api/test-beds/calculate', body),
     (data) => setPreview(data),
   ))
+
+  // R2: ITS OWN WRITE, like the Contact surface's. The follow-up task is not
+  // part of the field-row batch: it saves itself, so it carries its own PATCH
+  // and reloads on success. `expected_revision` follows this host's existing
+  // convention for its other standalone write, the notes append.
+  const saveFollowUp = useCallback(async (next: { followUpDate: string, followUpDescription: string }) => {
+    const r = await shell.api('PATCH', `/api/test-beds/${bed.id}`, {
+      payload: next,
+      expected_revision: Number.isInteger(record?.latest_revision_number)
+        ? record.latest_revision_number : null,
+    })
+    if (r.ok) await load()
+  }, [shell, bed.id, record, load])
 
   const onDraftsChange = useCallback((next: Record<string, string>) => {
     // ── SET ONLY ON A REAL CHANGE ────────────────────────────────────────
@@ -573,6 +591,12 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
               await load()
               return true
             }} />}
+          followUp={
+            <FollowUpTask
+              date={String(record.payload?.followUpDate ?? '')}
+              description={String(record.payload?.followUpDescription ?? '')}
+              resetKey={bed.id}
+              onSave={(next) => { void saveFollowUp(next) }} />}
           useCases={useCasesNode}
           customerDocs={customerDocsNode}
           history={<HistoryPanel entries={history.entries} failed={history.failed} />} />} />

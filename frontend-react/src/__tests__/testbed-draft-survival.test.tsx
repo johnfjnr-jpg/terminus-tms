@@ -27,7 +27,12 @@ let root: Root
 
 const BED = {
   id: 'tb-1', status: 'Qualification', owner_id: 'user-1',
-  payload: { name: 'Bed A', city: 'Kuala Lumpur', client_organisation: 'Acme' },
+  payload: {
+    name: 'Bed A', city: 'Kuala Lumpur', client_organisation: 'Acme',
+    // R2: seeded, so "the box reads back what the record holds" is a real
+    // claim rather than one satisfied by two empty strings (Verification 14).
+    followUpDate: '2027-04-01', followUpDescription: 'Chase the survey',
+  },
   latest_revision_number: 3,
 }
 
@@ -232,5 +237,48 @@ describe('R1 part 2: the save bar follows the rows', () => {
     const payload = (patches.at(-1)?.body as { payload?: Record<string, unknown> })?.payload ?? {}
     expect(String(payload.ssUnitCost ?? ''),
       'the save fired but carried no cost, so the bar is reading a different store').toBe('4321')
+  })
+})
+
+describe('R2: the follow-up task on a Test Bed', () => {
+  // IN THE SUITE, not only in a probe. The write path is a control - the
+  // route's allowlist refused these two keys until this round - and a control
+  // that matters belongs where it passes or fails on every run.
+  const count = (id: string) => host.querySelectorAll(`[data-testid="${id}"]`).length
+
+  test('the card renders as the third cell of the top row', async () => {
+    await mount()
+    click(must('tb-tab-btn-reference'))
+    await settle()
+    expect(count('cd-card-followup'), 'no follow-up card, or two of them').toBe(1)
+    const rowEl = must('tb-top-row')
+    expect(rowEl.children.length, 'the top row does not have three cells').toBe(3)
+    expect(rowEl.contains(must('cd-card-followup')),
+      'the follow-up rendered somewhere else on the page, not in the top row').toBe(true)
+  })
+
+  test('it seeds from the record and SAVES to the test-beds route', async () => {
+    const sent: Sent[] = []
+    await mount(sent)
+    click(must('tb-tab-btn-reference'))
+    await settle()
+
+    const desc = must('cd-followUpDescription') as HTMLInputElement
+    expect(desc.value, 'the box did not seed from the record').toBe('Chase the survey')
+
+    typeInto(desc, 'Chase the site survey')
+    const save = must('cd-followup-save') as HTMLButtonElement
+    expect(save.disabled, 'the save is still disabled after an edit').toBe(false)
+    click(save)
+    await settle()
+
+    // THE ROUTE MATTERS AS MUCH AS THE PAYLOAD. A follow-up saved to
+    // /api/contacts would look identical from inside the component.
+    const patch = sent.filter((c) => c.method === 'PATCH').at(-1)
+    expect(patch?.path, 'the save did not fire, or went to the wrong route').toMatch(/\/api\/test-beds\/tb-1/)
+    const payload = (patch?.body as { payload?: Record<string, unknown> })?.payload ?? {}
+    expect(payload.followUpDescription,
+      'the PATCH carried no description').toBe('Chase the site survey')
+    expect(payload.followUpDate, 'the PATCH dropped the date').toBe('2027-04-01')
   })
 })

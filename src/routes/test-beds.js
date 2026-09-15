@@ -474,6 +474,12 @@ export default async function testBedsRoutes(app) {
   const TEST_BED_WRITABLE_KEYS = new Set([
     ...TB_EXIT_CRITERION_KEYS,
     'name', 'client_organisation', 'notes', 'summary',
+    // TEST BED STATE R2: the follow-up task, the same two ordinary payload
+    // keys the Contact surface uses, written on the same ordinary write path.
+    // Not a new mechanism: CONTACT_WRITABLE_KEYS records the reasoning, and
+    // taking the same spelling is what lets one component serve both rather
+    // than two renderers of one idea (Verification 20).
+    'followUpDate', 'followUpDescription',
     'terminusLead', 'commercialAuthority', 'technicalAuthority', 'region', 'country',
     'siteOwnership', 'installationEnvironment', 'siteAddress', 'city',
     'safesightCameras', 'airQualitySensors', 'hemirSensors', 'estCostPerUnit',

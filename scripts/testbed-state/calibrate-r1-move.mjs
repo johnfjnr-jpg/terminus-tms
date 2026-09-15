@@ -110,6 +110,38 @@ const CASES = [
     },
     expect: 'the moved cost rows have NO WAY TO SAVE',
   },
+  {
+    // R2: the allowlist widening is the whole write path. Take the two keys
+    // back out and the route refuses again - which the suite must see, not
+    // only the probe.
+    name: 'the follow-up keys leave the panel (no third cell)',
+    apply: () => patch('frontend-react/src/testbed/TestBedPanel.tsx',
+      '        {followUp}\n', ''),
+    // ANCHORED ON THE FIRST ASSERTION IN THE TEST, not the one the injection
+    // is "about". A test aborts at its first failure, so a matcher taken from
+    // a later assertion reports SILENT on an injection that fired
+    // (Verification 51's caveat). This one read SILENT with 2 failures until
+    // it was re-anchored, which is the tell the caveat names.
+    expect: 'no follow-up card, or two of them',
+  },
+  {
+    name: 'the follow-up save goes to the CONTACTS route',
+    apply: () => patch('frontend-react/src/testbed/TestBedHost.tsx',
+      "const r = await shell.api('PATCH', `/api/test-beds/${bed.id}`, {\n      payload: next,",
+      "const r = await shell.api('PATCH', `/api/contacts/${bed.id}`, {\n      payload: next,"),
+    expect: 'the save did not fire, or went to the wrong route',
+  },
+  {
+    name: 'the Summary row keeps its 170px label column',
+    apply: () => patch('frontend-react/src/testbed/TestBedPanel.tsx',
+      "{row('summary', '')}", "{row('summary')}"),
+    // jsdom has no layout, so the ONE-LINE claim is a live-probe claim and
+    // this injection is expected SILENT here. Recorded rather than hidden:
+    // probe-r2-live.mjs was calibrated on it separately and read 4 lines at
+    // 58px injected, 1 line at 228px fixed.
+    expect: '__EXPECTED_SILENT__',
+    silentIsCorrect: true,
+  },
 ]
 
 let failures = 0
@@ -130,13 +162,15 @@ for (const c of CASES) {
     console.log('         NOTE: something failed but not the named assertion. Matcher, not silence:')
     for (const l of out.split('\n').filter((l) => l.includes('AssertionError'))) console.log(`           ${l.trim()}`)
   }
-  if (!fired) failures++
+  if (c.silentIsCorrect) {
+    console.log('         declared SILENT by design: jsdom has no layout. Calibrated live instead.')
+  } else if (!fired) failures++
   restore()
 }
 
 const out = run()
-const reverted = /Tests\s+8 passed/.test(out)
-console.log(`\nreverted run: ${reverted ? '8/8 pass' : 'NOT CLEAN'}`)
+const reverted = /Tests\s+10 passed/.test(out)
+console.log(`\nreverted run: ${reverted ? '10/10 pass' : 'NOT CLEAN'}`)
 if (!reverted) { console.log(out.split('\n').slice(-25).join('\n')); failures++ }
 for (const rel of FILES) {
   const same = readFileSync(`${ROOT}/${rel}`).equals(readFileSync(key(rel)))
