@@ -50,9 +50,12 @@ const typeInto = (el: HTMLInputElement, v: string) => {
   act(() => { setter.call(el, v); el.dispatchEvent(new Event('input', { bubbles: true })) })
 }
 
-const mount = async () => {
+type Sent = { method: string, path: string, body?: unknown }
+
+const mount = async (sent: Sent[] = []) => {
   const services = shellServices({
-    api: (async (_m: string, path: string) => {
+    api: (async (_m: string, path: string, body?: unknown) => {
+      sent.push({ method: _m, path, body })
       if (path.startsWith('/api/test-beds/tb-1')) return { ok: true, status: 200, data: BED }
       if (path.endsWith('/history')) return { ok: true, status: 200, data: { entries: [] } }
       if (path.endsWith('/lifecycle-documents')) {
@@ -132,5 +135,102 @@ describe('R1: the date bound follows the LIVE draft', () => {
       'the go-live minimum ignored an unsaved install date, so the bound is reading a stale store').toBe('2027-03-01')
     expect(after === before,
       'the minimum did not move at all, so this assertion cannot see the thing it is about').toBe(false)
+  })
+})
+
+describe('R1 part 2: the cards MOVED to Commercials', () => {
+  // A MOVE IS TWO CLAIMS (Verification 7): the cards appear in their new
+  // place, and they are GONE from the old one. The natural evidence for a move
+  // is a look at the destination, and a look at the destination cannot show
+  // what is still sitting on the tab you came from. Counts are asserted as
+  // EXACTLY ONE, not at least one, because a duplicate is what the second
+  // claim exists to catch.
+  const count = (id: string) => host.querySelectorAll(`[data-testid="${id}"]`).length
+
+  test('Reference no longer carries Sensor Counts or Commercials', async () => {
+    await mount()
+    click(must('tb-tab-btn-reference'))
+    await settle()
+    expect(must('testbed-panel'),
+      'the Reference panel did not render, so its emptiness proves nothing').toBeTruthy()
+    expect(count('tb-card-sensors'), 'Sensor Counts is STILL on Reference').toBe(0)
+    expect(count('tb-card-commercials'), 'the Commercials card is STILL on Reference').toBe(0)
+  })
+
+  test('Commercials carries exactly one of each, and the tab is no longer empty', async () => {
+    await mount()
+    click(must('tb-tab-btn-commercials'))
+    await settle()
+    expect(count('tb-card-sensors'), 'Sensor Counts did not arrive, or arrived twice').toBe(1)
+    expect(count('tb-card-commercials'), 'the Commercials card did not arrive, or arrived twice').toBe(1)
+    expect(count('tb-cost-breakdown'),
+      'the cost breakdown did not travel with the card it belongs to').toBe(1)
+    // The rows are REAL rows, not a heading: the door and the save path both
+    // depend on them being the same FieldRow idiom they were on Reference.
+    expect(count('display-ssUnitCost'), 'the cost rows did not come with the card').toBe(1)
+  })
+
+  test('a cost typed on Commercials is still there after a trip to Reference', async () => {
+    await mount()
+    click(must('tb-tab-btn-commercials'))
+    await settle()
+    click(must('display-ssUnitCost'))
+    typeInto(must('input-ssUnitCost') as HTMLInputElement, '1234')
+
+    click(must('tb-tab-btn-reference'))
+    await settle()
+    click(must('tb-tab-btn-commercials'))
+    await settle()
+    expect((must('input-ssUnitCost') as HTMLInputElement).value,
+      'the moved card has its OWN store, so the lift did not reach it').toBe('1234')
+  })
+})
+
+describe('R1 part 2: the save bar follows the rows', () => {
+  // A DEFECT THIS ROUND CREATED, AND THEREFORE PART OF IT (build discipline
+  // 10's limit). Moving the cost rows to Commercials left the EditBar behind
+  // as the last child of the Reference panel, so it existed only while
+  // Reference was open: a person could type a cost and have no Save and no
+  // Discard. Caught by a live probe, not by any assertion here - so here is
+  // the assertion.
+  const count = (id: string) => host.querySelectorAll(`[data-testid="${id}"]`).length
+
+  test('exactly one edit bar, on EVERY tab', async () => {
+    await mount()
+    click(must('tb-tab-btn-reference'))
+    await settle()
+    expect(count('edit-bar'), 'Reference has no bar, or has two').toBe(1)
+
+    click(must('tb-tab-btn-commercials'))
+    await settle()
+    expect(count('testbed-panel'),
+      'the Reference panel is still mounted, so this cannot see a bar that left with it').toBe(0)
+    expect(count('edit-bar'),
+      'the moved cost rows have NO WAY TO SAVE: the bar did not follow them').toBe(1)
+  })
+
+  test('a cost edited on Commercials reaches the SAVE REQUEST', async () => {
+    // Asserted on the PATCH the host actually sends, rather than on a callback
+    // handed in by the test: the save path is the host's, and a stub would be
+    // a fixture shaped to the reader instead of to the system (V47).
+    const sent: Sent[] = []
+    await mount(sent)
+    click(must('tb-tab-btn-commercials'))
+    await settle()
+    click(must('display-ssUnitCost'))
+    typeInto(must('input-ssUnitCost') as HTMLInputElement, '4321')
+
+    const save = must('edit-bar').querySelector('[data-testid="save-all"]') as HTMLElement
+    expect(save, 'there is no save control in the bar on this tab').toBeTruthy()
+    const before = sent.filter((c) => c.method === 'PATCH').length
+    click(save)
+    await settle()
+
+    const patches = sent.filter((c) => c.method === 'PATCH')
+    expect(patches.length,
+      'no PATCH was sent, so the save never fired from the Commercials tab').toBeGreaterThan(before)
+    const payload = (patches.at(-1)?.body as { payload?: Record<string, unknown> })?.payload ?? {}
+    expect(String(payload.ssUnitCost ?? ''),
+      'the save fired but carried no cost, so the bar is reading a different store').toBe('4321')
   })
 })

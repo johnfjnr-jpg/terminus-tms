@@ -5,6 +5,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { TestBedPanel } from './TestBedPanel'
 import { PAYLOAD_ONLY_KEYS, CLIENT_BUYER_ROLES, testBedDescriptors, type TestBedSource } from './descriptors'
 import { useFieldRows } from '../field-row/useFieldRows'
+import { CommercialsCards } from './CommercialsCards'
+import { EditBar } from '../field-row/EditBar'
 import { createPreviewRunner } from './costPreview'
 import { useShell } from '../ShellContext'
 import type { LookupOption } from '../field-row/types'
@@ -262,6 +264,17 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
   // there is exactly ONE of it for the whole screen however many tabs come
   // and go.
   const rows = useFieldRows(testBedDescriptors(source))
+
+  // R1: the breakdown travels WITH the Commercials card it belongs to. It was
+  // a prop of TestBedPanel only because the card was.
+  const costBreakdownNode = (
+    <div data-testid="tb-cost-breakdown"
+      className={preview ? 'tb-cost-unsaved' : undefined}>
+      {/* C4: the marker says these figures come from UNSAVED drafts. A
+          preview is not a save, and the screen must be able to say so. */}
+      {preview ? <span data-testid="tb-cost-preview-marker">Unsaved figures</span> : null}
+    </div>
+  )
 
   const buyers = useMemo(() => {
     const out: Record<string, string> = {}
@@ -532,22 +545,16 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
           const { currentStage, nextStage } = nextStageFor(stages, record.status)
           if (nextStage) shell.attemptTransition(bed.id, nextStage, 'test_bed', currentStage)
         }}
-        commercials={null}
+        commercials={
+          <CommercialsCards rows={rows} fields={testBedDescriptors(source)}
+            costBreakdown={costBreakdownNode} />}
         reference={<TestBedPanel
-        source={source}
+          source={source}
           rows={rows}
-        contacts={contacts}
-        buyers={buyers}
-        onSave={(c) => { void onSave(c) }}
-        onDirtyChange={setDirty}
+          contacts={contacts}
+          buyers={buyers}
+          onDirtyChange={setDirty}
         onDraftsChange={onDraftsChange}
-        costBreakdown={
-          <div data-testid="tb-cost-breakdown"
-            className={preview ? 'tb-cost-unsaved' : undefined}>
-            {/* C4: the marker says these figures come from UNSAVED drafts. A
-                preview is not a save, and the screen must be able to say so. */}
-            {preview ? <span data-testid="tb-cost-preview-marker">Unsaved figures</span> : null}
-          </div>}
         notes={
           <NotesHistory
             notes={notes}
@@ -569,6 +576,12 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
           useCases={useCasesNode}
           customerDocs={customerDocsNode}
           history={<HistoryPanel entries={history.entries} failed={history.failed} />} />} />
+      {/* R1: ONE BAR FOR THE WHOLE SURFACE, outside the tabs. Inside the
+          Reference panel it vanished with that panel, so the cost rows that
+          moved to Commercials had no Save and no Discard. Rendered here it
+          serves both tabs from the one store, and its id is unchanged so the
+          walk that clicks it by id is unaffected. */}
+      <EditBar rows={rows} onSave={(c) => { void onSave(c) }} saveId="tb-react-save-all" />
       {/* V5: OWNED, so it cannot clear a message that is not its own, and a
           server save error cannot clear this one either. */}
       {/* KEYED ON THE RECORD. The shell re-renders this view rather than

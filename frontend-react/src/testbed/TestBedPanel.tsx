@@ -4,7 +4,7 @@
 import { useEffect, type ReactNode } from 'react'
 
 import { FieldRow } from '../field-row/FieldRow'
-import { EditBar } from '../field-row/EditBar'
+
 import type { useFieldRows } from '../field-row/useFieldRows'
 import { testBedDescriptors, buyerDescriptor, CLIENT_BUYER_ROLES, type TestBedSource } from './descriptors'
 import { dateBounds } from './dateBounds'
@@ -18,7 +18,11 @@ import type { LookupOption } from '../field-row/types'
  * whole subtree on every keystroke and a textarea's caret reset to 0. Typing
  * `abcd` produced `dcba`.
  */
-function Card({ title, testId, children }: { title: string, testId: string, children: ReactNode }) {
+// R1: EXPORTED because the Commercials cards moved to their own file and a
+// second copy of a four-line wrapper is still two definitions of one idea
+// (Verification 20). It stays here rather than moving to ui/: this is the
+// Test Bed's card, and ui/Panel is a different thing with a different contract.
+export function Card({ title, testId, children }: { title: string, testId: string, children: ReactNode }) {
   return (
     <div className="pg-card" data-testid={testId}>
       <div className="pg-card-title">{title}</div>
@@ -27,7 +31,7 @@ function Card({ title, testId, children }: { title: string, testId: string, chil
   )
 }
 
-export function TestBedPanel({ source, rows, contacts, buyers, onSave, onDirtyChange, onDraftsChange, notes, costBreakdown, controls, useCases, customerDocs, history }: {
+export function TestBedPanel({ source, rows, contacts, buyers, onDirtyChange, onDraftsChange, notes, controls, useCases, customerDocs, history }: {
   source: TestBedSource
   /** The Account's contacts, for the buyer lookups. */
   /**
@@ -39,12 +43,12 @@ export function TestBedPanel({ source, rows, contacts, buyers, onSave, onDirtyCh
 
   /** role -> linked contact id. */
   buyers: Record<string, string>
-  onSave: (changes: Record<string, string>) => void
+
   onDirtyChange?: (dirty: boolean) => void
   /** The cost preview needs the live drafts, and a preview is not a save. */
   onDraftsChange?: (drafts: Record<string, string>) => void
   notes?: ReactNode
-  costBreakdown?: ReactNode
+
   /** installer, tech team - direct-write controls the host owns. */
   controls?: ReactNode
   /** The use-case list. Its writes are whole-list, so the host owns them. */
@@ -161,16 +165,10 @@ export function TestBedPanel({ source, rows, contacts, buyers, onSave, onDirtyCh
         </Card>
       </div>
 
-      <Card title="Sensor Counts" testId="tb-card-sensors">
-        {['safesightCameras', 'airQualitySensors', 'hemirSensors'].map(row)}
-      </Card>
-
-      <Card title="Commercials" testId="tb-card-commercials">
-        {['ssUnitCost', 'aqUnitCost', 'hemirUnitCost',
-          'ssInstallCost', 'aqInstallCost', 'hemirInstallCost',
-          'ssHostingCost', 'aqHostingCost', 'hemirHostingCost'].map(row)}
-        {costBreakdown}
-      </Card>
+      {/* R1: Sensor Counts and Commercials MOVED to the Commercials tab, which
+          rendered null while these two sat at the bottom of Reference below
+          eight other cards. They are rendered by the host now - see
+          CommercialsCards.tsx for why a portal could not do it. */}
 
 
 
@@ -189,7 +187,13 @@ export function TestBedPanel({ source, rows, contacts, buyers, onSave, onDirtyCh
           gone from its old one - and this estate has shipped the duplicate
           that skipping the second one produces. */}
 
-      <EditBar rows={rows} onSave={onSave} saveId="tb-react-save-all" />
+      {/* R1: THE EDIT BAR MOVED TO THE HOST, with the store. It was the last
+          child of this panel, which meant it existed only while Reference was
+          the open tab - so once Sensor Counts and Commercials moved, a person
+          could type a cost and have NO WAY TO SAVE IT. The contract already
+          says the bar is a property of the SURFACE rather than of a row; the
+          surface is now two tabs sharing one store, so the bar belongs where
+          the store is. Its id is unchanged. */}
     </div>
   )
 }
