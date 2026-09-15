@@ -170,9 +170,17 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
   useEffect(() => {
     let live = true
     if (!installerAccountId) { setInstallerContacts([]); return }
-    void shell.api<ContactOption[]>(
-      'GET', `/api/accounts/${installerAccountId}/contacts`).then((r) => {
-      if (live && r.ok && Array.isArray(r.data)) setInstallerContacts(r.data)
+    // R4: THE SAME DEAD ROUTE. `GET /api/accounts/:id/contacts` is a 404 and
+    // is declared nowhere, so the tech-team picker was empty for exactly the
+    // same reason as the buyer lookups - two callers of a route that was never
+    // built. Verification 41's enumeration: a superseded or fabricated route
+    // is found by listing its callers, not by fixing the one that was
+    // reported.
+    void shell.api<Array<ContactOption & { parent_record_id?: string | null }>>(
+      'GET', '/api/contacts').then((r) => {
+      if (live && r.ok && Array.isArray(r.data)) {
+        setInstallerContacts(r.data.filter((c) => c.parent_record_id === installerAccountId))
+      }
     })
     return () => { live = false }
   }, [shell, installerAccountId])
@@ -208,18 +216,39 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
     return () => { live = false }
   }, [shell])
 
+  // ── R4: THE BUYER LOOKUPS HAD TWO STACKED FAULTS, AND EITHER ALONE HID
+  //    THE OTHER ─────────────────────────────────────────────────────────
+  //
+  // 1. IT READ THE WRONG KEY. `GET /api/test-beds` answers `account_id` and
+  //    `account_name` as FLAT COLUMNS and never an `account` OBJECT, so
+  //    `record.account?.id` was undefined on 10 of 10 live beds and this
+  //    effect returned before fetching anything. Verification 20 at its
+  //    sharpest: line 389 of THIS FILE already reads
+  //    `record.account_id ?? record.account?.id`, so the correct reader was
+  //    four hundred lines away the whole time.
+  //
+  // 2. THE ROUTE DOES NOT EXIST. `GET /api/accounts/:id/contacts` answers
+  //    404 and is declared nowhere in `src/routes`. Fixing the key alone
+  //    would have left the dropdown empty and LOOKING fixed - V47's clause,
+  //    a request shaped by what the reader wanted.
+  //
+  // The link is `parent_record_id` on the contact, which is the one source
+  // Round B established for exactly this question, so no new endpoint is
+  // needed and this reads it the same way the account section does.
   useEffect(() => {
     let live = true
-    const accountId = record.account?.id
+    const accountId = record.account_id ?? record.account?.id
     if (!accountId) return
-    void shell.api<Array<{ id: string, payload?: { name?: string } }>>(
-      'GET', `/api/accounts/${accountId}/contacts`).then((r) => {
+    void shell.api<Array<{ id: string, parent_record_id?: string | null, payload?: { name?: string } }>>(
+      'GET', '/api/contacts').then((r) => {
       if (live && r.ok && Array.isArray(r.data)) {
-        setContacts(r.data.map((c) => ({ id: c.id, name: c.payload?.name ?? c.id })))
+        setContacts(r.data
+          .filter((c) => c.parent_record_id === accountId)
+          .map((c) => ({ id: c.id, name: c.payload?.name ?? c.id })))
       }
     })
     return () => { live = false }
-  }, [shell, record.account?.id])
+  }, [shell, record.account_id, record.account?.id])
 
   const source: TestBedSource = useMemo(() => ({
     payload: record.payload ?? {}, staff,
