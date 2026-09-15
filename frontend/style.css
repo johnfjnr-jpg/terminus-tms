@@ -5966,7 +5966,15 @@ input.input-invalid {
 .cd-panel .pg-card-title { font-size: 14px; }
 .cd-panel .pg-card { font-size: 12px; }
 .cd-panel .cd-notes-list,
-.cd-panel .field-row-display { font-size: 12px; }
+/* R1: THE EDIT HALF TAKES THE SAME SCOPED SIZE AS THE DISPLAY HALF.
+   This rule shrank the contact panel's rows to 12px and named only the
+   display side, because until this round the edit side had no size of its own
+   worth matching - it was an unstyled browser default. Now that it has one,
+   leaving it out makes the row jump 12px to 13px on click. Measured. */
+.cd-panel .field-row-display,
+.cd-panel .field-row-edit input,
+.cd-panel .field-row-edit select,
+.cd-panel .field-row-edit textarea { font-size: 12px; }
 
 /* ── P4: THE LEADS LIST ──────────────────────────────────────────────────
  *
@@ -6558,7 +6566,32 @@ input.input-invalid {
    dialogue's two rendered as browser defaults - white boxes on a dark screen
    - which every assertion the estate writes passes on. Named once here so a
    sixth field cannot arrive unstyled. */
-.lead-field-input {
+/* R1, the standard rollout: ONE RULE, TWO SURFACES.
+ *
+ * `.field-row-edit`'s controls carried only `flex` and `min-width` - no
+ * background, no colour, no border - so every FieldRow editor on the estate
+ * was a bare browser default, WHITE, the moment somebody clicked to edit. It
+ * was invisible to every probe that measured a resting screen, because a
+ * FieldRow renders no input until it is opened: measured, 26 display rows and
+ * 3 inputs at rest.
+ *
+ * The selector list is EXTENDED rather than a second block written beside it
+ * (Verification 20): two rules carrying the same six declarations agree today
+ * and drift later, and this estate has the instances to prove it.
+ *
+ * ONE RULE REACHES FIVE SURFACES, which is the blast radius and was named
+ * before this line was written: Accounts, Test Bed and Opportunities are the
+ * three in scope, and contacts' Summary row and Follow-up task share the code
+ * and change with them. All five are screenshotted.
+ *
+ * It also revives a marker that was inert: `[data-dirty="true"]` sets
+ * `border-bottom-color: green` on these inputs, and until now there was no
+ * border for it to colour.
+ */
+.lead-field-input,
+.field-row-edit input,
+.field-row-edit select,
+.field-row-edit textarea {
   width: 100%;
   background: var(--black);
   border: none;
@@ -6568,9 +6601,16 @@ input.input-invalid {
   font-size: 13px;
   padding: 5px 0;
 }
-.lead-field-input:focus { outline: none; border-bottom-color: var(--green); }
-.lead-field-input:disabled { opacity: 0.5; }
-textarea.lead-field-input { resize: vertical; }
+.lead-field-input:focus,
+.field-row-edit input:focus,
+.field-row-edit select:focus,
+.field-row-edit textarea:focus { outline: none; border-bottom-color: var(--green); }
+.lead-field-input:disabled,
+.field-row-edit input:disabled,
+.field-row-edit select:disabled,
+.field-row-edit textarea:disabled { opacity: 0.5; }
+textarea.lead-field-input,
+.field-row-edit textarea { resize: vertical; }
 
 /* ---------------------------------------------------------------------
    R2 (2026-09-13): the New Lead grid reads as a TABLE.
