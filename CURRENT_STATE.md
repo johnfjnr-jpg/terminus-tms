@@ -12,9 +12,9 @@ Contains no environment variable, key or token, and no client data. Records
 appear as counts by status only, never by name or reference code, because
 this file is uploaded into chat sessions.
 
-- Generated at: `2026-09-14T21:04:56.227Z`
-- Git commit: `4c422e6a0b7fe071ce081ce87d2445f94561db18`
-- Working tree at generation: `dirty (uncommitted changes present)`
+- Generated at: `2026-09-15T09:00:50.365Z`
+- Git commit: `ac83f7178069a4d9d2406e33c055a467edc33c34`
+- Working tree at generation: `clean`
 
 Staleness has two parts, and both must hold for this file to be current:
 the recorded commit is an ancestor of `HEAD`, AND no tracked configuration
@@ -55,16 +55,16 @@ CLAUDE.md build discipline 13. These console settings are MITIGATIONS, not the c
 
 ## React workspace
 
-- Committed bundle: `frontend-react/dist/terminus-react.js`, 445,262 bytes
-- sha256: `9e6179b2e7e7eb13c97817f3e521111844aaadff77f6bc1aadf38a73224c7174`
-- React suite: 1009/1009 pass, 0 fail
+- Committed bundle: `frontend-react/dist/terminus-react.js`, 446,390 bytes
+- sha256: `3beb49d0d916b7607e44ae80178457e65216fafd90f165c460352badd2ecf19e`
+- React suite: 1025/1025 pass, 0 fail
 
 ## Tags
 
 | tag | published commit | date | commits from `HEAD` | local agrees |
 |---|---|---|---|---|
-| `controls-complete` | `56b516e` | 2026-08-29 | 595 | yes |
-| `reshape-complete` | `3499884` | 2026-08-29 | 566 | yes |
+| `controls-complete` | `56b516e` | 2026-08-29 | 616 | yes |
+| `reshape-complete` | `3499884` | 2026-08-29 | 587 | yes |
 
 ## `stage_definitions`
 
@@ -388,36 +388,36 @@ _None._
 
 ## Record counts by type and status
 
-128 live, 69281 soft deleted, 69409 rows in total.
+129 live, 71842 soft deleted, 71971 rows in total.
 
 | record_type | status | live | soft deleted |
 |---|---|---|---|
 | account | Active | 0 | 6 |
-| account | active | 7 | 1158 |
-| contact | Active | 0 | 1863 |
+| account | active | 7 | 1208 |
+| contact | Active | 0 | 1947 |
 | contact | Nurture | 0 | 14 |
-| contact | Qualified | 11 | 6169 |
-| contact | Unqualified | 6 | 600 |
-| document | approved | 65 | 3637 |
+| contact | Qualified | 12 | 6457 |
+| contact | Unqualified | 5 | 603 |
+| document | approved | 65 | 3749 |
 | document | draft | 0 | 5 |
 | document | received | 1 | 78 |
 | opportunity | Closed Lost | 0 | 20 |
 | opportunity | Closed Won | 2 | 7 |
-| opportunity | Evaluation | 0 | 186 |
+| opportunity | Evaluation | 0 | 191 |
 | opportunity | Negotiating | 1 | 16 |
-| opportunity | Proposal | 3 | 1148 |
-| opportunity | Qualification | 5 | 4897 |
-| opportunity | Solution Alignment | 7 | 951 |
+| opportunity | Proposal | 3 | 1178 |
+| opportunity | Qualification | 5 | 5181 |
+| opportunity | Solution Alignment | 7 | 971 |
 | test_bed | Closed | 5 | 9 |
 | test_bed | Installation and Commissioning | 1 | 35 |
 | test_bed | Monitoring and Analysis | 0 | 2 |
 | test_bed | Pre-Site Assessment | 0 | 8 |
-| test_bed | Qualification | 1 | 985 |
+| test_bed | Qualification | 2 | 1036 |
 | test_bed | Review and Completion | 1 | 0 |
 | test_bed | Site Assessment | 1 | 17 |
 | unit | Active | 0 | 1 |
 | unit | Installed | 4 | 7 |
-| unit | Planned | 7 | 13205 |
+| unit | Planned | 7 | 13691 |
 | unit | Removed | 0 | 1 |
 
 ### Test fixture record types
@@ -428,20 +428,20 @@ row by row, and are included in the totals above.
 
 | distinct `harness_*` record types | live rows | soft deleted rows |
 |---|---|---|
-| 4264 | 0 | 34256 |
+| 4404 | 0 | 35404 |
 
 No harness record type holds a live row; every fixture row is soft deleted.
 
 ## `approvals`
 
-3478 rows, of which 3 carry a null `stage`.
+3543 rows, of which 3 carry a null `stage`.
 
 | decision | track | rows | null stage |
 |---|---|---|---|
-| approved | Commercial | 1741 | 0 |
-| approved | Legal | 941 | 1 |
+| approved | Commercial | 1771 | 0 |
+| approved | Legal | 961 | 1 |
 | approved | Senior | 3 | 2 |
-| approved | Technical | 787 | 0 |
+| approved | Technical | 802 | 0 |
 | rejected | Commercial | 1 | 0 |
 | rejected | Finance | 4 | 0 |
 | rejected | Legal | 1 | 0 |
@@ -477,9 +477,9 @@ than written as a literal list, so its members are not enumerable here.
 
 ### `TEST_BED_WRITABLE_KEYS` (`src/routes/test-beds.js`)
 
-37 literal keys.
+39 literal keys.
 
-`name`, `client_organisation`, `notes`, `summary`, `terminusLead`, `commercialAuthority`, `technicalAuthority`, `region`, `country`, `siteOwnership`, `installationEnvironment`, `siteAddress`, `city`, `safesightCameras`, `airQualitySensors`, `hemirSensors`, `estCostPerUnit`, `testBedDuration`, `estimatedInstallationDate`, `estGoLiveDate`, `installNotes`, `terminusLegalOwner`, `initialLead`, `useCases`, `ssUnitCost`, `aqUnitCost`, `hemirUnitCost`, `ssInstallCost`, `aqInstallCost`, `hemirInstallCost`, `ssHostingCost`, `aqHostingCost`, `hemirHostingCost`, `exitQualTechnicalCommercialValue`, `exitQualPhysicalSuitability`, `exitQualPartnerCommitment`, `exitMonAllMeetingActionsCompleted`
+`name`, `client_organisation`, `notes`, `summary`, `followUpDate`, `followUpDescription`, `terminusLead`, `commercialAuthority`, `technicalAuthority`, `region`, `country`, `siteOwnership`, `installationEnvironment`, `siteAddress`, `city`, `safesightCameras`, `airQualitySensors`, `hemirSensors`, `estCostPerUnit`, `testBedDuration`, `estimatedInstallationDate`, `estGoLiveDate`, `installNotes`, `terminusLegalOwner`, `initialLead`, `useCases`, `ssUnitCost`, `aqUnitCost`, `hemirUnitCost`, `ssInstallCost`, `aqInstallCost`, `hemirInstallCost`, `ssHostingCost`, `aqHostingCost`, `hemirHostingCost`, `exitQualTechnicalCommercialValue`, `exitQualPhysicalSuitability`, `exitQualPartnerCommitment`, `exitMonAllMeetingActionsCompleted`
 
 ## Registered routes
 
