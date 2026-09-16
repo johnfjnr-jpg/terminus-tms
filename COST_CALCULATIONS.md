@@ -151,66 +151,137 @@ of the display layer finding zero arithmetic-bearing lines.
 
 ---
 
-## 2. Opportunity and Deal cost: NOT yet reconciled with source
+## 2. Opportunity and Deal cost, RULED BY JOHN 2026-09-16
 
-The Opportunity path is a different calculation with a different rate source,
-and it has **not** been brought into line with the deal sheet.
+The Opportunity is a **priced** deal: it has a customer, a margin and a
+contract. Everything below was ruled by John after the codebase was measured
+against the deal sheet, and it **supersedes the deal sheet wherever the two
+disagree**, because the deal sheet predates HEMIR and predates the move to a
+term in months.
 
-What it does today:
+### The formula
+
+Three product types throughout: **SafeSight**, **AQ Sensor**, **HEMIR**.
 
 ```
-Hardware  =  SUM over type of ( units x unitCost )  +  warranty
-Install   =  a lump sum, OR four per-unit lines (SafeSight split
-             existing / new), OR a single zero line when installation
-             is by others
-Hosting   =  ( hoSafesight x safesightUnits + hoAqm x aqm
-               + hoHemir x hemir )  x  months
-Total     =  Hardware + Install + Hosting
-             + financing + withholding borne + carried Test Bed cost
+HARDWARE      SafeSight   total units   x  SafeSight unit cost
+              AQ Sensor   units         x  AQ unit cost
+              HEMIR       units         x  HEMIR unit cost
+
+INSTALLATION  SafeSight   existing      x  existing-infrastructure rate
+                        + new           x  new-infrastructure rate
+                          where new = SafeSight total - existing
+              AQ Sensor   units         x  AQ install rate
+              HEMIR       units         x  HEMIR install rate
+
+WARRANTY      count = ceil( SafeSight units x warranty % )
+              cost  = count x ( SafeSight unit cost + existing-infra rate )
+
+HOSTING       SUM over type of ( units x hosting rate )  x  durationMonths
+
+TOTAL COST    hardware + installation + warranty + hosting
 ```
 
-Rates come from the admin Base Cost catalog via `catalogToRates` and
-`resolveRates`, not from hand-typed record fields.
+### The rules that are part of it
 
-### Proven divergences from the deal sheet
+1. **THE WARRANTY IS SAFESIGHT ONLY.** The count is a percentage of the
+   SafeSight units, rounded **up** to a whole unit. AQ Sensors and HEMIRs on the
+   same deal do not create a warranty unit and do not change what one is worth.
+   A warranty provision is a spare SafeSight.
 
-**`OPPORTUNITY_CALC_DIVERGENCES.md` IS THE AUTHORITY ON THESE AND THIS TABLE IS
-A SUMMARY OF IT.** Two documents stating the same six facts is the second-reader
-shape this estate has been caught by before (CLAUDE.md Verification 20), so the
-worked examples, the numbers and the readings live in one place and this table
-points at it. If the two disagree, that file is right and this one is stale.
+2. **A WARRANTY UNIT IS VALUED AT A UNIT PLUS ITS EXISTING-INFRASTRUCTURE
+   INSTALL.** A spare goes where a unit already stands, so it carries the
+   existing-infra install rate, never the new-infra one.
 
-Measured, not inferred. These need John's rulings before any are changed.
+3. **THE WARRANTY CARRIES NO MARGIN.** It is a cost pass-through: it appears as
+   its own P&L line on the deal sheet and reaches the customer's price at
+   exactly what it cost. Margin applies to everything else. **A consequence
+   worth stating: the achieved margin therefore lands BELOW the target**, and
+   that is correct rather than a defect. On the worked deal below, a 30% target
+   achieves 29.40%.
 
-| # | deal sheet says | the code does | measured effect |
-|---|---|---|---|
-| S1 | warranty units are computed **per type**, `ceil(unitsOfThatType x pct)` | one `ceil` over the whole mix | on 2 SafeSight plus 2 AQ at 2%: source 2 units, code 1 |
-| S2 | each warranty unit is valued at **its own type's unit cost** | valued at the **mix average** across all products | same case: source **$9,000**, code **$4,500**. The code understates by 100% |
-| S3 | contract term is in **years**, floored at 1, multiplied by 12 | `duration` is used directly as **months**, no floor | a term of 1 means 12 months in the source and 1 month in the code |
-| S4 | camera **total** is the input and new is derived, `new = total - existing` | existing and new are both inputs and units is their sum | different data model; the source also has a mismatch guard the code has no equivalent for |
-| S5 | margin is clamped to `[0, 99.9]` and the price is **not** rounded | clamped to a `99` ceiling with no lower clamp, and the price **is** rounded | a negative margin behaves differently, and prices differ by rounding |
-| S6 | two product types, camera and sensor | three, SafeSight, AQ and HEMIR | HEMIR post-dates the source. By extension its warranty is per type |
+4. **NO WARRANTY ON A TEST BED, EVER.** Section 1 governs there and passes
+   `warrantyPct: 0`. The two record types share one engine and differ by data.
 
-S2 is the sharpest: `DESIGN_PRINCIPLES.md:2325` already recorded the mix-average
-treatment as a live concern once real rates arrived, and **the deal sheet
-resolves it**. The source values warranty per type, which is what that entry
-said the mix average gets wrong.
+5. **THE TERM IS IN MONTHS**, used directly, with no floor and no multiplying by
+   twelve.
+
+6. **THE TOOL CANNOT PRICE BELOW COST.** The margin is clamped to a floor of
+   zero before the uplift, so a negative margin returns the cost rather than a
+   discount. The upper clamp of 99 remains, and it is a guard against dividing
+   by zero rather than a policy.
+
+7. **RATES COME FROM THE ADMIN BASE COST CATALOG**, resolved by `resolveRates`,
+   not hand-typed on the record. This is the opposite of the Test Bed and is
+   deliberate.
+
+### The acceptance cases
+
+**A. Warranty.** 100 SafeSight at $8,000, existing-infra install $2,000,
+warranty 2%: count `ceil(100 x 0.02) = 2`, cost `2 x (8,000 + 2,000)` =
+**$20,000**. Adding 500 AQ and 500 HEMIR does not move either figure.
+
+**B. Installation split.** SafeSight total 10, of which 3 existing so 7 new, at
+$2,000 existing and $20,000 new; AQ 5 at $500; HEMIR 2 at $5,000:
+`3 x 2,000 + 7 x 20,000 + 5 x 500 + 2 x 5,000` = **$158,500**.
+
+**C. The full deal.** SafeSight 10 (3 existing, 7 new) at $8,000; AQ 5 at
+$2,000; HEMIR 2 at $25,000; installs as B; hosting $200 / $100 / $500 per unit
+per month; 12 months; target margin 30%; warranty 2%.
+
+| | cost | price |
+|---|---|---|
+| Hardware, the three types | $140,000 | $200,001 |
+| Warranty, 1 unit at $10,000 | $10,000 | **$10,000, at cost** |
+| Installation | $158,500 | $226,428 |
+| Hosting, $3,500 per month over 12 | $42,000 | $60,000 |
+| **Total deal cost** | **$350,500** | |
+| **Contract net** | | **$496,429** |
+| **Achieved margin** | | **29.40%** |
+
+### The six divergences, and how each was ruled
+
+Measured in `OPPORTUNITY_CALC_DIVERGENCES.md`, which holds the worked numbers.
+
+| # | ruling |
+|---|---|
+| S1 warranty count | **CODE WAS WRONG, FIXED.** The count is per the SafeSight total, not the mix. |
+| S2 warranty valuation | **CODE WAS WRONG, FIXED.** Valued at a SafeSight unit plus existing-infra install, not the mix average. The largest gap measured: $9,000 against $4,500 on one case and $33,000 against $16,337 on another. |
+| S3 contract term | **CODE WAS RIGHT, SOURCE IS STALE.** Months, direct. Recorded as a decision. |
+| S4 SafeSight unit model | **CODE WAS RIGHT, SOURCE UNDOCUMENTED.** Total and existing, new is the remainder. The record holds existing and new and their sum IS the total, so the arithmetic already matched; what was missing was the decision written down. |
+| S5 margin clamp | **FIXED as defence in depth.** A lower clamp of zero makes below-cost pricing impossible at the calculator. Measured before building: `targetMargin` and every `marginOverrides` key were already refused with a 400 at the only write path, so no negative margin could reach the engine through the API. This closes the branch for a future caller that does not go through that route. |
+| S6 HEMIR | **CODE WAS RIGHT, SOURCE PREDATES IT.** HEMIR is a real third hardware type. Recorded as a decision. |
+
+**What the S2 fix moved on live fixtures**, and it is the shape the old rule
+produced: on a deal carrying one $100,000 HEMIR against 15 SafeSight at $8,000,
+the mix average valued its single warranty unit at $15,000. A spare SafeSight
+plus its install is $10,000. The $5,000 difference flowed through the cash
+position and the factoring interest, and `DESIGN_PRINCIPLES.md:2325` predicted
+exactly that distortion.
+
+### Where it is implemented
+
+| | |
+|---|---|
+| Warranty | `src/lib/deal-calculator.js:107` `calculateHardwareAndWarranty` |
+| Margin clamp | `src/lib/deal-calculator.js:66` `priceFromCost` |
+| Groups and totals | `calculateDeal` and `calculateContractTotals` |
+| Rate to input mapping | `src/lib/deal-inputs.js:361` `buildDealInputs` |
+| Enforced by | `scripts/tests/opportunity-cost-contract.test.mjs` |
 
 ### What still has no answer
 
 Whether `totalDealCostAll` should fold in financing, withholding borne and the
-carried Test Bed cost is not settled by the deal sheet, which computes a
-factoring schedule but reaches its own totals differently.
+carried Test Bed cost is not settled by the deal sheet or by these rulings.
 
----
 
 ## 3. Everything else that computes cost
 
 | site | status |
 |---|---|
-| `calculateHardwareAndWarranty` (`deal-calculator.js:107`) | runs as written. S1 and S2 apply |
+| `calculateHardwareAndWarranty` (`deal-calculator.js:107`) | **rewritten to the ruled warranty model.** S1 and S2 closed |
 | `buildCostGroup` (`:83`) | correct. Sums line costs |
-| `priceFromCost` (`:66`) | S5 applies |
+| `priceFromCost` (`:66`) | **clamped at both ends.** S5 closed |
 | `calculateContractTotals` (`:130`) | agrees with source on shape |
 | `calculateDeal` (`:416`) | see section 2 |
 | `buildCashFlowModel` (`:183`) | **not yet checked against source** |
@@ -223,10 +294,22 @@ factoring schedule but reaches its own totals differently.
 
 ## 4. How to check a change against this document
 
-1. **Run the contract test.** `node --test scripts/tests/test-bed-cost-contract.test.mjs`
-   pins the acceptance case and the structural rules in section 1. It fails if
-   Hardware, Install, Hosting or Total moves, if a warranty appears on a Test
-   Bed, or if a price figure reaches the Test Bed path.
+1. **Run BOTH contract tests.** They are in the pure suite, so `npm test` runs
+   them, and either can be run alone:
+
+   ```
+   node --test scripts/tests/test-bed-cost-contract.test.mjs
+   node --test scripts/tests/opportunity-cost-contract.test.mjs
+   ```
+
+   The Test Bed one fails if Hardware, Install, Hosting or Total moves, if a
+   warranty appears on a Test Bed, or if a price figure reaches that path. The
+   Opportunity one fails if the warranty count stops being SafeSight-only, if a
+   warranty unit stops being valued at a unit plus its existing-infra install,
+   if the warranty starts taking margin, if the install split changes, if the
+   term stops being months, or if any margin can price below cost. **Both were
+   calibrated by injection, five and six faults respectively, each fired on its
+   own named assertion and each reverted byte-identical.**
 2. **Read the deal sheet, not the neighbouring code.** Derive the expected
    figures from `old - terminus-deal-sheet.html` and compare. A formula copied
    from an adjacent function reproduces that function's drift.

@@ -64,7 +64,26 @@ export function buildLoanSchedule(principal, monthlyRate, termMonths, method) {
  * @returns {number} price, rounded to the nearest whole unit
  */
 export function priceFromCost(cost, marginPct) {
-  const m = Math.min(99, marginPct || 0);
+  // ── THE CLAMP, and what each end is for ───────────────────────────────
+  //
+  // The price is the cost UPLIFTED to leave the target margin:
+  // price = cost / (1 - margin). At a margin of 100 that divides by zero, so
+  // the upper end is a guard against an infinite price, not a policy.
+  //
+  // THE LOWER END IS NEW, ruled by John 2026-09-16: THE TOOL CANNOT PRICE
+  // BELOW COST. Without it a negative margin divides by something greater
+  // than one and quietly returns a price UNDER the cost: at -50% on a $1,000
+  // line that is $667.
+  //
+  // MEASURED BEFORE BUILDING, and it is why this is defence in depth rather
+  // than a live fix: `targetMargin` and every `marginOverrides` key are already
+  // refused with a 400 by isValidNonNegativePercent at the only write path
+  // (src/routes/opportunities.js), so no negative margin can reach here through
+  // the API today. This closes the branch at the calculator so a future caller
+  // that does not go through that route cannot reopen it. Architecture rule 8:
+  // correct for every caller that exists is not correct for the caller about to
+  // be built.
+  const m = Math.min(99, Math.max(0, marginPct || 0));
   return Math.round(cost / (1 - m / 100));
 }
 
@@ -106,13 +125,39 @@ export function buildCostGroup(lineItems) {
  */
 export function calculateHardwareAndWarranty({
   ssUnitCost, ssUnits, aqUnitCost, aqUnits, hemirUnitCost, hemirUnits, warrantyPct = 2,
+  ssInstallExistingCost = 0,
 }) {
   const totalUnits = ssUnits + aqUnits + hemirUnits;
   const hardwareCost = ssUnitCost * ssUnits + aqUnitCost * aqUnits + hemirUnitCost * hemirUnits;
-  const warrantyUnits = Math.ceil(totalUnits * warrantyPct / 100);
+
+  // ── THE WARRANTY RULE, ruled by John 2026-09-16 ────────────────────────
+  //
+  // COUNT is a percentage of the SAFESIGHT units only, rounded UP to a whole
+  // unit. Not of the mix. A warranty provision is a spare SafeSight, so an AQ
+  // Sensor or a HEMIR on the same deal does not create one.
+  //
+  // VALUE is that spare unit's own cost PLUS the cost of installing it on
+  // EXISTING infrastructure, because a spare goes where a unit already stands.
+  //
+  // WHAT THIS REPLACES, and it is left here because it was wrong in two
+  // separate ways rather than one: the count was `ceil(totalUnits * pct)` over
+  // the whole mix, and the value was the MIX AVERAGE unit cost. Measured
+  // against the deal sheet on 100 SafeSight at $8,000 plus 1 AQ at $25,000 and
+  // 1% warranty, that produced $16,337 where the per-type rule gives $33,000.
+  // DESIGN_PRINCIPLES.md:2325 predicted exactly this failure and it is now
+  // closed. See OPPORTUNITY_CALC_DIVERGENCES.md S1 and S2.
+  //
+  // `avgHwCost` is still returned because it is a true descriptive figure and
+  // tests assert it, but NOTHING PRICES ANYTHING FROM IT any more.
+  const warrantyBasisUnits = ssUnits;
+  const warrantyUnitCost = ssUnitCost + ssInstallExistingCost;
+  const warrantyUnits = Math.ceil(warrantyBasisUnits * warrantyPct / 100);
   const avgHwCost = totalUnits ? hardwareCost / totalUnits : 0;
-  const warrantyCost = Math.round(warrantyUnits * avgHwCost);
-  return { totalUnits, hardwareCost, warrantyUnits, warrantyCost, avgHwCost };
+  const warrantyCost = Math.round(warrantyUnits * warrantyUnitCost);
+  return {
+    totalUnits, hardwareCost, warrantyUnits, warrantyCost, avgHwCost,
+    warrantyBasisUnits, warrantyUnitCost,
+  };
 }
 
 /**
@@ -417,6 +462,11 @@ export function calculateDeal(input) {
   const {
     ssUnitCost, ssUnits, aqUnitCost, aqUnits, hemirUnitCost, hemirUnits,
     warrantyPct,
+    // The SafeSight EXISTING-infrastructure install rate. A warranty unit is
+    // valued at a SafeSight unit plus this, because a spare goes where a unit
+    // already stands. Passed as a rate rather than read out of installLineItems,
+    // whose lines are already rate x quantity and cannot be divided back.
+    ssInstallExistingCost = 0,
     installLineItems, // array of {key, cost, marginPct} for the installation group, or [] if none
     hostingLineItems, // array of {key, cost, marginPct} for the hosting group
     hardwareMargins, // { hwSs, hwAqm, hwHemir, hwWarranty } - each hardware/warranty line prices independently, same as install/hosting lines
@@ -439,13 +489,25 @@ export function calculateDeal(input) {
 
   const hw = calculateHardwareAndWarranty({
     ssUnitCost, ssUnits, aqUnitCost, aqUnits, hemirUnitCost, hemirUnits, warrantyPct,
+    ssInstallExistingCost,
   });
 
   const hardwareGroup = buildCostGroup([
     { key: 'hwSs', cost: ssUnitCost * ssUnits, marginPct: hardwareMargins?.hwSs },
     { key: 'hwAqm', cost: aqUnitCost * aqUnits, marginPct: hardwareMargins?.hwAqm },
     { key: 'hwHemir', cost: hemirUnitCost * hemirUnits, marginPct: hardwareMargins?.hwHemir },
-    { key: 'hwWarranty', cost: hw.warrantyCost, marginPct: hardwareMargins?.hwWarranty },
+    // ── WARRANTY CARRIES NO MARGIN, ruled by John 2026-09-16 ─────────────
+    //
+    // A hardcoded 0, NOT hardwareMargins.hwWarranty. The warranty is a cost
+    // pass-through: it reaches the customer's price at exactly what it cost,
+    // and margin applies to everything except it. With marginPct 0,
+    // priceFromCost returns the cost unchanged, so rawPrice === rawCost on this
+    // line and the figure flows into contractNet at cost.
+    //
+    // `hwWarranty` remains in marginOverrides and in the payload, unread here.
+    // Removing the key is a payload change and this is a pricing rule; the two
+    // are separate decisions and only the pricing one has been ruled.
+    { key: 'hwWarranty', cost: hw.warrantyCost, marginPct: 0 },
   ]);
 
   const installGroup = buildCostGroup(installLineItems || []);

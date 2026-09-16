@@ -154,20 +154,60 @@ test('calculateTax: grossUp at 100% WHT does not divide by zero', () => {
 })
 
 // ---------------------------------------------------------------- 1.1e
-test('calculateHardwareAndWarranty: warranty units round up', () => {
-  // 10x1000 + 4x500 + 2x2000 = 16000 over 16 units, avg 1000/unit.
-  // 5% of 16 units = 0.8 -> ceil -> 1 spare unit -> 1 * 1000 = 1000.
+// ── THE WARRANTY RULE, John 2026-09-16 ──────────────────────────────────
+//
+// THE TEST THAT USED TO BE HERE SURVIVED THE RULE CHANGE WITHOUT FAILING, and
+// that is why these replaced it. It used ssUnitCost 1000 against a mix average
+// of exactly 1000, and both the old ceil-over-the-mix and the new
+// ceil-over-SafeSight landed on 1 unit, so it returned 1000 under BOTH rules.
+// It was not a weak assertion; it was an assertion that could no longer tell
+// the two apart (CLAUDE.md Verification 17). Every case below is chosen so the
+// old rule and the new one give DIFFERENT answers.
+
+test('calculateHardwareAndWarranty: the COUNT is SafeSight units only, not the mix', () => {
+  // 10 SafeSight and 100 AQ at 5%.
+  //   new rule: ceil(10 * 0.05)  = ceil(0.5) = 1 unit
+  //   old rule: ceil(110 * 0.05) = ceil(5.5) = 6 units
   const hw = calculateHardwareAndWarranty({
     ssUnitCost: 1000, ssUnits: 10,
-    aqUnitCost: 500, aqUnits: 4,
-    hemirUnitCost: 2000, hemirUnits: 2,
+    aqUnitCost: 1000, aqUnits: 100,
+    hemirUnitCost: 0, hemirUnits: 0,
     warrantyPct: 5,
   })
-  assert.equal(hw.totalUnits, 16)
-  assert.equal(hw.hardwareCost, 16000)
-  assert.equal(hw.warrantyUnits, 1)
-  assert.equal(hw.avgHwCost, 1000)
-  assert.equal(hw.warrantyCost, 1000)
+  assert.equal(hw.warrantyBasisUnits, 10, 'the basis is the SafeSight count')
+  assert.equal(hw.warrantyUnits, Math.ceil(10 * 5 / 100))
+  assert.equal(hw.warrantyUnits, 1, 'six would mean the count is still taken over the mix')
+})
+
+test('calculateHardwareAndWarranty: the VALUE is a SafeSight unit plus its existing-infra install', () => {
+  // 10 SafeSight at 8000 and 10 AQ at 1000, 5%, existing-install 2000.
+  //   new rule: 1 unit x (8000 + 2000)        = 10000
+  //   old rule: 1 unit x mix average of 4500  =  4500
+  const hw = calculateHardwareAndWarranty({
+    ssUnitCost: 8000, ssUnits: 10,
+    aqUnitCost: 1000, aqUnits: 10,
+    hemirUnitCost: 0, hemirUnits: 0,
+    warrantyPct: 5,
+    ssInstallExistingCost: 2000,
+  })
+  assert.equal(hw.warrantyUnitCost, 8000 + 2000)
+  assert.equal(hw.warrantyCost, 1 * (8000 + 2000))
+  assert.notEqual(hw.warrantyCost, 4500, 'the mix average must not price the warranty')
+  assert.equal(hw.avgHwCost, 4500, 'the average is still reported, and prices nothing')
+})
+
+test('calculateHardwareAndWarranty: the install rate genuinely reaches the figure', () => {
+  const withInstall = calculateHardwareAndWarranty({
+    ssUnitCost: 8000, ssUnits: 100, aqUnitCost: 0, aqUnits: 0,
+    hemirUnitCost: 0, hemirUnits: 0, warrantyPct: 1, ssInstallExistingCost: 2000,
+  })
+  const without = calculateHardwareAndWarranty({
+    ssUnitCost: 8000, ssUnits: 100, aqUnitCost: 0, aqUnits: 0,
+    hemirUnitCost: 0, hemirUnits: 0, warrantyPct: 1,
+  })
+  assert.equal(withInstall.warrantyCost, 1 * (8000 + 2000))
+  assert.equal(without.warrantyCost, 1 * 8000, 'an absent install rate contributes nothing, not a default')
+  assert.notEqual(withInstall.warrantyCost, without.warrantyCost)
 })
 
 test('calculateHardwareAndWarranty: zero units does not divide by zero', () => {
@@ -190,14 +230,16 @@ test('calculateHardwareAndWarranty: an explicit 0 suppresses the default of 2', 
     hemirUnitCost: 2000, hemirUnits: 2,
   }
   assert.equal(calculateHardwareAndWarranty({ ...base, warrantyPct: 0 }).warrantyCost, 0)
-  // Omitted entirely -> default 2% -> ceil(16 * 0.02) = 1 unit -> 1000.
+  // Omitted entirely -> default 2% -> ceil(10 SafeSight * 0.02) = 1 unit,
+  // valued at the SafeSight unit cost of 1000 with no install rate supplied.
   assert.equal(calculateHardwareAndWarranty(base).warrantyCost, 1000)
 })
 
 // ---------------------------------------------------------------- 1.1f
 test('calculateTestBedCost: fully worked example, cost only', () => {
   // Hardware  10x1000 + 4x500 + 2x2000            = 16000
-  // Warranty  5% of 16 units = ceil(0.8) = 1 @ 1000 = 1000
+  // Warranty  5% of the 10 SAFESIGHT units = ceil(0.5) = 1 @ 1000 = 1000
+  //           (Test Bed passes 0, so this line only exercises the engine)
   // Hardware group total                          = 17000
   // Install   3000 + 1000                         =  4000
   // Hosting   (200 + 100) per month x 6 months    =  1800

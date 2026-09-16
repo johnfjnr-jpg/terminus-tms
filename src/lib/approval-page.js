@@ -406,9 +406,15 @@ export function buildExposures(payload, result) {
     key: 'warranty',
     label: 'Warranty provision',
     amount: result.hardware.warrantyCost,
-    basis: `${payload.warrantyPct ?? NUMERIC_DEFAULTS.warrantyPct}% of ${result.hardware.totalUnits} units `
-      + `= ${result.hardware.warrantyUnits} spare unit${result.hardware.warrantyUnits === 1 ? '' : 's'}`,
-    note: 'Priced in as cost. An under-provision surfaces as margin now and a loss later.',
+    // THE BASIS IS SAFESIGHT UNITS, NOT THE MIX, and each spare is valued at a
+    // SafeSight unit plus its existing-infrastructure installation. John's
+    // rule, 2026-09-16. An approver is accepting this number, so the sentence
+    // has to name the denominator the calculation actually used.
+    basis: `${payload.warrantyPct ?? NUMERIC_DEFAULTS.warrantyPct}% of ${result.hardware.warrantyBasisUnits} SafeSight unit`
+      + `${result.hardware.warrantyBasisUnits === 1 ? '' : 's'} `
+      + `= ${result.hardware.warrantyUnits} spare unit${result.hardware.warrantyUnits === 1 ? '' : 's'} `
+      + `at $${result.hardware.warrantyUnitCost} each, unit cost plus existing-infrastructure install`,
+    note: 'Carries NO margin: it reaches the customer price at cost. An under-provision surfaces as margin now and a loss later.',
     bornByTerminus: true,
   });
 

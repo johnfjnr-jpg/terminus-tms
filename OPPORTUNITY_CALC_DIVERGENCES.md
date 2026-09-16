@@ -1,7 +1,15 @@
 # Opportunity calculation: divergences from the deal-sheet source
 
-**Verification read, 2026-09-16. NOTHING IS FIXED.** Same standing as the Test
-Bed audit: measure first, rule second, fix third.
+**Verification read, 2026-09-16.** Same standing as the Test Bed audit: measure
+first, rule second, fix third.
+
+**RULED BY JOHN THE SAME DAY, AND ALL SIX ARE NOW CLOSED.** S1 and S2 were bugs
+and are fixed; S5 is fixed as defence in depth; S3, S4 and S6 are recorded as
+decisions where the deal sheet is stale or was simply silent. The ruled model
+now lives in `COST_CALCULATIONS.md` section 2 and is enforced by
+`scripts/tests/opportunity-cost-contract.test.mjs`. **This file is kept as the
+measurement that produced those rulings**, not as an open list, and the
+readings offered below are the ones John ruled on rather than the outcome.
 
 **Source of truth:** `old - terminus-deal-sheet.html`, committed at `c7f2f40`.
 `computeModel()` begins at line 512; the cost logic is lines 530 to 556, and

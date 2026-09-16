@@ -42,7 +42,7 @@ type Row = { key: string, rawCost: number, rawPrice: number }
 type Group = { rows?: Row[], rawTotalCost: number, rawTotalPrice: number }
 export type PricingResult = {
   groups: { hardwareGroup: Group, hostingGroup: Group }
-  hardware: { totalUnits: number, warrantyUnits: number }
+  hardware: { totalUnits: number, warrantyUnits: number, warrantyBasisUnits: number }
 } | null
 
 const CARDS = [
@@ -87,9 +87,15 @@ function noteFor(key: string, payload: Record<string, unknown>, result: PricingR
     case 'hwHemir': return per(hemirUnits, payload.hemirUnitCost)
     case 'hwWarranty': {
       if (!result) return ''
-      const { totalUnits, warrantyUnits } = result.hardware
+      // THE BASIS IS SAFESIGHT UNITS, NOT THE MIX. John's rule, 2026-09-16.
+      // This read `totalUnits` and was correct while the count was taken over
+      // every product. It is a sentence describing a calculation, so changing
+      // the calculation and leaving it would have printed a true-looking figure
+      // against the wrong denominator, which nothing could have failed on.
+      const { warrantyBasisUnits, warrantyUnits } = result.hardware
       const pct = numericOrDefault(payload, 'warrantyPct')
-      return `${pct}% of ${totalUnits} units = ${warrantyUnits} unit${warrantyUnits === 1 ? '' : 's'}`
+      return `${pct}% of ${warrantyBasisUnits} SafeSight unit${warrantyBasisUnits === 1 ? '' : 's'}`
+        + ` = ${warrantyUnits} unit${warrantyUnits === 1 ? '' : 's'}, at cost`
     }
     case 'hoSs': return per(ssUnits, payload.hoSafesight)
     case 'hoAqm': return per(aqUnits, payload.hoAqm)

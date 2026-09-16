@@ -71,7 +71,25 @@ test('recovery period is two-phase only, and hybrid is otherwise unchanged', () 
   const h = cf('hybrid', 12).cashFlow
   assert.equal(Math.round(h.rows.reduce((s, x) => s + x.hardwareIn, 0)), 492858,
     'hybrid still recovers hardware through its milestone schedule')
-  assert.equal(Math.round(h.rows.at(-1).cum), 217302)
+  // ── MOVED 217,302 -> 222,302 BY THE WARRANTY RULING, John 2026-09-16 ───
+  //
+  // ANCHORED TO ITS CAUSE, not restated as a fresh literal. This deal carries
+  // a $100,000 HEMIR against 15 SafeSight at $8,000, so the mix average was
+  // $15,000 and the OLD rule valued its single warranty unit at that. The new
+  // rule values a warranty unit as a SafeSight spare plus its existing-infra
+  // install, $8,000 + $2,000 = $10,000. The cash position gains exactly the
+  // $5,000 difference and nothing else moved, which the two assertions below
+  // prove jointly: if anything else had shifted, the second would not equal
+  // the first plus the warranty delta.
+  //
+  // It is also the distortion DESIGN_PRINCIPLES.md:2325 predicted, live in a
+  // fixture: one expensive HEMIR was inflating the provision for a spare
+  // SafeSight by 50%.
+  const warrantyBefore = 15000  // 1 unit x the old mix average
+  assert.equal(cf('hybrid', 12).hardware.warrantyCost, 10000,
+    'a warranty unit is a SafeSight spare plus existing-infra install')
+  assert.equal(Math.round(h.rows.at(-1).cum), 217302 + (warrantyBefore - 10000))
+  assert.equal(Math.round(h.rows.at(-1).cum), 222302)
 
   // SUPERSEDED BY RULING 5, and left visible rather than deleted, because the
   // superseded reasoning is what tells a later reader that a premise changed
@@ -93,17 +111,36 @@ test('recovery period is two-phase only, and hybrid is otherwise unchanged', () 
   // AND THE TERM IS STILL READ WHEN IT IS THERE, which is the other half: a
   // change that removes a substitution has to show the real value arriving.
   const withTerm = cf('hybrid', 12, { factoring: { enabled: true, ratePct: 1.5, termMonths: 12, method: 'straight' } })
-  assert.equal(withTerm.financeCost, 33638, 'a recorded 12-month term prices exactly as the old default did')
+  // ── BOTH FIGURES MOVED WITH THE WARRANTY RULING, John 2026-09-16 ──────
+  //
+  // The factoring principal is hardware plus installation cost, and the
+  // warranty sits inside hardware. The ruling took this deal's warranty from
+  // $15,000 to $10,000, so the principal is $5,000 smaller and the interest
+  // falls with it. Straight-line over n months at 1.5% the interest on that
+  // $5,000 is 5000 * 0.015 * (n + 1) / 2: $487.50 at twelve, $937.50 at
+  // twenty-four.
+  //
+  // EXPRESSED AGAINST THE OLD FIGURE rather than re-blessed as a new literal.
+  // If anything other than the principal had changed, these would not land on
+  // the old number minus exactly the interest on the warranty reduction.
+  const lessInterestOn = (n) => Math.round(5000 * 0.015 * (n + 1) / 2)
+  assert.equal(withTerm.financeCost, 33638 - lessInterestOn(12),
+    'a recorded 12-month term prices as the old default did, less the warranty reduction')
   assert.equal(withTerm.costIncomplete, false)
   assert.equal(cf('hybrid', 12, { factoring: { enabled: true, ratePct: 1.5, termMonths: 24, method: 'straight' } }).financeCost,
-    64688, 'and a different term prices differently, so the parameter is read rather than decorative')
+    64688 - lessInterestOn(24), 'and a different term prices differently, so the parameter is read rather than decorative')
 
   // STILL WORKING: the two structures that DO have a recovery period.
   assert.equal(cf('twoPhase', 12).cashFlow.recov, 12)
   assert.equal(cf('single', undefined).cashFlow.recov, 36, 'single recovers over the full term')
   assert.equal(cf('twoPhase', undefined).cashFlow.recov, null,
     'a blank recovery period is an absence, not a deal that recovers over zero months')
-  assert.equal(Math.round(cf('twoPhase', undefined).cashFlow.rows.at(-1).cum), -275556,
+  // The same $5,000 warranty reduction as above, arriving in the two-phase
+  // closing cash. Expressed against the old figure so the move stays anchored
+  // to its one cause: a warranty unit is now a SafeSight spare at $10,000
+  // rather than a mix average inflated to $15,000 by this deal's HEMIR.
+  const WARRANTY_REDUCTION = 15000 - 10000
+  assert.equal(Math.round(cf('twoPhase', undefined).cashFlow.rows.at(-1).cum), -275556 + WARRANTY_REDUCTION,
     'the arithmetic is unchanged by that: null and 0 bill the same nothing, and finding 1 '
     + 'is closed by the default being written into the record, not by the calculator guessing')
 })

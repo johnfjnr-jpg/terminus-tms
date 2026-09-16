@@ -53,6 +53,7 @@
       "hemirUnitCost": 5000,
       "hemirUnits": 2,
       "warrantyPct": 2,
+      "ssInstallExistingCost": 300,
       "installLineItems": [
         {
           "key": "inLump",
@@ -160,6 +161,7 @@
       "hemirUnitCost": 5000,
       "hemirUnits": 2,
       "warrantyPct": 2,
+      "ssInstallExistingCost": 300,
       "installLineItems": [
         {
           "key": "inSsEx",
@@ -282,6 +284,7 @@
       "hemirUnitCost": 5000,
       "hemirUnits": 2,
       "warrantyPct": 2,
+      "ssInstallExistingCost": 300,
       "installLineItems": [
         {
           "key": "inNone",
@@ -389,6 +392,7 @@
       "hemirUnitCost": 5000,
       "hemirUnits": 2,
       "warrantyPct": 2,
+      "ssInstallExistingCost": 300,
       "installLineItems": [
         {
           "key": "inNone",
@@ -495,6 +499,7 @@
       "hemirUnitCost": 5000,
       "hemirUnits": 2,
       "warrantyPct": 2,
+      "ssInstallExistingCost": 300,
       "installLineItems": [
         {
           "key": "inNone",
@@ -560,6 +565,7 @@
       "hemirUnitCost": 0,
       "hemirUnits": 0,
       "warrantyPct": 2,
+      "ssInstallExistingCost": 0,
       "installLineItems": [
         {
           "key": "inNone",
@@ -662,6 +668,7 @@
       "hemirUnitCost": 5000,
       "hemirUnits": 0,
       "warrantyPct": 2,
+      "ssInstallExistingCost": 300,
       "installLineItems": [
         {
           "key": "inSsEx",
@@ -784,6 +791,7 @@
       "hemirUnitCost": 5000,
       "hemirUnits": 2,
       "warrantyPct": 2,
+      "ssInstallExistingCost": 300,
       "installLineItems": [
         {
           "key": "inSsEx",

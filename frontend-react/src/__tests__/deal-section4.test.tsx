@@ -133,7 +133,11 @@ describe('the pricing cards', () => {
 
   test('B6: the warranty note names the provision, and is singular at one unit', async () => {
     await mount()
-    const total = 40 + 25 + 12 + 8
+    // THE BASIS IS SAFESIGHT UNITS, NOT THE MIX. John's warranty ruling,
+    // 2026-09-16. This read 40 + 25 + 12 + 8, every unit on the deal, which was
+    // correct while the count was taken over the mix. The AQ and HEMIR counts
+    // no longer enter it.
+    const safesight = 40 + 25
     const text = must('pg-note-hwWarranty').textContent ?? ''
     // The COUNT is the calculator's and is not restated here: an earlier draft
     // of this test recomputed it as Math.round and read 10 where the calculator
@@ -141,7 +145,7 @@ describe('the pricing cards', () => {
     // back out of the sentence and the sentence is asserted around it.
     const n = Number(text.match(/= (\d+) unit/)?.[1])
     expect(Number.isFinite(n), `no unit count in: ${text}`).toBe(true)
-    expect(text).toBe(`12% of ${total} units = ${n} unit${n === 1 ? '' : 's'}`)
+    expect(text).toBe(`12% of ${safesight} SafeSight units = ${n} unit${n === 1 ? '' : 's'}, at cost`)
   })
 
   test('B7: every hosting figure carries the per-month wording, totals included', async () => {

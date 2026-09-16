@@ -432,6 +432,11 @@ export function buildDealInputs(payload, { testBedCost = 0, rates } = {}) {
     hemirUnitCost: rates.hemirUnitCost ?? 0,
     hemirUnits,
     warrantyPct: numericOrDefault(payload, 'warrantyPct'),
+    // The SafeSight existing-infrastructure install rate, passed through as a
+    // RATE so the warranty can be valued at a unit plus its installation
+    // (John's rule, 2026-09-16). `?? 0` for the same reason as every other rate
+    // here: an absent rate prices at nothing and buildBasis names it on screen.
+    ssInstallExistingCost: rates.inSsExisting ?? 0,
     installLineItems,
     hostingLineItems,
     hardwareMargins: {
