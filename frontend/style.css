@@ -5866,7 +5866,18 @@ input.input-invalid {
 /* The summary takes the remaining width and wraps rather than pushing the
  * title around; it keeps its element when empty so the title cannot move. */
 .tb-header-summary {
-  flex: 1 1 auto;
+  /* W5: THE SUMMARY IS THE ELEMENT THAT ABSORBS THE SQUEEZE, and that is a
+     decision rather than a tweak. The row holds three things: a title whose
+     content is a fixed string, an action whose content is a fixed string, and
+     a paragraph that reflows. At 1240 the three did not fit, so the row
+     wrapped and the action - last in the row - dropped to a second line 65px
+     below the title, which is not "beside the title".
+     `flex-basis: 0` with `min-width: 0` lets the paragraph give up width and
+     take another line of its own instead, which is the one of the three that
+     can. Measured, not reasoned: 65px below at 1240 before, 12px after, and
+     unchanged at 1440 and 1920 where it already fitted. */
+  flex: 1 1 0;
+  min-width: 0;
   margin: 0;
   max-width: 62ch;
 }

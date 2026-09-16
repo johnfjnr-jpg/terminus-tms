@@ -135,6 +135,25 @@ const MEASURE = () => {
     tabs: rect(tabs), next: rect(next), convert: rect(convert),
     nextInsideTabs: !!(tabs && next && tabs.contains(next)),
     convertInHeaderRow: !!(headerRow && convert && headerRow.contains(convert)),
+    // ── CONTAINMENT IS NOT PLACEMENT, AND THE SCREENSHOT IS WHAT SAID SO ──
+    //
+    // `convertInHeaderRow` asks whether the trigger is INSIDE the header row,
+    // which is a property of the DOM. The claim John set is "next to the Test
+    // Bed title", which is a relation between two elements on screen. The
+    // header row is `flex-wrap: wrap` - deliberately, because the estate's own
+    // lesson is that a header row drops its right-hand group to a second line
+    // rather than pushing it off the edge - so at a narrow width the two
+    // answers DIVERGE: contained, and 55px below the title.
+    //
+    // Found by opening the 1240 capture after the containment assertion had
+    // already passed. Verification 4's own clause, committed by the session
+    // that quoted it.
+    convertOnTitleLine: !!(name && convert)
+      && Math.abs(convert.getBoundingClientRect().top - name.getBoundingClientRect().top)
+        < name.getBoundingClientRect().height,
+    convertBelowTitleBy: name && convert
+      ? Math.round(convert.getBoundingClientRect().top - name.getBoundingClientRect().top)
+      : null,
     cdHeaderPresent: !!cdHeader,
     nameRowPresent: !!nameRow,
     nameRowInTerminusCard: !!(terminus && nameRow && terminus.contains(nameRow)),
@@ -346,7 +365,7 @@ const { writeFileSync } = await import('node:fs')
 writeFileSync(join(OUT, `${LABEL}.json`), JSON.stringify(out, null, 2))
 
 console.log(`\n  TEST BED WALK 2 - ${LABEL}\n`)
-console.log('  width  name/client  same row  baseline gap  box-bottom gap  hdr->stats gap  next in tabs  convert in hdr  cd-header  name row     overflow')
+console.log('  width  name/client  same row  baseline gap  box-bottom gap  hdr->stats gap  next in tabs  cont/onLine     cd-header  name row     overflow')
 for (const r of rows) {
   const sameRow = r.name && r.client ? (Math.abs(r.name.top - r.client.top) < r.name.height) : null
   const bgap = r.nameBaseline != null && r.clientBaseline != null
@@ -358,7 +377,7 @@ for (const r of rows) {
     + String(r.name && r.client ? r.client.bottom - r.name.bottom : null).padEnd(16)
     + String(r.gapHeaderToStats).padEnd(16)
     + String(r.nextInsideTabs).padEnd(14)
-    + String(r.convertInHeaderRow).padEnd(16)
+    + `${r.convertInHeaderRow}/${r.convertOnTitleLine}`.padEnd(16)
     + String(r.cdHeaderPresent).padEnd(11)
     + `${r.nameRowPresent ? 'y' : 'n'}${r.nameRowInTerminusCard ? '/terminus' : ''}`.padEnd(12)
     + String(r.horizontalOverflow))

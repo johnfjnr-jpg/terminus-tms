@@ -233,6 +233,40 @@ already had:
 | a real click opens the editor | **false** | **true** |
 | in the top band | yes | yes |
 
+## W5 at 1240: containment is not placement
+
+**FOUND BY OPENING THE 1240 CAPTURE AFTER THE ASSERTION HAD ALREADY PASSED**,
+which is Verification 4's own clause committed by the session quoting it.
+
+`convertInHeaderRow` asks whether the trigger is INSIDE the header row. That
+is a property of the DOM. The claim is "beside the Test Bed title", which is a
+relation between two elements on a screen, and at 1240 the two answers
+diverged: **contained, and 65px below the title**. The header row is
+`flex-wrap: wrap` on purpose - the estate's recorded lesson is that a header
+row drops its right-hand group to a second line rather than pushing it off the
+edge - and the action, being last in the row, is what dropped.
+
+**The fix is which element absorbs the squeeze.** The row holds a title whose
+content is a fixed string, an action whose content is a fixed string, and a
+paragraph that reflows. Only one of the three can give up width, so the
+summary takes `flex-basis: 0` with `min-width: 0` and spends another line of
+its own instead.
+
+| width | convert below the title | on the title line | summary | overflow |
+|---|---|---|---|---|
+| 1240 | 65px -> **12px** | false -> **true** | 3 lines -> 4 | 0 |
+| 1440 | 12px | true | 3 lines, unchanged | 0 |
+| 1920 | 12px | true | 3 lines, unchanged | 0 |
+
+The header row is 96px tall at 1240 and 75px at 1440 and 1920, so the wider
+widths are untouched by the change. **The probe now asserts the RELATION, and
+the containment check is kept beside it rather than replaced**, because the
+two answer different questions and only one of them was ever the claim.
+
+**These geometry claims live in the probe, which this round runs and reports.
+They are not gate stages**, which is the estate's standing position on browser
+probes and is stated here so a green gate is not read as covering them.
+
 ## W5 and the door, measured rather than argued
 
 `applyReadOnlyControls` enumerates **by structure** - every `button, a[href]`
