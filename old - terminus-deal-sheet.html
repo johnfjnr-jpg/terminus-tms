@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Terminus deal sheet</title>
+<style>
+  :root {
+    --bg: #f6f5f2;
+    --card: #ffffff;
+    --border: #d9d6cd;
+    --text: #1f1e1c;
+    --text-secondary: #5f5e58;
+    --text-muted: #8a887f;
+    --accent: #0c447c;
+    --accent-bg: #e6f1fb;
+    --negative: #a32d2d;
+    --negative-bg: #fcebeb;
+    --positive: #27500a;
+    --positive-bg: #eaf3de;
+    --warn: #6b4f0c;
+    --warn-bg: #fdf6e6;
+    --warn-border: #ecd9a0;
+    --radius: 8px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    margin: 0;
+    padding: 28px;
+    font-size: 13.5px;
+    line-height: 1.5;
+  }
+  .wrap { max-width: 1680px; margin: 0 auto; }
+  h1 { font-size: 20px; font-weight: 600; margin: 0 0 4px; }
+  .subtitle { color: var(--text-secondary); margin: 0 0 18px; font-size: 13px; }
+  .top-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 14px;
+    align-items: start;
+    margin-bottom: 8px;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 18px;
+    margin-bottom: 16px;
+  }
+  .card h2 {
+    font-size: 12.5px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-secondary);
+    margin: 0 0 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .field { margin-bottom: 10px; }
+  .field:last-child { margin-bottom: 0; }
+  .field label {
+    display: block;
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-bottom: 3px;
+  }
+  .field-row { display: flex; gap: 8px; }
+  .field-row .field { flex: 1; }
+  .field-row .field label { min-height: 30px; display: block; }
+  input[type="number"], input[type="text"], select {
+    width: 100%;
+    padding: 6px 8px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 13px;
+    background: #fdfdfc;
+    color: var(--text);
+    font-family: inherit;
+  }
+  input[type="number"]:focus, input[type="text"]:focus, select:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-bg);
+  }
+  .hint { font-size: 11px; color: var(--text-muted); margin-top: 3px; }
+  .calc-display {
+    padding: 6px 8px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 13px;
+    background: #f0efeb;
+    color: var(--text-secondary);
+    font-weight: 600;
+  }
+  .checkbox-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .checkbox-row input { width: auto; }
+  .checkbox-row label { font-size: 12.5px; color: var(--text); margin: 0; }
+  .radio-group { display: flex; gap: 14px; margin-bottom: 12px; }
+  .radio-group label { display: flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 500; }
+  .radio-group input { width: auto; }
+  .subsection-label { font-size: 11.5px; font-weight: 600; color: var(--text-secondary); margin: 12px 0 6px; text-transform: uppercase; letter-spacing: 0.02em; }
+  .subsection-label:first-child { margin-top: 0; }
+
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .metric {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+  }
+  .metric .label { font-size: 11px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.03em; margin-bottom: 5px; }
+  .metric .value { font-size: 19px; font-weight: 600; }
+  .metric .value.negative { color: var(--negative); }
+  .metric .value.positive { color: var(--positive); }
+  .metric.warn { border-color: var(--warn-border); background: var(--warn-bg); }
+  .metric.warn .value { color: var(--warn); font-size: 15px; }
+
+  .pricing-panels {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 14px;
+    margin-bottom: 14px;
+    align-items: start;
+  }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th, td { padding: 6px 9px; text-align: right; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  th:first-child, td:first-child { text-align: left; }
+  thead th { font-size: 11px; text-transform: uppercase; letter-spacing: 0.02em; color: var(--text-secondary); font-weight: 600; border-bottom: 2px solid var(--border); position: sticky; top: 0; background: var(--card); }
+  tbody tr.total-row td { font-weight: 600; border-top: 2px solid var(--border); }
+  td.negative { color: var(--negative); }
+  .table-scroll { max-height: 420px; overflow-y: auto; border: 1px solid var(--border); border-radius: 6px; }
+  .table-scroll table { margin: 0; }
+  .cf-scroll { max-height: 480px; overflow: auto; border: 1px solid var(--border); border-radius: 6px; }
+  .cf-scroll table { margin: 0; border-collapse: collapse; font-size: 12px; }
+  .cf-scroll th, .cf-scroll td { padding: 5px 9px; white-space: nowrap; border-bottom: 1px solid var(--border); text-align: right; }
+  .cf-scroll th:first-child, .cf-scroll td:first-child {
+    text-align: left;
+    position: sticky;
+    left: 0;
+    background: var(--card);
+    z-index: 2;
+    border-right: 1px solid var(--border);
+  }
+  .cf-scroll thead th {
+    position: sticky;
+    top: 0;
+    background: var(--card);
+    z-index: 3;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    color: var(--text-secondary);
+    border-bottom: 2px solid var(--border);
+  }
+  .cf-scroll thead th:first-child { z-index: 4; }
+  .cf-scroll tr.section-row td { font-weight: 600; background: #faf9f6; }
+  .cf-scroll tr.section-row td:first-child { background: #faf9f6; }
+  .cf-scroll tr.total-row td { font-weight: 600; border-top: 2px solid var(--border); }
+  .cf-scroll td.negative { color: var(--negative); }
+
+  .flag {
+    border-radius: var(--radius);
+    padding: 9px 13px;
+    font-size: 12px;
+    margin-bottom: 14px;
+  }
+  .flag.assumption { background: var(--warn-bg); border: 1px solid var(--warn-border); color: var(--warn); }
+  .flag.danger { background: var(--negative-bg); border: 1px solid #e8b3b3; color: var(--negative); }
+  .flag.ok { background: var(--positive-bg); border: 1px solid #c0dd97; color: var(--positive); }
+  .flag strong { font-weight: 600; }
+
+  .milestone-row { display: grid; grid-template-columns: 60px 1fr 90px 100px; gap: 6px; margin-bottom: 6px; align-items: center; }
+  .milestone-row span { font-size: 11.5px; color: var(--text-secondary); }
+  .tabs { display: flex; gap: 4px; margin-bottom: 14px; }
+  .tab-btn {
+    padding: 7px 14px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    border-radius: 6px;
+    font-size: 12.5px;
+    cursor: pointer;
+    color: var(--text-secondary);
+  }
+  .tab-btn.active { background: var(--accent-bg); color: var(--accent); border-color: var(--accent); font-weight: 600; }
+  .hidden { display: none; }
+  .section-title { font-size: 15px; font-weight: 600; margin: 20px 0 10px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Terminus deal profitability sheet</h1>
+  <p class="subtitle">Internal use. Costs, markup pricing, PO factoring, and payment structure cash flow. Currency: USD.</p>
+
+  <div class="flag assumption">
+    <strong>Verify before use:</strong> markup basis is markup on cost, warranty units are costed at full camera unit cost, one-off costs (hardware, installation, warranty) are assumed to hit cash flow in month 1, and PO factoring (set up in the Monthly cash flow tab) is a straight-line principal repayment with flat interest on the original principal, not a declining-balance amortisation. Confirm each against your actual finance treatment before relying on this for a live quote.
+  </div>
+
+  <div class="top-grid">
+    <div class="card">
+      <h2>Deal parameters</h2>
+      <div class="field">
+        <label for="term">Contract term (years)</label>
+        <input type="number" id="term" value="3" min="1" max="10" step="1">
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="hardwareMarkup">Target Profitability (HW) %</label>
+          <input type="number" id="hardwareMarkup" value="30" min="0" max="99" step="1">
+        </div>
+        <div class="field">
+          <label for="monthlyMarkup">Target Profitability (hosting) %</label>
+          <input type="number" id="monthlyMarkup" value="30" min="0" max="99" step="1">
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>SafeSight<sup>TM</sup> and installation</h2>
+      <div class="field">
+        <label for="camerasTotal">Number of SafeSight<sup>TM</sup> units (total)</label>
+        <input type="number" id="camerasTotal" value="30" min="0" step="1">
+      </div>
+      <div class="subsection-label">Existing pole mounts</div>
+      <div class="field-row">
+        <div class="field"><label for="camerasExisting">Number of SafeSight<sup>TM</sup></label><input type="number" id="camerasExisting" value="20" min="0" step="1"></div>
+        <div class="field"><label for="installCostExisting">Cost per install (USD)</label><input type="number" id="installCostExisting" value="2000" min="0" step="100"></div>
+      </div>
+      <div class="subsection-label">New pole mounts</div>
+      <div class="field-row">
+        <div class="field">
+          <label>Number of SafeSight<sup>TM</sup> (calculated)</label>
+          <div id="camerasNewDisplay" class="calc-display">0</div>
+        </div>
+        <div class="field"><label for="installCostNew">Cost per mount (USD)</label><input type="number" id="installCostNew" value="20000" min="0" step="500"></div>
+      </div>
+      <div id="camerasMismatchWarning"></div>
+      <div class="field">
+        <label for="cameraUnitCost">SafeSight<sup>TM</sup> cost per unit (USD)</label>
+        <input type="number" id="cameraUnitCost" value="1200" min="0" step="50">
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>AQ Sensor and installation</h2>
+      <div class="field">
+        <label for="sensors">Number of AQ Sensor</label>
+        <input type="number" id="sensors" value="10" min="0" step="1">
+      </div>
+      <div class="field">
+        <label for="sensorUnitCost">AQ Sensor cost per unit (USD)</label>
+        <input type="number" id="sensorUnitCost" value="600" min="0" step="50">
+      </div>
+      <div class="field">
+        <label for="sensorInstallCost">Install cost per AQ Sensor (USD)</label>
+        <input type="number" id="sensorInstallCost" value="0" min="0" step="100">
+      </div>
+      <div class="hint">AQ Sensor installation cost defaults to 0, not specified in the brief. Confirm actual figure.</div>
+    </div>
+
+    <div class="card">
+      <h2>Hosting and warranty</h2>
+      <div class="field">
+        <label for="hostingCameraMonth">Hosting cost per SafeSight<sup>TM</sup>/month</label>
+        <input type="number" id="hostingCameraMonth" value="15" min="0" step="1">
+      </div>
+      <div class="field">
+        <label for="hostingSensorMonth">Hosting cost per AQ Sensor/month</label>
+        <input type="number" id="hostingSensorMonth" value="8" min="0" step="1">
+      </div>
+      <div class="field">
+        <label for="warrantyPct">Warranty replacement units (% of population, rounded up)</label>
+        <input type="number" id="warrantyPct" value="5" min="0" max="100" step="0.5">
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>SafeSight<sup>TM</sup> units (calculated)</label>
+          <div id="warrantyCameraUnitsDisplay" class="calc-display">0</div>
+        </div>
+        <div class="field">
+          <label>AQ Sensor units (calculated)</label>
+          <div id="warrantySensorUnitsDisplay" class="calc-display">0</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-title">Computed pricing</div>
+  <div class="pricing-panels">
+    <div class="card">
+      <h2>Unit cost and warranty</h2>
+      <table id="unitWarrantyTable"></table>
+    </div>
+    <div class="card">
+      <h2>Installation</h2>
+      <table id="installTable"></table>
+    </div>
+    <div class="card">
+      <h2>Hosting (per month)</h2>
+      <table id="hostingTable"></table>
+    </div>
+  </div>
+  <div id="pricingTotals" class="summary-grid"></div>
+
+  <div class="card">
+    <h2>Discount off list price</h2>
+    <div class="field" style="max-width:220px;">
+      <label for="discountPct">Discount % off list price</label>
+      <input type="number" id="discountPct" value="0" min="0" max="100" step="0.5">
+    </div>
+    <div id="discountSummary" class="summary-grid" style="margin-top:12px;"></div>
+    <div class="hint">List price is the Computed contract value above. Target offer price is what the payment structure below should deliver, the Gap check compares actual structured revenue against this discounted target, not full list price.</div>
+  </div>
+
+  <div class="section-title">Payment structure</div>
+  <div class="card">
+    <div class="radio-group">
+      <label><input type="radio" name="structure" value="phased" checked> Two-phase (hardware recovery then hosting)</label>
+      <label><input type="radio" name="structure" value="milestone"> Hybrid (Milestone + Hosting)</label>
+    </div>
+
+    <div id="phasedFields">
+      <div class="field" style="max-width:220px;">
+        <label for="recoveryMonths">Recovery period (months)</label>
+        <input type="number" id="recoveryMonths" value="24" min="0" step="1" maxlength="4">
+      </div>
+      <div style="display:flex; gap:16px; flex-wrap:wrap; align-items:start;">
+        <div style="flex:1; min-width:280px;">
+          <table id="phasedFeeTable"></table>
+        </div>
+        <div style="flex:1; min-width:200px;">
+          <table id="annualAdvanceTable"></table>
+        </div>
+      </div>
+    </div>
+    <div class="hint" id="standardFeeHint">During the recovery period, each device's monthly fee is its hardware price &divide; recovery months, plus its hosting fee. After recovery, monthly fee is hosting fee only. Both hardware price and hosting fee are taken from Computed pricing above. Annual in advance is that year's actual total revenue under this structure, paid as one lump sum at the start of the year instead of monthly, it correctly reflects a mixed recovery/standard year if the recovery period doesn't land on a 12-month boundary.</div>
+
+    <div id="milestoneFields" class="hidden">
+      <div style="display:flex; gap:16px; flex-wrap:wrap; align-items:start;">
+        <div style="flex:1.4; min-width:340px;">
+          <div class="subsection-label">Hardware milestones (up to 5)</div>
+          <div class="milestone-row"><span>Month</span><span>Label</span><span>%</span><span>USD</span></div>
+          <div id="milestoneRows"></div>
+          <div class="milestone-row" id="milestoneTotalRow" style="font-weight:600; border-top:1px solid var(--border); padding-top:6px; margin-top:2px;">
+            <span></span><span>Total</span><span id="milestoneTotalPct"></span><span id="milestoneTotalUsd"></span>
+          </div>
+          <div id="milestoneTotalLine" class="hint" style="margin-top:6px;"></div>
+        </div>
+        <div style="flex:1; min-width:220px;">
+          <div class="subsection-label">Hosting, annual in advance</div>
+          <table id="hostingAnnualTable"></table>
+        </div>
+      </div>
+      <div class="hint">Enter either % or USD per milestone, the other recalculates from the computed hardware price. Hosting fee (SafeSight + AQ Sensor, from Computed pricing) applies every month of the term regardless of milestone timing.</div>
+    </div>
+  </div>
+
+  <div class="section-title">Profitability result</div>
+  <div id="resultSummary" class="summary-grid"></div>
+  <div id="gapFlag"></div>
+  <div id="cashFlag"></div>
+
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="annual">Annual P&amp;L</button>
+    <button class="tab-btn" data-tab="monthly">Monthly cash flow</button>
+  </div>
+
+  <div id="annualPanel" class="card">
+    <div class="table-scroll">
+      <table id="annualTable"></table>
+    </div>
+  </div>
+  <div id="monthlyPanel" class="card hidden">
+    <div class="checkbox-row">
+      <input type="checkbox" id="factoringEnabled">
+      <label for="factoringEnabled">Enable PO factoring (loan against hardware cost)</label>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Loan principal (calculated, = total hardware cost)</label>
+        <div id="factoringPrincipalDisplay" class="calc-display">0</div>
+      </div>
+      <div class="field">
+        <label for="factoringRate">Monthly interest rate (%)</label>
+        <input type="number" id="factoringRate" value="1.5" min="0" max="20" step="0.1">
+      </div>
+      <div class="field">
+        <label for="factoringTerm">Loan term (months)</label>
+        <input type="number" id="factoringTerm" value="24" min="1" step="1">
+      </div>
+    </div>
+    <div class="radio-group" id="loanMethodGroup">
+      <label><input type="radio" name="loanMethod" value="straight" checked> Straight-line (equal principal, interest on reducing balance)</label>
+      <label><input type="radio" name="loanMethod" value="declining"> Declining balance amortisation (equal monthly payment)</label>
+    </div>
+    <div class="hint">Loan term defaults to the recovery period for two-phase, or 12 months for Hybrid, when you select that structure, edit freely afterward. The advance lands in month 1; repayment starts month 2 and runs for the loan term (so the last instalment falls in month, loan term + 1). Both repayment methods charge interest on the outstanding balance, not the original principal, straight-line keeps principal constant and lets the payment fall over time, amortisation keeps the total payment constant and lets the principal/interest split shift. Only the interest portion counts as a cost in Annual P&amp;L and the profitability metrics, the principal repayment does not, since the hardware cost was already recognised once, in month 1.</div>
+
+    <div class="cf-scroll">
+      <table id="monthlyTable"></table>
+    </div>
+  </div>
+</div>
+
+<script>
+function el(id) { return document.getElementById(id); }
+function num(id) { return parseFloat(el(id).value) || 0; }
+function fmt(n) {
+  const rounded = Math.round(n);
+  const sign = rounded < 0 ? "-" : "";
+  return sign + "$" + Math.abs(rounded).toLocaleString("en-US");
+}
+function fmtPct(n) { return (Math.round(n * 10) / 10) + "%"; }
+
+const milestoneCount = 5;
+const msDriver = ["pct", "pct", "pct", "pct", "pct"];
+function buildMilestoneRows() {
+  const container = el("milestoneRows");
+  const defaults = [
+    { month: 1, label: "Contract start", pct: 30 },
+    { month: 3, label: "Installation complete", pct: 40 },
+    { month: 6, label: "Commissioning", pct: 30 },
+    { month: 0, label: "", pct: 0 },
+    { month: 0, label: "", pct: 0 }
+  ];
+  let html = "";
+  for (let i = 0; i < milestoneCount; i++) {
+    const d = defaults[i];
+    html += `<div class="milestone-row">
+      <input type="number" id="msMonth${i}" value="${d.month}" min="0" step="1">
+      <input type="text" id="msLabel${i}" value="${d.label}">
+      <input type="number" id="msPct${i}" value="${d.pct}" min="0" max="100" step="0.5">
+      <input type="number" id="msAmount${i}" value="0" min="0" step="1">
+    </div>`;
+  }
+  container.innerHTML = html;
+  for (let i = 0; i < milestoneCount; i++) {
+    el(`msPct${i}`).addEventListener("input", () => { msDriver[i] = "pct"; });
+    el(`msAmount${i}`).addEventListener("input", () => { msDriver[i] = "abs"; });
+  }
+}
+buildMilestoneRows();
+
+document.querySelectorAll('input[name="structure"]').forEach(r => r.addEventListener("change", () => {
+  const val = document.querySelector('input[name="structure"]:checked').value;
+  el("phasedFields").classList.toggle("hidden", val !== "phased");
+  el("milestoneFields").classList.toggle("hidden", val !== "milestone");
+  el("standardFeeHint").textContent = val === "phased"
+    ? "During the recovery period, monthly fee = hosting fee (SafeSight + AQ Sensor) plus hardware recovery (hardware price \u00f7 recovery months). After recovery, monthly fee = hosting fee only."
+    : "Hosting fee applies every month of the term, alongside milestone hardware payments.";
+  applyFactoringTermDefault(val);
+  render();
+}));
+
+function applyFactoringTermDefault(structureVal) {
+  const termField = el("factoringTerm");
+  if (structureVal === "phased") {
+    termField.value = Math.max(1, Math.round(parseFloat(el("recoveryMonths").value) || 1));
+  } else {
+    termField.value = 12;
+  }
+}
+
+document.querySelectorAll(".tab-btn").forEach(btn => btn.addEventListener("click", () => {
+  document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+  btn.classList.add("active");
+  const tab = btn.dataset.tab;
+  el("annualPanel").classList.toggle("hidden", tab !== "annual");
+  el("monthlyPanel").classList.toggle("hidden", tab !== "monthly");
+}));
+
+function priceFromMargin(cost, marginPct) {
+  const m = Math.min(Math.max(marginPct, 0), 99.9) / 100;
+  return cost / (1 - m);
+}
+
+function buildLoanSchedule(principal, monthlyRate, termMonths, method) {
+  const schedule = [];
+  let balance = principal;
+  if (method === "declining") {
+    const payment = monthlyRate > 0
+      ? principal * monthlyRate / (1 - Math.pow(1 + monthlyRate, -termMonths))
+      : principal / termMonths;
+    for (let i = 0; i < termMonths; i++) {
+      const interest = balance * monthlyRate;
+      let principalPortion = payment - interest;
+      if (i === termMonths - 1 || principalPortion > balance) principalPortion = balance;
+      balance -= principalPortion;
+      schedule.push({ principal: principalPortion, interest });
+    }
+  } else {
+    const principalPortion = principal / termMonths;
+    for (let i = 0; i < termMonths; i++) {
+      const interest = balance * monthlyRate;
+      schedule.push({ principal: principalPortion, interest });
+      balance -= principalPortion;
+    }
+  }
+  return schedule;
+}
+
+function computeModel() {
+  const termYears = Math.max(1, Math.round(num("term")));
+  const termMonths = termYears * 12;
+  const hardwareMarkup = num("hardwareMarkup") / 100;
+  const monthlyMarkup = num("monthlyMarkup") / 100;
+
+  const camerasExisting = Math.max(0, Math.round(num("camerasExisting")));
+  const installCostExisting = num("installCostExisting");
+  const camerasTotal = Math.max(0, Math.round(num("camerasTotal")));
+  const camerasNew = Math.max(0, camerasTotal - camerasExisting);
+  const camerasMismatch = camerasExisting > camerasTotal;
+  const installCostNew = num("installCostNew");
+  const totalCameras = camerasMismatch ? camerasExisting : camerasTotal;
+  const sensors = Math.max(0, Math.round(num("sensors")));
+  const sensorInstallCost = num("sensorInstallCost");
+  const cameraUnitCost = num("cameraUnitCost");
+  const sensorUnitCost = num("sensorUnitCost");
+
+  const hostingCameraMonth = num("hostingCameraMonth");
+  const hostingSensorMonth = num("hostingSensorMonth");
+  const warrantyPct = num("warrantyPct") / 100;
+  const warrantyUnitsCamera = Math.ceil(totalCameras * warrantyPct);
+  const warrantyUnitsSensor = Math.ceil(sensors * warrantyPct);
+  const warrantyCost = warrantyUnitsCamera * cameraUnitCost + warrantyUnitsSensor * sensorUnitCost;
+
+  const installTotalCameras = camerasExisting * installCostExisting + camerasNew * installCostNew;
+  const installTotalSensor = sensors * sensorInstallCost;
+  const hardwareCostCamera = totalCameras * cameraUnitCost + installTotalCameras + warrantyUnitsCamera * cameraUnitCost;
+  const hardwareCostSensor = sensors * sensorUnitCost + installTotalSensor + warrantyUnitsSensor * sensorUnitCost;
+  const hardwareCostPool = hardwareCostCamera + hardwareCostSensor;
+  const hardwarePriceCamera = priceFromMargin(hardwareCostCamera, hardwareMarkup * 100);
+  const hardwarePriceSensor = priceFromMargin(hardwareCostSensor, hardwareMarkup * 100);
+  const hardwarePriceToClient = hardwarePriceCamera + hardwarePriceSensor;
+
+  const monthlyCostPerCamera = hostingCameraMonth;
+  const monthlyCostPerSensor = hostingSensorMonth;
+  const monthlyPricePerCamera = priceFromMargin(monthlyCostPerCamera, monthlyMarkup * 100);
+  const monthlyPricePerSensor = priceFromMargin(monthlyCostPerSensor, monthlyMarkup * 100);
+  const hostingCostCamera = totalCameras * monthlyCostPerCamera;
+  const hostingCostSensor = sensors * monthlyCostPerSensor;
+  const hostingPriceCamera = priceFromMargin(hostingCostCamera, monthlyMarkup * 100);
+  const hostingPriceSensor = priceFromMargin(hostingCostSensor, monthlyMarkup * 100);
+  const monthlyCostRecurringTotal = hostingCostCamera + hostingCostSensor;
+  const monthlyPriceRecurringTotal = hostingPriceCamera + hostingPriceSensor;
+
+  const computedContractValue = hardwarePriceToClient + monthlyPriceRecurringTotal * termMonths;
+
+  const factoringEnabled = el("factoringEnabled").checked;
+  const factoringRate = num("factoringRate") / 100;
+  const factoringTermMonths = Math.max(1, Math.round(num("factoringTerm")));
+  const factoringLoanPrincipal = hardwareCostPool;
+  const loanMethod = document.querySelector('input[name="loanMethod"]:checked').value;
+  const loanSchedule = buildLoanSchedule(factoringLoanPrincipal, factoringRate, factoringTermMonths, loanMethod);
+
+  const structure = document.querySelector('input[name="structure"]:checked').value;
+  const recoveryMonths = Math.max(0, Math.round(num("recoveryMonths")));
+  const recoveryComponentCamera = recoveryMonths > 0 ? hardwarePriceCamera / recoveryMonths : 0;
+  const recoveryComponentSensor = recoveryMonths > 0 ? hardwarePriceSensor / recoveryMonths : 0;
+  const recoveryFeeCamera = recoveryComponentCamera + hostingPriceCamera;
+  const recoveryFeeSensor = recoveryComponentSensor + hostingPriceSensor;
+
+  const milestones = [];
+  for (let i = 0; i < milestoneCount; i++) {
+    const month = Math.round(parseFloat(el(`msMonth${i}`).value) || 0);
+    let pct = parseFloat(el(`msPct${i}`).value) || 0;
+    let amount = parseFloat(el(`msAmount${i}`).value) || 0;
+    if (msDriver[i] === "abs") {
+      pct = hardwarePriceToClient > 0 ? (amount / hardwarePriceToClient) * 100 : 0;
+      el(`msPct${i}`).value = Math.round(pct * 10) / 10;
+    } else {
+      amount = hardwarePriceToClient * (pct / 100);
+      el(`msAmount${i}`).value = Math.round(amount);
+    }
+    if (month > 0 && amount > 0) {
+      milestones.push({ month, amount });
+    }
+  }
+  const milestoneTotal = milestones.reduce((s, ms) => s + ms.amount, 0);
+
+  const months = [];
+  let cumulativeCash = 0;
+  let minCash = 0;
+  let minCashMonth = 0;
+
+  for (let m = 1; m <= termMonths; m++) {
+    let hardwareIn = 0;
+    if (structure === "phased") {
+      hardwareIn = m <= recoveryMonths ? (recoveryComponentCamera + recoveryComponentSensor) : 0;
+    } else {
+      hardwareIn = milestones.filter(ms => ms.month === m).reduce((s, ms) => s + ms.amount, 0);
+    }
+    const hostingCameraIn = hostingPriceCamera;
+    const hostingSensorIn = hostingPriceSensor;
+    const plRevenue = hardwareIn + hostingCameraIn + hostingSensorIn;
+
+    const factoringAdvanceIn = (factoringEnabled && m === 1) ? factoringLoanPrincipal : 0;
+    const totalCashIn = plRevenue + factoringAdvanceIn;
+
+    const hardwareCameraOut = m === 1 ? hardwareCostCamera : 0;
+    const hardwareSensorOut = m === 1 ? hardwareCostSensor : 0;
+    const hostingCameraOut = hostingCostCamera;
+    const hostingSensorOut = hostingCostSensor;
+    const scheduleEntry = (factoringEnabled && m > 1 && m <= factoringTermMonths + 1) ? loanSchedule[m - 2] : null;
+    const factoringPrincipalOut = scheduleEntry ? scheduleEntry.principal : 0;
+    const factoringInterestOut = scheduleEntry ? scheduleEntry.interest : 0;
+
+    const plCostOut = hardwareCameraOut + hardwareSensorOut + hostingCameraOut + hostingSensorOut + factoringInterestOut;
+    const totalCashOut = plCostOut + factoringPrincipalOut;
+
+    const plNet = plRevenue - plCostOut;
+    const cashNet = totalCashIn - totalCashOut;
+    cumulativeCash += cashNet;
+
+    if (cumulativeCash < minCash) { minCash = cumulativeCash; minCashMonth = m; }
+
+    months.push({
+      month: m, revenue: plRevenue, costOut: plCostOut, net: plNet,
+      totalCashIn, totalCashOut, cashNet, cumulativeCash,
+      hardwareIn, hostingCameraIn, hostingSensorIn, factoringAdvanceIn,
+      hardwareCameraOut, hardwareSensorOut, hostingCameraOut, hostingSensorOut,
+      factoringPrincipalOut, factoringInterestOut
+    });
+  }
+
+  const totalActualRevenue = months.reduce((s, x) => s + x.revenue, 0);
+  const totalActualCost = months.reduce((s, x) => s + x.costOut, 0);
+  const totalActualNetProfit = totalActualRevenue - totalActualCost;
+  const marginAchieved = totalActualRevenue > 0 ? (totalActualNetProfit / totalActualRevenue) * 100 : 0;
+  const discountPct = Math.min(Math.max(num("discountPct"), 0), 100);
+  const targetOfferPrice = computedContractValue * (1 - discountPct / 100);
+  const gap = totalActualRevenue - targetOfferPrice;
+
+  const years = [];
+  for (let y = 0; y < termYears; y++) {
+    const slice = months.slice(y * 12, y * 12 + 12);
+    years.push({
+      year: y + 1,
+      revenue: slice.reduce((s, x) => s + x.revenue, 0),
+      cost: slice.reduce((s, x) => s + x.costOut, 0),
+      net: slice.reduce((s, x) => s + x.net, 0)
+    });
+  }
+
+  return {
+    termMonths, termYears, totalCameras, camerasExisting, camerasNew, camerasTotal, camerasMismatch, sensors, structure,
+    hardwareCostPool, hardwarePriceToClient, warrantyUnitsCamera, warrantyUnitsSensor, warrantyCost,
+    hardwareCostCamera, hardwareCostSensor, hardwarePriceCamera, hardwarePriceSensor,
+    installTotalCameras, installTotalSensor,
+    monthlyCostPerCamera, monthlyCostPerSensor, monthlyPricePerCamera, monthlyPricePerSensor,
+    hostingCostCamera, hostingCostSensor, hostingPriceCamera, hostingPriceSensor,
+    monthlyCostRecurringTotal, monthlyPriceRecurringTotal, computedContractValue,
+    recoveryMonths, recoveryComponentCamera, recoveryComponentSensor, recoveryFeeCamera, recoveryFeeSensor,
+    milestoneTotal,
+    hardwareMarkupPct: num("hardwareMarkup"), monthlyMarkupPct: num("monthlyMarkup"),
+    factoringEnabled, factoringLoanPrincipal, factoringTermMonths, loanMethod,
+    months, years, totalActualRevenue, totalActualCost, totalActualNetProfit,
+    marginAchieved, gap, minCash, minCashMonth, discountPct, targetOfferPrice
+  };
+}
+
+function render() {
+  const r = computeModel();
+
+  el("camerasNewDisplay").textContent = r.camerasNew;
+  el("factoringPrincipalDisplay").textContent = fmt(r.factoringLoanPrincipal);
+  el("loanMethodGroup").classList.toggle("hidden", !r.factoringEnabled);
+  el("phasedFeeTable").innerHTML = `
+    <thead><tr><th></th><th>SafeSight<sup>TM</sup></th><th>AQ Sensor</th></tr></thead>
+    <tbody>
+      <tr><td>During recovery period</td><td>${fmt(r.recoveryFeeCamera)}</td><td>${fmt(r.recoveryFeeSensor)}</td></tr>
+      <tr><td>Standard hosting</td><td>${fmt(r.hostingPriceCamera)}</td><td>${fmt(r.hostingPriceSensor)}</td></tr>
+    </tbody>
+  `;
+
+  let annualAdvanceRows = `<thead><tr><th>Year</th><th>Annual in advance</th></tr></thead><tbody>`;
+  r.years.forEach(y => {
+    annualAdvanceRows += `<tr><td>Year ${y.year}</td><td>${fmt(y.revenue)}</td></tr>`;
+  });
+  annualAdvanceRows += `<tr class="total-row"><td>Total</td><td>${fmt(r.totalActualRevenue)}</td></tr>`;
+  annualAdvanceRows += `</tbody>`;
+  el("annualAdvanceTable").innerHTML = annualAdvanceRows;
+
+  el("milestoneTotalPct").textContent = fmtPct(r.hardwarePriceToClient > 0 ? (r.milestoneTotal / r.hardwarePriceToClient) * 100 : 0);
+  el("milestoneTotalUsd").textContent = fmt(r.milestoneTotal);
+  el("milestoneTotalLine").textContent = `Computed hardware price: ${fmt(r.hardwarePriceToClient)}`;
+
+  const hostingAnnual = r.hostingPriceCamera + r.hostingPriceSensor;
+  let hostingAnnualRows = `<thead><tr><th>Year</th><th>Annual in advance</th></tr></thead><tbody>`;
+  for (let y = 1; y <= r.termYears; y++) {
+    hostingAnnualRows += `<tr><td>Year ${y}</td><td>${fmt(hostingAnnual * 12)}</td></tr>`;
+  }
+  hostingAnnualRows += `<tr class="total-row"><td>Total</td><td>${fmt(hostingAnnual * 12 * r.termYears)}</td></tr>`;
+  hostingAnnualRows += `</tbody>`;
+  el("hostingAnnualTable").innerHTML = hostingAnnualRows;
+
+  el("camerasMismatchWarning").innerHTML = r.camerasMismatch
+    ? `<div class="flag danger">Existing pole mount count (${r.camerasExisting}) exceeds total SafeSight<sup>TM</sup> units (${r.camerasTotal}). New pole mounts set to 0, total used is the existing count. Fix the total or existing figure.</div>`
+    : "";
+
+  el("warrantyCameraUnitsDisplay").textContent = r.warrantyUnitsCamera;
+  el("warrantySensorUnitsDisplay").textContent = r.warrantyUnitsSensor;
+
+  const unitWarrantyCamera = r.hardwareCostCamera - r.installTotalCameras;
+  const unitWarrantySensor = r.hardwareCostSensor - r.installTotalSensor;
+  const hwMarkupPct = r.hardwareMarkupPct;
+  const hostMarkupPct = r.monthlyMarkupPct;
+
+  function panelTable(rows, totalLabel, totalCost, totalPrice) {
+    let html = `<thead><tr><th>Item</th><th>Cost</th><th>Margin %</th><th>Price</th></tr></thead><tbody>`;
+    rows.forEach(row => {
+      html += `<tr><td>${row.label}</td><td>${fmt(row.cost)}</td><td>${fmtPct(row.markup)}</td><td>${fmt(row.price)}</td></tr>`;
+    });
+    html += `<tr class="total-row"><td>${totalLabel}</td><td>${fmt(totalCost)}</td><td>-</td><td>${fmt(totalPrice)}</td></tr>`;
+    html += `</tbody>`;
+    return html;
+  }
+
+  el("unitWarrantyTable").innerHTML = panelTable([
+    { label: "SafeSight<sup>TM</sup>", cost: unitWarrantyCamera, markup: hwMarkupPct, price: priceFromMargin(unitWarrantyCamera, hwMarkupPct) },
+    { label: "AQ Sensor", cost: unitWarrantySensor, markup: hwMarkupPct, price: priceFromMargin(unitWarrantySensor, hwMarkupPct) }
+  ], "Total", unitWarrantyCamera + unitWarrantySensor, priceFromMargin(unitWarrantyCamera, hwMarkupPct) + priceFromMargin(unitWarrantySensor, hwMarkupPct));
+
+  el("installTable").innerHTML = panelTable([
+    { label: "SafeSight<sup>TM</sup>", cost: r.installTotalCameras, markup: hwMarkupPct, price: priceFromMargin(r.installTotalCameras, hwMarkupPct) },
+    { label: "AQ Sensor", cost: r.installTotalSensor, markup: hwMarkupPct, price: priceFromMargin(r.installTotalSensor, hwMarkupPct) }
+  ], "Total", r.installTotalCameras + r.installTotalSensor, priceFromMargin(r.installTotalCameras, hwMarkupPct) + priceFromMargin(r.installTotalSensor, hwMarkupPct));
+
+  el("hostingTable").innerHTML = panelTable([
+    { label: "SafeSight<sup>TM</sup>", cost: r.hostingCostCamera, markup: hostMarkupPct, price: r.hostingPriceCamera },
+    { label: "AQ Sensor", cost: r.hostingCostSensor, markup: hostMarkupPct, price: r.hostingPriceSensor }
+  ], "Total", r.monthlyCostRecurringTotal, r.monthlyPriceRecurringTotal);
+
+  el("pricingTotals").innerHTML = `
+    <div class="metric"><div class="label">Total hardware cost</div><div class="value">${fmt(r.hardwareCostPool)}</div></div>
+    <div class="metric"><div class="label">Total hardware price</div><div class="value">${fmt(r.hardwarePriceToClient)}</div></div>
+    <div class="metric"><div class="label">Total hosting cost / month</div><div class="value">${fmt(r.monthlyCostRecurringTotal)}</div></div>
+    <div class="metric"><div class="label">Total hosting price / month</div><div class="value">${fmt(r.monthlyPriceRecurringTotal)}</div></div>
+    <div class="metric"><div class="label">Computed contract value</div><div class="value">${fmt(r.computedContractValue)}</div></div>
+  `;
+  el("pricingTotals").innerHTML += `<div class="hint" style="grid-column:1/-1;">Computed contract value = total hardware price + total hosting price &times; ${r.termMonths} months.</div>`;
+
+  const equivMarkupAchieved = r.totalActualCost > 0 ? ((r.totalActualRevenue - r.totalActualCost) / r.totalActualCost) * 100 : 0;
+
+  el("resultSummary").innerHTML = `
+    <div class="metric"><div class="label">Actual total revenue</div><div class="value">${fmt(r.totalActualRevenue)}</div></div>
+    <div class="metric"><div class="label">Actual total cost</div><div class="value negative">${fmt(r.totalActualCost)}</div></div>
+    <div class="metric"><div class="label">Actual net profit</div><div class="value ${r.totalActualNetProfit >= 0 ? 'positive' : 'negative'}">${fmt(r.totalActualNetProfit)}</div></div>
+    <div class="metric"><div class="label">Margin achieved</div><div class="value ${r.marginAchieved >= 0 ? 'positive' : 'negative'}">${fmtPct(r.marginAchieved)}</div></div>
+    <div class="metric"><div class="label">Equivalent markup achieved</div><div class="value">${fmtPct(equivMarkupAchieved)}</div></div>
+  `;
+
+  el("discountSummary").innerHTML = `
+    <div class="metric"><div class="label">List price</div><div class="value">${fmt(r.computedContractValue)}</div></div>
+    <div class="metric"><div class="label">Discount</div><div class="value">${fmtPct(r.discountPct)}</div></div>
+    <div class="metric"><div class="label">Target offer price</div><div class="value">${fmt(r.targetOfferPrice)}</div></div>
+  `;
+
+  const gapPct = r.targetOfferPrice > 0 ? (r.gap / r.targetOfferPrice) * 100 : 0;
+  if (Math.abs(gapPct) < 0.5) {
+    el("gapFlag").innerHTML = `<div class="flag ok"><strong>Structured payments match the target offer price</strong> (gap ${fmt(r.gap)}, ${fmtPct(gapPct)}).</div>`;
+  } else if (r.gap < 0) {
+    el("gapFlag").innerHTML = `<div class="flag danger"><strong>Structured payments fall short of the target offer price</strong> by ${fmt(Math.abs(r.gap))} (${fmtPct(Math.abs(gapPct))} below the target offer price of ${fmt(r.targetOfferPrice)}, which is list price of ${fmt(r.computedContractValue)} less ${fmtPct(r.discountPct)} discount). Increase fees or milestone values, or accept a lower margin.</div>`;
+  } else {
+    el("gapFlag").innerHTML = `<div class="flag ok"><strong>Structured payments exceed the target offer price</strong> by ${fmt(r.gap)} (${fmtPct(gapPct)} above target). Confirm this is deliberate and commercially acceptable to the client.</div>`;
+  }
+
+  if (r.minCash < 0) {
+    el("cashFlag").innerHTML = `<div class="flag danger"><strong>Cash position goes negative.</strong> Peak funding requirement is ${fmt(Math.abs(r.minCash))} at month ${r.minCashMonth}. This deal is not cash positive under the current structure, working capital or factoring is required to bridge it.</div>`;
+  } else {
+    el("cashFlag").innerHTML = `<div class="flag ok"><strong>Cash position stays positive throughout the term.</strong></div>`;
+  }
+
+  let annualRows = `<thead><tr><th>Year</th><th>Revenue</th><th>Cost</th><th>Net profit</th></tr></thead><tbody>`;
+  r.years.forEach(y => {
+    annualRows += `<tr><td>Year ${y.year}</td><td>${fmt(y.revenue)}</td><td class="negative">${fmt(y.cost)}</td><td class="${y.net < 0 ? 'negative' : ''}">${fmt(y.net)}</td></tr>`;
+  });
+  annualRows += `<tr class="total-row"><td>Total</td><td>${fmt(r.totalActualRevenue)}</td><td class="negative">${fmt(r.totalActualCost)}</td><td class="${r.totalActualNetProfit < 0 ? 'negative' : ''}">${fmt(r.totalActualNetProfit)}</td></tr>`;
+  annualRows += `</tbody>`;
+  el("annualTable").innerHTML = annualRows;
+
+  const hardwareLabel = r.structure === "phased" ? "Hardware recovery" : "Milestone hardware payment";
+  let monthlyRows = `<thead><tr><th>Item</th>`;
+  r.months.forEach(m => { monthlyRows += `<th>${m.month}</th>`; });
+  monthlyRows += `</tr></thead><tbody>`;
+
+  function cfRow(label, key, isNegative) {
+    let row = `<tr><td>${label}</td>`;
+    r.months.forEach(m => {
+      const v = m[key];
+      row += `<td${isNegative ? ' class="negative"' : ''}>${isNegative && v > 0 ? '-' : ''}${fmt(v)}</td>`;
+    });
+    row += `</tr>`;
+    return row;
+  }
+
+  const colCount = r.months.length + 1;
+  monthlyRows += `<tr class="section-row"><td colspan="${colCount}">Cash in</td></tr>`;
+  monthlyRows += cfRow(hardwareLabel, "hardwareIn", false);
+  monthlyRows += cfRow("SafeSight<sup>TM</sup> hosting fee", "hostingCameraIn", false);
+  monthlyRows += cfRow("AQ Sensor hosting fee", "hostingSensorIn", false);
+  if (r.factoringEnabled) monthlyRows += cfRow("PO factoring loan advance", "factoringAdvanceIn", false);
+  monthlyRows += cfRow("Total cash in", "totalCashIn", false).replace('<tr>', '<tr class="total-row">');
+
+  monthlyRows += `<tr class="section-row"><td colspan="${colCount}">Cash out</td></tr>`;
+  monthlyRows += cfRow("SafeSight<sup>TM</sup> hardware cost", "hardwareCameraOut", true);
+  monthlyRows += cfRow("AQ Sensor hardware cost", "hardwareSensorOut", true);
+  monthlyRows += cfRow("SafeSight<sup>TM</sup> hosting cost", "hostingCameraOut", true);
+  monthlyRows += cfRow("AQ Sensor hosting cost", "hostingSensorOut", true);
+  if (r.factoringEnabled) {
+    monthlyRows += cfRow("PO factoring principal repayment", "factoringPrincipalOut", true);
+    monthlyRows += cfRow("PO factoring interest (affects P&amp;L)", "factoringInterestOut", true);
+  }
+  monthlyRows += cfRow("Total cash out", "totalCashOut", true).replace('<tr>', '<tr class="total-row">');
+
+  monthlyRows += `<tr class="total-row"><td>Net cash flow</td>`;
+  r.months.forEach(m => { monthlyRows += `<td${m.cashNet < 0 ? ' class="negative"' : ''}>${fmt(m.cashNet)}</td>`; });
+  monthlyRows += `</tr>`;
+
+  monthlyRows += `<tr class="total-row"><td>Cumulative cash position</td>`;
+  r.months.forEach(m => { monthlyRows += `<td${m.cumulativeCash < 0 ? ' class="negative"' : ''}>${fmt(m.cumulativeCash)}</td>`; });
+  monthlyRows += `</tr>`;
+
+  monthlyRows += `</tbody>`;
+  el("monthlyTable").innerHTML = monthlyRows;
+}
+
+el("recoveryMonths").addEventListener("input", () => {
+  const field = el("recoveryMonths");
+  if (field.value.length > 4) field.value = field.value.slice(0, 4);
+});
+
+document.querySelectorAll("input, select").forEach(i => i.addEventListener("input", render));
+document.addEventListener("change", (e) => { if (e.target.matches("select, input")) render(); });
+
+function getFocusableFields() {
+  return Array.from(document.querySelectorAll("input, select")).filter(f => !f.disabled && f.offsetParent !== null);
+}
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Enter") return;
+  const target = e.target;
+  if (target.tagName !== "INPUT" && target.tagName !== "SELECT") return;
+  e.preventDefault();
+  render();
+  const fields = getFocusableFields();
+  const idx = fields.indexOf(target);
+  if (idx > -1 && idx < fields.length - 1) {
+    const next = fields[idx + 1];
+    next.focus();
+    if (typeof next.select === "function") next.select();
+  } else {
+    target.blur();
+  }
+});
+
+applyFactoringTermDefault(document.querySelector('input[name="structure"]:checked').value);
+render();
+</script>
+</body>
+</html>
