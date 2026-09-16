@@ -45,9 +45,20 @@ if (existsSync(INFLIGHT)) {
   process.exit(2)
 }
 
-const PANEL = 'frontend-react/src/testbed/TestBedPanel.tsx'
+// ── THE SUMMARY ANCHOR MOVED FILES, AND THE HARNESS REFUSED ────────────
+//
+// It was in `TestBedPanel.tsx` until the band moved to the header. On the
+// first run after that move this harness stopped dead with "the anchor is
+// not in TestBedPanel.tsx; refusing to inject nothing" rather than injecting
+// a no-op and reporting a calibration it had not performed.
+//
+// That is the uniqueness-and-presence check earning its place, and it is
+// Verification 9's clause arriving from the direction nobody watches: an
+// anchor does not only rot when the DEFECT is fixed, it rots when the code
+// it names is MOVED by a round that has nothing to do with it.
+const BAND = 'frontend-react/src/testbed/TestBedBand.tsx'
 const ROWS = 'frontend-react/src/field-row/useFieldRows.ts'
-const FILES = [PANEL, ROWS]
+const FILES = [BAND, ROWS]
 
 const key = (f) => f.replace(/[/\\]/g, '_')
 const original = new Map()
@@ -69,9 +80,14 @@ writeFileSync(INFLIGHT, new Date().toISOString())
 const CASES = [
   {
     id: 'the Summary row leaves the surface',
-    file: PANEL,
-    find: "        <Card title=\"Summary\" testId=\"tb-card-summary\">\n          {row('summary', '')}\n        </Card>",
-    put: "        <Card title=\"Summary\" testId=\"tb-card-summary\">\n          {null}\n        </Card>",
+    file: BAND,
+    find: `        {summary
+          ? (
+            <div data-key="summary" className="cd-row-nolabel">
+              <FieldRow field={{ ...summary, label: '' }} rows={rows} />
+            </div>)
+          : null}`,
+    put: '        {null}',
     // THE WHOLE POINT OF W6. Before this round the refusal loop compared its
     // count to zero, so losing a row shrank the claim in silence.
     mustRedden: ['D4 and ALL 28 refuse'],

@@ -9,7 +9,7 @@ import { headerStats } from './headerStats'
 
 const CHEVRON_ID = 'tb-chevron-strip'
 
-export function ViewHeader({ record, readOnly, titleAction }: {
+export function ViewHeader({ record, readOnly, titleAction, band }: {
   record: {
     status?: string
     payload?: Record<string, unknown> & { name?: string, client_organisation?: string }
@@ -25,6 +25,19 @@ export function ViewHeader({ record, readOnly, titleAction }: {
    * reason to know about routes.
    */
   titleAction?: ReactNode
+  /**
+   * THE RECORD BAND: Summary, Notes, the follow-up task. Rendered between
+   * the title and the stats strip, which is the order John ruled and the
+   * order these things mean: they describe the RECORD, like the strip and
+   * the chevron below them, rather than belonging to any one tab.
+   *
+   * A SLOT HERE IS WHAT MAKES THE POSITION HARD TO LOSE. The previous
+   * attempt put the band at the top of the Reference PANEL and reported it
+   * as delivered; nothing could tell, because every check asked whether the
+   * band was intact and none asked where it sat. It can only drift back now
+   * by somebody deleting this slot.
+   */
+  band?: ReactNode
 }) {
   const { name, client } = headerOf(record)
   const payload = record?.payload ?? {}
@@ -84,6 +97,9 @@ export function ViewHeader({ record, readOnly, titleAction }: {
           ? <div className="tb-header-action" data-testid="tb-header-action">{titleAction}</div>
           : null}
       </div>
+
+      {/* THE RECORD BAND, DIRECTLY UNDER THE TITLE AND ABOVE THE STRIP. */}
+      {band}
 
       {/* THE STRIP. Five cells in the order of record. */}
       <div className="stats-grid stats-grid--testbed" data-testid="tb-header-stats">

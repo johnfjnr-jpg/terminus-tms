@@ -197,16 +197,42 @@ const MEASURE = () => {
         .querySelectorAll('button, a[href]').length
       : null,
 
-    // W1's BLAST RADIUS, stated as a relation rather than an absolute: the
-    // header change moves everything below it down the page, so the Summary
-    // and Notes band's screen position is EXPECTED to shift. What must not
-    // change is where it sits inside the panel it belongs to.
-    topRowWithinPanel: (() => {
-      const panel = q('testbed-panel'), topRow = q('tb-top-row')
-      if (!panel || !topRow) return null
-      return Math.round(topRow.getBoundingClientRect().top
-        - panel.getBoundingClientRect().top)
+    // ── THE VERTICAL ORDER OF THE RECORD-LEVEL BANDS ─────────────────
+    //
+    // Added after John reported the Summary/Notes/Follow-up band in the wrong
+    // place. The claim is an ORDER - title, then S/N/F, then the stats strip,
+    // then the chevron - and an order is a relation between elements, so it
+    // is measured as one rather than inferred from which component renders
+    // which. Every earlier check in this file asked whether the band was
+    // INTACT and never where it sat relative to the strip.
+    bandOrder: [
+      ['title row', q('tb-header-row')],
+      ['summary/notes/follow-up', q('tb-top-row')],
+      ['stats strip', q('tb-header-stats')],
+      ['chevron', q('tb-chevron-strip')],
+      ['tab strip', q('tb-detail-tabs')],
+    ].filter(([, el]) => el)
+      .map(([label, el]) => ({ label, top: Math.round(el.getBoundingClientRect().top) }))
+      .sort((a, b) => a.top - b.top),
+    // Is the band inside the REFERENCE TAB'S CONTENT rather than a sibling of
+    // the header? That is the structural half of the same question, and it is
+    // what makes the position a consequence rather than a coincidence.
+    bandInsideTabContent: (() => {
+      const band = q('tb-top-row'), tabContent = q('tb-tab-reference')
+      return !!(band && tabContent && tabContent.contains(band))
     })(),
+
+    // ── `topRowWithinPanel` IS RETIRED, and saying so is the point ───────
+    //
+    // It measured the band's offset INSIDE the Reference panel, as W1's
+    // blast-radius check. The band no longer lives in that panel, so the
+    // measure reported -440px - an arithmetically correct number describing
+    // nothing, of exactly the kind somebody quotes later.
+    //
+    // `bandOrder` above supersedes it and answers the question that was
+    // always the real one: where does the band sit relative to the title and
+    // the strip. A measure whose subject has moved is deleted, not left
+    // returning a value.
   }
 }
 
@@ -391,6 +417,13 @@ console.log(`                ledger before=${JSON.stringify(clicks.nextBefore)} 
   + `after=${JSON.stringify(clicks.next.after)}`)
 console.log(`  convert       at-point=${clicks.convert.hit} (${clicks.convert.hitTag}) `
   + `form before=${clicks.convert.formBefore} after=${clicks.convert.formAfter}`)
+console.log('\n  THE VERTICAL ORDER OF THE RECORD-LEVEL BANDS (at 1440)')
+{
+  const r = rows.find((x) => x.width === 1440)
+  for (const b of r.bandOrder) console.log(`  ${String(b.top).padStart(5)}px  ${b.label}`)
+  console.log(`  the S/N/F band sits INSIDE the Reference tab content: ${r.bandInsideTabContent}`)
+}
+
 console.log('\n  W6: THE SUMMARY ROW, IN A BROWSER')
 console.log('  record     pointer-events  opacity  tabindex  reads  click opens it  in the top band')
 for (const [who, d] of Object.entries(door)) {
@@ -404,7 +437,6 @@ console.log('\n  WHAT MUST REMAIN (at 1440)')
   const r = rows.find((x) => x.width === 1440)
   console.log(`  cards: ${r.cards.join(' ')}`)
   console.log(`  counts: ${Object.entries(r.counts).map(([k, v]) => `${k}=${v}`).join('  ')}`)
-  console.log(`  Summary/Notes band offset inside the panel: ${r.topRowWithinPanel}px`)
   console.log(`  convert trigger inside the view element: ${r.convertInsideView}`)
   console.log(`  buttons the read-only sweep would enumerate in the view: ${r.viewButtons}`)
 }

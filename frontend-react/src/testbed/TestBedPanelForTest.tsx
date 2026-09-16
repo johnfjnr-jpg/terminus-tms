@@ -19,6 +19,7 @@
 // reduced that claim from 28 rows to 16 while still reading green.
 import { TestBedPanel } from './TestBedPanel'
 import { CommercialsCards } from './CommercialsCards'
+import { TestBedBand } from './TestBedBand'
 import { testBedDescriptors, type TestBedSource } from './descriptors'
 import { useFieldRows } from '../field-row/useFieldRows'
 import { EditBar } from '../field-row/EditBar'
@@ -32,6 +33,19 @@ export function TestBedPanelForTest(
   const rows = useFieldRows(fields)
   return (
     <>
+      {/* THE BAND IS PART OF THE SURFACE TOO, and it is here for exactly the
+          reason CommercialsCards is. The Summary row moved out of
+          `TestBedPanel` into the header's band, and the door suite's whole
+          claim is about the SURFACE - "can every row be opened on a record I
+          own" - not about one component. A wrapper rendering only the panel
+          would have quietly reduced that claim from 28 rows to 27 while
+          still reading green.
+
+          IT DID NOT READ GREEN, which is the point worth recording: the
+          population assertion added this round went red the moment the row
+          moved, before anybody looked at a screen. That is the first time it
+          fired on a real change rather than on an injection. */}
+      <TestBedBand source={props.source} rows={rows} />
       <TestBedPanel {...props} rows={rows} />
       <CommercialsCards rows={rows} fields={fields} />
       {/* The bar is part of the surface and moved to the host with the store,

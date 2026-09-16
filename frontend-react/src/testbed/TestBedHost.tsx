@@ -42,6 +42,7 @@ import { LIFECYCLE_ROUTE, type Lifecycle } from './closedPanel'
 import { nextStageFor } from './tabModel'
 import type { StageEntry } from '../shared/stageTracks'
 import { ViewHeader } from './ViewHeader'
+import { TestBedBand } from './TestBedBand'
 import { createArrivalFlags, notMine } from './viewLoad'
 import { ConvertPanel } from './ConvertPanel'
 import { CONVERT_ROUTE } from './convert'
@@ -607,6 +608,47 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
     <UseCasesList useCases={record.payload?.useCases as string[] | undefined}
       onWrite={(next) => patchPayload({ useCases: next })} />)
 
+  // ── THE RECORD BAND, HOISTED OUT OF THE REFERENCE PANEL ────────────────
+  //
+  // Summary, Notes and the follow-up describe the RECORD, so they render in
+  // the header between the title and the stats strip rather than inside one
+  // tab's content. Measured on the previous build: the band sat at 433px,
+  // below the strip, the chevron and the tab row, because "the header" was
+  // read as this panel's own top.
+  //
+  // THE HOST STILL OWNS ALL THREE WRITES, exactly as before. Only the parent
+  // changed: the notes PATCH, the follow-up save and the Summary row's draft
+  // store are unmoved, which is what keeps this a reposition rather than a
+  // rewire.
+  const bandNode = (
+    <TestBedBand
+      source={source}
+      rows={rows}
+      notes={
+        <NotesHistory
+          notes={notes}
+          hasDirtyEdits={dirty}
+          onConfirmDiscard={(proceed) => { shell.confirmDiscard(proceed) }}
+          resetKey={bed.id}
+          onAdd={async (text) => {
+            const r = await shell.api<{ error?: string }>('PATCH', `/api/test-beds/${bed.id}`, {
+              payload: {
+                notes: prepend(note(text, shell.currentUserEmail(), new Date().toISOString()), notes),
+              },
+              expected_revision: Number.isInteger(record.latest_revision_number)
+                ? record.latest_revision_number : null,
+            })
+            if (!r.ok) { if (r.status === 409) await load(); return false }
+            await load()
+            return true
+          }} />}
+      followUp={
+        <FollowUpTask
+          date={String(record.payload?.followUpDate ?? '')}
+          description={String(record.payload?.followUpDescription ?? '')}
+          resetKey={bed.id}
+          onSave={(next) => { void saveFollowUp(next) }} />} />)
+
   // L5: all three, and the absent-id cases fail OPEN here on purpose - the
   // edit attempt is where it fails closed.
   // The SHARED derivation takes ids, not a record: one definition serves the
@@ -627,6 +669,7 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
           it, which is right: an outcome belongs where the control that caused
           it is. */}
       <ViewHeader record={loadFailed ? null : record} readOnly={readOnly}
+        band={bandNode}
         titleAction={
           <ConvertPanel
             key={bed.id}
@@ -698,30 +741,6 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
         onRefPaneChange={setRefPane}
         onDirtyChange={setDirty}
 
-        notes={
-          <NotesHistory
-            notes={notes}
-            hasDirtyEdits={dirty}
-            onConfirmDiscard={(proceed) => { shell.confirmDiscard(proceed) }}
-            resetKey={bed.id}
-            onAdd={async (text) => {
-              const r = await shell.api<{ error?: string }>('PATCH', `/api/test-beds/${bed.id}`, {
-                payload: {
-                  notes: prepend(note(text, shell.currentUserEmail(), new Date().toISOString()), notes),
-                },
-                expected_revision: Number.isInteger(record.latest_revision_number)
-                  ? record.latest_revision_number : null,
-              })
-              if (!r.ok) { if (r.status === 409) await load(); return false }
-              await load()
-              return true
-            }} />}
-          followUp={
-            <FollowUpTask
-              date={String(record.payload?.followUpDate ?? '')}
-              description={String(record.payload?.followUpDescription ?? '')}
-              resetKey={bed.id}
-              onSave={(next) => { void saveFollowUp(next) }} />}
           useCases={useCasesNode}
           customerDocs={customerDocsNode}
           history={<HistoryPanel entries={history.entries} failed={history.failed}

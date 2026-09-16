@@ -5882,6 +5882,27 @@ input.input-invalid {
   max-width: 62ch;
 }
 
+/* ── THE RECORD BAND SITS BETWEEN THE TITLE AND THE STRIP ────────────────
+ *
+ * Summary, Notes and the follow-up moved here from the top of the Reference
+ * panel, where a round told to put them "in the header" had put them. With
+ * no rule of its own the band's cards ended flush against the stats strip:
+ * measured, a 4px gap between the card edges and the strip's first label,
+ * which reads as a collision rather than as two bands.
+ *
+ * 36px, THE SAME AS THE TITLE ROW ABOVE IT, because it is the same kind of
+ * boundary: one record-level band against the next. An even rhythm is the
+ * requirement here, not a number chosen to look right - and taking the title
+ * row's own value is what keeps the two from drifting apart later.
+ *
+ * SCOPED TO `.tb-top-row`, NEVER TO `.lead-card-body`. That class belongs to
+ * the LEAD surface and the Test Bed is its third consumer; a margin added
+ * there would move leads and contacts, which is precisely the blast radius
+ * the Test Bed's own close-out called nil because the class was untouched. */
+.tb-top-row {
+  margin-bottom: 36px;
+}
+
 /* R3: NAMES ABOVE NUMBERS. One cell, one column per unit type present. */
 /* FIVE CELLS, NOT FOUR. `.stats-grid` is repeat(4, 1fr), built for the
  * Opportunity's four, so the Test Bed's fifth WRAPPED onto a second row and

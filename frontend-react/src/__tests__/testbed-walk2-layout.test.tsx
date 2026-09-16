@@ -190,6 +190,62 @@ describe('W5: Convert to Opportunity is beside the title', () => {
   })
 })
 
+describe('W7: the record band is in the header, not in a tab', () => {
+  // THE DEFECT THIS REPLACES. Round `78a1195` was told to move Summary and
+  // Notes "to the header" and moved them to the top of `TestBedPanel`, which
+  // is the Reference TAB'S panel. Measured in a browser, the band rendered at
+  // 433px - below the stats strip, the chevron AND the tab strip.
+  //
+  // Every check that round ran passed, because each asked whether the band
+  // was INTACT. None asked where it SAT. These do.
+  test('the band renders inside the view header', async () => {
+    await mount()
+    expect(q('tb-view-header')!.contains(q('tb-top-row')!),
+      'the band is outside the view header').toBe(true)
+  })
+
+  test('and NOT inside the Reference tab content, which is where it was', async () => {
+    await mount()
+    const tab = q('tb-tab-reference')
+    expect(tab, 'the Reference tab content is not rendering, so the next '
+      + 'assertion would be true by absence').toBeTruthy()
+    expect(tab!.contains(q('tb-top-row')!),
+      'the band is back inside the tab content').toBe(false)
+  })
+
+  test('it is a SIBLING between the title row and the stats strip', async () => {
+    // The order, asserted structurally. jsdom has no layout, so this is DOM
+    // order rather than geometry; the browser probe measures the pixels.
+    await mount()
+    const header = q('tb-view-header')!
+    const kids = [...header.children]
+    const at = (t: string) => kids.findIndex((k) => k.contains(q(t)!))
+    expect(at('tb-header-row'), 'the title row is not a direct child of the header')
+      .toBeGreaterThanOrEqual(0)
+    expect(at('tb-top-row')).toBeGreaterThan(at('tb-header-row'))
+    expect(at('tb-header-stats')).toBeGreaterThan(at('tb-top-row'))
+  })
+
+  test('the band survives a tab change, because it is not in a tab', async () => {
+    // The consequence worth having rather than a restatement of the above:
+    // StageTabs unmounts each panel when its tab goes inactive, so a band
+    // inside one vanished on every switch and took an open Summary edit with
+    // it. In the header it outlives them.
+    await mount()
+    await act(async () => {
+      (q('tb-tab-btn-stage-Qualification') as HTMLElement).click()
+    })
+    for (let i = 0; i < 20 && q('tb-tab-reference'); i++) {
+      await act(async () => { await Promise.resolve() })
+    }
+    expect(q('tb-tab-reference'), 'the Reference panel did not unmount, so this '
+      + 'asserts nothing about surviving one').toBeNull()
+    expect(q('tb-top-row'), 'the band vanished when the tab changed').toBeTruthy()
+    expect(q('tb-card-summary'), 'the Summary card vanished when the tab changed')
+      .toBeTruthy()
+  })
+})
+
 describe('the blast radius: what must REMAIN', () => {
   test('every card still renders, by name', async () => {
     // Verification 7: a replacement asserts what was already there is still
