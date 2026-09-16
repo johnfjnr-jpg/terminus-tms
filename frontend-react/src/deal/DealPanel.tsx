@@ -3,6 +3,7 @@ import { useShell } from '../ShellContext'
 import { useDealForm } from './useDealForm'
 import { buildDealRows, money } from './rows'
 import { catalogToRates } from '../../../src/lib/base-costs.js'
+import { resolveRates } from '../../../src/lib/rate-resolution.js'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { CENSUS, CATALOG_DISPLAYS, MILESTONE_INPUTS, CONTRACTOR_INPUTS, DEAL_SECTIONS } from './census'
 import type { CensusInput } from './census'
@@ -353,9 +354,15 @@ export function DealPanel({
   // ONE derivation, shared by the latch signal and by section 4. Two readers of
   // the same value drift; the catalog problem the latch warns about must be the
   // same one the panel shows.
+  // COST_CALC_AUDIT.md F4: the per-KEY absence, read from the resolver that
+  // already computes it rather than derived a second time here. A product row
+  // present with a null install or hosting column is invisible to `missing`,
+  // and the line it feeds still prices at $0.
+  const absentRateKeys = resolveRates(payload, catalogData?.rates ?? {})
+    .absent.map((l: { key: string }) => l.key)
   const basisView = buildBasis(catalogData?.batches ?? {}, catalogData?.missing ?? [],
     catalogData?.asOf ?? null, catalog.isError ? 'Base Cost Data could not be loaded.' : null,
-    payload.bidCurrency)
+    payload.bidCurrency, absentRateKeys)
   const latchInputs = {
     marginOverrides: Object.fromEntries(MARGIN_KEYS.map((k: string) => [k, values[`deal-margin-${k}`]])),
     rateValues: Object.fromEntries((['inSsExisting', 'inSsNew', 'inAqm', 'inHemir'])

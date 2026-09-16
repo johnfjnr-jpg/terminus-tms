@@ -303,6 +303,31 @@ describe('the cost basis age', () => {
     expect(v.ageBand).toBe('deal-catalog-stale')
   })
 
+  // ── COST_CALC_AUDIT.md F4: the per-KEY absence ────────────────────────
+  //
+  // Verification 24: the new parameter defaults to [], so every existing caller
+  // and every test above agrees with the constant. These pass a DIFFERENT value,
+  // which is the only thing that can tell a used parameter from a decorative one.
+  test('a NULL RATE COLUMN is named, where the per-product warning cannot see it', () => {
+    const v = buildBasis({ safesight: { batch_label: 'b', effective_from: '2026-01-01' } },
+      [], '2026-02-01', null, undefined, ['inSsNew'])
+    expect(v.warning).toContain('SafeSight installation, new infrastructure')
+    expect(v.warning).toContain('$0 because no rate exists')
+  })
+
+  test('it does NOT repeat a product the missing-batch warning already named', () => {
+    const v = buildBasis({ safesight: { batch_label: 'b', effective_from: '2026-01-01' } },
+      ['hemir'], '2026-02-01', null, undefined, ['hemirUnitCost', 'inHemir'])
+    expect(v.warning).toContain('no current batch for HEMIR')
+    expect(v.warning, 'HEMIR was named twice').not.toContain('HEMIR installation')
+  })
+
+  test('no absent keys means no such sentence at all', () => {
+    const v = buildBasis({ safesight: { batch_label: 'b', effective_from: '2026-01-01' } },
+      [], '2026-02-01', null, undefined, [])
+    expect(v.warning).toBe('')
+  })
+
   test('an UNDATED batch is not treated as current', () => {
     const v = buildBasis({ safesight: { batch_label: 'undated' } }, [], '2026-01-01', null, undefined)
     expect(v.ageBand).toBe('deal-catalog-undated')

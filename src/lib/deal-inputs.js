@@ -395,9 +395,19 @@ export function buildDealInputs(payload, { testBedCost = 0, rates } = {}) {
   const installLineItems = lumpSumDeal ? [
     { key: 'inLump', cost: numericOrDefault(payload, 'lumpSumCost'), marginPct: marginFor('inLump') },
   ] : isPerUnit ? [
-    // rates[...] and no ?? 0: an absent rate is absent, and resolveRates omits
-    // the key entirely rather than inventing a zero. A line whose rate is
-    // missing prices at nothing and the missing-batch warning says so.
+    // THE `?? 0` IS DELIBERATE, AND THE ON-SCREEN WARNING IS WHAT MAKES IT
+    // HONEST. resolveRates omits an absent key entirely rather than inventing a
+    // zero, so the absence survives as far as here. This turns it into a zero
+    // line, because a deal with one unpriced product still has to price the
+    // rest. buildBasis then says so on screen: the per-PRODUCT case through
+    // `missing`, and the per-KEY case through the resolver's own `absent` list.
+    //
+    // CORRECTED 2026-09-16, COST_CALC_AUDIT.md F5. This comment read "rates[...]
+    // and no ?? 0" directly above four lines carrying `?? 0`, and the hosting
+    // block below carries three more. The behavioural half was true and the
+    // literal half was false, which is worse than a plainly wrong comment: it
+    // describes a guarantee the code does not give, and a reader checking the
+    // absent-rate path would have stopped here satisfied.
     { key: 'inSsEx', cost: (rates.inSsExisting ?? 0) * ssExisting, marginPct: marginFor('inSsEx') },
     { key: 'inSsNew', cost: (rates.inSsNew ?? 0) * ssNew, marginPct: marginFor('inSsNew') },
     { key: 'inAqm', cost: (rates.inAqm ?? 0) * aqmUnits, marginPct: marginFor('inAqm') },

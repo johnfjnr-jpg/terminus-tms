@@ -69,6 +69,24 @@ export function buildDealRows(
   const hwCost = hardwareGroup.rawTotalCost
   const inPrice = installGroup.rawTotalPrice
   const inCost = installGroup.rawTotalCost
+  // ── COST_CALC_AUDIT.md F8: THIS IS A SECOND SITE COMPUTING THE TERM ─────
+  //
+  // The engine already does `hostingGroup.rawTotalCost * months` inside
+  // calculateContractTotals (deal-calculator.js:135) and exposes the price half
+  // as `totals.hostingTermPrice`. These two lines repeat that multiplication,
+  // over a `months` derived HERE by durationPresentation rather than the one the
+  // engine was handed. They agree today by carrying the same formula, not by
+  // sharing a value, which is CLAUDE.md Verification 20's shape.
+  //
+  // NOT CONVERGED, and the reason is scope rather than preference. Taking the
+  // price half from `totals.hostingTermPrice` is one line, but there is no
+  // `hostingTermCost` on the deal side to take the cost half from, so the fix is
+  // a new field on calculateContractTotals. That function is inside the
+  // Opportunity calculation currently being reconciled against the deal sheet
+  // (COST_CALCULATIONS.md section 2), and adding a field to it now would land a
+  // change in the middle of a comparison that has not been ruled on.
+  //
+  // Recorded rather than done, on John's "note or converge, low priority".
   const hoPrice = hostingGroup.rawTotalPrice * months
   const hoCost = hostingGroup.rawTotalCost * months
 

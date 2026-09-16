@@ -10,6 +10,31 @@ correct.
 
 ---
 
+## Dispositions, after John's rulings of 2026-09-16
+
+The audit was accepted. What each finding became:
+
+| | disposition |
+|---|---|
+| **Test Bed calculation** | **CORRECT.** Matches the acceptance case exactly. No fix. Now pinned by `scripts/tests/test-bed-cost-contract.test.mjs` and documented in `COST_CALCULATIONS.md`. |
+| F1, F2, F3, F7 warranty | **NOT Test Bed findings.** Warranty does not apply to a Test Bed and the route forces it to zero, proven ignored. Carried as **Opportunity-side**, now measurable against the deal sheet. |
+| F4 null rate column | **FIXED** 2026-09-16. The resolver's own `absent` list is now read by `buildBasis`. Calibrated. |
+| F5 contradicting comment | **FIXED** 2026-09-16. |
+| **F6 blank duration** | **WITHDRAWN. Not a defect.** John ruled: duration zero means cost zero, which is correct, and the remedy is to enter a duration. Pinned as intended behaviour by the contract test so a later round cannot "fix" it into a default. |
+| F8 two term sites | **NOTED, not converged.** Reason recorded at the site. |
+| F9 stale document line | **FIXED** 2026-09-16. |
+
+**And the source of truth arrived.** `old - terminus-deal-sheet.html` and
+`old-terminus-deal-sheet-spec.md` were untracked in the working directory at
+06:44 on 2026-09-16, after this audit ran, and are now committed. The blocked
+step below is therefore unblocked, and the first comparison against it is in
+`COST_CALCULATIONS.md` section 2: **six proven divergences on the Opportunity
+path**, the sharpest being that the deal sheet values a warranty unit at its own
+type's unit cost while the code uses the mix average, measured at $9,000 against
+$4,500 on one mixed case.
+
+---
+
 ## What is NOT established, first
 
 CLAUDE.md build discipline 15: the first section about an unfinished item says
@@ -239,7 +264,13 @@ three hosting lines at 409-412 carry the same. The behavioural half of the claim
 is true on the per-product path (F4); the literal half is false against the
 lines it sits on.
 
-### F6. A blank Test Bed duration prices hosting at zero months
+### F6. WITHDRAWN, 2026-09-16. Not a defect. A blank Test Bed duration prices hosting at zero months
+
+**John's ruling: duration zero means cost zero. That is correct behaviour and
+the fix is to enter a duration.** The text below is kept as the measurement, not
+as a finding, and the behaviour is now pinned as INTENDED by
+`scripts/tests/test-bed-cost-contract.test.mjs` so a later round does not
+convert it into a default.
 
 ```
 testBedDuration = 6       ->  months 6  ->  hostingTerm $2,400  ->  total $22,400
