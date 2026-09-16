@@ -174,6 +174,12 @@ Rates come from the admin Base Cost catalog via `catalogToRates` and
 
 ### Proven divergences from the deal sheet
 
+**`OPPORTUNITY_CALC_DIVERGENCES.md` IS THE AUTHORITY ON THESE AND THIS TABLE IS
+A SUMMARY OF IT.** Two documents stating the same six facts is the second-reader
+shape this estate has been caught by before (CLAUDE.md Verification 20), so the
+worked examples, the numbers and the readings live in one place and this table
+points at it. If the two disagree, that file is right and this one is stale.
+
 Measured, not inferred. These need John's rulings before any are changed.
 
 | # | deal sheet says | the code does | measured effect |
