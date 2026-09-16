@@ -104,6 +104,34 @@ let approverRowId = null
   approverRowId = seat?.id ?? null
 }
 
+// ── THE ORIGIN THE BROWSER NAVIGATES TO ──────────────────────────────────
+//
+// Defaults to localhost, so nothing changes on a developer machine. It is
+// overridable because a browser is not always on the same network stack as the
+// shell that launched it.
+//
+// MEASURED 2026-09-16, in an agent session, and the readings are the reason
+// this exists rather than a guess:
+//
+//   curl   http://localhost:3000/        -> HTTP 200
+//   curl   http://127.0.0.1:3000/        -> HTTP 200
+//   chrome http://localhost:3000/        -> net::ERR_ADDRESS_INVALID
+//   chrome http://127.0.0.1:3000/        -> net::ERR_ADDRESS_INVALID
+//   chrome http://<the host LAN IP>:3000 -> HTTP 200
+//   chrome https://example.com/          -> HTTP 200
+//
+// So the server was up, fetch reached it, every other HTTP stage passed, and
+// only the browser could not resolve loopback. THE STAGE FAILED FOR A REASON
+// THAT HAD NOTHING TO DO WITH THE PRODUCT, and it had been SKIPPING for rounds
+// behind the message "no browser (set PUPPETEER_PATH)", which reads as though
+// installing puppeteer is sufficient. It is not: with puppeteer installed the
+// `browser dependency is functional` stage passes and this one still cannot
+// reach the app.
+//
+// NOTHING ABOUT THE ASSERTIONS CHANGES. Same server, same checks, same
+// verdicts; only the address the browser dials.
+const APP_ORIGIN = process.env.APP_ORIGIN ?? 'http://localhost:3000/'
+
 const browser = await puppeteer.launch({ headless: 'new' })
 const page = await browser.newPage()
 const rows = []
@@ -114,7 +142,7 @@ const notReady = []
 for (const width of [1240, 1920]) {
   for (const [label, id] of [['not mine', NOT_MINE], ['mine', MINE], ['approver', APPROVING]]) {
     await page.setViewport({ width, height: 900 })
-    await page.goto('http://localhost:3000/', { waitUntil: 'domcontentloaded' })
+    await page.goto(APP_ORIGIN, { waitUntil: 'domcontentloaded' })
     await page.evaluate((k, v) => localStorage.setItem(k, v), 'sb-anvildouaacbhsjytkii-auth-token', JSON.stringify(session))
     await page.reload({ waitUntil: 'networkidle0' })
     await page.evaluate((rid) => navigate('opportunity-detail', rid), id)
