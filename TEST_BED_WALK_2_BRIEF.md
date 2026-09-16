@@ -32,7 +32,7 @@ calibration. The conformance gate still applies.
 - **W3 - NEXT STAGE ONTO THE SUB-TAB LINE.** It renders on its own line below
   the tab strip. It belongs at the right-hand end of the strip.
 - **W4 - THE REDUNDANT TEST BED / TEST BED NAME BLOCK GOES.** The name is
-  already the title at the top of the view. **HELD: see the suspect above.**
+  already the title at the top of the view. **RULED, see below.**
 - **W5 - CONVERT TO OPPORTUNITY BESIDE THE TITLE.** It renders at the bottom
   of the host, below everything. It goes to the title area, matching the
   Opportunity's own title-area action placement.
@@ -49,5 +49,26 @@ calibration. The conformance gate still applies.
 | W4 | the block is gone and nothing else on the surface moved |
 | W5 | the trigger sits in the title area, and a CLICK still opens the form |
 | W6 | the refusal test states the population it examined, and Summary is in it |
+
+## Rulings, appended at the phase that launched them
+
+Build discipline 7's cause clause: a ruling given in conversation is part of
+the work's record, and a brief that acquires it at the close has been wrong
+for every phase in between. Both were given at the open, before Phase 2.
+
+**R1 - W4 DOES NOT DELETE THE NAME ROW, IT MOVES IT.** Put to John with the
+measurement that `row('name')` was the only place a Test Bed's name could be
+edited after creation. **His ruling: put it in the Terminus Details panel
+where it can be edited with the other data fields there.** So W4 removes the
+eyebrow and the header block, and the row leads Terminus Details. No
+capability is lost and the item stays on the light path.
+
+**R2 - W3 AND W5 MOVE ONLY. THE BUTTONS STAY UNSTYLED.** Put to John that
+both carry no class and render as browser defaults, that they are on the
+carried list as "the two unstyled buttons", and that the vanilla dressed Next
+Stage as `btn-sm btn-primary` inside `.tb-tab-actions`. **His ruling: move
+only, leave them unstyled.** So the tab-row wrapper is taken for POSITION -
+`margin-left: auto`, which is what puts the action at the right-hand end -
+and neither button gains a class. The carried item stays open.
 
 **Nothing pushes.** The round stops for sign-off and John walks.
