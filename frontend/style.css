@@ -2707,6 +2707,35 @@ textarea::placeholder { color: var(--muted-2); }
 }
 .sa-stage { display: flex; align-items: center; gap: 8px; }
 .sa-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+/* ── THE CURRENT-STAGE DOT ON THE TEST BED'S TAB STRIP ───────────────────
+ *
+ * `StageTabs` renders `<span className="sa-dot tb-tab-current-dot">` on the
+ * tab matching the record's real stage. There was NO RULE for that class
+ * anywhere in this file, so the dot was a 6px transparent circle: present in
+ * the DOM, correct in every test that asked whether the element existed, and
+ * invisible on the screen. Found by John reading the stylesheet, not by any
+ * check - which is the point, because a test asserting an element exists
+ * passes on an invisible one.
+ *
+ * THREE DECLARATIONS, AND THE COLOUR IS NOT THE ONE THAT MATTERS MOST.
+ * Adding `background` alone would have left it invisible. `.sa-dot` sets a
+ * width and a height, and those do nothing to an inline element - the dot
+ * lives inside a `<button>`, which is not a flex container, so it collapses
+ * to zero size whatever colour it is painted. The vanilla documents this
+ * exact trap at `markOppCurrentStageTab`, in a comment naming
+ * `markTbCurrentStageTab` as having hit it first.
+ *
+ * TAKEN FROM THE OPPORTUNITY'S OWN DOT rather than invented: same green,
+ * same 6px gap, same explicit display. The difference is that the vanilla
+ * writes them as an inline `cssText` from JavaScript and this is a rule,
+ * because the React tab strip renders the class declaratively and a
+ * stylesheet is where a treatment belongs.
+ */
+.tb-tab-current-dot {
+  background: var(--green);
+  display: inline-block;
+  margin-right: 6px;
+}
 .sa-stage-name { font-family: var(--body); font-size: 13px; color: var(--white); }
 .sa-criteria { font-family: var(--body); font-size: 13px; color: var(--white); }
 .sa-criteria div { padding: 3px 0; }
