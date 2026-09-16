@@ -3,18 +3,28 @@
 // W1, 2026-09-10, adds the design of record on top of what was already here:
 //   title with the summary beside it, then the stats strip, then the chevron.
 // The order is top to bottom exactly as ruled.
-import { useEffect } from 'react'
+import { useEffect, type ReactNode } from 'react'
 import { headerOf, OWNERSHIP_REFUSAL_TEXT } from './viewLoad'
 import { headerStats } from './headerStats'
 
 const CHEVRON_ID = 'tb-chevron-strip'
 
-export function ViewHeader({ record, readOnly }: {
+export function ViewHeader({ record, readOnly, titleAction }: {
   record: {
     status?: string
     payload?: Record<string, unknown> & { name?: string, client_organisation?: string }
   } | null
   readOnly: boolean
+  /**
+   * W5: the record-level action that belongs beside the title.
+   *
+   * A SLOT, not a component. `ConvertPanel` needs the host's convert route,
+   * its navigate and its per-record key, and none of that is the header's
+   * business - so the host goes on owning it and this only says where it
+   * renders. Passing the record down instead would give the header a second
+   * reason to know about routes.
+   */
+  titleAction?: ReactNode
 }) {
   const { name, client } = headerOf(record)
   const payload = record?.payload ?? {}
@@ -50,15 +60,29 @@ export function ViewHeader({ record, readOnly }: {
     <div data-testid="tb-view-header">
       {/* TITLE LARGE, SUMMARY TO ITS RIGHT. The summary keeps its element even
           when empty, for the reason the client line already does: the title
-          must not move when one record has a summary and the next does not. */}
+          must not move when one record has a summary and the next does not.
+
+          W1: THE ACCOUNT NAME IS ON THE TITLE'S OWN LINE, not under it. The
+          two sit in a baseline-aligned flex row, which is what "bottom
+          aligned to the title" means for two different type sizes: their
+          boxes have different bottoms and their text sits on one line.
+
+          W5: THE RECORD ACTION IS THE THIRD CELL, pushed right, which is the
+          Opportunity's own `.detail-head` arrangement rather than a new one. */}
       <div className="tb-header-row" data-testid="tb-header-row">
-        <div className="tb-header-title">
+        <div className="tb-header-title" data-testid="tb-header-title">
           <h2 data-testid="tb-detail-name">{name}</h2>
-          <p className="sub" data-testid="tb-detail-client">{client}</p>
+          {/* `.tb-header-client` exists to zero `.sub`'s 32px bottom margin,
+              which was invisible while this sat on a line of its own and
+              becomes a hole in the row the moment it does not. */}
+          <p className="tb-header-client sub" data-testid="tb-detail-client">{client}</p>
         </div>
         <p className="tb-header-summary sub" data-testid="tb-header-summary">
           {typeof payload.summary === 'string' ? payload.summary : ''}
         </p>
+        {titleAction
+          ? <div className="tb-header-action" data-testid="tb-header-action">{titleAction}</div>
+          : null}
       </div>
 
       {/* THE STRIP. Five cells in the order of record. */}

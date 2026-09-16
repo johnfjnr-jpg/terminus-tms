@@ -181,29 +181,47 @@ export function StageTabs({ payload, units, landing, fresh, currentStage, nextSt
               : null}
             {t.label}
           </button>))}
+
+        {/* ── W3: NEXT STAGE IS ON THE TAB LINE ─────────────────────────
+            It rendered on a line of its own below the strip. `.tb-tab-actions`
+            is the estate's DECLARED position for a record-level action in a
+            tab row - it is what the vanilla Test Bed had, and the Opportunity
+            copied it from there with the reason written at its own site. So
+            this is the position coming back rather than a new one, and the
+            wrapper carries POSITION ONLY: margin-left auto, a flex box, a gap.
+
+            THE BUTTON KEEPS NO CLASS, by John's ruling at the round open. It
+            renders as a browser default here as it did below the strip, and
+            "the two unstyled buttons" stays on the carried list rather than
+            being closed in passing by a round scoped to repositioning.
+
+            X4: T7 decides enablement and is injection-covered; this is the
+            ACTION. But the LABEL is derived from the stage list, which arrives
+            from a fetch, and with an empty list `nextStage` is null - so the
+            first paint said "Final stage" on a record at Qualification.
+
+            Found by LOOKING at the Phase 3 screenshot, not by any assertion:
+            the button was present, disabled and correctly styled, and every
+            check passed. Verification 45's shape - a state nobody wrote code
+            for - and Verification 4's answer to it.
+
+            The vanilla does the same thing for the same reason: its
+            refreshTbNextStageButton returns before touching the button while
+            tbNextStageState is null. */}
+        {deps.stages.length > 0
+          ? (
+            <div className="tb-tab-actions" data-testid="tb-tab-actions">
+              <button type="button" data-testid="tb-next-stage-btn" disabled={next.disabled}
+                onClick={() => onNextStage?.()}>
+                {next.label}
+              </button>
+            </div>)
+          : null}
       </div>
 
-      {/* ── NOTHING UNTIL THE STAGE LIST IS KNOWN ─────────────────────────
-          X4: T7 decides enablement and is injection-covered; this is the
-          ACTION. But the LABEL is derived from the stage list, which arrives
-          from a fetch, and with an empty list `nextStage` is null - so the
-          first paint said "Final stage" on a record at Qualification.
-
-          Found by LOOKING at the Phase 3 screenshot, not by any assertion:
-          the button was present, disabled and correctly styled, and every
-          check passed. Verification 45's shape - a state nobody wrote code
-          for - and Verification 4's answer to it.
-
-          The vanilla does the same thing for the same reason: its
-          refreshTbNextStageButton returns before touching the button while
-          tbNextStageState is null. */}
-      {deps.stages.length > 0
-        ? (
-          <button type="button" data-testid="tb-next-stage-btn" disabled={next.disabled}
-            onClick={() => onNextStage?.()}>
-            {next.label}
-          </button>)
-        : null}
+      {/* The feedback stays BELOW the row and does not move with the button.
+          The vanilla's own note says why: it is long free text, and placed
+          inline in the row it pushed the buttons off-screen at 1920. */}
       <div data-testid="tb-next-stage-feedback" />
       {feedback ? <p className="msg-error" data-testid="tb-tab-feedback">{feedback}</p> : null}
 

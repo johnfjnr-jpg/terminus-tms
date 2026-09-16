@@ -150,13 +150,19 @@ export function TestBedPanel({ source, rows, contacts, buyers, onDirtyChange, no
 
   return (
     <div data-testid="testbed-panel">
-      {/* THE NAME HEADER. An ordinary row that happens to sit in the header,
-          the same departure the Reference and Contact surfaces took, so it has
-          a door, a discard and a draft like every other field. */}
-      <div className="cd-header" data-testid="tb-header">
-        <div className="cd-eyebrow eyebrow" data-testid="tb-eyebrow">Test Bed</div>
-        {row('name')}
-      </div>
+      {/* ── W4: THE NAME HEADER IS GONE FROM HERE ─────────────────────────
+          It carried a "TEST BED" eyebrow and a row labelled "Test Bed Name",
+          directly under a view header whose h2 is already the name. Three
+          statements of one fact on one screen.
+
+          THE ROW ITSELF IS NOT DELETED, IT IS MOVED into Terminus Details
+          below, and that is John's ruling at the round open rather than an
+          implementation choice. Measured before asking: `row('name')` here
+          was the ONLY place a Test Bed's name could be edited after creation
+          - the h2 is a plain heading and the New Test Bed modal sets the name
+          once. Deleting the block would have removed a capability under the
+          heading of removing a label, which is the light path's own limit. */}
+
 
       {/* R1: SUMMARY AND NOTES ON ONE ROW AT THE TOP, matching leads and
           contacts. Both already existed at the BOTTOM of this screen and both
@@ -187,7 +193,13 @@ export function TestBedPanel({ source, rows, contacts, buyers, onDirtyChange, no
 
       <div className="ref-cards" data-testid="tb-cards">
         <Card title="Terminus Details" testId="tb-card-terminus">
-          {['terminusLead', 'commercialAuthority', 'technicalAuthority',
+          {/* W4: `name` LEADS THIS CARD. It keeps the descriptor's own label,
+              "Test Bed Name", rather than being shortened here: `descriptors.ts`
+              is the one label table this surface has, and the History panel
+              renders each audit entry through the SAME `labelOf`. A second
+              label minted at this call site would make the screen and the
+              history name one field two different things (Verification 20). */}
+          {['name', 'terminusLead', 'commercialAuthority', 'technicalAuthority',
             'terminusLegalOwner', 'region', 'country'].map((n) => row(n))}
         </Card>
 

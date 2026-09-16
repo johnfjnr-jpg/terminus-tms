@@ -619,7 +619,24 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
 
   return (
     <div data-testid="testbed-host">
-      <ViewHeader record={loadFailed ? null : record} readOnly={readOnly} />
+      {/* W5: CONVERT TO OPPORTUNITY RENDERS BESIDE THE TITLE.
+          It sat at the bottom of this host, below the edit bar and below every
+          panel. The ELEMENT is unchanged - same props, same per-record key,
+          same handlers - and only its parent moved, which is what keeps this a
+          reposition rather than a rewire. Its feedback message travels with
+          it, which is right: an outcome belongs where the control that caused
+          it is. */}
+      <ViewHeader record={loadFailed ? null : record} readOnly={readOnly}
+        titleAction={
+          <ConvertPanel
+            key={bed.id}
+            onConvert={async (body) => {
+              const r = await shell.api<{ id?: string, error?: string }>(
+                'POST', CONVERT_ROUTE(bed.id), body)
+              return { ok: r.ok, data: r.ok ? (r.data ?? null) : null, error: r.data?.error ?? null }
+            }}
+            onOpen={(id) => shell.navigate('opportunity-detail', id)} />
+        } />
       <StageTabs
         payload={record.payload ?? {}}
         units={units}
@@ -720,19 +737,17 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
       <EditBar rows={rows} onSave={(c) => { void onSave(c) }} saveId="tb-react-save-all" />
       {/* V5: OWNED, so it cannot clear a message that is not its own, and a
           server save error cannot clear this one either. */}
-      {/* KEYED ON THE RECORD. The shell re-renders this view rather than
-          mounting a new one, so an open form with a typed name would follow the
-          operator to the next Test Bed. The key is what resets it, and the
-          convert suite asserts BOTH halves: that without a key the form
-          persists, and that a changed key clears it. */}
-      <ConvertPanel
-        key={bed.id}
-        onConvert={async (body) => {
-          const r = await shell.api<{ id?: string, error?: string }>(
-            'POST', CONVERT_ROUTE(bed.id), body)
-          return { ok: r.ok, data: r.ok ? (r.data ?? null) : null, error: r.data?.error ?? null }
-        }}
-        onOpen={(id) => shell.navigate('opportunity-detail', id)} />
+      {/* W5: `ConvertPanel` WAS HERE and is now passed to `ViewHeader` as its
+          title action. Removed rather than left, because a move is TWO claims
+          - it appears in its new place AND it is gone from its old one - and
+          this estate has shipped the duplicate that skipping the second one
+          produces. The probe asserts exactly one trigger renders.
+
+          KEYED ON THE RECORD, at its new site. The shell re-renders this view
+          rather than mounting a new one, so an open form with a typed name
+          would follow the operator to the next Test Bed. The key is what
+          resets it, and the convert suite asserts BOTH halves: that without a
+          key the form persists, and that a changed key clears it. */}
       {invalidMessage
         ? <div data-testid="tb-save-feedback" className="msg-error"
             data-owner={VALIDATION_OWNER}>{invalidMessage}</div>

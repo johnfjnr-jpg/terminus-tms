@@ -78,14 +78,36 @@ const MEASURE = () => {
     return { top: Math.round(r.top), bottom: Math.round(r.bottom), left: Math.round(r.left),
       right: Math.round(r.right), width: Math.round(r.width), height: Math.round(r.height) }
   }
+  /**
+   * THE TRUE BASELINE, and the first version of this was WRONG.
+   *
+   * It took a Range over the text node and read `getClientRects()[0].bottom`.
+   * That is the bottom of the LINE BOX, which includes the descender space,
+   * so a 30px heading and a 14px paragraph sitting on ONE baseline report
+   * bottoms 3px apart - and the probe read `-3` against a layout that was
+   * correct. Verification 33's sharpest form: a measure aimed at the wrong
+   * half of a property that has more than one.
+   *
+   * A zero-size `inline-block` sits with its bottom margin edge ON the
+   * baseline of the line it is in, which is the one thing in CSS that
+   * reports a baseline directly. It adds no width and no height, it is
+   * removed immediately, and the caller asserts the element's own rect is
+   * unchanged afterwards - an instrument must not perturb its subject.
+   */
   const baseline = (el) => {
     if (!el) return null
-    const node = [...el.childNodes].find((n) => n.nodeType === 3 && n.textContent.trim())
-    if (!node) return null
-    const r = document.createRange()
-    r.selectNodeContents(node)
-    const box = r.getClientRects()[0]
-    return box ? Math.round(box.bottom) : null
+    const before = el.getBoundingClientRect()
+    const probe = document.createElement('span')
+    probe.style.cssText = 'display:inline-block;width:0;height:0;overflow:hidden'
+    el.appendChild(probe)
+    const b = probe.getBoundingClientRect().bottom
+    probe.remove()
+    const after = el.getBoundingClientRect()
+    if (Math.round(before.height) !== Math.round(after.height)
+      || Math.round(before.top) !== Math.round(after.top)) {
+      throw new Error('the baseline probe moved the element it was measuring')
+    }
+    return Math.round(b)
   }
   const name = q('tb-detail-name'), client = q('tb-detail-client')
   const headerRow = q('tb-header-row'), stats = q('tb-header-stats')
@@ -100,6 +122,11 @@ const MEASURE = () => {
   return {
     viewport: { w: window.innerWidth, h: window.innerHeight },
     name: rect(name), client: rect(client),
+    // TWO DIMENSIONS, NAMED AND BOTH ASSERTED. "Bottom aligned" can mean the
+    // text baselines agree or the boxes agree, and for two different type
+    // sizes those are different claims with different right answers. The
+    // baseline is the typographic one and is what `align-items: baseline`
+    // produces; the box bottoms are recorded so the report can say which.
     nameBaseline: baseline(name), clientBaseline: baseline(client),
     headerRow: rect(headerRow), stats: rect(stats),
     gapHeaderToStats: headerRow && stats
@@ -114,6 +141,35 @@ const MEASURE = () => {
     summaryRowPresent: !!summaryRow,
     // The page must not scroll sideways at any width the estate measures at.
     horizontalOverflow: Math.round(doc.scrollWidth - doc.clientWidth),
+
+    // ── WHAT MUST REMAIN, BY NAME ─────────────────────────────────────
+    //
+    // Verification 7: a change is two claims, and a REPLACEMENT flips the
+    // polarity of the second - what arrived is there, AND everything that
+    // was already there still is. A screenshot of the thing that moved
+    // cannot show what stopped rendering somewhere else, and this round
+    // moves four things at once.
+    cards: [...document.querySelectorAll('[data-testid^="tb-card-"]')]
+      .map((e) => e.getAttribute('data-testid')).sort(),
+    // ── AND EXACTLY ONE OF EACH, NOT AT LEAST ONE ─────────────────────
+    //
+    // A move that leaves the original in place renders both, and "the new
+    // one is there" passes on that. This estate has shipped that duplicate
+    // and the business found it.
+    counts: Object.fromEntries(['tb-convert-trigger', 'tb-next-stage-btn',
+      'display-name', 'display-summary', 'tb-card-summary', 'tb-card-notes',
+      'tb-top-row', 'tb-header-row']
+      .map((t) => [t, document.querySelectorAll(`[data-testid="${t}"]`).length])),
+    // W1's BLAST RADIUS, stated as a relation rather than an absolute: the
+    // header change moves everything below it down the page, so the Summary
+    // and Notes band's screen position is EXPECTED to shift. What must not
+    // change is where it sits inside the panel it belongs to.
+    topRowWithinPanel: (() => {
+      const panel = q('testbed-panel'), topRow = q('tb-top-row')
+      if (!panel || !topRow) return null
+      return Math.round(topRow.getBoundingClientRect().top
+        - panel.getBoundingClientRect().top)
+    })(),
   }
 }
 
@@ -219,7 +275,7 @@ const { writeFileSync } = await import('node:fs')
 writeFileSync(join(OUT, `${LABEL}.json`), JSON.stringify(out, null, 2))
 
 console.log(`\n  TEST BED WALK 2 - ${LABEL}\n`)
-console.log('  width  name/client  same row  baseline gap  hdr->stats gap  next in tabs  convert in hdr  cd-header  name row  overflow')
+console.log('  width  name/client  same row  baseline gap  box-bottom gap  hdr->stats gap  next in tabs  convert in hdr  cd-header  name row     overflow')
 for (const r of rows) {
   const sameRow = r.name && r.client ? (Math.abs(r.name.top - r.client.top) < r.name.height) : null
   const bgap = r.nameBaseline != null && r.clientBaseline != null
@@ -228,11 +284,12 @@ for (const r of rows) {
     + `${(r.name ? 'y' : 'n')}/${(r.client ? 'y' : 'n')}`.padEnd(12)
     + String(sameRow).padEnd(10)
     + String(bgap).padEnd(14)
+    + String(r.name && r.client ? r.client.bottom - r.name.bottom : null).padEnd(16)
     + String(r.gapHeaderToStats).padEnd(16)
     + String(r.nextInsideTabs).padEnd(14)
     + String(r.convertInHeaderRow).padEnd(16)
     + String(r.cdHeaderPresent).padEnd(11)
-    + `${r.nameRowPresent ? 'y' : 'n'}${r.nameRowInTerminusCard ? '/terminus' : ''}`.padEnd(10)
+    + `${r.nameRowPresent ? 'y' : 'n'}${r.nameRowInTerminusCard ? '/terminus' : ''}`.padEnd(12)
     + String(r.horizontalOverflow))
 }
 console.log('\n  CLICKS')
@@ -244,4 +301,11 @@ console.log(`                ledger before=${JSON.stringify(clicks.nextBefore)} 
   + `after=${JSON.stringify(clicks.next.after)}`)
 console.log(`  convert       at-point=${clicks.convert.hit} (${clicks.convert.hitTag}) `
   + `form before=${clicks.convert.formBefore} after=${clicks.convert.formAfter}`)
+console.log('\n  WHAT MUST REMAIN (at 1440)')
+{
+  const r = rows.find((x) => x.width === 1440)
+  console.log(`  cards: ${r.cards.join(' ')}`)
+  console.log(`  counts: ${Object.entries(r.counts).map(([k, v]) => `${k}=${v}`).join('  ')}`)
+  console.log(`  Summary/Notes band offset inside the panel: ${r.topRowWithinPanel}px`)
+}
 console.log(`\n  written: .verify/walk2/${LABEL}.json and ${LABEL}-<width>.png`)

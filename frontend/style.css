@@ -5827,10 +5827,42 @@ input.input-invalid {
   display: flex;
   align-items: baseline;
   gap: 28px;
-  margin-bottom: 20px;
+  /* W2: AIR BETWEEN THE TITLE BAND AND THE STATS STRIP. It was 20px and read
+     as cramped against a strip whose own cells are 24px apart.
+     36px IS TAKEN FROM THE REQUIREMENT, NOT FROM THE RESULT: `.detail-head`
+     is the same role on the Opportunity and the Account - the band that names
+     the record, above everything that describes it - and it separates itself
+     from what follows by 36px. Taking that keeps one number for one job
+     rather than minting a second that agrees today. */
+  margin-bottom: 36px;
+  /* The lead header's own lesson, recorded at `.cd-title`: a flex header row
+     wraps rather than overflowing, so a narrow window drops the right-hand
+     group onto a second line instead of pushing it off the edge. */
+  flex-wrap: wrap;
 }
-.tb-header-title { flex: 0 0 auto; }
+/* W1: THE ACCOUNT NAME SITS ON THE TITLE'S LINE, BOTTOM-ALIGNED.
+   `baseline` rather than `flex-end`, and the difference is the claim: the
+   two have different font sizes, so their boxes have different bottoms and
+   aligning those would leave the smaller text floating. What "bottom
+   aligned" means for type is that both sit on one line, which is the
+   baseline. */
+.tb-header-title {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
 .tb-header-title h2 { font-size: 30px; line-height: 1.15; margin: 0; }
+/* `.sub` carries `margin: 0 0 32px`, which was doing no visible work under a
+   title and is a 32px hole beside one. */
+.tb-header-client { margin: 0; }
+/* W5: THE RECORD ACTION, PUSHED RIGHT. `margin-left: auto` is the estate's
+   own idiom for this - `.tb-tab-actions` pins the tab row's action group the
+   same way - so the header gains a position rather than a mechanism. */
+.tb-header-action {
+  flex: 0 0 auto;
+  margin-left: auto;
+}
 /* The summary takes the remaining width and wraps rather than pushing the
  * title around; it keeps its element when empty so the title cannot move. */
 .tb-header-summary {
