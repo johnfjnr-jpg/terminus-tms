@@ -160,6 +160,24 @@ const MEASURE = () => {
       'display-name', 'display-summary', 'tb-card-summary', 'tb-card-notes',
       'tb-top-row', 'tb-header-row']
       .map((t) => [t, document.querySelectorAll(`[data-testid="${t}"]`).length])),
+    // ── W5 AND THE DOOR: DOES MOVING THE TRIGGER CHANGE THE SWEEP? ────
+    //
+    // `applyReadOnlyControls` enumerates BY STRUCTURE - every `button, a[href]`
+    // inside the view element - rather than by a list of names, which is
+    // Verification 19's own remedy and the reason this question has an answer
+    // rather than an argument. So the only thing that can move a control out
+    // of the sweep is moving it out of the VIEW, and the count of buttons the
+    // sweep would find is the population. Both are recorded before and after.
+    convertInsideView: (() => {
+      const view = document.getElementById('view-test-bed-detail')
+      const t = q('tb-convert-trigger')
+      return !!(view && t && view.contains(t))
+    })(),
+    viewButtons: document.getElementById('view-test-bed-detail')
+      ? document.getElementById('view-test-bed-detail')
+        .querySelectorAll('button, a[href]').length
+      : null,
+
     // W1's BLAST RADIUS, stated as a relation rather than an absolute: the
     // header change moves everything below it down the page, so the Summary
     // and Notes band's screen position is EXPECTED to shift. What must not
@@ -267,10 +285,63 @@ const clicks = {}
   await page.screenshot({ path: join(OUT, `${LABEL}-convert-open.png`), fullPage: true })
 }
 await page.close()
+
+// ── W6 IN A REAL BROWSER: THE SUMMARY ROW ON A NON-OWNER'S RECORD ───────
+//
+// The component test in `testbed-door.test.tsx` is the definitive instrument
+// for the DOOR - it proves the row refuses to open by all four entry paths,
+// and it is calibrated in both directions. This adds the half jsdom cannot
+// see: `pointer-events`, which is the property a PERSON experiences.
+// Verification 27, and the walk that produced the door rule already had
+// dimming.
+//
+// WHAT THIS DOES NOT COVER, said here rather than left to be assumed: the
+// harness has no `applyReadOnlyControls`, which is a shell global, so the
+// JS half of the read-only treatment does not run. What is measured is the
+// React door plus the stylesheet, on a container carrying `is-not-mine`.
+const door = {}
+for (const [who, qs] of [['not mine', '?readonly=1'], ['mine', '']]) {
+  const p2 = await browser.newPage()
+  await p2.setViewport({ width: 1440, height: 1000 })
+  await p2.goto(BASE + PAGE + qs, { waitUntil: 'domcontentloaded' })
+  await p2.waitForFunction(() => !!document.querySelector('[data-testid="display-summary"]'),
+    { timeout: 20000 })
+  door[who] = await p2.evaluate(() => {
+    const row = document.querySelector('[data-testid="display-summary"]')
+    const cs = getComputedStyle(row)
+    const r = row.getBoundingClientRect()
+    row.scrollIntoView({ block: 'center' })
+    const r2 = row.getBoundingClientRect()
+    const hit = document.elementFromPoint(r2.left + r2.width / 2, r2.top + r2.height / 2)
+    return {
+      pointerEvents: cs.pointerEvents,
+      opacity: cs.opacity,
+      tabindex: row.getAttribute('tabindex'),
+      // The claim is that the row still READS. A door that makes an unowned
+      // record unreadable is the trap this estate has already shipped once.
+      text: (row.textContent ?? '').trim().slice(0, 40),
+      visible: r.width > 0 && r.height > 0,
+      hitIsRow: hit === row || row.contains(hit),
+      inTopRow: !!document.querySelector('[data-testid="tb-top-row"]')?.contains(row),
+    }
+  })
+  // Clicking it is the honest test of "neutralised", and the counterfactual
+  // is the owner's own record in the same loop.
+  await p2.click('[data-testid="display-summary"]', { force: true }).catch(() => {})
+  await new Promise((r) => setTimeout(r, 150))
+  door[who].openedAfterClick = await p2.evaluate(() => {
+    const e = document.querySelector('[data-testid="edit-summary"]')
+    return !!e && !e.hasAttribute('hidden')
+  })
+  await p2.screenshot({ path: join(OUT, `${LABEL}-door-${who.replace(/\s/g, '-')}.png`),
+    fullPage: true })
+  await p2.close()
+}
+
 await browser.close()
 server.close()
 
-const out = { label: LABEL, rows, clicks }
+const out = { label: LABEL, rows, clicks, door }
 const { writeFileSync } = await import('node:fs')
 writeFileSync(join(OUT, `${LABEL}.json`), JSON.stringify(out, null, 2))
 
@@ -301,11 +372,21 @@ console.log(`                ledger before=${JSON.stringify(clicks.nextBefore)} 
   + `after=${JSON.stringify(clicks.next.after)}`)
 console.log(`  convert       at-point=${clicks.convert.hit} (${clicks.convert.hitTag}) `
   + `form before=${clicks.convert.formBefore} after=${clicks.convert.formAfter}`)
+console.log('\n  W6: THE SUMMARY ROW, IN A BROWSER')
+console.log('  record     pointer-events  opacity  tabindex  reads  click opens it  in the top band')
+for (const [who, d] of Object.entries(door)) {
+  console.log(`  ${who.padEnd(10)} ${String(d.pointerEvents).padEnd(15)} `
+    + `${String(d.opacity).padEnd(8)} ${String(d.tabindex).padEnd(9)} `
+    + `${(d.text ? 'y' : 'n').padEnd(6)} ${String(d.openedAfterClick).padEnd(14)} ${d.inTopRow}`)
+}
+
 console.log('\n  WHAT MUST REMAIN (at 1440)')
 {
   const r = rows.find((x) => x.width === 1440)
   console.log(`  cards: ${r.cards.join(' ')}`)
   console.log(`  counts: ${Object.entries(r.counts).map(([k, v]) => `${k}=${v}`).join('  ')}`)
   console.log(`  Summary/Notes band offset inside the panel: ${r.topRowWithinPanel}px`)
+  console.log(`  convert trigger inside the view element: ${r.convertInsideView}`)
+  console.log(`  buttons the read-only sweep would enumerate in the view: ${r.viewButtons}`)
 }
 console.log(`\n  written: .verify/walk2/${LABEL}.json and ${LABEL}-<width>.png`)

@@ -139,13 +139,98 @@ describe('D: NOT MINE - every row refuses, by every path', () => {
     canEdit = false
     await mount()
     let opened = 0
+    let examined = 0
     for (const n of NAMES) {
       const d = display(n)
       if (!d) continue
+      examined++
       await act(async () => { d.click() })
       if (isOpen(n)) opened++
     }
-    expect(opened, `${opened} of ${NAMES.length} rows opened on a record that is not mine`).toBe(0)
+    // ── W6: THE POPULATION IS ASSERTED, NOT ASSUMED ────────────────────
+    //
+    // THE HOLE THIS CLOSES, and it was on the REFUSAL side only. D2 above
+    // compares its count to NAMES.length, so a row that leaves the surface
+    // turns it red. This one counted refusals and compared to ZERO - which
+    // is satisfied by examining 27 rows, or 5, or none at all. A row moving
+    // off the panel would have shrunk the refusal claim silently while the
+    // test went on passing, and the refusal claim is the one that matters:
+    // it is the claim that somebody else's record cannot be edited.
+    //
+    // Verification 17's population clause, and its own remedy moved from a
+    // habit into the assertion: take the count first, then assert the rows
+    // actually walked equal it.
+    //
+    // MEASURED BEFORE WRITING THIS, because the brief's premise was that the
+    // Summary row had already fallen out of this population, 28 to 27. It
+    // had not: all 28 names render a display row and `display-summary` is
+    // one of them. The gap was never the count - it was that nothing here
+    // could have TOLD you if it had been.
+    expect(examined, 'the refusal test walked fewer rows than the surface has, '
+      + 'so "nothing opened" is a statement about a population nobody named')
+      .toBe(NAMES.length)
+    expect(opened, `${opened} of ${examined} rows opened on a record that is not mine`).toBe(0)
+  })
+
+  // ── W6: THE SUMMARY ROW, BY NAME AND BY EVERY PATH ──────────────────
+  //
+  // WHY THIS ROW GETS ITS OWN BLOCK when D4 already covers all 28.
+  //
+  // D1 and D3 above exercise the four ENTRY PATHS - click, Enter, Space, a
+  // seed character - against ONE sampled row, `city`, which is a plain text
+  // input in an ordinary card. D2 and D4 cover all 28 rows but by CLICK
+  // ALONE. So the crossing of "every path" with "this row" is unexercised
+  // for 27 of the 28, and Summary is the one where that matters most:
+  //
+  //   it is the ONLY textarea among the 28, so it is the only row whose
+  //   editor is a different element with a different entry behaviour; and
+  //   it now renders in the top band rather than in a `.ref-cards` card,
+  //   which is a different container from every row D4's click loop was
+  //   written against.
+  //
+  // It is a WRITE CONTROL on somebody else's record, and the standing
+  // instruction is that a write control is not left at "should be
+  // protected".
+  describe('W6: SUMMARY, the one textarea, on every path', () => {
+    for (const [label, fire] of attempts) {
+      test(`W6 ${label} is REFUSED on a record that is not mine`, async () => {
+        canEdit = false
+        await mount()
+        const d = display('summary')
+        expect(d, 'the Summary row does not render at all, so the refusal below '
+          + 'would be true the way "no unicorn is in this room" is true').toBeTruthy()
+        await act(async () => { fire(d!) })
+        expect(isOpen('summary'),
+          `${label} opened the Summary editor on somebody else's record`).toBe(false)
+      })
+    }
+
+    // THE COUNTERFACTUAL, and without it every assertion above is satisfied
+    // by a Summary row that never opens for anyone. Verification 14: an
+    // assertion of the form "X is not reachable" needs a companion proving X
+    // is reachable somewhere.
+    for (const [label, fire] of attempts) {
+      test(`W6 ${label} DOES open it on my own record`, async () => {
+        canEdit = true
+        await mount()
+        await act(async () => { fire(display('summary')!) })
+        expect(isOpen('summary'),
+          `${label} did not open Summary even on my own record, so the refusal `
+          + 'above measures a dead row rather than a closed door').toBe(true)
+      })
+    }
+
+    test('W6 a refused Summary row is not a tab stop, and still READS', async () => {
+      // The same pair A12 asserts for `city`. A refused row that keeps its
+      // tab stop is a stop in the order that does nothing; a refused row
+      // that stops rendering is a record somebody cannot read.
+      canEdit = false
+      await mount()
+      expect(display('summary')!.getAttribute('tabindex'),
+        'the refused Summary row is still a tab stop').toBeNull()
+      expect(display('summary')!.textContent,
+        'the refused Summary row stopped showing its value').toBeTruthy()
+    })
   })
 
   test('A12: A REFUSED ROW IS NOT A TAB STOP, and still READS', async () => {
