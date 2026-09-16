@@ -32,7 +32,7 @@ export function Card({ title, testId, children }: { title: string, testId: strin
   )
 }
 
-export function TestBedPanel({ source, rows, contacts, buyers, onDirtyChange, notes, followUp, controls, useCases, customerDocs, history, score, refPanes, refPane, onRefPaneChange }: {
+export function TestBedPanel({ source, rows, contacts, buyers, onDirtyChange, controls, useCases, customerDocs, history, score, refPanes, refPane, onRefPaneChange }: {
   source: TestBedSource
   /** The Account's contacts, for the buyer lookups. */
   /**
@@ -46,9 +46,15 @@ export function TestBedPanel({ source, rows, contacts, buyers, onDirtyChange, no
   buyers: Record<string, string>
 
   onDirtyChange?: (dirty: boolean) => void
-  notes?: ReactNode
-  /** R2: the follow-up task, owned by the host because its write is its own. */
-  followUp?: ReactNode
+  // ── `notes` AND `followUp` ARE GONE FROM THIS COMPONENT'S INTERFACE ────
+  //
+  // They moved to `TestBedBand`. Deleted rather than kept and ignored: a
+  // destructuring parameter list is an allowlist that gives no feedback when
+  // it excludes something, so a caller still passing `notes` to a panel that
+  // no longer renders it would be silently discarded and look like a props
+  // bug on the wrong component. Removing them makes that call a typecheck
+  // failure instead (Architecture 9).
+
 
   /** installer, tech team - direct-write controls the host owns. */
   controls?: ReactNode
@@ -150,44 +156,47 @@ export function TestBedPanel({ source, rows, contacts, buyers, onDirtyChange, no
 
   return (
     <div data-testid="testbed-panel">
-      {/* THE NAME HEADER. An ordinary row that happens to sit in the header,
-          the same departure the Reference and Contact surfaces took, so it has
-          a door, a discard and a draft like every other field. */}
-      <div className="cd-header" data-testid="tb-header">
-        <div className="cd-eyebrow eyebrow" data-testid="tb-eyebrow">Test Bed</div>
-        {row('name')}
-      </div>
+      {/* ── W4: THE NAME HEADER IS GONE FROM HERE ─────────────────────────
+          It carried a "TEST BED" eyebrow and a row labelled "Test Bed Name",
+          directly under a view header whose h2 is already the name. Three
+          statements of one fact on one screen.
 
-      {/* R1: SUMMARY AND NOTES ON ONE ROW AT THE TOP, matching leads and
-          contacts. Both already existed at the BOTTOM of this screen and both
-          were already editable - this is a move, not a rewire, and it does not
-          touch Test Bed's notes/audit split, which was measured clean.
+          THE ROW ITSELF IS NOT DELETED, IT IS MOVED into Terminus Details
+          below, and that is John's ruling at the round open rather than an
+          implementation choice. Measured before asking: `row('name')` here
+          was the ONLY place a Test Bed's name could be edited after creation
+          - the h2 is a plain heading and the New Test Bed modal sets the name
+          once. Deleting the block would have removed a capability under the
+          heading of removing a label, which is the light path's own limit. */}
 
-          `.lead-card-body` is the LEAD's layout CLASS, and this is its third
-          consumer. THE CLASS IS NOT MODIFIED: adding a consumer cannot move
-          leads or contacts, which is the whole reason the radius here is nil.
 
-          R2: FOLLOW-UP IS NOW THE THIRD CELL, so the scoped two-column
-          override `.tb-top-row` carried is gone and this row inherits the
-          three-column grid leads and contacts use. The override existed only
-          because a Test Bed had no follow-up: the route's allowlist refused
-          the keys. It accepts them now, proven refused-then-written. */}
-      <div className="lead-card-body tb-top-row" data-testid="tb-top-row">
-        <Card title="Summary" testId="tb-card-summary">
-          {row('summary', '')}
-        </Card>
-        <Card title="Notes" testId="tb-card-notes">
-          {notes}
-        </Card>
-        {/* Rendered as a bare grid cell, exactly as the Contact surface does
-            it: FollowUpTask draws its own card, so wrapping it in another
-            would give the Test Bed a frame its sibling surfaces do not have. */}
-        {followUp}
-      </div>
+      {/* ── THE SUMMARY / NOTES / FOLLOW-UP BAND IS NOT HERE ANY MORE ────
+          It is `TestBedBand`, rendered by the host into `ViewHeader`'s own
+          slot, directly under the title and above the stats strip.
+
+          IT WAS NEVER RIGHT HERE, and the reason it looked right is worth
+          keeping. Round `78a1195` was told to move it "to the header" and
+          moved it to the top of THIS component - which is the Reference
+          TAB's panel, not the record's header. Measured in a browser, the
+          band rendered at 433px, below the stats strip, the chevron AND the
+          tab strip, inside `tb-tab-reference`. The round's own checks all
+          passed, because each asked whether the band was INTACT and none
+          asked where it SAT.
+
+          REMOVED rather than left, because a move is TWO claims - it appears
+          in its new place AND it is gone from its old one - and this estate
+          has shipped the duplicate that skipping the second one produces. */}
+
 
       <div className="ref-cards" data-testid="tb-cards">
         <Card title="Terminus Details" testId="tb-card-terminus">
-          {['terminusLead', 'commercialAuthority', 'technicalAuthority',
+          {/* W4: `name` LEADS THIS CARD. It keeps the descriptor's own label,
+              "Test Bed Name", rather than being shortened here: `descriptors.ts`
+              is the one label table this surface has, and the History panel
+              renders each audit entry through the SAME `labelOf`. A second
+              label minted at this call site would make the screen and the
+              history name one field two different things (Verification 20). */}
+          {['name', 'terminusLead', 'commercialAuthority', 'technicalAuthority',
             'terminusLegalOwner', 'region', 'country'].map((n) => row(n))}
         </Card>
 

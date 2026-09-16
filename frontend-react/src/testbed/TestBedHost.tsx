@@ -42,6 +42,7 @@ import { LIFECYCLE_ROUTE, type Lifecycle } from './closedPanel'
 import { nextStageFor } from './tabModel'
 import type { StageEntry } from '../shared/stageTracks'
 import { ViewHeader } from './ViewHeader'
+import { TestBedBand } from './TestBedBand'
 import { createArrivalFlags, notMine } from './viewLoad'
 import { ConvertPanel } from './ConvertPanel'
 import { CONVERT_ROUTE } from './convert'
@@ -607,6 +608,47 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
     <UseCasesList useCases={record.payload?.useCases as string[] | undefined}
       onWrite={(next) => patchPayload({ useCases: next })} />)
 
+  // ── THE RECORD BAND, HOISTED OUT OF THE REFERENCE PANEL ────────────────
+  //
+  // Summary, Notes and the follow-up describe the RECORD, so they render in
+  // the header between the title and the stats strip rather than inside one
+  // tab's content. Measured on the previous build: the band sat at 433px,
+  // below the strip, the chevron and the tab row, because "the header" was
+  // read as this panel's own top.
+  //
+  // THE HOST STILL OWNS ALL THREE WRITES, exactly as before. Only the parent
+  // changed: the notes PATCH, the follow-up save and the Summary row's draft
+  // store are unmoved, which is what keeps this a reposition rather than a
+  // rewire.
+  const bandNode = (
+    <TestBedBand
+      source={source}
+      rows={rows}
+      notes={
+        <NotesHistory
+          notes={notes}
+          hasDirtyEdits={dirty}
+          onConfirmDiscard={(proceed) => { shell.confirmDiscard(proceed) }}
+          resetKey={bed.id}
+          onAdd={async (text) => {
+            const r = await shell.api<{ error?: string }>('PATCH', `/api/test-beds/${bed.id}`, {
+              payload: {
+                notes: prepend(note(text, shell.currentUserEmail(), new Date().toISOString()), notes),
+              },
+              expected_revision: Number.isInteger(record.latest_revision_number)
+                ? record.latest_revision_number : null,
+            })
+            if (!r.ok) { if (r.status === 409) await load(); return false }
+            await load()
+            return true
+          }} />}
+      followUp={
+        <FollowUpTask
+          date={String(record.payload?.followUpDate ?? '')}
+          description={String(record.payload?.followUpDescription ?? '')}
+          resetKey={bed.id}
+          onSave={(next) => { void saveFollowUp(next) }} />} />)
+
   // L5: all three, and the absent-id cases fail OPEN here on purpose - the
   // edit attempt is where it fails closed.
   // The SHARED derivation takes ids, not a record: one definition serves the
@@ -619,7 +661,25 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
 
   return (
     <div data-testid="testbed-host">
-      <ViewHeader record={loadFailed ? null : record} readOnly={readOnly} />
+      {/* W5: CONVERT TO OPPORTUNITY RENDERS BESIDE THE TITLE.
+          It sat at the bottom of this host, below the edit bar and below every
+          panel. The ELEMENT is unchanged - same props, same per-record key,
+          same handlers - and only its parent moved, which is what keeps this a
+          reposition rather than a rewire. Its feedback message travels with
+          it, which is right: an outcome belongs where the control that caused
+          it is. */}
+      <ViewHeader record={loadFailed ? null : record} readOnly={readOnly}
+        band={bandNode}
+        titleAction={
+          <ConvertPanel
+            key={bed.id}
+            onConvert={async (body) => {
+              const r = await shell.api<{ id?: string, error?: string }>(
+                'POST', CONVERT_ROUTE(bed.id), body)
+              return { ok: r.ok, data: r.ok ? (r.data ?? null) : null, error: r.data?.error ?? null }
+            }}
+            onOpen={(id) => shell.navigate('opportunity-detail', id)} />
+        } />
       <StageTabs
         payload={record.payload ?? {}}
         units={units}
@@ -681,30 +741,6 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
         onRefPaneChange={setRefPane}
         onDirtyChange={setDirty}
 
-        notes={
-          <NotesHistory
-            notes={notes}
-            hasDirtyEdits={dirty}
-            onConfirmDiscard={(proceed) => { shell.confirmDiscard(proceed) }}
-            resetKey={bed.id}
-            onAdd={async (text) => {
-              const r = await shell.api<{ error?: string }>('PATCH', `/api/test-beds/${bed.id}`, {
-                payload: {
-                  notes: prepend(note(text, shell.currentUserEmail(), new Date().toISOString()), notes),
-                },
-                expected_revision: Number.isInteger(record.latest_revision_number)
-                  ? record.latest_revision_number : null,
-              })
-              if (!r.ok) { if (r.status === 409) await load(); return false }
-              await load()
-              return true
-            }} />}
-          followUp={
-            <FollowUpTask
-              date={String(record.payload?.followUpDate ?? '')}
-              description={String(record.payload?.followUpDescription ?? '')}
-              resetKey={bed.id}
-              onSave={(next) => { void saveFollowUp(next) }} />}
           useCases={useCasesNode}
           customerDocs={customerDocsNode}
           history={<HistoryPanel entries={history.entries} failed={history.failed}
@@ -720,19 +756,17 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
       <EditBar rows={rows} onSave={(c) => { void onSave(c) }} saveId="tb-react-save-all" />
       {/* V5: OWNED, so it cannot clear a message that is not its own, and a
           server save error cannot clear this one either. */}
-      {/* KEYED ON THE RECORD. The shell re-renders this view rather than
-          mounting a new one, so an open form with a typed name would follow the
-          operator to the next Test Bed. The key is what resets it, and the
-          convert suite asserts BOTH halves: that without a key the form
-          persists, and that a changed key clears it. */}
-      <ConvertPanel
-        key={bed.id}
-        onConvert={async (body) => {
-          const r = await shell.api<{ id?: string, error?: string }>(
-            'POST', CONVERT_ROUTE(bed.id), body)
-          return { ok: r.ok, data: r.ok ? (r.data ?? null) : null, error: r.data?.error ?? null }
-        }}
-        onOpen={(id) => shell.navigate('opportunity-detail', id)} />
+      {/* W5: `ConvertPanel` WAS HERE and is now passed to `ViewHeader` as its
+          title action. Removed rather than left, because a move is TWO claims
+          - it appears in its new place AND it is gone from its old one - and
+          this estate has shipped the duplicate that skipping the second one
+          produces. The probe asserts exactly one trigger renders.
+
+          KEYED ON THE RECORD, at its new site. The shell re-renders this view
+          rather than mounting a new one, so an open form with a typed name
+          would follow the operator to the next Test Bed. The key is what
+          resets it, and the convert suite asserts BOTH halves: that without a
+          key the form persists, and that a changed key clears it. */}
       {invalidMessage
         ? <div data-testid="tb-save-feedback" className="msg-error"
             data-owner={VALIDATION_OWNER}>{invalidMessage}</div>

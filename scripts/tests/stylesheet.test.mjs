@@ -73,3 +73,41 @@ test('STYLESHEET INVARIANT: every custom property used in style.css is defined i
   assert.deepEqual(undefinedRefs, [],
     `custom properties used but never defined. An undefined custom property fails at computed-value time and the DECLARATION IS SILENTLY DROPPED, so the rule renders as though it was never written:\n${JSON.stringify(undefinedRefs, null, 2)}\n\nDefined tokens are: ${[...defined].sort().join(', ')}`)
 })
+
+// ── A DOT IS ONLY A DOT IF IT IS PAINTED AND HAS A SIZE ──────────────────
+//
+// `StageTabs` renders `<span className="sa-dot tb-tab-current-dot">` on the
+// tab matching the record's real stage. There was NO RULE for that class
+// anywhere in style.css, so it rendered as a transparent, zero-width span.
+// Measured in a browser before the fix: `rgba(0, 0, 0, 0)` at `0 x 13`.
+//
+// EVERY TEST THAT EXISTED PASSED, because they asked whether the ELEMENT was
+// there. It was - on the right tab, with both its classes. Found by John
+// reading the stylesheet, which is not a control.
+//
+// BOTH DECLARATIONS ARE ASSERTED, and the second is the one a fix would skip.
+// `.sa-dot` sets a width and a height, and those do nothing to an INLINE
+// element: the dot lives inside a `<button>`, which is not a flex container,
+// so a background alone would have painted a box of zero width. The vanilla
+// documents that exact trap at `markOppCurrentStageTab`.
+//
+// WHY THIS LIVES HERE RATHER THAN IN class-rules.test.mjs, stated so the gap
+// is on the record: that scan is the estate's guard against a class naming a
+// style that does not exist, and its corpus is `frontend/` ONLY. It does not
+// read `frontend-react/src` at all, so it could not have seen this and cannot
+// see the next one. A census this round found 24 classes named in the React
+// tree with no rule in the stylesheet - some of them false positives of a
+// quick regex, and the real number needs that scanner properly extended.
+// Carried as its own item rather than done in passing.
+test('STYLESHEET INVARIANT: the current-stage dot is painted AND has a size', () => {
+  const rule = /\.tb-tab-current-dot\s*\{([^}]*)\}/.exec(css)
+  assert.ok(rule, '.tb-tab-current-dot has no rule in style.css, so the dot the '
+    + 'Test Bed tab strip renders is an unpainted span')
+  const body = rule[1]
+  assert.match(body, /background(-color)?\s*:/,
+    'the dot rule sets no background, so it paints as transparent')
+  assert.match(body, /display\s*:\s*inline-block/,
+    'the dot rule does not set display:inline-block. .sa-dot\'s width and height '
+    + 'do nothing to an inline element inside a <button>, so the dot would paint '
+    + 'at zero width however it is coloured')
+})
