@@ -104,6 +104,35 @@ Appended at the phase they launch, before any work (CLAUDE.md build discipline 7
 - **R5. The K3 discriminating measurement runs in this round** as a diagnostic
   item. Measure, report, fix nothing.
 
+## Rulings at the Phase 1 sign-off (John, 2026-09-18)
+
+- **R6.** Phase 1 is signed off.
+- **R7. The K3 remedy.** The fixture ledger PRUNES on a clean teardown, and the
+  teardown test weighs all tags in ONE grouped query. No index: that is a
+  migration a future measurement can argue for. Its own commit, calibrated by
+  reporting the database stage's duration before and after on the same tree.
+- **R8. The installer search list rendering open unprompted**, showing other
+  Accounts' names, is promoted into this round's surface phase. The styling
+  items (unit sub-tab labels, browser-default buttons) ride the rider clause.
+
+## PHASE 2: B4, the unit save, as one mechanism with R3's refusal
+
+- the client route corrected to `PATCH /test-beds/:id/units/:unitId`;
+- the wrap removed, so the body is flat;
+- the field name corrected to `serialNumber`;
+- **R3, server-side:** a unit PATCH whose body carries no recognised key is
+  answered 400 with a sentence naming what it refused, never a 200 that writes
+  nothing, and no empty revision is appended.
+
+Guard tests are proven red on the pre-fix tree, including the silent-200 shape
+in its own test (a wrapped body and an unknown-key body each answered 400), then
+green. Live proof on an owned tagged fixture: a serial typed into the row and
+blurred, read back from the database, then rendered after a reload, with a
+screenshot at 1440 opened and read. Both-direction calibrations per the round
+method, and the full pre-commit suites on every commit.
+
+L2, L3, L4 and R8 do not start until the word.
+
 ## PHASE 1: R1, a read never writes
 
 With two riders ahead of it, each its own commit: 2.1 the binding fix (R4),
