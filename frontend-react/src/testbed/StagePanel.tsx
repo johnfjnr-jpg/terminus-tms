@@ -39,11 +39,17 @@ export interface TickResult { ok: boolean, error?: string | null }
  *   1.6 a failed tick says so in the panel and leaves the row as it was;
  *   1.7 pending marks arrive in Phase 2.6, at the point named below.
  */
-export function ExitCriteria({ stage, data, panel, onTick }: {
+export function ExitCriteria({ stage, data, panel, onTick, pending }: {
   stage: string
   data: unknown
   panel: PanelState
   onTick: (field: string, currentlyMet: boolean) => Promise<TickResult>
+  /**
+   * 2.6: the fields a score DRAFT would satisfy, from the drafts the scoring
+   * card edits. Rendered from state rather than by poking the DOM, so a
+   * re-render cannot drop a mark or leave a stale one.
+   */
+  pending?: ReadonlySet<string>
 }) {
   const [feedback, setFeedback] = useState<string | null>(null)
   // ── A CONFIRMED TICK SHOWS BEFORE THE RECOMPUTE LANDS ──────────────────
@@ -91,17 +97,28 @@ export function ExitCriteria({ stage, data, panel, onTick }: {
     if (r.error !== null) setFeedback(`Could not update: ${r.error ?? 'unknown error'}`)
   }
 
-  const box = (met: boolean) => (
-    <span className={met ? 'tb-crit-box tb-crit-box--met' : 'tb-crit-box'}>
-      {met ? '✓' : ''}</span>)
+  // ── 2.6 PENDING MARKS ─────────────────────────────────────────────────
+  //
+  // The panel shows what the SERVER has recorded, and a draft is not that. So a
+  // draft is a DIFFERENT mark, never an early tick, and distinguishable without
+  // colour three ways: a filled dot rather than a check, a dashed border, and
+  // the word "unsaved". A row whose server `met` is true is NEVER marked,
+  // whatever is drafted (the vanilla's structural guard: a revision drafted on
+  // a scored criterion does not turn a confirmed row into an unsaved one).
+  const isPending = (r: ExitRequirement) => !r.met && typeof r.field === 'string' && !!pending?.has(r.field)
+  const box = (met: boolean, pend = false) => (
+    <span className={met ? 'tb-crit-box tb-crit-box--met' : (pend ? 'tb-crit-box tb-crit-box--pending' : 'tb-crit-box')}>
+      {met ? '✓' : (pend ? '●' : '')}</span>)
+  const tag = (pend: boolean) => (pend
+    ? <span className="tb-crit-pending-tag" data-testid="tb-crit-pending-tag">unsaved</span> : null)
 
   return settled(<>
     {/* The vanilla's own treatment for this line: `sub` with a 10px gap below. */}
     <p className="sub" style={{ marginBottom: 10 }} data-testid="tb-crit-summary">{exitSummary(res)}</p>
     {visibleRequirements(res.requirements).map((r: ExitRequirement, i) => {
-      // 1.7: PHASE 2.6 APPLIES PENDING MARKS HERE, from the score-draft state
-      // this panel will then render from - and never on a row whose server
-      // `met` is true, which is why `data-met` carries only the server's value.
+      // 2.6 applies its pending marks below, from `pending`, and never on a row
+      // whose server `met` is true: `data-met` carries only the server's value.
+      const pend = isPending(r)
       if (isTickable(r)) {
         const field = r.field as string
         const shown = confirmed.get(field) ?? r.met
@@ -115,7 +132,7 @@ export function ExitCriteria({ stage, data, panel, onTick }: {
             onKeyDown={(e: KeyboardEvent<HTMLDivElement>) => {
               if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); void tick(field, shown) }
             }}>
-            {box(shown)}<span className="tb-crit-text">{r.label}</span>
+            {box(shown, pend && !shown)}<span className="tb-crit-text">{r.label}</span>{tag(pend && !shown)}
           </div>)
       }
       // Computed: a document, an approval, a contact role, a score, or a
@@ -124,8 +141,8 @@ export function ExitCriteria({ stage, data, panel, onTick }: {
       return (
         <div key={`c-${i}`} className="tb-crit-row tb-crit-row--computed"
           data-testid="tb-crit-computed" data-field={r.field ?? ''}
-          data-met={r.met ? 'true' : 'false'}>
-          {box(r.met)}<span className="tb-crit-text">{r.message ?? r.label}</span>
+          data-met={r.met ? 'true' : 'false'} data-pending={pend ? 'true' : undefined}>
+          {box(r.met, pend)}<span className="tb-crit-text">{r.message ?? r.label}</span>{tag(pend)}
         </div>)
     })}
     <div className={feedback ? 'tb-doc-feedback err' : 'tb-doc-feedback'}

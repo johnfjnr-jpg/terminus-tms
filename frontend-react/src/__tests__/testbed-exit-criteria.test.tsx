@@ -321,3 +321,37 @@ describe('1.6 the tick feedback', () => {
     expect(host.querySelector('[data-testid="tb-crit-feedback"]')?.textContent).toBe('')
   })
 })
+
+describe('2.6 pending marks, rendered from the drafts', () => {
+  const showPending = (data: unknown, pending: ReadonlySet<string>) => act(() => {
+    root.render(<ExitCriteria stage="Any" data={data} panel={SETTLED('Any')} onTick={async () => ({ ok: true })} pending={pending} />)
+  })
+  const rowFor = (field: string) => rows().find((r) => r.dataset.field === field)!
+
+  test('an UNMET row whose field is drafted gets the dot, the dashed box and "unsaved"; the others do not', async () => {
+    const res = C.qualificationFresh
+    const field = res.requirements.find((r) => r.min_length !== undefined && !r.met)!.field!
+    await showPending(res, new Set([field]))
+    const row = rowFor(field)
+    expect(row.querySelector('.tb-crit-box--pending')?.textContent).toBe('●')
+    expect(row.querySelector('[data-testid="tb-crit-pending-tag"]')?.textContent).toBe('unsaved')
+    expect(row.dataset.met, 'a pending mark rewrote the server\'s met').toBe('false')
+    expect(panel().querySelectorAll('[data-testid="tb-crit-pending-tag"]'), 'a row nobody drafted is marked').toHaveLength(1)
+  })
+
+  test('a SERVER-MET row is never marked, whatever is drafted', async () => {
+    const res = C.qualificationScored
+    const met = res.requirements.find((r) => r.min_length !== undefined && r.met)
+    expect(met, 'the captured scored case has no met score row, so this cannot fail').toBeTruthy()
+    await showPending(res, new Set([met!.field!]))
+    const row = rowFor(met!.field!)
+    expect(row.querySelector('.tb-crit-box--met')).toBeTruthy()
+    expect(row.querySelector('.tb-crit-box--pending')).toBeNull()
+    expect(row.querySelector('[data-testid="tb-crit-pending-tag"]')).toBeNull()
+  })
+
+  test('with nothing drafted there are no marks at all', async () => {
+    await showPending(C.qualificationFresh, new Set())
+    expect(panel().querySelectorAll('.tb-crit-box--pending, [data-testid="tb-crit-pending-tag"]')).toHaveLength(0)
+  })
+})

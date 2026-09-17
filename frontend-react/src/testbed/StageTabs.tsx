@@ -271,7 +271,8 @@ export function StageTabs({ payload, units, landing, fresh, currentStage, nextSt
             <ExitCriteria stage={stageOf(active) as string}
               data={criteriaData}
               panel={panels['tb-stage-exit-criteria-list']}
-              onTick={deps.onTick} />
+              onTick={deps.onTick}
+              pending={new Set(Object.keys(scores.drafts).filter((k) => scores.drafts[k] !== ''))} />
 
             <ReadPanel panelId="tb-stage-approval-row"
               panel={panels['tb-stage-approval-row']}

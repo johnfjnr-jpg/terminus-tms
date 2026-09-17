@@ -458,3 +458,20 @@ describe('2.5 the reason box and the entry lock', () => {
   })
 })
 
+
+// ── 2.6 THE PENDING MARKS, END TO END IN THE HOST ────────────────────────
+describe('2.6 a draft in the scoring card marks the exit-criteria row it would satisfy', () => {
+  test('choosing a score marks its row "unsaved"; clearing the draft removes the mark', async () => {
+    await mount({ payload: {} })
+    await openStage('Qualification')
+    const c = Q()[0]
+    const exitRow = () => [...$('tb-stage-exit-criteria-list')!.querySelectorAll('.tb-crit-row')]
+      .find((r) => (r as HTMLElement).dataset.field === c.criterion_key) as HTMLElement
+    expect(exitRow(), 'the Qualification gate has no row for this criterion').toBeTruthy()
+    expect(exitRow().querySelector('[data-testid="tb-crit-pending-tag"]')).toBeNull()
+    await choose(c.criterion_key, noReason(c))
+    expect(exitRow().querySelector('[data-testid="tb-crit-pending-tag"]')?.textContent).toBe('unsaved')
+    await choose(c.criterion_key, '')
+    expect(exitRow().querySelector('[data-testid="tb-crit-pending-tag"]'), 'the mark outlived its draft').toBeNull()
+  })
+})
