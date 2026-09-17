@@ -53,7 +53,7 @@ import { completeDocumentRoute, confirmBody, saveUrlBody } from './stageDocument
 import { attemptTick } from './exitCriteria'
 import { BuyerLinks } from './BuyerLinks'
 import { linkBuyer, BUYER_CONTACTS_ROUTE } from './buyers'
-import { identityRows, type IdentitySource } from './identity'
+import { identityRows } from './identity'
 
 const STALE = 'This Test Bed changed since the screen loaded. Reload before saving.'
 
@@ -78,7 +78,12 @@ interface BedLike {
   buyer_contacts?: Array<{ role?: string, contact_id?: string, name?: string }>
   installer?: Installer | null
   account_id?: string | null
-  account?: { id?: string } | null
+  // L9 (Round A Phase 4.3): the identity rows read these, and GET
+  // /api/test-beds/:id carries all four (captured in fixtures/buyers-live.json).
+  account?: { id?: string, name?: string | null } | null
+  reference_code?: string | null
+  created_at?: string | null
+  industry?: { id?: string, name?: string | null } | null
   latest_revision_number?: number | null
   // L1: WAS `unknown`, AND THAT WAS THE WHOLE DEFECT IN ONE WORD.
   //
@@ -796,7 +801,7 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
           rows={rows}
           buyerLinks={buyerLinksNode}
           // L9: computed from the record at RENDER, so Age is display-time.
-          identity={identityRows(record as IdentitySource, Date.now())}
+          identity={identityRows(record, Date.now())}
           score={<QualificationScore criteria={allCriteria} payload={record.payload} />}
         refPanes
         refPane={refPane}
