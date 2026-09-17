@@ -51,9 +51,13 @@ export function StageTabs({ payload, units, landing, fresh, currentStage, nextSt
    */
   reloadToken?: number
   /**
-   * The record these drafts belong to. The shell RE-RENDERS this view for the
-   * next record rather than mounting a new one (Verification 47), so without a
-   * key the next Test Bed would open holding this one's unrecorded scores.
+   * The record these drafts belong to. The shell re-renders the Test Bed VIEW
+   * rather than mounting a new one (Verification 47), but TestBedView keys the
+   * host on `navToken ?? id`, so in production each navigation REMOUNTS this
+   * component and the drafts start empty anyway. Measured in Round A Phase 4:
+   * removing that key live made a blocked list follow the person to the next
+   * record. The reset below therefore matters only to a caller that re-renders
+   * the host directly, as the jsdom tests do; recorded rather than removed.
    */
   recordId?: string
   units: readonly Unit[]
