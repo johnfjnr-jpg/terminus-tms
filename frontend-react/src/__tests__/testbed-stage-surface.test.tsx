@@ -10,6 +10,8 @@ import { createRoot, type Root } from 'react-dom/client'
 import { StageTabs, type StageTabsDeps } from '../testbed/StageTabs'
 import { UseCasesList } from '../testbed/UseCasesList'
 import LIVE_JSON from './fixtures/exit-criteria-live.json'
+import SCORING_JSON from './fixtures/scoring-live.json'
+import { criteriaForStage, type Criterion } from '../testbed/scoring'
 
 let host: HTMLElement
 let root: Root
@@ -30,11 +32,9 @@ const deps = (over: Partial<StageTabsDeps> = {}): StageTabsDeps => ({
   documents: async () => ({ ok: true, data: [] }),
   criteria: async () => ({ ok: true, data: CRITERIA }),
   approvals: async () => ({ ok: true, data: [] }),
-  scoringCriteria: () => [{
-    criterion_key: 'k1', name: 'Budget confirmed',
-    levels: [{ value: 1, label: 'Unknown', reason_required: true },
-      { value: 3, label: 'Confirmed', reason_required: true }],
-  }],
+  // THE ROUTE'S CRITERIA, captured, filtered by their own stage rows. The
+  // hand-shaped `k1` that stood here is the fixture B2 hid behind.
+  scoringCriteria: (stage) => criteriaForStage(SCORING_JSON.criteria as Criterion[], stage),
   series: () => [],
   onTick: async () => ({ ok: true }),
   onRecordScores: () => {},
@@ -182,14 +182,15 @@ describe('the tab strip renders', () => {
     await render()
     await click('tb-tab-btn-stage-Qualification')
     await act(async () => {
-      const sel = q('tb-score-select-k1') as HTMLSelectElement
-      sel.value = '3'
+      // Level 1 of a captured criterion, which the route marks reason_required.
+      const sel = q('tb-score-select-scoreRolloutPath') as HTMLSelectElement
+      sel.value = '1'
       sel.dispatchEvent(new Event('change', { bubbles: true }))
       await Promise.resolve()
     })
     expect((q('tb-score-record') as HTMLButtonElement).disabled,
       'a score needing a reason did not block the save').toBe(true)
-    expect(q('tb-score-blocked')?.textContent).toContain('k1')
+    expect(q('tb-score-blocked')?.textContent).toContain('scoreRolloutPath')
   })
 
   test('P6 the install section is hidden by ATTRIBUTE off its own stage', async () => {

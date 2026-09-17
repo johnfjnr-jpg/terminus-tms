@@ -7,7 +7,7 @@ import {
   TB_COUNT_KEYS, UNITS_ROUTE, DERIVE_ROUTE, UNIT_TYPE_FOR_TAB_KEY, unitsForTab,
 } from '../testbed/units'
 import {
-  levelsFor, awaitingReason, entryLocked, toggle, summarise,
+  levelsFor, awaitingReason, entryLocked, toggle,
   SCORE_ROUTE, MEASURABILITY_ROUTE,
   setScoreDraft, recordScore,
 } from '../testbed/scoring'
@@ -115,11 +115,10 @@ describe('C: scoring', () => {
     expect(SCORE_ROUTE('t-1')).not.toBe(MEASURABILITY_ROUTE('t-1'))
   })
 
-  test('C9 ONE reduction of the series, which both renderers take', () => {
-    const series = [{ reason: 'newest' }, { reason: 'older' }]
-    expect(summarise(series)).toEqual({ latest: { reason: 'newest' }, count: 2 })
-    expect(summarise([])).toEqual({ latest: null, count: 0 })
-  })
+  // C9's `summarise` test is REMOVED with the helper (Round A Phase 2.2): it
+  // asserted `series[0]` is the newest, which is false of the payload series
+  // the server appends to. The one reducer is asserted against the server's own
+  // entries in testbed-scoring.test.tsx.
 })
 
 describe('S: the unit resource and the tab map', () => {

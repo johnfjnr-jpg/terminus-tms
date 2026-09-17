@@ -13,7 +13,7 @@ import { EditBar } from '../field-row/EditBar'
 import { FollowUpTask } from '../contact/FollowUpTask'
 import { createPreviewRunner } from './costPreview'
 import { CostBreakdownCards } from './CostBreakdownCards'
-import { QualificationScore } from './QualificationScore'
+import { QualificationScore, orderedSeries } from './QualificationScore'
 import { isBreakdown, type TestBedCostBreakdown } from './costBreakdown'
 import { useShell } from '../ShellContext'
 import type { LookupOption } from '../field-row/types'
@@ -22,7 +22,7 @@ import { note, prepend, type Note } from '../contact/notes'
 import { StageTabs, type StageTabsDeps } from './StageTabs'
 import { UseCasesList } from './UseCasesList'
 import { DERIVE_ROUTE, UNITS_ROUTE, type Unit } from './units'
-import { SCORE_ROUTE, type Criterion } from './scoring'
+import { SCORE_ROUTE, criteriaForStage, type Criterion } from './scoring'
 import type { ScoreEntry } from './scoreReason'
 import type { Stage } from './stageLoad'
 import { InstallSection } from './InstallSection'
@@ -118,8 +118,7 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
   const [dirty, setDirty] = useState(false)
   const [units, setUnits] = useState<Unit[]>([])
   const [stages, setStages] = useState<Stage[]>([])
-  const [scoring, setScoring] = useState<Record<string, Criterion[]>>({})
-  const [seriesByKey, setSeriesByKey] = useState<Record<string, ScoreEntry[]>>({})
+
   // L2: EVERY test_bed criterion, not the per-stage subset. The card lists
   // them all and says which stage each score was recorded at, so a per-stage
   // list would show a person only what the stage they are on happens to ask.
@@ -231,10 +230,10 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
   // record type, which is why the vanilla's `ensureTbScoringCriteria` cached
   // them for the life of the page.
   //
-  // THE HOST'S `scoring` STATE COULD NOT BE USED, and that is worth naming
-  // rather than working around silently: `setScoring` is never called
-  // anywhere in this file, so `scoring` is permanently `{}`. Recorded as a
-  // finding and NOT fixed here - it feeds the stage panel, not this card.
+  // ONE FETCH, TWO READERS: this card and, since Round A Phase 2.1, the stage
+  // panel, which filters it by each criterion's own stage rows. The host's
+  // `scoring` state that was meant to feed the panel was never set by anything
+  // and is removed (audit B2).
   useEffect(() => {
     let live = true
     void shell.api<Criterion[]>('GET', '/api/scoring-criteria?record_type=test_bed')
@@ -536,8 +535,11 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
     criteria: (stage) => shell.api(
       'GET', `/api/records/${bed.id}/exit-criteria?stage=${encodeURIComponent(stage)}`),
     approvals: () => shell.api('GET', `/api/records/${bed.id}/stage-approvals`),
-    scoringCriteria: (stage) => scoring[stage] ?? [],
-    series: (key) => seriesByKey[key] ?? [],
+    // 2.1: from each criterion's OWN stage rows, over the one criteria fetch
+    // the Reference score card already makes. 2.2: from the record PAYLOAD,
+    // through the same reducer that card uses, so a reload shows the history.
+    scoringCriteria: (stage) => criteriaForStage(allCriteria, stage),
+    series: (key) => orderedSeries(record.payload, key),
     // 1.5: the attempt, its door and its refresh live in `attemptTick`, where
     // they are tested; this only supplies the host's writer and door.
     onTick: (field, currentlyMet) => attemptTick({
@@ -557,7 +559,7 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
           setFeedback({ text: r.data?.error ?? 'Failed to record scores.', html: null, ok: false })
           return
         }
-        if (r.data?.series) setSeriesByKey(r.data.series)
+
         await load()
       })()
     },
@@ -573,7 +575,7 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
       onUnit: (unit) => setUnits((us) => us.map(
         (u) => (u.id === (unit as Unit).id ? (unit as Unit) : u))),
     },
-  }), [shell, bed.id, stages, scoring, seriesByKey, units, writePayload, refreshStage, load, loadUnits])
+  }), [shell, bed.id, stages, allCriteria, record.payload, units, writePayload, refreshStage, load, loadUnits])
 
   const installSectionNode = (
     <InstallSection

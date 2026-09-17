@@ -25,21 +25,37 @@ import type { ScoreEntry } from './scoreReason'
 import type { Criterion } from './scoring'
 
 /**
- * The CURRENT entry for a criterion: the last one recorded.
+ * THE ONE REDUCER, 2.2 and C9: a criterion's series from the RECORD PAYLOAD,
+ * oldest first, ordered by `at`.
+ *
+ * Both renderers take it: this card, and the stage panel's scoring card. The
+ * panel used to read `seriesByKey`, filled only by a POST response, so history
+ * read empty on a scored record after every reload (audit B2).
  *
  * Ordered by `at` rather than trusting array order, which is the vanilla's
  * `tbScoreSeries`. Entries with no `at` sort first and lose, which is the
  * right way round: an entry that cannot say when it happened must not
  * outrank one that can.
  */
+export function orderedSeries(
+  payload: Record<string, unknown> | undefined, key: string,
+): ScoreEntry[] {
+  return byAt(seriesFromPayload(payload, key))
+}
+
+/** The ONE ordering both readers go through. */
+function byAt(series: readonly ScoreEntry[]): ScoreEntry[] {
+  return [...series].sort((a, b) => String(a.at ?? '').localeCompare(String(b.at ?? '')))
+}
+
+/** The CURRENT entry: the last of an ordered series. */
 export function currentEntry(series: readonly ScoreEntry[]): ScoreEntry | null {
   if (!Array.isArray(series) || series.length === 0) return null
-  const sorted = [...series].sort((a, b) =>
-    String(a.at ?? '').localeCompare(String(b.at ?? '')))
+  const sorted = byAt(series)
   return sorted[sorted.length - 1] ?? null
 }
 
-/** The series for one criterion, from the record payload. */
+/** The raw series for one criterion, from the record payload, in stored order. */
 export function seriesFromPayload(
   payload: Record<string, unknown> | undefined, key: string,
 ): ScoreEntry[] {
@@ -61,7 +77,7 @@ export function QualificationScore({ criteria, payload }: {
   return (
     <div data-testid="tb-score-summary">
       {criteria.map((c) => {
-        const current = currentEntry(seriesFromPayload(payload, c.criterion_key))
+        const current = currentEntry(orderedSeries(payload, c.criterion_key))
         return (
           <div className="tb-score-sum-row" key={c.criterion_key}
             data-criterion={c.criterion_key}

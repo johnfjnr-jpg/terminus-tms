@@ -9,10 +9,11 @@ import {
   type ExitRequirement,
 } from './exitCriteria'
 import {
-  levelsFor, awaitingReason, entryLocked, toggle, summarise,
+  levelsFor, awaitingReason, entryLocked, toggle,
   setScoreDraft, recordScore, type Criterion, type ScoreDraftState,
 } from './scoring'
 import { reasonRequired, reasonAccepted, type ScoreEntry } from './scoreReason'
+import { currentEntry } from './QualificationScore'
 import type { PanelId, PanelState } from './stageLoad'
 
 /** What a tick attempt came back with. `error: null` means refused with nothing to say (the door). */
@@ -167,9 +168,11 @@ export function ScoringCard({ card, criteria, series, onRecord }: {
         const locked = entryLocked(state.recorded, c.criterion_key)
         const draft = state.drafts[c.criterion_key] ?? ''
         const needsReason = reasonRequired(Number(draft), levels, series(c.criterion_key))
-        const sum = summarise(series(c.criterion_key))
+        const sum = { latest: currentEntry(series(c.criterion_key)), count: series(c.criterion_key).length }
         return (
-          <div key={c.criterion_key} data-testid={`tb-score-${c.criterion_key}`}>
+          <div key={c.criterion_key} data-testid={`tb-score-${c.criterion_key}`}
+            className="tb-score-row" data-criterion={c.criterion_key}
+            data-entries={series(c.criterion_key).length}>
             <span>{c.name ?? c.criterion_key}</span>
             <select disabled={locked} value={draft}
               data-testid={`tb-score-select-${c.criterion_key}`}

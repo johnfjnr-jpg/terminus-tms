@@ -4,10 +4,38 @@
 // scoreReason.ts; this is the state around them.
 import { reasonRequired, type Level, type ScoreEntry } from './scoreReason'
 
+/**
+ * A scoring criterion, typed from GET /api/scoring-criteria (src/routes/scoring.js)
+ * as captured in `__tests__/fixtures/scoring-live.json`. Every field beyond the
+ * key is optional because the panel must render a criterion the route returns
+ * with less, rather than a fixture shaped to what the panel wants.
+ */
 export interface Criterion {
   criterion_key: string
   name?: string
+  asks?: string | null
+  sort_order?: number
   levels?: Level[]
+  /** The stages this criterion is shown and scoreable at, from scoring_criterion_stages. */
+  stages?: Array<{ stage: string, required?: boolean }>
+  /** Anchor wording by VERSION then LEVEL. Versions arrive as object keys, so strings. */
+  anchors?: Record<string, Record<string, string>>
+  current_version?: number | null
+}
+
+/**
+ * 2.1: WHICH CRITERIA A STAGE TAB SHOWS, from the criterion's OWN stage rows.
+ *
+ * The vanilla's Round 24 Phase 5 rule: visibility comes from
+ * `criterion.stages`, not from whether a gate rule at that stage names the
+ * criterion, because display and requirement are different facts. The order is
+ * the route's (it sorts by sort_order), kept rather than re-sorted here.
+ *
+ * This replaces the host's `scoring` state, which nothing ever set, so every
+ * stage offered no criteria at all (audit B2, reproduced live as P0.2).
+ */
+export function criteriaForStage(all: readonly Criterion[], stage: string): Criterion[] {
+  return all.filter((c) => (c.stages ?? []).some((s) => s.stage === stage))
 }
 
 /** C1: levels come from the criterion, and a criterion without them scores nothing. */
@@ -71,17 +99,13 @@ export function toggle(open: ReadonlySet<string>, key: string): Set<string> {
 export const SCORE_ROUTE = (id: string) => `/api/test-beds/${id}/scores`
 export const MEASURABILITY_ROUTE = (id: string) => `/api/test-beds/${id}/measurability`
 
-/**
- * C9: the summary and the detail are TWO RENDERERS OVER ONE SERIES.
- *
- * Verification 20 says a second reader drifts, so the series is reduced once
- * here and both renderers take the result rather than each reducing it.
- */
-export interface ScoreSummary { latest: ScoreEntry | null, count: number }
-
-export function summarise(series: readonly ScoreEntry[]): ScoreSummary {
-  return { latest: series[0] ?? null, count: series.length }
-}
+// ── C9 / 2.2: `summarise` IS REMOVED ─────────────────────────────────────
+//
+// It called `series[0]` the latest entry, which is true of nothing this app
+// stores: the payload series APPENDS, so index 0 is the OLDEST. It survived
+// because its only input was `seriesByKey`, which only a POST response filled
+// and B1 meant no POST ever succeeded. The one reducer is now `orderedSeries`
+// in QualificationScore.tsx, which both renderers take (C9).
 
 /**
  * C2: A SCORE IS A DRAFT UNTIL RECORDED.
