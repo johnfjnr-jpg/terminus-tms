@@ -38,6 +38,7 @@ const deps = (over: Partial<StageTabsDeps> = {}): StageTabsDeps => ({
   series: () => [],
   onTick: async () => ({ ok: true }),
   onRecordScores: async () => ({ recorded: [], failed: null, refused: false }),
+  onMeasurability: async () => null,
   onDeriveUnits: async () => {},
   unitDeps: {
     patch: async () => ({ ok: true, data: {} }),
@@ -190,7 +191,9 @@ describe('the tab strip renders', () => {
     })
     expect((q('tb-score-record') as HTMLButtonElement).disabled,
       'a score needing a reason did not block the save').toBe(true)
-    expect(q('tb-score-blocked')?.textContent).toContain('scoreRolloutPath')
+    // 2.5: the vanilla's lock note, which names the criterion by its NAME.
+    const name = (SCORING_JSON.criteria as Criterion[]).find((c) => c.criterion_key === 'scoreRolloutPath')!.name!
+    expect(q('tb-score-lock-note')?.textContent).toBe(`Add the Reason for ${name} before scoring anything else.`)
   })
 
   test('P6 the install section is hidden by ATTRIBUTE off its own stage', async () => {

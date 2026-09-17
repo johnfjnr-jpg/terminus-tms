@@ -22,7 +22,10 @@ import { note, prepend, type Note } from '../contact/notes'
 import { StageTabs, type StageTabsDeps } from './StageTabs'
 import { UseCasesList } from './UseCasesList'
 import { DERIVE_ROUTE, UNITS_ROUTE, type Unit } from './units'
-import { SCORE_ROUTE, criteriaForStage, recordScoresInOrder, type Criterion } from './scoring'
+import {
+  SCORE_ROUTE, MEASURABILITY_ROUTE, criteriaForStage, recordScoresInOrder, recordMeasurability,
+  type Criterion,
+} from './scoring'
 import type { ScoreEntry } from './scoreReason'
 import type { Stage } from './stageLoad'
 import { InstallSection } from './InstallSection'
@@ -562,6 +565,18 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
       }, criteria, scores)
       if (!out.refused) { await load(); refreshStage() }
       return out
+    },
+    // 2.4: the door, the route and the reload, around the tested helper.
+    onMeasurability: async (confirmed) => {
+      const r = await recordMeasurability({
+        canEdit: () => shell.canEditFields(),
+        post: async (body) => {
+          const res = await shell.api<{ error?: string }>('POST', MEASURABILITY_ROUTE(bed.id), body)
+          return { ok: res.ok, error: res.data?.error ?? null }
+        },
+      }, confirmed)
+      if (r.sent && !r.error) { await load(); refreshStage() }
+      return r.error
     },
     onDeriveUnits: async () => {
       const r = await shell.api('POST', DERIVE_ROUTE(bed.id), {})

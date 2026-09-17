@@ -13,9 +13,10 @@ import {
   type Fetched,
 } from './stageLoad'
 import { ExitCriteria, ScoringCard, ReadPanel, type TickResult } from './StagePanel'
+import { readExitCriteria } from './exitCriteria'
 import { UnitsPane, LockedCounts } from './UnitsPane'
 import {
-  applyDraft, applyReason, clearRecorded, recordOutcomeMessage, NO_DRAFTS,
+  applyDraft, applyReason, clearRecorded, recordOutcomeMessage, measurabilityAsked, NO_DRAFTS,
   type Criterion, type ScoreDrafts, type RecordOutcome,
 } from './scoring'
 import type { ScoreEntry } from './scoreReason'
@@ -33,6 +34,8 @@ export interface StageTabsDeps {
   onTick: (field: string, currentlyMet: boolean) => Promise<TickResult>
   /** 2.3: records the given criteria's drafts, one entry at a time, in their order. */
   onRecordScores: (criteria: readonly Criterion[], scores: ScoreDrafts) => Promise<RecordOutcome>
+  /** 2.4: one yes or no on its own route; resolves to the message to show, or null. */
+  onMeasurability: (confirmed: boolean) => Promise<string | null>
   onDeriveUnits: () => Promise<void>
   unitDeps: Omit<QueueDeps, 'onRowState'>
 }
@@ -276,7 +279,11 @@ export function StageTabs({ payload, units, landing, fresh, currentStage, nextSt
               {approvals?.(stageOf(active) as string, panelData.approvals)}
             </ReadPanel>
 
-            <ScoringCard card={card}
+            {/* Keyed on the record, so its disclosure state (open anchors,
+                open history) does not follow the person to the next Test Bed. */}
+            <ScoringCard card={card} key={recordId}
+              measurability={measurabilityAsked(readExitCriteria(criteriaData))}
+              onMeasurability={deps.onMeasurability}
               criteria={deps.scoringCriteria(stageOf(active) as string)}
               series={deps.series}
               scores={scores}

@@ -93,6 +93,7 @@ describe('B3: the route\'s OBJECT renders, where it rendered the empty branch', 
       series: () => [],
       onTick: async () => ({ ok: true }),
       onRecordScores: async () => ({ recorded: [], failed: null, refused: false }),
+      onMeasurability: async () => null,
       onDeriveUnits: async () => {},
       unitDeps: { patch: async () => ({ ok: true, data: {} }), unitById: () => undefined, onUnit: () => {} },
     }

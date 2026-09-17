@@ -7,7 +7,13 @@
 // reason, and no line of code changed.
 //
 // R2: any REVISION requires one too, whatever the level says.
-export interface Level { value: number, label?: string, reason_required?: boolean }
+export interface Level {
+  value: number
+  label?: string
+  reason_required?: boolean
+  /** A scale's generic wording for the level, the fallback when a criterion has no anchor at it. */
+  description?: string | null
+}
 /**
  * ── Q5, WIDENED 2026-09-15: WHAT IS ACTUALLY STORED ─────────────────────
  *
@@ -28,8 +34,14 @@ export interface ScoreEntry {
   at?: string
   /** The recorder's email. */
   by?: string
-  /** The numeric level recorded. */
-  value?: number
+  /**
+   * The level recorded. A MEASURABILITY entry stores a boolean here, written by
+   * POST /test-beds/:id/measurability, and it shares this type because it
+   * shares the payload-series shape and the one reducer.
+   */
+  value?: number | boolean
+  /** The pre-Round-14 free-text field. Old entries carry it; new ones carry `reason`. */
+  comment?: string | null
   /** The record's stage AT THE MOMENT the score was recorded. */
   stage?: string
   anchorVersion?: number | null

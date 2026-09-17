@@ -38,6 +38,17 @@ export function criteriaForStage(all: readonly Criterion[], stage: string): Crit
   return all.filter((c) => (c.stages ?? []).some((s) => s.stage === stage))
 }
 
+/**
+ * The anchor wording at one VERSION, by level. Versions arrive as JSON object
+ * keys, so they are looked up as strings; an unknown version is an empty set,
+ * never the current one, so a history entry is never restated in wording it
+ * was not scored against.
+ */
+export function anchorSet(c: Criterion | undefined, version: number | null | undefined): Record<string, string> {
+  if (version === null || version === undefined) return {}
+  return c?.anchors?.[String(version)] ?? {}
+}
+
 /** C1: levels come from the criterion, and a criterion without them scores nothing. */
 export function levelsFor(crit: Criterion | undefined): Level[] {
   return Array.isArray(crit?.levels) ? crit.levels : []
@@ -198,6 +209,35 @@ export async function recordScoresInOrder(
     recorded.push(c.criterion_key)
   }
   return { recorded, failed: null, refused: false }
+}
+
+/**
+ * 2.4: THE MEASURABILITY ROW APPEARS EXACTLY WHEN THE OPEN STAGE'S REQUIREMENTS
+ * NAME `measurabilityConfirmed`. It is not a scoring criterion, so it has no
+ * stage rows: the vanilla derived it from the same exit-criteria response the
+ * panel already holds, and so does this.
+ */
+export function measurabilityAsked(exit: { requirements?: ReadonlyArray<{ field?: string, requirement_type?: string }> } | null): boolean {
+  return !!exit?.requirements?.some((r) => r.requirement_type === 'payload_field_required'
+    && r.field === 'measurabilityConfirmed')
+}
+
+/**
+ * 2.4: one yes or no, saved IMMEDIATELY on its own route. Deliberately not a
+ * score: it has no scale and no reason, and folding it into the score path
+ * would put a reason in front of a question with nothing to move along.
+ * The door is asked first.
+ */
+export async function recordMeasurability(
+  deps: {
+    canEdit: () => boolean
+    post: (body: { confirmed: boolean }) => Promise<{ ok: boolean, error?: string | null }>
+  },
+  confirmed: boolean,
+): Promise<{ sent: boolean, error: string | null }> {
+  if (!deps.canEdit()) return { sent: false, error: null }
+  const r = await deps.post({ confirmed })
+  return { sent: true, error: r.ok ? null : (r.error ?? 'Could not record the confirmation.') }
 }
 
 /** The vanilla's message: what was recorded, and what was not and why, by criterion NAME. */
