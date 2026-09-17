@@ -41,9 +41,11 @@ const checks = []
 const check = (ok, what, detail = '') => { checks.push({ ok, what }); console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${what}${detail ? `  (${detail})` : ''}`) }
 const frames = (page) => page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(r, 0)))))
 
-let fx
+let fx, fx2
+const TAG2 = `${TAG}-B`
 try {
   fx = await freshTestBed(TAG)
+  fx2 = await freshTestBed(TAG2)
   const industry = (await api('GET', '/industries')).data[0].id
   const mk = async (label) => {
     const c = (await api('POST', '/contacts', {
@@ -85,7 +87,15 @@ try {
     await page.goto('http://localhost:3000/', { waitUntil: 'networkidle0' })
     await page.evaluate((k, v) => localStorage.setItem(k, v), 'sb-anvildouaacbhsjytkii-auth-token', JSON.stringify(OWNER))
     await page.reload({ waitUntil: 'networkidle0' })
+    // VISIT THE SECOND BED FIRST, so the later "another record" check lands on a
+    // CACHED record. Found by live-specs/p4-riders-c.mjs coming back SILENT twice:
+    // a never-loaded record puts the query into its pending state, which unmounts
+    // the host whatever the key, so the check could not tell the key mattered.
+    await page.evaluate((id) => navigate('test-bed-detail', id), fx2.bedId)
+    await page.waitForFunction((v, ref) => [...document.querySelectorAll(`${v} [data-testid="tb-detail-name"]`)].some((h) => h.textContent.includes(ref)), { timeout: 30000 }, V, TAG2)
+    await page.waitForNetworkIdle({ idleTime: 800, timeout: 30000 })
     await open()
+    await page.waitForFunction((v, ref) => [...document.querySelectorAll(`${v} [data-testid="tb-detail-name"]`)].some((h) => h.textContent.trim().startsWith(ref) && !h.textContent.includes(`${ref}-B`)), { timeout: 30000 }, V, TAG)
 
     console.log('\n=== F 4.1: the blocked transition renders ===')
     await tab('stage-Qualification', (v) => document.querySelector(`${v} [data-testid="tb-stage-exit-criteria-list"][data-stage="Qualification"]`))
@@ -121,6 +131,20 @@ try {
     const t2 = since(mark, (n) => n.url.endsWith('/transition'))[0]
     const f3 = await feedback()
     check(t2?.status === 422 && f3.items === (JSON.parse(t2.resp).blocking ?? []).length, 'a second attempt renders its own answer, once (the shell clears at the top of an attempt)', JSON.stringify(f3))
+    // VANILLA PARITY, measured at 54001c5^: the list belongs to ONE record (the
+    // vanilla cleared it on every render). Here that is held by TestBedView
+    // mounting the host with key={navToken ?? id}, so each shell navigation
+    // remounts it; calibrated by live-specs/p4-riders-c.mjs removing the key.
+    await page.evaluate((id) => navigate('test-bed-detail', id), fx2.bedId)
+    await page.waitForFunction((v, ref) => [...document.querySelectorAll(`${v} [data-testid="tb-detail-name"]`)].some((h) => h.textContent.includes(ref)), { timeout: 30000 }, V, TAG2)
+    await page.waitForNetworkIdle({ idleTime: 800, timeout: 30000 })
+    await frames(page)
+    const f4 = await feedback()
+    check(f4.byId === 1 && !f4.blocked && f4.items === 0, 'opening ANOTHER Test Bed shows none of this record\'s blocked list', JSON.stringify(f4))
+    await page.evaluate((id) => navigate('test-bed-detail', id), fx.bedId)
+    await page.waitForFunction((v, ref) => [...document.querySelectorAll(`${v} [data-testid="tb-detail-name"]`)].some((h) => h.textContent.trim().startsWith(ref) && !h.textContent.includes(`${ref}-B`)), { timeout: 30000 }, V, TAG)
+    await page.waitForNetworkIdle({ idleTime: 800, timeout: 30000 })
+    await frames(page)
 
     console.log('\n=== I 4.3: the six identity rows ===')
     await tab('reference', (v) => document.querySelector(`${v} [data-testid="tb-buyer-rows"]`))
@@ -220,6 +244,8 @@ try {
 } finally {
   const r = await tearDown(TAG)
   console.log(`\nteardown: removed ${r.removed.length} (${r.removed.map((x) => x.record_type).join(',')}), remaining ${r.remaining}`)
+  const r2 = await tearDown(TAG2)
+  console.log(`teardown ${TAG2}: removed ${r2.removed.length}, remaining ${r2.remaining}`)
   const failed = checks.filter((c) => !c.ok)
   console.log(`\n${checks.length - failed.length}/${checks.length} checks PASS`)
   process.exitCode = failed.length ? 1 : 0
