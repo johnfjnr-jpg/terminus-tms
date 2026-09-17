@@ -35,8 +35,20 @@
 // fault, not a replacement for the round-close gate, and it says so.
 import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 
-const ROOT = '/Users/johnfryatt/terminus-tms'
+// ── ROOT IS WHERE THIS FILE IS, NOT WHERE ONE LAPTOP KEEPS IT ────────────
+//
+// Ruling R7, Round A. This was the absolute path of one checkout, and every
+// other checkout ran the suites of THAT one: measured in a git worktree with a
+// red pure suite (582 pass, 1 fail), this script printed `PASS pure` and exited
+// 0, because it had tested the main tree's green copy. A hook that reports on a
+// different tree from the one being committed is a false clean, which is worse
+// than no hook (Verification 12, the author's side).
+//
+// Derived from this module's own location, one directory up, so a worktree, a
+// clone at another path or another machine each test themselves.
+const ROOT = fileURLToPath(new URL('..', import.meta.url)).replace(/\/$/, '')
 
 function sessionIsLive() {
   try {
