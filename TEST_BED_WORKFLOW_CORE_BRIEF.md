@@ -201,6 +201,17 @@ appearing on Qualification and absent elsewhere.
 
 ## PHASE 4: the riders (B5 + R4 + L9)
 
+### Carried at the Phase 3 sign-off (John, 2026-09-17)
+
+- The route accepting a second contact in an already-linked role is noted
+  for ROUND B's server scope, not a general list.
+- The buyer rows are measured at 1240 and 3440 in Phase 4's run, the
+  treatment addendum (b) gave the scoring card.
+- Phase 4 runs under R8 (no tab-change clear) and R11 (the vanilla at
+  54001c5^ wins over the capabilities document; a disagreement is a finding).
+- 4.1's closing proof is P0.4 re-run under a new run label, plus a
+  calibration showing the live proof redden with the id removed.
+
 - 4.1 B5: the transition feedback element carries
   id="tb-next-stage-feedback" again beside its testid. Proven live: a
   blocked transition renders the itemised blocking list; calibrated by
