@@ -155,8 +155,12 @@ try {
   // P0.1: the only scoring control reachable is Record scores (no criteria to draft).
   const fpA = await fingerprint()
   mark = net.length
+  // AFTER PHASE 2.3 a Record click with nothing drafted is disabled and sends
+  // nothing, so "no request" is now a reading rather than a crash: the wait's
+  // refusal is caught and reported beside the button's own disabled state.
+  const recordDisabled = await page.evaluate(() => document.querySelector('#view-test-bed-detail [data-testid="tb-score-record"]')?.disabled ?? null)
   await page.click('#view-test-bed-detail [data-testid="tb-score-record"]')
-  const scoreResp = await waitReq((n) => n.method === 'POST' && n.url.includes('/scores'), mark)
+  const scoreResp = await waitReq((n) => n.method === 'POST' && n.url.includes('/scores'), mark, recordDisabled ? 3000 : 20000).catch(() => null)
   await yieldFrames(page)
   const fpB = await fingerprint()
   const uiMsg = await page.evaluate(() => [...document.querySelectorAll('#view-test-bed-detail .msg-error, #view-test-bed-detail .msg-success, #view-test-bed-detail [role=alert]')].map((e) => e.innerText.trim()).filter(Boolean))
@@ -168,15 +172,16 @@ try {
   try { const ok = await api("POST", `/test-beds/${fx.bedId}/scores`, hostBody); direct = { ACCEPTED: ok.status, body: ok.data } }
   catch (e) { direct = { error: e.message } }
   const fpD = await fingerprint()
-  results.P0_1 = { ui: { body: scoreResp.body, status: scoreResp.status, resp: scoreResp.resp, messages: uiMsg, unchanged: same(fpA, fpB) }, direct: { body: hostBody, result: direct, unchanged: same(fpC, fpD) }, fpA, fpB }
+  results.P0_1 = { ui: { recordDisabled, body: scoreResp?.body ?? null, status: scoreResp?.status ?? null, resp: scoreResp?.resp ?? null, messages: uiMsg, unchanged: same(fpA, fpB) }, direct: { body: hostBody, result: direct, unchanged: same(fpC, fpD) }, fpA, fpB }
   say('\n=== P0.1 (B1) record a score ===')
-  say(`  UI click Record scores -> POST ${scoreResp.url}`)
-  say(`    request body: ${scoreResp.body}`)
-  say(`    response: ${scoreResp.status} ${scoreResp.resp}`)
+  say(`  Record scores disabled before the click: ${recordDisabled}`)
+  say(`  UI click Record scores -> ${scoreResp ? `POST ${scoreResp.url}` : 'NO REQUEST SENT'}`)
+  say(`    request body: ${scoreResp?.body ?? '(none)'}`)
+  say(`    response: ${scoreResp ? `${scoreResp.status} ${scoreResp.resp}` : '(none)'}`)
   say(`    on-screen messages after: ${JSON.stringify(uiMsg)}`)
   say(`    fingerprint before ${JSON.stringify(fpA)}`)
   say(`    fingerprint after  ${JSON.stringify(fpB)}  unchanged=${same(fpA, fpB)}`)
-  say(`  host's own body shape for a real criterion, sent through the route: ${JSON.stringify(hostBody)}`)
+  say(`  the PRE-FIX host body shape for a real criterion, sent through the route: ${JSON.stringify(hostBody)}`)
   say(`    result: ${JSON.stringify(direct)}  fingerprint unchanged=${same(fpC, fpD)}`)
 
   // P0.4
