@@ -121,9 +121,9 @@ rehearsal's tree-hash evidence is for 1194890, not re-run on 9bcc365.
 
 ## Reconciliation, by counting
 
-**Commits against sign-offs.** There are 39 commits in 6da809e..9bcc365, plus
-this close-out. Every sign-off has commits, and every commit belongs to a
-sign-off:
+**Commits against sign-offs.** There are 39 commits in 6da809e..9bcc365, the
+gated tree. After it come only this close-out's own markdown commits, which ride
+the gate. Every sign-off has commits, and every commit belongs to a sign-off:
 
 | Stretch | Commits | Signed off |
 |---|---|---|
