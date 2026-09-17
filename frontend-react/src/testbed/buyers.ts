@@ -42,9 +42,13 @@ export function linkedFor(links: readonly BuyerLink[] | undefined, role: string)
 }
 
 /**
- * 3.1: SELECTING A CONTACT WRITES IMMEDIATELY. The door is asked first; an
- * empty choice sends nothing; a refusal resolves to the message the vanilla
- * showed under that role.
+ * 3.1: SELECTING A CONTACT WRITES IMMEDIATELY. The door is asked first; a
+ * refusal resolves to the message the vanilla showed under that role.
+ *
+ * NO EMPTY-CHOICE GUARD HERE, and its absence is measured. There were two, one
+ * here and one in the row, and calibration found each SILENT when removed alone:
+ * the other always caught it (Verification 9, dead or redundant). The row's is
+ * kept, because it also spares a pointless in-flight state.
  */
 export async function linkBuyer(
   deps: {
@@ -53,7 +57,6 @@ export async function linkBuyer(
   },
   role: string, contactId: string,
 ): Promise<{ sent: boolean, error: string | null }> {
-  if (!contactId) return { sent: false, error: null }
   if (!deps.canEdit()) return { sent: false, error: null }
   const r = await deps.post({ role, contact_id: contactId })
   return { sent: true, error: r.ok ? null : (r.error ?? 'Failed to link contact.') }

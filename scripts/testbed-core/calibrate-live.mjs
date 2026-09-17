@@ -29,6 +29,18 @@ const stop = (m) => { console.error(`STOPPED: ${m}`); process.exit(3) }
 
 if (existsSync(MARKER)) stop(`${MARKER} exists; restore from ${WORK} first`)
 mkdirSync(WORK, { recursive: true })
+
+// ── PRECONDITION: THE BUNDLE IS FRESH FOR THE SOURCE, BEFORE ANYTHING ─────
+//
+// Found by this harness's own restore check, the first time the p3-buyers spec
+// ran: a source file had changed after the last build, so the "pre-calibration"
+// bundle was stale, and rebuilding the RESTORED source could never reproduce it.
+// The restore check stopped correctly, but only after an injected run. Asked
+// here instead, so a stale bundle refuses before anything is injected.
+{
+  const fresh = spawnSync('node', ['scripts/check-dist-fresh.mjs'], { cwd: ROOT, encoding: 'utf8' })
+  if (fresh.status !== 0) stop(`the committed bundle is not fresh for its source; build first.\n${fresh.stdout}${fresh.stderr}`)
+}
 const files = [...new Set(spec.injections.map((i) => `${ROOT}/${i.file}`))]
 const snap = new Map([[DIST, readFileSync(DIST)], ...files.map((f) => [f, readFileSync(f)])])
 for (const [f, b] of snap) {

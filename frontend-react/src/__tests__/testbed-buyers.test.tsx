@@ -21,6 +21,7 @@ import { shellServices } from './fixtures'
 import type { ShellServices } from '../shell-services'
 import LIVE_JSON from './fixtures/buyers-live.json'
 import { CLIENT_BUYER_ROLE_LABELS } from '../testbed/buyers'
+import { shellServices as realShellServices } from '../shell-services'
 
 interface Captured { status: number, body: Record<string, unknown>, request?: { role: string, contact_id: string } }
 interface Bed { id: string, account_id: string, owner_id?: string, payload: Record<string, unknown>, buyer_contacts: Array<{ role: string, contact_id: string, name: string }> }
@@ -174,6 +175,23 @@ describe('3.3 the door', () => {
     await mount({ canEdit: () => false, openNew })
     await act(async () => { $(`tb-buyer-new-${ROLES[0]}`)!.click() })
     expect(openNew, 'the modal was opened for somebody else\'s record').not.toHaveBeenCalled()
+  })
+})
+
+describe('3.2 the seam itself', () => {
+  test('the seam calls the shell\'s modal as a TEST BED, with the bed, its Account and the role', () => {
+    const w = window as unknown as { openInlineBuyerContactModal?: (...a: unknown[]) => void }
+    const calls: unknown[][] = []
+    w.openInlineBuyerContactModal = (...a: unknown[]) => { calls.push(a) }
+    try {
+      expect(realShellServices.openInlineBuyerContact('tb-9', 'acct-9', ROLES[1])).toBe(true)
+      expect(calls, 'the modal was opened as another record type or with other arguments')
+        .toEqual([['test_bed', 'tb-9', 'acct-9', ROLES[1]]])
+    } finally { delete w.openInlineBuyerContactModal }
+  })
+
+  test('a shell that does not provide the modal is reported, not silently ignored', () => {
+    expect(realShellServices.openInlineBuyerContact('tb-9', 'acct-9', ROLES[1])).toBe(false)
   })
 })
 
