@@ -227,6 +227,27 @@ appearing on Qualification and absent elsewhere.
 
 ## PHASE 5: the close
 
+### Rulings at the Phase 4 sign-off (John, 2026-09-17)
+
+- R12 (Phase 4 finding 1, refines R8). The blocked list CLEARS on the host's
+  own load() after a save, and nowhere else. R8's no-tab-change clear stands.
+  Reason beyond parity: after a save the list can be actively wrong, demanding
+  the very thing just recorded, and a refusal that contradicts what the user
+  just did is worse than no message. Built and calibrated both directions; the
+  live proof shows the list gone after a host-internal reload and still present
+  across a tab switch.
+- R13 (Phase 4 finding 4). The pre-commit hook gains a typecheck stage, riding
+  this close as its own commit on the R7 precedent. Calibrated both directions:
+  refusing on an injected type error, passing clean. Running tsc by hand is a
+  person-shaped guard and does not survive the next session.
+- The close additionally: annotates the capabilities document's C6 and C9 per
+  R11, and gives K3's timing its own paragraph rather than a carried line.
+- Carried into ROUND B, not this close: the route accepting a second contact in
+  an already-linked role; K1's journal hole; the server refusal text naming "a
+  score of 1 or 2"; exit-criteria-live.json's staleness treatment if the close
+  does not settle it.
+
+
 Gate on the exact tree, revert rehearsal from an explicit ref with the
 tree verified byte-identical, reconciliation by counting (commits
 against sign-offs, items against this brief), CURRENT_STATE.md
