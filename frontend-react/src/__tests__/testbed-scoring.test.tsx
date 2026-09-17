@@ -412,6 +412,8 @@ describe('2.5 history and the current explanation', () => {
     const text = $(`tb-score-series-${base.criterion_key}`)!.textContent!
     expect(text).toContain(base.anchors!['1'][String(scoredAtV1.value)])
     expect(text, 'a v1 entry was restated in v2 wording').not.toContain('REVISED')
+    expect($(`tb-anchors-version-${base.criterion_key}`)?.textContent, 'the version line is not the current version')
+      .toBe('Version 2')
   })
 })
 
