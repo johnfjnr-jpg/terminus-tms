@@ -18,7 +18,8 @@
 // ── WHAT IT RUNS, AND WHAT IT DELIBERATELY DOES NOT ──────────────────────
 //
 // The two HERMETIC suites always: no network, no session, ~16s together. Both
-// red commits would have been refused by these alone.
+// red commits would have been refused by these alone. The React typecheck runs
+// beside them (R13, below), for the same reason and at the same cost class.
 //
 // The database suite needs a live Supabase session and 35-60s. A hook that
 // demanded one would make committing impossible whenever the session has
@@ -35,8 +36,20 @@
 // fault, not a replacement for the round-close gate, and it says so.
 import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 
-const ROOT = '/Users/johnfryatt/terminus-tms'
+// ── ROOT IS WHERE THIS FILE IS, NOT WHERE ONE LAPTOP KEEPS IT ────────────
+//
+// Ruling R7, Round A. This was the absolute path of one checkout, and every
+// other checkout ran the suites of THAT one: measured in a git worktree with a
+// red pure suite (582 pass, 1 fail), this script printed `PASS pure` and exited
+// 0, because it had tested the main tree's green copy. A hook that reports on a
+// different tree from the one being committed is a false clean, which is worse
+// than no hook (Verification 12, the author's side).
+//
+// Derived from this module's own location, one directory up, so a worktree, a
+// clone at another path or another machine each test themselves.
+const ROOT = fileURLToPath(new URL('..', import.meta.url)).replace(/\/$/, '')
 
 function sessionIsLive() {
   try {
@@ -58,6 +71,14 @@ function run(label, args, cwd = ROOT) {
 const results = []
 results.push(run('pure', ['test']))
 results.push(run('react', ['run', 'test:react']))
+// ── RULING R13, Round A: THE TYPECHECK IS A SUITE TOO ────────────────────
+//
+// vitest transpiles without typechecking, so a React change can pass `react`
+// and still fail `tsc`. Measured: Round A Phase 4's abe38d6 passed this hook
+// and failed the typecheck, and the remedy recorded was to run tsc by hand
+// before each commit. That is a person-shaped guard and does not survive the
+// next session. Hermetic like the two above: no network, no session.
+results.push(run('typecheck', ['run', 'typecheck:react']))
 
 const dbLive = sessionIsLive()
 if (dbLive) results.push(run('database', ['run', 'test:db']))
@@ -81,7 +102,7 @@ console.error('')
 console.error('COMMIT REFUSED: a suite is red.')
 console.error('')
 for (const r of red) {
-  const tail = r.out.split('\n').filter((l) => /✖|not ok|AssertionError|FAIL|Error:/.test(l)).slice(0, 6)
+  const tail = r.out.split('\n').filter((l) => /✖|not ok|AssertionError|FAIL|Error:|error TS/.test(l)).slice(0, 6)
   console.error(`  ${r.label}:`)
   for (const l of tail) console.error(`      ${l.trim().slice(0, 120)}`)
   if (!tail.length) console.error('      (no parseable failure line; run the suite directly)')

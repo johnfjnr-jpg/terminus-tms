@@ -1,0 +1,793 @@
+{
+  "source": "GET /api/records/:id/exit-criteria, captured by scripts/testbed-core/capture-exit-criteria.mjs",
+  "capturedAt": "2026-09-17T01:36:28.322Z",
+  "cases": {
+    "qualificationFresh": {
+      "from_stage": "Qualification",
+      "to_stage": "Pre-Site Assessment",
+      "blocking": [
+        {
+          "requirement_type": "contact_role_linked",
+          "role": "Client Commercial Buyer",
+          "message": "Requires a Contact linked as Client Commercial Buyer"
+        },
+        {
+          "requirement_type": "contact_role_linked",
+          "role": "Client Technical Buyer",
+          "message": "Requires a Contact linked as Client Technical Buyer"
+        },
+        {
+          "requirement_type": "contact_role_linked",
+          "role": "Client Legal Buyer",
+          "message": "Requires a Contact linked as Client Legal Buyer"
+        },
+        {
+          "requirement_type": "payload_field_required",
+          "field": "testBedDuration",
+          "message": "Requires testBedDuration to be set"
+        },
+        {
+          "requirement_type": "payload_field_required",
+          "field": "estimatedInstallationDate",
+          "message": "Requires estimatedInstallationDate to be set"
+        },
+        {
+          "requirement_type": "payload_field_required",
+          "field": "estGoLiveDate",
+          "message": "Requires estGoLiveDate to be set"
+        },
+        {
+          "requirement_type": "approval_obtained",
+          "track": "Technical",
+          "scope": "stage",
+          "message": "Requires an approved Technical decision at stage Qualification"
+        },
+        {
+          "requirement_type": "approval_obtained",
+          "track": "Commercial",
+          "scope": "stage",
+          "message": "Requires an approved Commercial decision at stage Qualification"
+        },
+        {
+          "requirement_type": "payload_field_required",
+          "field": "scoreRolloutPath",
+          "label": "Rollout Path",
+          "message": "Requires Rollout Path"
+        },
+        {
+          "requirement_type": "payload_field_required",
+          "field": "scoreClientCommitment",
+          "label": "Client Commitment",
+          "message": "Requires Client Commitment"
+        },
+        {
+          "requirement_type": "payload_field_required",
+          "field": "scoreUseCaseRequirementsAndMetrics",
+          "label": "Clear Use Case Requirements and Metrics",
+          "message": "Requires Clear Use Case Requirements and Metrics"
+        },
+        {
+          "requirement_type": "payload_field_required",
+          "field": "scorePhysicalSuitability",
+          "label": "Physical Suitability",
+          "message": "Requires Physical Suitability"
+        },
+        {
+          "requirement_type": "payload_field_required",
+          "field": "scoreDataRights",
+          "label": "Data Rights",
+          "message": "Requires Data Rights"
+        },
+        {
+          "requirement_type": "payload_field_required",
+          "field": "measurabilityConfirmed",
+          "label": "Sensors can capture what would be measured",
+          "message": "Requires Sensors can capture what would be measured"
+        }
+      ],
+      "requirements": [
+        {
+          "requirement_type": "contact_role_linked",
+          "role": "Client Commercial Buyer",
+          "message": "Requires a Contact linked as Client Commercial Buyer",
+          "met": false
+        },
+        {
+          "requirement_type": "contact_role_linked",
+          "role": "Client Technical Buyer",
+          "message": "Requires a Contact linked as Client Technical Buyer",
+          "met": false
+        },
+        {
+          "requirement_type": "contact_role_linked",
+          "role": "Client Legal Buyer",
+          "message": "Requires a Contact linked as Client Legal Buyer",
+          "met": false
+        },
+        {
+          "requirement_type": "payload_field_required",
+          "field": "testBedDuration",
+          "message": "Requires testBedDuration to be set",
+          "met": false
+        },
+        {
+          "requirement_type": "payload_field_required",
+          "field": "estimatedInstallationDate",
+          "message": "Requires estimatedInstallationDate to be set",
+          "met": false
+        },
+        {
+          "requirement_type": "payload_field_required",
+          "field": "estGoLiveDate",
+          "message": "Requires estGoLiveDate to be set",
+          "met": false
+        },
+        {
+          "requirement_type": "approval_obtained",
+          "track": "Technical",
+          "scope": "stage",
+          "message": "Requires an approved Technical decision at stage Qualification",
+          "met": false
+        },
+        {
+          "requirement_type": "approval_obtained",
+          "track": "Commercial",
+          "scope": "stage",
+          "message": "Requires an approved Commercial decision at stage Qualification",
+          "met": false
+        },
+        {
+          "requirement_type": "payload_field_required",
+          "field": "scoreRolloutPath",
+          "label": "Rollout Path",
+          "min_length": 1,
+          "message": "Requires Rollout Path",
+          "met": false
+        },
+        {
+          "requirement_type": "payload_field_required",
+          "field": "scoreClientCommitment",
+          "label": "Client Commitment",
+          "min_length": 1,
+          "message": "Requires Client Commitment",
+          "met": false
+        },
+        {
+          "requirement_type": "payload_field_required",
+          "field": "scoreUseCaseRequirementsAndMetrics",
+          "label": "Clear Use Case Requirements and Metrics",
+          "min_length": 1,
+          "message": "Requires Clear Use Case Requirements and Metrics",
+          "met": false
+        },
+        {
+          "requirement_type": "payload_field_required",
+          "field": "scorePhysicalSuitability",
+          "label": "Physical Suitability",
+          "min_length": 1,
+          "message": "Requires Physical Suitability",
+          "met": false
+        },
+        {
+          "requirement_type": "payload_field_required",
+          "field": "scoreDataRights",
+          "label": "Data Rights",
+          "min_length": 1,
+          "message": "Requires Data Rights",
+          "met": false
+        },
+        {
+          "requirement_type": "payload_field_required",
+          "field": "measurabilityConfirmed",
+          "label": "Sensors can capture what would be measured",
+          "min_length": 1,
+          "message": "Requires Sensors can capture what would be measured",
+          "met": false
+        }
+      ]
+    },
+    "monitoringUnticked": {
+      "from_stage": "Monitoring and Analysis",
+      "to_stage": "Review and Completion",
+      "blocking": [
+        {
+          "requirement_type": "payload_field_required",
+          "field": "scoreUseCaseRequirementsAndMetrics",
+          "label": "Clear Use Case Requirements and Metrics",
+          "message": "Requires Clear Use Case Requirements and Metrics scored at or after Monitoring and Analysis"
+        },
+        {
+          "requirement_type": "document_status",
+          "document": "Test Bed Performance",
+          "required_status": "approved",
+          "message": "Requires Test Bed Performance to be approved"
+        },
+        {
+          "requirement_type": "document_status",
+          "document": "Review Meeting Minutes",
+          "required_status": "approved",
+          "message": "Requires Review Meeting Minutes to be approved"
+        },
+        {
+          "requirement_type": "approval_obtained",
+          "track": "Technical",
+          "scope": "stage",
+          "message": "Requires an approved Technical decision at stage Monitoring and Analysis"
+        },
+        {
+          "requirement_type": "approval_obtained",
+          "track": "Commercial",
+          "scope": "stage",
+          "message": "Requires an approved Commercial decision at stage Monitoring and Analysis"
+        },
+        {
+          "requirement_type": "approval_obtained",
+          "track": "Legal",
+          "scope": "stage",
+          "message": "Requires an approved Legal decision at stage Monitoring and Analysis"
+        },
+        {
+          "requirement_type": "payload_field_required",
+          "field": "exitMonAllMeetingActionsCompleted",
+          "label": "All Meeting Actions Completed",
+          "message": "Requires All Meeting Actions Completed"
+        }
+      ],
+      "requirements": [
+        {
+          "requirement_type": "payload_field_required",
+          "field": "scoreUseCaseRequirementsAndMetrics",
+          "label": "Clear Use Case Requirements and Metrics",
+          "min_length": 1,
+          "message": "Requires Clear Use Case Requirements and Metrics scored at or after Monitoring and Analysis",
+          "met": false
+        },
+        {
+          "requirement_type": "document_status",
+          "document": "Test Bed Performance",
+          "required_status": "approved",
+          "message": "Requires Test Bed Performance to be approved",
+          "met": false
+        },
+        {
+          "requirement_type": "document_status",
+          "document": "Review Meeting Minutes",
+          "required_status": "approved",
+          "message": "Requires Review Meeting Minutes to be approved",
+          "met": false
+        },
+        {
+          "requirement_type": "approval_obtained",
+          "track": "Technical",
+          "scope": "stage",
+          "message": "Requires an approved Technical decision at stage Monitoring and Analysis",
+          "met": false
+        },
+        {
+          "requirement_type": "approval_obtained",
+          "track": "Commercial",
+          "scope": "stage",
+          "message": "Requires an approved Commercial decision at stage Monitoring and Analysis",
+          "met": false
+        },
+        {
+          "requirement_type": "approval_obtained",
+          "track": "Legal",
+          "scope": "stage",
+          "message": "Requires an approved Legal decision at stage Monitoring and Analysis",
+          "met": false
+        },
+        {
+          "requirement_type": "payload_field_required",
+          "field": "exitMonAllMeetingActionsCompleted",
+          "label": "All Meeting Actions Completed",
+          "message": "Requires All Meeting Actions Completed",
+          "met": false
+        }
+      ]
+    },
+    "installation": {
+      "from_stage": "Installation and Commissioning",
+      "to_stage": "Monitoring and Analysis",
+      "blocking": [
+        {
+          "requirement_type": "payload_field_required",
+          "field": "installer_account_id",
+          "label": "Installer",
+          "message": "Requires Installer"
+        },
+        {
+          "requirement_type": "contact_role_linked",
+          "role": "Test Bed Tech Team",
+          "message": "Requires a Contact linked as Test Bed Tech Team"
+        },
+        {
+          "requirement_type": "document_status",
+          "document": "Site Installation Document",
+          "required_status": "approved",
+          "message": "Requires Site Installation Document to be approved"
+        },
+        {
+          "requirement_type": "approval_obtained",
+          "track": "Commercial",
+          "scope": "stage",
+          "message": "Requires an approved Commercial decision at stage Installation and Commissioning"
+        },
+        {
+          "requirement_type": "approval_obtained",
+          "track": "Technical",
+          "scope": "stage",
+          "message": "Requires an approved Technical decision at stage Installation and Commissioning"
+        }
+      ],
+      "requirements": [
+        {
+          "requirement_type": "payload_field_required",
+          "field": "installer_account_id",
+          "label": "Installer",
+          "message": "Requires Installer",
+          "met": false
+        },
+        {
+          "requirement_type": "contact_role_linked",
+          "role": "Test Bed Tech Team",
+          "message": "Requires a Contact linked as Test Bed Tech Team",
+          "met": false
+        },
+        {
+          "requirement_type": "document_status",
+          "document": "Site Installation Document",
+          "required_status": "approved",
+          "message": "Requires Site Installation Document to be approved",
+          "met": false
+        },
+        {
+          "requirement_type": "approval_obtained",
+          "track": "Commercial",
+          "scope": "stage",
+          "message": "Requires an approved Commercial decision at stage Installation and Commissioning",
+          "met": false
+        },
+        {
+          "requirement_type": "approval_obtained",
+          "track": "Technical",
+          "scope": "stage",
+          "message": "Requires an approved Technical decision at stage Installation and Commissioning",
+          "met": false
+        }
+      ]
+    },
+    "finalStage": {
+      "from_stage": "Closed",
+      "to_stage": null,
+      "blocking": [],
+      "requirements": []
+    },
+    "qualificationDataEntryMet": {
+      "from_stage": "Qualification",
+      "to_stage": "Pre-Site Assessment",
+      "blocking": [
+        {
+          "requirement_type": "contact_role_linked",
+          "role": "Client Commercial Buyer",
+          "message": "Requires a Contact linked as Client Commercial Buyer"
+        },
+        {
+          "requirement_type": "contact_role_linked",
+          "role": "Client Technical Buyer",
+          "message": "Requires a Contact linked as Client Technical Buyer"
+        },
+        {
+          "requirement_type": "contact_role_linked",
+          "role": "Client Legal Buyer",
+          "message": "Requires a Contact linked as Client Legal Buyer"
+        },
+        {
+          "requirement_type": "approval_obtained",
+          "track": "Technical",
+          "scope": "stage",
+          "message": "Requires an approved Technical decision at stage Qualification"
+        },
+        {
+          "requirement_type": "approval_obtained",
+          "track": "Commercial",
+          "scope": "stage",
+          "message": "Requires an approved Commercial decision at stage Qualification"
+        },
+        {
+          "requirement_type": "payload_field_required",
+          "field": "scoreRolloutPath",
+          "label": "Rollout Path",
+          "message": "Requires Rollout Path"
+        },
+        {
+          "requirement_type": "payload_field_required",
+          "field": "scoreClientCommitment",
+          "label": "Client Commitment",
+          "message": "Requires Client Commitment"
+        },
+        {
+          "requirement_type": "payload_field_required",
+          "field": "scoreUseCaseRequirementsAndMetrics",
+          "label": "Clear Use Case Requirements and Metrics",
+          "message": "Requires Clear Use Case Requirements and Metrics"
+        },
+        {
+          "requirement_type": "payload_field_required",
+          "field": "scorePhysicalSuitability",
+          "label": "Physical Suitability",
+          "message": "Requires Physical Suitability"
+        },
+        {
+          "requirement_type": "payload_field_required",
+          "field": "scoreDataRights",
+          "label": "Data Rights",
+          "message": "Requires Data Rights"
+        },
+        {
+          "requirement_type": "payload_field_required",
+          "field": "measurabilityConfirmed",
+          "label": "Sensors can capture what would be measured",
+          "message": "Requires Sensors can capture what would be measured"
+        }
+      ],
+      "requirements": [
+        {
+          "requirement_type": "contact_role_linked",
+          "role": "Client Commercial Buyer",
+          "message": "Requires a Contact linked as Client Commercial Buyer",
+          "met": false
+        },
+        {
+          "requirement_type": "contact_role_linked",
+          "role": "Client Technical Buyer",
+          "message": "Requires a Contact linked as Client Technical Buyer",
+          "met": false
+        },
+        {
+          "requirement_type": "contact_role_linked",
+          "role": "Client Legal Buyer",
+          "message": "Requires a Contact linked as Client Legal Buyer",
+          "met": false
+        },
+        {
+          "requirement_type": "payload_field_required",
+          "field": "testBedDuration",
+          "message": "Requires testBedDuration to be set",
+          "met": true
+        },
+        {
+          "requirement_type": "payload_field_required",
+          "field": "estimatedInstallationDate",
+          "message": "Requires estimatedInstallationDate to be set",
+          "met": true
+        },
+        {
+          "requirement_type": "payload_field_required",
+          "field": "estGoLiveDate",
+          "message": "Requires estGoLiveDate to be set",
+          "met": true
+        },
+        {
+          "requirement_type": "approval_obtained",
+          "track": "Technical",
+          "scope": "stage",
+          "message": "Requires an approved Technical decision at stage Qualification",
+          "met": false
+        },
+        {
+          "requirement_type": "approval_obtained",
+          "track": "Commercial",
+          "scope": "stage",
+          "message": "Requires an approved Commercial decision at stage Qualification",
+          "met": false
+        },
+        {
+          "requirement_type": "payload_field_required",
+          "field": "scoreRolloutPath",
+          "label": "Rollout Path",
+          "min_length": 1,
+          "message": "Requires Rollout Path",
+          "met": false
+        },
+        {
+          "requirement_type": "payload_field_required",
+          "field": "scoreClientCommitment",
+          "label": "Client Commitment",
+          "min_length": 1,
+          "message": "Requires Client Commitment",
+          "met": false
+        },
+        {
+          "requirement_type": "payload_field_required",
+          "field": "scoreUseCaseRequirementsAndMetrics",
+          "label": "Clear Use Case Requirements and Metrics",
+          "min_length": 1,
+          "message": "Requires Clear Use Case Requirements and Metrics",
+          "met": false
+        },
+        {
+          "requirement_type": "payload_field_required",
+          "field": "scorePhysicalSuitability",
+          "label": "Physical Suitability",
+          "min_length": 1,
+          "message": "Requires Physical Suitability",
+          "met": false
+        },
+        {
+          "requirement_type": "payload_field_required",
+          "field": "scoreDataRights",
+          "label": "Data Rights",
+          "min_length": 1,
+          "message": "Requires Data Rights",
+          "met": false
+        },
+        {
+          "requirement_type": "payload_field_required",
+          "field": "measurabilityConfirmed",
+          "label": "Sensors can capture what would be measured",
+          "min_length": 1,
+          "message": "Requires Sensors can capture what would be measured",
+          "met": false
+        }
+      ]
+    },
+    "qualificationScored": {
+      "from_stage": "Qualification",
+      "to_stage": "Pre-Site Assessment",
+      "blocking": [
+        {
+          "requirement_type": "contact_role_linked",
+          "role": "Client Commercial Buyer",
+          "message": "Requires a Contact linked as Client Commercial Buyer"
+        },
+        {
+          "requirement_type": "contact_role_linked",
+          "role": "Client Technical Buyer",
+          "message": "Requires a Contact linked as Client Technical Buyer"
+        },
+        {
+          "requirement_type": "contact_role_linked",
+          "role": "Client Legal Buyer",
+          "message": "Requires a Contact linked as Client Legal Buyer"
+        },
+        {
+          "requirement_type": "approval_obtained",
+          "track": "Technical",
+          "scope": "stage",
+          "message": "Requires an approved Technical decision at stage Qualification"
+        },
+        {
+          "requirement_type": "approval_obtained",
+          "track": "Commercial",
+          "scope": "stage",
+          "message": "Requires an approved Commercial decision at stage Qualification"
+        },
+        {
+          "requirement_type": "payload_field_required",
+          "field": "scoreClientCommitment",
+          "label": "Client Commitment",
+          "message": "Requires Client Commitment"
+        },
+        {
+          "requirement_type": "payload_field_required",
+          "field": "scoreUseCaseRequirementsAndMetrics",
+          "label": "Clear Use Case Requirements and Metrics",
+          "message": "Requires Clear Use Case Requirements and Metrics"
+        },
+        {
+          "requirement_type": "payload_field_required",
+          "field": "scorePhysicalSuitability",
+          "label": "Physical Suitability",
+          "message": "Requires Physical Suitability"
+        },
+        {
+          "requirement_type": "payload_field_required",
+          "field": "scoreDataRights",
+          "label": "Data Rights",
+          "message": "Requires Data Rights"
+        },
+        {
+          "requirement_type": "payload_field_required",
+          "field": "measurabilityConfirmed",
+          "label": "Sensors can capture what would be measured",
+          "message": "Requires Sensors can capture what would be measured"
+        }
+      ],
+      "requirements": [
+        {
+          "requirement_type": "contact_role_linked",
+          "role": "Client Commercial Buyer",
+          "message": "Requires a Contact linked as Client Commercial Buyer",
+          "met": false
+        },
+        {
+          "requirement_type": "contact_role_linked",
+          "role": "Client Technical Buyer",
+          "message": "Requires a Contact linked as Client Technical Buyer",
+          "met": false
+        },
+        {
+          "requirement_type": "contact_role_linked",
+          "role": "Client Legal Buyer",
+          "message": "Requires a Contact linked as Client Legal Buyer",
+          "met": false
+        },
+        {
+          "requirement_type": "payload_field_required",
+          "field": "testBedDuration",
+          "message": "Requires testBedDuration to be set",
+          "met": true
+        },
+        {
+          "requirement_type": "payload_field_required",
+          "field": "estimatedInstallationDate",
+          "message": "Requires estimatedInstallationDate to be set",
+          "met": true
+        },
+        {
+          "requirement_type": "payload_field_required",
+          "field": "estGoLiveDate",
+          "message": "Requires estGoLiveDate to be set",
+          "met": true
+        },
+        {
+          "requirement_type": "approval_obtained",
+          "track": "Technical",
+          "scope": "stage",
+          "message": "Requires an approved Technical decision at stage Qualification",
+          "met": false
+        },
+        {
+          "requirement_type": "approval_obtained",
+          "track": "Commercial",
+          "scope": "stage",
+          "message": "Requires an approved Commercial decision at stage Qualification",
+          "met": false
+        },
+        {
+          "requirement_type": "payload_field_required",
+          "field": "scoreRolloutPath",
+          "label": "Rollout Path",
+          "min_length": 1,
+          "message": "Requires Rollout Path",
+          "met": true
+        },
+        {
+          "requirement_type": "payload_field_required",
+          "field": "scoreClientCommitment",
+          "label": "Client Commitment",
+          "min_length": 1,
+          "message": "Requires Client Commitment",
+          "met": false
+        },
+        {
+          "requirement_type": "payload_field_required",
+          "field": "scoreUseCaseRequirementsAndMetrics",
+          "label": "Clear Use Case Requirements and Metrics",
+          "min_length": 1,
+          "message": "Requires Clear Use Case Requirements and Metrics",
+          "met": false
+        },
+        {
+          "requirement_type": "payload_field_required",
+          "field": "scorePhysicalSuitability",
+          "label": "Physical Suitability",
+          "min_length": 1,
+          "message": "Requires Physical Suitability",
+          "met": false
+        },
+        {
+          "requirement_type": "payload_field_required",
+          "field": "scoreDataRights",
+          "label": "Data Rights",
+          "min_length": 1,
+          "message": "Requires Data Rights",
+          "met": false
+        },
+        {
+          "requirement_type": "payload_field_required",
+          "field": "measurabilityConfirmed",
+          "label": "Sensors can capture what would be measured",
+          "min_length": 1,
+          "message": "Requires Sensors can capture what would be measured",
+          "met": false
+        }
+      ]
+    },
+    "monitoringTicked": {
+      "from_stage": "Monitoring and Analysis",
+      "to_stage": "Review and Completion",
+      "blocking": [
+        {
+          "requirement_type": "payload_field_required",
+          "field": "scoreUseCaseRequirementsAndMetrics",
+          "label": "Clear Use Case Requirements and Metrics",
+          "message": "Requires Clear Use Case Requirements and Metrics scored at or after Monitoring and Analysis"
+        },
+        {
+          "requirement_type": "document_status",
+          "document": "Test Bed Performance",
+          "required_status": "approved",
+          "message": "Requires Test Bed Performance to be approved"
+        },
+        {
+          "requirement_type": "document_status",
+          "document": "Review Meeting Minutes",
+          "required_status": "approved",
+          "message": "Requires Review Meeting Minutes to be approved"
+        },
+        {
+          "requirement_type": "approval_obtained",
+          "track": "Technical",
+          "scope": "stage",
+          "message": "Requires an approved Technical decision at stage Monitoring and Analysis"
+        },
+        {
+          "requirement_type": "approval_obtained",
+          "track": "Commercial",
+          "scope": "stage",
+          "message": "Requires an approved Commercial decision at stage Monitoring and Analysis"
+        },
+        {
+          "requirement_type": "approval_obtained",
+          "track": "Legal",
+          "scope": "stage",
+          "message": "Requires an approved Legal decision at stage Monitoring and Analysis"
+        }
+      ],
+      "requirements": [
+        {
+          "requirement_type": "payload_field_required",
+          "field": "scoreUseCaseRequirementsAndMetrics",
+          "label": "Clear Use Case Requirements and Metrics",
+          "min_length": 1,
+          "message": "Requires Clear Use Case Requirements and Metrics scored at or after Monitoring and Analysis",
+          "met": false
+        },
+        {
+          "requirement_type": "document_status",
+          "document": "Test Bed Performance",
+          "required_status": "approved",
+          "message": "Requires Test Bed Performance to be approved",
+          "met": false
+        },
+        {
+          "requirement_type": "document_status",
+          "document": "Review Meeting Minutes",
+          "required_status": "approved",
+          "message": "Requires Review Meeting Minutes to be approved",
+          "met": false
+        },
+        {
+          "requirement_type": "approval_obtained",
+          "track": "Technical",
+          "scope": "stage",
+          "message": "Requires an approved Technical decision at stage Monitoring and Analysis",
+          "met": false
+        },
+        {
+          "requirement_type": "approval_obtained",
+          "track": "Commercial",
+          "scope": "stage",
+          "message": "Requires an approved Commercial decision at stage Monitoring and Analysis",
+          "met": false
+        },
+        {
+          "requirement_type": "approval_obtained",
+          "track": "Legal",
+          "scope": "stage",
+          "message": "Requires an approved Legal decision at stage Monitoring and Analysis",
+          "met": false
+        },
+        {
+          "requirement_type": "payload_field_required",
+          "field": "exitMonAllMeetingActionsCompleted",
+          "label": "All Meeting Actions Completed",
+          "message": "Requires All Meeting Actions Completed",
+          "met": true
+        }
+      ]
+    }
+  }
+}

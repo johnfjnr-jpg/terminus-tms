@@ -3,29 +3,67 @@
 // Round 7 Phase 2b. The rendering surface the B and C capabilities' logic has
 // been waiting for: exit criteria, scoring, approvals and documents, all
 // through the shared panel the eight stage tabs take turns in (T2).
-import { useState } from 'react'
-import { exitTickPayload, isTicked } from './exitCriteria'
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
+import { formatTimestamp } from '../../../src/lib/format-dates.js'
 import {
-  levelsFor, awaitingReason, entryLocked, toggle, summarise,
-  setScoreDraft, recordScore, type Criterion, type ScoreDraftState,
+  readExitCriteria, visibleRequirements, isTickable, exitSummary,
+  type ExitRequirement,
+} from './exitCriteria'
+import {
+  levelsFor, awaitingReason, toggle, anchorSet, type Criterion, type ScoreDrafts,
 } from './scoring'
 import { reasonRequired, reasonAccepted, type ScoreEntry } from './scoreReason'
+import { currentEntry } from './QualificationScore'
 import type { PanelId, PanelState } from './stageLoad'
 
-export interface Criterion_ { field: string, label: string, value?: unknown }
+/** What a tick attempt came back with. `error: null` means refused with nothing to say (the door). */
+export interface TickResult { ok: boolean, error?: string | null }
 
 /**
- * B: the exit-criteria list.
+ * B: THE EXIT-CRITERIA PANEL, Round A Phase 1.
  *
- * A tick is a TIMESTAMP (B1). The list reads `isTicked`, which is the GATE's
- * own rule rather than a second reading of it (Verification 43).
+ * Renders the route's OBJECT, `{ from_stage, to_stage, blocking,
+ * requirements[] }`. It rendered its empty branch on every stage for as long
+ * as the React screen existed, because the object was cast to an array (audit
+ * B3, reproduced live as P0.3: 14 requirements served, 0 shown).
+ *
+ * Behaviour, from the brief's 1.1-1.7 and the vanilla's recorded reasoning:
+ *   1.1 the summary counts ALL requirements and names to_stage;
+ *   1.2 met is the server's own `met`, never read off the payload;
+ *   1.3 a row is tickable only for a labelled member of the four tick keys,
+ *       and every other row is a computed, read-only row;
+ *   1.4 process rows always show, data-entry rows only while unmet;
+ *   1.5 tick writes an ISO timestamp, untick writes null, through the host's
+ *       revision-carrying patch. NO QUEUE, by the brief's scale position: a
+ *       rapid double tick answers 409 and reloads, which is a safe failure;
+ *   1.6 a failed tick says so in the panel and leaves the row as it was;
+ *   1.7 pending marks arrive in Phase 2.6, at the point named below.
  */
-export function ExitCriteria({ stage, criteria, panel, onTick }: {
+export function ExitCriteria({ stage, data, panel, onTick, pending }: {
   stage: string
-  criteria: readonly Criterion_[]
+  data: unknown
   panel: PanelState
-  onTick: (payload: Record<string, string | null>) => void
+  onTick: (field: string, currentlyMet: boolean) => Promise<TickResult>
+  /**
+   * 2.6: the fields a score DRAFT would satisfy, from the drafts the scoring
+   * card edits. Rendered from state rather than by poking the DOM, so a
+   * re-render cannot drop a mark or leave a stale one.
+   */
+  pending?: ReadonlySet<string>
 }) {
+  const [feedback, setFeedback] = useState<string | null>(null)
+  // ── A CONFIRMED TICK SHOWS BEFORE THE RECOMPUTE LANDS ──────────────────
+  //
+  // The vanilla measured this: click to visible tick was 1162ms, because the
+  // row waited on a full re-read of every OTHER row. A row flips here only after
+  // the server has ACCEPTED its own PATCH, so nothing is shown that the server
+  // has not confirmed; what it no longer waits for is the recomputation. It is
+  // a record of a confirmed write, never a derivation from the payload, and it
+  // is dropped the moment a fresh response arrives, so the server's `met` is
+  // what the row shows from then on. `data-met` never reads it.
+  const [confirmed, setConfirmed] = useState<ReadonlyMap<string, boolean>>(new Map())
+  useEffect(() => { setConfirmed(new Map()) }, [data])
+
   if (panel.error) {
     return <p className="empty-state" data-testid="tb-stage-exit-criteria-list">{panel.error}</p>
   }
@@ -33,107 +71,334 @@ export function ExitCriteria({ stage, criteria, panel, onTick }: {
     return <p className="empty-state" data-testid="tb-stage-exit-criteria-list">
       Loading {panel.pending ?? stage}...</p>
   }
-  return (
-    <div data-testid="tb-stage-exit-criteria-list" data-stage={panel.stage}>
-      {criteria.length
-        ? criteria.map((c) => {
-          const met = isTicked(c.value)
-          return (
-            <div className={met ? 'tb-crit-row tb-crit-box--met' : 'tb-crit-row'}
-              key={c.field} data-testid={`tb-crit-${c.field}`}>
-              <input type="checkbox" checked={met} readOnly
-                data-testid={`tb-crit-tick-${c.field}`}
-                onClick={() => onTick(exitTickPayload(c.field, met, new Date().toISOString()))} />
-              <span>{c.label}</span>
-            </div>)
-        })
-        : <p className="empty-state">No exit criteria for this stage.</p>}
-    </div>
-  )
+  const res = readExitCriteria(data)
+  const settled = (body: React.ReactNode) => (
+    <div data-testid="tb-stage-exit-criteria-list" data-stage={panel.stage}>{body}</div>)
+  // An unreadable answer is not an empty one, so it does not say "no criteria".
+  if (!res) return settled(<p className="empty-state">Unable to load exit criteria.</p>)
+  if (res.to_stage === null) {
+    return settled(<p className="empty-state">
+      This is the final stage - nothing further to exit toward.</p>)
+  }
+  if (!res.requirements.length) {
+    return settled(<p className="empty-state">
+      No exit criteria configured for {res.to_stage}.</p>)
+  }
+
+  const tick = async (field: string, currentlyMet: boolean) => {
+    setFeedback(null)
+    const r = await onTick(field, currentlyMet)
+    if (r.ok) {
+      setConfirmed((m) => new Map(m).set(field, !currentlyMet))
+      return
+    }
+    // A failed write must not look like a success: the row is left exactly as
+    // it was, and the reason is said where the click happened.
+    if (r.error !== null) setFeedback(`Could not update: ${r.error ?? 'unknown error'}`)
+  }
+
+  // ── 2.6 PENDING MARKS ─────────────────────────────────────────────────
+  //
+  // The panel shows what the SERVER has recorded, and a draft is not that. So a
+  // draft is a DIFFERENT mark, never an early tick, and distinguishable without
+  // colour three ways: a filled dot rather than a check, a dashed border, and
+  // the word "unsaved". A row whose server `met` is true is NEVER marked,
+  // whatever is drafted (the vanilla's structural guard: a revision drafted on
+  // a scored criterion does not turn a confirmed row into an unsaved one).
+  const isPending = (r: ExitRequirement) => !r.met && typeof r.field === 'string' && !!pending?.has(r.field)
+  const box = (met: boolean, pend = false) => (
+    <span className={met ? 'tb-crit-box tb-crit-box--met' : (pend ? 'tb-crit-box tb-crit-box--pending' : 'tb-crit-box')}>
+      {met ? '✓' : (pend ? '●' : '')}</span>)
+  const tag = (pend: boolean) => (pend
+    ? <span className="tb-crit-pending-tag" data-testid="tb-crit-pending-tag">unsaved</span> : null)
+
+  return settled(<>
+    {/* The vanilla's own treatment for this line: `sub` with a 10px gap below. */}
+    <p className="sub" style={{ marginBottom: 10 }} data-testid="tb-crit-summary">{exitSummary(res)}</p>
+    {visibleRequirements(res.requirements).map((r: ExitRequirement, i) => {
+      // 2.6 applies its pending marks below, from `pending`, and never on a row
+      // whose server `met` is true: `data-met` carries only the server's value.
+      const pend = isPending(r)
+      if (isTickable(r)) {
+        const field = r.field as string
+        const shown = confirmed.get(field) ?? r.met
+        return (
+          <div key={`t-${field}`} className="tb-crit-row tb-crit-row--tickable"
+            role="checkbox" aria-checked={shown} tabIndex={0}
+            data-testid={`tb-crit-${field}`} data-field={field}
+            data-met={r.met ? 'true' : 'false'}
+            title={shown ? 'Tick to clear' : 'Tick to confirm'}
+            onClick={() => { void tick(field, shown) }}
+            onKeyDown={(e: KeyboardEvent<HTMLDivElement>) => {
+              if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); void tick(field, shown) }
+            }}>
+            {box(shown, pend && !shown)}<span className="tb-crit-text">{r.label}</span>{tag(pend && !shown)}
+          </div>)
+      }
+      // Computed: a document, an approval, a contact role, a score, or a
+      // labelled field outside the tick keys. No role, no tab stop and no
+      // handler, because a click here has nothing it may write.
+      return (
+        <div key={`c-${i}`} className="tb-crit-row tb-crit-row--computed"
+          data-testid="tb-crit-computed" data-field={r.field ?? ''}
+          data-met={r.met ? 'true' : 'false'} data-pending={pend ? 'true' : undefined}>
+          {box(r.met, pend)}<span className="tb-crit-text">{r.message ?? r.label}</span>{tag(pend)}
+        </div>)
+    })}
+    <div className={feedback ? 'tb-doc-feedback err' : 'tb-doc-feedback'}
+      data-testid="tb-crit-feedback" role="status">{feedback}</div>
+  </>)
 }
 
 /**
- * C: the scoring card.
+ * C: THE SCORING CARD, Round A Phase 2.
  *
- * P8: the card is HIDDEN until its own criteria are derived, so one stage can
- * never show another's while a fetch is in flight. The `hidden` attribute is
- * used rather than a class, and nothing gives that class a `display` - the
- * Round 5 finding that an attribute assertion is not a visibility assertion.
+ * Built from the brief's 2.4 and 2.5 and the vanilla's `renderTbScores` and
+ * `applyTbScoreEntryLock` (`54001c5^:frontend/test-bed-detail.js:1759-1793,
+ * 2139-2343`), read for behaviour and not translated.
+ *
+ * P8 (kept): HIDDEN until the stage's own criteria are derived, by the `hidden`
+ * attribute, which no stylesheet overrides. And a stage asking for nothing
+ * shows NO card, not an empty one (the vanilla's "no panel means no panel").
+ *
+ * NO DOM `id` on the card: index.html still carries #tb-stage-scoring-card
+ * outside any mount container. The ids below (a reason box for its label, an
+ * anchors region for its toggle's aria-controls) are per criterion key and
+ * appear nowhere in index.html.
  */
-export function ScoringCard({ card, criteria, series, onRecord }: {
+export function ScoringCard({ card, criteria, series, scores, onDraft, onReason, onRecord, measurability, onMeasurability }: {
   card: { hidden: boolean, stage?: string }
   criteria: readonly Criterion[]
   series: (key: string) => readonly ScoreEntry[]
-  onRecord: (drafts: Record<string, string>, reasons: Record<string, string>) => void
+  /** The drafts, held by StageTabs so the exit-criteria panel reads the same ones (2.6). */
+  scores: ScoreDrafts
+  onDraft: (key: string, value: string, awaiting: string | null) => void
+  onReason: (key: string, value: string) => void
+  /** 2.3: records the open stage's drafts; resolves to the message to show, or null. */
+  onRecord: () => Promise<string | null>
+  /** 2.4: whether the open stage's requirements name measurabilityConfirmed. */
+  measurability: boolean
+  /** 2.4: saves a yes or no at once; resolves to the message to show, or null. */
+  onMeasurability: (confirmed: boolean) => Promise<string | null>
 }) {
-  const [state, setState] = useState<ScoreDraftState>({ drafts: {}, recorded: new Set() })
-  const [reasons, setReasons] = useState<Record<string, string>>({})
-  const [open, setOpen] = useState<ReadonlySet<string>>(new Set())
+  // DISCLOSURE, not state (C7): none of it reaches the record.
+  const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set())
+  // Three states per criterion: undefined (nobody decided, a pending draft
+  // opens it), true, false. A decision outranks the default, and an explicit
+  // close survives the next focus of the select (the vanilla's Round 28 guard).
+  const [anchorsOpen, setAnchorsOpen] = useState<Readonly<Record<string, boolean>>>({})
   const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [measError, setMeasError] = useState<string | null>(null)
+  const [measBusy, setMeasBusy] = useState(false)
+  // FOCUS MOVES INTO THE REASON BOX once it exists. It is rendered only for a
+  // pending draft, so focusing in the change handler would focus nothing; the
+  // effect runs after the render that produces it.
+  const [focusFor, setFocusFor] = useState<string | null>(null)
+  const reasonBoxes = useRef<Record<string, HTMLTextAreaElement | null>>({})
+  useEffect(() => {
+    if (!focusFor) return
+    const ta = reasonBoxes.current[focusFor]
+    if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length) }
+    setFocusFor(null)
+  }, [focusFor, scores])
 
-  const blocking = awaitingReason(state.drafts, reasons, criteria, series)
+  const blocking = awaitingReason(scores.drafts, scores.reasons, criteria, series)
+  const blockingName = blocking ? (criteria.find((c) => c.criterion_key === blocking)?.name ?? blocking) : null
+  const anyDraft = criteria.some((c) => (scores.drafts[c.criterion_key] ?? '') !== '')
+  const showAnchors = (key: string) => setAnchorsOpen((o) => (o[key] === undefined ? { ...o, [key]: true } : o))
+  const when = (at?: string) => formatTimestamp(at)
+
+  const measSeries = series('measurabilityConfirmed')
+  const measCurrent = currentEntry(measSeries)
 
   return (
-    // NO DOM `id`. index.html still carries #tb-stage-scoring-card, and that
-    // markup sits OUTSIDE any React mount container, so both would be in the
-    // document at once and getElementById would return whichever came first -
-    // the Reference bar's defect exactly. Caught by the standing detector
-    // rather than by reading. The tree is addressed by data-testid throughout.
     <div className="pg-card" data-testid="tb-stage-scoring-card"
-      hidden={card.hidden} data-stage={card.stage}>
+      hidden={card.hidden || (!criteria.length && !measurability)} data-stage={card.stage}>
       <div className="pg-card-title">Scoring</div>
-      {criteria.map((c) => {
-        const levels = levelsFor(c)
-        const locked = entryLocked(state.recorded, c.criterion_key)
-        const draft = state.drafts[c.criterion_key] ?? ''
-        const needsReason = reasonRequired(Number(draft), levels, series(c.criterion_key))
-        const sum = summarise(series(c.criterion_key))
-        return (
-          <div key={c.criterion_key} data-testid={`tb-score-${c.criterion_key}`}>
-            <span>{c.name ?? c.criterion_key}</span>
-            <select disabled={locked} value={draft}
-              data-testid={`tb-score-select-${c.criterion_key}`}
-              onChange={(e) => setState((s) => setScoreDraft(s, c.criterion_key, e.target.value))}>
-              <option value="">--</option>
-              {levels.map((l) => (
-                <option key={l.value} value={String(l.value)}>{l.label ?? l.value}</option>))}
-            </select>
-            {needsReason
-              ? <textarea data-testid={`tb-score-reason-${c.criterion_key}`}
-                  value={reasons[c.criterion_key] ?? ''}
-                  onChange={(e) => setReasons((r) => ({ ...r, [c.criterion_key]: e.target.value }))} />
+
+      {/* THE LOCK NOTE. A disabled control with no stated reason is a dead end
+          the person keeps clicking, so it says which criterion and why. */}
+      {blocking
+        ? <p className="tb-score-lock" data-testid="tb-score-lock-note">
+            Add the Reason for {blockingName} before scoring anything else.</p>
+        : null}
+
+      {measurability
+        ? (
+          <div className="tb-score-row" data-criterion="measurabilityConfirmed"
+            data-testid="tb-score-measurability" data-entries={measSeries.length}>
+            <div className="tb-score-head">
+              <span className="tb-score-name">Can the proposed sensors capture what would be measured?</span>
+              <span className={measCurrent ? 'tb-score-value' : 'tb-score-value tb-score-value--none'}
+                data-testid="tb-measurability-value">
+                {measCurrent ? (measCurrent.value ? 'Yes' : 'No') : 'Not confirmed'}</span>
+              {/* Saves on choice; it is always offered empty, so it reads as
+                  "confirm" or "change" rather than holding a value it has not sent. */}
+              <select className="tb-score-select" aria-label="Measurability confirmation"
+                data-testid="tb-measurability-select" value=""
+                disabled={!!blocking || measBusy}
+                onChange={(e) => {
+                  const v = e.target.value
+                  if (v === '') return
+                  setMeasError(null)
+                  setMeasBusy(true)
+                  void onMeasurability(v === 'yes').then((msg) => { setMeasError(msg); setMeasBusy(false) })
+                }}>
+                <option value="">{measCurrent ? 'Change...' : 'Confirm...'}</option>
+                <option value="yes">Yes</option>
+                <option value="no">No</option>
+              </select>
+            </div>
+            {measCurrent
+              ? (
+                <div className="ref-notes-row tb-score-entry" data-testid="tb-measurability-entry">
+                  <span className="ref-notes-when">{when(measCurrent.at)}</span>
+                  <span className="ref-notes-author">{measCurrent.by ?? '--'}</span>
+                  <span className="ref-notes-text">{measCurrent.value ? 'Yes' : 'No'} at {measCurrent.stage ?? ''}</span>
+                </div>)
               : null}
-            {/* C7: DISCLOSURE, not state. Nothing here reaches the record. */}
-            <button type="button" data-testid={`tb-score-history-${c.criterion_key}`}
-              onClick={() => setOpen((o) => toggle(o, c.criterion_key))}>
-              {open.has(c.criterion_key) ? 'Hide' : 'History'} ({sum.count})
-            </button>
-            {open.has(c.criterion_key)
-              ? <div data-testid={`tb-score-series-${c.criterion_key}`}>
-                  {sum.latest?.reason ?? 'No reason recorded.'}</div>
+            {measError ? <p className="msg-error" data-testid="tb-measurability-error">{measError}</p> : null}
+          </div>)
+        : null}
+
+      {criteria.map((c) => {
+        const key = c.criterion_key
+        const name = c.name ?? key
+        const levels = levelsFor(c)
+        const s = series(key)
+        const current = currentEntry(s)
+        const draft = scores.drafts[key] ?? ''
+        const isBlocking = blocking === key
+        const required = draft !== '' && reasonRequired(Number(draft), levels, s)
+        const open = expanded.has(key)
+        const anchors = anchorsOpen[key] ?? (draft !== '')
+        const set = anchorSet(c, c.current_version)
+        const wording = (value: number, description?: string | null) => set[String(value)] ?? description ?? ''
+        return (
+          <div key={key} data-testid={`tb-score-${key}`} className="tb-score-row"
+            data-criterion={key} data-entries={s.length}>
+            <div className="tb-score-head">
+              <span className="tb-score-name">{name}</span>
+              <span className={current ? 'tb-score-value' : 'tb-score-value tb-score-value--none'}
+                data-testid={`tb-score-value-${key}`}>
+                {current && current.value !== undefined ? String(current.value) : 'Not scored'}</span>
+              {/* THE BLOCKING CRITERION KEEPS ITS OWN CONTROL: changing the level
+                  is a legitimate way out of needing a reason. */}
+              <select className="tb-score-select" aria-label={`${name} score`}
+                data-testid={`tb-score-select-${key}`} value={draft}
+                disabled={!!blocking && !isBlocking}
+                onFocus={() => showAnchors(key)} onMouseDown={() => showAnchors(key)}
+                onChange={(e) => {
+                  const v = e.target.value
+                  onDraft(key, v, blocking)
+                  if (v !== '' && (!blocking || isBlocking) && reasonRequired(Number(v), levels, s)) setFocusFor(key)
+                }}>
+                <option value="">{current ? 'Revise...' : 'Score...'}</option>
+                {levels.map((l) => <option key={l.value} value={String(l.value)}>{l.label ?? l.value}</option>)}
+              </select>
+              {s.length > 1
+                ? (
+                  <button type="button" className="btn-text" aria-expanded={open}
+                    data-testid={`tb-score-history-${key}`}
+                    onClick={() => setExpanded((o) => toggle(o, key))}>
+                    {open ? 'Hide history' : `Show history (${s.length})`}</button>)
+                : null}
+            </div>
+
+            {/* THE CURRENT ENTRY'S EXPLANATION, ALWAYS SHOWN: a reason the
+                system required must be shown back without a click. An old
+                `comment` renders unlabelled, as it was written. */}
+            {current && (current.comment || current.reason)
+              ? (
+                <div className="tb-score-current" data-testid={`tb-score-current-${key}`}>
+                  {current.comment ? <span className="tb-score-current-text">{current.comment}</span> : null}
+                  {current.reason ? <span className="tb-score-current-text"><em>Reason:</em> {current.reason}</span> : null}
+                </div>)
+              : null}
+
+            {/* THE QUESTION, verbatim, outside the anchors: it labels the criterion. */}
+            {c.asks ? <p className="tb-score-asks" data-testid={`tb-score-asks-${key}`}>{c.asks}</p> : null}
+
+            <button type="button" className="anchors-toggle"
+              aria-expanded={anchors} aria-controls={`tb-anchors-${key}`}
+              data-testid={`tb-anchors-toggle-${key}`}
+              onClick={() => setAnchorsOpen((o) => ({ ...o, [key]: !anchors }))}>
+              {anchors ? 'Hide definitions' : 'Show definitions'}</button>
+            {/* EVERY LEVEL IS LISTED, and a level with no wording is shown with
+                none and marked, rather than hidden or given invented text. */}
+            <div id={`tb-anchors-${key}`} data-testid={`tb-anchors-${key}`}
+              className={anchors ? 'tb-score-anchors' : 'tb-score-anchors hidden'}>
+              {levels.map((l) => (
+                <div key={l.value} data-testid={`tb-anchor-${key}-${l.value}`}
+                  className={wording(l.value, l.description) ? 'tb-score-anchor' : 'tb-score-anchor tb-score-anchor--nowording'}>
+                  <span className="tb-score-anchor-n">{l.label ?? l.value}</span>
+                  <span className="tb-score-anchor-text">{wording(l.value, l.description)}</span>
+                </div>))}
+              <p className="sub tb-score-anchor-ver" data-testid={`tb-anchors-version-${key}`}>
+                Version {String(c.current_version)}</p>
+            </div>
+
+            {draft !== ''
+              ? (
+                <div className={isBlocking ? 'tb-score-reason tb-score-reason--needed' : 'tb-score-reason'}>
+                  {/* NOT COLOUR ALONE: the label's words change too. */}
+                  <label htmlFor={`tb-score-reason-${key}`} data-testid={`tb-score-reason-label-${key}`}>
+                    {isBlocking ? 'Reason required before scoring anything else'
+                      : (required ? 'Reason (required)' : 'Reason (optional)')}</label>
+                  <textarea id={`tb-score-reason-${key}`} rows={2}
+                    data-testid={`tb-score-reason-${key}`}
+                    ref={(el) => { reasonBoxes.current[key] = el }}
+                    value={scores.reasons[key] ?? ''}
+                    onChange={(e) => onReason(key, e.target.value)} />
+                </div>)
+              : null}
+
+            {/* HISTORY, NEWEST FIRST, each entry resolved against its OWN anchor
+                version, so an old score keeps meaning what it meant when the
+                anchors are revised. */}
+            {open
+              ? (
+                <div className="tb-score-history" data-testid={`tb-score-series-${key}`}>
+                  {[...s].reverse().map((e, i) => {
+                    const own = typeof e.value === 'number' ? anchorSet(c, e.anchorVersion)[String(e.value)] : undefined
+                    return (
+                      <div key={`${e.at ?? ''}-${i}`} className="ref-notes-row tb-score-entry" data-testid="tb-score-entry">
+                        <span className="ref-notes-when">{when(e.at)}</span>
+                        <span className="ref-notes-author">{e.by ?? '--'}</span>
+                        <span className="ref-notes-text">
+                          <strong>{String(e.value)}</strong>{e.stage ? ` at ${e.stage}` : ''}{' '}
+                          <span className="sub">v{String(e.anchorVersion ?? '?')}</span>
+                          {e.comment ? <><br />{e.comment}</> : null}
+                          {e.reason ? <><br /><em>Reason: {e.reason}</em></> : null}
+                          {own ? <><br /><span className="tb-score-entry-anchor">{own}</span></> : null}
+                        </span>
+                      </div>)
+                  })}
+                </div>)
               : null}
           </div>)
       })}
 
-      {/* C5: the SAVE is blocked, and it names which criterion. */}
-      <button type="button" data-testid="tb-score-record"
-        disabled={!!blocking}
-        onClick={() => {
-          const keys = Object.keys(state.drafts)
-          for (const k of keys) {
-            const check = reasonAccepted(reasons[k] ?? '', series(k))
-            const levels = levelsFor(criteria.find((c) => c.criterion_key === k))
-            if (reasonRequired(Number(state.drafts[k]), levels, series(k)) && !check.ok) {
-              setError(check.error ?? 'A reason is required.'); return
-            }
-          }
-          setError(null)
-          onRecord(state.drafts, reasons)
-          setState((s) => recordScore(s, keys))
-        }}>Record scores</button>
-      {blocking
-        ? <p className="msg-error" data-testid="tb-score-blocked">
-            A reason is required at {blocking}.</p>
+      {/* 2.3: nothing to send is not a request. The old button posted
+          `{"entries":[]}` with no drafts at all (P0.1). */}
+      {criteria.length
+        ? (
+          <button type="button" data-testid="tb-score-record"
+            disabled={!!blocking || !anyDraft || busy}
+            onClick={() => {
+              for (const c of criteria) {
+                const k = c.criterion_key
+                if ((scores.drafts[k] ?? '') === '') continue
+                const check = reasonAccepted(scores.reasons[k] ?? '', series(k))
+                if (reasonRequired(Number(scores.drafts[k]), levelsFor(c), series(k)) && !check.ok) {
+                  setError(check.error ?? 'A reason is required.'); return
+                }
+              }
+              setError(null)
+              setBusy(true)
+              void onRecord().then((msg) => { setError(msg); setBusy(false) })
+            }}>Record scores</button>)
         : null}
       {error ? <p className="msg-error" data-testid="tb-score-error">{error}</p> : null}
     </div>

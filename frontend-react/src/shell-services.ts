@@ -172,6 +172,20 @@ export interface ShellServices {
     recordId: string, nextStage: string, recordType: string, currentStage: string,
   ): void
   /**
+   * ── B6: THE SHELL'S SHARED INLINE CONTACT CREATION ───────────────────
+   *
+   * Round A Phase 3.2. The vanilla Test Bed's "+ New" called
+   * `openInlineBuyerContactModal('test_bed', ...)`, the ONE modal both the Test
+   * Bed and the Opportunity use: create, link to the Account, qualify through
+   * the real transition, then link in the role, and reload the record. Reused,
+   * not rebuilt - a second modal would be a second orchestration of four
+   * endpoints. The modal's markup sits outside every React mount container.
+   *
+   * Returns whether the shell provided it, so a surface can say so rather than
+   * offer a control that silently does nothing.
+   */
+  openInlineBuyerContact(recordId: string, accountId: string, role: string): boolean
+  /**
    * ── C1, THE SEAM THAT REPLACES A LEXICAL READ ────────────────────────
    *
    * `frontend/app.js` bound its Contact back button to `cdReturnView`, a `let`
@@ -226,6 +240,9 @@ type ShellWindow = Window & {
   attemptTransition?: (
     recordId: string, nextStage: string, feedbackId: string,
     recordType: string, currentStage: string,
+  ) => void
+  openInlineBuyerContactModal?: (
+    recordType: string, recordId: string, accountId: string, role: string,
   ) => void
   requestChangeReason?: (opts: ChangeReasonOptions) => void
   currentSession?: { user?: { email?: string, id?: string } } | null
@@ -337,6 +354,12 @@ export const shellServices: ShellServices = {
     if (typeof fn === 'function') {
       fn(recordId, nextStage, 'tb-next-stage-feedback', recordType, currentStage)
     }
+  },
+  openInlineBuyerContact(recordId: string, accountId: string, role: string): boolean {
+    const fn = w().openInlineBuyerContactModal
+    if (typeof fn !== 'function') return false
+    fn('test_bed', recordId, accountId, role)
+    return true
   },
   // NOT guarded with a throw. The shell reads this through its own guarded
   // accessor with a default, so a shell that never asks is a shell whose back

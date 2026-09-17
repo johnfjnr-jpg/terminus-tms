@@ -162,8 +162,11 @@ describe('W4: the redundant block is gone and the name row is not', () => {
     const keys = [...q('tb-card-terminus')!.querySelectorAll('[data-key]')]
       .map((e) => e.getAttribute('data-key'))
     expect(keys[0]).toBe('name')
-    expect(keys).toEqual(['name', 'terminusLead', 'commercialAuthority',
-      'technicalAuthority', 'terminusLegalOwner', 'region', 'country'])
+    // Round A Phase 4.3 adds the vanilla's three read-only identity rows in the
+    // vanilla's positions: Terminus Reference under the name, Industry and Stage
+    // after the editable fields. The name still leads.
+    expect(keys).toEqual(['name', 'tb-id-reference', 'terminusLead', 'commercialAuthority',
+      'technicalAuthority', 'terminusLegalOwner', 'region', 'country', 'tb-id-industry', 'tb-id-stage'])
   })
 })
 

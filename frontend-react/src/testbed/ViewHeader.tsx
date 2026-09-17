@@ -9,7 +9,7 @@ import { headerStats } from './headerStats'
 
 const CHEVRON_ID = 'tb-chevron-strip'
 
-export function ViewHeader({ record, readOnly, titleAction, band }: {
+export function ViewHeader({ record, readOnly, titleAction, band, onBack }: {
   record: {
     status?: string
     payload?: Record<string, unknown> & { name?: string, client_organisation?: string }
@@ -38,6 +38,12 @@ export function ViewHeader({ record, readOnly, titleAction, band }: {
    * by somebody deleting this slot.
    */
   band?: ReactNode
+  /**
+   * R4: BACK TO TEST BEDS, restored. The static button was destroyed when
+   * createRoot cleared the view (audit L11), taking app.js's listener with it.
+   * It goes through the shell's own navigation, which the host supplies.
+   */
+  onBack?: () => void
 }) {
   const { name, client } = headerOf(record)
   const payload = record?.payload ?? {}
@@ -71,6 +77,16 @@ export function ViewHeader({ record, readOnly, titleAction, band }: {
 
   return (
     <div data-testid="tb-view-header">
+      {/* R4: THE VANILLA'S BUTTON, IN THE VANILLA'S PLACE: the first thing in
+          the header, above the title, `btn-text` with the vanilla's id. The id
+          is what keeps it alive on somebody else's record: the door exempts
+          `[id^="btn-back-"]` as navigation. It is reproduced inside the mount
+          container createRoot clears, so it cannot collide with the static
+          markup's copy (disposed in no-duplicate-ids.test.mjs). */}
+      {onBack
+        ? <button type="button" className="btn-text" id="btn-back-testbeds"
+            data-testid="tb-back" onClick={onBack}>Back to test beds</button>
+        : null}
       {/* TITLE LARGE, SUMMARY TO ITS RIGHT. The summary keeps its element even
           when empty, for the reason the client line already does: the title
           must not move when one record has a summary and the next does not.

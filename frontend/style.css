@@ -2906,6 +2906,20 @@ input.input-invalid {
   flex: 1 1 auto;
   min-width: 0;
 }
+/* Round A Phase 3: the buyer row's right-hand slot takes the row's remaining
+   width and stacks its controls above a refusal message, so a message can never
+   squeeze the select beside it. */
+.tb-buyer-slot {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+/* Round A Phase 3: the same two declarations as `#tb-buyer-rows select` below,
+   by class, because the React rows cannot carry that id without duplicating the
+   static markup's. */
+.tb-buyer-controls select {
+  flex: 1 1 auto;
+  min-width: 0;
+}
 #tb-buyer-rows select {
   flex: 1 1 auto;
   min-width: 0;

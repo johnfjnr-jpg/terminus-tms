@@ -91,7 +91,7 @@ const SURFACES: Array<{ name: string, node: () => React.ReactNode }> = [
     name: 'Test Bed',
     node: () => (
       <TestBedPanelForTest source={{ payload: { name: 'Bed', city: 'KL' }, staff: [] }}
-        contacts={[]} buyers={{}} onSave={() => {}} />),
+        onSave={() => {}} />),
   },
   {
     name: 'Contact',

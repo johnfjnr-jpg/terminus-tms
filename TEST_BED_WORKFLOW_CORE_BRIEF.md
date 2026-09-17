@@ -20,6 +20,21 @@ CLAUDE.md disagree, CLAUDE.md wins and the disagreement is a finding.
 - R4 (audit L11). Back to test beds RETURNS, navigating to the test bed
   list. It rides this round.
 
+## Rulings at the Phase 0 sign-off (John, 2026-09-17)
+
+- R5 (P0.5 finding). Phase 3.1's acceptance is restated in the positive
+  form below; the vacuous edit-bar line is removed.
+- R6. The Phase 0 probe becomes a committed instrument under
+  scripts/testbed-core/, with an index of its evidence. New files only.
+- R7. The pre-commit hook fix rides this round: pre-commit-suites.mjs
+  derives ROOT from its own location, calibrated both directions (refuses
+  on an injected red suite, passes on green). The only edit to an existing
+  script this round outside the phases.
+- R8 (supersedes the Phase 0 report's Phase 4 note). The blocked list
+  persisting across tab switches is VANILLA PARITY, not fix-created: the
+  old element cleared only at the top of the next transition attempt.
+  Phase 4 matches that and adds no tab-change clear.
+
 ## Standing constraints
 
 - Behaviour and data changes throughout, so the FULL treatment applies:
@@ -150,11 +165,32 @@ appearing on Qualification and absent elsewhere.
 
 ## PHASE 3: buyer links (B6)
 
-- 3.1 Selecting a contact writes immediately via POST
-  /test-beds/:id/buyer-contacts with per-role feedback; a linked role
-  renders read-only with the contact's name. The buyer rows leave the
-  batched dirty accounting entirely, so the edit bar can no longer show
-  a change that saves nothing.
+### Rulings and addenda at the Phase 2 sign-off (John, 2026-09-17)
+
+- R10. The per-stage Record scope stands: a draft made on another stage's
+  tab stays there, and the button sends the open stage's scores only. It
+  follows R2 and is not revisitable this round.
+- R11. MIGRATION_TEST_BED_CAPABILITIES.md is a HINT, not the authority, for
+  the rest of this round: C6 proved it is inference over the vanilla. Where
+  it and the vanilla at 54001c5^ disagree, the vanilla wins and the
+  disagreement is a finding. C6 and C9 are annotated at the round close, not
+  now.
+- Addendum (a), reported in Phase 3's report: provoke a REAL mid-run refusal
+  from the server during a live Record run (three drafts, the second a
+  revision without a reason) and read the outcome back from the database.
+  Closes Phase 2's "does not establish" line on S7.
+- Addendum (b), reported in Phase 3's report: width measurements for the
+  scoring card at 1240 and 3440, the treatment Phase 1 gave the exit panel.
+- Phase 3 is built under the P0.5 finding: the buyer rows are not registered
+  in the draft store, so this builds the direct-write control; acceptance is
+  R5's positive form, all three observable live.
+
+- 3.1 Acceptance, all three observable on the live screen: selecting a
+  contact fires POST /test-beds/:id/buyer-contacts; per-role feedback
+  renders for that role; a linked role displays the contact's name
+  read-only. (The previous "edit bar can no longer show a change that
+  saves nothing" line is removed: P0.5 measured it already true on the
+  broken screen, so it could not fail. R5.)
 - 3.2 The "+ New" inline contact creation returns, through the shell's
   existing openInlineBuyerContactModal seam (app.js already supports the
   test_bed context at its 3131 region). If the seam cannot be reached
@@ -165,10 +201,23 @@ appearing on Qualification and absent elsewhere.
 
 ## PHASE 4: the riders (B5 + R4 + L9)
 
+### Carried at the Phase 3 sign-off (John, 2026-09-17)
+
+- The route accepting a second contact in an already-linked role is noted
+  for ROUND B's server scope, not a general list.
+- The buyer rows are measured at 1240 and 3440 in Phase 4's run, the
+  treatment addendum (b) gave the scoring card.
+- Phase 4 runs under R8 (no tab-change clear) and R11 (the vanilla at
+  54001c5^ wins over the capabilities document; a disagreement is a finding).
+- 4.1's closing proof is P0.4 re-run under a new run label, plus a
+  calibration showing the live proof redden with the id removed.
+
 - 4.1 B5: the transition feedback element carries
   id="tb-next-stage-feedback" again beside its testid. Proven live: a
   blocked transition renders the itemised blocking list; calibrated by
-  removing the id and showing the proof redden.
+  removing the id and showing the proof redden. Per R8, the list clears
+  only at the top of the next attempt, as the vanilla did; no tab-change
+  clear is added.
 - 4.2 R4: a "Back to test beds" control in the view header, navigating
   to the test bed list through the shell.
 - 4.3 L9: the six read-only rows return where the old screen had them:
@@ -177,6 +226,27 @@ appearing on Qualification and absent elsewhere.
   Dates, Age computed at display time from created_at.
 
 ## PHASE 5: the close
+
+### Rulings at the Phase 4 sign-off (John, 2026-09-17)
+
+- R12 (Phase 4 finding 1, refines R8). The blocked list CLEARS on the host's
+  own load() after a save, and nowhere else. R8's no-tab-change clear stands.
+  Reason beyond parity: after a save the list can be actively wrong, demanding
+  the very thing just recorded, and a refusal that contradicts what the user
+  just did is worse than no message. Built and calibrated both directions; the
+  live proof shows the list gone after a host-internal reload and still present
+  across a tab switch.
+- R13 (Phase 4 finding 4). The pre-commit hook gains a typecheck stage, riding
+  this close as its own commit on the R7 precedent. Calibrated both directions:
+  refusing on an injected type error, passing clean. Running tsc by hand is a
+  person-shaped guard and does not survive the next session.
+- The close additionally: annotates the capabilities document's C6 and C9 per
+  R11, and gives K3's timing its own paragraph rather than a carried line.
+- Carried into ROUND B, not this close: the route accepting a second contact in
+  an already-linked role; K1's journal hole; the server refusal text naming "a
+  score of 1 or 2"; exit-criteria-live.json's staleness treatment if the close
+  does not settle it.
+
 
 Gate on the exact tree, revert rehearsal from an explicit ref with the
 tree verified byte-identical, reconciliation by counting (commits
@@ -203,3 +273,23 @@ Units (Round B). The tick queue (documented position, 1.5). C2 as ruled.
 L7, L8, L10, L12, C9 ride Round B or a later hygiene batch unless a
 phase here touches their file anyway, in which case the report says so
 and asks.
+
+## Carried list, recorded at the Phase 1 sign-off (John, 2026-09-17)
+
+Not fixed in this round.
+
+- K1. The edit-journal hook accepts untracked edits to a file that
+  already carries one tracked edit (Phase 1 report, process notes).
+- K2. `frontend-react/src/__tests__/fixtures/exit-criteria-live.json` is
+  a snapshot of the current gate configuration and needs a staleness
+  treatment at the round close.
+- K3. The database gate stage ran about 160s against 112 to 126s
+  earlier, passing. Watch the shape.
+
+## Ruling at the Phase 1 sign-off: Phase 2 order (John, 2026-09-17)
+
+- R9. The starvation is fixed before the contract: 2.1, then 2.2, then
+  2.3, then 2.4, 2.5, 2.6. The closing proof is a live run recording a
+  real score end to end and reading it back from the database, plus the
+  P0.1 and P0.2 sections of probe-p0 re-run under a new run label. The
+  report states at its top which model the session is running.

@@ -4,10 +4,49 @@
 // scoreReason.ts; this is the state around them.
 import { reasonRequired, type Level, type ScoreEntry } from './scoreReason'
 
+/**
+ * A scoring criterion, typed from GET /api/scoring-criteria (src/routes/scoring.js)
+ * as captured in `__tests__/fixtures/scoring-live.json`. Every field beyond the
+ * key is optional because the panel must render a criterion the route returns
+ * with less, rather than a fixture shaped to what the panel wants.
+ */
 export interface Criterion {
   criterion_key: string
   name?: string
+  asks?: string | null
+  sort_order?: number
   levels?: Level[]
+  /** The stages this criterion is shown and scoreable at, from scoring_criterion_stages. */
+  stages?: Array<{ stage: string, required?: boolean }>
+  /** Anchor wording by VERSION then LEVEL. Versions arrive as object keys, so strings. */
+  anchors?: Record<string, Record<string, string>>
+  current_version?: number | null
+}
+
+/**
+ * 2.1: WHICH CRITERIA A STAGE TAB SHOWS, from the criterion's OWN stage rows.
+ *
+ * The vanilla's Round 24 Phase 5 rule: visibility comes from
+ * `criterion.stages`, not from whether a gate rule at that stage names the
+ * criterion, because display and requirement are different facts. The order is
+ * the route's (it sorts by sort_order), kept rather than re-sorted here.
+ *
+ * This replaces the host's `scoring` state, which nothing ever set, so every
+ * stage offered no criteria at all (audit B2, reproduced live as P0.2).
+ */
+export function criteriaForStage(all: readonly Criterion[], stage: string): Criterion[] {
+  return all.filter((c) => (c.stages ?? []).some((s) => s.stage === stage))
+}
+
+/**
+ * The anchor wording at one VERSION, by level. Versions arrive as JSON object
+ * keys, so they are looked up as strings; an unknown version is an empty set,
+ * never the current one, so a history entry is never restated in wording it
+ * was not scored against.
+ */
+export function anchorSet(c: Criterion | undefined, version: number | null | undefined): Record<string, string> {
+  if (version === null || version === undefined) return {}
+  return c?.anchors?.[String(version)] ?? {}
 }
 
 /** C1: levels come from the criterion, and a criterion without them scores nothing. */
@@ -39,16 +78,16 @@ export function awaitingReason(
   return null
 }
 
-/**
- * C6: entry is LOCKED once a score is recorded in this session.
- *
- * The lock is what makes C5's "by the time Save runs, a revision cannot be
- * dirty without a reason" true: it refuses further scoring rather than
- * accumulating drafts behind an unmet requirement.
- */
-export function entryLocked(recorded: ReadonlySet<string>, key: string): boolean {
-  return recorded.has(key)
-}
+// ── C6 "LOCKED ONCE RECORDED" IS REMOVED, Round A Phase 2.3 ─────────────
+//
+// A CONTRACT FINDING, not a preference. The Phase 0b enumeration's C6 reads
+// `applyTbScoreEntryLock` as "locks entry once recorded", and the React card
+// built that: a recorded criterion's select stayed disabled for the session.
+// The vanilla function is the AWAITING-REASON lock (brief 2.5) - it disables the
+// OTHER selects while one criterion's reason is outstanding - and after a
+// record the vanilla reloads and offers "Revise...". A permanent lock would also
+// defeat 2.3's retry: a partial failure leaves the unrecorded drafts open
+// precisely so they can be sent again.
 
 /**
  * C7: anchors and history are DISCLOSURE, not state.
@@ -71,43 +110,140 @@ export function toggle(open: ReadonlySet<string>, key: string): Set<string> {
 export const SCORE_ROUTE = (id: string) => `/api/test-beds/${id}/scores`
 export const MEASURABILITY_ROUTE = (id: string) => `/api/test-beds/${id}/measurability`
 
-/**
- * C9: the summary and the detail are TWO RENDERERS OVER ONE SERIES.
- *
- * Verification 20 says a second reader drifts, so the series is reduced once
- * here and both renderers take the result rather than each reducing it.
- */
-export interface ScoreSummary { latest: ScoreEntry | null, count: number }
-
-export function summarise(series: readonly ScoreEntry[]): ScoreSummary {
-  return { latest: series[0] ?? null, count: series.length }
-}
+// ── C9 / 2.2: `summarise` IS REMOVED ─────────────────────────────────────
+//
+// It called `series[0]` the latest entry, which is true of nothing this app
+// stores: the payload series APPENDS, so index 0 is the OLDEST. It survived
+// because its only input was `seriesByKey`, which only a POST response filled
+// and B1 meant no POST ever succeeded. The one reducer is now `orderedSeries`
+// in QualificationScore.tsx, which both renderers take (C9).
 
 /**
- * C2: A SCORE IS A DRAFT UNTIL RECORDED.
+ * C2: A SCORE IS A DRAFT UNTIL RECORDED, and its reason travels with it.
  *
- * Two separate stores, because they answer different questions: `drafts` is
- * what the box currently holds, `recorded` is what the record has been told.
- * The draft is cleared on record so the box stops offering a value the record
- * already holds - which is what makes C6's lock a lock rather than a second
- * copy of the same number.
+ * Held above both stage panels (StageTabs), because 2.6's pending marks on the
+ * exit-criteria panel render from the same drafts the scoring card edits.
  */
-export interface ScoreDraftState {
-  drafts: Record<string, string>
-  recorded: ReadonlySet<string>
+export interface ScoreDrafts {
+  drafts: Readonly<Record<string, string>>
+  reasons: Readonly<Record<string, string>>
+}
+export const NO_DRAFTS: ScoreDrafts = { drafts: {}, reasons: {} }
+
+/**
+ * Set or clear one draft. CLEARING drops its reason too (the vanilla's
+ * `setTbScoreDraft`), so an abandoned score cannot leave a reason behind to be
+ * sent with the next one.
+ *
+ * THE HANDLER REFUSES, not only the control (2.5): while another criterion is
+ * awaiting its reason, a draft for this one is not taken, whatever disabled the
+ * select or failed to. The vanilla's note: a change event dispatched at a
+ * disabled select was taken, which is the handler trusting the control.
+ */
+export function applyDraft(s: ScoreDrafts, key: string, value: string, awaiting: string | null): ScoreDrafts {
+  if (awaiting && awaiting !== key) return s
+  const drafts = { ...s.drafts }
+  const reasons = { ...s.reasons }
+  if (value === '') { delete drafts[key]; delete reasons[key] } else drafts[key] = value
+  return { drafts, reasons }
 }
 
-export function setScoreDraft(
-  state: ScoreDraftState, key: string, value: string,
-): ScoreDraftState {
-  return { drafts: { ...state.drafts, [key]: value }, recorded: state.recorded }
+export function applyReason(s: ScoreDrafts, key: string, value: string): ScoreDrafts {
+  return { drafts: s.drafts, reasons: { ...s.reasons, [key]: value } }
 }
 
-export function recordScore(
-  state: ScoreDraftState, keys: readonly string[],
-): ScoreDraftState {
-  const drafts = { ...state.drafts }
-  const recorded = new Set(state.recorded)
-  for (const key of keys) { delete drafts[key]; recorded.add(key) }
-  return { drafts, recorded }
+/** A recorded score stops being a draft; everything not recorded stays for a retry. */
+export function clearRecorded(s: ScoreDrafts, keys: readonly string[]): ScoreDrafts {
+  const drafts = { ...s.drafts }
+  const reasons = { ...s.reasons }
+  for (const k of keys) { delete drafts[k]; delete reasons[k] }
+  return { drafts, reasons }
+}
+
+export interface RecordOutcome {
+  /** Criterion keys the server accepted, in the order they were sent. */
+  recorded: string[]
+  /** The first refusal, which stopped the run. */
+  failed: { key: string, error: string } | null
+  /** True when the door refused before anything was sent. */
+  refused: boolean
+}
+
+/**
+ * 2.3: THE CONTRACT, CLIENT-SIDE. One POST per criterion, the flat body the
+ * server reads (`src/lib/score-entry.js`), in PANEL ORDER, one at a time.
+ *
+ * The client sent `{ entries: [{ criterion_key, ... }] }` and the server reads
+ * `{ criterion, score, reason }`, so every attempt was refused (audit B1,
+ * reproduced live as P0.1).
+ *
+ * THE VANILLA'S STATED PARTIAL-FAILURE SEMANTICS, because this cannot be atomic:
+ * each score is its own append to its own revision, and revisions are immutable.
+ *   - attempted in panel order;
+ *   - a recorded score STANDS, it cannot be retracted;
+ *   - the FIRST failure stops the run, and nothing after it is attempted (a
+ *     failure here is far likelier to be systemic than specific to one score);
+ *   - everything not recorded stays drafted, for a retry.
+ *
+ * Only the criteria the open stage SHOWS are sent: a draft made on another
+ * stage's tab waits there. A reason is sent only when it has content.
+ */
+export async function recordScoresInOrder(
+  deps: {
+    canEdit: () => boolean
+    post: (body: { criterion: string, score: number, reason?: string }) => Promise<{ ok: boolean, error?: string | null }>
+  },
+  criteria: readonly Criterion[],
+  s: ScoreDrafts,
+): Promise<RecordOutcome> {
+  if (!deps.canEdit()) return { recorded: [], failed: null, refused: true }
+  const recorded: string[] = []
+  for (const c of criteria) {
+    const draft = s.drafts[c.criterion_key]
+    if (draft === undefined || draft === '') continue
+    const body: { criterion: string, score: number, reason?: string } = { criterion: c.criterion_key, score: Number(draft) }
+    const reason = String(s.reasons[c.criterion_key] ?? '').trim()
+    if (reason) body.reason = reason
+    const r = await deps.post(body)
+    if (!r.ok) return { recorded, failed: { key: c.criterion_key, error: r.error ?? 'unknown error' }, refused: false }
+    recorded.push(c.criterion_key)
+  }
+  return { recorded, failed: null, refused: false }
+}
+
+/**
+ * 2.4: THE MEASURABILITY ROW APPEARS EXACTLY WHEN THE OPEN STAGE'S REQUIREMENTS
+ * NAME `measurabilityConfirmed`. It is not a scoring criterion, so it has no
+ * stage rows: the vanilla derived it from the same exit-criteria response the
+ * panel already holds, and so does this.
+ */
+export function measurabilityAsked(exit: { requirements?: ReadonlyArray<{ field?: string, requirement_type?: string }> } | null): boolean {
+  return !!exit?.requirements?.some((r) => r.requirement_type === 'payload_field_required'
+    && r.field === 'measurabilityConfirmed')
+}
+
+/**
+ * 2.4: one yes or no, saved IMMEDIATELY on its own route. Deliberately not a
+ * score: it has no scale and no reason, and folding it into the score path
+ * would put a reason in front of a question with nothing to move along.
+ * The door is asked first.
+ */
+export async function recordMeasurability(
+  deps: {
+    canEdit: () => boolean
+    post: (body: { confirmed: boolean }) => Promise<{ ok: boolean, error?: string | null }>
+  },
+  confirmed: boolean,
+): Promise<{ sent: boolean, error: string | null }> {
+  if (!deps.canEdit()) return { sent: false, error: null }
+  const r = await deps.post({ confirmed })
+  return { sent: true, error: r.ok ? null : (r.error ?? 'Could not record the confirmation.') }
+}
+
+/** The vanilla's message: what was recorded, and what was not and why, by criterion NAME. */
+export function recordOutcomeMessage(o: RecordOutcome, criteria: readonly Criterion[]): string | null {
+  if (!o.failed) return null
+  const nameOf = (k: string) => criteria.find((c) => c.criterion_key === k)?.name ?? k
+  const done = o.recorded.length ? `Recorded ${o.recorded.map(nameOf).join(', ')}. ` : 'Nothing was recorded. '
+  return `${done}${nameOf(o.failed.key)} could not be recorded: ${o.failed.error}`
 }

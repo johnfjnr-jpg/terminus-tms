@@ -3,7 +3,7 @@
 // The panel does not fetch, save, or know about routes. This holds those.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { TestBedPanel } from './TestBedPanel'
-import { PAYLOAD_ONLY_KEYS, CLIENT_BUYER_ROLES, testBedDescriptors, type TestBedSource } from './descriptors'
+import { PAYLOAD_ONLY_KEYS, testBedDescriptors, type TestBedSource } from './descriptors'
 import { useFieldRows } from '../field-row/useFieldRows'
 import { CommercialsCards } from './CommercialsCards'
 import { EditBar } from '../field-row/EditBar'
@@ -13,7 +13,7 @@ import { EditBar } from '../field-row/EditBar'
 import { FollowUpTask } from '../contact/FollowUpTask'
 import { createPreviewRunner } from './costPreview'
 import { CostBreakdownCards } from './CostBreakdownCards'
-import { QualificationScore } from './QualificationScore'
+import { QualificationScore, orderedSeries } from './QualificationScore'
 import { isBreakdown, type TestBedCostBreakdown } from './costBreakdown'
 import { useShell } from '../ShellContext'
 import type { LookupOption } from '../field-row/types'
@@ -22,7 +22,10 @@ import { note, prepend, type Note } from '../contact/notes'
 import { StageTabs, type StageTabsDeps } from './StageTabs'
 import { UseCasesList } from './UseCasesList'
 import { DERIVE_ROUTE, UNITS_ROUTE, type Unit } from './units'
-import { SCORE_ROUTE, type Criterion } from './scoring'
+import {
+  SCORE_ROUTE, MEASURABILITY_ROUTE, criteriaForStage, recordScoresInOrder, recordMeasurability,
+  type Criterion,
+} from './scoring'
 import type { ScoreEntry } from './scoreReason'
 import type { Stage } from './stageLoad'
 import { InstallSection } from './InstallSection'
@@ -47,6 +50,12 @@ import { createArrivalFlags, notMine } from './viewLoad'
 import { ConvertPanel } from './ConvertPanel'
 import { CONVERT_ROUTE } from './convert'
 import { completeDocumentRoute, confirmBody, saveUrlBody } from './stageDocuments'
+import { attemptTick } from './exitCriteria'
+import { BuyerLinks } from './BuyerLinks'
+import { linkBuyer, BUYER_CONTACTS_ROUTE } from './buyers'
+import { identityRows } from './identity'
+
+const STALE = 'This Test Bed changed since the screen loaded. Reload before saving.'
 
 /**
  * V7: the numeric fields the validation banner speaks for.
@@ -69,7 +78,12 @@ interface BedLike {
   buyer_contacts?: Array<{ role?: string, contact_id?: string, name?: string }>
   installer?: Installer | null
   account_id?: string | null
-  account?: { id?: string } | null
+  // L9 (Round A Phase 4.3): the identity rows read these, and GET
+  // /api/test-beds/:id carries all four (captured in fixtures/buyers-live.json).
+  account?: { id?: string, name?: string | null } | null
+  reference_code?: string | null
+  created_at?: string | null
+  industry?: { id?: string, name?: string | null } | null
   latest_revision_number?: number | null
   // L1: WAS `unknown`, AND THAT WAS THE WHOLE DEFECT IN ONE WORD.
   //
@@ -115,8 +129,7 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
   const [dirty, setDirty] = useState(false)
   const [units, setUnits] = useState<Unit[]>([])
   const [stages, setStages] = useState<Stage[]>([])
-  const [scoring, setScoring] = useState<Record<string, Criterion[]>>({})
-  const [seriesByKey, setSeriesByKey] = useState<Record<string, ScoreEntry[]>>({})
+
   // L2: EVERY test_bed criterion, not the per-stage subset. The card lists
   // them all and says which stage each score was recorded at, so a per-stage
   // list would show a person only what the stage they are on happens to ask.
@@ -159,6 +172,8 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
   // own gap, where it located the row by matching role TEXT and so silently
   // did nothing for a version-scoped row whose label is not its track name.
   const [stageRefresh, setStageRefresh] = useState(0)
+  // R12: counts the host's own reloads, so StageTabs can clear the blocked list.
+  const [reloads, setReloads] = useState(0)
   const refreshStage = useCallback(() => { setStageRefresh((n) => n + 1) }, [])
   const [arrival, setArrival] = useState<{ fresh: boolean, landing: string | null }>(
     () => ({ fresh: true, landing: null }))
@@ -228,10 +243,10 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
   // record type, which is why the vanilla's `ensureTbScoringCriteria` cached
   // them for the life of the page.
   //
-  // THE HOST'S `scoring` STATE COULD NOT BE USED, and that is worth naming
-  // rather than working around silently: `setScoring` is never called
-  // anywhere in this file, so `scoring` is permanently `{}`. Recorded as a
-  // finding and NOT fixed here - it feeds the stage panel, not this card.
+  // ONE FETCH, TWO READERS: this card and, since Round A Phase 2.1, the stage
+  // panel, which filters it by each criterion's own stage rows. The host's
+  // `scoring` state that was meant to feed the panel was never set by anything
+  // and is removed (audit B2).
   useEffect(() => {
     let live = true
     void shell.api<Criterion[]>('GET', '/api/scoring-criteria?record_type=test_bed')
@@ -371,13 +386,36 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
     </>
   )
 
-  const buyers = useMemo(() => {
-    const out: Record<string, string> = {}
-    for (const role of CLIENT_BUYER_ROLES) {
-      out[role] = (record.buyer_contacts ?? []).find((c) => c.role === role)?.contact_id ?? ''
-    }
-    return out
-  }, [record])
+  // ── B6: THE BUYER ROWS, WRITTEN DIRECTLY ───────────────────────────────
+  //
+  // The door, the route and the reload around `linkBuyer`, which is tested.
+  // A link can release a `contact_role_linked` exit criterion, so the stage
+  // reloads as well as the record.
+  const buyerAccountId = record.account_id ?? record.account?.id ?? null
+  const buyerLinksNode = (
+    <BuyerLinks accountId={buyerAccountId} links={record.buyer_contacts} contacts={contacts}
+      onLink={async (role, contactId) => {
+        const r = await linkBuyer({
+          canEdit: () => shell.canEditFields(),
+          post: async (body) => {
+            const res = await shell.api<{ error?: string }>('POST', BUYER_CONTACTS_ROUTE(bed.id), body)
+            return { ok: res.ok, error: res.data?.error ?? null }
+          },
+        }, role, contactId)
+        // THE RECORD reloads. No stage refresh: these rows render only on
+        // Reference, where a refresh loads nothing, and a line that changes
+        // nothing is a guard that suggests protection (Verification 9). The
+        // exit panel loads its own answer when its stage tab is opened.
+        if (r.sent && !r.error) await load()
+        return r.error
+      }}
+      onNew={(role) => {
+        // THE DOOR, asked here too. The modal creates and qualifies a Contact
+        // BEFORE its last step links it, so a refused link on somebody else's
+        // record would still leave a new Contact behind.
+        if (!shell.canEditFields()) return
+        if (buyerAccountId) shell.openInlineBuyerContact(bed.id, buyerAccountId, role)
+      }} />)
 
   const load = useCallback(async () => {
     // L1: THE FLAG IS SPENT HERE, BEFORE THE FETCH CAN FAIL. Cleared only on
@@ -390,6 +428,10 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
     // one of its writers.
     const landing = shell.takeTestBedLanding() ?? flags.current.takeLanding()
     setArrival({ fresh, landing })
+    // R12: every call to load() follows a write (a save, a link, a score, a
+    // confirm, or a 409 on one), so a blocked list written before it may now
+    // demand the thing just recorded. It clears here and nowhere else.
+    setReloads((n) => n + 1)
 
     const r = await shell.api<BedLike>('GET', `/api/test-beds/${bed.id}`)
     if (r.ok && r.data) {
@@ -496,30 +538,36 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
   const notes = (record.payload?.notes as Note[] | undefined) ?? []
 
   /**
-   * The whole-list write the use cases and the exit tick both need.
+   * The whole-list write the use cases, the install notes and the exit tick
+   * all need.
    *
-   * ONE writer, because both are a record PATCH carrying the revision as the
+   * ONE writer, because all are a record PATCH carrying the revision as the
    * precondition, and two would be Verification 20's shape on the save path.
+   * Round A Phase 1 split it into the write and its REPORTING: the use cases
+   * and notes report on the host banner, and the exit tick reports inside its
+   * own panel (1.6), so the write returns the reason rather than choosing where
+   * it is said.
    */
-  const patchPayload = useCallback(async (payload: Record<string, unknown>) => {
+  const writePayload = useCallback(async (payload: Record<string, unknown>) => {
     const r = await shell.api<{ error?: string }>('PATCH', `/api/test-beds/${bed.id}`, {
       payload,
       expected_revision: Number.isInteger(record.latest_revision_number)
         ? record.latest_revision_number : null,
     })
     if (!r.ok) {
-      setFeedback({
-        text: r.status === 409
-          ? 'This Test Bed changed since the screen loaded. Reload before saving.'
-          : (r.data?.error ?? 'Failed to save.'),
-        html: null, ok: false,
-      })
+      // A 409 reloads either way: the screen is behind the record.
       if (r.status === 409) await load()
-      return false
+      return { ok: false, error: r.status === 409 ? STALE : (r.data?.error ?? 'Failed to save.') }
     }
     await load()
-    return true
+    return { ok: true, error: null }
   }, [shell, bed.id, record.latest_revision_number, load])
+
+  const patchPayload = useCallback(async (payload: Record<string, unknown>) => {
+    const r = await writePayload(payload)
+    if (!r.ok) setFeedback({ text: r.error, html: null, ok: false })
+    return r.ok
+  }, [writePayload])
 
   const stageDeps: StageTabsDeps = useMemo(() => ({
     stages,
@@ -527,23 +575,45 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
     criteria: (stage) => shell.api(
       'GET', `/api/records/${bed.id}/exit-criteria?stage=${encodeURIComponent(stage)}`),
     approvals: () => shell.api('GET', `/api/records/${bed.id}/stage-approvals`),
-    scoringCriteria: (stage) => scoring[stage] ?? [],
-    series: (key) => seriesByKey[key] ?? [],
-    onTick: (payload) => { void patchPayload(payload) },
-    onRecordScores: (drafts, reasons) => {
-      void (async () => {
-        const entries = Object.entries(drafts).map(([criterion_key, score]) => ({
-          criterion_key, score: Number(score), reason: reasons[criterion_key] ?? null,
-        }))
-        const r = await shell.api<{ error?: string, series?: Record<string, ScoreEntry[]> }>(
-          'POST', SCORE_ROUTE(bed.id), { entries })
-        if (!r.ok) {
-          setFeedback({ text: r.data?.error ?? 'Failed to record scores.', html: null, ok: false })
-          return
-        }
-        if (r.data?.series) setSeriesByKey(r.data.series)
-        await load()
-      })()
+    // 2.1: from each criterion's OWN stage rows, over the one criteria fetch
+    // the Reference score card already makes. 2.2: from the record PAYLOAD,
+    // through the same reducer that card uses, so a reload shows the history.
+    scoringCriteria: (stage) => criteriaForStage(allCriteria, stage),
+    series: (key) => orderedSeries(record.payload, key),
+    // 1.5: the attempt, its door and its refresh live in `attemptTick`, where
+    // they are tested; this only supplies the host's writer and door.
+    onTick: (field, currentlyMet) => attemptTick({
+      canEdit: () => shell.canEditFields(),
+      write: writePayload,
+      refresh: refreshStage,
+      now: () => new Date().toISOString(),
+    }, field, currentlyMet),
+    // 2.3: the per-entry contract lives in `recordScoresInOrder`, where it is
+    // tested; this supplies the route, the door and the reload. The record and
+    // the stage reload after any attempt that sent something, as the vanilla
+    // reloaded on success and on failure: a recorded score stands either way.
+    onRecordScores: async (criteria, scores) => {
+      const out = await recordScoresInOrder({
+        canEdit: () => shell.canEditFields(),
+        post: async (body) => {
+          const r = await shell.api<{ error?: string }>('POST', SCORE_ROUTE(bed.id), body)
+          return { ok: r.ok, error: r.data?.error ?? null }
+        },
+      }, criteria, scores)
+      if (!out.refused) { await load(); refreshStage() }
+      return out
+    },
+    // 2.4: the door, the route and the reload, around the tested helper.
+    onMeasurability: async (confirmed) => {
+      const r = await recordMeasurability({
+        canEdit: () => shell.canEditFields(),
+        post: async (body) => {
+          const res = await shell.api<{ error?: string }>('POST', MEASURABILITY_ROUTE(bed.id), body)
+          return { ok: res.ok, error: res.data?.error ?? null }
+        },
+      }, confirmed)
+      if (r.sent && !r.error) { await load(); refreshStage() }
+      return r.error
     },
     onDeriveUnits: async () => {
       const r = await shell.api('POST', DERIVE_ROUTE(bed.id), {})
@@ -557,7 +627,7 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
       onUnit: (unit) => setUnits((us) => us.map(
         (u) => (u.id === (unit as Unit).id ? (unit as Unit) : u))),
     },
-  }), [shell, bed.id, stages, scoring, seriesByKey, units, patchPayload, load, loadUnits])
+  }), [shell, bed.id, stages, allCriteria, record.payload, units, writePayload, refreshStage, load, loadUnits])
 
   const installSectionNode = (
     <InstallSection
@@ -669,6 +739,7 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
           it, which is right: an outcome belongs where the control that caused
           it is. */}
       <ViewHeader record={loadFailed ? null : record} readOnly={readOnly}
+        onBack={() => shell.navigate('test-beds')}
         band={bandNode}
         titleAction={
           <ConvertPanel
@@ -725,6 +796,8 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
             }} />)}
         closed={<ClosedRecordPanel data={lifecycle.data} failed={lifecycle.failed} />}
         refreshToken={stageRefresh}
+        reloadToken={reloads}
+        recordId={bed.id}
         onNextStage={() => {
           const { currentStage, nextStage } = nextStageFor(stages, record.status)
           if (nextStage) shell.attemptTransition(bed.id, nextStage, 'test_bed', currentStage)
@@ -733,8 +806,9 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
         reference={<TestBedPanel
           source={source}
           rows={rows}
-          contacts={contacts}
-          buyers={buyers}
+          buyerLinks={buyerLinksNode}
+          // L9: computed from the record at RENDER, so Age is display-time.
+          identity={identityRows(record, Date.now())}
           score={<QualificationScore criteria={allCriteria} payload={record.payload} />}
         refPanes
         refPane={refPane}

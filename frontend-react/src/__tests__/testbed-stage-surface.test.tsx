@@ -9,6 +9,9 @@ import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { StageTabs, type StageTabsDeps } from '../testbed/StageTabs'
 import { UseCasesList } from '../testbed/UseCasesList'
+import LIVE_JSON from './fixtures/exit-criteria-live.json'
+import SCORING_JSON from './fixtures/scoring-live.json'
+import { criteriaForStage, type Criterion } from '../testbed/scoring'
 
 let host: HTMLElement
 let root: Root
@@ -19,21 +22,23 @@ const STAGES = [
   { stage_name: 'Closed', sort_order: 9 },
 ]
 
-const CRITERIA = [{ field: 'siteSurveyDone', label: 'Site survey done', value: null }]
+// THE ROUTE'S OWN RESPONSE, captured, not a hand-shaped array. The array that
+// stood here (`[{ field, label, value }]`) was shaped to the reader and is why
+// every stage read "No exit criteria" live while this suite stayed green (B3).
+const CRITERIA = LIVE_JSON.cases.qualificationFresh
 
 const deps = (over: Partial<StageTabsDeps> = {}): StageTabsDeps => ({
   stages: STAGES,
   documents: async () => ({ ok: true, data: [] }),
   criteria: async () => ({ ok: true, data: CRITERIA }),
   approvals: async () => ({ ok: true, data: [] }),
-  scoringCriteria: () => [{
-    criterion_key: 'k1', name: 'Budget confirmed',
-    levels: [{ value: 1, label: 'Unknown', reason_required: true },
-      { value: 3, label: 'Confirmed', reason_required: true }],
-  }],
+  // THE ROUTE'S CRITERIA, captured, filtered by their own stage rows. The
+  // hand-shaped `k1` that stood here is the fixture B2 hid behind.
+  scoringCriteria: (stage) => criteriaForStage(SCORING_JSON.criteria as Criterion[], stage),
   series: () => [],
-  onTick: () => {},
-  onRecordScores: () => {},
+  onTick: async () => ({ ok: true }),
+  onRecordScores: async () => ({ recorded: [], failed: null, refused: false }),
+  onMeasurability: async () => null,
   onDeriveUnits: async () => {},
   unitDeps: {
     patch: async () => ({ ok: true, data: {} }),
@@ -119,24 +124,10 @@ describe('the tab strip renders', () => {
     }
   })
 
-  test('B: the criteria list renders the stage\'s own criteria, unticked', async () => {
-    await render()
-    await click('tb-tab-btn-stage-Qualification')
-    expect(q('tb-crit-siteSurveyDone')).toBeTruthy()
-    expect((q('tb-crit-tick-siteSurveyDone') as HTMLInputElement).checked).toBe(false)
-  })
-
-  test('B1 a tick writes a TIMESTAMP, never a boolean', async () => {
-    const onTick = vi.fn()
-    await render({ deps: deps({ onTick }) })
-    await click('tb-tab-btn-stage-Qualification')
-    await click('tb-crit-tick-siteSurveyDone')
-    expect(onTick).toHaveBeenCalledTimes(1)
-    const payload = onTick.mock.calls[0][0] as Record<string, unknown>
-    expect(typeof payload.siteSurveyDone,
-      'the tick wrote a boolean, which the gate reads as PRESENT').toBe('string')
-    expect(String(payload.siteSurveyDone)).toMatch(/^\d{4}-\d{2}-\d{2}T/)
-  })
+  // The two B tests that stood here drove a hand-shaped criteria array and an
+  // `<input type=checkbox>` onTick(payload). Both shapes are gone: the panel's
+  // behaviour, the tick and its payload are asserted against the route's own
+  // responses in testbed-exit-criteria.test.tsx (Round A Phase 1).
 
   test('P8 the scoring card is HIDDEN by attribute until its stage is derived', async () => {
     await render()
@@ -192,14 +183,17 @@ describe('the tab strip renders', () => {
     await render()
     await click('tb-tab-btn-stage-Qualification')
     await act(async () => {
-      const sel = q('tb-score-select-k1') as HTMLSelectElement
-      sel.value = '3'
+      // Level 1 of a captured criterion, which the route marks reason_required.
+      const sel = q('tb-score-select-scoreRolloutPath') as HTMLSelectElement
+      sel.value = '1'
       sel.dispatchEvent(new Event('change', { bubbles: true }))
       await Promise.resolve()
     })
     expect((q('tb-score-record') as HTMLButtonElement).disabled,
       'a score needing a reason did not block the save').toBe(true)
-    expect(q('tb-score-blocked')?.textContent).toContain('k1')
+    // 2.5: the vanilla's lock note, which names the criterion by its NAME.
+    const name = (SCORING_JSON.criteria as Criterion[]).find((c) => c.criterion_key === 'scoreRolloutPath')!.name!
+    expect(q('tb-score-lock-note')?.textContent).toBe(`Add the Reason for ${name} before scoring anything else.`)
   })
 
   test('P6 the install section is hidden by ATTRIBUTE off its own stage', async () => {

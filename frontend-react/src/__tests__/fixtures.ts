@@ -149,6 +149,7 @@ export function shellServices(
     staleWriteHtml: () => null,
     usesWorkflow: () => false,
     attemptTransition: () => {},
+    openInlineBuyerContact: () => true,
     setContactReturnView: () => {},
     confirmDiscard: (proceed: () => void) => { proceed() },
     ...over,

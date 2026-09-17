@@ -125,12 +125,37 @@ box was prefilled, so it fired on every save and asked nothing.
 **C5.** `tbScoreAwaitingReason` blocks the whole Save and focuses the box -
 measured in Phase 0's read of `saveTbFields`.
 **C6.** `applyTbScoreEntryLock` locks entry once recorded.
+
+> **ANNOTATED at the Round A close, 2026-09-17, under R11: C6 MISREADS THE
+> VANILLA, and the sentence above is left as written so the misreading stays
+> visible.** At 54001c5^, `applyTbScoreEntryLock`
+> (frontend/test-bed-detail.js:1759) is the AWAITING-REASON lock. While one
+> criterion's score still needs its reason (`tbScoreAwaitingReason`), every
+> OTHER criterion's select and the measurability select are disabled; the
+> blocking criterion keeps its own control; the label and a note say why. It
+> never locks a criterion because it was recorded: after a record the vanilla
+> reloads and offers "Revise...". The React card had been built from this
+> sentence, with a recorded criterion's select disabled for the session, which
+> also defeated retrying after a partial failure. Round A Phase 2 removed it and
+> built the awaiting-reason lock (2.5).
 **C7.** Anchors (`showTbScoreAnchors`, `tbAnchorSet`) and history
 (`toggleTbScoreHistory`, `tbScoreSeries`) are disclosure, not state.
 **C8.** `POST /test-beds/:id/measurability` is a **second write** beside the
 score.
 **C9.** `renderTbScoreSummary` and `renderTbScores` are two renderers over one
 series - a Verification 20 pair to prove, not to duplicate.
+
+> **ANNOTATED at the Round A close, 2026-09-17, under R11: C9 AGREES WITH THE
+> VANILLA; the React build disagreed with both.** At 54001c5^ both renderers
+> read the series through `tbScoreSeries` (frontend/test-bed-detail.js:1929,
+> sorted by `at`), and both take the NEWEST entry as current:
+> `series[series.length - 1]` at lines 2055 and 2171, and the measurability row
+> the same at 2149. The React build's second reader, `summarise`, took
+> `series[0]`, the OLDEST, and fed from a state only a POST response ever
+> filled. Round A Phase 2 removed it; both surfaces now read one reducer
+> (`orderedSeries` and `currentEntry` in QualificationScore.tsx). The Phase 2
+> report's "C6 and C9 were misread" is corrected here for C9: the sentence was
+> right, and the implementation was the second reader it warns about.
 
 ## Q. THE STAGE PANEL
 

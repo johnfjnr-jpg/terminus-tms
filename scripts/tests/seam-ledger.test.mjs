@@ -34,6 +34,10 @@ const REACHES_BACK = {
     + 'stays the shell\'s and only the entry point crosses',
   usesWorkflow: 'whether the pre-workflow approve control may be clicked',
   attemptTransition: 'the stage transition, which stays the shell\'s',
+  openInlineBuyerContact: 'the shared inline contact creation behind a buyer role\'s '
+    + '"+ New" (Round A Phase 3.2): create, link to the Account, qualify through the '
+    + 'real transition, link in the role, reload. One modal for Test Bed and '
+    + 'Opportunity, reused rather than rebuilt',
   takeTestBedLanding: 'the stage a transition asks the next load to land on',
   currentUserId: 'the viewer, for the door\'s own comparison',
   setViewOwner: 'the record owner this view loaded, which the door reads. Round 8 '

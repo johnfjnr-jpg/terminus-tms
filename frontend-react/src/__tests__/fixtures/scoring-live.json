@@ -1,0 +1,757 @@
+{
+  "source": "scripts/testbed-core/capture-scoring.mjs",
+  "capturedAt": "2026-09-17T02:19:14.167Z",
+  "criteria": [
+    {
+      "id": "37fd7116-6cb4-434a-8a05-36d8134c300c",
+      "record_type": "test_bed",
+      "criterion_key": "scoreRolloutPath",
+      "name": "Rollout Path",
+      "asks": "Does a suitable rollout path exist",
+      "sort_order": 1,
+      "rescore_through_stage": null,
+      "scale_id": null,
+      "lens_id": null,
+      "levels": [
+        {
+          "value": 1,
+          "label": "1",
+          "reason_required": true
+        },
+        {
+          "value": 2,
+          "label": "2",
+          "reason_required": true
+        },
+        {
+          "value": 3,
+          "label": "3",
+          "reason_required": false
+        },
+        {
+          "value": 4,
+          "label": "4",
+          "reason_required": false
+        },
+        {
+          "value": 5,
+          "label": "5",
+          "reason_required": false
+        }
+      ],
+      "stages": [
+        {
+          "stage": "Qualification",
+          "required": true
+        }
+      ],
+      "anchors": {
+        "1": {
+          "1": "No rollout has been discussed. The client's interest is exploratory or research-driven with no stated path to deployment.",
+          "3": "A rollout is discussed in general terms with no defined scope or scale. Budget is assumed to exist but its route is not identified. No timeframe beyond general intent.",
+          "5": "A specific rollout is defined in scope and approximate scale. A budget route for it is identified and its holder known. A timeframe or trigger exists. The client has stated the Test Bed is the step toward that decision."
+        }
+      },
+      "current_version": 1
+    },
+    {
+      "id": "d6168c27-9e05-4a71-809f-9b36b1117048",
+      "record_type": "test_bed",
+      "criterion_key": "scoreClientCommitment",
+      "name": "Client Commitment",
+      "asks": "Will the client organisation genuinely engage",
+      "sort_order": 2,
+      "rescore_through_stage": null,
+      "scale_id": null,
+      "lens_id": null,
+      "levels": [
+        {
+          "value": 1,
+          "label": "1",
+          "reason_required": true
+        },
+        {
+          "value": 2,
+          "label": "2",
+          "reason_required": true
+        },
+        {
+          "value": 3,
+          "label": "3",
+          "reason_required": false
+        },
+        {
+          "value": 4,
+          "label": "4",
+          "reason_required": false
+        },
+        {
+          "value": 5,
+          "label": "5",
+          "reason_required": false
+        }
+      ],
+      "stages": [
+        {
+          "stage": "Qualification",
+          "required": true
+        }
+      ],
+      "anchors": {
+        "1": {
+          "1": "One interested individual with no authority to commit site, people or data. No dates. No evidence anyone else in their organisation knows the Test Bed is proposed.",
+          "3": "An engaged manager is driving it, but sponsorship above them is assumed rather than confirmed. Site access is agreed in principle with no dates in writing. Client resource is discussed but nobody is named.",
+          "5": "A named executive sponsor with budget or site authority has personally attended a meeting. Site access dates are confirmed in writing. The client has named their own people and stated the time they will give. The Test Bed is known and supported beyond the sponsor within their organisation."
+        }
+      },
+      "current_version": 1
+    },
+    {
+      "id": "8f48d8c2-d561-4ccc-b77f-3503dd011023",
+      "record_type": "test_bed",
+      "criterion_key": "scoreUseCaseRequirementsAndMetrics",
+      "name": "Clear Use Case Requirements and Metrics",
+      "asks": "Can it be proven",
+      "sort_order": 3,
+      "rescore_through_stage": "Monitoring and Analysis",
+      "scale_id": null,
+      "lens_id": null,
+      "levels": [
+        {
+          "value": 1,
+          "label": "1",
+          "reason_required": true
+        },
+        {
+          "value": 2,
+          "label": "2",
+          "reason_required": true
+        },
+        {
+          "value": 3,
+          "label": "3",
+          "reason_required": false
+        },
+        {
+          "value": 4,
+          "label": "4",
+          "reason_required": false
+        },
+        {
+          "value": 5,
+          "label": "5",
+          "reason_required": false
+        }
+      ],
+      "stages": [
+        {
+          "stage": "Monitoring and Analysis",
+          "required": true
+        },
+        {
+          "stage": "Qualification",
+          "required": true
+        }
+      ],
+      "anchors": {
+        "1": {
+          "1": "Interest in the technology with no stated operational question. Nothing identified that would be measured, or the client's stated need cannot be answered by the sensors proposed.",
+          "3": "The use case is stated at a general level. What would be measured is understood by Terminus but not agreed with the client, or the baseline position is unclear.",
+          "5": "The client has stated a specific question in their own operational terms. Terminus has identified what would be measured to answer it and confirmed the proposed sensors can capture it. Where a before-and-after comparison is needed, a baseline exists or can be captured before go live."
+        }
+      },
+      "current_version": 1
+    },
+    {
+      "id": "01f19918-6408-407e-a8df-d9b59de1eeb9",
+      "record_type": "test_bed",
+      "criterion_key": "scorePhysicalSuitability",
+      "name": "Physical Suitability",
+      "asks": "Can it be installed",
+      "sort_order": 4,
+      "rescore_through_stage": "Site Assessment",
+      "scale_id": null,
+      "lens_id": null,
+      "levels": [
+        {
+          "value": 1,
+          "label": "1",
+          "reason_required": true
+        },
+        {
+          "value": 2,
+          "label": "2",
+          "reason_required": true
+        },
+        {
+          "value": 3,
+          "label": "3",
+          "reason_required": false
+        },
+        {
+          "value": 4,
+          "label": "4",
+          "reason_required": false
+        },
+        {
+          "value": 5,
+          "label": "5",
+          "reason_required": false
+        }
+      ],
+      "stages": [
+        {
+          "stage": "Qualification",
+          "required": true
+        },
+        {
+          "stage": "Site Assessment",
+          "required": true
+        }
+      ],
+      "anchors": {
+        "1": {
+          "1": "The site has not been described in any detail, or a known constraint exists that no proposed arrangement resolves.",
+          "3": "The site is described and appears workable, but no Terminus technical assessment has taken place. Power or connectivity at the specific positions is assumed rather than confirmed. Access and permitting requirements are not yet established.",
+          "5": "A Terminus technical person has assessed the site, in person or from client-supplied drawings and photographs. Mounting positions, power and connectivity are identified. Any access, permitting or safety requirements are known and confirmed achievable by the client."
+        }
+      },
+      "current_version": 1
+    },
+    {
+      "id": "d3653e0b-2369-49a0-83e0-e196a61c20f5",
+      "record_type": "test_bed",
+      "criterion_key": "scoreDataRights",
+      "name": "Data Rights",
+      "asks": "Is it worth doing for Terminus",
+      "sort_order": 5,
+      "rescore_through_stage": "Site Assessment",
+      "scale_id": null,
+      "lens_id": null,
+      "levels": [
+        {
+          "value": 1,
+          "label": "1",
+          "reason_required": true
+        },
+        {
+          "value": 2,
+          "label": "2",
+          "reason_required": true
+        },
+        {
+          "value": 3,
+          "label": "3",
+          "reason_required": false
+        },
+        {
+          "value": 4,
+          "label": "4",
+          "reason_required": false
+        },
+        {
+          "value": 5,
+          "label": "5",
+          "reason_required": false
+        }
+      ],
+      "stages": [
+        {
+          "stage": "Site Assessment",
+          "required": true
+        },
+        {
+          "stage": "Qualification",
+          "required": true
+        }
+      ],
+      "anchors": {
+        "1": {
+          "1": "No data-use discussion has taken place, or the client has stated a restriction that prevents Terminus using the data for development.",
+          "3": "Data access is assumed by both parties but has not been discussed explicitly, or has been agreed by someone without authority to grant it. Restrictions are not yet established.",
+          "5": "The client has confirmed Terminus may retain and use the data for product development, and the person confirming has authority to grant it. Any restrictions on use, retention or publication are stated and acceptable. Where personal data is involved, the client's own basis for sharing it is identified."
+        }
+      },
+      "current_version": 1
+    }
+  ],
+  "stageDefinitions": [
+    {
+      "stage_name": "Qualification",
+      "sort_order": 1,
+      "phase": null,
+      "is_terminal": false,
+      "reachable_from_any_stage": false
+    },
+    {
+      "stage_name": "Pre-Site Assessment",
+      "sort_order": 2,
+      "phase": null,
+      "is_terminal": false,
+      "reachable_from_any_stage": false
+    },
+    {
+      "stage_name": "Site Assessment",
+      "sort_order": 3,
+      "phase": null,
+      "is_terminal": false,
+      "reachable_from_any_stage": false
+    },
+    {
+      "stage_name": "Installation and Commissioning",
+      "sort_order": 4,
+      "phase": null,
+      "is_terminal": false,
+      "reachable_from_any_stage": false
+    },
+    {
+      "stage_name": "Monitoring and Analysis",
+      "sort_order": 5,
+      "phase": null,
+      "is_terminal": false,
+      "reachable_from_any_stage": false
+    },
+    {
+      "stage_name": "Review and Completion",
+      "sort_order": 6,
+      "phase": null,
+      "is_terminal": false,
+      "reachable_from_any_stage": false
+    },
+    {
+      "stage_name": "Decommissioning",
+      "sort_order": 7,
+      "phase": null,
+      "is_terminal": false,
+      "reachable_from_any_stage": false
+    },
+    {
+      "stage_name": "Closed",
+      "sort_order": 8,
+      "phase": null,
+      "is_terminal": false,
+      "reachable_from_any_stage": false
+    }
+  ],
+  "exitQualification": {
+    "from_stage": "Qualification",
+    "to_stage": "Pre-Site Assessment",
+    "blocking": [
+      {
+        "requirement_type": "contact_role_linked",
+        "role": "Client Commercial Buyer",
+        "message": "Requires a Contact linked as Client Commercial Buyer"
+      },
+      {
+        "requirement_type": "contact_role_linked",
+        "role": "Client Technical Buyer",
+        "message": "Requires a Contact linked as Client Technical Buyer"
+      },
+      {
+        "requirement_type": "contact_role_linked",
+        "role": "Client Legal Buyer",
+        "message": "Requires a Contact linked as Client Legal Buyer"
+      },
+      {
+        "requirement_type": "payload_field_required",
+        "field": "testBedDuration",
+        "message": "Requires testBedDuration to be set"
+      },
+      {
+        "requirement_type": "payload_field_required",
+        "field": "estimatedInstallationDate",
+        "message": "Requires estimatedInstallationDate to be set"
+      },
+      {
+        "requirement_type": "payload_field_required",
+        "field": "estGoLiveDate",
+        "message": "Requires estGoLiveDate to be set"
+      },
+      {
+        "requirement_type": "approval_obtained",
+        "track": "Technical",
+        "scope": "stage",
+        "message": "Requires an approved Technical decision at stage Qualification"
+      },
+      {
+        "requirement_type": "approval_obtained",
+        "track": "Commercial",
+        "scope": "stage",
+        "message": "Requires an approved Commercial decision at stage Qualification"
+      },
+      {
+        "requirement_type": "payload_field_required",
+        "field": "scoreRolloutPath",
+        "label": "Rollout Path",
+        "message": "Requires Rollout Path"
+      },
+      {
+        "requirement_type": "payload_field_required",
+        "field": "scoreClientCommitment",
+        "label": "Client Commitment",
+        "message": "Requires Client Commitment"
+      },
+      {
+        "requirement_type": "payload_field_required",
+        "field": "scoreUseCaseRequirementsAndMetrics",
+        "label": "Clear Use Case Requirements and Metrics",
+        "message": "Requires Clear Use Case Requirements and Metrics"
+      },
+      {
+        "requirement_type": "payload_field_required",
+        "field": "scorePhysicalSuitability",
+        "label": "Physical Suitability",
+        "message": "Requires Physical Suitability"
+      },
+      {
+        "requirement_type": "payload_field_required",
+        "field": "scoreDataRights",
+        "label": "Data Rights",
+        "message": "Requires Data Rights"
+      },
+      {
+        "requirement_type": "payload_field_required",
+        "field": "measurabilityConfirmed",
+        "label": "Sensors can capture what would be measured",
+        "message": "Requires Sensors can capture what would be measured"
+      }
+    ],
+    "requirements": [
+      {
+        "requirement_type": "contact_role_linked",
+        "role": "Client Commercial Buyer",
+        "message": "Requires a Contact linked as Client Commercial Buyer",
+        "met": false
+      },
+      {
+        "requirement_type": "contact_role_linked",
+        "role": "Client Technical Buyer",
+        "message": "Requires a Contact linked as Client Technical Buyer",
+        "met": false
+      },
+      {
+        "requirement_type": "contact_role_linked",
+        "role": "Client Legal Buyer",
+        "message": "Requires a Contact linked as Client Legal Buyer",
+        "met": false
+      },
+      {
+        "requirement_type": "payload_field_required",
+        "field": "testBedDuration",
+        "message": "Requires testBedDuration to be set",
+        "met": false
+      },
+      {
+        "requirement_type": "payload_field_required",
+        "field": "estimatedInstallationDate",
+        "message": "Requires estimatedInstallationDate to be set",
+        "met": false
+      },
+      {
+        "requirement_type": "payload_field_required",
+        "field": "estGoLiveDate",
+        "message": "Requires estGoLiveDate to be set",
+        "met": false
+      },
+      {
+        "requirement_type": "approval_obtained",
+        "track": "Technical",
+        "scope": "stage",
+        "message": "Requires an approved Technical decision at stage Qualification",
+        "met": false
+      },
+      {
+        "requirement_type": "approval_obtained",
+        "track": "Commercial",
+        "scope": "stage",
+        "message": "Requires an approved Commercial decision at stage Qualification",
+        "met": false
+      },
+      {
+        "requirement_type": "payload_field_required",
+        "field": "scoreRolloutPath",
+        "label": "Rollout Path",
+        "min_length": 1,
+        "message": "Requires Rollout Path",
+        "met": false
+      },
+      {
+        "requirement_type": "payload_field_required",
+        "field": "scoreClientCommitment",
+        "label": "Client Commitment",
+        "min_length": 1,
+        "message": "Requires Client Commitment",
+        "met": false
+      },
+      {
+        "requirement_type": "payload_field_required",
+        "field": "scoreUseCaseRequirementsAndMetrics",
+        "label": "Clear Use Case Requirements and Metrics",
+        "min_length": 1,
+        "message": "Requires Clear Use Case Requirements and Metrics",
+        "met": false
+      },
+      {
+        "requirement_type": "payload_field_required",
+        "field": "scorePhysicalSuitability",
+        "label": "Physical Suitability",
+        "min_length": 1,
+        "message": "Requires Physical Suitability",
+        "met": false
+      },
+      {
+        "requirement_type": "payload_field_required",
+        "field": "scoreDataRights",
+        "label": "Data Rights",
+        "min_length": 1,
+        "message": "Requires Data Rights",
+        "met": false
+      },
+      {
+        "requirement_type": "payload_field_required",
+        "field": "measurabilityConfirmed",
+        "label": "Sensors can capture what would be measured",
+        "min_length": 1,
+        "message": "Requires Sensors can capture what would be measured",
+        "met": false
+      }
+    ]
+  },
+  "exitSiteAssessment": {
+    "from_stage": "Site Assessment",
+    "to_stage": "Installation and Commissioning",
+    "blocking": [
+      {
+        "requirement_type": "document_status",
+        "document": "Site Assessment Report",
+        "required_status": "approved",
+        "message": "Requires Site Assessment Report to be approved"
+      },
+      {
+        "requirement_type": "document_status",
+        "document": "Compliance and Data Protection",
+        "required_status": "approved",
+        "message": "Requires Compliance and Data Protection to be approved"
+      },
+      {
+        "requirement_type": "document_status",
+        "document": "Partnership and Test Bed Agreement",
+        "required_status": "approved",
+        "message": "Requires Partnership and Test Bed Agreement to be approved"
+      },
+      {
+        "requirement_type": "approval_obtained",
+        "track": "Commercial",
+        "scope": "stage",
+        "message": "Requires an approved Commercial decision at stage Site Assessment"
+      },
+      {
+        "requirement_type": "approval_obtained",
+        "track": "Technical",
+        "scope": "stage",
+        "message": "Requires an approved Technical decision at stage Site Assessment"
+      },
+      {
+        "requirement_type": "approval_obtained",
+        "track": "Legal",
+        "scope": "stage",
+        "message": "Requires an approved Legal decision at stage Site Assessment"
+      },
+      {
+        "requirement_type": "payload_field_required",
+        "field": "scorePhysicalSuitability",
+        "label": "Physical Suitability",
+        "message": "Requires Physical Suitability scored at or after Site Assessment"
+      },
+      {
+        "requirement_type": "payload_field_required",
+        "field": "scoreDataRights",
+        "label": "Data Rights",
+        "message": "Requires Data Rights scored at or after Site Assessment"
+      }
+    ],
+    "requirements": [
+      {
+        "requirement_type": "document_status",
+        "document": "Site Assessment Report",
+        "required_status": "approved",
+        "message": "Requires Site Assessment Report to be approved",
+        "met": false
+      },
+      {
+        "requirement_type": "document_status",
+        "document": "Compliance and Data Protection",
+        "required_status": "approved",
+        "message": "Requires Compliance and Data Protection to be approved",
+        "met": false
+      },
+      {
+        "requirement_type": "document_status",
+        "document": "Partnership and Test Bed Agreement",
+        "required_status": "approved",
+        "message": "Requires Partnership and Test Bed Agreement to be approved",
+        "met": false
+      },
+      {
+        "requirement_type": "approval_obtained",
+        "track": "Commercial",
+        "scope": "stage",
+        "message": "Requires an approved Commercial decision at stage Site Assessment",
+        "met": false
+      },
+      {
+        "requirement_type": "approval_obtained",
+        "track": "Technical",
+        "scope": "stage",
+        "message": "Requires an approved Technical decision at stage Site Assessment",
+        "met": false
+      },
+      {
+        "requirement_type": "approval_obtained",
+        "track": "Legal",
+        "scope": "stage",
+        "message": "Requires an approved Legal decision at stage Site Assessment",
+        "met": false
+      },
+      {
+        "requirement_type": "payload_field_required",
+        "field": "scorePhysicalSuitability",
+        "label": "Physical Suitability",
+        "min_length": 1,
+        "message": "Requires Physical Suitability scored at or after Site Assessment",
+        "met": false
+      },
+      {
+        "requirement_type": "payload_field_required",
+        "field": "scoreDataRights",
+        "label": "Data Rights",
+        "min_length": 1,
+        "message": "Requires Data Rights scored at or after Site Assessment",
+        "met": false
+      }
+    ]
+  },
+  "accepted": {
+    "firstScore": {
+      "status": 201,
+      "body": {
+        "criterion": "scoreRolloutPath",
+        "entry": {
+          "at": "2026-09-17T02:19:18.871Z",
+          "by": "john+test@terminustechnologies.io",
+          "value": 3,
+          "anchorVersion": 1,
+          "stage": "Qualification"
+        },
+        "entries": 1,
+        "record_id": "ae746c4a-b393-4c62-bcff-1c482cecbbd3",
+        "revision_number": 2,
+        "record_revision_number": 2
+      }
+    },
+    "revisionWithReason": {
+      "status": 201,
+      "body": {
+        "criterion": "scoreRolloutPath",
+        "entry": {
+          "at": "2026-09-17T02:19:19.710Z",
+          "by": "john+test@terminustechnologies.io",
+          "value": 4,
+          "anchorVersion": 1,
+          "stage": "Qualification",
+          "reason": "The rollout owner confirmed a second site."
+        },
+        "entries": 2,
+        "record_id": "ae746c4a-b393-4c62-bcff-1c482cecbbd3",
+        "revision_number": 3,
+        "record_revision_number": 3
+      }
+    },
+    "requiredLevelWithReason": {
+      "status": 201,
+      "body": {
+        "criterion": "scoreClientCommitment",
+        "entry": {
+          "at": "2026-09-17T02:19:20.582Z",
+          "by": "john+test@terminustechnologies.io",
+          "value": 2,
+          "anchorVersion": 1,
+          "stage": "Qualification",
+          "reason": "No sponsor named yet."
+        },
+        "entries": 1,
+        "record_id": "ae746c4a-b393-4c62-bcff-1c482cecbbd3",
+        "revision_number": 4,
+        "record_revision_number": 4
+      }
+    },
+    "measurability": {
+      "status": 201,
+      "body": {
+        "entry": {
+          "at": "2026-09-17T02:19:20.889Z",
+          "by": "john+test@terminustechnologies.io",
+          "value": true,
+          "stage": "Qualification"
+        },
+        "entries": 1,
+        "record_revision_number": 5
+      }
+    }
+  },
+  "refusals": {
+    "revisionWithoutReason": {
+      "status": 400,
+      "body": {
+        "error": "a reason for the change is required when revising a score"
+      }
+    },
+    "requiredLevelWithoutReason": {
+      "status": 400,
+      "body": {
+        "error": "a reason is required at a score of 1 or 2, naming what is missing"
+      }
+    }
+  },
+  "record": {
+    "status": "Qualification",
+    "latest_revision_number": 5,
+    "payload": {
+      "scoreRolloutPath": [
+        {
+          "at": "2026-09-17T02:19:18.871Z",
+          "by": "john+test@terminustechnologies.io",
+          "stage": "Qualification",
+          "value": 3,
+          "anchorVersion": 1
+        },
+        {
+          "at": "2026-09-17T02:19:19.710Z",
+          "by": "john+test@terminustechnologies.io",
+          "stage": "Qualification",
+          "value": 4,
+          "reason": "The rollout owner confirmed a second site.",
+          "anchorVersion": 1
+        }
+      ],
+      "scoreClientCommitment": [
+        {
+          "at": "2026-09-17T02:19:20.582Z",
+          "by": "john+test@terminustechnologies.io",
+          "stage": "Qualification",
+          "value": 2,
+          "reason": "No sponsor named yet.",
+          "anchorVersion": 1
+        }
+      ],
+      "measurabilityConfirmed": [
+        {
+          "at": "2026-09-17T02:19:20.889Z",
+          "by": "john+test@terminustechnologies.io",
+          "stage": "Qualification",
+          "value": true
+        }
+      ]
+    }
+  }
+}

@@ -12,9 +12,13 @@ import {
   createStageLoader, PANEL_IDS, type PanelId, type PanelState, type Stage,
   type Fetched,
 } from './stageLoad'
-import { ExitCriteria, ScoringCard, ReadPanel, type Criterion_ } from './StagePanel'
+import { ExitCriteria, ScoringCard, ReadPanel, type TickResult } from './StagePanel'
+import { readExitCriteria } from './exitCriteria'
 import { UnitsPane, LockedCounts } from './UnitsPane'
-import type { Criterion } from './scoring'
+import {
+  applyDraft, applyReason, clearRecorded, recordOutcomeMessage, measurabilityAsked, NO_DRAFTS,
+  type Criterion, type ScoreDrafts, type RecordOutcome,
+} from './scoring'
 import type { ScoreEntry } from './scoreReason'
 import type { Unit } from './units'
 import type { QueueDeps } from './unitQueue'
@@ -26,8 +30,12 @@ export interface StageTabsDeps {
   approvals: (stage: string) => Promise<Fetched>
   scoringCriteria: (stage: string) => readonly Criterion[]
   series: (key: string) => readonly ScoreEntry[]
-  onTick: (payload: Record<string, string | null>) => void
-  onRecordScores: (drafts: Record<string, string>, reasons: Record<string, string>) => void
+  /** 1.5: one tick attempt. The host owns the write, the door and the refresh. */
+  onTick: (field: string, currentlyMet: boolean) => Promise<TickResult>
+  /** 2.3: records the given criteria's drafts, one entry at a time, in their order. */
+  onRecordScores: (criteria: readonly Criterion[], scores: ScoreDrafts) => Promise<RecordOutcome>
+  /** 2.4: one yes or no on its own route; resolves to the message to show, or null. */
+  onMeasurability: (confirmed: boolean) => Promise<string | null>
   onDeriveUnits: () => Promise<void>
   unitDeps: Omit<QueueDeps, 'onRowState'>
 }
@@ -35,8 +43,23 @@ export interface StageTabsDeps {
 const emptyPanels = () => Object.fromEntries(
   PANEL_IDS.map((id) => [id, {} as PanelState])) as Record<PanelId, PanelState>
 
-export function StageTabs({ payload, units, landing, fresh, currentStage, nextStage, deps, reference, commercials, installSection, documents, approvals, closed, onNextStage, refreshToken }: {
+export function StageTabs({ payload, units, landing, fresh, currentStage, nextStage, deps, reference, commercials, installSection, documents, approvals, closed, onNextStage, refreshToken, recordId, reloadToken }: {
   payload: Record<string, unknown>
+  /**
+   * R12: moves each time the HOST reloads its own record after a save. The
+   * blocked list the shell wrote is cleared then and at no other time.
+   */
+  reloadToken?: number
+  /**
+   * The record these drafts belong to. The shell re-renders the Test Bed VIEW
+   * rather than mounting a new one (Verification 47), but TestBedView keys the
+   * host on `navToken ?? id`, so in production each navigation REMOUNTS this
+   * component and the drafts start empty anyway. Measured in Round A Phase 4:
+   * removing that key live made a blocked list follow the person to the next
+   * record. The reset below therefore matters only to a caller that re-renders
+   * the host directly, as the jsdom tests do; recorded rather than removed.
+   */
+  recordId?: string
   units: readonly Unit[]
   landing: string | null
   fresh: boolean
@@ -73,11 +96,28 @@ export function StageTabs({ payload, units, landing, fresh, currentStage, nextSt
   const [card, setCard] = useState<{ hidden: boolean, stage?: string }>({ hidden: true })
   const [installVisible, setInstallVisible] = useState(false)
   const [feedback, setFeedback] = useState<string | null>(null)
-  const [criteriaRows, setCriteriaRows] = useState<Criterion_[]>([])
+  // THE ROUTE'S OBJECT, carried as it arrived. This was `Criterion_[]` and the
+  // response was cast into it, which is how every stage read "No exit criteria"
+  // while the server sent 14 (P0.3). The panel reads it through its own guard.
+  const [criteriaData, setCriteriaData] = useState<unknown>(null)
   const [terminal, setTerminal] = useState(false)
   const [panelData, setPanelData] = useState<{ documents: unknown, approvals: unknown }>(
     { documents: null, approvals: null })
   const lastTab = useRef<string | null>(null)
+
+  // R12: the one clear this surface makes on the shell's element. The token
+  // starts at 0 and the host moves it only from load(), which it calls only
+  // after a write, so a mount or a tab change never reaches the clear.
+  const blockedRef = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    if (reloadToken && blockedRef.current) blockedRef.current.innerHTML = ''
+  }, [reloadToken])
+  // THE SCORE DRAFTS, above both panels: the scoring card edits them and the
+  // exit-criteria panel will read them for its pending marks (2.6). They survive
+  // a tab switch, as the vanilla's did, and reset when the RECORD changes.
+  const [scores, setScores] = useState<ScoreDrafts>(NO_DRAFTS)
+  const [scoresFor, setScoresFor] = useState(recordId)
+  if (scoresFor !== recordId) { setScoresFor(recordId); setScores(NO_DRAFTS) }
 
   // ── THE LOADER IS CREATED ONCE AND READS THE LATEST DEPS ─────────────
   //
@@ -114,8 +154,8 @@ export function StageTabs({ payload, units, landing, fresh, currentStage, nextSt
     const stage = stageOf(key) as string
     const r = await loader.current.open(stage)
     setTerminal(r.terminal)
-    if (r.panels['tb-stage-exit-criteria-list']) {
-      setCriteriaRows(r.panels['tb-stage-exit-criteria-list'] as Criterion_[])
+    if (r.panels['tb-stage-exit-criteria-list'] !== undefined) {
+      setCriteriaData(r.panels['tb-stage-exit-criteria-list'])
     }
     setPanelData({
       documents: r.panels['tb-stage-documents-section'] ?? null,
@@ -222,7 +262,18 @@ export function StageTabs({ payload, units, landing, fresh, currentStage, nextSt
       {/* The feedback stays BELOW the row and does not move with the button.
           The vanilla's own note says why: it is long free text, and placed
           inline in the row it pushed the buttons off-screen at 1920. */}
-      <div data-testid="tb-next-stage-feedback" />
+      {/* B5: THE ID IS BACK. The shell's attemptTransition writes the blocking
+          list into document.getElementById('tb-next-stage-feedback') and returns
+          silently when it is null, so without the id every refusal rendered
+          nowhere (P0.4). The class is the vanilla's too: it carries the
+          element's styling. The shell clears it at the top of the next
+          transition attempt; nothing here clears it on a tab change (R8,
+          vanilla parity). R12 adds ONE clear, on the host's own reload after a
+          save, through reloadToken below: after a save the list can demand the
+          very thing just recorded. The element has no React children, so
+          React never renders over what the shell writes into it. */}
+      <div id="tb-next-stage-feedback" className="tb-next-stage-feedback"
+        data-testid="tb-next-stage-feedback" ref={blockedRef} />
       {feedback ? <p className="msg-error" data-testid="tb-tab-feedback">{feedback}</p> : null}
 
       {active === 'reference' ? <div data-testid="tb-tab-reference">{reference}</div> : null}
@@ -246,9 +297,10 @@ export function StageTabs({ payload, units, landing, fresh, currentStage, nextSt
             </ReadPanel>
 
             <ExitCriteria stage={stageOf(active) as string}
-              criteria={criteriaRows}
+              data={criteriaData}
               panel={panels['tb-stage-exit-criteria-list']}
-              onTick={deps.onTick} />
+              onTick={deps.onTick}
+              pending={new Set(Object.keys(scores.drafts).filter((k) => scores.drafts[k] !== ''))} />
 
             <ReadPanel panelId="tb-stage-approval-row"
               panel={panels['tb-stage-approval-row']}
@@ -256,10 +308,23 @@ export function StageTabs({ payload, units, landing, fresh, currentStage, nextSt
               {approvals?.(stageOf(active) as string, panelData.approvals)}
             </ReadPanel>
 
-            <ScoringCard card={card}
+            {/* Keyed on the record, so its disclosure state (open anchors,
+                open history) does not follow the person to the next Test Bed. */}
+            <ScoringCard card={card} key={recordId}
+              measurability={measurabilityAsked(readExitCriteria(criteriaData))}
+              onMeasurability={deps.onMeasurability}
               criteria={deps.scoringCriteria(stageOf(active) as string)}
               series={deps.series}
-              onRecord={deps.onRecordScores} />
+              scores={scores}
+              onDraft={(key, value, awaiting) => setScores((s) => applyDraft(s, key, value, awaiting))}
+              onReason={(key, value) => setScores((s) => applyReason(s, key, value))}
+              onRecord={async () => {
+                const shown = deps.scoringCriteria(stageOf(active) as string)
+                const out = await deps.onRecordScores(shown, scores)
+                // A recorded score stops being a draft; the rest stay for a retry.
+                setScores((s) => clearRecorded(s, out.recorded))
+                return recordOutcomeMessage(out, shown)
+              }} />
 
             {/* P6: a VISIBILITY toggle, not a re-render, so an in-progress
                 edit survives switching away and back. */}
