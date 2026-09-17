@@ -3905,6 +3905,19 @@ of the change. An unanswerable precondition is a stop.
     once, in one shared place.** Five copies of a wrong shape agree with each
     other perfectly.
 
+    **AND THE CAPTURE IS A COMMITTED SCRIPT, AND STALENESS IS MEASURED.**
+    Test Bed workflow core (Round A) close, P1, confirmed by John 2026-09-17.
+    Extends the check above; it does not replace it.
+
+    - the capture is a COMMITTED SCRIPT, named in the fixture's own `source`
+      field;
+    - staleness is measured by RECAPTURE and diff, not assumed.
+
+    The instance that argues for it: that round wrote four such scripts, and then
+    relapsed at its own close. A hand-shaped PATCH answer was caught by the exit
+    gate's point 3, not by the rule. That is the limit of promotion again: **the
+    rule names the check, and the gate point performed it.**
+
     **AND WHERE THE SYSTEM CANNOT REACH THE STATE WITH ONE ACCOUNT, BUILD IT
     DIRECTLY AND SAY SO.** Rounds 4 and 5 of the migration.
 
@@ -4338,6 +4351,18 @@ of the change. An unanswerable precondition is a stop.
     beside the verdict, and anchor on the TEST NAME rather than on a message -
     then on the name of the test the injection actually falsifies, which is not
     always the one it was written for.
+
+    **AND INJECTIONS BUILT INTO ONE RUN CAN MASK EACH OTHER.** Test Bed workflow
+    core (Round A) close, P3, confirmed by John 2026-09-17.
+
+    One injected fault can produce the outcome another injection's check expects
+    to lose. The R12 live calibration read SILENT for exactly this reason: two
+    injections built into one bundle, where an every-render clear also emptied
+    the list the missing reload clear should have left standing.
+
+    **The check: before explaining a silence, ask whether a companion injection
+    in the same run produced the outcome**, and give interacting injections a run
+    each.
 
 ### At round close: index these by when they apply
 
