@@ -113,9 +113,11 @@ ref 6da809e, never from the index, and verified by tree hash.
     the reverted tree: bundle fresh against its source, react 1098/1098, typecheck exit 0, pure exit 0
     main after: HEAD, tree and index identical to before; worktrees: 1
 
-The rehearsal ran at 1194890. The two commits since then change
-CURRENT_STATE.md, one test, one fixture and one capture script, all inside the
-paths the rehearsal reverts.
+The rehearsal ran at 1194890. The two commits since then change CURRENT_STATE.md
+(markdown, which a revert keeps) and one test, one fixture and one capture
+script. The last three are inside frontend-react and scripts/testbed-core, which
+the rehearsal reverts by path, so the revert procedure covers them. The
+rehearsal's tree-hash evidence is for 1194890, not re-run on 9bcc365.
 
 ## Reconciliation, by counting
 
@@ -264,9 +266,14 @@ product code (TBCORE_RUN=p5-close, exit 0):
 **Stated exactly:** P0.2, P0.3 and P0.4 are closed by the same instrument.
 **For P0.1, P0.5 and P0.6, probe-p0 is read-only**, so it shows the defect's
 mechanism gone, and a second committed instrument shows the write succeeding:
-- probe-p2-score: a real score 201, read back from the database;
-- probe-p3-buyers: a real link 201, in the database;
-- Phase 2's live measurability write.
+- probe-p2-score: a real score 201, read back from the database (P0.1);
+- probe-p3-buyers: a real link 201, in the database (P0.5).
+
+**P0.6's write has NO live proof.** The measurability save is proven by unit
+tests against the route's own captured answer (scoring-live.json
+`accepted.measurability`), and live only as the control existing and working
+under the door. No live run ever recorded a measurability confirmation, which
+is a gap in point 1, not a closure.
 
 **2. Every new check calibrated in both directions, with the injection named
 against the test it must falsify.**
@@ -363,6 +370,7 @@ population").
 ## What this does not establish
 
 - **The cause of K3.**
+- **A live measurability confirmation.** See exit gate point 1.
 - **Whether R12's clear is right after a REFUSED save that does reload** (a 409).
   `load()` runs there too, so the list clears. The live proof covers an
   accepted save only.
