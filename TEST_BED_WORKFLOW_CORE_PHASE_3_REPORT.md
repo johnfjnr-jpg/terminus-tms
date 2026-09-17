@@ -80,7 +80,8 @@ reason box are measured too:
 **Self-calibrated**: a browser-only style forcing one head wider than the card
 made the checks FIRE (card overflow true), and removing it made them pass
 again. Captures p3-scoring-card-1240.png and p3-scoring-card-3440.png are in
-.verify/tb-core/p3-addenda/.
+.verify/tb-core/p3-addenda/ and were NOT opened: these width claims rest on the
+measurements, not on looking.
 
 ## Phase 3: what was built
 
@@ -141,8 +142,10 @@ through loadTestBedDetailOrSayWhyNot), and the React row read as linked within
 the probe's first poll. No second modal, no manual reload, and no options to
 weigh.
 
-Screenshots opened: p3-linked-1920.png and p3-refused-1920.png (in
-.verify/tb-core/p3-buyers-2/, from the run after the layout fix).
+Screenshot opened: p3-refused-1920.png, before the layout fix (where it showed
+finding 3) and again in .verify/tb-core/p3-buyers-2/ after it. p3-linked-1920.png
+was captured and not opened; the linked-row claims rest on the DOM and database
+checks above.
 
 ## Calibration, both directions
 
