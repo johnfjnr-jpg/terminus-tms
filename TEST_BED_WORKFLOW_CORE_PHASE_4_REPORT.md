@@ -139,8 +139,8 @@ pending state keeps it too.
    Test Bed render at 6731) set the feedback's innerHTML to ''. The capabilities
    document's X2 says this ("cleared when the state is wired"), so here the
    document and the vanilla agree.
-   - Measured parity: across tab switches, the list persists in both (the
-     vanilla's tab switch did not re-render the record). A navigation to another
+   - Parity: across tab switches, the list persists in React (measured) and in
+     the vanilla (R8's ruling; not re-measured here). A navigation to another
      record, and the shell's reload after a transition, clear it in both: here
      through the remount.
    - **The one divergence: the host's own `load()` after a save** (TestBedHost,
