@@ -143,10 +143,9 @@ export const CLIENT_BUYER_ROLES = [
   'Client Commercial Buyer', 'Client Technical Buyer', 'Client Legal Buyer',
 ] as const
 
-/**
- * A buyer row's descriptor. The value is a contact id and the label is a name,
- * which is exactly the lookup Round 6's A8-A11 built - so no new editor layer.
- */
-export function buyerDescriptor(role: string, value: string, contacts: LookupOption[]): FieldDescriptor {
-  return { name: `buyer-${role}`, label: role, value, options: contacts }
-}
+// ── `buyerDescriptor` IS REMOVED, Round A Phase 3 ───────────────────────
+//
+// It described a buyer as a lookup ROW, and the rows it produced were never
+// registered in the host's row store, so every buyer row refused to open
+// (P0.5). A buyer link is a direct write to its own route, rendered by
+// BuyerLinks.tsx; there is no descriptor for it to be.

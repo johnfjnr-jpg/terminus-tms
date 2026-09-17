@@ -3,7 +3,7 @@
 // The panel does not fetch, save, or know about routes. This holds those.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { TestBedPanel } from './TestBedPanel'
-import { PAYLOAD_ONLY_KEYS, CLIENT_BUYER_ROLES, testBedDescriptors, type TestBedSource } from './descriptors'
+import { PAYLOAD_ONLY_KEYS, testBedDescriptors, type TestBedSource } from './descriptors'
 import { useFieldRows } from '../field-row/useFieldRows'
 import { CommercialsCards } from './CommercialsCards'
 import { EditBar } from '../field-row/EditBar'
@@ -51,6 +51,8 @@ import { ConvertPanel } from './ConvertPanel'
 import { CONVERT_ROUTE } from './convert'
 import { completeDocumentRoute, confirmBody, saveUrlBody } from './stageDocuments'
 import { attemptTick } from './exitCriteria'
+import { BuyerLinks } from './BuyerLinks'
+import { linkBuyer, BUYER_CONTACTS_ROUTE } from './buyers'
 
 const STALE = 'This Test Bed changed since the screen loaded. Reload before saving.'
 
@@ -376,13 +378,28 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
     </>
   )
 
-  const buyers = useMemo(() => {
-    const out: Record<string, string> = {}
-    for (const role of CLIENT_BUYER_ROLES) {
-      out[role] = (record.buyer_contacts ?? []).find((c) => c.role === role)?.contact_id ?? ''
-    }
-    return out
-  }, [record])
+  // ── B6: THE BUYER ROWS, WRITTEN DIRECTLY ───────────────────────────────
+  //
+  // The door, the route and the reload around `linkBuyer`, which is tested.
+  // A link can release a `contact_role_linked` exit criterion, so the stage
+  // reloads as well as the record.
+  const buyerAccountId = record.account_id ?? record.account?.id ?? null
+  const buyerLinksNode = (
+    <BuyerLinks accountId={buyerAccountId} links={record.buyer_contacts} contacts={contacts}
+      onLink={async (role, contactId) => {
+        const r = await linkBuyer({
+          canEdit: () => shell.canEditFields(),
+          post: async (body) => {
+            const res = await shell.api<{ error?: string }>('POST', BUYER_CONTACTS_ROUTE(bed.id), body)
+            return { ok: res.ok, error: res.data?.error ?? null }
+          },
+        }, role, contactId)
+        if (r.sent && !r.error) { await load(); refreshStage() }
+        return r.error
+      }}
+      onNew={(role) => {
+        if (buyerAccountId) shell.openInlineBuyerContact(bed.id, buyerAccountId, role)
+      }} />)
 
   const load = useCallback(async () => {
     // L1: THE FLAG IS SPENT HERE, BEFORE THE FETCH CAN FAIL. Cleared only on
@@ -767,8 +784,7 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
         reference={<TestBedPanel
           source={source}
           rows={rows}
-          contacts={contacts}
-          buyers={buyers}
+          buyerLinks={buyerLinksNode}
           score={<QualificationScore criteria={allCriteria} payload={record.payload} />}
         refPanes
         refPane={refPane}

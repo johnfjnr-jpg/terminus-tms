@@ -7,7 +7,7 @@
 import { describe, test, expect } from 'vitest'
 import {
   testBedDescriptors, CENSUS_ROW_COUNT, PAYLOAD_ONLY_KEYS, NON_ROW_KEYS,
-  CLIENT_BUYER_ROLES, buyerDescriptor, REGION_OPTIONS, SITE_OWNERSHIP_OPTIONS,
+  CLIENT_BUYER_ROLES, REGION_OPTIONS, SITE_OWNERSHIP_OPTIONS,
 } from '../testbed/descriptors'
 import { dateBounds, todayIso } from '../testbed/dateBounds'
 
@@ -82,16 +82,11 @@ describe('the editor kinds, four and no more', () => {
   })
 })
 
-describe('the buyer rows are LOOKUPS, so no new editor layer', () => {
-  const CONTACTS = [{ id: 'c-1', name: 'Ada Poh' }, { id: 'c-2', name: 'Bo Tan' }]
-
-  test('three roles, id-valued and name-labelled', () => {
-    expect(CLIENT_BUYER_ROLES).toHaveLength(3)
-    const d = buyerDescriptor(CLIENT_BUYER_ROLES[0], 'c-2', CONTACTS)
-    expect(d.name).toBe('buyer-Client Commercial Buyer')
-    expect(d.value).toBe('c-2')
-    expect(d.options).toEqual(CONTACTS)
-  })
+describe('the buyer roles', () => {
+  // "the buyer rows are LOOKUPS, so no new editor layer" is REMOVED with
+  // `buyerDescriptor` (Round A Phase 3): a lookup row the store never
+  // registered was exactly why no buyer row could open (P0.5). The direct-write
+  // rows are asserted in testbed-buyers.test.tsx.
 
   test('the role strings are the REAL values, not labels', () => {
     // They are written to record_contacts and named by three live

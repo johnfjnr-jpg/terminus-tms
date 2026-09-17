@@ -64,7 +64,7 @@ afterEach(() => { act(() => root.unmount()); host.remove() })
 const SURFACES: Array<{ name: string, node: () => React.ReactNode }> = [
   { name: 'Test Bed', node: () => (
     <TestBedPanelForTest source={{ payload: { name: 'Bed', city: 'KL' }, staff: [] }}
-      contacts={[]} buyers={{}} onSave={() => {}} />) },
+      onSave={() => {}} />) },
   { name: 'Contact', node: () => (
     <ContactPanel source={{ payload: { name: 'Ana', email: 'a@b.c' }, industryId: null, industries: [] }}
       blocking={null} account={null} onSave={() => {}} />) },

@@ -1,0 +1,562 @@
+{
+  "source": "scripts/testbed-core/capture-buyers.mjs",
+  "capturedAt": "2026-09-17T03:55:29.008Z",
+  "refusals": {
+    "foreignAccount": {
+      "status": 422,
+      "body": {
+        "error": "Contact is not linked to this Test Bed's Account"
+      },
+      "request": {
+        "role": "Client Technical Buyer",
+        "contact_id": "68364ff4-fa87-4b92-9d3d-0649e61946c1"
+      }
+    },
+    "deletedContact": {
+      "status": 404,
+      "body": {
+        "error": "contact not found"
+      },
+      "request": {
+        "role": "Client Legal Buyer",
+        "contact_id": "ceac52ff-6309-43f0-b233-6b74f0a19691"
+      }
+    }
+  },
+  "bedBefore": {
+    "id": "0b191a63-5987-42d9-85ed-e636044f6a63",
+    "record_type": "test_bed",
+    "parent_record_id": null,
+    "status": "Qualification",
+    "owner_id": "266a2812-9213-484f-a7fc-e8506241a2ed",
+    "created_at": "2026-09-17T03:55:30.145877+00:00",
+    "updated_at": "2026-09-17T03:55:30.145877+00:00",
+    "variant": null,
+    "industry_id": "c1160c2d-31fb-4e48-a316-33dbe9ba54ee",
+    "deleted_at": null,
+    "reference_code": "TT-SG-AIRPRT-761",
+    "account_id": "b521e9e2-9e16-4b83-aac1-cb73fc25873f",
+    "parent_account_id": null,
+    "installer_account_id": null,
+    "document_kind": null,
+    "payload": {
+      "name": "TBCORE-P3CAP-1789617329008 Test Bed",
+      "notes": null,
+      "accumulated_cost": 0,
+      "client_organisation": "TBCORE-P3CAP-1789617329008 Holdings"
+    },
+    "latest_revision_number": 1,
+    "industry": {
+      "id": "c1160c2d-31fb-4e48-a316-33dbe9ba54ee",
+      "name": "Airports"
+    },
+    "account": {
+      "id": "b521e9e2-9e16-4b83-aac1-cb73fc25873f",
+      "name": "TBCORE-P3CAP-1789617329008 Account"
+    },
+    "installer": null,
+    "buyer_contacts": [],
+    "costBreakdown": {
+      "hardware": {
+        "totalUnits": 0,
+        "hardwareCost": 0,
+        "warrantyUnits": 0,
+        "warrantyCost": 0,
+        "avgHwCost": 0,
+        "warrantyBasisUnits": 0,
+        "warrantyUnitCost": 0
+      },
+      "groups": {
+        "hardwareGroup": {
+          "rows": [
+            {
+              "key": "hwSs",
+              "rawCost": 0,
+              "rawPrice": 0
+            },
+            {
+              "key": "hwAqm",
+              "rawCost": 0,
+              "rawPrice": 0
+            },
+            {
+              "key": "hwHemir",
+              "rawCost": 0,
+              "rawPrice": 0
+            },
+            {
+              "key": "hwWarranty",
+              "rawCost": 0,
+              "rawPrice": 0
+            }
+          ],
+          "rawTotalCost": 0,
+          "rawTotalPrice": 0
+        },
+        "installGroup": {
+          "rows": [
+            {
+              "key": "inSs",
+              "rawCost": 0,
+              "rawPrice": 0
+            },
+            {
+              "key": "inAqm",
+              "rawCost": 0,
+              "rawPrice": 0
+            },
+            {
+              "key": "inHemir",
+              "rawCost": 0,
+              "rawPrice": 0
+            }
+          ],
+          "rawTotalCost": 0,
+          "rawTotalPrice": 0
+        },
+        "hostingGroup": {
+          "rows": [
+            {
+              "key": "hoSs",
+              "rawCost": 0,
+              "rawPrice": 0
+            },
+            {
+              "key": "hoAqm",
+              "rawCost": 0,
+              "rawPrice": 0
+            },
+            {
+              "key": "hoHemir",
+              "rawCost": 0,
+              "rawPrice": 0
+            }
+          ],
+          "rawTotalCost": 0,
+          "rawTotalPrice": 0
+        }
+      },
+      "hostingMonthCost": 0,
+      "hostingTermCost": 0,
+      "months": 0,
+      "totalCost": 0
+    }
+  },
+  "contacts": [
+    {
+      "id": "68364ff4-fa87-4b92-9d3d-0649e61946c1",
+      "record_type": "contact",
+      "parent_record_id": "cf52555f-3e9c-46e0-b899-63512d0451c1",
+      "status": "Unqualified",
+      "owner_id": "266a2812-9213-484f-a7fc-e8506241a2ed",
+      "created_at": "2026-09-17T03:55:33.344536+00:00",
+      "updated_at": "2026-09-17T03:55:33.867948+00:00",
+      "variant": null,
+      "industry_id": "c1160c2d-31fb-4e48-a316-33dbe9ba54ee",
+      "deleted_at": null,
+      "reference_code": null,
+      "account_id": null,
+      "parent_account_id": null,
+      "installer_account_id": null,
+      "document_kind": null,
+      "payload": {
+        "city": "Singapore",
+        "name": "TBCORE-P3CAP-1789617329008 Foreign",
+        "email": "tbcore-p3cap-1789617329008-foreign@example.invalid",
+        "notes": [
+          {
+            "at": "2026-09-17T03:55:33.830Z",
+            "by": "john+test@terminustechnologies.io",
+            "text": "Linked to Account: TBCORE-P3CAP-1789617329008 Other Account."
+          }
+        ],
+        "mobile": "+65 9000 0001",
+        "region": "Asia Pacific",
+        "source": "Direct Outreach",
+        "company": "TBCORE-P3CAP-1789617329008 Holdings",
+        "country": "Singapore",
+        "jobRole": "Head of Infrastructure"
+      },
+      "latest_revision_number": 2,
+      "account": {
+        "id": "cf52555f-3e9c-46e0-b899-63512d0451c1",
+        "name": "TBCORE-P3CAP-1789617329008 Other Account"
+      },
+      "linked_test_beds": [],
+      "linked_opportunities": []
+    },
+    {
+      "id": "0ca7edbe-fdc9-4c03-9c4a-9587503b1d36",
+      "record_type": "contact",
+      "parent_record_id": "b521e9e2-9e16-4b83-aac1-cb73fc25873f",
+      "status": "Unqualified",
+      "owner_id": "266a2812-9213-484f-a7fc-e8506241a2ed",
+      "created_at": "2026-09-17T03:55:32.360583+00:00",
+      "updated_at": "2026-09-17T03:55:32.858982+00:00",
+      "variant": null,
+      "industry_id": "c1160c2d-31fb-4e48-a316-33dbe9ba54ee",
+      "deleted_at": null,
+      "reference_code": null,
+      "account_id": null,
+      "parent_account_id": null,
+      "installer_account_id": null,
+      "document_kind": null,
+      "payload": {
+        "city": "Singapore",
+        "name": "TBCORE-P3CAP-1789617329008 Bravo",
+        "email": "tbcore-p3cap-1789617329008-bravo@example.invalid",
+        "notes": [
+          {
+            "at": "2026-09-17T03:55:32.828Z",
+            "by": "john+test@terminustechnologies.io",
+            "text": "Linked to Account: TBCORE-P3CAP-1789617329008 Account."
+          }
+        ],
+        "mobile": "+65 9000 0001",
+        "region": "Asia Pacific",
+        "source": "Direct Outreach",
+        "company": "TBCORE-P3CAP-1789617329008 Holdings",
+        "country": "Singapore",
+        "jobRole": "Head of Infrastructure"
+      },
+      "latest_revision_number": 2,
+      "account": {
+        "id": "b521e9e2-9e16-4b83-aac1-cb73fc25873f",
+        "name": "TBCORE-P3CAP-1789617329008 Account"
+      },
+      "linked_test_beds": [],
+      "linked_opportunities": []
+    },
+    {
+      "id": "f3b2fcc9-b573-4b9d-b588-6d0ab7e584d6",
+      "record_type": "contact",
+      "parent_record_id": "b521e9e2-9e16-4b83-aac1-cb73fc25873f",
+      "status": "Unqualified",
+      "owner_id": "266a2812-9213-484f-a7fc-e8506241a2ed",
+      "created_at": "2026-09-17T03:55:31.335278+00:00",
+      "updated_at": "2026-09-17T03:55:31.854958+00:00",
+      "variant": null,
+      "industry_id": "c1160c2d-31fb-4e48-a316-33dbe9ba54ee",
+      "deleted_at": null,
+      "reference_code": null,
+      "account_id": null,
+      "parent_account_id": null,
+      "installer_account_id": null,
+      "document_kind": null,
+      "payload": {
+        "city": "Singapore",
+        "name": "TBCORE-P3CAP-1789617329008 Alpha",
+        "email": "tbcore-p3cap-1789617329008-alpha@example.invalid",
+        "notes": [
+          {
+            "at": "2026-09-17T03:55:31.830Z",
+            "by": "john+test@terminustechnologies.io",
+            "text": "Linked to Account: TBCORE-P3CAP-1789617329008 Account."
+          }
+        ],
+        "mobile": "+65 9000 0001",
+        "region": "Asia Pacific",
+        "source": "Direct Outreach",
+        "company": "TBCORE-P3CAP-1789617329008 Holdings",
+        "country": "Singapore",
+        "jobRole": "Head of Infrastructure"
+      },
+      "latest_revision_number": 2,
+      "account": {
+        "id": "b521e9e2-9e16-4b83-aac1-cb73fc25873f",
+        "name": "TBCORE-P3CAP-1789617329008 Account"
+      },
+      "linked_test_beds": [],
+      "linked_opportunities": []
+    }
+  ],
+  "linked": {
+    "status": 201,
+    "body": {
+      "ok": true,
+      "role": "Client Commercial Buyer",
+      "contact_id": "f3b2fcc9-b573-4b9d-b588-6d0ab7e584d6"
+    },
+    "request": {
+      "role": "Client Commercial Buyer",
+      "contact_id": "f3b2fcc9-b573-4b9d-b588-6d0ab7e584d6"
+    }
+  },
+  "bedAfter": {
+    "id": "0b191a63-5987-42d9-85ed-e636044f6a63",
+    "record_type": "test_bed",
+    "parent_record_id": null,
+    "status": "Qualification",
+    "owner_id": "266a2812-9213-484f-a7fc-e8506241a2ed",
+    "created_at": "2026-09-17T03:55:30.145877+00:00",
+    "updated_at": "2026-09-17T03:55:30.145877+00:00",
+    "variant": null,
+    "industry_id": "c1160c2d-31fb-4e48-a316-33dbe9ba54ee",
+    "deleted_at": null,
+    "reference_code": "TT-SG-AIRPRT-761",
+    "account_id": "b521e9e2-9e16-4b83-aac1-cb73fc25873f",
+    "parent_account_id": null,
+    "installer_account_id": null,
+    "document_kind": null,
+    "payload": {
+      "name": "TBCORE-P3CAP-1789617329008 Test Bed",
+      "notes": null,
+      "accumulated_cost": 0,
+      "client_organisation": "TBCORE-P3CAP-1789617329008 Holdings"
+    },
+    "latest_revision_number": 1,
+    "industry": {
+      "id": "c1160c2d-31fb-4e48-a316-33dbe9ba54ee",
+      "name": "Airports"
+    },
+    "account": {
+      "id": "b521e9e2-9e16-4b83-aac1-cb73fc25873f",
+      "name": "TBCORE-P3CAP-1789617329008 Account"
+    },
+    "installer": null,
+    "buyer_contacts": [
+      {
+        "role": "Client Commercial Buyer",
+        "contact_id": "f3b2fcc9-b573-4b9d-b588-6d0ab7e584d6",
+        "name": "TBCORE-P3CAP-1789617329008 Alpha"
+      }
+    ],
+    "costBreakdown": {
+      "hardware": {
+        "totalUnits": 0,
+        "hardwareCost": 0,
+        "warrantyUnits": 0,
+        "warrantyCost": 0,
+        "avgHwCost": 0,
+        "warrantyBasisUnits": 0,
+        "warrantyUnitCost": 0
+      },
+      "groups": {
+        "hardwareGroup": {
+          "rows": [
+            {
+              "key": "hwSs",
+              "rawCost": 0,
+              "rawPrice": 0
+            },
+            {
+              "key": "hwAqm",
+              "rawCost": 0,
+              "rawPrice": 0
+            },
+            {
+              "key": "hwHemir",
+              "rawCost": 0,
+              "rawPrice": 0
+            },
+            {
+              "key": "hwWarranty",
+              "rawCost": 0,
+              "rawPrice": 0
+            }
+          ],
+          "rawTotalCost": 0,
+          "rawTotalPrice": 0
+        },
+        "installGroup": {
+          "rows": [
+            {
+              "key": "inSs",
+              "rawCost": 0,
+              "rawPrice": 0
+            },
+            {
+              "key": "inAqm",
+              "rawCost": 0,
+              "rawPrice": 0
+            },
+            {
+              "key": "inHemir",
+              "rawCost": 0,
+              "rawPrice": 0
+            }
+          ],
+          "rawTotalCost": 0,
+          "rawTotalPrice": 0
+        },
+        "hostingGroup": {
+          "rows": [
+            {
+              "key": "hoSs",
+              "rawCost": 0,
+              "rawPrice": 0
+            },
+            {
+              "key": "hoAqm",
+              "rawCost": 0,
+              "rawPrice": 0
+            },
+            {
+              "key": "hoHemir",
+              "rawCost": 0,
+              "rawPrice": 0
+            }
+          ],
+          "rawTotalCost": 0,
+          "rawTotalPrice": 0
+        }
+      },
+      "hostingMonthCost": 0,
+      "hostingTermCost": 0,
+      "months": 0,
+      "totalCost": 0
+    }
+  },
+  "secondLinkSameRole": {
+    "status": 201,
+    "body": {
+      "ok": true,
+      "role": "Client Commercial Buyer",
+      "contact_id": "0ca7edbe-fdc9-4c03-9c4a-9587503b1d36"
+    },
+    "request": {
+      "role": "Client Commercial Buyer",
+      "contact_id": "0ca7edbe-fdc9-4c03-9c4a-9587503b1d36"
+    }
+  },
+  "bedAfterSecond": {
+    "id": "0b191a63-5987-42d9-85ed-e636044f6a63",
+    "record_type": "test_bed",
+    "parent_record_id": null,
+    "status": "Qualification",
+    "owner_id": "266a2812-9213-484f-a7fc-e8506241a2ed",
+    "created_at": "2026-09-17T03:55:30.145877+00:00",
+    "updated_at": "2026-09-17T03:55:30.145877+00:00",
+    "variant": null,
+    "industry_id": "c1160c2d-31fb-4e48-a316-33dbe9ba54ee",
+    "deleted_at": null,
+    "reference_code": "TT-SG-AIRPRT-761",
+    "account_id": "b521e9e2-9e16-4b83-aac1-cb73fc25873f",
+    "parent_account_id": null,
+    "installer_account_id": null,
+    "document_kind": null,
+    "payload": {
+      "name": "TBCORE-P3CAP-1789617329008 Test Bed",
+      "notes": null,
+      "accumulated_cost": 0,
+      "client_organisation": "TBCORE-P3CAP-1789617329008 Holdings"
+    },
+    "latest_revision_number": 1,
+    "industry": {
+      "id": "c1160c2d-31fb-4e48-a316-33dbe9ba54ee",
+      "name": "Airports"
+    },
+    "account": {
+      "id": "b521e9e2-9e16-4b83-aac1-cb73fc25873f",
+      "name": "TBCORE-P3CAP-1789617329008 Account"
+    },
+    "installer": null,
+    "buyer_contacts": [
+      {
+        "role": "Client Commercial Buyer",
+        "contact_id": "f3b2fcc9-b573-4b9d-b588-6d0ab7e584d6",
+        "name": "TBCORE-P3CAP-1789617329008 Alpha"
+      },
+      {
+        "role": "Client Commercial Buyer",
+        "contact_id": "0ca7edbe-fdc9-4c03-9c4a-9587503b1d36",
+        "name": "TBCORE-P3CAP-1789617329008 Bravo"
+      }
+    ],
+    "costBreakdown": {
+      "hardware": {
+        "totalUnits": 0,
+        "hardwareCost": 0,
+        "warrantyUnits": 0,
+        "warrantyCost": 0,
+        "avgHwCost": 0,
+        "warrantyBasisUnits": 0,
+        "warrantyUnitCost": 0
+      },
+      "groups": {
+        "hardwareGroup": {
+          "rows": [
+            {
+              "key": "hwSs",
+              "rawCost": 0,
+              "rawPrice": 0
+            },
+            {
+              "key": "hwAqm",
+              "rawCost": 0,
+              "rawPrice": 0
+            },
+            {
+              "key": "hwHemir",
+              "rawCost": 0,
+              "rawPrice": 0
+            },
+            {
+              "key": "hwWarranty",
+              "rawCost": 0,
+              "rawPrice": 0
+            }
+          ],
+          "rawTotalCost": 0,
+          "rawTotalPrice": 0
+        },
+        "installGroup": {
+          "rows": [
+            {
+              "key": "inSs",
+              "rawCost": 0,
+              "rawPrice": 0
+            },
+            {
+              "key": "inAqm",
+              "rawCost": 0,
+              "rawPrice": 0
+            },
+            {
+              "key": "inHemir",
+              "rawCost": 0,
+              "rawPrice": 0
+            }
+          ],
+          "rawTotalCost": 0,
+          "rawTotalPrice": 0
+        },
+        "hostingGroup": {
+          "rows": [
+            {
+              "key": "hoSs",
+              "rawCost": 0,
+              "rawPrice": 0
+            },
+            {
+              "key": "hoAqm",
+              "rawCost": 0,
+              "rawPrice": 0
+            },
+            {
+              "key": "hoHemir",
+              "rawCost": 0,
+              "rawPrice": 0
+            }
+          ],
+          "rawTotalCost": 0,
+          "rawTotalPrice": 0
+        }
+      },
+      "hostingMonthCost": 0,
+      "hostingTermCost": 0,
+      "months": 0,
+      "totalCost": 0
+    }
+  },
+  "ids": {
+    "bed": "0b191a63-5987-42d9-85ed-e636044f6a63",
+    "account": "b521e9e2-9e16-4b83-aac1-cb73fc25873f",
+    "own": [
+      "f3b2fcc9-b573-4b9d-b588-6d0ab7e584d6",
+      "0ca7edbe-fdc9-4c03-9c4a-9587503b1d36"
+    ],
+    "foreign": "68364ff4-fa87-4b92-9d3d-0649e61946c1",
+    "gone": "ceac52ff-6309-43f0-b233-6b74f0a19691"
+  }
+}

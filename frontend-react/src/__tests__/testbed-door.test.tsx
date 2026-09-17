@@ -63,7 +63,7 @@ const mount = async () => {
   await act(async () => {
     root.render(
       <ShellProvider services={services()}>
-        <TestBedPanelForTest source={SRC} contacts={[]} buyers={{}} onSave={() => {}} />
+        <TestBedPanelForTest source={SRC} onSave={() => {}} />
       </ShellProvider>)
   })
 }

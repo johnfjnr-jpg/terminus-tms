@@ -6,10 +6,10 @@ import { useEffect, type ReactNode } from 'react'
 import { FieldRow } from '../field-row/FieldRow'
 
 import type { useFieldRows } from '../field-row/useFieldRows'
-import { testBedDescriptors, buyerDescriptor, CLIENT_BUYER_ROLES, type TestBedSource } from './descriptors'
+import { testBedDescriptors, type TestBedSource } from './descriptors'
 import { dateBounds } from './dateBounds'
 import { SubTabs } from './SubTabs'
-import type { LookupOption } from '../field-row/types'
+
 
 /**
  * A titled card, at MODULE SCOPE.
@@ -32,18 +32,21 @@ export function Card({ title, testId, children }: { title: string, testId: strin
   )
 }
 
-export function TestBedPanel({ source, rows, contacts, buyers, onDirtyChange, controls, useCases, customerDocs, history, score, refPanes, refPane, onRefPaneChange }: {
+export function TestBedPanel({ source, rows, buyerLinks, onDirtyChange, controls, useCases, customerDocs, history, score, refPanes, refPane, onRefPaneChange }: {
   source: TestBedSource
-  /** The Account's contacts, for the buyer lookups. */
   /**
    * R1: the draft store, owned by the HOST. This panel unmounts on every tab
    * switch and used to take the store with it, discarding unsaved edits.
    */
   rows: ReturnType<typeof useFieldRows>
-  contacts: LookupOption[]
 
-  /** role -> linked contact id. */
-  buyers: Record<string, string>
+  /**
+   * B6: the three client buyer rows, which write directly and are owned by the
+   * host. `contacts` and `buyers` are GONE from this interface rather than kept
+   * and ignored (Architecture 9): the buyers were rendered here as FieldRows the
+   * row store never registered, so they could not open (P0.5).
+   */
+  buyerLinks?: ReactNode
 
   onDirtyChange?: (dirty: boolean) => void
   // ── `notes` AND `followUp` ARE GONE FROM THIS COMPONENT'S INTERFACE ────
@@ -202,15 +205,9 @@ export function TestBedPanel({ source, rows, contacts, buyers, onDirtyChange, co
 
         <Card title="Customer Details" testId="tb-card-customer">
           {row('initialLead')}
-          {/* The three buyer LOOKUPS: id-valued, name-labelled, and each saves
-              immediately rather than joining the batch - so they are rendered
-              here but written by the host. */}
-          {CLIENT_BUYER_ROLES.map((role) => (
-            <div key={role} data-key={`buyer-${role}`}>
-              <FieldRow
-                field={buyerDescriptor(role, buyers[role] ?? '', contacts)}
-                rows={rows} />
-            </div>))}
+          {/* B6: the three buyer rows write directly through the host, never
+              through the batched draft store (Round A Phase 3). */}
+          {buyerLinks}
         </Card>
 
         <Card title="Site Details" testId="tb-card-site">
