@@ -1,7 +1,8 @@
 // ── R1 and L6: THE HEADER AND THE READ-ONLY BANNER ──────────────────────
 //
 // W1, 2026-09-10, adds the design of record on top of what was already here:
-//   title with the summary beside it, then the stats strip, then the chevron.
+//   title, then the stats strip, then the chevron. (The summary that sat beside
+//   the title is removed by R3, TEST_BED_WALK_2_BRIEF.md, 2026-09-17.)
 // The order is top to bottom exactly as ruled.
 import { useEffect, type ReactNode } from 'react'
 import { headerOf, OWNERSHIP_REFUSAL_TEXT } from './viewLoad'
@@ -87,9 +88,9 @@ export function ViewHeader({ record, readOnly, titleAction, band, onBack }: {
         ? <button type="button" className="btn-text" id="btn-back-testbeds"
             data-testid="tb-back" onClick={onBack}>Back to test beds</button>
         : null}
-      {/* TITLE LARGE, SUMMARY TO ITS RIGHT. The summary keeps its element even
-          when empty, for the reason the client line already does: the title
-          must not move when one record has a summary and the next does not.
+      {/* TITLE LARGE. R3 (TEST_BED_WALK_2_BRIEF.md, ruled 2026-09-17): NO
+          SUMMARY BESIDE IT. The summary renders once, as the editable field on
+          the record band; the read-only copy that sat here was a duplicate.
 
           W1: THE ACCOUNT NAME IS ON THE TITLE'S OWN LINE, not under it. The
           two sit in a baseline-aligned flex row, which is what "bottom
@@ -106,9 +107,7 @@ export function ViewHeader({ record, readOnly, titleAction, band, onBack }: {
               becomes a hole in the row the moment it does not. */}
           <p className="tb-header-client sub" data-testid="tb-detail-client">{client}</p>
         </div>
-        <p className="tb-header-summary sub" data-testid="tb-header-summary">
-          {typeof payload.summary === 'string' ? payload.summary : ''}
-        </p>
+
         {titleAction
           ? <div className="tb-header-action" data-testid="tb-header-action">{titleAction}</div>
           : null}

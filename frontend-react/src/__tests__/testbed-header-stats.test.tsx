@@ -90,19 +90,18 @@ function mount(node: React.ReactElement): { host: HTMLElement, root: Root } {
 const q = (host: HTMLElement, id: string) => host.querySelector(`[data-testid="${id}"]`)
 
 describe('the Test Bed header renders the design of record', () => {
-  it('puts the summary beside the title, inside one row', () => {
-    const { host, root } = mount(<ViewHeader record={bed({ summary: 'Camera trial at the pier' })} readOnly={false} />)
+  // R3, TEST_BED_WALK_2_BRIEF.md, ruled by John 2026-09-17: THE HEADER SUMMARY
+  // IS REMOVED. The summary renders once, as the editable field on the record
+  // band, so the header must not carry a second, read-only copy beside the title.
+  it('R3: the header carries no summary beside the title', () => {
+    const SUMMARY = 'Camera trial at the pier'
+    const { host, root } = mount(<ViewHeader record={bed({ summary: SUMMARY })} readOnly={false} />)
+    // Both halves (Verification 14): the header rendered, with its title and
+    // client, so the absence below is an absence from a real header.
     expect(q(host, 'tb-detail-name')?.textContent).toBe('Marina Bay')
-    expect(q(host, 'tb-header-summary')?.textContent).toBe('Camera trial at the pier')
-    expect(q(host, 'tb-header-row')?.contains(q(host, 'tb-header-summary') as Node)).toBe(true)
-    act(() => root.unmount())
-  })
-
-  it('keeps the summary element when there is no summary', () => {
-    // The title must not move when one record has a summary and the next does
-    // not, which is the same reason the client line keeps its element.
-    const { host, root } = mount(<ViewHeader record={bed({})} readOnly={false} />)
-    expect(q(host, 'tb-header-summary')?.textContent).toBe('')
+    expect(q(host, 'tb-header-row')).not.toBeNull()
+    expect(q(host, 'tb-header-summary'), 'the duplicate summary element is back').toBeNull()
+    expect(host.textContent, 'the summary text renders in the header').not.toContain(SUMMARY)
     act(() => root.unmount())
   })
 

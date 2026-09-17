@@ -5906,24 +5906,11 @@ input.input-invalid {
   flex: 0 0 auto;
   margin-left: auto;
 }
-/* The summary takes the remaining width and wraps rather than pushing the
- * title around; it keeps its element when empty so the title cannot move. */
-.tb-header-summary {
-  /* W5: THE SUMMARY IS THE ELEMENT THAT ABSORBS THE SQUEEZE, and that is a
-     decision rather than a tweak. The row holds three things: a title whose
-     content is a fixed string, an action whose content is a fixed string, and
-     a paragraph that reflows. At 1240 the three did not fit, so the row
-     wrapped and the action - last in the row - dropped to a second line 65px
-     below the title, which is not "beside the title".
-     `flex-basis: 0` with `min-width: 0` lets the paragraph give up width and
-     take another line of its own instead, which is the one of the three that
-     can. Measured, not reasoned: 65px below at 1240 before, 12px after, and
-     unchanged at 1440 and 1920 where it already fitted. */
-  flex: 1 1 0;
-  min-width: 0;
-  margin: 0;
-  max-width: 62ch;
-}
+/* .tb-header-summary removed by R3 (TEST_BED_WALK_2_BRIEF.md, 2026-09-17): the
+ * header no longer carries the summary, which renders once as the editable
+ * field on the record band. Its W5 rule made the summary absorb the row's
+ * squeeze at 1240 so the action stayed beside the title; with the summary gone
+ * the row holds only the title and the action. */
 
 /* ── THE RECORD BAND SITS BETWEEN THE TITLE AND THE STRIP ────────────────
  *
