@@ -1,0 +1,61 @@
+// Unit calibration spec for Round A Phase 4, the riders.
+const TABS = 'frontend-react/src/testbed/StageTabs.tsx'
+const HEAD = 'frontend-react/src/testbed/ViewHeader.tsx'
+const HOST = 'frontend-react/src/testbed/TestBedHost.tsx'
+const PANEL = 'frontend-react/src/testbed/TestBedPanel.tsx'
+const ID = 'frontend-react/src/testbed/identity.ts'
+const I = (id, file, find, replace, expect) => ({ id, file, find, replace, expect })
+
+export default {
+  name: 'p4-riders',
+  testFiles: ['src/__tests__/testbed-riders.test.tsx'],
+  injections: [
+    I('4.1 the feedback id removed (the B5 defect)', TABS,
+      '<div id="tb-next-stage-feedback" className="tb-next-stage-feedback"', '<div className="tb-next-stage-feedback"',
+      ['exactly one element has the id']),
+    I('4.1 the vanilla class removed', TABS,
+      '<div id="tb-next-stage-feedback" className="tb-next-stage-feedback"', '<div id="tb-next-stage-feedback"',
+      ['exactly one element has the id']),
+    I('R8 a tab change clears the list (remount per tab)', TABS,
+      '<div id="tb-next-stage-feedback" className="tb-next-stage-feedback"', '<div key={active} id="tb-next-stage-feedback" className="tb-next-stage-feedback"',
+      ['SURVIVES tab switches']),
+    I('4.2 back navigates somewhere else', HOST,
+      "onBack={() => shell.navigate('test-beds')}", "onBack={() => shell.navigate('leads')}",
+      ['navigates to the test bed list through the SHELL']),
+    I('4.2 back loses the door-exempt id', HEAD,
+      'id="btn-back-testbeds"', 'id="btn-back"',
+      ["the vanilla's button, first in the header"]),
+    I('4.2 back loses the vanilla treatment', HEAD,
+      'className="btn-text" id="btn-back-testbeds"', 'className="btn-sm" id="btn-back-testbeds"',
+      ["the vanilla's button, first in the header"]),
+    I('4.3 Terminus Reference after the name is lost', PANEL,
+      "          {row('name')}\n          {identity ? idRow('tb-id-reference', 'Terminus Reference', identity.reference) : null}",
+      "          {identity ? idRow('tb-id-reference', 'Terminus Reference', identity.reference) : null}\n          {row('name')}",
+      ['Terminus Reference under the name']),
+    I('4.3 Industry reads nothing', ID,
+      "industry: bed.industry?.name ?? '',", "industry: '',",
+      ['Terminus Reference under the name']),
+    I('4.3 Account not first', PANEL,
+      "          {identity ? idRow('tb-id-account', 'Account', identity.account) : null}\n          {row('initialLead')}",
+      "          {row('initialLead')}\n          {identity ? idRow('tb-id-account', 'Account', identity.account) : null}",
+      ['Account first in Customer Details']),
+    I('4.3 Date Created unformatted', ID,
+      "created: formatDate(bed.created_at ?? ''),", "created: bed.created_at ?? '',",
+      ['Date Created and Age first']),
+    I('4.3 Age from a fixed clock, not display time', HOST,
+      'identity={identityRows(record, Date.now())}', 'identity={identityRows(record, 0)}',
+      ['Date Created and Age first']),
+    I('4.3 the rows become editable', PANEL,
+      '<FieldRow field={{ name: key, label, value, readOnly: true }} rows={rows} />', '<FieldRow field={{ name: key, label, value, readOnly: false }} rows={rows} />',
+      ['the rows are READ-ONLY']),
+    I('Age: no Today', ID,
+      "  if (days === 0) return 'Today'\n", '',
+      ['under a day is Today']),
+    I('Age: rounded, not floored', ID,
+      'const days = Math.floor((nowMs - t) / 86400000)', 'const days = Math.round((nowMs - t) / 86400000)',
+      ['floored, not rounded']),
+    I('Age: NaN days for an unreadable date', ID,
+      "  if (Number.isNaN(t)) return ''\n", '',
+      ['not "NaN days"']),
+  ],
+}

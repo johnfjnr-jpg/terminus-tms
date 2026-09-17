@@ -241,11 +241,31 @@ try {
 
   // P0.5 buyer link, Reference tab
   say('\n=== P0.5 (B6) buyer contact selection ===')
+  // AFTER PHASE 3 the buyer rows are direct-write rows (BuyerLinks), and the
+  // lookup FieldRow this section drove is REMOVED. Waiting for it would kill the
+  // instrument here and P0.6 would never run (found by the Phase 4 close run).
+  // So the wait accepts either shape; the pre-fix shape takes the original
+  // reading, and the new shape reports what it finds and points at the probe
+  // that proves it (scripts/testbed-core/probe-p3-buyers.mjs).
   const REF_READY = () => document.querySelector('#view-test-bed-detail [data-testid="tb-card-customer"] [data-testid="display-buyer-Client Commercial Buyer"]')
+    || document.querySelector('#view-test-bed-detail [data-testid="tb-card-customer"] [data-testid="tb-buyer-rows"]')
   await page.click('#view-test-bed-detail [data-testid="tb-tab-btn-reference"]')
   await page.waitForFunction(REF_READY, { timeout: 20000 })
   await page.waitForNetworkIdle({ idleTime: 1000, timeout: 20000 })
   sweeps.reference = await sweep()
+  const legacyBuyerRow = await page.evaluate(() => !!document.querySelector('#view-test-bed-detail [data-testid="display-buyer-Client Commercial Buyer"]'))
+  if (!legacyBuyerRow) {
+    const now5 = await page.evaluate(() => {
+      const v = document.getElementById('view-test-bed-detail')
+      return { directWriteRows: v.querySelectorAll('[data-testid^="tb-buyer-Client"]').length,
+        selects: v.querySelectorAll('[data-testid^="tb-buyer-select-"]').length,
+        lookupFieldRows: v.querySelectorAll('[data-testid="display-buyer-Client Commercial Buyer"]').length }
+    })
+    say(`  the lookup FieldRow is GONE; direct-write buyer rows instead: ${JSON.stringify(now5)}`)
+    say('  the write path is proven by scripts/testbed-core/probe-p3-buyers.mjs, not re-driven here')
+    results.P0_5 = { superseded: true, ...now5 }
+  }
+  if (legacyBuyerRow) {
   const fp5a = await fingerprint()
   const rowState = (name) => page.evaluate((name) => {
     const v = document.getElementById('view-test-bed-detail')
@@ -289,6 +309,7 @@ try {
   say(`  buyer-contacts calls across the whole run: ${net.filter((n) => n.url.includes('buyer-contacts')).length}`)
   say(`  network instrument calibration (same listener, same page): writes it captured earlier this run = ${net.filter((n) => n.method !== 'GET').map((n) => `${n.method} ${n.url.split('?')[0]} ${n.status}`).join('; ')}`)
   results.P0_5 = { afterClick, afterEnter, writes: w5.length, calibration: { before: calBefore.editHidden, after: calAfter.editHidden, afterEscape: calClosed.editHidden, bar: calClosed.bar }, links: [fp5a.links, fp5b.links], unchanged: same(fp5a, fp5b) }
+  }
 
   // P0.6 walk: sub-tabs live on Reference, so sweep them while it is open
   const subBtns = await page.evaluate(() => [...document.querySelectorAll('#view-test-bed-detail [role=tab]')].map((b) => b.dataset.testid).filter((t) => t && !t.startsWith("tb-tab-btn-")))
