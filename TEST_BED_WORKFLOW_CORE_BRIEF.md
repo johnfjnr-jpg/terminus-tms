@@ -165,6 +165,26 @@ appearing on Qualification and absent elsewhere.
 
 ## PHASE 3: buyer links (B6)
 
+### Rulings and addenda at the Phase 2 sign-off (John, 2026-09-17)
+
+- R10. The per-stage Record scope stands: a draft made on another stage's
+  tab stays there, and the button sends the open stage's scores only. It
+  follows R2 and is not revisitable this round.
+- R11. MIGRATION_TEST_BED_CAPABILITIES.md is a HINT, not the authority, for
+  the rest of this round: C6 proved it is inference over the vanilla. Where
+  it and the vanilla at 54001c5^ disagree, the vanilla wins and the
+  disagreement is a finding. C6 and C9 are annotated at the round close, not
+  now.
+- Addendum (a), reported in Phase 3's report: provoke a REAL mid-run refusal
+  from the server during a live Record run (three drafts, the second a
+  revision without a reason) and read the outcome back from the database.
+  Closes Phase 2's "does not establish" line on S7.
+- Addendum (b), reported in Phase 3's report: width measurements for the
+  scoring card at 1240 and 3440, the treatment Phase 1 gave the exit panel.
+- Phase 3 is built under the P0.5 finding: the buyer rows are not registered
+  in the draft store, so this builds the direct-write control; acceptance is
+  R5's positive form, all three observable live.
+
 - 3.1 Acceptance, all three observable on the live screen: selecting a
   contact fires POST /test-beds/:id/buyer-contacts; per-role feedback
   renders for that role; a linked role displays the contact's name
