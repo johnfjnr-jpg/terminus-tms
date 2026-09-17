@@ -221,5 +221,5 @@ sources and bundle restored byte-identical.**
 
 - Anything about unlinking a buyer: neither the vanilla nor this build offers it.
 - The buyer rows at 1240 and 3440; the live captures are 1920.
-- The chevron, Back to test beds, the six read-only rows and B5's feedback id,
-  which Phase 4 owns.
+- B5's feedback id, Back to test beds and the six read-only rows, which Phase 4
+  owns.
