@@ -53,12 +53,10 @@ with 200. It fails the same with the command sandbox disabled, with
 `--disable-features=LocalNetworkAccessChecks,PrivateNetworkAccessChecks`. The
 cached `152.0.7977.75` loads localhost with 200 in 249ms. Every browser run
 below used `PUPPETEER_EXECUTABLE_PATH` pointing at 152. **No repository file
-was changed for this.** The gate's own browser stages will meet the same
-refusal when they resolve the default build; that is recorded here and not
-investigated further, per Rule 10. That the gate's browser stages would
-hit it is an inference, which was not checked: it holds only if they resolve
-the default build. The browser also needed the command
-sandbox disabled to run at all in this session.
+was changed for this.** Whether the gate's own browser stages hit the same
+refusal was not checked: they would only if they resolve the default build.
+Recorded here and not investigated further, per Rule 10. The browser also
+needed the command sandbox disabled to run at all in this session.
 
 **The pre-commit hook.** Its hardcoded ROOT is this machine. Its suite script
 was run directly before committing and emitted `PASS pure 4.1s`, `PASS react
@@ -318,8 +316,9 @@ unit was derived, because the Installation tab was never opened.
 - **Phase 4.1 (B5).** Once the id returns, the shell writes the blocking list
   by `innerHTML` into an element React does not own. Measured in the
   calibrated run, that list stayed on screen after switching to Reference,
-  Commercials and every sub-tab, because the tab-change clear (T6) only clears
-  React's own `feedback` state. That persistence will be created by the fix,
+  Commercials and every sub-tab. The cause, read from source rather than
+  measured: the tab-change clear (T6) only clears React's own `feedback`
+  state. That persistence will be created by the fix,
   so it is part of Phase 4 under Rule 10's authorship limit.
 - **Phase 3.1** acceptance wording (see P0.5).
 - **The gate's browser stages and Chrome 153** (environment, above).
