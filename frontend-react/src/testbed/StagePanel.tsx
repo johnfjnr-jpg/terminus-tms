@@ -3,8 +3,11 @@
 // Round 7 Phase 2b. The rendering surface the B and C capabilities' logic has
 // been waiting for: exit criteria, scoring, approvals and documents, all
 // through the shared panel the eight stage tabs take turns in (T2).
-import { useState } from 'react'
-import { exitTickPayload, isTicked } from './exitCriteria'
+import { useEffect, useState, type KeyboardEvent } from 'react'
+import {
+  readExitCriteria, visibleRequirements, isTickable, exitSummary,
+  type ExitRequirement,
+} from './exitCriteria'
 import {
   levelsFor, awaitingReason, entryLocked, toggle, summarise,
   setScoreDraft, recordScore, type Criterion, type ScoreDraftState,
@@ -12,20 +15,48 @@ import {
 import { reasonRequired, reasonAccepted, type ScoreEntry } from './scoreReason'
 import type { PanelId, PanelState } from './stageLoad'
 
-export interface Criterion_ { field: string, label: string, value?: unknown }
+/** What a tick attempt came back with. `error: null` means refused with nothing to say (the door). */
+export interface TickResult { ok: boolean, error?: string | null }
 
 /**
- * B: the exit-criteria list.
+ * B: THE EXIT-CRITERIA PANEL, Round A Phase 1.
  *
- * A tick is a TIMESTAMP (B1). The list reads `isTicked`, which is the GATE's
- * own rule rather than a second reading of it (Verification 43).
+ * Renders the route's OBJECT, `{ from_stage, to_stage, blocking,
+ * requirements[] }`. It rendered its empty branch on every stage for as long
+ * as the React screen existed, because the object was cast to an array (audit
+ * B3, reproduced live as P0.3: 14 requirements served, 0 shown).
+ *
+ * Behaviour, from the brief's 1.1-1.7 and the vanilla's recorded reasoning:
+ *   1.1 the summary counts ALL requirements and names to_stage;
+ *   1.2 met is the server's own `met`, never read off the payload;
+ *   1.3 a row is tickable only for a labelled member of the four tick keys,
+ *       and every other row is a computed, read-only row;
+ *   1.4 process rows always show, data-entry rows only while unmet;
+ *   1.5 tick writes an ISO timestamp, untick writes null, through the host's
+ *       revision-carrying patch. NO QUEUE, by the brief's scale position: a
+ *       rapid double tick answers 409 and reloads, which is a safe failure;
+ *   1.6 a failed tick says so in the panel and leaves the row as it was;
+ *   1.7 pending marks arrive in Phase 2.6, at the point named below.
  */
-export function ExitCriteria({ stage, criteria, panel, onTick }: {
+export function ExitCriteria({ stage, data, panel, onTick }: {
   stage: string
-  criteria: readonly Criterion_[]
+  data: unknown
   panel: PanelState
-  onTick: (payload: Record<string, string | null>) => void
+  onTick: (field: string, currentlyMet: boolean) => Promise<TickResult>
 }) {
+  const [feedback, setFeedback] = useState<string | null>(null)
+  // ── A CONFIRMED TICK SHOWS BEFORE THE RECOMPUTE LANDS ──────────────────
+  //
+  // The vanilla measured this: click to visible tick was 1162ms, because the
+  // row waited on a full re-read of every OTHER row. A row flips here only after
+  // the server has ACCEPTED its own PATCH, so nothing is shown that the server
+  // has not confirmed; what it no longer waits for is the recomputation. It is
+  // a record of a confirmed write, never a derivation from the payload, and it
+  // is dropped the moment a fresh response arrives, so the server's `met` is
+  // what the row shows from then on. `data-met` never reads it.
+  const [confirmed, setConfirmed] = useState<ReadonlyMap<string, boolean>>(new Map())
+  useEffect(() => { setConfirmed(new Map()) }, [data])
+
   if (panel.error) {
     return <p className="empty-state" data-testid="tb-stage-exit-criteria-list">{panel.error}</p>
   }
@@ -33,23 +64,72 @@ export function ExitCriteria({ stage, criteria, panel, onTick }: {
     return <p className="empty-state" data-testid="tb-stage-exit-criteria-list">
       Loading {panel.pending ?? stage}...</p>
   }
-  return (
-    <div data-testid="tb-stage-exit-criteria-list" data-stage={panel.stage}>
-      {criteria.length
-        ? criteria.map((c) => {
-          const met = isTicked(c.value)
-          return (
-            <div className={met ? 'tb-crit-row tb-crit-box--met' : 'tb-crit-row'}
-              key={c.field} data-testid={`tb-crit-${c.field}`}>
-              <input type="checkbox" checked={met} readOnly
-                data-testid={`tb-crit-tick-${c.field}`}
-                onClick={() => onTick(exitTickPayload(c.field, met, new Date().toISOString()))} />
-              <span>{c.label}</span>
-            </div>)
-        })
-        : <p className="empty-state">No exit criteria for this stage.</p>}
-    </div>
-  )
+  const res = readExitCriteria(data)
+  const settled = (body: React.ReactNode) => (
+    <div data-testid="tb-stage-exit-criteria-list" data-stage={panel.stage}>{body}</div>)
+  // An unreadable answer is not an empty one, so it does not say "no criteria".
+  if (!res) return settled(<p className="empty-state">Unable to load exit criteria.</p>)
+  if (res.to_stage === null) {
+    return settled(<p className="empty-state">
+      This is the final stage - nothing further to exit toward.</p>)
+  }
+  if (!res.requirements.length) {
+    return settled(<p className="empty-state">
+      No exit criteria configured for {res.to_stage}.</p>)
+  }
+
+  const tick = async (field: string, currentlyMet: boolean) => {
+    setFeedback(null)
+    const r = await onTick(field, currentlyMet)
+    if (r.ok) {
+      setConfirmed((m) => new Map(m).set(field, !currentlyMet))
+      return
+    }
+    // A failed write must not look like a success: the row is left exactly as
+    // it was, and the reason is said where the click happened.
+    if (r.error !== null) setFeedback(`Could not update: ${r.error ?? 'unknown error'}`)
+  }
+
+  const box = (met: boolean) => (
+    <span className={met ? 'tb-crit-box tb-crit-box--met' : 'tb-crit-box'}>
+      {met ? '✓' : ''}</span>)
+
+  return settled(<>
+    {/* The vanilla's own treatment for this line: `sub` with a 10px gap below. */}
+    <p className="sub" style={{ marginBottom: 10 }} data-testid="tb-crit-summary">{exitSummary(res)}</p>
+    {visibleRequirements(res.requirements).map((r: ExitRequirement, i) => {
+      // 1.7: PHASE 2.6 APPLIES PENDING MARKS HERE, from the score-draft state
+      // this panel will then render from - and never on a row whose server
+      // `met` is true, which is why `data-met` carries only the server's value.
+      if (isTickable(r)) {
+        const field = r.field as string
+        const shown = confirmed.get(field) ?? r.met
+        return (
+          <div key={`t-${field}`} className="tb-crit-row tb-crit-row--tickable"
+            role="checkbox" aria-checked={shown} tabIndex={0}
+            data-testid={`tb-crit-${field}`} data-field={field}
+            data-met={r.met ? 'true' : 'false'}
+            title={shown ? 'Tick to clear' : 'Tick to confirm'}
+            onClick={() => { void tick(field, shown) }}
+            onKeyDown={(e: KeyboardEvent<HTMLDivElement>) => {
+              if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); void tick(field, shown) }
+            }}>
+            {box(shown)}<span className="tb-crit-text">{r.label}</span>
+          </div>)
+      }
+      // Computed: a document, an approval, a contact role, a score, or a
+      // labelled field outside the tick keys. No role, no tab stop and no
+      // handler, because a click here has nothing it may write.
+      return (
+        <div key={`c-${i}`} className="tb-crit-row tb-crit-row--computed"
+          data-testid="tb-crit-computed" data-field={r.field ?? ''}
+          data-met={r.met ? 'true' : 'false'}>
+          {box(r.met)}<span className="tb-crit-text">{r.message ?? r.label}</span>
+        </div>)
+    })}
+    <div className={feedback ? 'tb-doc-feedback err' : 'tb-doc-feedback'}
+      data-testid="tb-crit-feedback" role="status">{feedback}</div>
+  </>)
 }
 
 /**

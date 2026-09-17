@@ -12,7 +12,7 @@ import {
   createStageLoader, PANEL_IDS, type PanelId, type PanelState, type Stage,
   type Fetched,
 } from './stageLoad'
-import { ExitCriteria, ScoringCard, ReadPanel, type Criterion_ } from './StagePanel'
+import { ExitCriteria, ScoringCard, ReadPanel, type TickResult } from './StagePanel'
 import { UnitsPane, LockedCounts } from './UnitsPane'
 import type { Criterion } from './scoring'
 import type { ScoreEntry } from './scoreReason'
@@ -26,7 +26,8 @@ export interface StageTabsDeps {
   approvals: (stage: string) => Promise<Fetched>
   scoringCriteria: (stage: string) => readonly Criterion[]
   series: (key: string) => readonly ScoreEntry[]
-  onTick: (payload: Record<string, string | null>) => void
+  /** 1.5: one tick attempt. The host owns the write, the door and the refresh. */
+  onTick: (field: string, currentlyMet: boolean) => Promise<TickResult>
   onRecordScores: (drafts: Record<string, string>, reasons: Record<string, string>) => void
   onDeriveUnits: () => Promise<void>
   unitDeps: Omit<QueueDeps, 'onRowState'>
@@ -73,7 +74,10 @@ export function StageTabs({ payload, units, landing, fresh, currentStage, nextSt
   const [card, setCard] = useState<{ hidden: boolean, stage?: string }>({ hidden: true })
   const [installVisible, setInstallVisible] = useState(false)
   const [feedback, setFeedback] = useState<string | null>(null)
-  const [criteriaRows, setCriteriaRows] = useState<Criterion_[]>([])
+  // THE ROUTE'S OBJECT, carried as it arrived. This was `Criterion_[]` and the
+  // response was cast into it, which is how every stage read "No exit criteria"
+  // while the server sent 14 (P0.3). The panel reads it through its own guard.
+  const [criteriaData, setCriteriaData] = useState<unknown>(null)
   const [terminal, setTerminal] = useState(false)
   const [panelData, setPanelData] = useState<{ documents: unknown, approvals: unknown }>(
     { documents: null, approvals: null })
@@ -114,8 +118,8 @@ export function StageTabs({ payload, units, landing, fresh, currentStage, nextSt
     const stage = stageOf(key) as string
     const r = await loader.current.open(stage)
     setTerminal(r.terminal)
-    if (r.panels['tb-stage-exit-criteria-list']) {
-      setCriteriaRows(r.panels['tb-stage-exit-criteria-list'] as Criterion_[])
+    if (r.panels['tb-stage-exit-criteria-list'] !== undefined) {
+      setCriteriaData(r.panels['tb-stage-exit-criteria-list'])
     }
     setPanelData({
       documents: r.panels['tb-stage-documents-section'] ?? null,
@@ -246,7 +250,7 @@ export function StageTabs({ payload, units, landing, fresh, currentStage, nextSt
             </ReadPanel>
 
             <ExitCriteria stage={stageOf(active) as string}
-              criteria={criteriaRows}
+              data={criteriaData}
               panel={panels['tb-stage-exit-criteria-list']}
               onTick={deps.onTick} />
 

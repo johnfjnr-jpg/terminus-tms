@@ -9,6 +9,7 @@ import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { StageTabs, type StageTabsDeps } from '../testbed/StageTabs'
 import { UseCasesList } from '../testbed/UseCasesList'
+import LIVE_JSON from './fixtures/exit-criteria-live.json'
 
 let host: HTMLElement
 let root: Root
@@ -19,7 +20,10 @@ const STAGES = [
   { stage_name: 'Closed', sort_order: 9 },
 ]
 
-const CRITERIA = [{ field: 'siteSurveyDone', label: 'Site survey done', value: null }]
+// THE ROUTE'S OWN RESPONSE, captured, not a hand-shaped array. The array that
+// stood here (`[{ field, label, value }]`) was shaped to the reader and is why
+// every stage read "No exit criteria" live while this suite stayed green (B3).
+const CRITERIA = LIVE_JSON.cases.qualificationFresh
 
 const deps = (over: Partial<StageTabsDeps> = {}): StageTabsDeps => ({
   stages: STAGES,
@@ -32,7 +36,7 @@ const deps = (over: Partial<StageTabsDeps> = {}): StageTabsDeps => ({
       { value: 3, label: 'Confirmed', reason_required: true }],
   }],
   series: () => [],
-  onTick: () => {},
+  onTick: async () => ({ ok: true }),
   onRecordScores: () => {},
   onDeriveUnits: async () => {},
   unitDeps: {
@@ -119,24 +123,10 @@ describe('the tab strip renders', () => {
     }
   })
 
-  test('B: the criteria list renders the stage\'s own criteria, unticked', async () => {
-    await render()
-    await click('tb-tab-btn-stage-Qualification')
-    expect(q('tb-crit-siteSurveyDone')).toBeTruthy()
-    expect((q('tb-crit-tick-siteSurveyDone') as HTMLInputElement).checked).toBe(false)
-  })
-
-  test('B1 a tick writes a TIMESTAMP, never a boolean', async () => {
-    const onTick = vi.fn()
-    await render({ deps: deps({ onTick }) })
-    await click('tb-tab-btn-stage-Qualification')
-    await click('tb-crit-tick-siteSurveyDone')
-    expect(onTick).toHaveBeenCalledTimes(1)
-    const payload = onTick.mock.calls[0][0] as Record<string, unknown>
-    expect(typeof payload.siteSurveyDone,
-      'the tick wrote a boolean, which the gate reads as PRESENT').toBe('string')
-    expect(String(payload.siteSurveyDone)).toMatch(/^\d{4}-\d{2}-\d{2}T/)
-  })
+  // The two B tests that stood here drove a hand-shaped criteria array and an
+  // `<input type=checkbox>` onTick(payload). Both shapes are gone: the panel's
+  // behaviour, the tick and its payload are asserted against the route's own
+  // responses in testbed-exit-criteria.test.tsx (Round A Phase 1).
 
   test('P8 the scoring card is HIDDEN by attribute until its stage is derived', async () => {
     await render()

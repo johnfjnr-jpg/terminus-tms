@@ -7,7 +7,7 @@
 import { describe, test, expect, vi } from 'vitest'
 import { createUnitQueues } from '../testbed/unitQueue'
 import { addUseCase, removeUseCase } from '../testbed/useCases'
-import { exitTickPayload, isTicked } from '../testbed/exitCriteria'
+import { exitTickPayload } from '../testbed/exitCriteria'
 import { reasonRequired, reasonAccepted } from '../testbed/scoreReason'
 
 describe('Q: the per-row unit write queue', () => {
@@ -239,16 +239,10 @@ describe('B: the exit-criterion tick', () => {
       .toEqual({ exitFoo: null })
   })
 
-  test('B2 WHY: `false` would read as ticked, and null does not', () => {
-    // payload_field_required blocks only on undefined, null and '' - so a
-    // stored `false` is PRESENT and opens the gate.
-    expect(isTicked(false), 'a stored false read as unticked here but as PRESENT to the gate')
-      .toBe(true)
-    expect(isTicked(null)).toBe(false)
-    expect(isTicked(undefined)).toBe(false)
-    expect(isTicked('')).toBe(false)
-    expect(isTicked('2026-09-07T12:00:00.000Z')).toBe(true)
-  })
+  // B2's `isTicked` test is REMOVED with the helper (Round A Phase 1). It read
+  // met-ness off the payload, which brief 1.2 rules out: the panel reads the
+  // server's own `met`, asserted in testbed-exit-criteria.test.tsx. The reason
+  // a tick is never a boolean is still enforced above by B1.
 })
 
 describe('R: the score reason', () => {

@@ -47,6 +47,9 @@ import { createArrivalFlags, notMine } from './viewLoad'
 import { ConvertPanel } from './ConvertPanel'
 import { CONVERT_ROUTE } from './convert'
 import { completeDocumentRoute, confirmBody, saveUrlBody } from './stageDocuments'
+import { attemptTick } from './exitCriteria'
+
+const STALE = 'This Test Bed changed since the screen loaded. Reload before saving.'
 
 /**
  * V7: the numeric fields the validation banner speaks for.
@@ -496,30 +499,36 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
   const notes = (record.payload?.notes as Note[] | undefined) ?? []
 
   /**
-   * The whole-list write the use cases and the exit tick both need.
+   * The whole-list write the use cases, the install notes and the exit tick
+   * all need.
    *
-   * ONE writer, because both are a record PATCH carrying the revision as the
+   * ONE writer, because all are a record PATCH carrying the revision as the
    * precondition, and two would be Verification 20's shape on the save path.
+   * Round A Phase 1 split it into the write and its REPORTING: the use cases
+   * and notes report on the host banner, and the exit tick reports inside its
+   * own panel (1.6), so the write returns the reason rather than choosing where
+   * it is said.
    */
-  const patchPayload = useCallback(async (payload: Record<string, unknown>) => {
+  const writePayload = useCallback(async (payload: Record<string, unknown>) => {
     const r = await shell.api<{ error?: string }>('PATCH', `/api/test-beds/${bed.id}`, {
       payload,
       expected_revision: Number.isInteger(record.latest_revision_number)
         ? record.latest_revision_number : null,
     })
     if (!r.ok) {
-      setFeedback({
-        text: r.status === 409
-          ? 'This Test Bed changed since the screen loaded. Reload before saving.'
-          : (r.data?.error ?? 'Failed to save.'),
-        html: null, ok: false,
-      })
+      // A 409 reloads either way: the screen is behind the record.
       if (r.status === 409) await load()
-      return false
+      return { ok: false, error: r.status === 409 ? STALE : (r.data?.error ?? 'Failed to save.') }
     }
     await load()
-    return true
+    return { ok: true, error: null }
   }, [shell, bed.id, record.latest_revision_number, load])
+
+  const patchPayload = useCallback(async (payload: Record<string, unknown>) => {
+    const r = await writePayload(payload)
+    if (!r.ok) setFeedback({ text: r.error, html: null, ok: false })
+    return r.ok
+  }, [writePayload])
 
   const stageDeps: StageTabsDeps = useMemo(() => ({
     stages,
@@ -529,7 +538,14 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
     approvals: () => shell.api('GET', `/api/records/${bed.id}/stage-approvals`),
     scoringCriteria: (stage) => scoring[stage] ?? [],
     series: (key) => seriesByKey[key] ?? [],
-    onTick: (payload) => { void patchPayload(payload) },
+    // 1.5: the attempt, its door and its refresh live in `attemptTick`, where
+    // they are tested; this only supplies the host's writer and door.
+    onTick: (field, currentlyMet) => attemptTick({
+      canEdit: () => shell.canEditFields(),
+      write: writePayload,
+      refresh: refreshStage,
+      now: () => new Date().toISOString(),
+    }, field, currentlyMet),
     onRecordScores: (drafts, reasons) => {
       void (async () => {
         const entries = Object.entries(drafts).map(([criterion_key, score]) => ({
@@ -557,7 +573,7 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
       onUnit: (unit) => setUnits((us) => us.map(
         (u) => (u.id === (unit as Unit).id ? (unit as Unit) : u))),
     },
-  }), [shell, bed.id, stages, scoring, seriesByKey, units, patchPayload, load, loadUnits])
+  }), [shell, bed.id, stages, scoring, seriesByKey, units, writePayload, refreshStage, load, loadUnits])
 
   const installSectionNode = (
     <InstallSection
