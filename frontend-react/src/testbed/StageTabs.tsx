@@ -141,7 +141,8 @@ export function StageTabs({ payload, units, landing, fresh, currentStage, nextSt
     onPanel: (id, s) => setPanels((p) => ({ ...p, [id]: s })),
     onScoringCard: setCard,
     onInstallSection: setInstallVisible,
-    onDeriveUnits: () => { void depsRef.current.onDeriveUnits() },
+    // No onDeriveUnits here (Test Bed units Phase 1, audit R1): opening a tab is
+    // a read. `deps.onDeriveUnits` reaches ONLY the units pane's button, below.
   }))
 
   const activate = useCallback(async (key: string) => {

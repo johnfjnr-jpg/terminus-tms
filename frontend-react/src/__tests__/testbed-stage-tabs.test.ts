@@ -235,16 +235,20 @@ describe('P: the stage panel load', () => {
     expect(seen).toEqual([false, true])
   })
 
-  test('P7 units are derived only for the stage that owns them', async () => {
+  // SUPERSEDED, Test Bed units Phase 1 (audit R1). This test used to assert that
+  // opening Installation and Commissioning derived units exactly once, which is
+  // the regression itself asserted as a contract. Opening a tab never derives.
+  // A derive callback smuggled back into the deps must still not be called; the
+  // host-level guard is testbed-units-derive.test.tsx.
+  test('P7 opening ANY tab derives nothing, Installation and Commissioning included', async () => {
     let derived = 0
     const loader = createStageLoader({
       ...okFetches(), stages: STAGES.concat({ stage_name: 'Installation and Commissioning', sort_order: 4 }),
-      onPanel: () => {}, onDeriveUnits: () => { derived++ },
+      onPanel: () => {}, ...({ onDeriveUnits: () => { derived++ } } as object),
     })
     await loader.open('Qualification')
-    expect(derived, 'units were derived for a stage that does not own them').toBe(0)
     await loader.open('Installation and Commissioning')
-    expect(derived).toBe(1)
+    expect(derived, 'opening a tab derived units').toBe(0)
   })
 
   test('P9 a THROW leaves no panel pending, and writes a real message', async () => {
