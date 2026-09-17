@@ -73,6 +73,68 @@ describe('4.1 the transition feedback element carries its id again', () => {
   })
 })
 
+describe('R12: the blocked list clears on the host\'s own reload after a save, and nowhere else', () => {
+  const BLOCKED = '<p class="msg-error">Transition blocked.</p><ul class="blocking-list"><li>Requires Rollout Path</li></ul>'
+  const el = () => host.querySelector('#tb-next-stage-feedback') as HTMLElement
+
+  // A real host save: the use-case list's whole-list PATCH, which reloads the
+  // record through the host's load() on success (TestBedHost writePayload).
+  const addUseCase = async (text: string) => {
+    await act(async () => {
+      const input = $('tb-usecase-input') as HTMLInputElement
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, text)
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+      await Promise.resolve()
+    })
+    await act(async () => { $('tb-usecase-add')!.click() })
+    await settle()
+  }
+
+  const mountWithPatch = async (patch: { ok: boolean, status: number, data: unknown }) => {
+    const calls: string[] = []
+    await mount({
+      api: (async (m: string, path: string) => {
+        calls.push(`${m} ${path}`)
+        if (m === 'PATCH' && path === `/api/test-beds/${BED.id}`) return patch
+        if (path === `/api/test-beds/${BED.id}`) return { ok: true, status: 200, data: BED }
+        if (path.startsWith('/api/stage-definitions')) return { ok: true, status: 200, data: SCORING.stageDefinitions }
+        if (path.endsWith('/history')) return { ok: true, status: 200, data: { entries: [] } }
+        return { ok: true, status: 200, data: [] }
+      }) as ShellServices['api'],
+    })
+    return calls
+  }
+
+  test('a save the host reloads after CLEARS the list the shell wrote', async () => {
+    const calls = await mountWithPatch({ ok: true, status: 200, data: {} })
+    await tab('reference')
+    el().innerHTML = BLOCKED
+    await addUseCase('a use case')
+    // Both halves: the save happened and the host reloaded, or a clear-free
+    // pass would read the same as a save that never ran (Verification 14).
+    expect(calls, 'the save never reached the route').toContain(`PATCH /api/test-beds/${BED.id}`)
+    expect(calls.filter((c) => c === `GET /api/test-beds/${BED.id}`).length, 'the host did not reload').toBeGreaterThan(0)
+    expect(el().innerHTML, 'the list survived a reload that followed a save').toBe('')
+  })
+
+  test('the element survives the clear, once, with its id: the next refusal still has somewhere to render', async () => {
+    await mountWithPatch({ ok: true, status: 200, data: {} })
+    await tab('reference')
+    el().innerHTML = BLOCKED
+    await addUseCase('a use case')
+    expect(host.querySelectorAll('#tb-next-stage-feedback')).toHaveLength(1)
+  })
+
+  test('a REFUSED save that does not reload leaves the list: nothing was recorded, so nothing contradicts it', async () => {
+    const calls = await mountWithPatch({ ok: false, status: 400, data: { error: 'refused' } })
+    await tab('reference')
+    el().innerHTML = BLOCKED
+    await addUseCase('a use case')
+    expect(calls, 'the save never reached the route').toContain(`PATCH /api/test-beds/${BED.id}`)
+    expect(el().textContent, 'a save that recorded nothing cleared the list').toContain('Transition blocked.')
+  })
+})
+
 describe('4.2 Back to test beds', () => {
   test('the vanilla\'s button, first in the header, above the title', async () => {
     await mount()

@@ -172,6 +172,8 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
   // own gap, where it located the row by matching role TEXT and so silently
   // did nothing for a version-scoped row whose label is not its track name.
   const [stageRefresh, setStageRefresh] = useState(0)
+  // R12: counts the host's own reloads, so StageTabs can clear the blocked list.
+  const [reloads, setReloads] = useState(0)
   const refreshStage = useCallback(() => { setStageRefresh((n) => n + 1) }, [])
   const [arrival, setArrival] = useState<{ fresh: boolean, landing: string | null }>(
     () => ({ fresh: true, landing: null }))
@@ -426,6 +428,10 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
     // one of its writers.
     const landing = shell.takeTestBedLanding() ?? flags.current.takeLanding()
     setArrival({ fresh, landing })
+    // R12: every call to load() follows a write (a save, a link, a score, a
+    // confirm, or a 409 on one), so a blocked list written before it may now
+    // demand the thing just recorded. It clears here and nowhere else.
+    setReloads((n) => n + 1)
 
     const r = await shell.api<BedLike>('GET', `/api/test-beds/${bed.id}`)
     if (r.ok && r.data) {
@@ -790,6 +796,7 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
             }} />)}
         closed={<ClosedRecordPanel data={lifecycle.data} failed={lifecycle.failed} />}
         refreshToken={stageRefresh}
+        reloadToken={reloads}
         recordId={bed.id}
         onNextStage={() => {
           const { currentStage, nextStage } = nextStageFor(stages, record.status)

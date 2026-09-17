@@ -43,8 +43,13 @@ export interface StageTabsDeps {
 const emptyPanels = () => Object.fromEntries(
   PANEL_IDS.map((id) => [id, {} as PanelState])) as Record<PanelId, PanelState>
 
-export function StageTabs({ payload, units, landing, fresh, currentStage, nextStage, deps, reference, commercials, installSection, documents, approvals, closed, onNextStage, refreshToken, recordId }: {
+export function StageTabs({ payload, units, landing, fresh, currentStage, nextStage, deps, reference, commercials, installSection, documents, approvals, closed, onNextStage, refreshToken, recordId, reloadToken }: {
   payload: Record<string, unknown>
+  /**
+   * R12: moves each time the HOST reloads its own record after a save. The
+   * blocked list the shell wrote is cleared then and at no other time.
+   */
+  reloadToken?: number
   /**
    * The record these drafts belong to. The shell RE-RENDERS this view for the
    * next record rather than mounting a new one (Verification 47), so without a
@@ -95,6 +100,14 @@ export function StageTabs({ payload, units, landing, fresh, currentStage, nextSt
   const [panelData, setPanelData] = useState<{ documents: unknown, approvals: unknown }>(
     { documents: null, approvals: null })
   const lastTab = useRef<string | null>(null)
+
+  // R12: the one clear this surface makes on the shell's element. The token
+  // starts at 0 and the host moves it only from load(), which it calls only
+  // after a write, so a mount or a tab change never reaches the clear.
+  const blockedRef = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    if (reloadToken && blockedRef.current) blockedRef.current.innerHTML = ''
+  }, [reloadToken])
   // THE SCORE DRAFTS, above both panels: the scoring card edits them and the
   // exit-criteria panel will read them for its pending marks (2.6). They survive
   // a tab switch, as the vanilla's did, and reset when the RECORD changes.
@@ -249,12 +262,14 @@ export function StageTabs({ payload, units, landing, fresh, currentStage, nextSt
           list into document.getElementById('tb-next-stage-feedback') and returns
           silently when it is null, so without the id every refusal rendered
           nowhere (P0.4). The class is the vanilla's too: it carries the
-          element's styling. Per R8 the list is cleared only by the shell, at the
-          top of the next transition attempt; nothing here clears it on a tab
-          change, which is vanilla parity. The element has no React children,
-          so React never touches what the shell writes into it. */}
+          element's styling. The shell clears it at the top of the next
+          transition attempt; nothing here clears it on a tab change (R8,
+          vanilla parity). R12 adds ONE clear, on the host's own reload after a
+          save, through reloadToken below: after a save the list can demand the
+          very thing just recorded. The element has no React children, so
+          React never renders over what the shell writes into it. */}
       <div id="tb-next-stage-feedback" className="tb-next-stage-feedback"
-        data-testid="tb-next-stage-feedback" />
+        data-testid="tb-next-stage-feedback" ref={blockedRef} />
       {feedback ? <p className="msg-error" data-testid="tb-tab-feedback">{feedback}</p> : null}
 
       {active === 'reference' ? <div data-testid="tb-tab-reference">{reference}</div> : null}
