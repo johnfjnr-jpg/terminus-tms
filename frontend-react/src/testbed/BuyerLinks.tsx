@@ -45,6 +45,11 @@ export function BuyerLinks({ accountId, links, contacts, onLink, onNew }: {
         return (
           <div key={role} className="field-row" data-field={`buyer-${role}`} data-testid={`tb-buyer-${role}`}>
             <div className="field-row-label">{label}</div>
+            {/* ONE SLOT, CONTROLS ABOVE THE MESSAGE. The message was a flex
+                sibling of the controls inside the row, and a refusal squeezed
+                the select to a few characters while wrapping its own words into
+                a column (found by opening the screenshot, every assertion green). */}
+            <div className="tb-buyer-slot">
             <div className="tb-buyer-controls">
               {/* SAVES ON CHOICE, with no separate Link click (the vanilla's
                   Round 6 Phase 2). Disabled while its own write is in flight:
@@ -72,6 +77,7 @@ export function BuyerLinks({ accountId, links, contacts, onLink, onNew }: {
             {errors[role]
               ? <div data-testid={`tb-buyer-feedback-${role}`}><p className="msg-error">{errors[role]}</p></div>
               : null}
+            </div>
           </div>)
       })}
     </div>

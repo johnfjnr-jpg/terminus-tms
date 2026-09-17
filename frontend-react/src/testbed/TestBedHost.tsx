@@ -394,10 +394,18 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
             return { ok: res.ok, error: res.data?.error ?? null }
           },
         }, role, contactId)
-        if (r.sent && !r.error) { await load(); refreshStage() }
+        // THE RECORD reloads. No stage refresh: these rows render only on
+        // Reference, where a refresh loads nothing, and a line that changes
+        // nothing is a guard that suggests protection (Verification 9). The
+        // exit panel loads its own answer when its stage tab is opened.
+        if (r.sent && !r.error) await load()
         return r.error
       }}
       onNew={(role) => {
+        // THE DOOR, asked here too. The modal creates and qualifies a Contact
+        // BEFORE its last step links it, so a refused link on somebody else's
+        // record would still leave a new Contact behind.
+        if (!shell.canEditFields()) return
         if (buyerAccountId) shell.openInlineBuyerContact(bed.id, buyerAccountId, role)
       }} />)
 

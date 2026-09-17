@@ -168,6 +168,13 @@ describe('3.3 the door', () => {
     await choose(ROLES[0], ownContacts()[0].id)
     expect(links(sent), 'a link was sent for somebody else\'s record').toHaveLength(0)
   })
+
+  test('on a record you may not edit, "+ New" does not open the modal (it creates a Contact before it links)', async () => {
+    const openNew = vi.fn(() => true)
+    await mount({ canEdit: () => false, openNew })
+    await act(async () => { $(`tb-buyer-new-${ROLES[0]}`)!.click() })
+    expect(openNew, 'the modal was opened for somebody else\'s record').not.toHaveBeenCalled()
+  })
 })
 
 describe('3.2 "+ New" goes through the shell\'s shared modal', () => {
