@@ -1,0 +1,18 @@
+{
+  "source": "PATCH /api/test-beds/:id, captured by scripts/testbed-core/capture-patch.mjs",
+  "capturedAt": "2026-09-17T06:54:22.066Z",
+  "accepted": {
+    "status": 200,
+    "body": {
+      "ok": true,
+      "revision_number": 2,
+      "record_revision_number": 2
+    }
+  },
+  "refused": {
+    "status": 400,
+    "body": {
+      "error": "payload must be an object"
+    }
+  }
+}

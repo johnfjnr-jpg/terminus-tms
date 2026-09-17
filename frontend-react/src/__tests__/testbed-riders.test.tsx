@@ -18,6 +18,7 @@ import { shellServices } from './fixtures'
 import type { ShellServices } from '../shell-services'
 import BUYERS from './fixtures/buyers-live.json'
 import SCORING from './fixtures/scoring-live.json'
+import PATCH from './fixtures/testbed-patch-live.json'
 import { ageFrom } from '../testbed/identity'
 import { formatDate } from '../../../src/lib/format-dates.js'
 
@@ -90,6 +91,9 @@ describe('R12: the blocked list clears on the host\'s own reload after a save, a
     await settle()
   }
 
+  // The PATCH answers are the route's own, captured by
+  // scripts/testbed-core/capture-patch.mjs: never a hand-shaped body.
+  const answer = (c: { status: number, body: unknown }) => ({ ok: c.status >= 200 && c.status < 300, status: c.status, data: c.body })
   const mountWithPatch = async (patch: { ok: boolean, status: number, data: unknown }) => {
     const calls: string[] = []
     await mount({
@@ -106,7 +110,7 @@ describe('R12: the blocked list clears on the host\'s own reload after a save, a
   }
 
   test('a save the host reloads after CLEARS the list the shell wrote', async () => {
-    const calls = await mountWithPatch({ ok: true, status: 200, data: {} })
+    const calls = await mountWithPatch(answer(PATCH.accepted))
     await tab('reference')
     el().innerHTML = BLOCKED
     await addUseCase('a use case')
@@ -118,7 +122,7 @@ describe('R12: the blocked list clears on the host\'s own reload after a save, a
   })
 
   test('the element survives the clear, once, with its id: the next refusal still has somewhere to render', async () => {
-    await mountWithPatch({ ok: true, status: 200, data: {} })
+    await mountWithPatch(answer(PATCH.accepted))
     await tab('reference')
     el().innerHTML = BLOCKED
     await addUseCase('a use case')
@@ -126,7 +130,7 @@ describe('R12: the blocked list clears on the host\'s own reload after a save, a
   })
 
   test('a REFUSED save that does not reload leaves the list: nothing was recorded, so nothing contradicts it', async () => {
-    const calls = await mountWithPatch({ ok: false, status: 400, data: { error: 'refused' } })
+    const calls = await mountWithPatch(answer(PATCH.refused))
     await tab('reference')
     el().innerHTML = BLOCKED
     await addUseCase('a use case')
