@@ -37,7 +37,7 @@ const deps = (over: Partial<StageTabsDeps> = {}): StageTabsDeps => ({
   scoringCriteria: (stage) => criteriaForStage(SCORING_JSON.criteria as Criterion[], stage),
   series: () => [],
   onTick: async () => ({ ok: true }),
-  onRecordScores: () => {},
+  onRecordScores: async () => ({ recorded: [], failed: null, refused: false }),
   onDeriveUnits: async () => {},
   unitDeps: {
     patch: async () => ({ ok: true, data: {} }),

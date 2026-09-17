@@ -22,7 +22,7 @@ import { note, prepend, type Note } from '../contact/notes'
 import { StageTabs, type StageTabsDeps } from './StageTabs'
 import { UseCasesList } from './UseCasesList'
 import { DERIVE_ROUTE, UNITS_ROUTE, type Unit } from './units'
-import { SCORE_ROUTE, criteriaForStage, type Criterion } from './scoring'
+import { SCORE_ROUTE, criteriaForStage, recordScoresInOrder, type Criterion } from './scoring'
 import type { ScoreEntry } from './scoreReason'
 import type { Stage } from './stageLoad'
 import { InstallSection } from './InstallSection'
@@ -548,20 +548,20 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
       refresh: refreshStage,
       now: () => new Date().toISOString(),
     }, field, currentlyMet),
-    onRecordScores: (drafts, reasons) => {
-      void (async () => {
-        const entries = Object.entries(drafts).map(([criterion_key, score]) => ({
-          criterion_key, score: Number(score), reason: reasons[criterion_key] ?? null,
-        }))
-        const r = await shell.api<{ error?: string, series?: Record<string, ScoreEntry[]> }>(
-          'POST', SCORE_ROUTE(bed.id), { entries })
-        if (!r.ok) {
-          setFeedback({ text: r.data?.error ?? 'Failed to record scores.', html: null, ok: false })
-          return
-        }
-
-        await load()
-      })()
+    // 2.3: the per-entry contract lives in `recordScoresInOrder`, where it is
+    // tested; this supplies the route, the door and the reload. The record and
+    // the stage reload after any attempt that sent something, as the vanilla
+    // reloaded on success and on failure: a recorded score stands either way.
+    onRecordScores: async (criteria, scores) => {
+      const out = await recordScoresInOrder({
+        canEdit: () => shell.canEditFields(),
+        post: async (body) => {
+          const r = await shell.api<{ error?: string }>('POST', SCORE_ROUTE(bed.id), body)
+          return { ok: r.ok, error: r.data?.error ?? null }
+        },
+      }, criteria, scores)
+      if (!out.refused) { await load(); refreshStage() }
+      return out
     },
     onDeriveUnits: async () => {
       const r = await shell.api('POST', DERIVE_ROUTE(bed.id), {})
@@ -743,6 +743,7 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
             }} />)}
         closed={<ClosedRecordPanel data={lifecycle.data} failed={lifecycle.failed} />}
         refreshToken={stageRefresh}
+        recordId={bed.id}
         onNextStage={() => {
           const { currentStage, nextStage } = nextStageFor(stages, record.status)
           if (nextStage) shell.attemptTransition(bed.id, nextStage, 'test_bed', currentStage)

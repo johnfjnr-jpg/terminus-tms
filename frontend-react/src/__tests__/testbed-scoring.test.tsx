@@ -136,3 +136,111 @@ describe('2.2 series come from the record PAYLOAD, through the one reducer', () 
     expect(orderedSeries(reversed, key).map((e) => e.at)).toEqual([...stored].map((e) => e.at).sort())
   })
 })
+
+// ── 2.3 THE CONTRACT ──────────────────────────────────────────────────────
+const choose = async (key: string, value: string) => {
+  await act(async () => {
+    const sel = $(`tb-score-select-${key}`) as HTMLSelectElement
+    sel.value = value
+    sel.dispatchEvent(new Event('change', { bubbles: true }))
+  })
+  await settle()
+}
+// A REAL VALUE SETTER for a controlled textarea (Verification 6's write clause).
+const typeReason = async (key: string, text: string) => {
+  await act(async () => {
+    const ta = $(`tb-score-reason-${key}`) as HTMLTextAreaElement
+    const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!
+    setter.call(ta, text)
+    ta.dispatchEvent(new Event('input', { bubbles: true }))
+  })
+  await settle()
+}
+const record = async () => { await act(async () => { $('tb-score-record')!.click() }); await settle() }
+const posts = (sent: Sent[]) => sent.filter((s) => s.method === 'POST' && s.path.endsWith('/scores'))
+const Q = () => atStage('Qualification')
+const nameOf = (k: string) => LIVE.criteria.find((c) => c.criterion_key === k)!.name!
+const needsReason = (c: Criterion) => String(c.levels!.find((l) => l.reason_required)!.value)
+const noReason = (c: Criterion) => String(c.levels!.find((l) => !l.reason_required)!.value)
+
+describe('2.3 one flat entry per criterion, in PANEL order', () => {
+  test('the bodies are { criterion, score, reason? }, never { entries }, sent in panel order whatever the drafting order', async () => {
+    const sent: Sent[] = []
+    await mount({ payload: {}, sent })
+    await openStage('Qualification')
+    const [first, second, , , last] = Q()
+    await choose(last.criterion_key, noReason(last))
+    await choose(first.criterion_key, noReason(first))
+    await choose(second.criterion_key, needsReason(second))
+    await typeReason(second.criterion_key, 'No sponsor named yet.')
+    await record()
+    expect(posts(sent).map((p) => p.body)).toEqual([
+      { criterion: first.criterion_key, score: Number(noReason(first)) },
+      { criterion: second.criterion_key, score: Number(needsReason(second)), reason: 'No sponsor named yet.' },
+      { criterion: last.criterion_key, score: Number(noReason(last)) },
+    ])
+  })
+
+  test('with NOTHING drafted the button sends nothing (P0.1 posted {"entries":[]})', async () => {
+    const sent: Sent[] = []
+    await mount({ payload: {}, sent })
+    await openStage('Qualification')
+    expect(($('tb-score-record') as HTMLButtonElement).disabled).toBe(true)
+    await record()
+    expect(posts(sent)).toHaveLength(0)
+  })
+
+  test('after a recorded run the RECORD is re-read, so the panel shows what the server holds', async () => {
+    const sent: Sent[] = []
+    await mount({ payload: {}, sent })
+    await openStage('Qualification')
+    const reads = () => sent.filter((s) => s.method === 'GET' && s.path === '/api/test-beds/tb-1').length
+    const before = reads()
+    await choose(Q()[0].criterion_key, noReason(Q()[0]))
+    await record()
+    expect(reads(), 'the record was not reloaded after scoring').toBeGreaterThan(before)
+  })
+
+  test('the DOOR: on a record you may not edit, nothing is sent and the drafts stay', async () => {
+    const sent: Sent[] = []
+    let allowed = true
+    await mount({ payload: {}, sent, canEdit: () => allowed })
+    await openStage('Qualification')
+    await choose(Q()[0].criterion_key, noReason(Q()[0]))
+    allowed = false
+    await record()
+    expect(posts(sent), 'a score was sent for somebody else\'s record').toHaveLength(0)
+    expect(($(`tb-score-select-${Q()[0].criterion_key}`) as HTMLSelectElement).value).toBe(noReason(Q()[0]))
+  })
+})
+
+describe('2.3 the vanilla\'s partial-failure semantics, on REAL refusal bodies', () => {
+  test('a recorded score stands; the FIRST refusal stops the run; the message names both; the rest stay drafted', async () => {
+    const sent: Sent[] = []
+    const refusal = LIVE.refusals.revisionWithoutReason
+    await mount({ payload: {}, sent, onScore: (_b, n) => (n === 1 ? refusal : LIVE.accepted.firstScore) })
+    await openStage('Qualification')
+    const [a, b, c] = Q()
+    for (const x of [a, b, c]) await choose(x.criterion_key, noReason(x))
+    await record()
+    expect(posts(sent).map((p) => (p.body as { criterion: string }).criterion),
+      'the run went on past the refusal').toEqual([a.criterion_key, b.criterion_key])
+    expect($('tb-score-error')?.textContent)
+      .toBe(`Recorded ${nameOf(a.criterion_key)}. ${nameOf(b.criterion_key)} could not be recorded: ${refusal.body.error}`)
+    expect(($(`tb-score-select-${a.criterion_key}`) as HTMLSelectElement).value, 'the recorded score stayed drafted').toBe('')
+    expect(($(`tb-score-select-${b.criterion_key}`) as HTMLSelectElement).value, 'the refused score was not kept for a retry').toBe(noReason(b))
+    expect(($(`tb-score-select-${c.criterion_key}`) as HTMLSelectElement).value, 'the unattempted score was not kept').toBe(noReason(c))
+  })
+
+  test('a refusal on the FIRST entry says nothing was recorded', async () => {
+    const refusal = LIVE.refusals.requiredLevelWithoutReason
+    await mount({ payload: {}, onScore: () => refusal })
+    await openStage('Qualification')
+    const [a, b] = Q()
+    await choose(a.criterion_key, noReason(a))
+    await choose(b.criterion_key, noReason(b))
+    await record()
+    expect($('tb-score-error')?.textContent)
+      .toBe(`Nothing was recorded. ${nameOf(a.criterion_key)} could not be recorded: ${refusal.body.error}`)
+  })
+})

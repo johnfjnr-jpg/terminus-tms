@@ -9,8 +9,7 @@ import {
   type ExitRequirement,
 } from './exitCriteria'
 import {
-  levelsFor, awaitingReason, entryLocked, toggle,
-  setScoreDraft, recordScore, type Criterion, type ScoreDraftState,
+  levelsFor, awaitingReason, toggle, type Criterion, type ScoreDrafts,
 } from './scoring'
 import { reasonRequired, reasonAccepted, type ScoreEntry } from './scoreReason'
 import { currentEntry } from './QualificationScore'
@@ -141,18 +140,25 @@ export function ExitCriteria({ stage, data, panel, onTick }: {
  * used rather than a class, and nothing gives that class a `display` - the
  * Round 5 finding that an attribute assertion is not a visibility assertion.
  */
-export function ScoringCard({ card, criteria, series, onRecord }: {
+export function ScoringCard({ card, criteria, series, scores, onDraft, onReason, onRecord }: {
   card: { hidden: boolean, stage?: string }
   criteria: readonly Criterion[]
   series: (key: string) => readonly ScoreEntry[]
-  onRecord: (drafts: Record<string, string>, reasons: Record<string, string>) => void
+  /** The drafts, held by StageTabs so the exit-criteria panel reads the same ones (2.6). */
+  scores: ScoreDrafts
+  onDraft: (key: string, value: string, awaiting: string | null) => void
+  onReason: (key: string, value: string) => void
+  /** 2.3: records the open stage's drafts; resolves to the message to show, or null. */
+  onRecord: () => Promise<string | null>
 }) {
-  const [state, setState] = useState<ScoreDraftState>({ drafts: {}, recorded: new Set() })
-  const [reasons, setReasons] = useState<Record<string, string>>({})
   const [open, setOpen] = useState<ReadonlySet<string>>(new Set())
   const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const state = scores
+  const reasons = scores.reasons
 
   const blocking = awaitingReason(state.drafts, reasons, criteria, series)
+  const anyDraft = criteria.some((c) => (state.drafts[c.criterion_key] ?? '') !== '')
 
   return (
     // NO DOM `id`. index.html still carries #tb-stage-scoring-card, and that
@@ -165,7 +171,7 @@ export function ScoringCard({ card, criteria, series, onRecord }: {
       <div className="pg-card-title">Scoring</div>
       {criteria.map((c) => {
         const levels = levelsFor(c)
-        const locked = entryLocked(state.recorded, c.criterion_key)
+        const locked = !!blocking && blocking !== c.criterion_key
         const draft = state.drafts[c.criterion_key] ?? ''
         const needsReason = reasonRequired(Number(draft), levels, series(c.criterion_key))
         const sum = { latest: currentEntry(series(c.criterion_key)), count: series(c.criterion_key).length }
@@ -176,7 +182,7 @@ export function ScoringCard({ card, criteria, series, onRecord }: {
             <span>{c.name ?? c.criterion_key}</span>
             <select disabled={locked} value={draft}
               data-testid={`tb-score-select-${c.criterion_key}`}
-              onChange={(e) => setState((s) => setScoreDraft(s, c.criterion_key, e.target.value))}>
+              onChange={(e) => onDraft(c.criterion_key, e.target.value, blocking)}>
               <option value="">--</option>
               {levels.map((l) => (
                 <option key={l.value} value={String(l.value)}>{l.label ?? l.value}</option>))}
@@ -184,7 +190,7 @@ export function ScoringCard({ card, criteria, series, onRecord }: {
             {needsReason
               ? <textarea data-testid={`tb-score-reason-${c.criterion_key}`}
                   value={reasons[c.criterion_key] ?? ''}
-                  onChange={(e) => setReasons((r) => ({ ...r, [c.criterion_key]: e.target.value }))} />
+                  onChange={(e) => onReason(c.criterion_key, e.target.value)} />
               : null}
             {/* C7: DISCLOSURE, not state. Nothing here reaches the record. */}
             <button type="button" data-testid={`tb-score-history-${c.criterion_key}`}
@@ -199,20 +205,22 @@ export function ScoringCard({ card, criteria, series, onRecord }: {
       })}
 
       {/* C5: the SAVE is blocked, and it names which criterion. */}
+      {/* 2.3: nothing to send is not a request. The old button posted
+          `{"entries":[]}` with no drafts at all (P0.1). */}
       <button type="button" data-testid="tb-score-record"
-        disabled={!!blocking}
+        disabled={!!blocking || !anyDraft || busy}
         onClick={() => {
-          const keys = Object.keys(state.drafts)
-          for (const k of keys) {
+          for (const c of criteria) {
+            const k = c.criterion_key
+            if ((state.drafts[k] ?? '') === '') continue
             const check = reasonAccepted(reasons[k] ?? '', series(k))
-            const levels = levelsFor(criteria.find((c) => c.criterion_key === k))
-            if (reasonRequired(Number(state.drafts[k]), levels, series(k)) && !check.ok) {
+            if (reasonRequired(Number(state.drafts[k]), levelsFor(c), series(k)) && !check.ok) {
               setError(check.error ?? 'A reason is required.'); return
             }
           }
           setError(null)
-          onRecord(state.drafts, reasons)
-          setState((s) => recordScore(s, keys))
+          setBusy(true)
+          void onRecord().then((msg) => { setError(msg); setBusy(false) })
         }}>Record scores</button>
       {blocking
         ? <p className="msg-error" data-testid="tb-score-blocked">

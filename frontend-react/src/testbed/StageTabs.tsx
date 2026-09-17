@@ -14,7 +14,10 @@ import {
 } from './stageLoad'
 import { ExitCriteria, ScoringCard, ReadPanel, type TickResult } from './StagePanel'
 import { UnitsPane, LockedCounts } from './UnitsPane'
-import type { Criterion } from './scoring'
+import {
+  applyDraft, applyReason, clearRecorded, recordOutcomeMessage, NO_DRAFTS,
+  type Criterion, type ScoreDrafts, type RecordOutcome,
+} from './scoring'
 import type { ScoreEntry } from './scoreReason'
 import type { Unit } from './units'
 import type { QueueDeps } from './unitQueue'
@@ -28,7 +31,8 @@ export interface StageTabsDeps {
   series: (key: string) => readonly ScoreEntry[]
   /** 1.5: one tick attempt. The host owns the write, the door and the refresh. */
   onTick: (field: string, currentlyMet: boolean) => Promise<TickResult>
-  onRecordScores: (drafts: Record<string, string>, reasons: Record<string, string>) => void
+  /** 2.3: records the given criteria's drafts, one entry at a time, in their order. */
+  onRecordScores: (criteria: readonly Criterion[], scores: ScoreDrafts) => Promise<RecordOutcome>
   onDeriveUnits: () => Promise<void>
   unitDeps: Omit<QueueDeps, 'onRowState'>
 }
@@ -36,8 +40,14 @@ export interface StageTabsDeps {
 const emptyPanels = () => Object.fromEntries(
   PANEL_IDS.map((id) => [id, {} as PanelState])) as Record<PanelId, PanelState>
 
-export function StageTabs({ payload, units, landing, fresh, currentStage, nextStage, deps, reference, commercials, installSection, documents, approvals, closed, onNextStage, refreshToken }: {
+export function StageTabs({ payload, units, landing, fresh, currentStage, nextStage, deps, reference, commercials, installSection, documents, approvals, closed, onNextStage, refreshToken, recordId }: {
   payload: Record<string, unknown>
+  /**
+   * The record these drafts belong to. The shell RE-RENDERS this view for the
+   * next record rather than mounting a new one (Verification 47), so without a
+   * key the next Test Bed would open holding this one's unrecorded scores.
+   */
+  recordId?: string
   units: readonly Unit[]
   landing: string | null
   fresh: boolean
@@ -82,6 +92,12 @@ export function StageTabs({ payload, units, landing, fresh, currentStage, nextSt
   const [panelData, setPanelData] = useState<{ documents: unknown, approvals: unknown }>(
     { documents: null, approvals: null })
   const lastTab = useRef<string | null>(null)
+  // THE SCORE DRAFTS, above both panels: the scoring card edits them and the
+  // exit-criteria panel will read them for its pending marks (2.6). They survive
+  // a tab switch, as the vanilla's did, and reset when the RECORD changes.
+  const [scores, setScores] = useState<ScoreDrafts>(NO_DRAFTS)
+  const [scoresFor, setScoresFor] = useState(recordId)
+  if (scoresFor !== recordId) { setScoresFor(recordId); setScores(NO_DRAFTS) }
 
   // ── THE LOADER IS CREATED ONCE AND READS THE LATEST DEPS ─────────────
   //
@@ -263,7 +279,16 @@ export function StageTabs({ payload, units, landing, fresh, currentStage, nextSt
             <ScoringCard card={card}
               criteria={deps.scoringCriteria(stageOf(active) as string)}
               series={deps.series}
-              onRecord={deps.onRecordScores} />
+              scores={scores}
+              onDraft={(key, value, awaiting) => setScores((s) => applyDraft(s, key, value, awaiting))}
+              onReason={(key, value) => setScores((s) => applyReason(s, key, value))}
+              onRecord={async () => {
+                const shown = deps.scoringCriteria(stageOf(active) as string)
+                const out = await deps.onRecordScores(shown, scores)
+                // A recorded score stops being a draft; the rest stay for a retry.
+                setScores((s) => clearRecorded(s, out.recorded))
+                return recordOutcomeMessage(out, shown)
+              }} />
 
             {/* P6: a VISIBILITY toggle, not a re-render, so an in-progress
                 edit survives switching away and back. */}
