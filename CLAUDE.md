@@ -4638,3 +4638,6 @@ the sentence.
 
 Sentence case throughout. Brand palette, typography and reference-code
 conventions are in `DESIGN_PRINCIPLES.md`.
+
+**Report transfer (set by John 2026-09-17):** every report ends by writing itself verbatim and self-contained to `REPORT_FOR_CHAT.md` at the repo root (overwritten, gitignored).
+Then run `pbcopy < REPORT_FOR_CHAT.md` and print one closing line: "Report on clipboard (N bytes)."

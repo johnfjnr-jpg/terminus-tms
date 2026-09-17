@@ -26,3 +26,4 @@ frontend/.dev-session.json
 /get-session-*.mjs
 /.scratch/
 .verify/
+/REPORT_FOR_CHAT.md
