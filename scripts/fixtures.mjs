@@ -717,6 +717,23 @@ export async function tearDown(explicitTag) {
   // The ledger is cleared once its records are gone, so a later run cannot
   // inherit ids it never created.
   if (handed.length) { try { writeFileSync(HANDOVERS, JSON.stringify([], null, 2)) } catch { /* best effort */ } }
+  // ── THE TAG LEDGER PRUNES ON A CLEAN TEARDOWN. Ruling R7, 2026-09-18 ────
+  //
+  // `rememberTag` only ever appended, so the ledger grew for the life of the
+  // checkout and every reader paid for it. Measured: one weigh query costs the
+  // same ~310ms whether its tag matches 0 rows or 1,677, because it scans
+  // `record_revisions` whole, and `teardown-scoping.test.mjs` runs one per
+  // ledger tag. The ledger reached 107 tags, 80 of them from one day's probes,
+  // and that test went 34s to 77s.
+  //
+  // PRUNED ONLY HERE, after the re-query above proved nothing of these tags is
+  // live. A tag whose records are gone can teach a later sweep nothing, and
+  // this is the one place that knows both facts at once. Anything still live
+  // has already thrown, so this line is unreachable on a dirty teardown.
+  try {
+    const kept = JSON.parse(readFileSync(TAGS, 'utf8')).filter((t) => !tags.includes(t))
+    writeFileSync(TAGS, JSON.stringify(kept, null, 2))
+  } catch { /* no ledger, or unreadable: nothing to prune */ }
   return { removed: live, remaining: 0, tags, handedBack: handedRows.length }
 }
 
