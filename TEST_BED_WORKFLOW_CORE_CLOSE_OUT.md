@@ -12,10 +12,13 @@
   - the server refusal text naming "a score of 1 or 2";
   - K2's staleness TREATMENT. It was measured fresh today (below), which settles
     the question for today and builds nothing for tomorrow.
-- **The first gate was UNANSWERED, not green.** On cdc21ec, 22 stages passed
-  and 2 browser stages were skipped: the gate's shell had no PUPPETEER_PATH, and
-  one of the two is required. The fix below then changed the tree, and the gate
-  was re-run on 9bcc365 with the browser available: 24/24.
+- **Three gates ran, and only the last covers the tree.**
+  - cdc21ec was UNANSWERED, not green: 22 stages passed and 2 browser stages
+    were skipped, because the gate's shell had no PUPPETEER_PATH and one of the
+    two is required.
+  - 9bcc365 passed 24/24, after the fixture fix below.
+  - 2d81b92 passed 24/24, after a comment correction to StageTabs.tsx (below),
+    which is a source file and needed its own gate.
 
 ## Rulings R12 and R13, built
 
@@ -80,13 +83,13 @@ that did not run (Verification 48).
 
 ## The gate on the exact tree
 
-`npm run verify` on 9bcc365, nothing else running, browser available:
+`npm run verify` on 2d81b92, nothing else running, browser available:
 **All 24 stages passed.**
 
 | Suite | Result |
 |---|---|
 | Pure | 582/582 |
-| Database | 102/102 (158.1s) |
+| Database | 102/102 (146.7s) |
 | React | 1172/1172 |
 | Typecheck, bundle freshness, CURRENT_STATE staleness | PASS |
 | 16 HTTP and browser probes | PASS, including readonly-view and browser-dependency, the two skipped on cdc21ec |
@@ -96,8 +99,11 @@ that did not run (Verification 48).
 `?? tb-round-a.bundle`. Both were untracked when this session started, and
 neither is mine to remove.
 
-**This close-out commit rides that gate (Verification 48 (a)).** It is markdown
-that no gate stage reads: no file under scripts/ names TEST_BED_WORKFLOW_CORE.
+**The close-out's own commits ride that gate (Verification 48 (a)).** They are
+markdown that no gate stage reads: no file under scripts/ names
+TEST_BED_WORKFLOW_CORE. Four of them fall BEFORE 2d81b92 and are inside the
+gated tree anyway: 5199996, 307e7f9, 429112e and 4fe7837. Only the one carrying
+this sentence comes after it.
 
 ## Revert rehearsal
 
@@ -121,9 +127,8 @@ rehearsal's tree-hash evidence is for 1194890, not re-run on 9bcc365.
 
 ## Reconciliation, by counting
 
-**Commits against sign-offs.** There are 39 commits in 6da809e..9bcc365, the
-gated tree. After it come only this close-out's own markdown commits, which ride
-the gate. Every sign-off has commits, and every commit belongs to a sign-off:
+**Commits against sign-offs.** There are 44 commits in 6da809e..2d81b92, the
+gated tree. Every sign-off has commits, and every commit belongs to a sign-off:
 
 | Stretch | Commits | Signed off |
 |---|---|---|
@@ -133,9 +138,9 @@ the gate. Every sign-off has commits, and every commit belongs to a sign-off:
 | Phase 2 | 1ced95e, e9cfb64, 0dd78b8, 638935a, fc58c36, 2658fac, a1b5b19, 1eef1e6, 902be28 | yes |
 | Phase 3 | d8fcbe1, 6c469ff, 557c191, 3e0400b, 8ba56c3, 2d3feea, eaffb6f, 25766a3 | yes |
 | Phase 4 | 36408a5, abe38d6, 1c777aa, adfd995, 4cc4dae, eb1e6ba, 358619c | yes |
-| Phase 5 | e62096f, bbf78b7, 651e274, 474df17, 1194890, cdc21ec, 9bcc365 | awaiting the word |
+| Phase 5 | e62096f, bbf78b7, 651e274, 474df17, 1194890, cdc21ec, 9bcc365, 5199996, 307e7f9, 429112e, 4fe7837, 2d81b92 | awaiting the word |
 
-3 + 3 + 2 + 9 + 8 + 7 + 7 = 39, matching `git rev-list --count`.
+3 + 3 + 2 + 9 + 8 + 7 + 12 = 44, matching `git rev-list --count 6da809e..2d81b92`.
 
 **Items against the brief.** A grep of the brief's `- N.N` item lines returns 20
 matches. 4.1 appears twice (its item and its Phase 3 carry), so there are 19
@@ -209,7 +214,7 @@ commit):
 | 4 | 7 | 134.4s | 148.0s | 178.4s |
 | 5 | 8 | 145.2s | 157.2s | 164.8s |
 
-The two gate runs read 166.5s and 158.1s.
+The three gate runs read 166.5s, 158.1s and 146.7s.
 
 **Read by the MINIMUM, per Verification 48's own caveat:** noise only adds, so
 the floor is the honest trend.
@@ -306,7 +311,7 @@ error shape.
 lines.
 
 **5. Gate green on the exact tree; nothing pushed without the word.** 24/24 on
-9bcc365. This markdown rides it, named above. Nothing is pushed.
+2d81b92. The close-out markdown after it rides it, named above. Nothing is pushed.
 
 ## Promotions to CLAUDE.md, PROPOSED, not landed
 
@@ -322,17 +327,16 @@ relapsed at its own close. A hand-shaped PATCH answer was caught by the exit
 gate's point 3, not by the rule. That is the limit of promotion again: **the
 rule names the check, and the gate point performed it.**
 
-**P2. Extend Verification 47's "the harness reproduces how production invokes
-the code".** The clause records, from Round 6, that the shell RE-RENDERS a view
-rather than mounting a new one.
-- For the Test Bed that is no longer true: TestBedView keys the host on
-  `navToken ?? id`, so each navigation REMOUNTS it.
-- A jsdom test that re-rendered the host directly reproduced the OLD production
-  shape, and drove a fix production did not need (Phase 4 finding 2).
+**P2, WITHDRAWN on measurement: it is Verification 47 as written.** An earlier
+draft of this close-out proposed that the clause "the shell RE-RENDERS a view
+rather than mounting a new one" had gone stale. **It has not.** main.tsx still
+re-renders the Test Bed VIEW. TestBedView, below it, keys the host on
+`navToken ?? id`, so the host remounts per navigation.
 
-Proposed addition: **the invocation shape is itself a fact with a shelf life**.
-Re-measure it with a live injection (removing the key made the list follow)
-rather than citing the clause.
+The Phase 4 jsdom test that drove an unneeded fix (Phase 4 finding 2) rendered
+TestBedHost DIRECTLY, one level below that key. That is the clause's own check,
+"ask how the PRODUCTION ENTRY POINT invokes this code", not followed. It is an
+instance, not a new rule.
 
 **P3. Extend Verification 51.** Injections built into ONE run can mask each
 other: one injected fault can produce the outcome another injection's check
@@ -342,6 +346,12 @@ Proposed check: **before explaining a silence, ask whether a companion injection
 in the same run produced the outcome**, and give interacting injections a run
 each.
 
+**Found at the close and fixed, not listed.** An earlier draft put the
+StageTabs `recordId` comment on the list as "not written by this round". Blame
+shows 0dd78b8, Phase 2.3, so it was this round's, and it was corrected in
+2d81b92 under Rule 10's authorship limit. It was a comment-only change: the
+rebuilt bundle is byte-identical.
+
 **Not proposed, because it is already covered.** R13 is an instance of "MECHANICAL
 ENFORCEMENT IS GATEABLE", not a new rule. And spec c's two silences on a
 never-loaded record are Verification 13/17/25's collapsed rule ("on the same
@@ -349,9 +359,15 @@ population").
 
 ## For the list (Rule 10), not acted on
 
-- **StageTabs.tsx's `recordId` comment says the shell RE-RENDERS the view for the
-  next record.** P2 above measures that as no longer true of production. The
-  comment was not written by this round.
+- **Three comments written before this round say "the shell re-renders this
+  view" at the HOST and StageTabs level:** StageTabs.tsx:167 (6a3d85f),
+  TestBedHost.tsx:161 (f356e9a) and TestBedHost.tsx:839 (49cbd4d). Each is true
+  of the view and misleading about the component it sits in, for the reason in
+  P2.
+- **The recordId drafts reset in StageTabs is redundant in production** (a
+  Verification 9 question), because the key remounts the component. It is kept,
+  because the jsdom tests re-render the host directly, and whether to remove it
+  is a ruling.
 - **Who owns the live Test Bed and two live units** created 2026-09-15 and
   2026-09-16 under an account that is not the probe identity (Verification 11).
 - **The gate header's DIRTY flag counts untracked files**, so two stray bundles
@@ -365,7 +381,11 @@ population").
   browser run outside the command sandbox. The gate needs PUPPETEER_PATH in its
   own environment, or its browser stages SKIP and the gate is unanswered. That
   cost one gate run this close.
-- **The session was not refreshed by hand before either gate.**
+- **The session was not refreshed by hand before any of the three gates.**
+- **One unrouted edit of mine, caught before commit.** The last close-out update
+  was first written by a node script straight to the file. It was restored from
+  HEAD, re-applied as 13 routed edit.mjs hunks, and compared equal to the
+  intended text before commit.
 
 ## What this does not establish
 
