@@ -3,7 +3,7 @@
 Live reproduction of P0.1 to P0.6. Read-only against the product: no file
 under `src/`, `frontend/`, `frontend-react/` or `scripts/` was changed. The
 only writes were a tagged fixture built through the API and soft-deleted by
-tag, and three refused POSTs bracketed by database fingerprints.
+tag, and four refused POSTs bracketed by database fingerprints.
 
 ## Verdict first
 
@@ -42,7 +42,7 @@ Phase 0 was run again from the start here.
 | Server on :3000 is current | PID 31978, `node --env-file=.env src/server.js` (no `--watch`), started 2026-09-16 13:15:12 +0800. Last commit touching `src/` is `3ebeedc` at 2026-09-16 11:39:52 +0800, and `git diff HEAD -- src frontend frontend-react` is empty. So the server post-dates every server source change. A second process, PID 8745 with `--watch`, is not listening. | `lsof`, `ps -o lstart`, `git log -1 -- src/` |
 | Session | `PASS session is live for john+test@terminustechnologies.io, and :3000 is answering` | `scripts/check-session.mjs` |
 | Bundle | `bundle freshness: PASS`, emitted by each probe run | `scripts/check-dist-fresh.mjs` (rebuild and diff) |
-| Stale browser | Each run launches a fresh headless browser; the server sends `no-store` | new browser per run |
+| Stale browser | Each run launches a fresh headless browser profile, so no cache carries between runs. The server's `no-store` header was not measured this session | new browser per run |
 
 **AN ENVIRONMENT FINDING, and it cost the first browser runs.** The cached
 Chrome for Testing `153.0.8010.36` (downloaded 2026-09-16 12:19) refuses
@@ -55,7 +55,9 @@ cached `152.0.7977.75` loads localhost with 200 in 249ms. Every browser run
 below used `PUPPETEER_EXECUTABLE_PATH` pointing at 152. **No repository file
 was changed for this.** The gate's own browser stages will meet the same
 refusal when they resolve the default build; that is recorded here and not
-investigated further, per Rule 10. The browser also needed the command
+investigated further, per Rule 10. That the gate's browser stages would
+hit it is an inference, which was not checked: it holds only if they resolve
+the default build. The browser also needed the command
 sandbox disabled to run at all in this session.
 
 **The pre-commit hook.** Its hardcoded ROOT is this machine. Its suite script
@@ -325,7 +327,7 @@ unit was derived, because the Installation tab was never opened.
 ## Where the evidence lives
 
 `.verify/tb-core-p0/`: `probe-p0.mjs`, `run1.txt` to `run8.txt`,
-`network.json`, `results.json`, the six screenshots, `subjects.txt`,
+`network.json`, `results.json`, the five screenshots, `subjects.txt`,
 `residue.txt`, the reachability runs and both door diagnostics.
 **`.verify/` is gitignored and `scripts/` is not ruled into this round, so the
 probe source is NOT committed.** If it should be kept, it needs a home named
