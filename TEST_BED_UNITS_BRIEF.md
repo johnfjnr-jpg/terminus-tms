@@ -84,3 +84,42 @@ by tag. No fixes, no behaviour changes.
 
 Deliverable: a Phase 0 report, delivered per the report convention, then a stop
 for sign-off. The build phases are written after Phase 0, from its findings.
+
+## Rulings of record, at the Phase 0 sign-off (John, 2026-09-18)
+
+Appended at the phase they launch, before any work (CLAUDE.md build discipline 7).
+
+- **R1.** Phase 0 is signed off by John, 2026-09-18.
+- **R2. A buyer role is SINGLE-HOLDER.** One contact per role per Test Bed. The
+  route refuses a second contact in an already-linked role with a 409 and a
+  sentence naming the role, checked before the insert, per the estate's
+  duplicate-is-a-sentence precedent (`src/routes/opportunities.js`). Joint
+  holders are a deliberate roles feature later, not this round.
+- **R3. B4's fix includes the server refusal.** A unit PATCH whose body carries
+  no recognised key is answered 400 with a sentence, never a 200 that writes
+  nothing and advances the revision (Phase 0 P0.3).
+- **R4. The dev server binding fix rides this round** as its own calibrated
+  commit: the host defaults to 127.0.0.1, and LAN exposure is opt-in via `HOST`.
+  The macOS firewall is John's own action, not this round's.
+- **R5. The K3 discriminating measurement runs in this round** as a diagnostic
+  item. Measure, report, fix nothing.
+
+## PHASE 1: R1, a read never writes
+
+With two riders ahead of it, each its own commit: 2.1 the binding fix (R4),
+calibrated both directions; 2.2 the K3 measurement (R5), read-only.
+
+- Remove the derive call from tab open (`stageLoad.ts` P7 and its host wiring).
+  Deriving units happens on the button only.
+- "Create the missing units" keeps working: visible when a count exceeds its
+  units, and its click derives, proven live with the POST observed and units
+  read back from the database.
+- Calibration both directions on an owned tagged fixture: (a) opening the
+  Installation tab with counts set and zero units sends ZERO non-GET requests and
+  leaves units at 0 in the database; (b) the button sends exactly one derive POST
+  and creates the correct number of units.
+- A guard test that fails if tab open ever fires derive again, proven to redden
+  on the pre-fix code, then green after.
+- Live proof at 1440: a screenshot of the Installation tab freshly opened with
+  counts set and units at 0, showing the button offered and nothing created.
+- Full pre-commit suites on the commit. B4 does not start until the word.
