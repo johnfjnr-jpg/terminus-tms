@@ -20,6 +20,21 @@ CLAUDE.md disagree, CLAUDE.md wins and the disagreement is a finding.
 - R4 (audit L11). Back to test beds RETURNS, navigating to the test bed
   list. It rides this round.
 
+## Rulings at the Phase 0 sign-off (John, 2026-09-17)
+
+- R5 (P0.5 finding). Phase 3.1's acceptance is restated in the positive
+  form below; the vacuous edit-bar line is removed.
+- R6. The Phase 0 probe becomes a committed instrument under
+  scripts/testbed-core/, with an index of its evidence. New files only.
+- R7. The pre-commit hook fix rides this round: pre-commit-suites.mjs
+  derives ROOT from its own location, calibrated both directions (refuses
+  on an injected red suite, passes on green). The only edit to an existing
+  script this round outside the phases.
+- R8 (supersedes the Phase 0 report's Phase 4 note). The blocked list
+  persisting across tab switches is VANILLA PARITY, not fix-created: the
+  old element cleared only at the top of the next transition attempt.
+  Phase 4 matches that and adds no tab-change clear.
+
 ## Standing constraints
 
 - Behaviour and data changes throughout, so the FULL treatment applies:
@@ -150,11 +165,12 @@ appearing on Qualification and absent elsewhere.
 
 ## PHASE 3: buyer links (B6)
 
-- 3.1 Selecting a contact writes immediately via POST
-  /test-beds/:id/buyer-contacts with per-role feedback; a linked role
-  renders read-only with the contact's name. The buyer rows leave the
-  batched dirty accounting entirely, so the edit bar can no longer show
-  a change that saves nothing.
+- 3.1 Acceptance, all three observable on the live screen: selecting a
+  contact fires POST /test-beds/:id/buyer-contacts; per-role feedback
+  renders for that role; a linked role displays the contact's name
+  read-only. (The previous "edit bar can no longer show a change that
+  saves nothing" line is removed: P0.5 measured it already true on the
+  broken screen, so it could not fail. R5.)
 - 3.2 The "+ New" inline contact creation returns, through the shell's
   existing openInlineBuyerContactModal seam (app.js already supports the
   test_bed context at its 3131 region). If the seam cannot be reached
@@ -168,7 +184,9 @@ appearing on Qualification and absent elsewhere.
 - 4.1 B5: the transition feedback element carries
   id="tb-next-stage-feedback" again beside its testid. Proven live: a
   blocked transition renders the itemised blocking list; calibrated by
-  removing the id and showing the proof redden.
+  removing the id and showing the proof redden. Per R8, the list clears
+  only at the top of the next attempt, as the vanilla did; no tab-change
+  clear is added.
 - 4.2 R4: a "Back to test beds" control in the view header, navigating
   to the test bed list through the shell.
 - 4.3 L9: the six read-only rows return where the old screen had them:
