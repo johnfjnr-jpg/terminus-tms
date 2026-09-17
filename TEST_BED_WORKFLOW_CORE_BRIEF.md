@@ -221,3 +221,23 @@ Units (Round B). The tick queue (documented position, 1.5). C2 as ruled.
 L7, L8, L10, L12, C9 ride Round B or a later hygiene batch unless a
 phase here touches their file anyway, in which case the report says so
 and asks.
+
+## Carried list, recorded at the Phase 1 sign-off (John, 2026-09-17)
+
+Not fixed in this round.
+
+- K1. The edit-journal hook accepts untracked edits to a file that
+  already carries one tracked edit (Phase 1 report, process notes).
+- K2. `frontend-react/src/__tests__/fixtures/exit-criteria-live.json` is
+  a snapshot of the current gate configuration and needs a staleness
+  treatment at the round close.
+- K3. The database gate stage ran about 160s against 112 to 126s
+  earlier, passing. Watch the shape.
+
+## Ruling at the Phase 1 sign-off: Phase 2 order (John, 2026-09-17)
+
+- R9. The starvation is fixed before the contract: 2.1, then 2.2, then
+  2.3, then 2.4, 2.5, 2.6. The closing proof is a live run recording a
+  real score end to end and reading it back from the database, plus the
+  P0.1 and P0.2 sections of probe-p0 re-run under a new run label. The
+  report states at its top which model the session is running.
