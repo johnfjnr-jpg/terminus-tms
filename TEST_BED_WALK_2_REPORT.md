@@ -310,10 +310,14 @@ move.
    after the last tab. Taking the estate's declared position rather than
    minting one. **Strike it if you meant no wrapper at all**; the button then
    sits inline after "Closed".
+   **RULED 2026-09-17: the wrapper stands as built. See R4 in
+   TEST_BED_WALK_2_BRIEF.md.**
 2. **W5's feedback travels with the trigger.** The convert outcome message is
    part of `ConvertPanel`, so it now renders in the header. An outcome belongs
    where the control that caused it is, but it is a visible change beyond
    position and it is yours to strike.
+   **RULED 2026-09-17: the message stays with its trigger. See R5 in
+   TEST_BED_WALK_2_BRIEF.md.**
 3. **Screenshots at 1240, 1440 and 1920**, where the light path asks for 1440.
    W1 packs more onto one line, so the narrow width earns a look. No item
    behaved differently at any width.
@@ -335,6 +339,8 @@ move.
 4. **The summary text renders twice on the screen** - beside the title in the
    view header, and in the Summary card below. True before this round and not
    touched by it.
+   **RULED 2026-09-17: the header summary is removed, and the summary renders
+   once, as the editable field. See R3 in TEST_BED_WALK_2_BRIEF.md.**
 5. **The two unstyled buttons** stay open, by R2.
 6. Everything carried from the previous close: `StageActions` outside the
    conformance gate, **(d)** unscoped, the ENFORCEMENT GAPS carrieds,

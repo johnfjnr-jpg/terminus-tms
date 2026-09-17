@@ -71,4 +71,18 @@ only, leave them unstyled.** So the tab-row wrapper is taken for POSITION -
 `margin-left: auto`, which is what puts the action at the right-hand end -
 and neither button gains a class. The carried item stays open.
 
+**R3 - THE HEADER SUMMARY IS REMOVED.** The summary renders once, as the
+editable field. The duplicate beside the title (`tb-header-summary`,
+`ViewHeader.tsx`) is deleted. Ruled by John 2026-09-17. Closes the report's
+"On the list" item 4. Recorded as a ruling; the deletion itself is not built by
+this commit.
+
+**R4 - W3 AS BUILT STANDS.** The moved buttons keep their current structural
+wrapper, unstyled. The report's open item at "Departures from instruction" 1
+(W3's wrapper) is closed. Ruled by John 2026-09-17.
+
+**R5 - THE CONVERT MESSAGE STAYS WITH ITS TRIGGER.** The report's open item at
+"Departures from instruction" 2 (W5's feedback travels with the trigger) is
+closed. Ruled by John 2026-09-17.
+
 **Nothing pushes.** The round stops for sign-off and John walks.
