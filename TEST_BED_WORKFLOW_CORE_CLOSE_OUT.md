@@ -193,8 +193,10 @@ impossible to be stale unnoticed, is Round B's by ruling.
 
 ## K3: the database stage, which has moved in three consecutive phases
 
-Every hook and gate run this round printed its database stage duration. Grouped
-by phase and emitted by a script over the captured files:
+Every hook commit this round printed its database stage duration. Grouped by
+phase and emitted by a script over the captured files
+(.verify/tb-core/p5-k3-durations-final.txt, which includes this close-out's own
+commit):
 
 | Phase | n | min | median | max |
 |---|---|---|---|---|
@@ -203,7 +205,7 @@ by phase and emitted by a script over the captured files:
 | 2 | 10 | 124.3s | 127.0s | 142.5s |
 | 3 | 8 | 123.2s | 128.3s | 147.1s |
 | 4 | 7 | 134.4s | 148.0s | 178.4s |
-| 5 | 6 | 145.2s | 155.5s | 164.8s |
+| 5 | 8 | 145.2s | 157.2s | 164.8s |
 
 The two gate runs read 166.5s and 158.1s.
 
@@ -222,9 +224,9 @@ the floor is the honest trend.
 A 2 to 4% growth does not by itself explain a 29% rise in the floor, unless
 some query scales far worse than linearly, which nothing here measured.
 
-**The cause is not identified.** Two corrections to earlier reports: Phase 4's
+**The cause is not identified.** One correction to an earlier report: Phase 4's
 report cited two database durations "where captured", when seven were captured
-(134.4s to 178.4s); and Phase 3's line was from its own commits only.
+(134.4s to 178.4s).
 
 **The next measurement that would discriminate:** per-test durations from
 `test:db` on two runs at different floors, to see whether one test moved or all
