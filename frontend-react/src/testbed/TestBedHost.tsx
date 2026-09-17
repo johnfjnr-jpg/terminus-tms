@@ -620,9 +620,15 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
       if (r.ok) await loadUnits()
     },
     unitDeps: {
+      // B4, Phase 2: THE ROUTE, AND THE BODY, ARE THE SERVER'S.
+      // This called `/api/units/:unitId`, which does not exist (every save 404'd),
+      // and wrapped the field in `payload`, which the server does not read: it
+      // takes flat keys (src/routes/test-beds.js:1878). Measured pre-fix, the
+      // wrap and the old field name were each answered 200 with nothing stored,
+      // which is why R3 makes the server refuse them.
       patch: (unitId, field, value, expectedRevision) => shell.api(
-        'PATCH', `/api/units/${unitId}`,
-        { payload: { [field]: value }, expected_revision: expectedRevision }),
+        'PATCH', `/api/test-beds/${bed.id}/units/${unitId}`,
+        { [field]: value, expected_revision: expectedRevision }),
       unitById: (unitId) => units.find((u) => u.id === unitId),
       onUnit: (unit) => setUnits((us) => us.map(
         (u) => (u.id === (unit as Unit).id ? (unit as Unit) : u))),

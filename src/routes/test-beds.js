@@ -1878,6 +1878,23 @@ export default async function testBedsRoutes(app) {
     for (const key of ['serialNumber', 'latitude', 'longitude', 'stateSource']) {
       if (key in body) unitPatch[key] = body[key]
     }
+    // ── A BODY THIS ROUTE CANNOT READ IS REFUSED. Ruling R3, 2026-09-18 ───
+    //
+    // Until now an unrecognised body was answered 200: the loop above kept
+    // nothing, an EMPTY revision was appended, and the caller was told the save
+    // had worked. Measured in Phase 0 against the real route: a wrapped
+    // `{ payload: { serial } }` and a flat `{ serial }` each returned 200 with
+    // `serialNumber` still null and the unit's revision advanced. That is the
+    // shape Verification 40 names, a 2xx that is not a write, and it would have
+    // hidden two of B4's three breaks from any caller that only read the status.
+    //
+    // `state` counts as recognised: it is applied below, against records.status
+    // rather than the revision, so a state-only body is a real write.
+    if (!Object.keys(unitPatch).length && !('state' in body)) {
+      return reply.code(400).send({
+        error: 'No unit field to save. This route takes flat keys: serialNumber, latitude, longitude, stateSource, state.',
+      })
+    }
     // Round 38: the units table now sends the revision of the unit row it is
     // editing. This is the site Round 17A Phase 0 reproduced against, and the
     // atomic merge only ever fixed half of it: three fields entered at paste

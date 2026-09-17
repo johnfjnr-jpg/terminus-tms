@@ -23,6 +23,12 @@ try {
   const unitsBefore = (await api('GET', `/test-beds/${fx.bedId}/units`)).data
   const derive = await api('POST', `/test-beds/${fx.bedId}/units/derive`, {})
   const unitsAfter = (await api('GET', `/test-beds/${fx.bedId}/units`)).data
+  // A row that CARRIES a serial, so a test of the prefill reads the route's own
+  // shape rather than a value typed into a fixture (Verification 47).
+  const first = unitsAfter[0]
+  const savedSerial = await api('PATCH', `/test-beds/${fx.bedId}/units/${first.id}`,
+    { serialNumber: 'SN-CAPTURED-1', expected_revision: first.revision_number ?? null })
+  const unitsWithSerial = (await api('GET', `/test-beds/${fx.bedId}/units`)).data
   if (!Array.isArray(unitsBefore) || unitsBefore.length !== 0) throw new Error(`expected no units before derive, got ${JSON.stringify(unitsBefore)}`)
   if (derive.data?.created !== 3) throw new Error(`expected derive to create 3, got ${JSON.stringify(derive.data)}`)
   writeFileSync(OUT, JSON.stringify({
@@ -30,8 +36,10 @@ try {
     capturedAt: new Date().toISOString(),
     countsPatchStatus: counts.status, bedWithCounts, unitsBefore,
     derive: { status: derive.status, body: derive.data }, unitsAfter,
+    savedSerial: { status: savedSerial.status, body: savedSerial.data }, unitsWithSerial,
   }, null, 2) + '\n')
-  console.log(`counts ${counts.status}; units before ${unitsBefore.length}; derive ${derive.status} created ${derive.data.created}; units after ${unitsAfter.length}`)
+  if (unitsWithSerial.find((u) => u.id === first.id)?.serialNumber !== 'SN-CAPTURED-1') throw new Error('the serial did not come back on the row')
+  console.log(`counts ${counts.status}; units before ${unitsBefore.length}; derive ${derive.status} created ${derive.data.created}; units after ${unitsAfter.length}; serial saved ${savedSerial.status}`)
   console.log(`wrote ${OUT}`)
 } finally {
   const t = await tearDown(TAG)

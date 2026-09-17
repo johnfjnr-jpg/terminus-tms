@@ -1,7 +1,13 @@
 // ── S: SENSOR COUNTS AND UNITS ──────────────────────────────────────────
 //
 // Round 7 Phase 1b, from the S enumeration.
-export interface Unit { id: string, type?: string, revision_number?: number | null }
+export interface Unit {
+  id: string
+  type?: string
+  revision_number?: number | null
+  /** What GET /test-beds/:id/units returns for the row's serial, and the key the PATCH takes. */
+  serialNumber?: string | null
+}
 
 /**
  * S5: ONE mapping, and its inverse DERIVED rather than maintained.

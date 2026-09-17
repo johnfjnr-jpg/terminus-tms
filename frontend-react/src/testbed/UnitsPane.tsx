@@ -56,9 +56,13 @@ export function UnitsPane({ payload, units, deps, onDerive }: {
           ? shown.map((u) => (
             <div className="data-row" key={u.id} data-testid={`tb-unit-${u.id}`}>
               <span>{u.type}</span>
+              {/* B4, Phase 2: the field is `serialNumber`, which is what the row
+                  carries and what the route accepts. It read and wrote `serial`,
+                  a key neither side has, so the box was always empty and every
+                  save stored nothing. */}
               <input data-testid={`tb-unit-serial-${u.id}`}
-                defaultValue={String((u as { serial?: string }).serial ?? '')}
-                onBlur={(e) => { void queues.current.write(u.id, 'serial', e.target.value) }} />
+                defaultValue={String(u.serialNumber ?? '')}
+                onBlur={(e) => { void queues.current.write(u.id, 'serialNumber', e.target.value) }} />
               <span data-testid={`tb-unit-state-${u.id}`}>{rowState[u.id] ?? ''}</span>
             </div>))
           : <p className="empty-state" data-testid="tb-units-empty">
