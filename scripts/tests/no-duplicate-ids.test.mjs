@@ -84,6 +84,14 @@ const DISPOSED = {
     + 'and the Round 7 Phase 3 visual comparison measured a 122px overflow at '
     + '1240 without it. Copying flex-wrap into a class would be two definitions '
     + 'of one layout rule.',
+  'frontend-react/src/testbed/ViewHeader.tsx':
+    'INSIDE THE MOUNT CONTAINER, same as StageTabs. Round A Phase 4.2 restores '
+    + '#btn-back-testbeds, the vanilla button createRoot destroyed on first render '
+    + '(audit L11). The id is LOAD-BEARING rather than cosmetic: the door exempts '
+    + '[id^="btn-back-"] as navigation, so without it Back to test beds would be '
+    + 'disabled on every record the viewer does not own. app.js binds its listener '
+    + 'to the static copy at load, which createRoot then removes, so the React '
+    + 'button carries its own click handler.',
   'frontend-react/src/contact/ContactPanel.tsx':
     'Same as ContactHost above, and confirmed by the same swap.',
   'frontend-react/src/contact/StageActions.tsx':

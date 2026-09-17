@@ -53,6 +53,7 @@ import { completeDocumentRoute, confirmBody, saveUrlBody } from './stageDocument
 import { attemptTick } from './exitCriteria'
 import { BuyerLinks } from './BuyerLinks'
 import { linkBuyer, BUYER_CONTACTS_ROUTE } from './buyers'
+import { identityRows, type IdentitySource } from './identity'
 
 const STALE = 'This Test Bed changed since the screen loaded. Reload before saving.'
 
@@ -727,6 +728,7 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
           it, which is right: an outcome belongs where the control that caused
           it is. */}
       <ViewHeader record={loadFailed ? null : record} readOnly={readOnly}
+        onBack={() => shell.navigate('test-beds')}
         band={bandNode}
         titleAction={
           <ConvertPanel
@@ -793,6 +795,8 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
           source={source}
           rows={rows}
           buyerLinks={buyerLinksNode}
+          // L9: computed from the record at RENDER, so Age is display-time.
+          identity={identityRows(record as IdentitySource, Date.now())}
           score={<QualificationScore criteria={allCriteria} payload={record.payload} />}
         refPanes
         refPane={refPane}

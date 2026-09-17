@@ -245,7 +245,16 @@ export function StageTabs({ payload, units, landing, fresh, currentStage, nextSt
       {/* The feedback stays BELOW the row and does not move with the button.
           The vanilla's own note says why: it is long free text, and placed
           inline in the row it pushed the buttons off-screen at 1920. */}
-      <div data-testid="tb-next-stage-feedback" />
+      {/* B5: THE ID IS BACK. The shell's attemptTransition writes the blocking
+          list into document.getElementById('tb-next-stage-feedback') and returns
+          silently when it is null, so without the id every refusal rendered
+          nowhere (P0.4). The class is the vanilla's too: it carries the
+          element's styling. Per R8 the list is cleared only by the shell, at the
+          top of the next transition attempt; nothing here clears it on a tab
+          change, which is vanilla parity. The element has no React children,
+          so React never touches what the shell writes into it. */}
+      <div id="tb-next-stage-feedback" className="tb-next-stage-feedback"
+        data-testid="tb-next-stage-feedback" />
       {feedback ? <p className="msg-error" data-testid="tb-tab-feedback">{feedback}</p> : null}
 
       {active === 'reference' ? <div data-testid="tb-tab-reference">{reference}</div> : null}

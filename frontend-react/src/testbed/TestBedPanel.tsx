@@ -9,6 +9,7 @@ import type { useFieldRows } from '../field-row/useFieldRows'
 import { testBedDescriptors, type TestBedSource } from './descriptors'
 import { dateBounds } from './dateBounds'
 import { SubTabs } from './SubTabs'
+import type { IdentityRows } from './identity'
 
 
 /**
@@ -32,8 +33,14 @@ export function Card({ title, testId, children }: { title: string, testId: strin
   )
 }
 
-export function TestBedPanel({ source, rows, buyerLinks, onDirtyChange, controls, useCases, customerDocs, history, score, refPanes, refPane, onRefPaneChange }: {
+export function TestBedPanel({ source, rows, buyerLinks, identity, onDirtyChange, controls, useCases, customerDocs, history, score, refPanes, refPane, onRefPaneChange }: {
   source: TestBedSource
+  /**
+   * L9: the six read-only identity rows, as displayed. Computed by the host from
+   * the record (identity.ts), Age at display time. Optional so a harness that
+   * renders the panel without a record still renders.
+   */
+  identity?: IdentityRows
   /**
    * R1: the draft store, owned by the HOST. This panel unmounts on every tab
    * switch and used to take the store with it, discarding unsaved edits.
@@ -145,6 +152,15 @@ export function TestBedPanel({ source, rows, buyerLinks, onDirtyChange, controls
   // style.css records the same defect on the same card at the same width.
   // Taking `.cd-row-nolabel` rather than minting a Test Bed equivalent is the
   // point: one definition, so the two cannot drift (Verification 20).
+  // L9: a read-only identity row, through FieldRow's own read-only variant
+  // (behaviour 7: no door, no tab stop, no edit half), so it looks and reads
+  // like every other row in its card without being editable.
+  const idRow = (key: string, label: string, value: string) => (
+    <div key={key} data-key={key}>
+      <FieldRow field={{ name: key, label, value, readOnly: true }} rows={rows} />
+    </div>
+  )
+
   const row = (name: string, labelOverride?: string) => {
     const base = fields.find((x) => x.name === name)
     if (!base) return null
@@ -199,11 +215,20 @@ export function TestBedPanel({ source, rows, buyerLinks, onDirtyChange, controls
               renders each audit entry through the SAME `labelOf`. A second
               label minted at this call site would make the screen and the
               history name one field two different things (Verification 20). */}
-          {['name', 'terminusLead', 'commercialAuthority', 'technicalAuthority',
+          {/* L9, THE VANILLA'S POSITIONS: Terminus Reference immediately under
+              the name, Industry and Stage after the editable Terminus fields. */}
+          {row('name')}
+          {identity ? idRow('tb-id-reference', 'Terminus Reference', identity.reference) : null}
+          {['terminusLead', 'commercialAuthority', 'technicalAuthority',
             'terminusLegalOwner', 'region', 'country'].map((n) => row(n))}
+          {identity ? idRow('tb-id-industry', 'Industry', identity.industry) : null}
+          {identity ? idRow('tb-id-stage', 'Stage', identity.stage) : null}
         </Card>
 
         <Card title="Customer Details" testId="tb-card-customer">
+          {/* L9: Account first, as the vanilla had it (read-only: a Test Bed
+              has no link-to-Account control). */}
+          {identity ? idRow('tb-id-account', 'Account', identity.account) : null}
           {row('initialLead')}
           {/* B6: the three buyer rows write directly through the host, never
               through the batched draft store (Round A Phase 3). */}
@@ -221,6 +246,10 @@ export function TestBedPanel({ source, rows, buyerLinks, onDirtyChange, controls
         {/* R2: KEY DATES BESIDE SITE DETAILS. It was a section lower down; it
             is now a sibling in the same card row. */}
         <Card title="Key Dates" testId="tb-card-dates">
+          {/* L9: Date Created and Age first. Age is computed at display time
+              from created_at and stored nowhere. */}
+          {identity ? idRow('tb-id-created', 'Date Created', identity.created) : null}
+          {identity ? idRow('tb-id-age', 'Age', identity.age) : null}
           {['estimatedInstallationDate', 'estGoLiveDate', 'testBedDuration'].map((n) => row(n))}
         </Card>
 
