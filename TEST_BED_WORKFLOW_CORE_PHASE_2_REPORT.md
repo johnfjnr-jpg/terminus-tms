@@ -122,7 +122,7 @@ stated in its commit (`a1b5b19`).
 
 ### Component and host tests
 
-Driven through `TestBedHost` itself (`testbed-scoring.test.tsx`, 28 tests), plus
+Driven through `TestBedHost` itself (`testbed-scoring.test.tsx`, 25 tests), plus
 `testbed-exit-criteria.test.tsx` (3 new for 2.6) and
 `testbed-scoring-units.test.ts`. **Every response a claim rests on is captured
 from the routes** by `scripts/testbed-core/capture-scoring.mjs` into
@@ -237,8 +237,8 @@ code path**: the old key refused 400 live, and the database untouched.
 - **Several `edit.mjs` batches stopped early** on a malformed or no-op edit.
   Each was re-run, and the journal cleared on the next successful batch.
 - **Hook database stage on this phase's commits: 126.2s to 138.6s.** K3 shape:
-  within the 112 to 126s band's upper edge and below the 158 to 167s readings of
-  Phase 1.
+  above the earlier 112 to 126s band and below Phase 1's 158 to 167s readings.
+  Recorded, not interpreted.
 - **Residue**: 66 records created by the probe identity since 02:10, including
   hook database suites; `LIVE: 0`.
 - **Environment unchanged**: Chrome for Testing 152 via
