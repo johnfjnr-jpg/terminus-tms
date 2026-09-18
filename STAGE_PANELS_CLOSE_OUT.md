@@ -4,6 +4,10 @@ Model: Claude Opus 5 (1M context).
 Branch `stage-panels`, off `main` at `2a3ec1f` (`origin/main` `60db040` plus the
 Phase 0 report, docs only). Nothing merged, nothing pushed.
 
+**Amended at the W5 close**, so it covers the twelve rulings R1 to R12, the walk
+findings W1 to W5, and the three supersessions this round recorded: the units
+round's L3 presentation, R7's date width, and the stale-write sentence.
+
 ---
 
 ## 1. What is NOT built, first
@@ -17,12 +21,15 @@ Phase 0 report, docs only). Nothing merged, nothing pushed.
   file is what a rebuild runs, its inserts are guarded, and applying it later is
   a no-op that still runs its self-check. **Its ledger row is a separate
   statement after that apply**, per Architecture 10 as corrected.
-- **Three probes are UNWIRED**, recorded here rather than left silent
-  (Verification 9's rot clause): `probe-pilot.mjs`, `probe-r10.mjs` and
-  `probe-r11.mjs` are not gate stages. They need a browser, a live server and a
-  fixture, which is the estate's existing reason for its other probes being
-  unwired, and nothing schedules them. The invariant they would otherwise
-  protect is in the gate: `INVARIANT 1b` runs under `test:db`.
+- **W1 is not built**, and neither is anything for the Opportunity's own write
+  path (section 6, item 7).
+- **Seven probes are UNWIRED**, recorded here rather than left silent
+  (Verification 9's rot clause): `probe-pilot`, `probe-r10`, `probe-r11`,
+  `probe-w34`, `probe-w5`, `probe-w5-pairs` and `probe-w5-refusal` are not gate
+  stages. They need a browser, a live server and a fixture, which is the
+  estate's existing reason for its other probes being unwired, and nothing
+  schedules them. What IS in the gate: `INVARIANT 1b` and the record queue's
+  seven tests, which run under `test:db` and the React suite.
 
 ---
 
@@ -60,6 +67,13 @@ calls for a build has one, and the two that are dispositions say so.
 | `6deb948` | R10, the approver-named gate rows |
 | `9cc2fe1` | R11, the cosmetics |
 | `2406747` | CURRENT_STATE regenerated |
+| `ec28b74` | the close-out |
+| `5f3cace` | walk findings W1 to W5, and the W3 ruling |
+| `75935ba` | the W5 probe that made the server half evidence |
+| `a7e017f` | W2, W3 and W4, the in-scope fixes |
+| `42e16de` | the W5, 3.5 and W2 rulings |
+| `f1811cd` | W5: the write queue, the honest voice, the reload dispatch |
+| `cf80c67` | W5: both directions proven, and the guard the calibration killed |
 
 Full pre-commit suites on every commit: pure, react, typecheck, database.
 
@@ -108,28 +122,140 @@ a card nobody can see.
 
 ---
 
-## 4. The finding that is not this round's to fix
+## 4. The walk: W1 to W5, and what they cost
+
+John's walk-through produced five findings. Three were fixed in scope, one is
+queued, and W5 turned out to be a defect class rather than a one-off.
+
+| finding | disposition | commit |
+|---|---|---|
+| W1, the Save/Discard bar out of sight on long pages | queued, estate-wide, not this round | `5f3cace` records it |
+| W2, dd/mm/yyyy as the display standard of record | fixed, and wider than it looked: section 4.1 | `a7e017f` |
+| W3, the locked count misaligned | fixed to John's ruling: the sentence removed, the lock made visible | `a7e017f` |
+| W4, the reason beside the score | fixed, 580px of a 1046px row, save path proven unchanged | `a7e017f` |
+| W5, the "changed in another session" message | a defect class, fixed BOTH ways per the ruling | `f1811cd`, `cf80c67` |
+
+### 4.1 W2 reached further than "this round's files", and that is recorded
+
+Censused before touching anything: **no date site in the estate bypasses
+`src/lib/format-dates.js`**, and the only `toLocaleString` hits are currency. So
+the hygiene item W2 anticipated is EMPTY, and the one thing between this round's
+dates and the standard was the YEAR WIDTH in that single module.
+
+This round's files therefore could not be fixed in isolation. Widening the year
+there is the only mechanism and it reaches every routed site by construction.
+**Ruled and recorded: the four-digit year stands and supersedes R7's WIDTH rule
+(`DD/MM/YY`, 2026-09-12). R7's grain, absence and unparseable-value rules are
+untouched**, and the brief says so in those words so the supersession cannot be
+read wider than it is.
+
+Six assertions encoded the old width and were re-pointed. Two read the hour by
+fixed offset (`slice(9, 11)`), which was a second reader of the format's own
+width and began comparing a year's last two digits against an hour.
+
+### 4.2 W3 superseded the units round's L3 presentation
+
+The sentence is gone from the Commercials rows; the lock remains and is visible
+in the estate's `data-readonly` treatment; the server's 400 is untouched as the
+backstop; and the Installation tab's summary line is now the one place naming
+the destination.
+
+**The misalignment was not a spacing value.** The locked row was a `.ref-field`
+while every neighbour on that card is a `.field-row`: two row shapes in one
+card. Measured after: the value sits at +182px from its label against +182px on
+an editable neighbour, dimmed at 0.5 alpha against its full white.
+
+`TEST_BED_UNITS_BRIEF.md` carries the pointer in its audit table AND at its L3
+entry, so the two briefs cannot disagree silently (Verification 23).
+
+### 4.3 W5 was a defect class, and it is now reproducible
+
+**What W5 actually was.** Every writer sent `expected_revision` read from the
+host's `record.latest_revision_number`, whose value only moves when `load()`
+RESOLVES and React re-renders. Two writes issued before that both carried the
+same number and the second was refused. Driving John's own pairs with both
+clicks in one task, before the fix:
+
+```
+Save changes then Add note      [200, 409], both expecting revision 3
+tick a criterion then Add note  [200, 409]
+Record scores then tick         score 201, tick 409 expecting revision 6
+```
+
+**In every case the second write was LOST**, and on the note paths with no
+message at all, because a 409 there reloads and returns false. It did not
+reproduce on a deliberate retry because a retry is one write, not two.
+
+**The fix.** `frontend-react/src/shared/recordQueue.ts` serialises a record's
+own writes and supplies the revision from the LAST ACCEPTED RESPONSE. Every
+route that advances a revision already returns the new number, so the queue
+never needs a reload to know where the record is; the reload remains, and
+remains necessary, for the record's STATE. A 409 clears the held number so the
+host's reload is what re-arms it.
+
+**Both hosts, because ContactHost was measured rather than assumed.** It has
+four revision-advancing writers and three read the same stale closure. Its
+follow-up save is the sharper case: it sent no precondition at all, so it always
+succeeded and always left the held number behind, arming the next writer to be
+refused. It now carries one.
+
+**The voice, superseded for the second time.** "In another session" names a
+second editor the server never established. What a 409 establishes is that the
+screen is behind. Verification 29: the premise failed rather than the preference
+changing.
+
+**3.5.** `reloadAfterStaleWrite` dispatched to the Opportunity loader on all
+three surfaces, so on a Test Bed the one control the message offered was
+`GET /api/opportunities/<test bed id>`. It now dispatches on the kind the
+surface passes; an absent kind keeps the old behaviour, so the Opportunity's own
+callers are unchanged by construction.
+
+### 4.4 The evidence, and what each instrument establishes
+
+| claim | instrument | result |
+|---|---|---|
+| the pairs land both writes | `probe-w5-pairs.mjs` | **2/9 before, 9/9 after** |
+| a real second editor is still refused, with the new voice | `probe-w5-refusal.mjs` | 12/12 |
+| the queue's own properties | `record-queue.test.ts`, 7 injections | 7/7 fired |
+| the queue bypassed in the host | `live-specs/w5-queue.mjs` | fired, `[409, 200]` returned |
+| the sentence reverted | `server-specs/w5-voice.mjs` | fired |
+| the dispatch reverted | `server-specs/w5-reload.mjs` | fired |
+| W3, W4, W2 on screen | `probe-w34.mjs` at 1440 | 14/14 |
+| the server refuses two writes on one revision | `probe-w5.mjs` | 5/5 |
+
+**Three of those instruments were wrong first, and each fault is recorded at its
+site** rather than quietly fixed: a wait that read the string under test, so the
+injection that changed the string killed the probe before its assertion and
+reported SILENT; a step label that stopped updating, so a timeout named the
+wrong step; and a `!el?.hidden` field that read TRUE for an element that does
+not exist.
+
+**And the calibration killed a guard written in the same hour**: a rejection
+handler on `chain.then` that can never run, because the next line already
+swallows every rejection. Its injection came back SILENT while the other six
+fired.
+
+## 5. The finding that is not this round's to fix
 
 **Any signed-in non-owner may grant every approval track on any Test Bed, and
-there is no identity to check a name against.** Measured on a fixture whose three
-authorities were all one named person: the owner was refused 403, a non-owner who
-is not the named authority was accepted 201, and the same person then granted the
-other two tracks, 201 each. Three approvals, one person, none of them the named
-approver.
+there is no identity to check a name against.** Measured on a fixture whose
+three authorities were all one named person: the owner was refused 403, a
+non-owner who is not the named authority was accepted 201, and the same person
+then granted the other two tracks, 201 each.
 
 `terminus_staff` has no `user_id`, so the approver fields are staff NAMES with
-nothing linking them to `auth.users`, and `track_approvers` holds no `test_bed`
-row. **R10 makes the gate ask whether a name is recorded, which is all the data
-can currently support.** It does not and cannot make that person the approver.
+nothing linking them to `auth.users`. **R10 makes the gate ask whether a name is
+recorded, which is all the data can currently support.** It does not make that
+person the approver.
 
 Proposed as the next round, in this order: identity linkage first, then granter
 validation. Reproducible from `scripts/stage-panels/measure-r8.mjs`.
 
 ---
 
-## 5. Carried
+## 6. Carried
 
-1. **R12**, section 4 above.
+1. **R12**, section 5 above.
 2. **Row-level merge of approval actions into criteria rows.** R1's own deferral,
    unchanged.
 3. **NEW, found by opening this round's captures: two primary actions on the Test
@@ -148,10 +274,22 @@ validation. Reproducible from `scripts/stage-panels/measure-r8.mjs`.
    share their whole discipline and differ only in what proves the injection
    reached the thing being measured. Worth one round's consolidation, not worth
    doing in passing.
+6. **W1**, the Save/Discard bar out of sight on long pages. Estate-wide, John's
+   ruling, nothing built.
+7. **The Opportunity surface has not been given the queue.** Its own writer
+   (`oppPatch`) already re-reads and retries once, which is a different and
+   older remedy for the same hazard, and it was out of this round's scope.
+   Whether it should share `recordQueue` is a real question and not one this
+   round measured.
+8. **`scripts/tests/teardown-scoping.test.mjs` failed once mid-round with
+   `TypeError: terminated` at 123,467ms**, against a passing 61,318ms in
+   isolation immediately after. A transport termination on a heavy paging test
+   rather than a defect in it; recorded with both durations per Verification 48
+   rather than retried into silence.
 
 ---
 
-## 6. Promotions PROPOSED, not landed
+## 7. Promotions PROPOSED, not landed
 
 **(P1) Verification 9, the calibration clause: ONE CLAIM PER TEST, BECAUSE THE
 RUNNER NAMES THE TEST AND NOT THE ASSERTION.**
@@ -187,6 +325,35 @@ harnesses set**, and a harness that scores a run with no parseable result stops
 rather than scoring it, which `calibrate-server` does not yet do and
 `calibrate-unit` does.
 
+**(P3) A PRECONDITION IS SOURCED FROM THE LAST ACCEPTED RESPONSE, NEVER FROM
+RENDERED STATE.** Measured twice now, on different surfaces and a year apart in
+the code: the unit queue in the Test Bed units round, and W5's record queue
+across two hosts here.
+
+> When a request carries a PRECONDITION - `expected_revision`, an ETag, a
+> version, a sequence number - that value comes from what the authority last
+> ANSWERED, not from what the screen last rendered. Rendered state moves when a
+> reload resolves and a framework re-renders, which is strictly later than the
+> next click.
+>
+> **The check, at the moment you write a precondition into a request: ask what
+> happens if two of these are issued before the first one's refresh lands.** If
+> the answer is that both carry the same value, one of them is going to be
+> refused and the person will be told something the system does not know.
+
+**WHY VERIFICATION 47'S LAYER CLAUSE DOES NOT ALREADY COVER IT, checked before
+proposing.** That clause says: when the claim is about what one call passes to
+the next, TEST the thing that holds the value rather than the screen that
+displays it. It is advice about where to point a test, and this round obeyed it -
+the queue's own tests are at the queue. **This is a rule about where the value
+must LIVE in the product**, which 47 says nothing about: a surface can satisfy 47
+completely, with its tests aimed at exactly the right layer, and still source its
+preconditions from a render.
+
+Nearest neighbour is Architecture 12, a definer function DERIVES and does not
+ACCEPT, with the twist that this is the client side of the same idea: the server
+must not trust the caller's claim, and the caller must not trust its own screen.
+
 **Not proposed, and recorded as an instance under rules that already cover it:**
 the R11 list measure compared lines of text against bordered rows whose boxes
 touch at 0px, so the honest fix read as a failure. That is Verification 33, a
@@ -196,7 +363,7 @@ commit message.
 
 ---
 
-## 7. The exit gate
+## 8. The exit gate
 
 Answered point by point in the report delivered with this document, after the
 full merge gate has been run on this exact tree and its result stated.
