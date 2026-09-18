@@ -5912,6 +5912,31 @@ input.input-invalid {
  * squeeze at 1240 so the action stayed beside the title; with the summary gone
  * the row holds only the title and the action. */
 
+/* ── THE UNIT ROW. Test Bed units Phase 3, L4 ─────────────────────────────
+ *
+ * The row carries a type, an index, three text fields and a state select, and
+ * `.data-row` is a two-end flex box built for a label and a value. Without this
+ * the five controls spread across the full width with the select taking
+ * whatever was left, which the 1440 screenshot showed before this rule existed.
+ *
+ * Columns rather than `space-between`, so every row's fields line up with the
+ * row above: the fields are a table by any other name.
+ */
+.tb-unit-row {
+  display: grid;
+  grid-template-columns: 90px 28px minmax(140px, 1.4fr) minmax(90px, 1fr) minmax(90px, 1fr) 130px 70px;
+  gap: 10px;
+  align-items: center;
+}
+.tb-unit-row .tb-unit-type { font-size: 12px; }
+.tb-unit-row .tb-unit-index {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+  text-align: right;
+}
+.tb-unit-row input, .tb-unit-row select { width: 100%; }
+
 /* ── THE RECORD BAND SITS BETWEEN THE TITLE AND THE STRIP ────────────────
  *
  * Summary, Notes and the follow-up moved here from the top of the Reference
