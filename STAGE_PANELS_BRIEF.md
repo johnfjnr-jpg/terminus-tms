@@ -47,6 +47,32 @@ hold at 1240 or 1440, and the documents rule changes Qualification alone.
   criteria, so nothing passes to Pre-Site Assessment without Commercial,
   Technical and Legal approvers named.
 
+## Rulings appended after the pilot report (John, 2026-09-18)
+
+Appended at the phase they launch, per build discipline 7's clause, rather than
+discovered at the close.
+
+- **R9. The pilot is signed off.**
+- **R10. R8 builds as proposed** in the round report's section 2.4: three
+  Qualification exit-criteria rules, one per track, each satisfied when its
+  payload field is non-empty; unsatisfied wording **"Requires a Commercial
+  approver to be named"** and likewise Technical and Legal; and **backstop (a)**,
+  the rules repeat at every stage that requires an approval of that track.
+  **Configuration rows only**, no route change.
+- **R11. The two cosmetic findings are taken at the cosmetic tier.** The
+  documents and exit criteria pair gains the estate's card chrome so it matches
+  the scoring card, and the approver lines read as one list rather than three
+  paragraphs. Before-and-after captures at 1240, 1440 and one wide width.
+- **R12. The 2.3 finding is on the list as the proposed NEXT round.** Any
+  non-owner may grant every track, and no staff-to-user identity exists:
+  identity linkage first, then granter validation. **Not this round.**
+
+**A numbering collision, named rather than resolved by renumbering.** R4 above
+and the Phase 0 report both cite "R10's per-stage Record scope", which is
+**Round A's R10** (the Test Bed workflow core round), not this round's R10.
+A cited number is an identifier and is not reordered (Verification 32), so both
+stand and the citations are qualified here instead.
+
 ## STEP 2: the R8 measurement (read-only, reported before any build commit)
 
 - Do per-record Terminus approver fields exist on Test Beds today? Where are they
