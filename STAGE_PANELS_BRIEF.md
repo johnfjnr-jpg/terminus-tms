@@ -184,3 +184,41 @@ cannot disagree silently.
   timestamp shown at date grain stays date grain), its **absence** rule (the
   formatter returns `''` and each call site keeps its own fallback) and its
   **unparseable-value** rule (returned as it stands) are **untouched**.
+
+## Walk 2 findings W6 to W10, the scoring surface (John, 2026-09-18)
+
+Appended at the phase they launch. John's wording is quoted; anything after a
+quote is this phase's disposition.
+
+**The merge is HELD.** The previously issued close sequence - buttons, P3,
+merge, gate on the merged tree - runs only after this phase is signed off.
+
+- **W6. The scoring row's sizing.** *"the score select sized to its content (an
+  integer plus the chevron); the reason renders as ONE line, growing to two only
+  when the text needs it; the reason field starts right of the select with a
+  clear gap."*
+- **W7. Escape to revert.** *"Escape exits the field and restores the prior
+  value."* **Archaeology first**: the prior ruling and its implementation are
+  found and reported before anything is built, including whether it ever covered
+  this field, and if it regressed, which change killed it and why no guard
+  caught it.
+- **W8a. The awaiting-reason lock must have a way out.** *"a person in the
+  awaiting-reason state with a BLANK reason has a visible way out: Escape (W7)
+  reverts the draft and releases the lock; the lock never traps a person who
+  changed their mind."*
+- **W8b. W1 PROMOTED INTO THIS PHASE BY RULING**, because *"it has now cost John
+  twice."* *"the Save/Discard bar is position: sticky at the viewport bottom
+  whenever a change exists, estate-wide as the edit-bar pattern, proven on the
+  Test Bed and one other surface at 1440 with a long page."*
+- **W9. The awaiting-reason state reads as ONE state.** *"the blocking criterion
+  visibly highlighted, the quieted criteria carrying one shared line naming the
+  block, the green note and per-row noise consolidated."* Screenshot before and
+  after.
+- **W10. The recorded reason.** *"the recorded reason renders right of the
+  score, where it was entered, on every criterion with a reason; the history
+  disclosure unchanged."*
+
+**W1 is no longer a queued estate-wide item.** It was recorded at the first walk
+as *"estate-wide, on the list, not this round"*, and this ruling supersedes that
+scoping: a finding that costs the same person twice is not waiting for a round of
+its own.
