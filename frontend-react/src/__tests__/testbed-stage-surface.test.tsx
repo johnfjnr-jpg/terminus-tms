@@ -196,7 +196,10 @@ describe('the tab strip renders', () => {
       'a score needing a reason did not block the save').toBe(true)
     // 2.5: the vanilla's lock note, which names the criterion by its NAME.
     const name = (SCORING_JSON.criteria as Criterion[]).find((c) => c.criterion_key === 'scoreRolloutPath')!.name!
-    expect(q('tb-score-lock-note')?.textContent).toBe(`Add the Reason for ${name} before scoring anything else.`)
+    // W9 consolidated the three tellings into one: the row is marked and one
+    // line under it names the block. Re-pointed rather than loosened.
+    expect(q('tb-score-quieted-note')?.textContent)
+      .toBe(`The other criteria are waiting on the Reason for ${name}.`)
   })
 
   test('P6 the install section is hidden by ATTRIBUTE off its own stage', async () => {

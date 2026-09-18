@@ -418,14 +418,18 @@ describe('2.5 history and the current explanation', () => {
 })
 
 describe('2.5 the reason box and the entry lock', () => {
-  test('labels: optional at a free first score; blocking while a required reason is empty; required once given', async () => {
+  test('labels: optional at a free first score, required at one that demands it', async () => {
     await mount({ payload: {} })
     await openStage('Qualification')
     const [a, b] = Q()
     await choose(a.criterion_key, noReason(a))
     expect($(`tb-score-reason-label-${a.criterion_key}`)?.textContent).toBe('Reason (optional)')
     await choose(b.criterion_key, needsReason(b))
-    expect($(`tb-score-reason-label-${b.criterion_key}`)?.textContent).toBe('Reason required before scoring anything else')
+    // W9: the label says what the FIELD is. It used to say what the STATE was,
+    // which was the same sentence the card's note and every disabled row were
+    // already saying: the blocking wording now lives once, under the marked row.
+    expect($(`tb-score-reason-label-${b.criterion_key}`)?.textContent).toBe('Reason (required)')
+    expect($(`tb-score-${b.criterion_key}`)?.getAttribute('data-blocking')).toBe('true')
     await typeReason(b.criterion_key, 'No sponsor named yet.')
     expect($(`tb-score-reason-label-${b.criterion_key}`)?.textContent).toBe('Reason (required)')
   })
@@ -438,7 +442,16 @@ describe('2.5 the reason box and the entry lock', () => {
     expect(($(`tb-score-select-${a.criterion_key}`) as HTMLSelectElement).disabled, 'the blocking criterion lost its own way out').toBe(false)
     for (const c of Q().slice(1)) expect(($(`tb-score-select-${c.criterion_key}`) as HTMLSelectElement).disabled, c.criterion_key).toBe(true)
     expect(($('tb-measurability-select') as HTMLSelectElement).disabled).toBe(true)
-    expect($('tb-score-lock-note')?.textContent).toBe(`Add the Reason for ${a.name} before scoring anything else.`)
+    // W9 (John's walk 2, 2026-09-18) CONSOLIDATED THIS. The state was told
+    // three times - a note at the top of the card, a different label on the
+    // blocking row, and every other row silently disabled - and none of them
+    // was beside the rows it was about. It is now the blocking row's own mark
+    // plus ONE line under it naming the block.
+    expect($(`tb-score-${a.criterion_key}`)?.getAttribute('data-blocking'),
+      'the blocking criterion is not marked').toBe('true')
+    expect($('tb-score-quieted-note')?.textContent)
+      .toBe(`The other criteria are waiting on the Reason for ${a.name}.`)
+    expect($('tb-score-lock-note'), 'the superseded note survived beside its replacement').toBeNull()
     expect(document.activeElement, 'focus did not move into the reason box').toBe($(`tb-score-reason-${a.criterion_key}`))
     await choose(b.criterion_key, noReason(b))
     expect(($(`tb-score-select-${b.criterion_key}`) as HTMLSelectElement).value, 'the handler took a draft past the lock').toBe('')
@@ -451,12 +464,12 @@ describe('2.5 the reason box and the entry lock', () => {
     await choose(a.criterion_key, needsReason(a))
     await typeReason(a.criterion_key, 'Exploratory only.')
     expect(($(`tb-score-select-${b.criterion_key}`) as HTMLSelectElement).disabled).toBe(false)
-    expect($('tb-score-lock-note')).toBeNull()
+    expect($('tb-score-quieted-note'), 'the shared line outlived the block it names').toBeNull()
     await typeReason(a.criterion_key, '')
     expect(($(`tb-score-select-${b.criterion_key}`) as HTMLSelectElement).disabled, 'emptying the reason did not lock again').toBe(true)
     await choose(a.criterion_key, '')
     expect(($(`tb-score-select-${b.criterion_key}`) as HTMLSelectElement).disabled).toBe(false)
-    expect($('tb-score-lock-note')).toBeNull()
+    expect($('tb-score-quieted-note')).toBeNull()
   })
 })
 

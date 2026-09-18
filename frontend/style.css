@@ -3452,10 +3452,18 @@ input.input-invalid {
    rules, not to the space you intend for it - and it passed every
    programmatic assertion, so only the screenshot showed it. An explicit
    width is what actually constrains it. */
+/* W6 (John's walk 2, 2026-09-18): SIZED TO ITS CONTENT, not to a number.
+ *
+ * It was 118px for options that are a single integer: measured, the widest
+ * option in this control renders at 54px, so more than half the box was empty
+ * and the space belonged to the reason beside it. `width: auto` lets the
+ * control ask the browser for what its own longest option needs plus a
+ * chevron, which is the only definition of "enough" that survives a criterion
+ * whose levels are worded differently. */
 .tb-score-select {
   flex: 0 0 auto;
-  width: 118px;
-  min-width: 118px;
+  width: auto;
+  min-width: 0;
 }
 .tb-score-head {
   flex-wrap: wrap;
@@ -3494,6 +3502,46 @@ input.input-invalid {
  * would drop to sit level with the bottom of the box. */
 .tb-score-reason {
   margin-top: 8px;
+}
+/* ── W9: THE AWAITING-REASON STATE, AS ONE STATE ────────────────────────
+ *
+ * It was told three times - a green note at the top of the card, a different
+ * label on the blocking row, and every other row silently disabled - and none
+ * of the three was beside the rows it was about. Now: the blocking row is
+ * marked where it is, and ONE line under it names the block for the rows it
+ * quietened.
+ *
+ * The mark is a left border and a tint, not colour alone: the line below says
+ * the same thing in words, which is what a person reads if the tint does not
+ * register. */
+/* THE BORDER ALONE, no tint. The tint was tried and the screenshot killed it:
+   a blocking row with its definitions open is most of the card, so a tinted
+   block ran 500px down the screen and read as an error state rather than as a
+   marked row. The border marks the row at any height, and the line below says
+   the same thing in words. */
+.tb-score-row--blocking {
+  border-left: 2px solid var(--green);
+  padding-left: 10px;
+  margin-left: -12px;
+}
+.tb-score-quieted {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+/* Moving the history control out of the head put it directly beside the
+   definitions toggle, and the screenshot showed them touching:
+   "SHOW HISTORY (2)Hide definitions". An adjacency this round created, so it is
+   this round's to fix (build discipline 10's limit). */
+.tb-score-row > .btn-text + .anchors-toggle { margin-left: 14px; }
+/* W10: the recorded reason now sits in the head, in the slot the reason box
+   uses while drafting, so it is read where it was written. It keeps its own
+   dimmed treatment; what changes is where it sits. */
+.tb-score-head > .tb-score-current {
+  flex: 1 1 260px;
+  align-self: flex-start;
+  margin: 0;
+  min-width: 0;
 }
 .tb-score-head > .tb-score-reason {
   flex: 1 1 260px;
@@ -5817,6 +5865,28 @@ input.input-invalid {
 }
 
 /* The shared edit bar. Behaviour 6: a property of the surface, not a row. */
+/* ── W8b (W1 PROMOTED), John's walk 2, 2026-09-18 ───────────────────────
+ *
+ * The bar sat at the bottom of the page's content, so on a long surface a
+ * person with unsaved changes had to scroll to find out there was anything to
+ * save. W1 recorded it at the first walk as estate-wide and queued; it cost
+ * John twice, and the ruling promotes it.
+ *
+ * STICKY, not fixed: a fixed bar leaves the page's last rows underneath it and
+ * needs a matching pad on every surface that uses it. Sticky keeps the bar in
+ * the document's flow, so it stops at the end of its own container and nothing
+ * is covered.
+ *
+ * It is on the CLASS, so every surface the field row serves gets it at once -
+ * Contact, Test Bed, Reference and Account - which is the same blast radius
+ * ruling A1 and A3 were taken with, and the reason this is one rule rather
+ * than four.
+ *
+ * `:not([hidden])` IS LOAD-BEARING and is why this rule already read that way:
+ * a bare `display` overrides the user agent's `[hidden] { display: none }`, so
+ * the bar would render on every surface with nothing to save. The estate has a
+ * test that refuses exactly that. The background is opaque because content now
+ * scrolls UNDER this. */
 .field-edit-bar:not([hidden]) {
   display: flex;
   align-items: center;
@@ -5824,6 +5894,10 @@ input.input-invalid {
   padding: 10px 0;
   border-top: 1px solid var(--hairline-strong);
   margin-top: 8px;
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+  background: var(--dark);
 }
 .field-edit-bar [data-testid="dirty-count"] {
   font-family: var(--mono);
