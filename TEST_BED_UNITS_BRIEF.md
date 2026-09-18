@@ -133,6 +133,52 @@ method, and the full pre-commit suites on every commit.
 
 L2, L3, L4 and R8 do not start until the word.
 
+## Rulings at the Phase 2 sign-off (John, 2026-09-18)
+
+- **R9.** Phase 2 is signed off.
+- **R10. R7 closes as half-landed by measurement.** The prune is the fix, the
+  per-tag weighing stays, and no RPC and no index without a future measurement
+  arguing for them.
+- **R11. The empty revision on a state-only unit PATCH is Phase 3 scope:** a
+  revision is written only when it carries a change.
+- **R12. `calibrate-live.mjs` rides this round as its own calibrated commit.**
+  When it stops for any reason after writing an injection, it restores the source
+  from its own snapshot, verifies the sha byte-identical, and only then removes
+  the IN-FLIGHT marker and reports the stop. Calibrated both directions: a forced
+  stop on a server-only injection leaves the tree byte-identical to HEAD, and a
+  normal run still fires on its named test.
+
+## PHASE 3: the unit surface (L2, L3, L4, R8, R11)
+
+Vanilla parity by capability, each item guarded red-before and green-after:
+
+- **L4.** The unit row offers serialNumber, latitude, longitude and a state
+  select (Planned, Installed, Faulty, Removed), each saving flat through the
+  fixed route and each read back from the database in the live proof. The index
+  renders per row, with per-row save feedback.
+- **L2.** Count correction returns on the Installation tab per open type: a new
+  count plus a mandatory reason, Apply disabled until both are filled, sent as
+  the vanilla sent it (`payload` plus `countCorrectionReason`), and the
+  correction visible after a reload.
+- **L3.** A locked count says so WHERE IT IS EDITED: the Commercials count field
+  for a type with existing units renders locked, carrying the vanilla's sentence
+  directing to the Installation tab. The after-the-fact 400 remains as the
+  server's backstop, and the lock summary line stays.
+- **R11.** A state-only PATCH writes a revision only when it carries a change; an
+  empty patch appends nothing.
+- **R8.** The installer search list renders CLOSED until the person types, and no
+  other Accounts' names appear unprompted.
+
+Live proof on an owned tagged fixture at 1440 covering all four unit fields saved
+and re-read, a count correction applied with its reason, the locked-count
+sentence at the Commercials field, and the installer list closed on a fresh
+Installation tab. Screenshots opened and read. Unit and live calibrations both
+directions, and the full pre-commit suites on every commit. The rider clause
+applies if a phase file carries the styling items (sub-tab labels, default
+buttons), each as its own named item in the report.
+
+This is the last build phase before the round close.
+
 ## PHASE 1: R1, a read never writes
 
 With two riders ahead of it, each its own commit: 2.1 the binding fix (R4),
