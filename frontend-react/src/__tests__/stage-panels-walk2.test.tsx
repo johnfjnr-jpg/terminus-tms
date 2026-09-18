@@ -102,6 +102,26 @@ describe('W7: Escape reverts the field, as ruling A3 already requires elsewhere'
     await escapeOn('tb-score-select-scoreRolloutPath')
     expect(host.innerHTML, 'Escape on an untouched row changed the surface').toBe(before)
   })
+
+  // ADDED FROM A SILENT CALIBRATION (Verification 51). The injection that makes
+  // the handler fire on EVERY key came back silent: the tests drove the reason
+  // box through React's onChange, so not one of them pressed an ordinary key at
+  // it, and a handler that reverted on every keystroke would have shipped. The
+  // silence named a claim nothing asserted.
+  test('and ORDINARY keys in the reason box leave the draft alone', async () => {
+    await render()
+    await draftABlockingScore()
+    for (const key of ['a', 'Shift', 'Backspace', 'Enter']) {
+      await act(async () => {
+        q('tb-score-reason-scoreRolloutPath')!
+          .dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }))
+      })
+      await settle()
+      expect(q('tb-score-reason-scoreRolloutPath'), `"${key}" reverted the draft`).not.toBeNull()
+      expect((q('tb-score-select-scoreRolloutPath') as unknown as HTMLSelectElement).value,
+        `"${key}" cleared the score`).toBe('1')
+    }
+  })
 })
 
 describe('W8a: the awaiting-reason lock never traps a person who changed their mind', () => {
