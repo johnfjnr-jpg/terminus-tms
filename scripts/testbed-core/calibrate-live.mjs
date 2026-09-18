@@ -102,9 +102,40 @@ try {
     writeFileSync(f, texts.get(f))
     if (readFileSync(f).equals(snap.get(f))) stop(`injection into ${f} did not land`)
   }
-  build()
-  if (readFileSync(DIST).equals(snap.get(DIST))) stop('the bundle did not change, so the injected build is not what will be served')
-  console.log(`injected ${spec.injections.length} fault(s) built into the served bundle`)
+  // ── WHAT PROVES THE INJECTION IS WHAT WILL BE SERVED ────────────────────
+  //
+  // For bundled source that is the bundle changing. A STYLESHEET is not bundled
+  // at all, so a build leaves the bundle byte-identical and this check would
+  // stop a healthy run.
+  //
+  // The first version of this branch fetched the URL and read the served text
+  // back. `scripts/tests/api-client.test.mjs` refused the commit: two files in
+  // the estate may call `fetch` and this is not one of them, because a raw
+  // fetch is how a non-2xx goes silent again. The refusal was right and the
+  // better answer was underneath it (Verification 9's ratchet clause).
+  //
+  // What the fetch was really proving is the PREMISE that the disk copy is the
+  // served copy, and that premise is a property of the server rather than of
+  // this run: `src/server.js` serves `frontend/` from disk with
+  // `cache-control: no-store`, and each probe launches a fresh browser profile.
+  // So the premise is asserted ONCE, from the source, and the bytes on disk
+  // having changed is then the whole of the claim.
+  const bundled = files.some((f) => f.includes('/frontend-react/'))
+  if (bundled) {
+    build()
+    if (readFileSync(DIST).equals(snap.get(DIST))) stop('the bundle did not change, so the injected build is not what will be served')
+    console.log(`injected ${spec.injections.length} fault(s) built into the served bundle`)
+  } else {
+    if (!spec.servedFromDisk) stop('a spec injecting nothing bundled must set `servedFromDisk` to the directory the server serves it from')
+    const server = readFileSync(`${ROOT}/src/server.js`, 'utf8')
+    const root = `root: join(__dirname, '..', '${spec.servedFromDisk}')`
+    if (!server.includes(root)) stop(`src/server.js does not serve ${spec.servedFromDisk} from disk (${root} not found), so a disk edit is not a served edit`)
+    if (!/reply\.header\('cache-control', 'no-store/.test(server)) stop('src/server.js no longer sends no-store, so a served copy may be stale')
+    for (const f of files) {
+      if (!f.includes(`/${spec.servedFromDisk}/`)) stop(`${f} is neither bundled nor under ${spec.servedFromDisk}, so nothing here proves it reaches the browser`)
+    }
+    console.log(`injected ${spec.injections.length} fault(s) into ${spec.servedFromDisk}/, which the server reads from disk with no-store`)
+  }
   const t0 = Date.now()
   const r = spawnSync('node', ['--env-file=.env', spec.probe], {
     cwd: ROOT, encoding: 'utf8', env: { ...process.env, TBCORE_RUN: `${spec.run}-injected` }, timeout: 580000 })
