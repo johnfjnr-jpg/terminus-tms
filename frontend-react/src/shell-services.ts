@@ -141,7 +141,7 @@ export interface ShellServices {
    * Returns null when the shell has no renderer, and the caller falls back to
    * its own plain sentence rather than showing nothing.
    */
-  staleWriteHtml(recordId: string): string | null
+  staleWriteHtml(recordId: string, kind?: string): string | null
   /**
    * ── TWO SHELL FACTS THE STAGE PANEL CANNOT DERIVE ────────────────────
    *
@@ -249,7 +249,7 @@ type ShellWindow = Window & {
   takeTestBedLanding?: () => string | null
   setViewOwner?: (view: string, ownerId: string | null) => void
   canEditRecord?: (ownerId: string | null, viewerId: string | null) => boolean
-  staleWriteHtml?: (recordId: string) => string
+  staleWriteHtml?: (recordId: string, kind?: string) => string
   contactReturnView?: () => 'contacts' | 'leads'
   openDiscardConfirm?: (proceed: () => void) => void
 }
@@ -337,9 +337,12 @@ export const shellServices: ShellServices = {
     // as "cannot answer" rather than as "not yours".
     return w().currentSession?.user?.id ?? null
   },
-  staleWriteHtml(recordId: string): string | null {
+  // 3.5: the KIND reaches the shell, so its reload control dispatches to the
+  // loader of the surface that rendered the message rather than always to the
+  // Opportunity's.
+  staleWriteHtml(recordId: string, kind?: string): string | null {
     const fn = w().staleWriteHtml
-    return typeof fn === 'function' ? fn(recordId) : null
+    return typeof fn === 'function' ? fn(recordId, kind) : null
   },
   usesWorkflow(recordType: string): boolean {
     const fn = w().usesWorkflow

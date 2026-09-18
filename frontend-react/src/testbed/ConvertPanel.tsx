@@ -23,7 +23,14 @@ export function ConvertPanel({ onConvert, onOpen }: {
   return (
     <div data-testid="tb-convert">
       {!open
-        ? <button type="button" data-testid="tb-convert-trigger"
+        // `btn-ghost btn-sm`, which is the vanilla's own treatment for this
+        // control (54001c5^:frontend/index.html:790) and NOT btn-primary. The
+        // rider asked for "the estate's primary treatment" for both buttons;
+        // this one is recorded as a GHOST, deliberately, because it sits beside
+        // the title as a secondary action and Next Stage is the primary one on
+        // the same surface. Two primaries side by side would say they are the
+        // same weight. Stated rather than quietly chosen: one word changes it.
+        ? <button type="button" className="btn-ghost btn-sm" data-testid="tb-convert-trigger"
             onClick={() => setOpen(true)}>Convert to Opportunity</button>
         : (
           <div data-testid="tb-convert-form-wrap">

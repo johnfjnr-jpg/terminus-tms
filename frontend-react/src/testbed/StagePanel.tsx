@@ -39,11 +39,16 @@ export interface TickResult { ok: boolean, error?: string | null }
  *   1.6 a failed tick says so in the panel and leaves the row as it was;
  *   1.7 pending marks arrive in Phase 2.6, at the point named below.
  */
-export function ExitCriteria({ stage, data, panel, onTick, pending }: {
+export function ExitCriteria({ stage, data, panel, onTick, pending, approvals, approvalsPanel, approvers }: {
   stage: string
   data: unknown
   panel: PanelState
   onTick: (field: string, currentlyMet: boolean) => Promise<TickResult>
+  /** R1: the track list, which used to be a panel of its own beside this one. */
+  approvals?: React.ReactNode
+  approvalsPanel?: PanelState
+  /** R1: the approver this Test Bed names per track, or an empty name. */
+  approvers?: ReadonlyArray<{ track: string, name: string }>
   /**
    * 2.6: the fields a score DRAFT would satisfy, from the drafts the scoring
    * card edits. Rendered from state rather than by poking the DOM, so a
@@ -64,16 +69,31 @@ export function ExitCriteria({ stage, data, panel, onTick, pending }: {
   const [confirmed, setConfirmed] = useState<ReadonlyMap<string, boolean>>(new Map())
   useEffect(() => { setConfirmed(new Map()) }, [data])
 
+  // ── R11: THE ESTATE'S CARD, BY ITS NAME ────────────────────────────────
+  //
+  // The round put this panel BESIDE the scoring card, which is a `pg-card`, and
+  // the screenshots showed the mismatch the pairing created: a framed card with
+  // two unframed columns hanging under it. The chrome is the class rather than
+  // a new stylesheet rule copying its border and padding, because the estate
+  // has a named treatment for this role and a copy is a second reader of it
+  // arriving in the stylesheet (Verification 7).
+  //
+  // Applied on EVERY load state, not only the settled one, or the panel gains a
+  // border when its fetch returns and the row reflows under the person.
+  const card = (body: React.ReactNode, stage?: string) => (
+    <div className="pg-card" data-testid="tb-stage-exit-criteria-list" data-stage={stage}>
+      <div className="pg-card-title">Exit criteria</div>
+      {body}
+    </div>)
+
   if (panel.error) {
-    return <p className="empty-state" data-testid="tb-stage-exit-criteria-list">{panel.error}</p>
+    return card(<p className="empty-state">{panel.error}</p>)
   }
   if (panel.pending || !panel.stage) {
-    return <p className="empty-state" data-testid="tb-stage-exit-criteria-list">
-      Loading {panel.pending ?? stage}...</p>
+    return card(<p className="empty-state">Loading {panel.pending ?? stage}...</p>)
   }
   const res = readExitCriteria(data)
-  const settled = (body: React.ReactNode) => (
-    <div data-testid="tb-stage-exit-criteria-list" data-stage={panel.stage}>{body}</div>)
+  const settled = (body: React.ReactNode) => card(body, panel.stage)
   // An unreadable answer is not an empty one, so it does not say "no criteria".
   if (!res) return settled(<p className="empty-state">Unable to load exit criteria.</p>)
   if (res.to_stage === null) {
@@ -147,6 +167,22 @@ export function ExitCriteria({ stage, data, panel, onTick, pending }: {
     })}
     <div className={feedback ? 'tb-doc-feedback err' : 'tb-doc-feedback'}
       data-testid="tb-crit-feedback" role="status">{feedback}</div>
+    {/* ── R1: THE APPROVALS, AS THIS PANEL'S CLOSING SECTION ──────────────
+        They were a panel of their own beside this one, which put the approvals
+        a gate DEMANDS at arm's length from the rows demanding them. The list and
+        its controls are unchanged; what moved is where it sits, and each track
+        now says who this Test Bed names for it. The names are payload fields,
+        so an empty one says so rather than rendering a blank. */}
+    <div className="tb-stage-approvals" data-testid="tb-stage-approvals-section">
+      <p className="label">Approvals</p>
+      {(approvers ?? []).map((a) => (
+        <p key={a.track} className="sub" data-testid={`tb-stage-approver-${a.track}`}>
+          {a.track}: {a.name || 'no approver named'}
+        </p>))}
+      <ReadPanel panelId="tb-stage-approval-row"
+        panel={approvalsPanel ?? {}}
+        empty="No approvals at this stage.">{approvals}</ReadPanel>
+    </div>
   </>)
 }
 
@@ -217,12 +253,13 @@ export function ScoringCard({ card, criteria, series, scores, onDraft, onReason,
       hidden={card.hidden || (!criteria.length && !measurability)} data-stage={card.stage}>
       <div className="pg-card-title">Scoring</div>
 
-      {/* THE LOCK NOTE. A disabled control with no stated reason is a dead end
-          the person keeps clicking, so it says which criterion and why. */}
-      {blocking
-        ? <p className="tb-score-lock" data-testid="tb-score-lock-note">
-            Add the Reason for {blockingName} before scoring anything else.</p>
-        : null}
+      {/* ── W9: THE LOCK NOTE IS GONE, CONSOLIDATED ────────────────────────
+          It said which criterion and why, at the top of the card, while the
+          blocking row said the same thing again in its label and every other
+          row said it a third time by being disabled. Three tellings of one
+          state, none of them beside the rows they were about.
+          The state is now carried where it happens: the blocking row is marked,
+          and ONE line under it names the block for the rows it quietened. */}
 
       {measurability
         ? (
@@ -275,9 +312,40 @@ export function ScoringCard({ card, criteria, series, scores, onDraft, onReason,
         const anchors = anchorsOpen[key] ?? (draft !== '')
         const set = anchorSet(c, c.current_version)
         const wording = (value: number, description?: string | null) => set[String(value)] ?? description ?? ''
+
+        // ── W7 AND W8a: ESCAPE REVERTS, AND RELEASES ───────────────────
+        //
+        // Ruling A3 (John, Leads round Phase 0, 2026-09-11, built in `daa90af`)
+        // already says Escape reverts the focused field to its last saved
+        // value. It lives in the FIELD ROW and has never reached this card,
+        // whose controls are bespoke: this is a gap rather than a regression,
+        // and the archaeology is in the phase report.
+        //
+        // Reverting a scoring draft IS dropping it: `applyDraft` with an empty
+        // value deletes the draft AND its reason, so the recorded score stands
+        // again and `awaitingReason` recomputes to null. That is W8a for free -
+        // the lock is derived from the drafts, so removing the draft releases
+        // it, and there is no second mechanism to keep in step.
+        //
+        // `preventDefault` and NOT `stopPropagation`, matching the field row's
+        // own editors exactly: an Escape that reverts a field must not also
+        // become an Escape that closes something a parent owns, and changing
+        // what an element lets through is its own class of defect
+        // (Verification 7's behaviour axis).
+        //
+        // With no draft this is a no-op by construction, because deleting an
+        // absent key changes nothing. A recorded score cannot be destroyed by
+        // pressing Escape at it.
+        const revertOnEscape = (e: KeyboardEvent<HTMLElement>) => {
+          if (e.key !== 'Escape') return
+          e.preventDefault()
+          onDraft(key, '', blocking)
+        }
         return (
-          <div key={key} data-testid={`tb-score-${key}`} className="tb-score-row"
-            data-criterion={key} data-entries={s.length}>
+          <div key={key} data-testid={`tb-score-${key}`}
+            className={isBlocking ? 'tb-score-row tb-score-row--blocking' : 'tb-score-row'}
+            data-criterion={key} data-entries={s.length}
+            data-blocking={isBlocking ? 'true' : undefined}>
             <div className="tb-score-head">
               <span className="tb-score-name">{name}</span>
               <span className={current ? 'tb-score-value' : 'tb-score-value tb-score-value--none'}
@@ -288,6 +356,7 @@ export function ScoringCard({ card, criteria, series, scores, onDraft, onReason,
               <select className="tb-score-select" aria-label={`${name} score`}
                 data-testid={`tb-score-select-${key}`} value={draft}
                 disabled={!!blocking && !isBlocking}
+                onKeyDown={revertOnEscape}
                 onFocus={() => showAnchors(key)} onMouseDown={() => showAnchors(key)}
                 onChange={(e) => {
                   const v = e.target.value
@@ -297,28 +366,79 @@ export function ScoringCard({ card, criteria, series, scores, onDraft, onReason,
                 <option value="">{current ? 'Revise...' : 'Score...'}</option>
                 {levels.map((l) => <option key={l.value} value={String(l.value)}>{l.label ?? l.value}</option>)}
               </select>
-              {s.length > 1
+
+
+              {/* ── W4, John's walk, 2026-09-18: THE REASON IS PART OF SCORING ──
+                  It opened at the BOTTOM of the row, below the definitions, in
+                  a row whose right-hand half was empty: answering "why" meant
+                  reading past the anchors to find the box. R2 gave this row the
+                  full width of the panel strip, and this is what that width is
+                  for.
+
+                  In the HEAD, so it is beside the select it belongs to. The
+                  definitions stay below: moving them up would put a long list
+                  between one criterion and the next.
+
+                  ── W6 AND W10: ONE SLOT, TWO OCCUPANTS ───────────────────
+                  W6 puts the reason IMMEDIATELY right of the select, so the
+                  history button moved below the head rather than sitting
+                  between them. W10 gives the same slot to the RECORDED reason
+                  when nothing is drafted: a reason is read where it was
+                  written, and it used to render under the row instead. */}
+              {draft !== ''
                 ? (
-                  <button type="button" className="btn-text" aria-expanded={open}
-                    data-testid={`tb-score-history-${key}`}
-                    onClick={() => setExpanded((o) => toggle(o, key))}>
-                    {open ? 'Hide history' : `Show history (${s.length})`}</button>)
+                  <div className={isBlocking ? 'tb-score-reason tb-score-reason--needed' : 'tb-score-reason'}>
+                    {/* NOT COLOUR ALONE: the label's words change too. W9 takes
+                        the blocking wording OUT of here: the row is marked and
+                        one line below it names the block, so this says what the
+                        field is rather than restating the state a third time. */}
+                    <label htmlFor={`tb-score-reason-${key}`} data-testid={`tb-score-reason-label-${key}`}>
+                      {required ? 'Reason (required)' : 'Reason (optional)'}</label>
+                    {/* ONE LINE, GROWING ONLY WHEN THE TEXT NEEDS IT (W6). The
+                        height is set from the content's own scrollHeight, which
+                        is the only thing that knows how many lines there are. */}
+                    <textarea id={`tb-score-reason-${key}`} rows={1}
+                      data-testid={`tb-score-reason-${key}`}
+                      ref={(el) => {
+                        reasonBoxes.current[key] = el
+                        if (el) { el.style.height = 'auto'; el.style.height = `${el.scrollHeight}px` }
+                      }}
+                      value={scores.reasons[key] ?? ''}
+                      onKeyDown={revertOnEscape}
+                      onChange={(e) => {
+                        e.target.style.height = 'auto'
+                        e.target.style.height = `${e.target.scrollHeight}px`
+                        onReason(key, e.target.value)
+                      }} />
+                  </div>)
+                : current && (current.comment || current.reason)
+                ? (
+                  <div className="tb-score-current" data-testid={`tb-score-current-${key}`}>
+                    {current.comment ? <span className="tb-score-current-text">{current.comment}</span> : null}
+                    {current.reason ? <span className="tb-score-current-text"><em>Reason:</em> {current.reason}</span> : null}
+                  </div>)
                 : null}
             </div>
 
-            {/* THE CURRENT ENTRY'S EXPLANATION, ALWAYS SHOWN: a reason the
-                system required must be shown back without a click. An old
-                `comment` renders unlabelled, as it was written. */}
-            {current && (current.comment || current.reason)
-              ? (
-                <div className="tb-score-current" data-testid={`tb-score-current-${key}`}>
-                  {current.comment ? <span className="tb-score-current-text">{current.comment}</span> : null}
-                  {current.reason ? <span className="tb-score-current-text"><em>Reason:</em> {current.reason}</span> : null}
-                </div>)
-              : null}
+            {/* THE CURRENT ENTRY'S EXPLANATION moved INTO the head (W10): a
+                reason is read where it was written. It rendered here, under the
+                row, which is the one place the person who typed it never
+                looked. */}
 
-            {/* THE QUESTION, verbatim, outside the anchors: it labels the criterion. */}
+            {/* THE QUESTION, verbatim, outside the anchors: it labels the criterion.
+                FIRST under the head, because it is about THIS criterion. The
+                history control moved below it: opening the screenshot showed
+                "SHOW HISTORY (2)" sitting between the score and the question it
+                belongs to, which reads as an interruption. */}
             {c.asks ? <p className="tb-score-asks" data-testid={`tb-score-asks-${key}`}>{c.asks}</p> : null}
+
+            {s.length > 1
+              ? (
+                <button type="button" className="btn-text" aria-expanded={open}
+                  data-testid={`tb-score-history-${key}`}
+                  onClick={() => setExpanded((o) => toggle(o, key))}>
+                  {open ? 'Hide history' : `Show history (${s.length})`}</button>)
+              : null}
 
             <button type="button" className="anchors-toggle"
               aria-expanded={anchors} aria-controls={`tb-anchors-${key}`}
@@ -339,20 +459,7 @@ export function ScoringCard({ card, criteria, series, scores, onDraft, onReason,
                 Version {String(c.current_version)}</p>
             </div>
 
-            {draft !== ''
-              ? (
-                <div className={isBlocking ? 'tb-score-reason tb-score-reason--needed' : 'tb-score-reason'}>
-                  {/* NOT COLOUR ALONE: the label's words change too. */}
-                  <label htmlFor={`tb-score-reason-${key}`} data-testid={`tb-score-reason-label-${key}`}>
-                    {isBlocking ? 'Reason required before scoring anything else'
-                      : (required ? 'Reason (required)' : 'Reason (optional)')}</label>
-                  <textarea id={`tb-score-reason-${key}`} rows={2}
-                    data-testid={`tb-score-reason-${key}`}
-                    ref={(el) => { reasonBoxes.current[key] = el }}
-                    value={scores.reasons[key] ?? ''}
-                    onChange={(e) => onReason(key, e.target.value)} />
-                </div>)
-              : null}
+
 
             {/* HISTORY, NEWEST FIRST, each entry resolved against its OWN anchor
                 version, so an old score keeps meaning what it meant when the
@@ -376,6 +483,16 @@ export function ScoringCard({ card, criteria, series, scores, onDraft, onReason,
                       </div>)
                   })}
                 </div>)
+              : null}
+
+            {/* W9: ONE LINE, ONCE, naming the block for the rows it quietened.
+                LAST in the row, because it is about what comes AFTER it: the
+                old note said this at the top of the card, away from every row
+                it concerned, and putting it above the criterion's own question
+                read as an interruption when the screenshot was opened. */}
+            {isBlocking
+              ? <p className="tb-score-quieted" data-testid="tb-score-quieted-note">
+                  The other criteria are waiting on the Reason for {name}.</p>
               : null}
           </div>)
       })}
@@ -406,14 +523,35 @@ export function ScoringCard({ card, criteria, series, scores, onDraft, onReason,
 }
 
 /** The two panels that are pure reads, sharing the P3 pending/settled contract. */
-export function ReadPanel({ panelId, panel, empty, children }: {
+export function ReadPanel({ panelId, panel, empty, title, children }: {
   /** Named panelId, not id: it is a data-testid, and a prop called `id` reads
       as a DOM id to the duplicate-id detector and to the next person. */
   panelId: PanelId
   panel: PanelState
   empty: string
+  /**
+   * R11: when given, the panel is one of the row's own cards and wears the
+   * estate's `pg-card` with this as its eyebrow, on every load state.
+   *
+   * WITHOUT IT NOTHING CHANGES, deliberately. The other caller is the approval
+   * track list INSIDE the exit criteria panel, which is a section of a card
+   * rather than a card, and a card nested in a card is the mismatch this
+   * ruling exists to remove rather than a second instance of it.
+   */
+  title?: string
   children?: React.ReactNode
 }) {
+  if (title) {
+    return (
+      <div className="pg-card" data-testid={panelId} data-stage={panel.stage}>
+        <div className="pg-card-title">{title}</div>
+        {panel.error
+          ? <p className="empty-state">{panel.error}</p>
+          : (panel.pending || !panel.stage)
+              ? <p className="empty-state">Loading {panel.pending}...</p>
+              : (children ?? <p className="empty-state">{empty}</p>)}
+      </div>)
+  }
   if (panel.error) return <p className="empty-state" data-testid={panelId}>{panel.error}</p>
   if (panel.pending || !panel.stage) {
     return <p className="empty-state" data-testid={panelId}>Loading {panel.pending}...</p>

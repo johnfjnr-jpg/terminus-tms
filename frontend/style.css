@@ -3452,10 +3452,18 @@ input.input-invalid {
    rules, not to the space you intend for it - and it passed every
    programmatic assertion, so only the screenshot showed it. An explicit
    width is what actually constrains it. */
+/* W6 (John's walk 2, 2026-09-18): SIZED TO ITS CONTENT, not to a number.
+ *
+ * It was 118px for options that are a single integer: measured, the widest
+ * option in this control renders at 54px, so more than half the box was empty
+ * and the space belonged to the reason beside it. `width: auto` lets the
+ * control ask the browser for what its own longest option needs plus a
+ * chevron, which is the only definition of "enough" that survives a criterion
+ * whose levels are worded differently. */
 .tb-score-select {
   flex: 0 0 auto;
-  width: 118px;
-  min-width: 118px;
+  width: auto;
+  min-width: 0;
 }
 .tb-score-head {
   flex-wrap: wrap;
@@ -3480,8 +3488,66 @@ input.input-invalid {
 .tb-score-name {
   flex: 0 0 170px;
 }
+/* W4 (John's walk, 2026-09-18): the reason sits BESIDE the score, in the width
+   R2 gave the row.
+ *
+ * It is a flex item of the head now, so it takes what the name, the value, the
+ * select and the history button leave: measured at 1440 that is the empty
+ * right-hand half the walk reported. `flex-basis` is the box's own useful
+ * minimum rather than a picked number, and below it the head's existing
+ * `flex-wrap` puts the reason on its own line instead of crushing the select.
+ *
+ * `align-self: flex-start` because the head aligns on BASELINE, and a
+ * textarea's baseline is its last line: without this the name and the score
+ * would drop to sit level with the bottom of the box. */
 .tb-score-reason {
   margin-top: 8px;
+}
+/* ── W9: THE AWAITING-REASON STATE, AS ONE STATE ────────────────────────
+ *
+ * It was told three times - a green note at the top of the card, a different
+ * label on the blocking row, and every other row silently disabled - and none
+ * of the three was beside the rows it was about. Now: the blocking row is
+ * marked where it is, and ONE line under it names the block for the rows it
+ * quietened.
+ *
+ * The mark is a left border and a tint, not colour alone: the line below says
+ * the same thing in words, which is what a person reads if the tint does not
+ * register. */
+/* THE BORDER ALONE, no tint. The tint was tried and the screenshot killed it:
+   a blocking row with its definitions open is most of the card, so a tinted
+   block ran 500px down the screen and read as an error state rather than as a
+   marked row. The border marks the row at any height, and the line below says
+   the same thing in words. */
+.tb-score-row--blocking {
+  border-left: 2px solid var(--green);
+  padding-left: 10px;
+  margin-left: -12px;
+}
+.tb-score-quieted {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+/* Moving the history control out of the head put it directly beside the
+   definitions toggle, and the screenshot showed them touching:
+   "SHOW HISTORY (2)Hide definitions". An adjacency this round created, so it is
+   this round's to fix (build discipline 10's limit). */
+.tb-score-row > .btn-text + .anchors-toggle { margin-left: 14px; }
+/* W10: the recorded reason now sits in the head, in the slot the reason box
+   uses while drafting, so it is read where it was written. It keeps its own
+   dimmed treatment; what changes is where it sits. */
+.tb-score-head > .tb-score-current {
+  flex: 1 1 260px;
+  align-self: flex-start;
+  margin: 0;
+  min-width: 0;
+}
+.tb-score-head > .tb-score-reason {
+  flex: 1 1 260px;
+  align-self: flex-start;
+  margin-top: 0;
+  min-width: 0;
 }
 .tb-score-reason label {
   display: block;
@@ -3799,9 +3865,11 @@ input.input-invalid {
    affordance: no border-bottom, no input chrome, nothing that reads as
    editable. The number stays prominent because it is still the figure the
    cost engine uses. */
-.tb-count-locked-value { display: block; padding: 8px 0; }
-.tb-count-locked-number { font-size: 14px; color: var(--white); }
-.tb-count-locked-note { display: block; font-size: 12px; color: var(--muted); margin-top: 3px; }
+/* W3 (John, 2026-09-18) removed the locked count's own row shape: it renders as
+   the estate's `.field-row` with `data-readonly="true"`, which is what aligns it
+   with its neighbours and dims it. The three rules that dressed the old shape
+   are gone rather than left behind, because a rule nothing applies is a dead
+   selector the estate's own probe hunts. */
 
 /* Round 18 Phase 4: the history pane. Reuses the units table's rules for
    borders and spacing; only the detail column needs anything of its own,
@@ -5797,6 +5865,28 @@ input.input-invalid {
 }
 
 /* The shared edit bar. Behaviour 6: a property of the surface, not a row. */
+/* ── W8b (W1 PROMOTED), John's walk 2, 2026-09-18 ───────────────────────
+ *
+ * The bar sat at the bottom of the page's content, so on a long surface a
+ * person with unsaved changes had to scroll to find out there was anything to
+ * save. W1 recorded it at the first walk as estate-wide and queued; it cost
+ * John twice, and the ruling promotes it.
+ *
+ * STICKY, not fixed: a fixed bar leaves the page's last rows underneath it and
+ * needs a matching pad on every surface that uses it. Sticky keeps the bar in
+ * the document's flow, so it stops at the end of its own container and nothing
+ * is covered.
+ *
+ * It is on the CLASS, so every surface the field row serves gets it at once -
+ * Contact, Test Bed, Reference and Account - which is the same blast radius
+ * ruling A1 and A3 were taken with, and the reason this is one rule rather
+ * than four.
+ *
+ * `:not([hidden])` IS LOAD-BEARING and is why this rule already read that way:
+ * a bare `display` overrides the user agent's `[hidden] { display: none }`, so
+ * the bar would render on every surface with nothing to save. The estate has a
+ * test that refuses exactly that. The background is opaque because content now
+ * scrolls UNDER this. */
 .field-edit-bar:not([hidden]) {
   display: flex;
   align-items: center;
@@ -5804,6 +5894,10 @@ input.input-invalid {
   padding: 10px 0;
   border-top: 1px solid var(--hairline-strong);
   margin-top: 8px;
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+  background: var(--dark);
 }
 .field-edit-bar [data-testid="dirty-count"] {
   font-family: var(--mono);
@@ -5911,6 +6005,50 @@ input.input-invalid {
  * field on the record band. Its W5 rule made the summary absorb the row's
  * squeeze at 1240 so the action stayed beside the title; with the summary gone
  * the row holds only the title and the action. */
+
+/* ── THE STAGE PANEL ROW. Stage panels, R2 ────────────────────────────────
+ *
+ * The estate's own column shape, `.ref-cards`, at a MEASURED minimum instead of
+ * its 280px: the floors are scoring 414px (its question line and Score select)
+ * and documents 301px (name, status, CONFIRM), so 430px is the smallest column
+ * that holds the pair with the exit criteria beside it (Phase 0, P0.6).
+ *
+ * At a 1076px container (1440 viewport) and an 876px one (1240), two columns
+ * fit: scoring spans the row, documents and exit criteria pair at 530 and 430.
+ * A container of 1322px or more fits three, and the row becomes what the
+ * vanilla's own panel row was.
+ */
+.tb-stage-panels-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(430px, 1fr));
+  gap: 16px;
+  align-items: start;
+  margin-bottom: 28px;
+}
+/* R2: scoring takes the whole row until a third column fits. The threshold is
+ * DERIVED rather than picked: three 430px columns and two 16px gutters need a
+ * 1322px container, and the container is the viewport less a constant 364px
+ * (measured at 1240 and 1440 in Phase 0), so 1686px is where it stops spanning. */
+.tb-stage-panels-row > [data-testid="tb-stage-scoring-card"] { grid-column: 1 / -1; }
+@media (min-width: 1686px) {
+  .tb-stage-panels-row > [data-testid="tb-stage-scoring-card"] { grid-column: auto; }
+}
+/* The approvals are the exit criteria panel's closing section (R1). */
+.tb-stage-approvals { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--hairline); }
+/* R11: THREE TRACKS ARE ONE LIST, NOT THREE PARAGRAPHS.
+ *
+ * `.sub` is `margin: 0 0 32px`, which is right for a line introducing a
+ * section and wrong for consecutive lines that are a list. Measured before
+ * this rule: 32px between each approver line against 0px between the criteria
+ * rows directly above them, on the same panel, so the three read as separate
+ * statements rather than as one answer with three parts.
+ *
+ * A LIST IS TIGHTER INSIDE THAN OUTSIDE, which is the requirement rather than
+ * any particular number: the three names cluster, and the group is then
+ * separated from the track rows below it. The outer figure is the card's own
+ * 14px padding rather than a picked one. */
+.tb-stage-approvals .sub { margin-bottom: 4px; }
+.tb-stage-approvals .sub:last-of-type { margin-bottom: 14px; }
 
 /* ── THE UNIT ROW. Test Bed units Phase 3, L4 ─────────────────────────────
  *
@@ -6021,11 +6159,40 @@ input.input-invalid {
   margin-bottom: 6px;
 }
 
+/* ── THE CONTACT'S OWN VISIBILITY TREATMENT. W8b's sibling, 2026-09-18 ──
+ *
+ * W8b made the SHARED edit bar sticky and this surface does not use one: ruling
+ * A1 moved Save and Discard into this row, so W1's question - can a person with
+ * unsaved changes see how to save them - had to be asked here separately.
+ *
+ * MEASURED BEFORE ANYTHING WAS WRITTEN, on a 40-note record at 1440x900: at
+ * full scroll the controls sat at top -2762 in a 900px viewport, 2861px of
+ * scroll away. The answer was no.
+ *
+ * STICKY AT THE TOP, not a second bar at the bottom: the controls already live
+ * in this row, and giving the surface a bottom bar as well would put two Save
+ * controls on one screen - which is the exact thing A1 removed. The row keeps
+ * its place and stops leaving.
+ *
+ * The background is opaque because content now scrolls under it. */
 .cd-header-row {
   display: flex;
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
+}
+/* ON THE HEADER, NOT THE ROW INSIDE IT, and the first attempt is why this
+   comment exists: `position: sticky` on `.cd-header-row` changed nothing,
+   because a sticky element cannot leave its PARENT's box and its parent is a
+   short block at the top of the page. Measured with the row sticky: the
+   controls still read top -2768 at full scroll, exactly as before. The header
+   itself is the child of the panel, which is as tall as the record. */
+.cd-header {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: var(--dark);
+  padding-bottom: 6px;
 }
 
 .cd-lead-name {

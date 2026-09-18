@@ -57,7 +57,7 @@ describe('shape 1: bridge present, and comparable', () => {
   test('the baseline is named with the revision it was approved at', () => {
     // R7: the shape is DD/MM/YY. The claim is that the baseline is NAMED with
     // its revision and date, which is unchanged; only the rendering moved.
-    expect(moved(p)).toMatch(/Against V1, approved at revision 3 on 01\/08\/26\./)
+    expect(moved(p)).toMatch(/Against V1, approved at revision 3 on 01\/08\/2026\./)
   })
 
   test('point 1: every figure comes from the server, so the rendered opening equals it', () => {

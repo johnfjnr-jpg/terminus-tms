@@ -48,18 +48,18 @@ const pad = (n) => String(n).padStart(2, '0')
  */
 const DATE_ONLY = /^(\d{4})-(\d{2})-(\d{2})$/
 
-/** `DD/MM/YY`. A date somebody chose, or a timestamp shown at date grain. */
+/** `DD/MM/YYYY`. A date somebody chose, or a timestamp shown at date grain. */
 export function formatDate(value) {
   const s = String(value ?? '').trim()
   if (!s) return ''
   const m = DATE_ONLY.exec(s)
-  if (m) return `${m[3]}/${m[2]}/${m[1].slice(2)}`
+  if (m) return `${m[3]}/${m[2]}/${m[1]}`
   const d = new Date(s)
   if (Number.isNaN(d.getTime())) return s
-  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${String(d.getFullYear()).slice(2)}`
+  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`
 }
 
-/** `DD/MM/YY HH:MM:SS`, in the reader's own timezone. R7's ruled format. */
+/** `DD/MM/YYYY HH:MM:SS`, in the reader's own timezone. W2's ruled format. */
 export function formatTimestamp(value) {
   const s = String(value ?? '').trim()
   if (!s) return ''
@@ -69,6 +69,6 @@ export function formatTimestamp(value) {
   if (DATE_ONLY.test(s)) return formatDate(s)
   const d = new Date(s)
   if (Number.isNaN(d.getTime())) return s
-  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${String(d.getFullYear()).slice(2)}`
+  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`
     + ` ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
 }

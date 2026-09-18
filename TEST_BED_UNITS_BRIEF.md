@@ -20,7 +20,7 @@ correction. Not five phases, one per item.
 | **R1** | Regression, 1 of 1 | Opening the Installation tab silently POSTs `/units/derive` and creates unit records, reversing a recorded ruling that a write must not be the consequence of a read. **Ranked FIRST among the fixes.** Confirmed live on `origin/main` 2026-09-17: the derive POST fired on a real record (refused 403 only because the viewer did not own it). |
 | **B4** | Broken live, 4 of 6 | Every unit save fails, three contract breaks deep: a route that does not exist, a wrapped body where the server reads flat keys, and a field name the server does not accept. |
 | **L2** | Lost, 2 of 12 | Count correction, the way out of the count lock (new count plus a mandatory reason). Absent. |
-| **L3** | Lost, 3 of 12 | Locked-count presentation: a locked count shown read-only, naming the value, the reason and where to correct it. Absent; locked counts stay editable and fail at save. |
+| **L3** | Lost, 3 of 12 | Locked-count presentation: a locked count shown read-only, naming the value, the reason and where to correct it. Absent; locked counts stay editable and fail at save. **Presentation superseded by W3, 2026-09-18: see the L3 entry below.** |
 | **L4** | Lost, 4 of 12 | Unit fields: latitude, longitude and state have no control. |
 
 ## Openers, before any fix
@@ -164,6 +164,17 @@ Vanilla parity by capability, each item guarded red-before and green-after:
   for a type with existing units renders locked, carrying the vanilla's sentence
   directing to the Installation tab. The after-the-fact 400 remains as the
   server's backstop, and the lock summary line stays.
+
+  > **SUPERSEDED IN PART, by W3's ruling (John, 2026-09-18), recorded in
+  > `STAGE_PANELS_BRIEF.md`.** The SENTENCE is removed from the Commercials
+  > rows; the lock itself remains and must be visible, rendering in the estate's
+  > disabled treatment with its value aligned on its label's line. The server's
+  > 400 and the Installation tab's lock summary line are unchanged, and the
+  > summary line is now the one place on screen naming the destination.
+  >
+  > Recorded here rather than only in the newer brief, because a decision that
+  > lives in one document and is contradicted by another is the conflict nobody
+  > can see (Verification 23).
 - **R11.** A state-only PATCH writes a revision only when it carries a change; an
   empty patch appends nothing.
 - **R8.** The installer search list renders CLOSED until the person types, and no

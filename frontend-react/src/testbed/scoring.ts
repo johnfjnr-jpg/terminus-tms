@@ -39,6 +39,30 @@ export function criteriaForStage(all: readonly Criterion[], stage: string): Crit
 }
 
 /**
+ * ── R4: WHAT THE CARD OFFERS ON A STAGE THE GATE ASKS NOTHING OF ────────
+ *
+ * Ruled 2026-09-18. On a gate-demanding stage the card is unchanged: it offers
+ * what that stage's rules name, which is `criteriaForStage`. Elsewhere it offers
+ * ONLY criteria the record has already scored, open for re-scoring, because
+ * things change after Qualification and a score taken then may no longer hold.
+ *
+ * Measured before the ruling: five of eight stages showed no card at all, and
+ * three showed the gate's own set (Phase 0, P0.7).
+ *
+ * An UNSCORED criterion is deliberately not offered here: scoring something for
+ * the first time at a stage whose gate never asks for it is a new claim about
+ * the record rather than a correction of an old one, and nothing on this screen
+ * says what it would mean.
+ */
+export function criteriaToOffer(
+  all: readonly Criterion[], stage: string, payload: Record<string, unknown> | undefined,
+): Criterion[] {
+  const gate = criteriaForStage(all, stage)
+  if (gate.length) return gate
+  return all.filter((c) => Array.isArray(payload?.[c.criterion_key]) && (payload[c.criterion_key] as unknown[]).length > 0)
+}
+
+/**
  * The anchor wording at one VERSION, by level. Versions arrive as JSON object
  * keys, so they are looked up as strings; an unknown version is an empty set,
  * never the current one, so a history entry is never restated in wording it

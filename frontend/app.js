@@ -7145,21 +7145,53 @@ document.addEventListener('input', (e) => {
 // so by the time anybody sees this sentence the retry has ALSO been refused -
 // which is a real conflict rather than a stale holder. It says what happened and
 // that the screen is catching up, because the poll is doing exactly that.
-const STALE_WRITE_MESSAGE =
-  'This record was just changed in another session. The screen is catching up - try again in a moment.'
+// ── W5's SECOND HALF: THE HONEST VOICE. Ruled by John 2026-09-18 ──────────
+//
+// The old sentence read "This record was just changed in another session",
+// which NAMES A SECOND EDITOR the server never established. What a 409
+// establishes is that the screen's revision is behind the record's, and until
+// W5's write queue landed the commonest cause was the person's OWN previous
+// write - so the message was telling somebody working alone that somebody else
+// had been here.
+//
+// The system knows the screen is behind. It does not know who moved the record,
+// and it no longer says.
+// ONE STRING LITERAL, not a concatenation: the suite asserts this sentence
+// against the SOURCE, and a sentence split across a `+` is not in the source as
+// a sentence. The guard would have gone quiet on a wording change rather than
+// failing on it.
+const STALE_WRITE_MESSAGE = 'This record moved on while you were working. The screen is catching up - your entry is still here; try again in a moment.'
 
-window.reloadAfterStaleWrite = async function (recordId) {
-  const btn = document.querySelector('.stale-reload')
-  if (btn) { btn.textContent = 'Reloading...'; btn.disabled = true }
-  await loadOpportunityDetail(recordId)
+// ── 3.5: THE CONTROL RELOADS THE SURFACE THAT RENDERED IT ────────────────
+//
+// It called `loadOpportunityDetail` unconditionally, on all three surfaces.
+// On a Test Bed that is `GET /api/opportunities/<test bed id>`, which cannot
+// succeed, so the one control the message offered worked on one surface of the
+// three. Verification 41's shape: a shared renderer with a control wired to
+// the surface it was written for.
+//
+// The KIND comes from the caller, because the surface that rendered the message
+// is the thing that knows what it is. An unknown or absent kind keeps the old
+// behaviour, so the Opportunity's own callers are unchanged by construction.
+const STALE_RELOADERS = {
+  opportunity: (id) => loadOpportunityDetail(id),
+  test_bed: (id) => navigate('test-bed-detail', id),
+  contact: (id) => navigate('contact-detail', id),
 }
 
-// One renderer, so the two surfaces that can hit a stale write cannot word it
+window.reloadAfterStaleWrite = async function (recordId, kind) {
+  const btn = document.querySelector('.stale-reload')
+  if (btn) { btn.textContent = 'Reloading...'; btn.disabled = true }
+  await (STALE_RELOADERS[kind] ?? STALE_RELOADERS.opportunity)(recordId)
+}
+
+// One renderer, so the surfaces that can hit a stale write cannot word it
 // differently or offer the control on only one of them.
-window.staleWriteHtml = function (recordId) {
+window.staleWriteHtml = function (recordId, kind) {
   return `${escHtml(STALE_WRITE_MESSAGE)} `
     + `<button class="btn-sm stale-reload" type="button" `
-    + `onclick="reloadAfterStaleWrite('${recordId}')">Reload this record</button>`
+    + `onclick="reloadAfterStaleWrite('${recordId}', '${escHtml(kind ?? 'opportunity')}')">`
+    + `Reload this record</button>`
 }
 
 function stopOppPulse() {

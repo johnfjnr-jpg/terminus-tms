@@ -118,10 +118,13 @@ describe('the tab strip renders', () => {
   test('P3 the panels carry the SETTLED stage once their data lands', async () => {
     await render()
     await click('tb-tab-btn-stage-Qualification')
-    for (const id of ['tb-stage-documents-section', 'tb-stage-exit-criteria-list',
-      'tb-stage-approval-row']) {
+    // R3, ruled 2026-09-18: the documents panel renders only where the stage HAS
+    // documents, and Qualification has none, so it is no longer in this list.
+    // Its absence there is asserted in stage-panels.test.tsx.
+    for (const id of ['tb-stage-exit-criteria-list', 'tb-stage-approval-row']) {
       expect(q(id)?.getAttribute('data-stage'), `${id} did not settle`).toBe('Qualification')
     }
+    expect(q('tb-stage-documents-section'), 'Qualification rendered a documents panel').toBeNull()
   })
 
   // The two B tests that stood here drove a hand-shaped criteria array and an
@@ -193,7 +196,10 @@ describe('the tab strip renders', () => {
       'a score needing a reason did not block the save').toBe(true)
     // 2.5: the vanilla's lock note, which names the criterion by its NAME.
     const name = (SCORING_JSON.criteria as Criterion[]).find((c) => c.criterion_key === 'scoreRolloutPath')!.name!
-    expect(q('tb-score-lock-note')?.textContent).toBe(`Add the Reason for ${name} before scoring anything else.`)
+    // W9 consolidated the three tellings into one: the row is marked and one
+    // line under it names the block. Re-pointed rather than loosened.
+    expect(q('tb-score-quieted-note')?.textContent)
+      .toBe(`The other criteria are waiting on the Reason for ${name}.`)
   })
 
   test('P6 the install section is hidden by ATTRIBUTE off its own stage', async () => {

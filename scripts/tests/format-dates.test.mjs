@@ -14,12 +14,12 @@ import { formatDate, formatTimestamp } from '../../src/lib/format-dates.js'
 const RAW_ON_THE_CARD = '2026-09-12T06:14:09.321Z'
 
 test('R7: a timestamp renders DD/MM/YY HH:MM:SS', () => {
-  assert.match(formatTimestamp(RAW_ON_THE_CARD), /^\d{2}\/\d{2}\/\d{2} \d{2}:\d{2}:\d{2}$/)
+  assert.match(formatTimestamp(RAW_ON_THE_CARD), /^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}:\d{2}$/)
 })
 
 test('R7: a date renders DD/MM/YY and carries no time', () => {
-  assert.match(formatDate(RAW_ON_THE_CARD), /^\d{2}\/\d{2}\/\d{2}$/)
-  assert.equal(formatDate('2026-09-12'), '12/09/26')
+  assert.match(formatDate(RAW_ON_THE_CARD), /^\d{2}\/\d{2}\/\d{4}$/)
+  assert.equal(formatDate('2026-09-12'), '12/09/2026')
 })
 
 test('R7: no output is a raw ISO string', () => {
@@ -73,12 +73,17 @@ test('a date-only value does not shift a day, IN A ZONE WEST OF UTC', () => {
 test('a date-only value given to formatTimestamp does not acquire 00:00:00', () => {
   // Architecture 11's reasoning: a value nobody entered is not displayed as
   // though it were. There is no time in the stored value, so none is shown.
-  assert.equal(formatTimestamp('2026-09-12'), '12/09/26')
+  assert.equal(formatTimestamp('2026-09-12'), '12/09/2026')
 })
 
 test('the time shown is the reader\'s own, not UTC', () => {
   const d = new Date(RAW_ON_THE_CARD)
   const out = formatTimestamp(RAW_ON_THE_CARD)
   const hh = String(d.getHours()).padStart(2, '0')
-  assert.equal(out.slice(9, 11), hh)
+  // Read by SPLITTING rather than by a fixed offset. `out.slice(9, 11)` was a
+  // second reader of the format's own width: W2 widened the year to four
+  // digits and this assertion started comparing the year's last two characters
+  // against an hour, which is a test failing for a reason that has nothing to
+  // do with what it is about.
+  assert.equal(out.split(' ')[1]?.split(':')[0], hh)
 })

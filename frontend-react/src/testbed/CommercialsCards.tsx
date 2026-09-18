@@ -52,7 +52,7 @@ import type { useFieldRows } from '../field-row/useFieldRows'
 import type { FieldDescriptor } from '../field-row/types'
 import { FieldRow } from '../field-row/FieldRow'
 import { Card } from './TestBedPanel'
-import { COUNT_KEY_TO_UNIT_TYPE, countIsLocked, type Unit } from './units'
+import { countIsLocked, type Unit } from './units'
 
 const SENSORS = ['safesightCameras', 'airQualitySensors', 'hemirSensors']
 
@@ -90,28 +90,31 @@ export function CommercialsCards({ rows, fields, units = [] }: {
   // correct it (test-bed-detail.js:1025-1046), and its own comment records why a
   // control that cannot be used is worse than one that is not there.
   //
-  // The lock summary on the Installation tab stays: it says which counts are
-  // locked when you are among the units, and this says it where the field is.
-  const lockedRow = (name: string, f: FieldDescriptor) => {
-    const type = COUNT_KEY_TO_UNIT_TYPE[name]
-    const deployed = units.filter((u) => u.type === type).length
-    return (
-      <div key={name} data-key={name} className="ref-field tb-count-locked"
-        data-testid={`tb-count-locked-${name}`}>
-        <span className="ref-field-label">{f.label}</span>
-        <span className="tb-count-locked-value">
-          <span className="tb-count-locked-number">{String(f.value ?? '')}</span>
-          <span className="tb-count-locked-note">
-            {/* One departure from the vanilla's own sentence, stated: it read
-                "1 unit exist" at a count of one (test-bed-detail.js:1036), and
-                the screenshot showed it. The verb agrees here. */}
-            Locked: {deployed} unit{deployed === 1 ? ' exists' : 's exist'}.
-            {' '}Correct it on the Installation and Commissioning tab.
-          </span>
-        </span>
-      </div>
-    )
-  }
+  // ── W3 RULING, John 2026-09-18, SUPERSEDING THE ABOVE ──────────────────
+  //
+  // The sentence is REMOVED. The lock stays and must be VISIBLE, and the
+  // Installation tab's own summary line ("2 counts locked: units exist...") is
+  // now the one place on screen naming the destination. The server's 400 with
+  // its full sentence is untouched and remains the backstop.
+  //
+  // THE ROW IS THE ESTATE'S ROW, not a shape of its own. It rendered as
+  // `.ref-field` with a block value while every neighbour on this card is a
+  // `.field-row` from FieldRow, so the value sat BELOW its label while every
+  // other value sat beside one: W3's alignment finding, and it is a
+  // consequence of two row shapes in one card rather than of a spacing value.
+  //
+  // `data-readonly="true"` is the estate's declared treatment for a row that is
+  // not editable - it dims the value and removes the pointer affordance - and
+  // the absent tab stop follows from there being no edit half at all, which is
+  // the field-row contract's own reasoning about not reaching read-only by
+  // disabling an input.
+  const lockedRow = (name: string, f: FieldDescriptor) => (
+    <div key={name} data-key={name} className="field-row" data-readonly="true"
+      data-field={name} data-testid={`tb-count-locked-${name}`}>
+      <div className="field-row-label">{f.label}</div>
+      <div className="field-row-display">{String(f.value ?? '')}</div>
+    </div>
+  )
   const row = (name: string) => {
     const f = fields.find((x) => x.name === name)
     if (!f) return null

@@ -362,9 +362,23 @@ test('the stale-write message is one sentence, on both surfaces, with a control'
   // for something already recovering is what produced the walk's "had to go
   // back, restore, then come back - not sure why". Verification 29: the
   // decision is re-taken because its premise failed, not re-weighed.
-  assert.match(app, /This record was just changed in another session\. The screen is catching up - try again in a moment\./)
-  assert.ok(!/Reload to see the change, then re-enter yours/.test(app),
-    'the superseded wording must not survive beside its replacement')
+  // ── SUPERSEDED AGAIN, W5's ruling, John 2026-09-18 ─────────────────────
+  //
+  // "in another session" NAMES A SECOND EDITOR the server never established.
+  // What a 409 establishes is that the screen's revision is behind, and the
+  // commonest cause was measured to be the person's OWN previous write: all
+  // three of the walk's pairs sent [200, 409] carrying one revision. So the
+  // sentence was telling somebody working alone that somebody else had been
+  // there. The premise failed rather than the preference changing, which is
+  // Verification 29 for the second time on this one string.
+  assert.match(app, /This record moved on while you were working\. The screen is catching up - your entry is still here; try again in a moment\./)
+  for (const superseded of [
+    /Reload to see the change, then re-enter yours/,
+    /was just changed in another session/,
+  ]) {
+    assert.ok(!superseded.test(app),
+      `the superseded wording must not survive beside its replacement: ${superseded}`)
+  }
 
   // AND THE RECOVERY IS AUTOMATIC, which is what makes the new sentence honest.
   assert.match(app, /if \(result\.ok\) \{ showOppWriteRefusal\(null\); return result \}/,

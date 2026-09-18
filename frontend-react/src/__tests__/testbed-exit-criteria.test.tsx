@@ -145,7 +145,14 @@ describe('1.1 the summary line', () => {
 
   test('no criteria names to_stage (DERIVED: a captured response with requirements emptied)', async () => {
     await show({ ...C.monitoringUnticked, requirements: [], blocking: [] })
-    expect(panel().textContent).toBe(`No exit criteria configured for ${C.monitoringUnticked.to_stage}.`)
+    // R11 gave the panel the estate's card and its eyebrow, so the panel's own
+    // text is no longer the message alone. The claim was never about the panel
+    // holding NOTHING else: it is that an empty answer names the stage rather
+    // than rendering blank. Asserted on the message element, with the eyebrow
+    // asserted beside it rather than silently absorbed.
+    expect(panel().querySelector('.pg-card-title')?.textContent).toBe('Exit criteria')
+    expect(panel().querySelector('.empty-state')?.textContent)
+      .toBe(`No exit criteria configured for ${C.monitoringUnticked.to_stage}.`)
   })
 })
 
