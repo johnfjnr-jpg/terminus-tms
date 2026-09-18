@@ -7,7 +7,7 @@
 - **Nothing is pushed and nothing is merged**, whatever the gate says.
 - **Promotions are PROPOSED, not landed.** CLAUDE.md is unchanged by this round.
 - **Three items carry to the next round**, named below: K1's journal hole, the "a score of 1 or 2" refusal text, and a staleness treatment for captured fixtures.
-- **The full gate result is at the end**, run on the final committed tree.
+- **The full gate is GREEN**: 24 of 24 stages on `b8605a3`, the final committed tree. Stage by stage below.
 
 ## What landed, per phase
 
@@ -113,6 +113,45 @@ Pre-commit database stages since then read 99 to 205s, the spread being the esta
 - **Residue:** LIVE 0 for probe-identity records.
 - **Ledger:** 2 tags.
 - **CURRENT_STATE.md** regenerated at `49c8b20`. Live record counts are unchanged by the round (131 live, and `unit` live counts identical); the soft deleted counts carry this round's fixtures.
+
+## The full merge gate, on the branch
+
+`npm run verify` on `b8605a3`, nothing else running: **All 24 stages passed.**
+
+| Stage | Result | Time |
+|---|---|---|
+| reachability | PASS | 0.1s |
+| session precondition | PASS | 0.4s |
+| pure suite | PASS 582/582 | 4.2s |
+| database suite | PASS 102/102 | 202.4s |
+| react typecheck | PASS | 0.6s |
+| react suite | PASS 1188/1188 | 14.8s |
+| react bundle freshness | PASS | 0.6s |
+| HTTP precondition probe | PASS | 30.2s |
+| HTTP version-approval probe | PASS | 34.7s |
+| HTTP pricing-approval probe | PASS | 50.0s |
+| HTTP review-closes probe | PASS | 88.9s |
+| HTTP term initial-value probe | PASS | 71.5s |
+| HTTP stage-probability probe | PASS | 14.0s |
+| HTTP version-gate probe | PASS | 25.4s |
+| HTTP no-freeze probe | PASS | 24.2s |
+| HTTP version-order probe | PASS | 19.4s |
+| HTTP commercial-gate probe | PASS | 30.0s |
+| HTTP readonly-view probe | PASS | 77.3s |
+| CURRENT_STATE staleness | PASS | 0.2s |
+| browser dependency is functional | PASS | 0.7s |
+| HTTP write success probe | PASS | 26.1s |
+| HTTP issue-target probe | PASS | 27.7s |
+| HTTP proposal-issued probe | PASS | 72.5s |
+| HTTP zero-track transition probe | PASS | 16.5s |
+
+**The working tree was clean and the branch was at its final commit.** The
+database stage read 202.4s here against 100s measured right after R7's prune, in
+a run whose HTTP probes were unusually fast (14 to 50s against 53 to 97s in
+Round A's green gate): the machine, not the suite.
+
+**This paragraph rides that gate** (Verification 48 (a)): it is markdown, no gate
+stage reads it, and it is the only commit after `b8605a3`.
 
 ## What this round does not establish
 
