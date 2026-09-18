@@ -85,7 +85,16 @@ export function createRecordQueue(deps: RecordQueueDeps) {
       // THE CHAIN MUST NOT BREAK. A rejected link would silently stop every
       // later write on this record, which is unitQueue's Q7 and the same
       // hazard here.
-      const run = chain.then(() => execute(send), () => execute(send))
+      //
+      // ONE MECHANISM, NOT TWO. This first read
+      // `chain.then(() => execute(send), () => execute(send))`, a rejection
+      // handler that can never run: the line below already swallows every
+      // rejection, so `chain` is never a rejected promise. The calibration
+      // found it - that injection came back SILENT while the other six fired -
+      // and an unreachable guard beside a working one is the inert-guard shape
+      // Verification 9 exists for. The caller still gets the real rejection
+      // through `run`; what is swallowed is only the chain's copy of it.
+      const run = chain.then(() => execute(send))
       chain = run.then(() => undefined, () => undefined)
       return run
     },
