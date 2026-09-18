@@ -51,6 +51,7 @@ import { ConvertPanel } from './ConvertPanel'
 import { CONVERT_ROUTE } from './convert'
 import { completeDocumentRoute, confirmBody, saveUrlBody } from './stageDocuments'
 import { attemptTick } from './exitCriteria'
+import { createRecordQueue } from '../shared/recordQueue'
 import { BuyerLinks } from './BuyerLinks'
 import { linkBuyer, BUYER_CONTACTS_ROUTE } from './buyers'
 import { identityRows } from './identity'
@@ -118,6 +119,29 @@ export function buildPayload(changes: Record<string, string>): Record<string, un
 export function TestBedHost({ bed }: { bed: BedLike }) {
   const shell = useShell()
   const [record, setRecord] = useState<BedLike>(bed)
+
+  // ── W5: ONE QUEUE FOR THIS RECORD'S OWN WRITES ────────────────────────
+  //
+  // Every writer below sends its request THROUGH this, and the queue supplies
+  // the revision from the last accepted response rather than from `record`,
+  // whose value only moves when a reload resolves and React re-renders. Two
+  // writes issued before that happens used to carry the same number and the
+  // second was refused, losing it: measured as [200, 409] on all three of the
+  // walk's pairs.
+  //
+  // ONE queue for the life of this host, and a NEW one per record: a revision
+  // is a fact about one record and must not survive a navigation. A fresh queue
+  // per render is no queue at all, which is unitQueue's own lesson.
+  //
+  // `heldRevision` reads through a REF, because the closure is created once and
+  // must see the current record rather than the first one - the same remedy the
+  // units pane uses for its deps, and the same fault it was written for.
+  const recordRef = useRef(record)
+  recordRef.current = record
+  const queue = useMemo(() => createRecordQueue({
+    heldRevision: () => (Number.isInteger(recordRef.current.latest_revision_number)
+      ? (recordRef.current.latest_revision_number as number) : null),
+  }), [bed.id])
   const [staff, setStaff] = useState<string[]>([])
   const [contacts, setContacts] = useState<LookupOption[]>([])
   // L1: the SECOND `unknown`. The preview is the same shape as the stored
@@ -461,13 +485,10 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
   // and reloads on success. `expected_revision` follows this host's existing
   // convention for its other standalone write, the notes append.
   const saveFollowUp = useCallback(async (next: { followUpDate: string, followUpDescription: string }) => {
-    const r = await shell.api('PATCH', `/api/test-beds/${bed.id}`, {
-      payload: next,
-      expected_revision: Number.isInteger(record?.latest_revision_number)
-        ? record.latest_revision_number : null,
-    })
+    const r = await queue.write((expected) => shell.api(
+      'PATCH', `/api/test-beds/${bed.id}`, { payload: next, expected_revision: expected }))
     if (r.ok) await load()
-  }, [shell, bed.id, record, load])
+  }, [shell, bed.id, queue, load])
 
   const onDraftsChange = useCallback((next: Record<string, string>) => {
     // ── SET ONLY ON A REAL CHANGE ────────────────────────────────────────
@@ -512,16 +533,12 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
     setFeedback(null)
     const payload = buildPayload(changes)
     if (!Object.keys(payload).length) return
-    const r = await shell.api<{ error?: string, revision_number?: number }>(
-      'PATCH', `/api/test-beds/${bed.id}`, {
-        payload,
-        expected_revision: Number.isInteger(record.latest_revision_number)
-          ? record.latest_revision_number : null,
-      })
+    const r = await queue.write((expected) => shell.api<{ error?: string, revision_number?: number }>(
+      'PATCH', `/api/test-beds/${bed.id}`, { payload, expected_revision: expected }))
     if (!r.ok) {
       // ONE RENDERER for the stale sentence, and the shell owns it: a surface
       // wording its own drops the reload control the shell's carries.
-      const html = r.status === 409 ? shell.staleWriteHtml(bed.id) : null
+      const html = r.status === 409 ? shell.staleWriteHtml(bed.id, 'test_bed') : null
       setFeedback({
         text: html ? null : (r.data?.error
           ?? (r.status === 409
@@ -549,11 +566,8 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
    * it is said.
    */
   const writePayload = useCallback(async (payload: Record<string, unknown>) => {
-    const r = await shell.api<{ error?: string }>('PATCH', `/api/test-beds/${bed.id}`, {
-      payload,
-      expected_revision: Number.isInteger(record.latest_revision_number)
-        ? record.latest_revision_number : null,
-    })
+    const r = await queue.write((expected) => shell.api<{ error?: string }>(
+      'PATCH', `/api/test-beds/${bed.id}`, { payload, expected_revision: expected }))
     if (!r.ok) {
       // A 409 reloads either way: the screen is behind the record.
       if (r.status === 409) await load()
@@ -561,7 +575,7 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
     }
     await load()
     return { ok: true, error: null }
-  }, [shell, bed.id, record.latest_revision_number, load])
+  }, [shell, bed.id, queue, load])
 
   const patchPayload = useCallback(async (payload: Record<string, unknown>) => {
     const r = await writePayload(payload)
@@ -597,8 +611,12 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
     onRecordScores: async (criteria, scores) => {
       const out = await recordScoresInOrder({
         canEdit: () => shell.canEditFields(),
+        // THROUGH THE QUEUE TOO, though it sends no precondition: the scores
+        // route ADVANCES the record's revision and returns the new one, so a
+        // score outside the queue leaves the next write expecting a number the
+        // record has already left. That is the pair the walk hit hardest.
         post: async (body) => {
-          const r = await shell.api<{ error?: string }>('POST', SCORE_ROUTE(bed.id), body)
+          const r = await queue.write(() => shell.api<{ error?: string }>('POST', SCORE_ROUTE(bed.id), body))
           return { ok: r.ok, error: r.data?.error ?? null }
         },
       }, criteria, scores)
@@ -610,7 +628,7 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
       const r = await recordMeasurability({
         canEdit: () => shell.canEditFields(),
         post: async (body) => {
-          const res = await shell.api<{ error?: string }>('POST', MEASURABILITY_ROUTE(bed.id), body)
+          const res = await queue.write(() => shell.api<{ error?: string }>('POST', MEASURABILITY_ROUTE(bed.id), body))
           return { ok: res.ok, error: res.data?.error ?? null }
         },
       }, confirmed)
@@ -626,12 +644,9 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
     // (src/routes/test-beds.js:723-736). The record reloads, so the count on
     // Commercials and the lock beside it both re-derive from what was stored.
     onCorrectCount: async (countKey, count, reason) => {
-      const r = await shell.api<{ error?: string }>('PATCH', `/api/test-beds/${bed.id}`, {
-        payload: { [countKey]: count },
-        countCorrectionReason: reason,
-        expected_revision: Number.isInteger(record.latest_revision_number)
-          ? record.latest_revision_number : null,
-      })
+      const r = await queue.write((expected) => shell.api<{ error?: string }>(
+        'PATCH', `/api/test-beds/${bed.id}`, {
+          payload: { [countKey]: count }, countCorrectionReason: reason, expected_revision: expected }))
       if (!r.ok) return r.data?.error ?? 'Could not apply the correction.'
       await load()
       await loadUnits()
@@ -651,7 +666,7 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
       onUnit: (unit) => setUnits((us) => us.map(
         (u) => (u.id === (unit as Unit).id ? (unit as Unit) : u))),
     },
-  }), [shell, bed.id, stages, allCriteria, record.payload, units, writePayload, refreshStage, load, loadUnits])
+  }), [shell, bed.id, stages, allCriteria, record.payload, units, writePayload, refreshStage, load, loadUnits, queue])
 
   const installSectionNode = (
     <InstallSection
@@ -725,13 +740,13 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
           onConfirmDiscard={(proceed) => { shell.confirmDiscard(proceed) }}
           resetKey={bed.id}
           onAdd={async (text) => {
-            const r = await shell.api<{ error?: string }>('PATCH', `/api/test-beds/${bed.id}`, {
-              payload: {
-                notes: prepend(note(text, shell.currentUserEmail(), new Date().toISOString()), notes),
-              },
-              expected_revision: Number.isInteger(record.latest_revision_number)
-                ? record.latest_revision_number : null,
-            })
+            const r = await queue.write((expected) => shell.api<{ error?: string }>(
+              'PATCH', `/api/test-beds/${bed.id}`, {
+                payload: {
+                  notes: prepend(note(text, shell.currentUserEmail(), new Date().toISOString()), notes),
+                },
+                expected_revision: expected,
+              }))
             if (!r.ok) { if (r.status === 409) await load(); return false }
             await load()
             return true

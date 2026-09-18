@@ -2,7 +2,8 @@
 //
 // The panel does not fetch, save, or know about routes. This holds those, the
 // same split the Reference tab and the version card use.
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { createRecordQueue } from '../shared/recordQueue'
 import { ContactPanel } from './ContactPanel'
 import type { ContactSource } from './descriptors'
 import { contactDescriptors } from './descriptors'
@@ -88,6 +89,25 @@ export function ContactHost({ contact, registerReload, navToken }: {
   //
   // Two readers of one record, and the stale one was making the decision.
   const [record, setRecord] = useState<ContactLike>(contact)
+
+  // ── W5: THE SAME QUEUE, BECAUSE THIS SURFACE CAN RACE THE SAME WAY ────
+  //
+  // MEASURED rather than assumed, which is what the ruling asked for. This host
+  // has four writers that advance the contact's revision - the field save, Add
+  // note, Park and the follow-up task - and three of them read
+  // `record.latest_revision_number` from a closure that only moves when
+  // `load()` resolves. Save then Add note is the same pair the Test Bed walk
+  // hit.
+  //
+  // And the follow-up save is the sharper case: it sends NO precondition at
+  // all, so it always succeeds and always leaves the held number behind until
+  // its own reload lands, which arms the NEXT writer to be refused.
+  const recordRef = useRef(record)
+  recordRef.current = record
+  const queue = useMemo(() => createRecordQueue({
+    heldRevision: () => (Number.isInteger(recordRef.current.latest_revision_number)
+      ? (recordRef.current.latest_revision_number as number) : null),
+  }), [contact.id])
   useEffect(() => { setRecord(contact) }, [contact])
   const [industries, setIndustries] = useState<LookupOption[]>([])
   const [accounts, setAccounts] = useState<AccountOption[]>([])
@@ -172,9 +192,13 @@ export function ContactHost({ contact, registerReload, navToken }: {
 
   /** P3: the follow-up task's own write. Two keys, saved together. */
   const saveFollowUp = useCallback(async (next: { followUpDate: string, followUpDescription: string }) => {
-    const r = await shell.api('PATCH', `/api/contacts/${contact.id}`, { payload: next })
+    // THROUGH THE QUEUE, and now carrying a precondition it never had. Without
+    // one this write could not be refused, which sounds safe and is the reason
+    // the next writer was: it advanced the revision and nothing told the screen.
+    const r = await queue.write((expected) => shell.api(
+      'PATCH', `/api/contacts/${contact.id}`, { payload: next, expected_revision: expected ?? undefined }))
     if (r.ok) await load()
-  }, [shell, contact.id, load])
+  }, [shell, contact.id, queue, load])
 
   // A BLOCKING LIST BELONGS TO ITS OWN RECORD. Carrying one onto a different
   // contact would tint fields for a failure that happened somewhere else.
@@ -228,15 +252,15 @@ export function ContactHost({ contact, registerReload, navToken }: {
     // Add note control and by nothing else, which is what makes it human.
     body.payload = payloadUpdate
 
-    const r = await shell.api<{ error?: string }>('PATCH', `/api/contacts/${contact.id}`, {
-      ...body,
-      // THE HANDSHAKE READS THE RECORD, not a shell global. The vanilla keeps
-      // it in `cdLoadedRevision`, a `let` no bundle could read - and it does
-      // not need to, because the value arrives ON the record as
-      // latest_revision_number. One fewer coupling rather than one more.
-      expected_revision: Number.isInteger(record.latest_revision_number)
-        ? record.latest_revision_number : undefined,
-    })
+    // THE HANDSHAKE READS THE RECORD, not a shell global. The vanilla keeps it
+    // in `cdLoadedRevision`, a `let` no bundle could read - and it does not
+    // need to, because the value arrives ON the record as
+    // latest_revision_number. One fewer coupling rather than one more.
+    //
+    // W5: through the queue, so the number is the one the LAST ACCEPTED WRITE
+    // returned rather than the one the last reload happened to see.
+    const r = await queue.write((expected) => shell.api<{ error?: string }>(
+      'PATCH', `/api/contacts/${contact.id}`, { ...body, expected_revision: expected ?? undefined }))
     if (!r.ok) {
       // ── C5: ONE RENDERER, AND THE SHELL OWNS IT ────────────────────────
       //
@@ -248,7 +272,7 @@ export function ContactHost({ contact, registerReload, navToken }: {
       //
       // The plain sentence stays as the fallback for a shell with no renderer,
       // because showing nothing would be worse than showing a sentence.
-      const html = r.status === 409 ? shell.staleWriteHtml(contact.id) : null
+      const html = r.status === 409 ? shell.staleWriteHtml(contact.id, 'contact') : null
       setFeedback({
         text: html ? null : (r.status === 409
           ? 'This Contact changed since the screen loaded. Reload before saving.'
@@ -266,11 +290,11 @@ export function ContactHost({ contact, registerReload, navToken }: {
 
   /** N4 to N7: a manual note, on the same list and the same handshake. */
   const addNote = async (text: string): Promise<boolean> => {
-    const r = await shell.api<{ error?: string }>('PATCH', `/api/contacts/${contact.id}`, {
-      payload: { notes: prepend(note(text, shell.currentUserEmail(), new Date().toISOString()), notes) },
-      expected_revision: Number.isInteger(record.latest_revision_number)
-        ? record.latest_revision_number : undefined,
-    })
+    const r = await queue.write((expected) => shell.api<{ error?: string }>(
+      'PATCH', `/api/contacts/${contact.id}`, {
+        payload: { notes: prepend(note(text, shell.currentUserEmail(), new Date().toISOString()), notes) },
+        expected_revision: expected ?? undefined,
+      }))
     if (!r.ok) {
       // N6: a 409 RELOADS and keeps the typed text. The reload shows the note
       // that beat this one and re-arms the screen with a current revision, so
@@ -287,15 +311,15 @@ export function ContactHost({ contact, registerReload, navToken }: {
   /** P2: TWO writes in order, and the note goes FIRST. */
   const park = async (date: string, reason: string) => {
     setParkError(null)
-    const r = await shell.api<{ error?: string }>('PATCH', `/api/contacts/${contact.id}`, {
-      payload: {
-        followUpDate: date,
-        notes: prepend(note(parkNoteText(date, reason), shell.currentUserEmail(),
-          new Date().toISOString()), notes),
-      },
-      expected_revision: Number.isInteger(record.latest_revision_number)
-        ? record.latest_revision_number : undefined,
-    })
+    const r = await queue.write((expected) => shell.api<{ error?: string }>(
+      'PATCH', `/api/contacts/${contact.id}`, {
+        payload: {
+          followUpDate: date,
+          notes: prepend(note(parkNoteText(date, reason), shell.currentUserEmail(),
+            new Date().toISOString()), notes),
+        },
+        expected_revision: expected ?? undefined,
+      }))
     if (!r.ok) {
       setParkError(r.status === 409
         ? 'This Contact changed since the screen loaded. Reload before parking.'
