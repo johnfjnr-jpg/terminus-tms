@@ -749,6 +749,50 @@ not resolve it quietly.
     Same family as Verification 20, two readers of one value, with the twist that
     one of the two readers is the person the rule is about.
 
+13. **A PRECONDITION IS SOURCED FROM THE LAST ACCEPTED RESPONSE, NEVER FROM
+    RENDERED STATE.** Set by the business 2026-09-18, the stage panels round,
+    and measured twice on different surfaces before it was minted.
+
+    > When a request carries a PRECONDITION - `expected_revision`, an ETag, a
+    > version, a sequence number - that value comes from what the authority last
+    > ANSWERED, not from what the screen last rendered. Rendered state moves when
+    > a reload resolves and a framework re-renders, which is strictly later than
+    > the next click.
+
+    **THE CHECK, at the moment you write a precondition into a request: ask what
+    happens if two of these are issued before the first one's refresh lands.** If
+    the answer is that both carry the same value, one of them is going to be
+    refused, and the person will be told something the system does not know.
+
+    **The instance, and it had been reported as unreproducible.** Every writer on
+    the Test Bed sent `expected_revision` read from the host's
+    `record.latest_revision_number`, which only moves when `load()` RESOLVES.
+    Driving the walk's own pairs with both clicks in one task:
+
+        Save changes then Add note      [200, 409], both expecting revision 3
+        tick a criterion then Add note  [200, 409]
+        Record scores then tick         score 201, tick 409 expecting revision 6
+
+    **In every case the second write was LOST, and on the note paths with no
+    message at all**, because a 409 there reloads and returns false. It never
+    reproduced on a deliberate retry because a retry is ONE write, not two.
+
+    **The remedy is a queue that holds the number the last accepted response
+    returned**, not a rule about being careful. Every route that advances a
+    revision already returns the new one, so it needs no extra round trip, and
+    the reload remains for the record's STATE rather than for its number.
+
+    **WHY VERIFICATION 47'S LAYER CLAUSE DOES NOT COVER IT**, checked before this
+    was minted. That clause says where to point a TEST: test the thing that holds
+    the value, not the screen that displays it. **This is about where the value
+    must LIVE in the product.** A surface can satisfy 47 completely, with its
+    tests aimed at exactly the right layer, and still source its preconditions
+    from a render.
+
+    Nearest neighbour is rule 12 above, a definer function derives and does not
+    accept, and this is the client side of the same idea: **the server must not
+    trust the caller's claim, and the caller must not trust its own screen.**
+
 ---
 
 ## Verification
