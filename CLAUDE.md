@@ -3741,6 +3741,28 @@ of the change. An unanswerable precondition is a stop.
     a restore meant to undo it. A rehearsal that must remove a file deletes it
     explicitly and then verifies.
 
+    **AND EVERY STOP PATH BETWEEN THE FIRST INJECTION AND THE FINAL RESTORE IS
+    ITSELF A RESTORE PATH. `process.exit` DOES NOT RUN A `finally`.** Test Bed
+    units close, P2, confirmed by John 2026-09-18.
+
+    The instance. A calibration harness wrapped its injections in
+    `try ... finally { restore }`, and its own `stop()` helper called
+    `process.exit`. A server-only injection then tripped a precondition - the
+    injected source had not changed the served bundle, which is a correct refusal
+    - and exited 3 **with the injection still on disk**. The dev server runs
+    under `--watch`, so the mutated route went live, and the NEXT calibration
+    measured a server with a ruling disabled and read its own result as the
+    product's behaviour.
+
+    **The restore is armed as soon as the snapshots exist**, so a stop restores
+    from them, proves the restore byte-identical, and only then removes the
+    in-flight marker and reports the stop. **The marker stays only when the
+    restore FAILS**, which is the one case where leaving it is right.
+
+    The stop path is also where the shorter restore belongs: a stop may itself BE
+    a failed build, so it puts the snapshot BYTES back rather than rebuilding,
+    while the normal path still rebuilds and compares.
+
 
     **AND THE WRITE SIDE: CONFIRM THE EDIT LANDED BEFORE MEASURING.** UI
     hygiene v2, 2026-09-09. Rule 44 compares bytes after a RESTORE. It says
@@ -4001,6 +4023,26 @@ of the change. An unanswerable precondition is a stop.
     first run.** 49 tests passed with no red-green cycle, which is exactly the
     signature of tests written to agree with the component. Nine injections, one
     per behaviour, are what turned that into evidence.
+
+    **AND WHEN THE CLAIM IS ABOUT WHAT ONE CALL PASSES TO THE NEXT, TEST THE
+    THING THAT HOLDS THE VALUE, NOT THE SCREEN THAT DISPLAYS IT.** Test Bed units
+    close, P1, confirmed by John 2026-09-18. Two SILENT injections, one round
+    apart, both from driving a component where the unit under test was something
+    underneath it.
+
+    - Round A Phase 4: a clear keyed on the record, injected and silent, because
+      production remounts the host per navigation and the clear was never the
+      thing keeping one record's message off another's screen.
+    - Test Bed units Phase 3: a unit write queue hands the revision from one save
+      to the NEXT one. Written through the mounted component the injection was
+      SILENT, because React re-renders between two links of the chain and the
+      host's state is current either way. Moved to the queue, with a host that
+      never updates, the same injection FIRED.
+
+    **A component test can only prove the value survives a render**, which is a
+    different claim and usually a weaker one. The tell is an injection that
+    removes a hand-off and changes nothing: ask which layer actually holds the
+    value between the two calls, and test there.
 
 48. **A STAGE THAT FAILS FASTER THAN IT COULD DO ITS WORK HAS NOT RUN.** Round
     41, 2026-09-03 and 2026-09-04, twice in two days, and it cost a diagnostic
