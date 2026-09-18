@@ -179,6 +179,37 @@ buttons), each as its own named item in the report.
 
 This is the last build phase before the round close.
 
+## Rulings at the Phase 3 sign-off (John, 2026-09-18)
+
+- **R13.** Phase 3 is signed off.
+- **R14. R2 builds as PHASE 4, before the close.** K1, the server refusal text
+  naming "a score of 1 or 2", and the captured-fixture staleness treatment carry
+  to the next round, named in the close-out.
+
+## PHASE 4: R2, the single-holder buyer role
+
+- `POST /test-beds/:id/buyer-contacts` refuses a contact for a role already held
+  on that Test Bed: **409**, checked BEFORE the insert, with a sentence naming
+  the role, per the estate's duplicate-is-a-sentence precedent
+  (`src/routes/opportunities.js:1327-1342`). The same-contact duplicate keeps its
+  existing refusal.
+- The guard is red first on the current tree: Phase 0's reproduction (Alpha
+  linked, Beta accepted into the same role) becomes the failing test, then green.
+- Both directions live on an owned tagged fixture: Beta refused with the role
+  named, a different role still accepted, and the database showing one contact
+  per role throughout, read back after a reload.
+- The report counts whether any EXISTING record holds two contacts in one role,
+  so we know whether the rule meets dirty data.
+- Full pre-commit suites.
+
+## THE ROUND CLOSE
+
+CURRENT_STATE.md regenerated; `TEST_BED_UNITS_CLOSE_OUT.md` with what landed per
+phase and its commits, the rulings R1 to R14, what carries, promotions PROPOSED
+not landed, and the audit's B4, R1, L2, L3 and L4 marked closed against
+`TEST_BED_OLD_VS_NEW_AUDIT.md`; the FULL merge gate on the branch, reported stage
+by stage. No merge and no push, whatever the colour.
+
 ## PHASE 1: R1, a read never writes
 
 With two riders ahead of it, each its own commit: 2.1 the binding fix (R4),
