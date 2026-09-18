@@ -25,7 +25,32 @@ const spec = (await import(pathToFileURL(resolve(ROOT, specPath)).href)).default
 const DIST = `${ROOT}/frontend-react/dist/terminus-react.js`
 const WORK = `${ROOT}/.verify/tb-core/calib-live-${spec.run}`
 const MARKER = `${WORK}/IN-FLIGHT`
-const stop = (m) => { console.error(`STOPPED: ${m}`); process.exit(3) }
+// ── A STOP AFTER AN INJECTION RESTORES BEFORE IT EXITS. Ruling R12 ────────
+//
+// `stop()` calls process.exit, and process.exit does NOT run a finally block.
+// So every stop between the first injection and the end of the try left the
+// injected source on disk: measured 2026-09-18, a server-only injection tripped
+// "the bundle did not change", exited 3, and left src/routes/test-beds.js
+// mutated. The dev server runs under --watch, so the mutation went live, and the
+// next spec's run measured a server that had a ruling disabled.
+//
+// `armDisarm` is set once the snapshots exist. From then on a stop restores from
+// those snapshots, proves the restore byte-identical, and only then removes the
+// marker and reports the stop. If the restore does NOT match, the marker stays
+// and the message says so: a mismatch is the one case where leaving the marker
+// is the right answer (Verification 44).
+let armDisarm = null
+const stop = (m) => {
+  console.error(`STOPPED: ${m}`)
+  if (armDisarm) {
+    try { armDisarm() } catch (e) {
+      console.error(`AND THE RESTORE FAILED: ${e.message}`)
+      console.error(`  the injection may still be on disk; restore from ${WORK} by hand`)
+      process.exit(4)
+    }
+  }
+  process.exit(3)
+}
 
 if (existsSync(MARKER)) stop(`${MARKER} exists; restore from ${WORK} first`)
 mkdirSync(WORK, { recursive: true })
@@ -49,6 +74,18 @@ for (const [f, b] of snap) {
   if (!readFileSync(copy).equals(b)) stop(`snapshot of ${f} did not write`)
 }
 writeFileSync(MARKER, new Date().toISOString())
+
+// R12: from here on, any stop restores. The bundle is restored from its BYTES
+// rather than rebuilt, because a stop may be a failed build, and the bytes are
+// what the snapshot holds.
+armDisarm = () => {
+  for (const [f, b] of snap) writeFileSync(f, b)
+  for (const [f, b] of snap) {
+    if (!readFileSync(f).equals(b)) throw new Error(`restore of ${f} is not byte-identical`)
+  }
+  rmSync(MARKER)
+  console.error('  restored from the snapshots, byte-identical; marker removed')
+}
 
 const build = () => { const r = spawnSync('npm', ['run', 'build:react'], { cwd: ROOT, encoding: 'utf8' }); if (r.status !== 0) stop(`build failed: ${r.stderr}`) }
 let probeOut = ''
@@ -75,6 +112,15 @@ try {
   writeFileSync(`${WORK}/probe-injected.txt`, probeOut)
   console.log(`probe on the injected bundle: exit ${r.status}, ${Date.now() - t0}ms`)
 } finally {
+  // The normal path REBUILDS and compares, which proves the restored source
+  // produces the committed bundle rather than only that the bytes were put back.
+  // A stop takes the shorter route above, because a stop may BE a failed build.
+  //
+  // DISARMED FIRST: a stop raised from inside this block means the restore here
+  // failed, and its own message says the marker is left. Leaving the arm set
+  // would have the stop restore again and remove the marker, which is the one
+  // case where the marker must stay.
+  armDisarm = null
   for (const f of files) writeFileSync(f, snap.get(f))
   for (const f of files) if (!readFileSync(f).equals(snap.get(f))) stop(`restore of ${f} is not byte-identical; marker left`)
   build()
