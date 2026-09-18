@@ -250,6 +250,26 @@ calibrated.
 > **John ruled A3 at the Leads round's Phase 0 sign-off, knowing it touches
 > surfaces outside Leads.** Escape reverts the focused field to its last saved
 > value, on **all four** surfaces the row serves - Contact, Test Bed, Reference
+>
+> > **WORDING CORRECTED, stage panels walk 2, 2026-09-18, and the correction is
+> > the finding rather than a tidy-up.** "All four surfaces the row serves" is a
+> > claim about the **ROW** phrased as a claim about the **SURFACE**, and it
+> > reads wider than it is. **A3 is ROW-SCOPED: it reaches a descriptor-driven
+> > field row and nothing else.** Every BESPOKE control on those same surfaces
+> > is outside it - the scoring card's score select and reason box, the
+> > measurability control, the notes box, the park form's fields - and until
+> > walk 2 nothing said so.
+> >
+> > The cost was measurable: John pressed Escape at the scoring reason box
+> > expecting the ruled behaviour, and `git log -S "Escape"` on
+> > `frontend-react/src/testbed/StagePanel.tsx` returns nothing. It had never
+> > been there. **Nothing regressed and no guard was missing**, which is build
+> > discipline 5's second answer and the reason the archaeology came before the
+> > build.
+> >
+> > Verification 19's shape: a category name asserting a property nobody
+> > re-measured. **A ruling that names SURFACES when it means a COMPONENT will
+> > be read as covering everything on them.**
 > and Account.
 >
 > **The superseded decision is left in place below rather than deleted**, and

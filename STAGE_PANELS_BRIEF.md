@@ -222,3 +222,22 @@ merge, gate on the merged tree - runs only after this phase is signed off.
 as *"estate-wide, on the list, not this round"*, and this ruling supersedes that
 scoping: a finding that costs the same person twice is not waiting for a round of
 its own.
+
+## Walk 2 sign-off and the final riders (John, 2026-09-18)
+
+- **The walk-2 phase is SIGNED OFF.** W6 to W10 stand as built.
+- **A3's contract wording is corrected** in `MIGRATION_FIELD_ROW_CONTRACT.md`:
+  the ruling is **row-scoped**, bespoke controls are outside it, and both are
+  now named. The correction is recorded as a finding rather than a tidy-up,
+  because the wording is what made the gap invisible.
+- **The Contact visibility check.** On a long Contact record with a dirty field
+  at 1440: are the header Save and Discard on screen at full scroll?
+  - **If NO**, they get the visibility treatment - a sticky header row or
+    equivalent - red-first, live-proven, screenshot read.
+  - **If YES**, the measurement is recorded here and nothing changes.
+- **The two buttons.** `Next Stage` and `Convert to Opportunity` gain the
+  estate's primary treatment, at the cosmetic tier, with a red-first guard on
+  the missing class and a screenshot at 1440 opened and read.
+- **Then the released merge sequence**: P3 onto `main`, the close-out and
+  `CURRENT_STATE.md` updated, `--no-ff` merge, the full gate on the merged
+  tree, and a stop for the word. **Nothing pushes.**
