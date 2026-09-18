@@ -374,7 +374,7 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
   // are FOR, and it says cost only, no price or margin.
   const commercialsTab = (
     <>
-      <CommercialsCards rows={rows} fields={testBedDescriptors(source)} />
+      <CommercialsCards rows={rows} fields={testBedDescriptors(source)} units={units} />
       <div className="tb-itemized-cost" data-testid="tb-itemized-cost">
         <p className="pg-card-title">Itemized Cost</p>
         <p className="sub">
@@ -618,6 +618,22 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
     onDeriveUnits: async () => {
       const r = await shell.api('POST', DERIVE_ROUTE(bed.id), {})
       if (r.ok) await loadUnits()
+    },
+    // L2: the vanilla's own body (test-bed-detail.js:3270-3273), the record PATCH
+    // carrying the new count AND the reason the server demands once units exist
+    // (src/routes/test-beds.js:723-736). The record reloads, so the count on
+    // Commercials and the lock beside it both re-derive from what was stored.
+    onCorrectCount: async (countKey, count, reason) => {
+      const r = await shell.api<{ error?: string }>('PATCH', `/api/test-beds/${bed.id}`, {
+        payload: { [countKey]: count },
+        countCorrectionReason: reason,
+        expected_revision: Number.isInteger(record.latest_revision_number)
+          ? record.latest_revision_number : null,
+      })
+      if (!r.ok) return r.data?.error ?? 'Could not apply the correction.'
+      await load()
+      await loadUnits()
+      return null
     },
     unitDeps: {
       // B4, Phase 2: THE ROUTE, AND THE BODY, ARE THE SERVER'S.

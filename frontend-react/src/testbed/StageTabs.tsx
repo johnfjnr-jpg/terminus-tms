@@ -37,6 +37,8 @@ export interface StageTabsDeps {
   /** 2.4: one yes or no on its own route; resolves to the message to show, or null. */
   onMeasurability: (confirmed: boolean) => Promise<string | null>
   onDeriveUnits: () => Promise<void>
+  /** L2: a locked count's correction, carrying the reason the server requires. */
+  onCorrectCount?: (countKey: string, count: string, reason: string) => Promise<string | null>
   unitDeps: Omit<QueueDeps, 'onRowState'>
 }
 
@@ -335,7 +337,8 @@ export function StageTabs({ payload, units, landing, fresh, currentStage, nextSt
               {installSection}
               <LockedCounts payload={payload} units={units} />
               <UnitsPane payload={payload} units={units}
-                deps={deps.unitDeps} onDerive={deps.onDeriveUnits} />
+                deps={deps.unitDeps} onDerive={deps.onDeriveUnits}
+                onCorrectCount={deps.onCorrectCount} />
             </div>
               </>)}
           </div>)

@@ -84,8 +84,13 @@ describe('I: the installer row', () => {
     expect(q('tb-installer-subtitle')?.textContent).toMatch(/own staff/)
   })
 
+  // R8, 2026-09-18: the list is CLOSED until somebody types, so each of these
+  // opens it first. The claims are unchanged; what changed is that an empty box
+  // no longer lists other clients' Accounts (testbed-units-surface.test.tsx).
   test('I4 typing narrows the results, and no match SAYS so', async () => {
     install()
+    expect(host.querySelectorAll('.tb-installer-result'), 'the list rendered before a search').toHaveLength(0)
+    await type('tb-installer-search', 't')
     expect(host.querySelectorAll('.tb-installer-result')).toHaveLength(2)
     await type('tb-installer-search', 'alpha')
     expect(host.querySelectorAll('.tb-installer-result')).toHaveLength(1)
@@ -93,8 +98,9 @@ describe('I: the installer row', () => {
     expect(q('tb-installer-nomatch')).toBeTruthy()
   })
 
-  test('I5 the record\'s OWN Account is marked in the results', () => {
+  test('I5 the record\'s OWN Account is marked in the results', async () => {
     install()
+    await type('tb-installer-search', 't')
     expect(q('tb-installer-own'), "the Test Bed's own Account is unmarked").toBeTruthy()
     expect(q('tb-installer-result-a1')?.querySelector('[data-testid="tb-installer-own"]'),
       'an unrelated Account was marked as the record\'s own').toBeNull()
@@ -102,6 +108,7 @@ describe('I: the installer row', () => {
 
   test('I6 a CLEARED tech team is reported, as an error', async () => {
     install({ onSetInstaller: vi.fn(async () => ({ cleared_tech_team: true })) })
+    await type('tb-installer-search', 't')
     await click('tb-installer-result-a1')
     const fb = q('tb-installer-feedback')
     expect(fb?.textContent).toMatch(/has been cleared/)
@@ -110,6 +117,7 @@ describe('I: the installer row', () => {
 
   test('I6 an ordinary set says so plainly', async () => {
     install()
+    await type('tb-installer-search', 't')
     await click('tb-installer-result-a1')
     expect(q('tb-installer-feedback')?.textContent).toBe('Installer set.')
     expect(q('tb-installer-feedback')?.className).toContain('ok')

@@ -1900,12 +1900,33 @@ export default async function testBedsRoutes(app) {
     // atomic merge only ever fixed half of it: three fields entered at paste
     // speed no longer overwrite one another, but a second person editing the
     // SAME field still silently won. Now the loser is told.
-    const { data: unitRevision, error: insErr } = await appendRecordRevision(
-      db, unit.id, unitPatch, request.user.id, [], expectedUnitRevision.precondition)
-    if (isStaleWrite(insErr)) {
-      return reply.code(409).send({ error: insErr.message, stale: true })
+    // ── A REVISION IS WRITTEN ONLY WHEN IT CARRIES A CHANGE. Ruling R11 ───
+    //
+    // A state-only body has nothing for the payload: `state` is applied to
+    // `records.status` below, not to a revision. Appending anyway wrote a
+    // revision whose payload was the merge of what was already there - measured
+    // before this line: `{"state":"Installed"}` took the unit 1 -> 2 with the
+    // new revision carrying `{unitIndex, stateSource}`, neither of them sent.
+    // That is a version of the record that records nothing, and it made the
+    // unit's revision number a poor precondition for the next writer.
+    //
+    // R3 above has already refused a body with NO recognised key, so the only
+    // way here with an empty patch is a real state change.
+    //
+    // WHAT IS GIVEN UP, stated: with no append there is no revision
+    // precondition, so two people setting the state at once no longer collide.
+    // The state is one value, last-writer-wins is what a status column is, and
+    // the alternative is a revision that lies about what it holds.
+    let unitRevision = null
+    if (Object.keys(unitPatch).length) {
+      const { data: appended, error: insErr } = await appendRecordRevision(
+        db, unit.id, unitPatch, request.user.id, [], expectedUnitRevision.precondition)
+      if (isStaleWrite(insErr)) {
+        return reply.code(409).send({ error: insErr.message, stale: true })
+      }
+      if (insErr) return sendWriteError(reply, insErr)
+      unitRevision = appended
     }
-    if (insErr) return sendWriteError(reply, insErr)
 
 
     if ('state' in body && body.state !== unit.status) {

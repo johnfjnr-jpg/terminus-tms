@@ -52,6 +52,7 @@ import type { useFieldRows } from '../field-row/useFieldRows'
 import type { FieldDescriptor } from '../field-row/types'
 import { FieldRow } from '../field-row/FieldRow'
 import { Card } from './TestBedPanel'
+import { COUNT_KEY_TO_UNIT_TYPE, countIsLocked, type Unit } from './units'
 
 const SENSORS = ['safesightCameras', 'airQualitySensors', 'hemirSensors']
 
@@ -74,13 +75,44 @@ const RATE_CARDS = [
   },
 ] as const
 
-export function CommercialsCards({ rows, fields }: {
+export function CommercialsCards({ rows, fields, units = [] }: {
   rows: ReturnType<typeof useFieldRows>
   fields: FieldDescriptor[]
+  /** L3: the units decide whether a count is still a plan or already a record. */
+  units?: readonly Unit[]
 }) {
+  // ── L3: A LOCKED COUNT SAYS SO WHERE IT IS EDITED ──────────────────────
+  //
+  // The server refuses a count change once units exist unless a reason comes
+  // with it (src/routes/test-beds.js:723-736), and this tab offered the field as
+  // though it were free: the person typed, saved, and met a 400. The vanilla
+  // REPLACED the field with a line naming the value, the fact and where to
+  // correct it (test-bed-detail.js:1025-1046), and its own comment records why a
+  // control that cannot be used is worse than one that is not there.
+  //
+  // The lock summary on the Installation tab stays: it says which counts are
+  // locked when you are among the units, and this says it where the field is.
+  const lockedRow = (name: string, f: FieldDescriptor) => {
+    const type = COUNT_KEY_TO_UNIT_TYPE[name]
+    const deployed = units.filter((u) => u.type === type).length
+    return (
+      <div key={name} data-key={name} className="ref-field tb-count-locked"
+        data-testid={`tb-count-locked-${name}`}>
+        <span className="ref-field-label">{f.label}</span>
+        <span className="tb-count-locked-value">
+          <span className="tb-count-locked-number">{String(f.value ?? '')}</span>
+          <span className="tb-count-locked-note">
+            Locked: {deployed} unit{deployed === 1 ? '' : 's'} exist.
+            {' '}Correct it on the Installation and Commissioning tab.
+          </span>
+        </span>
+      </div>
+    )
+  }
   const row = (name: string) => {
     const f = fields.find((x) => x.name === name)
     if (!f) return null
+    if (SENSORS.includes(name) && countIsLocked(name, units)) return lockedRow(name, f)
     return (
       <div key={name} data-key={name}>
         <FieldRow field={f} rows={rows} />
