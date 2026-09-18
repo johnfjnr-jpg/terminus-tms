@@ -200,8 +200,17 @@ await fastify.register(async function authenticatedRoutes(app) {
 })
 
 const port = parseInt(process.env.PORT ?? '3000', 10)
+// ── LOCALHOST BY DEFAULT; THE LAN IS OPT-IN. Test Bed units ruling R4 ──
+//
+// This bound 0.0.0.0 from Milestone 1, so with the macOS firewall off the app
+// answered on the machine's LAN address to anyone on that network (measured
+// 2026-09-17: 192.168.18.115:3000 -> 200). CLAUDE.md build discipline 13 holds
+// the app back from public hosting until sign-in is restricted in the
+// application, and a LAN-wide listener is that exposure in miniature. HOST=0.0.0.0
+// restores the old behaviour deliberately, where somebody chose it.
+const host = process.env.HOST ?? '127.0.0.1'
 try {
-  await fastify.listen({ port, host: '0.0.0.0' })
+  await fastify.listen({ port, host })
 } catch (err) {
   fastify.log.error(err)
   process.exit(1)

@@ -28,7 +28,6 @@ export interface StageLoaderDeps {
   onPanel: (id: PanelId, state: PanelState) => void
   onScoringCard?: (state: { hidden: boolean, stage?: string }) => void
   onInstallSection?: (visible: boolean) => void
-  onDeriveUnits?: () => void
 }
 
 export interface StageResult {
@@ -71,9 +70,14 @@ export function createStageLoader(deps: StageLoaderDeps) {
     // switching away and back cannot lose an in-progress edit.
     const isInstall = stage === INSTALL_STAGE
     deps.onInstallSection?.(isInstall)
-    // P7: units are derived only for the stage that owns them. Deriving against
-    // a hidden section would create records for a tab nobody opened.
-    if (isInstall) deps.onDeriveUnits?.()
+    // P7, SUPERSEDED BY TEST BED UNITS PHASE 1 (audit R1): OPENING A TAB NEVER
+    // DERIVES. This line used to call onDeriveUnits for the Installation tab, so
+    // opening it created unit records (Phase 0 P0.4: 0 -> 3 units, no click) and,
+    // through the count lock, locked the counts on Commercials by looking. The
+    // vanilla removed exactly this in Round 17 Phase 3: "A write must not be the
+    // consequence of a read." Deriving is the "Create the missing units" button's
+    // job alone, so the lock is attributable to a person and a moment. The loader
+    // has no derive dependency at all, so there is nothing here to call.
 
     // P3: SYNCHRONOUS, before any await. From this instant no panel is showing
     // the previous stage's content as though it were current.

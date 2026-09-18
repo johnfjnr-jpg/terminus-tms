@@ -1878,17 +1878,55 @@ export default async function testBedsRoutes(app) {
     for (const key of ['serialNumber', 'latitude', 'longitude', 'stateSource']) {
       if (key in body) unitPatch[key] = body[key]
     }
+    // ── A BODY THIS ROUTE CANNOT READ IS REFUSED. Ruling R3, 2026-09-18 ───
+    //
+    // Until now an unrecognised body was answered 200: the loop above kept
+    // nothing, an EMPTY revision was appended, and the caller was told the save
+    // had worked. Measured in Phase 0 against the real route: a wrapped
+    // `{ payload: { serial } }` and a flat `{ serial }` each returned 200 with
+    // `serialNumber` still null and the unit's revision advanced. That is the
+    // shape Verification 40 names, a 2xx that is not a write, and it would have
+    // hidden two of B4's three breaks from any caller that only read the status.
+    //
+    // `state` counts as recognised: it is applied below, against records.status
+    // rather than the revision, so a state-only body is a real write.
+    if (!Object.keys(unitPatch).length && !('state' in body)) {
+      return reply.code(400).send({
+        error: 'No unit field to save. This route takes flat keys: serialNumber, latitude, longitude, stateSource, state.',
+      })
+    }
     // Round 38: the units table now sends the revision of the unit row it is
     // editing. This is the site Round 17A Phase 0 reproduced against, and the
     // atomic merge only ever fixed half of it: three fields entered at paste
     // speed no longer overwrite one another, but a second person editing the
     // SAME field still silently won. Now the loser is told.
-    const { data: unitRevision, error: insErr } = await appendRecordRevision(
-      db, unit.id, unitPatch, request.user.id, [], expectedUnitRevision.precondition)
-    if (isStaleWrite(insErr)) {
-      return reply.code(409).send({ error: insErr.message, stale: true })
+    // ── A REVISION IS WRITTEN ONLY WHEN IT CARRIES A CHANGE. Ruling R11 ───
+    //
+    // A state-only body has nothing for the payload: `state` is applied to
+    // `records.status` below, not to a revision. Appending anyway wrote a
+    // revision whose payload was the merge of what was already there - measured
+    // before this line: `{"state":"Installed"}` took the unit 1 -> 2 with the
+    // new revision carrying `{unitIndex, stateSource}`, neither of them sent.
+    // That is a version of the record that records nothing, and it made the
+    // unit's revision number a poor precondition for the next writer.
+    //
+    // R3 above has already refused a body with NO recognised key, so the only
+    // way here with an empty patch is a real state change.
+    //
+    // WHAT IS GIVEN UP, stated: with no append there is no revision
+    // precondition, so two people setting the state at once no longer collide.
+    // The state is one value, last-writer-wins is what a status column is, and
+    // the alternative is a revision that lies about what it holds.
+    let unitRevision = null
+    if (Object.keys(unitPatch).length) {
+      const { data: appended, error: insErr } = await appendRecordRevision(
+        db, unit.id, unitPatch, request.user.id, [], expectedUnitRevision.precondition)
+      if (isStaleWrite(insErr)) {
+        return reply.code(409).send({ error: insErr.message, stale: true })
+      }
+      if (insErr) return sendWriteError(reply, insErr)
+      unitRevision = appended
     }
-    if (insErr) return sendWriteError(reply, insErr)
 
 
     if ('state' in body && body.state !== unit.status) {
@@ -2231,6 +2269,36 @@ export default async function testBedsRoutes(app) {
     if (!contact.parent_record_id || contact.parent_record_id !== bed.account_id) {
       return reply.code(422).send({
         error: 'Contact is not linked to this Test Bed\'s Account'
+      })
+    }
+
+    // ── A BUYER ROLE IS SINGLE-HOLDER. Ruling R2, 2026-09-18 ─────────────
+    //
+    // `record_contacts` is unique on (record_id, contact_id, role), which stops
+    // the SAME contact holding a role twice and says nothing about a second
+    // PERSON in it. Measured in the Test Bed units Phase 0: Alpha linked as
+    // Commercial Buyer, then Beta accepted 201 into the same role, and
+    // GET /test-beds/:id returned both, on a screen whose row shows one name.
+    //
+    // Checked BEFORE the insert and answered as a SENTENCE naming the role,
+    // which is the estate's own shape for a duplicate
+    // (src/routes/opportunities.js:1327-1342: "A DUPLICATE IS A SENTENCE, NOT A
+    // 500"). The same-contact case keeps its existing refusal, which comes off
+    // the unique index through sendWriteError.
+    //
+    // Joint holders are a roles feature, deliberately not this: a second holder
+    // would need the screen, the gate's contact_role_linked rule and this route
+    // to agree about which of them the role means.
+    const { data: held, error: heldErr } = await db
+      .from('record_contacts')
+      .select('contact_id')
+      .eq('record_id', bed.id)
+      .eq('role', role)
+      .limit(1)
+    if (heldErr) return reply.code(500).send({ error: heldErr.message })
+    if (held?.length) {
+      return reply.code(409).send({
+        error: `${role} is already held on this Test Bed. Unlink the current contact before linking another.`,
       })
     }
 

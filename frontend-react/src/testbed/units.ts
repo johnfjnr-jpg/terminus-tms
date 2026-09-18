@@ -1,7 +1,25 @@
 // ── S: SENSOR COUNTS AND UNITS ──────────────────────────────────────────
 //
 // Round 7 Phase 1b, from the S enumeration.
-export interface Unit { id: string, type?: string, revision_number?: number | null }
+/**
+ * What GET /test-beds/:id/units returns per row, and, for the four editable
+ * ones, the flat keys the PATCH takes. L4: the vanilla's table carried index,
+ * serial, latitude, longitude and state, and the React row carried the serial
+ * alone while the route already answered with all of them.
+ */
+export interface Unit {
+  id: string
+  type?: string
+  revision_number?: number | null
+  index?: number | null
+  serialNumber?: string | null
+  latitude?: string | number | null
+  longitude?: string | number | null
+  state?: string | null
+}
+
+/** The vanilla's four, in its order (`test-bed-detail.js:2921`). */
+export const UNIT_STATES = ['Planned', 'Installed', 'Faulty', 'Removed'] as const
 
 /**
  * S5: ONE mapping, and its inverse DERIVED rather than maintained.

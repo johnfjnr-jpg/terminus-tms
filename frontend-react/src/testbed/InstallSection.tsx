@@ -65,8 +65,17 @@ export function InstallSection(p: InstallSectionProps) {
               <input type="text" placeholder="Search Accounts"
                 data-testid="tb-installer-search"
                 value={term} onChange={(e) => setTerm(e.target.value)} />
+              {/* ── R8: CLOSED UNTIL SOMEBODY TYPES ──────────────────────────
+                  `matchAccounts` returns the first eight Accounts for an EMPTY
+                  term, so a fresh Installation tab listed other clients' names
+                  under a box nobody had touched, over the Tech Team row beneath
+                  it. A search result with no search is not a result. The empty
+                  state goes with it: "No matches." for a term nobody typed is an
+                  answer to a question nobody asked. */}
               <div className="tb-installer-results" data-testid="tb-installer-results">
-                {matchAccounts(p.accounts, term).length
+                {!term.trim()
+                  ? null
+                  : matchAccounts(p.accounts, term).length
                   ? matchAccounts(p.accounts, term).map((a) => (
                     <div key={a.id} className="tb-installer-result"
                       data-testid={`tb-installer-result-${a.id}`}
@@ -132,9 +141,16 @@ export function InstallSection(p: InstallSectionProps) {
             : <p className="empty-state" data-testid="tb-install-notes-empty">
                 No install notes yet.</p>}
         </div>
-        <input value={noteText} data-testid="tb-install-note-input"
+        {/* The rider clause, Phase 3: this file's own browser defaults. The
+            estate styles `input[type="text"]`, and an input with no `type`
+            attribute never matched it however correct it looked, so the box
+            rendered white on a dark screen. `btn-sm` is the estate's treatment
+            for an action beside a field (Verification 7: a replacement carries
+            the role's class). */}
+        <input type="text" value={noteText} data-testid="tb-install-note-input"
+          placeholder="Add an install note"
           onChange={(e) => setNoteText(e.target.value)} />
-        <button type="button" data-testid="tb-install-note-add"
+        <button type="button" className="btn-sm" data-testid="tb-install-note-add"
           onClick={() => {
             const next = addInstallNote(p.notes, noteText, p.author, p.now())
             if (!next) return

@@ -1,0 +1,265 @@
+{
+  "source": "GET/PATCH /api/test-beds/:id, GET /api/test-beds/:id/units, POST /api/test-beds/:id/units/derive, captured by scripts/testbed-units/capture-units.mjs",
+  "capturedAt": "2026-09-17T22:43:38.794Z",
+  "countsPatchStatus": 200,
+  "bedWithCounts": {
+    "id": "3b665c65-5f64-40ee-8790-a5b15b366c59",
+    "record_type": "test_bed",
+    "parent_record_id": null,
+    "status": "Qualification",
+    "owner_id": "266a2812-9213-484f-a7fc-e8506241a2ed",
+    "created_at": "2026-09-17T22:43:35.511209+00:00",
+    "updated_at": "2026-09-17T22:43:35.511209+00:00",
+    "variant": null,
+    "industry_id": "c1160c2d-31fb-4e48-a316-33dbe9ba54ee",
+    "deleted_at": null,
+    "reference_code": "TT-SG-AIRPRT-830",
+    "account_id": "d979875c-5d6b-475e-b745-7f0ec860da61",
+    "parent_account_id": null,
+    "installer_account_id": null,
+    "document_kind": null,
+    "payload": {
+      "name": "TBUNITS-CAP-1789685013466 Test Bed",
+      "notes": null,
+      "hemirSensors": 0,
+      "indicativeCost": 0,
+      "accumulated_cost": 0,
+      "safesightCameras": 2,
+      "airQualitySensors": 1,
+      "client_organisation": "TBUNITS-CAP-1789685013466 Holdings"
+    },
+    "latest_revision_number": 2,
+    "industry": {
+      "id": "c1160c2d-31fb-4e48-a316-33dbe9ba54ee",
+      "name": "Airports"
+    },
+    "account": {
+      "id": "d979875c-5d6b-475e-b745-7f0ec860da61",
+      "name": "TBUNITS-CAP-1789685013466 Account"
+    },
+    "installer": null,
+    "buyer_contacts": [],
+    "costBreakdown": {
+      "hardware": {
+        "totalUnits": 3,
+        "hardwareCost": 0,
+        "warrantyUnits": 0,
+        "warrantyCost": 0,
+        "avgHwCost": 0,
+        "warrantyBasisUnits": 2,
+        "warrantyUnitCost": 0
+      },
+      "groups": {
+        "hardwareGroup": {
+          "rows": [
+            {
+              "key": "hwSs",
+              "rawCost": 0,
+              "rawPrice": 0
+            },
+            {
+              "key": "hwAqm",
+              "rawCost": 0,
+              "rawPrice": 0
+            },
+            {
+              "key": "hwHemir",
+              "rawCost": 0,
+              "rawPrice": 0
+            },
+            {
+              "key": "hwWarranty",
+              "rawCost": 0,
+              "rawPrice": 0
+            }
+          ],
+          "rawTotalCost": 0,
+          "rawTotalPrice": 0
+        },
+        "installGroup": {
+          "rows": [
+            {
+              "key": "inSs",
+              "rawCost": 0,
+              "rawPrice": 0
+            },
+            {
+              "key": "inAqm",
+              "rawCost": 0,
+              "rawPrice": 0
+            },
+            {
+              "key": "inHemir",
+              "rawCost": 0,
+              "rawPrice": 0
+            }
+          ],
+          "rawTotalCost": 0,
+          "rawTotalPrice": 0
+        },
+        "hostingGroup": {
+          "rows": [
+            {
+              "key": "hoSs",
+              "rawCost": 0,
+              "rawPrice": 0
+            },
+            {
+              "key": "hoAqm",
+              "rawCost": 0,
+              "rawPrice": 0
+            },
+            {
+              "key": "hoHemir",
+              "rawCost": 0,
+              "rawPrice": 0
+            }
+          ],
+          "rawTotalCost": 0,
+          "rawTotalPrice": 0
+        }
+      },
+      "hostingMonthCost": 0,
+      "hostingTermCost": 0,
+      "months": 0,
+      "totalCost": 0
+    }
+  },
+  "unitsBefore": [],
+  "derive": {
+    "status": 200,
+    "body": {
+      "created": 3,
+      "units": [
+        {
+          "id": "1c714458-177b-4270-8cff-28d7e4b837e0",
+          "type": "Air Quality",
+          "state": "Planned",
+          "index": 1,
+          "serialNumber": null,
+          "latitude": null,
+          "longitude": null,
+          "stateSource": "Person",
+          "created_at": "2026-09-17T22:43:38.57273+00:00",
+          "revision_number": 1
+        },
+        {
+          "id": "7614131b-43a7-4c55-849e-5627d32f5688",
+          "type": "SafeSight",
+          "state": "Planned",
+          "index": 1,
+          "serialNumber": null,
+          "latitude": null,
+          "longitude": null,
+          "stateSource": "Person",
+          "created_at": "2026-09-17T22:43:38.193959+00:00",
+          "revision_number": 1
+        },
+        {
+          "id": "03895e97-a0a8-4e79-bd5d-aa982b17d3d7",
+          "type": "SafeSight",
+          "state": "Planned",
+          "index": 2,
+          "serialNumber": null,
+          "latitude": null,
+          "longitude": null,
+          "stateSource": "Person",
+          "created_at": "2026-09-17T22:43:38.383448+00:00",
+          "revision_number": 1
+        }
+      ]
+    }
+  },
+  "unitsAfter": [
+    {
+      "id": "1c714458-177b-4270-8cff-28d7e4b837e0",
+      "type": "Air Quality",
+      "state": "Planned",
+      "index": 1,
+      "serialNumber": null,
+      "latitude": null,
+      "longitude": null,
+      "stateSource": "Person",
+      "created_at": "2026-09-17T22:43:38.57273+00:00",
+      "revision_number": 1
+    },
+    {
+      "id": "7614131b-43a7-4c55-849e-5627d32f5688",
+      "type": "SafeSight",
+      "state": "Planned",
+      "index": 1,
+      "serialNumber": null,
+      "latitude": null,
+      "longitude": null,
+      "stateSource": "Person",
+      "created_at": "2026-09-17T22:43:38.193959+00:00",
+      "revision_number": 1
+    },
+    {
+      "id": "03895e97-a0a8-4e79-bd5d-aa982b17d3d7",
+      "type": "SafeSight",
+      "state": "Planned",
+      "index": 2,
+      "serialNumber": null,
+      "latitude": null,
+      "longitude": null,
+      "stateSource": "Person",
+      "created_at": "2026-09-17T22:43:38.383448+00:00",
+      "revision_number": 1
+    }
+  ],
+  "savedSerial": {
+    "status": 200,
+    "body": {
+      "id": "1c714458-177b-4270-8cff-28d7e4b837e0",
+      "type": "Air Quality",
+      "state": "Planned",
+      "index": 1,
+      "serialNumber": "SN-CAPTURED-1",
+      "latitude": null,
+      "longitude": null,
+      "stateSource": "Person",
+      "created_at": "2026-09-17T22:43:38.57273+00:00",
+      "revision_number": 2,
+      "record_revision_number": 2
+    }
+  },
+  "unitsWithSerial": [
+    {
+      "id": "1c714458-177b-4270-8cff-28d7e4b837e0",
+      "type": "Air Quality",
+      "state": "Planned",
+      "index": 1,
+      "serialNumber": "SN-CAPTURED-1",
+      "latitude": null,
+      "longitude": null,
+      "stateSource": "Person",
+      "created_at": "2026-09-17T22:43:38.57273+00:00",
+      "revision_number": 2
+    },
+    {
+      "id": "7614131b-43a7-4c55-849e-5627d32f5688",
+      "type": "SafeSight",
+      "state": "Planned",
+      "index": 1,
+      "serialNumber": null,
+      "latitude": null,
+      "longitude": null,
+      "stateSource": "Person",
+      "created_at": "2026-09-17T22:43:38.193959+00:00",
+      "revision_number": 1
+    },
+    {
+      "id": "03895e97-a0a8-4e79-bd5d-aa982b17d3d7",
+      "type": "SafeSight",
+      "state": "Planned",
+      "index": 2,
+      "serialNumber": null,
+      "latitude": null,
+      "longitude": null,
+      "stateSource": "Person",
+      "created_at": "2026-09-17T22:43:38.383448+00:00",
+      "revision_number": 1
+    }
+  ]
+}

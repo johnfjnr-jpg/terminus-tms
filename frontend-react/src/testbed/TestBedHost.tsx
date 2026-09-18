@@ -374,7 +374,7 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
   // are FOR, and it says cost only, no price or margin.
   const commercialsTab = (
     <>
-      <CommercialsCards rows={rows} fields={testBedDescriptors(source)} />
+      <CommercialsCards rows={rows} fields={testBedDescriptors(source)} units={units} />
       <div className="tb-itemized-cost" data-testid="tb-itemized-cost">
         <p className="pg-card-title">Itemized Cost</p>
         <p className="sub">
@@ -619,10 +619,32 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
       const r = await shell.api('POST', DERIVE_ROUTE(bed.id), {})
       if (r.ok) await loadUnits()
     },
+    // L2: the vanilla's own body (test-bed-detail.js:3270-3273), the record PATCH
+    // carrying the new count AND the reason the server demands once units exist
+    // (src/routes/test-beds.js:723-736). The record reloads, so the count on
+    // Commercials and the lock beside it both re-derive from what was stored.
+    onCorrectCount: async (countKey, count, reason) => {
+      const r = await shell.api<{ error?: string }>('PATCH', `/api/test-beds/${bed.id}`, {
+        payload: { [countKey]: count },
+        countCorrectionReason: reason,
+        expected_revision: Number.isInteger(record.latest_revision_number)
+          ? record.latest_revision_number : null,
+      })
+      if (!r.ok) return r.data?.error ?? 'Could not apply the correction.'
+      await load()
+      await loadUnits()
+      return null
+    },
     unitDeps: {
+      // B4, Phase 2: THE ROUTE, AND THE BODY, ARE THE SERVER'S.
+      // This called `/api/units/:unitId`, which does not exist (every save 404'd),
+      // and wrapped the field in `payload`, which the server does not read: it
+      // takes flat keys (src/routes/test-beds.js:1878). Measured pre-fix, the
+      // wrap and the old field name were each answered 200 with nothing stored,
+      // which is why R3 makes the server refuse them.
       patch: (unitId, field, value, expectedRevision) => shell.api(
-        'PATCH', `/api/units/${unitId}`,
-        { payload: { [field]: value }, expected_revision: expectedRevision }),
+        'PATCH', `/api/test-beds/${bed.id}/units/${unitId}`,
+        { [field]: value, expected_revision: expectedRevision }),
       unitById: (unitId) => units.find((u) => u.id === unitId),
       onUnit: (unit) => setUnits((us) => us.map(
         (u) => (u.id === (unit as Unit).id ? (unit as Unit) : u))),

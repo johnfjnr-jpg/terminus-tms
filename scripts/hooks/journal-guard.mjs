@@ -45,6 +45,12 @@ const GENERATED = [
 ]
 const GENERATED_DIRS = [
   'frontend-react/dist/',
+  // Response fixtures written by the capture scripts named in their own `source`
+  // field, never by hand (CLAUDE.md Verification 47, and its Round A extension:
+  // the capture is a committed script, and staleness is measured by recapture).
+  // Editing one by hand is the fault this whole family exists to prevent, so a
+  // routed hand edit would be the wrong thing to make easy.
+  'frontend-react/src/__tests__/fixtures/',
 ]
 const isGenerated = (f) =>
   GENERATED.includes(f) || GENERATED_DIRS.some((d) => f.startsWith(d))
