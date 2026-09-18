@@ -2272,6 +2272,36 @@ export default async function testBedsRoutes(app) {
       })
     }
 
+    // ── A BUYER ROLE IS SINGLE-HOLDER. Ruling R2, 2026-09-18 ─────────────
+    //
+    // `record_contacts` is unique on (record_id, contact_id, role), which stops
+    // the SAME contact holding a role twice and says nothing about a second
+    // PERSON in it. Measured in the Test Bed units Phase 0: Alpha linked as
+    // Commercial Buyer, then Beta accepted 201 into the same role, and
+    // GET /test-beds/:id returned both, on a screen whose row shows one name.
+    //
+    // Checked BEFORE the insert and answered as a SENTENCE naming the role,
+    // which is the estate's own shape for a duplicate
+    // (src/routes/opportunities.js:1327-1342: "A DUPLICATE IS A SENTENCE, NOT A
+    // 500"). The same-contact case keeps its existing refusal, which comes off
+    // the unique index through sendWriteError.
+    //
+    // Joint holders are a roles feature, deliberately not this: a second holder
+    // would need the screen, the gate's contact_role_linked rule and this route
+    // to agree about which of them the role means.
+    const { data: held, error: heldErr } = await db
+      .from('record_contacts')
+      .select('contact_id')
+      .eq('record_id', bed.id)
+      .eq('role', role)
+      .limit(1)
+    if (heldErr) return reply.code(500).send({ error: heldErr.message })
+    if (held?.length) {
+      return reply.code(409).send({
+        error: `${role} is already held on this Test Bed. Unlink the current contact before linking another.`,
+      })
+    }
+
     const { error: insertErr } = await db
       .from('record_contacts')
       .insert({ record_id: bed.id, contact_id, role, created_by: request.user.id })
