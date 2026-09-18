@@ -102,7 +102,10 @@ export function CommercialsCards({ rows, fields, units = [] }: {
         <span className="tb-count-locked-value">
           <span className="tb-count-locked-number">{String(f.value ?? '')}</span>
           <span className="tb-count-locked-note">
-            Locked: {deployed} unit{deployed === 1 ? '' : 's'} exist.
+            {/* One departure from the vanilla's own sentence, stated: it read
+                "1 unit exist" at a count of one (test-bed-detail.js:1036), and
+                the screenshot showed it. The verb agrees here. */}
+            Locked: {deployed} unit{deployed === 1 ? ' exists' : 's exist'}.
             {' '}Correct it on the Installation and Commissioning tab.
           </span>
         </span>

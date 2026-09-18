@@ -307,6 +307,31 @@ describe('R: the score reason', () => {
     expect(reasonAccepted('anything else', series).ok).toBe(true)
   })
 
+  test('Q3 the NEXT write expects the revision the route just returned, not the host\'s', async () => {
+    // Phase 3, measured live: the row's four fields saved in one burst read
+    // 200 / 409 / 409 / 200, with the row telling a person editing alone that
+    // somebody else had changed the unit. `unitById` reads the HOST's state,
+    // and the host learns the new revision only when React re-renders, which
+    // has not happened between two links of one chain. So the queue holds what
+    // the route returned. The host here NEVER updates, which is the shape that
+    // discriminates: through the mounted component React re-renders in time and
+    // the injection came back SILENT (Verification 51).
+    const sent: Array<number | null> = []
+    const queues = createUnitQueues({
+      patch: async (_id, field, value, expected) => {
+        sent.push(expected)
+        return { ok: true, status: 200, data: { id: 'u-1', revision_number: (expected ?? 0) + 1, [field]: value } }
+      },
+      unitById: () => ({ id: 'u-1', revision_number: 1 }),
+      onUnit: () => {},
+      onRowState: () => {},
+    })
+    await queues.write('u-1', 'serialNumber', 'SN-1')
+    await queues.write('u-1', 'latitude', '1.2345')
+    await queues.write('u-1', 'longitude', '103.8')
+    expect(sent, 'a later write offered a revision an earlier one had consumed').toEqual([1, 2, 3])
+  })
+
   test('R4 an EMPTY reason is still refused, series or no series', () => {
     // Verification 14: the acceptance above must not be true by absence. This
     // is the case that proves reasonAccepted can still answer false at all.

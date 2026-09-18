@@ -23,6 +23,8 @@ const INSTALL = 'Installation and Commissioning'
 const ROWS = UNITS.unitsWithSerial as Array<{ id: string, type: string, index?: number, serialNumber: string | null, latitude: string | null, longitude: string | null, state: string, revision_number: number | null }>
 const TAB_KEY: Record<string, string> = { SafeSight: 'safesightCameras', 'Air Quality': 'airQualitySensors', HEMIR: 'hemirSensors' }
 const SAFE = ROWS.find((u) => u.type === 'SafeSight')!
+/** What the route hands back after one accepted save on that row. */
+const SAVED_REVISION = (SAFE.revision_number ?? 1) + 1
 
 let host: HTMLElement
 let root: Root
@@ -54,7 +56,8 @@ const mount = async (over: { accounts?: unknown } = {}) => {
       { id: 'acc-1', payload: { name: 'Looney Tunes Cartoons' } },
       { id: 'acc-2', payload: { name: 'Walt Disney Studios Ltd' } }] }
     if (path.endsWith('/history')) return { ok: true, status: 200, data: { entries: [] } }
-    if (method === 'PATCH' && path.includes('/units/')) return { ok: true, status: 200, data: { ...SAFE, serialNumber: 'x' } }
+    // The route answers with the unit AS IT NOW IS, carrying its new revision.
+    if (method === 'PATCH' && path.includes('/units/')) return { ok: true, status: 200, data: { ...SAFE, serialNumber: 'x', revision_number: SAVED_REVISION } }
     if (method === 'PATCH' && path === `/api/test-beds/${BED.id}`) return { ok: true, status: 200, data: { ok: true } }
     return { ok: true, status: 200, data: [] }
   }) as ShellServices['api']
@@ -90,6 +93,10 @@ describe('L4: the unit row carries the vanilla\'s fields', () => {
     expect((patches[2].body as { state: string }).state).toBe('Installed')
   })
 
+  // The revision handed from one save to the next is proven at the QUEUE, in
+  // testbed-queue.test.ts: through the mounted component React re-renders
+  // between the two links, so the host is current either way and the test could
+  // not fail with the memory removed.
   test('the row reports its own save', async () => {
     await mount()
     await setValue($(`tb-unit-latitude-${SAFE.id}`)!, '1.2345')
@@ -137,7 +144,7 @@ describe('L3: a locked count says so where it is edited', () => {
     const locked = $('tb-count-locked-safesightCameras')
     expect(locked, 'the locked count renders as an ordinary editable field').not.toBeNull()
     expect(locked!.textContent).toContain(String(BED.payload.safesightCameras))
-    expect(locked!.textContent).toMatch(/Locked: \d+ units? exist/)
+    expect(locked!.textContent).toMatch(/Locked: \d+ units? exists?\./)
     expect(locked!.textContent).toContain('Installation and Commissioning')
     expect($('display-safesightCameras'), 'the editable row is still offered beside the lock').toBeNull()
   })

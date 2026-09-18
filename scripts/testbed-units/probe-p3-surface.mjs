@@ -84,6 +84,18 @@ try {
       resultsText: document.querySelector(`${v} [data-testid="tb-installer-results"]`)?.textContent.trim() ?? '',
     }), V)
     check(fresh.search && fresh.results === 0 && !fresh.nomatch && fresh.resultsText === '', 'the installer list is CLOSED until somebody types', JSON.stringify(fresh))
+    // The capture must CONTAIN the thing (Verification 4): the installer row is
+    // below the fold on this tab, and a screenshot of the page above it shows
+    // nothing about the list. Scrolled into view first, and the probe says where
+    // it ended up rather than trusting the scroll.
+    const shot = await page.evaluate((v) => {
+      const row = document.querySelector(`${v} [data-testid="tb-installer-row"]`)
+      row?.scrollIntoView({ block: 'center' })
+      const r = row?.getBoundingClientRect()
+      return r ? { top: Math.round(r.top), bottom: Math.round(r.bottom), vh: innerHeight } : null
+    }, V)
+    await frames(page)
+    check(!!shot && shot.top >= 0 && shot.bottom <= shot.vh, 'the installer row is inside the capture', JSON.stringify(shot))
     await page.screenshot({ path: `${OUT}p3-installer-closed-1440.png` })
     await typeInto('tb-installer-search', 'a')
     await frames(page)
@@ -181,7 +193,7 @@ try {
       }
     }, V)
     const safeUnits = must(await db.from('records').select('id').eq('record_type', 'unit').eq('parent_record_id', fx.bedId).is('deleted_at', null), 'units now').length - 1 // less the one Air Quality slot
-    check(!!lock.locked && new RegExp(`Locked: ${safeUnits} units? exist`).test(lock.locked) && /Installation and Commissioning/.test(lock.locked) && !lock.editableSafe,
+    check(!!lock.locked && new RegExp(`Locked: ${safeUnits} units? exists?\\.`).test(lock.locked) && /Installation and Commissioning/.test(lock.locked) && !lock.editableSafe,
       'the SafeSight count renders locked, naming the count and where to correct it', JSON.stringify(lock))
     check(!lock.hemirLocked && lock.hemirEditable, 'and a type with no units stays an ordinary editable field', JSON.stringify(lock))
     await frames(page)
