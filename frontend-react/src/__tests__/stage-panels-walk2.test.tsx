@@ -75,6 +75,19 @@ const escapeOn = async (id: string) => {
   await settle()
 }
 
+describe('Walk 2: Next Stage wears the estate\'s primary treatment', () => {
+  // The vanilla's own class, `btn-sm btn-primary` (54001c5^:index.html:900).
+  // The React replacement shipped with none, so the estate's most prominent
+  // action on this surface rendered as a white browser default.
+  test('the Next Stage control is not a browser default', async () => {
+    await render()
+    const btn = q('tb-next-stage-btn')
+    expect(btn, 'there is no Next Stage control to dress').not.toBeNull()
+    expect(btn!.className, 'Next Stage carries no class at all').toContain('btn-primary')
+    expect(btn!.className).toContain('btn-sm')
+  })
+})
+
 describe('W7: Escape reverts the field, as ruling A3 already requires elsewhere', () => {
   test('Escape in the reason box drops the draft, so the recorded value stands again', async () => {
     await render()

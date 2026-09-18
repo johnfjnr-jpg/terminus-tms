@@ -277,3 +277,23 @@ describe('the blast radius: what must REMAIN', () => {
       .toBeTruthy()
   })
 })
+
+describe('Walk 2: the two actions wear the estate\'s treatment, not a browser default', () => {
+  // Found by opening a 1920 capture: both rendered as WHITE browser defaults on
+  // a dark screen - present, positioned, and behaving correctly, which is why
+  // every assertion passed. Verification 7's recorded instance repeating: a
+  // replaced control inherits the ROLE of the one it replaces, and a role
+  // carries a treatment.
+  //
+  // THE CLASS IS THE CONTRACT, and it is the vanilla's own, quoted here so a
+  // later reader can check it rather than trust this comment:
+  //   tb-next-stage-btn   class="btn-sm btn-primary"   (54001c5^:index.html:900)
+  //   tb-convert-trigger  class="btn-ghost btn-sm"     (54001c5^:index.html:790)
+  test('Convert to Opportunity carries the ghost treatment the vanilla gave it', async () => {
+    await mount()
+    const btn = q('tb-convert-trigger')!
+    expect(btn.className, 'the convert trigger is a browser default on a dark screen')
+      .toContain('btn-ghost')
+    expect(btn.className).toContain('btn-sm')
+  })
+})

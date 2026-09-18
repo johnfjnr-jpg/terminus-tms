@@ -274,7 +274,13 @@ export function StageTabs({ payload, units, landing, fresh, currentStage, nextSt
         {deps.stages.length > 0
           ? (
             <div className="tb-tab-actions" data-testid="tb-tab-actions">
-              <button type="button" data-testid="tb-next-stage-btn" disabled={next.disabled}
+              {/* THE VANILLA'S OWN CLASS, restored. It shipped with none, so
+                  the most prominent action on this surface rendered as a WHITE
+                  browser default on a dark screen: present, positioned and
+                  behaving correctly, which is why every assertion passed and
+                  only a screenshot found it (Verification 7). */}
+              <button type="button" className="btn-sm btn-primary"
+                data-testid="tb-next-stage-btn" disabled={next.disabled}
                 onClick={() => onNextStage?.()}>
                 {next.label}
               </button>
