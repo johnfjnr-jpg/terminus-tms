@@ -26,6 +26,7 @@ import { pagedSelect } from '../fixtures.mjs'
 import { readdirSync } from 'node:fs'
 import { readCode } from '../lib/strip-comments.mjs'
 import { isFixtureRecordType, assertExclusionSpares } from '../lib/fixture-record-types.mjs'
+import { approverRuleRows, APPROVER_LABEL, TRACK_FIELD, labelFor } from '../lib/approver-gate-rows.mjs'
 
 let db
 let rules, rulesUnfiltered, stages, refDocs, tracks
@@ -189,7 +190,13 @@ const tbRules = () => rules.filter(r => r.record_type === 'test_bed')
 // configuration change is supposed to break it and be re-measured.
 // Phase 7 re-derives 45 from the live table rather than carrying it forward
 // on trust.
-const EXPECTED_TEST_BED_RULES = 45
+//
+//   Stage panels R10, 2026-09-18, approvers named before advancing  +19 -> 64
+//
+// UPDATED FROM THE MEASUREMENT, not from the projection, exactly as the
+// paragraph above requires. It fired on its own first, reading "Expected 45,
+// found 64", which is how this number was taken.
+const EXPECTED_TEST_BED_RULES = 64
 
 test('INVARIANT 1: test_bed carries exactly the configured number of gate rules', () => {
   const byTransition = {}
@@ -199,6 +206,64 @@ test('INVARIANT 1: test_bed carries exactly the configured number of gate rules'
   }
   assert.equal(tbRules().length, EXPECTED_TEST_BED_RULES,
     `test_bed gate rule count changed.\nExpected ${EXPECTED_TEST_BED_RULES}, found ${tbRules().length}.\nPer transition:\n${JSON.stringify(byTransition, null, 2)}`)
+})
+
+// ─────────────────────────────────────────────────────────────
+// 1b. R10: the approver-named rules match the approval rules
+// ─────────────────────────────────────────────────────────────
+//
+// THE COUNT ABOVE CANNOT SEE THIS. 64 is satisfied by 64 wrong rows
+// (Verification 33), and what R10 claims is a CORRESPONDENCE: wherever a stage
+// demands a track's decision, that stage also demands the track's approver be
+// named, plus all three at Qualification.
+//
+// It is asserted here rather than left to the migration's own self-check
+// because that check runs once, at apply time, and this configuration has two
+// writers: the migration for a rebuild, and
+// scripts/stage-panels/apply-r10-rows.mjs for the live database this session
+// could reach. Two writers of one configuration always drift (Verification 20),
+// and this is the instrument that says so.
+//
+// The derivation is IMPORTED rather than restated, so this test and the applier
+// cannot disagree about what the rows should be.
+test('INVARIANT 1b: every approval rule has its approver-named rule beside it, and none sits alone', () => {
+  const stageNames = stages.filter(s => s.record_type === 'test_bed')
+    .sort((a, b) => a.sort_order - b.sort_order).map(s => s.stage_name)
+  const wanted = approverRuleRows(tbRules(), stageNames)
+  const live = tbRules().filter(r => r.requirement_type === 'payload_field_required'
+    && APPROVER_LABEL.test(r.requirement_detail?.label ?? ''))
+
+  const key = r => `${r.from_stage}|${r.to_stage}|${r.requirement_detail?.field ?? r.field}`
+  const liveKeys = new Set(live.map(key))
+  const wantKeys = new Set(wanted.map(key))
+
+  const missing = wanted.filter(w => !liveKeys.has(key(w)))
+  assert.deepEqual(missing.map(key), [],
+    `stages demand a decision with no approver-named rule beside them:\n${JSON.stringify(missing, null, 2)}`)
+
+  const orphaned = live.filter(r => !wantKeys.has(key(r)))
+  assert.deepEqual(orphaned.map(key), [],
+    `approver-named rules at a stage that demands no such decision:\n${JSON.stringify(orphaned, null, 2)}`)
+})
+
+// A SEPARATE TEST RATHER THAN A THIRD ASSERTION IN THE ONE ABOVE. Calibrated,
+// both injections fired on the same test name, which is a verdict that cannot
+// tell the two claims apart: node --test names the TEST, not the assertion, so
+// two claims in one test is one detector wearing two labels (Verification 9).
+//
+// The claim: the label carries the ruled sentence, because the label IS the
+// message computeBlocking renders. A row with the right field in the right
+// place and a blank label satisfies both set comparisons above and reads
+// "Requires commercialAuthority to be set" to a person.
+test('INVARIANT 1b: and each approver-named rule carries the ruled sentence as its label', () => {
+  const live = tbRules().filter(r => r.requirement_type === 'payload_field_required'
+    && /approver/.test(r.requirement_detail?.label ?? ''))
+  assert.ok(live.length > 0, 'no approver-named rules at all, so this asserts nothing')
+  for (const r of live) {
+    const track = Object.keys(TRACK_FIELD).find(t => TRACK_FIELD[t] === r.requirement_detail.field)
+    assert.equal(r.requirement_detail.label, labelFor(track),
+      `an approver-named rule at ${r.from_stage} carries the wrong label: ${JSON.stringify(r.requirement_detail)}`)
+  }
 })
 
 // ─────────────────────────────────────────────────────────────
