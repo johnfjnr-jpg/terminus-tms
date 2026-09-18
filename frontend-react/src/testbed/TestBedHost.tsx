@@ -814,7 +814,18 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
             recordType="test_bed"
             superseded={shell.usesWorkflow('test_bed')}
             onApprove={async (track) => {
-              await shell.api('POST', `/api/records/${bed.id}/approvals`, { track })
+              // ── THE DECISION IS REQUIRED, AND WAS NEVER SENT ─────────────
+              //
+              // `POST /records/:id/approvals` refuses a body with no `decision`
+              // (src/routes/approvals.js: it must be "approved" or "rejected"),
+              // so every click of this control answered 400 in under a
+              // millisecond and wrote nothing. Found by the stage panels pilot,
+              // which is the first thing to drive this control live: Round A
+              // granted its approvals through the route directly.
+              //
+              // The list offers approval alone, so the decision it carries is
+              // "approved"; a rejection has no control here and is not invented.
+              await shell.api('POST', `/api/records/${bed.id}/approvals`, { track, decision: 'approved' })
               await load()
               refreshStage()
             }} />)}

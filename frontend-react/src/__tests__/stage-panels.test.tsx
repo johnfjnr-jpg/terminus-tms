@@ -73,6 +73,12 @@ describe('R2: the panels sit in the estate\'s column grid, scoring across the ro
     await openStage(PRE)
     const row = $('tb-stage-panels-row')
     expect(row, 'the panels are still a full-width stack with no grid row').not.toBeNull()
+    // jsdom has no layout, so the COLUMN COUNT is measured live. What can be
+    // asserted here is that the row still carries the class the stylesheet's
+    // grid hangs off: without it the panels stack, and the live probe's width
+    // checks are the only other thing that would say so (Verification 51, a
+    // claim carried by nothing is the injection that comes back silent).
+    expect(row!.className, 'the row lost the class the grid rule is written against').toContain('tb-stage-panels-row')
     for (const id of ['tb-stage-scoring-card', 'tb-stage-documents-section', 'tb-stage-exit-criteria-list']) {
       const el = $(id)
       if (el) expect(row!.contains(el), `${id} is outside the panel row`).toBe(true)
@@ -114,6 +120,42 @@ describe('R1: approvals move inside the exit criteria panel', () => {
     expect(section.textContent).toContain('Matous Kundrik')  // technicalAuthority
     expect($('tb-stage-approver-Legal')?.textContent, 'an empty approver field is not said')
       .toMatch(/no approver named/i)
+  })
+})
+
+describe('R1: the relocated control is INTACT, which means it can grant', () => {
+  test('the approve click sends a decision, which the route requires', async () => {
+    const calls: Array<{ method: string, path: string, body?: unknown }> = []
+    const bed = { ...BASE, payload: scoredPayload() }
+    const api = (async (method: string, path: string, body?: unknown) => {
+      calls.push({ method, path, body })
+      if (path === `/api/test-beds/${BASE.id}/units`) return { ok: true, status: 200, data: [] }
+      if (path === `/api/test-beds/${BASE.id}`) return { ok: true, status: 200, data: bed }
+      if (path.startsWith('/api/stage-definitions')) return { ok: true, status: 200, data: SCORING.stageDefinitions }
+      if (path.startsWith('/api/scoring-criteria')) return { ok: true, status: 200, data: SCORING.criteria }
+      if (path.includes('/exit-criteria')) return { ok: true, status: 200, data: EXIT.cases.qualificationFresh }
+      if (path.includes('/document-requirements')) return { ok: true, status: 200, data: { reference_docs: [], completable_documents: [] } }
+      // The stage-approvals shape the panel reads, with this stage live.
+      if (path.endsWith('/stage-approvals')) {
+        // The shape stageTracks reads: the row is clickable only when the stage
+        // is `current` and the track is not yet approved.
+        return { ok: true, status: 200, data: [{ stage_name: QUAL, state: 'current', tracks: [{ track: 'Commercial', approved: false }] }] }
+      }
+      if (path.endsWith('/history')) return { ok: true, status: 200, data: { entries: [] } }
+      return { ok: true, status: 200, data: [] }
+    }) as ShellServices['api']
+    act(() => { root.render(<ShellProvider services={shellServices({ currentUserId: () => 'somebody-else', api })}><TestBedHost bed={bed as never} /></ShellProvider>) })
+    await settle()
+    await openStage(QUAL)
+    const row = host.querySelector('[data-testid="tb-stage-approvals-section"] .sa-approval-row.clickable') as HTMLElement | null
+    expect(row, 'the relocated track list offers no approve control').not.toBeNull()
+    await act(async () => { row!.click() })
+    await settle()
+    const post = calls.find((c) => c.method === 'POST' && c.path.endsWith('/approvals'))
+    expect(post, 'the click sent no approval').toBeTruthy()
+    // Measured live before this: the body was { track } alone and the route
+    // answered 400 in 0.66ms, so the control could never grant anything.
+    expect(post!.body).toEqual({ track: 'Commercial', decision: 'approved' })
   })
 })
 
