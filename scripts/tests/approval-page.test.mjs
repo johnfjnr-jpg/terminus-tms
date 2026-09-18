@@ -352,13 +352,13 @@ test('NO BASELINE STATES THE ABSENCE, it does not leave a gap', () => {
   assert.equal(page.moved.bridge, null)
   assert.equal(page.moved.baseline, null)
   assert.match(page.moved.absence,
-    /^First approval\. No prior approved version\. Priced against target 30% and cost basis dated 12\/03\/26\.$/)
+    /^First approval\. No prior approved version\. Priced against target 30% and cost basis dated 12\/03\/2026\.$/)
 })
 
 test('the absence sentence names the DEFAULT provenance when target is unset', () => {
   const p = { ...NOW }; delete p.targetMargin
   const page = buildApprovalPage({ payload: p, testBedCost: 25000, version: VERSION, baseline: null, catalog: CATALOG })
-  assert.match(page.moved.absence, /target 30% \(system default, set \d{2}\/\d{2}\/\d{2}\) and cost basis dated 12\/03\/26/)
+  assert.match(page.moved.absence, /target 30% \(system default, set \d{2}\/\d{2}\/\d{4}\) and cost basis dated 12\/03\/2026/)
 })
 
 test('with a baseline, the page carries the bridge and its printed order', () => {

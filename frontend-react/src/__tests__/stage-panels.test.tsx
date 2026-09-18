@@ -192,3 +192,48 @@ describe('R4: scoring follows the gate, then the scores already recorded', () =>
     expect(card === null || card.hidden, 'an empty scoring card renders on a stage with nothing to show').toBe(true)
   })
 })
+
+describe('W4: the reason sits beside the score, in the width R2 gave the row', () => {
+  // The walk finding: the reason box opened BELOW the anchors toggle, at the
+  // bottom of a row whose right-hand half was empty, so answering "why" meant
+  // reading past the definitions to find the box.
+  //
+  // jsdom has no layout, so what is asserted here is the STRUCTURE that makes
+  // the layout possible: the reason is a child of the row's head, beside the
+  // select, rather than a sibling of the anchors below it. The widths and the
+  // sitting-beside are measured live at 1440 by
+  // scripts/stage-panels/probe-w4.mjs.
+  const draft = async (key: string, value: string) => {
+    await act(async () => {
+      const sel = $(`tb-score-select-${key}`) as HTMLSelectElement
+      sel.value = value
+      sel.dispatchEvent(new Event('change', { bubbles: true }))
+    })
+    await settle()
+  }
+
+  test('drafting a score opens the reason INSIDE the score row head', async () => {
+    await mount()
+    await openStage(PRE)
+    await draft('scoreRolloutPath', '4')
+    const box = $('tb-score-reason-scoreRolloutPath')
+    expect(box, 'drafting a score opened no reason box at all').not.toBeNull()
+    const head = host.querySelector('[data-testid="tb-score-scoreRolloutPath"] .tb-score-head')
+    expect(head, 'the score row has no head').not.toBeNull()
+    expect(head!.contains(box!), 'the reason is still outside the head, below the definitions').toBe(true)
+  })
+
+  test('and the select it belongs to is in the same head, so they are one line of work', async () => {
+    await mount()
+    await openStage(PRE)
+    await draft('scoreRolloutPath', '4')
+    const head = host.querySelector('[data-testid="tb-score-scoreRolloutPath"] .tb-score-head')!
+    expect(head.contains($('tb-score-select-scoreRolloutPath')!),
+      'the select left the head, so "beside" is no longer a claim about one row').toBe(true)
+    // The anchors stay BELOW: moving the reason up must not drag the
+    // definitions with it, which would put a long list between the rows.
+    const anchors = $('tb-anchors-scoreRolloutPath')
+    expect(anchors && head.contains(anchors),
+      'the definitions moved into the head with the reason').toBe(false)
+  })
+})

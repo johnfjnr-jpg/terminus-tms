@@ -192,9 +192,11 @@ describe('H: revision history', () => {
     // EXPRESSED, NOT RESTATED (Verification 20): the shape is asserted, and
     // the hour is derived from the same input rather than typed, so the test
     // is not a second reader of the formatter's own arithmetic.
-    expect(r.whenText).toMatch(/^\d{2}\/\d{2}\/\d{2} \d{2}:\d{2}:\d{2}$/)
+    expect(r.whenText).toMatch(/^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}:\d{2}$/)
     const local = new Date(ENTRIES[0].timestamp as string)
-    expect(r.whenText.slice(9, 11)).toBe(String(local.getHours()).padStart(2, '0'))
+    // Split rather than sliced at a fixed offset: the offset was a second
+    // reader of the format's own width, and W2's four-digit year moved it.
+    expect(r.whenText.split(' ')[1]?.split(':')[0]).toBe(String(local.getHours()).padStart(2, '0'))
     expect(r.whenText).not.toContain('T')
     expect(r.action).toBe('stage_changed')
     expect(r.actor).toBe('abcdefgh')

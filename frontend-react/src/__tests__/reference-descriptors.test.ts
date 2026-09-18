@@ -163,7 +163,7 @@ describe('D: dates a person reads', () => {
     // not reach the screen as it stands - is unchanged, and is what the two
     // assertions below check: the shape is a date, and no ISO survives.
     const v = r.find((x) => x.label === 'Date Created')!.value
-    expect(v, 'the raw column reached the screen').toMatch(/^\d{2}\/\d{2}\/\d{2}$/)
+    expect(v, 'the raw column reached the screen').toMatch(/^\d{2}\/\d{2}\/\d{4}$/)
     expect(v).not.toContain('T')
   })
   test('D2 an unparseable value is shown as it is, never as "Invalid Date"', () => {

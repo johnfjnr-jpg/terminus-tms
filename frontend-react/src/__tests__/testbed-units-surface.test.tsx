@@ -137,15 +137,31 @@ describe('L2: count correction returns, with its mandatory reason', () => {
   })
 })
 
-describe('L3: a locked count says so where it is edited', () => {
-  test('the Commercials count for a type with units renders locked, naming where to correct it', async () => {
+describe('L3: a locked count is visibly locked, and says nothing more (W3 ruling)', () => {
+  // W3, John 2026-09-18, SUPERSEDES the units round's L3 presentation: the
+  // sentence goes, the lock stays and must be VISIBLE in the estate's own
+  // disabled treatment, and the Installation tab's summary line becomes the one
+  // place on screen naming the destination. The server's 400 with its full
+  // sentence is untouched and remains the backstop.
+  test('the Commercials count for a type with units renders locked, and carries no sentence', async () => {
     await mount()
     await click('tb-tab-btn-commercials')
     const locked = $('tb-count-locked-safesightCameras')
     expect(locked, 'the locked count renders as an ordinary editable field').not.toBeNull()
     expect(locked!.textContent).toContain(String(BED.payload.safesightCameras))
-    expect(locked!.textContent).toMatch(/Locked: \d+ units? exists?\./)
-    expect(locked!.textContent).toContain('Installation and Commissioning')
+    // The ruled absence. Asserted as a pair with the presence above, so "no
+    // sentence" cannot be satisfied by the row having vanished (Verification 14).
+    expect(locked!.textContent, 'the superseded lock sentence is still on the row')
+      .not.toMatch(/Locked: \d+ units? exists?\./)
+    expect(locked!.textContent, 'the row still names the destination, which the Installation tab now owns')
+      .not.toContain('Installation and Commissioning')
+    // VISIBLY not editable, in the estate's declared treatment rather than a
+    // shape invented here: `.field-row[data-readonly="true"]` is what dims the
+    // value and removes the pointer, and the absent tab stop follows from there
+    // being no edit half at all.
+    expect(locked!.getAttribute('data-readonly'), 'the locked row is not marked read-only').toBe('true')
+    expect(locked!.className, 'the locked row is not the estate row shape, so it cannot align with its neighbours')
+      .toContain('field-row')
     expect($('display-safesightCameras'), 'the editable row is still offered beside the lock').toBeNull()
   })
 

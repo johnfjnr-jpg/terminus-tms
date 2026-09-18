@@ -3480,8 +3480,26 @@ input.input-invalid {
 .tb-score-name {
   flex: 0 0 170px;
 }
+/* W4 (John's walk, 2026-09-18): the reason sits BESIDE the score, in the width
+   R2 gave the row.
+ *
+ * It is a flex item of the head now, so it takes what the name, the value, the
+ * select and the history button leave: measured at 1440 that is the empty
+ * right-hand half the walk reported. `flex-basis` is the box's own useful
+ * minimum rather than a picked number, and below it the head's existing
+ * `flex-wrap` puts the reason on its own line instead of crushing the select.
+ *
+ * `align-self: flex-start` because the head aligns on BASELINE, and a
+ * textarea's baseline is its last line: without this the name and the score
+ * would drop to sit level with the bottom of the box. */
 .tb-score-reason {
   margin-top: 8px;
+}
+.tb-score-head > .tb-score-reason {
+  flex: 1 1 260px;
+  align-self: flex-start;
+  margin-top: 0;
+  min-width: 0;
 }
 .tb-score-reason label {
   display: block;
@@ -3799,9 +3817,11 @@ input.input-invalid {
    affordance: no border-bottom, no input chrome, nothing that reads as
    editable. The number stays prominent because it is still the figure the
    cost engine uses. */
-.tb-count-locked-value { display: block; padding: 8px 0; }
-.tb-count-locked-number { font-size: 14px; color: var(--white); }
-.tb-count-locked-note { display: block; font-size: 12px; color: var(--muted); margin-top: 3px; }
+/* W3 (John, 2026-09-18) removed the locked count's own row shape: it renders as
+   the estate's `.field-row` with `data-readonly="true"`, which is what aligns it
+   with its neighbours and dims it. The three rules that dressed the old shape
+   are gone rather than left behind, because a rule nothing applies is a dead
+   selector the estate's own probe hunts. */
 
 /* Round 18 Phase 4: the history pane. Reuses the units table's rules for
    borders and spacing; only the detail column needs anything of its own,

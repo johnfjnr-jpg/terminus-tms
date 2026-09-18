@@ -340,6 +340,31 @@ export function ScoringCard({ card, criteria, series, scores, onDraft, onReason,
                     onClick={() => setExpanded((o) => toggle(o, key))}>
                     {open ? 'Hide history' : `Show history (${s.length})`}</button>)
                 : null}
+
+              {/* ── W4, John's walk, 2026-09-18: THE REASON IS PART OF SCORING ──
+                  It opened at the BOTTOM of the row, below the definitions, in
+                  a row whose right-hand half was empty: answering "why" meant
+                  reading past the anchors to find the box. R2 gave this row the
+                  full width of the panel strip, and this is what that width is
+                  for.
+
+                  In the HEAD, so it is beside the select it belongs to. The
+                  definitions stay below: moving them up would put a long list
+                  between one criterion and the next. */}
+              {draft !== ''
+                ? (
+                  <div className={isBlocking ? 'tb-score-reason tb-score-reason--needed' : 'tb-score-reason'}>
+                    {/* NOT COLOUR ALONE: the label's words change too. */}
+                    <label htmlFor={`tb-score-reason-${key}`} data-testid={`tb-score-reason-label-${key}`}>
+                      {isBlocking ? 'Reason required before scoring anything else'
+                        : (required ? 'Reason (required)' : 'Reason (optional)')}</label>
+                    <textarea id={`tb-score-reason-${key}`} rows={2}
+                      data-testid={`tb-score-reason-${key}`}
+                      ref={(el) => { reasonBoxes.current[key] = el }}
+                      value={scores.reasons[key] ?? ''}
+                      onChange={(e) => onReason(key, e.target.value)} />
+                  </div>)
+                : null}
             </div>
 
             {/* THE CURRENT ENTRY'S EXPLANATION, ALWAYS SHOWN: a reason the
@@ -375,20 +400,7 @@ export function ScoringCard({ card, criteria, series, scores, onDraft, onReason,
                 Version {String(c.current_version)}</p>
             </div>
 
-            {draft !== ''
-              ? (
-                <div className={isBlocking ? 'tb-score-reason tb-score-reason--needed' : 'tb-score-reason'}>
-                  {/* NOT COLOUR ALONE: the label's words change too. */}
-                  <label htmlFor={`tb-score-reason-${key}`} data-testid={`tb-score-reason-label-${key}`}>
-                    {isBlocking ? 'Reason required before scoring anything else'
-                      : (required ? 'Reason (required)' : 'Reason (optional)')}</label>
-                  <textarea id={`tb-score-reason-${key}`} rows={2}
-                    data-testid={`tb-score-reason-${key}`}
-                    ref={(el) => { reasonBoxes.current[key] = el }}
-                    value={scores.reasons[key] ?? ''}
-                    onChange={(e) => onReason(key, e.target.value)} />
-                </div>)
-              : null}
+
 
             {/* HISTORY, NEWEST FIRST, each entry resolved against its OWN anchor
                 version, so an old score keeps meaning what it meant when the
