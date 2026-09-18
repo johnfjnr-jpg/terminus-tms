@@ -160,3 +160,27 @@ cannot disagree silently.
 - The L3 guard tests assert the ruled state: locked treatment present, sentence
   absent, **red-first on the current tree**, where the sentence being present is
   now the failing claim.
+
+### W5, 3.5 and W2 RULINGS (John, 2026-09-18)
+
+- **W5: BOTH, this round.** The record's own writes **serialise through one
+  queue holding the revision the last ACCEPTED write returned**; and the stale
+  message gains the honest voice:
+
+  > This record moved on while you were working. The screen is catching up -
+  > your entry is still here; try again in a moment.
+
+  **Because the system knows the screen is behind, not who moved it.** The old
+  sentence named a second session, which is a fact the server never established.
+
+- **3.5:** `reloadAfterStaleWrite` **dispatches to the loader of the surface
+  that rendered it**, fixed this round, all three surfaces. It called the
+  Opportunity loader unconditionally, so the one control the message offered
+  could not work on a Test Bed or a Contact.
+
+- **W2: the estate-wide four-digit year STANDS**, recorded here as superseding
+  **R7's width rule** (`DD/MM/YY`, ruled 2026-09-12). R7's **grain** rule (a
+  date site uses `formatDate`, a timestamp site `formatTimestamp`, and a
+  timestamp shown at date grain stays date grain), its **absence** rule (the
+  formatter returns `''` and each call site keeps its own fallback) and its
+  **unparseable-value** rule (returned as it stands) are **untouched**.
