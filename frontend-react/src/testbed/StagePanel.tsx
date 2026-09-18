@@ -69,16 +69,31 @@ export function ExitCriteria({ stage, data, panel, onTick, pending, approvals, a
   const [confirmed, setConfirmed] = useState<ReadonlyMap<string, boolean>>(new Map())
   useEffect(() => { setConfirmed(new Map()) }, [data])
 
+  // ── R11: THE ESTATE'S CARD, BY ITS NAME ────────────────────────────────
+  //
+  // The round put this panel BESIDE the scoring card, which is a `pg-card`, and
+  // the screenshots showed the mismatch the pairing created: a framed card with
+  // two unframed columns hanging under it. The chrome is the class rather than
+  // a new stylesheet rule copying its border and padding, because the estate
+  // has a named treatment for this role and a copy is a second reader of it
+  // arriving in the stylesheet (Verification 7).
+  //
+  // Applied on EVERY load state, not only the settled one, or the panel gains a
+  // border when its fetch returns and the row reflows under the person.
+  const card = (body: React.ReactNode, stage?: string) => (
+    <div className="pg-card" data-testid="tb-stage-exit-criteria-list" data-stage={stage}>
+      <div className="pg-card-title">Exit criteria</div>
+      {body}
+    </div>)
+
   if (panel.error) {
-    return <p className="empty-state" data-testid="tb-stage-exit-criteria-list">{panel.error}</p>
+    return card(<p className="empty-state">{panel.error}</p>)
   }
   if (panel.pending || !panel.stage) {
-    return <p className="empty-state" data-testid="tb-stage-exit-criteria-list">
-      Loading {panel.pending ?? stage}...</p>
+    return card(<p className="empty-state">Loading {panel.pending ?? stage}...</p>)
   }
   const res = readExitCriteria(data)
-  const settled = (body: React.ReactNode) => (
-    <div data-testid="tb-stage-exit-criteria-list" data-stage={panel.stage}>{body}</div>)
+  const settled = (body: React.ReactNode) => card(body, panel.stage)
   // An unreadable answer is not an empty one, so it does not say "no criteria".
   if (!res) return settled(<p className="empty-state">Unable to load exit criteria.</p>)
   if (res.to_stage === null) {
@@ -427,14 +442,35 @@ export function ScoringCard({ card, criteria, series, scores, onDraft, onReason,
 }
 
 /** The two panels that are pure reads, sharing the P3 pending/settled contract. */
-export function ReadPanel({ panelId, panel, empty, children }: {
+export function ReadPanel({ panelId, panel, empty, title, children }: {
   /** Named panelId, not id: it is a data-testid, and a prop called `id` reads
       as a DOM id to the duplicate-id detector and to the next person. */
   panelId: PanelId
   panel: PanelState
   empty: string
+  /**
+   * R11: when given, the panel is one of the row's own cards and wears the
+   * estate's `pg-card` with this as its eyebrow, on every load state.
+   *
+   * WITHOUT IT NOTHING CHANGES, deliberately. The other caller is the approval
+   * track list INSIDE the exit criteria panel, which is a section of a card
+   * rather than a card, and a card nested in a card is the mismatch this
+   * ruling exists to remove rather than a second instance of it.
+   */
+  title?: string
   children?: React.ReactNode
 }) {
+  if (title) {
+    return (
+      <div className="pg-card" data-testid={panelId} data-stage={panel.stage}>
+        <div className="pg-card-title">{title}</div>
+        {panel.error
+          ? <p className="empty-state">{panel.error}</p>
+          : (panel.pending || !panel.stage)
+              ? <p className="empty-state">Loading {panel.pending}...</p>
+              : (children ?? <p className="empty-state">{empty}</p>)}
+      </div>)
+  }
   if (panel.error) return <p className="empty-state" data-testid={panelId}>{panel.error}</p>
   if (panel.pending || !panel.stage) {
     return <p className="empty-state" data-testid={panelId}>Loading {panel.pending}...</p>

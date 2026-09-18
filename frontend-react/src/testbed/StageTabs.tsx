@@ -351,6 +351,7 @@ export function StageTabs({ payload, units, landing, fresh, currentStage, nextSt
               ? (
                 <ReadPanel panelId="tb-stage-documents-section"
                   panel={panels['tb-stage-documents-section']}
+                  title="Terminus documents"
                   empty="No documents required at this stage.">
                   {documents?.(stageOf(active) as string, panelData.documents)}
                 </ReadPanel>)

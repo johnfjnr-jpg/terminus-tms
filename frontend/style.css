@@ -5941,6 +5941,20 @@ input.input-invalid {
 }
 /* The approvals are the exit criteria panel's closing section (R1). */
 .tb-stage-approvals { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--hairline); }
+/* R11: THREE TRACKS ARE ONE LIST, NOT THREE PARAGRAPHS.
+ *
+ * `.sub` is `margin: 0 0 32px`, which is right for a line introducing a
+ * section and wrong for consecutive lines that are a list. Measured before
+ * this rule: 32px between each approver line against 0px between the criteria
+ * rows directly above them, on the same panel, so the three read as separate
+ * statements rather than as one answer with three parts.
+ *
+ * A LIST IS TIGHTER INSIDE THAN OUTSIDE, which is the requirement rather than
+ * any particular number: the three names cluster, and the group is then
+ * separated from the track rows below it. The outer figure is the card's own
+ * 14px padding rather than a picked one. */
+.tb-stage-approvals .sub { margin-bottom: 4px; }
+.tb-stage-approvals .sub:last-of-type { margin-bottom: 14px; }
 
 /* ── THE UNIT ROW. Test Bed units Phase 3, L4 ─────────────────────────────
  *
