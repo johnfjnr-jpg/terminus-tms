@@ -6159,11 +6159,40 @@ input.input-invalid {
   margin-bottom: 6px;
 }
 
+/* ── THE CONTACT'S OWN VISIBILITY TREATMENT. W8b's sibling, 2026-09-18 ──
+ *
+ * W8b made the SHARED edit bar sticky and this surface does not use one: ruling
+ * A1 moved Save and Discard into this row, so W1's question - can a person with
+ * unsaved changes see how to save them - had to be asked here separately.
+ *
+ * MEASURED BEFORE ANYTHING WAS WRITTEN, on a 40-note record at 1440x900: at
+ * full scroll the controls sat at top -2762 in a 900px viewport, 2861px of
+ * scroll away. The answer was no.
+ *
+ * STICKY AT THE TOP, not a second bar at the bottom: the controls already live
+ * in this row, and giving the surface a bottom bar as well would put two Save
+ * controls on one screen - which is the exact thing A1 removed. The row keeps
+ * its place and stops leaving.
+ *
+ * The background is opaque because content now scrolls under it. */
 .cd-header-row {
   display: flex;
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
+}
+/* ON THE HEADER, NOT THE ROW INSIDE IT, and the first attempt is why this
+   comment exists: `position: sticky` on `.cd-header-row` changed nothing,
+   because a sticky element cannot leave its PARENT's box and its parent is a
+   short block at the top of the page. Measured with the row sticky: the
+   controls still read top -2768 at full scroll, exactly as before. The header
+   itself is the child of the panel, which is as tall as the record. */
+.cd-header {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: var(--dark);
+  padding-bottom: 6px;
 }
 
 .cd-lead-name {

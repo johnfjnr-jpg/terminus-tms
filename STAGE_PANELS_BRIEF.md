@@ -241,3 +241,30 @@ its own.
 - **Then the released merge sequence**: P3 onto `main`, the close-out and
   `CURRENT_STATE.md` updated, `--no-ff` merge, the full gate on the merged
   tree, and a stop for the word. **Nothing pushes.**
+
+### The Contact visibility check: the answer was NO
+
+Measured before anything was written, on a 40-note record at **1440x900**, with
+a dirty field, scrolled to the end of the surface's own scroller:
+
+```
+scrollable   2861px
+scrolled     2861px
+Save         top -2762, bottom -2741
+Discard      top -2762, bottom -2741
+viewport     900px
+```
+
+**2762px above the top of the screen.** So the ruling's NO branch applies and
+the treatment is built: `.cd-header` is `position: sticky`, and at full scroll
+the controls read **top 51, bottom 72** in the same 900px viewport.
+
+**On the header, not the row inside it**, and the first attempt is the reason
+that is worth recording: sticky on `.cd-header-row` changed nothing, because a
+sticky element cannot leave its PARENT's box and its parent is a short block at
+the top of the page. Measured with the row sticky, the controls still read
+-2768.
+
+**Not a second bar at the bottom**: A1 moved Save and Discard into this row on
+purpose, and adding a bottom bar would put two Save controls on one screen,
+which is the thing A1 removed.
