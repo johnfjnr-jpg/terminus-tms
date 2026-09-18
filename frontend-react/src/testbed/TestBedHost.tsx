@@ -23,7 +23,7 @@ import { StageTabs, type StageTabsDeps } from './StageTabs'
 import { UseCasesList } from './UseCasesList'
 import { DERIVE_ROUTE, UNITS_ROUTE, type Unit } from './units'
 import {
-  SCORE_ROUTE, MEASURABILITY_ROUTE, criteriaForStage, recordScoresInOrder, recordMeasurability,
+  SCORE_ROUTE, MEASURABILITY_ROUTE, criteriaToOffer, recordScoresInOrder, recordMeasurability,
   type Criterion,
 } from './scoring'
 import type { ScoreEntry } from './scoreReason'
@@ -578,7 +578,9 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
     // 2.1: from each criterion's OWN stage rows, over the one criteria fetch
     // the Reference score card already makes. 2.2: from the record PAYLOAD,
     // through the same reducer that card uses, so a reload shows the history.
-    scoringCriteria: (stage) => criteriaForStage(allCriteria, stage),
+    // R4: the gate's own set where the gate asks, the record's already-scored
+    // criteria where it does not (scoring.ts: criteriaToOffer).
+    scoringCriteria: (stage) => criteriaToOffer(allCriteria, stage, record.payload),
     series: (key) => orderedSeries(record.payload, key),
     // 1.5: the attempt, its door and its refresh live in `attemptTick`, where
     // they are tested; this only supplies the host's writer and door.

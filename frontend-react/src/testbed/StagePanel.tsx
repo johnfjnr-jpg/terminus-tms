@@ -39,11 +39,16 @@ export interface TickResult { ok: boolean, error?: string | null }
  *   1.6 a failed tick says so in the panel and leaves the row as it was;
  *   1.7 pending marks arrive in Phase 2.6, at the point named below.
  */
-export function ExitCriteria({ stage, data, panel, onTick, pending }: {
+export function ExitCriteria({ stage, data, panel, onTick, pending, approvals, approvalsPanel, approvers }: {
   stage: string
   data: unknown
   panel: PanelState
   onTick: (field: string, currentlyMet: boolean) => Promise<TickResult>
+  /** R1: the track list, which used to be a panel of its own beside this one. */
+  approvals?: React.ReactNode
+  approvalsPanel?: PanelState
+  /** R1: the approver this Test Bed names per track, or an empty name. */
+  approvers?: ReadonlyArray<{ track: string, name: string }>
   /**
    * 2.6: the fields a score DRAFT would satisfy, from the drafts the scoring
    * card edits. Rendered from state rather than by poking the DOM, so a
@@ -147,6 +152,22 @@ export function ExitCriteria({ stage, data, panel, onTick, pending }: {
     })}
     <div className={feedback ? 'tb-doc-feedback err' : 'tb-doc-feedback'}
       data-testid="tb-crit-feedback" role="status">{feedback}</div>
+    {/* ── R1: THE APPROVALS, AS THIS PANEL'S CLOSING SECTION ──────────────
+        They were a panel of their own beside this one, which put the approvals
+        a gate DEMANDS at arm's length from the rows demanding them. The list and
+        its controls are unchanged; what moved is where it sits, and each track
+        now says who this Test Bed names for it. The names are payload fields,
+        so an empty one says so rather than rendering a blank. */}
+    <div className="tb-stage-approvals" data-testid="tb-stage-approvals-section">
+      <p className="label">Approvals</p>
+      {(approvers ?? []).map((a) => (
+        <p key={a.track} className="sub" data-testid={`tb-stage-approver-${a.track}`}>
+          {a.track}: {a.name || 'no approver named'}
+        </p>))}
+      <ReadPanel panelId="tb-stage-approval-row"
+        panel={approvalsPanel ?? {}}
+        empty="No approvals at this stage.">{approvals}</ReadPanel>
+    </div>
   </>)
 }
 

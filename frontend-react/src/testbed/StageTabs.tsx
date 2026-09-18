@@ -45,6 +45,26 @@ export interface StageTabsDeps {
 const emptyPanels = () => Object.fromEntries(
   PANEL_IDS.map((id) => [id, {} as PanelState])) as Record<PanelId, PanelState>
 
+/** R3: the stage HAS documents when its own answer names at least one. */
+export function hasDocuments(data: unknown): boolean {
+  const d = data as { reference_docs?: unknown[], completable_documents?: unknown[] } | null
+  return !!d && ((d.reference_docs?.length ?? 0) > 0 || (d.completable_documents?.length ?? 0) > 0)
+}
+
+/**
+ * R1: the approver configured for each track on THIS Test Bed. The fields are
+ * payload keys carrying a staff NAME (measured: `terminus_staff` has no
+ * `user_id`, and `track_approvers` holds no test_bed row), so this is what the
+ * record says rather than who the server would accept.
+ */
+export function approversOf(payload: Record<string, unknown> | undefined): Array<{ track: string, name: string }> {
+  return [
+    { track: 'Commercial', name: String(payload?.commercialAuthority ?? '').trim() },
+    { track: 'Technical', name: String(payload?.technicalAuthority ?? '').trim() },
+    { track: 'Legal', name: String(payload?.terminusLegalOwner ?? '').trim() },
+  ]
+}
+
 export function StageTabs({ payload, units, landing, fresh, currentStage, nextStage, deps, reference, commercials, installSection, documents, approvals, closed, onNextStage, refreshToken, recordId, reloadToken }: {
   payload: Record<string, unknown>
   /**
@@ -293,24 +313,17 @@ export function StageTabs({ payload, units, landing, fresh, currentStage, nextSt
               ? closed
               : (
               <>
-            <ReadPanel panelId="tb-stage-documents-section"
-              panel={panels['tb-stage-documents-section']}
-              empty="No documents required at this stage.">
-              {documents?.(stageOf(active) as string, panelData.documents)}
-            </ReadPanel>
-
-            <ExitCriteria stage={stageOf(active) as string}
-              data={criteriaData}
-              panel={panels['tb-stage-exit-criteria-list']}
-              onTick={deps.onTick}
-              pending={new Set(Object.keys(scores.drafts).filter((k) => scores.drafts[k] !== ''))} />
-
-            <ReadPanel panelId="tb-stage-approval-row"
-              panel={panels['tb-stage-approval-row']}
-              empty="No approvals at this stage.">
-              {approvals?.(stageOf(active) as string, panelData.approvals)}
-            </ReadPanel>
-
+            {/* ── R1 and R2: ONE ROW, SCORING, DOCUMENTS, EXIT CRITERIA ────
+                The panels were a full-width stack. They are now the estate's
+                own column grid at a 430px minimum (style.css), which is the
+                measured floor of the widest pair member plus the scoring card's
+                414px control row: at 1240 and 1440 that yields scoring across
+                the row with documents and exit criteria beside each other, and
+                wider displays gain a column without a named breakpoint.
+                The standalone approvals panel is gone; its track list is the
+                exit criteria panel's closing section, which is where the
+                approvals a gate asks for are read. */}
+            <div className="tb-stage-panels-row" data-testid="tb-stage-panels-row">
             {/* Keyed on the record, so its disclosure state (open anchors,
                 open history) does not follow the person to the next Test Bed. */}
             <ScoringCard card={card} key={recordId}
@@ -328,6 +341,31 @@ export function StageTabs({ payload, units, landing, fresh, currentStage, nextSt
                 setScores((s) => clearRecorded(s, out.recorded))
                 return recordOutcomeMessage(out, shown)
               }} />
+
+            {/* R3: only where the stage HAS documents. The panel used to render
+                on every stage, printing "No documents configured for this
+                stage." on Qualification, which is the one stage this changes
+                (Phase 0, P0.2). While the fetch is in flight nothing is known,
+                so nothing is claimed: the panel appears when its answer does. */}
+            {hasDocuments(panelData.documents)
+              ? (
+                <ReadPanel panelId="tb-stage-documents-section"
+                  panel={panels['tb-stage-documents-section']}
+                  empty="No documents required at this stage.">
+                  {documents?.(stageOf(active) as string, panelData.documents)}
+                </ReadPanel>)
+              : null}
+
+            <ExitCriteria stage={stageOf(active) as string}
+              data={criteriaData}
+              panel={panels['tb-stage-exit-criteria-list']}
+              onTick={deps.onTick}
+              approvers={approversOf(payload)}
+              approvals={approvals?.(stageOf(active) as string, panelData.approvals)}
+              approvalsPanel={panels['tb-stage-approval-row']}
+              pending={new Set(Object.keys(scores.drafts).filter((k) => scores.drafts[k] !== ''))} />
+            </div>
+
 
             {/* P6: a VISIBILITY toggle, not a re-render, so an in-progress
                 edit survives switching away and back. */}
