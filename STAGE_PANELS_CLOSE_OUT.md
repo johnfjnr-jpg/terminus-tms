@@ -235,6 +235,67 @@ handler on `chain.then` that can never run, because the next line already
 swallows every rejection. Its injection came back SILENT while the other six
 fired.
 
+## 4b. Walk 2: W6 to W10, and two riders
+
+A second walk on the scoring surface. Five findings, all built, plus two riders
+after sign-off.
+
+| finding | what | commit |
+|---|---|---|
+| W6 | the select sized to its content; the reason one line, right of it | `7b7570f` |
+| W7 | Escape reverts the field, on the score control and the reason box | `7b7570f` |
+| W8a | and releases the awaiting-reason lock, because the lock is derived from the drafts | `7b7570f` |
+| W8b | the shared edit bar is sticky (W1, promoted by ruling) | `7b7570f` |
+| W9 | the awaiting-reason state reads as ONE state | `7b7570f` |
+| W10 | the recorded reason renders where it was written | `7b7570f` |
+| rider | the Contact's own header sticks, because it has no shared bar | `92c3d61` |
+| rider | the two actions wear the estate's treatment again | `9e2d13f` |
+
+**2/11 before, 11/11 after**, plus 7/7 for the sticky bar and 6/6 for the
+buttons. Nine injections across walk 2, all firing on their named tests.
+
+### 4b.1 W7 WAS A GAP, NOT A REGRESSION, and the archaeology is the finding
+
+Ruling **A3** (John, Leads round Phase 0, **2026-09-11**, built in `daa90af`)
+already says Escape reverts the focused field to its last saved value. It lives
+in the FIELD ROW. `git log -S "Escape"` on `StagePanel.tsx` returns **nothing**:
+this card's bespoke controls never had it. **Nothing was killed and no guard was
+missing** - build discipline 5's second answer.
+
+**The finding is in the ruling's own wording.** A3 is recorded as covering *"all
+four surfaces the row serves"*, which is a claim about the **ROW** phrased as a
+claim about the **SURFACE**. Every bespoke control on those surfaces was outside
+it and nothing said so. Corrected at
+`MIGRATION_FIELD_ROW_CONTRACT.md` in `b2f5e18`, with the finding kept rather
+than the sentence quietly rewritten. Verification 19's shape.
+
+### 4b.2 The Contact visibility check: the answer was NO
+
+Measured before anything was written, on a 40-note record at 1440x900 with a
+dirty field, scrolled to the end: **Save and Discard sat at top -2762 in a 900px
+viewport**, 2861px of scroll away. So the ruling's NO branch applied.
+
+`.cd-header` is now sticky and the controls read **top 51**. **On the header,
+not the row inside it**: sticky on `.cd-header-row` changed nothing, because a
+sticky element cannot leave its parent's box and its parent is a short block at
+the top of the page. Measured with the row sticky, the controls still read -2768.
+
+### 4b.3 What the screenshots caught that the measurements passed
+
+Three, all this round's own and all fixed here: a highlight tint that ran 500px
+down an expanded row; `SHOW HISTORY (2)Hide definitions` touching after the
+reorder; and, from walk 1, the two white buttons.
+
+### 4b.4 A calibration silence that found a missing claim
+
+The injection making Escape fire on EVERY key broke nothing: every test drove
+the reason box through React's `onChange`, so not one pressed an ordinary key at
+it. **A handler reverting the draft on every keystroke would have shipped.** The
+claim is now asserted and the injection re-anchored on the test it actually
+falsifies.
+
+---
+
 ## 5. The finding that is not this round's to fix
 
 **Any signed-in non-owner may grant every approval track on any Test Bed, and
