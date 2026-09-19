@@ -401,6 +401,52 @@ test('INVARIANT 5: no gate rule names a track absent from approval_tracks', () =
 })
 
 // ─────────────────────────────────────────────────────────────
+// 5b. The follow-up keys carry no gate on the Opportunity
+// ─────────────────────────────────────────────────────────────
+//
+// R3, the Opportunity round, 2026-09-19, and it is an assertion about a
+// DELIBERATE ABSENCE, which is the kind nothing else in this estate would
+// notice going wrong.
+//
+// `followUpDate` and `followUpDescription` became writable on the
+// Opportunity, taking the same spelling the Contact and the Test Bed already
+// use so that one component serves all three. The Contact ALSO carries a
+// `payload_field_required` rule on `followUpDate` for its transition to
+// Nurture, because parking a lead without saying when to return to it is
+// what that gate exists to refuse.
+//
+// THAT RULE IS A CONTACT BUSINESS RULE, NOT A PROPERTY OF THE KEYS. Sharing a
+// spelling must not quietly share a gate: an Opportunity that acquired one
+// would start refusing transitions on a field nobody on that surface has been
+// asked to fill.
+//
+// Asserted rather than trusted, because a seed or a migration could add it
+// later and no screen would say so until a transition was refused.
+test('INVARIANT 5b: no gate rule requires a follow-up field on the opportunity', () => {
+  const FOLLOW_UP = new Set(['followUpDate', 'followUpDescription'])
+  const offending = rules
+    .filter(r => r.record_type === 'opportunity')
+    .filter(r => r.requirement_type === 'payload_field_required')
+    .filter(r => FOLLOW_UP.has(r.requirement_detail?.field))
+    .map(r => ({ id: r.id, from_stage: r.from_stage, to_stage: r.to_stage,
+                 field: r.requirement_detail?.field }))
+  assert.deepEqual(offending, [],
+    'the Contact\'s Nurture gate has been copied onto the opportunity, so a '
+    + `transition now refuses on a field no Opportunity screen asks for:\n${JSON.stringify(offending, null, 2)}`)
+
+  // AND THE COMPANION, because "X is not in Y" is worth nothing unless X
+  // exists somewhere (Verification 14). If the Contact's own rule vanished,
+  // the assertion above would pass by describing an empty world.
+  const contactGate = rules
+    .filter(r => r.record_type === 'contact')
+    .filter(r => r.requirement_type === 'payload_field_required')
+    .filter(r => r.requirement_detail?.field === 'followUpDate')
+  assert.ok(contactGate.length > 0,
+    'the Contact no longer gates on followUpDate, so the invariant above is '
+    + 'asserting the absence of something that no longer exists anywhere')
+})
+
+// ─────────────────────────────────────────────────────────────
 // 6. No duplicate configuration rows
 // ─────────────────────────────────────────────────────────────
 //

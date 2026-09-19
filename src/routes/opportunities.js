@@ -460,6 +460,27 @@ export default async function opportunitiesRoutes(app) {
     'summary', 'oppType',
     'actualClose', 'estGoLive', 'actualGoLive',
     'notes',
+    // ── THE FOLLOW-UP TASK. R3, the Opportunity round, 2026-09-19 ────────
+    //
+    // ONE MECHANISM, THREE RECORD TYPES, and the spelling is the mechanism.
+    // `CONTACT_WRITABLE_KEYS` records the original reasoning and
+    // `TEST_BED_WRITABLE_KEYS` records why the Test Bed took the same two
+    // names rather than minting its own: taking the same spelling is what
+    // lets ONE component serve every surface instead of three renderers of
+    // one idea (Verification 20). This is the third caller of that decision,
+    // not a fourth version of it.
+    //
+    // Both are ordinary payload fields on the ordinary write path, so they
+    // are writable at every stage by construction rather than by a rule that
+    // has to be kept in step with the stage list.
+    //
+    // AND THE CONTACT'S NURTURE GATE DOES NOT TRAVEL WITH THEM. A
+    // `stage_gate_rules` row requires `followUpDate` for the contact
+    // transition to Nurture. That is a CONTACT business rule about parking a
+    // lead, not a property of these keys, and nothing here creates an
+    // equivalent for the Opportunity. `scripts/tests/config-invariants.test.mjs`
+    // asserts that no such rule exists rather than leaving it to be noticed.
+    'followUpDate', 'followUpDescription',
     // name (Round 3 Phase 3, 2026-08-17): the header's Opportunity Name
     // was static text with no save path at all until now, same field
     // Contact detail's own click-to-edit header already treats as a
