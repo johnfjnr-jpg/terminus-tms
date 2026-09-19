@@ -4771,14 +4771,31 @@ Then run `pbcopy < REPORT_FOR_CHAT.md` and print one closing line: "Report on cl
 OneDrive as a dated file**, alongside `REPORT_FOR_CHAT.md` and the clipboard.
 Belt and braces for transfer.
 
-    /Users/johnfryatt/Library/CloudStorage/OneDrive-Personal/TMS Test log/
+    /Users/johnfryatt/Library/CloudStorage/OneDrive-Personal/Documents/Terminus/TMS Testng notes/
     YYYY-MM-DD_<report-name>.md
 
-**THE DIRECTORY NAME IS LOOKED UP, NEVER TYPED FROM MEMORY.** `CloudStorage`
-holds one entry per signed-in account and the name carries the account type -
-here `OneDrive-Personal`, not `OneDrive`. `ls /Users/johnfryatt/Library/CloudStorage/`
-answers it in one command, and a path guessed from the product's name creates a
-real directory somewhere nobody is syncing, which looks exactly like success.
+**THE DIRECTORY IS LOOKED UP, NEVER TYPED FROM MEMORY, AND THE RULE EARNED ITS
+PLACE TWICE IN ONE HOUR.**
+
+**Once on the account name.** `CloudStorage` holds one entry per signed-in
+account and the name carries the account type: `OneDrive-Personal`, not
+`OneDrive`. `ls /Users/johnfryatt/Library/CloudStorage/` answers it.
+
+**Once on the folder itself, and this is the sharper one.** The folder was named
+in conversation as *"terminus > TMS Testing Notes"*. **It does not exist under
+that name.** What exists, holding the test log, is
+
+    Documents/Terminus/TMS Testng notes
+
+- **`Testng`**, missing the `i`, and **lowercase `notes`**. Spelled as it was
+  said, `mkdir -p` would have created a correctly-spelled TWIN beside it, and
+  every report from then on would have gone to the empty one while the test log
+  sat in the other. **Nothing would have failed.**
+
+**So a folder is found with `find -iname` before it is created**, and a name
+that does not match is a question rather than a `mkdir`. The typo is left alone
+on purpose: renaming somebody's synced folder to fix a spelling is not this
+file's business, and the path is recorded here exactly as it is on disk.
 
 **The copy is CONFIRMED BY READING IT BACK**, not by the copy command's own exit
 status: byte count and a diff against the source. `SendUserFile` returned
