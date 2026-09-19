@@ -426,6 +426,45 @@ not resolve it quietly.
 
     Refresh freely before PROBES. Never before the gate.
 
+17. **VERIFICATION IS PROPORTIONATE TO WHAT THE CHANGE CAN BREAK.** Set by the
+    business 2026-09-19, the walk 3 round, as four method rulings. They are kept
+    under their own labels because rounds will cite them.
+
+    **M1. A COMMIT WHOSE DIFF IS MARKDOWN-ONLY RUNS THE CHEAP STAGES ONLY** -
+    pure and typecheck. The full suites remain for any commit touching code,
+    styles or configuration, and **the round-close gate is unchanged**.
+
+    **Measured before it was accepted, because the obvious objection is that a
+    suite might READ a document.** Five do: `commercials-wiring`, `edit-guard`,
+    `create-from-ownership`, `strip-comments` and `standards-staleness`. **All
+    five run under `npm test`, which is the PURE stage M1 keeps.** No React test
+    reads a markdown file. So the stages M1 drops are exactly the two a prose
+    change cannot reach.
+
+    **AND IT IS A MECHANISM, NOT A HABIT.** The hook decides which suites run,
+    so a rule that asks a person to skip two of them can only be obeyed by
+    bypassing the hook - which is the fault the hook exists for. It is
+    implemented in `scripts/pre-commit-suites.mjs`, and it **FAILS CLOSED**: a
+    diff it cannot read runs everything.
+
+    **M2. THE COSMETIC TIER IS ENFORCED AS WRITTEN.** A CSS or layout change
+    gets a red-first guard, its affected suite, and a screenshot that is opened
+    and read. **Live injection harnesses only where a HANDLER or a WRITE is
+    touched**, because a harness that rebuilds a bundle to prove a border
+    changed costs minutes and proves what the stylesheet already says.
+
+    **M3. WALK FINDINGS BATCH INTO ONE FINDINGS PHASE PER WALK.** Not one phase
+    per finding. A walk produces a set, the set is triaged once, and the round
+    reports against the set.
+
+    **M4. A PHASE EXTENDING A MECHANISM ALREADY CALIBRATED THIS ROUND ADDS
+    INJECTIONS ONLY FOR ITS NEW CLAIMS.** Re-proving a mechanism that was
+    calibrated an hour earlier measures the harness rather than the change.
+
+    **What these four have in common, and it is the reason they are one rule:**
+    every one of them removes work that cannot discriminate. None of them
+    removes a check that could fail.
+
 ---
 
 ## Architecture
