@@ -22,6 +22,15 @@ contacts.
 | **TEST BED** | No. of SafeSight Cameras, Site Address, Test Bed Duration, **and any other white field on the screen** |
 | **OPPORTUNITIES** | the white input boxes (this is B2) |
 
+> **B2 WAS NOT CLOSED BY THIS ROUND, and this round's close-out says the
+> opposite.** It retracted the commercial-inputs diagnosis and fixed a different
+> cause - `FieldRow`'s untyped `<input>` - correctly, on four FieldRow surfaces.
+> The Commercials panel's inputs are not FieldRow rows, so that rule never
+> reached them and 62 of them were still white. **The original diagnosis was
+> right and the retraction was wrong**, and B2 was on no carried list in between.
+> **Closed in the scoring-selector round**; the full history is in
+> `SCORING_SELECTOR_BRIEF.md`.
+
 ## THE BLAST-RADIUS RULE APPLIES
 
 From the Create-bug close, promoted under Verification 20:

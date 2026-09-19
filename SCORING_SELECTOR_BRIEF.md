@@ -154,6 +154,57 @@ input gone, **database value intact**, level raised, figure back on screen.
 
 ---
 
+## The measured findings, ruled (John, 2026-09-19)
+
+### F-COM RIDES THIS ROUND, and closes B2
+
+**One commit.** The Commercials panel's inputs get the estate's field treatment
+- the rule the FieldRow fix never reached - and the Units required card gets the
+width constraint so **no input sits on its own label**.
+
+**Cosmetic tier** (build discipline 17 M2): red-first guard with the **white
+computed background as the failing claim**, a screenshot at 1440 opened and
+read, and the affected suite. No live injection harness: no handler and no write
+is touched.
+
+**B2 IS CLOSED BY THAT COMMIT**, and its history is recorded rather than tidied:
+
+1. **Group B's Phase 0 named the commercial inputs** as the likely cause of the
+   white fields. **That diagnosis was right.**
+2. The standard rollout folded B2 in as *"OPPORTUNITIES: the white input boxes"*
+   with an exit criterion of *"no white remaining"*, then **RETRACTED** the
+   diagnosis in its own close-out: *"my Group B Phase 0 named the 22 commercial
+   inputs as the likely cause of the white. It was wrong because I read the
+   markup (no class) instead of the stylesheet."*
+3. **The retraction was wrong.** That round found a real and different cause -
+   `FieldRow`'s text editor rendering an `<input>` with no `type`, which
+   `input[type="text"]` cannot match - fixed it correctly, and proved it on four
+   FieldRow surfaces. **The Commercials panel's inputs are not FieldRow rows**,
+   so the rule never reached them. The inference was withdrawn on evidence about
+   different inputs.
+4. **And B2 was not on that close-out's carried list**, so nothing tracked it
+   between then and John finding it on screen. Measured at the un-park: **62
+   elements painting `rgb(255,255,255)`, every one an `<input>`.**
+
+`STANDARD_ROLLOUT_BRIEF.md` gains a one-line pointer here.
+
+### F-TOP DOES NOT RIDE
+
+**Recorded as the opening scope of the next round (the Opportunity round)**,
+with the split exactly as measured rather than as a single item:
+
+| | What | Why it is that shape |
+|---|---|---|
+| **Summary and notes** | A **third caller** of the shared components | `NotesHistory` and `FollowUpTask` already live in `contact/` and are imported by **both** `ContactHost` and `TestBedHost`. Measured on 23 live opportunities: 2 carry a summary, 11 carry notes - the data and its write path exist |
+| **The follow-up task** | A **designed feature**: data and routes to build | Measured on the same 23: **zero** carry `followUpDate` or `followUpDescription`. There is nothing to render and nowhere to write it |
+
+**The `--red` hygiene item joins that round's scope**: `var(--red, #e06c6c)`
+fallbacks and bare `rgba(242,100,100,0.9)` literals, which are the same shape the
+amber sweep closed - a token reachable only through a literal is invisible to the
+palette and to the invariant that checks it.
+
+---
+
 ## Step 4 — Close
 
 Close-out, `CURRENT_STATE.md` regenerated, **full gate on the branch**. No merge,
