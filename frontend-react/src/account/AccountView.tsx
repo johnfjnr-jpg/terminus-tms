@@ -242,7 +242,8 @@ export function AccountView({ accountId, navToken }: { accountId: string, navTok
         </div>
       </div>
 
-      <div className="ref-cards">
+      {/* R-K, walk 3: the account's three cards are one field panel. */}
+      <div className="ref-cards" data-field-panel="account">
         <div className="pg-card">
           <p className="pg-card-title">Account Details</p>
           <div id="acct-detail-rows">

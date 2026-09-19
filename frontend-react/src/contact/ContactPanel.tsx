@@ -192,7 +192,9 @@ export function ContactPanel({
   }
 
   return (
-    <div className="cd-panel" data-testid="contact-panel">
+    // R-K, walk 3: the whole contact screen is one field panel, header row
+    // included - the name is an ordinary row and belongs in the same order.
+    <div className="cd-panel" data-field-panel="contact" data-testid="contact-panel">
       {/* THE NAME HEADER. In the vanilla this is static markup populated by id,
           which is what hid summary's editor kind from the source census. Here
           it is an ordinary row that happens to sit in the header, so it has a

@@ -27,14 +27,16 @@ const field = (o: Partial<FieldDescriptor> = {}): FieldDescriptor => ({
 })
 
 /** Mounts one editor in isolation, the way the row mounts it. */
-function Harness({ f, value, onChange, onRequestClose }: {
+function Harness({ f, value, onChange, onRequestClose, onRequestMove }: {
   f: FieldDescriptor, value: string
   onChange: (n: string) => void, onRequestClose: () => void
+  onRequestMove?: (d: -1 | 1) => void
 }) {
   const focusRef = useRef<HTMLElement | null>(null)
   const Editor = editorFor(f)
   return <Editor field={f} value={value} onChange={onChange}
-    onRequestClose={onRequestClose} focusRef={focusRef} testId="ed" />
+    onRequestClose={onRequestClose} onRequestMove={onRequestMove ?? (() => {})}
+    focusRef={focusRef} testId="ed" />
 }
 const mount = async (f: FieldDescriptor, value = '', handlers: {
   onChange?: (n: string) => void, onRequestClose?: () => void } = {}) => {

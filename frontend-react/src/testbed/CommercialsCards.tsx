@@ -133,7 +133,12 @@ export function CommercialsCards({ rows, fields, units = [] }: {
     // other card pair on this record gets its 16px from this class, and
     // borrowing it keeps the Commercials tab in the same rhythm as Reference
     // instead of inventing a second set of metrics (Verification 20).
-    <div className="ref-cards" data-testid="tb-commercials-cards">
+    // R-K, walk 3: THE COMMERCIALS PANEL DECLARES ITSELF. `data-field-panel`
+    // is what turns Enter and the vertical arrows into commit-and-move within
+    // these four cards, and the twelve rows' order is this element's own DOM
+    // order rather than the controller's field list - most of which is on the
+    // Reference tab. See FieldRow's `neighbourInPanel`.
+    <div className="ref-cards" data-field-panel="commercials" data-testid="tb-commercials-cards">
       <Card title="Sensor Counts" testId="tb-card-sensors">
         {SENSORS.map(row)}
       </Card>
