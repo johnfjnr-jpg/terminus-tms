@@ -58,6 +58,10 @@ const SITES = [
   { cls: 'write-refused', prop: 'borderTopColor', what: 'write refused border' },
   { cls: 'write-refused', inner: 'label', prop: 'color', what: 'write refused label' },
   { cls: 'cd-dirty', prop: 'color', what: 'contact unsaved count' },
+  // ── THE THIRD AMBER, ruled 2026-09-19 ────────────────────────────────
+  { cls: 'btn-attention', prop: 'borderTopColor', what: 'attention button border' },
+  { cls: 'btn-attention', prop: 'color', what: 'attention button text' },
+  { cls: 'msg-warning', prop: 'color', what: 'warning message' },
 ]
 
 const b = await puppeteer.launch({ headless: 'new' })
@@ -109,6 +113,49 @@ try {
     check(r.value === RGB, `${r.what}: ${r.value}`)
     if (r.value === OLD_RGB) console.log('        ^ still the RETIRED amber')
   }
+
+  // ── THE TRANSLUCENT PAIR: color-mix MUST ACTUALLY RESOLVE ────────────
+  //
+  // The source guard proves the declaration DERIVES from the token. It cannot
+  // prove the browser understands `color-mix`, and an unsupported function
+  // makes the whole declaration invalid at computed-value time - the glow and
+  // the hover wash would simply vanish, which is the exact failure mode the
+  // stylesheet invariant exists for and which no source scan can see.
+  const mixed = await p.evaluate(() => {
+    const el = document.createElement('button')
+    el.className = 'btn-attention'
+    document.body.appendChild(el)
+    const cs = getComputedStyle(el)
+    const shadow = cs.boxShadow
+    el.remove()
+    return { shadow, supported: CSS.supports('color', 'color-mix(in srgb, red 40%, transparent)') }
+  })
+  console.log(`  color-mix: ${JSON.stringify(mixed)}`)
+  check(mixed.supported, 'the browser supports color-mix at all')
+
+  // ── READ THE VALUE, NOT ONE SPELLING OF IT ──────────────────────────
+  //
+  // The first version of these two assertions matched `rgba(` and FAILED on a
+  // perfectly correct glow: Chrome serialises a resolved `color-mix` as
+  // `color(srgb 0.929412 0.705882 0.352941 / 0.4)`. The colour was right and
+  // the alpha was right; the matcher knew one serialisation and the browser
+  // used another. So this parses whichever form arrives and checks the numbers.
+  const parsed = (() => {
+    const srgb = /color\(srgb\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)(?:\s*\/\s*([\d.]+))?/.exec(mixed.shadow)
+    if (srgb) return { rgb: srgb.slice(1, 4).map((v) => Math.round(Number(v) * 255)), a: Number(srgb[4] ?? 1) }
+    const rgba = /rgba?\(\s*(\d+)[,\s]+(\d+)[,\s]+(\d+)(?:[,\s/]+([\d.]+))?/.exec(mixed.shadow)
+    if (rgba) return { rgb: rgba.slice(1, 4).map(Number), a: Number(rgba[4] ?? 1) }
+    return null
+  })()
+  console.log(`  the glow parses as ${JSON.stringify(parsed)}`)
+  check(!!parsed && mixed.shadow !== 'none',
+    `the glow RESOLVED to a real colour rather than being dropped (${mixed.shadow})`)
+  check(!!parsed && parsed.rgb.join(',') === RGB.replace(/[^\d,]/g, ''),
+    `and it is the ATTENTION colour, not some other amber (${parsed?.rgb.join(', ')})`)
+  // TRANSLUCENT IS THE WHOLE REASON IT IS A MIX: a flat token would satisfy
+  // every other check here and destroy what the declaration is for.
+  check(!!parsed && parsed.a > 0 && parsed.a < 1,
+    `and it kept its alpha, so the glow is still a glow (alpha ${parsed?.a})`)
 
   // ── AND ONE OF THE TEN IN ITS REAL STATE, driven rather than constructed ──
   //

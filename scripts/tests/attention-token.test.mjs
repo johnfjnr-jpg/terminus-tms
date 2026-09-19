@@ -145,7 +145,23 @@ const AMBER_FAMILY = [
   '.write-refused',
   '.write-refused .label',
   '.cd-dirty',
+  // ── THE THIRD AMBER, ruled 2026-09-19 ───────────────────────────────
+  //
+  // A hardcoded `rgba(224,130,74,...)` that no token ever reached, on a class
+  // whose NAME is this token's own word. Composited over --dark it was 5.18:1,
+  // which passes AA for text and fails R5 by a wide margin - so it was the
+  // quietest member of the family and the one furthest from the rule.
+  '.btn-attention',
+  '.btn-attention:hover',
+  '.msg-warning',
 ]
+
+// Most listed selectors carry ONE `var(--attention)`. `.btn-attention` carries
+// THREE - a border, a colour and the glow's `color-mix`, which contains a
+// `var(--attention)` of its own - so it contributes two beyond the one the list
+// already counts for it. Derived from what the rule is for rather than read off
+// the total: the button states itself three ways.
+const EXTRA_BINDINGS = 2
 
 test('R-V7 8: NO site binds --amber any more, and the token is gone', () => {
   const hits = [...css.matchAll(/var\(\s*--amber[^)]*\)/g)].map((m) => m[0])
@@ -167,9 +183,38 @@ test('R-V7 9: each of the ten retired sites now binds --attention', () => {
 })
 
 test('R-V7 10: and the list is complete, so a new site cannot hide', () => {
-  // 13 = the ten retired sites plus R-V7's own three (badge border, badge
-  // colour, card border). Derived from the two lists rather than typed.
+  // Derived from the lists rather than typed, so adding a site to AMBER_FAMILY
+  // moves the expected total with it and forgetting to add one turns this red.
   const bindings = (css.match(/var\(--attention\)/g) ?? []).length
-  assert.equal(bindings, AMBER_FAMILY.length + 3,
-    `${bindings} --attention bindings against ${AMBER_FAMILY.length} listed sites + 3 from the unsaved cost treatment`)
+  assert.equal(bindings, AMBER_FAMILY.length + EXTRA_BINDINGS + 3,
+    `${bindings} --attention bindings against ${AMBER_FAMILY.length} listed sites `
+    + `+ ${EXTRA_BINDINGS} second declarations + 3 from the unsaved cost treatment`)
+})
+
+// ── THE ALPHA SITES NEED THEIR OWN CHECK, and this is the half a `var()`
+// count cannot see.
+//
+// Two of the third amber's declarations are TRANSLUCENT on purpose - a 40% glow
+// and an 8% hover wash - so they cannot be a bare `var(--attention)` without
+// losing what they are for. They derive from the token with `color-mix` instead,
+// which keeps ONE source of truth: an `--attention-rgb` companion would be a
+// second reader of the same value and would drift the first time either moved
+// (Verification 20).
+test('R-V7 11: the translucent sites DERIVE from the token, not from a literal', () => {
+  for (const sel of ['.btn-attention', '.btn-attention:hover']) {
+    const esc = sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const rule = css.match(new RegExp(`${esc}\\s*\\{([^}]*)\\}`))
+    assert.ok(rule, `${sel} has no rule`)
+  }
+  const mixes = (css.match(/color-mix\(in srgb, var\(--attention\)/g) ?? []).length
+  assert.equal(mixes, 2,
+    `expected the glow and the hover wash to derive from the token, found ${mixes}`)
+})
+
+// AND NO LITERAL OF THE RETIRED COLOUR SURVIVES ANYWHERE. A site can drift back
+// to the hardcoded rgba without ever naming a token, which every test above is
+// blind to.
+test('R-V7 12: the hardcoded third amber is gone from the stylesheet', () => {
+  const hits = [...css.matchAll(/rgba\(\s*224\s*,\s*130\s*,\s*74[^)]*\)/g)].map((m) => m[0])
+  assert.deepEqual(hits, [], `the retired literal is still in the code: ${hits.join(', ')}`)
 })

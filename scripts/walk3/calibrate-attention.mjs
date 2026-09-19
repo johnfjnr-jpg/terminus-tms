@@ -146,6 +146,34 @@ const INJECTIONS = [
   // the estate: style.css keeps five paragraphs of prose about the retired
   // token on purpose. Reading the file RAW must not turn that record into ten
   // false positives (Verification 39).
+  // ── THE THIRD AMBER, ruled 2026-09-19. New claims only, per M4 ────────
+  { name: 'a third-amber site reverts to the hardcoded rgba',
+    expect: ['R-V7 9: each of the ten retired sites now binds --attention',
+      'R-V7 12: the hardcoded third amber is gone from the stylesheet'],
+    go: () => edit(CSS, '  color: var(--attention);\n  margin-top: 12px;',
+      '  color: rgba(224,130,74,0.9);\n  margin-top: 12px;') },
+
+  // THE TRANSLUCENT PAIR IS THE HALF A BINDING COUNT CANNOT SEE. Flattening
+  // the glow to a bare token keeps `var(--attention)` present and correct, and
+  // silently destroys the thing the declaration exists for.
+  { name: 'the glow loses its alpha and becomes a flat token',
+    expect: ['R-V7 11: the translucent sites DERIVE from the token, not from a literal'],
+    go: () => edit(CSS, 'box-shadow: 0 0 0 1px color-mix(in srgb, var(--attention) 40%, transparent);',
+      'box-shadow: 0 0 0 1px var(--attention);') },
+
+  // AND THE OTHER WAY: alpha kept, but restated as a literal rather than
+  // derived - which is the second reader this estate keeps being caught by.
+  { name: 'the hover wash goes back to a literal instead of deriving',
+    expect: ['R-V7 11: the translucent sites DERIVE from the token, not from a literal',
+      'R-V7 12: the hardcoded third amber is gone from the stylesheet'],
+    go: () => edit(CSS, '.btn-attention:hover { background: color-mix(in srgb, var(--attention) 8%, transparent); }',
+      '.btn-attention:hover { background: rgba(224,130,74,0.08); }') },
+
+  { name: 'a fourteenth site appears and the list never hears about it',
+    expect: ['R-V7 10: and the list is complete, so a new site cannot hide'],
+    go: () => edit(CSS, '/* Walk 3: the third amber, same retirement as .btn-attention above. */',
+      '.cd-unlisted-third-amber { color: var(--attention); }\n/* Walk 3: the third amber, same retirement as .btn-attention above. */') },
+
   { name: 'the scan reads the file RAW, so the prose about --amber satisfies it',
     expect: ['R-V7 8: NO site binds --amber any more, and the token is gone'],
     go: () => edit('scripts/tests/attention-token.test.mjs',

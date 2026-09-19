@@ -150,3 +150,42 @@ R-V7 reported rather than carrying it.
 **One live keyboard pass on the CONTACT panel**, the same probe as Commercials,
 read back from the database. Commercials was the only surface driven live; the
 mechanism is shared and a live pass is still a live pass.
+
+---
+
+## Final rulings (John, 2026-09-19), appended at the phase they launch
+
+### The promotion is CONFIRMED
+
+> **A WARNING IS A CLAIM, AND NEEDS THE SAME EVIDENCE AS ONE. Before shipping a
+> dialogue that says an action will lose something, DRIVE THE ACTION AND MEASURE
+> WHETHER THE LOSS OCCURS.**
+
+Applied to `CLAUDE.md` **on `main`**, as a docs-only commit, rather than on this
+branch.
+
+### Contact FieldRow routing is ruled OUT for now
+
+Personal Details and Address Details **stay as they are**. Routing them through
+`FieldRow` is a **design question on the list**, not a consequence of R-K.
+
+The measurement stands and so does its guard: the Contact panel has exactly one
+`FieldRow` row, the assertion says so, and the day that changes the test goes red
+and the surface earns a real keyboard pass.
+
+### The third amber adopts the token
+
+`.btn-attention` and its neighbours **bind `--attention`** in place of the
+hardcoded `rgba(224,130,74,...)`. Cosmetic tier. The completeness guard extends
+to cover them, with calibration for the new assertions and a screenshot of one
+representative button opened and read.
+
+### The hardcoded `--red` shapes are a HYGIENE ITEM
+
+Named, not fixed. `var(--red, #e06c6c)` fallbacks and bare
+`rgba(242,100,100,0.9)` literals sit at several sites and have exactly the shape
+the amber sweep just closed: a token reachable only through a literal is
+invisible to the palette **and** to the invariant that checks the palette.
+
+**On the list. Not this round**, because a second colour family is a sweep of its
+own and this round has already had one.

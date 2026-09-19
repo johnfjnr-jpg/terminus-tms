@@ -2097,12 +2097,25 @@ textarea::placeholder { color: var(--muted-2); }
   .deal-toggle::before, .deal-toggle::after { transition: none; }
 }
 
+/* ── THE THIRD AMBER, RETIRED. Walk 3, ruled 2026-09-19 ──────────────────
+   This was a hardcoded `rgba(224,130,74,0.9)` that no token ever reached, on a
+   class whose NAME is the attention token's own word. Composited over --dark it
+   measured 5.18:1 - passing WCAG AA for text and failing R5, the requirement
+   that an attention state be at least as prominent as the --green it stands
+   beside, by a wide margin. It was the quietest member of the family and the
+   one furthest from the rule.
+
+   THE TRANSLUCENT TWO DERIVE FROM THE TOKEN rather than restating it. The glow
+   and the hover wash need alpha to be what they are, and the obvious answer - a
+   companion `--attention-rgb` holding the same colour as three numbers - is two
+   readers of one value, which agree today and drift the first time either moves
+   (Verification 20). `color-mix` keeps one source of truth. */
 .btn-attention {
-  border-color: rgba(224,130,74,0.9);
-  color: rgba(224,130,74,0.9);
-  box-shadow: 0 0 0 1px rgba(224,130,74,0.4);
+  border-color: var(--attention);
+  color: var(--attention);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--attention) 40%, transparent);
 }
-.btn-attention:hover { background: rgba(224,130,74,0.08); }
+.btn-attention:hover { background: color-mix(in srgb, var(--attention) 8%, transparent); }
 
 .btn-ghost {
   font-family: var(--mono);
@@ -2231,11 +2244,12 @@ textarea::placeholder { color: var(--muted-2); }
    same amber as .field-editing/.btn-attention, not the red .msg-error
    uses - this isn't a validation failure, it's a warning against an
    accidental discard. */
+/* Walk 3: the third amber, same retirement as .btn-attention above. */
 .msg-warning {
   font-family: var(--mono);
   font-size: 12px;
   letter-spacing: 0.06em;
-  color: rgba(224,130,74,0.9);
+  color: var(--attention);
   margin-top: 12px;
 }
 
