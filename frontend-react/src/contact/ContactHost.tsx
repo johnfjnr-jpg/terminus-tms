@@ -454,11 +454,17 @@ export function ContactHost({ contact, registerReload, navToken }: {
             onConfirmDiscard={(proceed) => { shell.confirmDiscard(proceed) }}
             error={parkError} />}
         notes={
+          // V4: NO DISCARD PROMPT ON THE NOTE SAVE. Measured live - the note
+          // write reloads this record, and a reload of the SAME record does not
+          // drop the field rows' drafts, so the loss the prompt warned about
+          // does not happen. A save must never threaten a discard.
+          //
+          // Park, link-account and Back keep theirs below: Back is honest,
+          // measured (the surface genuinely goes), and the other two have not
+          // been measured, which is not the same as being wrong.
           <NotesHistory
             notes={notes}
             onAdd={addNote}
-            hasDirtyEdits={dirty}
-            onConfirmDiscard={(proceed) => { shell.confirmDiscard(proceed) }}
             resetKey={contact.id} />}
         linkPanel={
           <LinkAccountPanel

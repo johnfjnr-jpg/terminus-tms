@@ -162,17 +162,35 @@ describe('N: the notes history', () => {
       'a 409 did not reload, so a second click cannot land').toBeGreaterThan(before)
   })
 
-  test('N7 a dirty surface is asked first', async () => {
+  // ── SUPERSEDED BY V4, John's walk 3, 2026-09-19 ────────────────────────
+  //
+  // This read: "N7 a dirty surface is asked first", asserting `discardAsks` is
+  // 1, on the premise that "the add reloads, which would discard the open
+  // field."
+  //
+  // THE PREMISE IS FALSE, measured live rather than reasoned: `useFieldRows`
+  // drops drafts only when the SUBJECT changes, and a reload of the same record
+  // does not change it. Driven with a field genuinely dirty, accepting the
+  // dialogue and letting the note save leaves the edit ON SCREEN and still
+  // counted. The prompt asked a person to accept a loss that does not happen.
+  //
+  // Reproduced four other ways first, all clean: a fresh record, a field opened
+  // but not typed in, a field typed then Escaped, and a second note. Only a
+  // genuinely dirty field raised it, which is the condition this test names.
+  //
+  // Verification 29: a premise failed, so the decision is re-taken and the
+  // superseded reasoning stays visible.
+  test('V4 a dirty surface is NOT asked: a save never threatens a discard', async () => {
     await mount()
-    // R8: the field cards are the dense grid now, so the input is already
-    // open. The old display-row click was the idiom's opening step, not part
-    // of this claim - what makes the surface dirty is the typing, and that is
-    // unchanged.
     await type('input-city', 'Kuala Lumpur')
     await click('cd-add-note-btn')
     await type('cd-new-note-input', 'x')
     await click('cd-add-note-btn')
-    expect(discardAsks, 'the add reloads, which would discard the open field').toBe(1)
+    expect(discardAsks, 'saving a note asked to discard something').toBe(0)
+    // PAIRED, so "nobody was asked" cannot be satisfied by nothing happening
+    // (Verification 14): the note has to have been sent.
+    const wrote = calls.some((c) => c.m === 'PATCH' && /\/api\/contacts\//.test(c.path))
+    expect(wrote, 'the note did not save at all').toBe(true)
   })
 
   test('N8 discard closes and clears', async () => {
