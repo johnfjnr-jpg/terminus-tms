@@ -68,9 +68,40 @@ function run(label, args, cwd = ROOT) {
   }
 }
 
+// ── M1: A MARKDOWN-ONLY DIFF RUNS THE CHEAP STAGES ONLY ──────────────────
+//
+// Set by the business 2026-09-19 (build discipline 17). The full suites remain
+// for any commit touching code, styles or configuration, and the round-close
+// gate is untouched.
+//
+// MEASURED BEFORE IT WAS BUILT, because the objection is that a suite might
+// READ a document: five do - commercials-wiring, edit-guard,
+// create-from-ownership, strip-comments and standards-staleness - and all five
+// run under `npm test`, which is the PURE stage this keeps. No React test reads
+// a markdown file. So the two stages dropped here are exactly the two a prose
+// change cannot reach.
+//
+// IT FAILS CLOSED. Anything other than a clean list of staged paths - a git
+// failure, an empty list, a path this cannot classify - runs everything. The
+// alarming verdict is the safe one, so it is the DEFAULT rather than the
+// conclusion (build discipline 3: the reassuring verdict is the one that gets a
+// proxy, so this one is derived and the other is assumed).
+function stagedPaths() {
+  try {
+    const out = execFileSync('git', ['diff', '--cached', '--name-only', '--diff-filter=ACMRTD'],
+      { cwd: ROOT, encoding: 'utf8' })
+    return out.split('\n').map((l) => l.trim()).filter(Boolean)
+  } catch { return null }
+}
+const staged = stagedPaths()
+// `.md` and nothing else. A rename INTO markdown from code still lists the old
+// path, so the check sees both and runs everything.
+const proseOnly = Array.isArray(staged) && staged.length > 0
+  && staged.every((p) => p.toLowerCase().endsWith('.md'))
+
 const results = []
 results.push(run('pure', ['test']))
-results.push(run('react', ['run', 'test:react']))
+if (!proseOnly) results.push(run('react', ['run', 'test:react']))
 // ── RULING R13, Round A: THE TYPECHECK IS A SUITE TOO ────────────────────
 //
 // vitest transpiles without typechecking, so a React change can pass `react`
@@ -80,14 +111,19 @@ results.push(run('react', ['run', 'test:react']))
 // next session. Hermetic like the two above: no network, no session.
 results.push(run('typecheck', ['run', 'typecheck:react']))
 
-const dbLive = sessionIsLive()
+const dbLive = sessionIsLive() && !proseOnly
 if (dbLive) results.push(run('database', ['run', 'test:db']))
 
 console.error('')
 for (const r of results) {
   console.error(`  ${r.ok ? 'PASS' : 'FAIL'}  ${r.label.padEnd(9)} ${(r.ms / 1000).toFixed(1)}s`)
 }
-if (!dbLive) {
+// REPORTED, NEVER SILENT. A stage that did not run says so and says why, which
+// is what stops a narrower run reading like a full one.
+if (proseOnly) {
+  console.error(`  NOT RUN  react     M1: the diff is markdown only (${staged.length} file(s))`)
+  console.error('  NOT RUN  database  M1: the diff is markdown only')
+} else if (!dbLive) {
   console.error('  NOT RUN  database  no live session (scripts/refresh-session.js)')
   console.error('           Reported, not skipped silently. The round-close gate is the authority.')
 }

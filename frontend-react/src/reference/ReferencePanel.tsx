@@ -47,6 +47,14 @@ function SameAsAccountToggle({ rows, disabled, value, onSet }: {
               testId={`input-${SAME_AS_ACCOUNT}`}
               focusRef={focusRef}
               onRequestClose={() => {}}
+              // R-K: A7's DIRECT INPUT IS NOT A ROW, SO IT HAS NO NEXT FIELD.
+              // This checkbox sits on the surface rather than inside a
+              // `.field-row`, so there is no position in the panel's order to
+              // move from. Answered explicitly rather than left to a default:
+              // a required prop is what made both direct-mount sites declare
+              // themselves instead of silently inheriting somebody's guess
+              // (CLAUDE.md Architecture 9).
+              onRequestMove={() => {}}
               onChange={onSet} />}
         <span>Same as account</span>
       </label>
@@ -142,7 +150,9 @@ export function ReferencePanel({ source, links, closeMoves, oppId, onSave, onCha
   const canEdit = shell.canEditFields()
 
   return (
-    <div className="ref-panel" data-testid="reference-panel">
+    // R-K, walk 3: the whole reference panel, so the name row above the cards
+    // is in the same order as the rows inside them.
+    <div className="ref-panel" data-field-panel="reference" data-testid="reference-panel">
       {row('name')}
 
       <div className="ref-cards">

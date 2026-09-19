@@ -426,6 +426,45 @@ not resolve it quietly.
 
     Refresh freely before PROBES. Never before the gate.
 
+17. **VERIFICATION IS PROPORTIONATE TO WHAT THE CHANGE CAN BREAK.** Set by the
+    business 2026-09-19, the walk 3 round, as four method rulings. They are kept
+    under their own labels because rounds will cite them.
+
+    **M1. A COMMIT WHOSE DIFF IS MARKDOWN-ONLY RUNS THE CHEAP STAGES ONLY** -
+    pure and typecheck. The full suites remain for any commit touching code,
+    styles or configuration, and **the round-close gate is unchanged**.
+
+    **Measured before it was accepted, because the obvious objection is that a
+    suite might READ a document.** Five do: `commercials-wiring`, `edit-guard`,
+    `create-from-ownership`, `strip-comments` and `standards-staleness`. **All
+    five run under `npm test`, which is the PURE stage M1 keeps.** No React test
+    reads a markdown file. So the stages M1 drops are exactly the two a prose
+    change cannot reach.
+
+    **AND IT IS A MECHANISM, NOT A HABIT.** The hook decides which suites run,
+    so a rule that asks a person to skip two of them can only be obeyed by
+    bypassing the hook - which is the fault the hook exists for. It is
+    implemented in `scripts/pre-commit-suites.mjs`, and it **FAILS CLOSED**: a
+    diff it cannot read runs everything.
+
+    **M2. THE COSMETIC TIER IS ENFORCED AS WRITTEN.** A CSS or layout change
+    gets a red-first guard, its affected suite, and a screenshot that is opened
+    and read. **Live injection harnesses only where a HANDLER or a WRITE is
+    touched**, because a harness that rebuilds a bundle to prove a border
+    changed costs minutes and proves what the stylesheet already says.
+
+    **M3. WALK FINDINGS BATCH INTO ONE FINDINGS PHASE PER WALK.** Not one phase
+    per finding. A walk produces a set, the set is triaged once, and the round
+    reports against the set.
+
+    **M4. A PHASE EXTENDING A MECHANISM ALREADY CALIBRATED THIS ROUND ADDS
+    INJECTIONS ONLY FOR ITS NEW CLAIMS.** Re-proving a mechanism that was
+    calibrated an hour earlier measures the harness rather than the change.
+
+    **What these four have in common, and it is the reason they are one rule:**
+    every one of them removes work that cannot discriminate. None of them
+    removes a check that could fail.
+
 ---
 
 ## Architecture
@@ -4784,3 +4823,43 @@ conventions are in `DESIGN_PRINCIPLES.md`.
 
 **Report transfer (set by John 2026-09-17):** every report ends by writing itself verbatim and self-contained to `REPORT_FOR_CHAT.md` at the repo root (overwritten, gitignored).
 Then run `pbcopy < REPORT_FOR_CHAT.md` and print one closing line: "Report on clipboard (N bytes)."
+
+**M6, the third copy (set by John 2026-09-19): every report is ALSO written to
+OneDrive as a dated file**, alongside `REPORT_FOR_CHAT.md` and the clipboard.
+Belt and braces for transfer.
+
+    /Users/johnfryatt/Library/CloudStorage/OneDrive-Personal/Documents/Terminus/TMS Testng notes/
+    YYYY-MM-DD_<report-name>.md
+
+**THE DIRECTORY IS LOOKED UP, NEVER TYPED FROM MEMORY, AND THE RULE EARNED ITS
+PLACE TWICE IN ONE HOUR.**
+
+**Once on the account name.** `CloudStorage` holds one entry per signed-in
+account and the name carries the account type: `OneDrive-Personal`, not
+`OneDrive`. `ls /Users/johnfryatt/Library/CloudStorage/` answers it.
+
+**Once on the folder itself, and this is the sharper one.** The folder was named
+in conversation as *"terminus > TMS Testing Notes"*. **It does not exist under
+that name.** What exists, holding the test log, is
+
+    Documents/Terminus/TMS Testng notes
+
+- **`Testng`**, missing the `i`, and **lowercase `notes`**. Spelled as it was
+  said, `mkdir -p` would have created a correctly-spelled TWIN beside it, and
+  every report from then on would have gone to the empty one while the test log
+  sat in the other. **Nothing would have failed.**
+
+**So a folder is found with `find -iname` before it is created**, and a name
+that does not match is a question rather than a `mkdir`. The typo is left alone
+on purpose: renaming somebody's synced folder to fix a spelling is not this
+file's business, and the path is recorded here exactly as it is on disk.
+
+**The copy is CONFIRMED BY READING IT BACK**, not by the copy command's own exit
+status: byte count and a diff against the source. `SendUserFile` returned
+"2 files delivered to user" with nothing delivered, and that line was quoted
+back as confirmation by the author of the rule against doing so (Verification 9).
+A file write is the same shape and the check costs one command.
+
+**Three copies, three failure modes, and that is the point.** The repo file can
+be overwritten by the next report, the clipboard by the next copy, and the
+OneDrive file survives both - dated, so two reports on one day do not collide.

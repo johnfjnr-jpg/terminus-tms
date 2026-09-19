@@ -325,6 +325,52 @@ export async function freshTestBed(tag) {
   return state
 }
 
+/**
+ * A Contact the test user OWNS, created through the real route.
+ *
+ * ── WHY THIS HAD TO EXIST, walk 3 Step 4 ──────────────────────────────────
+ *
+ * The amber-adoption probe drove an existing contact to make the unsaved count
+ * appear, and read `0 unsaved changes` with the element still carrying
+ * `hidden`. The cause was not the drive: **all seventeen contacts in the
+ * database are owned by somebody else**, so the ownership door refused the row
+ * and Enter correctly opened nothing.
+ *
+ * That is Verification 47 exactly - a fixture that is not the state the claim
+ * is about. The record has to be one the user OWNS, and the only honest way to
+ * get one is to create it the way the system does.
+ *
+ * The required set is NOT typed here: it is served by
+ * `GET /contacts/creation-requirements`, which the route derives from
+ * `CONTACT_REQUIRED_AT_CREATION`. A field the business makes mandatory reaches
+ * this fixture without anybody editing it, which is the fault that killed
+ * `probe-gated-fields-reachable.mjs` for two rounds.
+ */
+export async function freshContact(tag) {
+  const industry = (await api('GET', '/industries'))[0]
+  const req = await api('GET', '/contacts/creation-requirements')
+  const body = {
+    name: `${tag} Contact`,
+    company: `${tag} Holdings`,
+    jobRole: 'Facilities Manager',
+    email: `${tag}@example.com`,
+    mobile: '+65 9123 4567',
+    industry_id: industry.id,
+    source: 'Referral',
+    summary: `${tag} summary, written by the fixture so the row has something to edit.`,
+  }
+  // THE REQUIREMENT LIST IS ASSERTED, not assumed. If the route starts
+  // demanding a field this fixture does not send, the failure says so by name
+  // here rather than as a 400 in the middle of somebody's probe.
+  const unmet = (req?.required ?? []).filter((k) => !String(body[k] ?? '').trim())
+  if (unmet.length) {
+    throw new Error(`freshContact: the route requires ${unmet.join(', ')} and this fixture sends none of them`)
+  }
+  const contact = await api('POST', '/contacts', body)
+  rememberTag(tag)
+  return { tag, contactId: contact.id }
+}
+
 // ─────────────────────────────────────────────────────────────
 // Teardown, enumerated from the DATABASE by TAG
 // ─────────────────────────────────────────────────────────────

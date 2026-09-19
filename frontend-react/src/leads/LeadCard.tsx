@@ -22,6 +22,7 @@
 // just been ruled on twice.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { fieldValuesFor } from './leadFields'
+import { leadSummaryLine } from './leadSummary'
 import { LeadCardActions } from './LeadCardActions'
 import { AddressPopup } from './AddressPopup'
 import { InlineSummary } from './InlineSummary'
@@ -142,8 +143,7 @@ export function LeadCard({
           ? <span className="tag" data-testid={`lead-status-${lead.id}`}>{lead.status.toUpperCase()}</span>
           : null}
         <span className="lead-card-sub" data-testid={`lead-sub-${lead.id}`}>
-          {[accountName ?? str(p.company) ?? '--', str(p.source) || '--',
-            formatDate(lead.created_at) || '--'].join(' · ')}
+          {leadSummaryLine({ accountName, payload: p, createdAt: lead.created_at })}
         </span>
 
         {/* R5: THE ACTIONS ARE ON THE TOP LINE, inside the head, rather than

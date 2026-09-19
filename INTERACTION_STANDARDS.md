@@ -58,6 +58,41 @@ Pressing Enter inside any single-line field (`<input type="text">`, `email`, `da
 
 Pressing Enter inside a `<textarea>` (e.g. `cd-park-reason`) inserts a newline and does not submit, matching native multi-line-field behavior. This is a widget-specific distinction, not a blanket global Enter-submits-everything binding, consistent with APG's keyboard-interface guidance that a key's effect depends on the widget that has focus.
 
+> ### SUPERSEDED FOR MULTI-FIELD ENTRY PANELS, ruling R-K, John, 2026-09-19
+>
+> **This section stands unchanged for a genuine FORM** - the New Lead modal, the
+> Park form, anything with a primary submit button that Enter is standing in for.
+>
+> **It is superseded inside a FIELD PANEL**, where each row is its own editor and
+> there is no form to submit. There, per R-K:
+>
+> | key | effect |
+> |---|---|
+> | **Enter** | commits the open field and opens the NEXT field's editor |
+> | **ArrowDown** | commits and moves down |
+> | **ArrowUp** | commits and moves up |
+> | **Enter on the last field** | commits and closes, firing **no record-wide save** |
+> | **Escape** | reverts, per ruling A3, unchanged |
+>
+> **"Commits" means the DRAFT, not the record.** The field closes holding what was
+> typed; the record-wide Save is still the edit bar's, pressed deliberately. A
+> key that saved a record would make Enter a write, which is exactly what this
+> ruling does not want in a panel where somebody is filling in eight numbers.
+>
+> **WHY IT IS A SUPERSESSION RATHER THAN A SECOND STANDARD, and the rule is this
+> file's own:** Verification 23 records that two correct decisions about one
+> question, taken in different rounds, produce a conflict nothing detects, and
+> that the fix is deletion of one rather than reconciliation. The walk-3
+> archaeology found this section was the ONLY ruling on the Enter key and that
+> nothing implemented it in a panel, so the conflict was live and invisible. One
+> decision now governs each context, and the boundary between them - a form has a
+> submit button, a panel does not - is stated rather than left to judgement.
+>
+> **The arrow keys were considered before and given a different meaning**, which
+> is also re-pointed rather than dropped: a `field-row` test asserted ArrowDown
+> must not SEED an editor. That still holds. Arrows navigate BETWEEN fields and
+> never put text into one.
+
 ## 3. Errors: a summary at the top, plus inline per field, never a modal or toast
 
 On a failed submission:

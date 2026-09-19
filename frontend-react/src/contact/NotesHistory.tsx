@@ -17,8 +17,13 @@ export function NotesHistory({ notes, onAdd, hasDirtyEdits, onConfirmDiscard, re
   notes: readonly Note[]
   /** Resolves false when the write was refused, so the text can stay put. */
   onAdd: (text: string) => Promise<boolean>
-  hasDirtyEdits: boolean
-  onConfirmDiscard: (proceed: () => void) => void
+  /**
+   * V4: OPTIONAL, and the Contact no longer passes them. A surface supplies
+   * these only when its own note write genuinely loses open drafts - which the
+   * Contact's does not, measured live.
+   */
+  hasDirtyEdits?: boolean
+  onConfirmDiscard?: (proceed: () => void) => void
   /** N9: changes per navigation, so a stale open input cannot persist. */
   resetKey?: unknown
   /**
@@ -94,8 +99,34 @@ export function NotesHistory({ notes, onAdd, hasDirtyEdits, onConfirmDiscard, re
   // branch at all. That is what makes one button safe rather than two.
   const onClick = () => {
     if (!open) { setOpen(true); return }
-    // N7: the add ends in a reload, which would discard another open field.
-    if (hasDirtyEdits) { onConfirmDiscard(() => { void submit() }); return }
+    // ── V4: A SAVE NEVER THREATENS A DISCARD ──────────────────────────
+    //
+    // This read: `if (hasDirtyEdits) { onConfirmDiscard(...) }`, on N7's
+    // premise that "the add ends in a reload, which would discard another open
+    // field."
+    //
+    // THE PREMISE IS FALSE, measured rather than reasoned. `useFieldRows` drops
+    // drafts only when the SUBJECT changes, and a reload of the same record
+    // does not change it. Driven live with a field genuinely dirty: accepting
+    // the dialogue and letting the note save leaves the edit ON SCREEN and
+    // still counted. The dialogue asked a person to accept a loss that does not
+    // happen, and named the button that proceeds "Discard".
+    //
+    // Reproduced first, four ways, so the condition is known rather than
+    // guessed: a fresh record, a field opened but not typed in, a field typed
+    // in then Escaped, and a second note all raise NOTHING. Only a genuinely
+    // dirty field did.
+    //
+    // Verification 29: the premise failed, so the decision is re-taken rather
+    // than re-weighed, and the superseded reasoning is left above.
+    //
+    // THE PROPS STAY AND BECOME OPTIONAL, because the question they answer
+    // belongs to the HOST rather than to this component: whether a write loses
+    // drafts is a property of the surface doing the writing. The Contact stops
+    // passing them; the Test Bed keeps them, because its own write path has not
+    // been measured and removing a guard on an unmeasured path is how a real
+    // loss ships.
+    if (hasDirtyEdits && onConfirmDiscard) { onConfirmDiscard(() => { void submit() }); return }
     void submit()
   }
 

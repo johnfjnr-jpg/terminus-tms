@@ -43,12 +43,78 @@ export interface FieldEditorProps {
    * decide, which is why this rebinding needed one change and not five.
    */
   onRequestClose(): void
+  /**
+   * R-K, walk 3, 2026-09-19. COMMIT AND MOVE.
+   *
+   * `+1` is "commit this field and open the next one", `-1` the same upward.
+   * The editor REPORTS the intent and nothing else, exactly as it does for
+   * Escape: which field is next, whether there is one, and what a panel even
+   * is are all the row's to answer. An editor cannot see another field.
+   *
+   * COMMIT MEANS THE DRAFT, NOT THE RECORD. No editor and no row fires a
+   * record-wide save; the bar remains the only thing that does.
+   */
+  onRequestMove(delta: -1 | 1): void
   /** The row focuses this on the open transition. */
   focusRef: RefObject<HTMLElement | null>
   testId: string
 }
 
 export type FieldEditor = (props: FieldEditorProps) => React.ReactElement
+
+// ── WHICH KEYS THE EDITOR KEEPS FOR ITSELF ───────────────────────────────
+//
+// R-K rules that Enter and the vertical arrows commit and move. Applied to
+// every editor alike that is wrong in three of five cases, and each one costs
+// a capability the control exists to provide:
+//
+//   - Enter in a TEXTAREA is a newline. Taking it means the summary field can
+//     never hold a second line.
+//   - arrows in a SELECT choose the option. Taking them means a select cannot
+//     be operated by keyboard at all, which is the whole of A12's point about
+//     a control that invites the keyboard and then refuses it.
+//   - arrows in a DATE input step the focused segment, same reasoning.
+//
+// So the property is DECLARED PER EDITOR KIND, in one table, and a new editor
+// answers the question by joining it rather than by being named in a
+// condition - the lesson TAKES_SEED below already records (Verification 37: a
+// rule naming a mechanism polices the mechanism).
+const EDITOR_KEYS: Record<string, { enter: boolean; arrows: boolean }> = {
+  text: { enter: true, arrows: true },
+  textarea: { enter: false, arrows: false },
+  select: { enter: true, arrows: false },
+  date: { enter: true, arrows: false },
+  checkbox: { enter: true, arrows: true },
+}
+
+function kindOf(field: FieldDescriptor): string {
+  return field.editor ?? (field.options ? 'select' : 'text')
+}
+
+/**
+ * ONE KEY HANDLER FOR ALL FIVE EDITORS.
+ *
+ * Escape lived in five copies of the same line before this, which is five
+ * readers of one decision (Verification 20) and the reason R-K would otherwise
+ * have been a five-place change. The editors' own header says it: "the editor
+ * still just REPORTS the key", and reporting it is now done in one place.
+ */
+export function editorKeyDown(
+  field: FieldDescriptor,
+  { onRequestClose, onRequestMove }: Pick<FieldEditorProps, 'onRequestClose' | 'onRequestMove'>,
+) {
+  const keys = EDITOR_KEYS[kindOf(field)] ?? { enter: true, arrows: true }
+  return (e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') { e.preventDefault(); onRequestClose(); return }
+    // A modified Enter or arrow is somebody reaching for the browser or the
+    // control, not for the next field.
+    if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return
+    if (e.key === 'Enter' && keys.enter) { e.preventDefault(); onRequestMove(1); return }
+    if (!keys.arrows) return
+    if (e.key === 'ArrowDown') { e.preventDefault(); onRequestMove(1); return }
+    if (e.key === 'ArrowUp') { e.preventDefault(); onRequestMove(-1) }
+  }
+}
 
 // ── THE KEYSTROKE GUARD, KEYED ON inputMode ──────────────────────────────
 //
@@ -66,7 +132,7 @@ export function acceptsValue(inputMode: string | undefined, value: string): bool
   return rule ? rule.test(value) : true
 }
 
-export function TextEditor({ field, value, onChange, onRequestClose, focusRef, testId }: FieldEditorProps) {
+export function TextEditor({ field, value, onChange, onRequestClose, onRequestMove, focusRef, testId }: FieldEditorProps) {
   return (
     <input
       ref={focusRef as RefObject<HTMLInputElement | null>}
@@ -74,7 +140,7 @@ export function TextEditor({ field, value, onChange, onRequestClose, focusRef, t
       value={value}
       inputMode={field.inputMode}
       onChange={(e) => onChange(e.target.value)}
-      onKeyDown={(e) => { if (e.key === 'Escape') { e.preventDefault(); onRequestClose() } }}
+      onKeyDown={editorKeyDown(field, { onRequestClose, onRequestMove })}
     />
   )
 }
@@ -145,7 +211,7 @@ export function optionsWithStored(field: FieldDescriptor, value: string): Lookup
   return [...list, { id: value, name: value }]
 }
 
-export function SelectEditor({ field, value, onChange, onRequestClose, focusRef, testId }: FieldEditorProps) {
+export function SelectEditor({ field, value, onChange, onRequestClose, onRequestMove, focusRef, testId }: FieldEditorProps) {
   // The empty option is what lets a set field be CLEARED. Without it a select
   // is a one-way door: once a value is chosen there is no way back to unset,
   // and "not recorded" stops being reachable from the screen.
@@ -155,7 +221,7 @@ export function SelectEditor({ field, value, onChange, onRequestClose, focusRef,
       data-testid={testId}
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      onKeyDown={(e) => { if (e.key === 'Escape') { e.preventDefault(); onRequestClose() } }}
+      onKeyDown={editorKeyDown(field, { onRequestClose, onRequestMove })}
       onFocus={(e) => offerPicker(e.currentTarget)}
     >
       <option value="">--</option>
@@ -170,7 +236,7 @@ export function SelectEditor({ field, value, onChange, onRequestClose, focusRef,
 // `min` comes from the descriptor (A4). The vanilla's own split is kept: the
 // native attribute catches most, and `isNotPastIsoDate` on the server is what
 // actually rejects. Nothing here is authoritative.
-export function DateEditor({ field, value, onChange, onRequestClose, focusRef, testId }: FieldEditorProps) {
+export function DateEditor({ field, value, onChange, onRequestClose, onRequestMove, focusRef, testId }: FieldEditorProps) {
   return (
     <input
       type="date"
@@ -180,7 +246,7 @@ export function DateEditor({ field, value, onChange, onRequestClose, focusRef, t
       min={field.min}
       onChange={(e) => onChange(e.target.value)}
       onFocus={(e) => offerPicker(e.currentTarget)}
-      onKeyDown={(e) => { if (e.key === 'Escape') { e.preventDefault(); onRequestClose() } }}
+      onKeyDown={editorKeyDown(field, { onRequestClose, onRequestMove })}
     />
   )
 }
@@ -208,7 +274,7 @@ export function DateEditor({ field, value, onChange, onRequestClose, focusRef, t
 // reader stops looking.
 //
 // The mechanism is not established. It is reported rather than guessed at.
-export function TextareaEditor({ field, value, onChange, onRequestClose, focusRef, testId }: FieldEditorProps) {
+export function TextareaEditor({ field, value, onChange, onRequestClose, onRequestMove, focusRef, testId }: FieldEditorProps) {
   return (
     <textarea
       ref={focusRef as RefObject<HTMLTextAreaElement | null>}
@@ -216,7 +282,7 @@ export function TextareaEditor({ field, value, onChange, onRequestClose, focusRe
       rows={field.rows ?? 3}
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      onKeyDown={(e) => { if (e.key === 'Escape') { e.preventDefault(); onRequestClose() } }}
+      onKeyDown={editorKeyDown(field, { onRequestClose, onRequestMove })}
     />
   )
 }
@@ -232,7 +298,7 @@ export function TextareaEditor({ field, value, onChange, onRequestClose, focusRe
 // string original would read dirty forever. 'true' and '' are the two states,
 // and '' is chosen for false because it is what an unset field already carries
 // everywhere else on the surface.
-export function CheckboxEditor({ value, onChange, onRequestClose, focusRef, testId }: FieldEditorProps) {
+export function CheckboxEditor({ field, value, onChange, onRequestClose, onRequestMove, focusRef, testId }: FieldEditorProps) {
   return (
     <input
       type="checkbox"
@@ -240,7 +306,7 @@ export function CheckboxEditor({ value, onChange, onRequestClose, focusRef, test
       data-testid={testId}
       checked={value === 'true'}
       onChange={(e) => onChange(e.target.checked ? 'true' : '')}
-      onKeyDown={(e) => { if (e.key === 'Escape') { e.preventDefault(); onRequestClose() } }}
+      onKeyDown={editorKeyDown(field, { onRequestClose, onRequestMove })}
     />
   )
 }

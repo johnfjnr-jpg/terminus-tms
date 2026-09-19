@@ -207,7 +207,8 @@ export function TestBedPanel({ source, rows, buyerLinks, identity, onDirtyChange
           has shipped the duplicate that skipping the second one produces. */}
 
 
-      <div className="ref-cards" data-testid="tb-cards">
+      {/* R-K, walk 3: the Reference tab is a field panel too. */}
+      <div className="ref-cards" data-field-panel="test-bed-reference" data-testid="tb-cards">
         <Card title="Terminus Details" testId="tb-card-terminus">
           {/* W4: `name` LEADS THIS CARD. It keeps the descriptor's own label,
               "Test Bed Name", rather than being shortened here: `descriptors.ts`

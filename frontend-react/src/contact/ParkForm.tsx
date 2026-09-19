@@ -2,14 +2,16 @@
 //
 // A popup with a focus trap, per INTERACTION_STANDARDS section 4 - which uses
 // Park as its own worked example.
+// `flushSync` is gone with the save-path dialogue it existed to serve (R-P).
 import { useEffect, useRef, useState } from 'react'
-import { flushSync } from 'react-dom'
 
-export function ParkForm({ open, onCancel, onSave, hasDirtyEdits, onConfirmDiscard, error }: {
+export function ParkForm({ open, onCancel, onSave, onConfirmDiscard, error }: {
   open: boolean
   onCancel: () => void
   onSave: (date: string, reason: string) => void
-  hasDirtyEdits: boolean
+  // R-P: `hasDirtyEdits` is REMOVED. `onConfirmDiscard` STAYS, because
+  // `leave()` still uses it for the form's own date and reason, which Cancel
+  // really does throw away.
   onConfirmDiscard: (proceed: () => void) => void
   /** P5: a failed transition reports here, and the form stays open. */
   error: string | null
@@ -76,21 +78,25 @@ export function ParkForm({ open, onCancel, onSave, hasDirtyEdits, onConfirmDisca
     // Checked only AFTER Park's own validation passes: warning about an
     // unrelated field before the date and reason are even valid is confusing
     // ordering.
-    if (hasDirtyEdits) {
-      // flushSync, AND IT IS THE WHOLE OF P8 IN REACT. The vanilla closes the
-      // popup with a direct DOM write, so by the time it opens the dialogue the
-      // screen is already clear. Calling onCancel() here only SCHEDULES that,
-      // and React batches it - so the dialogue opened with the fixed
-      // full-screen popup still covering everything, which is exactly the
-      // defect P8 exists to prevent, reproduced by the framework rather than by
-      // forgetting.
-      //
-      // Measured: the test reads whether the form is still in the DOM at the
-      // moment the dialogue is asked, and without this it is.
-      flushSync(() => { onCancel() })
-      onConfirmDiscard(() => { onSave(date, reason.trim()) })
-      return
-    }
+    // ── R-P, walk 3 2026-09-19: THE FIELD-EDIT PROMPT IS GONE FROM SAVE ──
+    //
+    // This read `if (hasDirtyEdits) { flushSync(() => onCancel()); onConfirmDiscard(...) }`,
+    // and the flushSync was a real fix for a real defect (P8): the form is a
+    // fixed full-screen popup, so opening the dialogue underneath it left
+    // "Keep editing" pointing at a Save button nobody could reach.
+    //
+    // MEASURED with V4's own drive, with the park proved to have reached status
+    // Nurture from the database: the field edit SURVIVES. `park` ends in
+    // `setParkOpen(false); await load()`, a reload of the SAME record, and
+    // `useFieldRows` drops drafts only when the SUBJECT changes.
+    //
+    // There was no loss to warn about, so the dialogue goes - and the flushSync
+    // goes with it, because it existed only to clear the screen for a dialogue
+    // that no longer opens on this path.
+    //
+    // `leave()` above KEEPS its prompt, and that is a different claim about a
+    // different dirtiness: the form's OWN date and reason really are thrown
+    // away by Cancel, and its own test asserts so.
     onSave(date, reason.trim())
   }
 

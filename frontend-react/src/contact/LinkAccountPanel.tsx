@@ -28,14 +28,15 @@ export function findAccountMatches(query: string, accounts: AccountOption[]): Ac
 }
 
 export function LinkAccountPanel({
-  contactId, accounts, hasDirtyEdits, onConfirmDiscard, onLinked,
+  contactId, accounts, onLinked,
   submitPath, openLabel, startOpen = false, onCancel, alwaysOfferCreate = false,
 }: {
   contactId: string
   accounts: AccountOption[]
-  hasDirtyEdits: boolean
-  /** Asks the shared discard dialogue, then runs the link if it is accepted. */
-  onConfirmDiscard: (proceed: () => void) => void
+  // R-P: `hasDirtyEdits` and `onConfirmDiscard` are REMOVED rather than left
+  // accepted and ignored. A prop that does nothing is a prop a caller will keep
+  // passing and a reader will keep believing, and TypeScript refusing the call
+  // site is what makes the removal reach every caller instead of most of them.
   onLinked: () => void
   /**
    * R7: REUSED AS QUALIFY'S ACCOUNT STEP, and this is the whole of the change.
@@ -115,9 +116,19 @@ export function LinkAccountPanel({
   // THE DIRTY PATH GUARDS TOO, and the vanilla's does not. Its check returns
   // BEFORE the flag is set, so two rapid clicks while dirty both open the
   // dialogue. Named in Phase 0 as C6 and closed here rather than reproduced.
+  // ── R-P, walk 3 2026-09-19: NO DISCARD PROMPT ON THE LINK ─────────────
+  //
+  // MEASURED with V4's own drive, on a contact the user owns, with the link
+  // proved to have LANDED from the database: the field edit SURVIVES. The
+  // reason is the same one V4 found for the note prompt - `onLinked` is
+  // `load()`, a reload of the SAME record, and `useFieldRows` drops drafts only
+  // when the SUBJECT changes, which a reload does not do.
+  //
+  // So the prompt threatened a loss that does not occur. An action must never
+  // ask to discard something it is not going to discard: the person either
+  // cancels a link they wanted, or learns the warning means nothing.
   const start = (body: Record<string, unknown>) => {
     if (inFlight.current) return
-    if (hasDirtyEdits) { onConfirmDiscard(() => { void doLink(body) }); return }
     void doLink(body)
   }
 

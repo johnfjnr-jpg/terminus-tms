@@ -162,17 +162,35 @@ describe('N: the notes history', () => {
       'a 409 did not reload, so a second click cannot land').toBeGreaterThan(before)
   })
 
-  test('N7 a dirty surface is asked first', async () => {
+  // ── SUPERSEDED BY V4, John's walk 3, 2026-09-19 ────────────────────────
+  //
+  // This read: "N7 a dirty surface is asked first", asserting `discardAsks` is
+  // 1, on the premise that "the add reloads, which would discard the open
+  // field."
+  //
+  // THE PREMISE IS FALSE, measured live rather than reasoned: `useFieldRows`
+  // drops drafts only when the SUBJECT changes, and a reload of the same record
+  // does not change it. Driven with a field genuinely dirty, accepting the
+  // dialogue and letting the note save leaves the edit ON SCREEN and still
+  // counted. The prompt asked a person to accept a loss that does not happen.
+  //
+  // Reproduced four other ways first, all clean: a fresh record, a field opened
+  // but not typed in, a field typed then Escaped, and a second note. Only a
+  // genuinely dirty field raised it, which is the condition this test names.
+  //
+  // Verification 29: a premise failed, so the decision is re-taken and the
+  // superseded reasoning stays visible.
+  test('V4 a dirty surface is NOT asked: a save never threatens a discard', async () => {
     await mount()
-    // R8: the field cards are the dense grid now, so the input is already
-    // open. The old display-row click was the idiom's opening step, not part
-    // of this claim - what makes the surface dirty is the typing, and that is
-    // unchanged.
     await type('input-city', 'Kuala Lumpur')
     await click('cd-add-note-btn')
     await type('cd-new-note-input', 'x')
     await click('cd-add-note-btn')
-    expect(discardAsks, 'the add reloads, which would discard the open field').toBe(1)
+    expect(discardAsks, 'saving a note asked to discard something').toBe(0)
+    // PAIRED, so "nobody was asked" cannot be satisfied by nothing happening
+    // (Verification 14): the note has to have been sent.
+    const wrote = calls.some((c) => c.m === 'PATCH' && /\/api\/contacts\//.test(c.path))
+    expect(wrote, 'the note did not save at all').toBe(true)
   })
 
   test('N8 discard closes and clears', async () => {
@@ -311,26 +329,47 @@ describe('P: the park form', () => {
     expect(discardAsks).toBe(0)
   })
 
-  test('P8 the form CLOSES before the discard dialogue opens', async () => {
-    // It is a fixed full-screen popup: leaving it open under the modal left
-    // "Keep editing" pointing at a Save button nobody could reach.
-    let formOpenWhenAsked: boolean | null = null
+  // ── R-P, walk 3 2026-09-19: P8's SAVE-PATH DIALOGUE IS GONE ───────────
+  //
+  // P8 was "the form CLOSES before the discard dialogue opens", and the
+  // flushSync it required was a real fix for a real defect: the park form is a
+  // fixed full-screen popup, so opening the dialogue underneath it left "Keep
+  // editing" pointing at a Save button nobody could reach.
+  //
+  // MEASURED LIVE, with the park proved to have reached status Nurture from the
+  // database: the field edit SURVIVES the park. `park` ends in
+  // `setParkOpen(false); await load()`, a reload of the SAME record, and
+  // `useFieldRows` drops drafts only when the SUBJECT changes.
+  //
+  // So there was no loss to warn about, and the whole sequence - the dialogue,
+  // and the flushSync that existed only to get the popup out of its way - goes.
+  // The assertion inverts rather than disappearing: nothing may ask.
+  test('R-P: parking does NOT threaten a discard, because it loses nothing', async () => {
     await mount()
     // R8: as N7 - the input is always open now; the typing is what dirties.
     await type('input-city', 'Kuala Lumpur')
     await click('cd-btn-park')
     await type('cd-park-date', '2027-01-31')
     await type('cd-park-reason', 'Budget deferred')
-    const original = services.confirmDiscard
-    ;(services as { confirmDiscard: (p: () => void) => void }).confirmDiscard = (p) => {
-      formOpenWhenAsked = !!$('cd-park-date')
-      discardAsks++
-      p()
-    }
+    const before = discardAsks
     await click('cd-park-save')
-    ;(services as { confirmDiscard: (p: () => void) => void }).confirmDiscard = original
-    expect(formOpenWhenAsked,
-      'the park popup was still covering the screen when the dialogue opened').toBe(false)
+    expect(discardAsks - before,
+      'parking threatened a discard that does not happen').toBe(0)
+  })
+
+  // AND THE CANCEL PATH KEEPS ITS PROMPT, which is a DIFFERENT claim about a
+  // DIFFERENT dirtiness: `leave()` reads the form's OWN date and reason, and
+  // those really are thrown away. Asserted here so removing the save-path
+  // dialogue cannot be read as removing both.
+  test('R-P: but CANCEL still asks, because the form\'s own fields really are lost', async () => {
+    await mount()
+    await click('cd-btn-park')
+    await type('cd-park-date', '2027-01-31')
+    await type('cd-park-reason', 'Budget deferred')
+    const before = discardAsks
+    await click('cd-park-cancel')
+    expect(discardAsks - before,
+      'cancelling a filled-in park form discarded it without asking').toBe(1)
   })
 })
 

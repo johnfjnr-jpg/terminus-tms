@@ -12,6 +12,49 @@ function seedFrom(e: KeyboardEvent): string | null {
   return e.key.length === 1 ? e.key : null
 }
 
+// ── R-K: THE PANEL A ROW BELONGS TO, AND WHAT COMES NEXT IN IT ───────────
+//
+// A PANEL DECLARES ITSELF. `data-field-panel` is the opt-in, and three things
+// follow from it that a class or a document query would not give:
+//
+//   - A DOCUMENT-WIDE SELECTOR IS A GLOBAL WRITE (CLAUDE.md Verification 20's
+//     own clause, and the Create-dead-on-detail bug that produced it). Asking
+//     the document for "the next field row" would reach every other record
+//     resident in the shell. Scoping to the row's own panel makes the reach
+//     impossible rather than merely unexercised.
+//   - IT FAILS SAFE. A surface that has not opted in has no panel ancestor, so
+//     the move finds no target and the keystroke commits and closes - which is
+//     exactly today's behaviour plus a close. Nothing changes anywhere until a
+//     panel says it is one.
+//   - THE ORDER IS THE PANEL'S, NOT THE DESCRIPTOR ARRAY'S. On Commercials the
+//     twelve rows are dealt into four cards and the controller's `fields` is
+//     the whole record's list, most of it on another tab. "The next field" is
+//     the next one the PERSON sees, and the DOM is the only thing that knows
+//     that.
+//
+// Read at the keystroke rather than at render: a row that appeared or a card
+// that collapsed since the last render is accounted for by construction.
+const PANEL = '[data-field-panel]'
+
+/**
+ * The name of the row `delta` places away inside this row's panel, or null.
+ *
+ * `[data-readonly]` is excluded because a read-only row has no edit half at
+ * all - behaviour 7 - so landing on one would be a keystroke that visibly did
+ * nothing. `requestOpen` refuses it too, but refusing one place further on
+ * would consume the move rather than skip the row.
+ */
+function neighbourInPanel(from: HTMLElement | null, name: string, delta: -1 | 1): string | null {
+  const panel = from?.closest(PANEL)
+  if (!panel) return null
+  const names = Array.from(panel.querySelectorAll('.field-row[data-field]:not([data-readonly])'))
+    .map((el) => el.getAttribute('data-field'))
+    .filter((n): n is string => !!n)
+  const i = names.indexOf(name)
+  if (i < 0) return null
+  return names[i + delta] ?? null
+}
+
 // ── THE ROW OWNS STATE, THE DOOR, DIRTY AND KEYBOARD ─────────────────────
 //
 // Round 2 refactored the editor out into a slot (see editors.tsx). What did
@@ -180,6 +223,38 @@ export function FieldRow({ field, rows }: { field: FieldDescriptor; rows: FieldR
           // superseded in writing at MIGRATION_FIELD_ROW_CONTRACT.md rather
           // than left standing beside this.
           onRequestClose={() => { rows.discard(field.name); rows.close(field.name) }}
+          // ── R-K, walk 3, 2026-09-19: COMMIT AND MOVE ────────────────────
+          //
+          // `rows.close` IS the commit, and that is not a shortcut: the draft
+          // lives in a different map and survives a close, which is behaviour
+          // 5 read from the other end and the same call the blur handler above
+          // already makes. Nothing here saves the record, and the boundary
+          // case the ruling names - Enter at the panel's last field - is this
+          // same line with no neighbour to open afterwards.
+          //
+          // The close happens FIRST and unconditionally, so a move with no
+          // target still commits. Closing and opening are two setState calls
+          // on two different maps, so React batching them is harmless.
+          //
+          // ── IT READS REDUNDANT AND IS NOT, AND THE CALIBRATION IS WHY ────
+          //
+          // Removing this line leaves the ORDINARY move working: the next
+          // editor takes focus, the row it left blurs, and the blur handler
+          // above closes it. The injection was written expecting that to fail
+          // and it did not.
+          //
+          // What DOES fail is both boundaries - Enter at the last field and
+          // ArrowUp at the first - because there is no next editor to pull the
+          // focus away. And a move whose focus fails to land is the same case:
+          // focus falls to the body, `relatedTarget` is null, and the blur
+          // handler deliberately does not close on a blur to nothing. So this
+          // line is what makes the COMMIT independent of the focus landing,
+          // rather than a duplicate of the blur path.
+          onRequestMove={(delta) => {
+            const next = neighbourInPanel(focusRef.current, field.name, delta)
+            rows.close(field.name)
+            if (next) rows.requestOpen(next)
+          }}
           // THE ROW APPLIES THE GUARD, NOT THE EDITOR. An editor proposes a
           // value; the declared constraint is enforced here, on the WHOLE
           // candidate, so a paste is guarded the same as a keystroke and a
