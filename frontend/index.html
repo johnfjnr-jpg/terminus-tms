@@ -1492,19 +1492,36 @@
       <div>
         <button class="btn-text" id="btn-back-opps">Back to opportunities</button>
         <p class="eyebrow" style="margin-top:16px">Opportunity</p>
-        <!-- Opportunity Name, click-to-edit (Round 3 Phase 3, 2026-08-17) -
-             same header pattern and same ref-display-*/ref-edit-*/
-             ref-input-* ID trio openRefField/discardRefField already use
-             generically for every card-row field, and the same
-             cd-name-display/cd-name-input classes Contact detail's own
-             header Name uses (style.css), for the same hover affordance.
-             Was static text with no save path at all before this. -->
+        <!-- ── THE RECORD'S TITLE. R2, the Opportunity round, 2026-09-19 ───
+             The superseded markup is described rather than kept, because what
+             it did is the whole reason this one is shaped differently.
+
+             IT WAS CLICK-TO-EDIT AND IT HAD BEEN BROKEN SINCE A RETIREMENT.
+             `opportunity-reference.js` owned `openRefField`, `discardRefField`
+             and the write that filled this heading. That file was deleted with
+             the Reference tab's migration to React, and NOTHING replaced the
+             part of it that wrote OUTSIDE the tab: `ReferenceHost` mounts into
+             `#ref-root`, inside the tab, and a React replacement can only
+             cover its own container.
+
+             MEASURED BEFORE THE FIX, on four of four records: the heading
+             rendered EMPTY while the record was named in the database, its
+             only remaining live writer was `app.js`'s `'Not found'` ERROR
+             path, and activating it raised
+             `ReferenceError: openRefField is not defined`.
+
+             SO THE TITLE IS DISPLAY ONLY NOW, and that is a decision rather
+             than a shortcut. The name is ALREADY an editable row on the
+             Reference tab (`ReferencePanel`, "Opportunity Name"), with a draft
+             store, a discard and a save bar. Rebuilding a second editor here
+             would be two writers of one value - Verification 20 - so this
+             heading READS the name and the tab EDITS it.
+
+             The editor div, its input and its discard control are gone with
+             the handlers they called. A control that cannot work is worse than
+             an absent one: it is focusable, it looks live, and it throws. -->
         <div data-key="name" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-          <h1 id="ref-display-name" class="cd-name-display" tabindex="0" onclick="openRefField('name')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openRefField('name')}"></h1>
-          <div class="ref-field-edit hidden" id="ref-edit-name">
-            <input type="text" id="ref-input-name" class="cd-name-input">
-            <span class="ref-field-discard" tabindex="0" onclick="discardRefField('name')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();discardRefField('name')}">&times;</span>
-          </div>
+          <h1 id="ref-display-name" class="cd-name-display"></h1>
         </div>
         <p class="sub" id="detail-company"></p>
       </div>
@@ -1545,6 +1562,28 @@
       <div id="opp-chevron-strip" class="chevron-strip"></div>
       <div id="opp-chevron-popup" class="chevron-popup hidden"></div>
     </div>
+
+    <!-- ── THE RECORD BAND: SUMMARY, NOTES, FOLLOW-UP TASK ────────────────
+         Part A, the Opportunity round, 2026-09-19. The Opportunity becomes the
+         THIRD caller of the row the Contact and the Test Bed already share.
+
+         ABOVE THE TABS AND BELOW THE CHEVRON, which is where the Test Bed puts
+         its own band and for the reason recorded there: Summary, Notes and the
+         follow-up describe the RECORD, exactly as the headline strip and the
+         chevron above them do, so they are stated where the record is named
+         rather than inside one tab.
+
+         `TestBedBand`'s comment records the mistake this position avoids. A
+         round told to put that band "in the header" put it at the top of the
+         Reference TAB'S panel, 433px down the page, and every assertion passed
+         because they asked whether the band was INTACT rather than where it
+         SAT.
+
+         EMPTY MARKUP ON PURPOSE. React portals into it from inside
+         `ReferencePanel`, so the band's Summary row shares that panel's draft
+         store and save bar instead of owning a second one. The container is
+         vanilla and the portal null-checks it. -->
+    <div id="opp-band-root"></div>
 
     <div class="detail-tabs" id="opp-detail-tabs">
       <button class="detail-tab active" data-opp-tab="reference">Reference</button>
@@ -1593,8 +1632,22 @@
            ORDER MATCHES TEST BED: edit controls first, record actions after,
            so the two groups read as two groups. -->
       <div class="opp-tab-actions" id="opp-tab-actions">
-        <button class="btn-sm btn-ghost tab-action-idle" id="ref-cancel-all">Cancel</button>
-        <button class="btn-sm btn-primary tab-action-idle" id="ref-save-all">Save changes</button>
+        <!-- ── THE VANILLA SAVE BAR IS GONE. R2, 2026-09-19 ────────────────
+             `ref-cancel-all` and `ref-save-all` were toggled by
+             `opportunity-reference.js` through `.tab-action-idle`. That file
+             was retired and NOTHING toggles the class any more: it appears in
+             `style.css` and in no live script, so `visibility: hidden` had
+             stopped being a state and become permanent.
+
+             MEASURED: both still reserved layout, 134x34 and 88x34, beside two
+             controls that do work. `visibility: hidden` preserves the box, so
+             they were invisible and still taking the room.
+
+             React supplies the replacement: `ReferencePanel` renders its own
+             `EditBar` as `ref-react-save-all`, named differently on purpose
+             because two elements once carried the same id and focus went to
+             the dead one. A retired surface is retired rather than left
+             beside its replacement (Verification 41). -->
         <!-- ── U8: THE FIRST PAINT IS NEVER AN OFFER. 2026-09-04 ──────────
              It shipped ENABLED and labelled "Next Stage", so the very first
              frame - before any JavaScript has read the record, let alone the

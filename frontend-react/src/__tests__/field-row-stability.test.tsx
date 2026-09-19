@@ -64,7 +64,23 @@ const services: ShellServices = shellServices({
 })
 
 const mount = async () => {
-  document.body.innerHTML = '<div id="host"></div>'
+  // `#opp-band-root` is where `ReferencePanel` PORTALS the record band, and
+  // the Summary row lives in that band. In `index.html` the container is a
+  // sibling of the React mount; here it is created INSIDE the host so these
+  // tests' `host.querySelector` still reaches the row.
+  //
+  // THAT IS A DELIBERATE DIFFERENCE AND IT IS SAFE, because position is not
+  // what this file measures. Where the band SITS relative to the chevron and
+  // the tab row is a layout claim, asserted live by
+  // `scripts/opportunity/probe-region-live.mjs` against the real document.
+  // What these tests measure is behaviour: the draft store, the door and the
+  // save, none of which the portal's target changes.
+  // A SIBLING, NOT A CHILD, and the first attempt proved why: nesting it
+  // inside `#host` looked tidier and `createRoot` CLEARS ITS CONTAINER on
+  // first render, so the band's target was destroyed before the portal could
+  // find it and all ten tests failed exactly as before. Production has it as
+  // a sibling too.
+  document.body.innerHTML = '<div id="host"></div><div id="opp-band-root"></div>'
   host = document.getElementById('host')!
   root = createRoot(host)
   await act(async () => {
@@ -76,7 +92,11 @@ const mount = async () => {
   })
 }
 const must = (sel: string) => {
-  const e = host.querySelector(sel) as HTMLElement | null
+  // The Summary row is PORTALLED into `#opp-band-root`, so it is a child of
+  // this component in the React tree and a child of a sibling div in the DOM.
+  // A lookup that only reads `host` reports it absent.
+  const e = (host.querySelector(sel)
+    ?? document.getElementById('opp-band-root')?.querySelector(sel) ?? null) as HTMLElement | null
   if (!e) throw new Error(`no ${sel}`); return e
 }
 /** One character, the way a keystroke arrives: a value change plus an input event. */
@@ -92,7 +112,24 @@ const typeOne = async (name: string, next: string) => {
   })
 }
 
-beforeEach(() => { document.body.innerHTML = '' })
+// ── THE BAND'S CONTAINER, BECAUSE PRODUCTION HAS ONE ────────────────────
+//
+// `ReferencePanel` portals the record band into `#opp-band-root`, a div that
+// `index.html` carries in the Opportunity's top region. The Summary row lives
+// in that band, so a harness without the container renders it NOWHERE and
+// eight tests here failed on `no [data-testid="display-summary"]`.
+//
+// THE FIX IS THE HARNESS, NOT A FALLBACK IN THE COMPONENT. Rendering the row
+// inline when the container is missing would give the component two layouts
+// and let every test pass against a shape production never has, which is the
+// fixture-shaped-to-the-implementation fault. The harness reproduces how the
+// code is INVOKED instead.
+beforeEach(() => {
+  document.body.innerHTML = ''
+  const band = document.createElement('div')
+  band.id = 'opp-band-root'
+  document.body.appendChild(band)
+})
 
 describe('ST: the row survives typing', () => {
   test('ST1 the DOM node is the SAME node after every keystroke', async () => {

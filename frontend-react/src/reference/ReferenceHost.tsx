@@ -8,6 +8,9 @@ import { SAME_AS_ACCOUNT } from './descriptors'
 import type { ReferenceSource } from './descriptors'
 import type { KcLink } from './KeyContacts'
 import { useShell } from '../ShellContext'
+import { NotesHistory } from '../contact/NotesHistory'
+import { FollowUpTask } from '../contact/FollowUpTask'
+import { note, prepend, type Note } from '../contact/notes'
 // THE PREDICATE IS THE ROUTE'S OWN, imported from the shared module rather
 // than restated here or read off a window bridge. src/lib is served at /lib
 // and this is the same file the route imports, so the screen and the server
@@ -199,6 +202,30 @@ export function ReferenceHost({ opp, registerReload }: {
     await savePayload(rest)
   }
 
+  // ── THE RECORD BAND'S TWO HOST-OWNED CARDS ──────────────────────────────
+  //
+  // Built here and composed by the panel, which is the TestBedHost shape: the
+  // host owns every write, the band owns the layout. Both go through
+  // `window.oppPatch`, the SAME writer `savePayload` above uses, so a refusal
+  // is worded once by the shell rather than described differently by three
+  // callers.
+  const notes: Note[] = Array.isArray(record.payload?.notes)
+    ? (record.payload.notes as Note[]) : []
+
+  const addNote = async (text: string): Promise<boolean> => {
+    const r = await window.oppPatch!(opp.id, {
+      payload: { notes: prepend(note(text, shell.currentUserEmail(), new Date().toISOString()), notes) },
+    })
+    if (!r.ok) return false
+    await load()
+    return true
+  }
+
+  const saveFollowUp = async (next: { followUpDate: string, followUpDescription: string }) => {
+    const r = await window.oppPatch!(opp.id, { payload: next })
+    if (r.ok) await load()
+  }
+
   return (
     <div data-testid="reference-host">
       <ReferencePanel
@@ -207,7 +234,18 @@ export function ReferenceHost({ opp, registerReload }: {
         closeMoves={source.payload.closeMoves}
         oppId={opp.id}
         onSave={(c) => { void onSave(c) }}
-        onChanged={() => { void load() }} />
+        onChanged={() => { void load() }}
+        notes={
+          <NotesHistory
+            notes={notes}
+            resetKey={opp.id}
+            onAdd={addNote} />}
+        followUp={
+          <FollowUpTask
+            date={String(record.payload?.followUpDate ?? '')}
+            description={String(record.payload?.followUpDescription ?? '')}
+            resetKey={opp.id}
+            onSave={(next) => { void saveFollowUp(next) }} />} />
       {/* The shell's renderer returns HTML because the sentence carries a
           control. A surface that could only render text would have to invent
           its own, which is the duplication this avoids. */}

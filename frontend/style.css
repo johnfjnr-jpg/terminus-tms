@@ -5618,9 +5618,36 @@ input.input-invalid {
    `auto-fit` with a floor rather than a fixed six: at 1240 six money figures do
    not fit on one line, and wrapping to two rows of three is legible where
    shrinking to fit is not. */
+/* ── R6: THE SIX FIGURES SHARE ONE ROW AT 1240 ──────────────────────────
+   The Opportunity round, 2026-09-19.
+
+   THE DEFECT, MEASURED. The strip is 876px wide at 1240 and carried SIX
+   cells against a 150px floor, which admits five columns (876/150 = 5.84).
+   The sixth wrapped, so the strip rendered 137px deep with one figure alone
+   on a second row beside a wide empty cell. At 1440, 1920 and 3440 the same
+   markup fits one row at 72px, so 1240 was the only width that broke and the
+   only width where it mattered.
+
+   THE FLOOR IS DERIVED FROM THE REQUIREMENT, not read off the result. The
+   requirement is that all six share one row at the narrowest supported width.
+   Six cells plus five 1px gaps inside 876px allows at most 145px each, so the
+   floor must be at or below that; 140 takes it with a small tolerance for a
+   scrollbar or a padding change rather than sitting exactly on the boundary.
+
+   MEASURED AFTER: one row at every width, 137px -> 81px at 1240. The cost is
+   the longest label, "Total contract value", wrapping to two lines at that
+   width. That is a wrap, not a crop: the text is whole and readable, which a
+   stranded second row with an empty cell beside it was not.
+
+   AUTO-FIT IS KEPT RATHER THAN A FIXED `repeat(6, 1fr)`. The cell count lives
+   in `renderOppHeadline`, which builds exactly six figures unconditionally, so
+   a literal 6 here would be a second reader of that fact and would OVERFLOW
+   rather than wrap the day somebody adds a seventh. A floor degrades; a count
+   breaks. The one-row claim is asserted by test instead, which is what catches
+   a seventh cell. */
 .opp-headline {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 1px;
   background: var(--hairline-strong);
   border: 1px solid var(--hairline-strong);

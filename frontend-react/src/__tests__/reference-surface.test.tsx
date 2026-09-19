@@ -59,7 +59,20 @@ const mount = async (opts: {
   onSave?: (c: Record<string, string>) => void
 } = {}) => {
   apiCalls = []
-  document.body.innerHTML = '<div id="host"></div>'
+  // A SIBLING, NOT A CHILD: `createRoot` CLEARS its container on first render,
+  // so a target nested inside `#host` is destroyed before the portal finds it.
+  // `#opp-band-root` is where `ReferencePanel` PORTALS the record band, and
+  // the Summary row lives in that band. In `index.html` the container is a
+  // sibling of the React mount; here it is created INSIDE the host so these
+  // tests' `host.querySelector` still reaches the row.
+  //
+  // THAT IS A DELIBERATE DIFFERENCE AND IT IS SAFE, because position is not
+  // what this file measures. Where the band SITS relative to the chevron and
+  // the tab row is a layout claim, asserted live by
+  // `scripts/opportunity/probe-region-live.mjs` against the real document.
+  // What these tests measure is behaviour: the draft store, the door and the
+  // save, none of which the portal's target changes.
+  document.body.innerHTML = '<div id="host"></div><div id="opp-band-root"></div>'
   host = document.getElementById('host')!
   root = createRoot(host)
   await act(async () => {
@@ -75,7 +88,13 @@ const mount = async (opts: {
       </ShellProvider>)
   })
 }
-const q = (sel: string) => host.querySelector(sel) as HTMLElement | null
+// SEARCHES THE HOST AND THE BAND, because the Summary row is PORTALLED into
+// `#opp-band-root` and is therefore a child of this component in the React
+// tree and a child of a sibling div in the DOM. A helper that only reads
+// `host` reports the row as absent, which is how this surfaced: ten tests
+// failing on `no [data-testid="display-summary"]` with nothing wrong.
+const q = (sel: string) => (host.querySelector(sel)
+  ?? document.getElementById('opp-band-root')?.querySelector(sel) ?? null) as HTMLElement | null
 const must = (sel: string) => { const e = q(sel); if (!e) throw new Error(`no ${sel}`); return e }
 const display = (n: string) => must(`[data-testid="display-${n}"]`)
 const editHalf = (n: string) => must(`[data-testid="edit-${n}"]`)
@@ -93,14 +112,38 @@ const EDITABLE = ['name', 'lead', 'commercial', 'technical', 'legal', 'region', 
   'commRegion', 'estClose', 'actualClose', 'estGoLive', 'actualGoLive', 'duration',
   'oppType', 'summary']
 
-beforeEach(() => { document.body.innerHTML = '' })
+// ── THE BAND'S CONTAINER, BECAUSE PRODUCTION HAS ONE ────────────────────
+//
+// `ReferencePanel` portals the record band into `#opp-band-root`, a div that
+// `index.html` carries in the Opportunity's top region. The Summary row lives
+// in that band, so a harness without the container renders it NOWHERE and
+// eight tests here failed on `no [data-testid="display-summary"]`.
+//
+// THE FIX IS THE HARNESS, NOT A FALLBACK IN THE COMPONENT. Rendering the row
+// inline when the container is missing would give the component two layouts
+// and let every test pass against a shape production never has, which is the
+// fixture-shaped-to-the-implementation fault. The harness reproduces how the
+// code is INVOKED instead.
+beforeEach(() => {
+  document.body.innerHTML = ''
+  const band = document.createElement('div')
+  band.id = 'opp-band-root'
+  document.body.appendChild(band)
+})
 
 // ── ITEM 2: THE ROWS ────────────────────────────────────────────────────
 describe('R: the rows render per the census', () => {
   test('R1 all 21 editable rows are present', async () => {
     await mount()
     for (const n of EDITABLE) expect(q(`[data-field="${n}"]`), `${n} did not render`).toBeTruthy()
-    expect(host.querySelectorAll('[data-dirty]'), 'expected 21 editable rows').toHaveLength(21)
+    // COUNTED ACROSS BOTH TREES. Twenty rows render inside the panel and the
+    // twenty-first, Summary, is portalled into the band. The total is the
+    // claim, and it is still 21: the row MOVED, it was not removed, and a
+    // count scoped to the host alone would report the move as a loss.
+    const band = document.getElementById('opp-band-root')
+    expect([...host.querySelectorAll('[data-dirty]'),
+      ...(band ? [...band.querySelectorAll('[data-dirty]')] : [])],
+    'expected 21 editable rows across the panel and the band').toHaveLength(21)
   })
 
   test('R1b BEHAVIOUR 3: a closed row carries hidden on its edit half', async () => {
@@ -123,7 +166,19 @@ describe('R: the rows render per the census', () => {
     const titles = [...host.querySelectorAll('.pg-card-title')].map((e) => e.textContent)
     expect(titles).toEqual([
       'Terminus Details', 'Customer Details', 'Key Dates',
-      'Key Customer Contacts', 'Executive Summary'])
+      'Key Customer Contacts',
+      // WAS 'Executive Summary'. The summary row moved to the record band and
+      // the title followed its content: a card headed "Executive Summary" over
+      // nothing but an opportunity-type row is a sentence that was true when
+      // typed and is derived from nothing, so nothing could falsify it.
+      'Opportunity type'])
+
+    // AND THE BAND NAMES ITS OWN SECTIONS, which is the same claim for the
+    // three cards this round added. Without it, the move would be asserted
+    // only as a removal from the list above.
+    const band = document.getElementById('opp-band-root')
+    expect([...(band?.querySelectorAll('.pg-card-title') ?? [])].map((e) => e.textContent))
+      .toEqual(['Summary', 'Notes'])
   })
 
   test('R2 and the five read-only rows, WITHOUT a tab stop (behaviour 7)', async () => {
@@ -333,7 +388,8 @@ describe('D: the ownership door', () => {
     // and the sweep. A value read once at render would reintroduce one.
     let allowed = false
     const services: ShellServices = shellServices({ ...shell(true), canEditFields: () => allowed })
-    document.body.innerHTML = '<div id="host"></div>'
+    // The band's portal target, as above: a sibling, because createRoot clears.
+    document.body.innerHTML = '<div id="host"></div><div id="opp-band-root"></div>'
     host = document.getElementById('host')!
     root = createRoot(host)
     await act(async () => {

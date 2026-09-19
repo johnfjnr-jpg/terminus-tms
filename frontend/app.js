@@ -7596,10 +7596,31 @@ async function renderOppDetail(opp) {
   renderOppReadOnlyBanner(notMine)
   renderOppPricingApprovalBanner(opp.id)
 
-  // ref-display-name is set below by opportunity-reference.js's
-  // renderReferenceTab (Round 3 Phase 3, 2026-08-17) - it's now the
-  // click-to-edit header field, owned there like every other field, not
-  // set redundantly here too.
+  // ── THE RECORD'S TITLE. R2, the Opportunity round, 2026-09-19 ───────────
+  //
+  // THE SUPERSEDED COMMENT IS KEPT BELOW BECAUSE IT IS THE WHOLE DIAGNOSIS.
+  // It read:
+  //
+  //   ref-display-name is set below by opportunity-reference.js's
+  //   renderReferenceTab - it's now the click-to-edit header field, owned
+  //   there like every other field, not set redundantly here too.
+  //
+  // Every clause was true when written and the FILE IT NAMES NO LONGER
+  // EXISTS. `frontend/opportunity-reference.js` was deleted when the Reference
+  // tab moved to React, and the React replacement mounts into `#ref-root`,
+  // INSIDE the tab. This heading sits in `.detail-head`, outside it, so
+  // nothing has written it since.
+  //
+  // MEASURED on four of four records: empty heading, record named in the
+  // database, and the only live writer left was the `'Not found'` error path
+  // a few lines above. A comment deferring to a deleted file is the reason it
+  // went unnoticed for a migration: it reads exactly like a correct division
+  // of labour.
+  //
+  // Written HERE now, from the same payload the sub-line reads, because the
+  // vanilla owns this region. The Reference tab still owns EDITING the name;
+  // this is a display, and the two are one value read twice for two jobs.
+  document.getElementById('ref-display-name').textContent = p.name ?? '--'
   document.getElementById('detail-company').textContent = p.company_name ?? ''
   document.getElementById('detail-probability').textContent =
     det.probability_pct != null ? `${det.probability_pct}%` : '--'
@@ -7632,8 +7653,10 @@ async function renderOppDetail(opp) {
   // Commercials tab — deal-calculator.js live preview + save/submit.
   window.initOpportunityDealPanel?.(opp)
 
-  // opportunity-reference.js owns the Reference tab — click-to-edit fields,
-  // Executive Summary, Notes.
+  // The React ReferenceHost owns the Reference tab: click-to-edit fields, the
+  // key contacts, and now the record band it portals into `#opp-band-root`
+  // above the tab row. The file this comment used to name,
+  // `opportunity-reference.js`, was retired with the migration.
   window.initOpportunityReferencePanel?.(opp)
 
   // The stage tabs are generated per record, from that record's own stage

@@ -24,14 +24,16 @@ import type { IdentityRows } from './identity'
 // second copy of a four-line wrapper is still two definitions of one idea
 // (Verification 20). It stays here rather than moving to ui/: this is the
 // Test Bed's card, and ui/Panel is a different thing with a different contract.
-export function Card({ title, testId, children }: { title: string, testId: string, children: ReactNode }) {
-  return (
-    <div className="pg-card" data-testid={testId}>
-      <div className="pg-card-title">{title}</div>
-      {children}
-    </div>
-  )
-}
+// THE CARD MOVED to `shared/Card.tsx` when the Opportunity band became its
+// second consumer, and is RE-EXPORTED here so every existing caller is
+// unchanged. One definition, imported, rather than two that agree today.
+//
+// IMPORTED AS WELL AS RE-EXPORTED, because a bare `export ... from` does NOT
+// bring the name into this module's own scope and this file renders eight
+// cards of its own. The typecheck caught it as eight `Cannot find name 'Card'`
+// in one pass, which is the cheap end of this class.
+import { Card } from '../shared/Card'
+export { Card } from '../shared/Card'
 
 export function TestBedPanel({ source, rows, buyerLinks, identity, onDirtyChange, controls, useCases, customerDocs, history, score, refPanes, refPane, onRefPaneChange }: {
   source: TestBedSource

@@ -2,8 +2,11 @@
 //
 // Behind the line: nothing registers this and the vanilla stays live.
 import { useMemo, useState } from 'react'
+import type { ReactNode } from 'react'
 import { FieldRow } from '../field-row/FieldRow'
 import { EditBar } from '../field-row/EditBar'
+import { createPortal } from 'react-dom'
+import { OpportunityBand } from '../opportunity/OpportunityBand'
 import { useFieldRows } from '../field-row/useFieldRows'
 import { CheckboxEditor } from '../field-row/editors'
 import { useRef } from 'react'
@@ -97,13 +100,16 @@ function Card({ title, testId, children }: {
   )
 }
 
-export function ReferencePanel({ source, links, closeMoves, oppId, onSave, onChanged }: {
+export function ReferencePanel({ source, links, closeMoves, oppId, onSave, onChanged, notes, followUp }: {
   source: ReferenceSource
   links: KcLink[]
   closeMoves: unknown
   oppId: string
   onSave: (changes: Record<string, string>) => void
   onChanged: () => void
+  /** The band's two host-owned cards. Built by the host, composed here. */
+  notes?: ReactNode
+  followUp?: ReactNode
 }) {
   const shell = useShell()
   const [now] = useState(() => new Date())
@@ -124,6 +130,13 @@ export function ReferencePanel({ source, links, closeMoves, oppId, onSave, onCha
   ], [source, flagOn, now, flagOrig])
 
   const rows = useFieldRows(fields)
+
+  // THE BAND'S CONTAINER, read on every render rather than once. `app.js`
+  // rebuilds nothing here, but reading it during render keeps the lookup and
+  // the portal in the same pass: an effect would set it one render later, and
+  // the band would be missing from the first paint of every record.
+  const bandHost = typeof document === 'undefined'
+    ? null : document.getElementById('opp-band-root')
 
   // ── ONE WRITE, TWO STORES, AND WHY IT IS NOT setState-DURING-RENDER ────
   //
@@ -195,9 +208,20 @@ export function ReferencePanel({ source, links, closeMoves, oppId, onSave, onCha
         <KeyContacts oppId={oppId} links={links} onChanged={onChanged} />
       </Card>
 
-      <Card title="Executive Summary" testId="ref-summary">
+      {/* ── SUMMARY HAS MOVED TO THE RECORD BAND, and this card keeps what is
+          left. The row is not duplicated: it is the SAME element, from the
+          SAME draft store, rendered through a portal into the band's own
+          container at the top of the record. Two summary editors would be two
+          writers of one value, which is the drift Verification 20 is about.
+
+          THE TITLE FOLLOWED THE CONTENT. A card headed "Executive Summary"
+          over nothing but an opportunity-type row is the stale-literal shape
+          Architecture 9 records: a sentence that was true when typed and is
+          not derived from anything, so nothing can falsify it. The testId
+          moved with it for the same reason, and it is asserted nowhere else -
+          measured across the repository before renaming. */}
+      <Card title="Opportunity type" testId="ref-opptype">
         {row('oppType')}
-        {row('summary')}
       </Card>
 
       {/* ── THE ID IS NOT THE VANILLA'S, AND MEASUREMENT IS WHY ───────────
@@ -209,6 +233,29 @@ export function ReferencePanel({ source, links, closeMoves, oppId, onSave, onCha
           returned focus to a button in a different container.
           A migrated surface names its own controls. */}
       <EditBar rows={rows} onSave={onSave} saveId="ref-react-save-all" />
+
+      {/* ── THE RECORD BAND, RENDERED INTO THE TOP REGION ─────────────────
+          A PORTAL rather than a second React root, and the reason is the
+          draft store. The band's Summary row has to be the SAME row, in the
+          SAME store, saved by the SAME EditBar as every other field on this
+          surface. A separate root would need its own store and its own save
+          path, which is two writers of one value.
+
+          So the element is a child of this component in the React tree, and a
+          child of `#opp-band-root` in the DOM. It inherits this panel's
+          context and its store, and it renders at the top of the record where
+          a record-level band belongs.
+
+          THE CONTAINER IS VANILLA MARKUP and may legitimately be absent - the
+          view is built by `app.js`, and a portal into a missing node throws.
+          A null check is the whole guard. */}
+      {bandHost ? createPortal(
+        <OpportunityBand
+          summaryField={byName('summary')}
+          rows={rows}
+          notes={notes}
+          followUp={followUp} />,
+        bandHost) : null}
     </div>
   )
 }
