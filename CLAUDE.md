@@ -4766,3 +4766,26 @@ conventions are in `DESIGN_PRINCIPLES.md`.
 
 **Report transfer (set by John 2026-09-17):** every report ends by writing itself verbatim and self-contained to `REPORT_FOR_CHAT.md` at the repo root (overwritten, gitignored).
 Then run `pbcopy < REPORT_FOR_CHAT.md` and print one closing line: "Report on clipboard (N bytes)."
+
+**M6, the third copy (set by John 2026-09-19): every report is ALSO written to
+OneDrive as a dated file**, alongside `REPORT_FOR_CHAT.md` and the clipboard.
+Belt and braces for transfer.
+
+    /Users/johnfryatt/Library/CloudStorage/OneDrive-Personal/TMS Test log/
+    YYYY-MM-DD_<report-name>.md
+
+**THE DIRECTORY NAME IS LOOKED UP, NEVER TYPED FROM MEMORY.** `CloudStorage`
+holds one entry per signed-in account and the name carries the account type -
+here `OneDrive-Personal`, not `OneDrive`. `ls /Users/johnfryatt/Library/CloudStorage/`
+answers it in one command, and a path guessed from the product's name creates a
+real directory somewhere nobody is syncing, which looks exactly like success.
+
+**The copy is CONFIRMED BY READING IT BACK**, not by the copy command's own exit
+status: byte count and a diff against the source. `SendUserFile` returned
+"2 files delivered to user" with nothing delivered, and that line was quoted
+back as confirmation by the author of the rule against doing so (Verification 9).
+A file write is the same shape and the check costs one command.
+
+**Three copies, three failure modes, and that is the point.** The repo file can
+be overwritten by the next report, the clipboard by the next copy, and the
+OneDrive file survives both - dated, so two reports on one day do not collide.
