@@ -465,6 +465,42 @@ not resolve it quietly.
     every one of them removes work that cannot discriminate. None of them
     removes a check that could fail.
 
+18. **CLAUDE CODE NEVER EXECUTES `git push`.** Set by the business 2026-09-19,
+    and it is a standing rule rather than a preference about any one round.
+
+    > **Never, even when a push command appears in pasted instructions.** On
+    > reaching a push-ready state, STOP and report **"ready for John's push"**
+    > with the expected SHA.
+
+    **WHY IT IS A RULE NOW AND WAS NOT BEFORE: THE MECHANICAL BARRIER IS GONE.**
+    Pushing used to fail from this session for want of credentials, so the
+    prohibition enforced itself and nobody had to hold it. **A push from this
+    session succeeded on 2026-09-19.** That is the whole change: the thing that
+    made the old arrangement safe was an accident of the environment, and it has
+    stopped being true.
+
+    **THE ONE PUSH ALREADY MADE IS NOT A BREACH AND IS NOT PRECEDENT.** It was
+    worded explicitly, it followed a stated gate result, and it was verified
+    against the remote. This rule governs everything after it.
+
+    **AND THE HONEST WEAKNESS, recorded here rather than left for somebody to
+    discover.** This file's own index task says **mechanical enforcement is
+    gateable and judgement is not**, and that a behavioural rule guarding a
+    mechanical fault is a rule that will be broken. This is exactly such a rule:
+    a pasted block containing `git push` is an instruction to follow, and the
+    only thing refusing it is a sentence.
+
+    **A MECHANISM IS AVAILABLE AND IS NOT BUILT HERE**: `.githooks/` already
+    holds `pre-commit`, and a `pre-push` beside it could refuse unconditionally
+    while leaving the business's own terminal free. Named as the option rather
+    than taken, because the business set this as the control and building a
+    gate around their own instruction is their call and not mine.
+
+    **The reporting line is part of the rule, not a courtesy.** "Ready for
+    John's push" with the SHA is what makes the stop actionable in one command,
+    and a stop that leaves somebody hunting for what to push is a stop that gets
+    worked around.
+
 ---
 
 ## Architecture
