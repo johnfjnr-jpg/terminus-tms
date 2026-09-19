@@ -3761,7 +3761,28 @@ function renderOppAssessCriterion(c) {
   const answerText = current?.answer
     ? `${escHtml(current.answer.currency)} ${escHtml(Number(current.answer.amount).toLocaleString('en-GB'))}`
     : ''
-  const answerBox = c.criterion_key !== OPP_VALUE_CAPTURE_KEY ? '' : `
+  // ── R7, 2026-09-19: THE FIGURE RENDERS ONLY AT A FIGURE-BEARING LEVEL ──
+  //
+  // Ruled by John. A budget figure is an answer to "how much", and at Not
+  // applicable or Unknown there is no amount to give - so offering the input
+  // invites a number that contradicts the level standing beside it.
+  //
+  // MATCHED ON THE LABEL, which is what the ruling named and what the business
+  // reads, rather than on 3/4/5 - a scale that is renumbered would silently
+  // move the gate, and the numbers are an implementation detail of this scale.
+  // An unmatched label hides the box, which is the SAFE direction: hiding never
+  // destroys anything, because the figure lives in the draft and the record and
+  // not in the markup.
+  //
+  // PRESERVATION IS BY CONSTRUCTION, and it was checked before this was
+  // written. `sendAnswer` is true only when an amount was actually typed into
+  // the draft, so a save at a hidden level carries no `answer` key at all and
+  // the stored figure is never overwritten. This is the one shape that would
+  // have made hiding a control destructive - the control that edits a value is
+  // usually also what supplies it on save - and here it is not.
+  const figureLevel = (c.levels ?? []).find(l => String(l.value) === String(effective))
+  const figureBearing = OPP_FIGURE_BEARING_LEVELS.has(String(figureLevel?.label ?? ''))
+  const answerBox = (c.criterion_key !== OPP_VALUE_CAPTURE_KEY || !figureBearing) ? '' : `
     <span class="opp-assess-answer">
       <input type="text" inputmode="decimal" id="opp-assess-amount-${escHtml(c.criterion_key)}"
         aria-label="Budget figure, optional"
@@ -4392,6 +4413,11 @@ window.setOppAssessReason = function (key, value) {
 }
 // Held without re-rendering, like the reason: re-rendering on every keystroke
 // would destroy the input the person is typing into.
+// R7: the levels at which a budget figure means anything. Named by LABEL
+// because that is what the ruling named and what a person reads; a scale
+// renumbering must not silently move the gate.
+const OPP_FIGURE_BEARING_LEVELS = new Set(['Our hypothesis', 'Buyer confirmed', 'Verified'])
+
 window.setOppAssessAnswer = function (key, field, value) {
   oppAssessAnswer[key] = { ...(oppAssessAnswer[key] ?? {}), [field]: value }
 }
