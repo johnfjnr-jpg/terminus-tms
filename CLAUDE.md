@@ -496,6 +496,50 @@ not resolve it quietly.
     than taken, because the business set this as the control and building a
     gate around their own instruction is their call and not mine.
 
+    **BUILT 2026-09-19, at the Opportunity round's Step 0, on John's
+    instruction. The paragraph above is left standing because its last sentence
+    was right: it was the business's call, and they made it.**
+    `.githooks/pre-push` now refuses, and this file's own index task is the
+    reason it was worth building: mechanical enforcement is gateable, judgement
+    is not, and a behavioural rule guarding a mechanical fault is a rule that
+    will be broken.
+
+    **THE DISCRIMINATOR IS MEASURED, AND THE OBVIOUS ONE DOES NOT WORK.** The
+    agent session runs as `USER=johnfryatt`, `LOGNAME=johnfryatt`, **uid 501**:
+    the SAME account as the business's own terminal. No user, home directory or
+    group separates them, so the "sandbox user" the instruction offered as a
+    candidate does not exist. Two things do separate them, both measured:
+
+    | signal | in this session | in a normal login shell |
+    |---|---|---|
+    | `CLAUDECODE`, `CLAUDE_CODE_ENTRYPOINT` | set | **unset** under `env -i zsh -l`, and named in NO dotfile (`~/.zshrc` is one line, `PATH` only) |
+    | a terminal on stderr | **absent** on all three descriptors | present under a real pty |
+
+    **BOTH ARE GATED ON, BECAUSE THEY FAIL IN OPPOSITE DIRECTIONS.** The env
+    marker **fails OPEN**: a future release that stops exporting `CLAUDECODE`
+    disarms the hook silently, and its silence would read exactly like its
+    success, which is this file's own "a control that deletes its own evidence
+    of use cannot detect non-use". The tty test **fails CLOSED** and depends on
+    no vendor's variable, so it is what survives the marker going away. Only
+    the tty test carries an override, `TMS_PUSH_NONINTERACTIVE=1`, because only
+    it has a false positive to answer for: a piped or scripted push from the
+    business's own terminal is not a tty either.
+
+    **CALIBRATED BOTH DIRECTIONS, AND IN THE PRODUCT AS WELL AS THE LOGIC.** A
+    five-case matrix read 5 of 5, scored on a POSITIVE witness each way, since
+    an allow read as "no refusal seen" is also what a hook that never ran
+    produces. The first harness scored a vacuous pass for exactly that reason
+    and the witness caught it. Then, end to end against a throwaway local bare
+    repo, so nothing could leave the machine: a real `git push` from this
+    session was **refused with zero refs landing**, and **the identical push
+    with the hooks path pointed at an empty directory SUCCEEDED**. The hook,
+    and only the hook, is what refused.
+
+    **AND THE HONEST LIMIT, which is why the rule remains the control and the
+    hook is only its second line.** This binds accident and pasted instruction.
+    It cannot bind a session that chooses to unset the marker, because that
+    session can also edit the hook. It is a guard, not a cage.
+
     **The reporting line is part of the rule, not a courtesy.** "Ready for
     John's push" with the SHA is what makes the stop actionable in one command,
     and a stop that leaves somebody hunting for what to push is a stop that gets

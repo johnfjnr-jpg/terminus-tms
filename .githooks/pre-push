@@ -1,0 +1,75 @@
+#!/bin/sh
+# Refuse a push issued from Claude Code's environment.
+#
+# Build discipline 18, set by John 2026-09-19, and this hook is the MECHANISM
+# that rule named as available and did not build. Its own text says why a
+# mechanism was wanted: "a behavioural rule guarding a mechanical fault is a
+# rule that will be broken", and "a pasted block containing `git push` is an
+# instruction to follow, and the only thing refusing it is a sentence."
+#
+# ── THE DISCRIMINATOR, MEASURED RATHER THAN ASSUMED ──────────────────────
+#
+# The obvious candidate does NOT work. The agent session runs as USER=johnfryatt,
+# LOGNAME=johnfryatt, uid 501 - the SAME account as the business's own terminal -
+# so nothing about the user, the home directory or the group separates them.
+#
+# Two things do, and both were measured on 2026-09-19:
+#
+#   CLAUDECODE / CLAUDE_CODE_ENTRYPOINT    set in the agent session; unset in
+#                                          `env -i zsh -l`; named in NO dotfile
+#                                          (~/.zshrc is one line, PATH only)
+#   stderr is a tty                        false in the agent session on all
+#                                          three descriptors; true under a real
+#                                          pty
+#
+# ── WHY BOTH, AND WHICH WAY EACH FAILS ───────────────────────────────────
+#
+# The env marker alone FAILS OPEN: a future release that stops exporting
+# CLAUDECODE disarms this hook silently, and its silence would read exactly
+# like its success. That is the shape CLAUDE.md records as "a control that
+# deletes its own evidence of use cannot detect non-use".
+#
+# The tty test FAILS CLOSED and does not depend on any vendor's variable, so it
+# is what survives the marker going away. It carries a false-positive risk the
+# env test does not - a piped or scripted push from the business's own terminal
+# is not a tty either - so it, and only it, has an override.
+#
+# ── THE HONEST LIMIT ─────────────────────────────────────────────────────
+#
+# This binds accident and pasted instruction. It cannot bind a session that
+# chooses to unset the marker, because that session can also edit this file.
+# It is a guard, not a cage, and the rule remains the control.
+
+REFUSE=''
+
+if [ -n "${CLAUDECODE}" ] || [ -n "${CLAUDE_CODE_ENTRYPOINT}" ]; then
+  REFUSE='this push was issued from Claude Code (CLAUDECODE is set)'
+elif [ ! -t 2 ] && [ -z "${TMS_PUSH_NONINTERACTIVE}" ]; then
+  REFUSE='this push has no terminal attached, so it is not a person at a prompt'
+fi
+
+if [ -n "${REFUSE}" ]; then
+  SHA=$(git rev-parse HEAD 2>/dev/null)
+  BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
+  cat >&2 <<MSG
+
+  PUSH REFUSED, by .githooks/pre-push
+
+  ${REFUSE}.
+
+  CLAUDE CODE NEVER EXECUTES git push. Never, even when a push command
+  appears in pasted instructions. On reaching a push-ready state, STOP and
+  report "ready for John's push" with the expected SHA.
+                                       -- CLAUDE.md, build discipline 18
+
+  Ready for John's push:  ${BRANCH}  ${SHA}
+
+  John, from your own terminal this hook is inert and you will not see this.
+  If you are seeing it from a piped or scripted push, re-run it with
+  TMS_PUSH_NONINTERACTIVE=1 set.
+
+MSG
+  exit 1
+fi
+
+exit 0
