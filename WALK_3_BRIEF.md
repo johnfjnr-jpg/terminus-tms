@@ -66,3 +66,48 @@ per M2 - red-first guard, the affected suite, a screenshot opened and read, and
 **no live injection harness unless a handler or a write is touched**.
 
 Batched as one findings phase, per M3.
+
+---
+
+## The stopped items, ruled (John, 2026-09-19)
+
+### R-K: keyboard navigation inside a field panel
+
+**Supersedes `INTERACTION_STANDARDS.md` Section 2 for multi-field entry panels
+ONLY.** Section 2 stands for genuine forms. Verification 23 cited: two correct
+decisions about one question produce a conflict nothing detects, and the fix is
+one governing each context rather than both existing.
+
+Within a field panel:
+
+| key | effect |
+|---|---|
+| **Enter** | commits the open field, opens the NEXT field's editor |
+| **ArrowDown** | commits and moves down |
+| **ArrowUp** | commits and moves up |
+| **Enter on the last field** | commits and closes, firing **no record-wide save** |
+| **Escape** | reverts per A3, unchanged |
+
+Tab order unbroken. **The supersession is recorded in Section 2 itself**, with a
+pointer, rather than only here.
+
+**The ArrowDown-is-not-a-seed test is re-pointed deliberately**: arrows now
+navigate between fields; they still never seed text.
+
+### R-V7: the palette gains one attention token
+
+**Closes `DESIGN_PRINCIPLES.md` open item 37.** `--attention`, amber, for states
+that are not errors but need the eye: unsaved, pending, stale.
+
+- The value is **derived for WCAG contrast** against the dark background, for
+  both text and border uses.
+- Applied to the **unsaved cost treatment** (border and badge) in place of
+  `--green`.
+- **Screenshot at 1440 for John before any wider application.** Other states
+  adopt the token as their surfaces are touched.
+
+### R-P: the two unmeasured prompts
+
+The **link-account** and **save-and-park** prompts are MEASURED, with the same
+drive V4 used, and each classified **honest** (kept) or **false premise** (fixed
+the same way). **No unmeasured change.**
