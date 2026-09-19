@@ -71,6 +71,9 @@ try {
       colour: cs?.color ?? null,
       shadow: cs?.boxShadow ?? null,
       warned: !!warn,
+      nagClass: warn?.className ?? null,
+      nagColour: warn ? getComputedStyle(warn).color : null,
+      nagText: warn?.textContent?.trim() ?? null,
       w: r ? Math.round(r.width) : null, h: r ? Math.round(r.height) : null,
       inView: !!r && r.top >= 0 && r.bottom <= window.innerHeight,
       formOpen: !!v.querySelector('[data-testid="cd-park-form"]'),
@@ -80,6 +83,13 @@ try {
 
   check(m.formOpen, 'the form stayed open, so the backdrop click was REFUSED rather than acted on')
   check(m.warned, 'and it said why, which is the state that raises the treatment')
+  // ── THE NAG IS A WARNING, NOT AN ERROR. Ruled 2026-09-19 ────────────
+  check(m.nagClass === 'msg-warning',
+    `the refusal wears the warning treatment, not the error one (${m.nagClass})`)
+  check(m.nagColour === RGB,
+    `so it renders in the attention amber rather than red (${m.nagColour})`)
+  check(m.nagText === 'There is unsaved work here. Save and park, or cancel.',
+    `and the WORDING is unchanged ("${m.nagText}")`)
   check(m.hasClass, 'the Save button carries btn-attention IN ITS REAL STATE')
   check(m.border === RGB, `its border is the attention colour (${m.border})`)
   check(m.colour === RGB, `its text is the attention colour (${m.colour})`)
