@@ -4056,6 +4056,21 @@ window.setOppAssessDraft = function (key, value) {
   const focused = document.activeElement?.id
   rerenderOppAssessLens()
   if (focused) document.getElementById(focused)?.focus()
+
+  // ── R6: SELECTING COMMITS AND CLEARS THE POPUP ────────────────────────
+  //
+  // AFTER the focus restore, and that order is the whole of it: restoring focus
+  // fires the radio's own `onfocus`, which shows the popup again. Dismissing
+  // before the restore would be undone by it.
+  //
+  // The dismissal is remembered so the hide sweep's focus fallback does not
+  // bring it back either, and it stands until the pointer re-enters or focus
+  // returns - both of which run through showOppLevelDefinition and clear it.
+  oppDefnDismissedFor = key
+  for (const box of document.querySelectorAll('.opp-assess-defn')) {
+    box.classList.add('hidden')
+    box.setAttribute('aria-hidden', 'true')
+  }
 }
 // ── Round 31 Phase 3: the level definitions, on hover and on focus ────────
 //
@@ -4080,6 +4095,18 @@ function oppLevelWording(criterionKey, levelValue) {
   return wording ? { label: level?.label ?? String(levelValue), wording, version: c.current_version } : null
 }
 
+// ── R6, 2026-09-19: THE POPUP IS DISMISSED BY A SELECTION ────────────────
+//
+// Which criterion, if any, a SELECTION has just dismissed. It exists because
+// selecting restores focus to the radio, and a focused radio is exactly what
+// the hide sweep's fallback re-shows - so without this the popup a person just
+// dismissed by choosing comes straight back and parks there.
+//
+// Any genuine re-entry clears it: a fresh mouseover or a fresh focus both run
+// through showOppLevelDefinition, which is R6's "until the pointer re-enters or
+// focus returns" expressed as one line rather than as a timer.
+let oppDefnDismissedFor = null
+
 window.showOppLevelDefinition = function (el) {
   // READ FROM THE ELEMENT, never from anything this function was built holding.
   const key = el?.dataset?.criterion
@@ -4089,6 +4116,41 @@ window.showOppLevelDefinition = function (el) {
   if (!box) return
   const found = oppLevelWording(key, value)
   if (!found) return hideOppAssessDefn()
+
+  // ── R6: AT MOST ONE RENDERS. Hovering or focusing elsewhere MOVES the
+  // popup; it never accumulates.
+  //
+  // THIS SUPERSEDES ROUND 34's "ROW EXCLUSIVITY IS NOT NEEDED AND IS NOT
+  // ADDED", recorded a few lines below in hideOppAssessDefn and left visible
+  // there on purpose. That note was right about what it was looking at - the
+  // hide sweep's fallback protects ONE popup and cross-row exclusivity in the
+  // HIDE path would have suppressed it. Exclusivity belongs in the SHOW path,
+  // where it cannot reach the fallback: a show is always the person pointing at
+  // or focusing something, and what they are pointing at is what should be on
+  // screen.
+  //
+  // Measured before the ruling: hovering a second row left TWO popups open,
+  // `assessOrgEconomicBuyer` and `assessOrgChampion` together, which is the
+  // pair the business photographed.
+  for (const other of document.querySelectorAll('.opp-assess-defn')) {
+    if (other === box) continue
+    other.classList.add('hidden')
+    other.setAttribute('aria-hidden', 'true')
+  }
+  // ── AND A DISMISSAL SURVIVES THE RE-RENDER, which is the half that made
+  // the first fix look like it had not worked.
+  //
+  // Selecting re-renders the lens, so the label under a STATIONARY pointer is
+  // destroyed and recreated - and the browser fires a fresh `mouseover` on the
+  // new element that appears under the cursor. That is not the person
+  // re-entering anything; it is the same pointer, not moved, over a replaced
+  // node. Without this guard that synthetic event re-opened the popup the
+  // selection had just dismissed, and the probe read it as the dismissal
+  // failing outright.
+  //
+  // The dismissal is cleared where the pointer genuinely LEAVES, at the end of
+  // hideOppAssessDefn, so pointing at the row again shows the wording again.
+  if (oppDefnDismissedFor === key) return
 
   box.innerHTML = `<span class="opp-assess-defn-l">${escHtml(found.label)}</span>${escHtml(found.wording)}`
   box.classList.remove('opp-assess-defn--asks')
@@ -4279,10 +4341,17 @@ window.hideOppAssessDefn = function () {
     // hide sweeps every box, so a second row's popup can only survive through
     // this fallback, which is deliberate. Adding cross-row exclusivity would
     // suppress the one popup this fallback exists to protect.
-    if (focused) { showOppLevelDefinition(focused); continue }
+    // R6: a radio the person has just SELECTED is focused, and that focus must
+    // not resurrect the popup the selection dismissed. Every other focused
+    // radio still gets the fallback, which is what it was written for.
+    if (focused && focused.dataset?.criterion !== oppDefnDismissedFor) { showOppLevelDefinition(focused); continue }
     box.classList.add('hidden')
     box.setAttribute('aria-hidden', 'true')
   }
+  // R6: the pointer or the focus has genuinely left, so a standing dismissal is
+  // spent. Pointing at the row again is a re-entry and shows the wording again.
+  // LAST, after the fallback above has had its chance to read it.
+  oppDefnDismissedFor = null
 }
 
 // ── Round 31 Phase 5: the reason grows to its content ─────────────────────
