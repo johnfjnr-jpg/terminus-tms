@@ -95,6 +95,65 @@ than the cosmetic tier.
 
 ---
 
+---
+
+## Phase 0's rulings (John, 2026-09-19), appended at the phase they launch
+
+### R2 is ruled OPTION B: the Test Bed becomes a CALLER
+
+The anchor renders through **the estate's floating popup**, not a reserved
+region. The Test Bed becomes a **caller of the Opportunity's mechanism** - one
+component or shared module - carrying over its **420px clamp** and its
+**hover/focus behaviour**.
+
+**The Verification 23 remedy, and it is the rule's own words.** Rule 23 says the
+fix for two rulings on one question is **deletion, not reconciliation**: one of
+them becomes a caller of the other. That is exactly what B does, and it is
+recorded in **both briefs** - here and in `ASSESSMENT_PANEL_PHASE_0_BRIEF.md` -
+so neither surface can drift back to believing it owns the mechanism.
+
+**What Phase 0 measured, which is why B and not A:** a region sized for the
+longest anchor (302 characters) costs **120px per row at 1240**, against a row
+head of 77px - about 600px across the five criteria, empty until hovered. The
+Opportunity had already measured the in-row cost at 36px and chosen to float.
+
+### All other rulings stand, unchanged
+
+R1 five buttons with **2 and 4 bare**; R3 keyboard per the R-K standard **with
+the popup following focus**; R4 **Show definitions removed**; R5 measurability
+and awaiting-reason **untouched** - and Phase 0's measured second select, the
+measurability control sharing the `tb-score-select` class, **must not be caught**
+by anything the build writes.
+
+### R6. The shared popup DISMISSES ON SELECTION, and at most ONE renders
+
+John's finding on the live Opportunity screen.
+
+- **Selecting commits and clears the popup** until the pointer re-enters or
+  focus returns.
+- **Hover or focus moving elsewhere MOVES the popup, never accumulates.**
+- **Fixed in the SHARED mechanism**, so both surfaces inherit it.
+
+**Red-first: the current linger is the failing claim** - two popups parked after
+selections, per John's screenshot - **proven on the Opportunity surface first**,
+then inherited on the Test Bed build.
+
+### R7. Budget figure and currency render only at a figure-bearing level
+
+Opportunity surface. **Own commit, own live proof.**
+
+- The Budget **figure and currency inputs render ONLY** when the selected level
+  is **Our hypothesis, Buyer confirmed or Verified**.
+- **Hidden** for **Not applicable** and **Unknown**.
+- **A stored figure is PRESERVED when the level drops, never cleared**, and
+  **shown again** when a figure-bearing level returns.
+- **Reason field unchanged.**
+
+**Live proof:** figure entered at Buyer confirmed, level dropped to Unknown,
+input gone, **database value intact**, level raised, figure back on screen.
+
+---
+
 ## Step 4 — Close
 
 Close-out, `CURRENT_STATE.md` regenerated, **full gate on the branch**. No merge,
