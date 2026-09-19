@@ -29,6 +29,47 @@
      declined - hsl(150 85% 76%) reaches 13.15:1 and reads pastel, which trades
      one legibility complaint for another. */
   --green-bright:    #82EDB8;
+  /* ── R-V7, walk 3, 2026-09-19: THE ATTENTION TOKEN ─────────────────────
+     One token for states that are NOT errors but need the eye: unsaved,
+     pending, stale. Closes DESIGN_PRINCIPLES.md open item 37.
+
+     It is a MEANING, not a colour. `--red` says something is wrong and
+     `--green` is the single accent for the one active thing in a view;
+     neither can say "this is real, it is just not recorded yet", and using
+     `--green` for it - which is what the unsaved cost treatment did - makes
+     an unsaved total wear the same dress as a saved one.
+
+     ── DERIVED, AND THE REQUIREMENTS WERE WRITTEN BEFORE THE NUMBER ──────
+
+     R1  badge text at 10px is normal text: WCAG AA, 4.5:1 on the ground.
+     R2  a card border carrying a state is a non-text indicator: WCAG 1.4.11,
+         3:1.
+     R3  both grounds the estate uses, --dark #1A1B23 and --black #15161C.
+     R4  it must not read as an error, so it is nowhere near --red #e06c6c.
+     R5  IT MUST BE AT LEAST AS PROMINENT AS THE --green IT REPLACES, 8.70:1
+         on --dark. Without this clause the change makes the marker QUIETER
+         than the treatment it improves on, which is the opposite of the
+         point, and it is the requirement that decided the value.
+     R6  not pastel. --green-bright's own note declined hsl(150 85% 76%) at
+         13.15:1 for reading pastel, so lightness stays well under that.
+
+     MEASURED: #EDB45A is hsl(37 80% 64%), which is the estate's existing
+     amber #E0A33E = hsl(37 72% 56%) at the IDENTICAL HUE with more saturation
+     and lightness - the same derivation --green-bright took from --green.
+
+       #EDB45A   --dark 9.21:1   --black 9.69:1     clears R5 by 0.51
+       #E0A33E   --dark 7.74:1   --black 8.15:1     FAILS R5
+       #EAB053   --dark 8.84:1                      clears R5 by 0.14, too tight
+
+     ── AND A FINDING, NOT RESOLVED HERE (Verification 23) ────────────────
+     `--amber` #E0A33E already exists and already dresses this family at ten
+     sites: catalog stale, schedule off, pulse stall, rejected banner, write
+     refused. It is a COLOUR NAME with no meaning attached, it is 7.74:1, and
+     it fails R5. Whether those ten adopt this token is a ruling, not a
+     refactor, so nothing about `--amber` is touched here and the two are
+     reported as a pair. R-V7's own instruction is that other states adopt the
+     token as their surfaces are touched. */
+  --attention:       #EDB45A;
   --hairline:        rgba(242,242,240,0.12);
   --hairline-strong: rgba(242,242,240,0.22);
   --muted:           rgba(242,242,240,0.5);
@@ -3158,17 +3199,19 @@ input.input-invalid {
    The marker rides in the card title next to the figures, not somewhere else
    on the page, because a total that cannot be told apart from a saved one
    turns the Save bar into a suggestion. */
+/* R-V7, walk 3: the badge and the card border take --attention, not --green.
+   An unsaved total wearing the accent is a total that looks recorded. */
 .tb-cost-unsaved {
   margin-left: 8px;
   padding: 1px 6px;
-  border: 1px solid var(--green);
+  border: 1px solid var(--attention);
   border-radius: 3px;
-  color: var(--green);
+  color: var(--attention);
   font-size: 10px;
   letter-spacing: 0.06em;
 }
 .tb-cost-card-unsaved {
-  border-color: var(--green);
+  border-color: var(--attention);
 }
 
 .tb-cost-summary-total {
