@@ -61,14 +61,19 @@
        #E0A33E   --dark 7.74:1   --black 8.15:1     FAILS R5
        #EAB053   --dark 8.84:1                      clears R5 by 0.14, too tight
 
-     ── AND A FINDING, NOT RESOLVED HERE (Verification 23) ────────────────
-     `--amber` #E0A33E already exists and already dresses this family at ten
-     sites: catalog stale, schedule off, pulse stall, rejected banner, write
-     refused. It is a COLOUR NAME with no meaning attached, it is 7.74:1, and
-     it fails R5. Whether those ten adopt this token is a ruling, not a
-     refactor, so nothing about `--amber` is touched here and the two are
-     reported as a pair. R-V7's own instruction is that other states adopt the
-     token as their surfaces are touched. */
+     ── THE VERIFICATION 23 FINDING, AND ITS CLOSURE ──────────────────────
+     Reported when this token was minted: a second amber already existed,
+     defined at Round 40's S5, already dressing this exact family at TEN
+     sites - catalog stale, catalog undated, schedule off, pulse stall and its
+     title, rejected banner and its label, write refused and its label, and the
+     contact panel's unsaved count. It was a COLOUR NAME with no meaning
+     attached, it was 7.74:1, and it FAILED R5.
+
+     RULED AND CLOSED by John 2026-09-19: the ten adopt this token, and the
+     closure is DELETION rather than an alias. An alias leaves a colour name
+     anybody can reach for, and a colour name is precisely the thing with no
+     meaning attached. There is one amber in this stylesheet and it is this
+     one. The reasoning is in DESIGN_PRINCIPLES.md beside open item 37. */
   --attention:       #EDB45A;
   --hairline:        rgba(242,242,240,0.12);
   --hairline-strong: rgba(242,242,240,0.22);
@@ -4982,8 +4987,9 @@ input.input-invalid {
    and means AT OR ABOVE TARGET, so the worst of the three bands - the one
    cost-basis.js says "requires explicit acknowledgement" - rendered in the
    good-news colour. There is no comment defending it and it sat one line below
-   `.deal-schedule-off { color: var(--amber) }`, which is where amber already
-   lives on this screen for exactly this job.
+   `.deal-schedule-off`, which is where amber already lives on this screen for
+   exactly this job. (That rule read `var(--amber)` when this was written; walk
+   3 retired that token and both lines now bind `--attention`.)
 
    IN SCOPE FOR THIS ROUND UNDER RULE 10'S LIMIT, not walked past. Decision 3
    makes this line legible; leaving the band green would ship one line carrying
@@ -5053,8 +5059,8 @@ input.input-invalid {
    catalog response and captures all four at both widths. That probe is where
    their coverage lives; the sweep cannot see it. */
 .deal-basis-age.deal-catalog-ageing { color: var(--white); }
-.deal-basis-age.deal-catalog-stale { color: var(--amber, #E0A33E); }
-.deal-basis-age.deal-catalog-undated { color: var(--amber, #E0A33E); }
+.deal-basis-age.deal-catalog-stale { color: var(--attention); }
+.deal-basis-age.deal-catalog-undated { color: var(--attention); }
 /* ── THE DETAIL OPENS BESIDE THE SUMMARY. Round 40 Phase 3 ─────────────────
    The layout's word is HORIZONTALLY: the summary and the lines it summarises
    are readable together, which is what removes the duplication rather than
@@ -5160,7 +5166,7 @@ input.input-invalid {
    because the compound selector no longer describes any element. A more
    specific kind of the .btn-secondary fault, and the scan cannot see this one. */
 .pg-margin-input.pg-margin-override { color: var(--white); border-color: var(--hairline-strong); }
-.deal-schedule-off { color: var(--amber, #E0A33E); }
+.deal-schedule-off { color: var(--attention); }
 /* Round 41 decision 3: `.deal-catalog-stale` moved to the block beside
    `.deal-catalog-ageing`, where its reasoning is, and changed from --green to
    --amber. It lived here, 97 lines from its sibling and one line from the amber
@@ -5665,31 +5671,36 @@ input.input-invalid {
    amber warning treatment rather than the green accent, and sits above the
    banners that describe the record itself. */
 .pulse-stall {
-  /* THE FALLBACK IS THE CONVENTION HERE, not belt and braces: --amber is used
-     four times in this file and DEFINED nowhere, so every use carries the
-     literal. An undefined custom property drops the whole declaration at
-     computed-value time, which is what the stylesheet invariant exists to
-     catch - and it caught this. */
-  border: 1px solid var(--amber, #E0A33E);
+  /* ── THE FALLBACK IS GONE, AND THAT IS THE POINT. Walk 3, 2026-09-19 ──
+     This read "--amber is used four times in this file and DEFINED nowhere, so
+     every use carries the literal". True when written; false from Round 40's
+     S5, which defined it; and the count had reached ten. A sentence about
+     configuration is a claim with a shelf life (Architecture 9).
+
+     The literal was also what kept this declaration OUTSIDE the stylesheet
+     invariant, which deliberately excuses var(--x, fallback) because such a
+     reference is well defined either way. Binding the bare token puts it under
+     that check for the first time. */
+  border: 1px solid var(--attention);
   border-left-width: 3px;
   padding: 10px 12px;
   margin-bottom: 12px;
   font-size: 13px;
   color: var(--white);
 }
-.pulse-stall-title { color: var(--amber, #E0A33E); font-weight: 600; }
+.pulse-stall-title { color: var(--attention); font-weight: 600; }
 
 /* ── U12: THE REJECTION OUTCOME ────────────────────────────────────────────
    2026-09-04. It is not a warning about the screen, it is a decision about the
    deal, so it takes the ordinary panel treatment with the amber rule the other
    attention states use rather than shouting. */
 .rejected-banner {
-  border: 1px solid var(--amber, #E0A33E);
+  border: 1px solid var(--attention);
   border-left-width: 3px;
   padding: 12px 14px;
   margin-bottom: 12px;
 }
-.rejected-banner .label { color: var(--amber, #E0A33E); }
+.rejected-banner .label { color: var(--attention); }
 
 /* ── U2: the section's own save, on its title line ─────────────────────────
    Appears only when that section is dirty, so it is a signal as well as a
@@ -5703,12 +5714,12 @@ input.input-invalid {
    treatment as the other states that are about the record rather than the
    chrome. */
 .write-refused {
-  border: 1px solid var(--amber, #E0A33E);
+  border: 1px solid var(--attention);
   border-left-width: 3px;
   padding: 12px 14px;
   margin-bottom: 12px;
 }
-.write-refused .label { color: var(--amber, #E0A33E); }
+.write-refused .label { color: var(--attention); }
 
 /* ── L1/L2/L4/L7: the payment-terms region ────────────────────────────────
    2026-09-04, built as ONE pass because these fight over the same horizontal
@@ -6271,7 +6282,7 @@ input.input-invalid {
   font-family: var(--mono);
   font-size: 11px;
   letter-spacing: 0.04em;
-  color: var(--amber, #d9a441);
+  color: var(--attention);
 }
 
 .cd-qualify-hint {
@@ -6952,10 +6963,17 @@ input.input-invalid {
    every site carrying a literal fallback - so they rendered correctly and
    were invisible to the palette. Defined here AT THE VALUES ALREADY IN USE,
    so the fix changes nothing on screen and everything structurally: the
-   brand palette can now reach them. */
+   brand palette can now reach them.
+
+   SUPERSEDED IN PART, walk 3 2026-09-19: `--amber` is GONE. Its ten sites bind
+   `--attention`, which is the same family named by MEANING rather than by
+   colour, and S5's own observation is what the closure rests on - a token
+   reachable only through a literal fallback is invisible to the palette AND
+   to the invariant that checks the palette, because that check deliberately
+   excuses `var(--x, fallback)`. Removing the fallbacks put those ten
+   declarations under it for the first time. `--red` is untouched. */
 :root {
   --red: #e06c6c;
-  --amber: #E0A33E;
 }
 
 /* S5: the field treatment. `LeadFieldInput`'s five controls and the Nurture

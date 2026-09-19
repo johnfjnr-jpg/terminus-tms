@@ -114,6 +114,43 @@ const INJECTIONS = [
     expect: ['R-V7 7: the unsaved cost CARD border binds to --attention, not --green'],
     go: () => edit(CSS, '.tb-cost-card-unsaved {\n  border-color: var(--attention);',
       '.tb-cost-card-unsaved {\n  border-color: var(--green);') },
+
+  // ── THE V23 CLOSURE, ruled 2026-09-19 ────────────────────────────────
+  { name: 'one of the ten reverts to the retired token',
+    expect: ['R-V7 8: NO site binds --amber any more, and the token is gone',
+      'R-V7 9: each of the ten retired sites now binds --attention'],
+    go: () => edit(CSS, '.write-refused .label { color: var(--attention); }',
+      '.write-refused .label { color: var(--amber, #E0A33E); }') },
+
+  // A SITE CAN DRIFT WITHOUT REACHING FOR THE OLD TOKEN AT ALL, which is the
+  // case test 8 alone cannot see: a literal is not a binding.
+  { name: 'one of the ten drifts to a bare literal instead',
+    expect: ['R-V7 9: each of the ten retired sites now binds --attention'],
+    go: () => edit(CSS, '.deal-schedule-off { color: var(--attention); }',
+      '.deal-schedule-off { color: #E0A33E; }') },
+
+  { name: 'the retired token is DEFINED again, so it can be reached for',
+    expect: ['R-V7 8: NO site binds --amber any more, and the token is gone'],
+    go: () => edit(CSS, '  --attention:       #EDB45A;',
+      '  --attention:       #EDB45A;\n  --amber: #E0A33E;') },
+
+  // THE COMPLETENESS CHECK IS ITSELF CALIBRATED. A named list fails by silent
+  // omission (Verification 19), so the failure that matters is an ELEVENTH
+  // site nobody added to the list - not a missing one, which test 9 catches.
+  { name: 'an eleventh attention site appears and the list never hears about it',
+    expect: ['R-V7 10: and the list is complete, so a new site cannot hide'],
+    go: () => edit(CSS, '.cd-qualify-hint {',
+      '.cd-unlisted-attention-site { color: var(--attention); }\n.cd-qualify-hint {') },
+
+  // AND THE COMMENT STRIP, which this file depends on more than any other in
+  // the estate: style.css keeps five paragraphs of prose about the retired
+  // token on purpose. Reading the file RAW must not turn that record into ten
+  // false positives (Verification 39).
+  { name: 'the scan reads the file RAW, so the prose about --amber satisfies it',
+    expect: ['R-V7 8: NO site binds --amber any more, and the token is gone'],
+    go: () => edit('scripts/tests/attention-token.test.mjs',
+      "const css = readCode(join(here, '..', '..', 'frontend', 'style.css'))",
+      "const css = readFileSync(join(here, '..', '..', 'frontend', 'style.css'), 'utf8')") },
 ]
 
 const base = run()

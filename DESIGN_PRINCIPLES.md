@@ -4799,6 +4799,73 @@ sequence: they are single decisions the business takes when it wants to.
   with the business alongside the brand colours in Section 9 of this document,
   not inside a fix round.
 
+  **CLOSED 2026-09-19, walk 3 R-V7, by the business as a palette decision.**
+  The item's own closing sentence asked for exactly that, and it is what
+  happened: John ruled the token, the value was derived, the screenshot was
+  delivered at 1440 and the colour was approved as shown.
+
+      --attention: #EDB45A     hsl(37 80% 64%)
+                               9.21:1 on --dark, 9.69:1 on --black
+
+  **The value was DERIVED, and the requirements were written before the number
+  was known.** R1 badge text at 10px is normal text, so WCAG AA 4.5:1. R2 a card
+  border carrying a state is a non-text indicator, so 1.4.11 3:1. R3 both
+  grounds. R4 nowhere near `--red`. **R5 at least as prominent as the `--green`
+  it replaces, 8.70:1** - and R5 is the one that decided the value, because
+  without it the change makes the marker quieter than the treatment it improves
+  on. R6 not pastel, which is `--green-bright`'s own recorded reason for
+  declining hsl(150 85% 76%).
+
+  **It is the same derivation `--green-bright` took from `--green`:** the
+  estate's existing amber `#E0A33E` = hsl(37 72% 56%) at the identical hue with
+  more saturation and lightness.
+
+  **The guard asserts the REQUIREMENTS, not the hex** - `scripts/tests/attention-token.test.mjs`.
+  A test asserting `#EDB45A` would be a second reader of the stylesheet and
+  would go on passing after somebody retuned the token dim.
+
+- **A Verification 23 conflict, found by the round that would have created its second half, and closed rather than carried. Walk 3, 2026-09-19.**
+
+  **The conflict.** R-V7 minted `--attention` as the meaning token for states
+  that are not errors but need the eye. **`--amber` already existed**, defined
+  at Round 40's S5 fix, and already dressed that exact family at ten sites:
+  catalog stale, catalog undated, schedule off, pulse stall and its title,
+  rejected banner and its label, write refused and its label, and the contact
+  panel's unsaved count.
+
+  **Both decisions were defensible where they were made.** S5 defined `--amber`
+  to close a different fault entirely - two tokens used at thirteen sites and
+  defined nowhere, so every declaration carried a literal fallback and the
+  palette could not reach them. It was a fix about DEFINEDNESS and it was
+  correct. R-V7 is a decision about MEANING. Neither knew the other existed,
+  which is rule 23's signature exactly.
+
+  **Left alone it would have been two tokens for one family**, agreeing today
+  and drifting the first time either moved - and `#E0A33E` **fails R5**, so the
+  drift had already happened before anybody looked.
+
+  **THE CLOSURE IS DELETION, NOT RECONCILIATION**, which is what rule 23
+  prescribes and why aliasing was declined. Aliasing `--amber: var(--attention)`
+  leaves a colour NAME anybody can reach for, and a colour name is precisely
+  what has no meaning attached. The ten sites now bind `--attention` and
+  `--amber` does not exist.
+
+  **Three things the sweep found that no rule was watching for:**
+
+  - **`.cd-dirty`, the contact panel's own unsaved count, carried a DIFFERENT
+    literal:** `var(--amber, #d9a441)` against the other nine's `#E0A33E`. Two
+    fallbacks for one token, and it is the same MEANING as the unsaved cost
+    badge R-V7 was built for - the two screens said "unsaved" in two ambers.
+  - **A comment at `.pulse-stall` said `--amber` "is used four times in this
+    file and DEFINED nowhere, so every use carries the literal".** True when
+    written, false since S5 defined it, and the count had reached ten.
+    Architecture 9's fourth variant, a literal with no source to disagree with.
+  - **The fallbacks were what kept those ten sites OUTSIDE the estate's own
+    undefined-property invariant**, which deliberately excludes
+    `var(--x, fallback)` because such a reference is well defined either way.
+    Removing them brings all ten under that check for the first time, which is
+    a strengthening the adoption gets for free.
+
 
 - **A round can make a latent defect materially worse without touching it. Round 17 did exactly that to open item 35, and nothing in that round could have noticed. Recorded Round 17A, 2026-08-21.**
 

@@ -17,6 +17,11 @@
 // the declaration.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+// `readFileSync` is imported and not used on the healthy path ON PURPOSE: the
+// calibration swaps `readCode` for it to prove that reading this file RAW lets
+// style.css's five paragraphs of prose ABOUT the retired token satisfy the scan
+// (Verification 39). Removing it would disarm that injection.
+import { readFileSync } from 'node:fs'
 import { readCode } from '../lib/strip-comments.mjs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
@@ -117,4 +122,54 @@ test('R-V7 7: the unsaved cost CARD border binds to --attention, not --green', (
   assert.ok(rule, '.tb-cost-card-unsaved has no rule at all')
   assert.match(rule[1], /border-color:\s*var\(--attention\)/)
   assert.doesNotMatch(rule[1], /var\(--green\)/)
+})
+
+// ── THE V23 CLOSURE: ONE TOKEN OWNS THE FAMILY ──────────────────────────
+//
+// Ruled by John 2026-09-19. `--amber` was a second amber for the same family,
+// at ten sites, failing R5 at 7.74:1. The closure is DELETION rather than an
+// alias, because an alias leaves a colour NAME anybody can reach for.
+//
+// THE COMMENT STRIP IS LOad-BEARING HERE, more than anywhere else in this file:
+// style.css carries five paragraphs of prose ABOUT `--amber`, deliberately kept
+// as the record of what was retired. A raw scan would read every one of them as
+// a live binding and this test could never pass (Verification 39).
+const AMBER_FAMILY = [
+  '.deal-basis-age.deal-catalog-stale',
+  '.deal-basis-age.deal-catalog-undated',
+  '.deal-schedule-off',
+  '.pulse-stall',
+  '.pulse-stall-title',
+  '.rejected-banner',
+  '.rejected-banner .label',
+  '.write-refused',
+  '.write-refused .label',
+  '.cd-dirty',
+]
+
+test('R-V7 8: NO site binds --amber any more, and the token is gone', () => {
+  const hits = [...css.matchAll(/var\(\s*--amber[^)]*\)/g)].map((m) => m[0])
+  assert.deepEqual(hits, [], `still binding the retired token: ${hits.join(', ')}`)
+  assert.doesNotMatch(css, /--amber\s*:/, '--amber is still DEFINED, so it can be reached for again')
+})
+
+// THE LIST ASSERTS ITS OWN COMPLETENESS (Verification 19): a named list fails
+// by silent omission, so the count is checked against the bindings actually
+// present rather than trusted. If somebody adds an eleventh attention site and
+// not this row, the next test goes red rather than quietly covering nine.
+test('R-V7 9: each of the ten retired sites now binds --attention', () => {
+  const missing = AMBER_FAMILY.filter((sel) => {
+    const esc = sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const rule = css.match(new RegExp(`${esc}\\s*(,[^{]*)?\\{([^}]*)\\}`))
+    return !rule || !/var\(--attention\)/.test(rule[2])
+  })
+  assert.deepEqual(missing, [], `these no longer carry the attention treatment: ${missing.join(', ')}`)
+})
+
+test('R-V7 10: and the list is complete, so a new site cannot hide', () => {
+  // 13 = the ten retired sites plus R-V7's own three (badge border, badge
+  // colour, card border). Derived from the two lists rather than typed.
+  const bindings = (css.match(/var\(--attention\)/g) ?? []).length
+  assert.equal(bindings, AMBER_FAMILY.length + 3,
+    `${bindings} --attention bindings against ${AMBER_FAMILY.length} listed sites + 3 from the unsaved cost treatment`)
 })

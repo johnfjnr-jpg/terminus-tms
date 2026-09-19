@@ -111,3 +111,42 @@ that are not errors but need the eye: unsaved, pending, stale.
 The **link-account** and **save-and-park** prompts are MEASURED, with the same
 drive V4 used, and each classified **honest** (kept) or **false premise** (fixed
 the same way). **No unmeasured change.**
+
+---
+
+## Step 4 rulings (John, 2026-09-19), appended at the phase they launch
+
+Build discipline 7's own remedy: a ruling given in conversation is appended to
+the brief at the phase it launches, not discovered at the close.
+
+### The amber is approved
+
+**`--attention: #EDB45A` is APPROVED as shown at 1440. R-V7 stands.**
+
+### P1 to P4 are rulings of record
+
+The four positions taken where R-K was silent are endorsed and are now rulings
+rather than documented assumptions.
+
+| | Ruling |
+|---|---|
+| **P1** | A move with no target **commits and closes**. One rule covers both boundaries - Enter or ArrowDown at the last field, ArrowUp at the first - and no keystroke does nothing at all. |
+| **P2** | The order is the **panel's DOM order**, never the descriptor array's. "The next field" is the next one the PERSON sees. |
+| **P3** | A panel **declares itself** with `data-field-panel`. The move is scoped to the row's own panel, so a document-wide reach is impossible rather than merely unexercised, and a surface that has not opted in is **unchanged**. |
+| **P4** | A key the editor itself uses is **not taken from it**. Enter in a textarea is a newline; arrows in a select choose the option and in a date input step the segment. Declared per editor kind in one table, so a new editor joins the table rather than being named in a condition. |
+
+### The ten `--amber` sites adopt `--attention`
+
+**Cosmetic tier** (build discipline 17, M2). Closes the Verification 23 conflict
+R-V7 reported rather than carrying it.
+
+- a **guard red** on any site still binding `--amber`;
+- a **screenshot spot-check of three representative sites**, opened and read;
+- **`--amber` retired or aliased**, so one token owns the family;
+- the **V23 closure recorded in `DESIGN_PRINCIPLES.md`**.
+
+### R-K gets a second live surface
+
+**One live keyboard pass on the CONTACT panel**, the same probe as Commercials,
+read back from the database. Commercials was the only surface driven live; the
+mechanism is shared and a live pass is still a live pass.
