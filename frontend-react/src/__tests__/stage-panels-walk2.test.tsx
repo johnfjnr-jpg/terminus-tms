@@ -94,6 +94,31 @@ describe('Walk 2: Next Stage wears the estate\'s primary treatment', () => {
     expect(btn!.className, 'Next Stage carries no class at all').toContain('btn-primary')
     expect(btn!.className).toContain('btn-sm')
   })
+
+  // ── R5, the Opportunity round 2026-09-19 ──────────────────────────────
+  //
+  // `Record scores` is the OTHER primary action on this card and it shipped
+  // with no class at all, so it rendered as a white browser default on a dark
+  // screen. The scoring round named it at its close and deliberately left it,
+  // being outside that round's scope; this is the round that takes it.
+  //
+  // ASSERTED BESIDE Next Stage ON PURPOSE. The claim is not "it has a class",
+  // it is that the two primary actions on ONE card wear the SAME named
+  // treatment, which is a relationship rather than a property of one element.
+  // It matters twice over because this control is disabled most of the time,
+  // and `.btn-sm:disabled` carries a real treatment where a bare disabled
+  // button is a grey default.
+  test('and Record scores wears the SAME treatment, being the other primary action', async () => {
+    await render()
+    const record = q('tb-score-record')
+    const next = q('tb-next-stage-btn')
+    expect(record, 'there is no Record scores control to dress').not.toBeNull()
+    expect(record!.className, 'Record scores carries no class at all').toContain('btn-primary')
+    expect(record!.className).toContain('btn-sm')
+    // The relationship, stated as one: both primary actions, one treatment.
+    expect(record!.className.split(' ').sort())
+      .toEqual(next!.className.split(' ').sort())
+  })
 })
 
 describe('W7: Escape reverts the field, as ruling A3 already requires elsewhere', () => {

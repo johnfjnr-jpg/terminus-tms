@@ -582,7 +582,20 @@ export function ScoringCard({ card, criteria, series, scores, onDraft, onReason,
           `{"entries":[]}` with no drafts at all (P0.1). */}
       {criteria.length
         ? (
-          <button type="button" data-testid="tb-score-record"
+          /* ── R5: THE ESTATE'S TREATMENT, NOT A BROWSER DEFAULT ─────────
+              Carried from the scoring round's close, which named it and left
+              it: this control shipped with NO class at all, so the most
+              prominent action on the scoring card rendered as a WHITE browser
+              default on a dark screen. It was the only one of the three
+              buttons in this file without a class.
+
+              `btn-sm btn-primary` is what `Next Stage` wears on this same
+              surface and what the walk-2 suite already asserts there, so the
+              two primary actions on one card now read as the same kind of
+              thing. It matters twice over because this control is disabled
+              most of the time and `.btn-sm:disabled` carries a real treatment,
+              where a bare disabled button is a grey default. */
+          <button type="button" data-testid="tb-score-record" className="btn-sm btn-primary"
             disabled={!!blocking || !anyDraft || busy}
             onClick={() => {
               for (const c of criteria) {
