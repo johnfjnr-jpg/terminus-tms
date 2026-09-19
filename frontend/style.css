@@ -2131,6 +2131,46 @@ textarea::placeholder { color: var(--muted-2); }
    companion `--attention-rgb` holding the same colour as three numbers - is two
    readers of one value, which agree today and drift the first time either moves
    (Verification 20). `color-mix` keeps one source of truth. */
+/* ── V9: THE FIVE-BUTTON SCORE CONTROL ──────────────────────────────────
+   R1. The buttons replace a <select>, and a replaced control inherits the ROLE
+   of the one it replaces along with its treatment (Verification 7). Shipped
+   without this they rendered as WHITE browser defaults on a dark screen -
+   present, positioned, operable, and exactly the fault that clause records.
+   Found by opening the screenshot, which is the only instrument that sees it.
+
+   `position: relative` ON THE GROUP IS LOAD-BEARING, not decoration: the anchor
+   popup is absolutely positioned and needs a positioned ANCESTOR, or its left
+   and top resolve against the page. Without it the wording rendered at the top
+   left of the document, roughly 700px from the number it explains - and every
+   assertion about the popup still passed, because they were about the popup
+   rather than about where it sits. */
+.tb-score-levels {
+  display: inline-flex;
+  gap: 4px;
+}
+.tb-score-btn {
+  font-family: var(--mono);
+  font-size: 12px;
+  min-width: 26px;
+  padding: 3px 0;
+  background: var(--black);
+  color: var(--white);
+  border: 1px solid var(--hairline-strong);
+  border-radius: 2px;
+  cursor: pointer;
+}
+.tb-score-btn:hover:not(:disabled) { border-color: var(--green); }
+.tb-score-btn:focus-visible { outline: none; border-color: var(--green); box-shadow: 0 0 0 1px var(--green); }
+/* The chosen level, and the same accent the estate uses for the one active
+   thing in a view. */
+.tb-score-btn--on {
+  background: var(--green);
+  border-color: var(--green);
+  color: var(--dark);
+  font-weight: 600;
+}
+.tb-score-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
 /* ── THE SHARED ANCHOR POPUP. R2 option B, 2026-09-19 ───────────────────
    `.anchor-defn` is the class the shared module sweeps by, so a new caller
    joins the mechanism by wearing it rather than by being named in a list.
@@ -3535,6 +3575,18 @@ input.input-invalid {
   display: flex;
   align-items: baseline;
   gap: 12px;
+  /* ── V9: THE ANCHOR POPUP'S POSITIONING CONTEXT ────────────────────────
+     The popup box is a CHILD of this head, and the shared module positions it
+     against `box.parentElement`. Without a positioned ancestor here, an
+     absolutely positioned box resolves against the document: measured, the
+     wording rendered 587px ABOVE the number it explains, at the top left of
+     the page.
+
+     Every assertion about the popup still passed - shown, sized, clamped at
+     420px - because all of them are true of a box parked anywhere. It took a
+     RELATIONSHIP assertion, box-to-button, to see it, and a screenshot to know
+     to write one. */
+  position: relative;
 }
 .tb-score-name {
   flex: 1 1 auto;
