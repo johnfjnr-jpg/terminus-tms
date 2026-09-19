@@ -280,8 +280,35 @@ try {
     // product was right and the EXPECTATION was wrong, which is the good half
     // of a hand-typed constant being caught.
     const FU_DESC = `band follow-up ${Date.now()}`
+    // ── THE NOTE SAVE'S RELOAD MUST LAND BEFORE THE FOLLOW-UP IS TYPED ───
+    //
+    // This failed INTERMITTENTLY and was hardened rather than retried, which
+    // is the rule: a retry makes the gate quieter and destroys the evidence
+    // that says whether it is a flake or a defect on a clock.
+    //
+    // MEASURED, because an intermittent UI failure reads exactly like a
+    // product defect. Driven in isolation the follow-up writes every time,
+    // PATCH 200 with both values in the database; driven as note-then-
+    // follow-up with the network logged, BOTH writes succeed, revisions 2 then
+    // 3. So the product sequence is sound and the probe was the problem.
+    //
+    // `addNote` ends in `load()`, which refetches and re-renders. Waiting on
+    // the save being ENABLED is not enough on its own: the enabled state can
+    // be observed and then invalidated by a reload still in flight, and a
+    // click on a control that has just gone disabled does nothing at all, so
+    // no request is sent and the failure says `date=undefined`.
+    //
+    // Waiting for the network to go idle waits for that reload to LAND, which
+    // is the state the typing actually depends on. The enabled check stays as
+    // the second half, because it is the component's own statement that it
+    // holds a dirty draft.
+    await p.waitForNetworkIdle({ idleTime: 600, timeout: 15000 }).catch(() => {})
     await p.type(`${band} [data-testid="cd-followUpDate"]`, '01/12/2026')
     await p.type(`${band} [data-testid="cd-followUpDescription"]`, FU_DESC)
+    await p.waitForFunction((sel) => {
+      const e = document.querySelector(sel)
+      return !!e && !e.disabled
+    }, { timeout: 10000 }, `${band} [data-testid="cd-followup-save"]`)
     await p.click(`${band} [data-testid="cd-followup-save"]`)
     await new Promise((r) => setTimeout(r, 2500))
 
