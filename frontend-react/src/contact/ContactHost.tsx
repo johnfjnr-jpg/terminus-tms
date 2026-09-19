@@ -28,6 +28,8 @@ interface ContactLike {
   account?: { id: string, name: string | null } | null
   /** The revision handshake's own value, carried BY THE RECORD. */
   latest_revision_number?: number | null
+  /** V1: the route already returns it; the header summary line reads it. */
+  created_at?: string | null
 }
 
 /**
@@ -433,6 +435,9 @@ export function ContactHost({ contact, registerReload, navToken }: {
           go()
         }}
         status={record.status ?? null}
+        // V1: the record's own creation date, for the header summary line the
+        // list row already shows. The route already returns it.
+        createdAt={record.created_at ?? null}
         // P3: the lead name, rendered as the 18pt heading. The same value the
         // `name` row edits - one record, one source, read twice for two jobs.
         leadName={String(record.payload?.name ?? '')}

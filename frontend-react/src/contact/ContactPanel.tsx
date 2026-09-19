@@ -7,6 +7,7 @@
 // so the descriptors are derived rather than imported - Round 2's rule.
 import { useEffect, useState, type ReactNode } from 'react'
 import { FieldRow } from '../field-row/FieldRow'
+import { leadSummaryLine } from '../leads/leadSummary'
 import { useFieldRows } from '../field-row/useFieldRows'
 import {
   contactDescriptors, contactGridFields, gateKeyFor,
@@ -100,8 +101,10 @@ const ADDRESS_FIELDS = ['address', 'address2', 'city', 'postcode', 'country', 'r
 
 export function ContactPanel({
   source, subject, blocking, account, parentRecordId, onSave, onDirtyChange, onBack, actions,
-  linkPanel, notes, status, leadName, followUp, nurturePanel, qualifyBlockers,
+  linkPanel, notes, status, leadName, followUp, nurturePanel, qualifyBlockers, createdAt,
 }: {
+  /** V1: the record's own creation date, for the header's summary line. */
+  createdAt?: string | null
   source: ContactSource
   /** A4: the record being edited. Changing it drops every unsaved draft. */
   subject?: string | null
@@ -238,9 +241,29 @@ export function ContactPanel({
             ? <span className="tag" data-testid="cd-status">{status.toUpperCase()}</span>
             : null}
 
-          {actions}
+          {/* V1, John's walk 3: "the company, source and created after the
+              qualified status". The LIST ROW already showed these three and the
+              detail did not, so a person moving from one to the other lost them
+              on the screen that holds more, not less.
+
+              ONE DERIVATION, shared with the list (`leadSummaryLine`), because
+              two surfaces rendering one summary is what drifts - the list's
+              version already carried three fallbacks and a separator nobody
+              would reproduce the same way by hand. */}
+          <span className="cd-header-sub" data-testid="cd-header-sub">
+            {leadSummaryLine({
+              accountName: account?.name ?? null,
+              payload: source.payload,
+              createdAt: createdAt ?? null,
+            })}
+          </span>
+
+          {/* MOVED RIGHT to make room, which is the other half of V1's own
+              wording. They sit with the save controls now rather than between
+              the name and what describes it. */}
 
           <div className="cd-header-right" data-testid="cd-header-right">
+            {actions}
             {/* THE DIRTY INDICATOR CARRIES THE UNSAVED STATE, and it is here
                 because of a P2 consequence rather than a preference: Escape
                 reverts and is the only revert, so a COLLAPSED panel can never

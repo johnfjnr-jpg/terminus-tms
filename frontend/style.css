@@ -6205,6 +6205,15 @@ input.input-invalid {
 /* Pushed right, which is what "Save and Discard pushed right" means, and it
  * survives the row wrapping because the margin is auto rather than a fixed
  * gap. */
+/* V1: the summary line in the detail header, matching the list row's own
+   treatment - the same three facts, so the same weight. `margin-right: auto`
+   is what pushes the actions and the save controls to the right, which is the
+   other half of the finding's wording. */
+.cd-header-sub {
+  font-size: 12px;
+  color: var(--muted);
+  margin-right: auto;
+}
 .cd-header-right {
   margin-left: auto;
   display: flex;
@@ -6342,6 +6351,25 @@ input.input-invalid {
   grid-template-columns: 1fr 1fr 1fr;
   gap: 18px;
   margin-top: 12px;
+  /* ── V3, John's walk 3: ONLY THE NOTES PANEL EXTENDS ─────────────────
+     "When ALL is selected the only panel that requires to extend down is the
+     notes panel. It doesn't make sense to extend summary and follow up task."
+
+     A grid's default `align-items: stretch` made every cell as tall as the
+     tallest. Measured with ALL selected on a twelve-note contact: Summary was
+     1036px of mostly empty card because Notes was 1036px. Each cell takes its
+     own height now.
+
+     ── V2: A GAP BELOW THE ROW ─────────────────────────────────────────
+     "There should be a slight gap in the border for the summary/notes/followup
+     task and the personal details panel." Measured: the row's bottom and the
+     next panel's top were the SAME PIXEL - a 0px gap against the 18px the
+     cards inside the row are separated by, so the sections read as one block.
+
+     18px, which is the row's own `gap` rather than a new number: the sections
+     are separated exactly as much as the cards within them. */
+  align-items: start;
+  margin-bottom: 18px;
 }
 /* R1 (Test Bed layout moves): the Test Bed's top row has TWO cells, not three,
    because Follow-up does not exist on a Test Bed - it is not in the payload,
