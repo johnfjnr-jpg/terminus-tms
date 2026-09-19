@@ -114,8 +114,21 @@ export function ParkForm({ open, onCancel, onSave, onConfirmDiscard, error }: {
         {own || error
           ? <div className="msg-error" data-testid="cd-park-error">{own ?? error}</div>
           : null}
+        {/* ── A WARNING, NOT AN ERROR. Ruled by John 2026-09-19 ──────────
+            This was `msg-error`, so a refusal of an ACCIDENTAL dismissal
+            rendered in red - spending the one signal the screen has for
+            genuine failure on a form politely declining to close.
+
+            `.msg-warning` was written for this exact case on a different
+            screen in August, and its own comment says so: "this isn't a
+            validation failure, it's a warning against an accidental discard".
+            The park form is that situation and reached for the other class.
+
+            THE WORDING IS UNCHANGED, which the ruling is explicit about, and
+            nothing else moves: the two stylesheet rules are identical except
+            for `color`. */}
         {nagging
-          ? <div className="msg-error" data-testid="cd-park-unsaved-warning">
+          ? <div className="msg-warning" data-testid="cd-park-unsaved-warning">
               There is unsaved work here. Save and park, or cancel.
             </div>
           : null}

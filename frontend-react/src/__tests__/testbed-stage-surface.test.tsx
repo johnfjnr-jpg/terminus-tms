@@ -12,6 +12,9 @@ import { UseCasesList } from '../testbed/UseCasesList'
 import LIVE_JSON from './fixtures/exit-criteria-live.json'
 import SCORING_JSON from './fixtures/scoring-live.json'
 import { criteriaForStage, type Criterion } from '../testbed/scoring'
+import { ShellProvider } from '../ShellContext'
+import { shellServices } from './fixtures'
+import { scoreButton } from './scoreControl'
 
 let host: HTMLElement
 let root: Root
@@ -48,13 +51,23 @@ const deps = (over: Partial<StageTabsDeps> = {}): StageTabsDeps => ({
   ...over,
 })
 
+// ── WRAPPED IN THE SHELL, because the scoring card is a SEAM CALLER now ──
+//
+// V9 ruled the anchor renders through the estate's shared popup (R2 option B),
+// so `ScoringCard` reaches it through `useShell` - and this harness rendered
+// `StageTabs` bare. The failure is honest and says so: "useShell called outside
+// ShellProvider". The harness gains the provider rather than the component
+// gaining a fallback, because a component that quietly works without its seam
+// is how a seam stops being one.
 const render = (props: Partial<Parameters<typeof StageTabs>[0]> = {}) => act(() => {
   root.render(
-    <StageTabs payload={{ safesightCameras: '2' }} units={[]}
-      landing={null} fresh currentStage="Qualification" nextStage="Site Assessment"
-      deps={deps()} reference={<p data-testid="ref-slot">reference</p>}
-      commercials={<p data-testid="comm-slot">commercials</p>}
-      {...props} />)
+    <ShellProvider services={shellServices()}>
+      <StageTabs payload={{ safesightCameras: '2' }} units={[]}
+        landing={null} fresh currentStage="Qualification" nextStage="Site Assessment"
+        deps={deps()} reference={<p data-testid="ref-slot">reference</p>}
+        commercials={<p data-testid="comm-slot">commercials</p>}
+        {...props} />
+    </ShellProvider>)
 })
 
 const q = (id: string) => host.querySelector(`[data-testid="${id}"]`)
@@ -187,9 +200,8 @@ describe('the tab strip renders', () => {
     await click('tb-tab-btn-stage-Qualification')
     await act(async () => {
       // Level 1 of a captured criterion, which the route marks reason_required.
-      const sel = q('tb-score-select-scoreRolloutPath') as HTMLSelectElement
-      sel.value = '1'
-      sel.dispatchEvent(new Event('change', { bubbles: true }))
+      // V9: the control is five buttons, so drafting is a CLICK.
+      scoreButton(host, 'scoreRolloutPath', 1)!.click()
       await Promise.resolve()
     })
     expect((q('tb-score-record') as HTMLButtonElement).disabled,

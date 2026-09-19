@@ -1,5 +1,31 @@
 # Assessment panel: usability
 
+> ## SUPERSEDING NOTE, 2026-09-19: THIS PANEL'S POPUP IS NOW SHARED
+>
+> **Ruled by John at the scoring-selector round's Phase 0, and recorded here as
+> well as in `SCORING_SELECTOR_BRIEF.md` so neither surface can drift back to
+> believing it owns the mechanism.**
+>
+> The Test Bed's scoring card was about to grow its own way of showing an anchor
+> at the point of use - a RESERVED in-row region. That would have been a second
+> ruling on the question this panel already answered, which is Verification 23,
+> and its remedy is **deletion rather than reconciliation: one becomes a caller
+> of the other.**
+>
+> **This panel's floating popup is the mechanism.** Its 420px clamp, its
+> centred-then-clamped positioning and its hover/focus behaviour are carried
+> over rather than reinvented, and the Test Bed CALLS it.
+>
+> **Measured before the ruling**, which is why the reserved region lost: sized
+> for the longest anchor at 302 characters it costs **120px per row at 1240**,
+> against a row head of 77px. This panel had already measured the in-row cost at
+> 36px and chosen to float for the same reason.
+>
+> **AND R6 CHANGES THIS PANEL'S OWN BEHAVIOUR**, because a shared mechanism is
+> fixed once: the popup **dismisses on selection**, and **at most one renders at
+> a time**. Hover or focus moving elsewhere MOVES it; it never accumulates. That
+> is proven HERE first, on this surface, and inherited by the Test Bed.
+
 ## Phase 0, investigation and plan
 
 **Round number to be confirmed against the repo.** Round 27 merged to `main`

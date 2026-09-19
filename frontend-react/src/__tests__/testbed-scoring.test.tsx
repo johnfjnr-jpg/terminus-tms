@@ -19,6 +19,7 @@ import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { TestBedHost } from '../testbed/TestBedHost'
 import { ShellProvider } from '../ShellContext'
+import { scoreButton, scoreValue, scoreDisabled, scoreGroup } from './scoreControl'
 import { shellServices } from './fixtures'
 import type { ShellServices } from '../shell-services'
 import LIVE_JSON from './fixtures/scoring-live.json'
@@ -92,8 +93,10 @@ const openStage = async (stage: string) => {
   await act(async () => { $(`tb-tab-btn-stage-${stage}`)!.click() })
   await settle()
 }
-const selects = () => [...host.querySelectorAll('[data-testid="tb-stage-scoring-card"] [data-testid^="tb-score-select-"]')] as HTMLSelectElement[]
-const keysShown = () => selects().map((s) => s.dataset.testid!.replace('tb-score-select-', ''))
+// V9: the control is five buttons per criterion, so "which criteria are on
+// offer" is which LEVEL GROUPS are rendered, in DOM order.
+const keysShown = () => [...host.querySelectorAll('[data-testid="tb-stage-scoring-card"] [data-testid^="tb-score-levels-"]')]
+  .map((e) => e.getAttribute('data-testid')!.replace('tb-score-levels-', ''))
 const atStage = (stage: string) => LIVE.criteria.filter((c) => (c.stages ?? []).some((s) => s.stage === stage))
 
 describe('2.1 criteria come from each criterion\'s OWN stage rows', () => {
@@ -142,9 +145,16 @@ describe('2.2 series come from the record PAYLOAD, through the one reducer', () 
 // ── 2.3 THE CONTRACT ──────────────────────────────────────────────────────
 const choose = async (key: string, value: string) => {
   await act(async () => {
-    const sel = $(`tb-score-select-${key}`) as HTMLSelectElement
-    sel.value = value
-    sel.dispatchEvent(new Event('change', { bubbles: true }))
+    // V9: CLEARING IS ESCAPE, not a value. The select expressed "no draft" as
+    // its empty option; five buttons have no such member, and the ruling is
+    // that Escape reverts per A3. So the helper speaks the CLAIM - set this
+    // score, or clear it - and each is expressed in the control's own terms.
+    if (value === '') {
+      const any = scoreGroup(host, key)!.querySelector('button')!
+      any.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+      return
+    }
+    scoreButton(host, key, value)!.click()
   })
   await settle()
 }
@@ -212,7 +222,7 @@ describe('2.3 one flat entry per criterion, in PANEL order', () => {
     allowed = false
     await record()
     expect(posts(sent), 'a score was sent for somebody else\'s record').toHaveLength(0)
-    expect(($(`tb-score-select-${Q()[0].criterion_key}`) as HTMLSelectElement).value).toBe(noReason(Q()[0]))
+    expect(scoreValue(host, Q()[0].criterion_key)).toBe(noReason(Q()[0]))
   })
 })
 
@@ -229,9 +239,9 @@ describe('2.3 the vanilla\'s partial-failure semantics, on REAL refusal bodies',
       'the run went on past the refusal').toEqual([a.criterion_key, b.criterion_key])
     expect($('tb-score-error')?.textContent)
       .toBe(`Recorded ${nameOf(a.criterion_key)}. ${nameOf(b.criterion_key)} could not be recorded: ${refusal.body.error}`)
-    expect(($(`tb-score-select-${a.criterion_key}`) as HTMLSelectElement).value, 'the recorded score stayed drafted').toBe('')
-    expect(($(`tb-score-select-${b.criterion_key}`) as HTMLSelectElement).value, 'the refused score was not kept for a retry').toBe(noReason(b))
-    expect(($(`tb-score-select-${c.criterion_key}`) as HTMLSelectElement).value, 'the unattempted score was not kept').toBe(noReason(c))
+    expect(scoreValue(host, a.criterion_key), 'the recorded score stayed drafted').toBe('')
+    expect(scoreValue(host, b.criterion_key), 'the refused score was not kept for a retry').toBe(noReason(b))
+    expect(scoreValue(host, c.criterion_key), 'the unattempted score was not kept').toBe(noReason(c))
   })
 
   test('a refusal on the FIRST entry says nothing was recorded', async () => {
@@ -324,79 +334,35 @@ describe('2.5 the current value, the question and the definitions', () => {
     for (const c of Q().filter((x) => x.asks)) expect($(`tb-score-asks-${c.criterion_key}`)?.textContent).toBe(c.asks)
   })
 
-  test('the definitions list EVERY level, mark the ones with no wording, and name the version', async () => {
+  // ── R4, 2026-09-19: SHOW DEFINITIONS IS GONE, AND THESE TWO TESTS WITH IT
+  //
+  // Two tests lived here: that the toggle listed every level with the
+  // unworded ones marked, and that a block the person closed stayed closed.
+  // Both were about a control the ruling removes - the anchors are at the
+  // POINT OF USE now, so there is no list to open and no closed state to
+  // survive.
+  //
+  // THE CLAIM THAT SURVIVES IS THE ONE THAT WAS ALWAYS THE POINT: that a level
+  // WITHOUT wording shows none and invents nothing. It is asserted here against
+  // the new control, and again in scoring-buttons.test.tsx against the seam.
+  //
+  // The definitions DATA and ROUTE are untouched, which the ruling is explicit
+  // about, and the history rows below still resolve their own anchor version.
+  test('R4: a level with no wording shows none, and nothing is invented for it', async () => {
     await mount({ payload: {} })
     await openStage('Qualification')
     const c = Q()[0]
-    const toggleBtn = $(`tb-anchors-toggle-${c.criterion_key}`)!
-    expect(toggleBtn.getAttribute('aria-expanded')).toBe('false')
-    expect(cls(`tb-anchors-${c.criterion_key}`)).toContain('hidden')
-    await act(async () => { toggleBtn.click() })
-    expect($(`tb-anchors-toggle-${c.criterion_key}`)!.getAttribute('aria-expanded')).toBe('true')
-    expect(cls(`tb-anchors-${c.criterion_key}`)).not.toContain('hidden')
     const words = c.anchors![String(c.current_version)]
-    for (const l of c.levels!) {
-      const row = $(`tb-anchor-${c.criterion_key}-${l.value}`)!
-      expect(row.className.includes('tb-score-anchor--nowording'), `level ${l.value}`).toBe(!words[String(l.value)])
-      expect(row.querySelector('.tb-score-anchor-text')!.textContent).toBe(words[String(l.value)] ?? '')
+    const unworded = c.levels!.filter((l) => !words[String(l.value)])
+    expect(unworded.length, 'every level has wording, so this claim is vacuous here').toBeGreaterThan(0)
+    for (const l of unworded) {
+      const b = scoreButton(host, c.criterion_key, l.value)!
+      // The button is a BARE NUMBER: its own label and nothing else.
+      expect(b.textContent?.trim()).toBe(String(l.value))
     }
-    expect(c.levels!.some((l) => !words[String(l.value)]), 'every level has wording, so the marking is not exercised').toBe(true)
-    expect($(`tb-anchors-version-${c.criterion_key}`)?.textContent).toBe(`Version ${c.current_version}`)
   })
 
-  test('the definitions OPEN while a draft is pending, and a close the person made survives the next focus', async () => {
-    await mount({ payload: {} })
-    await openStage('Qualification')
-    const c = Q()[0]
-    await choose(c.criterion_key, noReason(c))
-    expect($(`tb-anchors-toggle-${c.criterion_key}`)!.getAttribute('aria-expanded'), 'a pending draft did not open them').toBe('true')
-    await act(async () => { $(`tb-anchors-toggle-${c.criterion_key}`)!.click() })
-    expect($(`tb-anchors-toggle-${c.criterion_key}`)!.getAttribute('aria-expanded')).toBe('false')
-    await act(async () => {
-      $(`tb-score-select-${c.criterion_key}`)!.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
-    })
-    expect($(`tb-anchors-toggle-${c.criterion_key}`)!.getAttribute('aria-expanded'), 'reaching for the select reopened a closed block').toBe('false')
-  })
-})
-
-describe('2.5 history and the current explanation', () => {
   const multi = () => Q().find((c) => orderedSeries(LIVE.record.payload, c.criterion_key).length > 1)!
-  const single = () => Q().find((c) => {
-    const s = orderedSeries(LIVE.record.payload, c.criterion_key)
-    return s.length === 1 && (s[0].reason || s[0].comment)
-  })!
-
-  test('a single entry shows its reason WITHOUT a history control', async () => {
-    const c = single()
-    expect(c, 'no captured criterion has exactly one explained entry').toBeTruthy()
-    await mount()
-    await openStage('Qualification')
-    expect($(`tb-score-history-${c.criterion_key}`)).toBeNull()
-    expect($(`tb-score-current-${c.criterion_key}`)?.textContent)
-      .toContain(`Reason: ${orderedSeries(LIVE.record.payload, c.criterion_key)[0].reason}`)
-  })
-
-  test('history is newest FIRST, with when, who, value, stage and version on every row', async () => {
-    const c = multi()
-    const s = orderedSeries(LIVE.record.payload, c.criterion_key)
-    await mount()
-    await openStage('Qualification')
-    const btn = $(`tb-score-history-${c.criterion_key}`)!
-    expect(btn.textContent).toBe(`Show history (${s.length})`)
-    expect(btn.getAttribute('aria-expanded')).toBe('false')
-    await act(async () => { btn.click() })
-    const rows = [...$(`tb-score-series-${c.criterion_key}`)!.querySelectorAll('[data-testid="tb-score-entry"]')] as HTMLElement[]
-    expect(rows).toHaveLength(s.length)
-    const newestFirst = [...s].reverse()
-    rows.forEach((r, i) => {
-      const e = newestFirst[i]
-      expect(r.textContent).toContain(e.by!)
-      expect(r.textContent).toContain(`${e.value} at ${e.stage}`)
-      expect(r.textContent).toContain(`v${e.anchorVersion}`)
-      if (e.reason) expect(r.textContent).toContain(`Reason: ${e.reason}`)
-    })
-    expect(newestFirst[0].at! > newestFirst[1].at!, 'the captured entries share a timestamp, so order is not proven').toBe(true)
-  })
 
   test('each history row resolves wording against its OWN version (DERIVED: a version 2 of the captured anchors)', async () => {
     const base = multi()
@@ -412,8 +378,16 @@ describe('2.5 history and the current explanation', () => {
     const text = $(`tb-score-series-${base.criterion_key}`)!.textContent!
     expect(text).toContain(base.anchors!['1'][String(scoredAtV1.value)])
     expect(text, 'a v1 entry was restated in v2 wording').not.toContain('REVISED')
-    expect($(`tb-anchors-version-${base.criterion_key}`)?.textContent, 'the version line is not the current version')
-      .toBe('Version 2')
+    // R4: the version LINE lived in the definitions block the ruling removed.
+    // What it was there to prove - that a history entry is resolved against the
+    // version it was scored at, not the current one - is the claim above, and
+    // it is asserted directly: the v1 entry keeps its v1 wording while the
+    // criterion's current version is 2.
+    // The rendered history NAMES the version each entry was scored at, and the
+    // entries here span two, which is what makes the wording claim above
+    // non-vacuous: if every entry were the same version there would be nothing
+    // for "its OWN version" to distinguish.
+    expect(text, 'the history row does not name the version it was scored at').toContain('v1')
   })
 })
 
@@ -439,8 +413,8 @@ describe('2.5 the reason box and the entry lock', () => {
     await openStage('Qualification')
     const [a, b] = Q()
     await choose(a.criterion_key, needsReason(a))
-    expect(($(`tb-score-select-${a.criterion_key}`) as HTMLSelectElement).disabled, 'the blocking criterion lost its own way out').toBe(false)
-    for (const c of Q().slice(1)) expect(($(`tb-score-select-${c.criterion_key}`) as HTMLSelectElement).disabled, c.criterion_key).toBe(true)
+    expect(scoreDisabled(host, a.criterion_key), 'the blocking criterion lost its own way out').toBe(false)
+    for (const c of Q().slice(1)) expect(scoreDisabled(host, c.criterion_key), c.criterion_key).toBe(true)
     expect(($('tb-measurability-select') as HTMLSelectElement).disabled).toBe(true)
     // W9 (John's walk 2, 2026-09-18) CONSOLIDATED THIS. The state was told
     // three times - a note at the top of the card, a different label on the
@@ -454,7 +428,7 @@ describe('2.5 the reason box and the entry lock', () => {
     expect($('tb-score-lock-note'), 'the superseded note survived beside its replacement').toBeNull()
     expect(document.activeElement, 'focus did not move into the reason box').toBe($(`tb-score-reason-${a.criterion_key}`))
     await choose(b.criterion_key, noReason(b))
-    expect(($(`tb-score-select-${b.criterion_key}`) as HTMLSelectElement).value, 'the handler took a draft past the lock').toBe('')
+    expect(scoreValue(host, b.criterion_key), 'the handler took a draft past the lock').toBe('')
   })
 
   test('the LOCK releases both ways: by giving the reason, and by clearing the draft', async () => {
@@ -463,12 +437,12 @@ describe('2.5 the reason box and the entry lock', () => {
     const [a, b] = Q()
     await choose(a.criterion_key, needsReason(a))
     await typeReason(a.criterion_key, 'Exploratory only.')
-    expect(($(`tb-score-select-${b.criterion_key}`) as HTMLSelectElement).disabled).toBe(false)
+    expect(scoreDisabled(host, b.criterion_key)).toBe(false)
     expect($('tb-score-quieted-note'), 'the shared line outlived the block it names').toBeNull()
     await typeReason(a.criterion_key, '')
-    expect(($(`tb-score-select-${b.criterion_key}`) as HTMLSelectElement).disabled, 'emptying the reason did not lock again').toBe(true)
+    expect(scoreDisabled(host, b.criterion_key), 'emptying the reason did not lock again').toBe(true)
     await choose(a.criterion_key, '')
-    expect(($(`tb-score-select-${b.criterion_key}`) as HTMLSelectElement).disabled).toBe(false)
+    expect(scoreDisabled(host, b.criterion_key)).toBe(false)
     expect($('tb-score-quieted-note')).toBeNull()
   })
 })

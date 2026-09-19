@@ -14,6 +14,7 @@ import {
 } from './scoring'
 import { reasonRequired, reasonAccepted, type ScoreEntry } from './scoreReason'
 import { currentEntry } from './QualificationScore'
+import { useShell } from '../ShellContext'
 import type { PanelId, PanelState } from './stageLoad'
 
 /** What a tick attempt came back with. `error: null` means refused with nothing to say (the door). */
@@ -222,7 +223,6 @@ export function ScoringCard({ card, criteria, series, scores, onDraft, onReason,
   // Three states per criterion: undefined (nobody decided, a pending draft
   // opens it), true, false. A decision outranks the default, and an explicit
   // close survives the next focus of the select (the vanilla's Round 28 guard).
-  const [anchorsOpen, setAnchorsOpen] = useState<Readonly<Record<string, boolean>>>({})
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [measError, setMeasError] = useState<string | null>(null)
@@ -242,14 +242,71 @@ export function ScoringCard({ card, criteria, series, scores, onDraft, onReason,
   const blocking = awaitingReason(scores.drafts, scores.reasons, criteria, series)
   const blockingName = blocking ? (criteria.find((c) => c.criterion_key === blocking)?.name ?? blocking) : null
   const anyDraft = criteria.some((c) => (scores.drafts[c.criterion_key] ?? '') !== '')
-  const showAnchors = (key: string) => setAnchorsOpen((o) => (o[key] === undefined ? { ...o, [key]: true } : o))
+
+  // ── R2 OPTION B: THIS CARD IS A CALLER ────────────────────────────────
+  //
+  // Everything about how the popup behaves - at most one, dismiss on commit,
+  // centred then clamped, the 420px clamp - is the shared module's. What this
+  // card supplies is the three things only it knows: which criterion, which
+  // level, and the wording, which comes from the anchors it already resolves.
+  const anchorBox = (key: string): HTMLElement | null =>
+    cardRef.current?.querySelector(`[data-testid="tb-score-anchor-${key}"]`) ?? null
+
+  const showAnchorFor = (key: string, value: string, el: HTMLElement) => {
+    const c = criteria.find((x) => x.criterion_key === key)
+    const set = anchorSet(c, c?.current_version)
+    const wording = set[value] ?? ''
+    const box = anchorBox(key)
+    // R1: 2 and 4 have no anchor, so there is nothing to show and nothing is
+    // invented. Asking is simply a no-op rather than an empty popup.
+    if (!wording || !box) return
+    shell.showAnchor({
+      anchor: el, box, key, wording,
+      label: (c?.levels ?? []).find((l) => String(l.value) === value)?.label ?? value,
+      groupSelector: '.tb-score-levels',
+    })
+  }
+
+  const commitLevel = (
+    key: string, value: string, levels: { value: number }[],
+    s: readonly ScoreEntry[], blocking: string | null, isBlocking: boolean,
+  ) => {
+    onDraft(key, value, blocking)
+    // R6, inherited: committing clears the popup until a genuine re-entry.
+    shell.dismissAnchor(key)
+    if (value !== '' && (!blocking || isBlocking) && reasonRequired(Number(value), levels, s)) setFocusFor(key)
+  }
+
+  // ── R3: ARROWS WALK THE GROUP, WITH THE ANCHOR FOLLOWING ──────────────
+  //
+  // Per the R-K standard. Enter commits the focused number, Escape reverts per
+  // A3, and the arrows move focus - which, because focus is what shows the
+  // anchor, is what makes the wording follow without a second mechanism.
+  const onLevelKey = (
+    e: KeyboardEvent<HTMLElement>, key: string, value: string, levels: { value: number }[],
+  ) => {
+    if (e.key === 'Escape') { e.preventDefault(); onDraft(key, '', null); return }
+    if (e.key === 'Enter' || e.key === ' ') return   // the click handler takes these
+    const step = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1
+      : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 0
+    if (!step) return
+    e.preventDefault()
+    const i = levels.findIndex((l) => String(l.value) === value)
+    const next = levels[i + step]
+    if (!next) return
+    const el = cardRef.current?.querySelector<HTMLElement>(
+      `[data-testid="tb-score-btn-${key}-${next.value}"]`)
+    el?.focus()
+  }
   const when = (at?: string) => formatTimestamp(at)
 
+  const shell = useShell()
+  const cardRef = useRef<HTMLDivElement | null>(null)
   const measSeries = series('measurabilityConfirmed')
   const measCurrent = currentEntry(measSeries)
 
   return (
-    <div className="pg-card" data-testid="tb-stage-scoring-card"
+    <div className="pg-card" ref={cardRef} data-testid="tb-stage-scoring-card"
       hidden={card.hidden || (!criteria.length && !measurability)} data-stage={card.stage}>
       <div className="pg-card-title">Scoring</div>
 
@@ -309,7 +366,6 @@ export function ScoringCard({ card, criteria, series, scores, onDraft, onReason,
         const isBlocking = blocking === key
         const required = draft !== '' && reasonRequired(Number(draft), levels, s)
         const open = expanded.has(key)
-        const anchors = anchorsOpen[key] ?? (draft !== '')
         const set = anchorSet(c, c.current_version)
         const wording = (value: number, description?: string | null) => set[String(value)] ?? description ?? ''
 
@@ -353,19 +409,51 @@ export function ScoringCard({ card, criteria, series, scores, onDraft, onReason,
                 {current && current.value !== undefined ? String(current.value) : 'Not scored'}</span>
               {/* THE BLOCKING CRITERION KEEPS ITS OWN CONTROL: changing the level
                   is a legitimate way out of needing a reason. */}
-              <select className="tb-score-select" aria-label={`${name} score`}
-                data-testid={`tb-score-select-${key}`} value={draft}
-                disabled={!!blocking && !isBlocking}
-                onKeyDown={revertOnEscape}
-                onFocus={() => showAnchors(key)} onMouseDown={() => showAnchors(key)}
-                onChange={(e) => {
-                  const v = e.target.value
-                  onDraft(key, v, blocking)
-                  if (v !== '' && (!blocking || isBlocking) && reasonRequired(Number(v), levels, s)) setFocusFor(key)
-                }}>
-                <option value="">{current ? 'Revise...' : 'Score...'}</option>
-                {levels.map((l) => <option key={l.value} value={String(l.value)}>{l.label ?? l.value}</option>)}
-              </select>
+              {/* ── R1: FIVE BUTTONS, AND THE ANCHOR AT THE POINT OF USE ──
+                  The select is gone. Hover or focus on a number shows THAT
+                  number's anchor through the SHARED popup (R2 option B), so
+                  this card is a CALLER and not a second mechanism.
+
+                  2 AND 4 RENDER AS BARE NUMBERS. Phase 0 measured ZERO anchor
+                  rows at those scores on every test_bed criterion, so there is
+                  nothing to show and nothing is invented for them - asking for
+                  their wording simply shows nothing.
+
+                  ── R3: ONE TAB STOP, NOT FIVE ────────────────────────────
+                  A roving tabindex. Five buttons each taking a tab stop would
+                  turn one criterion into five, and the ruling is that the tab
+                  order is unbroken: the group is reached by Tab and walked by
+                  arrows, which is what a radio group does and what the
+                  Opportunity's own level row already does. */}
+              <span className="tb-score-levels" role="radiogroup"
+                aria-label={`${name} score`} data-testid={`tb-score-levels-${key}`}>
+                {levels.map((l) => {
+                  const v = String(l.value)
+                  const chosen = draft !== '' ? draft === v : String(current?.value ?? '') === v
+                  const roving = draft !== '' ? draft === v
+                    : (String(current?.value ?? '') === v || (!current && String(levels[0]?.value) === v))
+                  return (
+                    <button type="button" key={v}
+                      className={chosen ? 'tb-score-btn tb-score-btn--on' : 'tb-score-btn'}
+                      data-testid={`tb-score-btn-${key}-${v}`}
+                      data-criterion={key} data-level={v}
+                      role="radio" aria-checked={chosen}
+                      tabIndex={roving ? 0 : -1}
+                      disabled={!!blocking && !isBlocking}
+                      onMouseOver={(e) => showAnchorFor(key, v, e.currentTarget)}
+                      onFocus={(e) => showAnchorFor(key, v, e.currentTarget)}
+                      onMouseLeave={() => shell.hideAnchor()}
+                      onBlur={() => shell.hideAnchor()}
+                      onKeyDown={(e) => onLevelKey(e, key, v, levels)}
+                      onClick={() => commitLevel(key, v, levels, s, blocking, isBlocking)}>
+                      {l.label ?? l.value}
+                    </button>)
+                })}
+              </span>
+              {/* R2: the box the SHARED module positions and fills. The card
+                  renders it and owns nothing about how it behaves. */}
+              <span className="anchor-defn hidden" role="tooltip" aria-hidden="true"
+                data-testid={`tb-score-anchor-${key}`} />
 
 
               {/* ── W4, John's walk, 2026-09-18: THE REASON IS PART OF SCORING ──
@@ -440,24 +528,17 @@ export function ScoringCard({ card, criteria, series, scores, onDraft, onReason,
                   {open ? 'Hide history' : `Show history (${s.length})`}</button>)
               : null}
 
-            <button type="button" className="anchors-toggle"
-              aria-expanded={anchors} aria-controls={`tb-anchors-${key}`}
-              data-testid={`tb-anchors-toggle-${key}`}
-              onClick={() => setAnchorsOpen((o) => ({ ...o, [key]: !anchors }))}>
-              {anchors ? 'Hide definitions' : 'Show definitions'}</button>
-            {/* EVERY LEVEL IS LISTED, and a level with no wording is shown with
-                none and marked, rather than hidden or given invented text. */}
-            <div id={`tb-anchors-${key}`} data-testid={`tb-anchors-${key}`}
-              className={anchors ? 'tb-score-anchors' : 'tb-score-anchors hidden'}>
-              {levels.map((l) => (
-                <div key={l.value} data-testid={`tb-anchor-${key}-${l.value}`}
-                  className={wording(l.value, l.description) ? 'tb-score-anchor' : 'tb-score-anchor tb-score-anchor--nowording'}>
-                  <span className="tb-score-anchor-n">{l.label ?? l.value}</span>
-                  <span className="tb-score-anchor-text">{wording(l.value, l.description)}</span>
-                </div>))}
-              <p className="sub tb-score-anchor-ver" data-testid={`tb-anchors-version-${key}`}>
-                Version {String(c.current_version)}</p>
-            </div>
+            {/* ── R4: SHOW DEFINITIONS IS GONE ─────────────────────────
+                Ruled 2026-09-19. The anchors are at the point of use now: hover
+                or focus a number and that number's wording appears. A toggle
+                that reveals all five below the row is the thing the point-of-use
+                anchor replaces, and keeping both would be two ways to read the
+                same wording.
+
+                THE DATA AND THE ROUTE ARE UNTOUCHED, which the ruling is
+                explicit about, and HISTORY ENTRIES STILL SHOW THEIR ANCHOR TEXT
+                below - an old score keeps meaning what it meant. Only the
+                toggle goes. */}
 
 
 

@@ -15,6 +15,9 @@ import { StageTabs, type StageTabsDeps } from '../testbed/StageTabs'
 import LIVE_JSON from './fixtures/exit-criteria-live.json'
 import SCORING_JSON from './fixtures/scoring-live.json'
 import { criteriaForStage, type Criterion } from '../testbed/scoring'
+import { ShellProvider } from '../ShellContext'
+import { shellServices } from './fixtures'
+import { scoreButton, scoreValue, scoredKeys, scoreDisabled } from './scoreControl'
 
 let host: HTMLElement
 let root: Root
@@ -48,10 +51,11 @@ const q = (id: string) => host.querySelector(`[data-testid="${id}"]`) as HTMLEle
 
 const render = async () => {
   act(() => {
-    root.render(
+    // V9: wrapped, because ScoringCard is a seam caller now (R2 option B).
+    root.render(<ShellProvider services={shellServices()}>
       <StageTabs payload={{}} units={[]}
         landing={null} fresh currentStage="Qualification" nextStage="Closed"
-        deps={deps()} reference={<p>reference</p>} commercials={<p>commercials</p>} />)
+        deps={deps()} reference={<p>reference</p>} commercials={<p>commercials</p>} /></ShellProvider>)
   })
   await settle()
   await act(async () => { q('tb-tab-btn-stage-Qualification')!.click() })
@@ -61,9 +65,8 @@ const render = async () => {
 /** Level 1 of this captured criterion is the one the route marks reason_required. */
 const draftABlockingScore = async () => {
   await act(async () => {
-    const sel = q('tb-score-select-scoreRolloutPath') as unknown as HTMLSelectElement
-    sel.value = '1'
-    sel.dispatchEvent(new Event('change', { bubbles: true }))
+    // V9: the control is five buttons now, so drafting is a CLICK.
+    scoreButton(host, 'scoreRolloutPath', 1)!.click()
   })
   await settle()
 }
@@ -72,6 +75,11 @@ const escapeOn = async (id: string) => {
   await act(async () => {
     q(id)!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
   })
+  await settle()
+}
+/** V9: the score control is not addressable by one testid any more. */
+const escapeOnEl = async (el: HTMLElement) => {
+  await act(async () => { el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })) })
   await settle()
 }
 
@@ -97,22 +105,22 @@ describe('W7: Escape reverts the field, as ruling A3 already requires elsewhere'
     await escapeOn('tb-score-reason-scoreRolloutPath')
 
     expect(q('tb-score-reason-scoreRolloutPath'), 'Escape left the reason box open').toBeNull()
-    expect((q('tb-score-select-scoreRolloutPath') as unknown as HTMLSelectElement).value,
+    expect(scoreValue(host, 'scoreRolloutPath'),
       'Escape left the draft on the select').toBe('')
   })
 
   test('and Escape on the score control itself does the same, because it is the same gesture', async () => {
     await render()
     await draftABlockingScore()
-    await escapeOn('tb-score-select-scoreRolloutPath')
-    expect((q('tb-score-select-scoreRolloutPath') as unknown as HTMLSelectElement).value).toBe('')
+    await escapeOnEl(scoreButton(host, 'scoreRolloutPath', 1)!)
+    expect(scoreValue(host, 'scoreRolloutPath')).toBe('')
     expect(q('tb-score-reason-scoreRolloutPath')).toBeNull()
   })
 
   test('Escape with NO draft changes nothing, so it cannot destroy a recorded score', async () => {
     await render()
     const before = host.innerHTML
-    await escapeOn('tb-score-select-scoreRolloutPath')
+    await escapeOnEl(scoreButton(host, 'scoreRolloutPath', 1)!)
     expect(host.innerHTML, 'Escape on an untouched row changed the surface').toBe(before)
   })
 
@@ -131,7 +139,7 @@ describe('W7: Escape reverts the field, as ruling A3 already requires elsewhere'
       })
       await settle()
       expect(q('tb-score-reason-scoreRolloutPath'), `"${key}" reverted the draft`).not.toBeNull()
-      expect((q('tb-score-select-scoreRolloutPath') as unknown as HTMLSelectElement).value,
+      expect(scoreValue(host, 'scoreRolloutPath'),
         `"${key}" cleared the score`).toBe('1')
     }
   })
@@ -144,15 +152,14 @@ describe('W8a: the awaiting-reason lock never traps a person who changed their m
 
     // The lock, as it stands: every other criterion's control is refused while
     // this one has no reason. Asserted so the release below is not vacuous.
-    const others = [...host.querySelectorAll('[data-testid^="tb-score-select-"]')]
-      .filter((el) => el.getAttribute('data-testid') !== 'tb-score-select-scoreRolloutPath') as HTMLSelectElement[]
+    const others = scoredKeys(host).filter((k) => k !== 'scoreRolloutPath')
     expect(others.length, 'there are no other criteria, so the lock claim is vacuous').toBeGreaterThan(0)
-    expect(others.every((el) => el.disabled), 'the lock is not on, so releasing it proves nothing').toBe(true)
+    expect(others.every((k) => scoreDisabled(host, k)), 'the lock is not on, so releasing it proves nothing').toBe(true)
     expect((q('tb-score-record') as HTMLButtonElement).disabled).toBe(true)
 
     await escapeOn('tb-score-reason-scoreRolloutPath')
 
-    expect(others.every((el) => !el.disabled), 'Escape left the other criteria locked').toBe(true)
+    expect(others.every((k) => !scoreDisabled(host, k)), 'Escape left the other criteria locked').toBe(true)
     expect(q('tb-score-lock-note'), 'the lock note survived the escape').toBeNull()
   })
 })

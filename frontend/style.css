@@ -1347,6 +1347,27 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
   width: 72px;
   text-align: right;
 }
+
+/* ── F-COM: THE CARD'S TWO COLUMNS REACH THE FIELD AGAIN ────────────────
+   `.unit-cards .unit-card` above declares `minmax(0, 1fr) 72px` with a 12px
+   gap: a label column and a number column. That works for markup with the
+   label and the input as SIBLINGS, which is what the vanilla gave it.
+
+   The React panel wraps both in ONE `<label class="deal-field">`, so the card's
+   grid receives a single child, its second column is never used, and the span
+   and the input sit inline HARD AGAINST each other - measured at a 0px gap on
+   SafeSight new infra, AQ sensor and HEMIR, which with a white input reads as
+   the box sitting on the label.
+
+   So the wrapper carries the same intent inward. The declaration is not
+   repeated as numbers: the columns and the gap are what the card already
+   declares, restated here at the level the markup actually has. */
+.unit-cards .unit-card .deal-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 72px;
+  align-items: center;
+  gap: 12px;
+}
 .unit-card {
   border: 1px solid var(--hairline-strong);
   padding: 12px;
@@ -2110,6 +2131,72 @@ textarea::placeholder { color: var(--muted-2); }
    companion `--attention-rgb` holding the same colour as three numbers - is two
    readers of one value, which agree today and drift the first time either moves
    (Verification 20). `color-mix` keeps one source of truth. */
+/* ── V9: THE FIVE-BUTTON SCORE CONTROL ──────────────────────────────────
+   R1. The buttons replace a <select>, and a replaced control inherits the ROLE
+   of the one it replaces along with its treatment (Verification 7). Shipped
+   without this they rendered as WHITE browser defaults on a dark screen -
+   present, positioned, operable, and exactly the fault that clause records.
+   Found by opening the screenshot, which is the only instrument that sees it.
+
+   `position: relative` ON THE GROUP IS LOAD-BEARING, not decoration: the anchor
+   popup is absolutely positioned and needs a positioned ANCESTOR, or its left
+   and top resolve against the page. Without it the wording rendered at the top
+   left of the document, roughly 700px from the number it explains - and every
+   assertion about the popup still passed, because they were about the popup
+   rather than about where it sits. */
+.tb-score-levels {
+  display: inline-flex;
+  gap: 4px;
+}
+.tb-score-btn {
+  font-family: var(--mono);
+  font-size: 12px;
+  min-width: 26px;
+  padding: 3px 0;
+  background: var(--black);
+  color: var(--white);
+  border: 1px solid var(--hairline-strong);
+  border-radius: 2px;
+  cursor: pointer;
+}
+.tb-score-btn:hover:not(:disabled) { border-color: var(--green); }
+.tb-score-btn:focus-visible { outline: none; border-color: var(--green); box-shadow: 0 0 0 1px var(--green); }
+/* The chosen level, and the same accent the estate uses for the one active
+   thing in a view. */
+.tb-score-btn--on {
+  background: var(--green);
+  border-color: var(--green);
+  color: var(--dark);
+  font-weight: 600;
+}
+.tb-score-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ── THE SHARED ANCHOR POPUP. R2 option B, 2026-09-19 ───────────────────
+   `.anchor-defn` is the class the shared module sweeps by, so a new caller
+   joins the mechanism by wearing it rather than by being named in a list.
+   The Opportunity's own `.opp-assess-defn` keeps its metrics and now carries
+   this class too; the Test Bed's scoring card wears it alone. */
+.anchor-defn {
+  position: absolute;
+  z-index: 40;
+  max-width: 420px;
+  background: var(--black);
+  border: 1px solid var(--hairline-strong);
+  padding: 8px 10px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--white);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.45);
+}
+.anchor-defn.hidden { display: none; }
+.anchor-defn-l {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--attention);
+  margin-right: 8px;
+}
+
 .btn-attention {
   border-color: var(--attention);
   color: var(--attention);
@@ -3488,6 +3575,18 @@ input.input-invalid {
   display: flex;
   align-items: baseline;
   gap: 12px;
+  /* ── V9: THE ANCHOR POPUP'S POSITIONING CONTEXT ────────────────────────
+     The popup box is a CHILD of this head, and the shared module positions it
+     against `box.parentElement`. Without a positioned ancestor here, an
+     absolutely positioned box resolves against the document: measured, the
+     wording rendered 587px ABOVE the number it explains, at the top left of
+     the page.
+
+     Every assertion about the popup still passed - shown, sized, clamped at
+     420px - because all of them are true of a box parked anywhere. It took a
+     RELATIONSHIP assertion, box-to-button, to see it, and a screenshot to know
+     to write one. */
+  position: relative;
 }
 .tb-score-name {
   flex: 1 1 auto;
@@ -7016,7 +7115,41 @@ input.input-invalid {
  * `border-bottom-color: green` on these inputs, and until now there was no
  * border for it to colour.
  */
+/* ── F-COM, 2026-09-19: THE COMMERCIALS PANEL JOINS THE SAME RULE ────────
+   `.deal-field` is the React deal panel's field wrapper, and NOTHING dressed
+   its inputs: 58 of 70 rendered the browser's white default on a dark screen.
+
+   ADDED TO THIS SELECTOR LIST rather than given a block of its own, which is
+   the standard rollout's own lesson - it extended this list for exactly the
+   same reason, so a second block with the same declarations would be the
+   second reader (Verification 20).
+
+   THE SELECTS ARE DELIBERATELY NOT ADDED. Measured: every one of the 58 white
+   elements is an `<input>`, and the panel's selects already render correctly.
+   Adding them would be changing something that is right in order to be tidy.
+
+   SCOPED TO `.deal-section`, NOT TO `.deal-field`, because the panel has two
+   families of input and only one wears that wrapper: the contractor milestone
+   grids put theirs in bare `<td>`s. Fixing only the wrapped ones took the white
+   from 58 to 30 and would have read as done.
+
+   AND `:not(.is-computed)` IS REQUIRED. `.is-computed` deliberately renders a
+   computed, read-only figure on a TRANSPARENT background, and this rule is more
+   specific than it, so without the exclusion the tidy-up would silently
+   overwrite a treatment somebody chose. An id-scoped `#deal-form-root input`
+   would have done the same thing with no way to opt out.
+
+   ── THE HISTORY, because it is the interesting part ──────────────────────
+   This is Group B's B2. Its Phase 0 named these inputs as the cause and was
+   RIGHT; the standard rollout's close-out retracted that - "I read the markup
+   (no class) instead of the stylesheet" - and the retraction was WRONG. That
+   round found a real and different cause, FieldRow's text editor rendering an
+   `<input>` with no `type` which `input[type="text"]` cannot match, fixed it
+   correctly and proved it on four FieldRow surfaces. These inputs are not
+   FieldRow rows, so the fix never reached them, and B2 was on no carried list
+   in between. */
 .lead-field-input,
+.deal-section input:not(.is-computed),
 .field-row-edit input,
 .field-row-edit select,
 .field-row-edit textarea {
@@ -7030,10 +7163,12 @@ input.input-invalid {
   padding: 5px 0;
 }
 .lead-field-input:focus,
+.deal-section input:not(.is-computed):focus,
 .field-row-edit input:focus,
 .field-row-edit select:focus,
 .field-row-edit textarea:focus { outline: none; border-bottom-color: var(--green); }
 .lead-field-input:disabled,
+.deal-section input:not(.is-computed):disabled,
 .field-row-edit input:disabled,
 .field-row-edit select:disabled,
 .field-row-edit textarea:disabled { opacity: 0.5; }

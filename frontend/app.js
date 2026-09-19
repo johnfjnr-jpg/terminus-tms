@@ -3761,7 +3761,28 @@ function renderOppAssessCriterion(c) {
   const answerText = current?.answer
     ? `${escHtml(current.answer.currency)} ${escHtml(Number(current.answer.amount).toLocaleString('en-GB'))}`
     : ''
-  const answerBox = c.criterion_key !== OPP_VALUE_CAPTURE_KEY ? '' : `
+  // ── R7, 2026-09-19: THE FIGURE RENDERS ONLY AT A FIGURE-BEARING LEVEL ──
+  //
+  // Ruled by John. A budget figure is an answer to "how much", and at Not
+  // applicable or Unknown there is no amount to give - so offering the input
+  // invites a number that contradicts the level standing beside it.
+  //
+  // MATCHED ON THE LABEL, which is what the ruling named and what the business
+  // reads, rather than on 3/4/5 - a scale that is renumbered would silently
+  // move the gate, and the numbers are an implementation detail of this scale.
+  // An unmatched label hides the box, which is the SAFE direction: hiding never
+  // destroys anything, because the figure lives in the draft and the record and
+  // not in the markup.
+  //
+  // PRESERVATION IS BY CONSTRUCTION, and it was checked before this was
+  // written. `sendAnswer` is true only when an amount was actually typed into
+  // the draft, so a save at a hidden level carries no `answer` key at all and
+  // the stored figure is never overwritten. This is the one shape that would
+  // have made hiding a control destructive - the control that edits a value is
+  // usually also what supplies it on save - and here it is not.
+  const figureLevel = (c.levels ?? []).find(l => String(l.value) === String(effective))
+  const figureBearing = OPP_FIGURE_BEARING_LEVELS.has(String(figureLevel?.label ?? ''))
+  const answerBox = (c.criterion_key !== OPP_VALUE_CAPTURE_KEY || !figureBearing) ? '' : `
     <span class="opp-assess-answer">
       <input type="text" inputmode="decimal" id="opp-assess-amount-${escHtml(c.criterion_key)}"
         aria-label="Budget figure, optional"
@@ -3906,7 +3927,7 @@ function renderOppAssessCriterion(c) {
              is what makes them mutually exclusive BY CONSTRUCTION rather than
              by a rule somebody has to keep. Two elements could both be open,
              which the brief correctly called a state nobody had designed. */''}
-        <div class="opp-assess-defn hidden" id="opp-assess-defn-${escHtml(c.criterion_key)}" role="tooltip" aria-hidden="true"></div>
+        <div class="opp-assess-defn anchor-defn hidden" id="opp-assess-defn-${escHtml(c.criterion_key)}" role="tooltip" aria-hidden="true"></div>
         ${/* Round 30 Phase 4: THE CONTROL LIVES IN THE CRITERION CELL, and the
              position is the whole reason the merge happens.
 
@@ -4056,6 +4077,17 @@ window.setOppAssessDraft = function (key, value) {
   const focused = document.activeElement?.id
   rerenderOppAssessLens()
   if (focused) document.getElementById(focused)?.focus()
+
+  // ── R6: SELECTING COMMITS AND CLEARS THE POPUP ────────────────────────
+  //
+  // AFTER the focus restore, and that order is the whole of it: restoring focus
+  // fires the radio's own `onfocus`, which shows the popup again. Dismissing
+  // before the restore would be undone by it.
+  //
+  // The dismissal is remembered so the hide sweep's focus fallback does not
+  // bring it back either, and it stands until the pointer re-enters or focus
+  // returns - both of which run through showOppLevelDefinition and clear it.
+  window.TerminusAnchor.dismiss(key)
 }
 // ── Round 31 Phase 3: the level definitions, on hover and on focus ────────
 //
@@ -4090,32 +4122,25 @@ window.showOppLevelDefinition = function (el) {
   const found = oppLevelWording(key, value)
   if (!found) return hideOppAssessDefn()
 
-  box.innerHTML = `<span class="opp-assess-defn-l">${escHtml(found.label)}</span>${escHtml(found.wording)}`
-  box.classList.remove('opp-assess-defn--asks')
-  box.classList.remove('hidden')
-  box.setAttribute('aria-hidden', 'false')
 
-  // CENTRED THEN CLAMPED, section 8's positioning rule, which transfers because
-  // the geometry is the same: measured at 1240 a left-aligned box on the
-  // rightmost segment overhangs the pane by 62px. Clamped to the row, because
-  // the row is the width the panel actually has.
-  const row = box.parentElement
-  const rr = row.getBoundingClientRect()
-  const er = el.getBoundingClientRect()
-  const bw = box.getBoundingClientRect().width
-  const centred = (er.left - rr.left) + (er.width / 2) - (bw / 2)
-  box.style.left = `${Math.max(0, Math.min(centred, rr.width - bw))}px`
-  // Round 32 Phase 1: `top` IS SET HERE TOO, and it has to be. The element is
-  // now shared with the question, which anchors to the name, so leaving this
-  // path to the stylesheet would let the question's inline `top` leak into the
-  // level definitions the next time one is shown.
+  // ── R2 OPTION B: THE MECHANISM MOVED OUT AND THIS IS NOW A CALLER ─────
   //
-  // Having to set it fixed the same 1240 fault this popup already had: `top:
-  // 100%` dropped it below the wrapped reason cell rather than under the
-  // segments it explains. That was Round 31's, it predates this phase, and it
-  // is repaired here because sharing the element made touching it unavoidable.
-  const gr = el.closest('.opp-assess-levels').getBoundingClientRect()
-  box.style.top = `${gr.bottom - rr.top}px`
+  // Everything that used to live here - the exclusivity sweep, the dismissal
+  // that survives a re-render, the centred-then-clamped positioning and the
+  // 420px clamp - is in frontend/anchor-popup.js, because the Test Bed's
+  // scoring card needs the identical behaviour and Verification 23's remedy for
+  // two rulings on one question is that one becomes a caller of the other.
+  //
+  // WHAT STAYS HERE IS WHAT IS GENUINELY THIS SURFACE'S: which criterion, which
+  // level, and where the wording comes from. `oppLevelWording` is unchanged.
+  box.classList.remove('opp-assess-defn--asks')
+  window.TerminusAnchor.show({
+    anchor: el, box: box, key: key,
+    label: found.label, wording: found.wording,
+    // The box is clamped to the ROW, and positioned under the level GROUP: the
+    // row is the width the panel actually has.
+    groupSelector: '.opp-assess-levels',
+  })
 }
 
 // ── Round 32 Phase 1: the criterion's question, on the same element ───────
@@ -4240,49 +4265,34 @@ window.hideOppAssessDefn = function () {
   // later, over whatever the pointer had moved on to, which is the flicker the
   // delay exists to prevent arriving late instead of early.
   clearTimeout(oppQuestionTimer)
-  for (const box of document.querySelectorAll('.opp-assess-defn')) {
-    // A FOCUSED SEGMENT OUTLIVES A HOVERED ONE, which is the difference between
-    // the two triggers and the reason this is not just classList.add('hidden').
-    //
-    // A pointer passing over the group while somebody is arrow-keying through
-    // it would otherwise take their wording away and not give it back: the
-    // mouseleave fires, the focus is still there, and nothing re-shows it. So
-    // leaving falls back to whatever is focused, and only hides when nothing is.
-    // Round 32 Phase 1: SCOPED TO A ROW THAT WIRES THE LEVEL HOVER. The popup
-    // now exists on all seven rows, so an unscoped fallback would show level
-    // definitions on the six Round 31 Phase 6 left without them, reached by a
-    // path nobody wired, which is exactly the generalisation that phase
-    // declined to make.
-    const focused = box.parentElement?.querySelector('.opp-assess-levels[data-level-hover] .opp-assess-level-input:focus')
-    // Round 34 Phase 1: `continue`, NOT `return`. This loop hides EVERY popup,
-    // and the fallback is about one of them.
-    //
-    // `return` exits the function, so the first row carrying a focused segment
-    // ended the sweep and every popup after it in document order was never
-    // hidden. The business photographed five open at once, and five is what
-    // eight rows leave behind when the third is focused.
-    //
-    // THE FALLBACK ITSELF IS RIGHT and is unchanged. A focused segment outlives
-    // a hovered one, because a pointer crossing the group while somebody is
-    // arrow-keying through it would otherwise take their wording away and never
-    // give it back. That is a statement about ONE box; it was written with a
-    // keyword that made it a statement about all of them.
-    //
-    // WHY NOBODY CAUGHT IT: it needs a focused segment, which a person acquires
-    // by clicking a level and moving on, and which a deliberate hover test
-    // never has. Round 32 Phase 1 verified this popup by hovering and its
-    // verification was correct.
-    //
-    // ROW EXCLUSIVITY IS NOT NEEDED AND IS NOT ADDED. Round 32 made the
-    // question and level popups exclusive WITHIN a row by sharing one element,
-    // and left rows able to open independently. With the loop completing, every
-    // hide sweeps every box, so a second row's popup can only survive through
-    // this fallback, which is deliberate. Adding cross-row exclusivity would
-    // suppress the one popup this fallback exists to protect.
-    if (focused) { showOppLevelDefinition(focused); continue }
-    box.classList.add('hidden')
-    box.setAttribute('aria-hidden', 'true')
-  }
+
+  // ── R2 OPTION B: A CALLER, NOT THE MECHANISM ──────────────────────────
+  //
+  // The sweep, the dismissal bookkeeping and the decision to re-show a focused
+  // row all live in anchor-popup.js now. What this surface still answers is the
+  // only question the module cannot: WHICH of my controls counts as focused.
+  //
+  // A FOCUSED SEGMENT OUTLIVES A HOVERED ONE, which is the whole reason the
+  // fallback exists: a pointer crossing the group while somebody is arrow-keying
+  // through it would otherwise take their wording away and never give it back.
+  //
+  // SCOPED TO A ROW THAT WIRES THE LEVEL HOVER, because the popup exists on all
+  // seven rows and an unscoped fallback would show level definitions on the six
+  // that were deliberately left without them.
+  //
+  // ── ROUND 34's `continue` IS NOW STRUCTURAL ───────────────────────────
+  // That round fixed a `return` here which ended the sweep at the first focused
+  // row and left every popup after it open - the business photographed five.
+  // The loop is the module's now, so the bug cannot return by editing a keyword
+  // in this file.
+  window.TerminusAnchor.hide({
+    focusedWithin: function (box) {
+      return box.parentElement
+        ? box.parentElement.querySelector('.opp-assess-levels[data-level-hover] .opp-assess-level-input:focus')
+        : null
+    },
+    reshow: function (focused) { showOppLevelDefinition(focused) },
+  })
 }
 
 // ── Round 31 Phase 5: the reason grows to its content ─────────────────────
@@ -4323,6 +4333,11 @@ window.setOppAssessReason = function (key, value) {
 }
 // Held without re-rendering, like the reason: re-rendering on every keystroke
 // would destroy the input the person is typing into.
+// R7: the levels at which a budget figure means anything. Named by LABEL
+// because that is what the ruling named and what a person reads; a scale
+// renumbering must not silently move the gate.
+const OPP_FIGURE_BEARING_LEVELS = new Set(['Our hypothesis', 'Buyer confirmed', 'Verified'])
+
 window.setOppAssessAnswer = function (key, field, value) {
   oppAssessAnswer[key] = { ...(oppAssessAnswer[key] ?? {}), [field]: value }
 }

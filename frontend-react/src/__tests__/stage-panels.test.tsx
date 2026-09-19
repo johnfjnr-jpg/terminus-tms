@@ -12,6 +12,7 @@ import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { TestBedHost } from '../testbed/TestBedHost'
 import { ShellProvider } from '../ShellContext'
+import { scoreButton, scoreGroup } from './scoreControl'
 import { shellServices } from './fixtures'
 import type { ShellServices } from '../shell-services'
 import UNITS from './fixtures/units-live.json'
@@ -181,8 +182,8 @@ describe('R4: scoring follows the gate, then the scores already recorded', () =>
     const card = $('tb-stage-scoring-card')
     expect(card, 'the card is absent on a stage with scored criteria').not.toBeNull()
     expect(card!.hidden, 'the card is hidden on a stage with scored criteria').toBe(false)
-    expect($('tb-score-select-scoreRolloutPath'), 'the scored criterion is not offered for re-scoring').not.toBeNull()
-    expect($('tb-score-select-scoreClientCommitment'), 'an UNSCORED criterion was offered on a stage the gate asks nothing of').toBeNull()
+    expect(scoreGroup(host, 'scoreRolloutPath'), 'the scored criterion is not offered for re-scoring').not.toBeNull()
+    expect(scoreGroup(host, 'scoreClientCommitment'), 'an UNSCORED criterion was offered on a stage the gate asks nothing of').toBeNull()
   })
 
   test('with nothing scored and no measurability, the card does not render', async () => {
@@ -205,9 +206,7 @@ describe('W4: the reason sits beside the score, in the width R2 gave the row', (
   // scripts/stage-panels/probe-w4.mjs.
   const draft = async (key: string, value: string) => {
     await act(async () => {
-      const sel = $(`tb-score-select-${key}`) as HTMLSelectElement
-      sel.value = value
-      sel.dispatchEvent(new Event('change', { bubbles: true }))
+      scoreButton(host, key, value)!.click()
     })
     await settle()
   }
@@ -228,12 +227,20 @@ describe('W4: the reason sits beside the score, in the width R2 gave the row', (
     await openStage(PRE)
     await draft('scoreRolloutPath', '4')
     const head = host.querySelector('[data-testid="tb-score-scoreRolloutPath"] .tb-score-head')!
-    expect(head.contains($('tb-score-select-scoreRolloutPath')!),
+    expect(head.contains(scoreGroup(host, 'scoreRolloutPath')!),
       'the select left the head, so "beside" is no longer a claim about one row').toBe(true)
-    // The anchors stay BELOW: moving the reason up must not drag the
-    // definitions with it, which would put a long list between the rows.
-    const anchors = $('tb-anchors-scoreRolloutPath')
-    expect(anchors && head.contains(anchors),
-      'the definitions moved into the head with the reason').toBe(false)
+    // ── R4, 2026-09-19: THE DEFINITIONS BLOCK IS GONE ───────────────────
+    //
+    // This asserted the anchors stayed BELOW the head, so moving the reason up
+    // would not drag a long list between the rows. The list no longer exists:
+    // the anchors are at the point of use, shown one at a time in a FLOATING
+    // popup that takes no space in the row at all.
+    //
+    // The claim it protected is now stronger and is asserted directly: nothing
+    // the anchors render can grow the head, because the only thing in the head
+    // for them is a zero-size box the shared module positions.
+    expect($('tb-anchors-scoreRolloutPath'), 'the removed definitions block is back').toBeNull()
+    const box = host.querySelector('[data-testid="tb-score-anchor-scoreRolloutPath"]')!
+    expect(box.classList.contains('hidden'), 'the anchor box is taking space while nothing is hovered').toBe(true)
   })
 })

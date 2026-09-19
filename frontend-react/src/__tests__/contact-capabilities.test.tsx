@@ -357,6 +357,38 @@ describe('P: the park form', () => {
       'parking threatened a discard that does not happen').toBe(0)
   })
 
+  // ── THE NAG IS A WARNING, NOT AN ERROR. Ruled by John 2026-09-19 ──────
+  //
+  // Found by opening the walk 3 screenshot: the refusal of an accidental
+  // backdrop dismissal rendered in RED, because it reached for `msg-error`,
+  // while `msg-warning` sat two hundred lines away in the stylesheet.
+  //
+  // `.msg-warning` was WRITTEN FOR THIS EXACT CASE, on a different screen, in
+  // August: its own comment says "this isn't a validation failure, it's a
+  // warning against an accidental discard". The park form is the same
+  // situation and picked the other class - two surfaces, one situation, two
+  // treatments (Verification 20).
+  //
+  // Nothing is lost by the swap: measured, the two rules are identical except
+  // for `color` - same font, size, letter-spacing and margin (Verification 7's
+  // clause about a replaced treatment carrying the role's metrics).
+  test('the dismissal refusal is a WARNING, not an error', async () => {
+    await mount()
+    await click('cd-btn-park')
+    await type('cd-park-date', '2027-01-31')
+    await type('cd-park-reason', 'Budget deferred')
+    // The ACCIDENTAL dismissal: a click on the backdrop itself, which the form
+    // refuses outright rather than acting on.
+    await act(async () => {
+      must('cd-park-form').dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    })
+    const nag = must('cd-park-unsaved-warning')
+    expect(nag.className, 'the refusal is wearing the error treatment').toContain('msg-warning')
+    expect(nag.className, 'a refusal of an accidental dismissal is not a failure').not.toContain('msg-error')
+    // The WORDING is unchanged, which the ruling is explicit about.
+    expect(nag.textContent?.trim()).toBe('There is unsaved work here. Save and park, or cancel.')
+  })
+
   // AND THE CANCEL PATH KEEPS ITS PROMPT, which is a DIFFERENT claim about a
   // DIFFERENT dirtiness: `leave()` reads the form's OWN date and reason, and
   // those really are thrown away. Asserted here so removing the save-path

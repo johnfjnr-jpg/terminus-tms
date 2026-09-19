@@ -3142,6 +3142,12 @@ opened it. -->
      surface, and the procedure stays "restore the tag" for every surface the
      migration adds. Nothing in the bundle reads window.* at load time; the seam
      resolves lazily at call time, so loading it earlier is safe. -->
+<!-- ── THE SHARED ANCHOR POPUP, FIRST ────────────────────────────────────
+     R2 option B: one mechanism shows an anchor at the point of use, and both
+     the Opportunity's assessment lens and the Test Bed's scoring card call it.
+     Loaded BEFORE both consumers, because app.js calls it at interaction time
+     and the bundle reaches it through the shell seam. -->
+<script src="/anchor-popup.js"></script>
 <script src="/app/terminus-react.js"></script>
 <script src="/app.js"></script>
 <!-- ── THE REFERENCE TAB IS REACT, AND THE VANILLA IS GONE ────────────

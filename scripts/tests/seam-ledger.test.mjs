@@ -24,6 +24,24 @@ const ROOT = new URL('../../', import.meta.url)
 // C1-pattern seam: the shell owns the answer and a bundle cannot reach it.
 const REACHES_BACK = {
   canEditFields: 'the ownership door, read at every edit attempt',
+  showAnchor: 'R2 option B, ruled 2026-09-19: a score anchor is shown at the '
+    + 'point of use through the estate\'s FLOATING popup, and the Test Bed '
+    + 'scoring card is a CALLER of the mechanism the Opportunity already had. '
+    + 'Verification 23\'s remedy for two rulings on one question is that one '
+    + 'becomes a caller of the other, so the alternative was a second reserved '
+    + 'region - measured at Phase 0 as 120px per row at 1240 against a 77px row '
+    + 'head. The mechanism is frontend/anchor-popup.js, a classic script, and it '
+    + 'crosses here rather than through `window` so the coupling is declared in '
+    + 'one place and a later modularisation has one call site to change',
+  hideAnchor: 'the same mechanism\'s hide, which carries the focus fallback: a '
+    + 'FOCUSED anchor outlives a HOVERED one, so a pointer crossing a group '
+    + 'while somebody is arrow-keying through it does not take their wording '
+    + 'away and fail to give it back. The caller answers the only question the '
+    + 'module cannot - which of MY controls counts as focused',
+  dismissAnchor: 'R6, John\'s finding on the live Opportunity screen: selecting '
+    + 'commits and CLEARS the popup, and at most one renders at a time. Fixed '
+    + 'in the shared mechanism so both surfaces inherit it rather than each '
+    + 'growing its own dismissal',
   createFromContact: 'the create-from-contact flow, which the shell has owned since '
     + 'Round 10: the duplicate-record check, the warning with a proceed, then the '
     + 'name dialogue with a server-suggested name behind a focus trap. The React '
