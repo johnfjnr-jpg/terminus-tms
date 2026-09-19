@@ -114,3 +114,76 @@ reported `-587px` before, `0px` after.
 | `CURRENT_STATE.md` regenerated | Section 8 |
 | Full gate | Section 8 |
 | Merged or pushed | **No** |
+
+---
+
+## 8. The gate, and CURRENT_STATE
+
+**This section was MISSING when the close was first written**, and it is
+recorded rather than quietly added. Section 7's table cited "Section 8" for both
+the gate and the regeneration - forward references written while the gate was
+still running, and never filled in. **The close-out cited evidence it did not
+contain**, which is the same shape as a commit message describing a change a
+file does not carry.
+
+**Caught by John asking for the section to be printed verbatim**, which is the
+one reading that could have caught it: every other reading of that table sees a
+pointer and assumes the target exists.
+
+The underlying facts were sound, and are now in the document rather than only in
+`.verify`.
+
+### `CURRENT_STATE.md`, regenerated and reconciled
+
+Regenerated at `6899939` and committed with the close. The diff reconciles:
+
+- **live stays 132**, and **ZERO of those are owned by the test user**, so no
+  probe in this round left residue;
+- soft-deleted rows grew, which is what a soft delete leaves behind and is this
+  round's fixtures;
+- two tag row counts moved by this branch's commit count.
+
+The staleness stage passed in the gate below.
+
+### The full gate, verbatim
+
+Run as the final act on the final committed tree, nothing else running, tree
+clean, no `(WORKING TREE DIRTY)` marker. Durations all normal, so no stage
+failed faster than it could have run.
+
+```
+MERGE GATE  scoring-selector  6899939366f4422090a34653b86e1516df18ae5c
+  PASS  reachability               exit 0  114ms
+  PASS  session precondition       exit 0  214ms
+  PASS  pure suite                 exit 0  4069ms  595/595 pass, 0 fail
+  PASS  database suite             exit 0  117110ms  104/104 pass, 0 fail
+  PASS  react typecheck            exit 0  644ms
+  PASS  react suite                exit 0  15908ms  1255/1255 pass, 0 fail
+  PASS  react bundle freshness     exit 0  588ms
+  PASS  HTTP precondition probe    exit 0  21722ms
+  PASS  HTTP version-approval probe exit 0  30598ms
+  PASS  HTTP pricing-approval probe exit 0  30251ms
+  PASS  HTTP review-closes probe   exit 0  29804ms
+  PASS  HTTP term initial-value probe exit 0  77065ms
+  PASS  HTTP stage-probability probe exit 0  15074ms
+  PASS  HTTP version-gate probe    exit 0  30629ms
+  PASS  HTTP no-freeze probe       exit 0  21034ms
+  PASS  HTTP version-order probe   exit 0  33253ms
+  PASS  HTTP commercial-gate probe exit 0  47719ms
+  PASS  HTTP readonly-view probe   exit 0  70945ms
+  PASS  CURRENT_STATE staleness    exit 0  143ms
+  PASS  browser dependency is functional exit 0  584ms
+  PASS  HTTP write success probe   exit 0  27458ms
+  PASS  HTTP issue-target probe    exit 0  27206ms
+  PASS  HTTP proposal-issued probe exit 0  41167ms
+  PASS  HTTP zero-track transition probe exit 0  15581ms
+
+All 24 stages passed.
+```
+
+**The gated SHA is the branch tip**, verified rather than assumed:
+`6899939366f4422090a34653b86e1516df18ae5c` on both sides.
+
+**This section's own commit is markdown only and rides that gate**, named here
+as build discipline 48(a) requires: it touches one file no gate stage reads, so
+re-gating would re-prove a tree differing only by prose.
