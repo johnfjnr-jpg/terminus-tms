@@ -455,8 +455,11 @@ export function ContactHost({ contact, registerReload, navToken }: {
             open={parkOpen}
             onCancel={() => { setParkOpen(false); setParkError(null) }}
             onSave={(date, reason) => { void park(date, reason) }}
-            hasDirtyEdits={dirty}
-            onConfirmDiscard={(proceed) => { shell.confirmDiscard(proceed) }}
+            // R-P: `hasDirtyEdits` is gone. Parking was MEASURED not to lose
+            // the field edits - it ends in a reload of the same record - so it
+            // no longer threatens a discard. `onConfirmDiscard` stays for the
+            // form's OWN date and reason, which Cancel really does throw away.
+            onConfirmDiscard={(proceed: () => void) => { shell.confirmDiscard(proceed) }}
             error={parkError} />}
         notes={
           // V4: NO DISCARD PROMPT ON THE NOTE SAVE. Measured live - the note
@@ -464,9 +467,20 @@ export function ContactHost({ contact, registerReload, navToken }: {
           // drop the field rows' drafts, so the loss the prompt warned about
           // does not happen. A save must never threaten a discard.
           //
-          // Park, link-account and Back keep theirs below: Back is honest,
-          // measured (the surface genuinely goes), and the other two have not
-          // been measured, which is not the same as being wrong.
+          // ── R-P, 2026-09-19: AND THE OTHER TWO ARE NOW MEASURED TOO ─────
+          //
+          // This read "Park, link-account and Back keep theirs below: Back is
+          // honest, measured, and the other two have not been measured, which
+          // is not the same as being wrong."
+          //
+          // They have been measured, with V4's own drive and each action proved
+          // to have LANDED from the database. BOTH ARE FALSE PREMISES: the
+          // field edit survives a link and survives a park, because both end in
+          // a reload of the SAME record. Both prompts are gone.
+          //
+          // BACK IS THE ONLY ONE LEFT, and it is honest: the surface genuinely
+          // goes. Park's CANCEL keeps its prompt too, for the form's own
+          // fields, which is a different dirtiness and really is discarded.
           <NotesHistory
             notes={notes}
             onAdd={addNote}
@@ -475,11 +489,11 @@ export function ContactHost({ contact, registerReload, navToken }: {
           <LinkAccountPanel
             contactId={contact.id}
             accounts={accounts}
-            hasDirtyEdits={dirty}
-            // THE SHARED DISCARD DIALOGUE, through the seam. Linking may lose
-            // unsaved edits, and the vanilla asks first - so this does too,
-            // and asks with the same modal rather than a second one.
-            onConfirmDiscard={(proceed) => { shell.confirmDiscard(proceed) }}
+            // R-P: the discard prompt is GONE. Its comment read "linking may
+            // lose unsaved edits, and the vanilla asks first" - measured, it
+            // does not, because `onLinked` is `load()` and a reload of the same
+            // record keeps every draft. The vanilla asking is what the vanilla
+            // did, not evidence about what this loses.
             onLinked={() => { void load() }} />}
         actions={
           <StageActions

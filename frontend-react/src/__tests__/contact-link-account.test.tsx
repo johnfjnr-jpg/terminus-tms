@@ -35,12 +35,22 @@ const services: ShellServices = shellServices({
   currentUserEmail: () => 'probe@example.invalid',
   staleWriteHtml: () => null,
   setContactReturnView: () => {},
-  confirmDiscard: (p: () => void) => { p() },
+  // ── THE SEAM COUNTS, AND IT HAS TO ─────────────────────────────────────
+  //
+  // This was `(p) => { p() }`, counting nothing. With R-P removing the
+  // `onConfirmDiscard` PROP, the shared seam became the only route a prompt
+  // could take - and `discardAsks` was left incremented by NOTHING, so the new
+  // "does NOT ask" assertion was true by construction.
+  //
+  // FOUND BY A SILENT INJECTION, not by reading it (Verification 51): the
+  // calibration restored the prompt and the test stayed green, which is the
+  // only thing that can tell a satisfied assertion from an empty one.
+  confirmDiscard: (p: () => void) => { discardAsks++; p() },
 })
 
 let linked = 0
 let discardAsks = 0
-const mount = async (hasDirtyEdits = false) => {
+const mount = async () => {
   posts = []; linked = 0; discardAsks = 0
   reply = { ok: true, status: 200 }
   document.body.innerHTML = '<div id="host"></div>'
@@ -52,8 +62,7 @@ const mount = async (hasDirtyEdits = false) => {
         <LinkAccountPanel
           contactId="c-1"
           accounts={ACCOUNTS}
-          hasDirtyEdits={hasDirtyEdits}
-          onConfirmDiscard={(proceed) => { discardAsks++; proceed() }}
+
           onLinked={() => { linked++ }} />
       </ShellProvider>)
   })
@@ -142,7 +151,7 @@ describe('the write', () => {
   test('C6: the DIRTY path guards too, which the vanilla does not', async () => {
     // The vanilla checks the flag and then returns before setting it, so two
     // rapid clicks while dirty both open the discard dialogue.
-    await mount(true)
+    await mount()
     await click('cd-btn-link-account')
     await type('changi')
     resolveNext = () => {}
@@ -150,17 +159,32 @@ describe('the write', () => {
       must('cd-link-a-1').click()
       must('cd-link-a-1').click()
     })
-    expect(discardAsks, 'the discard dialogue was opened twice').toBe(1)
+    // R-P RE-POINT: the dialogue is gone from this path, so the claim C6 was
+    // always really about is asserted directly - two rapid clicks send ONE
+    // write, which is what the in-flight guard exists for.
+    expect(discardAsks, 'nothing should ask to discard on this path now').toBe(0)
+    expect(posts, 'the in-flight guard held: two clicks, one write').toHaveLength(1)
     await act(async () => { resolveNext?.(); resolveNext = null })
   })
 
-  test('a dirty surface ASKS before linking, and links when told to', async () => {
-    await mount(true)
+  // ── R-P, walk 3 2026-09-19: SUPERSEDED, AND MEASURED BEFORE IT WAS ─────
+  //
+  // This asserted that a dirty surface ASKS before linking. Measured live with
+  // V4's own drive, on a contact the user owns, with the link proved to have
+  // LANDED from the database: the field edit SURVIVES the link. `onLinked` is
+  // `load()`, a reload of the SAME record, and `useFieldRows` drops drafts only
+  // when the SUBJECT changes.
+  //
+  // So the prompt warned about a loss that does not occur, which is exactly
+  // what V4 found for the note prompt, and it goes the same way. A save must
+  // never threaten a discard it is not going to perform.
+  test('R-P: a dirty surface is NOT asked to discard, because linking loses nothing', async () => {
+    await mount()
     await click('cd-btn-link-account')
     await type('changi')
     await click('cd-link-a-1')
-    expect(discardAsks).toBe(1)
-    expect(posts).toHaveLength(1)
+    expect(discardAsks, 'linking threatened a discard that does not happen').toBe(0)
+    expect(posts, 'and it still linked').toHaveLength(1)
   })
 
   test('cancel closes and writes nothing', async () => {
