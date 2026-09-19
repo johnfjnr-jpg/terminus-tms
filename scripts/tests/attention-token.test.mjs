@@ -154,6 +154,14 @@ const AMBER_FAMILY = [
   '.btn-attention',
   '.btn-attention:hover',
   '.msg-warning',
+  // ── THE SHARED ANCHOR POPUP's LEVEL LABEL, R2 option B 2026-09-19 ────
+  //
+  // ADDED BECAUSE THIS TEST CAUGHT IT. The scoring round gave the shared popup
+  // a level label in the attention amber and did not tell the list; the
+  // completeness assertion went red on 19 bindings against 18 expected, and
+  // the pre-commit hook refused the commit. That is the whole point of a list
+  // that asserts its own completeness rather than one that merely enumerates.
+  '.anchor-defn-l',
 ]
 
 // Most listed selectors carry ONE `var(--attention)`. `.btn-attention` carries

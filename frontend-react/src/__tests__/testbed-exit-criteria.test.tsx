@@ -30,6 +30,8 @@ const readText = async (path: string): Promise<string> => {
   return fs.readFileSync(path, 'utf8')
 }
 import { ExitCriteria, type TickResult } from '../testbed/StagePanel'
+import { ShellProvider } from '../ShellContext'
+import { shellServices } from './fixtures'
 import { StageTabs, type StageTabsDeps } from '../testbed/StageTabs'
 import {
   TB_EXIT_CRITERION_KEYS, attemptTick, exitSummary, readExitCriteria,
@@ -98,9 +100,10 @@ describe('B3: the route\'s OBJECT renders, where it rendered the empty branch', 
       unitDeps: { patch: async () => ({ ok: true, data: {} }), unitById: () => undefined, onUnit: () => {} },
     }
     await act(() => {
-      root.render(<StageTabs payload={{}} units={[]} landing={null} fresh
+      // V9: wrapped, because ScoringCard is a seam caller now (R2 option B).
+      root.render(<ShellProvider services={shellServices()}><StageTabs payload={{}} units={[]} landing={null} fresh
         currentStage="Qualification" nextStage="Pre-Site Assessment" deps={deps}
-        reference={null} commercials={null} />)
+        reference={null} commercials={null} /></ShellProvider>)
     })
     await press(host.querySelector('[data-testid="tb-tab-btn-stage-Qualification"]') as HTMLElement)
     expect(panel().getAttribute('data-stage')).toBe('Qualification')

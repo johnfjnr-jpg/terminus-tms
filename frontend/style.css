@@ -2131,6 +2131,32 @@ textarea::placeholder { color: var(--muted-2); }
    companion `--attention-rgb` holding the same colour as three numbers - is two
    readers of one value, which agree today and drift the first time either moves
    (Verification 20). `color-mix` keeps one source of truth. */
+/* ── THE SHARED ANCHOR POPUP. R2 option B, 2026-09-19 ───────────────────
+   `.anchor-defn` is the class the shared module sweeps by, so a new caller
+   joins the mechanism by wearing it rather than by being named in a list.
+   The Opportunity's own `.opp-assess-defn` keeps its metrics and now carries
+   this class too; the Test Bed's scoring card wears it alone. */
+.anchor-defn {
+  position: absolute;
+  z-index: 40;
+  max-width: 420px;
+  background: var(--black);
+  border: 1px solid var(--hairline-strong);
+  padding: 8px 10px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--white);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.45);
+}
+.anchor-defn.hidden { display: none; }
+.anchor-defn-l {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--attention);
+  margin-right: 8px;
+}
+
 .btn-attention {
   border-color: var(--attention);
   color: var(--attention);

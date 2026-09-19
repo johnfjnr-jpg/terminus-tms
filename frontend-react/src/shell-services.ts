@@ -68,6 +68,34 @@ export interface ShellServices {
    */
   canEditFields(): boolean
   /**
+   * ── R2 OPTION B: THE SHARED ANCHOR POPUP ─────────────────────────────
+   *
+   * Ruled by John 2026-09-19. A score's anchor wording is shown at the point of
+   * use through the estate's existing floating popup rather than a reserved
+   * in-row region, and the Test Bed becomes a CALLER of the mechanism the
+   * Opportunity already had. Verification 23's remedy: one becomes a caller of
+   * the other rather than both existing.
+   *
+   * THROUGH THE SEAM RATHER THAN THROUGH `window`, so the coupling to a classic
+   * script is declared in one place and a later modularisation has one call
+   * site to change rather than a component to rewrite.
+   */
+  showAnchor(opts: {
+    anchor: HTMLElement
+    box: HTMLElement
+    key: string
+    label?: string | null
+    wording: string
+    groupSelector?: string
+  }): void
+  /** Hides every anchor popup, with the caller's own answer to what is focused. */
+  hideAnchor(opts?: {
+    focusedWithin?: (box: HTMLElement) => HTMLElement | null
+    reshow?: (focused: HTMLElement) => void
+  }): void
+  /** R6: a selection commits and clears the popup until a genuine re-entry. */
+  dismissAnchor(key: string): void
+  /**
    * ── THE SHARED REASON DIALOGUE, REUSED RATHER THAN REBUILT ───────────
    *
    * Round 6 Phase 0. The shell's dialogue owns the focus trap, the single
@@ -252,6 +280,12 @@ type ShellWindow = Window & {
   staleWriteHtml?: (recordId: string, kind?: string) => string
   contactReturnView?: () => 'contacts' | 'leads'
   openDiscardConfirm?: (proceed: () => void) => void
+  /** R2 option B: frontend/anchor-popup.js, loaded before the bundle. */
+  TerminusAnchor?: {
+    show?: (opts: unknown) => void
+    hide?: (opts: unknown) => void
+    dismiss?: (key: string) => void
+  }
 }
 
 const w = (): ShellWindow => window as ShellWindow
@@ -306,6 +340,21 @@ export const shellServices: ShellServices = {
   canEditFields(): boolean {
     const fn = w().canEditFields
     return typeof fn === 'function' ? fn() === true : false
+  },
+  // ── THE ANCHOR POPUP, AND IT FAILS SILENT ON PURPOSE ────────────────
+  //
+  // Unlike the door above, a missing popup costs a person WORDING they can also
+  // read by other means, not a control that guards a record. Throwing here
+  // would take down a scoring card because a tooltip module failed to load,
+  // which is a worse outcome than the anchor not appearing.
+  showAnchor(opts): void {
+    w().TerminusAnchor?.show?.(opts)
+  },
+  hideAnchor(opts): void {
+    w().TerminusAnchor?.hide?.(opts ?? {})
+  },
+  dismissAnchor(key): void {
+    w().TerminusAnchor?.dismiss?.(key)
   },
   // GUARDED WITH A THROW, unlike detailLoaded. This one is called INSTEAD of
   // writing, not while reporting a failure: a missing dialogue means the

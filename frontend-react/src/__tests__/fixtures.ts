@@ -141,6 +141,12 @@ export function shellServices(
     detailLoaded: () => {},
     getOppLoadedRevision: () => 1,
     canEditFields: () => true,
+    // R2 option B: the shared anchor popup. Harmless defaults like every other
+    // member here - a test about the popup overrides them and records what it
+    // was asked.
+    showAnchor: () => {},
+    hideAnchor: () => {},
+    dismissAnchor: () => {},
     requestChangeReason: () => {},
     currentUserEmail: () => 'test@example.com',
     currentUserId: () => 'user-1',
