@@ -874,6 +874,13 @@ changes to one surface alone AND together.
 Find what WRITES it and confirm the two agree. A form default, a prefill, an
 `?? 0`, a `COALESCE` and a column default are all writers.
 
+**BEFORE SHIPPING A WARNING OR A CONFIRM DIALOGUE** - Verification 52
+Drive the action and measure whether the loss it claims actually occurs, gating
+the verdict on the action having LANDED. Three prompts on one screen warned about
+a loss that never happened, and no test could fail. And ask what each prompt is
+ABOUT: a form's own fields and the record's fields are two dirtinesses wearing
+one word.
+
 **BEFORE DELETING OR TEARING DOWN** - Build discipline 8; Verification 11
 Fix the class, not the instance the failure named: enumerate everything the
 responsible actor writes. Soft delete, enumerate from a tag in the database
@@ -4449,6 +4456,56 @@ of the change. An unanswerable precondition is a stop.
     **The check: before explaining a silence, ask whether a companion injection
     in the same run produced the outcome**, and give interacting injections a run
     each.
+
+52. **A WARNING IS A CLAIM, AND NEEDS THE SAME EVIDENCE AS ONE.** Set by the
+    business 2026-09-19, walk 3, after the same fault was found three times in
+    one family.
+
+    > **Before shipping a dialogue that says an action will lose something,
+    > DRIVE THE ACTION AND MEASURE WHETHER THE LOSS OCCURS.**
+
+    **THREE INSTANCES, ALL FALSE, ALL ON ONE SCREEN.** The Contact surface asked
+    "discard your unsaved changes?" before saving a note, before linking an
+    Account, and before parking the record. Measured with a real browser on a
+    record the user owns, with each action proved to have LANDED from the
+    database: **the field edits survived every one of them.**
+
+    Every one of those actions ends in a reload of the SAME record, and
+    `useFieldRows` drops drafts only when the SUBJECT changes. There was never a
+    loss to warn about.
+
+    **WHY IT SURVIVED THREE ROUNDS.** The prompt was correct-looking at each
+    site, each was defensible on its own terms, and one of them carried a comment
+    justifying it by saying the vanilla asked first - which is a fact about the
+    vanilla, not evidence about what this code loses. **No test could fail**: the
+    dialogue opened, the caller proceeded, the action completed. A warning has no
+    failure mode a suite can see, because being wrong about a hypothetical is not
+    an error.
+
+    **THE COST IS NOT THE EXTRA CLICK.** A warning that is wrong teaches the
+    person that the warning means nothing, and it spends the one signal the
+    screen has for a real loss. Round 38 recorded that a wrong green is worse
+    than no gate, because no gate is an absence people work around. This is the
+    same sentence for a wrong red.
+
+    **The check is one drive and takes minutes:** dirty the thing the dialogue
+    claims is at risk, perform the action, accept the dialogue, and look for the
+    thing afterwards. **Gate the verdict on the action having LANDED**, read from
+    the authority rather than from the screen that just claimed it - "it survived"
+    is exactly what a run where nothing happened reports.
+
+    **AND THE REMOVAL IS NARROWER THAN IT LOOKS**, which is the half that gets
+    missed. The park form's SAVE prompt was false and its CANCEL prompt was
+    honest: Cancel throws away the date and reason typed into the form itself.
+    Two dirtinesses, one screen, one word. **Ask what each prompt is about before
+    removing either**, and give the honest one its own test, because removing the
+    false one is a line away from removing both and nothing else would notice.
+
+    Nearest neighbour is Verification 22, a required field with no reader becomes
+    ceremony. **They stay two rules**: 22's remedy is to name what reads the
+    field, and this one's is to drive the action and measure the loss, which is a
+    different act. Same disease - a control that has stopped meaning anything -
+    and a different prescription.
 
 ### At round close: index these by when they apply
 
