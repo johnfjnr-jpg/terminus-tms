@@ -7183,6 +7183,37 @@ input.input-invalid {
    to the controls. `.btn-sm`'s own padding is built for a standalone button. */
 .panel-actions .btn-sm { padding: 3px 10px; line-height: 1.4; }
 
+/* ── R-O2: THE NOTES HEADER IS THE ONE PANEL HEAD THAT MAY TAKE TWO LINES ──
+   `.panel-head` is `height: 30px` with no wrap, which is right for a header
+   holding a title and one or two controls. The notes header holds a title,
+   three range rungs and Add note, and A1 already recorded what that does in a
+   card column: the row overruns its third of the card and Add note is clipped
+   at the column edge. A1's remedy was to drop the secondary, and that is not
+   enough on its own - measured at 1240 the collapsed row still spills 34px,
+   and the screenshot shows ADD NOTE cut off against the follow-up card.
+
+   So the row is allowed to wrap rather than being made to fit. It is ONE LINE
+   at 1440, where it fits, and two at 1240, where it does not, which is what
+   the ruling asks for: collapsed where measured to fit.
+
+   SCOPED ON `data-panel-header`, which `Panel` emits structurally, rather than
+   on a class. Verification 19 records a styling class sheltering two write
+   controls, and a document-wide loosening of `.panel-head` would reach every
+   panel in the estate to fix one. The actions group needs it too: at 1240 the
+   rungs alone are 235px against a 283px content box, so wrapping the head
+   without wrapping the group moves the clipping rather than removing it. */
+[data-panel-header='cd-notes'] {
+  height: auto;
+  min-height: 30px;
+  flex-wrap: wrap;
+  row-gap: 6px;
+}
+
+[data-panel-header='cd-notes'] .panel-actions {
+  flex-wrap: wrap;
+  row-gap: 6px;
+}
+
 /* S3: the body starts at the header's left edge, by sharing the container
    rather than by matching a margin. */
 .panel-body { min-width: 0; }

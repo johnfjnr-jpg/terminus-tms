@@ -238,6 +238,8 @@ export function ReferenceHost({ opp, registerReload }: {
         notes={
           <NotesHistory
             notes={notes}
+            title="Notes"
+            actionsInHeader
             resetKey={opp.id}
             onAdd={addNote} />}
         followUp={

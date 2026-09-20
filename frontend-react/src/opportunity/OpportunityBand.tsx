@@ -61,9 +61,22 @@ export function OpportunityBand({ summaryField, rows, notes, followUp }: {
             </div>)
           : null}
       </Card>
-      <Card title="Notes" testId="opp-card-notes">
-        {notes}
-      </Card>
+      {/* ── R-O2: NOTES BRINGS ITS OWN HEADER ─────────────────────────────
+          It used to sit inside a Card, so the card drew the title and
+          `NotesHistory` drew a second row under it for "Latest first" and the
+          range buttons, and "Add note" wrapped onto a third. Measured: three
+          distinct tops, 575, 605 and 641.
+
+          The shared component already has the collapsed mode and the lead
+          card already uses it; this surface simply never asked for it. Passing
+          `title` and `actionsInHeader` puts the name, the range controls and
+          the action on ONE row, so the outer Card would be a second frame
+          around a panel that now draws its own.
+
+          WHETHER IT FITS IS MEASURED PER SURFACE AND PER WIDTH, not assumed:
+          `probe-notes-header.mjs` reads the distinct tops on all three
+          surfaces at 1440 and 1240. */}
+      {notes}
       {/* A bare grid cell, exactly as the Contact and Test Bed surfaces do it:
           FollowUpTask draws its own card, so wrapping it in another would give
           the Opportunity a frame its sibling surfaces do not have. */}
