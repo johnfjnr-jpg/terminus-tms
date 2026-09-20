@@ -173,11 +173,11 @@ export function NotesHistory({ notes, onAdd, hasDirtyEdits, onConfirmDiscard, re
         <button type="button" role="tab" className="btn-sm" data-testid="cd-notes-show-2"
           aria-controls={notesListId} aria-selected={shown === DEFAULT_SHOWN}
           disabled={shown === DEFAULT_SHOWN}
-          onClick={() => setShown(DEFAULT_SHOWN)}>Latest 2</button>
+          onClick={() => setShown(DEFAULT_SHOWN)}>2</button>
         <button type="button" role="tab" className="btn-sm" data-testid="cd-notes-show-10"
           aria-controls={notesListId} aria-selected={shown === EXPANDED_SHOWN}
           disabled={shown === EXPANDED_SHOWN}
-          onClick={() => setShown(EXPANDED_SHOWN)}>Last 10</button>
+          onClick={() => setShown(EXPANDED_SHOWN)}>10</button>
         <button type="button" role="tab" className="btn-sm" data-testid="cd-notes-show-all"
           aria-controls={notesListId} aria-selected={shown === Infinity}
           disabled={shown === Infinity}
@@ -186,8 +186,36 @@ export function NotesHistory({ notes, onAdd, hasDirtyEdits, onConfirmDiscard, re
     )
     : null
 
+  // ── R-W1: THE COUNT JOINS THE TOP LINE ────────────────────────────────
+  //
+  // Ruled by John 2026-09-20. It read `Showing 2 of 3` on its own line below
+  // the header; it now reads `2 of 3` beside the controls. "Showing" is
+  // dropped because the line has no room for a word that says nothing the
+  // figures do not.
+  //
+  // MEASURED FIRST, AND THE RULING IS WHAT MADE IT FIT. Phase 0 measured the
+  // requested line at 533px against 385px at 1440 and 311px at 1240 - over by
+  // 148 and 222. Removing the secondary and shortening the rungs is what
+  // bought the room back; the count alone would not have.
+  const countLine = notes.length > DEFAULT_SHOWN
+    // NOT `.sub`, AND THE REASON IS MEASURED. `.sub` is a page subtitle -
+    // 14px with `margin: 0 0 32px` - which was harmless while the count sat on
+    // its own line under the list, because the margin just separated it. On a
+    // flex line with `align-items: center` the MARGIN BOX is what gets
+    // centred, so a 32px bottom margin lifts the text exactly 16px above its
+    // neighbours. Measured: centres spread 16px on all three surfaces, at both
+    // widths, with the row reading 53px where one line is 30.
+    //
+    // The role changed when the count moved onto the line, and a class carries
+    // a role. This one is its own.
+    ? <span className="cd-notes-count" data-testid="cd-notes-shown">
+        {`${Math.min(shown, notes.length)} of ${notes.length}`}
+      </span>
+    : null
+
   const actions = (
     <>
+      {countLine}
       {rungs}
       {/* A2: ONE CONTROL, TWO ACTIONS, and the label now says which one it is
           about to do. `onClick` already opened when closed and COMMITTED when
@@ -260,11 +288,13 @@ export function NotesHistory({ notes, onAdd, hasDirtyEdits, onConfirmDiscard, re
           is one line where it fits and two where it does not. A1's drop stays:
           remeasured at R-O2, the secondary needs 436px against a 372px lead
           card, so it still does not fit. */}
-      {notes.length > DEFAULT_SHOWN
-        ? <span className="sub" data-testid="cd-notes-shown">
-            {`Showing ${Math.min(shown, notes.length)} of ${notes.length}`}
-          </span>
-        : null}
+      {/* R-W1: THE COUNT HAS MOVED ONTO THE HEADER LINE and is rendered once,
+          in `countLine` above. A2's note about it staying "just not on the
+          header line" is superseded by John's ruling of 2026-09-20: the
+          header now has room for it, because the secondary is gone and the
+          rungs are shorter. Rendering it in both places would be two elements
+          answering to one testid, which is how a probe comes to measure the
+          wrong one. */}
 
       <div className="cd-notes-list" id={notesListId} data-testid="cd-notes-list">
         {/* R4: "No notes yet." REMOVED. It was `.empty-state`, a PAGE-level
@@ -313,11 +343,21 @@ export function NotesHistory({ notes, onAdd, hasDirtyEdits, onConfirmDiscard, re
     // A1: "Latest first" gives way to the rungs when there are rungs. The
     // column is a third of a card and cannot hold NOTES + Latest first + three
     // rungs + Add note: measured, the secondary wrapped to two lines and Add
-    // note was clipped at the column edge. The rungs say "Latest 2" and "Last
-    // 10", so the ordering is still stated - by the controls rather than
-    // beside them. With no rungs the secondary returns.
+    // note was clipped at the column edge.
+    //
+    // ── SUPERSEDED BY R-W1, 2026-09-20, AND A1'S OWN TEXT IS KEPT ABOVE ──
+    //
+    // A1 read on: "The rungs say 'Latest 2' and 'Last 10', so the ordering is
+    // still stated - by the controls rather than beside them. With no rungs
+    // the secondary returns." Both halves are now false and both were
+    // falsified deliberately: the rungs read '2' and '10', and the secondary
+    // never returns because John removed it estate-wide.
+    //
+    // The premise did not fail - A1 was right that the line could not hold it.
+    // The DECISION changed: the ordering is carried by each row's own date, so
+    // the line was spending 88px to say what the content already says.
     return (
-      <Panel name="notes" title={title} secondary={rungs ? undefined : 'Latest first'} actions={actions}
+      <Panel name="notes" title={title} actions={actions}
         testid="cd-notes" headerTestid="cd-notes-header-row">
         {body}
       </Panel>
@@ -327,9 +367,9 @@ export function NotesHistory({ notes, onAdd, hasDirtyEdits, onConfirmDiscard, re
   return (
     <div data-testid="cd-notes">
       <div className="cd-notes-header-row" data-testid="cd-notes-header-row">
-        {/* The panel's own title says NOTES, so this says only what the title
-            cannot: the order. */}
-        <span className="label">Latest first</span>
+        {/* R-W1: 'Latest first' REMOVED here too, which is what "estate-wide"
+            means. This path has no panel title, so the row is the controls
+            alone. The ordering is unchanged; each row carries its own date. */}
         {actions}
       </div>
       {body}

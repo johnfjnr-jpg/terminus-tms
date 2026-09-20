@@ -7245,6 +7245,23 @@ input.input-invalid {
    to the controls. `.btn-sm`'s own padding is built for a standalone button. */
 .panel-actions .btn-sm { padding: 3px 10px; line-height: 1.4; }
 
+/* ── R-W1: THE SAME TREATMENT ON THE PATH THAT HAS NO PANEL ──────────────
+   `NotesHistory` renders two ways: through `Panel`, where the controls sit in
+   `.panel-actions` and get the tightened padding above, and directly, where
+   the contact and Test Bed surfaces put them in `.cd-notes-header-row` with
+   no `.panel-actions` between. Those buttons were therefore falling back to
+   `.btn-sm`'s standalone `6px 14px`.
+
+   MEASURED, and it is what made the line wrap: at 1240 the contact's card is
+   281px and the row needed the count plus 149px of rungs plus an 87px Add
+   note, so Add note wrapped to a second line while the identical row on the
+   Opportunity, whose buttons DO get the tightened padding, fitted.
+
+   The role is the same on both paths - a control on a panel header line - so
+   the treatment is the same. Scoped to the header row rather than loosened on
+   `.btn-sm`, which dresses controls all over the estate. */
+.cd-notes-header-row .btn-sm { padding: 3px 10px; line-height: 1.4; }
+
 /* ── R-O2: THE NOTES HEADER IS THE ONE PANEL HEAD THAT MAY TAKE TWO LINES ──
    `.panel-head` is `height: 30px` with no wrap, which is right for a header
    holding a title and one or two controls. The notes header holds a title,
@@ -7264,16 +7281,42 @@ input.input-invalid {
    panel in the estate to fix one. The actions group needs it too: at 1240 the
    rungs alone are 235px against a 283px content box, so wrapping the head
    without wrapping the group moves the clipping rather than removing it. */
+/* ── R-W1 SUPERSEDES WALK 4'S WRAP, ON A MEASUREMENT ────────────────────
+   Walk 4 let this header wrap because it could not fit: with `Latest first`
+   already dropped, the row still ran 34px past the card at 1240 and clipped
+   ADD NOTE against the neighbouring card.
+   THE PREMISE HAS CHANGED RATHER THAN THE PREFERENCE. John's R-W1 removed the
+   secondary estate-wide and shortened the rungs from `Latest 2 / Last 10 /
+   All` to `2 / 10 / All`, which is what bought the room back, and the ruling
+   is explicit that the line must not wrap.
+   So the header and its action group are NOWRAP, and the probe's containment
+   assertion is what keeps that honest: if the line ever stops fitting it now
+   clips, loudly, instead of quietly becoming two lines. Walk 4's reasoning is
+   left above rather than deleted, per Verification 29. */
 [data-panel-header='cd-notes'] {
   height: auto;
   min-height: 30px;
-  flex-wrap: wrap;
-  row-gap: 6px;
+  flex-wrap: nowrap;
 }
 
 [data-panel-header='cd-notes'] .panel-actions {
-  flex-wrap: wrap;
-  row-gap: 6px;
+  flex-wrap: nowrap;
+}
+
+/* The same, for the path that has no `Panel` around it. */
+.cd-notes-header-row { flex-wrap: nowrap; }
+
+/* R-W1: the count's own treatment. It used `.sub`, a PAGE SUBTITLE carrying
+   `margin: 0 0 32px`, which is invisible while the element sits on its own
+   line and lifts it 16px the moment it joins a centred flex row. Quiet, and
+   it read as a wrap. */
+.cd-notes-count {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  color: var(--muted-2);
+  margin: 0;
+  white-space: nowrap;
 }
 
 /* S3: the body starts at the header's left edge, by sharing the container

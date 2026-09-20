@@ -230,7 +230,12 @@ describe('R3 + R8: the notes header on one line', () => {
     expect(row.children[0]).toBe(title)
     expect(title.textContent).toBe('Notes')
     expect(row.contains(must('cd-add-note-btn'))).toBe(true)
-    expect(row.querySelector('.panel-secondary')!.textContent).toBe('Latest first')
+    // R-W1: THE SECONDARY IS GONE, estate-wide, so the claim is that there is
+    // no secondary at all rather than that it reads 'Latest first'. Asserted
+    // as an absence AND the title's presence above, because "no secondary" is
+    // also true of a header that failed to render.
+    expect(row.querySelector('.panel-secondary'),
+      'the removed secondary came back').toBeNull()
   })
 
   test('N-R3 the header comes from the SHARED SHELL, not a class copied here', async () => {
@@ -251,7 +256,11 @@ describe('R3 + R8: the notes header on one line', () => {
     expect(host.querySelector('[data-panel]'),
       'a frozen consumer was routed through the shell').toBeNull()
     expect(must('cd-notes-header-row').classList.contains('panel-head')).toBe(false)
-    expect(must('cd-notes-header-row').querySelector('.label')!.textContent).toBe('Latest first')
+    // R-W1: and the frozen path loses it too, which is what "estate-wide"
+    // means. The row still EXISTS and still carries its controls, asserted
+    // here so the absence below is not satisfied by an empty header.
+    expect(must('cd-notes-header-row').querySelector('.label')).toBeNull()
+    expect(must('cd-notes-header-row').children.length).toBeGreaterThan(0)
   })
 
   test('N-R8 the header controls are CLASSED, not browser defaults', async () => {
