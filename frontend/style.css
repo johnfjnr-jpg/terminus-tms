@@ -1122,7 +1122,37 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
    365px floor is the milestone grid's own width plus its gaps. */
 #deal-hybrid-group:not(.hidden) {
   display: grid;
-  grid-template-columns: minmax(365px, 1fr) minmax(0, 280px);
+  /* W13, ruled 2026-09-20: the first column CLOSES ONTO ITS GRID. It was
+     `minmax(365px, 1fr)`, so it took every pixel the row had - measured 453px
+     at 1440 for a milestone grid that uses 359 - and the 94px difference sat
+     empty between the USD column and the hosting panel.
+
+     `max-content` WAS THE WRONG TOOL AND IS RECORDED AS SUCH: it sizes the
+     column to the widest thing in it, which is the explanatory note above the
+     grid, not the grid. Measured, it made the column 549px - wider than the
+     453 it was fixing - and squeezed the hosting panel to 184.
+
+     So the column is capped at the grid's own width instead: 44+195+44+64 plus
+     three 4px gaps is 359, and 375 leaves the panel its padding. `minmax(0,
+     `justify-content: start` stops the two columns stretching to fill the
+     row, which is what re-opens the gap.
+
+     AND THE FLOOR IS NOT OPTIONAL. Written to allow shrinking, the column
+     shrank below the grid's own 359px at 1240 and the hosting panel started
+     36px BEFORE the milestone grid's last column ended - an overlap rather
+     than a tidy pull-left. The probe's first version read `dead <= 40` and
+     passed on it happily, because -36 is also less than 40. A fixed 375 is
+     the grid plus its panel padding, and the SECOND column keeps the give.
+
+     AND THIS BLOCK WAS BROKEN TWICE BY ITS OWN COMMENTARY. Both times a
+     paragraph was added AFTER the terminator that had already closed the
+     comment, so the prose landed in the stylesheet and the declarations below
+     it stopped applying: the group rendered as a single 753px column and the
+     two panels stacked. Nothing errored, the sheet parsed, and only the
+     measurement disagreed. The pairing walk is run after every edit here for
+     that reason, and a count of openers and closers is not it. */
+  grid-template-columns: 375px minmax(0, 280px);
+  justify-content: start;
   gap: 20px;
   margin-top: 22px;
   align-items: start;
@@ -1566,6 +1596,124 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
   border-bottom: 1px solid var(--hairline);
 }
 .terms-field-row:last-child { border-bottom: none; }
+
+/* ── W4: THE WHT PAIR IS ONE LINE ───────────────────────────────────────
+   Withholding Tax % and the gross-up selector are two halves of one
+   decision, and they rendered on separate lines with GST between them. The
+   pair is a flex row so the toggle sits directly after the rate, and the
+   rate's box is sized to what it holds: a two-digit integer percentage.
+   Measured before: the box was 328px for two characters. */
+.terms-field-row.terms-wht-pair {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  flex-wrap: nowrap;
+}
+.terms-field-row.terms-wht-pair .deal-field { flex: 0 0 auto; }
+/* SPECIFICITY, MEASURED RATHER THAN ASSUMED. Written as
+   `.terms-field-row.terms-wht-pair input` this ties with
+   `.deal-section input:not(.is-computed)` at (0,2,1) and LOSES on source
+   order, because that rule sits five thousand lines further down. The input
+   measured 300.484px against a declared 64. Naming the input by its id wins
+   on specificity rather than on position, which is the part that survives
+   somebody moving a block. */
+#deal-whtPct { width: 64px; }
+
+/* ── W5: THE INSTALLATION FIELDS ARE SIZED TO THEIR DATA ────────────────
+   Measured at 144px on a 1440 screen and 46px at 1240 - the same field
+   twice as wide as its content on one screen and too narrow to read it on
+   the other, because nothing sized them at all and they took whatever the
+   column gave. They hold a per-unit installation RATE, so they are sized
+   for a five-figure money value and stop changing with the viewport.
+
+   NAMED BY ID, not by `.int-only` inside the section. The first attempt was
+   `#deal-section-2 input.int-only`, which also caught the installation grid's
+   MONTH cell - measured at 104px inside a 44px column, so the field overran
+   the column its own header names. A class that describes a keyboard
+   restriction is not a class that describes a role.
+
+   AND THE FIRST WRITE OF THIS BLOCK LEFT AN ORPHANED COMMENT TERMINATOR AND
+   FIVE LINES OF PROSE OUTSIDE THE COMMENT, which swallowed the rule below it:
+   the fields went on measuring 144px while the stylesheet said 104. Nothing
+   failed - the sheet parsed, the page rendered, and only the measurement
+   disagreed.
+
+   THEN THE NOTE DESCRIBING IT DID IT AGAIN, by quoting the terminator
+   literally inside a comment, which closed the comment at the quotation and
+   orphaned everything after it. A count of openers and closers called the
+   file balanced both times; walking the PAIRING is what found each one, which
+   is this estate's own rule about counts and structure arriving in its own
+   stylesheet. The terminator is not written in prose here for that reason. */
+#deal-inSsExisting,
+#deal-inSsNew,
+#deal-inAqm,
+#deal-inHemir { width: 104px; }
+
+/* ── W6-W9: THE INSTALLATION MILESTONE GRID TAKES THE PROTOTYPE'S GRID ──
+   The same shape walk 4 gave the customer grid, and the same source: the
+   prototype's `44px 195px 44px 64px` at gap 4px, used three times over for
+   the header, the rows and the total. Before this it was a bare <table>
+   with no header row at all and four equal columns, so Month and % were as
+   wide as the milestone name and nothing said which column was which.
+   The numeric columns are right-aligned, which is the prototype's own
+   treatment and the half walk 4 did not carry over. */
+.cm-grid-head,
+.cm-grid-row {
+  display: grid;
+  grid-template-columns: 44px 195px 44px 64px;
+  gap: 4px;
+  align-items: center;
+}
+.cm-grid-head {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--hairline);
+  margin-bottom: 6px;
+}
+.cm-grid-head span:nth-child(3),
+.cm-grid-head span:nth-child(4) { text-align: right; }
+.cm-grid-row { margin-bottom: 6px; }
+.cm-grid-row input,
+.cm-grid-row select { min-width: 0; width: 100%; }
+.cm-grid-row input:nth-child(3),
+.cm-grid-row input:nth-child(4) { text-align: right; }
+
+/* ── W13: THE PAYMENT-TERMS GRID TAKES THE SAME RIGHT-ALIGNMENT ─────────
+   WALK 4'S OWN GAP, CORRECTED. R-O5/O6 adopted the prototype's columns and
+   then its gap, and did not carry the `text-align:right` the prototype puts
+   on % and USD in all three of its milestone rows. Every number in that grid
+   has been left-aligned since. */
+.ms-grid-head div:nth-child(3),
+.ms-grid-head div:nth-child(4) { text-align: right; }
+.ms-grid-row input:nth-child(3),
+.ms-grid-row input:nth-child(4) { text-align: right; }
+
+/* W10: the base and total rows take the grid's own columns, so the figures
+   land under Amount rather than at the left edge of the panel. */
+.cm-grid-total {
+  padding-top: 10px;
+  border-top: 1px solid var(--hairline);
+  margin-top: 6px;
+}
+.cm-grid-total + .cm-grid-total { border-top: none; margin-top: 0; padding-top: 4px; }
+.cm-total-label {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted-2);
+}
+.cm-total-figure {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--white);
+  text-align: right;
+  white-space: nowrap;
+}
 /* Deliberately no custom input/select styling here - the global
    input[type="text"]/select rule (style.css, underline style) already
    covers every other field on this tab (targetMargin, warrantyPct, etc.),

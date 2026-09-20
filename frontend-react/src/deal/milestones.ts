@@ -77,7 +77,10 @@ export function syncContractorRow(
 }
 
 export interface ReconciliationView {
+  /** Kept for any reader that wants the whole sentence. W10 renders the pair. */
   baseLine: string
+  baseLabel: string
+  baseFigure: string
   totalUsd: string
   totalPct: string
   statement: string | null
@@ -104,7 +107,14 @@ export function contractorReconciliation(values: Values, lumpCost: number): Reco
   }
   const totalPct = rec.base ? (rec.totalUsd / rec.base) * 100 : 0
   return {
+    // W10, ruled 2026-09-20: the LABEL and the FIGURE are separate, so the
+    // figure can sit in the Amount column with the money it belongs to. It
+    // was one sentence with the number inside it - "Lump sum contractor
+    // price, $250,000" - left-aligned across the whole panel, so there was no
+    // figure to align and nothing to align it to.
     baseLine: `Lump sum contractor price, $${money(lumpCost)}`,
+    baseLabel: 'Lump sum contractor price',
+    baseFigure: `$${money(lumpCost)}`,
     totalUsd: `$${money(rec.totalUsd)}`,
     totalPct: rec.exact ? '100%' : `${Number(totalPct.toFixed(4))}%`,
     statement: rec.statement,

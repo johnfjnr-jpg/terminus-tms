@@ -178,7 +178,21 @@ describe('R: the rows render per the census', () => {
       // the title followed its content: a card headed "Executive Summary" over
       // nothing but an opportunity-type row is a sentence that was true when
       // typed and is derived from nothing, so nothing could falsify it.
-      'Opportunity type'])
+      //
+      // W2, 2026-09-20: AND NOW THE CARD ITSELF IS GONE. 'Opportunity type'
+      // was the last title in this list and it headed a card holding exactly
+      // one row, whose own label already said the same word. The row moved
+      // into Terminus Details directly below Terminus Reference, so the list
+      // loses a name and the screen loses a frame. Re-pointed rather than
+      // relaxed: the claim is still that every section is named, and the
+      // assertion below proves the row survived the move.
+    ])
+    // The row is NOT lost with its card. Without this the list above would be
+    // satisfied by deleting the field outright.
+    expect(q('[data-testid="display-oppType"]'),
+      'the Opportunity type row went with its card').not.toBeNull()
+    expect(must('[data-testid="ref-terminus"]').contains(q('[data-testid="display-oppType"]')!),
+      'the row did not land inside Terminus Details').toBe(true)
 
     // AND THE BAND NAMES ITS OWN SECTIONS, which is the same claim for the
     // three cards this round added. Without it, the move would be asserted

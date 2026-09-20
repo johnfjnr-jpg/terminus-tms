@@ -23,8 +23,12 @@ const CARDS = [
     fields: ['deal-targetMargin', 'deal-warrantyPct', 'deal-duration'] },
   { title: 'Currency', achieved: false,
     fields: ['deal-bidCurrency', 'deal-proposalCurrency', 'deal-fxContingency'] },
-  { title: 'Tax Adjustments', achieved: false,
-    fields: ['deal-whtPct', 'deal-gstPct'] },
+  // W4, ruled 2026-09-20: this card places its own fields, so the list is
+  // empty and the body below renders them in the ruled order. WHT and the
+  // gross-up selector are ONE PAIR on ONE line, and GST follows the pair
+  // rather than splitting it: GST is a pass-through and belongs after the
+  // decision that is not.
+  { title: 'Tax Adjustments', achieved: false, fields: [] },
 ]
 
 export function StructuralTermsSection({ renderField, achievedMargin, payload, grossUpToggle }: {
@@ -49,8 +53,20 @@ export function StructuralTermsSection({ renderField, achievedMargin, payload, g
         <div className="pg-card" key={card.title}>
           <p className="pg-card-title">{card.title}</p>
           {card.fields.map(row)}
+          {/* W4: THE WHT PAIR, ON ONE LINE, ABOVE GST. It rendered WHT, then
+              GST, then the gross-up toggle on a third line - so the two halves
+              of one decision were split by a pass-through that has nothing to
+              do with either. Whether tax is grossed up is a fact ABOUT the
+              withholding rate and reads as one thing beside it. */}
           {card.title === 'Tax Adjustments'
-            ? <div className="terms-field-row">{grossUpToggle}</div>
+            ? (
+              <>
+                <div className="terms-field-row terms-wht-pair">
+                  {renderField('deal-whtPct')}
+                  {grossUpToggle}
+                </div>
+                {row('deal-gstPct')}
+              </>)
             : null}
           {/* THE ACHIEVED MARGIN SITS AMONG THE CONTROLS THAT MOVE IT. Round 39
               measured 578px between the margin controls and the figure they

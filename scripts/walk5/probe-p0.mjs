@@ -168,15 +168,18 @@ try {
       const panel = document.getElementById('opp-tab-commercial')
       const pick = (sel) => [...(panel?.querySelectorAll(sel) ?? [])].find(LIVE) ?? null
       const r = (e) => e.getBoundingClientRect()
-      const box = (e) => e ? { w: Math.round(r(e).width), left: Math.round(r(e).left), align: getComputedStyle(e).textAlign } : null
+      const box = (e) => e ? { w: Math.round(r(e).width), left: Math.round(r(e).left), right: Math.round(r(e).right), align: getComputedStyle(e).textAlign } : null
 
+      // W6-W9 REBUILT IT AS A GRID, so this reads the grid rather than the
+      // table it replaced. Left as a measurement of the NEW markup: a probe
+      // still hunting a `<thead>` would report "no column labels" forever.
       const cg = pick('[data-testid="contractor-grid"]')
-      const cgTable = cg?.querySelector('table')
-      const cgRow = cgTable?.querySelector('tbody tr')
-      const cgCells = cgRow ? [...cgRow.children].map((td) => {
-        const ctl = td.querySelector('input, select')
-        return { tag: ctl?.tagName.toLowerCase() ?? '-', ...box(ctl) }
-      }) : []
+      const cgHead = cg?.querySelector('[data-testid="cm-grid-head"]')
+      const cgRow = cg?.querySelector('.cm-grid-row')
+      const cgCells = cgRow ? [...cgRow.children].map((el) => ({ tag: el.tagName.toLowerCase(), ...box(el) })) : []
+      const cgHeadCells = cgHead ? [...cgHead.children].map((el) => ({ t: (el.textContent ?? '').trim(), ...box(el) })) : []
+      const baseFig = pick('[data-testid="contractor-base-figure"]')
+      const totalFig = pick('[data-testid="contractor-total-usd"]')
 
       const msHead = pick('[data-testid="ms-grid-head"]')
       const msRow = pick('.ms-grid-row')
@@ -195,8 +198,11 @@ try {
       return {
         contractor: {
           present: !!cg,
-          hasHeaderRow: !!cgTable?.querySelector('thead'),
+          headTemplate: cgHead ? getComputedStyle(cgHead).gridTemplateColumns : null,
+          headCells: cgHeadCells,
           cells: cgCells,
+          baseFigure: box(baseFig),
+          totalFigure: box(totalFig),
         },
         msHeadTemplate: msHead ? getComputedStyle(msHead).gridTemplateColumns : null,
         msRowTemplate: msRow ? getComputedStyle(msRow).gridTemplateColumns : null,
@@ -210,9 +216,14 @@ try {
     })
 
     console.log(`\n--- W6-W9: the INSTALLATION (contractor) milestone grid ---`)
-    console.log(`  present: ${grids.contractor.present}`)
-    console.log(`  HAS a <thead> with column labels: ${grids.contractor.hasHeaderRow}`)
-    grids.contractor.cells.forEach((c, i) => console.log(`    col ${i + 1}  <${c.tag}>  ${String(c.w).padStart(4)}px  left=${c.left}  text-align=${c.align}`))
+    console.log(`  present: ${grids.contractor.present}  head template: ${grids.contractor.headTemplate}`)
+    grids.contractor.headCells.forEach((c, i) => console.log(`    head ${i + 1}  ${JSON.stringify(c.t).padEnd(14)} ${String(c.w).padStart(4)}px  left=${c.left}  align=${c.align}`))
+    grids.contractor.cells.forEach((c, i) => console.log(`    cell ${i + 1}  <${c.tag}>  ${String(c.w).padStart(4)}px  left=${c.left}  align=${c.align}`))
+    const bf = grids.contractor.baseFigure, tf = grids.contractor.totalFigure
+    const amount = grids.contractor.cells[3]
+    console.log(`  W10 the Amount column is at left=${amount?.left} right=${amount?.right ?? '-'}`)
+    console.log(`  W10 base figure  left=${bf?.left} right=${bf?.right} align=${bf?.align}`)
+    console.log(`  W10 total figure left=${tf?.left} right=${tf?.right} align=${tf?.align}`)
 
     console.log(`\n--- W13: the payment-terms (customer) milestone grid ---`)
     console.log(`  head template: ${grids.msHeadTemplate}`)

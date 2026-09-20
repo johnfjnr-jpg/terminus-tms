@@ -138,30 +138,55 @@ export function ContractorGrid({ rows, values, options, onTyped, view }: {
 }) {
   return (
     <div data-testid="contractor-grid">
-      <table><tbody>
-        {rows.map((r) => (
-          <tr key={r.row}>
-            <td><input id={r.month} data-testid={r.month} inputMode="numeric" maxLength={2}
-              className="int-only"
-              value={values[r.month] ?? ''} onChange={(e) => onTyped(r.row, 'pct', r.month, e.target.value)} /></td>
-            <td>
-              <select id={r.label} data-testid={r.label} value={values[r.label] ?? ''}
-                onChange={(e) => onTyped(r.row, 'pct', r.label, e.target.value)}>
-                {options(r.row).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
-            </td>
-            {/* BOTH SIDES ARE WRITABLE: whichever the person types on decides
-                which one follows. That is the round trip, not a convenience. */}
-            <td><input id={r.pct} data-testid={r.pct} inputMode="decimal"
-              value={values[r.pct] ?? ''} onChange={(e) => onTyped(r.row, 'pct', r.pct, e.target.value)} /></td>
-            <td><input id={r.usd} data-testid={r.usd} inputMode="decimal"
-              value={values[r.usd] ?? ''} onChange={(e) => onTyped(r.row, 'usd', r.usd, e.target.value)} /></td>
-          </tr>
-        ))}
-      </tbody></table>
-      <p data-testid="contractor-base">{view.baseLine}</p>
-      <p data-testid="contractor-total-usd">{view.totalUsd}</p>
-      <p data-testid="contractor-total-pct">{view.totalPct}</p>
+      {/* ── W6-W9: ONE GRID WITH LABELLED COLUMNS, NOT A BARE TABLE ───────
+          It was a `<table>` with no `<thead>` at all: four equal columns and
+          nothing saying which was which, so Month and % were as wide as the
+          milestone name. This is the shape walk 4 gave the CUSTOMER grid and
+          it comes from the same place - the prototype's `44px 195px 44px
+          64px` at gap 4px, declared once and used by the header and every
+          row, which is why the labels sit over the fields they name.
+          The numeric columns are right-aligned, per the prototype. */}
+      <div className="cm-grid-head" data-testid="cm-grid-head">
+        <span>Month</span><span>Milestone</span><span>%</span><span>Amount</span>
+      </div>
+      {rows.map((r) => (
+        <div className="cm-grid-row" key={r.row}>
+          <input id={r.month} data-testid={r.month} inputMode="numeric" maxLength={2}
+            className="int-only"
+            value={values[r.month] ?? ''} onChange={(e) => onTyped(r.row, 'pct', r.month, e.target.value)} />
+          {/* THE STORED-UNKNOWN BEHAVIOUR IS UNTOUCHED: `options` still keeps
+              a value outside the list as its own option rather than
+              discarding what somebody entered. */}
+          <select id={r.label} data-testid={r.label} value={values[r.label] ?? ''}
+            onChange={(e) => onTyped(r.row, 'pct', r.label, e.target.value)}>
+            {options(r.row).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+          {/* BOTH SIDES ARE WRITABLE: whichever the person types on decides
+              which one follows. That is the round trip, not a convenience. */}
+          <input id={r.pct} data-testid={r.pct} inputMode="decimal"
+            value={values[r.pct] ?? ''} onChange={(e) => onTyped(r.row, 'pct', r.pct, e.target.value)} />
+          <input id={r.usd} data-testid={r.usd} inputMode="decimal"
+            value={values[r.usd] ?? ''} onChange={(e) => onTyped(r.row, 'usd', r.usd, e.target.value)} />
+        </div>
+      ))}
+      {/* ── W10: THE FIGURES SIT IN THE MONEY COLUMN ─────────────────────
+          These were three left-aligned paragraphs: a sentence with the price
+          inside it, then the two totals, none of them lined up with the
+          Amount column they are totals OF. They take the grid's own template
+          now, so each figure falls under the column it belongs to and the
+          eye can add the column up. */}
+      <div className="cm-grid-row cm-grid-total" data-testid="contractor-base-row">
+        <span />
+        <span className="cm-total-label" data-testid="contractor-base">{view.baseLabel}</span>
+        <span />
+        <span className="cm-total-figure" data-testid="contractor-base-figure">{view.baseFigure}</span>
+      </div>
+      <div className="cm-grid-row cm-grid-total" data-testid="contractor-total-row">
+        <span />
+        <span className="cm-total-label">Total</span>
+        <span className="cm-total-figure" data-testid="contractor-total-pct">{view.totalPct}</span>
+        <span className="cm-total-figure" data-testid="contractor-total-usd">{view.totalUsd}</span>
+      </div>
       {view.statement
         ? <p data-testid="contractor-diff" className={view.off ? 'deal-schedule-off' : ''}>{view.statement}</p>
         : null}
