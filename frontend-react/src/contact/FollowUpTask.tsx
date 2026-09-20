@@ -75,8 +75,24 @@ export function FollowUpTask({ date, description, onSave, resetKey }: {
             onChange={(e) => setT(e.target.value)} />
         </label>
 
+        {/* ── THE SAME DEFECT AS R5, FOUND BY OPENING A SCREENSHOT ────────
+            This button carried no class either, so it rendered as a white
+            browser default beside `Add note`, which wears `btn-sm`, on the
+            very same card row.
+
+            IT IS REPORTED AS A THIRD-SURFACE FINDING RATHER THAN SMUGGLED IN.
+            The Opportunity round put this component on a THIRD surface, so
+            the defect is one this round made visible on a screen it built;
+            the Contact and the Test Bed have carried it for longer. The class
+            is therefore shared, and the blast radius is all three surfaces,
+            which is stated at the close rather than left to be discovered.
+
+            `btn-sm` and not `btn-primary`, matching `cd-add-note-btn` on the
+            same card family rather than inventing a second weight for a
+            neighbouring control. */}
         <button
           type="button"
+          className="btn-sm"
           id="cd-followup-save"
           data-testid="cd-followup-save"
           disabled={!dirty}

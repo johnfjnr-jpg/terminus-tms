@@ -32,8 +32,34 @@ const markupIds = () => {
 test('the scan can see an id in the markup at all', () => {
   const ids = markupIds()
   assert.ok(ids.size > 100, `only ${ids.size} ids parsed from index.html`)
-  assert.ok(ids.has('ref-save-all'),
-    'the vanilla id this rule was written about is gone, so re-derive the rule')
+
+  // ── RE-DERIVED, 2026-09-19, AND THE OLD ANCHOR IS THE REASON ───────────
+  //
+  // This asserted `ids.has('ref-save-all')`, the vanilla tab-action button
+  // whose collision with the React bar is the whole story above. The
+  // Opportunity round REMOVED that button: `opportunity-reference.js` was
+  // retired, nothing toggled its `.tab-action-idle` class any more, and it sat
+  // permanently invisible while still reserving 134x34 beside two controls
+  // that work.
+  //
+  // So the anchor was the DEFECT this scan watches, and it stopped being a
+  // calibration the day the defect was fixed. This test said so in its own
+  // failure message and refused the commit, which is exactly right.
+  //
+  // THE REPLACEMENT IS SYNTHETIC, so no later round can delete it. It proves
+  // the PARSER rather than the presence of one historical id, which is what
+  // "the scan can see an id at all" was ever about.
+  const parse = (html) => new Set([...html.matchAll(/\bid="([^"]+)"/g)].map((m) => m[1]))
+  const synthetic = parse('<div id="alpha"><button id="beta-two">x</button></div>')
+  assert.deepEqual([...synthetic].sort(), ['alpha', 'beta-two'],
+    'the id parser no longer extracts ids, so the scan below reads nothing')
+
+  // AND ONE REAL ID, chosen because it is STRUCTURAL rather than incidental:
+  // the Opportunity detail view's own container. A round that deletes this has
+  // deleted the screen, which is not a change that should pass quietly.
+  assert.ok(ids.has('view-opportunity-detail'),
+    'the Opportunity detail view container is gone from index.html, which is '
+    + 'either a much larger change than this rule expects or a broken parse')
 })
 
 /**

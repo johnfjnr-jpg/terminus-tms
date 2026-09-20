@@ -143,14 +143,43 @@ export function NotesHistory({ notes, onAdd, hasDirtyEdits, onConfirmDiscard, re
   // and a control that changes nothing is worse than none.
   const rungs = notes.length > DEFAULT_SHOWN
     ? (
-      <span className="cd-notes-expand" data-testid="cd-notes-expand">
-        <button type="button" className="btn-sm" data-testid="cd-notes-show-2" aria-controls={notesListId}
+      // ── THESE THREE DECLARE THEMSELVES AS A VIEW SELECTOR ──────────────
+      //
+      // `role="tablist"` and `role="tab"`, added by the Opportunity round
+      // 2026-09-19, and the reason is a RED GATE rather than tidiness.
+      //
+      // They are READ affordances: they change how much of one list is shown
+      // and they write nothing. A door that neutralises them on somebody
+      // else's record does not protect the record, it stops a person reading
+      // it, which is the one thing the door must never do.
+      //
+      // The estate's shared control classifier decides what a door may kill,
+      // and it exempts a control that DECLARES itself navigation, by
+      // `role="tab"`. These carried only `aria-controls`, which the classifier
+      // does not read, so the moment this card reached the Opportunity the
+      // read-only probe reported "3 controls are still typeable on another
+      // user's record" and the round gate went RED. The controls were right
+      // and their declaration was incomplete.
+      //
+      // DECLARED RATHER THAN EXEMPTED, which is the choice worth recording.
+      // The alternative was to teach the shared classifier that
+      // `aria-controls` means read-only. Measured on the failing view, 22
+      // controls carry that attribute and not one is a write, so it would have
+      // worked today; it also widens a SECURITY classifier six instruments
+      // share, on the strength of a census taken once. A group of mutually
+      // exclusive views over one region IS a tablist, so saying so costs
+      // nothing and changes no guard.
+      <span className="cd-notes-expand" data-testid="cd-notes-expand" role="tablist">
+        <button type="button" role="tab" className="btn-sm" data-testid="cd-notes-show-2"
+          aria-controls={notesListId} aria-selected={shown === DEFAULT_SHOWN}
           disabled={shown === DEFAULT_SHOWN}
           onClick={() => setShown(DEFAULT_SHOWN)}>Latest 2</button>
-        <button type="button" className="btn-sm" data-testid="cd-notes-show-10" aria-controls={notesListId}
+        <button type="button" role="tab" className="btn-sm" data-testid="cd-notes-show-10"
+          aria-controls={notesListId} aria-selected={shown === EXPANDED_SHOWN}
           disabled={shown === EXPANDED_SHOWN}
           onClick={() => setShown(EXPANDED_SHOWN)}>Last 10</button>
-        <button type="button" className="btn-sm" data-testid="cd-notes-show-all" aria-controls={notesListId}
+        <button type="button" role="tab" className="btn-sm" data-testid="cd-notes-show-all"
+          aria-controls={notesListId} aria-selected={shown === Infinity}
           disabled={shown === Infinity}
           onClick={() => setShown(Infinity)}>All</button>
       </span>

@@ -153,6 +153,43 @@ test('the hook and its installer are in the repository', () => {
     'npm has no prepare script installing the hook, so a clone would not have it')
 })
 
+test('the pre-push hook refuses a push from this session, and does so in CODE', () => {
+  // Build discipline 18's mechanism, built in the Opportunity round 2026-09-19.
+  // The rule named a pre-push as available and did not build it; this asserts
+  // the built thing keeps its teeth, because NOTHING ELSE SCHEDULES IT. A hook
+  // is run by git or by nobody, so a deletion would be silent and its silence
+  // would read exactly like its success.
+  //
+  // READ THROUGH THE STRIPPER, and here that is load-bearing rather than
+  // habitual. The hook carries a long comment block naming CLAUDECODE, the
+  // refusal banner and the rule it quotes, so an UNSTRIPPED scan passes on a
+  // hook whose every check has been deleted. Measured: the stripper takes
+  // CLAUDECODE from four mentions to the two that are code.
+  const hook = readCode(join(ROOT, '.githooks/pre-push'))
+  assert.match(hook, /REFUSE=/,
+    'the stripper returned no code at all, so every match below would be vacuous')
+
+  // THE TWO DISCRIMINATORS, MEASURED 2026-09-19 rather than assumed. The
+  // obvious one does not work: this session runs as johnfryatt, uid 501, the
+  // SAME account as the business, so no user, home or group separates them.
+  // What does: the env marker (set here, unset in `env -i zsh -l`, named in no
+  // dotfile) and the tty (false here on all three descriptors, true under a
+  // real pty).
+  assert.match(hook, /-n "\$\{CLAUDECODE\}"/,
+    'the hook no longer tests the marker that identifies this session')
+  assert.match(hook, /! -t 2/,
+    'the tty backstop is gone, so a release that stops exporting CLAUDECODE disarms the hook silently')
+  assert.match(hook, /exit 1/, 'the hook can no longer refuse anything')
+
+  // The rule's own words. A refusal that does not say why gets worked around,
+  // and "ready for John's push" is the line that makes the stop actionable in
+  // one command rather than leaving somebody hunting for what to push.
+  assert.match(hook, /NEVER EXECUTES git push/)
+  assert.match(hook, /[Rr]eady for John's push/)
+  assert.ok(statSync(join(ROOT, '.githooks/pre-push')).mode & 0o111,
+    'the pre-push hook is not executable, so git will skip it without a word')
+})
+
 // ── THIS CHECK MOVED, 2026-09-14 ─────────────────────────────────────────
 //
 // "every test file is named by a suite" now lives in
