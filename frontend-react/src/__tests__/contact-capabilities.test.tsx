@@ -224,7 +224,8 @@ describe('P3: the notes list shows the latest 2 and expands', () => {
     expect(must('cd-note-0').textContent).toContain('note 0')
     expect(must('cd-note-1').textContent).toContain('note 1')
     expect($('cd-note-2'), 'a third note rendered, so the default is not 2').toBeNull()
-    expect(must('cd-notes-shown').textContent).toBe('Showing 2 of 12')
+    // R-W1: the word "Showing" is gone and the count is on the header line.
+    expect(must('cd-notes-shown').textContent).toBe('2 of 12')
   })
 
   test('Last 10 shows ten, All shows every one, Latest 2 returns', async () => {
@@ -236,7 +237,7 @@ describe('P3: the notes list shows the latest 2 and expands', () => {
 
     act(() => { must('cd-notes-show-all').click() })
     expect(must('cd-note-11').textContent).toContain('note 11')
-    expect(must('cd-notes-shown').textContent).toBe('Showing 12 of 12')
+    expect(must('cd-notes-shown').textContent).toBe('12 of 12')
 
     act(() => { must('cd-notes-show-2').click() })
     expect($('cd-note-2'), 'Latest 2 did not collapse the list again').toBeNull()

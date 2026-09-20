@@ -178,7 +178,21 @@ describe('R: the rows render per the census', () => {
       // the title followed its content: a card headed "Executive Summary" over
       // nothing but an opportunity-type row is a sentence that was true when
       // typed and is derived from nothing, so nothing could falsify it.
-      'Opportunity type'])
+      //
+      // W2, 2026-09-20: AND NOW THE CARD ITSELF IS GONE. 'Opportunity type'
+      // was the last title in this list and it headed a card holding exactly
+      // one row, whose own label already said the same word. The row moved
+      // into Terminus Details directly below Terminus Reference, so the list
+      // loses a name and the screen loses a frame. Re-pointed rather than
+      // relaxed: the claim is still that every section is named, and the
+      // assertion below proves the row survived the move.
+    ])
+    // The row is NOT lost with its card. Without this the list above would be
+    // satisfied by deleting the field outright.
+    expect(q('[data-testid="display-oppType"]'),
+      'the Opportunity type row went with its card').not.toBeNull()
+    expect(must('[data-testid="ref-terminus"]').contains(q('[data-testid="display-oppType"]')!),
+      'the row did not land inside Terminus Details').toBe(true)
 
     // AND THE BAND NAMES ITS OWN SECTIONS, which is the same claim for the
     // three cards this round added. Without it, the move would be asserted
@@ -449,7 +463,34 @@ describe('K: key contacts', () => {
     const paths = apiCalls.map((c) => c.path)
     expect(paths).toContain('/api/contact-roles')
     expect(paths).toContain('/api/contact-stances')
-    expect(paths).toContain('/api/contacts')
+    // R-W3: THE CONTACTS CALL IS SCOPED TO THE LINKED ACCOUNT. It was the
+    // bare `/api/contacts`, which returns every live contact in the system.
+    // Asserted as the exact path rather than a `toContain` on the prefix,
+    // because a prefix match is satisfied by the unscoped call it replaces.
+    expect(paths).toContain('/api/contacts?account_id=a1')
+    expect(paths, 'the unscoped call is still being made').not.toContain('/api/contacts')
+  })
+
+  test('R-W3 with NO linked account it asks for nothing and says why', async () => {
+    await mount({ src: source({ account: null }) })
+    const paths = apiCalls.map((c) => c.path)
+    expect(paths.some((p) => p.startsWith('/api/contacts')),
+      'it asked for contacts with no account to scope them to').toBe(false)
+    const note = q('[data-testid="kc-no-account"]')
+    expect(note, 'nothing explains the empty picker').not.toBeNull()
+    expect(note!.textContent).toMatch(/no linked account/i)
+    // AND THE CONTROL IS DISABLED, so the sentence is not the only thing
+    // stopping somebody trying: an enabled picker with nothing in it invites
+    // a click that can do nothing.
+    expect((must('[data-testid="kc-add-contact"]') as HTMLSelectElement).disabled).toBe(true)
+  })
+
+  test('R-W3 and WITH an account the explanation is absent', async () => {
+    // The pair that makes the test above mean something: a note rendered
+    // always would satisfy it just as well.
+    await mount()
+    expect(q('[data-testid="kc-no-account"]')).toBeNull()
+    expect((must('[data-testid="kc-add-contact"]') as HTMLSelectElement).disabled).toBe(false)
   })
 
   test('K3 a stance change ARMS the row rather than making the surface dirty', async () => {

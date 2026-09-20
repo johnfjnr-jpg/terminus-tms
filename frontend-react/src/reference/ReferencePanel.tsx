@@ -171,6 +171,11 @@ export function ReferencePanel({ source, links, closeMoves, oppId, onSave, onCha
       <div className="ref-cards">
       <Card title="Terminus Details" testId="ref-terminus">
         {ro('Terminus Reference')}
+        {/* W2, ruled 2026-09-20: the Opportunity type row moves HERE, directly
+            below Terminus Reference, and its standalone card goes. It was a
+            card containing exactly one row, which is a frame around a single
+            field and a heading that repeats the field's own label. */}
+        {row('oppType')}
         {['lead', 'commercial', 'technical', 'legal', 'region', 'country'].map(row)}
         {ro('Stage')}
       </Card>
@@ -205,7 +210,9 @@ export function ReferencePanel({ source, links, closeMoves, oppId, onSave, onCha
       </div>
 
       <Card title="Key Customer Contacts" testId="ref-key-contacts">
-        <KeyContacts oppId={oppId} links={links} onChanged={onChanged} />
+        {/* R-W3: the picker is scoped to the opportunity's own account. */}
+        <KeyContacts oppId={oppId} accountId={source.account?.id ?? null}
+          links={links} onChanged={onChanged} />
       </Card>
 
       {/* ── SUMMARY HAS MOVED TO THE RECORD BAND, and this card keeps what is
@@ -220,9 +227,7 @@ export function ReferencePanel({ source, links, closeMoves, oppId, onSave, onCha
           not derived from anything, so nothing can falsify it. The testId
           moved with it for the same reason, and it is asserted nowhere else -
           measured across the repository before renaming. */}
-      <Card title="Opportunity type" testId="ref-opptype">
-        {row('oppType')}
-      </Card>
+
 
       {/* ── THE ID IS NOT THE VANILLA'S, AND MEASUREMENT IS WHY ───────────
           Round 6 Phase 1. This said `ref-save-all`, matching the vanilla it

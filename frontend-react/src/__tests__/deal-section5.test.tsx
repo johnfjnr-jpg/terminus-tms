@@ -174,3 +174,69 @@ describe('the factoring switch', () => {
     }
   })
 })
+
+// ──────────────────────────────────────────────────────────────────────
+// R-W12: THE CUSTOMER MILESTONE COLUMN IS THE PROTOTYPE'S DROPDOWN
+//
+// Written from the ruling: "the customer payment-terms milestone column
+// becomes the prototype's dropdown, sourced from the SAME constant the
+// contractor grid uses (one source, both grids), including the keep-unknown-
+// stored-value behaviour."
+//
+// ONE SOURCE IS ASSERTED AS AN EQUALITY BETWEEN THE TWO GRIDS, not as each
+// matching a list typed into this file. A test carrying its own copy of the
+// six names would be a third reader of the vocabulary and would agree with
+// nothing when somebody changed it.
+// ──────────────────────────────────────────────────────────────────────
+
+describe('R-W12: the customer milestone column', () => {
+  const HYBRID = { structure: 'hybrid' }
+
+  test('it is a SELECT, not a free-text box', async () => {
+    await mount(HYBRID)
+    const cell = must('deal-ms-0-label')
+    expect(cell.tagName).toBe('SELECT')
+  })
+
+  test('and it offers the prototype\'s six names plus the placeholder', async () => {
+    await mount(HYBRID)
+    const opts = [...(must('deal-ms-0-label') as HTMLSelectElement).options].map((o) => o.text)
+    expect(opts[0]).toBe('Select milestone')
+    expect(opts).toContain('Contract start')
+    expect(opts).toContain('Hardware delivered to site')
+    expect(opts).toContain('Final acceptance')
+    expect(opts).toHaveLength(7)
+  })
+
+  test('ONE SOURCE: the customer grid offers exactly what the contractor grid offers', async () => {
+    await mount({ ...HYBRID, installResp: 'Terminus Contractor - Lump Sum' })
+    const cust = [...(must('deal-ms-0-label') as HTMLSelectElement).options].map((o) => o.text)
+    const cont = [...(must('deal-cm-0-label') as HTMLSelectElement).options].map((o) => o.text)
+    expect(cust, 'the two grids offer different milestone names').toEqual(cont)
+    // Non-vacuous: both lists must actually hold something.
+    expect(cust.length).toBeGreaterThan(1)
+  })
+
+  test('a stored value outside the list KEEPS ITS OWN OPTION rather than vanishing', async () => {
+    // The behaviour that makes this safe on deals entered before the dropdown
+    // existed. Without it the select would show the placeholder and the next
+    // save would quietly discard what somebody typed.
+    await mount(HYBRID, { ...VALUES, 'deal-ms-0-label': 'Something nobody standardised' })
+    const sel = must('deal-ms-0-label') as HTMLSelectElement
+    expect(sel.value).toBe('Something nobody standardised')
+    const opts = [...sel.options].map((o) => o.text)
+    expect(opts.some((t) => /Something nobody standardised/.test(t)),
+      'the stored value lost its option').toBe(true)
+    expect(opts.some((t) => /not in the list/.test(t)),
+      'the unknown option does not say it is unknown').toBe(true)
+  })
+
+  test('and a recognised stored value does NOT get the unknown marker', async () => {
+    // The pair that makes the test above mean something: without it, a marker
+    // on every option would pass it just as well.
+    await mount(HYBRID, { ...VALUES, 'deal-ms-0-label': 'Go live' })
+    const opts = [...(must('deal-ms-0-label') as HTMLSelectElement).options].map((o) => o.text)
+    expect(opts.some((t) => /not in the list/.test(t))).toBe(false)
+    expect(opts).toHaveLength(7)
+  })
+})

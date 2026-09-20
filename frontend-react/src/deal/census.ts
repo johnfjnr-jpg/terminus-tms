@@ -18,6 +18,20 @@ export interface CensusInput {
   /** A catalog rate is DISPLAYED here, never recorded: the box is a readout. */
   readOnlyRate?: boolean
   placeholderFromCatalog?: string
+  /**
+   * W4: AN ABSENCE MARKER THIS FIELD'S WIDTH CAN ACTUALLY HOLD.
+   *
+   * The placeholder is otherwise chosen by the contract, and `numOrNull`
+   * means "not recorded" - eighty pixels of it. Sizing the withholding box to
+   * the two digits it holds, as ruled, left that text clipped to "not
+   * recorde", which is a worse absence than the one it replaced.
+   *
+   * DEPARTURE, STATED: the ruled WIDTH is kept and the WORDING gives way. GST
+   * sits on the same card and is not narrow, so it still reads "not
+   * recorded"; if those two should match, that is a decision about the
+   * wording rather than about this field's size.
+   */
+  placeholder?: string
 }
 
 export const DEAL_SECTIONS = [
@@ -49,7 +63,7 @@ export const CENSUS: CensusInput[] = [
   { id: 'deal-inHemir', label: 'HEMIR install', contract: 'numOrNull', section: 'installation', placeholderFromCatalog: 'inHemir' },
 
   { id: 'deal-warrantyPct', label: 'Warranty %', contract: 'numOrNull', section: 'risk' },
-  { id: 'deal-whtPct', label: 'Withholding Tax %', contract: 'numOrNull', section: 'risk' },
+  { id: 'deal-whtPct', label: 'Withholding Tax %', contract: 'numOrNull', section: 'risk', placeholder: '--' },
   { id: 'deal-gstPct', label: 'GST %', contract: 'numOrNull', section: 'risk' },
   { id: 'deal-fxContingency', label: '% Currency Contingency', contract: 'numOrNull', section: 'risk' },
   { id: 'deal-bidCurrency', label: 'Bid Currency', contract: 'emptyToNull', section: 'risk' },

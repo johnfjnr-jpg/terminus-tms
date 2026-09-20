@@ -92,14 +92,17 @@ function CensusField({ field, value, rates, onChange, help, bare, options }: {
   rates: CatalogRates
   onChange(next: string): void
 }) {
-  const placeholder = field.placeholderFromCatalog
+  const placeholder = field.placeholder
+    // W4: a field narrow enough that the contract's own wording would be
+    // clipped says its absence in the room it has.
+    ?? (field.placeholderFromCatalog
     // THE CATALOG FIGURE AS A PLACEHOLDER, NEVER AS A VALUE. An empty box here
     // means "no override, use the catalog", so showing the catalog number as
     // the value would record a per-deal override of the catalog on every deal.
     ? `catalog: ${money(rates[field.placeholderFromCatalog])}`
     : field.contract === 'num' ? '0'
     : field.contract === 'numOrUndefined' ? 'no override'
-    : 'not recorded'
+    : 'not recorded')
 
   return (
     // htmlFor, not merely a wrapping label. The vanilla writes
@@ -551,6 +554,10 @@ export function DealPanel({
             renderField={renderField}
             milestoneGrid={
               <MilestoneGrid rows={MILESTONE_INPUTS} values={values}
+                // R-W12: ONE SOURCE, BOTH GRIDS. The contractor grid two
+                // sections above is handed the same builder with the same
+                // stored value, so the two can never offer different names.
+                options={(i) => milestoneOptions(values[`deal-ms-${i}-label`])}
                 usdFor={(i) => milestoneUsdFor(values[`deal-ms-${i}-pct`], oneOffPrice)}
                 onChange={onMilestoneTyped}
                 warning={customerScheduleWarning(
