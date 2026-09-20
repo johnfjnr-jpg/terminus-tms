@@ -554,6 +554,10 @@ export function DealPanel({
             renderField={renderField}
             milestoneGrid={
               <MilestoneGrid rows={MILESTONE_INPUTS} values={values}
+                // R-W12: ONE SOURCE, BOTH GRIDS. The contractor grid two
+                // sections above is handed the same builder with the same
+                // stored value, so the two can never offer different names.
+                options={(i) => milestoneOptions(values[`deal-ms-${i}-label`])}
                 usdFor={(i) => milestoneUsdFor(values[`deal-ms-${i}-pct`], oneOffPrice)}
                 onChange={onMilestoneTyped}
                 warning={customerScheduleWarning(

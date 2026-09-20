@@ -6,13 +6,37 @@ import type { Values } from './payload'
 
 // ── THE TWO MILESTONE GRIDS ──────────────────────────────────────────────
 //
-// They are the SAME COMPONENT with different bases. Both read
-// Month | Milestone | % | USD, and in both the USD is COMPUTED from the
-// percentage, because a schedule is negotiated in percentages on both sides of
-// the deal. The customer grid's base is the one-off price; the contractor
-// grid's is the raw lump sum cost.
+// CORRECTED AT R-W12, 2026-09-20, AND THE FALSE SENTENCE IS KEPT SO THE NEXT
+// READER CAN SEE WHAT IT CLAIMED. It read:
+//
+//   "They are the SAME COMPONENT with different bases."
+//
+// They were not, and had not been for some time: `MilestoneGrid` rendered
+// four inputs and `ContractorGrid` rendered a table with a `<select>` in its
+// second column. Nothing could have failed on the sentence - it describes
+// two components and is checked by neither - which is why it survived.
+//
+// THEY ARE TWO COMPONENTS WITH ONE VOCABULARY AND ONE SHAPE. Both read
+// Month | Milestone | % | Amount, both take their milestone names from the
+// list below, and in both the money is COMPUTED from the percentage, because
+// a schedule is negotiated in percentages on both sides of the deal. The
+// customer grid's base is the one-off price; the contractor grid's is the raw
+// lump sum cost.
 
-/** A fixed list, and it is a census fact carried as data. */
+/**
+ * A fixed list, and it is a census fact carried as data.
+ *
+ * THESE ARE THE PROTOTYPE'S OWN SIX, in its own order, from the
+ * `projectMilestone` picklist at `Terminus Ops.dc.html:5592`. Phase 0 measured
+ * the live data against them: 13 of 13 named contractor rows are one of these
+ * and none is anything else.
+ *
+ * QUEUED, NOT BUILT (John, R-W12): this could be a vocabulary TABLE, the way
+ * `contact_roles`, `contact_stances`, `industries` and `closed_lost_reasons`
+ * already are - a small table with `id, label, sort_order` and a GET route.
+ * That is a schema change and a configuration decision; the constant is
+ * neither, and it is what both grids read today.
+ */
 export const CONTRACTOR_MILESTONES = [
   'Contract start',
   'Hardware delivered to site',

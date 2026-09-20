@@ -91,12 +91,20 @@ export function YearScheduleView({ schedule }: { schedule: YearSchedule }) {
   )
 }
 
-export function MilestoneGrid({ rows, values, usdFor, onChange, warning }: {
+export function MilestoneGrid({ rows, values, usdFor, onChange, warning, options }: {
   rows: { row: number; month: string; label: string; usd: string; pct: string }[]
   values: Record<string, string | undefined>
   usdFor(i: number): string
   onChange(id: string, v: string): void
   warning: string | null
+  /**
+   * R-W12: THE SAME OPTION BUILDER THE CONTRACTOR GRID USES, passed in rather
+   * than imported twice, so there is ONE source for the milestone names and
+   * both grids read it. `milestoneOptions` also keeps a stored value that is
+   * not in the list as its own option, so a deal carrying free text entered
+   * before this existed does not silently lose it.
+   */
+  options(i: number): MilestoneOption[]
 }) {
   return (
     // ── R-O5/O6: THE ROWS SHARE THE HEADER'S GRID ─────────────────────────
@@ -114,8 +122,20 @@ export function MilestoneGrid({ rows, values, usdFor, onChange, warning }: {
         <div className="ms-grid-row" key={r.row}>
           <input id={r.month} data-testid={r.month} inputMode="numeric" maxLength={2}
             value={values[r.month] ?? ''} onChange={(e) => onChange(r.month, e.target.value)} />
-          <input id={r.label} data-testid={r.label}
-            value={values[r.label] ?? ''} onChange={(e) => onChange(r.label, e.target.value)} />
+          {/* ── R-W12: THE PROTOTYPE'S DROPDOWN, RESTORED ──────────────────
+              This was a free-text input. The prototype rendered a `<select>`
+              here, fed from a `projectMilestone` picklist of six values, and
+              used the SAME list on the contractor grid - which still has its
+              dropdown. Phase 0 measured what became of it: the six values
+              survive as `CONTRACTOR_MILESTONES` and every one of the 13 named
+              contractor rows in the live data is one of them, with no strays,
+              while this grid has never held a row at all.
+              So nothing is being invented and no data is at risk: the control
+              is simply reconnected to the vocabulary that was always there. */}
+          <select id={r.label} data-testid={r.label}
+            value={values[r.label] ?? ''} onChange={(e) => onChange(r.label, e.target.value)}>
+            {options(r.row).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
           <input id={r.pct} data-testid={r.pct} inputMode="decimal"
             value={values[r.pct] ?? ''} onChange={(e) => onChange(r.pct, e.target.value)} />
           {/* L6: THE USD IS COMPUTED and shown read-only, so the two readings

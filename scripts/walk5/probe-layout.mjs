@@ -109,7 +109,11 @@ try {
       ms: {
         headCells: msHead ? [...msHead.children].map((e) => box(e)) : null,
         cells: msRow ? [...msRow.children].map((e) => box(e)) : null,
+        tags: msRow ? [...msRow.children].map((e) => e.tagName.toLowerCase()) : null,
+        optionCount: msRow?.children[1]?.tagName === 'SELECT'
+          ? msRow.children[1].children.length : null,
       },
+      cmTag: row?.children[1]?.tagName.toLowerCase() ?? null,
       // THE GRID'S OWN BOX, not the max right of its children. The first
       // version walked the children and produced a number that moved by 359px
       // when the column was pinned - a measure whose own answer depends on
@@ -224,6 +228,16 @@ try {
     check(h.install.every((f) => f && f.w === 104),
       `W5 the installation fields are sized to their data at ${width}`,
       JSON.stringify(h.install.map((f) => f?.w)))
+    // R-W12, live: the milestone column is the dropdown, on the real screen.
+    check(h.ms.tags?.[1] === 'select',
+      `R-W12 the customer milestone column is a dropdown at ${width}`,
+      `<${h.ms.tags?.[1]}>`)
+    check((h.ms.optionCount ?? 0) === 7,
+      `R-W12 and it offers the six names plus the placeholder at ${width}`,
+      `${h.ms.optionCount} options`)
+    check(h.ms.tags?.[1] === h.cmTag,
+      `R-W12 and the two grids use the same control at ${width}`,
+      `customer <${h.ms.tags?.[1]}>, contractor <${h.cmTag}>`)
     check(h.ms.cells?.[2].align === 'right' && h.ms.cells?.[3].align === 'right',
       `W13 the payment-terms % and USD are right-aligned at ${width}`)
     check(h.ms.headCells?.[2].align === 'right' && h.ms.headCells?.[3].align === 'right',
