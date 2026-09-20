@@ -82,7 +82,20 @@ export const BRIDGE_STEPS = [
   {
     step: 'discount or override',
     label: 'Discount or override',
-    keys: ['targetMargin', 'marginOverrides', 'installResp', 'lumpSumCost'],
+    // R-O7: the per-unit hosting fee belongs HERE, beside `marginOverrides`,
+    // because it is the same act said the other way round. A margin override
+    // sets the percentage and lets the price follow; a per-unit fee sets the
+    // price and lets the percentage follow. Both are a human overriding what
+    // the catalog and the target would have priced, and an approver comparing
+    // two versions needs the movement attributed to the decision rather than
+    // to the cost basis.
+    //
+    // FOUND BY THE GUARD, not by remembering: `approval-page.test.mjs` asserts
+    // that every key the calculation reads belongs to a step, and it went red
+    // naming both keys the moment the calculator started reading them. That is
+    // the bridge inheriting the override, which is what the ruling asked for.
+    keys: ['targetMargin', 'marginOverrides', 'installResp', 'lumpSumCost',
+      'hostingPriceMode', 'hostingUnitFees'],
   },
   {
     step: 'risk terms',

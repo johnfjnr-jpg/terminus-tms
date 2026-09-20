@@ -1605,6 +1605,40 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
   color: var(--muted-2);
 }
 .pg-head span:not(:first-child) { text-align: right; }
+
+/* ── R-O7: THE PER-UNIT FEE TABLE IS THREE COLUMNS, NOT FOUR ─────────────
+   `.pg-head` and `.pg-row` are `minmax(0,1fr) 72px 56px 76px`, written for
+   Item, Cost, Margin and Price. The fee table is the ruling's own shape - Unit,
+   Monthly fee, % Margin - so it OVERRIDES the column list rather than reusing a
+   four-column grid with one cell left empty.
+
+   DECLARED AS ITS OWN COLUMN COUNT for the reason CLAUDE.md's stats-grid clause
+   records: a grid sized for a population cannot see markup that brings a
+   different number of cells, and the wrap that follows preserves DOM order, so
+   every assertion about the cells still passes while the table renders two rows
+   deep. The fee row is asserted to occupy ONE row in the live probe. */
+.pg-head--fee,
+.pg-row--fee {
+  grid-template-columns: minmax(0, 1fr) 86px 72px;
+}
+
+/* The card's title and its switch share a line. `.pg-card-title` carries the
+   card's bottom rule, so the rule has to move to the row or the switch sits
+   above the line the title draws under itself. */
+.pg-card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--hairline-strong);
+  margin: 0 0 4px;
+}
+.pg-card-head .pg-card-title {
+  padding-bottom: 0;
+  border-bottom: none;
+  margin: 0;
+}
 .pg-row {
   padding: 7px 0;
   border-top: 1px solid var(--hairline);

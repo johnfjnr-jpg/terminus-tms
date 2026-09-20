@@ -354,3 +354,98 @@ test('calculateDeal: a zero-value deal does not produce NaN margin', () => {
   assert.equal(d.achievedMargin, 0)
   assert.ok(!Number.isNaN(d.achievedMargin))
 })
+
+// ──────────────────────────────────────────────────────────────────────
+// R-O7: THE PER-UNIT HOSTING FEE OVERRIDES THE MARGIN PRICE
+//
+// Written from the ruling rather than from the code: "the entered monthly fee
+// per unit type REPLACES the calculated hosting price for that type, % Margin
+// derived from the override against that type's cost, flowing through
+// rawTotalPrice so contract totals, cash flow, tax, achieved margin and the
+// approval version bridge inherit".
+//
+// Every figure below is hand-computed from that sentence. None is read back
+// out of the function, which would assert only that the code equals itself.
+// ──────────────────────────────────────────────────────────────────────
+
+test('R-O7: a line with no price override prices from its margin, exactly as before', () => {
+  const g = buildCostGroup([{ key: 'hoSs', cost: 1000, marginPct: 30 }])
+  // 1000 / (1 - 0.30) = 1428.57..., rounded.
+  assert.equal(g.rows[0].rawPrice, 1429)
+  assert.equal(g.rows[0].overridden, false)
+})
+
+test('R-O7: a price override REPLACES the margin price rather than adjusting it', () => {
+  const g = buildCostGroup([{ key: 'hoSs', cost: 1000, marginPct: 30, priceOverride: 2000 }])
+  assert.equal(g.rows[0].rawPrice, 2000, 'the line did not price at the override')
+  assert.equal(g.rows[0].overridden, true)
+  // AND THE MARGIN IT WOULD HAVE HAD IS GONE, not blended with it. Asserted
+  // separately because a price of 2000 and a price of 1429 are both plausible
+  // numbers on a screen, and only one of them is what was asked for.
+  assert.notEqual(g.rows[0].rawPrice, 1429)
+})
+
+test('R-O7: the implied margin is derived from the override against that line cost', () => {
+  const g = buildCostGroup([{ key: 'hoSs', cost: 1000, marginPct: 30, priceOverride: 2000 }])
+  // (1 - 1000/2000) x 100 = 50.
+  near(g.rows[0].impliedMarginPct, 50)
+})
+
+test('R-O7: an override BELOW cost implies a negative margin and says so', () => {
+  // The screen must be able to show a loss rather than clamping to zero: a
+  // fee set under cost is a decision somebody needs to see, and `priceFromCost`
+  // clamps margins where this must not.
+  const g = buildCostGroup([{ key: 'hoSs', cost: 1000, marginPct: 30, priceOverride: 800 }])
+  assert.equal(g.rows[0].rawPrice, 800)
+  near(g.rows[0].impliedMarginPct, -25)
+})
+
+test('R-O7: a zero price has NO margin to state, which is null and not zero', () => {
+  const g = buildCostGroup([{ key: 'hoSs', cost: 0, marginPct: 30, priceOverride: 0 }])
+  assert.equal(g.rows[0].rawPrice, 0)
+  assert.equal(g.rows[0].impliedMarginPct, null,
+    'a zero margin is a claim; the absence of a margin is not')
+})
+
+test('R-O7: the override reaches rawTotalPrice, which is what every total reads', () => {
+  const g = buildCostGroup([
+    { key: 'hoSs', cost: 1000, marginPct: 30, priceOverride: 2000 },
+    { key: 'hoAqm', cost: 500, marginPct: 30 },
+  ])
+  // 2000 + round(500/0.7 = 714.28) = 2000 + 714.
+  assert.equal(g.rawTotalPrice, 2714)
+  assert.equal(g.rawTotalCost, 1500, 'an override must not touch the cost side')
+})
+
+test('R-O7: one overridden type leaves the others on their margin', () => {
+  const g = buildCostGroup([
+    { key: 'hoSs', cost: 1000, marginPct: 30, priceOverride: 2000 },
+    { key: 'hoAqm', cost: 500, marginPct: 30 },
+    { key: 'hoHemir', cost: 200, marginPct: 30 },
+  ])
+  assert.deepEqual(g.rows.map((r) => r.overridden), [true, false, false])
+  assert.equal(g.rows[1].rawPrice, 714)
+  assert.equal(g.rows[2].rawPrice, 286)
+})
+
+test('R-O7: a null or undefined override is an ABSENCE, not a price of zero', () => {
+  // The distinction Architecture 11 is about: a cleared field must not price
+  // the line at nothing, it must leave the line alone.
+  for (const v of [null, undefined]) {
+    const g = buildCostGroup([{ key: 'hoSs', cost: 1000, marginPct: 30, priceOverride: v }])
+    assert.equal(g.rows[0].rawPrice, 1429, `${String(v)} was treated as a price`)
+    assert.equal(g.rows[0].overridden, false)
+  }
+})
+
+test('R-O7: the contract totals inherit the overridden hosting price', () => {
+  const hosting = buildCostGroup([{ key: 'hoSs', cost: 1000, marginPct: 30, priceOverride: 2000 }])
+  const empty = buildCostGroup([])
+  const t = calculateContractTotals({
+    hardwareGroup: empty, installGroup: empty, hostingGroup: hosting, months: 12,
+  })
+  // The override is a MONTHLY figure, so the term price is 2000 x 12.
+  assert.equal(t.hostingMonthPrice, 2000)
+  assert.equal(t.hostingTermPrice, 24000)
+  assert.equal(t.contractNet, 24000)
+})

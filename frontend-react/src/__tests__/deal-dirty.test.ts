@@ -15,6 +15,7 @@ const RATES = { ssUnitCost: 1000, aqUnitCost: 800, hemirUnitCost: 1200, hoSafesi
 const UI: UiState = {
   installResp: 'Terminus Contractor - Lump Sum', structure: 'twoPhase', invoicing: 'annual',
   grossUp: false, factoringEnabled: false, factoringMethod: 'straight',
+  hostingPriceMode: 'margin',
 }
 const V: Values = {
   'deal-ssExisting': '10', 'deal-aqm': '4', 'deal-duration': '24',
@@ -44,8 +45,17 @@ describe('B1: dirty is a comparison against a baseline, computed', () => {
   // itself as twenty-six pending changes.
   test('with NO baseline, only keys carrying a VALUE read dirty', () => {
     const dirty = dealDirtyKeys(payloadOf(V), null)
+    // R-O7 ADDED TWO, AND THEY BELONG HERE FOR THE REASON THE 14 DO. The list
+    // is every key carrying a real value with no baseline, and the two new ones
+    // do carry one: `hostingPriceMode` is always 'margin' or 'perUnit', exactly
+    // as `structure` and `invoicing` are always set and are already listed, and
+    // `hostingUnitFees` is an object like `marginOverrides`, which is listed
+    // too. Extending the list keeps the rule the test states rather than
+    // relaxing it; if either had been given a null or an absence the count
+    // would have stayed at 14 and that would have been the wrong answer.
     expect(dirty).toEqual([
       'aqm', 'contractorMilestones', 'duration', 'factoring', 'grossUp', 'gstPct',
+      'hostingPriceMode', 'hostingUnitFees',
       'installResp', 'invoicing', 'marginOverrides', 'milestones', 'ssExisting',
       'structure', 'targetMargin', 'warrantyPct',
     ])

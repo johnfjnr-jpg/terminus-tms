@@ -117,3 +117,93 @@ test('testBedCost is a parameter, not a payload key', () => {
   assert.equal(buildDealInputs({ testBedCost: 999999 }, { rates: {} }).testBedCost, 0)
   assert.equal(buildDealInputs({}, { rates: {}, testBedCost: 25000 }).testBedCost, 25000)
 })
+
+// ──────────────────────────────────────────────────────────────────────
+// R-O7: THE PAYLOAD SIDE OF THE PER-UNIT HOSTING FEE
+//
+// `buildDealInputs` is where a payload becomes line items, so this is where
+// "Price/Unit" turns into a price. The ruling's words: the switch on, "the
+// entered monthly fee per unit type REPLACES the calculated hosting price for
+// that type". Per UNIT, so the type's price is the fee times that type's own
+// unit count.
+// ──────────────────────────────────────────────────────────────────────
+
+const HO_RATES = { hoSafesight: 10, hoAqm: 20, hoHemir: 30 }
+const HO_DEAL = { ssExisting: 6, ssNew: 4, aqm: 3, hemir: 2, targetMargin: 30 }
+const hostingOf = (payload, rates = HO_RATES) =>
+  buildDealInputs(payload, { rates }).hostingLineItems
+
+test('R-O7: with no mode recorded, hosting carries no override at all', () => {
+  const items = hostingOf(HO_DEAL)
+  // ABSENT, not null: the key must not appear, or every deal in the estate
+  // changes shape and the golden above stops guarding what it was written for.
+  for (const li of items) {
+    assert.ok(!('priceOverride' in li), `${li.key} carries a priceOverride when none was set`)
+  }
+})
+
+test('R-O7: in perUnit mode the fee is multiplied by THAT TYPE\'S unit count', () => {
+  const items = hostingOf({
+    ...HO_DEAL,
+    hostingPriceMode: 'perUnit',
+    hostingUnitFees: { hoSs: 50, hoAqm: 40, hoHemir: 25 },
+  })
+  const by = (k) => items.find((li) => li.key === k)
+  // SafeSight is existing + new = 10 units, so 50 x 10.
+  assert.equal(by('hoSs').priceOverride, 500)
+  assert.equal(by('hoAqm').priceOverride, 120)   // 40 x 3
+  assert.equal(by('hoHemir').priceOverride, 50)  // 25 x 2
+})
+
+test('R-O7: the cost side is untouched by an override', () => {
+  const items = hostingOf({
+    ...HO_DEAL, hostingPriceMode: 'perUnit', hostingUnitFees: { hoSs: 50 },
+  })
+  // 10 SafeSight units at the resolved hosting rate of 10.
+  assert.equal(items.find((li) => li.key === 'hoSs').cost, 100)
+})
+
+test('R-O7: a type with no fee recorded keeps pricing from its margin', () => {
+  const items = hostingOf({
+    ...HO_DEAL, hostingPriceMode: 'perUnit', hostingUnitFees: { hoSs: 50 },
+  })
+  assert.equal(items.find((li) => li.key === 'hoSs').priceOverride, 500)
+  for (const k of ['hoAqm', 'hoHemir']) {
+    assert.ok(!('priceOverride' in items.find((li) => li.key === k)),
+      `${k} was overridden although no fee was entered for it`)
+  }
+})
+
+test('R-O7: a BLANK fee is an absence, so clearing the box restores the margin price', () => {
+  // Architecture 11: a cleared field is empty and stays empty. The three shapes
+  // a cleared box reaches the payload as are all absences, and none of them is
+  // a fee of zero.
+  for (const blank of ['', null, undefined]) {
+    const items = hostingOf({
+      ...HO_DEAL, hostingPriceMode: 'perUnit', hostingUnitFees: { hoSs: blank },
+    })
+    assert.ok(!('priceOverride' in items.find((li) => li.key === 'hoSs')),
+      `${JSON.stringify(blank)} was read as a price`)
+  }
+})
+
+test('R-O7: a fee of ZERO is a decision and is honoured, unlike a blank', () => {
+  // The pair that makes the rule above non-vacuous: blank and zero must not be
+  // the same state, or "free hosting" is unsayable.
+  const items = hostingOf({
+    ...HO_DEAL, hostingPriceMode: 'perUnit', hostingUnitFees: { hoSs: 0 },
+  })
+  assert.equal(items.find((li) => li.key === 'hoSs').priceOverride, 0)
+})
+
+test('R-O7: switching the mode back to margin ignores the fees it leaves behind', () => {
+  // The fees stay in the payload so the switch is reversible without retyping,
+  // which means the MODE alone decides whether they price anything.
+  const items = hostingOf({
+    ...HO_DEAL, hostingPriceMode: 'margin',
+    hostingUnitFees: { hoSs: 50, hoAqm: 40, hoHemir: 25 },
+  })
+  for (const li of items) {
+    assert.ok(!('priceOverride' in li), `${li.key} priced from a fee while the mode was margin`)
+  }
+})

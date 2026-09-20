@@ -134,6 +134,15 @@ const SECTION_BY_PAYLOAD_KEY: Record<string, string> = {
   lumpSumCost: 'deal-sections-1-2',
   contractorMilestones: 'deal-sections-1-2',
   marginOverrides: 'deal-section-4',
+  // R-O7: the hosting override lives in section 4's own pricing cards, beside
+  // the margin boxes it replaces, so it raises the same section's save.
+  // FOUND BY THE GUARD rather than remembered: `deal-save-routes` asserts that
+  // every owned key resolves to a section, and it went red naming both. Its
+  // own comment records what the gap cost last time - eight of twenty-six keys
+  // raised no save button, and a walk found it because nothing in the suite
+  // could.
+  hostingPriceMode: 'deal-section-4',
+  hostingUnitFees: 'deal-section-4',
   structure: 'deal-section-5',
   invoicing: 'deal-section-5',
   milestones: 'deal-section-5',

@@ -96,15 +96,43 @@ export function priceFromCost(cost, marginPct) {
  * styling) stripped out. Callers on the frontend can re-attach display
  * formatting; this function only returns numbers.
  *
- * @param {Array<{key: string, cost: number, marginPct: number}>} lineItems
- * @returns {{rows: Array<{key: string, rawCost: number, rawPrice: number}>, rawTotalCost: number, rawTotalPrice: number}}
+ * ── R-O7: A LINE MAY CARRY A PRICE INSTEAD OF A MARGIN ──────────────────
+ *
+ * `priceOverride` is the price the user set for that line. When it is present
+ * the line is priced AT it and the margin is whatever that price implies
+ * against the line's own cost; when it is absent nothing changes and the line
+ * prices from its margin exactly as before.
+ *
+ * EXTENDED HERE RATHER THAN BRANCHED AT THE CALLER, because this is the one
+ * function every group prices through and `rawTotalPrice` is what contract
+ * totals, cash flow, tax, achieved margin and the version bridge all read. A
+ * second pricing path for overridden lines would agree today and drift
+ * (Architecture 3), and it would have to be taught to every consumer
+ * separately, which is the fault that produces a screen disagreeing with an
+ * approval.
+ *
+ * `impliedMarginPct` is returned rather than recomputed by the display, so the
+ * percentage on screen is derived from the same two numbers the price was, and
+ * cannot disagree with it (Verification 20).
+ *
+ * @param {Array<{key: string, cost: number, marginPct: number, priceOverride?: number|null}>} lineItems
+ * @returns {{rows: Array<{key: string, rawCost: number, rawPrice: number, overridden: boolean, impliedMarginPct: number|null}>, rawTotalCost: number, rawTotalPrice: number}}
  */
 export function buildCostGroup(lineItems) {
-  const rows = lineItems.map(({ key, cost, marginPct }) => ({
-    key,
-    rawCost: cost,
-    rawPrice: priceFromCost(cost, marginPct),
-  }));
+  const rows = lineItems.map(({ key, cost, marginPct, priceOverride }) => {
+    const overridden = priceOverride !== undefined && priceOverride !== null
+      && Number.isFinite(priceOverride);
+    const rawPrice = overridden ? Math.round(priceOverride) : priceFromCost(cost, marginPct);
+    return {
+      key,
+      rawCost: cost,
+      rawPrice,
+      overridden,
+      // A price of zero has no margin to state, and a zero would be a claim
+      // rather than an absence. `null` is the absence and the screen says so.
+      impliedMarginPct: rawPrice > 0 ? (1 - cost / rawPrice) * 100 : null,
+    };
+  });
   return {
     rows,
     rawTotalCost: rows.reduce((s, r) => s + r.rawCost, 0),
@@ -433,8 +461,21 @@ export function calculateTestBedCost({
     { key: 'hwWarranty', cost: hardware.warrantyCost, marginPct: 0 },
   ]);
 
-  const installGroup = buildCostGroup((installLineItems || []).map((li) => ({ ...li, marginPct: 0 })));
-  const hostingGroup = buildCostGroup((hostingLineItems || []).map((li) => ({ ...li, marginPct: 0 })));
+  // ── R-O7: THE COST-ONLY GUARANTEE IS MADE EXPLICIT ─────────────────────
+  //
+  // This path prices nothing: every line is `marginPct: 0` so that rawPrice
+  // equals rawCost, and the docblock above promises callers read only the cost
+  // fields. `priceOverride` would break that promise through the SPREAD - a
+  // line carrying one would price at the override no matter what margin is
+  // forced here, because an override outranks a margin by design.
+  //
+  // No caller passes one today: these items are built from Test Bed data, not
+  // from an Opportunity payload. That is Architecture 8 exactly - correct for
+  // every caller that exists - so the field is dropped HERE, where the
+  // guarantee is made, rather than trusted to every future caller.
+  const atCost = (li) => ({ ...li, marginPct: 0, priceOverride: null });
+  const installGroup = buildCostGroup((installLineItems || []).map(atCost));
+  const hostingGroup = buildCostGroup((hostingLineItems || []).map(atCost));
 
   const hostingMonthCost = hostingGroup.rawTotalCost;
   const hostingTermCost = hostingMonthCost * (months || 0);

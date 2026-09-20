@@ -32,6 +32,7 @@ const RATES = {
 const UI: UiState = {
   installResp: 'Terminus Contractor - Lump Sum', structure: 'twoPhase', invoicing: 'annual',
   grossUp: false, factoringEnabled: false, factoringMethod: 'straight',
+  hostingPriceMode: 'margin',
 }
 const VALUES: Values = {
   'deal-ssExisting': '10', 'deal-aqm': '4', 'deal-duration': '24',
@@ -248,7 +249,12 @@ describe('the UNFOLD ruling', () => {
     return { rows: buildDealRows(result, payload, ui.grossUp), result, payload }
   }
 
-  test('TOTAL COST IS THE VISIBLE SUM of the six cost rows directly above it', async () => {
+  // R-O8 MADE IT SEVEN. The warranty provision was folded into "Hardware and
+  // warranty cost" and now renders as its own line, so the block above Total
+  // cost grew by one. THE CLAIM IS UNCHANGED and is the point of the test: an
+  // approver can add the column up. The count is a property of the layout, the
+  // sum is the ruling, and only the first moved.
+  test('TOTAL COST IS THE VISIBLE SUM of the seven cost rows directly above it', async () => {
     await mount(FOLD_VALUES, FOLD_UI, FOLD_TEST_BED)
     const labels = rowLabels()
     const totalIdx = labels.findIndex((l) => l === 'Total cost')
@@ -266,13 +272,24 @@ describe('the UNFOLD ruling', () => {
       if (!Number.isFinite(n)) throw new Error(`cost cell is not summable: ${JSON.stringify(t)}`)
       return t.startsWith('-') ? -n : n
     }
-    const six = [...host.querySelectorAll('[data-testid^="dm-row-"]')]
-      .slice(totalIdx - 6, totalIdx)
+    const COST_ROWS = 7
+    const above = [...host.querySelectorAll('[data-testid^="dm-row-"]')]
+      .slice(totalIdx - COST_ROWS, totalIdx)
       .map((n) => parse((n.querySelector('.dm-cell--total, .dm-cell--span') as HTMLElement).textContent ?? '0'))
-    expect(six).toHaveLength(6)
+    expect(above).toHaveLength(COST_ROWS)
     const total = parse((rowAt(totalIdx).querySelector('.dm-cell--span') as HTMLElement).textContent ?? '0')
     // The whole ruling in one assertion: an approver can add the column up.
-    expect(Math.round(six.reduce((a, b) => a + b, 0))).toBe(Math.round(total))
+    expect(Math.round(above.reduce((a, b) => a + b, 0))).toBe(Math.round(total))
+
+    // R-O8: AND THE WARRANTY IS ONE OF THEM, BY NAME. Without this the row
+    // count alone would pass if the split were reverted and some other row
+    // added, and the claim is specifically that the provision is readable on
+    // its own rather than folded into the hardware line.
+    const labelsAbove = labels.slice(totalIdx - COST_ROWS, totalIdx)
+    expect(labelsAbove).toContain('Warranty provision, at cost')
+    expect(labelsAbove).toContain('Hardware cost')
+    expect(labelsAbove, 'the folded label survived the split')
+      .not.toContain('Hardware and warranty cost')
   })
 
   test('the fixture actually FOLDS something: all three quantities are non-zero', async () => {

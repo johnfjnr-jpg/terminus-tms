@@ -579,6 +579,8 @@ export function DealPanel({
         payload={payload}
         values={values}
         onMargin={setValue}
+        hostingPriceMode={ui.hostingPriceMode}
+        onHostingPriceMode={(mode) => setUi({ hostingPriceMode: mode })}
         install={installVisibility(ui)}
         basis={basisView}
         notices={<SummaryNotices n={{

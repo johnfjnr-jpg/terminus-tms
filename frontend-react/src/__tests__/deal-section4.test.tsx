@@ -42,6 +42,7 @@ declare global {
 const UI: UiState = {
   installResp: 'Terminus Contractor - Per Unit', structure: 'twoPhase', invoicing: 'annual',
   grossUp: false, factoringEnabled: false, factoringMethod: 'straight',
+  hostingPriceMode: 'margin',
 }
 const VALUES: Values = {
   'deal-ssExisting': '40', 'deal-ssNew': '25', 'deal-aqm': '12', 'deal-hemir': '8',
@@ -345,5 +346,131 @@ describe('the cost basis age', () => {
     // The fixture's batch is current, so no band. The assertion that matters is
     // that the render reads ageBand at all, which is checked by injection.
     expect(span.className.startsWith('deal-basis-age')).toBe(true)
+  })
+})
+
+// ──────────────────────────────────────────────────────────────────────
+// R-O7: THE PRICE/UNIT SWITCH AND ITS TABLE
+//
+// Written from the ruling: "Price/Unit switch (hover: 'Override the calculated
+// Margin Price') on -> the entered monthly fee per unit type REPLACES the
+// calculated hosting price for that type, % Margin derived from the override
+// against that type's cost ... Table: Unit, Monthly fee, % Margin; rows
+// Safesight, Air Quality, HEMIR."
+//
+// THE SWITCH IS ON THE HOSTING CARD ONLY, which is a claim about the other
+// card as much as this one: a hardware line has no per-unit monthly fee.
+// ──────────────────────────────────────────────────────────────────────
+
+const PER_UNIT: UiState = { ...UI, hostingPriceMode: 'perUnit' }
+
+describe('R-O7: the hosting price override', () => {
+  test('the switch exists, says what it does on hover, and starts OFF', async () => {
+    await mount()
+    const sw = must('deal-hosting-price-mode')
+    expect(sw.getAttribute('role')).toBe('switch')
+    expect(sw.getAttribute('title')).toBe('Override the calculated Margin Price')
+    expect(sw.textContent).toContain('Price/Unit')
+    expect(sw.getAttribute('aria-checked'), 'a deal with no mode recorded is not overridden').toBe('false')
+  })
+
+  test('and there is exactly ONE of it, on the hosting card rather than every card', async () => {
+    await mount()
+    // A count, because the switch is rendered inside a `CARDS.map` and the
+    // obvious way to get it wrong is to give one to the hardware card too.
+    expect(host.querySelectorAll('[data-testid="deal-hosting-price-mode"]')).toHaveLength(1)
+    const card = must('deal-hosting-price-mode').closest('.pg-card')
+    expect(card?.querySelector('.pg-card-title')?.textContent).toContain('Hosting')
+  })
+
+  test('OFF, the card shows the margin table and NO fee table', async () => {
+    await mount()
+    expect(host.querySelector('[data-testid="pg-head-fee"]')).toBeNull()
+    // The negative needs its positive, or it passes on a card that renders
+    // nothing at all: the margin boxes must still be there.
+    expect(host.querySelector('[data-testid="deal-margin-hoSs"]')).not.toBeNull()
+  })
+
+  test('ON, the fee table replaces it, with the ruling\'s three rows in its order', async () => {
+    await mount(VALUES, PER_UNIT)
+    expect(host.querySelector('[data-testid="pg-head-fee"]')).not.toBeNull()
+    const head = [...host.querySelectorAll('[data-testid="pg-head-fee"] span')]
+      .map((s) => s.textContent)
+    expect(head).toEqual(['Unit', 'Monthly fee', '% Margin'])
+    for (const k of ['hoSs', 'hoAqm', 'hoHemir']) {
+      expect(host.querySelector(`[data-testid="deal-hofee-${k}"]`), `no fee box for ${k}`).not.toBeNull()
+    }
+    // `:not(.pg-total)` because the TOTAL row also takes the fee shape: three
+    // columns, so its figures line up with the three headings. Without the
+    // exclusion this read a fourth name, 'Total', which is the row being right
+    // rather than the table being wrong.
+    const names = [...host.querySelectorAll('.pg-row--fee:not(.pg-total) .pg-item-name')]
+      .map((n) => n.textContent)
+    expect(names).toEqual(['Safesight', 'Air Quality', 'HEMIR'])
+  })
+
+  test('the TOTAL row answers the same three headings, not the margin table\'s four', async () => {
+    // The defect this replaced was invisible to every assertion: the row was
+    // present, its figures were right to the dollar and its ids were correct,
+    // and the total PRICE sat under the heading `% Margin` because the row
+    // kept the four-column shape. Found by opening the screenshot.
+    await mount({ ...VALUES, 'deal-hofee-hoSs': '20' }, PER_UNIT)
+    const total = host.querySelector('.pg-row--fee.pg-total')
+    expect(total, 'the total row did not take the fee table\'s shape').not.toBeNull()
+    expect(total!.children).toHaveLength(3)
+    // The card's overall margin, derived from the same group the rows are.
+    expect(must('pg-fee-margin-total').textContent).toMatch(/^-?\d+\.\d%$/)
+  })
+
+  test('ON, the hosting MARGIN boxes are gone, so there is one way to price a line', async () => {
+    await mount(VALUES, PER_UNIT)
+    for (const k of ['hoSs', 'hoAqm', 'hoHemir']) {
+      expect(host.querySelector(`[data-testid="deal-margin-${k}"]`),
+        `${k} still offers a margin box while the fee table is showing`).toBeNull()
+    }
+    // AND THE HARDWARE MARGINS SURVIVE, which is what makes the claim above
+    // about the hosting card rather than about the screen.
+    expect(host.querySelector('[data-testid="deal-margin-hwSs"]')).not.toBeNull()
+  })
+
+  test('R-O8: the help text says an overridden fee is warranty-inclusive', async () => {
+    await mount(VALUES, PER_UNIT)
+    const help = host.querySelector('[data-testid="deal-hosting-fee-help"]')
+    expect(help, 'nothing on the panel says what an overridden price includes').not.toBeNull()
+    expect(help!.textContent).toMatch(/warranty-inclusive/i)
+  })
+
+  test('R-O8: and it is absent while the override is OFF, having nothing to explain', async () => {
+    await mount()
+    expect(host.querySelector('[data-testid="deal-hosting-fee-help"]')).toBeNull()
+  })
+
+  test('a recorded fee prices the line, and the margin beside it is the one it earns', async () => {
+    // 65 SafeSight units at a hosting cost of 10 = 650 cost. A fee of 20 per
+    // unit is 1300, so the margin is (1 - 650/1300) x 100 = 50.0%.
+    await mount({ ...VALUES, 'deal-hofee-hoSs': '20' }, PER_UNIT)
+    expect(must('pg-fee-margin-hoSs').textContent).toBe('50.0%')
+  })
+
+  test('and a type with no fee still reads its own margin, not a blank', async () => {
+    await mount({ ...VALUES, 'deal-hofee-hoSs': '20' }, PER_UNIT)
+    // 29.9%, NOT 30.0%, AND THE DIFFERENCE IS REAL RATHER THAN A ROUNDING
+    // SLOPPINESS IN THE TEST. AQ has no fee, so it prices from the 30% target:
+    // 12 units x $8 = $96 of cost, and `priceFromCost` rounds to whole dollars,
+    // so the price is round(96 / 0.7) = $137 rather than $137.14. The margin
+    // that price actually earns is (1 - 96/137) x 100 = 29.93%.
+    //
+    // The column shows the margin the line EARNS, one definition for every row,
+    // overridden or not. Showing the nominal 30 here and the derived figure on
+    // an overridden row would be two meanings in one column, which is
+    // Verification 20 inside a table.
+    //
+    // My first expectation here was 30.0%, hand-computed from the target - a
+    // second reader of the calculation, and the code was right.
+    const cost = 12 * 8
+    const price = Math.round(cost / 0.7)
+    const earned = (1 - cost / price) * 100
+    expect(must('pg-fee-margin-hoAqm').textContent).toBe(`${earned.toFixed(1)}%`)
+    expect(earned.toFixed(1), 'the arithmetic above drifted from the claim').toBe('29.9')
   })
 })
