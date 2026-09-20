@@ -38,7 +38,13 @@ import type { InstallVisibility } from './installation'
 import { perMonthFigure } from '../../../src/lib/deal-inputs.js'
 import { numericOrDefault, toNumberOrNull } from '../../../src/lib/numeric-payload.js'
 
-type Row = { key: string, rawCost: number, rawPrice: number }
+// R-O7 added the last two. `buildCostGroup` returns them on every row, so the
+// display reads the margin the price was computed with rather than deriving a
+// second one beside it.
+type Row = {
+  key: string, rawCost: number, rawPrice: number,
+  overridden: boolean, impliedMarginPct: number | null,
+}
 type Group = { rows?: Row[], rawTotalCost: number, rawTotalPrice: number }
 export type PricingResult = {
   groups: { hardwareGroup: Group, hostingGroup: Group }
@@ -104,22 +110,109 @@ function noteFor(key: string, payload: Record<string, unknown>, result: PricingR
   }
 }
 
-function PricingCards({ result, payload, values, onMargin }: {
+// THE RULING'S OWN THREE ROWS, in its own words: Safesight, Air Quality,
+// HEMIR. The keys are the calculator's, so the table and the pricing cannot
+// drift apart by naming a type two ways.
+const HOSTING_FEE_ROWS = [
+  { key: 'hoSs', name: 'Safesight' },
+  { key: 'hoAqm', name: 'Air Quality' },
+  { key: 'hoHemir', name: 'HEMIR' },
+] as const
+
+// ── R-O7: THE HOSTING CARD PRICES ONE OF TWO WAYS ────────────────────────
+//
+// MARGIN, the way it always has: a percentage per line, the price following
+// from the cost. Or PER UNIT: a monthly fee for ONE unit of a type, the
+// percentage following from the price. They are the same decision said in
+// opposite directions, which is why this is a switch on one card rather than a
+// second card or a second screen.
+//
+// THE TABLE IS THE RULING'S: Unit, Monthly fee, % Margin. The Cost column goes
+// while the switch is on, because the question being answered has changed - the
+// margin IS the readout of the fee against the cost, so it says what the cost
+// column was there to let somebody work out.
+//
+// THE PERCENTAGE IS NOT RECOMPUTED HERE. `buildCostGroup` returns
+// `impliedMarginPct` beside the price it priced, so the number on screen is
+// derived from the same two figures the price was and cannot disagree with it
+// (Verification 20). A display that did its own `1 - cost/price` would be the
+// second reader.
+function HostingFeeRows({ group, values, onFee, target }: {
+  group: { rows?: Row[] } | undefined
+  values: Record<string, string | undefined>
+  onFee(id: string, v: string): void
+  target: number
+}) {
+  const find = (k: string) => group?.rows?.find((r) => r.key === k)
+  return (
+    <>
+      <div className="pg-head pg-head--fee" data-testid="pg-head-fee">
+        <span>Unit</span><span>Monthly fee</span><span>% Margin</span>
+      </div>
+      {HOSTING_FEE_ROWS.map((row) => {
+        const r = find(row.key)
+        const id = `deal-hofee-${row.key}`
+        const raw = values[id] ?? ''
+        const pct = r?.impliedMarginPct
+        return (
+          <div className="pg-row pg-row--fee" key={row.key}>
+            <div className="pg-item-name">{row.name}</div>
+            <input type="text" id={id} data-testid={id} data-contract="numOrUndefined"
+              className={`pg-margin-input${r?.overridden ? ' pg-margin-override' : ''}`}
+              placeholder="per unit" value={raw}
+              title={r?.overridden
+                ? 'The monthly fee for one unit of this type. The margin beside it is what this fee earns against that unit\'s cost.'
+                : `Blank leaves this type priced at its margin, ${target}%.`}
+              onChange={(e) => onFee(id, e.target.value)} />
+            {/* NOT RECORDED IS SAID, NOT SHOWN AS A ZERO. A line with no fee is
+                still priced, from its margin, and the percentage is that
+                margin. A price of zero has no margin at all, and `null` is how
+                `buildCostGroup` says so. */}
+            <div className="pg-price" id={`pg-fee-margin-${row.key}`}
+              data-testid={`pg-fee-margin-${row.key}`}>
+              {pct === null || pct === undefined ? '--' : `${pct.toFixed(1)}%`}
+            </div>
+          </div>
+        )
+      })}
+    </>
+  )
+}
+
+function PricingCards({ result, payload, values, onMargin, hostingPriceMode, onHostingPriceMode }: {
   result: PricingResult
   payload: Record<string, unknown>
   values: Record<string, string | undefined>
   onMargin(id: string, v: string): void
+  hostingPriceMode: string
+  onHostingPriceMode(mode: string): void
 }) {
   const target = numericOrDefault(payload, 'targetMargin')
+  const perUnit = hostingPriceMode === 'perUnit'
   return (
     <div className="pg-cards">
       {CARDS.map((card) => {
         const group = result?.groups?.[card.group]
         const find = (k: string) => group?.rows?.find((r) => r.key === k)
         const fig = (n: number | undefined) => n === undefined ? '--' : card.period(`$${money(n)}`)
+        const isHosting = card.group === 'hostingGroup'
         return (
           <div className="pg-card" key={card.title}>
-            <p className="pg-card-title">{card.title}</p>
+            <div className="pg-card-head">
+              <p className="pg-card-title">{card.title}</p>
+              {isHosting ? (
+                <button type="button" role="switch" aria-checked={perUnit}
+                  id="deal-hosting-price-mode" data-testid="deal-hosting-price-mode"
+                  className={`btn-ghost deal-toggle${perUnit ? ' is-on' : ''}`}
+                  title="Override the calculated Margin Price"
+                  onClick={() => onHostingPriceMode(perUnit ? 'margin' : 'perUnit')}>
+                  Price/Unit
+                </button>
+              ) : null}
+            </div>
+            {isHosting && perUnit ? (
+              <HostingFeeRows group={group} values={values} onFee={onMargin} target={target} />
+            ) : (<>
             <div className="pg-head">
               <span>Item</span><span>Cost (USD)</span><span>Margin %</span><span>Price (USD)</span>
             </div>
@@ -153,6 +246,54 @@ function PricingCards({ result, payload, values, onMargin }: {
                 </div>
               )
             })}
+            </>)}
+            {/* ── R-O8: WHAT AN OVERRIDDEN PRICE INCLUDES, SAID ON THE PANEL ──
+                Ruled by John, 2026-09-20: warranty is OUT of the pricing
+                override entirely. There is no Warranty % column here, no
+                monthly-including-warranty column and no price-side warranty
+                field, because an overridden monthly price is WARRANTY-INCLUSIVE
+                BY DEFINITION. `warrantyPct` keeps its spare-units cost meaning
+                untouched and the 2026-09-16 correction stands.
+
+                The sentence is the whole of the change: a person setting a fee
+                has to know whether they are also covering the warranty, and the
+                answer cannot live only in a ruling nobody reading this screen
+                has seen. */}
+            {isHosting && perUnit ? (
+              <p className="pg-item-note" data-testid="deal-hosting-fee-help">
+                A monthly fee entered here is warranty-inclusive: it replaces the
+                calculated margin price for that unit type, and the warranty
+                provision is already carried in the hardware cost.
+              </p>
+            ) : null}
+            {/* ── THE TOTAL ROW TAKES THE SHAPE OF THE TABLE ABOVE IT ───────
+                FOUND BY OPENING THE SCREENSHOT, and no assertion could have
+                seen it: the row rendered, carried the right figures to the
+                dollar, and read them out of the right ids. It was the FOURTH
+                column that was wrong - the fee table is three columns and this
+                row stayed four, so the total PRICE sat under the heading
+                `% Margin`. A total price presented as a percentage is the kind
+                of wrongness that is only visible to somebody looking at it.
+
+                In fee mode the three cells answer the three headings: the type
+                becomes Total, the fee column becomes the monthly hosting price
+                those fees add up to, and the margin column becomes the margin
+                that whole card earns. The overall margin is derived the same
+                way a row's is, from the group's own cost and price, so it
+                cannot disagree with the rows above it. */}
+            {isHosting && perUnit ? (
+              <div className="pg-row pg-total pg-row--fee">
+                <div className="pg-item-name">Total</div>
+                <div className="pg-price" id={card.totalPriceId}
+                  data-testid={card.totalPriceId}>{fig(group?.rawTotalPrice)}</div>
+                <div className="pg-price" id="pg-fee-margin-total"
+                  data-testid="pg-fee-margin-total">
+                  {group && group.rawTotalPrice > 0
+                    ? `${((1 - group.rawTotalCost / group.rawTotalPrice) * 100).toFixed(1)}%`
+                    : '--'}
+                </div>
+              </div>
+            ) : (
             <div className="pg-row pg-total">
               <div className="pg-item-name">Total</div>
               <div className="pg-cost" id={card.totalCostId}
@@ -161,6 +302,7 @@ function PricingCards({ result, payload, values, onMargin }: {
               <div className="pg-price" id={card.totalPriceId}
                 data-testid={card.totalPriceId}>{fig(group?.rawTotalPrice)}</div>
             </div>
+            )}
           </div>
         )
       })}
@@ -168,11 +310,17 @@ function PricingCards({ result, payload, values, onMargin }: {
   )
 }
 
-export function DealSummarySection({ result, payload, values, onMargin, matrix, notices, install, basis }: {
+export function DealSummarySection({
+  result, payload, values, onMargin, matrix, notices, install, basis,
+  hostingPriceMode, onHostingPriceMode,
+}: {
   result: PricingResult
   payload: Record<string, unknown>
   values: Record<string, string | undefined>
   onMargin(id: string, v: string): void
+  /** R-O7: 'margin' or 'perUnit', owned by the form and written to the payload. */
+  hostingPriceMode: string
+  onHostingPriceMode(mode: string): void
   matrix: React.ReactNode
   notices: React.ReactNode
   install: InstallVisibility
@@ -220,7 +368,8 @@ export function DealSummarySection({ result, payload, values, onMargin, matrix, 
               id="deal-catalog-age" data-testid="deal-catalog-age">{basis.age}</span>
           </p>
           <p className={`msg-error${basis.warning ? '' : ' hidden'}`} id="deal-catalog-warn">{basis.warning}</p>
-          <PricingCards result={result} payload={payload} values={values} onMargin={onMargin} />
+          <PricingCards result={result} payload={payload} values={values} onMargin={onMargin}
+            hostingPriceMode={hostingPriceMode} onHostingPriceMode={onHostingPriceMode} />
           <p className={`field-note${install.signpost ? '' : ' hidden'}`} id="deal-detail-signpost"
             data-testid="deal-detail-signpost">The four installation lines are priced in the Installation section above.</p>
         </aside>

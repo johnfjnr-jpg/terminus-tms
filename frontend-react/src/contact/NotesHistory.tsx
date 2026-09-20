@@ -249,7 +249,17 @@ export function NotesHistory({ notes, onAdd, hasDirtyEdits, onConfirmDiscard, re
           item there - `.panel-head` is a fixed-height flex row with no wrap,
           so with the rungs beside it the header overflowed its third of the
           card and sat on top of the next column. Measured: `elementFromPoint`
-          over Add note returned the FOLLOW-UP card's title. */}
+          over Add note returned the FOLLOW-UP card's title.
+
+          R-O2, 2026-09-20: DROPPING THE SECONDARY WAS NOT ENOUGH ON ITS OWN,
+          and A1 could not have known because it measured one width. With the
+          secondary already gone the collapsed row still ran 34px past the card
+          at 1240 on the Opportunity and 47px on the lead card, with ADD NOTE
+          clipped against the neighbour in the screenshot. `.panel-head` now
+          wraps for this one header, scoped on `data-panel-header`, so the row
+          is one line where it fits and two where it does not. A1's drop stays:
+          remeasured at R-O2, the secondary needs 436px against a 372px lead
+          card, so it still does not fit. */}
       {notes.length > DEFAULT_SHOWN
         ? <span className="sub" data-testid="cd-notes-shown">
             {`Showing ${Math.min(shown, notes.length)} of ${notes.length}`}
@@ -274,10 +284,28 @@ export function NotesHistory({ notes, onAdd, hasDirtyEdits, onConfirmDiscard, re
 
   // ── THE SHELL, TAKEN THROUGH AN OPTIONAL PROP ─────────────────────────
   //
-  // THREE CONSUMERS: the lead card, ContactHost (FROZEN Lead Detail) and
-  // TestBedHost. Only the card passes `title`, so only the card routes
-  // through `Panel`. The other two render the markup they always did, which
-  // is what "structurally untouched" has to mean - not "changed carefully".
+  // CORRECTED AT R-O2, 2026-09-20, AND THE SUPERSEDED COUNT IS LEFT VISIBLE
+  // BECAUSE IT WAS TRUE WHEN WRITTEN AND THIS ROUND IS WHAT FALSIFIED IT.
+  // It read:
+  //
+  //   "THREE CONSUMERS: the lead card, ContactHost (FROZEN Lead Detail) and
+  //    TestBedHost. Only the card passes `title`, so only the card routes
+  //    through `Panel`."
+  //
+  // FOUR CONSUMERS, and TWO route through `Panel`. R-O2 gave the Opportunity's
+  // notes the same collapsed header, so `ReferenceHost` now passes `title` and
+  // `actionsInHeader` as the lead card does; `OpportunityBand` places the
+  // element `ReferenceHost` builds rather than building its own.
+  //
+  // A COUNT IN A COMMENT IS A CLAIM WITH A SHELF LIFE (Architecture 9's fourth
+  // variant): nothing derives it, so nothing can falsify it, and it sat one
+  // consumer out of date the moment a second caller passed `title`. It is kept
+  // as a count anyway because the SET is the useful part - which surfaces wear
+  // this header is what the next person needs - and it is written next to the
+  // prop that decides it.
+  //
+  // ContactHost and TestBedHost render the markup they always did, which is
+  // what "structurally untouched" has to mean - not "changed carefully".
   //
   // The header keeps its existing testid, so the tests that already assert
   // against this panel go on asserting against the same thing.

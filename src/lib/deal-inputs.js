@@ -416,10 +416,45 @@ export function buildDealInputs(payload, { testBedCost = 0, rates } = {}) {
     { key: 'inNone', cost: 0, marginPct: marginFor('inNone') },
   ]
 
+  // ── R-O7: THE PER-UNIT MONTHLY FEE, WHERE ONE IS RECORDED ──────────────
+  //
+  // With `hostingPriceMode === 'perUnit'` the user sets the monthly fee for ONE
+  // unit of a type, and that type's hosting price becomes fee x units. The
+  // margin is then whatever that price implies against the type's own cost,
+  // which `buildCostGroup` returns rather than the screen recomputing.
+  //
+  // PER TYPE, AND ABSENCE IS A STATE. A type with no fee recorded keeps pricing
+  // from its margin exactly as before, so switching the mode on does not
+  // silently reprice the two types nobody has touched. Architecture 11: a
+  // cleared field is empty and the screen must be able to SAY so, not quietly
+  // fall back to a number nobody entered.
+  const perUnitMode = (payload.hostingPriceMode ?? 'margin') === 'perUnit'
+  const unitFees = payload.hostingUnitFees ?? {}
+  const feeFor = (key, units) => {
+    if (!perUnitMode) return null
+    const fee = unitFees[key]
+    if (fee === undefined || fee === null || fee === '') return null
+    const n = Number(fee)
+    return Number.isFinite(n) ? n * units : null
+  }
+
+  // THE KEY IS ABSENT WHEN THERE IS NO OVERRIDE, rather than present and null.
+  // The shared-translation golden compares this whole structure against the
+  // output it had before, and it went red on three `priceOverride: null`
+  // entries - correctly, because that IS an output change. Attaching the key
+  // only when a fee is recorded makes the addition genuinely additive: a deal
+  // with no override translates byte for byte as it always did, so the golden
+  // goes on guarding what it was written to guard instead of being re-blessed
+  // to accommodate this round.
+  const hostingLine = (key, cost, units) => {
+    const override = feeFor(key, units)
+    return { key, cost, marginPct: marginFor(key), ...(override === null ? {} : { priceOverride: override }) }
+  }
+
   const hostingLineItems = [
-    { key: 'hoSs', cost: (rates.hoSafesight ?? 0) * (ssExisting + ssNew), marginPct: marginFor('hoSs') },
-    { key: 'hoAqm', cost: (rates.hoAqm ?? 0) * aqmUnits, marginPct: marginFor('hoAqm') },
-    { key: 'hoHemir', cost: (rates.hoHemir ?? 0) * hemirUnits, marginPct: marginFor('hoHemir') },
+    hostingLine('hoSs', (rates.hoSafesight ?? 0) * (ssExisting + ssNew), ssExisting + ssNew),
+    hostingLine('hoAqm', (rates.hoAqm ?? 0) * aqmUnits, aqmUnits),
+    hostingLine('hoHemir', (rates.hoHemir ?? 0) * hemirUnits, hemirUnits),
   ]
 
   const factoring = payload.factoring ?? {}

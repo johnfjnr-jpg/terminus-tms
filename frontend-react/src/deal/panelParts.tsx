@@ -99,23 +99,31 @@ export function MilestoneGrid({ rows, values, usdFor, onChange, warning }: {
   warning: string | null
 }) {
   return (
+    // ── R-O5/O6: THE ROWS SHARE THE HEADER'S GRID ─────────────────────────
+    //
+    // This rendered its OWN `<table>` and was placed inside another table's
+    // `<tbody>` by `section5.tsx`. Two tables, two independent sets of column
+    // widths, and the headers ended up 372 to 400px from their fields.
+    //
+    // `.ms-grid-row` is the SAME track list as `.ms-grid-head`, declared once
+    // in the stylesheet, so the header and the fields cannot drift: there is
+    // one definition of the columns and three users of it, which is the shape
+    // the prototype has.
     <div data-testid="milestone-grid">
-      <table><tbody>
-        {rows.map((r) => (
-          <tr key={r.row}>
-            <td><input id={r.month} data-testid={r.month} inputMode="numeric" maxLength={2}
-              value={values[r.month] ?? ''} onChange={(e) => onChange(r.month, e.target.value)} /></td>
-            <td><input id={r.label} data-testid={r.label}
-              value={values[r.label] ?? ''} onChange={(e) => onChange(r.label, e.target.value)} /></td>
-            <td><input id={r.pct} data-testid={r.pct} inputMode="decimal"
-              value={values[r.pct] ?? ''} onChange={(e) => onChange(r.pct, e.target.value)} /></td>
-            {/* L6: THE USD IS COMPUTED and shown read-only, so the two readings
-                of this schedule cannot disagree about what it is a percentage of. */}
-            <td><input id={r.usd} data-testid={r.usd} className="is-computed"
-              readOnly tabIndex={-1} value={usdFor(r.row)} /></td>
-          </tr>
-        ))}
-      </tbody></table>
+      {rows.map((r) => (
+        <div className="ms-grid-row" key={r.row}>
+          <input id={r.month} data-testid={r.month} inputMode="numeric" maxLength={2}
+            value={values[r.month] ?? ''} onChange={(e) => onChange(r.month, e.target.value)} />
+          <input id={r.label} data-testid={r.label}
+            value={values[r.label] ?? ''} onChange={(e) => onChange(r.label, e.target.value)} />
+          <input id={r.pct} data-testid={r.pct} inputMode="decimal"
+            value={values[r.pct] ?? ''} onChange={(e) => onChange(r.pct, e.target.value)} />
+          {/* L6: THE USD IS COMPUTED and shown read-only, so the two readings
+              of this schedule cannot disagree about what it is a percentage of. */}
+          <input id={r.usd} data-testid={r.usd} className="is-computed"
+            readOnly tabIndex={-1} value={usdFor(r.row)} />
+        </div>
+      ))}
       {warning ? <p className="msg-warning" data-testid="milestone-warning">{warning}</p> : null}
     </div>
   )

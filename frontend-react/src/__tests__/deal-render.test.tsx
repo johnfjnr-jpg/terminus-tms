@@ -29,6 +29,7 @@ const RATES = {
 const UI: UiState = {
   installResp: 'Terminus Contractor - Lump Sum', structure: 'twoPhase', invoicing: 'annual',
   grossUp: false, factoringEnabled: true, factoringMethod: 'straight',
+  hostingPriceMode: 'margin',
 }
 // ── FIXTURES CHOSEN BY MEASUREMENT, NOT BY GUESS ────────────────────────
 //
@@ -54,6 +55,7 @@ const V_CASHNEG: Values = {
 const UI_CASHNEG: UiState = {
   installResp: 'Client Own Installation Team', structure: 'twoPhase', invoicing: 'annual',
   grossUp: false, factoringEnabled: false, factoringMethod: 'straight',
+  hostingPriceMode: 'margin',
 }
 
 let host: HTMLElement

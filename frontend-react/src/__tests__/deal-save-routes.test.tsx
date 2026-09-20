@@ -26,6 +26,7 @@ declare global {
 const UI: UiState = {
   installResp: 'Terminus Contractor - Per Unit', structure: 'twoPhase', invoicing: 'annual',
   grossUp: false, factoringEnabled: false, factoringMethod: 'straight',
+  hostingPriceMode: 'margin',
 }
 const V: Values = { 'deal-ssExisting': '40', 'deal-duration': '36', 'deal-targetMargin': '30' }
 
@@ -164,5 +165,56 @@ describe('a customer milestone reaches the payload', () => {
     expect(sent.milestones, 'the milestone never reached the payload').toHaveLength(1)
     expect((sent.milestones![0] as { month: number, pct: number }).month).toBe(3)
     expect((sent.milestones![0] as { month: number, pct: number }).pct).toBe(30)
+  })
+})
+
+// ── R-O7: THE OVERRIDE SURVIVES THE SAVE ─────────────────────────────────
+//
+// The screen half is tested in `deal-section4`; this is the half that decides
+// whether any of it is worth anything. A fee that prices the card and does not
+// reach the payload is a price nobody else ever sees: not the reload, not the
+// approver, not the version bridge.
+describe('R-O7: the hosting override reaches the payload', () => {
+  test('flipping the switch alone raises a save and records the mode', async () => {
+    await mount()
+    const sw = host.querySelector('[data-testid="deal-hosting-price-mode"]') as HTMLButtonElement
+    expect(sw, 'no switch to flip').not.toBeNull()
+    await act(async () => { sw.click() })
+    // THE SAVE BUTTON IS THE CLAIM. A mode that changes the price and raises
+    // no save is a screen disagreeing with the record, which is the defect
+    // `sectionForPayloadKey` exists to prevent.
+    expect(saveBtn().disabled, 'changing the pricing mode raised no save').toBe(false)
+    await act(async () => { saveBtn().click() })
+    expect(persisted).toHaveLength(1)
+    expect(persisted[0].hostingPriceMode).toBe('perUnit')
+  })
+
+  test('a typed fee is recorded under its own type key', async () => {
+    await mount()
+    const sw = host.querySelector('[data-testid="deal-hosting-price-mode"]') as HTMLButtonElement
+    await act(async () => { sw.click() })
+    const box = host.querySelector('[data-testid="deal-hofee-hoSs"]') as HTMLInputElement
+    expect(box, 'no fee box appeared after the switch').not.toBeNull()
+    const set = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!
+    await act(async () => { set.call(box, '42'); box.dispatchEvent(new Event('input', { bubbles: true })) })
+    await act(async () => { saveBtn().click() })
+    expect(persisted[0].hostingUnitFees).toEqual({ hoSs: 42 })
+  })
+
+  test('and the types nobody priced are ABSENT rather than zero', async () => {
+    // Architecture 11 at the payload boundary: an absent fee means that type
+    // prices from its margin, and a zero means free hosting. Writing the
+    // second where the user meant the first is the fault the deletion contract
+    // on `marginOverrides` already guards against.
+    await mount()
+    const sw = host.querySelector('[data-testid="deal-hosting-price-mode"]') as HTMLButtonElement
+    await act(async () => { sw.click() })
+    const box = host.querySelector('[data-testid="deal-hofee-hoSs"]') as HTMLInputElement
+    const set = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!
+    await act(async () => { set.call(box, '42'); box.dispatchEvent(new Event('input', { bubbles: true })) })
+    await act(async () => { saveBtn().click() })
+    const fees = persisted[0].hostingUnitFees as Record<string, unknown>
+    expect(Object.keys(fees)).toEqual(['hoSs'])
+    expect('hoAqm' in fees, 'an untouched type was written as a fee').toBe(false)
   })
 })

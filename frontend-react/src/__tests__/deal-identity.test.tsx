@@ -35,13 +35,13 @@ const RATES = {
 // missed 40 ids and 30 classes.
 const SHAPES: { name: string, ui: UiState, values: Values }[] = [
   { name: 'twoPhase / annual / client own',
-    ui: { installResp: 'Client Own Installation Team', structure: 'twoPhase', invoicing: 'annual', grossUp: false, factoringEnabled: false, factoringMethod: 'straight' },
+    ui: { installResp: 'Client Own Installation Team', structure: 'twoPhase', invoicing: 'annual', grossUp: false, factoringEnabled: false, factoringMethod: 'straight', hostingPriceMode: 'margin' },
     values: { 'deal-ssExisting': '40', 'deal-ssNew': '25', 'deal-aqm': '12', 'deal-hemir': '8', 'deal-duration': '36', 'deal-targetMargin': '30', 'deal-warrantyPct': '12', 'deal-whtPct': '10', 'deal-gstPct': '9', 'deal-recoveryMonths': '24' } },
   { name: 'single / monthly / factoring / per unit',
-    ui: { installResp: 'Terminus Contractor - Per Unit', structure: 'single', invoicing: 'monthly', grossUp: true, factoringEnabled: true, factoringMethod: 'straight' },
+    ui: { installResp: 'Terminus Contractor - Per Unit', structure: 'single', invoicing: 'monthly', grossUp: true, factoringEnabled: true, factoringMethod: 'straight', hostingPriceMode: 'margin' },
     values: { 'deal-ssExisting': '40', 'deal-aqm': '12', 'deal-duration': '24', 'deal-targetMargin': '30', 'deal-factoring-ratePct': '8', 'deal-factoring-termMonths': '6' } },
   { name: 'hybrid / declining / lump sum',
-    ui: { installResp: 'Terminus Contractor - Lump Sum', structure: 'hybrid', invoicing: 'annual', grossUp: false, factoringEnabled: true, factoringMethod: 'declining' },
+    ui: { installResp: 'Terminus Contractor - Lump Sum', structure: 'hybrid', invoicing: 'annual', grossUp: false, factoringEnabled: true, factoringMethod: 'declining', hostingPriceMode: 'margin' },
     values: { 'deal-ssExisting': '40', 'deal-aqm': '12', 'deal-duration': '36', 'deal-targetMargin': '30', 'deal-lumpCost': '250000' } },
 ]
 

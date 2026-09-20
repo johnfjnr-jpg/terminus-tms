@@ -8,6 +8,11 @@ import { shellServices } from './fixtures'
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { ReferencePanel } from '../reference/ReferencePanel'
+// R-O2: the band's notes card is built by the HOST and composed by the panel,
+// so a harness that mounts the panel alone has no notes unless it supplies
+// one. It is supplied here the way `ReferenceHost` supplies it in production
+// (Verification 47: build the state the way the SYSTEM produces it).
+import { NotesHistory } from '../contact/NotesHistory'
 import { ShellProvider } from '../ShellContext'
 import { SAME_AS_ACCOUNT } from '../reference/descriptors'
 import type { ReferenceSource } from '../reference/descriptors'
@@ -84,6 +89,8 @@ const mount = async (opts: {
           closeMoves={0}
           oppId="opp1"
           onSave={opts.onSave ?? (() => {})}
+          notes={<NotesHistory notes={[]} title="Notes" actionsInHeader
+            resetKey="opp1" onAdd={async () => true} />}
           onChanged={() => {}} />
       </ShellProvider>)
   })
@@ -176,8 +183,27 @@ describe('R: the rows render per the census', () => {
     // AND THE BAND NAMES ITS OWN SECTIONS, which is the same claim for the
     // three cards this round added. Without it, the move would be asserted
     // only as a removal from the list above.
+    //
+    // ── R-O2: THE ENUMERATION READS BOTH WAYS A NAME IS RENDERED ────────
+    //
+    // This read `.pg-card-title` alone and went red when R-O2 collapsed the
+    // notes header: the Notes name did not disappear, it moved from a `Card`
+    // heading to the `Panel` header's own title, which wears `.panel-title`.
+    // The screen still says NOTES.
+    //
+    // WIDENED RATHER THAN RELAXED, and the difference matters. The claim is
+    // unchanged - every section in the band is named, and these are the names
+    // in this order. What changed is the instrument, which was enumerating by
+    // ONE CLASS and therefore answered for one of the two ways this estate
+    // renders a section heading. Verification 19: enumerate by a DECLARED
+    // property, never by a name, or the member nobody added is a silence.
+    // `data-panel-title` is emitted structurally by `Panel` for exactly this.
+    //
+    // Calibrated after widening: dropping `title` from either card still fails
+    // it, so it has not been turned into a test that cannot go red.
     const band = document.getElementById('opp-band-root')
-    expect([...(band?.querySelectorAll('.pg-card-title') ?? [])].map((e) => e.textContent))
+    expect([...(band?.querySelectorAll('.pg-card-title, [data-panel-title]') ?? [])]
+      .map((e) => e.textContent))
       .toEqual(['Summary', 'Notes'])
   })
 

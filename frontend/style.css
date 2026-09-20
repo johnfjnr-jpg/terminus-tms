@@ -1070,6 +1070,98 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
 }
 
 /* ── Document requirements table ────────────────────────────── */
+/* ── R-O5/O6, WALK 4 2026-09-20: THE MILESTONE GRID'S ONE TRACK LIST ──────
+   Declared ONCE and used by the header row and the data rows, which is the
+   whole fix. It replaced a `<table>` whose `<tbody>` held ANOTHER `<table>`:
+   two independent sets of column widths, so the outer table's first column
+   absorbed the entire inner table at 512px and the other three headers were
+   pushed to the right of it. Measured on the live DOM before the change, the
+   header-to-field offsets were 0, 400, 379 and 372 pixels.
+
+   THE TRACKS ARE THE PROTOTYPE'S OWN, not a number chosen today.
+   `Prototype-110826/Terminus Ops.dc.html` carries `44px 195px 44px 64px`
+   THREE times in this block, for its header, its rows and its total. The 44px
+   is also R-O5's answer: the Month input was 88px of box for a field the
+   markup itself caps at two characters.
+
+   AND THE BORDER FRAGMENTS DIE HERE RATHER THAN BEING OVERRIDDEN. They were
+   table cells each drawing its own edge; a grid has no cell walls, so there is
+   nothing left to suppress.
+
+   PLACED AT TOP LEVEL, and that sentence is here because the first attempt was
+   not: it anchored on a comment INSIDE the `:root` block and put four rule
+   selectors between `--attention` and `--red`. Invalid CSS, and the build said
+   nothing, because this file is served from disk rather than bundled. */
+/* R-O4 CORRECTION TO THIS ROUND'S OWN R-O5/O6, recorded rather than quietly
+   adjusted. The ruling was that the prototype's grid is ADOPTED for the header,
+   data and total rows. Its columns were taken and its GAP was not: all three
+   occurrences in `Terminus Ops.dc.html` (lines 1637, 1641, 1652) read
+   `gap:4px` and this shipped 8px. Alignment held either way, because the head
+   and the rows shared whatever number was here, so no guard could see it - the
+   departure was from the SPEC, not from internal consistency, and it was not
+   recorded at the time because it was not noticed. */
+.ms-grid-head,
+.ms-grid-row {
+  display: grid;
+  grid-template-columns: 44px 195px 44px 64px;
+  gap: 4px;
+  align-items: center;
+}
+
+/* ── R-O4: THE HYBRID'S TWO PANELS SIT SIDE BY SIDE, PER THE PROTOTYPE ────
+   `#deal-hybrid-group` held two plain `<div>`s and no layout, so the milestone
+   column and the hosting panel STACKED. The prototype puts them in a grid, at
+   `Terminus Ops.dc.html:1632`, and these are its own numbers:
+
+     display:grid; grid-template-columns:minmax(365px,1fr) minmax(0,280px);
+     gap:20px; margin-top:22px; align-items:start
+
+   `minmax(0,280px)` on the second column rather than `280px` is what lets it
+   shrink at 1240 instead of forcing an overflow, and `align-items:start` stops
+   the shorter panel stretching to the taller one's height. The left column's
+   365px floor is the milestone grid's own width plus its gaps. */
+#deal-hybrid-group:not(.hidden) {
+  display: grid;
+  grid-template-columns: minmax(365px, 1fr) minmax(0, 280px);
+  gap: 20px;
+  margin-top: 22px;
+  align-items: start;
+}
+.ms-grid-head {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+.ms-grid-row { margin-bottom: 6px; }
+.ms-grid-row input { min-width: 0; width: 100%; }
+
+/* ── AND THE FOURTH CELL STOPS WEARING THE BROWSER'S BORDER ──────────────
+   This is the other half of O6's "partial input borders", and it is NOT the
+   nested table: it survived the table's removal.
+
+   `.deal-section input:not(.is-computed)` gives every deal input the estate's
+   flat treatment, and the exclusion is deliberate and documented, because
+   `.is-computed` renders a computed read-only figure on a transparent
+   background. But EXCLUDED FROM THE TREATMENT MEANS FALLING BACK TO THE
+   BROWSER DEFAULT, so the USD cell drew a 2px inset box while its three
+   neighbours drew a hairline underline. Measured in the row:
+   `0px/0px/1px/0px` three times and `2px/2px/2px/2px` once.
+
+   SCOPED TO THIS GRID rather than changing `.is-computed`, which is a shared,
+   declared meaning used elsewhere and is not this round's to redefine. The
+   computed cell keeps its muted colour and transparent ground, which is what
+   that class is FOR, and loses only the border nobody chose. */
+.ms-grid-row input.is-computed {
+  border: none;
+  border-bottom: 1px solid var(--hairline);
+  padding: 5px 0;
+  font-family: var(--body);
+  font-size: 13px;
+}
+
 .doc-table {
   width: 100%;
   border-collapse: collapse;
@@ -1513,6 +1605,40 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
   color: var(--muted-2);
 }
 .pg-head span:not(:first-child) { text-align: right; }
+
+/* ── R-O7: THE PER-UNIT FEE TABLE IS THREE COLUMNS, NOT FOUR ─────────────
+   `.pg-head` and `.pg-row` are `minmax(0,1fr) 72px 56px 76px`, written for
+   Item, Cost, Margin and Price. The fee table is the ruling's own shape - Unit,
+   Monthly fee, % Margin - so it OVERRIDES the column list rather than reusing a
+   four-column grid with one cell left empty.
+
+   DECLARED AS ITS OWN COLUMN COUNT for the reason CLAUDE.md's stats-grid clause
+   records: a grid sized for a population cannot see markup that brings a
+   different number of cells, and the wrap that follows preserves DOM order, so
+   every assertion about the cells still passes while the table renders two rows
+   deep. The fee row is asserted to occupy ONE row in the live probe. */
+.pg-head--fee,
+.pg-row--fee {
+  grid-template-columns: minmax(0, 1fr) 86px 72px;
+}
+
+/* The card's title and its switch share a line. `.pg-card-title` carries the
+   card's bottom rule, so the rule has to move to the row or the switch sits
+   above the line the title draws under itself. */
+.pg-card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--hairline-strong);
+  margin: 0 0 4px;
+}
+.pg-card-head .pg-card-title {
+  padding-bottom: 0;
+  border-bottom: none;
+  margin: 0;
+}
 .pg-row {
   padding: 7px 0;
   border-top: 1px solid var(--hairline);
@@ -7118,6 +7244,37 @@ input.input-invalid {
 /* Panel-scoped controls are sized to the header line rather than the line
    to the controls. `.btn-sm`'s own padding is built for a standalone button. */
 .panel-actions .btn-sm { padding: 3px 10px; line-height: 1.4; }
+
+/* ── R-O2: THE NOTES HEADER IS THE ONE PANEL HEAD THAT MAY TAKE TWO LINES ──
+   `.panel-head` is `height: 30px` with no wrap, which is right for a header
+   holding a title and one or two controls. The notes header holds a title,
+   three range rungs and Add note, and A1 already recorded what that does in a
+   card column: the row overruns its third of the card and Add note is clipped
+   at the column edge. A1's remedy was to drop the secondary, and that is not
+   enough on its own - measured at 1240 the collapsed row still spills 34px,
+   and the screenshot shows ADD NOTE cut off against the follow-up card.
+
+   So the row is allowed to wrap rather than being made to fit. It is ONE LINE
+   at 1440, where it fits, and two at 1240, where it does not, which is what
+   the ruling asks for: collapsed where measured to fit.
+
+   SCOPED ON `data-panel-header`, which `Panel` emits structurally, rather than
+   on a class. Verification 19 records a styling class sheltering two write
+   controls, and a document-wide loosening of `.panel-head` would reach every
+   panel in the estate to fix one. The actions group needs it too: at 1240 the
+   rungs alone are 235px against a 283px content box, so wrapping the head
+   without wrapping the group moves the clipping rather than removing it. */
+[data-panel-header='cd-notes'] {
+  height: auto;
+  min-height: 30px;
+  flex-wrap: wrap;
+  row-gap: 6px;
+}
+
+[data-panel-header='cd-notes'] .panel-actions {
+  flex-wrap: wrap;
+  row-gap: 6px;
+}
 
 /* S3: the body starts at the header's left edge, by sharing the container
    rather than by matching a margin. */

@@ -387,6 +387,22 @@ export default async function opportunitiesRoutes(app) {
     'ssExisting', 'ssNew', 'aqm', 'hemir',
     'installResp', 'lumpSumCost',
     'targetMargin', 'marginOverrides',
+    // ── R-O7, 2026-09-20: THE HOSTING PRICE OVERRIDE ──────────────────────
+    //
+    // `hostingPriceMode` is 'margin' or 'perUnit'; `hostingUnitFees` is the
+    // monthly fee for one unit of a type. They are salesperson-controlled in
+    // exactly the sense this allowlist means: a per-unit fee is a price the
+    // salesperson sets, the same decision `marginOverrides` above records from
+    // the other direction.
+    //
+    // FOUND BY THE LIVE PROBE, NOT BY THE SUITE, and the shape is worth
+    // keeping. The client sent both keys, the react suite proved it sent them,
+    // the PATCH returned 200 and a new revision - and the route carried the
+    // payload forward unchanged, because a key outside this list is silently
+    // dropped rather than refused. The screen recalculated, the record did not
+    // change, and NOTHING on either side reported a failure. Only reading the
+    // record back out of the database could see it.
+    'hostingPriceMode', 'hostingUnitFees',
     // Round 40 Phase 1b. FOUR rate keys become writable and only four, because
     // an installation price is quoted per job while a camera costs what it
     // costs everywhere (DESIGN_PRINCIPLES.md, "Is this cost the same wherever

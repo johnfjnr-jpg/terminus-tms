@@ -29,6 +29,7 @@ declare global {
 const UI: UiState = {
   installResp: 'Terminus Contractor - Per Unit', structure: 'twoPhase', invoicing: 'annual',
   grossUp: false, factoringEnabled: false, factoringMethod: 'straight',
+  hostingPriceMode: 'margin',
 }
 // Every unit count DIFFERENT, so a cell reading the wrong one cannot pass.
 const VALUES: Values = {

@@ -43,6 +43,9 @@ export const DEFAULT_UI: UiState = {
   grossUp: false,
   factoringEnabled: false,
   factoringMethod: 'straight',
+  // R-O7: a new form prices from margins, which is how every deal priced
+  // before the per-unit fee existed.
+  hostingPriceMode: 'margin',
 }
 
 export function useDealForm(

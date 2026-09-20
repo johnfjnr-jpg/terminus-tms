@@ -35,7 +35,14 @@ export const COMMERCIALS_OWNED_KEYS = [
   'warrantyPct', 'whtPct', 'gstPct', 'grossUp', 'bidCurrency', 'proposalCurrency',
   'fxContingency', 'duration', 'structure', 'recoveryMonths', 'invoicing',
   'milestones', 'contractorMilestones', 'factoring',
+  // R-O7: the hosting price override. `hostingPriceMode` is 'margin' or
+  // 'perUnit'; `hostingUnitFees` is the monthly fee for ONE unit of a type,
+  // keyed by the same `hoSs`/`hoAqm`/`hoHemir` the calculator prices by.
+  'hostingPriceMode', 'hostingUnitFees',
 ] as const
+
+/** R-O7: the three hosting types, in the order the card lists them. */
+export const HOSTING_FEE_KEYS = ['hoSs', 'hoAqm', 'hoHemir'] as const
 
 export const MILESTONE_ROWS = 5
 
@@ -46,6 +53,13 @@ export interface UiState {
   grossUp: boolean
   factoringEnabled: boolean
   factoringMethod: string
+  /**
+   * R-O7: 'margin' or 'perUnit'. IN `UiState` BECAUSE IT IS A CONTROL THE
+   * FORM HOLDS, and written to the payload by `readPayload` exactly as
+   * `structure` and `invoicing` are. It is not a session-only latch: the mode
+   * decides the price, so it has to survive a reload and reach an approver.
+   */
+  hostingPriceMode: string
 }
 
 export interface CatalogRates {
@@ -128,6 +142,17 @@ export function readDealPayload(
     if (v !== undefined) marginOverrides[key] = v
   }
 
+  // R-O7: THE SAME DELETION CONTRACT AS THE MARGIN BOXES. An absent fee drops
+  // its key rather than writing a zero, because a cleared fee means the type
+  // goes back to pricing from its margin and a zero means free hosting. Those
+  // are two different decisions and the payload has to be able to hold both
+  // (Architecture 11).
+  const hostingUnitFees: Record<string, number> = {}
+  for (const key of HOSTING_FEE_KEYS) {
+    const v = numOrUndefined(values, `deal-hofee-${key}`)
+    if (v !== undefined) hostingUnitFees[key] = v
+  }
+
   return {
     ssExisting: numOrNull(values, 'deal-ssExisting'),
     ssNew: numOrNull(values, 'deal-ssNew'),
@@ -172,6 +197,8 @@ export function readDealPayload(
     structure: ui.structure,
     recoveryMonths: numOrNull(values, 'deal-recoveryMonths'),
     invoicing: ui.invoicing,
+    hostingPriceMode: ui.hostingPriceMode,
+    hostingUnitFees,
     milestones: readMilestones(values),
 
     contractorMilestones: readContractorMilestones(values),
@@ -231,6 +258,10 @@ export function valuesFromPayload(payload: Record<string, unknown> | null | unde
 
   const overrides = (p.marginOverrides ?? {}) as Record<string, unknown>
   for (const k of MARGIN_KEYS) out[`deal-margin-${k}`] = str(overrides[k])
+  // R-O7: the fee boxes are seeded the same way, so a recorded fee comes back
+  // on reload and a cleared one comes back EMPTY rather than as a zero.
+  const fees = (p.hostingUnitFees ?? {}) as Record<string, unknown>
+  for (const k of HOSTING_FEE_KEYS) out[`deal-hofee-${k}`] = str(fees[k])
 
   const rows = (p.milestones ?? []) as Record<string, unknown>[]
   const crows = (p.contractorMilestones ?? []) as Record<string, unknown>[]
@@ -262,5 +293,9 @@ export function uiFromPayload(payload: Record<string, unknown> | null | undefine
     grossUp: !!p.grossUp,
     factoringEnabled: !!f.enabled,
     factoringMethod: (f.method as string) || 'straight',
+    // R-O7: absent means 'margin', which is how every deal priced before this
+    // existed. That is an unrecorded state reading as the prior behaviour, not
+    // a default written into a record nobody touched.
+    hostingPriceMode: (p.hostingPriceMode as string) || 'margin',
   }
 }

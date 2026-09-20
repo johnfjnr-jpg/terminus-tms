@@ -48,7 +48,13 @@ type Result = {
   testBedCost?: number
   hardware: { totalUnits: number }
 }
-type G = { rawTotalPrice: number; rawTotalCost: number }
+// R-O8 added `rows`: the sheet needs the warranty line on its own, and that
+// figure is a ROW of the hardware group rather than a total of it.
+type G = {
+  rawTotalPrice: number
+  rawTotalCost: number
+  rows?: Array<{ key: string, rawCost: number, rawPrice: number }>
+}
 
 export function buildDealRows(
   result: Result, payload: Record<string, unknown>, grossUp: boolean,
@@ -67,6 +73,21 @@ export function buildDealRows(
   // month, which is the period this panel works in and says so in every label.
   const hwPrice = hardwareGroup.rawTotalPrice
   const hwCost = hardwareGroup.rawTotalCost
+
+  // ── R-O8: THE WARRANTY PROVISION IS ITS OWN LINE ────────────────────────
+  //
+  // Ruled by John, 2026-09-20, and it is PRESENTATION ONLY: `hwWarranty` has
+  // been its own keyed row in the calculation since the 2026-09-16 correction,
+  // priced at `marginPct: 0` so it reaches the customer at exactly what it
+  // cost. Nothing about the arithmetic changes here. What changed is that the
+  // figure was folded into "Hardware and warranty cost" and could not be read
+  // on its own, on a sheet whose whole purpose is that the parts are legible.
+  //
+  // READ BY KEY, NOT BY POSITION. The row order inside the group is the
+  // calculator's business, and an index would be a second reader of it that
+  // agrees until somebody inserts a line.
+  const warrantyCost = hardwareGroup.rows?.find((r) => r.key === 'hwWarranty')?.rawCost ?? 0
+  const hwCostExWarranty = hwCost - warrantyCost
   const inPrice = installGroup.rawTotalPrice
   const inCost = installGroup.rawTotalCost
   // ── COST_CALC_AUDIT.md F8: THIS IS A SECOND SITE COMPUTING THE TERM ─────
@@ -105,8 +126,14 @@ export function buildDealRows(
     split(dur.priceLabel, D, dur.recorded ? m(hoPrice) : dur.value, D, dur.recorded ? m(hoPrice) : dur.value),
     split('Revenue, contract value net', m(hwPrice), m(hoPrice), m(inPrice), m(contractNet), { emphasis: 'revenue' }),
 
-    // ── THE SIX COST ROWS, CONTIGUOUS, SUMMING TO THE ROW BELOW THEM ─────
-    split('Hardware and warranty cost', neg(hwCost), D, D, neg(hwCost)),
+    // ── THE SEVEN COST ROWS, CONTIGUOUS, SUMMING TO THE ROW BELOW THEM ───
+    //
+    // SIX UNTIL R-O8 SPLIT THE WARRANTY OUT. The count is stated because the
+    // rows summing to `Total cost` is the property that matters, and it
+    // survives the split by construction: hardware ex-warranty plus the
+    // warranty provision is the same figure the single row carried.
+    split('Hardware cost', neg(hwCostExWarranty), D, D, neg(hwCostExWarranty)),
+    split('Warranty provision, at cost', neg(warrantyCost), D, D, neg(warrantyCost)),
     split('Installation cost', D, D, neg(inCost), neg(inCost)),
     split(dur.costLabel, D, dur.recorded ? neg(hoCost) : dur.value, D, dur.recorded ? neg(hoCost) : dur.value),
     // A dash here means ZERO financing. "not recorded" means the facility is on
