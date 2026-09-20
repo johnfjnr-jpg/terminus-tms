@@ -75,6 +75,31 @@
      meaning attached. There is one amber in this stylesheet and it is this
      one. The reasoning is in DESIGN_PRINCIPLES.md beside open item 37. */
   --attention:       #EDB45A;
+  /* ── R4, THE OPPORTUNITY ROUND 2026-09-20: THE RED JOINS THE PALETTE ──
+     It was defined 7,000 lines further down, in a second `:root` minted when
+     S5 found `--red` and `--amber` used at 3 and 10 sites and defined
+     nowhere. That fix was right and it left the token where a reader of the
+     palette cannot see it. It lives here now, and the old block carries a
+     pointer rather than a value.
+
+     THE VALUE IS UNCHANGED, AND THAT IS THE DERIVATION'S RESULT RATHER THAN
+     A DECISION TO LEAVE IT ALONE. Five requirements were written before any
+     value was measured: AA on the dark ground for error TEXT, 3:1 for an
+     error BORDER, no closer to `--attention` than the token already sits, no
+     less prominent than the six sites it replaces, and a hue that reads as
+     red. Four candidates met all five and `#e06c6c` is one of them, at
+     5.33:1 against the 4.71:1 of the `rgba(242,100,100,.9)` it replaces. So
+     the six untokenised sites GAIN contrast and the four already on the
+     token do not move at all.
+
+     ONE REQUIREMENT WAS FALSIFIED BY THE MEASUREMENT AND RE-SOURCED RATHER
+     THAN BENT. It began as "at least 60 degrees of hue from `--attention`",
+     which no red can satisfy: `--attention` is hue 37 and red is hue 0. The
+     separation is already a decision of record, because walk 3 derived
+     `--attention` expressly to sit "nowhere near --red #e06c6c", so red does
+     not re-derive it and must only not close the gap. Approved by John
+     2026-09-20. */
+  --red:             #e06c6c;
   --hairline:        rgba(242,242,240,0.12);
   --hairline-strong: rgba(242,242,240,0.22);
   --muted:           rgba(242,242,240,0.5);
@@ -2304,7 +2329,7 @@ textarea::placeholder { color: var(--muted-2); }
 }
 
 .auth-error {
-  color: rgba(242,100,100,0.9);
+  color: var(--red);
   font-size: 13px;
   margin-top: 12px;
   min-height: 18px;
@@ -2323,7 +2348,7 @@ textarea::placeholder { color: var(--muted-2); }
   font-family: var(--mono);
   font-size: 12px;
   letter-spacing: 0.06em;
-  color: rgba(242,100,100,0.9);
+  color: var(--red);
   margin-top: 12px;
 }
 
@@ -2989,8 +3014,8 @@ textarea::placeholder { color: var(--muted-2); }
    same red as .msg-error, which is what the accompanying message uses,
    rather than the amber reserved for warnings. */
 input.input-invalid {
-  border-color: rgba(242,100,100,0.9);
-  outline-color: rgba(242,100,100,0.9);
+  border-color: var(--red);
+  outline-color: var(--red);
 }
 
 /* ── Test Bed header digest (Round 7 Phase 5, repositioned Round 8 Phase 5)
@@ -3411,7 +3436,7 @@ input.input-invalid {
   min-height: 0;
 }
 .tb-doc-feedback.ok  { color: var(--green); }
-.tb-doc-feedback.err { color: var(--red, #e06c6c); }
+.tb-doc-feedback.err { color: var(--red); }
 
 .tb-crit-row {
   display: flex;
@@ -6318,10 +6343,10 @@ input.input-invalid {
  * does not rely on colour alone to carry the meaning. */
 .stat-value--overdue {
   /* The estate's existing error colour, not a new token: .tb-doc-feedback.err
-   * already reads `var(--red, #e06c6c)`, so overdue matches what an error
+   * already reads `var(--red)`, so overdue matches what an error
    * looks like here rather than introducing a second red. */
-  color: var(--red, #e06c6c);
-  border: 1px solid var(--red, #e06c6c);
+  color: var(--red);
+  border: 1px solid var(--red);
   border-radius: 3px;
   padding: 1px 7px;
   display: inline-block;
@@ -6663,13 +6688,13 @@ input.input-invalid {
 .nlg-required { color: var(--green); margin-left: 3px; }
 .nlg-why {
   display: block;
-  color: rgba(242,100,100,0.9);
+  color: var(--red);
   font-size: 10px;
   margin-top: 2px;
   max-width: 180px;
 }
 .new-lead-table input[aria-invalid="true"],
-.new-lead-table select[aria-invalid="true"] { border-color: rgba(242,100,100,0.9); }
+.new-lead-table select[aria-invalid="true"] { border-color: var(--red); }
 .new-lead-foot { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
 /* The shell-owned modal frame: the close X and the accidental-dismissal
    warning sit above React's mount point. */
@@ -7111,10 +7136,19 @@ input.input-invalid {
    reachable only through a literal fallback is invisible to the palette AND
    to the invariant that checks the palette, because that check deliberately
    excuses `var(--x, fallback)`. Removing the fallbacks put those ten
-   declarations under it for the first time. `--red` is untouched. */
-:root {
-  --red: #e06c6c;
-}
+   declarations under it for the first time. `--red` is untouched.
+
+   AND SUPERSEDED IN FULL, R4, the Opportunity round 2026-09-20. `--red` is
+   not untouched any more: it has moved into the brand palette at the top of
+   this file, beside `--attention`, and its ten sites now bind it with no
+   literal fallback. The reasoning above is left standing because it is
+   exactly why this block existed and exactly why it should not: a token
+   defined seven thousand lines from the palette is reachable and invisible,
+   which is the same fault one step along from the one S5 fixed.
+
+   NOTHING IS DEFINED HERE NOW. The block is kept as this note so the next
+   reader of the S5 history is sent to the palette rather than left looking
+   for a definition that moved. */
 
 /* S5: the field treatment. `LeadFieldInput`'s five controls and the Nurture
    dialogue's two rendered as browser defaults - white boxes on a dark screen
@@ -7214,7 +7248,7 @@ textarea.lead-field-input,
 
      th / td   1px rgba(242,242,240,0.12)   the table's own, consistent
      input     1px rgba(242,242,240,0.22)   THE MISMATCH
-     select    1px rgba(242,100,100,0.9)    [aria-invalid], DELIBERATE
+     select    1px var(--red)               [aria-invalid], DELIBERATE
 
    The fix is to REMOVE the input's own underline inside a cell, not to add
    borders that are already there. One line per row edge is what makes a
