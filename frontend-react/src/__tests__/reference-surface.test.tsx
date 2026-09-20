@@ -463,7 +463,34 @@ describe('K: key contacts', () => {
     const paths = apiCalls.map((c) => c.path)
     expect(paths).toContain('/api/contact-roles')
     expect(paths).toContain('/api/contact-stances')
-    expect(paths).toContain('/api/contacts')
+    // R-W3: THE CONTACTS CALL IS SCOPED TO THE LINKED ACCOUNT. It was the
+    // bare `/api/contacts`, which returns every live contact in the system.
+    // Asserted as the exact path rather than a `toContain` on the prefix,
+    // because a prefix match is satisfied by the unscoped call it replaces.
+    expect(paths).toContain('/api/contacts?account_id=a1')
+    expect(paths, 'the unscoped call is still being made').not.toContain('/api/contacts')
+  })
+
+  test('R-W3 with NO linked account it asks for nothing and says why', async () => {
+    await mount({ src: source({ account: null }) })
+    const paths = apiCalls.map((c) => c.path)
+    expect(paths.some((p) => p.startsWith('/api/contacts')),
+      'it asked for contacts with no account to scope them to').toBe(false)
+    const note = q('[data-testid="kc-no-account"]')
+    expect(note, 'nothing explains the empty picker').not.toBeNull()
+    expect(note!.textContent).toMatch(/no linked account/i)
+    // AND THE CONTROL IS DISABLED, so the sentence is not the only thing
+    // stopping somebody trying: an enabled picker with nothing in it invites
+    // a click that can do nothing.
+    expect((must('[data-testid="kc-add-contact"]') as HTMLSelectElement).disabled).toBe(true)
+  })
+
+  test('R-W3 and WITH an account the explanation is absent', async () => {
+    // The pair that makes the test above mean something: a note rendered
+    // always would satisfy it just as well.
+    await mount()
+    expect(q('[data-testid="kc-no-account"]')).toBeNull()
+    expect((must('[data-testid="kc-add-contact"]') as HTMLSelectElement).disabled).toBe(false)
   })
 
   test('K3 a stance change ARMS the row rather than making the surface dirty', async () => {

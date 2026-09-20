@@ -210,7 +210,9 @@ export function ReferencePanel({ source, links, closeMoves, oppId, onSave, onCha
       </div>
 
       <Card title="Key Customer Contacts" testId="ref-key-contacts">
-        <KeyContacts oppId={oppId} links={links} onChanged={onChanged} />
+        {/* R-W3: the picker is scoped to the opportunity's own account. */}
+        <KeyContacts oppId={oppId} accountId={source.account?.id ?? null}
+          links={links} onChanged={onChanged} />
       </Card>
 
       {/* ── SUMMARY HAS MOVED TO THE RECORD BAND, and this card keeps what is

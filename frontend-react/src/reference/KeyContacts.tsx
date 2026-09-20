@@ -44,8 +44,17 @@ export const KC_ROUTES = {
     `/api/opportunities/${oppId}/key-contacts/${linkId}`,
 } as const
 
-export function KeyContacts({ oppId, links, onChanged }: {
+export function KeyContacts({ oppId, accountId, links, onChanged }: {
   oppId: string
+  /**
+   * R-W3: THE OPPORTUNITY'S LINKED ACCOUNT, or null when it has none.
+   *
+   * The picker offered every live contact in the system. It now offers the
+   * contacts OF THIS ACCOUNT, which is what a key customer contact is.
+   * `null` is a real state and the screen says so rather than rendering an
+   * empty list that looks like a loading failure.
+   */
+  accountId: string | null
   links: KcLink[]
   /** The panel reloads the record. This component never batches. */
   onChanged: () => void
@@ -67,12 +76,20 @@ export function KeyContacts({ oppId, links, onChanged }: {
     const [r, s, c] = await Promise.all([
       shell.api<KcVocabItem[]>('GET', KC_ROUTES.roles),
       shell.api<KcVocabItem[]>('GET', KC_ROUTES.stances),
-      shell.api<KcVocabItem[]>('GET', KC_ROUTES.contacts),
+      // R-W3: SCOPED TO THE ACCOUNT. `?account_id=` has existed on this route
+      // since Round 11 and filters on `parent_record_id`, the column a
+      // contact's account actually lives in, so this is a parameter rather
+      // than a new query. With no account there is nothing to ask for, and
+      // asking without the parameter would return every contact in the
+      // system - which is the behaviour being removed.
+      accountId
+        ? shell.api<KcVocabItem[]>('GET', `${KC_ROUTES.contacts}?account_id=${encodeURIComponent(accountId)}`)
+        : Promise.resolve({ ok: true, data: [] as KcVocabItem[] }),
     ])
     if (r.ok && Array.isArray(r.data)) setRoles(r.data)
     if (s.ok && Array.isArray(s.data)) setStances(s.data)
     if (c.ok && Array.isArray(c.data)) setContacts(c.data)
-  }, [shell])
+  }, [shell, accountId])
 
   useEffect(() => { void loadVocabularies() }, [loadVocabularies])
 
@@ -171,8 +188,23 @@ export function KeyContacts({ oppId, links, onChanged }: {
         </tbody>
       </table>
 
+      {/* ── R-W3: AN OPPORTUNITY WITH NO ACCOUNT SAYS SO ──────────────────
+          The picker is scoped to the linked account's contacts, so without an
+          account there is nothing to offer. An empty dropdown is indis-
+          tinguishable from a list that failed to load, and this estate has
+          spent whole rounds on exactly that ambiguity, so the absence is
+          stated in a sentence rather than left to be inferred from a control
+          with nothing in it. */}
+      {!accountId ? (
+        <p className="field-note" data-testid="kc-no-account">
+          This opportunity has no linked account, so there are no contacts to
+          choose from. Link an account on the Customer Details card first.
+        </p>
+      ) : null}
+
       <div className="kc-add">
         <select data-testid="kc-add-contact" value={addContact}
+          disabled={!accountId}
           onChange={(e) => setAddContact(e.target.value)}>
           <option value="">Choose a contact</option>
           {contacts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}

@@ -1292,6 +1292,27 @@ export default async function opportunitiesRoutes(app) {
 
     if (!contact_id) return reply.code(400).send({ error: 'contact_id is required' })
 
+    // ── R-W3: THE SERVER HALF WAS ALREADY BUILT, AND THIS IS THE RECORD ──
+    //
+    // A check was added here and then REMOVED, because the route already
+    // refuses an out-of-account contact about a hundred lines below, with a
+    // named 422: "Contact is not linked to this Opportunity's Account". It
+    // has been there since Round 35 and its own comment explains why the
+    // scope is kept.
+    //
+    // MY PHASE 0 SAID OTHERWISE AND WAS WRONG. It read the top of this
+    // handler, saw `ownedOpportunity` select `account_id` and not compare it,
+    // and reported that "nothing validates that the contact belongs to it".
+    // The comparison was simply further down than I read. The finding it
+    // produced - that R-W3 needed a server-side refusal built - was false,
+    // and the calibration is what caught it: removing the new check left the
+    // refusal working, which is exactly what a duplicated rule looks like.
+    //
+    // NOT REINSTATED, DELIBERATELY. Two enforcements of one rule is
+    // Architecture 3's shape: they agree today and drift later, and they
+    // already disagreed about the status code, 409 against 422. The existing
+    // one is kept because it sits after the role validation, where the row is
+    // already loaded, and because it is the one the estate has been testing.
     const typed = String(role_other ?? '').trim()
     // Exactly one, checked here as well as by the CHECK constraint, so the
     // caller gets a sentence rather than a constraint violation.
