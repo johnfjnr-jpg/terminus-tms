@@ -156,4 +156,96 @@ decision about wording rather than about this field's size.
 
 ## 8. `CURRENT_STATE.md` and the gates
 
-Recorded in section 9 once run.
+### Regenerated and reconciled
+
+Regenerated at `5e49353` on a clean tree, so it carries no
+`(working tree dirty)` marker. Twenty-four lines changed and **every one is a
+row count**: live stays at 132 in every row, which agrees with the residue
+query, soft-deleted grew as a soft delete does, and the two tag distances moved
+by this branch's commit count. **No configuration row changed.**
+
+### The branch gate, verbatim
+
+Run as the final act on the final committed tree, nothing else running, tree
+clean, no `(WORKING TREE DIRTY)` marker, every duration in its normal band.
+
+```
+MERGE GATE  opp-walk5  6ed15a9c9cb1f650072ff938feba8624b7a0d6b1
+  PASS  reachability               exit 0  99ms
+  PASS  session precondition       exit 0  1026ms
+  PASS  pure suite                 exit 0  4165ms  623/623 pass, 0 fail
+  PASS  database suite             exit 0  122261ms  105/105 pass, 0 fail
+  PASS  react typecheck            exit 0  616ms
+  PASS  react suite                exit 0  15692ms  1276/1276 pass, 0 fail
+  PASS  react bundle freshness     exit 0  604ms
+  PASS  HTTP precondition probe    exit 0  25837ms
+  PASS  HTTP version-approval probe exit 0  31592ms
+  PASS  HTTP pricing-approval probe exit 0  26029ms
+  PASS  HTTP review-closes probe   exit 0  30412ms
+  PASS  HTTP term initial-value probe exit 0  62714ms
+  PASS  HTTP stage-probability probe exit 0  14153ms
+  PASS  HTTP version-gate probe    exit 0  29770ms
+  PASS  HTTP no-freeze probe       exit 0  24607ms
+  PASS  HTTP version-order probe   exit 0  20771ms
+  PASS  HTTP commercial-gate probe exit 0  32852ms
+  PASS  HTTP readonly-view probe   exit 0  64335ms
+  PASS  CURRENT_STATE staleness    exit 0  156ms
+  PASS  browser dependency is functional exit 0  704ms
+  PASS  HTTP write success probe   exit 0  31520ms
+  PASS  HTTP issue-target probe    exit 0  27161ms
+  PASS  HTTP proposal-issued probe exit 0  38049ms
+  PASS  HTTP zero-track transition probe exit 0  17243ms
+
+All 24 stages passed.
+```
+
+### The merge
+
+`main` was confirmed equal to `origin/main` at `85ad44c` **against the real
+remote** with `git ls-remote`, not against the local tracking ref, and the tree
+was clean. Merged `--no-ff` with **no conflicts**. Merged `main` is
+`d262eaa19bab10a89b72092a2d442f1b22715eaf`, and `6ed15a9` is confirmed an
+ancestor of it.
+
+The dev server was killed and restarted from merged `main`, and was proven to
+be serving the MERGED code rather than assumed to be: the new installation-grid
+rules in the stylesheet and the no-account note in the bundle. A stale server
+is the one fault a probe cannot notice about itself.
+
+### The merged-tree gate, verbatim
+
+```
+MERGE GATE  main  d262eaa19bab10a89b72092a2d442f1b22715eaf
+  PASS  reachability               exit 0  97ms
+  PASS  session precondition       exit 0  991ms
+  PASS  pure suite                 exit 0  4239ms  623/623 pass, 0 fail
+  PASS  database suite             exit 0  123955ms  105/105 pass, 0 fail
+  PASS  react typecheck            exit 0  634ms
+  PASS  react suite                exit 0  15719ms  1276/1276 pass, 0 fail
+  PASS  react bundle freshness     exit 0  608ms
+  PASS  HTTP precondition probe    exit 0  22268ms
+  PASS  HTTP version-approval probe exit 0  28235ms
+  PASS  HTTP pricing-approval probe exit 0  33665ms
+  PASS  HTTP review-closes probe   exit 0  30485ms
+  PASS  HTTP term initial-value probe exit 0  62010ms
+  PASS  HTTP stage-probability probe exit 0  16566ms
+  PASS  HTTP version-gate probe    exit 0  32585ms
+  PASS  HTTP no-freeze probe       exit 0  24203ms
+  PASS  HTTP version-order probe   exit 0  20727ms
+  PASS  HTTP commercial-gate probe exit 0  31806ms
+  PASS  HTTP readonly-view probe   exit 0  73043ms
+  PASS  CURRENT_STATE staleness    exit 0  265ms
+  PASS  browser dependency is functional exit 0  697ms
+  PASS  HTTP write success probe   exit 0  24040ms
+  PASS  HTTP issue-target probe    exit 0  26726ms
+  PASS  HTTP proposal-issued probe exit 0  38453ms
+  PASS  HTTP zero-track transition probe exit 0  18146ms
+
+All 24 stages passed.
+```
+
+**THIS SECTION'S OWN COMMIT IS MARKDOWN ONLY AND RIDES THAT GATE**, named here
+as build discipline 48(a) requires: it touches one file no gate stage reads.
+
+**Ready for John's push: `d262eaa19bab10a89b72092a2d442f1b22715eaf`.**
+Nothing was pushed from the session.
