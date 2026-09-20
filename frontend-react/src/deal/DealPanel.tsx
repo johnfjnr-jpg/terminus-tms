@@ -350,6 +350,13 @@ export function DealPanel({
   const oneOffPrice = (result as { totals?: { oneOffPrice: number } } | null)?.totals?.oneOffPrice ?? 0
   const lumpCost = Number(payload.lumpSumCost ?? 0)
 
+  // R-O4: ONE schedule for both slots. It already branches on the structure
+  // internally, so the hybrid and non-hybrid panels are two places to RENDER
+  // it rather than two things to compute.
+  const schedule = cashFlow
+    ? buildYearSchedule(cashFlow, payload, ui.structure, ui.invoicing)
+    : null
+
   // ── THE LATCH VIEWS, through src/lib/latches.js ────────────────────────
   // ONE derivation, shared by the latch signal and by section 4. Two readers of
   // the same value drift; the catalog problem the latch warns about must be the
@@ -518,6 +525,26 @@ export function DealPanel({
       {sectionFrame(SECTION['deal-section-5'], (
         <>
           {censusFields('deal-section-5')}
+          {/* ── R-O4: THE HYBRID PANEL IS WIRED ────────────────────────────
+              `hybridSchedule` was `null`, so the hybrid's right-hand panel
+              rendered its two invoicing radio buttons and nothing else: no
+              hosting year rows, no total, and not the note saying hosting sits
+              outside the milestones.
+
+              NOTHING HAD TO BE BUILT TO FIX IT. `buildYearSchedule` already
+              returns `kind: 'hybrid'` when the structure is hybrid, counting
+              hosting ONLY because hardware is milestone-driven there and would
+              otherwise be double counted, and `YearScheduleView` already has
+              the matching branch. The two were simply never joined, and the
+              literal `null` is why no test could fail: there was no wrong
+              output to assert against, only an absence.
+
+              ONE SCHEDULE, COMPUTED ONCE, READ TWICE. The two slots are two
+              PLACES on the screen, not two derivations - the hybrid group and
+              the non-hybrid group are mutually exclusive, so exactly one of
+              them renders. Calling `buildYearSchedule` again for the second
+              slot would be Verification 20's second reader, agreeing today and
+              free to drift. */}
           <PaymentTermsSection
             ui={ui} setUi={setUi} vis={structureVisibility(ui)}
             duration={payload.duration}
@@ -529,10 +556,8 @@ export function DealPanel({
                 warning={customerScheduleWarning(
                   (payload.milestones ?? []) as { month?: number; usd?: number }[], oneOffPrice)} />
             }
-            yearSchedule={cashFlow
-              ? <YearScheduleView schedule={buildYearSchedule(cashFlow, payload, ui.structure, ui.invoicing)} />
-              : null}
-            hybridSchedule={null} />
+            yearSchedule={schedule ? <YearScheduleView schedule={schedule} /> : null}
+            hybridSchedule={schedule ? <YearScheduleView schedule={schedule} /> : null} />
         </>
       ))}
 

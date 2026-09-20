@@ -1092,12 +1092,40 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
    not: it anchored on a comment INSIDE the `:root` block and put four rule
    selectors between `--attention` and `--red`. Invalid CSS, and the build said
    nothing, because this file is served from disk rather than bundled. */
+/* R-O4 CORRECTION TO THIS ROUND'S OWN R-O5/O6, recorded rather than quietly
+   adjusted. The ruling was that the prototype's grid is ADOPTED for the header,
+   data and total rows. Its columns were taken and its GAP was not: all three
+   occurrences in `Terminus Ops.dc.html` (lines 1637, 1641, 1652) read
+   `gap:4px` and this shipped 8px. Alignment held either way, because the head
+   and the rows shared whatever number was here, so no guard could see it - the
+   departure was from the SPEC, not from internal consistency, and it was not
+   recorded at the time because it was not noticed. */
 .ms-grid-head,
 .ms-grid-row {
   display: grid;
   grid-template-columns: 44px 195px 44px 64px;
-  gap: 8px;
+  gap: 4px;
   align-items: center;
+}
+
+/* ── R-O4: THE HYBRID'S TWO PANELS SIT SIDE BY SIDE, PER THE PROTOTYPE ────
+   `#deal-hybrid-group` held two plain `<div>`s and no layout, so the milestone
+   column and the hosting panel STACKED. The prototype puts them in a grid, at
+   `Terminus Ops.dc.html:1632`, and these are its own numbers:
+
+     display:grid; grid-template-columns:minmax(365px,1fr) minmax(0,280px);
+     gap:20px; margin-top:22px; align-items:start
+
+   `minmax(0,280px)` on the second column rather than `280px` is what lets it
+   shrink at 1240 instead of forcing an overflow, and `align-items:start` stops
+   the shorter panel stretching to the taller one's height. The left column's
+   365px floor is the milestone grid's own width plus its gaps. */
+#deal-hybrid-group:not(.hidden) {
+  display: grid;
+  grid-template-columns: minmax(365px, 1fr) minmax(0, 280px);
+  gap: 20px;
+  margin-top: 22px;
+  align-items: start;
 }
 .ms-grid-head {
   font-family: var(--mono);
