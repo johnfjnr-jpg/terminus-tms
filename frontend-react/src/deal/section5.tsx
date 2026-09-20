@@ -99,10 +99,32 @@ export function PaymentTermsSection({
             <div>
               <p className="label">Customer payment milestones (hardware)</p>
               <p className="field-note">When the customer pays us. Later payments increase the working capital we fund.</p>
-              <table className="doc-table">
-                <thead><tr><th>Month</th><th>Milestone</th><th>% of hardware</th><th>USD</th></tr></thead>
-                <tbody id="deal-milestones-tbody">{milestoneGrid}</tbody>
-              </table>
+              {/* ── R-O5/O6: ONE GRID, NOT TWO NESTED TABLES ───────────────
+                  The table is gone. It carried a `<thead>` of four `<th>` and
+                  put the whole of `MilestoneGrid`, WHICH RENDERS ITS OWN
+                  TABLE, inside its single `<tbody>`. Two tables with
+                  independent column widths laid out the headers and the
+                  fields, so the outer table's first column absorbed the entire
+                  inner table (512px) and the other three headers were pushed
+                  to the right of it.
+
+                  MEASURED before the fix, on the live DOM, by asserting
+                  parentage rather than reading the source: the field table was
+                  nested inside the header table's tbody, and three of the four
+                  headers sat 372 to 400px from the fields they name.
+
+                  THE GRID IS THE PROTOTYPE'S OWN, not a number chosen today.
+                  `Terminus Ops.dc.html` uses `44px 195px 44px 64px` THREE
+                  times in this block: the header row, the data rows and the
+                  total row. One grid with three users is why it aligns.
+
+                  AND THE BORDER FRAGMENTS DIE WITH THE TABLE. The partial
+                  outlines were table cells each carrying their own edge; with
+                  one grid there are no cell walls to render. */}
+              <div className="ms-grid-head" data-testid="ms-grid-head">
+                <div>Month</div><div>Project milestone</div><div>%</div><div>USD</div>
+              </div>
+              <div id="deal-milestones-tbody">{milestoneGrid}</div>
             </div>
             <div>
               <InvoicingGroup id="deal-hybrid-invoicing-toggle" ui={ui} setUi={setUi} />

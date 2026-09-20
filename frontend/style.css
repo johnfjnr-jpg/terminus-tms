@@ -1070,6 +1070,70 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
 }
 
 /* ── Document requirements table ────────────────────────────── */
+/* ── R-O5/O6, WALK 4 2026-09-20: THE MILESTONE GRID'S ONE TRACK LIST ──────
+   Declared ONCE and used by the header row and the data rows, which is the
+   whole fix. It replaced a `<table>` whose `<tbody>` held ANOTHER `<table>`:
+   two independent sets of column widths, so the outer table's first column
+   absorbed the entire inner table at 512px and the other three headers were
+   pushed to the right of it. Measured on the live DOM before the change, the
+   header-to-field offsets were 0, 400, 379 and 372 pixels.
+
+   THE TRACKS ARE THE PROTOTYPE'S OWN, not a number chosen today.
+   `Prototype-110826/Terminus Ops.dc.html` carries `44px 195px 44px 64px`
+   THREE times in this block, for its header, its rows and its total. The 44px
+   is also R-O5's answer: the Month input was 88px of box for a field the
+   markup itself caps at two characters.
+
+   AND THE BORDER FRAGMENTS DIE HERE RATHER THAN BEING OVERRIDDEN. They were
+   table cells each drawing its own edge; a grid has no cell walls, so there is
+   nothing left to suppress.
+
+   PLACED AT TOP LEVEL, and that sentence is here because the first attempt was
+   not: it anchored on a comment INSIDE the `:root` block and put four rule
+   selectors between `--attention` and `--red`. Invalid CSS, and the build said
+   nothing, because this file is served from disk rather than bundled. */
+.ms-grid-head,
+.ms-grid-row {
+  display: grid;
+  grid-template-columns: 44px 195px 44px 64px;
+  gap: 8px;
+  align-items: center;
+}
+.ms-grid-head {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+.ms-grid-row { margin-bottom: 6px; }
+.ms-grid-row input { min-width: 0; width: 100%; }
+
+/* ── AND THE FOURTH CELL STOPS WEARING THE BROWSER'S BORDER ──────────────
+   This is the other half of O6's "partial input borders", and it is NOT the
+   nested table: it survived the table's removal.
+
+   `.deal-section input:not(.is-computed)` gives every deal input the estate's
+   flat treatment, and the exclusion is deliberate and documented, because
+   `.is-computed` renders a computed read-only figure on a transparent
+   background. But EXCLUDED FROM THE TREATMENT MEANS FALLING BACK TO THE
+   BROWSER DEFAULT, so the USD cell drew a 2px inset box while its three
+   neighbours drew a hairline underline. Measured in the row:
+   `0px/0px/1px/0px` three times and `2px/2px/2px/2px` once.
+
+   SCOPED TO THIS GRID rather than changing `.is-computed`, which is a shared,
+   declared meaning used elsewhere and is not this round's to redefine. The
+   computed cell keeps its muted colour and transparent ground, which is what
+   that class is FOR, and loses only the border nobody chose. */
+.ms-grid-row input.is-computed {
+  border: none;
+  border-bottom: 1px solid var(--hairline);
+  padding: 5px 0;
+  font-family: var(--body);
+  font-size: 13px;
+}
+
 .doc-table {
   width: 100%;
   border-collapse: collapse;
