@@ -451,6 +451,34 @@ export function DealPanel({
         <span className="field-note" id="latch-all-note">Hiding is for this session only. Nothing is saved and a reload brings everything back.</span>
       </div>
 
+      {/* ── R-O3, WALK 4 2026-09-20: THE ORDER JOHN RULED ────────────────
+          Structural Terms, Units and Installation, Payment Terms, Cash Flow,
+          Deal Sheet, Versions.
+
+          THE ORDER LIVES HERE, in this sequence of blocks, and nowhere else.
+          VANILLA_SECTIONS in sections.ts is a list of four that LOOKS like
+          the order and is not: it drives latching and dirty state, and it
+          does not contain the Deal Sheet at all, which is how the sheet sat
+          third on screen while that list held four entries. Anything reading
+          that list as the order is reading a different fact.
+
+          AND NOTHING GUARDED THIS BEFORE. Three assertions read like order
+          guards and every one reads ids inside the retired deal-form-vanilla
+          block, so they would have stayed green whichever order the live
+          sections ended in. scripts/walk4/probe-section-order.mjs is the
+          detector now, and those three are dispositioned in its header. */}
+      {sectionFrame(SECTION['deal-section-3'], (
+        <>
+          <StructuralTermsSection renderField={renderField} payload={payload}
+            achievedMargin={(result as { achievedMargin?: number } | null)?.achievedMargin}
+            grossUpToggle={
+              <SwitchButton id="deal-grossUp-toggle" state={grossUpToggle(ui)}
+                onToggle={() => setUi({ grossUp: !ui.grossUp })} />
+            } />
+          {censusFields('deal-section-3')}
+        </>
+      ))}
+
       {sectionFrame(SECTION['deal-sections-1-2'], (
         <>
           <section className="deal-intake-col" id="deal-section-1">
@@ -487,18 +515,36 @@ export function DealPanel({
         </>
       ))}
 
-      {sectionFrame(SECTION['deal-section-3'], (
+      {sectionFrame(SECTION['deal-section-5'], (
         <>
-          <StructuralTermsSection renderField={renderField} payload={payload}
-            achievedMargin={(result as { achievedMargin?: number } | null)?.achievedMargin}
-            grossUpToggle={
-              <SwitchButton id="deal-grossUp-toggle" state={grossUpToggle(ui)}
-                onToggle={() => setUi({ grossUp: !ui.grossUp })} />
-            } />
-          {censusFields('deal-section-3')}
+          {censusFields('deal-section-5')}
+          <PaymentTermsSection
+            ui={ui} setUi={setUi} vis={structureVisibility(ui)}
+            duration={payload.duration}
+            renderField={renderField}
+            milestoneGrid={
+              <MilestoneGrid rows={MILESTONE_INPUTS} values={values}
+                usdFor={(i) => milestoneUsdFor(values[`deal-ms-${i}-pct`], oneOffPrice)}
+                onChange={onMilestoneTyped}
+                warning={customerScheduleWarning(
+                  (payload.milestones ?? []) as { month?: number; usd?: number }[], oneOffPrice)} />
+            }
+            yearSchedule={cashFlow
+              ? <YearScheduleView schedule={buildYearSchedule(cashFlow, payload, ui.structure, ui.invoicing)} />
+              : null}
+            hybridSchedule={null} />
         </>
       ))}
 
+      {sectionFrame(SECTION['deal-section-6'], (
+        <CashFlowSection
+          hasFlow={!!cashFlow && cashFlow.rows.length > 0}
+          closing={cashFlow ? closingCashText(cashFlow) : '--'}
+          grid={cashFlow
+            ? <CashFlowGrid months={cashFlow.rows.map((r) => r.m)}
+                rows={buildCashFlowRows(cashFlow)} scrollRef={cashFlowRef} />
+            : null} />
+      ))}
       {/* ── SECTION 4: DEAL SHEET SUMMARY ───────────────────────────────── */}
       {/* The matrix is the summary column's content, inside #deal-panel, which
           is the container the stylesheet targets. `deal-matrix` was a React
@@ -550,36 +596,6 @@ export function DealPanel({
             )
         } />
 
-      {sectionFrame(SECTION['deal-section-5'], (
-        <>
-          {censusFields('deal-section-5')}
-          <PaymentTermsSection
-            ui={ui} setUi={setUi} vis={structureVisibility(ui)}
-            duration={payload.duration}
-            renderField={renderField}
-            milestoneGrid={
-              <MilestoneGrid rows={MILESTONE_INPUTS} values={values}
-                usdFor={(i) => milestoneUsdFor(values[`deal-ms-${i}-pct`], oneOffPrice)}
-                onChange={onMilestoneTyped}
-                warning={customerScheduleWarning(
-                  (payload.milestones ?? []) as { month?: number; usd?: number }[], oneOffPrice)} />
-            }
-            yearSchedule={cashFlow
-              ? <YearScheduleView schedule={buildYearSchedule(cashFlow, payload, ui.structure, ui.invoicing)} />
-              : null}
-            hybridSchedule={null} />
-        </>
-      ))}
-
-      {sectionFrame(SECTION['deal-section-6'], (
-        <CashFlowSection
-          hasFlow={!!cashFlow && cashFlow.rows.length > 0}
-          closing={cashFlow ? closingCashText(cashFlow) : '--'}
-          grid={cashFlow
-            ? <CashFlowGrid months={cashFlow.rows.map((r) => r.m)}
-                rows={buildCashFlowRows(cashFlow)} scrollRef={cashFlowRef} />
-            : null} />
-      ))}
     </div>
   )
 }
