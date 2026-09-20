@@ -111,3 +111,57 @@ screenshots opened, fixtures torn down and re-queried by tag,
 `CURRENT_STATE.md` regenerated and reconciled, the full gate run as the final
 act on the final committed tree with nothing else running, and **merged or
 pushed: no**.
+
+---
+
+## The rulings, verbatim (John, 2026-09-20, final)
+
+Appended HERE, at the phase they launch, rather than discovered at the close.
+
+> **R-O3:** reorder releases, WITH a new rendered-order guard on the live
+> DealPanel sections (the three existing order assertions read the retired
+> vanilla block; disposition them with a pointer to the queued `#ref-vanilla`
+> item).
+>
+> **R-O5/O6:** ONE fix: the prototype's `44px 195px 44px 64px` grid adopted for
+> header, data and total rows; guard asserts header-field alignment on the live
+> DOM; the descendant border fragments die with the nested table.
+>
+> **R-O2:** the Notes header collapses to one line per surface WHERE MEASURED
+> TO FIT; the lead card's recorded exception stands unless remeasurement shows
+> the collapsed line fits there now. The beyond-two-notes behaviour guarded on
+> all three surfaces.
+>
+> **R-O4:** the hybrid rebuilds to the prototype: side-by-side grid per its own
+> spec, and `hybridSchedule` wired to `buildYearSchedule` so the hosting year
+> rows, total and note render. Full treatment, live proof on a hybrid deal at
+> 1440 and 1240, read back from the database.
+>
+> **R-O8 (ruled by John):** WARRANTY IS OUT of the pricing override entirely.
+> No Warranty % column, no Monthly-including-Warranty column, no new price-side
+> warranty field. An overridden monthly price is WARRANTY-INCLUSIVE by
+> definition; record that in the panel's help text. `warrantyPct` keeps its
+> spare-units cost meaning untouched, the 2026-09-16 correction stands. Display
+> half only: the existing `hwWarranty` row renders as its own visible line on
+> the deal sheet (it is already its own keyed row in the calculation; this is
+> presentation).
+>
+> **R-O7:** the override builds at the existing per-product-type grain:
+> Price/Unit switch (hover: "Override the calculated Margin Price") on -> the
+> entered monthly fee per unit type REPLACES the calculated hosting price for
+> that type, % Margin derived from the override against that type's cost,
+> flowing through `rawTotalPrice` so contract totals, cash flow, tax, achieved
+> margin and the approval version bridge inherit. Table: Unit, Monthly fee, %
+> Margin; rows Safesight, Air Quality, HEMIR. Milestones untouched. Value
+> Pricing stays out per the amendment. Full treatment: red-first guards, live
+> proof driving an override and reading the recalculated margin, contract value
+> and cash flow from the screen AND the database, both widths.
+
+**Build order:** O5/O6 and O3 (layout tier), O2, then O4, then O7 as the
+round's core with O8's display line.
+
+**What the rulings settled that Phase 0 could not.** O8's collision is resolved
+by REMOVING warranty from the override rather than by choosing between the two
+meanings of `warrantyPct`, which is the answer none of my three options offered
+and is better than all of them: the spare-units model is untouched, and an
+overridden price is warranty-inclusive by definition.
