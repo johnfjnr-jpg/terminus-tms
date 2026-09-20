@@ -79,13 +79,45 @@ That is why part A's Notes card is a restoration rather than a feature.
 
 ---
 
-## 6. Carried
+## 6. R4, built on John's word
 
-1. **R4's adoption**, at its colour stop.
-2. **`#ref-vanilla`** still carries eleven of the retired file's ids.
-3. **`ref-save-feedback`** is an id in the vanilla markup and a `data-testid` in
+**Approved 2026-09-20 on the comparison capture**, delivered to the notes
+folder and confirmed by reading it back. All ten sites take `--red`, the
+definition moved into the brand palette beside `--attention`, and the three
+`var(--red, #e06c6c)` fallbacks dropped.
+
+**The value did not change, and that is the derivation's result rather than a
+decision to leave it alone.** Five requirements were written before any value
+was measured; four candidates met all five and `#e06c6c` is one of them, at
+5.33:1 against the 4.71:1 of the `rgba(242,100,100,.9)` it replaces. The six
+untokenised sites GAIN contrast; the four already on the token do not move.
+
+**One requirement was falsified by the measurement and re-sourced rather than
+bent.** It began as "at least 60 degrees of hue from `--attention`", which no
+red can satisfy: `--attention` is hue 37 and red is hue 0. That separation is
+already a decision of record, because walk 3 derived `--attention` expressly to
+sit "nowhere near `--red` #e06c6c".
+
+**The census now reads 1 red literal where it read 10**: the definition itself.
+The guard asserts the REQUIREMENTS rather than the value, on the amber pattern,
+and its list asserts its own completeness, so an eleventh site cannot hide.
+Calibrated 8 of 8. Pure suite 596 to 607.
+
+**And one of the ten could not be photographed, which is a finding rather than
+a gap in the work.** `input.input-invalid` is applied by NO live source,
+measured with the comment stripper across `app.js`, `anchor-popup.js`,
+`index.html` and the whole React tree. It is a rule nothing applies.
+
+---
+
+## 6b. Carried
+
+1. **`#ref-vanilla`** still carries eleven of the retired file's ids.
+2. **`ref-save-feedback`** is an id in the vanilla markup and a `data-testid` in
    React: two things, one name, one surface.
-4. **`.tab-action-idle`** now appears only in `style.css` and in no live script.
+3. **`.tab-action-idle`** now appears only in `style.css` and in no live script.
+4. **`input.input-invalid`** is the same shape, found by R4: a styled rule with
+   no applier. Added to this list 2026-09-20.
 
 ---
 
