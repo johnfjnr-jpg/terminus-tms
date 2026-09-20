@@ -205,5 +205,69 @@ This round changed code, tests and one route allowlist, and the diff says so.
 
 ### The full gate
 
-Recorded verbatim in section 12 once run, as the final act on the final
-committed tree with nothing else running.
+Run as the final act on the final committed tree, nothing else running, tree
+clean, no `(WORKING TREE DIRTY)` marker. Durations are all in their normal
+bands, so no stage failed faster than it could have run.
+
+---
+
+## 12. The gate, verbatim, and the run that was REFUSED before it
+
+**THE FIRST RUN WAS NOT GREEN AND IS RECORDED RATHER THAN DISCARDED.** It
+reported 22 of 24 passing with two stages NOT RUN for want of a browser, and
+its own verdict logic refused to call that a close:
+
+```
+22 of 24 stages passed, 2 NOT RUN.
+Nothing was measured by the skipped stages. They are not findings.
+1 REQUIRED stage did not run, so this gate is UNANSWERED, not green.
+Valid for an ordinary run. NOT valid for a round close: re-run with
+--round-close once the stage can run.
+```
+
+The two were `HTTP readonly-view probe` - the door stage, marked required - and
+`browser dependency is functional`, both skipped because `PUPPETEER_PATH` was
+absent from the gate's environment. **Twenty-two greens and a skipped door is
+exactly the reading a count cannot distinguish from a clean gate**, and the
+instrument that refuses it was built by an earlier round for this shape. It
+fired here, on its author's own close.
+
+Re-run with the browser available and `--round-close`:
+
+```
+MERGE GATE  opp-walk4  fc4600ab5c9456b50591eff108d951695ed3c76a
+  PASS  reachability               exit 0  1310ms
+  PASS  session precondition       exit 0  3287ms
+  PASS  pure suite                 exit 0  4186ms  623/623 pass, 0 fail
+  PASS  database suite             exit 0  253352ms  105/105 pass, 0 fail
+  PASS  react typecheck            exit 0  670ms
+  PASS  react suite                exit 0  15731ms  1269/1269 pass, 0 fail
+  PASS  react bundle freshness     exit 0  597ms
+  PASS  HTTP precondition probe    exit 0  25159ms
+  PASS  HTTP version-approval probe exit 0  32536ms
+  PASS  HTTP pricing-approval probe exit 0  31138ms
+  PASS  HTTP review-closes probe   exit 0  35543ms
+  PASS  HTTP term initial-value probe exit 0  81249ms
+  PASS  HTTP stage-probability probe exit 0  16287ms
+  PASS  HTTP version-gate probe    exit 0  32260ms
+  PASS  HTTP no-freeze probe       exit 0  23793ms
+  PASS  HTTP version-order probe   exit 0  21645ms
+  PASS  HTTP commercial-gate probe exit 0  33895ms
+  PASS  HTTP readonly-view probe   exit 0  72498ms
+  PASS  CURRENT_STATE staleness    exit 0  129ms
+  PASS  browser dependency is functional exit 0  679ms
+  PASS  HTTP write success probe   exit 0  20945ms
+  PASS  HTTP issue-target probe    exit 0  37250ms
+  PASS  HTTP proposal-issued probe exit 0  38826ms
+  PASS  HTTP zero-track transition probe exit 0  17273ms
+
+All 24 stages passed.
+```
+
+**The gated SHA is the branch tip at the time of the run**, verified rather
+than assumed: `fc4600ab5c9456b50591eff108d951695ed3c76a` on both sides.
+
+**THIS SECTION'S OWN COMMIT IS MARKDOWN ONLY AND RIDES THAT GATE**, named here
+as build discipline 48(a) requires. It touches one file no gate stage reads, so
+re-gating would re-prove a tree differing only by prose. The pre-commit hook
+reached the same conclusion independently under M1 and ran the cheap stages.
