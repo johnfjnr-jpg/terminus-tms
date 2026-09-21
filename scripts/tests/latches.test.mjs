@@ -43,16 +43,33 @@ test('the strip and the P&L summary are never latchable', () => {
   assert.ok(!LATCH_PANELS.some((p) => p.id === 'deal-section-2'))
   assert.ok(LATCH_PANELS.some((p) => p.id === 'deal-sections-1-2'))
 
-  const html = readCode(HTML)
-  const buttons = [...html.matchAll(/data-latch="([^"]+)"/g)].map((m) => m[1])
-  assert.deepEqual(buttons.sort(), LATCH_PANELS.map((p) => p.id).sort(),
-    'the markup and the module must name the same panels')
+  // ── WALK 8 ITEM 2: RE-POINTED, AND THE CLAIM GOT STRONGER ─────────────
+  //
+  // This listed `data-latch` attributes in `index.html` and compared them with
+  // the module's panel list. Those attributes lived inside
+  // `#deal-form-vanilla`, which rendered nothing, so the comparison was
+  // between a module and a corpse: the live screen could have latched anything
+  // and this would still have passed.
+  //
+  // React does not carry the list at all. `DealPanel` renders ONE latch button
+  // per section, `data-latch={sec.id}`, and only when that section has a latch
+  // view - so the set of latchable panels IS the module's list by
+  // construction, and the two cannot drift. What has to be asserted is the
+  // DERIVATION, which is the thing that makes the old comparison unnecessary.
+  const panel = readCode(new URL('../../frontend-react/src/deal/DealPanel.tsx', import.meta.url))
+  assert.match(panel, /data-latch=\{sec\.id\}/,
+    'the latch button no longer takes its panel from the section it belongs to, '
+    + 'so the markup and the module can disagree again')
+  assert.match(panel, /\{v \? \([\s\S]{0,400}?data-latch=\{sec\.id\}/,
+    'the latch button is rendered unconditionally, so a panel with no latch '
+    + 'view would still get a latch - which is how the summary and the strip '
+    + 'acquire one')
 
   // NOT A DISABLED BUTTON. A disabled control is a thing you might enable.
-  const s4 = html.slice(html.indexOf('id="deal-section-4"'), html.indexOf('id="deal-section-5"'))
-  assert.ok(!/data-latch/.test(s4), 'the summary must have no latch at all')
-  const strip = html.slice(html.indexOf('stats-grid stats-grid--deal'), html.indexOf('id="deal-sections-1-2"'))
-  assert.ok(!/data-latch/.test(strip))
+  // The summary and the strip have no latch because `latchView` returns
+  // nothing for them, which is asserted directly on the module above.
+  assert.ok(!LATCH_PANELS.some((p) => p.id === 'deal-section-4'),
+    'the summary must have no latch at all')
 })
 
 test('RULE 3 FIRES: a missing key, and only where it applies', () => {

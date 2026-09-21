@@ -91,16 +91,17 @@ const DISPOSED = {
     + 'createRoot(document.getElementById(`view-${view}`)), so a whole-view '
     + 'migration owns its container and every static id in it is cleared on '
     + 'first render.',
-  'frontend-react/src/deal/DealPanel.tsx':
-    'LATENT, AND MEASURED AS SUCH. The deal panel mounts into a SUB-CONTAINER '
-    + 'and the swap HIDES #deal-form-vanilla rather than clearing it, so both '
-    + 'copies of #latch-all really are in the document at once - the same '
-    + 'arrangement as the Reference bar. It is latent rather than live because '
-    + 'NOTHING resolves these ids by getElementById: measured across frontend, '
-    + 'frontend-react and scripts, the only readers are data-testid lookups '
-    + 'inside the mounted host. Architecture 8 exactly - correct for every '
-    + 'caller that exists. The day something reaches for document.getElementById '
-    + '("latch-all") it gets the hidden vanilla one.',
+  // ── `DealPanel.tsx` WAS EXEMPTED HERE AND THE EXEMPTION IS DROPPED ────
+  //
+  // WALK 8 ITEM 2, and THIS TEST IS WHAT ASKED FOR IT. The entry read
+  // "LATENT, AND MEASURED AS SUCH: the swap HIDES #deal-form-vanilla rather
+  // than clearing it, so both copies of #latch-all really are in the document
+  // at once", and closed with "the day something reaches for
+  // document.getElementById('latch-all') it gets the hidden vanilla one".
+  //
+  // That block is now REMOVED, so there is no second copy and no clash. The
+  // "no exemption is dead" check went red the moment it stopped clashing,
+  // which is the ledger refusing to rot exactly as it was built to.
   'frontend-react/src/testbed/StageTabs.tsx':
     'INSIDE THE MOUNT CONTAINER, and the id is LOAD-BEARING. createRoot owns '
     + '#view-test-bed-detail and clears it on first render, so the static '
@@ -127,35 +128,21 @@ const DISPOSED = {
   'frontend-react/src/contact/ParkForm.tsx':
     'Same as ContactHost. The park form renders inside the view container, so '
     + 'its cd-park-* ids replace the static ones rather than joining them.',
-  'frontend-react/src/deal/intake.tsx':
-    "LATENT, and it belongs to the deal panel arrangement rather than to "
-    + "this file: see the DealPanel entry. The swap HIDES the vanilla block "
-    + "instead of clearing it, so both copies sit in the document, and "
-    + "nothing resolves these ids by getElementById.",
-  'frontend-react/src/deal/panelParts.tsx':
-    "LATENT, and it belongs to the deal panel arrangement rather than to "
-    + "this file: see the DealPanel entry. The swap HIDES the vanilla block "
-    + "instead of clearing it, so both copies sit in the document, and "
-    + "nothing resolves these ids by getElementById.",
-  'frontend-react/src/deal/section36.tsx':
-    "LATENT, and it belongs to the deal panel arrangement rather than to "
-    + "this file: see the DealPanel entry. The swap HIDES the vanilla block "
-    + "instead of clearing it, so both copies sit in the document, and "
-    + "nothing resolves these ids by getElementById.",
-  'frontend-react/src/deal/section4.tsx':
-    "LATENT, and it belongs to the deal panel arrangement rather than to "
-    + "this file: see the DealPanel entry. The swap HIDES the vanilla block "
-    + "instead of clearing it, so both copies sit in the document, and "
-    + "nothing resolves these ids by getElementById.",
-  'frontend-react/src/deal/section5.tsx':
-    "LATENT, and it belongs to the deal panel arrangement rather than to "
-    + "this file: see the DealPanel entry. The swap HIDES the vanilla block "
-    + "instead of clearing it, so both copies sit in the document, and "
-    + "nothing resolves these ids by getElementById.",
-  'frontend-react/src/versions/VersionCard.tsx':
-    "LATENT, same arrangement: the version card mounts into its own "
-    + "sub-container beside a hidden vanilla block, and nothing resolves "
-    + "its ids by getElementById.",
+  // ── SIX DEAL-PANEL AND VERSION-CARD EXEMPTIONS DROPPED ────────────────
+  //
+  // WALK 8 ITEM 2, and THIS TEST IS WHAT ASKED FOR IT. Every one of them -
+  // `intake`, `panelParts`, `section36`, `section4`, `section5` and
+  // `VersionCard`, alongside `DealPanel` above - was exempted with the same
+  // sentence: "the swap HIDES the vanilla block instead of clearing it, so
+  // both copies sit in the document". `#deal-form-vanilla` and
+  // `#deal-version-vanilla` are now REMOVED, so there is no second copy and
+  // nothing to exempt.
+  //
+  // The "no exemption is dead" check went red on each in turn as they stopped
+  // clashing, which is the ledger refusing to rot exactly as it was built to.
+  // Measured, not assumed: all six share ZERO ids with the markup now, and the
+  // seven entries that remain all still clash and all still carry a reason.
+
 }
 
 /**

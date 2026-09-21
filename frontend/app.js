@@ -4756,12 +4756,22 @@ function fillCurrencySelect(el) {
     + CURRENCY_CODES.map(c => `<option value="${c}">${c}</option>`).join('')
 }
 
-// The two static selects are markup that exists for the life of the page, so
-// they are filled once rather than per record.
-document.addEventListener('DOMContentLoaded', () => {
-  fillCurrencySelect(document.getElementById('deal-bidCurrency'))
-  fillCurrencySelect(document.getElementById('deal-proposalCurrency'))
-})
+// ── WALK 8 ITEM 2: THIS FILL IS RETIRED WITH ITS MARKUP ─────────────────
+//
+// It filled `deal-bidCurrency` and `deal-proposalCurrency` at
+// DOMContentLoaded, and those ids lived inside `#deal-form-vanilla`, which
+// rendered nothing and is now removed. THE IDS WERE DUPLICATED - React's deal
+// panel declares the same two - and `getElementById` returns the FIRST in
+// document order, which was the vanilla. So this filled the dead selects on
+// every page load and never touched the ones on screen.
+//
+// THE LIVE READER IS REACT'S OWN: `frontend-react/src/deal/currencies.ts`
+// holds `CURRENCY_CODES` and builds the options, including the same empty
+// "Not recorded" first option and for the same reason. The screen has never
+// depended on this call.
+//
+// `fillCurrencySelect` itself is KEPT: it guards with `if (!el || ...)` and
+// is still the vanilla's own helper elsewhere.
 
 // Round 26 Phase 3: the one criterion that captures a value beside its score.
 //
