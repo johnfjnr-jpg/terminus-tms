@@ -1528,6 +1528,36 @@
       <div id="detail-origin-tag"></div>
     </div>
 
+    <!-- ── THE RECORD BAND: SUMMARY, NOTES, FOLLOW-UP TASK ────────────────
+         Part A, the Opportunity round, 2026-09-19. The Opportunity becomes the
+         THIRD caller of the row the Contact and the Test Bed already share.
+
+         MOVED ABOVE THE HEADLINE BY N3, 2026-09-21, which closes O1. It sat
+         below the chevron strip, and the position was recorded then as "above
+         the tabs and below the chevron, which is where the Test Bed puts its
+         own band". Walk 4 raised the position as a finding and John deferred
+         it awaiting his own reading of the screen; N3 is that reading.
+
+         IT NOW RENDERS DIRECTLY AFTER THE OPPORTUNITY NAME, above the stats
+         banner. The reasoning that put it below the chevron is unchanged and
+         still true - Summary, Notes and the follow-up describe the RECORD, so
+         they belong where the record is named - and the ruling is about which
+         of the things describing the record comes FIRST.
+
+         `TestBedBand`'s comment records the mistake this position avoids. A
+         round told to put that band "in the header" put it at the top of the
+         Reference TAB'S panel, 433px down the page, and every assertion passed
+         because they asked whether the band was INTACT rather than where it
+         SAT. That is why N3's proof measures the band's TOP against the
+         headline's rather than asserting the band exists.
+
+         EMPTY MARKUP ON PURPOSE. React portals into it from inside
+         `ReferencePanel`, so the band's Summary row shares that panel's draft
+         store and save bar instead of owning a second one. The container is
+         vanilla and the portal null-checks it. ONLY THE MOUNT POINT MOVED:
+         the island, its portal and its draft store are untouched. -->
+    <div id="opp-band-root"></div>
+
     <!-- ── THE HEADLINE FIGURES. Internal review item 1, 2026-09-02 ────────
          The six numbers an Opportunity is judged by, above the tabs so they are
          on every one of them rather than on whichever tab happens to hold the
@@ -1563,27 +1593,7 @@
       <div id="opp-chevron-popup" class="chevron-popup hidden"></div>
     </div>
 
-    <!-- ── THE RECORD BAND: SUMMARY, NOTES, FOLLOW-UP TASK ────────────────
-         Part A, the Opportunity round, 2026-09-19. The Opportunity becomes the
-         THIRD caller of the row the Contact and the Test Bed already share.
 
-         ABOVE THE TABS AND BELOW THE CHEVRON, which is where the Test Bed puts
-         its own band and for the reason recorded there: Summary, Notes and the
-         follow-up describe the RECORD, exactly as the headline strip and the
-         chevron above them do, so they are stated where the record is named
-         rather than inside one tab.
-
-         `TestBedBand`'s comment records the mistake this position avoids. A
-         round told to put that band "in the header" put it at the top of the
-         Reference TAB'S panel, 433px down the page, and every assertion passed
-         because they asked whether the band was INTACT rather than where it
-         SAT.
-
-         EMPTY MARKUP ON PURPOSE. React portals into it from inside
-         `ReferencePanel`, so the band's Summary row shares that panel's draft
-         store and save bar instead of owning a second one. The container is
-         vanilla and the portal null-checks it. -->
-    <div id="opp-band-root"></div>
 
     <div class="detail-tabs" id="opp-detail-tabs">
       <button class="detail-tab active" data-opp-tab="reference">Reference</button>
