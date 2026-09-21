@@ -22,6 +22,11 @@ import type { KcLink } from '../reference/KeyContacts'
 let host: HTMLElement
 let root: Root
 let apiCalls: { method: string, path: string, body?: unknown }[] = []
+// F1: WHAT `GET /contacts` ANSWERS, shaped by the ROUTE and not by the reader.
+// The stub returned `[]` for every path, so no test had ever supplied a
+// contact and the option rendering was never exercised at all: a claim true
+// by absence, which is why blank labels survived from `da207cf`.
+let contactRows: unknown[] = []
 
 const source = (o: Partial<ReferenceSource> = {}): ReferenceSource => ({
   payload: { name: 'Changi T5', country: 'Singapore', duration: '36',
@@ -42,6 +47,9 @@ const LINKS: KcLink[] = [{
 const shell = (canEdit: boolean | 'absent'): ShellServices => shellServices({
   api: (async (method: string, path: string, body?: unknown) => {
     apiCalls.push({ method, path, body })
+    if (path.startsWith('/api/contacts')) {
+      return { ok: true, status: 200, data: contactRows }
+    }
     return { ok: true, status: 200, data: [] }
   }) as ShellServices['api'],
   navigate: vi.fn(),
@@ -62,8 +70,15 @@ const mount = async (opts: {
   src?: ReferenceSource
   links?: KcLink[]
   onSave?: (c: Record<string, string>) => void
+  contacts?: unknown[]
 } = {}) => {
   apiCalls = []
+  // PASSED IN, not set by the caller beforehand: this reset runs AFTER the
+  // caller's assignment would have, so setting `contactRows` before `mount()`
+  // was silently wiped and the first run of the F1 tests went red with the
+  // fixture never reaching the component. An alarm firing for the wrong
+  // reason proves nothing.
+  contactRows = opts.contacts ?? []
   // A SIBLING, NOT A CHILD: `createRoot` CLEARS its container on first render,
   // so a target nested inside `#host` is destroyed before the portal finds it.
   // `#opp-band-root` is where `ReferencePanel` PORTALS the record band, and
@@ -469,6 +484,42 @@ describe('K: key contacts', () => {
     // because a prefix match is satisfied by the unscoped call it replaces.
     expect(paths).toContain('/api/contacts?account_id=a1')
     expect(paths, 'the unscoped call is still being made').not.toContain('/api/contacts')
+  })
+
+  // ── F1 ────────────────────────────────────────────────────────────────
+  // THE PICKER FETCHED THE RIGHT CONTACTS AND RENDERED THEM BLANK. Measured
+  // on John's own records: 4 of 4 for the right account, every option's text
+  // empty, so the dropdown reads "Choose a contact" and then four blank
+  // lines. R-W3 shipped and its SCOPING works; this line is unchanged since
+  // `da207cf` and has never rendered a name.
+  //
+  // THE FIXTURE IS SHAPED BY THE ROUTE (V47): `GET /contacts` answers whole
+  // record rows, the name is at `payload.name`, and there is no top-level
+  // `name`. Measured against the live route, not assumed.
+  test('F1 the picker renders each contact by its name', async () => {
+    await mount({ contacts: [
+      { id: 'c1', payload: { name: 'Wiley Cayotey' } },
+      { id: 'c2', payload: { name: 'Road Runner' } },
+    ] })
+    const sel = must('[data-testid="kc-add-contact"]') as HTMLSelectElement
+    const labels = [...sel.options].map((o) => o.text)
+    expect(labels).toContain('Wiley Cayotey')
+    expect(labels).toContain('Road Runner')
+    expect(labels, 'an option rendered blank, so the picker reads as empty')
+      .not.toContain('')
+  })
+
+  // AND AN ABSENT NAME IS SAID, NOT LEFT BLANK. The estate's recorded
+  // position, at `contacts.js:1021`: a silent fallback "made a missing name
+  // look like a supplied one, and nothing surfaced for eleven rounds". A
+  // blank option is that fallback. All 17 live contacts carry a name and
+  // none carries a reference_code, so this branch is defensive.
+  test('F1 a contact with no name says so rather than rendering blank', async () => {
+    await mount({ contacts: [{ id: 'c1', payload: {} }] })
+    const sel = must('[data-testid="kc-add-contact"]') as HTMLSelectElement
+    const labels = [...sel.options].map((o) => o.text)
+    expect(labels).toContain('Unnamed contact')
+    expect(labels).not.toContain('')
   })
 
   test('R-W3 with NO linked account it asks for nothing and says why', async () => {

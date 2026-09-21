@@ -22,6 +22,23 @@ import { useShell } from '../ShellContext'
 import { formatTimestamp } from '../../../src/lib/format-dates.js'
 
 export interface KcVocabItem { id: string, name: string }
+
+/** What `GET /contacts` actually answers: a record row, name inside payload. */
+export interface KcContactRow {
+  id: string
+  reference_code?: string | null
+  payload?: { name?: string | null } | null
+}
+
+// AN ABSENT NAME IS SAID, NOT LEFT BLANK. The estate's recorded position, at
+// `contacts.js:1021`: a silent fallback "made a missing name look like a
+// supplied one, and nothing surfaced for eleven rounds". A blank option is
+// exactly that fallback. All 17 live contacts carry a name and none carries a
+// reference_code, so the last branch is defensive rather than expected.
+export const contactOption = (c: KcContactRow): KcVocabItem => ({
+  id: c.id,
+  name: c.payload?.name?.trim() || c.reference_code || 'Unnamed contact',
+})
 export interface KcLink {
   id: string
   contact_id: string
@@ -83,12 +100,19 @@ export function KeyContacts({ oppId, accountId, links, onChanged }: {
       // asking without the parameter would return every contact in the
       // system - which is the behaviour being removed.
       accountId
-        ? shell.api<KcVocabItem[]>('GET', `${KC_ROUTES.contacts}?account_id=${encodeURIComponent(accountId)}`)
-        : Promise.resolve({ ok: true, data: [] as KcVocabItem[] }),
+        ? shell.api<KcContactRow[]>('GET', `${KC_ROUTES.contacts}?account_id=${encodeURIComponent(accountId)}`)
+        : Promise.resolve({ ok: true, data: [] as KcContactRow[] }),
     ])
     if (r.ok && Array.isArray(r.data)) setRoles(r.data)
     if (s.ok && Array.isArray(s.data)) setStances(s.data)
-    if (c.ok && Array.isArray(c.data)) setContacts(c.data)
+    // F1: MAPPED FROM THE ROUTE'S OWN SHAPE. `/contacts` answers whole record
+    // rows and a contact's name lives in `payload.name`; roles and stances are
+    // vocabulary tables that really do carry a top-level `name`. Typing all
+    // three as one `KcVocabItem` made the contacts read `c.name`, which is
+    // `undefined`, so every option rendered BLANK while the fetch was
+    // returning exactly the right rows. Unchanged since `da207cf`, and not
+    // R-W3's doing: R-W3 corrected WHICH contacts arrive, never their labels.
+    if (c.ok && Array.isArray(c.data)) setContacts(c.data.map(contactOption))
   }, [shell, accountId])
 
   useEffect(() => { void loadVocabularies() }, [loadVocabularies])
